@@ -688,6 +688,61 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  e2e_village_stores:
+    name: CI / e2e-village-stores
+    needs: release_artifact
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: shinobij.client/package-lock.json
+      - name: Initialize evidence
+        run: |
+          mkdir -p .ci-evidence/e2e-village-stores
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/e2e-village-stores/provenance.txt
+      - name: Require successful release artifact
+        if: ${{ needs.release_artifact.result != 'success' }}
+        run: |
+          echo "release-artifact=${{ needs.release_artifact.result }}" | tee .ci-evidence/e2e-village-stores/upstream-results.log
+          exit 1
+      - name: Install client dependencies
+        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-village-stores/client-install.log
+      - name: Download joined release artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: release-dist-${{ github.sha }}-${{ github.run_id }}
+          path: .ci-artifacts/release
+      - name: Verify and extract exact release artifact
+        run: |
+          cd .ci-artifacts/release
+          sha256sum -c release-dist.tgz.sha256
+          grep -Fx "sha=$GITHUB_SHA" provenance.txt
+          grep -Fx "run_id=$GITHUB_RUN_ID" provenance.txt
+          grep -Fx "run_attempt=$GITHUB_RUN_ATTEMPT" provenance.txt
+          cd ../..
+          tar -xzf .ci-artifacts/release/release-dist.tgz
+      - name: Install Village Stores browser
+        run: npx --prefix shinobij.client playwright install --with-deps chromium 2>&1 | tee .ci-evidence/e2e-village-stores/browser-install.log
+      - name: Village Stores economy loop
+        run: npm run test:e2e:live --prefix shinobij.client -- village-stores-express.spec.ts --project=chromium-desktop-live 2>&1 | tee .ci-evidence/e2e-village-stores/playwright.log
+      - name: Retain Village Stores browser evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: evidence-e2e-village-stores-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .ci-evidence/e2e-village-stores/
+            shinobij.client/playwright-report/
+            shinobij.client/test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
   test_build:
     name: CI / test-build
     if: ${{ always() }}
@@ -701,6 +756,7 @@ jobs:
       - e2e_responsive
       - e2e_combat
       - e2e_warfront
+      - e2e_village_stores
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -715,6 +771,7 @@ jobs:
           E2E_RESPONSIVE: ${{ needs.e2e_responsive.result }}
           E2E_COMBAT: ${{ needs.e2e_combat.result }}
           E2E_WARFRONT: ${{ needs.e2e_warfront.result }}
+          E2E_VILLAGE_STORES: ${{ needs.e2e_village_stores.result }}
         run: |
           mkdir -p .ci-evidence/test-build
           printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/test-build/provenance.txt
@@ -728,6 +785,7 @@ jobs:
             "e2e-responsive=$E2E_RESPONSIVE" \
             "e2e-combat=$E2E_COMBAT" \
             "e2e-warfront=$E2E_WARFRONT" \
+            "e2e-village-stores=$E2E_VILLAGE_STORES" \
             | tee .ci-evidence/test-build/results.log
           test "$SERVER_CONTRACTS" = success
           test "$SERVER_BUILD_SECURITY" = success
@@ -738,6 +796,7 @@ jobs:
           test "$E2E_RESPONSIVE" = success
           test "$E2E_COMBAT" = success
           test "$E2E_WARFRONT" = success
+          test "$E2E_VILLAGE_STORES" = success
       - name: Retain compatibility aggregate evidence
         if: always()
         uses: actions/upload-artifact@v7

@@ -54,14 +54,23 @@ test("nextRift offers a reached rift with NO upper cap (missed rifts stay doable
     for (const r of hollowRifts) assert.ok(r.levelReq >= 1, `${r.id}: levelReq ${r.levelReq}`);
 });
 
+test("nextRift is a WORLD roll: the same day offers the same rift to every player of the same reach", () => {
+    const day = 20_600 * 24 * 60 * 60 * 1000 + 5_000;
+    const a = nextRift(mkChar({ level: 45, name: "aki" }), day);
+    const b = nextRift(mkChar({ level: 45, name: "someone-else" }), day);
+    assert.ok(a && b);
+    assert.equal(a.id, b.id);
+});
+
 test("nextRift PREFERS the highest tier reached but still surfaces lower rifts", () => {
-    // The day hash keys on name, so sampling many names draws the weighted
-    // distribution on one UTC day. A level-45 player has the intro (L12), the
-    // stalker (L30) and the warren (L40) in reach; margins here are >5σ so the
-    // ordering can't flake regardless of which day the suite runs.
+    // The day hash keys on the UTC day (never the player), so sampling many
+    // consecutive days draws the weighted distribution. A level-45 player has
+    // the intro (L12), the stalker (L30) and the warren (L40) in reach; margins
+    // here are >5σ so the ordering can't flake regardless of which day the suite runs.
     const counts: Record<string, number> = {};
     for (let i = 0; i < 500; i++) {
-        const id = nextRift(mkChar({ level: 45, name: `p${i}` }))?.id ?? "none";
+        const now = (20_000 + i) * 24 * 60 * 60 * 1000 + 1;
+        const id = nextRift(mkChar({ level: 45, name: "sampler" }), now)?.id ?? "none";
         counts[id] = (counts[id] ?? 0) + 1;
     }
     const warren = counts["rift-beast-warren"] ?? 0;    // top tier reached (L40)

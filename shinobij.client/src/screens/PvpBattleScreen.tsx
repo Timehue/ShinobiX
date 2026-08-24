@@ -10,6 +10,8 @@ import type { Character, BattleHistoryEntry } from "../types/character";
 import type { GameItem, Jutsu } from "../types/combat";
 import { JUTSU_MAX_LEVEL } from "../constants/game";
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
+import { PVP_PREFIGHT_COUNTDOWN_SECONDS, pvpTurnDeadlineAt } from "../../../shared/pvp-turn";
+import { serverNow } from "../lib/server-clock";
 import { CombatSideHud } from "../components/CombatSideHud";
 import { FighterHpBadge } from "../components/FighterHpBadge";
 import { BattlefieldActor } from "../components/BattlefieldActor";
@@ -873,12 +875,31 @@ export function PvpBattleScreen({
     // are visually ready essentially at session-create time. 5s is
     // ample to read "X goes first!" and gives a noticeably snappier
     // start without sacrificing readability.
+    //
+    // It plays ONLY for a genuinely fresh fight. It used to replay on every
+    // remount, so a refresh mid-fight burned 5s of a LIVE turn behind a "Battle
+    // begins in…" splash while the server's clock kept running — and the board
+    // is inert while the overlay is up. A resumed session goes straight to the
+    // board: past round 1, past the opening log line, or with a turn clock the
+    // server has already started, there is nothing to count in.
     useEffect(() => {
         if (!session || pvpSessionFirstLoadRef.current) return;
         pvpSessionFirstLoadRef.current = true;
         if (amSpectator) return;
+        const startedAt = Number((session as { turnStartedAt?: number }).turnStartedAt ?? 0);
+        const clockAlreadyRunning = startedAt > 0 && serverNow() >= startedAt;
+        const freshFight = session.round <= 1 && session.log.length <= 1 && !clockAlreadyRunning;
+        if (!freshFight) return;
         setPvpPrefightFirstActor(session.activePlayer);
-        let count = 5;
+        // Shared with the server: it starts the first turn's clock AFTER this
+        // countdown (api/pvp/move.ts join + shared/pvp-turn.ts). Once that stamp
+        // exists, count in to IT rather than to a fresh 5 — a reload inside the
+        // pre-fight window otherwise restarts the splash and eats the opening
+        // seconds of a turn the server has already begun.
+        let count: number = startedAt > 0
+            ? Math.min(PVP_PREFIGHT_COUNTDOWN_SECONDS, Math.ceil((startedAt - serverNow()) / 1000))
+            : PVP_PREFIGHT_COUNTDOWN_SECONDS;
+        if (count <= 0) return;
         setPvpPrefightCountdown(count);
         const iv = setInterval(() => {
             count -= 1;
@@ -1167,6 +1188,51 @@ export function PvpBattleScreen({
         );
         return () => clearTimeout(t);
     }, [session?.activePlayer, session?.consecAutoWait, session?.lastMoveAt, session?.status, submitting, role, pvpPrefightCountdown]);
+
+    // Server-authoritative turn expiry (shared/pvp-turn.ts). The server passes
+    // a lapsed turn on ANY session read or move, but with Realtime as the live
+    // transport nobody reads the row while the opponent sits idle — so the
+    // WAITING fighter nudges the server with a plain session GET once the
+    // opponent's deadline has passed, and every few seconds after while it is
+    // still their turn. A closed opponent tab therefore lapses on its own, and
+    // the auto-claim effect above resolves the fight once the streak reaches 2.
+    // The response flows through the same projection gate as every transport.
+    const pvpTurnStartedAt = (session as { turnStartedAt?: number } | null)?.turnStartedAt;
+    useEffect(() => {
+        if (!session || session.status === "done" || pvpPrefightCountdown !== null) return;
+        if (session.activePlayer === role) return;
+        const myName = character.name.trim().toLowerCase();
+        const amFighter = myName === session.p1.name.trim().toLowerCase()
+            || myName === session.p2.name.trim().toLowerCase();
+        if (!amFighter) return;
+        const startedAt = Number(pvpTurnStartedAt ?? 0);
+        if (!(startedAt > 0)) return;
+        const internalScopeIsCurrent = continuationFenceRef.current.capture();
+        const isCurrentScope = () => internalScopeIsCurrent() && isAccountSessionCurrent();
+        const pokeAbort = new AbortController();
+        let cancelled = false;
+        let timer: number | null = null;
+        const poke = async () => {
+            if (cancelled || !isCurrentScope()) return;
+            try {
+                const res = await fetch(`/api/pvp/session?id=${encodeURIComponent(battleId)}`, {
+                    signal: pokeAbort.signal,
+                });
+                if (res.ok) applySessionProjection(await res.json(), isCurrentScope);
+            } catch { /* the next tick retries */ }
+            if (!cancelled) timer = window.setTimeout(poke, 5_000);
+        };
+        // First nudge lands just after the server's own deadline (turn + grace).
+        // serverNow(), not Date.now(): `startedAt` was minted by the server's
+        // clock, so a drifting local clock would schedule the nudge minutes off.
+        const firstDelay = Math.max(0, pvpTurnDeadlineAt(startedAt) - serverNow() + 1_000);
+        timer = window.setTimeout(poke, firstDelay);
+        return () => {
+            cancelled = true;
+            pokeAbort.abort();
+            if (timer !== null) window.clearTimeout(timer);
+        };
+    }, [session?.activePlayer, session?.status, pvpTurnStartedAt, role, pvpPrefightCountdown, battleId]);
 
     /* ── Register ALL PvP fights on spectator board ── */
     useEffect(() => {
@@ -1881,6 +1947,16 @@ export function PvpBattleScreen({
                             <CombatRoundTimer
                                 active={isMyTurn && !done && pvpPrefightCountdown === null}
                                 resetSignal={pvpRoundTimerKey}
+                                // Anchor the ring to the SERVER's turn clock, not
+                                // to when this component mounted: a refresh
+                                // mid-turn used to restart it at a full 45 and
+                                // then get auto-passed seconds later. While
+                                // `turnStartedAt` is still undefined (the second
+                                // fighter has not been seated) it renders a
+                                // waiting state instead of counting down to a
+                                // stuck 0 whose `wait` the server refuses.
+                                anchor={{ turnStartedAt: pvpTurnStartedAt }}
+                                opponentName={opp.name}
                                 onExpire={() => setPvpPendingAutoWait(true)}
                             />
                         ) : (

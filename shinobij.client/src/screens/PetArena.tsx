@@ -27,7 +27,7 @@
  * one at a time, and the rule should be deleted from this list as it does.
  */
 import { SHOWDOWN_DAILY_WIN_CAP } from "../../../shared/pet-showdown-contract";
-import { useState, useEffect, useRef, Suspense, type CSSProperties } from "react";
+import { useState, useEffect, useMemo, useRef, Suspense, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import "../styles/pet-skin.css";
 import type { Character, ServerPlayerSummary } from "../types/character";
@@ -333,6 +333,24 @@ function settlementErrorMessage(error: unknown): string {
         : "The arena could not record this result. Your battle seal is safe to retry.";
 }
 
+// Warfront loadout parsers — the save field is loose strings; anything unknown
+// falls back to the default at the call site.
+function parseWfAutoBuy(v: unknown): Exclude<WfBuyPolicy, "off"> | null {
+    return v === "balanced" || v === "offense" || v === "defense" ? v : null;
+}
+function parseWfStance(v: unknown): WfStance | null {
+    return v === "balanced" || v === "siege" || v === "jungle" || v === "headhunt" || v === "turtle" ? v : null;
+}
+function parseWfDoctrine(v: unknown): WfDoctrine | null {
+    return v === "vanguard" || v === "bulwark" || v === "zealot" || v === "warden-pact" ? v : null;
+}
+/** Read-only fallback to the retired per-device keys (`wfAutoBuy.v1` /
+ *  `wfStance.v1` / `wfDoctrine.v1`), consulted only while the save carries no
+ *  value. Never written to. */
+function legacyWfPref(key: string): string | null {
+    try { return localStorage.getItem(key); } catch { return null; }
+}
+
 export function PetArena({ character, updateCharacter, allServerPlayers, setScreen, returnScreen: petHomeReturnScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, pendingArenaMatch, onPendingArenaMatchStarted, pendingArenaResponse, onArenaResponseHandled, onClanWarBattleEnd, onBattleActiveChange, onFullscreenActiveChange, onServerVersion, onVersionedCharacter }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; returnScreen?: Screen; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; pendingArenaMatch?: { blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null; onPendingArenaMatchStarted?: () => void; pendingArenaResponse?: DuelChallenge | null; onArenaResponseHandled?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void; onBattleActiveChange?: (active: boolean) => void; onFullscreenActiveChange?: (active: boolean) => void; onServerVersion?: (version: number | undefined, originatingPlayerName: string) => PetArenaServerVersionResult; onVersionedCharacter?: (character: Character, version: number | undefined, originatingPlayerName: string) => PetArenaServerVersionResult }) {
     const combatEligiblePets = activeCarriedPets<Pet>(character);
     const preservedPetOverflow = Math.max(0, character.pets.length - combatEligiblePets.length);
@@ -394,42 +412,36 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     // Warfront is always 4v4 (2v2 retired with capture-scroll); kept as state-shaped
     // const so the challenge payload + pick caps read unchanged.
     const [tacticalSize] = useState<2 | 4>(4);
-    // War Council preference for the Warfront's 30 s buy rounds: manual popup or
-    // a silent auto-buy policy. Per-device persisted; PvP/co-op always lock auto
-    // so both clients' replays stay deterministic.
-    const [wfAutoPref, setWfAutoPref] = useState<Exclude<WfBuyPolicy, "off">>(() => {
-        try {
-            const v = localStorage.getItem("wfAutoBuy.v1");
-            return v === "offense" || v === "defense" ? v : "balanced";
-        } catch { return "balanced"; }
-    });
-    const setWfAuto = (p: Exclude<WfBuyPolicy, "off">) => {
-        setWfAutoPref(p);
-        try { localStorage.setItem("wfAutoBuy.v1", p); } catch { /* storage disabled — ignore */ }
+    // Warfront pre-match loadout — War Council auto-buy policy, opening FORMATION
+    // (stance) and team DOCTRINE. These live on the ACCOUNT (character.warfrontLoadout,
+    // a client-preference save field) rather than the device, so the same shinobi
+    // fights with the same plan from any browser. PvP/co-op always lock auto-buy so
+    // both clients' replays stay deterministic. Migration: a save with no value falls
+    // back ONCE to the retired per-device localStorage keys, and the first change
+    // writes the whole loadout to the save (after which localStorage is never read).
+    const wfLoadout = character.warfrontLoadout;
+    const wfAutoPref = useMemo<Exclude<WfBuyPolicy, "off">>(
+        () => parseWfAutoBuy(wfLoadout?.autoBuy) ?? parseWfAutoBuy(legacyWfPref("wfAutoBuy.v1")) ?? "balanced",
+        [wfLoadout?.autoBuy],
+    );
+    const wfStancePref = useMemo<WfStance>(
+        () => parseWfStance(wfLoadout?.stance) ?? parseWfStance(legacyWfPref("wfStance.v1")) ?? "balanced",
+        [wfLoadout?.stance],
+    );
+    const wfDoctrinePref = useMemo<WfDoctrine>(
+        () => parseWfDoctrine(wfLoadout?.doctrine) ?? parseWfDoctrine(legacyWfPref("wfDoctrine.v1")) ?? "vanguard",
+        [wfLoadout?.doctrine],
+    );
+    const writeWfLoadout = (patch: Partial<NonNullable<Character["warfrontLoadout"]>>) => {
+        updateCharacter((current) => current ? {
+            ...current,
+            // Persist all three so the device fallback is retired in one write.
+            warfrontLoadout: { autoBuy: wfAutoPref, stance: wfStancePref, doctrine: wfDoctrinePref, ...current.warfrontLoadout, ...patch },
+        } : current);
     };
-    // Opening FORMATION (stance) for the Warfront — per-device persisted; also
-    // adjustable at every manual War Council mid-match.
-    const [wfStancePref, setWfStancePref] = useState<WfStance>(() => {
-        try {
-            const v = localStorage.getItem("wfStance.v1");
-            return v === "siege" || v === "jungle" || v === "headhunt" || v === "turtle" ? v : "balanced";
-        } catch { return "balanced"; }
-    });
-    const setWfStance = (s: WfStance) => {
-        setWfStancePref(s);
-        try { localStorage.setItem("wfStance.v1", s); } catch { /* storage disabled — ignore */ }
-    };
-    // Team DOCTRINE — a second pre-match strategic axis (a team-wide boon).
-    const [wfDoctrinePref, setWfDoctrinePref] = useState<WfDoctrine>(() => {
-        try {
-            const v = localStorage.getItem("wfDoctrine.v1");
-            return v === "vanguard" || v === "bulwark" || v === "zealot" || v === "warden-pact" ? v : "vanguard";
-        } catch { return "vanguard"; }
-    });
-    const setWfDoctrine = (d: WfDoctrine) => {
-        setWfDoctrinePref(d);
-        try { localStorage.setItem("wfDoctrine.v1", d); } catch { /* storage disabled — ignore */ }
-    };
+    const setWfAuto = (p: Exclude<WfBuyPolicy, "off">) => writeWfLoadout({ autoBuy: p });
+    const setWfStance = (s: WfStance) => writeWfLoadout({ stance: s });
+    const setWfDoctrine = (d: WfDoctrine) => writeWfLoadout({ doctrine: d });
     const receivePetBattleSettlement = (
         data: PetBattleSettlementResponse,
         scope: PetArenaPlayerScope,

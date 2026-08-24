@@ -8,6 +8,7 @@ import {
     parsePlayerRankedSessionOrphanTombstone,
 } from '../pet/_ranked-preparation.js';
 import { pvpSessionPublicationTombstoneFor } from './_session-publication-tombstone.js';
+import { enforcePvpTurnDeadline } from './_turn-deadline.js';
 
 // GET /api/pvp/stream?id=<battleId>
 //
@@ -146,10 +147,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 sendEvent('end', { reason: 'ranked-no-contest' });
                 break;
             }
-            const session = parseLiveSession(rawSession, battleId);
+            let session = parseLiveSession(rawSession, battleId);
             if (!session) {
                 sendEvent('end', { reason: 'session-invalid' });
                 break;
+            }
+            // Server-authoritative turn expiry on the SSE tick, so a match whose
+            // only live connection is this stream still advances a lapsed turn.
+            // Cheap pre-check inside; takes the move lock only when due.
+            if (session.status === 'active') {
+                try {
+                    session = (await enforcePvpTurnDeadline(kv, battleId, session)).session;
+                } catch (error) {
+                    console.error('[pvp/stream] turn deadline enforcement failed', error);
+                }
             }
             const json = JSON.stringify(session);
             if (json !== lastJson) {

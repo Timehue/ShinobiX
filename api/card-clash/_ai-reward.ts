@@ -1,12 +1,21 @@
 export type CardClashAiResult = 'player' | 'opponent' | 'draw';
 
+/**
+ * Card Clash vs the AI is a SPAR and pays nothing.
+ *
+ * Owner rule (2026-08): sparring of any kind against AI pays no rewards —
+ * only world events, wandering AI, PvP, and missions pay. This table used to
+ * be 50 / 15 / 5 ryo with a 250-ryo first-win-of-the-day bonus; it is kept
+ * (zeroed) so the endpoint, the settlement receipt, and the client's
+ * `reward` shape keep working unchanged. W/L/D records still advance.
+ */
 export const CARD_CLASH_AI_BASE_RYO: Record<CardClashAiResult, number> = {
-    player: 50,
-    draw: 15,
-    opponent: 5,
+    player: 0,
+    draw: 0,
+    opponent: 0,
 };
 
-export const CARD_CLASH_AI_DAILY_WIN_BONUS_RYO = 250;
+export const CARD_CLASH_AI_DAILY_WIN_BONUS_RYO = 0;
 export const CARD_CLASH_AI_MIN_WIN_DURATION_MS = 15_000;
 export const CARD_CLASH_AI_TOKEN_TTL_SECONDS = 2 * 60 * 60;
 
@@ -30,10 +39,11 @@ export function utcDateKey(now = Date.now()): string {
     return new Date(now).toISOString().slice(0, 10);
 }
 
-export function cardClashAiReward(result: CardClashAiResult, alreadyWonToday: boolean): { ryo: number; dailyBonus: boolean } {
-    const dailyBonus = result === 'player' && !alreadyWonToday;
-    return {
-        ryo: CARD_CLASH_AI_BASE_RYO[result] + (dailyBonus ? CARD_CLASH_AI_DAILY_WIN_BONUS_RYO : 0),
-        dailyBonus,
-    };
+/**
+ * Always `{ ryo: 0, dailyBonus: false }` — an AI spar never pays and never
+ * consumes the daily-bonus stamp. The signature is unchanged so callers and
+ * the settlement receipt shape stay stable.
+ */
+export function cardClashAiReward(_result: CardClashAiResult, _alreadyWonToday: boolean): { ryo: number; dailyBonus: boolean } {
+    return { ryo: 0, dailyBonus: false };
 }

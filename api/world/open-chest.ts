@@ -12,6 +12,10 @@ import {
     WORLD_EXPLORE_RECEIPT_TTL_SECONDS,
     worldExploreAuthorityKey,
 } from './_explore-authority.js';
+import { loadSectorPoolOwner, readSectorPool, reserveSectorPool, type SectorPoolOwner, type SectorPoolReservation } from './_sector-pool.js';
+import { creditSectorIntel, INTEL_PER_CHEST } from '../_village-intel.js';
+import { villageStoresEnabled } from '../_release-flags.js';
+import { settlePendingWorldReward } from './_pending-rewards.js';
 
 const cleanId = (value: unknown) => {
     const id = typeof value === 'string' ? value.trim().slice(0, 96) : '';
@@ -38,7 +42,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             worldExploreAuthorityKey(playerName, worldExploreRequestId),
         ));
         const today = new Date().toISOString().slice(0, 10);
-        const result = await mutatePlayerSave(playerName, ({ character }) => {
+        // Shared per-sector chest pool. A chest discovered by /world/explore
+        // ALREADY took its slot at discovery (`outcome.poolReserved`), so this
+        // endpoint never reserves and — critically — never refuses. Reserving
+        // here was a permanent loss: the per-player chest slot was already spent
+        // at discovery, a 409 is classified definitive by the client outbox, and
+        // the server-side pending mirror kept re-importing the entry, so the
+        // player got "picked clean for today" on a loop for loot they could
+        // never collect. Only a LEGACY discovery (sealed before the cutover)
+        // still debits here, and even that is best-effort: a depleted pool is
+        // logged as over-draw, not turned into a refusal.
+        //
+        // The pool is part of Village Stores and rides that feature's kill
+        // switch: with DISABLE_VILLAGE_STORES=1 nothing is debited and nothing is
+        // reported, matching the pool display gate in api/world-state.ts and the
+        // reservation gate in api/world/explore.ts.
+        const poolEnabled = villageStoresEnabled();
+        const sectorId = Math.floor(Number(body.sector));
+        const poolOwner: SectorPoolOwner | null = poolEnabled && Number.isFinite(sectorId) && sectorId > 0
+            ? await loadSectorPoolOwner(sectorId).catch(() => null)
+            : null;
+        const pool: { reservation: SectorPoolReservation | null; village: string | undefined } = { reservation: null, village: undefined };
+        const releasePool = async () => {
+            if (pool.reservation?.ok) {
+                const held = pool.reservation;
+                pool.reservation = null;
+                await held.release().catch((err) => console.error('[world/open-chest] pool release', safeLogValue(err)));
+            }
+        };
+        const result = await mutatePlayerSave(playerName, async ({ character }) => {
+            pool.village = typeof character.village === 'string' ? character.village : undefined;
             const receipts = Array.isArray(character.redeemedAncientChests)
                 ? (character.redeemedAncientChests as Array<Record<string, unknown>>).filter((entry) => entry && typeof entry.id === 'string') : [];
             // The payout receipt is sufficient replay authority. Discovery and
@@ -101,6 +134,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!reserved && count >= DAILY_ANCIENT_CHEST_LIMIT) return { ok: false as const, status: 409, error: 'daily-limit' };
             const loot = rollAncientChestLoot(body.sector, () => randomInt(1_000_000_000) / 1_000_000_000);
             if (!loot) return { ok: false as const, status: 400, error: 'invalid-sector' };
+            // Legacy discoveries only (see the pool comment above). Never a
+            // refusal: this chest is already the player's, and the discovery
+            // that minted it already cost them a daily chest slot.
+            if (poolEnabled && discoveryOutcome.poolReserved !== true) {
+                // Swallowed on contention too: `reserveSectorPool` fails closed
+                // (it throws rather than racing), and pool bookkeeping must
+                // never turn into a 500 on a payout the player is already owed.
+                const taken = await reserveSectorPool(sectorId, 'chests', pool.village, Date.now(), poolOwner ?? undefined)
+                    .catch((err) => { console.error('[world/open-chest] legacy pool debit', safeLogValue(err)); return null; });
+                if (taken?.ok) pool.reservation = taken;
+            }
+            // Village Stores — Intel: a chest cracked on foreign ground is worth
+            // three explores of scouting. Best-effort, never fails the open.
+            // `poolOwner` is this request's already-read territory row, so the
+            // credit reuses it instead of re-reading `world:territory:<sector>`
+            // (one KV round-trip saved per chest-open). Credit rules unchanged.
+            await creditSectorIntel(pool.village, Math.floor(Number(body.sector)), INTEL_PER_CHEST, Date.now(), poolOwner).catch(() => undefined);
             const settled = settleAncientChestLoot(character, loot);
             const receipt = {
                 id: worldExploreRequestId,
@@ -119,8 +169,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 redeemedSectorExplorations: nextExplorationReceipts,
                 redeemedAncientChests: [...receipts.slice(-149), receipt],
             }, value: { loot: settled.loot, replayed: false } };
-        });
-        if (!result.ok) return res.status(result.status).json({ error: result.error });
+        }).catch(async (err: unknown) => { await releasePool(); throw err; });
+        if (!result.ok) {
+            await releasePool();
+            try {
+                const details = JSON.parse(result.error) as Record<string, unknown>;
+                if (details && typeof details.error === 'string') return res.status(result.status).json(details);
+            } catch { /* plain error */ }
+            return res.status(result.status).json({ error: result.error });
+        }
         if (durableDiscovery && result.value.loot && typeof result.value.loot === 'object') {
             // The character projection is intentionally bounded. Seal the
             // payout into the longer-lived discovery authority as well, so a
@@ -141,7 +198,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(503).json({ error: 'Chest settlement is still being saved. Retry the same request.' });
             }
         }
-        return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
+        // The chest is paid and sealed: un-list the discovery from the
+        // account-side outbox mirror (advisory — a stale entry only costs one
+        // more replayed open that lands right back here).
+        await settlePendingWorldReward(playerName, worldExploreRequestId)
+            .catch((err) => console.error('[world/open-chest] pending mirror settle', safeLogValue(err)));
+        const sectorPool = !poolEnabled
+            ? undefined
+            : pool.reservation?.ok
+                ? pool.reservation.view
+                : await readSectorPool(sectorId, pool.village, Date.now(), poolOwner ?? undefined).catch(() => undefined);
+        return res.status(200).json({ ok: true, ...result.value, sectorPool, character: result.character, _saveVersion: result._saveVersion });
     } catch (error) {
         console.error('[world/open-chest]', safeLogValue(error));
         return res.status(500).json({ error: 'Internal server error.' });

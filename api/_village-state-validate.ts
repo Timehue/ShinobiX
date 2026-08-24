@@ -45,7 +45,10 @@ type ValidatorContext = {
     village: string;             // canonical (matches the URL/body village)
 };
 
-const TREASURY_KEYS = ['ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals'] as const;
+// provisions / materialPoints are the Village Stores (api/_village-stores.ts):
+// credited only by /api/village/treasury/donate, drained only by the daily
+// pass + /api/village/war-structure — same rule as the currencies below.
+const TREASURY_KEYS = ['ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals', 'provisions', 'materialPoints'] as const;
 
 // #17 — village-treasury currencies are CREDITED ONLY by server endpoints now,
 // not the save blob: player donations via /api/village/treasury/donate, and the

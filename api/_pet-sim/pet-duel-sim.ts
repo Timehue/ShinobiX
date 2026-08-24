@@ -31,7 +31,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import type { Pet, PetJutsu } from "./pet-types.js";
 import { WALK_MASK, WALK_COLS, WALK_ROWS } from "./pet-arena-walkmask.js";
-const petAccuracyEnabled = (): boolean => false; // server: accuracy is passed in explicitly
+const petAccuracyEnabled = (): boolean => true; // server: same default as the client constant (PET_ACCURACY_DEFAULT) so replays cannot desync
 import {
     applyPetPvpGear, petConsumableCharges, petGearStartShield, petGearExecuteMult,
     petGearLastStandMult, petGearDotOnHit, petGearLifestealHeal,

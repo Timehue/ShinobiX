@@ -13,6 +13,7 @@ import {
 } from "../App";
 import { gameToast } from "../components/GameToast";
 import { adoptHospitalDischarge, type HospitalDischargeResponse } from "../lib/hospital-discharge";
+import { serverNow } from "../lib/server-clock";
 
 export
 function Hospital({ character, updateCharacter, setScreen, playerRoster, onServerVersion, onVersionedCharacter }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen, authoritativeCharacter?: Character) => void; playerRoster: PlayerRecord[]; onServerVersion: (version: unknown) => boolean; onVersionedCharacter: VersionedCharacterCommit }) {
@@ -29,14 +30,14 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
     // only entry-time was lost on reload and the free-checkout button never
     // reappeared, trapping admitted players in a refresh loop. When the stamp
     // hasn't reached the client yet (a fresh in-session KO, before the save
-    // round-trips), we fall back to a DISPLAY-ONLY 60s count from when the
-    // screen opened. This fallback never writes to the server, so it can't
-    // accidentally re-hospitalize a player the server already discharged; the
-    // discharge endpoint remains the sole authority on whether the timer is up.
+    // round-trips) there is NO countdown: the screen says it is awaiting the
+    // server rather than inventing a local 60s timer. Discharge is server-gated
+    // (api/player/heal), so an invented countdown could only ever run down to a
+    // check-out the server then refuses. The stamp is server-minted, so it is
+    // compared against the server's clock, not the device's.
     const serverUntil = Number(character.hospitalizedUntil ?? 0);
-    const [mountTime] = useState(() => Date.now());
-    const effectiveUntil = serverUntil > 0 ? serverUntil : mountTime + 60_000;
-    const [now, setNow] = useState(() => Date.now());
+    const effectiveUntil: number | null = serverUntil > 0 ? serverUntil : null;
+    const [now, setNow] = useState(() => serverNow());
     const [busy, setBusy] = useState(false);
     const busyRef = useRef(false);
     const autoCheckoutStartedRef = useRef(false);
@@ -50,12 +51,13 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
 
     useEffect(() => {
         if (!character.hospitalized) return;
-        const id = setInterval(() => setNow(Date.now()), 1000);
+        const id = setInterval(() => setNow(serverNow()), 1000);
         return () => clearInterval(id);
     }, [character.hospitalized]);
 
-    const freeCheckoutReady = character.hospitalized && now >= effectiveUntil;
-    const remaining = Math.max(0, Math.ceil((effectiveUntil - now) / 1000));
+    const freeCheckoutReady = character.hospitalized && effectiveUntil != null && now >= effectiveUntil;
+    // null = the server stamp has not arrived yet, so there is nothing to count.
+    const remaining: number | null = effectiveUntil == null ? null : Math.max(0, Math.ceil((effectiveUntil - now) / 1000));
 
     // Pay-skip discharge. Previously this was a client-only mutation that
     // deducted ryo + flipped hospitalized=false locally, but the save
@@ -245,12 +247,14 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                     </button>
                 ) : (
                     <p className="hint" style={{ textAlign: "center" }}>
-                        Automatic free check-out in <strong style={{ color: "var(--gold-400)" }}>{remaining}s</strong>
+                        {remaining == null
+                            ? "Awaiting the server's admission timer…"
+                            : <>Automatic free check-out in <strong style={{ color: "var(--gold-400)" }}>{remaining}s</strong></>}
                     </p>
                 ))}
                 {character.ryo < dischargeCost && !freeCheckoutReady && (
                     <p style={{ color: "var(--red-400)", fontSize: "0.82rem", marginTop: "0.5rem", textAlign: "center" }}>
-                        You need {(dischargeCost - character.ryo).toLocaleString()} more ryo, or wait {remaining}s for the free check-out.
+                        You need {(dischargeCost - character.ryo).toLocaleString()} more ryo, or wait {remaining == null ? "for the server's admission timer" : `${remaining}s`} for the free check-out.
                     </p>
                 )}
             </div>

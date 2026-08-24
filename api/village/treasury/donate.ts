@@ -4,12 +4,15 @@ import { kv } from '../../_storage.js';
 import { cors, safeName } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
-import { withKvLock } from '../../_lock.js';
+import { withKvLock, LockContendedError } from '../../_lock.js';
 import { applyTreasuryDonation, type TreasuryDonation } from '../../_treasury-donate.js';
 import { bumpLegacyStats } from '../../_legacy-track.js';
 import { mutatePlayerSave } from '../../save/_mutate-player-save.js';
 import { meritForDonation, meritNum } from '../_village-merit.js';
 import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../../_economy-tx.js';
+import { CRAFT_POINTS } from '../../craft/_forge.js';
+import { villageStoresEnabled } from '../../_release-flags.js';
+import { routeStoresDonation, type StoresRouted } from '../../_treasury-stores-donate.js';
 
 /*
  * /api/village/treasury/donate  — POST only
@@ -32,6 +35,16 @@ import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reser
  *
  * Caller MUST be the donor (or admin) and a member of `village`. Rate-limited
  * at 30/min per actor. Locks: village-state row (outer) + donor save row (inner).
+ *
+ * Village Stores routing (api/_village-stores.ts): `ration-pack` credits
+ * treasury.provisions 1:1; any CRAFT_POINTS material/relic credits
+ * treasury.materialPoints at its craft-point value — neither lands as a loose
+ * treasury item. Per-donor daily caps 40 rations / 1,500 points (mirrored
+ * client-side in shinobij.client/src/lib/village-stores.ts so the Town Hall
+ * warns before the 429). Routing does NOT change Village Merit: every item
+ * donation, routed or not, earns merit on the same flat 500-per-item basis it
+ * always did. Response adds `stores: { provisions, materialPoints }` on a
+ * routed donation.
  */
 
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
@@ -118,13 +131,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { ok: false as const, status: 403, error: 'You are not a member of this village.' };
                 }
 
-                const outcome = applyTreasuryDonation(
+                let outcome = applyTreasuryDonation(
                     stateRec.treasury as Record<string, unknown> | undefined,
                     donorChar,
                     donation,
                     { allowedCurrencies: VILLAGE_CURRENCIES, currencyCaps: CURRENCY_CAPS, itemCountCap: ITEM_COUNT_CAP },
                 );
                 if (!outcome.ok) return outcome;
+                // Village Stores: re-route rations / craft materials out of the loose
+                // item list and into provisions / materialPoints (caps + merit value).
+                let routed: StoresRouted | null = null;
+                if (donation.kind === 'item' && villageStoresEnabled()) {
+                    const r = routeStoresDonation(stateRec.treasury as Record<string, unknown> | undefined, outcome, donation, CRAFT_POINTS, { materialPoints: true });
+                    if (!r.ok) return r;
+                    if (r.routed) { outcome = { ok: true, nextDonorChar: r.nextDonorChar, nextTreasury: r.nextTreasury }; routed = r.routed; }
+                }
 
                 const amount = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count);
                 await reserveEconomyTx({
@@ -140,9 +161,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Personal Village Merit toward a Kage challenge, scaled by the
                 // ryo-value donated (items = 500 each, mirroring the villageDonations
                 // legacy bump below). Costs real currency, so no free farming.
+                //
+                // Every ITEM donation uses the same flat per-item basis, routed
+                // or not. Briefly switching routed donations to `routed.ryoValue`
+                // (craft points × 4) collapsed the merit on a material donation
+                // ~42× — a hunt-torn-hide went from 500 to 12 ryo-equivalent —
+                // which is a Kage-challenge balance change nobody asked for.
+                // A ration pack is an item donation too, and earns exactly what
+                // any other item donation earns. `routed.ryoValue` stays on the
+                // routing result for the stores' own accounting; it is NOT the
+                // merit basis.
                 const ryoValue = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count) * 500;
                 const creditedDonorChar = { ...outcome.nextDonorChar, villageMerit: meritNum((outcome.nextDonorChar as Record<string, unknown>).villageMerit) + meritForDonation(ryoValue) };
-                return { ok: true as const, character: creditedDonorChar, value: { nextTreasury: outcome.nextTreasury } };
+                return { ok: true as const, character: creditedDonorChar, value: { nextTreasury: outcome.nextTreasury, routed } };
             });
             if (!debit.ok) return debit;
 
@@ -152,7 +183,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(villageStateKey, { ...stateRec, treasury: debit.value.nextTreasury });
             await completeEconomyTx(txId!);
             txState = 'complete';
-            return { ok: true as const, treasury: debit.value.nextTreasury, character: debit.character, _saveVersion: debit._saveVersion };
+            return { ok: true as const, treasury: debit.value.nextTreasury, character: debit.character, _saveVersion: debit._saveVersion, routed: debit.value.routed };
         }, { failClosed: true });
 
         if (!result.ok) return res.status(result.status).json({ error: result.error });
@@ -173,10 +204,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ? Math.max(0, Math.floor(donation.amount))
                 : Math.max(0, Math.floor(donation.count)) * 500,
         });
-        return res.status(200).json({ ok: true, treasury: result.treasury, character: result.character, _saveVersion: result._saveVersion });
+        const stores = result.routed ? { stores: result.routed.stores } : {};
+        return res.status(200).json({ ok: true, treasury: result.treasury, character: result.character, _saveVersion: result._saveVersion, ...stores });
     } catch (err) {
         if (txId && txState && txState !== 'complete') {
             await failEconomyTx(txId, err).catch(() => undefined);
+        }
+        // `withKvLock(..., { failClosed: true })` aborts rather than racing a
+        // currency write when the village-state (or donor save) row is busy.
+        // That is a transient collision — another donor mid-flight — not a
+        // fault, so it must not surface as "Internal server error." Mirrors
+        // api/player/sleeper-kill.ts.
+        if (err instanceof LockContendedError) {
+            return res.status(503).json({ error: 'The treasury is busy right now — please retry.', retryable: true });
         }
         console.error('[village/treasury/donate]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });

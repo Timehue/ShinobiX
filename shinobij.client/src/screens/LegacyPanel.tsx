@@ -15,7 +15,7 @@ import { PlayerNameplate } from "../components/PlayerNameplate";
 import { LegacyMoment, type LegacyMomentData } from "../components/LegacyMoment";
 import { rollEmissarySpawn, emissaryForCategory } from "../lib/legacy-emissaries";
 import { rumorLog } from "../lib/legacy-rumors";
-import { wandererDayBucket, isWanderersEnabled } from "../lib/wanderers";
+import { currentWandererDayBucket, isWanderersEnabled } from "../lib/wanderers";
 import { sectorRegionName } from "../data/sectors";
 import { LEGACY_JUTSU_BY_ID, LEGACY_JUTSU_ID_BY_LEGACY } from "../data/legacy-jutsu";
 import { LEGACY_SIGNATURE_MIN_STAGE, legacySignatureMasteryLevel } from "../lib/legacy-jutsu-slot";
@@ -377,11 +377,10 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                     })()}
                     {(() => {
                         // Where the player's trial-giver emissary roams this 6h
-                        // window (same deterministic roll the world map uses).
-                        // Hidden when the device opted out of wanderers — the
-                        // map wouldn't render the NPC, so the hint would lie.
+                        // window (same deterministic roll the world map uses, on
+                        // the server clock so the hint and the map agree).
                         if (!isWanderersEnabled()) return null;
-                        const spawn = rollEmissarySpawn(character.name, status.level, status.legacyCategory ?? def.category, wandererDayBucket(new Date()));
+                        const spawn = rollEmissarySpawn(character.name, status.level, status.legacyCategory ?? def.category, currentWandererDayBucket());
                         return spawn ? (
                             <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#c4b5fd" }}>
                                 🏮 {spawn.def.name}, keeper of your path, was last seen in <b>{sectorRegionName(spawn.sector)}</b> (sector {spawn.sector}).

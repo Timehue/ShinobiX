@@ -22,6 +22,7 @@ Require these checks, with “branch must be up to date before merging” enable
 - `CI / e2e-responsive`
 - `CI / e2e-combat`
 - `CI / e2e-warfront`
+- `CI / e2e-village-stores`
 - `CodeQL / Analyze (javascript-typescript)`
 - `CodeQL / Analyze (actions)`
 

@@ -15,6 +15,17 @@ import { isTokenExpired } from "../authFetch";
 
 export type PendingTravelSave = { destinationSector: number; arrivalAt: number };
 
+/** Read a snapshot's `pendingTravel` back, dropping anything malformed or
+ *  already-arrived. Drained verbatim out of App.tsx; behaviour unchanged. */
+export function normalizePendingTravel(value: unknown): PendingTravelSave | null {
+    if (!value || typeof value !== "object") return null;
+    const raw = value as Record<string, unknown>;
+    const destinationSector = Math.floor(Number(raw.destinationSector ?? raw.sector));
+    const arrivalAt = Math.floor(Number(raw.arrivalAt));
+    if (!Number.isFinite(destinationSector) || destinationSector < 0 || !Number.isFinite(arrivalAt) || arrivalAt <= Date.now()) return null;
+    return { destinationSector, arrivalAt };
+}
+
 export type PlayerAccountSave = {
     // Per-account session token (24h). Reusable passwords are never persisted.
     token?: string;

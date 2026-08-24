@@ -6,6 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { applySectorExploreReward, rollSectorExploreOutcome } from './_explore.js';
+import { isWildSector } from '../../shared/sector-geo.js';
 import { DAILY_ANCIENT_CHEST_LIMIT } from './_chest.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 import { kv } from '../_storage.js';
@@ -24,6 +25,13 @@ import {
     type WorldExploreAuthorityReceipt,
 } from './_explore-authority.js';
 import { creditFieldExploreProgress } from '../missions/_field-explore-progress.js';
+import {
+    loadSectorPoolFrame, readSectorPool, reserveSectorPool, sectorPoolHasRoom,
+    type SectorPoolFrame, type SectorPoolReservation,
+} from './_sector-pool.js';
+import { creditSectorIntel, INTEL_PER_EXPLORE } from '../_village-intel.js';
+import { villageStoresEnabled } from '../_release-flags.js';
+import { addPendingWorldReward, settlePendingWorldReward } from './_pending-rewards.js';
 
 function cleanRequestId(value: unknown): string {
     const id = typeof value === 'string' ? value.trim().slice(0, 96) : '';
@@ -74,8 +82,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // rolling deploy safe without preserving the old trust boundary.
         const resolveOutcome = identity.admin ? body.resolveOutcome === true : !externalProof;
         const activePetKey = petEncounterActiveKey(playerName);
+        // The contested sector pool is part of Village Stores, so it rides that
+        // feature's kill switch end to end. api/world-state.ts already gates the
+        // pool DISPLAY on this flag; without the same gate here, DISABLE_VILLAGE_
+        // STORES=1 left the pool silently throttling gathering (and refusing
+        // tiles with `sector-depleted`) while showing players nothing — the exact
+        // opposite of what _release-flags.ts promises the switch does.
+        const poolEnabled = villageStoresEnabled();
+        // Shared per-sector pool slots taken inside the save mutation, right after
+        // the per-player daily limit admits the tile. Held here so any failure
+        // AFTER the reservation (save write, durable receipt) hands them back.
+        //
+        // `chest` is the SECOND slot a chest tile takes: the shared chest pool is
+        // debited at DISCOVERY, not at open. Reserving it at open meant a chest
+        // the player already held — already counted against their own daily chest
+        // limit — could be refused forever with `sector-depleted`, which the
+        // client outbox then retired while the server-side pending mirror kept
+        // re-importing it (a toast loop over loot nobody could ever collect).
+        const pool: {
+            reservation: SectorPoolReservation | null;
+            chest: SectorPoolReservation | null;
+            village: string | undefined;
+            frame: SectorPoolFrame | null;
+        } = { reservation: null, chest: null, village: undefined, frame: null };
+        const releasePool = async () => {
+            for (const slot of ['reservation', 'chest'] as const) {
+                const held = pool[slot];
+                if (!held?.ok) continue;
+                pool[slot] = null;
+                await held.release().catch((err) => console.error('[world/explore] pool release', safeLogValue(err)));
+            }
+        };
+        // Territory + pool snapshot read ONCE, outside `lock:save:<name>`. Doing
+        // it inside spent part of that lock's 5s TTL on KV round-trips under
+        // exactly the crowd the pool exists for.
+        const requestedSector = Math.floor(Number(body.sector));
+        if (poolEnabled && isWildSector(requestedSector)) {
+            pool.frame = await loadSectorPoolFrame(requestedSector).catch(() => null);
+        }
         const result = await withKvLock(activePetKey, async () => {
             const mutation = await mutatePlayerSave(playerName, async ({ character }) => {
+            pool.village = typeof character.village === 'string' ? character.village : undefined;
             const receipts = Array.isArray(character.redeemedSectorExplorations)
                 ? (character.redeemedSectorExplorations as Array<Record<string, unknown>>).filter((entry) => entry && typeof entry.id === 'string')
                 : [];
@@ -220,10 +267,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const chestsToday = storedChestDate === today
                 ? Math.max(0, Math.floor(Number(character.serverChestsToday) || 0))
                 : 0;
+            // A sector whose SHARED chest pool is spent stops rolling chests
+            // entirely — the tile falls through to the battle/quiet branches
+            // exactly as it already does at the per-player chest ceiling. That
+            // is the graceful degradation; refusing the tile outright, or
+            // minting a chest the pool can't back, are both worse.
+            const chestPoolHasRoom = !pool.frame || sectorPoolHasRoom(pool.frame, 'chests', pool.village);
             const rolledOutcome = resolveOutcome
                 ? rollSectorExploreOutcome(
                     () => randomInt(1_000_000_000) / 1_000_000_000,
-                    chestsToday < DAILY_ANCIENT_CHEST_LIMIT,
+                    chestsToday < DAILY_ANCIENT_CHEST_LIMIT && chestPoolHasRoom,
                 )
                 : externalProof
                     ? { kind: 'external' as const, source: externalProof.kind }
@@ -236,6 +289,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ...rolledOutcome,
                     reservationDate: today,
                     reservationOrdinal: chestsToday + 1,
+                    // Also claims the SHARED chest slot below, before this
+                    // discovery is sealed. open-chest reads this and skips
+                    // reserving, so the chest can never be refused at open.
+                    // False while Village Stores is switched off: nothing was
+                    // debited, so a later open (with the switch back on) is a
+                    // legacy-shaped best-effort debit rather than a double count.
+                    poolReserved: poolEnabled,
                 }
                 : rolledOutcome;
             // Once the server resolves the branch, a chest or battle counts as
@@ -248,6 +308,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     : (body.credit === 'tile' ? 'tile' as const : 'full' as const);
             const applied = applySectorExploreReward(authorityCharacter, body.sector, today, credit);
             if (!applied.ok) return { ok: false as const, status: 409, error: applied.reason };
+            // The sector itself is finite: same failure shape as `daily-limit`,
+            // reserved only once the player's own limit has admitted the tile.
+            //
+            // EXEMPTION — an explore carrying an `externalProof` is the settle
+            // leg of a wild-pet or free-dungeon discovery the server ALREADY
+            // committed (a pet-encounter pointer with a 32-day TTL, or an active
+            // free dungeon run). Refusing it here left that pointer uncleared,
+            // and api/world/explore.ts then answered `pending-pet-discovery` /
+            // `pending-pet-choice` to every subsequent explore in EVERY sector —
+            // one depleted-sector discovery soft-locked exploring for the rest of
+            // the day. A committed discovery must always be able to settle; it
+            // pays no explore ryo (credit 'tile') and the tile it counts was
+            // already admitted by the player's own daily limit above.
+            if (!externalProof && poolEnabled) {
+                pool.reservation = await reserveSectorPool(applied.reward.sector, 'explores', pool.village, Date.now(), pool.frame?.owner);
+                if (!pool.reservation.ok) {
+                    const depleted = pool.reservation;
+                    pool.reservation = null;
+                    return {
+                        ok: false as const,
+                        status: 409,
+                        error: JSON.stringify({ error: 'sector-depleted', reason: 'sector-depleted', sectorPool: depleted.view }),
+                    };
+                }
+                if (outcome?.kind === 'chest') {
+                    // Race-only path: the advisory snapshot said there was room
+                    // and the locked debit disagreed. Refuse the tile now, while
+                    // nothing has been written and no chest exists yet — that is
+                    // strictly better than sealing a discovery the pool can't back.
+                    pool.chest = await reserveSectorPool(applied.reward.sector, 'chests', pool.village, Date.now(), pool.frame?.owner);
+                    if (!pool.chest.ok) {
+                        const depleted = pool.chest;
+                        pool.chest = null;
+                        await releasePool();
+                        return {
+                            ok: false as const,
+                            status: 409,
+                            error: JSON.stringify({ error: 'sector-depleted', reason: 'sector-depleted', sectorPool: depleted.view }),
+                        };
+                    }
+                }
+            }
+            // Village Stores — Intel is credited AFTER this mutation returns; see
+            // the call below `lock:save:<name>`.
             const exploredAt = Date.now();
             const receipt = {
                 id: requestId,
@@ -297,13 +401,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
             return mutation;
-        }, { failClosed: true });
+        }, { failClosed: true }).catch(async (err: unknown) => { await releasePool(); throw err; });
         if (!result.ok) {
+            await releasePool();
             try {
                 const details = JSON.parse(result.error) as Record<string, unknown>;
                 if (details && typeof details.error === 'string') return res.status(result.status).json(details);
             } catch { /* plain error */ }
             return res.status(result.status).json({ error: result.error, reason: result.error });
+        }
+        // Village Stores — Intel: exploring ground your village does not own
+        // scouts it (api/_village-intel.ts). Best-effort, and never fails the
+        // explore — which is exactly why it runs HERE rather than inside
+        // `mutatePlayerSave`: it is a KV read plus its own nested lock, and
+        // holding `lock:save:<name>` across it spent that lock's 5s TTL on
+        // round-trips under the crowd the pool exists for (the same reason the
+        // territory/pool snapshot above is read outside the lock). It needs only
+        // `character.village`, already captured into `pool.village`, and
+        // `pool.frame.owner` — this request's already-read territory row, so the
+        // credit does not re-read `world:territory:<sector>`. Credit rules are
+        // unchanged: a fresh explore scouts, a replay never did and still does not.
+        if (!result.value.replayed) {
+            const scoutedSector = Math.floor(Number((result.value.reward as Record<string, unknown>)?.sector ?? body.sector));
+            await creditSectorIntel(pool.village, scoutedSector, INTEL_PER_EXPLORE, Date.now(), pool.frame?.owner).catch(() => undefined);
         }
         let authority = durable;
         try {
@@ -330,8 +450,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 sector: authority.sector,
                 proofAt: authority.at,
             });
-            return res.status(200).json({ ok: true, ...result.value, fieldProgress, character: result.character, _saveVersion: result._saveVersion });
+            // Account-side mirror of the browser outbox: an unopened chest is the
+            // one outcome whose payout is still outstanding after the receipt is
+            // durable, so list it until /world/open-chest settles it. A replay of
+            // anything else is a retry that already has nothing owed — drop any
+            // stale entry so a fresh device stops re-posting it. Listing is
+            // fatal (503 → same-id retry); un-listing is advisory.
+            const chestUnopened = authority.outcome?.kind === 'chest' && !authority.outcome.openedLoot;
+            if (chestUnopened) {
+                await addPendingWorldReward(playerName, { kind: 'explore', requestId, sector: authority.sector });
+            } else if (result.value.replayed) {
+                await settlePendingWorldReward(playerName, requestId)
+                    .catch((err) => console.error('[world/explore] pending mirror settle', safeLogValue(err)));
+            }
+            // The chest slot is debited after the explore slot, so its view is
+            // the later (and therefore complete) one when both were taken.
+            const sectorPool = !poolEnabled
+                ? undefined
+                : pool.chest?.ok
+                    ? pool.chest.view
+                    : pool.reservation?.ok
+                        ? pool.reservation.view
+                        : await readSectorPool(authority.sector, pool.village, Date.now(), pool.frame?.owner).catch(() => undefined);
+            return res.status(200).json({ ok: true, ...result.value, fieldProgress, sectorPool, character: result.character, _saveVersion: result._saveVersion });
         } catch (sideEffectError) {
+            // Settlement did not complete, so hand the slots back — this is the
+            // "any failure AFTER the reservation" case the pool block above
+            // promises. The same-id retry replays off the save/durable receipt
+            // and takes no new slot, so without this release the slots would be
+            // held for the rest of the UTC day with nobody paid for them.
+            await releasePool();
             console.error('[world/explore] durable settlement pending', safeLogValue(sideEffectError));
             return res.status(503).json({ error: 'Exploration settlement is still finalizing.', retryable: true, requestId });
         }

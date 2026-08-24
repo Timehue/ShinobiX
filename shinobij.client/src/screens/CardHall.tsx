@@ -570,13 +570,18 @@ function CardHallInner({
                       ? "Showdown Cancelled"
                       : "Defeat"}
                 </h2>
-                {reward ? (
+                {reward && reward.ryo > 0 ? (
                   <p>
                     {reward.ryo.toLocaleString()} ryo credited
                     {reward.dailyBonus
                       ? " including the daily victory bonus"
                       : ""}
                     .
+                  </p>
+                ) : reward ? (
+                  <p>
+                    Sparring the Chronicle AI pays no ryo — your record has
+                    been entered in the Chronicle.
                   </p>
                 ) : (
                   <p>The result has been entered in the Chronicle.</p>

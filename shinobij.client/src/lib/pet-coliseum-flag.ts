@@ -1,8 +1,13 @@
 /*
- * Per-device pet-arena render flags. The HD-2D coliseum is now THE arena
- * renderer for every pet-battle call site (Pet Arena, Hollow Gate dungeon duels)
- * — there is no longer a classic-battlefield toggle, so the only knobs left here
- * are the optional postprocessing/cutscene preferences below.
+ * Pet-arena flags. Two kinds live here and the split is load-bearing:
+ *   - COSMETIC preferences (bloom, evolution cutscene, the true-3D stage) are
+ *     per-device localStorage toggles — they change what you see, never who wins.
+ *   - COMBAT RULES (accuracy, duel engine, arena V2, player control) are CONSTANTS.
+ *     They used to be localStorage switches, which meant two browsers — or a
+ *     browser and the server's Node replay — could resolve the same seeded fight
+ *     under different rules. Never reintroduce a localStorage read for those.
+ * The HD-2D coliseum is THE arena renderer for every pet-battle call site (Pet
+ * Arena, Hollow Gate dungeon duels) — there is no classic-battlefield toggle.
  */
 
 /*
@@ -54,25 +59,24 @@ export function setPetEvolveCutsceneEnabled(on: boolean): void {
 }
 
 /*
- * Pet move ACCURACY / miss-chance flag. Pet moves carry an authored accuracy
+ * Pet move ACCURACY / miss-chance. Pet moves carry an authored accuracy
  * (pet-moves.ts KIND_SPECS: 85–95 for offensive/control kinds, 100 for support)
- * that the battle engines historically never rolled against — so moves never
- * missed. When ON, the engines roll `rng() < accuracy/100` when a jutsu is cast;
- * a miss consumes the turn with no effect. NOW DEFAULT ON (rolled out to every
- * pet engine) — opt OUT with localStorage.setItem("petAccuracy.v1","0"). The
- * authored accuracy values may still want tuning. Passed INTO the sims as a param
- * so the deterministic engines stay pure/testable. (Node/no-localStorage falls
- * back to OFF so the engine golden tests stay deterministic; tests pass explicit
- * flags to exercise the ON path.)
+ * that the engines roll against when a jutsu is cast (`rng() < accuracy/100`);
+ * a miss consumes the turn with no effect.
+ *
+ * This is a COMBAT RULE, not a preference, so it is a CONSTANT — never read from
+ * localStorage. A per-device switch here let two browsers (or a browser and the
+ * server's Node replay, where localStorage does not exist) resolve the SAME
+ * seeded fight to different winners. The value is identical in every
+ * environment: ON. The sims take it as an explicit parameter (defaulting to this
+ * constant) so tests can still exercise the OFF path deterministically, and the
+ * server-side engine copies (api/_pet-sim, scripts/gen-pet-sim.mjs) pin the same
+ * default so client render and server replay cannot desync.
  */
-const PET_ACCURACY_KEY = "petAccuracy.v1";
+export const PET_ACCURACY_DEFAULT = true;
 
 export function petAccuracyEnabled(): boolean {
-    try { return localStorage.getItem(PET_ACCURACY_KEY) !== "0"; } catch { return false; }
-}
-
-export function setPetAccuracyEnabled(on: boolean): void {
-    try { localStorage.setItem(PET_ACCURACY_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
+    return PET_ACCURACY_DEFAULT;
 }
 
 /*
@@ -81,16 +85,8 @@ export function setPetAccuracyEnabled(on: boolean): void {
  * let a modified browser revive the old local-Elo path even though the API now
  * refuses it. The server-authoritative Pet Ladder remains available.
  */
-const PET_RANKED_CHALLENGE_KEY = "petRankedChallenge.v1";
-
 export function petRankedChallengeEnabled(): boolean {
     return false;
-}
-
-export function setPetRankedChallengeEnabled(_on: boolean): void {
-    // Remove stale opt-ins from pre-authority builds. Intentionally cannot be
-    // enabled by client state.
-    try { localStorage.removeItem(PET_RANKED_CHALLENGE_KEY); } catch { /* storage disabled — ignore */ }
 }
 
 /*
@@ -106,22 +102,12 @@ export function setPetRankedChallengeEnabled(_on: boolean): void {
  * until balance + server-side validation are proven (plan Phases E/F). Flipping
  * this OFF is the instant rollback for the PvE engine. DEFAULT ON: the continuous
  * duel is now THE Pet Coliseum experience; the balance pass + dramatic-pacing work
- * continues on this engine. Per-device persisted; force either way with
- * localStorage.setItem("petDuelEngine.v1", "1"|"0").
+ * continues on this engine. NOT per-device: which engine resolves a fight is a
+ * combat rule, so this is a constant (a localStorage switch let one browser run a
+ * different ruleset from everyone else — and from the server replay).
  */
-const DUEL_ENGINE_KEY = "petDuelEngine.v1";
-
 export function petDuelEngineEnabled(): boolean {
-    try {
-        const v = localStorage.getItem(DUEL_ENGINE_KEY);
-        if (v === "1") return true;
-        if (v === "0") return false;
-        return true; // DEFAULT ON — the continuous duel is the default Pet Coliseum combat.
-    } catch { return true; }
-}
-
-export function setPetDuelEngineEnabled(on: boolean): void {
-    try { localStorage.setItem(DUEL_ENGINE_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
+    return true; // combat rule, not a preference — constant in every environment
 }
 
 /*
@@ -133,13 +119,11 @@ export function setPetDuelEngineEnabled(on: boolean): void {
  * pacing, and a per-match seeded modifier.
  *
  * DEFAULT ON — the game is in testing and V2 is the intended arena; balance is tuned
- * via the V2_* knobs in pet-arena-sim.ts, not by hiding it behind a flag. The flag is
- * kept only as a one-key kill-switch: force the old v1 arena back with
- * localStorage.setItem("petArenaV2.v1","0") (e.g. to A/B a balance change mid-playtest).
- * When OFF, the sim path is byte-identical to the pre-V2 arena. The flag is passed INTO
+ * via the V2_* knobs in pet-arena-sim.ts, not by hiding it behind a flag. It is a
+ * CONSTANT (not per-device): the ruleset is a combat rule, and a localStorage switch
+ * let one browser play a different arena from everyone else. The value is passed INTO
  * the deterministic sim as a param (never read inside it) so replays stay pure/testable;
  * the sim's own default is still v2=false so its golden/back-compat tests stay green.
- * Per-device persisted.
  */
 /*
  * Tactical Arena TRUE-3D stage (PetArena3DStage) — the LoL-style spectator
@@ -183,21 +167,11 @@ export function setPetArena3dEnabled(on: boolean): void {
  * one-shot path (runPetDuelCinematic), so no competitive outcome can shift and
  * there is no client/server desync. DEFAULT ON — the game is in testing and the
  * whole point of the feature is that players stop watching and start playing.
- * Instant rollback: localStorage.setItem("petPlayerControl.v1","0") returns the
- * mode to the shipped watch-only duel. Per-device persisted.
+ * NOT per-device: it changes which fight rules apply, so it is a constant rather
+ * than a localStorage switch.
  */
-const PLAYER_CONTROL_KEY = "petPlayerControl.v1";
-
 export function petPlayerControlEnabled(): boolean {
-    try {
-        const v = localStorage.getItem(PLAYER_CONTROL_KEY);
-        if (v === "0") return false;   // explicit kill-switch → watch-only duel
-        return true;                   // DEFAULT ON
-    } catch { return false; }          // no localStorage (tests/Node) → the pure precomputed path
-}
-
-export function setPetPlayerControlEnabled(on: boolean): void {
-    try { localStorage.setItem(PLAYER_CONTROL_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
+    return true; // combat rule, not a preference — constant in every environment (Node included)
 }
 
 /*
@@ -212,16 +186,37 @@ export function setPetPlayerControlEnabled(on: boolean): void {
  * engine.
  */
 
-const ARENA_V2_KEY = "petArenaV2.v1";
-
 export function petArenaV2Enabled(): boolean {
-    try {
-        const v = localStorage.getItem(ARENA_V2_KEY);
-        if (v === "0") return false;   // explicit opt-out only (kill-switch)
-        return true;                   // DEFAULT ON — V2 is the live Tactical Arena
-    } catch { return true; }
+    return true; // V2 is the live Tactical Arena — constant, not per-device
 }
 
-export function setPetArenaV2Enabled(on: boolean): void {
-    try { localStorage.setItem(ARENA_V2_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
+/*
+ * The five COMBAT-RULE flags above (accuracy, ranked challenge, duel engine,
+ * player control, arena V2) each used to ship a `set…Enabled(on)` twin whose
+ * `on` argument was ignored: the value is a constant, so the setter's only real
+ * job was scrubbing the retired localStorage key it replaced. Five no-op
+ * setters with no production caller read as five live switches, so they are
+ * gone — one scrub, run once at module load, does the whole job.
+ *
+ * Scrubbing here (rather than on a call nobody made) is what actually clears a
+ * stale opt-out from an older build. Nothing reads these keys any more, so the
+ * removal is purely hygienic and can never change which rules a fight runs
+ * under.
+ */
+const RETIRED_PET_FLAG_KEYS = [
+    "petAccuracy.v1",
+    "petRankedChallenge.v1",
+    "petDuelEngine.v1",
+    "petPlayerControl.v1",
+    "petArenaV2.v1",
+] as const;
+
+/** Delete every retired per-device pet-flag key. Idempotent; safe where there
+ *  is no localStorage at all (the Node test runner, the server replay). */
+export function scrubRetiredPetFlagKeys(): void {
+    try {
+        for (const key of RETIRED_PET_FLAG_KEYS) localStorage.removeItem(key);
+    } catch { /* storage disabled or absent — nothing to scrub */ }
 }
+
+scrubRetiredPetFlagKeys();

@@ -30,7 +30,9 @@ import { resetPerWarStructures, wrPerSector } from './_war-structures.js';
 import { activeVillageWarEnemiesOf } from './world-state.js';
 import { listActiveSectorWars } from './_sector-war-store.js';
 import { settleDueSectorWars } from './_sector-war-settle.js';
-import { villageWarMapEnabled } from './_release-flags.js';
+import { villageWarMapEnabled, villageStoresEnabled } from './_release-flags.js';
+import { runVillageStoresStep, runClanStoresDailyPass, type StoresWarLike, type ClanWarLike } from './_village-stores-daily.js';
+import { loadAllClanWars, clanWarKey } from './clan/war/_storage.js';
 
 /** The existing village-treasury key (seal accrual target). Same slug as the
  *  war-state key and api/village/claim-daily-agenda.ts. */
@@ -88,6 +90,14 @@ export async function runVillageWarDailyPass(
         heldSectors?: HeldSectorCounts;
         /** Settle due 72h wars. Injectable so tests stay off live storage. */
         sweepSectorWars?: (now: number) => Promise<unknown[]>;
+        /** Village Stores (Provisions + Materials). Defaults to the kill switch. */
+        storesEnabled?: boolean;
+        /** Active sector wars for the stores burn (tests inject; default = live store). */
+        listSectorWars?: (now: number) => Promise<StoresWarLike[]>;
+        /** Active clan wars for the clan provisions mirror (tests inject). */
+        listClanWars?: () => Promise<ClanWarLike[]>;
+        /** Override the unfed herald + Kage notice (tests). */
+        notifyUnfed?: Parameters<typeof runVillageStoresStep>[0]['notifyUnfed'];
     } = {},
 ): Promise<VillageWarDailyResult> {
     const enabled = deps.enabled ?? villageWarMapEnabled();
@@ -113,6 +123,17 @@ export async function runVillageWarDailyPass(
                 ? (store as HeldSectorStore)
                 : undefined,
         );
+
+    // Village Stores: the active sector wars every village's ration burn keys off.
+    const storesEnabled = deps.storesEnabled ?? villageStoresEnabled();
+    let storesWars: StoresWarLike[] = [];
+    if (storesEnabled) {
+        try {
+            storesWars = await (deps.listSectorWars ?? (async (t: number) => listActiveSectorWars(t)))(now);
+        } catch (err) {
+            console.error('[village-war] stores: sector-war scan failed:', (err as Error).message);
+        }
+    }
 
     let ran = 0;
     let sealsAccrued = 0;
@@ -167,6 +188,16 @@ export async function runVillageWarDailyPass(
                         void recordWarEcoEvent({ eventId: `seals-earn:${villageWarSlug(village)}:${today}`, village, kind: 'seals.earn', amount: seals, ts: now }, { kv: store });
                     });
                 }
+                // Village Stores day: spoil → war/merc/garrison burn → depot conversion,
+                // plus the home-loss burn and the unfed flags. Same once-per-day gate.
+                if (storesEnabled) {
+                    try {
+                        const s = await runVillageStoresStep({ village, today, now, wars: storesWars, store, lock, notifyUnfed: deps.notifyUnfed });
+                        if (s.wrConverted > 0) void recordWarEcoEvent({ eventId: `stores-convert:${villageWarSlug(village)}:${today}`, village, kind: 'wr.earn', amount: s.wrConverted, ts: now, meta: 'supply-depot' }, { kv: store });
+                    } catch (err) {
+                        console.error(`[village-war] stores step failed for ${village}:`, (err as Error).message);
+                    }
+                }
             }
         } catch (err) {
             console.error(`[village-war] daily pass failed for ${village}:`, (err as Error).message);
@@ -180,6 +211,15 @@ export async function runVillageWarDailyPass(
         sectorWarsSettled = (await (deps.sweepSectorWars ?? settleDueSectorWars)(now)).length;
     } catch (err) {
         console.error('[village-war] sector-war settlement sweep failed:', (err as Error).message);
+    }
+    // Clan provisions mirror: every active clan war eats 30 rations/day per clan.
+    if (storesEnabled) {
+        try {
+            const wars = await (deps.listClanWars ?? (async () => loadAllClanWars() as Promise<ClanWarLike[]>))();
+            await runClanStoresDailyPass({ today, now, wars, warKeyOf: (w) => clanWarKey(w.clans[0], w.clans[1]), store, lock });
+        } catch (err) {
+            console.error('[village-war] clan stores pass failed:', (err as Error).message);
+        }
     }
     return { enabled: true, processed: WAR_VILLAGES.length, ran, sealsAccrued, sectorWarsSettled };
 }

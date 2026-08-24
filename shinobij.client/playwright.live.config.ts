@@ -35,6 +35,15 @@ export default defineConfig({
             DISABLE_SCHEDULED_JOBS: '1',
             DISABLE_REALTIME: '1',
             DISABLE_SNAPSHOT_CRON: '1',
+            // Both default ON (api/_release-flags.ts kills them only on '1'),
+            // but village-stores-express.spec.ts asserts the Cafeteria kitchen,
+            // the Town Hall Provisions/Materials rows and the Supply log — all
+            // of which vanish when either switch is set. Spelled out so an
+            // ambient DISABLE_VILLAGE_* in a developer's shell cannot silently
+            // turn the loop's whole surface off and leave the failure looking
+            // like a missing element.
+            DISABLE_VILLAGE_WAR: '',
+            DISABLE_VILLAGE_STORES: '',
             SENTRY_DSN: '',
         },
     },

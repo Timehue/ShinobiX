@@ -69,6 +69,47 @@ describe("world-map reward settlement", () => {
         }
     });
 
+    test("a sector-depleted chest is parked for tomorrow; a depleted EXPLORE is retired", { concurrency: false }, async () => {
+        // The shared per-sector pool resets at midnight UTC, so `sector-depleted`
+        // is time-boxed. What it means depends on whether anything is owed.
+        //
+        // A discovered chest IS owed: the player already spent a daily chest slot
+        // on it. Retiring it threw the loot away while the server-side pending
+        // mirror kept re-importing the entry, so "This sector has been picked
+        // clean for today." looped all day over loot nobody could collect.
+        //
+        // A refused EXPLORE is owed nothing — no pool slot, no save write, no
+        // receipt. Parking it would soft-lock exploring exactly like the bug
+        // above: the outbox retries it on the next explore, the sector is still
+        // depleted, and every other sector is blocked behind it until midnight.
+        const realFetch = globalThis.fetch;
+        const depleted = () => new Response(
+            JSON.stringify({ error: "sector-depleted", reason: "sector-depleted", sectorPool: { exploresUsed: 1500, exploresCap: 1500, chestsUsed: 225, chestsCap: 225 } }),
+            { status: 409, headers: { "Content-Type": "application/json" } },
+        );
+        globalThis.fetch = (async () => depleted()) as typeof fetch;
+        try {
+            const explored = await recordSectorExplore("Rill", 66, "full", "depletedproof123", { resolveOutcome: true });
+            const chest = await openAncientChest("Rill", 66, "chestoperation456", "depletedproof123");
+            assert.equal(explored.error, "sector-depleted");
+            assert.equal(explored.retryable, false, "a refused explore owes nothing and must not park");
+            assert.equal(chest.error, "sector-depleted");
+            assert.equal(chest.retryable, true, "a discovered chest must never be thrown away");
+        } finally {
+            globalThis.fetch = realFetch;
+        }
+    });
+
+    test("a depleted sector is refused before the discovery probes commit anything", () => {
+        const worldMap = source("../screens/WorldMap.tsx");
+        const gate = worldMap.slice(worldMap.indexOf("async function exploreSector("));
+        const body = gate.slice(0, gate.indexOf("await resolveExplore(sector)"));
+        assert.match(body, /sectorExploreRefusal\(sector, loadSectorTerritory\(sector\)\.ownerVillage, character\.village\)/,
+            "the pool pre-check must sit next to the 150/day check, ahead of the dungeon/pet probes");
+        assert.ok(body.indexOf("sectorExploreRefusal(") < body.indexOf("setCurrentSector(sector)"),
+            "and it must refuse before the screen commits the player to the sector");
+    });
+
     test("exploring a tile is counted by the server on every branch", () => {
         const worldMap = source("../screens/WorldMap.tsx");
         assert.match(worldMap, /beginWorldDiscoveryOperation\([\s\S]{0,180}character\.level >= hiddenDungeonVnEvent\.levelReq \? "dungeon" : "pet"/,

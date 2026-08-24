@@ -318,8 +318,9 @@ function snapshot(t: number, units: Unit[]): BoardSnapshot {
  */
 export function runPetGridBattle(player: GridUnit[], enemy: GridUnit[], seed: number, opts?: { playerMods?: Partial<BoardMods>; accuracy?: boolean }): BoardResult {
     const rng = lcg(seed);
-    // Accuracy miss-chance (flag-gated; default off). Threaded as an opt so the sim
-    // stays pure/testable; defaults to the per-device flag for live play.
+    // Accuracy miss-chance. Threaded as an opt so the sim stays pure/testable;
+    // defaults to the PET_ACCURACY_DEFAULT constant (ON) — identical in Node and
+    // the browser, never a per-device read, so server replay == client render.
     const accuracyEnabled = opts?.accuracy ?? petAccuracyEnabled();
     const mods: BoardMods = { ...NO_MODS, ...(opts?.playerMods ?? {}) };
     const p = player.slice(0, BOARD_SQUAD_MAX), e = enemy.slice(0, BOARD_SQUAD_MAX);

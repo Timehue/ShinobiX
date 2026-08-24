@@ -3,7 +3,9 @@ import { strict as assert } from 'node:assert';
 import {
     applyAncientChestLoot, rollAncientChestLoot, settleAncientChestLoot, wildRelicForRoll,
     relicBandForSector, CHEST_RELIC_IDS, WILD_RELIC_IDS, DUPLICATE_RELIC_FATE_SHARDS, WILD_RELIC_DROP_CHANCE,
+    DAILY_ANCIENT_CHEST_LIMIT,
 } from './_chest.js';
+import { SECTOR_CHEST_POOL_PER_DAY, OWNER_VILLAGE_POOL_BONUS } from './_sector-pool.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
@@ -169,5 +171,18 @@ describe('wild relic roster integrity', () => {
     it('includes the Weekly Boss relic even though no chest yields it', () => {
         assert.ok(WILD_RELIC_IDS.includes('relic-hollow-gate-cinder'));
         assert.ok(!CHEST_RELIC_IDS.includes('relic-hollow-gate-cinder'));
+    });
+});
+
+describe('shared sector chest pool sizing', () => {
+    it('holds many maxed chest-openers before a sector runs dry', () => {
+        // Chests are debited at DISCOVERY now (api/world/explore.ts), so this
+        // pool bounds how many chests a sector can YIELD in a day, not how many
+        // can be opened — an already-discovered chest is never refused.
+        assert.equal(SECTOR_CHEST_POOL_PER_DAY, 225);
+        assert.ok(SECTOR_CHEST_POOL_PER_DAY / DAILY_ANCIENT_CHEST_LIMIT >= 9,
+            'at least ~9 players hitting their own 23/day chest ceiling in one sector');
+        assert.equal(Math.floor(SECTOR_CHEST_POOL_PER_DAY * (1 + OWNER_VILLAGE_POOL_BONUS)), 337,
+            'and half again for the owning village');
     });
 });

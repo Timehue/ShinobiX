@@ -324,6 +324,9 @@ export const starterItems: GameItem[] = [
     { id: "hunt-ancient-beast-core", name: "Ancient Beast Core", slot: "item", rarity: "epic", cost: 0, image: "/items/hunt-ancient-beast-core-v1.webp", description: "The crystallized chakra core of an ancient beast. Extremely rare crafting material.", bonuses: {} },
     { id: "hunt-titan-bone", name: "Titan Bone", slot: "item", rarity: "epic", cost: 0, image: "/items/hunt-titan-bone-v1.webp", description: "A massive bone fragment from the Worldstorm Dragon. Near-indestructible.", bonuses: {} },
     { id: "hunt-legendary-material", name: "Legendary Material", slot: "item", rarity: "legendary", cost: 0, image: "/items/hunt-legendary-material-v1.webp", description: "A rare drop from S-rank beasts. Worth 50 craft points in the Crafter. Required for max hunter rank.", bonuses: {} },
+    // Village Stores: cooked at the Cafeteria from hunt materials, donated 1:1 into
+    // the village's Provisions (api/_village-stores.ts). cost 0 — never a ryo faucet.
+    { id: "ration-pack", name: "Ration Pack", slot: "item", rarity: "common", cost: 0, image: "/items/hunt-beast-meat-v1.webp", description: "Field rations packed for a marching army. Donate to the Town Hall to feed your village's wars.", bonuses: {} },
     // -- Anbu Vault Infiltration war caches (anbuInfiltration.v1) ---------------
     // Server-minted ONLY (raid settle; the save sanitizer blocks client mints).
     // Ids KEEP IN SYNC with api/_anbu-infiltration.ts CACHE_ITEM_IDS.

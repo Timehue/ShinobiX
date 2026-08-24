@@ -15,6 +15,8 @@ interface BattleNavigationGuardOptions extends Omit<BattleGuardSignals, "screen"
     screenRef: { current: Screen };
     hospitalized: boolean;
     setScreen: Dispatch<SetStateAction<Screen>>;
+    /** Where "back" lands with no history (e.g. right after a refresh). Defaults to the village. */
+    fallbackScreen?: () => Screen;
 }
 
 /**
@@ -27,6 +29,7 @@ export function useBattleNavigationGuard({
     screenRef,
     hospitalized,
     setScreen,
+    fallbackScreen,
     raidBattleKind,
     pvpBattleId,
     pvpBattleResolved,
@@ -100,14 +103,16 @@ export function useBattleNavigationGuard({
         }
         setScreenHistory(previous => {
             if (previous.length <= 1) {
-                setScreen("village");
+                // No history (fresh reload): land where the player IS. A wild-sector
+                // player goes back to the world, never teleported to the village.
+                setScreen(fallbackScreen ? fallbackScreen() : "village");
                 return previous;
             }
             isGoingBackRef.current = true;
             setScreen(previous[previous.length - 2]);
             return previous.slice(0, -1);
         });
-    }, [hospitalized, screen, setScreen]);
+    }, [hospitalized, screen, setScreen, fallbackScreen]);
 
     return { canGoBack: screenHistory.length > 1, goBack, inBattleRef };
 }

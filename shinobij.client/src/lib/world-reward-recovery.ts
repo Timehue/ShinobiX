@@ -217,3 +217,55 @@ export function completeWorldRewardOperation(
         storage,
     );
 }
+
+/** Shape the authenticated save GET piggybacks as `pendingWorldRewards`. */
+export type ServerPendingWorldReward = {
+    kind: "explore" | "chest";
+    requestId: string;
+    sector: number;
+    createdAt: number;
+};
+
+/**
+ * Merge the account-side mirror (server `pendingWorldRewards`) into this
+ * device's queue so the normal drain re-posts ids that were minted on another
+ * device or lost with cleared storage. localStorage stays the fast path: a
+ * local entry wins on id (it carries the richer proof/stage metadata), server
+ * entries are appended oldest-first BEFORE the local ones so the 8-entry cap
+ * never evicts live local work. Returns the merged queue.
+ */
+export function mergeServerPendingWorldRewards(
+    playerName: string,
+    entries: unknown,
+    storage: WorldRewardRecoveryStorage | null = defaultStorage(),
+): PendingWorldRewardOperation[] {
+    if (!playerName || !Array.isArray(entries) || entries.length === 0) return readPendingWorldRewards(playerName, storage);
+    const local = readPendingWorldRewards(playerName, storage);
+    const known = new Set(local.map((entry) => entry.id));
+    const now = Date.now();
+    const imported: PendingWorldRewardOperation[] = [];
+    for (const raw of entries as unknown[]) {
+        if (!raw || typeof raw !== "object") continue;
+        const entry = raw as Partial<ServerPendingWorldReward>;
+        const requestId = typeof entry.requestId === "string" ? entry.requestId : "";
+        const sector = Math.floor(Number(entry.sector));
+        if (!/^[A-Za-z0-9_-]{8,96}$/.test(requestId) || known.has(requestId)) continue;
+        if ((entry.kind !== "explore" && entry.kind !== "chest") || !Number.isSafeInteger(sector) || sector < 1) continue;
+        const createdAt = Number.isFinite(entry.createdAt) && Number(entry.createdAt) > 0
+            ? Math.min(Number(entry.createdAt), now)
+            : now;
+        if (now - createdAt > WORLD_REWARD_RECOVERY_MAX_AGE_MS) continue;
+        known.add(requestId);
+        // The explore replay re-posts the exact receipt id, so the server
+        // returns the sealed outcome (chest → open, battle → launch, none →
+        // done); a `chest` id is the discovery itself, opened directly.
+        imported.push(entry.kind === "chest"
+            ? { id: requestId, playerName, kind: "chest", sector, worldExploreRequestId: requestId, createdAt }
+            : { id: requestId, playerName, kind: "explore", sector, credit: "tile", resolveOutcome: true, createdAt });
+    }
+    if (imported.length === 0) return local;
+    imported.sort((a, b) => a.createdAt - b.createdAt);
+    const merged = [...imported, ...local];
+    writePendingWorldRewards(playerName, merged, storage);
+    return readPendingWorldRewards(playerName, storage);
+}

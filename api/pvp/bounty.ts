@@ -10,6 +10,8 @@ import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { pvpSessionMayGrantProgress, type PvpSession } from './session.js';
 import { loadPvpRewardRecoverySnapshot } from './_reward-recovery.js';
 import { normalizeBoard, placeBounty, claimBounty, findBounty, type BountyBoard } from './_bounty.js';
+import { pushOfflineNotice } from '../player/_offline-notices.js';
+import { announce } from '../_announce.js';
 
 /*
  * /api/pvp/bounty — GET (board) + POST (place / claim)
@@ -85,18 +87,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 try { if (await hasRecentIpOrFpOverlap(playerName, targetSlug)) return res.status(403).json({ error: "You can't place a bounty on someone sharing your connection." }); } catch { /* fail open */ }
             }
 
-            const out = await withKvLock<{ status: number; body: unknown }>(BOUNTY_KEY, async () => {
+            const out = await withKvLock<{ status: number; body: unknown; placed?: { placer: string; amount: number } }>(BOUNTY_KEY, async () => {
                 const board = normalizeBoard(await kv.get<BountyBoard>(BOUNTY_KEY));
-                const debit = await withKvLock<{ ok: boolean; reason?: string; board?: BountyBoard; debited?: number; balance?: number; saveVersion?: number }>(`save:${playerName}`, async () => {
+                const debit = await withKvLock<{ ok: boolean; reason?: string; board?: BountyBoard; debited?: number; balance?: number; saveVersion?: number; placer?: string }>(`save:${playerName}`, async () => {
                     const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                     const char = (rec?.character ?? null) as Record<string, unknown> | null;
                     if (!rec || !char) return { ok: false, reason: 'Your save was not found.' };
-                    const result = placeBounty({ placerName: identity.admin ? playerName : (char.name as string ?? playerName), targetName: targetDisplay, amount, placerRyo: num(char.ryo), targetExists, board }, now);
+                    const placer = identity.admin ? playerName : (char.name as string ?? playerName);
+                    const result = placeBounty({ placerName: placer, targetName: targetDisplay, amount, placerRyo: num(char.ryo), targetExists, board }, now);
                     if (!result.ok) return { ok: false, reason: result.reason };
                     const balance = num(char.ryo) - result.amount;
                     const updated = bumpSaveVersion({ ...rec, character: { ...char, ryo: balance } });
                     await kv.set(`save:${playerName}`, mergePreservingImages(updated, rec));
-                    return { ok: true, board: result.board, debited: result.amount, balance, saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0) };
+                    return { ok: true, board: result.board, debited: result.amount, balance, saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0), placer };
                 }, { failClosed: true });
                 if (!debit.ok) return { status: 400, body: { error: debit.reason ?? 'Could not place the bounty.' } };
                 try {
@@ -117,10 +120,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     throw boardErr;
                 }
-                return { status: 200, body: { ok: true, bounties: debit.board!.bounties, balances: { ryo: debit.balance }, _saveVersion: debit.saveVersion } };
+                return {
+                    status: 200,
+                    body: { ok: true, bounties: debit.board!.bounties, balances: { ryo: debit.balance }, _saveVersion: debit.saveVersion },
+                    placed: { placer: debit.placer ?? playerName, amount: debit.debited ?? amount },
+                };
             }, { failClosed: true });
 
             if (out.status === 200) await kv.set(`${AUDIT_PREFIX}place:${Date.now()}`, { ts: now, placer: playerName, target: targetSlug, amount }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+            if (out.status === 200 && out.placed) {
+                // Feed-only ("medium") — the board write is durable; the receipt
+                // is the head + its updatedAt stamp (the stamp placeBounty wrote),
+                // so a retried request cannot double-post.
+                const head = findBounty(normalizeBoard({ bounties: (out.body as { bounties: BountyBoard['bounties'] }).bounties }), targetDisplay);
+                try {
+                    await announce({
+                        type: 'bounty_placed',
+                        importance: 'medium',
+                        title: 'Bounty Posted',
+                        // Thousands separators, explicitly en-US so the Herald
+                        // line reads the same for every reader regardless of
+                        // the host's locale. The client-side "while you were
+                        // away" copy has always formatted these; the Herald was
+                        // still shipping a bare `250000`.
+                        message: `${out.placed.placer} put ${out.placed.amount.toLocaleString('en-US')} ryo on ${targetDisplay}'s head (total ${(head?.amount ?? out.placed.amount).toLocaleString('en-US')}).`,
+                        player: out.placed.placer,
+                        meta: { target: targetSlug, amount: out.placed.amount, total: head?.amount ?? out.placed.amount },
+                    }, { receiptId: `bounty-placed:${targetSlug}:${head?.updatedAt ?? now}` });
+                } catch { /* best-effort */ }
+                // Tell the target — they wake up to "you're on the board" on
+                // their next heartbeat (best-effort; the escrow is already durable).
+                if (targetExists) {
+                    try {
+                        await pushOfflineNotice(targetSlug, { kind: 'bounty-placed', by: out.placed.placer, sector: 0, amount: out.placed.amount, total: head?.amount ?? out.placed.amount, at: now });
+                    } catch { /* best-effort */ }
+                }
+            }
             return res.status(out.status).json(out.body);
         }
 
@@ -218,6 +253,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }, { failClosed: true });
 
             if (out.paid) await kv.set(`${AUDIT_PREFIX}claim:${Date.now()}`, { ts: now, winner: playerName, target: safeName(loserName), amount: out.paid, battleId }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+            if (out.paid) {
+                // World Herald — the pool is credited; exact-once per battle.
+                try {
+                    await announce({
+                        type: 'bounty_claimed',
+                        importance: 'high',
+                        title: 'Bounty Collected',
+                        message: `${winnerName} collected the ${out.paid.toLocaleString('en-US')}-ryo bounty on ${loserName}.`,
+                        player: winnerName,
+                        meta: { battleId, target: safeName(loserName), amount: out.paid },
+                    }, { receiptId: `bounty-claimed:${battleId}` });
+                } catch { /* best-effort */ }
+                // Tell the loser their head was collected (best-effort).
+                try {
+                    await pushOfflineNotice(safeName(loserName), { kind: 'bounty-claimed', by: winnerName, sector: 0, amount: out.paid, at: now });
+                } catch { /* best-effort */ }
+            }
             return res.status(out.status).json(out.body);
         }
 

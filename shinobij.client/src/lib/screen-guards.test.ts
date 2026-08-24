@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
-import { isHospitalNavigationBlocked, isUnresolvedBattle, restoreScreenForSave, shouldRedirectToHospital, type BattleGuardSignals } from "./screen-guards";
+import { isHospitalNavigationBlocked, isUnresolvedBattle, restoreScreenForSave, safeFallbackScreen, screenResetsSector, shouldRedirectToHospital, type BattleGuardSignals } from "./screen-guards";
 
 const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const navigationGuardSource = readFileSync(new URL("./use-battle-navigation-guard.ts", import.meta.url), "utf8");
@@ -103,6 +103,34 @@ describe("screen navigation guards", () => {
     it("retains normal restorable screens and otherwise uses the village", () => {
         assert.equal(restoreScreenForSave("battleTowers", false), "battleTowers");
         assert.equal(restoreScreenForSave(null, false), "village");
+    });
+
+    it("never teleports a wild-sector player to the village on refresh", () => {
+        // Where you are is where you are: no restorable screen → back to the world.
+        assert.equal(restoreScreenForSave(null, false, false, false, true), "worldMap");
+        assert.equal(safeFallbackScreen(true), "worldMap");
+        assert.equal(safeFallbackScreen(false), "village");
+        // Lobbies / sealed encounters render from the save and are restored as-is.
+        for (const s of ["weeklyBoss", "villageWar", "endlessTower", "petArena", "petColiseum", "cardClashFreePlay", "sectorGarrison", "sectorPet", "sectorCard", "clanWarPet", "tilecardsDuel", "storyBoss"] as const) {
+            assert.equal(restoreScreenForSave(s, false, false, false, true), s, s);
+        }
+        // Ephemeral-state screens return to their parent, never the village.
+        assert.equal(restoreScreenForSave("userView", false), "userHub");
+        assert.equal(restoreScreenForSave("battleLog", false), "arena");
+        assert.equal(restoreScreenForSave("eventPetBattle", false, false, false, true), "worldMap");
+        assert.equal(restoreScreenForSave("pvpBattle", false, false, false, true), "worldMap");
+    });
+
+    it("only entering a town resets the sector — menus do not move the player", () => {
+        assert.equal(screenResetsSector("village"), true);
+        assert.equal(screenResetsSector("centralHub"), true);
+        assert.equal(screenResetsSector("hospital"), true);
+        for (const s of ["inventory", "profile", "pets", "messages", "worldMap", "weeklyBoss", "clan", "shop"] as const) {
+            assert.equal(screenResetsSector(s), false, s);
+        }
+        // The App effect must consult the guard rather than its own screen list.
+        assert.match(appSource, /if \(screenResetsSector\(screen\)\) setCurrentSector\(0\);/);
+        assert.doesNotMatch(appSource, /if \(!inField\) setCurrentSector\(0\)/);
     });
 
     it("refreshes the App navigation guard when a same-tab Tower lobby becomes a fight", () => {

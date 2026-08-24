@@ -42,6 +42,9 @@ export default defineConfig({
             DISABLE_SCHEDULED_JOBS: '1',
             DISABLE_REALTIME: '1',
             DISABLE_SNAPSHOT_CRON: '1',
+            // The matrix holds ONE PvP turn open across ten viewport captures
+            // (>45s); this measures geometry, not the turn clock.
+            DISABLE_PVP_TURN_DEADLINE: '1',
             SENTRY_DSN: '',
         },
     },

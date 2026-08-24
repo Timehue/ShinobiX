@@ -92,6 +92,18 @@ test('official Kage evidence and seat CAS recover lost acknowledgements exactly 
     assert.equal(replay.ok, true);
     const replayed = await kv.get<Record<string, any>>(stateKey);
     assert.equal(replayed?.history?.filter((entry: any) => entry.name === 'challenger').length, 1);
+
+    // The dethroning reached the World Herald exactly once — the lost-ack
+    // retry and the replay share the battle-keyed receipt.
+    const feed = (await kv.get<Array<Record<string, unknown>>>('game:announcements')) ?? [];
+    const posts = feed.filter((a) => a.type === 'kage_dethroned');
+    assert.equal(posts.length, 1, JSON.stringify(feed));
+    assert.equal(posts[0].importance, 'high');
+    assert.equal(posts[0].title, 'A New Kage Rises');
+    assert.equal(posts[0].message, 'challenger has defeated incumbent and taken the Kage seat of Leaf.');
+    assert.equal(posts[0].receiptId, `kage-dethroned:Leaf:${battleId}`);
+    const chat = (await kv.get<Array<Record<string, unknown>>>('chat:village:stormveil-village')) ?? [];
+    assert.equal(chat.filter((m) => m.receiptId === posts[0].receiptId).length, 1);
 });
 
 test('malformed or conflicting official pointers fail closed', async () => {

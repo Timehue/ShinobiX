@@ -1,5 +1,6 @@
 import type { Character } from '../types/character';
 import { makeId } from './utils';
+import { noteSectorPoolView, type SectorPoolView } from './sector-pool';
 
 /**
  * World-map reward settlement.
@@ -47,18 +48,38 @@ export type SectorExploreResult = {
     character?: Character;
     fieldProgress?: FieldExploreProgress[];
     saveVersion?: number;
+    sectorPool?: SectorPoolView;
     error?: string;
     status?: number;
     retryable?: boolean;
 };
 
-function worldRewardFailure(error: string, status?: number): { error: string; status?: number; retryable: boolean } {
+function worldRewardFailure(
+    error: string,
+    status?: number,
+    options: { committedReward?: boolean } = {},
+): { error: string; status?: number; retryable: boolean } {
     // Receipt replay happens before server presence/discovery validation. These
     // definitive 4xx responses therefore prove no payout committed and can be
     // retired; transport, auth-refresh, throttling, malformed success, and 5xx
     // remain parked on the same operation id.
     const pendingExternalDiscovery = error === "pending-pet-discovery" || error === "pending-dungeon-discovery";
-    const definitive = !pendingExternalDiscovery && (status === 400 || status === 403 || status === 404
+    // `sector-depleted` is a TIME-BOXED refusal (the shared per-sector pool
+    // resets at midnight UTC), so what it means depends on whether anything was
+    // already committed:
+    //   • Opening an ALREADY-DISCOVERED chest (`committedReward`) — the player
+    //     owns that chest and already spent a daily chest slot on it. Retiring
+    //     it threw the loot away while the server-side pending mirror kept
+    //     re-importing the entry, so the "picked clean" toast looped all day
+    //     over loot nobody could collect. Park it; tomorrow settles it.
+    //   • An explore refused at the pool — nothing was reserved, nothing was
+    //     written, and no receipt exists. Parking THAT would be the same
+    //     soft-lock in a different costume: the outbox retries it on the next
+    //     explore, the sector is still depleted, and every sector's exploring
+    //     is blocked behind it until midnight. Retire it and let the player
+    //     walk somewhere else.
+    const parkedDepletion = options.committedReward === true && error === "sector-depleted";
+    const definitive = !pendingExternalDiscovery && !parkedDepletion && (status === 400 || status === 403 || status === 404
         || status === 409 || status === 410 || status === 422);
     return { error, ...(typeof status === "number" ? { status } : {}), retryable: !definitive };
 }
@@ -89,7 +110,9 @@ export async function recordSectorExplore(
             }),
         });
         const data = await response.json().catch(() => null) as
-            { reward?: { sector: number; xp: number; ryo: number }; outcome?: SectorExploreOutcome; replayed?: boolean; character?: Character; fieldProgress?: FieldExploreProgress[]; _saveVersion?: number; error?: string } | null;
+            { reward?: { sector: number; xp: number; ryo: number }; outcome?: SectorExploreOutcome; replayed?: boolean; character?: Character; fieldProgress?: FieldExploreProgress[]; _saveVersion?: number; sectorPool?: SectorPoolView; error?: string } | null;
+        // Both the payout and a 'sector-depleted' refusal carry the live pool.
+        if (data?.sectorPool) noteSectorPoolView(sector, data.sectorPool);
         if (!response.ok || !data?.character) {
             return worldRewardFailure(data?.error || 'explore-failed', response.ok ? undefined : response.status);
         }
@@ -105,6 +128,7 @@ export async function recordSectorExplore(
             character: data.character,
             fieldProgress,
             saveVersion: data._saveVersion,
+            ...(data.sectorPool ? { sectorPool: data.sectorPool } : {}),
         };
     } catch {
         return worldRewardFailure('offline');
@@ -120,6 +144,7 @@ export type AncientChestResult = {
     loot?: AncientChestLoot;
     character?: Character;
     saveVersion?: number;
+    sectorPool?: SectorPoolView;
     error?: string;
     status?: number;
     retryable?: boolean;
@@ -143,13 +168,17 @@ export async function openAncientChest(
             body: JSON.stringify({ playerName, sector, requestId: operationId, worldExploreRequestId }),
         });
         const data = await response.json().catch(() => null) as
-            { loot?: AncientChestLoot; character?: Character; _saveVersion?: number; error?: string } | null;
+            { loot?: AncientChestLoot; character?: Character; _saveVersion?: number; sectorPool?: SectorPoolView; error?: string } | null;
+        if (data?.sectorPool) noteSectorPoolView(sector, data.sectorPool);
         if (!response.ok || !data?.loot || !data.character) {
-            return worldRewardFailure(data?.error || 'chest-failed', response.ok ? undefined : response.status);
+            // The chest already exists — it was discovered, sealed, and charged
+            // to the player's daily chest limit by /world/explore. A refusal here
+            // is a delay, never a verdict, so this leg never retires a payout.
+            return worldRewardFailure(data?.error || 'chest-failed', response.ok ? undefined : response.status, { committedReward: true });
         }
-        return { loot: data.loot, character: data.character, saveVersion: data._saveVersion };
+        return { loot: data.loot, character: data.character, saveVersion: data._saveVersion, ...(data.sectorPool ? { sectorPool: data.sectorPool } : {}) };
     } catch {
-        return worldRewardFailure('offline');
+        return worldRewardFailure('offline', undefined, { committedReward: true });
     }
 }
 

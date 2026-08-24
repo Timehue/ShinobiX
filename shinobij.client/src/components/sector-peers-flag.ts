@@ -1,5 +1,5 @@
 /*
- * sector-peers-flag — per-device opt-out for the live walking-peer overlay (2D).
+ * sector-peers-flag — the live walking-peer overlay (2D).
  *
  * When ON, other players in your sector render as grounded markers that GLIDE to
  * their real transmitted tile (with enter/exit fades) instead of static dots
@@ -7,10 +7,12 @@
  * module so <SectorPeers> and <WorldMap> can both read it without tripping
  * react-refresh's "components-only export" rule.
  *
- * Default ON. Opt-out with localStorage `sectorPeers.v1 = "off"` to fall back to
- * the original in-tile dot rendering (full revert, no code change needed).
+ * ALWAYS ON. This is a gameplay layer (it is how you see who is actually in the
+ * sector with you), so it is not a per-device choice: the old localStorage
+ * `sectorPeers.v1 = "off"` kill switch let one browser see a different world from
+ * everyone else's. The function is kept so call sites compile unchanged; it is a
+ * constant, never a storage read. Do not reintroduce a localStorage opt-out here.
  */
 export function isSectorLivePeersEnabled(): boolean {
-    if (typeof window === "undefined") return false;
-    try { return window.localStorage?.getItem("sectorPeers.v1") !== "off"; } catch { return true; }
+    return true;
 }

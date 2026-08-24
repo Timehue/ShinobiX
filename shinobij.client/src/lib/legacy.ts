@@ -36,9 +36,14 @@ export function isLegacyMutationEnabled(): boolean {
     );
 }
 
+// The Legacy system is a gameplay layer, not a per-device preference: the old
+// localStorage `legacy.v1 = "off"` switch let one browser hide sages, emissaries
+// and legacy rewards that the account still had. It is now a constant (ON); the
+// only gate that remains is the SERVER's ENABLE_LEGACY capability, read above via
+// the live-capabilities store. Kept as a function so the two availability
+// helpers read unchanged.
 function legacyPreferenceEnabled(): boolean {
-    if (typeof window === "undefined") return false;
-    try { return window.localStorage?.getItem("legacy.v1") !== "off"; } catch { return true; }
+    return true;
 }
 
 export type LegacyRarity = "basic" | "rare" | "legendary" | "mythic";

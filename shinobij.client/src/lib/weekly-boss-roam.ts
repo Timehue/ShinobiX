@@ -19,20 +19,20 @@
  * spawns the in-sector actor when the player enters `currentSector`.
  *
  * LIVE: WorldMap renders the roaming marker from this and the weekly boss is
- * fought by hunting it in the sector it is roaming, behind `weeklyBossRoam.v1`
- * (default ON, opt out per-device with `weeklyBossRoam.v1 = "off"`).
+ * fought by hunting it in the sector it is roaming. Always on — the boss's
+ * position is a world fact, so there is no per-device toggle (the old
+ * `weeklyBossRoam.v1 = "off"` switch was removed 2026-08). Callers should pass
+ * `serverNow()` so a skewed device agrees with everyone else on where it is.
  */
 
 import { SECTOR_POINTS } from "../data/sector-points";
 import { isWildSector } from "../../../shared/sector-geo";
 
-// Default ON for everyone (opt-out per-device with localStorage
-// `weeklyBossRoam.v1 = "off"`), matching the wanderers.v1 convention. The whole
-// roaming layer — world-map marker, in-sector encounter, and the tracker reskin —
-// is live: the weekly boss is fought by HUNTING it in the sector it's roaming.
+// The whole roaming layer — world-map marker, in-sector encounter, and the
+// tracker reskin — is live for everyone: the weekly boss is fought by HUNTING it
+// in the sector it's roaming. Kept as a function so call sites compile unchanged.
 export function isWeeklyBossRoamEnabled(): boolean {
-    if (typeof window === "undefined") return false;
-    try { return window.localStorage?.getItem("weeklyBossRoam.v1") !== "off"; } catch { return true; }
+    return true;
 }
 
 // Per-player back-off after a roaming-boss encounter, so it doesn't immediately
@@ -173,7 +173,7 @@ function roamPath(seed: number, hop: number): number[] {
  *
  * @param boss  the live weekly-boss state (needs weekKey + startedAt; expiresAt
  *              optional) — or null/undefined when no boss is spawned.
- * @param now   wall-clock ms (pass Date.now(); injected for testability).
+ * @param now   wall-clock ms on the SERVER's clock (pass serverNow(); injected for testability).
  * @returns     the derived roam state, or null when there is no boss to place.
  */
 export function weeklyBossRoamState(

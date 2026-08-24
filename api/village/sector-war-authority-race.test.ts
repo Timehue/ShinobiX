@@ -151,3 +151,37 @@ describe('sector-war declaration funding source', { concurrency: false }, () => 
         assert.deepEqual(await kv.get(CALLER_SAVE_KEY), callerSave);
     });
 });
+
+describe('sector-war declaration World Herald', { concurrency: false }, () => {
+    it('announces War Drums exactly once, even when the declaration is replayed', async () => {
+        await kv.set(CALLER_SAVE_KEY, {
+            _saveVersion: 3,
+            _saveAt: Date.now() - 1_000,
+            character: { name: 'Authority Race Admin', village: ATTACKER, honorSeals: 800 },
+        });
+
+        const first = await declare();
+        assert.equal(first.statusCode, 200, JSON.stringify(first.body));
+        // A second identical declaration is refused (the contest is already
+        // live) and must not re-announce. The announcement receipt is keyed on
+        // the contest + generation, so a recovered/replayed activation of the
+        // SAME declaration cannot post twice either.
+        const second = await declare();
+        assert.equal(second.statusCode, 409, JSON.stringify(second.body));
+
+        const feed = (await kv.get<Array<Record<string, unknown>>>('game:announcements')) ?? [];
+        const drums = feed.filter((a) => a.type === 'sector_war_declared');
+        assert.equal(drums.length, 1, JSON.stringify(feed));
+        assert.equal(drums[0].importance, 'high');
+        assert.equal(drums[0].title, 'War Drums');
+        assert.equal(
+            drums[0].message,
+            `${ATTACKER} has declared war on Sector ${SECTOR}, held by ${OLD_DEFENDER}. The contest runs 72 hours.`,
+        );
+        assert.equal(drums[0].receiptId, 'sector-war-declared:23:moonshadowvillage-vs-frostfangvillage:g1');
+
+        // High importance also lands as one herald line per village chat.
+        const chat = (await kv.get<Array<Record<string, unknown>>>('chat:village:stormveil-village')) ?? [];
+        assert.equal(chat.filter((m) => m.receiptId === drums[0].receiptId).length, 1);
+    });
+});

@@ -2,9 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
+    WEEKLY_BOSS_BROKEN_HP_FRACTION,
     applyWeeklyBossRunDamageReceipt,
+    isWeeklyBossBroken,
     reserveWeeklyBossAttemptReceipt,
     rollbackWeeklyBossAttemptReceipt,
+    weeklyBossEncounterStartHp,
+    weeklyBossSharedHpRemaining,
     weeklyBossSpawnIdentity,
 } from './weekly-boss.js';
 
@@ -17,7 +21,7 @@ test('Weekly Boss spawn identity is explicit for new generations and stable for 
     assert.notEqual(weeklyBossSpawnIdentity({ ...fields, startedAt: 124 }), legacy);
 });
 
-test('Weekly Boss is a one-human/one-AI Solo PvE score attack', () => {
+test('Weekly Boss is a one-human/one-AI Solo PvE fight against the shared world boss', () => {
     const api = readFileSync('api/weekly-boss.ts', 'utf8');
     const arena = readFileSync('shinobij.client/src/screens/WeeklyBossArena.tsx', 'utf8');
     const fight = readFileSync('shinobij.client/src/screens/WeeklyBossFight.tsx', 'utf8');
@@ -80,4 +84,74 @@ test('Weekly Boss contribution banking is idempotent per authoritative run', () 
     assert.equal(replay.replayed, true);
     assert.equal(replay.damage, 125);
     assert.equal(replay.boss.damageByPlayer.alice, 175);
+});
+
+const sharedBoss = (hpMax: number, damageByPlayer: Record<string, number> = {}) => ({
+    weekKey: '2026-W31', aiId: 'oni', hpMax, hpRemaining: hpMax, scaleFactor: 1,
+    damageByPlayer, startedAt: 1, expiresAt: 2,
+});
+
+test('Weekly Boss attempt settlement decrements the ONE shared HP pool', () => {
+    const state = sharedBoss(10_000);
+    assert.equal(weeklyBossSharedHpRemaining(state), 10_000);
+    const settled = applyWeeklyBossRunDamageReceipt(state, 'run-a', 'alice', 2_500);
+    assert.equal(settled.boss.hpRemaining, 7_500);
+    assert.equal(weeklyBossSharedHpRemaining(settled.boss), 7_500);
+    assert.equal(isWeeklyBossBroken(settled.boss), false);
+    const replay = applyWeeklyBossRunDamageReceipt(settled.boss, 'run-a', 'alice', 2_500);
+    assert.equal(replay.boss.hpRemaining, 7_500, 'a replayed receipt never double-decrements the pool');
+});
+
+test('Weekly Boss shared pool is the sum of every player\'s damage', () => {
+    const state = sharedBoss(10_000);
+    const afterAlice = applyWeeklyBossRunDamageReceipt(state, 'run-a', 'alice', 3_000).boss;
+    const afterBob = applyWeeklyBossRunDamageReceipt(afterAlice, 'run-b', 'bob', 4_000).boss;
+    assert.equal(afterBob.hpRemaining, 3_000);
+    assert.deepEqual(afterBob.damageByPlayer, { alice: 3_000, bob: 4_000 });
+    assert.equal(weeklyBossEncounterStartHp(afterBob), 3_000,
+        'the next attempt opens where the world left the boss');
+});
+
+test('Weekly Boss shared pool clamps at 0 and leaderboard damage still counts', () => {
+    const state = sharedBoss(10_000, { alice: 9_000 });
+    assert.equal(weeklyBossSharedHpRemaining(state), 1_000);
+    const overkill = applyWeeklyBossRunDamageReceipt(state, 'run-b', 'bob', 1_500);
+    assert.equal(overkill.boss.hpRemaining, 0);
+    assert.equal(overkill.damage, 1_500, 'leaderboard damage is not clamped to the pool');
+    assert.equal(overkill.boss.damageByPlayer.bob, 1_500);
+    assert.equal(isWeeklyBossBroken(overkill.boss), true);
+});
+
+test('A Broken Weekly Boss still accepts attempts and still scores', () => {
+    const broken = sharedBoss(10_000, { alice: 10_000 });
+    assert.equal(isWeeklyBossBroken(broken), true);
+    assert.equal(weeklyBossEncounterStartHp(broken), Math.floor(10_000 * WEEKLY_BOSS_BROKEN_HP_FRACTION),
+        'a broken boss fights at the fixed floor, never at 0');
+    const reserved = reserveWeeklyBossAttemptReceipt(broken, 'run-c', 'carol');
+    assert.ok(reserved, 'attempt reservation ignores the pool');
+    const scored = applyWeeklyBossRunDamageReceipt(reserved.boss, 'run-c', 'carol', 800);
+    assert.equal(scored.boss.damageByPlayer.carol, 800);
+    assert.equal(scored.boss.hpRemaining, 0);
+    assert.equal(weeklyBossEncounterStartHp(scored.boss), Math.floor(10_000 * WEEKLY_BOSS_BROKEN_HP_FRACTION));
+    assert.equal(weeklyBossEncounterStartHp(sharedBoss(5, { x: 5 })), 1, 'floor is never below 1 HP');
+});
+
+test('Weekly Boss shared HP survives across attempts and heals legacy pinned states', () => {
+    let boss = sharedBoss(10_000);
+    for (const [i, dmg] of [1_000, 2_000, 500].entries()) {
+        boss = applyWeeklyBossRunDamageReceipt(boss, `run-${i}`, 'alice', dmg).boss;
+    }
+    assert.equal(boss.hpRemaining, 6_500);
+    assert.equal(weeklyBossEncounterStartHp(boss), 6_500);
+    // A pre-cutover state pinned hpRemaining to hpMax; the derived read ignores it.
+    const legacy = { ...sharedBoss(10_000, { alice: 4_000 }), hpRemaining: 10_000 };
+    assert.equal(weeklyBossSharedHpRemaining(legacy), 6_000);
+});
+
+test('Weekly Boss settle path clamps reported damage to the HP the encounter opened with', () => {
+    const api = readFileSync('api/weekly-boss.ts', 'utf8');
+    assert.match(api, /Math\.min\(validation\.damage, Math\.floor\(Number\(run\.initialBossHp\)/);
+    assert.match(api, /session\.enemy\.hp = weeklyBossEncounterStartHp\(boss!\)/);
+    assert.doesNotMatch(api, /session\.enemy\.hp = Math\.max\(1, Math\.floor\(enemyTemplate\.hp\)\)/,
+        'the 99,999,999 sentinel must not be restored onto the encounter');
 });

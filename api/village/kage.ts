@@ -10,6 +10,8 @@ import { announce, postVillageHerald, addHallEntry } from '../_announce.js';
 import { applyKageUnlock, type KageUnlockState } from './_kage-unlock.js';
 import { openReign, closeCurrentReign, applyAdminReset, type KageStateLike } from './_kage-challenge.js';
 import { reconcilePendingKageSettle } from './_kage-settle.js';
+import { kageInactiveAt, saveAtFromRecord } from './_kage-inactivity.js';
+import { claimVacantKageSeat } from './_kage-claim.js';
 
 type VillageKageState = KageUnlockState & Partial<KageStateLike>;
 
@@ -76,8 +78,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // press loop is idle). Best-effort; the response reflects the result.
             await reconcilePendingKageSettle(village, Date.now()).catch(() => undefined);
             const state = await kv.get<VillageKageState>(kageKey(village)) ?? { kageSystemUnlocked: false };
+            // Inactivity visibility BEFORE the daily pass fires: the seated
+            // Kage's last autosave and the date the seat opens if they stay
+            // absent (_kage-inactivity.ts). Best-effort — an unreadable save
+            // just omits both fields.
+            let activity: { kageLastActiveAt: number; kageInactiveAt: number } | null = null;
+            if (state.kageSystemUnlocked && state.seatedKage) {
+                const lastActiveAt = saveAtFromRecord(await kv.get<unknown>(`save:${safeName(state.seatedKage)}`).catch(() => null));
+                if (lastActiveAt != null) activity = { kageLastActiveAt: lastActiveAt, kageInactiveAt: kageInactiveAt(lastActiveAt) };
+            }
             res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
-            return res.status(200).json(state);
+            return res.status(200).json({ ...state, ...(activity ?? {}) });
         } catch (err) {
             console.error('[village/kage]', err);
             return res.status(500).json({ error: 'Internal server error.' });
@@ -97,7 +108,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const { village: bodyVillage, playerName, action } = body as {
                 village?: string;
                 playerName?: string;
-                action?: 'unlock' | 'seat' | 'reset';
+                action?: 'unlock' | 'seat' | 'reset' | 'claim';
             };
             const v = (bodyVillage ?? '').trim() || village;
             if (!v || !playerName) return res.status(400).json({ error: 'Missing village or playerName.' });
@@ -108,6 +119,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             const key = kageKey(v);
+
+            // ── CLAIM a vacant seat ───────────────────────────────────────────
+            // Unlocked village, nobody seated (inactivity vacancy or otherwise):
+            // any villager who meets the challenge gates may take the seat.
+            // First-come wins under the kage lock (_kage-claim.ts); heralded.
+            if (action === 'claim') {
+                const claim = await claimVacantKageSeat(v, safeName(playerName), Date.now(), { isAdmin: identity.admin });
+                if (!claim.ok) return res.status(claim.status).json({ error: claim.error });
+                return res.status(200).json(claim.state);
+            }
 
             // ── Server-side requirement gate (unlock) ─────────────────────────
             // Verified BEFORE the village lock so it also covers the

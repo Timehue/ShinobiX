@@ -1,18 +1,24 @@
 /*
  * Day/night cycle — a single, deterministic source of "time of day" derived from
- * the player's real local clock. It drives the <DayNightSky> tint/vignette
- * overlay and the <SceneCritters> fauna picker (fireflies at night, butterflies
- * by day) so the whole world breathes through dawn → day → dusk → night in step.
+ * the SERVER's clock in UTC (lib/server-clock `serverNow()`), so every player in
+ * the world shares one sky. It drives the <DayNightSky> tint/vignette overlay
+ * and the <SceneCritters> fauna picker (fireflies at night, butterflies by day)
+ * so the whole world breathes through dawn → day → dusk → night in step.
  *
  * Pure + side-effect free: $0, no network, no assets, no payload. The clock is
- * only ever read by callers (in effects/intervals), never baked into game state,
- * so two devices in different time zones simply see their own local sky — there
- * is nothing to desync.
+ * only ever read by callers (in effects/intervals), never baked into game
+ * state. Two devices in different time zones see the SAME sky (it is the
+ * world's day, not the device's), and a device with a wrong clock is corrected
+ * by the server-clock offset.
  *
- * QA overrides (localStorage, client-only):
- *   dayCycle.v1   = "off"   → force flat daylight (disables the whole overlay)
- *   dayCycle.hour = "21"    → pin the sky to a fixed hour (0–24) for feel-checks
+ * Overrides (localStorage, client-only):
+ *   dayCycle.v1   = "off"   → force flat daylight (disables the whole overlay) — cosmetic, any build
+ *   dayCycle.hour = "21"    → pin the sky to a fixed hour (0–24) — DEV BUILDS ONLY
+ *                             (import.meta.env.DEV); ignored in production so the
+ *                             shared world clock cannot be bypassed.
  */
+
+import { serverNow } from "./server-clock";
 
 export type DayPhase = "dawn" | "day" | "dusk" | "night";
 
@@ -111,18 +117,40 @@ export function skyAtHour(hour: number): SkyState {
     };
 }
 
-/** Continuous local hour (0–24) for a Date, honouring the QA `dayCycle.hour` pin. */
-export function currentHour(now: Date): number {
-    if (typeof window !== "undefined") {
-        try {
-            const forced = window.localStorage?.getItem("dayCycle.hour");
-            if (forced != null && forced !== "") {
-                const f = Number(forced);
-                if (Number.isFinite(f)) return ((f % 24) + 24) % 24;
-            }
-        } catch { /* private mode — fall through to the real clock */ }
-    }
-    return now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
+/** True only in Vite dev builds (and never under node tests / production). */
+function devBuild(): boolean {
+    try {
+        return typeof import.meta.env !== "undefined" && import.meta.env.DEV === true;
+    } catch { return false; }
+}
+
+/** The dev-only `dayCycle.hour` pin, or null when absent / not a dev build. */
+function devHourOverride(): number | null {
+    if (!devBuild() || typeof window === "undefined") return null;
+    try {
+        const forced = window.localStorage?.getItem("dayCycle.hour");
+        if (forced == null || forced === "") return null;
+        const f = Number(forced);
+        return Number.isFinite(f) ? ((f % 24) + 24) % 24 : null;
+    } catch { return null; /* private mode — fall through to the world clock */ }
+}
+
+/** Continuous UTC hour (0–24) for a server-clock ms timestamp. Pure. */
+export function worldHourAt(nowMs: number): number {
+    const ms = ((nowMs % 86_400_000) + 86_400_000) % 86_400_000;
+    return ms / 3_600_000;
+}
+
+/**
+ * Continuous world hour (0–24) right now — the server's UTC clock, shared by
+ * everyone. Accepts a ms timestamp or Date for callers/tests that supply one
+ * (a Date is read as its absolute instant, never its local wall-clock hour);
+ * defaults to `serverNow()`. Honours the dev-only `dayCycle.hour` pin.
+ */
+export function currentHour(now: number | Date = serverNow()): number {
+    const pinned = devHourOverride();
+    if (pinned != null) return pinned;
+    return worldHourAt(typeof now === "number" ? now : now.getTime());
 }
 
 /** True when the day/night overlay has been disabled for this device. */
@@ -131,8 +159,8 @@ export function dayCycleDisabled(): boolean {
     try { return window.localStorage?.getItem("dayCycle.v1") === "off"; } catch { return false; }
 }
 
-/** The sky for "now" (a passed-in Date so the read stays out of render). */
-export function skyNow(now: Date): SkyState {
+/** The sky for "now" on the shared world clock (call from effects, not render). */
+export function skyNow(now: number | Date = serverNow()): SkyState {
     return skyAtHour(currentHour(now));
 }
 

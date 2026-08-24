@@ -39,7 +39,9 @@ type ClanContext = {
     isAdmin: boolean;
 };
 
-const TREASURY_KEYS = ['ryo', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals', 'warSupply'] as const;
+// provisions = the clan mirror of Village Stores rations (ration-pack donations
+// via /api/clan/treasury/donate; burned by the daily clan-war pass).
+const TREASURY_KEYS = ['ryo', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals', 'warSupply', 'provisions'] as const;
 // #17 — clan-treasury currencies are now CREDITED ONLY by server endpoints, not
 // the save blob: the donatable currencies (ryo/fateShards/boneCharms/auraStones/
 // mythicSeals) via /api/clan/treasury/donate, and warSupply via

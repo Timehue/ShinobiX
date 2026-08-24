@@ -47,16 +47,19 @@ export async function postPlayerChallengeNotice(
 // Atomic village-treasury donation — village twin of the clan helper above
 // (api/village/treasury/donate.ts). Returns the server-credited treasury
 // (contributionPoints / notice stay client-side), or null on failure.
-export async function postVillageTreasuryDonation(playerName: string, village: string, donation: TreasuryDonationBody): Promise<{ treasury: Record<string, unknown>; character: Character; _saveVersion?: number } | null> {
+// `stores` is present when the Village Stores routed an item donation
+// (ration-pack → provisions, hunt-*/relics → material points); a 429 daily-cap
+// rejection surfaces as the server's `error` text through the same alert.
+export async function postVillageTreasuryDonation(playerName: string, village: string, donation: TreasuryDonationBody): Promise<{ treasury: Record<string, unknown>; character: Character; _saveVersion?: number; stores?: { provisions?: number; materialPoints?: number } } | null> {
     try {
         const res = await fetch("/api/village/treasury/donate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ playerName, village, ...donation }),
         });
-        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; character?: Character; _saveVersion?: number };
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; character?: Character; _saveVersion?: number; stores?: { provisions?: number; materialPoints?: number } };
         if (!res.ok || !data.ok || !data.treasury || !data.character) { alert(data.error || AMBIGUOUS_ACTION_MESSAGE); return null; }
-        return { treasury: data.treasury, character: data.character, _saveVersion: data._saveVersion };
+        return { treasury: data.treasury, character: data.character, _saveVersion: data._saveVersion, ...(data.stores ? { stores: data.stores } : {}) };
     } catch {
         alert(AMBIGUOUS_ACTION_MESSAGE);
         return null;

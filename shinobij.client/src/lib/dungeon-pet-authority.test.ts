@@ -79,7 +79,7 @@ describe("Dungeon pet client authority adapter", () => {
         assert.doesNotMatch(app, /dungeonStage|setDungeonStage/);
         assert.match(app, /onVersionedCharacter=\{commitVersionedCharacter\}/);
         assert.match(app, /onClaimReward=\{completeDungeon\}/);
-        assert.match(app, /restoreScreenForSave\(persisted, inHollowGateRun, normalized\.hospitalized, inDungeonRun\)/);
+        assert.match(app, /restoreScreenForSave\(persisted, inHollowGateRun, normalized\.hospitalized, inDungeonRun, isWildSector\(/);
         assert.match(app, /setActiveDungeonRunToken\(normalized\.activeDungeonRun\.token\)/);
         assert.match(app, /!character\.activeDungeonRun\?\.token && !ownsItem\(character, DUNGEON_KEY_ID\)/);
     });
