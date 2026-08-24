@@ -7,9 +7,10 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { sanitizeUserText } from '../_text-moderation.js';
-import { buildNamedItem, debitNamedForge, makeNamedForgeReceipt, resolveNamedForgeReplay, rollNamedForge, type NamedRoll } from './_named.js';
+import { buildNamedItem, debitNamedForge, makeNamedForgeReceipt, NAMED_FORGE_COST, resolveNamedForgeReplay, rollNamedForge, type NamedRoll } from './_named.js';
 import { recordForgedItem } from '../_forged-item-registry.js';
 import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
+import { namedForgePointTotal } from '../../shared/named-forge-economy.js';
 
 const cleanToken = (v: unknown) => typeof v === 'string' && /^[A-Za-z0-9]{16,96}$/.test(v) ? v : '';
 
@@ -56,7 +57,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const sealed = await kv.get<{ playerName: string; roll: NamedRoll }>(`named-forge:${playerName}:${token}`);
             if (!sealed || sealed.playerName !== playerName) return { ok: false as const, status: 409, error: 'invalid-or-spent-roll' };
-            const paid = debitNamedForge(character); if (!paid) return { ok: false as const, status: 409, error: 'insufficient-forge-materials' };
+            const paid = debitNamedForge(character);
+            if (!paid) {
+                const error = namedForgePointTotal(character) < NAMED_FORGE_COST
+                    ? 'insufficient-forge-materials'
+                    : `Whole materials cannot make the exact ${NAMED_FORGE_COST}-point forge payment.`;
+                return { ok: false as const, status: 409, error };
+            }
             const item = buildNamedItem(sealed.roll, sanitizeUserText(body.name, 60), sanitizeUserText(body.flavorText, 300));
             const inventory = Array.isArray(paid.inventory) ? paid.inventory as string[] : [];
             return { ok: true as const, character: { ...paid, inventory: [...inventory, item.id], redeemedNamedForges: [...receipts.slice(-49), makeNamedForgeReceipt(token, item.id)] }, recordPatch: { creatorItems: [...creatorItems.slice(-199), item] }, value: { replayed: false, item } };

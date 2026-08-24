@@ -1,8 +1,8 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
+import { debitNamedForgeWallet, NAMED_FORGE_COST } from '../../shared/named-forge-economy.js';
 
-export const NAMED_FORGE_COST = 1000;
-const CURRENCY_POINTS = { boneCharms: 5, fateShards: 5, auraStones: 25, mythicSeals: 75 } as const;
+export { NAMED_FORGE_COST } from '../../shared/named-forge-economy.js';
 const WEAPON_TAGS = ['Siphon', 'Absorb', 'Poison', 'Wound', 'Reflect', 'Shield', 'Drain', 'Ignition', 'Heal', 'Increase Damage Given', 'Increase Generals', 'Decrease Damage Taken'];
 const ARMOR_SPECIALS = [
     { kind: 'Absorb', bonusKey: 'absorbPercent', min: 0.08, max: 2, decimals: 2 },
@@ -60,15 +60,7 @@ export function rollNamedForge(kind: 'weapon' | 'armor', slotRaw?: unknown): Nam
 }
 
 export function debitNamedForge(character: Record<string, unknown>): Record<string, unknown> | null {
-    const total = Object.entries(CURRENCY_POINTS).reduce((sum, [key, points]) => sum + Math.max(0, Math.floor(Number(character[key]) || 0)) * points, 0);
-    if (total < NAMED_FORGE_COST) return null;
-    const next = { ...character }; let remaining = NAMED_FORGE_COST;
-    for (const [key, points] of Object.entries(CURRENCY_POINTS)) {
-        const held = Math.max(0, Math.floor(Number(next[key]) || 0));
-        const used = Math.min(held, Math.ceil(remaining / points));
-        next[key] = held - used; remaining -= used * points;
-    }
-    return next;
+    return debitNamedForgeWallet(character);
 }
 
 export function buildNamedItem(roll: NamedRoll, nameRaw: string, flavorRaw: string) {
@@ -76,7 +68,7 @@ export function buildNamedItem(roll: NamedRoll, nameRaw: string, flavorRaw: stri
     if (roll.kind === 'weapon') {
         const name = nameRaw || 'Named Weapon';
         const tagDesc = roll.tags.map((tag) => `${tag.name} ${tag.percent}%`).join(', ');
-        return { id, name, slot: 'hand', rarity: 'legendary', cost: 0, description: flavorRaw || `A master-forged weapon. Tags: ${tagDesc}.`, weaponEp: roll.ep, apCost: 40, weaponRange: roll.range, weaponCooldown: 5, weaponTags: roll.tags, flavorText: flavorRaw || undefined, bonuses: { ninjutsuOffense: roll.offenseVal, taijutsuOffense: roll.offenseVal, bukijutsuOffense: roll.offenseVal, genjutsuOffense: roll.offenseVal } };
+        return { id, name, slot: 'hand', rarity: 'legendary', cost: 0, levelReq: NAMED_ITEM_LEVEL_REQ, description: flavorRaw || `A master-forged weapon. Tags: ${tagDesc}.`, weaponEp: roll.ep, apCost: 40, weaponRange: roll.range, weaponCooldown: 5, weaponTags: roll.tags, flavorText: flavorRaw || undefined, bonuses: { ninjutsuOffense: roll.offenseVal, taijutsuOffense: roll.offenseVal, bukijutsuOffense: roll.offenseVal, genjutsuOffense: roll.offenseVal } };
     }
     const slotLabel = roll.slot === 'hand' ? 'Gloves' : roll.slot[0].toUpperCase() + roll.slot.slice(1);
     let name = nameRaw || `Named ${slotLabel}`; if (roll.slot === 'hand' && !/glove|gauntlet/i.test(name)) name += ' Gauntlets';

@@ -24,6 +24,19 @@ describe("Central Hub release authority", () => {
         assert.match(hub, /commitNamedForgeServer/);
         assert.match(hub, /forgeServer/);
         assert.doesNotMatch(hub, /Math\.random|function\s+\w+Local\(/);
+        assert.match(hub, /NAMED_FORGE_CURRENCY_POINTS/);
+        assert.match(hub, /canPayNamedForge\(character\)/);
+        assert.doesNotMatch(hub, /boneCharms:\s*\d|auraStones:\s*\d/);
+
+        for (const call of [
+            "commitNamedForgeServer(character.name, namedWeaponToken",
+            "commitNamedForgeServer(character.name, namedArmorToken",
+        ]) {
+            const start = hub.indexOf(call);
+            const block = hub.slice(start, hub.indexOf("finally", start));
+            assert.ok(block.indexOf("commitServerCharacter(result.character") < block.indexOf("setCreatorItems((current)"),
+                "the authoritative account/version must be accepted before projecting its forged item");
+        }
     });
 
     it("keeps the named-forge reveal truthful, accessible, and off the startup stylesheet", () => {

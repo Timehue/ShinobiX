@@ -1,8 +1,14 @@
 /* eslint-disable react-hooks/purity */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { serverNow } from "../lib/server-clock";
 import { NAMED_ITEM_LEVEL_REQ } from "../../../shared/item-level-gate";
-import type { CSSProperties, ReactElement } from "react";
+import {
+    canPayNamedForge,
+    NAMED_FORGE_COST,
+    NAMED_FORGE_CURRENCY_POINTS,
+    namedForgePointTotal,
+} from "../../../shared/named-forge-economy";
+import type { CSSProperties, Dispatch, ReactElement, SetStateAction } from "react";
 import "../styles/central-skin.css";
 import "../styles/central-hub-forge.css";
 // Compact local location and material glyphs shared with the rest of the game.
@@ -216,7 +222,7 @@ export function CentralHub({
     onVersionedCharacter?: VersionedCharacterCommit;
     onServerVersion?: (version?: number) => void;
     creatorItems: GameItem[];
-    setCreatorItems: (items: GameItem[]) => void;
+    setCreatorItems: Dispatch<SetStateAction<GameItem[]>>;
     playableAis: CreatorAi[];
     sharedImages?: Record<string, string>;
 }) {
@@ -364,14 +370,11 @@ export function CentralHub({
         }
     }
 
-    // Named Weapon uses premium currencies, not hunt-material craft points
-    const NW_CURRENCY_PTS: Record<string, number> = {
-        boneCharms: 5,
-        fateShards: 5,
-        auraStones: 25,
-        mythicSeals: 75,
-    };
-    const NW_COST = 1000; // total points needed
+    // Named gear uses one shared premium-currency economy on both sides of the
+    // request boundary. The exact-payment check prevents whole materials from
+    // silently rounding a 1,000-point forge upward.
+    const NW_CURRENCY_PTS = NAMED_FORGE_CURRENCY_POINTS;
+    const NW_COST = NAMED_FORGE_COST;
     // Named gear is the level-90 tier (shared/item-level-gate.ts) and the SERVER
     // refuses both the roll and the forge below it. Mirror that here so the
     // panel explains the lock instead of handing back a 403 after a click — a
@@ -379,26 +382,25 @@ export function CentralHub({
     const namedForgeLocked = Math.max(1, Math.floor(Number(character.level) || 1)) < NAMED_ITEM_LEVEL_REQ;
     const namedForgeLockMessage = `Named forging unlocks at Level ${NAMED_ITEM_LEVEL_REQ}. You are Level ${character.level}.`;
 
-    function namedWeaponCurrencyPts(): number {
-        return (
-            (character.boneCharms ?? 0) * NW_CURRENCY_PTS.boneCharms +
-            (character.fateShards ?? 0) * NW_CURRENCY_PTS.fateShards +
-            (character.auraStones ?? 0) * NW_CURRENCY_PTS.auraStones +
-            (character.mythicSeals ?? 0) * NW_CURRENCY_PTS.mythicSeals
-        );
-    }
+    const { namedForgePts, namedForgePaymentReady } = useMemo(() => ({
+        namedForgePts: namedForgePointTotal(character),
+        namedForgePaymentReady: canPayNamedForge(character),
+    }), [character]);
+    const namedForgePaymentError = namedForgePts < NW_COST
+        ? `Not enough materials. Need ${NW_COST} forge pts.`
+        : `Your materials are worth ${namedForgePts} forge pts, but whole materials cannot make exactly ${NW_COST}. Add Bone Charms or Fate Shards to complete an exact payment.`;
 
     async function forgeNamedWeapon() {
         if (!requireServerSettlement("creatorItemCraft")) return;
         if (!namedWeaponRoll || !namedWeaponToken) return;
-        if (namedWeaponCurrencyPts() < NW_COST) return alert(`Not enough materials. Need ${NW_COST} forge pts.`);
+        if (!namedForgePaymentReady) return alert(namedForgePaymentError);
         if (!beginNamedForge()) return;
         try {
             const result = await commitNamedForgeServer(character.name, namedWeaponToken, namedWeaponName, namedWeaponFlavorText);
             if (!result.character || !result.item) return alert(result.error || "The named weapon forge failed.");
             const item: GameItem = { ...result.item, ...(namedWeaponImage ? { image: namedWeaponImage } : {}) };
-            setCreatorItems([...creatorItems.filter((entry) => entry.id !== item.id), item]);
             if (!commitServerCharacter(result.character, result._saveVersion)) return;
+            setCreatorItems((current) => [...current.filter((entry) => entry.id !== item.id), item]);
             if (namedWeaponImage) {
                 void publishSharedImage(`item:${item.id}`, namedWeaponImage).then((ok) => {
                     if (!ok) alert(`Heads up - ${item.name} was forged, but its image could not be saved.`);
@@ -477,14 +479,14 @@ export function CentralHub({
     async function forgeNamedArmor() {
         if (!requireServerSettlement("creatorItemCraft")) return;
         if (!namedArmorRoll || !namedArmorToken) return;
-        if (namedWeaponCurrencyPts() < NW_COST) return alert(`Not enough materials. Need ${NW_COST} forge pts.`);
+        if (!namedForgePaymentReady) return alert(namedForgePaymentError);
         if (!beginNamedForge()) return;
         try {
             const result = await commitNamedForgeServer(character.name, namedArmorToken, namedArmorName, namedArmorFlavorText);
             if (!result.character || !result.item) return alert(result.error || "The named armor forge failed.");
             const item: GameItem = { ...result.item, ...(namedArmorImage ? { image: namedArmorImage } : {}) };
-            setCreatorItems([...creatorItems.filter((entry) => entry.id !== item.id), item]);
             if (!commitServerCharacter(result.character, result._saveVersion)) return;
+            setCreatorItems((current) => [...current.filter((entry) => entry.id !== item.id), item]);
             if (namedArmorImage) {
                 void publishSharedImage(`item:${item.id}`, namedArmorImage).then((ok) => {
                     if (!ok) alert(`Heads up - ${item.name} was forged, but its image could not be saved.`);
@@ -1796,7 +1798,7 @@ export function CentralHub({
 
                             {/* -- Named Armor Forge -- */}
                             {crafterTab === "armor" && (() => {
-                                const naPts = namedWeaponCurrencyPts();
+                                const naPts = namedForgePts;
                                 const naFill = Math.min(100, Math.floor((naPts / NW_COST) * 100));
                                 return (
                                     <div className="nw-forge">
@@ -1826,6 +1828,11 @@ export function CentralHub({
                                             <div className="nw-total">
                                                 Total forge pts: <strong>{naPts}</strong> / {NW_COST}
                                             </div>
+                                            {naPts >= NW_COST && !namedForgePaymentReady && (
+                                                <div className="nw-total" style={{ color: "#f59e0b" }}>
+                                                    Exact payment unavailable — add Bone Charms or Fate Shards.
+                                                </div>
+                                            )}
                                             {namedForgeLocked && (
                                                 <div className="nw-total" style={{ color: "#ef4444", fontWeight: "bold" }}>
                                                     🔒 Unlocks at Level {NAMED_ITEM_LEVEL_REQ} — you are Level {character.level}
@@ -1895,7 +1902,7 @@ export function CentralHub({
                                         <button
                                             className="nw-roll"
                                             onClick={rollNamedArmor}
-                                            disabled={naPts < NW_COST || namedForgeLocked || namedForgeBusy || namedForgeAnimation !== null}
+                                            disabled={!namedForgePaymentReady || namedForgeLocked || namedForgeBusy || namedForgeAnimation !== null}
                                         >
                                             <GameIcon name="dice" size={16} style={HDR_ICON} />
                                             {namedForgeAnimation?.kind === "armor"
@@ -1984,7 +1991,7 @@ export function CentralHub({
 
                             {/* -- Named Weapon Forge -- */}
                             {crafterTab === "weapons" && (() => {
-                                const nwPts = namedWeaponCurrencyPts();
+                                const nwPts = namedForgePts;
                                 const nwFill = Math.min(100, Math.floor((nwPts / NW_COST) * 100));
                                 return (
                                     <div className="nw-forge">
@@ -2014,6 +2021,11 @@ export function CentralHub({
                                             <div className="nw-total">
                                                 Total forge pts: <strong>{nwPts}</strong> / {NW_COST}
                                             </div>
+                                            {nwPts >= NW_COST && !namedForgePaymentReady && (
+                                                <div className="nw-total" style={{ color: "#f59e0b" }}>
+                                                    Exact payment unavailable — add Bone Charms or Fate Shards.
+                                                </div>
+                                            )}
                                             {namedForgeLocked && (
                                                 <div className="nw-total" style={{ color: "#ef4444", fontWeight: "bold" }}>
                                                     🔒 Unlocks at Level {NAMED_ITEM_LEVEL_REQ} — you are Level {character.level}
@@ -2086,7 +2098,7 @@ export function CentralHub({
                                         <button
                                             className="nw-roll"
                                             onClick={rollNamedWeapon}
-                                            disabled={nwPts < NW_COST || namedForgeLocked || namedForgeBusy || namedForgeAnimation !== null}
+                                            disabled={!namedForgePaymentReady || namedForgeLocked || namedForgeBusy || namedForgeAnimation !== null}
                                         >
                                             <GameIcon name="dice" size={16} style={HDR_ICON} />
                                             {namedForgeAnimation?.kind === "weapon"
