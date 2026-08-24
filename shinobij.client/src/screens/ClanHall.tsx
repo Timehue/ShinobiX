@@ -31,6 +31,11 @@ import type { GameItem } from "../types/combat";
 import { TERRITORY_CAPTURE_MIN_MEMBERS, TERRITORY_CAPTURE_SCROLLS, TERRITORY_CONTROL_MAX, TERRITORY_CONTROL_SCROLL_ID, TERRITORY_HP_MAX, TERRITORY_REBUILD_COOLDOWN_MS } from "../constants/game";
 import type { WeatherType, Screen } from "../types/core";
 import { clanMissionProgress } from "../lib/clan-math";
+import {
+    CLAN_WAR_RATIONS_PER_DAY, clanRationCreditLine, clanRationDonateBlock, clanRationDonateLabel,
+    clanRationDonationCapLine, clanRationDonationCount, clanRationsHeldLabel,
+} from "../lib/clan-stores";
+import { RATION_ITEM_ID, storesDonationBucket, storesDonationGate } from "../lib/village-stores";
 import { CLAN_DOCTRINES, doctrineName, type ClanDoctrine } from "../lib/clan-doctrines";
 import { DoctrineCrest } from "../components/DoctrineCrest";
 import { ClanHallTierArt } from "../components/ClanHallTierArt";
@@ -138,6 +143,24 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
     const allClanItems = getAllItems(creatorItems);
     const clanInventoryStacks = inventoryItemStacks(character, allClanItems);
     const clanTreasuryItems = cleanTreasuryItems(clanData?.treasury.items);
+    // ── Village Stores clan mirror (display) ────────────────────────────────
+    // Donated ration packs land in clanTreasury.provisions and the daily pass
+    // burns them per active clan war. `provisions` is OPTIONAL on the treasury:
+    // undefined means the clan has never stocked any, which is not the number
+    // zero — so it is passed through as-is and the copy layer decides.
+    const clanProvisions = clanData?.treasury.provisions;
+    const clanRationsHeld = clanRationsHeldLabel(clanProvisions);
+    const clanRationsCarried = clanInventoryStacks.find(stack => stack.itemId === RATION_ITEM_ID)?.count ?? 0;
+    const clanRationSendCount = clanRationDonationCount(character, clanRationsCarried);
+    const clanRationBlock = clanRationDonateBlock(character, clanRationsCarried);
+    // The generic Donate Item select can carry a ration pack too, so it gets the
+    // same daily-allowance guard and says where the item is actually going.
+    // ONLY the ration leg: the clan mirror routes provisions and nothing else
+    // (api/clan/treasury/donate.ts passes `{ materialPoints: false }`), so a
+    // hunt material spent at the Town Hall must not block a clan item donation.
+    const clanDonateBucket = storesDonationBucket(clanDonateItemId);
+    const clanDonateGate = clanDonateBucket === "provisions" ? storesDonationGate(character, clanDonateItemId) : { ok: true as const };
+    const clanDonateLabel = clanDonateBucket === "provisions" ? "Donate to Provisions" : "Donate Item";
 
     function myMemberEntry(): ClanMemberEntry {
         return { name: character.name, village: character.village, level: character.level, specialty: character.specialty, battleContrib: character.clanBattleContrib ?? 0, eventContrib: character.clanEventContrib ?? 0, missionContrib: character.clanMissionContrib ?? 0, isFounder: character.clanFounder ?? false, month: new Date().toISOString().slice(0, 7) };
@@ -514,6 +537,9 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         if (!clanData) return;
         if (!clanDonateItemId) return alert("Choose an item to donate.");
         if (!ownsItem(character, clanDonateItemId)) return alert("You do not have that item.");
+        // Mirror of the server's per-donor daily ration allowance. Without it
+        // the only feedback on a 40-ration day is a bare 429.
+        if (!clanDonateGate.ok) return alert(`${clanDonateGate.reason}. The allowance resets at midnight UTC.`);
         donateBusyRef.current = true;
         setDonateBusy(true);
         try {
@@ -521,6 +547,39 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
             if (!result) return;
             if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             setClanData(enhanceClanData({ ...clanData, treasury: cleanClanTreasury(result.treasury as Partial<ClanTreasury>), xp: result.xp, level: result.level }));
+            // A ration pack does not stay an item — it becomes Provisions. Say
+            // so, and say what the clan holds now; anything else donates fine
+            // and keeps its existing (silent) behaviour.
+            if (result.stores) {
+                gameToast(clanRationCreditLine(clanData.name, 1, result.stores.provisions ?? null), { kind: "success" });
+            }
+        } finally {
+            donateBusyRef.current = false;
+            setDonateBusy(false);
+        }
+    }
+    // Donate ration packs straight into the clan's war stores. Sends as many as
+    // the shared daily allowance still permits in ONE call — the server is
+    // still the authority on the cap, the credit and the burn.
+    async function donateClanRations() {
+        if (donateBusyRef.current) return;
+        if (!clanData) return;
+        const blocked = clanRationDonateBlock(character, clanRationsCarried);
+        if (blocked) return alert(blocked);
+        const count = clanRationDonationCount(character, clanRationsCarried);
+        if (count <= 0) return;
+        donateBusyRef.current = true;
+        setDonateBusy(true);
+        try {
+            const result = await postClanTreasuryDonation(character.name, clanData.name, { itemId: RATION_ITEM_ID, count });
+            if (!result) return;
+            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
+            const nextTreasury = cleanClanTreasury(result.treasury as Partial<ClanTreasury>);
+            setClanData(enhanceClanData({ ...clanData, treasury: nextTreasury, xp: result.xp, level: result.level }));
+            gameToast(
+                clanRationCreditLine(clanData.name, count, result.stores ? (result.stores.provisions ?? nextTreasury.provisions ?? null) : null),
+                { kind: "success" },
+            );
         } finally {
             donateBusyRef.current = false;
             setDonateBusy(false);
@@ -890,7 +949,7 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
             })}
             <div className="summary-box clan-rank-legend"><strong style={{ fontSize: "0.8rem", color: "#94a3b8" }}>How ranks work</strong><p className="hint">The <strong>Founder</strong> appoints <strong>Leaders</strong> and <strong>Officers</strong>. Leadership can approve join requests, manage the treasury, raise clan buildings, and declare clan wars. Everyone else is a <strong>Member</strong>. Contribution points (⚔️ battles · 🎯 events · 📜 missions) are earned by every member and set the roster order.</p></div>
         </div>}
-        {view === "treasury" && <div className="summary-box"><h3><GameIcon name="ryo" size={18} style={CH_ICON} />Clan Treasury</h3><div className="treasury-grid"><p><strong>Ryo:</strong> {clanData.treasury.ryo.toLocaleString()}</p><p><strong>Fate Shards:</strong> {clanData.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {clanData.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {clanData.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {clanData.treasury.mythicSeals}</p><p><strong>War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()}</p></div><label>Donate Ryo <small>(max {CLAN_DONATE_MAX_RYO.toLocaleString()} per donation)</small></label><input type="number" min={1} max={CLAN_DONATE_MAX_RYO} value={donation} onChange={(e) => setDonation(Math.min(CLAN_DONATE_MAX_RYO, Math.max(0, Number(e.target.value))))} /><div className="menu"><button onClick={donateRyo} disabled={donateBusy}>Donate Ryo</button><button onClick={() => donateSpecial("fateShards", 1)} disabled={donateBusy}>Donate 1 Fate Shard</button><button onClick={() => donateSpecial("boneCharms", 1)} disabled={donateBusy}>Donate 1 Bone Charm</button><button onClick={() => donateSpecial("auraStones", 1)} disabled={donateBusy}>Donate 1 Aura Stone</button><button onClick={() => donateSpecial("mythicSeals", 1)} disabled={donateBusy}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={clanDonateItemId} onChange={(e) => setClanDonateItemId(e.target.value)}><option value="">Choose item</option>{clanInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select><button onClick={donateClanItem} disabled={!clanDonateItemId || donateBusy}>Donate Item</button><h4>Treasury Items</h4>{clanTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{clanTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allClanItems)}:</strong> x{stack.count}</p>)}</div>}{canManageClan(myRole) && <section className="summary-box"><h3>Send Treasury Resources</h3><p className="hint">Clan leadership can send donated resources or items to clan members. A {CLAN_GIFT_TAX_LABEL} transit levy is burned on every resource gift.</p><label>Recipient</label><select value={clanSendPlayer} onChange={(e) => setClanSendPlayer(e.target.value)}><option value="">Choose clan member</option>{sortedMembers.map(member => <option key={member.name} value={member.name}>{member.name}</option>)}</select><label>Resource</label><select value={clanSendCurrency} onChange={(e) => setClanSendCurrency(e.target.value as ClanTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={clanSendAmount} onChange={(e) => setClanSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendClanCurrency}>Send Resource</button></div><label>Item</label><select value={clanSendItemId} onChange={(e) => setClanSendItemId(e.target.value)}><option value="">Choose treasury item</option>{clanTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allClanItems)} x{stack.count}</option>)}</select><button onClick={sendClanItem} disabled={!clanSendItemId}>Send Item</button></section>}<p className="hint">Donations add clan XP and treasury resources.</p><ClanSealPool character={character} updateCharacter={updateCharacter} /></div>}
+        {view === "treasury" && <div className="summary-box"><h3><GameIcon name="ryo" size={18} style={CH_ICON} />Clan Treasury</h3><div className="treasury-grid"><p><strong>Ryo:</strong> {clanData.treasury.ryo.toLocaleString()}</p><p><strong>Fate Shards:</strong> {clanData.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {clanData.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {clanData.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {clanData.treasury.mythicSeals}</p><p><strong>War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()}</p><p><strong>Provisions:</strong> {clanRationsHeld ?? "None stocked yet"}</p></div><p className="hint">🍚 Donated <b>ration packs</b> stock <b>Provisions</b> — the clan's war rations. Every active clan war burns <b>{CLAN_WAR_RATIONS_PER_DAY} rations a day</b> out of them, and a war the stores cannot cover is marked unfed on the <b>Wars</b> tab. Cook ration packs at the Cafeteria.</p><p className="hint">{clanRationDonationCapLine(character)}</p><label>Donate Ryo <small>(max {CLAN_DONATE_MAX_RYO.toLocaleString()} per donation)</small></label><input type="number" min={1} max={CLAN_DONATE_MAX_RYO} value={donation} onChange={(e) => setDonation(Math.min(CLAN_DONATE_MAX_RYO, Math.max(0, Number(e.target.value))))} /><div className="menu"><button onClick={donateRyo} disabled={donateBusy}>Donate Ryo</button><button onClick={() => donateSpecial("fateShards", 1)} disabled={donateBusy}>Donate 1 Fate Shard</button><button onClick={() => donateSpecial("boneCharms", 1)} disabled={donateBusy}>Donate 1 Bone Charm</button><button onClick={() => donateSpecial("auraStones", 1)} disabled={donateBusy}>Donate 1 Aura Stone</button><button onClick={() => donateSpecial("mythicSeals", 1)} disabled={donateBusy}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={clanDonateItemId} onChange={(e) => setClanDonateItemId(e.target.value)}><option value="">Choose item</option>{clanInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select>{!clanDonateGate.ok && <p className="hint" id="clan-donate-reason" style={{ color: "#fbbf24" }}>{clanDonateGate.reason}. The allowance resets at midnight UTC.</p>}<button type="button" onClick={donateClanItem} disabled={!clanDonateItemId || donateBusy || !clanDonateGate.ok} aria-describedby={clanDonateGate.ok ? undefined : "clan-donate-reason"}>{clanDonateLabel}</button><h4>Donate Rations</h4><p className="hint">You are carrying <b>{clanRationsCarried.toLocaleString()}</b> ration pack{clanRationsCarried === 1 ? "" : "s"}. Every pack becomes one ration in the clan's Provisions.</p>{clanRationBlock && <p className="hint" id="clan-ration-reason" style={{ color: "#fbbf24" }}>{clanRationBlock}</p>}<div className="menu"><button type="button" onClick={donateClanRations} disabled={donateBusy || Boolean(clanRationBlock)} aria-describedby={clanRationBlock ? "clan-ration-reason" : undefined}>{clanRationDonateLabel(clanRationSendCount)}</button></div><h4>Treasury Items</h4>{clanTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{clanTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allClanItems)}:</strong> x{stack.count}</p>)}</div>}{canManageClan(myRole) && <section className="summary-box"><h3>Send Treasury Resources</h3><p className="hint">Clan leadership can send donated resources or items to clan members. A {CLAN_GIFT_TAX_LABEL} transit levy is burned on every resource gift.</p><label>Recipient</label><select value={clanSendPlayer} onChange={(e) => setClanSendPlayer(e.target.value)}><option value="">Choose clan member</option>{sortedMembers.map(member => <option key={member.name} value={member.name}>{member.name}</option>)}</select><label>Resource</label><select value={clanSendCurrency} onChange={(e) => setClanSendCurrency(e.target.value as ClanTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={clanSendAmount} onChange={(e) => setClanSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendClanCurrency}>Send Resource</button></div><label>Item</label><select value={clanSendItemId} onChange={(e) => setClanSendItemId(e.target.value)}><option value="">Choose treasury item</option>{clanTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allClanItems)} x{stack.count}</option>)}</select><button onClick={sendClanItem} disabled={!clanSendItemId}>Send Item</button></section>}<p className="hint">Donations add clan XP and treasury resources.</p><ClanSealPool character={character} updateCharacter={updateCharacter} /></div>}
         {view === "boosts" && <div className="clan-upgrade-grid">{clanXpScaleTiers.map(tier => { const active = clanData.members.length >= tier.min && clanData.members.length <= tier.max; const label = tier.min === 1 && !Number.isFinite(tier.max) ? "All roster sizes" : Number.isFinite(tier.max) ? `${tier.min}-${tier.max} members` : `${tier.min}+ members`; const percent = Math.round(tier.multiplier * 100); return <div key={label} className={`town-upgrade-card clan-upgrade-card ${active ? "active" : ""}`}><div className="town-upgrade-topline"><span className="town-upgrade-icon"><GiUpgrade /></span><div><strong>{label}</strong><p>{active ? "Full Clan XP" : "Recruitment Tier"}</p></div></div><div className="town-upgrade-bar"><span style={{ width: active ? "100%" : "0%" }} /></div><p className="town-upgrade-desc">Clan mission, war, and boss awards grant {percent}% of their base Clan XP at every roster size. Character rewards are unchanged; Hall buildings provide separate gameplay bonuses.</p><p className="town-upgrade-bonus">Clan XP: <strong>{percent}%</strong></p></div>; })}</div>}
         {view === "upgrades" && <div className="clan-upgrade-grid">
             <div className="summary-box clan-upgrade-intro" style={{ gridColumn: "1 / -1" }}><strong><GiBrickWall style={CH_ICON} />Clan Buildings</strong><p className="hint">Clan leadership spends the treasury to raise buildings — funded by Ryo + War Supply (earned from owned territory). Treasury: <strong>{clanData.treasury.ryo.toLocaleString()}</strong> Ryo · <strong>{clanData.treasury.warSupply.toLocaleString()}</strong> War Supply</p></div>
@@ -913,7 +972,7 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
             })}
         </div>}
         {view === "missions" && <div className="clan-mission-grid">{clanMissionDefinitions.map(mission => { const progress = clanMissionProgress(clanData, mission.key); const complete = progress >= mission.target; const claimable = mission.key !== "territory"; const claimed = claimedClanMissions.includes(mission.key); return <div key={mission.key} className="summary-box clan-mission-card"><h3>{mission.icon} {mission.name}</h3><p>{mission.description}</p><div className="town-upgrade-bar"><span style={{ width: `${Math.min(100, (progress / mission.target) * 100)}%` }} /></div><p><strong>{Math.min(progress, mission.target).toLocaleString()}</strong> / {mission.target.toLocaleString()}</p><p className="hint">Reward: {mission.reward}</p>{claimable && (claimed ? <p className="hint" style={{ color: "#4ade80", fontWeight: 600 }}>✓ Reward claimed</p> : complete && canManageClan(myRole) ? <div className="menu"><button onClick={() => void claimClanMission(mission.key)} disabled={clanMissionClaimBusy === mission.key}>{clanMissionClaimBusy === mission.key ? "Claiming…" : "Claim Reward"}</button></div> : complete ? <p className="hint">Complete — clan leadership can claim.</p> : null)}</div>; })}</div>}
-        {view === "wars" && <ClanWarsPanel character={character} clanName={clanData.name} setScreen={setScreen} />}
+        {view === "wars" && <ClanWarsPanel character={character} clanName={clanData.name} provisions={clanProvisions} onOpenTreasury={() => setView("treasury")} setScreen={setScreen} />}
         {view === "rankings" && <ClanRankings character={character} />}
         {view === "boss" && bossTabAvailability !== "unavailable" && <ClanBoss character={character} clanmates={clanData.members.filter(m => m.name !== character.name).map(m => m.name)} hostLoadout={towerHostLoadout} sharedImages={sharedImages} onRecordBattle={onRecordBattle} onVersionedCharacter={onVersionedCharacter} />}
         {view === "chat" && <ClanChat playerName={character.name} clan={clanData.name} />}
