@@ -46,38 +46,40 @@ export function VanguardHub({
     const sealsTodayPct = Math.max(0, Math.min(100, Math.round((sealsToday / VANGUARD_DAILY_SEAL_CAP) * 100)));
 
     return (
-        <div className="card">
+        <div className="card profession-hub profession-hub-vanguard" style={{ "--profession-accent": ACCENT } as React.CSSProperties}>
             <BackToVillageButton onClick={onBack} label="← Back" />
             <ProfessionHero image={vanguardBg} icon="⚔" title="Vanguard" tagline="Lead the charge." accent={ACCENT} />
 
             <ProfessionRankBar character={character} />
 
             {/* Honor Seal economy */}
-            <div className="summary-box" style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "center", margin: "1rem 0" }}>
-                <span>🪙 Honor Seals: <strong style={{ color: ACCENT }}>{(character.honorSeals ?? 0).toLocaleString()}</strong></span>
-                <span style={{ color: "var(--text-dim)" }}>·</span>
-                <span>This kill: <strong style={{ color: ACCENT }}>{VANGUARD_SEALS_PER_KILL[rank]} Seal{VANGUARD_SEALS_PER_KILL[rank] === 1 ? "" : "s"}</strong></span>
-            </div>
+            <section className="summary-box profession-resource-strip" aria-label="Honor Seal economy" style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "center", margin: "1rem 0" }}>
+                <span><small>Honor Seals</small><strong style={{ color: ACCENT }}>{(character.honorSeals ?? 0).toLocaleString()}</strong></span>
+                <span className="profession-resource-divider" aria-hidden="true" style={{ color: "var(--text-dim)" }}>·</span>
+                <span><small>Per qualifying win</small><strong style={{ color: ACCENT }}>{VANGUARD_SEALS_PER_KILL[rank]} Seal{VANGUARD_SEALS_PER_KILL[rank] === 1 ? "" : "s"}</strong></span>
+            </section>
 
-            <div className="summary-box" style={{ margin: "0 0 1rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem", marginBottom: 4 }}>
-                    <span className="hint">Seals earned today</span>
+            <section className="summary-box profession-progress-card" aria-labelledby="vanguard-daily-cap" style={{ margin: "0 0 1rem" }}>
+                <div className="profession-progress-labels" style={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem", marginBottom: 4 }}>
+                    <span id="vanguard-daily-cap" className="hint">Seals earned today</span>
                     <span className="hint">{sealsToday} / {VANGUARD_DAILY_SEAL_CAP} daily cap</span>
                 </div>
-                <div style={{ height: 8, background: "rgba(148,163,184,0.2)", borderRadius: 4, overflow: "hidden" }}>
+                <div className="profession-progress-track" role="progressbar" aria-label="Daily Honor Seal progress" aria-valuemin={0} aria-valuemax={VANGUARD_DAILY_SEAL_CAP} aria-valuenow={sealsToday} style={{ height: 8, background: "rgba(148,163,184,0.2)", borderRadius: 4, overflow: "hidden" }}>
                     <div style={{ width: `${sealsTodayPct}%`, height: "100%", background: ACCENT, transition: "width 300ms" }} />
                 </div>
                 <p className="hint" style={{ margin: "8px 0 0", fontSize: "0.75rem" }}>
                     Up to {VANGUARD_PER_TARGET_DAILY_CAP} Seals per target per day · only real-player kills count · resets daily.
                 </p>
-            </div>
+            </section>
 
             {/* Seals-per-kill by rank */}
             <h4 style={{ margin: "0 0 0.5rem" }}>⚔ Seals per Kill by Rank</h4>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(46px, 1fr))", gap: 4, marginBottom: "1rem" }}>
+            <div className="profession-rank-ladder" role="list" aria-label="Honor Seals earned per win by profession rank" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(46px, 1fr))", gap: 4, marginBottom: "1rem" }}>
                 {Array.from({ length: PROFESSION_MAX_RANK }, (_, i) => i + 1).map(r => (
                     <div
                         key={r}
+                        role="listitem"
+                        className={`profession-rank-step${r === rank ? " is-current" : ""}`}
                         style={{
                             textAlign: "center",
                             padding: "6px 2px",
@@ -94,8 +96,8 @@ export function VanguardHub({
 
             {/* Where to earn */}
             <h4 style={{ margin: "0 0 0.5rem" }}>Take the Field</h4>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: "1.5rem" }}>
-                <button onClick={() => setScreen("userHub")} style={{ background: `linear-gradient(${ACCENT}cc,${ACCENT}88)`, borderColor: ACCENT, color: "#1a0a02" }}>
+            <div className="profession-action-grid" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: "1.5rem" }}>
+                <button className="profession-primary-action" onClick={() => setScreen("userHub")} style={{ background: `linear-gradient(${ACCENT}cc,${ACCENT}88)`, borderColor: ACCENT, color: "#1a0a02" }}>
                     🎯 Find a Target
                 </button>
                 <button onClick={() => setScreen("villageWar")} style={{ borderColor: ACCENT }}>

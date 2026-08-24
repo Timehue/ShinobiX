@@ -16,6 +16,16 @@ import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import { LiveCapabilitiesProvider } from './components/LiveCapabilitiesProvider.tsx'
 import { legalPageForPath } from './data/legal.ts'
 
+// Keep the mobile-only product layer out of the desktop initial graph. Request
+// it immediately on phones/tablets, and once on a later desktop-to-mobile
+// resize; after loading, its own data-ui-mode gates still exclude combat.
+const mobileProductViewport = window.matchMedia('(max-width: 979px)')
+function ensureMobileProductLayer() {
+    if (mobileProductViewport.matches) void import('./styles/mobile-noncombat-aaa.css')
+}
+ensureMobileProductLayer()
+mobileProductViewport.addEventListener('change', ensureMobileProductLayer)
+
 // LegalPage carries all the policy prose (every /terms, /privacy, … document),
 // so it is lazy-loaded: keeping it off the entry chunk holds the entry-JS and
 // initial-graph size budgets (a static import here regressed both). Only a

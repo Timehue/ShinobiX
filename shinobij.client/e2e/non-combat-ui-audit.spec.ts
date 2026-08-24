@@ -60,6 +60,7 @@ async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Pr
             return text.replace(/\s+/g, " ").slice(0, 80);
         };
         const controls = Array.from(main.querySelectorAll("button, a[href], input, select, textarea")).filter(visible);
+        const touchControls = Array.from(main.querySelectorAll("button, [role='button'], input:not([type='hidden']), select, textarea")).filter(visible);
         const backgroundElements = [document.querySelector(".app-background"), main, ...Array.from(main.querySelectorAll("*"))]
             .filter((element): element is Element => Boolean(element) && visible(element as Element));
         const backgroundUrls = Array.from(new Set(backgroundElements.flatMap((element) => {
@@ -98,15 +99,20 @@ async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Pr
                 .filter((control) => {
                     const rect = control.getBoundingClientRect();
                     const ownsHorizontalScroll = Boolean(control.closest(
-                        ".table-scroll, .ui-tabs, .admin-tabs, .profile-mobile-tabs, .chronicle-hand, .world-map-scroll, .hol-tabs, .council-tabs, .expanded-tabs, .pet-home-tabs, .pet-arena-mode-toggle, .pet-pick-strip",
+                        ".table-scroll, .ui-tabs, .admin-tabs, .profile-mobile-tabs, .chronicle-hand, .world-map-scroll, .hol-tabs, .council-tabs, .town-tabs, .clan-tabs, .user-hub-tabs, .expanded-tabs, .pet-home-tabs, .pet-arena-mode-toggle, .pet-pick-strip",
                     ));
                     return !ownsHorizontalScroll && (rect.right > viewportWidth + 1 || rect.left < -1);
                 })
                 .map(label),
-            undersizedControls: controls
+            undersizedControls: touchControls
+                // Overview pins intentionally keep a compact painted box; their
+                // ::after ring owns the real 44px pointer target and is asserted
+                // separately in the World Map route check below.
+                .filter((control) => !control.matches(".atlas-sector, .atlas-hollowGate"))
                 .filter((control) => {
                     const rect = control.getBoundingClientRect();
-                    return Math.min(rect.width, rect.height) < 24;
+                    const minimum = viewportWidth <= 979 ? 44 : 24;
+                    return Math.min(rect.width, rect.height) < minimum;
                 })
                 .map(label),
             emptyMain: !(main.textContent || "").trim() && main.querySelectorAll("img, canvas, video").length === 0,
@@ -163,7 +169,7 @@ for (const destination of CENTRAL_MODAL_CARDS) {
         expect(metrics.brokenBackgrounds, `${destination.card} has broken visible background artwork`).toEqual([]);
         expect(metrics.brokenImages, `${destination.card} has broken visible artwork`).toEqual([]);
         expect(metrics.clippedControls, `${destination.card} has controls clipped by the viewport`).toEqual([]);
-        expect(metrics.undersizedControls, `${destination.card} has controls below the 24px target minimum`).toEqual([]);
+        expect(metrics.undersizedControls, `${destination.card} has controls below the viewport touch-target minimum`).toEqual([]);
         expect(runtimeErrors, `${destination.card} emitted runtime errors`).toEqual([]);
         await capture(page, testInfo, destination.capture);
     });
@@ -188,7 +194,7 @@ for (const destination of CENTRAL_ROUTE_CARDS) {
         expect(metrics.brokenBackgrounds, `${destination.card} has broken visible background artwork`).toEqual([]);
         expect(metrics.brokenImages, `${destination.card} has broken visible artwork`).toEqual([]);
         expect(metrics.clippedControls, `${destination.card} has controls clipped by the viewport`).toEqual([]);
-        expect(metrics.undersizedControls, `${destination.card} has controls below the 24px target minimum`).toEqual([]);
+        expect(metrics.undersizedControls, `${destination.card} has controls below the viewport touch-target minimum`).toEqual([]);
         expect(runtimeErrors, `${destination.card} emitted runtime errors`).toEqual([]);
         await capture(page, testInfo, destination.capture);
     });
@@ -263,6 +269,11 @@ for (const screen of NON_COMBAT_SCREENS) {
                 ".hol-tabs",
                 ".council-tabs",
                 ".expanded-tabs",
+                ".town-tabs",
+                ".clan-tabs",
+                ".user-hub-tabs",
+                ".pet-home-tabs",
+                ".pet-arena-mode-toggle",
             ],
             logicalStages: [".world-map-scroll"],
         });
@@ -272,11 +283,100 @@ for (const screen of NON_COMBAT_SCREENS) {
         expect(metrics.brokenBackgrounds, `${screen} has broken visible background artwork`).toEqual([]);
         expect(metrics.brokenImages, `${screen} has broken visible artwork`).toEqual([]);
         expect(metrics.clippedControls, `${screen} has controls clipped by the viewport`).toEqual([]);
-        expect(metrics.undersizedControls, `${screen} has controls below the 24px WCAG target minimum`).toEqual([]);
+        expect(metrics.undersizedControls, `${screen} has controls below the viewport touch-target minimum`).toEqual([]);
+        if (screen === "worldMap" && (page.viewportSize()?.width ?? 0) <= 979) {
+            const markerTargets = await page.locator(".atlas-sector, .atlas-hollowGate").evaluateAll((markers) => markers.map((marker) => {
+                const rect = marker.getBoundingClientRect();
+                const hitRing = getComputedStyle(marker, "::after");
+                const left = Number.parseFloat(hitRing.left) || 0;
+                const right = Number.parseFloat(hitRing.right) || 0;
+                const top = Number.parseFloat(hitRing.top) || 0;
+                const bottom = Number.parseFloat(hitRing.bottom) || 0;
+                return {
+                    label: marker.getAttribute("aria-label") ?? marker.textContent ?? "map marker",
+                    width: rect.width - left - right,
+                    height: rect.height - top - bottom,
+                };
+            }));
+            expect(
+                markerTargets.filter((target) => Math.min(target.width, target.height) < 44),
+                "World Map overview markers need a 44px pseudo-element hit ring",
+            ).toEqual([]);
+        }
         expect(runtimeErrors, `${screen} emitted runtime errors`).toEqual([]);
         await capture(page, testInfo, screen);
     });
 }
+
+const PROFESSION_HUB_VARIANTS = [
+    { id: "healer", className: "profession-hub-healer", rank: 5, xp: 3_000, capture: "professions-healer" },
+    { id: "vanguard", className: "profession-hub-vanguard", rank: 5, xp: 2_500, capture: "professions-vanguard" },
+    { id: "petTamer", className: "profession-hub-pet-tamer", rank: 5, xp: 2_500, capture: "professions-pet-tamer" },
+] as const;
+
+for (const profession of PROFESSION_HUB_VARIANTS) {
+    test(`${profession.id} profession hub has a mobile command-center hierarchy`, async ({ page }, testInfo) => {
+        test.skip(testInfo.project.name !== "chromium-mobile", "profession variants are a focused mobile visual pass");
+        const runtimeErrors = collectRuntimeErrors(page);
+        const initialSave = uiAuditSave();
+        initialSave.character = {
+            ...initialSave.character,
+            profession: profession.id,
+            professionRank: profession.rank,
+            professionXp: profession.xp,
+            honorSeals: 27,
+            dailyHonorSealsEarned: 18,
+            professionRespecUsed: false,
+        };
+        const runtime = await installUiAuditRuntime(page, initialSave);
+        await expectUiAuditBoot(page, runtime, "professions");
+
+        const hub = page.locator(`.${profession.className}`);
+        await expect(hub).toBeVisible();
+        await expect(hub.locator(".profession-hero")).toBeVisible();
+        await expect(hub.locator(".profession-rank-card")).toBeVisible();
+        await expect(hub.locator(".profession-progress-track").first()).toHaveAttribute("role", "progressbar");
+        expect((await hub.locator(".profession-rank-card").innerText())).not.toMatch(/-\d/);
+        await expectViewportSafe(page, { horizontalScrollers: [".profession-rank-ladder"] });
+
+        const metrics = await auditVisibleScreen(page);
+        expect(metrics.emptyMain, `${profession.id} rendered no meaningful main content`).toBe(false);
+        expect(metrics.brokenBackgrounds, `${profession.id} has broken visible background artwork`).toEqual([]);
+        expect(metrics.brokenImages, `${profession.id} has broken visible artwork`).toEqual([]);
+        expect(metrics.clippedControls, `${profession.id} has controls clipped by the viewport`).toEqual([]);
+        expect(metrics.undersizedControls, `${profession.id} has controls below the viewport touch-target minimum`).toEqual([]);
+        expect(runtimeErrors, `${profession.id} emitted runtime errors`).toEqual([]);
+        await capture(page, testInfo, profession.capture);
+    });
+}
+
+test("mobile shell uses five anchors and a keyboard-safe destination search", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "chromium-mobile", "the persistent navigation is mobile-only");
+    const runtime = await installUiAuditRuntime(page);
+    await expectUiAuditBoot(page, runtime, "village");
+
+    const shell = page.locator(".app-shell");
+    await expect(shell).toHaveAttribute("data-ui-mode", "noncombat");
+    const nav = page.getByRole("navigation", { name: "Primary game navigation" });
+    await expect(nav.getByRole("button")).toHaveCount(5);
+    await expect(nav.getByRole("button", { name: "Village" })).toHaveAttribute("aria-current", "page");
+
+    const menuTrigger = nav.getByRole("button", { name: /Menu/ });
+    await menuTrigger.click();
+    const dialog = page.getByRole("dialog", { name: "Shinobi menu" });
+    await expect(dialog).toBeVisible();
+    const search = dialog.getByRole("searchbox", { name: "Find a destination" });
+    await expect(search).toBeFocused();
+    await search.fill("training");
+    await expect(dialog.getByRole("button", { name: "Training", exact: true })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Travel", exact: true })).toHaveCount(0);
+    await expectViewportSafe(page);
+    await capture(page, testInfo, "mobile-menu-search");
+
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(menuTrigger).toBeFocused();
+});
 
 test("Mission Hall Field board follows D-to-S progression and is alphabetized within rank", async ({ page }, testInfo) => {
     const runtimeErrors = collectRuntimeErrors(page);
@@ -440,7 +540,7 @@ test("user directory routes into a production-safe public profile", async ({ pag
     expect(directoryMetrics.brokenBackgrounds, "userHub has broken visible background artwork").toEqual([]);
     expect(directoryMetrics.brokenImages, "userHub has broken visible artwork").toEqual([]);
     expect(directoryMetrics.clippedControls, "userHub has controls clipped by the viewport").toEqual([]);
-    expect(directoryMetrics.undersizedControls, "userHub has controls below the 24px WCAG target minimum").toEqual([]);
+    expect(directoryMetrics.undersizedControls, "userHub has controls below the viewport touch-target minimum").toEqual([]);
     const rival = page.locator(".user-hub-row").filter({ hasText: "RivalNinja" }).first();
     await expect(rival).toBeVisible();
     await rival.locator(".user-hub-name").click();
@@ -452,7 +552,7 @@ test("user directory routes into a production-safe public profile", async ({ pag
     expect(metrics.brokenBackgrounds, "userView has broken visible background artwork").toEqual([]);
     expect(metrics.brokenImages, "userView has broken visible artwork").toEqual([]);
     expect(metrics.clippedControls, "userView has controls clipped by the viewport").toEqual([]);
-    expect(metrics.undersizedControls, "userView has controls below the 24px WCAG target minimum").toEqual([]);
+    expect(metrics.undersizedControls, "userView has controls below the viewport touch-target minimum").toEqual([]);
     await capture(page, testInfo, "userView");
 });
 

@@ -647,7 +647,8 @@ test("representative empty, loading, validation, long-content, and entitlement s
     await expect(page.getByText(creatorItems[0].name, { exact: true })).toBeVisible();
     await expectViewportSafe(page);
 
-    await page.locator(".mobile-bottom-nav").getByRole("button", { name: "Char" }).click();
+    await page.locator(".mobile-bottom-nav").getByRole("button", { name: "You", exact: true }).click();
+    await page.getByRole("dialog", { name: "Your shinobi" }).getByTitle("View character profile").click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "profile");
     expect(runtimeErrors, "the maximum-profile fixture must render without a route error boundary").toEqual([]);
     await page.getByRole("button", { name: "Jutsu", exact: true }).click();
@@ -661,7 +662,8 @@ test("representative empty, loading, validation, long-content, and entitlement s
     await page.locator(".mobile-bottom-nav").getByRole("button", { name: "Items" }).click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "inventory");
     await page.waitForTimeout(350);
-    await page.locator(".mobile-bottom-nav").getByRole("button", { name: "Char" }).click();
+    await page.locator(".mobile-bottom-nav").getByRole("button", { name: "You", exact: true }).click();
+    await page.getByRole("dialog", { name: "Your shinobi" }).getByTitle("View character profile").click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "profile");
     await page.getByRole("button", { name: "Battles", exact: true }).click();
     await expect.poll(api.battleHistoryRequests).toBeGreaterThan(battleHistoryRequestsBeforeFailure);
@@ -680,7 +682,8 @@ test("subscriber capacity and expanded mobile drawers reflow safely", async ({ p
     await page.goto("/#/centralHub", { waitUntil: "networkidle" });
     await expect(page.getByRole("heading", { name: /Central/ })).toBeVisible();
     await expectCommittedSave(page, api);
-    await page.locator(".mobile-bottom-nav").getByRole("button", { name: "Char" }).click();
+    await page.locator(".mobile-bottom-nav").getByRole("button", { name: "You", exact: true }).click();
+    await page.getByRole("dialog", { name: "Your shinobi" }).getByTitle("View character profile").click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "profile");
     await page.getByRole("button", { name: "Jutsu", exact: true }).click();
     await expect(page.locator(".jutsu-loadout-slot.is-filled")).toHaveCount(15);
@@ -691,13 +694,19 @@ test("subscriber capacity and expanded mobile drawers reflow safely", async ({ p
     await page.locator(".mobile-bottom-nav").getByRole("button", { name: "You", exact: true }).click();
     const profileDrawer = page.getByRole("dialog", { name: "Your shinobi" });
     await expect(profileDrawer).toBeVisible();
-    await expectViewportSafe(page, { overlays: [".mobile-profile-sheet-overlay"] });
+    await expectViewportSafe(page, {
+        overlays: [".mobile-profile-sheet-overlay"],
+        horizontalScrollers: [".profile-mobile-tabs"],
+    });
     await profileDrawer.getByRole("button", { name: "Close" }).click();
     await page.waitForTimeout(350);
     await page.locator(".mobile-bottom-nav").getByRole("button", { name: "Menu", exact: true }).click();
     const mobileMenu = page.getByRole("dialog", { name: "Shinobi menu" });
     await expect(mobileMenu).toBeVisible();
-    await expectViewportSafe(page, { overlays: [".mobile-menu-overlay"] });
+    await expectViewportSafe(page, {
+        overlays: [".mobile-menu-overlay"],
+        horizontalScrollers: [".profile-mobile-tabs"],
+    });
     await mobileMenu.getByRole("button", { name: "Close menu" }).click();
 });
 

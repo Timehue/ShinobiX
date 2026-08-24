@@ -39,13 +39,14 @@ export function HealerHub({
     const healerRank = character.professionRank ?? 1;
 
     return (
-        <div className="card">
+        <div className="card profession-hub profession-hub-healer" style={{ "--profession-accent": "#22d3ee" } as React.CSSProperties}>
             <BackToVillageButton onClick={onBack} label="← Back" />
             <ProfessionHero image={healerBg} icon="✚" title="Healer" tagline="Mend what war breaks." accent="#22d3ee" />
 
             <ProfessionRankBar character={character} />
 
-            <div className="summary-box" style={{ background: "linear-gradient(180deg,rgba(34,211,238,0.12),rgba(8,10,22,0.4))", border: "1px solid rgba(34,211,238,0.45)", margin: "1rem 0" }}>
+            <section className="summary-box profession-role-brief" aria-labelledby="healer-role-brief" style={{ background: "linear-gradient(180deg,rgba(34,211,238,0.12),rgba(8,10,22,0.4))", border: "1px solid rgba(34,211,238,0.45)", margin: "1rem 0" }}>
+                <h3 id="healer-role-brief" className="profession-section-eyebrow">Ward directive</h3>
                 <p className="hint" style={{ margin: 0 }}>
                     Heal wounded and knocked-out allies in <strong>{character.village}</strong>. Each heal grants profession
                     XP equal to the share of HP you restore. Allies fresh from a fight grant a <strong style={{ color: "#22d3ee" }}>+50% Raid-Assist</strong> bonus.
@@ -53,10 +54,11 @@ export function HealerHub({
                         ? " At Rank 10 you can heal injured villagers anywhere in the world — see the list below."
                         : ` Reach Rank 10 to heal injured villagers anywhere in the world (you're Rank ${healerRank}).`}
                 </p>
-            </div>
+            </section>
 
             <button
                 onClick={() => setScreen("hospital")}
+                className="profession-primary-action"
                 style={{ background: "linear-gradient(#0e7490,#155e75)", borderColor: "#22d3ee", marginBottom: "0.5rem" }}
             >
                 🏥 Go to the Village Hospital
@@ -64,7 +66,7 @@ export function HealerHub({
 
             <HealerInjuredList character={character} updateCharacter={updateCharacter} playerRoster={playerRoster} onServerVersion={onServerVersion} />
 
-            <div style={{ marginTop: "1.5rem" }}>
+            <div className="profession-hub-lower" style={{ marginTop: "1.5rem" }}>
                 <DailyProfessionMissions character={character} />
                 <MasteryPanel character={character} onVersionedCharacter={onVersionedCharacter} />
             </div>
