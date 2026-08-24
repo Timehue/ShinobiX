@@ -609,7 +609,7 @@
       "system": "clan-war",
       "id": "shinobi-pvp-challenge-win",
       "currency": "territoryControlScrolls",
-      "amount": 5,
+      "amount": 1,
       "cadence": "per finalized win",
       "authority": "api/clan/war/_war-points.ts",
       "notes": "Only shinobi PvP challenge winners; exactly-once server settlement."

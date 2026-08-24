@@ -25,7 +25,7 @@ import { clampNumber, currentDateKey } from "./utils";
 import { cleanVillageTreasury, defaultVillageTreasury, makeVillageDailyAgenda, normalizeAnbuAppointees, normalizeVillageDailyAgenda } from "./village-state";
 import { makeNoticePost, normalizeNoticePosts } from "./clan-notices";
 import { sharedClanWarCache } from "./clan-war-api";
-import { addItem, countItem, removeItem } from "./inventory";
+import { countItem, removeItem } from "./inventory";
 import { villageLeadership } from "../data/village-leadership";
 import { villageUpgradeDefinitions, VILLAGE_UPGRADE_MAX_LEVEL } from "./village-upgrades";
 

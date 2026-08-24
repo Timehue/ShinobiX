@@ -1339,9 +1339,20 @@
         margin-bottom: 2px;
         font-size: 6px;
     }
+    .mission-hall .mh-field-card.mh-field-accepted .mh-field-objectives { display: none; }
+    .mission-hall .mh-field-card.mh-field-accepted .mh-fetch-progress-wrap {
+        width: calc(100% - 68px);
+    }
     .mission-hall .mh-field-card .mh-fetch-actions {
         gap: 4px;
         margin-top: 2px;
+    }
+    .mission-hall .mh-field-card.mh-field-accepted .mh-fetch-actions {
+        position: absolute;
+        right: 53px;
+        bottom: 8px;
+        width: 64px;
+        margin: 0;
     }
     .mission-hall .mh-field-card .mh-fetch-actions .mh-field-primary-action {
         position: absolute;
@@ -1379,7 +1390,8 @@
         transform: translateY(-2px);
     }
     .mission-hall .mh-field-card .mh-fetch-actions .mh-field-secondary-action {
-        min-height: 22px;
+        width: 100%;
+        min-height: 24px;
         padding: 3px 5px !important;
         border-radius: 4px !important;
         font-size: 6px !important;
