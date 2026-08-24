@@ -312,10 +312,15 @@ describe('clan-boss player-combat parity guard', () => {
             'adapter should expose a normalized tower/clan-boss player-combat contract',
         );
         assert.doesNotMatch(engine, /function resolveTagStatuses|function resolvePostDamage/, 'tower should not duplicate PvP tag/post-damage resolver phases');
+        // MIGRATED. The action and round budgets now come from combat-core, so
+        // shinobi combat has ONE of each: the Team Arena round cap had drifted to
+        // 20 against the canonical 25 exactly because these were separate literals.
+        assert.match(engine, /import \{ MAX_ACTIONS, MAX_ROUNDS \} from '\.\.\/combat-core\/constants\.js'/);
+        assert.doesNotMatch(engine, /export const (?:MAX_ACTIONS|MAX_ROUNDS) = /,
+            'the action/round budgets must not be re-declared tower-local again');
+        // Still tower-local, tracked for a later deliberate migration.
         for (const constant of [
             'BASE_AP',
-            'MAX_ACTIONS',
-            'MAX_ROUNDS',
             'STUN_AP_PENALTY',
             'MOVE_AP',
             'BASIC_ATTACK_AP',

@@ -1,9 +1,9 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
-// Command-deck glyphs (game-icons.net, CC BY 3.0) — one per basic action.
+// Compact local command-deck glyphs — one per basic action.
 import {
     GiCrossedSwords, GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime,
-} from "react-icons/gi";
+} from "../components/icons/LightweightGameIcons";
 import "../styles/battle-skin.css";
 import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, BattleHistoryEntry } from "../types/character";
@@ -61,6 +61,7 @@ import {
     completePvpRewardCompletion,
     postPvpRewardCompletionAck,
     postPvpRewardClaim,
+    pvpRewardSettlementNotice,
     shouldRunPvpRewardCompletion,
     type PvpRewardClaimConfirmed,
     type PvpRewardCompletionStorage,
@@ -954,15 +955,10 @@ export function PvpBattleScreen({
             return;
         }
 
-        setPvpRewardNotice(isDrawNow
-            ? "Draw confirmed — terminal battle effects are settled."
-            : (!result.rewardAuthorized || effectiveIsSpar)
-            ? "Spar complete — no progression rewards."
-            : result.rating
-                ? `Server-settled rating: ${result.rating.delta >= 0 ? "+" : ""}${result.rating.delta}.${result.base ? " Combat rewards credited." : ""}`
-                : result.base
-                    ? "Combat rewards settled by the server."
-                    : "Official result verified; no generic payout for this mode.");
+        setPvpRewardNotice(pvpRewardSettlementNotice(result, {
+            draw: isDrawNow,
+            spar: effectiveIsSpar,
+        }));
         const runCompletion = shouldRunPvpRewardCompletion(
             completionStorage,
             claimRequest,

@@ -16,7 +16,7 @@
  * Add a new glyph: extend GameIconName + add a PATHS entry (24×24 viewBox).
  * Keep the filled style + `currentColor` so the set stays visually coherent.
  */
-import type { CSSProperties, ReactElement } from "react";
+import React, { type CSSProperties, type ReactElement } from "react";
 import type { GameIconName } from "./icon-names";
 
 export type { GameIconName } from "./icon-names";
@@ -221,8 +221,8 @@ export function GameIcon({
     style,
 }: {
     name: GameIconName;
-    /** Square px size (width = height). Defaults to 18. */
-    size?: number;
+    /** Square CSS size (width = height). Defaults to 18px. */
+    size?: number | string;
     /** Accessible label. Omit for purely decorative icons (then aria-hidden). */
     title?: string;
     className?: string;
@@ -243,5 +243,54 @@ export function GameIcon({
             {title ? <title>{title}</title> : null}
             {PATHS[name]}
         </svg>
+    );
+}
+
+export type ShinobiCurrencyIconName = Extract<
+    GameIconName,
+    "ryo" | "medal" | "sparkle" | "shard" | "crystal" | "sigil" | "bone"
+>;
+
+const SHINOBI_CURRENCY_TONES: Record<ShinobiCurrencyIconName, string> = {
+    ryo: "#f3c85b",
+    medal: "#f1b84b",
+    sparkle: "#ffe09b",
+    shard: "#d995ef",
+    crystal: "#67bdff",
+    sigil: "#f8dc58",
+    bone: "#c8d3df",
+};
+
+/**
+ * A compact currency mark built like a stamped shinobi crest. The outer
+ * shuriken plate keeps the economy icons feeling like one authored set while
+ * GameIcon supplies the distinct, accessible material symbol in the center.
+ */
+export function ShinobiCurrencyIcon({
+    name,
+    size = 22,
+    title,
+    className,
+}: {
+    name: ShinobiCurrencyIconName;
+    size?: number | string;
+    title?: string;
+    className?: string;
+}) {
+    return (
+        <span
+            className={`shinobi-currency-icon shinobi-currency-icon--${name}${className ? ` ${className}` : ""}`}
+            style={{ width: size, height: size, color: SHINOBI_CURRENCY_TONES[name] }}
+            role={title ? "img" : undefined}
+            aria-label={title}
+            aria-hidden={title ? undefined : true}
+        >
+            <svg className="shinobi-currency-crest" viewBox="0 0 32 32" focusable="false">
+                <path d="m16 1.8 4.1 8.1 9.4-1.4-5.2 7.5 5.2 7.5-9.4-1.4-4.1 8.1-4.1-8.1-9.4 1.4 5.2-7.5-5.2-7.5 9.4 1.4L16 1.8Z" />
+                <circle cx="16" cy="16" r="10.7" />
+                <circle cx="16" cy="16" r="8.8" />
+            </svg>
+            <GameIcon name={name} size="52%" className="shinobi-currency-glyph" />
+        </span>
     );
 }

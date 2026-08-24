@@ -12,7 +12,11 @@ import {
     type ClanChallenge,
     type ClanWar,
 } from './_storage.js';
-import { awardPvpFinalizedWarPoints } from './_war-points.js';
+import {
+    awardPvpFinalizedWarPoints,
+    challengeWinners,
+    clanWarPvpTerritoryScrollDrop,
+} from './_war-points.js';
 import { awardPvpWarEndClanXp } from './_war-xp.js';
 
 const RECEIPT_TTL_SECONDS = 60 * 24 * 60 * 60;
@@ -33,7 +37,21 @@ export type PvpClanWarSettlement = {
     warId: string;
     challengeId: string;
     result: ChallengeResult;
+    /** Exact server-authored scroll result keyed by canonical winner name. */
+    territoryScrollsByPlayer: Record<string, number>;
 };
+
+function territoryScrollsByPlayer(
+    challenge: ClanChallenge,
+    battleId: string,
+    outcome: 'applied' | 'superseded',
+): Record<string, number> {
+    if (outcome !== 'applied' || challenge.mode !== 'pvp1v1' || challenge.result === 'draw') return {};
+    return Object.fromEntries(challengeWinners(challenge).map((name) => {
+        const player = safeName(name);
+        return [player, player && clanWarPvpTerritoryScrollDrop(battleId, player) ? 1 : 0];
+    }).filter(([player]) => Boolean(player)));
+}
 
 function receiptKey(battleId: string): string {
     return `pvp:clan-war-continuation:${battleId}`;
@@ -176,7 +194,11 @@ export async function settlePvpClanWarContinuation(
             throw new Error('pvp-clan-war-receipt-result-conflict');
         }
         await ensureCooldown(war);
-        return { ...prior, replayed: true };
+        return {
+            ...prior,
+            replayed: true,
+            territoryScrollsByPlayer: territoryScrollsByPlayer(challenge, session.battleId, prior.outcome),
+        };
     }
 
     const publication = await withKvLock(warKey, async () => {
@@ -312,5 +334,13 @@ export async function settlePvpClanWarContinuation(
         settledAt: terminalAt,
     };
     await commitReceipt(receipt);
-    return { ...receipt, replayed: false };
+    return {
+        ...receipt,
+        replayed: false,
+        territoryScrollsByPlayer: territoryScrollsByPlayer(
+            publication.challenge,
+            session.battleId,
+            publication.outcome,
+        ),
+    };
 }

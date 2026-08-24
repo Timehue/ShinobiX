@@ -12,6 +12,12 @@
 import type { GameItem } from "../types/combat";
 import { AURA_SPHERE_ITEM_ID } from "../constants/game";
 import { petCollars, petPvpGear, petPveGear, petConsumables } from "./pet-config";
+import {
+    PROFESSION_CHANGE_APPROVAL_COST,
+    PROFESSION_CHANGE_APPROVAL_ID,
+    PROFESSION_CHANGE_APPROVAL_NAME,
+    PROFESSION_CHANGE_LEVEL,
+} from "../../../shared/profession-change";
 
 type LegendarySetEffect = "damagePercent" | "absorbPercent" | "lifeStealPercent" | "shield" | "reflectPercent";
 
@@ -232,6 +238,18 @@ export const starterItems: GameItem[] = [
         cost: 20,
         image: "/items/shop-golden-apple-v1.webp",
         description: "A Grand Marketplace pet feast. Feed to a selected pet for +2000 pet XP.",
+        bonuses: {},
+    },
+    {
+        id: PROFESSION_CHANGE_APPROVAL_ID,
+        name: PROFESSION_CHANGE_APPROVAL_NAME,
+        slot: "item",
+        rarity: "legendary",
+        cost: PROFESSION_CHANGE_APPROVAL_COST,
+        levelReq: PROFESSION_CHANGE_LEVEL,
+        serviceItem: true,
+        image: "/items/item-territory-control-scroll-v1.webp",
+        description: "A sealed paper approval recognized by every profession hall. Consumed when you change professions; profession rank, XP, and mastery reset to Rank 1.",
         bonuses: {},
     },
     // -- Evolution stones (Grand Marketplace — Fate Shards) --------------------

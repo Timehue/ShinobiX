@@ -70,6 +70,14 @@ describe('gear level ladder', () => {
         assert.equal(effectiveItemLevelReq({ rarity: 'named', cost: 0 }), 90);
     });
 
+    it('priced service documents keep their authored gate instead of inheriting a gear tier', () => {
+        const approval = ITEM_CATALOG['profession-change-approval'];
+        assert.ok(approval?.serviceItem);
+        assert.equal(effectiveItemLevelReq(approval), 13);
+        assert.equal(meetsItemLevelReq(approval, 12), false);
+        assert.equal(meetsItemLevelReq(approval, 13), true);
+    });
+
     it('fails SAFE on junk — an unreadable rarity never becomes a free pass', () => {
         assert.equal(effectiveItemLevelReq({ rarity: 'nonsense', cost: 500 }), 1);
         assert.equal(effectiveItemLevelReq({}), 1);
@@ -95,6 +103,10 @@ describe('gear level ladder', () => {
         for (const item of Object.values(ITEM_CATALOG)) {
             if (!(Number(item.cost) > 0)) continue; // content-granted, see above
             const req = effectiveItemLevelReq(item);
+            if (item.serviceItem === true) {
+                assert.equal(req, item.levelReq, `${item.id} service item must keep its authored requirement`);
+                continue;
+            }
             const floor = RARITY_LEVEL_FLOOR[item.rarity as keyof typeof RARITY_LEVEL_FLOOR] ?? 1;
             assert.ok(req >= floor, `${item.id} (${item.rarity}) resolved to ${req}, below its ${floor} floor`);
             assert.ok(req <= 100, `${item.id} resolved to ${req}, above max level`);

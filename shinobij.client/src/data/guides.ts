@@ -168,13 +168,13 @@ const BEGINNER: Guide = {
         {
             heading: "11 · Pick a Path: Professions (Level 13)",
             blocks: [
-                { type: "p", text: "At Level 13 you choose a profession. Every character gets one free path change later from the Profession Hub, so choose the one that best matches how you like to play:" },
+                { type: "p", text: "At Level 13 you choose a profession. Future path changes require a Profession change approval, sold in the Grand Marketplace for 200 Fate Shards, so choose the path that best matches how you like to play:" },
                 { type: "list", items: [
                     "Healer — mend other players and support your village.",
                     "Vanguard — PvP raider who earns Honor Seals from real-player kills.",
                     "Pet Tamer — stronger pets in PvE and better expedition rewards.",
                 ] },
-                { type: "callout", tone: "warn", label: "Heads up", text: "A path change resets profession rank, XP, and mastery, and your second choice is permanent. Read the paths before spending your one free change." },
+                { type: "callout", tone: "warn", label: "Heads up", text: "Each path change consumes one Profession change approval and resets profession rank, XP, and mastery. Read the paths before spending the item." },
             ],
         },
         {
@@ -627,8 +627,8 @@ const WORLD: Guide = {
             heading: "2 · Capturing & Holding",
             blocks: [
                 { type: "list", items: [
-                    "Capture a sector by collecting Territory Control Scrolls (from missions) and donating them through the Clan Hall to push its Control Score toward the cap.",
-                    "Holding a sector generates daily War Supply — a clan-treasury resource collected by your clan's leaders — plus a terrain bonus (+10% offense in a chosen discipline) for fights there.",
+                    "Each shinobi PvP win during an active Clan War has a 20% chance to drop exactly 1 Territory Control Scroll. Pet, Chronicle, normal PvP, missions, hunts, and the Clan Exchange do not drop them.",
+                    "A clan needs at least 10 members and one atomic treasury payment of 75 donated scrolls to capture one sector already controlled by its village. Partial deposits are not accepted, so another clan cannot inherit your progress. Holding it generates daily War Supply plus a chosen +10% offense terrain bonus and fixed weather while rewards are active.",
                     "If your village holds territory, claim your daily map-control reward.",
                 ] },
             ],
@@ -637,7 +637,8 @@ const WORLD: Guide = {
             heading: "3 · Raiding & Defense",
             blocks: [
                 { type: "list", items: [
-                    "Raid enemy-held sectors to drain their territory HP; knock it to zero and the sector falls, then enters a 2-hour rebuild cooldown before it can be retaken.",
+                    "Raid enemy-held sectors to drain their territory HP. At zero HP the sector is Breached for a fixed 12 hours: all rewards and bonuses stop, and the owner must repair above zero before the deadline. Repairs never extend the deadline and attackers can knock it back down.",
+                    "A breached sector still at zero when the deadline expires is released and enters a 2-hour rebuild cooldown. Clan inactivity suspends benefits after 14 days and releases the sector after 30 days; activity-data gaps never trigger an eviction.",
                     "Defense: players can queue as guards on a sector. Raiders face a real human defender if one is on duty, otherwise an AI guard.",
                 ] },
             ],
@@ -749,7 +750,7 @@ const HOLLOWGATE: Guide = {
 
 // ── About & Credits ─────────────────────────────────────────────────────────
 // Kept last in the library. Holds the project blurb, the third-party attributions
-// we're obligated to surface (game-icons.net is CC BY 3.0 → attribution required),
+// we surface for players and reviewers,
 // and the community links.
 const ABOUT: Guide = {
     id: "about",
@@ -769,11 +770,11 @@ const ABOUT: Guide = {
             heading: "Credits & Attributions",
             blocks: [
                 { type: "h", text: "Icons" },
-                { type: "p", text: "Menu and interface icons are from game-icons.net, used under the Creative Commons Attribution 3.0 Unported license (CC BY 3.0). See game-icons.net for the full author list and the license text." },
+                { type: "p", text: "Menu and interface icons use the game's compact project-authored inline SVG set for fast, consistent rendering." },
                 { type: "h", text: "Fonts" },
                 { type: "p", text: "Display headings use a Cinzel-first local/system fallback stack for faster, more reliable loading." },
                 { type: "h", text: "Built With" },
-                { type: "p", text: "React, Vite, three.js, react-icons, Supabase, and other open-source software." },
+                { type: "p", text: "React, Vite, three.js, Supabase, and other open-source software." },
             ],
         },
         {

@@ -374,7 +374,7 @@ ryoGain     = (activeTrait==="Lucky" ?  90 :  75) * (deathsGate ? 2 : 1)
 char        = gainXp(char, xpGain)               // applies ×45 testing mult inside
 char.ryo   += ryoGain
 ```
-auraDust(+6), territory scrolls(+5), `totalPvpKills`/`monthlyPvpKills`(+1), war
+auraDust(+6), `totalPvpKills`/`monthlyPvpKills`(+1), war
 bounties/crates, kage-seat, clan-war + village-war reports are NOT in scope —
 they stay client-side (kills = Phase 5; the rest are their own systems).
 
@@ -402,7 +402,7 @@ they stay client-side (kills = Phase 5; the rest are their own systems).
 4. **Activate (client)** — later step: `handlePvpWin`'s two session-create sites
    send `baseRewards:true` + `rewardSector`. Convergence-safe like Phase 1: the
    client keeps self-applying `gainXp`+ryo from the SAME base, so the server
-   credit and the client autosave converge; the kills/auraDust/scrolls extras
+   credit and the client autosave converge; the kills/auraDust extras
    ride along on the autosave.
 5. **Read-back (client)** — later step: thread the returned ryo/xp/level so the
    client displays the server values, falling back to the local compute on a
@@ -506,7 +506,7 @@ server-authoritative for their base payout. Confirm this first thing in 4a.
 
 | # | Source | Site (approx) | Credits | Deterministic? |
 |---|---|---|---|---|
-| 1 | **Mission/raid/hunt BASE** ryo/xp | `claimFetchMission` ~30027, hunt, daily missions | template ryo/xp + currencies + scrolls | ✅ template-deterministic |
+| 1 | **Mission/raid/hunt BASE** ryo/xp | `claimFetchMission` ~30027, hunt, daily missions | template ryo/xp + currencies; no Territory Control Scrolls | ✅ template-deterministic |
 | 2 | **AI-kill** (PvE `winBattle`, no session) | `winBattle` ~33240 | 75/100 base ×trait, +auraDust, dailyAiKills | ✅ per opponent level |
 | 3 | **Story / triggered-event** battle win | `completePendingArenaStoryBattle` ~7750 | step/event ryo/xp + currencies | ✅ per step/event |
 | 4 | **Endless Tower** wave + milestone (banked) | `handleEndlessWin`/`bankEndlessRewards` ~7270 | `endlessWaveReward(wave,level)` ryo/xp, milestone charms/shards | ✅ formula |

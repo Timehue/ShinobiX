@@ -1,4 +1,4 @@
-import { GiCrossedSwords, GiLadder, GiPawPrint, GiTrophy, GiEyeball, GiColiseum } from "react-icons/gi";
+import { GiCrossedSwords, GiLadder, GiPawPrint, GiTrophy, GiEyeball, GiColiseum } from "../../../components/icons/LightweightGameIcons";
 import coliseumLadderImg from "../../../assets/coliseum/coliseum-bg.webp";
 import tacticalLadderImg from "../../../assets/ladder/tactical-hero.webp";
 import { TACTICAL_ARENA_PET_REQUIREMENT } from "../../../lib/pet";
@@ -7,6 +7,7 @@ import type { Character, PlayerRecord } from "../../../types/character";
 import type { EnhancedClanData } from "../../../types/clan";
 import type { ArenaSpectatorFight, ArenaTournament } from "../../../lib/world-state";
 import type { ArenaDistrictTab } from "../types";
+import { Ranked2v2Panel } from "../../../components/Ranked2v2Panel";
 import { CentralDestinationHeader } from "../../../components/CentralDestinationHeader";
 
 const ARENA_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
@@ -42,10 +43,12 @@ type ArenaDistrictLobbyProps = {
     onSpectateFight: (fight: ArenaSpectatorFight) => void;
     onViewPendingChallenge: () => void;
     onOpenPetLadder: (mode: "coliseum" | "tactical") => void;
+    sharedImages?: Record<string, string>;
 };
 
 export function ArenaDistrictLobby({
     character,
+    sharedImages,
     activeTab,
     hasAvailablePet,
     availablePetCount,
@@ -164,9 +167,11 @@ export function ArenaDistrictLobby({
                 </section>
             )}
 
+            {activeTab === "ranked" && <Ranked2v2Panel character={character} sharedImages={sharedImages} />}
+
             {activeTab === "ranked" && (
                 <section className="summary-box">
-                    <h3>Ranked Battles</h3>
+                    <h3>Ranked Battles (Solo 1v1)</h3>
                     <p>Rating: <strong>{character.rankedRating ?? 1000}</strong> Elo | Wins {character.rankedWins ?? 0} | Losses {character.rankedLosses ?? 0}</p>
                     <p className="hint">Ranked fights use neutral ground: no terrain or weather modifiers.</p>
                     <p>Players in queue: <strong>{rankedQueueSize}</strong></p>

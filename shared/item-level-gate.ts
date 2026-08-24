@@ -53,7 +53,7 @@ function floorFor(rarity: unknown): number {
         : RARITY_LEVEL_FLOOR.common;
 }
 
-type GatedItem = { rarity?: unknown; levelReq?: unknown; cost?: unknown };
+type GatedItem = { rarity?: unknown; levelReq?: unknown; cost?: unknown; serviceItem?: unknown };
 
 /**
  * The level actually required to buy or equip `item`.
@@ -79,6 +79,12 @@ export function effectiveItemLevelReq(item: GatedItem | null | undefined): numbe
     if (!item || typeof item !== 'object') return RARITY_LEVEL_FLOOR.common;
     const declaredRaw = Math.floor(Number(item.levelReq));
     const declared = Number.isFinite(declaredRaw) && declaredRaw > 0 ? declaredRaw : 0;
+
+    // Marketplace permits and other priced service documents have rarity for
+    // storefront placement, not combat power. Their authored gate is the full
+    // requirement; applying the gear ladder would hide a Level-13 profession
+    // service until Level 65 merely because it is sold for Fate Shards.
+    if (item.serviceItem === true) return declared > 0 ? declared : RARITY_LEVEL_FLOOR.common;
 
     const rarity = typeof item.rarity === 'string' ? item.rarity.toLowerCase() : '';
     if (rarity === 'named') return Math.max(declared, RARITY_LEVEL_FLOOR.named);

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import type { Character } from "../types/character";
 import { fetchTowerFloors, startTowerRun, fetchMyRunStatus, fetchSpireLeaderboard, towerPlayerSlug, SPIRE_MAX_TIER, type TowerFloorMeta, type TowerSession, type TowerHostLoadout, type TowerPartyView, type SpireLeaderboardRow, type SpireWeeklyAffix } from "../lib/towers-api";
@@ -10,8 +10,6 @@ import { battleEntryCost, BATTLE_FREE_FLOORS } from "../lib/entry-fee";
 import { subscribeFollowing } from "../lib/friends";
 import { LoadingState } from "../components/ui/LoadingState";
 import { TowerReadyRoomPanel } from "../components/TowerReadyRoomPanel";
-import { TowerPvpPanel } from "../components/TowerPvpPanel";
-import type { TowerPvpMatch } from "../lib/tower-pvp-api";
 import { readScreenCache, writeScreenCache } from "../lib/screen-cache";
 import spireKeyArt from "../assets/towers/spire-banner.webp";
 import { resolveTowerStoryArt, resolveTowerStoryChapterArt, TOWER_KEY_ART, TOWER_SPIRE_PORTRAITS } from "../lib/tower-art-manifest";
@@ -22,8 +20,11 @@ import {
     recommendedTowerStoryFloor,
 } from "../lib/tower-story-catalog";
 import "../styles/tower-lobby.css";
+import { BATTLE_TOWERS_MIN_LEVEL } from "../../../shared/tower-pvp";
 
-const TOWER_MIN_LEVEL = 30;
+// One shared source of truth with the server gate in api/towers/pvp-queue.ts and
+// api/towers/_story-eligibility.ts — this used to be an independent literal.
+const TOWER_MIN_LEVEL = BATTLE_TOWERS_MIN_LEVEL;
 const FLOOR_CACHE_KEY = "tower-floors:v4";
 const FLOOR_CACHE_TTL_MS = 5 * 60_000;
 
@@ -160,8 +161,10 @@ function StoryFloorCard({
             >
                 <span className="tower-story-floor-stripe" aria-hidden="true" />
                 <span className={`tower-story-floor-icon${floorArt.kind === "authored" ? " has-art" : ""}`} aria-hidden="true">
+                    {/* Icon-sized art only: the 1536x1024 masters stay reserved for the
+                        chapter header and the selected-floor briefing hero. */}
                     {floorArt.kind === "authored"
-                        ? <><img src={floorArt.src} alt="" loading="lazy" /><span className="tower-story-floor-art-fallback">{floor.isBoss ? "👑" : biome.icon}</span></>
+                        ? <><img src={floorArt.thumb} alt="" width={240} height={160} loading="lazy" decoding="async" /><span className="tower-story-floor-art-fallback">{floor.isBoss ? "👑" : biome.icon}</span></>
                         : floor.isBoss ? "👑" : biome.icon}
                 </span>
                 <span className="tower-story-floor-copy">
@@ -187,16 +190,12 @@ export function BattleTowersLobby({
     updateCharacter,
     hostLoadout,
     onEnter,
-    onEnterPvp,
-    onPvpMatchChange,
     onBack,
 }: {
     character: Character;
     updateCharacter: (c: Character) => void;
     hostLoadout?: TowerHostLoadout;
     onEnter: (runId: string, session: TowerSession) => void;
-    onEnterPvp: (match: TowerPvpMatch) => void;
-    onPvpMatchChange: (matchId: string | null) => void;
     onBack: () => void;
 }) {
     const [floors, setFloors] = useState<TowerFloorMeta[]>(() => orderedTowerStoryFloors(readScreenCache(FLOOR_CACHE_KEY, isTowerFloorList) ?? []));
@@ -210,11 +209,6 @@ export function BattleTowersLobby({
     const [pendingRun, setPendingRun] = useState<{ runId: string; session: TowerSession } | null>(null);
     const [runRecoveryPending, setRunRecoveryPending] = useState(false);
     const [activeReadyRoom, setActiveReadyRoom] = useState<TowerPartyView | null>(null);
-    const [activePvpMatchId, setActivePvpMatchId] = useState<string | null>(null);
-    const handlePvpMatchChange = useCallback((matchId: string | null) => {
-        setActivePvpMatchId(matchId);
-        onPvpMatchChange(matchId);
-    }, [onPvpMatchChange]);
     // Endless Spire (dedicated ascension boss gauntlet). You may enter up to one tier above
     // your highest cleared; the default selection is the next unlocked floor.
     const spireUnlocked = character.battleTowerAscension ?? 0;
@@ -247,7 +241,7 @@ export function BattleTowersLobby({
         admin: isAdmin,
     });
     const readyRoomActive = activeReadyRoom != null && activeReadyRoom.status !== "closed";
-    const soloStartBlocked = readyRoomActive || activePvpMatchId != null;
+    const soloStartBlocked = readyRoomActive;
 
     useEffect(() => {
         let alive = true;
@@ -409,14 +403,6 @@ export function BattleTowersLobby({
 
             {!towerLevelEligible && <div className="tower-level-gate" role="status">Battle Towers unlock at level {TOWER_MIN_LEVEL}. Floors remain visible so you can plan the climb.</div>}
 
-            <TowerPvpPanel
-                playerName={character.name}
-                unlocked={towerLevelEligible}
-                blockedReason={readyRoomActive ? "Leave your co-op Ready Room before entering public 2v2 matchmaking." : null}
-                onMatchLockChange={handlePvpMatchChange}
-                onEnter={onEnterPvp}
-            />
-
             <TowerReadyRoomPanel
                 character={character}
                 following={following}
@@ -425,7 +411,6 @@ export function BattleTowersLobby({
                 storyFloorActionable={selectedFloorActionable}
                 spireTier={spireTier}
                 towersUnlocked={towerLevelEligible}
-                externalBattleActive={activePvpMatchId != null}
                 hostLoadout={hostLoadout}
                 updateCharacter={updateCharacter}
                 onPartyChange={setActiveReadyRoom}

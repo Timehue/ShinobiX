@@ -53,7 +53,7 @@ import {
 import { mercTierName } from "../lib/merc-roam-client";
 import { gameToast } from "../components/GameToast";
 import { GameIcon } from "../components/icons/GameIcon";
-import { GiBowlOfRice, GiHazardSign } from "react-icons/gi";
+import { GiBowlOfRice, GiHazardSign } from "../components/icons/LightweightGameIcons";
 import { WAR_CREST, TERRAIN_IMAGES, STRUCTURE_IMAGES, WINCON_IMAGES } from "../data/war-ui-images";
 
 // ─── Village War Map (Phase 6) ──────────────────────────────────────────────

@@ -127,7 +127,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('profession', 'character', 'server-owned', 'profession', ['public-char'], 'locked to stored; only /api/profession/choose sets it'),
     f('professionRank', 'character', 'derived', 'profession', ['public-char', 'strict-ledger-char', 'always-ledger-char'], 'recomputed from capped professionXp'),
     f('professionXp', 'character', 'server-ledger', 'profession', ['public-char', 'strict-ledger-char', 'always-ledger-char'], 'gains rejected; only server endpoints raise it'),
-    f('professionRespecUsed', 'character', 'server-owned', 'profession', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'one-time latch; only /api/profession/choose may set it'),
+    f('professionRespecUsed', 'character', 'server-owned', 'profession', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'legacy audit latch from the retired free-change system'),
 
     // ── Wallet & currencies ─────────────────────────────────────────────────
     f('ryo', 'character', 'server-clamped', 'currency', ['strict-ledger-char', 'combat-strip-char'], 'decrease free; gain ≤1,000/save until strict flip, then frozen'),

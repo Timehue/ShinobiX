@@ -89,7 +89,9 @@ describe('Village War Map feedback contract', () => {
     });
 
     it('3j — the new rows use the icon vocabulary, not bolted-on emoji', () => {
-        assert.match(screen, /import \{ GiBowlOfRice, GiHazardSign \} from "react-icons\/gi"/);
+        // main removed the react-icons dependency in favour of the local
+        // LightweightGameIcons layer; the vocabulary point is unchanged.
+        assert.match(screen, /import \{ GiBowlOfRice, GiHazardSign \} from "\.\.\/components\/icons\/LightweightGameIcons"/);
         assert.match(screen, /import \{ GameIcon \}/);
         assert.doesNotMatch(screen, /🍚/, 'the rice-bowl emoji is replaced by GiBowlOfRice');
         assert.doesNotMatch(screen, /⚠/, 'the warning emoji is replaced by GiHazardSign');

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { FiGrid, FiPackage } from "react-icons/fi";
+import { FiGrid, FiPackage } from "../components/icons/LightweightGameIcons";
 import "../styles/profile-skin.css";
+import "../styles/inventory-aaa.css";
 // The Chronicle card reader opened from the card tab lives in that stylesheet.
 import "../styles/chronicle-duel.css";
 import { CloseButton } from "../components/ui/CloseButton";
@@ -230,6 +231,32 @@ export function Inventory({
         {},
     );
 
+    const backpackUnitCount = backpackStacks.reduce((total, stack) => total + stack.count, 0);
+    const normalizedSearch = itemSearch.trim().toLowerCase();
+    const visibleBackpackStacks = backpackStacks
+        .filter(({ item, category }) => {
+            if (slotFilter) {
+                return item && (
+                    isCombatItemSlot(slotFilter)
+                        ? isCombatConsumable(item)
+                        : equipSlotForItem(item) === slotFilter
+                );
+            }
+            return categoryFilter === "all" || category === categoryFilter;
+        })
+        .filter(({ entry, item }) => !normalizedSearch || (item?.name ?? entry).toLowerCase().includes(normalizedSearch))
+        .sort((a, b) =>
+            rarityWeight(b.item?.rarity) - rarityWeight(a.item?.rarity)
+            || (a.item?.name ?? a.entry).localeCompare(b.item?.name ?? b.entry));
+
+    const backpackEmptyMessage = normalizedSearch
+        ? `No items match "${itemSearch.trim()}".`
+        : slotFilter
+            ? `No ${equipmentSlotLabel(slotFilter)} items in inventory.`
+            : categoryFilter === "all"
+                ? "No items in inventory."
+                : ITEM_CATEGORY_META[categoryFilter].empty;
+
     const visualSlots: Array<{ label: string; equipmentSlot?: EquipmentSlot; accepts?: EquipmentSlot; className: string }> = [
         { label: "Aura", equipmentSlot: "aura", accepts: "aura", className: "slot-keystone" },
         { label: "Head", equipmentSlot: "head", accepts: "head", className: "slot-head" },
@@ -269,6 +296,14 @@ export function Inventory({
                         : undefined
         );
     }
+
+    const equippedSlotCount = visualSlots.filter(({ equipmentSlot }) => {
+        if (!equipmentSlot) return false;
+        const equippedId = equippedIdForSlot(equipmentSlot);
+        if (!equippedId) return false;
+        const normalized = normalizeEquipmentSlot(equipmentSlot);
+        return !consumableEquipSlots.has(normalized) || countItem(character, equippedId) > 0;
+    }).length;
 
     function equipItem(item: GameItem) {
         if (item.weaponElement && !hasCharacterElement(character, item.weaponElement)) {
@@ -527,7 +562,16 @@ export function Inventory({
         <>
             <div className="inventory-page">
                 <section className="inventory-equipped-panel">
-                    <h2>Equipped</h2>
+                    <div className="inventory-equipped-heading">
+                        <div>
+                            <span className="inventory-panel-kicker">Active loadout</span>
+                            <h2>Equipped</h2>
+                        </div>
+                        <span className="inventory-panel-count" aria-label={`${equippedSlotCount} of ${visualSlots.length} equipment slots filled`}>
+                            {equippedSlotCount}<small>/{visualSlots.length}</small>
+                        </span>
+                    </div>
+                    <p className="inventory-panel-intro">Select a slot to filter compatible gear, or inspect an equipped item.</p>
 
                     <div className="inventory-character-layout">
                         <div className="inventory-silhouette">
@@ -644,9 +688,15 @@ export function Inventory({
 
                 <section className="inventory-backpack-panel">
                     <div className="inventory-panel-header">
-                        <h2>{inventoryTab === "items"
-                            ? (categoryFilter === "all" ? "Backpack" : `Backpack · ${ITEM_CATEGORY_META[categoryFilter].label}`)
-                            : "Shinobi Chronicle Showdown Cards"}</h2>
+                        <div className="inventory-panel-title-group">
+                            <span className="inventory-panel-kicker">{inventoryTab === "items" ? "Field storage" : "Card archive"}</span>
+                            <h2>{inventoryTab === "items"
+                                ? (categoryFilter === "all" ? "Backpack" : `Backpack · ${ITEM_CATEGORY_META[categoryFilter].label}`)
+                                : "Shinobi Chronicle Showdown Cards"}</h2>
+                            <p>{inventoryTab === "items"
+                                ? `${backpackStacks.length} unique · ${backpackUnitCount} total`
+                                : `${tileCardStacks.length} unique · ${character.tileCards.length} total`}</p>
+                        </div>
 
                         <div className="inventory-tabs">
                             <button
@@ -721,65 +771,40 @@ export function Inventory({
                                     <button type="button" onClick={() => setSlotFilter(null)}>✕ Clear</button>
                                 </div>
                             )}
-                            {(() => {
-                                const query = itemSearch.trim().toLowerCase();
-                                const visible = backpackStacks
-                                    .filter(({ item, category }) => {
-                                        if (slotFilter) {
-                                            return item && (
-                                                isCombatItemSlot(slotFilter)
-                                                    ? isCombatConsumable(item)
-                                                    : equipSlotForItem(item) === slotFilter
-                                            );
-                                        }
-                                        return categoryFilter === "all" || category === categoryFilter;
-                                    })
-                                    .filter(({ entry, item }) => !query || (item?.name ?? entry).toLowerCase().includes(query))
-                                    .sort((a, b) =>
-                                        rarityWeight(b.item?.rarity) - rarityWeight(a.item?.rarity)
-                                        || (a.item?.name ?? a.entry).localeCompare(b.item?.name ?? b.entry));
-                                if (visible.length === 0) {
-                                    const emptyMessage = query
-                                        ? `No items match "${itemSearch.trim()}".`
-                                        : slotFilter
-                                            ? `No ${equipmentSlotLabel(slotFilter)} items in inventory.`
-                                            : categoryFilter === "all"
-                                                ? "No items in inventory."
-                                                : ITEM_CATEGORY_META[categoryFilter].empty;
-                                    return <p className="inventory-empty">{emptyMessage}</p>;
-                                }
-                                return (
+                            {visibleBackpackStacks.length === 0 ? (
+                                <p className="inventory-empty">{backpackEmptyMessage}</p>
+                            ) : (
                                 <div className="backpack-grid">
-                                    {visible.map(({ entry, item, count, stackKey }) => (
-                                        <div
+                                    {visibleBackpackStacks.map(({ entry, item, count, stackKey, category }) => {
+                                        const itemName = item?.name ?? entry;
+                                        const rarity = item?.rarity ?? "common";
+                                        const itemType = item
+                                            ? presentItem(item, petFeedXpForItem(item.id)).category
+                                            : ITEM_CATEGORY_META[category].label;
+                                        const itemSummary = item
+                                            ? describeBonuses(item)
+                                            : entry === "Soldier Pill"
+                                                ? "Restores 25 stamina."
+                                                : entry === "Chakra Pill"
+                                                    ? "Restores 25 chakra."
+                                                    : "General inventory item.";
+                                        return (
+                                        <button
+                                            type="button"
                                             className={`backpack-item ${item ? `rarity-${item.rarity}` : "rarity-common"}`}
                                             key={stackKey}
-                                            role="button"
-                                            tabIndex={0}
-                                            onClick={() =>
+                                            onClick={() => {
                                                 setSelectedInventoryItem({
                                                     entry,
                                                     item,
                                                     count,
                                                     source: "backpack",
-                                                })
-                                            }
-                                            onKeyDown={(e) => {
-                                                // Accept both Enter and Space — Space is required
-                                                // for accessibility on a non-<button> role="button".
-                                                if (e.key === "Enter" || e.key === " ") {
-                                                    e.preventDefault(); // stop Space from page-scrolling
-                                                    setSelectedInventoryItem({
-                                                        entry,
-                                                        item,
-                                                        count,
-                                                        source: "backpack",
-                                                    });
-                                                }
+                                                });
                                             }}
-                                            style={{ cursor: "pointer" }}
+                                            aria-label={`Inspect ${itemName}`}
                                         >
                                             <div className="backpack-item-art">
+                                                <span className="backpack-item-rarity">{rarity}</span>
                                                 {item?.image ? (
                                                     // Deferred like the shop grid: the backpack is an
                                                     // unbounded list and the catalog art is 512px for a
@@ -791,55 +816,27 @@ export function Inventory({
                                                         loading="lazy"
                                                         decoding="async"
                                                         onError={(e) => { e.currentTarget.style.display = "none"; }}
-                                                        style={{
-                                                            width: "100%",
-                                                            height: "100%",
-                                                            objectFit: "contain",
-                                                            borderRadius: 4,
-                                                            padding: 3,
-                                                        }}
                                                     />
                                                 ) : (
-                                                    <span>{itemInitials(item?.name ?? entry)}</span>
+                                                    <span className="backpack-item-initials">{itemInitials(itemName)}</span>
                                                 )}
+                                                {count > 1 && <span className="stack-count">×{count}</span>}
                                             </div>
 
-                                            <strong>{item?.name ?? entry}</strong>
+                                            <span className="backpack-item-copy">
+                                                <span className="backpack-item-type">{itemType}</span>
+                                                <strong>{itemName}</strong>
+                                                <span className="backpack-item-summary">{itemSummary}</span>
+                                            </span>
 
-                                            <p>
-                                                {item
-                                                    ? `${equipmentSlotLabel(item.slot)} | ${describeBonuses(item)}`
-                                                    : entry === "Soldier Pill"
-                                                        ? "Restores 25 stamina."
-                                                        : entry === "Chakra Pill"
-                                                            ? "Restores 25 chakra."
-                                                            : "General inventory item."}
-                                            </p>
-
-                                            {count > 1 && (
-                                                <span className="stack-count">{count}</span>
-                                            )}
-
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-
-                                                    setSelectedInventoryItem({
-                                                        entry,
-                                                        item,
-                                                        count,
-                                                        source: "backpack",
-                                                    });
-                                                }}
-                                            >
-                                                Inspect
-                                            </button>
-                                        </div>
-                                    ))}
+                                            <span className="backpack-item-action" aria-hidden="true">
+                                                Inspect details <span>›</span>
+                                            </span>
+                                        </button>
+                                        );
+                                    })}
                                 </div>
-                                );
-                            })()}
+                            )}
                         </>
                     )}
 

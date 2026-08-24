@@ -1,76 +1,55 @@
 system,id,currency,amount,cadence,authority,notes
 combat-mission,combat-e-drill,ryo,10,per claim,api/missions/_mission-catalog.ts,
-combat-mission,combat-e-drill,territoryControlScrolls,1,per claim,api/missions/_mission-catalog.ts,
 combat-mission,combat-d-errand,ryo,20,per claim,api/missions/_mission-catalog.ts,
-combat-mission,combat-d-errand,territoryControlScrolls,1,per claim,api/missions/_mission-catalog.ts,
 combat-mission,combat-c-patrol,ryo,60,per claim,api/missions/_mission-catalog.ts,
-combat-mission,combat-c-patrol,territoryControlScrolls,1,per claim,api/missions/_mission-catalog.ts,
 combat-mission,combat-b-escort,ryo,125,per claim,api/missions/_mission-catalog.ts,
-combat-mission,combat-b-escort,territoryControlScrolls,1,per claim,api/missions/_mission-catalog.ts,
 combat-mission,combat-a-hunt,ryo,250,per claim,api/missions/_mission-catalog.ts,
-combat-mission,combat-a-hunt,territoryControlScrolls,1,per claim,api/missions/_mission-catalog.ts,
 combat-mission,combat-s-crisis,ryo,600,per claim,api/missions/_mission-catalog.ts,
-combat-mission,combat-s-crisis,territoryControlScrolls,1,per claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-wild-boar,ryo,60,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-wild-boar,statPoints,3,per daily claim,api/missions/_mission-catalog.ts,Daily checklist progression; XP fields are legacy display data.
-hunt-mission,hunt-wild-boar,territoryControlScrolls,3,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-forest-hawk,ryo,60,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-forest-hawk,statPoints,3,per daily claim,api/missions/_mission-catalog.ts,Daily checklist progression; XP fields are legacy display data.
-hunt-mission,hunt-forest-hawk,territoryControlScrolls,3,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-frost-wolf,ryo,160,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-frost-wolf,statPoints,3,per daily claim,api/missions/_mission-catalog.ts,Daily checklist progression; XP fields are legacy display data.
-hunt-mission,hunt-frost-wolf,territoryControlScrolls,3,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-ash-lizard,ryo,160,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-ash-lizard,statPoints,3,per daily claim,api/missions/_mission-catalog.ts,Daily checklist progression; XP fields are legacy display data.
-hunt-mission,hunt-ash-lizard,territoryControlScrolls,3,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-shadow-panther,ryo,340,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-shadow-panther,statPoints,3,per daily claim,api/missions/_mission-catalog.ts,Daily checklist progression; XP fields are legacy display data.
-hunt-mission,hunt-shadow-panther,territoryControlScrolls,3,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-shadow-panther,boneCharms,1,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-ironback-bear,ryo,340,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-ironback-bear,statPoints,3,per daily claim,api/missions/_mission-catalog.ts,Daily checklist progression; XP fields are legacy display data.
-hunt-mission,hunt-ironback-bear,territoryControlScrolls,3,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-ironback-bear,boneCharms,1,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-ember-drake,ryo,750,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-ember-drake,statPoints,3,per daily claim,api/missions/_mission-catalog.ts,Daily checklist progression; XP fields are legacy display data.
-hunt-mission,hunt-ember-drake,territoryControlScrolls,3,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-ember-drake,boneCharms,2,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-ember-drake,auraDust,20,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-moon-serpent,ryo,750,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-moon-serpent,statPoints,3,per daily claim,api/missions/_mission-catalog.ts,Daily checklist progression; XP fields are legacy display data.
-hunt-mission,hunt-moon-serpent,territoryControlScrolls,3,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-moon-serpent,boneCharms,2,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-moon-serpent,auraDust,20,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-ancient-chakra-beast,ryo,1800,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-ancient-chakra-beast,statPoints,3,per daily claim,api/missions/_mission-catalog.ts,Daily checklist progression; XP fields are legacy display data.
-hunt-mission,hunt-ancient-chakra-beast,territoryControlScrolls,3,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-ancient-chakra-beast,boneCharms,3,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-ancient-chakra-beast,auraDust,40,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-ancient-chakra-beast,fateShards,1,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-worldstorm-dragon,ryo,1800,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-worldstorm-dragon,statPoints,3,per daily claim,api/missions/_mission-catalog.ts,Daily checklist progression; XP fields are legacy display data.
-hunt-mission,hunt-worldstorm-dragon,territoryControlScrolls,3,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-worldstorm-dragon,boneCharms,3,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-worldstorm-dragon,auraDust,40,per daily claim,api/missions/_mission-catalog.ts,
 hunt-mission,hunt-worldstorm-dragon,fateShards,1,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-d-supply-trail,ryo,75,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-d-supply-trail,statPoints,3,per daily claim,api/missions/_mission-catalog.ts,Daily checklist progression; XP fields are legacy display data.
-field-mission,fetch-d-supply-trail,territoryControlScrolls,3,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-c-border-scout,ryo,190,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-c-border-scout,statPoints,3,per daily claim,api/missions/_mission-catalog.ts,Daily checklist progression; XP fields are legacy display data.
-field-mission,fetch-c-border-scout,territoryControlScrolls,3,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-b-enemy-cache,ryo,420,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-b-enemy-cache,statPoints,3,per daily claim,api/missions/_mission-catalog.ts,Daily checklist progression; XP fields are legacy display data.
-field-mission,fetch-b-enemy-cache,territoryControlScrolls,3,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-b-enemy-cache,boneCharms,1,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-a-black-route,ryo,900,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-a-black-route,statPoints,3,per daily claim,api/missions/_mission-catalog.ts,Daily checklist progression; XP fields are legacy display data.
-field-mission,fetch-a-black-route,territoryControlScrolls,3,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-a-black-route,boneCharms,2,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-a-black-route,auraDust,20,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-s-shadow-front,ryo,2100,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-s-shadow-front,statPoints,3,per daily claim,api/missions/_mission-catalog.ts,Daily checklist progression; XP fields are legacy display data.
-field-mission,fetch-s-shadow-front,territoryControlScrolls,3,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-s-shadow-front,boneCharms,3,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-s-shadow-front,auraDust,45,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-s-shadow-front,fateShards,1,per daily claim,api/missions/_mission-catalog.ts,
@@ -85,5 +64,6 @@ daily-login,level-scaled-ryo,ryo,500+100*level (cap 8000),daily,api/player/_dail
 daily-login,streak-shards,fateShards,5,every 7 streak days,api/player/_daily-login.ts,
 war-crate,legendary-war-crate,ryo,500,per crate,api/inventory/_war-crate.ts,
 war-crate,legendary-war-crate,honorSeals,10,per crate,api/inventory/_war-crate.ts,
+clan-war,shinobi-pvp-challenge-win,territoryControlScrolls,1,per finalized win,api/clan/war/_war-points.ts,Only shinobi PvP challenge winners; exactly-once server settlement.
 territory,controlled-sector-daily,warResources,25,per controlled sector/day,api/_war-economy.ts,
 territory,controlled-sector-daily,honorSeals,1,per controlled sector/day,api/_war-economy.ts,

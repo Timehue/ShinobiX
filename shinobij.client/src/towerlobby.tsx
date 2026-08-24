@@ -32,8 +32,6 @@ createRoot(document.getElementById("root")!).render(
         character={{ name: "Rill", battleTowerBestFloor: 4, battleTowerRating: 1840, battleTowerClearedFloors: [1, 2, 3, 4] } as never}
         updateCharacter={() => {}}
         onEnter={() => {}}
-        onEnterPvp={() => {}}
-        onPvpMatchChange={() => {}}
         onBack={() => {}}
     />,
 );

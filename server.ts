@@ -193,6 +193,7 @@ import snapshotSavesHandler from './api/cron/snapshot-saves.js';
 import clanWarListHandler      from './api/clan/war/list.js';
 import clanWarDeclareHandler   from './api/clan/war/declare.js';
 import clanWarChallengeHandler from './api/clan/war/challenge.js';
+import clanWarPvp2v2Handler from './api/clan/war/pvp-2v2.js';
 import clanWarReportHandler    from './api/clan/war/report.js';
 import clanWarTilecardsHandler from './api/clan/war/tilecards.js';
 import clanWarPetHandler from './api/clan/war/pet.js';
@@ -210,6 +211,7 @@ import clanTreasuryDonateHandler     from './api/clan/treasury/donate.js';
 import clanTreasuryTransferHandler   from './api/clan/treasury/transfer.js';
 // Clan — territory war-supply collect (server-authoritative)
 import clanCollectSupplyHandler      from './api/clan/territory/collect-supply.js';
+import clanAssignTerritoryScrollsHandler from './api/clan/territory/assign-scrolls.js';
 // Clan — upgrade tree purchase (server-authoritative spend from treasury)
 import clanUpgradePurchaseHandler    from './api/clan/upgrade/purchase.js';
 // Clan — mission reward claim (server-recomputed progress → treasury + clan XP)
@@ -300,6 +302,7 @@ import pvpClaimRewardsHandler   from './api/pvp/claim-rewards.js';
 import pvpBountyHandler         from './api/pvp/bounty.js';
 import pvpRankedQueueHandler    from './api/pvp/ranked-queue.js';
 import pvpPetRankedQueueHandler from './api/pvp/pet-ranked-queue.js';
+import pvpRanked2v2Handler from './api/pvp/ranked-2v2.js';
 // Pet
 import petBattleStartHandler from './api/pet/battle-start.js';
 import petBattleResultHandler from './api/pet/battle-result.js';
@@ -1262,6 +1265,9 @@ route('/cron/snapshot-saves', snapshotSavesHandler);
 route('/clan/war/list',      clanWarListHandler);
 route('/clan/war/declare',   clanWarDeclareHandler);
 route('/clan/war/challenge', clanWarChallengeHandler);
+// Clan War shinobi 2v2: start/settle only — the fight itself reuses the shared
+// Tower MPvP reducer at /towers/pvp-action and /towers/pvp-state.
+route('/clan/war/pvp-2v2', clanWarPvp2v2Handler);
 route('/clan/war/report',    clanWarReportHandler);
 route('/clan/war/tilecards', clanWarTilecardsHandler);
 // Server-authoritative clan-war PET battle: both sides field a pet, the server runs
@@ -1288,6 +1294,9 @@ route('/clan/treasury/transfer',    clanTreasuryTransferHandler);
 // ─── Clan: collect territory war supply (server-authoritative) ──────────────────
 // Scans owned world:territory:* sectors, accrues + zeroes them, credits treasury.
 route('/clan/territory/collect-supply', clanCollectSupplyHandler);
+// Debits the shared clan treasury and advances/captures one sector in the same
+// replay-safe command. Generic world-state writes cannot mint this progress.
+route('/clan/territory/assign-scrolls', clanAssignTerritoryScrollsHandler);
 
 // ─── Clan: upgrade tree purchase (server-authoritative spend) ───────────────────
 // Locks the clan row, debits treasury ryo + warSupply, increments the building.
@@ -1410,6 +1419,9 @@ route('/pvp/claim-rewards',    pvpClaimRewardsHandler);
 route('/pvp/bounty',           pvpBountyHandler);
 route('/pvp/ranked-queue',     pvpRankedQueueHandler);
 route('/pvp/pet-ranked-queue', pvpPetRankedQueueHandler);
+// Ranked 2v2: duo pairing, duo-vs-duo matchmaking and ladder settlement. The
+// fight reuses /towers/pvp-action + /towers/pvp-state.
+route('/pvp/ranked-2v2',       pvpRanked2v2Handler);
 
 // ─── Pet battle result ─────────────────────────────────────────────────────────
 route('/pet/battle-start',  petBattleStartHandler);

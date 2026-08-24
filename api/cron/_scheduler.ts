@@ -31,11 +31,13 @@ import { runGuestSweep } from './_guest-sweep.js';
 import { runKageInactivityPass } from '../village/_kage-inactivity.js';
 import { sweepClanBossPartyRegistry } from '../clan-boss/_party.js';
 import { clanBossWeekId } from '../clan-boss/_storage.js';
+import { runTerritoryLifecycleSweep } from '../_territory-lifecycle-store.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MERC_TICK_MS = 10 * 60_000; // village-war mercenary auto-snipe cadence
 const SETTLEMENT_RECONCILIATION_TICK_MS = 5 * 60_000;
 const CLAN_BOSS_PARTY_SWEEP_TICK_MS = 5 * 60_000;
+const TERRITORY_LIFECYCLE_TICK_MS = 5 * 60_000;
 const TARGET_UTC_HOUR = 3; // 03:00 UTC — matches the retired Vercel schedule "0 3 * * *".
 // No serverless timeout here, so give the nightly pass a generous budget to
 // snapshot every player in one run rather than leaning on next-day catch-up.
@@ -52,6 +54,7 @@ const LEASE_TTL = {
     mercAuto: 9 * 60,
     settlementReconciliation: 4 * 60,
     clanBossPartySweep: 4 * 60,
+    territoryLifecycle: 4 * 60,
     guestSweep: 20 * 60 * 60,
     kageInactivity: 20 * 60 * 60,
 } as const;
@@ -61,8 +64,10 @@ let _interval: ReturnType<typeof setInterval> | null = null;
 let _mercInterval: ReturnType<typeof setInterval> | null = null;
 let _settlementInterval: ReturnType<typeof setInterval> | null = null;
 let _clanBossPartySweepInterval: ReturnType<typeof setInterval> | null = null;
+let _territoryLifecycleInterval: ReturnType<typeof setInterval> | null = null;
 let _settlementScanRunning = false;
 let _clanBossPartySweepRunning = false;
+let _territoryLifecycleRunning = false;
 
 async function runLeasedJob<T>(jobName: string, ttlSec: number, fn: () => Promise<T>): Promise<T | null> {
     const leased = await withScheduledJobLease(jobName, fn, { ttlSec, holdUntilExpiryOnSuccess: true });
@@ -112,6 +117,28 @@ async function fireClanBossPartySweep(): Promise<void> {
         console.error('[cron-scheduler] clan-boss party sweep threw:', (err as Error).message);
     } finally {
         _clanBossPartySweepRunning = false;
+    }
+}
+
+async function fireTerritoryLifecycleSweep(): Promise<void> {
+    if (_territoryLifecycleRunning) return;
+    _territoryLifecycleRunning = true;
+    try {
+        const leased = await withScheduledJobLease(
+            'territory-lifecycle',
+            () => runTerritoryLifecycleSweep(),
+            { ttlSec: LEASE_TTL.territoryLifecycle, holdUntilExpiryOnSuccess: true },
+        );
+        if (!leased.acquired) return;
+        const result = leased.value;
+        if (result.breachesRecovered || result.breachesReleased || result.rewardsSuspended
+            || result.rewardsResumed || result.inactiveReleased || result.missingClanReleased || result.errors.length) {
+            console.log(`[cron-scheduler] territory lifecycle: ${result.scanned} scanned, ${result.breachesRecovered} recovered, ${result.breachesReleased} breached releases, ${result.rewardsSuspended} suspended, ${result.rewardsResumed} resumed, ${result.inactiveReleased} inactive releases, ${result.missingClanReleased} missing-clan releases, ${result.errors.length} errors.`);
+        }
+    } catch (err) {
+        console.error('[cron-scheduler] territory lifecycle sweep threw:', (err as Error).message);
+    } finally {
+        _territoryLifecycleRunning = false;
     }
 }
 
@@ -256,6 +283,11 @@ export function startSnapshotCron(): void {
         _clanBossPartySweepInterval.unref?.();
         void fireClanBossPartySweep();
     }
+    if (!_territoryLifecycleInterval) {
+        _territoryLifecycleInterval = setInterval(() => void fireTerritoryLifecycleSweep(), TERRITORY_LIFECYCLE_TICK_MS);
+        _territoryLifecycleInterval.unref?.();
+        void fireTerritoryLifecycleSweep();
+    }
     const snapshotDisabled = process.env.DISABLE_SNAPSHOT_CRON === '1';
     if (snapshotDisabled) {
         console.log('[cron-scheduler] save-snapshot cron disabled via DISABLE_SNAPSHOT_CRON=1');
@@ -298,6 +330,8 @@ export function stopSnapshotCron(): void {
     if (_mercInterval) { clearInterval(_mercInterval); _mercInterval = null; }
     if (_settlementInterval) { clearInterval(_settlementInterval); _settlementInterval = null; }
     if (_clanBossPartySweepInterval) { clearInterval(_clanBossPartySweepInterval); _clanBossPartySweepInterval = null; }
+    if (_territoryLifecycleInterval) { clearInterval(_territoryLifecycleInterval); _territoryLifecycleInterval = null; }
     _settlementScanRunning = false;
     _clanBossPartySweepRunning = false;
+    _territoryLifecycleRunning = false;
 }

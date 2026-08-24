@@ -234,6 +234,13 @@
     font: 800 14px/1 var(--font-display);
 }
 
+.central-passport-signals strong em {
+    margin-left: 2px;
+    color: #8ba0bc;
+    font: 700 8px/1 Inter, sans-serif;
+    font-style: normal;
+}
+
 .central-hub .central-log {
     display: grid;
     grid-template-columns: 38px minmax(0, 1fr);
@@ -410,11 +417,11 @@
 .central-hub .central-card {
     position: relative;
     display: grid !important;
-    grid-template-columns: 50px minmax(0, 1fr) 24px !important;
-    align-items: center !important;
-    gap: 12px !important;
-    min-height: 126px;
-    padding: 14px !important;
+    grid-template-columns: clamp(132px, 13vw, 174px) minmax(0, 1fr) 24px !important;
+    align-items: stretch !important;
+    gap: 14px !important;
+    min-height: 154px;
+    padding: 0 14px 0 0 !important;
     color: #edf2f8 !important;
     text-align: left !important;
     background:
@@ -455,6 +462,43 @@
     box-shadow: 0 8px 22px rgba(0, 0, 0, 0.34), inset 0 0 24px rgba(var(--district-accent-rgb), 0.045) !important;
 }
 
+.central-card-art {
+    position: relative;
+    display: block;
+    align-self: stretch;
+    min-width: 0;
+    overflow: hidden;
+    border-right: 1px solid rgba(var(--district-accent-rgb), 0.24);
+    background: #060c18;
+}
+
+.central-card-art::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(90deg, transparent 54%, rgba(5, 11, 23, 0.72) 100%),
+        linear-gradient(180deg, rgba(2, 7, 16, 0.02), rgba(2, 7, 16, 0.42));
+    pointer-events: none;
+}
+
+.central-card-art img {
+    width: 100%;
+    height: 100%;
+    min-height: 152px;
+    display: block;
+    object-fit: cover;
+    filter: saturate(0.88) contrast(1.06) brightness(0.82);
+    transform: scale(1.01);
+    transition: filter 180ms ease, transform 240ms ease;
+}
+
+.central-card:hover .central-card-art img,
+.central-card:focus-visible .central-card-art img {
+    filter: saturate(1.04) contrast(1.06) brightness(0.96);
+    transform: scale(1.045);
+}
+
 .central-hub .central-icon {
     position: relative;
     display: grid;
@@ -485,8 +529,10 @@
 
 .central-card-content {
     display: grid;
+    align-content: center;
     min-width: 0;
     gap: 6px;
+    padding-block: 15px;
 }
 
 .central-card-meta {
@@ -719,7 +765,7 @@
     }
 
     .central-hub .central-card {
-        min-height: 116px;
+        min-height: 142px;
     }
 
     .central-war-alert {
@@ -782,21 +828,14 @@
     .central-district-title h2 { font-size: 15px; }
 
     .central-hub .central-card {
-        grid-template-columns: 42px minmax(0, 1fr) 18px !important;
+        grid-template-columns: 94px minmax(0, 1fr) 16px !important;
         gap: 10px !important;
-        min-height: 112px;
-        padding: 12px 10px !important;
+        min-height: 132px;
+        padding: 0 9px 0 0 !important;
     }
 
-    .central-hub .central-icon {
-        width: 40px;
-        height: 40px;
-    }
-
-    .central-hub .central-icon svg {
-        width: 28px;
-        height: 28px;
-    }
+    .central-card-art img { min-height: 130px; }
+    .central-card-content { padding-block: 11px; }
 
     .central-card-meta { align-items: flex-start; }
     .central-card-badge { max-width: 55%; }
@@ -2229,13 +2268,50 @@
 .awakening-command-seal { display: grid; place-items: center; width: 72px; height: 72px; color: #ead18b; border: 1px solid rgba(234, 209, 139, 0.42); border-radius: 50%; background: rgba(4, 8, 14, 0.62); box-shadow: inset 0 0 0 6px rgba(4, 8, 14, 0.72), 0 0 30px rgba(234, 209, 139, 0.16); font-size: 30px; backdrop-filter: blur(8px); }
 
 .ui-modal-card.central-dialog-shell--awakening .awakening-element-display {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
     margin: 18px 18px 0;
-    padding: 15px 18px;
+    padding: 17px 19px 15px;
     border-color: rgba(215, 183, 112, 0.25);
-    background: linear-gradient(90deg, rgba(215, 183, 112, 0.09), rgba(139, 92, 246, 0.07));
+    background:
+        radial-gradient(circle at 50% -55%, rgba(225, 196, 124, 0.2), transparent 53%),
+        linear-gradient(100deg, rgba(215, 183, 112, 0.075), rgba(45, 83, 128, 0.055) 48%, rgba(139, 92, 246, 0.065));
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.035), 0 10px 25px rgba(0, 0, 0, 0.16);
 }
 
-.ui-modal-card.central-dialog-shell--awakening .awakening-element-badge { font-size: 1rem; padding: 7px 14px; border-radius: 999px; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-element-display::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: -94px;
+    left: 50%;
+    width: 220px;
+    height: 220px;
+    border: 1px solid rgba(221, 194, 127, 0.08);
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 18px rgba(221, 194, 127, 0.018), inset 0 0 0 38px rgba(221, 194, 127, 0.012);
+    transform: translateX(-50%);
+}
+
+.ui-modal-card.central-dialog-shell--awakening .awakening-element-badges { gap: 12px; }
+
+.ui-modal-card.central-dialog-shell--awakening .awakening-element-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 46px;
+    padding: 5px 15px 5px 7px;
+    border-color: color-mix(in srgb, currentColor 45%, transparent);
+    border-radius: 10px;
+    background: linear-gradient(145deg, color-mix(in srgb, currentColor 15%, rgba(7, 14, 26, 0.97)), rgba(3, 8, 17, 0.97));
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.06), 0 7px 18px rgba(0, 0, 0, 0.28), 0 0 20px color-mix(in srgb, currentColor 8%, transparent);
+    font: 820 12px/1 var(--font-display);
+    letter-spacing: 0.11em;
+}
+
+.ui-modal-card.central-dialog-shell--awakening .awakening-element-desc { color: #aebdce; font-size: 12px; letter-spacing: 0.01em; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-element-desc strong { color: #eef3f8; font-weight: 750; }
 .ui-modal-card.central-dialog-shell--awakening .awakening-msg { margin: 12px 18px 0; }
 
 .awakening-command-grid {
@@ -2246,44 +2322,175 @@
 }
 
 .ui-modal-card.central-dialog-shell--awakening .awakening-section {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
     gap: 11px;
     padding: 17px;
     border: 1px solid rgba(218, 189, 122, 0.18);
     border-radius: 14px;
-    background: linear-gradient(145deg, rgba(15, 23, 40, 0.92), rgba(6, 12, 24, 0.94));
-    box-shadow: inset 0 1px rgba(255, 255, 255, 0.035);
+    background:
+        radial-gradient(circle at 100% 0, rgba(218, 189, 122, 0.055), transparent 40%),
+        linear-gradient(145deg, rgba(15, 23, 40, 0.94), rgba(6, 12, 24, 0.97));
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.04), 0 12px 28px rgba(0, 0, 0, 0.2);
 }
 
-.ui-modal-card.central-dialog-shell--awakening .awakening-section h3 { color: #e4c879; font: 750 13px/1.2 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-section::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 0 0 auto;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(235, 207, 138, 0.46), transparent);
+}
+
+.ui-modal-card.central-dialog-shell--awakening .awakening-section h3 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #e4c879;
+    font: 750 13px/1.2 var(--font-display);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.ui-modal-card.central-dialog-shell--awakening .awakening-section h3 > span:last-child { display: grid; gap: 3px; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-section h3 small { color: #66788f; font: 750 7px/1 Inter, sans-serif; letter-spacing: 0.18em; }
+
+.ui-modal-card.central-dialog-shell--awakening .awakening-section-icon {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+    place-items: center;
+    border: 1px solid rgba(228, 200, 121, 0.3);
+    border-radius: 8px;
+    background: linear-gradient(145deg, rgba(228, 200, 121, 0.13), rgba(228, 200, 121, 0.025));
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.06), 0 0 15px rgba(228, 200, 121, 0.07);
+    font-size: 17px;
+}
+
 .ui-modal-card.central-dialog-shell--awakening .awakening-hint { color: #9cacbf; line-height: 1.5; }
 .ui-modal-card.central-dialog-shell--awakening .awakening-section--forge { grid-column: 1 / -1; }
 .ui-modal-card.central-dialog-shell--awakening .awakening-materials { flex: 1; justify-content: center; padding: 8px; border: 0; background: transparent; }
 
-.ui-modal-card.central-dialog-shell--awakening .awakening-material-row {
-    padding: 9px 10px;
-    border: 1px solid rgba(148, 163, 184, 0.12);
-    border-radius: 9px;
-    background: rgba(3, 8, 18, 0.52);
+.ui-modal-card.central-dialog-shell--awakening .awakening-element-key {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 5px;
 }
 
-.ui-modal-card.central-dialog-shell--awakening .awakening-material-icon { display: grid; place-items: center; width: 32px; height: 32px; color: #e3c978; border: 1px solid rgba(227, 201, 120, 0.22); border-radius: 50%; background: rgba(227, 201, 120, 0.06); }
-.ui-modal-card.central-dialog-shell--awakening .awakening-material-name { color: #b8c4d3; }
-.ui-modal-card.central-dialog-shell--awakening .awakening-material-count { color: #f8efd8; font-family: var(--font-display); }
+.ui-modal-card.central-dialog-shell--awakening .awakening-element-key > span {
+    display: grid;
+    min-width: 0;
+    gap: 4px;
+    place-items: center;
+    padding: 6px 3px;
+    border: 1px solid rgba(146, 169, 195, 0.11);
+    border-radius: 7px;
+    color: #8fa0b4;
+    background: rgba(2, 7, 15, 0.45);
+    font: 750 7px/1 Inter, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.ui-modal-card.central-dialog-shell--awakening .awakening-material-row {
+    min-height: 46px;
+    padding: 7px 10px 7px 7px;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: 9px;
+    background: linear-gradient(90deg, rgba(219, 193, 124, 0.035), rgba(3, 8, 18, 0.62) 34%);
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.025);
+}
+
+.ui-modal-card.central-dialog-shell--awakening .awakening-material-icon { display: grid; place-items: center; width: 32px; height: 32px; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-material-name { color: #bdc8d5; font-size: 11px; font-weight: 650; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-material-count { color: #f8efd8; font: 760 15px/1 var(--font-display); font-variant-numeric: tabular-nums; text-shadow: 0 0 12px rgba(232, 205, 133, 0.24); }
 
 .ui-modal-card.central-dialog-shell--awakening .awakening-free-btn,
 .ui-modal-card.central-dialog-shell--awakening .awakening-paid-btn {
-    min-height: 66px;
+    position: relative;
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    align-items: center;
+    min-height: 68px;
+    gap: 11px;
+    padding: 11px 13px;
+    overflow: hidden;
     border: 1px solid rgba(233, 205, 131, 0.44);
-    background: linear-gradient(180deg, rgba(128, 87, 28, 0.92), rgba(61, 37, 10, 0.98));
-    box-shadow: inset 0 1px rgba(255, 255, 255, 0.1), 0 9px 22px rgba(0, 0, 0, 0.32);
+    border-radius: 9px;
+    color: #f6e8bd;
+    background:
+        linear-gradient(90deg, rgba(238, 201, 116, 0.07), transparent 44%),
+        linear-gradient(180deg, rgba(104, 69, 24, 0.98), rgba(46, 29, 9, 0.99));
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.11), inset 0 -1px rgba(0, 0, 0, 0.35), 0 9px 22px rgba(0, 0, 0, 0.32);
     animation: none;
+    text-align: left;
 }
 
+.ui-modal-card.central-dialog-shell--awakening .awakening-free-btn::after,
+.ui-modal-card.central-dialog-shell--awakening .awakening-paid-btn::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 28%, rgba(255,255,255,.08) 48%, transparent 68%); transform: translateX(-120%); transition: transform 380ms ease; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-free-btn:hover::after,
+.ui-modal-card.central-dialog-shell--awakening .awakening-paid-btn:hover:not(:disabled)::after { transform: translateX(120%); }
+.ui-modal-card.central-dialog-shell--awakening .awakening-free-btn:disabled,
+.ui-modal-card.central-dialog-shell--awakening .awakening-paid-btn:disabled { opacity: 0.56; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-action-seal { display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid rgba(244, 216, 147, 0.32); border-radius: 50%; background: rgba(3, 8, 16, 0.43); box-shadow: inset 0 0 0 4px rgba(244, 216, 147, 0.035); font-size: 18px; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-action-copy { display: grid; gap: 4px; min-width: 0; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-action-copy strong { color: #f6e9c0; font: 760 12px/1.15 Inter, sans-serif; letter-spacing: 0.015em; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-action-copy small { color: #b9a984; font: 600 9px/1.2 Inter, sans-serif; opacity: 1; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-action-arrow { position: relative; z-index: 1; color: #e8cd89; font-size: 18px; transition: transform 150ms ease; }
+.ui-modal-card.central-dialog-shell--awakening button:hover:not(:disabled) .awakening-action-arrow { transform: translateX(3px); }
+
 .ui-modal-card.central-dialog-shell--awakening .awakening-forge-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.ui-modal-card.central-dialog-shell--awakening .awakening-forge-card { align-items: stretch; padding: 15px; text-align: left; border-radius: 12px; background: linear-gradient(155deg, rgba(12, 20, 36, 0.95), rgba(4, 9, 19, 0.98)); }
+.ui-modal-card.central-dialog-shell--awakening .awakening-forge-card {
+    --forge-rgb: 111, 209, 166;
+    --forge-color: #6fd1a6;
+    position: relative;
+    isolation: isolate;
+    align-items: stretch;
+    gap: 13px;
+    min-height: 205px;
+    padding: 15px;
+    overflow: hidden;
+    text-align: left;
+    border-color: rgba(var(--forge-rgb), 0.34);
+    border-radius: 12px;
+    background:
+        radial-gradient(circle at 100% 0, rgba(var(--forge-rgb), 0.12), transparent 44%),
+        linear-gradient(155deg, rgba(12, 20, 36, 0.97), rgba(4, 9, 19, 0.99));
+    box-shadow: inset 0 1px rgba(255,255,255,.04), 0 11px 24px rgba(0,0,0,.23);
+}
+
+.ui-modal-card.central-dialog-shell--awakening .awakening-forge-card.rank-a { --forge-rgb: 83, 159, 235; --forge-color: #68aff4; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-forge-card.rank-s { --forge-rgb: 241, 202, 73; --forge-color: #f1ca49; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-forge-card::after { content: ""; position: absolute; z-index: -1; top: -76px; right: -58px; width: 150px; height: 150px; border: 1px solid rgba(var(--forge-rgb), .13); border-radius: 50%; box-shadow: inset 0 0 0 17px rgba(var(--forge-rgb), .018), inset 0 0 0 35px rgba(var(--forge-rgb), .013); }
+.ui-modal-card.central-dialog-shell--awakening .awakening-forge-card-header { display: flex; align-items: center; gap: 10px; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-forge-card-header > div { display: grid; gap: 3px; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-forge-card-header small { color: #66788d; font: 750 7px/1 Inter, sans-serif; letter-spacing: .15em; text-transform: uppercase; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-forge-tier { display: grid; width: 42px; height: 42px; flex: 0 0 auto; place-items: center; color: var(--forge-color); border: 1px solid rgba(var(--forge-rgb), .45); border-radius: 50%; background: radial-gradient(circle, rgba(var(--forge-rgb), .17), rgba(3,8,17,.88) 68%); box-shadow: inset 0 0 0 4px rgba(3,8,17,.64), 0 0 17px rgba(var(--forge-rgb), .11); font: 820 17px/1 var(--font-display); }
 .ui-modal-card.central-dialog-shell--awakening .awakening-forge-rank { font: 800 18px/1.2 var(--font-display); }
-.ui-modal-card.central-dialog-shell--awakening .awakening-forge-have { color: #7f90a5; }
-.ui-modal-card.central-dialog-shell--awakening .awakening-forge-btn { min-height: 42px; margin-top: 7px; border: 1px solid currentColor; background: rgba(4, 9, 19, 0.66); }
+.ui-modal-card.central-dialog-shell--awakening .awakening-forge-material { display: flex; align-items: center; gap: 9px; padding: 9px 10px; border: 1px solid rgba(var(--forge-rgb), .14); border-radius: 8px; background: rgba(2, 7, 15, .5); }
+.ui-modal-card.central-dialog-shell--awakening .awakening-forge-material > div { display: grid; gap: 3px; min-width: 0; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-forge-material strong { color: #d9e3ed; font: 700 10px/1.2 Inter, sans-serif; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-forge-material small { color: #6f8196; font: 600 8px/1.2 Inter, sans-serif; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-forge-btn {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    min-height: 48px;
+    margin-top: auto;
+    padding: 9px 11px;
+    border: 1px solid rgba(var(--forge-rgb), .55);
+    color: var(--forge-color);
+    background: linear-gradient(90deg, rgba(var(--forge-rgb), .13), rgba(3, 9, 18, .78));
+    box-shadow: inset 0 1px rgba(255,255,255,.04);
+    text-align: left;
+}
+.ui-modal-card.central-dialog-shell--awakening .awakening-forge-btn > span { align-self: end; font: 800 10px/1 Inter, sans-serif; letter-spacing: .025em; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-forge-btn > small { grid-column: 1; align-self: start; color: #73859a; font: 700 7px/1 Inter, sans-serif; letter-spacing: .09em; text-transform: uppercase; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-forge-btn > b { grid-column: 2; grid-row: 1 / 3; align-self: center; font-size: 17px; transition: transform 150ms ease; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-forge-btn:hover:not(:disabled) > b { transform: translateX(3px); }
+.ui-modal-card.central-dialog-shell--awakening .awakening-forge-btn:disabled { opacity: .5; filter: saturate(.68); }
 
 /* ── Shinobi Council Hall command surfaces ─────────────────────────── */
 .app-shell[data-screen="shinobiCouncil"] .council-screen {

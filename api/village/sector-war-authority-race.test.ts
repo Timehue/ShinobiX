@@ -150,6 +150,28 @@ describe('sector-war declaration funding source', { concurrency: false }, () => 
         assert.deepEqual(await kv.keys('save:*'), [CALLER_SAVE_KEY]);
         assert.deepEqual(await kv.get(CALLER_SAVE_KEY), callerSave);
     });
+
+    it('pins an idempotent 72-hour siege warning for the owning clan', async () => {
+        await kv.set(TERRITORY_KEY, {
+            sector: SECTOR,
+            ownerVillage: OLD_DEFENDER,
+            ownerClan: 'Frost Wolves',
+            hp: 20_000,
+            updatedAt: Date.now(),
+        });
+        const clanKey = 'save:clan-frostwolves';
+        await kv.set(clanKey, { name: 'Frost Wolves', notices: [] });
+
+        const response = await declare();
+        assert.equal(response.statusCode, 200, JSON.stringify(response.body));
+        const clan = await kv.get<Record<string, unknown>>(clanKey);
+        const notices = clan?.notices as Array<Record<string, unknown>>;
+        assert.equal(notices.length, 1);
+        assert.equal(notices[0]?.pinned, true);
+        assert.match(String(notices[0]?.title), /Sector 23 is under siege/);
+        assert.match(String(notices[0]?.body), /72-hour sector war/);
+
+    });
 });
 
 describe('sector-war declaration World Herald', { concurrency: false }, () => {

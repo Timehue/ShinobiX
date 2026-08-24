@@ -102,6 +102,8 @@ export type GameItem = {
     rarity: "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythic";
     cost: number;
     description: string;
+    /** Priced utility item, not gear; keeps its authored level gate despite rarity. */
+    serviceItem?: boolean;
     armorQuality?: ArmorQuality;
     levelReq?: number;
     image?: string;

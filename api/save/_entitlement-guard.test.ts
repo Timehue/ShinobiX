@@ -12,6 +12,7 @@ import {
 describe('_entitlement-guard', () => {
     it('identifies server-owned items and high-rarity built-in cards', () => {
         assert.equal(isServerOwnedItemId('weekly-boss-core'), true);
+        assert.equal(isServerOwnedItemId('territory-control-scroll'), true);
         assert.equal(isServerOwnedItemId('shinobi-vest'), false);
         assert.equal(isHighRiskTileCardId('tc-41'), true);
         assert.equal(isHighRiskTileCardId('tc-121'), true);

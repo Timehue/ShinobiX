@@ -12,10 +12,9 @@ import {
   DAILY_HUNT_LIMIT,
   DAILY_MISSION_LIMIT,
   FIELD_MISSIONS,
-  FIELD_MISSION_SCROLLS,
   HUNT_MISSION_IDS,
-  HUNT_MISSION_SCROLLS,
 } from '../api/missions/_mission-catalog.ts';
+import { CLAN_WAR_PVP_WIN_SCROLLS } from '../api/clan/war/_war-points.ts';
 import { ITEM_CATALOG } from '../api/pvp/_item-catalog.ts';
 import {
   DECLARE_WAR_WR,
@@ -168,13 +167,11 @@ function economyExport() {
 
   for (const mission of COMBAT_MISSIONS) {
     addFlow(faucets, 'combat-mission', mission.key, 'ryo', mission.ryo, 'per claim', source('api/missions/_mission-catalog.ts'));
-    addFlow(faucets, 'combat-mission', mission.key, 'territoryControlScrolls', mission.territoryScrolls, 'per claim', source('api/missions/_mission-catalog.ts'));
   }
   for (const mission of FIELD_MISSIONS) {
     const hunt = HUNT_MISSION_IDS.has(mission.id);
     addFlow(faucets, hunt ? 'hunt-mission' : 'field-mission', mission.id, 'ryo', mission.ryoReward, 'per daily claim', source('api/missions/_mission-catalog.ts'));
     addFlow(faucets, hunt ? 'hunt-mission' : 'field-mission', mission.id, 'statPoints', 3, 'per daily claim', source('api/missions/_mission-catalog.ts'), 'Daily checklist progression; XP fields are legacy display data.');
-    addFlow(faucets, hunt ? 'hunt-mission' : 'field-mission', mission.id, 'territoryControlScrolls', hunt ? HUNT_MISSION_SCROLLS : FIELD_MISSION_SCROLLS, 'per daily claim', source('api/missions/_mission-catalog.ts'));
     for (const [currency, amount] of Object.entries(mission.currencyRewards ?? {})) {
       addFlow(faucets, hunt ? 'hunt-mission' : 'field-mission', mission.id, currency, amount, 'per daily claim', source('api/missions/_mission-catalog.ts'));
     }
@@ -188,6 +185,7 @@ function economyExport() {
   addFlow(faucets, 'daily-login', 'streak-shards', 'fateShards', STREAK_SHARD_REWARD, `every ${STREAK_SHARD_INTERVAL} streak days`, source('api/player/_daily-login.ts'));
   addFlow(faucets, 'war-crate', 'legendary-war-crate', 'ryo', WAR_CRATE_RYO, 'per crate', source('api/inventory/_war-crate.ts'));
   addFlow(faucets, 'war-crate', 'legendary-war-crate', 'honorSeals', WAR_CRATE_HONOR, 'per crate', source('api/inventory/_war-crate.ts'));
+  addFlow(faucets, 'clan-war', 'shinobi-pvp-challenge-win', 'territoryControlScrolls', CLAN_WAR_PVP_WIN_SCROLLS, 'per finalized win', source('api/clan/war/_war-points.ts'), 'Only shinobi PvP challenge winners; exactly-once server settlement.');
   addFlow(faucets, 'territory', 'controlled-sector-daily', 'warResources', WR_PER_SECTOR_PER_DAY, 'per controlled sector/day', source('api/_war-economy.ts'));
   addFlow(faucets, 'territory', 'controlled-sector-daily', 'honorSeals', SEALS_PER_SECTOR_PER_DAY, 'per controlled sector/day', source('api/_war-economy.ts'));
 

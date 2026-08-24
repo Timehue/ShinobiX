@@ -85,7 +85,10 @@ describe("Tower completed-run recovery", () => {
         assert.match(hostSource, /export const TOWER_RECOVERY_RUN_KEY = "shinobix:towerRecoveryRunId:v1"/);
         assert.match(hostSource, /localStorage\.getItem\(TOWER_RUN_KEY\) \?\? localStorage\.getItem\(TOWER_RECOVERY_RUN_KEY\)/);
         assert.match(hostSource, /onLeaveActive=\{\(\) => \{[\s\S]*?clearFightKey\(\);[\s\S]*?writeRecoveryKey\(view\.runId\);[\s\S]*?onExit\(\)/);
-        assert.match(hostSource, /if \(view\.phase === "pvpFight"\) \{[\s\S]*?clearRecoveryKey\(\);[\s\S]*?setTowerPvpMatchId/);
+        // The 2v2 board moved to the Battle Arena, so the Towers host must no
+        // longer own a pvpFight phase — and must not resume a Team Arena key.
+        assert.doesNotMatch(hostSource, /phase: "pvpFight"/);
+        assert.match(hostSource, /if \(towerPvpMatchIdFromRunKey\(saved\)\) return \{ phase: "lobby" \}/);
         assert.match(fightSource, /\(onLeaveActive \?\? onExit\)\(\)/);
         assert.match(fightSource, /Reopen Battle Towers to recover it/);
     });

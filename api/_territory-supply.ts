@@ -14,11 +14,17 @@
 export const TERRITORY_DAILY_WAR_SUPPLY = 100;
 export const TERRITORY_SUPPLY_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
+import { territoryRewardsSuspended } from './_territory-lifecycle.js';
+
 export type TerritorySupplyInput = {
     warSupply?: unknown;
     lastSupplyAt?: unknown;
     updatedAt?: unknown;
     ownerClan?: unknown;
+    hp?: unknown;
+    breachedAt?: unknown;
+    breachEndsAt?: unknown;
+    rewardSuspendedAt?: unknown;
 };
 
 function num(v: unknown, fallback = 0): number {
@@ -40,6 +46,9 @@ export function collectTerritorySupply(
     const stored = Math.max(0, Math.floor(num(t.warSupply)));
     if (!t.ownerClan) {
         // Unowned sectors don't produce; nothing to collect, base unchanged.
+        return { collected: 0, nextLastSupplyAt: base };
+    }
+    if (territoryRewardsSuspended(t as Record<string, unknown>, now)) {
         return { collected: 0, nextLastSupplyAt: base };
     }
     const cycles = Math.max(0, Math.floor((now - base) / TERRITORY_SUPPLY_INTERVAL_MS));

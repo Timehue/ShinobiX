@@ -73,8 +73,11 @@ import {
 
 // ─── Constants (ported from api/pvp/move.ts, verified @ 586f0560) ────────────
 export const BASE_AP = 100;
-export const MAX_ACTIONS = 5;
-export const MAX_ROUNDS = 25;
+// Re-exported, NOT re-declared. These were independent literals that happened to
+// agree with combat-core; the Team Arena round cap drifted to 20 exactly that way
+// and had to be walked back. Shinobi combat gets ONE action and round budget.
+import { MAX_ACTIONS, MAX_ROUNDS } from '../combat-core/constants.js';
+export { MAX_ACTIONS, MAX_ROUNDS };
 export const STUN_AP_PENALTY = 40;
 export const MOVE_AP = 30;
 export const BASIC_ATTACK_AP = 40;

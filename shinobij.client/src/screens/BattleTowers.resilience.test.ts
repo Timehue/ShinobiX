@@ -46,7 +46,9 @@ test("Tower fight breadcrumbs synchronously refresh App's ref-backed navigation 
     assert.match(navigationGuard, /window\.addEventListener\(TOWER_FIGHT_STATE_EVENT, syncTowerFightGuard\)/);
     assert.match(navigationGuard, /window\.removeEventListener\(TOWER_FIGHT_STATE_EVENT, syncTowerFightGuard\)/);
     assert.match(app, /useBattleNavigationGuard\(\{/);
-    assert.match(app, /bootLock\.kind === "battleTowers"[\s\S]*?setTowerFightRunId\(runId\)[\s\S]*?setScreen\("battleTowers"\)/, "server-owned Tower locks must resume without the generic hospital path");
+    assert.match(app, /bootLock\.kind === "battleTowers"[\s\S]*?setTowerFightRunId\(runId\)[\s\S]*?setScreen\(arena2v2 \? "battleArena" : "battleTowers"\)/, "server-owned Tower locks must resume without the generic hospital path");
+    // Team Arena 2v2 moved to the Battle Arena, so its lease resumes there.
+    assert.match(app, /const arena2v2 = bootLock\.meta\?\.mode === "mpvp"/);
 });
 
 test("Tower cinematic and result overlays are keyboard-safe modal dialogs", () => {
@@ -228,7 +230,9 @@ test("Tower identity, board semantics, and countdown updates remain bounded", ()
 });
 
 test("story floor access and replay fee copy stay aligned with server progression", () => {
-    assert.match(lobby, /TOWER_MIN_LEVEL = 30/);
+    // Derived from shared/tower-pvp.ts so the browser gate cannot drift from
+    // the server's; the value itself is still 30.
+    assert.match(lobby, /TOWER_MIN_LEVEL = BATTLE_TOWERS_MIN_LEVEL/);
     assert.doesNotMatch(lobby, /STORY_MAX_FLOOR/);
     assert.match(lobby, /recommendedTowerStoryFloor\(ordered, bestFloor\)/);
     assert.match(storyCatalog, /floorId === best \+ 1/);

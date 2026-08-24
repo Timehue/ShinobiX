@@ -15,7 +15,7 @@ import { startGoogleSignIn } from "../lib/google-signin";
 import { SOCIAL_LOCK_BODY, SOCIAL_LOCK_TITLE } from "../lib/account-status";
 import { loadPublicCapabilities } from "../lib/live-capabilities";
 import { useBfcacheRestore } from "../lib/use-bfcache-restore";
-import { GiPadlock } from "react-icons/gi";
+import { GiPadlock } from "./icons/LightweightGameIcons";
 
 export function GuestSocialLock({ what, compact = false }: { what: string; compact?: boolean }) {
     const [busy, setBusy] = useState(false);
