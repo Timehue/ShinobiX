@@ -161,7 +161,8 @@ describe('gear level ladder — enforcement is wired, not decorative', () => {
     });
 
     it('forged named gear is gated at 90 via the shared constant', () => {
-        assert.match(named, /levelReq: NAMED_ITEM_LEVEL_REQ/);
+        assert.equal((named.match(/levelReq: NAMED_ITEM_LEVEL_REQ/g) ?? []).length, 2,
+            'both the named weapon and named armor builders must emit the Level 90 gate');
         assert.doesNotMatch(named, /levelReq: 30/);
     });
 
