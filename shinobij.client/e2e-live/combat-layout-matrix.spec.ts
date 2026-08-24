@@ -1595,6 +1595,16 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
             // width, tile containment, hit testing, and the 90px floor are the
             // live usability contracts rather than one stale aspect ratio.
             expect(current.board?.width ?? 0, `${label} board width`).toBeGreaterThanOrEqual(Math.min(280, current.viewport.width - 12));
+            if (current.viewport.width >= 1024 && current.viewport.height >= 720) {
+                expect(
+                    (current.board?.height ?? 0) / Math.max(1, current.main?.height ?? 0),
+                    `${label} battlefield must remain the dominant desktop interaction surface`,
+                ).toBeGreaterThanOrEqual(0.38);
+                expect(
+                    (current.main?.width ?? 0) / Math.max(1, current.layout?.width ?? 0),
+                    `${label} center combat window must not be squeezed by the side dossiers`,
+                ).toBeGreaterThanOrEqual(0.58);
+            }
         } else {
             // PvP deliberately splits the shortest landscape tier between the
             // board and actions. Preserve its authored stage ratio and a useful
