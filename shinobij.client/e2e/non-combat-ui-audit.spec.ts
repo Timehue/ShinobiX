@@ -389,6 +389,41 @@ test("Mission Hall Field board follows D-to-S progression and is alphabetized wi
     await capture(page, testInfo, "missions-field");
 });
 
+test("Mission Hall accepted Field cards keep their compact mobile action layout", async ({ page }) => {
+    test.skip((page.viewportSize()?.width ?? 0) > 700, "mobile Field-card regression");
+    const runtimeErrors = collectRuntimeErrors(page);
+    const initialSave = uiAuditSave();
+    initialSave.acceptedMissionIds = ["fetch-d-supply-trail"];
+    initialSave.missionProgress = { "fetch-d-supply-trail": 1, "fetch-d-supply-trail:raids": 0 };
+    const runtime = await installUiAuditRuntime(page, initialSave);
+    await expectUiAuditBoot(page, runtime, "missions");
+    await page.locator('button[data-tab="field"]').click();
+
+    const card = page.locator(".mh-field-card.mh-field-accepted").filter({ hasText: "D Rank Supply Trail Sweep" });
+    await expect(card).toBeVisible();
+    await expect(card.locator(".mh-fetch-progress-wrap")).toBeVisible();
+    await expect(card.getByRole("button", { name: "Go to Sector 18" })).toBeVisible();
+    await expect(card.getByRole("button", { name: "Abandon" })).toBeVisible();
+
+    const metrics = await card.evaluate((element) => {
+        const cardRect = element.getBoundingClientRect();
+        const primaryRect = element.querySelector(".mh-field-primary-action")?.getBoundingClientRect();
+        const secondaryRect = element.querySelector(".mh-field-secondary-action")?.getBoundingClientRect();
+        return {
+            cardHeight: cardRect.height,
+            primaryTarget: Math.min(primaryRect?.width ?? 0, primaryRect?.height ?? 0),
+            secondaryWidth: secondaryRect?.width ?? 0,
+            secondaryHeight: secondaryRect?.height ?? 0,
+        };
+    });
+    expect(metrics.cardHeight, "in-progress mobile Field cards should remain compact").toBeLessThanOrEqual(110);
+    expect(metrics.primaryTarget, "travel/claim rail should retain its 44px touch target").toBeGreaterThanOrEqual(44);
+    expect(metrics.secondaryWidth, "Abandon should remain readable beside progress").toBeGreaterThanOrEqual(60);
+    expect(metrics.secondaryHeight, "Abandon should meet the audit's minimum control height").toBeGreaterThanOrEqual(24);
+    await expectViewportSafe(page, { horizontalScrollers: [".expanded-tabs"] });
+    expect(runtimeErrors, "the accepted Field card emitted runtime errors").toEqual([]);
+});
+
 test("user directory routes into a production-safe public profile", async ({ page }, testInfo) => {
     const runtime = await installUiAuditRuntime(page);
     await expectUiAuditBoot(page, runtime, "village");
