@@ -173,9 +173,9 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
     const remainingMs = activeTraining ? Math.max(0, activeTraining.endsAt - now) : 0;
     const trainingReady = !!activeTraining && remainingMs <= 0;
     return (
-        <div className="card">
+        <div className="card training-screen" aria-labelledby="training-ground-title">
             <BackToVillageButton onClick={onBack} label="← Back" />
-            <h2>Training Grounds</h2>
+            <h2 id="training-ground-title">Training Grounds</h2>
             <p>Stamina: {character.stamina}/{character.maxStamina} · Growth Bonus: <strong>{trainingXpBonus.toFixed(2)}%</strong></p>
 
             <div className="training-guide-panel">

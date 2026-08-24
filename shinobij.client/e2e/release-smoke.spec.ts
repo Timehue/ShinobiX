@@ -222,6 +222,14 @@ test('footer policy links open public, responsive, accessible pages', async ({ p
     const runtimeFailures = captureRuntimeFailures(page);
     await page.goto('/', { waitUntil: 'networkidle' });
 
+    // The first-visit storage notice is intentionally fixed above the viewport
+    // edge. Acknowledge it before exercising links that sit in the page footer;
+    // mobile browsers correctly report the notice as the top pointer target.
+    const storageNotice = page.getByRole('region', { name: 'Data storage notice' });
+    await expect(storageNotice).toBeVisible();
+    await storageNotice.getByRole('button', { name: 'Got it', exact: true }).click();
+    await expect(storageNotice).toHaveCount(0);
+
     const policyNav = page.getByRole('navigation', { name: 'Legal and player policies' });
     await expect(policyNav.getByRole('link', { name: 'Terms', exact: true })).toBeVisible();
     await expect(policyNav.getByRole('link', { name: 'Privacy', exact: true })).toBeVisible();

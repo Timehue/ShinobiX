@@ -10,6 +10,7 @@ type AdaptiveGameShellProps = {
     village?: string;
     facilityAccent?: string;
     artwork: string;
+    uiMode: "noncombat" | "combat";
     style?: AdaptiveShellStyle;
 };
 
@@ -26,6 +27,7 @@ export function AdaptiveGameShell({
     village = "",
     facilityAccent,
     artwork,
+    uiMode,
     style: suppliedStyle,
 }: AdaptiveGameShellProps) {
     const facility = Boolean(facilityAccent);
@@ -41,6 +43,7 @@ export function AdaptiveGameShell({
             data-shell="adaptive"
             data-screen={screen}
             data-village={village}
+            data-ui-mode={uiMode}
             style={style}
         >
             <div className="app-background" style={{ backgroundImage: `url(${artwork})` }} />

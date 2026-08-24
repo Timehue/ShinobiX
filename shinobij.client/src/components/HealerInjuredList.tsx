@@ -148,10 +148,10 @@ export function HealerInjuredList({
     return (
         <>
             {hospitalizedPlayers.length > 0 && (
-                <div style={{ marginTop: "1.5rem" }}>
-                    <h4 style={{ marginBottom: "0.5rem" }}>🛏️ Admitted Players{isHealer ? ` — ${character.village}` : ""}</h4>
+                <section className="healer-patient-list" aria-labelledby="healer-admitted-heading" style={{ marginTop: "1.5rem" }}>
+                    <h4 id="healer-admitted-heading" style={{ marginBottom: "0.5rem" }}>🛏️ Admitted Players{isHealer ? ` — ${character.village}` : ""}</h4>
                     {hospitalizedPlayers.map(p => (
-                        <div key={p.name} className="summary-box" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+                        <div key={p.name} className="summary-box healer-patient-row" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
                             <div style={{ flex: 1 }}>
                                 <strong>{p.name}</strong>
                                 <span className="hint" style={{ marginLeft: 6 }}>Lv {p.level} · {p.village}</span>
@@ -175,11 +175,11 @@ export function HealerInjuredList({
                             )}
                         </div>
                     ))}
-                </div>
+                </section>
             )}
             {hasWorldwideVision && (
-                <div style={{ marginTop: "1.5rem" }}>
-                    <h4 style={{ marginBottom: "0.5rem", color: "#22d3ee" }}>
+                <section className="healer-patient-list" aria-labelledby="healer-worldwide-heading" style={{ marginTop: "1.5rem" }}>
+                    <h4 id="healer-worldwide-heading" style={{ marginBottom: "0.5rem", color: "#22d3ee" }}>
                         🌍 Injured Villagers — World-Wide (Rank 10)
                     </h4>
                     <p className="hint" style={{ marginTop: 0 }}>
@@ -191,7 +191,7 @@ export function HealerInjuredList({
                         worldwideInjured.filter(p => !healed.has(p.name)).map(p => {
                             const hpPct = Math.max(0, Math.min(100, Math.round((p.hp / p.maxHp) * 100)));
                             return (
-                                <div key={p.name} className="summary-box" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+                                <div key={p.name} className="summary-box healer-patient-row" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
                                     <div style={{ flex: 1 }}>
                                         <strong>{p.name}</strong>
                                         <span className="hint" style={{ marginLeft: 6 }}>Lv {p.level}</span>
@@ -217,7 +217,7 @@ export function HealerInjuredList({
                             );
                         })
                     )}
-                </div>
+                </section>
             )}
         </>
     );
