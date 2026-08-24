@@ -442,7 +442,7 @@ export type Character = {
     professionRank?: number;
     professionXp?: number;
     professionChosenAt?: number;
-    /** Server-owned latch for the account's single free profession change. */
+    /** Legacy audit latch from the retired one-time-free-change system. */
     professionRespecUsed?: boolean;
     // Patreon subscriber entitlement — SERVER-OWNED. Written ONLY by the
     // signature-verified Patreon webhook / OAuth callback (api/patreon/*), never

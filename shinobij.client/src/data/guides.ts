@@ -168,13 +168,13 @@ const BEGINNER: Guide = {
         {
             heading: "11 · Pick a Path: Professions (Level 13)",
             blocks: [
-                { type: "p", text: "At Level 13 you choose a profession. Every character gets one free path change later from the Profession Hub, so choose the one that best matches how you like to play:" },
+                { type: "p", text: "At Level 13 you choose a profession. Future path changes require a Profession change approval, sold in the Grand Marketplace for 200 Fate Shards, so choose the path that best matches how you like to play:" },
                 { type: "list", items: [
                     "Healer — mend other players and support your village.",
                     "Vanguard — PvP raider who earns Honor Seals from real-player kills.",
                     "Pet Tamer — stronger pets in PvE and better expedition rewards.",
                 ] },
-                { type: "callout", tone: "warn", label: "Heads up", text: "A path change resets profession rank, XP, and mastery, and your second choice is permanent. Read the paths before spending your one free change." },
+                { type: "callout", tone: "warn", label: "Heads up", text: "Each path change consumes one Profession change approval and resets profession rank, XP, and mastery. Read the paths before spending the item." },
             ],
         },
         {

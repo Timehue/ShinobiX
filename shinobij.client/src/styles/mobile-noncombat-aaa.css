@@ -465,33 +465,6 @@
       var(--mobile-aaa-panel-raised);
   }
 
-  body:not(.in-battle) .mobile-menu-search {
-    position: sticky;
-    inset-block-start: calc(var(--mobile-aaa-hud-height) + env(safe-area-inset-top, 0px));
-    z-index: 3;
-    display: grid;
-    gap: 5px;
-    margin-block: 0 14px;
-    padding-block: 4px 10px;
-    background: linear-gradient(180deg, rgba(8, 13, 19, 0.98) 78%, transparent);
-    color: var(--sj-text-secondary);
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  body:not(.in-battle) .mobile-menu-search input {
-    min-block-size: 48px;
-    border: 1px solid color-mix(in srgb, var(--sj-spirit) 30%, var(--sj-border-soft));
-    border-radius: 9px;
-    background: rgba(4, 8, 13, 0.92);
-    color: var(--sj-text-primary);
-    font-size: 16px;
-    letter-spacing: normal;
-    text-transform: none;
-  }
-
   body:not(.in-battle) .mobile-menu-section {
     margin-block: 0 14px;
   }

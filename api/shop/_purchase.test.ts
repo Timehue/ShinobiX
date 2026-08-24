@@ -13,6 +13,16 @@ describe('catalog shop purchase', () => {
         assert.equal(result.ok, true);
         if (result.ok) { assert.equal(result.item.currency, 'fateShards'); assert.equal(result.item.unitCost, 19); }
     });
+    it('sells the profession approval for 200 Fate Shards from level 13', () => {
+        const result = purchaseCatalogItem({ level: 13, fateShards: 200, inventory: [] }, 'profession-change-approval', 1);
+        assert.equal(result.ok, true);
+        if (result.ok) {
+            assert.equal(result.item.currency, 'fateShards');
+            assert.equal(result.item.unitCost, 200);
+            assert.equal(result.character.fateShards, 0);
+            assert.deepEqual(result.character.inventory, ['profession-change-approval']);
+        }
+    });
     it('enforces consumable caps and rejects free reward items', () => {
         const capped = purchaseCatalogItem({ level: 100, ryo: 100000, inventory: Array(50).fill('item-attack-pill') }, 'item-attack-pill', 5);
         assert.equal(capped.ok, false);

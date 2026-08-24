@@ -22,6 +22,7 @@ export type CatalogItem = {
     rarity: string;
     cost?: number;
     levelReq?: number;
+    serviceItem?: boolean;
     stackable?: boolean;
     armorQuality?: string;
     weaponElement?: string;
@@ -154,6 +155,7 @@ export const ITEM_CATALOG: Record<string, CatalogItem> = {
     "padded-leggings": {"id":"padded-leggings","name":"Padded Leggings","slot":"legs","rarity":"uncommon","cost":240,"levelReq":5,"armorQuality":"Reinforced","bonuses":{"ninjutsuOffense":14,"taijutsuOffense":14,"bukijutsuOffense":14,"genjutsuOffense":14,"ninjutsuDefense":14,"taijutsuDefense":14,"bukijutsuDefense":14,"genjutsuDefense":14}},
     "pet-treat": {"id":"pet-treat","name":"Treats","slot":"item","rarity":"common","cost":80,"stackable":true,"bonuses":{}},
     "potion-rejuvenation": {"id":"potion-rejuvenation","name":"Rejuvenation Potion","slot":"potion","rarity":"rare","cost":1800,"stackable":true,"apCost":20,"restoreChakra":1000,"restoreStamina":1000,"bonuses":{}},
+    "profession-change-approval": {"id":"profession-change-approval","name":"Profession change approval","slot":"item","rarity":"legendary","cost":200,"levelReq":13,"serviceItem":true,"bonuses":{}},
     "pve-apex-predator-fang": {"id":"pve-apex-predator-fang","name":"Apex Predator Fang","slot":"item","rarity":"epic","cost":9600,"stackable":true,"bonuses":{}},
     "pve-avengers-pendant": {"id":"pve-avengers-pendant","name":"Avenger's Pendant","slot":"item","rarity":"epic","cost":7200,"stackable":true,"bonuses":{}},
     "pve-bloodbond-totem": {"id":"pve-bloodbond-totem","name":"Bloodbond Totem","slot":"item","rarity":"epic","cost":8000,"stackable":true,"bonuses":{}},
