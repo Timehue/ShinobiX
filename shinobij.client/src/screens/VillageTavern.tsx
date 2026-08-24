@@ -6,11 +6,11 @@ import {
 import { type PlayerRecord } from "../types/character";
 import { titleStyleColor, useLegacyAvailability } from "../lib/legacy";
 import { tavernGossipLine } from "../lib/legacy-rumors";
-import { GameIcon } from "../components/icons/GameIcon";
 import { GuestSocialLock } from "../components/GuestSocialLock";
 import { ReportControl } from "../components/ReportControl";
 import { useSocialLock } from "../lib/account-status";
 import { GiCrown, GiLaurelCrown, GiTalk } from "../components/icons/LightweightGameIcons";
+import { FacilityHero } from "../components/FacilityHero";
 
 // Server-added optional fields (api/village/chat.ts ChatMessage): paid title
 // cosmetics + legacy prestige derived from the author's save, and the
@@ -200,14 +200,20 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
     }
 
     return (
-        <div className="card tavern-screen">
-            <div className="tavern-header">
-                <button className="back-button" type="button" onClick={onBack}>← Back</button>
-                <div>
-                    <h2><GameIcon name="flask" size={22} /> {character.village} Tavern</h2>
-                    <p className="tavern-subtitle">Village members only — speak freely.</p>
-                </div>
-            </div>
+        <div className="card tavern-screen civic-tavern-screen">
+            <FacilityHero
+                facility="tavern"
+                eyebrow={`${character.village} · Lantern Row`}
+                title={`${character.village} Tavern`}
+                description="The village common room—trade stories, share warnings, and answer familiar voices."
+                onBack={onBack}
+                compact
+                metrics={[
+                    { label: "Room", value: locked ? "Closed" : "Members only", tone: locked ? "warning" : "good" },
+                    { label: "Recent voices", value: loading ? "Listening…" : messages.length.toLocaleString() },
+                    { label: "Village Kage", value: seatedKage ?? "Unseated" },
+                ]}
+            />
             {/* Hold the room back until the server has answered, rather than
                 flashing the compose box at a guest and taking it away again. */}
             {lockLoading && <p className="tavern-empty">Checking your standing…</p>}
@@ -216,14 +222,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
             )}
             {!locked && !lockLoading && (<>
             {legacyAvailable && gossip && (
-                <div
-                    className="tavern-gossip"
-                    style={{
-                        margin: "0 0 10px", padding: "8px 12px", borderRadius: 8,
-                        border: "1px solid rgba(192,132,252,.28)", background: "rgba(192,132,252,.07)",
-                        fontSize: ".82rem", fontStyle: "italic", color: "#c9b8e8", lineHeight: 1.4,
-                    }}
-                >
+                <div className="tavern-gossip">
                     <span style={{ fontStyle: "normal", opacity: .7, marginRight: 6 }}><GiTalk aria-hidden="true" /> Overheard</span>
                     {gossip}
                 </div>
