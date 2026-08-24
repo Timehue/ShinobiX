@@ -2255,7 +2255,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 1210
+            "line": 1255
           }
         ]
       },
@@ -2300,7 +2300,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 1218
+            "line": 1263
           }
         ]
       },
@@ -2406,6 +2406,10 @@
           {
             "source": "shinobij.client/src/components/RankUpCelebration.css",
             "line": 88
+          },
+          {
+            "source": "shinobij.client/src/styles/central-hub-forge.css",
+            "line": 426
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
@@ -2556,7 +2560,7 @@
           },
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 630
+            "line": 675
           }
         ]
       },
@@ -2575,7 +2579,7 @@
           },
           {
             "source": "shinobij.client/src/styles/central-hub-forge.css",
-            "line": 590
+            "line": 601
           },
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
@@ -3423,7 +3427,7 @@
           },
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 661
+            "line": 706
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
