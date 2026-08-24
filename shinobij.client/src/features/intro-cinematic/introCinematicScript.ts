@@ -32,20 +32,20 @@ export type CinematicLine = {
 
 // ── Beat 1-3: awakening → warning → gift offer (before pet selection) ────────
 export const PRE_GIFT_LINES: CinematicLine[] = [
-    { speaker: "narrator", text: "Falling water. Cold stone. Cherry-blossom petals drifting through pale spirit-light." },
-    { speaker: "narrator", text: "Once they carried the breath of spring. Now they only carry the memory." },
-    { speaker: "narrator", text: "You wake at the foot of an ancient shrine, in a place you never entered." },
-    { speaker: "fox", label: "???", text: "Open your eyes, young one. Good. The summons held." },
-    { speaker: "fox", label: "???", text: "Do not be afraid. You stand beyond the veil, in the last sanctuary of this land. I am the one who called you." },
-    { speaker: "fox", text: `I am ${FOX_NAME}, guardian of this shrine since the first torii was raised. What little of me remains, anyway.` },
-    { speaker: "fox", text: "Crossing the veil to reach someone the old lattice could not sort took the last of my power. Listen well, for I may not have the strength to say this twice." },
-    { speaker: "fox", vision: true, text: "Far beneath this land, the Hollow Gate is still running. People of the Sunken Court built it to end famine, war, and winter. It survived them." },
-    { speaker: "fox", vision: true, rumble: true, text: "It does not hunger. It measures. Its four buried intakes are being fed again, and every clean answer costs someone a piece of themselves." },
-    { speaker: "fox", text: "My kin guarded the roads out and remembered the people its records erased. I am the last of them, and my light is nearly spent." },
-    { speaker: "fox", text: "That is why I called you. The lattice tried to name you and failed. That is not destiny. It only means the machine cannot decide what to do with you." },
-    { speaker: "fox", text: "I hope you will help this land, but the choice must remain yours." },
-    { speaker: "fox", text: "But I will not send you into this world alone. Five young spirits shelter at this shrine. They are the last I have raised, each carrying one of the five natures." },
-    { speaker: "fox", text: "Choose one, {name}. Let it walk beside you where I cannot." },
+    { speaker: "narrator", text: "Cold spray touches your face. Water strikes stone somewhere close." },
+    { speaker: "narrator", text: "You remember the village gate, a pull behind your ribs, and then the road disappearing under white light." },
+    { speaker: "narrator", text: "A white fox sits beside your dropped pack, one paw planted on the strap." },
+    { speaker: "fox", label: "???", text: "Easy. Sit up slowly. I had enough strength to bring you here, not enough to catch you twice." },
+    { speaker: "fox", label: "???", text: "Check your hands. Good. Check your name. If you still know it, we are doing better than I feared." },
+    { speaker: "fox", text: `I am ${FOX_NAME}. I keep this waterfall shrine and the old road beneath it. These days I mostly keep the roof from falling in.` },
+    { speaker: "fox", text: "I pulled you off the road because the buried lattice tried to name you and failed. Then it tried again." },
+    { speaker: "fox", vision: true, text: "People of the Sunken Court built it to end famine, war, and winter. It does not hunger. It measures. The city is gone, but their machine, the Hollow Gate, is still working." },
+    { speaker: "fox", vision: true, rumble: true, text: "Four intakes beneath the villages are feeding it again. Each one takes a human choice and turns it into something useful." },
+    { speaker: "fox", text: "Useful is not the same as kind. Remember that when someone explains why the price is necessary." },
+    { speaker: "fox", text: "The Gate could not decide where you belong. That is not destiny. It is an error in the records." },
+    { speaker: "fox", text: "What you do with that error is your business. I am asking you to look closely before anyone fixes it for you." },
+    { speaker: "fox", text: "You should not take that road alone. Five young companions shelter here, one for each chakra nature. I raised them, and they have opinions." },
+    { speaker: "fox", text: "Choose the one willing to choose you, {name}. Then get moving before this roof proves me a liar." },
 ];
 
 // ── Beat 4: brief village lore, spoken by the fox (2 lines per village).
@@ -53,20 +53,20 @@ export const PRE_GIFT_LINES: CinematicLine[] = [
 // village names data/sectors.ts `villages` uses.
 export const VILLAGE_LORE_LINES: Record<string, [string, string]> = {
     "Stormveil Village": [
-        "Stormveil was born from outcasts who answered to no lord, beneath skies that never stop storming. Strength there is not inherited. It is seized.",
-        "Its people bow to no tradition, only to power and the will to take it. Prove yourself, and even the storm will make way for you.",
+        "Stormveil settles public grievances on a challenge board beside the arena. Post a reason, answer a bell, and everyone in the village will have an opinion by supper.",
+        "Its people are proud that nobody is chained. Listen to what fighters remember after a bout, especially when they remember the score but not the cause.",
     ],
     "Ashen Leaf Village": [
-        "Ashen Leaf is the oldest of the villages, raised among ember groves where the old ways still burn. Tradition there is not a chain. It is a flame passed hand to hand.",
-        "Honor its clans and learn their teachings, and the village will claim you as its own blood.",
+        "Ashen Leaf will ask your name, your craft, and what you intend to become. Think before you answer the last one. The Branch Register remembers exact words.",
+        "Its families keep old promises with real tenderness. Watch what the keepers prune when a new future grows beyond those promises.",
     ],
     "Frostfang Village": [
-        "Frostfang is a northern hold of snow gates and stone, where winter kills the faithless and loyalty is the only warmth. A promise there is never a small thing.",
-        "Stand by its people, and they will stand by you until the very ice breaks.",
+        "Frostfang will count you at the gate and count you again at every storm bell. No one is left behind there, and that promise has saved thousands.",
+        "A promise that strong can become a locked door. Pay attention when someone asks to leave and the whole village answers for them.",
     ],
     "Moonshadow Village": [
-        "Moonshadow is the night village of lantern paths and hidden courts, where a quiet step is worth more than a loud blade.",
-        "Its people watch everything and waste nothing. Ambition is welcome there. Carry yours carefully.",
+        "Moonshadow keeps people safe with aliases, sealed files, and truths handed over in curtained booths. Everyone there knows the value of a secret.",
+        "Before you give anyone a true name, ask who keeps the copy. In Moonshadow, trust always leaves a receipt.",
     ],
 };
 
@@ -98,18 +98,18 @@ export function resolveCinematicLine(text: string, playerName: string, petName: 
 // gives its own take on the village, and asks to guide the player. Different
 // angle than Shiranui's lore lines so the two beats never repeat each other.
 export const COMPANION_VILLAGE_FLAVOR: Record<string, string> = {
-    "Stormveil Village": "Storm towers, rain-slick roofs, thunder that never really sleeps... they say the strong make their own rules here.",
-    "Ashen Leaf Village": "Ember groves, ash roads, clan halls older than memory... tradition runs deeper than the roots here.",
-    "Frostfang Village": "Snow gates, stone holds, a cold that bites... but no village stands closer together than this one.",
-    "Moonshadow Village": "Lantern paths, hidden courts, streets that keep their secrets... half of what happens here is never seen.",
+    "Stormveil Village": "I can hear the arena bell from here. Also three people arguing about odds and one person selling soup. Loud place.",
+    "Ashen Leaf Village": "That cedar wall must be the Branch Register. Everyone keeps lowering their voice when they walk past it.",
+    "Frostfang Village": "Gate lanterns, rope lines, roll callers. They plan for storms here the way other villages plan supper.",
+    "Moonshadow Village": "Two names on half the doors and no names on the rest. I am going to need you to explain the local rules slowly.",
 };
 
 export function buildCompanionIntroLines(village: string, petName: string): CinematicLine[] {
     const flavor = COMPANION_VILLAGE_FLAVOR[village]
         ?? "I can already tell there's more to this place than meets the eye.";
     return [
-        { speaker: "fox", label: petName, text: `So THIS is ${village}! ${flavor}` },
-        { speaker: "fox", label: petName, text: "Shiranui asked me to watch over you, and I will. We're partners now, you and me." },
-        { speaker: "fox", label: petName, text: "Come on, {name}. Let me guide you through this world. Follow my lead, and we'll make a legend of you yet!" },
+        { speaker: "fox", label: petName, text: `So this is ${village}. ${flavor}` },
+        { speaker: "fox", label: petName, text: "Shiranui asked me to stay close. I agreed to be your partner, not luggage, so we make road decisions together." },
+        { speaker: "fox", label: petName, text: "Come on, {name}. Guide me to where new shinobi report. If we get lost, I will blame the village signs." },
     ];
 }

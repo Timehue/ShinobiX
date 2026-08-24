@@ -59,27 +59,27 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
         id: "qb-bell", title: "The Bell That Doesn't Ring", giver: "Sister Yuki",
         bandMin: 20, bandMax: 45, weight: 8, fateShards: 1, award: "Bellbearer",
         stages: [
-            { key: "thief",  text: "Hunt down the Ashbound raider who stole the temple bell's clapper.", metric: "totalAiKills", count: 1, bossId: "ashbound-raider" },
-            { key: "curse",  text: "The clapper is cursed — the moment you lift it, it wants to ring. How will you carry it?", metric: "totalAiKills", count: 0,
-                choice: { prompt: "“Whatever you do — do not let it finish the sound. A bell that rings once will ring forever.”", options: [
-                    { key: "raw",     label: "Carry it raw",   blurb: "Faster, but the Bell-Wraith wakes ENRAGED. A harder finish — and a bonus fate shard for the nerve.", bossStatBonus: 4, bonusFateShards: 1, standing: "bell-raw" },
-                    { key: "cleanse", label: "Cleanse it first", blurb: "Spend the time to still the curse. The guardian wakes weaker. Base reward.", standing: "bell-cleansed" },
+            { key: "thief",  text: "Find the Ashbound raider who stole the clapper from Yuki's ruined temple.", metric: "totalAiKills", count: 1, bossId: "ashbound-raider" },
+            { key: "curse",  text: "Court-era seals on the clapper are trying to finish the temple's last alarm. How will you carry it?", metric: "totalAiKills", count: 0,
+                choice: { prompt: "“If that clapper completes one ring, the old guardian will answer. Decide how much time we can spare.”", options: [
+                    { key: "raw",     label: "Wrap it and run",   blurb: "Reach the temple sooner, but face the Bell-Wraith at full strength. Yuki adds a fate shard for the risk.", bossStatBonus: 4, bonusFateShards: 1, standing: "bell-raw" },
+                    { key: "cleanse", label: "Quiet the seals first", blurb: "Spend time breaking the alarm sequence. The guardian will wake weaker.", standing: "bell-cleansed" },
                 ] } },
-            { key: "carry",  text: "Carry the clapper to Yuki's ruined temple — scout 4 sectors before the bell finishes its sound.", metric: "totalTilesExplored", count: 4,
+            { key: "carry",  text: "Carry the wrapped clapper across 4 sectors before it completes the old alarm.", metric: "totalTilesExplored", count: 4,
                 timer: { durationMs: 30 * 60 * 1000, failResetToStage: 2 } },
-            { key: "wraith", text: "Re-hang the clapper and put down the temple's sealed guardian, the Bell-Wraith.", metric: "totalAiKills", count: 1, bossId: "bell-wraith" },
+            { key: "wraith", text: "Return the clapper, then stop the temple guardian that answers the broken alarm.", metric: "totalAiKills", count: 1, bossId: "bell-wraith" },
         ],
     },
     "qb-caravan": {
         id: "qb-caravan", title: "The Hollow Caravan", giver: "Caravan-master Doteki",
         bandMin: 12, bandMax: 35, weight: 7, fateShards: 0, award: "Caravan's Shield",
         stages: [
-            { key: "trail",   text: "Track Doteki's vanished caravan across three sectors — follow the worsening signs.", metric: "totalTilesExplored", count: 3 },
-            { key: "ambush",  text: "Survive the ambush at the wreck — three escalating bandit waves led by Captain Goro.", metric: "totalAiKills", count: 3, bossId: "bandit-captain-goro" },
-            { key: "judgment", text: "Goro kneels, broken — and you realize he fought like a puppet on strings. What now?", metric: "totalAiKills", count: 0,
-                choice: { prompt: "Goro was driven against his will. His fate is yours to decide.", options: [
-                    { key: "spare",   label: "Spare Goro",   blurb: "He was a puppet. He'll remember the mercy and walk your roads as a friend. (+standing)", standing: "goro-spared" },
-                    { key: "execute", label: "Execute Goro", blurb: "Justice — and a heavier purse, taken now. The wilds grow colder toward you. (−standing)", bonusRyoPct: 50, standing: "goro-executed" },
+            { key: "trail",   text: "Track Doteki's missing caravan across 3 sectors. Count the wheel ruts, abandoned loads, and blood.", metric: "totalTilesExplored", count: 3 },
+            { key: "ambush",  text: "At the wreck, survive 3 bandit waves and disarm their captain, Goro.", metric: "totalAiKills", count: 3, bossId: "bandit-captain-goro" },
+            { key: "judgment", text: "Goro drops his blade. Genjutsu marks behind his ears explain the empty look in his eyes. What now?", metric: "totalAiKills", count: 0,
+                choice: { prompt: "Goro was forced to lead the attack, but caravan guards still died. Decide what happens to him.", options: [
+                    { key: "spare",   label: "Spare Goro",   blurb: "Bind his wounds and take his testimony. He may help on the road later.", standing: "goro-spared" },
+                    { key: "execute", label: "Execute Goro", blurb: "Carry out the caravan guards' sentence and collect their larger bounty. Goro's allies will remember it.", bonusRyoPct: 50, standing: "goro-executed" },
                 ] } },
             { key: "strings", text: "Cut the strings: defeat the genjutsu puppeteer Itoguchi who drove the captain.", metric: "totalAiKills", count: 1, bossId: "puppeteer-itoguchi" },
         ],
@@ -88,12 +88,12 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
         id: "qb-defector", title: "The Frostfang Defector", giver: "The Defector",
         bandMin: 40, bandMax: 65, weight: 9, fateShards: 1, award: "Frostfang Survivor", requiresWar: true,
         stages: [
-            { key: "offer", text: "A defector from the enemy village offers war-turning intel — for safe passage. What do you do?", metric: "totalAiKills", count: 0,
-                choice: { prompt: "“Get me out and the war is yours. Or turn me in for your Kage's coin. Choose — they're already hunting me.”", options: [
+            { key: "offer", text: "A Frostfang signaler offers patrol routes and roll-call codes in exchange for safe passage. What do you do?", metric: "totalAiKills", count: 0,
+                choice: { prompt: "“Get me across the border and I will give your Kage every route I copied. Decide now. My hunters are close.”", options: [
                     { key: "trust",  label: "Trust the defector", blurb: "Escort them out. Their intel feeds your village's war effort. Earns the title Border-Walker.", title: "Border-Walker", standing: "defector-trusted" },
-                    { key: "turnin", label: "Turn them in",      blurb: "A bounty from your Kage — and the enmity of every sympathizer. +ryo, the title Kage's Blade.", title: "Kage's Blade", bonusRyoPct: 40, standing: "defector-turned" },
+                    { key: "turnin", label: "Turn them in",      blurb: "Hand them to your Kage's intelligence office for a larger bounty and the title Kage's Blade.", title: "Kage's Blade", bonusRyoPct: 40, standing: "defector-turned" },
                 ] } },
-            { key: "silencer", text: "Either way, an elite Hunter-Nin — Shirakawa — is sent to erase the defector, and now you. End them.", metric: "totalAiKills", count: 1, bossId: "hunter-shirakawa" },
+            { key: "silencer", text: "Frostfang Hunter-nin Shirakawa catches the trail and moves to kill the defector, then you. Stop them.", metric: "totalAiKills", count: 1, bossId: "hunter-shirakawa" },
         ],
     },
     "qb-gauntlet": {
@@ -101,15 +101,15 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
         bandMin: 1, bandMax: 100, weight: 9, fateShards: 1, award: "Beast-Crowned",
         stages: [
             { key: "gauntlet",   text: "Win three colosseum pet duels against Tomoe's wandering beasts.", metric: "totalPetWins", count: 3 },
-            { key: "stormhound", text: "Face the finale — Raijū, the Storm-Hound — and win a pet duel.", metric: "totalPetWins", count: 1, bossId: "raiju-storm-hound" },
+            { key: "stormhound", text: "Face Tomoe's final companion, Raijū the Storm-Hound, and win the pet duel.", metric: "totalPetWins", count: 1, bossId: "raiju-storm-hound" },
         ],
     },
     "qb-debt": {
         id: "qb-debt", title: "The Gambler's Debt", giver: "Saji Two-Coins",
         bandMin: 1, bandMax: 100, weight: 5, fateShards: 0, award: "House Breaker",
         stages: [
-            { key: "table", text: "Saji owes 'The House'. Buy him time — win two Shinobi Chronicle Showdowns against the patron's enforcers.", metric: "cardClashWins", count: 2 },
-            { key: "collection", text: "The House calls the debt anyway and sends its bodyguard, Kuroban, to collect it from Saji's hide — and yours.", metric: "totalAiKills", count: 1, bossId: "house-kuroban" },
+            { key: "table", text: "Saji owes the House. Buy him time by winning 2 Shinobi Chronicle Showdowns against its enforcers.", metric: "cardClashWins", count: 2 },
+            { key: "collection", text: "The House calls the debt anyway. Its bodyguard, Kuroban, finds Saji's hide and decides you owe as well.", metric: "totalAiKills", count: 1, bossId: "house-kuroban" },
         ],
     },
     "qb-ashes": {
@@ -117,9 +117,9 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
         bandMin: 50, bandMax: 100, weight: 12, fateShards: 1, award: "Ash-Ender",
         requiresRivalry: true, clearsRivalry: true,
         stages: [
-            { key: "cinder", text: "Burn down Kazan's promoted lieutenant Cinder, a glass-cannon firebrand, in a volcano sector.", metric: "totalAiKills", count: 1, bossId: "ashbound-cinder" },
-            { key: "slag",   text: "Break Slag, the stone wall who guards the lair road.", metric: "totalAiKills", count: 1, bossId: "ashbound-slag" },
-            { key: "kazan",  text: "End it. Kazan the Ashbound, in his promoted form, waits in the lair. Settle the rivalry for good.", metric: "totalAiKills", count: 1, bossId: "kazan-ashbound" },
+            { key: "cinder", text: "Find Cinder, Kazan's fire-style lieutenant, at the abandoned volcano watch and cut off the Ashbound scouts.", metric: "totalAiKills", count: 1, bossId: "ashbound-cinder" },
+            { key: "slag",   text: "Break through Slag, the armored lieutenant holding the road into Kazan's lair.", metric: "totalAiKills", count: 1, bossId: "ashbound-slag" },
+            { key: "kazan",  text: "Kazan waits in the lair with every lesson learned from your rivalry. End it.", metric: "totalAiKills", count: 1, bossId: "kazan-ashbound" },
         ],
     },
 };

@@ -15,7 +15,7 @@ export function publicTowerFloorMeta(f: TowerFloor) {
         id: f.id,
         name: f.name,
         chapter: f.chapter ?? 1,
-        chapterTitle: f.chapterTitle ?? 'The Celestial Ascent',
+        chapterTitle: f.chapterTitle ?? 'The Spire Ascent',
         ...(f.chapterSubtitle ? { chapterSubtitle: f.chapterSubtitle } : {}),
         ...(f.chapterSummary ? { chapterSummary: f.chapterSummary } : {}),
         ...(f.artKey ? { artKey: f.artKey } : {}),

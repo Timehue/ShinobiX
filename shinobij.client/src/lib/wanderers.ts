@@ -81,8 +81,8 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
         tellTint: "#ff6b5a",
         names: ["Kazan the Ashbound", "Goro Two-Blades", "Saito the Cinder", "Renga of the Waste", "Hibiki the Restless"],
         greetings: [
-            "This stretch of road is mine. Pay the toll — or bleed.",
-            "Hand over your ryo, leaf-rat. Choose quick.",
+            "This stretch of road is mine. Pay the toll or bleed.",
+            "Hand over your ryo, road-rat. Choose quick.",
             "Wrong road to walk alone.",
             "Far from home. That makes this easy.",
             "Toll road. New policy. Started about when I saw you coming.",
@@ -95,7 +95,7 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
         names: ["Saji Two-Coins", "Miraa the Sly", "Old Tatsu", "Kael of Sixes"],
         greetings: [
             "Care for a hand, friend? Small stakes. Mostly.",
-            "May the better liar win — and I'm a very good liar.",
+            "May the better liar win. I'm a very good liar.",
             "Fresh Chronicle deck, and nobody on this road brave enough to sit down. You look brave.",
             "One game. I win, we call it tuition. You win, the purse is yours.",
         ],
@@ -107,8 +107,8 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
         names: ["Brother Yuki", "Brother Mibu", "Wandering Aki", "Old Doteki"],
         greetings: [
             "Rest a moment, traveler. The road is long.",
-            "Here — take something for the road. An old man's pack is too heavy already.",
-            "Sit, sit — well, don't sit, you're in a hurry, I can tell. Take this anyway.",
+            "Here, take something for the road. An old man's pack is too heavy already.",
+            "Sit, sit. Well, don't sit. You're in a hurry, I can tell. Take this anyway.",
             "Take it, take it. An old man needs a lighter pack more than he needs ryo.",
         ],
     },
@@ -205,21 +205,21 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
         tellTint: "#c084fc",
         names: ["The Wandering Sage"],
         greetings: [
-            "I've watched your path a long while, shinobi.",
+            "I've spoken with three people who saw your work. We should compare notes.",
         ],
     },
     // The eight Legacy Emissaries. All weight 0: like the Sage they are synthed
     // per-player (lib/legacy-emissaries.ts rollEmissarySpawn), never rolled into
     // the natural cast — these entries exist to satisfy the archetype record;
     // the synth supplies the real voice/tint from EMISSARY_DEFS.
-    "storm-caller-ryn":   { verb: "legacyQuest", weight: 0, tellTint: "#60a5fa", names: ["Storm-Caller Ryn"],   greetings: ["The clouds told me you were coming."] },
+    "storm-caller-ryn":   { verb: "legacyQuest", weight: 0, tellTint: "#60a5fa", names: ["Storm-Caller Ryn"],   greetings: ["You picked a bad day for this road. The storm is an hour out."] },
     "veil-mother-suzu":   { verb: "legacyQuest", weight: 0, tellTint: "#c084fc", names: ["Veil-Mother Suzu"],   greetings: ["Don't mind the moths."] },
     "iron-pilgrim-daigo": { verb: "legacyQuest", weight: 0, tellTint: "#f59e0b", names: ["Iron Disciple Daigo"], greetings: ["Every bead is a fight without a weapon."] },
-    "blade-keeper-hana":  { verb: "legacyQuest", weight: 0, tellTint: "#e2e8f0", names: ["Blade-Keeper Hana"],  greetings: ["The swords are listening."] },
+    "blade-keeper-hana":  { verb: "legacyQuest", weight: 0, tellTint: "#e2e8f0", names: ["Blade-Keeper Hana"],  greetings: ["Do not touch the hilts without asking."] },
     "duel-broker-kesshi": { verb: "legacyQuest", weight: 0, tellTint: "#f87171", names: ["Duel-Broker Kesshi"], greetings: ["Everything's a wager, friend."] },
-    "hollow-warden":      { verb: "legacyQuest", weight: 0, tellTint: "#4ade80", names: ["The Hollow Warden"],  greetings: ["Speak softly, or interestingly."] },
+    "hollow-warden":      { verb: "legacyQuest", weight: 0, tellTint: "#4ade80", names: ["The Hollow Warden"],  greetings: ["The lower vents carry voices. Speak softly."] },
     "lantern-warden-mei": { verb: "legacyQuest", weight: 0, tellTint: "#fbbf24", names: ["Lantern-Warden Mei"], greetings: ["Shield in one hand, lantern in the other."] },
-    "mapless-ojii":       { verb: "legacyQuest", weight: 0, tellTint: "#7be0a3", names: ["Mapless Ojii"],       greetings: ["This map is blank on purpose."] },
+    "mapless-ojii":       { verb: "legacyQuest", weight: 0, tellTint: "#7be0a3", names: ["Mapless Ojii"],       greetings: ["The north flood moved the road again. Give me a minute."] },
 };
 
 const ARCHETYPE_IDS = Object.keys(ARCHETYPES) as WandererArchetypeId[];
@@ -616,7 +616,7 @@ export interface WandererQuestDef {
 export const WANDERER_QUEST_CATALOG: WandererQuestDef[] = [
     { id: "wq-cull",       label: "Win 3 battles against any foe",        metric: "totalAiKills",       target: 3 },
     { id: "wq-purge",      label: "Win 6 battles against any foe",        metric: "totalAiKills",       target: 6 },
-    { id: "wq-warpath",    label: "Cut down 10 foes — a real warpath",    metric: "totalAiKills",       target: 10 },
+    { id: "wq-warpath",    label: "Defeat 10 road threats for the contract", metric: "totalAiKills",       target: 10 },
     { id: "wq-beasts",     label: "Win 2 pet duels in the colosseum",      metric: "totalPetWins",       target: 2 },
     { id: "wq-menagerie",  label: "Win 4 pet duels in the colosseum",      metric: "totalPetWins",       target: 4 },
     { id: "wq-cards",      label: "Win 2 Shinobi Chronicle Showdowns",   metric: "cardClashWins",      target: 2 },
