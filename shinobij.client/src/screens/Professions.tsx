@@ -89,7 +89,7 @@ function ProfessionRespecPanel({
     }
 
     return (
-        <section className="card" aria-labelledby="profession-change-heading" style={{ marginTop: "1rem" }}>
+        <section className="card profession-respec-panel" aria-labelledby="profession-change-heading" style={{ marginTop: "1rem" }}>
             <h3 id="profession-change-heading">Profession Path Change</h3>
             {character.professionRespecUsed ? (
                 <p className="hint">Your one-time free path change has been used. <strong>{current.name}</strong> is now your permanent profession.</p>
@@ -136,17 +136,18 @@ export function Professions({
         hub = <PetTamerHub character={character} onVersionedCharacter={onVersionedCharacter} setScreen={setScreen} onBack={onBack} />;
     }
     if (hub) {
-        return <>{hub}<ProfessionRespecPanel character={character} onVersionedCharacter={onVersionedCharacter} /></>;
+        return <div className={`profession-screen profession-screen-${character.profession}`}>{hub}<ProfessionRespecPanel character={character} onVersionedCharacter={onVersionedCharacter} /></div>;
     }
 
     // No profession yet → the three-path overview.
     const eligible = character.level >= PROFESSION_UNLOCK_LEVEL;
 
     return (
-        <div className="card">
+        <div className="card profession-overview">
             <BackToVillageButton onClick={onBack} label="← Back" />
 
             <div
+                className="profession-overview-hero"
                 style={{
                     position: "relative",
                     borderRadius: 12,
@@ -173,10 +174,11 @@ export function Professions({
                     : ` You're Level ${character.level} — keep training to unlock the choice.`}
             </p>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14, marginTop: "1rem" }}>
+            <div className="profession-overview-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14, marginTop: "1rem" }}>
                 {PROFESSION_INFO.map(info => (
-                    <div
+                    <article
                         key={info.id}
+                        className={`profession-overview-card profession-overview-card-${info.id}`}
                         style={{
                             background: "linear-gradient(180deg, rgba(15,18,34,0.9), rgba(8,10,22,0.95))",
                             border: `2px solid ${info.accent}`,
@@ -216,7 +218,7 @@ export function Professions({
                                 ))}
                             </div>
                         </div>
-                    </div>
+                    </article>
                 ))}
             </div>
 

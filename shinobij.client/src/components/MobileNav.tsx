@@ -9,7 +9,7 @@
  * Extracted from App.tsx.
  */
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { levelProgress } from "../lib/character-progress";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import type { Character } from "../types/character";
@@ -28,8 +28,8 @@ import { PLAYER_MENU_GROUPS } from "./player-menu-groups";
 // Compact local game glyphs keep the navigation consistent with the HUD emblems
 // without loading a second icon library.
 import {
-    GiBeerStein, GiChatBubble, GiExitDoor, GiGears, GiHamburgerMenu, GiHearts,
-    GiHealthNormal, GiKnapsack, GiNinjaHeroicStance, GiOpenBook, GiTreasureMap,
+    GiChatBubble, GiExitDoor, GiGears, GiHamburgerMenu, GiHearts,
+    GiHealthNormal, GiKnapsack, GiNinjaHeroicStance, GiOpenBook, GiPagoda, GiTreasureMap,
 } from "./icons/LightweightGameIcons";
 
 // Memo'd — the bottom nav depends on immutable character snapshots, the
@@ -60,6 +60,7 @@ export const MobileNav = memo(function MobileNav({
     const sectorMapOpen = capabilityAdmissionAllowed(villageWarAvailability);
     const sectorMapStatus = sectorMapAdmissionMessage(villageWarAvailability);
     const [open, setOpen] = useState(false);
+    const [menuQuery, setMenuQuery] = useState("");
     // The "You" sheet — the desktop left-rail profile card, surfaced on mobile.
     const [youOpen, setYouOpen] = useState(false);
     const navLockUntilRef = useRef(0);
@@ -95,6 +96,23 @@ export const MobileNav = memo(function MobileNav({
     // Name-keyed shared image as the fallback, so the menu card doesn't drop to
     // initials before character.avatarImage hydrates (lib/own-avatar.ts).
     const avatarSrc = useOwnAvatar(character);
+    const normalizedQuery = menuQuery.trim().toLocaleLowerCase();
+    const filteredMenuGroups = useMemo(() => PLAYER_MENU_GROUPS
+        .map((group) => ({
+            ...group,
+            items: group.items.filter(([target, label]) => {
+                const professionLabel = target === "professions" && character.profession
+                    ? PROFESSION_LABEL[character.profession]
+                    : "";
+                return `${group.label} ${label} ${target} ${professionLabel}`
+                    .toLocaleLowerCase()
+                    .includes(normalizedQuery);
+            }),
+        }))
+        .filter((group) => group.items.length > 0), [character.profession, normalizedQuery]);
+    const showSupport = !normalizedQuery || "support guides discord patreon".includes(normalizedQuery);
+    const showSystem = !normalizedQuery || "system admin logout save".includes(normalizedQuery);
+    const noMenuResults = filteredMenuGroups.length === 0 && !showSupport && !showSystem;
 
     function go(screen: Screen) {
         const now = Date.now();
@@ -115,8 +133,8 @@ export const MobileNav = memo(function MobileNav({
                 />
             )}
 
-            <nav className="mobile-bottom-nav">
-                <button className="mobile-nav-btn" onClick={() => setYouOpen(true)}>
+            <nav className="mobile-bottom-nav" aria-label="Primary game navigation">
+                <button className="mobile-nav-btn" aria-expanded={youOpen} onClick={() => setYouOpen(true)}>
                     <span className="mnb-icon"><GiHealthNormal size={24} /></span>
                     You
                 </button>
@@ -124,19 +142,15 @@ export const MobileNav = memo(function MobileNav({
                     <span className="mnb-icon"><GiTreasureMap size={24} /></span>
                     Travel
                 </button>
-                <button className="mobile-nav-btn" aria-current={screen === "tavern" ? "page" : undefined} onClick={() => go("tavern")} onPointerDown={() => preloadScreen("tavern")}>
-                    <span className="mnb-icon"><GiBeerStein size={24} /></span>
-                    Tavern
-                </button>
-                <button className="mobile-nav-btn" aria-current={screen === "profile" ? "page" : undefined} onClick={() => go("profile")} onPointerDown={() => preloadScreen("profile")}>
-                    <span className="mnb-icon"><GiNinjaHeroicStance size={24} /></span>
-                    Char
+                <button className="mobile-nav-btn" aria-current={screen === "village" ? "page" : undefined} onClick={() => go("village")} onPointerDown={() => preloadScreen("village", character.storyVillage || character.village)}>
+                    <span className="mnb-icon"><GiPagoda size={24} /></span>
+                    Village
                 </button>
                 <button className="mobile-nav-btn" aria-current={screen === "inventory" ? "page" : undefined} onClick={() => go("inventory")} onPointerDown={() => preloadScreen("inventory")}>
                     <span className="mnb-icon"><GiKnapsack size={24} /></span>
                     Items
                 </button>
-                <button ref={menuTriggerRef} className="mobile-nav-btn menu-btn" onClick={() => setOpen(true)}>
+                <button ref={menuTriggerRef} className="mobile-nav-btn menu-btn" aria-expanded={open} aria-controls="mobile-shinobi-menu" onClick={() => setOpen(true)}>
                     <span className="mnb-icon"><GiHamburgerMenu size={24} /></span>
                     Menu
                     <MailUnreadDot />
@@ -155,10 +169,10 @@ export const MobileNav = memo(function MobileNav({
             />
 
             {open && (
-                <div ref={menuDialogRef} className="mobile-menu-overlay" role="dialog" aria-modal="true" aria-label="Shinobi menu">
+                <div id="mobile-shinobi-menu" ref={menuDialogRef} className="mobile-menu-overlay" role="dialog" aria-modal="true" aria-label="Shinobi menu">
                     <div className="mobile-menu-header">
                         <span className="mobile-menu-title"><GiNinjaHeroicStance size={22} aria-hidden="true" /> SHINOBI MENU</span>
-                        <button className="mobile-menu-close" aria-label="Close menu" autoFocus onClick={() => setOpen(false)}>✕</button>
+                        <button className="mobile-menu-close" aria-label="Close menu" onClick={() => setOpen(false)}>✕</button>
                     </div>
 
                     <div className="mobile-char-card">
@@ -182,11 +196,24 @@ export const MobileNav = memo(function MobileNav({
                         </div>
                     </div>
 
+                    <label className="mobile-menu-search">
+                        <span>Find a destination</span>
+                        <input
+                            type="search"
+                            value={menuQuery}
+                            autoFocus
+                            autoComplete="off"
+                            enterKeyHint="search"
+                            placeholder="Search missions, training, pets…"
+                            onChange={(event) => setMenuQuery(event.target.value)}
+                        />
+                    </label>
+
                     {/* onPointerDown warms each destination's lazy chunk on press,
                         before onClick's go()/navigate fires — see lib/screen-preload.
                         onClick is unchanged; the preload is best-effort + side-effect-free. */}
                     <div className="mobile-menu-groups">
-                        {PLAYER_MENU_GROUPS.map((group) => (
+                        {filteredMenuGroups.map((group) => (
                             <section className="mobile-menu-section" aria-labelledby={`mobile-menu-${group.id}`} key={group.id}>
                                 <h2 id={`mobile-menu-${group.id}`}>{group.label}</h2>
                                 <div className="mobile-menu-grid">
@@ -198,21 +225,27 @@ export const MobileNav = memo(function MobileNav({
                                 </div>
                             </section>
                         ))}
-                        <section className="mobile-menu-section" aria-labelledby="mobile-menu-support">
+                        {showSupport && <section className="mobile-menu-section" aria-labelledby="mobile-menu-support">
                             <h2 id="mobile-menu-support">Support</h2>
                             <div className="mobile-menu-grid">
                                 <button className="mobile-menu-btn" aria-current={screen === "guides" ? "page" : undefined} onClick={() => go("guides")} onPointerDown={() => preloadScreen("guides")}><GiOpenBook size={20} />Guides</button>
                                 <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer"); setOpen(false); }}><GiChatBubble size={20} />Discord</button>
                                 <button className="mobile-menu-btn" onClick={() => go("profile")} onPointerDown={() => preloadScreen("profile")}><GiHearts size={20} />Patreon</button>
                             </div>
-                        </section>
-                        <section className="mobile-menu-section" aria-labelledby="mobile-menu-system">
+                        </section>}
+                        {showSystem && <section className="mobile-menu-section" aria-labelledby="mobile-menu-system">
                             <h2 id="mobile-menu-system">System</h2>
                             <div className="mobile-menu-grid">
                                 {isAdminAccount && <button className="mobile-menu-btn" onClick={() => go(adminLoggedIn ? "adminPanel" : "adminLogin")} onPointerDown={() => preloadScreen(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiGears size={20} />Admin</button>}
                                 <button className="mobile-menu-btn danger" onClick={() => { logoutPlayer(); setOpen(false); }}><GiExitDoor size={20} />Logout + Save</button>
                             </div>
-                        </section>
+                        </section>}
+                        {noMenuResults && (
+                            <div className="mobile-menu-empty" role="status">
+                                <strong>No destination found</strong>
+                                <span>Try a system name such as “training,” “pets,” or “mail.”</span>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

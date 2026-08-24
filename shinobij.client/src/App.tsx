@@ -6427,6 +6427,7 @@ export default function App() {
             biome={currentBiome}
             screen={screen}
             village={character?.village}
+            uiMode={hideBattleChrome || isBattleViewScreen(screen) ? "combat" : "noncombat"}
             facilityAccent={STUDIO_SCREEN_PRESENTATION[screen].facility?.accent}
             artwork={screen === "start" ? backgroundImage : STUDIO_SCREEN_PRESENTATION[screen].artwork}
         >

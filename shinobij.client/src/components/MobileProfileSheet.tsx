@@ -12,13 +12,14 @@
  * backdrop / ✕ to close. Navigating from inside the sheet closes it first.
  */
 
-import { memo, useEffect } from "react";
+import { memo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import { ProfileCardBody } from "./LeftProfileCard";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
+import { GiNinjaHeroicStance } from "./icons/LightweightGameIcons";
 
 export const MobileProfileSheet = memo(function MobileProfileSheet({
     open,
@@ -39,14 +40,29 @@ export const MobileProfileSheet = memo(function MobileProfileSheet({
     activeTraining: ActiveTraining | null;
     activeJutsuTraining: ActiveJutsuTraining | null;
 }) {
+    const dialogRef = useRef<HTMLDivElement>(null);
+    const previousFocusRef = useRef<HTMLElement | null>(null);
     // Lock the body scroll behind the sheet and close on Escape — mirrors the
     // bottom-menu overlay (MobileNav) and the GameAlert modal pattern.
     useBodyScrollLock(open);
     useEffect(() => {
         if (!open) return;
-        const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+        previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") { e.preventDefault(); onClose(); return; }
+            if (e.key !== "Tab") return;
+            const controls = [...(dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])') ?? [])];
+            const first = controls[0];
+            const last = controls.at(-1);
+            if (!first || !last) return;
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        };
         document.addEventListener("keydown", onKey);
-        return () => document.removeEventListener("keydown", onKey);
+        return () => {
+            document.removeEventListener("keydown", onKey);
+            previousFocusRef.current?.focus();
+        };
     }, [open, onClose]);
 
     if (!open) return null;
@@ -59,9 +75,9 @@ export const MobileProfileSheet = memo(function MobileProfileSheet({
             aria-label="Your shinobi"
             onClick={onClose}
         >
-            <div className="mobile-profile-sheet" onClick={(e) => e.stopPropagation()}>
+            <div ref={dialogRef} className="mobile-profile-sheet" onClick={(e) => e.stopPropagation()}>
                 <div className="mobile-profile-sheet-header">
-                    <span className="mobile-profile-sheet-title">🥷 YOU</span>
+                    <span id="mobile-profile-sheet-title" className="mobile-profile-sheet-title"><GiNinjaHeroicStance aria-hidden="true" /> You</span>
                     <button
                         className="mobile-profile-sheet-close"
                         aria-label="Close"
