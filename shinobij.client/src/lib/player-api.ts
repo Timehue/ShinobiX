@@ -73,16 +73,20 @@ export async function postVillageTreasuryDonation(playerName: string, village: s
 // the old "credit treasury without a matching debit" gap. Returns the
 // server-credited treasury (clan XP / clanEventContrib are still applied
 // client-side on top of it), or null on failure (alerts the player).
-export async function postClanTreasuryDonation(playerName: string, clan: string, donation: TreasuryDonationBody): Promise<{ treasury: Record<string, unknown>; character: Character; xp: number; level: number; _saveVersion?: number } | null> {
+// `stores` is present only when the donation ROUTED into the Village Stores
+// clan mirror (a ration-pack → clanTreasury.provisions). Its absence is
+// meaningful: the packs stayed loose treasury items, so the confirmation must
+// not claim a rations credit that never happened.
+export async function postClanTreasuryDonation(playerName: string, clan: string, donation: TreasuryDonationBody): Promise<{ treasury: Record<string, unknown>; character: Character; xp: number; level: number; _saveVersion?: number; stores?: { provisions?: number } } | null> {
     try {
         const res = await fetch("/api/clan/treasury/donate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ playerName, clan, ...donation }),
         });
-        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; character?: Character; xp?: number; level?: number; _saveVersion?: number };
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; character?: Character; xp?: number; level?: number; _saveVersion?: number; stores?: { provisions?: number } };
         if (!res.ok || !data.ok || !data.treasury || !data.character) { alert(data.error || AMBIGUOUS_ACTION_MESSAGE); return null; }
-        return { treasury: data.treasury, character: data.character, xp: data.xp ?? 0, level: data.level ?? 1, _saveVersion: data._saveVersion };
+        return { treasury: data.treasury, character: data.character, xp: data.xp ?? 0, level: data.level ?? 1, _saveVersion: data._saveVersion, ...(data.stores ? { stores: data.stores } : {}) };
     } catch {
         alert(AMBIGUOUS_ACTION_MESSAGE);
         return null;

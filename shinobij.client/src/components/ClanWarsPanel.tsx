@@ -5,8 +5,18 @@ import { useCallback, useEffect, useState } from "react";
 import { cwListWars, type CwWar } from "../lib/clan-war-api";
 import { ClanWarManual } from "./ClanWarManual";
 import { CW_HP_MAX, CW_DAMAGE } from "../constants/clan";
+import { clanStoresReadout, clanWarFedToday, type ClanStoresTone } from "../lib/clan-stores";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
+
+// Tone → the palette the rest of Clan Hall already uses for the same three
+// meanings (calm / caution / alarm). Colour is never the only carrier: every
+// readout also spells its state out in the sentence beneath the figures.
+const RATION_TONE_COLOR: Record<ClanStoresTone, string | undefined> = {
+    neutral: undefined,
+    warn: "#fbbf24",
+    danger: "#f87171",
+};
 
 // Clan Wars panel — embedded inside Clan Hall's "Wars" tab. The full
 // challenge inbox + composer lives in the Shinobi Council Hall →
@@ -16,14 +26,20 @@ import type { Screen } from "../types/core";
 // /api/clan/war/list (10s CDN cache) so HP stays in sync.
 // Drained verbatim from App.tsx (2026-06-18) — behaviour unchanged; ClanHall is
 // the sole consumer.
-export function ClanWarsPanel({ character, clanName, setScreen }: { character: Character; clanName: string; setScreen: (s: Screen) => void }) {
+export function ClanWarsPanel({ character, clanName, provisions, onOpenTreasury, setScreen }: { character: Character; clanName: string; provisions?: number | null; onOpenTreasury?: () => void; setScreen: (s: Screen) => void }) {
     const [wars, setWars] = useState<CwWar[]>([]);
     const [loading, setLoading] = useState(true);
     const [showClanWarManual, setShowClanWarManual] = useState(false);
+    // The fed/unfed verdict is scoped to a UTC day, so it has to be read
+    // against a clock rather than frozen. It is stamped with the war list, so
+    // it is re-read on the same 20s beat instead of ticking in render (which
+    // would make the render impure).
+    const [storesNow, setStoresNow] = useState(() => Date.now());
 
     const refresh = useCallback(async () => {
         const list = await cwListWars();
         setWars(list);
+        setStoresNow(Date.now());
         setLoading(false);
     }, []);
     useEffect(() => {
@@ -34,6 +50,12 @@ export function ClanWarsPanel({ character, clanName, setScreen }: { character: C
 
     const activeWar = wars.find(w => !w.endedAt && w.clans.includes(clanName));
     const enemyClan = activeWar?.clans.find(c => c !== clanName) ?? "";
+    // Village Stores clan mirror: every active clan war burns its rations out
+    // of clanTreasury.provisions once a day. Surfaced, never re-decided — the
+    // server owns both the burn and the fed/unfed verdict.
+    const ourActiveWars = wars.filter(w => !w.endedAt && w.clans.includes(clanName));
+    const unfedWars = ourActiveWars.filter(w => clanWarFedToday(w, clanName, storesNow) === false).length;
+    const rations = clanStoresReadout({ clanName, provisions, activeWars: ourActiveWars.length, unfedWars });
     const recentEnded = wars
         .filter(w => w.endedAt && w.clans.includes(clanName))
         .sort((a, b) => (b.endedAt ?? 0) - (a.endedAt ?? 0))
@@ -104,6 +126,21 @@ export function ClanWarsPanel({ character, clanName, setScreen }: { character: C
                         <button onClick={() => setScreen("shinobiCouncil")}>🏯 Open Clan Battles</button>
                     </div>
                 </div>
+            )}
+
+            {!loading && rations && (
+                <section className="summary-box" style={{ marginTop: 12 }}>
+                    <h4 style={{ margin: "0 0 6px" }}>🍚 War Rations</h4>
+                    <div className="treasury-grid">
+                        <p><strong>Clan stores:</strong> {rations.held ?? "None stocked yet"}</p>
+                        <p><strong>Daily war cost:</strong> {rations.burn}</p>
+                        {rations.cover && <p><strong>Covers:</strong> {rations.cover}</p>}
+                    </div>
+                    <p className="hint" style={{ marginTop: 6, color: RATION_TONE_COLOR[rations.tone] }}>{rations.line}</p>
+                    {onOpenTreasury && <div className="menu" style={{ marginTop: 6 }}>
+                        <button type="button" onClick={onOpenTreasury}>🍚 Open the Treasury tab</button>
+                    </div>}
+                </section>
             )}
 
             {!loading && recentEnded.length > 0 && (
