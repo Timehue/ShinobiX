@@ -4270,12 +4270,9 @@ export function WorldMap({
             ? undefined
             : sectorMapUrl(ambienceBiomeForSector(selectedSector), selectedSector);
         const sectorOwnerLabel = territory.ownerClan ? `${territory.ownerClan} (${territory.ownerVillage})` : "Unclaimed";
-        // Clan territory is inert until a clan actually claims the sector: the terrain
-        // buff, the raid path, guards, war supply and the weather override all no-op on
-        // `!ownerClan` (lib/world-state, Arena territoryBuffMultiplier). On an untouched
-        // sector the full card is five rows of zeroes eating the top of the panel, so
-        // collapse it to one line and only spend the space once it means something —
-        // owned, mid-capture, guarded, cooling down, or a live war ground.
+        // Clan territory is inert until a clan claims the sector. Collapse its five-row
+        // card until it is owned, mid-capture, guarded, cooling down, or a live war
+        // ground; untouched sectors would otherwise show rows of zeroes.
         const territoryRebuildMinsLeft = territory.rebuiltAt
             ? Math.ceil((TERRITORY_REBUILD_COOLDOWN_MS - (Date.now() - territory.rebuiltAt)) / 60000)
             : 0;

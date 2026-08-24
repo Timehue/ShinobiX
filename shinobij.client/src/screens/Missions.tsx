@@ -619,7 +619,7 @@ export function Missions({
                             return (
                                 <article
                                     key={mission.id}
-                                    className={`mh-field-card${complete && accepted ? " mh-fetch-complete" : ""}${recommended ? " mh-recommended-card" : ""}${locked ? " mh-field-locked" : ""}`}
+                                    className={`mh-field-card${accepted ? " mh-field-accepted" : ""}${complete && accepted ? " mh-fetch-complete" : ""}${recommended ? " mh-recommended-card" : ""}${locked ? " mh-field-locked" : ""}`}
                                     style={{ "--mission-rank-color": accent } as CSSProperties}
                                 >
                                     <div className="mh-field-art">

@@ -64,6 +64,6 @@ daily-login,level-scaled-ryo,ryo,500+100*level (cap 8000),daily,api/player/_dail
 daily-login,streak-shards,fateShards,5,every 7 streak days,api/player/_daily-login.ts,
 war-crate,legendary-war-crate,ryo,500,per crate,api/inventory/_war-crate.ts,
 war-crate,legendary-war-crate,honorSeals,10,per crate,api/inventory/_war-crate.ts,
-clan-war,shinobi-pvp-challenge-win,territoryControlScrolls,5,per finalized win,api/clan/war/_war-points.ts,Only shinobi PvP challenge winners; exactly-once server settlement.
+clan-war,shinobi-pvp-challenge-win,territoryControlScrolls,1,per finalized win,api/clan/war/_war-points.ts,Only shinobi PvP challenge winners; exactly-once server settlement.
 territory,controlled-sector-daily,warResources,25,per controlled sector/day,api/_war-economy.ts,
 territory,controlled-sector-daily,honorSeals,1,per controlled sector/day,api/_war-economy.ts,
