@@ -1,0 +1,385 @@
+/* ── Named Weapon Forge ────────────────────────────────────────── */
+.named-weapon-forge {
+    margin-top: 18px;
+    padding: 18px;
+    border: 1px solid rgba(234, 179, 8, 0.45);
+    border-radius: 14px;
+    background: linear-gradient(160deg, rgba(30, 18, 4, 0.85), rgba(10, 10, 20, 0.90));
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.named-weapon-currencies {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(250, 204, 21, 0.15);
+    border-radius: 8px;
+    padding: 10px 14px;
+}
+
+.named-weapon-currency-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    color: var(--text-dim);
+}
+
+.named-weapon-currency-row strong {
+    color: var(--gold-300);
+}
+
+.named-weapon-currency-total {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(250, 204, 21, 0.18);
+    font-size: 0.84rem;
+    color: var(--slate-300);
+    text-align: right;
+}
+
+.named-weapon-currency-total strong {
+    color: #fbbf24;
+}
+
+.named-weapon-forge-header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.named-weapon-forge-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #fbbf24;
+    letter-spacing: 0.03em;
+}
+
+.named-weapon-forge-header small {
+    color: var(--text-dim);
+    font-size: 0.78rem;
+}
+
+.named-weapon-fill {
+    background: linear-gradient(90deg, #b45309, #fbbf24) !important;
+}
+
+.named-weapon-roll-btn {
+    padding: 10px 16px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #78350f, #d97706);
+    color: #fef3c7;
+    border: 1px solid #d97706;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.named-weapon-roll-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.named-weapon-roll-btn:hover:not(:disabled) {
+    opacity: 0.85;
+}
+
+.named-weapon-result {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+    border: 1px solid rgba(251, 191, 36, 0.30);
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.30);
+}
+
+.named-weapon-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: rgba(250, 204, 21, 0.06);
+    border: 1px solid rgba(250, 204, 21, 0.18);
+    border-radius: 8px;
+    padding: 10px 14px;
+}
+
+.named-weapon-stat-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--slate-300);
+}
+
+.named-weapon-stat-row strong {
+    color: var(--gold-300);
+}
+
+.named-weapon-tag-row strong {
+    color: var(--green-300);
+}
+
+.named-weapon-label {
+    font-size: 0.80rem;
+    color: var(--text-dim);
+    font-weight: 600;
+    margin-bottom: -4px;
+}
+
+.named-weapon-input {
+    width: 100%;
+    padding: 7px 10px;
+    background: rgba(15, 23, 42, 0.80);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 6px;
+    color: var(--slate-200);
+    font-size: 0.85rem;
+    font-family: inherit;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+.named-weapon-image-preview {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.named-weapon-image-preview img {
+    width: 72px;
+    height: 72px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.named-weapon-forge-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.named-weapon-forge-btn {
+    flex: 1;
+    padding: 10px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #14532d, #16a34a);
+    color: #dcfce7;
+    border: 1px solid #16a34a;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.named-weapon-forge-btn:hover {
+    opacity: 0.85;
+}
+
+/* ── Named Weapon Odds Panel ───────────────────────────────────── */
+.named-weapon-odds {
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(251,146,60,0.3);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 10px 0 8px;
+}
+
+.named-weapon-odds-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #fb923c;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+}
+
+.named-weapon-odds-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.nwo-section {
+    background: rgba(255,255,255,0.04);
+    border-radius: 6px;
+    padding: 6px 8px;
+}
+
+.nwo-section-wide {
+    grid-column: 1 / -1;
+}
+
+.nwo-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--gold-400);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.nwo-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.nwo-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    color: var(--slate-300);
+}
+
+.nwo-pct {
+    color: var(--text-dim);
+    font-size: 0.68rem;
+}
+
+.nwo-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 2px;
+}
+
+.nwo-tag-chip {
+    background: rgba(251,146,60,0.15);
+    border: 1px solid rgba(251,146,60,0.35);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.67rem;
+    color: #fdba74;
+}
+
+.nw-tag-formula {
+    font-size: 0.65rem;
+    font-weight: 400;
+    color: var(--text-dim);
+    margin-left: 4px;
+}
+
+/* Lazy jackpot reveal; every displayed value is already sealed by the API. */
+.nf {
+    --a: #f59e0b;
+    --hot: #fde68a;
+    position: relative;
+    isolation: isolate;
+    min-height: 350px;
+    display: grid;
+    grid-template: "relic copy" auto "relic stats" 1fr "progress progress" auto / minmax(140px, .78fr) minmax(210px, 1.22fr);
+    align-items: center;
+    gap: 14px 22px;
+    overflow: hidden;
+    padding: 24px;
+    border: 1px solid color-mix(in srgb, var(--a) 62%, transparent);
+    border-radius: 14px;
+    background: radial-gradient(circle at 25% 46%, color-mix(in srgb, var(--a) 22%, transparent), transparent 35%), linear-gradient(145deg, #1e0d05fa, #080b16fa 60%, #140a1cfa);
+    box-shadow: inset 0 0 55px #0007, 0 0 28px color-mix(in srgb, var(--a) 20%, transparent);
+    animation: nf-in .3s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.nf--armor { --a: #a78bfa; --hot: #ddd6fe; }
+.nf::before,
+.nf::after { content: ""; position: absolute; z-index: -1; pointer-events: none; }
+.nf::before {
+    inset: -40% -15%;
+    background: conic-gradient(from 90deg, transparent 34%, color-mix(in srgb, var(--a) 14%, transparent) 40%, transparent 46% 84%, color-mix(in srgb, var(--hot) 10%, transparent) 90%, transparent 96%);
+    animation: nf-spin 6s linear infinite;
+}
+.nf::after {
+    inset: 0;
+    opacity: .75;
+    background: radial-gradient(circle, var(--hot) 0 1px, transparent 2px) 8% 110%/37px 51px, radial-gradient(circle, var(--a) 0 1px, transparent 2px) 71% 115%/53px 67px;
+    animation: nf-embers 2.2s linear infinite;
+}
+.nf.is-reveal { border-color: var(--hot); animation: nf-impact .58s cubic-bezier(.18, .8, .18, 1) both, nf-aura 1.25s ease-in-out .42s infinite alternate; }
+.nf.is-reveal::before { background: radial-gradient(circle at 28% 48%, color-mix(in srgb, var(--hot) 44%, transparent), transparent 31%); animation: nf-bloom 1.25s ease-out both; }
+
+.nf-relic {
+    grid-area: relic;
+    position: relative;
+    width: clamp(132px, 25vw, 178px);
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    justify-self: center;
+    border: 1px solid color-mix(in srgb, var(--a) 62%, transparent);
+    border-radius: 50%;
+    animation: nf-spin 3.1s linear infinite;
+}
+.nf-relic::before { content: ""; position: absolute; inset: 24px; border: 1px dashed var(--a); border-radius: 50%; animation: nf-spin 2.25s linear infinite reverse; }
+.nf-relic > span {
+    z-index: 2;
+    width: 72px;
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--hot);
+    border-radius: 22px 8px;
+    color: var(--hot);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--a) 30%, #111827), #080b14 72%);
+    box-shadow: inset 0 0 22px color-mix(in srgb, var(--a) 24%, transparent), 0 0 25px var(--a);
+    font-size: 36px;
+    transform: rotate(45deg);
+    animation: nf-beat .76s ease-in-out infinite alternate;
+}
+.nf-relic > span svg { transform: rotate(-45deg); }
+.nf-relic > i { position: absolute; right: 4px; bottom: 14px; z-index: 3; width: 34px; aspect-ratio: 1; display: grid; place-items: center; border: 1px solid var(--a); border-radius: 50%; color: var(--hot); background: #0b0d14; box-shadow: 0 0 13px var(--a); }
+.is-reveal .nf-relic { animation: nf-seal .8s ease-out both; }
+.is-reveal .nf-relic > span { animation: nf-lock .72s cubic-bezier(.16, 1, .3, 1) both; }
+
+.nf-copy { grid-area: copy; align-self: end; min-width: 0; }
+.nf-copy > span { color: var(--a); font-size: .67rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+.nf-copy h3 { margin: 4px 0 2px; color: #fff7d6; font-size: clamp(1.15rem, 4vw, 1.55rem); line-height: 1.05; letter-spacing: .035em; text-shadow: 0 0 18px var(--a); }
+.nf-copy p { margin: 0; color: #aeb7c7; font-size: .76rem; }
+.nf-stats { grid-area: stats; align-self: start; display: grid; gap: 5px; }
+.nf-stat { position: relative; display: flex; justify-content: space-between; gap: 14px; overflow: hidden; padding: 7px 10px; border-left: 2px solid var(--a); background: linear-gradient(90deg, color-mix(in srgb, var(--a) 12%, transparent), #ffffff06); color: #adb7c9; font-size: .75rem; }
+.nf-stat::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 38%, color-mix(in srgb, var(--hot) 28%, transparent) 50%, transparent 62%); transform: translateX(-120%); animation: nf-scan .82s ease-in-out calc(var(--i) * .12s) infinite; }
+.nf-stat strong { color: var(--hot); font-size: .76rem; letter-spacing: .035em; text-align: right; }
+.is-rolling .nf-stat strong { animation: nf-flicker .36s steps(2, end) calc(var(--i) * .08s) infinite; }
+.is-reveal .nf-stat { opacity: 0; transform: translateX(24px); animation: nf-row .38s cubic-bezier(.16, 1, .3, 1) calc(.28s + var(--i) * .22s) forwards; }
+.nf-progress { grid-area: progress; height: 3px; overflow: hidden; border-radius: 99px; background: #ffffff12; }
+.nf-progress i { display: block; width: 38%; height: 100%; background: linear-gradient(90deg, transparent, var(--hot), transparent); box-shadow: 0 0 9px var(--a); animation: nf-progress 1s ease-in-out infinite; }
+.is-reveal .nf-progress i { width: 100%; background: linear-gradient(90deg, var(--a), var(--hot)); animation: nf-progress-lock .72s ease-out both; }
+.named-forge-result-enter { animation: nf-result .45s cubic-bezier(.16, 1, .3, 1) both; }
+
+@keyframes nf-in { from { opacity: 0; transform: translateY(8px) scale(.985); } }
+@keyframes nf-impact { 0% { opacity: .35; transform: scale(.96); filter: brightness(2.1); } 45% { transform: scale(1.012); filter: brightness(1.35); } }
+@keyframes nf-aura { to { box-shadow: inset 0 0 38px color-mix(in srgb, var(--a) 9%, transparent), 0 0 34px color-mix(in srgb, var(--hot) 30%, transparent); } }
+@keyframes nf-spin { to { transform: rotate(360deg); } }
+@keyframes nf-embers { to { background-position: 8% -10%, 71% -15%; } }
+@keyframes nf-bloom { from { opacity: 0; transform: scale(.35); } to { opacity: .45; transform: scale(1.35); } }
+@keyframes nf-beat { to { transform: rotate(45deg) scale(1.04); filter: brightness(1.3); } }
+@keyframes nf-lock { from { transform: rotate(0) scale(.4); filter: brightness(3); } 58% { transform: rotate(49deg) scale(1.16); } }
+@keyframes nf-seal { from { opacity: .25; transform: rotate(-95deg) scale(1.28); } }
+@keyframes nf-scan { to { transform: translateX(120%); } }
+@keyframes nf-flicker { 50% { opacity: .42; } }
+@keyframes nf-row { to { opacity: 1; transform: none; } }
+@keyframes nf-progress { from { transform: translateX(-110%); } to { transform: translateX(300%); } }
+@keyframes nf-progress-lock { from { transform: scaleX(0); transform-origin: left; } }
+@keyframes nf-result { from { opacity: 0; transform: translateY(-6px); box-shadow: 0 0 26px #fbbf2438; } }
+
+@media (max-width: 560px) {
+    .nf { min-height: 0; grid-template: "relic copy" auto "stats stats" 1fr "progress progress" auto / 96px minmax(0, 1fr); gap: 12px; padding: 17px 14px; }
+    .nf-relic { width: 92px; }
+    .nf-relic::before { inset: 17px; }
+    .nf-relic > span { width: 50px; border-radius: 16px 6px; font-size: 25px; }
+    .nf-relic > i { width: 26px; right: -2px; bottom: 4px; font-size: 13px; }
+    .nf-stat { padding: 6px 8px; }
+}
+
+html.lite-fx .nf,
+html.lite-fx .nf *,
+html.lite-fx .named-forge-result-enter { animation: none !important; transition: none !important; }
+html.lite-fx .is-reveal .nf-stat { opacity: 1; transform: none; }
+html.lite-fx .nf::after { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    .nf, .nf *, .named-forge-result-enter { animation: none !important; transition: none !important; }
+    .is-reveal .nf-stat { opacity: 1; transform: none; }
+    .nf::after { display: none; }
+}

@@ -640,7 +640,7 @@ test.describe("Awakening Stone cinematic", () => {
         const initialCharacter = {
             ...(initialSave.character ?? {}),
             element: "Water",
-            elements: ["Water"],
+            elements: ["Water", "Wind"],
             claimedAwakenings: ["awakening-free-lv2", "awakening-free-lv20"],
         };
         initialSave.character = initialCharacter;
@@ -666,7 +666,7 @@ test.describe("Awakening Stone cinematic", () => {
                     character: {
                         ...initialCharacter,
                         element: "Fire",
-                        elements: ["Fire"],
+                        elements: ["Fire", "Wind"],
                         fateShards: Number(initialCharacter.fateShards) - 10,
                     },
                     _saveVersion: 2,
@@ -681,7 +681,7 @@ test.describe("Awakening Stone cinematic", () => {
         await expect(page.getByRole("dialog", { name: "Awakening Stone" })).toBeVisible();
         await expect(page.locator(".central-awakening-cinematic")).toHaveCount(0);
 
-        await page.getByRole("button", { name: /Reroll Element/ }).click();
+        await page.getByRole("button", { name: /^Reroll Element 1 element/ }).click();
         await expect(page.getByText("❌ The stone rejected this reroll.")).toBeVisible();
         await expect(page.locator(".central-awakening-cinematic")).toHaveCount(0);
         expect(
@@ -690,7 +690,7 @@ test.describe("Awakening Stone cinematic", () => {
         ).toEqual([]);
         runtimeErrors.length = 0;
 
-        await page.getByRole("button", { name: /Reroll Element/ }).click();
+        await page.getByRole("button", { name: /^Reroll Element 1 element/ }).click();
         const cinematic = page.getByRole("dialog", { name: "Fire Release" });
         await expect(cinematic).toBeVisible();
         await expect(cinematic).toHaveAttribute("data-element", "fire");
@@ -706,7 +706,7 @@ test.describe("Awakening Stone cinematic", () => {
             /awakening-stone-cinematic-v1\.webp/,
         );
         await expect(cinematic.locator(".central-awakening-sigil img")).toHaveJSProperty("complete", true);
-        expect(requestedKind).toBe("paid");
+        expect(requestedKind).toBe("paid-single");
         expect(runtimeErrors, "Awakening reroll reveal emitted runtime errors").toEqual([]);
 
         if (process.env.UI_AUDIT_CAPTURE === "1") {
@@ -718,5 +718,50 @@ test.describe("Awakening Stone cinematic", () => {
             });
         }
 
+    });
+
+    test("rerolls both elements for 15 shards and reveals both committed natures", async ({ page }) => {
+        const runtimeErrors = collectRuntimeErrors(page);
+        const initialSave = uiAuditSave();
+        const initialCharacter = {
+            ...(initialSave.character ?? {}),
+            element: "Water",
+            elements: ["Water", "Wind"],
+            claimedAwakenings: ["awakening-free-lv2", "awakening-free-lv20"],
+        };
+        initialSave.character = initialCharacter;
+        const runtime = await installUiAuditRuntime(page, initialSave);
+        let requestedKind = "";
+
+        await page.route("**/api/awakening/roll", async (route) => {
+            requestedKind = String((route.request().postDataJSON() as { kind?: string }).kind ?? "");
+            await route.fulfill({
+                status: 200,
+                contentType: "application/json",
+                body: JSON.stringify({
+                    character: {
+                        ...initialCharacter,
+                        element: "Earth",
+                        elements: ["Earth", "Lightning"],
+                        fateShards: Number(initialCharacter.fateShards) - 15,
+                    },
+                    _saveVersion: 2,
+                }),
+            });
+        });
+
+        await expectUiAuditBoot(page, runtime, "centralHub");
+        await page.locator(".central-card").filter({ hasText: "Awakening Stone" }).click();
+        await page.getByRole("button", { name: /Reroll Elements/ }).click();
+
+        const cinematic = page.getByRole("dialog", { name: "Elemental Convergence" });
+        await expect(cinematic).toBeVisible();
+        await expect(cinematic).toHaveAttribute("data-mode", "reroll");
+        await expect(cinematic).toHaveAttribute("data-element", "earth");
+        await expect(cinematic.locator(".central-awakening-sigil[data-element='earth']")).toHaveCount(1);
+        await expect(cinematic.locator(".central-awakening-sigil[data-element='lightning']")).toHaveCount(1);
+        await expect(cinematic.locator("#central-awakening-result")).toHaveText("Earth · Lightning");
+        expect(requestedKind).toBe("paid-both");
+        expect(runtimeErrors, "Two-element reroll reveal emitted runtime errors").toEqual([]);
     });
 });
