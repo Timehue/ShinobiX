@@ -23,7 +23,9 @@ import {
 import {
     wrPerSector,
     taxRateMultiplier,
+    effectiveLevel,
 } from './_war-structures.js';
+import { depotConversionCap, parseStoresLedger, STORES_LEDGER_VIEW_ROWS, type StoresLedgerEntry } from './_village-stores.js';
 import {
     homeSectorsForVillage,
     sectorAlias,
@@ -58,6 +60,15 @@ export interface VillageWarMapView {
     /** Whether a player currently holds the Kage seat. No Kage → no tax. */
     kageSeated: boolean;
     sectors: SectorConfigView[];
+    // ── Village Stores (api/_village-stores.ts) ──
+    /** Rations in the treasury (treasury.provisions). */
+    provisions: number;
+    /** Craft points in the treasury (treasury.materialPoints). */
+    materialPoints: number;
+    /** Max WR the Supply Depot converts from materials per day (10 pts = 1 WR). */
+    depotConversionCap: number;
+    /** Last 10 stores ledger rows, oldest first. */
+    storesLedger: StoresLedgerEntry[];
 }
 
 function round2(n: number): number {
@@ -74,6 +85,9 @@ export function villageWarMapView(args: {
     /** Whether the village has a seated Kage. Omitted = treated as seated, so
      *  existing callers keep their behaviour. */
     kageSeated?: boolean;
+    /** Village Stores balances off the treasury (default 0). */
+    provisions?: number;
+    materialPoints?: number;
 }): VillageWarMapView {
     const { village, record } = args;
     const treasurySeals = Math.max(0, Math.floor(Number(args.treasurySeals) || 0));
@@ -113,6 +127,10 @@ export function villageWarMapView(args: {
         taxRatePct,
         kageSeated,
         sectors,
+        provisions: Math.max(0, Math.floor(Number(args.provisions) || 0)),
+        materialPoints: Math.max(0, Math.floor(Number(args.materialPoints) || 0)),
+        depotConversionCap: depotConversionCap(effectiveLevel(record, 'supplyDepot')),
+        storesLedger: parseStoresLedger(record.storesLedger).slice(-STORES_LEDGER_VIEW_ROWS),
     };
 }
 

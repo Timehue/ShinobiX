@@ -207,14 +207,14 @@ test("WorldMap projects overlay time, storage, and capability decisions before r
     assert.match(projection, /const sectorOverlayRift/u);
     assert.match(projection, /const sectorOverlayVault[\s\S]*anbuViewOpen[\s\S]*territory\.ownerVillage/u);
     assert.match(projection, /const sectorOverlayShrine[\s\S]*isSectorTracesEnabled\(\)[\s\S]*shrineForSector/u);
-    assert.match(projection, /const sectorOverlayBoss[\s\S]*isWeeklyBossRoamEnabled\(\)[\s\S]*weeklyBossRoamState\(roamingBoss, Date\.now\(\)\)/u);
+    assert.match(projection, /const sectorOverlayBoss[\s\S]*isWeeklyBossRoamEnabled\(\)[\s\S]*weeklyBossRoamState\(roamingBoss, serverNow\(\)\)/u);
 });
 
 test("WorldMap owns the wanderer portal, backdrop policy, actions, and projected contextual decisions", () => {
     const projections = sliceBetween(worldMapSource, "const wandererDialogEmissary", "return (");
     assert.match(projections, /const wandererLegacyTrial = legacyAvailable && character\.legacy && wandererDialogEmissary \? \([\s\S]*<EmissaryTrialPanel[\s\S]*onVersionedCharacter=\{onVersionedCharacter\}/u);
     assert.match(projections, /const wandererDialogNow[\s\S]*Date\.now\(\)/u);
-    assert.match(projections, /const wandererDialogDayBucket[\s\S]*wandererDayBucket\(new Date\(\)\)/u);
+    assert.match(projections, /const wandererDialogDayBucket[\s\S]*currentWandererDayBucket\(\)/u);
     assert.match(projections, /const wandererDialogAtWar[\s\S]*activeVillageWarsFor\(character\.village\)/u);
 
     const portal = sliceBetween(worldMapSource, "{wandererDialog && createPortal(", "document.body,");

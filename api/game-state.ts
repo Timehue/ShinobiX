@@ -6,7 +6,7 @@ import { cachedFor } from './_proc-cache.js';
 import { cors, safeName, setSafeRecordValue } from './_utils.js';
 import { authedPlayerOrAdmin, isFullAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
-import { withKvLock } from './_lock.js';
+import { withKvLock, LockContendedError } from './_lock.js';
 import { validateVillageStateWrite, loadAuthoritativeKage } from './_village-state-validate.js';
 
 const LEADERSHIP_IMAGES_KEY = 'game:village-leadership-images';
@@ -171,6 +171,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // _village-state-validate.ts. Suppressed mutations fall
                 // back to the existing value (silently — admin can find
                 // them in server logs).
+                //
+                // failClosed: this row carries the village TREASURY, and the
+                // validator pins every currency key to the value it just read.
+                // Run unlocked, a stale read racing the daily Village Stores
+                // pass (now a frequent concurrent writer of provisions /
+                // materialPoints) would RESTORE the pre-debit balances — the
+                // village would be handed back rations and materials it had
+                // already spent. Refusing the write and letting the client
+                // retry is the only safe outcome; the 503 below says so.
                 const suppressedLog = await withKvLock(key, async () => {
                     const existing = await kv.get<Record<string, unknown>>(key);
                     const kageState = await loadAuthoritativeKage(village);
@@ -186,7 +195,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     );
                     await kv.set(key, next);
                     return suppressed;
-                });
+                }, { failClosed: true });
                 if (suppressedLog.length > 0) {
                     console.warn('[game-state villageState] suppressed:', identity.admin ? 'admin' : identity.name, suppressedLog.join('; '));
                 }
@@ -308,6 +317,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             return res.status(400).json({ error: 'Unknown kind.' });
         } catch (err) {
+            // A failClosed lock refused rather than raced (see villageState
+            // above). Nothing was written — tell the client to retry instead of
+            // reporting a hard failure.
+            if (err instanceof LockContendedError) {
+                return res.status(503).json({ error: 'That village record is busy — please retry.', retryable: true });
+            }
             console.error('[game-state]', safeLogValue(err));
             return res.status(500).json({ error: 'Internal server error.' });
         }

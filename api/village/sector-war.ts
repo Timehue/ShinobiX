@@ -16,7 +16,8 @@ import {
 } from '../_war-state.js';
 import { defenderPointsMultiplier, sectorWarDamageMultiplier } from '../_war-structures.js';
 import { sealedSectorWarRoleOf, sectorControlSwing, sectorWarRoleOf, ROLE_VILLAGER } from '../_war-role.js';
-import { villageWarMapEnabled } from '../_release-flags.js';
+import { villageWarMapEnabled, villageStoresEnabled } from '../_release-flags.js';
+import { GARRISON_RATIONS_PER_DAY, utcDay } from '../_village-stores.js';
 import {
     sectorWarId,
     sectorWarKey,
@@ -96,7 +97,10 @@ import {
     type VillageWarReservationPlan,
 } from '../_war-village-reservation.js';
 import { settleDueSectorWars } from '../_sector-war-settle.js';
+import { intelDeclareCost, sectorIntelFor, type IntelTier } from '../_village-intel.js';
+import { SECTOR_WAR_WR } from '../_war-economy.js';
 import { recordWarEcoEvent } from '../_war-telemetry.js';
+import { announce, postVillageHerald } from '../_announce.js';
 import { legacyEnabled, bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
 import { pvpSessionMayGrantProgress, type PvpSession } from '../pvp/session.js';
@@ -133,6 +137,14 @@ import { settlePvpSectorWarContinuation } from '../pvp/_sector-war-continuation.
  *               GARRISON_POINTS_CAP), and settles the attacker's own item usage +
  *               surviving HP onto their save.
  *   - abandon : the attacking Kage calls off their own siege.
+ *   - garrison-feed : Village Stores — { sectorWarId, on } by the Kage or an ANBU
+ *               appointee of a participant. Sets/clears ONLY the caller's own
+ *               village's entry in the war's per-village `garrisonFeed` map (the
+ *               enemy side can never switch a village's paid feed off); while on
+ *               AND the day's rations were covered, that village's garrison-run
+ *               cap is GARRISON_POINTS_CAP_FED instead of GARRISON_POINTS_CAP
+ *               (api/_sector-war.ts garrisonPointsCapFor). A toggle inside the
+ *               UTC day the pass already paid for KEEPS that coverage.
  *   - status  : read-only — the owner + active contest for a sector (or all contests).
  *   - seed    : admin — one-time idempotent seed of home-sector ownership (Phase 4d).
  *
@@ -224,7 +236,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             case 'garrison-start': return await doGarrisonStart(req, res, identity, playerName, body);
             case 'garrison-resolve': return await doGarrisonResolve(req, res, identity, playerName, body);
             case 'abandon': return await doAbandon(req, res, identity, playerName, body);
-            case 'status': return await doStatus(req, res, body);
+            case 'garrison-feed': return await doGarrisonFeed(req, res, identity, playerName, body);
+            case 'status': return await doStatus(req, res, identity, playerName, body);
             case 'seed': return await doSeed(res, identity);
             default: return res.status(400).json({ error: 'Unknown action.' });
         }
@@ -482,6 +495,7 @@ async function sendSectorFundingOutcome(
     res: VercelResponse,
     outcome: SectorFundingOutcome,
     session: SectorWarSession,
+    intel?: { tier: IntelTier; baseCost: number },
 ) {
     if (outcome.status === 'taken') return res.status(409).json({ error: declineMessage('already-contested') });
     if (outcome.status === 'village-war') {
@@ -509,12 +523,47 @@ async function sendSectorFundingOutcome(
             meta: `sector:${session.sector}`,
         });
     }
+    // World Herald: the declaration is durable, so let every village hear the
+    // drums. The receipt is keyed on the contest's declaration generation, so a
+    // replayed/recovered declaration never re-announces. Best-effort.
+    {
+        const live = outcome.session;
+        const generation = Math.floor(Number(live.declarationGeneration ?? session.declarationGeneration) || 0);
+        try {
+            await announce({
+                type: 'sector_war_declared',
+                importance: 'high',
+                title: 'War Drums',
+                message: `${live.attackerVillage} has declared war on Sector ${live.sector}, held by ${live.defenderVillage}. The contest runs 72 hours.`,
+                village: live.attackerVillage,
+                meta: { sector: live.sector, contestId: live.id, attackerVillage: live.attackerVillage, defenderVillage: live.defenderVillage, endsAt: live.endsAt },
+            }, { receiptId: `sector-war-declared:${live.id}:g${generation}` });
+        } catch { /* announcements never fail the declaration */ }
+    }
     return res.status(200).json({
         ok: true,
         cost: outcome.chargedNow ? outcome.cost : 0,
         alreadyOpen: !outcome.chargedNow,
+        // Village Stores — Intel: which tier discounted this declare and the base
+        // it reduced 250 WR to (the comeback multiplier then applied on top).
+        intelTier: intel?.tier ?? 'none',
+        intelBaseCost: intel?.baseCost ?? SECTOR_WAR_WR,
         contest: projectSectorWarForClient(outcome.session),
     });
+}
+
+/**
+ * A declaration-funding fault: the war chest's bookkeeping for this sector could
+ * not be trusted, so nothing was charged and nothing was written.
+ *
+ * The player gets ONE plain sentence telling them what happened and what to do;
+ * the diagnostic code and context go to the SERVER LOG, never the response body.
+ * (These used to read "Sector-war funding fingerprint is invalid; an
+ * administrator must inspect it." straight into a Kage's face.)
+ */
+function declarationFault(res: VercelResponse, code: string, message: string, detail: Record<string, unknown>): VercelResponse {
+    console.warn('[village/sector-war] declaration-fault', safeLogValue({ code, ...detail }));
+    return res.status(503).json({ error: message, code });
 }
 
 async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Identity, playerName: string, body: Record<string, unknown>) {
@@ -538,7 +587,9 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
     const pendingFunding = (await listFundingSectorWars())
         .filter(candidate => candidate.sector === sector && candidate.attackerVillage === village);
     if (pendingFunding.length > 1) {
-        return res.status(503).json({ error: 'Multiple sector-war funding rows require administrator inspection.' });
+        return declarationFault(res, 'multiple-funding-rows',
+            'Another declaration on this sector is still being settled — nothing was spent. Try again in a few minutes, and tell an administrator if it keeps happening.',
+            { sector, village, rows: pendingFunding.length });
     }
     const pendingSession = pendingFunding[0];
     if (pendingSession) {
@@ -547,7 +598,9 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
             || pendingMarker.source.kind !== 'war-resources'
             || pendingMarker.source.recordKey !== villageWarKey(village)
             || pendingMarker.source.accountId !== village) {
-            return res.status(503).json({ error: 'Sector-war funding identity is invalid; an administrator must inspect it.' });
+            return declarationFault(res, 'funding-identity-invalid',
+                'Your village war chest could not be verified for this declaration, so nothing was spent. Try again in a few minutes.',
+                { sector, village, sectorWarId: pendingSession.id, sourceKind: pendingMarker?.source.kind ?? null });
         }
         const resumed = sectorFundingContext({
             session: pendingSession,
@@ -557,7 +610,9 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
         });
         if (resumed.fundingPlan.declarationId !== pendingMarker.declarationId
             || resumed.fundingPlan.fingerprint !== pendingMarker.fingerprint) {
-            return res.status(503).json({ error: 'Sector-war funding fingerprint is invalid; an administrator must inspect it.' });
+            return declarationFault(res, 'funding-fingerprint-mismatch',
+                'This declaration no longer matches your village war chest, so nothing was spent. Try again in a few minutes.',
+                { sector, village, sectorWarId: pendingSession.id, expected: pendingMarker.declarationId, got: resumed.fundingPlan.declarationId });
         }
         return sendSectorFundingOutcome(res, await continueSectorDeclaration(resumed), pendingSession);
     }
@@ -568,7 +623,9 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
     const storedMarker = warDeclarationFundingMarkerFromRow(rawContest);
     const storedSession = rawContest ? normalizeSectorWarSession(rawContest) : null;
     if (rawContest && Object.prototype.hasOwnProperty.call(rawContest, WAR_DECLARATION_FUNDING_FIELD) && !storedMarker) {
-        return res.status(503).json({ error: 'Sector-war funding state is invalid; an administrator must inspect it.' });
+        return declarationFault(res, 'funding-state-invalid',
+            'This sector’s war record is in an unusual state and was left untouched. Try again in a few minutes.',
+            { sector, village, contestId });
     }
 
     if (!identity.admin && !(await isSeatedKage(village, playerName))) {
@@ -578,6 +635,10 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
     // Live held count (NOT the static home table) so the comeback discount can
     // actually fire for a village that has been pushed off the map.
     const attackerSectorsHeld = await heldSectorsForVillage(village);
+    // Village Stores — Intel: mapped (250) → 175 WR base, infiltrated (500) → 125,
+    // applied BEFORE the comeback multiplier. Read failure = full price.
+    const intel = await sectorIntelFor(village, sector).catch(() => ({ points: 0, tier: 'none' as IntelTier }));
+    const intelBaseCost = intelDeclareCost(SECTOR_WAR_WR, intel.tier);
     const atkKey = villageWarKey(village);
     const [attackerInWar, defenderInWar, existing, atkRecord, defRaw, mySieges] = await Promise.all([
         villageHasActiveWar(village),
@@ -608,16 +669,21 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
         attackerActiveSieges: mySieges,
         priorFailedSiegeActive,
         allowedWinConditions: WIRED_WIN_CONDITIONS,
+        baseCost: intelBaseCost,
     });
     if (!check.ok) return res.status(declineStatus(check.error)).json({ error: declineMessage(check.error, check.cost) });
     if (rawContest && !storedSession) {
-        return res.status(503).json({ error: 'Existing sector-war state is invalid; an administrator must inspect it.' });
+        return declarationFault(res, 'existing-state-invalid',
+            'This sector’s war record could not be read and was left untouched. Try again in a few minutes.',
+            { sector, village, contestId });
     }
 
     const priorGeneration = Math.floor(Number(storedSession?.declarationGeneration) || 0);
     const generation = priorGeneration + 1;
     if (!Number.isSafeInteger(generation) || generation <= 0) {
-        return res.status(503).json({ error: 'Sector-war declaration generation is exhausted.' });
+        return declarationFault(res, 'generation-exhausted',
+            'This sector has been declared on too many times to record another war — an administrator has to reset it.',
+            { sector, village, contestId, priorGeneration });
     }
     const now = Date.now();
     const session: SectorWarSession = {
@@ -637,7 +703,7 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
         now,
         expectedWar: rawContest,
     });
-    return sendSectorFundingOutcome(res, await continueSectorDeclaration(context), session);
+    return sendSectorFundingOutcome(res, await continueSectorDeclaration(context), session, { tier: intel.tier, baseCost: intelBaseCost });
 }
 
 // ── attack (register a battle → mint the single-use token) ────────────────────
@@ -1244,19 +1310,89 @@ async function doAbandon(req: VercelRequest, res: VercelResponse, identity: Iden
     return res.status(200).json({ ok: true, sector, contest: projectSectorWarForClient(out.session) });
 }
 
+// ── garrison-feed (Village Stores) ─────────────────────────────────────────────
+async function doGarrisonFeed(req: VercelRequest, res: VercelResponse, identity: Identity, playerName: string, body: Record<string, unknown>) {
+    if (!villageStoresEnabled()) return res.status(404).json({ error: 'Not found.' });
+    const sectorWarId = String(body.sectorWarId ?? '').trim();
+    const on = body.on === true;
+    if (!sectorWarId) return res.status(400).json({ error: 'Missing sectorWarId.' });
+    if (!identity.admin && !(await enforceRateLimitKv(req, res, 'sector-war-garrison-feed', 10, 60_000, identity.name))) return;
+
+    const contest = await loadSectorWar(sectorWarId);
+    if (!contest || !isSectorWarActive(contest, Date.now())) return res.status(409).json({ error: 'No active sector war with that id.' });
+
+    // The caller may only touch THEIR OWN village's entry: the seated Kage or an
+    // ANBU appointee of a participant acts for that participant; an admin may
+    // name either side via body.village (defaults to the defender).
+    const participants = [contest.attackerVillage, contest.defenderVillage];
+    let village = '';
+    for (const v of participants) {
+        if (await isSeatedKage(v, playerName) || (await loadAnbuAppointees(v)).includes(playerName)) { village = v; break; }
+    }
+    if (!village && identity.admin) {
+        const asked = typeof body.village === 'string' ? body.village.trim() : '';
+        village = participants.includes(asked) ? asked : contest.defenderVillage;
+    }
+    if (!village) return res.status(403).json({ error: 'Only a seated Kage or an ANBU appointee of a warring village can feed the garrison.' });
+
+    const now = Date.now();
+    const today = utcDay(now);
+    const out = await withKvLock(sectorWarKey(contest.id), async () => {
+        const fresh = await loadSectorWar(contest.id);
+        if (!fresh || !isSectorWarActive(fresh, now)) return null;
+        const feed = { ...(fresh.garrisonFeed ?? {}) };
+        const prev = feed[village];
+        // `covered` is a fact about the DAY'S RATIONS, not about the switch: once
+        // the daily pass has burned this war's GARRISON_RATIONS_PER_DAY, flipping
+        // the toggle off and back on the same day must not throw that payment
+        // away (the old code zeroed it on every toggle, so a Kage lost the cap
+        // for the rest of the day AND paid again on the next pass).
+        //
+        // It survives a toggle only while all of these hold, which is what keeps
+        // a stale verdict from granting the raised cap for free:
+        //  - the pass's verdict is for TODAY (`storesDate`), and
+        //  - the entry has not crossed a day boundary since it was covered —
+        //    either it is still switched ON (so today's pass saw it on and paid
+        //    for it), or it was toggled off earlier TODAY (`updatedAt`).
+        // An entry switched off on an earlier day therefore starts uncovered
+        // again, because today's pass skipped it and bought nothing.
+        const covered = prev?.covered === true
+            && fresh.storesDate === today
+            && (prev.on === true || utcDay(prev.updatedAt) === today);
+        feed[village] = { on, covered, updatedAt: now, by: playerName };
+        const session: SectorWarSession = { ...fresh, garrisonFeed: feed };
+        await saveSectorWar(session);
+        return session;
+    }, { failClosed: true });
+    if (!out) return res.status(409).json({ error: 'That sector war is already over.' });
+
+    if (on) {
+        // Receipt keyed on war + village + UTC day (the shape the unfed herald
+        // uses), so a retry or a double-click posts the line ONCE a day instead
+        // of once per request — a Date.now() suffix could never dedupe.
+        void postVillageHerald(village, 'Garrison fed',
+            `${village} is feeding the Sector ${out.sector} garrison — ${GARRISON_RATIONS_PER_DAY} rations a day from the Town Hall stores.`,
+            { receiptId: `garrison-feed:${out.id}:${village.toLowerCase().replace(/[^a-z0-9]/g, '')}:${today}` });
+    }
+    return res.status(200).json({ ok: true, village, garrisonFed: on, contest: projectSectorWarForClient(out, village) });
+}
+
 // ── status (read-only) ─────────────────────────────────────────────────────────
-async function doStatus(_req: VercelRequest, res: VercelResponse, body: Record<string, unknown>) {
+async function doStatus(_req: VercelRequest, res: VercelResponse, identity: Identity, playerName: string, body: Record<string, unknown>) {
     // The war map polls this every 15s, which makes it the near-instant
     // settlement path: a war whose 72 hours just closed flips (or holds) within
     // one poll of someone looking at it. The daily pass is only the backstop.
     await settleDueSectorWars();
+    // The viewer's village drives the projection's compatibility `garrisonFed*`
+    // mirror (their OWN per-village feed entry only).
+    const viewer = identity.admin ? undefined : (await villageOf(playerName)) || undefined;
     const sector = Math.floor(Number(body.sector) || 0);
     if (sector) {
         const [ownerVillage, contest] = await Promise.all([getSectorOwnerVillage(sector), activeContestOnSector(sector)]);
-        return res.status(200).json({ ok: true, sector, ownerVillage, contest: contest ? projectSectorWarForClient(contest) : null });
+        return res.status(200).json({ ok: true, sector, ownerVillage, contest: contest ? projectSectorWarForClient(contest, viewer) : null });
     }
     const contests = await listActiveSectorWars();
-    return res.status(200).json({ ok: true, contests: contests.map(projectSectorWarForClient) });
+    return res.status(200).json({ ok: true, contests: contests.map((c) => projectSectorWarForClient(c, viewer)) });
 }
 
 // ── seed (admin, Phase 4d) ─────────────────────────────────────────────────────

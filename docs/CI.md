@@ -38,6 +38,7 @@ only with the branch-protection migration procedure in this guide.
 | `CI / e2e-responsive` | `e2e_responsive` | 20 min | Cross-browser responsive and accessibility coverage on Chromium, Firefox, and WebKit. |
 | `CI / e2e-combat` | `e2e_combat` | 5 min | Fail-closed stable aggregate requiring all three combat browser shards to succeed. |
 | `CI / e2e-warfront` | `e2e_warfront` | 20 min | Warfront positional-mode browser coverage and adaptive-layout evidence. |
+| `CI / e2e-village-stores` | `e2e_village_stores` | 15 min | Village Stores economy loop in a real browser against a live server: cook rations, donate them, and assert the treasury moved server-side. |
 
 `CI / release-artifact` (`release_artifact`, 10 minutes) is an internal join that
 assembles and verifies the server and client outputs and distribution contract

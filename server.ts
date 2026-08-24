@@ -129,6 +129,7 @@ import villageSectorPetHandler  from './api/village/sector-pet.js';
 import anbuInfiltrationHandler from './api/village/anbu-infiltration.js';
 import villageWarMapHandler from './api/village/war-map.js';
 import villageTaxHandler from './api/village/tax.js';
+import villageIntelHandler from './api/village/intel.js';
 import villageClaimWarCrateHandler from './api/village/claim-war-crate.js';
 import villageWarMissionHandler from './api/village/war-mission.js';
 import warClaimRewardHandler from './api/war/claim-reward.js';
@@ -1211,6 +1212,11 @@ route('/village/war-map', villageWarMapHandler);
 // Daily village tax (the ryo sink). Idempotent per UTC day via the server-owned
 // lastTaxDate stamp; DISABLE_VILLAGE_TAX=1 is the kill switch.
 route('/village/tax', villageTaxHandler);
+// Village Stores — INTEL. Per-viewer read (what your village scouted + who has
+// been scouting you). Deliberately NOT on /api/world-state: that GET is shared
+// and CDN-cached, and a per-viewer block forced `private, no-store` on every
+// logged-in poll. GET only, auth required, proc-cached per village.
+route('/village/intel', villageIntelHandler);
 // War crate — server-authoritative claim of a village-war-win Legendary War
 // Crate, validated against the authoritative world:war record (P0.2c). POST,
 // idempotent (claimedWarCrateIds). Client gates on warCrateServerAuth.v1.

@@ -6,10 +6,11 @@ import type { Screen } from "../types/core";
 import { hollowGateHoundName, hollowHoundEncounterId } from "../../../shared/hollow-gate-contract";
 import { applyAttunementToRun } from "./hollow-gate-attunement";
 import type { HollowGateCombatSettleResult } from "./hollow-gate-combat-api";
-import {
-    generateHollowGateShrineRun,
-    hollowGatePetEncounterSeed,
-} from "./hollow-gate-dungeon";
+// The procedural floor generator is loaded on demand — see
+// ./hollow-gate-generator-loader. hollowGatePetEncounterSeed is a pure hash and
+// stays eagerly available (it lives in ./hollow-gate-run).
+import { loadHollowGateGenerator } from "./hollow-gate-generator-loader";
+import { hollowGatePetEncounterSeed } from "./hollow-gate-run";
 import type { HollowGatePveFightRef } from "./hollow-gate-pve";
 import { hollowGateAlphaCinematicImage } from "./hollow-gate-presentation";
 import {
@@ -24,6 +25,58 @@ import {
 import { isPetOnExpedition } from "./pet";
 
 type SetState<T> = (value: T | ((previous: T) => T)) => void;
+
+/** The identity of the floor a descend was started from. */
+export type HollowGateFloorRef = { runToken?: string; floor: number };
+
+/**
+ * True when `live` is still the very floor `from` was captured on.
+ *
+ * A descend generates the next floor behind an await, and anything can happen
+ * during it: the player can Leave (which SETTLES the run token server-side),
+ * hit Emergency Forfeit, or start a whole new run. Writing floor N+1 after any
+ * of those resurrects a run the server considers finished — the mirror effect
+ * persists it to character.hollowGateRun, and the next boot resumes a phantom
+ * floor whose every step is rejected, with no way out but Emergency Forfeit.
+ */
+export function isSameHollowGateFloor(
+    live: HollowGateShrineRun | null | undefined,
+    from: HollowGateFloorRef,
+): boolean {
+    if (!live) return false;
+    return live.runToken === from.runToken && live.floor === from.floor;
+}
+
+/**
+ * The guarded functional update a completed descend commits with. Returns
+ * `previous` UNCHANGED whenever the live run is no longer the floor the
+ * descend started from, so a late write can never clobber live state.
+ *
+ * The carried-forward values come from the `from` snapshot, exactly as the
+ * unguarded version used them — the board is locked for the duration of the
+ * descend, so no step can have altered them in between.
+ */
+export function hollowGateDescendUpdate(
+    previous: HollowGateShrineRun | null,
+    from: HollowGateShrineRun,
+    next: HollowGateShrineRun,
+): HollowGateShrineRun | null {
+    if (!isSameHollowGateFloor(previous, from)) return previous;
+    return {
+        ...next,
+        keys: from.keys,
+        torch: Math.min(10, from.torch + 4),
+        entryCurrencies: from.entryCurrencies,
+        runToken: from.runToken,
+        serverSeed: from.serverSeed,
+        augmentOffers: from.augmentOffers,
+        chosenAugment: from.chosenAugment,
+        secondWindArmed: from.secondWindArmed,
+        earnedXp: from.earnedXp,
+        earnedFragments: from.earnedFragments,
+        earnedVeils: from.earnedVeils,
+    };
+}
 
 export function useHollowGateAppFlow(params: {
     character: Character | null;
@@ -57,6 +110,16 @@ export function useHollowGateAppFlow(params: {
         buildRunSummary,
     } = params;
     const [exitPending, setExitPending] = useState(false);
+    // Locks the board while a post-boss descend is in flight. The next floor is
+    // built behind an await, and floor N must not be walkable during it: a step
+    // taken in that window is discarded by the write that lands after it, and an
+    // in-flight step drain can stamp floor-N coordinates onto the floor-N+1
+    // board. App threads this into moveHollowGatePlayer's early return.
+    const [descending, setDescending] = useState(false);
+    // Latest-run ref: `run` is captured per render, so an async continuation
+    // cannot ask it whether the run is still the one it started from.
+    const runRef = useRef(run);
+    runRef.current = run;
     // Tracks a forfeit specifically, so abandon() can't double-fire while its
     // own forced leave is settling — without re-blocking it behind exitPending.
     const forfeitInFlight = useRef(false);
@@ -153,6 +216,44 @@ export function useHollowGateAppFlow(params: {
         return next;
     }
 
+    /**
+     * Build and commit the floor below `from` after its boss has fallen.
+     *
+     * Kept out of onBattleWin so the failure path can offer a real retry: the
+     * boss tile is already marked resolved, so without this there is no way back
+     * to the staircase and a dropped chunk would strand the run on a cleared
+     * floor with nothing but Emergency Forfeit.
+     */
+    async function descendAfterBoss(from: HollowGateShrineRun) {
+        setDescending(true);
+        try {
+            const { generateHollowGateShrineRun } = await loadHollowGateGenerator();
+            const generated = generateHollowGateShrineRun(from.floor + 1, from.variant, from.serverSeed);
+            const next = character ? applyAttunementToRun(generated, character, false) : generated;
+            if (!isSameHollowGateFloor(runRef.current, from)) {
+                // Left / forfeited / already advanced while this was building.
+                pushLog(`The stair below Floor ${from.floor} closes — that descent no longer belongs to this run.`);
+                return;
+            }
+            setRun((previous) => hollowGateDescendUpdate(previous, from, next));
+            pushLog(`You descend to Floor ${next.floor}. Torch flares: +4.`);
+        } catch (error) {
+            const detail = error instanceof Error ? error.message : "the connection dropped";
+            pushLog(`The stair below Floor ${from.floor} will not open: ${detail}`);
+            if (!isSameHollowGateFloor(runRef.current, from)) return;
+            setEvent({
+                title: "The Stair Will Not Open",
+                body: `The shrine cannot draw the floor below ${from.floor}.\n\n${detail}\n\nYour run and its haul are intact. Try the stair again, or hold position and leave to bank what you carry.`,
+                kind: "descend",
+                choices: [
+                    { label: "Try the Stair Again", tone: "primary", onSelect: () => { setEvent(null); void descendAfterBoss(from); } },
+                    { label: "Hold Position", onSelect: () => setEvent(null) },
+                ],
+            });
+        } finally {
+            setDescending(false);
+        }
+    }
     function onBattleWin(resolved?: { isBoss?: boolean; isAmbush?: boolean; nodeId?: string }) {
         if (!run) return;
         const isBoss = Boolean(resolved?.isBoss);
@@ -184,23 +285,17 @@ export function useHollowGateAppFlow(params: {
                 });
                 return;
             }
-            const generated = generateHollowGateShrineRun(run.floor + 1, run.variant, run.serverSeed);
-            const next = character ? applyAttunementToRun(generated, character, false) : generated;
-            setRun({
-                ...next,
-                keys: run.keys,
-                torch: Math.min(10, run.torch + 4),
-                entryCurrencies: run.entryCurrencies,
-                runToken: run.runToken,
-                serverSeed: run.serverSeed,
-                augmentOffers: run.augmentOffers,
-                chosenAugment: run.chosenAugment,
-                secondWindArmed: run.secondWindArmed,
-                earnedXp: run.earnedXp,
-                earnedFragments: run.earnedFragments,
-                earnedVeils: run.earnedVeils,
-            });
-            pushLog(`You descend to Floor ${next.floor}. Torch flares: +4.`);
+            // The floor generator is loaded on demand (see
+            // ./hollow-gate-generator-loader). It is warmed the moment the shrine
+            // screen mounts, so by the time a boss falls the module is normally
+            // already resident and this resolves on a microtask.
+            //
+            // "Normally" is not "always", so the descend below is fully guarded:
+            // the board is LOCKED for its duration (setDescending), the commit is a
+            // guarded functional update that drops a stale floor rather than
+            // overwriting live state, and a chunk failure is reported with a
+            // retry instead of leaving the player on a cleared floor in silence.
+            void descendAfterBoss(run);
             return;
         }
         setRun({
@@ -236,6 +331,7 @@ export function useHollowGateAppFlow(params: {
 
     return {
         exitPending,
+        descending,
         leave,
         abandon,
         launchPetFight,

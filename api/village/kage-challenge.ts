@@ -21,6 +21,7 @@ import {
     settleKageDuel,
     reconcilePendingKageSettle,
     kageKey,
+    announceKageDethroned,
 } from './_kage-settle.js';
 
 /*
@@ -186,7 +187,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // The presser proves their own liveness by making this authenticated
             // request (the client only presses on a visible tab); stamp their beat.
             stampPresenceBeat(playerName);
-            const out = await withKvLock<{ status: number; body: unknown; forfeitTo?: string }>(key, async () => {
+            const out = await withKvLock<{ status: number; body: unknown; forfeitTo?: string; forfeitFrom?: string; forfeitChallengeId?: string }>(key, async () => {
                 let state = (await kv.get<KageStateLike>(key)) ?? { kageSystemUnlocked: false };
                 if (state.challenge && isChallengeExpired(state.challenge, now)) {
                     state = applyExpiry(state, now);
@@ -208,12 +209,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (pressed.forfeited) {
                     const nextState = applySeatTransfer(state, challenge.challenger, village, now, 'forfeit');
                     await kv.set(key, nextState);
-                    return { status: 200, body: { ok: true, forfeited: true, seatedKage: nextState.seatedKage }, forfeitTo: challenge.challenger };
+                    return {
+                        status: 200,
+                        body: { ok: true, forfeited: true, seatedKage: nextState.seatedKage },
+                        forfeitTo: challenge.challenger,
+                        forfeitFrom: String(state.seatedKage ?? ''),
+                        forfeitChallengeId: challenge.challengeId,
+                    };
                 }
                 await kv.set(key, { ...state, challenge: pressed.challenge });
                 return { status: 200, body: { ok: true, obligationRemainingMs: pressed.challenge.obligationRemainingMs, bothOnline } };
             }, { failClosed: true });
-            if (out.forfeitTo) await audit(village, { action: 'forfeit', newKage: out.forfeitTo });
+            if (out.forfeitTo) {
+                await audit(village, { action: 'forfeit', newKage: out.forfeitTo });
+                // World Herald — the seat transfer is durable; exact-once per challenge.
+                await announceKageDethroned({
+                    village,
+                    challenger: out.forfeitTo,
+                    oldKage: out.forfeitFrom || 'the seated Kage',
+                    receiptId: `kage-dethroned:${village}:forfeit:${out.forfeitChallengeId ?? out.forfeitTo}`,
+                    meta: { challengeId: out.forfeitChallengeId, how: 'forfeit' },
+                });
+            }
             return res.status(out.status).json(out.body);
         }
 

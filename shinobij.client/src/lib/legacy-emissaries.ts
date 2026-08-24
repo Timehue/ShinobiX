@@ -2,8 +2,9 @@
  * The eight Legacy Emissaries — "multiple wandering AIs that just do legacy
  * quests" (docs/legacy-assets.md §1, docs/legacy-system-plan.md §7.2). Each
  * emissary serves one or more Legacy categories and roams sectors like other
- * wanderers, but is never part of the natural roster: they synth per-player,
- * deterministically per 6h window, like the Wandering Sage.
+ * wanderers, but is never part of the natural roster: they synth per 6h window
+ * from the WORLD clock — never from the player — so everyone standing in a
+ * sector sees the same emissary (the Wandering Sage is the one per-player NPC).
  *
  * Pre-acceptance (level 40+) a rotating emissary appears with category-flavored
  * mini-quests (the same server-authoritative wanderer-quest plumbing — the
@@ -13,7 +14,7 @@
  */
 import type { WandererQuestMetric } from "./wanderers";
 import type { Wanderer } from "./wanderers";
-import { wandererLevelFor } from "./wanderers";
+import { wandererLevelFor, wandererHash32 as hash32, mulberry32 } from "./wanderers";
 
 export type EmissarySlug =
     | "storm-caller-ryn" | "veil-mother-suzu" | "iron-pilgrim-daigo" | "blade-keeper-hana"
@@ -206,23 +207,6 @@ export const EMISSARY_WANDERER_PREFIX = "legacy-emissary-";
 /** Minimum level before emissaries start appearing (the pre-Sage hint arc). */
 export const EMISSARY_MIN_LEVEL = 40;
 
-// FNV-1a → mulberry32, same determinism pattern as wanderers.ts.
-function hash32(key: string): number {
-    let h = 2166136261 >>> 0;
-    for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
-    return h >>> 0;
-}
-function mulberry32(seed: number): () => number {
-    let a = seed >>> 0;
-    return () => {
-        a = (a + 0x6d2b79f5) >>> 0;
-        let t = a;
-        t = Math.imul(t ^ (t >>> 15), t | 1);
-        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-}
-
 const GRID = 12;
 const SECTOR_COUNT = 60;
 /** Fraction of 6h windows in which the player's emissary is out roaming. */
@@ -239,9 +223,11 @@ export interface EmissarySpawn {
 }
 
 /**
- * Where (and whether) an emissary roams for this player in this 6h window.
- * Deterministic from (player, dayBucket): no server round-trip, no flicker —
- * the same pattern as the natural wanderer roster.
+ * Where (and whether) an emissary roams in this 6h window. Deterministic from
+ * (dayBucket) and, for the roaming harbinger, (sector, dayBucket) — NOT from the
+ * player: `playerName` only decides eligibility (an empty name = no account), so
+ * two players in the same sector always see the same emissary. No server
+ * round-trip, no flicker — the same pattern as the natural wanderer roster.
  *
  * Post-acceptance the player's own category emissary walks a FIXED sector for
  * the window (the Legacy panel's "last seen in…" hint points there, so it must
@@ -260,7 +246,7 @@ export function rollEmissarySpawn(
     currentSector?: number | null,
 ): EmissarySpawn | null {
     if (!playerName || level < EMISSARY_MIN_LEVEL) return null;
-    const rng = mulberry32(hash32(`emissary#${playerName.toLowerCase()}#${dayBucket}`));
+    const rng = mulberry32(hash32(`emissary#${dayBucket}`));
     if (rng() > EMISSARY_SPAWN_CHANCE) return null;
 
     // The random-def draw ALWAYS happens so rng consumption is identical with
@@ -275,7 +261,7 @@ export function rollEmissarySpawn(
         // Pre-acceptance roaming branch — only meaningful on the world map,
         // where the caller supplies the sector being viewed.
         if (currentSector == null || currentSector < 1) return null;
-        const gate = mulberry32(hash32(`emissary-roam#${playerName.toLowerCase()}#${def.slug}#${currentSector}#${dayBucket}`))();
+        const gate = mulberry32(hash32(`emissary-roam#${def.slug}#${currentSector}#${dayBucket}`))();
         if (gate > EMISSARY_ROAM_SECTOR_CHANCE) return null;
         sector = currentSector;
     }

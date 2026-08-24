@@ -6,6 +6,7 @@ import {
     KAGE_CHALLENGE_MIN_LEVEL,
     KAGE_CHALLENGE_MIN_MERIT,
     KAGE_MIN_ACCOUNT_AGE_MS,
+    kageActivityLines,
 } from './kage-challenge-state';
 import type { Character } from '../types/character';
 
@@ -66,5 +67,74 @@ describe('kageEligibility', () => {
         const rows = kageEligibility({} as unknown as Character, NOW);
         assert.equal(rows.length, 4);
         assert.ok(rows.every((r) => typeof r.ok === 'boolean'));
+    });
+});
+
+describe('kageActivityLines (inactivity visibility)', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const now = Date.UTC(2026, 7, 22);
+    it('returns null when there is no seat or no activity stamp', () => {
+        assert.equal(kageActivityLines(null, now), null);
+        assert.equal(kageActivityLines({ seatedKage: 'A' }, now), null);
+        assert.equal(kageActivityLines({ seatedKage: undefined, kageLastActiveAt: now }, now), null);
+    });
+    it('reports days since last activity with no warning while far from the deadline', () => {
+        const lines = kageActivityLines({ seatedKage: 'A', kageLastActiveAt: now - 2 * DAY, kageInactiveAt: now + 8 * DAY }, now);
+        assert.deepEqual(lines, { lastActive: 'The Kage has not been seen in two days.' });
+        assert.equal(kageActivityLines({ seatedKage: 'A', kageLastActiveAt: now - 1000 }, now)?.lastActive, 'The Kage walked the village today.');
+        // A log line ("Kage last active 4 days ago") does not belong in the
+        // Council register; these are whole sentences, and small counts are words.
+        assert.equal(
+            kageActivityLines({ seatedKage: 'A', kageLastActiveAt: now - 4 * DAY, kageInactiveAt: now + 6 * DAY }, now)?.lastActive,
+            'The Kage has not been seen in four days.',
+        );
+        assert.equal(
+            kageActivityLines({ seatedKage: 'A', kageLastActiveAt: now - 1 * DAY, kageInactiveAt: now + 9 * DAY }, now)?.lastActive,
+            'The Kage has not been seen since yesterday.',
+        );
+    });
+    it('warns within 3 days of the deadline (and derives the deadline when the server omits it)', () => {
+        assert.equal(
+            kageActivityLines({ seatedKage: 'A', kageLastActiveAt: now - 7 * DAY, kageInactiveAt: now + 3 * DAY }, now)?.warning,
+            'Should the silence hold, the council opens the seat in three days.',
+        );
+        assert.equal(
+            kageActivityLines({ seatedKage: 'A', kageLastActiveAt: now - 9 * DAY }, now)?.warning,
+            'Should the silence hold, the council opens the seat in one day.',
+        );
+        assert.equal(
+            kageActivityLines({ seatedKage: 'A', kageLastActiveAt: now - 11 * DAY }, now)?.warning,
+            'Should the silence hold, the council opens the seat at the next daily pass.',
+        );
+        assert.equal(kageActivityLines({ seatedKage: 'A', kageLastActiveAt: now - 6 * DAY }, now)?.warning, undefined);
+    });
+});
+
+describe('kageEligibility ids (vacant-seat claim filter)', () => {
+    const now = Date.UTC(2026, 7, 22);
+    // Old enough to clear the account-age gate, so the only open blockers are
+    // level, merit — and the ryo the claim must NOT ask for.
+    const poor = { level: 12, villageMerit: 4, ryo: 0, createdAt: now - 30 * 24 * 60 * 60 * 1000 } as unknown as Character;
+
+    it('tags every requirement with a stable id', () => {
+        assert.deepEqual(kageEligibility(poor, now).map((r) => r.id), ['level', 'account-age', 'ryo', 'merit']);
+    });
+
+    it('lets the claim drop the ryo stake WITHOUT matching on the label', () => {
+        // The Council Hall used to filter with `!req.label.endsWith("ryo")` — a
+        // string test that would silently start demanding 250,000 ryo for a free
+        // claim the moment the label or the cost was retuned.
+        const blockers = kageEligibility(poor, now).filter((r) => !r.ok && r.id !== 'ryo');
+        assert.deepEqual(blockers.map((r) => r.id), ['level', 'merit']);
+        assert.ok(blockers.every((r) => !r.label.endsWith('ryo')));
+    });
+
+    it('carries the standing the UI shows next to each requirement', () => {
+        const rows = kageEligibility(poor, now);
+        assert.equal(rows.find((r) => r.id === 'merit')?.detail, `4/${KAGE_CHALLENGE_MIN_MERIT}`);
+        assert.equal(rows.find((r) => r.id === 'level')?.detail, 'Lv. 12');
+        // "250 Village Merit (4/250)" — label + detail, both present.
+        const merit = rows.find((r) => r.id === 'merit')!;
+        assert.equal(`${merit.label} (${merit.detail})`, `${KAGE_CHALLENGE_MIN_MERIT} Village Merit (4/${KAGE_CHALLENGE_MIN_MERIT})`);
     });
 });

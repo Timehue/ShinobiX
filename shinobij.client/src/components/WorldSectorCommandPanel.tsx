@@ -10,10 +10,14 @@ import { TERRITORY_CONTROL_MAX, TERRITORY_HP_MAX } from "../constants/game";
 import { biomeLabel, weatherEffects } from "../data/world";
 import { sectorRegionName } from "../data/sectors";
 import type { SectorTracesView } from "../lib/sector-traces";
+import { sectorGatherLineFor, type SectorPoolPlateView } from "../lib/sector-pool";
+import type { SectorIntelPlateView } from "../lib/village-intel";
 import type { PlayerRecord } from "../types/character";
 import type { Biome, WeatherType } from "../types/core";
 import { sectorName } from "../../../shared/sector-geo";
 import { SectorTracesCard } from "./SectorTraces";
+import { SectorGatherReadout } from "./SectorGatherReadout";
+import { SectorIntelCard } from "./SectorIntelCard";
 
 export type WorldSectorCommandWar = Readonly<{
     playerVillage: string;
@@ -61,6 +65,10 @@ export type WorldSectorCommandPanelProps = Readonly<{
     biome: Biome;
     weather: WeatherType;
     territory: WorldSectorCommandTerritory | null;
+    /** Shared daily gathering pool for this sector (explores / chests), viewer-sized. */
+    gathering: SectorPoolPlateView | null;
+    /** Village Intel on this sector as seen by the viewer's village (null = logged out / no intel block). */
+    intel?: SectorIntelPlateView | null;
     villageWarAdmissionOpen: boolean;
     traces: SectorTracesView | null;
     hasLivePlayers: boolean;
@@ -90,6 +98,8 @@ export function WorldSectorCommandPanel({
     biome,
     weather,
     territory,
+    gathering,
+    intel = null,
     villageWarAdmissionOpen,
     traces,
     hasLivePlayers,
@@ -106,6 +116,10 @@ export function WorldSectorCommandPanel({
     onRecover,
     onLeave,
 }: WorldSectorCommandPanelProps) {
+    // The shared pool decides whether Explore can do anything. `gather` is null
+    // off a wild sector and `pending` pre-poll; neither may refuse the verb.
+    const gather = sectorGatherLineFor(gathering);
+    const gatherDepleted = gather?.depleted === true;
     return (
         <aside className="instance-actions sector-command-panel" aria-label={`Sector ${sector} command panel`}>
             <header className="sector-panel-heading">
@@ -115,6 +129,7 @@ export function WorldSectorCommandPanel({
                 </div>
                 <h3>{sectorName(sector) ?? `Sector ${sector}`}</h3>
                 <small className="sector-panel-sub">Sector {sector} · {sectorRegionName(sector)}</small>
+                {gather && <SectorGatherReadout gather={gather} />}
                 <p>{weatherEffects[weather].effect}</p>
             </header>
 
@@ -183,6 +198,7 @@ export function WorldSectorCommandPanel({
                     )}
                 </section>
             )}
+            {intel && <SectorIntelCard intel={intel} />}
             {traces && (
                 <SectorTracesCard
                     traces={traces}
@@ -245,9 +261,9 @@ export function WorldSectorCommandPanel({
                 </section>
             )}
             <div className="sector-action-grid" aria-label="Sector actions">
-                <button type="button" className="sector-action-btn is-primary" onClick={onExplore}>
+                <button type="button" className="sector-action-btn is-primary" disabled={gatherDepleted} onClick={onExplore}>
                     <span className="sector-action-icon" aria-hidden="true"><GiCompass /></span>
-                    <span>Explore</span>
+                    {gatherDepleted ? <span>Picked clean</span> : <span>Explore</span>}
                 </button>
                 {hunt && (
                     <button type="button" className="sector-action-btn" onClick={onHunt}>

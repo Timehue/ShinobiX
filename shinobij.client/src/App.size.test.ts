@@ -257,7 +257,28 @@ import { readFileSync } from "node:fs";
 // watchdog born directly in lib/boot-gate-watchdog.ts, which together paid for
 // the sweep's in-App additions (Google-return backstop, reauth hardening,
 // avatar-publish timebox) with room left over.
-const MAX_LINES = 7_661;
+// → 7,619 LOWERED (−42) by the 2026-08-22 location sweep: the save-preview cache
+// drained verbatim to lib/save-preview.ts. (The comment above this line used to
+// read 7,620 while the constant read 7,619 — the constant was right.)
+// → 7,618 LOWERED (−1) by the 2026-08-22 craftsmanship pass, which is really a
+// correction: the 7,619 number above had been met partly by CRAMMING rather than
+// draining. Two physical lines carried code that belongs on five — a pair of
+// `import` statements sharing one line near the top, and an `if` + `const` +
+// dynamic import of lib/offline-notices sharing one line in the heartbeat. Both
+// are now formatted like the rest of the file (+5 lines), and the file is back
+// under budget on a REAL drain instead: normalizePendingTravel moved verbatim to
+// lib/player-accounts.ts, next to the PendingTravelSave type it returns (−6,
+// counting the "moved to" note left behind). Exact achieved count, no buffer.
+// → 7,613 LOWERED (−5) by the 2026-08-23 Hollow Gate load-robustness pass, and
+// it is a net drain even though the pass ADDED five guarded failure paths
+// (the alert on a first floor that could not be drawn, at three call sites; the
+// log line when the tile-resolver chunk drops; the descend board-lock check).
+// buildHollowGateRunFromStart moved verbatim to lib/hollow-gate-run-build.ts —
+// it closed over nothing App owns — and the three scattered
+// warmHollowGateGenerator() call sites collapsed into ONE screen-scoped effect,
+// which is also the fix: the scattered ones sat on the menu entries and missed
+// every boot-restore path back into a live run. Exact achieved count, no buffer.
+const MAX_LINES = 7_613;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

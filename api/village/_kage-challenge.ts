@@ -47,7 +47,7 @@ export const KAGE_DECLARE_RYO_COST = 250_000;
 export const KAGE_MIN_ACCOUNT_AGE_MS = 7 * 24 * 60 * 60_000; // anti fresh-alt
 export const KAGE_HISTORY_MAX = 50;                          // bounded permanent record
 
-export type KageEndReason = 'defeated' | 'forfeit' | 'admin-reset' | 'abdicated';
+export type KageEndReason = 'defeated' | 'forfeit' | 'admin-reset' | 'abdicated' | 'inactive';
 
 /** One reign in the server-owned permanent record. Open while `endedAt` is unset. */
 export type KageHistoryEntry = {
@@ -128,16 +128,43 @@ export type DeclareResult = { ok: true } | { ok: false; reason: string };
  * first), so callers should pass already-expired challenges through unchanged.
  */
 export function canDeclareChallenge(input: DeclareInput): DeclareResult {
-    const { now, state, challengerName, challengerLevel, challengerRyo, challengerAccountCreatedAt, challengerMerit, isMember } = input;
+    const { now, state, challengerName, challengerRyo } = input;
     if (!state.kageSystemUnlocked || !state.seatedKage) return { ok: false, reason: 'The Kage system is not active for this village.' };
-    if (!isMember) return { ok: false, reason: 'You are not a member of this village.' };
+    if (!input.isMember) return { ok: false, reason: 'You are not a member of this village.' };
     if (lower(state.seatedKage) === lower(challengerName)) return { ok: false, reason: 'You are already the seated Kage.' };
-    if (challengerLevel < KAGE_MIN_CHALLENGER_LEVEL) return { ok: false, reason: `You must be level ${KAGE_MIN_CHALLENGER_LEVEL}+ to challenge for the Kage seat.` };
-    if (now - challengerAccountCreatedAt < KAGE_MIN_ACCOUNT_AGE_MS) return { ok: false, reason: 'Your account is too new to challenge for the Kage seat.' };
-    if (challengerMerit < KAGE_MIN_MERIT) return { ok: false, reason: `You need ${KAGE_MIN_MERIT}+ Village Merit to challenge for the Kage seat.` };
+    const personal = personalSeatGate(input);
+    if (!personal.ok) return personal;
     if (challengerRyo < KAGE_DECLARE_RYO_COST) return { ok: false, reason: `Challenging costs ${KAGE_DECLARE_RYO_COST.toLocaleString()} ryo.` };
     if (state.challenge && !isChallengeExpired(state.challenge, now)) return { ok: false, reason: 'There is already an active Kage challenge in this village.' };
     if (state.postDefenseGraceUntil && now < state.postDefenseGraceUntil) return { ok: false, reason: 'The Kage just took (or defended) the seat — challenges are on a brief cooldown.' };
+    const cd = state.challengerCooldowns?.[lower(challengerName)] ?? 0;
+    if (cd && now < cd) return { ok: false, reason: 'You are on cooldown from a recent Kage challenge.' };
+    return { ok: true };
+}
+
+/** The personal gates (level / account age / Village Merit) shared by declare + claim. */
+function personalSeatGate(input: Pick<DeclareInput, 'now' | 'challengerLevel' | 'challengerAccountCreatedAt' | 'challengerMerit'>): DeclareResult {
+    if (input.challengerLevel < KAGE_MIN_CHALLENGER_LEVEL) return { ok: false, reason: `You must be level ${KAGE_MIN_CHALLENGER_LEVEL}+ to challenge for the Kage seat.` };
+    if (input.now - input.challengerAccountCreatedAt < KAGE_MIN_ACCOUNT_AGE_MS) return { ok: false, reason: 'Your account is too new to challenge for the Kage seat.' };
+    if (input.challengerMerit < KAGE_MIN_MERIT) return { ok: false, reason: `You need ${KAGE_MIN_MERIT}+ Village Merit to challenge for the Kage seat.` };
+    return { ok: true };
+}
+
+export type ClaimInput = Omit<DeclareInput, 'challengerRyo'>;
+
+/**
+ * Can `challengerName` CLAIM a VACANT seat (unlocked village, nobody seated —
+ * e.g. after an inactivity vacancy)? Same villager gates as canDeclareChallenge
+ * minus the seated-Kage requirement. No ryo gate: nothing is staked on a claim.
+ * First-come wins; the endpoint re-checks vacancy under the kage lock.
+ */
+export function canClaimVacantSeat(input: ClaimInput): DeclareResult {
+    const { now, state, challengerName } = input;
+    if (!state.kageSystemUnlocked) return { ok: false, reason: 'The Kage system is not active for this village.' };
+    if (state.seatedKage) return { ok: false, reason: 'The Kage seat is not vacant.' };
+    if (!input.isMember) return { ok: false, reason: 'You are not a member of this village.' };
+    const personal = personalSeatGate(input);
+    if (!personal.ok) return personal;
     const cd = state.challengerCooldowns?.[lower(challengerName)] ?? 0;
     if (cd && now < cd) return { ok: false, reason: 'You are on cooldown from a recent Kage challenge.' };
     return { ok: true };

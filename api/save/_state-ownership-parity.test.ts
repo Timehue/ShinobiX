@@ -90,6 +90,8 @@ const FROZEN = {
         'aiFightRewardSettlements', 'combatMissionClaimSettlements',
         'worldAiChainWins', 'worldAiChainHeals', 'worldAiContextWins', 'worldAiPendingChain', 'worldAiPendingOutcome', 'serverHuntTrails', 'serverFieldMissionRuns', 'raidProgressionSettlements', 'serverFreeDungeonProbeReceipts',
         'createdAt', 'professionChosenAt', 'professionRespecUsed',
+        // Village Stores daily cook/donate counters — non-combat bookkeeping.
+        'rationsCookedDate', 'rationsCookedToday', 'storesDonatedDate', 'rationsDonatedToday', 'craftPointsDonatedToday',
     ],
     COMBAT_STRIP_TOPLEVEL_FIELDS: [
         'currentBiome', 'activeTraining', 'activeJutsuTraining',
@@ -176,6 +178,8 @@ const FROZEN = {
         'unlockedAchievements', 'achievementUnlockedAt', 'claimedAchievementRewards', 'earnedTitles',
         'endlessTowerRun', 'endlessTowerBestWave', 'totalEndlessTowerWins',
         'dailyTowerXp', 'dailyEndlessRuns', 'dailyEndlessDate', 'redeemedEndlessActions',
+        // Village Stores daily cook/donate counters (api/village-stores/*).
+        'rationsCookedDate', 'rationsCookedToday', 'storesDonatedDate', 'rationsDonatedToday', 'craftPointsDonatedToday',
     ],
     PROGRESSION_ENTITLEMENT_CHARACTER_FIELDS: [
         'auraSphereLevel', 'redeemedAuraFeeds', 'battleTowerAscension', 'rankedSeasonsWon',

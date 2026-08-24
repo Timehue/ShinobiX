@@ -887,3 +887,34 @@ body .arena-fullscreen .hex-tile.jutsu-target-tile {
         inset 0 0 22px rgba(251, 146, 60, 0.55),
         0 0 18px rgba(251, 146, 60, 0.78) !important;
 }
+
+
+/* ===== Village Stores signposts: what the explorer's intel bought =====
+   Sits inside .sector-intel-card under the reveal rows. Plain sentences, not a
+   tooltip -- the player who ground the intel is the one who needs to read it. */
+
+.sector-intel-payoff {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-left: 3px solid rgba(250, 204, 21, .55);
+    border-radius: 8px;
+    background: rgba(250, 204, 21, .08);
+}
+
+    .sector-intel-payoff h5 {
+        margin: 0 0 4px;
+        color: #fde68a;
+        font-size: .78rem;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+    }
+
+    .sector-intel-payoff p {
+        margin: 0 0 4px;
+        font-size: .82rem;
+        line-height: 1.45;
+    }
+
+    .sector-intel-payoff p:last-child {
+        margin-bottom: 0;
+    }

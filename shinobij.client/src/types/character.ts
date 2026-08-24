@@ -315,6 +315,12 @@ export type Character = {
     storyVillage: string;
     /** Optional recommendation preference; it never changes rewards or access. */
     masteryFocus?: MasteryFocus;
+    /** Warfront (Tactical Arena) pre-match loadout picks — opening stance, team
+     *  doctrine and the silent War-Council auto-buy policy. Lives on the ACCOUNT
+     *  (this save), not the device, so the same shinobi fights with the same plan
+     *  from any browser. Loose strings: PetArena validates each on read and falls
+     *  back to its default for anything unknown. Never changes rewards or access. */
+    warfrontLoadout?: { stance?: string; doctrine?: string; autoBuy?: string };
     equippedBloodlineId?: string;
     stats: Stats;
     unspentStats: number;

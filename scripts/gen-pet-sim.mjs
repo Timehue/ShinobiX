@@ -8,7 +8,7 @@
  * the server module system:
  *   - cross-dir client imports → flat ./X.js siblings under api/pet-sim/
  *   - the 3 trivial type unions (JutsuElement / PetRole / PetSubRole) → inlined
- *   - the localStorage accuracy flag → `const petAccuracyEnabled = () => false`
+ *   - the client accuracy constant → `const petAccuracyEnabled = () => true` (same default both sides)
  *     (the server resolver passes accuracy explicitly; gear/items are off, so that
  *     code never runs anyway)
  *   - the 5 item-id constants pet-config needs → a small generated _game-consts.ts
@@ -68,7 +68,7 @@ let sim = read("lib/pet-duel-sim.ts")
     .replace(/from "\.\.\/types\/pet"/g, 'from "./pet-types.js"')
     .replace(/from "\.\/pet-arena-walkmask"/g, 'from "./pet-arena-walkmask.js"')
     .replace(/import \{ petAccuracyEnabled \} from "\.\/pet-coliseum-flag";/,
-        'const petAccuracyEnabled = (): boolean => false; // server: accuracy is passed in explicitly')
+        'const petAccuracyEnabled = (): boolean => true; // server: same default as the client constant (PET_ACCURACY_DEFAULT) so replays cannot desync')
     .replace(/from "\.\.\/data\/pet-config"/g, 'from "./pet-config.js"');
 write("pet-duel-sim.ts", "lib/pet-duel-sim.ts", sim);
 
@@ -81,7 +81,7 @@ let cine = read("lib/pet-duel-cinematic.ts")
     .replace(/from "\.\.\/types\/pet"/g, 'from "./pet-types.js"')
     .replace(/from "\.\/pet-arena-walkmask"/g, 'from "./pet-arena-walkmask.js"')
     .replace(/import \{ petAccuracyEnabled \} from "\.\/pet-coliseum-flag";/,
-        'const petAccuracyEnabled = (): boolean => false; // server: accuracy is passed in explicitly')
+        'const petAccuracyEnabled = (): boolean => true; // server: same default as the client constant (PET_ACCURACY_DEFAULT) so replays cannot desync')
     .replace(/from "\.\.\/data\/pet-config"/g, 'from "./pet-config.js"')
     .replace(/from "\.\/pet-duel-sim"/g, 'from "./pet-duel-sim.js"');
 write("pet-duel-cinematic.ts", "lib/pet-duel-cinematic.ts", cine);

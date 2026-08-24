@@ -50,7 +50,7 @@ test("accuracy: KIND_ACCURACY mirrors pet-moves KIND_SPECS (no drift between the
     }
 });
 
-test("accuracy flag: off (default) draws no rng; on adds misses and stays deterministic", () => {
+test("accuracy flag: off draws no rng; on (the default constant) adds misses and stays deterministic", () => {
     // Two moves so the pets both KO each other (Strike) and roll often (Frost 85%).
     const p = (id: string) => makePet({ id, jutsus: [
         J({ name: "Strike", kind: "damage", power: 110 }),
@@ -62,9 +62,10 @@ test("accuracy flag: off (default) draws no rng; on adds misses and stays determ
         const rOff = runPetDuel(p("a"), p("b"), seed, 1, 1, false, false, false);
         const rOn  = runPetDuel(p("a"), p("b"), seed, 1, 1, false, false, true);
         off += whiffs(rOff); on += whiffs(rOn);
-        // Default path (node has no localStorage → petAccuracyEnabled() === false)
-        // must be byte-identical to explicit accuracy=false.
-        assert.deepEqual(runPetDuel(p("a"), p("b"), seed), rOff, `seed ${seed}: default must equal explicit off`);
+        // The default is the PET_ACCURACY_DEFAULT constant (ON) in every environment
+        // — no localStorage read — so the default path equals explicit accuracy=true
+        // in Node exactly as it does in a browser (server replay == client render).
+        assert.deepEqual(runPetDuel(p("a"), p("b"), seed), rOn, `seed ${seed}: default must equal explicit on`);
     }
     assert.ok(on > off, `accuracy on must add misses (whiffs on=${on}, off=${off})`);
     const a = runPetDuel(p("a"), p("b"), 4242, 1, 1, false, false, true);
@@ -79,7 +80,8 @@ test("plantedMotion flag: default (off) is byte-identical to explicit off; on st
     for (const seed of SEEDS) {
         // SAFETY: authoritative paths (sector-war / ladder / ranked) run plantedMotion=false.
         // The DEFAULT must equal explicit-off byte-for-byte so those outcomes never shift.
-        const off = runPetDuel(p("a"), p("b"), seed, 1, 1, false, false, false, null, false);
+        // (accuracy is passed as its ON default so only plantedMotion is under test.)
+        const off = runPetDuel(p("a"), p("b"), seed, 1, 1, false, false, true, null, false);
         assert.deepEqual(runPetDuel(p("a"), p("b"), seed), off, `seed ${seed}: default must equal explicit plantedMotion=off`);
         // The planted (casual cinematic) path is itself deterministic (same seed → identical).
         const on1 = runPetDuel(p("a"), p("b"), seed, 1, 1, false, false, false, null, true);

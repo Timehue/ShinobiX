@@ -206,6 +206,9 @@ async function settle(
       }
       const alreadyWonToday =
         String(character.cardClashDailyWinDate ?? "") === today;
+      // An AI spar never pays (owner rule: only world events, wandering AI,
+      // PvP and missions pay). cardClashAiReward is pinned to zero; the
+      // settlement receipt keeps its shape so clients and replays are stable.
       const reward = forfeited || quickWin
         ? { ryo: 0, dailyBonus: false }
         : cardClashAiReward(winner, alreadyWonToday);
@@ -217,7 +220,8 @@ async function settle(
       };
       const nextCharacter = {
         ...character,
-        ryo: num(character.ryo) + reward.ryo,
+        // No ledger write: the save's ryo is left exactly as it was.
+        ...(reward.ryo > 0 ? { ryo: num(character.ryo) + reward.ryo } : {}),
         cardClashWins:
           num(character.cardClashWins) + (!forfeited && winner === "player" ? 1 : 0),
         cardClashLosses:

@@ -48,4 +48,9 @@ export function normalizeVillageDailyAgenda(village: string, agenda?: VillageDai
     return agenda?.date === currentDateKey() && validTasks ? agenda : makeVillageDailyAgenda(village);
 }
 export function defaultVillageTreasury(): VillageTreasury { return { ryo: 0, honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals: 0, items: [] }; }
-export function cleanVillageTreasury(t?: Partial<VillageTreasury>): VillageTreasury { return { ryo: Math.max(0, Math.floor(Number(t?.ryo ?? 0))), honorSeals: Math.max(0, Math.floor(Number(t?.honorSeals ?? 0))), fateShards: Math.max(0, Math.floor(Number(t?.fateShards ?? 0))), boneCharms: Math.max(0, Math.floor(Number(t?.boneCharms ?? 0))), auraStones: Math.max(0, Math.floor(Number(t?.auraStones ?? 0))), mythicSeals: Math.max(0, Math.floor(Number(t?.mythicSeals ?? 0))), items: cleanTreasuryItems(t?.items) }; }
+// Village Stores (provisions / materialPoints) are carried through ONLY when the
+// server-hydrated treasury has them, so the blob re-asserts the server figure at
+// a zero delta (api/_village-state-validate.ts rejects any blob-side increase);
+// a treasury that never saw them stays without the keys rather than asserting 0.
+function optionalStore(v: unknown): number | undefined { return v === undefined || v === null ? undefined : Math.max(0, Math.floor(Number(v) || 0)); }
+export function cleanVillageTreasury(t?: Partial<VillageTreasury>): VillageTreasury { const provisions = optionalStore(t?.provisions); const materialPoints = optionalStore(t?.materialPoints); return { ryo: Math.max(0, Math.floor(Number(t?.ryo ?? 0))), honorSeals: Math.max(0, Math.floor(Number(t?.honorSeals ?? 0))), fateShards: Math.max(0, Math.floor(Number(t?.fateShards ?? 0))), boneCharms: Math.max(0, Math.floor(Number(t?.boneCharms ?? 0))), auraStones: Math.max(0, Math.floor(Number(t?.auraStones ?? 0))), mythicSeals: Math.max(0, Math.floor(Number(t?.mythicSeals ?? 0))), ...(provisions !== undefined ? { provisions } : {}), ...(materialPoints !== undefined ? { materialPoints } : {}), items: cleanTreasuryItems(t?.items) }; }

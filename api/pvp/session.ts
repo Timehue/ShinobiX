@@ -3,6 +3,8 @@ import type { ActionReceipt } from '../_receipts.js';
 import { createHash, randomUUID, randomBytes } from 'crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { kv } from '../_storage.js';
+import { isWildSector } from '../../shared/sector-geo.js';
+import { resolveSectorWeather, sectorWeatherElements } from '../../shared/sector-weather.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
@@ -34,6 +36,7 @@ import {
     type PvpSessionPublicationCapability,
 } from './_session-publication-tombstone.js';
 import { releaseChallengePvpReservation, reserveChallengeForPvpSession } from './_challenge-authorization.js';
+import { enforcePvpTurnDeadline } from './_turn-deadline.js';
 import {
     releaseClanWarPvpReservation,
     requireClanWarPvpReservation,
@@ -206,10 +209,26 @@ export type PvpSession = {
     // moved in 90s the inactive player can claim the win even if the
     // round-timer never fired.
     lastMoveAt?: number;
+    /**
+     * Server time the active player's clock last (re)started: stamped by
+     * endTurn, by the join that seats the second fighter (offset by the
+     * pre-fight countdown), and — crucially — again by `commit()` on every REAL
+     * action, so it means "since your last action", not "since your turn
+     * began". A turn allows several actions; anchoring the deadline to the turn
+     * start capped a multi-action turn at one turn length.
+     * `api/pvp/_turn-deadline.ts` auto-waits the active player once
+     * `now > turnStartedAt + PVP_TURN_MS + PVP_TURN_GRACE_MS`
+     * (shared/pvp-turn.ts). The browser's ring is anchored to this same stamp.
+     * Absent on pre-deploy rows: the first enforcement check stamps it instead
+     * of lapsing the turn.
+     */
+    turnStartedAt?: number;
     // Consecutive auto-waited (timer-expired) turns per player where the
     // player took ZERO real actions. Resets to 0 on any non-auto action.
     // claim-afk-win succeeds when opponent's count reaches 2 — i.e., they
     // let the 45s round timer run out twice in a row without doing anything.
+    // Incremented by the client's legacy `auto: true` wait AND by the server's
+    // own deadline enforcement (the server never trusts the flag to bypass it).
     consecAutoWait?: { p1?: number; p2?: number };
     // Server-sealed combat-consumable budget. `itemCharges` is the remaining
     // uses per equipped item id for each fighter, sealed at create time from
@@ -1701,6 +1720,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(409).json({ error: 'This ranked match ended as a no-contest.' });
         }
         let session = sessionRaw as PvpSession;
+        if (session.status === 'active') {
+            // Server-authoritative turn expiry: a poll by EITHER player (or a
+            // spectator) auto-waits a lapsed turn so a closed tab can never
+            // freeze the match. Idempotent under the per-session move lock;
+            // a failure here must never break the poll itself.
+            try {
+                session = (await enforcePvpTurnDeadline(kv, battleId, session)).session;
+            } catch (error) {
+                console.error('[pvp/session] turn deadline enforcement failed', error);
+            }
+        }
         if (session.status === 'done') {
             try {
                 session = await ensurePvpTerminalRecoveryPublication(kv, battleId, session);
@@ -2381,8 +2411,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // terrain. Casual fights keep the client-chosen environment.
             const isRankedSession = rankedStamp.ranked === true;
             const sealedBiome = isRankedSession ? 'central' : normalizeBiome(biome);
-            const sealedWeatherPos = isRankedSession ? '' : normalizeElement(weatherPositiveElement);
-            const sealedWeatherNeg = isRankedSession ? '' : normalizeElement(weatherNegativeElement);
+            let sealedWeatherPos = isRankedSession ? '' : normalizeElement(weatherPositiveElement);
+            let sealedWeatherNeg = isRankedSession ? '' : normalizeElement(weatherNegativeElement);
 
             // Home-terrain buff (PvE↔PvP parity). On a CASUAL sector fight, members
             // of the clan that OWNS the reward sector get +10% to the leader-chosen
@@ -2395,8 +2425,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!isRankedSession) {
                 const secNum = Math.floor(Number(rewardSector));
                 if (Number.isFinite(secNum) && secNum > 0) {
+                    let territory: Record<string, unknown> | null = null;
                     try {
-                        const territory = await kv.get<Record<string, unknown>>(`world:territory:${secNum}`);
+                        territory = await kv.get<Record<string, unknown>>(`world:territory:${secNum}`);
+                    } catch { territory = null; /* read failed — schedule still applies, no home buff */ }
+                    // World-sector weather is SERVER-derived, not client-chosen: the
+                    // same shared function the client renders from
+                    // (shared/sector-weather: biome + sector + UTC day, clan
+                    // override first), fed the server clock — so every player
+                    // fighting in this sector today is sealed the same sky and a
+                    // tampered client can't pick a favourable forecast. Non-sector
+                    // casual fights (no wild rewardSector) keep the client-chosen
+                    // environment as before.
+                    if (isWildSector(secNum)) {
+                        const weather = resolveSectorWeather(sealedBiome, secNum, Date.now(), territory);
+                        const elements = sectorWeatherElements(weather);
+                        sealedWeatherPos = normalizeElement(elements.positiveElement);
+                        sealedWeatherNeg = normalizeElement(elements.negativeElement);
+                    }
+                    try {
                         const ownerClan = String(territory?.ownerClan ?? '').trim();
                         const buffType = ownerClan ? terrainBuffStatToJutsuType(territory?.terrainBuffStat) : '';
                         if (ownerClan && buffType) {

@@ -1,10 +1,10 @@
 import type { Character } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 
-// The legacy StoryBoss screen still owns this one-hour browser resume record.
-// It is independent of the retired local Arena combat path.
-export const STORY_BOSS_SAVE_TTL_MS = 60 * 60 * 1000;
-export function storyBossSaveKey(name: string): string { return `storyBoss.battle.v1.${name}`; }
+// No screen persists a local combat snapshot any more. The last one — the
+// retired StoryBoss mini-game's `storyBoss.battle.v1.<name>` record — was
+// removed with its persister; a lingering `storyBoss` lock is retired on boot
+// like the other pre-cutover kinds below.
 
 // ── Battle lock (server-side refresh-flee guard) ─────────────────────────
 // Remaining non-session screens can register an auxiliary server lock through
@@ -74,22 +74,16 @@ export async function fetchBattleLockStatus(playerName: string): Promise<ClientB
 // Server-session hosts recover by run/session id before this branch. Retired
 // Arena, Endless, and Arena-story records return false so App's boot path can
 // clear or migrate them without reviving browser-owned combat authority.
-export function battleResumeStateExists(lock: ClientBattleLock, playerName: string, character: Character | null): boolean {
+// (playerName / character stay in the signature for the App boot caller; no
+// remaining lock kind reads a per-player snapshot.)
+export function battleResumeStateExists(lock: ClientBattleLock, _playerName: string, _character: Character | null): boolean {
     try {
         // All current shinobi combat uses server sessions. Local Arena snapshots
         // are rolling-upgrade residue and App retires their lock without loss.
         if (lock.kind === "arena") return false;
-        if (lock.kind === "storyBoss") {
-            const raw = localStorage.getItem(storyBossSaveKey(playerName));
-            if (!raw) return false;
-            const saved = JSON.parse(raw) as { storyProgress?: number; savedAt?: number; bossHp?: number; playerHp?: number };
-            if ((Date.now() - (saved.savedAt ?? 0)) > STORY_BOSS_SAVE_TTL_MS) return false;
-            // Signature: same chapter the save was taken for, and the fight is
-            // genuinely unfinished. (storyProgress only advances on a win, which
-            // clears the save, so a mismatch means a stale/foreign save.)
-            if (character && saved.storyProgress !== character.storyProgress) return false;
-            return (saved.bossHp ?? 0) > 0 && (saved.playerHp ?? 0) > 0;
-        }
+        // The retired StoryBoss mini-game's local snapshot is gone with its
+        // persister, so a `storyBoss` lock never resumes either.
+        if (lock.kind === "storyBoss") return false;
         // Endless now resumes from its server-owned SoloPveSession, never from
         // an Arena snapshot or locally persisted opponent/wave context.
         if (lock.kind === "endless") return false;

@@ -209,3 +209,24 @@ describe('validateVillageStateWrite — war morale stamps', () => {
         assert.equal(next.warLossDebuffUntil, 0);
     });
 });
+
+describe('validateVillageStateWrite - Village Stores (provisions / materialPoints)', () => {
+    it('rejects a save-blob INCREASE of either store (keeps prev) for a villager', async () => {
+        const prev = { treasury: { provisions: 10, materialPoints: 20 } };
+        const { next, suppressed } = await validateVillageStateWrite(prev, { treasury: { provisions: 999, materialPoints: 999 } }, villager, null);
+        assert.equal((next.treasury as Record<string, unknown>).provisions, 10);
+        assert.equal((next.treasury as Record<string, unknown>).materialPoints, 20);
+        assert.ok(suppressed.some((s) => s.includes('treasury.provisions increase')));
+        assert.ok(suppressed.some((s) => s.includes('treasury.materialPoints increase')));
+    });
+    it('rejects a decrease from a non-Kage, allows it from the seated Kage', async () => {
+        const prev = { treasury: { provisions: 10, materialPoints: 20 } };
+        const kage = { seatedKage: 'rin' };
+        const denied = await validateVillageStateWrite(prev, { treasury: { provisions: 0 } }, { ...villager, callerName: 'someone' }, kage);
+        assert.equal((denied.next.treasury as Record<string, unknown>).provisions, 10);
+        assert.ok(denied.suppressed.some((s) => s.includes('treasury.provisions decrease')));
+        const allowed = await validateVillageStateWrite(prev, { treasury: { provisions: 0, materialPoints: 5 } }, villager, kage);
+        assert.equal((allowed.next.treasury as Record<string, unknown>).provisions, 0);
+        assert.equal((allowed.next.treasury as Record<string, unknown>).materialPoints, 5);
+    });
+});

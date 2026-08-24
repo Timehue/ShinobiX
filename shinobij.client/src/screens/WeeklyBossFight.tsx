@@ -6,7 +6,8 @@ import { soloPveArenaTransport, soloPveSessionForArena } from "../lib/solo-pve-a
 import { useLiveCapabilities } from "../lib/live-capabilities-context";
 import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
 
-// Weekly Boss = a SOLO score-attack against an unkillable, server-shared boss,
+// Weekly Boss = a SOLO fight against the server-shared WORLD boss (one HP pool;
+// the encounter opens at the shared remaining HP, or a fixed floor once Broken),
 // rendered on the normal Arena shell (MissionArenaFight) — the same format as
 // PvE / missions / story. It replaced BattleTowerFight (the tower rail), so the
 // fight no longer looks like a tower floor ("Floor 9200 …"). The fight is a
@@ -69,13 +70,13 @@ export function WeeklyBossFight({
                 return (
                     <div className="battle-ended-overlay">
                         <div className="card battle-ended-card">
-                            <h2>{won ? "You Outlasted the Boss!" : "Assault Logged"}</h2>
+                            <h2>{won ? "The Boss Falters!" : "Assault Logged"}</h2>
                             {settleState === "settled" && typeof dealt === "number" ? (
-                                <p>You dealt <strong>{dealt.toLocaleString()}</strong> damage this run — banked to this week&apos;s shared leaderboard. Return to see where you rank.</p>
+                                <p>You dealt <strong>{dealt.toLocaleString()}</strong> damage this run — taken off the world&apos;s shared boss HP and banked to this week&apos;s leaderboard. Return to see where you rank.</p>
                             ) : settleState === "failed" ? (
                                 <p>Your damage couldn&apos;t be logged to the leaderboard — return and try again.</p>
                             ) : (
-                                <p>The Weekly Boss has no HP cap. Banking your damage to this week&apos;s shared leaderboard…</p>
+                                <p>Taking your damage off the shared world boss and banking it to this week&apos;s leaderboard…</p>
                             )}
                             <button className="start-primary-btn" onClick={onExit}>Return to the Arena</button>
                         </div>

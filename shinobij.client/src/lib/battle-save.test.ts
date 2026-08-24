@@ -3,10 +3,8 @@ import { strict as assert } from "node:assert";
 import type { Character } from "../types/character";
 import {
     ARENA_SAVE_TTL_MS,
-    STORY_BOSS_SAVE_TTL_MS,
     arenaStoryCtxKey,
     battleResumeStateExists,
-    storyBossSaveKey,
     type ClientBattleLock,
 } from "./battle-save";
 
@@ -76,36 +74,12 @@ describe("battle resume state checks", () => {
         assert.equal(battleResumeStateExists(lock("arena"), "ResumeRisk", character()), false);
     });
 
-    it("resumes story boss locks only for the matching unfinished story fight", () => {
-        localStorage.setItem(storyBossSaveKey("ResumeRisk"), JSON.stringify({
+    it("never resumes a retired storyBoss lock, even with a leftover local snapshot", () => {
+        localStorage.setItem("storyBoss.battle.v1.ResumeRisk", JSON.stringify({
             storyProgress: 2,
             bossHp: 10,
             playerHp: 10,
             savedAt: Date.now(),
-        }));
-        assert.equal(battleResumeStateExists(lock("storyBoss"), "ResumeRisk", character()), true);
-
-        localStorage.setItem(storyBossSaveKey("ResumeRisk"), JSON.stringify({
-            storyProgress: 1,
-            bossHp: 10,
-            playerHp: 10,
-            savedAt: Date.now(),
-        }));
-        assert.equal(battleResumeStateExists(lock("storyBoss"), "ResumeRisk", character()), false);
-
-        localStorage.setItem(storyBossSaveKey("ResumeRisk"), JSON.stringify({
-            storyProgress: 2,
-            bossHp: 0,
-            playerHp: 10,
-            savedAt: Date.now(),
-        }));
-        assert.equal(battleResumeStateExists(lock("storyBoss"), "ResumeRisk", character()), false);
-
-        localStorage.setItem(storyBossSaveKey("ResumeRisk"), JSON.stringify({
-            storyProgress: 2,
-            bossHp: 10,
-            playerHp: 10,
-            savedAt: Date.now() - STORY_BOSS_SAVE_TTL_MS - 1,
         }));
         assert.equal(battleResumeStateExists(lock("storyBoss"), "ResumeRisk", character()), false);
     });

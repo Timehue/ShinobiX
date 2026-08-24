@@ -9,6 +9,8 @@ import { applyTreasuryDonation, type TreasuryDonation } from '../../_treasury-do
 import { mutatePlayerSave } from '../../save/_mutate-player-save.js';
 import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../../_economy-tx.js';
 import { addClanXpServer } from '../_mission-catalog.js';
+import { villageStoresEnabled } from '../../_release-flags.js';
+import { routeStoresDonation, type StoresRouted } from '../../_treasury-stores-donate.js';
 
 /*
  * /api/clan/treasury/donate  — POST only
@@ -129,13 +131,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                 }
 
-                const outcome = applyTreasuryDonation(
+                let outcome = applyTreasuryDonation(
                     clanRec.treasury as Record<string, unknown> | undefined,
                     donorChar,
                     donation,
                     { allowedCurrencies: CLAN_CURRENCIES, currencyCaps: CURRENCY_CAPS, itemCountCap: ITEM_COUNT_CAP },
                 );
                 if (!outcome.ok) return outcome;
+                // Village Stores clan mirror: ration-pack → clanTreasury.provisions
+                // (same 40/day donor cap as the village; materials are NOT mirrored).
+                let routed: StoresRouted | null = null;
+                if (donation.kind === 'item' && villageStoresEnabled()) {
+                    const r = routeStoresDonation(clanRec.treasury as Record<string, unknown> | undefined, outcome, donation, {}, { materialPoints: false });
+                    if (!r.ok) return r;
+                    if (r.routed) { outcome = { ok: true, nextDonorChar: r.nextDonorChar, nextTreasury: r.nextTreasury }; routed = r.routed; }
+                }
 
                 const contribution = donation.kind === 'currency'
                     ? donation.currency === 'ryo' ? Math.max(1, Math.floor(donation.amount / 1000)) : Math.floor(donation.amount)
@@ -155,7 +165,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     meta: { clan, playerName },
                 });
                 txState = 'reserved';
-                return { ok: true as const, character: nextDonorChar, value: { nextTreasury: outcome.nextTreasury } };
+                return { ok: true as const, character: nextDonorChar, value: { nextTreasury: outcome.nextTreasury, routed } };
             });
             if (!debit.ok) return debit;
 
@@ -169,7 +179,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(clanSaveKey, { ...clanRec, treasury: debit.value.nextTreasury, ...leveled });
             await completeEconomyTx(txId!);
             txState = 'complete';
-            return { ok: true as const, treasury: debit.value.nextTreasury, character: debit.character, xp: leveled.xp, level: leveled.level, _saveVersion: debit._saveVersion };
+            return { ok: true as const, treasury: debit.value.nextTreasury, character: debit.character, xp: leveled.xp, level: leveled.level, _saveVersion: debit._saveVersion, routed: debit.value.routed };
         }, { failClosed: true });
 
         if (!result.ok) return res.status(result.status).json({ error: result.error });
@@ -184,7 +194,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : { itemId: donation.itemId, count: Math.floor(donation.count) }),
         }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
 
-        return res.status(200).json({ ok: true, treasury: result.treasury, character: result.character, xp: result.xp, level: result.level, _saveVersion: result._saveVersion });
+        const stores = result.routed ? { stores: { provisions: result.routed.stores.provisions } } : {};
+        return res.status(200).json({ ok: true, treasury: result.treasury, character: result.character, xp: result.xp, level: result.level, _saveVersion: result._saveVersion, ...stores });
     } catch (err) {
         if (txId && txState && txState !== 'complete') {
             await failEconomyTx(txId, err).catch(() => undefined);

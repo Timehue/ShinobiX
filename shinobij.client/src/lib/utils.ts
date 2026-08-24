@@ -6,6 +6,7 @@
  * Extracted from App.tsx so consumers can import them without dragging
  * the whole App import surface.
  */
+import { serverNow } from "./server-clock";
 
 // Clamp a number into the closed interval [min, max].
 export function clampNumber(value: number, min: number, max: number): number {
@@ -34,8 +35,15 @@ export function currentMonthKey(): string {
     return new Date().toISOString().slice(0, 7);
 }
 
+// The daily key is taken from the SERVER's clock, not the device's: the save
+// sanitizer (api/save/[name].ts) clamps lastDailyReset / lastHuntReset to the
+// server's UTC today and keys every same-day counter floor on it, so a client
+// whose clock sits on the wrong side of midnight would otherwise reset its
+// daily counters on a day the server does not recognise (and have the reset
+// rejected). Until the first heartbeat sample lands, serverNow() is plain
+// Date.now(), so this degrades to the device date rather than failing.
 export function currentDateKey(): string {
-    return new Date().toISOString().slice(0, 10);
+    return new Date(serverNow()).toISOString().slice(0, 10);
 }
 
 // Generate a unique id — crypto.randomUUID when available, else a

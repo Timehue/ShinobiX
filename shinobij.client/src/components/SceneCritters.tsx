@@ -120,7 +120,7 @@ export function SceneCritters({
         let w = 0, h = 0, dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
         let crits: C[] = [];
         let raf = 0, last = 0, running = true;
-        let night = skyNow(new Date()).night > 0.5;
+        let night = skyNow().night > 0.5;
         const parent = canvas.parentElement;
 
         function makeOne(kind: string): C {
@@ -386,7 +386,7 @@ export function SceneCritters({
 
         // Re-evaluate the day/night cast every few minutes (dusk swaps the cast).
         const dayTimer = window.setInterval(() => {
-            const n = skyNow(new Date()).night > 0.5;
+            const n = skyNow().night > 0.5;
             if (n !== night) { night = n; spawn(); }
         }, 120_000);
 

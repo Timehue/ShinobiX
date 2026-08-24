@@ -352,6 +352,13 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('villageWarMissionDate', 'character', 'server-payout-stamp', 'village-war', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'server-owned daily war-ground progress day; claim-rewards and village war-mission only'),
     f('villageWarRaidProgress', 'character', 'server-payout-stamp', 'village-war', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'server-owned war-ground progress; cannot be forged through generic save'),
     f('professionChosenAt', 'character', 'server-owned', 'profession', ['combat-strip-char']),
+    // Village Stores per-player daily counters (api/_village-stores.ts): written
+    // only by the cafeteria cook + treasury donate endpoints under the save lock.
+    f('rationsCookedDate', 'character', 'server-owned', 'village-stores', ['server-mirror-char', 'combat-strip-char'], 'UTC day of the cook counter'),
+    f('rationsCookedToday', 'character', 'server-owned', 'village-stores', ['server-mirror-char', 'combat-strip-char'], 'rations cooked today (cap 40)'),
+    f('storesDonatedDate', 'character', 'server-owned', 'village-stores', ['server-mirror-char', 'combat-strip-char'], 'UTC day of the donation counters'),
+    f('rationsDonatedToday', 'character', 'server-owned', 'village-stores', ['server-mirror-char', 'combat-strip-char'], 'rations donated today (cap 40)'),
+    f('craftPointsDonatedToday', 'character', 'server-owned', 'village-stores', ['server-mirror-char', 'combat-strip-char'], 'craft points donated today (cap 1,500)'),
 
     // ── Inventory, equipment, jutsu, pets ───────────────────────────────────
     f('inventory', 'character', 'server-clamped', 'inventory', ['combat-strip-char'], 'all modes conserve stored inventory + stack entitlement; net-new items require an authoritative endpoint'),
@@ -382,6 +389,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
 
     // ── Preferences & cosmetics ─────────────────────────────────────────────
     f('masteryFocus', 'character', 'client-preference', 'recommendations', [], 'allowlisted Activity Spine focus; unknown values normalize to Auto'),
+    f('warfrontLoadout', 'character', 'client-preference', 'pet-arena', [], 'Warfront stance/doctrine/auto-buy picks (account-level, was per-device localStorage); client validates on read, never affects rewards'),
     f('nindo', 'character', 'client-preference', 'profile', [], 'moderated BBCode creed'),
     f('nindoBg', 'character', 'cosmetic-ref', 'profile', [], 'allowlisted preset id'),
     f('bloodline', 'character', 'client-state', 'bloodlines', [], 'starter bloodline choice; gates the first-save starter jutsu kit'),

@@ -61,11 +61,12 @@ import { withKvLock, LockContendedError } from '../_lock.js';
 import { mirrorSlotContent } from '../_content-store.js';
 import { syncCurrencyLedger } from '../_currency-ledger.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
-import { settleSaveRecordForRead } from '../_elapsed-state.js';
+import { auraRegenBonus, settleSaveRecordForRead } from '../_elapsed-state.js';
 import { applyCanonicalFirstSave } from './_first-save-baseline.js';
 import { preserveStatPointEntitlement } from './_stat-entitlement.js';
 import { meetsItemLevelReq } from '../../shared/item-level-gate.js';
 import { readVillageUpgrades } from '../village/_upgrade.js';
+import { readPendingWorldRewards } from '../world/_pending-rewards.js';
 import { applyDerivedLevel, earnedForLevel, earnedStatPoints } from '../_xp-engine.js';
 import { parseBloodlineForgeRank, readPendingBloodlineForges } from '../bloodlines/_forge.js';
 import { STAT_CAP_FIELDS, statCapForLevel } from '../combat-core/formulas.js';
@@ -296,6 +297,40 @@ const HOSPITAL_DURATION_MS = 60_000;
 // only happen after navigating into and losing another fight — far longer than
 // this) is still hospitalized normally.
 const DISCHARGE_GRACE_MS = 12_000;
+
+// ── Vitals gain cap (see the block in sanitizeCharacterSave) ─────────────
+// Seconds of regen granted on top of the elapsed time since the stored
+// `_saveAt`: covers clock / round-trip slack and the small client-only
+// stamina grants (sector "Recover" +10..19, creator-event staminaReward).
+const VITALS_GAIN_GRACE_SEC = 60;
+type VitalKey = 'hp' | 'chakra' | 'stamina';
+const VITAL_KEYS: ReadonlyArray<readonly [VitalKey, 'maxHp' | 'maxChakra' | 'maxStamina']> = [
+    ['hp', 'maxHp'], ['chakra', 'maxChakra'], ['stamina', 'maxStamina'],
+];
+// Consumables the CLIENT applies itself (shinobij.client/src/screens/
+// Inventory.tsx) — a pill removed from the inventory in the same save justifies
+// exactly this much of a vitals rise. Keep the amounts in lock-step with that
+// screen.
+const CLIENT_CONSUMABLE_VITAL_CREDITS: Readonly<Record<string, { vital: VitalKey; amount: number }>> = {
+    'Soldier Pill': { vital: 'stamina', amount: 25 },
+    'Chakra Pill': { vital: 'chakra', amount: 25 },
+};
+/** Count of `itemId` across both inventory stores (`inventory[]` strings and
+ *  `itemStacks[{itemId,count}]`), tolerant of the raw client shape. */
+function countOwnedItem(character: Record<string, unknown>, itemId: string): number {
+    let n = 0;
+    if (Array.isArray(character.inventory)) {
+        for (const entry of character.inventory as unknown[]) if (entry === itemId) n += 1;
+    }
+    if (Array.isArray(character.itemStacks)) {
+        for (const stack of character.itemStacks as unknown[]) {
+            if (!stack || typeof stack !== 'object') continue;
+            const s = stack as Record<string, unknown>;
+            if (s.itemId === itemId) n += Math.max(0, Math.floor(Number(s.count) || 0));
+        }
+    }
+    return n;
+}
 
 // Rolling 60-second gain windows. Anything above these caps is rejected with
 // a 429. These are server-side rate limits independent of the per-save caps;
@@ -834,7 +869,7 @@ export function sanitizeCharacterSave(
     // than preserved there: it is personal, and anything on those slots is
     // published to every client. Defaults false, so ordinary player saves are
     // unaffected.
-    opts: { adminContentSlot?: boolean } = {},
+    opts: { adminContentSlot?: boolean; now?: number } = {},
 ): Record<string, unknown> {
     const isFirstSave = existing == null;
     const inChar = incoming.character as Record<string, unknown> | undefined;
@@ -1247,6 +1282,49 @@ export function sanitizeCharacterSave(
     if (Number(char.hp ?? 0) > Number(char.maxHp ?? char.hp)) char.hp = char.maxHp;
     if (Number(char.chakra ?? 0) > Number(char.maxChakra ?? char.chakra)) char.chakra = char.maxChakra;
     if (Number(char.stamina ?? 0) > Number(char.maxStamina ?? char.stamina)) char.stamina = char.maxStamina;
+
+    // ── Vitals gain cap ──────────────────────────────────────────────────
+    // The max clamp above still let a client jump hp/chakra/stamina straight to
+    // full on every autosave — a free heal between fights. The only ways vitals
+    // legitimately RISE on the client are the 1/s idle regen (+ Aura Sphere
+    // bonus — the very rate api/_elapsed-state.ts settles offline) and the two
+    // client-applied pills (Inventory.tsx: Soldier Pill +25 stamina, Chakra Pill
+    // +25 chakra). Every other heal — hospital (player/heal), cafeteria, mission
+    // stamina (claim-mission), combat settlement, the level-up refill
+    // (applyDerivedLevel above) — is written to the STORED save by the server
+    // before the client ever echoes it, so the stored value already carries it.
+    //
+    // So an incoming vital may not exceed: stored + the regen that could have
+    // elapsed since the stored `_saveAt` + a grace window (clock/round-trip
+    // slack, and the small client-only sector "Recover" / creator-event stamina
+    // grants) + credit for pills consumed in this same save. A level-up in this
+    // save refilled vitals server-side a few lines up, so the cap is skipped for
+    // it; it is also skipped when the stored record carries no `_saveAt` (its
+    // age is unknowable — never clamp a legitimate long-idle regen).
+    {
+        const storedAt = Math.floor(Number(existing?._saveAt) || 0);
+        const levelRose = Math.floor(Number(char.level) || 1) > Math.floor(Number(exChar.level) || 1);
+        if (!isFirstSave && storedAt > 0 && !levelRose) {
+            const now = Math.max(storedAt, Math.floor(Number(opts.now ?? Date.now())));
+            const perSecond = 1 + auraRegenBonus(exChar);
+            const regenAllowance = Math.ceil(((now - storedAt) / 1000 + VITALS_GAIN_GRACE_SEC) * perSecond);
+            const credits: Record<VitalKey, number> = { hp: 0, chakra: 0, stamina: 0 };
+            for (const [itemId, credit] of Object.entries(CLIENT_CONSUMABLE_VITAL_CREDITS)) {
+                const consumed = countOwnedItem(exChar, itemId) - countOwnedItem(char, itemId);
+                if (consumed > 0) credits[credit.vital] += credit.amount * consumed;
+            }
+            for (const [key, maxKey] of VITAL_KEYS) {
+                const stored = Number(exChar[key]);
+                const incoming = Number(char[key]);
+                if (!Number.isFinite(stored) || !Number.isFinite(incoming)) continue;
+                const ceiling = Math.max(0, Math.floor(stored)) + regenAllowance + credits[key];
+                if (incoming > ceiling) {
+                    const max = Number(char[maxKey]);
+                    char[key] = Number.isFinite(max) ? Math.min(ceiling, Math.max(0, Math.floor(max))) : ceiling;
+                }
+            }
+        }
+    }
 
     // Lifetime / leaderboard counters: per-save delta cap. Hall of Legends
     // and achievement gates read these directly, so a tampered client could
@@ -2000,10 +2078,22 @@ export function sanitizeCharacterSave(
     // monotonic-forward: an incoming date older than the stored one is reverted to
     // the stored value, so the backdate can't persist. A forward move to a newer
     // date (the legit midnight reset) is untouched, as is the first-ever set.
+    //
+    // They are also never allowed PAST the server's UTC today. A device clock
+    // running ahead (or a forged stamp) would otherwise pre-stamp tomorrow — and
+    // because the stamp is monotonic that could never be corrected, so every
+    // same-day floor below (`exChar.<stamp> === SERVER_UTC_DATE`) would be
+    // skipped for a whole day, re-opening the daily caps. A future stamp is
+    // clamped to SERVER_UTC_DATE before the monotonic rule runs. If the STORED
+    // stamp is itself in the future (written before this clamp existed) it is
+    // allowed to come back down to today rather than pin forever.
     for (const field of MONOTONIC_DATE_CHARACTER_FIELDS) {
         const stored = typeof exChar[field] === 'string' ? (exChar[field] as string) : '';
-        const incoming = typeof char[field] === 'string' ? (char[field] as string) : '';
-        if (stored && incoming && incoming < stored) char[field] = stored;
+        let incoming = typeof char[field] === 'string' ? (char[field] as string) : '';
+        if (!incoming) continue;
+        if (incoming > SERVER_UTC_DATE) incoming = SERVER_UTC_DATE;
+        if (stored && stored <= SERVER_UTC_DATE && incoming < stored) incoming = stored;
+        char[field] = incoming;
     }
 
     // Daily mission / hunt completion counters are the ONLY thing bounding the
@@ -2529,6 +2619,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // root fields, which every client needs to hydrate custom jutsu /
             // items / events / cards. See SHARED_ADMIN_CONTENT_FIELDS.
             payload = buildPublicSaveDTO(data, { combat: combatOnly, sharedContent: isAdminContentSlot(name) });
+        }
+        // Owner reads (the login / restore pull) also carry the account-side
+        // mirror of un-settled World explore/chest request ids, so a new device
+        // can replay them from the server receipt. Read-only piggyback: it is
+        // not part of the save record and the sanitizer never sees it.
+        if (canReadFullSave && !combatOnly && !isClanSave) {
+            const pendingWorldRewards = await readPendingWorldRewards(name)
+                .catch((err) => { console.error('[save] pending world rewards', safeLogValue(err)); return []; });
+            if (pendingWorldRewards.length) payload = { ...payload, pendingWorldRewards };
         }
         return res.status(200).json(payload);
     }

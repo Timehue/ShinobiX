@@ -10,12 +10,50 @@ import { stampPresenceBeat } from '../_realtime/_presence-beat.js';
 import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from '../_realtime/presence-input.js';
 import { clearSleeperCamp } from '../_realtime/sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from '../_realtime/travel-lease.js';
+import { withKvLock, LockContendedError } from '../_lock.js';
+import { offlineNoticesKey, parseOfflineNotices, OFFLINE_NOTICES_TTL_SEC, type OfflineNotice } from './_offline-notices.js';
+import { kageStakeRefundKey, parsePendingStakeRefunds, drainKageStakeRefunds } from '../village/_kage-inactivity.js';
 
 // Presence now lives in the in-memory online store (api/_realtime/online-store.ts)
 // instead of `presence:<name>` DB keys — no per-second DB read/write. The live
 // roster comes from onlineStore.list(); writes from onlineStore.upsert(). The
 // slim/cap/shape helpers live in ../_realtime/presence-input.ts so the WS
 // presence path (api/_realtime/socket.ts) uses byte-for-byte the same logic.
+
+/** Stable identity of one inbox entry (the inbox has no ids of its own). */
+function noticeStamp(n: OfflineNotice): string {
+    return `${n.kind}|${n.by}|${n.sector}|${n.at}|${n.amount ?? ''}|${n.total ?? ''}`;
+}
+
+/**
+ * Clear EXACTLY the notices this beat delivered, under the inbox's own lock.
+ *
+ * The old `kv.del(noticesKey)` was unlocked and unconditional, so a notice
+ * pushed between the mget and the delete — "you were KO'd by X", "a bounty was
+ * placed on you", "your Kage stake was refunded" — was destroyed unread, and the
+ * player never learned why their state changed. Comparing against what was
+ * actually read keeps delivery one-shot in the happy path (the key is deleted
+ * outright when nothing new arrived) while a concurrent push always survives.
+ *
+ * Best-effort by design: if the inbox is contended, the entries stay and the
+ * next beat re-delivers them. A repeated notice is a far smaller failure than a
+ * lost one.
+ */
+export async function consumeDeliveredNotices(key: string, delivered: readonly OfflineNotice[]): Promise<void> {
+    if (delivered.length === 0) return;
+    const seen = new Set(delivered.map(noticeStamp));
+    try {
+        await withKvLock(key, async () => {
+            const current = parseOfflineNotices(await kv.get(key));
+            const remaining = current.filter((n) => !seen.has(noticeStamp(n)));
+            if (remaining.length === current.length) return;
+            if (remaining.length === 0) await kv.del(key);
+            else await kv.set(key, remaining, { ex: OFFLINE_NOTICES_TTL_SEC });
+        }, { failClosed: true });
+    } catch (err) {
+        if (!(err instanceof LockContendedError)) throw err;
+    }
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -73,6 +111,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // when a Healer discharges this hospitalized player. Delivered + cleared
         // here so the client can auto-exit the hospital with a toast.
         const healSignalKey = `heal-signal:${safeName(name)}`;
+        // One-shot "while you were away you were KO'd by X" inbox, pushed by the
+        // sleeper-kill / merc-raid settlements (api/player/_offline-notices.ts).
+        const noticesKey = offlineNoticesKey(name);
+        // Durable compensations the player is owed (a Kage challenge stake whose
+        // refund could not commit when the seat was vacated). Parked by
+        // api/village/_kage-inactivity.ts; drained here on the next beat.
+        const stakeRefundKey = kageStakeRefundKey(name);
 
         // Presence (own record, for the sector fallback) comes from memory now.
         // Challenges + reset-signal stay DB-backed (polled until the WS push layer).
@@ -81,13 +126,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // every second per online player, so each read saved here is ~1 op/s/player.
         const existing = onlineStore.get(name);
         const [signals, savedLocation, persistedTravel] = await Promise.all([
-            kv.mget(challengeKey, resetSignalKey, healSignalKey),
+            kv.mget(challengeKey, resetSignalKey, healSignalKey, noticesKey, stakeRefundKey),
             existing ? Promise.resolve(null) : kv.get<{ currentSector?: number }>(`save:${safeName(name)}`),
             existing ? Promise.resolve(null) : getTravelLease(name),
         ]);
         const pendingChallenges = signals[0] as unknown[] | null;
         const resetSignal = signals[1];
         const healSignal = signals[2] as { by?: string; at?: number } | null;
+        const rawNotices = signals[3];
+        const pendingNotices = parseOfflineNotices(rawNotices);
+        const owedStakeRefunds = parsePendingStakeRefunds(signals[4]);
 
         if (resetSignal) {
             return res.status(200).json({ forceReload: true });
@@ -153,8 +201,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // challenge DELETE/accept/decline path removes exactly one stored id.
         await Promise.all([
             healSignal ? kv.del(healSignalKey) : Promise.resolve(),
+            consumeDeliveredNotices(noticesKey, pendingNotices),
             stampPlayerIp(req, name),
         ]);
+
+        // A parked compensation (a Kage stake the dethrone could not refund at
+        // the time) settles into the save the moment its owner is reachable.
+        // Fire-and-forget: it is durable and idempotent, and the hot beat must
+        // never block or fail on it.
+        if (owedStakeRefunds.length > 0) {
+            void drainKageStakeRefunds(name, now).catch((err) => console.warn('[heartbeat] stake refund drain deferred', err));
+        }
 
         // The in-memory store IS the live roster — no DB scan, no cache layer.
         // toPlayerRecord (shared with the WS path) shapes each entry; avatar
@@ -180,6 +237,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             pendingAttacker,
             pendingChallenges: pendingChallenges ?? [],
             pendingHeal: healSignal ? { by: typeof healSignal.by === 'string' ? healSignal.by : '' } : null,
+            // Omitted when there is nothing to deliver — this frame ships once a
+            // second per online player and an empty array is pure payload.
+            ...(pendingNotices.length > 0 ? { pendingNotices } : {}),
             // This clock mints every deadline the client renders (training endsAt,
             // travelingUntil, war pendingUntil) and re-checks them on claim. The
             // beat is the client's reference for it — a player whose own clock
@@ -187,6 +247,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             serverNow: Date.now(),
         });
     } catch (err) {
+        // failClosed lock contention is transient — say so, so the client keeps
+        // beating instead of surfacing a hard "Internal server error."
+        if (err instanceof LockContendedError) {
+            return res.status(503).json({ error: 'The server is busy — retrying shortly.', retryable: true });
+        }
         console.error('[heartbeat]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

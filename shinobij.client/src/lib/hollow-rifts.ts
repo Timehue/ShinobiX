@@ -18,6 +18,7 @@ import type { Wanderer, WandererArchetypeId } from "./wanderers";
 import { sectorRegionName, villageForOutskirtsSector } from "../data/sectors";
 import { CASTLE_SECTORS, MAX_WILD_SECTOR, OUTSKIRTS_SECTORS } from "../../../shared/sector-geo";
 import { hollowRifts, hollowRiftById, type HollowRift, type RiftGiverArchetype, type RiftPage } from "../data/hollow-rifts";
+import { serverNow } from "./server-clock";
 
 export const RIFT_GIVER_PREFIX = "rift-giver-";
 export const RIFT_STRUCTURE_TYPE = "hollowRift";
@@ -89,15 +90,18 @@ export function riftTargetSector(playerName: string, riftId: string): number {
  *  while a rift is active or during the post-clear cooldown. Offers any rift the
  *  player has reached (level >= levelReq, NO upper cap), PREFERRING the highest
  *  tier reached but still surfacing lower (possibly missed) rifts sometimes, so a
- *  rift you out-leveled is never locked out. Deterministic per UTC day. */
-export function nextRift(character: Character): HollowRift | null {
+ *  rift you out-leveled is never locked out. Deterministic per UTC day on the
+ *  SERVER clock and keyed by the day only — never the player — so two players of
+ *  the same reach meet the same giver in the same sector. `now` is injectable
+ *  for tests. */
+export function nextRift(character: Character, now: number = serverNow()): HollowRift | null {
     if (character.activeRiftQuest) return null;
-    if (Date.now() < (character.riftCooldownUntil ?? 0)) return null;
+    if (now < (character.riftCooldownUntil ?? 0)) return null;
     const eligible = hollowRifts.filter((r) => character.level >= r.levelReq);
     if (!eligible.length) return null;
-    const dayBucket = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+    const dayBucket = Math.floor(now / (24 * 60 * 60 * 1000));
     let h = 2166136261;
-    const key = `${character.name}|${dayBucket}`;
+    const key = `rift-day|${dayBucket}`;
     for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
     // Weighted pick: rank the eligible rifts by levelReq DESC and weight each
     // 2^-rank (highest tier 1, next 1/2, next 1/4, …). The top rift draws ~half

@@ -16,6 +16,7 @@ test('split CI exposes stable required check names with bounded jobs', () => {
         'CI / e2e-responsive',
         'CI / e2e-combat',
         'CI / e2e-warfront',
+        'CI / e2e-village-stores',
         'CI / test-build',
     ];
     for (const name of requiredNames) {
@@ -48,6 +49,7 @@ test('split CI preserves every release gate and builds each artifact once', () =
         'npm run test:e2e --prefix shinobij.client',
         'npm run test:e2e:combat-layout --prefix shinobij.client',
         'npm run test:e2e:warfront --prefix shinobij.client',
+        'npm run test:e2e:live --prefix shinobij.client',
     ];
     for (const command of commands) assert.ok(workflow.includes(command), `missing CI gate: ${command}`);
     assert.equal(occurrences('npm run build:server'), 1, 'server release artifact must be built exactly once');

@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/purity */
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { GiCrossedSwords, GiCrownedSkull, GiGraduateCap, GiHealthIncrease, GiPawPrint, GiShield, GiSpiralThrust } from "react-icons/gi";
 import "../styles/battle-skin.css";
 import { AURA_SPHERE_VN_ID, AWAKENING_VN_ID, DUNGEON_VN_ID } from "../constants/game";
@@ -19,7 +19,6 @@ import { spendPetSummonCost } from "../lib/pet-acquisition-api";
 import { isStoryContentVillage } from "../lib/story-content-contract";
 import { readStoryContent } from "../lib/story-content-loader";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
-import { STORY_BOSS_SAVE_TTL_MS, storyBossSaveKey } from "../lib/battle-save";
 import { BattleLockKeeper } from "../components/BattleLockKeeper";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { extractMentorLines, extractStoryFightScript, requestStoryBossFight } from "../lib/story-fight-theme";
@@ -168,50 +167,6 @@ function StoryHallContent({
     return <div className="card cinematic-card"><BackToVillageButton onClick={() => setScreen("village")} /><div className="visual-novel"><div className="vn-header"><div><p className="act-label">{current.cinematicTitle}</p><h2>{current.title}</h2></div><div className="vn-progress">Chapter {character.storyProgress + 1}/{storyLine.length}</div></div><div className={"vn-stage vn-biome-" + storyBiome + (storySceneBg ? " vn-has-image" : "")} style={storySceneBg ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${storySceneBg})` } : undefined}><div className="vn-backdrop"><span className="vn-moon"></span><span className="vn-village-silhouette"></span></div><div className="vn-character mentor-character">{character.avatarImage ? <img src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : null}<span className="vn-character-initials">{character.name.slice(0, 2).toUpperCase()}</span></div>{!hideSpeakerSlot && (<div className="vn-character hero-character">{speakerPortrait ? <img src={speakerPortrait} alt={speaker} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : null}<span className="vn-character-initials">{speakerInitials}</span></div>)}<div className="vn-scene-card">{current.scene}</div><div className="vn-dialogue"><div className="vn-speaker">{speaker}</div><p>{spoken}</p><div className="vn-controls"><button disabled={lineIndex === 0} onClick={() => setLineIndex((index) => Math.max(0, index - 1))}>Back</button>{lineIndex < current.dialogue.length - 1 ? <button onClick={() => setLineIndex((index) => Math.min(current.dialogue.length - 1, index + 1))}>Next</button> : locked ? <button disabled>Requires Level {current.levelReq}</button> : <button onClick={() => startServerBossBattle(current)}>Face {current.bossName}</button>}</div></div></div><div className="vn-choice-row"><button onClick={() => setLineIndex(0)}>Replay Scene</button><button onClick={() => setScreen("worldMap")}>Investigate World Map</button><button disabled={locked} onClick={() => startServerBossBattle(current)}><GiCrossedSwords aria-hidden="true" /> Boss: {current.bossName}</button></div><div className="vn-reward-strip"><span>Requirement: Level {current.levelReq}</span><span>Reward: stat points / {current.rewardRyo} ryo</span></div>{creatorVnShelf}</div></div>;
 }
 
-type SavedStoryBoss = { savedAt: number; storyProgress: number; bossHp: number; playerHp: number; ap: number; turn: number; summonedPetId: string; log: string };
-// Headless persister owned only by this legacy StoryBoss mini-game. It serializes
-// each HP/turn change and rehydrates the matching story snapshot on mount. The
-// Arena lobby has no local combat persister; sealed story encounters use their
-// server session hosts instead.
-function StoryBossPersister(props: {
-    characterName: string; storyProgress: number; active: boolean;
-    bossHp: number; playerHp: number; ap: number; turn: number; summonedPetId: string; log: string;
-    onRestore: (saved: SavedStoryBoss) => void;
-}) {
-    const key = storyBossSaveKey(props.characterName);
-    useEffect(() => {
-        if (!props.active) { try { localStorage.removeItem(key); } catch { /* ignore */ } return; }
-        try {
-            const snap: SavedStoryBoss = {
-                savedAt: Date.now(), storyProgress: props.storyProgress,
-                bossHp: props.bossHp, playerHp: props.playerHp, ap: props.ap,
-                turn: props.turn, summonedPetId: props.summonedPetId, log: props.log,
-            };
-            localStorage.setItem(key, JSON.stringify(snap));
-        } catch { /* quota — ignore */ }
-        // Snapshot intentionally re-saves only on material fight changes
-        // (active/HP/turn). ap/log/summonedPetId/storyProgress are read fresh at
-        // save time and are deliberately NOT triggers — adding them would write
-        // localStorage on every AP tick and log line. Behaviour is intentional.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [props.active, props.bossHp, props.playerHp, props.turn]);
-    useEffect(() => {
-        try {
-            const raw = localStorage.getItem(key);
-            if (!raw) return;
-            const saved = JSON.parse(raw) as SavedStoryBoss;
-            if (Date.now() - (saved.savedAt ?? 0) > STORY_BOSS_SAVE_TTL_MS) { localStorage.removeItem(key); return; }
-            if (saved.storyProgress !== props.storyProgress) return;       // different chapter
-            if (!(saved.bossHp > 0 && saved.playerHp > 0)) return;          // already resolved
-            props.onRestore(saved);
-        } catch { try { localStorage.removeItem(key); } catch { /* ignore */ } }
-        // Mount-once restore: intentionally runs a single time to rehydrate an
-        // in-progress fight. Re-running on prop changes would re-restore mid-fight.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-    return null;
-}
-
 type StoryBossProps = { character: Character; updateCharacter: (next: Character | ((prev: Character | null) => Character)) => void; setScreen: (screen: Screen) => void };
 
 export function StoryBoss(props: StoryBossProps) {
@@ -339,7 +294,7 @@ function StoryBossContent({ character, updateCharacter, setScreen, storyVillage 
     function chakraStrike() { if (ap < 60) return setLog("Not enough AP."); if (character.chakra < 20) return setLog("Not enough chakra."); const newBossHp = Math.max(0, bossHp - chakraStrikeDamage); setBossHp(newBossHp); setAp((c) => c - 60); setEffect("strike"); const postSpendChakra = Math.max(0, character.chakra - 20); updateCharacter({ ...character, chakra: postSpendChakra }); if (newBossHp <= 0) return winBossFight(playerHp, postSpendChakra); setLog(`You unleash a chakra strike for ${chakraStrikeDamage} damage. -20 chakra.`); bossPetFollowUp(newBossHp, playerHp); }
     function guard() { if (ap < 30) return setLog("Not enough AP."); const reducedDamage = Math.max(1, Math.floor(storyStep.bossDamage * 0.45)); const afterHit = Math.max(0, playerHp - reducedDamage); setPlayerHp(afterHit); setAp(100); setTurn((t) => t + 1); setEffect("guard"); updateCharacter({ ...character, hp: afterHit }); setLog(`You guard. ${storyStep.bossName} only deals ${reducedDamage} damage.`); bossPetFollowUp(bossHp, afterHit); }
     function recover() { if (ap < 50) return setLog("Not enough AP."); const heal = 35 + Math.floor(character.stats.willpower * 0.05); const newHp = Math.min(character.maxHp, playerHp + heal); setPlayerHp(newHp); setAp((c) => c - 50); setEffect("strike"); updateCharacter({ ...character, hp: newHp, chakra: Math.min(character.maxChakra, character.chakra + 15) }); setLog(`You recover your breathing. +${heal} HP and +15 chakra.`); bossPetFollowUp(bossHp, newHp); }
-    return <div className="card cinematic-card"><StoryBossPersister characterName={character.name} storyProgress={character.storyProgress} active={bossHp > 0 && playerHp > 0} bossHp={bossHp} playerHp={playerHp} ap={ap} turn={turn} summonedPetId={summonedPetId} log={log} onRestore={(saved) => { setBossHp(saved.bossHp); setPlayerHp(saved.playerHp); setAp(saved.ap); setTurn(saved.turn); setSummonedPetId(saved.summonedPetId); setLog("Battle resumed — the fight continues where you left off."); }} /><BattleLockKeeper active={bossHp > 0 && playerHp > 0} kind="storyBoss" screen="storyBoss" playerName={character.name} /><div className="boss-stage">{effect && <div className="combat-effect">{effect === "guard" ? <GiShield aria-hidden="true" /> : <GiCrossedSwords aria-hidden="true" />}</div>}<div className="cinematic-panel"><p className="act-label">{storyStep.cinematicTitle}</p><h2><GiCrownedSkull aria-hidden="true" /> {storyStep.bossName}</h2><p className="scene-text">{storyStep.scene}</p></div><div className="combat-stats"><div><strong>{character.name}</strong><div className="bar-label">HP {playerHp}/{character.maxHp}</div><div className="bar"><span style={{ width: `${(playerHp / character.maxHp) * 100}%` }}></span></div><div className="bar-label">Chakra {character.chakra}/{character.maxChakra}</div><div className="bar ap-bar"><span style={{ width: `${(character.chakra / character.maxChakra) * 100}%` }}></span></div><p>AP: {ap}/100</p>{summonedPet && <p>Pet: {petDisplayName(summonedPet)} · Happy {petHappiness(summonedPet)}%</p>}</div><div><strong>{storyStep.bossName}</strong><div className="bar-label">HP {bossHp}/{storyStep.bossHp}</div><div className="bar enemy-bar"><span style={{ width: `${(bossHp / storyStep.bossHp) * 100}%` }}></span></div><p>Boss Damage: {storyStep.bossDamage}</p><p>Turn: {turn}</p></div></div><div className="jutsu-combat-grid"><button onClick={basicAttack}><span className="jutsu-icon"><GiCrossedSwords aria-hidden="true" /></span><strong>Basic Attack</strong><small>40 AP / no chakra</small></button><button onClick={chakraStrike}><span className="jutsu-icon"><GiSpiralThrust aria-hidden="true" /></span><strong>Chakra Strike</strong><small>60 AP / -20 chakra</small></button><button onClick={guard}><span className="jutsu-icon"><GiShield aria-hidden="true" /></span><strong>Guard</strong><small>30 AP / reduce damage</small></button><button onClick={recover}><span className="jutsu-icon"><GiHealthIncrease aria-hidden="true" /></span><strong>Recover</strong><small>50 AP / heal + chakra</small></button><button onClick={summonBossPet} disabled={!activeBattlePet || Boolean(summonedPet)}><span className="jutsu-icon"><GiPawPrint aria-hidden="true" /></span><strong>Summon Pet</strong><small>{summonedPet ? `${petDisplayName(summonedPet)} active` : activeBattlePet ? petDisplayName(activeBattlePet) : "No active pet"}</small></button></div><div className="menu"><button onClick={bossCounter}>End Turn</button><button onClick={async () => { if (bossHp > 0 && playerHp > 0) { if (!(await gameConfirm("Forfeit this boss fight? You'll be downed and make no story progress.", { danger: true, confirmLabel: "Forfeit" }))) return; updateCharacter({ ...character, hp: 0 }); } setScreen("storyHall"); }}>{bossHp > 0 && playerHp > 0 ? "Forfeit (take the loss)" : "Back to Story"}</button></div><div className="log">{log}</div></div></div>;
+    return <div className="card cinematic-card"><BattleLockKeeper active={bossHp > 0 && playerHp > 0} kind="storyBoss" screen="storyBoss" playerName={character.name} /><div className="boss-stage">{effect && <div className="combat-effect">{effect === "guard" ? <GiShield aria-hidden="true" /> : <GiCrossedSwords aria-hidden="true" />}</div>}<div className="cinematic-panel"><p className="act-label">{storyStep.cinematicTitle}</p><h2><GiCrownedSkull aria-hidden="true" /> {storyStep.bossName}</h2><p className="scene-text">{storyStep.scene}</p></div><div className="combat-stats"><div><strong>{character.name}</strong><div className="bar-label">HP {playerHp}/{character.maxHp}</div><div className="bar"><span style={{ width: `${(playerHp / character.maxHp) * 100}%` }}></span></div><div className="bar-label">Chakra {character.chakra}/{character.maxChakra}</div><div className="bar ap-bar"><span style={{ width: `${(character.chakra / character.maxChakra) * 100}%` }}></span></div><p>AP: {ap}/100</p>{summonedPet && <p>Pet: {petDisplayName(summonedPet)} · Happy {petHappiness(summonedPet)}%</p>}</div><div><strong>{storyStep.bossName}</strong><div className="bar-label">HP {bossHp}/{storyStep.bossHp}</div><div className="bar enemy-bar"><span style={{ width: `${(bossHp / storyStep.bossHp) * 100}%` }}></span></div><p>Boss Damage: {storyStep.bossDamage}</p><p>Turn: {turn}</p></div></div><div className="jutsu-combat-grid"><button onClick={basicAttack}><span className="jutsu-icon"><GiCrossedSwords aria-hidden="true" /></span><strong>Basic Attack</strong><small>40 AP / no chakra</small></button><button onClick={chakraStrike}><span className="jutsu-icon"><GiSpiralThrust aria-hidden="true" /></span><strong>Chakra Strike</strong><small>60 AP / -20 chakra</small></button><button onClick={guard}><span className="jutsu-icon"><GiShield aria-hidden="true" /></span><strong>Guard</strong><small>30 AP / reduce damage</small></button><button onClick={recover}><span className="jutsu-icon"><GiHealthIncrease aria-hidden="true" /></span><strong>Recover</strong><small>50 AP / heal + chakra</small></button><button onClick={summonBossPet} disabled={!activeBattlePet || Boolean(summonedPet)}><span className="jutsu-icon"><GiPawPrint aria-hidden="true" /></span><strong>Summon Pet</strong><small>{summonedPet ? `${petDisplayName(summonedPet)} active` : activeBattlePet ? petDisplayName(activeBattlePet) : "No active pet"}</small></button></div><div className="menu"><button onClick={bossCounter}>End Turn</button><button onClick={async () => { if (bossHp > 0 && playerHp > 0) { if (!(await gameConfirm("Forfeit this boss fight? You'll be downed and make no story progress.", { danger: true, confirmLabel: "Forfeit" }))) return; updateCharacter({ ...character, hp: 0 }); } setScreen("storyHall"); }}>{bossHp > 0 && playerHp > 0 ? "Forfeit (take the loss)" : "Back to Story"}</button></div><div className="log">{log}</div></div></div>;
 }
 
 // Training screens (stat training, jutsu seal/paid training) moved to ./screens/Training.

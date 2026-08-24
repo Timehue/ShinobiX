@@ -44,7 +44,11 @@ import {
 import { formatItemBonus, presentItem } from "../lib/item-presentation";
 import { settleInventorySale } from "../lib/shop-settlement";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
+import { useCapabilityViewAvailability } from "../lib/live-capabilities-context";
+import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
+import { storesItemSignpost } from "../lib/village-stores-signposts";
 import type { VersionedCharacterCommit } from "../types/character";
+import type { Screen } from "../types/core";
 
 function chronicleInventorySummary(id: string): string {
     const card = getChronicleCard(id);
@@ -71,6 +75,7 @@ export function Inventory({
     creatorItems,
     creatorCards,
     onVersionedCharacter,
+    setScreen,
 }: {
     character: Character;
     // Accepts a plain replacement OR a functional updater (computing the next
@@ -82,6 +87,11 @@ export function Inventory({
     creatorItems: GameItem[];
     creatorCards: TileCard[];
     onVersionedCharacter: VersionedCharacterCommit;
+    // Village Stores signposting: the item card can send a hunter straight to
+    // the kitchen (or a cooked pack to the Town Hall). Optional so the screen
+    // still renders anywhere it is mounted without a navigator — the affordance
+    // simply stays a sentence instead of a button.
+    setScreen?: (screen: Screen) => void;
 }) {
     const [selectedInventoryItem, setSelectedInventoryItem] = useState<null | {
         entry: string;
@@ -102,6 +112,16 @@ export function Inventory({
     const [attuneMsg, setAttuneMsg] = useState("");
     const allItems = getAllItems(creatorItems, character.weaponElements);
     const allTileCards = getAllTileCards(creatorCards);
+    // Village Stores: BOTH destinations this signpost can send a player to gate
+    // themselves on the villageWar capability — the Cafeteria hides its whole
+    // kitchen behind it, and the Town Hall hides the stores rows. An ungated
+    // signpost therefore promised a closed kitchen ("Cooks into Field Rations at
+    // the Cafeteria") and, worse, told a ration-pack holder their pack "becomes
+    // one ration in your village's stores" when in that state the donation
+    // falls through to a loose treasury item instead. Read the same capability,
+    // and fail CLOSED the way both destinations do: only an explicit
+    // "available" signposts anything, so a cold boot stays quiet.
+    const storesOpen = capabilityAdmissionAllowed(useCapabilityViewAvailability("villageWar"));
 
     // One-time migration: gloves used to share the weapon's "hand" slot. If a
     // glove is still equipped there (and the new "gloves" slot is free), move it
@@ -490,6 +510,10 @@ export function Inventory({
     // gear) are not player-equippable. Every other slot equips as before.
     const selectedEquippable = !!selectedGameItem && !selectedPetFoodXp
         && (normalizeEquipmentSlot(selectedGameItem.slot) === "item" ? isCombatConsumable(selectedGameItem) : true);
+    // Village Stores: does this item feed the village loop, and where does it go
+    // next? Null for the overwhelming majority of items — the card must stay
+    // quiet about a kunai. Keyed on the item ID, never the display entry.
+    const selectedStoresSignpost = storesOpen ? storesItemSignpost(selectedGameItem?.id ?? "") : null;
     const selectedPassiveBonuses = selectedGameItem ? itemBonusLines(selectedGameItem) : [];
     const selectedHasPassiveEffects = !!selectedGameItem?.armorQuality || selectedPassiveBonuses.length > 0;
     // Selling an EQUIPPED consumable would mint ryo without spending the stack
@@ -952,6 +976,10 @@ export function Inventory({
                                                 : "A general inventory item."}
                                 </p>
 
+                                {selectedStoresSignpost && (
+                                    <p className="item-popup-stores-note">{selectedStoresSignpost.line}</p>
+                                )}
+
                                 {selectedGameItem ? (
                                     <>
                                         <div className="item-popup-detail-grid">
@@ -1024,6 +1052,16 @@ export function Inventory({
                                 )}
 
                                 <div className="item-popup-actions">
+                                    {selectedStoresSignpost && setScreen && selected.source === "backpack" && (
+                                        <button
+                                            type="button"
+                                            className="item-action-secondary"
+                                            onClick={() => { setSelectedInventoryItem(null); setScreen(selectedStoresSignpost.screen); }}
+                                        >
+                                            {selectedStoresSignpost.actionLabel}
+                                        </button>
+                                    )}
+
                                     {selectedGameItem?.id === LEGENDARY_WAR_CRATE_ID && selected.source === "backpack" && (
                                         <button
                                             type="button"

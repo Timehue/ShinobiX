@@ -174,6 +174,11 @@ const EXEMPT = new Set([
     // Ranked-V2 move/cron callers take the empty-usage confirmation branch and
     // do not mutate either save here, so this helper has no single safe echo.
     'pvp/_consumable-settlement.ts',
+    // Daily cron pass (kage-inactivity): refunds a pending challenger's declare
+    // stake under their save lock when an absent Kage's seat is vacated. There is
+    // no HTTP response to echo a version into; the challenger's next load adopts
+    // the bumped `_saveVersion` and they are told via an offline notice.
+    'village/_kage-inactivity.ts',
     // Shared multi-member operation helper; assault-settle rereads and echoes the
     // requesting member's final `_saveVersion` after all reward helpers complete.
     'clan-boss/_profession.ts',

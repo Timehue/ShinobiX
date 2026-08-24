@@ -4,27 +4,112 @@
  * The client renders natural wanderers with ids shaped like:
  *   w-<homeSector>-<sixHourBucket>-<rosterIndex>
  *
+ * The roster itself is NOT trusted from the client: shared/wanderer-roster.ts
+ * is the one roll both sides run, and `resolveNaturalWanderer` re-derives the
+ * NPC an id names for the server's current window — a forged id, a stale or
+ * future bucket, or an index past the rolled count resolves to null.
+ *
+ * Every reward handler that takes a wanderer id enters through
+ * `naturalWandererClaimOk` (gift, quest, service) or `resolveNaturalWanderer`
+ * (the Solo-PvE / pet-duel authority), so a claimed archetype/verb/level/name is
+ * checked against the roll rather than merely shape-checked.
+ *
  * Legacy Sage / Legacy Emissary NPCs use synthetic ids and intentionally do not
  * enter this cooldown/relocation path.
  */
 
 import { setSafeRecordValue } from '../_utils.js';
-import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
+import {
+    parseWandererId,
+    resolveWandererById,
+    rollWanderers,
+    wandererDayBucketFromMs,
+    wandererRelocationSector as sharedRelocationSector,
+    WANDERER_SECTOR_COUNT,
+    type Wanderer,
+} from '../../shared/wanderer-roster.js';
+
+export { rollWanderers, wandererDayBucketFromMs, WANDERER_SECTOR_COUNT };
+export type { Wanderer };
 
 export const WANDERER_ENCOUNTER_COOLDOWN_MS = 3 * 60 * 60 * 1000;
 export const WANDERER_ENCOUNTER_COOLDOWN_SECONDS = Math.ceil(WANDERER_ENCOUNTER_COOLDOWN_MS / 1000);
-export const WANDERER_SECTOR_COUNT = MAX_WILD_SECTOR;
 
 export type NaturalWandererId = { sector: number; dayBucket: number; index: number };
 
 export function parseNaturalWandererId(id: string): NaturalWandererId | null {
-    const m = /^w-(\d+)-(\d+)-(\d+)$/.exec(String(id ?? ''));
-    if (!m) return null;
-    return { sector: Number(m[1]), dayBucket: Number(m[2]), index: Number(m[3]) };
+    return parseWandererId(id);
 }
 
-export function wandererDayBucketFromMs(nowMs: number): number {
-    return Math.floor(nowMs / (6 * 60 * 60 * 1000));
+/**
+ * The natural wanderer `id` names in the server's CURRENT window, re-derived
+ * from the shared roll — or null when the id is forged/stale/out of range.
+ * Relocation is honoured: a wanderer the player already dealt with is found in
+ * its `wandererMoves` destination sector, not its home sector. When
+ * `requestedSector` is given, the wanderer must actually be standing there.
+ */
+export function resolveNaturalWanderer(
+    id: string,
+    nowMs: number,
+    character?: Record<string, unknown> | null,
+    requestedSector?: number,
+): Wanderer | null {
+    const w = resolveWandererById(id, nowMs);
+    if (!w) return null;
+    const parsed = parseWandererId(id)!;
+    const movesRaw = character?.wandererMoves;
+    const moves = movesRaw && typeof movesRaw === 'object' && !Array.isArray(movesRaw)
+        ? movesRaw as Record<string, unknown>
+        : {};
+    const moved = Math.floor(Number(moves[id]));
+    const visibleSector = Number.isFinite(moved) && moved >= 1 && moved <= WANDERER_SECTOR_COUNT ? moved : parsed.sector;
+    if (requestedSector !== undefined && visibleSector !== requestedSector) return null;
+    return w;
+}
+
+/** True when the client's claimed archetype/verb/level/name for `id` match what
+ *  the shared roll says the world contains right now. Any mismatch = forged. */
+export function naturalWandererMatches(
+    id: string,
+    nowMs: number,
+    claim: { archetype?: unknown; verb?: unknown; level?: unknown; name?: unknown },
+): boolean {
+    const w = resolveWandererById(id, nowMs);
+    if (!w) return false;
+    if (claim.archetype !== undefined && claim.archetype !== w.archetype) return false;
+    if (claim.verb !== undefined && claim.verb !== w.verb) return false;
+    if (claim.level !== undefined && Number(claim.level) !== w.level) return false;
+    if (claim.name !== undefined && claim.name !== w.name) return false;
+    return true;
+}
+
+/** The optional identity fields a client may echo back alongside a wanderer id. */
+export type WandererClaimBody = {
+    wandererArchetype?: unknown;
+    wandererVerb?: unknown;
+    wandererLevel?: unknown;
+    wandererName?: unknown;
+};
+
+/**
+ * The reward handlers' entry guard: `id` must be a natural wanderer the shared
+ * roll actually puts on the road in the server's CURRENT window, AND every
+ * identity field the client chose to echo back must agree with that roll.
+ *
+ * Checking the id's SHAPE alone is not enough — it admits a stale/empty roster
+ * slot, and it lets a forged archetype/verb/level/name ride along into a payout
+ * path that then reads those fields back (wanderer-service seals the claimed
+ * name into the favor record). Fields the client omits are not invented here;
+ * `naturalWandererMatches` skips them.
+ */
+export function naturalWandererClaimOk(id: string, nowMs: number, body: WandererClaimBody): boolean {
+    if (!parseNaturalWandererId(id)) return false;
+    return naturalWandererMatches(id, nowMs, {
+        ...(body.wandererArchetype !== undefined ? { archetype: body.wandererArchetype } : {}),
+        ...(body.wandererVerb !== undefined ? { verb: body.wandererVerb } : {}),
+        ...(body.wandererLevel !== undefined ? { level: body.wandererLevel } : {}),
+        ...(body.wandererName !== undefined ? { name: body.wandererName } : {}),
+    });
 }
 
 export function wandererUseCooldownKey(playerName: string, wandererId: string): string {
@@ -81,16 +166,7 @@ export function wandererRelocationSector(
     maxSector: number = WANDERER_SECTOR_COUNT,
 ): number {
     const from = Math.max(1, Math.min(maxSector, Math.floor(num(fromSector)) || 1));
-    let h = 2166136261 >>> 0;
-    const key = `${wandererId}#${from}`;
-    for (let i = 0; i < key.length; i++) {
-        h ^= key.charCodeAt(i);
-        h = Math.imul(h, 16777619);
-    }
-    const span = Math.max(1, maxSector - 1);
-    let dest = 1 + ((h >>> 0) % span);
-    if (dest >= from) dest += 1;
-    return Math.max(1, Math.min(maxSector, dest));
+    return sharedRelocationSector(wandererId, from, maxSector);
 }
 
 export function withWandererUseState(

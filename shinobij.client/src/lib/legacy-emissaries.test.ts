@@ -40,6 +40,27 @@ describe("rollEmissarySpawn", () => {
         assert.ok(a.wanderer.id.startsWith(EMISSARY_WANDERER_PREFIX));
     });
 
+    it("is a WORLD roll: two players in the same sector/window see the same emissary", () => {
+        const { bucket } = activeWindow();
+        // Post-acceptance: the category emissary stands in the same sector for everyone.
+        const a = rollEmissarySpawn("aki", 60, CATEGORY, bucket);
+        const b = rollEmissarySpawn("someone-else", 77, CATEGORY, bucket);
+        assert.ok(a && b);
+        assert.equal(a.sector, b.sector);
+        assert.deepEqual(a.wanderer, b.wanderer);
+        // Pre-acceptance: the roaming harbinger's presence in a sector is keyed by
+        // (slug, sector, window) — not by who is looking.
+        for (let b2 = bucket; b2 < bucket + 40; b2++) {
+            for (let sector = 1; sector <= 60; sector++) {
+                assert.deepEqual(
+                    rollEmissarySpawn("aki", 60, null, b2, sector),
+                    rollEmissarySpawn("zed", 99, null, b2, sector),
+                    `sector ${sector} / window ${b2}`,
+                );
+            }
+        }
+    });
+
     it("pre-acceptance: needs the current sector and only appears through the roam gate", () => {
         const { name, bucket } = activeWindow();
         // Without a current sector the roaming harbinger has nowhere to stand.

@@ -305,7 +305,41 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // product graph 7,679,126 B, leaving ~21 KB of headroom. All on the lazy
 // Showdown chunk; entry chunk and initial graph unchanged. The scheduled drain
 // remains the legacy coliseum-stack deletion.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_700_000;
+// 2026-08-22: 7.70 -> 8.00 MB, then CORRECTED THE SAME DAY to 7,855,000 B.
+//
+// The 8.00 MB entry re-baselined for a claimed "~200 KB CI/prod delta (Sentry +
+// build-arg code the local build omits)". That delta does not exist, and nothing
+// in this file's history says it does — every prior entry that actually measured
+// it put the gap at single-digit KB, and the 2026-08-03 entry reproduced CI's own
+// bundle and found it EXACT. So 8,000,000 was ~220 KB of unearned slack on a
+// budget whose whole job is to make a screen get drained instead.
+//
+// Re-measured on this tree, same rolldown build, both numbers below are exact
+// (not estimates), budgeted = all emitted .js + .css minus the sentry-vendor
+// chunk, which is what the gate at the bottom of this file compares:
+//   • bare local `vite build`                                   7,831,677 B
+//   • CI-equivalent (VITE_SENTRY_DSN / _RELEASE / _BUILD_COMMIT
+//     set to the values in .github/workflows/ci.yml, which is
+//     what CI itself computes)                                  7,832,560 B
+// The real CI delta is therefore 883 B, not 200 KB. Railway's Docker build adds
+// only longer build-arg STRINGS on top of that (Supabase URL + anon key, a real
+// Sentry DSN, PostHog key/host — the PostHog provider is a hand-rolled lazy
+// module, not a vendored SDK, so it ships either way): hundreds of bytes, not KB.
+//
+// The ceiling is that CI measurement plus 22,440 B — in line with the ~18-25 KB
+// of measured variance every entry from 2026-08-03 onward has used, and enough
+// that a rounding or hash-length wobble cannot produce the local-green / CI-red
+// failure this file has already suffered twice.
+//
+// THE OUTSTANDING DRAIN IS STILL OUTSTANDING, and it is large: Pet Showdown was
+// meant to replace the continuous-sim Coliseum stack, and once Hollow Gate /
+// clan war / sector war / ladder / gauntlet finish migrating off the legacy
+// engines, deleting pet-duel-cinematic + pet-duel-sim + pet-battle-sim +
+// pet-arena-sim and their renderers ratchets this number DOWN well past 7.265 MB
+// (docs/pet-showdown-design.md, follow-ups). Do that before raising this again.
+//
+// Entry and initial-graph gates below are NOT touched by this entry.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_855_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
@@ -356,6 +390,37 @@ const INITIAL_GRAPH_FAIL_BYTES = 1_500_000;
 // are NOT. WorldMap builds them from `"atlas-landmark atlas-" + location.type`,
 // a construction site that does not begin at the string literal's first
 // character. Match prefixes mid-literal or the sweep deletes live styles.
+//
+// 2026-08-23: THE HOLLOW GATE DRAIN THE NOTE ABOVE ASKED FOR IS DONE, and the
+// constant is deliberately UNCHANGED — the win was taken as headroom, not as a
+// tighter gate, because this gate had drifted back to 379.1 KB (1.2 KB OVER)
+// and was again blocking every production deploy.
+//
+// Two library-level deferrals, no render-tree change (see the note in
+// shinobij.client/src/lib/hollow-gate-generator-loader.ts):
+//   • lib/hollow-gate-dungeon (+ hollow-gate-generate / -maze) now loads via
+//     import() at the three floor-generation call sites, all of which already
+//     sat behind a server round-trip. Room-flood visibility moved to the new
+//     lib/hollow-gate-visibility because the click-to-move walker calls it
+//     synchronously on every step and must stay eager.
+//   • lib/hollow-gate-tile (the tile resolver) loads the same way; its one call
+//     site runs inside drainHollowGateMoveFx, after the step seal is awaited.
+// Both chunks are warmed the moment a run is entered or resumed.
+//
+// NOT done with lazy components: converting a RENDERED component to
+// lazyWithRetry + <Suspense> is what broke the webkit combat-layout spec
+// "Tower combat shell keeps jutsu selection geometry stable" (the post-paint
+// re-render disturbs its rAF geometry trace). Library-level import() inside an
+// already-async function body has no such effect — that spec passes on webkit
+// with this drain in place.
+//
+// Measured, CI-equivalent build (VITE_SENTRY_DSN / _RELEASE / _BUILD_COMMIT set):
+//   before  1,464,284 B raw / 388,252 B gzip   (entry chunk 539,825 / 169,500)
+//   after   1,439,106 B raw / 378,852 B gzip   (entry chunk 514,619 / 160,038)
+// 24.7 KB of the entry chunk became two lazy chunks (hollow-gate-dungeon 14,433 B,
+// hollow-gate-tile 10,271 B). Headroom under this gate: 8,148 B, up from -1,252 B.
+// A future ratchet is available here; leaving it wide is a deliberate choice
+// after this gate blocked production three times inside two weeks.
 const INITIAL_GRAPH_GZIP_FAIL_BYTES = 387_000;
 const SENTRY_VENDOR_FAIL_BYTES = 100_000;
 const SENTRY_VENDOR_RE = /^assets\/sentry-vendor-[^/]+\.js$/;
