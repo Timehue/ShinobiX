@@ -431,6 +431,13 @@
     -webkit-backdrop-filter: blur(14px);
   }
 
+  /* Keep every direct panel at its authored height so the overlay itself owns
+     the scroll range. Flex shrinking used to let the menu content overflow a
+     zero-scroll container, which broke keyboard focus and deep destinations. */
+  body:not(.in-battle) .mobile-menu-overlay > :where(.mobile-menu-header, .mobile-char-card, .mobile-menu-search, .mobile-menu-groups) {
+    flex: 0 0 auto;
+  }
+
   body:not(.in-battle) .mobile-menu-title {
     display: inline-flex;
     align-items: center;
@@ -446,6 +453,44 @@
     background:
       linear-gradient(120deg, color-mix(in srgb, var(--village-accent, var(--sj-spirit)) 12%, transparent), transparent 58%),
       var(--mobile-aaa-panel-raised);
+  }
+
+  body:not(.in-battle) .mobile-menu-search {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    gap: 6px;
+    margin-block-end: 14px;
+  }
+
+  body:not(.in-battle) .mobile-menu-search > span {
+    color: var(--sj-text-secondary);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  body:not(.in-battle) .mobile-menu-search > input {
+    inline-size: 100%;
+    min-block-size: 48px;
+    padding: 11px 13px;
+    border: 1px solid color-mix(in srgb, var(--sj-spirit) 38%, var(--mobile-aaa-hairline));
+    border-radius: 9px;
+    background: rgba(5, 12, 19, 0.94);
+    color: var(--sj-text-primary);
+    font: 700 16px/1.25 var(--font-body);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 8px 22px rgba(0, 0, 0, 0.2);
+  }
+
+  body:not(.in-battle) .mobile-menu-search > input::placeholder {
+    color: color-mix(in srgb, var(--sj-text-muted) 88%, transparent);
+  }
+
+  body:not(.in-battle) .mobile-menu-search > input:focus-visible {
+    border-color: var(--sj-spirit);
+    outline: 3px solid color-mix(in srgb, var(--sj-spirit) 36%, transparent);
+    outline-offset: 2px;
   }
 
   body:not(.in-battle) .mobile-menu-section {
