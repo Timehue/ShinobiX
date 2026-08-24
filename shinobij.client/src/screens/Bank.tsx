@@ -1,12 +1,13 @@
 import { useRef, useState } from "react";
 import { type Character, getBankInterestPercent } from "../App";
 import { sendCurrency, previewCredit, TRADE_CURRENCIES, TRADE_CURRENCY_LABELS, TRADE_MINS, TRADE_CAPS, TRADE_TAX_PCT, type TradeCurrency } from "../lib/player-trade";
-import { BackToVillageButton } from "../components/BackToVillageButton";
 import { gameConfirm } from "../components/GameAlert";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { gameToast } from "../components/GameToast";
 import type { VersionedCharacterCommit } from "../types/character";
+import { FacilityHero } from "../components/FacilityHero";
+import { GameIcon, ShinobiCurrencyIcon } from "../components/icons/GameIcon";
 
 // MIRROR of api/_bank-interest.ts BANK_INTEREST_PRINCIPAL_CAP (gameplay-loop
 // audit M-2): interest is paid on at most this much banked ryo, so the projected
@@ -60,6 +61,13 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
     // eslint-disable-next-line react-hooks/purity -- claim-eligibility is time-sensitive; re-evaluated on every re-render is intentional
     const canClaimInterest = character.bankRyo > 0 && interestPercent > 0 && Date.now() >= nextClaimAt;
     const projectedInterest = Math.max(0, Math.floor(Math.min(character.bankRyo, BANK_INTEREST_PRINCIPAL_CAP) * (interestPercent / 100)));
+    const interestStatus = canClaimInterest
+        ? "Ready now"
+        : interestPercent <= 0
+            ? "Upgrade required"
+            : character.bankRyo <= 0
+                ? "Deposit required"
+                : new Date(nextClaimAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
     async function moveRyo(direction: "deposit" | "withdraw") {
         if (direction === "deposit" && !requireServerSettlement("bankDeposit")) return;
@@ -129,44 +137,129 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
     }
 
     return (
-        <div className="card">
-            <BackToVillageButton onClick={onBack} />
-            <h2>Bank</h2>
-            <div className="summary-box profile-summary">
-                <p>Wallet: <strong>{character.ryo.toLocaleString()}</strong> ryo</p>
-                <p>Bank: <strong>{character.bankRyo.toLocaleString()}</strong> ryo</p>
-                <p>Interest Rate: <strong>{interestPercent.toFixed(2)}%</strong></p>
-                <p>Projected Claim: <strong>{projectedInterest.toLocaleString()}</strong> ryo</p>
-            </div>
-            <label>Amount</label>
-            <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
-            <div className="menu">
-                <button onClick={() => void moveRyo("deposit")} disabled={bankBusy}>Deposit</button>
-                <button onClick={() => void moveRyo("withdraw")} disabled={bankBusy}>Withdraw</button>
-                <button onClick={claimInterest} disabled={bankBusy || !canClaimInterest}>Collect Interest</button>
-            </div>
-            <p className="hint">Town Hall Bank upgrade gives +0.01% interest per level (max 0.5%/day at level 50). Interest can be collected once every 24 hours.</p>
+        <div className="card civic-facility-screen bank-screen">
+            <FacilityHero
+                facility="bank"
+                eyebrow={`${character.village} · Treasury District`}
+                title="Bank"
+                description="Secure your ryo, collect village-backed interest, and send funds across the shinobi network."
+                onBack={onBack}
+                metrics={[
+                    { label: "On hand", value: `${character.ryo.toLocaleString()} ryo` },
+                    { label: "In the vault", value: `${character.bankRyo.toLocaleString()} ryo` },
+                    { label: "Daily rate", value: `${interestPercent.toFixed(2)}%`, tone: interestPercent > 0 ? "good" : "warning" },
+                ]}
+            />
 
-            <h3 style={{ marginTop: "1.5rem" }}>Send to Player</h3>
-            <p className="hint" style={{ marginTop: 0 }}>Wire ryo or rare currency to another shinobi. A {Math.round(TRADE_TAX_PCT * 100)}% transfer tax is burned on every send.</p>
-            <div className="summary-box profile-summary">
-                <p>Your {TRADE_CURRENCY_LABELS[sendCurr]}: <strong>{sendBalance.toLocaleString()}</strong></p>
-                {sendAmount > 0 && (
-                    <p>Recipient gets: <strong>{previewCredit(sendAmount).toLocaleString()}</strong> · Burned: <strong>{Math.max(0, Math.floor(sendAmount) - previewCredit(sendAmount)).toLocaleString()}</strong></p>
-                )}
-            </div>
-            <label>Recipient</label>
-            <input type="text" value={sendTo} placeholder="Player name" onChange={(e) => setSendTo(e.target.value)} />
-            <label>Currency</label>
-            <select value={sendCurr} onChange={(e) => setSendCurr(e.target.value as TradeCurrency)}>
-                {TRADE_CURRENCIES.map((c) => (
-                    <option key={c} value={c}>{TRADE_CURRENCY_LABELS[c]}</option>
-                ))}
-            </select>
-            <label>Amount</label>
-            <input type="number" value={sendAmount} onChange={(e) => setSendAmount(Number(e.target.value))} />
-            <div className="menu">
-                <button onClick={submitTransfer} disabled={sending}>{sending ? "Sending…" : "Send"}</button>
+            <div className="facility-content-grid bank-workspace">
+                <section className="facility-panel bank-vault-panel">
+                    <div className="facility-panel-heading">
+                        <span className="facility-panel-icon"><GameIcon name="ryo" size={24} /></span>
+                        <div>
+                            <p className="facility-eyebrow">Personal vault</p>
+                            <h3>Move ryo</h3>
+                        </div>
+                    </div>
+
+                    <div className="bank-balance-rail">
+                        <div>
+                            <span>Wallet</span>
+                            <strong>{character.ryo.toLocaleString()}</strong>
+                        </div>
+                        <span className="bank-balance-arrow" aria-hidden="true">⇄</span>
+                        <div>
+                            <span>Banked</span>
+                            <strong>{character.bankRyo.toLocaleString()}</strong>
+                        </div>
+                    </div>
+
+                    <label className="facility-field" htmlFor="bank-transfer-amount">
+                        <span>Transfer amount</span>
+                        <div className="facility-currency-input">
+                            <ShinobiCurrencyIcon name="ryo" size={24} />
+                            <input
+                                id="bank-transfer-amount"
+                                type="number"
+                                min={0}
+                                inputMode="numeric"
+                                value={amount}
+                                onChange={(e) => setAmount(Number(e.target.value))}
+                            />
+                            <span>ryo</span>
+                        </div>
+                    </label>
+                    <div className="facility-amount-chips" aria-label="Quick amount choices">
+                        <button type="button" onClick={() => setAmount(Math.floor(character.ryo / 2))}>Half wallet</button>
+                        <button type="button" onClick={() => setAmount(character.ryo)}>Max wallet</button>
+                        <button type="button" onClick={() => setAmount(character.bankRyo)}>Max vault</button>
+                    </div>
+                    <div className="bank-transfer-actions">
+                        <button className="facility-primary-action" onClick={() => void moveRyo("deposit")} disabled={bankBusy}>
+                            {bankBusy ? "Working…" : "Deposit to vault"}
+                        </button>
+                        <button className="facility-secondary-action" onClick={() => void moveRyo("withdraw")} disabled={bankBusy}>
+                            Withdraw to wallet
+                        </button>
+                    </div>
+
+                    <div className="bank-interest-callout" data-ready={canClaimInterest}>
+                        <div className="bank-interest-copy">
+                            <GameIcon name="clock" size={22} />
+                            <div>
+                                <span>Next interest claim</span>
+                                <strong>{interestStatus}</strong>
+                                <small>Projected payout · {projectedInterest.toLocaleString()} ryo</small>
+                            </div>
+                        </div>
+                        <button onClick={claimInterest} disabled={bankBusy || !canClaimInterest}>Collect interest</button>
+                    </div>
+                    <p className="facility-fine-print">Town Hall upgrades add +0.01% interest per level, up to 0.5% daily. Claims refresh every 24 hours.</p>
+                </section>
+
+                <section className="facility-panel bank-wire-panel">
+                    <div className="facility-panel-heading">
+                        <span className="facility-panel-icon"><GameIcon name="scroll" size={24} /></span>
+                        <div>
+                            <p className="facility-eyebrow">Shinobi wire</p>
+                            <h3>Send to a player</h3>
+                        </div>
+                    </div>
+                    <p className="facility-panel-intro">Transfer ryo or rare currency directly. The recipient receives the final amount after a {Math.round(TRADE_TAX_PCT * 100)}% burn tax.</p>
+
+                    <div className="bank-wire-preview">
+                        <span>Available {TRADE_CURRENCY_LABELS[sendCurr]}</span>
+                        <strong>{sendBalance.toLocaleString()}</strong>
+                        {sendAmount > 0 && (
+                            <div>
+                                <span>Recipient gets <b>{previewCredit(sendAmount).toLocaleString()}</b></span>
+                                <span>Tax burned <b>{Math.max(0, Math.floor(sendAmount) - previewCredit(sendAmount)).toLocaleString()}</b></span>
+                            </div>
+                        )}
+                    </div>
+
+                    <label className="facility-field" htmlFor="bank-recipient">
+                        <span>Recipient</span>
+                        <input id="bank-recipient" type="text" value={sendTo} placeholder="Player name" autoComplete="off" onChange={(e) => setSendTo(e.target.value)} />
+                    </label>
+                    <div className="facility-field-row">
+                        <label className="facility-field" htmlFor="bank-currency">
+                            <span>Currency</span>
+                            <select id="bank-currency" value={sendCurr} onChange={(e) => setSendCurr(e.target.value as TradeCurrency)}>
+                                {TRADE_CURRENCIES.map((c) => (
+                                    <option key={c} value={c}>{TRADE_CURRENCY_LABELS[c]}</option>
+                                ))}
+                            </select>
+                        </label>
+                        <label className="facility-field" htmlFor="bank-send-amount">
+                            <span>Amount</span>
+                            <input id="bank-send-amount" type="number" min={0} inputMode="numeric" value={sendAmount} onChange={(e) => setSendAmount(Number(e.target.value))} />
+                        </label>
+                    </div>
+                    <button className="facility-primary-action bank-send-action" onClick={submitTransfer} disabled={sending || !sendTo.trim() || sendAmount <= 0}>
+                        {sending ? "Sending…" : "Review & send"}
+                    </button>
+                    <p className="facility-fine-print">Transfers are permanent. Confirm the recipient name and final amount before sending.</p>
+                </section>
             </div>
         </div>
     );
