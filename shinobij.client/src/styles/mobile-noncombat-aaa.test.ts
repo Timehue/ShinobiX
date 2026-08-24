@@ -35,13 +35,17 @@ test("AAA mobile layer is last and battle-gated at the shell boundary", () => {
     assert.ok(main.includes("mobileProductViewport.addEventListener('change', ensureMobileProductLayer)"), "desktop-to-mobile resize must request the layer");
 });
 
-test("mobile navigation keeps five anchors and a direct destination sheet", () => {
+test("mobile navigation keeps five anchors and a searchable destination sheet", () => {
     const anchorCount = nav.match(/className="mobile-nav-btn(?: menu-btn)?"/g)?.length ?? 0;
     assert.equal(anchorCount, 5, "the persistent bar must keep the five-anchor mobile pattern");
     assert.ok(nav.includes('aria-label="Primary game navigation"'));
-    assert.ok(nav.includes("PLAYER_MENU_GROUPS.map"));
-    assert.ok(!nav.includes('type="search"'));
-    assert.ok(!nav.includes("Find a destination"));
+    assert.ok(nav.includes("PLAYER_MENU_GROUPS"), "destinations must remain catalog-derived");
+    assert.ok(nav.includes("visibleMenuGroups.map"), "the destination catalog must render through its filtered view");
+    assert.ok(nav.includes('type="search"'));
+    assert.ok(nav.includes("Find a destination"));
+    assert.ok(nav.includes("menuSearchRef.current?.focus"), "opening the sheet must focus destination search");
+    assert.ok(css.includes(".mobile-menu-search"), "the search control must retain its mobile treatment");
+    assert.match(css, /mobile-menu-overlay > :where\([^)]+mobile-menu-groups\)[^{]*\{[^}]*flex:\s*0 0 auto;/s);
 });
 
 test("mobile jutsu cards open readable details with the training action inside", () => {
