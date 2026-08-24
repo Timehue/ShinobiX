@@ -14,12 +14,13 @@ export const TOWER_BATTLE_ACTIVE_ERROR = 'Finish or recover your active Battle T
  * than by matchmaking. Keeping them distinct is what stops public presence
  * recovery from surfacing a clan-war fight inside the Battle Towers lobby.
  */
-export type TowerBattleLeaseMode = 'mpvp' | 'clan-war-mpvp' | 'ranked-2v2';
+import type { TowerBattleLeaseMode } from '../shared/tower-pvp';
+export type { TowerBattleLeaseMode };
 
-/** Both sub-modes run the Tower MPvP match store rather than a `tower:<runId>` session. */
-export function isMpvpLeaseMode(mode: TowerBattleLeaseMode | undefined): boolean {
-    return mode === 'mpvp' || mode === 'clan-war-mpvp' || mode === 'ranked-2v2';
-}
+/** Both sub-modes run the Tower MPvP match store rather than a `tower:<runId>` session.
+ *  Re-exported from shared/ (unchanged signature) so the client's boot recovery
+ *  routes on the same predicate this module gates on. */
+export { isMpvpLeaseMode } from '../shared/tower-pvp';
 
 export type TowerBattleLock = {
     battleId: string;

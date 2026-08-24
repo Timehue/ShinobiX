@@ -8,7 +8,8 @@
  * You can also walk to it (or click it) — whoever closes the gap first, the
  * encounter fires.
  *
- * Phase 1 (behind the `wanderers.v1` flag): an "attack" wanderer launches a
+ * Phase 1 (always on — the `wanderers.v1` opt-out was retired): an "attack"
+ * wanderer launches a
  * fight when it reaches you; the others greet with a speech bubble. Renderer +
  * movement only — the actual fight is started by <WorldMap> through the existing
  * arena AI path, so nothing here touches combat, rewards, or saves.

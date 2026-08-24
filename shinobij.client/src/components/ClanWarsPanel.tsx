@@ -26,7 +26,7 @@ const RATION_TONE_COLOR: Record<ClanStoresTone, string | undefined> = {
 // /api/clan/war/list (10s CDN cache) so HP stays in sync.
 // Drained verbatim from App.tsx (2026-06-18) — behaviour unchanged; ClanHall is
 // the sole consumer.
-export function ClanWarsPanel({ character, clanName, provisions, onOpenTreasury, setScreen }: { character: Character; clanName: string; provisions?: number | null; onOpenTreasury?: () => void; setScreen: (s: Screen) => void }) {
+export function ClanWarsPanel({ character, clanName, provisions, storesOpen = true, onOpenTreasury, setScreen }: { character: Character; clanName: string; provisions?: number | null; storesOpen?: boolean; onOpenTreasury?: () => void; setScreen: (s: Screen) => void }) {
     const [wars, setWars] = useState<CwWar[]>([]);
     const [loading, setLoading] = useState(true);
     const [showClanWarManual, setShowClanWarManual] = useState(false);
@@ -55,7 +55,11 @@ export function ClanWarsPanel({ character, clanName, provisions, onOpenTreasury,
     // server owns both the burn and the fed/unfed verdict.
     const ourActiveWars = wars.filter(w => !w.endedAt && w.clans.includes(clanName));
     const unfedWars = ourActiveWars.filter(w => clanWarFedToday(w, clanName, storesNow) === false).length;
-    const rations = clanStoresReadout({ clanName, provisions, activeWars: ourActiveWars.length, unfedWars });
+    // The FED half of the same verdict. Counted separately rather than inferred
+    // from `activeWars - unfedWars`, because a war the pass has not reached yet
+    // today is neither — it is silence.
+    const fedWars = ourActiveWars.filter(w => clanWarFedToday(w, clanName, storesNow) === true).length;
+    const rations = storesOpen ? clanStoresReadout({ clanName, provisions, activeWars: ourActiveWars.length, unfedWars, fedWars }) : null;
     const recentEnded = wars
         .filter(w => w.endedAt && w.clans.includes(clanName))
         .sort((a, b) => (b.endedAt ?? 0) - (a.endedAt ?? 0))

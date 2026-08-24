@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
 import { isVillageWarMapEnabled } from "./village-war-map";
+import { isWanderersEnabled } from "./wanderers";
 import { isLegacyEnabled, isLegacyMutationEnabled } from "./legacy";
 import { liveCapabilitiesStore } from "./live-capabilities";
 import { petAccuracyEnabled, petDuelEngineEnabled, petArenaV2Enabled, petPlayerControlEnabled, petRankedChallengeEnabled, PET_ACCURACY_DEFAULT } from "./pet-coliseum-flag";
@@ -41,6 +42,7 @@ const RETIRED_OPT_OUTS = {
     "sectorPeers.v1": "off",
     "villageWarMap.v1": "0",
     "legacy.v1": "off",
+    "wanderers.v1": "off",
     "petAccuracy.v1": "0",
     "petDuelEngine.v1": "0",
     "petArenaV2.v1": "0",
@@ -50,12 +52,14 @@ const RETIRED_OPT_OUTS = {
 test("gameplay layers are always on in Node (no window / localStorage)", () => {
     assert.equal(isSectorLivePeersEnabled(), true);
     assert.equal(isVillageWarMapEnabled(), true);
+    assert.equal(isWanderersEnabled(), true);
 });
 
 test("gameplay layers ignore every retired per-device opt-out", () => {
     withFakeLocalStorage(RETIRED_OPT_OUTS, () => {
         assert.equal(isSectorLivePeersEnabled(), true, "sectorPeers.v1=off is dead");
         assert.equal(isVillageWarMapEnabled(), true, "villageWarMap.v1=0 is dead");
+        assert.equal(isWanderersEnabled(), true, "wanderers.v1=off is dead — the road is world content, not a per-device layer");
     });
 });
 

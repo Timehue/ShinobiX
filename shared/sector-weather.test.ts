@@ -4,6 +4,7 @@ import {
     WEATHER_DAY_MS,
     WEATHER_ELEMENTS,
     biomeWeatherTables,
+    TERRITORY_BREACH_DURATION_MS,
     resolveSectorWeather,
     scheduledSectorWeather,
     sectorWeatherElements,
@@ -111,5 +112,41 @@ describe('sectorWeatherElements', () => {
         for (const w of Object.keys(WEATHER_ELEMENTS) as SectorWeather[]) {
             assert.deepEqual(sectorWeatherElements(w), WEATHER_ELEMENTS[w]);
         }
+    });
+});
+
+describe('a suspended holding stops supplying weather', () => {
+    // Weather is a COMBAT MODIFIER and the holding clan picks it to favour its
+    // own element, so this is not cosmetic: without the gate, a clan whose
+    // garrison has been breached keeps fighting at home advantage while the
+    // Clan Hall and the sector plate both say "bonuses suspended".
+    const NOW = 1_760_000_000_000;
+    const held = { ownerClan: 'Ashen Vanguard', weather: 'rain' as const };
+    const scheduled = resolveSectorWeather('forest', 12, NOW, null);
+
+    it('an unbreached holding still wins', () => {
+        assert.notEqual(scheduled, 'rain',
+            'the fixture must differ from the stamped sky, or every fallback case below proves nothing');
+        assert.equal(resolveSectorWeather('forest', 12, NOW, held), 'rain');
+    });
+
+    it('falls back to the scheduled sky while breached', () => {
+        const breached = { ...held, breachedAt: NOW - 1_000, hp: 8_000 };
+        assert.equal(resolveSectorWeather('forest', 12, NOW, breached), scheduled);
+    });
+
+    it('a razed holding (hp 0) is suspended even past the breach window', () => {
+        const razed = { ...held, breachedAt: NOW - TERRITORY_BREACH_DURATION_MS - 1, hp: 0 };
+        assert.equal(resolveSectorWeather('forest', 12, NOW, razed), scheduled);
+    });
+
+    it('the sky returns once the breach window closes with hp intact', () => {
+        const healed = { ...held, breachedAt: NOW - TERRITORY_BREACH_DURATION_MS - 1, hp: 12_000 };
+        assert.equal(resolveSectorWeather('forest', 12, NOW, healed), 'rain');
+    });
+
+    it('a dormant clan (rewardSuspendedAt) is suspended too', () => {
+        const dormant = { ...held, rewardSuspendedAt: NOW - 5_000 };
+        assert.equal(resolveSectorWeather('forest', 12, NOW, dormant), scheduled);
     });
 });

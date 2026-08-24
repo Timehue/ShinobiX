@@ -172,3 +172,21 @@ export type TowerPvpSettleResponse<TCombat = unknown> = {
     rewards: { ryo: 0; xp: 0; fateShards: 0; rating: 0 };
     match: TowerPvpMatch<TCombat>;
 };
+
+/**
+ * How a Tower battle lease was minted. The three modes are deliberately
+ * distinct so recovery never adopts a clan-war or ranked match into the co-op
+ * Battle Towers lobby (see api/towers/_battle-lease.ts).
+ *
+ * This lives in shared/ rather than api/ because BOOT RECOVERY is a client
+ * decision: App.tsx has to tell "resume the co-op climb" from "resume a 2v2",
+ * and when it could only spell the literal 'mpvp' the other two modes fell
+ * through to the Towers lobby with a PvP match id in the co-op run key.
+ */
+export type TowerBattleLeaseMode = 'mpvp' | 'clan-war-mpvp' | 'ranked-2v2';
+
+/** True for every mode that runs the Tower MPvP match store rather than a
+ *  `tower:<runId>` co-op session. */
+export function isMpvpLeaseMode(mode: unknown): boolean {
+    return mode === 'mpvp' || mode === 'clan-war-mpvp' || mode === 'ranked-2v2';
+}

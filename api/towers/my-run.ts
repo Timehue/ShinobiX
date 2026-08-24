@@ -63,7 +63,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({
                 runId: null,
                 pvpMatchId: battleLease!.battleId,
-                pvpMatchKind: battleLease!.meta.mode === 'clan-war-mpvp' ? 'clan-war' : 'public-queue',
+                // One kind per lease mode. Ranked used to fold into
+                // 'public-queue', which would have recovered a ranked match into
+                // the open Team Arena tab. NOTE: nothing consumes this field
+                // yet — it is produced for the client shell that will read it,
+                // so keep it accurate rather than let a wrong value be inherited.
+                pvpMatchKind: battleLease!.meta.mode === 'clan-war-mpvp' ? 'clan-war'
+                    : battleLease!.meta.mode === 'ranked-2v2' ? 'ranked-2v2'
+                        : 'public-queue',
             });
         }
 

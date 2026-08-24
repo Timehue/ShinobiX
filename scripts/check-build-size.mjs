@@ -372,11 +372,14 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // 378.0 KB gzip. Exact CI-equivalent product graph is 7,723,354 B, leaving
 // ~27 KB under the product ceiling.
 //
-// 2026-08-24 MERGE: both sides moved this gate, and both histories are
-// kept above. The merged bundle contains main's UI overhaul AND this
-// branch's work, so NEITHER side's number describes it — the value below
-// was re-measured from the merged build, not carried over from either.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_840_000;
+// 2026-08-24 MERGE: 7,855,000 -> 7,830,000 B. Both sides moved this gate and
+// both histories are kept above; the merged bundle carries main's UI overhaul
+// AND this branch's work, so neither parent's number described it (main's
+// 7,750,000 is below what the combined tree actually weighs). A CI-equivalent
+// build measures 7,814,174 B of budgeted product JS/CSS, so this keeps
+// 15,826 B of variance — tighter than the branch parent, and the first value
+// here backed by a figure rather than an assertion that one was taken.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_830_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
@@ -466,11 +469,15 @@ const INITIAL_GRAPH_FAIL_BYTES = 1_500_000;
 // initial files, so this restores 1,824 B of explicit variance without moving
 // the independent 1.50 MB raw, 640 KB entry, per-chunk, or async-product gates.
 //
-// 2026-08-24 MERGE: both sides moved this gate, and both histories are
-// kept above. The merged bundle contains main's UI overhaul AND this
-// branch's work, so NEITHER side's number describes it — the value below
-// was re-measured from the merged build, not carried over from either.
-const INITIAL_GRAPH_GZIP_FAIL_BYTES = 387_000;
+// 2026-08-24 MERGE: 389,000 -> 385,000 B. Both sides moved this gate and both
+// histories are kept above; the merged bundle carries main's UI overhaul AND
+// this branch's work, so neither parent's number described it. A CI-equivalent
+// build (same DSN/release env as .github/workflows/ci.yml) measures
+// 381,979 B gzip across the nine initial files — LOWER than main's own 387,176,
+// because this branch drained the Hollow Gate cluster off the entry graph by
+// more than the mobile media-query loader added. 385,000 keeps 3,021 B of
+// variance and is tighter than BOTH parents (387,000 / 389,000).
+const INITIAL_GRAPH_GZIP_FAIL_BYTES = 385_000;
 const SENTRY_VENDOR_FAIL_BYTES = 100_000;
 const SENTRY_VENDOR_RE = /^assets\/sentry-vendor-[^/]+\.js$/;
 // Three.js, React Three Fiber, Drei, and postprocessing are intentionally one
@@ -598,7 +605,7 @@ try {
     const entryRef = moduleEntryReference(html);
     const entryFile = initialFiles.find((file) => file.rel === entryRef);
 
-    console.log(`[sizecheck] Initial JS/CSS graph: ${fmt(initialRaw)} raw / ${fmt(initialGzip)} gzip across ${initialFiles.length} files.`);
+    console.log(`[sizecheck] Initial JS/CSS graph: ${fmt(initialRaw)} (${initialRaw.toLocaleString("en-US")} B) raw / ${fmt(initialGzip)} (${initialGzip.toLocaleString("en-US")} B) gzip across ${initialFiles.length} files.`);
     if (initialRefs.some((rel) => SENTRY_VENDOR_RE.test(rel))) {
         failures.push('lazy Sentry vendor is referenced by index.html and would delay healthy-player startup');
     }

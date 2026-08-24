@@ -9,7 +9,7 @@
  * attempts left), so its mere presence IS the "the boss is here" signal.
  *
  * Forked from SectorWanderer (rather than reused) so the live wanderer system
- * (wanderers.v1, default ON) is untouched, and so the boss can loom larger and
+ * (always on) is untouched, and so the boss can loom larger and
  * wear its own portrait. Renderer/movement only — the fight is launched by
  * <WorldMap> through launchWeeklyBossFight, so nothing here touches combat.
  */

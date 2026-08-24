@@ -3,8 +3,10 @@
 // collection math is unit-testable without storage — same pattern as
 // api/_treasury-donate.ts and the _*-validate cores.
 //
-// Mirrors the client's produceSectorWarSupply (shinobij.client/src/App.tsx):
-// an owned territory accrues TERRITORY_DAILY_WAR_SUPPLY per whole
+// This is now the ONLY producer: the client's produceSectorWarSupply (which
+// lived in shinobij.client/src/lib/world-state.ts, not App.tsx) was removed
+// when accrual became server-authoritative.
+// An owned territory accrues TERRITORY_DAILY_WAR_SUPPLY per whole
 // TERRITORY_SUPPLY_INTERVAL_MS elapsed since `lastSupplyAt`. Collecting yields
 // the already-stored supply PLUS the newly-accrued amount, then zeroes the
 // territory and advances `lastSupplyAt` by the consumed whole cycles (the
