@@ -176,6 +176,10 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
         const dialog = page.getByRole("dialog", { name });
         await expect(dialog).toBeVisible();
         if (name === "Awakening Stone") {
+            const rerollButtons = dialog.locator(".awakening-roll-row .awakening-paid-btn");
+            await expect(rerollButtons).toHaveCount(2);
+            await expect(dialog.getByRole("button", { name: /^Reroll Element 1 element/ })).toBeVisible();
+            await expect(dialog.getByRole("button", { name: /^Reroll Elements Both elements/ })).toBeVisible();
             await capture(page, testInfo, "awakening-stone-premium-desktop");
             const forge = dialog.getByRole("heading", { name: /Bloodline Forge/i });
             await forge.scrollIntoViewIfNeeded();
@@ -223,6 +227,16 @@ test("Central premium destinations stay within the mobile viewport", async ({ pa
         await expectNoHorizontalOverflow();
         await capture(page, testInfo, `${name.toLowerCase().replaceAll(" ", "-")}-mobile`);
         if (name === "Awakening Stone") {
+            const rerollButtons = dialog.locator(".awakening-roll-row .awakening-paid-btn");
+            await expect(rerollButtons).toHaveCount(2);
+            const rerollMetrics = await rerollButtons.evaluateAll((buttons) => buttons.map((button) => {
+                const rect = button.getBoundingClientRect();
+                return { width: rect.width, height: rect.height, left: rect.left, right: rect.right };
+            }));
+            const viewportWidth = page.viewportSize()?.width ?? 390;
+            expect(rerollMetrics.every((button) => button.width >= 250)).toBe(true);
+            expect(rerollMetrics.every((button) => button.height >= 60)).toBe(true);
+            expect(rerollMetrics.every((button) => button.left >= 0 && button.right <= viewportWidth)).toBe(true);
             const forge = dialog.getByRole("heading", { name: /Bloodline Forge/i });
             await forge.scrollIntoViewIfNeeded();
             await expect(forge).toBeVisible();

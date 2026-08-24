@@ -2435,6 +2435,17 @@
 .ui-modal-card.central-dialog-shell--awakening .awakening-paid-btn:hover:not(:disabled)::after { transform: translateX(120%); }
 .ui-modal-card.central-dialog-shell--awakening .awakening-free-btn:disabled,
 .ui-modal-card.central-dialog-shell--awakening .awakening-paid-btn:disabled { opacity: 0.56; }
+.ui-modal-card.central-dialog-shell--awakening .awakening-paid-btn--both {
+    border-color: rgba(244, 213, 137, 0.62);
+    background:
+        linear-gradient(100deg, rgba(245, 211, 128, 0.13), transparent 42%, rgba(142, 112, 207, 0.09)),
+        linear-gradient(180deg, rgba(111, 74, 25, 0.99), rgba(47, 29, 10, 0.99));
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.14), inset 0 -1px rgba(0, 0, 0, 0.38), 0 10px 24px rgba(0, 0, 0, 0.34), 0 0 18px rgba(224, 190, 110, 0.055);
+}
+.ui-modal-card.central-dialog-shell--awakening .awakening-paid-btn--both .awakening-action-seal {
+    border-color: rgba(247, 220, 151, 0.48);
+    box-shadow: inset 0 0 0 4px rgba(244, 216, 147, 0.045), 0 0 15px rgba(229, 197, 119, 0.08);
+}
 .ui-modal-card.central-dialog-shell--awakening .awakening-action-seal { display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid rgba(244, 216, 147, 0.32); border-radius: 50%; background: rgba(3, 8, 16, 0.43); box-shadow: inset 0 0 0 4px rgba(244, 216, 147, 0.035); font-size: 18px; }
 .ui-modal-card.central-dialog-shell--awakening .awakening-action-copy { display: grid; gap: 4px; min-width: 0; }
 .ui-modal-card.central-dialog-shell--awakening .awakening-action-copy strong { color: #f6e9c0; font: 760 12px/1.15 Inter, sans-serif; letter-spacing: 0.015em; }
@@ -2611,6 +2622,8 @@
     .awakening-command-header { background-position: 58% center; }
     .ui-modal-card.central-dialog-shell--awakening .awakening-element-display { margin: 10px 10px 0; }
     .ui-modal-card.central-dialog-shell--awakening .awakening-msg { margin: 10px 10px 0; }
+    .ui-modal-card.central-dialog-shell--awakening .awakening-roll-row { display: grid; grid-template-columns: 1fr; }
+    .ui-modal-card.central-dialog-shell--awakening .awakening-paid-btn { width: 100%; min-width: 0; }
     .app-shell[data-screen="shinobiCouncil"] .council-kage-row { display: grid; grid-template-columns: 48px minmax(0, 1fr); }
     .app-shell[data-screen="shinobiCouncil"] .council-kage-tenure { grid-column: 2; }
 }

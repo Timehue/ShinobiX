@@ -138,6 +138,8 @@ export const AURA_SPHERE_VN_ID = "builtin-aura-sphere-lv9";
 export const AURA_SPHERE_ITEM_ID = "aura-sphere";
 export const AWAKENING_FREE_LV2_ID = "awakening-free-lv2";
 export const AWAKENING_FREE_LV20_ID = "awakening-free-lv20";
+export const AWAKENING_PAID_SINGLE_ID = "paid-single";
+export const AWAKENING_PAID_BOTH_ID = "paid-both";
 export const DUNGEON_VN_ID = "builtin-hidden-dungeon";
 export const AWAKENING_ELEMENTS = ["Water", "Wind", "Earth", "Lightning", "Fire"] as const;
 
