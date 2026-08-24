@@ -153,7 +153,7 @@ function NamedForgeRollCinematic({
             aria-live="polite"
             aria-atomic="true"
         >
-            <div className="nf-relic" aria-hidden="true"><span><Icon /></span><i><GiBlacksmith /></i></div>
+            <div className="nf-relic" aria-hidden="true"><span><Icon /></span></div>
 
             <div className="nf-copy">
                 <span>
@@ -1187,93 +1187,93 @@ export function CentralHub({
             })()}
 
             {showAwakening && (
-                <Modal open={showAwakening} onClose={() => setShowAwakening(false)} bare ariaLabel="Awakening Stone" size="lg" className="central-dialog-shell central-dialog-shell--awakening">
-                    <div className="awakening-panel awakening-command-panel">
-                        <header className="awakening-command-header">
-                            <button type="button" className="awakening-command-close" onClick={() => setShowAwakening(false)} aria-label="Return to Central">← <span>Central</span></button>
-                            <div className="awakening-command-title">
+                <Modal open={showAwakening} onClose={() => setShowAwakening(false)} bare ariaLabel="Awakening Stone" size="lg" className="central-dialog-shell dlg-aw">
+                    <div className="aw-panel aw-command-panel">
+                        <header className="aw-command-header">
+                            <button type="button" className="aw-command-close" onClick={() => setShowAwakening(false)} aria-label="Return to Central">← <span>Central</span></button>
+                            <div className="aw-command-title">
                                 <span><GiCrystalBall /> Legacy district · elemental sanctum</span>
                                 <h2>Awakening Stone</h2>
                                 <p>Reveal your chakra nature, inventory ancient materials, and forge a bloodline worthy of the Thousand Gates.</p>
                             </div>
-                            <div className="awakening-command-seal" aria-hidden="true"><GiCrystalBall /></div>
+                            <div className="aw-command-seal" aria-hidden="true"><GiCrystalBall /></div>
                         </header>
 
                         {/* Current element status */}
-                        <div className="awakening-element-display">
+                        <div className="aw-element-display">
                             {(() => {
                                 const ownedElements = getCharacterElements(character);
                                 return ownedElements.length ? (
                                     <>
-                                        <div className="awakening-element-badges">
+                                        <div className="aw-element-badges">
                                             {ownedElements.map((element) => (
-                                                <span key={element} className={`awakening-element-badge element-${element.toLowerCase()}`}>
+                                                <span key={element} className={`aw-element-badge element-${element.toLowerCase()}`}>
                                                     <ElementSigil element={element} size={28} />
                                                     <span>{element}</span>
                                                 </span>
                                             ))}
                                         </div>
-                                        <p className="awakening-element-desc">Your chakra resonates with <strong>{ownedElements.join(" / ")}</strong> energy. You can train jutsu that match these elements.</p>
+                                        <p className="aw-element-desc">Your chakra resonates with <strong>{ownedElements.join(" / ")}</strong> energy. You can train jutsu that match these elements.</p>
                                     </>
                                 ) : (
-                                    <p className="awakening-element-desc awakening-unawakened">Your element has not yet been awakened. Use the stone to reveal your nature.</p>
+                                    <p className="aw-element-desc aw-unawakened">Your element has not yet been awakened. Use the stone to reveal your nature.</p>
                                 );
                             })()}
                         </div>
 
                         {awakeningMsg && (
-                            <div className={`awakening-msg ${awakeningMsg.startsWith("❌") ? "awakening-msg-error" : "awakening-msg-success"}`}>
+                            <div className={`aw-msg ${awakeningMsg.startsWith("❌") ? "aw-msg-error" : "aw-msg-success"}`}>
                                 {awakeningMsg}
                             </div>
                         )}
 
-                        <div className="awakening-command-grid">
+                        <div className="aw-command-grid">
                         {/* Element roll section */}
-                        <div className="awakening-section awakening-section--element">
-                            <h3><span className="awakening-section-icon"><GiSparkles /></span><span>Elemental Awakening<small>Chakra attunement</small></span></h3>
-                            <p className="awakening-hint">The stone reveals one of five chakra natures.</p>
-                            <div className="awakening-element-key" aria-label="Possible chakra natures">
+                        <div className="aw-section aw-section--element">
+                            <h3><span className="aw-section-icon"><GiSparkles /></span><span>Elemental Awakening<small>Chakra attunement</small></span></h3>
+                            <p className="aw-hint">The stone reveals one of five chakra natures.</p>
+                            <div className="aw-element-key" aria-label="Possible chakra natures">
                                 {AWAKENING_ELEMENTS.map((element) => (
                                     <span key={element}><ElementSigil element={element} size={20} /><span>{element}</span></span>
                                 ))}
                             </div>
-                            <div className="awakening-roll-row">
+                            <div className="aw-roll-row">
                                 {hasFreeRoll ? (
-                                    <button className="awakening-free-btn" onClick={awakeningFreeRoll} disabled={awakeningBusy}>
-                                        <span className="awakening-action-seal"><GiSparkles /></span>
-                                        <span className="awakening-action-copy">
+                                    <button className="aw-free-btn" onClick={awakeningFreeRoll} disabled={awakeningBusy}>
+                                        <span className="aw-action-seal"><GiSparkles /></span>
+                                        <span className="aw-action-copy">
                                             <strong>{awakeningBusy ? "Awakening..." : "Awaken Element"}</strong>
                                             <small>{freeAwakeningKind === AWAKENING_FREE_LV20_ID ? "Level 20 reward · No cost" : "Level 2 reward · No cost"}</small>
                                         </span>
-                                        <span className="awakening-action-arrow" aria-hidden="true">→</span>
+                                        <span className="aw-action-arrow" aria-hidden="true">→</span>
                                     </button>
                                 ) : (
                                     <>
                                         <button
-                                            className="awakening-paid-btn"
+                                            className="aw-paid-btn"
                                             onClick={awakeningPaidRoll}
                                             disabled={character.fateShards < 10 || awakeningBusy}
                                             title={character.fateShards < 10 ? "Not enough Fate Shards" : "Reroll your primary element and preserve the other"}
                                         >
-                                            <span className="awakening-action-seal"><GameIcon name="dice" size={20} /></span>
-                                            <span className="awakening-action-copy">
+                                            <span className="aw-action-seal"><GameIcon name="dice" size={20} /></span>
+                                            <span className="aw-action-copy">
                                                 <strong>{awakeningBusy ? "Attuning..." : "Reroll Element"}</strong>
                                                 <small>1 element · 10 Fate Shards · {character.fateShards} available</small>
                                             </span>
-                                            <span className="awakening-action-arrow" aria-hidden="true">→</span>
+                                            <span className="aw-action-arrow" aria-hidden="true">→</span>
                                         </button>
                                         <button
-                                            className="awakening-paid-btn awakening-paid-btn--both"
+                                            className="aw-paid-btn aw-paid-btn--both"
                                             onClick={awakeningPaidBothRoll}
                                             disabled={awakenedElements.length < 2 || character.fateShards < 15 || awakeningBusy}
                                             title={awakenedElements.length < 2 ? "Awaken your second element first" : character.fateShards < 15 ? "Not enough Fate Shards" : "Reroll both elements"}
                                         >
-                                            <span className="awakening-action-seal"><GameIcon name="dice" size={20} /></span>
-                                            <span className="awakening-action-copy">
+                                            <span className="aw-action-seal"><GameIcon name="dice" size={20} /></span>
+                                            <span className="aw-action-copy">
                                                 <strong>{awakeningBusy ? "Attuning..." : "Reroll Elements"}</strong>
                                                 <small>Both elements · 15 Fate Shards · {character.fateShards} available</small>
                                             </span>
-                                            <span className="awakening-action-arrow" aria-hidden="true">→</span>
+                                            <span className="aw-action-arrow" aria-hidden="true">→</span>
                                         </button>
                                     </>
                                 )}
@@ -1281,77 +1281,77 @@ export function CentralHub({
                         </div>
 
                         {/* Material balances */}
-                        <div className="awakening-section awakening-section--materials">
-                            <h3><span className="awakening-section-icon"><GiStoneStack /></span><span>Ancient Materials<small>Inventory reserve</small></span></h3>
-                            <div className="awakening-materials">
-                                <div className="awakening-material-row">
-                                    <span className="awakening-material-icon"><ShinobiCurrencyIcon name="bone" size={27} /></span>
-                                    <span className="awakening-material-name">Bone Charms</span>
-                                    <span className="awakening-material-count">{character.boneCharms ?? 0}</span>
+                        <div className="aw-section aw-section--materials">
+                            <h3><span className="aw-section-icon"><GiStoneStack /></span><span>Ancient Materials<small>Inventory reserve</small></span></h3>
+                            <div className="aw-materials">
+                                <div className="aw-material-row">
+                                    <span className="aw-material-icon"><ShinobiCurrencyIcon name="bone" size={27} /></span>
+                                    <span className="aw-material-name">Bone Charms</span>
+                                    <span className="aw-material-count">{character.boneCharms ?? 0}</span>
                                 </div>
-                                <div className="awakening-material-row">
-                                    <span className="awakening-material-icon"><ShinobiCurrencyIcon name="crystal" size={27} /></span>
-                                    <span className="awakening-material-name">Aura Stones</span>
-                                    <span className="awakening-material-count">{character.auraStones ?? 0}</span>
+                                <div className="aw-material-row">
+                                    <span className="aw-material-icon"><ShinobiCurrencyIcon name="crystal" size={27} /></span>
+                                    <span className="aw-material-name">Aura Stones</span>
+                                    <span className="aw-material-count">{character.auraStones ?? 0}</span>
                                 </div>
-                                <div className="awakening-material-row">
-                                    <span className="awakening-material-icon"><ShinobiCurrencyIcon name="sigil" size={27} /></span>
-                                    <span className="awakening-material-name">Mythic Seals</span>
-                                    <span className="awakening-material-count">{character.mythicSeals ?? 0}</span>
+                                <div className="aw-material-row">
+                                    <span className="aw-material-icon"><ShinobiCurrencyIcon name="sigil" size={27} /></span>
+                                    <span className="aw-material-name">Mythic Seals</span>
+                                    <span className="aw-material-count">{character.mythicSeals ?? 0}</span>
                                 </div>
                             </div>
                         </div>
 
                         {/* Bloodline forge section */}
-                        <div className="awakening-section awakening-section--forge">
-                            <h3><span className="awakening-section-icon"><GiFlame /></span><span>Bloodline Forge<small>Legacy infusion</small></span></h3>
-                            <p className="awakening-hint">Channel ancient materials through the stone to forge a new bloodline. The bloodline will carry your element and await further techniques.</p>
-                            <div className="awakening-forge-grid">
-                                <div className="awakening-forge-card rank-b">
-                                    <div className="awakening-forge-card-header">
-                                        <span className="awakening-forge-tier">B</span>
-                                        <div><small>Bloodline grade</small><div className="awakening-forge-rank">B Rank</div></div>
+                        <div className="aw-section aw-section--forge">
+                            <h3><span className="aw-section-icon"><GiFlame /></span><span>Bloodline Forge<small>Legacy infusion</small></span></h3>
+                            <p className="aw-hint">Channel ancient materials through the stone to forge a new bloodline. The bloodline will carry your element and await further techniques.</p>
+                            <div className="aw-forge-grid">
+                                <div className="aw-forge-card rank-b">
+                                    <div className="aw-forge-card-header">
+                                        <span className="aw-forge-tier">B</span>
+                                        <div><small>Bloodline grade</small><div className="aw-forge-rank">B Rank</div></div>
                                     </div>
-                                    <div className="awakening-forge-material">
+                                    <div className="aw-forge-material">
                                         <ShinobiCurrencyIcon name="bone" size={29} />
                                         <div><strong>100 Bone Charms</strong><small>{character.boneCharms ?? 0} held in inventory</small></div>
                                     </div>
                                     <button
-                                        className="awakening-forge-btn"
+                                        className="aw-forge-btn"
                                         onClick={() => awakeningCreateBloodline("B Rank", "boneCharms", 100)}
                                         disabled={(character.boneCharms ?? 0) < 100 || bloodlineForgeBusy}
                                     >
                                         <span>Forge Bloodline</span><small>B Rank ritual</small><b aria-hidden="true">→</b>
                                     </button>
                                 </div>
-                                <div className="awakening-forge-card rank-a">
-                                    <div className="awakening-forge-card-header">
-                                        <span className="awakening-forge-tier">A</span>
-                                        <div><small>Bloodline grade</small><div className="awakening-forge-rank">A Rank</div></div>
+                                <div className="aw-forge-card rank-a">
+                                    <div className="aw-forge-card-header">
+                                        <span className="aw-forge-tier">A</span>
+                                        <div><small>Bloodline grade</small><div className="aw-forge-rank">A Rank</div></div>
                                     </div>
-                                    <div className="awakening-forge-material">
+                                    <div className="aw-forge-material">
                                         <ShinobiCurrencyIcon name="crystal" size={29} />
                                         <div><strong>100 Aura Stones</strong><small>{character.auraStones ?? 0} held in inventory</small></div>
                                     </div>
                                     <button
-                                        className="awakening-forge-btn"
+                                        className="aw-forge-btn"
                                         onClick={() => awakeningCreateBloodline("A Rank", "auraStones", 100)}
                                         disabled={(character.auraStones ?? 0) < 100 || bloodlineForgeBusy}
                                     >
                                         <span>Forge Bloodline</span><small>A Rank ritual</small><b aria-hidden="true">→</b>
                                     </button>
                                 </div>
-                                <div className="awakening-forge-card rank-s">
-                                    <div className="awakening-forge-card-header">
-                                        <span className="awakening-forge-tier">S</span>
-                                        <div><small>Bloodline grade</small><div className="awakening-forge-rank">S Rank</div></div>
+                                <div className="aw-forge-card rank-s">
+                                    <div className="aw-forge-card-header">
+                                        <span className="aw-forge-tier">S</span>
+                                        <div><small>Bloodline grade</small><div className="aw-forge-rank">S Rank</div></div>
                                     </div>
-                                    <div className="awakening-forge-material">
+                                    <div className="aw-forge-material">
                                         <ShinobiCurrencyIcon name="sigil" size={29} />
                                         <div><strong>100 Mythic Seals</strong><small>{character.mythicSeals ?? 0} held in inventory</small></div>
                                     </div>
                                     <button
-                                        className="awakening-forge-btn"
+                                        className="aw-forge-btn"
                                         onClick={() => awakeningCreateBloodline("S Rank", "mythicSeals", 100)}
                                         disabled={(character.mythicSeals ?? 0) < 100 || bloodlineForgeBusy}
                                     >
@@ -1461,22 +1461,22 @@ export function CentralHub({
                 // material gets a fantasy glyph + tier colour so the list reads like
                 // a forge ledger rather than a wall of text.
                 const materialsPanel = (
-                    <details className="crafter-materials">
-                        <summary className="crafter-materials-summary">
-                            <span className="crafter-mat-sum"><GiStoneStack /> <strong>Your Materials</strong> · <span className="crafter-mat-total">{totalPts} craft pts</span></span>
-                            <span className="crafter-mat-toggle" />
+                    <details className="cf-mats">
+                        <summary className="cf-mats-head">
+                            <span className="cf-mat-sum"><GiStoneStack /> <strong>Your Materials</strong> · <span className="cf-mat-total">{totalPts} craft pts</span></span>
+                            <span className="cf-mat-toggle" />
                         </summary>
-                        <div className="crafter-material-grid">
+                        <div className="cf-mat-grid">
                             {Object.entries(CRAFT_MATERIAL_NAMES).map(([id, label]) => {
                                 const count = countItem(character, id);
                                 const pts = CRAFT_POINTS[id] ?? 0;
                                 const Icon = MATERIAL_ICON[id] ?? GiStoneStack;
                                 return (
-                                    <div key={id} className="crafter-mat-chip" data-tier={craftTier(pts)} data-empty={count === 0 ? "1" : undefined}>
-                                        <span className="crafter-mat-ico"><Icon size={20} /></span>
-                                        <span className="crafter-mat-info">
-                                            <span className="crafter-mat-name">{label}</span>
-                                            <span className="crafter-mat-meta"><b>{count}×</b> · {pts} pts</span>
+                                    <div key={id} className="cf-mat" data-tier={craftTier(pts)} data-empty={count === 0 ? "1" : undefined}>
+                                        <span className="cf-mat-icon"><Icon size={20} /></span>
+                                        <span className="cf-mat-info">
+                                            <span className="cf-mat-name">{label}</span>
+                                            <span className="cf-mat-meta"><b>{count}×</b> · {pts} pts</span>
                                         </span>
                                     </div>
                                 );
@@ -1487,25 +1487,25 @@ export function CentralHub({
 
                 return (
                     <Modal open={showCrafter} onClose={() => setShowCrafter(false)} bare ariaLabel="Crafter" size="lg" className="central-dialog-shell central-dialog-shell--crafter">
-                        <div className="crafter-panel">
+                        <div className="cf-panel">
                             <div className="archives-header">
                                 <h2><GiBlacksmith style={HDR_ICON} />Crafter</h2>
                                 <button className="danger-button" onClick={() => setShowCrafter(false)}>✕ Close</button>
                             </div>
-                            <p className="crafter-subtitle">Convert hunting, boss, dungeon, and war materials into supplies, weapons, or armor.</p>
-                            <div className="crafter-tabs">
+                            <p className="cf-sub">Convert hunting, boss, dungeon, and war materials into supplies, weapons, or armor.</p>
+                            <div className="cf-tabs">
                                 <button disabled={namedForgeAnimation !== null} className={crafterTab === "supplies" ? "active" : ""} onClick={() => setCrafterTab("supplies")}><GiSwapBag />Supplies</button>
                                 <button disabled={namedForgeAnimation !== null} className={crafterTab === "weapons" ? "active" : ""} onClick={() => setCrafterTab("weapons")}><GiCrossedSwords />Weapons</button>
                                 <button disabled={namedForgeAnimation !== null} className={crafterTab === "armor" ? "active" : ""} onClick={() => setCrafterTab("armor")}><GiBreastplate />Armor</button>
                             </div>
 
-                            <div className="crafter-body">
+                            <div className="cf-body">
                             {crafterTab === "supplies" && <>{materialsPanel}
 
                             {/* ── Special forges: Hollow Gate Key + Dungeon Legendary Relic ──
                                 Rendered side-by-side in one compact 2-col grid (crafter-special-*)
                                 to save vertical space. Each card keeps its own forge logic. */}
-                            <div className="crafter-recipe-grid crafter-special-grid" style={{ marginBottom: 12 }}>
+                            <div className="cf-grid cf-special-grid" style={{ marginBottom: 12 }}>
                             {(() => {
                                 const dungeonKeyCount = countItem(character, DUNGEON_KEY_ID);
                                 const fateShardCount = character.fateShards ?? 0;
@@ -1537,7 +1537,7 @@ export function CentralHub({
 
                                 const ownedKeys = countItem(character, HOLLOW_GATE_KEY_ID);
                                 return (
-                                    <div className="crafter-recipe-btn crafter-special-card" style={{ borderColor: "var(--purple-500)", boxShadow: "0 0 10px rgba(168,85,247,0.22)" }}>
+                                    <div className="cf-card cf-special" style={{ borderColor: "var(--purple-500)", boxShadow: "0 0 10px rgba(168,85,247,0.22)" }}>
                                         <strong><GiTempleGate style={COST_ICON} />Hollow Gate Key</strong>
                                         <small>Shrine pass. Bypasses village unlock + 2/day cap.</small>
                                         <small>You own: <strong>{ownedKeys}</strong></small>
@@ -1574,7 +1574,7 @@ export function CentralHub({
                                 }
 
                                 return (
-                                    <div className="crafter-recipe-btn crafter-special-card" style={{ borderColor: "var(--gold)", boxShadow: "0 0 10px rgba(250,204,21,0.22)" }}>
+                                    <div className="cf-card cf-special" style={{ borderColor: "var(--gold)", boxShadow: "0 0 10px rgba(250,204,21,0.22)" }}>
                                         <strong><GameIcon name="shard" size={14} style={COST_ICON} />Dungeon Legendary Relic</strong>
                                         <small>Combine Hollow Hound Alpha fragments into a legendary relic.</small>
                                         <small>Fragments: <strong>{fragmentCount}</strong> · Relics: <strong>{relicCount}</strong></small>
@@ -1617,7 +1617,7 @@ export function CentralHub({
                                     }
                                 }
                                 return (
-                                    <div className="crafter-recipe-btn crafter-special-card" style={{ borderColor: "#22d3ee", boxShadow: "0 0 10px rgba(34,211,238,0.22)" }}>
+                                    <div className="cf-card cf-special" style={{ borderColor: "#22d3ee", boxShadow: "0 0 10px rgba(34,211,238,0.22)" }}>
                                         <strong><GameIcon name="shard" size={14} style={COST_ICON} />Elemental Core</strong>
                                         <small>Fuse Hollow Gate elemental shards into a core that attunes a legendary or mythic weapon to one of your awakened elements.</small>
                                         <small>Shards: <strong>{shardCount}</strong> · Cores: <strong>{coreCount}</strong></small>
@@ -1633,13 +1633,13 @@ export function CentralHub({
                             })()}
                             </div>
 
-                            <div className="crafter-batch-row" style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 10px", flexWrap: "wrap" }}>
+                            <div className="cf-batch" style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 10px", flexWrap: "wrap" }}>
                                 <strong>Batch:</strong>
                                 {[1, 5, 20].map((q) => (
                                     <button
                                         key={q}
                                         type="button"
-                                        className={`crafter-batch-size ${craftQty === q ? "active" : ""}`}
+                                        className={`cf-qty ${craftQty === q ? "active" : ""}`}
                                         onClick={() => setCraftQty(q)}
                                     >
                                         ×{q}
@@ -1648,7 +1648,7 @@ export function CentralHub({
                                 <small style={{ color: "#9aa0aa" }}>Cost scales with quantity. Capped supplies stop at their carry limit.</small>
                             </div>
 
-                            <div className="crafter-recipe-grid">
+                            <div className="cf-grid">
                                 {recipes.map((recipe) => {
                                     const batchCost = recipe.cost * craftQty;
                                     const fillPct = Math.min(100, Math.floor((totalPts / batchCost) * 100));
@@ -1661,14 +1661,14 @@ export function CentralHub({
                                     const canAffordOne = totalPts >= recipe.cost;
                                     const img = itemImage(recipe.itemId);
                                     return (
-                                        <div key={recipe.name} className="crafter-recipe-btn">
-                                            <div className="crafter-card-top">
-                                                <div className="crafter-card-thumb">
+                                        <div key={recipe.name} className="cf-card">
+                                            <div className="cf-card-top">
+                                                <div className="cf-thumb">
                                                     {img
                                                         ? <img src={img} alt={recipe.name} loading="lazy" />
-                                                        : <span className="crafter-card-thumb-ico">{supplyGlyph(recipe.name)}</span>}
+                                                        : <span className="cf-thumb-icon">{supplyGlyph(recipe.name)}</span>}
                                                 </div>
-                                                <div className="crafter-card-head">
+                                                <div className="cf-card-head">
                                                     <strong>{recipe.name}</strong>
                                                     <small>{recipe.desc}</small>
                                                     {cap != null && (
@@ -1676,10 +1676,10 @@ export function CentralHub({
                                                     )}
                                                 </div>
                                             </div>
-                                            <div className="crafter-progress-bar">
-                                                <div className="crafter-progress-fill" style={{ width: `${fillPct}%` }} />
+                                            <div className="cf-meter">
+                                                <div className="cf-meter-fill" style={{ width: `${fillPct}%` }} />
                                             </div>
-                                            <small className="crafter-pts-label">{Math.min(totalPts, batchCost)}/{batchCost} pts</small>
+                                            <small className="cf-points">{Math.min(totalPts, batchCost)}/{batchCost} pts</small>
                                             <button onClick={() => craftRecipe(recipe, craftQty)} disabled={!canAffordOne || atCap}>
                                                 {atCap ? "At carry limit" : `Craft ×${craftQty}`}
                                             </button>
@@ -1720,7 +1720,7 @@ export function CentralHub({
                                     </div>
                                 </Modal>
                             )}
-                            <div className="crafter-recipe-grid">
+                            <div className="cf-grid">
                                 {craftableWeapons.map((item) => {
                                     const costPts = weaponCraftPoints(item);
                                     const ryo = craftRyoForRarity(item.rarity);
@@ -1728,26 +1728,26 @@ export function CentralHub({
                                     const fillPct = Math.min(100, Math.floor((totalPts / costPts) * 100));
                                     const img = itemImage(item.id);
                                     return (
-                                        <div key={item.id} className="crafter-recipe-btn" data-rarity={item.rarity}>
-                                            <div className="crafter-card-top">
-                                                <div className="crafter-card-thumb" data-rarity={item.rarity}>
+                                        <div key={item.id} className="cf-card" data-rarity={item.rarity}>
+                                            <div className="cf-card-top">
+                                                <div className="cf-thumb" data-rarity={item.rarity}>
                                                     {img
                                                         ? <img src={img} alt={item.name} loading="lazy" />
-                                                        : <span className="crafter-card-thumb-ico"><GiCrossedSwords /></span>}
+                                                        : <span className="cf-thumb-icon"><GiCrossedSwords /></span>}
                                                 </div>
-                                                <div className="crafter-card-head">
-                                                    <div className="crafter-recipe-btn-header">
+                                                <div className="cf-card-head">
+                                                    <div className="cf-card-title">
                                                         <strong>{item.name}</strong>
                                                         <button className="weapon-info-btn" onClick={() => setWeaponInfoItem(item)} title="View weapon info">ℹ️</button>
                                                     </div>
                                                     <small>{item.rarity.toUpperCase()} | Lv {item.levelReq ?? 1} | {item.weaponEp ?? 0} EP | {item.weaponEffect ?? "Weapon"}</small>
-                                                    <small className="crafter-cost-line">{costPts} craft pts + {ryo.toLocaleString()} ryo</small>
+                                                    <small className="cf-cost">{costPts} craft pts + {ryo.toLocaleString()} ryo</small>
                                                 </div>
                                             </div>
-                                            <div className="crafter-progress-bar">
-                                                <div className="crafter-progress-fill" style={{ width: `${fillPct}%` }} />
+                                            <div className="cf-meter">
+                                                <div className="cf-meter-fill" style={{ width: `${fillPct}%` }} />
                                             </div>
-                                            <small className="crafter-pts-label">{Math.min(totalPts, costPts)}/{costPts} pts</small>
+                                            <small className="cf-points">{Math.min(totalPts, costPts)}/{costPts} pts</small>
                                             <button onClick={() => craftExistingWeapon(item)} disabled={!ready}>
                                                 Forge
                                             </button>
@@ -1757,7 +1757,7 @@ export function CentralHub({
                             </div></>}
 
                             {crafterTab === "armor" && <>{materialsPanel}
-                            <div className="crafter-recipe-grid">
+                            <div className="cf-grid">
                                 {craftableArmor.length === 0 ? (
                                     <p className="hint">No armor recipes available yet — add craftable armor items via the admin item creator.</p>
                                 ) : (
@@ -1768,23 +1768,23 @@ export function CentralHub({
                                         const fillPct = Math.min(100, Math.floor((totalPts / costPts) * 100));
                                         const img = itemImage(item.id);
                                         return (
-                                            <div key={item.id} className="crafter-recipe-btn" data-rarity={item.rarity}>
-                                                <div className="crafter-card-top">
-                                                    <div className="crafter-card-thumb" data-rarity={item.rarity}>
+                                            <div key={item.id} className="cf-card" data-rarity={item.rarity}>
+                                                <div className="cf-card-top">
+                                                    <div className="cf-thumb" data-rarity={item.rarity}>
                                                         {img
                                                             ? <img src={img} alt={item.name} loading="lazy" />
-                                                            : <span className="crafter-card-thumb-ico"><GiBreastplate /></span>}
+                                                            : <span className="cf-thumb-icon"><GiBreastplate /></span>}
                                                     </div>
-                                                    <div className="crafter-card-head">
+                                                    <div className="cf-card-head">
                                                         <strong>{item.name}</strong>
                                                         <small>{item.rarity.toUpperCase()} | Lv {item.levelReq ?? 1} | {equipmentSlotLabel(item.slot)} | {item.armorQuality ?? "—"}</small>
-                                                        <small className="crafter-cost-line">{costPts} craft pts + {ryo.toLocaleString()} ryo</small>
+                                                        <small className="cf-cost">{costPts} craft pts + {ryo.toLocaleString()} ryo</small>
                                                     </div>
                                                 </div>
-                                                <div className="crafter-progress-bar">
-                                                    <div className="crafter-progress-fill" style={{ width: `${fillPct}%` }} />
+                                                <div className="cf-meter">
+                                                    <div className="cf-meter-fill" style={{ width: `${fillPct}%` }} />
                                                 </div>
-                                                <small className="crafter-pts-label">{Math.min(totalPts, costPts)}/{costPts} pts</small>
+                                                <small className="cf-points">{Math.min(totalPts, costPts)}/{costPts} pts</small>
                                                 <button onClick={() => craftExistingArmor(item)} disabled={!ready}>
                                                     Forge
                                                 </button>
@@ -1799,48 +1799,48 @@ export function CentralHub({
                                 const naPts = namedWeaponCurrencyPts();
                                 const naFill = Math.min(100, Math.floor((naPts / NW_COST) * 100));
                                 return (
-                                    <div className="named-weapon-forge">
-                                        <div className="named-weapon-forge-header">
-                                            <span className="named-weapon-forge-title"><GiBreastplate style={HDR_ICON} />Named Armor</span>
+                                    <div className="nw-forge">
+                                        <div className="nw-head">
+                                            <span className="nw-title"><GiBreastplate style={HDR_ICON} />Named Armor</span>
                                             <small>Forge a one-of-a-kind armor piece — the finest armor in the world, above mythic. Costs {NW_COST} forge pts.</small>
                                         </div>
 
                                         {/* Currency display — same pool as named weapons */}
-                                        <div className="named-weapon-currencies">
-                                            <div className="named-weapon-currency-row">
+                                        <div className="nw-wallet">
+                                            <div className="nw-currency">
                                                 <span><GameIcon name="bone" size={14} style={COST_ICON} />Bone Charms</span>
                                                 <span>{character.boneCharms ?? 0} × {NW_CURRENCY_PTS.boneCharms} pts = <strong>{(character.boneCharms ?? 0) * NW_CURRENCY_PTS.boneCharms}</strong></span>
                                             </div>
-                                            <div className="named-weapon-currency-row">
+                                            <div className="nw-currency">
                                                 <span><GameIcon name="shard" size={14} style={COST_ICON} />Fate Shards</span>
                                                 <span>{character.fateShards ?? 0} × {NW_CURRENCY_PTS.fateShards} pts = <strong>{(character.fateShards ?? 0) * NW_CURRENCY_PTS.fateShards}</strong></span>
                                             </div>
-                                            <div className="named-weapon-currency-row">
+                                            <div className="nw-currency">
                                                 <span><GameIcon name="crystal" size={14} style={COST_ICON} />Aura Stones</span>
                                                 <span>{character.auraStones ?? 0} × {NW_CURRENCY_PTS.auraStones} pts = <strong>{(character.auraStones ?? 0) * NW_CURRENCY_PTS.auraStones}</strong></span>
                                             </div>
-                                            <div className="named-weapon-currency-row">
+                                            <div className="nw-currency">
                                                 <span><GameIcon name="sigil" size={14} style={COST_ICON} />Mythic Seals</span>
                                                 <span>{character.mythicSeals ?? 0} × {NW_CURRENCY_PTS.mythicSeals} pts = <strong>{(character.mythicSeals ?? 0) * NW_CURRENCY_PTS.mythicSeals}</strong></span>
                                             </div>
-                                            <div className="named-weapon-currency-total">
+                                            <div className="nw-total">
                                                 Total forge pts: <strong>{naPts}</strong> / {NW_COST}
                                             </div>
                                             {namedForgeLocked && (
-                                                <div className="named-weapon-currency-total" style={{ color: "#ef4444", fontWeight: "bold" }}>
+                                                <div className="nw-total" style={{ color: "#ef4444", fontWeight: "bold" }}>
                                                     🔒 Unlocks at Level {NAMED_ITEM_LEVEL_REQ} — you are Level {character.level}
                                                 </div>
                                             )}
                                         </div>
 
-                                        <div className="crafter-progress-bar" style={{ margin: "4px 0 8px" }}>
-                                            <div className="crafter-progress-fill named-weapon-fill" style={{ width: `${naFill}%` }} />
+                                        <div className="cf-meter" style={{ margin: "4px 0 8px" }}>
+                                            <div className="cf-meter-fill" style={{ width: `${naFill}%` }} />
                                         </div>
 
                                         {/* Slot selector */}
-                                        <label className="named-weapon-label">Armor Slot</label>
+                                        <label className="nw-label">Armor Slot</label>
                                         <select
-                                            className="named-weapon-input"
+                                            className="nw-input"
                                             value={namedArmorSlot}
                                             onChange={(e) => setNamedArmorSlot(e.target.value as EquipmentSlot)}
                                         >
@@ -1849,51 +1849,51 @@ export function CentralHub({
                                             ))}
                                         </select>
 
-                                        <div className="named-weapon-odds">
-                                            <div className="named-weapon-odds-title"><GameIcon name="dice" size={14} style={COST_ICON} />Roll Odds</div>
-                                            <div className="named-weapon-odds-grid">
+                                        <div className="nw-odds">
+                                            <div className="nw-odds-title"><GameIcon name="dice" size={14} style={COST_ICON} />Roll Odds</div>
+                                            <div className="nw-odds-grid">
                                                 {namedArmorSlot === "hand" ? (
-                                                    <div className="nwo-section">
-                                                        <div className="nwo-label">Gauntlet Guard Rule</div>
-                                                        <div className="nwo-rows"><div className="nwo-row"><span>No damage reduction</span><span className="nwo-pct">Stats + special</span></div></div>
+                                                    <div className="no-section">
+                                                        <div className="no-label">Gauntlet Guard Rule</div>
+                                                        <div className="no-rows"><div className="no-row"><span>No damage reduction</span><span className="no-pct">Stats + special</span></div></div>
                                                     </div>
                                                 ) : (
-                                                    <div className="nwo-section">
-                                                        <div className="nwo-label">Damage Reduction</div>
-                                                        <div className="nwo-rows">
-                                                            <div className="nwo-row"><span>6% (Elite)</span><span className="nwo-pct">33.3%</span></div>
-                                                            <div className="nwo-row"><span>7% (Legendary)</span><span className="nwo-pct">33.3%</span></div>
-                                                            <div className="nwo-row"><span>8% (Mythic)</span><span className="nwo-pct">33.3%</span></div>
+                                                    <div className="no-section">
+                                                        <div className="no-label">Damage Reduction</div>
+                                                        <div className="no-rows">
+                                                            <div className="no-row"><span>6% (Elite)</span><span className="no-pct">33.3%</span></div>
+                                                            <div className="no-row"><span>7% (Legendary)</span><span className="no-pct">33.3%</span></div>
+                                                            <div className="no-row"><span>8% (Mythic)</span><span className="no-pct">33.3%</span></div>
                                                         </div>
                                                     </div>
                                                 )}
-                                                <div className="nwo-section">
-                                                    <div className="nwo-label">All Offense</div>
-                                                    <div className="nwo-rows">
-                                                        <div className="nwo-row"><span>+25 to +35</span><span className="nwo-pct">~9.1% each</span></div>
+                                                <div className="no-section">
+                                                    <div className="no-label">All Offense</div>
+                                                    <div className="no-rows">
+                                                        <div className="no-row"><span>+25 to +35</span><span className="no-pct">~9.1% each</span></div>
                                                     </div>
                                                 </div>
-                                                <div className="nwo-section">
-                                                    <div className="nwo-label">All Defense</div>
-                                                    <div className="nwo-rows">
-                                                        <div className="nwo-row"><span>+25 to +35</span><span className="nwo-pct">~9.1% each</span></div>
+                                                <div className="no-section">
+                                                    <div className="no-label">All Defense</div>
+                                                    <div className="no-rows">
+                                                        <div className="no-row"><span>+25 to +35</span><span className="no-pct">~9.1% each</span></div>
                                                     </div>
                                                 </div>
-                                                <div className="nwo-section nwo-section-wide">
-                                                    <div className="nwo-label">Special Effect (each {(100 / NAMED_ARMOR_SPECIALS.length).toFixed(1)}% to roll)</div>
-                                                    <div className="nwo-rows">
-                                                        <div className="nwo-row"><span>🛡 Absorb</span><span className="nwo-pct">0.08–2%</span></div>
-                                                        <div className="nwo-row"><span>🔰 Shield</span><span className="nwo-pct">+75 to +150 HP</span></div>
-                                                        <div className="nwo-row"><span>↩️ Reflect</span><span className="nwo-pct">0.08–2%</span></div>
-                                                        <div className="nwo-row"><span>🩸 Life Steal</span><span className="nwo-pct">0.08–2%</span></div>
-                                                        <div className="nwo-row"><span>💥 Increase Damage</span><span className="nwo-pct">0.75–1.50%</span></div>
+                                                <div className="no-section no-wide">
+                                                    <div className="no-label">Special Effect (each {(100 / NAMED_ARMOR_SPECIALS.length).toFixed(1)}% to roll)</div>
+                                                    <div className="no-rows">
+                                                        <div className="no-row"><span>🛡 Absorb</span><span className="no-pct">0.08–2%</span></div>
+                                                        <div className="no-row"><span>🔰 Shield</span><span className="no-pct">+75 to +150 HP</span></div>
+                                                        <div className="no-row"><span>↩️ Reflect</span><span className="no-pct">0.08–2%</span></div>
+                                                        <div className="no-row"><span>🩸 Life Steal</span><span className="no-pct">0.08–2%</span></div>
+                                                        <div className="no-row"><span>💥 Increase Damage</span><span className="no-pct">0.75–1.50%</span></div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
 
                                         <button
-                                            className="named-weapon-roll-btn"
+                                            className="nw-roll"
                                             onClick={rollNamedArmor}
                                             disabled={naPts < NW_COST || namedForgeLocked || namedForgeBusy || namedForgeAnimation !== null}
                                         >
@@ -1918,13 +1918,13 @@ export function CentralHub({
                                         )}
 
                                         {namedArmorRoll && !namedForgeAnimation && (
-                                            <div className="named-weapon-result named-forge-result-enter">
-                                                <div className="named-weapon-stats">
-                                                    <div className="named-weapon-stat-row"><span>Slot</span><strong>{NAMED_ARMOR_SLOTS.find(s => s.value === namedArmorRoll.slot)?.label}</strong></div>
-                                                    {namedArmorRoll.slot !== "hand" && <div className="named-weapon-stat-row"><span>Damage Reduction</span><strong>{Math.round(armorReductionForQuality(namedArmorRoll.armorQuality) * 100)}% ({namedArmorRoll.armorQuality})</strong></div>}
-                                                    <div className="named-weapon-stat-row"><span>All Offense</span><strong>+{namedArmorRoll.offenseVal}</strong></div>
-                                                    <div className="named-weapon-stat-row"><span>All Defense</span><strong>+{namedArmorRoll.defenseVal}</strong></div>
-                                                    <div className="named-weapon-stat-row named-weapon-tag-row">
+                                            <div className="nw-result nf-enter">
+                                                <div className="nw-stats">
+                                                    <div className="nw-stat"><span>Slot</span><strong>{NAMED_ARMOR_SLOTS.find(s => s.value === namedArmorRoll.slot)?.label}</strong></div>
+                                                    {namedArmorRoll.slot !== "hand" && <div className="nw-stat"><span>Damage Reduction</span><strong>{Math.round(armorReductionForQuality(namedArmorRoll.armorQuality) * 100)}% ({namedArmorRoll.armorQuality})</strong></div>}
+                                                    <div className="nw-stat"><span>All Offense</span><strong>+{namedArmorRoll.offenseVal}</strong></div>
+                                                    <div className="nw-stat"><span>All Defense</span><strong>+{namedArmorRoll.defenseVal}</strong></div>
+                                                    <div className="nw-stat nw-tag">
                                                         <span>Special</span>
                                                         <strong>
                                                             {namedArmorRoll.special.kind}
@@ -1935,24 +1935,24 @@ export function CentralHub({
                                                     </div>
                                                 </div>
 
-                                                <label className="named-weapon-label">Armor Name</label>
+                                                <label className="nw-label">Armor Name</label>
                                                 <input
-                                                    className="named-weapon-input"
+                                                    className="nw-input"
                                                     value={namedArmorName}
                                                     onChange={(e) => setNamedArmorName(e.target.value)}
                                                     placeholder="e.g. Stormveil Plate"
                                                 />
 
-                                                <label className="named-weapon-label">Flavor Text</label>
+                                                <label className="nw-label">Flavor Text</label>
                                                 <textarea
-                                                    className="named-weapon-input"
+                                                    className="nw-input"
                                                     rows={3}
                                                     value={namedArmorFlavorText}
                                                     onChange={(e) => setNamedArmorFlavorText(e.target.value)}
                                                     placeholder="Forged from the scales of the Ash Lizard king…"
                                                 />
 
-                                                <label className="named-weapon-label">Armor Image</label>
+                                                <label className="nw-label">Armor Image</label>
                                                 <input
                                                     type="file"
                                                     accept="image/*"
@@ -1962,14 +1962,14 @@ export function CentralHub({
                                                     }}
                                                 />
                                                 {namedArmorImage && (
-                                                    <div className="named-weapon-image-preview">
+                                                    <div>
                                                         <img src={namedArmorImage} alt="armor preview" />
                                                         <button className="danger-button" onClick={() => setNamedArmorImage("")}>Remove</button>
                                                     </div>
                                                 )}
 
-                                                <div className="named-weapon-forge-actions">
-                                                    <button className="named-weapon-forge-btn" onClick={forgeNamedArmor}>
+                                                <div>
+                                                    <button className="nw-commit" onClick={forgeNamedArmor}>
                                                         <GiBlacksmith style={HDR_ICON} />Forge Armor
                                                     </button>
                                                     <button className="danger-button" onClick={() => { setNamedArmorRoll(null); setNamedArmorToken(""); }}>
@@ -1987,104 +1987,104 @@ export function CentralHub({
                                 const nwPts = namedWeaponCurrencyPts();
                                 const nwFill = Math.min(100, Math.floor((nwPts / NW_COST) * 100));
                                 return (
-                                    <div className="named-weapon-forge">
-                                        <div className="named-weapon-forge-header">
-                                            <span className="named-weapon-forge-title"><GiCrossedSwords style={HDR_ICON} />Named Weapon</span>
+                                    <div className="nw-forge">
+                                        <div className="nw-head">
+                                            <span className="nw-title"><GiCrossedSwords style={HDR_ICON} />Named Weapon</span>
                                             <small>Forge a one-of-a-kind hand weapon — the finest weapon in the world, above mythic. Costs {NW_COST} forge pts.</small>
                                         </div>
 
                                         {/* Currency display */}
-                                        <div className="named-weapon-currencies">
-                                            <div className="named-weapon-currency-row">
+                                        <div className="nw-wallet">
+                                            <div className="nw-currency">
                                                 <span><GameIcon name="bone" size={14} style={COST_ICON} />Bone Charms</span>
                                                 <span>{character.boneCharms ?? 0} × {NW_CURRENCY_PTS.boneCharms} pts = <strong>{(character.boneCharms ?? 0) * NW_CURRENCY_PTS.boneCharms}</strong></span>
                                             </div>
-                                            <div className="named-weapon-currency-row">
+                                            <div className="nw-currency">
                                                 <span><GameIcon name="shard" size={14} style={COST_ICON} />Fate Shards</span>
                                                 <span>{character.fateShards ?? 0} × {NW_CURRENCY_PTS.fateShards} pts = <strong>{(character.fateShards ?? 0) * NW_CURRENCY_PTS.fateShards}</strong></span>
                                             </div>
-                                            <div className="named-weapon-currency-row">
+                                            <div className="nw-currency">
                                                 <span><GameIcon name="crystal" size={14} style={COST_ICON} />Aura Stones</span>
                                                 <span>{character.auraStones ?? 0} × {NW_CURRENCY_PTS.auraStones} pts = <strong>{(character.auraStones ?? 0) * NW_CURRENCY_PTS.auraStones}</strong></span>
                                             </div>
-                                            <div className="named-weapon-currency-row">
+                                            <div className="nw-currency">
                                                 <span><GameIcon name="sigil" size={14} style={COST_ICON} />Mythic Seals</span>
                                                 <span>{character.mythicSeals ?? 0} × {NW_CURRENCY_PTS.mythicSeals} pts = <strong>{(character.mythicSeals ?? 0) * NW_CURRENCY_PTS.mythicSeals}</strong></span>
                                             </div>
-                                            <div className="named-weapon-currency-total">
+                                            <div className="nw-total">
                                                 Total forge pts: <strong>{nwPts}</strong> / {NW_COST}
                                             </div>
                                             {namedForgeLocked && (
-                                                <div className="named-weapon-currency-total" style={{ color: "#ef4444", fontWeight: "bold" }}>
+                                                <div className="nw-total" style={{ color: "#ef4444", fontWeight: "bold" }}>
                                                     🔒 Unlocks at Level {NAMED_ITEM_LEVEL_REQ} — you are Level {character.level}
                                                 </div>
                                             )}
                                         </div>
 
-                                        <div className="crafter-progress-bar" style={{ margin: "4px 0 8px" }}>
-                                            <div className="crafter-progress-fill named-weapon-fill" style={{ width: `${nwFill}%` }} />
+                                        <div className="cf-meter" style={{ margin: "4px 0 8px" }}>
+                                            <div className="cf-meter-fill" style={{ width: `${nwFill}%` }} />
                                         </div>
 
-                                        <div className="named-weapon-odds">
-                                            <div className="named-weapon-odds-title"><GameIcon name="dice" size={14} style={COST_ICON} />Roll Odds</div>
-                                            <div className="named-weapon-odds-grid">
-                                                <div className="nwo-section">
-                                                    <div className="nwo-label">Damage EP</div>
-                                                    <div className="nwo-rows">
+                                        <div className="nw-odds">
+                                            <div className="nw-odds-title"><GameIcon name="dice" size={14} style={COST_ICON} />Roll Odds</div>
+                                            <div className="nw-odds-grid">
+                                                <div className="no-section">
+                                                    <div className="no-label">Damage EP</div>
+                                                    <div className="no-rows">
                                                         {[30,31,32,33,34,35].map(v => (
-                                                            <div key={v} className="nwo-row">
-                                                                <span>{v}</span><span className="nwo-pct">16.7%</span>
+                                                            <div key={v} className="no-row">
+                                                                <span>{v}</span><span className="no-pct">16.7%</span>
                                                             </div>
                                                         ))}
                                                     </div>
                                                 </div>
-                                                <div className="nwo-section">
-                                                    <div className="nwo-label">Range</div>
-                                                    <div className="nwo-rows">
+                                                <div className="no-section">
+                                                    <div className="no-label">Range</div>
+                                                    <div className="no-rows">
                                                         {[3,4,5].map(v => (
-                                                            <div key={v} className="nwo-row">
-                                                                <span>{v}</span><span className="nwo-pct">33.3%</span>
+                                                            <div key={v} className="no-row">
+                                                                <span>{v}</span><span className="no-pct">33.3%</span>
                                                             </div>
                                                         ))}
                                                     </div>
                                                 </div>
-                                                <div className="nwo-section">
-                                                    <div className="nwo-label">All Offenses</div>
-                                                    <div className="nwo-rows">
-                                                        <div className="nwo-row"><span>168–180</span><span className="nwo-pct">~7.7% each</span></div>
+                                                <div className="no-section">
+                                                    <div className="no-label">All Offenses</div>
+                                                    <div className="no-rows">
+                                                        <div className="no-row"><span>168–180</span><span className="no-pct">~7.7% each</span></div>
                                                     </div>
                                                 </div>
-                                                <div className="nwo-section">
-                                                    <div className="nwo-label">Tag Count</div>
-                                                    <div className="nwo-rows">
-                                                        <div className="nwo-row"><span>1 tag (35–40%)</span><span className="nwo-pct">50%</span></div>
-                                                        <div className="nwo-row"><span>2 tags (15–20% ea.)</span><span className="nwo-pct">50%</span></div>
+                                                <div className="no-section">
+                                                    <div className="no-label">Tag Count</div>
+                                                    <div className="no-rows">
+                                                        <div className="no-row"><span>1 tag (35–40%)</span><span className="no-pct">50%</span></div>
+                                                        <div className="no-row"><span>2 tags (15–20% ea.)</span><span className="no-pct">50%</span></div>
                                                     </div>
                                                 </div>
-                                                <div className="nwo-section nwo-section-wide">
-                                                    <div className="nwo-label">Possible Tags (each ~{(100 / NAMED_WEAPON_TAGS.length).toFixed(1)}% to appear)</div>
-                                                    <div className="nwo-tags">
+                                                <div className="no-section no-wide">
+                                                    <div className="no-label">Possible Tags (each ~{(100 / NAMED_WEAPON_TAGS.length).toFixed(1)}% to appear)</div>
+                                                    <div className="no-tags">
                                                         {NAMED_WEAPON_TAGS.map(t => (
-                                                            <span key={t} className="nwo-tag-chip">{t}</span>
+                                                            <span key={t} className="no-chip">{t}</span>
                                                         ))}
                                                     </div>
                                                 </div>
-                                                <div className="nwo-section nwo-section-wide">
-                                                    <div className="nwo-label">Tag Formula Notes</div>
-                                                    <div className="nwo-rows">
-                                                        <div className="nwo-row"><span>🔰 Shield</span><span className="nwo-pct">Adds HP shield = rolled% × weapon hit damage</span></div>
-                                                        <div className="nwo-row"><span>💚 Heal</span><span className="nwo-pct">Flat heal — 400 HP (single-tag roll) or 200 HP (dual-tag roll)</span></div>
-                                                        <div className="nwo-row"><span>🩸 Siphon</span><span className="nwo-pct">Restores HP = rolled% × weapon hit damage</span></div>
-                                                        <div className="nwo-row"><span>🔥 Afterburn</span><span className="nwo-pct">2-round status: next 2 attacks deal +rolled% damage</span></div>
-                                                        <div className="nwo-row"><span>☠️ Poison / Drain</span><span className="nwo-pct">{COMBAT_RESOURCES_V2 ? "Drain saps HP+chakra each round; Poison bites when the target spends chakra/stamina to cast" : "Deals rolled% of enemy chakra as damage per round"}</span></div>
-                                                        <div className="nwo-row"><span>💥 Damage / IDG / DDT / Reflect / Absorb</span><span className="nwo-pct">Flat % modifier for 2 rounds</span></div>
+                                                <div className="no-section no-wide">
+                                                    <div className="no-label">Tag Formula Notes</div>
+                                                    <div className="no-rows">
+                                                        <div className="no-row"><span>🔰 Shield</span><span className="no-pct">Adds HP shield = rolled% × weapon hit damage</span></div>
+                                                        <div className="no-row"><span>💚 Heal</span><span className="no-pct">Flat heal — 400 HP (single-tag roll) or 200 HP (dual-tag roll)</span></div>
+                                                        <div className="no-row"><span>🩸 Siphon</span><span className="no-pct">Restores HP = rolled% × weapon hit damage</span></div>
+                                                        <div className="no-row"><span>🔥 Afterburn</span><span className="no-pct">2-round status: next 2 attacks deal +rolled% damage</span></div>
+                                                        <div className="no-row"><span>☠️ Poison / Drain</span><span className="no-pct">{COMBAT_RESOURCES_V2 ? "Drain saps HP+chakra each round; Poison bites when the target spends chakra/stamina to cast" : "Deals rolled% of enemy chakra as damage per round"}</span></div>
+                                                        <div className="no-row"><span>💥 Damage / IDG / DDT / Reflect / Absorb</span><span className="no-pct">Flat % modifier for 2 rounds</span></div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
 
                                         <button
-                                            className="named-weapon-roll-btn"
+                                            className="nw-roll"
                                             onClick={rollNamedWeapon}
                                             disabled={nwPts < NW_COST || namedForgeLocked || namedForgeBusy || namedForgeAnimation !== null}
                                         >
@@ -2109,46 +2109,46 @@ export function CentralHub({
                                         )}
 
                                         {namedWeaponRoll && !namedForgeAnimation && (
-                                            <div className="named-weapon-result named-forge-result-enter">
-                                                <div className="named-weapon-stats">
-                                                    <div className="named-weapon-stat-row"><span>Damage EP</span><strong>{namedWeaponRoll.ep}</strong></div>
-                                                    <div className="named-weapon-stat-row"><span>AP Cost</span><strong>40</strong></div>
-                                                    <div className="named-weapon-stat-row"><span>Range</span><strong>{namedWeaponRoll.range}</strong></div>
-                                                    <div className="named-weapon-stat-row"><span>All Offenses</span><strong>+{namedWeaponRoll.offenseVal}</strong></div>
+                                            <div className="nw-result nf-enter">
+                                                <div className="nw-stats">
+                                                    <div className="nw-stat"><span>Damage EP</span><strong>{namedWeaponRoll.ep}</strong></div>
+                                                    <div className="nw-stat"><span>AP Cost</span><strong>40</strong></div>
+                                                    <div className="nw-stat"><span>Range</span><strong>{namedWeaponRoll.range}</strong></div>
+                                                    <div className="nw-stat"><span>All Offenses</span><strong>+{namedWeaponRoll.offenseVal}</strong></div>
                                                     {namedWeaponRoll.tags.map((t, i) => {
                                                         const healFlat = t.name === "Heal" ? (t.percent >= 35 ? 400 : 200) : null;
                                                         const dmgScaled = t.name === "Shield" || t.name === "Siphon" || t.name === "Lifesteal" || t.name === "Wound" || tagMatchesName(t.name, "Ignition");
                                                         return (
-                                                            <div key={i} className="named-weapon-stat-row named-weapon-tag-row">
+                                                            <div key={i} className="nw-stat nw-tag">
                                                                 <span>Tag {i + 1}</span>
                                                                 <strong>
                                                                     {t.name} {t.percent}%
-                                                                    {healFlat !== null && <span className="nw-tag-formula"> (flat {healFlat} HP)</span>}
-                                                                    {dmgScaled && <span className="nw-tag-formula"> (= {t.percent}% of hit dmg)</span>}
+                                                                    {healFlat !== null && <span className="nw-formula"> (flat {healFlat} HP)</span>}
+                                                                    {dmgScaled && <span className="nw-formula"> (= {t.percent}% of hit dmg)</span>}
                                                                 </strong>
                                                             </div>
                                                         );
                                                     })}
                                                 </div>
 
-                                                <label className="named-weapon-label">Weapon Name</label>
+                                                <label className="nw-label">Weapon Name</label>
                                                 <input
-                                                    className="named-weapon-input"
+                                                    className="nw-input"
                                                     value={namedWeaponName}
                                                     onChange={(e) => setNamedWeaponName(e.target.value)}
                                                     placeholder="e.g. Void Fang"
                                                 />
 
-                                                <label className="named-weapon-label">Flavor Text</label>
+                                                <label className="nw-label">Flavor Text</label>
                                                 <textarea
-                                                    className="named-weapon-input"
+                                                    className="nw-input"
                                                     rows={3}
                                                     value={namedWeaponFlavorText}
                                                     onChange={(e) => setNamedWeaponFlavorText(e.target.value)}
                                                     placeholder="A blade forged from the bones of ancient beasts…"
                                                 />
 
-                                                <label className="named-weapon-label">Weapon Image</label>
+                                                <label className="nw-label">Weapon Image</label>
                                                 <input
                                                     type="file"
                                                     accept="image/*"
@@ -2158,14 +2158,14 @@ export function CentralHub({
                                                     }}
                                                 />
                                                 {namedWeaponImage && (
-                                                    <div className="named-weapon-image-preview">
+                                                    <div>
                                                         <img src={namedWeaponImage} alt="weapon preview" />
                                                         <button className="danger-button" onClick={() => setNamedWeaponImage("")}>Remove</button>
                                                     </div>
                                                 )}
 
-                                                <div className="named-weapon-forge-actions">
-                                                    <button className="named-weapon-forge-btn" onClick={forgeNamedWeapon}>
+                                                <div>
+                                                    <button className="nw-commit" onClick={forgeNamedWeapon}>
                                                         <GiBlacksmith style={HDR_ICON} />Forge Weapon
                                                     </button>
                                                     <button className="danger-button" onClick={() => { setNamedWeaponRoll(null); setNamedWeaponToken(""); }}>

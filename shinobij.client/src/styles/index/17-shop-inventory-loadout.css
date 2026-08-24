@@ -79,19 +79,7 @@ html[data-vp="xl"] .app-shell:is([data-screen="shop"], [data-screen="grandMarket
     display: block !important;
 }
 
-.item-popup-backdrop {
-    position: fixed;
-    inset: 0;
-    /* Above the fixed side rails (right-menu 999999, left-profile 10000) —
-       required now that the popup is portaled to <body> (Shop/Inventory) and
-       competes with them in the root stacking context. Just below the GameAlert
-       (1000001) so an alert can still cover the popup. */
-    z-index: 1000000;
-    display: grid;
-    place-items: center;
-    padding: 24px;
-    background: rgba(0, 0, 0, 0.72);
-}
+
 
 .item-popup-card {
     position: relative;
@@ -480,23 +468,9 @@ html[data-vp="xl"] .app-shell:is([data-screen="shop"], [data-screen="grandMarket
     font-weight: 800;
 }
 
-.tile-card-arrow-row {
-    display: flex;
-    justify-content: center;
-    gap: 3px;
-}
 
-    .tile-card-arrow-row span {
-        width: 18px;
-        height: 18px;
-        display: grid;
-        place-items: center;
-        border-radius: 999px;
-        background: var(--gold);
-        color: #111827;
-        font-size: 12px;
-        font-weight: 900;
-    }
+
+
 
 .tile-card-count {
     position: absolute;
@@ -513,51 +487,6 @@ html[data-vp="xl"] .app-shell:is([data-screen="shop"], [data-screen="grandMarket
     font-size: 11px;
     font-weight: 900;
 }
-
-.tile-card-arrow-preview {
-    display: grid;
-    grid-template-columns: repeat(3, 38px);
-    grid-template-rows: repeat(3, 38px);
-    justify-content: center;
-    gap: 4px;
-    margin-top: 8px;
-}
-
-    .tile-card-arrow-preview span {
-        display: grid;
-        place-items: center;
-        border-radius: 8px;
-        background: rgba(15, 23, 42, 0.7);
-        color: var(--text-muted);
-        font-size: 20px;
-        font-weight: 900;
-    }
-
-        .tile-card-arrow-preview span:nth-child(1) {
-            grid-column: 2;
-            grid-row: 1;
-        }
-
-        .tile-card-arrow-preview span:nth-child(2) {
-            grid-column: 1;
-            grid-row: 2;
-        }
-
-        .tile-card-arrow-preview span:nth-child(3) {
-            grid-column: 3;
-            grid-row: 2;
-        }
-
-        .tile-card-arrow-preview span:nth-child(4) {
-            grid-column: 2;
-            grid-row: 3;
-        }
-
-        .tile-card-arrow-preview span.active {
-            background: var(--gold);
-            color: #111827;
-            box-shadow: 0 0 14px rgba(250, 204, 21, 0.45);
-        }
 
 
 /* ===== JUTSU LOADOUT CARD GRID ===== */
@@ -609,88 +538,14 @@ html[data-vp="xl"] .app-shell:is([data-screen="shop"], [data-screen="grandMarket
 /* Sort dropdown */
 /* ===== TILE CARD FILTER / SELL UI ===== */
 
-.tile-card-filters {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 10px;
-    padding: 8px 10px;
-    background: rgba(15, 23, 42, 0.55);
-    border: 1px solid rgba(51, 65, 85, 0.6);
-    border-radius: 8px;
-}
-
-.tile-card-filter-group {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-.tile-card-filter-group label {
-    font-size: 10px;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 700;
-    min-width: 44px;
-}
-
-.tile-card-filter-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-}
-
-.tile-card-filter-buttons button {
-    padding: 2px 9px;
-    font-size: 10px;
-    border-radius: 999px;
-    border: 1px solid rgba(51, 65, 85, 0.8);
-    background: rgba(15, 23, 42, 0.6);
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
-    line-height: 1.6;
-}
-
-.tile-card-filter-buttons button:hover {
-    background: rgba(30, 41, 59, 0.9);
-    color: var(--slate-300);
-    border-color: var(--slate-600);
-}
-
-.tile-card-filter-buttons button.active {
-    background: #1e3a8a;
-    border-color: #3b82f6;
-    color: #bfdbfe;
-    font-weight: 700;
-}
-
 .tile-card-inventory-card.selected {
     outline: 2px solid var(--gold);
     outline-offset: 1px;
 }
 
-.tile-card-sell-btn {
-    margin-top: 2px;
-    padding: 3px 6px;
-    font-size: 9px;
-    background: rgba(127, 29, 29, 0.55);
-    border: 1px solid rgba(239, 68, 68, 0.5);
-    color: var(--red-300);
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s;
-    width: 100%;
-    line-height: 1.5;
-}
 
-.tile-card-sell-btn:hover {
-    background: rgba(185, 28, 28, 0.75);
-    color: #fee2e2;
-    border-color: var(--danger);
-}
+
+
 
 .tile-card-selected-detail {
     position: relative;

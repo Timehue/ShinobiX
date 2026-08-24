@@ -360,16 +360,7 @@
     z-index: 8;
 }
 
-.hex-barrier {
-    background: linear-gradient(135deg, #78350f, #92400e, #b45309) !important;
-    box-shadow: 0 0 14px rgba(180, 83, 9, 0.7), inset 0 0 8px rgba(0,0,0,0.5);
-    border: 2px solid #fbbf24 !important;
-    color: #fef3c7;
-    font-size: 1.1rem;
-    pointer-events: none;
-    z-index: 6;
-    animation: barrierPulse 1.8s ease-in-out infinite;
-}
+
 
 @keyframes barrierPulse {
     0%, 100% { box-shadow: 0 0 14px rgba(180,83,9,0.7), inset 0 0 8px rgba(0,0,0,0.5); }
@@ -1193,27 +1184,9 @@
     margin-inline: auto;
 }
 
-.back-to-hub-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 16px;
-    background: linear-gradient(180deg, #2d4a7a, #1e3560);
-    border: 1px solid rgba(96, 165, 250, 0.55);
-    border-radius: 6px;
-    color: #bfdbfe;
-    font-size: 0.82rem;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.15s, border-color 0.15s;
-}
 
-.back-to-hub-btn:hover {
-    background: linear-gradient(180deg, #3b5fa0, #2d4a7a);
-    border-color: rgba(147, 197, 253, 0.8);
-    color: #e0f2fe;
-}
+
+
 
 .equipment-slot,
 .equipment-item {
