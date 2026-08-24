@@ -85,23 +85,23 @@ const POI_PLATES: ReadonlyArray<{ key: string; name: string; tag: string; x: num
     // icon (47, 8) — sector 99's skull, which renders at 36px rather than the
     // usual 28px, so this sits a little lower than the rest. Pin 60 was moved
     // right to open the column.
-    { key: "deathsgate", name: "Death’s Gate", tag: "Endless ash — only the strongest walk in", x: 47, y: 12.5, tone: "ember" },
+    { key: "deathsgate", name: "Death’s Gate", tag: "Endless ash beyond the last patrol cairn", x: 47, y: 12.5, tone: "ember" },
     // icon (16, 20) — pin 9 was moved out from under this crest
-    { key: "ashenleaf", name: "Ashen Leaf Village", tag: "The Traditional Path — discipline and the old ways", x: 16, y: 26, tone: "leaf" },
+    { key: "ashenleaf", name: "Ashen Leaf Village", tag: "The Living Branch: old vows, new growth", x: 16, y: 26, tone: "leaf" },
     // icon (76, 20) — pin 26 was moved down off this plate
-    { key: "frostfang", name: "Frostfang Village", tag: "The Loyal Path — forged in ice, bound by unity", x: 76, y: 26, tone: "frost" },
+    { key: "frostfang", name: "Frostfang Village", tag: "The Answered Roll: no name left in the snow", x: 76, y: 26, tone: "frost" },
     // icon (48, 40) — the one that always fitted: the band between pins 47 / 48
     { key: "gates", name: "The Gates", tag: "The neutral hub, where every road converges", x: 48, y: 45.8, tone: "gold" },
     // icon (16, 74) — pin 1 was moved down off this plate
-    { key: "stormveil", name: "Stormveil Village", tag: "The Chaotic Path — a lawless proving ground", x: 16, y: 79.8, tone: "tide" },
+    { key: "stormveil", name: "Stormveil Village", tag: "The Open Challenge: post a reason, answer the bell", x: 16, y: 79.8, tone: "tide" },
     // icon (63, 65) — pin 64 was moved down; pin 56 clears the plate's left edge.
     // Threads a 3.9% band: the obelisk is the tallest crest (74px) and pin 64 is
     // just below, so this y has under 1% of slack at either end.
-    { key: "hollowgate", name: "Hollow Gate", tag: "A sealed obelisk between worlds", x: 63, y: 71.3, tone: "violet" },
+    { key: "hollowgate", name: "Hollow Gate", tag: "A Sunken Court intake still running below Central", x: 63, y: 71.3, tone: "violet" },
     // icon (86, 64) — pin 24 was moved up off this plate
-    { key: "moonshadow", name: "Moonshadow Village", tag: "The Selfish Path — stealth, secrets and deception", x: 86, y: 71, tone: "violet" },
+    { key: "moonshadow", name: "Moonshadow Village", tag: "The Held Secret: every truth has a keeper", x: 86, y: 71, tone: "violet" },
     // icon (47, 84.5) — sector 54's marker, which was nudged up off this plate
-    { key: "sunscar", name: "Sunscar Festival", tag: "A rest stop for weary travellers", x: 47, y: 89, tone: "sand" },
+    { key: "sunscar", name: "Sunscar Festival", tag: "A caravan fair that never packed up", x: 47, y: 89, tone: "sand" },
 ];
 
 export function WorldPoiPlates() {

@@ -146,7 +146,7 @@ const RUMORS: Record<string, string[][]> = {
          "The sword-carrier told the smith her blades have been restless since your last match. She sounded happy about it. The smith wasn't."],
     ],
     pvp: [
-        ["The arena bookies opened a line on you. Small money for now. But the smart money always shows up early — that's what makes it smart.",
+        ["The arena bookies opened a line on you. Small money for now. The smart money always shows up early. That's what makes it smart.",
          "Somebody asked around about who trained you. Got three names, all different, all wrong. I checked."],
         ["Challengers ask who else is on the card before they'll sign against you now. The clerk thinks it's hilarious. The challengers don't.",
          "The odds board shortens your line before you even post. I asked the bookie why. He said it saves everybody time."],
@@ -172,7 +172,7 @@ const RUMORS: Record<string, string[][]> = {
     village: [
         ["Your name keeps showing up on duty rosters nobody remembers writing. The clerk just shrugs and stamps them now.",
          "One of the elders asked the gate guard how often you take the wall shift. Then asked why not more often. Poor guard."],
-        ["Council fire ran late twice this month. Both times people walked out saying your name — and not complaining. That's new for the council.",
+        ["Council fire ran late twice this month. Both times people walked out saying your name, and they weren't complaining. That's new for the council.",
          "The gate guards nod at you the way they nod at the wall. From a gate guard, there is no higher compliment."],
         ["The lantern-warden marks doors on her rounds. The lamp-boy says yours gets marked first every night. He asked her why once. Just once.",
          "The oldest oath-keeper set an extra chair at the long table. Won't say who it's for. It faces your street. We all noticed."],
@@ -199,7 +199,7 @@ const RUMORS: Record<string, string[][]> = {
         ["The survey office copies your route notes before they hand them back. Badly. They know you know. It's awkward for everybody.",
          "The border post logged you out four times last month and back in three. The sergeant decided not to ask. Smart sergeant."],
         ["There's an old man with a blank map at the crossroads, asking travelers one thing: which way did the young one go? That's you. You're the young one.",
-         "The mapmaker's apprentice found a trail-mark past the edge of the newest chart. Recognized the knife-work. He's keeping it quiet. Well — mostly."],
+         "The mapmaker's apprentice found a trail-mark past the edge of the newest chart. Recognized the knife-work. He's keeping it quiet. Well, mostly."],
         ["That blank-map man was back at the crossroads. He wasn't asking for directions this time. He was leaving them.",
          "The last surveyor who walked your routes came home and quit. Said the maps had been the wrong shape all along. Honestly, he seemed relieved."],
         ["The old man with the staff bought the mapmaker's last blank sheet. Said it's for a shinobi who's earned an empty page. Guess who.",
@@ -218,7 +218,7 @@ const RUMORS: Record<string, string[][]> = {
          "The blank-map man left trail feed at the kennel with your pet's name on it. The kennel master can't find that feed in any catalog. He's tried."],
     ],
     cards: [
-        ["The dealers shuffle twice when you sit down now. One of them asked me, real quiet, where you learned to play. I said I'd ask. So — where?",
+        ["The dealers shuffle twice when you sit down now. One of them asked me, real quiet, where you learned to play. I said I'd ask. So, where?",
          "There's a guy copying your discards into a notebook. Every game. He still loses to you. The notebook is not helping."],
         ["The card hall stopped raising the table limit when you sit. The floor manager calls it policy. That policy is a week old.",
          "A regular swears he's finally figured out your tell. He's lost forty hands to you. At this point people just feel bad for him."],
@@ -250,8 +250,8 @@ const RUMORS: Record<string, string[][]> = {
          "The oldest man in the village says he's seen this once before. I asked what happened to that one. He just pointed at the mountain shrine."],
         ["Taverns two villages over argue about you like you're already a story. Nobody argues that hard about a person who's still around.",
          "The shrine keeper's been dusting the old altar nobody uses. Wants it presentable, she says. Won't say for what. It faces the road."],
-        ["A courier saw the old man's page himself. Every name crossed out except one. Yours. Folk are saying the Fiftieth Rank isn't a milestone for you anymore — it's an appointment.",
-         "The Sage is asking for you by name now. Not a description — your name. The barkeep's advice: reach the Fiftieth Rank before he knocks, or be embarrassed."],
+        ["A courier saw the old man's page himself. Every name crossed out except one. Yours. Folk are saying the Fiftieth Rank isn't a milestone for you anymore. It's an appointment.",
+         "The Sage is asking for you by name now. Not a description. Your name. The barkeep's advice: reach the Fiftieth Rank before he knocks, or be embarrassed."],
     ],
 };
 
@@ -260,7 +260,7 @@ const RUMORS: Record<string, string[][]> = {
 const FALLBACK: string[][] = [
     ["People remember your name on the first try now. The barkeep says that's rarer than it sounds in this line of work.",
      "Somebody asked what your specialty is and the whole table started arguing. Still going, far as I know. Nobody could pick one."],
-    ["A quiet traveler asked about you at the gate. Not your rank — what you're like. The guard's still chewing on that one.",
+    ["A quiet traveler asked about you at the gate. He didn't ask your rank. He asked what you're like. The guard's still chewing on that one.",
      "Word about you keeps reaching towns a day before you do. The couriers swear nobody's paying them for it."],
     ["The same stranger's been at the gate three visits running, asking after promising shinobi. Never stays the night. It's in the log, I checked.",
      "Some old wanderer keeps asking the roads about someone. The description's vague. It keeps fitting you anyway."],
@@ -289,14 +289,14 @@ export const TAVERN_GOSSIP: readonly string[] = [
     "The storyteller says the Chronicle exists because the Hollow burns the archives first. “Cards scatter,” he shrugs. “Can't burn what's in everyone's pockets.”",
     "A dealer from the card hall says the scribes have started printing the Hollow Kage into the Chronicle. “Fought one,” a scarred regular mutters. “The card's friendlier.”",
     "An old soldier watched two kids trade a card of a tyrant he actually fought. He didn't say anything. He just sat down real slow and ordered a double.",
-    "The kennel master's celebrating in the corner — his beast took three straight at the colosseum. “The scribes were there,” he keeps saying. “My boy's getting his card.”",
+    "The kennel master's celebrating in the corner because his beast took three straight at the colosseum. “The scribes were there,” he keeps saying. “My boy's getting his card.”",
     "A tamer swears the beasts on the Chronicle cards are the same breeds running wild out in the sectors, scars and all. “Where'd you think the scribes find them?” says the dealer.",
     "“The trials travel with the emissaries,” someone whispers. “Eight of them, walking the sectors. Meet the right one and it's your name they came out for.”",
-    "The barkeep polishes a glass: “Every legend that ever drank here left one ordinary night and came back different. One of them came back as a card.”",
+    "The barkeep polishes a glass: “Every legend that drank here started as somebody with a wet cloak and no table manners. The cards came later, once witnesses agreed on what they did.”",
     "Someone read a Hall notice out loud: another path sealed forever to one shinobi. The whole room raised a glass. The card dealer went and opened a fresh pack.",
     "“The good ones don't chase it,” the old regular says. “They just do the work, and one day the Sage is standing in the road pretending it's a coincidence.”",
-    "A traveler says the roads are crowded this season — sages, emissaries, scribes with inked fingers. “Something's stirring,” he says, and orders another.",
-    "“Careful who you bleed beside,” the barkeep warns a genin. “That's how legacies start. And the Chronicle scribes are always watching the good ones.”",
+    "A traveler says the roads are crowded this season: sages, emissaries, and scribes with inked fingers. “All three asked for the same field reports,” he says, and orders another.",
+    "“Careful who you bleed beside,” the barkeep warns a genin. “Witnesses remember the choices you repeat. The Chronicle scribes remember their witnesses.”",
     "A drunk insists he almost earned a mythic legacy once. The barkeep has heard it twice tonight. The drunk's own hound looks embarrassed for him.",
 ];
 export const TAVERN_GOSSIP_COUNT = TAVERN_GOSSIP.length;

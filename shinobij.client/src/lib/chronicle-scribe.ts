@@ -71,7 +71,7 @@ export function synthChronicleScribe(sector: number): Wanderer {
         level: 30,
         homeTile: home,
         waypoints: [home, home + 1, home - 1],
-        greeting: "Hold up — you. I've walked three sectors to catch you. Don't make it four.",
+        greeting: "Hold up, you. I've walked three sectors to catch you. Don't make it four.",
         tellTint: "#f0c463",
         avatarKey: "courier",
         avatarImage: SCRIBE_PORTRAIT,
@@ -90,13 +90,13 @@ const SCRIBE_PAGES: ScribePage[] = [
         title: "The Scribe on the Road",
         scene: "An old traveler with an enormous satchel waves you down, then sits on the satchel to catch her breath.",
         dialogue: [
-            "Hold up — you. The academy lists said I'd find you out this way. I've walked three sectors, so humor me a minute.",
-            "Ihara. Chronicle scribe, forty years. The satchel IS the Chronicle — well. A corner of it.",
+            "Hold up, you. The academy lists said I'd find you out this way. I've walked three sectors, so humor me a minute.",
+            "Ihara. Chronicle scribe, forty years. The satchel is the Chronicle. Well, a corner of it.",
         ],
     },
     {
         title: "The Cards",
-        scene: "She unbuckles the satchel. Cards — hundreds of them, sorted with string.",
+        scene: "She unbuckles the satchel. Hundreds of cards sit inside, sorted with string.",
         dialogue: [
             "You've seen the cards around. Kids trade them in the tavern. Gamblers fleece each other with them on the roads.",
             "Don't let that fool you. Every card points to something real. A tyrant that fell. A beast that took the colosseum sand. A shinobi worth remembering. We don't trap them in paper. We record what witnesses saw.",
@@ -115,15 +115,15 @@ const SCRIBE_PAGES: ScribePage[] = [
         scene: "She wraps the old card away again, gentle as a splint.",
         dialogue: [
             "Why cards, you're wondering. Because the Hollow burns archives first. Every single time. A library is one fire.",
-            "Cards scatter. You can't burn what's in a thousand pockets. So the record lives — and it changes as the world does. A Kage falls, we press the card. Your beast makes a name on the sand, we press that too. The Chronicle doesn't close.",
+            "Cards scatter. You can't burn what's in a thousand pockets. So the record lives, and it changes as the world does. A Kage falls, we press the card. Your beast makes a name on the sand, we press that too. The Chronicle doesn't close.",
         ],
     },
     {
         title: "The Traveler's Codex",
         scene: "She pulls a wrapped deck from the bottom of the satchel. It still smells of press-ink.",
         dialogue: [
-            "Which brings me to you. The academies used to hand every graduate a traveler's codex — forty cards, the old teaching set. Mostly commons, a few that aren't. Argue with tradition, not with me.",
-            "Take it. Learn the game at the Card Hall, or off any road gambler brave enough to sit with you. You'll come to know this world by its worst days — and that's the only way anyone really knows it.",
+            "Which brings me to you. The academies used to hand every graduate a traveler's codex: forty cards, the old teaching set. Mostly commons, a few that aren't. Argue with tradition, not with me.",
+            "Take it. Learn the game at the Card Hall, or off any road gambler brave enough to sit with you. The cards remember ugly days, but they also record who showed up to help.",
         ],
     },
 ];
@@ -153,7 +153,7 @@ export function scribeIntroEvent(biome: Biome): CreatorEvent {
                         text: "Take the traveler's codex",
                         nextPage: last,
                         trait: SCRIBE_ACCEPT_MARKER,
-                        conclusion: "She presses the deck into your hands and stands with a grunt. \"The Card Hall will deal you in now — tell them Ihara sent you. And if you ever do something worth pressing, I'll find you. I found you this time, didn't I?\"",
+                        conclusion: "She presses the deck into your hands and stands with a grunt. \"The Card Hall will deal you in now. Tell them Ihara sent you. And if you ever do something worth pressing, I'll find you. I found you this time, didn't I?\"",
                     },
                     {
                         text: "Not now",

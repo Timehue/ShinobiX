@@ -41,10 +41,10 @@ const BEGINNER: Guide = {
                 { type: "p", text: "You choose a name, a password, a home village, and a starter bloodline. Your bloodline is the big decision — it sets your combat discipline and you start already knowing its jutsu." },
                 { type: "p", text: "Pick the village whose path speaks to you:" },
                 { type: "table", head: ["Village", "Path"], rows: [
-                    ["Stormveil", "The Chaotic Path — a lawless proving ground of outcasts. Raw strength, shifting alliances."],
-                    ["Ashen Leaf", "The Traditional Path — discipline, balance and the old ways. Strength is cultivated, not seized."],
-                    ["Frostfang", "The Loyal Path — forged in ice, bound by unbreakable unity. No one survives alone."],
-                    ["Moonshadow", "The Selfish Path — masters of stealth and deception who trust no one."],
+                    ["Stormveil", "The Open Challenge: public bouts, loud rivalries, storm rigging, and a village that swears no one is chained."],
+                    ["Ashen Leaf", "The Living Branch: family craft, old vows, ember groves, and the question of who gets to choose what grows next."],
+                    ["Frostfang", "The Answered Roll: rescue law, shared warmth, hard weather, and a promise that no name will be abandoned."],
+                    ["Moonshadow", "The Held Secret: aliases, witness work, hidden contracts, and a price attached to every piece of trust."],
                 ] },
                 { type: "p", text: "Your starter bloodline sets your combat style:" },
                 { type: "table", head: ["Bloodline", "Discipline", "Element", "Plays like"], rows: [

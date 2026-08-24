@@ -1132,7 +1132,7 @@ export function WorldMap({
         return visibleStoryReckonings(character, selectedSector);
     }, [character.level, character.storyProgress, character.storyTraits, character.storyVillage, selectedSector]);
     // Hollow Gate Rift givers (lib/hollow-rifts): a rattled NPC roams the player's
-    // current sector to report a "strange energy" at a target sector. Only while a
+    // current sector with a concrete field report from a target sector. Only while a
     // rift is available (level-gated, none active, off cooldown).
     const riftGiverWanderers = useMemo(() => {
         if (!isWanderersEnabled() || selectedSector == null) return [];
@@ -1850,7 +1850,7 @@ export function WorldMap({
             }
             return;
         }
-        // A rift giver reports a strange energy at a target sector — opens the
+        // A rift giver brings a field report from a target sector; this opens the
         // intro VN (accept seals the rift + reveals its structure on the map).
         if (isStoryReckoningId(w.id)) {
             const arc = storyReckoningForEventId(w.id);
@@ -3736,7 +3736,7 @@ export function WorldMap({
         const pages = vn.vnPages && vn.vnPages.length > 0 ? vn.vnPages : [{ title: vn.vnTitle || vn.name, scene: vn.vnScene || "", speaker: vn.vnSpeaker || "Narrator", dialogue: vn.dialogue, image: vn.image, choices: [] }];
         const page = pages[Math.min(petVnPage, pages.length - 1)];
         const pageDialogue = page.dialogue.length > 0 ? page.dialogue : vn.dialogue;
-        const activeLine = pageDialogue[petVnLine] ?? pageDialogue[0] ?? page.scene ?? "A presence stirs nearby.";
+        const activeLine = pageDialogue[petVnLine] ?? pageDialogue[0] ?? page.scene ?? "Fresh tracks stop beside your own.";
         const { speaker, text: spoken } = splitDialogueLine(activeLine, page.speaker || vn.vnSpeaker || "Narrator");
         const initials = speaker === "Narrator" ? "..." : speaker.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
         const pageImage = page.image || vn.image || activePetEncounter.image || defaultVnScene(vn.id, "forest");
@@ -3760,7 +3760,7 @@ export function WorldMap({
                     <div className="vn-header">
                         <div>
                             <p className="act-label"><GiPawPrint style={{ verticalAlign: "-0.14em", marginRight: "0.3rem" }} />PET ENCOUNTER</p>
-                            <h2>{page.title || vn.vnTitle || "A Presence in the Shadows"}</h2>
+                            <h2>{page.title || vn.vnTitle || "Tracks Beside Your Own"}</h2>
                         </div>
                         <div className="vn-progress">Page {petVnPage + 1}/{pages.length} | Line {petVnLine + 1}/{Math.max(1, pageDialogue.length)}</div>
                     </div>
@@ -4037,27 +4037,26 @@ export function WorldMap({
         const biomeLabelText = biome === "snow" ? "frozen tundra" : biome === "volcano" ? "volcanic ash fields" : biome === "shadow" ? "shadowed ruins" : biome === "central" ? "ancient central district" : "dense forest";
         const vnPages = [
             {
-                title: "Something Stirs in the Ruins",
-                scene: `Deep within the ${biomeLabelText}, a faint shimmer catches your eye.`,
+                title: "A Seal Under the Rubble",
+                scene: `A straight lacquered edge shows beneath the moss of a collapsed waystation in the ${biomeLabelText}.`,
                 speaker: "Narrator",
                 dialogue: [
-                    "Narrator: You pause. Something between the rubble is glowing.",
-                    "Narrator: Half-buried under centuries of earth and stone — an ancient chest.",
-                    `${character.name}: These runes... pre-war era seals. This thing has been here a long time.`,
-                    "Narrator: The chakra lock flickers as you approach, as if recognizing your presence.",
-                    `${character.name}: Whoever left this... they wanted someone strong enough to find it.`,
-                    "Narrator: You press your hand to the seal. It dissolves at your touch.",
+                    "Narrator: You clear two loose stones and uncover a shinobi courier chest, lacquer split but hinges intact.",
+                    `${character.name}: Three field seals. Water, rot, and chakra tampering. Old quartermaster work.`,
+                    "Narrator: The final seal has weakened with age. It is not choosing you. It is simply failing.",
+                    `${character.name}: The release order is cut beside the hinge. I can open this without breaking it.`,
+                    "Narrator: You feed a narrow thread of chakra through each mark. The lock gives with a dry click.",
                 ],
             },
             {
                 title: "The Chest Opens",
-                scene: "Golden light spills from the ancient chest as the seal breaks.",
+                scene: "The old courier chest opens on a row of oilcloth bundles.",
                 speaker: "Narrator",
                 dialogue: [
-                    "Narrator: The lid swings open with a low resonant hum.",
-                    "Narrator: Inside — preserved by chakra for decades — the chest reveals its contents.",
-                    `${character.name}: ...I wasn't expecting this.`,
-                    "Narrator: The ancient shinobi who sealed this chest left something worth finding.",
+                    "Narrator: The hinges complain loudly enough to wake every bird in the waystation roof.",
+                    `${character.name}: Oilcloth bundles. That patrol mark is older than the present village borders.`,
+                    "Narrator: Whoever packed the cache expected to come back. They never did.",
+                    `${character.name}: Take what the road can use. Leave the lid upright so the next patrol knows it is clear.`,
                 ],
             },
         ];

@@ -26,7 +26,7 @@ export function SunscarFestival({
 }) {
     const [diceResult, setDiceResult] = useState<string[]>([]);
     const [festivalLog, setFestivalLog] = useState(
-        "Kael the Sand Dealer watches you from beneath a gold mask."
+        "Kael taps three dice against the table and waits for you to name a stake."
     );
 
     // -- Card Showdown state — Miraa plays Chronicle Showdown as the wager's theatre --
@@ -89,7 +89,7 @@ export function SunscarFestival({
             if (typeof res.dailyUsed === "number") setBmUsed(res.dailyUsed);
             setBmReveal(reward); // tap-to-open crate reveal
             const flourish = reward.tier === "jackpot" ? "💥 " : "";
-            setFestivalLog(`The Broker: ${flourish}${reward.label} — ${describeReward(reward)}. (${res.dailyUsed ?? "?"}/${res.dailyCap ?? BLACK_MARKET_DAILY_CAP} pulls today)`);
+            setFestivalLog(`The Broker: ${flourish}${reward.label}. ${describeReward(reward)}. (${res.dailyUsed ?? "?"}/${res.dailyCap ?? BLACK_MARKET_DAILY_CAP} pulls today)`);
         } finally {
             bmBusyRef.current = false;
             setBmBusy(false);
@@ -129,8 +129,8 @@ export function SunscarFestival({
             <div className="card" style={{ maxWidth: 480, margin: "0 auto" }}>
                 <div style={{ fontSize: "2rem", textAlign: "center", marginBottom: "0.4rem" }}>🔮</div>
                 <h2 style={{ textAlign: "center", marginBottom: "0.2rem" }}>Miraa the Card Seer</h2>
-                <p style={{ color: "#aaa", textAlign: "center", marginBottom: "0.6rem" }}>"The cards are a mirror of fate, not skill. Lay down your ryo — fortune favors the few."</p>
-                <p style={{ color: "#7a6", textAlign: "center", fontSize: "0.85rem", marginBottom: "1rem" }}>Your stake is placed when you sit down. Most who wager walk away lighter — win, and the pot doubles.</p>
+                <p style={{ color: "#aaa", textAlign: "center", marginBottom: "0.6rem" }}>"The Showdown tells us who played better. My sealed die tells us who gets paid. If that bothers you, keep your ryo."</p>
+                <p style={{ color: "#7a6", textAlign: "center", fontSize: "0.85rem", marginBottom: "1rem" }}>Miraa takes the stake when you sit. Finish the match and she breaks the payout seal. A winning mark returns double; leaving early forfeits the stake.</p>
                 <p style={{ marginBottom: "0.8rem" }}>Your ryo: <strong>{character.ryo}</strong></p>
                 <div className="menu" style={{ flexDirection: "column", gap: "0.5rem" }}>
                     {[50, 100, 250, 500].map((amount) => (
@@ -166,9 +166,9 @@ export function SunscarFestival({
             if (!onVersionedCharacter(res.character, res._saveVersion)) return;
             const bet = res.bet ?? duelBet;
             const log =
-                res.outcome === "win" ? `"The fates read in your favor." You win ${bet * 2} ryo.`
-                : res.outcome === "forfeit" ? `"You fold — the wager is mine." You forfeit ${bet} ryo.`
-                : `"The desert claims its due." You lose ${bet} ryo.`;
+                res.outcome === "win" ? `Miraa breaks the seal, sees the white mark, and pays ${bet * 2} ryo without smiling.`
+                : res.outcome === "forfeit" ? `"You left the table. I keep the stake." You forfeit ${bet} ryo.`
+                : `Miraa breaks the seal, shows you the black mark, and pockets the ${bet} ryo stake.`;
             setFestivalLog(`Miraa: ${log}`);
         };
         return (
@@ -197,8 +197,8 @@ export function SunscarFestival({
             >
                 <h1><GiSun style={SF_ICON} />Sunscar Festival</h1>
                 <p>
-                    Sector 35 — a permanent desert festival of lanterns, caravans,
-                    sandstone arches, and fate-bound dice.
+                    Sector 35 hosts a caravan festival that never packed up: lanterns,
+                    sandstone courts, Chronicle tables, and three very expensive dice.
                 </p>
             </div>
 
@@ -207,7 +207,7 @@ export function SunscarFestival({
                     <FestivalPortrait image={kaelImage} icon="🎲" name="Kael the Sand Dealer" />
                     <h2>Kael the Sand Dealer</h2>
                     <p>
-                        "Fortune favors the bold… and buries the weak beneath the sands."
+                        "Three dice. Five turns a day. Blame the table after that and it charges extra."
                     </p>
                     <p><strong>Entry Cost:</strong> {FATE_DICE_COST.toLocaleString()} ryo per roll</p>
                     <p><strong>Your Ryo:</strong> {character.ryo}</p>
@@ -233,9 +233,9 @@ export function SunscarFestival({
                     <FestivalPortrait image={miraaImage} icon="🃏" name="Miraa the Card Seer" />
                     <h2>Miraa the Card Seer</h2>
                     <p style={{ fontStyle: "italic", color: "#aaa", marginBottom: "0.5rem" }}>
-                        "The cards remember every shinobi who has sat across from me. Most don't return."
+                        "The scribes record great battles. I use those records to keep your hands busy while the payout seal decides whether I owe you."
                     </p>
-                    <p style={{ marginBottom: "0.5rem" }}>Sit for a <strong>Shinobi Chronicle Showdown</strong> and wager on the fates. Win, and the pot doubles.</p>
+                    <p style={{ marginBottom: "0.5rem" }}>Sit for a <strong>Shinobi Chronicle Showdown</strong>, finish the match, and let Miraa break the sealed payout die. A winning mark doubles the stake.</p>
                     <button onClick={() => setDuelPhase("bet")} style={{ marginTop: "0.5rem" }}>Challenge Miraa</button>
                 </section>
 
@@ -243,7 +243,7 @@ export function SunscarFestival({
                     <FestivalPortrait image={brokerArt} icon="🎴" name="The Broker" />
                     <h2>The Broker — Black Market</h2>
                     <p style={{ fontStyle: "italic", color: "#aaa", marginBottom: "0.5rem" }}>
-                        "Everything's for sale beneath the dunes. Most walk away poorer. A rare few… don't."
+                        "Seventy-five thousand buys one sealed crate. You may complain about the price after you open it."
                     </p>
                     <p style={{ marginBottom: "0.3rem" }}><strong>Cost:</strong> {BLACK_MARKET_COST.toLocaleString()} ryo per pull · up to {BLACK_MARKET_DAILY_CAP}/day</p>
                     <p style={{ marginBottom: "0.5rem" }}><strong>Your Ryo:</strong> {character.ryo.toLocaleString()}{bmUsed !== null ? ` · ${bmUsed}/${BLACK_MARKET_DAILY_CAP} pulls today` : ""}</p>

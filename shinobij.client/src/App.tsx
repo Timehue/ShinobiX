@@ -2996,7 +2996,7 @@ export default function App() {
         if (accepted.arenaMatch) { // Tactical Arena PvP — challenger side
             const match = buildAcceptedArenaMatch(accepted);
             if (match) setPendingArenaMatch(match);
-            else alert(`${accepted.fromName} accepted your Tactical Pet Arena challenge. Open the Pet Colosseum if it doesn't start.`);
+            else alert(`${accepted.fromName} accepted your Hollow Warfront challenge. Open Pet Arena if it doesn't start.`);
             setScreen("petArena");
             return;
         }
@@ -5887,7 +5887,7 @@ export default function App() {
             const floorSeal = await sealHollowGateFloor(character.name, recovered.token, run);
             setHollowGateRun(run);
             setHollowGateLog([
-                "You recover the descent interrupted at the broken torii. The Hollow Gate remembers your key.",
+                "You recover the descent interrupted at the broken torii. The same sealed key record restores your route.",
                 ...(!floorSeal.ok ? [`Floor seal pending: ${floorSeal.error || "retry after reconnect"}. Movement remains server-blocked until the seal succeeds.`] : []),
             ]);
             setHollowGateEvent(null);
@@ -5904,7 +5904,7 @@ export default function App() {
         // normalizer resets daily counters at midnight UTC.
         if (character.hollowGateRun && !character.hollowGateRun.completed) {
             setHollowGateRun(character.hollowGateRun);
-            setHollowGateLog(prev => prev.length ? prev : ["You return to your unfinished run. The Hollow Gate echoes have not forgotten you."]);
+            setHollowGateLog(prev => prev.length ? prev : ["You return to your unfinished run. The floor marks and opened passages are unchanged."]);
             setHollowGateEvent(null);
             setHollowGateHiddenChamber(null);
             setCurrentBiome("shadow");
@@ -5938,7 +5938,7 @@ export default function App() {
         const runsToday = character.lastDailyReset === todayKey ? (character.dailyHollowGateRuns ?? 0) : 0;
         const DAILY_HOLLOW_GATE_CAP = 2 + attunementDailyBonus(character);
         if (runsToday >= DAILY_HOLLOW_GATE_CAP) {
-            alert(`The Hollow Gate Shrine refuses to open again today. You've already entered ${runsToday}/${DAILY_HOLLOW_GATE_CAP} times. Return at dawn.`);
+            alert(`The entry seal has already admitted you ${runsToday}/${DAILY_HOLLOW_GATE_CAP} times today. Return at dawn.`);
             return;
         }
         const floorsLine = eventCfg ? `\nEvent gate: ${hollowGateRunMaxFloor({ variant })} floor${hollowGateRunMaxFloor({ variant }) === 1 ? "" : "s"}, final boss: ${hollowGateBossDisplayName({ variant })}.` : "";
@@ -5954,7 +5954,7 @@ export default function App() {
         // declares its own depth so settlement matches the shorter run.
         const serverStart = await startHollowGateServerRun(character.name, hollowGateRunMaxFloor({ variant }), variant?.id);
         if (serverStart?.reason === "daily-cap") {
-            alert("The Hollow Gate has already taken its measure of you today. Return at dawn.");
+            alert("The daily entry seal has reached its limit. Return at dawn.");
             return;
         }
         if (!serverStart?.token || !serverStart.character) {
@@ -5971,7 +5971,7 @@ export default function App() {
         setHollowGateLog([
             keyCost > 0
                 ? "You press a Hollow Gate Key against the broken torii. The seal bends. You descend."
-                : `The ${gateName} stands open — the seal parts on its own. You descend.`,
+                : `The ${gateName} stands open because its event seal is already released. You descend.`,
             ...(!floorSeal.ok ? [`Floor seal pending: ${floorSeal.error || "retry after reconnect"}. Movement remains server-blocked until the seal succeeds.`] : []),
         ]);
         setHollowGateEvent(null);
@@ -6078,7 +6078,7 @@ export default function App() {
             void startHollowGateBattle({ isBoss: true, nodeId: sealed?.nodeId ?? `floor:${hollowGateRun?.floor ?? 1}:ambush:boss-threat` });
             return;
         }
-        pushHollowGateLog("The Hollow Gate echoes converge — a Hollow Hound lunges from the mist!");
+        pushHollowGateLog("Footsteps converge in the side passages. A Hollow Hound lunges from the mist.");
         void startHollowGateBattle({ isAmbush: true, nodeId: sealed?.nodeId });
     }
     useEffect(() => {
@@ -6386,7 +6386,7 @@ export default function App() {
             nodeId: hollowGateHiddenChamber.nodeId,
             action: "hidden-tablet",
         });
-        if (!result.ok || !result.character) return pushHollowGateLog(result.error || "The Ancient Tablet did not answer.");
+        if (!result.ok || !result.character) return pushHollowGateLog(result.error || "The Ancient Tablet's inscription cannot be read.");
         commitVersionedCharacter(result.character, result._saveVersion);
         pushHollowGateLog(`You decipher the Ancient Tablet. ${hollowGateRewardLines(result.reward).join(", ")}.`);
         setHollowGateHiddenChamber({ ...hollowGateHiddenChamber, searched: true });

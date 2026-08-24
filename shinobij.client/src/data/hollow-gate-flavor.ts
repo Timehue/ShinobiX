@@ -14,37 +14,37 @@ import type { HollowGateTileKind } from "../types/character";
 
 export const hollowGateFlavorPool: Record<HollowGateTileKind, string[]> = {
     empty: [
-        "Dust drifts through shafts of pale light. Ancient seals glow faintly underfoot.",
-        "Broken shrine stones line the floor. A single glowing pawprint blinks out as you step past.",
-        "Chakra mist coils around your ankles. The silence here is older than memory.",
-        "The corridor breathes. Far below, something answers.",
+        "Dust hangs in one shaft of light. Floor seals show where the Court's maintenance crews once stood.",
+        "Broken shrine stones line the passage. A fresh claw mark crosses the oldest carving.",
+        "Chakra mist reaches your ankles. Your next footprint stays visible three breaths too long.",
+        "Water knocks inside a pipe behind the wall. The next knock comes from farther down.",
     ],
     battle: [
-        "A Hollow Hound rises from the chakra mist — eyes burning blue, fangs wet with shadow.",
-        "Hollow Gate echoes knot themselves into a stalking spirit hound.",
+        "A Hollow Hound steps out of the mist, head low and blue chakra leaking between its teeth.",
+        "Mist gathers around a set of running pawprints. The hound reaches you a moment after its tracks do.",
         "Glowing pawprints stop here. From the dark, a Hollow Hound lowers itself to spring.",
     ],
     elite: [
         "An armored Hollow Hound blocks the path. Broken shrine seals still burn across its hide.",
-        "Ancient claw-script winds across the floor — and the alpha that carved it remains.",
+        "Claw-script circles the chamber floor. The alpha that carved it watches from the only open doorway.",
     ],
     trap: [
-        "Ancient seals flare beneath your feet — paper-thin runes ignite!",
-        "A sealed door slams behind you as venomous chakra mist hisses from the stones.",
+        "A floor seal flashes under your heel. Paper-thin runes ignite in a line toward you.",
+        "The door drops behind you. Green chakra mist spills from holes cut at shin height.",
         "A pressure plate clicks. Shuriken fly from a broken shrine stone.",
     ],
     chest: [
-        "A shrine offering box rests in the dust, faintly humming with old chakra.",
-        "Glowing pawprints circle a small lacquered chest. Something wants you to find it.",
+        "A shrine offering box rests in the dust. One seal is intact; the other two were cut from the inside.",
+        "Pawprints circle a lacquered field chest, then continue down the hall. Whatever found it could not work the latch.",
     ],
     pet_event: [
-        "Glowing pawprints trail toward a sleeping shrine spirit. Your pet's ears twitch.",
-        "A familiar scent drifts past — your pet pulls you toward a side passage.",
+        "Glowing pawprints lead to a sleeping sector beast caught behind a fallen screen. Your companion's ears lift.",
+        "Your companion catches a familiar scent and pulls you toward a side passage before you see the tracks.",
     ],
     pet_battle: [
-        "A corrupted Hollow Hound prowls the corridor — eyes burning chakra-blue, claws scoring stone.",
-        "Glowing pawprints crystallize into a snarling shadow-bound beast, twisted by the gate's mist.",
-        "A wild thing lunges from the dark — too fast for a normal animal, too old for a normal shadow.",
+        "A Hollow Hound prowls the corridor, blue chakra leaking from its eyes and claws scoring the stone.",
+        "Glowing pawprints harden into crystal. A hound tears itself free from the last print and snarls at your companion.",
+        "A lean Gate beast lunges from the dark. Your companion meets it before it reaches your throat.",
     ],
     tile_game: [
         "An obsolete tile seal fractures. A Hollow Hound steps through the broken grid.",
@@ -52,36 +52,36 @@ export const hollowGateFlavorPool: Record<HollowGateTileKind, string[]> = {
         "Ancient tile sigils gutter out. A spirit hound answers in their place.",
     ],
     shard_vein: [
-        "A seam of violet crystal threads the shrine stone — Hollow Shards, half-buried and humming.",
-        "Glowing shards crust a cracked pillar, cold and faintly singing. They come loose with a touch.",
-        "Old chakra has crystallized in the wall here, a vein of Hollow Shards waiting to be pried free.",
+        "A seam of violet Hollow Shards runs through the shrine stone. Half the vein is exposed.",
+        "Hollow Shards crust a cracked pillar. The loose pieces are cold enough to numb your fingertips.",
+        "Old chakra has crystallized in the wall. A kunai fits cleanly behind the largest shard.",
     ],
     shrine: [
         "A broken shrine stone weeps cold chakra. Beyond it, a Hidden Chamber lies open.",
-        "A ritual circle pulses violet. The Hollow Gate echoes invite you inward.",
+        "A violet ritual circle marks a side chamber. Someone wiped one footprint away and missed the second.",
     ],
     story: [
-        "Stone tablets line the wall, etched with the names of the shrine's first guardians.",
-        "A shattered mural shows shinobi sealing the Hollow Gate from the inside.",
+        "Stone tablets list the Court workers assigned to this intake. Later hands added the names of shinobi who never returned.",
+        "A damaged mural shows workers closing the Hollow Gate from inside the control hall. The final panel was cut away.",
     ],
     boss: [
         "The corridor opens into a vast chamber. The Hollow Hound Alpha waits at its center.",
     ],
     exit: [
-        "A broken torii leans across this tile, its chakra chains slackened. Beyond it, pale daylight from the world above bleeds through — the way out.",
-        "The seal on this threshold has frayed. Step through and the Hollow Gate releases you back to the world map.",
+        "A broken torii leans across the threshold, its chakra chains slack. Pale daylight marks the way out.",
+        "The seal on this threshold has frayed. Step through and the Hollow Gate releases you onto the surface road.",
     ],
     locked: [
         "A sealed door, bound by chakra chains. Without a Shrine Key it will not yield.",
     ],
     npc: [
-        "A hooded figure tends a flame in the corridor — the Shrine Keeper. Their eyes are old.",
+        "A hooded Shrine Keeper trims a brazier wick with a kunai and looks up when your boots scrape stone.",
         "An old shinobi waits beside a chakra brazier. The Shrine Keeper bows in greeting.",
         "The Shrine Keeper looks up from a worn scroll. \"Choose carefully, traveler.\"",
     ],
     descend: [
-        "A spiral staircase coils into the dark. The next floor breathes below.",
-        "Hollow Gate echoes spiral downward — the next floor lies open.",
+        "A spiral stair drops to the next floor. Fresh hound tracks overlap your own at the first turn.",
+        "The lower-floor seal has opened. Cold air climbs the stairs and gutters your torch.",
     ],
     wall: [
         "Solid shrine stone. The wall is sealed by old chakra and will not move.",
@@ -96,27 +96,27 @@ export const hollowGateIntroPages: Array<{ title: string; imageKey: string; line
         imageKey: "shrine:intro-1",
         lines: [
             "The Hollow Gate Key in your hand grows cold.",
-            "Ahead, a broken torii leans against itself, chained shut by chakra rope older than the village.",
-            "The seal cracks. The Hollow Gate echoes whisper your name in a voice you have never heard.",
+            "Ahead, a broken torii leans against itself, chained shut with Court-era chakra rope.",
+            "The key releases the chain one link at a time. No voice greets you. The Gate checks the seal and opens.",
         ],
     },
     {
         title: "The First Step",
         imageKey: "shrine:intro-2",
         lines: [
-            "Stone teeth bite the air. Glowing pawprints pulse violet down the corridor and vanish.",
-            "Behind you, the seal re-knits — there is no leaving by the way you came.",
-            "Find a Leave tile, clear the final seal, or invoke Emergency Forfeit if the Gate stops responding.",
+            "Glowing pawprints cross the first corridor and vanish beneath a closed screen.",
+            "Behind you, the entrance seal knots itself shut. The key opened a one-way intake.",
+            "The Warden's field note is blunt: find a marked exit, clear the final seal, or use Emergency Forfeit if the Gate stops answering.",
         ],
     },
     {
         title: "What Waits Below",
         imageKey: "shrine:intro-3",
         lines: [
-            "Five floors spiral down into the shrine, each deeper than the last and hungrier for you. Search its chambers for keys, relics, and the staircase below.",
-            "Your Torch of Reiki burns down as you wander and is not rekindled by battle — feed it at chests and shrines, or the dark will turn on you.",
-            "Hollow Shards torn from the depths buy shrine relics mid-run, or permanent attunements at the gate. Fall, and you keep only half your haul — unless a Second Wind carries you back.",
-            "On the deepest floor, the Hollow Hound Alpha waits. Face it as a shinobi or send your active pet into a tactical duel.",
+            "Five floors descend through the old intake. Search each one for keys, field relics, and the next stair, but keep track of the route back to a marked exit.",
+            "Your Torch of Reiki burns while you walk, not while you fight. Rekindle it at chests and shrines before the light reaches the last mark.",
+            "Hollow Shards buy field relics during the run or lasting attunements at the entrance. If you fall, the Gate keeps half your haul unless a Second Wind gets you out.",
+            "The Hollow Hound Alpha holds the deepest seal. Fight it yourself or send your active companion into the tactical ring.",
         ],
     },
 ];

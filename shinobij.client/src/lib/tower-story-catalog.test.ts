@@ -57,7 +57,7 @@ test("Story actionability mirrors level, replay, and numeric-frontier authority"
 test("Story chapters come from metadata and old cached floors receive a safe fallback", () => {
     const chapters = groupTowerStoryChapters([floor(11, 2), floor(1), floor(12, 2)]);
     assert.deepEqual(chapters.map(chapter => ({ number: chapter.number, title: chapter.title, floors: chapter.floors.map(value => value.id) })), [
-        { number: 1, title: "The Celestial Ascent", floors: [1] },
+        { number: 1, title: "The Spire Ascent", floors: [1] },
         { number: 2, title: "The Shattered Crown", floors: [11, 12] },
     ]);
     assert.equal(chapters[1]?.artKey, "shattered-crown");

@@ -84,8 +84,7 @@
 .world-poi-plate-tag {
     font-family: Georgia, "Times New Roman", serif;
     font-style: italic;
-    /* Sized so the LONGEST tag ("The Traditional Path — discipline and the old
-       ways", ~214px here) still fits the 230px content box on one line — a
+    /* Sized so the longest village identity tag still fits the 230px content box on one line. A
        second line is what pushed the Moonshadow plate out of shape. The floor
        is a touch above the old 8px so mid-width laptops, where the vw term
        governs, don't lose legibility to the smaller cap. */
