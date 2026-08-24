@@ -6420,7 +6420,6 @@ export default function App() {
     );
 
     const surfaceBlockerMode = playerSurfaceBlockerMode(Boolean(character), screen, gameplayViewAvailability);
-
     return (
         <MaintenanceOperatorBoundary mode={surfaceBlockerMode}>
         <AdaptiveGameShell
