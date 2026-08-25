@@ -1229,11 +1229,12 @@ function WfObjectiveBeacon({ result, clock }: { result: WarfrontResult; clock: W
 
 /** One pooled hound slot: owns its refs (compiler-safe) and drives itself from
  * snap.mobs[index] every frame. Mounted once; waves never re-render React. */
-function WfHoundSlot({ result, clock, index, config, rigBudget, rigDistance, bindings, kind }: {
+function WfHoundSlot({ result, clock, index, config, rigAvailable, rigBudget, rigDistance, bindings, kind }: {
     result: WarfrontResult;
     clock: WfClockRef;
     index: number;
     config: PetCombatModelConfig;
+    rigAvailable: boolean | null;
     rigBudget: number;
     rigDistance: number;
     bindings: MutableRefObject<WfMobSlotBindings>;
@@ -1453,7 +1454,7 @@ function WfHoundSlot({ result, clock, index, config, rigBudget, rigDistance, bin
                     <meshBasicMaterial color={isLane ? (side === "blue" ? "#38bdf8" : "#fb7185") : "#c084fc"} depthTest={false} />
                 </mesh>
             </group>
-            {richUi ? (
+            {richUi ? rigAvailable === true ? (
                 <WfAssetErrorBoundary
                     fallback={<WfHollowHoundImpostor bodyRef={impostor} torsoRef={torso} headRef={head} tailRef={tail} leg0Ref={leg0} leg1Ref={leg1} leg2Ref={leg2} leg3Ref={leg3} side={isLane ? side : "hollow"} />}
                     label={isLane ? `${side} lane hound rig` : "Hollow hound rig"}
@@ -1471,8 +1472,8 @@ function WfHoundSlot({ result, clock, index, config, rigBudget, rigDistance, bin
                     </Suspense>
                 </WfAssetErrorBoundary>
             ) : (
-                null
-            )}
+                <WfHollowHoundImpostor bodyRef={impostor} torsoRef={torso} headRef={head} tailRef={tail} leg0Ref={leg0} leg1Ref={leg1} leg2Ref={leg2} leg3Ref={leg3} side={isLane ? side : "hollow"} />
+            ) : null}
         </group>
     );
 }
@@ -1561,11 +1562,34 @@ function WfMobPool({ result, clock, budget }: {
     budget: WarfrontPresentationBudget;
 }) {
     const config = useMemo(() => petCombatModel({ id: HOLLOW_BEAST_ID } as Pet), []);
+    const [rigAvailable, setRigAvailable] = useState<boolean | null>(null);
     const bindings = useRef<WfMobSlotBindings>({
         snapshot: null,
         hollow: Array.from({ length: HOLLOW_POOL }, () => null),
         lane: Array.from({ length: MINION_POOL }, () => null),
     });
+    useEffect(() => {
+        if (!config) return;
+        const controller = new AbortController();
+        void fetch(config.url, {
+            method: "HEAD",
+            cache: "force-cache",
+            signal: controller.signal,
+        }).then((response) => {
+            setRigAvailable(response.ok);
+            if (!response.ok) {
+                console.warn(`[Warfront] Hound rig returned HTTP ${response.status}; using the safe fallback.`);
+            }
+        }).catch((error: unknown) => {
+            if (controller.signal.aborted) return;
+            setRigAvailable(false);
+            console.warn(
+                "[Warfront] Hound rig could not be reached; using the safe fallback.",
+                error instanceof Error ? error.message : String(error),
+            );
+        });
+        return () => controller.abort();
+    }, [config]);
     if (!config) return null;
     return (
         <group>
@@ -1577,6 +1601,7 @@ function WfMobPool({ result, clock, budget }: {
                     clock={clock}
                     index={i}
                     config={config}
+                    rigAvailable={rigAvailable}
                     rigBudget={budget.hollowHoundRigs}
                     rigDistance={budget.houndRigDistance}
                     bindings={bindings}
@@ -1590,6 +1615,7 @@ function WfMobPool({ result, clock, budget }: {
                     clock={clock}
                     index={i}
                     config={config}
+                    rigAvailable={rigAvailable}
                     rigBudget={budget.laneHoundRigs}
                     rigDistance={budget.houndRigDistance}
                     bindings={bindings}
