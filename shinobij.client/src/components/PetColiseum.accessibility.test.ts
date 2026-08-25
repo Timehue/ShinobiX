@@ -38,3 +38,9 @@ test("Pet Coliseum result and Chronicle ceremony remain reachable at mobile widt
     assert.match(witnessProgress, /role="status" aria-live="polite" aria-atomic="true"/);
     assert.match(witnessProgress, /<progress[\s\S]*?aria-label=[\s\S]*?max=\{entry\.threshold\}[\s\S]*?value=\{Math\.min\(entry\.wins, entry\.threshold\)\}/);
 });
+
+test("Pet Arena does not preload the retired Coliseum renderer", () => {
+    assert.doesNotMatch(arena, /import\("\.\.\/components\/PetColiseum"\)/);
+    assert.match(arena, /const PetShowdownReplay = lazyWithRetry/);
+    assert.match(arena, /const PetWarfrontMatch = lazyWithRetry/);
+});

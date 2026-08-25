@@ -2390,8 +2390,9 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     .story-fight-vignette { animation: none; opacity: 0.8; }
 }
 
-/* Chapter-complete card — replaces the plain alert. Entrance is delayed a
-   beat so the boss's final authored words (the defeat bark) land first. */
+/* Shared combat-result card. Ordinary AI/Tower/Gate results acknowledge the
+   decisive hit immediately; only authored story chapters opt into the longer
+   final-bark beat through the cinematic modifier below. */
 .story-fight-complete {
     position: fixed;
     inset: 0;
@@ -2403,7 +2404,12 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     overflow-y: auto;
     overscroll-behavior: contain;
     background: rgba(3, 5, 10, 0.66);
-    animation: story-complete-in 480ms ease-out 2.2s both;
+    animation: story-complete-in 180ms ease-out both;
+}
+
+.story-fight-complete--cinematic {
+    animation-duration: 480ms;
+    animation-delay: 2.2s;
 }
 
 .story-fight-complete-card {
@@ -2471,7 +2477,8 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .story-fight-complete { animation-duration: 1ms; animation-delay: 0.5s; }
+    .story-fight-complete { animation-duration: 1ms; }
+    .story-fight-complete--cinematic { animation-delay: 0.5s; }
 }
 
 /* =========================================================================

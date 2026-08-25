@@ -285,9 +285,41 @@ test("hunt acceptance, abandonment and turn-in remain server-authoritative", () 
 
 test("resumed World fights rebuild presentation from the server seal", () => {
     assert.match(host, /resumeWorldAiFight\(originatingPlayerName\)/);
-    assert.match(host, /const sealedRequest = started\.worldContext[\s\S]{0,120}requestForResumedWorldFight\(started\)/);
-    assert.match(host, /ensureWandererFightPending\(originatingPlayerName, started\.worldContext\)/);
+    assert.match(host, /const sealedRequest = started\.worldContext[\s\S]{0,420}requestForResumedWorldFight\(started,/);
+    assert.match(host, /ensureWandererFightPending\(originatingPlayerName, started\.worldContext, sealedRequest\.enemyAvatar\)/);
     assert.match(host, /recordMode=\{currentFight\.worldContext \? "World Encounter"/);
+    assert.match(host, /recoverWandererFightAvatar\(originatingPlayerName, context\)/,
+        "refresh recovery must restore the exact sealed encounter's portrait instead of showing initials");
+});
+
+test("wandering Fight/Flee decisions retire their prompt without requiring refresh", () => {
+    const worldMap = readFileSync(new URL("../screens/WorldMap.tsx", import.meta.url), "utf8");
+    const launch = worldMap.slice(
+        worldMap.indexOf("function launchWorldMapFight"),
+        worldMap.indexOf("function launchAiGuardRaid"),
+    );
+    assert.match(launch, /const launched = requestAiFight\(/);
+    assert.match(launch, /if \(launched\)(?:\s*\{)?[\s\S]{0,80}setWandererDialog\(null\)/,
+        "an accepted World combat launch must remove the encounter prompt before combat paints");
+    assert.match(launch, /else \{[\s\S]{0,180}combat host is unavailable/,
+        "a missing combat host must keep the encounter retryable");
+
+    const dismiss = worldMap.slice(
+        worldMap.indexOf("function dismissWandererDialog"),
+        worldMap.indexOf("function handleWandererBackdropClick"),
+    );
+    assert.ok(dismiss.indexOf("setWandererDialog(null)") < dismiss.indexOf("coolWanderer("),
+        "Flee must close before its secondary cooldown mutation can fail");
+});
+
+test("fresh World fights keep art only after the server seal matches the launch", () => {
+    assert.match(host, /request\.worldEncounter\?\.kind === started\.worldContext\.kind/);
+    assert.match(host, /request\.worldEncounter\.sourceId === started\.worldContext\.sourceId/);
+    assert.match(host, /request\.worldEncounter\.sector === started\.worldContext\.sector/);
+    assert.match(host, /requestForResumedWorldFight\(started, sealedWorldMatchesRequest \? request\.enemyAvatar : undefined\)/,
+        "a matching world encounter must carry its painted portrait into combat without trusting it for identity");
+    assert.match(host, /ensureWandererFightPending\(originatingPlayerName, started\.worldContext, sealedRequest\.enemyAvatar\)/,
+        "the matching portrait must survive refresh recovery");
 });
 
 test("fresh generic fights use the server-sealed identity just like refresh recovery", () => {
