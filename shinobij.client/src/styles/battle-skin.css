@@ -585,7 +585,7 @@
 .arena-fullscreen .battle-log-tempo   { color: var(--purple-400) !important; font-weight: 600 !important; } /* violet — copy / mirror / lag / overclock */
 .arena-fullscreen .battle-log-system  { color: #e8d496 !important; font-weight: 600 !important; } /* gold   — cast headers / rounds / outcomes */
 .arena-fullscreen .battle-log-effect  { color: #d8b4fe !important; font-weight: 600 !important; } /* lilac  — fallback */
-.arena-fullscreen .battle-log-line .bl-num { font-weight: 800 !important; filter: brightness(1.12); }
+.arena-fullscreen :is(.battle-log-line, .bl-head-text) .bl-num { font-weight: 800 !important; filter: brightness(1.12); }
 
 /* ── Owner-attributed action block — the "who did what" clarity layer ────────
    A colored actor chip (blue = you, red = opponent) leads each action, a small
@@ -638,7 +638,7 @@
 .bh-log .battle-log-system  { color: #e8d496; font-weight: 600; }
 .bh-log .battle-log-effect  { color: #d8b4fe; font-weight: 600; }
 .bh-log .battle-log-line { font: 500 12px/1.45 'Inter', system-ui, sans-serif; margin: 0; padding: 1px 0 1px 2px; color: #f1f5f9; }
-.bh-log .battle-log-line .bl-num { font-weight: 800; filter: brightness(1.12); }
+.bh-log :is(.battle-log-line, .bl-head-text) .bl-num { font-weight: 800; filter: brightness(1.12); }
 .bh-log .timeline-entry { display: block; padding: 6px 4px; border-bottom: 1px solid rgba(196,162,90,0.08); }
 .bh-log .timeline-entry:last-child { border-bottom: none; }
 .bh-log .timeline-entry-head { font: 600 13px/1.5 'Inter', system-ui, sans-serif; color: #e8edf5; margin: 0 0 3px 0; }
