@@ -76,6 +76,10 @@ test("Clan Hall territory and dissolution controls preserve authoritative player
     let assignmentMode: "forbidden" | "success" = "forbidden";
     const assignmentBodies: Array<Record<string, unknown>> = [];
     let deleteRequests = 0;
+    // Deferred gate for the in-flight claim window; released by the test once it
+    // has seen the button go busy. See the assign-scrolls route below.
+    let releaseAssignment: () => void = () => {};
+    const assignmentHeld = new Promise<void>((resolve) => { releaseAssignment = resolve; });
 
     await page.route("**/api/save/clan-shadowcell", async (route) => {
         if (route.request().method() === "DELETE") {
@@ -100,7 +104,16 @@ test("Clan Hall territory and dissolution controls preserve authoritative player
         if (assignmentMode === "forbidden") {
             return json(route, { ok: false, error: "Only clan leadership can assign Territory Control Scrolls." }, 403);
         }
-        await new Promise((resolve) => setTimeout(resolve, 150));
+        // Hold the successful claim open until the test has actually observed the
+        // in-flight UI. This used to be a fixed 150 ms sleep, which lost the race
+        // on a loaded machine: the response landed before Playwright could query
+        // for the transient "Claiming…" button, and the spec failed with
+        // "element(s) not found" about one run in three under `--repeat-each`.
+        // The assertion it protects is worth keeping deterministic — it is what
+        // proves a player cannot double-spend 75 Territory Scrolls by
+        // double-clicking. Awaiting an already-resolved gate is a no-op, so any
+        // later claim in this spec passes straight through.
+        await assignmentHeld;
         worldTerritory = territory(true);
         return json(route, {
             ok: true,
@@ -155,8 +168,11 @@ test("Clan Hall territory and dissolution controls preserve authoritative player
     await expect(captureConfirmation).toHaveCount(1);
     expect(assignmentBodies).toHaveLength(1);
     await captureConfirmation.getByRole("button", { name: "Spend 75 Scrolls" }).click();
+    // The claim is held open by `assignmentHeld`, so this window cannot close
+    // before the assertion runs no matter how loaded the machine is.
     const busyButtons = page.getByRole("button", { name: "Claiming…" });
     await expect(busyButtons.first()).toBeDisabled();
+    releaseAssignment();
     await expect.poll(() => assignmentBodies.length).toBe(2);
     await expect(page.getByText(/Clan Hall Scrolls:\s*0/)).toBeVisible();
     await expect(page.getByText("Control Score: 75,000 / 75,000")).toBeVisible();
