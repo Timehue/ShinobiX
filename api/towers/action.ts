@@ -104,9 +104,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await refreshClanBossBattleMarkers(runId, towerBattleLeaseMembers(session));
             }
 
-            if ((isPublicTowerRun(session) || isSpireRun(session)) && session.rewardSettlementState === 'settled') {
+            const ownsTowerLease = !!session.worldCrisis80 || isPublicTowerRun(session) || isSpireRun(session);
+            if (ownsTowerLease && session.rewardSettlementState === 'settled') {
                 await releaseTowerBattleLeases(runId, towerBattleLeaseMembers(session));
-            } else if (isPublicTowerRun(session) || isSpireRun(session)) {
+            } else if (ownsTowerLease) {
                 const partyId = (session as TowerSession & { towerPartyId?: string }).towerPartyId;
                 const lease = await refreshTowerBattleLeases({
                     runId,

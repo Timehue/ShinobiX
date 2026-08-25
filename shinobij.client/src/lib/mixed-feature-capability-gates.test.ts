@@ -79,16 +79,18 @@ describe("mixed-feature public capability wiring", () => {
         assert.match(legacy, /capabilityMutationAvailability\(liveCapabilitiesStore\.getSnapshot\(\), "legacy"\)/);
         assert.doesNotMatch(legacy, /legacyProbe|legacyAvailabilityListeners|fetchLegacyDefinitions\(\)\.then/);
 
-        assert.match(hall, /LEGACY_HALL_TABS = new Set<LbTab>\(\["legends", "news", "eras"\]\)/);
+        assert.match(hall, /LEGACY_HALL_TABS = new Set<LbTab>\(\["legends", "eras"\]\)/);
         assert.match(hall, /!legacyAvailable && LEGACY_HALL_TABS\.has\(selectedTab\) \? "ranked" : selectedTab/);
-        assert.match(hall, /if \(!legacyAvailable \|\| \(tab !== "legends"/);
+        assert.match(hall, /if \(tab !== "news" && \(!legacyAvailable \|\| \(tab !== "legends"/);
+        assert.match(hall, /\{ id: "news",\s+label: "World News"/);
         for (const tab of ["ranked", "kills", "weeklyBoss", "professions"]) {
             assert.match(hall, new RegExp(`\\{ id: "${tab}"`));
         }
 
-        assert.match(briefing, /if \(!shouldShow \|\| !legacyAvailable\) return;/);
+        assert.match(briefing, /if \(!shouldShow\) return;/);
+        assert.match(briefing, /if \(legacyAvailable\) void fetchEras/);
         assert.match(briefing, /\{legacyAvailable && activeEra/);
-        assert.match(briefing, /\{legacyAvailable && worldNews\.length/);
+        assert.match(briefing, /\{worldNews\.length > 0/);
         assert.match(briefing, /\{legacyAvailable && rumor/);
 
         assert.doesNotMatch(profile, /isLegacyServerLive/);

@@ -26,15 +26,17 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Billboard, Html, Sparkles, useGLTF } from "@react-three/drei";
+import { Billboard, Html, Preload, Sparkles, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { Pet } from "../types/pet";
 import type { ArenaSlot } from "../lib/pet-arena-sim";
 import {
-    startWarfrontMatch, wfVerdictScore, WARFRONT_TPS, WF_MAX_SECONDS, WF_PHASE_SKIRMISH, WF_PHASE_SUDDEN, WF_PHASE_WAR, WF_POWERUPS, WF_STACK_CAP, WF_STANCES,
+    wfVerdictScore, WARFRONT_TPS, WF_MAX_SECONDS, WF_PHASE_SKIRMISH, WF_PHASE_SUDDEN, WF_PHASE_WAR, WF_POWERUPS, WF_STACK_CAP, WF_STANCES,
     type WarfrontChoice, type WarfrontResult, type WfBuyPolicy, type WfSnapshot, type WfStance, type WfDoctrine,
 } from "../lib/pet-warfront-sim";
+import { createWarfrontWorkerController } from "../lib/pet-warfront-worker-client";
 import {
     WF_MASK, WF_COLS, WF_ROWS, WF_X, WF_Y, WF_BUSHES, WF_CELL_X, WF_CELL_Y, WF_LAIR, WF_LANES, WF_MINI_NAMES, WF_PADS, WF_SPAWNS, WF_THEMES,
     wfCellWalkable, wfInsideField, wfLaneDistance,
@@ -63,6 +65,7 @@ import {
     createWarfrontMotionFilter,
     reconcileWarfrontMobSlots,
     shouldRenderWarfrontHoundRig,
+    warfrontPercentile,
     warfrontMotionFilterSpeed,
     warfrontMvpId,
     warfrontPresentationBudget,
@@ -236,10 +239,20 @@ function wardenTex(f: WardenFrameKey): THREE.Texture {
     return t;
 }
 
+function wfSnapshotAtOrBefore(snaps: readonly WfSnapshot[], tick: number): WfSnapshot {
+    let lo = 0, hi = snaps.length - 1;
+    while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        if (snaps[mid].t <= tick) lo = mid;
+        else hi = mid - 1;
+    }
+    return snaps[lo];
+}
+
 const snapAt = (result: WarfrontResult, clock: WfClockRef): WfSnapshot => {
     const snaps = result.snapshots;
     const tick = Number.isFinite(clock.current.t) ? clock.current.t : 0;
-    return snaps[Math.max(0, Math.min(snaps.length - 1, Math.floor(tick)))];
+    return wfSnapshotAtOrBefore(snaps, Math.max(0, tick));
 };
 
 // The sim ticks at 30Hz but the playback clock advances a FRACTION of a tick per
@@ -250,14 +263,29 @@ const snapAt = (result: WarfrontResult, clock: WfClockRef): WfSnapshot => {
 // movement can be interpolated the way the hero pets already are — the whole field
 // glides instead of only the four featured pets.
 interface WfLerpFrame { s0: WfSnapshot; s1: WfSnapshot; f: number }
+const wfLerpCache = new WeakMap<WarfrontResult, { tick: number; frame: WfLerpFrame }>();
 const lerpFrameAt = (result: WarfrontResult, clock: WfClockRef): WfLerpFrame => {
     const snaps = result.snapshots;
     const tick = Number.isFinite(clock.current.t) ? clock.current.t : 0;
-    const tf = Math.max(0, Math.min(snaps.length - 1, tick));
-    const i0 = Math.floor(tf);
+    const cached = wfLerpCache.get(result);
+    if (cached?.tick === tick) return cached.frame;
+    const clamped = Math.max(0, Math.min(snaps[snaps.length - 1].t, tick));
+    let lo = 0, hi = snaps.length - 1;
+    while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        if (snaps[mid].t <= clamped) lo = mid;
+        else hi = mid - 1;
+    }
+    const i0 = lo;
     const i1 = Math.min(snaps.length - 1, i0 + 1);
-    return { s0: snaps[i0], s1: snaps[i1], f: tf - i0 };
+    const s0 = snaps[i0], s1 = snaps[i1];
+    const span = Math.max(1, s1.t - s0.t);
+    const frame = { s0, s1, f: i0 === i1 ? 0 : Math.max(0, Math.min(1, (clamped - s0.t) / span)) };
+    wfLerpCache.set(result, { tick, frame });
+    return frame;
 };
+
+const wfFrontierTick = (result: WarfrontResult): number => result.snapshots[result.snapshots.length - 1]?.t ?? 0;
 
 type WfMobSnap = WfSnapshot["mobs"][number];
 type WfActorSnap = WfSnapshot["actors"][number];
@@ -407,7 +435,7 @@ function WfFloor({ theme }: { theme: WfTheme }) {
                 .replace("#include <begin_vertex>", "#include <begin_vertex>\n{ vec4 wfw = instanceMatrix * vec4(position, 1.0); vWfWorld = (modelMatrix * wfw).xyz; }");
             s.fragmentShader = s.fragmentShader
                 .replace("#include <common>", "#include <common>\nvarying vec3 vWfWorld;")
-                .replace("#include <map_fragment>", "{ vec2 wfUv = vec2((vWfWorld.x + 44.0) / 88.0, 1.0 - (vWfWorld.z + 24.0) / 48.0); vec4 sampledDiffuseColor = texture2D( map, wfUv ); diffuseColor *= sampledDiffuseColor; }");
+                .replace("#include <map_fragment>", `{ vec2 wfUv = vec2((vWfWorld.x + ${WF_X.toFixed(1)}) / ${(WF_X * 2).toFixed(1)}, 1.0 - (vWfWorld.z + ${WF_Y.toFixed(1)}) / ${(WF_Y * 2).toFixed(1)}); vec4 sampledDiffuseColor = texture2D( map, wfUv ); diffuseColor *= sampledDiffuseColor; }`);
         };
         const m = new THREE.InstancedMesh(geo, mat, tiles.length);
         const mat4 = new THREE.Matrix4();
@@ -1008,34 +1036,120 @@ const WF_HOUND_LOD = {
     crestGeometry: new THREE.OctahedronGeometry(0.13, 0),
     tailGeometry: new THREE.ConeGeometry(0.085, 0.5, 5),
     materials: Object.freeze({
-        blue: wfHoundMaterials("#082f49", "#0c4a6e", "#075985", "#0284c7", "#e0f2fe", "#0369a1", "#38bdf8"),
-        red: wfHoundMaterials("#4c0519", "#881337", "#9f1239", "#e11d48", "#ffe4e6", "#be123c", "#fb7185"),
-        hollow: wfHoundMaterials("#210449", "#18032f", "#4c126f", "#7e22ce", "#f5d0fe", "#6b21a8", "#a855f7"),
+        blue: wfHoundMaterials("#0c4a6e", "#0369a1", "#0284c7", "#38bdf8", "#f0f9ff", "#075985", "#38bdf8"),
+        red: wfHoundMaterials("#881337", "#be123c", "#e11d48", "#fb7185", "#fff1f2", "#9f1239", "#fb7185"),
+        hollow: wfHoundMaterials("#581c87", "#6b21a8", "#7e22ce", "#a855f7", "#faf5ff", "#6b21a8", "#c084fc"),
     }),
 };
 
-function WfHollowHoundImpostor({ bodyRef, side = "hollow" }: { bodyRef: MutableRefObject<THREE.Group | null>; side?: WfHoundSide }) {
+function buildInstancedHoundGeometry(side: WfHoundSide): THREE.BufferGeometry {
+    const palette = side === "blue"
+        ? ["#0c4a6e", "#0284c7", "#e0f2fe"]
+        : side === "red" ? ["#881337", "#e11d48", "#fff1f2"] : ["#581c87", "#7e22ce", "#f5d0fe"];
+    const pieces: THREE.BufferGeometry[] = [];
+    const add = (source: THREE.BufferGeometry, position: Vec3, scale: Vec3, rotation: Vec3, color: string) => {
+        // Three's primitive geometries mix indexed (boxes/capsules) and
+        // non-indexed (polyhedra) buffers. Normalize them before merging so a
+        // distant-hound LOD can never fail during module initialization.
+        const geometry = source.index ? source.toNonIndexed() : source.clone();
+        const object = new THREE.Object3D();
+        object.position.set(...position);
+        object.scale.set(...scale);
+        object.rotation.set(...rotation);
+        object.updateMatrix();
+        geometry.applyMatrix4(object.matrix);
+        const rgb = new THREE.Color(color);
+        const count = geometry.getAttribute("position").count;
+        const colors = new Float32Array(count * 3);
+        for (let index = 0; index < count; index++) rgb.toArray(colors, index * 3);
+        geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+        pieces.push(geometry);
+    };
+    add(WF_HOUND_LOD.bodyGeometry, [0, 0.32, -0.04], [0.9, 1, 0.8], [Math.PI / 2, 0, 0], palette[0]);
+    for (const [x, z] of [[-0.16, -0.2], [0.16, -0.2], [-0.16, 0.2], [0.16, 0.2]] as const) {
+        add(WF_HOUND_LOD.boxGeometry, [x, 0.14, z], [0.085, 0.28, 0.11], [0, 0, 0], palette[1]);
+        add(WF_HOUND_LOD.boxGeometry, [x, 0.015, z + 0.045], [0.105, 0.055, 0.17], [0, 0, 0], palette[2]);
+    }
+    add(WF_HOUND_LOD.headGeometry, [0, 0.42, 0.42], [0.78, 0.78, 1.02], [0, 0, 0], palette[1]);
+    for (const x of [-0.11, 0.11]) add(WF_HOUND_LOD.earGeometry, [x, 0.61, 0.37], [0.66, 0.96, 0.58], [0.18, x < 0 ? -0.3 : 0.3, x < 0 ? 0.18 : -0.18], palette[2]);
+    add(WF_HOUND_LOD.boxGeometry, [0, 0.39, 0.65], [0.18, 0.075, 0.2], [0, 0, 0], palette[2]);
+    add(WF_HOUND_LOD.tailGeometry, [0, 0.39, -0.58], [1, 1, 1], [-Math.PI / 2.6, 0, 0], palette[1]);
+    if (side === "hollow") {
+        for (const [index, z] of [-0.2, 0, 0.2].entries()) add(WF_HOUND_LOD.earGeometry, [0, 0.61 + (index === 1 ? 0.08 : 0), z], [0.52, 1.15, 0.52], [0.35, 0, Math.PI], palette[2]);
+    } else if (side === "blue") {
+        add(WF_HOUND_LOD.boxGeometry, [0, 0.52, -0.06], [0.5, 0.06, 0.36], [0, Math.PI / 4, 0], palette[2]);
+    } else {
+        add(WF_HOUND_LOD.earGeometry, [-0.31, 0.49, 0.02], [0.62, 1.3, 0.52], [0, 0, -Math.PI / 2], palette[2]);
+        add(WF_HOUND_LOD.earGeometry, [0.31, 0.49, 0.02], [0.62, 1.3, 0.52], [0, 0, Math.PI / 2], palette[2]);
+    }
+    const merged = mergeGeometries(pieces, false);
+    for (const piece of pieces) piece.dispose();
+    if (!merged) throw new Error(`Could not merge ${side} Warfront hound geometry`);
+    merged.computeBoundingSphere();
+    return merged;
+}
+
+const WF_INSTANCED_HOUND = Object.freeze({
+    geometry: Object.freeze({
+        blue: buildInstancedHoundGeometry("blue"),
+        red: buildInstancedHoundGeometry("red"),
+        hollow: buildInstancedHoundGeometry("hollow"),
+    }),
+    material: Object.freeze({
+        blue: new THREE.MeshStandardMaterial({ vertexColors: true, emissive: "#0369a1", emissiveIntensity: 0.55, roughness: 0.45 }),
+        red: new THREE.MeshStandardMaterial({ vertexColors: true, emissive: "#be123c", emissiveIntensity: 0.55, roughness: 0.45 }),
+        hollow: new THREE.MeshStandardMaterial({ vertexColors: true, emissive: "#6b21a8", emissiveIntensity: 0.68, roughness: 0.42 }),
+    }),
+});
+
+function WfHollowHoundImpostor({ bodyRef, torsoRef, headRef, tailRef, leg0Ref, leg1Ref, leg2Ref, leg3Ref, side = "hollow" }: {
+    bodyRef: MutableRefObject<THREE.Group | null>;
+    torsoRef: MutableRefObject<THREE.Group | null>;
+    headRef: MutableRefObject<THREE.Group | null>;
+    tailRef: MutableRefObject<THREE.Group | null>;
+    leg0Ref: MutableRefObject<THREE.Group | null>;
+    leg1Ref: MutableRefObject<THREE.Group | null>;
+    leg2Ref: MutableRefObject<THREE.Group | null>;
+    leg3Ref: MutableRefObject<THREE.Group | null>;
+    side?: WfHoundSide;
+}) {
     const material = WF_HOUND_LOD.materials[side];
+    const legRefs = [leg0Ref, leg1Ref, leg2Ref, leg3Ref] as const;
     return (
-        <group ref={bodyRef} dispose={null}>
+        <group ref={bodyRef} dispose={null} scale={side === "hollow" ? 1.28 : 1.16}>
             {/* A clear quadruped silhouette for distant LODs: long torso,
                 separated legs, angular head/ears and a luminous muzzle. */}
-            <mesh geometry={WF_HOUND_LOD.bodyGeometry} material={material.body} position={[0, 0.32, -0.04]} rotation={[Math.PI / 2, 0, 0]} scale={[0.9, 1, 0.8]} />
-            {([[-0.16, -0.2], [0.16, -0.2], [-0.16, 0.2], [0.16, 0.2]] as const).map(([x, z]) => (
-                <mesh key={`${x}:${z}`} geometry={WF_HOUND_LOD.boxGeometry} material={material.leg} position={[x, 0.15, z]} scale={[0.085, 0.26, 0.11]} />
+            <group ref={torsoRef}>
+                <mesh geometry={WF_HOUND_LOD.bodyGeometry} material={material.body} position={[0, 0.32, -0.04]} rotation={[Math.PI / 2, 0, 0]} scale={[0.9, 1, 0.8]} />
+                <mesh geometry={WF_HOUND_LOD.boxGeometry} material={material.ear} position={[0, 0.5, 0.02]} scale={[0.48, 0.12, 0.34]} rotation={[0, 0, Math.PI / 4]} />
+                {side === "blue" ? (
+                    <mesh geometry={WF_HOUND_LOD.boxGeometry} material={material.muzzle} position={[0, 0.52, -0.06]} scale={[0.5, 0.06, 0.36]} rotation={[0, Math.PI / 4, 0]} />
+                ) : side === "red" ? (
+                    <>
+                        <mesh geometry={WF_HOUND_LOD.earGeometry} material={material.muzzle} position={[-0.31, 0.49, 0.02]} rotation={[0, 0, -Math.PI / 2]} scale={[0.62, 1.3, 0.52]} />
+                        <mesh geometry={WF_HOUND_LOD.earGeometry} material={material.muzzle} position={[0.31, 0.49, 0.02]} rotation={[0, 0, Math.PI / 2]} scale={[0.62, 1.3, 0.52]} />
+                    </>
+                ) : null}
+            </group>
+            {([[-0.16, -0.2], [0.16, -0.2], [-0.16, 0.2], [0.16, 0.2]] as const).map(([x, z], index) => (
+                <group key={`${x}:${z}`} ref={legRefs[index]} position={[x, 0.29, z]}>
+                    <mesh geometry={WF_HOUND_LOD.boxGeometry} material={material.leg} position={[0, -0.14, 0]} scale={[0.085, 0.28, 0.11]} />
+                    <mesh geometry={WF_HOUND_LOD.boxGeometry} material={material.muzzle} position={[0, -0.29, 0.045]} scale={[0.105, 0.055, 0.17]} />
+                </group>
             ))}
-            <mesh geometry={WF_HOUND_LOD.headGeometry} material={material.head} position={[0, 0.42, 0.42]} scale={[0.78, 0.78, 1.02]} />
-            {([-0.11, 0.11] as const).map((x) => (
-                <mesh key={x} geometry={WF_HOUND_LOD.earGeometry} material={material.ear} position={[x, 0.61, 0.37]} rotation={[0.18, x < 0 ? -0.3 : 0.3, x < 0 ? 0.18 : -0.18]} scale={[0.66, 0.96, 0.58]} />
-            ))}
-            {([-0.075, 0.075] as const).map((x) => (
-                <mesh key={`eye:${x}`} geometry={WF_HOUND_LOD.eyeGeometry} material={material.muzzle} position={[x, 0.46, 0.61]} />
-            ))}
-            <mesh geometry={WF_HOUND_LOD.boxGeometry} material={material.muzzle} position={[0, 0.39, 0.65]} scale={[0.18, 0.075, 0.2]} />
-            {([-0.055, 0.055] as const).map((x) => (
-                <mesh key={`fang:${x}`} geometry={WF_HOUND_LOD.fangGeometry} material={material.muzzle} position={[x, 0.34, 0.74]} rotation={[Math.PI, 0, 0]} />
-            ))}
-            <mesh geometry={WF_HOUND_LOD.boxGeometry} material={material.ear} position={[0, 0.5, 0.02]} scale={[0.48, 0.12, 0.34]} rotation={[0, 0, Math.PI / 4]} />
+            <group ref={headRef} position={[0, 0, 0]}>
+                <mesh geometry={WF_HOUND_LOD.headGeometry} material={material.head} position={[0, 0.42, 0.42]} scale={[0.78, 0.78, 1.02]} />
+                {([-0.11, 0.11] as const).map((x) => (
+                    <mesh key={x} geometry={WF_HOUND_LOD.earGeometry} material={material.ear} position={[x, 0.61, 0.37]} rotation={[0.18, x < 0 ? -0.3 : 0.3, x < 0 ? 0.18 : -0.18]} scale={[0.66, 0.96, 0.58]} />
+                ))}
+                {([-0.075, 0.075] as const).map((x) => (
+                    <mesh key={`eye:${x}`} geometry={WF_HOUND_LOD.eyeGeometry} material={material.muzzle} position={[x, 0.46, 0.61]} />
+                ))}
+                <mesh geometry={WF_HOUND_LOD.boxGeometry} material={material.muzzle} position={[0, 0.39, 0.65]} scale={[0.18, 0.075, 0.2]} />
+                {([-0.055, 0.055] as const).map((x) => (
+                    <mesh key={`fang:${x}`} geometry={WF_HOUND_LOD.fangGeometry} material={material.muzzle} position={[x, 0.34, 0.74]} rotation={[Math.PI, 0, 0]} />
+                ))}
+            </group>
             {side === "hollow" ? (
                 <>
                     {([-0.2, 0, 0.2] as const).map((z, index) => (
@@ -1048,7 +1162,64 @@ function WfHollowHoundImpostor({ bodyRef, side = "hollow" }: { bodyRef: MutableR
                     <mesh geometry={WF_HOUND_LOD.crestGeometry} material={material.muzzle} position={[0, 0.7, -0.03]} scale={[0.62, 0.92, 0.62]} />
                 </>
             )}
-            <mesh geometry={WF_HOUND_LOD.tailGeometry} material={material.tail} position={[0, 0.39, -0.5]} rotation={[-Math.PI / 2.6, 0, 0]} />
+            <group ref={tailRef} position={[0, 0.39, -0.43]}>
+                <mesh geometry={WF_HOUND_LOD.tailGeometry} material={material.tail} position={[0, 0, -0.2]} rotation={[-Math.PI / 2.6, 0, 0]} />
+            </group>
+        </group>
+    );
+}
+
+/** A restrained in-world objective marker. It replaces HUD hunting with one
+ * spatial signal: camps during Skirmish, the Gate Warden during War, and the
+ * relevant Ward Seal during the Collapse. */
+function WfObjectiveBeacon({ result, clock }: { result: WarfrontResult; clock: WfClockRef }) {
+    const root = useRef<THREE.Group>(null);
+    const ring = useRef<THREE.Mesh>(null);
+    const beamMat = useRef<THREE.MeshBasicMaterial>(null);
+    const ringMat = useRef<THREE.MeshBasicMaterial>(null);
+    useFrame((state, delta) => {
+        const group = root.current;
+        if (!group) return;
+        const snap = snapAt(result, clock);
+        const seconds = snap.t / WARFRONT_TPS;
+        let target: { x: number; y: number; color: string } | null = null;
+        if (seconds >= WF_PHASE_SUDDEN) {
+            const redCore = snap.structures.red.core;
+            const blueCore = snap.structures.blue.core;
+            const core = redCore.exposed || !blueCore.exposed ? redCore : blueCore;
+            target = { x: core.x, y: core.y, color: core === redCore ? "#fb7185" : "#60a5fa" };
+        } else if (seconds >= WF_PHASE_WAR && snap.warden.alive) {
+            target = { x: snap.warden.x, y: snap.warden.y, color: "#d8b4fe" };
+        } else if (seconds >= WF_PHASE_SKIRMISH) {
+            const available = snap.minis.filter((mini) => mini.alive && !mini.ally);
+            const chosen = available[Math.floor(seconds / 6) % Math.max(1, available.length)];
+            if (chosen) target = { x: chosen.x, y: chosen.y, color: "#c084fc" };
+        }
+        group.visible = !!target;
+        if (!target) return;
+        group.position.x = approach(group.position.x, target.x, 0.12, delta);
+        group.position.z = approach(group.position.z, target.y, 0.12, delta);
+        if (ring.current) {
+            ring.current.rotation.z = state.clock.elapsedTime * 0.72;
+            ring.current.scale.setScalar(0.92 + Math.sin(state.clock.elapsedTime * 2.4) * 0.08);
+        }
+        beamMat.current?.color.set(target.color);
+        ringMat.current?.color.set(target.color);
+    });
+    return (
+        <group ref={root} visible={false} position={[0, 0, 0]}>
+            <mesh position={[0, 2.6, 0]}>
+                <cylinderGeometry args={[0.055, 0.32, 5.2, 12, 1, true]} />
+                <meshBasicMaterial ref={beamMat} color="#d8b4fe" transparent opacity={0.16} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </mesh>
+            <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.09, 0]} renderOrder={3}>
+                <ringGeometry args={[0.82, 1.02, 32]} />
+                <meshBasicMaterial ref={ringMat} color="#d8b4fe" transparent opacity={0.66} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </mesh>
+            <mesh position={[0, 5.1, 0]} rotation={[0.4, 0, Math.PI / 4]}>
+                <octahedronGeometry args={[0.18, 0]} />
+                <meshBasicMaterial color="#ffffff" transparent opacity={0.82} toneMapped={false} />
+            </mesh>
         </group>
     );
 }
@@ -1068,6 +1239,13 @@ function WfHoundSlot({ result, clock, index, config, rigBudget, rigDistance, bin
     const isLane = kind === "lane";
     const group = useRef<THREE.Group>(null);
     const impostor = useRef<THREE.Group>(null);
+    const torso = useRef<THREE.Group>(null);
+    const head = useRef<THREE.Group>(null);
+    const tail = useRef<THREE.Group>(null);
+    const leg0 = useRef<THREE.Group>(null);
+    const leg1 = useRef<THREE.Group>(null);
+    const leg2 = useRef<THREE.Group>(null);
+    const leg3 = useRef<THREE.Group>(null);
     const moveTrail = useRef<THREE.Group>(null);
     const moveTrailMat = useRef<THREE.MeshBasicMaterial>(null);
     const strikeRing = useRef<THREE.Mesh>(null);
@@ -1081,10 +1259,15 @@ function WfHoundSlot({ result, clock, index, config, rigBudget, rigDistance, bin
     const lastTick = useRef(-1);
     const wasMoving = useRef(false);
     const boundId = useRef(-1);
+    const spawnBlend = useRef(1);
     const [side, setSide] = useState<"blue" | "red">("blue");
     const [richUi, setRichUi] = useState(false);
     const richRef = useRef(false);
-    const scale = 0.65 / Math.max(0.001, config.targetHeight);
+    // The old 0.65u hounds collapsed into black hat-shaped dots from the MOBA
+    // camera. Keep them below fighter size but large enough to read a head,
+    // body and team color without requiring an expensive close LOD.
+    const targetHeight = isLane ? 0.84 : 0.98;
+    const scale = targetHeight / Math.max(0.001, config.targetHeight);
     useFrame((state, delta) => {
         const g = group.current;
         if (!g) return;
@@ -1108,6 +1291,8 @@ function WfHoundSlot({ result, clock, index, config, rigBudget, rigDistance, bin
         const tx = m0 && !jump ? lerp(m0.x, m1.x, bf) : m1.x;
         const tz = m0 && !jump ? lerp(m0.y, m1.y, bf) : m1.y;
         const fresh = boundId.current !== m1.id;
+        if (fresh) spawnBlend.current = 0;
+        spawnBlend.current = Math.min(1, spawnBlend.current + delta * 5.5);
         boundId.current = m1.id;
         const tick = wfClockTick(clock);
         const rewound = tick < lastTick.current;
@@ -1128,7 +1313,8 @@ function WfHoundSlot({ result, clock, index, config, rigBudget, rigDistance, bin
             richRef.current = wantsRig;
             setRichUi(wantsRig);
         }
-        g.scale.setScalar(isLane && m1.elite ? 1.3 : 1);   // Gate's Wrath elites LOOM
+        const spawnEase = 1 - (1 - spawnBlend.current) ** 3;
+        g.scale.setScalar((isLane && m1.elite ? 1.18 : 1) * (0.62 + spawnEase * 0.38));
         const f = frame.current;
         const seconds = wfClockSeconds(clock);
         const attackPhase = m1.attackPhase >= 0
@@ -1183,6 +1369,24 @@ function WfHoundSlot({ result, clock, index, config, rigBudget, rigDistance, bin
             const attackLean = striking ? -strikePulse * 0.12 : 0;
             impostor.current.rotation.x = approach(impostor.current.rotation.x, attackLean, 0.22, delta);
             impostor.current.rotation.z = moving ? Math.sin(gait) * (isLane ? 0.025 : 0.028) : 0;
+            const stride = moving ? Math.sin(gait) * 0.62 : 0;
+            [leg0, leg1, leg2, leg3].forEach((leg, legIndex) => {
+                if (!leg.current) return;
+                const opposite = legIndex === 0 || legIndex === 3 ? 1 : -1;
+                const target = stride * opposite + (striking ? -strikePulse * 0.45 : 0);
+                leg.current.rotation.x = approach(leg.current.rotation.x, target, 0.34, delta);
+            });
+            if (torso.current) {
+                torso.current.position.y = moving ? Math.abs(Math.sin(gait)) * 0.025 : Math.sin(seconds * 2.2 + index) * 0.012;
+                torso.current.rotation.x = approach(torso.current.rotation.x, striking ? -strikePulse * 0.16 : 0, 0.3, delta);
+            }
+            if (head.current) {
+                head.current.rotation.x = approach(head.current.rotation.x, striking ? -strikePulse * 0.28 : Math.sin(seconds * 1.6 + index) * 0.025, 0.28, delta);
+            }
+            if (tail.current) {
+                tail.current.rotation.y = Math.sin(seconds * (moving ? 8 : 3.2) + index * 0.7) * (isLane ? 0.42 : 0.55);
+                tail.current.rotation.x = moving ? 0.12 : -0.08;
+            }
         }
     });
     return (
@@ -1248,10 +1452,10 @@ function WfHoundSlot({ result, clock, index, config, rigBudget, rigDistance, bin
             </group>
             {richUi ? (
                 <WfAssetErrorBoundary
-                    fallback={<WfHollowHoundImpostor bodyRef={impostor} side={isLane ? side : "hollow"} />}
+                    fallback={<WfHollowHoundImpostor bodyRef={impostor} torsoRef={torso} headRef={head} tailRef={tail} leg0Ref={leg0} leg1Ref={leg1} leg2Ref={leg2} leg3Ref={leg3} side={isLane ? side : "hollow"} />}
                     label={isLane ? `${side} lane hound rig` : "Hollow hound rig"}
                 >
-                    <Suspense fallback={<WfHollowHoundImpostor bodyRef={impostor} side={isLane ? side : "hollow"} />}>
+                    <Suspense fallback={<WfHollowHoundImpostor bodyRef={impostor} torsoRef={torso} headRef={head} tailRef={tail} leg0Ref={leg0} leg1Ref={leg1} leg2Ref={leg2} leg3Ref={leg3} side={isLane ? side : "hollow"} />}>
                         <group scale={scale}>
                             <PetModel3D
                                 config={config}
@@ -1264,8 +1468,86 @@ function WfHoundSlot({ result, clock, index, config, rigBudget, rigDistance, bin
                     </Suspense>
                 </WfAssetErrorBoundary>
             ) : (
-                <WfHollowHoundImpostor bodyRef={impostor} side={isLane ? side : "hollow"} />
+                null
             )}
+        </group>
+    );
+}
+
+function WfInstancedHoundLod({ result, clock, budget, bindings }: {
+    result: WarfrontResult;
+    clock: WfClockRef;
+    budget: WarfrontPresentationBudget;
+    bindings: MutableRefObject<WfMobSlotBindings>;
+}) {
+    const blue = useRef<THREE.InstancedMesh>(null);
+    const red = useRef<THREE.InstancedMesh>(null);
+    const hollow = useRef<THREE.InstancedMesh>(null);
+    const object = useMemo(() => new THREE.Object3D(), []);
+    const filters = useRef(new Map<number, WarfrontMotionFilterState>());
+    const spawnTicks = useRef(new Map<number, number>());
+    useFrame((state, delta) => {
+        const { s0, s1, f } = lerpFrameAt(result, clock);
+        reconcileWfMobBindings(bindings.current, s1);
+        const index0 = wfSnapshotIndex(s0);
+        const index1 = wfSnapshotIndex(s1);
+        const counts = { blue: 0, red: 0, hollow: 0 };
+        const live = new Set<number>();
+        const draw = (id: number | null, slot: number, lane: boolean) => {
+            if (id == null) return;
+            const current = index1.mobsById.get(id);
+            if (!current) return;
+            live.add(id);
+            const previous = index0.mobsById.get(id);
+            const tx = previous ? lerp(previous.x, current.x, f) : current.x;
+            const tz = previous ? lerp(previous.y, current.y, f) : current.y;
+            let filter = filters.current.get(id);
+            if (!filter) { filter = createWarfrontMotionFilter(); filters.current.set(id, filter); }
+            const motion = advanceWarfrontMotionFilter(filter, tx, tz, delta, !previous);
+            const camDistance = Math.hypot(state.camera.position.x - motion.x, state.camera.position.z - motion.z);
+            const rigBudget = lane ? budget.laneHoundRigs : budget.hollowHoundRigs;
+            if (shouldRenderWarfrontHoundRig(slot, camDistance, rigBudget, budget.houndRigDistance + 2)) return;
+            const side = current.side;
+            const mesh = side === "blue" ? blue.current : side === "red" ? red.current : hollow.current;
+            if (!mesh) return;
+            if (!spawnTicks.current.has(id)) spawnTicks.current.set(id, s1.t);
+            const age = Math.max(0, (wfClockTick(clock) - (spawnTicks.current.get(id) ?? s1.t)) / WARFRONT_TPS);
+            const spawnEase = 1 - (1 - Math.min(1, age * 5.5)) ** 3;
+            const speed = warfrontMotionFilterSpeed(motion);
+            const faceX = speed > 0.08 ? motion.vx / speed : current.toward === "red" ? 1 : -1;
+            const faceZ = speed > 0.08 ? motion.vz / speed : 0;
+            const gait = wfClockSeconds(clock) * (lane ? 9 : 9.5) + slot;
+            const attack = current.attackPhase >= 0 ? Math.sin(Math.PI * Math.min(1, current.attackPhase)) : 0;
+            object.position.set(motion.x + faceX * attack * 0.1, Math.abs(Math.sin(gait)) * (speed > 0.3 ? 0.035 : 0), motion.z + faceZ * attack * 0.1);
+            object.rotation.set(-attack * 0.12, Math.atan2(faceX, faceZ), speed > 0.3 ? Math.sin(gait) * 0.025 : 0);
+            const scale = (lane ? 1.16 : 1.28) * (lane && current.elite ? 1.18 : 1) * (0.62 + spawnEase * 0.38);
+            object.scale.setScalar(scale);
+            object.updateMatrix();
+            const instance = counts[side]++;
+            mesh.setMatrixAt(instance, object.matrix);
+        };
+        bindings.current.lane.forEach((id, slot) => draw(id, slot, true));
+        bindings.current.hollow.forEach((id, slot) => draw(id, slot, false));
+        for (const side of ["blue", "red", "hollow"] as const) {
+            const mesh = side === "blue" ? blue.current : side === "red" ? red.current : hollow.current;
+            if (!mesh) continue;
+            mesh.count = counts[side];
+            mesh.instanceMatrix.needsUpdate = true;
+        }
+        for (const id of filters.current.keys()) if (!live.has(id)) { filters.current.delete(id); spawnTicks.current.delete(id); }
+    });
+    return (
+        <group>
+            {(["blue", "red", "hollow"] as const).map((side) => (
+                <instancedMesh
+                    key={side}
+                    ref={side === "blue" ? blue : side === "red" ? red : hollow}
+                    args={[WF_INSTANCED_HOUND.geometry[side], WF_INSTANCED_HOUND.material[side], HOLLOW_POOL + MINION_POOL]}
+                    frustumCulled={false}
+                    castShadow={false}
+                    receiveShadow={false}
+                />
+            ))}
         </group>
     );
 }
@@ -1284,6 +1566,7 @@ function WfMobPool({ result, clock, budget }: {
     if (!config) return null;
     return (
         <group>
+            <WfInstancedHoundLod result={result} clock={clock} budget={budget} bindings={bindings} />
             {Array.from({ length: HOLLOW_POOL }, (_, i) => (
                 <WfHoundSlot
                     key={i}
@@ -2208,6 +2491,7 @@ function WfCameraRig({ result, clock, shake, camViewRef, camCtlRef, storyRef, mo
     modeRef: MutableRefObject<WfCamMode>;
 }) {
     const sm = useRef({ fx: 0, fz: 0, d: 18, init: true });
+    const reducedMotion = useMemo(() => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches, []);
     useFrame((state, delta) => {
         const s = sm.current;
         const ctl = camCtlRef.current;
@@ -2257,8 +2541,12 @@ function WfCameraRig({ result, clock, shake, camViewRef, camCtlRef, storyRef, mo
             // map so the void beyond the rim never eats a third of the screen.
             // (North needs the most margin — the tilted camera shows far past
             // the focus on that side.)
-            const fx2 = Math.max(-WF_X + focus.span * 0.42, Math.min(WF_X - focus.span * 0.42, focus.fx));
-            const fz2 = Math.max(-WF_Y + focus.span * 0.5, Math.min(WF_Y - focus.span * 0.32, focus.fz));
+            let fx2 = Math.max(-WF_X + focus.span * 0.42, Math.min(WF_X - focus.span * 0.42, focus.fx));
+            let fz2 = Math.max(-WF_Y + focus.span * 0.5, Math.min(WF_Y - focus.span * 0.32, focus.fz));
+            // Sub-unit focus changes are composition noise, not a new shot.
+            // Hold a dead zone so clustered AI footwork cannot make the whole
+            // battlefield breathe left/right every frame.
+            if (!s.init && Math.hypot(fx2 - s.fx, fz2 - s.fz) < 0.55) { fx2 = s.fx; fz2 = s.fz; }
             const aspect = state.size.width / Math.max(1, state.size.height);
             const targetD = Math.min(mode === "calm" ? 24 : 20, arenaCameraDist(focus.span, aspect));
             // A far-away story means a broadcast CUT (instant), never a long
@@ -2275,8 +2563,25 @@ function WfCameraRig({ result, clock, shake, camViewRef, camCtlRef, storyRef, mo
         s.init = false;
         camViewRef.current = { x: s.fx, z: s.fz, half: s.d * 0.62 };
         let ox = 0, oy = 0;
-        const amp = shake.current;
-        if (amp > 0.01) { ox = Math.sin(state.clock.elapsedTime * 92) * amp * 0.18; oy = Math.cos(state.clock.elapsedTime * 77) * amp * 0.13; }
+        const amp = reducedMotion ? 0 : shake.current;
+        if (amp > 0.01) {
+            const story = storyRef.current;
+            const dx = story ? story.x - s.fx : 1;
+            const dz = story ? story.z - s.fz : 0;
+            const length = Math.hypot(dx, dz) || 1;
+            const impulse = Math.sin(state.clock.elapsedTime * 46) * amp;
+            // Kick across the line of action, with a smaller vertical settle.
+            ox = (-dz / length) * impulse * 0.2;
+            oy = Math.cos(state.clock.elapsedTime * 38) * amp * 0.08;
+        }
+        if (state.camera instanceof THREE.PerspectiveCamera) {
+            const targetFov = A3D_FOV + (reducedMotion ? 0 : Math.min(2.2, amp * 0.7));
+            const nextFov = approach(state.camera.fov, targetFov, 0.18, delta);
+            if (Math.abs(nextFov - state.camera.fov) > 0.005) {
+                state.camera.fov = nextFov;
+                state.camera.updateProjectionMatrix();
+            }
+        }
         state.camera.position.set(s.fx + ox, Math.sin(WF_CAMERA_PITCH) * s.d + oy, s.fz + Math.cos(WF_CAMERA_PITCH) * s.d);
         state.camera.lookAt(s.fx + ox, 0, s.fz);
     });
@@ -2362,12 +2667,12 @@ function WfTicker({ result, clockRef, shakeRef, onFrontier, pumpRef, playbackRat
     playbackRate: number;
 }) {
     useFrame((_s, delta) => {
-        if (shakeRef.current > 0.01) shakeRef.current *= 0.85;
+        if (shakeRef.current > 0.01) shakeRef.current *= Math.pow(0.85, Math.min(4, delta * 60));
         // STREAM the sim: a couple of ms of ticks per frame keeps the frontier
         // ahead of the clock — the old synchronous 90 s chunk froze the main
         // thread for ~1 s at every council boundary.
         pumpRef.current();
-        const frontier = result.snapshots.length - 1;
+        const frontier = wfFrontierTick(result);
         const c = clockRef.current;
         // Fast Refresh can preserve the pre-rate clock shape for one frame.
         // Recover defensively so a poisoned playback clock cannot fan out into
@@ -2381,7 +2686,7 @@ function WfTicker({ result, clockRef, shakeRef, onFrontier, pumpRef, playbackRat
         c.rate = approach(c.rate, targetRate, targetRate < c.rate ? 0.42 : 0.12, delta);
         if (c.slow > 0) c.slow = Math.max(0, c.slow - delta);
         c.t = Math.min(frontier, c.t + delta * c.rate * WARFRONT_TPS);
-        if (c.t >= frontier) onFrontier.current();
+        if (frontier > 0 && c.t >= frontier) onFrontier.current();
     });
     return null;
 }
@@ -2545,6 +2850,12 @@ type WfFxItem = {
 };
 type WfShotItem = { id: number; from: Vec3; to: Vec3; visual: ProjectileVisual; dur: number; arc: number };
 type WfFloatItem = { id: number; pos: Vec3; text: string; color: string; big: boolean };
+type WfTransientStageApi = {
+    spawnFx(x: number, z: number, key: string | null, element: string | null | undefined, scale: number, dur: number): void;
+    spawnShot(fromX: number, fromY: number, toX: number, toY: number, element: string | null | undefined, charged: boolean): void;
+    spawnFloater(x: number, z: number, text: string, color: string, big: boolean): void;
+    clear(): void;
+};
 
 const WF_IMPACT_RING_GEOMETRY = new THREE.RingGeometry(0.22, 0.34, 36);
 const WF_IMPACT_CORE_GEOMETRY = new THREE.IcosahedronGeometry(0.18, 1);
@@ -2694,6 +3005,114 @@ function WfShotWake3D({ from, to, visual, durationMs, arc }: {
     );
 }
 
+/** Bounded combat presentation pool. The director writes into circular slots
+ * through a ref, so a crowded fight updates this small subtree instead of
+ * rerendering the entire battlefield, HUD, and every animated rig. */
+function WfTransientStage({ apiRef, qualityId, pressure }: {
+    apiRef: MutableRefObject<WfTransientStageApi | null>;
+    qualityId: PetVisualQuality;
+    pressure: WarfrontAdaptivePressure;
+}) {
+    const fx = useRef<Array<WfFxItem | null>>(Array.from({ length: 24 }, () => null));
+    const shots = useRef<Array<WfShotItem | null>>(Array.from({ length: 16 }, () => null));
+    const floaters = useRef<Array<WfFloatItem | null>>(Array.from({ length: 12 }, () => null));
+    const cursor = useRef({ fx: 0, shots: 0, floaters: 0 });
+    const timers = useRef(new Set<number>());
+    const queued = useRef(false);
+    const mounted = useRef(true);
+    const [, setRevision] = useState(0);
+    const refresh = useCallback(() => {
+        if (queued.current) return;
+        queued.current = true;
+        queueMicrotask(() => {
+            queued.current = false;
+            if (mounted.current) setRevision((value) => value + 1);
+        });
+    }, []);
+    const clearSlot = useCallback((kind: "fx" | "shots" | "floaters", index: number, id: number) => {
+        const slots = kind === "fx" ? fx.current : kind === "shots" ? shots.current : floaters.current;
+        if (slots[index]?.id !== id) return;
+        slots[index] = null;
+        refresh();
+    }, [refresh]);
+    const api = useMemo<WfTransientStageApi>(() => ({
+        spawnFx(x, z, key, element, scale, dur) {
+            const frames = (key ? bundledJutsuFxFrames(key) : null) ?? bundledJutsuFxFrames(elementVfxKey(element)) ?? bundledJutsuFxFrames("none");
+            if (!frames) return;
+            const index = cursor.current.fx++ % fx.current.length;
+            const id = wfSeq++;
+            fx.current[index] = { id, frames, pos: [x, 0.8, z], scale, dur, ...warfrontImpactStyle(key, element) };
+            refresh();
+        },
+        spawnShot(fromX, fromY, toX, toY, element, charged) {
+            const index = cursor.current.shots++ % shots.current.length;
+            const dist = Math.hypot(toX - fromX, toY - fromY);
+            shots.current[index] = {
+                id: wfSeq++,
+                from: [fromX, 0.9, fromY],
+                to: [toX, 0.9, toY],
+                visual: projectileVisual({ element, charged }),
+                dur: Math.min(820, Math.max(420, 260 + dist * 24)),
+                arc: 0.28,
+            };
+            refresh();
+        },
+        spawnFloater(x, z, text, color, big) {
+            const index = cursor.current.floaters++ % floaters.current.length;
+            const id = wfSeq++;
+            floaters.current[index] = { id, pos: [x, 1.5, z], text, color, big };
+            refresh();
+            const timer = window.setTimeout(() => {
+                timers.current.delete(timer);
+                clearSlot("floaters", index, id);
+            }, 800);
+            timers.current.add(timer);
+        },
+        clear() {
+            fx.current.fill(null);
+            shots.current.fill(null);
+            floaters.current.fill(null);
+            for (const timer of timers.current) window.clearTimeout(timer);
+            timers.current.clear();
+            refresh();
+        },
+    }), [clearSlot, refresh]);
+    useEffect(() => {
+        const ownedTimers = timers.current;
+        mounted.current = true;
+        apiRef.current = api;
+        return () => {
+            mounted.current = false;
+            for (const timer of ownedTimers) window.clearTimeout(timer);
+            ownedTimers.clear();
+            if (apiRef.current === api) apiRef.current = null;
+        };
+    }, [api, apiRef]);
+    return (
+        <group>
+            {fx.current.map((item, index) => item ? (
+                <group key={`${index}:${item.id}`}>
+                    {qualityId !== "low" && pressure < 2 ? (
+                        <WfImpact3D pos={item.pos} scale={item.scale} durationMs={item.dur} kind={item.kind} color={item.color} accent={item.accent} seed={item.id} />
+                    ) : null}
+                    <Fx3D frames={item.frames} pos={item.pos} scale={item.scale} durationMs={item.dur} onDone={() => clearSlot("fx", index, item.id)} />
+                </group>
+            ) : null)}
+            {shots.current.map((item, index) => item ? (
+                <group key={`${index}:${item.id}`}>
+                    {qualityId !== "low" && pressure < 2 ? (
+                        <WfShotWake3D from={item.from} to={item.to} visual={item.visual} durationMs={item.dur} arc={item.arc} />
+                    ) : null}
+                    <Shot3D from={item.from} to={item.to} visual={item.visual} durationMs={item.dur} arc={item.arc} onDone={() => clearSlot("shots", index, item.id)} />
+                </group>
+            ) : null)}
+            {floaters.current.map((item, index) => item ? (
+                <Floater3D key={`${index}:${item.id}`} pos={item.pos} text={item.text} color={item.color} big={item.big} />
+            ) : null)}
+        </group>
+    );
+}
+
 // Broadcast colors for the elemental signature moves.
 const WF_EL_COLORS: Record<string, string> = {
     Fire: "#fb923c", Water: "#38bdf8", Earth: "#d3a44a", Wind: "#6ee7b7", Lightning: "#fde047",
@@ -2745,7 +3164,7 @@ function WfDirector({ result, clockRef, nameOf, pushFeed, pushBanner, triggerFla
                 const e = events[ei];
                 if (e.t <= lastTick.current) continue;   // defensive; cursor is normally already past these
                 if (e.t > cur) break;                     // sorted → nothing more belongs to this advance
-                const snap = snaps[Math.min(snaps.length - 1, e.t)];
+                const snap = wfSnapshotAtOrBefore(snaps, e.t);
                 const actorPos = (id: string) => snap.actors.find((a) => a.id === id);
                 if (e.type === "hit") {
                     const tgt = actorPos(e.targetId);
@@ -3039,7 +3458,7 @@ function WfDirector({ result, clockRef, nameOf, pushFeed, pushBanner, triggerFla
             evCursor.current = ei;
             lastTick.current = cur;
         }
-        if (!ended.current && result.winner !== null && wfClockTick(clockRef) >= result.snapshots.length - 1) {
+        if (!ended.current && result.winner !== null && wfClockTick(clockRef) >= wfFrontierTick(result)) {
             ended.current = true;
             onEnd();
         }
@@ -3215,10 +3634,12 @@ function WfMinimap({ result, clock, theme, camViewRef, camCtlRef, onModeChange }
 function WfFrameGovernor({ value, onPressure }: { value: WarfrontAdaptivePressure; onPressure: (pressure: WarfrontAdaptivePressure) => void }) {
     const averageMs = useRef(16.7);
     const slowFor = useRef(0);
+    const fastFor = useRef(0);
     const pressure = useRef<WarfrontAdaptivePressure>(value);
     useEffect(() => {
         pressure.current = value;
         slowFor.current = 0;
+        fastFor.current = 0;
     }, [value]);
     useEffect(() => {
         if (typeof PerformanceObserver === "undefined") return;
@@ -3255,14 +3676,104 @@ function WfFrameGovernor({ value, onPressure }: { value: WarfrontAdaptivePressur
         averageMs.current += (ms - averageMs.current) * 0.035;
         if (averageMs.current > 27) {
             slowFor.current += dt;
+            fastFor.current = 0;
         } else {
             slowFor.current = Math.max(0, slowFor.current - dt * 0.5);
+            if (averageMs.current < 18.5 && pressure.current > 0) fastFor.current += dt;
+            else fastFor.current = Math.max(0, fastFor.current - dt * 0.25);
         }
         if (slowFor.current >= 2.5 && pressure.current < 2) {
             pressure.current = (pressure.current + 1) as WarfrontAdaptivePressure;
             slowFor.current = 0;
+            fastFor.current = 0;
+            onPressure(pressure.current);
+        } else if (fastFor.current >= 10 && pressure.current > 0) {
+            pressure.current = (pressure.current - 1) as WarfrontAdaptivePressure;
+            slowFor.current = 0;
+            fastFor.current = 0;
             onPressure(pressure.current);
         }
+    });
+    return null;
+}
+
+const WF_PRESSURE_STORAGE_KEY = "warfrontAdaptivePressure.v1";
+function savedWarfrontPressure(): WarfrontAdaptivePressure {
+    if (typeof window === "undefined") return 0;
+    try {
+        const value = Number(sessionStorage.getItem(WF_PRESSURE_STORAGE_KEY));
+        return value === 1 || value === 2 ? value : 0;
+    } catch { return 0; }
+}
+
+/** Model fetching is only half of loading a 3D battle. Compile and upload the
+ * actual Warfront scene while the authored loading card is still covering it,
+ * so the first Warden, projectile, or material does not hitch mid-fight. */
+function WfGpuWarmup({ enabled, onReady }: { enabled: boolean; onReady: () => void }) {
+    const { gl, scene, camera } = useThree();
+    useEffect(() => {
+        if (!enabled) return;
+        let cancelled = false;
+        const timer = window.setTimeout(() => {
+            try {
+                gl.initTexture(groundTexture());
+                gl.initTexture(foliageTexture());
+                gl.initTexture(cliffTexture());
+            } catch { /* compileAsync below still warms the visible graph */ }
+            const timeout = new Promise<void>((resolve) => window.setTimeout(resolve, 3500));
+            void Promise.race([gl.compileAsync(scene, camera).then(() => undefined), timeout])
+                .catch(() => undefined)
+                .finally(() => { if (!cancelled) onReady(); });
+        }, 34); // allow cached Suspense models two frames to join the scene
+        return () => { cancelled = true; window.clearTimeout(timer); };
+    }, [camera, enabled, gl, onReady, scene]);
+    return <Preload all />;
+}
+
+type WarfrontRuntimePerf = {
+    samples: number;
+    p50FrameMs: number;
+    p95FrameMs: number;
+    worstFrameMs: number;
+    drawCalls: number;
+    triangles: number;
+    geometries: number;
+    textures: number;
+    pressure: WarfrontAdaptivePressure;
+    retainedSnapshotHz: number;
+    usingWorker: boolean;
+};
+
+/** Live production/QA counters. Browser tests can enforce structural budgets,
+ * while hardware runs can enforce the exported 60/30-fps frame-time gates. */
+function WfPerformanceProbe({ result, pressure, usingWorker }: {
+    result: WarfrontResult;
+    pressure: WarfrontAdaptivePressure;
+    usingWorker: boolean;
+}) {
+    const samples = useRef<number[]>([]);
+    const frames = useRef(0);
+    useFrame((state, delta) => {
+        if (document.visibilityState !== "visible" || state.clock.elapsedTime < 5) return;
+        const list = samples.current;
+        list.push(delta * 1000);
+        if (list.length > 600) list.shift();
+        if (++frames.current % 60 !== 0) return;
+        const frontier = wfFrontierTick(result);
+        const stats: WarfrontRuntimePerf = {
+            samples: list.length,
+            p50FrameMs: warfrontPercentile(list, 0.5),
+            p95FrameMs: warfrontPercentile(list, 0.95),
+            worstFrameMs: list.length ? Math.max(...list) : 0,
+            drawCalls: state.gl.info.render.calls,
+            triangles: state.gl.info.render.triangles,
+            geometries: state.gl.info.memory.geometries,
+            textures: state.gl.info.memory.textures,
+            pressure,
+            retainedSnapshotHz: frontier > 0 ? (result.snapshots.length - 1) / (frontier / WARFRONT_TPS) : 0,
+            usingWorker,
+        };
+        (window as Window & { __warfrontPerf?: WarfrontRuntimePerf }).__warfrontPerf = stats;
     });
     return null;
 }
@@ -3350,6 +3861,7 @@ function WfHudWriter({ result, clock, timerRef, coinBlueRef, coinRedRef, scoreBl
             const total = snap.warden.damage.blue + snap.warden.damage.red;
             const bluePct = total > 0 ? Math.round(snap.warden.damage.blue / total * 100) : 50;
             wardenDamageRef.current.textContent = `BLUE ${bluePct}% · ${100 - bluePct}% RED`;
+            wardenDamageRef.current.style.visibility = total > 0 ? "visible" : "hidden";
         }
         if (buffRef.current) {
             const buffs: string[] = [];
@@ -3358,14 +3870,17 @@ function WfHudWriter({ result, clock, timerRef, coinBlueRef, coinRedRef, scoreBl
             if (snap.atkBuff.red > 0) buffs.push(`⚔ RED CAMP FURY ${Math.ceil(snap.atkBuff.red)}s`);
             buffRef.current.textContent = buffs.join(" · ") || "⚡ Gate's Wrath unclaimed";
             buffRef.current.style.color = snap.wardenBuff.team ? TEAM_SOFT[snap.wardenBuff.team] : snap.atkBuff.blue > snap.atkBuff.red ? TEAM_SOFT.blue : snap.atkBuff.red > 0 ? TEAM_SOFT.red : "#64748b";
+            buffRef.current.style.display = buffs.length ? "inline" : "none";
         }
         if (campsRef.current) {
-            campsRef.current.textContent = snap.minis.map((m) => {
+            const active = snap.minis.flatMap((m) => {
                 const boon = MINI_BOONS[m.padIdx] ?? MINI_BOONS[0];
-                if (m.alive && m.ally) return `${boon.icon} ${m.ally[0].toUpperCase()} ${Math.ceil(m.allySecs)}s`;
-                if (m.alive) return `${boon.icon} READY`;
-                return `${boon.icon} ${Math.ceil(m.spawnSecs)}s`;
-            }).join("  ·  ");
+                return m.alive && m.ally ? [`${boon.icon} ${m.ally.toUpperCase()} ${Math.ceil(m.allySecs)}s`] : [];
+            });
+            const ready = snap.minis.filter((m) => m.alive && !m.ally).length;
+            const soonest = Math.min(...snap.minis.filter((m) => !m.alive).map((m) => m.spawnSecs), Infinity);
+            campsRef.current.textContent = [ready ? `${ready} CAMPS READY` : "", ...active, Number.isFinite(soonest) && !ready ? `RESPAWN ${Math.ceil(soonest)}s` : ""].filter(Boolean).join(" · ");
+            campsRef.current.style.display = phase.id === "opening" ? "none" : "inline";
         }
         if (coinBlueRef.current) coinBlueRef.current.textContent = String(snap.coins.blue);
         if (coinRedRef.current) coinRedRef.current.textContent = String(snap.coins.red);
@@ -3636,7 +4151,12 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     const geometryQa = qaPerfMode === "geometry";
     const [qualityId, setQualityId] = useState<PetVisualQuality>(() => petVisualQuality().id);
     const quality = PET_VISUAL_QUALITY_PRESETS[qualityId];
-    const [adaptivePressure, setAdaptivePressure] = useState<WarfrontAdaptivePressure>(0);
+    const [adaptivePressure, setAdaptivePressureValue] = useState<WarfrontAdaptivePressure>(() => fixedQaDpr ? 0 : savedWarfrontPressure());
+    const setAdaptivePressure = useCallback((next: WarfrontAdaptivePressure) => {
+        setAdaptivePressureValue(next);
+        if (fixedQaDpr) return;
+        try { sessionStorage.setItem(WF_PRESSURE_STORAGE_KEY, String(next)); } catch { /* session storage unavailable */ }
+    }, [fixedQaDpr]);
     const basePresentationBudget = useMemo(() => warfrontPresentationBudget(quality.id), [quality.id]);
     const presentationBudget = useMemo(
         () => adaptWarfrontPresentationBudget(basePresentationBudget, adaptivePressure),
@@ -3663,11 +4183,23 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     // The interactive chunked sim: round 1 is streamed at mount so the
     // stage always has snapshots; later rounds advance at each boundary.
     const ctl = useMemo(() => {
-        const c = startWarfrontMatch(blue, red, effectiveSeed, { bluePolicy: autoBuy, redPolicy: "balanced", theme, blueStance: stance, blueDoctrine: doctrine, redStance: opponentStance, redDoctrine: opponentDoctrine });
-        c.advanceRoundPartial(WARFRONT_TPS);   // seed one second; the frame pump streams the rest
-        return c;
+        return createWarfrontWorkerController({
+            blue,
+            red,
+            seed: effectiveSeed,
+            bluePolicy: autoBuy,
+            theme,
+            blueStance: stance,
+            redStance: opponentStance,
+            blueDoctrine: doctrine,
+            redDoctrine: opponentDoctrine,
+        });
         // eslint-disable-next-line react-hooks/exhaustive-deps -- `run` intentionally forces a fresh sim (Restart)
     }, [blue, red, effectiveSeed, autoBuy, theme, stance, doctrine, opponentStance, opponentDoctrine, run]);
+    useEffect(() => {
+        ctl.start();
+        return () => ctl.dispose();
+    }, [ctl]);
     const result = ctl.result;
     const clock = useRef<WfClockState>({ t: 0, playing: true, slow: 0, rate: safePlaybackRate });
     const shake = useRef(0);
@@ -3692,13 +4224,17 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
         try { localStorage.setItem("wfCamMode.v1", m); } catch { /* storage disabled — ignore */ }
     };
     const [ended, setEnded] = useState(false);
-    const [assetsReady, setAssetsReady] = useState(false);
+    const rosterAssetKey = useMemo(() => roster.map((entry) => entry.pet.id).join("|"), [roster]);
+    const [loadedModelKey, setLoadedModelKey] = useState<string | null>(null);
+    const [gpuReadyKey, setGpuReadyKey] = useState<string | null>(null);
+    const modelAssetsReady = loadedModelKey === rosterAssetKey;
+    const gpuReady = gpuReadyKey === rosterAssetKey;
+    const assetsReady = geometryQa || (modelAssetsReady && gpuReady);
+    const handleGpuReady = useCallback(() => setGpuReadyKey(rosterAssetKey), [rosterAssetKey]);
     const [flash, setFlash] = useState<{ id: number; color: string } | null>(null);
     const [banner, setBanner] = useState<{ id: number; text: string; color: string; big: boolean } | null>(null);
     const [feed, setFeed] = useState<Array<{ id: number; text: string; color: string }>>([]);
-    const [fxList, setFxList] = useState<WfFxItem[]>([]);
-    const [shots, setShots] = useState<WfShotItem[]>([]);
-    const [floaters, setFloaters] = useState<WfFloatItem[]>([]);
+    const transientStage = useRef<WfTransientStageApi | null>(null);
     const [council, setCouncil] = useState<{ round: number } | null>(null);
     const timerRef = useRef<HTMLSpanElement>(null);
     const coinBlueRef = useRef<HTMLSpanElement>(null);
@@ -3791,34 +4327,15 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
         setFlash({ id, color });
         scheduleTransient(() => setFlash((f) => (f && f.id === id ? null : f)), 380);
     };
-    const spawnFx = (x: number, z: number, key: string | null, element: string | null | undefined, scale: number, dur: number) => {
-        const frames = (key ? bundledJutsuFxFrames(key) : null) ?? bundledJutsuFxFrames(elementVfxKey(element)) ?? bundledJutsuFxFrames("none");
-        if (!frames) return;
-        const id = wfSeq++;
-        const style = warfrontImpactStyle(key, element);
-        setFxList((arr) => {
-            const next = [...arr, { id, frames, pos: [x, 0.8, z] as Vec3, scale, dur, ...style }];
-            return next.length > 24 ? next.slice(next.length - 24) : next;   // fight-spam cap
-        });
-    };
-    const spawnShot = (fromX: number, fromY: number, toX: number, toY: number, element: string | null | undefined, charged: boolean) => {
-        const visual = projectileVisual({ element, charged });
-        const dist = Math.hypot(toX - fromX, toY - fromY);
-        const dur = Math.min(820, Math.max(420, 260 + dist * 24));
-        const id = wfSeq++;
-        setShots((arr) => {
-            const next = [...arr, { id, from: [fromX, 0.9, fromY] as Vec3, to: [toX, 0.9, toY] as Vec3, visual, dur, arc: 0.28 }];
-            return next.length > 16 ? next.slice(next.length - 16) : next;   // fight-spam cap
-        });
-    };
-    const spawnFloater = (x: number, z: number, text: string, color: string, big: boolean) => {
-        const id = wfSeq++;
-        setFloaters((arr) => {
-            const next = [...arr, { id, pos: [x, 1.5, z] as Vec3, text, color, big }];
-            return next.length > 12 ? next.slice(next.length - 12) : next;
-        });
-        scheduleTransient(() => setFloaters((arr) => arr.filter((f) => f.id !== id)), 800);
-    };
+    const spawnFx = useCallback((x: number, z: number, key: string | null, element: string | null | undefined, scale: number, dur: number) => {
+        transientStage.current?.spawnFx(x, z, key, element, scale, dur);
+    }, []);
+    const spawnShot = useCallback((fromX: number, fromY: number, toX: number, toY: number, element: string | null | undefined, charged: boolean) => {
+        transientStage.current?.spawnShot(fromX, fromY, toX, toY, element, charged);
+    }, []);
+    const spawnFloater = useCallback((x: number, z: number, text: string, color: string, big: boolean) => {
+        transientStage.current?.spawnFloater(x, z, text, color, big);
+    }, []);
 
     // Round boundary: interactive → pause + open the War Council; auto → advance.
     // "Latest ref" pattern: the ticker calls through the ref; the effect (not
@@ -3831,7 +4348,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     useEffect(() => {
         pumpSim.current = () => {
             if (ctl.done) return;
-            const runway = result.snapshots.length - 1 - wfClockTick(clock);
+            const runway = wfFrontierTick(result) - wfClockTick(clock);
             if (runway > WARFRONT_TPS * 6) return;
             // Refill frequently in tiny slices. This keeps the same deterministic
             // runway without a periodic CPU burst interrupting skeletal motion.
@@ -3895,7 +4412,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
             if (cancelled) return;
             const remaining = Math.max(0, 650 - (performance.now() - started));
             releaseTimer = window.setTimeout(() => {
-                if (!cancelled) setAssetsReady(true);
+                if (!cancelled) setLoadedModelKey(rosterAssetKey);
             }, remaining);
         });
         return () => {
@@ -3903,7 +4420,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
             window.clearTimeout(releaseTimer);
             window.clearTimeout(timeoutTimer);
         };
-    }, [roster]);
+    }, [roster, rosterAssetKey]);
 
     const chooseQuality = (next: PetVisualQuality) => {
         setQualityId(next);
@@ -3926,7 +4443,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
         clock.current = { t: 0, playing: true, slow: 0, rate: safePlaybackRate };
         storyCam.current = null;
         setIntro(true);
-        setAdaptivePressure(0);
+        setAdaptivePressure(fixedQaDpr ? 0 : savedWarfrontPressure());
         pendingResume.current = null;
         shake.current = 0;
         boundaryBusy.current = false;
@@ -3937,9 +4454,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
         bannerBusy.current = false;
         setBanner(null);
         setFlash(null);
-        setFxList([]);
-        setShots([]);
-        setFloaters([]);
+        transientStage.current?.clear();
     };
     const doReplay = () => { if (!resultActionsLocked) resetTransient(); };
     const doRestart = () => { if (!resultActionsLocked) { setRun((r) => r + 1); resetTransient(); } };
@@ -3977,7 +4492,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                     ) : (
                         <>
                     <color attach="background" args={[spec.voidColor]} />
-                    <fog attach="fog" args={[spec.fogColor, 26, 64]} />
+                    <fog attach="fog" args={[spec.fogColor, 22, 52]} />
                     {/* Warm key + cool fill: the warm/cool contrast that makes
                         painted environments read as LIT instead of flat. */}
                     <hemisphereLight args={[spec.skyLight, spec.groundLight, 1.15]} />
@@ -3990,6 +4505,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                     />
                     <WfFloor theme={theme} />
                     <WfSetDressing theme={theme} />
+                    <WfObjectiveBeacon result={result} clock={clock} />
                     {roster.map((r) => (
                         // Always render — a pet without an approved GLB falls back
                         // to a visible placeholder inside WfFighter3D (never null).
@@ -4027,28 +4543,14 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                     {WF_PADS.map((_, i) => (
                         <WfMini key={i} result={result} clock={clock} idx={i} name={WF_MINI_NAMES[i]} glow={spec.breachGlow} />
                     ))}
-                    {fxList.map((fx) => (
-                        <group key={fx.id}>
-                            {quality.id !== "low" && adaptivePressure < 2 && (
-                                <WfImpact3D pos={fx.pos} scale={fx.scale} durationMs={fx.dur} kind={fx.kind} color={fx.color} accent={fx.accent} seed={fx.id} />
-                            )}
-                            <Fx3D frames={fx.frames} pos={fx.pos} scale={fx.scale} durationMs={fx.dur} onDone={() => setFxList((p) => p.filter((x) => x.id !== fx.id))} />
-                        </group>
-                    ))}
-                    {shots.map((sh) => (
-                        <group key={sh.id}>
-                            {quality.id !== "low" && adaptivePressure < 2 && (
-                                <WfShotWake3D from={sh.from} to={sh.to} visual={sh.visual} durationMs={sh.dur} arc={sh.arc} />
-                            )}
-                            <Shot3D from={sh.from} to={sh.to} visual={sh.visual} durationMs={sh.dur} arc={sh.arc} onDone={() => setShots((p) => p.filter((x) => x.id !== sh.id))} />
-                        </group>
-                    ))}
-                    {floaters.map((f) => (<Floater3D key={f.id} pos={f.pos} text={f.text} color={f.color} big={f.big} />))}
-                    {!geometryQa && <Sparkles count={adaptivePressure === 0 ? Math.max(12, quality.ambientParticles) : adaptivePressure === 1 ? 10 : 5} scale={[42, 7, 21]} position={[0, 3, 0]} size={2} speed={0.14} opacity={0.24} color={spec.sunColor} noise={2} />}
+                    <WfTransientStage apiRef={transientStage} qualityId={quality.id} pressure={adaptivePressure} />
+                    {!geometryQa && <Sparkles count={adaptivePressure === 0 ? Math.max(12, quality.ambientParticles) : adaptivePressure === 1 ? 10 : 5} scale={[WF_X * 0.92, 7, WF_Y * 0.92]} position={[0, 3, 0]} size={2} speed={0.14} opacity={0.24} color={spec.sunColor} noise={2} />}
+                    <WfGpuWarmup enabled={modelAssetsReady} onReady={handleGpuReady} />
                     <WfCameraRig result={result} clock={clock} shake={shake} camViewRef={camView} camCtlRef={camCtl} storyRef={storyCam} modeRef={camModeRef} />
                     <WfCameraControls camCtlRef={camCtl} onModeChange={handleFreeCameraMode} />
                     <WfTicker result={result} clockRef={clock} shakeRef={shake} onFrontier={onFrontier} pumpRef={pumpSim} playbackRate={safePlaybackRate} />
                     {!fixedQaDpr && <WfFrameGovernor value={adaptivePressure} onPressure={setAdaptivePressure} />}
+                    <WfPerformanceProbe result={result} pressure={adaptivePressure} usingWorker={ctl.usingWorker} />
                     <WfDirector result={result} clockRef={clock} nameOf={nameOf} pushFeed={pushFeed} pushBanner={pushBanner} triggerFlash={triggerFlash} shakeRef={shake} spawnFx={spawnFx} spawnShot={spawnShot} spawnFloater={spawnFloater} storyRef={storyCam} camViewRef={camView} onEnd={() => setEnded(true)} />
                     <WfHudWriter result={result} clock={clock} timerRef={timerRef} coinBlueRef={coinBlueRef} coinRedRef={coinRedRef} scoreBlueRef={scoreBlueRef} scoreRedRef={scoreRedRef} killBlueRef={killBlueRef} killRedRef={killRedRef} momentumRef={momentumRef} structsBlueRef={structsBlueRef} structsRedRef={structsRedRef} stanceBlueRef={stanceBlueRef} stanceRedRef={stanceRedRef} phaseRef={phaseRef} phaseClockRef={phaseClockRef} objectiveRef={objectiveRef} wardenWrapRef={wardenWrapRef} wardenHpRef={wardenHpRef} wardenStatusRef={wardenStatusRef} wardenDamageRef={wardenDamageRef} buffRef={buffRef} campsRef={campsRef} phaseOverlayRef={phaseOverlayRef} />
                         </>
@@ -4176,7 +4678,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                 </div>
             </div>
             <div className="wf-top-meta" style={{ position: "absolute", top: 10, right: 12, display: "flex", gap: 6, alignItems: "center" }}>
-                <div style={{ padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#d8b4fe", font: "700 11px Inter, system-ui, sans-serif" }}>⛩ Hollow Warfront · {spec.label} (beta)</div>
+                <div style={{ padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#d8b4fe", font: "700 11px Inter, system-ui, sans-serif" }}>⛩ Hollow Warfront · {spec.label}</div>
                 <label style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 7px", background: "rgba(15,23,42,0.9)", border: "1px solid #334155", borderRadius: 999, color: "#94a3b8", font: "700 10px Inter, system-ui, sans-serif" }}>
                     FX
                     <select
@@ -4185,9 +4687,9 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                         onChange={(event) => chooseQuality(event.target.value as PetVisualQuality)}
                         style={{ background: "#0f172a", border: 0, color: "#e2e8f0", font: "700 10px Inter, system-ui, sans-serif", cursor: "pointer" }}
                     >
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
+                        <option value="low">Performance</option>
+                        <option value="medium">Balanced</option>
+                        <option value="high">Cinematic</option>
                     </select>
                 </label>
             </div>

@@ -125,8 +125,23 @@ test("mission fight reserves a row for its action notice instead of displacing t
     );
     assert.match(
         missionCss,
-        /@media \(min-width:\s*480px\) and \(max-width:\s*932px\) and \(max-height:\s*500px\)[\s\S]*?grid-template-rows:\s*60px auto minmax\(90px, 25dvh\)[\s\S]*?grid-template-rows:\s*32px 10px 8px\s*!important;[\s\S]*?row-gap:\s*1px\s*!important;[\s\S]*?\.mission-arena-fight \.combat-side-hud \.resource-line--hp\s*\{[^}]*display:\s*none\s*!important;[\s\S]*?\.mission-arena-fight \.combat-mobile-effects\s*\{[^}]*max-height:\s*8px\s*!important;[\s\S]*?grid-template-columns:\s*repeat\(8, minmax\(0, 1fr\)\)\s*!important;[\s\S]*?\.mission-arena-fight \.combat-jutsu-card-wrap\s*\{[^}]*aspect-ratio:\s*1\.05 \/ 1\s*!important;/,
-        "short landscape mission combat must use its width for compact dossiers and a one-row command deck",
+        /@media \(max-width:\s*360px\) and \(max-height:\s*600px\)[\s\S]*?\.summon-pet-command > span\s*\{[^}]*font-size:\s*8\.5px\s*!important;[^}]*white-space:\s*normal\s*!important;/,
+        "minimum-width mission combat must wrap the full Summon Pet title instead of clipping it",
+    );
+    assert.match(
+        missionCss,
+        /@media \(min-width:\s*480px\) and \(max-width:\s*932px\) and \(max-height:\s*500px\)[\s\S]*?grid-template-rows:\s*60px minmax\(0, 1fr\)\s*!important;[\s\S]*?"player opponent"\s*"main main"\s*!important;[\s\S]*?\.combat-main-area > \.hex-battlefield\s*\{[^}]*grid-area:\s*board\s*!important;[\s\S]*?grid-template-rows:\s*32px 10px 8px\s*!important;[\s\S]*?row-gap:\s*1px\s*!important;[\s\S]*?\.mission-arena-fight \.combat-side-hud \.resource-line--hp\s*\{[^}]*display:\s*none\s*!important;[\s\S]*?\.mission-arena-fight \.combat-mobile-effects\s*\{[^}]*max-height:\s*8px\s*!important;[\s\S]*?grid-template-columns:\s*repeat\(8, minmax\(0, 1fr\)\)\s*!important;[\s\S]*?\.mission-arena-fight \.combat-jutsu-card-wrap\s*\{[^}]*aspect-ratio:\s*1\.05 \/ 1\s*!important;/,
+        "short landscape mission combat must use its width for compact dossiers and a contained board-left/control-right composition",
+    );
+    assert.match(
+        missionCss,
+        /@media \(min-width:\s*480px\) and \(max-width:\s*932px\) and \(max-height:\s*500px\)[\s\S]*?\.combat-layout\.has-action-notice > \.combat-main-area\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1\.55fr\) minmax\(203px, 0\.85fr\)\s*!important;/,
+        "the 200%-zoom short-landscape board must retain its 280px tactical-width floor",
+    );
+    assert.match(
+        missionCss,
+        /@media \(min-width:\s*480px\) and \(max-width:\s*932px\) and \(max-height:\s*500px\)[\s\S]*?\.summon-pet-command > span\s*\{[^}]*font-size:\s*8px\s*!important;[^}]*white-space:\s*normal\s*!important;/,
+        "short landscape must preserve the complete wrapped Summon Pet label in its narrow control column",
     );
 
     // The fix is load-bearing on that class still reserving a track.
@@ -170,6 +185,26 @@ test("the enemy HP badge clears the AI's full-body sprite instead of its face", 
         assert.ok(badge, `mission combat must still render the ${key} badge`);
         assert.doesNotMatch(badge![0], /headroom/, `${key} renders a marker, so it needs no sprite clearance`);
     }
+});
+
+test("the mission summon command contains its icon and long lock copy", () => {
+    assert.match(missionSource, /className="summon-pet-command"/);
+    assert.match(
+        missionCss,
+        /\.summon-pet-command\s*\{[^}]*grid-template-rows:\s*14px 12px 11px\s*!important;[^}]*overflow:\s*hidden\s*!important;/s,
+    );
+    assert.match(
+        missionCss,
+        /\.summon-pet-command > \.cmd-icon > svg\s*\{[^}]*max-width:\s*100%;[^}]*max-height:\s*100%;/s,
+    );
+    assert.match(
+        missionCss,
+        /\.summon-pet-command > span\s*\{[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap\s*!important;/s,
+    );
+    assert.match(
+        missionCss,
+        /\.summon-pet-command > small\s*\{[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap\s*!important;/s,
+    );
 });
 
 // PvE lost its whole targeting telegraph when the browser reducer was retired:
@@ -318,10 +353,9 @@ test("combat detail focus never scrolls the contained action tray", () => {
 test("mission desktop restores the dossier-board-dossier composition and full-width battlefield", () => {
     assert.match(
         missionSource,
-        /<CombatInstance(?:\s|>)/,
-        "mission combat must use the viewport boundary without opting into the aspect-locked shared shell",
+        /<ShinobiCombatShell[\s\S]*?mode="solo"/,
+        "mission combat must opt into the shared solo shell so its layout and log contracts are active",
     );
-    assert.doesNotMatch(missionSource, /<ShinobiCombatShell(?:\s|>)/);
     assert.doesNotMatch(missionSource, /<CombatBoardStage(?:\s|>)/);
 
     assert.match(
@@ -336,14 +370,39 @@ test("mission desktop restores the dossier-board-dossier composition and full-wi
     );
     assert.match(
         missionCss,
+        /grid-template-areas:\s*"player main opponent"\s*!important;/,
+        "mission desktop must preserve all three shell regions in one row",
+    );
+    assert.match(
+        missionCss,
+        /grid-template-areas:\s*"player main opponent"\s*!important;[\s\S]*?height:\s*100%\s*!important;/,
+        "mission desktop must fill the framed shell content box without creating a hidden scroll range",
+    );
+    assert.match(
+        missionCss,
+        /@media \(min-width:\s*1024px\) and \(max-width:\s*1359px\),\s*\(min-width:\s*1024px\) and \(max-height:\s*819px\)[\s\S]*?grid-template-rows:\s*clamp\(84px, 14dvh, 104px\) minmax\(0, 1fr\)\s*!important;[\s\S]*?"player opponent"\s*"main main"\s*!important;[\s\S]*?minmax\(160px, 1fr\)/,
+        "compact desktop and zoom-equivalent fights must give the complete tactical HUD its own full-width row",
+    );
+    assert.match(
+        missionCss,
         /\.combat-layout\.has-action-notice > \.combat-main-area\s*\{[\s\S]*?grid-template-rows:\s*clamp\(64px, 8dvh, 72px\)\s*26px\s*minmax\(240px, 1fr\)\s*52px\s*64px\s*clamp\(108px, 14dvh, 124px\)\s*!important;/,
         "desktop mission combat must reserve the flexible majority of its height for the tactical board and a real lower panel",
+    );
+    assert.match(
+        missionCss,
+        /grid-template-areas:\s*"ap"\s*"terrain"\s*"board"\s*"tabs"\s*"commands"\s*"panel"\s*!important;/,
+        "desktop mission combat must not inherit a phantom seventh named row from the shared shell",
     );
 
     assert.match(
         missionCss,
-        /\.combat-main-area\.bt-log \.combat-text-log\s*\{[^}]*display:\s*block\s*!important;[^}]*grid-row:\s*5 \/ 7\s*!important;[^}]*min-height:\s*178px\s*!important;/s,
+        /\.combat-main-area\.bt-log \.combat-text-log:not\(\.is-expanded\)\s*\{[^}]*display:\s*block\s*!important;[^}]*grid-row:\s*5 \/ 7\s*!important;[^}]*min-height:\s*178px\s*!important;/s,
         "desktop mission combat must expose a dedicated scroll-owned battle-log panel",
+    );
+    assert.doesNotMatch(
+        missionCss,
+        /\.combat-main-area\.bt-log \.combat-text-log\s*\{[^}]*height:\s*100%\s*!important;/s,
+        "the collapsed log sizing rule must not override the expanded safe-area dialog",
     );
     assert.match(missionCss, /\.combat-main-area\.bt-actions \.combat-text-log/,
         "the collapsed header-only log must not remain under the action tray");
@@ -385,7 +444,7 @@ test("every live shinobi fight uses the shared viewport-level combat instance", 
     );
 
     assert.match(towerSource, /<CombatInstance(?:\s|>)/, "tower PvE/PvP must render through CombatInstance");
-    assert.match(missionSource, /<CombatInstance(?:\s|>)/, "mission PvE must render through CombatInstance");
+    assert.match(missionSource, /<ShinobiCombatShell(?:\s|>)/, "mission PvE must render through the shared solo shell");
     assert.match(pvpSource, /<ShinobiCombatShell(?:\s|>)/, "session PvP must render through ShinobiCombatShell");
 
     assert.ok(

@@ -33,6 +33,7 @@ test("all 160 production pets have complete proper skeletal animation banks", ()
     assert.equal(new Set(catalog.map((pet) => pet.id)).size, 160);
     const families = new Set<string>();
     const rigs = new Set<string>();
+    const signatureSeeds = new Set<number>();
     let individual = 0;
     let familyAuthored = 0;
 
@@ -54,6 +55,13 @@ test("all 160 production pets have complete proper skeletal animation banks", ()
             assert.equal(json.extras?.properAnimationBank, PROPER_PET_ANIMATION_ASSET_REVISION, `${pet.id}: stale animation revision`);
             assert.equal(typeof json.extras?.properAnimationFamily, "string");
             assert.equal(typeof json.extras?.properAnimationRig, "string");
+            assert.equal(json.extras?.animationAuthoring, "species-and-identity-directed-keyframes");
+            assert.equal(typeof json.extras?.properAnimationSignature?.seed, "number");
+            assert.equal(typeof json.extras?.properAnimationSignature?.cadence, "number");
+            assert.equal(typeof json.extras?.properAnimationSignature?.strikeDrive, "number");
+            assert.ok(json.extras.properAnimationSignature.cadence >= 0.84 && json.extras.properAnimationSignature.cadence <= 1.18);
+            assert.ok(json.extras.properAnimationSignature.strikeDrive >= 0.78 && json.extras.properAnimationSignature.strikeDrive <= 1.48);
+            signatureSeeds.add(json.extras.properAnimationSignature.seed);
             families.add(json.extras.properAnimationFamily);
             rigs.add(json.extras.properAnimationRig);
         }
@@ -73,6 +81,7 @@ test("all 160 production pets have complete proper skeletal animation banks", ()
 
     assert.equal(individual, 4);
     assert.equal(familyAuthored, 156);
+    assert.equal(signatureSeeds.size, 156, "every family-authored GLB needs a distinct identity signature");
     assert.ok(families.size >= 12, "family coverage collapsed into too few motion styles");
     assert.deepEqual([...rigs].sort(), ["avian", "bat", "biped", "crab", "insect", "moth", "quadruped"]);
 });

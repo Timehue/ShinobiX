@@ -13,6 +13,7 @@ import {
     CombatHudMain,
     PlainCombatBattleLog,
 } from "./CombatHudLayout";
+import { groupPlainCombatLog } from "../lib/plain-combat-log";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
@@ -51,21 +52,54 @@ test("shared combat HUD primitives preserve the shell class contract", () => {
     assert.match(html, /role="log" aria-live="polite" aria-label="Battle log"/);
 });
 
-test("plain combat log keeps every line, renders newest-first, and marks rounds", () => {
+test("plain combat log groups rounds newest-first and color-codes action effects", () => {
     const html = renderToStaticMarkup(React.createElement(PlainCombatBattleLog, {
-        lines: ["Battle started.", "First action", "--- Round 2 ---", "Newest action"],
+        lines: [
+            "Battle started: Rill versus Exam Proctor.",
+            "Rill uses Basic Attack:",
+            "160 damage to Exam Proctor.",
+            "Rill takes 38 reflected damage.",
+            "--- Round 2 ---",
+            "Exam Proctor uses Palm Mend:",
+            "Heal: Exam Proctor restores 40 HP.",
+        ],
         turnLabel: "Your Turn",
+        selfName: "Rill",
+        oppName: "Exam Proctor",
     }));
 
     assert.match(html, /class="combat-text-log plain-combat-battle-log"/);
     assert.match(html, /role="log"/);
     assert.match(html, /aria-live="polite"/);
     assert.match(html, /aria-label="Battle log"/);
-    assert.equal((html.match(/plain-combat-log-line/g) ?? []).length, 4);
-    assert.match(html, /plain-combat-log-line plain-combat-log-round/);
-    assert.ok(html.indexOf("Newest action") < html.indexOf("--- Round 2 ---"));
-    assert.ok(html.indexOf("--- Round 2 ---") < html.indexOf("First action"));
-    assert.ok(html.indexOf("First action") < html.indexOf("Battle started."));
+    assert.equal((html.match(/plain-combat-log-round timeline-round/g) ?? []).length, 2);
+    assert.ok(html.indexOf("Round 2") < html.indexOf("Round 1"));
+    assert.doesNotMatch(html, /--- Round 2 ---/);
+    assert.match(html, /bl-actor-player[^>]*>Rill</);
+    assert.match(html, /bl-actor-enemy[^>]*>Exam Proctor</);
+    assert.equal((html.match(/battle-log-damage/g) ?? []).length, 2);
+    assert.match(html, /battle-log-heal/);
+    assert.match(html, /class="bl-num">160</);
+    assert.match(html, /aria-label="Expand battle log"/);
+    assert.match(html, /2 rounds · 6 events · scroll/);
+    assert.match(html, /combat-log-expand-icon/);
+    assert.match(html, /role="log"/);
+});
+
+test("plain combat log derives a trimmed pre-marker round and preserves action ownership", () => {
+    const rounds = groupPlainCombatLog([
+        "Rill uses Basic Attack:",
+        "80 damage to Exam Proctor.",
+        "--- Round 8 ---",
+        "Exam Proctor uses Guard:",
+        "Shield: Exam Proctor gains 120 shield.",
+    ], "Rill", "Exam Proctor");
+
+    assert.deepEqual(rounds.map((group) => group.round), [7, 8]);
+    assert.deepEqual(rounds.map((group) => group.lineCount), [2, 2]);
+    assert.equal(rounds[0]?.actions[0]?.role, "player");
+    assert.equal(rounds[1]?.actions[0]?.role, "enemy");
+    assert.equal(rounds[1]?.actions[0]?.actionNumber, 2);
 });
 
 test("plain combat log exposes an accessible empty state", () => {
@@ -76,5 +110,5 @@ test("plain combat log exposes an accessible empty state", () => {
     }));
 
     assert.match(html, /class="plain-combat-log-empty">Nothing recorded\.<\/p>/);
-    assert.doesNotMatch(html, /plain-combat-log-line/);
+    assert.doesNotMatch(html, /plain-combat-log-round/);
 });

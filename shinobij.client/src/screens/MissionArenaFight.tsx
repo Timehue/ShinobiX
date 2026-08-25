@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import "../styles/battle-skin.css";
 import "../styles/mission-arena-fight.css";
-import { CombatInstance } from "../components/CombatInstance";
+import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
 import { playStoryChapterSting, playStoryFinalPhaseSting, playStoryVictorySting, primeStorySfx } from "../lib/story-sfx";
 import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-history";
@@ -861,7 +861,8 @@ export function MissionArenaFight({
     }
 
     return (
-        <CombatInstance
+        <ShinobiCombatShell
+            mode="solo"
             className={`pvp-battle-layout mission-arena-fight arena-bg-${biome}${storyTheme ? " story-arena-fight" : ""}`}
             style={storyTheme?.backdropImage ? { background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${storyTheme.backdropImage}) center/cover fixed` } : undefined}
         >
@@ -1136,6 +1137,7 @@ export function MissionArenaFight({
                         <button onClick={() => { resetTargeting(); void send({ type: "cleanse" }); }}
                             disabled={busy || !myTurn || outOfActions || cleanseCd > 0 || myAp < utilityAp}><i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{utilityAp} AP | CD {cleanseCd}</small></button>
                         <button
+                            className="summon-pet-command"
                             onClick={() => { resetTargeting(); void send({ type: "summon" }); }}
                             disabled={busy || !myTurn || !session.pendingCompanion || !!companion || session.companionUsed}
                             title={companion
@@ -1250,7 +1252,12 @@ export function MissionArenaFight({
                         )}
                     </div>
 
-                    <PlainCombatBattleLog lines={session.log ?? []} turnLabel={turnLabel} />
+                    <PlainCombatBattleLog
+                        lines={session.log ?? []}
+                        turnLabel={turnLabel}
+                        selfName={character.name}
+                        oppName={enemyName}
+                    />
                 </CombatHudMain>
 
                 {/* Enemy dossier */}
@@ -1302,6 +1309,6 @@ export function MissionArenaFight({
                     </div>
                 )
             )}
-        </CombatInstance>
+        </ShinobiCombatShell>
     );
 }

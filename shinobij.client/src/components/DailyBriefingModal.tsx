@@ -67,21 +67,19 @@ export function DailyBriefingModal({
     const [claiming, setClaiming] = useState(false);
     const claimingRef = useRef(false);
 
-    // World news (Legacy system): the top high/mythic moments in the login
-    // briefing (handoff §Server Announcements: "Login news panel"). Empty and
-    // invisible while the server flag is off (endpoint returns []).
+    // World news is a shared live-service feed, not a Legacy-only surface.
     const [worldNews, setWorldNews] = useState<AnnouncementView[]>([]);
     // Era V server-effort strip: world events live or die on ambient
     // visibility (depth-audit finding) — one line of collective progress.
     const [activeEra, setActiveEra] = useState<EraView | null>(null);
     useEffect(() => {
-        if (!shouldShow || !legacyAvailable) return;
+        if (!shouldShow) return;
         let alive = true;
         void fetchAnnouncements(15).then((r) => {
             if (!alive || !r) return;
             setWorldNews(r.announcements.filter((a) => a.importance === "high" || a.importance === "mythic").slice(0, 4));
         });
-        void fetchEras().then((r) => {
+        if (legacyAvailable) void fetchEras().then((r) => {
             if (!alive || !r) return;
             setActiveEra(r.eras.find((e) => e.status === "milestone_active" && e.milestones.length > 0) ?? null);
         });
@@ -237,8 +235,8 @@ export function DailyBriefingModal({
                                 );
                             })()}
 
-                            {/* ── World news (Legacy system: high/mythic moments) ── */}
-                            {legacyAvailable && worldNews.length > 0 && (
+                            {/* ── World news (shared high/mythic moments) ── */}
+                            {worldNews.length > 0 && (
                                 <section className="db-section">
                                     <h3>World news</h3>
                                     <ul className="db-wars">

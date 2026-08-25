@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
     WF_MASK, WF_COLS, WF_ROWS, WF_X, WF_Y, WF_CELL_X, WF_CELL_Y,
-    wfWalkable, wfCellWalkable, wfMobRoute, wfThemeForVillage,
-    WF_SPAWNS, WF_CORE, WF_STATUES, WF_PADS, WF_LAIR, WF_LANES, WF_THEMES,
+    wfWalkable, wfCellWalkable, wfClearanceWalkable, wfMobRoute, wfThemeForVillage,
+    WF_SPAWNS, WF_DEPLOY_POINTS, WF_CORE, WF_STATUES, WF_PADS, WF_LAIR, WF_LANES, WF_THEMES,
 } from "./pet-warfront-map";
 
 const cellOf = (x: number, y: number): [number, number] => [Math.floor((x + WF_X) / WF_CELL_X), Math.floor((y + WF_Y) / WF_CELL_Y)];
@@ -13,18 +13,17 @@ test("mask has the right size and a sane walkable share", () => {
     let walkable = 0;
     for (let i = 0; i < WF_MASK.length; i++) if (WF_MASK.charCodeAt(i) === 49) walkable++;
     const share = walkable / WF_MASK.length;
-    assert.ok(share > 0.18 && share < 0.6, // solid-field design: mostly ground, walls+void carved
+    assert.ok(share > 0.45 && share < 0.8, // clean solid field with deliberate wall islands
         `walkable share ${share.toFixed(3)} out of range`);
+    assert.ok(WF_X <= 32 && WF_Y <= 18, "Warfront must stay compact enough for broadcast readability");
 });
 
-test("mask is x-symmetric (team fairness — both teams see the identical field)", () => {
-    // Note: the field is deliberately NOT y-symmetric — the mid corridor weaves,
-    // like LoL's top/bot asymmetry. Both teams share that asymmetry equally via
-    // the x-mirror, so team fairness is exact.
+test("mask is x/y-symmetric (team and lane fairness)", () => {
     for (let r = 0; r < WF_ROWS; r++) {
         for (let c = 0; c < WF_COLS; c++) {
             const v = WF_MASK[r * WF_COLS + c];
             assert.equal(v, WF_MASK[r * WF_COLS + (WF_COLS - 1 - c)], `x-mirror mismatch at ${c},${r}`);
+            assert.equal(v, WF_MASK[(WF_ROWS - 1 - r) * WF_COLS + c], `y-mirror mismatch at ${c},${r}`);
         }
     }
 });
@@ -36,9 +35,39 @@ test("every point of interest stands on walkable ground", () => {
         ...WF_PADS,
         [WF_LAIR.x + WF_LAIR.r - 1, WF_LAIR.y],   // the arena RING (the centre pit is carved void on purpose)
         ...WF_SPAWNS.blue, ...WF_SPAWNS.red,
-        ...WF_LANES.n, ...WF_LANES.s,
+        ...WF_DEPLOY_POINTS.blue, ...WF_DEPLOY_POINTS.red,
+        ...WF_LANES.n, ...WF_LANES.m, ...WF_LANES.s,
     ];
     for (const [x, y] of pois) assert.ok(wfWalkable(x, y), `POI ${x},${y} is not walkable`);
+});
+
+test("every fighter spawn and deployment lane belongs to one pet-clearance graph", () => {
+    const clear = (c: number, r: number) => wfClearanceWalkable(c, r, 2);
+    const [sc, sr] = cellOf(WF_SPAWNS.blue[0][0], WF_SPAWNS.blue[0][1]);
+    assert.equal(clear(sc, sr), true, "first spawn lacks a full pet footprint");
+    const seen = new Uint8Array(WF_COLS * WF_ROWS);
+    const queue = [sr * WF_COLS + sc];
+    seen[queue[0]] = 1;
+    for (let qi = 0; qi < queue.length; qi++) {
+        const cur = queue[qi];
+        const c = cur % WF_COLS, r = (cur - c) / WF_COLS;
+        for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+            const nc = c + dc, nr = r + dr;
+            if (!clear(nc, nr)) continue;
+            const idx = nr * WF_COLS + nc;
+            if (!seen[idx]) { seen[idx] = 1; queue.push(idx); }
+        }
+    }
+    const required = [
+        ...WF_SPAWNS.blue, ...WF_SPAWNS.red,
+        ...WF_DEPLOY_POINTS.blue, ...WF_DEPLOY_POINTS.red,
+        ...WF_LANES.n, ...WF_LANES.m, ...WF_LANES.s,
+    ];
+    for (const [x, y] of required) {
+        const [c, r] = cellOf(x, y);
+        assert.equal(clear(c, r), true, `pet footprint is pinched at ${x},${y}`);
+        assert.equal(seen[r * WF_COLS + c], 1, `pet-clear route cannot reach ${x},${y}`);
+    }
 });
 
 test("the whole battlefield is one connected region (BFS reaches every POI)", () => {
@@ -63,7 +92,7 @@ test("the whole battlefield is one connected region (BFS reaches every POI)", ()
 });
 
 test("mob routes are walkable end to end and reach the right base", () => {
-    for (const lane of ["n", "s"] as const) {
+    for (const lane of ["n", "m", "s"] as const) {
         for (const toward of ["blue", "red"] as const) {
             const route = wfMobRoute(lane, toward);
             assert.ok(route.length >= 4);

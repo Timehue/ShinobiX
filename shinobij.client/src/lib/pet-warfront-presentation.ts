@@ -143,6 +143,39 @@ export function shouldRenderWarfrontHoundRig(
         && distanceToCamera <= maxDistance;
 }
 
+export type WarfrontPerformanceTarget = "desktop60" | "mobile30";
+export const WARFRONT_PERFORMANCE_LIMITS = Object.freeze({
+    desktop60: Object.freeze({ p95FrameMs: 18.5, worstFrameMs: 100, drawCalls: 320 }),
+    mobile30: Object.freeze({ p95FrameMs: 34.5, worstFrameMs: 120, drawCalls: 240 }),
+});
+
+export function warfrontPercentile(samples: readonly number[], percentile: number): number {
+    if (!samples.length) return 0;
+    const sorted = [...samples].sort((a, b) => a - b);
+    const index = Math.max(0, Math.min(sorted.length - 1, Math.ceil(sorted.length * percentile) - 1));
+    return sorted[index];
+}
+
+export function evaluateWarfrontPerformance(
+    frameMs: readonly number[],
+    drawCalls: number,
+    target: WarfrontPerformanceTarget,
+) {
+    const limits = WARFRONT_PERFORMANCE_LIMITS[target];
+    const p95FrameMs = warfrontPercentile(frameMs, 0.95);
+    const worstFrameMs = frameMs.length ? Math.max(...frameMs) : 0;
+    return {
+        pass: frameMs.length > 0
+            && p95FrameMs <= limits.p95FrameMs
+            && worstFrameMs <= limits.worstFrameMs
+            && drawCalls <= limits.drawCalls,
+        p95FrameMs,
+        worstFrameMs,
+        drawCalls,
+        limits,
+    } as const;
+}
+
 /**
  * Keep a pooled render slot attached to the same simulation id until that id
  * disappears. Indexing directly into a filtered mob array makes every later

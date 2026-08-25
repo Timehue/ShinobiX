@@ -1243,6 +1243,74 @@
     100% { opacity: 0; transform: scale(0.99); }
 }
 
+/* Premium finisher typography lands after the white contact frame. The effect
+   is deliberately type-and-light, not another particle cloud: the defeated
+   silhouette remains visible and the move that ended the fight gets credit. */
+.showdown-finisher {
+    --finisher-tint: #fff;
+    position: absolute;
+    z-index: 5;
+    left: 50%;
+    top: 62%;
+    min-width: min(78vw, 620px);
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    color: #fff;
+    text-align: center;
+    text-transform: uppercase;
+    pointer-events: none;
+    filter: drop-shadow(0 5px 12px rgba(0,0,0,0.88));
+    animation: showdown-finisher-title 1.32s cubic-bezier(.18,.86,.2,1) both;
+}
+.showdown-finisher::before,
+.showdown-finisher::after {
+    content: "";
+    position: absolute;
+    top: 53%;
+    width: 32%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--finisher-tint));
+    box-shadow: 0 0 14px var(--finisher-tint);
+}
+.showdown-finisher::before { right: 82%; }
+.showdown-finisher::after { left: 82%; transform: scaleX(-1); }
+.showdown-finisher-kicker {
+    color: var(--finisher-tint);
+    font-size: clamp(0.62rem, 1.2vw, 0.82rem);
+    font-weight: 900;
+    letter-spacing: 0.42em;
+}
+.showdown-finisher strong {
+    max-width: 100%;
+    overflow: hidden;
+    color: #fff;
+    font-family: var(--font-display, inherit);
+    font-size: clamp(1.65rem, 5.4vw, 4.4rem);
+    font-style: italic;
+    font-weight: 1000;
+    letter-spacing: 0.055em;
+    line-height: 0.96;
+    text-overflow: ellipsis;
+    text-shadow:
+        -2px -2px 0 #08070a, 2px -2px 0 #08070a,
+        -2px 2px 0 #08070a, 2px 2px 0 #08070a,
+        0 0 22px var(--finisher-tint);
+    white-space: nowrap;
+}
+.showdown-finisher > span:last-child {
+    font-size: clamp(0.68rem, 1.45vw, 0.92rem);
+    font-weight: 800;
+    letter-spacing: 0.22em;
+    opacity: 0.86;
+}
+@keyframes showdown-finisher-title {
+    0% { opacity: 0; transform: translate(-50%, 22px) scale(1.34); filter: blur(8px) drop-shadow(0 5px 12px rgba(0,0,0,0.88)); }
+    16% { opacity: 1; transform: translate(-50%, 0) scale(1); filter: blur(0) drop-shadow(0 5px 12px rgba(0,0,0,0.88)); }
+    76% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -10px) scale(0.985); }
+}
+
 /* ── Signature letterbox ───────────────────────────────────────────────── */
 
 .showdown-letterbox { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
@@ -1733,6 +1801,7 @@
        at 0.85 opacity, so a bare opacity declaration loses to it. */
     .showdown-flash { animation: none; opacity: 0; }
     .showdown-ko-impact { animation: none; opacity: 0; backdrop-filter: none; }
+    .showdown-finisher { animation: none; transform: translate(-50%, 0); }
 
     .showdown-plate.targetable,
     .showdown-plate-meter.full > span,

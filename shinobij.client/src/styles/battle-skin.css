@@ -4497,53 +4497,331 @@ html body > .arena-fullscreen.shinobi-combat-shell .combat-main-area.bt-log .com
     display: block !important;
 }
 
-/* Shared authoritative PvP / Solo PvE log: retain the complete flat feed and
-   trade density for legibility. Long fights scroll inside the log panel. */
+/* Shared authoritative PvP / Solo PvE log. The full feed stays locally
+   scrollable, while semantic action blocks and round cards turn the raw server
+   strings into a readable combat record. */
 html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log {
+    position: relative;
     padding: 0 !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
+    scrollbar-color: rgba(232, 212, 150, 0.72) rgba(2, 6, 23, 0.72);
+    scrollbar-width: auto;
 }
 
 html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .combat-log-header {
     position: sticky;
-    z-index: 3;
+    z-index: 6;
     top: 0;
-    padding: 11px 16px !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 54px;
+    padding: 8px 12px 8px 16px !important;
     font-size: 14px !important;
+    box-shadow: 0 8px 18px rgba(2, 6, 23, 0.62);
 }
 
-html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .plain-combat-log-line {
-    margin: 0 !important;
-    padding: 10px 16px !important;
-    border-bottom: 1px solid rgba(196, 162, 90, 0.12);
-    border-left: 3px solid rgba(148, 163, 184, 0.48);
-    background: rgba(15, 23, 42, 0.34);
-    color: #f1f5f9 !important;
-    font: 500 clamp(15px, 1cqw, 17px) / 1.65 'Inter', system-ui, sans-serif !important;
-    overflow-wrap: anywhere;
-    white-space: pre-wrap;
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .combat-log-title,
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .combat-log-header-actions {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 10px;
 }
 
-html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .plain-combat-log-line:nth-child(odd) {
-    background: rgba(30, 41, 59, 0.34);
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .combat-log-title {
+    flex-wrap: wrap;
+    row-gap: 2px;
 }
 
-html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .plain-combat-log-round {
-    border-left-color: rgba(232, 212, 150, 0.8);
-    background: rgba(196, 162, 90, 0.12) !important;
-    color: var(--bsv2-gold-bright, #e8d496) !important;
-    font-family: var(--font-display) !important;
-    font-weight: 700 !important;
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .combat-log-summary {
+    max-width: 100%;
+    overflow: hidden;
+    color: rgba(148, 163, 184, 0.8);
+    font: 700 9px/1.2 Inter, system-ui, sans-serif;
     letter-spacing: 0.08em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .combat-log-turn {
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .combat-log-expand {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 88px;
+    min-height: 40px;
+    padding: 6px 10px;
+    border: 1px solid rgba(232, 212, 150, 0.34) !important;
+    border-radius: 6px !important;
+    background: linear-gradient(180deg, rgba(37, 48, 68, 0.94), rgba(12, 19, 32, 0.98)) !important;
+    color: #f4e2b0 !important;
+    font: 800 10px/1 var(--font-display) !important;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .combat-log-expand:hover {
+    border-color: rgba(232, 212, 150, 0.76) !important;
+    background: linear-gradient(180deg, rgba(54, 67, 89, 0.98), rgba(18, 27, 43, 0.98)) !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .combat-log-expand-icon {
+    width: 16px;
+    height: 16px;
+    overflow: visible;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .combat-log-expand:focus-visible,
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .timeline-round-toggle:focus-visible {
+    outline: 2px solid #7dd3fc !important;
+    outline-offset: -3px;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log::-webkit-scrollbar {
+    width: 13px;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log::-webkit-scrollbar-track {
+    background: rgba(2, 6, 23, 0.72);
+    border-left: 1px solid rgba(196, 162, 90, 0.12);
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log::-webkit-scrollbar-thumb {
+    min-height: 38px;
+    border: 3px solid rgba(2, 6, 23, 0.72);
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(232, 212, 150, 0.92), rgba(156, 121, 54, 0.92));
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .plain-combat-rounds {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    min-height: 100%;
+    padding: 10px !important;
+    background:
+        radial-gradient(circle at 12% 0%, rgba(78, 168, 255, 0.07), transparent 28%),
+        linear-gradient(180deg, rgba(6, 11, 22, 0.48), rgba(2, 6, 16, 0.72));
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .plain-combat-log-round {
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.2) !important;
+    border-left: 3px solid rgba(148, 163, 184, 0.5) !important;
+    border-radius: 8px !important;
+    background: linear-gradient(180deg, rgba(20, 29, 46, 0.7), rgba(7, 12, 23, 0.76)) !important;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28);
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .plain-combat-log-round.is-latest {
+    border-color: rgba(232, 212, 150, 0.36) !important;
+    border-left-color: #e8d496 !important;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(232, 212, 150, 0.05);
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .timeline-round-toggle {
+    min-height: 44px;
+    padding: 8px 12px !important;
+    background: linear-gradient(90deg, rgba(196, 162, 90, 0.12), rgba(15, 23, 42, 0.24)) !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .plain-combat-round-label {
+    color: #f4e2b0;
+    font-size: 11px;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .plain-combat-current-round {
+    padding: 3px 7px;
+    border: 1px solid rgba(74, 222, 128, 0.34);
+    border-radius: 999px;
+    background: rgba(34, 197, 94, 0.11);
+    color: #86efac;
+    font: 800 8px/1 Inter, system-ui, sans-serif;
+    letter-spacing: 0.1em;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .timeline-round-count {
+    padding: 3px 7px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 999px;
+    background: rgba(2, 6, 23, 0.42);
+    color: rgba(203, 213, 225, 0.8);
+    opacity: 1;
+    font: 700 8px/1 Inter, system-ui, sans-serif;
+    letter-spacing: 0.05em;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .plain-combat-round-events {
+    display: grid;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .timeline-entry,
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .plain-combat-orphan-effects {
+    padding: 10px 14px !important;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    border-left: 3px solid rgba(148, 163, 184, 0.38);
+    background: rgba(15, 23, 42, 0.32) !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .timeline-entry:nth-child(even),
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .plain-combat-orphan-effects:nth-child(even) {
+    background: rgba(30, 41, 59, 0.3) !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .timeline-entry:last-child,
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .plain-combat-orphan-effects:last-child {
+    border-bottom: 0;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .timeline-entry.timeline-player {
+    border-left-color: rgba(96, 165, 250, 0.88);
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .timeline-entry.timeline-enemy {
+    border-left-color: rgba(248, 113, 113, 0.88);
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .timeline-entry-head {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #f1f5f9 !important;
+    font: 650 clamp(14px, 0.95cqw, 16px) / 1.45 Inter, system-ui, sans-serif !important;
+    overflow-wrap: anywhere;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .timeline-entry > .timeline-entry-head {
+    margin-bottom: 5px !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .timeline-fx {
+    margin: 0 !important;
+    padding: 3px 0 3px 18px !important;
+    border: 0;
+    background: transparent;
+    font: 600 clamp(13px, 0.88cqw, 15px) / 1.5 Inter, system-ui, sans-serif !important;
+    overflow-wrap: anywhere;
+}
+
+/* Keep the semantic palette above the legacy `.combat-text-log p` rule in the
+   important-cascade. Without this shared-shell specificity, the right classes
+   exist in the DOM but every effect still paints neutral white. */
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .battle-log-heal {
+    color: #86efac !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .battle-log-damage {
+    color: #fca5a5 !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .battle-log-dmgmod {
+    color: #93c5fd !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .battle-log-shield {
+    color: #67e8f9 !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .battle-log-control {
+    color: #fcd34d !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .battle-log-prevent {
+    color: #5eead4 !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .battle-log-tempo {
+    color: #c4b5fd !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .battle-log-system {
+    color: #e8d496 !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .battle-log-effect {
+    color: #d8b4fe !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log.is-expanded {
+    position: fixed !important;
+    z-index: 1200 !important;
+    inset: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)) !important;
+    grid-area: unset !important;
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    border-color: rgba(232, 212, 150, 0.58) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.8) !important;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .combat-log-modal-backdrop {
+    position: fixed;
+    z-index: 1199;
+    inset: 0;
+    background: rgba(1, 4, 12, 0.82);
+    backdrop-filter: blur(4px);
 }
 
 html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .plain-combat-log-empty {
     padding: 16px !important;
     font-size: 16px !important;
     line-height: 1.6 !important;
+}
+
+@container shinobi-combat (max-width: 520px) {
+    html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .combat-log-header {
+        min-height: 48px;
+        padding: 6px 8px 6px 11px !important;
+    }
+
+    html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .combat-log-summary,
+    html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .combat-log-expand-label {
+        display: none;
+    }
+
+    html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .combat-log-expand {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 6px 9px;
+    }
+
+    html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .plain-combat-rounds {
+        gap: 7px;
+        padding: 7px !important;
+    }
+
+    html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .timeline-entry,
+    html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .plain-combat-orphan-effects {
+        padding: 8px 10px !important;
+    }
 }
 
 html body > .arena-fullscreen.shinobi-combat-shell .combat-equipped-jutsu-grid {

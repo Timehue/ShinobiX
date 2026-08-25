@@ -1,6 +1,8 @@
 import { bumpSaveVersion } from './_save-version.js';
 import { isDeepStrictEqual } from 'node:util';
 import type { KvLike } from '../_storage.js';
+import { WORLD_CRISIS_TRIGGER_LEVEL } from '../../shared/world-crisis.js';
+import { WORLD_CRISIS_80_TRIGGER_LEVEL } from '../../shared/world-crisis-80.js';
 
 export type PlayerSaveRecord = Record<string, unknown>;
 export type PlayerCharacter = Record<string, unknown>;
@@ -65,6 +67,39 @@ export async function writeVersionedPlayerSave(
         out.record,
         { previousCharacter: (currentRecord.character ?? null) as PlayerCharacter | null },
     );
+    const beforeLevel = Math.max(0, Math.floor(Number((currentRecord.character as PlayerCharacter | undefined)?.level) || 0));
+    const afterCharacter = (out.record.character ?? nextCharacter) as PlayerCharacter;
+    const afterLevel = Math.max(0, Math.floor(Number(afterCharacter.level) || 0));
+    // Observe only a committed threshold crossing. This keeps existing
+    // over-threshold accounts from awakening the event merely by logging in,
+    // and keeps the already-committed save successful if the herald outbox is
+    // temporarily unavailable (the operator retains a manual fallback).
+    if (beforeLevel < WORLD_CRISIS_TRIGGER_LEVEL && afterLevel >= WORLD_CRISIS_TRIGGER_LEVEL) {
+        try {
+            const { observeWorldCrisisLevelCrossing } = await import('../world-crisis/_state.js');
+            await observeWorldCrisisLevelCrossing({
+                playerName: saveKey.slice('save:'.length),
+                beforeLevel,
+                afterLevel,
+                character: afterCharacter,
+            });
+        } catch (error) {
+            console.error('[world-crisis] committed level crossing observer failed:', error);
+        }
+    }
+    if (beforeLevel < WORLD_CRISIS_80_TRIGGER_LEVEL && afterLevel >= WORLD_CRISIS_80_TRIGGER_LEVEL) {
+        try {
+            const { observeWorldCrisis80LevelCrossing } = await import('../world-crisis-80/_state.js');
+            await observeWorldCrisis80LevelCrossing({
+                playerName: saveKey.slice('save:'.length),
+                beforeLevel,
+                afterLevel,
+                character: afterCharacter,
+            });
+        } catch (error) {
+            console.error('[world-crisis-80] committed level crossing observer failed:', error);
+        }
+    }
     return out;
 }
 

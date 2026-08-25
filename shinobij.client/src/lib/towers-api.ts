@@ -114,6 +114,23 @@ export type TowerGroundEffect = {
 /** A sealed Endless Spire modifier (rendered as a pre-fight manifest chip). */
 export type TowerModifier = { kind: string; value: number; label: string; variant?: string };
 
+export type TowerFloorView = {
+    id?: number;
+    name?: string;
+    chapter?: number;
+    chapterTitle?: string | null;
+    chapterSubtitle?: string | null;
+    chapterSummary?: string | null;
+    artKey?: string | null;
+    briefing?: { situation: string; tactics: string[]; warnings: string[] } | null;
+    objective?: string;
+    roundBudget?: number;
+    boss?: {
+        targetMode?: 'lowest-hp' | 'squishiest' | 'support';
+        strike?: { kind: 'nova' | 'volley' | 'slam'; pct: number; radius: number; everyRounds: number; firstRound?: number };
+    };
+};
+
 export type TowerSession = {
     towerId: string;
     runId: string;
@@ -156,32 +173,11 @@ export type TowerSession = {
      *  END of `round` (painted violet, distinct from the crimson spire hazards) */
     bossStrike?: { tiles: number[]; round: number; pct: number; kind: string; label: string };
     /** Narrow client view of the run-sealed catalog truth used by tactical HUD copy. */
-    sealedCatalogFloor?: {
-        id?: number;
-        name?: string;
-        chapter?: number;
-        chapterTitle?: string | null;
-        chapterSubtitle?: string | null;
-        chapterSummary?: string | null;
-        artKey?: string | null;
-        briefing?: {
-            situation: string;
-            tactics: string[];
-            warnings: string[];
-        } | null;
-        objective?: string;
-        roundBudget?: number;
-        boss?: {
-            targetMode?: 'lowest-hp' | 'squishiest' | 'support';
-            strike?: {
-                kind: 'nova' | 'volley' | 'slam';
-                pct: number;
-                radius: number;
-                everyRounds: number;
-                firstRound?: number;
-            };
-        };
-    };
+    sealedCatalogFloor?: TowerFloorView;
+    /** Exact server-sealed rules for a non-catalog authoritative encounter. */
+    encounterFloor?: TowerFloorView;
+    /** Present only on the sealed level-80 world-crisis triad encounter. */
+    worldCrisis80?: { crisisId: string; village: string; sourceId: string };
     /** Monotonic server action revision used by optional reconnect-safe commands. */
     actionVersion?: number;
     /**

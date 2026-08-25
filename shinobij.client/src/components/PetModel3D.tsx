@@ -12,6 +12,7 @@ import { attackClipWindow, motionOwnsLocomotion, petDeathChoreography, resolveCo
 import { petHeroBodyPose, type PetHeroMoveStyle } from "../lib/pet-hero-moves";
 import { stablePetModelPresentationBounds } from "../lib/pet-model-bounds";
 import type { PetModelSurfaceTreatment } from "../lib/pet-model-surface";
+import type { PetSignaturePerformance } from "../lib/pet-signature-performance";
 
 export type PetModelMotion =
     | "idle"
@@ -22,6 +23,8 @@ export type PetModelMotion =
     | "recover"
     | "stagger"
     | "dodge"
+    | "guard"
+    | "rest"
     | "dead";
 
 export type PetModelFrame = {
@@ -52,6 +55,16 @@ export type PetModelFrame = {
      * jabs snap (>1), heavies grind (<1), signatures crawl majestically
      * through their long beat. Omit for the neutral authored pacing. */
     attackPace?: number;
+    /** Stable 0..2 take chosen from pet identity. Species pose remains the
+     * foundation; this changes cadence and silhouette accents so two members
+     * of the same family do not perform as clones. */
+    performanceVariant?: 0 | 1 | 2;
+    /** Full species identity direction. Unlike performanceVariant's three
+     * alternate takes, this is unique to the pet and also drives its asset
+     * cadence, balance, entrance, celebration and signature VFX. */
+    signature?: PetSignaturePerformance;
+    /** 0..1 opening entrance phrase, supplied after the VS card clears. */
+    entranceProgress?: number;
     /** Optional presentation time in seconds. Coliseum combat supplies its
      * slowed/hit-stopped clock so skeletal clips cannot outrun the fight. */
     timeline?: number;
@@ -75,6 +88,9 @@ export const DEFAULT_PET_MODEL_FRAME: PetModelFrame = {
     victorious: false,
     moveStyle: "generic",
     moveName: undefined,
+    performanceVariant: 0,
+    signature: undefined,
+    entranceProgress: undefined,
     timeline: undefined,
 };
 
@@ -475,6 +491,10 @@ function combatClip(clips: readonly THREE.AnimationClip[], frame: PetModelFrame,
     if (frame.motion === "strike" || frame.motion === "windup" || frame.motion === "recover") return findClip(clips, ["attack"]);
     if (frame.motion === "stagger") return findClip(clips, ["idle_hitreact1", "out_of_water", "idle_hitreact2"]);
     if (frame.motion === "dodge") return findClip(clips, ["gallop_jump", "swimming_impulse", "jump_toidle", "swimming_fast"]);
+    // Guard and Rest are whole-body procedural performances layered over the
+    // safest grounded take. Imported idle_2 clips are not a universal brace or
+    // recovery pose (several rear up or fold wings), so never use them here.
+    if (frame.motion === "guard" || frame.motion === "rest") return findClip(clips, ["idle", "walk", "swimming_normal"]);
     if (frame.motion === "dash") {
         // Birds take off and beat their wings through a committed dive. Reusing
         // the quadruped gallop here made every avian skim the floor like a dog.
@@ -685,12 +705,13 @@ export function LegacyAnimePetAccents({ config }: { config: PetCombatModelConfig
     return null;
 }
 
-function LoadedPetModel3D({ config, frame, element, showIdentity = true, surfaceTreatment }: {
+function LoadedPetModel3D({ config, frame, element, showIdentity = true, surfaceTreatment, signature }: {
     config: PetCombatModelConfig;
     frame: MutableRefObject<PetModelFrame>;
     element?: string;
     showIdentity?: boolean;
     surfaceTreatment?: PetModelSurfaceTreatment;
+    signature?: PetSignaturePerformance;
 }) {
     const gltf = useGLTF(config.url) as { scene: THREE.Group; animations: THREE.AnimationClip[] };
     const persistentAtlas = ROSTER_VISUAL_ID.test(config.visualId) ? readPetGlbAtlas(config.url) : null;
@@ -761,6 +782,12 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         const b = body.current;
         if (!r || !b) return;
         const f = frame.current;
+        const signatureDirection = f.signature ?? signature;
+        const signatureCadence = signatureDirection?.cadence ?? 1;
+        const signatureAgility = signatureDirection?.agility ?? 1;
+        const signatureWeight = signatureDirection?.weight ?? 1;
+        const signatureStrike = signatureDirection?.strikeDrive ?? 1;
+        const signatureRecoil = signatureDirection?.recoil ?? 1;
         const authoredCombatRig = isAuthoredCombatRig(config.visualId, prepared.clips);
         const groundedAuthoredQuadruped = authoredCombatRig && config.profile === "quadruped";
         const aquaticSeal = config.visualId === "starter-water" || config.visualId === "starter-water-r";
@@ -795,8 +822,14 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         // idle: launch, crest, plant, then hold the proud silhouette. The arc is
         // deliberately single-shot so quadrupeds do not become rocking horses.
         const victoryP = Math.min(1, victoryAge / 0.72);
+        const victoryArcShape = signatureDirection?.victory === "monolith" ? 0.28
+            : signatureDirection?.victory === "prowl" ? 0.48
+                : signatureDirection?.victory === "roar" ? 0.72
+                    : signatureDirection?.victory === "soar" ? 1.25
+                        : signatureDirection?.victory === "spiral" ? 1.05
+                            : 0.86;
         const victoryArc = f.victorious
-            ? Math.sin(Math.PI * victoryP) * petVictoryArcHeight(config.targetHeight, config.profile, aquaticSeal)
+            ? Math.sin(Math.PI * victoryP) * petVictoryArcHeight(config.targetHeight, config.profile, aquaticSeal) * (signatureDirection?.victoryLift ?? 1) * victoryArcShape
             : 0;
         const victoryLift = f.victorious ? 1 - Math.pow(1 - Math.min(1, victoryAge / 0.48), 3) : 0;
         const avianDive = config.profile === "avian" && f.motion === "dash";
@@ -811,7 +844,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         // height. That left a lateral position change with only a body tilt—the
         // exact visual signature of a teleport/glitch. Every dodge now has one
         // planted launch, airborne read, and landing; seals stay lower than paws.
-        const dodgeHeight = dodgeArc * config.targetHeight * (aquaticSeal ? 0.075 : config.profile === "heavy" ? 0.085 : 0.13);
+        const dodgeHeight = dodgeArc * config.targetHeight * (aquaticSeal ? 0.075 : config.profile === "heavy" ? 0.085 : 0.13) * (signatureDirection?.dodgeLift ?? 1);
         if (mixer) {
             const clip = combatClip(prepared.clips, f, config.profile);
             const family = combatAnimationFamily(f);
@@ -885,7 +918,8 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             // The attack take's pacing scales with the MOVE's weight (frame
             // .attackPace) — a jab snaps through its take, a heavy grinds the
             // anticipation, a signature stretches across its whole long beat.
-            const attackPace = f.attackPace ?? 1;
+            const variantPace = (f.performanceVariant === 0 ? 0.96 : f.performanceVariant === 2 ? 1.05 : 1) * signatureCadence;
+            const attackPace = (f.attackPace ?? 1) * variantPace;
             const locomotionRate = authoredCombatRig
                 ? f.motion === "dodge"
                     ? 1.16
@@ -943,7 +977,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
                 bone.rotateZ(side * 0.08 * reach * Math.sin(Math.PI * phase));
             }
         }
-        const gait = config.profile === "heavy" ? 8.8 : config.profile === "avian" ? 14 : 12.2;
+        const gait = (config.profile === "heavy" ? 8.8 : config.profile === "avian" ? 14 : 12.2) * signatureCadence * THREE.MathUtils.clamp(signatureAgility, 0.82, 1.18);
         const profileBounce = config.profile === "heavy" ? 0.045 : aquaticSeal ? 0.026 : config.profile === "serpentine" ? 0.08 : 0.065;
         // Dodge owns one clean hop cycle. Do not layer the ordinary running gait
         // underneath it or loop the lean; that combination reads as mesh jitter.
@@ -952,8 +986,16 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         const windup = f.motion === "windup" ? 1 : 0;
         const stagger = f.motion === "stagger" ? 1 : 0;
         const dodge = f.motion === "dodge" ? 1 : 0;
+        const guard = f.motion === "guard" ? 1 : 0;
+        const resting = f.motion === "rest" ? 1 : 0;
         const dead = f.motion === "dead" ? 1 : 0;
-        const breath = Math.sin(t * (f.desperate ? 7.2 : 3.6)) * (f.desperate ? 0.035 : 0.018);
+        const idle = f.motion === "idle" && !f.victorious;
+        const performanceVariant = f.performanceVariant ?? 0;
+        const variantSign = performanceVariant === 1 ? -1 : 1;
+        const personalityTime = timeline + performanceVariant * 0.73 + (signatureDirection?.phase ?? 0);
+        const breath = Math.sin(personalityTime * (f.desperate ? 7.2 : 3.45 + performanceVariant * 0.22))
+            * (f.desperate ? 0.035 : 0.016 + performanceVariant * 0.002) * (signatureDirection?.breath ?? 1);
+        const idleSway = idle ? Math.sin(personalityTime * (1.55 + performanceVariant * 0.18) * (signatureDirection?.idleRate ?? 1)) : 0;
         const gaitPhase = t * gait;
         const strideWave = Math.sin(gaitPhase * 0.72);
         const sealStroke = aquaticSeal && running ? Math.sin(gaitPhase * 0.56) : 0;
@@ -984,6 +1026,64 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         const recoilPunch = stagger ? Math.exp(-motionAge * 6.5) : 0;
         const impactPower = THREE.MathUtils.clamp(f.impactPower ?? 0.55, 0.45, 1.25);
         const recoilWeight = recoilPunch * THREE.MathUtils.lerp(0.78, 1.48, (impactPower - 0.45) / 0.8);
+        // Utility actions are animations too. Every rig gets a readable brace
+        // and stamina-recovery phrase instead of idling inside a shield/number:
+        // one planted guard compression, or a slow inhale -> lift -> exhale.
+        const guardPlant = guard ? 1 - Math.exp(-motionAge * 10) : 0;
+        const restP = resting ? Math.min(1, motionAge / 0.72) : 0;
+        const restBreath = resting ? Math.sin(Math.PI * restP) : 0;
+        const entranceP = f.entranceProgress === undefined ? 1 : THREE.MathUtils.clamp(f.entranceProgress, 0, 1);
+        const entering = entranceP < 1;
+        const entryHeight = signatureDirection?.entrance === "descent" ? 0.76
+            : signatureDirection?.entrance === "vault" ? 0.52
+                : signatureDirection?.entrance === "quake" ? 0.24
+                    : signatureDirection?.entrance === "phase" ? 0.14
+                        : signatureDirection?.entrance === "coil" ? 0.2
+                            : config.profile === "avian" ? 0.62
+                                : config.profile === "heavy" ? 0.26
+                                    : 0.34;
+        const entryLift = entering
+            ? Math.pow(1 - entranceP, 2) * config.targetHeight * entryHeight * (signatureDirection?.entranceLift ?? 1)
+                + Math.sin(Math.PI * entranceP) * config.targetHeight * 0.055
+            : 0;
+        const entryLand = entering
+            ? Math.sin(Math.PI * THREE.MathUtils.clamp((entranceP - 0.62) / 0.38, 0, 1))
+            : 0;
+        const entryPitch = !entering ? 0
+            : signatureDirection?.entrance === "descent" ? (1 - entranceP) * -0.22 + Math.sin(Math.PI * entranceP) * 0.08
+                : signatureDirection?.entrance === "vault" ? Math.sin(Math.PI * entranceP) * -0.13
+                    : signatureDirection?.entrance === "quake" ? (1 - entranceP) * 0.08 + entryLand * 0.1
+                        : signatureDirection?.entrance === "stalk" ? (1 - entranceP) * -0.1
+                            : 0;
+        const entryRoll = !entering ? 0
+            : signatureDirection?.entrance === "phase" ? Math.sin(Math.PI * entranceP) * 0.18 * (signatureDirection?.asymmetry ?? variantSign)
+                : signatureDirection?.entrance === "coil" ? Math.sin(Math.PI * entranceP * 2) * 0.11 * (signatureDirection?.asymmetry ?? variantSign)
+                    : Math.sin(Math.PI * entranceP) * (signatureDirection?.entranceTwist ?? 0);
+        const entryYaw = !entering ? 0
+            : signatureDirection?.entrance === "coil" ? Math.sin(Math.PI * entranceP) * 0.2 * (signatureDirection?.asymmetry ?? variantSign)
+                : signatureDirection?.entrance === "phase" ? (1 - entranceP) * 0.24 * (signatureDirection?.asymmetry ?? variantSign)
+                    : 0;
+        const victoryPitch = !f.victorious ? 0
+            : signatureDirection?.victory === "roar" ? -Math.sin(Math.PI * victoryP) * 0.12
+                : signatureDirection?.victory === "monolith" ? -victoryLift * 0.055
+                    : signatureDirection?.victory === "prowl" ? victoryLift * 0.045
+                        : signatureDirection?.victory === "soar" ? -Math.sin(Math.PI * victoryP) * 0.08
+                            : 0;
+        const victoryYaw = !f.victorious ? 0
+            : signatureDirection?.victory === "spiral" ? Math.sin(Math.PI * victoryP) * 0.22 * (signatureDirection?.asymmetry ?? variantSign)
+                : signatureDirection?.victory === "salute" ? Math.sin(Math.PI * victoryP) * 0.08 * (signatureDirection?.asymmetry ?? variantSign)
+                    : 0;
+        const personalityPitch = idleSway * 0.012
+            + (idle ? signatureDirection?.stance ?? 0 : 0)
+            + (windup ? (performanceVariant - 1) * 0.028 - ((signatureDirection?.anticipation ?? 1) - 1) * 0.08 : 0)
+            + (strike ? attackPulse * 0.025 * variantSign * signatureStrike : 0);
+        const personalityRoll = idleSway * 0.014 * variantSign
+            + (strike ? attackPulse * 0.035 * variantSign * signatureStrike : 0)
+            + (dodge ? dodgeArc * (signatureDirection?.dodgeRoll ?? 0) : 0)
+            + (f.victorious ? Math.sin(Math.PI * victoryP) * (0.045 * variantSign + (signatureDirection?.victoryTwist ?? 0)) : 0);
+        const personalityYaw = idleSway * 0.024 * variantSign
+            + (windup ? 0.035 * variantSign * (signatureDirection?.anticipation ?? 1) : 0)
+            + (strike ? attackPulse * 0.055 * variantSign * signatureStrike : 0);
         const heroPose = petHeroBodyPose({
             style: f.moveStyle,
             motion: f.motion,
@@ -1030,7 +1130,8 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
                 r.rotation.y = smoothAngle(r.rotation.y, wantedYaw, Math.min(1, delta * turnRate));
             }
         }
-        const rootHeight = bob + dodgeHeight + avianDiveArc + victoryArc + heroPose.lift + (dead ? deathPose.lift - deathPose.sink : 0);
+        const utilityLift = restBreath * config.targetHeight * (config.profile === "heavy" ? 0.018 : 0.032);
+        const rootHeight = bob + dodgeHeight + avianDiveArc + victoryArc + heroPose.lift + utilityLift + entryLift + (dead ? deathPose.lift - deathPose.sink : 0);
         r.position.y = THREE.MathUtils.lerp(r.position.y, dead ? rootHeight : Math.max(0, rootHeight), Math.min(1, delta * (avianDive || dodge || dead ? 18 : 12)));
         // The generated roster takes provide leg/head motion but their attack clip
         // has almost no centre-of-mass commitment. Layer one smooth, restrained
@@ -1062,13 +1163,22 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
                                 : running ? Math.sin(t * gait) * 0.035 : 0;
         const authoredPitch = baseAuthoredPitch
             + heroPose.pitch
+            + personalityPitch
+            + entryPitch
+            + victoryPitch
+            - guardPlant * (config.profile === "heavy" ? 0.08 : 0.12)
+            + restBreath * 0.055
             - dashDrive * (config.profile === "heavy" ? 0.055 : 0.095)
             + dashBrake * (config.profile === "heavy" ? 0.075 : 0.12)
-            + contactPunch * (config.profile === "heavy" ? 0.065 : 0.1)
-            - recoilWeight * (config.profile === "heavy" ? 0.1 : 0.16);
-        const authoredRoll = baseAuthoredRoll + heroPose.roll;
+            + contactPunch * (config.profile === "heavy" ? 0.065 : 0.1) * signatureStrike
+            - recoilWeight * (config.profile === "heavy" ? 0.1 : 0.16) * signatureRecoil;
+        const authoredRoll = baseAuthoredRoll + heroPose.roll
+            + personalityRoll
+            + entryRoll
+            + (guard ? Math.sin(Math.min(1, motionAge / 0.34) * Math.PI) * 0.035 : 0)
+            + (resting ? Math.sin(timeline * 2.2) * 0.018 : 0);
         b.rotation.x = THREE.MathUtils.lerp(b.rotation.x, authoredPitch, Math.min(1, delta * (dead ? 4 : 15)));
-        b.rotation.y = THREE.MathUtils.lerp(b.rotation.y, heroPose.yaw, Math.min(1, delta * 13));
+        b.rotation.y = THREE.MathUtils.lerp(b.rotation.y, heroPose.yaw + personalityYaw + entryYaw + victoryYaw, Math.min(1, delta * 13));
         b.rotation.z = THREE.MathUtils.lerp(b.rotation.z, authoredRoll, Math.min(1, delta * 11));
         const sx = authoredCombatRig
             ? dead ? 1 + 0.06 * deathPose.fall + 0.045 * deathPose.impact : f.victorious ? 1.025 + victoryLift * 0.012 : strike ? 1 - 0.04 * attackPulse : stagger ? 1.035 : running ? (groundedAuthoredQuadruped ? 1 : 1 + authoredRunWave * 0.012) : 1 + breath * 0.12
@@ -1079,25 +1189,41 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         const sz = authoredCombatRig
             ? dead ? 1 + 0.08 * deathPose.fall + 0.04 * deathPose.impact : f.victorious ? 1.035 : strike ? 1 + 0.11 * attackPulse : windup ? 0.94 : f.motion === "recover" ? 1.025 : running ? (groundedAuthoredQuadruped ? 1 : 1 + authoredRunWave * 0.014) : 1 + breath * 0.12
             : f.victorious ? (aquaticSeal ? 1.075 : 1.035) : dead ? 1 + 0.05 * deathPose.fall + 0.045 * deathPose.impact : windup ? (aquaticSeal ? 0.93 : 0.9) : strike ? (aquaticSeal ? 1.18 : 1.13) : aquaticSeal && running ? 1 + breath * 0.4 + sealCompression * 0.055 : 1 + breath;
-        const dashScaleX = 1 - dashDrive * 0.025 + contactPunch * 0.03 + recoilWeight * 0.035;
-        const dashScaleY = 1 - dashDrive * (config.profile === "heavy" ? 0.045 : 0.075) - contactPunch * 0.075 + recoilWeight * 0.065;
-        const dashScaleZ = 1 + dashDrive * (config.profile === "heavy" ? 0.085 : 0.13) - dashBrake * 0.035 + contactPunch * 0.14 - recoilWeight * 0.085;
-        b.scale.x = THREE.MathUtils.lerp(b.scale.x, sx * heroPose.scaleX * dashScaleX, Math.min(1, delta * 15));
-        b.scale.y = THREE.MathUtils.lerp(b.scale.y, sy * heroPose.scaleY * dashScaleY, Math.min(1, delta * 15));
-        b.scale.z = THREE.MathUtils.lerp(b.scale.z, sz * heroPose.scaleZ * dashScaleZ, Math.min(1, delta * 15));
+        const dashScaleX = 1 - dashDrive * 0.025 + contactPunch * 0.03 * signatureStrike + recoilWeight * 0.035 * signatureRecoil;
+        const dashScaleY = 1 - dashDrive * (config.profile === "heavy" ? 0.045 : 0.075) - contactPunch * 0.075 * signatureStrike + recoilWeight * 0.065 * signatureRecoil;
+        const dashScaleZ = 1 + dashDrive * (config.profile === "heavy" ? 0.085 : 0.13) * signatureStrike - dashBrake * 0.035 + contactPunch * 0.14 * signatureStrike - recoilWeight * 0.085 * signatureRecoil;
+        const utilityScaleX = 1 + guardPlant * 0.075 + restBreath * 0.018;
+        const utilityScaleY = 1 - guardPlant * 0.095 + restBreath * 0.055;
+        const utilityScaleZ = 1 + guardPlant * 0.045 - restBreath * 0.018;
+        const landingWeight = signatureDirection?.landingWeight ?? signatureWeight;
+        const entranceScaleXz = 1 + entryLand * (config.profile === "heavy" ? 0.12 : 0.07) * landingWeight;
+        const entranceScaleY = 1 - entryLand * (config.profile === "heavy" ? 0.16 : 0.1) * landingWeight;
+        b.scale.x = THREE.MathUtils.lerp(b.scale.x, sx * heroPose.scaleX * dashScaleX * utilityScaleX * entranceScaleXz, Math.min(1, delta * 15));
+        b.scale.y = THREE.MathUtils.lerp(b.scale.y, sy * heroPose.scaleY * dashScaleY * utilityScaleY * entranceScaleY, Math.min(1, delta * 15));
+        b.scale.z = THREE.MathUtils.lerp(b.scale.z, sz * heroPose.scaleZ * dashScaleZ * utilityScaleZ * entranceScaleXz, Math.min(1, delta * 15));
         // A small side-to-side load and forward drive make the torso participate
         // in locomotion/attacks. Values stay below a paw width and are filtered,
         // so this adds weight without bringing back the earlier mesh jitter.
-        const weightX = aquaticSeal && running ? sealStroke * 0.026 : authoredCombatRig && running && !groundedAuthoredQuadruped ? strideWave * 0.022 : 0;
+        const entrySide = entering && signatureDirection?.entrance === "phase"
+            ? Math.sin(Math.PI * entranceP) * 0.13 * signatureDirection.asymmetry
+            : entering && signatureDirection?.entrance === "coil"
+                ? Math.sin(Math.PI * entranceP * 2) * 0.055 * signatureDirection.asymmetry
+                : 0;
+        const weightX = (aquaticSeal && running ? sealStroke * 0.026 : authoredCombatRig && running && !groundedAuthoredQuadruped ? strideWave * 0.022 : 0) + entrySide;
         const weightYBase = aquaticSeal && running ? -sealCompression * 0.016 : authoredCombatRig ? (running && !groundedAuthoredQuadruped ? -authoredRunWave * 0.018 : windup ? -0.024 : strike ? attackPulse * 0.016 : 0) : 0;
-        const weightY = weightYBase - dashDrive * 0.024 + dashBrake * 0.012 - contactPunch * 0.034 + recoilWeight * 0.036;
+        const weightY = weightYBase - dashDrive * 0.024 + dashBrake * 0.012 - contactPunch * 0.034 + recoilWeight * 0.036
+            - guardPlant * 0.045 + restBreath * 0.025;
         const locomotionDrive = aquaticSeal && running ? sealStroke * 0.045 : groundedAuthoredQuadruped && running ? strideWave * 0.018 : 0;
-        const driveZ = locomotionDrive
-            + (authoredCombatRig && strike ? attackPulse * 0.13 : authoredCombatRig && windup ? -0.048 : aquaticSeal && strike ? attackPulse * 0.09 : aquaticSeal && windup ? -0.035 : 0)
+        const entryDrive = entering && signatureDirection?.entrance === "stalk" ? Math.sin(Math.PI * entranceP) * 0.075
+            : entering && signatureDirection?.entrance === "vault" ? Math.sin(Math.PI * entranceP) * 0.055
+                : 0;
+        const driveZ = locomotionDrive + entryDrive
+            + (authoredCombatRig && strike ? attackPulse * 0.13 * signatureStrike : authoredCombatRig && windup ? -0.048 * (signatureDirection?.anticipation ?? 1) : aquaticSeal && strike ? attackPulse * 0.09 * signatureStrike : aquaticSeal && windup ? -0.035 * (signatureDirection?.anticipation ?? 1) : 0)
             + heroPose.drive
+            - guardPlant * 0.055
             + dashDrive * (config.profile === "heavy" ? 0.05 : 0.085)
-            + contactPunch * (config.profile === "heavy" ? 0.12 : 0.17)
-            - recoilWeight * (config.profile === "heavy" ? 0.12 : 0.18);
+            + contactPunch * (config.profile === "heavy" ? 0.12 : 0.17) * signatureStrike
+            - recoilWeight * (config.profile === "heavy" ? 0.12 : 0.18) * signatureRecoil;
         const weightBlend = Math.min(1, delta * (f.motion === "dash" || strike || stagger ? 16 : 10));
         b.position.x = THREE.MathUtils.lerp(b.position.x, weightX, weightBlend);
         b.position.y = THREE.MathUtils.lerp(b.position.y, weightY, weightBlend);
@@ -1171,7 +1297,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
                 <group scale={prepared.scale}>
                     <primitive object={prepared.surface} position={prepared.offset} dispose={null} />
                 </group>
-                {showIdentity && <PetIdentityEffects3D config={config} frame={frame} quality={quality} elementColor={lightColor} />}
+                {showIdentity && <PetIdentityEffects3D config={config} frame={frame} quality={quality} elementColor={lightColor} signature={signature} />}
             </group>
             {quality.dynamicPetLight && <pointLight ref={aura} color={lightColor} intensity={0} distance={3.2} decay={2} position={[0, config.targetHeight * 0.55, 0]} />}
         </group>
@@ -1181,12 +1307,13 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
 /** Approved textured GLBs are the production combat bodies. Their dense surface
  * detail reads far more cleanly than the earlier primitive-built prototypes; the
  * shared deformation rig supplies combat motion until authored skeletal clips land. */
-export function PetModel3D({ config, frame, element, showIdentity = true, surfaceTreatment }: {
+export function PetModel3D({ config, frame, element, showIdentity = true, surfaceTreatment, signature }: {
     config: PetCombatModelConfig;
     frame: MutableRefObject<PetModelFrame>;
     element?: string;
     showIdentity?: boolean;
     surfaceTreatment?: PetModelSurfaceTreatment;
+    signature?: PetSignaturePerformance;
 }) {
     return (
         <LoadedPetModel3D
@@ -1195,6 +1322,7 @@ export function PetModel3D({ config, frame, element, showIdentity = true, surfac
             element={element}
             showIdentity={showIdentity}
             surfaceTreatment={surfaceTreatment}
+            signature={signature}
         />
     );
 }
