@@ -61,6 +61,18 @@ import { fitDistance, framedExtent, showdownFov, shotWeight, type ShotWeight } f
 import { resolveOpponentFacing } from "../lib/pet-combat-performance";
 import { pairedShowdownOpponentId, showdownLaneFacing, showdownSlotLane } from "../lib/pet-showdown-facing";
 import {
+    showdownBodyRadius,
+    showdownCinematicImpulse,
+    showdownDodgeOffset,
+    showdownMeleeContact,
+    showdownMeleeDrive,
+    showdownPerformanceVariant,
+    showdownReactionAge,
+    showdownReactionRecoil,
+} from "../lib/pet-showdown-choreography";
+import { petSignaturePerformance, type PetSignaturePerformance } from "../lib/pet-signature-performance";
+import { petVisualQuality } from "../lib/pet-visual-quality";
+import {
     SHOWDOWN_ELEMENT_BEATS,
     SHOWDOWN_GUARD_COST,
     SHOWDOWN_REST_PCT,
@@ -335,11 +347,23 @@ interface SceneFx {
      *  this as impactPower (0.45-1.25) to drive pitch, squash and weight —
      *  left unset it pinned every hit to the same restrained flinch. */
     hitPower: Map<string, number>;
+    /** petId → normalized attacker-to-victim direction. The visible stagger
+     *  travels away from the blow instead of folding in place. */
+    hitDirection: Map<string, readonly [number, number]>;
+    /** Reactive dodge items trigger a real one-shot body evade on every rig. */
+    dodgeAt: Map<string, number>;
     shakeUntil: number;
     shakeAmp: number;
     /** Skeletal animation freezes until this timestamp — damage-scaled
      *  hit-stop (the fighting-game contact freeze). */
     hitStopUntil: number;
+    /** Post-contact presentation time and lens response. Combat simulation and
+     * command timing remain authoritative and are never slowed. */
+    slowUntil: number;
+    slowScale: number;
+    lensStartedAt: number;
+    lensUntil: number;
+    lensAmp: number;
     superFocus: boolean;
     /** The stands erupt: set at a landed signature or the killing blow, read
      *  by the stage's confetti/roar layer. */
@@ -964,7 +988,16 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
         // The lens itself is responsive: a narrow viewport opens it rather than
         // trying to buy horizontal coverage with distance alone, which on a
         // phone would push the camera through the backdrop wall.
-        const fov = showdownFov(aspect);
+        const baseFov = showdownFov(aspect);
+        const lensDuration = Math.max(1, fx.lensUntil - fx.lensStartedAt);
+        const lensProgress = Math.max(0, Math.min(1, (now - fx.lensStartedAt) / lensDuration));
+        const lensPunch = !reduced && now < fx.lensUntil
+            ? Math.sin(Math.PI * lensProgress) * fx.lensAmp
+            : 0;
+        // Impact FOV breath: a fast optical expansion at contact, followed by
+        // a clean settle. It is lensing—not another positional shake—so heavy
+        // hits gain scale without making the target unreadable.
+        const fov = baseFov + lensPunch;
         if (camera instanceof THREE.PerspectiveCamera && Math.abs(camera.fov - fov) > 0.01) {
             camera.fov = fov;
             camera.updateProjectionMatrix();
@@ -1007,18 +1040,21 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
 
 interface PopupEntry { key: number; petId: string; text: string; cls: string }
 
-function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, beatRef, fxRef, posRef, benchedRef, restingTargetId, popups, highlight, targetable, onPick, onHover }: {
+function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, introActive, beatRef, fxRef, posRef, radii, benchedRef, restingTargetId, popups, highlight, targetable, onPick, onHover }: {
     info: FighterSlotInfo;
     displayHp: number;
     ko: boolean;
     guarding: boolean;
     statuses: readonly { kind: string }[];
     victorious: boolean;
+    introActive: boolean;
     beatRef: React.MutableRefObject<SceneBeat>;
     fxRef: React.MutableRefObject<SceneFx>;
     /** petId → assigned home position (field slot or bench row). A pet with no
      *  entry (a fallen body after reinforcement) freezes where it stands. */
     posRef: React.MutableRefObject<Map<string, [number, number, number]>>;
+    /** Profile-aware visible body radii shared with the dash VFX layer. */
+    radii: ReadonlyMap<string, number>;
     /** ids currently on the bench — a reserve AT its off-stage park is not
      *  drawn at all; it pops in the moment a switch starts it walking. */
     benchedRef: React.MutableRefObject<ReadonlySet<string>>;
@@ -1042,6 +1078,11 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     const standing = useRef<[number, number, number] | null>(null);
     /** Hit-stop-aware presentation clock fed to the skeletal mixer. */
     const timeline = useRef(0);
+    /** Opening pet entrance begins once the VS card clears. */
+    const entranceAt = useRef(0);
+    /** Per-beat clock for root travel. Wall-clock dash progress used to keep
+     *  advancing while the skeleton froze, sliding pets inside each other. */
+    const beatClock = useRef({ index: -1, elapsedMs: 0 });
     /** When this pet went down (0 = standing) and the beat it fell on, which
      *  together decide when the body withdraws from the field. */
     const koAt = useRef(0);
@@ -1062,12 +1103,24 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         [info.view.templateId, info.view.name, info.model],
     );
     const actionStyle = useRef<{ index: number; style: PetHeroMoveStyle }>({ index: -1, style: "generic" });
+    const performanceVariant = useMemo(
+        () => showdownPerformanceVariant(`${info.view.templateId ?? info.view.id}:${info.view.name}`),
+        [info.view.id, info.view.name, info.view.templateId],
+    );
+    const signature = useMemo<PetSignaturePerformance>(() => petSignaturePerformance({
+        id: info.view.templateId ?? info.view.id,
+        name: info.view.name,
+        element: info.view.element,
+        rarity: info.view.rarity,
+        profile: info.model?.profile ?? "quadruped",
+    }), [info.model?.profile, info.view.element, info.view.id, info.view.name, info.view.rarity, info.view.templateId]);
     const frame = useRef<PetModelFrame>({
         ...DEFAULT_PET_MODEL_FRAME,
         faceX: showdownLaneFacing(info.side)[0],
         faceZ: showdownLaneFacing(info.side)[1],
         lockTargetFacing: true,
         statuses: [],
+        signature,
     });
     const fallbackTexture = useMemo(() => {
         if (info.model && !modelFailed) return null;
@@ -1157,79 +1210,116 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
 
         // Hit-stop-aware presentation clock: skeletal time crawls during the
         // contact freeze, so impacts have fighting-game weight.
-        timeline.current += delta * (now < fx.hitStopUntil ? 0.06 : 1);
+        const presentationScale = now < fx.hitStopUntil ? 0.06 : now < fx.slowUntil ? fx.slowScale : 1;
+        timeline.current += delta * presentationScale;
         f.timeline = timeline.current;
+        f.performanceVariant = performanceVariant;
+        f.signature = signature;
+        if (!introActive) {
+            if (!entranceAt.current) entranceAt.current = now;
+            f.entranceProgress = Math.min(1, (now - entranceAt.current) / 920);
+        } else {
+            entranceAt.current = 0;
+            f.entranceProgress = undefined;
+        }
+        if (beatClock.current.index !== beat.index) {
+            beatClock.current.index = beat.index;
+            beatClock.current.elapsedMs = Math.max(0, now - beat.startedAt);
+        } else {
+            beatClock.current.elapsedMs += delta * 1000 * presentationScale;
+        }
+        const beatFraction = Math.min(1, beatClock.current.elapsedMs / Math.max(1, beat.durationMs));
 
         const lastHit = fx.hitAt.get(info.view.id) ?? 0;
-        const sinceHit = now - lastHit;
+        const wallSinceHit = now - lastHit;
+        const reactionAge = showdownReactionAge(now, lastHit, fx.hitStopUntil);
+        const lastDodge = fx.dodgeAt.get(info.view.id) ?? 0;
+        const dodgeAge = now - lastDodge;
 
         if (ko) {
             f.motion = "dead";
             f.victorious = false;
             f.moveStyle = baseStyle;
-        } else if (beat.event && beat.event.t === "action" && beat.event.actorId === info.view.id
-            && beat.event.moveKind !== "guard" && beat.event.moveKind !== "rest") {
+        } else if (beat.event && beat.event.t === "action" && beat.event.actorId === info.view.id) {
             const ev = beat.event as ActionEvent;
-            const frac = Math.min(1, (now - beat.startedAt) / beat.durationMs);
-            // The MOVE reshapes the species pose (a crush pounces, a cast
-            // rears, a push slams) — recomputed once per beat, not per frame.
-            if (actionStyle.current.index !== beat.index) {
-                actionStyle.current = {
-                    index: beat.index,
-                    style: petHeroMoveStyle({
-                        petId: info.view.templateId, petName: info.view.name,
-                        move: ev.moveName, kind: ev.moveKind, profile: info.model?.profile ?? null,
-                    }),
-                };
-            }
-            f.moveStyle = actionStyle.current.style;
-            f.moveName = ev.moveName;
-            // Attack take pacing follows the move's WEIGHT: jabs snap, heavies
-            // grind through the wind-up, a signature crawls majestically across
-            // its long beat instead of finishing its take in the first second.
-            f.attackPace = ev.super ? 0.55 : ev.weight === "heavy" ? 0.75 : ev.weight === "light" ? 1.3 : 1;
-            const targetPos = ev.targets[0] ? posRef.current.get(ev.targets[0].id) : undefined;
-            if (targetPos && ev.targets[0].id !== info.view.id) {
-                const dx = targetPos[0] - stand[0];
-                const dz = targetPos[2] - stand[2];
-                const len = Math.hypot(dx, dz) || 1;
-                faceX = dx / len; faceZ = dz / len;
-                // The long beats made a fixed-fraction windup a STATUE: the
-                // authored windup window holds its clip boundary, so a 3-second
-                // anticipation froze the skeleton after the first 800ms. The
-                // coil now begins a fixed ~900ms before commitment; everything
-                // earlier is the species' LIVING idle (the pouncer stalks, the
-                // dragon looms — hero-pose personality), and after recovery the
-                // pet returns to idle while its element finishes playing out.
-                const windupLead = 900 / beat.durationMs;
-                if (ev.delivery === "melee") {
-                    // Stalk → coil → charge → strike at contact → spring back.
-                    const reach = Math.max(0, len - 1.4);
-                    const drive = frac < 0.32 ? 0
-                        : frac < 0.5 ? (frac - 0.32) / 0.18
-                        : frac < 0.68 ? 1
-                        : Math.max(0, 1 - (frac - 0.68) / 0.24);
-                    px = stand[0] + faceX * reach * drive;
-                    pz = stand[2] + faceZ * reach * drive;
-                    const coilAt = Math.max(0.06, 0.32 - windupLead);
-                    f.motion = frac < coilAt ? "idle" : frac < 0.32 ? "windup" : frac < 0.5 ? "dash" : frac < 0.7 ? "strike" : frac < 0.84 ? "recover" : "idle";
-                    if (f.motion === "dash") { f.moving = true; f.speed = 9; f.moveX = faceX; f.moveZ = faceZ; }
+            const frac = beatFraction;
+            if (ev.moveKind === "guard") {
+                // Guard and Rest used to leave every pet in its ordinary idle.
+                // The model layer now gives both actions a rig-safe full-body
+                // performance, so utility turns remain as alive as attacks.
+                f.motion = frac < 0.88 ? "guard" : "idle";
+                f.moveStyle = baseStyle;
+                f.moveName = ev.moveName;
+                f.attackPace = undefined;
+            } else if (ev.moveKind === "rest") {
+                f.motion = frac < 0.88 ? "rest" : "idle";
+                f.moveStyle = baseStyle;
+                f.moveName = ev.moveName;
+                f.attackPace = undefined;
+            } else {
+                // The MOVE reshapes the species pose (a crush pounces, a cast
+                // rears, a push slams) — recomputed once per beat, not per frame.
+                if (actionStyle.current.index !== beat.index) {
+                    actionStyle.current = {
+                        index: beat.index,
+                        style: petHeroMoveStyle({
+                            petId: info.view.templateId, petName: info.view.name,
+                            move: ev.moveName, kind: ev.moveKind, profile: info.model?.profile ?? null,
+                        }),
+                    };
+                }
+                f.moveStyle = actionStyle.current.style;
+                f.moveName = ev.moveName;
+                // Attack take pacing follows the move's WEIGHT: jabs snap,
+                // heavies grind, and signatures crawl through their long beat.
+                f.attackPace = ev.super ? 0.55 : ev.weight === "heavy" ? 0.75 : ev.weight === "light" ? 1.3 : 1;
+                const targetPos = ev.targets[0] ? posRef.current.get(ev.targets[0].id) : undefined;
+                if (targetPos && ev.targets[0].id !== info.view.id) {
+                    const dx = targetPos[0] - stand[0];
+                    const dz = targetPos[2] - stand[2];
+                    const len = Math.hypot(dx, dz) || 1;
+                    faceX = dx / len; faceZ = dz / len;
+                    // The coil begins a fixed ~900ms before commitment; earlier
+                    // time remains the species' living idle.
+                    const windupLead = 900 / beat.durationMs;
+                    if (ev.delivery === "melee") {
+                        // Species-sized contact: compact pets close farther;
+                        // legendary bodies stop earlier. The same radii place the
+                        // VFX burst, so body and light agree on where impact is.
+                        const contact = showdownMeleeContact(
+                            stand[0], stand[2], targetPos[0], targetPos[2],
+                            radii.get(info.view.id) ?? 0.82,
+                            radii.get(ev.targets[0].id) ?? 0.82,
+                            signature.strikeDrive,
+                        );
+                        const drive = showdownMeleeDrive(frac);
+                        px = stand[0] + faceX * contact.travel * drive;
+                        pz = stand[2] + faceZ * contact.travel * drive;
+                        const coilAt = Math.max(0.06, 0.32 - windupLead);
+                        f.motion = frac < coilAt ? "idle" : frac < 0.32 ? "windup" : frac < 0.54 ? "dash" : frac < 0.66 ? "strike" : frac < 0.84 ? "recover" : "idle";
+                        if (f.motion === "dash") { f.moving = true; f.speed = 9; f.moveX = faceX; f.moveZ = faceZ; }
+                    } else {
+                        const coilAt = Math.max(0.05, 0.4 - windupLead);
+                        f.motion = frac < coilAt ? "idle" : frac < 0.4 ? "windup" : frac < 0.62 ? "strike" : frac < 0.84 ? "recover" : "idle";
+                        // The channel is alive through the whole approach.
+                        f.casting = frac < 0.4;
+                    }
                 } else {
+                    const windupLead = 900 / beat.durationMs;
                     const coilAt = Math.max(0.05, 0.4 - windupLead);
                     f.motion = frac < coilAt ? "idle" : frac < 0.4 ? "windup" : frac < 0.62 ? "strike" : frac < 0.84 ? "recover" : "idle";
-                    // The channel is alive the whole approach: casting drives
-                    // the hero-pose sway from the first frame of the beat.
-                    f.casting = frac < 0.4;
                 }
-            } else {
-                const windupLead = 900 / beat.durationMs;
-                const coilAt = Math.max(0.05, 0.4 - windupLead);
-                f.motion = frac < coilAt ? "idle" : frac < 0.4 ? "windup" : frac < 0.62 ? "strike" : frac < 0.84 ? "recover" : "idle";
             }
-        } else if (sinceHit >= 0 && sinceHit < 480) {
+        } else if (reactionAge >= 0 && reactionAge < 520 && lastHit > 0) {
             f.motion = "stagger";
-            f.hit = Math.max(0, 1 - sinceHit / 480);
+            f.hit = Math.max(0, 1 - reactionAge / 520);
             f.impactPower = fx.hitPower.get(info.view.id) ?? 0.55;
+            f.moveStyle = baseStyle;
+            f.moveName = undefined;
+            f.attackPace = undefined;
+        } else if (dodgeAge >= 0 && dodgeAge < 520 && lastDodge > 0) {
+            f.motion = "dodge";
+            f.hit = 0;
             f.moveStyle = baseStyle;
             f.moveName = undefined;
             f.attackPace = undefined;
@@ -1252,8 +1342,27 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
             f.moveName = undefined;
             f.attackPace = undefined;
         }
+        // The skeleton folds on impact; the group travels away from its source.
+        // The separation remains visible through hit-stop and eases home after.
+        const hitDirection = fx.hitDirection.get(info.view.id);
+        if (!ko && hitDirection && lastHit > 0) {
+            const recoil = showdownReactionRecoil(
+                fx.hitPower.get(info.view.id) ?? 0.55,
+                info.model?.profile ?? "quadruped",
+                reactionAge,
+            ) * signature.recoil;
+            px += hitDirection[0] * recoil;
+            pz += hitDirection[1] * recoil;
+        }
+        if (!ko && lastDodge > 0 && dodgeAge >= 0 && dodgeAge < 520) {
+            const offset = showdownDodgeOffset(dodgeAge, info.model?.profile ?? "quadruped", performanceVariant)
+                * THREE.MathUtils.clamp(signature.agility, 0.86, 1.18);
+            px += -faceZ * offset;
+            pz += faceX * offset;
+        }
         f.faceX = faceX;
         f.faceZ = faceZ;
+        f.statuses = statuses.map((status) => status.kind);
         f.victorious = victorious && !ko;
         f.desperate = !ko && displayHp / Math.max(1, info.view.maxHp) < 0.25;
         if (group.current) {
@@ -1267,7 +1376,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         // Impact burst: an expanding, fading shockwave ring at the feet for
         // ~0.45s after a landed hit. Driven entirely off fx.hitAt — no re-render.
         if (impactRing.current && impactMat.current) {
-            const t = sinceHit / 450;
+            const t = wallSinceHit / 450;
             const active = lastHit > 0 && t >= 0 && t < 1;
             impactRing.current.visible = active;
             if (active) {
@@ -1325,7 +1434,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                             reticle, rings and popups are siblings and keep
                             their shared scale. */}
                         <group scale={info.view.rarity === "mythic" ? 1.13 : info.view.rarity === "legendary" ? 1.07 : info.view.rarity === "rare" ? 1.02 : 1}>
-                            <PetModel3D config={info.model} frame={frame} element={info.view.element} />
+                            <PetModel3D config={info.model} frame={frame} element={info.view.element} signature={signature} />
                         </group>
                     </Suspense>
                 </PetModelBoundary>
@@ -2058,6 +2167,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     onExit: () => void;
     onRematch: () => void;
 }) {
+    const renderQuality = useMemo(() => petVisualQuality(), []);
     const [stateView, setStateView] = useState(initialState);
     const [phase, setPhase] = useState<"command" | "playing" | "finished">("command");
     const [display, setDisplay] = useState<Record<string, DisplayEntry>>(() => buildDisplay(initialState));
@@ -2078,6 +2188,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const [flashTint, setFlashTint] = useState("#ffffff");
     /** The killing blow's manga impact frame (radial lines + desaturation). */
     const [koImpact, setKoImpact] = useState(0);
+    /** Premium finishing-blow title card. It is presentation-only and names
+     * the authoritative action that produced the KO. */
+    const [finisher, setFinisher] = useState<{ key: number; actor: string; move: string; element: string } | null>(null);
     /** Super-strike vignette breath — edges clamp and release. */
     const [vignette, setVignette] = useState(0);
     /** God-ray source (the charge orb's core) — the post stack mounts once
@@ -2158,7 +2271,14 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const speed = fast ? 2.1 : 1;
 
     const beatRef = useRef<SceneBeat>({ event: null, startedAt: 0, durationMs: 1, index: 0 });
-    const fxRef = useRef<SceneFx>({ hitAt: new Map(), hitPower: new Map(), shakeUntil: 0, shakeAmp: 0, hitStopUntil: 0, superFocus: false, crowdBurstAt: 0, crowdBurstKind: "super" });
+    const fxRef = useRef<SceneFx>({
+        hitAt: new Map(), hitPower: new Map(), hitDirection: new Map(), dodgeAt: new Map(),
+        shakeUntil: 0, shakeAmp: 0, hitStopUntil: 0,
+        slowUntil: 0, slowScale: 1,
+        lensStartedAt: 0, lensUntil: 0, lensAmp: 0,
+        superFocus: false,
+        crowdBurstAt: 0, crowdBurstKind: "super",
+    });
     const reducedMotion = prefersReducedMotion();
     const pillarDrive = useRef<PillarDrive>({ activeUntil: 0, startedAt: 0, x: 0, z: 0, color: "#fbbf24" });
 
@@ -2293,6 +2413,38 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         // Rosters never change mid-session; art inputs are stable.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [stateView.player.length, stateView.enemy.length]);
+
+    /** One collision footprint per visible fighter. This is intentionally
+     * derived from the approved presentation config, not combat stats, and is
+     * shared by body travel and BeatDrivenVfx so neither can cross the other. */
+    const fighterRadii = useMemo<ReadonlyMap<string, number>>(() => {
+        const map = new Map<string, number>();
+        for (const [id, info] of slots) {
+            map.set(id, showdownBodyRadius({
+                targetHeight: info.model?.targetHeight,
+                profile: info.model?.profile,
+                rarity: info.view.rarity,
+            }));
+        }
+        return map;
+    }, [slots]);
+
+    /** The same immutable identity sheets drive skeletal posing and travel FX.
+     * Sharing this map prevents a pet's body language, trail hand and impact
+     * punctuation from drifting into three unrelated procedural styles. */
+    const fighterSignatures = useMemo<ReadonlyMap<string, PetSignaturePerformance>>(() => {
+        const map = new Map<string, PetSignaturePerformance>();
+        for (const [id, info] of slots) {
+            map.set(id, petSignaturePerformance({
+                id: info.view.templateId ?? info.view.id,
+                name: info.view.name,
+                element: info.view.element,
+                rarity: info.view.rarity,
+                profile: info.model?.profile ?? "quadruped",
+            }));
+        }
+        return map;
+    }, [slots]);
 
     /** Spawn a one-shot painted flipbook at a pet's current position. */
     /** Elemental set-piece (tsunami / tornado / fire wash…) for the casts that
@@ -2435,6 +2587,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 addPopup(event.actorId, `-${event.selfDamage}`, "damage");
                 applyToDisplay(setDisplay, event.actorId, (d) => ({ ...d, hp: Math.max(0, d.hp - event.selfDamage), ko: event.ko }));
                 fxRef.current.hitAt.set(event.actorId, performance.now());
+                fxRef.current.hitDirection.delete(event.actorId);
             }, durationMs * 0.5);
         } else if (event.t === "switch") {
             later(() => {
@@ -2471,6 +2624,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 );
                 fxRef.current.hitAt.set(event.targetId, performance.now());
                 fxRef.current.hitPower.set(event.targetId, 0.4);
+                fxRef.current.hitDirection.delete(event.targetId);
                 playPetSfx("dot");
                 applyToDisplay(setDisplay, event.targetId, (d) => ({ ...d, hp: Math.max(0, d.hp - event.damage), ko: event.ko }));
             }, durationMs * 0.35);
@@ -2482,9 +2636,18 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 addPopup(event.petId, CONSUMABLE_CALLOUT[event.effect], "proc");
                 showBanner(`${nameOf(stateView, event.petId)}'s ${event.itemName}!`, "status", durationMs * 0.8);
                 playPetSfx(event.effect === "thorns" ? "hit" : event.effect === "lifeline" ? "heal" : "buff");
+                if (event.effect === "dodge") fxRef.current.dodgeAt.set(event.petId, performance.now());
                 if (event.damage > 0) {
                     addPopup(event.targetId, `-${event.damage}`, "damage");
                     fxRef.current.hitAt.set(event.targetId, performance.now());
+                    const from = posRef.current.get(event.petId);
+                    const to = posRef.current.get(event.targetId);
+                    if (from && to) {
+                        const [dx, dz] = resolveOpponentFacing(from[0], from[2], to[0], to[2]);
+                        fxRef.current.hitDirection.set(event.targetId, [dx, dz]);
+                    } else {
+                        fxRef.current.hitDirection.delete(event.targetId);
+                    }
                     applyToDisplay(setDisplay, event.targetId, (d) => ({
                         ...d, hp: Math.max(0, d.hp - event.damage), ko: event.ko,
                     }));
@@ -2570,6 +2733,14 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             target.id,
                             petDuelImpactStrength(target.damage / Math.max(1, stateMaxHp(stateView, target.id)), event.super),
                         );
+                        const impactFrom = posRef.current.get(event.actorId);
+                        const impactTo = posRef.current.get(target.id);
+                        if (impactFrom && impactTo) {
+                            const [dx, dz] = resolveOpponentFacing(impactFrom[0], impactFrom[2], impactTo[0], impactTo[2]);
+                            fxRef.current.hitDirection.set(target.id, [dx, dz]);
+                        } else {
+                            fxRef.current.hitDirection.delete(target.id);
+                        }
                         // Painted impact: the element's flipbook detonates on the
                         // victim (splash hits get a smaller wash).
                         // Size the paint off the SAME damage fraction the body
@@ -2606,7 +2777,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         // blows scar the boards where they land, and a
                         // signature's element LINGERS as ambient residue for a
                         // few beats after its set-piece clears.
-                        if (!reducedMotion && (event.super || target.ko) && !target.splash) {
+                        if (!reducedMotion && (event.super || target.ko || event.weight === "heavy" || event.moveKind === "crush") && !target.splash) {
                             const at = posRef.current.get(target.id);
                             if (at) {
                                 const [sx, , sz] = at;
@@ -2745,6 +2916,17 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 // and the silence land.
                 const kill = event.targets.some((t) => t.ko && t.id !== event.actorId);
                 if (totalDamage > 0) {
+                    const impactNow = performance.now();
+                    const peakDamageFraction = event.targets.reduce(
+                        (peak, target) => Math.max(peak, target.damage / Math.max(1, stateMaxHp(stateView, target.id))),
+                        0,
+                    );
+                    const cinematic = showdownCinematicImpulse({
+                        damageFraction: peakDamageFraction,
+                        superMove: event.super,
+                        killingBlow: kill,
+                        lightning: event.element === "Lightning",
+                    });
                     fxRef.current.shakeUntil = performance.now() + (kill ? 620 : event.super ? 460 : 300);
                     // Screen shake is motion; hit-stop is a timing freeze and stays.
                     fxRef.current.shakeAmp = reducedMotion
@@ -2754,8 +2936,12 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     if (kill || event.super) later(() => playPetSfx("crowd"), kill ? 420 : 260);
                     // Damage-scaled hit-stop (fighting-game contact freeze),
                     // heavier for Lightning per the electric-hitlag convention.
-                    const stopMs = Math.min(330, 110 + totalDamage * 0.45) * (event.element === "Lightning" ? 1.4 : 1);
-                    fxRef.current.hitStopUntil = performance.now() + (kill ? 640 : event.super ? Math.max(stopMs, 260) : stopMs);
+                    fxRef.current.hitStopUntil = impactNow + cinematic.hitStopMs;
+                    fxRef.current.slowScale = cinematic.slowScale;
+                    fxRef.current.slowUntil = fxRef.current.hitStopUntil + cinematic.slowMotionMs;
+                    fxRef.current.lensStartedAt = impactNow;
+                    fxRef.current.lensUntil = impactNow + (kill ? 780 : event.super ? 620 : 380);
+                    fxRef.current.lensAmp = reducedMotion ? 0 : cinematic.lensDegrees;
                     if (kill) {
                         petHaptic(60);
                         fxRef.current.crowdBurstAt = performance.now();
@@ -2764,6 +2950,18 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             setKoImpact(popupKey.current++);
                             later(() => setKoImpact(0), 520);
                         }
+                        const finisherKey = popupKey.current++;
+                        setFinisher({
+                            key: finisherKey,
+                            actor: nameOf(stateView, event.actorId),
+                            move: event.moveName,
+                            element: event.element,
+                        });
+                        if (!event.super) setLetterbox(true);
+                        later(() => {
+                            setFinisher((current) => current?.key === finisherKey ? null : current);
+                            if (!event.super) setLetterbox(false);
+                        }, 1320);
                     } else if (event.super) {
                         // A landed signature also brings the stands to their feet.
                         fxRef.current.crowdBurstAt = performance.now();
@@ -3173,10 +3371,15 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 sat a hair flat next to the painted arenas — a slight push
                 deepens the blacks and lets the VFX (toneMapped:false) pop
                 against them without touching any material. */}
-            <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, preserveDrawingBuffer: fxStretch > 1 || captureFlag, toneMappingExposure: 1.12 }} camera={{ fov: 48, position: [...WIDE_POS], near: 0.1, far: 80 }}>
+            <Canvas
+                shadows={renderQuality.modelShadows ? "percentage" : false}
+                dpr={renderQuality.dpr}
+                gl={{ antialias: true, preserveDrawingBuffer: fxStretch > 1 || captureFlag, toneMappingExposure: 1.12 }}
+                camera={{ fov: 48, position: [...WIDE_POS], near: 0.1, far: 80 }}
+            >
                 <StageEnvironment stage={stage} beatRef={beatRef} fxRef={fxRef} />
                 <CameraDirector beatRef={beatRef} fxRef={fxRef} posRef={posRef} lineup={lineup} reduced={reducedMotion} />
-                <BeatDrivenVfx beatRef={beatRef} posRef={posRef} />
+                <BeatDrivenVfx beatRef={beatRef} posRef={posRef} radii={fighterRadii} signatures={fighterSignatures} />
                 <SuperPillar drive={pillarDrive} />
                 <ShowdownVfxLayer spawns={vfx} />
                 <ShowdownSetPieceLayer spawns={setPieces} />
@@ -3208,9 +3411,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         // flips a frame AFTER the result panel mounts, so the winner
                         // used to stand in a plain idle for the whole victory beat.
                         victorious={(endOutcome ?? (phase === "finished" ? outcome : null)) === (info.side === "player" ? "win" : "loss")}
+                        introActive={intro}
                         beatRef={beatRef}
                         fxRef={fxRef}
                         posRef={posRef}
+                        radii={fighterRadii}
                         benchedRef={benchedRef}
                         restingTargetId={pairedShowdownOpponentId(
                             info.view.id,
@@ -3263,6 +3468,18 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 color. Reduced-motion never mounts it. */}
             {koImpact !== 0 && <div key={koImpact} className="showdown-ko-impact" />}
             {vignette !== 0 && <div key={vignette} className="showdown-vignette" />}
+            {finisher && (
+                <div
+                    key={finisher.key}
+                    className="showdown-finisher"
+                    style={{ "--finisher-tint": ELEMENT_TINT[finisher.element] ?? "#ffffff" } as React.CSSProperties}
+                    aria-hidden="true"
+                >
+                    <span className="showdown-finisher-kicker">Finishing blow</span>
+                    <strong>{finisher.move}</strong>
+                    <span>{finisher.actor}</span>
+                </div>
+            )}
 
             {/* Opening VS card. */}
             {intro && (

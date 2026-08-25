@@ -42,7 +42,7 @@ test("the opponent's turn does not replace the PvP jutsu or battle-log area", ()
     );
 });
 
-test("the PvP battle log uses the large scrollable PvE-style text feed", () => {
+test("the PvP battle log uses the scrollable, round-grouped semantic feed", () => {
     // The feed is still session-owned; battleLogLines is session.log plus a
     // transient move-feedback line, so assert both the wiring and its derivation
     // rather than the old inline lines={session.log}.
@@ -53,16 +53,41 @@ test("the PvP battle log uses the large scrollable PvE-style text feed", () => {
     assert.match(combatHudSource, /className=\{classNames\("combat-text-log", className\)\}/);
     assert.match(
         combatHudSource,
-        /<CombatBattleLogPanel className=\{classNames\("plain-combat-battle-log", className\)\}/,
+        /<CombatBattleLogPanel[\s\S]*?className=\{classNames\(`plain-combat-battle-log/,
     );
-    assert.match(combatHudSource, /if \(newestFirst\) entries\.reverse\(\)/);
+    assert.match(combatHudSource, /groupPlainCombatLog\(lines, selfName, oppName\)/);
+    assert.match(combatHudSource, /<BattleActionBlock/);
+    assert.match(combatHudSource, /<BattleLogLine/);
+    assert.match(combatHudSource, /className="timeline-round-header timeline-round-toggle"/);
+    assert.match(combatHudSource, /className="combat-log-expand"/);
+    assert.match(source, /selfName=\{me\.name\}/);
+    assert.match(source, /oppName=\{opp\.name\}/);
     assert.doesNotMatch(source, /<BattleActionBlock/);
     assert.doesNotMatch(source, /timeline-round-toggle/);
 
     const panelRule = battleSkinCss.match(/\.plain-combat-battle-log\s*\{([^}]*)\}/s)?.[1] ?? "";
     assert.match(panelRule, /overflow-y:\s*auto\s*!important/, "the complete log must scroll vertically");
 
-    const lineRule = battleSkinCss.match(/\.plain-combat-battle-log > \.plain-combat-log-line\s*\{([^}]*)\}/s)?.[1] ?? "";
-    assert.match(lineRule, /font:\s*500 clamp\(15px, 1cqw, 17px\) \/ 1\.65/, "shared combat log text must remain large and readable");
-    assert.match(lineRule, /padding:\s*10px 16px\s*!important/, "large log lines need readable spacing");
+    assert.match(
+        battleSkinCss,
+        /\.plain-combat-battle-log \.timeline-entry-head\s*\{[^}]*font:\s*650 clamp\(14px, 0\.95cqw, 16px\) \/ 1\.45/s,
+        "shared action headlines must remain large and readable",
+    );
+    assert.match(
+        battleSkinCss,
+        /\.plain-combat-battle-log \.timeline-entry,[\s\S]{0,300}?padding:\s*10px 14px\s*!important/,
+        "action groups need readable spacing",
+    );
+    assert.match(
+        battleSkinCss,
+        /\.plain-combat-battle-log\.is-expanded\s*\{[^}]*position:\s*fixed\s*!important/s,
+        "the log must offer a full-size reading mode",
+    );
+    for (const category of ["heal", "damage", "dmgmod", "shield", "control", "prevent", "tempo", "system", "effect"]) {
+        assert.match(
+            battleSkinCss,
+            new RegExp(`\\.plain-combat-battle-log \\.battle-log-${category}\\s*\\{[^}]*color:[^;]+!important`, "s"),
+            `${category} effects must outrank the legacy neutral paragraph color`,
+        );
+    }
 });

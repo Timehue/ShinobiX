@@ -23,6 +23,8 @@ test("residual movement cannot layer locomotion over committed actions", () => {
     assert.equal(motionOwnsLocomotion("windup", true), false);
     assert.equal(motionOwnsLocomotion("strike", true), false);
     assert.equal(motionOwnsLocomotion("recover", true), false);
+    assert.equal(motionOwnsLocomotion("guard", true), false);
+    assert.equal(motionOwnsLocomotion("rest", true), false);
 });
 
 test("dash travel reacquires the opponent before contact", () => {

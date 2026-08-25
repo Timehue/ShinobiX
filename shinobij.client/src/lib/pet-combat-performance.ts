@@ -1,4 +1,4 @@
-export type PetCombatMotion = "idle" | "run" | "dash" | "windup" | "strike" | "recover" | "stagger" | "dodge" | "dead";
+export type PetCombatMotion = "idle" | "run" | "dash" | "windup" | "strike" | "recover" | "stagger" | "dodge" | "guard" | "rest" | "dead";
 
 export type AttackClipWindow = Readonly<{ start: number; end: number }>;
 

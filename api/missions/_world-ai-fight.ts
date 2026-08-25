@@ -12,6 +12,7 @@ import { savedCurrentSector } from './_mission-progress-receipt.js';
 import { loadAiFightProfile, type AiFightProfile } from './_ai-fight-encounter.js';
 import { MAX_WILD_SECTOR, sectorBiomeOf } from '../../shared/sector-geo.js';
 import { activeVillageWarEnemiesOf } from '../world-state.js';
+import { activeWorldCrisisEncounter } from '../world-crisis/_state.js';
 import {
     isWorldAiFightKind,
     type WorldAiFightActivePointer,
@@ -117,8 +118,10 @@ export function cleanWorldAiFightRequest(raw: unknown): WorldAiFightRequest | nu
     const value = raw as Record<string, unknown>;
     if (!isWorldAiFightKind(value.kind)) return null;
     const sourceId = typeof value.sourceId === 'string' ? value.sourceId.trim().slice(0, 96) : '';
-    const sector = finiteInt(value.sector, 1, MAX_WORLD_SECTOR);
+    const crisis = value.kind === 'world-crisis';
+    const sector = finiteInt(value.sector, crisis ? 0 : 1, MAX_WORLD_SECTOR);
     if (!sourceId || !/^[A-Za-z0-9:_-]+$/.test(sourceId) || sector == null) return null;
+    if (crisis && sector !== 0) return null;
     const stage = value.stage == null ? undefined : finiteInt(value.stage, 0, 9);
     if (value.stage != null && stage == null) return null;
     const chainId = typeof value.chainId === 'string' && /^[A-Za-z0-9_-]{8,96}$/.test(value.chainId) ? value.chainId : undefined;
@@ -494,10 +497,33 @@ export async function buildWorldAiFightSpec(params: {
     const character = params.save.character as Record<string, unknown> | undefined;
     if (!character) throw new Error('world-save-missing');
     const settledSector = savedCurrentSector(params.save);
-    if (!Number.isFinite(settledSector) || settledSector !== request.sector) throw new Error('world-sector-mismatch');
+    if (request.kind !== 'world-crisis' && (!Number.isFinite(settledSector) || settledSector !== request.sector)) throw new Error('world-sector-mismatch');
     const level = playerLevel(character);
-    const environment = { biome: sectorBiomeOf(request.sector) };
     const generatedChainId = params.generatedChainId ?? newWorldChainId();
+
+    if (request.kind === 'world-crisis') {
+        const encounter = await activeWorldCrisisEncounter({
+            playerName: params.playerName,
+            character,
+            sourceId: request.sourceId,
+        });
+        const scaledBonus = Math.min(encounter.statBonus, Math.max(0, Math.floor(level / 12)));
+        return {
+            profile: runtimeProfile(`world-crisis-${encounter.sourceId}`, encounter.name, level + 1, scaledBonus, encounter.loadoutId),
+            environment: { biome: encounter.biome },
+            context: {
+                kind: request.kind,
+                sourceId: encounter.sourceId,
+                sector: 0,
+                stage: 0,
+                displayName: encounter.name,
+                finalStage: true,
+                crisisVillage: encounter.village,
+            },
+        };
+    }
+
+    const environment = { biome: sectorBiomeOf(request.sector) };
 
     if (request.kind === 'wanderer') {
         if (request.sourceId === 'nemesis') {

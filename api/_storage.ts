@@ -84,7 +84,7 @@ const _noCachePrefixes = [
     // Legacy completion fans out through retry-safe world-history RMW stores.
     // Their distributed locks only work when the lock holder reads the shared
     // latest list/state, not a process-local pre-lock snapshot.
-    'audit:', 'hall:', 'game:announcements', 'game:era-state', 'era:',
+    'audit:', 'hall:', 'game:announcements', 'game:era-state', 'era:', 'world:crisis:',
     // Weekly Boss resets and reward finalization share generation-CAS state.
     // A cached prior spawn would defeat the distributed lock and let a late
     // phase-3 continuation overwrite the replacement generation.

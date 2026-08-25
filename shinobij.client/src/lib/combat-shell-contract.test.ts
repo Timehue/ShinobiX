@@ -13,14 +13,13 @@ const combatHud = readFileSync(new URL("../components/CombatHudLayout.tsx", impo
 const detailPortal = readFileSync(new URL("../components/CombatDetailPortal.tsx", import.meta.url), "utf8");
 const shellCss = css.slice(css.indexOf("SHINOBI COMBAT SHELL"));
 
-test("combat modes share HUD primitives while mission PvE retains its desktop battlefield composition", () => {
+test("combat modes share the authoritative shell and HUD primitives while mission PvE retains its desktop battlefield composition", () => {
     assert.match(pvp, /<ShinobiCombatShell/);
     assert.match(pvp, /<CombatHudLayout/);
     assert.match(pvp, /<CombatHudMain/);
     assert.match(pvp, /<CombatBoardStage/);
     assert.match(pvp, /<CombatCommandBar/);
-    assert.match(solo, /<CombatInstance/);
-    assert.doesNotMatch(solo, /<ShinobiCombatShell/);
+    assert.match(solo, /<ShinobiCombatShell[\s\S]*?mode="solo"/);
     assert.match(solo, /<CombatHudLayout/);
     assert.match(solo, /<CombatHudMain/);
     assert.doesNotMatch(solo, /<CombatBoardStage/);

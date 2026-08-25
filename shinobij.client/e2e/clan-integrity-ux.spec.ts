@@ -80,7 +80,9 @@ test("Clan Hall territory and dissolution controls preserve authoritative player
     await page.route("**/api/save/clan-shadowcell", async (route) => {
         if (route.request().method() === "DELETE") {
             deleteRequests += 1;
-            await new Promise((resolve) => setTimeout(resolve, 120));
+      // Keep the mocked request in flight long enough for the loading-state
+      // assertion to remain observable under the fully parallel browser matrix.
+      await new Promise((resolve) => setTimeout(resolve, 400));
             return json(route, {
                 ok: true,
                 dissolution: { members: 3, membersCleared: 3, territoriesReleased: 1, warsForfeited: 1, replayed: false },

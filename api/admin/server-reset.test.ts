@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { WIPE_PATTERNS, authNamesRequiringRevocation, isProtectedKey } from './server-reset.js';
 
 test('full reset wipes story records, announcements, and first-only dedup keys', () => {
-    for (const pattern of ['story:*', 'game:announcements', 'game:announcements-seq', 'hall:nx:*', 'village:kage:*']) {
+    for (const pattern of ['story:*', 'game:announcements', 'game:announcements-seq', 'hall:nx:*', 'village:kage:*', 'world:crisis:*', 'pet:showdown:*', 'sd-wcr80:*']) {
         assert.ok(WIPE_PATTERNS.includes(pattern), `WIPE_PATTERNS must include ${pattern}`);
     }
 });

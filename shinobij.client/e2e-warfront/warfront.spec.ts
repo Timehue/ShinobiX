@@ -25,9 +25,17 @@ test("Warfront loads, remembers quality, restarts, and reseeds", async ({ page }
     // it had already resolved, which reads like a broken button and is not one.
     test.setTimeout(150_000);
     const pageErrors: string[] = [];
+    const consoleErrors: string[] = [];
     const reactKeyWarnings: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
-    page.on("console", (message) => { if ((message.type() === "warning" || message.type() === "error") && /duplicate key|unique "key"/i.test(message.text())) reactKeyWarnings.push(message.text()); });
+    page.on("console", (message) => {
+        if (message.type() === "error") consoleErrors.push(message.text());
+        if ((message.type() === "warning" || message.type() === "error") && /duplicate key|unique "key"/i.test(message.text())) reactKeyWarnings.push(message.text());
+    });
+    // The standalone Vite harness has no API server. Keep its expected telemetry
+    // POST from masquerading as a renderer error while still failing on every
+    // other console error emitted by the Warfront scene.
+    await page.route("**/api/perf-beacon", (route) => route.fulfill({ status: 204 }));
 
     await page.goto(warfrontUrl);
     await expect(page.getByRole("status")).toBeHidden({ timeout: SCENE_LOAD_TIMEOUT_MS });
@@ -45,7 +53,22 @@ test("Warfront loads, remembers quality, restarts, and reseeds", async ({ page }
     await page.getByRole("button", { name: /New match/ }).first().click();
     await expect(page.locator("canvas").first()).toBeVisible();
 
+    await expect.poll(() => page.evaluate(() => (window as Window & { __warfrontPerf?: { samples: number } }).__warfrontPerf?.samples ?? 0), {
+        timeout: 20_000,
+        message: "Warfront must expose a sustained runtime performance sample",
+    }).toBeGreaterThanOrEqual(30);
+    const perf = await page.evaluate(() => (window as Window & { __warfrontPerf?: {
+        usingWorker: boolean;
+        retainedSnapshotHz: number;
+        drawCalls: number;
+    } }).__warfrontPerf);
+    expect(perf?.usingWorker).toBe(true);
+    expect(perf?.retainedSnapshotHz ?? 0).toBeGreaterThanOrEqual(14.5);
+    expect(perf?.retainedSnapshotHz ?? Infinity).toBeLessThanOrEqual(15.5);
+    expect(perf?.drawCalls ?? Infinity).toBeLessThanOrEqual(320);
+
     expect(pageErrors).toEqual([]);
+    expect(consoleErrors).toEqual([]);
     expect(reactKeyWarnings).toEqual([]);
 });
 

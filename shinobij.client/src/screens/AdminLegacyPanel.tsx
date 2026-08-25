@@ -8,6 +8,8 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { gameConfirm } from "../components/GameAlert";
+import { AdminWorldCrisisControls } from "../components/AdminWorldCrisisControls";
+import { AdminWorldCrisis80Controls } from "../components/AdminWorldCrisis80Controls";
 import { RARITY_COLORS, fetchLegacyDefinitions, type LegacyDefView, type LegacyRarity } from "../lib/legacy";
 
 type AdminView = {
@@ -237,6 +239,9 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
         <div className="card" style={{ display: 'grid', gap: 14 }}>
             <h3 style={{ margin: 0 }}>🌠 Legacy Operations</h3>
             {status && <p style={{ margin: 0, fontSize: '.78rem', color: status.startsWith('✗') ? '#f87171' : '#86efac' }}>{status}</p>}
+
+            <AdminWorldCrisisControls adminPw={adminPw} />
+            <AdminWorldCrisis80Controls adminPw={adminPw} />
 
             {/* Player inspector */}
             <section className="card" style={{ padding: 12 }}>

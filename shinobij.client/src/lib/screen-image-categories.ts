@@ -17,6 +17,7 @@ const NONE: readonly ScreenImageCategory[] = [];
 export function imageCategoriesForScreen(screen: Screen): readonly ScreenImageCategory[] {
     switch (screen) {
         case "worldMap": return ["avatar", "event", "landmark", "shrine", "ai", "pet"];
+        case "worldCrisis": return ["avatar", "landmark", "ai", "jutsu", "item"];
         case "home": case "pets": case "petArena": case "petLadder": case "eventPetBattle": case "sectorPet": return ["pet"];
         case "jutsuTraining": return ["jutsu"];
         case "shop": case "inventory": case "grandMarketplace": return ["item"];

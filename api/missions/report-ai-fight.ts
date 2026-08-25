@@ -71,6 +71,7 @@ import {
 } from './_world-ai-fight.js';
 import type { WorldAiFightContext } from '../../shared/world-ai-fight.js';
 import { applyDungeonWardenSettlement } from '../dungeon/_ai-fight.js';
+import { recordWorldCrisisDefense } from '../world-crisis/_state.js';
 
 const HUNT_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
 const genericAiFightActiveKey = (playerName: string) => `ai-fight-active:${playerName}`;
@@ -492,6 +493,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (sealedWorldContext) {
             try {
                 await settleWorldAiChainStage(playerName, sealedWorldContext, outcome, aiFightToken);
+                if (sealedWorldContext.kind === 'world-crisis' && sealedWorldContext.crisisVillage && outcome === 'win') {
+                    await recordWorldCrisisDefense({
+                        playerName,
+                        village: sealedWorldContext.crisisVillage,
+                        sourceId: sealedWorldContext.sourceId,
+                        proofId: aiFightToken,
+                        outcome,
+                    });
+                }
                 if (sealedWorldContext.kind === 'bounty-hunter') {
                     await kv.set(worldAiBountyCooldownKey(playerName, sealedWorldContext.sourceId), {
                         until: Date.now() + WORLD_AI_BOUNTY_COOLDOWN_SECONDS * 1_000,

@@ -35,6 +35,7 @@ export type Screen =
     | "bloodlineMaker"
     | "clan"
     | "worldMap"
+    | "worldCrisis"
     | "townHall"
     | "bank"
     | "shop"

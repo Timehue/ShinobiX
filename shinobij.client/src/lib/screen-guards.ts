@@ -19,7 +19,7 @@ export { isWildSector };
 // recovery path restores a sealed server session or routes to a safe parent.
 export const DEEP_LINKABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     "village", "profile", "inventory", "logbook", "training",
-    "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "townHall",
+    "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "worldCrisis", "townHall",
     "bank", "shop", "grandMarketplace", "hospital", "cafeteria", "storyHall",
     "centralHub", "home", "pets", "petLadder", "hunting", "tavern", "hallOfLegends", "shinobiCouncil",
     "messages", "professions", "villageWarMap",
@@ -278,6 +278,8 @@ export function isUnresolvedBattle(s: BattleGuardSignals): boolean {
         case "dungeon":
             return s.activeDungeonEvent;
         case "battleTowers":       // squad tower: lobby is free, an on-board fight isn't
+            return hasActiveTowerFight();
+        case "worldCrisis":        // level-80 crisis hosts sealed Tower and Showdown fronts
             return hasActiveTowerFight();
         default:
             return false;

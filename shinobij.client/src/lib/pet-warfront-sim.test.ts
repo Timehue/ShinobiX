@@ -6,7 +6,7 @@ import {
 } from "./pet-warfront-sim";
 import type { ArenaRole, ArenaSlot } from "./pet-arena-sim";
 import type { Pet } from "../types/pet";
-import { wfWalkable } from "./pet-warfront-map";
+import { WF_X, WF_Y, wfWalkable } from "./pet-warfront-map";
 
 function mkPet(id: string, name: string, element: string, over: Partial<Pet> = {}): Pet {
     return {
@@ -44,6 +44,50 @@ test("full-auto match is deterministic (byte-identical snapshots + events)", () 
         if (a.ticks >= seconds * WARFRONT_TPS) {
             assert.ok(a.events.some((event) => event.type === "phase" && event.name === name && event.t === seconds * WARFRONT_TPS), `${name} fires on schedule`);
         }
+    }
+});
+
+test("15 Hz presentation snapshots preserve the exact 30 Hz simulation result", () => {
+    const options = {
+        bluePolicy: "off" as const,
+        redPolicy: "off" as const,
+        blueStance: "balanced" as const,
+        redStance: "balanced" as const,
+        adaptStances: false,
+    };
+    const full = startWarfrontMatch(squad("A"), squad("B"), 4242, options);
+    const compact = startWarfrontMatch(squad("A"), squad("B"), 4242, { ...options, snapshotEvery: 2 });
+    full.advanceRoundPartial(WARFRONT_TPS * 12);
+    compact.advanceRoundPartial(WARFRONT_TPS * 12);
+    assert.equal(compact.result.snapshots.length, full.result.snapshots.length / 2 + 0.5);
+    assert.ok(compact.result.snapshots.slice(1).every((frame) => frame.t % 2 === 0));
+    assert.deepEqual(compact.result.snapshots.at(-1), full.result.snapshots.at(-1));
+    assert.deepEqual(compact.result.events, full.result.events);
+});
+
+test("mirrored squads leave spawn immediately without a west-biased gate jam", () => {
+    const ctl = startWarfrontMatch(squad("A"), squad("B"), 123, {
+        bluePolicy: "off",
+        redPolicy: "off",
+        blueStance: "balanced",
+        redStance: "balanced",
+        adaptStances: false,
+    });
+    ctl.advanceRoundPartial(WARFRONT_TPS * 5);
+    const first = ctl.result.snapshots[0];
+    const fifth = ctl.result.snapshots[WARFRONT_TPS * 5];
+    for (let slot = 0; slot < 4; slot++) {
+        const blueStart = first.actors.find((actor) => actor.id === `blue-${slot}`)!;
+        const redStart = first.actors.find((actor) => actor.id === `red-${slot}`)!;
+        const blue = fifth.actors.find((actor) => actor.id === `blue-${slot}`)!;
+        const red = fifth.actors.find((actor) => actor.id === `red-${slot}`)!;
+        const blueTravel = Math.hypot(blue.x - blueStart.x, blue.y - blueStart.y);
+        const redTravel = Math.hypot(red.x - redStart.x, red.y - redStart.y);
+        assert.ok(blueTravel > 6, `blue slot ${slot} stalled after ${blueTravel.toFixed(2)}u`);
+        assert.ok(redTravel > 6, `red slot ${slot} stalled after ${redTravel.toFixed(2)}u`);
+        assert.ok(Math.abs(blueTravel - redTravel) < 1.2, `slot ${slot} opening travel diverged ${blueTravel.toFixed(2)}u vs ${redTravel.toFixed(2)}u`);
+        assert.ok(Math.abs(blue.x + red.x) < 1.2, `slot ${slot} lost x-mirror fairness`);
+        assert.ok(Math.abs(blue.y - red.y) < 1.2, `slot ${slot} lost lane-mirror fairness`);
     }
 });
 
@@ -210,7 +254,7 @@ test("Lesser Wardens path out of their dens instead of shaking at spawn", () => 
 test("captured Wardens lead waves and overcharge surviving lane sentinels", () => {
     // This replay recruits early enough for the full 50-second vanguard contract
     // to play out before either Ward Seal falls.
-    const result = runWarfrontMatch(squad("A"), squad("B"), 7);
+    const result = runWarfrontMatch(squad("A"), squad("B"), 1);
     const capture = result.events.find((event) => event.type === "minikill");
     assert.ok(capture, "the fixture must capture a Lesser Warden");
     if (!capture) return;
@@ -290,8 +334,8 @@ test("snapshots keep every entity inside the field bounds", () => {
     const some = [0, Math.floor(r.snapshots.length / 2), r.snapshots.length - 1];
     for (const i of some) {
         const s = r.snapshots[i];
-        for (const a of s.actors) { assert.ok(Math.abs(a.x) <= 44 && Math.abs(a.y) <= 24); }
-        for (const m of s.mobs) { assert.ok(Math.abs(m.x) <= 44 && Math.abs(m.y) <= 24); }
+        for (const a of s.actors) { assert.ok(Math.abs(a.x) <= WF_X && Math.abs(a.y) <= WF_Y); }
+        for (const m of s.mobs) { assert.ok(Math.abs(m.x) <= WF_X && Math.abs(m.y) <= WF_Y); }
     }
 });
 

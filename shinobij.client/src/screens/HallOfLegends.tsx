@@ -22,6 +22,8 @@ import { WORLD_STATE_API } from "../constants/game";
 import { fetchGauntletLeaderboard, type GauntletLbRow } from "../lib/pet-gauntlet-api";
 import { RankBadge } from "../components/RankBadge";
 import { CentralDestinationHeader } from "../components/CentralDestinationHeader";
+import { WorldCrisisNewsEntry } from "../components/WorldCrisisNewsEntry";
+import { WorldCrisis80NewsEntry } from "../components/WorldCrisis80NewsEntry";
 import { fetchHallOfLegends, fetchAnnouncements, fetchEras, useLegacyAvailability, type HallEntryView, type AnnouncementView, type EraView } from "../lib/legacy";
 
 type WeeklyBossLb = {
@@ -35,7 +37,7 @@ type WeeklyBossLb = {
     rewardsDistributed?: boolean;
 };
 
-const LEGACY_HALL_TABS = new Set<LbTab>(["legends", "news", "eras"]);
+const LEGACY_HALL_TABS = new Set<LbTab>(["legends", "eras"]);
 
 export 
 function HallOfLegends({ character, setScreen, playerRoster }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>> }) {
@@ -170,7 +172,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
     const [worldNews, setWorldNews] = useState<AnnouncementView[] | null>(null);
     const [eraViews, setEraViews] = useState<EraView[] | null>(null);
     useEffect(() => {
-        if (!legacyAvailable || (tab !== "legends" && tab !== "news" && tab !== "eras")) return;
+        if (tab !== "news" && (!legacyAvailable || (tab !== "legends" && tab !== "eras"))) return;
         let alive = true;
         if (tab === "legends") void fetchHallOfLegends().then(r => {
             if (!alive) return;
@@ -262,9 +264,9 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
         { id: "weeklyBoss",  label: "Weekly Boss",   icon: <GiOgre /> },
         { id: "tournament",  label: "Tournament",    icon: <GiTrophy /> },
         { id: "professions", label: "Professions",   icon: <GiAnvil /> },
+        { id: "news",        label: "World News",  icon: <GiCastle /> },
         ...(legacyAvailable ? [
-            { id: "legends" as const, label: "Legends",    icon: <GiCrown /> },
-            { id: "news" as const,    label: "World News", icon: <GiCastle /> },
+            { id: "legends" as const, label: "Legends",   icon: <GiCrown /> },
             { id: "eras" as const,    label: "World Eras", icon: <GiShield /> },
         ] : []),
     ];
@@ -750,7 +752,11 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                         ? <p className="hol-empty">Listening for word from the roads…</p>
                         : worldNews.length === 0
                         ? <p className="hol-empty">The world is quiet. For now.</p>
-                        : worldNews.map((a) => (
+                        : worldNews.map((a) => a.type === "world_crisis_80_awakened" ? (
+                            <WorldCrisis80NewsEntry key={a.id} announcement={a} setScreen={setScreen} />
+                        ) : a.type === "world_crisis_awakened" ? (
+                            <WorldCrisisNewsEntry key={a.id} announcement={a} setScreen={setScreen} />
+                        ) : (
                             <div key={a.id} className="card" style={{ padding: "10px 12px", marginBottom: 8, borderLeft: `3px solid ${a.importance === "mythic" ? "var(--purple-400)" : a.importance === "high" ? "var(--gold-2)" : "var(--slate-600)"}` }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
                                     <b style={{ color: a.importance === "mythic" ? "var(--purple-400)" : a.importance === "high" ? "var(--gold-2)" : "var(--slate-200)" }}>

@@ -203,6 +203,15 @@ export type TowerSession = {
     sealedCatalogFloor?: TowerFloor;
     floorProvenance?: TowerFloorProvenance;
 
+    /** Server-only ownership binding for the level-80 global crisis. Presence
+     * routes this embedded encounter to its own settlement authority and keeps
+     * it out of public Tower rewards. */
+    worldCrisis80?: {
+        crisisId: string;
+        village: import('../../shared/world-crisis-80.js').WorldCrisis80Village;
+        sourceId: string;
+    };
+
     /**
      * Sealed weather for the encounter (combat missions). Adds the Arena's
      * weather term (+5% matching-element / −2% opposed-element outgoing damage)

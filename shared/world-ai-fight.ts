@@ -3,6 +3,8 @@
  * runtime. The request contains identity only; combat stats, hunt quality,
  * quest stage, chain order, and rewards are all reconstructed by the server.
  */
+import type { WorldCrisisVillage } from './world-crisis.js';
+
 export const WORLD_AI_FIGHT_KINDS = [
     'wanderer',
     'wanderer-ambush',
@@ -12,6 +14,7 @@ export const WORLD_AI_FIGHT_KINDS = [
     'hunt-target',
     'questbook-boss',
     'story-reckoning',
+    'world-crisis',
 ] as const;
 
 export type WorldAiFightKind = typeof WORLD_AI_FIGHT_KINDS[number];
@@ -46,6 +49,8 @@ export type WorldAiFightContext = {
     huntOpening?: 'cornered' | 'even' | 'enraged';
     /** Server-only version of the quest/story seal; prevents pre-advance replay. */
     sealVersion?: string;
+    /** Server-derived home-village binding for a global outskirts defense. */
+    crisisVillage?: WorldCrisisVillage;
 };
 
 export type WorldAiFightActivePointer = {

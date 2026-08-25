@@ -2,19 +2,17 @@ import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { cors } from './_utils.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { recentAnnouncements } from './_announce.js';
-import { legacyEnabled } from './_legacy-track.js';
 
 /*
  * GET /api/announcements?since=<id>&limit=<n> — the world news feed
- * (docs/legacy-system-plan.md §12). Read-only; announcements are only ever
- * minted server-side by game moments (legacy awakenings, era unlocks,
- * server-firsts) through api/_announce.ts.
+ * Read-only; announcements are only ever minted server-side by world moments
+ * through api/_announce.ts. The feed remains available even when an individual
+ * feature such as Legacy is disabled.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET') return res.status(405).end();
-    if (!legacyEnabled()) return res.status(200).json({ announcements: [], latestId: 0 });
     if (!(await enforceRateLimitKv(req, res, 'announcements', 30, 60_000, null))) return;
 
     try {
