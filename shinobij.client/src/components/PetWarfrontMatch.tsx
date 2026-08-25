@@ -32,10 +32,13 @@ import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.j
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { Pet } from "../types/pet";
 import type { ArenaSlot } from "../lib/pet-arena-sim";
+import type {
+    WarfrontChoice, WarfrontResult, WfBuyPolicy, WfSnapshot,
+} from "../lib/pet-warfront-sim";
 import {
     wfVerdictScore, WARFRONT_TPS, WF_MAX_SECONDS, WF_PHASE_SKIRMISH, WF_PHASE_SUDDEN, WF_PHASE_WAR, WF_POWERUPS, WF_STACK_CAP, WF_STANCES,
-    type WarfrontChoice, type WarfrontResult, type WfBuyPolicy, type WfSnapshot, type WfStance, type WfDoctrine,
-} from "../lib/pet-warfront-sim";
+    type WfStance, type WfDoctrine,
+} from "../lib/pet-warfront-contract";
 import { createWarfrontWorkerController } from "../lib/pet-warfront-worker-client";
 import {
     WF_MASK, WF_COLS, WF_ROWS, WF_X, WF_Y, WF_BUSHES, WF_CELL_X, WF_CELL_Y, WF_LAIR, WF_LANES, WF_MINI_NAMES, WF_PADS, WF_SPAWNS, WF_THEMES,
@@ -3753,12 +3756,23 @@ function WfPerformanceProbe({ result, pressure, usingWorker }: {
 }) {
     const samples = useRef<number[]>([]);
     const frames = useRef(0);
+    useEffect(() => {
+        // A restart replaces the authoritative controller and remounts the
+        // Canvas. Never let QA (or a diagnostics overlay) read the previous
+        // match's worker/draw counters while the new scene is warming.
+        samples.current = [];
+        frames.current = 0;
+        delete (window as Window & { __warfrontPerf?: WarfrontRuntimePerf }).__warfrontPerf;
+    }, [result]);
     useFrame((state, delta) => {
         if (document.visibilityState !== "visible" || state.clock.elapsedTime < 5) return;
         const list = samples.current;
         list.push(delta * 1000);
         if (list.length > 600) list.shift();
-        if (++frames.current % 60 !== 0) return;
+        // Publish partial windows frequently. CI/software WebGL may render at
+        // only a few fps, and waiting 60 frames made the probe appear absent
+        // even though the renderer was progressing normally.
+        if (++frames.current % 15 !== 0) return;
         const frontier = wfFrontierTick(result);
         const stats: WarfrontRuntimePerf = {
             samples: list.length,
@@ -4196,9 +4210,14 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps -- `run` intentionally forces a fresh sim (Restart)
     }, [blue, red, effectiveSeed, autoBuy, theme, stance, doctrine, opponentStance, opponentDoctrine, run]);
+    const [, refreshWorkerStatus] = useState(0);
     useEffect(() => {
+        const unsubscribe = ctl.subscribeStatus(() => refreshWorkerStatus((revision) => revision + 1));
         ctl.start();
-        return () => ctl.dispose();
+        return () => {
+            unsubscribe();
+            ctl.dispose();
+        };
     }, [ctl]);
     const result = ctl.result;
     const clock = useRef<WfClockState>({ t: 0, playing: true, slow: 0, rate: safePlaybackRate });
@@ -4464,6 +4483,21 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     const actionButtonStyle = (locked: boolean): CSSProperties => locked
         ? { ...btn, cursor: "not-allowed", opacity: 0.5 }
         : btn;
+
+    if (ctl.status !== "ready" || result.snapshots.length === 0) {
+        const failed = ctl.status === "error";
+        return createPortal((
+            <div className="pet-combat-takeover pet-warfront-takeover" role="status" aria-live="polite" style={{ background: "radial-gradient(ellipse at center, #111827, #03060e)", display: "grid", placeItems: "center", color: "#e2e8f0" }}>
+                <style>{`@keyframes wfLoad{from{transform:translateX(-10%);opacity:.55}to{transform:translateX(120%);opacity:1}}`}</style>
+                <div style={{ width: "min(420px, 84vw)", padding: "24px", textAlign: "center", border: `1px solid ${failed ? "rgba(248,113,113,.6)" : "rgba(168,85,247,.55)"}`, borderRadius: 14, background: "rgba(8,12,24,.92)", boxShadow: "0 18px 60px rgba(0,0,0,.55)" }}>
+                    <div style={{ color: failed ? "#fca5a5" : "#d8b4fe", font: "900 13px Inter, system-ui, sans-serif", letterSpacing: 3 }}>{failed ? "WARFRONT INTERRUPTED" : "PREPARING WARFRONT"}</div>
+                    {!failed && <div style={{ height: 4, marginTop: 14, overflow: "hidden", borderRadius: 999, background: "#1e1b2e" }}><div style={{ width: "48%", height: "100%", borderRadius: 999, background: "linear-gradient(90deg,#7c3aed,#e879f9)", animation: "wfLoad 1.1s ease-in-out infinite alternate" }} /></div>}
+                    <div style={{ marginTop: 12, color: "#94a3b8", font: "600 12px Inter, system-ui, sans-serif", lineHeight: 1.5 }}>{failed ? "The battle simulation could not start safely. Retry, or return to the arena without losing a result." : "The Gate Warden is assembling the authoritative battle state…"}</div>
+                    {failed && <div style={{ display: "flex", justifyContent: "center", gap: 10, marginTop: 18 }}><button onClick={doRestart} style={btn}>↻ Retry</button><button onClick={onExit} style={btn}>✕ Exit</button></div>}
+                </div>
+            </div>
+        ), document.body);
+    }
 
     return createPortal((
         <div className="pet-combat-takeover pet-warfront-takeover" style={{ backgroundColor: "#05060a" }}>
