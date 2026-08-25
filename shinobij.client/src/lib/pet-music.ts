@@ -4,6 +4,8 @@
 // alter only the score mix and playback pressure; sound design lives in the
 // shared sample engine rather than a procedural oscillator layer.
 
+import { musicDeliverySrc } from "./audio-delivery";
+
 const MASTER_MUTE_KEY = "audioMuted";
 
 const TRACKS = [
@@ -140,15 +142,18 @@ export function startBattleMusic(theme: BattleMusicTheme = "standard"): void {
     clearFade();
     currentTheme = theme;
 
+    // musicDeliverySrc redirects .ogg to its .m4a sibling on WebKit, which
+    // decodes no Ogg container — battle music was silent on Safari/iOS. The
+    // .mp3 showdown theme passes through untouched; it already plays everywhere.
     if (theme === "hollow-gate") {
-        el.src = HOLLOW_GATE_TRACK;
+        el.src = musicDeliverySrc(HOLLOW_GATE_TRACK);
     } else if (theme === "showdown") {
-        el.src = SHOWDOWN_TRACK;
+        el.src = musicDeliverySrc(SHOWDOWN_TRACK);
     } else {
         let index = Math.floor(Math.random() * TRACKS.length);
         if (TRACKS.length > 1 && index === lastTrackIndex) index = (index + 1) % TRACKS.length;
         lastTrackIndex = index;
-        el.src = TRACKS[index];
+        el.src = musicDeliverySrc(TRACKS[index]);
     }
 
     el.currentTime = 0;
