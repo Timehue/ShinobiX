@@ -1,5 +1,5 @@
 import { SHOWDOWN_DAILY_WIN_CAP } from "../../../shared/pet-showdown-contract";
-import { petConsumableById, petPvpGearById } from "../data/pet-config";
+import { petPvpGearById } from "../data/pet-config";
 import { openPetArenaView, openPetColosseum } from "../lib/pet-arena-navigation";
 import {
     TACTICAL_ARENA_PET_REQUIREMENT,
@@ -7,10 +7,9 @@ import {
     colosseumPetBusyReason,
     isPetAvailableForWarfront,
     petDisplayName,
-    pickArenaTeam,
     warfrontPetBusyReason,
 } from "../lib/pet";
-import { derivePetRole, ROLE_BEATS, ROLE_META, type PetRole } from "../lib/pet-roles";
+import { derivePetRole, ROLE_META } from "../lib/pet-roles";
 import { serverNow } from "../lib/server-clock";
 import type { Screen } from "../types/core";
 import type { Pet } from "../types/pet";
@@ -26,8 +25,6 @@ type PetBattleReadinessProps = {
     isOverflow: boolean;
     setScreen: (screen: Screen) => void;
 };
-
-const WARFRONT_ROLES: PetRole[] = ["defender", "tracker", "assassin", "sage"];
 
 function colosseumBlocker(pet: Pet, breedingPetIds: ReadonlySet<string>, now: number): string | null {
     switch (colosseumPetBusyReason(pet, breedingPetIds, now)) {
@@ -66,18 +63,8 @@ function warfrontBlocker(
 function PetCircuitStatus({ ready, children }: { ready: boolean; children: React.ReactNode }) {
     return (
         <span className="pet-circuit-status" data-ready={ready}>
-            <i aria-hidden="true" /> {ready ? "Deployment ready" : "Deployment locked"} · {children}
+            {ready ? "Deployment ready" : "Deployment locked"} · {children}
         </span>
-    );
-}
-
-function DataRow({ label, value, detail }: { label: string; value: React.ReactNode; detail?: string }) {
-    return (
-        <div className="pet-deployment-data-row">
-            <span>{label}</span>
-            <strong>{value}</strong>
-            {detail ? <small>{detail}</small> : null}
-        </div>
     );
 }
 
@@ -96,9 +83,6 @@ export function PetBattleReadiness({
     const role = pet.role ?? derivedRole.role;
     const subRole = pet.subRole ?? derivedRole.subRole;
     const roleMeta = ROLE_META[role];
-    const counteredRole = ROLE_META[ROLE_BEATS[role]];
-    const vulnerableRoleId = WARFRONT_ROLES.find((candidate) => ROLE_BEATS[candidate] === role) ?? role;
-    const vulnerableRole = ROLE_META[vulnerableRoleId];
     const selectedColosseumBlocker = isOverflow
         ? "Resting in Sanctuary"
         : colosseumBlocker(pet, breedingPetIds, now);
@@ -107,45 +91,16 @@ export function PetBattleReadiness({
     const colosseumReadyPets = combatEligiblePets.filter((candidate) => !colosseumBlocker(candidate, breedingPetIds, now));
     const tacticalReadyPets = combatEligiblePets.filter((candidate) => isPetAvailableForWarfront(candidate, breedingPetIds));
     const tacticalUnlocked = canEnterTacticalArena(combatEligiblePets, breedingPetIds);
-    const deploymentTeam = pickArenaTeam(combatEligiblePets, TACTICAL_ARENA_PET_REQUIREMENT, pet.id, breedingPetIds);
-    const deploymentRoles = new Set(deploymentTeam.map((candidate) => candidate.role ?? derivePetRole(candidate).role));
     const paidWinsLeft = Math.max(0, SHOWDOWN_DAILY_WIN_CAP - dailyPetWins);
     const pvpGear = petPvpGearById(pet.loadout?.pvp);
-    const consumable = petConsumableById(pet.loadout?.consumable);
-
     return (
         <section className="pet-battle-readiness" aria-labelledby="pet-battle-readiness-title">
             <header className="pet-battle-readiness-heading">
                 <div>
-                    <span className="pet-battle-readiness-kicker">Selected companion · live routing</span>
+                    <span className="pet-battle-readiness-kicker">{name} · Lv {pet.level} · {roleMeta.icon} {roleMeta.label}</span>
                     <h4 id="pet-battle-readiness-title">Battle Deployment</h4>
                 </div>
-                <span className="pet-deployment-signal"><i aria-hidden="true" /> Systems linked</span>
             </header>
-
-            <div className="pet-deployment-profile">
-                <span className="pet-native-role" style={{ "--pet-role-color": roleMeta.color } as React.CSSProperties}>
-                    {roleMeta.icon} {roleMeta.label}<small>{subRole}</small>
-                </span>
-                <div>
-                    <small>Deploying</small>
-                    <strong>{name}</strong>
-                    <span>Lv {pet.level}{pet.element && pet.element !== "None" ? ` · ${pet.element}` : " · Neutral"}</span>
-                </div>
-            </div>
-
-            <div className="pet-deployment-kit" aria-label={`${name} battle loadout`}>
-                <div data-equipped={Boolean(pvpGear)}>
-                    <span>PvP gear</span>
-                    <strong>{pvpGear?.name ?? "No gear equipped"}</strong>
-                    <small>{pvpGear?.desc ?? "Base stats only"}</small>
-                </div>
-                <div data-equipped={Boolean(consumable)}>
-                    <span>Battle support</span>
-                    <strong>{consumable?.name ?? "No consumable"}</strong>
-                    <small>{consumable?.desc ?? "No one-use trigger armed"}</small>
-                </div>
-            </div>
 
             <div className="pet-circuit-grid">
                 <article className="pet-circuit-card" data-circuit="colosseum">
@@ -156,20 +111,13 @@ export function PetBattleReadiness({
                     <PetCircuitStatus ready={!selectedColosseumBlocker}>
                         {selectedColosseumBlocker ?? `${name} can take the field`}
                     </PetCircuitStatus>
-                    <div className="pet-deployment-data">
-                        <DataRow
-                            label="Available formats"
-                            value={(
-                                <span className="pet-circuit-formats" aria-label={`${colosseumReadyPets.length} Colosseum-ready companions`}>
-                                    {[1, 2, 3].map((size) => <i key={size} data-ready={colosseumReadyPets.length >= size}>{size}v{size}</i>)}
-                                </span>
-                            )}
-                        />
-                        <DataRow label="Daily purse" value={`${paidWinsLeft}/${SHOWDOWN_DAILY_WIN_CAP} wins left`} detail="Paid victories reset daily" />
-                        <DataRow label="Chronicle record" value={`${totalPetWins.toLocaleString()} victories`} />
-                    </div>
+                    <p className="pet-circuit-summary">
+                        <b>{colosseumReadyPets.length} ready</b><span>1v1 / 2v2 / 3v3 · {pvpGear?.name ?? "No PvP gear"}</span>
+                        <b>{paidWinsLeft}/{SHOWDOWN_DAILY_WIN_CAP} paid</b><span>{totalPetWins.toLocaleString()} victories</span>
+                    </p>
                     <button
                         type="button"
+                        className="pet-home-primary"
                         disabled={Boolean(selectedColosseumBlocker)}
                         onClick={() => openPetColosseum(pet.id, setScreen)}
                     >
@@ -187,23 +135,13 @@ export function PetBattleReadiness({
                             ? selectedWarfrontBlocker.status
                             : tacticalUnlocked ? `${name} is slotted first` : `${tacticalReadyPets.length}/${TACTICAL_ARENA_PET_REQUIREMENT} companions ready`}
                     </PetCircuitStatus>
-                    <div className="pet-deployment-data">
-                        <DataRow label="Native directive" value={`${roleMeta.label} · ${subRole}`} />
-                        <DataRow label="Counter edge" value={`Strong vs ${counteredRole.label}`} detail={`Vulnerable to ${vulnerableRole.label}`} />
-                        <DataRow
-                            label="Suggested squad"
-                            value={`${Math.min(tacticalReadyPets.length, TACTICAL_ARENA_PET_REQUIREMENT)}/${TACTICAL_ARENA_PET_REQUIREMENT} fielded`}
-                            detail={`${deploymentRoles.size}/4 native roles covered`}
-                        />
-                    </div>
-                    <div className="pet-warfront-role-coverage" aria-label={`${deploymentRoles.size} of 4 Warfront roles covered`}>
-                        {WARFRONT_ROLES.map((candidate) => {
-                            const meta = ROLE_META[candidate];
-                            return <span key={candidate} data-covered={deploymentRoles.has(candidate)}>{meta.icon}<small>{meta.label}</small></span>;
-                        })}
-                    </div>
+                    <p className="pet-circuit-summary">
+                        <b>{tacticalReadyPets.length}/{TACTICAL_ARENA_PET_REQUIREMENT} ready</b><span>suggested squad</span>
+                        <b>{roleMeta.label}</b><span>{subRole} directive</span>
+                    </p>
                     <button
                         type="button"
+                        className="pet-home-primary"
                         disabled={!selectedTacticalReady || !tacticalUnlocked}
                         onClick={() => openPetArenaView("tactical", setScreen, pet.id)}
                     >
@@ -213,10 +151,6 @@ export function PetBattleReadiness({
                     </button>
                 </article>
             </div>
-
-            <p className="pet-battle-readiness-note">
-                Your selection carries into the destination. Colosseum commands stay in the bout; formation, doctrine, and War Council policy stay in Warfront setup.
-            </p>
         </section>
     );
 }
