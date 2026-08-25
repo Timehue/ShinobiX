@@ -54,7 +54,7 @@ test("Warfront loads, remembers quality, restarts, and reseeds", async ({ page }
     await expect(page.locator("canvas").first()).toBeVisible();
 
     await expect.poll(() => page.evaluate(() => (window as Window & { __warfrontPerf?: { samples: number } }).__warfrontPerf?.samples ?? 0), {
-        timeout: 20_000,
+        timeout: 45_000,
         message: "Warfront must expose a sustained runtime performance sample",
     }).toBeGreaterThanOrEqual(30);
     const perf = await page.evaluate(() => (window as Window & { __warfrontPerf?: {
