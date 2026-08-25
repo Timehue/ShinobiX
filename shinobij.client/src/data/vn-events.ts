@@ -20,7 +20,7 @@ import { AWAKENING_VN_ID, AURA_SPHERE_VN_ID, DUNGEON_VN_ID } from "../constants/
 
 export const awakeningLv2VnEvent: CreatorEvent = {
     id: AWAKENING_VN_ID,
-    name: "The Awakening Stone Calls",
+    name: "The Pull Toward Central",
     biome: "central",
     icon: "⚔",
     eventKind: "visualNovel",
@@ -33,20 +33,17 @@ export const awakeningLv2VnEvent: CreatorEvent = {
             dialogue: [],
     vnPages: [
         {
-            title: "A Strange Resonance",
-            scene: "An ancient energy stirs as you step beyond the village gates.",
+            title: "The Pull Toward Central",
+            scene: "Just beyond the village gate, a hard tug of chakra numbs your fingers.",
             speaker: "Narrator",
             dialogue: [
-                "Narrator: The moment you step past the gates, a deep hum resonates through your chakra network.",
-                "Narrator: It pulses from far away — from the heart of Central, the Thousand Gates.",
-                "Village Elder: Wait, young one. You feel it, don't you?",
-                "Village Elder: That vibration. The Awakening Stone is calling to you.",
-                "Village Elder: Hidden within Central Hub lies an ancient relic — the Awakening Stone.",
-                "Village Elder: Every shinobi carries a hidden elemental nature — Water, Wind, Earth, Lightning, or Fire.",
-                "Village Elder: The stone will awaken yours and align your chakra to its truest form.",
-                "Village Elder: Travel to Central Hub. Find the Awakening Stone. Discover your element.",
-                "Village Elder: When your field record reaches the Second and Twentieth Ranks, the stone will read you again without charge.",
-                "Narrator: A new path opens before you. The Awakening Stone awaits in Central...",
+                "Narrator: The pull comes from Central. Every time you turn away, the feeling tightens along your palm.",
+                "Village Elder: Stop a moment. Open your hand. Yes, I felt it from the gatehouse.",
+                "Village Elder: The Awakening Stone is under Central Hub. It reads which of the five chakra natures answers you most easily: Water, Wind, Earth, Lightning, or Fire.",
+                "Village Elder: It does not choose your future. It gives you a place to begin training.",
+                "Village Elder: Your first reading is due now, at the Second Rank. The keepers grant another at the Twentieth without charge.",
+                "Village Elder: Take the central road and show the keeper your field record. Keep that hand loose until the pulling stops.",
+                "Narrator: Central's gate towers are visible beyond the last ridge. You have your next destination.",
             ],
         },
     ],
@@ -70,9 +67,9 @@ export const auraSphereLv9VnEvent: CreatorEvent = {
             scene: "An elder waits beside a low lantern, holding a small sphere that drinks in the light around it.",
             speaker: "Village Elder",
             dialogue: [
-                "Village Elder: Ninth Rank already. Your chakra is beginning to leave footprints in the air.",
-                "Village Elder: That means you are ready to carry something older than our village walls.",
-                "Village Elder: This is an Aura Sphere. It does not make power for you. It remembers the power you earn.",
+                "Village Elder: Ninth Rank. Good. Sit down before you fall down; you have been training since dawn.",
+                "Village Elder: This is an Aura Sphere. It stores the dust left when your chakra is tested hard and holds the shape you teach it.",
+                "Village Elder: It will not make you stronger by itself. You still have to do the work.",
             ],
         },
         {
@@ -80,10 +77,10 @@ export const auraSphereLv9VnEvent: CreatorEvent = {
             scene: "The sphere rises from the elder's palm and turns slowly, mist curling around its surface.",
             speaker: "Village Elder",
             dialogue: [
-                "Village Elder: Equip it in your aura slot. Only then will its menu reveal itself to you.",
-                "Village Elder: That slot holds the sphere and nothing else. Do not go looking for a second stone to crowd it.",
-                "Village Elder: Feed it Aura Dust from battles, raids, bosses, war contribution, and ancient chests.",
-                "Village Elder: Treat it well, and one day your own aura will answer before you speak.",
+                "Village Elder: Set it in the aura fitting of your field kit. If it stays buried in your pack, it cannot learn you.",
+                "Village Elder: The fitting holds one sphere. One is enough trouble to keep polished.",
+                "Village Elder: Bring it Aura Dust from real service: battles, raids, village war, dangerous hunts, and old field caches.",
+                "Village Elder: Check its surface after each feeding. When the pattern changes, come back and tell me what you see.",
             ],
         },
     ],
@@ -110,34 +107,34 @@ export const hiddenDungeonVnEvent: CreatorEvent = {
     ],
     vnPages: [
         {
-            title: "Seal One: The Warden",
+            title: "First Seal: The Warden",
             scene: "A masked shinobi steps from a hall of old torii gates.",
             speaker: "Dungeon Warden",
             dialogue: [
-                "Dungeon Warden: Only shinobi of the Fiftieth Rank or higher may cross this seal.",
-                "Dungeon Warden: Defeat the guardian chosen by the dungeon, or leave with your life.",
+                "Dungeon Warden: Field record. Let me see it. Fiftieth Rank or better, or I turn you around here.",
+                "Dungeon Warden: The first seal is mine. Defeat the guardian and I open the inner hall. Lose, and I drag you back to these steps once.",
             ],
             leftName: "Player",
             rightName: "Dungeon Warden",
         },
         {
-            title: "Seal Two: The Tile Shrine",
+            title: "Second Seal: The Chronicle Table",
             scene: "Stone cards grind across a square altar. Five slots wait for your deck.",
             speaker: "Dungeon Warden",
             dialogue: [
-                "Dungeon Warden: Strength is not enough.",
-                "Dungeon Warden: Break the second seal in Shinobi Chronicle Showdown. Without a legal deck, you cannot complete this trial.",
+                "Dungeon Warden: A shinobi who only knows how to strike is easy to bury.",
+                "Dungeon Warden: Set a legal Shinobi Chronicle Showdown deck on the table and win the record laid against you. No deck means no second seal.",
             ],
             leftName: "Player",
             rightName: "Dungeon Warden",
         },
         {
-            title: "Seal Three: The Rare Beast",
-            scene: "A rare pet spirit circles the final chamber with bright, hostile eyes.",
+            title: "Third Seal: The Companion",
+            scene: "A rare sector beast circles the final chamber, watching both you and your companion.",
             speaker: "Dungeon Warden",
             dialogue: [
-                "Dungeon Warden: The final seal tests the bond between shinobi and pet.",
-                "Dungeon Warden: Win this battle and the dungeon treasury opens.",
+                "Dungeon Warden: The last seal belongs to your companion. It must choose to stand with you when the chamber turns hostile.",
+                "Dungeon Warden: Win together and the treasury opens. If the bond breaks, the door stays shut.",
             ],
             leftName: "Player",
             rightName: "Dungeon Warden",
@@ -146,9 +143,9 @@ export const hiddenDungeonVnEvent: CreatorEvent = {
 };
 
 export const craftDungeonEvents: CreatorEvent[] = [
-    { ...hiddenDungeonVnEvent, id: "craft-dungeon-forest", name: "Forest Relic Dungeon", biome: "forest", icon: "FD", vnTitle: "Forest Relic Dungeon", vnScene: "Ancient roots twist around a sealed forge gate." },
-    { ...hiddenDungeonVnEvent, id: "craft-dungeon-snow", name: "Snow Relic Dungeon", biome: "snow", icon: "SD", vnTitle: "Snow Relic Dungeon", vnScene: "A glacial stairway opens into a frozen armory." },
-    { ...hiddenDungeonVnEvent, id: "craft-dungeon-volcano", name: "Volcano Relic Dungeon", biome: "volcano", icon: "VD", vnTitle: "Volcano Relic Dungeon", vnScene: "Lava-lit stone doors reveal a buried weapon vault." },
-    { ...hiddenDungeonVnEvent, id: "craft-dungeon-shadow", name: "Shadow Relic Dungeon", biome: "shadow", icon: "XD", vnTitle: "Shadow Relic Dungeon", vnScene: "A black shrine exhales old chakra and opens below." },
-    { ...hiddenDungeonVnEvent, id: "craft-dungeon-central", name: "Central Relic Dungeon", biome: "central", icon: "CD", vnTitle: "Central Relic Dungeon", vnScene: "A neutral gate beneath Central hums with sealed relic power." },
+    { ...hiddenDungeonVnEvent, id: "craft-dungeon-forest", name: "Forest Relic Dungeon", biome: "forest", icon: "FD", vnTitle: "Forest Relic Dungeon", vnScene: "Roots have buckled the forge gate, and Ashen Leaf repair marks cover its hinges." },
+    { ...hiddenDungeonVnEvent, id: "craft-dungeon-snow", name: "Snow Relic Dungeon", biome: "snow", icon: "SD", vnTitle: "Snow Relic Dungeon", vnScene: "A stair cut into the glacier descends toward a frozen armory." },
+    { ...hiddenDungeonVnEvent, id: "craft-dungeon-volcano", name: "Volcano Relic Dungeon", biome: "volcano", icon: "VD", vnTitle: "Volcano Relic Dungeon", vnScene: "Heat leaks around a stone door stamped with an old weapons seal." },
+    { ...hiddenDungeonVnEvent, id: "craft-dungeon-shadow", name: "Shadow Relic Dungeon", biome: "shadow", icon: "XD", vnTitle: "Shadow Relic Dungeon", vnScene: "A black-painted shrine door opens over a narrow descending stair." },
+    { ...hiddenDungeonVnEvent, id: "craft-dungeon-central", name: "Central Relic Dungeon", biome: "central", icon: "CD", vnTitle: "Central Relic Dungeon", vnScene: "An old inspection gate beneath Central stands open for the first time in years." },
 ];

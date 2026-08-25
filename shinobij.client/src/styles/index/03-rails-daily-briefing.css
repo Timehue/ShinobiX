@@ -236,7 +236,7 @@
 }
 .db-war:hover { filter: brightness(1.15); }
 .db-war-tag { flex: 0 0 auto; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 7px; border-radius: 999px; }
-.db-war-village { background: rgba(190, 18, 60, 0.85); color: #fff; }
+
 .db-war-clan { background: rgba(124, 58, 237, 0.85); color: #fff; }
 .db-war-vs { flex: 1 1 150px; min-width: 0; font-size: 0.85rem; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
 .db-war-vs em { color: var(--text-dim); font-style: normal; padding: 0 3px; }

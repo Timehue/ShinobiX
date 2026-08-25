@@ -291,8 +291,8 @@
 /* ── Camera + background (applied to .pet-park-stage) ─────────────────────
    Screen shake is reserved for crits / heavy hits / KO. Focus + dim play
    during a signature charge-up. */
-.battle-camera-shake-small { animation: battleShakeSmall 0.32s ease both; }
-.battle-camera-shake-heavy { animation: battleShakeHeavy 0.5s ease both; }
+
+
 @keyframes battleShakeSmall {
     0%, 100% { transform: translate(0, 0); }
     25% { transform: translate(-3px, 2px); }
@@ -310,7 +310,7 @@
 .battle-camera-focus { transform: scale(1.045); transition: transform 0.4s ease; }
 .battle-background-dim { filter: brightness(0.74) saturate(0.92); transition: filter 0.4s ease; }
 @media (prefers-reduced-motion: reduce) {
-    .battle-camera-shake-small, .battle-camera-shake-heavy { animation: none; }
+
     .battle-camera-focus { transform: none; }
 }
 
@@ -331,15 +331,7 @@
 }
 
 /* A floating tile-anchored number (damage/heal/etc.) that drifts up + fades. */
-.pet-float-number {
-    position: absolute;
-    left: 50%; top: 8%;
-    transform: translateX(-50%);
-    pointer-events: none; z-index: 11;
-    font: 900 clamp(15px, 1.9vw, 24px) var(--font-display);
-    white-space: nowrap;
-    animation: petFloatNumber 1.1s ease-out both;
-}
+
 @keyframes petFloatNumber {
     0%   { opacity: 0; transform: translate(-50%, 8px) scale(0.7); }
     20%  { opacity: 1; transform: translate(-50%, -6px) scale(1.1); }
@@ -382,7 +374,7 @@
     100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
 }
 @media (prefers-reduced-motion: reduce) {
-    .pet-float-number, .dodge-text, .move-callout, .crit-text { animation: none; }
+    .dodge-text, .move-callout, .crit-text { animation: none; }
 }
 
 .pet-battle-avatar img {
@@ -963,18 +955,9 @@
     padding: 20px 16px 40px;
 }
 
-.hunter-board-header {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 18px;
-}
 
-    .hunter-board-header h2 {
-        margin: 0;
-        font-size: 1.5rem;
-        color: var(--gold);
-    }
+
+
 
 .hunter-rank-banner {
     display: flex;
@@ -1139,307 +1122,6 @@
     color: var(--text-dim);
     text-align: right;
     margin-top: 2px;
-}
-
-.crafter-panel {
-    position: relative;
-    width: min(640px, 96vw);
-    max-height: 88vh;
-    /* Header + tabs stay pinned; only .crafter-body scrolls (see below). */
-    overflow: hidden;
-    /* Forge interior — warm soot gradient under a banked-ember glow (::before). */
-    background:
-        radial-gradient(135% 90% at 50% -10%, rgba(124,45,18,.30), transparent 55%),
-        linear-gradient(150deg, #14100c 0%, var(--slate-900) 45%, var(--slate-800) 100%);
-    border: 1px solid rgba(234,179,8,.34);
-    border-radius: 16px;
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    box-shadow: 0 24px 60px rgba(0,0,0,.6), inset 0 1px 0 rgba(250,204,21,.12);
-}
-
-    /* Banked-ember light spilling from the forge mouth at the top. */
-    .crafter-panel::before {
-        content: "";
-        position: absolute;
-        inset: 0 0 auto 0;
-        height: 130px;
-        background: radial-gradient(120% 100% at 50% 0, rgba(249,115,22,.22), rgba(250,204,21,.07) 42%, transparent 72%);
-        pointer-events: none;
-    }
-
-    .crafter-panel > * { position: relative; z-index: 1; }
-
-    .crafter-panel .archives-header h2 {
-        color: #fbbf24;
-        text-shadow: 0 0 16px rgba(249,115,22,.35);
-    }
-
-.crafter-subtitle {
-    margin: 0;
-    color: #b6a892;
-    font-size: 0.85rem;
-}
-
-/* Scrolling region beneath the pinned header/tabs. min-height:0 lets it shrink
-   inside the flex column so the tabs above never scroll out of view. The
-   negative side margins let the scrollbar ride the panel edge without clipping
-   card shadows. */
-.crafter-body {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    margin: 0 -6px;
-    padding: 2px 6px 4px;
-}
-
-/* Crafter tabs — dedicated, stronger styling than the generic .inventory-tabs
-   pills so the three modes read as a clear segmented control that never
-   collapses. */
-.crafter-tabs {
-    display: flex;
-    gap: 8px;
-    flex: 0 0 auto;
-}
-
-    .crafter-tabs button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 7px;
-        flex: 1 1 0;
-        min-height: 42px;
-        padding: 8px 12px;
-        border-radius: 10px;
-        border: 1px solid rgba(148,163,184,.30);
-        background: linear-gradient(180deg, rgba(30,41,59,.85), rgba(15,23,42,.9));
-        color: #cbb89a;
-        font-size: 0.9rem;
-        font-weight: 700;
-        letter-spacing: .01em;
-        cursor: pointer;
-        transition: background .15s, border-color .15s, color .15s;
-    }
-
-        .crafter-tabs button svg { width: 18px; height: 18px; opacity: .85; }
-
-        .crafter-tabs button:hover {
-            border-color: rgba(250,204,21,.5);
-            color: #fef3c7;
-        }
-
-        .crafter-tabs button.active {
-            background: linear-gradient(135deg, #b45309, #7c2d12 55%, #172554);
-            color: #fff7e6;
-            border-color: var(--gold);
-            box-shadow: 0 0 16px rgba(250,204,21,.28), inset 0 1px 0 rgba(255,255,255,.12);
-        }
-
-        .crafter-tabs button.active svg { opacity: 1; color: var(--gold-300); }
-
-/* Collapsible "Your Materials" panel — compact summary (always shows the craft
-   point total) that expands into a multi-column grid, so the materials list no
-   longer pushes the recipes far down the page. */
-.crafter-materials {
-    border: 1px solid rgba(148,163,184,.2);
-    border-radius: 10px;
-    background: rgba(2,6,23,.5);
-    overflow: hidden;
-}
-
-.crafter-materials-summary {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 10px 14px;
-    cursor: pointer;
-    list-style: none;
-    user-select: none;
-    font-size: 0.85rem;
-}
-
-    .crafter-materials-summary::-webkit-details-marker { display: none; }
-
-    .crafter-materials-summary strong { color: var(--gold); }
-
-.crafter-mat-sum { display: flex; align-items: center; gap: 7px; }
-.crafter-mat-sum svg { width: 18px; height: 18px; color: #d8a13a; flex: none; }
-
-.crafter-mat-total { color: var(--blue-300); font-weight: 600; }
-
-.crafter-mat-toggle { color: var(--text-muted); font-size: 0.74rem; }
-
-.crafter-materials[open] .crafter-materials-summary {
-    border-bottom: 1px solid rgba(148,163,184,.18);
-}
-
-.crafter-materials[open] .crafter-mat-toggle::after { content: "Hide"; }
-.crafter-materials:not([open]) .crafter-mat-toggle::after { content: "Show all"; }
-
-.crafter-material-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
-    gap: 8px;
-    padding: 12px 14px 14px;
-}
-
-/* One material as a glyph chip. --tier is set by the data-tier rules below and
-   tints both the icon and the left accent bar. */
-.crafter-mat-chip {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 7px 9px;
-    border: 1px solid rgba(148,163,184,.16);
-    border-left: 3px solid var(--tier, var(--text-muted));
-    border-radius: 8px;
-    background: rgba(15,23,42,.55);
-}
-
-    .crafter-mat-chip[data-empty] { opacity: .45; }
-
-.crafter-mat-ico {
-    display: grid;
-    place-items: center;
-    width: 30px;
-    height: 30px;
-    flex: none;
-    border-radius: 7px;
-    background: rgba(0,0,0,.34);
-    color: var(--tier, var(--text-dim));
-}
-
-    .crafter-mat-ico svg { width: 20px; height: 20px; }
-
-.crafter-mat-info { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
-
-.crafter-mat-name {
-    font-size: 0.8rem;
-    color: #e7eaf0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.crafter-mat-meta { font-size: 0.72rem; color: #6b7689; }
-.crafter-mat-meta b { color: var(--slate-300); font-weight: 700; }
-
-.crafter-mat-chip[data-tier="common"]    { --tier: var(--text-dim); }
-.crafter-mat-chip[data-tier="uncommon"]  { --tier: var(--green-400); }
-.crafter-mat-chip[data-tier="rare"]      { --tier: var(--blue-400); }
-.crafter-mat-chip[data-tier="epic"]      { --tier: var(--purple-400); }
-.crafter-mat-chip[data-tier="legendary"] { --tier: var(--gold); }
-
-.crafter-recipe-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-}
-
-.crafter-recipe-btn {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 14px;
-    border: 1px solid rgba(148,163,184,.22);
-    border-radius: 12px;
-    background: linear-gradient(165deg, rgba(30,41,59,.78), rgba(15,23,42,.85));
-}
-
-    .crafter-recipe-btn strong {
-        color: var(--gold);
-        font-size: 0.9rem;
-    }
-
-    .crafter-recipe-btn small {
-        color: var(--text-dim);
-        font-size: 0.78rem;
-    }
-
-/* Recipe card head: artwork thumbnail beside the name/meta block. */
-.crafter-card-top {
-    display: flex;
-    align-items: flex-start;
-    gap: 11px;
-}
-
-.crafter-card-thumb {
-    width: 54px;
-    height: 54px;
-    flex: none;
-    border-radius: 10px;
-    border: 1px solid rgba(148,163,184,.25);
-    background: rgba(0,0,0,.35);
-    overflow: hidden;
-    display: grid;
-    place-items: center;
-    color: var(--text-dim);
-}
-
-    .crafter-card-thumb img { width: 100%; height: 100%; object-fit: cover; }
-
-    .crafter-card-thumb-ico { display: grid; place-items: center; color: inherit; }
-    .crafter-card-thumb-ico svg { width: 30px; height: 30px; }
-
-.crafter-card-head {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-    flex: 1;
-}
-
-    .crafter-card-head .crafter-recipe-btn-header { margin: 0; }
-
-.crafter-cost-line { color: #d8a13a !important; font-weight: 600; }
-
-/* Rarity accents — tint the card border + thumbnail to match the item grade. */
-.crafter-recipe-btn[data-rarity="rare"]      { border-color: rgba(59,130,246,.42); }
-.crafter-recipe-btn[data-rarity="epic"]      { border-color: rgba(168,85,247,.42); }
-.crafter-recipe-btn[data-rarity="legendary"] { border-color: rgba(234,179,8,.48); box-shadow: 0 0 16px rgba(234,179,8,.10); }
-
-.crafter-card-thumb[data-rarity="rare"]      { border-color: rgba(59,130,246,.5);  background: rgba(59,130,246,.13);  color: var(--blue-300); }
-.crafter-card-thumb[data-rarity="epic"]      { border-color: rgba(168,85,247,.5);  background: rgba(168,85,247,.13);  color: #d8b4fe; }
-.crafter-card-thumb[data-rarity="legendary"] { border-color: rgba(234,179,8,.55);  background: rgba(234,179,8,.13);   color: var(--gold); }
-
-/* Compact side-by-side cards for the two special forges (Hollow Gate Key +
-   Dungeon Legendary Relic). Smaller padding/fonts than a normal recipe card
-   so both fit neatly in one row above the standard recipe grid. */
-.crafter-special-grid {
-    gap: 10px;
-}
-
-.crafter-special-card {
-    padding: 11px 12px;
-    gap: 4px;
-    background: linear-gradient(160deg, rgba(30,41,59,.92), rgba(15,23,42,.92));
-}
-
-    .crafter-special-card strong {
-        font-size: 0.82rem;
-    }
-
-    .crafter-special-card small {
-        font-size: 0.71rem;
-        line-height: 1.3;
-    }
-
-    .crafter-special-card button {
-        padding: 6px 8px;
-        font-size: 0.72rem;
-    }
-
-.crafter-recipe-btn-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
 }
 
 .weekly-boss-current {
@@ -1791,290 +1473,6 @@
     line-height: 1.4;
 }
 
-.crafter-progress-bar {
-    width: 100%;
-    height: 6px;
-    border-radius: 999px;
-    background: rgba(9,17,32,.85);
-    border: 1px solid rgba(216,161,58,.35);
-    overflow: hidden;
-}
-
-.crafter-progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #d8a13a, var(--gold));
-    transition: width 0.2s ease;
-}
-
-.crafter-pts-label {
-    color: var(--text-muted);
-    font-size: 0.75rem;
-}
-
-/* ── Named Weapon Forge ────────────────────────────────────────── */
-.named-weapon-forge {
-    margin-top: 18px;
-    padding: 18px;
-    border: 1px solid rgba(234, 179, 8, 0.45);
-    border-radius: 14px;
-    background: linear-gradient(160deg, rgba(30, 18, 4, 0.85), rgba(10, 10, 20, 0.90));
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.named-weapon-currencies {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    background: rgba(0, 0, 0, 0.25);
-    border: 1px solid rgba(250, 204, 21, 0.15);
-    border-radius: 8px;
-    padding: 10px 14px;
-}
-
-.named-weapon-currency-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.82rem;
-    color: var(--text-dim);
-}
-
-.named-weapon-currency-row strong {
-    color: var(--gold-300);
-}
-
-.named-weapon-currency-total {
-    margin-top: 6px;
-    padding-top: 6px;
-    border-top: 1px solid rgba(250, 204, 21, 0.18);
-    font-size: 0.84rem;
-    color: var(--slate-300);
-    text-align: right;
-}
-
-.named-weapon-currency-total strong {
-    color: #fbbf24;
-}
-
-.named-weapon-forge-header {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.named-weapon-forge-title {
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: #fbbf24;
-    letter-spacing: 0.03em;
-}
-
-.named-weapon-forge-header small {
-    color: var(--text-dim);
-    font-size: 0.78rem;
-}
-
-.named-weapon-fill {
-    background: linear-gradient(90deg, #b45309, #fbbf24) !important;
-}
-
-.named-weapon-roll-btn {
-    padding: 10px 16px;
-    font-size: 0.9rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, #78350f, #d97706);
-    color: #fef3c7;
-    border: 1px solid #d97706;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: opacity 0.15s;
-}
-
-.named-weapon-roll-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-
-.named-weapon-roll-btn:hover:not(:disabled) {
-    opacity: 0.85;
-}
-
-.named-weapon-result {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 14px;
-    border: 1px solid rgba(251, 191, 36, 0.30);
-    border-radius: 10px;
-    background: rgba(0, 0, 0, 0.30);
-}
-
-.named-weapon-stats {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    background: rgba(250, 204, 21, 0.06);
-    border: 1px solid rgba(250, 204, 21, 0.18);
-    border-radius: 8px;
-    padding: 10px 14px;
-}
-
-.named-weapon-stat-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.85rem;
-    color: var(--slate-300);
-}
-
-.named-weapon-stat-row strong {
-    color: var(--gold-300);
-}
-
-.named-weapon-tag-row strong {
-    color: var(--green-300);
-}
-
-.named-weapon-label {
-    font-size: 0.80rem;
-    color: var(--text-dim);
-    font-weight: 600;
-    margin-bottom: -4px;
-}
-
-.named-weapon-input {
-    width: 100%;
-    padding: 7px 10px;
-    background: rgba(15, 23, 42, 0.80);
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    border-radius: 6px;
-    color: var(--slate-200);
-    font-size: 0.85rem;
-    font-family: inherit;
-    resize: vertical;
-    box-sizing: border-box;
-}
-
-.named-weapon-image-preview {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.named-weapon-image-preview img {
-    width: 72px;
-    height: 72px;
-    object-fit: cover;
-    border-radius: 8px;
-    border: 1px solid rgba(251, 191, 36, 0.35);
-}
-
-.named-weapon-forge-actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.named-weapon-forge-btn {
-    flex: 1;
-    padding: 10px;
-    font-size: 0.9rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, #14532d, #16a34a);
-    color: #dcfce7;
-    border: 1px solid #16a34a;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: opacity 0.15s;
-}
-
-.named-weapon-forge-btn:hover {
-    opacity: 0.85;
-}
-
-/* ── Named Weapon Odds Panel ───────────────────────────────────── */
-.named-weapon-odds {
-    background: rgba(0,0,0,0.35);
-    border: 1px solid rgba(251,146,60,0.3);
-    border-radius: 8px;
-    padding: 10px 12px;
-    margin: 10px 0 8px;
-}
-
-.named-weapon-odds-title {
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: #fb923c;
-    letter-spacing: 0.05em;
-    margin-bottom: 8px;
-}
-
-.named-weapon-odds-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-}
-
-.nwo-section {
-    background: rgba(255,255,255,0.04);
-    border-radius: 6px;
-    padding: 6px 8px;
-}
-
-.nwo-section-wide {
-    grid-column: 1 / -1;
-}
-
-.nwo-label {
-    font-size: 0.68rem;
-    font-weight: 700;
-    color: var(--gold-400);
-    margin-bottom: 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-
-.nwo-rows {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.nwo-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.72rem;
-    color: var(--slate-300);
-}
-
-.nwo-pct {
-    color: var(--text-dim);
-    font-size: 0.68rem;
-}
-
-.nwo-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 2px;
-}
-
-.nwo-tag-chip {
-    background: rgba(251,146,60,0.15);
-    border: 1px solid rgba(251,146,60,0.35);
-    border-radius: 4px;
-    padding: 1px 6px;
-    font-size: 0.67rem;
-    color: #fdba74;
-}
-
-.nw-tag-formula {
-    font-size: 0.65rem;
-    font-weight: 400;
-    color: var(--text-dim);
-    margin-left: 4px;
-}
-
 /* ── Custom Title ──────────────────────────────────────────────── */
 .profile-title-panel {
     margin-bottom: 1rem;
@@ -2137,27 +1535,11 @@
     padding: 1.25rem 1.25rem 1.75rem;
 }
 
-.council-header {
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    padding-bottom: 0.85rem;
-    border-bottom: 1px solid rgba(139, 92, 246, 0.15);
-}
 
-.council-header h2 {
-    margin: 0 0 0.15rem;
-    color: #c4b5fd;
-    text-shadow: 0 0 18px rgba(139, 92, 246, 0.35);
-    font-size: 1.25rem;
-}
 
-.council-subtitle {
-    color: #6b7280;
-    font-size: 0.82rem;
-    margin: 0;
-    font-style: italic;
-}
+
+
+
 
 .council-section {
     display: flex;
@@ -2442,28 +1824,11 @@
     padding: 1.25rem 1.25rem 1.5rem;
 }
 
-.hol-header {
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    margin-bottom: 1.1rem;
-    padding-bottom: 0.85rem;
-    border-bottom: 1px solid rgba(202, 138, 4, 0.15);
-}
 
-.hol-header h2 {
-    margin: 0 0 0.15rem;
-    color: var(--gold-300);
-    text-shadow: 0 0 18px rgba(250, 204, 21, 0.35);
-    font-size: 1.3rem;
-}
 
-.hol-subtitle {
-    color: #78716c;
-    font-size: 0.82rem;
-    margin: 0;
-    font-style: italic;
-}
+
+
+
 
 .hol-tabs {
     display: flex;
@@ -2616,29 +1981,11 @@
     box-shadow: 0 0 40px rgba(0,0,0,0.6), inset 0 0 80px rgba(120, 60, 0, 0.06);
 }
 
-.tavern-header {
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    margin-bottom: 1rem;
-    padding-bottom: 0.85rem;
-    border-bottom: 1px solid rgba(202, 138, 4, 0.18);
-}
 
-.tavern-header h2 {
-    margin: 0 0 0.15rem;
-    font-size: 1.25rem;
-    letter-spacing: 0.02em;
-    color: var(--gold-300);
-    text-shadow: 0 0 16px rgba(250, 204, 21, 0.3);
-}
 
-.tavern-subtitle {
-    color: #78716c;
-    font-size: 0.82rem;
-    margin: 0;
-    font-style: italic;
-}
+
+
+
 
 .tavern-log {
     flex: 1;

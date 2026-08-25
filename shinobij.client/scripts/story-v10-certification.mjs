@@ -63,10 +63,6 @@ function isolatedServerEnv() {
         DISABLE_VILLAGE_WAR: '1',
         DISABLE_CLAN_BOSS: '1',
         DISABLE_SCHEDULED_JOBS: '1',
-        // This isolated certification synthesizes completed story fights from
-        // ai-fight tokens. Production keeps client-trusted story settlement
-        // disabled; the rollback flag is scoped to this in-memory test server.
-        ENABLE_CLIENT_TRUSTED_STORY_BOSS: '1',
         SENTRY_DSN: '',
     };
     for (const key of [
@@ -107,12 +103,27 @@ async function request(page, pathname, { method = 'GET', headers = {}, body } = 
 }
 
 function seedCharacter(account, village) {
+    const equippedJutsuIds = [
+        'starter-nin-fire-2',
+        'starter-nin-water-2',
+        'starter-nin-wind-2',
+        'starter-nin-earth-2',
+        'starter-nin-lightning-2',
+    ];
     const stats = {
-        strength: 10, speed: 10, intelligence: 10, willpower: 10,
-        bukijutsuOffense: 10, bukijutsuDefense: 10,
-        taijutsuOffense: 10, taijutsuDefense: 10,
-        genjutsuOffense: 10, genjutsuDefense: 10,
-        ninjutsuOffense: 10, ninjutsuDefense: 10,
+        strength: 2500, speed: 2500, intelligence: 2500, willpower: 2500,
+        bukijutsuOffense: 2500, bukijutsuDefense: 2500,
+        taijutsuOffense: 2500, taijutsuDefense: 2500,
+        genjutsuOffense: 2500, genjutsuDefense: 2500,
+        ninjutsuOffense: 2500, ninjutsuDefense: 2500,
+    };
+    const equipment = {
+        head: 'bulwark-crown',
+        body: 'bulwark-chest',
+        legs: 'bulwark-legs',
+        feet: 'bulwark-feet',
+        waist: 'bulwark-waist',
+        relic: 'relic-stormglass-pendulum',
     };
     return {
         name: account,
@@ -123,20 +134,24 @@ function seedCharacter(account, village) {
         rank: 'Special Jonin',
         rankTitle: 'Special Jonin',
         specialty: 'Ninjutsu',
+        equippedBloodlineId: 'starter-bloodline-inferno-cataclysm',
         stats,
         unspentStats: 0,
         storyProgress: 0,
         storyTraits: [],
+        equippedJutsuIds,
+        jutsuMastery: equippedJutsuIds.map((jutsuId) => ({ jutsuId, level: 50, xp: 0 })),
         redeemedStoryBattles: [],
         ryo: 1000,
         auraDust: 0,
-        hp: 1000,
-        maxHp: 1000,
-        chakra: 1000,
-        maxChakra: 1000,
-        stamina: 1000,
-        maxStamina: 1000,
-        inventory: [],
+        hp: 10000,
+        maxHp: 10000,
+        chakra: 10000,
+        maxChakra: 10000,
+        stamina: 10000,
+        maxStamina: 10000,
+        inventory: Object.values(equipment),
+        equipment,
         pets: [],
         activePetId: '',
         examsPassed: ['genin', 'chunin'],
@@ -144,8 +159,96 @@ function seedCharacter(account, village) {
     };
 }
 
-function opponentId(village, level) {
-    return `story-ai-${village.toLowerCase().replace(/\W+/g, '-')}-${level}`;
+const SOLO_GRID_W = 12;
+const SOLO_GRID_H = 10;
+
+function soloHexNeighbors(pos) {
+    const x = pos % SOLO_GRID_W;
+    const y = Math.floor(pos / SOLO_GRID_W);
+    const deltas = x % 2 === 0
+        ? [[1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0], [0, 1]]
+        : [[1, 1], [1, 0], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+    return deltas
+        .map(([dx, dy]) => ({ x: x + dx, y: y + dy }))
+        .filter((tile) => tile.x >= 0 && tile.x < SOLO_GRID_W && tile.y >= 0 && tile.y < SOLO_GRID_H)
+        .map((tile) => tile.y * SOLO_GRID_W + tile.x);
+}
+
+function soloHexDistance(a, b) {
+    const axial = (pos) => {
+        const x = pos % SOLO_GRID_W;
+        const y = Math.floor(pos / SOLO_GRID_W);
+        return { q: x, r: y - ((x - (x & 1)) / 2) };
+    };
+    const first = axial(a);
+    const second = axial(b);
+    return (
+        Math.abs(first.q - second.q)
+        + Math.abs(first.q + first.r - second.q - second.r)
+        + Math.abs(first.r - second.r)
+    ) / 2;
+}
+
+async function fightStoryRun(page, playerHeaders, account, runId, initialSession, label) {
+    let session = initialSession;
+    for (let turn = 0; turn < 160 && session?.status !== 'done'; turn += 1) {
+        const mine = session.player;
+        const foe = session.enemy;
+        assert.ok(mine && foe, `${label}: authoritative session lost a combatant`);
+        const adjacent = soloHexDistance(mine.pos, foe.pos) <= 1;
+        const distance = soloHexDistance(mine.pos, foe.pos);
+        const cooldowns = session.cooldowns?.player ?? {};
+        const shouldHeal = mine.hp < mine.maxHp * 0.45 && Number(cooldowns.basicHeal ?? 0) <= 0;
+        const readyJutsu = (mine.character?.jutsu ?? []).find((jutsu) => (
+            Number(jutsu?.effectPower) > 0
+            && Number(jutsu?.range) >= distance
+            && Number(cooldowns[jutsu.id] ?? 0) <= 0
+        ));
+        const blocked = new Set(session.environment?.blockedTiles ?? []);
+        const nextTile = soloHexNeighbors(mine.pos)
+            .filter((tile) => tile !== foe.pos && !blocked.has(tile))
+            .sort((a, b) => soloHexDistance(a, foe.pos) - soloHexDistance(b, foe.pos) || a - b)[0];
+        const move = shouldHeal
+            ? { type: 'basicHeal' }
+            : readyJutsu
+                ? { type: 'jutsu', jutsuId: readyJutsu.id, tile: foe.pos }
+                : adjacent || nextTile === undefined
+                    ? { type: 'basicAttack' }
+                    : { type: 'move', tile: nextTile };
+        const acted = await request(page, '/api/solo-pve/action', {
+            method: 'POST',
+            headers: playerHeaders,
+            body: {
+                playerName: account,
+                sessionId: runId,
+                expectedVersion: session.version,
+                moveToken: `${label}-turn-${turn}-${session.version}`,
+                ...move,
+            },
+        });
+        let next = acted.body?.session;
+        if (acted.status !== 200 || acted.body?.applied === false) {
+            const current = next ?? session;
+            const passed = await request(page, '/api/solo-pve/action', {
+                method: 'POST',
+                headers: playerHeaders,
+                body: {
+                    playerName: account,
+                    sessionId: runId,
+                    expectedVersion: current.version,
+                    moveToken: `${label}-wait-${turn}-${current.version}`,
+                    type: 'wait',
+                },
+            });
+            next = passed.body?.session ?? next;
+            assert.ok(passed.status === 200 || acted.status === 200, `${label}: combat action failed (${acted.status}/${passed.status})`);
+        }
+        assert.ok(next, `${label}: combat action returned no session`);
+        session = next;
+    }
+    assert.equal(session?.status, 'done', `${label}: story combat did not finish`);
+    assert.equal(session?.winner, 'player', `${label}: certification shinobi did not win`);
+    return session;
 }
 
 async function openOriginPage(browser) {
@@ -181,51 +284,58 @@ async function certifyVillage(browser, village, index) {
     };
     let expectedRyo = 1000;
     let expectedAuraDust = 0;
-    let refreshRegeneratedToken = false;
-    let lossRetryRejectedOldToken = false;
+    let refreshRecoveredRun = false;
+    let unfinishedRunRejected = false;
 
     for (let progress = 0; progress < levels.length; progress += 1) {
-        const level = levels[progress];
-        const fightBody = {
-            playerName: village.account,
-            opponentId: opponentId(village.name, level),
-            opponentLevel: level,
-            battleKind: 'practice',
-        };
+        const fightBody = { playerName: village.account };
 
-        let discardedToken = null;
+        let unfinishedRunId = null;
         if (index === 0 && progress === 2) {
-            const lostFight = await request(page, '/api/missions/ai-fight-start', {
+            const unfinished = await request(page, '/api/story/boss-start', {
                 method: 'POST', headers: playerHeaders, body: fightBody,
             });
-            assert.equal(lostFight.status, 200, JSON.stringify(lostFight.body));
-            discardedToken = lostFight.body.token;
-            const afterLoss = await request(page, `/api/save/${village.account}`, { headers: playerHeaders });
-            assert.equal(afterLoss.status, 200);
-            assert.equal(afterLoss.body.character.storyProgress, progress, 'a loss must not advance or pay');
+            assert.equal(unfinished.status, 200, JSON.stringify(unfinished.body));
+            unfinishedRunId = unfinished.body.runId;
+            const refused = await request(page, '/api/story/settle', {
+                method: 'POST',
+                headers: playerHeaders,
+                body: { playerName: village.account, runId: unfinishedRunId, kind: 'storyBoss' },
+            });
+            assert.equal(refused.status, 409, 'an unfinished run must not advance or pay');
         }
 
-        let started = await request(page, '/api/missions/ai-fight-start', {
+        let started = await request(page, '/api/story/boss-start', {
             method: 'POST', headers: playerHeaders, body: fightBody,
         });
         assert.equal(started.status, 200, JSON.stringify(started.body));
 
         if (index === 1 && progress === 4) {
-            const preRefreshToken = started.body.token;
+            const preRefreshRunId = started.body.runId;
             await page.reload({ waitUntil: 'domcontentloaded' });
-            started = await request(page, '/api/missions/ai-fight-start', {
-                method: 'POST', headers: playerHeaders, body: fightBody,
-            });
-            assert.equal(started.status, 200, JSON.stringify(started.body));
-            assert.notEqual(started.body.token, preRefreshToken, 'refresh must get a fresh battle lifecycle token');
-            discardedToken = preRefreshToken;
-            refreshRegeneratedToken = true;
+            const recovered = await request(
+                page,
+                `/api/solo-pve/state?sessionId=${encodeURIComponent(preRefreshRunId)}&playerName=${encodeURIComponent(village.account)}`,
+                { headers: playerHeaders },
+            );
+            assert.equal(recovered.status, 200, JSON.stringify(recovered.body));
+            assert.equal(recovered.body.session.sessionId, preRefreshRunId, 'refresh must recover the same sealed story run');
+            started = { ...started, body: { ...started.body, session: recovered.body.session } };
+            refreshRecoveredRun = true;
         }
 
+        await fightStoryRun(
+            page,
+            playerHeaders,
+            village.account,
+            started.body.runId,
+            started.body.session,
+            `story-${index}-${progress}`,
+        );
         const settled = await request(page, '/api/story/settle', {
             method: 'POST',
             headers: playerHeaders,
-            body: { playerName: village.account, aiFightToken: started.body.token, survivingHp: 300 },
+            body: { playerName: village.account, runId: started.body.runId, kind: 'storyBoss' },
         });
         assert.equal(settled.status, 200, JSON.stringify(settled.body));
         assert.equal(settled.body.progress, progress + 1);
@@ -241,21 +351,21 @@ async function certifyVillage(browser, village, index) {
         assert.equal(snapshot.body.character.auraDust, expectedAuraDust);
         assert.equal(snapshot.body.character.redeemedStoryBattles.length, progress + 1);
 
-        if (discardedToken) {
+        if (unfinishedRunId) {
             const stale = await request(page, '/api/story/settle', {
                 method: 'POST',
                 headers: playerHeaders,
-                body: { playerName: village.account, aiFightToken: discardedToken, survivingHp: 300 },
+                body: { playerName: village.account, runId: unfinishedRunId, kind: 'storyBoss' },
             });
-            assert.equal(stale.status, 409, 'a discarded loss/refresh token must not pay after retry settlement');
-            if (index === 0 && progress === 2) lossRetryRejectedOldToken = true;
+            assert.equal(stale.status, 409, 'an unfinished run must not pay after another run settles');
+            if (index === 0 && progress === 2) unfinishedRunRejected = true;
         }
 
         if (progress === levels.length - 1) {
             const replay = await request(page, '/api/story/settle', {
                 method: 'POST',
                 headers: playerHeaders,
-                body: { playerName: village.account, aiFightToken: started.body.token, survivingHp: 300 },
+                body: { playerName: village.account, runId: started.body.runId, kind: 'storyBoss' },
             });
             assert.equal(replay.status, 200, JSON.stringify(replay.body));
             assert.equal(replay.body.replayed, true);
@@ -279,8 +389,8 @@ async function certifyVillage(browser, village, index) {
         token,
         finalSave: finalSave.body,
         playerHeaders,
-        refreshRegeneratedToken,
-        lossRetryRejectedOldToken,
+        refreshRecoveredRun,
+        unfinishedRunRejected,
     };
 }
 
@@ -380,8 +490,8 @@ try {
     for (let i = 0; i < villages.length; i += 1) {
         villageResults.push(await certifyVillage(browser, villages[i], i));
     }
-    assert.equal(villageResults[0].lossRetryRejectedOldToken, true);
-    assert.equal(villageResults[1].refreshRegeneratedToken, true);
+    assert.equal(villageResults[0].unfinishedRunRejected, true);
+    assert.equal(villageResults[1].refreshRecoveredRun, true);
     const conflict = await certifyTwoSessionConflict(browser, villageResults[0]);
     const weakNetwork = await certifyWeakNetwork(browser);
 
@@ -395,8 +505,8 @@ try {
         finales: villages.map((v) => v.title),
         rewardLedgers: villageResults.map((r) => r.finalSave.character.redeemedStoryBattles.length),
         hollowGateKeys: villageResults.map((r) => r.finalSave.character.inventory.filter((id) => id === 'hollow-gate-key').length),
-        lossRetry: 'discarded loss token rejected after retry settlement',
-        refreshMidBattle: 'page reload regenerated the battle token; pre-refresh token could not pay afterward',
+        unfinishedRun: 'unfinished authoritative run rejected before and after another run settled',
+        refreshMidBattle: 'page reload recovered the same authoritative story run',
         twoSessionConflict: conflict,
         weakNetwork,
     };

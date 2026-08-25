@@ -1,9 +1,7 @@
 /* ===== FINAL MOBILE / RESOLUTION SAFE PATCH ===== */
 
 /* Fix the banner cut-off caused by the older center -115px rule. */
-.journey-banner {
-    background-position: center 70% !important;
-}
+
 
 /* Give the main middle screen a tiny breathing space without shifting the side panels. */
 /* Make the arena use the available resolution instead of forcing one desktop size. */
@@ -143,13 +141,7 @@
        the BMT training-timer pills (anchored to banner top-right)
        extend downward over content — each pill has its own
        background so it stays readable. */
-    .journey-banner {
-        height: 60px !important;
-        min-height: 60px !important;
-        background-position: center 35% !important;
-        overflow: visible !important;
-        position: relative !important;
-    }
+
 
     .journey-live-stats {
         display: none !important;
@@ -302,37 +294,11 @@ button.combat-jutsu-button,
     --jutsu-card-h: clamp(82px, 11vh, 104px);
 }
 
-.journey-banner {
-    height: var(--banner-h) !important;
-    min-height: var(--banner-h) !important;
-    max-height: var(--banner-h) !important;
-    overflow: hidden !important;
-    /* auto 100% scales the image to exactly fill the banner height — no vertical clipping */
-    background-size: auto 100% !important;
-    background-position: left center !important;
-    background-repeat: no-repeat !important;
-}
+
 
 .journey-live-stats {
     right: clamp(10px, 2vw, 28px) !important;
     gap: clamp(4px, 0.5vw, 7px) !important;
-}
-
-.journey-live-stats .stat-box {
-    min-width: 0 !important;
-    padding: clamp(4px, 0.6vw, 8px) clamp(6px, 0.8vw, 12px) !important;
-    border-radius: 10px !important;
-}
-
-.journey-live-stats .stat-box span {
-    font-size: clamp(9px, 0.7vw, 11px) !important;
-    margin-bottom: 2px !important;
-    letter-spacing: 0.06em !important;
-}
-
-.journey-live-stats .stat-box strong {
-    font-size: clamp(13px, 1.1vw, 18px) !important;
-    white-space: nowrap !important;
 }
 
 /* Sector coordinate-stage geometry is owned by layout/adaptive-stages.css. */
@@ -359,11 +325,7 @@ button.combat-jutsu-button,
     padding: clamp(10px, 1.8vmin, 18px) !important;
 }
 
-.arena-fullscreen .hex-grid-layer {
-    position: absolute !important;
-    margin: 0 !important;
-    transform-origin: top left !important;
-}
+
 
 .shinobi-command-bar,
 .basic-action-bar {
@@ -466,13 +428,7 @@ button.combat-jutsu-button,
         }
     }
 
-    .journey-banner {
-        height: clamp(90px, 14dvh, 120px) !important;
-        min-height: clamp(90px, 14dvh, 120px) !important;
-        max-height: clamp(90px, 14dvh, 120px) !important;
-        background-position: left center !important;
-        background-repeat: no-repeat !important;
-    }
+
 
     .journey-live-stats {
         display: none !important;
@@ -516,10 +472,7 @@ button.combat-jutsu-button,
         --jutsu-card-h: 78px;
     }
 
-    .journey-banner {
-        height: 92px !important;
-        min-height: 92px !important;
-    }
+
 
     .arena-fullscreen .hex-battlefield {
         height: var(--battle-board-h) !important;

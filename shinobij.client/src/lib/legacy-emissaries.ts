@@ -45,16 +45,16 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
     {
         slug: "storm-caller-ryn", name: "Storm-Caller Ryn", categories: ["ninjutsu"],
         tellTint: "#60a5fa",
-        greeting: "The clouds told me you were coming. They rarely bother.",
+        greeting: "You picked a bad day for this road. The storm is an hour out, maybe less.",
         lore: [
             "I spent ten years learning to call lightning down. The trick I use most is knowing when it's coming anyway.",
-            "I have stood inside four storms that had names. Two of them learned mine.",
-            "The Sage and I walked together once. He watches paths. I watch weather. Same work.",
+            "The Split-Reed storm tore the east watch loose while I was still shouting evacuation orders. I learned to shout earlier after that.",
+            "The Sage and I shared a road camp once. He asked three questions, ate half my rice, and snored through the rain. Very mysterious man.",
         ],
-        trialLine: "Your trial's waiting up the road, and the weather over it is ugly. I'd tell you more, but you'd only pack wrong.",
+        trialLine: "Your trial route runs under that storm. Pack oilcloth and leave the metal pole here.",
         quests: [
-            { id: "eq-storm-conduits", label: "Strike down 8 foes while the storm watches", metric: "totalAiKills", target: 8 },
-            { id: "eq-storm-skyward", label: "Scout 15 tiles beneath open sky", metric: "totalTilesExplored", target: 15 },
+            { id: "eq-storm-conduits", label: "Defeat 8 threats along Ryn's storm route", metric: "totalAiKills", target: 8 },
+            { id: "eq-storm-skyward", label: "Scout 15 open-road tiles before the rain closes in", metric: "totalTilesExplored", target: 15 },
         ],
     },
     {
@@ -62,14 +62,14 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
         tellTint: "#c084fc",
         greeting: "Don't mind the moths. They're mine. Mostly.",
         lore: [
-            "People call genjutsu cruel. I think it's a mercy — the enemy's last moments, spent somewhere kinder than here.",
-            "Half my face is porcelain. Guess which half the world believes.",
+            "People call genjutsu cruel. I think it can be mercy, but anyone who says that too quickly should not be trusted with it.",
+            "A canal blade took my left cheek. The porcelain repair fogs in cold weather and makes children stare. I stare back.",
             "I heard your name twice before we met. Once from a drunk, once from a dying man. The stories didn't match. I liked that.",
         ],
-        trialLine: "Your trial has already started. You walked past part of it this morning without noticing — and no, I won't say which part.",
+        trialLine: "I put a moth-mark on the first post this morning. You walked past it. This time, look twice.",
         quests: [
-            { id: "eq-veil-unseen", label: "Win 5 battles under the lantern-moths' sight", metric: "totalAiKills", target: 5 },
-            { id: "eq-veil-moths", label: "Trace 12 tiles by lantern-moth light", metric: "totalTilesExplored", target: 12 },
+            { id: "eq-veil-unseen", label: "Win 5 battles along Suzu's marked route", metric: "totalAiKills", target: 5 },
+            { id: "eq-veil-moths", label: "Trace 12 tiles between Suzu's moth-marked posts", metric: "totalTilesExplored", target: 12 },
         ],
     },
     {
@@ -78,27 +78,27 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
         greeting: "Every bead on this string is a fight I didn't need a weapon for.",
         lore: [
             "I broke my hands twice learning this. The third time, the stone broke first. Nobody sings about the first two times.",
-            "Stone beads, stone knuckles, stone road. Everything else wore out.",
+            "The east-post road wore through three pairs of sandals. My training partner rode a cart and called it footwork. We still argue.",
             "A young man once asked me to bless his fists. I blessed his neighbors instead. He understood, eventually.",
         ],
         trialLine: "Your trial is counted in bruises the record keeper never sees. I see them. Go on.",
         quests: [
-            { id: "eq-iron-tally", label: "Break 10 foes — one bead counted for each", metric: "totalAiKills", target: 10 },
+            { id: "eq-iron-tally", label: "Defeat 10 foes and return Daigo's full tally", metric: "totalAiKills", target: 10 },
             { id: "eq-iron-road", label: "Walk 20 tiles of the lantern road", metric: "totalTilesExplored", target: 20 },
         ],
     },
     {
         slug: "blade-keeper-hana", name: "Blade-Keeper Hana", categories: ["bukijutsu"],
         tellTint: "#e2e8f0",
-        greeting: "Thirty-one swords on my back. Every one of them is listening.",
+        greeting: "Thirty-one swords on my back. Do not touch the hilts without asking.",
         lore: [
             "People ask why thirty-one. Because the thirty-second went to someone who earned it, and I'm still deciding about the rest.",
-            "Everyone asks which of my blades is strongest. It's the one I've never had to draw. That's the whole point of it.",
-            "The shrine burned twice. The swords carried themselves out. I merely followed.",
+            "Six blades need oil, two need new wraps, and one bites anyone but me. Carrying a collection is mostly maintenance.",
+            "When the shrine burned, I carried the swords out two at a time. The novices carried the water. Their part was harder.",
         ],
-        trialLine: "The swords have opinions about your trial. Most are favorable. Finish it before they change.",
+        trialLine: "I read your trial order. The form is sound and the route is ugly. Check your edge, then go.",
         quests: [
-            { id: "eq-blade-rites", label: "Fell 8 foes with clean form — the swords are listening", metric: "totalAiKills", target: 8 },
+            { id: "eq-blade-rites", label: "Fell 8 foes with the clean form Hana taught you", metric: "totalAiKills", target: 8 },
             { id: "eq-blade-vigil", label: "Stand a vigil of 6 victories", metric: "totalAiKills", target: 6 },
         ],
     },
@@ -111,7 +111,7 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
             "I brokered a duel between two Kage once. The village that watched still owes me.",
             "The scribes press legends into Chronicle cards. I write the odds beside them. Between the two of us, that's history covered.",
         ],
-        trialLine: "Your trial is on my books, shinobi. The odds I wrote beside your name are — flattering.",
+        trialLine: "Your trial is on my books, shinobi. The odds beside your name are better than I expected.",
         quests: [
             { id: "eq-broker-ledger", label: "Win 4 Chronicle Showdowns for the ledger", metric: "cardClashWins", target: 4 },
             { id: "eq-broker-debts", label: "Collect 8 battle debts owed to Kesshi", metric: "totalAiKills", target: 8 },
@@ -120,13 +120,13 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
     {
         slug: "hollow-warden", name: "The Hollow Warden", categories: ["pve", "mythic"],
         tellTint: "#4ade80",
-        greeting: "You stand where the deep things listen. Speak softly, or interestingly.",
+        greeting: "The lower vents carry voices up here. Speak softly unless you want an answer.",
         lore: [
-            "This mask was bone before the Gate. It remembers being something's face.",
-            "I was there the first time a Kage came back wrong. We had no word for it then. Now the whole world knows the word Hollow.",
-            "The thing down there doesn't hate you. It just hasn't decided you matter yet. If I were you, I'd change that carefully.",
+            "This mask was cut from animal bone before I took this post. The scratches came later.",
+            "I was here when the Gate rebuilt a dead Kage from an intake record. We had no word for the result then. Now we call it a Hollow.",
+            "The Hollow below does not hate you. It repeats whatever the old intake taught it. Learn the pattern before you step close.",
         ],
-        trialLine: "Your trial reaches into old places. The Warden walks the boundary with you — from the boundary's side.",
+        trialLine: "Your trial reaches an old intake floor. I will watch the boundary and pull you out if it breaks.",
         quests: [
             { id: "eq-hollow-toll", label: "Pay the threshold's toll: 10 foes", metric: "totalAiKills", target: 10 },
             { id: "eq-hollow-depths", label: "Chart 18 tiles toward the deep places", metric: "totalTilesExplored", target: 18 },
@@ -137,11 +137,11 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
         tellTint: "#fbbf24",
         greeting: "Shield in one hand, lantern in the other. Guess which one has saved more lives.",
         lore: [
-            "Walls keep villages standing. People keep villages worth it. I carry equipment for both.",
+            "My pack has splints, lamp oil, two door braces, and no spare room. If you need saving, try to be a small emergency.",
             "The lantern has gone out exactly once. I do not talk about that night, and neither does the village that is still here.",
             "I trained as a medic first. Turns out most wounds are easier to prevent from the front row.",
         ],
-        trialLine: "Your trial is the quiet kind — the kind villages never thank properly. The lantern sees it. Proceed.",
+        trialLine: "Your trial is village work: long rounds, tired people, and no applause. Check the lamp oil before you go.",
         quests: [
             { id: "eq-lantern-rounds", label: "Walk 14 tiles of Mei's lantern rounds", metric: "totalTilesExplored", target: 14 },
             { id: "eq-lantern-watch", label: "Turn back 6 threats to the village", metric: "totalAiKills", target: 6 },
@@ -150,16 +150,16 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
     {
         slug: "mapless-ojii", name: "Mapless Ojii", categories: ["explorer", "pets"],
         tellTint: "#7be0a3",
-        greeting: "This map is blank on purpose. Full ones lie.",
+        greeting: "This map is blank because the north flood moved the road again. Give me a minute.",
         lore: [
-            "I drew the finest maps of my generation. Then I noticed the land kept editing them. Now we collaborate.",
+            "I drew the finest map of the north road. Then a flood moved the river and three merchants blamed my ink. I stopped promising permanence.",
             "Every beast I ever followed knew a road no cartographer did. So I stopped following cartographers.",
             "I watched a beast take three straight at the coliseum, then walk its tamer home like the tamer was the pet. The scribes gave it a card. It had earned one.",
         ],
-        trialLine: "Your trial is off the edge of every chart I ever sold. Good. That is where the real ones are.",
+        trialLine: "Your trial starts beyond my last reliable marker. Take chalk, mark the return turns, and do not trust the stream crossing.",
         quests: [
             { id: "eq-mapless-edges", label: "Scout 25 tiles past the map's edge", metric: "totalTilesExplored", target: 25 },
-            { id: "eq-mapless-companions", label: "Win 3 pet duels — the beasts remember", metric: "totalPetWins", target: 3 },
+            { id: "eq-mapless-companions", label: "Win 3 pet duels while Ojii studies your handling", metric: "totalPetWins", target: 3 },
         ],
     },
 ];

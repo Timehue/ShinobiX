@@ -18,9 +18,12 @@ import "./PetShowdown.css";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import type { Screen } from "../types/core";
-import { isPetOnExpedition } from "../lib/pet";
+import { colosseumPetBusyReason, isPetAvailableForColosseum } from "../lib/pet";
+import { activeCarriedPetIds } from "../lib/entitlements";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { petPvpGearById } from "../data/pet-config";
+import { clearPetColosseumPetHint, readPetColosseumPetHint } from "../lib/pet-arena-navigation";
+import { activeClientBreedingParentIds } from "../lib/pet-breeding";
 import { preloadPetColiseumModels, warmShowdownModels } from "../lib/pet-model-preload";
 import {
     startShowdown,
@@ -119,16 +122,31 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
     onBattleActiveChange?: (active: boolean) => void;
     onFullscreenActiveChange?: (active: boolean) => void;
 }) {
+    const breedingPetIds = useMemo(() => activeClientBreedingParentIds(character), [character]);
+    const carriedPetIds = useMemo(() => new Set(activeCarriedPetIds(character)), [character]);
     // Default to a format the roster can actually FIELD. The starter grants
     // exactly one pet, so an unconditional "2v2" default meant a brand-new
     // player's first frame of the flagship mode was a gold button that did
     // nothing when pressed, with nothing on screen saying why.
     const [format, setFormat] = useState<ShowdownFormat>(() => {
-        const ready = (character.pets ?? []).length;
+        const ready = (character.pets ?? []).filter((pet) => (
+            carriedPetIds.has(pet.id) && isPetAvailableForColosseum(pet, breedingPetIds)
+        )).length;
         return ready >= 2 ? "2v2" : "1v1";
     });
     const [tier, setTier] = useState<ShowdownOpposition>("sparring");
-    const [selected, setSelected] = useState<string[]>([]);
+    const [selected, setSelected] = useState<string[]>(() => {
+        if (bout !== "arena") return [];
+        const hintedPetId = readPetColosseumPetHint();
+        const hintedPet = character.pets.find((pet) => pet.id === hintedPetId);
+        if (!hintedPet
+            || !carriedPetIds.has(hintedPet.id)
+            || !isPetAvailableForColosseum(hintedPet, breedingPetIds)) return [];
+        return [hintedPet.id];
+    });
+    useEffect(() => {
+        if (bout === "arena") clearPetColosseumPetHint();
+    }, [bout]);
     /* Two beats, because the wait now has two causes and they fail differently:
      * "matching" is the server picking your opposition, "taking-the-field" is
      * their models loading. A single spinner across both makes the second look
@@ -143,11 +161,14 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
     const pets = useMemo(() => character.pets ?? [], [character.pets]);
 
     const busyReason = useCallback((pet: Pet): string | null => {
-        if (isPetOnExpedition(pet)) return "On expedition";
-        if (pet.training && Date.now() < pet.training.endsAt) return "Training";
-        if (pet.breedingSessionId) return "Breeding barn";
-        return null;
-    }, []);
+        if (!carriedPetIds.has(pet.id)) return "Resting in Sanctuary";
+        switch (colosseumPetBusyReason(pet, breedingPetIds)) {
+            case "expedition": return "On expedition";
+            case "training": return "Training";
+            case "breeding": return "Breeding barn";
+            default: return null;
+        }
+    }, [breedingPetIds, carriedPetIds]);
 
     /** Pets that are not away training/expeditioning — what the roster can field. */
     const available = useMemo(() => pets.filter((p) => !busyReason(p)), [pets, busyReason]);

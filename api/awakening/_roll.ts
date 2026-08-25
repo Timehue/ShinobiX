@@ -1,6 +1,8 @@
 export const AWAKENING_ELEMENTS = ['Water', 'Wind', 'Earth', 'Lightning', 'Fire'] as const;
 export const AWAKENING_FREE_LV2_ID = 'awakening-free-lv2';
 export const AWAKENING_FREE_LV20_ID = 'awakening-free-lv20';
+export const AWAKENING_PAID_SINGLE_ID = 'paid-single';
+export const AWAKENING_PAID_BOTH_ID = 'paid-both';
 
 function currentElements(character: Record<string, unknown>): string[] {
     const raw = [...(Array.isArray(character.elements) ? character.elements : []), character.element];
@@ -31,17 +33,26 @@ export function rollAwakening(character: Record<string, unknown>, kindRaw: unkno
         const available = AWAKENING_ELEMENTS.filter((element) => !owned.includes(element));
         next = [...new Set([...owned, pick(available.length ? available : AWAKENING_ELEMENTS, randomIndex)])];
         nextClaimed = [...claimed, kind];
-    } else if (kind === 'paid') {
-        if (fateShards < 10) return { ok: false as const, reason: 'insufficient-fate-shards' as const };
-        const count = Math.max(1, Math.min(AWAKENING_ELEMENTS.length, owned.length));
-        const pool = [...AWAKENING_ELEMENTS];
-        next = [];
-        while (next.length < count) {
+    } else if (kind === 'paid' || kind === AWAKENING_PAID_SINGLE_ID || kind === AWAKENING_PAID_BOTH_ID) {
+        const rerollCount = kind === AWAKENING_PAID_BOTH_ID ? 2 : 1;
+        const cost = rerollCount === 2 ? 15 : 10;
+        if (rerollCount === 2 && owned.length < 2) return { ok: false as const, reason: 'second-element-required' as const };
+        if (fateShards < cost) return { ok: false as const, reason: 'insufficient-fate-shards' as const };
+
+        // Paid rerolls replace elements from the front of the canonical list.
+        // A single reroll therefore preserves the secondary nature, while the
+        // two-element option replaces both. Any exceptional extra elements are
+        // preserved and excluded from the new rolls so the list stays unique.
+        const preserved = owned.slice(rerollCount);
+        const pool = AWAKENING_ELEMENTS.filter((element) => !preserved.includes(element));
+        const rolled: string[] = [];
+        while (rolled.length < rerollCount) {
             const element = pick(pool, randomIndex);
-            next.push(element);
+            rolled.push(element);
             pool.splice(pool.indexOf(element as typeof pool[number]), 1);
         }
-        fateShards -= 10;
+        next = [...rolled, ...preserved];
+        fateShards -= cost;
     } else return { ok: false as const, reason: 'invalid-awakening-kind' as const };
     return { ok: true as const, alreadyApplied: false, character: { ...character, element: next[0], elements: next, fateShards, claimedAwakenings: nextClaimed, redeemedAwakeningActions: [...receipts, actionId] } };
 }

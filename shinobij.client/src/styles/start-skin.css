@@ -521,9 +521,6 @@
 }
 
 /* --------- Hide app banner on start screen --------- */
-.screen-start .journey-banner {
-    display: none !important;
-}
 
 /* --------- Mobile --------- */
 @media (max-width: 800px) {

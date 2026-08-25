@@ -148,7 +148,7 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
         { tile: "Grand Marketplace", heading: "Grand Marketplace" },
         { tile: "Hunter Guild", heading: /Hunter Guild/ },
         { tile: "Hall of Legends", heading: "Hall of Legends" },
-        { tile: "Pet Colosseum", heading: /Pet Colosseum|Tactical Pet Arena/ },
+        { tile: "Pet Colosseum", heading: "Pet Colosseum" },
         { tile: "Weekly Boss", heading: "Weekly Boss" },
     ] as const;
 
@@ -176,11 +176,15 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
         const dialog = page.getByRole("dialog", { name });
         await expect(dialog).toBeVisible();
         if (name === "Awakening Stone") {
+            const rerollButtons = dialog.locator(".aw-roll-row .aw-paid-btn");
+            await expect(rerollButtons).toHaveCount(2);
+            await expect(dialog.getByRole("button", { name: /^Reroll Element 1 element/ })).toBeVisible();
+            await expect(dialog.getByRole("button", { name: /^Reroll Elements Both elements/ })).toBeVisible();
             await capture(page, testInfo, "awakening-stone-premium-desktop");
             const forge = dialog.getByRole("heading", { name: /Bloodline Forge/i });
             await forge.scrollIntoViewIfNeeded();
             await expect(forge).toBeVisible();
-            const sRankForge = dialog.locator(".awakening-forge-card.rank-s");
+            const sRankForge = dialog.locator(".aw-forge-card.rank-s");
             await sRankForge.scrollIntoViewIfNeeded();
             await expect(sRankForge).toBeVisible();
             await dialog.screenshot({ path: testInfo.outputPath("awakening-stone-forge-premium-desktop.png"), animations: "disabled" });
@@ -223,10 +227,20 @@ test("Central premium destinations stay within the mobile viewport", async ({ pa
         await expectNoHorizontalOverflow();
         await capture(page, testInfo, `${name.toLowerCase().replaceAll(" ", "-")}-mobile`);
         if (name === "Awakening Stone") {
+            const rerollButtons = dialog.locator(".aw-roll-row .aw-paid-btn");
+            await expect(rerollButtons).toHaveCount(2);
+            const rerollMetrics = await rerollButtons.evaluateAll((buttons) => buttons.map((button) => {
+                const rect = button.getBoundingClientRect();
+                return { width: rect.width, height: rect.height, left: rect.left, right: rect.right };
+            }));
+            const viewportWidth = page.viewportSize()?.width ?? 390;
+            expect(rerollMetrics.every((button) => button.width >= 250)).toBe(true);
+            expect(rerollMetrics.every((button) => button.height >= 60)).toBe(true);
+            expect(rerollMetrics.every((button) => button.left >= 0 && button.right <= viewportWidth)).toBe(true);
             const forge = dialog.getByRole("heading", { name: /Bloodline Forge/i });
             await forge.scrollIntoViewIfNeeded();
             await expect(forge).toBeVisible();
-            const sRankForge = dialog.locator(".awakening-forge-card.rank-s");
+            const sRankForge = dialog.locator(".aw-forge-card.rank-s");
             await sRankForge.scrollIntoViewIfNeeded();
             await expect(sRankForge).toBeVisible();
             await expectNoHorizontalOverflow();

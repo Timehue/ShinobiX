@@ -1,8 +1,8 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
+import { debitNamedForgeWallet, NAMED_FORGE_COST } from '../../shared/named-forge-economy.js';
 
-export const NAMED_FORGE_COST = 1000;
-const CURRENCY_POINTS = { boneCharms: 5, fateShards: 5, auraStones: 25, mythicSeals: 75 } as const;
+export { NAMED_FORGE_COST } from '../../shared/named-forge-economy.js';
 const WEAPON_TAGS = ['Siphon', 'Absorb', 'Poison', 'Wound', 'Reflect', 'Shield', 'Drain', 'Ignition', 'Heal', 'Increase Damage Given', 'Increase Generals', 'Decrease Damage Taken'];
 const ARMOR_SPECIALS = [
     { kind: 'Absorb', bonusKey: 'absorbPercent', min: 0.08, max: 2, decimals: 2 },
@@ -12,6 +12,35 @@ const ARMOR_SPECIALS = [
     { kind: 'Increase Damage', bonusKey: 'damagePercent', min: 0.75, max: 1.5, decimals: 2 },
 ] as const;
 const SLOTS = ['head', 'body', 'waist', 'legs', 'feet', 'hand'] as const;
+
+/**
+ * Receipts stay string-only for save-schema compatibility, but new entries also
+ * carry the minted definition id. That gives a lost-response retry enough data
+ * to return the exact item without re-rolling or charging the player again.
+ */
+export function makeNamedForgeReceipt(token: string, itemId: string): string {
+    return `${token}:${itemId}`;
+}
+
+export function resolveNamedForgeReplay(
+    receiptsRaw: unknown,
+    token: string,
+    creatorItemsRaw: unknown,
+): { matched: boolean; item: Record<string, unknown> | null } {
+    const receipts = Array.isArray(receiptsRaw) ? receiptsRaw.filter((value): value is string => typeof value === 'string') : [];
+    const receipt = receipts.find((value) => value === token || value.startsWith(`${token}:`));
+    if (!receipt) return { matched: false, item: null };
+
+    // Legacy receipts contain only the token. They remain recognized as spent,
+    // while every receipt minted from this version onward is fully recoverable.
+    const itemId = receipt.slice(token.length + 1);
+    if (!itemId) return { matched: true, item: null };
+    const creatorItems = Array.isArray(creatorItemsRaw) ? creatorItemsRaw : [];
+    const item = creatorItems.find((value): value is Record<string, unknown> =>
+        !!value && typeof value === 'object' && !Array.isArray(value) && (value as Record<string, unknown>).id === itemId,
+    );
+    return { matched: true, item: item ?? null };
+}
 
 export type NamedRoll =
     | { kind: 'weapon'; ep: number; range: 3 | 4 | 5; offenseVal: number; tags: Array<{ name: string; percent: number }> }
@@ -31,15 +60,7 @@ export function rollNamedForge(kind: 'weapon' | 'armor', slotRaw?: unknown): Nam
 }
 
 export function debitNamedForge(character: Record<string, unknown>): Record<string, unknown> | null {
-    const total = Object.entries(CURRENCY_POINTS).reduce((sum, [key, points]) => sum + Math.max(0, Math.floor(Number(character[key]) || 0)) * points, 0);
-    if (total < NAMED_FORGE_COST) return null;
-    const next = { ...character }; let remaining = NAMED_FORGE_COST;
-    for (const [key, points] of Object.entries(CURRENCY_POINTS)) {
-        const held = Math.max(0, Math.floor(Number(next[key]) || 0));
-        const used = Math.min(held, Math.ceil(remaining / points));
-        next[key] = held - used; remaining -= used * points;
-    }
-    return next;
+    return debitNamedForgeWallet(character);
 }
 
 export function buildNamedItem(roll: NamedRoll, nameRaw: string, flavorRaw: string) {
@@ -47,7 +68,7 @@ export function buildNamedItem(roll: NamedRoll, nameRaw: string, flavorRaw: stri
     if (roll.kind === 'weapon') {
         const name = nameRaw || 'Named Weapon';
         const tagDesc = roll.tags.map((tag) => `${tag.name} ${tag.percent}%`).join(', ');
-        return { id, name, slot: 'hand', rarity: 'legendary', cost: 0, description: flavorRaw || `A master-forged weapon. Tags: ${tagDesc}.`, weaponEp: roll.ep, apCost: 40, weaponRange: roll.range, weaponCooldown: 5, weaponTags: roll.tags, flavorText: flavorRaw || undefined, bonuses: { ninjutsuOffense: roll.offenseVal, taijutsuOffense: roll.offenseVal, bukijutsuOffense: roll.offenseVal, genjutsuOffense: roll.offenseVal } };
+        return { id, name, slot: 'hand', rarity: 'legendary', cost: 0, levelReq: NAMED_ITEM_LEVEL_REQ, description: flavorRaw || `A master-forged weapon. Tags: ${tagDesc}.`, weaponEp: roll.ep, apCost: 40, weaponRange: roll.range, weaponCooldown: 5, weaponTags: roll.tags, flavorText: flavorRaw || undefined, bonuses: { ninjutsuOffense: roll.offenseVal, taijutsuOffense: roll.offenseVal, bukijutsuOffense: roll.offenseVal, genjutsuOffense: roll.offenseVal } };
     }
     const slotLabel = roll.slot === 'hand' ? 'Gloves' : roll.slot[0].toUpperCase() + roll.slot.slice(1);
     let name = nameRaw || `Named ${slotLabel}`; if (roll.slot === 'hand' && !/glove|gauntlet/i.test(name)) name += ' Gauntlets';

@@ -216,8 +216,7 @@
     }
 
     /* ── back / nav buttons ──────────────────────────────────────────── */
-    .back-btn,
-    .back-to-hub-btn {
+    .back-btn {
         padding: 7px 12px !important;
         font-size: 0.8rem !important;
         min-height: 34px !important;

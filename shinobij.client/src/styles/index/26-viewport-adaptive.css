@@ -20,10 +20,6 @@ html[data-vp="xl"] .right-menu-buttons button {
     font-size: 0.8rem !important;
 }
 
-html[data-vp="xl"] .journey-live-stats .stat-box strong {
-    font-size: clamp(12px, 1vw, 16px) !important;
-}
-
 /* Left profile card: prevent bottom cutoff on 1080p. Top padding seats the
    avatar/content INSIDE the darker inset panel (::before starts at 56px) —
    the old 50px let the avatar poke ~6px above the rectangle on xl screens. */
@@ -218,30 +214,9 @@ html[data-vp="lg"] .arena-fullscreen .hex-battlefield {
 }
 
 /* ── Battle spectator & chat side panels ── */
-.battle-side-left,
-.battle-side-right {
-    display: none;
-}
 
-html[data-vp="xl"] .battle-side-left,
-html[data-vp="lg"] .battle-side-left {
-    display: flex;
-    flex-direction: column;
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 140px;
-    height: 100%;
-    z-index: 10;
-    background: rgba(15, 23, 42, 0.85);
-    border: 1px solid rgba(148, 163, 184, 0.2);
-    border-left: none;
-    border-radius: 0 8px 8px 0;
-    box-sizing: border-box;
-    font-size: 0.78rem;
-    color: var(--slate-300);
-    backdrop-filter: blur(6px);
-}
+
+
 
 .battle-side-header {
     display: flex;
@@ -255,18 +230,9 @@ html[data-vp="lg"] .battle-side-left {
     border-bottom: 1px solid rgba(148, 163, 184, 0.15);
 }
 
-.battle-side-scroll {
-    flex: 1;
-    overflow-y: auto;
-    padding: 6px 8px;
-}
 
-.battle-spectator-name {
-    padding: 3px 0;
-    font-size: 0.76rem;
-    color: var(--text-dim);
-    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
-}
+
+
 
 /* ── Battle chat column ── */
 /* Non-xl: floating panel in top-right corner */
@@ -662,10 +628,6 @@ html[data-vp="xxl"] .right-menu-buttons button {
     font-size: 0.85rem !important;
 }
 
-html[data-vp="xxl"] .journey-live-stats .stat-box strong {
-    font-size: clamp(15px, 1.2vw, 20px) !important;
-}
-
 html[data-vp="xxl"] .location-grid {
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
     gap: 6px !important;
@@ -851,14 +813,6 @@ html[data-vp="md"] .right-menu-buttons button {
 html[data-vp="md"] .left-profile-avatar {
     width: clamp(110px, 13vw, 140px) !important;
     height: clamp(110px, 13vw, 140px) !important;
-}
-
-html[data-vp="md"] .journey-live-stats .stat-box {
-    padding: 4px 6px !important;
-}
-
-html[data-vp="md"] .journey-live-stats .stat-box strong {
-    font-size: clamp(11px, 0.95vw, 14px) !important;
 }
 
 /* ── sm: mobile / portrait tablet (560–979px) ─────────────────────────────

@@ -80,26 +80,26 @@ export function rollFateDice(rand: () => number = Math.random): FateDiceRoll {
         reward.boneCharms = 10;
         reward.fateShards = 3;
         reward.auraStones = 5;
-        message = 'LEGENDARY FATE! The Eye of the Dunes opens and rare currencies pour from the heavens.';
+        message = 'Three eyes. Kael stops smiling and counts the sealed prize tokens twice.';
     } else if (same) {
         reward.boneCharms = randInt(rand, 2, 6);
-        message = `Triple ${roll[0]}! The dice bless you with rare spoils.`;
+        message = `Three ${roll[0]} faces. Kael slides a lacquered prize box across the table.`;
     } else if (roll.includes('scorpion')) {
         reward.ryo = 50;
-        message = 'The scorpion strikes. A harsh lesson leaves you with scraps.';
+        message = 'The scorpion face shows its tail. Kael returns fifty ryo and keeps the lesson short.';
     } else if (roll.includes('coin')) {
         reward.ryo = 400;
-        message = 'Coins flash beneath the desert sun. Fortune smiles on you.';
+        message = 'A coin lands upright between the other dice. Two attendants groan while Kael pays you.';
     } else if (roll.includes('blade')) {
         reward.stamina = 60;
-        message = 'Blade omen. Your body surges with fighting spirit.';
+        message = 'No coin payout. Kael pushes over a red field tonic and tells you to spend the energy somewhere useful.';
     } else if (roll.includes('moon')) {
         reward.ryo = 300;
         reward.boneCharms = 1;
-        message = 'Moon omen. A strange luck follows you through the night.';
+        message = 'The moon face earns a bone charm from the dealer\'s locked drawer and a modest stack of ryo.';
     } else {
         reward.ryo = 200;
-        message = 'Small fortune. The sands give a little back.';
+        message = 'No set. Kael pushes part of the stake back and gathers the dice for the next turn.';
     }
 
     return { roll, reward, message };

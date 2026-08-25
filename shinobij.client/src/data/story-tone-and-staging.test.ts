@@ -13,6 +13,20 @@ import { hollowGateFloorProfile } from "../lib/hollow-gate-presentation";
 import { EMISSARY_DEFS } from "../lib/legacy-emissaries";
 import { RUMOR_CATEGORIES, TAVERN_GOSSIP, rumorArc } from "../lib/legacy-rumors";
 import { rollWanderers } from "../lib/wanderers";
+import { buildSageVnEvent } from "../lib/legacy-sage-vn";
+import { QUEST_BOOK } from "../lib/questbook";
+import { scribeIntroEvent } from "../lib/chronicle-scribe";
+import { hollowGateFlavorPool, hollowGateIntroPages } from "./hollow-gate-flavor";
+import { builtinFetchMissions, builtinHuntMissions } from "./missions";
+import { clanLore } from "./clan-lore";
+import { GUIDES } from "./guides";
+import {
+    PRE_GIFT_LINES,
+    VILLAGE_LORE_LINES,
+    COMPANION_VILLAGE_FLAVOR,
+    buildCompanionIntroLines,
+    buildPostGiftLines,
+} from "../features/intro-cinematic/introCinematicScript";
 import { ERA_DEFS } from "../../../api/_era-defs";
 import { HOLLOW_GATE_DEPTH } from "../../../shared/hollow-gate-contract";
 import { SECTOR_PLACES } from "../../../shared/sector-geo";
@@ -44,6 +58,7 @@ const pages: PageLike[] = [
         ...craftDungeonEvents,
         defaultAncientChestVn,
         defaultPetEncounterVn,
+        scribeIntroEvent("central"),
     ].flatMap((event) => event.vnPages ?? []),
 ];
 
@@ -56,6 +71,70 @@ function visiblePageText(page: PageLike): string[] {
         ...(page.choices?.flatMap((choice) => [choice.text ?? "", choice.conclusion ?? ""]) ?? []),
     ];
 }
+
+function guideText(): string[] {
+    return GUIDES.flatMap((guide) => [
+        guide.title,
+        guide.tagline,
+        guide.blurb,
+        ...guide.sections.flatMap((section) => [
+            section.heading,
+            ...section.blocks.flatMap((block) => block.type === "list"
+                ? block.items
+                : block.type === "table"
+                    ? [...block.head, ...block.rows.flat()]
+                    : block.type === "callout"
+                        ? [block.label, block.text]
+                        : [block.text]),
+        ]),
+    ]);
+}
+
+const villageNames = Object.keys(VILLAGE_LORE_LINES);
+const introCopy = [
+    ...PRE_GIFT_LINES.map((line) => line.text),
+    ...Object.values(VILLAGE_LORE_LINES).flat(),
+    ...Object.values(COMPANION_VILLAGE_FLAVOR),
+    ...villageNames.flatMap((village) => buildPostGiftLines(village).map((line) => line.text)),
+    ...villageNames.flatMap((village) => buildCompanionIntroLines(village, "Kumo").map((line) => line.text)),
+];
+
+const sageCopy = buildSageVnEvent({
+    status: "spawned",
+    offers: [{
+        legacyId: "witness-test",
+        name: "Witness Test",
+        rarity: "basic",
+        category: "pve",
+        flavor: "You returned for the person the mission order forgot.",
+        title: "The Returning Hand",
+        villageAffinity: "Frostfang Village",
+        signature: { name: "Open Road Form", shape: "single", effects: ["Guard"], unlockStage: 3 },
+    }],
+    sector: 1,
+    spawnedAt: 1,
+    expiresAt: 2,
+}, "Test Shinobi").vnPages?.flatMap((page) => page.dialogue) ?? [];
+
+const emissaryCopy = EMISSARY_DEFS.flatMap((def) => [
+    def.name,
+    def.greeting,
+    ...def.lore,
+    def.trialLine,
+    ...def.quests.map((quest) => quest.label),
+]);
+
+const rumorCopy = RUMOR_CATEGORIES.flatMap((category) => rumorArc(category)?.flat() ?? []);
+
+const questbookCopy = Object.values(QUEST_BOOK).flatMap((entry) => [
+    entry.title,
+    entry.giver,
+    ...entry.stages.flatMap((stage) => [
+        stage.text,
+        stage.choice?.prompt ?? "",
+        ...(stage.choice?.options.flatMap((option) => [option.label, option.blurb]) ?? []),
+    ]),
+]);
 
 test("story narration suppresses every generic Player portrait across the catalog", () => {
     let narratorPlayerSlots = 0;
@@ -98,18 +177,71 @@ test("story and event copy uses shinobi-world language instead of generic fantas
     assert.match(playerFacingCopy, /sealed record has always cut deeper than an open blade/i);
 });
 
+test("all live visual-novel copy follows the zero-dash punctuation rule", () => {
+    const adjacentNarrative = [
+        ...introCopy,
+        ...sageCopy,
+        ...emissaryCopy,
+        ...rumorCopy,
+        ...TAVERN_GOSSIP,
+        ...questbookCopy,
+        ...builtinHuntMissions.flatMap((mission) => [mission.name, mission.description]),
+        ...builtinFetchMissions.flatMap((mission) => [mission.name, mission.description]),
+        ...Object.values(clanLore).flatMap((entry) => [entry.name, entry.motto, entry.lore]),
+        ...Object.values(hollowGateFlavorPool).flat(),
+        ...hollowGateIntroPages.flatMap((page) => [page.title, ...page.lines]),
+        ...ERA_DEFS.flatMap((era) => [era.name, era.description, era.lore, ...era.chronicle, era.unlockTitle, era.unlockMessage]),
+    ];
+    const offenders = [
+        ...pages.flatMap((page) => visiblePageText(page)),
+        ...adjacentNarrative,
+    ].filter((text) => /[—–]/.test(text));
+    assert.deepEqual(offenders, [], `em/en dashes found in live VN copy:\n${offenders.join("\n")}`);
+});
+
+test("authored narrative avoids stock AI-mysticism and retired village labels", () => {
+    const adjacentCopy = [
+        ...introCopy,
+        ...sageCopy,
+        ...emissaryCopy,
+        ...rumorCopy,
+        ...TAVERN_GOSSIP,
+        ...questbookCopy,
+        ...builtinHuntMissions.flatMap((mission) => [mission.name, mission.description]),
+        ...builtinFetchMissions.flatMap((mission) => [mission.name, mission.description]),
+        ...Object.values(clanLore).flatMap((entry) => [entry.name, entry.motto, entry.lore]),
+        ...Object.values(hollowGateFlavorPool).flat(),
+        ...hollowGateIntroPages.flatMap((page) => [page.title, ...page.lines]),
+        ...ERA_DEFS.flatMap((era) => [era.name, era.description, era.lore, ...era.chronicle, era.unlockTitle, era.unlockMessage]),
+    ].join("\n");
+    const guideCopy = guideText().join("\n");
+    const allNarrative = `${pages.flatMap(visiblePageText).join("\n")}\n${adjacentCopy}`;
+
+    assert.doesNotMatch(allNarrative, /\b(?:something stirs|strange energy|ancient energy|true potential|last sanctuary|fate-bound|fortune favors|carved something into your spirit|a new path opens before you|the world is holding its breath|only the strongest hunters survive|the swords are listening|the lantern sees it|the clouds told me you were coming|the clapper is cursed|promoted form|glass-cannon firebrand|base reward)\b|\([+−-]standing\)/i);
+    assert.doesNotMatch(`${adjacentCopy}\n${guideCopy}`, /\bThe (?:Chaotic|Traditional|Loyal|Selfish) Path\b|lawless proving ground|masters of stealth and deception who trust no one/i);
+    assert.doesNotMatch(adjacentCopy, /\b(?:whole servers?|world queues?|card game)\b/i);
+});
+
+test("rift givers speak as people instead of narrating themselves", () => {
+    const offenders: string[] = [];
+    for (const rift of hollowRifts) {
+        for (const page of rift.intro) {
+            const firstName = page.speaker.split(/\s+/)[0];
+            for (const line of page.dialogue) {
+                if (new RegExp(`^(?:${firstName}|${page.speaker})\\s+(?:is|keeps|stands|sits|has|looks|turns|walks)\\b`, "i").test(line)) {
+                    offenders.push(`${rift.slug}: ${line}`);
+                }
+                assert.ok(line.trim().split(/\s+/).length <= 45, `${rift.slug}: lore-wall speech (${line.trim().split(/\s+/).length} words): ${line}`);
+            }
+        }
+    }
+    assert.deepEqual(offenders, [], `rift givers narrate themselves in third person:\n${offenders.join("\n")}`);
+});
+
 test("adjacent world lore, wanderers, shrines, and era events expose no pilgrim terminology", () => {
     const floorCopy = Array.from({ length: HOLLOW_GATE_DEPTH }, (_, index) =>
         Object.values(hollowGateFloorProfile(index + 1)).filter((value): value is string => typeof value === "string")
     ).flat();
-    const emissaryCopy = EMISSARY_DEFS.flatMap((def) => [
-        def.name,
-        def.greeting,
-        ...def.lore,
-        def.trialLine,
-        ...def.quests.map((quest) => quest.label),
-    ]);
-    const rumorCopy = RUMOR_CATEGORIES.flatMap((category) => rumorArc(category)?.flat() ?? []);
     const wandererCopy = Array.from({ length: 66 }, (_, sectorIndex) =>
         Array.from({ length: 96 }, (_, bucket) => rollWanderers(sectorIndex + 1, bucket))
     ).flat(2).flatMap((wanderer) => [wanderer.name, wanderer.greeting]);
@@ -131,6 +263,13 @@ test("adjacent world lore, wanderers, shrines, and era events expose no pilgrim 
         ...TAVERN_GOSSIP,
         ...wandererCopy,
         ...eraCopy,
+        ...introCopy,
+        ...sageCopy,
+        ...Object.values(clanLore).flatMap((entry) => [entry.name, entry.motto, entry.lore]),
+        ...builtinHuntMissions.flatMap((mission) => [mission.name, mission.description]),
+        ...builtinFetchMissions.flatMap((mission) => [mission.name, mission.description]),
+        ...Object.values(hollowGateFlavorPool).flat(),
+        ...hollowGateIntroPages.flatMap((page) => [page.title, ...page.lines]),
     ].join("\n");
 
     assert.doesNotMatch(worldCopy, /\bpilgrims?\b/i);

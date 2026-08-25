@@ -4,11 +4,7 @@
 
 /* Instance-frame geometry is owned by layout/adaptive-stages.css. */
 
-.portrait-badge {
-    width: 62px !important;
-    height: 62px !important;
-    font-size: 20px !important;
-}
+
 
 .instance-actions button {
     min-height: 34px !important;
@@ -34,15 +30,7 @@
 }
 
 /* ── Sidebar ── */
-.portrait-badge {
-    width: 72px !important;
-    height: 72px !important;
-    border-radius: 12px !important;
-    border: 2px solid var(--gold) !important;
-    background: radial-gradient(circle, #7dd3fc, #2563eb 58%, #020617) !important;
-    box-shadow: 0 0 18px rgba(59,130,246,0.65) !important;
-    font-size: 24px !important;
-}
+
 
 /* ── Actions panel ── */
 .instance-actions {
@@ -136,9 +124,7 @@ body {
 }
 
 /* Fix stats back to the right */
-.journey-banner {
-    background-position: center -115px !important;
-}
+
 
 .journey-live-stats {
     position: absolute !important;

@@ -64,20 +64,6 @@ html body.ui-scroll-locked {
   text-wrap: balance;
 }
 
-.app-shell:not(.screen-start) :where(
-  .stat-box,
-  .left-profile-stat,
-  .resource-line,
-  .profile-dossier-row,
-  .stat-current,
-  .stat-max,
-  .stack-count,
-  .equip-slot-count,
-  time
-) {
-  font-variant-numeric: tabular-nums;
-}
-
 .app-shell:not(.screen-start) :where(button, a, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--sj-spirit-bright);
   outline-offset: 3px;
@@ -241,29 +227,6 @@ html body.ui-scroll-locked {
    (.pvp-battle-layout — now both PvP and PvE) hide the portaled rail HUD and
    use in-grid fighter dossiers, so they keep the true full-width layout. */
 /* The journey banner becomes a persistent, contextual command header. */
-.app-shell:not(.screen-start) .journey-banner {
-  position: relative;
-  display: flex;
-  align-items: stretch;
-  min-height: 110px;
-  overflow: hidden;
-  border: 1px solid var(--sj-border-soft);
-  border-radius: var(--r-sm);
-  background-color: var(--sj-surface-low);
-  background-blend-mode: luminosity;
-  box-shadow: inset 0 1px var(--sj-border-faint), 0 10px 28px rgba(0, 0, 0, 0.2);
-  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
-}
-
-.app-shell:not(.screen-start) .journey-banner::before {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  content: "";
-  background:
-    linear-gradient(90deg, rgba(8, 11, 15, 0.98) 0%, rgba(13, 18, 24, 0.88) 38%, rgba(13, 18, 24, 0.54) 72%, rgba(8, 11, 15, 0.82) 100%),
-    linear-gradient(180deg, transparent, rgba(8, 11, 15, 0.56));
-}
 
 .app-shell.screen-village .stormveil-village-screen {
   margin-top: 0 !important;
@@ -271,24 +234,6 @@ html body.ui-scroll-locked {
 
 .app-shell:not(.screen-start) .journey-live-stats {
   z-index: 2;
-}
-
-.app-shell:not(.screen-start) .journey-live-stats .stat-box {
-  min-width: 72px;
-  border-color: var(--sj-border-soft);
-  border-radius: var(--r-xs);
-  background: rgba(8, 11, 15, 0.68);
-  box-shadow: inset 0 1px var(--sj-border-faint);
-}
-
-.app-shell:not(.screen-start) .journey-live-stats .stat-box span {
-  color: var(--sj-text-muted);
-  font-size: var(--fs-2xs);
-  letter-spacing: 0.12em;
-}
-
-.app-shell:not(.screen-start) .journey-live-stats .stat-box strong {
-  color: var(--sj-text-primary);
 }
 
 /* ----------------------------------------------------------- shared materials */
@@ -512,7 +457,6 @@ html body.ui-scroll-locked {
 /* -------------------------------------------------------- modal / toast depth */
 
 .ui-modal-backdrop,
-.item-popup-backdrop,
 .achievement-detail-overlay {
   background: rgba(8, 11, 15, 0.84);
   backdrop-filter: blur(4px);
@@ -1282,11 +1226,6 @@ html body.ui-scroll-locked {
 /* Tavern intentionally stays pinned above the mobile navigation so its
    transcript remains the sole scroller. Its own header supplies the route
    context, so the fixed surface starts at the viewport edge. */
-.app-shell.screen-tavern .tavern-header h2 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 
 @media (max-width: 800px) {
   .app-shell:not(.screen-start) .mthd-back {

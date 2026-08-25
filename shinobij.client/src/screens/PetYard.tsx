@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/purity */
-import { PetDoctrineEditor } from "../components/PetDoctrineEditor";
+import { PetBattleReadiness } from "../components/PetBattleReadiness";
 import { useState, useEffect, useRef } from "react";
 import { serverNow } from "../lib/server-clock";
 import { activeCarriedPetIds, activeCarriedPets, maxPets } from "../lib/entitlements";
@@ -71,7 +71,8 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     const [escortBusy, setEscortBusy] = useState(false);
     const selectedPet = character.pets.find((p) => p.id === selectedPetId) ?? character.pets[0] ?? null;
     const selectedPetIsOverflow = Boolean(selectedPet && !combatEligiblePetIds.has(selectedPet.id));
-    const selectedPetBreedingLocked = Boolean(selectedPet && activeClientBreedingParentIds(character).has(selectedPet.id));
+    const breedingPetIds = activeClientBreedingParentIds(character);
+    const selectedPetBreedingLocked = Boolean(selectedPet && breedingPetIds.has(selectedPet.id));
     const releaseBlocker = selectedPetBreedingLocked
         ? "This companion is committed to the Breeding Barn until its timer completes."
         : selectedPet?.training
@@ -1199,22 +1200,15 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 )}
                             </section>
 
-                            {/* Standing orders — what this pet does while holding a
-                                sector or if the connection drops mid-duel. */}
-                            <section className="pet-doctrine-panel">
-                                <PetDoctrineEditor
-                                    pet={selectedPet}
-                                    onChange={(doctrine) => {
-                                        // Local + persisted through the normal save path. Purely a
-                                        // plan: it grants no stats, so there is nothing for the
-                                        // server to validate beyond the shape parseDoctrine enforces.
-                                        updateCharacter((prev) => prev ? ({
-                                            ...prev,
-                                            pets: prev.pets.map((p) => p.id === selectedPet.id ? { ...p, doctrine } : p),
-                                        }) : prev);
-                                    }}
-                                />
-                            </section>
+                            <PetBattleReadiness
+                                pet={selectedPet}
+                                combatEligiblePets={combatEligiblePets}
+                                dailyPetWins={character.dailyPetWins ?? 0}
+                                totalPetWins={character.totalPetWins ?? 0}
+                                breedingPetIds={breedingPetIds}
+                                isOverflow={selectedPetIsOverflow}
+                                setScreen={setScreen}
+                            />
 
                             <section className="pet-jutsu-panel">
                                 <h4>Pet Jutsus</h4>

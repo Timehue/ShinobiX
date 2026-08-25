@@ -20,7 +20,7 @@ import { DAILY_CRAFT_POINT_DONATION_CAP, DAILY_RATION_DONATION_CAP, DEPOT_CONVER
 import { MAX_WILD_SECTOR } from "../../../shared/sector-geo";
 import { STRUCTURE_IMAGES } from "../data/war-ui-images";
 import { LeaderPortrait } from "../components/Marks";
-import { BackToVillageButton } from "../components/BackToVillageButton";
+import { FacilityHero } from "../components/FacilityHero";
 import { gameConfirm } from "../components/GameAlert";
 import { gameToast } from "../components/GameToast";
 import { useCapabilityViewAvailability } from "../lib/live-capabilities-context";
@@ -50,7 +50,6 @@ import { postPlayerChallengeNotice, postVillageTreasuryDonation } from "../lib/p
 import { MERCENARY_TIERS, hiredTiersForWar } from "../lib/mercenaries";
 import { mercPortrait } from "../lib/merc-ai";
 import { activeVillageWarsFor, endedVillageWarRecordsFor, hollowGateDaysLeft, HOLLOW_GATE_UNLOCK_DAYS, isHollowGateUnlocked, isVillageAnbu, loadVillageState, normalizeVillageState, saveVillageState, villageOwnedTerritories, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX, type VillageAgendaTask, type VillageState, type VillageTreasury, type VillageTreasuryCurrencyKey } from "../lib/world-state";
-import townHallHero from "../assets/town-hall/town-hall-command-center.webp";
 
 const TOWN_TABS = [["status", "Command"], ["upgrades", "Upgrades"], ["treasury", "Treasury"], ["guard", "Guard"], ["notices", "Orders"], ["mercenaries", "Mercenaries"], ["politics", "Council"]] as const;
 
@@ -894,12 +893,19 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         }) : prev);
         alert(`The ${tier.name} joins the fight — ${(data.dealt ?? tier.warDamage).toLocaleString()} war damage struck against ${data.enemy ?? activeWarEnemyVillage}.`);
     }
-    return <div className="card town-hall-screen">
-        <BackToVillageButton onClick={onBack} label="← Back" />
-        <header className="town-hall-hero" style={{ "--town-art": `url(${townHallHero})` } as React.CSSProperties}>
-            <div className="town-hall-hero-copy"><p className="act-label">{character.village} · Village Command</p><h2>Town Hall</h2><p>Lead the village. Claim today’s rewards, defend its borders, and shape its next upgrade.</p></div>
-            <div className="town-hall-ledger"><span><small>Village Level</small><strong>{villageLevel}</strong></span><span><small>Seated Kage</small><strong>{displayedKage}</strong></span><span><small>Honor Seals</small><strong>{(character.honorSeals ?? 0).toLocaleString()}</strong></span></div>
-        </header>
+    return <div className="card town-hall-screen civic-facility-screen">
+        <FacilityHero
+            facility="town-hall"
+            eyebrow={`${character.village} · Village Command`}
+            title="Town Hall"
+            description="Lead the village. Claim today’s rewards, defend its borders, and shape its next upgrade."
+            onBack={onBack}
+            metrics={[
+                { label: "Village level", value: villageLevel },
+                { label: "Seated Kage", value: displayedKage },
+                { label: "Honor seals", value: (character.honorSeals ?? 0).toLocaleString(), tone: "good" },
+            ]}
+        />
         <nav className="town-tabs" aria-label="Town Hall sections">{TOWN_TABS.map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}</nav>
         {tab === "status" && <div className="town-command">
             {supplyCall && <section className="summary-box town-supply-call" data-tone={supplyCall.tone} role="status"><div className="town-supply-call-copy"><p className="act-label">Village supply</p><h3>{supplyCall.headline}</h3><p>{supplyCall.body}</p></div><button type="button" className="town-supply-call-action" onClick={() => setScreen(supplyCall.screen)}>{supplyCall.actionLabel}</button></section>}
