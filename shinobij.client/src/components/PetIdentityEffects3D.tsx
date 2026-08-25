@@ -4,6 +4,7 @@ import * as THREE from "three";
 import type { PetCombatModelConfig } from "../lib/pet-3d-models";
 import type { PetVisualQualityConfig } from "../lib/pet-visual-quality";
 import type { PetModelFrame } from "./PetModel3D";
+import type { PetSignatureMotif, PetSignaturePerformance } from "../lib/pet-signature-performance";
 
 function makeRibbonGeometry(points: readonly THREE.Vector3[], width: number): THREE.BufferGeometry {
     const positions: number[] = [];
@@ -608,11 +609,150 @@ function AvianDiveAccent({ config, frame, quality, elementColor }: {
     );
 }
 
-export function PetIdentityEffects3D({ config, frame, quality, elementColor = "#b9f6ff" }: {
+function SignatureMotifGeometry({ motif }: { motif: PetSignatureMotif }) {
+    if (motif === "fang") return <coneGeometry args={[0.58, 2.25, 3]} />;
+    if (motif === "feather") return <coneGeometry args={[0.5, 2.7, 5]} />;
+    if (motif === "crest") return <octahedronGeometry args={[0.82, 0]} />;
+    if (motif === "shard") return <tetrahedronGeometry args={[0.9, 0]} />;
+    if (motif === "wave") return <torusGeometry args={[0.62, 0.14, 5, 16, Math.PI * 1.48]} />;
+    if (motif === "spark") return <tetrahedronGeometry args={[0.78, 0]} />;
+    if (motif === "rune") return <torusKnotGeometry args={[0.5, 0.11, 24, 5, 2, 3]} />;
+    return <torusGeometry args={[0.62, 0.15, 5, 16, Math.PI * 1.58]} />;
+}
+
+/**
+ * One restrained, species-specific signature system for every pet in the
+ * production roster. It stays nearly dormant during neutral play, then resolves
+ * into a unique arrangement during entrances, commitments and celebrations.
+ * Geometry, handedness, cadence, count, radius and colour all come from the
+ * stable identity sheet, so this is readable personality rather than random FX.
+ */
+function PetSignatureAura3D({ config, frame, quality, signature }: {
+    config: PetCombatModelConfig;
+    frame: MutableRefObject<PetModelFrame>;
+    quality: PetVisualQualityConfig;
+    signature: PetSignaturePerformance;
+}) {
+    const h = config.targetHeight;
+    const root = useRef<THREE.Group>(null);
+    const orbitRoot = useRef<THREE.Group>(null);
+    const groundRoot = useRef<THREE.Group>(null);
+    const orbitRefs = useRef<Array<THREE.Mesh | null>>([]);
+    const orbitMats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
+    const groundMats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
+    const count = quality.id === "low" ? Math.min(2, signature.orbitCount)
+        : quality.id === "medium" ? Math.min(3, signature.orbitCount)
+            : signature.orbitCount;
+
+    useFrame((state, delta) => {
+        const f = frame.current;
+        const dead = f.motion === "dead";
+        const entrance = f.entranceProgress !== undefined && f.entranceProgress < 1
+            ? Math.sin(Math.PI * f.entranceProgress)
+            : 0;
+        const commitment = f.casting || f.motion === "windup" ? 0.72
+            : f.motion === "dash" ? 0.58
+                : f.motion === "strike" ? 1
+                    : f.motion === "guard" ? 0.42
+                        : f.victorious ? 0.86
+                            : f.motion === "stagger" ? 0.24
+                                : 0.08;
+        const energy = dead ? 0 : Math.max(entrance * 0.82, commitment) * signature.aura;
+        const timeline = Number.isFinite(f.timeline) ? Number(f.timeline) : state.clock.elapsedTime;
+        if (root.current) {
+            root.current.visible = energy > 0.012;
+            const target = 0.82 + energy * 0.22;
+            const scale = THREE.MathUtils.lerp(root.current.scale.x, target, Math.min(1, delta * 9));
+            root.current.scale.setScalar(scale);
+            root.current.position.z = THREE.MathUtils.lerp(root.current.position.z, f.motion === "dash" ? -h * 0.16 : 0, Math.min(1, delta * 10));
+        }
+        if (orbitRoot.current) {
+            orbitRoot.current.rotation.y = signature.phase + timeline * signature.orbitSpeed * (f.motion === "strike" ? 2.2 : 1);
+            orbitRoot.current.rotation.z = Math.sin(timeline * signature.idleRate + signature.phase) * 0.045 * signature.asymmetry;
+            orbitRoot.current.position.y = Math.sin(timeline * 1.7 + signature.phase) * h * 0.015;
+        }
+        orbitRefs.current.forEach((mesh, index) => {
+            if (!mesh) return;
+            mesh.rotation.x = timeline * (0.52 + index * 0.11) * signature.asymmetry;
+            mesh.rotation.z = signature.phase + timeline * (0.34 + index * 0.09);
+            const surge = 1 + energy * 0.2 + Math.sin(timeline * 3.1 + index * 1.7) * 0.05;
+            mesh.scale.setScalar(h * (0.035 + index * 0.0035) * surge);
+        });
+        orbitMats.current.forEach((material, index) => {
+            if (!material) return;
+            material.opacity = Math.max(0, (0.025 + energy * (0.2 - index * 0.012)) * (quality.id === "low" ? 0.72 : 1));
+        });
+        if (groundRoot.current) {
+            const pulse = f.motion === "strike" ? 0.18 : 0;
+            groundRoot.current.rotation.z = signature.phase + timeline * signature.orbitSpeed * 0.35;
+            const scale = 0.82 + energy * 0.42 + pulse * 0.18;
+            groundRoot.current.scale.set(scale, scale, scale);
+            groundRoot.current.visible = energy > 0.25;
+        }
+        groundMats.current.forEach((material, index) => {
+            if (material) material.opacity = Math.max(0, energy - 0.18) * (index === 0 ? 0.24 : 0.14);
+        });
+    });
+
+    return (
+        <group ref={root} position={[0, h * 0.48, 0]} visible={false}>
+            <group ref={orbitRoot}>
+                {Array.from({ length: count }, (_, index) => {
+                    const angle = signature.phase + index / Math.max(1, count) * Math.PI * 2;
+                    const radius = h * 0.3 * signature.orbitRadius;
+                    return (
+                        <mesh
+                            key={`pet-signature-${signature.key}-${index}`}
+                            ref={(mesh) => { orbitRefs.current[index] = mesh; }}
+                            position={[
+                                Math.cos(angle) * radius,
+                                (index % 2 ? 0.16 : -0.1) * h + Math.sin(angle * 2) * h * 0.035,
+                                Math.sin(angle) * radius,
+                            ]}
+                            rotation={[angle * 0.35, angle, angle * signature.asymmetry]}
+                        >
+                            <SignatureMotifGeometry motif={signature.motif} />
+                            <meshBasicMaterial
+                                ref={(material) => { orbitMats.current[index] = material; }}
+                                color={index % 2 ? signature.highlight : signature.accent}
+                                transparent
+                                opacity={0}
+                                depthWrite={false}
+                                toneMapped={false}
+                                blending={THREE.AdditiveBlending}
+                                side={THREE.DoubleSide}
+                            />
+                        </mesh>
+                    );
+                })}
+            </group>
+            <group ref={groundRoot} position={[0, -h * 0.46, 0]} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
+                {[0, 1].slice(0, quality.translucentLayers + 1).map((index) => (
+                    <mesh key={`pet-signature-ring-${index}`} scale={1 + index * 0.36} rotation={[0, 0, index * 0.54 * signature.asymmetry]}>
+                        <ringGeometry args={[h * 0.27, h * (0.285 + index * 0.012), 24 + signature.impactRays * 2]} />
+                        <meshBasicMaterial
+                            ref={(material) => { groundMats.current[index] = material; }}
+                            color={index === 0 ? signature.highlight : signature.accent}
+                            transparent
+                            opacity={0}
+                            depthWrite={false}
+                            toneMapped={false}
+                            blending={THREE.AdditiveBlending}
+                            side={THREE.DoubleSide}
+                        />
+                    </mesh>
+                ))}
+            </group>
+        </group>
+    );
+}
+
+export function PetIdentityEffects3D({ config, frame, quality, elementColor = "#b9f6ff", signature }: {
     config: PetCombatModelConfig;
     frame: MutableRefObject<PetModelFrame>;
     quality: PetVisualQualityConfig;
     elementColor?: string;
+    signature?: PetSignaturePerformance;
 }) {
     const identityVisualId = config.identityVisualId ?? config.visualId;
     const identity = identityVisualId.startsWith("starter-fire")
@@ -629,6 +769,7 @@ export function PetIdentityEffects3D({ config, frame, quality, elementColor = "#
     return (
         <>
             {identity}
+            {signature && <PetSignatureAura3D config={config} frame={frame} quality={quality} signature={signature} />}
             {config.profile === "avian" && <AvianDiveAccent config={config} frame={frame} quality={quality} elementColor={elementColor} />}
         </>
     );

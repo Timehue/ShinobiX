@@ -186,6 +186,7 @@ export type LegacyStatusView = {
 export type AnnouncementView = {
     id: number; ts: number; type: string; importance: "low" | "medium" | "high" | "mythic";
     title: string; message: string; player?: string; village?: string; legacyId?: string;
+    meta?: Record<string, unknown>;
 };
 
 export type HallEntryView = {

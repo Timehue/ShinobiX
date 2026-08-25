@@ -2,6 +2,8 @@ import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { WORLD_GEO_VERSION } from '../../shared/sector-geo.js';
+import { WORLD_CRISIS_TRIGGER_LEVEL } from '../../shared/world-crisis.js';
+import { WORLD_CRISIS_80_TRIGGER_LEVEL } from '../../shared/world-crisis-80.js';
 import { petStatCeil } from '../_pet-stat-ceil.js';
 import { enforceBloodlineBudget, bloodlinePoints, type RawJutsu } from '../_jutsu-points.js';
 import { sanitizeJutsuVisualEffect } from '../_jutsu-visuals.js';
@@ -3111,6 +3113,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         await syncCurrencyLedger(name, payload as Record<string, unknown>, {
                             previousCharacter: (existingObj?.character ?? null) as Record<string, unknown> | null,
                         });
+                        const beforeCharacter = (existingObj?.character ?? null) as Record<string, unknown> | null;
+                        const afterCharacter = (payload as Record<string, unknown>).character as Record<string, unknown> | undefined;
+                        const beforeLevel = Math.max(0, Math.floor(Number(beforeCharacter?.level) || 0));
+                        const afterLevel = Math.max(0, Math.floor(Number(afterCharacter?.level) || 0));
+                        if (identityName && beforeCharacter && afterCharacter && beforeLevel < WORLD_CRISIS_TRIGGER_LEVEL && afterLevel >= WORLD_CRISIS_TRIGGER_LEVEL) {
+                            try {
+                                const { observeWorldCrisisLevelCrossing } = await import('../world-crisis/_state.js');
+                                await observeWorldCrisisLevelCrossing({ playerName: identityName, beforeLevel, afterLevel, character: afterCharacter });
+                            } catch (error) {
+                                console.error('[world-crisis] committed autosave crossing observer failed:', error);
+                            }
+                        }
+                        if (identityName && beforeCharacter && afterCharacter && beforeLevel < WORLD_CRISIS_80_TRIGGER_LEVEL && afterLevel >= WORLD_CRISIS_80_TRIGGER_LEVEL) {
+                            try {
+                                const { observeWorldCrisis80LevelCrossing } = await import('../world-crisis-80/_state.js');
+                                await observeWorldCrisis80LevelCrossing({ playerName: identityName, beforeLevel, afterLevel, character: afterCharacter });
+                            } catch (error) {
+                                console.error('[world-crisis-80] committed autosave crossing observer failed:', error);
+                            }
+                        }
                     }
                     return res.status(200).json(isClanSave ? { ok: true } : { ok: true, _saveVersion: nextVersion });
                     }, { failClosed: true });

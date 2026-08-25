@@ -14,33 +14,44 @@
  * per-village THEMES: a theme only recolors floor/fog/light, never the mask.
  */
 
-import { WF_BAKED_MASK, WF_BAKED_COLS, WF_BAKED_ROWS } from "./pet-warfront-mask-baked";
-
-// World half-extents (world units == sim units; ~2.1× the tactical arena field).
-export const WF_X = 44;
-export const WF_Y = 24;
-export const WF_COLS = 220;
-export const WF_ROWS = 120;
-export const WF_CELL_X = (WF_X * 2) / WF_COLS;   // 0.3
-export const WF_CELL_Y = (WF_Y * 2) / WF_ROWS;   // 0.3
+// A compact 64×36 field. The previous 88×48 image-extracted board spent too
+// much of every match on travel and turned pets/minions into unreadable dots.
+// Keep 0.4-unit square cells so simulation speed and body clearance stay easy
+// to reason about while the active fight occupies substantially more screen.
+export const WF_X = 32;
+export const WF_Y = 18;
+export const WF_COLS = 160;
+export const WF_ROWS = 90;
+export const WF_CELL_X = (WF_X * 2) / WF_COLS;   // 0.4
+export const WF_CELL_Y = (WF_Y * 2) / WF_ROWS;   // 0.4
 
 // ── Points of interest (blue = west, red = east; north = −y) ─────────────────
-export const WF_PLAZA = { blue: [-37, 0] as const, red: [37, 0] as const, r: 5.0 };
-export const WF_CORE = { blue: [-41.2, 0] as const, red: [41.2, 0] as const };          // the Ward Seal
+export const WF_PLAZA = { blue: [-27, 0] as const, red: [27, 0] as const, r: 4.8 };
+export const WF_CORE = { blue: [-30, 0] as const, red: [30, 0] as const };          // the Ward Seal
 export const WF_STATUES = {
-    blue: [[-33.2, -3.2], [-33.2, 3.2]] as const,   // [north, south] base-gate Guardian Totems
-    red: [[33.2, -3.2], [33.2, 3.2]] as const,
+    blue: [[-24.3, -3.2], [-24.3, 3.2]] as const,   // [north, south] base-gate Guardian Totems
+    red: [[24.3, -3.2], [24.3, 3.2]] as const,
 };
 /** Jungle camp pads, one per quadrant: [NW, SW, NE, SE] — each home to a named
  * hollow boss (WF_MINI_NAMES) like the reference map's four jungle bosses. */
-export const WF_PADS = [[-21.5, -9.5], [-21.5, 9.5], [21.5, -9.5], [21.5, 9.5]] as const;
+export const WF_PADS = [[-15.4, -7.4], [-15.4, 7.4], [15.4, -7.4], [15.4, 7.4]] as const;
 export const WF_MINI_NAMES = ["Ancient Golem", "Crystal Behemoth", "Void Stalker", "Rift Devourer"] as const;
 /** The central WARDEN ARENA: a walkable ring (disc r minus the carved centre
  * pit) that the MID LANE runs straight through, exactly like the reference. */
-export const WF_LAIR = { x: 0, y: 0, r: 7.0, pitR: 2.4 };
+export const WF_LAIR = { x: 0, y: 0, r: 5.8, pitR: 2.0 };
 export const WF_SPAWNS = {
-    blue: [[-39.2, -1.8], [-39.2, 1.8], [-36.6, -0.9], [-36.6, 0.9]] as const,
-    red: [[39.2, -1.8], [39.2, 1.8], [36.6, -0.9], [36.6, 0.9]] as const,
+    // Slot order matches the opening assignments [north, mid, south, mid].
+    // Giving every fighter its own y-channel prevents the old four-body knot
+    // at the two-statue base mouth.
+    blue: [[-28.4, -3.0], [-28.4, -1.0], [-28.4, 3.0], [-28.4, 1.0]] as const,
+    red: [[28.4, -3.0], [28.4, -1.0], [28.4, 3.0], [28.4, 1.0]] as const,
+};
+
+/** Opening fan-out targets. For the first few seconds each slot owns a short,
+ * mirrored deployment corridor before normal macro calls take over. */
+export const WF_DEPLOY_POINTS = {
+    blue: [[-21.8, -6.2], [-20.8, -1.0], [-21.8, 6.2], [-18.8, 1.0]] as const,
+    red: [[21.8, -6.2], [20.8, -1.0], [21.8, 6.2], [18.8, 1.0]] as const,
 };
 
 /** Outer-lane GUARDIAN posts — recolored MYTHIC sentinels stand here in place
@@ -48,15 +59,15 @@ export const WF_SPAWNS = {
  * hostile that steps into range and must fall before a lane siege reaches the
  * base gates comfortably. */
 export const WF_GUARD_POSTS = {
-    blue: [[-20, -17.5], [-20, 17.5]] as const,
-    red: [[20, -17.5], [20, 17.5]] as const,
+    blue: [[-14.7, -13.4], [-14.7, 13.4]] as const,
+    red: [[14.7, -13.4], [14.7, 13.4]] as const,
 };
 
 /** BUSH cover zones (jungle stealth pockets): a pet inside one is invisible to
  * enemies outside it beyond point-blank range — ambush texture, Unite-style. */
 export const WF_BUSHES: ReadonlyArray<readonly [number, number, number]> = [
-    [-16, -4.8, 2.0], [-16, 4.8, 2.0], [16, -4.8, 2.0], [16, 4.8, 2.0],
-    [-21.5, -13.8, 2.2], [-21.5, 13.8, 2.2], [21.5, -13.8, 2.2], [21.5, 13.8, 2.2],
+    [-11.5, -4.2, 1.8], [-11.5, 4.2, 1.8], [11.5, -4.2, 1.8], [11.5, 4.2, 1.8],
+    [-15.4, -10.8, 2.0], [-15.4, 10.8, 2.0], [15.4, -10.8, 2.0], [15.4, 10.8, 2.0],
 ];
 export function wfInBush(x: number, y: number): boolean {
     for (const [bx, by, br] of WF_BUSHES) {
@@ -71,28 +82,28 @@ export type WfLaneId = "n" | "m" | "s";
 // The three lanes, west→east (reference: top arcs high, mid is the straight
 // shot through the arena, bottom mirrors top).
 const LANE_N: ReadonlyArray<readonly [number, number]> = [
-    [-33.2, -3.4], [-28, -12], [-20, -17.5], [-10, -20.2], [0, -21], [10, -20.2], [20, -17.5], [28, -12], [33.2, -3.4],
+    [-24.3, -3.2], [-21, -8.5], [-14.7, -13.4], [-7.5, -15.2], [0, -15.6], [7.5, -15.2], [14.7, -13.4], [21, -8.5], [24.3, -3.2],
 ];
 const LANE_S: ReadonlyArray<readonly [number, number]> = LANE_N.map(([x, y]) => [x, -y] as const);
 // Mid detours around the carved arena pit along the ring's north edge.
 const LANE_M: ReadonlyArray<readonly [number, number]> = [
-    [-33.2, 0], [-24, 0], [-15, 0], [-8.6, 0], [-4.6, -3.6], [0, -4.8], [4.6, -3.6], [8.6, 0], [15, 0], [24, 0], [33.2, 0],
+    [-24.3, 0], [-18, 0], [-11, 0], [-6.8, 0], [-3.8, -3], [0, -4], [3.8, -3], [6.8, 0], [11, 0], [18, 0], [24.3, 0],
 ];
 export const WF_LANES: Record<WfLaneId, ReadonlyArray<readonly [number, number]>> = { n: LANE_N, m: LANE_M, s: LANE_S };
 
 // Jungle rotation paths (west half; east mirrors): mid ↔ camp ↔ top/bottom.
-const ROT_NW: ReadonlyArray<readonly [number, number]> = [[-16, 0], [-18, -4.5], [-21.5, -9.5], [-21.5, -14], [-20, -17.5]];
+const ROT_NW: ReadonlyArray<readonly [number, number]> = [[-11, 0], [-13, -3.7], [-15.4, -7.4], [-15.4, -10.7], [-14.7, -13.4]];
 const ROT_SW: ReadonlyArray<readonly [number, number]> = ROT_NW.map(([x, y]) => [x, -y] as const);
 
-const LANE_HALF_W = 1.7;       // lane path half-width (world units)
-const ROT_HALF_W = 1.25;       // jungle rotation paths
-const CONNECTOR_HALF_W = 1.3;  // arena → top/bottom vertical connectors
+const LANE_HALF_W = 2.3;       // broad enough for two full pet bodies to pass
+const ROT_HALF_W = 1.8;        // jungle rotations remain clearance-safe
+const CONNECTOR_HALF_W = 1.7;  // arena → top/bottom vertical connectors
 
 // The playable field: a superellipse "stadium". Inside it the ground is SOLID
 // (like Summoner's Rift) — jungle WALLS are carved out between lanes, and the
 // void exists only beyond the field's rim.
 export function wfInsideField(x: number, y: number): boolean {
-    return Math.pow(Math.abs(x) / 40.5, 2.6) + Math.pow(Math.abs(y) / 21.5, 2.6) <= 1;
+    return Math.pow(Math.abs(x) / 30.8, 2.8) + Math.pow(Math.abs(y) / 16.7, 2.8) <= 1;
 }
 
 
@@ -121,25 +132,45 @@ function buildMask(): string {
         }
     };
 
-    // 1) Start from the walkmask EXTRACTED from the reference painting — the
-    // paths, plazas and jungle gardens exactly as the concept art lays them out
-    // (scratchpad/extract_mask.py bakes pet-warfront-mask-baked.ts from the image).
+    const carveEllipse = (cx: number, cy: number, rx: number, ry: number) => {
+        const c0 = Math.max(0, Math.floor((cx - rx + WF_X) / WF_CELL_X)), c1 = Math.min(WF_COLS - 1, Math.ceil((cx + rx + WF_X) / WF_CELL_X));
+        const r0 = Math.max(0, Math.floor((cy - ry + WF_Y) / WF_CELL_Y)), r1 = Math.min(WF_ROWS - 1, Math.ceil((cy + ry + WF_Y) / WF_CELL_Y));
+        for (let rr = r0; rr <= r1; rr++) {
+            for (let cc = c0; cc <= c1; cc++) {
+                const x = (cc + 0.5) * WF_CELL_X - WF_X, y = (rr + 0.5) * WF_CELL_Y - WF_Y;
+                const dx = (x - cx) / rx, dy = (y - cy) / ry;
+                if (dx * dx + dy * dy <= 1) grid[rr * WF_COLS + cc] = 0;
+            }
+        }
+    };
+
+    // 1) Begin with one clean, solid stadium. The former mask was extracted
+    // from a painting; image speckle became gameplay walls and hundreds of
+    // noisy black cut-outs. Authored wall islands now create the jungle while
+    // leaving broad, legible fighting space between them.
     for (let rr = 0; rr < WF_ROWS; rr++) {
         for (let cc = 0; cc < WF_COLS; cc++) {
-            const bc = Math.min(WF_BAKED_COLS - 1, Math.floor((cc / WF_COLS) * WF_BAKED_COLS));
-            const br = Math.min(WF_BAKED_ROWS - 1, Math.floor((rr / WF_ROWS) * WF_BAKED_ROWS));
             const x = (cc + 0.5) * WF_CELL_X - WF_X, y = (rr + 0.5) * WF_CELL_Y - WF_Y;
-            if (wfInsideField(x, y) && WF_BAKED_MASK.charCodeAt(br * WF_BAKED_COLS + bc) === 49) grid[rr * WF_COLS + cc] = 1;
+            if (wfInsideField(x, y)) grid[rr * WF_COLS + cc] = 1;
         }
     }
-    // 2) (routes re-stamped below — image noise can never sever gameplay.)
+    // 2) Smooth, mirrored wall masses. Routes are stamped after carving, so a
+    // wall can frame a lane but can never nick or sever it.
+    for (const sx of [-1, 1] as const) for (const sy of [-1, 1] as const) {
+        carveEllipse(sx * 22, sy * 6.8, 2.8, 2.2);
+        carveEllipse(sx * 13.2, sy * 6.5, 3.9, 2.8);
+        carveEllipse(sx * 6.4, sy * 10.5, 3.2, 2.25);
+    }
+    carveEllipse(0, -11.7, 3.7, 2.0);
+    carveEllipse(0, 11.7, 3.7, 2.0);
+
     // 3) Re-stamp every route/POI walkable — roads cut through the jungle, so
     // connectivity is guaranteed no matter how the walls fall.
     stampCircle(WF_PLAZA.blue[0], WF_PLAZA.blue[1], WF_PLAZA.r);
     stampCircle(WF_PLAZA.red[0], WF_PLAZA.red[1], WF_PLAZA.r);
     stampCircle(WF_LAIR.x, WF_LAIR.y, WF_LAIR.r);
-    for (const [px, py] of WF_PADS) stampCircle(px, py, 2.6);
-    for (const team of ["blue", "red"] as const) for (const [gx, gy] of WF_GUARD_POSTS[team]) stampCircle(gx, gy, 1.8);
+    for (const [px, py] of WF_PADS) stampCircle(px, py, 2.8);
+    for (const team of ["blue", "red"] as const) for (const [gx, gy] of WF_GUARD_POSTS[team]) stampCircle(gx, gy, 2.3);
     for (const [bx, by, br] of WF_BUSHES) stampCircle(bx, by, br);
     stampPath(LANE_N, LANE_HALF_W);
     stampPath(LANE_S, LANE_HALF_W);
@@ -153,8 +184,15 @@ function buildMask(): string {
         stampPath(path.map(([x, y]) => [-x, y] as const), ROT_HALF_W);
     }
     // Arena ↔ top/bottom staircase connectors (the reference's N/S steps).
-    stampPath([[0, -WF_LAIR.r + 0.8], [0, -21]], CONNECTOR_HALF_W);
-    stampPath([[0, WF_LAIR.r - 0.8], [0, 21]], CONNECTOR_HALF_W);
+    stampPath([[0, -WF_LAIR.r + 0.8], [0, -15.6]], CONNECTOR_HALF_W);
+    stampPath([[0, WF_LAIR.r - 0.8], [0, 15.6]], CONNECTOR_HALF_W);
+    // Separate deployment corridors keep all four fighters moving from frame
+    // one instead of asking a single BFS lane to resolve a base-gate dogpile.
+    for (const team of ["blue", "red"] as const) {
+        for (let i = 0; i < WF_SPAWNS[team].length; i++) {
+            stampPath([WF_SPAWNS[team][i], WF_DEPLOY_POINTS[team][i]], 1.25);
+        }
+    }
     // Statue mouths — room to fight around each base gate.
     for (const team of ["blue", "red"] as const) for (const [sx, sy] of WF_STATUES[team]) stampCircle(sx, sy, 2.0);
     // Carve the arena's centre pit: the Warden hovers over the void and the
@@ -171,13 +209,19 @@ function buildMask(): string {
         }
     }
 
-    // Enforce exact x-mirror symmetry (OR) — mirrored polyline stamping drifts
-    // by float ulps at circle boundaries; team fairness must be bit-exact.
-    for (let rr = 0; rr < WF_ROWS; rr++) {
-        for (let cc = 0; cc < WF_COLS >> 1; cc++) {
-            const a = rr * WF_COLS + cc, b = rr * WF_COLS + (WF_COLS - 1 - cc);
-            const v = grid[a] | grid[b];
-            grid[a] = v; grid[b] = v;
+    // Enforce exact x/y mirror symmetry (OR). The old board was only x-fair;
+    // symmetric lanes make slot assignment and clearance regressions much
+    // easier to detect and prevent top/bottom route bias too.
+    for (let rr = 0; rr < Math.ceil(WF_ROWS / 2); rr++) {
+        for (let cc = 0; cc < Math.ceil(WF_COLS / 2); cc++) {
+            const mirrors = [
+                rr * WF_COLS + cc,
+                rr * WF_COLS + (WF_COLS - 1 - cc),
+                (WF_ROWS - 1 - rr) * WF_COLS + cc,
+                (WF_ROWS - 1 - rr) * WF_COLS + (WF_COLS - 1 - cc),
+            ];
+            const v = mirrors.reduce((value, index) => value | grid[index], 0);
+            for (const index of mirrors) grid[index] = v;
         }
     }
     // Keep only the component reachable from the blue spawn — extraction
@@ -208,6 +252,17 @@ export const WF_MASK: string = buildMask();
 
 export const wfCellWalkable = (c: number, r: number): boolean =>
     c >= 0 && r >= 0 && c < WF_COLS && r < WF_ROWS && WF_MASK.charCodeAt(r * WF_COLS + c) === 49;
+
+/** Whether an entity centre has a square clearance footprint around it. Kept
+ * beside the map so tests and the authoritative sim use the same definition. */
+export function wfClearanceWalkable(c: number, r: number, clearanceCells = 2): boolean {
+    for (let dr = -clearanceCells; dr <= clearanceCells; dr++) {
+        for (let dc = -clearanceCells; dc <= clearanceCells; dc++) {
+            if (!wfCellWalkable(c + dc, r + dr)) return false;
+        }
+    }
+    return true;
+}
 
 export function wfWalkable(x: number, y: number): boolean {
     if (x < -WF_X || x > WF_X || y < -WF_Y || y > WF_Y) return false;

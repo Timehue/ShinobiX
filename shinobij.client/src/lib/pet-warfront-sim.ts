@@ -35,7 +35,7 @@ import type { Pet } from "../types/pet";
 import type { ArenaRole, ArenaSlot } from "./pet-arena-sim";
 import {
     WF_X, WF_Y, WF_COLS, WF_ROWS, WF_CELL_X, WF_CELL_Y,
-    wfCellWalkable, wfMobRoute, WF_SPAWNS, WF_CORE, WF_STATUES, WF_PADS, WF_LAIR, WF_LANES, WF_GUARD_POSTS, WF_BUSHES, wfInBush,
+    wfCellWalkable, wfClearanceWalkable, wfMobRoute, WF_SPAWNS, WF_DEPLOY_POINTS, WF_CORE, WF_STATUES, WF_PADS, WF_LAIR, WF_LANES, WF_GUARD_POSTS, WF_BUSHES, wfInBush,
     type WfLaneId,
 } from "./pet-warfront-map";
 
@@ -190,6 +190,7 @@ const ATTACK_CD = Math.round(WARFRONT_TPS * 1.0);
 const ABILITY_CD = WARFRONT_TPS * 6;
 const CALL_TICKS = WARFRONT_TPS * 2;          // team macro "call" cadence
 const PET_BASE_SPEED = 2.9 / WARFRONT_TPS;
+const KICKOFF_DEPLOY_TICKS = WARFRONT_TPS * 3;
 const BODY_R = 0.9;
 const MINI_BODY_R = 1.05;
 const WARDEN_BODY_R = 1.6;
@@ -260,44 +261,57 @@ const PET_NAV_MASK = (() => {
     const mask = new Uint8Array(WF_COLS * WF_ROWS);
     for (let r = 0; r < WF_ROWS; r++) {
         for (let c = 0; c < WF_COLS; c++) {
-            let clear = true;
-            for (let dr = -PET_CLEARANCE_CELLS; dr <= PET_CLEARANCE_CELLS && clear; dr++) {
-                for (let dc = -PET_CLEARANCE_CELLS; dc <= PET_CLEARANCE_CELLS; dc++) {
-                    if (!wfCellWalkable(c + dc, r + dr)) { clear = false; break; }
-                }
-            }
-            if (clear) mask[r * WF_COLS + c] = 1;
+            if (wfClearanceWalkable(c, r, PET_CLEARANCE_CELLS)) mask[r * WF_COLS + c] = 1;
         }
     }
     return mask;
 })();
 const petCellWalkable = (c: number, r: number): boolean =>
     c >= 0 && r >= 0 && c < WF_COLS && r < WF_ROWS && PET_NAV_MASK[r * WF_COLS + c] === 1;
-function nearestWalkableCell(x: number, y: number): [number, number] {
+
+/** Find the genuinely nearest cell on the first Chebyshev ring that contains
+ * one. The old implementation returned the first scan-order hit, permanently
+ * biasing obstacles to the west: red pets were pulled through the base gate
+ * while mirrored blue pets were pulled backward into it. World-distance and
+ * centre-distance tie breaks are mirror-neutral for the two teams. */
+function nearestCell(
+    x: number,
+    y: number,
+    canWalk: (c: number, r: number) => boolean,
+    maxRadius: number,
+): [number, number] {
     const [c0, r0] = cellOf(x, y);
-    if (wfCellWalkable(c0, r0)) return [c0, r0];
-    for (let radius = 1; radius < 10; radius++) {
+    if (canWalk(c0, r0)) return [c0, r0];
+    for (let radius = 1; radius < maxRadius; radius++) {
+        let bestC = -1, bestR = -1;
+        let bestDistance = Infinity, bestAbsX = Infinity, bestAbsY = Infinity;
         for (let dr = -radius; dr <= radius; dr++) {
             for (let dc = -radius; dc <= radius; dc++) {
                 if (Math.max(Math.abs(dc), Math.abs(dr)) !== radius) continue;
-                if (wfCellWalkable(c0 + dc, r0 + dr)) return [c0 + dc, r0 + dr];
+                const c = c0 + dc, r = r0 + dr;
+                if (!canWalk(c, r)) continue;
+                const [wx, wy] = cellCenter(c, r);
+                const dx = wx - x, dy = wy - y;
+                const distance = dx * dx + dy * dy;
+                const absX = Math.abs(wx), absY = Math.abs(wy);
+                if (distance < bestDistance
+                    || (distance === bestDistance && absX < bestAbsX)
+                    || (distance === bestDistance && absX === bestAbsX && absY < bestAbsY)) {
+                    bestC = c; bestR = r;
+                    bestDistance = distance; bestAbsX = absX; bestAbsY = absY;
+                }
             }
         }
+        if (bestC >= 0) return [bestC, bestR];
     }
     return [c0, r0];
 }
+function nearestWalkableCell(x: number, y: number): [number, number] {
+    return nearestCell(x, y, wfCellWalkable, 10);
+}
 function nearestPetWalkableCell(x: number, y: number): [number, number] {
-    const [c0, r0] = cellOf(x, y);
-    if (petCellWalkable(c0, r0)) return [c0, r0];
-    for (let radius = 1; radius < 18; radius++) {
-        for (let dr = -radius; dr <= radius; dr++) {
-            for (let dc = -radius; dc <= radius; dc++) {
-                if (Math.max(Math.abs(dc), Math.abs(dr)) !== radius) continue;
-                if (petCellWalkable(c0 + dc, r0 + dr)) return [c0 + dc, r0 + dr];
-            }
-        }
-    }
-    return nearestWalkableCell(x, y);
+    const nearest = nearestCell(x, y, petCellWalkable, 18);
+    return petCellWalkable(nearest[0], nearest[1]) ? nearest : nearestWalkableCell(x, y);
 }
 /** BFS shortest path (4-neighbour) from world (sx,sy) to (gx,gy); returns cell
  * indices to walk, or null when unreachable (never happens on this mask). */
@@ -835,6 +849,13 @@ function updateCall(st: WfState, team: Team) {
             }
         }
     }
+    // A critically wounded Warden is the highest-value finish/steal on the
+    // field. Minor lane pressure must not make both coaches abandon a boss at
+    // single-digit health; two survivors are enough to force the conclusion.
+    if (!squad && st.boss.alive && st.boss.hp / WARDEN_HP <= 0.32
+        && alive.length >= 2 && st.t > WARFRONT_TPS * WF_PHASE_SKIRMISH) {
+        squad = { goal: "warden", x: WF_LAIR.x, y: WF_LAIR.y };
+    }
     // 3) SNOWBALL: two or more enemies down → the squad groups and cracks the
     // weakest gate NOW (numbers advantages must be spent — the pro-play rule).
     if (!squad) {
@@ -1003,7 +1024,7 @@ function walkToward(st: WfState, p: WfPet, gx: number, gy: number) {
     const oldGoalC = p.navGoal >= 0 ? p.navGoal % WF_COLS : -99;
     const oldGoalR = p.navGoal >= 0 ? Math.floor(p.navGoal / WF_COLS) : -99;
     const goalMovedFar = Math.max(Math.abs(gc - oldGoalC), Math.abs(gr - oldGoalR)) > 2;
-    if (!p.path || p.pathIdx >= p.path.length || goalMovedFar || p.stuckTicks > WARFRONT_TPS) {
+    if (!p.path || p.pathIdx >= p.path.length || goalMovedFar || p.stuckTicks > WARFRONT_TPS * 0.5) {
         p.path = findPath(p.x, p.y, gx, gy, true);
         p.pathIdx = 0; p.navGoal = goal; p.stuckTicks = 0;
     }
@@ -1025,7 +1046,7 @@ function walkToward(st: WfState, p: WfPet, gx: number, gy: number) {
         // separation can cancel a straight step exactly (three pets held each
         // other in a 20 s group-hug at the base gate) but never a rotation —
         // jams unwind as a natural-looking shuffle.
-        if (p.stuckTicks > WARFRONT_TPS * 0.5) {
+        if (p.stuckTicks > WARFRONT_TPS * 0.2) {
             const rot = (p.slot % 2 === 0 ? 1 : -1) * 0.9;
             const cs = dcos(rot), sn = dsin(rot);
             const rx = ux * cs - uy * sn, ry = ux * sn + uy * cs;
@@ -1192,6 +1213,17 @@ function petTick(st: WfState, p: WfPet) {
         return;
     }
     p.state = "idle";
+
+    // Kickoff owns four short, mirrored deployment corridors. This gets every
+    // pet clear of the base mouth before ordinary target selection can make a
+    // whole squad request the same first BFS cell.
+    if (st.t <= KICKOFF_DEPLOY_TICKS) {
+        const [deployX, deployY] = WF_DEPLOY_POINTS[p.team][p.slot % 4];
+        if (hyp2(deployX - p.x, deployY - p.y) > 0.45) {
+            walkToward(st, p, deployX, deployY);
+            return;
+        }
+    }
 
     // Bloodied? Break contact and fall back toward the home gate line (unless
     // the enemy Ward Seal is exposed — then it is win-now time, stay on it).
@@ -2241,6 +2273,21 @@ function minionRoute(lane: WfLaneId, team: Team): Array<[number, number]> {
     return [...ordered.map(([x, y]) => [x, y] as [number, number]), [statue[0], statue[1]]];
 }
 
+/** Place consecutive waves on subtle parallel launch tracks. They converge on
+ * the authored lane after the first waypoint, but no longer materialize on the
+ * exact same center point and visually knot before their first step. */
+function offsetMobSpawn(route: Array<[number, number]>, lateral: number): Array<[number, number]> {
+    if (route.length < 2 || Math.abs(lateral) < 0.01) return route;
+    const [x0, y0] = route[0], [x1, y1] = route[1];
+    const dx = x1 - x0, dy = y1 - y0;
+    const d = hyp2(dx, dy) || 1;
+    const sx = x0 + (-dy / d) * lateral;
+    const sy = y0 + (dx / d) * lateral;
+    const [c, r] = cellOf(sx, sy);
+    if (!wfCellWalkable(c, r)) return route;
+    return [[quant(sx), quant(sy)], ...route.slice(1)];
+}
+
 function mobDown(st: WfState, m: WfMob, killer: WfPet | null) {
     if (killer) {
         const pay = m.side === "hollow" ? WF_COIN_MOB : WF_COIN_MINION;
@@ -2274,11 +2321,16 @@ function mobsTick(st: WfState) {
         // Waves always land on an even tick, so a fixed blue,red spawn order gave
         // blue a systematic first-mover lane edge — alternate it per wave.
         const waveTeams: readonly Team[] = (Math.floor(st.t / WAVE_EVERY) & 1) === 0 ? ["blue", "red"] : ["red", "blue"];
+        const waveIndex = Math.floor(st.t / WAVE_EVERY);
         for (const team of waveTeams) {
             let alive = st.mobs.filter((m) => m.side === team).length;
             for (const lane of ["n", "m", "s"] as const) {
                 if (alive >= MINION_CAP) break;   // was checked against a STALE count → up to 2 over cap
-                const route = minionRoute(lane, team);
+                const trackCycle = [-0.42, 0, 0.42] as const;
+                // Same track for mirrored teams preserves competitive symmetry;
+                // north/south invert so the field also remains y-balanced.
+                const laneSign = lane === "n" ? -1 : 1;
+                const route = offsetMobSpawn(minionRoute(lane, team), trackCycle[(waveIndex + (lane === "m" ? 1 : 0)) % trackCycle.length] * laneSign);
                 const elite = (st.wardenBuff.team === team && st.wardenBuff.left > 0) || st.t > WARFRONT_TPS * WF_PHASE_SUDDEN || st.eliteWaveOwed[team];
                 const mhp = elite ? Math.round(MINION_HP * 1.8) : MINION_HP;
                 st.mobs.push({ id: st.mobSeq++, side: team, elite, lane, x: route[0][0], y: route[0][1], hp: mhp, maxHp: mhp, toward: other(team), route, wpIdx: 1, attackCd: 0, chaseId: null });
@@ -2295,7 +2347,7 @@ function mobsTick(st: WfState) {
             const LANE_CYCLE: readonly WfLaneId[] = ["n", "m", "s"];
             const lane = LANE_CYCLE[st.mobSeq % 3];
             for (const toward of ["blue", "red"] as const) {
-                const route = wfMobRoute(lane, toward);
+                const route = offsetMobSpawn(wfMobRoute(lane, toward), toward === "blue" ? -0.48 : 0.48);
                 st.mobs.push({ id: st.mobSeq++, side: "hollow", elite: false, lane, x: route[0][0], y: route[0][1], hp: MOB_HP, maxHp: MOB_HP, toward, route, wpIdx: 1, attackCd: 0, chaseId: null });
             }
             st.events.push({ t: st.t, type: "mobwave" });
@@ -2613,7 +2665,7 @@ function snapshot(st: WfState): WfSnapshot {
     };
 }
 
-function tick(st: WfState) {
+function tick(st: WfState, snapshotEvery: number) {
     st.t++;
     // Coin trickle (accumulate fractionally, credit whole coins).
     st.coinFrac += WF_COIN_TRICKLE / WARFRONT_TPS;
@@ -2706,7 +2758,10 @@ function tick(st: WfState) {
         p.lastX = p.x; p.lastY = p.y;
         p.wantD = 0;
     }
-    st.snapshots.push(snapshot(st));
+    // Gameplay always advances at 30 Hz. Presentation callers may retain a
+    // lower-rate replay stream and interpolate between frames, avoiding tens of
+    // thousands of nested snapshot allocations without changing simulation.
+    if (st.t % snapshotEvery === 0 || st.winner !== null) st.snapshots.push(snapshot(st));
 }
 
 // ── Buying ───────────────────────────────────────────────────────────────────
@@ -2837,12 +2892,17 @@ export function startWarfrontMatch(
         blueDoctrine?: WfDoctrine; redDoctrine?: WfDoctrine;
         /** false = stances stay fixed all match (balance-matrix runs). */
         adaptStances?: boolean;
+        /** Retained presentation cadence. Gameplay remains 30 Hz; a value of 2
+         * records 15 visual frames per second. Defaults to every tick for
+         * authority/parity callers. */
+        snapshotEvery?: number;
     },
 ): WarfrontMatchCtl {
     const st = initState(blue, red, seed);
     const bluePolicy = opts?.bluePolicy ?? "off";
     const redPolicy = opts?.redPolicy ?? "balanced";
     const adapt = opts?.adaptStances ?? true;
+    const snapshotEvery = Math.max(1, Math.min(WARFRONT_TPS, Math.floor(opts?.snapshotEvery ?? 1)));
     // Opening declarations: both teams announce a stance at 0:00. The AI side
     // counter-picks the player's opening unless one was forced in.
     st.stance.blue = opts?.blueStance ?? "balanced";
@@ -2871,6 +2931,7 @@ export function startWarfrontMatch(
         roundOpen = true;
     };
     const finishRound = () => {
+        if (st.snapshots[st.snapshots.length - 1]?.t !== st.t) st.snapshots.push(snapshot(st));
         round++;
         roundOpen = false;
         result.petStats = st.pets.map((pp) => ({ id: pp.id, name: pp.pet.name, team: pp.team, level: pp.wlevel, kills: pp.kills, assists: pp.assists, dmg: Math.round(pp.dmgDealt), coins: pp.coinsEarned }));
@@ -2886,7 +2947,7 @@ export function startWarfrontMatch(
     };
     const simChunk = () => {
         const until = Math.min(MAX_TICKS, (round + 1) * ROUND_TICKS);
-        while (st.t < until && st.winner === null) tick(st);
+        while (st.t < until && st.winner === null) tick(st, snapshotEvery);
         result.ticks = st.t;
         finishRound();
     };
@@ -2918,7 +2979,7 @@ export function startWarfrontMatch(
             if (!roundOpen) openRound(blueChoices, blueStance);
             const until = Math.min(MAX_TICKS, (round + 1) * ROUND_TICKS);
             let n = 0;
-            while (st.t < until && st.winner === null && n < maxTicks) { tick(st); n++; }
+            while (st.t < until && st.winner === null && n < maxTicks) { tick(st, snapshotEvery); n++; }
             result.ticks = st.t;   // the frontier streams forward as ticks land
             if (st.t >= until || st.winner !== null) { finishRound(); return true; }
             return false;

@@ -81,6 +81,7 @@ export const STUDIO_SCREEN_PRESENTATION: Record<Screen, StudioScreenPresentation
   bloodlineMaker: archive,
   clan: atFacility(clan, "clan-hall"),
   worldMap: atFacility(frontier, "world-map"),
+  worldCrisis: frontier,
   townHall: atFacility(town, "town-hall"),
   bank: atFacility(civic, "bank"),
   shop: atFacility(civic, "shop"),

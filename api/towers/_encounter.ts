@@ -276,6 +276,9 @@ export type BuildEncounterParams = {
     spireBossId?: string;
     /** Optional server-built boss template for a sealed non-catalog encounter. */
     bossTemplate?: EnemyTemplate;
+    /** Optional server-built ordinary enemy templates for a sealed non-catalog
+     * encounter. Catalog runs never provide this map. */
+    enemyTemplates?: Readonly<Record<string, EnemyTemplate>>;
     /** Persist the server-built floor on the session so action/AFK resolution can use it. */
     embedFloor?: boolean;
     /** Mode label used by clients/operations; defaults to the Celestial Tower id. */
@@ -391,7 +394,7 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     let enemyIdx = 0;
     const pendingEnemyWaves = new Map<number, TowerActor[]>();
     for (const pod of floor.enemies) {
-        const tpl = requireEnemyTemplate(pod.aiId);
+        const tpl = p.enemyTemplates?.[pod.aiId] ?? requireEnemyTemplate(pod.aiId);
         const spawnRound = Math.max(1, Math.floor(Number(pod.spawnRound ?? 1)));
         for (let k = 0; k < pod.count; k++) {
             const enemy = templateActor(`en-${enemyIdx}`, 'enemy', tpl, spawnRound > 1 ? spawnEnemyWave() : spawnEnemy());

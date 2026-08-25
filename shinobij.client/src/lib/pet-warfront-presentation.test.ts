@@ -4,11 +4,13 @@ import {
     advanceWarfrontMotionFilter,
     adaptWarfrontPresentationBudget,
     createWarfrontMotionFilter,
+    evaluateWarfrontPerformance,
     reconcileWarfrontMobSlots,
     shouldRenderWarfrontHoundRig,
     warfrontMotionFilterSpeed,
     warfrontMvpId,
     warfrontPresentationBudget,
+    warfrontPercentile,
 } from "./pet-warfront-presentation.ts";
 
 test("motion filter rejects tick-level reversals but follows sustained travel", () => {
@@ -85,4 +87,12 @@ test("MVP scoring recognizes decisive kills, assists, and economy", () => {
         { id: "closer", dmg: 1500, kills: 2, assists: 2, coins: 500 },
     ]), "closer");
     assert.equal(warfrontMvpId([]), null);
+});
+
+test("performance gates use p95 frame time, worst stall, and draw-call ceilings", () => {
+    const smooth = Array.from({ length: 120 }, (_, index) => index === 0 ? 42 : 16.4);
+    assert.equal(warfrontPercentile(smooth, 0.95), 16.4);
+    assert.equal(evaluateWarfrontPerformance(smooth, 280, "desktop60").pass, true);
+    assert.equal(evaluateWarfrontPerformance([...smooth, 130], 280, "desktop60").pass, false);
+    assert.equal(evaluateWarfrontPerformance(smooth, 400, "desktop60").pass, false);
 });

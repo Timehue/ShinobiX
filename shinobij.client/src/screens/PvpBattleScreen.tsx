@@ -2510,6 +2510,8 @@ export function PvpBattleScreen({
                     <PlainCombatBattleLog
                         lines={battleLogLines}
                         turnLabel={isMyTurn ? "Your Turn" : `${opp.name}'s Turn`}
+                        selfName={me.name}
+                        oppName={opp.name}
                     />
 
                     {/* Whose-turn banner — pinned to the board panel's bottom-right

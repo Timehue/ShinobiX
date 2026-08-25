@@ -10,7 +10,11 @@ const PHASE = process.env.COMBAT_LAYOUT_CAPTURE_PHASE === 'before' ? 'before' : 
 const STRICT = PHASE === 'after' && process.env.COMBAT_LAYOUT_STRICT !== '0';
 const SCREENSHOT_ROOT = process.env.COMBAT_LAYOUT_ARTIFACT_ROOT
     ? resolve(process.env.COMBAT_LAYOUT_ARTIFACT_ROOT, PHASE)
-    : resolve(process.cwd(), 'test-results', 'combat-layout', 'captures', PHASE);
+    // Keep durable matrix evidence outside Playwright's configured outputDir.
+    // The runner may clear that directory while retaining failure artifacts;
+    // nesting captures there caused late-viewpoint ENOENT failures after all
+    // geometry assertions had already passed.
+    : resolve(process.cwd(), 'test-results', 'combat-layout-captures', PHASE);
 
 const VIEWPORTS = [
     [320, 568], [360, 800], [375, 667], [390, 844], [412, 915], [430, 932],
@@ -1579,14 +1583,16 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
             current.board?.height ?? 0,
             `${label} board must not collapse; stage=${JSON.stringify(current.boardStage)} rows=${current.mainGridTemplateRows}`,
         ).toBeGreaterThanOrEqual(90);
-        // Solo keeps seven compact tracks, while desktop promotes its action
-        // notice to a battlefield overlay so the board and lower panel can use
-        // that height. Ordinary PvP uses six portrait tracks, four split-
-        // landscape tracks, and the complete seven-track desktop composition.
+        // Both authoritative modes use four tracks in short landscape so the
+        // board and controls remain side by side. Solo keeps seven portrait
+        // tracks elsewhere, while desktop promotes its action notice to a
+        // battlefield overlay so the board and lower panel can use that height.
+        // Ordinary PvP uses six portrait tracks and the complete seven-track
+        // desktop composition.
         // Pin each authored breakpoint so an accidental implicit row is still
         // a release failure.
         const expectedMainRows = mode === 'solo'
-            ? (current.viewport.width >= 1024 ? 6 : 7)
+            ? (current.viewport.width >= 1024 ? 6 : current.viewport.height <= 500 ? 4 : 7)
             : current.viewport.width < 980
                 ? (current.viewport.height <= 500 ? 4 : 6)
                 : 7;
@@ -1792,10 +1798,11 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
 
 test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, request }, testInfo) => {
     // WebKit needs roughly five minutes to exercise all 22 base viewports,
-    // six zoom equivalents, and both 12-frame arm/cancel traces. Keep this
-    // exhaustive test no-retry, but do not let the suite-wide 240s budget
-    // terminate a healthy final-viewport run before the zoom checks complete.
-    test.setTimeout(420_000);
+    // six zoom equivalents, and both 12-frame arm/cancel traces; slower Windows
+    // GPU runners can approach eight. Keep this exhaustive test no-retry, but
+    // do not let the suite-wide 240s budget terminate a healthy final-viewport
+    // run before the zoom checks complete.
+    test.setTimeout(600_000);
     const { name, token } = await seedAccount(request, testInfo, 'tower');
     const savePreview = await fetchAuthoritativeSave(request, { name, token });
     await installSession(page, name, token, { acknowledgeEstablishedNotices: true, savePreview });

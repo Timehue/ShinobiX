@@ -210,7 +210,8 @@ test("timed hold and Spire boss profiles remain visible from sealed authority", 
     assert.match(api, /sealedCatalogFloor\?:/);
     assert.match(fight, /objective === "protect-npc"[\s\S]*?hold \$\{roundsSurvived\}/);
     assert.match(fight, /objective === "kill-escort"[\s\S]*?foe/);
-    assert.match(fight, /session\.sealedCatalogFloor\?\.boss/);
+    assert.match(fight, /const combatFloor = session\.sealedCatalogFloor \?\? session\.encounterFloor/);
+    assert.match(fight, /combatFloor\?\.boss/);
     for (const target of ["squishiest", "support", "lowest-hp"] as const) assert.match(spireCatalog, new RegExp(`targetMode: "${target}"`));
     for (const strike of ["slam", "volley", "nova"] as const) assert.match(spireCatalog, new RegExp(`kind: "${strike}"`));
     assert.match(lobby, /towerTargetModeLabel\(sel\.boss\.targetMode\)/);

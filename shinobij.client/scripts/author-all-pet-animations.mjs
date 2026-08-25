@@ -6,6 +6,7 @@ import { rawPetPool } from "../src/data/pet-pool.ts";
 import { STARTER_PETS } from "../src/data/starter-pets.ts";
 import { STARTER_EVOLUTIONS } from "../src/data/pet-evolutions.ts";
 import { petCombatFamily } from "../src/lib/pet-combat-family.ts";
+import { petSignaturePerformance } from "../src/lib/pet-signature-performance.ts";
 import {
     INDIVIDUAL_PET_ANIMATION_MODEL_IDS,
     PROPER_PET_ANIMATION_ASSET_REVISION,
@@ -89,10 +90,34 @@ const FAMILY_TUNING = Object.freeze({
     skirmisher: { pace: 0.94, stride: 0.98, bounce: 0.9, crouch: 0.96, attack: 1, air: 1, weight: 0.94, tail: 0.9 },
 });
 
-function tuningFor(id, family) {
+function tuningFor(pet, family, profile) {
+    const id = pet.id;
     const base = FAMILY_TUNING[family] ?? FAMILY_TUNING.skirmisher;
-    const variation = 0.94 + hashUnit(id) * 0.12;
-    return { ...base, pace: base.pace * variation, side: hashUnit(`${id}:side`) > 0.5 ? 1 : -1 };
+    const signature = petSignaturePerformance({
+        id,
+        name: pet.name,
+        element: pet.element,
+        rarity: pet.rarity,
+        profile,
+    });
+    // Family language remains the foundation, but no two species inherit the
+    // same numeric take. These dimensions are already consumed throughout all
+    // eight banks, so the identity sheet changes breathing, gait, airborne
+    // travel, anticipation, contact extension, tail follow-through and collapse
+    // directly in the exported skeletal keyframes.
+    return {
+        ...base,
+        pace: base.pace / signature.cadence,
+        stride: base.stride * (0.91 + hashUnit(`${id}:stride`) * 0.18) * (0.96 + signature.agility * 0.04),
+        bounce: base.bounce * (0.9 + hashUnit(`${id}:bounce`) * 0.2) * signature.breath,
+        crouch: base.crouch * (0.9 + hashUnit(`${id}:crouch`) * 0.18) * signature.anticipation,
+        attack: base.attack * (0.88 + hashUnit(`${id}:attack`) * 0.18) * signature.strikeDrive,
+        air: base.air * (0.88 + hashUnit(`${id}:air`) * 0.2) * signature.dodgeLift,
+        weight: base.weight * (0.9 + hashUnit(`${id}:weight`) * 0.18) * (0.78 + signature.weight * 0.22),
+        tail: base.tail * (0.86 + hashUnit(`${id}:tail`) * 0.28),
+        side: signature.asymmetry,
+        signature,
+    };
 }
 
 function scaledTimes(values, pace) {
@@ -455,14 +480,15 @@ function arthropodBank(p, kind) {
     ];
 }
 
-function bankFor(id, family, profile, type) {
-    const p = tuningFor(id, family);
-    if (type === "avian") return avianBank(p);
-    if (type === "bat") return avianBank(p, true);
-    if (type === "insect" || type === "moth" || type === "crab") return arthropodBank(p, type);
-    if (type === "biped") return bipedBank(p, family);
-    if (profile === "serpentine" || family === "serpentine" || family === "aquatic") return serpentineBank(p);
-    return quadrupedBank(p, family);
+function bankFor(pet, family, profile, type) {
+    const tuning = tuningFor(pet, family, profile);
+    const bank = type === "avian" ? avianBank(tuning)
+        : type === "bat" ? avianBank(tuning, true)
+            : type === "insect" || type === "moth" || type === "crab" ? arthropodBank(tuning, type)
+                : type === "biped" ? bipedBank(tuning, family)
+                    : profile === "serpentine" || family === "serpentine" || family === "aquatic" ? serpentineBank(tuning)
+                        : quadrupedBank(tuning, family);
+    return { bank, tuning };
 }
 
 function modelPath(id) {
@@ -500,7 +526,7 @@ async function authorPet(pet, manifest) {
     const type = rigType(nodes);
     const profile = manifest.entries[id]?.profile ?? starterProfile(id);
     const family = petCombatFamily({ name: pet.name, profile });
-    const bank = bankFor(id, family, profile, type);
+    const { bank, tuning } = bankFor(pet, family, profile, type);
     invariant(bank.length === 8, `${id}: expected eight authored clips`);
 
     const chunks = [{ offset: 0, bytes: sourceBin }];
@@ -559,6 +585,16 @@ async function authorPet(pet, manifest) {
         properAnimationBank: PROPER_PET_ANIMATION_ASSET_REVISION,
         properAnimationFamily: family,
         properAnimationRig: type,
+        properAnimationSignature: {
+            seed: tuning.signature.seed,
+            cadence: tuning.signature.cadence,
+            agility: tuning.signature.agility,
+            weight: tuning.signature.weight,
+            anticipation: tuning.signature.anticipation,
+            strikeDrive: tuning.signature.strikeDrive,
+            asymmetry: tuning.signature.asymmetry,
+        },
+        animationAuthoring: "species-and-identity-directed-keyframes",
         properAnimationSourceBoundary: sourceBoundary,
     };
     json.buffers = [{ byteLength: align4(byteLength) }];
@@ -578,6 +614,7 @@ async function authorPet(pet, manifest) {
             revision: PROPER_PET_ANIMATION_ASSET_REVISION,
             family,
             rig: type,
+            signatureSeed: tuning.signature.seed,
             clips: json.animations.map((animation) => animation.name),
         };
     }

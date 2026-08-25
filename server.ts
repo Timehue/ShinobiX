@@ -290,6 +290,10 @@ import legacySageHandler              from './api/legacy/sage.js';
 import legacyTrialHandler             from './api/legacy/trial.js';
 import erasHandler                    from './api/eras.js';
 import announcementsHandler           from './api/announcements.js';
+import worldCrisisHandler              from './api/world-crisis.js';
+import worldCrisis80Handler            from './api/world-crisis-80.js';
+import worldCrisis80CombatStartHandler from './api/world-crisis-80/combat-start.js';
+import worldCrisis80CombatSettleHandler from './api/world-crisis-80/combat-settle.js';
 import hallOfLegendsHandler           from './api/hall-of-legends.js';
 import adminLegacyHandler             from './api/admin/legacy.js';
 // PvP — realtime + rewards + queues
@@ -1404,6 +1408,10 @@ route('/legacy/sage',               legacySageHandler);
 route('/legacy/trial',              legacyTrialHandler);
 route('/eras',                      erasHandler);
 route('/announcements',             announcementsHandler);
+route('/world-crisis',              worldCrisisHandler);
+route('/world-crisis-80',           worldCrisis80Handler);
+route('/world-crisis-80/combat-start',  worldCrisis80CombatStartHandler);
+route('/world-crisis-80/combat-settle', worldCrisis80CombatSettleHandler);
 route('/hall-of-legends',           hallOfLegendsHandler);
 route('/admin/legacy',              adminLegacyHandler);
 

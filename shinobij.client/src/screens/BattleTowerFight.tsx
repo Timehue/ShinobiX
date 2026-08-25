@@ -229,7 +229,7 @@ type TowerRoundPresentation = {
  */
 function towerRoundPresentation(session: TowerSession): TowerRoundPresentation {
     const objective = session.objectiveState.kind;
-    const goal = Number(session.sealedCatalogFloor?.roundBudget ?? 0);
+    const goal = Number((session.sealedCatalogFloor ?? session.encounterFloor)?.roundBudget ?? 0);
     const isTimedHold = objective === "protect-npc" || objective === "survive";
     if (isTimedHold) {
         const held = Math.max(0, Number(session.objectiveState.roundsSurvived ?? 0));
@@ -463,6 +463,7 @@ export function BattleTowerFight({
 }) {
     const isTeamPvp = variant === "team-pvp";
     const [session, setSession] = useState<TowerSession>(initialSession);
+    const combatFloor = session.sealedCatalogFloor ?? session.encounterFloor;
     const [mode, setMode] = useState<Mode>("idle");
     const [selJutsu, setSelJutsu] = useState<JutsuLike | null>(null);
     const [selWeaponId, setSelWeaponId] = useState<string>("");
@@ -1132,7 +1133,7 @@ export function BattleTowerFight({
         const hasModifierManifest = Array.isArray(session.modifierStack) && session.modifierStack.length > 0;
         const chips: Array<{ icon: string; text: string; kind: string }> = [];
         const boss = session.actors.find(a => a.id === session.phaseState.bossId);
-        const sealedBoss = session.sealedCatalogFloor?.boss;
+        const sealedBoss = combatFloor?.boss;
         const strike = sealedBoss?.strike ?? boss?.character?.bossStrike as { kind?: "nova" | "volley" | "slam"; everyRounds?: number; firstRound?: number; radius?: number } | undefined;
         const hunt = String(sealedBoss?.targetMode ?? boss?.character?.aiTargetMode ?? "");
         if (strike?.kind) {
@@ -1148,11 +1149,11 @@ export function BattleTowerFight({
             if (session.map.closingRing) chips.push({ icon: "🔥", text: `Arena contracts after round ${Math.max(1, Number(session.map.closingRing.fromRound ?? 6))}`, kind: "extraPhase" });
             if ((session.map.dynamicHazards ?? []).length) chips.push({ icon: "♨️", text: "Geysers erupt on a beat — don't end the round on a vent", kind: "hazard" });
         }
-        for (const warning of session.sealedCatalogFloor?.briefing?.warnings?.slice(0, 3) ?? []) {
+        for (const warning of combatFloor?.briefing?.warnings?.slice(0, 3) ?? []) {
             if (warning.trim()) chips.push({ icon: "⚠️", text: warning.trim(), kind: "debuff" });
         }
         return chips;
-    }, [session.modifierStack, session.actors, session.phaseState.bossId, session.sealedCatalogFloor, session.map.closingRing, session.map.dynamicHazards]);
+    }, [session.modifierStack, session.actors, session.phaseState.bossId, combatFloor, session.map.closingRing, session.map.dynamicHazards]);
 
     function actionLabel(action: TowerActionInput): string {
         if (action.type === "jutsu") return selJutsu?.name ?? "jutsu";
@@ -1309,7 +1310,7 @@ export function BattleTowerFight({
         setMode(alreadyArmed ? "idle" : "weapon");
     }
     const objective = session.objectiveState.kind;
-    const sealedStoryFloor = session.sealedCatalogFloor;
+    const sealedStoryFloor = combatFloor;
     const encounterArt = !isTeamPvp && sealedStoryFloor?.artKey
         ? resolveTowerStoryArt(sealedStoryFloor.artKey)
         : null;
@@ -1352,7 +1353,7 @@ export function BattleTowerFight({
     const breakProgress = session.objectiveState.breakProgress ?? session.objectiveState.breakStagesCompleted;
     const breakGoal = session.objectiveState.breakGoal ?? session.objectiveState.breakStagesTotal;
     const roundsSurvived = session.objectiveState.roundsSurvived ?? 0;
-    const holdGoal = session.sealedCatalogFloor?.roundBudget;
+    const holdGoal = combatFloor?.roundBudget;
     const holdRemaining = holdGoal == null ? null : Math.max(0, holdGoal - roundsSurvived);
     const roundPresentation = towerRoundPresentation(session);
     const objectiveProgress =

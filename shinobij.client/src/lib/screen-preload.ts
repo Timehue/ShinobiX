@@ -47,6 +47,7 @@ const SCREEN_PRELOADERS: Partial<Record<Screen, () => Promise<unknown>>> = {
     petShowdown: () => import("../screens/PetShowdown"),
     hallOfLegends: () => import("../screens/HallOfLegends"),
     worldMap: () => import("../screens/WorldMap"),
+    worldCrisis: () => import("../screens/WorldCrisis"),
     tavern: () => import("../screens/VillageTavern"),
     userHub: () => import("../screens/UserHub"),
     messages: () => import("../screens/Messages"),

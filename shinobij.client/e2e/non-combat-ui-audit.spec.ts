@@ -308,6 +308,23 @@ for (const screen of NON_COMBAT_SCREENS) {
     });
 }
 
+test("village pulse exposes real roster presence and routes into the social world", async ({ page }) => {
+    const runtimeErrors = collectRuntimeErrors(page);
+    const runtime = await installUiAuditRuntime(page);
+    await expectUiAuditBoot(page, runtime, "village");
+
+    const pulse = page.getByRole("complementary", { name: "Stormveil Village Pulse" });
+    await expect(pulse).toBeVisible();
+    await expect(pulse).toContainText("2 online");
+    await expect(pulse).toContainText("RivalNinja");
+    await expect(pulse).toContainText("1 shinobi active beyond the gates");
+
+    await pulse.getByRole("button", { name: "Find Shinobi" }).click();
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "userHub");
+    await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
+    expect(runtimeErrors, "village presence navigation emitted runtime errors").toEqual([]);
+});
+
 test("Jutsu Training opens mobile technique details with a training action", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "chromium-mobile", "mobile jutsu interaction regression");
     const runtimeErrors = collectRuntimeErrors(page);

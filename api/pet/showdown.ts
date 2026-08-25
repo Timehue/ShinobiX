@@ -55,6 +55,14 @@ import {
     writeHollowGatePetResult,
 } from '../hollow-gate/_pet-authority.js';
 import { isHollowHoundEncounterId, type HollowGateHoundKind } from '../../shared/hollow-gate-contract.js';
+import {
+    WORLD_CRISIS_80_ID,
+    type WorldCrisis80Village,
+} from '../../shared/world-crisis-80.js';
+import {
+    activeWorldCrisis80Encounter,
+    recordWorldCrisis80Defense,
+} from '../world-crisis-80/_state.js';
 
 /*
  * /api/pet/showdown — POST only. The flagship turn-based pet battle mode.
@@ -71,6 +79,9 @@ import { isHollowHoundEncounterId, type HollowGateHoundKind } from '../../shared
  *             exactly-once receipt.
  *   forfeit — concede; ends the session as a loss, no payout.
  *   state   — resume view after a refresh.
+ *   world-crisis-80 — seal exactly three ready carried pets against the
+ *             current village pursuit pack; unpaid, server-built, and bound
+ *             to the global crisis ledger by the terminal session proof.
  *
  * Rewards: `start` is practice and pays nothing. `arena` is the paid Coliseum
  * entry and seals reward eligibility before any turns. Parent-bound modes such
@@ -197,6 +208,14 @@ function parseCommands(raw: unknown, maxCount: number): ShowdownCommand[] {
  *  see. Keyed by session id, so the session IS the receipt handle. */
 interface ShowdownHollowGateBinding { runId: string; petIds: string[] }
 const showdownHollowGateKey = (playerName: string, sessionId: string) => `sd-hg:${playerName}:${sessionId}`;
+
+interface ShowdownWorldCrisis80Binding {
+    crisisId: typeof WORLD_CRISIS_80_ID;
+    village: WorldCrisis80Village;
+    sourceId: string;
+    petIds: string[];
+}
+const showdownWorldCrisis80Key = (playerName: string, sessionId: string) => `sd-wcr80:${playerName}:${sessionId}`;
 
 /** Mint the exact versioned receipt Hollow Gate's settlement endpoint consumes.
  *  The writer accepts it only when the parent had already selected this
@@ -372,6 +391,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // recover a Showdown session that an older server already issued.
         if (action === 'arena' && body.hollowGate != null) {
             return res.status(409).json({ error: 'Hollow Gate pet encounters use the sealed cinematic duel.' });
+        }
+
+        if (action === 'world-crisis-80') {
+            if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-showdown-world-crisis-80', 20, 60_000, identity.name))) return;
+            const sourceId = String(body.sourceId ?? '').trim().slice(0, 160);
+            const petIds: string[] = Array.isArray(body.petIds)
+                ? body.petIds.map((value: unknown) => String(value).slice(0, 96)).slice(0, 3)
+                : [];
+            if (!sourceId || petIds.length !== 3 || new Set(petIds).size !== 3) {
+                return res.status(400).json({ error: 'Choose exactly three distinct carried companions for the pursuit-pack front.' });
+            }
+            const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+            const myChar = mySave?.character as Record<string, unknown> | undefined;
+            if (!myChar) return res.status(404).json({ error: 'No save found.' });
+            const encounter = await activeWorldCrisis80Encounter({ character: myChar, sourceId, path: 'companion' });
+            const myPets = activeCarriedPets<Record<string, unknown>>(myChar);
+            const chosen = petIds
+                .map((id) => myPets.find((pet) => String(pet?.id ?? '') === id))
+                .filter(Boolean) as unknown as Pet[];
+            if (chosen.length !== petIds.length) return res.status(409).json({ error: 'A chosen companion is not in your carried roster.' });
+            const busyIssue = showdownBusyIssue(myChar, chosen);
+            if (busyIssue) return res.status(409).json({ error: busyIssue });
+
+            const seed = randomInt(1, 0x7fffffff);
+            const built = buildShowdownAiTeam(chosen, 3, 'champion', seed, { mirrorLevels: true });
+            if (built.pets.length !== 3) return res.status(500).json({ error: 'The Hollow Gate pursuit pack could not be assembled.' });
+            const enemyPets = built.pets.map((pet, index) => ({ ...pet, name: encounter.petNames[index] ?? pet.name }));
+            const sessionId = randomUUID().replace(/-/g, '');
+            const session = createShowdownSession({
+                sessionId,
+                playerName,
+                format: '3v3',
+                tier: 'champion',
+                seed,
+                playerPets: chosen,
+                enemyPets,
+                enemyTeamName: encounter.petPackName,
+                rewardEligible: false,
+            });
+            const binding: ShowdownWorldCrisis80Binding = {
+                crisisId: WORLD_CRISIS_80_ID,
+                village: encounter.village,
+                sourceId: encounter.petSourceId,
+                petIds: chosen.map((pet) => String(pet.id)),
+            };
+            armTurnDeadline(session);
+            await kv.set(sessionKey(playerName, sessionId), session, { ex: SESSION_TTL_SECONDS });
+            await kv.set(showdownWorldCrisis80Key(playerName, sessionId), binding, { ex: SESSION_TTL_SECONDS });
+            return res.status(200).json({ ok: true, state: viewOf(session), worldCrisis80: { village: binding.village } });
         }
 
         if (action === 'start') {
@@ -721,6 +789,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     hollowGate: { runId: hgBinding.runId, petReceipt: conceded.sessionId },
                 });
             }
+            const crisisBinding = await kv.get<ShowdownWorldCrisis80Binding>(showdownWorldCrisis80Key(playerName, conceded.sessionId));
+            if (crisisBinding?.crisisId === WORLD_CRISIS_80_ID) {
+                const crisis = await recordWorldCrisis80Defense({
+                    playerName,
+                    village: crisisBinding.village,
+                    sourceId: crisisBinding.sourceId,
+                    proofId: `showdown:${conceded.sessionId}`,
+                    path: 'companion',
+                    outcome: 'loss',
+                });
+                return res.status(200).json({
+                    ok: true,
+                    conceded: true,
+                    state: viewOf(conceded),
+                    worldCrisis80: { crisis, contributed: false, village: crisisBinding.village },
+                });
+            }
             // Unbound bout: nothing is waiting on it, so the session goes away
             // as before rather than lingering for a full lease.
             await kv.del(key).catch(() => undefined);
@@ -773,8 +858,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // arena ryo, counters, witness cards, or Legacy progress while its
             // (possibly ambiguous) parent proof is being rejected below.
             const hgBinding = await kv.get<ShowdownHollowGateBinding>(showdownHollowGateKey(playerName, session.sessionId));
+            const crisisBinding = await kv.get<ShowdownWorldCrisis80Binding>(showdownWorldCrisis80Key(playerName, session.sessionId));
             let settlement: Record<string, unknown> = { reward: 0 };
-            if (!hgBinding && session.outcome === 'win') {
+            if (!hgBinding && !crisisBinding && session.outcome === 'win') {
                 settlement = await settleShowdownWin(playerName, session);
                 if (settlement.progressionEligible === true) {
                     const legacyApplied = await bumpLegacyStats(
@@ -821,6 +907,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return res.status(503).json({ error: 'Could not seal the exact Hollow Gate pet result — please retry.' });
                 }
                 settlement = { ...settlement, hollowGate: { runId: hgBinding.runId, petReceipt: session.sessionId } };
+            }
+            if (crisisBinding?.crisisId === WORLD_CRISIS_80_ID && session.outcome) {
+                const crisis = await recordWorldCrisis80Defense({
+                    playerName,
+                    village: crisisBinding.village,
+                    sourceId: crisisBinding.sourceId,
+                    proofId: `showdown:${session.sessionId}`,
+                    path: 'companion',
+                    outcome: session.outcome,
+                });
+                settlement = {
+                    ...settlement,
+                    worldCrisis80: {
+                        crisis,
+                        contributed: session.outcome === 'win',
+                        village: crisisBinding.village,
+                    },
+                };
             }
             return res.status(200).json({ ok: true, events, state: viewOf(session), ...settlement });
         }

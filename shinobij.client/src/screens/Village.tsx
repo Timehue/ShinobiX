@@ -6,10 +6,12 @@ import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
 import { JourneyGuide } from "../components/JourneyGuide";
+import { VillagePulse } from "../components/VillagePulse";
 import { preloadScreen } from "../lib/screen-preload";
 import { VILLAGE_FACILITIES } from "../lib/facility-presentation";
 import { facilityThumb } from "../lib/facility-thumbs";
 import type { CSSProperties } from "react";
+import type { ServerPlayerSummary } from "../types/character";
 
 // Ambience tuned to each village's painted scene: snow over Frostfang, drifting
 // petals over Moonshadow, leaves over the forest villages, rain over Stormveil's
@@ -21,7 +23,7 @@ const VILLAGE_AMBIENCE: Record<string, { biome: Biome; weather?: WeatherType }> 
     "Moonshadow Village": { biome: "shadow" },
 };
 
-export function Village({ character, setScreen }: { character: Character; setScreen: (screen: Screen) => void }) {
+export function Village({ character, setScreen, allServerPlayers }: { character: Character; setScreen: (screen: Screen) => void; allServerPlayers: ServerPlayerSummary[] }) {
     const characterVillage = character.village;
     const ambience = VILLAGE_AMBIENCE[characterVillage] ?? VILLAGE_AMBIENCE["Frostfang Village"];
 
@@ -39,6 +41,7 @@ export function Village({ character, setScreen }: { character: Character; setScr
                 <SceneAmbience className="amb-under" biome={ambience.biome} weather={ambience.weather} />
                 <SceneCritters className="amb-under" biome={ambience.biome} density={0.9} />
                 <JourneyGuide key={character.name} character={character} setScreen={setScreen} />
+                <VillagePulse character={character} allServerPlayers={allServerPlayers} setScreen={setScreen} />
                 {VILLAGE_FACILITIES.map((location) => (
                     <button
                         key={location.screen}

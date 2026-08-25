@@ -359,6 +359,39 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         compatibility: { ...WORLD_MAP_AI_FLOW_CONTRACTS.worldContext, worldKinds: ['wanderer', 'wanderer-ambush', 'patrol', 'bounty-hunter', 'questbook-boss', 'story-reckoning'] },
     }),
     defineMode({
+        id: 'world-context-village-crisis', label: 'World-context village crisis', category: 'solo-pve', authorityEngine: E.SOLO_PVE,
+        clientEntries: ['screens/WorldCrisis.tsx', 'lib/world-crisis.ts', 'components/AiFightHost.tsx', 'lib/ai-fight-api.ts', ...SOLO_CLIENT],
+        routes: [
+            ...soloRoutes('/missions/ai-fight-start', 'missions/ai-fight-start', '/missions/report-ai-fight', 'missions/report-ai-fight'),
+            mountedRoute('/world-crisis', 'world-crisis', ['lifecycle', 'observation']),
+        ],
+        participantModel: 'solo', rewardPolicy: 'server-settled', replayKind: 'expiring-solo-session-log-plus-global-crisis-ledger', status: 'match', migrationStatus: 'migrated',
+        compatibility: { ...WORLD_MAP_AI_FLOW_CONTRACTS.worldContext, worldKinds: ['world-crisis'], lifecycleRoute: '/world-crisis', lifecycleHandler: 'world-crisis' },
+    }),
+    defineMode({
+        id: 'world-context-hollow-gate-triad', label: 'Hollow Gate Reckoning shinobi 1v3', category: 'tower', authorityEngine: E.TOWER,
+        clientEntries: ['screens/WorldCrisis80.tsx', 'screens/BattleTowerFight.tsx', 'lib/world-crisis-80.ts', 'lib/towers-api.ts'],
+        routes: [
+            mountedRoute('/world-crisis-80', 'world-crisis-80', ['lifecycle', 'observation']),
+            mountedRoute('/world-crisis-80/combat-start', 'world-crisis-80/combat-start', ['start']),
+            mountedRoute('/towers/action', 'towers/action', ['action']),
+            mountedRoute('/towers/state', 'towers/state', ['state']),
+            mountedRoute('/world-crisis-80/combat-settle', 'world-crisis-80/combat-settle', ['settlement']),
+        ],
+        participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'expiring-tower-run-plus-global-crisis-proof', status: 'match',
+        statusDetail: 'The Tower N-actor engine runs one player against a server-sealed three-role Collection Cell. Terminal Tower outcome is the only input accepted by the exact-once global village ledger; the event pays no duplicate combat rewards.',
+    }),
+    defineMode({
+        id: 'world-context-hollow-gate-pets', label: 'Hollow Gate Reckoning companion 3v3', category: 'pet-showdown', authorityEngine: E.PET_SHOWDOWN,
+        clientEntries: ['screens/WorldCrisis80.tsx', 'components/PetShowdownBattle.tsx', 'lib/world-crisis-80.ts'],
+        routes: [
+            mountedRoute('/world-crisis-80', 'world-crisis-80', ['lifecycle', 'observation']),
+            mountedRoute('/pet/showdown', 'pet/showdown', ['start', 'action', 'state', 'settlement']),
+        ],
+        participantModel: 'party', rewardPolicy: 'parent-mode-settlement', replayKind: 'expiring-showdown-turn-script-plus-global-crisis-proof', status: 'match',
+        statusDetail: 'Exactly three ready carried companions face a server-built three-member pursuit pack. Showdown is reward-ineligible here; its terminal session ID is consumed once by the same global village ledger as the shinobi front.',
+    }),
+    defineMode({
         id: 'generic-apex-hunts', label: 'Generic Apex hunts', category: 'solo-pve', authorityEngine: E.SOLO_PVE,
         clientEntries: ['screens/HunterBoard.tsx', 'components/AiFightHost.tsx', 'lib/ai-fight-api.ts', ...SOLO_CLIENT],
         routes: soloRoutes('/missions/ai-fight-start', 'missions/ai-fight-start', '/missions/report-ai-fight', 'missions/report-ai-fight'),

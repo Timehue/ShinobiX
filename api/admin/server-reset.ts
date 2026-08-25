@@ -109,6 +109,9 @@ export const WIPE_PATTERNS = [
     'game:announcements',           // world announcement feed + Hall entries
     'game:announcements-seq',
     'hall:nx:*',                    // first-only celebration dedup (re-arms for the new era)
+    'world:crisis:*',               // global crisis state + exact-once defense proofs
+    'pet:showdown:*',               // transient Showdown turn sessions, including crisis pursuit packs
+    'sd-wcr80:*',                   // level-80 Showdown-to-crisis settlement bindings
 ];
 
 // Villages with NPC Kage + 3 Elders configured on the Village Leaders admin tab.

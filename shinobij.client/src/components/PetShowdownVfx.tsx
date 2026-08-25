@@ -16,12 +16,14 @@
 /* eslint-disable react-refresh/only-export-components -- the FX layer exports
    its spawn/drive types and the flipbook-key helper alongside the components;
    HMR granularity is irrelevant for a purely visual module. */
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Billboard } from "@react-three/drei";
 import * as THREE from "three";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { projectileVisual } from "../lib/pet-projectile-vfx";
+import { showdownMeleeContact } from "../lib/pet-showdown-choreography";
+import type { PetSignaturePerformance } from "../lib/pet-signature-performance";
 import { VolumetricSetPiece } from "./PetShowdownVfx3d";
 import type { ShowdownEvent } from "../lib/pet-showdown-api";
 
@@ -570,12 +572,14 @@ function StatusAuraLoop({ aura, phase }: { aura: { frames: string; scale: number
  *  battle component's STRIKE_FRAC. */
 const VFX_STRIKE_FRAC = 0.55;
 
-export function BeatDrivenVfx({ beatRef, posRef }: {
+export function BeatDrivenVfx({ beatRef, posRef, radii, signatures }: {
     beatRef: React.MutableRefObject<VfxBeat>;
     posRef: React.MutableRefObject<VfxPositions>;
+    radii: ReadonlyMap<string, number>;
+    signatures?: ReadonlyMap<string, PetSignaturePerformance>;
 }) {
-    const projectileDrive = useRef<ProjectileDrive>({ active: false, x: 0, y: 0, z: 0, element: "None", kind: "damage", charged: false, progress: 0, fan: 1, dirX: 0, dirZ: 1 });
-    const meleeDrive = useRef<MeleeStreakDrive>({ active: false, fromX: 0, fromZ: 0, toX: 0, toZ: 0, element: "None", progress: 0, heavy: false });
+    const projectileDrive = useRef<ProjectileDrive>({ active: false, x: 0, y: 0, z: 0, element: "None", kind: "damage", charged: false, progress: 0, fan: 1, dirX: 0, dirZ: 1, signature: null });
+    const meleeDrive = useRef<MeleeStreakDrive>({ active: false, fromX: 0, fromZ: 0, toX: 0, toZ: 0, contactX: 0, contactZ: 0, element: "None", progress: 0, impactProgress: -1, heavy: false, signature: null });
 
     useFrame(() => {
         const beat = beatRef.current;
@@ -588,6 +592,7 @@ export function BeatDrivenVfx({ beatRef, posRef }: {
         const actor = posRef.current.get(ev.actorId);
         const target = posRef.current.get(ev.targets[0].id);
         if (!actor || !target || ev.targets[0].id === ev.actorId) return;
+        const signature = signatures?.get(ev.actorId) ?? null;
         const frac = (performance.now() - beat.startedAt) / beat.durationMs;
 
         if (ev.delivery === "ranged" && ev.moveKind !== "heal") {
@@ -609,18 +614,31 @@ export function BeatDrivenVfx({ beatRef, posRef }: {
                 const len = Math.hypot(bx - ax, bz - az) || 1;
                 proj.dirX = (bx - ax) / len;
                 proj.dirZ = (bz - az) / len;
+                proj.signature = signature;
             }
         } else if (ev.delivery === "melee") {
-            // Mirror the fighter's dash window (0.32 → 0.5 of the beat).
-            if (frac >= 0.3 && frac <= 0.62) {
+            // Mirror the fighter's acceleration/contact/recovery window. The
+            // wake terminates at the same profile-sized SURFACE point as the
+            // body instead of drawing through the target's centre.
+            if (frac >= 0.3 && frac <= 0.66) {
+                const contact = showdownMeleeContact(
+                    actor[0], actor[2], target[0], target[2],
+                    radii.get(ev.actorId) ?? 0.82,
+                    radii.get(ev.targets[0].id) ?? 0.82,
+                    signature?.strikeDrive ?? 1,
+                );
                 melee.active = true;
                 melee.fromX = actor[0];
                 melee.fromZ = actor[2];
-                melee.toX = target[0];
-                melee.toZ = target[2];
+                melee.toX = contact.x;
+                melee.toZ = contact.z;
+                melee.contactX = contact.impactX;
+                melee.contactZ = contact.impactZ;
                 melee.element = ev.element;
-                melee.progress = Math.min(1, Math.max(0, (frac - 0.32) / 0.18));
+                melee.progress = Math.min(1, Math.max(0, (frac - 0.32) / 0.22));
+                melee.impactProgress = frac < 0.54 ? -1 : Math.min(1, (frac - 0.54) / 0.12);
                 melee.heavy = ev.super || ev.weight === "heavy";
+                melee.signature = signature;
             }
         }
     });
@@ -629,6 +647,7 @@ export function BeatDrivenVfx({ beatRef, posRef }: {
         <group>
             <PaintedProjectile drive={projectileDrive} />
             <MeleeStreaks drive={meleeDrive} />
+            <MeleeContactBurst drive={meleeDrive} />
         </group>
     );
 }
@@ -654,6 +673,7 @@ export interface ProjectileDrive {
     /** Normalized travel direction on the ground plane (for fan spread). */
     dirX: number;
     dirZ: number;
+    signature: PetSignaturePerformance | null;
 }
 
 /** Per-element travel identity — each element THROWS differently.
@@ -687,9 +707,11 @@ export function PaintedProjectile({ drive }: { drive: React.MutableRefObject<Pro
         }
         const visual = projectileVisual({ element: d.element, kind: d.kind, charged: d.charged });
         const tex = projectileTexture(d.element);
-        const size = visual.size * (d.charged ? 2.4 : 1.8);
-        const wobble = Math.sin(d.progress * 24) * visual.wobble * 0.35;
-        const flicker = 1 + Math.sin(d.progress * 90) * visual.flicker * 0.3;
+        const signatureScale = d.signature?.projectileScale ?? 1;
+        const signaturePhase = d.signature?.phase ?? 0;
+        const size = visual.size * (d.charged ? 2.4 : 1.8) * signatureScale;
+        const wobble = Math.sin(d.progress * 24 + signaturePhase) * visual.wobble * 0.35 * (d.signature?.trailSpread ?? 1);
+        const flicker = 1 + Math.sin(d.progress * 90 + signaturePhase * 2) * visual.flicker * 0.3;
         // Fan spread: perpendicular to travel, opens mid-flight, converges at
         // the target (sin envelope). A single head sits at offset 0.
         const fan = Math.max(1, Math.min(FAN_MAX, d.fan));
@@ -712,14 +734,16 @@ export function PaintedProjectile({ drive }: { drive: React.MutableRefObject<Pro
             }
             h.position.set(px, d.y + wobble, pz);
             h.scale.set(size * visual.stretch * flicker, size * flicker, 1);
-            h.rotation.z = visual.spin ? d.progress * visual.spin * 1.2 + i * 2.1 : 0;
+            h.rotation.z = (visual.spin ? d.progress * visual.spin * 1.2 + i * 2.1 : 0) + (d.signature?.impactTwist ?? 0);
             g.position.copy(h.position);
             g.scale.setScalar(size * 1.9 * flicker);
-            glowMats.current[i]?.color.set(visual.glow);
+            glowMats.current[i]?.color.set(d.signature?.highlight ?? visual.glow);
         }
 
         // Trail follows the CENTER head — shrinking fading dots.
-        trail.current.unshift({ x: d.x, y: d.y + wobble, z: d.z });
+        const signatureDrift = Math.sin(d.progress * Math.PI * 2 + signaturePhase)
+            * 0.08 * (d.signature?.trailSpread ?? 1);
+        trail.current.unshift({ x: d.x - d.dirZ * signatureDrift, y: d.y + wobble, z: d.z + d.dirX * signatureDrift });
         if (trail.current.length > TRAIL_LEN) trail.current.length = TRAIL_LEN;
         trailRefs.current.forEach((m, i) => {
             if (!m) return;
@@ -730,7 +754,7 @@ export function PaintedProjectile({ drive }: { drive: React.MutableRefObject<Pro
             const f = 1 - (i + 1) / (TRAIL_LEN + 1);
             m.scale.setScalar(size * 0.85 * f * visual.tail);
             (m.material as THREE.MeshBasicMaterial).opacity = 0.4 * f;
-            (m.material as THREE.MeshBasicMaterial).color.set(visual.glow);
+            (m.material as THREE.MeshBasicMaterial).color.set(d.signature?.accent ?? visual.glow);
         });
     });
 
@@ -767,51 +791,158 @@ export interface MeleeStreakDrive {
     /** Streak line from → to (the dash path), tinted by element. */
     fromX: number; fromZ: number;
     toX: number; toZ: number;
+    /** Visible surface collision point — never the target's hidden centre. */
+    contactX: number; contactZ: number;
     element: string;
     /** 0..1 along the dash. */
     progress: number;
+    /** -1 before arrival, then 0..1 through the contact bloom. */
+    impactProgress: number;
     /** Heavy contact dashes push a stronger, wider wake. */
     heavy: boolean;
+    signature: PetSignaturePerformance | null;
 }
 
-const STREAK_COUNT = 4;
+const STREAK_COUNT = 6;
 
 export function MeleeStreaks({ drive }: { drive: React.MutableRefObject<MeleeStreakDrive> }) {
     const refs = useRef<Array<THREE.Mesh | null>>([]);
+    const streakGeometry = useMemo(() => {
+        // A five-point tapered brush cut. The old PlaneGeometry exposed its
+        // rectangular bounds under bloom, especially once several lanes were
+        // visible together; this silhouette reads as a speed slash at any tint.
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.Float32BufferAttribute([
+            0, -0.82, 0,
+            0.17, -0.18, 0,
+            0.055, 0.82, 0,
+            -0.055, 0.82, 0,
+            -0.17, -0.18, 0,
+        ], 3));
+        geometry.setIndex([0, 1, 2, 0, 2, 3, 0, 3, 4]);
+        geometry.computeVertexNormals();
+        return geometry;
+    }, []);
+    useEffect(() => () => streakGeometry.dispose(), [streakGeometry]);
     useFrame(() => {
         const d = drive.current;
         refs.current.forEach((m, i) => {
             if (!m) return;
             if (!d.active) { m.visible = false; return; }
+            const laneCount = d.signature?.trailLanes ?? 4;
+            if (i >= laneCount) { m.visible = false; return; }
             const lag = (i + 1) * 0.12;
             const p = Math.max(0, d.progress - lag);
             if (p <= 0) { m.visible = false; return; }
             m.visible = true;
             const x = d.fromX + (d.toX - d.fromX) * p;
             const z = d.fromZ + (d.toZ - d.fromZ) * p;
-            m.position.set(x, 0.9, z);
+            const pathX = d.toX - d.fromX;
+            const pathZ = d.toZ - d.fromZ;
+            const pathLength = Math.hypot(pathX, pathZ) || 1;
+            const lane = (i - (laneCount - 1) / 2) * 0.075 * (d.signature?.trailSpread ?? 1) * Math.sin(p * Math.PI);
+            m.position.set(x - pathZ / pathLength * lane, 0.72 + (i % 3) * 0.16, z + pathX / pathLength * lane);
             const angle = Math.atan2(d.toX - d.fromX, d.toZ - d.fromZ);
             m.rotation.y = angle;
+            m.rotation.z = (d.signature?.impactTwist ?? 0) * (0.35 + i * 0.08);
             const fade = (1 - lag * 1.6) * (d.progress < 0.9 ? 1 : (1 - d.progress) / 0.1);
             // An ELEMENTAL contact dash earns a real wake; the neutral jab
             // keeps the faint one. Heavies push wider and brighter still.
             const elemental = d.element !== "None";
-            const strength = (elemental ? 0.52 : 0.3) * (d.heavy ? 1.3 : 1);
+            const strength = (elemental ? 0.38 : 0.2) * (d.heavy ? 1.28 : 1) * (d.signature?.aura ?? 1);
             (m.material as THREE.MeshBasicMaterial).opacity = Math.max(0, strength * fade);
             const w = (elemental ? 1.3 : 1) * (d.heavy ? 1.25 : 1);
             m.scale.set(w, w, 1);
             const tint = { Fire: "#ff9a4d", Water: "#67c7ff", Wind: "#8df5d3", Lightning: "#ffe86b", Earth: "#e0b477" }[d.element] ?? "#cbd5f5";
-            (m.material as THREE.MeshBasicMaterial).color.set(tint);
+            (m.material as THREE.MeshBasicMaterial).color.set(i % 2 && d.signature ? d.signature.accent : tint);
         });
     });
     return (
         <group>
             {Array.from({ length: STREAK_COUNT }, (_, i) => (
-                <mesh key={i} ref={(el) => { refs.current[i] = el; }} visible={false}>
-                    <planeGeometry args={[0.32, 1.5]} />
+                <mesh key={i} ref={(el) => { refs.current[i] = el; }} geometry={streakGeometry} visible={false}>
                     <meshBasicMaterial transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
                 </mesh>
             ))}
+        </group>
+    );
+}
+
+/** Immediate melee contact punctuation. Painted element bursts still carry the
+ * move identity; this white-hot star, pressure ring and six cut lines make the
+ * exact collision frame impossible to lose inside a large target silhouette. */
+export function MeleeContactBurst({ drive }: { drive: React.MutableRefObject<MeleeStreakDrive> }) {
+    const root = useRef<THREE.Group>(null);
+    const coreMat = useRef<THREE.MeshBasicMaterial>(null);
+    const groundMat = useRef<THREE.MeshBasicMaterial>(null);
+    const shellMat = useRef<THREE.MeshBasicMaterial>(null);
+    const rayMats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
+    const rayRefs = useRef<Array<THREE.Mesh | null>>([]);
+    const rayRoot = useRef<THREE.Group>(null);
+
+    useFrame(() => {
+        const d = drive.current;
+        const p = d.impactProgress;
+        const active = d.active && p >= 0 && p < 1;
+        if (!root.current) return;
+        root.current.visible = active;
+        if (!active) return;
+
+        const tint = { Fire: "#ff9a4d", Water: "#67d7ff", Wind: "#8df5d3", Lightning: "#fff27a", Earth: "#e0b477" }[d.element] ?? "#dbeafe";
+        const open = 1 - Math.pow(1 - p, 3);
+        const fade = (1 - p) * (1 - p);
+        const weight = (d.heavy ? 1.3 : 1) * (d.signature?.impactScale ?? 1);
+        root.current.position.set(d.contactX, 0.06, d.contactZ);
+        root.current.scale.setScalar((0.5 + open * 1.75) * weight);
+        if (rayRoot.current) rayRoot.current.rotation.z = (d.signature?.impactTwist ?? 0) + open * 0.22 * (d.signature?.asymmetry ?? 1);
+        if (coreMat.current) {
+            coreMat.current.color.set("#ffffff");
+            coreMat.current.opacity = 0.98 * fade;
+        }
+        if (shellMat.current) {
+            shellMat.current.color.set(tint);
+            shellMat.current.opacity = 0.68 * fade;
+        }
+        if (groundMat.current) {
+            groundMat.current.color.set(tint);
+            groundMat.current.opacity = 0.78 * fade;
+        }
+        rayMats.current.forEach((material, index) => {
+            if (!material) return;
+            material.color.set(index % 2 ? d.signature?.accent ?? tint : "#ffffff");
+            material.opacity = (index % 2 ? 0.68 : 0.92) * fade;
+        });
+        rayRefs.current.forEach((ray, index) => {
+            if (!ray) return;
+            ray.visible = index < (d.signature?.impactRays ?? 6);
+            ray.scale.x = (d.signature?.trailSpread ?? 1) * (1 + open * 0.15);
+        });
+    });
+
+    return (
+        <group ref={root} visible={false}>
+            <Billboard position={[0, 1.05, 0]}>
+                <mesh>
+                    <circleGeometry args={[0.42, 28]} />
+                    <meshBasicMaterial ref={coreMat} transparent opacity={0} depthWrite={false} depthTest={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                </mesh>
+                <mesh scale={1.7}>
+                    <ringGeometry args={[0.34, 0.5, 32]} />
+                    <meshBasicMaterial ref={shellMat} transparent opacity={0} depthWrite={false} depthTest={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+                </mesh>
+                <group ref={rayRoot}>
+                    {Array.from({ length: 9 }, (_, index) => (
+                        <mesh ref={(mesh) => { rayRefs.current[index] = mesh; }} key={index} rotation={[0, 0, index * Math.PI * 2 / 9]}>
+                            <planeGeometry args={[1.7 + (index % 2) * 0.45, 0.065]} />
+                            <meshBasicMaterial ref={(material) => { rayMats.current[index] = material; }} transparent opacity={0} depthWrite={false} depthTest={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+                        </mesh>
+                    ))}
+                </group>
+            </Billboard>
+            <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                <ringGeometry args={[0.44, 0.58, 40]} />
+                <meshBasicMaterial ref={groundMat} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+            </mesh>
         </group>
     );
 }

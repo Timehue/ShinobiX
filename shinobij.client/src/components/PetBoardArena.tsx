@@ -1,32 +1,36 @@
 /*
  * PetBoardArena — the Pet Gauntlet BOARD fight view, rendered in 3D (r3f).
  *
- * A real tilted game board (Dota-Underlords style): the generated flagstone floor
- * is a 3D plane, and both squads stand on it as GROUNDED billboard standees at
- * their grid cells (3 deep × 5 across per side), viewed by a perspective camera
- * looking down at the board. It plays a deterministic BoardResult
+ * A real tilted game board (Dota-Underlords style): the approved roster GLBs
+ * fight on raised flagstone cells in their actual formation (3 deep × 5 across
+ * per side), with pose-art standees retained only as a resilient fallback. It
+ * plays a deterministic BoardResult
  * (lib/pet-board-sim) round-by-round — HP bars ease down, hits flash, faints
  * topple. It is its OWN renderer (not the 2v2 PetColiseumDuel); pure presentation
  * over the deterministic stream, so it never touches combat.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as THREE from "three";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { Billboard, Html } from "@react-three/drei";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Billboard, Html, Sparkles } from "@react-three/drei";
+import { Bloom, EffectComposer } from "@react-three/postprocessing";
 import type { BoardResult } from "../lib/pet-board-sim";
 import { BOARD_COLS } from "../lib/pet-board-sim";
 import { petPoseImage, elementVfxKey } from "../lib/pet-battle-anim";
 import { spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, type SpriteBounds } from "../lib/pet-coliseum-scene";
 import type { Pet } from "../types/pet";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
+import { petCombatModel, type PetCombatModelConfig } from "../lib/pet-3d-models";
+import { petModelVariantSurface } from "../lib/pet-visual-variant";
+import { petVisualQuality, type PetVisualQualityConfig } from "../lib/pet-visual-quality";
+import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
 import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
+import "./PetBoardArena.css";
 
 const STEP_STAGGER = 150;    // ms between sequential impacts within a round (so hits read one-by-one)
-const CELL = 2.15;            // world units per grid cell (floor-plane sizing only)
 const ROWS = 6;              // 3 enemy + 3 player
-const SPRITE_H = 1.75;       // standee height (world units) — sized to sit within a cell
 // Pet positions are INSET from the floor plane so squads stand on the playable
 // stone (the lit zones), not out on the fire border / corners. Columns spread
 // across the width; the two sides sit either side of a centre no-man's-land gap
@@ -51,6 +55,7 @@ const boardRowOf = (u: BoardResult["roster"][number]) => (u.team === "enemy" ? 2
 const BASE_SUBJECT_H = 1.35;   // on-board height of a standard pet's body (world units)
 const RARITY_SCALE: Record<string, number> = { standard: 0.9, rare: 1.0, legendary: 1.16, mythic: 1.32 };
 const subjectHeightFor = (pet: Pet) => BASE_SUBJECT_H * (RARITY_SCALE[pet.rarity as string] ?? 1);
+const boardModelHeight = (pet: Pet) => subjectHeightFor(pet) * 1.08;
 
 type BoardSprite = { texture: THREE.Texture; bounds: SpriteBounds; aspect: number };
 const _spriteCache = new Map<string, BoardSprite>();
@@ -132,6 +137,7 @@ type Vec3 = [number, number, number];
 
 function BoardProjectile({ from, to, color, onArrive }: { from: Vec3; to: Vec3; color: string; onArrive: () => void }) {
     const grp = useRef<THREE.Group>(null);
+    const core = useRef<THREE.Mesh>(null);
     const born = useRef<number | null>(null);
     const fired = useRef(false);
     useFrame((state) => {
@@ -139,17 +145,27 @@ function BoardProjectile({ from, to, color, onArrive }: { from: Vec3; to: Vec3; 
         const t = Math.min(1, (state.clock.elapsedTime - born.current) / 0.26);
         const g = grp.current;
         if (g) g.position.set(from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t + Math.sin(t * Math.PI) * 0.7, from[2] + (to[2] - from[2]) * t);
+        if (core.current) core.current.scale.setScalar(0.8 + Math.sin(state.clock.elapsedTime * 28) * 0.18);
         if (t >= 1 && !fired.current) { fired.current = true; onArrive(); }
     });
     return (
         <group ref={grp} position={from}>
-            <Billboard><mesh><planeGeometry args={[0.85, 0.85]} /><meshBasicMaterial map={orbTex()} color={color} transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh></Billboard>
+            <mesh ref={core}>
+                <icosahedronGeometry args={[0.16, 1]} />
+                <meshBasicMaterial color={color} toneMapped={false} />
+            </mesh>
+            <Billboard>
+                <mesh><planeGeometry args={[1.05, 1.05]} /><meshBasicMaterial map={orbTex()} color={color} transparent opacity={0.95} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh>
+                <mesh position={[0, 0, -0.02]} scale={[1.8, 0.32, 1]}><planeGeometry args={[1, 1]} /><meshBasicMaterial map={orbTex()} color={color} transparent opacity={0.42} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh>
+            </Billboard>
         </group>
     );
 }
 
 function BoardBurst({ pos, frames, onDone }: { pos: Vec3; frames: string[]; onDone: () => void }) {
     const mat = useRef<THREE.MeshBasicMaterial>(null);
+    const ring = useRef<THREE.Mesh>(null);
+    const ringMat = useRef<THREE.MeshBasicMaterial>(null);
     const born = useRef<number | null>(null);
     const texes = useMemo(() => frames.map(fxTex), [frames]);
     useFrame((state) => {
@@ -160,47 +176,76 @@ function BoardBurst({ pos, frames, onDone }: { pos: Vec3; frames: string[]; onDo
         m.map = texes[Math.min(texes.length - 1, Math.floor(t * texes.length))];
         m.opacity = 1 - t * t;
         m.needsUpdate = true;
+        if (ring.current) ring.current.scale.setScalar(0.3 + t * 1.75);
+        if (ringMat.current) ringMat.current.opacity = (1 - t) * 0.78;
     });
-    return <Billboard position={pos}><mesh><planeGeometry args={[2.7, 2.7]} /><meshBasicMaterial ref={mat} transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh></Billboard>;
+    return (
+        <group>
+            <Billboard position={pos}><mesh><planeGeometry args={[3.2, 3.2]} /><meshBasicMaterial ref={mat} transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh></Billboard>
+            <mesh ref={ring} position={[pos[0], 0.08, pos[2]]} rotation={[-Math.PI / 2, 0, 0]}>
+                <ringGeometry args={[0.54, 0.72, 36]} />
+                <meshBasicMaterial ref={ringMat} color="#fff4c2" transparent opacity={0.75} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+            </mesh>
+        </group>
+    );
 }
 
-function Standee({ x, z, sprite, pet, hp, maxHp, alive, element, star, pulse }: { x: number; z: number; sprite: BoardSprite | undefined; pet: Pet; hp: number; maxHp: number; alive: boolean; element?: string | null; star?: number; pulse: number }) {
+function BoardUnitPlate({ pet, team, hp, maxHp, star, y }: {
+    pet: Pet; team: "player" | "enemy"; hp: number; maxHp: number; star?: number; y: number;
+}) {
+    const pct = Math.max(0, Math.min(100, hp / Math.max(1, maxHp) * 100));
+    const element = elGlow(pet.element);
+    return (
+        <Html position={[0, y, 0]} center distanceFactor={10} pointerEvents="none" zIndexRange={[20, 0]}>
+            <div className={`gauntlet-unitplate gauntlet-unitplate--${team}`} style={{ ["--pet-element" as string]: element }}>
+                <div className="gauntlet-unitplate__name">
+                    <span className="gauntlet-unitplate__team-mark" />
+                    <span>{pet.name}</span>
+                    {!!star && star > 1 ? <b>{"★".repeat(Math.min(3, star))}</b> : null}
+                </div>
+                <div className="gauntlet-unitplate__track">
+                    <span className="gauntlet-unitplate__hp" style={{ width: `${pct}%` }} />
+                </div>
+            </div>
+        </Html>
+    );
+}
+
+function Standee({ x, z, sprite, pet, team, hp, maxHp, alive, element, star, pulse, attackPulse }: {
+    x: number; z: number; sprite: BoardSprite | undefined; pet: Pet; team: "player" | "enemy"; hp: number; maxHp: number;
+    alive: boolean; element?: string | null; star?: number; pulse: number; attackPulse: number;
+}) {
     const grp = useRef<THREE.Group>(null);
     const mat = useRef<THREE.MeshBasicMaterial>(null);
-    const barFill = useRef<THREE.Mesh>(null);
-    const barMat = useRef<THREE.MeshBasicMaterial>(null);
     const hitAt = useRef(-1);
+    const attackAt = useRef(-1);
     const deadAt = useRef<number | null>(null);
-    const dispPct = useRef(1);
-    const BAR_W = 1.1;
     // Flash + recoil each time a hit LANDS on this unit (pulse increments per impact).
     useEffect(() => { if (pulse > 0) hitAt.current = performance.now(); }, [pulse]);
+    useEffect(() => { if (attackPulse > 0) attackAt.current = performance.now(); }, [attackPulse]);
     // Stamp the moment of death so the faint can animate (shrink/sink, in place).
     useEffect(() => { if (!alive) { if (deadAt.current === null) deadAt.current = performance.now(); } else deadAt.current = null; }, [alive]);
     useFrame(() => {
         const g = grp.current;
         if (g) {
             const since = (performance.now() - hitAt.current) / 1000;
+            const attackSince = (performance.now() - attackAt.current) / 1000;
             const k = hitAt.current > 0 && since < 0.34 ? Math.sin(since / 0.34 * Math.PI) : 0;   // 0→1→0
+            const lunge = attackAt.current > 0 && attackSince < 0.42 ? Math.sin(attackSince / 0.42 * Math.PI) * 0.22 : 0;
             if (alive) {
                 g.position.x = x + Math.sin(since * 60) * 0.06 * k;   // recoil shake
+                g.position.z = z + (team === "player" ? -lunge : lunge) + (team === "player" ? k : -k) * 0.08;
                 g.position.y = 0; g.rotation.z = 0; g.scale.setScalar(1);
                 if (mat.current) { const tint = 1 - 0.5 * k; mat.current.color.setRGB(1, tint, tint); }   // red flash on hit
             } else {
                 // FAINT: shrink + sink straight down IN PLACE (no sideways topple), darkened.
                 const dp = deadAt.current !== null ? Math.min(1, (performance.now() - deadAt.current) / 450) : 1;
-                g.position.x = x; g.rotation.z = 0;
+                g.position.x = x; g.position.z = z; g.rotation.z = 0;
                 g.scale.setScalar(1 - 0.72 * dp);
                 g.position.y = -0.45 * dp;
                 if (mat.current) mat.current.color.setRGB(0.4, 0.4, 0.46);
             }
         }
-        // Ease the HP bar toward the live value so it visibly DRAINS as numbers pop.
-        const target = Math.max(0, Math.min(1, hp / Math.max(1, maxHp)));
-        dispPct.current += (target - dispPct.current) * 0.2;
-        const p = dispPct.current;
-        if (barFill.current) { barFill.current.scale.x = Math.max(0.001, p); barFill.current.position.x = -(BAR_W * (1 - p)) / 2; }
-        if (barMat.current) barMat.current.color.set(p > 0.5 ? "#4ade80" : p > 0.22 ? "#facc15" : "#f87171");
     });
     const layout = useMemo(
         () => groundedSpriteLayout(sprite?.bounds ?? DEFAULT_SPRITE_BOUNDS, sprite?.aspect ?? 1, subjectHeightFor(pet), false),
@@ -228,37 +273,253 @@ function Standee({ x, z, sprite, pet, hp, maxHp, alive, element, star, pulse }: 
                     <planeGeometry args={[layout.planeW, layout.planeH]} />
                     <meshBasicMaterial ref={mat} map={sprite?.texture ?? undefined} alphaTest={0.4} toneMapped={false} />
                 </mesh>
-                {/* HP bar above the creature's head — left-anchored fill, eased per frame */}
-                <group position={[0, layout.contentWorldH + 0.42, 0]}>
-                    <mesh><planeGeometry args={[BAR_W, 0.16]} /><meshBasicMaterial color="#0b1220" /></mesh>
-                    <mesh ref={barFill} position={[0, 0, 0.01]}><planeGeometry args={[BAR_W, 0.11]} /><meshBasicMaterial ref={barMat} color="#4ade80" toneMapped={false} /></mesh>
-                </group>
-                {/* ★ merge rank — gold gem pips above the HP bar (one per rank, ★2+ only) */}
-                {!!star && star > 1 && (
-                    <group position={[0, layout.contentWorldH + 0.66, 0]}>
-                        {Array.from({ length: star }).map((_, i) => (
-                            <mesh key={i} position={[(i - (star - 1) / 2) * 0.17, 0, 0.02]} rotation={[0, 0, Math.PI / 4]}>
-                                <planeGeometry args={[0.12, 0.12]} />
-                                <meshBasicMaterial color="#fcd34d" toneMapped={false} />
-                            </mesh>
-                        ))}
-                    </group>
-                )}
             </Billboard>
+            <BoardUnitPlate pet={pet} team={team} hp={hp} maxHp={maxHp} star={star} y={layout.contentWorldH + 0.5} />
         </group>
     );
 }
 
-function BoardScene({ result, round, spriteMap, stars }: {
-    result: BoardResult; round: number; spriteMap: Map<string, BoardSprite>; stars?: Record<string, number>;
+function ModelFighter({ x, z, pet, team, config, quality, hp, maxHp, alive, star, pulse, attackPulse, supportPulse }: {
+    x: number; z: number; pet: Pet; team: "player" | "enemy"; config: PetCombatModelConfig; quality: PetVisualQualityConfig;
+    hp: number; maxHp: number; alive: boolean; star?: number; pulse: number; attackPulse: number; supportPulse: number;
 }) {
+    const body = useRef<THREE.Group>(null);
+    const aura = useRef<THREE.MeshBasicMaterial>(null);
+    const supportRing = useRef<THREE.Mesh>(null);
+    const supportMat = useRef<THREE.MeshBasicMaterial>(null);
+    const hitAt = useRef(-10);
+    const attackAt = useRef(-10);
+    const supportAt = useRef(-10);
+    const deathAt = useRef<number | null>(null);
+    const facing = team === "player" ? -1 : 1;
+    const height = boardModelHeight(pet);
+    const modelScale = height / Math.max(0.001, config.targetHeight);
+    const glow = elGlow(pet.element);
+    const frame = useRef<PetModelFrame>({
+        ...DEFAULT_PET_MODEL_FRAME,
+        faceX: 0,
+        faceZ: facing,
+        lockTargetFacing: true,
+        performanceVariant: (Math.abs(pet.id.split("").reduce((n, c) => n + c.charCodeAt(0), 0)) % 3) as 0 | 1 | 2,
+    });
+
+    useEffect(() => { if (pulse > 0) hitAt.current = performance.now() / 1000; }, [pulse]);
+    useEffect(() => { if (attackPulse > 0) attackAt.current = performance.now() / 1000; }, [attackPulse]);
+    useEffect(() => { if (supportPulse > 0) supportAt.current = performance.now() / 1000; }, [supportPulse]);
+    useEffect(() => {
+        if (!alive && deathAt.current === null) deathAt.current = performance.now() / 1000;
+        if (alive) deathAt.current = null;
+    }, [alive]);
+
+    useFrame(() => {
+        const now = performance.now() / 1000;
+        const hitAge = now - hitAt.current;
+        const attackAge = now - attackAt.current;
+        const supportAge = now - supportAt.current;
+        const hitK = hitAge < 0.36 ? Math.sin(hitAge / 0.36 * Math.PI) : 0;
+        const attackK = attackAge < 0.64 ? Math.sin(attackAge / 0.64 * Math.PI) : 0;
+        const supportK = supportAge < 0.8 ? Math.sin(supportAge / 0.8 * Math.PI) : 0;
+        const f = frame.current;
+        f.faceX = 0;
+        f.faceZ = facing;
+        f.hit = hitK;
+        f.impactPower = hitK > 0 ? 0.72 : 0.55;
+        f.casting = alive && supportK > 0;
+        f.desperate = alive && hp / Math.max(1, maxHp) < 0.26;
+        f.motion = !alive
+            ? "dead"
+            : supportAge < 0.62
+                ? "windup"
+                : attackAge < 0.16
+                    ? "windup"
+                    : attackAge < 0.5
+                        ? "strike"
+                        : attackAge < 0.68
+                            ? "recover"
+                            : hitAge < 0.3
+                                ? "stagger"
+                                : "idle";
+        if (body.current) {
+            const deathAge = deathAt.current === null ? 0 : Math.min(1, (now - deathAt.current) / 0.85);
+            body.current.position.set(
+                Math.sin(hitAge * 58) * hitK * 0.055,
+                -deathAge * 0.08,
+                facing * attackK * 0.2 - facing * hitK * 0.1,
+            );
+            body.current.scale.setScalar(modelScale * (1 - deathAge * 0.18));
+        }
+        if (aura.current) aura.current.opacity = alive ? 0.26 + Math.sin(now * 2.4 + x) * 0.04 + attackK * 0.22 : 0.08;
+        if (supportRing.current) supportRing.current.scale.setScalar(0.6 + supportK * 1.3);
+        if (supportMat.current) supportMat.current.opacity = supportK * 0.72;
+    });
+
+    return (
+        <group position={[x, 0, z]}>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.035, 0]}>
+                <circleGeometry args={[0.54, 32]} />
+                <meshBasicMaterial color="#000" transparent opacity={0.4} depthWrite={false} />
+            </mesh>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.045, 0]}>
+                <ringGeometry args={[0.55, 0.68, 36]} />
+                <meshBasicMaterial ref={aura} color={glow} transparent opacity={0.3} depthWrite={false} toneMapped={false} />
+            </mesh>
+            <mesh ref={supportRing} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.065, 0]}>
+                <ringGeometry args={[0.48, 0.62, 36]} />
+                <meshBasicMaterial ref={supportMat} color="#8fffd2" transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+            </mesh>
+            <group ref={body} scale={modelScale}>
+                <Suspense fallback={(
+                    <mesh position={[0, config.targetHeight * 0.45, 0]}>
+                        <capsuleGeometry args={[config.targetHeight * 0.2, config.targetHeight * 0.52, 4, 10]} />
+                        <meshStandardMaterial color={glow} emissive={glow} emissiveIntensity={0.34} roughness={0.56} />
+                    </mesh>
+                )}>
+                    <PetModel3D
+                        config={config}
+                        frame={frame}
+                        element={pet.element}
+                        showIdentity={quality.id !== "low"}
+                        surfaceTreatment={petModelVariantSurface(pet)}
+                    />
+                </Suspense>
+            </group>
+            <BoardUnitPlate pet={pet} team={team} hp={hp} maxHp={maxHp} star={star} y={height + 0.55} />
+        </group>
+    );
+}
+
+function ArenaBrazier({ x, z, quality }: { x: number; z: number; quality: PetVisualQualityConfig }) {
+    const flame = useRef<THREE.Mesh>(null);
+    useFrame((state) => {
+        if (!flame.current) return;
+        const pulse = 0.88 + Math.sin(state.clock.elapsedTime * 6 + x) * 0.12;
+        flame.current.scale.set(0.9 + pulse * 0.16, pulse, 0.9 + pulse * 0.16);
+        flame.current.rotation.y += 0.025;
+    });
+    return (
+        <group position={[x, 0, z]}>
+            <mesh position={[0, 0.28, 0]} castShadow={quality.modelShadows}>
+                <cylinderGeometry args={[0.23, 0.32, 0.56, 8]} />
+                <meshStandardMaterial color="#262838" roughness={0.82} metalness={0.22} />
+            </mesh>
+            <mesh ref={flame} position={[0, 0.75, 0]}>
+                <octahedronGeometry args={[0.23, 1]} />
+                <meshBasicMaterial color="#ffb347" transparent opacity={0.92} toneMapped={false} />
+            </mesh>
+            {quality.dynamicPetLight ? <pointLight color="#ff7a2f" intensity={2.2} distance={5.2} decay={2} position={[0, 1, 0]} /> : null}
+        </group>
+    );
+}
+
+function ArenaFloor({ quality }: { quality: PetVisualQualityConfig }) {
     const floor = useTex(gauntletBoard);
+    const cells = useMemo(() => Array.from({ length: ROWS * BOARD_COLS }, (_, i) => ({
+        row: Math.floor(i / BOARD_COLS),
+        col: i % BOARD_COLS,
+    })), []);
+    return (
+        <group>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.35, 0]}>
+                <planeGeometry args={[80, 70]} />
+                <meshStandardMaterial color="#03040b" roughness={1} />
+            </mesh>
+            <mesh position={[0, -0.23, 0]} receiveShadow>
+                <boxGeometry args={[11.2, 0.38, 10.3]} />
+                <meshStandardMaterial color="#121525" roughness={0.88} metalness={0.08} />
+            </mesh>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.03, 0]} receiveShadow>
+                <planeGeometry args={[10.85, 9.9]} />
+                <meshStandardMaterial map={floor ?? undefined} color={floor ? "#9aa4b8" : "#252b3b"} roughness={0.94} metalness={0.02} />
+            </mesh>
+            {cells.map(({ row, col }) => {
+                const team = row <= 2 ? "enemy" : "player";
+                const edge = row === 2 || row === 3;
+                return (
+                    <group key={`${row}-${col}`} position={[cx(col), 0.025, cz(row)]}>
+                        <mesh receiveShadow castShadow={quality.modelShadows}>
+                            <boxGeometry args={[1.58, 0.12, 1.14]} />
+                            <meshStandardMaterial
+                                color={team === "player" ? (edge ? "#1e3a59" : "#182d43") : (edge ? "#54272f" : "#3b2029")}
+                                emissive={team === "player" ? "#2563eb" : "#dc2626"}
+                                emissiveIntensity={edge ? 0.12 : 0.055}
+                                roughness={0.84}
+                                metalness={0.06}
+                            />
+                        </mesh>
+                        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.066, 0]}>
+                            <ringGeometry args={[0.42, 0.46, 28]} />
+                            <meshBasicMaterial color={team === "player" ? "#60a5fa" : "#fb7185"} transparent opacity={edge ? 0.24 : 0.1} depthWrite={false} toneMapped={false} />
+                        </mesh>
+                    </group>
+                );
+            })}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08, 0]}>
+                <ringGeometry args={[0.58, 0.72, 48]} />
+                <meshBasicMaterial color="#f8d66d" transparent opacity={0.58} depthWrite={false} toneMapped={false} />
+            </mesh>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.075, 0]}>
+                <circleGeometry args={[0.3, 6]} />
+                <meshBasicMaterial color="#f8d66d" transparent opacity={0.22} depthWrite={false} toneMapped={false} />
+            </mesh>
+            <ArenaBrazier x={-5.2} z={-4.7} quality={quality} />
+            <ArenaBrazier x={5.2} z={-4.7} quality={quality} />
+            <ArenaBrazier x={-5.2} z={4.7} quality={quality} />
+            <ArenaBrazier x={5.2} z={4.7} quality={quality} />
+        </group>
+    );
+}
+
+function BoardCameraRig({ impactBeat }: { impactBeat: number }) {
+    const { camera, size } = useThree();
+    const impactAt = useRef(-10);
+    const desired = useRef(new THREE.Vector3());
+    const look = useRef(new THREE.Vector3(0, 0, 0.45));
+    useEffect(() => { if (impactBeat > 0) impactAt.current = performance.now() / 1000; }, [impactBeat]);
+    useFrame((state) => {
+        const aspect = size.width / Math.max(1, size.height);
+        const portraitScale = Math.max(1, 0.78 / Math.max(0.42, aspect));
+        const distance = 13.5 * portraitScale;
+        const age = performance.now() / 1000 - impactAt.current;
+        const shake = age < 0.2 ? (1 - age / 0.2) * 0.085 : 0;
+        const drift = Math.sin(state.clock.elapsedTime * 0.18) * 0.18;
+        desired.current.set(
+            drift + Math.sin(state.clock.elapsedTime * 73) * shake,
+            distance * 1.02 + Math.sin(state.clock.elapsedTime * 91) * shake * 0.45,
+            distance + Math.cos(state.clock.elapsedTime * 67) * shake,
+        );
+        camera.position.lerp(desired.current, 0.075);
+        look.current.x = drift * 0.18;
+        camera.lookAt(look.current);
+    });
+    return null;
+}
+
+function BoardPostFx({ quality }: { quality: PetVisualQualityConfig }) {
+    if (quality.id === "low") return null;
+    return (
+        <EffectComposer>
+            <Bloom luminanceThreshold={0.72} luminanceSmoothing={0.2} intensity={quality.id === "high" ? 0.48 : 0.24} mipmapBlur />
+        </EffectComposer>
+    );
+}
+
+function BoardScene({ result, round, spriteMap, modelConfigs, quality, stars }: {
+    result: BoardResult;
+    round: number;
+    spriteMap: Map<string, BoardSprite>;
+    modelConfigs: Map<string, PetCombatModelConfig>;
+    quality: PetVisualQualityConfig;
+    stars?: Record<string, number>;
+}) {
     const idRef = useRef(0);
     const [shots, setShots] = useState<Array<{ id: number; from: Vec3; to: Vec3; targetId: string; element?: string | null; dmg: number; crit: boolean }>>([]);
     const [bursts, setBursts] = useState<Array<{ id: number; pos: Vec3; frames: string[] }>>([]);
     const [pops, setPops] = useState<Array<{ id: number; pos: Vec3; text: string; color: string; size: number }>>([]);
     const [hpView, setHpView] = useState<Record<string, number>>({});   // live, per-impact HP (drives the bars)
     const [pulses, setPulses] = useState<Record<string, number>>({});   // per-unit hit counter (drives the flash)
+    const [attackPulses, setAttackPulses] = useState<Record<string, number>>({});
+    const [supportPulses, setSupportPulses] = useState<Record<string, number>>({});
+    const [impactBeat, setImpactBeat] = useState(0);
     const popTimers = useRef(new Set<number>());
     useEffect(() => () => {
         for (const timer of popTimers.current) window.clearTimeout(timer);
@@ -271,8 +532,8 @@ function BoardScene({ result, round, spriteMap, stars }: {
         return m;
     }, [result]);
     const unitOf = (id?: string) => (id ? result.roster.find((x) => x.id === id) : undefined);
-    const worldOf = (id?: string): Vec3 | null => { const u = unitOf(id); return u ? [cx(u.col), SPRITE_H * 0.55, cz(boardRowOf(u))] : null; };
-    const headOf = (id?: string): Vec3 | null => { const u = unitOf(id); return u ? [cx(u.col), SPRITE_H * 0.55 + 1.4, cz(boardRowOf(u))] : null; };
+    const worldOf = (id?: string): Vec3 | null => { const u = unitOf(id); return u ? [cx(u.col), boardModelHeight(u.pet) * 0.55, cz(boardRowOf(u))] : null; };
+    const headOf = (id?: string): Vec3 | null => { const u = unitOf(id); return u ? [cx(u.col), boardModelHeight(u.pet) + 0.62, cz(boardRowOf(u))] : null; };
 
     const spawnBurst = (pos: Vec3, element?: string | null) => {
         const frames = bundledJutsuFxFrames(elementVfxKey(element));
@@ -292,6 +553,7 @@ function BoardScene({ result, round, spriteMap, stars }: {
     const landDamage = (id: string, dmg: number, crit: boolean) => {
         setHpView((m) => ({ ...m, [id]: Math.max(0, (m[id] ?? maxHpMap[id] ?? 0) - dmg) }));
         setPulses((m) => ({ ...m, [id]: (m[id] ?? 0) + 1 }));
+        setImpactBeat((n) => n + 1);
         spawnPop(id, crit ? `${dmg}!` : `${dmg}`, crit ? "#fde047" : "#fb7185", crit ? 30 : 21);
     };
 
@@ -305,16 +567,20 @@ function BoardScene({ result, round, spriteMap, stars }: {
         for (const u of start?.units ?? []) seed[u.id] = u.hp;
         setHpView(seed);   // eslint-disable-line react-hooks/set-state-in-effect
         setPulses({});
+        setAttackPulses({});
+        setSupportPulses({});
         const impacts = result.events.filter((e) => e.t === round && (e.type === "hit" || e.type === "heal" || e.type === "shield"));
         const timers: number[] = [];
         impacts.forEach((e, i) => {
             timers.push(window.setTimeout(() => {
                 if (e.type === "hit") {
+                    if (e.actorId) setAttackPulses((m) => ({ ...m, [e.actorId!]: (m[e.actorId!] ?? 0) + 1 }));
                     const from = worldOf(e.actorId); const to = worldOf(e.targetId);
                     if (from && to && e.targetId) setShots((s) => [...s, { id: ++idRef.current, from, to, targetId: e.targetId!, element: e.element, dmg: e.dmg ?? 0, crit: !!e.crit }]);
                     else if (e.targetId) landDamage(e.targetId, e.dmg ?? 0, !!e.crit);
                 } else if (e.targetId) {
                     const heal = e.type === "heal";
+                    if (e.actorId) setSupportPulses((m) => ({ ...m, [e.actorId!]: (m[e.actorId!] ?? 0) + 1 }));
                     if (heal) setHpView((m) => ({ ...m, [e.targetId!]: Math.min(maxHpMap[e.targetId!] ?? Infinity, (m[e.targetId!] ?? 0) + (e.dmg ?? 0)) }));
                     spawnPop(e.targetId, `+${e.dmg ?? 0}`, heal ? "#4ade80" : "#67e8f9", 20);   // green heal / cyan shield
                 }
@@ -325,18 +591,38 @@ function BoardScene({ result, round, spriteMap, stars }: {
     }, [round, result]);
     return (
         <>
-            <ambientLight intensity={1} />
-            {/* the board floor */}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-                <planeGeometry args={[BOARD_COLS * CELL + 1.4, ROWS * CELL + 1.4]} />
-                <meshBasicMaterial key={floor ? "floor-tex" : "floor-plain"} map={floor ?? undefined} color={floor ? "#ffffff" : "#1e293b"} toneMapped={false} />
-            </mesh>
+            <fog attach="fog" args={["#070914", 18, 46]} />
+            <ambientLight intensity={0.62} />
+            <hemisphereLight args={["#8aa9ff", "#2b1720", 1.15]} />
+            <directionalLight position={[-7, 13, 8]} intensity={2.2} color="#fff1cf" castShadow={quality.modelShadows} shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
+            <pointLight position={[0, 4.5, -4]} intensity={2.4} color="#ef445a" distance={13} decay={2} />
+            <pointLight position={[0, 4.5, 4]} intensity={2.4} color="#3b82f6" distance={13} decay={2} />
+            <ArenaFloor quality={quality} />
+            <Sparkles count={quality.ambientParticles} scale={[12, 3.2, 11]} position={[0, 1.4, 0]} size={1.25} speed={0.22} opacity={0.32} color="#f8d68a" />
             {result.roster.map((u) => {
                 const mhp = maxHpMap[u.id] ?? u.pet.hp;
                 const hp = hpView[u.id] ?? mhp;
+                const config = modelConfigs.get(u.id);
+                const common = {
+                    x: cx(u.col),
+                    z: cz(boardRowOf(u)),
+                    pet: u.pet,
+                    team: u.team,
+                    element: u.pet.element,
+                    star: stars?.[u.pet.id],
+                    hp,
+                    maxHp: mhp,
+                    alive: hp > 0,
+                    pulse: pulses[u.id] ?? 0,
+                    attackPulse: attackPulses[u.id] ?? 0,
+                };
+                if (config) {
+                    return (
+                        <ModelFighter key={u.id} {...common} config={config} quality={quality} supportPulse={supportPulses[u.id] ?? 0} />
+                    );
+                }
                 return (
-                    <Standee key={u.id} x={cx(u.col)} z={cz(boardRowOf(u))} sprite={spriteMap.get(u.id)} pet={u.pet} element={u.pet.element} star={stars?.[u.pet.id]}
-                        hp={hp} maxHp={mhp} alive={hp > 0} pulse={pulses[u.id] ?? 0} />
+                    <Standee key={u.id} {...common} sprite={spriteMap.get(u.id)} />
                 );
             })}
             {shots.map((s) => (
@@ -348,9 +634,11 @@ function BoardScene({ result, round, spriteMap, stars }: {
             ))}
             {pops.map((p) => (
                 <Html key={p.id} position={p.pos} center style={{ pointerEvents: "none", userSelect: "none" }}>
-                    <div style={{ font: `900 ${p.size}px Inter, sans-serif`, color: p.color, textShadow: "0 2px 5px #000, 0 0 8px rgba(0,0,0,0.7)", animation: "boardPop 0.95s ease-out forwards", whiteSpace: "nowrap" }}>{p.text}</div>
+                    <div className="gauntlet-damage-pop" style={{ fontSize: p.size, color: p.color }}>{p.text}</div>
                 </Html>
             ))}
+            <BoardCameraRig impactBeat={impactBeat} />
+            <BoardPostFx quality={quality} />
         </>
     );
 }
@@ -359,6 +647,32 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
     const total = result.snapshots.length;
     const [round, setRound] = useState(0);
     const done = round >= total - 1;
+    const quality = useMemo(() => petVisualQuality(), []);
+    const modelConfigs = useMemo(() => {
+        const configs = new Map<string, PetCombatModelConfig>();
+        for (const unit of result.roster) {
+            const config = petCombatModel(unit.pet);
+            if (config) configs.set(unit.id, config);
+        }
+        return configs;
+    }, [result]);
+
+    // The portal is the only pet-combat takeover mounted by the Gauntlet, so it
+    // owns scroll locking while present without disturbing a class another mode
+    // may already have installed.
+    useEffect(() => {
+        const hadClass = document.body.classList.contains("pet-combat-active");
+        document.body.classList.add("pet-combat-active");
+        return () => { if (!hadClass) document.body.classList.remove("pet-combat-active"); };
+    }, []);
+
+    // Start GLB + atlas warm-up immediately. Suspense shows a readable elemental
+    // proxy during a cold load, and unsupported identities use pose-art below.
+    useEffect(() => {
+        void import("../lib/pet-model-preload")
+            .then((module) => module.preloadPetColiseumModels(result.roster.map((unit) => unit.pet)))
+            .catch(() => undefined);
+    }, [result]);
 
     // How many HP-changing impacts each round has — the round's on-screen dwell
     // scales with it, so a big flurry gets time to read instead of flashing past.
@@ -375,40 +689,86 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
         return () => window.clearTimeout(t);
     }, [round, total, done, impactsByRound]);
 
-    // Preload each unit's pose sprite + its alpha bounds (for consistent sizing).
+    // Preload pose art only for pets without an approved GLB. This keeps the
+    // fallback resilient without paying the texture cost for the 3D roster.
     const [spriteMap, setSpriteMap] = useState<Map<string, BoardSprite>>(new Map());
     useEffect(() => {
         let live = true;
         for (const u of result.roster) {
+            if (modelConfigs.has(u.id)) continue;
             const url = petPoseImage(u.pet, sharedImages);
             if (!url) continue;
             void loadBoardSprite(url).then((s) => { if (live) setSpriteMap((prev) => new Map(prev).set(u.id, s)); });
         }
         return () => { live = false; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [result]);
+    }, [result, modelConfigs]);
 
     const resultLabel = result.result === "win" ? "Victory" : result.result === "loss" ? "Defeat" : "Draw";
+    const currentSnapshot = result.snapshots[Math.min(round, total - 1)] ?? result.snapshots[0];
+    const teamSummary = (team: "player" | "enemy") => {
+        const rosterIds = new Set(result.roster.filter((unit) => unit.team === team).map((unit) => unit.id));
+        const units = (currentSnapshot?.units ?? []).filter((unit) => rosterIds.has(unit.id));
+        const hp = units.reduce((sum, unit) => sum + Math.max(0, unit.hp), 0);
+        const maxHp = units.reduce((sum, unit) => sum + Math.max(1, unit.maxHp), 0) || 1;
+        return { alive: units.filter((unit) => unit.alive).length, total: units.length, pct: Math.max(0, Math.min(100, hp / maxHp * 100)) };
+    };
+    const player = teamSummary("player");
+    const enemy = teamSummary("enemy");
 
     return createPortal((
-        <div className="pet-combat-takeover" style={{ backgroundImage: `linear-gradient(rgba(8,11,20,0.55), rgba(8,11,20,0.82)), url(${gauntletHero})`, backgroundSize: "cover", backgroundPosition: "center" }}>
-            {/* floating combat-number animation (damage / heal / shield pops) */}
-            <style>{"@keyframes boardPop{0%{transform:translateY(8px) scale(.6);opacity:0}18%{opacity:1;transform:translateY(0) scale(1.08)}100%{transform:translateY(-42px) scale(1);opacity:0}}"}</style>
-            <Canvas dpr={[1, 2]} gl={{ alpha: true, antialias: true }} camera={{ position: [0, 14.5, 13.5], fov: 40 }} onCreated={({ camera }) => camera.lookAt(0, 0, 0.6)}>
-                <BoardScene result={result} round={round} spriteMap={spriteMap} stars={stars} />
+        <div
+            className="pet-combat-takeover gauntlet-board-takeover"
+            data-testid="pet-gauntlet-3d-arena"
+            data-model-count={modelConfigs.size}
+            style={{ backgroundImage: `linear-gradient(rgba(6,8,17,0.48), rgba(5,7,16,0.88)), url(${gauntletHero})` }}
+        >
+            <Canvas
+                aria-hidden="true"
+                dpr={quality.dpr}
+                shadows={quality.modelShadows ? "percentage" : false}
+                gl={{ alpha: true, antialias: quality.id !== "low", powerPreference: "high-performance" }}
+                camera={{ position: [0, 14.5, 13.5], fov: 40, near: 0.35, far: 80 }}
+                onCreated={({ camera }) => camera.lookAt(0, 0, 0.6)}
+            >
+                <BoardScene result={result} round={round} spriteMap={spriteMap} modelConfigs={modelConfigs} quality={quality} stars={stars} />
             </Canvas>
 
-            <div style={{ position: "absolute", top: "5%", left: 0, right: 0, textAlign: "center", color: "#fcd34d", font: "800 clamp(15px,2.4vw,22px) var(--font-display)", textShadow: "0 2px 8px #000", pointerEvents: "none" }}>
-                ⚔️ Round {Math.min(round, result.rounds)} / {result.rounds}
+            <div className="gauntlet-board-vignette" aria-hidden="true" />
+            <header className="gauntlet-board-hud" aria-label="Gauntlet battle status">
+                <div className="gauntlet-board-team gauntlet-board-team--player">
+                    <span className="gauntlet-board-team__eyebrow">Your formation</span>
+                    <strong>{player.alive}<small> / {player.total} standing</small></strong>
+                    <div className="gauntlet-board-team__bar"><span style={{ width: `${player.pct}%` }} /></div>
+                </div>
+                <div className="gauntlet-board-round" aria-live="polite">
+                    <span>Pet Gauntlet</span>
+                    <strong>Round {Math.min(round, result.rounds)} <i>/ {result.rounds}</i></strong>
+                    <small>{modelConfigs.size === result.roster.length ? "Full 3D roster" : `${modelConfigs.size}/${result.roster.length} 3D fighters`}</small>
+                </div>
+                <div className="gauntlet-board-team gauntlet-board-team--enemy">
+                    <span className="gauntlet-board-team__eyebrow">Enemy formation</span>
+                    <strong>{enemy.alive}<small> / {enemy.total} standing</small></strong>
+                    <div className="gauntlet-board-team__bar"><span style={{ width: `${enemy.pct}%` }} /></div>
+                </div>
+            </header>
+
+            <div className="gauntlet-board-side-label gauntlet-board-side-label--enemy" aria-hidden="true">
+                <span>Enemy line</span>
             </div>
-            {/* client-build tag — confirms the live board is running the latest code */}
-            <div style={{ position: "absolute", bottom: 6, right: 8, color: "#64748b", font: "700 10px Inter, sans-serif", textShadow: "0 1px 3px #000", pointerEvents: "none" }}>build g21</div>
+            <div className="gauntlet-board-side-label gauntlet-board-side-label--player" aria-hidden="true">
+                <span>Your line</span>
+            </div>
+            <div className="gauntlet-board-build" aria-hidden="true">build g23 · {quality.id}</div>
 
             {done && (
-                <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.5)" }}>
-                    <div style={{ textAlign: "center" }}>
-                        <div style={{ font: "900 42px Inter, sans-serif", color: resultLabel === "Victory" ? "#4ade80" : resultLabel === "Defeat" ? "#f87171" : "#facc15", textShadow: "0 2px 12px #000" }}>{resultLabel}</div>
-                        <button onClick={onDone} style={{ marginTop: 14, padding: "9px 22px", borderRadius: 10, border: "1px solid #475569", background: "#f59e0b", color: "#0b1220", font: "800 0.95rem Inter, sans-serif", cursor: "pointer" }}>Continue →</button>
+                <div className="gauntlet-board-result" role="dialog" aria-modal="true" aria-labelledby="gauntlet-result-title">
+                    <div className={`gauntlet-board-result__card gauntlet-board-result__card--${result.result}`}>
+                        <span className="gauntlet-board-result__kicker">Formation resolved</span>
+                        <div className="gauntlet-board-result__crest" aria-hidden="true">{result.result === "win" ? "✦" : result.result === "loss" ? "✕" : "◇"}</div>
+                        <h2 id="gauntlet-result-title">{resultLabel}</h2>
+                        <p>{result.result === "win" ? "Your squad holds the arena." : result.result === "loss" ? "The enemy line breaks through." : "Neither formation yields."}</p>
+                        <button type="button" onClick={onDone}>Continue the run <span aria-hidden="true">→</span></button>
                     </div>
                 </div>
             )}

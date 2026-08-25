@@ -36,6 +36,7 @@ import thunderArchiveArt from "../assets/towers/story/thunder-archive.webp";
 import thousandBoltBridgeArt from "../assets/towers/story/thousand-bolt-bridge.webp";
 import brokenReflectionsArt from "../assets/towers/story/broken-reflections.webp";
 import stormglassCrownArt from "../assets/towers/story/stormglass-crown.webp";
+import worldCrisis80Art from "../assets/world-crisis-80/reckoning-outskirts.webp";
 // Floor-card icons render at 44x44 (.tower-story-floor-icon). Pointing them at the
 // 1536x1024 masters made the lobby download ~4.3 MB and hold ~94 MB of decoded
 // bitmaps before it could paint, which stalled the main thread on entry. These
@@ -125,6 +126,10 @@ const TOWER_STORY_FLOOR_ART: Readonly<Record<string, string>> = {
     "thousand-bolt-bridge": thousandBoltBridgeArt,
     "broken-reflections": brokenReflectionsArt,
     "stormglass-crown": stormglassCrownArt,
+    "world-crisis-80-forest": worldCrisis80Art,
+    "world-crisis-80-volcano": worldCrisis80Art,
+    "world-crisis-80-snow": worldCrisis80Art,
+    "world-crisis-80-shadow": worldCrisis80Art,
 };
 
 // Same keys as TOWER_STORY_FLOOR_ART, one 240x160 icon each. A key present in the

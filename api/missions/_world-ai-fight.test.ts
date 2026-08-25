@@ -59,6 +59,11 @@ describe('World AI fight authority', () => {
         for (const sector of [67, 99]) {
             assert.equal(cleanWorldAiFightRequest({ kind: 'wanderer', sourceId: 'w-1-1-0', sector }), null, `sector ${sector} must not be a normal World encounter sector`);
         }
+        assert.deepEqual(cleanWorldAiFightRequest({ kind: 'world-crisis', sourceId: 'fourfold-breach-v1:stormveil', sector: 0 }), {
+            kind: 'world-crisis', sourceId: 'fourfold-breach-v1:stormveil', sector: 0,
+        });
+        assert.equal(cleanWorldAiFightRequest({ kind: 'world-crisis', sourceId: 'fourfold-breach-v1:stormveil', sector: 1 }), null);
+        assert.equal(cleanWorldAiFightRequest({ kind: 'wanderer', sourceId: 'w-1-1-0', sector: 0 }), null);
     });
 
     it('keeps world token/pointer lifetime coherent with the active solo-PvE session', () => {

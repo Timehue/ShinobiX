@@ -160,7 +160,6 @@ import {
 import { normalizeLoadedVital, regenerateIdleVitals } from "./lib/loaded-vitals";
 import { acceptVersionedSnapshot } from "./lib/versioned-snapshot";
 export { dailyMissionsCompleted, dailyHuntsCompleted };
-
 // Install the global fetch interceptor once at module load. From here on,
 // every fetch('/api/...') call automatically picks up x-player-name and
 // x-player-password from the active session (managed via setActivePlayer).
@@ -207,6 +206,7 @@ import { postFieldTrail } from "./lib/field-trail-api";
 import { postPlayerChallengeNotice } from "./lib/player-api";
 import { EXAM_LEVEL_GATES } from "./constants/game";
 const WorldMap = lazyWithRetry(() => import("./screens/WorldMap").then(m => ({ default: m.WorldMap })));
+const WorldCrisis = lazyWithRetry(() => import("./screens/WorldCrisis").then(m => ({ default: m.WorldCrisis })));
 const loadMissionCatalog = () => import("./data/missions");
 const mutateDungeonRunServer = (playerName: string, action: "start" | "settle" | "abandon", token = "") =>
     import("./lib/dungeon-api").then((api) => api.mutateDungeonRunServer(playerName, action, token));
@@ -259,7 +259,6 @@ const ScreenHint = lazyWithRetry(() => import("./components/ScreenHint").then(m 
 const LiveServiceNotice = lazyWithRetry(() => import("./components/LiveServiceNotice").then(m => ({ default: m.LiveServiceNotice })));
 const NextGoalPin = lazyWithRetry(() => import("./components/NextGoalPin").then(m => ({ default: m.NextGoalPin })));
 const Village = lazyWithRetry(() => import("./screens/Village").then(m => ({ default: m.Village })));
-
 import {
     type Profession,
     type Screen,
@@ -6888,7 +6887,7 @@ export default function App() {
 
                 {!activeTriggeredEvent && (
                     <Suspense fallback={null}>
-                    <LiveServiceNotice screen={screen} />
+                    <LiveServiceNotice screen={screen} onNavigate={navigate} />
                     </Suspense>
                 )}
 
@@ -6896,7 +6895,7 @@ export default function App() {
                     <Suspense fallback={null}>
                         <NextGoalPin character={character} navigate={navigate} />
                     </Suspense>
-                    <Village character={character} setScreen={navigate} />
+                    <Village character={character} setScreen={navigate} allServerPlayers={allServerPlayers} />
                 </>)}
                 {!activeTriggeredEvent && screen === "worldMap" && character && (
                     <WorldMap
@@ -7173,6 +7172,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} onBack={goBack} sharedImages={sharedImages} onViewProfile={(name) => { setViewingUserName(name); navigate("userView"); }} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={goBack} initialWith={viewingUserName} />}
                 {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={setScreen} playerRoster={playerRoster} updateCharacter={setCharacter} />}
+                {!activeTriggeredEvent && screen === "worldCrisis" && character && <WorldCrisis character={character} setScreen={navigate} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} onRecordBattle={recordBattle} hostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} />}
                 {!activeTriggeredEvent && screen === "endlessTower" && character && (
                     <EndlessTowerLobby
                         character={character}

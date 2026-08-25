@@ -1,0 +1,450 @@
+.gauntlet-board-takeover {
+    isolation: isolate;
+    background-color: #050711;
+    background-position: center;
+    background-size: cover;
+    color: #f8fafc;
+    font-family: Inter, system-ui, sans-serif;
+}
+
+.gauntlet-board-takeover::before {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background:
+        radial-gradient(circle at 50% 44%, rgba(86, 104, 168, 0.17), transparent 34%),
+        linear-gradient(180deg, rgba(3, 5, 14, 0.18), rgba(3, 5, 14, 0.72));
+    content: "";
+}
+
+.gauntlet-board-vignette {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    background:
+        linear-gradient(180deg, rgba(2, 3, 9, 0.68) 0, transparent 19%, transparent 76%, rgba(2, 3, 9, 0.78) 100%),
+        radial-gradient(ellipse at center, transparent 42%, rgba(1, 2, 8, 0.64) 100%);
+    pointer-events: none;
+}
+
+.gauntlet-board-hud {
+    position: absolute;
+    z-index: 4;
+    top: max(12px, env(safe-area-inset-top, 0px));
+    left: 50%;
+    display: grid;
+    grid-template-columns: minmax(170px, 1fr) auto minmax(170px, 1fr);
+    gap: clamp(12px, 3vw, 52px);
+    align-items: center;
+    width: min(980px, calc(100% - 32px));
+    pointer-events: none;
+    transform: translateX(-50%);
+}
+
+.gauntlet-board-team {
+    min-width: 0;
+    padding: 10px 13px 11px;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 11px;
+    background: linear-gradient(135deg, rgba(13, 18, 34, 0.9), rgba(13, 18, 34, 0.52));
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.3), inset 0 1px rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+}
+
+.gauntlet-board-team--player {
+    border-left: 3px solid #60a5fa;
+}
+
+.gauntlet-board-team--enemy {
+    border-right: 3px solid #fb7185;
+    text-align: right;
+}
+
+.gauntlet-board-team__eyebrow,
+.gauntlet-board-round > span,
+.gauntlet-board-result__kicker {
+    display: block;
+    color: #94a3b8;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
+.gauntlet-board-team strong {
+    display: block;
+    margin-top: 2px;
+    font-size: 15px;
+    line-height: 1.2;
+}
+
+.gauntlet-board-team strong small {
+    color: #94a3b8;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.gauntlet-board-team__bar {
+    height: 4px;
+    margin-top: 7px;
+    overflow: hidden;
+    border-radius: 99px;
+    background: rgba(15, 23, 42, 0.9);
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.14);
+}
+
+.gauntlet-board-team__bar span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    transition: width 320ms ease-out;
+}
+
+.gauntlet-board-team--player .gauntlet-board-team__bar span {
+    margin-right: auto;
+    background: linear-gradient(90deg, #2563eb, #7dd3fc);
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.7);
+}
+
+.gauntlet-board-team--enemy .gauntlet-board-team__bar span {
+    margin-left: auto;
+    background: linear-gradient(90deg, #fda4af, #dc2626);
+    box-shadow: 0 0 12px rgba(244, 63, 94, 0.7);
+}
+
+.gauntlet-board-round {
+    min-width: 150px;
+    text-align: center;
+    text-shadow: 0 2px 8px #000;
+}
+
+.gauntlet-board-round > span {
+    color: #f8d68a;
+}
+
+.gauntlet-board-round strong {
+    display: block;
+    margin-top: 1px;
+    color: #fff8dc;
+    font: 900 clamp(17px, 2.3vw, 24px) var(--font-display, Inter, sans-serif);
+    letter-spacing: 0.02em;
+}
+
+.gauntlet-board-round strong i {
+    color: #94a3b8;
+    font-size: 0.64em;
+    font-style: normal;
+}
+
+.gauntlet-board-round small {
+    color: #7dd3fc;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.gauntlet-board-side-label {
+    position: absolute;
+    z-index: 3;
+    right: clamp(10px, 2.5vw, 36px);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(226, 232, 240, 0.56);
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.18em;
+    pointer-events: none;
+    text-transform: uppercase;
+    writing-mode: vertical-rl;
+}
+
+.gauntlet-board-side-label::before {
+    width: 1px;
+    height: 42px;
+    background: currentColor;
+    content: "";
+}
+
+.gauntlet-board-side-label--enemy {
+    top: 26%;
+    color: rgba(251, 113, 133, 0.62);
+}
+
+.gauntlet-board-side-label--player {
+    bottom: 19%;
+    color: rgba(96, 165, 250, 0.66);
+}
+
+.gauntlet-board-build {
+    position: absolute;
+    z-index: 4;
+    right: max(9px, env(safe-area-inset-right, 0px));
+    bottom: max(7px, env(safe-area-inset-bottom, 0px));
+    color: rgba(148, 163, 184, 0.46);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    pointer-events: none;
+    text-transform: uppercase;
+}
+
+.gauntlet-unitplate {
+    width: 88px;
+    filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.8));
+    text-align: center;
+    transform: translateZ(0);
+}
+
+.gauntlet-unitplate__name {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: #f8fafc;
+    font-size: 8px;
+    font-weight: 900;
+    line-height: 1.2;
+    text-shadow: 0 1px 3px #000, 0 0 5px #000;
+    white-space: nowrap;
+}
+
+.gauntlet-unitplate__name > span:nth-child(2) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gauntlet-unitplate__name b {
+    flex: none;
+    color: #fde68a;
+    font-size: 6px;
+    letter-spacing: -1px;
+}
+
+.gauntlet-unitplate__team-mark {
+    flex: none;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #60a5fa;
+    box-shadow: 0 0 5px #60a5fa;
+}
+
+.gauntlet-unitplate--enemy .gauntlet-unitplate__team-mark {
+    background: #fb7185;
+    box-shadow: 0 0 5px #fb7185;
+}
+
+.gauntlet-unitplate__track {
+    height: 5px;
+    margin: 3px auto 0;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.9);
+    border-radius: 99px;
+    background: #0b1020;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--pet-element) 42%, transparent);
+}
+
+.gauntlet-unitplate__hp {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #22c55e, #86efac);
+    box-shadow: 0 0 7px rgba(74, 222, 128, 0.72);
+    transition: width 260ms ease-out;
+}
+
+.gauntlet-damage-pop {
+    animation: gauntlet-board-pop 0.95s ease-out forwards;
+    font-family: Inter, system-ui, sans-serif;
+    font-weight: 950;
+    line-height: 1;
+    text-shadow: 0 2px 5px #000, 0 0 8px rgba(0, 0, 0, 0.85), 0 0 14px currentColor;
+    white-space: nowrap;
+}
+
+@keyframes gauntlet-board-pop {
+    0% { opacity: 0; transform: translateY(8px) scale(0.58); }
+    18% { opacity: 1; transform: translateY(0) scale(1.1); }
+    100% { opacity: 0; transform: translateY(-46px) scale(1); }
+}
+
+.gauntlet-board-result {
+    position: absolute;
+    /* Drei Html nameplates occupy z-index 0..20 inside the canvas wrapper. The
+       result must sit above that entire range or defeated unit labels can bleed
+       through the glass card. */
+    z-index: 100;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: radial-gradient(circle, rgba(18, 25, 48, 0.28), rgba(2, 4, 12, 0.78));
+    animation: gauntlet-result-fade 420ms ease-out both;
+}
+
+.gauntlet-board-result__card {
+    position: relative;
+    width: min(360px, calc(100vw - 34px));
+    overflow: hidden;
+    padding: 26px 28px 24px;
+    border: 1px solid rgba(248, 214, 138, 0.42);
+    border-radius: 18px;
+    background: linear-gradient(145deg, rgba(20, 27, 48, 0.96), rgba(7, 10, 23, 0.94));
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.62), inset 0 1px rgba(255, 255, 255, 0.08);
+    text-align: center;
+    backdrop-filter: blur(16px);
+    animation: gauntlet-result-rise 460ms cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+}
+
+.gauntlet-board-result__card::before {
+    position: absolute;
+    top: 0;
+    right: 12%;
+    left: 12%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #f8d68a, transparent);
+    content: "";
+}
+
+.gauntlet-board-result__crest {
+    display: grid;
+    width: 58px;
+    height: 58px;
+    margin: 14px auto 9px;
+    place-items: center;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    color: #f8d68a;
+    background: rgba(248, 214, 138, 0.08);
+    box-shadow: 0 0 30px color-mix(in srgb, currentColor 24%, transparent), inset 0 0 18px color-mix(in srgb, currentColor 14%, transparent);
+    font-size: 28px;
+}
+
+.gauntlet-board-result__card--win .gauntlet-board-result__crest {
+    color: #4ade80;
+}
+
+.gauntlet-board-result__card--loss .gauntlet-board-result__crest {
+    color: #fb7185;
+}
+
+.gauntlet-board-result__card h2 {
+    margin: 0;
+    color: #fff8dc;
+    font: 950 clamp(34px, 7vw, 48px) var(--font-display, Inter, sans-serif);
+    letter-spacing: 0.02em;
+    text-shadow: 0 2px 12px #000;
+}
+
+.gauntlet-board-result__card p {
+    margin: 6px 0 20px;
+    color: #aebbd0;
+    font-size: 13px;
+}
+
+.gauntlet-board-result__card button {
+    min-height: 44px;
+    padding: 10px 20px;
+    border: 1px solid #f8d68a;
+    border-radius: 10px;
+    color: #171109;
+    background: linear-gradient(180deg, #fde7a8, #d8a93d);
+    box-shadow: 0 8px 24px rgba(216, 169, 61, 0.22), inset 0 1px rgba(255, 255, 255, 0.65);
+    cursor: pointer;
+    font: 900 13px Inter, system-ui, sans-serif;
+}
+
+.gauntlet-board-result__card button:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+}
+
+.gauntlet-board-result__card button:focus-visible {
+    outline: 3px solid #7dd3fc;
+    outline-offset: 3px;
+}
+
+@keyframes gauntlet-result-fade {
+    from { opacity: 0; }
+}
+
+@keyframes gauntlet-result-rise {
+    from { opacity: 0; transform: translateY(18px) scale(0.94); }
+}
+
+@media (max-width: 720px) {
+    .gauntlet-board-hud {
+        top: max(7px, env(safe-area-inset-top, 0px));
+        grid-template-columns: minmax(0, 1fr) 108px minmax(0, 1fr);
+        gap: 6px;
+        width: calc(100% - 12px);
+    }
+
+    .gauntlet-board-team {
+        padding: 7px 8px 8px;
+        border-radius: 8px;
+    }
+
+    .gauntlet-board-team__eyebrow {
+        overflow: hidden;
+        font-size: 7px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .gauntlet-board-team strong {
+        font-size: 12px;
+    }
+
+    .gauntlet-board-team strong small,
+    .gauntlet-board-round small,
+    .gauntlet-board-side-label {
+        display: none;
+    }
+
+    .gauntlet-board-round {
+        min-width: 0;
+    }
+
+    .gauntlet-board-round strong {
+        font-size: 15px;
+    }
+
+    .gauntlet-board-round > span {
+        font-size: 7px;
+    }
+
+    .gauntlet-unitplate {
+        width: 76px;
+    }
+}
+
+@media (max-height: 560px) {
+    .gauntlet-board-hud {
+        top: 5px;
+    }
+
+    .gauntlet-board-team {
+        padding-block: 5px 6px;
+    }
+
+    .gauntlet-board-team__eyebrow,
+    .gauntlet-board-round small {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gauntlet-board-team__bar span,
+    .gauntlet-unitplate__hp,
+    .gauntlet-board-result,
+    .gauntlet-board-result__card,
+    .gauntlet-damage-pop {
+        animation-duration: 1ms !important;
+        transition-duration: 1ms !important;
+    }
+}

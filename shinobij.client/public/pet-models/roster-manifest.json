@@ -81,11 +81,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "DA225CDDB0A9E099B8050EA4863E2CA44C555744F5D89FD9D6ABA85BE8FF3C2B",
+      "sha256": "0F0A7007D27D98992DDB3FD1943579D7F9B9D1ECDC2FCAE011140A94EC7E134E",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 545688,
+        "bytes": 545908,
         "triangles": 40000,
         "vertices": 26107,
         "materials": 1,
@@ -95,9 +95,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "quadruped",
+        "signatureSeed": 1385681689,
         "clips": [
           "idle",
           "idle_2",
@@ -190,11 +191,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "425D03A42FE006FED02B17EF2EE78AAE17D44E3CB6598B46DB8CF7B09F641523",
+      "sha256": "E7E685F7F96931520A0292D71784977A7C14918B8E316A0310CDB7474CCD93EF",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 531740,
+        "bytes": 531960,
         "triangles": 40000,
         "vertices": 25337,
         "materials": 1,
@@ -204,9 +205,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "hopper",
         "rig": "biped",
+        "signatureSeed": 2669282809,
         "clips": [
           "idle",
           "idle_2",
@@ -299,11 +301,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "494053B8F44564497B0783C14BD846BE12834A5F632D2A40A99FE935A51F9777",
+      "sha256": "AFE013D65C1D5CB42D50E59069834CA8B5DBCDD0E337850AF36CDA4707A550C0",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 454416,
+        "bytes": 454636,
         "triangles": 40000,
         "vertices": 25624,
         "materials": 1,
@@ -313,9 +315,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "biped",
+        "signatureSeed": 1024276158,
         "clips": [
           "idle",
           "idle_2",
@@ -408,11 +411,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "BC45AA7921BC289E04A5FD732F9C18C871A7309E1689D5FA043FC220EED794F0",
+      "sha256": "B9B1F0E425DB1CC56A32F9D8248CE41DD7278B476E684ECC9F84CAAA64EA5B31",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 467164,
+        "bytes": 467380,
         "triangles": 40000,
         "vertices": 26336,
         "materials": 1,
@@ -422,9 +425,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 647032712,
         "clips": [
           "idle",
           "idle_2",
@@ -517,11 +521,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "DA1B713A652244ABBF4F50728C42104C1661E383E0FB8C7F32D2AEFCAB2D9562",
+      "sha256": "3D974D5920560B8B97ED190EE9AB414E7EC97A59CB0927931742C8F4D7B454DA",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 478040,
+        "bytes": 478256,
         "triangles": 40000,
         "vertices": 25231,
         "materials": 1,
@@ -531,9 +535,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "amphibious",
         "rig": "biped",
+        "signatureSeed": 3861003935,
         "clips": [
           "idle",
           "idle_2",
@@ -626,11 +631,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "7E1860436352EC1950849B4989818CFE61FB7478D62CC75E7F14CC6EB73273DB",
+      "sha256": "96E69743EDB3D719751A0D7D855EB249B7DEE989E8BB4D1EBCF4B7E8696D88D7",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 504576,
+        "bytes": 504800,
         "triangles": 40000,
         "vertices": 26076,
         "materials": 1,
@@ -640,9 +645,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "armored",
         "rig": "biped",
+        "signatureSeed": 1109814777,
         "clips": [
           "idle",
           "idle_2",
@@ -735,11 +741,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "CEF0C864B4441351AFF49F801CD751A9B4D41A00CE555885A4CF98D5C4A69171",
+      "sha256": "CC7909F7C7CF74DD686BA154253B23DA3A4B24C7764544DAC53E25954859E5FA",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 626976,
+        "bytes": 627196,
         "triangles": 40000,
         "vertices": 25801,
         "materials": 1,
@@ -749,9 +755,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "reptilian",
         "rig": "biped",
+        "signatureSeed": 1919731266,
         "clips": [
           "idle",
           "idle_2",
@@ -938,11 +945,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "740304659F06D2F277069D9449FADEC55A4D1D7C58224B9E747EE94E183255C9",
+      "sha256": "E02455D1A795BA8A50F96576257043EB0859AAC72D5299D38E3D991489B9C10A",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 515248,
+        "bytes": 515464,
         "triangles": 40000,
         "vertices": 25407,
         "materials": 1,
@@ -952,9 +959,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "amphibious",
         "rig": "biped",
+        "signatureSeed": 136265169,
         "clips": [
           "idle",
           "idle_2",
@@ -1047,11 +1055,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "345B2E8FB0F5276E24823947CA1CF9A5B0BC8CDCAF0F4DFF70F8C233C74AA074",
+      "sha256": "EE1AF29F3D531A6B5683A3183A28527FA19E4A648355A9EEBE89C31E75758CAF",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 569860,
+        "bytes": 570080,
         "triangles": 40000,
         "vertices": 27593,
         "materials": 1,
@@ -1061,9 +1069,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "charger",
         "rig": "biped",
+        "signatureSeed": 718668304,
         "clips": [
           "idle",
           "idle_2",
@@ -1156,11 +1165,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "2AF7E48A9BF6C0FC6A4B3EDE04274E8B0B924ECF6AE07E1C527DA25703A40C50",
+      "sha256": "CF6155D1A89A17D7E11B33F807A9FB829B59005D8A5462613C27806D92F865AE",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 495964,
+        "bytes": 496180,
         "triangles": 40000,
         "vertices": 26381,
         "materials": 1,
@@ -1170,9 +1179,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 3697649856,
         "clips": [
           "idle",
           "idle_2",
@@ -1265,11 +1275,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "8DAC38205AED27B95C4A926687567D71B770C8ACAABA194D0809FC7A13BD3E93",
+      "sha256": "1D7962419DF76F8EC1E265F654A19DCE8A2AB14AC54AD0329A419DCF58E7602E",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 520228,
+        "bytes": 520448,
         "triangles": 40000,
         "vertices": 24801,
         "materials": 1,
@@ -1279,9 +1289,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "serpentine",
         "rig": "biped",
+        "signatureSeed": 1612420595,
         "clips": [
           "idle",
           "idle_2",
@@ -1374,11 +1385,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "3DF04274F1D3EFF7C9E27736BD79147A5B1490F48022C55CF498C5CAE9CCA2E4",
+      "sha256": "6DB3372EEECA3983940844DC1AF72AC524704E5B921C996C7526FFF003897439",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 509588,
+        "bytes": 509808,
         "triangles": 40000,
         "vertices": 25702,
         "materials": 1,
@@ -1388,9 +1399,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "biped",
+        "signatureSeed": 1169042265,
         "clips": [
           "idle",
           "idle_2",
@@ -1483,11 +1495,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "FA355B91435178D5421C2E338F7E3ADD30C8E1A202BB1E3739268E73EAE0E40E",
+      "sha256": "4171941A60FC213BD13DB3E44B1E2F1F6120C2D1C6CD500B188E041DEF03972B",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 590140,
+        "bytes": 590356,
         "triangles": 40000,
         "vertices": 25917,
         "materials": 1,
@@ -1497,9 +1509,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "armored",
         "rig": "insect",
+        "signatureSeed": 4153560516,
         "clips": [
           "idle",
           "idle_2",
@@ -1592,11 +1605,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "C5E7434708DF533212AE7587B8CF37FCB8127C8BEFCA244A2EE49C06BA1AD896",
+      "sha256": "EBA2F1B331D63C80967EEE1D21265FBE0B72DF29BB8DADAAA405FA35F6B75C47",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 490784,
+        "bytes": 491000,
         "triangles": 40000,
         "vertices": 28130,
         "materials": 1,
@@ -1606,9 +1619,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 780997560,
         "clips": [
           "idle",
           "idle_2",
@@ -1701,11 +1715,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "598434884FEDA2276C340E2625F96F9DB6D0E8A4D97F0EB4CDDB8AF13C95341C",
+      "sha256": "E2758516A84E4EE20E2B717DB46E7757A81D905DE6BB6E4F9BAA9EB7F394F6EE",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 548204,
+        "bytes": 548428,
         "triangles": 40000,
         "vertices": 26640,
         "materials": 1,
@@ -1715,9 +1729,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "rodent",
         "rig": "biped",
+        "signatureSeed": 2548079259,
         "clips": [
           "idle",
           "idle_2",
@@ -1810,11 +1825,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "72089527F43C66031FA4E1549AE2C51F7A7FA0001894461D5BF9C09A36B4C3C3",
+      "sha256": "985A50457E7D67B3B02AFE66866EC0CCF248997519795D39CC25CBEE8C854063",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 487376,
+        "bytes": 487596,
         "triangles": 40000,
         "vertices": 24189,
         "materials": 1,
@@ -1824,9 +1839,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "charger",
         "rig": "quadruped",
+        "signatureSeed": 2395360889,
         "clips": [
           "idle",
           "idle_2",
@@ -1919,11 +1935,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "5070D9B7AAC69D287F139ACDC3FDB16AA037C7ECCEF559FBCD5EDBDEABE81DCB",
+      "sha256": "D2410A15EACA11FCCCF83C555FC8C8C16CECC3803BC634EC95FAF139EC50FF03",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 543964,
+        "bytes": 544184,
         "triangles": 40000,
         "vertices": 26500,
         "materials": 1,
@@ -1933,9 +1949,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 141791248,
         "clips": [
           "idle",
           "idle_2",
@@ -2032,11 +2049,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "79D41C481B1C5ABBD44E403158B8CD0845E7911217EDE34D070523970AA35223",
+      "sha256": "0203D9F4CDBD976BFEBC177945F550270C245DB06E56EE5AF5DC90D7A6194743",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 466532,
+        "bytes": 466756,
         "triangles": 40000,
         "vertices": 26286,
         "materials": 1,
@@ -2046,9 +2063,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "bat",
+        "signatureSeed": 1824631331,
         "clips": [
           "idle",
           "idle_2",
@@ -2141,11 +2159,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "975924D525551CBFC9BC4F41103C2F681DA6DF27D62070F5ED80BB15EED014BE",
+      "sha256": "52DD75A2BA4779E9B34B020DF2E073232771CB4821E64F51831301276FD08094",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 527804,
+        "bytes": 528024,
         "triangles": 40000,
         "vertices": 25032,
         "materials": 1,
@@ -2155,9 +2173,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "amphibious",
         "rig": "biped",
+        "signatureSeed": 3214419751,
         "clips": [
           "idle",
           "idle_2",
@@ -2250,11 +2269,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "7ABF95F9C07C1DE127FB1BCFFB5FA27A83C9A5C36AC28243F3C86D55DDF036BC",
+      "sha256": "296CBF238C5A55FF153AB70438E5F7C17CE30A9FEF46907FB58F7A3E7076BDE5",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 497152,
+        "bytes": 497372,
         "triangles": 40000,
         "vertices": 24939,
         "materials": 1,
@@ -2264,9 +2283,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "primate",
         "rig": "biped",
+        "signatureSeed": 1876424638,
         "clips": [
           "idle",
           "idle_2",
@@ -2359,11 +2379,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "A8740B925D1F2B4A5A7C77DB1169E5B182C01725E85A985FA896F5A64FE1D41F",
+      "sha256": "A1DC9229A7380C5F2879CAC489F5EA420E532F24909F0CD44D1D2162449CE85B",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 659160,
+        "bytes": 659380,
         "triangles": 40000,
         "vertices": 29008,
         "materials": 1,
@@ -2373,9 +2393,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "quadruped",
+        "signatureSeed": 2310452772,
         "clips": [
           "idle",
           "idle_2",
@@ -2468,11 +2489,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "C43E585E792FE797C21A883CBF0D1F40CC03EBE093DE31264B904B26534467D7",
+      "sha256": "5AF851A8CE48C19553B25C40041CBFB7C537F880D9FD0D481B987B103460C053",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 529840,
+        "bytes": 530060,
         "triangles": 40000,
         "vertices": 25136,
         "materials": 1,
@@ -2482,9 +2503,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "reptilian",
         "rig": "biped",
+        "signatureSeed": 730870809,
         "clips": [
           "idle",
           "idle_2",
@@ -2577,11 +2599,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "AAFB1687C9ED2638437286B75110EA9DED188AD8B9BC9376B9E8903C9CEA0B75",
+      "sha256": "47BE0172BD5DAB029DCD2F83BB167A99F7EBFFB17B046B8F01E51C893DDB2C11",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 469632,
+        "bytes": 469848,
         "triangles": 40000,
         "vertices": 26225,
         "materials": 1,
@@ -2591,9 +2613,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "burrow-grappler",
         "rig": "biped",
+        "signatureSeed": 1428149978,
         "clips": [
           "idle",
           "idle_2",
@@ -2686,11 +2709,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "F7A5B2E2C8C420228CC9505116D164566DFE2C5EB4FAA5AF5ABE9E50DED49A2C",
+      "sha256": "2C34E2A96AA72288D75D529EEEB676B0EBEA6F6F82ED4616C071036567F47569",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 454584,
+        "bytes": 454800,
         "triangles": 40000,
         "vertices": 24699,
         "materials": 1,
@@ -2700,9 +2723,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pack-hunter",
         "rig": "biped",
+        "signatureSeed": 250555345,
         "clips": [
           "idle",
           "idle_2",
@@ -2803,11 +2827,11 @@
       "provider": "fal-ai/hunyuan3d/v2 single-view fallback + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.92,
-      "sha256": "F3F22E444D5D46E54DF7C201DDBD16C88C1A1616CD31F91EE6B65D36B5F159CF",
+      "sha256": "FFD8FC433259A33650FE2DEEF91ADFCC5514A780D1875FC462FD3EED071FC742",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 490196,
+        "bytes": 490416,
         "triangles": 40000,
         "vertices": 24656,
         "materials": 1,
@@ -2817,9 +2841,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pack-hunter",
         "rig": "quadruped",
+        "signatureSeed": 2778686511,
         "clips": [
           "idle",
           "idle_2",
@@ -2912,11 +2937,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "B0FD403EF12B71DC301F375E0E0F556594543BEA53BC0CC33C23A7B864A9CC4E",
+      "sha256": "EA5D87D1E560D6558AED90B6277CC8E086D36859CAE2F3E24146D10B38E061EF",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 511404,
+        "bytes": 511620,
         "triangles": 40000,
         "vertices": 27028,
         "materials": 1,
@@ -2926,9 +2951,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "burrow-grappler",
         "rig": "biped",
+        "signatureSeed": 84913745,
         "clips": [
           "idle",
           "idle_2",
@@ -3021,11 +3047,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "E25F3BCA9903B2D4BA7F3914CA224499BB65B8895E98CFA32F24DC420C1F1400",
+      "sha256": "24601EFE81DDE52E6E450B25517EFB0A97B07641D42F81E93A17FED845D51A47",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 568672,
+        "bytes": 568892,
         "triangles": 40000,
         "vertices": 27610,
         "materials": 1,
@@ -3035,9 +3061,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "moth",
+        "signatureSeed": 1706695481,
         "clips": [
           "idle",
           "idle_2",
@@ -3130,11 +3157,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "73915804D9F6001858791FC447763FD36307FB5DBFAC43712209D0DFC4300F11",
+      "sha256": "23A8F2C3CCA0FB3D6CB4F3B64D876E418D2E441762111E7CABF9CBF491CAD674",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 539508,
+        "bytes": 539724,
         "triangles": 40000,
         "vertices": 25292,
         "materials": 1,
@@ -3144,9 +3171,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "reptilian",
         "rig": "biped",
+        "signatureSeed": 4167105355,
         "clips": [
           "idle",
           "idle_2",
@@ -3245,11 +3273,11 @@
       "provider": "fal-ai/hunyuan3d/v2 single-view fallback + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "99D864ADDE9886ACE93B7D56F7D663F402750F3BF1319CAC1D0A6613424D41CA",
+      "sha256": "9BA19FDE3E8953F391F2AD2074154FE03BB6DFFBDF38345D95BB1EA40F51351C",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 502000,
+        "bytes": 502220,
         "triangles": 40000,
         "vertices": 24904,
         "materials": 1,
@@ -3259,9 +3287,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "rodent",
         "rig": "quadruped",
+        "signatureSeed": 4184865880,
         "clips": [
           "idle",
           "idle_2",
@@ -3354,11 +3383,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "44338CCC06A8C4B6E060BA92311BA2B0D85BD3888A397AD7EF0427F289E37F0C",
+      "sha256": "EF19929E42776A364C5CABF26461A498537E37C10F3CEB27181207737D2598EB",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 505116,
+        "bytes": 505332,
         "triangles": 40000,
         "vertices": 24579,
         "materials": 1,
@@ -3368,9 +3397,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "amphibious",
         "rig": "biped",
+        "signatureSeed": 3632277809,
         "clips": [
           "idle",
           "idle_2",
@@ -3463,11 +3493,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "2D028359ABDA019D1E09151C21C3C4A672E36F013BF49A2256A9C034D358E8A9",
+      "sha256": "1F4B259C8AD7DD9519D59D2A4ECA14AAE2AB94CBF8CF15D7BE90D4413CC67155",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 555600,
+        "bytes": 555820,
         "triangles": 40000,
         "vertices": 24522,
         "materials": 1,
@@ -3477,9 +3507,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "armored",
         "rig": "crab",
+        "signatureSeed": 3836894147,
         "clips": [
           "idle",
           "idle_2",
@@ -3572,11 +3603,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "836A024000ED46CB4413EFCA7E034A56BD31E4B9FD47C14BDD42A1D6891E08AD",
+      "sha256": "7A65557C3BA61B9CC174A7C715F3995A1DBC598A551DEFCCC6D97DC6C6761BB1",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 461912,
+        "bytes": 462128,
         "triangles": 40000,
         "vertices": 24907,
         "materials": 1,
@@ -3586,9 +3617,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "aquatic",
         "rig": "biped",
+        "signatureSeed": 4018484072,
         "clips": [
           "idle",
           "idle_2",
@@ -3681,11 +3713,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "9480DB234DA913041D7300453E1207FC61A1F1C4128A80B187447CAB845EF9AD",
+      "sha256": "92F0988833D897D5466271269A79526823B02819B7BE6969BD028F50178115B3",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 533508,
+        "bytes": 533724,
         "triangles": 40000,
         "vertices": 28205,
         "materials": 1,
@@ -3695,9 +3727,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 2435260011,
         "clips": [
           "idle",
           "idle_2",
@@ -3799,11 +3832,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "057560443864C79FAFACC5CED5570ECB125DC864FD20F1D71447A19304E41C1A",
+      "sha256": "82DCC931FC5775202DF9ABE38BDBA8483D79C3798B2DBF624D67CF16D93B02AB",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 451624,
+        "bytes": 451840,
         "triangles": 40000,
         "vertices": 25019,
         "materials": 1,
@@ -3813,9 +3846,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "aquatic",
         "rig": "biped",
+        "signatureSeed": 866959615,
         "clips": [
           "idle",
           "idle_2",
@@ -3912,11 +3946,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "AC9F7AFC1C433690FCCE9FD541F027EF01ABCD24D8E471922C529B1BF004C505",
+      "sha256": "BB7BF46148860E5EC8D8278BDAFC31874FFA8F49164DCDA83B196D5BE65F6050",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 450320,
+        "bytes": 450540,
         "triangles": 40000,
         "vertices": 25092,
         "materials": 1,
@@ -3926,9 +3960,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 968109782,
         "clips": [
           "idle",
           "idle_2",
@@ -4023,11 +4058,11 @@
       "provider": "fal-ai/hunyuan3d/v2 single-view fallback + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "8F3AE80B1B207B58BCEFEF84C8440867055AA83678B1B1215D0EA73DC26A0B4E",
+      "sha256": "0606A15894B91FD16FB72B6EF38F59D1832AE11CEF8DB7E35D19C985DDEC1302",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 490952,
+        "bytes": 491172,
         "triangles": 40000,
         "vertices": 25119,
         "materials": 1,
@@ -4037,9 +4072,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 866564107,
         "clips": [
           "idle",
           "idle_2",
@@ -4136,11 +4172,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "3F67841936FD5B7BE27107C90DEA9A1279D9B7AD56FD74A0FCDC8515C68EBF8D",
+      "sha256": "3838F713227FAC357AF968E05450A413C38070C6058D76B303B7CA38605967E2",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 417136,
+        "bytes": 417352,
         "triangles": 40000,
         "vertices": 24196,
         "materials": 1,
@@ -4150,9 +4186,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 500100702,
         "clips": [
           "idle",
           "idle_2",
@@ -4247,11 +4284,11 @@
       "provider": "fal-ai/hunyuan3d/v2 single-view fallback + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "A9C90E9BFEF3CE46089761410813CE0818AFE7BD0269EFDD766270845051F6C9",
+      "sha256": "9F081592EB9C14D11762F8EDFE63FCDC5CE02A0E66D662760E117272C36C2FA0",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 478328,
+        "bytes": 478548,
         "triangles": 40000,
         "vertices": 25508,
         "materials": 1,
@@ -4261,9 +4298,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 482897720,
         "clips": [
           "idle",
           "idle_2",
@@ -4356,11 +4394,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "A992611BF74463E043A0FF2A6AEC2CE7B812F75AE0612BAEF2C093760AC82A40",
+      "sha256": "623F81D441620E986A39E87A48A6BEBA4AAD68E5DFED2C757F0F6CEB10866776",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 465884,
+        "bytes": 466104,
         "triangles": 40000,
         "vertices": 26394,
         "materials": 1,
@@ -4370,9 +4408,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 895463908,
         "clips": [
           "idle",
           "idle_2",
@@ -4465,11 +4504,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "AC7359CC0BBAFA05AE7C70813CF9D481ECEC6518D6262FED778E6B302947F6C6",
+      "sha256": "07D1D8D798813B9BC7B144DD08EE9DB5794E40DF8F245B3DB0F5C87AE756BDB0",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 518912,
+        "bytes": 519132,
         "triangles": 40000,
         "vertices": 25841,
         "materials": 1,
@@ -4479,9 +4518,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "rodent",
         "rig": "biped",
+        "signatureSeed": 2601673215,
         "clips": [
           "idle",
           "idle_2",
@@ -4574,11 +4614,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "C5BB6AF4DD475B286E2E1936C3A790E7D512963E164CC396A147939CE5D177DC",
+      "sha256": "52AC6E5D761332CE0C374DB2593A7A1349421679377E25F03DDCAAD69CE4812C",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 502120,
+        "bytes": 502336,
         "triangles": 40000,
         "vertices": 24930,
         "materials": 1,
@@ -4588,9 +4628,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "rodent",
         "rig": "biped",
+        "signatureSeed": 1940936014,
         "clips": [
           "idle",
           "idle_2",
@@ -4683,11 +4724,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "4A12F29C3B37620E7F4DEC24F7E15139E75A28C733832BF824570D222C4D2CED",
+      "sha256": "F77FB02D6E27FCD6FD6BBAB983608F3EE5EA19A612961EFE63626C0971874D8E",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 494680,
+        "bytes": 494900,
         "triangles": 40000,
         "vertices": 25322,
         "materials": 1,
@@ -4697,9 +4738,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "rodent",
         "rig": "biped",
+        "signatureSeed": 548830269,
         "clips": [
           "idle",
           "idle_2",
@@ -4792,11 +4834,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "42711CD24C27EAF1BA453DDB48390250F8755A275C049EE1DBF8C21BFF64C484",
+      "sha256": "51B68FC8C8C0CD93560107E9466ED79FFD0A799FA9B389F6EE5A453DC43DF694",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 533324,
+        "bytes": 533544,
         "triangles": 40000,
         "vertices": 27001,
         "materials": 1,
@@ -4806,9 +4848,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 3251275401,
         "clips": [
           "idle",
           "idle_2",
@@ -4901,11 +4944,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "993EE47FC9D167E8F7BA8A6BC3224876067B1769FD6893F10437BD088F5C0FA5",
+      "sha256": "653937D4AD82D444FFD2E35C23CBB251A2C5D9FE7CF84C056F573DA447D2C38F",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 471752,
+        "bytes": 471972,
         "triangles": 40000,
         "vertices": 24431,
         "materials": 1,
@@ -4915,9 +4958,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 364985442,
         "clips": [
           "idle",
           "idle_2",
@@ -5010,11 +5054,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "422D63DC07C8B93A3EA45501A8FEB299C16E06284648A4D8135BDA5212779D39",
+      "sha256": "F9D5977B7221C1CC3670E18E7B8992A640525ED57A79F49FD27DAE154C6F26AD",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 464992,
+        "bytes": 465212,
         "triangles": 40000,
         "vertices": 23773,
         "materials": 1,
@@ -5024,9 +5068,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "armored",
         "rig": "quadruped",
+        "signatureSeed": 3536945866,
         "clips": [
           "idle",
           "idle_2",
@@ -5119,11 +5164,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "C9D0C0BC044AE8A58B1D993CF19655C4BAC25DD213AEE7AB28D3CB17ADCA0953",
+      "sha256": "9D07FDEB22091681CABCEA924252B565A964C5AD547BCF4B6679328689BDF0BC",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 582316,
+        "bytes": 582532,
         "triangles": 40000,
         "vertices": 29424,
         "materials": 1,
@@ -5133,9 +5178,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "burrow-grappler",
         "rig": "biped",
+        "signatureSeed": 3639293080,
         "clips": [
           "idle",
           "idle_2",
@@ -5228,11 +5274,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "5D6CA73AEDB0B32A190A448257658B50156F607BC079592FFC99D31AC8A531C2",
+      "sha256": "395028A31EA19838609834814AC446553FC079C6D5868E7235BD67F3998C8B6D",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 510080,
+        "bytes": 510304,
         "triangles": 40000,
         "vertices": 23430,
         "materials": 1,
@@ -5242,9 +5288,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "burrow-grappler",
         "rig": "quadruped",
+        "signatureSeed": 3334733325,
         "clips": [
           "idle",
           "idle_2",
@@ -5337,11 +5384,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "EEC82D128C005FB268DD06358B97A41F539352C0955973CE96BA1779EE8AB3A8",
+      "sha256": "23B4C4F3E839D61B7F515F244E933B7A218C6A17591FA1B64B2871B29CDB1965",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 505204,
+        "bytes": 505420,
         "triangles": 40000,
         "vertices": 24855,
         "materials": 1,
@@ -5351,9 +5398,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "burrow-grappler",
         "rig": "biped",
+        "signatureSeed": 2776911348,
         "clips": [
           "idle",
           "idle_2",
@@ -5446,11 +5494,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "C818BB203C04D282686C4518054ED1FE12A0B37C3F0967E336BBB51121836702",
+      "sha256": "634F8FFAB78F946FB503476E41DE2510D4A839E79BCE38B0A1DD09ABEC2E050D",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 517708,
+        "bytes": 517928,
         "triangles": 40000,
         "vertices": 26930,
         "materials": 1,
@@ -5460,9 +5508,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "burrow-grappler",
         "rig": "biped",
+        "signatureSeed": 3085133767,
         "clips": [
           "idle",
           "idle_2",
@@ -5555,11 +5604,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "CB44CA6373C8AC2EC2908825D515E64F7149D745B1D77E0904E3A500308BB507",
+      "sha256": "4A757DBD9CEB3607FC0C5DF7812D32B0D4D3F2025AFC0BEC054256D6DCC59BBF",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 522660,
+        "bytes": 522876,
         "triangles": 40000,
         "vertices": 26267,
         "materials": 1,
@@ -5569,9 +5618,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "quadruped",
+        "signatureSeed": 1258120058,
         "clips": [
           "idle",
           "idle_2",
@@ -5758,11 +5808,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "39694D0EC401DFCBBBF69F6DED8DD12694F6E99519121ADC234FBB834DE74CCF",
+      "sha256": "A085206071F150E463025DD34813CABC6D11D95A2D910ECE1F4F004435F52B51",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 449164,
+        "bytes": 449384,
         "triangles": 40000,
         "vertices": 25108,
         "materials": 1,
@@ -5772,9 +5822,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "biped",
+        "signatureSeed": 3864202450,
         "clips": [
           "idle",
           "idle_2",
@@ -5867,11 +5918,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "6345D49A8D555DC7939A709BDC96ABF9E344BF3774C14174F8BFD816DF552360",
+      "sha256": "E42FA75E988FA951E4B91D76ECA736B314E68F923C0877132282BD5EF85C2B82",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 486800,
+        "bytes": 487016,
         "triangles": 40000,
         "vertices": 27058,
         "materials": 1,
@@ -5881,9 +5932,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 2866990435,
         "clips": [
           "idle",
           "idle_2",
@@ -5976,11 +6028,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "2BFBEBCAB7F7A23EE3FA87FF2FE251F19B1DEB6998D1041707EECD3811C912C8",
+      "sha256": "BB69E5264D7D72F2182FA8E564D4D51FFDE736B883FE5B59979D1CE706C23449",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 458180,
+        "bytes": 458400,
         "triangles": 40000,
         "vertices": 25115,
         "materials": 1,
@@ -5990,9 +6042,10 @@
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "amphibious",
         "rig": "biped",
+        "signatureSeed": 3351366788,
         "clips": [
           "idle",
           "idle_2",
@@ -6016,7 +6069,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "93F75E97F360572EC1F54FCC03902AC8C6660C35BFB17A39AAE3B66ADFC5567F",
+      "sha256": "7376D6AB28BE30CD68F4B020A0ACE25BF4D40EFB17B3D25359E9E0EE1E68AC68",
       "visualReview": {
         "passed": true,
         "reason": "Ironback Turtle is a complete upright green anime turtle with rigid charcoal iron shell, cream plastron, red scarf, dark guards, paired limbs and short tail."
@@ -6066,16 +6119,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 492924,
+        "bytes": 493144,
         "triangles": 40000,
         "vertices": 24637,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "armored",
         "rig": "biped",
+        "signatureSeed": 515974024,
         "clips": [
           "idle",
           "idle_2",
@@ -6099,7 +6153,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "DA6CAD76ED9C62293F0D4D024B70D9D044FB011ECFCCC034C22C07743AAEA29A",
+      "sha256": "4C59461CB13A9BD180DB21D1B79629117AFA66C00CC739DB62AC8CA4B23F61AA",
       "visualReview": {
         "passed": true,
         "reason": "Dune Viper preserves its unusual golden serpent-drake identity with full S-neck, cream belly, dark headwrap, one continuous coil and four small clawed limbs."
@@ -6149,16 +6203,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 472944,
+        "bytes": 473164,
         "triangles": 40000,
         "vertices": 24882,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "serpentine",
         "rig": "biped",
+        "signatureSeed": 1854555566,
         "clips": [
           "idle",
           "idle_2",
@@ -6182,7 +6237,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "D2BAF1E1278D499BB654100D5D054631895D84CB646AB5382F594E1226BEDFD4",
+      "sha256": "45502F3D37A9197227B80A999809B59ABF3F0B98F63C1D84F886A35556C00AC9",
       "visualReview": {
         "passed": true,
         "reason": "Ashwing Raven is one complete charcoal and midnight-blue raven with ember eyes, natural paired wings, black talons, pointed tail and attached headwrap; the source duplicate head is absent."
@@ -6232,16 +6287,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 480936,
+        "bytes": 481156,
         "triangles": 40000,
         "vertices": 27096,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 968033846,
         "clips": [
           "idle",
           "idle_2",
@@ -6265,7 +6321,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "E9034AD8475B031BCA4C7B7AE414A672B65B2462467730E6AD636D3E04873DEB",
+      "sha256": "B7125D07B5E214837D38C4587B4EBE8697ABE284F6A5DF4993FAE472708245AD",
       "visualReview": {
         "passed": true,
         "reason": "Azure Toad reconstructs the fragmented sprite as one complete cyan anime amphibian with gold eyes, navy vest, silver forehead plate, webbed hands and two connected frog legs."
@@ -6315,16 +6371,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 510536,
+        "bytes": 510756,
         "triangles": 40000,
         "vertices": 24782,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "amphibious",
         "rig": "biped",
+        "signatureSeed": 1592347995,
         "clips": [
           "idle",
           "idle_2",
@@ -6348,7 +6405,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "997F328578E3A8FB1D28E283BF69ECC6A401AA69394DB4F5CE43DB62FE424934",
+      "sha256": "D0253EF5E633F034EB2DBEA5822410C35A162853DA0D6339940EB41E655F2987",
       "visualReview": {
         "passed": true,
         "reason": "Bristle Boar is a muscular four-legged russet anime boar with spiky gold mane, paired ivory tusks, pink snout, teal harness, dark hooves and one thin tufted tail."
@@ -6398,16 +6455,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 586864,
+        "bytes": 587084,
         "triangles": 40000,
         "vertices": 27553,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "charger",
         "rig": "quadruped",
+        "signatureSeed": 908924842,
         "clips": [
           "idle",
           "idle_2",
@@ -6431,7 +6489,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "ABCD1C26E49B92C88A1C5A7FE167F91B99DA2440D5D34299A7048B448F6F392E",
+      "sha256": "0221E8FBBEA4C45FD34C37B9C525863FDF3DBE007F738BA490A49DE70521593B",
       "visualReview": {
         "passed": true,
         "reason": "Silver Owl is a complete gray horned anime owl with gold eyes, paired wings and talons, dark scarf and rigid attached back sword; source transparency holes and floating scarf are removed."
@@ -6481,16 +6539,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 497056,
+        "bytes": 497272,
         "triangles": 40000,
         "vertices": 26695,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 3810608058,
         "clips": [
           "idle",
           "idle_2",
@@ -6514,7 +6573,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "130577BDE12532F4986A26C3BE3E037E662952D864B5BA8B2B37036B479A09A9",
+      "sha256": "FBEF62A95C2985C8710EBCE59BF6F4F45A8ED1700B6143B3018DB178AD09F237",
       "visualReview": {
         "passed": true,
         "reason": "Glass Serpent is a solid game-ready cyan glass-styled serpent-drake with long crest, pale belly, paired arms and legs and one continuous curled tail."
@@ -6564,16 +6623,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 567456,
+        "bytes": 567676,
         "triangles": 40000,
         "vertices": 25832,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "serpentine",
         "rig": "biped",
+        "signatureSeed": 2686730715,
         "clips": [
           "idle",
           "idle_2",
@@ -6597,7 +6657,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "807C6A32F3E3E2B8CB5EB892574836F7EBBEFB721D3C5266DC99EFF6CE548E04",
+      "sha256": "B9E11D2AAAF48D7C65DB0A32E90BBC28FE5555535FB41F0D04527E0E13EE28E1",
       "visualReview": {
         "passed": true,
         "reason": "Mist Lynx is a clean pale-blue spotted quadruped with gold eyes, navy scarf, four complete paws and one continuous cloud-curl tail."
@@ -6647,16 +6707,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 480928,
+        "bytes": 481148,
         "triangles": 40000,
         "vertices": 24696,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "quadruped",
+        "signatureSeed": 2754569559,
         "clips": [
           "idle",
           "idle_2",
@@ -6680,7 +6741,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "D662B573DF244C65101BD017F21F2E36E532BD94CADD56D834F54830ADEA45CB",
+      "sha256": "D3E3BF696190195C78DC108A1BBB3F0C231F0516507175B8DE06FBD308188BDE",
       "visualReview": {
         "passed": true,
         "reason": "Steel Beetle is a glossy gunmetal anime rhinoceros beetle with exactly six armored legs, paired rigid wing cases, one forked horn and a crimson scarf band."
@@ -6730,16 +6791,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 495076,
+        "bytes": 495296,
         "triangles": 40000,
         "vertices": 25285,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "armored",
         "rig": "insect",
+        "signatureSeed": 3010624340,
         "clips": [
           "idle",
           "idle_2",
@@ -6763,7 +6825,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "8E2E064F679EECDC97FB6DE0BD42010A6A7A367274C8BF768BD78DC310F13AB0",
+      "sha256": "878E7FE83A1ED5AE23E30AB1150B98BAB937D0A8EA8627065ABABCCF8281AF6A",
       "visualReview": {
         "passed": true,
         "reason": "Pearl Crane is an elegant complete white-and-navy crane with coral beak, violet sash, paired natural wings, two stable long legs and a layered tail."
@@ -6813,16 +6875,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 539604,
+        "bytes": 539828,
         "triangles": 40000,
         "vertices": 28220,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 3912370730,
         "clips": [
           "idle",
           "idle_2",
@@ -6846,7 +6909,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "00985B4F5900CCEE5949F9F80D1E7E34865E2A0B3CD22E71B132377534840957",
+      "sha256": "ABC4184A390BFBF7C737BBB246BEAE1226EB48551F99A7A7B4E9692E4C310941",
       "visualReview": {
         "passed": true,
         "reason": "Cinder Weasel is a complete upright orange anime mustelid ninja with cream face and tail tip, sharp eyes, dark headband and scarf, paired limbs and one large coherent curled tail."
@@ -6896,16 +6959,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 501280,
+        "bytes": 501496,
         "triangles": 40000,
         "vertices": 25682,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "biped",
+        "signatureSeed": 3512874026,
         "clips": [
           "idle",
           "idle_2",
@@ -6929,7 +6993,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "3F4FE5CDFD33D2BD58DC9B8BB23BC87F59DBC340ACFE3C59A8A0087F05934CC7",
+      "sha256": "BEA7E8EF429C0AE89D4A1F560178940E8A5B4DCBD5C49B06C38D8544645E49DD",
       "visualReview": {
         "passed": true,
         "reason": "Thorn Stag is a complete midnight-blue elemental quadruped with gold eyes, dark mane, four grounded legs, one raised tail and one symmetrical branching antler pair."
@@ -6979,16 +7043,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 495432,
+        "bytes": 495648,
         "triangles": 40000,
         "vertices": 25958,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "charger",
         "rig": "quadruped",
+        "signatureSeed": 826049539,
         "clips": [
           "idle",
           "idle_2",
@@ -7012,7 +7077,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "8913CF05518359BD1E5DEEEC5C943D7E0EB54E9D6B1C355F354416C45E62D2CE",
+      "sha256": "A93C483E581A86767BD1B348AEE26E45FE644055BCC913A51CC83AB776AB9D01",
       "visualReview": {
         "passed": true,
         "reason": "Stormfin Gull is one complete blue-and-gray anime ninja bird with determined eyes, gold beak and talons, paired layered wings, streamer hood, tail feathers and one rigid sheathed sword."
@@ -7062,16 +7127,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 491560,
+        "bytes": 491780,
         "triangles": 40000,
         "vertices": 25009,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 3696064860,
         "clips": [
           "idle",
           "idle_2",
@@ -7095,7 +7161,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "5DB4B2817D2A763D97851FDA5FDEB0A5012C6BD78448C5DF4495B267139467DB",
+      "sha256": "BBCB35AF0C5B8660A5C451CE1E4B0D3D3641A864FB08654BA60B31AE8F6C5294",
       "visualReview": {
         "passed": true,
         "reason": "Duskwings Bat is a complete charcoal anime bat ninja with huge ears, orange eyes, metal brow plate, two separate arms, two membrane wings, two clawed legs and one tail membrane."
@@ -7145,16 +7211,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 477844,
+        "bytes": 478060,
         "triangles": 40000,
         "vertices": 25239,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "bat",
+        "signatureSeed": 3783910503,
         "clips": [
           "idle",
           "idle_2",
@@ -7178,7 +7245,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "274A149269835DA7693C46A1BF95417C9DDC45DD5FED844F5FDD6DA1BEA9B651",
+      "sha256": "7BD93362B235996197BB40FD806FDEA378D599EC3A6B4F769B9F2F6A11E42F94",
       "visualReview": {
         "passed": true,
         "reason": "Mossback Toad is a complete olive spotted anime amphibian with red-lidded eyes, leafy moss crown, teal tunic, navy scarf, webbed hands and feet and one rigid sheathed sword."
@@ -7228,16 +7295,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 587036,
+        "bytes": 587256,
         "triangles": 40000,
         "vertices": 26259,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "amphibious",
         "rig": "biped",
+        "signatureSeed": 326253163,
         "clips": [
           "idle",
           "idle_2",
@@ -7261,7 +7329,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "C9A65261C472006B6F7D50DFAE5EB66EDB7B1DDF1D1F525D2211696FD35A3B71",
+      "sha256": "D82D473F0116E619D2979DAFEE660A894214634BE65F03222F19AA8E5BCF44D6",
       "visualReview": {
         "passed": true,
         "reason": "Bamboo Ape is a complete brown anime ape ninja with tan face, stern eyes, teal gi, red belt, paired hands and feet and a rigid attached bamboo bundle."
@@ -7311,16 +7379,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 506452,
+        "bytes": 506676,
         "triangles": 40000,
         "vertices": 26170,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "primate",
         "rig": "biped",
+        "signatureSeed": 3869823016,
         "clips": [
           "idle",
           "idle_2",
@@ -7344,7 +7413,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "C84FC1F1249F71B49B6C72CAC7F3839EA93644F451F2302D8CC495605F8FC712",
+      "sha256": "F1EF1EA8F101D03840266A3B7F1ABA1B6CA1AE4605DA0D38758ADE085AFB30BC",
       "visualReview": {
         "passed": true,
         "reason": "Frostbite Cub is a complete silver-white anime cub with huge icy eyes, navy ninja wraps, paired upright limbs and one coherent fluffy tail."
@@ -7394,16 +7463,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 513940,
+        "bytes": 514160,
         "triangles": 40000,
         "vertices": 25175,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "biped",
+        "signatureSeed": 238057901,
         "clips": [
           "idle",
           "idle_2",
@@ -7427,7 +7497,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "3379932DDDEBA8FAD7B1EF286678B322E9AE4ABF7357F2A367A3F1D9D42C45E6",
+      "sha256": "C9D032E28A7B6F8148E10E0CB879B6D2996DFCEA912183CDB1DE1BCB476021F7",
       "visualReview": {
         "passed": true,
         "reason": "Shrine Salamander is a complete glossy ember-orange elemental lizard with exactly four webbed limbs, large gold eyes, dark wraps and one continuous tail ending in an attached flame."
@@ -7477,16 +7547,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 514072,
+        "bytes": 514292,
         "triangles": 40000,
         "vertices": 25252,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "amphibious",
         "rig": "quadruped",
+        "signatureSeed": 3074242503,
         "clips": [
           "idle",
           "idle_2",
@@ -7510,7 +7581,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "89A49FE42582E17672907E659A68ABE439FD8E4D296F1201AE4D16B31F736332",
+      "sha256": "463C316C5B0D7DA65D4695B7E31674274B75AB9A8DD53471699C11D9F02B431E",
       "visualReview": {
         "passed": true,
         "reason": "Granite Badger reconstructs the tiny source as a complete stocky charcoal anime badger with cream face mask, navy ninja layers, sturdy paws, one tail and one rigid back sword."
@@ -7560,16 +7631,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 440124,
+        "bytes": 440344,
         "triangles": 40000,
         "vertices": 24948,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "burrow-grappler",
         "rig": "biped",
+        "signatureSeed": 3561603714,
         "clips": [
           "idle",
           "idle_2",
@@ -7593,7 +7665,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "A3AC1DD1F04A168162F1692A53E0BC04C37D6B46EE3B5DE5A7003FE760D2B522",
+      "sha256": "6ACF3D79C8105E59127F5C98FE324B7FC4AB43EB372CB02BE40311ED7E401CFE",
       "visualReview": {
         "passed": true,
         "reason": "Young Direwolf is an anime battle wolf rather than an ordinary dog, with gold eyes, shaggy charcoal coat, blue scarf, red ribbon, four complete legs and one raised tail."
@@ -7643,16 +7715,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 436968,
+        "bytes": 437188,
         "triangles": 40000,
         "vertices": 25969,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pack-hunter",
         "rig": "quadruped",
+        "signatureSeed": 933787046,
         "clips": [
           "idle",
           "idle_2",
@@ -7676,7 +7749,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "0A25FC4BAF9591CC1D254592CC1B4B48D0A6B6C6CDFDE6951915B5F4CA13BB0F",
+      "sha256": "90DC0CC6D4AB9EB02791562AF6F14250DFDBD573EB99174FC1295719E5681A67",
       "visualReview": {
         "passed": true,
         "reason": "Magma Hyena is a complete charcoal elemental quadruped with fierce amber eyes, sculpted mane, four grounded paws, one tail and restrained molten-orange crack accents."
@@ -7726,16 +7799,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 511968,
+        "bytes": 512184,
         "triangles": 40000,
         "vertices": 27666,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pack-hunter",
         "rig": "quadruped",
+        "signatureSeed": 3571155229,
         "clips": [
           "idle",
           "idle_2",
@@ -7759,7 +7833,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "1585F701E067C528EA35C704F3907CCB9CE7F072B01CDE753A127BDC43C2E596",
+      "sha256": "CFA0455CB003569766866E2D1A755128942371A9F956C543F77949A6A5A66BF4",
       "visualReview": {
         "passed": true,
         "reason": "Ember Ocelot is a polished orange anime wildcat with dark rosettes, navy ninja wraps, four feline legs and one coherent ringed tail."
@@ -7809,16 +7883,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 480808,
+        "bytes": 481028,
         "triangles": 40000,
         "vertices": 25339,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "quadruped",
+        "signatureSeed": 4070691891,
         "clips": [
           "idle",
           "idle_2",
@@ -7842,7 +7917,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "8008E7FD12DB9CA29B9D4B6D8D53133B91070EF3B1B44D517BBEB7DD75E677EE",
+      "sha256": "7130694444E7954F043A9E24BDA13CBABE169DAE682A9A2D50A2BAB6F818D1B5",
       "visualReview": {
         "passed": true,
         "reason": "Pyre Kestrel reconstructs the tiny source as one rust-red anime raptor with spotted orange breast, cream face, two layered wings, two taloned legs and no floating flame halo."
@@ -7892,16 +7967,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 541320,
+        "bytes": 541540,
         "triangles": 40000,
         "vertices": 28029,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 1670381191,
         "clips": [
           "idle",
           "idle_2",
@@ -7925,7 +8001,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "511CD8C380A1D9ACC5C01F5766D8FD5C2CAD9E3E6B9D9ECA42169B34B786C825",
+      "sha256": "BBA344D3A1051D8D034EFBE7B7C16AC8797EA37ECBEC73E6B95F5BFF29455BE6",
       "visualReview": {
         "passed": true,
         "reason": "Scoria Mongoose is a complete low orange quadruped ninja with metal brow plate, navy scarf, dark limb guards and one large coherent curled tail."
@@ -7975,16 +8051,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 468880,
+        "bytes": 469100,
         "triangles": 40000,
         "vertices": 24765,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "quadruped",
+        "signatureSeed": 1630709998,
         "clips": [
           "idle",
           "idle_2",
@@ -8008,7 +8085,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "BACEBC48B50ED61DEC932A2115DA56ED6AA38079EBD82178EF2E5C29CE71C44F",
+      "sha256": "5ABC2B3DF8A6F38A1DB2943EF15A85DF480BAB6662A8542635069B48523CCD88",
       "visualReview": {
         "passed": true,
         "reason": "Blaze Caracal is a premium russet anime wildcat with tall tufted ears, cream chest, dark ninja wraps, four feline legs and one continuous tail ending in an attached flame."
@@ -8058,16 +8135,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 466012,
+        "bytes": 466232,
         "triangles": 40000,
         "vertices": 25098,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "quadruped",
+        "signatureSeed": 3541448824,
         "clips": [
           "idle",
           "idle_2",
@@ -8091,7 +8169,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "CEB84C417DCE648F1CCDBC538D4D21B2F18EE40C763FD36B2C1CF43553593D06",
+      "sha256": "DEAD3B557D9EFC7DCD625171F4B9D0EC47ADA569719E6B7288844BB919EF13C7",
       "visualReview": {
         "passed": true,
         "reason": "Tidal Mink is a complete upright brown anime mustelid with cream face, bright blue martial-arts uniform, paired limbs and one thick tapering tail."
@@ -8141,16 +8219,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 550948,
+        "bytes": 551168,
         "triangles": 40000,
         "vertices": 25547,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "biped",
+        "signatureSeed": 2683048062,
         "clips": [
           "idle",
           "idle_2",
@@ -8174,7 +8253,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "5B7497C42EAEE8A07C1DEFEA1B2F53ABB60D726BEF54A2F68D83F5DD3E2B0462",
+      "sha256": "8A473D86635E27D1299DD4042F3B58295D5ABA2928C1BE23BC00723AB0BD8A1A",
       "visualReview": {
         "passed": true,
         "reason": "Frost Seal preserves the source's unusual icy seal-lion identity with star markings, crystalline crest, four powerful legs, short tail and paired saber fangs."
@@ -8224,16 +8303,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 492576,
+        "bytes": 492796,
         "triangles": 40000,
         "vertices": 25705,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "amphibious",
         "rig": "quadruped",
+        "signatureSeed": 1192533749,
         "clips": [
           "idle",
           "idle_2",
@@ -8257,7 +8337,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "000D1BF2253D7EEC90E640A237CF7AC2F5B66768DDF41E0A24BEFDCC9FF10462",
+      "sha256": "8DB0ACF3ED6C6E439DEA6B4644837FD52494540EBEC838E43D34EA0E5D2587D7",
       "visualReview": {
         "passed": true,
         "reason": "Coral Serval v2 is a clean golden spotted anime serval with four complete legs, ringed tail, navy scarf and one compact rigid coral ridge attached to the upper back. Multi-view v1 was rejected for a large projection slab; its side-view fallback was rejected for an elongated head and floating fragment."
@@ -8307,16 +8387,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 494596,
+        "bytes": 494816,
         "triangles": 40000,
         "vertices": 23723,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "quadruped",
+        "signatureSeed": 828116047,
         "clips": [
           "idle",
           "idle_2",
@@ -8340,7 +8421,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "9D9424C33B067DBA5D6A8CA7DDC6CC45D3050C32DEC6BD472E217D6EDF5D50C7",
+      "sha256": "C29734D350B7BE7D4ED261C3A72D45EB798BD23988C5466E138AC70C715A785A",
       "visualReview": {
         "passed": true,
         "reason": "Brine Cormorant is one complete navy anime bird with long cream beak, red headband, two folded wings, two webbed feet and two rigid crossed back sheaths."
@@ -8390,16 +8471,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 502708,
+        "bytes": 502928,
         "triangles": 40000,
         "vertices": 25747,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 3753460573,
         "clips": [
           "idle",
           "idle_2",
@@ -8423,7 +8505,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "FEC133C053CB73F19126378928632E2F81C2F3A1B146BD85A0D1DB7CEAE376C8",
+      "sha256": "54787F84FE0438E20D03284E28522046CA87DF982547B8481A814372CD3F7489",
       "visualReview": {
         "passed": true,
         "reason": "Glacier Marten reconstructs the source as a complete silver-white low quadruped with vivid green eyes, layered navy wraps, four paws and one oversized fluffy tail."
@@ -8473,16 +8555,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 501208,
+        "bytes": 501424,
         "triangles": 40000,
         "vertices": 25775,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "quadruped",
+        "signatureSeed": 1731493587,
         "clips": [
           "idle",
           "idle_2",
@@ -8506,7 +8589,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "1DA40127664229DD209A990445F45B68C44CDF83BD71D06CF7C0D19C4069B3DC",
+      "sha256": "F8867D0C1E6925A970E2B0B24FDCBB22FB4B8C64FA3533C5E020DF49EA0E5648",
       "visualReview": {
         "passed": true,
         "reason": "Cyclone Harrier is one complete slate anime raptor with warm orange hood, bright eye mask, navy head ties and scarf, two folded wings, two taloned legs and one compact feather tail."
@@ -8556,16 +8639,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 560984,
+        "bytes": 561208,
         "triangles": 40000,
         "vertices": 27554,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 3803003186,
         "clips": [
           "idle",
           "idle_2",
@@ -8589,7 +8673,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "A0F11A2ED449BA3722F191E3463815A7F14697DFAE46EE313CB0B375CF2AE9CD",
+      "sha256": "0266851072D1224860F8EC646B909C0116CC63A507FE0AAEDADAE5534FB4ABCF",
       "visualReview": {
         "passed": true,
         "reason": "Zephyr Osprey is a complete cream-and-brown anime osprey with black eye mask, navy scarf, two layered wings, two taloned legs and a coherent short tail."
@@ -8639,16 +8723,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 537284,
+        "bytes": 537500,
         "triangles": 40000,
         "vertices": 27485,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 1366968631,
         "clips": [
           "idle",
           "idle_2",
@@ -8672,7 +8757,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "B50D0C79FAE7C9C44EDE1A868279CBB810B72BFBFB065D8AA4F87117946615E1",
+      "sha256": "41130DF67694CE541E765A28BA60759747FDF0EB99A0A7406F7ADE194719DE9C",
       "visualReview": {
         "passed": true,
         "reason": "Gust Tern is one compact white-and-navy anime seabird with coral beak, bright eyes, two folded wings, two feet and one clean pointed feather tail."
@@ -8722,16 +8807,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 562404,
+        "bytes": 562624,
         "triangles": 40000,
         "vertices": 27832,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 2628882890,
         "clips": [
           "idle",
           "idle_2",
@@ -8755,7 +8841,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "40EAAB5BF29BD9153C54011FDF684F6B16D15661E00DCA15C126034BE6DE8F42",
+      "sha256": "DE73EF3B90D89E086595A8282EBDFC6A567A1129F9D79955543219A0EC3B3C00",
       "visualReview": {
         "passed": true,
         "reason": "Squall Plover is a complete round rust-brown anime shorebird with cream face, navy head wrap and scarf, two layered wings, two tiny taloned legs and one short tail."
@@ -8805,16 +8891,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 487924,
+        "bytes": 488144,
         "triangles": 40000,
         "vertices": 25266,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 3920166053,
         "clips": [
           "idle",
           "idle_2",
@@ -8838,7 +8925,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "9C926224D82AEE1C06A7BF4AB7BB9A607224ADA84A3300F7A9340804E6CDC793",
+      "sha256": "5836B489885DCFA16FCED6495AF3E6C8CD0EF0F3D35DB3FEADD2D1D4ABB3D925",
       "visualReview": {
         "passed": true,
         "reason": "Drift Albatross v2 is a clean navy-and-white anime seabird with orange hooked beak, stern eyes, compact scarf, two wings, two legs and one feather tail. Turnaround v1 reconstruction was rejected because its back weapon became two large flat projection slabs."
@@ -8888,16 +8975,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 490192,
+        "bytes": 490408,
         "triangles": 40000,
         "vertices": 26657,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 4244799596,
         "clips": [
           "idle",
           "idle_2",
@@ -8921,7 +9009,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "3B5E7DC1196F8825A34A7089F223B52C56810D38CE3269F4A63C454A304D477A",
+      "sha256": "8BD51F04FE35389F08CA3615C6C147BC8C0A407AF6F938EF816754407082D2A9",
       "visualReview": {
         "passed": true,
         "reason": "Volt Polecat is a complete upright midnight-blue anime polecat ninja with cream face mask, paired limbs, layered cloth and one thick striped tail ending in an attached pale-yellow tip."
@@ -8971,16 +9059,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 453132,
+        "bytes": 453348,
         "triangles": 40000,
         "vertices": 25231,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "biped",
+        "signatureSeed": 578543623,
         "clips": [
           "idle",
           "idle_2",
@@ -9004,7 +9093,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "7FFDCE71172A0A387CD2B6AE22285D5CC585F2BFED2B5F5E1897647D9270C501",
+      "sha256": "C79091382BB8B28A25AAF005A0EE6033018E52384424D8D78888585556C1A4B6",
       "visualReview": {
         "passed": true,
         "reason": "Surge Stoat is one complete orange anime mustelid with large eyes, navy mask and tunic, paired upright limbs and one oversized fluffy tail with no weapon or floating accessory."
@@ -9054,16 +9143,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 533716,
+        "bytes": 533928,
         "triangles": 40000,
         "vertices": 25393,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "biped",
+        "signatureSeed": 3980565782,
         "clips": [
           "idle",
           "idle_2",
@@ -9087,7 +9177,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "1A18A1DE174115CD29D4981F882FB2AFEE986197E0C580A5F54DC4B5FE927CA0",
+      "sha256": "AE6875E0F5648B67DE79CE9ECD16F00456B09D5668B88E1B870C9C9761F622DA",
       "visualReview": {
         "passed": true,
         "reason": "Thunder Jerboa is a complete golden anime jerboa with two huge ears, paired forepaws and hind legs, navy wraps and one long tail ending in a small attached solid bulb."
@@ -9137,16 +9227,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 502948,
+        "bytes": 503168,
         "triangles": 40000,
         "vertices": 24686,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "hopper",
         "rig": "biped",
+        "signatureSeed": 3868618375,
         "clips": [
           "idle",
           "idle_2",
@@ -9170,7 +9261,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "E5A2D5729AE20C280483F381DB4B805C655AF62B67A6CCB4647CAB6CA2F22D3F",
+      "sha256": "C5EF673D0E7D4786F549A4047783AEDE53F2F39D68F5F2A0503F1A9375F97EFB",
       "visualReview": {
         "passed": true,
         "reason": "Static Meerkat is a complete upright tan anime meerkat with dark paws, navy hooded shinobi layers, red sash, paired limbs and one long attached tapering tail."
@@ -9220,16 +9311,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 438336,
+        "bytes": 438552,
         "triangles": 40000,
         "vertices": 25261,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "rodent",
         "rig": "biped",
+        "signatureSeed": 1912706284,
         "clips": [
           "idle",
           "idle_2",
@@ -9253,7 +9345,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "E87FE0B7D3F424327AF99466DFB7780D9FE283346F7BD59EC04D195F31AF6437",
+      "sha256": "AB6F7A3CF6887A6A3FB62521A7E2DC2F8C3AE1DC0B1D820D7578ACD453B95EAD",
       "visualReview": {
         "passed": true,
         "reason": "Arc Buzzard is one compact slate anime raptor with red eyes, ochre hooked beak, navy wrap, red sash, exactly two feathered wings, two taloned legs and one coherent tail."
@@ -9303,16 +9395,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 497392,
+        "bytes": 497612,
         "triangles": 40000,
         "vertices": 27116,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 2499456784,
         "clips": [
           "idle",
           "idle_2",
@@ -9336,7 +9429,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "8E6EB6EB32A8722622C44340EF543A3779143C70DED2812937AD8BB6874C8D83",
+      "sha256": "B1D4EDA47DBB8EB52ADC7D6DE44D181CCD4BF37E93E184388BC9FAC60CB9FD57",
       "visualReview": {
         "passed": true,
         "reason": "Granite Wombat is a complete stocky gray anime wombat with metal head plate, purple scarf, paired upright limbs, heavy claws and one tiny attached tail, without source weapons."
@@ -9386,16 +9479,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 480212,
+        "bytes": 480428,
         "triangles": 40000,
         "vertices": 25579,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "burrow-grappler",
         "rig": "biped",
+        "signatureSeed": 10454901,
         "clips": [
           "idle",
           "idle_2",
@@ -9419,7 +9513,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "A8D10BA3779812B5B9D2DBED497BC6F381E054A675D024AD1DFBF0CEE7BC99A7",
+      "sha256": "F6ED8E6BF54BF4BE952C4811C5439828443D6D2104FAC890ED28E4967882B2B6",
       "visualReview": {
         "passed": true,
         "reason": "Stoneback Tapir v2 is a complete heavy charcoal anime tapir with long rounded snout, cream belly confined to the front, navy wraps, paired limbs and a tiny rear tail. Turnaround v1 was rejected because its rear panel incorrectly repeated the belly and misplaced the tail."
@@ -9469,16 +9563,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 419420,
+        "bytes": 419636,
         "triangles": 40000,
         "vertices": 23899,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "charger",
         "rig": "biped",
+        "signatureSeed": 772955676,
         "clips": [
           "idle",
           "idle_2",
@@ -9502,7 +9597,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "FEDAFEA97862083A4F7D9832E52756205998E176DF826CF13901DD2B95040B3A",
+      "sha256": "543D7B15A57BCD59F94525F25C602530B3224D7F02C07D1EB533200E4E19E296",
       "visualReview": {
         "passed": true,
         "reason": "Quartz Aardvark is a complete low pale-lavender quadruped with crystalline pattern, huge ears, long pink-tipped snout, red eyes, four clawed legs and one short curved tail."
@@ -9552,16 +9647,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 476728,
+        "bytes": 476944,
         "triangles": 40000,
         "vertices": 25167,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "burrow-grappler",
         "rig": "quadruped",
+        "signatureSeed": 2938213228,
         "clips": [
           "idle",
           "idle_2",
@@ -9585,7 +9681,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "4CCF21E1B4765BF1203C311331770012F3090778D49D7227B5709389F5E0E61E",
+      "sha256": "567B57E90DC5363DDE890A39BE57DBC5CC4D5E2B9FCA0A9822390A216F8ADD00",
       "visualReview": {
         "passed": true,
         "reason": "Terra Porcupine is one complete upright brown anime porcupine with navy tunic, red scarf, paired limbs and a dense symmetrical fan of attached tapered quills kept stable by conservative weighting."
@@ -9635,16 +9731,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 810688,
+        "bytes": 810908,
         "triangles": 40000,
         "vertices": 39119,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "burrow-grappler",
         "rig": "biped",
+        "signatureSeed": 604091751,
         "clips": [
           "idle",
           "idle_2",
@@ -9668,7 +9765,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "BE64AABA6115787360B7A6AAFBE236552C18E873263174D506A39E30006B6248",
+      "sha256": "C69E1120E0011B540B4A14471C9340FA4232A9E0DD892851EF20852367C66E6A",
       "visualReview": {
         "passed": true,
         "reason": "Bramble Capybara is one complete round golden anime capybara with navy martial-arts wrap, paired limbs, tiny tail and a symmetrical short bramble crown attached directly to the head."
@@ -9718,16 +9815,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 496068,
+        "bytes": 496284,
         "triangles": 40000,
         "vertices": 25288,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "amphibious",
         "rig": "biped",
+        "signatureSeed": 112940889,
         "clips": [
           "idle",
           "idle_2",
@@ -9751,7 +9849,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "123E11777DDDBCAA98DB343C3AA0FBAAE2718547F0CD05F7D16486DC085C5EBD",
+      "sha256": "CAE88A8048623B025E2843C9460BFE06347B2BA1E568638A9793B3CE02E866DF",
       "visualReview": {
         "passed": true,
         "reason": "Glacier Wolf v4 is a complete pale ice-blue anime wolf with navy blindfold and scarf, four coherent legs and one curled tail. Tall-crystal v2 produced giant white slabs and low-ridge v3 still produced a cyan projection bar, so accepted v4 moves crystal identity to runtime VFX and keeps the mesh clean."
@@ -9801,16 +9899,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 553740,
+        "bytes": 553956,
         "triangles": 40000,
         "vertices": 26981,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pack-hunter",
         "rig": "quadruped",
+        "signatureSeed": 1806603724,
         "clips": [
           "idle",
           "idle_2",
@@ -9834,7 +9933,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "A4269DB590328500D0B9583C9C3F16333EE71AD0C0A12093AEB026DD82A8883A",
+      "sha256": "67DCD4FCB7FAD08804EFCCDB25D3F809803F778648874707C89AD9D04C52B188",
       "visualReview": {
         "passed": true,
         "reason": "Tempest Hawk is one complete deep-navy legendary anime raptor with gold eyes, silver forehead plate, white chest chevron, two layered wings, two taloned legs and a coherent tail fan; lightning remains runtime VFX."
@@ -9884,16 +9983,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 525836,
+        "bytes": 526048,
         "triangles": 40000,
         "vertices": 27149,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 606777045,
         "clips": [
           "idle",
           "idle_2",
@@ -9917,7 +10017,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "577EB2866E98F5B085535E6A8E6B98C36D40BB3F58F7FE618C0993D252946772",
+      "sha256": "EFC9FCFF7DBCC8AD7146477F22039744BFFDDC0215FF545DCB76A1A43E05891E",
       "visualReview": {
         "passed": true,
         "reason": "Umbra Fox is a sleek complete midnight-navy anime fox with red eyes and inner ears, four legs, dark scarf and one large raised tail whose cyan tip is solid attached stylized fur."
@@ -9967,16 +10067,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 497724,
+        "bytes": 497944,
         "triangles": 40000,
         "vertices": 27105,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "quadruped",
+        "signatureSeed": 3187012279,
         "clips": [
           "idle",
           "idle_2",
@@ -10000,7 +10101,7 @@
       "provider": "fal-ai/hunyuan3d/v2 side-view fallback + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.92,
-      "sha256": "CC5D5A975A577A9C15855CDA774452AA755C31B2007B33156A79ADD833BFE7EC",
+      "sha256": "64164B87F50FCBE2D7463D3B5900C14E52713EE7CEAE9CB6B9EEEAF4AA0B4B91",
       "visualReview": {
         "passed": true,
         "reason": "Spirit Deer is a clean cyan spirit quadruped with pale eyes, solid antlers, compact neck scarf, four legs and a small tail. Multi-view v1 had cloth slivers, v2 duplicated slender hind legs, and stockier v3 created full-height slabs; the accepted v3 prepared side-view fallback was normalized +90 degrees and has coherent anatomy."
@@ -10050,16 +10151,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 424348,
+        "bytes": 424568,
         "triangles": 40000,
         "vertices": 23368,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "charger",
         "rig": "quadruped",
+        "signatureSeed": 2061596015,
         "clips": [
           "idle",
           "idle_2",
@@ -10083,7 +10185,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 2.4,
-      "sha256": "F15B86DF973712EB851346C38BF92BBAB38EDDC1027BEC7020F879E52D8DAC9C",
+      "sha256": "0A85FFBCDDEC7796F0CD6F8A8AE592AAB7E89103D95A5FF39192E82EC93BF7C4",
       "visualReview": {
         "passed": true,
         "reason": "Ironfang Tiger v4 returns to the source sprite's muscular upright fighter identity with fierce face, saber fangs, painted stripes, compact navy gear, paired arms and legs and a tiny attached tail nub. Three quadruped multi-view attempts and one side-view fallback were rejected for detached rear fragments or malformed far legs."
@@ -10133,16 +10235,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 537368,
+        "bytes": 537584,
         "triangles": 40000,
         "vertices": 24497,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "biped",
+        "signatureSeed": 4011208672,
         "clips": [
           "idle",
           "idle_2",
@@ -10166,7 +10269,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "AAE74CBE791D17941480964111825FBDA615B5A6B2B64F46D0FA51EAD05FC817",
+      "sha256": "A2DC5D7C267342B0777FEE1F0A79D460E6AAC9CDAC12986723CBBEE7EFC12A3B",
       "visualReview": {
         "passed": true,
         "reason": "Azure Kirin is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -10216,16 +10319,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 514892,
+        "bytes": 515112,
         "triangles": 40000,
         "vertices": 25770,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "charger",
         "rig": "quadruped",
+        "signatureSeed": 1178348520,
         "clips": [
           "idle",
           "idle_2",
@@ -10249,7 +10353,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "6B4FED8353ECECC8D4773615F07CDCD2BF296458012227A83DABA59F404286CF",
+      "sha256": "A206C489B7EAEB78F81D18FDF4BC8760EA84BC0B34ABBA5AD2900434CC94DB81",
       "visualReview": {
         "passed": true,
         "reason": "Ember Phoenix is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -10299,16 +10403,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 556472,
+        "bytes": 556688,
         "triangles": 40000,
         "vertices": 27397,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 2773638507,
         "clips": [
           "idle",
           "idle_2",
@@ -10332,7 +10437,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "CC341682B53C48C18135CF2FD2A49F53BF75606CD0F9C7AF53A39AF369BB226A",
+      "sha256": "D8A827E0F96912259388055EE891D18342F14B3F6C676F435BEF61184C3204CE",
       "visualReview": {
         "passed": true,
         "reason": "Moon Serpent is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation. Accepted after 3 paid reconstruction attempts; rejected candidates remain quarantined for audit."
@@ -10382,16 +10487,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 530500,
+        "bytes": 530720,
         "triangles": 40000,
         "vertices": 25652,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "serpentine",
         "rig": "quadruped",
+        "signatureSeed": 3136829470,
         "clips": [
           "idle",
           "idle_2",
@@ -10415,7 +10521,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "D97EED01B9E0AF87C3EE05BA7A388828D901AC028D549E3706480031232F622E",
+      "sha256": "967C567A4062A289299940EFD8817859794E48644D20626041D41162810BCD6D",
       "visualReview": {
         "passed": true,
         "reason": "Storm Lion is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -10465,16 +10571,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 594388,
+        "bytes": 594604,
         "triangles": 40000,
         "vertices": 28093,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "quadruped",
+        "signatureSeed": 492883546,
         "clips": [
           "idle",
           "idle_2",
@@ -10498,7 +10605,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "D785802E4536A05A690E1C036F65ABF817D0E79AE87E18F30B16D017FF02B838",
+      "sha256": "B5EC594C474CB0375D330E864C42DA8F0725E774C3A056AB5B1D61CA24F4D49E",
       "visualReview": {
         "passed": true,
         "reason": "Crystal Bear is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -10548,16 +10655,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 484896,
+        "bytes": 485116,
         "triangles": 40000,
         "vertices": 24821,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "armored",
         "rig": "biped",
+        "signatureSeed": 2830718546,
         "clips": [
           "idle",
           "idle_2",
@@ -10581,7 +10689,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "A693564B1192A7525491AE2177350B5BB8F3CB05528972B0A2FD27FDD37D972A",
+      "sha256": "6D6F7296AA53D9621ACEED6EEC2530BA8BE5D75D73A11EEC46A90CA6FB4BD803",
       "visualReview": {
         "passed": true,
         "reason": "Void Raven is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -10631,16 +10739,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 605700,
+        "bytes": 605916,
         "triangles": 40000,
         "vertices": 36410,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 1113907546,
         "clips": [
           "idle",
           "idle_2",
@@ -10664,7 +10773,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "654BC2EDA7B4CBA6A90350D0D94660E4D92A5FA0C07DBB9844DA87C53C5A3F63",
+      "sha256": "3B0B53266A893FA060AB1ECF0C1415F1D14D3685DFEF196A4D14677619D3F316",
       "visualReview": {
         "passed": true,
         "reason": "Thunder Drake is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -10714,16 +10823,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 546192,
+        "bytes": 546412,
         "triangles": 40000,
         "vertices": 25841,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "dragon",
         "rig": "biped",
+        "signatureSeed": 999860310,
         "clips": [
           "idle",
           "idle_2",
@@ -10747,7 +10857,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "1FE3E43B20BA8529AF007EB7F0F056634BAB7328A0236BAE2A8E4A818FD5374B",
+      "sha256": "0D0EC32191C1477E7226D77C252001EEA272BDEEC8ACED3E8564DEFAB0806275",
       "visualReview": {
         "passed": true,
         "reason": "Frost Lynx is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -10797,16 +10907,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 488832,
+        "bytes": 489048,
         "triangles": 40000,
         "vertices": 25684,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "biped",
+        "signatureSeed": 4084927619,
         "clips": [
           "idle",
           "idle_2",
@@ -10830,7 +10941,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "3607D61F94581870BA3F341D55430DAC6625F39DEFD3EAD87657C304A4D1E3A2",
+      "sha256": "3A0BB3BEA0F2F297C0CDB7E9CBE8B4867E542D55A1858283D0A5835BE8393023",
       "visualReview": {
         "passed": true,
         "reason": "Armored Polar Bear is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -10880,16 +10991,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 501800,
+        "bytes": 502020,
         "triangles": 40000,
         "vertices": 25245,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "armored",
         "rig": "biped",
+        "signatureSeed": 3247861469,
         "clips": [
           "idle",
           "idle_2",
@@ -10913,7 +11025,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "2142FDBA3F8CA1324E9DD0053F4C2CD73721C4D36B6AB881A3C5D278548FDA93",
+      "sha256": "CE8C116DC69A191DEAEDC1E2689EC060284A474E18744C3661C8C97E54890D08",
       "visualReview": {
         "passed": true,
         "reason": "Ancient Crane is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -10963,16 +11075,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 604616,
+        "bytes": 604832,
         "triangles": 40000,
         "vertices": 31935,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 3828062611,
         "clips": [
           "idle",
           "idle_2",
@@ -10996,7 +11109,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "D2901688CBD2A5C0A05D16F29A0EE494D163672CD899210BF37DAEB641EE8312",
+      "sha256": "33BCF4C13350BBD094F983BBB2C750F096F9CE359094C585A429578F1F22E633",
       "visualReview": {
         "passed": true,
         "reason": "Inferno Chimera is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -11046,16 +11159,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 569268,
+        "bytes": 569488,
         "triangles": 40000,
         "vertices": 28432,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "quadruped",
+        "signatureSeed": 2937932179,
         "clips": [
           "idle",
           "idle_2",
@@ -11079,7 +11193,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "D8F92F9B3FC46BED73ACC6ACDD346986F2A4AD2822F30D4A7350434487C1F06D",
+      "sha256": "074938997F49CEA914FA59E17C6ED6C306717A5736ACF325A0FF0020F39BCD2C",
       "visualReview": {
         "passed": true,
         "reason": "Ash Garuda is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -11129,16 +11243,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 559736,
+        "bytes": 559952,
         "triangles": 40000,
         "vertices": 28133,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 1380402458,
         "clips": [
           "idle",
           "idle_2",
@@ -11162,7 +11277,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "83EFCE4985C3D6F46E3D055AB3AF1C4FA6B747B0EAA1383C7C3B6D7073CFE074",
+      "sha256": "962F5F2FB6A1E95399A92FBC7305B973D4E43E328634F373BA02AA9FCD15528A",
       "visualReview": {
         "passed": true,
         "reason": "Magma Behemoth is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -11212,16 +11327,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 603224,
+        "bytes": 603440,
         "triangles": 40000,
         "vertices": 26229,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "armored",
         "rig": "quadruped",
+        "signatureSeed": 2752582984,
         "clips": [
           "idle",
           "idle_2",
@@ -11245,7 +11361,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "F8FEA0792F2BB72BB80F822BC64FF8652911DD088C59A4A707D09DB170B1A933",
+      "sha256": "59F09340BDB701AB77A91AE16D80E3EF1B9EB63D7820AAE23E87C2695B4D0042",
       "visualReview": {
         "passed": true,
         "reason": "Tidelord Leviathan is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -11295,16 +11411,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 564212,
+        "bytes": 564432,
         "triangles": 40000,
         "vertices": 26595,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "dragon",
         "rig": "biped",
+        "signatureSeed": 126919159,
         "clips": [
           "idle",
           "idle_2",
@@ -11328,7 +11445,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "B1D90DBE58275B7E2E94012436035919B827220F2AB9E57D650249EABF46A565",
+      "sha256": "336C7A83DB63F18A3FEB06F3543584E4CFDF7BE1F786AAC21609ADB59D725FBA",
       "visualReview": {
         "passed": true,
         "reason": "Frost Wyrm is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -11378,16 +11495,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 688384,
+        "bytes": 688604,
         "triangles": 40000,
         "vertices": 27777,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "dragon",
         "rig": "biped",
+        "signatureSeed": 3690707244,
         "clips": [
           "idle",
           "idle_2",
@@ -11411,7 +11529,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "ACB4FB890FA8B7EC193724F837AA5B954F2EE551A9AD921114A3CD06877B1F97",
+      "sha256": "524FA3826993A57861F3812FCF76C53606139D8B09C59DA3A8E1F3368C2EE14B",
       "visualReview": {
         "passed": true,
         "reason": "Abyss Kraken is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -11461,16 +11579,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 450736,
+        "bytes": 450956,
         "triangles": 40000,
         "vertices": 24787,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "aquatic",
         "rig": "biped",
+        "signatureSeed": 4156849417,
         "clips": [
           "idle",
           "idle_2",
@@ -11494,7 +11613,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "E73C2FEB6D0C4F5AC9F481838C95DC1C803F5B1A2727C795D74FCC312FC0E02F",
+      "sha256": "93B2B1BF96E21FF57B733A02B830936D6D7B636C7C965F1F04DEC7C4ED4646A5",
       "visualReview": {
         "passed": true,
         "reason": "Storm Roc is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -11544,16 +11663,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 577476,
+        "bytes": 577692,
         "triangles": 40000,
         "vertices": 27181,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 230200131,
         "clips": [
           "idle",
           "idle_2",
@@ -11577,7 +11697,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS + reviewed geometry cleanup",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "9F7F9ABAFB2F041EBE5200AABB519825F9C88D4CA829C56FC7DB8FF6B1C55396",
+      "sha256": "820BDD66BB2305963379943C8C9D6E26529C4F32E08F04917A0733F0DC986A67",
       "visualReview": {
         "passed": true,
         "reason": "Tempest Pegasus now contains one coherent head, neck, torso and four-legged silhouette. The detached duplicate head island was removed while preserving its authored atlas, wings, mane, skeleton and eight animation clips; front, side, rear and three-quarter QA pass."
@@ -11628,16 +11748,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 424624,
+        "bytes": 424840,
         "triangles": 35854,
         "vertices": 24152,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "charger",
         "rig": "quadruped",
+        "signatureSeed": 3367985525,
         "clips": [
           "idle",
           "idle_2",
@@ -11661,7 +11782,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "E1F61EB1E52E0152B3F874E33510CC2A775B1497E47DDC107D32F1B85E03F797",
+      "sha256": "E359581FCA18A4628E9B80C03991D32471A220679BB26B97DD5EBFB8E51CCC32",
       "visualReview": {
         "passed": true,
         "reason": "Cyclone Sphinx is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -11711,16 +11832,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 557000,
+        "bytes": 557220,
         "triangles": 40000,
         "vertices": 27383,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "quadruped",
+        "signatureSeed": 2252239825,
         "clips": [
           "idle",
           "idle_2",
@@ -11744,7 +11866,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "F57E44866DF45CFA6824BE89CC171A603DB4BB89ACCCDEFA2359CA788A4A23A2",
+      "sha256": "BDC7583C0400D45A2B2C51D3CB7AD7BD4FA9BED1857D566021042E1A1643463E",
       "visualReview": {
         "passed": true,
         "reason": "Thunder Raiju is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation. Accepted after 2 paid reconstruction attempts; rejected candidates remain quarantined for audit."
@@ -11794,16 +11916,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 513016,
+        "bytes": 513236,
         "triangles": 40000,
         "vertices": 25789,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pack-hunter",
         "rig": "quadruped",
+        "signatureSeed": 2910295658,
         "clips": [
           "idle",
           "idle_2",
@@ -11827,7 +11950,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "EBD41A60EF8F79A3B3E1AD043956925C736FFB0853D6C7C791C56E1E6DCB2BDB",
+      "sha256": "7825B872DE58949CB478E5F13A02552FCE0D4214D20D014CB9FC101577D59F22",
       "visualReview": {
         "passed": true,
         "reason": "Storm Wyvern is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -11877,16 +12000,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 514776,
+        "bytes": 514996,
         "triangles": 40000,
         "vertices": 27170,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "dragon",
         "rig": "biped",
+        "signatureSeed": 864824252,
         "clips": [
           "idle",
           "idle_2",
@@ -11910,7 +12034,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS + reviewed geometry cleanup",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "2D4539141B1C066EF9245BECE948F053065D639233F79CD2A0A737A2A3F90DF6",
+      "sha256": "3E3D2DFD4A4278BFAA490A3F7B9CB3EA7C8D9C2A9484A54168CD21C2A799C6CB",
       "visualReview": {
         "passed": true,
         "reason": "Galvanic Manticore now contains one coherent head, neck, torso and four-legged silhouette. The detached duplicate head island was removed while preserving its authored atlas, mane plates, tail, skeleton and eight animation clips; front, side, rear and three-quarter QA pass."
@@ -11961,16 +12085,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 420768,
+        "bytes": 420988,
         "triangles": 34434,
         "vertices": 24811,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "quadruped",
+        "signatureSeed": 2580776768,
         "clips": [
           "idle",
           "idle_2",
@@ -11994,7 +12119,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "5D139F8D1018FDF06DF01F75A68F18DCEF6902D13AC3F4724826CBE8CEAFFD8F",
+      "sha256": "F7474935A1F0C425E505EC3BCA7CEF17A28D69CC459F6DD93DED736149879150",
       "visualReview": {
         "passed": true,
         "reason": "Titan Golem is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -12044,16 +12169,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 534376,
+        "bytes": 534596,
         "triangles": 40000,
         "vertices": 24289,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "armored",
         "rig": "biped",
+        "signatureSeed": 3218286754,
         "clips": [
           "idle",
           "idle_2",
@@ -12077,7 +12203,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "9D3578125A4EC3679B05A492A25E9067478888B6E86CAA091F7A9B973D5D6F78",
+      "sha256": "424A51322ACFFD2A18E8790DED7DE862BF86D15E31E4D59E1F00E6F8155D7073",
       "visualReview": {
         "passed": true,
         "reason": "Granite Gargoyle is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -12127,16 +12253,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 481916,
+        "bytes": 482136,
         "triangles": 40000,
         "vertices": 25343,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "armored",
         "rig": "biped",
+        "signatureSeed": 1906286125,
         "clips": [
           "idle",
           "idle_2",
@@ -12160,7 +12287,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "4B5680460A6E15DC248CD49F83C1A86AC9C2E8272D0D49A6B7DF798D6C0443AC",
+      "sha256": "7DC284047199EE0DB33D2D31FAF5F22D5B939AA2DB32C724D2653ABD153EC639",
       "visualReview": {
         "passed": true,
         "reason": "Verdant Treant is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -12210,16 +12337,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 628008,
+        "bytes": 628224,
         "triangles": 40000,
         "vertices": 33314,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "armored",
         "rig": "biped",
+        "signatureSeed": 872489560,
         "clips": [
           "idle",
           "idle_2",
@@ -12243,7 +12371,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "F81D63DDAF3AD88CAC077B9E4F747666CAB57EC9E7D1802941719E1BA2166F0B",
+      "sha256": "E75AC54FA1C7870E3061796EE24D809489D00E32600455CF21A4790DAC11CB96",
       "visualReview": {
         "passed": true,
         "reason": "Eclipse Kitsune is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -12293,16 +12421,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 456308,
+        "bytes": 456528,
         "triangles": 40000,
         "vertices": 25547,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pouncer",
         "rig": "quadruped",
+        "signatureSeed": 4197691360,
         "clips": [
           "idle",
           "idle_2",
@@ -12326,7 +12455,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "EF68386BC98ACE10808B374DCD6AF634BAE5C4E4146AE58F242545ABDCF41AAC",
+      "sha256": "AD35099A00D53FC1F9924B7BB02E1C436F1F80231EA307AECA1B1807CC4B05DF",
       "visualReview": {
         "passed": true,
         "reason": "Worldstorm Dragon is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation. Accepted after 2 paid reconstruction attempts; rejected candidates remain quarantined for audit."
@@ -12376,16 +12505,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 472108,
+        "bytes": 472328,
         "triangles": 40000,
         "vertices": 25145,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "dragon",
         "rig": "quadruped",
+        "signatureSeed": 2196650459,
         "clips": [
           "idle",
           "idle_2",
@@ -12409,7 +12539,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "9085B5CA13D3957CC16E74A87BB3BE62615C31686EF44CC9CC3917D85229A70A",
+      "sha256": "0D3F3654C2554004A9A3681C8E58321CE1C47A4EB3D9CF858515C3612A8DFE9C",
       "visualReview": {
         "passed": true,
         "reason": "Ancient Frost Titan is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -12459,16 +12589,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 582940,
+        "bytes": 583156,
         "triangles": 40000,
         "vertices": 26621,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "armored",
         "rig": "biped",
+        "signatureSeed": 582317134,
         "clips": [
           "idle",
           "idle_2",
@@ -12492,7 +12623,7 @@
       "provider": "fal-ai/hunyuan3d/v2 side-view fallback + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "97D25B37ACC38A42790B1ABAF7437D68A5324AB0EB7A01D97AAA768A67A95312",
+      "sha256": "60D1F765CA07B377A0B74003F344EE06B9D891109EA113CB7C538349869FC89A",
       "visualReview": {
         "passed": true,
         "reason": "Solar Stag is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation. Accepted after 3 paid reconstruction attempts; rejected candidates remain quarantined for audit."
@@ -12542,16 +12673,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 434164,
+        "bytes": 434384,
         "triangles": 40000,
         "vertices": 23832,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "charger",
         "rig": "quadruped",
+        "signatureSeed": 1343719867,
         "clips": [
           "idle",
           "idle_2",
@@ -12575,7 +12707,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS + reviewed geometry cleanup",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "C905B65D01F0FE4A94711349E5113B5ED30189F38DAFD86CC009A44029CB3C35",
+      "sha256": "0D87F4509BD41972150DADE97AF6E2687862C33FB73167F2847CDEAF47D4B4A6",
       "visualReview": {
         "passed": true,
         "reason": "Abyssal Oni Hound now contains one coherent head, neck, torso, and four-legged silhouette. The disconnected duplicate head, neck, and front-leg island was removed without changing the approved atlas, primary anatomy, skeleton, or animation set; front, side, rear, and three-quarter QA pass."
@@ -12627,16 +12759,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 426868,
+        "bytes": 427088,
         "triangles": 30422,
         "vertices": 28087,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "pack-hunter",
         "rig": "quadruped",
+        "signatureSeed": 3558979491,
         "clips": [
           "idle",
           "idle_2",
@@ -12660,7 +12793,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "D61838AB7152ADF0580220E41C2A702D08B10E2204F765177E65ABC1231803CD",
+      "sha256": "C298B67ABE83BB1E43D403A15537CFE4BEF87E33C163EF25D814E82D1FA0E864",
       "visualReview": {
         "passed": true,
         "reason": "Vermillion Suzaku is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -12710,16 +12843,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 599004,
+        "bytes": 599224,
         "triangles": 40000,
         "vertices": 30076,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 3125937051,
         "clips": [
           "idle",
           "idle_2",
@@ -12743,7 +12877,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "984B58818FF0A4E34988E6302F41BA52642646F1E54F76CEDB3D3DEB8E0637E3",
+      "sha256": "41612AA04D2387C03F1F836805C17B18BF09D1F0276CD07B026C7A3DEDB1BF87",
       "visualReview": {
         "passed": true,
         "reason": "Azure Ryujin is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -12793,16 +12927,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 635528,
+        "bytes": 635748,
         "triangles": 40000,
         "vertices": 28380,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "dragon",
         "rig": "quadruped",
+        "signatureSeed": 2196451470,
         "clips": [
           "idle",
           "idle_2",
@@ -12826,7 +12961,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "E330C9E176772690009BFE928B41FA66EAD257E1C32CD7D004E1BE4FACFB33A2",
+      "sha256": "3FFB019E268A65A4DDA2EB699F4555C328035D07FC5900D13AE222F70120E42F",
       "visualReview": {
         "passed": true,
         "reason": "Turtle Duck is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -12876,16 +13011,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 490732,
+        "bytes": 490944,
         "triangles": 40000,
         "vertices": 24185,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "biped",
+        "signatureSeed": 3990438290,
         "clips": [
           "idle",
           "idle_2",
@@ -12909,7 +13045,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "EC48584AF35915265B00670CB390463EF15093B89821563500FB38A717AAEEB8",
+      "sha256": "A710C4A20B5C1FCAEA5948CBC401999F86CEFF16D3CB8CDCF8A379B9E88017BA",
       "visualReview": {
         "passed": true,
         "reason": "Stormgod Raijin is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -12959,16 +13095,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 553956,
+        "bytes": 554176,
         "triangles": 40000,
         "vertices": 25744,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "primate",
         "rig": "biped",
+        "signatureSeed": 4124802906,
         "clips": [
           "idle",
           "idle_2",
@@ -12992,7 +13129,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "0D7097EB1228D7FA5AC9045993287966ED886C94668F97A13B38FF3DA85C6C31",
+      "sha256": "40AA0684AF4ABCD8B2A28687D119D38913C4852E961624F688498231423C7FBF",
       "visualReview": {
         "passed": true,
         "reason": "Worldroot Colossus is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -13042,16 +13179,17 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 626736,
+        "bytes": 626952,
         "triangles": 40000,
         "vertices": 32196,
         "skins": 1,
         "animations": 8
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "armored",
         "rig": "biped",
+        "signatureSeed": 4181279416,
         "clips": [
           "idle",
           "idle_2",
@@ -13074,7 +13212,7 @@
       "generatedAt": "2026-08-03T12:00:00.000Z",
       "provider": "fal-ai/hunyuan3d-v3/multi-view + deterministic 21-bone production rig",
       "textured": true,
-      "sha256": "F81A4CBC939F7495DA77891F5A58AF149738C7869593625E5D70D29EFFA1E818",
+      "sha256": "1D36622D5CFE56548161E5DD1383D3C8D3DBB9D1C74B46995BB89537FDE9FB2C",
       "visualReview": {
         "passed": true,
         "views": [
@@ -13087,7 +13225,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 1008860,
+        "bytes": 1009080,
         "triangles": 15558,
         "vertices": 16648,
         "materials": 1,
@@ -13098,9 +13236,10 @@
         "bones": 21
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "avian",
         "rig": "avian",
+        "signatureSeed": 4230075909,
         "clips": [
           "idle",
           "idle_2",
@@ -13123,7 +13262,7 @@
       "generatedAt": "2026-08-03T12:00:00.000Z",
       "provider": "fal-ai/hunyuan3d-v3/multi-view + deterministic 21-bone production rig",
       "textured": true,
-      "sha256": "0DDE299925139653FDAF7988B986BFE978757222FC6F3C2F37EC45D0D73DDCAA",
+      "sha256": "7F473B523DE81E39B349C506B6DD64A38662717834A7BF927AB8810513450646",
       "visualReview": {
         "passed": true,
         "views": [
@@ -13136,7 +13275,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 1080156,
+        "bytes": 1080372,
         "triangles": 12992,
         "vertices": 10347,
         "materials": 1,
@@ -13147,9 +13286,10 @@
         "bones": 21
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "dragon",
         "rig": "quadruped",
+        "signatureSeed": 1252137141,
         "clips": [
           "idle",
           "idle_2",
@@ -13172,7 +13312,7 @@
       "generatedAt": "2026-08-03T12:00:00.000Z",
       "provider": "fal-ai/hunyuan3d-v3/multi-view + deterministic 21-bone production rig",
       "textured": true,
-      "sha256": "10030A040B3A59D825A1938A2D5FD8409439A0095D4B67F37AFC7607CDC851B6",
+      "sha256": "A09BBAC444A94F724575CC990EFED27DA6287F2E00DA523B135FBD9A267F5A3A",
       "visualReview": {
         "passed": true,
         "views": [
@@ -13185,7 +13325,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 1026284,
+        "bytes": 1026500,
         "triangles": 20063,
         "vertices": 19753,
         "materials": 1,
@@ -13196,9 +13336,10 @@
         "bones": 21
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "charger",
         "rig": "quadruped",
+        "signatureSeed": 306921371,
         "clips": [
           "idle",
           "idle_2",
@@ -13221,7 +13362,7 @@
       "generatedAt": "2026-08-03T12:00:00.000Z",
       "provider": "fal-ai/hunyuan3d-v3/multi-view + deterministic 21-bone production rig",
       "textured": true,
-      "sha256": "18CD11B3F57AD0D336C0E448A455909353EE218664923ABA0D92936D12FF1F5E",
+      "sha256": "40F45B70DA499581E46485BB4269354BD834DB052679246D6C7550486BEBB446",
       "visualReview": {
         "passed": true,
         "views": [
@@ -13234,7 +13375,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 1059132,
+        "bytes": 1059352,
         "triangles": 16142,
         "vertices": 14752,
         "materials": 1,
@@ -13245,9 +13386,10 @@
         "bones": 21
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "charger",
         "rig": "quadruped",
+        "signatureSeed": 3728582672,
         "clips": [
           "idle",
           "idle_2",
@@ -13270,7 +13412,7 @@
       "generatedAt": "2026-08-03T12:00:00.000Z",
       "provider": "fal-ai/hunyuan3d-v3/multi-view + deterministic 21-bone production rig",
       "textured": true,
-      "sha256": "DCD860EDFD0A30CA9DFFAD3303BCF1A213D48835224738B338368113B27F0ED0",
+      "sha256": "FBBF9597E037CCAEB9CB27E2C3E41219E81680BCB95995E722EF52FFA49AE5C6",
       "visualReview": {
         "passed": true,
         "views": [
@@ -13283,7 +13425,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 1023124,
+        "bytes": 1023340,
         "triangles": 22328,
         "vertices": 15743,
         "materials": 1,
@@ -13294,9 +13436,10 @@
         "bones": 21
       },
       "animationBank": {
-        "revision": "20260820-family-v3",
+        "revision": "20260824-identity-v4",
         "family": "armored",
         "rig": "biped",
+        "signatureSeed": 2688629823,
         "clips": [
           "idle",
           "idle_2",
@@ -13311,7 +13454,7 @@
     }
   },
   "animationBank": {
-    "revision": "20260820-family-v3",
+    "revision": "20260824-identity-v4",
     "authoredModels": 143,
     "individualModels": 2
   }
