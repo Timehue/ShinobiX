@@ -3748,11 +3748,19 @@ function WfGpuWarmup({ enabled, onReady }: { enabled: boolean; onReady: () => vo
                 gl.initTexture(groundTexture());
                 gl.initTexture(foliageTexture());
                 gl.initTexture(cliffTexture());
-            } catch { /* compileAsync below still warms the visible graph */ }
-            const timeout = new Promise<void>((resolve) => window.setTimeout(resolve, 3500));
-            void Promise.race([gl.compileAsync(scene, camera).then(() => undefined), timeout])
-                .catch(() => undefined)
-                .finally(() => { if (!cancelled) onReady(); });
+            } catch { /* compile below still warms the visible graph */ }
+            try {
+                // compileAsync keeps polling material.currentProgram after it
+                // returns. If a Suspense asset fails during that window, the
+                // error boundary correctly swaps in its impostor but Three has
+                // already disposed the rejected model's material. Its polling
+                // callback then throws outside the promise with `isReady` on an
+                // undefined program. A synchronous compile is safe across that
+                // fallback transition, and the authored loading card already
+                // hides its one-time cost from the player.
+                gl.compile(scene, camera);
+            } catch { /* an individual asset boundary owns its visible fallback */ }
+            if (!cancelled) onReady();
         }, 34); // allow cached Suspense models two frames to join the scene
         return () => { cancelled = true; window.clearTimeout(timer); };
     }, [camera, enabled, gl, onReady, scene]);
