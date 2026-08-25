@@ -102,6 +102,18 @@ test("plain combat log derives a trimmed pre-marker round and preserves action o
     assert.equal(rounds[1]?.actions[0]?.actionNumber, 2);
 });
 
+test("plain combat log colors and tokenizes effects embedded in action headlines", () => {
+    const html = renderToStaticMarkup(React.createElement(PlainCombatBattleLog, {
+        lines: ["Rill uses Basic Heal, restoring 240 HP."],
+        turnLabel: "Your Turn",
+        selfName: "Rill",
+        oppName: "Exam Proctor",
+    }));
+
+    assert.match(html, /class="bl-head-text battle-log-heal"/);
+    assert.match(html, /restoring <\/span><span class="bl-num">240<\/span><span> HP/);
+});
+
 test("plain combat log exposes an accessible empty state", () => {
     const html = renderToStaticMarkup(React.createElement(PlainCombatBattleLog, {
         lines: [],

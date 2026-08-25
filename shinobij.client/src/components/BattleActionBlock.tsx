@@ -8,7 +8,12 @@
  */
 import { memo } from "react";
 import { BattleLogLine } from "./BattleLogLine";
-import { interpolateFlavor, type BattleLogAction } from "../lib/battle-log-format";
+import {
+    classifyBattleLogLine,
+    interpolateFlavor,
+    tokenizeBattleLogLine,
+    type BattleLogAction,
+} from "../lib/battle-log-format";
 
 export const BattleActionBlock = memo(function BattleActionBlock({
     action,
@@ -21,6 +26,10 @@ export const BattleActionBlock = memo(function BattleActionBlock({
 }) {
     const { role, actor, actionNumber, headline, effectLines } = action;
     const head = interpolateFlavor(headline, selfName, oppName).trim();
+    const headCategory = classifyBattleLogLine(head);
+    const headClassName = headCategory === "effect"
+        ? "bl-head-text"
+        : `bl-head-text battle-log-${headCategory}`;
     // Ownerless narration (round end, "X wins!", "X ends their turn.", movement)
     // has no cast — render it as a slim line colored by side, not a chip'd block.
     if (!actor) {
@@ -33,7 +42,15 @@ export const BattleActionBlock = memo(function BattleActionBlock({
                     <span className="bl-act-num" aria-hidden="true">#{actionNumber}</span>
                 )}
                 <span className={`bl-actor-chip bl-actor-${role}`}>{actor}</span>
-                {head && <span className="bl-head-text">{head}</span>}
+                {head && (
+                    <span className={headClassName}>
+                        {tokenizeBattleLogLine(head).map((segment, index) =>
+                            segment.isNumber
+                                ? <span className="bl-num" key={index}>{segment.text}</span>
+                                : <span key={index}>{segment.text}</span>,
+                        )}
+                    </span>
+                )}
             </p>
             {effectLines.map((line, i) => (
                 <BattleLogLine line={interpolateFlavor(line, selfName, oppName)} key={i} />
