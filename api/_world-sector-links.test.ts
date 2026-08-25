@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SECTOR_EXITS, SECTOR_ROAD_PAIRS, NON_WALKABLE_SECTORS, WALK_IN_DEPTH, sectorExitById, sectorExits } from '../shared/sector-links.js';
+import { SECTOR_EXITS, SECTOR_POINTS, SECTOR_ROAD_PAIRS, NON_WALKABLE_SECTORS, WALK_IN_DEPTH, arrivalTileFromOrigin, sectorExitById, sectorExits } from '../shared/sector-links.js';
 import { WILD_SECTOR_IDS } from '../shared/sector-geo.js';
 
 test('sector roads cover the whole standard world with reciprocal bounded exits', () => {
@@ -78,4 +78,52 @@ test('sector roads cover the whole standard world with reciprocal bounded exits'
         }
     }
     assert.equal(reached.size, WILD_SECTOR_IDS.length, 'every walkable sector is connected by roads');
+});
+
+
+test('a roadless arrival still comes in from the side you travelled from', () => {
+    // The rule the owner set: you enter a sector on the edge CLOSEST to where
+    // you came from. Road crossings already did this; a map jump used to drop
+    // you on the centre tile, which read as a teleport into the middle of
+    // nowhere. Every arrival now agrees.
+    const GRID = 12;
+    const colOf = (tile: number) => tile % GRID;
+    const rowOf = (tile: number) => Math.floor(tile / GRID);
+    const pointOf = (id: number) => SECTOR_POINTS.find((p) => p.id === id)!;
+
+    let checked = 0;
+    for (const from of SECTOR_POINTS) {
+        for (const to of SECTOR_POINTS) {
+            if (from.id === to.id) continue;
+            const tile = arrivalTileFromOrigin(from.id, to.id);
+            assert.ok(tile !== null, `${from.id} → ${to.id} must resolve an arrival`);
+            assert.ok(Number.isInteger(tile) && tile! >= 0 && tile! < GRID * GRID,
+                `${from.id} → ${to.id} arrival ${tile} is on the board`);
+
+            const col = colOf(tile!);
+            const row = rowOf(tile!);
+            // WALK_IN_DEPTH in from the seam, never ON it and never at a corner.
+            assert.ok(col >= WALK_IN_DEPTH && col <= GRID - 1 - WALK_IN_DEPTH
+                && row >= WALK_IN_DEPTH && row <= GRID - 1 - WALK_IN_DEPTH,
+                `${from.id} → ${to.id} arrival must sit inside the seam, got r${row} c${col}`);
+
+            // The arrival must lie on the half of the board that FACES the
+            // origin: travelling east lands you in the western columns, and so
+            // on. This is the property the ruling is actually about.
+            const dx = pointOf(from.id).x - pointOf(to.id).x;
+            const dy = pointOf(from.id).y - pointOf(to.id).y;
+            const centre = (GRID - 1) / 2;
+            if (Math.abs(dx) >= Math.abs(dy)) {
+                if (dx > 0) assert.ok(col > centre, `origin lies east of ${to.id}, arrive on its east edge`);
+                if (dx < 0) assert.ok(col < centre, `origin lies west of ${to.id}, arrive on its west edge`);
+            } else {
+                if (dy > 0) assert.ok(row > centre, `origin lies south of ${to.id}, arrive on its south edge`);
+                if (dy < 0) assert.ok(row < centre, `origin lies north of ${to.id}, arrive on its north edge`);
+            }
+            checked++;
+        }
+    }
+    assert.ok(checked > 4_000, `expected every ordered sector pair, checked ${checked}`);
+    assert.equal(arrivalTileFromOrigin(5, 5), null, 'no direction to honour from yourself');
+    assert.equal(arrivalTileFromOrigin(-1, 5), null, 'an unknown origin falls back to the caller');
 });
