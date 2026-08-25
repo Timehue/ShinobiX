@@ -710,6 +710,14 @@ jobs:
         run: |
           echo "release-artifact=${{ needs.release_artifact.result }}" | tee .ci-evidence/e2e-village-stores/upstream-results.log
           exit 1
+      # playwright.live.config.ts boots the REAL Express server
+      # (node ../dist/server.js), so this job needs the ROOT runtime deps —
+      # api/_force-ipv4.ts and api/_storage.ts both pull in undici. Cloned
+      # from e2e-warfront, which only serves a static vite preview and
+      # therefore never needed them; without this the web server dies with
+      # "Cannot find module 'undici'" before a single spec runs.
+      - name: Install production server dependencies
+        run: npm ci --omit=dev 2>&1 | tee .ci-evidence/e2e-village-stores/root-install.log
       - name: Install client dependencies
         run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-village-stores/client-install.log
       - name: Download joined release artifact
