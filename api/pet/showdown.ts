@@ -9,6 +9,7 @@ import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { writeSaveProjected } from '../save/_projected-write.js';
 import { activeBreedingParentIds } from './_pet-busy.js';
+import { activeCarriedPets } from '../_entitlements.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import {
     SHOWDOWN_FORMAT_SIZE,
@@ -409,11 +410,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const myChar = mySave?.character as Record<string, unknown> | undefined;
-            const myPets = Array.isArray(myChar?.pets) ? myChar.pets as Array<Record<string, unknown>> : [];
+            const myPets = activeCarriedPets<Record<string, unknown>>(myChar ?? {});
             const chosen = petIds
                 .map((id) => myPets.find((pet) => String(pet?.id ?? '') === id))
                 .filter(Boolean) as unknown as Pet[];
-            if (chosen.length !== petIds.length) return res.status(409).json({ error: 'A chosen pet is not in your roster.' });
+            if (chosen.length !== petIds.length) return res.status(409).json({ error: 'A chosen pet is not in your carried roster.' });
             // Busy gating is deliberately ONE-directional for v1: a pet that is
             // breeding/training/on expedition cannot ENTER a Showdown, but an
             // in-flight Showdown session does not stamp the pet as busy for
@@ -477,11 +478,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const myChar = mySave?.character as Record<string, unknown> | undefined;
             if (!myChar) return res.status(404).json({ error: 'No save found.' });
-            const myPets = Array.isArray(myChar.pets) ? myChar.pets as Array<Record<string, unknown>> : [];
+            const myPets = activeCarriedPets<Record<string, unknown>>(myChar);
             const chosen = petIds
                 .map((id) => myPets.find((pet) => String(pet?.id ?? '') === id))
                 .filter(Boolean) as unknown as Pet[];
-            if (chosen.length !== petIds.length) return res.status(409).json({ error: 'A chosen pet is not in your roster.' });
+            if (chosen.length !== petIds.length) return res.status(409).json({ error: 'A chosen pet is not in your carried roster.' });
 
             // Same busy gating as the practice entry: a pet that is breeding,
             // training or away cannot be fielded.
@@ -617,9 +618,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const myChar = mySave?.character as Record<string, unknown> | undefined;
             if (!myChar) return res.status(404).json({ error: 'No save found.' });
-            const myPets = Array.isArray(myChar.pets) ? myChar.pets as Array<Record<string, unknown>> : [];
+            const myPets = activeCarriedPets<Record<string, unknown>>(myChar);
             const mine = myPets.find((pet) => String(pet?.id ?? '') === myPetId) as unknown as Pet | undefined;
-            if (!mine) return res.status(409).json({ error: 'That pet is not in your roster.' });
+            if (!mine) return res.status(409).json({ error: 'That pet is not in your carried roster.' });
             const encounterBusy = showdownBusyIssue(myChar, [mine]);
             if (encounterBusy) return res.status(409).json({ error: encounterBusy });
 

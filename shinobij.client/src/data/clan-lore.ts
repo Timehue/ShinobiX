@@ -6,22 +6,22 @@
 export const clanLore: Record<string, { name: string; motto: string; lore: string }> = {
     "Frostfang Village": {
         name: "Frostfang Clan Halls",
-        motto: "No fang breaks from the pack.",
-        lore: "Frostfang clans are built like wolf packs. Each clan swears loyalty to its members before glory, wealth, or personal fame. Their oldest houses were formed during the first endless winter, when surviving alone meant death."
+        motto: "Call the name. Wait for the answer.",
+        lore: "Frostfang clans began as rescue companies that shared lantern oil, rope, and names during whiteout patrols. Each hall keeps its own roll, and every member is expected to answer it. The good halls remember that an answer only means something when a person is free to give it."
     },
     "Stormveil Village": {
-        name: "Stormveil Warbands",
-        motto: "Power belongs to whoever takes it.",
-        lore: "Stormveil clans are unstable, loud, and dangerous. They are less like noble families and more like warbands formed beneath thunderclouds. Leaders rise fast, fall faster, and only the strongest names survive the storm."
+        name: "Stormveil Challenge Houses",
+        motto: "Post the reason. Answer in daylight.",
+        lore: "Stormveil clans grow around arena crews, rigging teams, and rival houses that settle grievances in public. Leadership changes when someone posts a better challenge and survives the answer. A respected house remembers why a bout began after the crowd has forgotten."
     },
     "Ashen Leaf Village": {
         name: "Ashen Leaf Houses",
-        motto: "Roots remember what flames forget.",
-        lore: "Ashen Leaf clans preserve ancient shinobi traditions. Many houses trace their bloodlines back to survivors of the great fire war, guarding old techniques, scrolls, and family oaths passed down through generations."
+        motto: "Keep the root. Leave room to grow.",
+        lore: "Ashen Leaf houses keep graft books, family crafts, and the names of those who fed their green years to the founders' fire. Their oldest duty is to carry a tradition without cutting every branch that grows differently. Some houses remember that duty better than others."
     },
     "Moonshadow Village": {
-        name: "Moonshadow Secret Circles",
-        motto: "Trust no shadow but your own.",
-        lore: "Moonshadow clans are secretive circles built on ambition, stealth, and hidden contracts. Some are assassin houses, some are spy networks, and some exist only as names whispered under moonless skies."
+        name: "Moonshadow Trust Houses",
+        motto: "Name the holder. Keep the terms.",
+        lore: "Moonshadow clans are circles of aliases, witnesses, and sealed favors. Each house survives by knowing which truths it may hold and which must be returned. The dangerous houses confuse protection with ownership; the better ones write an exit into every agreement."
     }
 };

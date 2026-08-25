@@ -1,17 +1,5 @@
 /* ===== FIX: Territory profile on right side ===== */
 
-    .sector-instance-wrap .tile-scene {
-        grid-area: scene !important;
-        min-width: 0 !important;
-        width: 100% !important;
-    }
-
-    .sector-instance-wrap .instance-actions {
-        grid-area: actions !important;
-        padding: 8px !important;
-        font-size: 11px !important;
-    }
-
 .sector-avatar {
     width: 68px !important;
     height: 68px !important;
@@ -43,112 +31,17 @@
 /* REGULAR SECTOR SCREEN:
    Has tile-scene + instance-actions only.
    No instance-info profile panel. */
-    .map-instance .sector-instance-wrap:not(:has(.instance-info)) .tile-scene {
-        grid-area: scene !important;
-    }
-
-    .map-instance .sector-instance-wrap:not(:has(.instance-info)) > aside.instance-actions {
-        grid-area: actions !important;
-        padding: 4px !important;
-        gap: 4px !important;
-        font-size: 9px !important;
-        display: flex !important;
-        flex-direction: column !important;
-    }
-
-        .map-instance .sector-instance-wrap:not(:has(.instance-info)) > aside.instance-actions > button {
-            width: 100% !important;
-            height: 22px !important;
-            min-height: 22px !important;
-            max-height: 22px !important;
-            padding: 0 5px !important;
-            margin: 0 !important;
-            font-size: 9px !important;
-            line-height: 1 !important;
-            border-radius: 5px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            box-shadow: none !important;
-        }
 
 
 /* VILLAGE TERRITORY SCREEN:
    Has instance-info + tile-scene + instance-actions.
    Keeps profile on right and buttons under it. */
-    .map-instance .sector-instance-wrap:has(.instance-info) .tile-scene {
-        grid-area: scene !important;
-        min-width: 0 !important;
-    }
-
-    .map-instance .sector-instance-wrap:has(.instance-info) > aside.instance-info {
-        grid-area: profile !important;
-        padding: 10px !important;
-        gap: 7px !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        text-align: center !important;
-        overflow: hidden !important;
-    }
-
-    .map-instance .sector-instance-wrap:has(.instance-info) > aside.instance-actions {
-        grid-area: actions !important;
-        padding: 6px !important;
-        gap: 5px !important;
-        display: flex !important;
-        flex-direction: column !important;
-        font-size: 10px !important;
-    }
-
-        .map-instance .sector-instance-wrap:has(.instance-info) > aside.instance-actions > button {
-            width: 100% !important;
-            height: 26px !important;
-            min-height: 26px !important;
-            max-height: 26px !important;
-            padding: 0 6px !important;
-            margin: 0 !important;
-            font-size: 10px !important;
-            line-height: 1 !important;
-            border-radius: 6px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            box-shadow: none !important;
-        }
 
 
     /* clean profile text wrapping */
-    .map-instance .sector-instance-wrap:has(.instance-info) .instance-info p {
-        width: 100% !important;
-        margin: 0 !important;
-        padding: 5px !important;
-        font-size: 10px !important;
-        line-height: 1.15 !important;
-        white-space: normal !important;
-        overflow-wrap: anywhere !important;
-    }
-
-    .map-instance .sector-instance-wrap:has(.instance-info) .territory-village-tag {
-        font-size: 10px !important;
-        line-height: 1.2 !important;
-    }
 
 
 /* compact headings */
-.map-instance .sector-instance-wrap > aside.instance-actions h3 {
-    margin: 0 !important;
-    padding: 0 0 3px !important;
-    font-size: 11px !important;
-    line-height: 1.1 !important;
-}
-
-.map-instance .sector-instance-wrap > aside.instance-actions p {
-    margin: 0 !important;
-    padding: 0 !important;
-    font-size: 8px !important;
-    line-height: 1.15 !important;
-}
 
 
 /* Players Here compact box */
@@ -179,9 +72,6 @@
 /* ================================================= */
 
 /* Hide the left profile inside normal sector instances */
-.map-instance .instance-frame > aside.instance-info {
-    display: none !important;
-}
 
 /* Sector frame geometry is owned by layout/adaptive-stages.css. */
 

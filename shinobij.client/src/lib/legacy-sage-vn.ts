@@ -17,13 +17,13 @@ const SPEAKER = "Wandering Sage";
 const SCENE = "/scenes/legacy-sage-offer.png";
 
 export function buildSageVnEvent(offer: SageOfferView, playerName: string): CreatorEvent {
-    // The Sage names each path in-character — weaving in its favored village and
-    // the signature it yields — so the VN isn't a flat echo of the offer cards.
+    // The Sage names each path in-character, weaving in its favored village and
+    // the signature it yields, so the VN isn't a flat echo of the offer cards.
     // Uses only fields already on the offer (no rank/rarity).
     const offerLines = offer.offers.map((o) => {
-        const villagePart = o.villageAffinity ? ` ${o.villageAffinity} still tells stories of the ones who walked it.` : "";
-        const sigPart = o.signature ? ` Prove yourself to it, and the ${o.signature.name} answers to no other hand.` : "";
-        return `${SPEAKER}: The ${o.name}. ${o.flavor}${villagePart}${sigPart}`;
+        const villagePart = o.villageAffinity ? ` ${o.villageAffinity} has field reports from shinobi who repeated it.` : "";
+        const sigPart = o.signature ? ` Accept the name and pass its trial, and I will teach you ${o.signature.name}.` : "";
+        return `${SPEAKER}: ${o.name}. ${o.flavor}${villagePart}${sigPart}`;
     });
     const pages: NonNullable<CreatorEvent["vnPages"]> = [
         {
@@ -31,8 +31,8 @@ export function buildSageVnEvent(offer: SageOfferView, playerName: string): Crea
             scene: SCENE,
             speaker: SPEAKER,
             dialogue: [
-                `${SPEAKER}: I have watched your path, ${playerName}. Every battle, every mission, every choice has carved something into your spirit.`,
-                `${SPEAKER}: Your victories were not random. A shape has formed behind your footsteps — and it has a name.`,
+                `${SPEAKER}: I asked three witnesses about you, ${playerName}. One called you cautious. One called you reckless. The third refused to answer me.`,
+                `${SPEAKER}: Good. A Legacy is not a reputation everyone agrees on. It is a choice you keep making when the cost changes. Your field record shows several such patterns.`,
             ],
         },
         {
@@ -40,7 +40,7 @@ export function buildSageVnEvent(offer: SageOfferView, playerName: string): Crea
             scene: SCENE,
             speaker: SPEAKER,
             dialogue: [
-                `${SPEAKER}: These are the legacies your life has opened to you:`,
+                `${SPEAKER}: These are the names that fit what you have actually done. Listen before you decide:`,
                 ...offerLines,
             ],
         },
@@ -49,9 +49,9 @@ export function buildSageVnEvent(offer: SageOfferView, playerName: string): Crea
             scene: SCENE,
             speaker: SPEAKER,
             dialogue: [
-                `${SPEAKER}: Hear me well. A legacy is permanent. You may only ever accept one — and once your path is chosen, it is sealed forever.`,
-                `${SPEAKER}: Fail its trial and you may try again, as many times as your spirit allows. But you may never choose another.`,
-                `${SPEAKER}: There is no shame in walking away. When your spirit is ready, I may find you again.`,
+                `${SPEAKER}: Before you touch a seal, understand the terms. You may accept one Legacy in your lifetime. It names a pattern in your deeds; it does not place an ancestor, soul, or Bloodline inside you.`,
+                `${SPEAKER}: If its trial defeats you, train and return. The trial may be repeated. The accepted name may not be exchanged for another.`,
+                `${SPEAKER}: You may also refuse every name here. I will leave, and if your deeds change the reading, I may bring different names next time.`,
             ],
         },
     ];

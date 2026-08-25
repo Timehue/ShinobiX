@@ -1,17 +1,50 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildNamedItem, debitNamedForge } from './_named.js';
+import { buildNamedItem, debitNamedForge, makeNamedForgeReceipt, resolveNamedForgeReplay } from './_named.js';
+import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
+import { NAMED_FORGE_CURRENCY_POINTS, namedForgePointTotal } from '../../shared/named-forge-economy.js';
 
 describe('named forge authority', () => {
-    it('debits the canonical 1000-point premium pool and rejects insufficient funds', () => {
-        assert.equal(debitNamedForge({ boneCharms: 199 }), null);
-        assert.equal(debitNamedForge({ boneCharms: 200 })?.boneCharms, 0);
-        const mixed = debitNamedForge({ boneCharms: 100, auraStones: 20 })!;
-        assert.equal(mixed.boneCharms, 0); assert.equal(mixed.auraStones, 0);
+    it('debits exactly 1000 points with the canonical shared currency values', () => {
+        assert.deepEqual(NAMED_FORGE_CURRENCY_POINTS, {
+            boneCharms: 2,
+            fateShards: 5,
+            auraStones: 15,
+            mythicSeals: 75,
+        });
+        assert.equal(debitNamedForge({ boneCharms: 499 }), null);
+        assert.equal(debitNamedForge({ boneCharms: 500 })?.boneCharms, 0);
+
+        const wallet = { boneCharms: 5, auraStones: 67 };
+        const mixed = debitNamedForge(wallet)!;
+        assert.equal(namedForgePointTotal(wallet) - namedForgePointTotal(mixed), 1000);
+        assert.equal(mixed.boneCharms, 0);
+        assert.equal(mixed.auraStones, 1, 'the solver preserves the 15-point remainder instead of overcharging');
+    });
+
+    it('rejects a wallet that cannot form an exact whole-material payment', () => {
+        assert.equal(namedForgePointTotal({ auraStones: 67 }), 1005);
+        assert.equal(debitNamedForge({ auraStones: 67 }), null);
+        assert.equal(debitNamedForge({ mythicSeals: 14 }), null);
     });
     it('builds combat fields only from the sealed roll', () => {
         const item = buildNamedItem({ kind: 'weapon', ep: 31, range: 4, offenseVal: 170, tags: [{ name: 'Wound', percent: 36 }] }, 'Blade', 'Lore');
         assert.equal(item.weaponEp, 31); assert.equal(item.apCost, 40); assert.equal(item.bonuses.ninjutsuOffense, 170);
+        assert.equal(item.levelReq, NAMED_ITEM_LEVEL_REQ, 'named weapons carry the same Level 90 gate as named armor');
+    });
+
+    it('recovers the exact forged item from an idempotency receipt', () => {
+        const token = 'forgeToken123456';
+        const item = { id: 'named-weapon-1234', name: 'Storm Fang' };
+        const receipt = makeNamedForgeReceipt(token, item.id);
+        assert.equal(receipt, `${token}:${item.id}`);
+        assert.deepEqual(resolveNamedForgeReplay([receipt], token, [{ id: 'other' }, item]), { matched: true, item });
+        assert.deepEqual(resolveNamedForgeReplay([receipt], 'differentToken12', [item]), { matched: false, item: null });
+    });
+
+    it('recognizes legacy token-only receipts without inventing an item', () => {
+        const token = 'legacyToken12345';
+        assert.deepEqual(resolveNamedForgeReplay([token], token, [{ id: 'named-weapon-unrelated' }]), { matched: true, item: null });
     });
 
     /*

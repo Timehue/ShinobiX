@@ -1,7 +1,6 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import type { VersionedCharacterCommit } from "../types/character";
-import { BackToVillageButton } from "../components/BackToVillageButton";
 import { HealerInjuredList } from "../components/HealerInjuredList";
 import { clearSectorReopen } from "../lib/sector-return";
 import {
@@ -13,7 +12,9 @@ import {
 } from "../App";
 import { gameToast } from "../components/GameToast";
 import { adoptHospitalDischarge, type HospitalDischargeResponse } from "../lib/hospital-discharge";
+import { FacilityHero } from "../components/FacilityHero";
 import { serverNow } from "../lib/server-clock";
+import { GameIcon } from "../components/icons/GameIcon";
 
 export
 function Hospital({ character, updateCharacter, setScreen, playerRoster, onServerVersion, onVersionedCharacter }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen, authoritativeCharacter?: Character) => void; playerRoster: PlayerRecord[]; onServerVersion: (version: unknown) => boolean; onVersionedCharacter: VersionedCharacterCommit }) {
@@ -25,17 +26,21 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
     // discharge (or wait the 60-second free checkout) and can't topUp at all.
     const dischargeCost = isHealer ? 0 : discountCost(2500, hospitalDiscount);
     const topUpCost = isHealer ? 0 : discountCost(50, hospitalDiscount);
+    const hpPercent = Math.max(0, Math.min(100, character.maxHp > 0 ? (character.hp / character.maxHp) * 100 : 0));
     // Free-checkout timer is driven by the SERVER-stamped hospitalizedUntil
     // (persisted in the save), so it survives a page refresh — the old client-
     // only entry-time was lost on reload and the free-checkout button never
     // reappeared, trapping admitted players in a refresh loop. When the stamp
     // hasn't reached the client yet (a fresh in-session KO, before the save
-    // round-trips) there is NO countdown: the screen says it is awaiting the
-    // server rather than inventing a local 60s timer. Discharge is server-gated
-    // (api/player/heal), so an invented countdown could only ever run down to a
-    // check-out the server then refuses. The stamp is server-minted, so it is
-    // compared against the server's clock, not the device's.
+    // round-trips), we fall back to a DISPLAY-ONLY 60s count from when the
+    // screen opened. This fallback never writes to the server, so it can't
+    // accidentally re-hospitalize a player the server already discharged; the
+    // discharge endpoint remains the sole authority on whether the timer is up.
     const serverUntil = Number(character.hospitalizedUntil ?? 0);
+    // null = the server stamp has not arrived yet, so there is NOTHING to count.
+    // A local 60s guess could only ever run down to a check-out the server then
+    // refuses (api/player/heal is the sole authority), and the stamp is
+    // server-minted, so it is compared against the server's clock not the device's.
     const effectiveUntil: number | null = serverUntil > 0 ? serverUntil : null;
     const [now, setNow] = useState(() => serverNow());
     const [busy, setBusy] = useState(false);
@@ -56,7 +61,6 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
     }, [character.hospitalized]);
 
     const freeCheckoutReady = character.hospitalized && effectiveUntil != null && now >= effectiveUntil;
-    // null = the server stamp has not arrived yet, so there is nothing to count.
     const remaining: number | null = effectiveUntil == null ? null : Math.max(0, Math.ceil((effectiveUntil - now) / 1000));
 
     // Pay-skip discharge. Previously this was a client-only mutation that
@@ -210,87 +214,144 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
 
     if (character.hospitalized) {
         return (
-            <div className="card">
-                <h2>🏥 Village Hospital</h2>
-                <p className="hint">Town Hall Hospital Discount: <strong>{hospitalDiscount.toFixed(2)}%</strong></p>
-                <div className="hospital-admitted-banner">
-                    <span className="hospital-admitted-icon">🩹</span>
-                    <div>
-                        <strong>You are currently admitted</strong>
-                        <p>{isHealer
-                            ? "You were knocked out in battle. As a Healer you can self-heal and discharge instantly for free."
-                            : "You were knocked out in battle. Pay the discharge fee or wait for the free check-out."}</p>
+            <div className="card civic-facility-screen hospital-screen hospital-screen--admitted">
+                <FacilityHero
+                    facility="hospital"
+                    eyebrow={`${character.village} · Emergency Ward`}
+                    title="Village Hospital"
+                    description="You are stable and under medical watch. Choose an immediate release or wait for complimentary discharge."
+                    metrics={[
+                        { label: "Patient status", value: "Admitted", tone: "warning" },
+                        { label: "Vital condition", value: `${character.hp} / ${character.maxHp} HP`, tone: "warning" },
+                        { label: "Village discount", value: `${hospitalDiscount.toFixed(2)}%`, tone: hospitalDiscount > 0 ? "good" : "default" },
+                    ]}
+                />
+
+                <section className="facility-panel hospital-admission-panel">
+                    <div className="hospital-status-line">
+                        <span className="hospital-status-icon"><GameIcon name="hp" size={28} /></span>
+                        <div>
+                            <p className="facility-eyebrow">Recovery in progress</p>
+                            <h3>You are currently admitted</h3>
+                            <p>{isHealer
+                                ? "Your healer training allows you to restore your own vitals and leave immediately at no cost."
+                                : "Your vitals will be fully restored at discharge. Pay for an immediate release or wait for the free checkout."}</p>
+                        </div>
                     </div>
-                </div>
-                <div className="summary-box" style={{ marginBottom: "1rem" }}>
-                    <span>HP: <strong style={{ color: "var(--red-400)" }}>{character.hp}/{character.maxHp}</strong></span>
-                    <span style={{ marginLeft: "1.5rem" }}>Ryo: <strong style={{ color: character.ryo >= dischargeCost ? "var(--green-400)" : "var(--red-400)" }}>{character.ryo.toLocaleString()}</strong></span>
-                </div>
-                <button
-                    onClick={discharge}
-                    disabled={busy || character.ryo < dischargeCost}
-                    style={{ background: "linear-gradient(#14532d,#052e16)", borderColor: "var(--green-400)", opacity: (busy || character.ryo < dischargeCost) ? 0.5 : 1, width: "100%", marginBottom: "0.5rem" }}
-                >
-                    {busy ? "…" : isHealer
-                        ? "✚ Free Self-Heal & Discharge (Healer)"
-                        : `💰 Pay ${dischargeCost.toLocaleString()} ryo — Full Heal & Discharge`}
-                </button>
-                {/* Healers self-heal & discharge instantly for free via the button
-                    above, so the wait-out-the-timer check-out is non-Healer only. */}
-                {!isHealer && (freeCheckoutReady ? (
-                    <button
-                        onClick={() => void freeCheckout(false)}
-                        disabled={busy}
-                        style={{ background: "linear-gradient(#1e3a5f,#0c1f3d)", borderColor: "var(--blue-400)", width: "100%", animation: "pulse 1.5s infinite", opacity: busy ? 0.5 : 1 }}
-                    >
-                        {busy ? "Checking out automatically…" : "🚪 Check Out Now (Free)"}
-                    </button>
-                ) : (
-                    <p className="hint" style={{ textAlign: "center" }}>
-                        {remaining == null
-                            ? "Awaiting the server's admission timer…"
-                            : <>Automatic free check-out in <strong style={{ color: "var(--gold-400)" }}>{remaining}s</strong></>}
-                    </p>
-                ))}
-                {character.ryo < dischargeCost && !freeCheckoutReady && (
-                    <p style={{ color: "var(--red-400)", fontSize: "0.82rem", marginTop: "0.5rem", textAlign: "center" }}>
-                        You need {(dischargeCost - character.ryo).toLocaleString()} more ryo, or wait {remaining == null ? "for the server's admission timer" : `${remaining}s`} for the free check-out.
-                    </p>
-                )}
+                    <div className="hospital-vitals-card">
+                        <div className="hospital-vital-heading">
+                            <span>HP recovery</span>
+                            <strong>{character.hp.toLocaleString()} / {character.maxHp.toLocaleString()}</strong>
+                        </div>
+                        <div className="facility-resource-track facility-resource-track--hp"><span style={{ width: `${hpPercent}%` }} /></div>
+                    </div>
+
+                    <div className="hospital-release-grid">
+                        <article className="hospital-release-option hospital-release-option--priority">
+                            <GameIcon name="sparkle" size={24} />
+                            <div>
+                                <span>Immediate release</span>
+                                <strong>{isHealer ? "Free for Healers" : `${dischargeCost.toLocaleString()} ryo`}</strong>
+                                <small>Full restoration · leave now</small>
+                            </div>
+                            <button className="facility-primary-action" onClick={discharge} disabled={busy || character.ryo < dischargeCost}>
+                                {busy ? "Processing…" : isHealer ? "Self-heal & discharge" : "Pay & discharge"}
+                            </button>
+                        </article>
+
+                        {!isHealer && (
+                            <article className="hospital-release-option">
+                                <GameIcon name="clock" size={24} />
+                                <div>
+                                    <span>Complimentary release</span>
+                                    <strong>{freeCheckoutReady ? "Ready now" : remaining == null ? "Awaiting the server’s admission timer…" : `${remaining}s remaining`}</strong>
+                                    <small>No charge · full restoration</small>
+                                </div>
+                                {freeCheckoutReady ? (
+                                    <button className="facility-secondary-action hospital-free-checkout" onClick={() => void freeCheckout(false)} disabled={busy}>
+                                        {busy ? "Checking out…" : "Check out free"}
+                                    </button>
+                                ) : (
+                                    <div className="hospital-countdown" aria-label={remaining == null ? "Awaiting the server’s admission timer" : `${remaining} seconds until free checkout`}>
+                                        <span style={{ width: `${remaining == null ? 0 : Math.max(0, Math.min(100, (1 - remaining / 60) * 100))}%` }} />
+                                    </div>
+                                )}
+                            </article>
+                        )}
+                    </div>
+
+                    {character.ryo < dischargeCost && !freeCheckoutReady && (
+                        <p className="facility-inline-warning">
+                            Your wallet is short {(dischargeCost - character.ryo).toLocaleString()} ryo. Free checkout unlocks {remaining == null ? "once the server’s admission timer arrives" : `in ${remaining}s`}.
+                        </p>
+                    )}
+                </section>
             </div>
         );
     }
 
     return (
-        <div className="card">
-            <BackToVillageButton onClick={() => setScreen("village")} />
-            <h2>🏥 Village Hospital</h2>
-            <p style={{ color: "var(--text-dim)" }}>Rest, recover, and restore your vitals. Town Hall Hospital Discount: <strong>{hospitalDiscount.toFixed(2)}%</strong></p>
-            {isHealer && (
-                <div className="summary-box" style={{ background: "linear-gradient(180deg,rgba(34,211,238,0.12),rgba(8,10,22,0.4))", border: "1px solid rgba(34,211,238,0.45)", marginBottom: "1rem" }}>
-                    <span style={{ color: "#22d3ee", fontWeight: 600 }}>✚ Healer</span>
-                    <span style={{ marginLeft: 12, color: "var(--slate-300)" }}>
-                        Rank {healerRank} · {character.professionXp ?? 0} XP
-                    </span>
-                    <p className="hint" style={{ margin: "6px 0 0" }}>
-                        You can heal hospitalized allies in <strong>{character.village}</strong>.
-                        Each heal grants XP equal to the % of HP restored.
-                        {healerRank >= 10 && " At Rank 10 you can also see injured villagers anywhere in the world."}
-                    </p>
-                </div>
-            )}
-            <div className="summary-box" style={{ marginBottom: "1rem" }}>
-                <span>HP: <strong>{character.hp}/{character.maxHp}</strong></span>
-                <span style={{ marginLeft: "1.5rem" }}>Ryo: <strong>{character.ryo.toLocaleString()}</strong></span>
+        <div className="card civic-facility-screen hospital-screen">
+            <FacilityHero
+                facility="hospital"
+                eyebrow={`${character.village} · Medical Quarter`}
+                title="Village Hospital"
+                description="A quiet ward for recovery, triage, and the village healer corps."
+                onBack={() => setScreen("village")}
+                metrics={[
+                    { label: "Current HP", value: `${character.hp.toLocaleString()} / ${character.maxHp.toLocaleString()}`, tone: hpPercent >= 75 ? "good" : "warning" },
+                    { label: "Wallet", value: `${character.ryo.toLocaleString()} ryo` },
+                    { label: "Hospital discount", value: `${hospitalDiscount.toFixed(2)}%`, tone: hospitalDiscount > 0 ? "good" : "default" },
+                ]}
+            />
+
+            <div className="facility-content-grid hospital-workspace">
+                <section className="facility-panel hospital-care-panel">
+                    <div className="facility-panel-heading">
+                        <span className="facility-panel-icon"><GameIcon name="hp" size={24} /></span>
+                        <div>
+                            <p className="facility-eyebrow">Personal care</p>
+                            <h3>Vital condition</h3>
+                        </div>
+                    </div>
+                    <div className="hospital-vitals-card">
+                        <div className="hospital-vital-heading">
+                            <span>Hit points</span>
+                            <strong>{Math.round(hpPercent)}%</strong>
+                        </div>
+                        <div className="facility-resource-track facility-resource-track--hp"><span style={{ width: `${hpPercent}%` }} /></div>
+                    </div>
+                    {isHealer ? (
+                        <>
+                            <div className="hospital-healer-badge">
+                                <GameIcon name="sparkle" size={22} />
+                                <div><span>Healer privileges active</span><strong>Rank {healerRank} · {(character.professionXp ?? 0).toLocaleString()} XP</strong></div>
+                            </div>
+                            <button className="facility-primary-action" onClick={topUp} disabled={busy || hpPercent >= 100}>
+                                {busy ? "Restoring vitals…" : hpPercent >= 100 ? "Vitals already full" : "Restore all vitals · Free"}
+                            </button>
+                        </>
+                    ) : (
+                        <div className="facility-access-note">
+                            <GameIcon name="shield" size={22} />
+                            <p>Walk-in restoration is reserved for the Healer profession. After a knockout, the ward offers a timed free discharge or an immediate paid release.</p>
+                        </div>
+                    )}
+                    <p className="facility-fine-print">Your Town Hall hospital upgrade currently reduces eligible treatment costs by {hospitalDiscount.toFixed(2)}%.</p>
+                </section>
+
+                <section className="facility-panel hospital-roster-panel">
+                    <div className="facility-panel-heading">
+                        <span className="facility-panel-icon"><GameIcon name="person" size={24} /></span>
+                        <div>
+                            <p className="facility-eyebrow">Healer corps</p>
+                            <h3>Injured villagers</h3>
+                        </div>
+                    </div>
+                    {isHealer && <p className="facility-panel-intro">Treat hospitalized allies in {character.village}. Each heal grants profession XP equal to the percentage restored.{healerRank >= 10 && " Rank 10 expands your reach beyond village borders."}</p>}
+                    <HealerInjuredList character={character} updateCharacter={updateCharacter} playerRoster={playerRoster} onServerVersion={onServerVersion} />
+                </section>
             </div>
-            {isHealer ? (
-                <button onClick={topUp} disabled={busy}>{busy ? "..." : "✚ Full Heal — Free (Healer)"}</button>
-            ) : (
-                <p className="hint" style={{ margin: "0.4rem 0", color: "var(--text-dim)" }}>
-                    🚫 Only Healers can heal at the hospital. If admitted, wait the 60-second timer or pay the discharge fee.
-                </p>
-            )}
-            <HealerInjuredList character={character} updateCharacter={updateCharacter} playerRoster={playerRoster} onServerVersion={onServerVersion} />
         </div>
     );
 }

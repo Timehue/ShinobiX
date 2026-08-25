@@ -41,15 +41,15 @@ export const SHRINE_DEFS: readonly ShrineDef[] = [
     {
         id: 'heartwood', sector: 15, name: 'Heartwood Shrine', theme: 'village', village: 'Ashen Leaf Village',
         region: 'the Ashen Leaf Deepwood',
-        lore: 'Raised by Ashen Leaf’s first woodwardens around a living tree; they say its roots reach all the way back to the village square.',
-        blessing: 'May your roots hold and your leaves reach.',
+        lore: 'Ashen Leaf carpenters built the shrine around a cedar the Branch Register spared during an old expansion. Each new council tucks a copy of its first kept promise under the eaves.',
+        blessing: 'May you keep what deserves keeping and change what does not.',
         left: 54, top: 44,
     },
     {
         id: 'tide', sector: 4, name: 'Tidecaller Shrine', theme: 'village', village: 'Stormveil Village',
         region: 'the Stormveil Heights',
-        lore: 'Stormveil’s fishers ring its bronze bell before every voyage. The tide is said to answer those who give before they ask.',
-        blessing: 'May the tide carry your burdens out.',
+        lore: 'Stormveil fishers ring its bronze bell before every voyage, then tell the keeper why they are leaving. Returning crews ring it again and answer for every name they took out.',
+        blessing: 'May you return able to answer for your reason.',
         // Re-tuned against the 2026-07 keyart-style floor (grid-picked): the
         // open sand beach west of the pier — earlier spots landed in the water.
         left: 13, top: 68,
@@ -57,15 +57,15 @@ export const SHRINE_DEFS: readonly ShrineDef[] = [
     {
         id: 'frostveil', sector: 31, name: 'Frostveil Shrine', theme: 'village', village: 'Frostfang Village',
         region: 'the Frostreach Shelf',
-        lore: 'Carved by Frostfang’s founders from the first ice of their first winter. An offering made here is frozen bright inside it forever.',
-        blessing: 'May the cold keep what you cherish.',
+        lore: 'Frostfang’s first rescue companies carved their winter roll into blue stone here. Current wardens recut every weathered name before the long snow closes the shelf.',
+        blessing: 'May your whole roll answer at the next fire.',
         left: 26, top: 45,
     },
     {
         id: 'moonwell', sector: 23, name: 'Moonwell Shrine', theme: 'village', village: 'Moonshadow Village',
         region: 'the Moonshadow Wilds',
-        lore: 'Moonshadow’s seers filled its basin with caught moonlight. It keeps every secret the village dares not say aloud.',
-        blessing: 'May the moon light the path you hide.',
+        lore: 'Moonshadow brokers leave blank clay tablets beside the basin when they accept a dangerous trust. A keeper breaks each tablet only after both parties say the trust was returned intact.',
+        blessing: 'May the truth you hold remain yours to give.',
         // Re-tuned against the 2026-07 keyart-style floor (grid-picked): the
         // wide pale stone walkway — the old spot landed in the grotto pool.
         left: 60, top: 74,
@@ -74,8 +74,8 @@ export const SHRINE_DEFS: readonly ShrineDef[] = [
     {
         id: 'hollowgate', sector: 56, name: 'Hollow Gate Shrine', theme: 'hollow-gate',
         region: 'the Lantern Approach',
-        lore: 'Shinobi wardens raised it where the lantern road fails, a seal on the path down to the Gate. Every offering keeps that seal intact a little longer.',
-        blessing: 'May the Gate stay shut behind you.',
+        lore: 'Shinobi wardens raised this muster post where the lantern road descends toward the old Court intake. Its ledger records who went below, who returned, and who chose to turn back.',
+        blessing: 'May you return with every choice still yours.',
         // Re-tuned against the 2026-07 keyart-style floor (grid-picked): the
         // wide pale lantern road — the old spot perched on a rock outcrop.
         left: 58, top: 70,

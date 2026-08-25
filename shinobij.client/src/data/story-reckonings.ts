@@ -291,7 +291,7 @@ export const storyReckonings: StoryReckoning[] = [
                 choices: [
                     { text: "\"You refused the cut when it was offered. That mattered.\"", requireTrait: "al58-refused-the-cut", trait: "alr-mori-clean-hands", conclusion: "Refusing the cut, he says, is not the same as being clean. But it is the first honest thing I did in this office, and you were there for it." },
                     { text: "\"You took the knowledge and did nothing with it. Now do something.\"", requireTrait: "al58-took-the-knowledge", trait: "alr-mori-put-to-use", conclusion: "He does not flinch from it. Then this is me doing something with it, he says, and writes Aren's name into the working copy in a hand that finally stops shaking." },
-                    { text: "\"Claim the name out loud. Make the working copy the real one.\"", trait: "alr-mori-copy-made-real", conclusion: "He carries the working copy to the register house himself, in daylight, and swears it in as the true book before anyone can find the paperwork to stop him." },
+                    { text: "\"Claim the name out loud. Make the working copy the real one.\"", trait: "alr-mori-copy-made-real", conclusion: "He carries the working copy to the register house himself, in daylight, and swears it in as the true book before the survey office can prepare an objection." },
                 ],
             },
         ],
@@ -347,7 +347,7 @@ export const storyReckonings: StoryReckoning[] = [
                 ],
                 choices: [
                     { text: "\"You held your doubt instead of filing it away. That took something.\"", requireTrait: "ff42-held-the-doubt", trait: "ffr-sova-doubt-kept", conclusion: "A doubt you only hold keeps your hands clean and changes nothing, she says. Reading it aloud dirties them. You are the reason I would rather have the dirt." },
-                    { text: "\"You reported the doubt by the book. Now unreport it, in the open.\"", requireTrait: "ff42-reported-the-doubt", trait: "ffr-sova-doubt-undone", conclusion: "She pulls the report you filed and reads it back to front at the gate, saying aloud everything the paperwork left out, until the by-the-book version is the one that sounds like the lie." },
+                    { text: "\"You reported the doubt by the book. Now unreport it, in the open.\"", requireTrait: "ff42-reported-the-doubt", trait: "ffr-sova-doubt-undone", conclusion: "She pulls the report you filed and reads it back to front at the gate, saying aloud everything the official version left out, until the by-the-book account is the one that sounds like the lie." },
                     { text: "\"Bind the roll beside the Count where the whole village walks past.\"", trait: "ffr-sova-roll-posted", conclusion: "She hangs both books open at the gate stone, roll beside Count, and stands beside them in the cold so people have to ask her why the numbers do not agree." },
                 ],
             },

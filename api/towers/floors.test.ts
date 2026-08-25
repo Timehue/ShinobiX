@@ -9,7 +9,7 @@ test('public Tower floor metadata previews rewards and authored tactical warning
     assert.equal(crossfire.fieldRule?.kind, 'buff');
     assert.equal(crossfire.enemyCount, 9);
     assert.equal(crossfire.phaseReinforcementCount, 0);
-    assert.equal(crossfire.chapterTitle, 'The Celestial Ascent');
+    assert.equal(crossfire.chapterTitle, 'The Spire Ascent');
     assert.equal(crossfire.artKey, 'crossfire-glade');
     assert.equal(crossfire.briefing?.tactics.length, 3);
     assert.deepEqual(crossfire.firstClearReward, {

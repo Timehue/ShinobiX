@@ -180,12 +180,12 @@ export function riftIntroEvent(rift: HollowRift, targetSector: number, biome: Bi
     );
     return {
         id: `${RIFT_GIVER_PREFIX}${rift.slug}`,
-        name: `Strange Energy: ${rift.bossName}`,
+        name: `Rift Report: ${rift.bossName}`,
         biome,
         icon: "🌀",
         eventKind: "visualNovel",
         trigger: "manual",
-        vnTitle: rift.intro[0]?.title ?? "Strange Energy",
+        vnTitle: rift.intro[0]?.title ?? "Rift Report",
         vnScene: rift.intro[0]?.scene ?? "",
         vnSpeaker: rift.intro[0]?.speaker ?? rift.giverName,
         image: `/scenes/story/${RIFT_GIVER_PREFIX}${rift.slug}.webp`,

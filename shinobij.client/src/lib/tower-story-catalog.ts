@@ -72,7 +72,7 @@ export function groupTowerStoryChapters(floors: readonly TowerFloorMeta[]): Towe
     const chapters = new Map<string, TowerStoryChapter>();
     for (const floor of orderedTowerStoryFloors(floors)) {
         const number = Math.max(1, Math.floor(Number(floor.chapter) || 1));
-        const title = floor.chapterTitle?.trim() || (number === 1 ? "The Celestial Ascent" : `Chapter ${number}`);
+        const title = floor.chapterTitle?.trim() || (number === 1 ? "The Spire Ascent" : `Chapter ${number}`);
         const key = `${number}:${title}`;
         const existing = chapters.get(key);
         if (existing) {

@@ -162,50 +162,50 @@ export function CentralAwakeningCinematic({
     return createPortal(
         <div
             ref={overlayRef}
-            className={`central-awakening-cinematic ${phase === "leaving" ? "is-leaving" : ""}`}
+            className={`ca-cinematic ${phase === "leaving" ? "is-leaving" : ""}`}
             data-mode={mode}
             data-element={primaryElement}
             tabIndex={-1}
             role="dialog"
             aria-modal="true"
-            aria-labelledby="central-awakening-title"
+            aria-labelledby="ca-title"
             aria-describedby="central-awakening-result"
         >
-            <div className="central-awakening-backdrop" aria-hidden="true" />
-            <div className="central-awakening-vignette" aria-hidden="true" />
-            <div className="central-awakening-beam" aria-hidden="true" />
+            <div className="ca-backdrop" aria-hidden="true" />
+            <div className="ca-vignette" aria-hidden="true" />
+            <div className="ca-beam" aria-hidden="true" />
 
-            <div className="central-awakening-stone" aria-hidden="true">
-                <span className="central-awakening-stone__core" />
-                <span className="central-awakening-stone__ring central-awakening-stone__ring--one" />
-                <span className="central-awakening-stone__ring central-awakening-stone__ring--two" />
-                <span className="central-awakening-stone__ring central-awakening-stone__ring--three" />
+            <div className="ca-stone" aria-hidden="true">
+                <span className="ca-core" />
+                <span className="ca-ring ca-ring-one" />
+                <span className="ca-ring ca-ring-two" />
+                <span className="ca-ring ca-ring-three" />
             </div>
 
-            <div className="central-awakening-particles" aria-hidden="true">
+            <div className="ca-particles" aria-hidden="true">
                 {particles.map((particle) => (
                     <i
-                        className="central-awakening-particle"
+                        className="ca-particle"
                         data-element={particle.element}
                         key={particle.id}
                         style={styleVars({
-                            "--awakening-angle": `${particle.angle.toFixed(1)}deg`,
-                            "--awakening-distance": `${particle.distance.toFixed(1)}px`,
-                            "--awakening-size": `${particle.size.toFixed(1)}px`,
-                            "--awakening-delay": `${particle.delay.toFixed(0)}ms`,
-                            "--awakening-duration": `${particle.duration.toFixed(0)}ms`,
+                            "--aw-angle": `${particle.angle.toFixed(1)}deg`,
+                            "--aw-distance": `${particle.distance.toFixed(1)}px`,
+                            "--aw-size": `${particle.size.toFixed(1)}px`,
+                            "--aw-delay": `${particle.delay.toFixed(0)}ms`,
+                            "--aw-duration": `${particle.duration.toFixed(0)}ms`,
                         })}
                     />
                 ))}
             </div>
 
-            <div className="central-awakening-sigils" data-count={resolvedElements.length} aria-hidden="true">
+            <div className="ca-sigils" data-count={resolvedElements.length} aria-hidden="true">
                 {resolvedElements.map(({ id, art, label }, index) => (
                     <span
-                        className="central-awakening-sigil"
+                        className="ca-sigil"
                         data-element={id}
                         key={id}
-                        style={styleVars({ "--awakening-sigil-delay": `${740 + index * 130}ms` })}
+                        style={styleVars({ "--aw-sigil-delay": `${740 + index * 130}ms` })}
                     >
                         <img src={art} alt="" decoding="async" />
                         <small>{label}</small>
@@ -213,17 +213,17 @@ export function CentralAwakeningCinematic({
                 ))}
             </div>
 
-            <div className="central-awakening-title">
-                <span className="central-awakening-kicker">
+            <div className="ca-title">
+                <span className="ca-kicker">
                     {mode === "reroll" ? "Chakra nature reforged" : "Chakra nature awakened"}
                 </span>
-                <h2 id="central-awakening-title">{resolvedElements.length === 1 ? `${natureLabel} Release` : "Elemental Convergence"}</h2>
-                <div className="central-awakening-rule" aria-hidden="true"><span /></div>
+                <h2 id="ca-title">{resolvedElements.length === 1 ? `${natureLabel} Release` : "Elemental Convergence"}</h2>
+                <div className="ca-rule" aria-hidden="true"><span /></div>
                 <p>{playerName ? `${playerName}'s new nature resonates.` : "A new nature resonates."}</p>
                 <strong id="central-awakening-result">{natureLabel}</strong>
             </div>
 
-            <button type="button" className="central-awakening-skip" onClick={finish}>
+            <button type="button" className="ca-skip" onClick={finish}>
                 Skip reveal
             </button>
         </div>,

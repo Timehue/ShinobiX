@@ -36,7 +36,7 @@
 }
 
 @media (max-width: 480px) {
-    .crafter-recipe-grid {
+    .cf-grid {
         grid-template-columns: 1fr;
     }
 
@@ -62,11 +62,11 @@
 }
 
 /* Legendary set item card glow variants */
-.item-card-legendary-damage  { box-shadow: 0 0 8px rgba(239, 68, 68, .40); }
-.item-card-legendary-absorb  { box-shadow: 0 0 8px rgba(34, 197, 94, .40); }
-.item-card-legendary-steal   { box-shadow: 0 0 8px rgba(251, 146, 60, .40); }
-.item-card-legendary-shield  { box-shadow: 0 0 8px rgba(96, 165, 250, .40); }
-.item-card-legendary-reflect { box-shadow: 0 0 8px rgba(192, 132, 252, .40); }
+
+
+
+
+
 
 /* =============================================
    MOBILE TOP STATUS HUD
@@ -806,12 +806,7 @@
    the original 800px bound. Collapsing the creator to one column is a phone
    treatment; a 900px tablet has the width for the multi-column grid. */
 @media (max-width: 800px) {
-  .start-grid {
-    grid-template-columns: 1fr !important;
-    padding: 12px !important;
-    margin: 0 !important;
-    gap: 12px !important;
-  }
+
 
   .creator-card {
     margin: 0 !important;
