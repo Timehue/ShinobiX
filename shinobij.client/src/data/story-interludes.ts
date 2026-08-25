@@ -436,7 +436,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "Decide how you're going in. Everyone here will follow your lead."),
         ], [
             ch("Walk up slow and open, letting anyone fall in beside you.", "good", "sv92-open-road", "By the gate you are four hundred strong and unarmed, grandmothers and guards and odds-runners with empty hands, and the tower watch stands aside because no drill was ever written for a village arriving as weather. Mira walks the front rank. Nobody walks behind anybody."),
-            ch("Go in through the clerk's door, with Vanta's cart and the Captain's word.", "neutral", "sv92-signed-muster", "Ledgers, storm logs, a signed muster of witnesses, and one lawful escort with thirty years of gate duty on his face: you enter the tower as a filed case, not a storm. Everyone who stayed on the switchbacks stays safe, and you face the seat on its own paperwork, with the floor's whole appetite documented in a bookmaker's hand."),
+            ch("Go in through the clerk's door, with Vanta's cart and the Captain's word.", "neutral", "sv92-signed-muster", "Ledgers, storm logs, a signed muster of witnesses, and one lawful escort with thirty years of gate duty on his face: you enter the tower as a filed case, not a storm. Everyone who stayed on the switchbacks stays safe, and you face the seat on its own orders, with the floor's whole appetite documented in a bookmaker's hand."),
             ch("Send word up first: the riot-stopper is coming, and the board remembers everything.", "bad", "sv92-fear-column", "The message runs the tower stairs faster than you climb them, and you can chart its progress by the lights going out floor by floor. The routing office burns papers; you can smell it on the wind. Above, a man who hears every grudge at once hears the village's fear turn toward him, and pours himself the last quiet hour he owns."),
         ]),
     ],
@@ -861,7 +861,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "Decide how you want to approach the tower."),
         ], [
             ch("Walk in the open, slowly, letting anyone fall in beside you.", "good", "al92-carried-their-trust", "By the tower gate you are sixty strong and unarmed, and the guards step out of the way, because nobody ever wrote orders for sixty neighbors arriving with bread in their packs. Sera walks in front, and the bread goes around before the gate does."),
-            ch("Go in through the survey door, with Mori's book and the officer's word.", "neutral", "al92-took-the-count", "Charts, countersignatures, and one nervous lawful escort: you enter as a case, not a crowd. Everyone who stayed home stays safe, and you face her alone, on her own paperwork, with proof in both hands."),
+            ch("Go in through the survey door, with Mori's book and the officer's word.", "neutral", "al92-took-the-count", "Charts, countersignatures, and one nervous lawful escort: you enter as a case, not a crowd. Everyone who stayed home stays safe, and you face her alone, on her own survey record, with proof in both hands."),
             ch("Send word ahead: the flower is coming, and it remembers every cut.", "bad", "al92-wore-their-fear", "The message travels faster than you walk. Shutters close along the tower road, the guard doubles, and somewhere above, a keeper smiles at finally being feared in a language she respects. The village still follows. From a distance now."),
         ]),
     ],

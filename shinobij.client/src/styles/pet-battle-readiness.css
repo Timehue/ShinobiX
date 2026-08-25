@@ -1,0 +1,121 @@
+.pet-battle-readiness {
+    --br-gold: #e6bd70;
+    --br-line: rgba(148, 163, 184, .16);
+    display: grid;
+    gap: .7rem;
+    overflow: hidden;
+    border: 1px solid rgba(98, 188, 255, .42);
+    border-radius: 10px;
+    color: #e8edf5;
+    background: linear-gradient(90deg, #5bbfff, #71e0c4, transparent 72%) top/100% 2px no-repeat, linear-gradient(155deg, #08101f, #040914);
+    padding: .85rem;
+    box-shadow: inset 0 1px rgba(255, 255, 255, .05), 0 16px 38px rgba(0, 0, 0, .24);
+}
+
+.pet-battle-readiness-heading,
+.pet-circuit-card-heading {
+    display: flex;
+    align-items: center;
+}
+
+.pet-battle-readiness-heading { gap: .65rem; }
+.pet-battle-readiness-kicker,
+.pet-circuit-card-heading small {
+    display: block;
+    color: rgba(230, 189, 112, .82);
+    font: 800 9px/1.25 var(--font-display), Inter, sans-serif;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+.pet-battle-readiness h4 {
+    margin: .2rem 0 0;
+    color: #f2dda0;
+    font: 900 13px/1.15 var(--font-display), Inter, sans-serif;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.pet-circuit-status {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    width: fit-content;
+    font: 800 9px/1.2 Inter, sans-serif;
+    white-space: nowrap;
+}
+
+.pet-circuit-grid { display: grid; gap: .56rem; }
+.pet-circuit-card {
+    display: grid;
+    align-content: start;
+    gap: .54rem;
+    min-width: 0;
+    border: 1px solid rgba(230, 189, 112, .25);
+    border-top-color: rgba(230, 189, 112, .62);
+    border-radius: 8px;
+    background: linear-gradient(150deg, rgba(20, 20, 31, .88), rgba(8, 13, 27, .84));
+    padding: .66rem;
+}
+
+.pet-circuit-card[data-circuit="warfront"] {
+    border-top-color: rgba(78, 168, 255, .68);
+    background: linear-gradient(150deg, rgba(9, 27, 46, .9), rgba(7, 13, 29, .84));
+}
+
+.pet-circuit-card-heading { gap: .52rem; }
+.pet-circuit-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    border: 1px solid rgba(230, 189, 112, .4);
+    border-radius: 8px;
+    color: #f0d68b;
+    background: rgba(230, 189, 112, .09);
+}
+
+[data-circuit="warfront"] .pet-circuit-icon { border-color: #4ea8ff75; color: #85cfff; background: #4ea8ff19; }
+.pet-circuit-card-heading strong {
+    display: block;
+    margin-top: .16rem;
+    color: #f3f7fa;
+    font: 850 12px/1.2 var(--font-display), Inter, sans-serif;
+    letter-spacing: .04em;
+}
+
+.pet-circuit-status {
+    border: 1px solid #f871714f;
+    border-radius: 999px;
+    color: #fca5a5;
+    background: #7f1d1d2e;
+    padding: .27rem .44rem;
+}
+.pet-circuit-status[data-ready="true"] { border-color: #4ade8052; color: #91e7ad; background: #14532d33; }
+
+.pet-circuit-summary {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: .32rem .55rem;
+    margin: 0;
+    border-block: 1px solid var(--br-line);
+    padding: .5rem .08rem;
+}
+.pet-circuit-summary b { color: #f1d18e; font: 850 10px/1.2 var(--font-display), Inter, sans-serif; }
+.pet-circuit-summary span { overflow: hidden; color: #8498a9; font: 650 9px/1.25 Inter, sans-serif; text-align: right; text-overflow: ellipsis; }
+
+.pet-circuit-card .pet-home-primary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-top: auto;
+}
+
+[data-circuit="warfront"] .pet-home-primary { color: #effaff; background: linear-gradient(135deg, #1976aa, #234685); }
+
+@media (max-width: 420px) {
+    .pet-battle-readiness-heading { align-items: flex-start; }
+}

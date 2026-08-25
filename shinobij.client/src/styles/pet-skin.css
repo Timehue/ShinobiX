@@ -39,8 +39,7 @@
 }
 
 /* ----- Headers ----- */
-.pet-yard-screen .pet-yard-header,
-.pet-arena-screen .pet-arena-header {
+.pet-yard-screen .pet-yard-header {
     display: flex; align-items: center; justify-content: space-between;
     gap: 12px;
     border-bottom: 1px solid var(--bsv2-gold-faint);
@@ -48,7 +47,6 @@
     margin-bottom: 14px;
 }
 .pet-yard-screen .pet-yard-header h2,
-.pet-arena-screen .pet-arena-header h2,
 .pet-yard-screen > h2,
 .pet-arena-screen > h2 {
     font: 700 18px var(--font-display) !important;

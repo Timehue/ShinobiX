@@ -281,7 +281,7 @@
 .pet-arena-destination-action b { font-size: 1.05rem; }
 
 /* Selected exhibition contract */
-.pet-exhibition-entry { width: min(1320px,calc(100% - 2rem)); margin: .8rem auto 0; }
+
 .pet-arena-lobby .pet-coliseum-fight-card { border-radius: 18px; border-color: rgba(240,202,121,.36); background: radial-gradient(circle at 50% 0,rgba(240,202,121,.11),transparent 38%),linear-gradient(135deg,rgba(7,18,34,.98),rgba(21,12,18,.98)); }
 .pet-arena-lobby .pet-coliseum-contender { min-height: 94px; }
 .pet-arena-lobby button.pet-exhibition-start { min-height: 94px; border-left-color: rgba(240,202,121,.28); background: linear-gradient(135deg,#a95418,#d67a24); }
@@ -324,7 +324,7 @@
 }
 
 @media (max-width: 520px) {
-    .pet-arena-lobby > .pet-home-tabs,.pet-arena-command,.pet-arena-lobby .pet-arena-grid,.pet-arena-lobby .pet-party-config,.pet-arena-destinations,.pet-exhibition-entry,.pet-arena-lobby .pet-arena-log,.pet-arena-lobby .pet-warfront-lobby { width: calc(100% - 1rem); }
+    .pet-arena-lobby > .pet-home-tabs,.pet-arena-command,.pet-arena-lobby .pet-arena-grid,.pet-arena-lobby .pet-party-config,.pet-arena-destinations,.pet-arena-lobby .pet-arena-log,.pet-arena-lobby .pet-warfront-lobby { width: calc(100% - 1rem); }
     .pet-arena-command-topline { top: .7rem; right: .7rem; left: .7rem; }
     .pet-arena-season { display: none; }
     .pet-arena-return { max-width: 100%; }

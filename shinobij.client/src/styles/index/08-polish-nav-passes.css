@@ -83,11 +83,7 @@ button {
     background: linear-gradient(135deg, rgba(60, 10, 10, .96), rgba(30, 5, 5, .96));
 }
 
-.bloodline-over-budget-label {
-    color: var(--red-400);
-    font-weight: 600;
-    margin-left: 6px;
-}
+
 
 @keyframes spin {
     from { transform: rotate(0deg); }
@@ -146,10 +142,7 @@ button {
     background: linear-gradient(90deg, #2b1408, #111827 42%, #2b1408);
 }
 
-.portrait-badge {
-    border-radius: 8px;
-    box-shadow: 0 0 24px rgba(56,189,248,.22);
-}
+
 
 .shinobi-command-bar {
     border-radius: 6px;

@@ -282,9 +282,9 @@ const ward = (w: number, h: number, percent = 22): TowerFeature => ({ kind: 'war
 const hazard = (w: number, h: number, percent = 12): TowerFeature => ({ kind: 'hazard', tiles: ph(w, h), percent, label: 'Hazard' });
 const CHAPTER_ONE_PRESENTATION = {
     chapter: 1,
-    chapterTitle: 'The Celestial Ascent',
-    chapterSubtitle: 'Ten trials stand between the forest gate and the throne above.',
-    chapterSummary: 'Secure the lower ascent, defend its stranded shinobi, master four signature wardens, and dethrone the Sovereign before the summit collapses.',
+    chapterTitle: 'The Spire Ascent',
+    chapterSubtitle: 'Ten occupied floors separate the forest gate from the summit command post.',
+    chapterSummary: 'Take the lower platforms, bring stranded shinobi out, learn the four wardens’ tactics, and remove the self-appointed Sovereign from the summit.',
 } as const;
 export const FLOOR_CATALOG: readonly TowerFloor[] = [
     {
@@ -296,7 +296,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'foothold',
         briefing: {
-            situation: 'Bandit outriders hold the forest gate and its two elemental Pylons. Take the first platform before the Tower can reinforce it.',
+            situation: 'Bandit outriders hold the forest gate and its two elemental Pylons. Take the first platform before their relief squad arrives.',
             tactics: [
                 'Read each Pylon\'s element before committing a technique into its lane.',
                 'Rotate wounded allies out of the Bandits\' Hamstring pressure instead of trading in place.',
@@ -339,7 +339,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'frozen-gauntlet',
         briefing: {
-            situation: 'Shieldmen lock the frozen court while the Tower\'s Drain bleeds both health and chakra from every exposed shinobi.',
+            situation: 'Shieldmen lock the frozen court while an old floor seal drains health and chakra from every exposed shinobi.',
             tactics: [
                 'Control the Chakra Well early so the squad can sustain techniques through the Drain.',
                 'Flank Iron Brace and avoid Shield Bash rather than feeding attacks into the shield wall.',
@@ -389,7 +389,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'spire-warden',
         briefing: {
-            situation: 'The Warden advances behind living guards and layered Aegis shields, testing whether the squad can coordinate a boss burn.',
+            situation: 'The Warden advances behind living guards and layered Aegis shields. Break the guard line, then strike together when the shield drops.',
             tactics: [
                 'Remove every guard to end Bulwark\'s 50% damage reduction before committing major techniques.',
                 'Protect the lowest-defense ally from the Warden\'s focus and pulling strike.',
@@ -483,7 +483,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'pit-of-embers',
         briefing: {
-            situation: 'The Pit Ravager\'s living adds sustain its barrier, then return at both health gates to trap the squad inside the eruption cycle.',
+            situation: 'Two Brutes sustain the Pit Ravager\'s barrier. More Bandits enter when it is badly wounded, trapping the squad between them and the vents.',
             tactics: [
                 'Clear the opening Brutes, push to one phase gate, then immediately swap to the summoned Bandits.',
                 'Back away from the boss before each even-round nova and leave vent tiles before they erupt.',
@@ -511,7 +511,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'spire-sovereign',
         briefing: {
-            situation: 'The Spire Sovereign escalates through three enrage gates while the summit erupts into new walls and collapses around the squad.',
+            situation: 'The Spire Sovereign forces more chakra through its seal as it is wounded. New walls rise while the outer summit breaks away around the squad.',
             tactics: [
                 'Neutralize the Acolyte controllers and Brute displacement threats even though the boss is the only required kill.',
                 'Move toward the safe core before the outer ring becomes lethal after round 11.',
@@ -540,11 +540,11 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         firstClearReward: { ryo: 3500, xp: 1400, boneCharms: 10 },
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
-        chapterSubtitle: 'Beyond the fallen throne, a weather-forged court awakens.',
-        chapterSummary: "Breach the Regent's stormglass citadel, carry its warning across the lightning bridge, and break the crown directing the endless storm.",
+        chapterSubtitle: 'Captured orders reveal a Stormveil splinter regiment holding five floors above the summit.',
+        chapterSummary: "Open the Regent's citadel, seize its route record, carry it across the lightning bridge, and shut down the storm array at the crown.",
         artKey: 'stormglass-breach',
         briefing: {
-            situation: "The Sovereign's fall fractures a sealed gate, but the Regent's advance guard forms three lines inside the breach.",
+            situation: "The Sovereign's command seal opens an upper gate. The Regent's advance guard forms three defensive lines inside it.",
             tactics: [
                 'Dislodge Lancers before their driving attacks pin the squad against charged ground.',
                 'Close on Marksmen before their crossfire settles, then cleanse the Weavers\' seals.',
@@ -568,11 +568,11 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         firstClearReward: { ryo: 4500, xp: 1800, fateShards: 14 },
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
-        chapterSubtitle: 'Beyond the fallen throne, a weather-forged court awakens.',
-        chapterSummary: "Breach the Regent's stormglass citadel, carry its warning across the lightning bridge, and break the crown directing the endless storm.",
+        chapterSubtitle: 'Captured orders reveal a Stormveil splinter regiment holding five floors above the summit.',
+        chapterSummary: "Open the Regent's citadel, seize its route record, carry it across the lightning bridge, and shut down the storm array at the crown.",
         artKey: 'thunder-archive',
         briefing: {
-            situation: 'The Thunder Archivist has bound the bridge route behind three living seals protected by mirrored sentinels.',
+            situation: 'The Thunder Archivist locked the bridge route plate behind three barrier seals and stationed mirrored sentinels around it.',
             tactics: [
                 'Remove the Bastions to collapse the Archivist\'s Bulwark before burning each seal gate.',
                 'Claim the Mnemonic Well to offset the Archive\'s chakra drain.',
@@ -603,8 +603,8 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         firstClearReward: { ryo: 4200, xp: 1700, fateShards: 10 },
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
-        chapterSubtitle: 'Beyond the fallen throne, a weather-forged court awakens.',
-        chapterSummary: "Breach the Regent's stormglass citadel, carry its warning across the lightning bridge, and break the crown directing the endless storm.",
+        chapterSubtitle: 'Captured orders reveal a Stormveil splinter regiment holding five floors above the summit.',
+        chapterSummary: "Open the Regent's citadel, seize its route record, carry it across the lightning bridge, and shut down the storm array at the crown.",
         artKey: 'thousand-bolt-bridge',
         briefing: {
             situation: 'A wounded Tower Scout carries the route to the crown. Hold the lightning bridge until the message is transmitted.',
@@ -632,11 +632,11 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         firstClearReward: { ryo: 5000, xp: 2100, fateShards: 12, boneCharms: 12 },
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
-        chapterSubtitle: 'Beyond the fallen throne, a weather-forged court awakens.',
-        chapterSummary: "Breach the Regent's stormglass citadel, carry its warning across the lightning bridge, and break the crown directing the endless storm.",
+        chapterSubtitle: 'Captured orders reveal a Stormveil splinter regiment holding five floors above the summit.',
+        chapterSummary: "Open the Regent's citadel, seize its route record, carry it across the lightning bridge, and shut down the storm array at the crown.",
         artKey: 'broken-reflections',
         briefing: {
-            situation: 'The inner hall folds the Regiment into overlapping firing lanes while its mirrored walls close toward the central shrine.',
+            situation: 'The Regiment uses mirrored screens to create overlapping firing lanes while the outer galleries close toward the central shrine.',
             tactics: [
                 'Break a Bastion lane, then contest the Prism Shrine before the ranged wave arrives.',
                 'Use pillars to shorten sightlines and force Marksmen toward the squad.',
@@ -663,11 +663,11 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         firstClearReward: { ryo: 9000, xp: 3600, fateShards: 45, boneCharms: 15, milestone: 'tower-floor-15' },
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
-        chapterSubtitle: 'Beyond the fallen throne, a weather-forged court awakens.',
-        chapterSummary: "Breach the Regent's stormglass citadel, carry its warning across the lightning bridge, and break the crown directing the endless storm.",
+        chapterSubtitle: 'Captured orders reveal a Stormveil splinter regiment holding five floors above the summit.',
+        chapterSummary: "Open the Regent's citadel, seize its route record, carry it across the lightning bridge, and shut down the storm array at the crown.",
         artKey: 'stormglass-crown',
         briefing: {
-            situation: 'The Stormglass Regent conducts the endless storm from a crown of mirrored pylons. Break the court, then the crown.',
+            situation: 'The Stormglass Regent uses mirrored pylons to drive a storm array over the upper spire. Clear the retainers, then shut the array down.',
             tactics: [
                 'Destroy every retainer to lower the Crown Barrier before attacking the Regent.',
                 'At each phase gate, eliminate the summoned Weavers before resuming damage.',

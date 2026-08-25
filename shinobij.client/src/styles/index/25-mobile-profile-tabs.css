@@ -60,12 +60,7 @@
         padding: 12px !important;
     }
 
-    .profile-avatar-upload-box {
-        display: flex !important;
-        flex-direction: row !important;
-        align-items: center !important;
-        gap: 12px !important;
-    }
+
 
     .avatar-upload-button {
         padding: 10px 14px !important;

@@ -205,7 +205,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "The civilians climbed on their own. Doors open when the fighting stops. Tell them to quit ringing that bell.",
             "Cross my line, that's a challenge. I honor challenges. Ask whoever's still standing."),
         pg("The East Line", "East steps, behind the ash banners", "Warden Suvi Rell",
-            "My mother's name is on that wall. She holds this pass. I only hold the paperwork.",
+            "My mother's name is on that wall. She holds this pass. I only carry the permit.",
             "Dray calls it a toll hill. The register calls it our first page. Neither founder carved that wall, which nobody says on the steps.",
             "If she puts fire to those names, they go where... no. State your business or stand clear.",
             "Mind the third step. It ices, even in summer."),

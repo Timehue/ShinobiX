@@ -376,10 +376,14 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // both histories are kept above; the merged bundle carries main's UI overhaul
 // AND this branch's work, so neither parent's number described it (main's
 // 7,750,000 is below what the combined tree actually weighs). A CI-equivalent
-// build measures 7,814,174 B of budgeted product JS/CSS, so this keeps
-// 15,826 B of variance — tighter than the branch parent, and the first value
-// here backed by a figure rather than an assertion that one was taken.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_830_000;
+// build measured 7,814,174 B of budgeted product JS/CSS.
+//
+// 2026-08-25 SECOND MERGE of origin/main (civic facilities, named forge, pet
+// readiness): re-measured at 7,833,039 B, which is 3,039 B ABOVE the previous
+// gate — the gate did its job and caught it. 7,845,000 keeps 11,961 B, sized
+// against the ~530 B of run-to-run variance actually observed across four
+// CI-equivalent builds, not against a guess.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_845_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

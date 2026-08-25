@@ -1,0 +1,614 @@
+.cf-panel {
+    position: relative;
+    width: min(640px, 96vw);
+    max-height: 88vh;
+    /* Header + tabs stay pinned; only .cf-body scrolls (see below). */
+    overflow: hidden;
+    /* Forge interior — warm soot gradient under a banked-ember glow (::before). */
+    background:
+        radial-gradient(135% 90% at 50% -10%, rgba(124,45,18,.30), transparent 55%),
+        linear-gradient(150deg, #14100c 0%, var(--slate-900) 45%, var(--slate-800) 100%);
+    border: 1px solid rgba(234,179,8,.34);
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.6), inset 0 1px 0 rgba(250,204,21,.12);
+}
+
+    .cf-panel > * { position: relative; z-index: 1; }
+
+.cf-sub {
+    margin: 0;
+    color: #b6a892;
+    font-size: 0.85rem;
+}
+
+/* Scrolling region beneath the pinned header/tabs. min-height:0 lets it shrink
+   inside the flex column so the tabs above never scroll out of view. The
+   negative side margins let the scrollbar ride the panel edge without clipping
+   card shadows. */
+.cf-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin: 0 -6px;
+    padding: 2px 6px 4px;
+}
+
+/* Crafter tabs — dedicated, stronger styling than the generic .inventory-tabs
+   pills so the three modes read as a clear segmented control that never
+   collapses. */
+.cf-tabs {
+    display: flex;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+
+    .cf-tabs button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        flex: 1 1 0;
+        min-height: 42px;
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(148,163,184,.30);
+        background: linear-gradient(180deg, rgba(30,41,59,.85), rgba(15,23,42,.9));
+        color: #cbb89a;
+        font-size: 0.9rem;
+        font-weight: 700;
+        letter-spacing: .01em;
+        cursor: pointer;
+        transition: background .15s, border-color .15s, color .15s;
+    }
+
+        .cf-tabs button svg { width: 18px; height: 18px; opacity: .85; }
+
+        .cf-tabs button:hover {
+            border-color: rgba(250,204,21,.5);
+            color: #fef3c7;
+        }
+
+        .cf-tabs button.active {
+            background: linear-gradient(135deg, #b45309, #7c2d12 55%, #172554);
+            color: #fff7e6;
+            border-color: var(--gold);
+            box-shadow: 0 0 16px rgba(250,204,21,.28), inset 0 1px 0 rgba(255,255,255,.12);
+        }
+
+        .cf-tabs button.active svg { opacity: 1; color: var(--gold-300); }
+
+/* Collapsible "Your Materials" panel — compact summary (always shows the craft
+   point total) that expands into a multi-column grid, so the materials list no
+   longer pushes the recipes far down the page. */
+.cf-mats {
+    border: 1px solid rgba(148,163,184,.2);
+    border-radius: 10px;
+    background: rgba(2,6,23,.5);
+    overflow: hidden;
+}
+
+.cf-mats-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 14px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    font-size: 0.85rem;
+}
+
+    .cf-mats-head::-webkit-details-marker { display: none; }
+
+    .cf-mats-head strong { color: var(--gold); }
+
+.cf-mat-sum { display: flex; align-items: center; gap: 7px; }
+.cf-mat-sum svg { width: 18px; height: 18px; color: #d8a13a; flex: none; }
+
+.cf-mat-total { color: var(--blue-300); font-weight: 600; }
+
+.cf-mat-toggle { color: var(--text-muted); font-size: 0.74rem; }
+
+.cf-mats[open] .cf-mats-head {
+    border-bottom: 1px solid rgba(148,163,184,.18);
+}
+
+.cf-mats[open] .cf-mat-toggle::after { content: "Hide"; }
+.cf-mats:not([open]) .cf-mat-toggle::after { content: "Show all"; }
+
+.cf-mat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+    gap: 8px;
+    padding: 12px 14px 14px;
+}
+
+/* One material as a glyph chip. --tier is set by the data-tier rules below and
+   tints both the icon and the left accent bar. */
+.cf-mat {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 9px;
+    border: 1px solid rgba(148,163,184,.16);
+    border-left: 3px solid var(--tier, var(--text-muted));
+    border-radius: 8px;
+    background: rgba(15,23,42,.55);
+}
+
+    .cf-mat[data-empty] { opacity: .45; }
+
+.cf-mat-icon {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    flex: none;
+    border-radius: 7px;
+    background: rgba(0,0,0,.34);
+    color: var(--tier, var(--text-dim));
+}
+
+    .cf-mat-icon svg { width: 20px; height: 20px; }
+
+.cf-mat-info { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+
+.cf-mat-name {
+    font-size: 0.8rem;
+    color: #e7eaf0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cf-mat-meta { font-size: 0.72rem; color: #6b7689; }
+.cf-mat-meta b { color: var(--slate-300); font-weight: 700; }
+
+.cf-mat[data-tier="common"]    { --tier: var(--text-dim); }
+.cf-mat[data-tier="uncommon"]  { --tier: var(--green-400); }
+.cf-mat[data-tier="rare"]      { --tier: var(--blue-400); }
+.cf-mat[data-tier="epic"]      { --tier: var(--purple-400); }
+.cf-mat[data-tier="legendary"] { --tier: var(--gold); }
+
+.cf-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    min-width: 0;
+}
+
+.cf-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 6px;
+    padding: 14px;
+    border: 1px solid rgba(148,163,184,.22);
+    border-radius: 12px;
+    background: linear-gradient(165deg, rgba(30,41,59,.78), rgba(15,23,42,.85));
+}
+
+    .cf-card strong { color: var(--gold); }
+    .cf-card small { color: var(--text-dim); }
+
+/* Recipe card head: artwork thumbnail beside the name/meta block. */
+.cf-card-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+}
+
+.cf-thumb {
+    width: 54px;
+    height: 54px;
+    flex: none;
+    border-radius: 10px;
+    border: 1px solid rgba(148,163,184,.25);
+    background: rgba(0,0,0,.35);
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    color: var(--text-dim);
+}
+
+    .cf-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+    .cf-thumb-icon { display: grid; place-items: center; color: inherit; }
+    .cf-thumb-icon svg { width: 30px; height: 30px; }
+
+.cf-card-head {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1;
+}
+
+    .cf-card-head .cf-card-title { margin: 0; }
+
+.cf-cost { color: #d8a13a !important; font-weight: 600; }
+
+/* Rarity accents — tint the card border + thumbnail to match the item grade. */
+.cf-card[data-rarity="rare"]      { border-color: rgba(59,130,246,.42); }
+.cf-card[data-rarity="epic"]      { border-color: rgba(168,85,247,.42); }
+.cf-card[data-rarity="legendary"] { border-color: rgba(234,179,8,.48); box-shadow: 0 0 16px rgba(234,179,8,.10); }
+
+/* Compact side-by-side cards for the two special forges (Hollow Gate Key +
+   Dungeon Legendary Relic). Smaller padding/fonts than a normal recipe card
+   so both fit neatly in one row above the standard recipe grid. */
+.cf-special-grid {
+    gap: 10px;
+}
+
+.cf-special { padding: 11px 12px; }
+
+.cf-card-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.cf-meter {
+    width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(9,17,32,.85);
+    border: 1px solid rgba(216,161,58,.35);
+    overflow: hidden;
+}
+
+.cf-meter-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #d8a13a, var(--gold));
+    transition: width 0.2s ease;
+}
+
+.cf-points {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+/* ── Named Weapon Forge ────────────────────────────────────────── */
+.nw-forge {
+    margin-top: 18px;
+    padding: 18px;
+    border: 1px solid rgba(234, 179, 8, 0.45);
+    border-radius: 14px;
+    background: linear-gradient(160deg, rgba(30, 18, 4, 0.85), rgba(10, 10, 20, 0.90));
+    display: grid;
+    gap: 10px;
+}
+
+.nw-wallet {
+    display: grid;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(250, 204, 21, 0.15);
+    border-radius: 8px;
+    padding: 10px 14px;
+}
+
+.nw-currency {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+}
+
+.nw-currency,.nw-stat,.no-row { display:flex; justify-content:space-between; gap:10px; }
+.nw-currency strong,.nw-stat strong { color:var(--gold-300); }
+
+.nw-total {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(250, 204, 21, 0.18);
+    font-size: 0.84rem;
+    color: var(--slate-300);
+    text-align: right;
+}
+
+.nw-total strong {
+    color: #fbbf24;
+}
+
+.nw-head {
+    display: grid;
+    gap: 2px;
+}
+
+.nw-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #fbbf24;
+    letter-spacing: 0.03em;
+}
+
+.nw-head small {
+    color: var(--text-dim);
+    font-size: 0.78rem;
+}
+
+.nw-roll,.nw-commit {
+    padding: 10px 16px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+.nw-roll { background:linear-gradient(135deg,#78350f,#d97706); color:#fef3c7; border:1px solid #d97706; }
+
+.nw-roll:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.nw-roll:hover:not(:disabled) {
+    opacity: 0.85;
+}
+
+.nw-result {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+    border: 1px solid rgba(251, 191, 36, 0.30);
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.30);
+}
+
+.nw-stats {
+    display: grid;
+    gap: 4px;
+    background: rgba(250, 204, 21, 0.06);
+    border: 1px solid rgba(250, 204, 21, 0.18);
+    border-radius: 8px;
+    padding: 10px 14px;
+}
+
+.nw-stat {
+    font-size: 0.85rem;
+    color: var(--slate-300);
+}
+
+.nw-tag strong {
+    color: var(--green-300);
+}
+
+.nw-label {
+    font-size: 0.80rem;
+    color: var(--text-dim);
+    font-weight: 600;
+    margin-bottom: -4px;
+}
+
+.nw-input {
+    width: 100%;
+    padding: 7px 10px;
+    background: rgba(15, 23, 42, 0.80);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 6px;
+    color: var(--slate-200);
+    font-size: 0.85rem;
+    font-family: inherit;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+.nw-preview img {
+    width: 72px;
+    height: 72px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.nw-commit {
+    flex: 1;
+    background: linear-gradient(135deg, #14532d, #16a34a);
+    color: #dcfce7;
+    border: 1px solid #16a34a;
+}
+
+.nw-commit:hover {
+    opacity: 0.85;
+}
+
+/* Keep this override beside the component styles. CentralHub is lazy-loaded,
+   so a mobile rule in the eager shell stylesheet can be inserted before this
+   file and lose the cascade, leaving recipe tracks wider than the viewport. */
+@media (max-width: 480px) {
+    .cf-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* ── Named Weapon Odds Panel ───────────────────────────────────── */
+.nw-odds {
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(251,146,60,0.3);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 10px 0 8px;
+}
+
+.nw-odds-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #fb923c;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+}
+
+.nw-odds-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.no-section {
+    background: rgba(255,255,255,0.04);
+    border-radius: 6px;
+    padding: 6px 8px;
+}
+
+.no-wide {
+    grid-column: 1 / -1;
+}
+
+.no-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--gold-400);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.no-rows {
+    display: grid;
+    gap: 2px;
+}
+
+.no-row {
+    font-size: 0.72rem;
+    color: var(--slate-300);
+}
+
+.no-pct {
+    color: var(--text-dim);
+    font-size: 0.68rem;
+}
+
+.no-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 2px;
+}
+
+.no-chip {
+    background: rgba(251,146,60,0.15);
+    border: 1px solid rgba(251,146,60,0.35);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.67rem;
+    color: #fdba74;
+}
+
+.nw-formula {
+    font-size: 0.65rem;
+    font-weight: 400;
+    color: var(--text-dim);
+    margin-left: 4px;
+}
+
+/* Lazy jackpot reveal; every displayed value is already sealed by the API. */
+.nf {
+    --a: #f59e0b;
+    --hot: #fde68a;
+    position: relative;
+    isolation: isolate;
+    min-height: 340px;
+    overflow: hidden;
+    display: grid;
+    grid-template: "relic copy" auto "relic stats" 1fr "progress progress" auto / minmax(135px,.78fr) minmax(210px,1.22fr);
+    align-items: center;
+    gap: 14px 22px;
+    padding: 24px;
+    border: 1px solid color-mix(in srgb,var(--a) 62%,transparent);
+    border-radius: 14px;
+    background: radial-gradient(circle at 25% 46%,color-mix(in srgb,var(--a) 22%,transparent),transparent 35%),linear-gradient(145deg,#1e0d05fa,#080b16fa 60%,#140a1cfa);
+    box-shadow: inset 0 0 55px #0007,0 0 28px color-mix(in srgb,var(--a) 20%,transparent);
+    animation: nf-in .3s cubic-bezier(.2,.8,.2,1) both;
+}
+.nf--armor { --a: #a78bfa; --hot: #ddd6fe; }
+.nf::after { content:""; position:absolute; z-index:-1; pointer-events:none; }
+.nf::after {
+    inset:0;
+    opacity:.72;
+    background:radial-gradient(circle,var(--hot) 0 1px,transparent 2px) 8% 110%/39px 55px;
+    animation:nf-rise 2s linear infinite;
+}
+.nf.is-reveal { border-color:var(--hot); box-shadow:inset 0 0 38px color-mix(in srgb,var(--a) 9%,transparent),0 0 34px color-mix(in srgb,var(--hot) 30%,transparent); animation:nf-pop .65s cubic-bezier(.16,1,.3,1) both; }
+.nf-relic {
+    grid-area:relic;
+    position:relative;
+    width:clamp(132px,25vw,178px);
+    aspect-ratio:1;
+    justify-self:center;
+    display:grid;
+    place-items:center;
+    border:1px solid color-mix(in srgb,var(--a) 62%,transparent);
+    border-radius:50%;
+    animation:nf-spin 3.1s linear infinite;
+}
+.nf-relic>span {
+    z-index:2;
+    width:72px;
+    aspect-ratio:1;
+    display:grid;
+    place-items:center;
+    border:1px solid var(--hot);
+    border-radius:22px 8px;
+    color:var(--hot);
+    background:linear-gradient(145deg,color-mix(in srgb,var(--a) 30%,#111827),#080b14 72%);
+    box-shadow:inset 0 0 22px color-mix(in srgb,var(--a) 24%,transparent),0 0 25px var(--a);
+    font-size:36px;
+    transform:rotate(45deg);
+    animation:nf-pulse .76s ease-in-out infinite alternate;
+}
+.nf-relic>span svg { transform:rotate(-45deg); }
+.nf-copy { grid-area:copy; align-self:end; min-width:0; }
+.nf-copy>span { color:var(--a); font-size:.67rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
+.nf-copy h3 { margin:4px 0 2px; color:#fff7d6; font-size:clamp(1.15rem,4vw,1.55rem); line-height:1.05; letter-spacing:.035em; text-shadow:0 0 18px var(--a); }
+.nf-copy p { margin:0; color:#aeb7c7; font-size:.76rem; }
+.nf-stats { grid-area:stats; align-self:start; display:grid; gap:5px; }
+.nf-stat {
+    position:relative;
+    overflow:hidden;
+    display:flex;
+    justify-content:space-between;
+    gap:14px;
+    padding:7px 10px;
+    border-left:2px solid var(--a);
+    color:#adb7c9;
+    background:linear-gradient(90deg,color-mix(in srgb,var(--a) 12%,transparent),#ffffff06);
+    font-size:.75rem;
+}
+.nf-stat strong { color:var(--hot); text-align:right; letter-spacing:.035em; }
+.is-reveal .nf-stat { opacity:0; transform:translateX(24px); animation:nf-row .38s cubic-bezier(.16,1,.3,1) calc(.25s + var(--i)*.2s) forwards; }
+.nf-progress { grid-area:progress; height:3px; overflow:hidden; border-radius:99px; background:#ffffff12; }
+.nf-progress i { display:block; width:38%; height:100%; background:linear-gradient(90deg,transparent,var(--hot),transparent); box-shadow:0 0 9px var(--a); animation:nf-load 1s ease-in-out infinite; }
+.is-reveal .nf-progress i { width:100%; background:linear-gradient(90deg,var(--a),var(--hot)); animation:nf-lock .72s ease-out both; }
+.nf-enter { animation:nf-in .45s cubic-bezier(.16,1,.3,1) both; }
+
+@keyframes nf-in { from { opacity:0; transform:translateY(8px) scale(.985); } }
+@keyframes nf-spin { to { transform:rotate(1turn); } }
+@keyframes nf-rise { to { background-position:8% -10%; } }
+@keyframes nf-pulse { to { transform:rotate(45deg) scale(1.04); filter:brightness(1.3); } }
+@keyframes nf-pop { 0% { opacity:.35; transform:scale(.96); filter:brightness(2); } 45% { transform:scale(1.012); filter:brightness(1.3); } }
+@keyframes nf-row { to { opacity:1; transform:none; } }
+@keyframes nf-load { from { transform:translateX(-110%); } to { transform:translateX(300%); } }
+@keyframes nf-lock { from { transform:scaleX(0); transform-origin:left; } }
+
+@media (max-width:560px) {
+    .nf { min-height:0; grid-template:"relic copy" auto "stats stats" 1fr "progress progress" auto/92px minmax(0,1fr); gap:12px; padding:17px 14px; }
+    .nf-relic { width:90px; }
+    .nf-relic>span { width:50px; border-radius:16px 6px; font-size:25px; }
+    .nf-stat { padding:6px 8px; }
+}
+html.lite-fx .nf,html.lite-fx .nf *,html.lite-fx .nf-enter { animation:none!important; transition:none!important; }
+html.lite-fx .is-reveal .nf-stat { opacity:1; transform:none; }
+html.lite-fx .nf::after { display:none; }
+@media (prefers-reduced-motion: reduce) {
+    .nf,.nf *,.nf-enter { animation:none!important; transition:none!important; }
+    .is-reveal .nf-stat { opacity:1; transform:none; }
+    .nf::after { display:none; }
+}
