@@ -94,6 +94,11 @@ import { HOLLOW_HOUND_SURFACE } from "../lib/pet-model-surface";
 import { petModelVariantSurface } from "../lib/pet-visual-variant";
 import { resolveOpponentFacing } from "../lib/pet-combat-performance";
 import { isHollowHoundEncounterPet } from "../../../shared/hollow-gate-contract";
+import {
+    petColiseumWeatherDurationTicks,
+    petColiseumWeatherForMove,
+    type PetColiseumWeather,
+} from "../lib/pet-coliseum-weather";
 
 type Vec3 = [number, number, number];
 const FLOOR_Y = 0;
@@ -3226,6 +3231,14 @@ function dashCueTravelProgress(cue: Pick<DuelDashCue, "startTick" | "contactTick
     return Math.min(1, Math.max(0, (tick - cue.startTick) / Math.max(1, cue.contactTick - cue.startTick)));
 }
 type DuelPressureCue = { id: number; from: Vec3; to: Vec3; leftColor: string; rightColor: string; leftKind: DuelElementBurstKind; rightKind: DuelElementBurstKind };
+type DuelWeatherCue = {
+    id: number;
+    weather: PetColiseumWeather;
+    actorId: string;
+    move: string;
+    startTick: number;
+    endTick: number;
+};
 function dashTravelEase(progress: number): number {
     const p = Math.min(1, Math.max(0, progress));
     // Cubic smoothstep keeps the burst fast but spreads its displacement across
@@ -3397,7 +3410,246 @@ function duelSetPieceTiming(kind: DuelSetPieceKind): { durationSec: number; cont
     return { durationSec: 1.86, contactDelayMs: 180 };
 }
 
-function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNumber, spawnImpact, spawnElementBurst, spawnAftermath, spawnFx, spawnSupport, spawnShock, spawnDust, spawnScorch, spawnPowerUp, spawnTrail, spawnDash, spawnPressure, spawnSetPiece, elementById, nameById, speciesNameById, petIdById, profileById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout, onClashResult, onFinisher }: {
+function weatherHash(index: number, salt: number): number {
+    const n = Math.sin(index * 127.1 + salt * 311.7) * 43758.5453;
+    return n - Math.floor(n);
+}
+
+function weatherCycle(value: number): number {
+    return ((value % 1) + 1) % 1;
+}
+
+function makeWeatherBoltGeometry(index: number): THREE.TubeGeometry {
+    const points = Array.from({ length: 9 }, (_, point) => {
+        const u = point / 8;
+        const fork = point === 0 || point === 8 ? 0 : (weatherHash(index * 11 + point, 9) - 0.5) * (0.72 - Math.abs(u - 0.5) * 0.44);
+        return new THREE.Vector3(
+            (index - 1) * 4.4 + fork,
+            7.4 - u * (5.4 + index * 0.35),
+            -3.5 + index * 1.7 + (weatherHash(point, index + 4) - 0.5) * 0.42,
+        );
+    });
+    return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 32, 0.026 + index * 0.005, 5, false);
+}
+
+/** Arena-wide climate volume. Unlike a contact burst, this owns the sky, fog,
+ * light, floor and airborne particles for a full combat phrase. It reads only
+ * the replay clock and never changes simulation state or elemental damage. */
+function DuelBattlefieldWeather({ cue, clock, quality, onDone }: {
+    cue: DuelWeatherCue;
+    clock: { current: DuelClock };
+    quality: PetVisualQualityConfig;
+    onDone: () => void;
+}) {
+    const weatherFog = useRef<THREE.Fog>(null);
+    const particleMesh = useRef<THREE.InstancedMesh>(null);
+    const particleMat = useRef<THREE.MeshBasicMaterial>(null);
+    const cloudRoot = useRef<THREE.Group>(null);
+    const cloudMats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
+    const skyMat = useRef<THREE.MeshBasicMaterial>(null);
+    const floorMat = useRef<THREE.MeshBasicMaterial>(null);
+    const weatherLight = useRef<THREE.DirectionalLight>(null);
+    const flashLight = useRef<THREE.PointLight>(null);
+    const boltMats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
+    const eclipse = useRef<THREE.Group>(null);
+    const eclipseMats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
+    const completed = useRef(false);
+    const dummy = useMemo(() => new THREE.Object3D(), []);
+    const { kind, color, fog, particle } = cue.weather;
+    const count = quality.id === "low" ? 28 : quality.id === "medium" ? 58 : 92;
+    // Hashing is deterministic but needlessly expensive when repeated for every
+    // particle on every frame. Cache the authored distribution once per quality
+    // tier so the weather budget is spent on motion, not pseudo-random setup.
+    const particleSeeds = useMemo(() => Array.from({ length: count }, (_, index) => ({
+        x: weatherHash(index, 1),
+        z: weatherHash(index, 2),
+        phase: weatherHash(index, 3),
+        variance: weatherHash(index, 7),
+    })), [count]);
+    const neutralFogColor = useMemo(() => new THREE.Color("#2a1c10"), []);
+    const weatherFogColor = useMemo(() => new THREE.Color(fog), [fog]);
+    const particleGeometry = useMemo<THREE.BufferGeometry>(() => {
+        if (kind === "thunderstorm" || kind === "downpour") return new THREE.BoxGeometry(kind === "downpour" ? 0.025 : 0.018, kind === "downpour" ? 0.62 : 0.46, 0.018);
+        if (kind === "gale") return new THREE.TorusGeometry(0.16, 0.026, 4, 10, Math.PI * 1.25);
+        if (kind === "firestorm") return new THREE.ConeGeometry(0.075, 0.34, 5);
+        if (kind === "blizzard") return new THREE.OctahedronGeometry(0.09, 0);
+        return new THREE.IcosahedronGeometry(0.065, 0);
+    }, [kind]);
+    const bolts = useMemo(() => kind === "thunderstorm" ? [0, 1, 2].map(makeWeatherBoltGeometry) : [], [kind]);
+    useEffect(() => () => {
+        particleGeometry.dispose();
+        bolts.forEach((geometry) => geometry.dispose());
+    }, [bolts, particleGeometry]);
+    useEffect(() => {
+        const mesh = particleMesh.current;
+        if (!mesh) return;
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        const base = new THREE.Color(particle);
+        for (let index = 0; index < count; index++) {
+            const tint = index % 5 === 0 ? base.clone().lerp(new THREE.Color("#ffffff"), 0.72) : base;
+            mesh.setColorAt(index, tint);
+        }
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    }, [count, particle]);
+    useFrame((state) => {
+        const tick = clock.current.t;
+        const age = tick - cue.startTick;
+        const remaining = cue.endTick - tick;
+        const enter = Math.max(0, Math.min(1, age / Math.max(1, DUEL_TPS * 0.7)));
+        const leave = Math.max(0, Math.min(1, remaining / Math.max(1, DUEL_TPS * 1.05)));
+        const strength = Math.min(enter * enter * (3 - 2 * enter), leave * leave * (3 - 2 * leave));
+        const elapsed = state.clock.elapsedTime;
+        const stormPulse = kind === "thunderstorm"
+            ? Math.pow(Math.max(0, Math.sin(elapsed * 1.73 + 0.8) + Math.sin(elapsed * 0.47) * 0.42 - 0.82) / 0.6, 2)
+            : 0;
+        const mesh = particleMesh.current;
+        if (mesh) for (let index = 0; index < count; index++) {
+            const seed = particleSeeds[index];
+            const hx = seed.x, hz = seed.z, hs = seed.phase;
+            if (kind === "thunderstorm" || kind === "downpour") {
+                const fall = weatherCycle(hs - elapsed * (kind === "downpour" ? 0.62 : 0.48) * (0.72 + seed.variance * 0.48));
+                dummy.position.set((hx - 0.5) * 23 + elapsed * (kind === "downpour" ? -0.9 : -0.42), 0.22 + fall * 9.2, (hz - 0.5) * 15 - 1.6);
+                dummy.rotation.set(0, 0, kind === "downpour" ? -0.24 : -0.12);
+                dummy.scale.set(0.72 + hs * 0.55, 0.72 + hs * 0.78, 0.72 + hs * 0.55);
+            } else if (kind === "gale") {
+                const radius = 1.8 + hx * 9.2;
+                const angle = hz * Math.PI * 2 + elapsed * (0.72 + hs * 0.58) + Math.sin(elapsed * 0.7 + index) * 0.18;
+                dummy.position.set(Math.cos(angle) * radius, 0.35 + weatherCycle(hs + elapsed * 0.12) * 5.6, -1.5 + Math.sin(angle) * radius * 0.58);
+                dummy.rotation.set(Math.PI / 2, -angle, angle * 0.24);
+                dummy.scale.setScalar(0.68 + hs * 0.72);
+            } else if (kind === "firestorm") {
+                const rising = weatherCycle(hs + elapsed * (0.18 + hz * 0.2));
+                const drift = Math.sin(elapsed * 1.7 + index * 1.91);
+                dummy.position.set((hx - 0.5) * 22 + drift * 0.8, 0.16 + rising * 7.3, (hz - 0.5) * 14 - 1.1);
+                dummy.rotation.set(index * 0.7, elapsed * (1.2 + hs), drift * 0.32);
+                dummy.scale.setScalar(0.62 + hs * 1.12);
+            } else if (kind === "blizzard") {
+                const fall = weatherCycle(hs - elapsed * (0.12 + hz * 0.1));
+                const drift = elapsed * 1.8 + index * 0.77;
+                dummy.position.set((hx - 0.5) * 23 + Math.sin(drift) * 1.3, 0.2 + fall * 8.4, (hz - 0.5) * 15 - 1.3 + Math.cos(drift * 0.72) * 0.9);
+                dummy.rotation.set(drift * 0.5, drift, -drift * 0.32);
+                dummy.scale.setScalar(0.58 + hs * 0.92);
+            } else {
+                const radius = 1.8 + hx * 9.5;
+                const angle = hz * Math.PI * 2 + elapsed * (0.18 + hs * 0.18);
+                dummy.position.set(Math.cos(angle) * radius, 0.5 + weatherCycle(hs + elapsed * 0.055) * 6.6, -1.6 + Math.sin(angle) * radius * 0.62);
+                dummy.rotation.set(angle, -angle * 0.7, elapsed + index);
+                dummy.scale.setScalar(0.56 + hs * 0.88);
+            }
+            dummy.updateMatrix();
+            mesh.setMatrixAt(index, dummy.matrix);
+        }
+        if (mesh) mesh.instanceMatrix.needsUpdate = true;
+        if (particleMat.current) particleMat.current.opacity = strength * (kind === "downpour" ? 0.66 : kind === "blizzard" ? 0.82 : 0.72);
+        if (cloudRoot.current) {
+            cloudRoot.current.visible = strength > 0.002;
+            cloudRoot.current.rotation.y = elapsed * (kind === "gale" ? 0.085 : 0.018);
+            cloudRoot.current.position.x = Math.sin(elapsed * 0.18) * (kind === "gale" ? 1.2 : 0.35);
+        }
+        cloudMats.current.forEach((material, index) => {
+            if (material) material.opacity = strength * (kind === "blizzard" ? 0.28 : kind === "eclipse" ? 0.42 : 0.56) * (0.84 + (index % 3) * 0.08);
+        });
+        if (skyMat.current) skyMat.current.opacity = strength * (kind === "blizzard" ? 0.17 : kind === "gale" ? 0.24 : 0.42);
+        if (floorMat.current) floorMat.current.opacity = strength * (kind === "blizzard" ? 0.22 : kind === "downpour" ? 0.2 : 0.12);
+        if (weatherLight.current) weatherLight.current.intensity = strength * (kind === "blizzard" ? 1.2 : 0.76) + stormPulse * strength * 2.8;
+        if (flashLight.current) flashLight.current.intensity = stormPulse * strength * 12;
+        boltMats.current.forEach((material, index) => {
+            if (material) material.opacity = strength * stormPulse * (index === 1 ? 0.96 : 0.54);
+        });
+        if (eclipse.current) {
+            eclipse.current.rotation.z = elapsed * -0.035;
+            eclipse.current.scale.setScalar((0.88 + strength * 0.12) * (0.98 + Math.sin(elapsed * 1.5) * 0.025));
+            eclipse.current.visible = strength > 0.002;
+        }
+        eclipseMats.current.forEach((material) => {
+            if (material) material.opacity = strength * Number(material.userData.baseOpacity ?? 0);
+        });
+        const liveFog = weatherFog.current;
+        if (liveFog) {
+            liveFog.color.copy(neutralFogColor).lerp(weatherFogColor, strength * (kind === "blizzard" ? 0.72 : 0.86));
+            liveFog.near = lerp(26, kind === "blizzard" ? 9 : kind === "downpour" ? 13 : 16, strength);
+            liveFog.far = lerp(54, kind === "blizzard" ? 31 : kind === "downpour" ? 37 : 42, strength);
+        }
+        if (tick > cue.endTick + 2 && !completed.current) {
+            completed.current = true;
+            onDone();
+        }
+    });
+
+    const canopyColor = kind === "blizzard" ? "#b9d5e7" : kind === "firestorm" ? "#26100b" : kind === "eclipse" ? "#130d22" : "#111827";
+    return (
+        <>
+            <fog ref={weatherFog} attach="fog" args={["#2a1c10", 26, 54]} />
+            <group>
+            <mesh scale={34} renderOrder={-6}>
+                <sphereGeometry args={[1, 24, 14]} />
+                <meshBasicMaterial ref={skyMat} color={fog} transparent opacity={0} depthWrite={false} side={THREE.BackSide} />
+            </mesh>
+            <group ref={cloudRoot} position={[0, 7.2, -2]}>
+                {Array.from({ length: quality.id === "low" ? 6 : 10 }, (_, index) => {
+                    const angle = index * 2.399;
+                    const radius = 2.2 + (index % 4) * 2.45;
+                    return (
+                        <mesh key={`weather-cloud-${index}`} position={[Math.cos(angle) * radius, (index % 3) * 0.32, Math.sin(angle) * radius * 0.58]} scale={[3.2 + (index % 3) * 0.8, 0.52 + (index % 2) * 0.18, 2.1 + (index % 4) * 0.38]}>
+                            <dodecahedronGeometry args={[1, 1]} />
+                            <meshBasicMaterial ref={(material) => { cloudMats.current[index] = material; }} color={canopyColor} transparent opacity={0} depthWrite={false} />
+                        </mesh>
+                    );
+                })}
+            </group>
+            <mesh position={[0, FLOOR_Y + 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={-3}>
+                <circleGeometry args={[22, 64]} />
+                <meshBasicMaterial ref={floorMat} color={color} transparent opacity={0} depthWrite={false} blending={THREE.NormalBlending} />
+            </mesh>
+            <instancedMesh ref={particleMesh} args={[particleGeometry, undefined, count]} frustumCulled={false} renderOrder={24}>
+                <meshBasicMaterial ref={particleMat} color="#ffffff" vertexColors transparent opacity={0} depthWrite={false} toneMapped={false} />
+            </instancedMesh>
+            {bolts.map((geometry, index) => (
+                <mesh key={`weather-bolt-${index}`} geometry={geometry} renderOrder={25}>
+                    <meshBasicMaterial ref={(material) => { boltMats.current[index] = material; }} color={index === 1 ? "#ffffff" : "#bca9ff"} transparent opacity={0} depthWrite={false} toneMapped={false} />
+                </mesh>
+            ))}
+            {kind === "eclipse" && (
+                <Billboard position={[0, 6.8, -12]}>
+                    <group ref={eclipse} visible={false}>
+                        {/* Layered corona: a low, broad aura behind the occluding
+                            disc, two hot rims, and sparse radial prominences. */}
+                        <mesh position={[0, 0, -0.06]}>
+                            <circleGeometry args={[2.82, 64]} />
+                            <meshBasicMaterial ref={(material) => { if (material) { material.userData.baseOpacity = 0.14; eclipseMats.current[0] = material; } }} color="#7658d9" transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                        </mesh>
+                        <mesh position={[0, 0, -0.045]}>
+                            <ringGeometry args={[2.08, 2.62, 72]} />
+                            <meshBasicMaterial ref={(material) => { if (material) { material.userData.baseOpacity = 0.28; eclipseMats.current[1] = material; } }} color="#9c7cff" transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                        </mesh>
+                        {Array.from({ length: 8 }, (_, index) => {
+                            const angle = index * Math.PI / 4;
+                            return (
+                                <mesh key={`eclipse-ray-${index}`} position={[Math.cos(angle) * 2.72, Math.sin(angle) * 2.72, -0.07]} rotation={[0, 0, Math.PI / 2 - angle]} scale={[1, 0.72 + (index % 3) * 0.2, 1]}>
+                                    <planeGeometry args={[0.13 + (index % 2) * 0.035, 1.05]} />
+                                    <meshBasicMaterial ref={(material) => { if (material) { material.userData.baseOpacity = 0.11 + (index % 3) * 0.025; eclipseMats.current[4 + index] = material; } }} color={index % 2 ? "#c9b6ff" : "#8768ee"} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                                </mesh>
+                            );
+                        })}
+                        <mesh>
+                            <circleGeometry args={[2.08, 64]} />
+                            <meshBasicMaterial ref={(material) => { if (material) { material.userData.baseOpacity = 0.985; eclipseMats.current[2] = material; } }} color="#08060d" transparent opacity={0} toneMapped={false} />
+                        </mesh>
+                        <mesh position={[0, 0, -0.02]}>
+                            <ringGeometry args={[2.1, 2.28, 72]} />
+                            <meshBasicMaterial ref={(material) => { if (material) { material.userData.baseOpacity = 0.92; eclipseMats.current[3] = material; } }} color="#d4c5ff" transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                        </mesh>
+                    </group>
+                </Billboard>
+            )}
+            <directionalLight ref={weatherLight} position={[-5, 9, 2]} color={kind === "blizzard" ? "#e5f5ff" : color} intensity={0} />
+            <pointLight ref={flashLight} position={[0, 7, -1]} color="#dcd7ff" intensity={0} distance={28} decay={1.4} />
+            </group>
+        </>
+    );
+}
+
+function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNumber, spawnImpact, spawnElementBurst, spawnAftermath, spawnFx, spawnSupport, spawnShock, spawnDust, spawnScorch, spawnPowerUp, spawnTrail, spawnDash, spawnPressure, spawnSetPiece, elementById, nameById, speciesNameById, petIdById, profileById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout, onWeather, onClashResult, onFinisher }: {
     duel: DuelResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void;
     onEnd: () => void;
     /** False while a live duel is still simulating — see the end check below. */
@@ -3428,6 +3680,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
     onCallout: (text: string) => void;                       // big "CRITICAL!/FINISH!" banner
     onCombo: (n: number) => void;                            // combo counter pop
     onAnnounce: (text: string, tone: "danger" | "reversal" | "ultimate" | "ko") => void;  // play-by-play commentary
+    onWeather: (n: { weather: PetColiseumWeather; actorId: string; move: string; atTick: number }) => void;
     onClashResult: (winnerId: string | null, loserId: string | null) => void;
     onFinisher: (actorId: string, targetId: string, move: string | undefined, resolveTick: number) => void;
     onMoveCallout: (text: string, side: "player" | "enemy", tone?: DuelMoveCalloutTone, who?: string, element?: string | null) => void;
@@ -3454,6 +3707,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
     const heroCutActors = useRef<Set<string>>(new Set()); // every showcase fighter earns one marquee reveal
     const finisherResolveTicks = useRef<Set<number>>(new Set());
     const lastElementChain = useRef(-999);           // elemental payoff banner throttle
+    const lastWeatherCue = useRef<Record<string, number>>({}); // de-dupe windup/cast/ultimate copies of one release
     const partyMode = (duel.snapshots[0]?.actors.length ?? 0) > 2;
     const spotlightUntil = useRef(0);                // one global 2v2 spectacle lane; local combat continues underneath
     // All arena-scale techniques share one presentation lane. Raw simulator
@@ -3692,6 +3946,18 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
             for (const e of crossedEvents) {
                 const spotlight = !partyMode || e === spotlightEvent;
                 const snapAt = snaps[Math.min(maxT, e.t)];
+                // Weather owns the battlefield, not the current camera lane. In a
+                // party duel a real climate technique must still change the arena
+                // even when another simultaneous action wins the spotlight edit.
+                if (e.actorId && e.move && (e.type === "windup" || e.type === "cast" || e.type === "ultimate")) {
+                    const weather = petColiseumWeatherForMove(e.move, e.kind);
+                    const cueKey = `${e.actorId}:${weather?.kind ?? "none"}:${e.move}`;
+                    const lastCueTick = lastWeatherCue.current[cueKey] ?? -Infinity;
+                    if (weather && e.t - lastCueTick > Math.round(DUEL_TPS * 0.8)) {
+                        lastWeatherCue.current[cueKey] = e.t;
+                        onWeather({ weather, actorId: e.actorId, move: e.move, atTick: e.t });
+                    }
+                }
                 if (spotlight && (e.type === "windup" || e.type === "cast" || e.type === "ultimate")) {
                     const openerIndex = duel.events.indexOf(e);
                     const finisher = duelFinisherOutcome(duel.events, snaps, openerIndex);
@@ -3736,7 +4002,9 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                             const after = Math.hypot(a.x - attacker.x, a.y - attacker.y);
                             return before - after > 1.15;
                         });
-                        const impactHeavy = heavy || dashCombo || !!e.perfect;
+                        const authoredDashContact = attackDashBeats.some((cue) => cue.outcome === "hit" && cue.resolveTick === e.t && cue.actorId === e.actorId && cue.targetId === e.targetId);
+                        const dashImpact = authoredDashContact || dashCombo;
+                        const impactHeavy = heavy || dashImpact || !!e.perfect;
                         // World-space combat bodies use the saturated element base.
                         // The previous pastel `glow` palette was then screen-blended
                         // again, bleaching every hit toward white beside the textured
@@ -3744,7 +4012,6 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                         const col = elementColor(e.element).base;
                         const heroStyle = petHeroMoveStyle({ petId: petIdById[e.actorId], petName: speciesNameById[e.actorId], move: e.move, kind: e.kind, profile: profileById[e.actorId] });
                         const followsUltimate = !!e.move && duel.events.some((u) => u.type === "ultimate" && u.actorId === e.actorId && u.move === e.move && u.t < e.t && e.t - u.t <= Math.round(DUEL_TPS * 2));
-                        const authoredDashContact = attackDashBeats.some((cue) => cue.outcome === "hit" && cue.resolveTick === e.t && cue.actorId === e.actorId && cue.targetId === e.targetId);
                         let setPieceOwnsContact = false;
                         let setPieceContactDelayMs = 0;
                         if (spotlight && attacker && e.move && (followsUltimate || arenaScaleMove(e.move))) {
@@ -3825,11 +4092,11 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                             spawnNumber({ x: a.x, z: a.y, text: `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: false });
                             if (!spotlight) return;
                             const floor = playerHit ? 1 : 0;   // 0/1 gate for the player-agency floor
-                            hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0) + (heavyKind ? 0.05 : 0) + (dashCombo ? 0.075 : 0) + floor * 0.02 + (e.perfect ? 0.08 : 0));
-                            shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0) + (heavyKind ? 0.9 : 0) + (dashCombo ? 1.15 : 0) + floor * 0.4 + (e.perfect ? 1.35 : 0));
+                            hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0) + (heavyKind ? 0.05 : 0) + (dashImpact ? 0.11 : 0) + floor * 0.02 + (e.perfect ? 0.08 : 0));
+                            shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0) + (heavyKind ? 0.9 : 0) + (dashImpact ? 1.6 : 0) + floor * 0.4 + (e.perfect ? 1.35 : 0));
                             if (impactHeavy || e.move || playerHit) {
                                 const contactFlash = new THREE.Color(col).lerp(new THREE.Color("#fff4d2"), 0.26).getStyle();
-                                const contactFrame = Math.min(0.34, (playerHit ? 0.12 : 0.1) + frac * 0.62 + (e.crit ? 0.08 : 0) + (dashCombo ? 0.06 : 0));
+                                const contactFrame = Math.min(0.4, (playerHit ? 0.12 : 0.1) + frac * 0.62 + (e.crit ? 0.08 : 0) + (dashImpact ? 0.1 : 0));
                                 onFlash(contactFlash, contactFrame);
                                 scheduleDirectorCue(() => onFlash(col, Math.min(0.2, 0.035 + frac * 0.34) + (e.crit ? 0.05 : 0)), 62);
                             }
@@ -3848,19 +4115,28 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                         // heavy contacts. Basic hits already have a swing trail and
                         // elemental contact volume; a third effect on every hit made
                         // the action stutter visually even when frame time was stable.
-                        if (spotlight && !longFormOwnsContact && impactHeavy) spawnShock({ x: a.x, z: a.y, color: col, big: true });
+                        if (spotlight && ((!longFormOwnsContact && impactHeavy) || (authoredDashContact && !setPieceOwnsContact))) {
+                            spawnShock({ x: a.x, z: a.y, color: col, big: true });
+                        }
+                        if (spotlight && authoredDashContact && !setPieceOwnsContact) {
+                            // The dash renderer owns the sharp collision frame. A
+                            // lower residue then stays behind the defender's recoil,
+                            // making the crossed distance feel like it displaced the
+                            // arena instead of vanishing with the trail.
+                            spawnAftermath({ x: a.x, z: a.y, element: e.element, move: e.move, color: col, big: impactHeavy });
+                        }
                         // Dramatic SAVOR — slow the moment so the swing reads; deeper on a
                         // signature, then a crit/heavy slam, then any named ability, then a basic.
                         const isSig = !!e.signature, isAbility = !!e.move;
                         if (spotlight) {
                             if (isSig) savor(0.48, 0.22);
                             else if (e.crit || heavyKind) savor(0.72, 0.12);
-                            else if (authoredDashContact || dashCombo) savor(0.62, 0.22);
+                            else if (dashImpact) savor(0.54, 0.26);
                             else if (isAbility || heavy) savor(0.98, 0.04);
                             else if (playerHit) savor(1.02, 0.03);   // player-agency floor: even a light poke you drove gets a readable contact beat
                         }
                         // Camera ZOOM-PUNCH — every meaningful blow pushes in; abilities/crits/signatures harder.
-                        if (spotlight) zoomKick.current = Math.max(zoomKick.current, isSig ? 3.2 : e.crit ? 2.8 : dashCombo ? 2.5 : (isAbility || heavy) ? 1.45 : 0.42);
+                        if (spotlight) zoomKick.current = Math.max(zoomKick.current, isSig ? 3.2 : e.crit ? 2.8 : dashImpact ? 2.65 : (isAbility || heavy) ? 1.45 : 0.42);
                         // Camera CUT to whoever got hit — the impact reads on the defender.
                         if (spotlight && (impactHeavy || isAbility)) {
                             const cp = duelFieldToFloor(a.x, a.y);
@@ -3905,16 +4181,17 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, spawnNu
                                     shotDollyHold.current = Math.max(shotDollyHold.current, 0.36);
                                     zoomKick.current = Math.max(zoomKick.current, 2.35);
                                 }, Math.max(0, setPieceContactDelayMs - 45));
-                            } else if (authoredDashContact || dashCombo) {
+                            } else if (dashImpact) {
                                 // Contact completes the same wide dash composition.
                                 // Do not cut to a tight defender close-up while the
                                 // attacker is still resolving its authored route.
                                 camAim.current = [pairX * 0.9, 1.36, CAM_LOOK[2] + pairZ * 0.46];
                                 camAimHold.current = Math.max(camAimHold.current, 0.58);
-                                camPosBias.current = [0, 0.32, 1.05];
+                                camPosBias.current = [0, 0.08, 0.42];
                                 camBiasHold.current = Math.max(camBiasHold.current, 0.54);
-                                shotDolly.current = -1.55;
+                                shotDolly.current = -0.58;
                                 shotDollyHold.current = Math.max(shotDollyHold.current, 0.58);
+                                duelFovKick.current = Math.max(duelFovKick.current, 1.35);
                             }
                         }
                         // A pet's HERO move (its signature, else its strongest jutsu) triggers the
@@ -4910,7 +5187,7 @@ function scheduleDuelFxGeometryPrewarm(kinds: readonly DuelElementBurstKind[], q
  * lightning branches, earth displaces mass, abyss smolders, and arcane energy
  * orbits. The effect scales from a quick hit to an arena signature without
  * falling back to the old beveled brush cards. */
-function DuelElementVolume({ at, kind, color, big, heading = 0, phase, quality, heroStyle = "generic", delay = 0, onDone }: {
+function DuelElementVolume({ at, kind, color, big, heading = 0, phase, quality, heroStyle = "generic", delay = 0, simClock, simStartTick, onDone }: {
     at: Vec3;
     kind: DuelElementBurstKind;
     color: string;
@@ -4920,6 +5197,8 @@ function DuelElementVolume({ at, kind, color, big, heading = 0, phase, quality, 
     quality: PetVisualQualityConfig;
     heroStyle?: PetHeroMoveStyle;
     delay?: number;
+    simClock?: { current: DuelClock };
+    simStartTick?: number;
     onDone: () => void;
 }) {
     const root = useRef<THREE.Group>(null);
@@ -4973,8 +5252,8 @@ function DuelElementVolume({ at, kind, color, big, heading = 0, phase, quality, 
     const duration = signature ? 1.86 : aftermath ? (big ? 1.34 : 1.08) : phase === "dash" ? (heroMove ? 1.02 : 0.9) : heroMove ? 0.96 : big ? 0.9 : 0.64;
     // Named abilities occupy the missing middle tier: clearly larger than a basic
     // contact, but still well below an arena-owning tsunami or tornado.
-    const basePhaseScale = signature ? 1.8 : aftermath ? (big ? 1.34 : 1.04) : phase === "dash" ? (big ? 1.34 : 0.86) : big ? 1.56 : 0.98;
-    const phaseScale = basePhaseScale * (heroMove ? phase === "dash" ? 1.18 : 1.28 : 1);
+    const basePhaseScale = signature ? 1.8 : aftermath ? (big ? 1.34 : 1.04) : phase === "dash" ? (big ? 1.06 : 0.82) : big ? 1.56 : 0.98;
+    const phaseScale = basePhaseScale * (heroMove ? phase === "dash" ? 1.08 : 1.28 : 1);
     const register = (material: (THREE.Material & { opacity: number }) | null, index: number, baseOpacity: number) => {
         if (!material) return;
         material.userData.baseOpacity = baseOpacity;
@@ -4982,7 +5261,12 @@ function DuelElementVolume({ at, kind, color, big, heading = 0, phase, quality, 
     };
     useFrame((state) => {
         if (start.current === null) start.current = state.clock.elapsedTime;
-        const elapsed = state.clock.elapsedTime - start.current - delay;
+        // Dash contact shares the replay clock with the travelling pet, so
+        // hit-stop freezes the volume on the same bright collision frame. Other
+        // effects retain their wall-clock lifetime.
+        const elapsed = simClock && simStartTick !== undefined
+            ? (simClock.current.t - simStartTick) / DUEL_TPS
+            : state.clock.elapsedTime - start.current - delay;
         if (elapsed < 0) {
             // Keep the subtree renderable at an effectively invisible scale so
             // WebGL compiles the materials during anticipation, never on impact.
@@ -5073,12 +5357,12 @@ function DuelElementVolume({ at, kind, color, big, heading = 0, phase, quality, 
             <group ref={core} position={[0, aftermath ? 0.12 : kind === "lightning" && signature ? 0.42 : 0.36, 0]} scale={0.01}>
                 <mesh scale={kind === "water" ? [1.25, 0.72, 1.05] : kind === "earth" ? [1.1, 0.76, 1.15] : kind === "wind" ? [0.76, 1.45, 0.76] : [1, 1, 1]} castShadow={kind === "earth"}>
                     {coreShape}
-                    <meshToonMaterial ref={(material) => register(material, coreMaterialIndex, aftermath ? 0.38 : heroMove ? 0.68 : 0.88)} color={palette.body} emissive={palette.accent} emissiveIntensity={signature ? 0.26 : 0.12} transparent opacity={0} depthWrite={kind === "earth"} />
+                    <meshToonMaterial ref={(material) => register(material, coreMaterialIndex, aftermath ? 0.38 : phase === "dash" ? (heroMove ? 0.42 : 0.54) : heroMove ? 0.68 : 0.88)} color={palette.body} emissive={palette.accent} emissiveIntensity={signature ? 0.26 : 0.12} transparent opacity={0} depthWrite={kind === "earth"} />
                 </mesh>
                 {!aftermath && kind !== "earth" && (
                     <mesh scale={kind === "water" ? [0.78, 0.52, 0.72] : [0.62, 0.62, 0.62]}>
                         {coreShape}
-                        <meshToonMaterial ref={(material) => register(material, coreMaterialIndex + 1, heroMove ? 0.48 : 0.74)} color={palette.core} emissive={palette.accent} emissiveIntensity={0.24} transparent opacity={0} depthWrite={false} />
+                        <meshToonMaterial ref={(material) => register(material, coreMaterialIndex + 1, phase === "dash" ? (heroMove ? 0.28 : 0.4) : heroMove ? 0.48 : 0.74)} color={palette.core} emissive={palette.accent} emissiveIntensity={0.24} transparent opacity={0} depthWrite={false} />
                     </mesh>
                 )}
             </group>
@@ -5522,6 +5806,122 @@ function LegacyDuelDashEffect({ cue, onDone }: { cue: DuelDashCue; onDone: () =>
     );
 }
 
+/** The dash collision stack is simulation-clocked, so hit-stop freezes it on
+ * its brightest contact frame. Directional shards continue the attack vector,
+ * a compressed core shows body-on-body force, and two floor impulses make the
+ * arena itself answer the blow. */
+function DuelDashCollision({ cue, clock, quality }: {
+    cue: DuelDashCue;
+    clock: { current: DuelClock };
+    quality: PetVisualQualityConfig;
+}) {
+    const root = useRef<THREE.Group>(null);
+    const core = useRef<THREE.Mesh>(null);
+    const coreMat = useRef<THREE.MeshBasicMaterial>(null);
+    const ringMeshes = useRef<Array<THREE.Mesh | null>>([]);
+    const ringMats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
+    const crackMeshes = useRef<Array<THREE.Mesh | null>>([]);
+    const crackMats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
+    const shards = useRef<THREE.InstancedMesh>(null);
+    const shardMat = useRef<THREE.MeshToonMaterial>(null);
+    const light = useRef<THREE.PointLight>(null);
+    const dummy = useMemo(() => new THREE.Object3D(), []);
+    const palette = useMemo(() => duelFxPalette(cue.kind, cue.color), [cue.color, cue.kind]);
+    const shardCount = quality.id === "low" ? 8 : quality.id === "medium" ? 16 : 24;
+    const shardGeometry = useMemo(() => cue.kind === "earth"
+        ? new THREE.DodecahedronGeometry(0.12, 0)
+        : cue.kind === "wind"
+            ? new THREE.ConeGeometry(0.055, 0.52, 5)
+            : new THREE.TetrahedronGeometry(0.13, 0), [cue.kind]);
+    const dx = cue.impactAt[0] - cue.to[0], dz = cue.impactAt[2] - cue.to[2];
+    const heading = Math.atan2(dx, dz);
+    useEffect(() => () => shardGeometry.dispose(), [shardGeometry]);
+    useEffect(() => {
+        const mesh = shards.current;
+        if (!mesh) return;
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        for (let index = 0; index < shardCount; index++) {
+            mesh.setColorAt(index, new THREE.Color(index % 4 === 0 ? palette.core : index % 2 ? palette.accent : palette.body));
+        }
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    }, [palette, shardCount]);
+    useFrame(() => {
+        const ageTicks = clock.current.t - cue.contactTick;
+        const age = ageTicks / DUEL_TPS;
+        const active = cue.impact && age >= 0 && age <= 0.92;
+        if (root.current) root.current.visible = active;
+        if (!active) return;
+        const p = Math.min(1, age / 0.92);
+        const hit = 1 - Math.pow(1 - Math.min(1, p / 0.16), 4);
+        const fade = p < 0.46 ? 1 : Math.max(0, 1 - (p - 0.46) / 0.54);
+        const compression = 0.55 + Math.sin(Math.PI * Math.min(1, p / 0.34)) * 0.76;
+        if (root.current) root.current.rotation.y = heading;
+        if (core.current) {
+            core.current.scale.set(1.25 + hit * 0.52, 0.62 + compression * 0.32, 0.7 + compression * 0.2);
+            core.current.rotation.set(p * 1.4, p * 2.1, -0.18 + p * 0.34);
+        }
+        if (coreMat.current) coreMat.current.opacity = fade * (0.5 + hit * 0.5);
+        ringMeshes.current.forEach((ring, index) => {
+            if (!ring) return;
+            const delay = index * 0.06;
+            const waveP = Math.max(0, Math.min(1, (p - delay) / Math.max(0.01, 1 - delay)));
+            const scale = 0.42 + waveP * (index === 0 ? 2.6 : 3.55);
+            ring.scale.set(scale, scale, scale);
+            ring.rotation.z = index * 0.72 + waveP * (index ? -0.42 : 0.3);
+            if (ringMats.current[index]) ringMats.current[index]!.opacity = fade * (1 - waveP) * (index === 0 ? 0.9 : 0.62);
+        });
+        crackMeshes.current.forEach((crack, index) => {
+            if (!crack) return;
+            const u = index / Math.max(1, crackMeshes.current.length);
+            const angle = u * Math.PI * 2 + (index % 2 ? 0.14 : -0.12);
+            const reach = hit * (0.72 + (index % 3) * 0.28);
+            crack.position.set(Math.sin(angle) * reach, 0.016, Math.cos(angle) * reach);
+            crack.rotation.set(-Math.PI / 2, 0, -angle + (index % 2 ? 0.18 : -0.16));
+            crack.scale.set(0.08 + hit * 0.05, 0.5 + hit * (0.82 + (index % 3) * 0.26), 1);
+            if (crackMats.current[index]) crackMats.current[index]!.opacity = fade * 0.74;
+        });
+        const shardMesh = shards.current;
+        if (shardMesh) for (let index = 0; index < shardCount; index++) {
+            const angle = index * 2.399 + (index % 4 - 1.5) * 0.12;
+            const travel = Math.max(0, Math.min(1, (p - index * 0.006) / 0.74));
+            const forward = 0.25 + travel * (1.18 + (index % 4) * 0.24);
+            const lateral = Math.sin(angle) * travel * (0.72 + (index % 3) * 0.14);
+            dummy.position.set(lateral, 0.42 + Math.sin(Math.PI * travel) * (0.48 + (index % 3) * 0.18), Math.cos(angle) * 0.26 + forward);
+            dummy.rotation.set(travel * (4.2 + index * 0.16), angle, -travel * (3.8 + index * 0.12));
+            dummy.scale.set(0.66 + (index % 3) * 0.13, 0.9 + travel * 0.55, 0.66 + (index % 2) * 0.14);
+            dummy.updateMatrix();
+            shardMesh.setMatrixAt(index, dummy.matrix);
+        }
+        if (shardMesh) shardMesh.instanceMatrix.needsUpdate = true;
+        if (shardMat.current) shardMat.current.opacity = fade * 0.94;
+        if (light.current) light.current.intensity = fade * Math.sin(Math.PI * Math.min(1, p * 1.7)) * 8.5;
+    });
+    return (
+        <group ref={root} position={[cue.impactAt[0], FLOOR_Y + 0.025, cue.impactAt[2]]} visible={false}>
+            <mesh ref={core} position={[0, 0.82, 0.05]} renderOrder={38}>
+                <icosahedronGeometry args={[0.48, 1]} />
+                <meshBasicMaterial ref={coreMat} color={palette.core} transparent opacity={0} depthWrite={false} toneMapped={false} />
+            </mesh>
+            {[0, 1].map((index) => (
+                <mesh key={`dash-impulse-${index}`} ref={(mesh) => { ringMeshes.current[index] = mesh; }} position={[0, 0.018 + index * 0.014, 0]} rotation={[-Math.PI / 2, 0, index * 0.72]} renderOrder={36}>
+                    <ringGeometry args={[0.34 + index * 0.08, 0.47 + index * 0.08, quality.id === "low" ? 28 : 52]} />
+                    <meshBasicMaterial ref={(material) => { ringMats.current[index] = material; }} color={index === 0 ? palette.core : palette.accent} transparent opacity={0} depthWrite={false} toneMapped={false} />
+                </mesh>
+            ))}
+            {Array.from({ length: quality.id === "low" ? 5 : 8 }, (_, index) => (
+                <mesh key={`dash-crack-${index}`} ref={(mesh) => { crackMeshes.current[index] = mesh; }} renderOrder={35}>
+                    <planeGeometry args={[1, 1]} />
+                    <meshBasicMaterial ref={(material) => { crackMats.current[index] = material; }} color={index % 3 === 0 ? palette.accent : palette.dark} transparent opacity={0} depthWrite={false} blending={THREE.NormalBlending} />
+                </mesh>
+            ))}
+            <instancedMesh ref={shards} args={[shardGeometry, undefined, shardCount]} frustumCulled={false} renderOrder={39}>
+                <meshToonMaterial ref={shardMat} color="#ffffff" vertexColors emissive={palette.accent} emissiveIntensity={0.28} transparent opacity={0} depthWrite={cue.kind === "earth"} />
+            </instancedMesh>
+            <pointLight ref={light} position={[0, 1.05, 0]} color={palette.accent} intensity={0} distance={7.5} decay={2} />
+        </group>
+    );
+}
+
 /** Elemental dash renderer used by the 3D duel. The path is still the authored
  * S-step used by the model, but its wake is now a chain of lit 3D element motes
  * and its arrival is the same volumetric contact system as every other move. */
@@ -5635,7 +6035,6 @@ function DuelDashEffectV2({ cue, clock, quality, onDone }: { cue: DuelDashCue; c
             onDone();
         }
     });
-    const impactDelay = Math.max(0, cue.contactTick - cue.startTick) / DUEL_TPS;
     return (
         <group>
             {quality.id !== "low" && (
@@ -5669,7 +6068,8 @@ function DuelDashEffectV2({ cue, clock, quality, onDone }: { cue: DuelDashCue; c
                     <meshToonMaterial ref={(material) => { contactMats.current[1] = material; }} color={palette.core} emissive={palette.accent} emissiveIntensity={0.28} transparent opacity={0} depthWrite={false} />
                 </mesh>
             </group>
-            {impact && <DuelElementVolume at={[cue.impactAt[0], FLOOR_Y + 0.08, cue.impactAt[2]]} kind={kind} color={color} big={false} heading={Math.atan2(cue.impactAt[0] - cue.to[0], cue.impactAt[2] - cue.to[2])} phase="dash" quality={quality} heroStyle={style} delay={impactDelay} onDone={() => undefined} />}
+            {impact && <DuelDashCollision cue={cue} clock={clock} quality={quality} />}
+            {impact && <DuelElementVolume at={[cue.impactAt[0], FLOOR_Y + 0.08, cue.impactAt[2]]} kind={kind} color={color} big={heroDash} heading={Math.atan2(cue.impactAt[0] - cue.to[0], cue.impactAt[2] - cue.to[2])} phase="dash" quality={quality} heroStyle={style} simClock={clock} simStartTick={cue.contactTick} onDone={() => undefined} />}
         </group>
     );
 }
@@ -7553,6 +7953,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [dashFx, setDashFx] = useState<DuelDashCue[]>([]);
     const [pressureFx, setPressureFx] = useState<DuelPressureCue[]>([]);
     const [setPieces, setSetPieces] = useState<Array<{ id: number; from: Vec3; to: Vec3; targetId?: string; color: string; kind: DuelSetPieceKind }>>([]);
+    const [weatherCue, setWeatherCue] = useState<DuelWeatherCue | null>(null);
     const [dusts, setDusts] = useState<Array<{ id: number; at: Vec3 }>>([]);   // transient foot-dust on dodge landings / KO impact
     const [scorches, setScorches] = useState<Array<{ id: number; pos: Vec3; w: number }>>([]);   // accumulating scorch marks — the arena remembers the fight
     const [flash, setFlash] = useState<{ id: number; color: string; intensity: number } | null>(null);
@@ -7794,6 +8195,20 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             color: kind === "lunarBurst" ? "#9d7cff" : elementColor(n.element).base,
             kind,
         }]);
+    };
+    const triggerWeather = (n: { weather: PetColiseumWeather; actorId: string; move: string; atTick: number }) => {
+        // `petLayers` is a QA-only isolation switch. Do not create a hidden cue
+        // whose renderer cannot mount and therefore cannot release arena fog.
+        if (!visualLayers.elements) return;
+        const id = seqRef.current++;
+        setWeatherCue({
+            id,
+            weather: n.weather,
+            actorId: n.actorId,
+            move: n.move,
+            startTick: n.atTick,
+            endTick: n.atTick + petColiseumWeatherDurationTicks(DUEL_TPS),
+        });
     };
     // Full-screen element flash / big "CRITICAL!/FINISH!" callout / combo-counter pop.
     const triggerFlash = (color: string, intensity: number) => setFlash({ id: seqRef.current++, color, intensity: Math.min(0.6, intensity) });
@@ -8075,6 +8490,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         setDashFx([]);
         setPressureFx([]);
         setSetPieces([]);
+        setWeatherCue(null);
         duckBattleMusic(0.24, 1050);
         if (duel.result === "win") playPetSfx("victory");
         crowdTimer.current = window.setTimeout(() => {
@@ -8112,6 +8528,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         setDashFx([]);
         setPressureFx([]);
         setSetPieces([]);
+        setWeatherCue(null);
         setFlash(null);
         setCallout(null);
         setCombo(null);
@@ -8207,6 +8624,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                     32%,100% { opacity: 1; transform: translateY(0) scale(1); }
                 }
                 @keyframes petBroadcastIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+                @keyframes petWeatherGradeIn { from { opacity: 0; } to { opacity: .58; } }
+                @keyframes petWeatherReadIn { 0% { opacity: 0; transform: translateX(-28px); filter: blur(7px); } 28% { opacity: 1; transform: translateX(0); filter: blur(0); } 100% { opacity: 1; transform: translateX(0); } }
                 @keyframes petWinnerHold { 0% { opacity: 0; transform: translate(-50%,-50%) scale(.72); } 28% { opacity: 1; transform: translate(-50%,-50%) scale(1.08); } 42%,100% { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
                 @keyframes petFinisherFrame { 0% { opacity:0; transform:scaleY(.15); } 18% { opacity:1; transform:scaleY(1); } 78% { opacity:1; } 100% { opacity:0; transform:scaleY(.82); } }
                 @keyframes petFinisherTitle { 0% { opacity:0; transform:translateY(12px) scale(1.3); letter-spacing:.32em; } 24% { opacity:1; transform:translateY(0) scale(1); letter-spacing:.16em; } 78% { opacity:1; } 100% { opacity:0; transform:translateY(-5px) scale(1.02); } }
@@ -8266,10 +8685,18 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 .pet-duel-mobile-qa .pet-move-scene { top:15%; left:12px; right:12px; width:auto; }
                 .pet-duel-mobile-qa .pet-move-scene .pet-move-card { padding-block:9px 10px; }
                 .pet-duel-mobile-qa .pet-move-scene .pet-move-title { font-size:25px; }
-                @media (max-width: 600px) { .pet-duel-hero-cutin { padding-inline: 12px; gap: 8px; } .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar, .pet-duel-hero-cutin .pet-cutin-portrait > img, .pet-duel-hero-cutin .pet-cutin-model { width: 145px; height: 145px; } .pet-duel-hero-cutin .pet-cutin-text { flex: 1; min-width: 0; max-width: 213px; } .pet-duel-hero-cutin .pet-cutin-move { font-size: 26px; } .pet-duel-hero-cutin .pet-cutin-release { letter-spacing:.18em; } .pet-move-scene { top:15%; left:12px; right:12px; width:auto; } .pet-move-scene .pet-move-card { padding-block:9px 10px; } .pet-move-scene .pet-move-title { font-size:25px; } .pet-duel-mode-badge { display: none; } .pet-duel-top-controls button { padding: 5px 7px !important; font-size: 10px !important; } }
+                .pet-duel-weather-grade { position:absolute; inset:0; z-index:3; pointer-events:none; opacity:.58; mix-blend-mode:color; background:radial-gradient(ellipse at 50% 46%,transparent 24%,color-mix(in srgb,var(--weather-color) 18%,transparent) 68%,color-mix(in srgb,var(--weather-color) 42%,#03050b) 100%); animation:petWeatherGradeIn 680ms ease-out both; }
+                .pet-duel-weather-grade.thunderstorm,.pet-duel-weather-grade.eclipse { mix-blend-mode:multiply; background:radial-gradient(ellipse at 50% 44%,transparent 22%,rgba(8,6,20,.2) 58%,rgba(4,3,12,.72) 100%); }
+                .pet-duel-weather-grade.blizzard { mix-blend-mode:screen; opacity:.24; background:linear-gradient(155deg,rgba(219,243,255,.12),transparent 52%,rgba(172,220,255,.34)); }
+                .pet-duel-weather-read { --weather-color:#9d7cff; position:absolute; z-index:10; top:76px; left:18px; display:grid; grid-template-columns:auto auto; align-items:end; gap:3px 9px; max-width:min(360px,42vw); padding:9px 14px 10px 13px; border-left:3px solid var(--weather-color); background:linear-gradient(100deg,rgba(2,6,18,.9),rgba(2,6,18,.52),transparent); box-shadow:-8px 0 28px color-mix(in srgb,var(--weather-color) 18%,transparent); pointer-events:none; animation:petWeatherReadIn 620ms cubic-bezier(.16,.84,.24,1) both; text-transform:uppercase; }
+                .pet-duel-weather-read span { color:#94a3b8; font:900 8px/1 Inter,system-ui,sans-serif; letter-spacing:.2em; }
+                .pet-duel-weather-read strong { color:#f8fafc; font:900 16px/.95 var(--font-display); letter-spacing:.07em; text-shadow:0 0 16px var(--weather-color); }
+                .pet-duel-weather-read em { grid-column:1/-1; color:color-mix(in srgb,var(--weather-color) 76%,#fff); font:800 9px/1.2 Inter,system-ui,sans-serif; font-style:normal; letter-spacing:.12em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+                @media (max-width: 600px) { .pet-duel-hero-cutin { padding-inline: 12px; gap: 8px; } .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar, .pet-duel-hero-cutin .pet-cutin-portrait > img, .pet-duel-hero-cutin .pet-cutin-model { width: 145px; height: 145px; } .pet-duel-hero-cutin .pet-cutin-text { flex: 1; min-width: 0; max-width: 213px; } .pet-duel-hero-cutin .pet-cutin-move { font-size: 26px; } .pet-duel-hero-cutin .pet-cutin-release { letter-spacing:.18em; } .pet-move-scene { top:15%; left:12px; right:12px; width:auto; } .pet-move-scene .pet-move-card { padding-block:9px 10px; } .pet-move-scene .pet-move-title { font-size:25px; } .pet-duel-mode-badge { display: none; } .pet-duel-top-controls button { padding: 5px 7px !important; font-size: 10px !important; } .pet-duel-weather-read { top:92px;left:10px;max-width:56vw;padding:7px 10px; } .pet-duel-weather-read strong { font-size:13px; } .pet-duel-weather-read span { font-size:7px; } }
                 @media (prefers-reduced-motion: reduce) {
                     .pet-duel-hero-cutin,.pet-duel-hero-cutin::before,.pet-duel-hero-cutin .pet-cutin-slab,.pet-duel-hero-cutin .pet-cutin-bar,.pet-duel-hero-cutin .pet-cutin-chroma,.pet-duel-hero-cutin .pet-cutin-portrait,.pet-duel-hero-cutin .pet-cutin-text,.pet-move-scene,.pet-move-scene .pet-move-title,.pet-move-scene .pet-move-rail { animation:none !important; opacity:1; transform:none; filter:none; }
                     .pet-move-scene .pet-move-streaks { display:none; }
+                    .pet-duel-weather-grade,.pet-duel-weather-read { animation:none !important; }
                 }
             `}</style>
             {/* Vignette — darkens the screen edges so the eye stays on the fight. */}
@@ -8278,14 +8705,23 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 perspective hero camera), so fighters STAND on the floor with real
                 contact shadows instead of floating over a painted wall. */}
             <Canvas shadows={quality.modelShadows ? { type: THREE.PCFShadowMap } : false} dpr={dpr} frameloop={paused || resultVisible ? "demand" : "always"} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
-                <fog attach="fog" args={["#2a1c10", 26, 54]} />
+                {!weatherCue && <fog attach="fog" args={["#2a1c10", 26, 54]} />}
                 <ResponsiveCamera />
                 {/* Adaptive DPR: drop to the tier floor under sustained load, restore with
                     headroom; flipflops pins to the floor rather than oscillate. */}
                 <PerformanceMonitor onDecline={() => setDpr(quality.dpr[0])} onIncline={() => setDpr(dprBase)} flipflops={3} onFallback={() => setDpr(quality.dpr[0])} />
                 <Arena floor={floor} backdrop={backdrop} big />
+                {visualLayers.elements && weatherCue && (
+                    <DuelBattlefieldWeather
+                        key={weatherCue.id}
+                        cue={weatherCue}
+                        clock={clock}
+                        quality={quality}
+                        onDone={() => setWeatherCue((current) => current?.id === weatherCue.id ? null : current)}
+                    />
+                )}
                 {/* Ambient embers drifting through the arena — the world feels alive. */}
-                {visualLayers.post && <Sparkles count={quality.ambientParticles} scale={[26, 11, 14]} position={[0, 4.5, -2]} size={2.6} speed={0.16} opacity={0.28} color="#ffb46b" noise={1.6} />}
+                {visualLayers.post && !weatherCue && <Sparkles count={quality.ambientParticles} scale={[26, 11, 14]} position={[0, 4.5, -2]} size={2.6} speed={0.16} opacity={0.28} color="#ffb46b" noise={1.6} />}
                 {roster.map((r) => (
                     <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} freeRoam3d={freeRoam3d} dashCue={dashFx.find((dash) => dash.actorId === r.id)} showIdentity={visualLayers.identity && !ended} acknowledgingCommand={commandAck?.actorIds.includes(r.id) ?? false} />
                 ))}
@@ -8341,10 +8777,25 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 26px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif", display: "inline-block", animation: l.crit ? "petDuelCritPop 360ms ease-out" : undefined }}>{l.text}</span>
                     </Html>
                 ))}
-                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={finishDuel} canEnd={!live || live.settled} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnElementBurst={spawnElementBurst} spawnAftermath={spawnAftermath} spawnFx={spawnFx} spawnSupport={spawnSupport} spawnShock={spawnShock} spawnDust={spawnDust} spawnScorch={spawnScorch} spawnPowerUp={spawnPowerUp} spawnTrail={spawnTrail} spawnDash={spawnDash} spawnPressure={spawnPressure} spawnSetPiece={spawnSetPiece} elementById={elementById} nameById={nameById} speciesNameById={speciesNameById} petIdById={petIdById} profileById={profileById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} onClashResult={triggerClashResult} onFinisher={triggerFinisher} />
+                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={finishDuel} canEnd={!live || live.settled} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnElementBurst={spawnElementBurst} spawnAftermath={spawnAftermath} spawnFx={spawnFx} spawnSupport={spawnSupport} spawnShock={spawnShock} spawnDust={spawnDust} spawnScorch={spawnScorch} spawnPowerUp={spawnPowerUp} spawnTrail={spawnTrail} spawnDash={spawnDash} spawnPressure={spawnPressure} spawnSetPiece={spawnSetPiece} elementById={elementById} nameById={nameById} speciesNameById={speciesNameById} petIdById={petIdById} profileById={profileById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} onWeather={triggerWeather} onClashResult={triggerClashResult} onFinisher={triggerFinisher} />
                 {visualLayers.post && <BloomFx />}
                 {perfQa && <PetRenderStatsProbe quality={quality.id} />}
             </Canvas>
+
+            {weatherCue && !ended && (
+                <>
+                    <div
+                        aria-hidden="true"
+                        className={`pet-duel-weather-grade ${weatherCue.weather.kind}`}
+                        style={{ "--weather-color": weatherCue.weather.color } as React.CSSProperties}
+                    />
+                    <div className="pet-duel-weather-read" data-testid="pet-duel-weather-state" aria-live="polite" style={{ "--weather-color": weatherCue.weather.color } as React.CSSProperties}>
+                        <span>Battlefield weather</span>
+                        <strong>{weatherCue.weather.label}</strong>
+                        <em>{weatherCue.move}</em>
+                    </div>
+                </>
+            )}
 
             {/* VS pre-fight intro — both fighters hold their face-off while a "VS"
                 splash slams in, then the clock starts. */}
