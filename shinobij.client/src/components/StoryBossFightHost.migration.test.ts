@@ -12,6 +12,11 @@ const missionFight = readFileSync(new URL("../screens/MissionArenaFight.tsx", im
 const storyApi = readFileSync(new URL("../lib/story-combat-api.ts", import.meta.url), "utf8");
 const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const battleCss = readFileSync(new URL("../styles/battle-skin.css", import.meta.url), "utf8");
+const immediateResultConsumers = [
+    ["wandering AI", readFileSync(new URL("./AiFightHost.tsx", import.meta.url), "utf8")],
+    ["Hollow Gate", readFileSync(new URL("../screens/HollowGateFight.tsx", import.meta.url), "utf8")],
+    ["Endless Tower", readFileSync(new URL("../screens/EndlessTowerFight.tsx", import.meta.url), "utf8")],
+] as const;
 
 test("StoryBossFightHost renders MissionArenaFight, not the tower shell", () => {
     assert.match(host, /<MissionArenaFight/, "the host must render MissionArenaFight");
@@ -77,6 +82,31 @@ test("story result overlays expose modal semantics", () => {
     assert.match(host, /returnFocus\?\.isConnected/);
     assert.match(battleCss, /\.story-fight-complete \{[\s\S]*?align-items: flex-start;[\s\S]*?overflow-y: auto;[\s\S]*?overscroll-behavior: contain;/);
     assert.match(battleCss, /\.story-fight-complete-card \{[\s\S]*?box-sizing: border-box;[\s\S]*?margin: auto 0;/);
+});
+
+test("only authored story results keep the cinematic final-bark delay", () => {
+    assert.match(host, /className=\{`story-fight-complete\$\{cinematic \? " story-fight-complete--cinematic" : ""\}`\}/,
+        "the shared result dialog must require an explicit cinematic opt-in");
+    const sparResult = host.slice(host.indexOf("if (isSpar)"), host.indexOf("// WIN — the chapter-complete reward card"));
+    const chapterVictory = host.slice(host.indexOf("// WIN — the chapter-complete reward card"), host.indexOf("// LOSS / DRAW"));
+    const chapterDefeat = host.slice(host.indexOf("// LOSS / DRAW"), host.indexOf("            />\n        </Suspense>"));
+    assert.doesNotMatch(sparResult, /<RequiredStoryResultDialog[\s\S]*?\scinematic(?:\s|>)/,
+        "the Academy spar has no final story bark and must appear immediately");
+    assert.match(chapterVictory, /<RequiredStoryResultDialog[\s\S]*?\scinematic(?:\s|>)/,
+        "an authored chapter victory must explicitly opt into its final-bark beat");
+    assert.doesNotMatch(chapterDefeat, /<RequiredStoryResultDialog[\s\S]*?\scinematic(?:\s|>)/,
+        "a chapter defeat has no authored final bark and must appear immediately");
+    for (const [mode, source] of immediateResultConsumers) {
+        assert.match(source, /className="story-fight-complete"/,
+            `${mode} must remain on the immediate shared result surface`);
+        assert.doesNotMatch(source, /story-fight-complete--cinematic/,
+            `${mode} must never opt into the story-only result delay`);
+    }
+    const sharedRule = battleCss.match(/\.story-fight-complete\s*\{([^}]*)\}/);
+    assert.ok(sharedRule, "shared combat result rule is missing");
+    assert.doesNotMatch(sharedRule[1], /2\.2s/,
+        "wandering AI, Hollow Gate, and Tower results must not inherit a story-only pause");
+    assert.match(battleCss, /\.story-fight-complete--cinematic\s*\{[^}]*animation-delay:\s*2\.2s;/s);
 });
 
 test("story starts and settlements stay bound to their originating account", () => {

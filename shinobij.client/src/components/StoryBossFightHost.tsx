@@ -52,7 +52,7 @@ const STORY_RESULT_FOCUSABLE = [
  * Required-choice result dialog for a sealed story run.
  *
  * The canonical Modal cannot wrap this presentation without bypassing the
- * authored 2.2s final-bark beat owned by `.story-fight-complete`. This local
+ * authored 2.2s final-bark beat owned by the cinematic result modifier. This local
  * boundary therefore supplies the same essentials after that animation lands:
  * background inerting, focus containment, and focus placement. Escape is
  * deliberately consumed because closing an unsettled win would discard the
@@ -61,10 +61,13 @@ const STORY_RESULT_FOCUSABLE = [
 function RequiredStoryResultDialog({
     label,
     focusVersion,
+    cinematic = false,
     children,
 }: {
     label: string;
     focusVersion: string;
+    /** Delay only a chapter victory whose authored final bark is still landing. */
+    cinematic?: boolean;
     children: ReactNode;
 }) {
     const dialogRef = useRef<HTMLDivElement>(null);
@@ -177,7 +180,7 @@ function RequiredStoryResultDialog({
     return (
         <div
             ref={dialogRef}
-            className="story-fight-complete"
+            className={`story-fight-complete${cinematic ? " story-fight-complete--cinematic" : ""}`}
             role={revealed ? "dialog" : undefined}
             aria-modal={revealed ? "true" : undefined}
             aria-label={revealed ? label : undefined}
@@ -431,7 +434,7 @@ export function StoryBossFightHost({
                         );
                     }
                     // WIN — the chapter-complete reward card. Its entrance is delayed a
-                    // beat (see .story-fight-complete) so the boss's final authored bark
+                    // beat (see .story-fight-complete--cinematic) so the boss's final authored bark
                     // lands first. Reward numbers come from the server settle response.
                     if (won) {
                         const result = settleResult as StoryBossSettleResult | null;
@@ -439,6 +442,7 @@ export function StoryBossFightHost({
                             <RequiredStoryResultDialog
                                 label="Chapter complete"
                                 focusVersion={`${settleState}-${result ? "ready" : "waiting"}`}
+                                cinematic
                             >
                                 <div className="story-fight-complete-card">
                                     <p className="story-fight-complete-kicker">{result?.finale ? "Village Story Complete" : "Chapter Complete"}</p>

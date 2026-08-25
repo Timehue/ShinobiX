@@ -56,20 +56,136 @@ html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
 
     html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-layout.has-action-notice > .combat-main-area {
         grid-template-rows:
-            28px
-            clamp(72px, 10dvh, 88px)
+            clamp(64px, 8dvh, 72px)
             26px
             minmax(240px, 1fr)
-            72px
-            clamp(104px, 15dvh, 132px)
-            46px !important;
+            52px
+            64px
+            clamp(108px, 14dvh, 124px) !important;
         gap: 6px !important;
         padding: 6px !important;
     }
 
+    /* Desktop combat gets the same explicit Actions / Battle Log navigation as
+       compact combat. The old layout hid the tabs and squeezed the entire log
+       into a 46px track, which rendered little more than its header. Keeping one
+       lower panel active at a time returns that height to the board and gives the
+       log a genuine, scroll-owned reading surface. */
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .dual-ap-panel {
+        grid-row: 1 !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .twp-strip {
+        grid-row: 2 !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .hex-battlefield {
+        grid-column: 1 / -1 !important;
+        grid-row: 3 !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .battle-tabbar {
+        grid-row: 4 !important;
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 5px;
+        height: 52px;
+        margin: 0 !important;
+        padding: 4px;
+        background: rgba(8, 12, 24, 0.78);
+        border: 1px solid var(--bsv2-gold-soft, rgba(196, 162, 90, 0.42));
+        border-radius: 8px;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .battle-tab {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 4px 12px;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 5px;
+        color: rgba(196, 162, 90, 0.76);
+        font: 600 12px/1 var(--font-display);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        cursor: pointer;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .battle-tab-active {
+        color: var(--bsv2-gold-bright, #e8d496);
+        background: linear-gradient(180deg, rgba(37, 49, 75, 0.96), rgba(10, 16, 32, 0.98));
+        border-color: rgba(196, 162, 90, 0.5);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 2px 6px rgba(0, 0, 0, 0.45);
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .battle-tab-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 19px;
+        height: 19px;
+        margin-left: 8px;
+        padding: 0 5px;
+        color: #fff;
+        background: var(--danger, #dc2626);
+        border-radius: 999px;
+        font: 700 10px/1 Inter, sans-serif;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .shinobi-command-bar {
+        grid-row: 5 !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-jutsu-bar,
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-text-log {
+        grid-row: 6 !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-main-area.bt-actions .combat-text-log,
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-main-area.bt-log .shinobi-command-bar,
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-main-area.bt-log .combat-jutsu-bar {
+        display: none !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-main-area.bt-log .combat-text-log {
+        display: block !important;
+        grid-row: 5 / 7 !important;
+        height: 100% !important;
+        min-height: 178px !important;
+        overflow-y: auto !important;
+    }
+
+    /* Feedback shares the battlefield track as a compact bottom overlay instead
+       of permanently taxing every turn for an empty 28px desktop row. */
     html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-action-notice {
-        height: 28px !important;
-        max-height: 28px !important;
+        position: relative;
+        z-index: 18;
+        grid-column: 1 / -1 !important;
+        grid-row: 3 !important;
+        align-self: end;
+        justify-self: center;
+        width: calc(100% - 24px);
+        margin: 0 0 10px !important;
+        background: rgba(3, 7, 14, 0.82);
+        border: 1px solid rgba(196, 162, 90, 0.24);
+        border-radius: 6px;
+        backdrop-filter: blur(6px);
+    }
+
+    /* The dossier and on-board combatants should read as characters, not map
+       pins. The side portrait still fits the slim 190px dossier interior. */
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-avatar {
+        width: 144px !important;
+        height: 144px !important;
+        font-size: 46px !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-action-notice {
+        height: 30px !important;
+        max-height: 30px !important;
     }
 
     html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .dual-ap-panel {

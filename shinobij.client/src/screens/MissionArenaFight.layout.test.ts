@@ -85,7 +85,8 @@ test("mission fight reserves a row for its action notice instead of displacing t
         `the notice pin is gated at max-width ${noticeBound}px but the sibling band pins it lines up with are gated at ${siblingPinBound}px — they must match`,
     );
 
-    const missionTabRule = missionCss.match(
+    const mobileMissionCss = missionCss.slice(missionCss.indexOf("@media (max-width: 1023px)"));
+    const missionTabRule = mobileMissionCss.match(
         /\.arena-fullscreen\.pvp-battle-layout\.mission-arena-fight \.battle-tab\s*\{([^}]*)\}/,
     );
     assert.ok(missionTabRule, "mobile tab sizing must remain scoped to mission combat");
@@ -96,6 +97,7 @@ test("mission fight reserves a row for its action notice instead of displacing t
     );
     const missionTabAnchor = missionCss.indexOf(
         ".arena-fullscreen.pvp-battle-layout.mission-arena-fight .battle-tab",
+        missionCss.indexOf("@media (max-width: 1023px)"),
     );
     const missionTabBounds = [
         ...missionCss.slice(0, missionTabAnchor).matchAll(/@media \(max-width:\s*(\d+)px\)\s*\{/g),
@@ -334,9 +336,25 @@ test("mission desktop restores the dossier-board-dossier composition and full-wi
     );
     assert.match(
         missionCss,
-        /\.combat-layout\.has-action-notice > \.combat-main-area\s*\{[\s\S]*?grid-template-rows:\s*28px\s*clamp\(72px, 10dvh, 88px\)\s*26px\s*minmax\(240px, 1fr\)\s*72px\s*clamp\(104px, 15dvh, 132px\)\s*46px\s*!important;/,
-        "desktop mission combat must reserve the flexible majority of its height for the tactical board",
+        /\.combat-layout\.has-action-notice > \.combat-main-area\s*\{[\s\S]*?grid-template-rows:\s*clamp\(64px, 8dvh, 72px\)\s*26px\s*minmax\(240px, 1fr\)\s*52px\s*64px\s*clamp\(108px, 14dvh, 124px\)\s*!important;/,
+        "desktop mission combat must reserve the flexible majority of its height for the tactical board and a real lower panel",
     );
+
+    assert.match(
+        missionCss,
+        /\.combat-main-area\.bt-log \.combat-text-log\s*\{[^}]*display:\s*block\s*!important;[^}]*grid-row:\s*5 \/ 7\s*!important;[^}]*min-height:\s*178px\s*!important;/s,
+        "desktop mission combat must expose a dedicated scroll-owned battle-log panel",
+    );
+    assert.match(missionCss, /\.combat-main-area\.bt-actions \.combat-text-log/,
+        "the collapsed header-only log must not remain under the action tray");
+    assert.match(missionCss, /\.mission-arena-fight \.battle-tab\s*\{[^}]*min-height:\s*44px/s,
+        "desktop battle tabs must remain full-size touch targets at the 1024px boundary");
+    assert.match(missionCss, /\.mission-arena-fight \.hex-battlefield\s*\{[^}]*grid-column:\s*1 \/ -1\s*!important;[^}]*grid-row:\s*3\s*!important;/s,
+        "the desktop battlefield must fill the center grid instead of auto-placing into an implicit sliver");
+    assert.match(missionCss, /\.mission-arena-fight \.combat-action-notice\s*\{[^}]*grid-column:\s*1 \/ -1\s*!important;[^}]*grid-row:\s*3\s*!important;/s,
+        "the desktop notice must overlay the full-width battlefield cell without creating an implicit column");
+    assert.match(missionSource, /const ORB = 68;/,
+        "solo battlefield combatants must retain the larger readable actor anchor");
 
     const desktopBoardRule = battleSkinCss.match(
         /\.arena-fullscreen\.pvp-battle-layout \.hex-battlefield,[\s\S]*?\{([^}]*)\}/,
@@ -349,7 +367,8 @@ test("mission desktop restores the dossier-board-dossier composition and full-wi
         /\.arena-fullscreen\.pvp-battle-layout \.battle-tabbar\s*\{([^}]*)\}/,
     );
     assert.ok(desktopTabsRule, "desktop combat must retain its tab-bar rule");
-    assert.match(desktopTabsRule![1], /display:\s*none\s*!important/);
+    assert.match(desktopTabsRule![1], /display:\s*none\s*!important/,
+        "the shared PvP desktop default stays unchanged; mission combat overrides it with its dedicated panel switch");
 });
 
 test("every live shinobi fight uses the shared viewport-level combat instance", () => {

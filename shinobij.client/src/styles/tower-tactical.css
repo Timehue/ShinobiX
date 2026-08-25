@@ -774,6 +774,16 @@
         display: none !important;
     }
 
+    /* Firefox preserves the 280px phone-board minimum more rigidly than the
+       Chromium/WebKit flex projection. On a 320x568 viewport that left only a
+       few pixels of the first technique visible below the command rail. Keep a
+       substantial tactical board, but reserve one complete 44px technique tap
+       target inside the initial viewport. */
+    html body > .combat-instance.screen-battleTowerFight .tower-board-area {
+        flex-basis: clamp(224px, 40dvh, 240px);
+        min-height: clamp(224px, 40dvh, 240px) !important;
+    }
+
     .screen-battleTowerFight .tower-turn-queue {
         display: none;
     }
