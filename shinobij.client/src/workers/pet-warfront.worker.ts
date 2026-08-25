@@ -71,10 +71,10 @@ function initialize(message: WarfrontWorkerInit) {
         // gameplay, AI, combat, and authority remain at 30 Hz.
         snapshotEvery: 2,
     });
-    // The main thread owns an identical tick-zero bootstrap frame, so only send
-    // deltas produced by actual worker simulation.
-    sentSnapshots = ctl.result.snapshots.length;
-    sentEvents = ctl.result.events.length;
+    // The worker is the sole runtime owner of the simulation engine. Send its
+    // authoritative tick-zero frame before streaming the opening round.
+    sentSnapshots = 0;
+    sentEvents = 0;
     running = false;
     emitBatch();
     runRound();
