@@ -102,7 +102,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
     const name = character.name;
     const teamSize = mode === "tactical" ? 4 : 1;
     // Admin-comped entitlements can expire while this screen remains mounted.
-    const available = carriedPets.filter((pet) => isPetAvailableForWarfront(pet, breedingPetIds));
+    const available = activeCarriedPets<Pet>(character).filter((pet) => isPetAvailableForWarfront(pet, breedingPetIds));
     const tacticalUnlocked = available.length >= TACTICAL_ARENA_PET_REQUIREMENT;
 
     const refresh = useCallback(async () => {
