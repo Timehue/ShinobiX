@@ -1,5 +1,7 @@
 import type { CSSProperties, ReactElement } from "react";
 import type { ChronicleDisplayCard } from "../lib/chronicle-duel";
+import { chronicleCardArtSrcSet, CARD_ART_SIZES_DEFAULT } from "../lib/chronicle-card-art";
+
 
 // Crisp per-element glyphs for the corner badge — reads far more premium than a
 // bare letter. White fills/strokes ride on top of the element-tinted gem.
@@ -75,6 +77,7 @@ export function ChronicleCardView({
   compact = false,
   selected = false,
   disabled = false,
+  artSizes = CARD_ART_SIZES_DEFAULT,
   onClick,
 }: {
   card?: ChronicleDisplayCard;
@@ -82,6 +85,19 @@ export function ChronicleCardView({
   compact?: boolean;
   selected?: boolean;
   disabled?: boolean;
+  /**
+   * The `sizes` hint for the art srcset, i.e. how wide this card actually
+   * renders. Defaults to the 252px base card, which also covers the compact
+   * board tiles and the collection grid.
+   *
+   * Pass an override on any surface that displays the card LARGER, otherwise
+   * the browser picks the 512px variant and upscales it. Two surfaces do:
+   * the card inspector, and Pack Opening — whose card is 252px in layout but
+   * carries a `transform: scale()` up to 1.25x. A transform is invisible to
+   * `sizes` (it does not change the layout box), so that one has to be stated
+   * explicitly or the reveal moment renders from a soft upscale.
+   */
+  artSizes?: string;
   onClick?: () => void;
 }) {
   if (hidden || !card) {
@@ -161,6 +177,11 @@ export function ChronicleCardView({
       : card.name.length > 20
         ? "long-name"
         : "";
+  // Only catalog art under /chronicle/cards/ has a generated 512px sibling;
+  // admin overlays and data: URLs come back undefined and render unchanged.
+  const artSrcSet = card.image
+    ? chronicleCardArtSrcSet(card.image)
+    : undefined;
   const usesEmblemArt = Boolean(
     card.image &&
       ["/badges/", "/legacy/jutsu/", "/combat-vfx/"].some((prefix) =>
@@ -232,6 +253,11 @@ export function ChronicleCardView({
           <img
             className="chronicle-card__art"
             src={card.image}
+            srcSet={artSrcSet}
+            // `sizes` is what decides between the 512px variant and the 768px
+            // original; it is meaningless without a srcset, so only emit it
+            // alongside one. See the artSizes prop for why callers override it.
+            sizes={artSrcSet ? artSizes : undefined}
             alt=""
             draggable={false}
             loading="lazy"
