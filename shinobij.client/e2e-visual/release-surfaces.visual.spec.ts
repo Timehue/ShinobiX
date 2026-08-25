@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { PUBLIC_CAPABILITY_IDS } from '../../shared/public-capabilities';
 
 const FIXED_NOW = Date.UTC(2026, 0, 15, 12, 0, 0);
 
@@ -108,6 +109,21 @@ test('authenticated Central Hub shell', async ({ page }) => {
         if (path === '/api/weekly-boss') return json(route, { boss: null, fightEnabled: true });
         if (path === '/api/ranked-season') return json(route, { current: null, lastSeason: null });
         if (path === '/api/legacy/status') return json(route, { enabled: false });
+        // The player surface is gated on a live capability answer
+        // (LiveCapabilitiesProvider / PlayerSurfaceBlocker). The generic
+        // fallback below returns no `capabilities` key, which reads as "still
+        // checking" and parks the app on "Reconnecting to your save" forever —
+        // which is exactly how this spec silently rotted after the capability
+        // system landed. Mirrors e2e/helpers/ui-audit-runtime.ts.
+        if (path === '/api/player/capabilities') {
+            return json(route, {
+                ok: true,
+                capabilities: Object.fromEntries(PUBLIC_CAPABILITY_IDS.map((id) => [
+                    id,
+                    { state: 'available', reason: 'available' },
+                ])),
+            });
+        }
         return json(route, { ok: true, images: {}, categories: {}, players: [], leaderboard: [], announcements: [], entries: [], eras: [], wars: [], territories: [], standings: [] });
     });
     await page.addInitScript(() => {
@@ -119,6 +135,10 @@ test('authenticated Central Hub shell', async ({ page }) => {
     await page.goto('/#/centralHub', { waitUntil: 'networkidle' });
     const dismissPatchNotes = page.getByRole('button', { name: 'Got it' });
     if (await dismissPatchNotes.isVisible()) await dismissPatchNotes.click();
-    await expect(page.getByRole('heading', { name: 'Central — The Thousand Gates' })).toBeVisible();
+    // The h1 is two spans ("Central" + "The Thousand Gates") with the separator
+    // supplied by CSS, so the accessible name has no em dash in it. Match on the
+    // words rather than the punctuation: this locator previously pinned a dash
+    // that the DOM never contained, and the failure looked like a broken hub.
+    await expect(page.getByRole('heading', { name: /Central\s+The Thousand Gates/ })).toBeVisible();
     await screenshot(page, 'central-hub-desktop.png');
 });
