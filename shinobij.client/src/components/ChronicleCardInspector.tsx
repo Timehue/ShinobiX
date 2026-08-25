@@ -5,6 +5,7 @@
 import type { ReactNode } from "react";
 import { Modal } from "./ui/Modal";
 import { ChronicleCardView } from "./ChronicleCardView";
+import { CARD_ART_SIZES_INSPECTOR } from "../lib/chronicle-card-art";
 import type { ChronicleDisplayCard } from "../lib/chronicle-duel";
 
 function taxonomyLine(card: ChronicleDisplayCard): string {
@@ -76,7 +77,9 @@ export function ChronicleCardInspector({
         >
           ×
         </button>
-        <ChronicleCardView card={card} />
+        {/* zoom: this modal is the one surface that displays a card large
+            enough to need the full-resolution art (see ChronicleCardView). */}
+        <ChronicleCardView card={card} artSizes={CARD_ART_SIZES_INSPECTOR} />
         <div className="chronicle-card-zoom__codex">
           <strong>{card.name}</strong>
           <span className="chronicle-card-zoom__taxonomy">
