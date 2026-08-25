@@ -381,18 +381,27 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                         <h1 className="landing-title">
                             <BrandLockup variant="hero" />
                         </h1>
-                        {/* Says what the app IS, in plain words, above the fold.
-                            Atmosphere is the job of the sections below; this
-                            paragraph exists so a first-time visitor — or an
-                            OAuth reviewer checking that the home page explains
-                            the app's purpose — can tell what this is without
-                            interpreting flavour text. Keep the app name in it
-                            verbatim: it has to match the consent screen. */}
+                        {/* Two jobs, in this order, and both are load-bearing.
+                            The first sentence is the hook — this is a game's
+                            home page and it should read like one. The second
+                            says what the app IS in plain words, so a
+                            first-time visitor, or an OAuth reviewer checking
+                            that the home page explains the app's purpose, never
+                            has to interpret flavour text to find it.
+
+                            Do not delete or weaken the second sentence, and keep
+                            the app name in it VERBATIM — it has to match the
+                            Google consent screen character for character.
+                            Brand verification rejected this app twice for
+                            "home page does not explain the purpose" and "app
+                            name does not match". The village count is read from
+                            live data on purpose: the same review asks that the
+                            page describe the app accurately, and this line once
+                            claimed five. Enforced by start-screen-oauth.test.ts. */}
                         <p className="landing-tagline">
-                            <strong>{APP_NAME}</strong> is a free role-playing game you play in your
-                            browser. Create a shinobi, train their stats and jutsu, take on missions
-                            and story chapters, raise companions, and test your build against other
-                            players across {villages.length} rival villages.
+                            Create your shinobi, master your jutsu, and carve out a legend across{" "}
+                            {villages.length} rival villages. <strong>{APP_NAME}</strong> is a free
+                            role-playing game you play in your browser.
                         </p>
 
                         <div className="landing-stat-chips">
