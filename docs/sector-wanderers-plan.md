@@ -2,6 +2,20 @@
 
 > ## ✅ As-built (shipped to `main` — ALWAYS ON; the `wanderers.v1` per-device opt-out was RETIRED 2026-08-24)
 >
+> **Encounter rate, 2026-08-25 (owner ruling).** Wanderers approach you and
+> ambushes happen — that is the design. But a hunter must FIND you: it locks
+> on inside `HUNT_SPOT_TILES` and gives up outside the wider `HUNT_LEASH_TILES`
+> (`components/SectorWanderer.tsx`), instead of pathing to the player from
+> anywhere on the board the moment it armed. Combined with arrivals landing on
+> the edge you travelled in from (`arrivalTileFromOrigin`, `shared/sector-links.ts`),
+> ambush-on-arrival measured **1 in 26** across 76,000 sampled arrivals, down
+> from a flat **1 in 12** — and it now rises the longer you linger in a sector
+> rather than being a fixed roll. The ROSTER was not changed.
+>
+> Reduced-motion players get the same encounters, closed in discrete steps on a
+> timer rather than a per-frame tween. The loop used to return early for them,
+> which exempted them from every road ambush in the game.
+>
 > The feature below is **built and turned on** (Railway builds from source). Each
 > archetype has a bespoke portrait (gpt-image-1) and an NPC dialog. What actually
 > shipped, and where it differs from the original plan:

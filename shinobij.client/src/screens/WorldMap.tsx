@@ -102,7 +102,7 @@ import { BackToVillageButton } from "../components/BackToVillageButton";
 import { WorldToast } from "../components/WorldToast";
 import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
 import { SECTOR_POINTS } from "../data/sector-points";
-import { sectorExits as roadExitsForSector, type SectorExit } from "../../../shared/sector-links";
+import { sectorExits as roadExitsForSector, arrivalTileFromOrigin, type SectorExit } from "../../../shared/sector-links";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { scaleWandererPetOpponent } from "../lib/pet-balance";
 import { befriendWildPet, declineWildPetEncounter, startWildPetEncounter } from "../lib/wild-pet-encounter-api";
@@ -2706,13 +2706,16 @@ export function WorldMap({
         // left, leave from the top and you arrived at the top. That made every
         // trip read as a teleport rather than as travelling a direction.
         // Along a road, arrive on the edge facing the sector you came from —
-        // identical to walking through that gate. Otherwise it is a jump across
-        // the map with no direction to honour, so start in the middle rather
-        // than on a stale edge tile.
+        // identical to walking through that gate. With no road, derive that same
+        // edge from the two sectors' map positions, so EVERY arrival comes in
+        // from the side you travelled from; only a trip with no origin at all
+        // (a fresh boot, a village spawn) still starts in the middle.
         const road = originSector == null
             ? undefined
             : roadExitsForSector(originSector).find((exit) => exit.destinationSector === sector);
-        setSectorPlayerPos(road ? road.destinationTile : SECTOR_CENTRE_TILE);
+        const arrival = road?.destinationTile
+            ?? (originSector == null ? null : arrivalTileFromOrigin(originSector, sector));
+        setSectorPlayerPos(arrival ?? SECTOR_CENTRE_TILE);
         const splashLabel = regionSplashLabelFor(sector);
         if (splashLabel) setRegionSplash({ label: splashLabel, tint: regionTintForSector(sector), stamp: Date.now() });
         });
