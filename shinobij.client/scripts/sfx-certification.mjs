@@ -169,6 +169,32 @@ for (const row of rows) {
   if (row.clipped > 0) failures.push(`${row.cue}: contains clipped samples`);
 }
 
+// Every WAV master must keep its compressed delivery siblings. game-audio.ts
+// fetches .ogg (Vorbis, gapless — the looping ambience beds need that) and falls
+// back to .m4a on Safari/iOS, which decodes no Ogg. A missing sibling is not
+// fatal at runtime (the loader falls back to the master) but it silently costs a
+// player ~12x the bytes, so treat it as a certification failure. Regenerate with
+// `node scripts/encode-audio.mjs`.
+for (const row of rows) {
+  for (const ext of [".ogg", ".m4a"]) {
+    const sibling = path.join(productionDir, `${row.cue}${ext}`);
+    try {
+      const [master, delivery] = await Promise.all([
+        fs.stat(path.join(productionDir, `${row.cue}.wav`)),
+        fs.stat(sibling),
+      ]);
+      if (delivery.mtimeMs < master.mtimeMs) {
+        failures.push(`${row.cue}: ${ext} delivery file is older than the .wav master`);
+      }
+      if (delivery.size >= master.size) {
+        failures.push(`${row.cue}: ${ext} delivery file is not smaller than the .wav master`);
+      }
+    } catch {
+      failures.push(`${row.cue}: missing ${ext} delivery file (run scripts/encode-audio.mjs)`);
+    }
+  }
+}
+
 for (const file of legacyFiles) {
   try {
     await fs.access(path.join(root, "public", "sfx", file));

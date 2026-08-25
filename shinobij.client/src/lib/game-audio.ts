@@ -2,6 +2,7 @@ import {
   isAudioMuted,
   subscribeAudioMute,
 } from "./pet-music";
+import { sfxDeliveryPath } from "./audio-delivery";
 
 export type GameSfxCue =
   | "impact-light"
@@ -283,6 +284,25 @@ function audioContext(): AudioContext | null {
   }
 }
 
+/*
+ * Delivery format. The authored masters under public/sfx/production are 48 kHz
+ * stereo 16-bit WAV — ~13.6 MB across 25 cues, and the five ambience beds alone
+ * are ~10.2 MB. scripts/encode-audio.mjs writes a .ogg (Vorbis) and .m4a (AAC)
+ * sibling for every master; sfxDeliveryPath picks whichever this browser can
+ * decode, which takes the same 25 cues to ~1.1 MB. See lib/audio-delivery.ts for
+ * why Vorbis wins where it is available (it is gapless, which the looping
+ * ambience beds depend on) and why WebKit gets AAC.
+ *
+ * The .wav masters stay shipped and stay last in the chain, so a browser that
+ * decodes neither codec — or a deploy where the siblings went missing — still
+ * gets sound rather than silence.
+ */
+async function decodeFrom(ctx: AudioContext, url: string): Promise<AudioBuffer | null> {
+  const response = await fetch(url);
+  if (!response.ok) return null;
+  return await ctx.decodeAudioData(await response.arrayBuffer());
+}
+
 async function loadBuffer(path: string): Promise<AudioBuffer | null> {
   const cached = buffers.get(path);
   if (cached) return cached;
@@ -293,14 +313,19 @@ async function loadBuffer(path: string): Promise<AudioBuffer | null> {
   if (!ctx) return null;
   const request = (async () => {
     try {
-      const response = await fetch(path);
-      if (!response.ok) return null;
-      const buffer = await ctx.decodeAudioData(await response.arrayBuffer());
+      // Cache under the master path so the chosen delivery format stays an
+      // implementation detail of this module.
+      const delivery = sfxDeliveryPath(path);
+      let buffer = await decodeFrom(ctx, delivery).catch(() => null);
+      if (!buffer && delivery !== path) {
+        buffer = await decodeFrom(ctx, path).catch(() => null);
+      }
+      if (!buffer) return null;
       buffers.set(path, buffer);
       return buffer;
-    } catch {
-      return null;
     } finally {
+      // Always clear the in-flight entry: a stuck one would pin this cue to a
+      // resolved-null promise for the rest of the session.
       loading.delete(path);
     }
   })();

@@ -7,6 +7,7 @@
  * player gesture when browser autoplay policy blocks the initial request.
  */
 import { isAudioMuted, subscribeAudioMute } from "./pet-music";
+import { musicDeliverySrc } from "./audio-delivery";
 import type { VnSoundCue } from "../types/vn";
 
 export type VnScoreKey = "stormveil" | "ashen" | "frostfang" | "moonshadow" | "hollow";
@@ -161,7 +162,9 @@ export function startVnScore(key: VnScoreKey | null): void {
         const incoming = audioDecks[incomingIndex];
         const outgoing = audioDecks[outgoingIndex];
         incoming.pause();
-        incoming.src = VN_SCORE_TRACKS[key];
+        // WebKit decodes no Ogg container, so on Safari/iOS this resolves to the
+        // .m4a sibling. Without it the entire VN score was silent on iPhone/iPad.
+        incoming.src = musicDeliverySrc(VN_SCORE_TRACKS[key]);
         incoming.currentTime = 0;
         incoming.playbackRate = 1;
         currentKey = key;
