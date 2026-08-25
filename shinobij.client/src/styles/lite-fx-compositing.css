@@ -1,0 +1,103 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   lite-fx — COMPOSITING relief for weak devices.
+
+   src/lib/device-tier.ts tags <html class="lite-fx"> on touch-primary devices
+   with <=4 GB RAM or <=4 cores, and on anyone who asked the OS for reduced
+   motion. Until now that class only dropped decorative ANIMATION (23 rules in
+   28-desktop-scaling.css and friends) and never touched `backdrop-filter`,
+   which is the single most expensive thing the game asks a mobile GPU to do:
+   every painted frame re-reads the backdrop behind the element and runs a blur
+   over it.
+
+   That cost is not theoretical here. index/06-combat-core.css already carries a
+   dated note about removing exactly one such blur — the per-tile
+   `backdrop-filter: blur(1px)` on the ~120 combat hex tiles — because it
+   "tanked low-end Android (Mali/Adreno) GPUs with constant battle lag". The fix
+   was applied to that one component and the other ~82 rules were left alone.
+   This file finishes that job for the devices lite-fx already targets.
+
+   COSMETIC ONLY, exactly like the rest of the lite-fx layer: nothing here
+   changes layout, gameplay, balance, saves, or what information is shown.
+   Capable devices never match `.lite-fx` and render identically to today.
+
+   Loaded LAST from main.tsx (after veiled-steel and the adaptive-* layers) so
+   it wins the cascade without needing a numbered part in the index.css
+   manifest — per-part extraction from that manifest is known-unsafe, see
+   src/styles/css-manifest.test.ts and the 2026-07-28 revert of 93bf6ea70.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+html.lite-fx,
+html.lite-fx *,
+html.lite-fx *::before,
+html.lite-fx *::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* ── Contrast restoration ──────────────────────────────────────────────────
+   Of the 83 rules that declare a backdrop-filter, 68 sit on backing that is
+   already >=50% opaque, so removing the blur there is imperceptible — the tint
+   alone carries the "glass" look, which is the same reasoning the hex-tile fix
+   used. The rules below are the ones whose backing is thin enough that the blur
+   was doing real legibility work, so each gets a heavier tint in its OWN hue
+   instead. Everything stays a dark translucent panel; it just stops being a
+   live blur.
+
+   Not listed on purpose: `.pet-home-hero-ledger` (its `> div` children are
+   opaque at rgba(4,11,21,.86) and the parent shows only as 1px grid gaps) and
+   `.vn-dialogue` / `.cvn-dialogue-shell` (backing already .93-.94). */
+
+/* Creator / admin / inventory / profile cards — backing was rgba(5,10,22,.42).
+   Keeps the original two-stop sheen so the panels read the same, just solid. */
+html.lite-fx .creator-card,
+html.lite-fx .admin-subpanel,
+html.lite-fx .inventory-card,
+html.lite-fx .profile-card,
+html.lite-fx .cinematic-card {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)),
+        rgba(5, 10, 22, 0.88) !important;
+}
+
+/* Technique / AI-preset panels — backing was rgba(2,6,23,.36). */
+html.lite-fx .technique-filter-panel,
+html.lite-fx .technique-selected-panel,
+html.lite-fx .admin-panel-heading,
+html.lite-fx .ai-preset-card {
+    background: rgba(2, 6, 23, 0.88) !important;
+}
+
+/* Pet park tiles — backing was rgba(4,20,10,.28). Kept deliberately lighter
+   than the panels above: these sit over the park art and are scenery, not text
+   surfaces, so they should still read as tinted glass rather than a solid slab. */
+html.lite-fx .pet-park-tile {
+    background: rgba(4, 20, 10, 0.58) !important;
+}
+
+/* Cinematic VN scene caption — backing was rgba(5,8,11,.46) under .72-alpha
+   body text, the thinnest text surface in the set. */
+html.lite-fx .cvn-scene-caption {
+    background: rgba(5, 8, 11, 0.86) !important;
+}
+
+/* Landing page — a weak phone's first impression, so these matter. */
+html.lite-fx .landing-eyebrow {
+    background: rgba(120, 53, 15, 0.55) !important; /* was .22, amber hue kept */
+}
+
+html.lite-fx .landing-cta--ghost {
+    background: rgba(2, 6, 23, 0.74) !important; /* was .42 */
+}
+
+html.lite-fx .landing-login-highlights span {
+    background: rgba(2, 6, 23, 0.78) !important; /* was .46 */
+}
+
+/* Chronicle card nameplate — the one genuinely transparent case. Its own
+   comment says the frosting is the blur and legibility rides on the text
+   shadow; without a backdrop pass the shadow alone is thin over bright card
+   art, so add a light tint. Deliberately only .42 — the illustration is meant
+   to read through the nameplate. */
+html.lite-fx .chronicle-card__header {
+    background: rgba(2, 6, 23, 0.42) !important;
+}
