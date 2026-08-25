@@ -1274,3 +1274,35 @@
     grid-column: auto;
   }
 }
+
+/* Ambient help must not become a second bottom sheet. Mobile feature CSS used
+   to expand this notice back over the page; keep the shared compact trigger
+   above the fixed navigation and leave every gameplay control exposed. */
+@media (max-width: 979px) {
+  body:not(.in-battle):not(:has(> .combat-instance)) .screen-hint-banner.screen-hint-collapsed {
+    right: max(8px, env(safe-area-inset-right, 0px)) !important;
+    bottom: calc(var(--mobile-aaa-nav-height) + env(safe-area-inset-bottom, 0px) + 8px) !important;
+    left: auto !important;
+    inline-size: auto !important;
+    width: auto !important;
+    max-inline-size: 96px !important;
+    min-block-size: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
+  }
+
+  body:not(.in-battle):not(:has(> .combat-instance)) .screen-hint-banner.screen-hint-collapsed > .screen-hint-inline {
+    display: none !important;
+  }
+
+  body:not(.in-battle):not(:has(> .combat-instance)) .screen-hint-banner.screen-hint-collapsed > .screen-hint-battle-trigger {
+    display: inline-flex !important;
+    min-inline-size: 44px;
+    min-block-size: 44px;
+    pointer-events: auto !important;
+  }
+}

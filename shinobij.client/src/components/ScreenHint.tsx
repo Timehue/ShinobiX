@@ -31,11 +31,23 @@ const HINTS: Partial<Record<Screen, string>> = {
 };
 
 const bannerStyle: React.CSSProperties = {
-    position: "fixed", left: "50%", bottom: 16, transform: "translateX(-50%)",
-    maxWidth: 520, width: "calc(100% - 24px)", background: "var(--slate-900)",
-    border: "1px solid var(--cyan)", borderRadius: 12, padding: "10px 14px",
-    display: "flex", alignItems: "center", gap: 10, color: "#e0f2fe",
-    zIndex: 8500, boxShadow: "0 6px 24px rgba(0,0,0,0.5)", fontSize: 14,
+    position: "fixed", right: 16, bottom: 16,
+    width: "auto", maxWidth: 96, padding: 0,
+    display: "flex", alignItems: "center", color: "#e0f2fe",
+    zIndex: 8500,
+    // Ambient guidance is a compact help affordance, not a modal. Keeping the
+    // wrapper click-through guarantees it can never cover a gameplay control.
+    pointerEvents: "none",
+};
+
+const triggerStyle: React.CSSProperties = {
+    display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7,
+    minWidth: 44, minHeight: 44, maxWidth: "100%", padding: "7px 11px",
+    overflow: "hidden", border: "1px solid rgba(103, 232, 249, 0.72)",
+    borderRadius: 9, background: "linear-gradient(180deg, rgba(14, 35, 53, 0.97), rgba(4, 14, 27, 0.98))",
+    color: "#e0f2fe", boxShadow: "0 8px 22px rgba(0, 0, 0, 0.52)",
+    font: "700 12px/1.15 var(--font-display)", letterSpacing: "0.035em",
+    whiteSpace: "nowrap", cursor: "pointer", pointerEvents: "auto",
 };
 
 export function ScreenHint({
@@ -61,12 +73,12 @@ export function ScreenHint({
     return createPortal(
         <>
             <div
-                className={`onboarding-coach-banner screen-hint-banner screen-hint-${screen}`}
+                className={`onboarding-coach-banner screen-hint-banner screen-hint-collapsed screen-hint-${screen}`}
                 style={bannerStyle}
                 role="note"
                 aria-label={`${subject} contextual tip`}
             >
-                <div className="screen-hint-inline" style={{ display: "contents" }}>
+                <div className="screen-hint-inline" style={{ display: "none" }}>
                     <span className="screen-hint-copy" style={{ flex: 1, lineHeight: 1.4 }}>{text}</span>
                     <button
                         type="button"
@@ -84,7 +96,7 @@ export function ScreenHint({
                 <button
                     type="button"
                     className="screen-hint-battle-trigger"
-                    style={{ display: "none" }}
+                    style={triggerStyle}
                     aria-label={`Review ${subject} tip`}
                     aria-haspopup="dialog"
                     aria-expanded={detailsOpen}
