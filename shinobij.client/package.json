@@ -34,7 +34,11 @@
     "qa:pet-models:contacts": "node scripts/build-pet-model-contact-sheets.mjs",
     "qa:showdown-animations": "node scripts/render-showdown-pet-animation-preview.mjs",
     "author:pet-animations": "node ../node_modules/tsx/dist/cli.mjs scripts/author-all-pet-animations.mjs",
-    "gen:asset": "node scripts/gen-asset.mjs"
+    "gen:asset": "node scripts/gen-asset.mjs",
+    "gen:audio": "node scripts/encode-audio.mjs",
+    "check:audio": "node scripts/encode-audio.mjs --check",
+    "gen:card-variants": "node scripts/generate-card-variants.mjs",
+    "check:card-variants": "node scripts/generate-card-variants.mjs --check"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
