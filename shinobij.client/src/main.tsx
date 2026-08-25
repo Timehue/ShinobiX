@@ -6,6 +6,7 @@ import './styles/veiled-steel.css' // final player-facing studio theme; intentio
 import './styles/layout/adaptive-shell.css' // sole normal-page geometry and scrolling authority
 import './styles/layout/adaptive-stages.css' // coordinate-preserving maps and specialized board stages
 import './styles/layout/adaptive-tools.css' // responsive admin, creator, and authoring tools
+import './styles/lite-fx-compositing.css' // LAST: html.lite-fx drops backdrop-filter on weak devices
 import './lib/imageErrorGuard.ts' // install the global broken-image guard before first render
 import './lib/perfTelemetry.ts' // register load/refresh perf observers before first paint
 import { initSentry } from './lib/sentry.ts' // env-gated crash reporting (no-op without VITE_SENTRY_DSN)
