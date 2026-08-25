@@ -23,6 +23,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CSSProperties } from "react";
 import { ChronicleCardView } from "./ChronicleCardView";
+import { CARD_ART_SIZES_PACK } from "../lib/chronicle-card-art";
 import type { ChronicleDisplayCard } from "../lib/chronicle-duel";
 import type { CardPackType } from "../lib/card-pack";
 import {
@@ -393,7 +394,7 @@ export function CardPackOpening({
                                                     </span>
                                                     <span className="pack-card__face front">
                                                         {card ? (
-                                                            <ChronicleCardView card={card} />
+                                                            <ChronicleCardView card={card} artSizes={CARD_ART_SIZES_PACK} />
                                                         ) : (
                                                             <span className="pack-card__missing">{entry.id}</span>
                                                         )}
@@ -576,7 +577,7 @@ export function CardPackOpening({
                 >
                     <div className="pack-inspect__card">
                         {cardsById[plan[inspect].id] ? (
-                            <ChronicleCardView card={cardsById[plan[inspect].id]} />
+                            <ChronicleCardView card={cardsById[plan[inspect].id]} artSizes={CARD_ART_SIZES_PACK} />
                         ) : (
                             <span className="pack-card__missing">{plan[inspect].id}</span>
                         )}
