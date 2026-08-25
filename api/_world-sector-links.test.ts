@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SECTOR_EXITS, SECTOR_POINTS, SECTOR_ROAD_PAIRS, NON_WALKABLE_SECTORS, WALK_IN_DEPTH, arrivalTileFromOrigin, sectorExitById, sectorExits } from '../shared/sector-links.js';
+import { SECTOR_EXITS, SECTOR_POINTS, SECTOR_ROAD_PAIRS, NON_WALKABLE_SECTORS, WALK_IN_DEPTH, arrivalTileFromOrigin, sectorExitById, sectorExits, travelArrivalTile } from '../shared/sector-links.js';
 import { WILD_SECTOR_IDS } from '../shared/sector-geo.js';
 
 test('sector roads cover the whole standard world with reciprocal bounded exits', () => {
@@ -126,4 +126,41 @@ test('a roadless arrival still comes in from the side you travelled from', () =>
     assert.ok(checked > 4_000, `expected every ordered sector pair, checked ${checked}`);
     assert.equal(arrivalTileFromOrigin(5, 5), null, 'no direction to honour from yourself');
     assert.equal(arrivalTileFromOrigin(-1, 5), null, 'an unknown origin falls back to the caller');
+});
+
+
+test('travelArrivalTile is the ONE definition both trees arrive by', () => {
+    // The client draws the traveller here and the server seals the same value
+    // into the travel lease, which is what every OTHER player in the destination
+    // sector sees. They call this function rather than hand-copying a
+    // precedence, so the two cannot drift into placing one player on two tiles.
+    let roadArrivals = 0;
+    for (const point of SECTOR_POINTS) {
+        for (const exit of sectorExits(point.id)) {
+            // A road between the two: arrive at that road's mouth, exactly as if
+            // the player had walked through the gate.
+            assert.equal(travelArrivalTile(point.id, exit.destinationSector), exit.destinationTile,
+                `${point.id} → ${exit.destinationSector} must arrive at the road mouth`);
+            roadArrivals++;
+        }
+    }
+    assert.ok(roadArrivals > 100, `expected the whole road network, saw ${roadArrivals}`);
+
+    // No road: fall through to the geometric edge, never to null while both
+    // sectors are real places.
+    let geometric = 0;
+    for (const from of SECTOR_POINTS) {
+        const linked = new Set(sectorExits(from.id).map((exit) => exit.destinationSector));
+        for (const to of SECTOR_POINTS) {
+            if (from.id === to.id || linked.has(to.id)) continue;
+            assert.equal(travelArrivalTile(from.id, to.id), arrivalTileFromOrigin(from.id, to.id));
+            assert.ok(travelArrivalTile(from.id, to.id) !== null);
+            geometric++;
+        }
+    }
+    assert.ok(geometric > 3_000, `expected the roadless majority, saw ${geometric}`);
+
+    // Leaving a village (sector 0 is not a map point) names no tile, and the
+    // caller keeps its centre-tile fallback.
+    assert.equal(travelArrivalTile(0, 12), null);
 });

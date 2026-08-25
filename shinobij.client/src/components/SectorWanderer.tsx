@@ -49,7 +49,13 @@ const HUNT_LEASH_TILES = 8.0;   // ...and gives up outside this
 // ambush in the game — a real gameplay asymmetry, not an accommodation. They
 // now get the same encounters, closed in discrete steps on a timer instead of
 // a per-frame tween.
-const REDUCED_STEP_MS = 600;
+// 200ms x WALK_TILES_PER_SEC lands on exactly ONE tile per step. That is the
+// point of the number: the wanderer covers the same ground per second as it
+// does animated — so the encounter plays out identically — while never making
+// a large sudden jump, which is the motion reduced-motion users are actually
+// asking to avoid. A coarser timer preserves the speed too, but by teleporting
+// several tiles at once, which is worse for them than the tween was.
+const REDUCED_STEP_MS = 200;
 const SMOOTH_MAX_DT = 0.05;
 
 const AURA: Record<Biome, string> = {
