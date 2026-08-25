@@ -5,7 +5,7 @@ import { cors, parseJsonBody } from '../_utils.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { getIo } from '../_realtime/socket.js';
 import { toPlayerRecord } from '../_realtime/presence-input.js';
-import { sectorExitById, type SectorExit } from '../../shared/sector-links.js';
+import { sectorExitById, travelArrivalTile, type SectorExit } from '../../shared/sector-links.js';
 import { isWildSector } from '../../shared/sector-geo.js';
 import { clearTravelLease, setTravelLease } from '../_realtime/travel-lease.js';
 
@@ -90,6 +90,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         arrivalTile = exit.destinationTile;
         edgeOriginSector = exit.sector;
+    } else {
+        // A MAP jump arrives on the edge facing the sector it came from, same as
+        // a road crossing — derived from the shared topology so the server seals
+        // the value the client shows. Before this the server left arrivalTile
+        // undefined for map travel, so settleMaturedTravel carried the player's
+        // OLD sector coordinate into the new sector and everyone else in it saw
+        // them standing at a stale tile until their next heartbeat landed.
+        // ONE definition, shared with the client (see travelArrivalTile): the
+        // traveller's screen and every observer in the destination must place
+        // them on the same tile. Null — no origin to honour, e.g. leaving a
+        // village at sector 0 — keeps the old behaviour of naming no tile.
+        arrivalTile = travelArrivalTile(player.sector, destinationSector) ?? undefined;
     }
     if (player.sector === destinationSector) {
         return res.status(200).json({ ok: true, destinationSector, arrivalAt: Date.now(), travelMs: 0, arrivalTile });
