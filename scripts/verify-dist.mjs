@@ -88,6 +88,40 @@ const missingReferencedClientAsset = referencedClientAssets.find((file) => !clie
 if (missingReferencedClientAsset) fail(`client index references a missing built asset: ${missingReferencedClientAsset}`);
 const missingRequiredClientFile = requiredClientFiles.find((file) => !clientRelativeFileSet.has(file));
 if (missingRequiredClientFile) fail(`client dist is missing required runtime asset: ${missingRequiredClientFile}`);
+/*
+ * Compressed delivery siblings must survive into the SHIPPED dist, not merely
+ * exist in public/. The unit tests assert the public/ side; only this check sees
+ * what the build actually emitted, which is where an ignore rule or a copy step
+ * would silently drop them — the same shape as the prod-only GLB 404s.
+ *
+ * A missing sibling is never silence at runtime (the loaders fall back), but it
+ * costs a player up to 12x the bytes for audio and ~3.5x for card art, which is
+ * exactly the kind of regression nothing else would surface.
+ */
+const deliveryGaps = [];
+for (const file of clientRelativeFiles) {
+    if (file.startsWith('sfx/production/') && file.endsWith('.wav')) {
+        for (const ext of ['.ogg', '.m4a']) {
+            const sibling = file.replace(/\.wav$/, ext);
+            if (!clientRelativeFileSet.has(sibling)) deliveryGaps.push(sibling);
+        }
+    } else if (file.startsWith('music/') && file.endsWith('.ogg')) {
+        // WebKit decodes no Ogg container at all, so the .m4a is the only thing
+        // standing between an iOS player and silence.
+        const sibling = file.replace(/\.ogg$/, '.m4a');
+        if (!clientRelativeFileSet.has(sibling)) deliveryGaps.push(sibling);
+    } else if (file.startsWith('chronicle/cards/') && file.endsWith('.webp') && !file.endsWith('-512.webp')) {
+        const sibling = file.replace(/\.webp$/, '-512.webp');
+        if (!clientRelativeFileSet.has(sibling)) deliveryGaps.push(sibling);
+    }
+}
+if (deliveryGaps.length) {
+    fail(
+        `client dist is missing ${deliveryGaps.length} compressed delivery file(s), e.g. ${deliveryGaps.slice(0, 3).join(', ')}. `
+        + 'Regenerate with `npm run gen:audio` / `npm run gen:card-variants` in shinobij.client.',
+    );
+}
+
 const leakedAuthoringPath = clientRelativeFiles.find((file) => forbiddenClientPrefixes.some((prefix) => file.startsWith(prefix)));
 if (leakedAuthoringPath) fail(`client dist contains pet authoring output: ${leakedAuthoringPath}`);
 const leakedSourceFile = clientRelativeFiles.find((file) => {
