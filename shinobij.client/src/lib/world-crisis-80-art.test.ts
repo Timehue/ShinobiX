@@ -6,6 +6,7 @@ import sharp from "sharp";
 const screen = readFileSync(new URL("../screens/WorldCrisis80.tsx", import.meta.url), "utf8");
 const screenCss = readFileSync(new URL("../screens/WorldCrisis80.css", import.meta.url), "utf8");
 const news = readFileSync(new URL("../components/WorldCrisis80NewsEntry.tsx", import.meta.url), "utf8");
+const sharedNews = readFileSync(new URL("../components/WorldCrisisNewsReport.tsx", import.meta.url), "utf8");
 const towerManifest = readFileSync(new URL("./tower-art-manifest.ts", import.meta.url), "utf8");
 
 const assets = [
@@ -36,7 +37,10 @@ test("event art is wired into the report, outskirts, operation cards, and sealed
     assert.match(screenCss, /var\(--collection-art\)/);
     assert.doesNotMatch(screenCss, /var\(--village-art\)/,
         "the cinematic battlefield must not stretch a village emblem as environment art");
-    assert.match(news, /crisis-cinematic__reckoning-art/);
+    assert.match(news, /heroArt={reckoningOutskirtsArt}/,
+        "the Reckoning wrapper must pass its authored environment art to the shared report");
+    assert.match(sharedNews, /className="crisis-cinematic__reckoning-art"/,
+        "the shared report must render supplied cinematic art");
     for (const biome of ["forest", "volcano", "snow", "shadow"]) {
         assert.match(towerManifest, new RegExp(`"world-crisis-80-${biome}":\\s*worldCrisis80Art`));
     }
