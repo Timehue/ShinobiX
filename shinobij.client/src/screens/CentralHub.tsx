@@ -838,7 +838,7 @@ export function CentralHub({
                     badge: "Companion trials",
                     art: petColosseumArt,
                     artPosition: "72% center",
-                    text: "Choose a companion for cinematic showdowns or enter the tactical pet arena.",
+                    text: "Choose a companion for cinematic Colosseum showdowns or command a four-pet squad in Hollow Warfront.",
                     action: () => setScreen("petArena"),
                 },
                 {

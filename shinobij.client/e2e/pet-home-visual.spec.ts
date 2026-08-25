@@ -72,7 +72,12 @@ function pet(
 }
 
 const basePets: PetFixture[] = [
-    pet("qa-fire-1", "rare-26", "Ember Ocelot", "Fire", "rare", 8, { image: "/pet-poses/rare-26-idle.webp", nickname: "Sumi", trait: "Swift" }),
+    pet("qa-fire-1", "rare-26", "Ember Ocelot", "Fire", "rare", 8, {
+        image: "/pet-poses/rare-26-idle.webp",
+        nickname: "Sumi",
+        trait: "Swift",
+        loadout: { pvp: "pvp-aegis-pendant", consumable: "consum-smoke-pellet" },
+    }),
     pet("qa-fire-2", "legendary-6", "Ember Phoenix", "Fire", "legendary", 6, { image: "/pet-poses/legendary-6-idle.webp", origin: "bred", generation: 2, trait: "Battleborn" }),
     pet("qa-water-1", "rare-1", "Tideback Otter", "Water", "rare", 7, { image: "/pet-poses/rare-1-idle.webp", trait: "Guardian" }),
     pet("qa-fire-spent", "standard-26", "Ember Mole", "Fire", "standard", 0, { image: "/pet-poses/standard-26-idle.webp", paletteVariantId: "chromatic-v1", origin: "event", trait: "Lucky" }),
@@ -148,6 +153,8 @@ function baseCharacter() {
         boneCharms: 0,
         auraStones: 0,
         mythicSeals: 0,
+        totalPetWins: 27,
+        dailyPetWins: 1,
         clanBattleContrib: 0,
         clanEventContrib: 0,
         clanMissionContrib: 0,
@@ -451,7 +458,32 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await expect(page.getByRole("heading", { name: /Pet Yard/ }).first()).toBeVisible();
     const yardHint = page.getByRole("button", { name: /got it/i });
     if (await yardHint.isVisible().catch(() => false)) await yardHint.click();
+    const readiness = page.locator(".pet-battle-readiness");
+    await expect(readiness.getByRole("heading", { name: "Battle Deployment" })).toBeVisible();
+    await expect(readiness).toContainText("Pet Colosseum");
+    await expect(readiness).toContainText("Hollow Warfront");
+    await expect(readiness).toContainText("Aegis Pendant");
+    await expect(readiness).toContainText("27 victories");
+    await expect(readiness.getByRole("button", { name: /Deploy Sumi/ })).toBeEnabled();
+    await expect(readiness.getByRole("button", { name: /Add Sumi to Squad/ })).toBeEnabled();
     await shot(page, testInfo, "14-existing-pet-yard-tab");
+    await readiness.screenshot({ path: testInfo.outputPath("14a-battle-deployment-console.png"), animations: "disabled" });
+
+    await readiness.getByRole("button", { name: /Add Sumi to Squad/ }).click();
+    await expect(page.getByRole("heading", { name: "Hollow Warfront", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Hollow Warfront/ })).toHaveAttribute("aria-current", "page");
+    const deployedWarfrontPet = page.locator(".pet-pick", { hasText: "Sumi" });
+    await expect(deployedWarfrontPet).toHaveClass(/selected/);
+    await expect(deployedWarfrontPet.locator(".pet-pick-order")).toHaveText("1");
+    await page.getByRole("button", { name: "Pet Yard" }).click();
+    await expect(page.getByRole("heading", { name: /Pet Yard/ }).first()).toBeVisible();
+
+    await page.locator(".pet-battle-readiness").getByRole("button", { name: /Deploy Sumi/ }).click();
+    await expect(page.getByRole("heading", { name: "The Colosseum", exact: true })).toBeVisible();
+    await expect(page.locator(".showdown-roster-card", { hasText: "Sumi" })).toHaveClass(/picked/);
+    await page.getByRole("button", { name: /Pet Arena/ }).click();
+    await page.getByRole("button", { name: "Pet Yard" }).click();
+    await expect(page.getByRole("heading", { name: /Pet Yard/ }).first()).toBeVisible();
 
     await page.getByRole("button", { name: "Pet Arena" }).click();
     await expect(page.getByRole("heading", { name: "Pet Colosseum", exact: true })).toBeVisible();
@@ -509,6 +541,93 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     expect(pageErrors.filter((message) => message !== "Failed to fetch")).toEqual([]);
 });
 
+test("Pet battle readiness mirrors server admission and lineage rules", async ({ page }, testInfo) => {
+    test.setTimeout(120_000);
+    test.skip(testInfo.project.name !== "chromium-desktop", "the Warfront admission contract is certified once in desktop Chromium");
+    const consoleErrors: string[] = [];
+    const pageErrors: string[] = [];
+    page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+    const state = await installPetHomeApi(page);
+    state.character.pets = [...structuredClone(basePets), ...structuredClone(fullRosterPets)];
+    const selectedPet = state.character.pets[0];
+    const past = Date.now() - 60_000;
+    selectedPet.training = { type: "strength", endsAt: past };
+
+    await openHome(page);
+    await page.getByRole("button", { name: "Pet Yard" }).click();
+    const yardHint = page.getByRole("button", { name: /got it/i });
+    if (await yardHint.isVisible().catch(() => false)) await yardHint.click();
+    let readiness = page.locator(".pet-battle-readiness");
+    let warfront = readiness.locator('[data-circuit="warfront"]');
+    let colosseum = readiness.locator('[data-circuit="colosseum"]');
+    await expect(warfront).toContainText("Training results unclaimed");
+    await expect(warfront.getByRole("button", { name: /Collect training results/ })).toBeDisabled();
+    await expect(colosseum.getByRole("button", { name: /Deploy Sumi/ })).toBeEnabled();
+
+    delete selectedPet.training;
+    selectedPet.expedition = { type: "scout", startedAt: past - 60_000, endsAt: past, durationMs: 60_000 };
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(page.getByRole("heading", { name: /Pet Yard/ }).first()).toBeVisible();
+    readiness = page.locator(".pet-battle-readiness");
+    warfront = readiness.locator('[data-circuit="warfront"]');
+    colosseum = readiness.locator('[data-circuit="colosseum"]');
+    await expect(warfront).toContainText("Expedition results unclaimed");
+    await expect(warfront.getByRole("button", { name: /Collect expedition results/ })).toBeDisabled();
+    await expect(colosseum.getByRole("button", { name: /Deploy Sumi/ })).toBeEnabled();
+
+    delete selectedPet.expedition;
+    state.character.petBreeding = session("breeding");
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(page.getByRole("heading", { name: /Pet Yard/ }).first()).toBeVisible();
+    readiness = page.locator(".pet-battle-readiness");
+    warfront = readiness.locator('[data-circuit="warfront"]');
+    colosseum = readiness.locator('[data-circuit="colosseum"]');
+    await expect(warfront).toContainText("Committed to the Breeding Barn");
+    await expect(warfront.getByRole("button", { name: /Breeding in progress/ })).toBeDisabled();
+    await expect(colosseum.getByRole("button", { name: /Committed to the Breeding Barn/ })).toBeDisabled();
+
+    await page.goto("/#/centralHub", { waitUntil: "networkidle" });
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(page.locator(".central-hub")).toBeVisible();
+    await page.locator(".central-card", { hasText: "Pet Colosseum" }).click();
+    await expect(page.getByRole("heading", { name: "Pet Colosseum", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: /Enter the Colosseum/ }).click();
+    await expect(page.getByRole("heading", { name: "The Colosseum", exact: true })).toBeVisible();
+    const breedingColosseumPet = page.locator(".showdown-roster-card", { hasText: "Sumi" });
+    await expect(breedingColosseumPet).toBeDisabled();
+    await expect(breedingColosseumPet).toContainText("Breeding barn");
+
+    state.character.petBreeding = null;
+    selectedPet.breedingSessionId = "completed-breeding-session";
+    await openHome(page);
+    await page.getByRole("button", { name: "Pet Yard" }).click();
+    readiness = page.locator(".pet-battle-readiness");
+    await expect(readiness.getByRole("button", { name: /Deploy Sumi/ })).toBeEnabled();
+    await expect(readiness.getByRole("button", { name: /Add Sumi to Squad/ })).toBeEnabled();
+    await readiness.getByRole("button", { name: /Deploy Sumi/ }).click();
+    await expect(page.getByRole("heading", { name: "The Colosseum", exact: true })).toBeVisible();
+    const bredColosseumPet = page.locator(".showdown-roster-card", { hasText: "Sumi" });
+    await expect(bredColosseumPet).toBeEnabled();
+    await expect(bredColosseumPet).toHaveClass(/picked/);
+
+    delete selectedPet.breedingSessionId;
+    selectedPet.training = { type: "strength", endsAt: past };
+    await openHome(page);
+    await page.getByRole("button", { name: "Pet Arena" }).click();
+    const warfrontTab = page.getByRole("button", { name: /Hollow Warfront/ });
+    await expect(warfrontTab).toBeEnabled();
+    await expect(page.locator(".pet-arena-readiness")).toContainText("5 companions");
+    await warfrontTab.click();
+    await expect(page.getByRole("heading", { name: "Hollow Warfront", exact: true })).toBeVisible();
+    await expect(page.locator(".pet-pick", { hasText: "Sumi" })).toHaveCount(0);
+    await expect(page.locator(".pet-pick")).toHaveCount(5);
+    await expect(page.getByText("Your team (4/4)")).toBeVisible();
+
+    expect(consoleErrors).toEqual([]);
+    expect(pageErrors.filter((message) => message !== "Failed to fetch")).toEqual([]);
+});
+
 test("Base four unlocks Tactical while lapsed Supporter overflow stays preserved", async ({ page }, testInfo) => {
     test.setTimeout(90_000);
     test.skip(testInfo.project.name !== "chromium-desktop", "the entitlement transition is certified once in desktop Chromium");
@@ -528,6 +647,16 @@ test("Base four unlocks Tactical while lapsed Supporter overflow stays preserved
     await page.getByRole("button", { name: "Pet Yard" }).click();
     await expect(page.getByText(/4\/4 combat-carried · 6 owned/)).toBeVisible();
     await expect(page.getByText(/2 preserved overflow/)).toBeVisible();
+    await page.getByRole("button", { name: "Select Gale Heron" }).click();
+    const overflowReadiness = page.locator(".pet-battle-readiness");
+    await expect(overflowReadiness.locator('[data-circuit="colosseum"]')).toContainText("Resting in Sanctuary");
+    await expect(overflowReadiness.locator('[data-circuit="warfront"]')).toContainText("Resting in Sanctuary");
+
+    await page.getByRole("button", { name: "Pet Arena" }).click();
+    await page.getByRole("button", { name: /Enter the Colosseum/ }).click();
+    const overflowColosseumPet = page.locator(".showdown-roster-card", { hasText: "Gale Heron" });
+    await expect(overflowColosseumPet).toBeDisabled();
+    await expect(overflowColosseumPet).toContainText("Resting in Sanctuary");
 });
 
 test("Pet Sanctuary mobile deposit and withdrawal certification", async ({ page }, testInfo) => {
