@@ -61,26 +61,87 @@ export function increasePetHappiness(pet: Pet, amount = 10): Pet {
     return { ...pet, happiness: Math.min(100, petHappiness(pet) + amount) };
 }
 
-// Pick a deterministic top-N team of available (not on expedition) pets,
+export type WarfrontPetBusyReason = "breeding" | "training" | "expedition";
+
+export type ColosseumPetBusyReason = "breeding" | "training" | "expedition";
+
+// Mirrors api/pet/showdown.ts. Colosseum only blocks work that is active now;
+// completed training and expeditions can be collected later. breedingSessionId
+// is intentionally absent: it is permanent lineage provenance on a hatched
+// companion, not evidence that the companion is currently in the barn.
+export function colosseumPetBusyReason(
+    pet: Pick<Pet, "id" | "training" | "expedition">,
+    breedingPetIds?: ReadonlySet<string>,
+    now = serverNow(),
+): ColosseumPetBusyReason | null {
+    if (breedingPetIds?.has(pet.id)) return "breeding";
+    if (pet.training && now < pet.training.endsAt) return "training";
+    if (pet.expedition && now < pet.expedition.endsAt) return "expedition";
+    return null;
+}
+
+export function isPetAvailableForColosseum(
+    pet: Pick<Pet, "id" | "training" | "expedition">,
+    breedingPetIds?: ReadonlySet<string>,
+    now = serverNow(),
+): boolean {
+    return colosseumPetBusyReason(pet, breedingPetIds, now) === null;
+}
+
+// Mirrors api/pet/_pet-busy.ts exactly for Hollow Warfront admission. A
+// completed training or expedition remains busy until its result is collected,
+// because the persisted record still exists and the server will reject it.
+export function warfrontPetBusyReason(
+    pet: Pick<Pet, "id" | "training" | "expedition">,
+    breedingPetIds?: ReadonlySet<string>,
+): WarfrontPetBusyReason | null {
+    if (breedingPetIds?.has(pet.id)) return "breeding";
+    if (pet.training) return "training";
+    if (pet.expedition) return "expedition";
+    return null;
+}
+
+export function isPetAvailableForWarfront(
+    pet: Pick<Pet, "id" | "training" | "expedition">,
+    breedingPetIds?: ReadonlySet<string>,
+): boolean {
+    return warfrontPetBusyReason(pet, breedingPetIds) === null;
+}
+
+// Pick a deterministic top-N team of Warfront-available pets,
 // ordered by level (desc) then id (asc) so the choice is stable across
 // reloads. Used by the Tactical Arena Fight-AI launcher and the PvP
 // challenge to build each side's roster. `size` is the requested team size
 // (2 or 4); fewer available pets just yields a smaller team (min 1).
-export function pickArenaTeam(pets: Pet[], size: number): Pet[] {
-    return pets
-        .filter((p) => !isPetOnExpedition(p))
-        .sort((a, b) => (b.level ?? 0) - (a.level ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
-        .slice(0, Math.max(1, size));
+export function pickArenaTeam(
+    pets: readonly Pet[],
+    size: number,
+    priorityPetId?: string | null,
+    breedingPetIds?: ReadonlySet<string>,
+): Pet[] {
+    const ranked = pets
+        .filter((pet) => isPetAvailableForWarfront(pet, breedingPetIds))
+        .sort((a, b) => (b.level ?? 0) - (a.level ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    const priorityIndex = priorityPetId ? ranked.findIndex((pet) => pet.id === priorityPetId) : -1;
+    if (priorityIndex > 0) {
+        const [priorityPet] = ranked.splice(priorityIndex, 1);
+        ranked.unshift(priorityPet);
+    }
+    return ranked.slice(0, Math.max(1, size));
 }
 
 export const TACTICAL_ARENA_PET_REQUIREMENT = 4;
 
-export function availablePetBattleCount(pets: Pet[]): number {
+export function availablePetBattleCount(pets: readonly Pet[]): number {
     return pets.filter((pet) => !isPetOnExpedition(pet)).length;
 }
 
-export function canEnterTacticalArena(pets: Pet[]): boolean {
-    return availablePetBattleCount(pets) >= TACTICAL_ARENA_PET_REQUIREMENT;
+export function availableWarfrontPetCount(pets: readonly Pet[], breedingPetIds?: ReadonlySet<string>): number {
+    return pets.filter((pet) => isPetAvailableForWarfront(pet, breedingPetIds)).length;
+}
+
+export function canEnterTacticalArena(pets: readonly Pet[], breedingPetIds?: ReadonlySet<string>): boolean {
+    return availableWarfrontPetCount(pets, breedingPetIds) >= TACTICAL_ARENA_PET_REQUIREMENT;
 }
 
 export function resolveAvailablePetBattlePair(pets: Pet[], ids: readonly string[]): [Pet, Pet] | null {

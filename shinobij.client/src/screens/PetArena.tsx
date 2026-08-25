@@ -46,8 +46,9 @@ import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import {
     TACTICAL_ARENA_PET_REQUIREMENT,
-    availablePetBattleCount,
+    availableWarfrontPetCount,
     canEnterTacticalArena,
+    isPetAvailableForWarfront,
     isPetOnExpedition,
     petDisplayName,
     pickArenaTeam,
@@ -58,6 +59,7 @@ import { ELEMENT_ICON } from "../lib/element-icons";
 import { primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic } from "../lib/pet-music";
 import { petArenaBackLabel, petArenaReturnScreen, petArenaStartIssue } from "../lib/pet-arena-entry";
+import { clearPetArenaNavigationHint, readPetArenaPetHint, readPetArenaViewHint } from "../lib/pet-arena-navigation";
 import { petHomeReturnLabel } from "../lib/pet-home-navigation";
 import {
     petChronicleCeremonyFromSettlement,
@@ -85,6 +87,7 @@ import { loadPendingClanPetBattle, savePendingClanPetBattle } from "../lib/world
 import { resolveChallengerTeam, stripInlinePetImages, arenaSizeOf } from "../lib/arena-challenge";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
 import { activeCarriedPets } from "../lib/entitlements";
+import { activeClientBreedingParentIds } from "../lib/pet-breeding";
 import { publicEligiblePets } from "../lib/public-pet-roster";
 import { buildPetArenaLiveRoster, isLivePetDuelAvailable } from "../lib/pet-duel-live-roster";
 import type { ArenaSlot, ArenaRole } from "../lib/pet-arena-sim";
@@ -335,6 +338,7 @@ function settlementErrorMessage(error: unknown): string {
 
 export function PetArena({ character, updateCharacter, allServerPlayers, setScreen, returnScreen: petHomeReturnScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, pendingArenaMatch, onPendingArenaMatchStarted, pendingArenaResponse, onArenaResponseHandled, onClanWarBattleEnd, onBattleActiveChange, onFullscreenActiveChange, onServerVersion, onVersionedCharacter }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; returnScreen?: Screen; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; pendingArenaMatch?: { blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null; onPendingArenaMatchStarted?: () => void; pendingArenaResponse?: DuelChallenge | null; onArenaResponseHandled?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void; onBattleActiveChange?: (active: boolean) => void; onFullscreenActiveChange?: (active: boolean) => void; onServerVersion?: (version: number | undefined, originatingPlayerName: string) => PetArenaServerVersionResult; onVersionedCharacter?: (character: Character, version: number | undefined, originatingPlayerName: string) => PetArenaServerVersionResult }) {
     const combatEligiblePets = activeCarriedPets<Pet>(character);
+    const warfrontBreedingPetIds = activeClientBreedingParentIds(character);
     const preservedPetOverflow = Math.max(0, character.pets.length - combatEligiblePets.length);
     const mountedRef = useRef(true);
     const playerScopeRef = useRef<PetArenaPlayerScope>({ playerName: character.name, generation: 0 });
@@ -353,7 +357,20 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         isPetArenaPlayerScopeActive(scope, playerScopeRef.current, mountedRef.current)
     );
 
-    const [selectedPetId, setSelectedPetId] = useState(combatEligiblePets.find((pet) => pet.id === character.activePetId)?.id ?? combatEligiblePets[0]?.id ?? "");
+    const [arenaNavigationHint] = useState(() => ({
+        view: readPetArenaViewHint(),
+        petId: readPetArenaPetHint(),
+        playerName: character.name.toLowerCase(),
+    }));
+    const arenaHintPetId = arenaNavigationHint.playerName === character.name.toLowerCase()
+        ? arenaNavigationHint.petId
+        : null;
+    const [selectedPetId, setSelectedPetId] = useState(
+        combatEligiblePets.find((pet) => pet.id === arenaHintPetId)?.id
+        ?? combatEligiblePets.find((pet) => pet.id === character.activePetId)?.id
+        ?? combatEligiblePets[0]?.id
+        ?? "",
+    );
     const [opponentSearch, setOpponentSearch] = useState("");
     const [petChallengeMsg, setPetChallengeMsg] = useState("");
     const [chronicleCeremony, setChronicleCeremony] = useState<PetChronicleCeremonyReceipt | null>(null);
@@ -387,8 +404,10 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     const [showCoop, setShowCoop] = useState(false);
     // Top-level view switch. "battle" is the classic cinematic 1v1/2v2 duel;
     // "tactical" is the full-screen team game mode (vs AI / challenge / co-op).
-    // Defaults to the cinematic battle so Pet Arena opens straight into it.
-    const [arenaView, setArenaView] = useState<"battle" | "tactical" | "gauntlet">("battle");
+    // Normal visits default to the cinematic battle; a one-shot cross-screen
+    // hint can land a Yard CTA directly in Tactical setup or the Gauntlet.
+    const [arenaView, setArenaView] = useState<"battle" | "tactical" | "gauntlet">(arenaNavigationHint.view);
+    useEffect(() => clearPetArenaNavigationHint(), []);
     // Warfront setup (single screen): a team grid shared by Fight AI and
     // Challenge-a-Player. Picks seed to the top available pets.
     // Warfront is always 4v4 (2v2 retired with capture-scroll); kept as state-shaped
@@ -579,7 +598,9 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         setBattleSetupIssue({ scope, message });
     }
 
-    const [tacticalPicks, setTacticalPicks] = useState<string[]>(() => pickArenaTeam(combatEligiblePets, 4).map((p) => p.id));
+    const [tacticalPicks, setTacticalPicks] = useState<string[]>(() => (
+        pickArenaTeam(combatEligiblePets, 4, arenaHintPetId, warfrontBreedingPetIds).map((pet) => pet.id)
+    ));
     const [arenaChallengeName, setArenaChallengeName] = useState("");
     const [arenaChallengeMsg, setArenaChallengeMsg] = useState("");
     // 5→1 pre-roll shown to both players before the match plays. Holds the built
@@ -896,10 +917,14 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         const name = toName.trim();
         if (!name) { setArenaChallengeMsg("Enter a player name to challenge."); return; }
         if (name.toLowerCase() === character.name.toLowerCase()) { setArenaChallengeMsg("You can't challenge yourself."); return; }
-        const availableIds = new Set(combatEligiblePets.filter((pet) => !isPetOnExpedition(pet)).map((pet) => pet.id));
+        const availableIds = new Set(
+            combatEligiblePets
+                .filter((pet) => isPetAvailableForWarfront(pet, warfrontBreedingPetIds))
+                .map((pet) => pet.id),
+        );
         if (teamIds.length !== size || new Set(teamIds).size !== size || teamIds.some((id) => !availableIds.has(id))) { setArenaChallengeMsg(`A ${size}v${size} match requires ${size} available carried pets.`); return; }
         const targetRecord = allServerPlayers.find((p) => p.name.toLowerCase() === name.toLowerCase());
-        if (targetRecord && availablePetBattleCount(publicEligiblePets(targetRecord)) < size) {
+        if (targetRecord && availableWarfrontPetCount(publicEligiblePets(targetRecord)) < size) {
             setArenaChallengeMsg(`${name} needs ${size} available pets for a ${size}v${size} arena match.`);
             return;
         }
@@ -940,11 +965,12 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     // challenger will — blue resolved from their snapshot, red = my picks.
     async function respondToArenaChallenge(challenge: DuelChallenge, teamIds: string[]) {
         const size = arenaSizeOf(challenge);
+        const challengerBreedingPetIds = activeClientBreedingParentIds(challenge.challenger);
         const myTeam = teamIds.slice(0, size)
-            .map((id) => combatEligiblePets.find((pet) => pet.id === id && !isPetOnExpedition(pet)))
+            .map((id) => combatEligiblePets.find((pet) => pet.id === id && isPetAvailableForWarfront(pet, warfrontBreedingPetIds)))
             .filter((pet): pet is Pet => Boolean(pet));
         const blue = resolveChallengerTeam(challenge)
-            .filter((pet) => !isPetOnExpedition(pet))
+            .filter((pet) => isPetAvailableForWarfront(pet, challengerBreedingPetIds))
             .slice(0, size);
         if (new Set(myTeam.map((pet) => pet.id)).size !== size || new Set(blue.map((pet) => pet.id)).size !== size) {
             setArenaChallengeMsg(`This ${size}v${size} challenge needs ${size} available pets on each team. It was not started.`);
@@ -1008,9 +1034,14 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         setWarfrontSetupPending(false);
         setChronicleCeremony(null);
         setChronicleProgress(null);
-        setSelectedPetId(combatEligiblePets.find((pet) => pet.id === character.activePetId)?.id ?? combatEligiblePets[0]?.id ?? "");
+        setSelectedPetId(
+            combatEligiblePets.find((pet) => pet.id === arenaHintPetId)?.id
+            ?? combatEligiblePets.find((pet) => pet.id === character.activePetId)?.id
+            ?? combatEligiblePets[0]?.id
+            ?? "",
+        );
         setReservePetId(character.activePetId2v2 ?? "");
-        setTacticalPicks(pickArenaTeam(combatEligiblePets, 4).map((pet) => pet.id));
+        setTacticalPicks(pickArenaTeam(combatEligiblePets, 4, arenaHintPetId, warfrontBreedingPetIds).map((pet) => pet.id));
         setBattleOpponent(null);
         setBattleReady(false);
         setBattleLog([]);
@@ -1496,7 +1527,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     useEffect(() => {
         if (!pendingArenaResponse) return;
         setArenaView("tactical");
-        setRespondPicks(pickArenaTeam(combatEligiblePets, arenaSizeOf(pendingArenaResponse)).map((p) => p.id));
+        setRespondPicks(pickArenaTeam(combatEligiblePets, arenaSizeOf(pendingArenaResponse), null, warfrontBreedingPetIds).map((p) => p.id));
     }, [pendingArenaResponse?.id]);
 
     // Countdown pre-roll: tick 5→0, then mount the match (same seed → same fight).
@@ -1525,8 +1556,8 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         && !pendingArenaResponse
         && !fullscreenBattleActive
         && !showCoop;
-    const availableArenaPetCount = availablePetBattleCount(combatEligiblePets);
-    const tacticalArenaUnlocked = canEnterTacticalArena(combatEligiblePets);
+    const availableArenaPetCount = availableWarfrontPetCount(combatEligiblePets, warfrontBreedingPetIds);
+    const tacticalArenaUnlocked = canEnterTacticalArena(combatEligiblePets, warfrontBreedingPetIds);
     const activeSettlementPresentation = settlementPresentation
         && playerScopeIsActive(settlementPresentation.scope)
         ? settlementPresentation
@@ -2011,7 +2042,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             {arenaView === "tactical" && (
                 <section className="summary-box pet-warfront-lobby" style={{ marginTop: "0.2rem", display: "grid", gap: "0.9rem" }}>
                     {(() => {
-                        const available = combatEligiblePets.filter((p) => !isPetOnExpedition(p));
+                        const available = combatEligiblePets.filter((pet) => isPetAvailableForWarfront(pet, warfrontBreedingPetIds));
                         const availableById = new Map(available.map((pet) => [pet.id, pet]));
                         const isExactAvailableSelection = (ids: string[], size: number) => (
                             ids.length === size
@@ -2129,7 +2160,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                             <p style={{ margin: 0, fontWeight: 600, fontSize: "0.85rem" }}>Your team ({tacticalPicks.length}/{tacticalSize}) — choose pets to add or remove</p>
                                             <div style={{ marginTop: 6 }}>
                                                 {available.length < tacticalSize
-                                                    ? <p className="hint" style={{ color: "var(--gold-2)", margin: 0 }}>This 4v4 mode requires {tacticalSize} available pets. You currently have {available.length}; pets on expeditions do not count.</p>
+                                                    ? <p className="hint" style={{ color: "var(--gold-2)", margin: 0 }}>This 4v4 mode requires {tacticalSize} available pets. You currently have {available.length}; breeding, training, and expedition assignments do not count until cleared.</p>
                                                     : <div className="pet-pick-panel">{pickGrid(tacticalPicks, setTacticalPicks, tacticalSize)}</div>}
                                             </div>
                                         </div>

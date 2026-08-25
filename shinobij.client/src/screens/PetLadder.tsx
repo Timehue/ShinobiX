@@ -6,7 +6,7 @@ import type { Screen } from "../types/core";
 import {
     TACTICAL_ARENA_PET_REQUIREMENT,
     canEnterTacticalArena,
-    isPetOnExpedition,
+    isPetAvailableForWarfront,
     petDisplayName,
 } from "../lib/pet";
 import { derivePetRole, ROLE_META } from "../lib/pet-roles";
@@ -20,6 +20,7 @@ import { PetLadderQueuePanel } from "../components/PetLadderQueuePanel";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { activeCarriedPets } from "../lib/entitlements";
+import { activeClientBreedingParentIds } from "../lib/pet-breeding";
 import type { ArenaSlot } from "../lib/pet-arena-sim";
 import {
     type Mode, type LadderView, type OfferOpponent, type ChallengeResult, type PetLite,
@@ -73,8 +74,10 @@ const summaryChips = (pets: PetLite[]) => (
 );
 
 export function PetLadder({ character, setScreen, sharedImages }: { character: Character; setScreen: (s: Screen) => void; sharedImages: Record<string, string> }) {
+    const carriedPets = activeCarriedPets<Pet>(character);
+    const breedingPetIds = activeClientBreedingParentIds(character);
     const [mode, setMode] = useState<Mode>(() => (
-        sessionStorage.getItem("petLadder.mode") === "tactical" && canEnterTacticalArena(activeCarriedPets(character))
+        sessionStorage.getItem("petLadder.mode") === "tactical" && canEnterTacticalArena(carriedPets, breedingPetIds)
             ? "tactical"
             : "coliseum"
     ));
@@ -99,7 +102,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
     const name = character.name;
     const teamSize = mode === "tactical" ? 4 : 1;
     // Admin-comped entitlements can expire while this screen remains mounted.
-    const available = activeCarriedPets<Pet>(character).filter((p) => !isPetOnExpedition(p));
+    const available = carriedPets.filter((pet) => isPetAvailableForWarfront(pet, breedingPetIds));
     const tacticalUnlocked = available.length >= TACTICAL_ARENA_PET_REQUIREMENT;
 
     const refresh = useCallback(async () => {
