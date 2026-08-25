@@ -880,7 +880,9 @@ function updateCall(st: WfState, team: Team) {
     // of waiting until minute four. The stance-specific health gate still keeps
     // reckless teams from donating a wipe.
     const headlineReady = st.events.some((event) => event.type === "minikill") || st.t > WARFRONT_TPS * WF_PHASE_WAR;
-    if (!squad && headlineReady && !finishingCamp && st.boss.alive && st.t > WARFRONT_TPS * (WF_PHASE_SKIRMISH + 55) && healthyShare > cfg.wardenShare && alive.length >= 3) {
+    if (!squad && headlineReady && !finishingCamp && st.boss.alive
+        && st.t > WARFRONT_TPS * (WF_PHASE_SKIRMISH + 55)
+        && healthyShare > cfg.wardenShare && alive.length >= 3) {
         squad = { goal: "warden", x: WF_LAIR.x, y: WF_LAIR.y };
     }
     // 5) DEATHBALL: in sudden death the game must end as five — group and push,
@@ -1432,7 +1434,13 @@ function petTick(st: WfState, p: WfPet) {
             if (d <= Math.max(p.atkRange, WARDEN_REACH)) {
                 if (p.attackCd <= 0) {
                     p.attackCd = ATTACK_CD; p.state = "attack";
-                    const dmg = Math.round(p.atk * (0.9 + st.rng() * 0.2) * (st.atkBuff[p.team] > 0 ? MINI_BUFF_ATK : 1));
+                    // Reward a declared pre-WAR squad rotation with just enough
+                    // focus-fire pace to complete a healthy objective call. An
+                    // incidental pit-edge hit receives no bonus.
+                    const coordinatedObjective = st.t < WARFRONT_TPS * WF_PHASE_WAR
+                        && callState.squad?.goal === "warden" ? 1.08 : 1;
+                    const dmg = Math.round(p.atk * (0.9 + st.rng() * 0.2)
+                        * (st.atkBuff[p.team] > 0 ? MINI_BUFF_ATK : 1) * coordinatedObjective);
                     st.boss.hp -= dmg;
                     st.wardenDmg[p.team] += dmg;
                     // Establish aggro when the fight begins, but never spin the
