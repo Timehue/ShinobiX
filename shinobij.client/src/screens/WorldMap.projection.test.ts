@@ -52,8 +52,12 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // open unbidden, and a Fight button that no longer swallows the click
         // when admission is closed. The budget guards re-inlining retired map
         // layers, not bug fixes; it is the exact achieved count, with no buffer.
-        lineCount(worldMapSource) <= 5_264,
-        `WorldMap.tsx grew past 5,264 lines; retired overview layers must stay retired.`,
+        // 5,267 (+3): every arrival now enters on the edge facing where you
+        // travelled from, not just road crossings — a roadless trip used to land
+        // on the centre tile. The budget guards re-inlining retired map layers,
+        // not the travel model; exact achieved count, no buffer.
+        lineCount(worldMapSource) <= 5_267,
+        `WorldMap.tsx grew past 5,267 lines; retired overview layers must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,

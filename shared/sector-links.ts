@@ -190,6 +190,49 @@ function inwardTile(tile: number, edge: SectorDirection): number {
  */
 export const WALK_IN_DEPTH = 1;
 
+/**
+ * Where the player APPEARS when they arrive in `destination` having come from
+ * `origin`, for a trip that follows no road exit.
+ *
+ * Travelling used to drop you on the CENTRE tile whenever the two sectors were
+ * not joined by a road, so a journey from the far west put you in the middle of
+ * the destination facing nothing in particular — the same "teleport" reading
+ * that arriving on a stale edge tile used to give. A crossing already lands on
+ * the edge that faces where you came from (see crossSectorExit); this derives
+ * the same thing geometrically for every other trip, so ALL arrivals agree.
+ *
+ * The lane is angled rather than always centred: the perpendicular offset
+ * between the two sectors is projected onto the arrival edge, so coming from
+ * the north-west puts you toward the northern end of the west edge. Lanes are
+ * clamped to 1..GRID_WIDTH-2 for the same reason LANE_PREFERENCE omits 0 and
+ * 11 — those map onto board CORNERS, where two edges resolve to one tile.
+ *
+ * Returns null when there is no direction to honour (unknown sector, or the
+ * origin IS the destination); callers fall back to the centre tile.
+ */
+export function arrivalTileFromOrigin(origin: number, destination: number): number | null {
+    if (origin === destination) return null;
+    const from = POINT_BY_ID.get(origin);
+    const to = POINT_BY_ID.get(destination);
+    if (!from || !to) return null;
+
+    // The edge of DESTINATION that faces the origin — i.e. the side you walk in
+    // through. Note the argument order: this is destination → origin.
+    const edge = directionFromTo(destination, origin);
+
+    const dx = from.x - to.x;
+    const dy = from.y - to.y;
+    // Along a north/south edge the lane is a column and the cross-axis is x;
+    // along an east/west edge it is a row and the cross-axis is y.
+    const across = edge === 'north' || edge === 'south' ? dx : dy;
+    const along = edge === 'north' || edge === 'south' ? dy : dx;
+    const ratio = Math.abs(along) < 1e-6 ? 0 : across / Math.abs(along);
+
+    const centre = (GRID_WIDTH - 1) / 2;
+    const lane = Math.min(GRID_WIDTH - 2, Math.max(1, Math.round(centre + ratio * centre)));
+    return inwardTiles(boundaryTile(edge, lane), edge, WALK_IN_DEPTH);
+}
+
 /** `inwardTile` applied `steps` times, stopping early at the far edge. */
 function inwardTiles(tile: number, edge: SectorDirection, steps: number): number {
     let out = tile;

@@ -29,7 +29,28 @@ const BASE_ANCHOR = 100;        // pin tip lands on the tile centre
 const WALK_TILES_PER_SEC = 5.0; // ambles a little slower than the player (6.5)
 const NOTICE_TILES = 3.6;       // how close before it turns toward you
 const ENGAGE_TILES = 0.8;       // "we've met" distance
-const ARM_DELAY_MS = 1200;      // grace after entering a sector before it can engage
+const ARM_DELAY_MS = 2200;      // grace after entering a sector before it can engage
+// A hunter has to FIND you. It used to path to the player from anywhere on the
+// board the moment it armed, which made an ambush unavoidable in every sector
+// that happened to hold a bandit — not an ambush so much as a homing missile,
+// and the reason the encounter rate read as one-in-twelve arrivals flat,
+// regardless of where you were standing or how briefly you stayed.
+//
+// Now it hunts only what it can notice, and once it has you it commits: the
+// leash is wider than the spot radius so a chase is a chase, not a yo-yo at the
+// edge of the circle. With arrivals landing on the edge you travelled in from
+// (arrivalTileFromOrigin), a bandit patrolling the far side genuinely misses
+// you, and the rate falls out of the geometry instead of being dialled: cross
+// a corner of the sector and you are usually clear, linger and you are found.
+const HUNT_SPOT_TILES = 5.5;    // a hunter locks on inside this
+const HUNT_LEASH_TILES = 8.0;   // ...and gives up outside this
+// Reduced motion suppresses the ANIMATION, not the world. The loop used to
+// return early for these players, which quietly exempted them from every road
+// ambush in the game — a real gameplay asymmetry, not an accommodation. They
+// now get the same encounters, closed in discrete steps on a timer instead of
+// a per-frame tween.
+const REDUCED_STEP_MS = 600;
+const SMOOTH_MAX_DT = 0.05;
 
 const AURA: Record<Biome, string> = {
     snow: "#cfe8ff", volcano: "#ff8a3d", shadow: "#c9a2ff", forest: "#9bf0a6", central: "#ffe9a6",
@@ -72,6 +93,9 @@ export function SectorWanderer({
     const wpIndexRef = useRef(0);
     const pauseUntilRef = useRef(0);
     const greetedRef = useRef(false);
+    // A hunter that has spotted you stays committed until it breaks the leash.
+    const huntingRef = useRef(false);
+    const stepTimerRef = useRef(0);
 
     // latest props for the long-lived RAF closure
     const playerRef = useRef(playerIndex);
@@ -131,13 +155,18 @@ export function SectorWanderer({
 
     // The movement loop.
     useEffect(() => {
-        if (prefersReducedMotion()) { paint(); return; } // static placement, still interactive
+        const reduced = prefersReducedMotion();
+        const maxDt = reduced ? REDUCED_STEP_MS / 1000 : SMOOTH_MAX_DT;
+        const schedule = () => {
+            if (reduced) stepTimerRef.current = window.setTimeout(() => tick(performance.now()), REDUCED_STEP_MS);
+            else rafRef.current = requestAnimationFrame(tick);
+        };
         armedAtRef.current = performance.now() + ARM_DELAY_MS;
         const wps = wanderer.waypoints.length ? wanderer.waypoints : [wanderer.homeTile];
 
         const tick = (ts: number) => {
             if (!lastTsRef.current) lastTsRef.current = ts;
-            const dt = Math.min(0.05, (ts - lastTsRef.current) / 1000);
+            const dt = Math.min(maxDt, (ts - lastTsRef.current) / 1000);
             lastTsRef.current = ts;
 
             const p = posRef.current;
@@ -145,17 +174,22 @@ export function SectorWanderer({
             const prow = rowOf(playerRef.current);
             const distPlayer = Math.hypot(pcol - p.col, prow - p.row);
             const armed = ts >= armedAtRef.current;
-            // Bandits HUNT: once armed they path to the player from anywhere in the
-            // sector and confront them. Everyone else is passive — they only turn
-            // toward you once you come close, then greet.
+            // Bandits HUNT: once they spot you they path to you and confront you,
+            // and they keep coming until you break the leash. Everyone else is
+            // passive — they only turn toward you once you come close, then greet.
             const isHunter = wanderer.verb === "attack" || wanderer.verb === "bountyHunter";
+            if (isHunter) {
+                if (distPlayer <= HUNT_SPOT_TILES) huntingRef.current = true;
+                else if (distPlayer > HUNT_LEASH_TILES) huntingRef.current = false;
+            }
+            const closing = isHunter ? huntingRef.current : distPlayer <= NOTICE_TILES;
             // Slipping out of notice range re-arms the meeting, so a hunter you've
             // outrun can confront you again when it catches back up.
             if (distPlayer > NOTICE_TILES) greetedRef.current = false;
 
             let tCol: number, tRow: number;
 
-            if (armed && (isHunter || distPlayer <= NOTICE_TILES)) {
+            if (armed && closing) {
                 // ── Approach: walk up to the player ──────────────────────────
                 if (distPlayer <= ENGAGE_TILES) {
                     setWalking(false);
@@ -166,7 +200,7 @@ export function SectorWanderer({
                         if (isHunter) onEngageRef.current(wanderer);
                         else speak(wanderer.greeting);
                     }
-                    rafRef.current = requestAnimationFrame(tick); // hold adjacent
+                    schedule(); // hold adjacent
                     return;
                 }
                 tCol = pcol; tRow = prow;
@@ -175,7 +209,7 @@ export function SectorWanderer({
                 const cur = wps[wpIndexRef.current % wps.length];
                 const atWp = Math.hypot(colOf(cur) - p.col, rowOf(cur) - p.row) < 0.06;
                 if (atWp) {
-                    if (ts < pauseUntilRef.current) { setWalking(false); rafRef.current = requestAnimationFrame(tick); return; }
+                    if (ts < pauseUntilRef.current) { setWalking(false); schedule(); return; }
                     wpIndexRef.current = (wpIndexRef.current + 1) % wps.length;
                     pauseUntilRef.current = ts + 900 + Math.random() * 1600;
                 }
@@ -195,11 +229,15 @@ export function SectorWanderer({
                 setWalking(true);
             }
             paint();
-            rafRef.current = requestAnimationFrame(tick);
+            schedule();
         };
 
-        rafRef.current = requestAnimationFrame(tick);
-        return () => { cancelAnimationFrame(rafRef.current); window.clearTimeout(bubbleTimer.current); };
+        schedule();
+        return () => {
+            cancelAnimationFrame(rafRef.current);
+            window.clearTimeout(stepTimerRef.current);
+            window.clearTimeout(bubbleTimer.current);
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
