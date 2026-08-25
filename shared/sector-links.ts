@@ -233,6 +233,27 @@ export function arrivalTileFromOrigin(origin: number, destination: number): numb
     return inwardTiles(boundaryTile(edge, lane), edge, WALK_IN_DEPTH);
 }
 
+/**
+ * The tile a traveller ARRIVES on, going from `origin` to `destination`.
+ *
+ * One definition, called by BOTH the client (WorldMap.triggerTravelPoint) and
+ * the server (api/player/travel.ts), because the two must agree: the server
+ * seals this into the travel lease and it is the tile every OTHER player in the
+ * destination sector sees, while the traveller's own screen draws from the same
+ * value. Two hand-copied precedences would eventually place one player on two
+ * tiles — the desync class that produced invisible players before.
+ *
+ * A road between the two sectors arrives at that road's mouth (identical to
+ * walking through the gate); otherwise the edge facing the origin. Null when
+ * there is no direction to honour at all — leaving a village at sector 0, or an
+ * unknown sector — and callers fall back to the centre tile.
+ */
+export function travelArrivalTile(origin: number, destination: number): number | null {
+    const road = sectorExits(origin).find((exit) => exit.destinationSector === destination);
+    if (road) return road.destinationTile;
+    return arrivalTileFromOrigin(origin, destination);
+}
+
 /** `inwardTile` applied `steps` times, stopping early at the far edge. */
 function inwardTiles(tile: number, edge: SectorDirection, steps: number): number {
     let out = tile;

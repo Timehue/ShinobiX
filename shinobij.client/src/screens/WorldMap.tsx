@@ -102,7 +102,7 @@ import { BackToVillageButton } from "../components/BackToVillageButton";
 import { WorldToast } from "../components/WorldToast";
 import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
 import { SECTOR_POINTS } from "../data/sector-points";
-import { sectorExits as roadExitsForSector, arrivalTileFromOrigin, type SectorExit } from "../../../shared/sector-links";
+import { sectorExits as roadExitsForSector, travelArrivalTile, type SectorExit } from "../../../shared/sector-links";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { scaleWandererPetOpponent } from "../lib/pet-balance";
 import { befriendWildPet, declineWildPetEncounter, startWildPetEncounter } from "../lib/wild-pet-encounter-api";
@@ -2685,7 +2685,7 @@ export function WorldMap({
     function triggerTravelPoint(sector: number) {
         // Where you stood in the sector you LEFT, captured before any state moves.
         const originSector = currentSector;
-        beginSectorTravel(sector, () => {
+        beginSectorTravel(sector, (arrivalTile) => {
         if (sector === FESTIVAL_SECTOR) {
             setCurrentBiome("volcano");
             setCurrentWeather(weatherForSector(sector, "volcano"));
@@ -2710,11 +2710,11 @@ export function WorldMap({
         // edge from the two sectors' map positions, so EVERY arrival comes in
         // from the side you travelled from; only a trip with no origin at all
         // (a fresh boot, a village spawn) still starts in the middle.
-        const road = originSector == null
-            ? undefined
-            : roadExitsForSector(originSector).find((exit) => exit.destinationSector === sector);
-        const arrival = road?.destinationTile
-            ?? (originSector == null ? null : arrivalTileFromOrigin(originSector, sector));
+        // The SERVER seals this tile from the SAME shared definition, and it is
+        // what everyone else in the destination sees; ours is the fallback for a
+        // response that carries none.
+        const arrival = (Number.isInteger(arrivalTile) ? arrivalTile : undefined)
+            ?? (originSector == null ? null : travelArrivalTile(originSector, sector));
         setSectorPlayerPos(arrival ?? SECTOR_CENTRE_TILE);
         const splashLabel = regionSplashLabelFor(sector);
         if (splashLabel) setRegionSplash({ label: splashLabel, tint: regionTintForSector(sector), stamp: Date.now() });

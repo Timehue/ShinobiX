@@ -68,8 +68,26 @@ test("reduced motion drops the animation, not the encounter", () => {
     assert.match(source, /cancelAnimationFrame\(rafRef\.current\)/u);
     assert.match(source, /window\.clearTimeout\(stepTimerRef\.current\)/u);
 
-    // The per-frame clamp must scale with the step, or a 600ms tick would move
+    // The per-frame clamp must scale with the step, or a slow tick would move
     // the wanderer the same distance a 16ms frame does and it would crawl.
     assert.match(source, /const maxDt = reduced \? REDUCED_STEP_MS \/ 1000 : SMOOTH_MAX_DT/u);
     assert.match(source, /Math\.min\(maxDt,/u);
+});
+
+test("the reduced-motion step keeps the speed but never makes a big jump", () => {
+    // Two things have to hold at once, and they pull against each other.
+    const stepMs = constant("REDUCED_STEP_MS");
+    const tilesPerSec = constant("WALK_TILES_PER_SEC");
+    const tilesPerStep = (tilesPerSec * stepMs) / 1000;
+
+    // 1. SPEED PARITY. Ground covered per second is identical to the animated
+    //    path (it falls out of dt scaling), so a hunter closes in over the same
+    //    number of seconds and the encounter is the same encounter.
+    // 2. NO LARGE JUMPS. A coarser timer would also preserve the speed — by
+    //    teleporting the wanderer several tiles at a time, which is worse for a
+    //    reduced-motion player than the tween they asked to avoid.
+    assert.ok(tilesPerStep <= 1.0 + 1e-9,
+        `a reduced-motion step moves ${tilesPerStep.toFixed(2)} tiles at once; keep it to one tile or less`);
+    assert.ok(tilesPerStep >= 0.5,
+        `a reduced-motion step of ${tilesPerStep.toFixed(2)} tiles means a needlessly busy timer`);
 });
