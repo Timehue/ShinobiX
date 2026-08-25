@@ -49,7 +49,7 @@ const RULES: ReadonlyArray<readonly [RegExp, BattleLogCategory]> = [
     [/\bIgnition\b/i, "dmgmod"],
 
     // Healing (green) — before "damage" so Absorb/Lifesteal/Siphon don't read as red
-    [/^Heal:|^Increase Heal:|^Siphon:|^Lifesteal:|^Absorb:|restores [\d,]+ HP|heals (?:on hit|[\d,]+)|absorbs [\d,]+ HP|steals [\d,]+ HP|converts [\d,]+% incoming|will heal/i, "heal"],
+    [/^Heal:|^Increase Heal:|^Siphon:|^Lifesteal:|^Absorb:|restor(?:es|ing) [\d,]+ HP|heals (?:on hit|[\d,]+)|absorbs [\d,]+ HP|steals [\d,]+ HP|converts [\d,]+% incoming|will heal/i, "heal"],
 
     // Shields / barriers (cyan)
     [/^Shield:|^Barrier:|^Reflect:|shield blocks|gains [\d,]+ shield|absorbed by .*shield/i, "shield"],
