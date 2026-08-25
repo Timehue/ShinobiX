@@ -834,6 +834,13 @@ function updateCall(st: WfState, team: Team) {
             || st.mobs.some((m) => m.toward === team && hyp2(m.x - coreT.x, m.y - coreT.y) < 9);
         if (threat) squad = { goal: "defend-core", x: coreT.x, y: coreT.y };
     }
+    // Once a lane group has meaningfully damaged a nearby camp, finish that
+    // rotation before answering ordinary map pressure. Previously a two-second
+    // macro refresh could abandon a 70%-health Lesser Warden for a routine push,
+    // making the squad look indecisive and erasing the camp layer in some seeds.
+    // Emergency core defence and a genuine low-health Warden steal still win.
+    const finishingCamp = st.minis.some((camp) => camp.alive && !camp.ally && camp.hp < MINI_HP * 0.95
+        && alive.some((pet) => hyp2(pet.x - camp.x, pet.y - camp.y) < 8));
     // 2) Read an enemy Warden commit. A healthy squad contests a boss already
     // below the steal threshold; otherwise it punishes the missing defenders by
     // cracking a lane. This creates deliberate steals instead of blind trades.
@@ -843,7 +850,7 @@ function updateCall(st: WfState, team: Team) {
         if (st.boss.alive && foesAtWarden >= 2 && alive.length >= 3 && st.t > WARFRONT_TPS * WF_PHASE_SKIRMISH) {
             if (st.boss.hp / WARDEN_HP <= 0.58 && healthyShare > 0.56) {
                 squad = { goal: "warden", x: WF_LAIR.x, y: WF_LAIR.y };
-            } else {
+            } else if (!finishingCamp) {
                 const target = squadSiegeTarget(st, foe);
                 squad = { goal: "push-squad", x: target.x, y: target.y };
             }
@@ -858,7 +865,7 @@ function updateCall(st: WfState, team: Team) {
     }
     // 3) SNOWBALL: two or more enemies down → the squad groups and cracks the
     // weakest gate NOW (numbers advantages must be spent — the pro-play rule).
-    if (!squad) {
+    if (!squad && !finishingCamp) {
         const foeDown = st.pets.filter((pp) => pp.team === foe && pp.state === "respawning").length;
         if (foeDown >= cfg.snowballAt && alive.length >= 3 && st.t > WARFRONT_TPS * WF_PHASE_SKIRMISH) {
             const target = squadSiegeTarget(st, foe);
@@ -868,8 +875,6 @@ function updateCall(st: WfState, team: Team) {
     // 4) A healthy team can force the headline objective during Skirmish instead
     // of waiting until minute four. The stance-specific health gate still keeps
     // reckless teams from donating a wipe.
-    const finishingCamp = st.minis.some((camp) => camp.alive && !camp.ally && camp.hp < MINI_HP * 0.78
-        && alive.some((pet) => hyp2(pet.x - camp.x, pet.y - camp.y) < 8));
     const headlineReady = st.events.some((event) => event.type === "minikill") || st.t > WARFRONT_TPS * WF_PHASE_WAR;
     if (!squad && headlineReady && !finishingCamp && st.boss.alive && st.t > WARFRONT_TPS * (WF_PHASE_SKIRMISH + 55) && healthyShare > cfg.wardenShare && alive.length >= 3) {
         squad = { goal: "warden", x: WF_LAIR.x, y: WF_LAIR.y };
@@ -900,7 +905,7 @@ function updateCall(st: WfState, team: Team) {
         const woundedCamp = st.minis.find((mm) =>
             mm.alive
             && !mm.ally
-            && mm.hp < MINI_HP * 0.85
+            && mm.hp < MINI_HP * 0.95
             && (lane === "m" ? true : lane === "n" ? mm.y < -1 : mm.y > 1)
         );
         if (woundedCamp) return { goal: `mini-${woundedCamp.padIdx}`, x: woundedCamp.x, y: woundedCamp.y };
