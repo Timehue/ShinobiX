@@ -196,14 +196,8 @@ function BattlePlan({ pets, size }: { pets: Pet[]; size: number }) {
     );
 }
 
-// HD-2D coliseum renderer — the pet-battle arena. Lazy so three/react-three-fiber
-// load ONLY when a battle actually mounts, keeping the cold-landing bundle untouched.
-const loadPetColiseum = () => import("../components/PetColiseum");
 const preloadPetColiseumModels = (pets: readonly Pet[]) => import("../lib/pet-model-preload")
     .then((module) => module.preloadPetColiseumModels(pets));
-// (The PetColiseum renderer is no longer mounted from this screen at all: every
-// duel it starts is a server-resolved Showdown replay. `loadPetColiseum` above
-// survives only as a WARM-UP for the Warfront chunk below.)
 // The Showdown replay player — how EVERY duel this screen still starts is
 // shown. The server resolved the fight; this plays that resolution's event log
 // through the same battle component a live Showdown uses. Lazy, and
@@ -684,7 +678,6 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 ...(cosmetic?.bodyImage ? { bodyImage: cosmetic.bodyImage } : {}),
             };
         });
-        void loadPetColiseum().catch(() => undefined);
         setChronicleCeremony(null);
         setChronicleProgress(null);
         resetPetSettlement();
@@ -723,9 +716,6 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             opponentStance: "balanced" as WfStance,
             opponentDoctrine: "vanguard" as WfDoctrine,
         };
-        // Use the existing five-second pre-roll to fetch/parse Three + the arena
-        // renderer instead of showing another loading panel after the countdown.
-        void loadPetColiseum().catch(() => undefined);
         const n = vsAi
             ? Math.max(1, Math.min(4, blue.length))
             : Math.max(1, Math.min(blue.length, red.length));

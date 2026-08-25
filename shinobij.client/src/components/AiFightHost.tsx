@@ -22,6 +22,7 @@ import {
 import {
     clearWandererFightPending,
     ensureWandererFightPending,
+    recoverWandererFightAvatar,
     stampWandererFightSettlement,
 } from "../lib/wanderer-fight";
 import { playerSlug } from "../lib/utils";
@@ -47,7 +48,7 @@ type ActiveFight = {
     worldContext?: AiFightStart["worldContext"];
 };
 
-function requestForResumedWorldFight(started: AiFightStart): AiFightRequest | null {
+function requestForResumedWorldFight(started: AiFightStart, enemyAvatar?: string): AiFightRequest | null {
     const context = started.worldContext;
     if (!context) return null;
     return {
@@ -57,6 +58,7 @@ function requestForResumedWorldFight(started: AiFightStart): AiFightRequest | nu
         opponentName: context.displayName,
         sector: context.sector,
         returnScreen: "worldMap",
+        ...(enemyAvatar ? { enemyAvatar } : {}),
         worldEncounter: {
             kind: context.kind,
             sourceId: context.sourceId,
@@ -337,9 +339,10 @@ export function AiFightHost({
                 }
                 if (!started.worldContext) return;
                 const context = started.worldContext;
-                const resumedRequest = requestForResumedWorldFight(started);
+                const recoveredAvatar = recoverWandererFightAvatar(originatingPlayerName, context);
+                const resumedRequest = requestForResumedWorldFight(started, recoveredAvatar);
                 if (!resumedRequest) return;
-                ensureWandererFightPending(originatingPlayerName, context);
+                ensureWandererFightPending(originatingPlayerName, context, resumedRequest.enemyAvatar);
                 setStartFailure(null);
                 activeRef.current = true;
                 setFight({
@@ -417,13 +420,17 @@ export function AiFightHost({
                         setRecoveryAttempt((attempt) => attempt + 1);
                         return;
                     }
+                    const sealedWorldMatchesRequest = !!started.worldContext
+                        && request.worldEncounter?.kind === started.worldContext.kind
+                        && request.worldEncounter.sourceId === started.worldContext.sourceId
+                        && request.worldEncounter.sector === started.worldContext.sector;
                     const sealedRequest = started.worldContext
-                        ? requestForResumedWorldFight(started)
+                        ? requestForResumedWorldFight(started, sealedWorldMatchesRequest ? request.enemyAvatar : undefined)
                         : requestForStartedGenericFight(started, request);
                     if (!sealedRequest) throw new Error("The combat server did not return a sealed encounter identity.");
                     acknowledgeExploreFightStart(originatingPlayerName, started, request.worldExploreRequestId);
                     acknowledgeRaidFightStart(originatingPlayerName, started, request.raidToken);
-                    if (started.worldContext) ensureWandererFightPending(originatingPlayerName, started.worldContext);
+                    if (started.worldContext) ensureWandererFightPending(originatingPlayerName, started.worldContext, sealedRequest.enemyAvatar);
                     // Do not arm the one-fight gate until the response has a
                     // complete sealed identity. A malformed rolling-deploy
                     // response must leave Retry able to submit a fresh request.

@@ -1297,7 +1297,8 @@ export function WorldMap({
             returnScreen: "worldMap",
             worldEncounter,
         });
-        if (!launched) {
+        if (launched) setWandererDialog(null);
+        else {
             alert("The combat host is unavailable. Return to the encounter and try again.");
         }
     }
@@ -1957,8 +1958,8 @@ export function WorldMap({
     // (`msg`) dialogs just close; the cooldown was set when the action ran.
     function dismissWandererDialog() {
         const d = wandererDialog;
-        if (d && !d.msg && (d.w.verb === "attack" || d.w.verb === "bountyHunter")) coolWanderer(d.w.id, WANDERER_FLEE_COOLDOWN_MS);
         setWandererDialog(null);
+        if (d && !d.msg && (d.w.verb === "attack" || d.w.verb === "bountyHunter")) coolWanderer(d.w.id, WANDERER_FLEE_COOLDOWN_MS);
     }
     function handleWandererBackdropClick() {
         if (requiresWandererChoice(wandererDialog)) return;

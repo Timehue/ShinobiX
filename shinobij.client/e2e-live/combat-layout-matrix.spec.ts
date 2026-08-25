@@ -1579,12 +1579,14 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
             current.board?.height ?? 0,
             `${label} board must not collapse; stage=${JSON.stringify(current.boardStage)} rows=${current.mainGridTemplateRows}`,
         ).toBeGreaterThanOrEqual(90);
-        // Solo carries the authoritative action-notice row. Ordinary PvP uses
-        // six portrait tracks, four split-landscape tracks, and the complete
-        // seven-track desktop composition. Pin each authored breakpoint so an
-        // accidental implicit row is still a release failure.
+        // Solo keeps seven compact tracks, while desktop promotes its action
+        // notice to a battlefield overlay so the board and lower panel can use
+        // that height. Ordinary PvP uses six portrait tracks, four split-
+        // landscape tracks, and the complete seven-track desktop composition.
+        // Pin each authored breakpoint so an accidental implicit row is still
+        // a release failure.
         const expectedMainRows = mode === 'solo'
-            ? 7
+            ? (current.viewport.width >= 1024 ? 6 : 7)
             : current.viewport.width < 980
                 ? (current.viewport.height <= 500 ? 4 : 6)
                 : 7;
@@ -1696,6 +1698,37 @@ test('Solo-PvE combat layout viewport matrix', async ({ page, request }, testInf
         minimumEnemySprites: 1,
     });
     await assertJutsuSelectionGeometryStable(page, '.mission-arena-fight', true);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const soloRoot = page.locator('.mission-arena-fight');
+    await soloRoot.getByRole('tab', { name: /Battle Log/ }).click();
+    const battleLog = soloRoot.locator('.combat-text-log');
+    await expect(battleLog).toBeVisible();
+    expect((await battleLog.boundingBox())?.height ?? 0, 'desktop Battle Log must be a readable panel').toBeGreaterThanOrEqual(178);
+    await expect(soloRoot.locator('.shinobi-command-bar')).toBeHidden();
+    await soloRoot.getByRole('tab', { name: 'Actions', exact: true }).click();
+    await expect(soloRoot.locator('.combat-jutsu-bar')).toBeVisible();
+    const resultAnimation = await page.evaluate(() => {
+        const rules = [...document.styleSheets].flatMap((sheet) => {
+            try { return [...sheet.cssRules]; } catch { return []; }
+        });
+        const styleFor = (selector: string) => rules
+            .filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule && rule.selectorText === selector)
+            .map((rule) => ({
+                animation: rule.style.animation,
+                delay: rule.style.animationDelay,
+                duration: rule.style.animationDuration,
+            }));
+        return {
+            ordinary: styleFor('.story-fight-complete'),
+            cinematic: styleFor('.story-fight-complete--cinematic'),
+        };
+    });
+    expect(resultAnimation.ordinary.some((rule) => rule.delay === '2.2s'),
+        'ordinary combat results must acknowledge the final hit without a story pause').toBe(false);
+    expect(resultAnimation.ordinary.some((rule) => /(?:180ms|0\.18s)/.test(`${rule.duration} ${rule.animation}`)),
+        'ordinary combat results must retain the brief entrance polish').toBe(true);
+    expect(resultAnimation.cinematic.some((rule) => rule.delay === '2.2s'),
+        'authored story chapters must keep their explicit final-bark beat').toBe(true);
     await captureMatrix(page, 'solo', '.mission-arena-fight', testInfo);
 });
 

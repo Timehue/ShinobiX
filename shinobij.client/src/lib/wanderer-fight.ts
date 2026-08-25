@@ -59,6 +59,10 @@ export type WandererFightPresentation = {
     bountyAmount?: number;
     storyReckoningId?: string;
     missionId?: string;
+    /** Bundled/display-only combat portrait. Never used to rebuild identity,
+     * stats, rewards, or chain authority; it only survives a tab refresh so a
+     * resumed road encounter does not fall back to initials. */
+    enemyAvatar?: string;
 };
 
 /** Derive the complete callback identity from the server seal. This is also the
@@ -84,13 +88,45 @@ export function wandererFightPresentationFromContext(
 
 /** Repair the local presentation record from server-sealed context. This is
  * called for both fresh starts and recovered active pointers. */
-export function ensureWandererFightPending(playerName: string, context: WorldAiFightContext): void {
+export function ensureWandererFightPending(
+    playerName: string,
+    context: WorldAiFightContext,
+    enemyAvatar?: string,
+): void {
     try {
+        const existing = recoverWandererFightAvatar(playerName, context);
         localStorage.setItem(
             WANDERER_PENDING_KEY,
-            JSON.stringify(wandererFightPresentationFromContext(playerName, context)),
+            JSON.stringify({
+                ...wandererFightPresentationFromContext(playerName, context),
+                ...((enemyAvatar || existing) ? { enemyAvatar: enemyAvatar || existing } : {}),
+            }),
         );
     } catch { /* private mode: live settlement still resolves */ }
+}
+
+/** Recover only the portrait belonging to this exact server-sealed encounter.
+ * The identity checks prevent a stale road NPC from lending its face to a new
+ * fight; the value remains presentation-only. */
+export function recoverWandererFightAvatar(
+    playerName: string,
+    context: WorldAiFightContext,
+): string | undefined {
+    try {
+        const raw = localStorage.getItem(WANDERER_PENDING_KEY);
+        if (!raw) return undefined;
+        const record = JSON.parse(raw) as Partial<WandererFightPresentation>;
+        const sameEncounter = record.playerName?.trim().toLowerCase() === playerName.trim().toLowerCase()
+            && record.sourceId === context.sourceId
+            && Number(record.stage) === context.stage
+            && Number(record.sector) === context.sector
+            && Date.now() - Number(record.at ?? 0) <= 30 * 60 * 1000;
+        return sameEncounter && typeof record.enemyAvatar === "string" && record.enemyAvatar.trim()
+            ? record.enemyAvatar
+            : undefined;
+    } catch {
+        return undefined;
+    }
 }
 
 /** Remove presentation recovery only for the account that just reconciled. */

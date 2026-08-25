@@ -56,6 +56,11 @@ describe("Tower narrow combat composition", () => {
             tacticalCss,
             /@media \(max-width: 360px\) and \(max-height: 600px\) \{[\s\S]*?\.tower-fight-grid > aside \{[\s\S]*?display: none !important;[\s\S]*?\.tower-turn-queue \{[\s\S]*?display: none;[\s\S]*?\.tower-threat-summary:not\(\.has-threats\) \{[\s\S]*?display: none;/,
         );
+        assert.match(
+            tacticalCss,
+            /@media \(max-width: 360px\) and \(max-height: 600px\) \{[\s\S]*?\.tower-board-area \{[\s\S]*?flex-basis: clamp\(224px, 40dvh, 240px\);[\s\S]*?min-height: clamp\(224px, 40dvh, 240px\) !important;/,
+            "the shortest portrait must reserve a complete first-technique tap target",
+        );
         assert.match(source, /className="tower-fight-turn-pill"[\s\S]*?className="tower-fight-turn-label" aria-live="polite"/,
             "the compact header must retain the authoritative current-turn announcement when the duplicate queue is hidden");
         assert.doesNotMatch(

@@ -1,7 +1,7 @@
 import type { BattleTab } from "../lib/use-battle-tabs";
 
 /**
- * Segmented "Actions | Timeline" switch shared by Solo PvE and PvP combat.
+ * Segmented "Actions | Battle Log" switch shared by Solo PvE and PvP combat.
  * The unread badge mirrors the
  * notification-style count of new log entries since the log was last viewed.
  */
@@ -32,7 +32,7 @@ export function BattleTabBar({
                 className={`battle-tab${tab === "log" ? " battle-tab-active" : ""}`}
                 onClick={() => setTab("log")}
             >
-                Timeline
+                Battle Log
                 {unread > 0 && (
                     <span className="battle-tab-badge" aria-label={`${unread} new log entries`}>
                         {unread > 99 ? "99+" : unread}

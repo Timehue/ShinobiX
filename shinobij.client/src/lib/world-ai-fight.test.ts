@@ -4,7 +4,12 @@ import { readFileSync } from "node:fs";
 import { huntTrailSector } from "./hunt-trail";
 import { huntSignFor } from "./hunt-encounter";
 import { playerSlug } from "./utils";
-import { wandererFightPresentationFromContext, worldFightNeedsDurableFollowUp } from "./wanderer-fight";
+import {
+    ensureWandererFightPending,
+    recoverWandererFightAvatar,
+    wandererFightPresentationFromContext,
+    worldFightNeedsDurableFollowUp,
+} from "./wanderer-fight";
 import { serverHuntSign, serverHuntTrailSector } from "../../../api/missions/_hunt-trail";
 
 const mission = {
@@ -76,6 +81,45 @@ test("server-sealed context reconstructs private-mode callback presentation", ()
             stage: 2,
         },
     );
+});
+
+test("a sealed wandering encounter keeps its painted portrait across combat refresh", () => {
+    const values = new Map<string, string>();
+    const originalStorage = globalThis.localStorage;
+    Object.defineProperty(globalThis, "localStorage", {
+        configurable: true,
+        value: {
+            get length() { return values.size; },
+            clear: () => values.clear(),
+            getItem: (key: string) => values.get(key) ?? null,
+            key: (index: number) => [...values.keys()][index] ?? null,
+            removeItem: (key: string) => values.delete(key),
+            setItem: (key: string, value: string) => values.set(key, value),
+        } satisfies Storage,
+    });
+    try {
+        const context = {
+            kind: "questbook-boss" as const,
+            sourceId: "bandit-captain-goro",
+            sector: 31,
+            stage: 1,
+            displayName: "Goro Two-Blades",
+            finalStage: true,
+        };
+        ensureWandererFightPending("Rill", context, "/assets/bandit-captain-goro.webp");
+        assert.equal(recoverWandererFightAvatar("Rill", context), "/assets/bandit-captain-goro.webp");
+        assert.equal(recoverWandererFightAvatar("Another Player", context), undefined);
+        assert.equal(recoverWandererFightAvatar("Rill", { ...context, sector: 32 }), undefined);
+        ensureWandererFightPending("Rill", context);
+        assert.equal(recoverWandererFightAvatar("Rill", context), "/assets/bandit-captain-goro.webp",
+            "refresh repair must not replace an existing portrait with initials");
+    } finally {
+        if (originalStorage) {
+            Object.defineProperty(globalThis, "localStorage", { configurable: true, value: originalStorage });
+        } else {
+            Reflect.deleteProperty(globalThis, "localStorage");
+        }
+    }
 });
 
 test("server-proved progression callbacks retain a post-report recovery marker", () => {

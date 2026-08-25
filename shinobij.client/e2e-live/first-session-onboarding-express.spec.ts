@@ -285,9 +285,13 @@ test('a new player completes the full persisted Academy first session against bu
     // the arena recovers rather than relying on test-only state injection.
     const settleResponse = page.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname === '/api/story/settle');
+    const sparResultStartedAt = Date.now();
     await page.getByRole('button', { name: /^Wait/ }).click();
     const sparResult = page.getByRole('dialog', { name: 'Sparring match won' });
     await expect(sparResult).toBeVisible();
+    expect(Date.now() - sparResultStartedAt,
+        'the Academy result must not inherit the chapter-victory final-bark pause').toBeLessThan(1_500);
+    await expect(sparResult).not.toHaveClass(/story-fight-complete--cinematic/);
     expect((await settleResponse).status()).toBe(200);
     await expect(sparResult).toContainText(/stat points/);
     await sparResult.getByRole('button', { name: 'Continue' }).click();
@@ -299,6 +303,11 @@ test('a new player completes the full persisted Academy first session against bu
 
     await page.getByRole('button', { name: 'Go to Cafeteria' }).click();
     await expect(page.getByRole('heading', { name: 'Cafeteria' })).toBeVisible();
+    const cafeteriaStorageNotice = page.getByRole('region', { name: 'Data storage notice' });
+    if (await cafeteriaStorageNotice.isVisible().catch(() => false)) {
+        await cafeteriaStorageNotice.getByRole('button', { name: 'Got it', exact: true }).click();
+        await expect(cafeteriaStorageNotice).toHaveCount(0);
+    }
     const cafeteriaResponse = page.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname === '/api/player/cafeteria');
     await page.getByRole('button', { name: /Feast/ }).click();

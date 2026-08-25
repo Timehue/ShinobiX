@@ -389,10 +389,10 @@ async function assertAuthoritativeCombatSurface(page: Page, compact: boolean) {
 
     const log = combat.getByRole("log", { name: "Battle log" });
     if (compact) {
-        const timelineTab = combat.getByRole("tab", { name: /^Timeline/ });
-        await timelineTab.focus();
+        const battleLogTab = combat.getByRole("tab", { name: /^Battle Log/ });
+        await battleLogTab.focus();
         await page.keyboard.press("Enter");
-        await expect(timelineTab).toHaveAttribute("aria-selected", "true");
+        await expect(battleLogTab).toHaveAttribute("aria-selected", "true");
         await expect(log).toContainText(`${PLAYER_NAME} faces Mist Sentinel.`);
 
         const actionsTab = combat.getByRole("tab", { name: "Actions" });
@@ -400,11 +400,19 @@ async function assertAuthoritativeCombatSurface(page: Page, compact: boolean) {
         await page.keyboard.press("Enter");
         await expect(actionsTab).toHaveAttribute("aria-selected", "true");
     } else {
-        // Wide combat deliberately renders actions and log together. Its compact
-        // switch remains in the DOM for responsive continuity but is visually
-        // hidden, so keyboard tab semantics are certified in the mobile case.
-        await expect(combat.locator(".battle-tabbar")).toBeHidden();
+        // Wide mission combat gives the log a dedicated, scroll-owned panel.
+        // Certify the same explicit panel navigation used on compact screens.
+        const battleLogTab = combat.getByRole("tab", { name: /^Battle Log/ });
+        await expect(battleLogTab).toBeVisible();
+        await battleLogTab.focus();
+        await page.keyboard.press("Enter");
+        await expect(battleLogTab).toHaveAttribute("aria-selected", "true");
         await expect(log).toContainText(`${PLAYER_NAME} faces Mist Sentinel.`);
+
+        const actionsTab = combat.getByRole("tab", { name: "Actions" });
+        await actionsTab.focus();
+        await page.keyboard.press("Enter");
+        await expect(actionsTab).toHaveAttribute("aria-selected", "true");
     }
 }
 
@@ -461,7 +469,9 @@ test("desktop Battle Arena seals practice combat, surfaces retry, acts, and resu
         expectedVersion: 1,
         type: "basicAttack",
     });
-    await expect(combatSurface(page).getByRole("log", { name: "Battle log" })).toContainText("the sealed server advances the round");
+    const postActionCombat = combatSurface(page);
+    await postActionCombat.getByRole("tab", { name: /^Battle Log/ }).click();
+    await expect(postActionCombat.getByRole("log", { name: "Battle log" })).toContainText("the sealed server advances the round");
 
     const startsBeforeReload = api.practiceStartCount();
     await page.reload({ waitUntil: "networkidle" });
@@ -520,7 +530,7 @@ test("Arena District serializes ranked join, poll, and leave on desktop and mobi
     await expect.poll(() => api.rankedQueueActions()).toEqual(["join", "poll", "leave"]);
 });
 
-test("mobile Battle Arena exposes the same sealed board, commands, and timeline", async ({ page }, testInfo) => {
+test("mobile Battle Arena exposes the same sealed board, commands, and battle log", async ({ page }, testInfo) => {
     test.setTimeout(120_000);
     test.skip(testInfo.project.name !== "chromium-mobile", "one canonical mobile viewport is sufficient");
 

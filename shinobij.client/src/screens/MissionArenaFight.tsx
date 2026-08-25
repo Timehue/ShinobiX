@@ -97,7 +97,8 @@ import type { HollowGateHoundKind } from "../../../shared/hollow-gate-contract";
 //     screen behaves byte-identically to the original mission-only version.
 //
 // The board geometry is byte-identical to Arena.tsx (HEX_W/HEX_H, odd-q offset,
-// 12 wide × 10 tall, ORB 52), so the tiles/orbs line up exactly with the arena
+// 12 wide × 10 tall). Solo combat uses a larger 68px actor anchor so fighters
+// stay legible after the board auto-fits into the battlefield surface.
 // skin's CSS. A solo fight is always 1v1 (one player vs one boss), so there is no
 // squad rail, pylons, hazards, or spire chrome to draw.
 
@@ -107,7 +108,7 @@ type ItemLike = { id?: string; name?: string; slot?: string; rarity?: string; im
 /** A VFX plate in flight on the board. `target` is the anchoring actor's id. */
 type ArenaCombatVfx = { id: string; target: string; spec: CombatVfxSpec };
 
-const ORB = 52;             // matches Arena.tsx ORB — orbs centre over the hex
+const ORB = 68;             // larger solo-combat actors; still centred over the hex
 const ATTACK_AP = 40, MOVE_AP = 30, UTILITY_AP = 60, MAX_ACTIONS = 5;
 
 // Which jutsu school the biome's +10% terrain buff favors (mirrors the server's
