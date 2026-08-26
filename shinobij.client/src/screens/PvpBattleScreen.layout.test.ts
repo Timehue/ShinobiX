@@ -60,6 +60,8 @@ test("the PvP battle log uses the scrollable, round-grouped semantic feed", () =
     assert.match(combatHudSource, /<BattleLogLine/);
     assert.match(combatHudSource, /className="timeline-round-header timeline-round-toggle"/);
     assert.match(combatHudSource, /className="combat-log-expand"/);
+    assert.match(combatHudSource, /className="combat-log-scroll-region" tabIndex=\{0\}/,
+        "the feed needs a dedicated keyboard-scrollable region below its fixed header");
     assert.match(source, /selfName=\{me\.name\}/);
     assert.match(source, /oppName=\{opp\.name\}/);
     assert.doesNotMatch(source, /<BattleActionBlock/);
@@ -67,6 +69,11 @@ test("the PvP battle log uses the scrollable, round-grouped semantic feed", () =
 
     const panelRule = battleSkinCss.match(/\.plain-combat-battle-log\s*\{([^}]*)\}/s)?.[1] ?? "";
     assert.match(panelRule, /overflow-y:\s*auto\s*!important/, "the complete log must scroll vertically");
+    assert.match(
+        battleSkinCss,
+        /\.plain-combat-battle-log > \.combat-log-scroll-region\s*\{[^}]*overflow-y:\s*auto\s*!important/s,
+        "the complete log must scroll inside a dedicated region without clipping the header",
+    );
 
     assert.match(
         battleSkinCss,

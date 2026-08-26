@@ -11,6 +11,7 @@ import { GiBoxingGlove, GiCrossedSwords, GiEyeball, GiFireSpellCast, GiTargeted,
     GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime, GiPawPrint } from "../components/icons/LightweightGameIcons";
 import type { Character, BattleHistoryEntry } from "../types/character";
 import type { JutsuMethod } from "../types/core";
+import { JUTSU_MAX_LEVEL } from "../constants/game";
 import type {
     ServerArenaAction,
     ServerArenaSession,
@@ -38,6 +39,8 @@ import {
     PlainCombatBattleLog,
 } from "../components/CombatHudLayout";
 import { CombatJutsuMeta } from "../components/CombatJutsuMeta";
+import { JutsuEffectCards } from "../components/JutsuEffectCards";
+import { CombatDetailPortal } from "../components/CombatDetailPortal";
 import {
     activeBarrierTilesForDisplay,
     adjustedCombatApCost,
@@ -48,12 +51,14 @@ import { FighterHpBadge } from "../components/FighterHpBadge";
 import { BattlefieldActor } from "../components/BattlefieldActor";
 import { battlefieldSpriteHeadroom } from "../lib/battlefield-sprite";
 import { jutsuImpactPreviewTiles } from "../lib/jutsu-impact-preview";
+import { getJutsuMastery, scaleJutsuByLevel } from "../lib/jutsu-scaling";
+import { jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { isImageAvatar } from "../lib/avatar";
 import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
 import { resolveOwnAvatar } from "../lib/own-avatar";
 import { petCardImage, petStripVariant } from "../lib/pet-battle-anim";
 import { firstSharedImage, petVisualVariantClass, variantImageKeys } from "../lib/pet-visual-variant";
-import { getAllJutsus } from "../App";
+import { getAllJutsus, playerLensDiscipline } from "../App";
 import { getAllItems } from "../lib/items";
 import type { Pet } from "../types/pet";
 import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
@@ -103,7 +108,7 @@ import type { HollowGateHoundKind } from "../../../shared/hollow-gate-contract";
 // squad rail, pylons, hazards, or spire chrome to draw.
 
 type Mode = "idle" | "move" | "attack" | "jutsu" | "weapon" | "clear";
-type JutsuLike = { id?: string; name?: string; type?: string; element?: string; target?: string; ap?: number; range?: number; effectPower?: number; method?: string; cooldown?: number; chakraCost?: number; staminaCost?: number; image?: string; tags?: Array<{ name?: string }> };
+type JutsuLike = { id?: string; name?: string; type?: string; element?: string; target?: string; ap?: number; range?: number; effectPower?: number; method?: string; cooldown?: number; chakraCost?: number; staminaCost?: number; image?: string; description?: string; battleDescription?: string; tags?: Array<{ name?: string; percent?: number }> };
 type ItemLike = { id?: string; name?: string; slot?: string; rarity?: string; image?: string; weaponRange?: number; apCost?: number };
 /** A VFX plate in flight on the board. `target` is the anchoring actor's id. */
 type ArenaCombatVfx = { id: string; target: string; spec: CombatVfxSpec };
@@ -233,6 +238,7 @@ export function MissionArenaFight({
     const [session, setSession] = useState<ServerArenaSession>(initialSession);
     const [mode, setMode] = useState<Mode>("idle");
     const [selJutsu, setSelJutsu] = useState<JutsuLike | null>(null);
+    const [inspectedJutsuId, setInspectedJutsuId] = useState("");
     const [selWeaponId, setSelWeaponId] = useState<string>("");
     // Which tile the cursor/keyboard is on, so a tile-targeted cast can preview
     // the footprint it would leave there. Hover-only by nature — see
@@ -615,6 +621,7 @@ export function MissionArenaFight({
     })();
     const { weapons: myWeapons, consumables: myConsumables } = loadout;
     const myJutsu: JutsuLike[] = Array.isArray(myActor?.character?.jutsu) ? (myActor!.character.jutsu as JutsuLike[]) : [];
+    const inspectedJutsu = myJutsu.find((j) => j.id === inspectedJutsuId) ?? null;
 
     const myAp = myTurn ? session.activeAp : 0;
     const actionsUsed = myTurn ? session.actionsThisTurn : 0;
@@ -813,14 +820,14 @@ export function MissionArenaFight({
     // The sealed session strips jutsu art (combat fields only), so card thumbnails
     // come from the player's OWN catalog by id — the same source the Arena's cards
     // use. Inline/shared art stays as a fallback.
-    const jutsuArtById = (() => {
-        const map: Record<string, string> = {};
+    const jutsuCatalogById = (() => {
+        const map: Record<string, Jutsu> = {};
         for (const j of getAllJutsus(savedBloodlines ?? [], creatorJutsus ?? [], character)) {
-            if (j?.id && typeof j.image === "string" && j.image) map[j.id] = j.image;
+            if (j?.id) map[j.id] = j;
         }
         return map;
     })();
-    const jutsuArt = (j: JutsuLike) => jutsuArtById[String(j.id ?? "")] || (typeof j.image === "string" && j.image) || sharedImages?.[`jutsu:${j.id}`] || "";
+    const jutsuArt = (j: JutsuLike) => jutsuCatalogById[String(j.id ?? "")]?.image || (typeof j.image === "string" && j.image) || sharedImages?.[`jutsu:${j.id}`] || "";
     // Same story as jutsu: the sealed pvpItems carry combat fields, not art, so
     // weapon/consumable thumbnails resolve from the player's own item catalog by id.
     const itemArtById = (() => {
@@ -1205,6 +1212,19 @@ export function MissionArenaFight({
                                                     shows as the corner pip. */}
                                                 <CombatJutsuMeta character={character} jutsu={j} statuses={myActor?.statuses} round={session.round} activeCooldown={cd} />
                                             </button>
+                                            <button
+                                                type="button"
+                                                className="combat-jutsu-help"
+                                                id={`mission-combat-detail-trigger-jutsu-${j.id}`}
+                                                aria-haspopup="dialog"
+                                                aria-controls={`mission-combat-detail-jutsu-${j.id}`}
+                                                aria-expanded={inspectedJutsuId === j.id}
+                                                aria-label={`View ${j.name} jutsu details`}
+                                                title={`View ${j.name} details`}
+                                                onClick={() => setInspectedJutsuId(inspectedJutsuId === j.id ? "" : String(j.id ?? ""))}
+                                            >
+                                                <span className="combat-help-glyph" aria-hidden="true">?</span>
+                                            </button>
                                         </div>
                                     );
                                 })}
@@ -1263,6 +1283,53 @@ export function MissionArenaFight({
                                 })}
                             </div>
                         )}
+                        {inspectedJutsu && (() => {
+                            // Prefer the server-sealed combat values/tags while filling
+                            // descriptive fields from the player's authored catalog.
+                            const detailJutsu = {
+                                ...(jutsuCatalogById[String(inspectedJutsu.id ?? "")] ?? {}),
+                                ...inspectedJutsu,
+                            } as Jutsu;
+                            const mastery = getJutsuMastery(character, detailJutsu.id);
+                            const scaled = scaleJutsuByLevel(detailJutsu, mastery.level);
+                            const targeting = jutsuTargetingLabel(detailJutsu);
+                            return (
+                                <CombatDetailPortal
+                                    id={`mission-combat-detail-jutsu-${detailJutsu.id}`}
+                                    labelId={`mission-combat-detail-label-jutsu-${detailJutsu.id}`}
+                                    triggerId={`mission-combat-detail-trigger-jutsu-${detailJutsu.id}`}
+                                    onClose={() => setInspectedJutsuId("")}
+                                >
+                                    <div className="combat-jutsu-detail-header">
+                                        <div>
+                                            <strong id={`mission-combat-detail-label-jutsu-${detailJutsu.id}`}>{detailJutsu.name}</strong>
+                                            <small>Level {mastery.level} / {JUTSU_MAX_LEVEL}</small>
+                                        </div>
+                                        <button type="button" data-combat-detail-close aria-label="Close combat details" onClick={() => setInspectedJutsuId("")}>x</button>
+                                    </div>
+                                    <div className="combat-jutsu-detail-grid">
+                                        <span><strong>Type:</strong> {detailJutsu.type}</span>
+                                        <span><strong>Element:</strong> {detailJutsu.element}</span>
+                                        <span><strong>AP:</strong> {adjustedActionAp(Number(detailJutsu.ap ?? 40))}</span>
+                                        <span><strong>Range:</strong> {detailJutsu.range}</span>
+                                        <span><strong>Effect Power:</strong> {scaled.scaledEffectPower}</span>
+                                        <span><strong>Cooldown:</strong> {detailJutsu.cooldown}</span>
+                                        <span><strong>Chakra Cost:</strong> {Math.max(0, Number(detailJutsu.chakraCost) || 0)}</span>
+                                        <span><strong>Stamina Cost:</strong> {Math.max(0, Number(detailJutsu.staminaCost) || 0)}</span>
+                                    </div>
+                                    <p className="combat-jutsu-detail-desc"><strong style={{ color: "var(--purple-400)" }}>Target — {targeting.short}:</strong> {targeting.detail}</p>
+                                    {detailJutsu.description && <p className="combat-jutsu-detail-desc">{detailJutsu.description}</p>}
+                                    <div className="combat-jutsu-effects-list">
+                                        <JutsuEffectCards
+                                            jutsu={detailJutsu}
+                                            scaledEffectPower={scaled.scaledEffectPower}
+                                            masteryLevel={mastery.level}
+                                            lensDiscipline={playerLensDiscipline(character)}
+                                        />
+                                    </div>
+                                </CombatDetailPortal>
+                            );
+                        })()}
                     </div>
 
                     <PlainCombatBattleLog

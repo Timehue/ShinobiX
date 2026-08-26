@@ -582,6 +582,12 @@ type StatusPhaseResult = { s: PvpFighter; o: PvpFighter; lines: string[]; damage
 // and the Pierce flag. Returns mutated copies; never touches the originals.
 function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, round: number, masteryLevel: number, baseDmg: number, healBoost: number): StatusPhaseResult {
     const tags = jutsu.tags ?? [];
+    const tagTotals = new Map<string, number>();
+    const tagOccurrences = new Map<string, number>();
+    for (const tag of tags) {
+        const canonicalName = normalizeTagName(tag.name);
+        tagTotals.set(canonicalName, (tagTotals.get(canonicalName) ?? 0) + 1);
+    }
     const lines: string[] = [];
     let s = { ...self };
     let o = { ...opponent };
@@ -627,6 +633,10 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         // normalizeTagName re-canonicalizes here so direct (un-sanitized) callers
         // (engine tests, NPC payloads) resolve aliases the same way.
         const tagName = normalizeTagName(tag.name);
+        const tagOccurrence = (tagOccurrences.get(tagName) ?? 0) + 1;
+        tagOccurrences.set(tagName, tagOccurrence);
+        const tagTotal = tagTotals.get(tagName) ?? 1;
+        const stackLabel = tagTotal > 1 ? ` (stack ${tagOccurrence}/${tagTotal})` : '';
         const pct = Math.floor(scaledTagPercent(tag.percent ?? 0, tagPercentMastery, tagName, jutsu.bloodlineRank, weaponSwing ? WEAPON_AMP_TAG_CAP : undefined));
         if (tagName === 'Heal') { const healAmt = healAmountForMastery(masteryLevel, healBoost); healing += healAmt; lines.push(`Heal: ${s.name} restores ${healAmt} HP.`); continue; }
         if (tagName === 'Shield') { const shieldAmt = shieldAmountForMastery(masteryLevel); shieldGain += shieldAmt; lines.push(`Shield: ${s.name} gains ${shieldAmt} shield.`); continue; }
@@ -652,7 +662,7 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         if (tagName === 'Absorb') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Absorb', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Absorb: ${s.name} converts ${pct}% incoming damage for 2 turns.`); } continue; }
         if (tagName === 'Reflect') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Reflect', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Reflect: ${s.name} reflects ${pct}% damage for 2 turns.`); } continue; }
         if (tagName === 'Lifesteal') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Lifesteal', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Lifesteal: ${s.name} heals on hit for 2 turns.`); } continue; }
-        if (tagName === 'Increase Damage Given') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Increase Damage Given', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`+${pct}% Damage Given: ${s.name} for 2 turns.`); } continue; }
+        if (tagName === 'Increase Damage Given') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Increase Damage Given', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`+${pct}% Damage Given${stackLabel}: ${s.name} for 2 turns.`); } continue; }
         if (tagName === 'Decrease Damage Given') { if (!hasStatus(o, 'Debuff Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Decrease Damage Given', rounds: 2, percent: pct, kind: 'negative' }, round); lines.push(`-${pct}% Damage Given: ${o.name} for 2 turns.`); } continue; }
         if (tagName === 'Increase Damage Taken') { if (!hasStatus(o, 'Debuff Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Increase Damage Taken', rounds: 2, percent: pct, kind: 'negative' }, round); lines.push(`+${pct}% Damage Taken: ${o.name} for 2 turns.`); } continue; }
         if (tagName === 'Decrease Damage Taken') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Decrease Damage Taken', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`-${pct}% Damage Taken: ${s.name} for 2 turns.`); } continue; }

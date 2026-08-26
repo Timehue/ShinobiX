@@ -220,6 +220,19 @@ test("the mission summon command contains its icon and long lock copy", () => {
     );
 });
 
+test("mission jutsu cards expose the same accessible detail dialog as PvP", () => {
+    assert.match(missionSource, /className="combat-jutsu-help"/);
+    assert.match(missionSource, /aria-label={`View \$\{j\.name\} jutsu details`}/);
+    assert.match(missionSource, /<span className="combat-help-glyph" aria-hidden="true">\?<\/span>/);
+    assert.match(missionSource, /<CombatDetailPortal/);
+    assert.match(missionSource, /<JutsuEffectCards/);
+    assert.match(
+        missionSource,
+        /\.\.\.\(jutsuCatalogById\[String\(inspectedJutsu\.id \?\? ""\)\] \?\? \{\}\),\s*\.\.\.inspectedJutsu/s,
+        "the dialog must show trusted sealed mechanics while retaining authored descriptions",
+    );
+});
+
 // PvE lost its whole targeting telegraph when the browser reducer was retired:
 // the CSS survived but no screen applied it, so an armed AOE showed nothing and
 // the enemy hex was the only in-range tile with no fill. Both halves are easy to
