@@ -328,6 +328,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const worldRequest = cleanWorldAiFightRequest(body.worldEncounter);
         const resumeWorldFight = body.resumeWorldFight === true;
         const resumeAiFight = body.resumeAiFight === true;
+        // Only clients that understand an empty successful response opt in to
+        // 204. Older cached bundles still receive their established 404 so a
+        // rolling deployment cannot turn "nothing to resume" into a parse error.
+        const noContentRecoveryProbe = Number(body.recoveryProbeVersion) >= 2;
         if (body.worldEncounter != null && !worldRequest) {
             return res.status(400).json({ error: 'Invalid world encounter descriptor.' });
         }
@@ -356,7 +360,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             },
                         } };
                     }
-                    return { status: 404, body: { error: 'No active World encounter.' } };
+                    return noContentRecoveryProbe
+                        ? { status: 204, body: { error: 'No active World encounter.' } }
+                        : { status: 404, body: { error: 'No active World encounter.' } };
                 }
                 if (worldRequest && pendingChain) {
                     if (!sameWorldAiFightRequest(worldRequest, pendingChain.request)) {
@@ -485,6 +491,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // outcome so authFetch advances the caller's save-version ratchet.
             const latest = await kv.get<Record<string, unknown>>(`save:${playerName}`).catch(() => null);
             const saveVersion = Math.floor(Number(latest?._saveVersion));
+            if (response.status === 204) return res.status(204).end();
             return res.status(response.status).json({
                 ...response.body,
                 ...(Number.isSafeInteger(saveVersion) && saveVersion > 0 ? { _saveVersion: saveVersion } : {}),
@@ -499,7 +506,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (resumeAiFight) return { status: 200, body: genericStartBody(recovered, true) };
                 return { status: 409, body: { error: 'An AI encounter is already active.', resumable: true, sessionId: recovered.pointer.sessionId } };
             }
-            if (resumeAiFight) return { status: 404, body: { error: 'No active AI encounter.' } };
+            if (resumeAiFight) {
+                return noContentRecoveryProbe
+                    ? { status: 204, body: { error: 'No active AI encounter.' } }
+                    : { status: 404, body: { error: 'No active AI encounter.' } };
+            }
 
             const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const character = (save?.character ?? null) as Record<string, unknown> | null;
@@ -589,6 +600,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 throw error;
             }
         }, { failClosed: true });
+        if (genericResponse.status === 204) return res.status(204).end();
         return res.status(genericResponse.status).json(genericResponse.body);
     } catch (err) {
         console.error('[missions/ai-fight-start]', safeLogValue(err));

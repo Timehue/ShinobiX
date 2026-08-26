@@ -114,9 +114,9 @@ test("AI fight API preserves sealed resume identity and durable handoffs", { con
         assert.equal(bodies[4].worldExploreRequestId, "explore_receipt_123");
         assert.equal(bodies[4].raidToken, "raid_proof_123");
         assert.deepEqual(bodies.slice(0, 3), [
-            { playerName: "Rill", resumeWorldFight: true },
-            { playerName: "Rill", resumeWorldFight: true },
-            { playerName: "Rill", resumeAiFight: true },
+            { playerName: "Rill", resumeWorldFight: true, recoveryProbeVersion: 2 },
+            { playerName: "Rill", resumeWorldFight: true, recoveryProbeVersion: 2 },
+            { playerName: "Rill", resumeAiFight: true, recoveryProbeVersion: 2 },
         ]);
         assert.deepEqual(bodies[3], { action: "claim", playerName: "Rill" });
     } finally {
@@ -124,10 +124,13 @@ test("AI fight API preserves sealed resume identity and durable handoffs", { con
     }
 });
 
-test("resume probes treat a missing pointer as normal", { concurrency: false }, async () => {
+test("resume probes treat current 204 and legacy 404 missing-pointer responses as normal", { concurrency: false }, async () => {
     const realFetch = globalThis.fetch;
-    globalThis.fetch = (async () => response({ error: "none" }, 404)) as typeof fetch;
     try {
+        globalThis.fetch = (async () => response(undefined, 204)) as typeof fetch;
+        assert.equal(await resumeWorldAiFight("Rill"), null);
+        assert.equal(await resumeGenericAiFight("Rill"), null);
+        globalThis.fetch = (async () => response({ error: "none" }, 404)) as typeof fetch;
         assert.equal(await resumeWorldAiFight("Rill"), null);
         assert.equal(await resumeGenericAiFight("Rill"), null);
     } finally {
@@ -178,7 +181,7 @@ test("a lost generic start ACK resumes the sealed pointer immediately", { concur
         });
         assert.equal(started.resumed, true);
         assert.equal(started.opponentId, "server-derived-bandit");
-        assert.deepEqual(bodies[1], { playerName: "Rill", resumeAiFight: true });
+        assert.deepEqual(bodies[1], { playerName: "Rill", resumeAiFight: true, recoveryProbeVersion: 2 });
     } finally {
         globalThis.fetch = realFetch;
     }
@@ -217,7 +220,7 @@ test("a lost World start ACK recovers the sealed active fight without reload", {
         });
         assert.ok("worldContext" in started);
         if ("worldContext" in started) assert.equal(started.worldContext?.sourceId, "wanderer-44");
-        assert.deepEqual(bodies[1], { playerName: "Rill", resumeWorldFight: true });
+        assert.deepEqual(bodies[1], { playerName: "Rill", resumeWorldFight: true, recoveryProbeVersion: 2 });
     } finally {
         globalThis.fetch = realFetch;
     }

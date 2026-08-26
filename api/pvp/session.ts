@@ -1651,7 +1651,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             res.setHeader('Cache-Control', 'no-store');
             try {
                 const pointer = await loadPvpPendingSessionPointer(kv, requestedPlayer);
-                if (!pointer) return res.status(404).json({ error: 'No pending PvP session.' });
+                if (!pointer) {
+                    // Preserve the legacy 404 contract for cached clients during
+                    // rolling deploys; the current client explicitly opts in.
+                    if (String(req.query.recoveryProbeVersion ?? '') === '2') {
+                        return res.status(204).end();
+                    }
+                    return res.status(404).json({ error: 'No pending PvP session.' });
+                }
                 const rawRow = await kv.get<unknown>(`pvp:${pointer.battleId}`);
                 // A publication fence is not a session row. Read it as absence
                 // so recovery keeps its snapshot / reservation-freshness path,
