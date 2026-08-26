@@ -109,10 +109,10 @@ const MOB_CHASE = 4.0;
 export type WfStance = "balanced" | "siege" | "jungle" | "headhunt" | "turtle";
 export type WfDoctrine = "none" | "vanguard" | "bulwark" | "zealot" | "warden-pact";
 export const WF_DOCTRINES: ReadonlyArray<{ id: WfDoctrine; icon: string; label: string; desc: string }> = [
-    { id: "vanguard", icon: "\u2694", label: "Vanguard", desc: "+10% attack \u2014 win every trade" },
+    { id: "vanguard", icon: "\u2694", label: "Vanguard", desc: "+8% attack \u2014 win trades and crack gates" },
     { id: "bulwark", icon: "\ud83d\udee1", label: "Bulwark", desc: "+12% HP \u2014 outlast and last-stand harder" },
     { id: "zealot", icon: "\ud83d\udca8", label: "Zealot", desc: "+10% speed \u2014 rotate, gank, escape" },
-    { id: "warden-pact", icon: "\ud83e\udd1d", label: "Warden\u2019s Pact", desc: "recruited camp bosses fight 50% longer" },
+    { id: "warden-pact", icon: "\ud83e\udd1d", label: "Warden\u2019s Pact", desc: "recruited bosses fight 50% longer and hit 18% harder" },
 ];
 export const WF_STANCES: ReadonlyArray<{ id: WfStance; icon: string; label: string; desc: string }> = [
     { id: "balanced", icon: "⚖️", label: "Balanced War", desc: "Standard lanes — take what the map gives." },
@@ -154,11 +154,11 @@ export const WF_COIN_WARDEN = 1200;           // "a ton"
 // ── Powerups ("minimal but matters") ─────────────────────────────────────────
 export type WfPowerupKind = "strike" | "guard" | "vitality" | "swift" | "mend";
 export const WF_POWERUPS: ReadonlyArray<{ kind: WfPowerupKind; label: string; desc: string; icon: string }> = [
-    { kind: "strike", label: "Oni Talisman", desc: "+4% attack", icon: "🗡" },
-    { kind: "guard", label: "Tortoise Ward", desc: "+4% defense", icon: "🛡" },
-    { kind: "vitality", label: "Vitality Pill", desc: "+6% max HP (and heals it)", icon: "🫀" },
-    { kind: "swift", label: "Windstep Charm", desc: "+3% move speed", icon: "🌀" },
-    { kind: "mend", label: "Sage Salve", desc: "+0.3% max HP regen /s", icon: "🌿" },
+    { kind: "strike", label: "Oni Talisman", desc: "+5% attack", icon: "🗡" },
+    { kind: "guard", label: "Tortoise Ward", desc: "+5% defense", icon: "🛡" },
+    { kind: "vitality", label: "Vitality Pill", desc: "+7% max HP (and heals it)", icon: "🫀" },
+    { kind: "swift", label: "Windstep Charm", desc: "+4% move speed", icon: "🌀" },
+    { kind: "mend", label: "Sage Salve", desc: "+0.4% max HP regen /s", icon: "🌿" },
 ];
 export const WF_STACK_CAP = 6;
 const POWERUP_BASE_COST = 120;
@@ -467,6 +467,7 @@ export type WfEvent =
     | { t: number; type: "miniboon"; padIdx: number; team: Team; kind: "shield" | "heal" | "hunt" | "siege"; x: number; y: number }
     | { t: number; type: "mobwave" }
     | { t: number; type: "buy"; team: Team; petId: string; kind: WfPowerupKind; cost: number }
+    | { t: number; type: "council"; team: Team; buys: number; spent: number; shieldPct: number; ult: number; stance: WfStance }
     | { t: number; type: "guardianrally"; team: Team; padIdx: number; secs: number }
     | { t: number; type: "guardianward"; team: Team; idx: number; targetId: string; amount: number; x: number; y: number }
     | { t: number; type: "petlevel"; petId: string; level: number }
@@ -2010,7 +2011,8 @@ function miniAllyStep(_st: WfState, m: WfMini, tx: number, ty: number) {
 }
 
 function miniStrike(st: WfState, m: WfMini, q: WfPet, mult: number) {
-    let dmg = Math.round(MINI_DMG * mult * (100 / (100 + q.def)));
+    const pact = m.ally && st.doctrine[m.ally] === "warden-pact" ? 1.18 : 1;
+    let dmg = Math.round(MINI_DMG * mult * pact * (100 / (100 + q.def)));
     if (q.shieldHp > 0) { const soak = Math.min(q.shieldHp, dmg); q.shieldHp -= soak; dmg -= soak; }
     q.hp = Math.max(0, q.hp - dmg);
     st.events.push({ t: st.t, type: "hit", targetId: q.id, actorId: `mini-${m.padIdx}`, dmg, crit: false });
@@ -2022,7 +2024,8 @@ function miniStrike(st: WfState, m: WfMini, q: WfPet, mult: number) {
 }
 
 function miniStrikeMob(st: WfState, m: WfMini, mob: WfMob) {
-    mob.hp -= Math.round(MINI_DMG * 1.6);
+    const pact = m.ally && st.doctrine[m.ally] === "warden-pact" ? 1.18 : 1;
+    mob.hp -= Math.round(MINI_DMG * 1.6 * pact);
     st.events.push({
         t: st.t, type: "mobhit", x: quant(mob.x), y: quant(mob.y),
         targetId: `mini-${m.padIdx}`,
@@ -2811,16 +2814,34 @@ function applyPowerup(st: WfState, team: Team, petSlot: number, kind: WfPowerupK
     st.coins[team] -= cost;
     st.stacksBought[team][petSlot][KIND_IDX[kind]]++;
     pet.stacks[kind]++;
-    if (kind === "strike") pet.atk = pet.baseAtk * (1 + 0.04 * pet.stacks.strike);
-    else if (kind === "guard") pet.def = pet.baseDef * (1 + 0.04 * pet.stacks.guard);
+    if (kind === "strike") pet.atk = pet.baseAtk * (1 + 0.05 * pet.stacks.strike);
+    else if (kind === "guard") pet.def = pet.baseDef * (1 + 0.05 * pet.stacks.guard);
     else if (kind === "vitality") {
         const prevMax = pet.maxHp;
-        pet.maxHp = pet.baseMaxHp * (1 + 0.06 * pet.stacks.vitality);
+        pet.maxHp = pet.baseMaxHp * (1 + 0.07 * pet.stacks.vitality);
         pet.hp = Math.min(pet.maxHp, pet.hp + (pet.maxHp - prevMax));
-    } else if (kind === "swift") pet.moveSpeed = pet.baseSpeed * (1 + 0.03 * pet.stacks.swift);
-    else if (kind === "mend") pet.regen = (pet.baseMaxHp * 0.003 * pet.stacks.mend) / WARFRONT_TPS;
+    } else if (kind === "swift") pet.moveSpeed = pet.baseSpeed * (1 + 0.04 * pet.stacks.swift);
+    else if (kind === "mend") pet.regen = (pet.baseMaxHp * 0.004 * pet.stacks.mend) / WARFRONT_TPS;
     st.events.push({ t: st.t, type: "buy", team, petId: pet.id, kind, cost });
     return true;
+}
+
+/** Every council is a battlefield redeploy, not just a shop. The squad gains a
+ * short-lived visible ward and ultimate tempo based on how decisively it spent.
+ * This also gives a coin-starved team a small regrouping floor, so opening the
+ * council is always consequential. */
+function applyCouncilSurge(st: WfState, team: Team, buys: number, spent: number) {
+    const shieldPct = Math.min(14, 5 + buys * 1.5);
+    const ult = Math.min(18, 6 + buys * 3);
+    for (const pet of st.pets) {
+        if (pet.team !== team || pet.state === "respawning") continue;
+        pet.shieldHp = Math.max(pet.shieldHp, Math.round(pet.maxHp * shieldPct / 100));
+        pet.ult = Math.min(100, pet.ult + ult);
+    }
+    st.events.push({
+        t: st.t, type: "council", team, buys, spent,
+        shieldPct: Math.round(shieldPct * 10) / 10, ult, stance: st.stance[team],
+    });
 }
 
 function autoBuy(st: WfState, team: Team, policy: WfBuyPolicy) {
@@ -2894,11 +2915,11 @@ export interface WarfrontMatchCtl {
 // second strategic axis to the stance). Deterministic, sealed into the
 // reward re-sim like the stance. Warden\u2019s Pact is checked at recruit time.
 function applyDoctrine(pt: WfPet, doc: WfDoctrine) {
-    // Modest, roughly-equal boons so the pick is about STYLE, not raw power —
-    // attack compounds hardest in this sim, so Vanguard's mult is the smallest.
-    if (doc === "vanguard") { pt.atk *= 1.04; pt.baseAtk *= 1.04; }
-    else if (doc === "bulwark") { const wounded = pt.maxHp - pt.hp; pt.maxHp *= 1.09; pt.baseMaxHp *= 1.09; pt.hp = Math.max(1, pt.maxHp - wounded); }
-    else if (doc === "zealot") { pt.moveSpeed *= 1.06; pt.baseSpeed *= 1.06; }
+    // Strong, legible identities. These values intentionally match the lobby
+    // contract: the pregame declaration is a build-defining commitment.
+    if (doc === "vanguard") { pt.atk *= 1.08; pt.baseAtk *= 1.08; }
+    else if (doc === "bulwark") { const wounded = pt.maxHp - pt.hp; pt.maxHp *= 1.12; pt.baseMaxHp *= 1.12; pt.hp = Math.max(1, pt.maxHp - wounded); }
+    else if (doc === "zealot") { pt.moveSpeed *= 1.1; pt.baseSpeed *= 1.1; }
 }
 
 export function startWarfrontMatch(
@@ -2941,9 +2962,18 @@ export function startWarfrontMatch(
             if (blueStance) setStance(st, "blue", blueStance, false);
             else if (adapt && bluePolicy !== "off") setStance(st, "blue", aiStance(st, "blue"), false);
             if (adapt) setStance(st, "red", aiStance(st, "red"), true);
+            const blueCoins = st.coins.blue;
+            const blueEventStart = st.events.length;
             if (blueChoices) for (const c of blueChoices) applyPowerup(st, "blue", c.petIndex, c.kind);
             else autoBuy(st, "blue", bluePolicy);
+            const blueBuys = st.events.slice(blueEventStart).filter((event) => event.type === "buy" && event.team === "blue").length;
+            applyCouncilSurge(st, "blue", blueBuys, Math.round(blueCoins - st.coins.blue));
+
+            const redCoins = st.coins.red;
+            const redEventStart = st.events.length;
             autoBuy(st, "red", redPolicy);
+            const redBuys = st.events.slice(redEventStart).filter((event) => event.type === "buy" && event.team === "red").length;
+            applyCouncilSurge(st, "red", redBuys, Math.round(redCoins - st.coins.red));
         }
         roundOpen = true;
     };

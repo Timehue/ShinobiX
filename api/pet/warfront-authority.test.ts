@@ -161,6 +161,7 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
     assert.equal(started.out.body?.outcome, undefined, 'the start response must not reveal the scored result');
     assert.equal(started.out.body?.opponentStance, 'balanced');
     assert.equal(started.out.body?.opponentDoctrine, 'vanguard');
+    assert.equal(started.out.body?.opponentBuyPolicy, 'balanced');
     assert.equal(started.out.body?.stance, 'balanced');
     assert.equal(started.out.body?.doctrine, 'none');
     assert.equal(started.out.body?.buyPolicy, 'balanced');
@@ -180,6 +181,7 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
     assert.equal(seal?.reportKey, reportKey);
     assert.equal(seal?.opponentStance, 'balanced');
     assert.equal(seal?.opponentDoctrine, 'vanguard');
+    assert.equal(seal?.opponentBuyPolicy, 'balanced');
     const sealedBlue = seal?.bluePets as Array<Record<string, unknown>>;
     const sealedRed = seal?.redPets as Array<Record<string, unknown>>;
     assert.ok(sealedBlue.every((pet) => !('image' in pet) && !('bodyImage' in pet)), 'stored proof must remain bounded');
