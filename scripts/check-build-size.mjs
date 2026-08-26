@@ -392,7 +392,16 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // gates still pass untouched (this code is inside the lazily-loaded World Map
 // graph). 7,860,000 keeps 13,336 B, sized like the entry above it — against the
 // ~530 B of observed run-to-run variance, not a guess.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_860_000;
+//
+// 2026-08-26 MERGE of origin/main (Warfront strategy, Showdown shader packing,
+// Colosseum 3D, gauntlet arena art): 7,860,000 -> 7,875,000 B. Main was ALREADY
+// over its own 7,845,000 gate before this branch merged — CI run 32938715834
+// failed on it at 7.50 MB — so most of this is upstream weight, not the sector
+// work. The merged tree measures 7,861,343 B. 7,875,000 keeps 13,657 B, sized
+// like the entries above against the ~530 B of observed run-to-run variance.
+// Startup is untouched: the entry chunk and both initial-graph gates still pass,
+// and neither may be raised to mask a regression.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_875_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
