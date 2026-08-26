@@ -13,132 +13,26 @@
     pointer-events: none;
 }
 
-/* Light pooling through the doorway. A flat silhouette reads as an icon pasted
-   on the art; the pool grounds it as an opening with somewhere on the far side. */
-.sector-gate::before {
-    content: "";
-    position: absolute;
-    left: 50%;
-    bottom: 4%;
-    width: 74%;
-    height: 34%;
-    transform: translateX(-50%);
-    border-radius: 50%;
-    background: radial-gradient(ellipse at center, var(--gate-tint, #c9a45c) 0%, transparent 72%);
-    opacity: 0.42;
-    transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
 .sector-gate-svg {
     width: 78%;
     height: 78%;
-    filter:
-        drop-shadow(0 2px 2px rgba(8, 6, 14, 0.72))
-        drop-shadow(0 0 5px rgba(8, 6, 14, 0.4))
-        drop-shadow(0 -1px 0 rgba(255, 246, 214, 0.34));
-    opacity: 0.96;
+    filter: drop-shadow(0 2px 2px rgba(8, 6, 14, 0.65)) drop-shadow(0 0 4px rgba(8, 6, 14, 0.35));
+    opacity: 0.94;
     transition: transform 0.18s ease, opacity 0.18s ease;
 }
 
-/* ── Waystone plate ── the destination name, carved beside the gate.
-   It is its OWN 12x12 grid item rather than a child of the exit tile: tiles
-   carry `container-type: size`, and size containment clips paint, so a plate
-   drawn inside one would be cut off at the tile edge. As a grid item it may
-   overflow its cell freely, and it hangs INWARD from the board edge its gate
-   sits on — so the plate is never clipped by the map edge and never covers
-   the gate it labels. */
-.sector-gate-plate-slot {
-    position: relative;
-    z-index: 8;
-    min-width: 0;
-    min-height: 0;
-    pointer-events: none;
-}
-
-.sector-gate-plate {
+.sector-gate-chevron {
     position: absolute;
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    column-gap: 5px;
-    width: max-content;
-    max-width: max(116px, 340%);   /* percentages resolve against ONE tile — most place names need ~3 */
-    padding: 3px 8px 3px 6px;
-    border: 1px solid rgba(250, 204, 21, 0.3);
-    border-left: 2px solid var(--gate-tint, #c9a45c);
-    border-radius: 2px;
-    /* A waymarker slab: tinted wash from the destination's region over dark
-       stone, a lit top edge and a shadowed foot so it reads as carved rather
-       than as a chat bubble sitting on the painting. */
-    background:
-        linear-gradient(180deg, color-mix(in srgb, var(--gate-tint, #c9a45c) 16%, transparent), transparent 62%),
-        linear-gradient(180deg, rgba(20, 16, 26, 0.95), rgba(6, 5, 11, 0.97));
-    box-shadow:
-        0 3px 9px rgba(0, 0, 0, 0.6),
-        inset 0 1px 0 rgba(255, 244, 214, 0.14),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.6);
-    color: #f6ecd4;
-    text-align: left;
-    opacity: 0.92;
-    transition: opacity 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-}
-
-.sector-gate-arrow {
-    grid-row: 1 / -1;
-    font-size: clamp(7px, 1.15vmin, 11px);
+    bottom: -2px;
+    font-size: 9px;
     line-height: 1;
-    font-weight: 800;
-    color: var(--gate-tint, #c9a45c);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
-}
-
-.sector-gate-name {
-    font-family: var(--font-display), Georgia, "Times New Roman", serif;
-    font-size: clamp(8px, 1.25vmin, 12px);
     font-weight: 700;
-    line-height: 1.1;
-    letter-spacing: 0.045em;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 10px rgba(0, 0, 0, 0.5);
+    color: #f4e7c8;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+    opacity: 0.85;
 }
 
-.sector-gate-region {
-    font-size: clamp(6px, 0.92vmin, 9px);
-    font-weight: 600;
-    line-height: 1.1;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--gate-tint, #c9a45c);
-    opacity: 0.92;
-}
-
-.sector-gate-plate-north .sector-gate-plate { top: calc(100% + 3px); left: 50%; transform: translateX(-50%); }
-.sector-gate-plate-south .sector-gate-plate { bottom: calc(100% + 3px); left: 50%; transform: translateX(-50%); }
-.sector-gate-plate-east .sector-gate-plate { right: calc(100% + 3px); top: 50%; transform: translateY(-50%); }
-.sector-gate-plate-west .sector-gate-plate { left: calc(100% + 3px); top: 50%; transform: translateY(-50%); }
-
-/* One more step crosses: the plate lights up as the prompt it has become. */
-.sector-gate-plate-slot.is-ready {
-    z-index: 9;
-}
-
-.sector-gate-plate-slot.is-ready .sector-gate-plate {
-    opacity: 1;
-    border-color: rgba(250, 204, 21, 0.7);
-    border-left-color: var(--gate-tint, #c9a45c);
-    box-shadow:
-        0 4px 14px rgba(0, 0, 0, 0.65),
-        0 0 14px rgba(250, 204, 21, 0.26),
-        inset 0 1px 0 rgba(255, 244, 214, 0.2);
-}
-
-/* One more step crosses: the gate itself leans open — scale + beckoning pulse.
-   (Its plate brightens through .sector-gate-plate-slot.is-ready above; the two
-   live in separate grid items and cannot style each other.) */
-.sector-gate-ready::before {
-    opacity: 0.62;
-    transform: translateX(-50%) scale(1.2);
-}
-
+/* One more step crosses: the gate leans open — scale + beckoning pulse. */
 .sector-gate-ready .sector-gate-svg {
     opacity: 1;
     transform: scale(1.22);
