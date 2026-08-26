@@ -163,7 +163,13 @@ describe('applyJutsu characterization — amp / DR pools', () => {
         const mastery8 = castAt(8);
         const mastery8Stacks = mastery8.self.statuses.filter((status) => status.name === 'Increase Damage Given');
         assert.deepEqual(mastery8Stacks.map((status) => status.percent), [21, 21]);
-        assert.equal(mastery8.lines.filter((line) => line === '+21% Damage Given: A for 2 turns.').length, 2);
+        assert.deepEqual(
+            mastery8.lines.filter((line) => line.startsWith('+21% Damage Given')),
+            [
+                '+21% Damage Given (stack 1/2): A for 2 turns.',
+                '+21% Damage Given (stack 2/2): A for 2 turns.',
+            ],
+        );
         const mastery8FollowUp = applyJutsu(
             mastery8.self,
             fighter('B', 3000, [], { maxHp: 3000 }),
@@ -177,7 +183,13 @@ describe('applyJutsu characterization — amp / DR pools', () => {
         const mastery50 = castAt(50);
         const mastery50Stacks = mastery50.self.statuses.filter((status) => status.name === 'Increase Damage Given');
         assert.deepEqual(mastery50Stacks.map((status) => status.percent), [30, 30]);
-        assert.equal(mastery50.lines.filter((line) => line === '+30% Damage Given: A for 2 turns.').length, 2);
+        assert.deepEqual(
+            mastery50.lines.filter((line) => line.startsWith('+30% Damage Given')),
+            [
+                '+30% Damage Given (stack 1/2): A for 2 turns.',
+                '+30% Damage Given (stack 2/2): A for 2 turns.',
+            ],
+        );
         const mastery50FollowUp = applyJutsu(
             mastery50.self,
             fighter('B', 3000, [], { maxHp: 3000 }),

@@ -55,6 +55,7 @@ test("shared combat HUD primitives preserve the shell class contract", () => {
     );
     assert.match(html, /<p>Round 2<\/p>/);
     assert.match(html, /role="log" aria-live="polite" aria-label="Battle log"/);
+    assert.match(html, /class="combat-log-scroll-region" tabindex="0">Events<\/div>/);
 });
 
 test("plain combat log opens only the latest round and color-codes its effects", () => {
@@ -90,6 +91,7 @@ test("plain combat log opens only the latest round and color-codes its effects",
     assert.match(html, /2 rounds · 6 events/);
     assert.doesNotMatch(html, /events · scroll/);
     assert.match(html, /combat-log-expand-icon/);
+    assert.match(html, /class="combat-log-scroll-region" tabindex="0"/);
     assert.match(html, /role="log"/);
 });
 
