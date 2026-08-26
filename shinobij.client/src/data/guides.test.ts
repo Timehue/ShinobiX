@@ -109,9 +109,17 @@ test("guide catalog has stable unique ids and complete editorial metadata", () =
     }
 });
 
-test("every guide category is represented", () => {
+test("guide relationships resolve and every category is represented", () => {
+    const ids = new Set(GUIDES.map((guide) => guide.id));
     for (const category of GUIDE_CATEGORIES) {
         assert.ok(GUIDES.some((guide) => guide.category === category), `${category} has no guide`);
+    }
+    for (const guide of GUIDES) {
+        assert.equal(new Set(guide.relatedGuideIds).size, guide.relatedGuideIds.length);
+        for (const relatedId of guide.relatedGuideIds) {
+            assert.notEqual(relatedId, guide.id);
+            assert.ok(ids.has(relatedId), `${guide.id} links to missing guide ${relatedId}`);
+        }
     }
 });
 
