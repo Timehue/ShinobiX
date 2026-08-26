@@ -81,8 +81,8 @@ test('mobile combat VFX stay fighter-sized while preserving capped visual hierar
     const phoneStart = battleSkinCss.indexOf('@media (max-width: 420px)', vfxRuleAt);
     assert.notEqual(phoneStart, -1, 'missing phone battle skin boundary');
     const mobileCss = battleSkinCss.slice(owningBlock.index!, phoneStart);
-    assert.match(mobileCss, /\.arena-fullscreen \.pvp-combat-vfx\s*\{[\s\S]*?--vfx-scale:\s*1\s*!important;[\s\S]*?--vfx-render-scale:\s*clamp\(0\.92,\s*var\(--vfx-asset-scale,\s*1\),\s*1\.25\);[\s\S]*?width:\s*52px\s*!important;[\s\S]*?height:\s*52px\s*!important;/);
-    assert.match(mobileCss, /\.arena-fullscreen \.pvp-combat-vfx-tile\s*\{[\s\S]*?width:\s*36px\s*!important;[\s\S]*?height:\s*36px\s*!important;/);
+    assert.match(mobileCss, /\.arena-fullscreen \.pvp-combat-vfx\s*\{[\s\S]*?--vfx-render-scale:\s*clamp\(0\.82,\s*var\(--vfx-asset-scale,\s*1\),\s*1\.02\);[\s\S]*?width:\s*calc\(48px \* var\(--vfx-scale,\s*1\)\)\s*!important;[\s\S]*?height:\s*calc\(48px \* var\(--vfx-scale,\s*1\)\)\s*!important;/);
+    assert.match(mobileCss, /\.arena-fullscreen \.pvp-combat-vfx-tile\s*\{[\s\S]*?width:\s*calc\(42px \* var\(--vfx-scale,\s*1\)\)\s*!important;[\s\S]*?height:\s*calc\(42px \* var\(--vfx-scale,\s*1\)\)\s*!important;/);
     assert.match(mobileCss, /\.arena-fullscreen \.pvp-vfx-asset\s*\{[\s\S]*?width:\s*112%\s*!important;[\s\S]*?height:\s*112%\s*!important;/);
 });
 

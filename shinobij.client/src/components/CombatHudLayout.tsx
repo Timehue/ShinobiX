@@ -124,7 +124,7 @@ export const PlainCombatBattleLog = memo(function PlainCombatBattleLog({
         () => newestFirst ? [...rounds].reverse() : rounds,
         [newestFirst, rounds],
     );
-    const defaultOpenRounds = useMemo(() => new Set(rounds.slice(-2).map((group) => group.round)), [rounds]);
+    const defaultOpenRounds = useMemo(() => new Set(rounds.slice(-1).map((group) => group.round)), [rounds]);
     const [roundOverrides, setRoundOverrides] = useState<Record<number, boolean>>({});
     const [expanded, setExpanded] = useState(false);
     const panelRef = useRef<HTMLDivElement>(null);
@@ -170,7 +170,7 @@ export const PlainCombatBattleLog = memo(function PlainCombatBattleLog({
                 turnLabel={turnLabel}
                 role={expanded ? "dialog" : "log"}
                 aria-modal={expanded || undefined}
-                headerMeta={rounds.length > 0 ? `${roundSummary} · ${eventSummary} · scroll` : undefined}
+                headerMeta={rounds.length > 0 ? `${roundSummary} · ${eventSummary}` : undefined}
                 headerActions={(
                     <button
                         type="button"

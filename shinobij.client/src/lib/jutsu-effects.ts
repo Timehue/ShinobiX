@@ -10,7 +10,6 @@
  * constants/game and the type modules. Extracted from App.tsx (jutsu cluster).
  */
 
-import { tagPower } from "./combat-math";
 import { tagMatchesName } from "./tags";
 import { scaleJutsuByLevel, scaleJutsuTagsForDisplay } from "./jutsu-scaling";
 import { JUTSU_MAX_LEVEL, STUN_AP_PENALTY, COMBAT_RESOURCES_V2 } from "../constants/game";
@@ -18,7 +17,7 @@ import type { Jutsu, JutsuTag } from "../types/combat";
 import type { JutsuType } from "../types/core";
 
 export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: JutsuType) {
-    const pct = tagPower(tag);
+    const pct = tag.percent > 0 ? tag.percent : 30;
     const effectPower = jutsu.effectPower;
     const percentLabel = tag.percent > 0 ? `${tag.percent}%` : "Static";
     // Display-only lens (Profile discipline dropdown). For tags that key off
@@ -32,7 +31,7 @@ export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: Ju
     if (tag.name === "Heal") return { summary: `Restores 750 HP to the user.`, rule: "Sets direct damage to 0 and heals the caster for a flat 750 HP.", duration: "Instant", value: "750 HP" };
     if (tag.name === "Shield") return { summary: `Adds 750 shield to the user — always succeeds.`, rule: "Shield absorbs incoming damage before HP. Pierce can bypass shield. Cannot be blocked by Buff Prevent.", duration: "Until broken", value: "750" };
     if (tag.name === "Barrier") return { summary: "Erects an impassable wall tile one step toward the enemy on the battlefield.", rule: "Places a barrier tile that blocks movement for both fighters for 2 rounds. Cannot be bypassed.", duration: "2 rounds", value: "Wall tile" };
-    if (tag.name === "Increase Damage Given") return { summary: `Increases your damage given by ${pct}% with all offenses for 2 rounds.`, rule: "Adds a positive status to the caster that boosts all of their outgoing damage, regardless of offense type, for 2 rounds.", duration: "2 rounds", value: `${pct}%` };
+    if (tag.name === "Increase Damage Given") return { summary: `Increases your damage given by ${pct}% with all offenses for 2 rounds.`, rule: "Adds one positive stack to the caster for 2 rounds. Repeated copies trigger independently and feed the shared damage-amplifier pool with diminishing returns.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Decrease Damage Given") return { summary: `Makes the target deal ${pct}% less damage with all offenses.`, rule: "Adds a negative status to the target that lowers all of their outgoing damage, regardless of offense type.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Increase Damage Taken") return { summary: `Makes the target take ${pct}% more damage from you with all offenses.`, rule: "Adds a negative status to the target that raises the damage they take from all of your offenses, regardless of offense type.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Decrease Damage Taken") return { summary: `Makes the user take ${pct}% less damage from all offenses.`, rule: "Adds a positive status to the caster that lowers incoming damage from every offense type.", duration: "2 rounds", value: `${pct}%` };
@@ -83,9 +82,16 @@ export function jutsuDisplayAtLevel(jutsu: Jutsu, masteryLevel = JUTSU_MAX_LEVEL
 
 export function describeJutsuEffects(jutsu: Jutsu, masteryLevel = JUTSU_MAX_LEVEL, lensDiscipline?: JutsuType) {
     const displayJutsu = jutsuDisplayAtLevel(jutsu, masteryLevel);
-    const descriptions = displayJutsu.tags
+    const grouped = displayJutsu.tags
         .filter((tag) => tag.name)
-        .map((tag) => jutsuEffectInfo(displayJutsu, tag, lensDiscipline).summary);
+        .reduce<Array<{ summary: string; count: number }>>((result, tag) => {
+            const summary = jutsuEffectInfo(displayJutsu, tag, lensDiscipline).summary;
+            const existing = result.find((entry) => entry.summary === summary);
+            if (existing) existing.count += 1;
+            else result.push({ summary, count: 1 });
+            return result;
+        }, []);
+    const descriptions = grouped.map(({ summary, count }) => count > 1 ? `${summary} Triggers ${count} times per cast.` : summary);
 
     return descriptions.length ? descriptions.join(" ") : "No special effects.";
 }
