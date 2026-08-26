@@ -130,9 +130,11 @@ export async function resumeWorldAiFight(playerName: string): Promise<AiFightWor
     const response = await fetch("/api/missions/ai-fight-start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerName, resumeWorldFight: true }),
+        body: JSON.stringify({ playerName, resumeWorldFight: true, recoveryProbeVersion: 2 }),
     });
-    if (response.status === 404) return null;
+    // 204 is the current probe contract. Keep 404 for compatibility while an
+    // older function deployment and a newer client bundle overlap.
+    if (response.status === 204 || response.status === 404) return null;
     const data = await response.json().catch(() => ({})) as Partial<AiFightStart & AiFightPendingWorldChain & AiFightPendingWorldOutcome> & { error?: string; mode?: string };
     // The server uses an explicit 409 handoff when the single active pointer is
     // generic. Treat it like "no World fight" so the host probes resumeAiFight.
@@ -158,9 +160,11 @@ export async function resumeGenericAiFight(playerName: string): Promise<AiFightS
     const response = await fetch("/api/missions/ai-fight-start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerName, resumeAiFight: true }),
+        body: JSON.stringify({ playerName, resumeAiFight: true, recoveryProbeVersion: 2 }),
     });
-    if (response.status === 404) return null;
+    // 204 is the current probe contract. Keep 404 for compatibility while an
+    // older function deployment and a newer client bundle overlap.
+    if (response.status === 204 || response.status === 404) return null;
     const data = await response.json().catch(() => ({})) as Partial<AiFightStart> & { error?: string };
     if (!response.ok) throw new Error(data.error ?? `AI fight resume failed (${response.status}).`);
     if (!data.token || !data.sessionId || !data.session || data.session.runtime !== "solo-pve"

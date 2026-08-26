@@ -36,10 +36,12 @@ export async function fetchPendingPvpRecovery(
     options: { signal?: AbortSignal } = {},
 ): Promise<PendingPvpRecovery | null> {
     const response = await fetchFn(
-        `/api/pvp/session?pending=1&playerName=${encodeURIComponent(playerName)}`,
+        `/api/pvp/session?pending=1&playerName=${encodeURIComponent(playerName)}&recoveryProbeVersion=2`,
         { cache: "no-store", signal: options.signal },
     );
-    if (response.status === 404 || response.status === 409) return null;
+    // 204 is an ordinary empty probe. Keep 404/409 compatible with older
+    // deployments and already-published terminal recovery responses.
+    if (response.status === 204 || response.status === 404 || response.status === 409) return null;
     if (!response.ok) throw new Error(`Pending PvP recovery failed (HTTP ${response.status}).`);
     const body = await response.json() as Partial<PendingPvpRecovery>;
     if (typeof body.battleId !== "string"
