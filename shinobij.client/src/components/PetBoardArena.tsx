@@ -397,15 +397,20 @@ function ArenaFloor({ quality }: { quality: PetVisualQualityConfig }) {
     // The floor is the approved Gauntlet map, not merely a decorative underlay.
     // useTexture participates in R3F Suspense, so the scene cannot flash the old
     // flat fallback board while an ad-hoc TextureLoader is still in flight.
-    const floor = useTexture(gauntletBoard);
+    const sourceFloor = useTexture(gauntletBoard);
     const gl = useThree((state) => state.gl);
-    useEffect(() => {
-        floor.colorSpace = THREE.SRGBColorSpace;
-        floor.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
-        floor.wrapS = THREE.ClampToEdgeWrapping;
-        floor.wrapT = THREE.ClampToEdgeWrapping;
-        floor.needsUpdate = true;
-    }, [floor, gl]);
+    const floor = useMemo(() => {
+        // useTexture owns its cached source. Configure a scene-owned clone so
+        // repeated Gauntlet mounts share the decode without mutating hook state.
+        const texture = sourceFloor.clone();
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.needsUpdate = true;
+        return texture;
+    }, [sourceFloor, gl]);
+    useEffect(() => () => floor.dispose(), [floor]);
     const cells = useMemo(() => Array.from({ length: ROWS * BOARD_COLS }, (_, i) => ({
         row: Math.floor(i / BOARD_COLS),
         col: i % BOARD_COLS,
@@ -764,7 +769,7 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
             <div className="gauntlet-board-side-label gauntlet-board-side-label--player" aria-hidden="true">
                 <span>Your line</span>
             </div>
-            <div className="gauntlet-board-build" aria-hidden="true">build g25 · {quality.id}</div>
+            <div className="gauntlet-board-build" aria-hidden="true">build g26 · {quality.id}</div>
 
             {done && (
                 <div className="gauntlet-board-result" role="dialog" aria-modal="true" aria-labelledby="gauntlet-result-title">
