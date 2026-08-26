@@ -74,6 +74,16 @@ test("the PvP battle log uses the scrollable, round-grouped semantic feed", () =
         /\.plain-combat-battle-log > \.combat-log-scroll-region\s*\{[^}]*overflow-y:\s*auto\s*!important/s,
         "the complete log must scroll inside a dedicated region without clipping the header",
     );
+    assert.match(
+        battleSkinCss,
+        /\.combat-main-area\.bt-actions \.combat-text-log\s*\{\s*display:\s*none\s*!important;/,
+        "the scrollable log must stay hidden behind the mobile Actions tab",
+    );
+    assert.match(
+        battleSkinCss,
+        /\.combat-main-area\.bt-log \.combat-text-log\s*\{[^}]*display:\s*flex\s*!important;[^}]*flex-direction:\s*column\s*!important;/s,
+        "the mobile Battle Log tab must own the fixed-header scroll layout",
+    );
 
     assert.match(
         battleSkinCss,

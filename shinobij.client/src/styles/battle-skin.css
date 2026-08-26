@@ -209,7 +209,7 @@
   .arena-fullscreen .combat-main-area.bt-log .basic-action-bar,
   .arena-fullscreen .combat-main-area.bt-log .combat-jutsu-bar { display: none !important; }
   .arena-fullscreen .combat-main-area.bt-log .combat-text-log {
-    display: block !important;
+    display: flex !important; flex-direction: column !important;
     max-height: 62dvh !important;
     overflow-y: auto !important;
   }
@@ -6405,7 +6405,7 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
 
 #combat .plain-combat-battle-log,
 #combat .plain-combat-battle-log.is-expanded {
-    display: flex !important;
+    display: flex;
     flex-direction: column !important;
     padding: 0 !important;
     overflow: hidden !important;
