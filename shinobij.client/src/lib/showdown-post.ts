@@ -102,12 +102,15 @@ void mainSupport(const in vec2 uv) {
 `;
 
 export class ShowdownChromaticEffect extends Effect {
+    readonly offset: Vector2;
+
     constructor(offset: Vector2) {
         super("ShowdownChromatic", CHROMATIC_FRAGMENT, {
             vertexShader: CHROMATIC_VERTEX,
             attributes: EffectAttribute.CONVOLUTION,
             uniforms: new Map<string, Uniform>([["offset", new Uniform(offset)]]),
         });
+        this.offset = offset;
     }
 }
 
