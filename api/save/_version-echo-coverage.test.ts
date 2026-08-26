@@ -81,6 +81,11 @@ const ECHOES_VERSION = new Set([
     'pvp/bounty.ts',
     'pvp/claim-rewards.ts',
     'save/_mutate-player-save.ts',
+    // Sector Contracts. The claim pays ryo, which is client-owned, so the
+    // response echoes the committed `_saveVersion` and the client adopts the
+    // server's `totalRyo` — without both, the next autosave would undo the
+    // bounty it just collected.
+    'sector/contract.ts',
     'sector/questbook.ts',
     'sector/rift-quest.ts',
     'sector/story-reckoning.ts',

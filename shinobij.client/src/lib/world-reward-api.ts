@@ -1,6 +1,7 @@
 import type { Character } from '../types/character';
 import { makeId } from './utils';
 import { noteSectorPoolView, type SectorPoolView } from './sector-pool';
+import { bumpSectorContractRevision } from './sector-contract';
 
 /**
  * World-map reward settlement.
@@ -113,6 +114,11 @@ export async function recordSectorExplore(
             { reward?: { sector: number; xp: number; ryo: number }; outcome?: SectorExploreOutcome; replayed?: boolean; character?: Character; fieldProgress?: FieldExploreProgress[]; _saveVersion?: number; sectorPool?: SectorPoolView; error?: string } | null;
         // Both the payout and a 'sector-depleted' refusal carry the live pool.
         if (data?.sectorPool) noteSectorPoolView(sector, data.sectorPool);
+        // The server ticks contract progress off this same explore receipt, so
+        // the card in the panel is stale the moment this lands. Bump here rather
+        // than at the call site: every explore path funnels through this
+        // response, and a replayed one is safe to re-read (it did not tick).
+        bumpSectorContractRevision();
         if (!response.ok || !data?.character) {
             return worldRewardFailure(data?.error || 'explore-failed', response.ok ? undefined : response.status);
         }

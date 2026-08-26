@@ -6895,7 +6895,7 @@ export default function App() {
                     <Suspense fallback={null}>
                         <NextGoalPin character={character} navigate={navigate} />
                     </Suspense>
-                    <Village character={character} setScreen={navigate} allServerPlayers={allServerPlayers} />
+                    <Village character={character} setScreen={navigate} />
                 </>)}
                 {!activeTriggeredEvent && screen === "worldMap" && character && (
                     <WorldMap

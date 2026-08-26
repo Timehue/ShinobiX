@@ -54,6 +54,25 @@ export function pvpTurnDeadlineEnabled(env: NodeJS.ProcessEnv = process.env): bo
 }
 
 /**
+ * Sector Contracts: the day's posted work on a handful of wild sectors, and the
+ * bounty for finishing it. Ships ON, and is expected to STAY on.
+ *
+ * DISABLE_SECTOR_CONTRACTS is an INCIDENT VALVE, not a content toggle — owner
+ * ruling 2026-08-26: game features are not turned off. It exists for one
+ * situation only: the claim pays ryo, and if that ever pays wrongly the
+ * alternative to an env var is shipping a deploy while it mints. Do not reach
+ * for it to hide, stage or A/B this feature.
+ *
+ * When set, the route 404s, the explore hook stops crediting progress, and every
+ * read answers "no contract", so the surface disappears cleanly instead of
+ * stranding half-finished work; progress rows then expire on their own TTL. The
+ * client latches the first 404 (lib/sector-contract) so the world map stops
+ * marking a board the server will not honour.
+ */
+export function sectorContractsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return env.DISABLE_SECTOR_CONTRACTS !== '1';
+}
+/**
  * Village Stores (Provisions + Materials): the ration cook recipes, donation
  * routing, daily spoil/burn/convert pass, garrison-feed toggle, and the
  * materials gate on structure levels 6–10. Default ON; the exact kill switch

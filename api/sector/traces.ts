@@ -3,6 +3,7 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { shrineForSector, shrineTier } from '../../shared/shrines.js';
+import { readSectorScars } from '../_sector-scars.js';
 import {
     footfallKey,
     isTraceSector,
@@ -42,9 +43,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const player = safeName(String((req.query?.player as string) ?? ''));
         const now = Date.now();
 
-        const [footfallRaw, signsRaw] = await Promise.all([
+        // Scars ride this payload rather than a new endpoint: the panel already
+        // fetches traces once per selected sector, and a duel fought here is the
+        // same kind of fact as who walked through and what they wrote.
+        const [footfallRaw, signsRaw, scars] = await Promise.all([
             kv.get(footfallKey(sector, now)),
             kv.get(trailSignsKey(sector)),
+            readSectorScars(sector, now),
         ]);
         const signs = pruneSigns(parseSigns(signsRaw), now);
 
@@ -77,6 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             footfallToday: Math.max(0, Math.floor(Number(footfallRaw)) || 0),
             signs: signs.map((s) => ({ id: s.id, name: s.name, tile: s.tile, text: s.text, at: s.at, sparks: s.sparks })),
             mySparked: player ? signs.filter((s) => s.sparkedBy.includes(player)).map((s) => s.id) : [],
+            scars,
             ...(shrine ? { shrine } : {}),
         });
     } catch (err) {

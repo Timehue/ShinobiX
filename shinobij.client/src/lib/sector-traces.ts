@@ -16,6 +16,8 @@ export type TrailSignView = {
     sparks: number;
 };
 
+import type { SectorScar } from "../../../shared/sector-scars";
+
 export type ShrineOfferingView = { name: string; amount: number };
 
 export type ShrineView = {
@@ -39,6 +41,8 @@ export type SectorTracesView = {
     signs: TrailSignView[];
     mySparked: string[];
     shrine?: ShrineView;
+    /** Duels fought here recently, newest first (shared/sector-scars). */
+    scars?: SectorScar[];
 };
 
 export function isSectorTracesEnabled(): boolean {

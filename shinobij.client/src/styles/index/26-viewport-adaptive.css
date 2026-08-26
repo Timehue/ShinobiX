@@ -824,8 +824,13 @@ html[data-vp="xs"] .profile-mobile-tabs {
     padding: 4px !important;
 }
 
+/* The xs squeeze may take the padding and the type size, but NOT the target.
+   38px was under the project's own --touch-target-min. It never actually
+   reached the profile tabs — veiled-steel.css outranks it on specificity — but
+   a dead rule holding a value the audit would reject is a trap for whoever
+   changes the winning one next. */
 html[data-vp="xs"] .pmtab {
     font-size: 0.62rem !important;
     padding: 7px 1px !important;
-    min-height: 38px !important;
+    min-height: var(--touch-target-min) !important;
 }

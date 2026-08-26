@@ -279,6 +279,7 @@ import sectorMercRoamHandler          from './api/sector/merc-roam.js';
 import sectorTracesHandler            from './api/sector/traces.js';
 import sectorTrailSignHandler         from './api/sector/trail-sign.js';
 import sectorShrineOfferHandler       from './api/sector/shrine-offer.js';
+import sectorContractHandler          from './api/sector/contract.js';
 // Story — server-authoritative interlude + road-event record (rebuild foundation)
 import storyInterludeHandler          from './api/story/interlude.js';
 import storyRoadEventHandler          from './api/story/road-event.js';
@@ -1392,6 +1393,7 @@ route('/sector/merc-roam',          sectorMercRoamHandler);
 route('/sector/traces',             sectorTracesHandler);
 route('/sector/trail-sign',         sectorTrailSignHandler);
 route('/sector/shrine-offer',       sectorShrineOfferHandler);
+route('/sector/contract',           sectorContractHandler);
 
 // ─── Story (server-authoritative interlude + road-event record) ────────────────
 route('/story/interlude',           storyInterludeHandler);

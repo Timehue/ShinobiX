@@ -57,6 +57,7 @@ const HUNT_LEASH_TILES = 8.0;   // ...and gives up outside this
 // several tiles at once, which is worse for them than the tween was.
 const REDUCED_STEP_MS = 200;
 const SMOOTH_MAX_DT = 0.05;
+const LABEL_LANES = 3;      // vertical lanes the name pill can sit in
 
 const AURA: Record<Biome, string> = {
     snow: "#cfe8ff", volcano: "#ff8a3d", shadow: "#c9a2ff", forest: "#9bf0a6", central: "#ffe9a6",
@@ -68,6 +69,15 @@ function prefersReducedMotion(): boolean {
 function cellCentre(size: number, count: number, n: number, pad: number, gap: number): number {
     const tile = (size - 2 * pad - (count - 1) * gap) / count;
     return pad + n * (tile + gap) + tile / 2;
+}
+/** Stable 0..LABEL_LANES-1 lane for a wanderer's name pill (FNV-1a over the id). */
+function labelLaneFor(id: string): number {
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < id.length; i++) {
+        hash ^= id.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return hash % LABEL_LANES;
 }
 const colOf = (t: number) => t % GRID_W;
 const rowOf = (t: number) => Math.floor(t / GRID_W);
@@ -253,6 +263,13 @@ export function SectorWanderer({
 
     const img = wanderer.avatarImage || wandererAvatar(wanderer.avatarKey);
     const initials = wanderer.name.slice(0, 2).toUpperCase();
+    // Name pills used to be one fixed height above every figure, so two
+    // wanderers standing near each other printed overlapping, unreadable text.
+    // A stable per-wanderer lane spreads them across three heights: it cannot
+    // make a collision impossible on a 12x12 board, but it makes the common
+    // case (two neighbours) legible, and it never jitters as they walk because
+    // the lane comes from the id, not from where they happen to be standing.
+    const labelLane = labelLaneFor(wanderer.id);
 
     return (
         <div className="sector-wanderer-overlay" ref={wrapRef} aria-hidden="true">
@@ -276,7 +293,9 @@ export function SectorWanderer({
                         <span className="sector-avatar-pin" />
                     </span>
                 </span>
-                <span className="sector-wanderer-label">{wanderer.name}</span>
+                <span className="sector-wanderer-label" style={{ ["--label-lane"]: labelLane } as CSSProperties}>
+                    {wanderer.name}
+                </span>
             </div>
         </div>
     );
