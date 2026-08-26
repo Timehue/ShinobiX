@@ -29,6 +29,7 @@ describe("classifyBattleLogLine — core categories (user-mandated)", () => {
 
     it("increase/decrease damage → blue/dmgmod (NOT red, even though they contain 'damage')", () => {
         assert.equal(classifyBattleLogLine("+30% Damage Given: Raiko for 2 turns."), "dmgmod");
+        assert.equal(classifyBattleLogLine("+21% Damage Given (stack 1/2): Raiko for 2 turns."), "dmgmod");
         assert.equal(classifyBattleLogLine("-30% Damage Given: Mira for 2 turns."), "dmgmod");
         assert.equal(classifyBattleLogLine("+30% Damage Taken: Mira for 2 turns."), "dmgmod");
         assert.equal(classifyBattleLogLine("-30% Damage Taken: Raiko for 2 turns."), "dmgmod");
@@ -126,6 +127,20 @@ describe("glyphForBattleLogLine — category marker", () => {
 });
 
 describe("groupBattleLogActions — owner-attributed grouping", () => {
+    it("keeps both labeled Overload stacks under the same cast", () => {
+        const { actions } = groupBattleLogActions([
+            "Raiko uses Overload: Power surges through the user.",
+            "+21% Damage Given (stack 1/2): Raiko for 2 turns.",
+            "+21% Damage Given (stack 2/2): Raiko for 2 turns.",
+        ], "Raiko", "Mira");
+
+        assert.equal(actions.length, 1);
+        assert.deepEqual(actions[0]!.effectLines, [
+            "+21% Damage Given (stack 1/2): Raiko for 2 turns.",
+            "+21% Damage Given (stack 2/2): Raiko for 2 turns.",
+        ]);
+    });
+
     it("groups a cast's effect lines under the caster, numbering real casts", () => {
         const { actions } = groupBattleLogActions([
             "Raiko uses Lightning Lance: Lightning pierces the air.",

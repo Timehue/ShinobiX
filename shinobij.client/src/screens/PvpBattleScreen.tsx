@@ -2341,11 +2341,14 @@ export function PvpBattleScreen({
                                                         aria-haspopup="dialog"
                                                         aria-controls={`pvp-combat-detail-jutsu-${j.id}`}
                                                         aria-expanded={inspectedJutsuId === j.id}
+                                                        aria-label={`View ${j.name} jutsu details`}
                                                         onClick={() => {
                                                             setInspectedWeaponId("");
                                                             setInspectedJutsuId(inspectedJutsuId === j.id ? "" : j.id);
                                                         }}
-                                                        title={`View ${j.name} details`}>ℹ️</button>
+                                                        title={`View ${j.name} details`}>
+                                                        <span className="combat-help-glyph" aria-hidden="true">?</span>
+                                                    </button>
                                                 </div>
                                             );
                                         })}

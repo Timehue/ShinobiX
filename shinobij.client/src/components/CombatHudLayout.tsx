@@ -115,7 +115,9 @@ export const CombatBattleLogPanel = forwardRef<HTMLDivElement, DivProps & {
                         {headerActions}
                     </div>
                 </div>
-                {children}
+                <div className="combat-log-scroll-region" tabIndex={0}>
+                    {children}
+                </div>
             </div>
         );
     },
