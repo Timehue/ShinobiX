@@ -50,7 +50,6 @@ export type Guide = {
     featured?: boolean;
     keywords: string[];
     quickTake: string[];
-    relatedGuideIds: string[];
     sections: GuideSection[];
 };
 
@@ -81,7 +80,6 @@ const FIRST_HOUR: Guide = {
         "For the Academy route, equip four usable jutsu and both starter items.",
         "If you lose the Academy spar, use the Hospital, adjust one thing, and try again.",
     ],
-    relatedGuideIds: ["progression", "combat", "builds"],
     sections: [
         {
             id: "before-you-step-out",
@@ -151,7 +149,6 @@ const PROGRESSION: Guide = {
         "The 15-minute timer earns the most base stat gain per hour; longer timers need less attention.",
         "Advancement pauses at levels 20 and 39 until you pass the required exam. Later ceremonies are optional.",
     ],
-    relatedGuideIds: ["first-hour", "builds", "world"],
     sections: [
         {
             id: "levels-and-ranks",
@@ -232,7 +229,6 @@ const COMBAT: Guide = {
         "Control the distance so your opponent must spend AP reaching their preferred range.",
         "Carry a reliable attack, a second range option, and one defensive or cleansing answer.",
     ],
-    relatedGuideIds: ["builds", "progression", "clans-and-war"],
     sections: [
         {
             id: "read-the-board",
@@ -306,7 +302,6 @@ const BUILDS: Guide = {
         "Awakenings at levels 2 and 20 are free; forged Bloodlines cost rare materials, so plan them carefully.",
         "The Bloodline Maker assigns a point cost to every advantage. If the budget turns red, simplify the technique before saving it.",
     ],
-    relatedGuideIds: ["combat", "progression", "endgame"],
     sections: [
         {
             id: "loadout-first",
@@ -376,7 +371,6 @@ const WORLD: Guide = {
         "If a sector is Picked Clean Today, move elsewhere or wait for the daily reset.",
         "Travel takes time, but a traveling shinobi cannot be attacked on the road.",
     ],
-    relatedGuideIds: ["progression", "clans-and-war", "endgame"],
     sections: [
         {
             id: "reading-the-map",
@@ -435,7 +429,6 @@ const CLANS_AND_WAR: Guide = {
         "Members gather supplies and fight; village leadership decides where shared resources go.",
         "An unfed garrison receives only half of its Watchtower bonus above normal defense.",
     ],
-    relatedGuideIds: ["world", "combat", "professions-economy"],
     sections: [
         {
             id: "a-clan-is-more-than-chat",
@@ -498,7 +491,6 @@ const COMPANIONS: Guide = {
         "In Showdown, you choose actions, swaps, and targets each turn.",
         "Warfront requires four available companions, so build for role coverage instead of relying on one carry.",
     ],
-    relatedGuideIds: ["endgame", "chronicle-showdown", "professions-economy"],
     sections: [
         {
             id: "home-and-sanctuary",
@@ -563,7 +555,6 @@ const CHRONICLE: Guide = {
         "Draw, Standby, and End are automatic; you act during Main and Battle.",
         "AI wins update your Showdown record; qualifying AI and free-play wins can count toward Legacy.",
     ],
-    relatedGuideIds: ["clans-and-war", "companions", "world"],
     sections: [
         {
             id: "what-you-are-playing",
@@ -619,7 +610,6 @@ const PROFESSIONS_AND_ECONOMY: Guide = {
         "Profession rank grows through rank 10; profession XP earned after that becomes Mastery.",
         "Budget separately for everyday spending, planned upgrades, and rare materials.",
     ],
-    relatedGuideIds: ["builds", "companions", "clans-and-war"],
     sections: [
         {
             id: "three-paths",
@@ -683,7 +673,6 @@ const ENDGAME: Guide = {
         "The Weekly Boss roams, shares one health pool, allows three attempts, and distributes rewards when its 72-hour spawn ends.",
         "Hollow Gate is a five-floor expedition. A fresh run needs a key; an unfinished run can be resumed without spending another.",
     ],
-    relatedGuideIds: ["builds", "companions", "world"],
     sections: [
         {
             id: "three-towers",
@@ -746,7 +735,6 @@ const GAME_AND_COMMUNITY: Guide = {
         "The Living Chronicle records major story, mission, exploration, Showdown, companion, war, clan, and Legacy progress.",
         "For bug reports, include the screen, action, expected result, actual result, and a screenshot.",
     ],
-    relatedGuideIds: ["first-hour", "world", "endgame"],
     sections: [
         {
             id: "what-kind-of-game",
