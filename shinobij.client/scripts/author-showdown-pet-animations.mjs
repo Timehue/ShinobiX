@@ -1,14 +1,17 @@
+import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import * as THREE from "three";
 
 /**
- * Authored combat takes for the four pets used in the Pet Showdown showcase.
+ * Authored 13-state combat performances for the four pets used in the Pet
+ * Showdown showcase.
  *
  * The production meshes already have reviewed 21-bone skins. This pass keeps
  * those meshes, materials, skin weights, and bind poses intact and replaces the
- * shared generated motion with species-directed keyframes. Outputs are versioned
- * so the general roster assets remain available for side-by-side QA.
+ * shared generated motion with species-directed keyframes. The five presentation
+ * states are remixed from each pet's own bespoke core takes, keeping movement
+ * vocabulary and anatomy consistent across the entire Colosseum state machine.
  */
 
 const align4 = (value) => (value + 3) & ~3;
@@ -279,11 +282,72 @@ function quadrupedBank(style) {
     ];
 }
 
+const PRESENTATION_TAKES = [
+    { name: "entrance", source: "gallop_jump", duration: 0.92, progress: [0, 0.1, 0.28, 0.52, 0.78, 1], amplitude: "entranceAmp", twist: "entranceTwist", lift: 1 },
+    { name: "cast", source: "attack", duration: 1.06, progress: [0, 0.09, 0.22, 0.35, 0.5, 0.66, 0.84, 1], amplitude: "castAmp", twist: "castTwist", lift: 0.45 },
+    { name: "guard", source: "attack", duration: 1.18, progress: [0, 0.12, 0.24, 0.32, 0.32, 0.2, 0], amplitude: "guardAmp", twist: "guardTwist", lift: 0.18 },
+    { name: "rest", source: "idle_2", duration: 1.72, progress: [0, 0.16, 0.36, 0.62, 0.84, 1], amplitude: "restAmp", twist: "restTwist", lift: 0.08 },
+    { name: "victory", source: "idle_2", duration: 1.48, progress: [0, 0.1, 0.26, 0.48, 0.7, 0.88, 1], amplitude: "victoryAmp", twist: "victoryTwist", lift: 0.72 },
+];
+
+function sampleTrackValue(track, sourceTimes, progress) {
+    const sourceTime = sourceTimes.at(-1) * Math.min(1, Math.max(0, progress));
+    let upper = sourceTimes.findIndex((time) => time >= sourceTime);
+    if (upper <= 0) return [...track.values[0]];
+    if (upper < 0) return [...track.values.at(-1)];
+    const lower = upper - 1;
+    const span = sourceTimes[upper] - sourceTimes[lower];
+    const blend = span > 0 ? (sourceTime - sourceTimes[lower]) / span : 0;
+    return track.values[lower].map((value, axis) => value + (track.values[upper][axis] - value) * blend);
+}
+
+function presentationBank(core, style) {
+    const coreByName = new Map(core.map((take) => [take.name, take]));
+    return PRESENTATION_TAKES.map((spec) => {
+        const source = coreByName.get(spec.source);
+        invariant(source, `${style.label}/${spec.name}: source take ${spec.source} is missing`);
+        const duration = spec.duration * style.pace;
+        const times = spec.progress.map((_, index) => Number((duration * index / (spec.progress.length - 1)).toFixed(4)));
+        const tracks = source.tracks.map((track) => {
+            const expressiveBone = /^(pelvis|spine|chest|thorax|neck|head)$/u.test(track.node);
+            const values = spec.progress.map((sourceProgress, index) => {
+                const phase = index / (spec.progress.length - 1);
+                const gesture = Math.sin(Math.PI * phase);
+                const value = sampleTrackValue(track, source.times, sourceProgress)
+                    .map((component) => component * style[spec.amplitude]);
+                if (track.path === "rotation" && expressiveBone) {
+                    value[1] += style[spec.twist] * style.side * gesture;
+                    value[2] += style[spec.twist] * 0.55 * gesture;
+                }
+                if (track.path === "translation" && track.node === "root") {
+                    value[0] += style.rootSway * style.side * gesture;
+                    value[1] += style.lift * spec.lift * gesture;
+                }
+                return value.map((component) => Number(component.toFixed(5)));
+            });
+            return { ...track, values };
+        });
+        return clip(spec.name, times, tracks);
+    });
+}
+
 const PETS = [
-    { id: "rare-1", input: "public/pet-models/roster/rare-1.glb", bank: frostHareBank },
-    { id: "standard-7", input: "public/pet-models/roster/standard-7.glb", bank: ashenCrowBank },
-    { id: "starter-fire-l", input: "public/pet-models/starter-fire-l.glb", bank: () => quadrupedBank("fire") },
-    { id: "starter-lightning-l", input: "public/pet-models/starter-lightning-l.glb", bank: () => quadrupedBank("lightning") },
+    {
+        id: "rare-1", input: "public/pet-models/roster/rare-1.glb", bank: frostHareBank,
+        performance: { label: "frost-hare-vault-feint", pace: 0.94, side: -1, entranceAmp: 1.02, entranceTwist: 0.13, castAmp: 0.72, castTwist: -0.1, guardAmp: 0.54, guardTwist: 0.08, restAmp: 0.34, restTwist: -0.03, victoryAmp: 0.92, victoryTwist: 0.16, rootSway: 0.018, lift: 0.052 },
+    },
+    {
+        id: "standard-7", input: "public/pet-models/roster/standard-7.glb", bank: ashenCrowBank,
+        performance: { label: "ashen-crow-wing-surge", pace: 0.88, side: 1, entranceAmp: 1.08, entranceTwist: -0.16, castAmp: 0.84, castTwist: 0.14, guardAmp: 0.58, guardTwist: -0.1, restAmp: 0.38, restTwist: 0.04, victoryAmp: 1.04, victoryTwist: -0.19, rootSway: 0.024, lift: 0.07 },
+    },
+    {
+        id: "starter-fire-l", input: "public/pet-models/starter-fire-l.glb", bank: () => quadrupedBank("fire"),
+        performance: { label: "inferno-fenrir-power-coil", pace: 1.02, side: -1, entranceAmp: 0.94, entranceTwist: 0.1, castAmp: 0.9, castTwist: -0.12, guardAmp: 0.68, guardTwist: 0.07, restAmp: 0.3, restTwist: -0.025, victoryAmp: 1.08, victoryTwist: 0.14, rootSway: 0.014, lift: 0.042 },
+    },
+    {
+        id: "starter-lightning-l", input: "public/pet-models/starter-lightning-l.glb", bank: () => quadrupedBank("lightning"),
+        performance: { label: "raijin-hound-phase-snap", pace: 0.84, side: 1, entranceAmp: 1.12, entranceTwist: -0.14, castAmp: 0.78, castTwist: 0.17, guardAmp: 0.62, guardTwist: -0.09, restAmp: 0.28, restTwist: 0.035, victoryAmp: 0.96, victoryTwist: -0.18, rootSway: 0.022, lift: 0.048 },
+    },
 ];
 
 async function authorPet(clientRoot, pet) {
@@ -308,8 +372,10 @@ async function authorPet(clientRoot, pet) {
         return json.accessors.length - 1;
     };
 
+    const core = pet.bank();
+    const bank = [...core, ...presentationBank(core, pet.performance)];
     json.animations = [];
-    for (const take of pet.bank()) {
+    for (const take of bank) {
         invariant(take.times.length >= 2, `${pet.id}/${take.name}: at least two keyframes required`);
         const input = addAccessor(new Float32Array(take.times), "SCALAR", { min: [take.times[0]], max: [take.times.at(-1)] });
         const samplers = [];
@@ -340,9 +406,15 @@ async function authorPet(clientRoot, pet) {
         json.animations.push({ name: take.name, samplers, channels });
     }
 
-    invariant(json.animations.length === 8, `${pet.id}: expected eight authored clips`);
-    json.asset = { ...json.asset, generator: `Shinobi Journey Showdown ${pet.id} Animation Bank v2` };
-    json.extras = { ...(json.extras ?? {}), showdownAnimationBank: "20260820-species-v2", animationAuthoring: "species-directed-keyframes" };
+    invariant(json.animations.length === 13, `${pet.id}: expected thirteen authored clips`);
+    const fingerprint = createHash("sha256").update(JSON.stringify(bank)).digest("hex").slice(0, 24).toUpperCase();
+    json.asset = { ...json.asset, generator: `Shinobi Journey Showdown ${pet.id} Animation Bank v3` };
+    json.extras = {
+        ...(json.extras ?? {}),
+        showdownAnimationBank: "20260825-showcase-identity-v3",
+        animationAuthoring: "bespoke-species-performance-v3",
+        showdownAnimationIdentity: { key: pet.id, fingerprint, style: pet.performance.label },
+    };
     json.buffers = [{ byteLength: align4(byteLength) }];
     const binary = new Uint8Array(align4(byteLength));
     for (const chunk of chunks) binary.set(chunk.bytes, chunk.offset);
@@ -352,7 +424,7 @@ async function authorPet(clientRoot, pet) {
     const outputPath = resolve(outputDirectory, `${pet.id}.glb`);
     const encoded = encodeGlb(json, binary);
     await writeFile(outputPath, encoded);
-    return { id: pet.id, outputPath, bytes: encoded.byteLength, clips: json.animations.map((animation) => animation.name) };
+    return { id: pet.id, outputPath, bytes: encoded.byteLength, fingerprint, clips: json.animations.map((animation) => animation.name) };
 }
 
 const clientRoot = resolve(import.meta.dirname, "..");
