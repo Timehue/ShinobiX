@@ -84,7 +84,15 @@ import { makeId } from "../lib/utils";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
 import { type DuelChallenge } from "../App";
 import { loadPendingClanPetBattle, savePendingClanPetBattle } from "../lib/world-state";
-import { resolveChallengerTeam, stripInlinePetImages, arenaSizeOf } from "../lib/arena-challenge";
+import {
+    resolveChallengerTeam,
+    stripInlinePetImages,
+    arenaSizeOf,
+    parseWarfrontChallengePlan,
+    type ArenaMatchPayload,
+    type WarfrontChallengePlan,
+    type WarfrontChallengePlans,
+} from "../lib/arena-challenge";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
 import { activeCarriedPets } from "../lib/entitlements";
 import { activeClientBreedingParentIds } from "../lib/pet-breeding";
@@ -298,6 +306,7 @@ type WarfrontMatch = {
     vsAi: boolean;
     scope: PetArenaPlayerScope;
     buyPolicy: WfBuyPolicy;
+    opponentBuyPolicy: Exclude<WfBuyPolicy, "off">;
     stance: WfStance;
     doctrine: WfDoctrine;
     opponentStance: WfStance;
@@ -305,7 +314,7 @@ type WarfrontMatch = {
 };
 
 /*
- * The clock-and-dice stamp on an outgoing HOLLOW WARFRONT challenge.
+ * The local creation stamp on an outgoing HOLLOW WARFRONT challenge.
  *
  * Module scope on purpose. These reads are impure, and React Compiler is right
  * to flag them inside a component body even though this only ever runs from a
@@ -313,16 +322,11 @@ type WarfrontMatch = {
  * plainly a message-building helper, and the `purity` suppression this file
  * used to carry could come off.
  *
- * Note what is NOT here: a pet-duel seed. A pet challenge no longer carries one.
- * The fight is sealed server-side when the challenge is accepted, from a seed
- * the server mints — a client-invented seed is exactly what let the two
- * participants watch different fights.
+ * Note what is NOT here: a battle seed. The challenge API mints the Warfront
+ * seed while sealing the challenger's plan, so neither player can seed-shop.
  */
-function newWarfrontChallengeStamp(): { petBattleSeed: number; createdAt: number } {
-    return {
-        petBattleSeed: Date.now() + Math.floor(Math.random() * 100000),
-        createdAt: Date.now(),
-    };
+function newWarfrontChallengeStamp(): { createdAt: number } {
+    return { createdAt: Date.now() };
 }
 
 function settlementErrorMessage(error: unknown): string {
@@ -349,7 +353,7 @@ function legacyWfPref(key: string): string | null {
     try { return localStorage.getItem(key); } catch { return null; }
 }
 
-export function PetArena({ character, updateCharacter, allServerPlayers, setScreen, returnScreen: petHomeReturnScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, pendingArenaMatch, onPendingArenaMatchStarted, pendingArenaResponse, onArenaResponseHandled, onClanWarBattleEnd, onBattleActiveChange, onFullscreenActiveChange, onServerVersion, onVersionedCharacter }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; returnScreen?: Screen; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; pendingArenaMatch?: { blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null; onPendingArenaMatchStarted?: () => void; pendingArenaResponse?: DuelChallenge | null; onArenaResponseHandled?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void; onBattleActiveChange?: (active: boolean) => void; onFullscreenActiveChange?: (active: boolean) => void; onServerVersion?: (version: number | undefined, originatingPlayerName: string) => PetArenaServerVersionResult; onVersionedCharacter?: (character: Character, version: number | undefined, originatingPlayerName: string) => PetArenaServerVersionResult }) {
+export function PetArena({ character, updateCharacter, allServerPlayers, setScreen, returnScreen: petHomeReturnScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, pendingArenaMatch, onPendingArenaMatchStarted, pendingArenaResponse, onArenaResponseHandled, onClanWarBattleEnd, onBattleActiveChange, onFullscreenActiveChange, onServerVersion, onVersionedCharacter }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; returnScreen?: Screen; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; pendingArenaMatch?: ArenaMatchPayload | null; onPendingArenaMatchStarted?: () => void; pendingArenaResponse?: DuelChallenge | null; onArenaResponseHandled?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void; onBattleActiveChange?: (active: boolean) => void; onFullscreenActiveChange?: (active: boolean) => void; onServerVersion?: (version: number | undefined, originatingPlayerName: string) => PetArenaServerVersionResult; onVersionedCharacter?: (character: Character, version: number | undefined, originatingPlayerName: string) => PetArenaServerVersionResult }) {
     const combatEligiblePets = activeCarriedPets<Pet>(character);
     const warfrontBreedingPetIds = activeClientBreedingParentIds(character);
     const preservedPetOverflow = Math.max(0, character.pets.length - combatEligiblePets.length);
@@ -696,6 +700,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 vsAi: true,
                 scope,
                 buyPolicy: seal.buyPolicy,
+                opponentBuyPolicy: seal.opponentBuyPolicy,
                 stance: seal.stance,
                 doctrine: seal.doctrine,
                 opponentStance: seal.opponentStance,
@@ -707,16 +712,26 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     // Build the role-assigned slots + start the 5s pre-roll, evening both teams
     // to the smaller roster so a lopsided pick can't auto-stomp. Both clients
     // run this from identical embedded teams, so the match stays in sync.
-    async function startArenaMatch(blue: Pet[], red: Pet[], seed: number, vsAi = false) {
+    async function startArenaMatch(blue: Pet[], red: Pet[], seed: number, vsAi = false, sealedPlans?: WarfrontChallengePlans) {
         if (vsAi && warfrontSetupInFlightRef.current) return;
         const scope = capturePlayerScope();
-        const matchConfig = {
-            buyPolicy: (vsAi ? wfAutoPref : "balanced") as WfBuyPolicy,
-            stance: wfStancePref,
-            doctrine: wfDoctrinePref,
-            opponentStance: "balanced" as WfStance,
-            opponentDoctrine: "vanguard" as WfDoctrine,
-        };
+        const matchConfig = sealedPlans
+            ? {
+                buyPolicy: sealedPlans.blue.buyPolicy as WfBuyPolicy,
+                opponentBuyPolicy: sealedPlans.red.buyPolicy,
+                stance: sealedPlans.blue.stance as WfStance,
+                doctrine: sealedPlans.blue.doctrine as WfDoctrine,
+                opponentStance: sealedPlans.red.stance as WfStance,
+                opponentDoctrine: sealedPlans.red.doctrine as WfDoctrine,
+            }
+            : {
+                buyPolicy: (vsAi ? wfAutoPref : "balanced") as WfBuyPolicy,
+                opponentBuyPolicy: "balanced" as const,
+                stance: wfStancePref,
+                doctrine: wfDoctrinePref,
+                opponentStance: "balanced" as WfStance,
+                opponentDoctrine: "vanguard" as WfDoctrine,
+            };
         const n = vsAi
             ? Math.max(1, Math.min(4, blue.length))
             : Math.max(1, Math.min(blue.length, red.length));
@@ -898,6 +913,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     || seal.stance !== m.stance
                     || seal.doctrine !== m.doctrine
                     || seal.buyPolicy !== m.buyPolicy
+                    || seal.opponentBuyPolicy !== m.opponentBuyPolicy
                     || seal.opponentStance !== m.opponentStance
                     || seal.opponentDoctrine !== m.opponentDoctrine
                     || seal.bluePets.map((pet) => pet.id).join("\0") !== playerPetIds.join("\0")
@@ -931,6 +947,11 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             setArenaChallengeMsg(`${name} needs ${size} available pets for a ${size}v${size} arena match.`);
             return;
         }
+        const challengerWarfrontPlan: WarfrontChallengePlan = {
+            buyPolicy: wfAutoPref,
+            stance: wfStancePref,
+            doctrine: wfDoctrinePref === "none" ? "vanguard" : wfDoctrinePref,
+        };
         const challenge: DuelChallenge = {
             id: makeId(),
             fromName: character.name,
@@ -941,6 +962,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             arenaMatch: true,
             arenaSize: size,
             challengerTeamIds: teamIds,
+            challengerWarfrontPlan,
         };
         try {
             const res = await fetch('/api/player/challenge', {
@@ -968,6 +990,16 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     // challenger will — blue resolved from their snapshot, red = my picks.
     async function respondToArenaChallenge(challenge: DuelChallenge, teamIds: string[]) {
         const size = arenaSizeOf(challenge);
+        const challengerPlan = parseWarfrontChallengePlan(challenge.challengerWarfrontPlan);
+        if (!challengerPlan) {
+            setArenaChallengeMsg("This challenge predates sealed battle plans. Ask the challenger to send a fresh Warfront invitation.");
+            return;
+        }
+        const responderPlan: WarfrontChallengePlan = {
+            buyPolicy: wfAutoPref,
+            stance: wfStancePref,
+            doctrine: wfDoctrinePref === "none" ? "vanguard" : wfDoctrinePref,
+        };
         const challengerBreedingPetIds = activeClientBreedingParentIds(challenge.challenger);
         const myTeam = teamIds.slice(0, size)
             .map((id) => combatEligiblePets.find((pet) => pet.id === id && isPetAvailableForWarfront(pet, warfrontBreedingPetIds)))
@@ -986,11 +1018,12 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 body: JSON.stringify({ targetName: challenge.fromName, challenge: {
                     ...challenge, accepted: true, fromName: character.name, toName: challenge.fromName,
                     responderTeam: stripInlinePetImages(myTeam),
+                    responderWarfrontPlan: responderPlan,
                 } }),
             });
         } catch { /* the challenger just won't auto-launch; my side still plays */ }
         onArenaResponseHandled?.();
-        void startArenaMatch(blue, myTeam, challenge.petBattleSeed ?? 1);
+        void startArenaMatch(blue, myTeam, challenge.petBattleSeed ?? 1, false, { blue: challengerPlan, red: responderPlan });
     }
 
     const selectedPet = combatEligiblePets.find((pet) => pet.id === selectedPetId) ?? combatEligiblePets.find((pet) => !isPetOnExpedition(pet));
@@ -1521,7 +1554,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             onPendingArenaMatchStarted?.();
             return;
         }
-        void startArenaMatch(pendingArenaMatch.blue, pendingArenaMatch.red, pendingArenaMatch.seed);
+        void startArenaMatch(pendingArenaMatch.blue, pendingArenaMatch.red, pendingArenaMatch.seed, false, pendingArenaMatch.plans);
         onPendingArenaMatchStarted?.();
     }, [pendingArenaMatch?.seed]);
 
@@ -2119,6 +2152,20 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                         const selectedTacticalPets = tacticalPicks
                             .map((id) => availableById.get(id))
                             .filter((pet): pet is Pet => Boolean(pet));
+                        const selectedFormation = WF_STANCES.find((stance) => stance.id === wfStancePref) ?? WF_STANCES[0];
+                        const selectedDoctrine = WF_DOCTRINES.find((doctrine) => doctrine.id === wfDoctrinePref) ?? WF_DOCTRINES[0];
+                        const councilPolicy = wfAutoPref === "offense"
+                            ? { icon: "🗡", label: "Assault economy", detail: "Attack and movement spikes go to the squad first." }
+                            : wfAutoPref === "defense"
+                                ? { icon: "🛡", label: "Fortress economy", detail: "Durability, sustain, and recovery are prioritized." }
+                                : { icon: "⚖", label: "Role-balanced economy", detail: "Every role receives a purpose-built upgrade path." };
+                        const planSynergy = wfStancePref === "jungle" && wfDoctrinePref === "warden-pact"
+                            ? "Camp Dominion: fast rotations feed 18%-harder recruited Wardens with 50% longer contracts."
+                            : wfStancePref === "siege" && wfDoctrinePref === "vanguard"
+                                ? "Breach Column: +8% team attack compounds a structure-first march."
+                                : wfStancePref === "turtle" && wfDoctrinePref === "bulwark"
+                                    ? "Unbroken Line: +12% team HP reinforces the strongest home-ground defense."
+                                    : `${selectedFormation.label} controls field behavior; ${selectedDoctrine.label} supplies the permanent team-wide edge.`;
                         return (
                             <div style={{ display: "grid", gap: "0.7rem" }}>
                                 <div className="pet-arena-tactical-top">
@@ -2157,6 +2204,19 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                                 ))}
                                             </div>
                                             <p className="hint" style={{ margin: "4px 0 0" }}>Choose your sealed team-wide boon. The AI rival always fields Vanguard doctrine.</p>
+                                        </div>
+
+                                        <div className="wf-pregame-readout" aria-label="Sealed battle plan impact">
+                                            <div className="wf-pregame-readout-title">
+                                                <span>SEALED BATTLE PLAN</span>
+                                                <strong>{selectedFormation.icon} {selectedFormation.label} · {selectedDoctrine.icon} {selectedDoctrine.label}</strong>
+                                            </div>
+                                            <div className="wf-pregame-readout-grid">
+                                                <div><span>COUNCIL AI</span><strong>{councilPolicy.icon} {councilPolicy.label}</strong><small>{councilPolicy.detail}</small></div>
+                                                <div><span>FIELD BEHAVIOR</span><strong>{selectedFormation.label}</strong><small>{selectedFormation.desc}</small></div>
+                                                <div><span>PERMANENT BOON</span><strong>{selectedDoctrine.label}</strong><small>{selectedDoctrine.desc}</small></div>
+                                            </div>
+                                            <p><span>◆ TACTICAL READ</span>{planSynergy}</p>
                                         </div>
 
                                         <div>
@@ -2225,6 +2285,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                         blue={arenaMatch.blue} red={arenaMatch.red} seed={arenaMatch.seed}
                         theme={wfThemeForVillage(character.village)}
                         autoBuy={arenaMatch.buyPolicy}
+                        opponentAutoBuy={arenaMatch.opponentBuyPolicy}
                         stance={arenaMatch.stance}
                         doctrine={arenaMatch.doctrine}
                         opponentStance={arenaMatch.opponentStance}
