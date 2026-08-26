@@ -7,6 +7,7 @@ import { rawPetPool } from "../src/data/pet-pool.ts";
 import { STARTER_PETS } from "../src/data/starter-pets.ts";
 import { STARTER_EVOLUTIONS } from "../src/data/pet-evolutions.ts";
 import { INDIVIDUAL_PET_ANIMATION_MODEL_IDS } from "../src/lib/pet-proper-animation-assets.ts";
+import { PET_SHOWDOWN_ANIMATION_ASSET_REVISION } from "../src/lib/pet-showdown-animation-assets.ts";
 
 globalThis.self = globalThis;
 
@@ -19,8 +20,16 @@ const EXPECTED_CLIPS = [
     ["attack", 0.53],
     ["idle_hitreact1", 0.16],
     ["death", 0.9],
+    ["entrance", 0.55],
+    ["cast", 0.53],
+    ["guard", 0.5],
+    ["rest", 0.5],
+    ["victory", 0.75],
 ];
-const CRITICAL_MOTION_CLIPS = new Set(["gallop_jump", "attack", "idle_hitreact1", "death"]);
+const IDENTITY_CLIP_NAMES = new Set(EXPECTED_CLIPS.map(([name]) => name));
+const CRITICAL_MOTION_CLIPS = new Set([
+    "gallop_jump", "attack", "idle_hitreact1", "death", "entrance", "cast", "guard", "victory",
+]);
 const clientRoot = resolve(import.meta.dirname, "..");
 const outputRoot = resolve(clientRoot, ".tmp/pet-animation-audit");
 const outputPath = resolve(outputRoot, "all-pet-motion-audit.json");
@@ -113,6 +122,7 @@ await MeshoptDecoder.ready;
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
 const report = [];
+const identityFingerprints = new Set();
 
 for (const pet of catalog) {
     const path = assetPath(pet.id);
@@ -123,7 +133,27 @@ for (const pet of catalog) {
         if (object instanceof THREE.SkinnedMesh) meshes.push(object);
     });
     invariant(meshes.length > 0, `${pet.id}: skinned mesh missing`);
-    invariant(gltf.animations.length === EXPECTED_CLIPS.length, `${pet.id}: expected eight animation clips`);
+    const individuallyAuthored = INDIVIDUAL_PET_ANIMATION_MODEL_IDS.has(pet.id);
+    const requiredNames = IDENTITY_CLIP_NAMES;
+    const availableNames = new Set(gltf.animations.map((clip) => clip.name));
+    invariant(gltf.animations.length === requiredNames.size, `${pet.id}: expected ${requiredNames.size} animation clips`);
+    invariant(availableNames.size === requiredNames.size, `${pet.id}: duplicate animation clip names`);
+    for (const clipName of requiredNames) invariant(availableNames.has(clipName), `${pet.id}: ${clipName} missing`);
+    if (individuallyAuthored) {
+        const identity = gltf.parser.json.extras?.showdownAnimationIdentity;
+        invariant(gltf.parser.json.extras?.showdownAnimationBank === PET_SHOWDOWN_ANIMATION_ASSET_REVISION, `${pet.id}: stale showcase revision`);
+        invariant(gltf.parser.json.extras?.animationAuthoring === "bespoke-species-performance-v3", `${pet.id}: stale showcase authoring`);
+        invariant(identity?.key === pet.id, `${pet.id}: showcase identity key mismatch`);
+        invariant(typeof identity?.fingerprint === "string" && /^[A-F0-9]{24}$/u.test(identity.fingerprint), `${pet.id}: showcase fingerprint missing`);
+        invariant(!identityFingerprints.has(identity.fingerprint), `${pet.id}: duplicate showcase performance fingerprint`);
+        identityFingerprints.add(identity.fingerprint);
+    } else {
+        const identity = gltf.parser.json.extras?.properAnimationIdentity;
+        invariant(gltf.parser.json.extras?.animationAuthoring === "individual-species-performance-v5", `${pet.id}: stale identity authoring`);
+        invariant(typeof identity?.fingerprint === "string" && /^[A-F0-9]{24}$/u.test(identity.fingerprint), `${pet.id}: identity fingerprint missing`);
+        invariant(!identityFingerprints.has(identity.fingerprint), `${pet.id}: duplicate identity performance fingerprint`);
+        identityFingerprints.add(identity.fingerprint);
+    }
 
     const bindPose = capturePose(gltf.scene);
     const bindPoints = sampleSkinnedPoints(gltf.scene, meshes);
@@ -132,40 +162,52 @@ for (const pet of catalog) {
     const mixer = new THREE.AnimationMixer(gltf.scene);
     const clips = [];
 
-    for (const [clipName, progress] of EXPECTED_CLIPS) {
-        mixer.stopAllAction();
-        restorePose(gltf.scene, bindPose);
+    for (const [clipName, progress] of EXPECTED_CLIPS.filter(([clipName]) => requiredNames.has(clipName))) {
         const take = THREE.AnimationClip.findByName(gltf.animations, clipName);
         invariant(take, `${pet.id}: ${clipName} missing`);
-        const action = mixer.clipAction(take);
-        action.reset().setLoop(THREE.LoopOnce, 1).play();
-        action.time = take.duration * progress;
-        mixer.update(0);
+        const sampleProgress = [
+            Math.max(0.12, progress * 0.45),
+            progress,
+            Math.min(0.96, progress + (1 - progress) * 0.62),
+        ];
+        const samples = [];
+        for (const sample of sampleProgress) {
+            mixer.stopAllAction();
+            restorePose(gltf.scene, bindPose);
+            const action = mixer.clipAction(take);
+            action.reset().setLoop(THREE.LoopOnce, 1).play();
+            action.time = take.duration * sample;
+            mixer.update(0);
 
-        const points = sampleSkinnedPoints(gltf.scene, meshes);
-        const posed = measurements(points);
-        const displacement = displacementRatio(bindPoints, points, bind.diagonal);
-        const sizeRatio = posed.diagonal / bind.diagonal;
-        const centerShift = posed.center.distanceTo(bind.center) / bind.diagonal;
-        invariant(sizeRatio > 0.28 && sizeRatio < 2.8, `${pet.id}/${clipName}: implausible animated bounds (${sizeRatio.toFixed(3)}x)`);
-        invariant(centerShift < 1.6, `${pet.id}/${clipName}: pose escaped the combat footprint (${centerShift.toFixed(3)}x)`);
+            const points = sampleSkinnedPoints(gltf.scene, meshes);
+            const posed = measurements(points);
+            const displacement = displacementRatio(bindPoints, points, bind.diagonal);
+            const sizeRatio = posed.diagonal / bind.diagonal;
+            const centerShift = posed.center.distanceTo(bind.center) / bind.diagonal;
+            invariant(sizeRatio > 0.28 && sizeRatio < 2.8, `${pet.id}/${clipName}@${sample.toFixed(2)}: implausible animated bounds (${sizeRatio.toFixed(3)}x)`);
+            invariant(centerShift < 1.6, `${pet.id}/${clipName}@${sample.toFixed(2)}: pose escaped the combat footprint (${centerShift.toFixed(3)}x)`);
+            samples.push({
+                progress: Number(sample.toFixed(4)),
+                rmsDisplacement: Number(displacement.rms.toFixed(5)),
+                maxDisplacement: Number(displacement.max.toFixed(5)),
+                sizeRatio: Number(sizeRatio.toFixed(5)),
+                centerShift: Number(centerShift.toFixed(5)),
+            });
+        }
         if (CRITICAL_MOTION_CLIPS.has(clipName)) {
-            invariant(displacement.max > 0.006, `${pet.id}/${clipName}: authored pose has no visible deformation`);
+            invariant(Math.max(...samples.map((sample) => sample.maxDisplacement)) > 0.006, `${pet.id}/${clipName}: authored take has no visible deformation`);
         }
         clips.push({
             name: clipName,
             duration: Number(take.duration.toFixed(4)),
-            rmsDisplacement: Number(displacement.rms.toFixed(5)),
-            maxDisplacement: Number(displacement.max.toFixed(5)),
-            sizeRatio: Number(sizeRatio.toFixed(5)),
-            centerShift: Number(centerShift.toFixed(5)),
+            samples,
         });
     }
 
     report.push({
         id: pet.id,
         name: pet.name,
-        source: INDIVIDUAL_PET_ANIMATION_MODEL_IDS.has(pet.id) ? "individual" : "family",
+        source: individuallyAuthored ? "showcase" : "identity",
         rig: gltf.parser.json.extras?.properAnimationRig ?? "individual",
         family: gltf.parser.json.extras?.properAnimationFamily ?? "individual",
         sampledVertices: bindPoints.length,
@@ -176,9 +218,11 @@ for (const pet of catalog) {
 
 const summary = {
     auditedModels: report.length,
-    auditedPoses: report.reduce((total, pet) => total + pet.clips.length, 0),
-    individuallyAuthored: report.filter((pet) => pet.source === "individual").length,
-    familyAuthored: report.filter((pet) => pet.source === "family").length,
+    auditedPoses: report.reduce((total, pet) => total + pet.clips.reduce((subtotal, clip) => subtotal + clip.samples.length, 0), 0),
+    showcaseAuthored: report.filter((pet) => pet.source === "showcase").length,
+    identityAuthored: report.filter((pet) => pet.source === "identity").length,
+    identityDirected: report.length,
+    uniquePerformanceFingerprints: identityFingerprints.size,
     rigs: [...new Set(report.map((pet) => pet.rig))].sort(),
     families: [...new Set(report.map((pet) => pet.family))].sort(),
 };

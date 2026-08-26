@@ -10,9 +10,13 @@ import {
     PROPER_PET_ANIMATION_ASSET_REVISION,
 } from "./pet-proper-animation-assets.ts";
 import { PET_SHOWDOWN_ANIMATION_ASSET_REVISION } from "./pet-showdown-animation-assets.ts";
+import { petCombatModel } from "./pet-3d-models.ts";
 
-const EXPECTED_CLIPS = [
+const CORE_CLIPS = [
     "idle", "idle_2", "walk", "gallop", "gallop_jump", "attack", "idle_hitreact1", "death",
+];
+const IDENTITY_CLIPS = [
+    ...CORE_CLIPS, "entrance", "cast", "guard", "rest", "victory",
 ];
 const catalog = [
     ...rawPetPool,
@@ -34,8 +38,10 @@ test("all 160 production pets have complete proper skeletal animation banks", ()
     const families = new Set<string>();
     const rigs = new Set<string>();
     const signatureSeeds = new Set<number>();
+    const identityFingerprints = new Set<string>();
+    const showcaseFingerprints = new Set<string>();
     let individual = 0;
-    let familyAuthored = 0;
+    let identityAuthored = 0;
 
     for (const pet of catalog) {
         const individuallyAuthored = INDIVIDUAL_PET_ANIMATION_MODEL_IDS.has(pet.id);
@@ -45,23 +51,37 @@ test("all 160 production pets have complete proper skeletal animation banks", ()
                 ? resolve(import.meta.dirname, `../../public/pet-models/${pet.id}.glb`)
                 : resolve(import.meta.dirname, `../../public/pet-models/roster/${pet.id}.glb`);
         const json = parseGlb(path);
-        assert.deepEqual(json.animations?.map((animation: { name: string }) => animation.name), EXPECTED_CLIPS, `${pet.id}: incomplete clip set`);
+        assert.deepEqual(
+            json.animations?.map((animation: { name: string }) => animation.name),
+            IDENTITY_CLIPS,
+            `${pet.id}: incomplete clip set`,
+        );
 
         if (individuallyAuthored) {
             individual += 1;
             assert.equal(json.extras?.showdownAnimationBank, PET_SHOWDOWN_ANIMATION_ASSET_REVISION);
+            assert.equal(json.extras?.animationAuthoring, "bespoke-species-performance-v3");
+            assert.equal(json.extras?.showdownAnimationIdentity?.key, pet.id);
+            assert.match(json.extras?.showdownAnimationIdentity?.fingerprint, /^[A-F0-9]{24}$/u);
+            showcaseFingerprints.add(json.extras.showdownAnimationIdentity.fingerprint);
         } else {
-            familyAuthored += 1;
+            identityAuthored += 1;
             assert.equal(json.extras?.properAnimationBank, PROPER_PET_ANIMATION_ASSET_REVISION, `${pet.id}: stale animation revision`);
             assert.equal(typeof json.extras?.properAnimationFamily, "string");
             assert.equal(typeof json.extras?.properAnimationRig, "string");
-            assert.equal(json.extras?.animationAuthoring, "species-and-identity-directed-keyframes");
+            assert.equal(json.extras?.animationAuthoring, "individual-species-performance-v5");
             assert.equal(typeof json.extras?.properAnimationSignature?.seed, "number");
             assert.equal(typeof json.extras?.properAnimationSignature?.cadence, "number");
             assert.equal(typeof json.extras?.properAnimationSignature?.strikeDrive, "number");
+            assert.equal(typeof json.extras?.properAnimationIdentity?.key, "string");
+            assert.equal(typeof json.extras?.properAnimationIdentity?.motif, "string");
+            assert.equal(typeof json.extras?.properAnimationIdentity?.entrance, "string");
+            assert.equal(typeof json.extras?.properAnimationIdentity?.victory, "string");
+            assert.match(json.extras?.properAnimationIdentity?.fingerprint, /^[A-F0-9]{24}$/u);
             assert.ok(json.extras.properAnimationSignature.cadence >= 0.84 && json.extras.properAnimationSignature.cadence <= 1.18);
             assert.ok(json.extras.properAnimationSignature.strikeDrive >= 0.78 && json.extras.properAnimationSignature.strikeDrive <= 1.48);
             signatureSeeds.add(json.extras.properAnimationSignature.seed);
+            identityFingerprints.add(json.extras.properAnimationIdentity.fingerprint);
             families.add(json.extras.properAnimationFamily);
             rigs.add(json.extras.properAnimationRig);
         }
@@ -80,8 +100,32 @@ test("all 160 production pets have complete proper skeletal animation banks", ()
     }
 
     assert.equal(individual, 4);
-    assert.equal(familyAuthored, 156);
-    assert.equal(signatureSeeds.size, 156, "every family-authored GLB needs a distinct identity signature");
+    assert.equal(identityAuthored, 156);
+    assert.equal(individual + identityAuthored, 160, "every production pet must be identity-directed");
+    assert.equal(signatureSeeds.size, 156, "every generated GLB needs a distinct identity signature");
+    assert.equal(identityFingerprints.size, 156, "every generated GLB needs a distinct performance fingerprint");
+    assert.equal(showcaseFingerprints.size, 4, "every bespoke showcase GLB needs a distinct performance fingerprint");
+    assert.equal(new Set([...identityFingerprints, ...showcaseFingerprints]).size, 160, "all production performances must be unique");
     assert.ok(families.size >= 12, "family coverage collapsed into too few motion styles");
     assert.deepEqual([...rigs].sort(), ["avian", "bat", "biped", "crab", "insect", "moth", "quadruped"]);
+});
+
+test("all 160 catalog identities resolve to a versioned runtime GLB with the full clip contract", () => {
+    for (const pet of catalog) {
+        const model = petCombatModel(pet);
+        assert.ok(model, `${pet.id}: production model resolution failed`);
+        const [assetUrl, revision] = model.url.split("?v=");
+        assert.ok(revision, `${pet.id}: runtime GLB is not cache-versioned`);
+        const expectedRevision = INDIVIDUAL_PET_ANIMATION_MODEL_IDS.has(model.visualId)
+            ? PET_SHOWDOWN_ANIMATION_ASSET_REVISION
+            : PROPER_PET_ANIMATION_ASSET_REVISION;
+        assert.equal(revision, expectedRevision, `${pet.id}: stale runtime asset revision`);
+        const path = resolve(import.meta.dirname, `../../public${assetUrl}`);
+        const json = parseGlb(path);
+        assert.deepEqual(
+            json.animations?.map((animation: { name: string }) => animation.name),
+            IDENTITY_CLIPS,
+            `${pet.id}: resolved runtime GLB has an incomplete state contract`,
+        );
+    }
 });

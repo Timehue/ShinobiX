@@ -33,6 +33,21 @@ test("stances are real: forced stances change the match, and declarations fire",
     assert.ok(decls.every((d) => d.t === 0), "forced stances never change mid-match when adaptation is off");
 });
 
+test("pregame doctrines are build-defining and match their advertised values", () => {
+    const baseline = startWarfrontMatch(squad("A"), squad("B"), 12, {
+        bluePolicy: "off", redPolicy: "off", blueDoctrine: "none", redDoctrine: "none",
+    }).result.snapshots[0];
+    const bulwark = startWarfrontMatch(squad("A"), squad("B"), 12, {
+        bluePolicy: "off", redPolicy: "off", blueDoctrine: "bulwark", redDoctrine: "none",
+    }).result.snapshots[0];
+    for (let slot = 0; slot < 4; slot++) {
+        const before = baseline.actors.find((actor) => actor.id === `blue-${slot}`)!;
+        const after = bulwark.actors.find((actor) => actor.id === `blue-${slot}`)!;
+        assert.equal(after.maxHp, Math.round(before.maxHp * 1.12), `slot ${slot} did not receive the sealed +12% HP doctrine`);
+        assert.equal(after.hp, after.maxHp, `slot ${slot} must enter at the doctrine-adjusted health cap`);
+    }
+});
+
 test("full-auto match is deterministic (byte-identical snapshots + events)", () => {
     const a = runWarfrontMatch(squad("A"), squad("B"), 12345);
     const b = runWarfrontMatch(squad("A"), squad("B"), 12345);
@@ -303,6 +318,22 @@ test("auto-buy policies spend coins deterministically", () => {
     assert.equal(JSON.stringify(a.events.filter((e) => e.type === "buy")), JSON.stringify(b.events.filter((e) => e.type === "buy")));
     const buys = a.events.filter((e) => e.type === "buy" && e.team === "blue");
     assert.ok(buys.length > 0, "offense policy must actually buy");
+});
+
+test("every War Council executes a visible squad redeploy on top of purchases", () => {
+    const ctl = startWarfrontMatch(squad("A"), squad("B"), 777, {
+        bluePolicy: "off", redPolicy: "off", adaptStances: false,
+    });
+    ctl.advanceRound();
+    assert.equal(ctl.done, false, "the opening round must reach its first council");
+    ctl.advanceRound([{ petIndex: 0, kind: "strike" }], "siege");
+    const council = ctl.result.events.find((event) => event.type === "council" && event.team === "blue");
+    assert.ok(council, "the council must emit its battlefield redeploy");
+    assert.equal(council.buys, 1);
+    assert.equal(council.spent, wfPowerupCost(0));
+    assert.equal(council.shieldPct, 6.5);
+    assert.equal(council.ult, 9);
+    assert.equal(council.stance, "siege");
 });
 
 test("balanced auto-buy gives each role a tactical build priority", () => {

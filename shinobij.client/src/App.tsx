@@ -373,7 +373,7 @@ import {
 } from "./lib/elements";
 
 import { isPetOnExpedition, resolveAvailablePetBattlePair } from "./lib/pet";
-import { buildAcceptedArenaMatch } from "./lib/arena-challenge";
+import { buildAcceptedArenaMatch, type ArenaMatchPayload, type WarfrontChallengePlan } from "./lib/arena-challenge";
 import { stopBattleMusic } from "./lib/pet-music";
 
 export type { PetPartyBattleMatch, PetPartyBattleResult } from "./lib/pet-battle-sim";
@@ -463,6 +463,8 @@ export type DuelChallenge = {
     arenaSize?: 2 | 4;
     challengerTeamIds?: string[];
     responderTeam?: Pet[];
+    challengerWarfrontPlan?: WarfrontChallengePlan;
+    responderWarfrontPlan?: WarfrontChallengePlan;
     createdAt: number;
     mode?: "standard" | "ranked" | "clanWar1v1" | "clanWar2v2" | "clanWarPet" | "rankedPet";
     // Exact player-ranked queue capability. All three fields are server-minted,
@@ -2042,7 +2044,7 @@ export default function App() {
         pushLog: pushHollowGateLog,
         buildRunSummary: buildHollowGateRunSummary,
     });
-    const [pendingArenaMatch, setPendingArenaMatch] = useState<{ blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null>(null); // Tactical Arena PvP match → PetArena
+    const [pendingArenaMatch, setPendingArenaMatch] = useState<ArenaMatchPayload | null>(null); // Tactical Arena PvP match → PetArena
     const [pendingArenaResponse, setPendingArenaResponse] = useState<DuelChallenge | null>(null); // incoming arena challenge → PetArena responder picker
     // IDs of challenges the user already handled (accepted / declined /
     // consumed an accepted-or-declined notice). Both the realtime push and the

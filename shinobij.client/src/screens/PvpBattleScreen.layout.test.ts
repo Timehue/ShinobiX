@@ -70,13 +70,18 @@ test("the PvP battle log uses the scrollable, round-grouped semantic feed", () =
 
     assert.match(
         battleSkinCss,
-        /\.plain-combat-battle-log \.timeline-entry-head\s*\{[^}]*font:\s*650 clamp\(14px, 0\.95cqw, 16px\) \/ 1\.45/s,
-        "shared action headlines must remain large and readable",
+        /\.plain-combat-battle-log \.timeline-entry-head\s*\{[^}]*font:\s*650 clamp\(13px, 0\.88cqw, 15px\) \/ 1\.35/s,
+        "shared action headlines must remain readable without dominating the feed",
     );
     assert.match(
         battleSkinCss,
-        /\.plain-combat-battle-log \.timeline-entry,[\s\S]{0,300}?padding:\s*10px 14px\s*!important/,
-        "action groups need readable spacing",
+        /\.plain-combat-battle-log \.timeline-entry,[\s\S]{0,300}?padding:\s*8px 11px\s*!important/,
+        "action groups need compact but readable spacing",
+    );
+    assert.match(
+        battleSkinCss,
+        /\.plain-combat-battle-log > \.combat-log-header\s*\{[^}]*min-height:\s*46px;[^}]*padding:\s*5px 9px 5px 13px\s*!important/s,
+        "the log header should preserve vertical space for combat history",
     );
     assert.match(
         battleSkinCss,
@@ -86,8 +91,41 @@ test("the PvP battle log uses the scrollable, round-grouped semantic feed", () =
     for (const category of ["heal", "damage", "dmgmod", "shield", "control", "prevent", "tempo", "system", "effect"]) {
         assert.match(
             battleSkinCss,
-            new RegExp(`\\.plain-combat-battle-log \\.battle-log-${category}\\s*\\{[^}]*color:[^;]+!important`, "s"),
-            `${category} effects must outrank the legacy neutral paragraph color`,
+            new RegExp(`\\.battle-log-${category}\\s*\\{[^}]*--battle-log-rgb:`, "s"),
+            `${category} effects need their own semantic color token`,
         );
     }
+    assert.match(
+        battleSkinCss,
+        /\.shinobi-combat-shell \.timeline-fx\.battle-log-line\s*\{[^}]*color:\s*rgb\(var\(--battle-log-rgb\)\)\s*!important/s,
+        "semantic battle-log colors must outrank the legacy neutral paragraph color",
+    );
+    assert.match(
+        battleSkinCss,
+        /\.shinobi-combat-shell \.timeline-fx\.battle-log-line > span\s*\{[^}]*color:\s*inherit\s*!important/s,
+        "nested log text must preserve the semantic effect color",
+    );
+});
+
+test("combat jutsu cards keep full-bleed art and separated overlay metadata", () => {
+    assert.match(
+        battleSkinCss,
+        /html body > \.arena-fullscreen\.shinobi-combat-shell \.combat-jutsu-button\s*\{[^}]*position:\s*relative\s*!important;[^}]*display:\s*block\s*!important;[^}]*padding:\s*0\s*!important;/s,
+        "the late shared-shell contract must not turn the card back into a compressed metadata grid",
+    );
+    assert.match(
+        battleSkinCss,
+        /html\[data-vp\] body > \.arena-fullscreen\.shinobi-combat-shell \.combat-jutsu-thumb\s*\{[^}]*position:\s*absolute\s*!important;[^}]*inset:\s*0\s*!important;[^}]*height:\s*100%\s*!important;[^}]*max-height:\s*none\s*!important;/s,
+        "jutsu artwork should fill the card instead of collapsing to a 28–44px strip",
+    );
+    assert.match(
+        battleSkinCss,
+        /html\[data-vp\] body > \.arena-fullscreen\.shinobi-combat-shell \.combat-jutsu-name\s*\{[^}]*position:\s*absolute\s*!important;[^}]*inset:\s*auto 0 17px\s*!important;[^}]*-webkit-line-clamp:\s*2\s*!important;[^}]*background:\s*linear-gradient/s,
+        "the jutsu name needs its own readable bottom nameplate",
+    );
+    assert.match(
+        battleSkinCss,
+        /\.combat-jutsu-method-target\s*\{\s*top:\s*5px\s*!important;[^}]*\}[\s\S]*?\.combat-jutsu-resources\s*\{\s*top:\s*23px\s*!important;/,
+        "method/target and resource badges must occupy separate overlay rows",
+    );
 });

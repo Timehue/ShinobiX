@@ -10,6 +10,7 @@ import {
 
 const EXPECTED_CLIPS = [
     "idle", "idle_2", "walk", "gallop", "gallop_jump", "attack", "idle_hitreact1", "death",
+    "entrance", "cast", "guard", "rest", "victory",
 ];
 
 function parseGlb(path: string) {
@@ -33,7 +34,8 @@ test("the screenshot lineup uses four versioned species-authored GLBs", () => {
     assert.equal(petShowdownAnimationModelUrl("standard-8"), null);
 });
 
-test("each replacement preserves its reviewed model but carries a new complete animation bank", () => {
+test("each replacement preserves its reviewed model but carries a full identity performance bank", () => {
+    const fingerprints = new Set<string>();
     for (const id of PET_SHOWDOWN_ANIMATION_MODEL_IDS) {
         const sourcePath = id.startsWith("starter-")
             ? resolve(import.meta.dirname, `../../public/pet-models/${id}.glb`)
@@ -46,6 +48,11 @@ test("each replacement preserves its reviewed model but carries a new complete a
         assert.deepEqual(authored.json.materials, source.json.materials, `${id}: materials changed during animation authoring`);
         assert.deepEqual(authored.json.skins, source.json.skins, `${id}: reviewed skin changed during animation authoring`);
         assert.equal(authored.json.extras?.showdownAnimationBank, PET_SHOWDOWN_ANIMATION_ASSET_REVISION);
+        assert.equal(authored.json.extras?.animationAuthoring, "bespoke-species-performance-v3");
+        assert.equal(authored.json.extras?.showdownAnimationIdentity?.key, id);
+        assert.equal(typeof authored.json.extras?.showdownAnimationIdentity?.style, "string");
+        assert.match(authored.json.extras?.showdownAnimationIdentity?.fingerprint, /^[A-F0-9]{24}$/u);
+        fingerprints.add(authored.json.extras.showdownAnimationIdentity.fingerprint);
         assert.match(authored.json.asset?.generator ?? "", new RegExp(id));
         assert.deepEqual(authored.json.animations.map((animation: { name: string }) => animation.name), EXPECTED_CLIPS);
         for (const animation of authored.json.animations) {
@@ -55,4 +62,5 @@ test("each replacement preserves its reviewed model but carries a new complete a
         }
         assert.ok(authored.file.byteLength > 300_000, `${id}: output is unexpectedly truncated`);
     }
+    assert.equal(fingerprints.size, 4, "every showcase pet needs a distinct performance fingerprint");
 });

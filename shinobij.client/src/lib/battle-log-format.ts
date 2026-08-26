@@ -41,6 +41,7 @@ export type BattleLogCategory =
 const RULES: ReadonlyArray<readonly [RegExp, BattleLogCategory]> = [
     // Structural / narration
     [/^--- Round \d+ ---$/i, "system"],
+    [/^Battle started:/i, "system"],
     [/ uses /i, "system"],
     [/⚔|wins!|\bforfeits?\b|ends their turn|^.+ moves\.$|^.+ dashes\.$|has skipped|Both fighters fall|Time limit|\bby HP\b|\bDraw!/i, "system"],
 

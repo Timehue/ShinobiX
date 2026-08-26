@@ -195,7 +195,12 @@ test('pet WebGL stages release pointer and timer resources without extra Warfron
     assert.match(warfront, /lostpointercapture/);
     assert.doesNotMatch(warfront, /<WfMultiCam/);
     assert.doesNotMatch(warfront, /window\.innerWidth/);
-    assert.match(board, /loaded\?\.dispose\(\)/);
+    assert.match(board, /useTexture\(gauntletBoard\)/);
+    assert.match(board, /useTexture\.preload\(gauntletBoard\)/);
+    assert.match(board, /data-arena-map="stone-lava"/);
+    assert.match(board, /sourceFloor\.clone\(\)/);
+    assert.match(board, /floor\.dispose\(\)/);
+    assert.match(board, /meshBasicMaterial map=\{floor\} color="#ffffff" toneMapped=\{false\}/);
     assert.match(board, /popTimers\.current\.clear\(\)/);
     assert.match(stages, /\.pet-combat-takeover canvas[\s\S]*touch-action: none/);
 });

@@ -22,9 +22,10 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { createPortal } from "react-dom";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html, Sparkles } from "@react-three/drei";
-import { EffectComposer } from "@react-three/postprocessing";
-import { BloomEffect, ChromaticAberrationEffect, GodRaysEffect } from "postprocessing";
-import { ZoomBlurEffect } from "../lib/showdown-post";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
+import { SHOWDOWN_POST_SHADER } from "../lib/showdown-post";
 import { petBloomEnabled } from "../lib/pet-coliseum-flag";
 import * as THREE from "three";
 import { PetModel3D, DEFAULT_PET_MODEL_FRAME, type PetModelFrame } from "./PetModel3D";
@@ -660,28 +661,42 @@ function StageAmbient({ stage }: { stage: StageKey }) {
     );
 }
 
-/** The full lens stack, built on the RAW postprocessing classes — the r3f
- *  wrapper components JSON-stringify their props for memoization and choke on
- *  an Object3D sun (circular scene graph). God rays stream from the charge
- *  orb's core (arena-dimmed channels make them carry the frame); bloom lifts
- *  the additive volumetrics; chromatic fringe and the radial zoom rush pulse
- *  on the SAME shake envelope as the camera, resting at ~zero between
- *  contacts. */
-function ShowdownPostStack({ sun, fxRef }: { sun: THREE.Mesh; fxRef: React.MutableRefObject<SceneFx> }) {
+/** Compact native-Three lens stack. The charge orb and volumetric scene meshes
+ * supply the directional rays; this pass lifts their HDR bloom, resolves edges,
+ * and adds the contact-only chromatic/zoom punch without a second renderer
+ * framework in the production bundle. */
+function ShowdownPostStack({ fxRef }: { fxRef: React.MutableRefObject<SceneFx> }) {
+    const gl = useThree((s) => s.gl);
+    const scene = useThree((s) => s.scene);
     const camera = useThree((s) => s.camera);
-    const effects = useMemo(() => {
-        const rays = new GodRaysEffect(camera, sun, {
-            samples: 36, density: 0.92, decay: 0.94, weight: 0.35, exposure: 0.3, clampMax: 0.95, blur: true,
-        });
-        const bloom = new BloomEffect({ intensity: 0.85, luminanceThreshold: 0.52, luminanceSmoothing: 0.32, mipmapBlur: true });
-        const ca = new ChromaticAberrationEffect({ offset: new THREE.Vector2(0.0003, 0.0002), radialModulation: false, modulationOffset: 0 });
-        const zoom = new ZoomBlurEffect();
-        return { rays, bloom, ca, zoom, list: [rays, bloom, ca, zoom] };
-    }, [camera, sun]);
-    useEffect(() => () => { for (const e of effects.list) e.dispose(); }, [effects]);
-    const fxHandle = useRef(effects);
+    const size = useThree((s) => s.size);
+    const stackRef = useRef<{ composer: EffectComposer; finish: ShaderPass } | null>(null);
+    useEffect(() => {
+        const composer = new EffectComposer(gl);
+        // The depth-resolve crash came from an MSAA composer. Keep the native
+        // canvas antialiased and the offscreen lens targets explicitly single-sample.
+        composer.renderTarget1.samples = 0;
+        composer.renderTarget2.samples = 0;
+        const render = new RenderPass(scene, camera);
+        const finish = new ShaderPass(SHOWDOWN_POST_SHADER);
+        composer.addPass(render);
+        composer.addPass(finish);
+        stackRef.current = { composer, finish };
+        return () => {
+            stackRef.current = null;
+            composer.dispose();
+        };
+    }, [camera, gl, scene]);
+    useEffect(() => {
+        const stack = stackRef.current;
+        if (!stack) return;
+        stack.composer.setPixelRatio(gl.getPixelRatio());
+        stack.composer.setSize(size.width, size.height);
+        stack.finish.uniforms.resolution.value.set(size.width * gl.getPixelRatio(), size.height * gl.getPixelRatio());
+    }, [gl, size.height, size.width]);
     useFrame(() => {
-        fxHandle.current = effects;
+        const stack = stackRef.current;
+        if (!stack) return;
         const fx = fxRef.current;
         const now = performance.now();
         let punch = 0;
@@ -689,14 +704,11 @@ function ShowdownPostStack({ sun, fxRef }: { sun: THREE.Mesh; fxRef: React.Mutab
             const k = (fx.shakeUntil - now) / 320;
             punch = Math.min(1, fx.shakeAmp * k * k * 4);
         }
-        fxHandle.current.ca.offset.set(0.0003 + punch * 0.0034, 0.0002 + punch * 0.002);
-        fxHandle.current.zoom.setStrength(punch * 0.085);
-    });
-    return (
-        <EffectComposer>
-            {effects.list.map((e, i) => <primitive key={i} object={e} />)}
-        </EffectComposer>
-    );
+        stack.finish.uniforms.offset.value.set(0.0003 + punch * 0.0034, 0.0002 + punch * 0.002);
+        stack.finish.uniforms.strength.value = punch * 0.085;
+        stack.composer.render();
+    }, 1);
+    return null;
 }
 
 /** The stands ERUPT: confetti bursting inward off the bowl rim on a landed
@@ -1079,7 +1091,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     /** Hit-stop-aware presentation clock fed to the skeletal mixer. */
     const timeline = useRef(0);
     /** Opening pet entrance begins once the VS card clears. */
-    const entranceAt = useRef(0);
+    const entranceAt = useRef<number | null>(null);
     /** Per-beat clock for root travel. Wall-clock dash progress used to keep
      *  advancing while the skeleton froze, sliding pets inside each other. */
     const beatClock = useRef({ index: -1, elapsedMs: 0 });
@@ -1216,10 +1228,10 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         f.performanceVariant = performanceVariant;
         f.signature = signature;
         if (!introActive) {
-            if (!entranceAt.current) entranceAt.current = now;
-            f.entranceProgress = Math.min(1, (now - entranceAt.current) / 920);
+            if (entranceAt.current === null) entranceAt.current = timeline.current;
+            f.entranceProgress = Math.min(1, (timeline.current - entranceAt.current) / 0.92);
         } else {
-            entranceAt.current = 0;
+            entranceAt.current = null;
             f.entranceProgress = undefined;
         }
         if (beatClock.current.index !== beat.index) {
@@ -1301,13 +1313,16 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                     } else {
                         const coilAt = Math.max(0.05, 0.4 - windupLead);
                         f.motion = frac < coilAt ? "idle" : frac < 0.4 ? "windup" : frac < 0.62 ? "strike" : frac < 0.84 ? "recover" : "idle";
-                        // The channel is alive through the whole approach.
-                        f.casting = frac < 0.4;
+                        // Keep the dedicated cast take alive through release and
+                        // recovery so it cannot snap back to the melee bank on
+                        // the exact impact frame.
+                        f.casting = frac < 0.84;
                     }
                 } else {
                     const windupLead = 900 / beat.durationMs;
                     const coilAt = Math.max(0.05, 0.4 - windupLead);
                     f.motion = frac < coilAt ? "idle" : frac < 0.4 ? "windup" : frac < 0.62 ? "strike" : frac < 0.84 ? "recover" : "idle";
+                    f.casting = ev.delivery !== "melee" && frac < 0.84;
                 }
             }
         } else if (reactionAge >= 0 && reactionAge < 520 && lastHit > 0) {
@@ -3397,7 +3412,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 {streakFx.map((s) => <StreakBurstFx key={s.key} spawn={s} />)}
                 {debrisFx.map((d) => <DebrisFx key={d.key} spawn={d} />)}
                 {petBloomEnabled() && !reducedMotion && godRaySun && (
-                    <ShowdownPostStack sun={godRaySun} fxRef={fxRef} />
+                    <ShowdownPostStack fxRef={fxRef} />
                 )}
                 {[...slots.values()].map((info) => (
                     <ShowdownFighter

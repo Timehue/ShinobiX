@@ -54,6 +54,7 @@ type StoredWarfrontSeal = {
     stance?: WfStance;
     doctrine?: WfDoctrine;
     buyPolicy?: WfBuyPolicy;
+    opponentBuyPolicy?: WfBuyPolicy;
     opponentStance?: WfStance;
     opponentDoctrine?: WfDoctrine;
     bluePets?: Pet[];
@@ -71,6 +72,7 @@ const WF_BUY_POLICIES: readonly WfBuyPolicy[] = ['balanced', 'offense', 'defense
 const WARFRONT_TEAM_SIZE = 4;
 const AI_STANCE: WfStance = 'balanced';
 const AI_DOCTRINE: WfDoctrine = 'vanguard';
+const AI_BUY_POLICY: WfBuyPolicy = 'balanced';
 // A scored Warfront lasts up to ten minutes. Do not let the result endpoint
 // become an instant seed oracle: even a surrender/loss must spend a meaningful
 // opening engagement before its receipt can be retired.
@@ -128,6 +130,7 @@ function isRecoverableWarfront(seal: StoredWarfrontSeal): boolean {
         && WF_STANCES.includes(seal.stance as WfStance)
         && WF_DOCTRINES.includes(seal.doctrine as WfDoctrine)
         && WF_BUY_POLICIES.includes(seal.buyPolicy as WfBuyPolicy)
+        && seal.opponentBuyPolicy === AI_BUY_POLICY
         && seal.opponentStance === AI_STANCE
         && seal.opponentDoctrine === AI_DOCTRINE
         && Array.isArray(seal.bluePets)
@@ -224,6 +227,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             stance: active.seal.stance,
             doctrine: active.seal.doctrine,
             buyPolicy: active.seal.buyPolicy,
+            opponentBuyPolicy: active.seal.opponentBuyPolicy,
             opponentStance: active.seal.opponentStance,
             opponentDoctrine: active.seal.opponentDoctrine,
             bluePets: active.seal.bluePets,
@@ -294,6 +298,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     stance,
                     doctrine,
                     buyPolicy,
+                    opponentBuyPolicy: AI_BUY_POLICY,
                     opponentStance: AI_STANCE,
                     opponentDoctrine: AI_DOCTRINE,
                     createdAt,
@@ -325,7 +330,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         autoRole(JSON.parse(JSON.stringify(sealedRedPets)) as Pet[]),
                         seed,
                         buyPolicy,
-                        'balanced',
+                        AI_BUY_POLICY,
                         undefined,
                         { blue: stance, red: AI_STANCE },
                         { blue: doctrine, red: AI_DOCTRINE },
@@ -349,6 +354,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         stance,
                         doctrine,
                         buyPolicy,
+                        opponentBuyPolicy: AI_BUY_POLICY,
                         opponentStance: AI_STANCE,
                         opponentDoctrine: AI_DOCTRINE,
                         createdAt,

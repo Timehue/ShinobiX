@@ -478,23 +478,20 @@ function findClip(clips: readonly THREE.AnimationClip[], candidates: readonly st
 
 function combatClip(clips: readonly THREE.AnimationClip[], frame: PetModelFrame, profile: PetCombatModelConfig["profile"]): THREE.AnimationClip | null {
     if (frame.motion === "dead") return findClip(clips, ["death"]);
-    // Victory holds the GROUNDED idle, never idle_2. Same reason the quirk was
-    // pulled and the same reason casting refuses it below: idle_2 is not a
-    // universal "alternate idle" — on several rigs it is a rear-up / wings-out
-    // pose authored for another context, and it deformed models on screen. The
-    // celebration is carried by the procedural victory arc (petVictoryArcHeight
-    // + victoryLift), which is rig-safe and reads on every profile.
-    if (frame.victorious) return findClip(clips, ["idle", "walk"]);
+    if (frame.victorious) return findClip(clips, ["victory", "idle", "walk"]);
+    if (frame.entranceProgress !== undefined && frame.entranceProgress < 1) {
+        return findClip(clips, ["entrance", "gallop_jump", "idle"]);
+    }
     // Keep the authored attack take alive from anticipation through follow-through.
     // Previously `windup -> strike -> recover` reset/cross-faded the same clip on
     // every state edge, so only its first few frames ever appeared in battle.
-    if (frame.motion === "strike" || frame.motion === "windup" || frame.motion === "recover") return findClip(clips, ["attack"]);
+    if (frame.motion === "strike" || frame.motion === "windup" || frame.motion === "recover") {
+        return frame.casting ? findClip(clips, ["cast", "attack"]) : findClip(clips, ["attack"]);
+    }
     if (frame.motion === "stagger") return findClip(clips, ["idle_hitreact1", "out_of_water", "idle_hitreact2"]);
     if (frame.motion === "dodge") return findClip(clips, ["gallop_jump", "swimming_impulse", "jump_toidle", "swimming_fast"]);
-    // Guard and Rest are whole-body procedural performances layered over the
-    // safest grounded take. Imported idle_2 clips are not a universal brace or
-    // recovery pose (several rear up or fold wings), so never use them here.
-    if (frame.motion === "guard" || frame.motion === "rest") return findClip(clips, ["idle", "walk", "swimming_normal"]);
+    if (frame.motion === "guard") return findClip(clips, ["guard", "idle", "walk", "swimming_normal"]);
+    if (frame.motion === "rest") return findClip(clips, ["rest", "idle", "walk", "swimming_normal"]);
     if (frame.motion === "dash") {
         // Birds take off and beat their wings through a committed dive. Reusing
         // the quadruped gallop here made every avian skim the floor like a dog.
@@ -511,24 +508,17 @@ function combatClip(clips: readonly THREE.AnimationClip[], frame: PetModelFrame,
         return findClip(clips, ["walk", "swimming_normal", "gallop"]);
     }
     if (frame.casting) {
-        // EVERY profile holds the grounded idle while channelling. The quadruped
-        // carve-out was right for the wrong reason: `idle_2` lifts the forelegs
-        // and rocks the chest back on the shared rig, which made foxes look like
-        // rocking horses — but that pose misreads on the OTHER profiles too. An
-        // avian sage channelling its weather technique (Forest Hawk) was the
-        // model the owner reported as mangled. The casting tell already comes
-        // from the glyph, the charge orb and the hero-pose layer, none of which
-        // touch the skeleton.
-        return findClip(clips, ["idle", "walk", "swimming_normal"]);
+        return findClip(clips, ["cast", "idle", "walk", "swimming_normal"]);
     }
     return findClip(clips, ["idle", "swimming_normal", "idle_2"]);
 }
 
-type CombatAnimationFamily = "idle" | "locomotion" | "attack" | "dodge" | "hit" | "death" | "victory";
+type CombatAnimationFamily = "idle" | "entrance" | "locomotion" | "attack" | "dodge" | "hit" | "death" | "victory";
 
 function combatAnimationFamily(frame: PetModelFrame): CombatAnimationFamily {
     if (frame.motion === "dead") return "death";
     if (frame.victorious) return "victory";
+    if (frame.entranceProgress !== undefined && frame.entranceProgress < 1) return "entrance";
     if (frame.motion === "windup" || frame.motion === "strike" || frame.motion === "recover") return "attack";
     if (frame.motion === "dodge") return "dodge";
     if (frame.motion === "stagger") return "hit";
@@ -797,6 +787,13 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         const animationDelta = lastTimeline.current === null || timelineReset
             ? 0
             : THREE.MathUtils.clamp(timeline - lastTimeline.current, 0, 0.1);
+        // One clock owns the entire fighter. Showdown supplies a slowed timeline
+        // during hit-stop and cinematic slow motion; using wall-frame `delta`
+        // for root pose, gait or material pulses while the mixer used that
+        // timeline made the body twitch and settle around an otherwise frozen
+        // skeleton. Callers without a presentation timeline retain ordinary R3F
+        // frame timing.
+        const presentationDelta = f.timeline === undefined ? delta : animationDelta;
         lastTimeline.current = timeline;
         if (timelineReset) {
             activeClip.current = null;
@@ -857,7 +854,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             // crossfading into it mid-loop mangles the silhouette. The species
             // personality players actually read comes from the procedural
             // hero-pose layer, which is rig-safe; this take is left alone.
-            const oneShot = family === "death" || family === "dodge" || family === "hit" || family === "attack" || family === "victory";
+            const oneShot = family === "death" || family === "entrance" || family === "dodge" || family === "hit" || family === "attack" || family === "victory";
             const enteringOneShot = oneShot && activeFamily.current !== family;
             const phaseWindow = attackClipWindow(f.motion);
             const enteringAttackPhase = !!phaseWindow && motionChanged;
@@ -943,12 +940,11 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
                         : f.motion === "run" || f.moving
                             ? THREE.MathUtils.clamp(0.72 + f.speed * 0.44, 1.05, 2.7)
                             : 1;
-            const rateBlend = Math.min(1, delta * 8);
+            const rateBlend = Math.min(1, presentationDelta * 8);
             if (activeAction.current) activeAction.current.timeScale = THREE.MathUtils.lerp(activeAction.current.timeScale, locomotionRate, rateBlend);
             if (activeOutlineAction.current) activeOutlineAction.current.timeScale = THREE.MathUtils.lerp(activeOutlineAction.current.timeScale, locomotionRate, rateBlend);
-            const clipDelta = f.timeline === undefined ? delta : animationDelta;
-            mixer.update(clipDelta);
-            outlineMixer?.update(clipDelta);
+            mixer.update(presentationDelta);
+            outlineMixer?.update(presentationDelta);
             if (phaseWindow && activeClip.current && activeAction.current) {
                 const phaseEnd = activeClip.current.duration * phaseWindow.end;
                 if (activeAction.current.time >= phaseEnd) {
@@ -996,7 +992,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         const breath = Math.sin(personalityTime * (f.desperate ? 7.2 : 3.45 + performanceVariant * 0.22))
             * (f.desperate ? 0.035 : 0.016 + performanceVariant * 0.002) * (signatureDirection?.breath ?? 1);
         const idleSway = idle ? Math.sin(personalityTime * (1.55 + performanceVariant * 0.18) * (signatureDirection?.idleRate ?? 1)) : 0;
-        const gaitPhase = t * gait;
+        const gaitPhase = timeline * gait;
         const strideWave = Math.sin(gaitPhase * 0.72);
         const sealStroke = aquaticSeal && running ? Math.sin(gaitPhase * 0.56) : 0;
         const sealCompression = Math.abs(sealStroke);
@@ -1008,7 +1004,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         const authoredRunWave = running && authoredCombatRig ? Math.abs(Math.sin(gaitPhase * 0.72)) : 0;
         const bob = runWave * profileBounce
             + (groundedAuthoredQuadruped ? authoredRunWave * profileBounce * 0.16 : authoredRunWave * profileBounce * 0.34)
-            + (f.casting && !authoredCombatRig ? Math.sin(t * 6) * 0.045 : 0);
+            + (f.casting && !authoredCombatRig ? Math.sin(timeline * 6) * 0.045 : 0);
         const attackPulse = strike ? Math.sin(Math.PI * Math.min(1, motionAge / 0.38)) : 0;
         // The authored locomotion moves the limbs, but a dash also needs a clear
         // centre-of-mass phrase: long acceleration, a planted brace at contact,
@@ -1127,12 +1123,12 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             } else if (committedFacing && Math.abs(yawError) > Math.PI * 0.56) r.rotation.y = wantedYaw;
             else {
                 const turnRate = committedFacing ? 24 : authoredCombatRig ? (faceTravel ? 11 : 13) : (faceTravel ? 15 : 12);
-                r.rotation.y = smoothAngle(r.rotation.y, wantedYaw, Math.min(1, delta * turnRate));
+                r.rotation.y = smoothAngle(r.rotation.y, wantedYaw, Math.min(1, presentationDelta * turnRate));
             }
         }
         const utilityLift = restBreath * config.targetHeight * (config.profile === "heavy" ? 0.018 : 0.032);
         const rootHeight = bob + dodgeHeight + avianDiveArc + victoryArc + heroPose.lift + utilityLift + entryLift + (dead ? deathPose.lift - deathPose.sink : 0);
-        r.position.y = THREE.MathUtils.lerp(r.position.y, dead ? rootHeight : Math.max(0, rootHeight), Math.min(1, delta * (avianDive || dodge || dead ? 18 : 12)));
+        r.position.y = THREE.MathUtils.lerp(r.position.y, dead ? rootHeight : Math.max(0, rootHeight), Math.min(1, presentationDelta * (avianDive || dodge || dead ? 18 : 12)));
         // The generated roster takes provide leg/head motion but their attack clip
         // has almost no centre-of-mass commitment. Layer one smooth, restrained
         // anime pose over state edges so the pet coils, drives through contact and
@@ -1160,7 +1156,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
                     : aquaticSeal && stagger ? -0.16
                         : aquaticSeal && strike ? 0.13 * attackPulse
                             : aquaticSeal && running ? sealStroke * 0.075
-                                : running ? Math.sin(t * gait) * 0.035 : 0;
+                                : running ? Math.sin(timeline * gait) * 0.035 : 0;
         const authoredPitch = baseAuthoredPitch
             + heroPose.pitch
             + personalityPitch
@@ -1177,9 +1173,9 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             + entryRoll
             + (guard ? Math.sin(Math.min(1, motionAge / 0.34) * Math.PI) * 0.035 : 0)
             + (resting ? Math.sin(timeline * 2.2) * 0.018 : 0);
-        b.rotation.x = THREE.MathUtils.lerp(b.rotation.x, authoredPitch, Math.min(1, delta * (dead ? 4 : 15)));
-        b.rotation.y = THREE.MathUtils.lerp(b.rotation.y, heroPose.yaw + personalityYaw + entryYaw + victoryYaw, Math.min(1, delta * 13));
-        b.rotation.z = THREE.MathUtils.lerp(b.rotation.z, authoredRoll, Math.min(1, delta * 11));
+        b.rotation.x = THREE.MathUtils.lerp(b.rotation.x, authoredPitch, Math.min(1, presentationDelta * (dead ? 4 : 15)));
+        b.rotation.y = THREE.MathUtils.lerp(b.rotation.y, heroPose.yaw + personalityYaw + entryYaw + victoryYaw, Math.min(1, presentationDelta * 13));
+        b.rotation.z = THREE.MathUtils.lerp(b.rotation.z, authoredRoll, Math.min(1, presentationDelta * 11));
         const sx = authoredCombatRig
             ? dead ? 1 + 0.06 * deathPose.fall + 0.045 * deathPose.impact : f.victorious ? 1.025 + victoryLift * 0.012 : strike ? 1 - 0.04 * attackPulse : stagger ? 1.035 : running ? (groundedAuthoredQuadruped ? 1 : 1 + authoredRunWave * 0.012) : 1 + breath * 0.12
             : f.victorious ? (aquaticSeal ? 1.055 : 1.035) : dead ? 1 + 0.08 * deathPose.fall + 0.055 * deathPose.impact : stagger ? 1.07 : strike ? (aquaticSeal ? 0.965 : 0.94) : aquaticSeal && running ? 1 + breath * 0.45 + sealCompression * 0.025 : 1 + breath;
@@ -1198,9 +1194,9 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         const landingWeight = signatureDirection?.landingWeight ?? signatureWeight;
         const entranceScaleXz = 1 + entryLand * (config.profile === "heavy" ? 0.12 : 0.07) * landingWeight;
         const entranceScaleY = 1 - entryLand * (config.profile === "heavy" ? 0.16 : 0.1) * landingWeight;
-        b.scale.x = THREE.MathUtils.lerp(b.scale.x, sx * heroPose.scaleX * dashScaleX * utilityScaleX * entranceScaleXz, Math.min(1, delta * 15));
-        b.scale.y = THREE.MathUtils.lerp(b.scale.y, sy * heroPose.scaleY * dashScaleY * utilityScaleY * entranceScaleY, Math.min(1, delta * 15));
-        b.scale.z = THREE.MathUtils.lerp(b.scale.z, sz * heroPose.scaleZ * dashScaleZ * utilityScaleZ * entranceScaleXz, Math.min(1, delta * 15));
+        b.scale.x = THREE.MathUtils.lerp(b.scale.x, sx * heroPose.scaleX * dashScaleX * utilityScaleX * entranceScaleXz, Math.min(1, presentationDelta * 15));
+        b.scale.y = THREE.MathUtils.lerp(b.scale.y, sy * heroPose.scaleY * dashScaleY * utilityScaleY * entranceScaleY, Math.min(1, presentationDelta * 15));
+        b.scale.z = THREE.MathUtils.lerp(b.scale.z, sz * heroPose.scaleZ * dashScaleZ * utilityScaleZ * entranceScaleXz, Math.min(1, presentationDelta * 15));
         // A small side-to-side load and forward drive make the torso participate
         // in locomotion/attacks. Values stay below a paw width and are filtered,
         // so this adds weight without bringing back the earlier mesh jitter.
@@ -1224,7 +1220,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             + dashDrive * (config.profile === "heavy" ? 0.05 : 0.085)
             + contactPunch * (config.profile === "heavy" ? 0.12 : 0.17) * signatureStrike
             - recoilWeight * (config.profile === "heavy" ? 0.12 : 0.18) * signatureRecoil;
-        const weightBlend = Math.min(1, delta * (f.motion === "dash" || strike || stagger ? 16 : 10));
+        const weightBlend = Math.min(1, presentationDelta * (f.motion === "dash" || strike || stagger ? 16 : 10));
         b.position.x = THREE.MathUtils.lerp(b.position.x, weightX, weightBlend);
         b.position.y = THREE.MathUtils.lerp(b.position.y, weightY, weightBlend);
         b.position.z = THREE.MathUtils.lerp(b.position.z, driveZ, weightBlend);
@@ -1238,21 +1234,22 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         const twistBase = config.profile === "serpentine" ? 0.12 : config.profile === "avian" ? 0.07 : 0.04;
         const twist = skeletal || aquaticSeal ? 0 : (running || strike ? twistBase : twistBase * 0.25) / prepared.scale;
         const swim = aquaticSeal ? ((running ? 0.12 : 0.022) + (strike ? 0.07 : 0) + (dodge ? 0.055 : 0)) / prepared.scale : 0;
+        const deformBlend = 1 - Math.exp(-presentationDelta * 18);
         for (const uniform of prepared.uniforms) {
-            uniform.time.value = t;
-            uniform.lean.value = THREE.MathUtils.lerp(uniform.lean.value, lean, 0.28);
-            uniform.stride.value = THREE.MathUtils.lerp(uniform.stride.value, stride, 0.24);
-            uniform.twist.value = THREE.MathUtils.lerp(uniform.twist.value, twist, 0.22);
-            uniform.swim.value = THREE.MathUtils.lerp(uniform.swim.value, swim, 0.2);
+            uniform.time.value = timeline;
+            uniform.lean.value = THREE.MathUtils.lerp(uniform.lean.value, lean, deformBlend);
+            uniform.stride.value = THREE.MathUtils.lerp(uniform.stride.value, stride, deformBlend);
+            uniform.twist.value = THREE.MathUtils.lerp(uniform.twist.value, twist, deformBlend);
+            uniform.swim.value = THREE.MathUtils.lerp(uniform.swim.value, swim, deformBlend);
         }
 
         const hit = Math.max(0, f.hit);
-        const statusPulse = f.statuses.length ? 0.012 + Math.abs(Math.sin(t * 7)) * 0.018 : 0;
-        const desperation = f.desperate ? 0.018 + Math.abs(Math.sin(t * 8)) * 0.024 : 0;
+        const statusPulse = f.statuses.length ? 0.012 + Math.abs(Math.sin(timeline * 7)) * 0.018 : 0;
+        const desperation = f.desperate ? 0.018 + Math.abs(Math.sin(timeline * 8)) * 0.024 : 0;
         // Impact readability comes from sparks, freeze frames, numbers, and camera
         // response. Keep mesh emission restrained so a hit never erases the model's
         // colours and surface planes with a full-body white flash.
-        const glow = Math.max(hit * 0.12, f.casting ? 0.012 + Math.abs(Math.sin(t * 6)) * 0.02 : 0, statusPulse, desperation);
+        const glow = Math.max(hit * 0.12, f.casting ? 0.012 + Math.abs(Math.sin(timeline * 6)) * 0.02 : 0, statusPulse, desperation);
         for (const material of prepared.materials) {
             const pbr = material as THREE.MeshStandardMaterial & { isMeshToonMaterial?: boolean };
             if (!pbr.isMeshStandardMaterial && !pbr.isMeshToonMaterial) continue;
@@ -1280,7 +1277,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             }
         }
         if (aura.current) {
-            aura.current.intensity = THREE.MathUtils.lerp(aura.current.intensity, glow * 0.38, Math.min(1, delta * 12));
+            aura.current.intensity = THREE.MathUtils.lerp(aura.current.intensity, glow * 0.38, Math.min(1, presentationDelta * 12));
             aura.current.distance = f.casting ? 4.6 : 3.2;
         }
     });

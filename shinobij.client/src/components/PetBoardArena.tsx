@@ -13,7 +13,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Billboard, Html, Sparkles } from "@react-three/drei";
+import { Billboard, Html, Sparkles, useTexture } from "@react-three/drei";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
 import type { BoardResult } from "../lib/pet-board-sim";
 import { BOARD_COLS } from "../lib/pet-board-sim";
@@ -28,6 +28,11 @@ import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetMo
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
 import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
 import "./PetBoardArena.css";
+
+// PetGauntlet imports this renderer while the player is drafting/positioning.
+// Warm the approved arena texture during that setup time so entering combat does
+// not spend its first frames waiting on a cold image decode/upload.
+useTexture.preload(gauntletBoard);
 
 const STEP_STAGGER = 150;    // ms between sequential impacts within a round (so hits read one-by-one)
 const ROWS = 6;              // 3 enemy + 3 player
@@ -87,29 +92,6 @@ function loadBoardSprite(url: string): Promise<BoardSprite> {
         img.onerror = () => resolve({ texture: new THREE.Texture(), bounds: DEFAULT_SPRITE_BOUNDS, aspect: 1 });
         img.src = url;
     });
-}
-
-/** Load an image URL into an sRGB THREE texture (async; null until ready). */
-function useTex(url: string | undefined): THREE.Texture | null {
-    const [tex, setTex] = useState<THREE.Texture | null>(null);
-    useEffect(() => {
-        if (!url) return;
-        let live = true;
-        let loaded: THREE.Texture | null = null;
-        new THREE.TextureLoader().load(url, (t) => {
-            loaded = t;
-            t.colorSpace = THREE.SRGBColorSpace;
-            t.anisotropy = 4;
-            t.needsUpdate = true;
-            if (live) setTex(t);
-            else t.dispose();
-        });
-        return () => {
-            live = false;
-            loaded?.dispose();
-        };
-    }, [url]);
-    return tex;
 }
 
 // ── Element VFX: a tinted orb flies attacker→target, then the element's burst
@@ -412,7 +394,23 @@ function ArenaBrazier({ x, z, quality }: { x: number; z: number; quality: PetVis
 }
 
 function ArenaFloor({ quality }: { quality: PetVisualQualityConfig }) {
-    const floor = useTex(gauntletBoard);
+    // The floor is the approved Gauntlet map, not merely a decorative underlay.
+    // useTexture participates in R3F Suspense, so the scene cannot flash the old
+    // flat fallback board while an ad-hoc TextureLoader is still in flight.
+    const sourceFloor = useTexture(gauntletBoard);
+    const gl = useThree((state) => state.gl);
+    const floor = useMemo(() => {
+        // useTexture owns its cached source. Configure a scene-owned clone so
+        // repeated Gauntlet mounts share the decode without mutating hook state.
+        const texture = sourceFloor.clone();
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.needsUpdate = true;
+        return texture;
+    }, [sourceFloor, gl]);
+    useEffect(() => () => floor.dispose(), [floor]);
     const cells = useMemo(() => Array.from({ length: ROWS * BOARD_COLS }, (_, i) => ({
         row: Math.floor(i / BOARD_COLS),
         col: i % BOARD_COLS,
@@ -424,36 +422,45 @@ function ArenaFloor({ quality }: { quality: PetVisualQualityConfig }) {
                 <meshStandardMaterial color="#03040b" roughness={1} />
             </mesh>
             <mesh position={[0, -0.23, 0]} receiveShadow>
-                <boxGeometry args={[11.2, 0.38, 10.3]} />
-                <meshStandardMaterial color="#121525" roughness={0.88} metalness={0.08} />
+                <boxGeometry args={[11.45, 0.42, 11.45]} />
+                <meshStandardMaterial color="#0a0d12" roughness={0.94} metalness={0.03} />
             </mesh>
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.03, 0]} receiveShadow>
-                <planeGeometry args={[10.85, 9.9]} />
-                <meshStandardMaterial map={floor ?? undefined} color={floor ? "#9aa4b8" : "#252b3b"} roughness={0.94} metalness={0.02} />
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
+                <planeGeometry args={[11, 11]} />
+                <meshBasicMaterial map={floor} color="#ffffff" toneMapped={false} />
+            </mesh>
+            {/* Unlit art stays faithful to the authored map; this transparent
+                catcher adds real-time fighter shadows without washing it out. */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]} receiveShadow>
+                <planeGeometry args={[10.95, 10.95]} />
+                <shadowMaterial transparent opacity={quality.modelShadows ? 0.34 : 0} />
             </mesh>
             {cells.map(({ row, col }) => {
                 const team = row <= 2 ? "enemy" : "player";
                 const edge = row === 2 || row === 3;
                 return (
-                    <group key={`${row}-${col}`} position={[cx(col), 0.025, cz(row)]}>
-                        <mesh receiveShadow castShadow={quality.modelShadows}>
-                            <boxGeometry args={[1.58, 0.12, 1.14]} />
+                    <group key={`${row}-${col}`} position={[cx(col), 0.036, cz(row)]}>
+                        <mesh>
+                            <boxGeometry args={[1.58, 0.035, 1.14]} />
                             <meshStandardMaterial
-                                color={team === "player" ? (edge ? "#1e3a59" : "#182d43") : (edge ? "#54272f" : "#3b2029")}
+                                color={team === "player" ? "#2563eb" : "#dc2626"}
                                 emissive={team === "player" ? "#2563eb" : "#dc2626"}
-                                emissiveIntensity={edge ? 0.12 : 0.055}
-                                roughness={0.84}
-                                metalness={0.06}
+                                emissiveIntensity={edge ? 0.3 : 0.18}
+                                roughness={0.58}
+                                metalness={0.02}
+                                transparent
+                                opacity={edge ? 0.17 : 0.105}
+                                depthWrite={false}
                             />
                         </mesh>
-                        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.066, 0]}>
-                            <ringGeometry args={[0.42, 0.46, 28]} />
-                            <meshBasicMaterial color={team === "player" ? "#60a5fa" : "#fb7185"} transparent opacity={edge ? 0.24 : 0.1} depthWrite={false} toneMapped={false} />
+                        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.025, 0]}>
+                            <ringGeometry args={[0.43, 0.455, 32]} />
+                            <meshBasicMaterial color={team === "player" ? "#7dd3fc" : "#fda4af"} transparent opacity={edge ? 0.34 : 0.18} depthWrite={false} toneMapped={false} />
                         </mesh>
                     </group>
                 );
             })}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08, 0]}>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.083, 0]}>
                 <ringGeometry args={[0.58, 0.72, 48]} />
                 <meshBasicMaterial color="#f8d66d" transparent opacity={0.58} depthWrite={false} toneMapped={false} />
             </mesh>
@@ -484,8 +491,8 @@ function BoardCameraRig({ impactBeat }: { impactBeat: number }) {
         const drift = Math.sin(state.clock.elapsedTime * 0.18) * 0.18;
         desired.current.set(
             drift + Math.sin(state.clock.elapsedTime * 73) * shake,
-            distance * 1.02 + Math.sin(state.clock.elapsedTime * 91) * shake * 0.45,
-            distance + Math.cos(state.clock.elapsedTime * 67) * shake,
+            distance * 1.2 + Math.sin(state.clock.elapsedTime * 91) * shake * 0.45,
+            distance * 0.84 + Math.cos(state.clock.elapsedTime * 67) * shake,
         );
         camera.position.lerp(desired.current, 0.075);
         look.current.x = drift * 0.18;
@@ -597,7 +604,9 @@ function BoardScene({ result, round, spriteMap, modelConfigs, quality, stars }: 
             <directionalLight position={[-7, 13, 8]} intensity={2.2} color="#fff1cf" castShadow={quality.modelShadows} shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
             <pointLight position={[0, 4.5, -4]} intensity={2.4} color="#ef445a" distance={13} decay={2} />
             <pointLight position={[0, 4.5, 4]} intensity={2.4} color="#3b82f6" distance={13} decay={2} />
-            <ArenaFloor quality={quality} />
+            <Suspense fallback={null}>
+                <ArenaFloor quality={quality} />
+            </Suspense>
             <Sparkles count={quality.ambientParticles} scale={[12, 3.2, 11]} position={[0, 1.4, 0]} size={1.25} speed={0.22} opacity={0.32} color="#f8d68a" />
             {result.roster.map((u) => {
                 const mhp = maxHpMap[u.id] ?? u.pet.hp;
@@ -720,6 +729,7 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
         <div
             className="pet-combat-takeover gauntlet-board-takeover"
             data-testid="pet-gauntlet-3d-arena"
+            data-arena-map="stone-lava"
             data-model-count={modelConfigs.size}
             style={{ backgroundImage: `linear-gradient(rgba(6,8,17,0.48), rgba(5,7,16,0.88)), url(${gauntletHero})` }}
         >
@@ -728,7 +738,7 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
                 dpr={quality.dpr}
                 shadows={quality.modelShadows ? "percentage" : false}
                 gl={{ alpha: true, antialias: quality.id !== "low", powerPreference: "high-performance" }}
-                camera={{ position: [0, 14.5, 13.5], fov: 40, near: 0.35, far: 80 }}
+                camera={{ position: [0, 16.2, 11.35], fov: 39, near: 0.35, far: 80 }}
                 onCreated={({ camera }) => camera.lookAt(0, 0, 0.6)}
             >
                 <BoardScene result={result} round={round} spriteMap={spriteMap} modelConfigs={modelConfigs} quality={quality} stars={stars} />
@@ -759,7 +769,7 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
             <div className="gauntlet-board-side-label gauntlet-board-side-label--player" aria-hidden="true">
                 <span>Your line</span>
             </div>
-            <div className="gauntlet-board-build" aria-hidden="true">build g23 · {quality.id}</div>
+            <div className="gauntlet-board-build" aria-hidden="true">build g26 · {quality.id}</div>
 
             {done && (
                 <div className="gauntlet-board-result" role="dialog" aria-modal="true" aria-labelledby="gauntlet-result-title">

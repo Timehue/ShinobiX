@@ -41,6 +41,7 @@ test("Warfront proofs bind the token and report identity to the server-minted se
         stance: "balanced",
         doctrine: "none",
         buyPolicy: "balanced",
+        opponentBuyPolicy: "balanced",
         opponentStance: "balanced",
         opponentDoctrine: "vanguard",
     } as const;
@@ -178,10 +179,11 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
     assert.match(arenaSource, /startArenaMatch\(selectedTacticalPets, \[\], [^\n]+true\)/);
     assert.match(arenaSource, /playerPetIds: bluePets\.map\(\(p\) => p\.id\),[\s\S]*stance: config\.stance/);
     assert.match(arenaSource, /autoBuy=\{arenaMatch\.buyPolicy\}/);
+    assert.match(arenaSource, /opponentAutoBuy=\{arenaMatch\.opponentBuyPolicy\}/);
     assert.match(arenaSource, /opponentStance=\{arenaMatch\.opponentStance\}/);
     assert.match(arenaSource, /opponentDoctrine=\{arenaMatch\.opponentDoctrine\}/);
     assert.doesNotMatch(arenaSource, /allowReseed=/);
-    assert.match(arenaSource, /seal\.seed !== m\.seed[\s\S]*seal\.reportKey !== reportKey[\s\S]*seal\.stance !== m\.stance[\s\S]*seal\.doctrine !== m\.doctrine[\s\S]*seal\.buyPolicy !== m\.buyPolicy[\s\S]*seal\.opponentStance !== m\.opponentStance/);
+    assert.match(arenaSource, /seal\.seed !== m\.seed[\s\S]*seal\.reportKey !== reportKey[\s\S]*seal\.stance !== m\.stance[\s\S]*seal\.doctrine !== m\.doctrine[\s\S]*seal\.buyPolicy !== m\.buyPolicy[\s\S]*seal\.opponentBuyPolicy !== m\.opponentBuyPolicy[\s\S]*seal\.opponentStance !== m\.opponentStance/);
     assert.match(arenaSource, /seal\.redPets\.map\(\(pet\) => pet\.id\)[\s\S]*rivalPetIds/);
     assert.match(arenaSource, /battleToken: seal\.token/);
     assert.match(arenaSource, /if \(!r\.ok\)[\s\S]*payload\?\.error[\s\S]*Retry-After[\s\S]*warfrontSetupErrorRef\.current/);
@@ -194,4 +196,17 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
     assert.doesNotMatch(setupSource, /Manual/);
     assert.match(setupSource, /Rewarded AI uses the automatic policy you seal at kickoff/);
     assert.match(setupSource, /Fixed rival plan: Balanced formation · Vanguard doctrine/);
+});
+
+test("PvP Warfront seals and replays both players' complete battle plans", () => {
+    const challenge = readFileSync(new URL("./arena-challenge.ts", import.meta.url), "utf8");
+    const worker = readFileSync(new URL("./pet-warfront-worker-client.ts", import.meta.url), "utf8");
+
+    assert.match(arenaSource, /challengerWarfrontPlan,[\s\S]*fetch\('\/api\/player\/challenge'/);
+    assert.match(arenaSource, /responderWarfrontPlan: responderPlan/);
+    assert.match(arenaSource, /startArenaMatch\(blue, myTeam,[\s\S]*\{ blue: challengerPlan, red: responderPlan \}/);
+    assert.match(arenaSource, /startArenaMatch\(pendingArenaMatch\.blue,[\s\S]*pendingArenaMatch\.plans\)/);
+    assert.match(challenge, /plans: \{ blue: bluePlan, red: redPlan \}/);
+    assert.match(worker, /redPolicy: args\.redPolicy/);
+    assert.match(arenaSource, /opponentAutoBuy=\{arenaMatch\.opponentBuyPolicy\}/);
 });
