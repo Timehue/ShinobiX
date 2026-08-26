@@ -3,7 +3,7 @@ import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expectViewportSafe } from "../e2e/helpers/adaptive-assertions";
 
-const warfrontUrl = "/petvfx.html?warfront=1&autobuy=balanced&theme=central";
+const warfrontUrl = "/petvfx.html?warfront=1&autobuy=balanced&redbuy=defense&theme=central";
 const acceleratedWarfrontUrl = `${warfrontUrl}&wfspeed=30&petQuality=low`;
 
 // Waiting for the boot overlay to clear is a PRECONDITION of every spec here, not
@@ -70,6 +70,35 @@ test("Warfront loads, remembers quality, restarts, and reseeds", async ({ page }
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
     expect(reactKeyWarnings).toEqual([]);
+});
+
+test("sealed camps telegraph their unlock and the interactive Council grants a redeploy surge", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "chromium-dpr1", "interactive Council behavior runs once; DPR coverage has its own test");
+    test.setTimeout(180_000);
+    const pageErrors: string[] = [];
+    const consoleErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+    page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
+    await page.route("**/api/perf-beacon", (route) => route.fulfill({ status: 204 }));
+
+    await page.goto("/petvfx.html?warfront=1&theme=central&stance=jungle&wfspeed=1&petQuality=high");
+    await expect(page.getByRole("status")).toBeHidden({ timeout: SCENE_LOAD_TIMEOUT_MS });
+    await expect(page.getByText(/SEALED 0:/).first()).toBeVisible();
+
+    await page.goto("/petvfx.html?warfront=1&theme=central&stance=jungle&wfspeed=30&petQuality=high");
+    await expect(page.getByRole("status")).toBeHidden({ timeout: SCENE_LOAD_TIMEOUT_MS });
+    await expect(page.getByText(/War Council — round/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("FIELD ORDER", { exact: true })).toBeVisible();
+    await expect(page.getByText("REDEPLOY WARD", { exact: true })).toBeVisible();
+    await expect(page.getByText("BATTLE TEMPO", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: /Assault/ }).click();
+    await expect(page.getByText(/^\+\d+(?:\.\d+)?% squad shield$/)).toBeVisible();
+    await expect(page.getByText(/^\+\d+ ultimate charge$/)).toBeVisible();
+    await page.getByRole("button", { name: /Resume battle/ }).click();
+    await expect(page.getByText("📯 War Council — round 1", { exact: true })).toBeHidden();
+
+    expect(pageErrors).toEqual([]);
+    expect(consoleErrors).toEqual([]);
 });
 
 test("an accelerated QA match reaches a complete post-match result", async ({ page }, testInfo) => {

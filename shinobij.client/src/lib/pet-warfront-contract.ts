@@ -13,10 +13,10 @@ export type WfStance = "balanced" | "siege" | "jungle" | "headhunt" | "turtle";
 export type WfDoctrine = "none" | "vanguard" | "bulwark" | "zealot" | "warden-pact";
 
 export const WF_DOCTRINES: ReadonlyArray<{ id: WfDoctrine; icon: string; label: string; desc: string }> = [
-    { id: "vanguard", icon: "\u2694", label: "Vanguard", desc: "+10% attack \u2014 win every trade" },
+    { id: "vanguard", icon: "\u2694", label: "Vanguard", desc: "+8% attack \u2014 win trades and crack gates" },
     { id: "bulwark", icon: "\ud83d\udee1", label: "Bulwark", desc: "+12% HP \u2014 outlast and last-stand harder" },
     { id: "zealot", icon: "\ud83d\udca8", label: "Zealot", desc: "+10% speed \u2014 rotate, gank, escape" },
-    { id: "warden-pact", icon: "\ud83e\udd1d", label: "Warden\u2019s Pact", desc: "recruited camp bosses fight 50% longer" },
+    { id: "warden-pact", icon: "\ud83e\udd1d", label: "Warden\u2019s Pact", desc: "recruited bosses fight 50% longer and hit 18% harder" },
 ];
 
 export const WF_STANCES: ReadonlyArray<{ id: WfStance; icon: string; label: string; desc: string }> = [
@@ -29,11 +29,11 @@ export const WF_STANCES: ReadonlyArray<{ id: WfStance; icon: string; label: stri
 
 export type WfPowerupKind = "strike" | "guard" | "vitality" | "swift" | "mend";
 export const WF_POWERUPS: ReadonlyArray<{ kind: WfPowerupKind; label: string; desc: string; icon: string }> = [
-    { kind: "strike", label: "Oni Talisman", desc: "+4% attack", icon: "🗡" },
-    { kind: "guard", label: "Tortoise Ward", desc: "+4% defense", icon: "🛡" },
-    { kind: "vitality", label: "Vitality Pill", desc: "+6% max HP (and heals it)", icon: "🫀" },
-    { kind: "swift", label: "Windstep Charm", desc: "+3% move speed", icon: "🌀" },
-    { kind: "mend", label: "Sage Salve", desc: "+0.3% max HP regen /s", icon: "🌿" },
+    { kind: "strike", label: "Oni Talisman", desc: "+5% attack", icon: "🗡" },
+    { kind: "guard", label: "Tortoise Ward", desc: "+5% defense", icon: "🛡" },
+    { kind: "vitality", label: "Vitality Pill", desc: "+7% max HP (and heals it)", icon: "🫀" },
+    { kind: "swift", label: "Windstep Charm", desc: "+4% move speed", icon: "🌀" },
+    { kind: "mend", label: "Sage Salve", desc: "+0.4% max HP regen /s", icon: "🌿" },
 ];
 export const WF_STACK_CAP = 6;
 

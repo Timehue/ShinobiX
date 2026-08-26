@@ -33,12 +33,13 @@ test("Warfront worker acknowledges a requested round exactly once before accepti
     Object.assign(globalThis, { Worker: FakeWorker });
     try {
         const controller = createWarfrontWorkerController({
-            blue: [slot("blue")], red: [slot("red")], seed: 7, bluePolicy: "off", theme: "central",
+            blue: [slot("blue")], red: [slot("red")], seed: 7, bluePolicy: "off", redPolicy: "defense", theme: "central",
             blueStance: "balanced", redStance: "balanced", blueDoctrine: "none", redDoctrine: "none",
         });
         controller.start();
         const worker = FakeWorker.instance;
         assert.equal(worker.commands[0]?.type, "init");
+        assert.equal(worker.commands[0]?.type === "init" ? worker.commands[0].options.redPolicy : null, "defense");
 
         worker.send(0);
         worker.send(1); // automatically computed opening round

@@ -478,7 +478,8 @@ describe('solo-PvE engine', () => {
         const result = applySoloPveAction(session, { type: 'jutsu', jutsuId: 'heavy-hit' });
 
         assert.equal(result.applied, true);
-        assert.ok(result.session.log.some((line) => line.includes('ends the turn automatically')));
+        assert.ok(!result.session.log.some((line) => line.includes('no legal actions remaining')),
+            'automatic turn housekeeping must stay out of the player-facing battle history');
         assert.ok(result.session.events.some((event) => event.actor === 'enemy'), 'the enemy phase runs without a manual wait');
         assert.equal(result.session.activeSide, 'player');
         assert.equal(result.session.round, 2);
@@ -513,8 +514,8 @@ describe('solo-PvE engine', () => {
         const result = applySoloPveAction(session, { type: 'basicAttack' });
 
         assert.equal(result.applied, true);
-        assert.ok(result.session.log.some((line) => line.includes('ends the turn automatically')),
-            '40 AP remains, but Lag raises the cheapest 30 AP move to 45');
+        assert.ok(!result.session.log.some((line) => line.includes('no legal actions remaining')),
+            '40 AP remains and Lag raises the cheapest move to 45, but that housekeeping stays silent');
         assert.ok(result.session.events.some((event) => event.actor === 'enemy'));
     });
 
