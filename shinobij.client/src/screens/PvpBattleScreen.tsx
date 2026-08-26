@@ -2317,8 +2317,8 @@ export function PvpBattleScreen({
                                                         disabled={!isMyTurn || submitting || !availability.affordable}
                                                     >
                                                         <span className="combat-jutsu-thumb">
-                                                            <strong className="combat-jutsu-fallback-icon">{fallbackIcon(j)}</strong>
-                                                            {j.image && <img src={j.image} alt={j.name} draggable={false} />}
+                                                            <strong className="combat-jutsu-fallback-icon" aria-hidden="true">{fallbackIcon(j)}</strong>
+                                                            {j.image && <img src={j.image} alt="" draggable={false} />}
                                                         </span>
                                                         <span className="combat-jutsu-name">{j.name}</span>
                                                         {/* "CD 0" is noise on every card; an ACTIVE cooldown already
@@ -2371,8 +2371,8 @@ export function PvpBattleScreen({
                                                         onClick={() => { if (onCooldown) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
                                                         disabled={!isMyTurn || submitting || !availability.affordable}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
-                                                            <strong className="combat-jutsu-fallback-icon">🗡</strong>
-                                                            {item.image && <img src={item.image} alt={item.name} draggable={false} />}
+                                                            <strong className="combat-jutsu-fallback-icon" aria-hidden="true">🗡</strong>
+                                                            {item.image && <img src={item.image} alt="" draggable={false} />}
                                                         </span>
                                                         <span className="combat-jutsu-name">{item.name}</span>
                                                         <span className="combat-jutsu-info">{apCost} AP | R{wRange}{onCooldown ? ` | CD ${wCd}` : ""}</span>
@@ -2417,8 +2417,8 @@ export function PvpBattleScreen({
                                                         onClick={() => { if (onCooldown || realPvpItemsDisabled) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
                                                         disabled={!isMyTurn || realPvpItemsDisabled || submitting || depleted || !availability.affordable}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
-                                                            <strong className="combat-jutsu-fallback-icon">🎯</strong>
-                                                            {item.image && <img src={item.image} alt={item.name} draggable={false} />}
+                                                            <strong className="combat-jutsu-fallback-icon" aria-hidden="true">🎯</strong>
+                                                            {item.image && <img src={item.image} alt="" draggable={false} />}
                                                         </span>
                                                         <span className="combat-jutsu-name">{item.name}</span>
                                                         <span className="combat-jutsu-info">Thrown · {apCost} AP | R{wRange}{countSuffix}{onCooldown ? ` | CD ${wCd}` : ""}</span>
@@ -2460,8 +2460,8 @@ export function PvpBattleScreen({
                                                         onClick={() => { if (onCooldown || realPvpItemsDisabled) return; setInspectedJutsuId(""); clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
                                                         disabled={!isMyTurn || realPvpItemsDisabled || submitting || depleted || !availability.affordable}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
-                                                            <strong className="combat-jutsu-fallback-icon">🧪</strong>
-                                                            {item.image && <img src={item.image} alt={item.name} draggable={false} />}
+                                                            <strong className="combat-jutsu-fallback-icon" aria-hidden="true">🧪</strong>
+                                                            {item.image && <img src={item.image} alt="" draggable={false} />}
                                                         </span>
                                                         <span className="combat-jutsu-name">{item.name}</span>
                                                         <span className="combat-jutsu-info">{apCost} AP | Use{countSuffix}{onCooldown ? ` | CD ${wCd}` : ""}</span>
@@ -2570,7 +2570,7 @@ export function PvpBattleScreen({
                             title={battleChatVisible ? "Hide chat" : "Show chat"}
                             aria-label={battleChatVisible ? "Hide battle chat" : "Show battle chat"}
                             aria-expanded={battleChatVisible}
-                            aria-controls="battle-chat-feed"
+                            aria-controls={battleChatVisible ? "battle-chat-feed" : undefined}
                         >
                             {battleChatVisible ? "−" : "+"}
                         </button>
