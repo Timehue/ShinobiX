@@ -44,6 +44,7 @@ import {
 } from "../lib/item-category";
 import { formatItemBonus, presentItem } from "../lib/item-presentation";
 import { settleInventorySale } from "../lib/shop-settlement";
+import { openWarCrate } from "../lib/inventory-settlement";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { useCapabilityViewAvailability } from "../lib/live-capabilities-context";
 import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
@@ -429,27 +430,14 @@ export function Inventory({
             openingWarCrateRef.current = true;
             setOpeningWarCrate(true);
             try {
-                const openWarCrate = () => fetch("/api/village/open-war-crate", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ playerName: character.name }),
-                });
-                const response = await openWarCrate();
-                const data = await response.json().catch(() => null) as {
-                    error?: string;
-                    character?: Character;
-                    _saveVersion?: number;
-                    reward?: { honorSeals?: number; boneCharms?: number; gotDungeonKey?: boolean };
-                } | null;
-                if (!response.ok || !data?.character || !data.reward) {
-                    throw new Error(data?.error || "War crate could not be opened.");
-                }
-                if (!onVersionedCharacter(data.character, data._saveVersion)) return;
+                const result = await openWarCrate(character.name);
+                if ("error" in result) throw new Error(result.error);
+                if (!onVersionedCharacter(result.character, result._saveVersion)) return;
                 setSelectedInventoryItem(null);
-                const honorGain = Math.max(0, Number(data.reward.honorSeals) || 0);
-                const charmGain = Math.max(0, Number(data.reward.boneCharms) || 0);
+                const honorGain = Math.max(0, Number(result.rewards.honorSeals) || 0);
+                const charmGain = Math.max(0, Number(result.rewards.boneCharms) || 0);
                 const honorMsg = honorGain > 0 ? `, +${honorGain} Honor Seals` : `, +${charmGain} Bone Charm`;
-                alert(`War crate opened. +1 Warforged Relic, +500 ryo${honorMsg}${data.reward.gotDungeonKey ? ", +1 Dungeon Key" : ""}.`);
+                alert(`War crate opened. +1 Warforged Relic, +500 ryo${honorMsg}${result.rewards.dungeonKey ? ", +1 Dungeon Key" : ""}.`);
             } catch (error) {
                 alert(error instanceof Error ? error.message : "War crate could not be opened.");
             } finally {

@@ -48,7 +48,12 @@ test("shared combat HUD primitives preserve the shell class contract", () => {
     ]) {
         assert.match(html, new RegExp(`class="${className}"`));
     }
-    assert.match(html, /<h2>Central Meadow<\/h2><p>Round 2<\/p>/);
+    assert.match(html, /<h2>Central Meadow<\/h2>/);
+    assert.match(
+        html,
+        /class="combat-brand-mark" role="img" aria-label="Shinobi Journey"/,
+    );
+    assert.match(html, /<p>Round 2<\/p>/);
     assert.match(html, /role="log" aria-live="polite" aria-label="Battle log"/);
 });
 

@@ -9,7 +9,7 @@ export type WarCrateRewards = {
 };
 
 export async function openWarCrate(playerName: string): Promise<
-    { ok: true; character: Character; rewards: WarCrateRewards } | { ok: false; error: string }
+    { ok: true; character: Character; rewards: WarCrateRewards; _saveVersion?: number } | { ok: false; error: string }
 > {
     try {
         const response = await fetch('/api/inventory/open-war-crate', {
@@ -22,11 +22,12 @@ export async function openWarCrate(playerName: string): Promise<
             error?: string;
             character?: Character;
             rewards?: WarCrateRewards;
+            _saveVersion?: number;
         };
         if (!response.ok || !data.ok || !data.character || !data.rewards) {
             return { ok: false, error: data.error || 'Could not open the war crate. Please retry.' };
         }
-        return { ok: true, character: data.character, rewards: data.rewards };
+        return { ok: true, character: data.character, rewards: data.rewards, _saveVersion: data._saveVersion };
     } catch {
         return { ok: false, error: 'Could not open the war crate. Nothing was changed; please retry.' };
     }

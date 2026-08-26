@@ -26,7 +26,7 @@ test.beforeAll(() => {
 
 function sideHud(name: string, side: "player" | "enemy") {
     return `
-        <aside class="combat-side-hud ${side === "player" ? "combat-side-hud--active" : ""}" data-side="${side}">
+        <aside class="combat-side-hud ${side === "player" ? "combat-side-hud--active" : ""}" data-side="${side}" tabindex="0" aria-label="${name} combat status">
             <div class="combat-hud-header"><h3>${name}</h3><span class="combat-hud-village">Leaf</span><span class="combat-hud-turn-badge">${side === "player" ? "Acting" : "Waiting"}</span></div>
             <div class="combat-avatar">${side === "player" ? "PN" : "EN"}</div>
             <div class="resource-line resource-line--hp"><span class="resource-label">HP <small>900 / 1000</small></span><div class="hud-bar hp-bar"><span style="width:90%"></span></div></div>
@@ -106,6 +106,9 @@ const mobilePortraits = [
 ];
 
 const desktopSideDossierViewports = [
+    { width: 1280, height: 720 },
+    { width: 1366, height: 768 },
+    { width: 1400, height: 900 },
     { width: 1440, height: 900 },
     { width: 1600, height: 900 },
     { width: 1920, height: 1080 },
@@ -113,9 +116,8 @@ const desktopSideDossierViewports = [
 ];
 
 const compactDesktopViewports = [
-    { width: 1280, height: 720 },
-    { width: 1366, height: 768 },
-    { width: 1400, height: 900 },
+    { width: 1024, height: 768 },
+    { width: 1180, height: 820 },
 ];
 
 for (const mode of ["solo", "pvp"] as const) {
@@ -204,7 +206,7 @@ for (const mode of ["solo", "pvp"] as const) {
         }
     });
 
-    test(`${mode} desktop combat keeps effects readable and wraps populated action cards`, async ({ page }, testInfo) => {
+    test(`${mode} desktop combat keeps effects readable with a persistent lower command deck`, async ({ page }, testInfo) => {
         for (const viewport of desktopSideDossierViewports) {
             await mountCombatFixture(page, mode, viewport);
 
@@ -230,13 +232,23 @@ for (const mode of ["solo", "pvp"] as const) {
             expect(firstCard).not.toBeNull();
             expect(lastCard).not.toBeNull();
             expect(details).not.toBeNull();
-            expect(firstCard!.width).toBeGreaterThanOrEqual(118);
-            expect(firstCard!.width).toBeLessThanOrEqual(133);
-            expect(details!.width).toBeGreaterThanOrEqual(44);
-            expect(details!.height).toBeGreaterThanOrEqual(44);
-            expect(lastCard!.y + lastCard!.height).toBeLessThanOrEqual(tray.y + tray.height + 1);
-            expect(board.height).toBeGreaterThanOrEqual(280);
+            expect(firstCard!.width).toBeGreaterThanOrEqual(100);
+            expect(firstCard!.width).toBeLessThanOrEqual(220);
+            expect(details!.width).toBeGreaterThanOrEqual(43.9);
+            expect(details!.height).toBeGreaterThanOrEqual(43.9);
+            expect(lastCard!.x).toBeGreaterThanOrEqual(tray.x - 1);
+            expect(lastCard!.x + lastCard!.width).toBeLessThanOrEqual(tray.x + tray.width + 1);
+            expect(tray.x).toBeLessThan(board.x);
+            expect(board.height).toBeGreaterThanOrEqual(240);
             await expect(cards.first().locator(".combat-jutsu-name")).toHaveCSS("white-space", "normal");
+
+            const trayScroll = await page.locator(".combat-equipped-jutsu-grid").evaluate((element) => ({
+                clientHeight: element.clientHeight,
+                scrollHeight: element.scrollHeight,
+                overflowY: getComputedStyle(element).overflowY,
+            }));
+            expect(trayScroll.scrollHeight).toBeGreaterThanOrEqual(trayScroll.clientHeight);
+            expect(trayScroll.overflowY).toBe("auto");
 
             const centerHitsCastButton = await cards.first().evaluate((card) => {
                 const cast = card.querySelector<HTMLElement>(".combat-jutsu-button");

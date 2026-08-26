@@ -1265,11 +1265,24 @@ export function PvpBattleScreen({
     // the server rejected.
     const { locked: guestChatLocked, loading: guestChatLockLoading } = useSocialLock(character.name);
     const battleChatLocked = guestChatLocked || guestChatLockLoading;
-    // Below lg (1180px) the chat renders as a fixed 220px overlay that covers
-    // ~60% of a phone screen over the combat HUD, so start it COLLAPSED there;
-    // on desktop (in-grid column) start it open. Players can still toggle it.
-    const [battleChatVisible, setBattleChatVisible] = useState(false);
+    // The desktop command center owns a dedicated chat column, so it opens by
+    // default there. Compact/tablet/mobile chat remains the existing collapsed
+    // overlay and is unchanged by the desktop-only layout.
+    const [battleChatVisible, setBattleChatVisible] = useState(() => (
+        typeof window !== "undefined"
+        && typeof window.matchMedia === "function"
+        && window.matchMedia("(min-width: 1280px) and (min-height: 700px)").matches
+    ));
     const battleChatRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (typeof window.matchMedia !== "function") return;
+        const desktopChat = window.matchMedia("(min-width: 1280px) and (min-height: 700px)");
+        const syncChatToLayout = () => setBattleChatVisible(desktopChat.matches);
+        syncChatToLayout();
+        desktopChat.addEventListener("change", syncChatToLayout);
+        return () => desktopChat.removeEventListener("change", syncChatToLayout);
+    }, []);
 
     /* Poll battle chat every 3s (paused when tab hidden) */
     useEffect(() => {
@@ -1294,7 +1307,7 @@ export function PvpBattleScreen({
     /* Auto-scroll chat */
     useEffect(() => {
         if (battleChatRef.current) battleChatRef.current.scrollTop = battleChatRef.current.scrollHeight;
-    }, [battleChatMessages]);
+    }, [battleChatMessages, battleChatVisible]);
 
     function sendBattleChat() {
         const text = battleChatInput.trim();
@@ -1477,6 +1490,16 @@ export function PvpBattleScreen({
     const weatherPosEl = weatherSealed ? (session.weatherPositiveElement ?? "") : weatherEffects[currentWeather].positiveElement;
     const weatherNegEl = weatherSealed ? (session.weatherNegativeElement ?? "") : weatherEffects[currentWeather].negativeElement;
     const weatherName = (weatherSealed && !weatherPosEl && !weatherNegEl) ? "Clear Skies" : weatherEffects[currentWeather].name;
+    const localJutsuArtById: Record<string, string> = {};
+    const localItemArtById: Record<string, string> = {};
+    if (!amSpectator) {
+        for (const jutsu of equippedJutsu) {
+            if (jutsu.id && typeof jutsu.image === "string" && jutsu.image) localJutsuArtById[jutsu.id] = jutsu.image;
+        }
+        for (const item of equippedItems) {
+            if (item.id && typeof item.image === "string" && item.image) localItemArtById[item.id] = item.image;
+        }
+    }
     const sessionEquippedJutsuRaw = Array.isArray(me.character?.jutsu)
         ? (me.character.jutsu as Jutsu[]).map((raw) => {
             // normalizeJutsu rebuilds a fixed shape and DROPS bloodlineRank, so the
@@ -1488,7 +1511,7 @@ export function PvpBattleScreen({
             return {
                 ...jutsu,
                 ...(raw.bloodlineRank ? { bloodlineRank: raw.bloodlineRank } : {}),
-                image: jutsu.image || sharedImages['jutsu:' + jutsu.id] || "",
+                image: localJutsuArtById[jutsu.id] || jutsu.image || sharedImages['jutsu:' + jutsu.id] || "",
             };
         })
         : equippedJutsu;
@@ -1506,7 +1529,7 @@ export function PvpBattleScreen({
     const sessionEquippedItems = Array.isArray(me.character?.pvpItems)
         ? (me.character.pvpItems as GameItem[]).map(item => ({
             ...item,
-            image: item.image || sharedImages['item:' + item.id] || "",
+            image: localItemArtById[item.id] || item.image || sharedImages['item:' + item.id] || "",
         }))
         : equippedItems;
     function clearPendingPvpJutsu() {
@@ -1891,7 +1914,7 @@ export function PvpBattleScreen({
                     </div>
                 </div>
             )}
-            <CombatHudLayout>
+            <CombatHudLayout className={battleChatVisible ? undefined : "combat-log-wide combat-chat-collapsed"}>
                 {/* In-grid player HUD — visible on non-xl, hidden on xl via CSS */}
                 <CombatSideHud
                     name={`${me.name} (You)`}
@@ -2198,7 +2221,11 @@ export function PvpBattleScreen({
                             </button>
                         </CombatCommandBar>
                     )}
-                    <div className="jutsu-layout-card combat-jutsu-bar">
+                    <div
+                        className="jutsu-layout-card combat-jutsu-bar"
+                        role="region"
+                        aria-label="Jutsu, weapons, and items"
+                    >
                         {done ? (
                             <div className="battle-ended-overlay" style={{ position: "relative", inset: "unset", background: "none" }}>
                                 <div className="card battle-ended-card">
@@ -2291,7 +2318,7 @@ export function PvpBattleScreen({
                                                     >
                                                         <span className="combat-jutsu-thumb">
                                                             <strong className="combat-jutsu-fallback-icon">{fallbackIcon(j)}</strong>
-                                                            {j.image && <img src={j.image} alt={j.name} />}
+                                                            {j.image && <img src={j.image} alt={j.name} draggable={false} />}
                                                         </span>
                                                         <span className="combat-jutsu-name">{j.name}</span>
                                                         {/* "CD 0" is noise on every card; an ACTIVE cooldown already
@@ -2344,7 +2371,8 @@ export function PvpBattleScreen({
                                                         onClick={() => { if (onCooldown) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
                                                         disabled={!isMyTurn || submitting || !availability.affordable}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
-                                                            {item.image ? <img src={item.image} alt={item.name} /> : <strong>🗡</strong>}
+                                                            <strong className="combat-jutsu-fallback-icon">🗡</strong>
+                                                            {item.image && <img src={item.image} alt={item.name} draggable={false} />}
                                                         </span>
                                                         <span className="combat-jutsu-name">{item.name}</span>
                                                         <span className="combat-jutsu-info">{apCost} AP | R{wRange}{onCooldown ? ` | CD ${wCd}` : ""}</span>
@@ -2389,7 +2417,8 @@ export function PvpBattleScreen({
                                                         onClick={() => { if (onCooldown || realPvpItemsDisabled) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
                                                         disabled={!isMyTurn || realPvpItemsDisabled || submitting || depleted || !availability.affordable}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
-                                                            {item.image ? <img src={item.image} alt={item.name} /> : <strong>🎯</strong>}
+                                                            <strong className="combat-jutsu-fallback-icon">🎯</strong>
+                                                            {item.image && <img src={item.image} alt={item.name} draggable={false} />}
                                                         </span>
                                                         <span className="combat-jutsu-name">{item.name}</span>
                                                         <span className="combat-jutsu-info">Thrown · {apCost} AP | R{wRange}{countSuffix}{onCooldown ? ` | CD ${wCd}` : ""}</span>
@@ -2431,7 +2460,8 @@ export function PvpBattleScreen({
                                                         onClick={() => { if (onCooldown || realPvpItemsDisabled) return; setInspectedJutsuId(""); clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
                                                         disabled={!isMyTurn || realPvpItemsDisabled || submitting || depleted || !availability.affordable}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
-                                                            {item.image ? <img src={item.image} alt={item.name} /> : <strong>🧪</strong>}
+                                                            <strong className="combat-jutsu-fallback-icon">🧪</strong>
+                                                            {item.image && <img src={item.image} alt={item.name} draggable={false} />}
                                                         </span>
                                                         <span className="combat-jutsu-name">{item.name}</span>
                                                         <span className="combat-jutsu-info">{apCost} AP | Use{countSuffix}{onCooldown ? ` | CD ${wCd}` : ""}</span>
@@ -2526,10 +2556,22 @@ export function PvpBattleScreen({
                 </CombatHudMain>
 
                 {/* ── Battle chat (in-grid, between battlefield and enemy HUD) ── */}
-                <div className={`battle-chat-panel battle-chat-col${battleChatVisible ? "" : " battle-chat-hidden"}`}>
+                <div
+                    className={`battle-chat-panel battle-chat-col${battleChatVisible ? "" : " battle-chat-hidden"}`}
+                    role="complementary"
+                    aria-label="Battle chat"
+                >
                     <div className="battle-side-header">
                         <span>Chat{spectatorList.length > 0 ? ` · 👁 ${spectatorList.length}` : ""}</span>
-                        <button className="battle-chat-toggle" onClick={() => setBattleChatVisible(v => !v)} title={battleChatVisible ? "Hide chat" : "Show chat"}>
+                        <button
+                            type="button"
+                            className="battle-chat-toggle"
+                            onClick={() => setBattleChatVisible(v => !v)}
+                            title={battleChatVisible ? "Hide chat" : "Show chat"}
+                            aria-label={battleChatVisible ? "Hide battle chat" : "Show battle chat"}
+                            aria-expanded={battleChatVisible}
+                            aria-controls="battle-chat-feed"
+                        >
                             {battleChatVisible ? "−" : "+"}
                         </button>
                     </div>
@@ -2540,7 +2582,14 @@ export function PvpBattleScreen({
                                     <span className="battle-chat-spectator-label">Watching:</span> {spectatorList.map(s => s.name).join(", ")}
                                 </div>
                             )}
-                            <div className="battle-chat-messages" ref={battleChatRef}>
+                            <div
+                                id="battle-chat-feed"
+                                className="battle-chat-messages"
+                                ref={battleChatRef}
+                                role="log"
+                                aria-live="polite"
+                                aria-relevant="additions"
+                            >
                                 {battleChatMessages.length === 0 ? (
                                     <p className="battle-chat-empty">No messages yet.</p>
                                 ) : battleChatMessages.map((msg, i) => (

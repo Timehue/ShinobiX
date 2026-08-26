@@ -929,6 +929,21 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
         const style = layoutNode ? getComputedStyle(layoutNode) : null;
         const mainStyle = mainNode ? getComputedStyle(mainNode) : null;
         const trackStyle = mainStyle?.display === 'contents' ? style : mainStyle;
+        const mainRect = mainStyle?.display === 'contents'
+            ? (() => {
+                const parts = [...(root?.querySelectorAll(
+                    '.arena-top-panel, .dual-ap-panel, .twp-strip, .hex-battlefield, .shinobi-command-bar, .combat-jutsu-bar, .combat-text-log, .combat-mode-panel, .battle-chat-col',
+                ) ?? [])]
+                    .map(rect)
+                    .filter((value): value is Rect => value !== null);
+                if (!parts.length) return null;
+                const x = Math.min(...parts.map((value) => value.x));
+                const y = Math.min(...parts.map((value) => value.y));
+                const right = Math.max(...parts.map((value) => value.right));
+                const bottom = Math.max(...parts.map((value) => value.bottom));
+                return { x, y, width: right - x, height: bottom - y, right, bottom };
+            })()
+            : rect(mainNode);
         const countGridTracks = (template: string) => {
             let depth = 0;
             let count = 0;
@@ -954,7 +969,7 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
             documentOverflow: document.documentElement.scrollWidth - window.innerWidth,
             root: rect(root),
             layout: layoutRect,
-            main: rect(mainNode),
+            main: mainRect,
             boardStage: rect(root?.querySelector('.combat-board-stage') ?? null),
             board: boardRect,
             gridLayer: rect(root?.querySelector('.hex-grid-layer') ?? null),
@@ -1584,18 +1599,25 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
             `${label} board must not collapse; stage=${JSON.stringify(current.boardStage)} rows=${current.mainGridTemplateRows}`,
         ).toBeGreaterThanOrEqual(90);
         // Both authoritative modes use four tracks in short landscape so the
-        // board and controls remain side by side. Solo keeps seven portrait
-        // tracks elsewhere, while desktop promotes its action notice to a
-        // battlefield overlay so the board and lower panel can use that height.
-        // Ordinary PvP uses six portrait tracks and the complete seven-track
-        // desktop composition.
+        // board and controls remain side by side. The wide desktop command
+        // center uses the outer shell's six explicit rows; narrower layouts
+        // keep their existing six- or seven-track contracts.
         // Pin each authored breakpoint so an accidental implicit row is still
         // a release failure.
-        const expectedMainRows = mode === 'solo'
-            ? (current.viewport.width >= 1024 ? 6 : current.viewport.height <= 500 ? 4 : 7)
-            : current.viewport.width < 980
-                ? (current.viewport.height <= 500 ? 4 : 6)
-                : 7;
+        const intermediateDesktopDossiers = (current.layout?.width ?? 0) >= 1180
+            && (current.layout?.height ?? 0) >= 660;
+        const wideDesktopCommandCenter = current.viewport.width >= 1280
+            && current.viewport.height >= 700
+            && intermediateDesktopDossiers;
+        const expectedMainRows = wideDesktopCommandCenter
+            ? 6
+            : intermediateDesktopDossiers
+                ? 8
+                : mode === 'solo'
+                    ? (current.viewport.width >= 1024 ? 6 : current.viewport.height <= 500 ? 4 : 7)
+                    : current.viewport.width < 980
+                        ? (current.viewport.height <= 500 ? 4 : 6)
+                        : 7;
         expect(current.mainGridRowCount, `${label} unexpected implicit main-grid row`).toBe(expectedMainRows);
         if (mode === 'solo') {
             // Solo intentionally renders the battlefield directly, without an
@@ -1603,22 +1625,29 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
             // width, tile containment, hit testing, and the 90px floor are the
             // live usability contracts rather than one stale aspect ratio.
             expect(current.board?.width ?? 0, `${label} board width`).toBeGreaterThanOrEqual(Math.min(280, current.viewport.width - 12));
-            if (current.viewport.width >= 1024 && current.viewport.height >= 720) {
+            if (wideDesktopCommandCenter) {
                 expect(
                     (current.board?.height ?? 0) / Math.max(1, current.main?.height ?? 0),
                     `${label} battlefield must remain the dominant desktop interaction surface`,
-                ).toBeGreaterThanOrEqual(0.38);
+                ).toBeGreaterThanOrEqual(0.32);
                 expect(
-                    (current.main?.width ?? 0) / Math.max(1, current.layout?.width ?? 0),
-                    `${label} center combat window must not be squeezed by the side dossiers`,
-                ).toBeGreaterThanOrEqual(0.58);
+                    (current.board?.width ?? 0) / Math.max(1, current.layout?.width ?? 0),
+                    `${label} upper battlefield must not be squeezed by the side dossiers`,
+                ).toBeGreaterThanOrEqual(0.6);
             }
         } else {
             // PvP deliberately splits the shortest landscape tier between the
             // board and actions. Preserve its authored stage ratio and a useful
             // physical floor while allowing that responsive split composition.
             expect(current.board?.width ?? 0, `${label} board width`).toBeGreaterThanOrEqual(Math.min(232, current.viewport.width - 12));
-            expect((current.board?.width ?? 0) / Math.max(1, current.board?.height ?? 0), `${label} board aspect`).toBeCloseTo(1.6214, 2);
+            if (wideDesktopCommandCenter) {
+                expect(current.boardStage, `${label} panoramic board stage`).not.toBeNull();
+                expect(Math.abs((current.board?.width ?? 0) - (current.boardStage?.width ?? 0)), `${label} board fills stage width`).toBeLessThanOrEqual(3);
+                expect(Math.abs((current.board?.height ?? 0) - (current.boardStage?.height ?? 0)), `${label} board fills stage height`).toBeLessThanOrEqual(3);
+                expect((current.board?.width ?? 0) / Math.max(1, current.board?.height ?? 0), `${label} panoramic board aspect`).toBeGreaterThanOrEqual(2);
+            } else {
+                expect((current.board?.width ?? 0) / Math.max(1, current.board?.height ?? 0), `${label} board aspect`).toBeCloseTo(1.6214, 2);
+            }
         }
     };
     for (const [width, height] of ACTIVE_VIEWPORTS) {
@@ -1658,6 +1687,18 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
             await writeScreenshotWithRetry(page, resolve(directory, `${width}x${height}.png`));
         }
         if (STRICT) {
+            if (width >= 1280 && height >= 700) {
+                if (mode === 'solo') {
+                    await expect(root.locator('.combat-companion-panel')).toHaveCount(0);
+                    await expect(root.locator('.combat-companion-summon')).toHaveCount(0);
+                    await expect(root.locator('.shinobi-command-bar .summon-pet-command'), `${mode} ${width}x${height} summon command`).toBeVisible();
+                    await expect(root.locator('.combat-layout')).toHaveClass(/combat-log-wide/);
+                    await expect(root.locator('.battle-chat-col')).toHaveCount(0);
+                } else {
+                    await expect(root.locator('.battle-chat-col'), `${mode} ${width}x${height} battle chat mode panel`).toBeVisible();
+                    await expect(root.locator('.combat-companion-panel')).toHaveCount(0);
+                }
+            }
             assertLayout(current, `${mode} ${width}x${height}`);
         }
     }
@@ -1706,12 +1747,40 @@ test('Solo-PvE combat layout viewport matrix', async ({ page, request }, testInf
     await assertJutsuSelectionGeometryStable(page, '.mission-arena-fight', true);
     await page.setViewportSize({ width: 1440, height: 900 });
     const soloRoot = page.locator('.mission-arena-fight');
-    await soloRoot.getByRole('tab', { name: /Battle Log/ }).click();
     const battleLog = soloRoot.locator('.combat-text-log');
     await expect(battleLog).toBeVisible();
-    expect((await battleLog.boundingBox())?.height ?? 0, 'desktop Battle Log must be a readable panel').toBeGreaterThanOrEqual(178);
-    await expect(soloRoot.locator('.shinobi-command-bar')).toBeHidden();
-    await soloRoot.getByRole('tab', { name: 'Actions', exact: true }).click();
+    expect((await battleLog.boundingBox())?.height ?? 0, 'desktop Battle Log must be a readable panel').toBeGreaterThanOrEqual(140);
+    const soloBoard = await soloRoot.locator('.hex-battlefield').boundingBox();
+    const soloGrid = await soloRoot.locator('.hex-grid-layer').boundingBox();
+    expect((soloGrid?.width ?? 0) / Math.max(1, soloBoard?.width ?? 0), 'desktop hex grid should use most of the battlefield art').toBeGreaterThanOrEqual(0.6);
+    const soloArtwork = await soloRoot.locator('.combat-jutsu-thumb img').evaluateAll((images) => images.map((image) => {
+        const art = image as HTMLImageElement;
+        const artRect = art.getBoundingClientRect();
+        const frameRect = art.parentElement?.getBoundingClientRect();
+        const fallback = art.parentElement?.querySelector<HTMLElement>('.combat-jutsu-fallback-icon');
+        const fallbackRect = fallback?.getBoundingClientRect();
+        const display = getComputedStyle(art).display;
+        const artStyle = getComputedStyle(art);
+        return {
+            source: art.currentSrc || art.src,
+            loaded: art.complete && art.naturalWidth > 0 && art.naturalHeight > 0,
+            fit: artStyle.objectFit,
+            contained: Boolean(frameRect
+                && artRect.left >= frameRect.left - 1
+                && artRect.top >= frameRect.top - 1
+                && artRect.right <= frameRect.right + 1
+                && artRect.bottom <= frameRect.bottom + 1),
+            fallback: display === 'none'
+                && Boolean(fallbackRect && fallbackRect.width >= 1 && fallbackRect.height >= 1),
+        };
+    }));
+    expect(soloArtwork.length, 'desktop solo combat should render loadout artwork').toBeGreaterThan(0);
+    expect(
+        soloArtwork.every((art) => (art.loaded && art.fit === 'contain' && art.contained) || art.fallback),
+        `desktop solo card artwork must use complete framing or its visible fallback: ${JSON.stringify(soloArtwork)}`,
+    ).toBe(true);
+    await expect(soloRoot.locator('.battle-tabbar')).toBeHidden();
+    await expect(soloRoot.locator('.shinobi-command-bar')).toBeVisible();
     await expect(soloRoot.locator('.combat-jutsu-bar')).toBeVisible();
     const resultAnimation = await page.evaluate(() => {
         const rules = [...document.styleSheets].flatMap((sheet) => {
@@ -1794,6 +1863,45 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     });
     await assertJutsuSelectionGeometryStable(page, '.pvp-battle-layout', false);
     await captureMatrix(page, 'pvp', '.pvp-battle-layout', testInfo);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const pvpRoot = page.locator('.pvp-battle-layout');
+    const layout = pvpRoot.locator('.combat-layout');
+    const chat = pvpRoot.locator('.battle-chat-col');
+    const toggle = chat.locator('.battle-chat-toggle');
+    const log = pvpRoot.locator('.combat-text-log');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    const openLog = await log.boundingBox();
+    const draftInput = chat.locator('.battle-chat-input-row input');
+    const draftEnabled = await draftInput.isEnabled();
+    if (draftEnabled) await draftInput.fill('unsent tactical draft');
+
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(chat).toHaveClass(/battle-chat-hidden/);
+    await expect(layout).toHaveClass(/combat-log-wide/);
+    const collapsedLog = await log.boundingBox();
+    expect((collapsedLog?.width ?? 0) - (openLog?.width ?? 0), 'collapsed chat must release its lower-right space to the battle log').toBeGreaterThan(120);
+    const openLogRight = (openLog?.x ?? 0) + (openLog?.width ?? 0);
+    const collapsedLogRight = (collapsedLog?.x ?? 0) + (collapsedLog?.width ?? 0);
+    expect(collapsedLogRight - openLogRight, 'expanded battle log must reach into the former chat area').toBeGreaterThan(120);
+    expect((await chat.locator('.battle-side-header').boundingBox())?.height ?? 0, 'collapsed chat reopen control').toBeGreaterThanOrEqual(44);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), 'collapsed chat horizontal overflow').toBeLessThanOrEqual(1);
+
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(layout).not.toHaveClass(/combat-log-wide/);
+    if (draftEnabled) await expect(draftInput).toHaveValue('unsent tactical draft');
+    const restoredLog = await log.boundingBox();
+    expect(Math.abs((restoredLog?.width ?? 0) - (openLog?.width ?? 0)), 'reopened chat must restore the split log geometry').toBeLessThanOrEqual(3);
+    expect(await chat.locator('.battle-chat-messages').evaluate((feed) => feed.scrollHeight - feed.scrollTop - feed.clientHeight), 'reopened chat feed should stay at its newest message').toBeLessThanOrEqual(2);
+
+    const pvpArtwork = await pvpRoot.locator('.combat-jutsu-thumb img').evaluateAll((images) => images.map((image) => {
+        const art = image as HTMLImageElement;
+        return art.complete && art.naturalWidth > 0 && art.naturalHeight > 0 && getComputedStyle(art).objectFit === 'contain';
+    }));
+    expect(pvpArtwork.length, 'desktop PvP combat should render loadout artwork').toBeGreaterThan(0);
+    expect(pvpArtwork.every(Boolean), 'desktop PvP card artwork must load without crop framing').toBe(true);
 });
 
 test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, request }, testInfo) => {

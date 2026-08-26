@@ -46,6 +46,7 @@ export function CombatHudHeader({ title, subtitle }: { title: ReactNode; subtitl
         <div className="arena-top-panel">
             <div className="arena-title-panel">
                 <h2>{title}</h2>
+                <span className="combat-brand-mark" role="img" aria-label="Shinobi Journey" />
                 <p>{subtitle}</p>
             </div>
         </div>
@@ -67,6 +68,25 @@ export function CombatBoardStage({ children, className, ...props }: DivProps) {
 /** Basic combat controls; mode-specific actions such as Pet or Flee remain caller-owned children. */
 export function CombatCommandBar({ children, className, ...props }: DivProps) {
     return <div className={classNames("basic-action-bar shinobi-command-bar", className)} {...props}>{children}</div>;
+}
+
+/** Shared lower-right desktop frame for mode-specific combat controls. */
+export function CombatModePanel({
+    children,
+    className,
+    headerAction,
+    title,
+    ...props
+}: DivProps & { title: ReactNode; headerAction?: ReactNode }) {
+    return (
+        <aside className={classNames("combat-mode-panel", className)} {...props}>
+            <div className="battle-side-header combat-mode-panel-header">
+                <span>{title}</span>
+                {headerAction}
+            </div>
+            <div className="combat-mode-panel-body">{children}</div>
+        </aside>
+    );
 }
 
 /** Shared accessible battle-log frame. Callers may provide plain or structured log content. */

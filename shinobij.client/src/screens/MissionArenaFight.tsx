@@ -893,7 +893,7 @@ export function MissionArenaFight({
                     </div>
                 </div>
             )}
-            <CombatHudLayout hasActionNotice>
+            <CombatHudLayout className="combat-log-wide" hasActionNotice>
                 {/* Player dossier */}
                 <CombatSideHud
                     name={me}
@@ -1166,7 +1166,11 @@ export function MissionArenaFight({
                         <button onClick={() => { resetTargeting(); void send({ type: "wait" }); }} disabled={busy || !myTurn}><i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>End turn</small></button>
                     </CombatCommandBar>
 
-                    <div className="jutsu-layout-card combat-jutsu-bar">
+                    <div
+                        className="jutsu-layout-card combat-jutsu-bar"
+                        role="region"
+                        aria-label="Jutsu, weapons, and items"
+                    >
                         {myJutsu.length === 0 && myWeapons.length === 0 && myConsumables.length === 0 ? (
                             <div className="summary-box">No equipped jutsu or combat items.</div>
                         ) : (
@@ -1192,7 +1196,10 @@ export function MissionArenaFight({
                                                 title={`${j.name} | ${ap} AP | Range ${j.range}${chakra ? ` | ${chakra} CP` : ""}${stamina ? ` | ${stamina} SP` : ""}${sealed ? " | Elementally sealed" : ""}${onCd ? ` | CD ${cd}` : ""}`}
                                                 onClick={() => armJutsu(j)}
                                             >
-                                                <span className="combat-jutsu-thumb">{art ? <img src={art} alt={j.name} /> : <strong><Icon size={22} aria-hidden="true" /></strong>}</span>
+                                                <span className="combat-jutsu-thumb">
+                                                    <strong className="combat-jutsu-fallback-icon"><Icon size={22} aria-hidden="true" /></strong>
+                                                    {art && <img src={art} alt={j.name} draggable={false} />}
+                                                </span>
                                                 <span className="combat-jutsu-name">{j.name}</span>
                                                 {/* "CD 0" is noise on every card; an ACTIVE cooldown already
                                                     shows as the corner pip. */}
@@ -1218,7 +1225,10 @@ export function MissionArenaFight({
                                                 title={out ? `${item.name} — none left` : `${item.name} | ${ap} AP | R${range}`}
                                                 onClick={() => armWeapon(item.id ?? "")}
                                             >
-                                                <span className="combat-jutsu-thumb combat-item-thumb">{art ? <img src={art} alt={item.name} /> : <strong><Icon size={22} aria-hidden="true" /></strong>}</span>
+                                                <span className="combat-jutsu-thumb combat-item-thumb">
+                                                    <strong className="combat-jutsu-fallback-icon"><Icon size={22} aria-hidden="true" /></strong>
+                                                    {art && <img src={art} alt={item.name} draggable={false} />}
+                                                </span>
                                                 <span className="combat-jutsu-name">{item.name}</span>
                                                 <span className="combat-jutsu-info">{ap} AP | R{range}{thrown ? ` | ×${left === Infinity ? "∞" : left}` : ""}</span>
                                             </button>
@@ -1241,7 +1251,10 @@ export function MissionArenaFight({
                                                 title={out ? `${item.name} — none left` : `${item.name} | ${ap} AP | Use`}
                                                 onClick={() => { resetTargeting(); if (item.id) void send({ type: "item", itemId: item.id }); }}
                                             >
-                                                <span className="combat-jutsu-thumb combat-item-thumb">{art ? <img src={art} alt={item.name} /> : <strong><Icon size={22} aria-hidden="true" /></strong>}</span>
+                                                <span className="combat-jutsu-thumb combat-item-thumb">
+                                                    <strong className="combat-jutsu-fallback-icon"><Icon size={22} aria-hidden="true" /></strong>
+                                                    {art && <img src={art} alt={item.name} draggable={false} />}
+                                                </span>
                                                 <span className="combat-jutsu-name">{item.name}</span>
                                                 <span className="combat-jutsu-info">{ap} AP | Use | ×{left}</span>
                                             </button>

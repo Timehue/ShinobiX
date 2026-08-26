@@ -3,20 +3,16 @@ export type CompanionSummonPet = {
     unlockedForPve?: boolean;
 };
 
-/**
- * Explain only the authority's explicit locked-and-under-50 branch. Every
- * other absent seal can be caused by roster, activity, or server state and must
- * retain generic copy rather than guessing on the client.
- */
+/** Explain the hard level boundary; keep every other absent seal generic. */
 export function unavailableCompanionSummonCopy(activePet: CompanionSummonPet | undefined): {
     short: string;
     title: string;
 } {
     const level = Math.max(0, Math.floor(Number(activePet?.level) || 0));
-    if (activePet?.unlockedForPve === false && level < 50) {
+    if (activePet && level < 50) {
         return {
             short: `Unlocks at pet Lv 50 · currently Lv ${level}`,
-            title: `This active pet is still locked for PvE summons. It unlocks at pet level 50; currently level ${level}.`,
+            title: `This active pet unlocks for PvE summons at pet level 50; currently level ${level}.`,
         };
     }
     return {
