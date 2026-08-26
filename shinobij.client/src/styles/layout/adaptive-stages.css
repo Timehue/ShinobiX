@@ -117,14 +117,34 @@
     inline-size: 100%;
   }
 
+  /* Below the two-column breakpoint the command panel stacks BELOW the board,
+     so a board sized purely by width owns the whole viewport and every verb
+     the sector has — Explore, Hunt, Recover, Players Here, Leave — lands off
+     the fold, behind a scroll the player has no reason to know about. A
+     1000px-wide tablet drew a 1000px square for a 800px-tall window.
+
+     Cap it by HEIGHT as well as width so the top of the panel is always on
+     screen. The max() floor keeps a short landscape window from collapsing the
+     board to nothing, and on phones the width is smaller than the cap anyway,
+     so their layout is untouched. */
   .map-instance .instance-frame > main.tile-scene > :where(.pixel-map, .walkable-sector-map, .sector-image-map) {
-    inline-size: 100%;
+    inline-size: min(100%, max(240px, calc(100dvh - 300px)));
   }
 
   .map-instance .instance-frame > aside.instance-actions {
     flex: 0 0 auto;
     max-block-size: none;
     overflow: visible;
+  }
+
+  /* The verbs are the point of the panel, and on the stacked layout they sat
+     behind every detail card — territory, intel, traces, presence, hunt — so
+     the first thing under the board was a wall of readouts. Float the action
+     grid to the top instead: the board already carries the sector's name and
+     weather in its own header, so the panel heading repeating them is what can
+     afford to wait. */
+  .map-instance .instance-frame > aside.sector-command-panel > .sector-action-grid {
+    order: -1;
   }
 }
 

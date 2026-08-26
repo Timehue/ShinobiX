@@ -1392,11 +1392,20 @@
     opacity: 0.85;
     pointer-events: none;
 }
+/* Name pill. Two wanderers standing near each other used to print overlapping,
+   unreadable text: the pill was one fixed height above every figure, had no
+   width limit, and every figure shared one stacking level. It now sits in one
+   of three stable per-wanderer lanes (--label-lane, set in SectorWanderer),
+   truncates instead of sprawling across its neighbours, and lifts to full
+   width on hover — which is also when the figure is raised above the others. */
 .sector-wanderer-label {
     position: absolute;
     left: 50%;
-    top: -16%;
+    top: calc(-16% - var(--label-lane, 0) * 1.95em);   /* > one pill height, so lanes cannot touch */
     transform: translateX(-50%);
+    max-width: 420%;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 0.55rem;
     font-weight: 700;
@@ -1406,6 +1415,16 @@
     padding: 1px 6px;
     border-radius: 999px;
     pointer-events: none;
+}
+
+.sector-wanderer-figure:hover {
+    z-index: 3;
+}
+
+.sector-wanderer-figure:hover .sector-wanderer-label {
+    max-width: none;
+    background: rgba(20, 16, 28, 0.92);
+    border-color: rgba(255, 255, 255, 0.34);
 }
 .sector-wanderer-bubble {
     position: absolute;

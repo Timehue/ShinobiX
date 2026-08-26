@@ -30,6 +30,7 @@ import {
     type SectorPoolFrame, type SectorPoolReservation,
 } from './_sector-pool.js';
 import { creditSectorIntel, INTEL_PER_EXPLORE } from '../_village-intel.js';
+import { creditSectorContractProgress } from '../_sector-contracts.js';
 import { villageStoresEnabled } from '../_release-flags.js';
 import { addPendingWorldReward, settlePendingWorldReward } from './_pending-rewards.js';
 
@@ -424,6 +425,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!result.value.replayed) {
             const scoutedSector = Math.floor(Number((result.value.reward as Record<string, unknown>)?.sector ?? body.sector));
             await creditSectorIntel(pool.village, scoutedSector, INTEL_PER_EXPLORE, Date.now(), pool.frame?.owner).catch(() => undefined);
+            // Sector Contracts ride the same receipt for the same reason: the
+            // server watched this explore land, so contract progress is never a
+            // client tally. Best-effort and outside the save lock, exactly like
+            // the intel credit above — a storage blip must not fail an explore
+            // that already paid. A replay does not tick, so a retried request
+            // cannot inflate progress.
+            await creditSectorContractProgress(playerName, scoutedSector).catch(() => undefined);
         }
         let authority = durable;
         try {

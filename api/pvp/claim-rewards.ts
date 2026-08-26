@@ -4,6 +4,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { recordSectorDuelScar } from '../_sector-scars.js';
 import { creditRankedOutcome, rankedDelta } from '../_ranked-rating.js';
 import { computePvpWinGains, creditPvpWinBase, applyDerivedLevel } from '../_xp-engine.js';
 import { patchBattleSettlement } from '../_receipts.js';
@@ -918,6 +919,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     level: Number(finalChar?.level ?? 0),
                     source: `casual:${outcome}`,
                 });
+            }
+            // The ground remembers this fight (shared/sector-scars). Written
+            // from the WINNER's own first claim so one duel leaves one mark,
+            // and from `session.rewardSector` — the sector the server itself
+            // confirmed both fighters were standing in, never a client's claim
+            // about where it happened. Fire-and-forget by design: a scar is a
+            // display record nothing reads back, so it must not be able to
+            // delay or fail a settled reward (same posture as creditSectorIntel
+            // on the explore receipt).
+            if (outcome === 'win' && !alreadyClaimed && Number.isSafeInteger(raidSector)) {
+                void recordSectorDuelScar(raidSector, winnerName, loserName).catch(() => undefined);
             }
             return res.status(200).json({
                 ok: true,

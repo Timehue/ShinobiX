@@ -13,6 +13,7 @@ import { playerPasswordPolicyError } from './src/lib/player-auth-policy';
 import { normalizeRecoveryCode, formatRecoveryCode } from './src/lib/recovery-code';
 import { sectorExitById } from '../shared/sector-links';
 import { SHRINE_DEFS } from '../shared/shrines';
+import { sectorContractFor, utcDayOf } from '../shared/sector-contracts';
 import { issueSignedDevSessionToken, verifySignedDevSessionToken } from './dev-session-auth';
 
 // ── Cert setup (dev only — skipped on CI / Vercel / production builds) ────────
@@ -600,6 +601,12 @@ export default defineConfig({
                         signs: signs.map(({ sparkedBy: _s, ...sign }) => sign),
                         mySparked: player ? signs.filter(s => s.sparkedBy.includes(player)).map(s => s.id) : [],
                         ...(shrine ? { shrine } : {}),
+                        // Dev parity for sector scars: the prod endpoint folds
+                        // them into this same payload. Always empty here — they
+                        // are written from the PvP reward claim, which the dev
+                        // server does not mirror — but the shape matches, so the
+                        // card's empty state is what a quiet sector really shows.
+                        scars: [],
                     });
                 });
 
@@ -629,6 +636,49 @@ export default defineConfig({
                     const next_ = [...signs.filter(s => s.name !== playerId), sign].slice(-8);
                     devSigns.set(sector, next_);
                     sendJson(res, 200, { ok: true, sign: { ...sign, sparkedBy: undefined }, signs: next_.map(({ sparkedBy: _s, ...rest }) => rest) });
+                });
+
+                // Sector Contracts (api/sector/contract). The contract itself is
+                // recomputed from the SAME shared module the server uses, so dev
+                // and prod agree on the board; only progress is in-memory here.
+                // Progress stays 0 in dev: there is no dev mirror for
+                // /api/world/explore, which is what ticks it in production. The
+                // card, the board mark and the refusal paths are still exercisable.
+                const devContractProgress = new Map<string, number>();
+                const devContractClaims = new Set<string>();
+                server.middlewares.use('/api/sector/contract', async (req: IncomingMessage, res: ServerResponse, next) => {
+                    if (req.method !== 'GET' && req.method !== 'POST') { next(); return; }
+                    const playerId = devTokenPlayer(req);
+                    if (!playerId) { sendJson(res, 401, { error: 'Authentication required.' }); return; }
+                    const url = new URL(req.url ?? '/', 'http://vite.local');
+                    let sector = sectorFrom(url.searchParams.get('sector'), 0);
+                    if (req.method === 'POST') {
+                        const parsed = parseJsonBody(await readBody(req));
+                        if ('error' in parsed) { sendJson(res, 400, { error: parsed.error }); return; }
+                        sector = sectorFrom(String((parsed.body as { sector?: unknown }).sector ?? ''), 0);
+                    }
+                    const day = utcDayOf(Date.now());
+                    const contract = sectorContractFor(sector, day);
+                    if (!contract) { sendJson(res, 200, { ok: true, contract: null, progress: 0, claimed: false, claimable: false }); return; }
+                    const key = `${playerId}:${sector}:${day}`;
+                    const progress = devContractProgress.get(key) ?? 0;
+                    const claimed = devContractClaims.has(key);
+                    if (req.method === 'GET') {
+                        sendJson(res, 200, { ok: true, contract, progress, claimed, claimable: !claimed && progress >= contract.target });
+                        return;
+                    }
+                    if (claimed) { sendJson(res, 200, { ok: false, reason: 'already-claimed' }); return; }
+                    if (progress < contract.target) { sendJson(res, 200, { ok: false, reason: 'incomplete', contract, progress, claimed, claimable: false }); return; }
+                    const savePath = path.join(path.resolve(process.cwd(), 'saves'), `${playerId}.json`);
+                    try {
+                        const save = JSON.parse(fs.readFileSync(savePath, 'utf8'));
+                        save.character.ryo = Math.floor(Number(save?.character?.ryo) || 0) + contract.ryo;
+                        fs.writeFileSync(savePath, JSON.stringify(save));
+                        devContractClaims.add(key);
+                        sendJson(res, 200, { ok: true, contract, ryo: contract.ryo, totalRyo: save.character.ryo, progress, claimed: true, claimable: false });
+                    } catch {
+                        sendJson(res, 404, { error: 'Your save was not found.' });
+                    }
                 });
 
                 server.middlewares.use('/api/sector/shrine-offer', async (req: IncomingMessage, res: ServerResponse, next) => {

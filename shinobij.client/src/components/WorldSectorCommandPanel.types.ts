@@ -7,6 +7,7 @@
 // (WorldMap.tsx, SectorIntelCard.tsx, the projection test) untouched.
 import type { SectorTracesView } from "../lib/sector-traces";
 import type { SectorPoolPlateView } from "../lib/sector-pool";
+import type { SectorContractStatus } from "../lib/sector-contract";
 import type { SectorIntelPlateView } from "../lib/village-intel";
 import type { PlayerRecord } from "../types/character";
 import type { Biome, WeatherType } from "../types/core";
@@ -62,6 +63,10 @@ export type WorldSectorCommandPanelProps = Readonly<{
     territory: WorldSectorCommandTerritory | null;
     /** Shared daily gathering pool for this sector (explores / chests), viewer-sized. */
     gathering: SectorPoolPlateView | null;
+    /** The day's posted contract and this player's standing on it (null = none today). */
+    contract: SectorContractStatus | null;
+    /** A claim is in flight — the card's button disables itself. */
+    contractBusy: boolean;
     /** Village Intel on this sector as seen by the viewer's village (null = logged out / no intel block). */
     intel?: SectorIntelPlateView | null;
     villageWarAdmissionOpen: boolean;
@@ -75,7 +80,10 @@ export type WorldSectorCommandPanelProps = Readonly<{
     onOpenShrine: () => void;
     onStrikeSleeper: (target: PlayerRecord) => void;
     onAttackPlayer: (target: PlayerRecord) => void;
+    onClaimContract: () => void;
     onExplore: () => void;
+    /** Depleted-pool replacement for Explore — points at the nearest richer sector. */
+    onFindRicherGround: () => void;
     onHunt: () => void;
     onRecover: () => void;
     onLeave: () => void;

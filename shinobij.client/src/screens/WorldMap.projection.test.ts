@@ -52,24 +52,40 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // open unbidden, and a Fight button that no longer swallows the click
         // when admission is closed. The budget guards re-inlining retired map
         // layers, not bug fixes; it is the exact achieved count, with no buffer.
-        // 5,267 (+3): every arrival now enters on the edge facing where you
-        // travelled from, not just road crossings — a roadless trip used to land
-        // on the centre tile. The budget guards re-inlining retired map layers,
-        // not the travel model; exact achieved count, no buffer.
-        lineCount(worldMapSource) <= 5_267,
-        `WorldMap.tsx grew past 5,267 lines; retired overview layers must stay retired.`,
+        // 5,333 (+66): the shared daily pool is now legible on the board, and the
+        // day's posted contracts sit on it. The last +7 is a PERFORMANCE fix, not
+        // growth: the tier and the contract were being recomputed inside the
+        // className and the title of every one of ~67 markers, so each render did
+        // hundreds of 66-element board sorts and territory reads. They are now
+        // resolved once per marker into locals. Markers
+        // carry a rich/worked/spent tier, and a drained sector's Explore becomes
+        // "Find richer ground", which walks the road graph for the nearest sector
+        // that still pays. The projection itself lives in lib/sector-richness.ts;
+        // what landed here is the owner resolver, the tier read, and the one
+        // handler — screen-level wiring the ratchet has never guarded. This is a
+        // new signal on the overview, not a retired layer coming back. Exact
+        // achieved count, no buffer.
+        lineCount(worldMapSource) <= 5_333,
+        `WorldMap.tsx grew past 5,333 lines; retired overview layers must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,
         `WorldSectorCanvas.tsx grew past 220 lines; overlays and controllers must remain separate.`,
     );
     assert.ok(
-        lineCount(commandPanelBody) <= 233,
-        `WorldSectorCommandPanel.tsx grew past 233 lines; commands and authority must remain in WorldMap.`,
+        // 247 (+14): Explore no longer switches off on a drained pool — it changes
+        // verb to "Find richer ground" — and the day's posted contract gets a card.
+        // Presentation only: the richer-ground search, the contract fetch and the
+        // claim all stayed in WorldMap behind onFindRicherGround/onClaimContract,
+        // and the card itself is its own leaf (SectorContractCard.tsx).
+        lineCount(commandPanelBody) <= 247,
+        `WorldSectorCommandPanel.tsx grew past 247 lines; commands and authority must remain in WorldMap.`,
     );
     assert.ok(
-        lineCount(commandPanelTypes) <= 82,
-        `WorldSectorCommandPanel.types.ts grew past 82 lines; it holds row/prop shapes only — logic belongs in the panel, and commands in WorldMap.`,
+        // 90 (+8): two more command callbacks (onFindRicherGround, onClaimContract)
+        // and the posted-contract row shape, with their doc lines.
+        lineCount(commandPanelTypes) <= 90,
+        `WorldSectorCommandPanel.types.ts grew past 90 lines; it holds row/prop shapes only — logic belongs in the panel, and commands in WorldMap.`,
     );
     assert.ok(
         lineCount(overlaySource) <= 165,
@@ -275,11 +291,16 @@ test("WorldSectorCommandPanel preserves command hierarchy and action order", () 
     ], "selected-sector command hierarchy");
     const actions = commandPanelSource.slice(commandPanelSource.indexOf('<div className="sector-action-grid"'));
     assertOrdered(actions, [
-        '<span>Explore</span>',
+        '"Find richer ground" : "Explore"',
         'onClick={onHunt}',
         '<span>Recover</span>',
         '<span>Leave</span>',
     ], "selected-sector action order");
+    // A drained pool changes the verb; it must never switch the slot off. The
+    // pool is shared and per-sector, so "nothing here" always means "something
+    // nearby" — a disabled button is a dead end that hides that fact.
+    assert.doesNotMatch(actions, /disabled=\{gatherDepleted\}/u);
+    assert.match(actions, /onClick=\{gatherDepleted \? onFindRicherGround : onExplore\}/u);
     assert.match(commandPanelSource, /aria-label=\{`Sector \$\{sector\} command panel`\}/u);
     assert.match(commandPanelSource, /player\.status === "Traveling"[\s\S]*player\.status === "Fighting"[\s\S]*"Attack"/u);
 });
