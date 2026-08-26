@@ -410,7 +410,18 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // earlier draft of this entry that guessed a ~45 KB CI-vs-local buffer from a
 // different incident's delta — this file's own history above already prices
 // the real Sentry/build-arg delta at ~7 KB across dozens of entries, not ~200 KB.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_875_000;
+//
+// 2026-08-26 SECURITY FOLLOW-UP: 7,875,000 -> 7,890,000 B. The Railway build
+// for a01690d3d measured 7,875,294 B after the intentional combat-presentation
+// work in a990cbe6d and the CodeQL fixes (memory-only admin fallback plus an
+// explicit Warfront worker-input allowlist). The same tree measured 7,874,759 B
+// locally: the old ceiling had only 241 B of local headroom and failed on the
+// 535 B deploy/build-arg delta. The security paths were compacted before this
+// rebaseline (local graph 7,874,488 B), then the product ceiling was restored to
+// ~15 KB of deploy headroom. The startup graph still passes independently at
+// 1,450,270 B raw / 383,810 B gzip; none of its gates, the per-chunk gate, or
+// the per-CSS-file gate moved.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_890_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

@@ -136,8 +136,14 @@ const RECOVERY_ADMIN_SESSION_KEY = 'admin:recovery-session';
 let recoveryAdminSessionEstablishedThisDocument = false;
 let _memAdminPassword: string | null = null;
 
+function clearStoredAdminCredentials(): void {
+    sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+    sessionStorage.removeItem(LEGACY_ADMIN_PW_KEY);
+}
+
 function getAdminToken(): string | null {
     try {
+        sessionStorage.removeItem(LEGACY_ADMIN_PW_KEY);
         return sessionStorage.getItem(ADMIN_TOKEN_KEY);
     } catch {
         return null;
@@ -161,8 +167,7 @@ export function setAdminSession(token: string | null, passwordFallback?: string 
         // fallback above is deliberately document-memory only, so a refresh
         // requires a fresh admin login rather than exposing a reusable secret
         // to any script that can access sessionStorage.
-        sessionStorage.removeItem(ADMIN_TOKEN_KEY);
-        sessionStorage.removeItem(LEGACY_ADMIN_PW_KEY);
+        clearStoredAdminCredentials();
         sessionStorage.removeItem(RECOVERY_ADMIN_SESSION_KEY);
         if (token) {
             sessionStorage.setItem(ADMIN_TOKEN_KEY, token);
@@ -182,8 +187,7 @@ export function setRecoveryAdminSession(token: string | null, passwordFallback?:
         // The ownership marker must land first. If storage cannot persist it,
         // do not establish a credential that a reload could no longer identify.
         sessionStorage.setItem(RECOVERY_ADMIN_SESSION_KEY, '1');
-        sessionStorage.removeItem(ADMIN_TOKEN_KEY);
-        sessionStorage.removeItem(LEGACY_ADMIN_PW_KEY);
+        clearStoredAdminCredentials();
         if (token) sessionStorage.setItem(ADMIN_TOKEN_KEY, token);
         else if (passwordFallback) _memAdminPassword = passwordFallback;
         recoveryAdminSessionEstablishedThisDocument = true;
@@ -192,8 +196,7 @@ export function setRecoveryAdminSession(token: string | null, passwordFallback?:
         recoveryAdminSessionEstablishedThisDocument = false;
         _memAdminPassword = null;
         try {
-            sessionStorage.removeItem(ADMIN_TOKEN_KEY);
-            sessionStorage.removeItem(LEGACY_ADMIN_PW_KEY);
+            clearStoredAdminCredentials();
             sessionStorage.removeItem(RECOVERY_ADMIN_SESSION_KEY);
         } catch { /* storage unavailable; outgoing requests retry the marked cleanup */ }
         return false;
@@ -211,8 +214,7 @@ export function clearRecoveryAdminSession(): boolean {
         if (!establishedHere && sessionStorage.getItem(RECOVERY_ADMIN_SESSION_KEY) !== '1') return false;
         recoveryAdminSessionEstablishedThisDocument = false;
         _memAdminPassword = null;
-        sessionStorage.removeItem(ADMIN_TOKEN_KEY);
-        sessionStorage.removeItem(LEGACY_ADMIN_PW_KEY);
+        clearStoredAdminCredentials();
         // Marker last: any partial failure leaves retry authority for the next
         // outgoing request instead of stranding an unmarked credential.
         sessionStorage.removeItem(RECOVERY_ADMIN_SESSION_KEY);
@@ -242,14 +244,8 @@ export function attachAdminSessionCredential(headers: Headers): void {
         headers.set('x-admin-token', adminToken);
         return;
     }
-    // Opportunistically purge the old persisted-password key, but never read
-    // from it. The only password fallback this document can send is the one
-    // currently held in memory after an explicit login.
-    try {
-        sessionStorage.removeItem(LEGACY_ADMIN_PW_KEY);
-    } catch {
-        /* storage disabled */
-    }
+    // The only password fallback this document can send is the one currently
+    // held in memory after an explicit login.
     if (_memAdminPassword && !headers.has('x-admin-password')) headers.set('x-admin-password', _memAdminPassword);
 }
 
