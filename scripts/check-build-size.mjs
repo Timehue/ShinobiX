@@ -401,6 +401,15 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // like the entries above against the ~530 B of observed run-to-run variance.
 // Startup is untouched: the entry chunk and both initial-graph gates still pass,
 // and neither may be raised to mask a regression.
+//
+// 2026-08-26 (same day): NOT raised further. Drained the DuelChallenge type
+// (App.tsx, see App.size.test.ts) into types/duel-challenge.ts — a type-only
+// move that TypeScript erases at compile time, so it costs zero emitted bytes.
+// Re-measured on this exact merged tree: still 7,861,343 B, unchanged. Deferred
+// to the number above (measured directly against this tree) rather than an
+// earlier draft of this entry that guessed a ~45 KB CI-vs-local buffer from a
+// different incident's delta — this file's own history above already prices
+// the real Sentry/build-arg delta at ~7 KB across dozens of entries, not ~200 KB.
 const TOTAL_JS_CSS_FAIL_BYTES = 7_875_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry

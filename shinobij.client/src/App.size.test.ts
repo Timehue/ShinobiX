@@ -310,7 +310,16 @@ import { readFileSync } from "node:fs";
 // drain the DuelChallenge type out to types/ — it has no business living in the
 // monolith — but that refactor touches every importer and does not belong
 // inside an unrelated push.
-const MAX_LINES = 7_588;
+//
+// → 7,538 LOWERED (−50) — that deferred fix, done here. Drained the
+// DuelChallenge type (the PvP/pet-duel challenge inbox shape) verbatim into
+// types/duel-challenge.ts. App.tsx imports it back and re-exports it, so
+// external `import … from "../App"` sites (IncomingChallengeModal, Arena,
+// ArenaDistrictLobby, BattleArenaLobby, player-api, lib/duel-challenge) keep
+// resolving identically. This pays down the +2 from the Warfront-strategy
+// challenge-plan fields plus the sector-work merge, net vs the 7,588 this
+// branch inherited. Exact achieved count, no buffer.
+const MAX_LINES = 7_538;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
