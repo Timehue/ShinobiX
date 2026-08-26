@@ -219,6 +219,17 @@ test("selected-sector canvas preserves stage and stacking order", () => {
         "if (roadExit && isPlayer && isCurrent) onCrossExit(roadExit);",
         "else onSelectTile(index);",
     ], "road crossing before ordinary movement");
+    // Every visual that belongs to a tile must stay nested in that tile button.
+    // An explicitly placed sibling grid item reserves its cell before the 144
+    // auto-placed buttons are laid out, shifting every later button away from
+    // its index. The result is both visual (gates drift inward) and functional
+    // (clicking a square moves to a different tile).
+    assert.doesNotMatch(canvasSource, /SectorGatePlate|gate-plate|gridColumn|gridRow/u);
+    assertOrdered(canvasSource, [
+        '<button',
+        '<SectorGateMarker',
+        '</button>',
+    ], "gate marker stays inside its indexed tile button");
 });
 
 test("WorldMap retains controller and portal ownership around the canvas slots", () => {

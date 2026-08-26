@@ -13,9 +13,9 @@
  * Styles live in world-walk-feel.css, imported by the WorldMap SCREEN
  * (components must not import CSS — it breaks the node test runner).
  */
-import { type CSSProperties, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { SECTOR_POINTS, SECTOR_ROAD_PAIRS } from "../../../shared/sector-links";
-import { sectorName, sectorRegionKey, sectorRegionLabel, type SectorRegionKey } from "../../../shared/sector-geo";
+import { sectorRegionKey, sectorRegionLabel, type SectorRegionKey } from "../../../shared/sector-geo";
 import type { SectorDirection } from "../../../shared/sector-links";
 
 /** Region accent tints (match the world-map treatment per region). */
@@ -33,9 +33,6 @@ const REGION_TINT: Readonly<Record<SectorRegionKey, string>> = {
     deathsgate: "#d9603b",
 };
 
-/** The sector board is a fixed 12x12; gate plates place themselves on it. */
-const GATE_GRID = 12;
-
 export function regionTintForSector(sector: number): string {
     const key = sectorRegionKey(sector);
     return key ? REGION_TINT[key] : "#c9a45c";
@@ -43,14 +40,8 @@ export function regionTintForSector(sector: number): string {
 
 /* ── Gate marker ─────────────────────────────────────────────────────────── */
 
-/** Torii-silhouette gate drawn ON the exit tile, tinted by the destination
- *  region. `ready` = the player stands on the tile (one more step crosses).
- *
- *  Name-free by necessity: the sector board gives every tile
- *  `container-type: size` (so avatars can size in cqmin), and size containment
- *  clips paint — anything drawn past the tile edge disappears. The destination
- *  name therefore rides <SectorGatePlate>, a sibling grid item that is free to
- *  overflow its cell. */
+/** Torii-silhouette gate on an exit tile, tinted by the destination region.
+ *  `ready` = the player stands on the tile (one more step crosses). */
 export function SectorGateMarker({ destinationSector, direction, ready }: {
     destinationSector: number;
     direction: SectorDirection;
@@ -58,11 +49,7 @@ export function SectorGateMarker({ destinationSector, direction, ready }: {
 }) {
     const tint = regionTintForSector(destinationSector);
     return (
-        <span
-            className={`sector-gate ${ready ? "sector-gate-ready" : ""} sector-gate-${direction}`}
-            style={{ ["--gate-tint"]: tint } as CSSProperties}
-            aria-hidden="true"
-        >
+        <span className={`sector-gate ${ready ? "sector-gate-ready" : ""} sector-gate-${direction}`} aria-hidden="true">
             <svg viewBox="0 0 24 24" className="sector-gate-svg" style={{ color: tint }}>
                 {/* kasagi (top lintel, slight wing) */}
                 <path d="M1.5 7.4 Q12 4.6 22.5 7.4 L22.5 9.2 Q12 6.6 1.5 9.2 Z" fill="currentColor" />
@@ -72,53 +59,9 @@ export function SectorGateMarker({ destinationSector, direction, ready }: {
                 <path d="M5.2 8.2 L7.6 8.2 L8.3 22 L5.6 22 Z" fill="currentColor" />
                 <path d="M16.4 8.2 L18.8 8.2 L18.4 22 L15.7 22 Z" fill="currentColor" />
             </svg>
-        </span>
-    );
-}
-
-/** The waystone plate that names where a gate leads.
- *
- *  The destination used to live only in the tile button's `title`, so a board
- *  of four exits read as four unlabelled boxes — invisible on touch, and on
- *  desktop you had to hover each one to learn where it went.
- *
- *  Mounted as its OWN 12x12 grid item over the same cell as its gate (a tile
- *  cannot host it: `container-type: size` clips paint at the tile edge). The
- *  plate then hangs INWARD from the board edge its gate sits on — a north gate
- *  reads below itself, an east gate to its left — so it is never clipped by
- *  the edge it belongs to and never covers the gate it labels.
- *
- *  `aria-hidden`: the tile button already carries the same destination in its
- *  aria-label, and announcing it twice is worse than not drawing it. */
-export function SectorGatePlate({ tile, destinationSector, direction, ready, crossesRegion }: {
-    /** 0-based index into the 12x12 board — the tile the gate sits on. */
-    tile: number;
-    destinationSector: number;
-    direction: SectorDirection;
-    ready: boolean;
-    /** Name the destination REGION too — the "you are leaving" beat. */
-    crossesRegion: boolean;
-}) {
-    const tint = regionTintForSector(destinationSector);
-    const name = sectorName(destinationSector) ?? `Sector ${destinationSector}`;
-    const region = crossesRegion ? sectorRegionLabel(destinationSector) : null;
-    return (
-        <span
-            className={`sector-gate-plate-slot sector-gate-plate-${direction}${ready ? " is-ready" : ""}`}
-            style={{
-                gridColumn: (tile % GATE_GRID) + 1,
-                gridRow: Math.floor(tile / GATE_GRID) + 1,
-                ["--gate-tint"]: tint,
-            } as CSSProperties}
-            aria-hidden="true"
-        >
-            <span className="sector-gate-plate">
-                <b className="sector-gate-arrow">
-                    {direction === "north" ? "↑" : direction === "east" ? "→" : direction === "south" ? "↓" : "←"}
-                </b>
-                <span className="sector-gate-name">{name}</span>
-                {region && <small className="sector-gate-region">{region}</small>}
-            </span>
+            <b className={`sector-gate-chevron is-${direction}`}>
+                {direction === "north" ? "↑" : direction === "east" ? "→" : direction === "south" ? "↓" : "←"}
+            </b>
         </span>
     );
 }
