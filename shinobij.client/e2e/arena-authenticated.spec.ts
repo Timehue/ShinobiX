@@ -385,7 +385,7 @@ async function assertAuthoritativeCombatSurface(page: Page, compact: boolean) {
     await expect(combat.locator(".hex-tile")).toHaveCount(120);
     await expect(combat.getByRole("button", { name: /^Attack/ })).toBeEnabled();
     await expect(combat.getByRole("button", { name: /^Wait/ })).toBeEnabled();
-    await expect(combat.getByRole("button", { name: /Water Needle/ })).toBeEnabled();
+    await expect(combat.getByRole("button", { name: /^Water Needle/ })).toBeEnabled();
 
     const log = combat.getByRole("log", { name: "Battle log" });
     if (compact) {
