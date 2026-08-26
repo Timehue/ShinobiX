@@ -4,6 +4,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 import { APPROVED_ROSTER_MODEL_IDS } from "./pet-3d-roster";
+import { INDIVIDUAL_PET_ANIMATION_MODEL_IDS } from "./pet-proper-animation-assets";
 
 interface GltfPrimitive {
     attributes?: Record<string, number>;
@@ -11,7 +12,7 @@ interface GltfPrimitive {
 }
 
 interface GltfDocument {
-    animations?: unknown[];
+    animations?: Array<{ name?: string }>;
     images?: Array<{ bufferView?: number; uri?: string }>;
     materials?: Array<{ pbrMetallicRoughness?: { baseColorTexture?: { index: number } } }>;
     meshes?: Array<{ primitives?: GltfPrimitive[] }>;
@@ -19,6 +20,11 @@ interface GltfDocument {
     skins?: unknown[];
     textures?: unknown[];
 }
+
+const CORE_CLIPS = [
+    "idle", "idle_2", "walk", "gallop", "gallop_jump", "attack", "idle_hitreact1", "death",
+];
+const IDENTITY_CLIPS = [...CORE_CLIPS, "entrance", "cast", "guard", "rest", "victory"];
 
 interface ManifestEntry {
     approved?: boolean;
@@ -65,7 +71,12 @@ test("all approved roster models are colored, skinned, animated single-pet asset
         assert.equal(gltf.meshes?.length, 1, `${id}: multiple meshes can indicate an untrimmed reconstruction`);
         assert.equal(gltf.nodes?.filter((node) => Number.isInteger(node.mesh)).length, 1, `${id}: model must contain one visible pet mesh`);
         assert.equal(gltf.skins?.length, 1, `${id}: model is missing its production skeleton`);
-        assert.equal(gltf.animations?.length, 8, `${id}: model is missing its reviewed animation set`);
+        const expectedClips = INDIVIDUAL_PET_ANIMATION_MODEL_IDS.has(id) ? CORE_CLIPS : IDENTITY_CLIPS;
+        assert.deepEqual(
+            gltf.animations?.map((animation) => animation.name).sort(),
+            [...expectedClips].sort(),
+            `${id}: model is missing its reviewed animation set`,
+        );
         assert.ok((gltf.images?.length ?? 0) >= 1, `${id}: embedded color atlas is missing`);
         assert.ok(gltf.images?.every((image) => Number.isInteger(image.bufferView) || image.uri?.startsWith("data:")), `${id}: all authored textures must be embedded`);
         assert.ok((gltf.textures?.length ?? 0) >= 1, `${id}: texture binding is missing`);
