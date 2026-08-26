@@ -30,6 +30,7 @@ export function createWarfrontWorkerController(args: {
     red: ArenaSlot[];
     seed: number;
     bluePolicy: WfBuyPolicy;
+    redPolicy: WfBuyPolicy;
     theme: WfTheme;
     blueStance: WfStance;
     redStance: WfStance;
@@ -158,7 +159,7 @@ export function createWarfrontWorkerController(args: {
                     seed: args.seed,
                     options: {
                         bluePolicy: args.bluePolicy,
-                        redPolicy: "balanced",
+                        redPolicy: args.redPolicy,
                         theme: args.theme,
                         blueStance: args.blueStance,
                         redStance: args.redStance,

@@ -36,7 +36,7 @@ import type {
     WarfrontChoice, WarfrontResult, WfBuyPolicy, WfSnapshot,
 } from "../lib/pet-warfront-sim";
 import {
-    wfVerdictScore, WARFRONT_TPS, WF_MAX_SECONDS, WF_PHASE_SKIRMISH, WF_PHASE_SUDDEN, WF_PHASE_WAR, WF_POWERUPS, WF_STACK_CAP, WF_STANCES,
+    wfVerdictScore, WARFRONT_TPS, WF_DOCTRINES, WF_MAX_SECONDS, WF_PHASE_SKIRMISH, WF_PHASE_SUDDEN, WF_PHASE_WAR, WF_POWERUPS, WF_STACK_CAP, WF_STANCES,
     type WfStance, type WfDoctrine,
 } from "../lib/pet-warfront-contract";
 import { createWarfrontWorkerController } from "../lib/pet-warfront-worker-client";
@@ -181,6 +181,7 @@ function objectiveEventLabel(event: WarfrontResult["events"][number]): string | 
     if (event.type === "wardenphase") return `Gate Warden entered Phase ${event.phase === 3 ? "III" : "II"}`;
     if (event.type === "wardenkill") return `${event.team === "blue" ? "Blue" : "Red"} felled the Gate Warden${event.stolen ? " (stolen)" : ""}`;
     if (event.type === "guardianrally") return `${event.team === "blue" ? "Blue" : "Red"} sentinels answered the War Council`;
+    if (event.type === "council") return `${event.team === "blue" ? "Blue" : "Red"} executed ${WF_STANCES.find((stance) => stance.id === event.stance)?.label ?? "a war order"}`;
     if (event.type === "guardiandown") return `${event.team === "blue" ? "Blue" : "Red"} sentinel fell`;
     if (event.type === "statuedown") return `${event.team === "blue" ? "Blue" : "Red"} Guardian Totem shattered`;
     if (event.type === "coreexposed") return `${event.team === "blue" ? "Blue" : "Red"} Ward Seal exposed`;
@@ -188,11 +189,17 @@ function objectiveEventLabel(event: WarfrontResult["events"][number]): string | 
     return null;
 }
 function objectiveEventColor(event: WarfrontResult["events"][number]): string {
-    if (event.type === "minikill" || event.type === "wardenkill" || event.type === "guardianrally") return event.team === "blue" ? "#60a5fa" : "#f87171";
+    if (event.type === "minikill" || event.type === "wardenkill" || event.type === "guardianrally" || event.type === "council") return event.team === "blue" ? "#60a5fa" : "#f87171";
     if (event.type === "statuedown" || event.type === "coredown") return event.by === "blue" ? "#60a5fa" : "#f87171";
     if (event.type === "guardiandown" || event.type === "coreexposed") return event.team === "blue" ? "#f87171" : "#60a5fa";
     if (event.type === "phase") return event.name === "HOLLOW COLLAPSE" ? "#fb7185" : "#a78bfa";
     return "#a78bfa";
+}
+function wfCouncilPolicyLabel(policy: WfBuyPolicy): string {
+    if (policy === "offense") return "Assault Council";
+    if (policy === "defense") return "Fortress Council";
+    if (policy === "off") return "Commanded Council";
+    return "Balanced Council";
 }
 
 const TEAM_COLOR: Record<Team, string> = { blue: "#3b82f6", red: "#ef4444" };
@@ -2159,6 +2166,10 @@ function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; cl
     const campSigil = useRef<THREE.Group>(null);
     const sigilMat = useRef<THREE.MeshBasicMaterial>(null);
     const crown = useRef<THREE.Group>(null);
+    const sealedCore = useRef<THREE.Group>(null);
+    const sealedMat = useRef<THREE.MeshBasicMaterial>(null);
+    const lockWrap = useRef<HTMLDivElement>(null);
+    const lockLabel = useRef<HTMLDivElement>(null);
     // Each camp keeps a distinct LEGENDARY body with an element recolor:
     // Ancient Golem/Earth, Crystal Behemoth/Water, Void Stalker/Shadow, Rift Devourer/Fire.
     const CAMP_BOSS: ReadonlyArray<{ id: string; el: string }> = [
@@ -2222,8 +2233,13 @@ function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; cl
         const hitAge = Math.max(0, seconds - hitAt.current);
         const hitPulse = hitAge < 0.3 ? Math.sin((hitAge / 0.3) * Math.PI) : 0;
         if (root.current) {
-            root.current.visible = m.alive;
-            root.current.position.set(motion.x + f.faceX * lunge, 0, motion.z + f.faceZ * lunge);
+            const [padX, padY] = WF_PADS[idx];
+            root.current.visible = true;
+            root.current.position.set(
+                m.alive ? motion.x + f.faceX * lunge : padX,
+                0,
+                m.alive ? motion.z + f.faceZ * lunge : padY,
+            );
         }
         if (body.current) {
             const breathe = Math.sin(seconds * 2.1 + idx) * 0.012;
@@ -2238,8 +2254,19 @@ function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; cl
         }
         if (sigilMat.current) {
             sigilMat.current.color.set(m.ally ? TEAM_COLOR[m.ally] : glow);
-            sigilMat.current.opacity = m.alive ? 0.32 + strikePulse * 0.28 : 0;
+            const waking = !m.alive && m.spawnSecs <= 15;
+            sigilMat.current.opacity = m.alive
+                ? 0.32 + strikePulse * 0.28
+                : waking ? 0.2 + Math.sin(seconds * 5 + idx) * 0.08 : 0.1;
         }
+        if (sealedCore.current) {
+            sealedCore.current.visible = !m.alive;
+            sealedCore.current.rotation.y = seconds * 0.58 + idx;
+            const waking = m.spawnSecs <= 15;
+            const sealScale = waking ? 1 + Math.sin(seconds * 5 + idx) * 0.12 : 0.86 + Math.sin(seconds * 1.8 + idx) * 0.04;
+            sealedCore.current.scale.setScalar(sealScale);
+        }
+        if (sealedMat.current) sealedMat.current.opacity = m.spawnSecs <= 15 ? 0.72 : 0.34;
         if (crown.current) {
             crown.current.visible = m.alive;
             crown.current.rotation.y = seconds * (m.ally ? 2.1 : -1.35) + idx;
@@ -2247,13 +2274,19 @@ function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; cl
         }
         f.desperate = m.alive && m.hp / Math.max(1, m.maxHp) < 0.4;
         if (hpWrap.current) hpWrap.current.style.opacity = m.alive ? "1" : "0";
+        if (lockWrap.current) lockWrap.current.style.opacity = m.alive ? "0" : "1";
+        if (lockLabel.current && !m.alive) {
+            const firstUnlock = s1.t < WF_PHASE_SKIRMISH * WARFRONT_TPS;
+            const prefix = firstUnlock ? "SEALED" : "REFORMS";
+            lockLabel.current.textContent = `◇ ${prefix} ${mmss(m.spawnSecs)}`;
+        }
         if (hpFill.current) { hpFill.current.style.width = `${Math.max(0, Math.min(100, (m.hp / m.maxHp) * 100))}%`; hpFill.current.style.background = m.ally ? TEAM_COLOR[m.ally] : "#c084fc"; }
         // Recruited → a team-colored ground ring marks it as fighting for a side.
         if (allyRing.current) { allyRing.current.visible = m.alive && !!m.ally; if (m.ally && allyMat.current) allyMat.current.color.set(TEAM_COLOR[m.ally]); }
     });
     if (!config) return null;
     return (
-        <group ref={root} visible={false}>
+        <group ref={root} visible>
             <group ref={campSigil} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.045, 0]} renderOrder={1}>
                 <mesh>
                     <ringGeometry args={[0.88, 1.18, 6]} />
@@ -2262,6 +2295,16 @@ function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; cl
                 <mesh rotation={[0, 0, Math.PI / 6]}>
                     <ringGeometry args={[0.58, 0.63, 6]} />
                     <meshBasicMaterial color={glow} transparent opacity={0.28} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+            </group>
+            <group ref={sealedCore} visible>
+                <mesh position={[0, 0.32, 0]} rotation={[0, Math.PI / 4, 0]}>
+                    <octahedronGeometry args={[0.34, 0]} />
+                    <meshBasicMaterial ref={sealedMat} color={glow} transparent opacity={0.34} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]}>
+                    <ringGeometry args={[0.42, 0.48, 6]} />
+                    <meshBasicMaterial color="#f5d0fe" transparent opacity={0.32} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
                 </mesh>
             </group>
             <group ref={crown} visible={false}>
@@ -2291,6 +2334,11 @@ function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; cl
                     <div style={{ position: "relative", width: 60, height: 5, margin: "0 auto", background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
                         <div ref={hpFill} style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "100%", background: "#c084fc" }} />
                     </div>
+                </div>
+            </Html>
+            <Html position={[0, 1.15, 0]} center pointerEvents="none" distanceFactor={11} zIndexRange={[6, 0]}>
+                <div ref={lockWrap} style={{ textAlign: "center", opacity: 1, transition: "opacity .18s ease", whiteSpace: "nowrap" }}>
+                    <div ref={lockLabel} style={{ color: "#d8b4fe", font: "900 8px Inter, system-ui, sans-serif", letterSpacing: 1.2, textShadow: "0 1px 4px #000" }}>◇ SEALED 1:00</div>
                 </div>
             </Html>
             <mesh ref={allyRing} visible={false} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]} renderOrder={-1}>
@@ -3049,7 +3097,9 @@ function WfTransientStage({ apiRef, qualityId, pressure }: {
     const timers = useRef(new Set<number>());
     const queued = useRef(false);
     const mounted = useRef(true);
+    const pressureRef = useRef(pressure);
     const [, setRevision] = useState(0);
+    useEffect(() => { pressureRef.current = pressure; }, [pressure]);
     const refresh = useCallback(() => {
         if (queued.current) return;
         queued.current = true;
@@ -3068,13 +3118,21 @@ function WfTransientStage({ apiRef, qualityId, pressure }: {
         spawnFx(x, z, key, element, scale, dur) {
             const frames = (key ? bundledJutsuFxFrames(key) : null) ?? bundledJutsuFxFrames(elementVfxKey(element)) ?? bundledJutsuFxFrames("none");
             if (!frames) return;
-            const index = cursor.current.fx++ % fx.current.length;
+            // Adaptive pressure shrinks the live pool, not just DPR. A crowded
+            // late-game fight can emit dozens of readable events per second;
+            // overwriting the oldest minor impact bounds React/R3F nodes and
+            // keeps command/camp spectacle smooth on slower GPUs.
+            const currentPressure = pressureRef.current;
+            const capacity = currentPressure === 2 ? 8 : currentPressure === 1 ? 14 : fx.current.length;
+            const index = cursor.current.fx++ % capacity;
             const id = wfSeq++;
             fx.current[index] = { id, frames, pos: [x, 0.8, z], scale, dur, ...warfrontImpactStyle(key, element) };
             refresh();
         },
         spawnShot(fromX, fromY, toX, toY, element, charged) {
-            const index = cursor.current.shots++ % shots.current.length;
+            const currentPressure = pressureRef.current;
+            const capacity = currentPressure === 2 ? 5 : currentPressure === 1 ? 9 : shots.current.length;
+            const index = cursor.current.shots++ % capacity;
             const dist = Math.hypot(toX - fromX, toY - fromY);
             shots.current[index] = {
                 id: wfSeq++,
@@ -3087,7 +3145,9 @@ function WfTransientStage({ apiRef, qualityId, pressure }: {
             refresh();
         },
         spawnFloater(x, z, text, color, big) {
-            const index = cursor.current.floaters++ % floaters.current.length;
+            const currentPressure = pressureRef.current;
+            const capacity = currentPressure === 2 ? 6 : currentPressure === 1 ? 9 : floaters.current.length;
+            const index = cursor.current.floaters++ % capacity;
             const id = wfSeq++;
             floaters.current[index] = { id, pos: [x, 1.5, z], text, color, big };
             refresh();
@@ -3322,15 +3382,27 @@ function WfDirector({ result, clockRef, nameOf, pushFeed, pushBanner, triggerFla
                     cut(e.t, core.x, core.y, 14, 6, 3.5);
                     clockRef.current.slow = Math.max(clockRef.current.slow, 0.5);
                 } else if (e.type === "minispawn") {
+                    const awakened = snap.minis.find((mini) => mini.padIdx === e.padIdx);
                     pushFeed(`👹 The ${WF_MINI_NAMES[e.padIdx] ?? "Lesser Warden"} has awakened at its shrine`, "#d8b4fe");
+                    if (awakened) {
+                        spawnFx(awakened.x, awakened.y, "shadow", null, 2.1, 560);
+                        spawnFloater(awakened.x, awakened.y, "CAMP UNBOUND", "#e9d5ff", true);
+                    }
                 } else if (e.type === "minikill") {
                     const boss = WF_MINI_NAMES[e.padIdx] ?? "Lesser Warden";
                     const boon = MINI_BOONS[e.padIdx] ?? MINI_BOONS[0];
                     pushBanner(`🤝 ${boss.toUpperCase()} RECRUITED — fights for ${e.team === "blue" ? "BLUE" : "RED"}!`, e.team === "blue" ? "#93c5fd" : "#fca5a5", true);
                     pushFeed(`${boon.icon} ${e.team === "blue" ? "Blue" : "Red"} recruits the ${boss}: ${boon.label} ${boon.desc} (+${350} 🪙)`, e.team === "blue" ? "#60a5fa" : "#f87171");
                     playPetSfx("buff");
+                    triggerFlash(e.team === "blue" ? "rgba(59,130,246,0.28)" : "rgba(239,68,68,0.28)");
                     const mm = snap.minis.find((z) => z.padIdx === e.padIdx);
-                    if (mm) { spawnFx(mm.x, mm.y, "power", null, 2.2, 520); cut(e.t, mm.x, mm.y, 13, 3, 2); }
+                    if (mm) { spawnFx(mm.x, mm.y, "power", null, 2.8, 700); cut(e.t, mm.x, mm.y, 13, 4, 2.4); }
+                    for (const ally of snap.actors) {
+                        if (ally.team !== e.team || ally.state === "respawning") continue;
+                        spawnFx(ally.x, ally.y, e.padIdx === 1 ? "heal" : e.padIdx === 2 ? "shadow" : "power", null, 1.35, 480);
+                    }
+                    shakeRef.current = Math.max(shakeRef.current, 1.1);
+                    clockRef.current.slow = Math.max(clockRef.current.slow, 0.22);
                 } else if (e.type === "miniboon") {
                     const boon = MINI_BOONS[e.padIdx] ?? MINI_BOONS[0];
                     const color = e.team === "blue" ? "#93c5fd" : "#fca5a5";
@@ -3374,7 +3446,10 @@ function WfDirector({ result, clockRef, nameOf, pushFeed, pushBanner, triggerFla
                     pushFeed(label, sudden ? "#f87171" : "#fde047");
                     shakeRef.current = Math.max(shakeRef.current, sudden ? 1.4 : 0.8);
                     playPetSfx(sudden ? "ko" : "buff");
-                    if (sudden) triggerFlash("rgba(239,68,68,0.32)");
+                    if (e.name === "SKIRMISH") {
+                        triggerFlash("rgba(168,85,247,0.24)");
+                        cut(e.t, 0, 0, 23, 4, 2.2);
+                    } else if (sudden) triggerFlash("rgba(239,68,68,0.32)");
                 } else if (e.type === "guardiandown") {
                     const post = snap.guardians[e.team]?.[e.idx];
                     pushBanner("🛡 SENTINEL FALLS — THE GATE LIES UNWARDED", e.by === "blue" ? "#93c5fd" : "#fca5a5");
@@ -3479,6 +3554,20 @@ function WfDirector({ result, clockRef, nameOf, pushFeed, pushBanner, triggerFla
                     const who = e.team === "blue" ? "BLUE" : "RED";
                     pushBanner(`${spec2?.icon ?? "📜"} ${who} ${e.answer ? "ANSWERS" : "ADOPTS"}: ${(spec2?.label ?? e.stance).toUpperCase()}`, e.team === "blue" ? "#93c5fd" : "#fca5a5", true);
                     pushFeed(`📜 ${who[0]}${who.slice(1).toLowerCase()} ${e.answer ? "answers with" : "adopts"} ${spec2?.label ?? e.stance}`, e.team === "blue" ? "#60a5fa" : "#f87171");
+                } else if (e.type === "council") {
+                    const stanceSpec = WF_STANCES.find((stance) => stance.id === e.stance);
+                    const color = e.team === "blue" ? "#93c5fd" : "#fca5a5";
+                    const who = e.team === "blue" ? "BLUE" : "RED";
+                    pushBanner(`📯 ${who} EXECUTES ${stanceSpec?.label.toUpperCase() ?? "WAR ORDER"}`, color, true);
+                    pushFeed(`📯 ${who[0]}${who.slice(1).toLowerCase()} redeploys: ${e.buys} upgrades · ${e.shieldPct}% squad ward · +${e.ult} ultimate tempo`, color);
+                    for (const ally of snap.actors) {
+                        if (ally.team !== e.team || ally.state === "respawning") continue;
+                        spawnFx(ally.x, ally.y, null, e.team === "blue" ? "Water" : "Fire", 1.65, 540);
+                        spawnFloater(ally.x, ally.y, "WAR ORDER", color, false);
+                    }
+                    triggerFlash(e.team === "blue" ? "rgba(59,130,246,0.2)" : "rgba(239,68,68,0.2)");
+                    shakeRef.current = Math.max(shakeRef.current, 0.65);
+                    playPetSfx("buff");
                 } else if (e.type === "buy") {
                     const spec = WF_POWERUPS.find((p) => p.kind === e.kind);
                     pushFeed(`${spec?.icon ?? "▲"} ${nameOf(e.petId)} gains ${spec?.label ?? e.kind}`, e.team === "blue" ? "#93c5fd" : "#fca5a5");
@@ -4078,6 +4167,9 @@ function WfWarCouncil({
         return total;
     }, [buyState, cart]);
     const coinsAvail = coins - cartCost;
+    const councilShieldPct = Math.min(14, 5 + cart.length * 1.5);
+    const councilUlt = Math.min(18, 6 + cart.length * 3);
+    const selectedOrder = WF_STANCES.find((stance) => stance.id === councilStance);
     const btn: CSSProperties = { padding: "5px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid #334155", borderRadius: 8, color: "#e2e8f0", cursor: "pointer", font: "700 12px Inter, system-ui, sans-serif" };
 
     return (
@@ -4087,7 +4179,21 @@ function WfWarCouncil({
                     <div style={{ color: "#d8b4fe", font: "900 16px Inter, system-ui, sans-serif" }}>📯 War Council — round {round}</div>
                     <div style={{ color: "#fde047", font: "800 14px Inter, system-ui, sans-serif" }}>🪙 {coinsAvail}</div>
                 </div>
-                <div style={{ color: "#94a3b8", font: "600 11px Inter, system-ui, sans-serif", marginBottom: 10 }}>Spend the squad&apos;s coins on small edges — the council convenes every 90s of battle. Resuming in {councilLeft}s.</div>
+                <div style={{ color: "#94a3b8", font: "600 11px Inter, system-ui, sans-serif", marginBottom: 10 }}>Issue a field order, lock in power spikes, and redeploy the whole squad. The council convenes every 90s of battle. Resuming in {councilLeft}s.</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 7, marginBottom: 10 }}>
+                    <div style={{ padding: "7px 9px", border: "1px solid rgba(110,231,183,.35)", borderRadius: 9, background: "rgba(16,185,129,.08)" }}>
+                        <div style={{ color: "#6ee7b7", font: "900 9px Inter, system-ui, sans-serif", letterSpacing: 1 }}>FIELD ORDER</div>
+                        <div style={{ color: "#ecfdf5", font: "800 12px Inter, system-ui, sans-serif", marginTop: 2 }}>{selectedOrder?.icon} {selectedOrder?.label}</div>
+                    </div>
+                    <div style={{ padding: "7px 9px", border: "1px solid rgba(96,165,250,.35)", borderRadius: 9, background: "rgba(37,99,235,.08)" }}>
+                        <div style={{ color: "#93c5fd", font: "900 9px Inter, system-ui, sans-serif", letterSpacing: 1 }}>REDEPLOY WARD</div>
+                        <div style={{ color: "#dbeafe", font: "800 12px Inter, system-ui, sans-serif", marginTop: 2 }}>+{councilShieldPct}% squad shield</div>
+                    </div>
+                    <div style={{ padding: "7px 9px", border: "1px solid rgba(216,180,254,.35)", borderRadius: 9, background: "rgba(126,34,206,.08)" }}>
+                        <div style={{ color: "#d8b4fe", font: "900 9px Inter, system-ui, sans-serif", letterSpacing: 1 }}>BATTLE TEMPO</div>
+                        <div style={{ color: "#f3e8ff", font: "800 12px Inter, system-ui, sans-serif", marginTop: 2 }}>+{councilUlt} ultimate charge</div>
+                    </div>
+                </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "6px 4px 10px", borderBottom: "1px solid rgba(51,65,85,0.6)", marginBottom: 6 }}>
                     <div style={{ color: "#e2e8f0", font: "800 12px Inter, system-ui, sans-serif", minWidth: 110 }}>📜 War Order</div>
                     {WF_STANCES.map((stance) => (
@@ -4154,6 +4260,9 @@ export type PetWarfrontMatchProps = {
     /** "off" (default) = interactive War Council at each 90 s round. Any policy = silent
      * auto-buy (the shape co-op replays share). */
     autoBuy?: WfBuyPolicy;
+    /** Opponent's sealed Council policy. PvP/reward replays must pass the
+     * authoritative value so both clients simulate the same red redeploys. */
+    opponentAutoBuy?: Exclude<WfBuyPolicy, "off">;
     /** Opening formation/strategy — the player's pre-match pick. Adjustable at
      * every War Council when the council is interactive. */
     stance?: WfStance;
@@ -4182,7 +4291,7 @@ export type PetWarfrontMatchProps = {
     resultSupplement?: ReactNode;
 };
 
-export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy = "off", opponentStance = "balanced", opponentDoctrine = "vanguard", stance = "balanced", doctrine = "none", allowReseed = false, playbackRate = 1, onExit, onResult, resultActionsLocked = false, settlementPending = false, resultSupplement }: PetWarfrontMatchProps) {
+export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy = "off", opponentAutoBuy = "balanced", opponentStance = "balanced", opponentDoctrine = "vanguard", stance = "balanced", doctrine = "none", allowReseed = false, playbackRate = 1, onExit, onResult, resultActionsLocked = false, settlementPending = false, resultSupplement }: PetWarfrontMatchProps) {
     const safePlaybackRate = Number.isFinite(playbackRate) ? Math.max(0.1, Math.min(30, playbackRate)) : 1;
     // Dev-only deterministic renderer mode for DPR/alignment automation. The
     // production build always keeps the frame governor active; without this QA
@@ -4236,6 +4345,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
             red,
             seed: effectiveSeed,
             bluePolicy: autoBuy,
+            redPolicy: opponentAutoBuy,
             theme,
             blueStance: stance,
             redStance: opponentStance,
@@ -4243,7 +4353,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
             redDoctrine: opponentDoctrine,
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps -- `run` intentionally forces a fresh sim (Restart)
-    }, [blue, red, effectiveSeed, autoBuy, theme, stance, doctrine, opponentStance, opponentDoctrine, run]);
+    }, [blue, red, effectiveSeed, autoBuy, opponentAutoBuy, theme, stance, doctrine, opponentStance, opponentDoctrine, run]);
     const [, refreshWorkerStatus] = useState(0);
     useEffect(() => {
         const unsubscribe = ctl.subscribeStatus(() => refreshWorkerStatus((revision) => revision + 1));
@@ -4409,7 +4519,13 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
             if (autoBuy !== "off") { ctl.advanceRoundPartial(chunk); return; }
             const pend = pendingResume.current;
             if (pend) {
-                if (ctl.advanceRoundPartial(chunk, pend.choices, pend.stance)) pendingResume.current = null;
+                if (ctl.advanceRoundPartial(chunk, pend.choices, pend.stance)) {
+                    pendingResume.current = null;
+                    // The streamed round now owns a fresh frontier. Only release
+                    // the boundary guard here; releasing it in onResume lets the
+                    // just-dismissed Council reopen before this pump can advance.
+                    boundaryBusy.current = false;
+                }
                 return;
             }
             // Round zero is the opening battle, before the first shopping phase.
@@ -4439,7 +4555,6 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
         // Streamed, not synchronous — the pump applies these on its next call.
         pendingResume.current = { choices, stance: stancePick };
         clock.current.playing = true;
-        boundaryBusy.current = false;
     };
 
     useEffect(() => { if (ended) onResult?.(result); }, [ended]);   // eslint-disable-line react-hooks/exhaustive-deps -- fire once on the end edge
@@ -4654,6 +4769,8 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                                     <div key={a.id} style={{ color: "#93c5fd", font: "800 15px Inter, system-ui, sans-serif", textShadow: "0 2px 8px #000" }}>{roster.find((r) => r.id === a.id)?.pet.name ?? a.id} <span style={{ color: "#475569", fontSize: 10 }}>{ROLE_TAG[a.role] ?? ""}</span></div>
                                 ))}
                                 <div style={{ color: "#60a5fa", font: "700 11px Inter, system-ui, sans-serif", marginTop: 6 }}>{WF_STANCES.find((st2) => st2.id === result.snapshots[0].stances.blue)?.icon} {WF_STANCES.find((st2) => st2.id === result.snapshots[0].stances.blue)?.label}</div>
+                                <div style={{ color: "#c4b5fd", font: "700 10px Inter, system-ui, sans-serif", marginTop: 2 }}>{WF_DOCTRINES.find((entry) => entry.id === doctrine)?.icon} {WF_DOCTRINES.find((entry) => entry.id === doctrine)?.label ?? "No doctrine"}</div>
+                                <div style={{ color: "#7dd3fc", font: "700 9px Inter, system-ui, sans-serif", marginTop: 2 }}>📯 {wfCouncilPolicyLabel(autoBuy)}</div>
                             </div>
                             <div style={{ color: "#fde047", font: "900 34px Inter, system-ui, sans-serif", textShadow: "0 0 24px rgba(250,204,21,0.5)" }}>VS</div>
                             <div style={{ textAlign: "left" }}>
@@ -4661,6 +4778,8 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                                     <div key={a.id} style={{ color: "#fca5a5", font: "800 15px Inter, system-ui, sans-serif", textShadow: "0 2px 8px #000" }}><span style={{ color: "#475569", fontSize: 10 }}>{ROLE_TAG[a.role] ?? ""}</span> {roster.find((r) => r.id === a.id)?.pet.name ?? a.id}</div>
                                 ))}
                                 <div style={{ color: "#f87171", font: "700 11px Inter, system-ui, sans-serif", marginTop: 6 }}>{WF_STANCES.find((st2) => st2.id === result.snapshots[0].stances.red)?.icon} {WF_STANCES.find((st2) => st2.id === result.snapshots[0].stances.red)?.label}</div>
+                                <div style={{ color: "#c4b5fd", font: "700 10px Inter, system-ui, sans-serif", marginTop: 2 }}>{WF_DOCTRINES.find((entry) => entry.id === opponentDoctrine)?.icon} {WF_DOCTRINES.find((entry) => entry.id === opponentDoctrine)?.label ?? "No doctrine"}</div>
+                                <div style={{ color: "#fda4af", font: "700 9px Inter, system-ui, sans-serif", marginTop: 2 }}>📯 {wfCouncilPolicyLabel(opponentAutoBuy)}</div>
                             </div>
                         </div>
                     </div>

@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
+import { randomInt } from 'node:crypto';
 import { kv } from '../_storage.js';
 import { cors, parseJsonBody, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -44,6 +45,7 @@ const CHALLENGE_INPUT_FIELDS = new Set([
     'challengerPetId', 'petBattleSeed', 'responderPetId', 'responderPet', 'petParty',
     'challengerPetIds', 'responderPetIds', 'responderParty', 'arenaMatch', 'arenaSize',
     'challengerTeamIds', 'responderTeam', 'createdAt', 'mode', 'clanWarPoints',
+    'challengerWarfrontPlan', 'responderWarfrontPlan',
     'challengerPetRating', 'responderPetRating', 'petRankedToken', 'sectorAttack',
     'rankedMatchId', 'rankedSeasonId', 'rankedSeasonEpoch',
     'kageChallengeId', 'kageVillage', 'battleId', 'accepted', 'declined',
@@ -55,6 +57,23 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
 
 function boundedString(value: unknown, max = 100): string {
     return typeof value === 'string' ? value.trim().slice(0, max) : '';
+}
+
+type SafeWarfrontChallengePlan = {
+    buyPolicy: 'balanced' | 'offense' | 'defense';
+    stance: 'balanced' | 'siege' | 'jungle' | 'headhunt' | 'turtle';
+    doctrine: 'vanguard' | 'bulwark' | 'zealot' | 'warden-pact';
+};
+
+function safeWarfrontChallengePlan(value: unknown): SafeWarfrontChallengePlan | null {
+    if (!isPlainRecord(value)) return null;
+    const buyPolicy = value.buyPolicy;
+    const stance = value.stance;
+    const doctrine = value.doctrine;
+    if (!(buyPolicy === 'balanced' || buyPolicy === 'offense' || buyPolicy === 'defense')) return null;
+    if (!(stance === 'balanced' || stance === 'siege' || stance === 'jungle' || stance === 'headhunt' || stance === 'turtle')) return null;
+    if (!(doctrine === 'vanguard' || doctrine === 'bulwark' || doctrine === 'zealot' || doctrine === 'warden-pact')) return null;
+    return { buyPolicy, stance, doctrine };
 }
 
 function isBattleId(value: unknown): value is string {
@@ -359,6 +378,13 @@ async function buildNewChallenge(
     if (raw.petParty === true) safe.petParty = true;
     if (raw.arenaMatch === true) safe.arenaMatch = true;
     if (raw.arenaSize === 2 || raw.arenaSize === 4) safe.arenaSize = raw.arenaSize;
+    if (raw.arenaMatch === true) {
+        const challengerWarfrontPlan = safeWarfrontChallengePlan(raw.challengerWarfrontPlan);
+        if (!challengerWarfrontPlan) {
+            return { ok: false, status: 400, error: 'Hollow Warfront challenges require a complete sealed challenger battle plan.' };
+        }
+        safe.challengerWarfrontPlan = challengerWarfrontPlan;
+    }
     if (rankedAuthority) {
         safe.rankedMatchId = rankedAuthority.matchId;
         safe.rankedSeasonId = rankedAuthority.seasonId;
@@ -371,7 +397,8 @@ async function buildNewChallenge(
     if (petIds.length === 2) safe.challengerPetIds = petIds;
     const teamIds = boundedIdList(raw.challengerTeamIds, 4).filter((id) => !!petById(senderCharacter, id));
     if (teamIds.length) safe.challengerTeamIds = teamIds;
-    if (Number.isSafeInteger(raw.petBattleSeed) && Number(raw.petBattleSeed) >= 0) safe.petBattleSeed = Number(raw.petBattleSeed);
+    if (raw.arenaMatch === true) safe.petBattleSeed = randomInt(1, 2 ** 31);
+    else if (Number.isSafeInteger(raw.petBattleSeed) && Number(raw.petBattleSeed) >= 0) safe.petBattleSeed = Number(raw.petBattleSeed);
     const petRankedToken = boundedString(raw.petRankedToken, 100);
     if (petRankedToken) safe.petRankedToken = petRankedToken;
     if (mode === 'rankedPet') safe.challengerPetRating = Number(senderCharacter.petRankedRating ?? 1000);
@@ -426,6 +453,10 @@ async function buildResolutionNotice(
             : [];
         const responseTeam = responseTeamIds.map((id) => petById(responder, id)).filter(Boolean) as Record<string, unknown>[];
         if (responseTeam.length) notice.responderTeam = stripPetInlineImages(responseTeam);
+        if (base.arenaMatch === true) {
+            const responderWarfrontPlan = safeWarfrontChallengePlan(raw.responderWarfrontPlan);
+            if (responderWarfrontPlan) notice.responderWarfrontPlan = responderWarfrontPlan;
+        }
         if (record.mode === 'rankedPet') notice.responderPetRating = Number(responder.petRankedRating ?? 1000);
     }
     return notice;
@@ -523,6 +554,10 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
                 const arenaSize = stored.arenaMatch === true && (stored.arenaSize === 2 || stored.arenaSize === 4)
                     ? stored.arenaSize
                     : null;
+                if (arenaSize && (!safeWarfrontChallengePlan(stored.challengerWarfrontPlan)
+                    || !safeWarfrontChallengePlan(rawChallenge.responderWarfrontPlan))) {
+                    return res.status(409).json({ error: 'Both Warfront battle plans must be sealed before acceptance.' });
+                }
                 const challengerIds = arenaSize
                     ? boundedIdList(stored.challengerTeamIds, arenaSize)
                     : stored.petParty === true
