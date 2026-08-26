@@ -217,6 +217,7 @@ test("interactive buys: valid choice deducts coins + adds a stack; invalid ones 
     ctl.advanceRound([
         { petIndex: 0, kind: "strike" },
         { petIndex: 99, kind: "strike" },            // no such pet — skipped
+        { petIndex: 0, kind: "__proto__" as never },  // untrusted worker payload — skipped
     ]);
     const buyAfter = ctl.buyState("blue");
     assert.equal(buyAfter[0].stacks.strike, 1);

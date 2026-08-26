@@ -193,7 +193,7 @@ describe('google sign-in', () => {
                 if (expected === null) {
                     assert.equal(problem, null, `"${value}" should be accepted`);
                 } else {
-                    assert.match(String(problem), new RegExp(expected, 'i'), `"${value}" should be refused`);
+                    assert.ok(String(problem).toLowerCase().includes(expected.toLowerCase()), `"${value}" should be refused`);
                 }
             }
         });

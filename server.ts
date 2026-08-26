@@ -902,7 +902,7 @@ async function runDbHealthProbe(): Promise<{
         const { kv, saveStoreKind } = await import('./api/_storage.js');
         saveStore = saveStoreKind;
         const tag = `${process.pid}-${Date.now()}`;
-        const token = Math.random().toString(36).slice(2);
+        const token = randomUUID();
 
         // Base store: write → read-back → delete.
         const baseKey = `health:probe:${tag}`;

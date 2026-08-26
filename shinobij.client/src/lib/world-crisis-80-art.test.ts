@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import sharp from "sharp";
 
@@ -18,8 +18,9 @@ const assets = [
 test("The Hollow Gate Reckoning ships production event art at bounded delivery sizes", async () => {
     for (const asset of assets) {
         const url = new URL(`../assets/world-crisis-80/${asset}`, import.meta.url);
-        const bytes = statSync(url).size;
-        const metadata = await sharp(readFileSync(url)).metadata();
+        const contents = readFileSync(url);
+        const bytes = contents.byteLength;
+        const metadata = await sharp(contents).metadata();
         assert.equal(metadata.format, "webp", `${asset} must ship as WebP`);
         assert.ok(bytes > 150_000, `${asset} must contain production artwork`);
         assert.ok(bytes < 320 * 1024, `${asset} must remain below the 320 KiB event-art ceiling`);

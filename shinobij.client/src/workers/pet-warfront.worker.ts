@@ -81,6 +81,10 @@ function initialize(message: WarfrontWorkerInit) {
 }
 
 self.onmessage = (event: MessageEvent<WarfrontWorkerCommand>) => {
+    // Dedicated-worker messages normally carry an empty origin. Reject any
+    // non-empty origin that does not match the worker script's own origin so a
+    // future shared/window bridge cannot silently widen this trust boundary.
+    if (event.origin !== "" && event.origin !== self.location.origin) return;
     const message = event.data;
     if (message.type === "init") initialize(message);
     else runRound(message.choices, message.stance);
