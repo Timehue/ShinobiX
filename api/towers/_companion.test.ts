@@ -49,13 +49,23 @@ describe('summoned companion (mission pet)', () => {
     });
 
     it('seals only the ACTIVE pet from the save', () => {
-        const pets = [{ id: 'a', name: 'A', hp: 10, attack: 1 }, { id: 'b', name: 'B', hp: 50, attack: 8 }];
+        const pets = [{ id: 'a', name: 'A', level: 50, hp: 10, attack: 1 }, { id: 'b', name: 'B', level: 50, hp: 50, attack: 8 }];
         assert.equal(sealCompanionFromSave({ pets })?.name, undefined, 'no activePetId → no companion');
         assert.equal(sealCompanionFromSave({ pets, activePetId: 'zz' }), null, 'unknown id → no companion');
         const sealed = sealCompanionFromSave({ pets, activePetId: 'b' });
         assert.equal(sealed?.petId, 'b');
         assert.equal(sealed?.hp, 50);
         assert.ok((sealed?.damage ?? 0) >= 20);
+        assert.equal(
+            sealCompanionFromSave({ pets: [{ ...pets[1], level: 49, unlockedForPve: true }], activePetId: 'b' }),
+            null,
+            'every sub-50 pet stays locked even if an old save says PvE is unlocked',
+        );
+        assert.equal(
+            sealCompanionFromSave({ pets: [{ ...pets[1], unlockedForPve: false }], activePetId: 'b' })?.petId,
+            'b',
+            'level 50 is the authoritative summon boundary',
+        );
     });
 
     // The load-bearing invariant: a temporary pet must NEVER hold a lost run open.
@@ -168,7 +178,7 @@ describe('summoned companion (mission pet)', () => {
 
     it('uses the pet NICKNAME on the field, and seals its PVE gear', () => {
         const pets = [{
-            id: 'b', name: 'Wolf Pup', nickname: '  Fang  ', hp: 50, attack: 8,
+            id: 'b', name: 'Wolf Pup', nickname: '  Fang  ', level: 50, hp: 50, attack: 8,
             loadout: { pve: 'pve-pack-alpha-crest', pveDurability: 10 },
         }];
         const sealed = sealCompanionFromSave({ pets, activePetId: 'b' });

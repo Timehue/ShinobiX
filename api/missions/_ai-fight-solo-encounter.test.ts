@@ -146,6 +146,18 @@ describe('live generic-AI Solo-PvE encounter', () => {
 
         assert.equal(withPet.pendingCompanion?.petId, 'pet-1');
         assert.equal(withPet.pendingCompanion?.name, 'Kuro');
+        const underLevel = build({
+            sessionId: 'under-level-pet',
+            save: makeSave({
+                activePetId: 'pet-1',
+                pets: [{
+                    id: 'pet-1', name: 'Kuro', level: 49, unlockedForPve: true,
+                    rarity: 'rare', element: 'Fire', trait: 'Balanced', hp: 400,
+                    attack: 60, defense: 40, speed: 50, happiness: 100,
+                }],
+            }),
+        });
+        assert.equal(underLevel.pendingCompanion, undefined, 'sub-50 pets never enter the sealed encounter');
         assert.equal(build({ sessionId: 'without-pet' }).pendingCompanion, undefined);
     });
 

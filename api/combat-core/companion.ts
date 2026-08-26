@@ -84,7 +84,8 @@ export function sealCompanionFromSave(char: Record<string, unknown>, now = Date.
     if (!activeId) return null;
     const pet = pets.find((candidate) => candidate && String(candidate.id ?? '') === activeId);
     if (!pet) return null;
-    if (pet.unlockedForPve === false && Number(pet.level ?? 0) < 50) return null;
+    const level = Math.max(0, Math.floor(Number(pet.level ?? 0)) || 0);
+    if (level < 50) return null;
     if (petCombatBusyReason(char, pet as Record<string, unknown>, now)) return null;
     const moves: CompanionMove[] = (Array.isArray(pet.jutsus) ? pet.jutsus : [])
         .filter((jutsu) => jutsu && typeof jutsu.name === 'string' && jutsu.name)

@@ -107,7 +107,24 @@ test("the PvP battle log uses the scrollable, round-grouped semantic feed", () =
     );
 });
 
-test("combat jutsu cards keep full-bleed art and separated overlay metadata", () => {
+test("collapsing desktop chat widens the log without borrowing mobile tab state", () => {
+    assert.match(source, /<CombatHudLayout className=\{battleChatVisible \? undefined : "combat-log-wide combat-chat-collapsed"\}>/);
+    assert.match(source, /className=\{`battle-chat-panel battle-chat-col\$\{battleChatVisible \? "" : " battle-chat-hidden"\}`\}/);
+    assert.match(source, /\[battleChatMessages, battleChatVisible\]/, "reopening chat must restore the feed at its newest message");
+    assert.match(
+        battleSkinCss,
+        /@media \(min-width: 1280px\) and \(min-height: 700px\)[\s\S]*?#combat \.combat-layout\.combat-log-wide \.combat-text-log\s*\{[^}]*grid-column: 3 \/ 6 !important/s,
+    );
+    assert.match(
+        battleSkinCss,
+        /#combat \.combat-layout\.combat-chat-collapsed > \.battle-chat-col\.battle-chat-hidden\s*\{[^}]*position: absolute !important;[^}]*height: 46px !important/s,
+    );
+    const desktopExpansion = battleSkinCss.slice(battleSkinCss.indexOf("Desktop-only command center"));
+    assert.doesNotMatch(desktopExpansion, /\.bt-log[^}]*grid-column: 3 \/ 6/);
+    assert.doesNotMatch(desktopExpansion, /\.is-expanded[^}]*grid-column: 3 \/ 6/);
+});
+
+test("combat cards keep complete art and separated overlay metadata", () => {
     assert.match(
         battleSkinCss,
         /html body > \.arena-fullscreen\.shinobi-combat-shell \.combat-jutsu-button\s*\{[^}]*position:\s*relative\s*!important;[^}]*display:\s*block\s*!important;[^}]*padding:\s*0\s*!important;/s,
@@ -118,6 +135,15 @@ test("combat jutsu cards keep full-bleed art and separated overlay metadata", ()
         /html\[data-vp\] body > \.arena-fullscreen\.shinobi-combat-shell \.combat-jutsu-thumb\s*\{[^}]*position:\s*absolute\s*!important;[^}]*inset:\s*0\s*!important;[^}]*height:\s*100%\s*!important;[^}]*max-height:\s*none\s*!important;/s,
         "jutsu artwork should fill the card instead of collapsing to a 28–44px strip",
     );
+    assert.match(
+        battleSkinCss,
+        /#combat \.combat-jutsu-thumb > img\s*\{[^}]*object-fit: contain !important;[^}]*object-position: center !important/s,
+        "desktop jutsu, weapon, and item art must stay fully visible instead of being center-cropped",
+    );
+    assert.match(source, /localJutsuArtById\[jutsu\.id\][\s\S]*?localItemArtById\[item\.id\]/,
+        "the local equipped catalogs must restore art stripped from the sealed PvP payload");
+    assert.ok((source.match(/className="combat-jutsu-fallback-icon"/g) ?? []).length >= 4,
+        "every combat card category needs a fallback behind failed artwork");
     assert.match(
         battleSkinCss,
         /html\[data-vp\] body > \.arena-fullscreen\.shinobi-combat-shell \.combat-jutsu-name\s*\{[^}]*position:\s*absolute\s*!important;[^}]*inset:\s*auto 0 17px\s*!important;[^}]*-webkit-line-clamp:\s*2\s*!important;[^}]*background:\s*linear-gradient/s,
