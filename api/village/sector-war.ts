@@ -815,7 +815,7 @@ async function doAttack(req: VercelRequest, res: VercelResponse, identity: Ident
     // the authoritative terrain and durable contest token are both sealed first.
     const battleKey = `pvp:${battleId}`;
     const lockKey = `${battleKey}:lock`;
-    const lockToken = `sector-war:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+    const lockToken = `sector-war:${randomUUID()}`;
     let lockResult: unknown = null;
     for (let attempt = 0; attempt < 4; attempt++) {
         lockResult = await kv.set(lockKey, lockToken, { nx: true, ex: 3 } as never);

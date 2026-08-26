@@ -56,10 +56,11 @@ test("Tower art stays versioned, centralized, and honest about unknown combatant
     for (const [artKey, binding] of expectedStoryArt) {
         assert.match(manifest, new RegExp(`"${artKey}":\\s*${binding}`));
         const floorArt = new URL(`../assets/towers/story/${artKey}.webp`, import.meta.url);
-        const bytes = statSync(floorArt).size;
+        const contents = readFileSync(floorArt);
+        const bytes = contents.byteLength;
         assert.ok(bytes > 200_000, `${artKey}.webp must contain production floor art`);
         assert.ok(bytes < 512 * 1024, `${artKey}.webp must remain below the 512 KiB landscape ceiling`);
-        const metadata = await sharp(readFileSync(floorArt)).metadata();
+        const metadata = await sharp(contents).metadata();
         assert.equal(metadata.format, "webp", `${artKey} must ship as WebP`);
         assert.deepEqual([metadata.width, metadata.height], [1536, 1024], `${artKey} must preserve the certified 3:2 crop`);
     }
@@ -83,10 +84,11 @@ test("the Story floor list paints from icon-sized thumbnails, not the landscape 
     let thumbBytes = 0;
     for (const artKey of [...authoredKeys, "key-art", "stormglass-citadel"]) {
         const thumb = new URL(`../assets/towers/thumbs/${artKey}.webp`, import.meta.url);
-        const bytes = statSync(thumb).size;
+        const contents = readFileSync(thumb);
+        const bytes = contents.byteLength;
         assert.ok(bytes < 24 * 1024, `${artKey} thumbnail must stay under the 24 KiB icon ceiling (got ${bytes})`);
         thumbBytes += bytes;
-        const metadata = await sharp(readFileSync(thumb)).metadata();
+        const metadata = await sharp(contents).metadata();
         assert.equal(metadata.format, "webp", `${artKey} thumbnail must ship as WebP`);
         assert.deepEqual([metadata.width, metadata.height], [240, 160], `${artKey} thumbnail must keep the 240x160 icon crop`);
     }

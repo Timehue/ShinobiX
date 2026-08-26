@@ -476,7 +476,10 @@ async function pickDefaultBossAi(weekKey: string): Promise<{ aiId: string; bossN
             // Prefer boss AIs; otherwise any AI.
             const bosses = list.filter((profile) => profile.isBossAi === true);
             const pool = bosses.length > 0 ? bosses : list;
-            const pick = pool[Math.floor(Math.random() * pool.length)];
+            // Keep admin-authored bosses on the same stable weekly rotation as
+            // the builtin roster. A process restart must not silently change
+            // the boss players were shown for this week.
+            const pick = pool[seededWeeklyBossIndex(weekKey, pool.length)];
             return { aiId: pick.id, ...(typeof pick.name === 'string' ? { bossName: pick.name } : {}) };
         }
     } catch {
