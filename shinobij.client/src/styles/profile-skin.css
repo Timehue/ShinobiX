@@ -2791,11 +2791,11 @@
 }
 
 .profile-page-card .jutsu-detail-effects .jutsu-effect-card {
-    padding: 7px !important;
+    padding: 8px !important;
 }
 
 .profile-page-card .jutsu-detail-effects .jutsu-effect-card :where(p, small, span, strong) {
-    font-size: 0.56rem !important;
+    font-size: 0.6rem !important;
 }
 
 .profile-page-card .jutsu-detail-equip,

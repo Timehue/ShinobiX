@@ -1,6 +1,7 @@
 import { groupBattleLogActions, type BattleLogAction } from "./battle-log-format";
 
 const ROUND_LOG_LINE = /^--- Round (\d+) ---$/i;
+const HIDDEN_AUTOMATION_LINE = /has no legal actions remaining and ends the turn automatically\.?$/i;
 
 export type PlainCombatLogRound = {
     round: number;
@@ -43,7 +44,7 @@ export function groupPlainCombatLog(
 
     for (const rawLine of lines) {
         const line = (rawLine ?? "").trim();
-        if (!line) continue;
+        if (!line || HIDDEN_AUTOMATION_LINE.test(line)) continue;
         const marker = line.match(ROUND_LOG_LINE);
         if (marker) {
             flush();

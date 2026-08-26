@@ -416,9 +416,10 @@ textarea:focus-visible,
     --vfx-a: #f8fafc;
     --vfx-b: var(--text-dim);
     --vfx-c: rgba(248, 250, 252, 0.18);
+    --vfx-render-scale: clamp(0.84, var(--vfx-asset-scale, 1), 1.08);
     position: absolute;
-    width: calc(66px * var(--vfx-scale, 1));
-    height: calc(66px * var(--vfx-scale, 1));
+    width: calc(54px * var(--vfx-scale, 1));
+    height: calc(54px * var(--vfx-scale, 1));
     transform: translate(-50%, -50%);
     border-radius: 50%;
     pointer-events: none;
@@ -433,8 +434,8 @@ textarea:focus-visible,
     will-change: auto;
 }
 .pvp-combat-vfx-tile {
-    width: calc(50px * var(--vfx-scale, 1));
-    height: calc(50px * var(--vfx-scale, 1));
+    width: calc(42px * var(--vfx-scale, 1));
+    height: calc(42px * var(--vfx-scale, 1));
     animation-name: pvp-vfx-tile-pulse;
 }
 .pvp-vfx-ring,
@@ -459,8 +460,8 @@ textarea:focus-visible,
     position: absolute;
     left: 50%;
     top: 50%;
-    width: 158%;
-    height: 158%;
+    width: 126%;
+    height: 126%;
     object-fit: contain;
     border: 0;
     pointer-events: none;
@@ -477,19 +478,19 @@ textarea:focus-visible,
 }
 .pvp-vfx-asset-ground {
     top: 54%;
-    width: 166%;
-    height: 166%;
+    width: 132%;
+    height: 132%;
     transform: translate(-50%, calc(-50% + var(--vfx-asset-lift, 0px))) perspective(360px) rotateX(11deg) scale(var(--vfx-render-scale, var(--vfx-asset-scale, 1.42)));
 }
 .pvp-vfx-asset-slash {
-    width: 170%;
-    height: 170%;
+    width: 136%;
+    height: 136%;
     transform: translate(-50%, calc(-50% + var(--vfx-asset-lift, 0px))) rotate(-5deg) scale(var(--vfx-render-scale, var(--vfx-asset-scale, 1.42)));
 }
 .pvp-vfx-asset-ward {
     top: 52%;
-    width: 172%;
-    height: 172%;
+    width: 132%;
+    height: 132%;
     transform: translate(-50%, calc(-52% + var(--vfx-asset-lift, 0px))) scale(var(--vfx-render-scale, var(--vfx-asset-scale, 1.42)));
 }
 .pvp-vfx-ring {
