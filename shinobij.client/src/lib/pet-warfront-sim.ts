@@ -2781,22 +2781,6 @@ function tick(st: WfState, snapshotEvery: number) {
 }
 
 // ── Buying ───────────────────────────────────────────────────────────────────
-const KIND_IDX: Record<WfPowerupKind, number> = { strike: 0, guard: 1, vitality: 2, swift: 3, mend: 4 };
-
-function powerupKindIndex(kind: WfPowerupKind): number | null {
-    // Choices can arrive over the worker boundary, where TypeScript's union is
-    // not a runtime guarantee. An explicit allowlist also prevents special
-    // object keys such as `__proto__` from reaching computed property access.
-    switch (kind) {
-        case "strike": return KIND_IDX.strike;
-        case "guard": return KIND_IDX.guard;
-        case "vitality": return KIND_IDX.vitality;
-        case "swift": return KIND_IDX.swift;
-        case "mend": return KIND_IDX.mend;
-        default: return null;
-    }
-}
-
 /** Capturing a Lesser Warden issues a map-wide field order: surviving
  * sentinels repair slightly, overcharge their lane coverage, and begin warding
  * nearby allied pets while the captured boss leads the counter-push. */
@@ -2818,9 +2802,16 @@ function activateGuardianRally(st: WfState, team: Team, padIdx: number) {
 function applyPowerup(st: WfState, team: Team, petSlot: number, kind: WfPowerupKind): boolean {
     const pet = st.pets.find((p) => p.team === team && p.slot === petSlot);
     if (!pet) return false;
-    const kindIdx = powerupKindIndex(kind);
-    if (kindIdx === null) return false;
-    const currentStacks = [pet.stacks.strike, pet.stacks.guard, pet.stacks.vitality, pet.stacks.swift, pet.stacks.mend][kindIdx];
+    // Choices cross a worker boundary, so the union is not a runtime guarantee.
+    // Resolve only the five supported keys before any computed array access.
+    let kindIdx: number;
+    let currentStacks: number;
+    if (kind === "strike") { kindIdx = 0; currentStacks = pet.stacks.strike; }
+    else if (kind === "guard") { kindIdx = 1; currentStacks = pet.stacks.guard; }
+    else if (kind === "vitality") { kindIdx = 2; currentStacks = pet.stacks.vitality; }
+    else if (kind === "swift") { kindIdx = 3; currentStacks = pet.stacks.swift; }
+    else if (kind === "mend") { kindIdx = 4; currentStacks = pet.stacks.mend; }
+    else return false;
     if (currentStacks >= WF_STACK_CAP) return false;
     const cost = wfPowerupCost(st.stacksBought[team][petSlot][kindIdx]);
     if (st.coins[team] < cost) return false;
