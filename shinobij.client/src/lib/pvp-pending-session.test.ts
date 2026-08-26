@@ -121,6 +121,16 @@ describe("pending PvP browser recovery", () => {
         assert.equal(recovered?.role, "p1");
     });
 
+    it("treats a successful empty recovery probe as no pending session", async () => {
+        let requestedUrl = "";
+        const fetchFn = (async (input) => {
+            requestedUrl = String(input);
+            return new Response(null, { status: 204 });
+        }) as typeof fetch;
+        assert.equal(await fetchPendingPvpRecovery(fetchFn, "Alice"), null);
+        assert.match(requestedUrl, /[?&]recoveryProbeVersion=2(?:&|$)/);
+    });
+
     it("routes the recovered body through the same structural parser as live frames", async () => {
         const malformed = { ...session(), p1: { name: "Alice" } };
         const fetchFn = (async () => new Response(JSON.stringify({
@@ -310,7 +320,7 @@ describe("pending PvP browser recovery", () => {
         let calls = 0;
         const fetchFn = (async () => {
             calls += 1;
-            if (calls < 3) return new Response(null, { status: calls === 1 ? 503 : 404 });
+            if (calls < 3) return new Response(null, { status: calls === 1 ? 503 : 204 });
             return new Response(JSON.stringify({ battleId: sealed.battleId, role: "p1", session: sealed }), { status: 200 });
         }) as typeof fetch;
         const recovered = await fetchPendingPvpRecoveryWithRetry(fetchFn, "Alice", {

@@ -23,7 +23,7 @@ import { createPortal } from "react-dom";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html, Sparkles } from "@react-three/drei";
 import { EffectComposer } from "@react-three/postprocessing";
-import { BloomEffect, ChromaticAberrationEffect, GodRaysEffect } from "postprocessing";
+import { BloomEffect, ChromaticAberrationEffect, GodRaysEffect, SMAAEffect, SMAAPreset } from "postprocessing";
 import { ZoomBlurEffect } from "../lib/showdown-post";
 import { petBloomEnabled } from "../lib/pet-coliseum-flag";
 import * as THREE from "three";
@@ -670,13 +670,14 @@ function StageAmbient({ stage }: { stage: StageKey }) {
 function ShowdownPostStack({ sun, fxRef }: { sun: THREE.Mesh; fxRef: React.MutableRefObject<SceneFx> }) {
     const camera = useThree((s) => s.camera);
     const effects = useMemo(() => {
+        const smaa = new SMAAEffect({ preset: SMAAPreset.HIGH });
         const rays = new GodRaysEffect(camera, sun, {
             samples: 36, density: 0.92, decay: 0.94, weight: 0.35, exposure: 0.3, clampMax: 0.95, blur: true,
         });
         const bloom = new BloomEffect({ intensity: 0.85, luminanceThreshold: 0.52, luminanceSmoothing: 0.32, mipmapBlur: true });
         const ca = new ChromaticAberrationEffect({ offset: new THREE.Vector2(0.0003, 0.0002), radialModulation: false, modulationOffset: 0 });
         const zoom = new ZoomBlurEffect();
-        return { rays, bloom, ca, zoom, list: [rays, bloom, ca, zoom] };
+        return { rays, bloom, ca, zoom, list: [smaa, rays, bloom, ca, zoom] };
     }, [camera, sun]);
     useEffect(() => () => { for (const e of effects.list) e.dispose(); }, [effects]);
     const fxHandle = useRef(effects);
@@ -693,7 +694,12 @@ function ShowdownPostStack({ sun, fxRef }: { sun: THREE.Mesh; fxRef: React.Mutab
         fxHandle.current.zoom.setStrength(punch * 0.085);
     });
     return (
-        <EffectComposer>
+        // postprocessing 6.39.x can allocate incompatible fixed/float depth
+        // formats when a depth effect (God Rays) is added to an MSAA composer
+        // after its first render. Chrome then rejects the depth resolve every
+        // frame. Keep the HDR/depth pipeline and replace only composer MSAA
+        // with SMAA above; this remains antialiased without the invalid blit.
+        <EffectComposer multisampling={0}>
             {effects.list.map((e, i) => <primitive key={i} object={e} />)}
         </EffectComposer>
     );
