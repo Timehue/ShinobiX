@@ -79,6 +79,7 @@ describe("transient 401 tolerance", () => {
         Object.defineProperty(globalThis, "sessionStorage", { configurable: true, value: storage });
         try {
             setAdminSession(null, "legacy-admin-password");
+            assert.equal(storage.getItem("admin:pw"), null, "reusable admin passwords must remain memory-only");
             const operatorHeaders = new Headers();
             attachAdminSessionCredential(operatorHeaders);
             assert.equal(operatorHeaders.get("x-admin-password"), "legacy-admin-password");
@@ -119,6 +120,7 @@ describe("transient 401 tolerance", () => {
             assert.equal(resumedPlayerHeaders.get("x-admin-password"), null);
 
             setAdminSession(null, "ordinary-admin-password");
+            assert.equal(storage.getItem("admin:pw"), null, "ordinary admin fallback must not be persisted");
             assert.equal(clearRecoveryAdminSession(), false, "ordinary AdminPanel credentials have no recovery marker");
             const ordinaryAdminHeaders = new Headers();
             attachAdminSessionCredential(ordinaryAdminHeaders);

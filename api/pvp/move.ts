@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { randomInt } from 'crypto';
+import { randomInt, randomUUID } from 'crypto';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -1203,7 +1203,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const lockKey = `${key}:lock`;
-        const lockToken = `${role}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+        const lockToken = `${role}:${randomUUID()}`;
         // Per-session move lock, 3s TTL. The critical section is <50ms in the
         // common case; 3s is generous headroom while still releasing quickly if
         // a process dies mid-move. Reward idempotency does NOT rely on this lock
