@@ -13,10 +13,14 @@ import {
 } from "../src/lib/pet-proper-animation-assets.ts";
 
 /**
- * Bakes proper combat clips into every production pet GLB that does not already
- * have a more detailed individual animation bank. The output is idempotent: on
- * rerun, the previously appended authored data is trimmed back to the recorded
- * source boundary before a fresh bank is written.
+ * Bakes identity-directed combat clips into every production pet GLB that does
+ * not already have a more detailed individual animation bank. Each output has
+ * the eight core movement/combat takes plus five dedicated presentation takes:
+ * entrance, cast, guard, rest and victory. Their timing, weight transfer,
+ * handedness and silhouette accents are derived from the pet's stable identity
+ * sheet, not selected from a small preset list. The output is idempotent: on
+ * rerun, previously appended animation data is trimmed to the recorded source
+ * boundary before a fresh bank is written.
  */
 
 const align4 = (value) => (value + 3) & ~3;
@@ -102,7 +106,7 @@ function tuningFor(pet, family, profile) {
     });
     // Family language remains the foundation, but no two species inherit the
     // same numeric take. These dimensions are already consumed throughout all
-    // eight banks, so the identity sheet changes breathing, gait, airborne
+    // core banks, so the identity sheet changes breathing, gait, airborne
     // travel, anticipation, contact extension, tail follow-through and collapse
     // directly in the exported skeletal keyframes.
     return {
@@ -122,6 +126,95 @@ function tuningFor(pet, family, profile) {
 
 function scaledTimes(values, pace) {
     return values.map((value) => Number((value * pace).toFixed(4)));
+}
+
+function sampleTrackValues(values, progress) {
+    const position = Math.max(0, Math.min(1, progress)) * (values.length - 1);
+    const lower = Math.floor(position);
+    const upper = Math.ceil(position);
+    if (lower === upper) return [...values[lower]];
+    const blend = position - lower;
+    return values[lower].map((value, axis) => value + (values[upper][axis] - value) * blend);
+}
+
+/**
+ * Turns an already anatomy-authored take into a dedicated identity performance.
+ * The source supplies topology-safe joint choices; the species sheet supplies
+ * cadence, amplitude, asymmetric leading side and a unique gesture envelope.
+ * This avoids generic all-bone retargeting while still making every exported
+ * take numerically and visibly specific to one production pet.
+ */
+function identityTake(name, source, times, progress, p, {
+    amplitude,
+    rootScale = 0.3,
+    yaw = 0,
+    roll = 0,
+    lift = 0,
+}) {
+    const identityAccent = 0.82 + hashUnit(`${p.signature.key}:${name}:accent`) * 0.36;
+    const phaseBias = (hashUnit(`${p.signature.key}:${name}:phase`) * 2 - 1) * 0.025;
+    const tracks = source.tracks.map((track) => ({
+        node: track.node,
+        path: track.path,
+        values: progress.map((sample, index) => {
+            const envelope = Math.sin(Math.PI * index / Math.max(1, progress.length - 1));
+            const sourceValue = sampleTrackValues(track.values, Math.max(0, Math.min(1, sample + phaseBias * envelope)));
+            const scale = track.node === "root" ? rootScale : amplitude * identityAccent;
+            const value = sourceValue.map((component) => component * scale);
+            if (track.path === "rotation" && (track.node === "head" || track.node === "chest" || track.node === "spine" || track.node === "thorax")) {
+                value[1] += yaw * envelope * p.side;
+                value[2] += roll * envelope * p.side;
+            }
+            if (track.path === "translation" && track.node === "root") value[1] += lift * envelope;
+            return value.map((component) => Number(component.toFixed(5)));
+        }),
+    }));
+    return clip(name, scaledTimes(times, p.pace), tracks);
+}
+
+function identityPresentationBank(core, p) {
+    const byName = new Map(core.map((take) => [take.name, take]));
+    const jump = byName.get("gallop_jump");
+    const attack = byName.get("attack");
+    const flourish = byName.get("idle_2");
+    invariant(jump && attack && flourish, "identity presentation sources missing");
+    const signature = p.signature;
+    return [
+        identityTake("entrance", jump, [0, 0.16, 0.36, 0.62, 0.92], [0.42, 0.58, 0.74, 0.9, 1], p, {
+            amplitude: 0.7 + signature.entranceLift * 0.12,
+            rootScale: 0.18,
+            yaw: signature.entranceTwist,
+            roll: signature.entranceTwist * 0.55,
+            lift: 0.025 * signature.entranceLift,
+        }),
+        identityTake("cast", attack, [0, 0.12, 0.28, 0.42, 0.58, 0.74, 0.9, 1.08], [0, 0.1, 0.23, 0.36, 0.5, 0.66, 0.84, 1], p, {
+            amplitude: 0.52 + signature.aura * 0.16,
+            rootScale: 0.24,
+            yaw: signature.impactTwist * 0.16,
+            roll: signature.impactTwist * 0.09,
+            lift: signature.motif === "feather" || signature.motif === "spark" ? 0.025 * signature.agility : 0.008,
+        }),
+        identityTake("guard", attack, [0, 0.14, 0.32, 0.58, 0.84, 1.12], [0, 0.12, 0.25, 0.29, 0.24, 0.16], p, {
+            amplitude: 0.42 + signature.weight * 0.12,
+            rootScale: 0.2,
+            yaw: 0.025,
+            roll: signature.weight > 1.15 ? 0.015 : 0.03,
+        }),
+        identityTake("rest", flourish, [0, 0.34, 0.72, 1.1, 1.48, 1.86], [0, 0.2, 0.42, 0.62, 0.82, 1], p, {
+            amplitude: 0.24 + signature.breath * 0.1,
+            rootScale: 0.14,
+            yaw: signature.stance * 0.35,
+            roll: 0.012,
+            lift: 0.008 * signature.breath,
+        }),
+        identityTake("victory", flourish, [0, 0.16, 0.38, 0.66, 0.98, 1.34, 1.7], [0, 0.2, 0.44, 0.68, 0.58, 0.5, 0.46], p, {
+            amplitude: 0.7 + signature.victoryLift * 0.16,
+            rootScale: 0.2,
+            yaw: signature.victoryTwist,
+            roll: signature.victoryTwist * 0.7,
+            lift: 0.018 * signature.victoryLift,
+        }),
+    ];
 }
 
 function rigType(nodes) {
@@ -482,12 +575,13 @@ function arthropodBank(p, kind) {
 
 function bankFor(pet, family, profile, type) {
     const tuning = tuningFor(pet, family, profile);
-    const bank = type === "avian" ? avianBank(tuning)
+    const core = type === "avian" ? avianBank(tuning)
         : type === "bat" ? avianBank(tuning, true)
             : type === "insect" || type === "moth" || type === "crab" ? arthropodBank(tuning, type)
                 : type === "biped" ? bipedBank(tuning, family)
                     : profile === "serpentine" || family === "serpentine" || family === "aquatic" ? serpentineBank(tuning)
                         : quadrupedBank(tuning, family);
+    const bank = [...core, ...identityPresentationBank(core, tuning)];
     return { bank, tuning };
 }
 
@@ -527,7 +621,7 @@ async function authorPet(pet, manifest) {
     const profile = manifest.entries[id]?.profile ?? starterProfile(id);
     const family = petCombatFamily({ name: pet.name, profile });
     const { bank, tuning } = bankFor(pet, family, profile, type);
-    invariant(bank.length === 8, `${id}: expected eight authored clips`);
+    invariant(bank.length === 13, `${id}: expected thirteen identity-authored clips`);
 
     const chunks = [{ offset: 0, bytes: sourceBin }];
     let byteLength = sourceBin.byteLength;
@@ -579,7 +673,9 @@ async function authorPet(pet, manifest) {
         json.animations.push({ name: take.name, samplers, channels });
     }
 
-    json.asset = { ...json.asset, generator: `Shinobi Journey ${family} ${type} Animation Bank v3` };
+    const identityClips = bank.filter((take) => ["entrance", "cast", "guard", "rest", "victory"].includes(take.name));
+    const identityFingerprint = createHash("sha256").update(JSON.stringify(identityClips)).digest("hex").slice(0, 24).toUpperCase();
+    json.asset = { ...json.asset, generator: `Shinobi Journey ${pet.id} Identity Performance Bank v5` };
     json.extras = {
         ...(json.extras ?? {}),
         properAnimationBank: PROPER_PET_ANIMATION_ASSET_REVISION,
@@ -594,7 +690,14 @@ async function authorPet(pet, manifest) {
             strikeDrive: tuning.signature.strikeDrive,
             asymmetry: tuning.signature.asymmetry,
         },
-        animationAuthoring: "species-and-identity-directed-keyframes",
+        properAnimationIdentity: {
+            key: tuning.signature.key,
+            motif: tuning.signature.motif,
+            entrance: tuning.signature.entrance,
+            victory: tuning.signature.victory,
+            fingerprint: identityFingerprint,
+        },
+        animationAuthoring: "individual-species-performance-v5",
         properAnimationSourceBoundary: sourceBoundary,
     };
     json.buffers = [{ byteLength: align4(byteLength) }];
@@ -608,17 +711,18 @@ async function authorPet(pet, manifest) {
         entry.sha256 = createHash("sha256").update(encoded).digest("hex").toUpperCase();
         if (entry.validation) {
             entry.validation.bytes = encoded.byteLength;
-            entry.validation.animations = 8;
+            entry.validation.animations = 13;
         }
         entry.animationBank = {
             revision: PROPER_PET_ANIMATION_ASSET_REVISION,
             family,
             rig: type,
             signatureSeed: tuning.signature.seed,
+            identityFingerprint,
             clips: json.animations.map((animation) => animation.name),
         };
     }
-    return { id, name: pet.name, family, rig: type, bytes: encoded.byteLength };
+    return { id, name: pet.name, family, rig: type, identityFingerprint, bytes: encoded.byteLength };
 }
 
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));

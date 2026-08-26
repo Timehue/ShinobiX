@@ -1,6 +1,6 @@
 /** Versioned model assets whose skeleton clips were authored for the four-pet
  * Showdown camera instead of inheriting the roster-wide generated motion bank. */
-export const PET_SHOWDOWN_ANIMATION_ASSET_REVISION = "20260820-species-v2";
+export const PET_SHOWDOWN_ANIMATION_ASSET_REVISION = "20260825-showcase-identity-v3";
 
 export const PET_SHOWDOWN_ANIMATION_MODEL_IDS: ReadonlySet<string> = new Set([
     "rare-1",              // Frost Hare

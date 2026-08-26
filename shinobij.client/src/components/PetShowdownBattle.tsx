@@ -1085,7 +1085,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     /** Hit-stop-aware presentation clock fed to the skeletal mixer. */
     const timeline = useRef(0);
     /** Opening pet entrance begins once the VS card clears. */
-    const entranceAt = useRef(0);
+    const entranceAt = useRef<number | null>(null);
     /** Per-beat clock for root travel. Wall-clock dash progress used to keep
      *  advancing while the skeleton froze, sliding pets inside each other. */
     const beatClock = useRef({ index: -1, elapsedMs: 0 });
@@ -1222,10 +1222,10 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         f.performanceVariant = performanceVariant;
         f.signature = signature;
         if (!introActive) {
-            if (!entranceAt.current) entranceAt.current = now;
-            f.entranceProgress = Math.min(1, (now - entranceAt.current) / 920);
+            if (entranceAt.current === null) entranceAt.current = timeline.current;
+            f.entranceProgress = Math.min(1, (timeline.current - entranceAt.current) / 0.92);
         } else {
-            entranceAt.current = 0;
+            entranceAt.current = null;
             f.entranceProgress = undefined;
         }
         if (beatClock.current.index !== beat.index) {
@@ -1307,13 +1307,16 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                     } else {
                         const coilAt = Math.max(0.05, 0.4 - windupLead);
                         f.motion = frac < coilAt ? "idle" : frac < 0.4 ? "windup" : frac < 0.62 ? "strike" : frac < 0.84 ? "recover" : "idle";
-                        // The channel is alive through the whole approach.
-                        f.casting = frac < 0.4;
+                        // Keep the dedicated cast take alive through release and
+                        // recovery so it cannot snap back to the melee bank on
+                        // the exact impact frame.
+                        f.casting = frac < 0.84;
                     }
                 } else {
                     const windupLead = 900 / beat.durationMs;
                     const coilAt = Math.max(0.05, 0.4 - windupLead);
                     f.motion = frac < coilAt ? "idle" : frac < 0.4 ? "windup" : frac < 0.62 ? "strike" : frac < 0.84 ? "recover" : "idle";
+                    f.casting = ev.delivery !== "melee" && frac < 0.84;
                 }
             }
         } else if (reactionAge >= 0 && reactionAge < 520 && lastHit > 0) {
