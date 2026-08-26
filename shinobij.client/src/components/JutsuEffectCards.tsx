@@ -1,11 +1,25 @@
-import {
-    type Jutsu,
-    JUTSU_MAX_LEVEL,
-    jutsuDisplayAtLevel,
-    jutsuEffectInfo,
-    scaleJutsuTagsForDisplay,
-} from "../App";
+import { JUTSU_MAX_LEVEL } from "../constants/game";
+import { jutsuDisplayAtLevel, jutsuEffectInfo } from "../lib/jutsu-effects";
+import { scaleJutsuTagsForDisplay } from "../lib/jutsu-scaling";
+import type { Jutsu } from "../types/combat";
 import type { JutsuType } from "../types/core";
+
+type EffectTone = "power" | "recovery" | "guard" | "harm" | "control" | "utility";
+
+const EFFECT_TONES = [
+    ["power", /^(?:Increase Damage Given|Increase Generals|Increase Discipline|Siphon|Lifesteal|Pierce|Overclock)$/],
+    ["recovery", /^(?:Heal|Increase Heal)$/],
+    ["guard", /^(?:Shield|Barrier|Decrease Damage Taken|Reflect|Absorb|Debuff Prevent|Clear Prevent|Stun Prevent)$/],
+    ["harm", /^(?:Damage|Wound|Poison|Drain|Ignition|Afterburn|Recoil|Increase Damage Taken|Decrease Damage Given)$/],
+    ["control", /^(?:Stun|Push|Pull|Bloodline Seal|Elemental Seal|Buff Prevent|Cleanse Prevent|Lag|Time Compression|Mirror)$/],
+] as const satisfies ReadonlyArray<readonly [Exclude<EffectTone, "utility">, RegExp]>;
+
+export function jutsuEffectTone(name: string): EffectTone {
+    for (const [tone, pattern] of EFFECT_TONES) {
+        if (pattern.test(name)) return tone;
+    }
+    return "utility";
+}
 
 export function JutsuEffectCards({ jutsu, scaledEffectPower, masteryLevel, lensDiscipline }: { jutsu: Jutsu; scaledEffectPower?: number; masteryLevel?: number; lensDiscipline?: JutsuType }) {
     const tags = jutsu.tags.filter((tag) => tag.name);
@@ -24,21 +38,51 @@ export function JutsuEffectCards({ jutsu, scaledEffectPower, masteryLevel, lensD
     const effectJutsu = scaledEffectPower === undefined
         ? jutsuDisplayAtLevel(jutsu, level)
         : scaleJutsuTagsForDisplay({ ...jutsu, effectPower: scaledEffectPower }, level);
+    const maxEffectJutsu = jutsuDisplayAtLevel(jutsu, JUTSU_MAX_LEVEL);
+    const groups = effectJutsu.tags.filter((tag) => tag.name).reduce<Array<{ name: string; tags: typeof effectJutsu.tags }>>((result, tag) => {
+        const existing = result.find((group) => group.name === tag.name);
+        if (existing) existing.tags.push(tag);
+        else result.push({ name: tag.name, tags: [tag] });
+        return result;
+    }, []);
 
     return (
-        <div className="jutsu-effect-cards">
-            {effectJutsu.tags.filter((tag) => tag.name).map((tag, index) => {
+        <div className="jutsu-effect-cards" role="list" aria-label="Jutsu effects">
+            {groups.map((group) => {
+                const tag = group.tags[0]!;
                 const info = jutsuEffectInfo(effectJutsu, tag, lensDiscipline);
+                const tone = jutsuEffectTone(group.name);
+                const duplicateValues = group.tags.map((stack) => jutsuEffectInfo(effectJutsu, stack, lensDiscipline).value);
+                const maxValues = maxEffectJutsu.tags
+                    .filter((maxTag) => maxTag.name === group.name)
+                    .map((maxTag) => jutsuEffectInfo(maxEffectJutsu, maxTag, lensDiscipline).value);
+                const stackCount = group.tags.length;
+                const maxStackLabel = maxValues.length > 0 && maxValues.every((value) => value === maxValues[0])
+                    ? `${maxValues.length} × +${maxValues[0].replace(/^\+/, "")}`
+                    : maxValues.map((value) => `+${value.replace(/^\+/, "")}`).join(" · ");
                 return (
-                    <div className="jutsu-effect-card" key={`${tag.name}-${index}`}>
+                    <div className={`jutsu-effect-card jutsu-effect-card--${tone}`} role="listitem" key={group.name}>
                         <div className="jutsu-effect-card-head">
-                            <strong>{tag.name}</strong>
-                            <span>{info.duration}</span>
+                            <strong>{group.name}</strong>
+                            <span>{stackCount > 1 ? `${stackCount} stacks · ` : ""}{info.duration}</span>
                         </div>
                         <p>{info.summary}</p>
+                        {stackCount > 1 && (
+                            <div className="jutsu-effect-stack-panel">
+                                <strong>Triggers {stackCount}× per cast</strong>
+                                <div className="jutsu-effect-stack-values">
+                                    {duplicateValues.map((value, index) => (
+                                        <span key={`${group.name}-stack-${index}`}><small>Stack {index + 1}</small><strong>{value}</strong></span>
+                                    ))}
+                                </div>
+                                {level < JUTSU_MAX_LEVEL && maxValues.length === stackCount && (
+                                    <small className="jutsu-effect-max">At max mastery: {maxStackLabel}</small>
+                                )}
+                            </div>
+                        )}
                         <div className="jutsu-effect-meta">
                             <span><strong>Value:</strong> {info.value}</span>
-                            <span><strong>Target:</strong> {jutsu.target.toLowerCase().replaceAll("_", " ")}</span>
+                            <span><strong>Target:</strong> {(jutsu.target ?? "OPPONENT").toLowerCase().replaceAll("_", " ")}</span>
                         </div>
                         <small>{info.rule}</small>
                     </div>

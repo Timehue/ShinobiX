@@ -112,4 +112,48 @@ describe('admin-authored jutsu resolve from authored content, not the client', (
         const resolved = resolveEquippedLoadout(saveCharacter, save, { jutsu: [FORGED] }) as Array<Record<string, unknown>>;
         assert.equal(resolved[0].effectPower, FORGED.effectPower);
     });
+
+    it('preserves intentional duplicate stackable tags only on the trusted authored definition', () => {
+        const overload = {
+            id: 'starter-universal-blitz',
+            name: 'Overload',
+            type: 'Ninjutsu',
+            element: 'None',
+            ap: 40,
+            range: 1,
+            effectPower: 0,
+            cooldown: 7,
+            target: 'SELF',
+            method: 'SINGLE',
+            isUtility: true,
+            tags: [
+                { name: 'Increase Damage Given', percent: 30 },
+                { name: 'Increase Damage Given', percent: 30 },
+            ],
+        };
+        const overloadSaveCharacter = {
+            equippedJutsuIds: [overload.id],
+            jutsuMastery: [{ jutsuId: overload.id, level: 8 }],
+            stats: {},
+            equipment: {},
+        };
+        const overloadSave = { savedBloodlines: [], creatorJutsus: [] };
+        const overloadAdmin: AdminCombatContent = {
+            jutsu: new Map([[overload.id, overload]]),
+            items: new Map(),
+        };
+
+        const trusted = hydrateCharacterFromSave(overloadSaveCharacter, {}, overloadSave, overloadAdmin);
+        const trustedTags = ((trusted.jutsu as Array<Record<string, unknown>>)[0]?.tags ?? []) as Array<Record<string, unknown>>;
+        assert.equal(trustedTags.filter((tag) => tag.name === 'Increase Damage Given').length, 2);
+
+        const clientOnly = hydrateCharacterFromSave(
+            { ...overloadSaveCharacter, jutsu: [overload] },
+            { jutsu: [overload] },
+            null,
+            null,
+        );
+        const clientOnlyTags = ((clientOnly.jutsu as Array<Record<string, unknown>>)[0]?.tags ?? []) as Array<Record<string, unknown>>;
+        assert.equal(clientOnlyTags.filter((tag) => tag.name === 'Increase Damage Given').length, 1);
+    });
 });

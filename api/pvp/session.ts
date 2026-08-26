@@ -50,7 +50,7 @@ import { territoryRewardsSuspended } from '../_territory-lifecycle.js';
 import { characterMayUseJutsu, BUILTIN_BLOODLINES } from './_bloodline-gate.js';
 import { loadAdminCombatContent, type AdminCombatContent } from '../_admin-content.js';
 import { safeLogValue } from '../_safe-log.js';
-import { KNOWN_TAG_NAMES, canonicalTagName, REQUIRES_DAMAGE_TAGS, jutsuHasFixedEffectPower, FIXED_EFFECT_STANDARD_EP } from './_tags.js';
+import { KNOWN_TAG_NAMES, STACKABLE_STATUS, canonicalTagName, REQUIRES_DAMAGE_TAGS, jutsuHasFixedEffectPower, FIXED_EFFECT_STANDARD_EP } from './_tags.js';
 import { enforceBloodlineBudget, type RawJutsu } from '../_jutsu-points.js';
 import { sanitizeJutsuVisualEffect } from '../_jutsu-visuals.js';
 import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
@@ -673,7 +673,17 @@ function jutsuCanDealDamage(out: Record<string, unknown>, canonicalTagNames: str
     return true;
 }
 
-export function sanitizeJutsuList(rawList: unknown): unknown[] {
+type SanitizeJutsuListOptions = {
+    /**
+     * IDs whose definitions came directly from the server-owned admin catalog.
+     * Those definitions may intentionally repeat a stackable tag in one cast
+     * (Overload is two independent IDG stacks). Untrusted/client-only payloads
+     * keep the one-tag-per-name defense below.
+     */
+    trustedDuplicateTagJutsuIds?: ReadonlySet<string>;
+};
+
+export function sanitizeJutsuList(rawList: unknown, options: SanitizeJutsuListOptions = {}): unknown[] {
     if (!Array.isArray(rawList)) return [];
     // v4.3 Pierce rules: enforce ap=60 on any Pierce jutsu, and only ONE Pierce per loadout.
     let piercesSeen = 0;
@@ -701,16 +711,18 @@ export function sanitizeJutsuList(rawList: unknown): unknown[] {
                 .filter((t) => typeof t.name === 'string' && KNOWN_TAG_NAMES.has(String(t.name)))
                 .map((t) => ({ ...t, name: canonicalTagName(String(t.name)) }))
                 .slice(0, 10);
-            // Dedupe by canonical name within a single cast: a jutsu carrying the
-            // same tag twice (e.g. two "Increase Damage Given") would otherwise
-            // apply it twice, double-stacking the soft-capped amp pool in ONE action.
-            // No legit jutsu carries a duplicate tag name, so keeping the first
-            // occurrence is behavior-preserving for honest loadouts.
+            // Dedupe by canonical name within a single cast unless this exact
+            // definition came from the trusted admin catalog and the effect is a
+            // real stackable status. This preserves intentionally multi-pulse
+            // authored jutsu such as Overload while a client-only payload still
+            // cannot manufacture ten copies of the same amp tag.
             {
+                const jutsuId = typeof out.id === 'string' ? out.id : '';
+                const allowTrustedStacks = options.trustedDuplicateTagJutsuIds?.has(jutsuId) === true;
                 const seenTagNames = new Set<string>();
                 cleanTags = cleanTags.filter((t) => {
                     const n = String(t.name);
-                    if (seenTagNames.has(n)) return false;
+                    if (seenTagNames.has(n)) return allowTrustedStacks && STACKABLE_STATUS.has(n);
                     seenTagNames.add(n);
                     return true;
                 });
@@ -1285,7 +1297,23 @@ export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>,
     // content (see resolveEquippedLoadout). Falls back to the raw save/client
     // jutsu only for old saves with no equippedJutsuIds and for NPCs.
     const resolvedLoadout = resolveEquippedLoadout(saveCharacter, save, clientCharacter, admin);
-    merged.jutsu = sanitizeJutsuList(resolvedLoadout ?? saveCharacter.jutsu ?? clientCharacter.jutsu);
+    const trustedDuplicateTagJutsuIds = new Set<string>();
+    if (resolvedLoadout && admin?.jutsu) {
+        for (const candidate of resolvedLoadout) {
+            if (!candidate || typeof candidate !== 'object') continue;
+            const id = (candidate as Record<string, unknown>).id;
+            // Identity is intentional: resolveEquippedLoadout keeps the admin
+            // object itself, while a save-owned collision replaces it. Only the
+            // former earns the duplicate-stack exception.
+            if (typeof id === 'string' && admin.jutsu.get(id) === candidate) {
+                trustedDuplicateTagJutsuIds.add(id);
+            }
+        }
+    }
+    merged.jutsu = sanitizeJutsuList(
+        resolvedLoadout ?? saveCharacter.jutsu ?? clientCharacter.jutsu,
+        { trustedDuplicateTagJutsuIds },
+    );
     // ── Legacy signature slot (the dedicated 16th slot) ──────────────────────
     // A LEGACY-ONLY prestige slot. Only a Legacy's own signature jutsu can ever
     // occupy it — it is DERIVED here from the server-owned character.legacy, not
@@ -1623,7 +1651,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             res.setHeader('Cache-Control', 'no-store');
             try {
                 const pointer = await loadPvpPendingSessionPointer(kv, requestedPlayer);
-                if (!pointer) return res.status(404).json({ error: 'No pending PvP session.' });
+                if (!pointer) {
+                    // Preserve the legacy 404 contract for cached clients during
+                    // rolling deploys; the current client explicitly opts in.
+                    if (String(req.query.recoveryProbeVersion ?? '') === '2') {
+                        return res.status(204).end();
+                    }
+                    return res.status(404).json({ error: 'No pending PvP session.' });
+                }
                 const rawRow = await kv.get<unknown>(`pvp:${pointer.battleId}`);
                 // A publication fence is not a session row. Read it as absence
                 // so recovery keeps its snapshot / reservation-freshness path,

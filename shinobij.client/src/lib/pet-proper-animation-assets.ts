@@ -1,9 +1,10 @@
-/** Asset revision for the roster-wide species/family-authored skeletal pass. */
-export const PROPER_PET_ANIMATION_ASSET_REVISION = "20260824-identity-v4";
+/** Asset revision for the roster-wide identity-performance skeletal pass. */
+export const PROPER_PET_ANIMATION_ASSET_REVISION = "20260825-identity-v5";
 
-/** These four showcase pets keep the more detailed individual banks authored
- * before the roster-wide family pass. Every other production GLB is baked in
- * place with the revision above. */
+/** These four showcase pets keep the detailed individual banks authored before
+ * the roster-wide identity pass. Every other production GLB now carries its own
+ * deterministic species signature plus dedicated entrance, cast, guard, rest,
+ * victory, locomotion, attack, reaction, dodge and defeat performances. */
 export const INDIVIDUAL_PET_ANIMATION_MODEL_IDS: ReadonlySet<string> = new Set([
     "rare-1",
     "standard-7",

@@ -7,9 +7,12 @@ import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.j
 const clientRoot = resolve(import.meta.dirname, "..");
 const modelRoot = resolve(clientRoot, "public/pet-models");
 const rosterRoot = resolve(modelRoot, "roster");
+const showdownRoot = resolve(modelRoot, "showdown-v2");
 const outputRoot = resolve(clientRoot, ".tmp/pet-model-certification");
 await MeshoptDecoder.ready;
-const expectedClips = new Set(["attack", "death", "gallop", "gallop_jump", "idle", "idle_2", "idle_hitreact1", "walk"]);
+const coreClips = new Set(["attack", "death", "gallop", "gallop_jump", "idle", "idle_2", "idle_hitreact1", "walk"]);
+const identityClips = new Set([...coreClips, "entrance", "cast", "guard", "rest", "victory"]);
+const showcaseIds = new Set(["rare-1", "standard-7", "starter-fire-l", "starter-lightning-l"]);
 // These approved silhouettes intentionally do not assign visible geometry to
 // the generic tail chain. Solar Stag still has a complete short tail, but its
 // source rig weights that small tuft to the pelvis; the other forms are
@@ -205,7 +208,10 @@ function rigMetrics(glb, id, expectedJointCount) {
     invariant(inverseBind?.type === "MAT4" && inverseBind.componentType === 5126, `${id}: inverse bind matrices are missing or malformed`);
     invariant(inverseBind.count === skin.joints.length, `${id}: inverse bind count does not match the skeleton`);
 
-    invariant(glb.json.animations?.length === expectedClips.size, `${id}: reviewed eight-clip set missing`);
+    const identityAuthored = ["individual-species-performance-v5", "bespoke-species-performance-v3"]
+        .includes(glb.json.extras?.animationAuthoring);
+    const expectedClips = identityAuthored ? identityClips : coreClips;
+    invariant(glb.json.animations?.length === expectedClips.size, `${id}: reviewed ${expectedClips.size}-clip performance bank missing`);
     const clipNames = glb.json.animations.map((clip) => clip.name);
     invariant(new Set(clipNames).size === expectedClips.size, `${id}: animation clip names are duplicated`);
     invariant(clipNames.every((name) => expectedClips.has(name)), `${id}: required animation clip missing`);
@@ -504,17 +510,26 @@ async function main() {
     // against blank/flat/uncolored atlases is the semantic content check in
     // colorMetrics (opaque-pixel, lumaDeviation, coloredPixelRatio), which is
     // format-independent and far stronger than any byte count.
-    for (const file of rosterFiles) roster.push(await auditGlb(resolve(rosterRoot, file), { requireRig: true, minimumAtlasBytes: 40_000 }));
+    for (const file of rosterFiles) {
+        const id = basename(file, ".glb");
+        const path = showcaseIds.has(id) ? resolve(showdownRoot, file) : resolve(rosterRoot, file);
+        roster.push(await auditGlb(path, { requireRig: true, minimumAtlasBytes: 40_000 }));
+    }
     // Starter forms are deliberately leaner than the 145-pet roster for mobile
     // combat, but every base and evolved starter must carry the same reviewed
-    // 21-bone/eight-clip authored combat contract.
-    for (const file of starterGlbAssets) starters.push(await auditGlb(resolve(modelRoot, file), {
+    // 21-bone, 13-state authored combat contract. Certify the versioned showcase
+    // override whenever that is the file the runtime actually resolves.
+    for (const file of starterGlbAssets) {
+        const id = basename(file, ".glb");
+        const path = showcaseIds.has(id) ? resolve(showdownRoot, file) : resolve(modelRoot, file);
+        starters.push(await auditGlb(path, {
         requireRig: true,
         minimumAtlasBytes: 4_000,
         minimumVertices: 6_000,
         expectedJointCount: 21,
         rejectOversizedDetachedProxy: true,
-    }));
+        }));
+    }
     const report = {
         generatedAt: new Date().toISOString(),
         productionVisualForms: 160,

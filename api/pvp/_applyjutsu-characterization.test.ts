@@ -131,4 +131,61 @@ describe('applyJutsu characterization — amp / DR pools', () => {
         // effDR = 0.35/(0.35+0.5) = 0.41176; 960 × (1-0.41176) = 564.7 → floor 564
         assert.equal(r.opponent.hp, 1000 - 564);
     });
+
+    it('Overload applies both IDG pulses at 21% mastery-8 and 30% max mastery', () => {
+        const overload = jutsu([
+            { name: 'Increase Damage Given', percent: 30 },
+            { name: 'Increase Damage Given', percent: 30 },
+        ], {
+            id: 'starter-universal-blitz',
+            name: 'Overload',
+            ap: 40,
+            effectPower: 0,
+            target: 'SELF',
+            isUtility: true,
+        });
+        const castAt = (masteryLevel: number) => applyJutsu(
+            fighter('A', 1000, [], {
+                character: {
+                    name: 'A',
+                    level: 100,
+                    stats: {},
+                    jutsuMastery: [{ jutsuId: overload.id, level: masteryLevel }],
+                },
+            }),
+            fighter('B'),
+            overload,
+            1,
+            'central',
+            1,
+        );
+
+        const mastery8 = castAt(8);
+        const mastery8Stacks = mastery8.self.statuses.filter((status) => status.name === 'Increase Damage Given');
+        assert.deepEqual(mastery8Stacks.map((status) => status.percent), [21, 21]);
+        assert.equal(mastery8.lines.filter((line) => line === '+21% Damage Given: A for 2 turns.').length, 2);
+        const mastery8FollowUp = applyJutsu(
+            mastery8.self,
+            fighter('B', 3000, [], { maxHp: 3000 }),
+            jutsu([]),
+            1,
+            'central',
+            2,
+        );
+        assert.equal(3000 - mastery8FollowUp.opponent.hp, 1398);
+
+        const mastery50 = castAt(50);
+        const mastery50Stacks = mastery50.self.statuses.filter((status) => status.name === 'Increase Damage Given');
+        assert.deepEqual(mastery50Stacks.map((status) => status.percent), [30, 30]);
+        assert.equal(mastery50.lines.filter((line) => line === '+30% Damage Given: A for 2 turns.').length, 2);
+        const mastery50FollowUp = applyJutsu(
+            mastery50.self,
+            fighter('B', 3000, [], { maxHp: 3000 }),
+            jutsu([]),
+            1,
+            'central',
+            2,
+        );
+        assert.equal(3000 - mastery50FollowUp.opponent.hp, 1483);
+    });
 });

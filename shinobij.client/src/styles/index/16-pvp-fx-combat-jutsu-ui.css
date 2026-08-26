@@ -588,12 +588,19 @@
 }
 
 .jutsu-effect-card {
-    padding: 9px 10px !important;
-    border: 1px solid rgba(96, 165, 250, 0.28) !important;
-    border-radius: 7px !important;
-    background: rgba(15, 23, 42, 0.72) !important;
-    color: #dbeafe !important;
+    --effect-rgb: 148, 163, 184;
+    padding: 10px 11px !important;
+    border: 1px solid rgba(var(--effect-rgb), 0.38) !important;
+    border-radius: 8px !important;
+    background: linear-gradient(105deg, rgba(var(--effect-rgb), 0.12), #050a14 48%) !important;
+    box-shadow: inset 3px 0 rgb(var(--effect-rgb)) !important;
 }
+
+.jutsu-effect-card--power { --effect-rgb: 250, 204, 21; }
+.jutsu-effect-card--recovery { --effect-rgb: 74, 222, 128; }
+.jutsu-effect-card--guard { --effect-rgb: 34, 211, 238; }
+.jutsu-effect-card--harm { --effect-rgb: 251, 113, 133; }
+.jutsu-effect-card--control { --effect-rgb: 192, 132, 252; }
 
 .jutsu-effect-card-head,
 .jutsu-effect-meta {
@@ -604,22 +611,16 @@
 }
 
 .jutsu-effect-card-head strong {
-    color: #fef3c7 !important;
+    color: rgb(var(--effect-rgb)) !important;
     font-size: 0.88rem !important;
 }
 
-.jutsu-effect-card-head span {
-    flex: 0 0 auto !important;
-    color: var(--blue-300) !important;
-    font-size: 0.72rem !important;
-    font-weight: 800 !important;
-    text-transform: uppercase !important;
+.jutsu-effect-card-head > span {
+    color: rgb(var(--effect-rgb)) !important;
 }
 
 .jutsu-effect-card p {
-    margin: 6px 0 !important;
-    color: #e0f2fe !important;
-    line-height: 1.35 !important;
+    margin: 7px 0 !important;
 }
 
 .jutsu-effect-card small {
@@ -631,8 +632,33 @@
 .jutsu-effect-meta {
     flex-wrap: wrap !important;
     margin: 6px 0 !important;
-    font-size: 0.75rem !important;
-    color: #bfdbfe !important;
+}
+
+.jutsu-effect-stack-panel {
+    margin: 7px 0 !important;
+    padding: 7px !important;
+    border: 1px solid rgba(var(--effect-rgb), 0.28) !important;
+    border-radius: 6px !important;
+    background: rgba(var(--effect-rgb), 0.07) !important;
+}
+
+.jutsu-effect-stack-panel > strong,
+.jutsu-effect-stack-values strong {
+    color: rgb(var(--effect-rgb)) !important;
+}
+
+.jutsu-effect-stack-values {
+    display: flex !important;
+    gap: 12px !important;
+    margin-top: 5px !important;
+}
+
+.jutsu-effect-stack-values > span {
+    display: grid !important;
+}
+
+.jutsu-effect-max {
+    color: #e2e8f0 !important;
 }
 
 .combat-jutsu-card-wrap {

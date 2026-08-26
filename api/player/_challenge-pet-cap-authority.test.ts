@@ -224,3 +224,45 @@ test('new legacy ranked-pet notices stay retired even when private engine flags 
         delete process.env.ENABLE_PET_RANKED_PUBLIC_CHALLENGES_V1;
     }
 });
+
+test('Warfront acceptance preserves both sealed plans and a server-minted seed', async () => {
+    const challenger = 'challengewarfrontplanone';
+    const responder = 'challengewarfrontplantwo';
+    const challengerPets = await seedPlayer(challenger);
+    const responderPets = await seedPlayer(responder);
+    const id = 'challenge-warfront-plan-001';
+    const challengerWarfrontPlan = { buyPolicy: 'offense', stance: 'jungle', doctrine: 'warden-pact' };
+    const responderWarfrontPlan = { buyPolicy: 'defense', stance: 'turtle', doctrine: 'bulwark' };
+
+    const sent = await post(challenger, {
+        targetName: responder,
+        challenge: {
+            id, fromName: challenger, toName: responder, mode: 'clanWarPet',
+            arenaMatch: true, arenaSize: 4, challengerTeamIds: challengerPets.slice(0, 4).map(({ id: petId }) => petId),
+            challengerWarfrontPlan,
+            petBattleSeed: 777,
+        },
+    }, '127.0.0.78');
+    assert.equal(sent.statusCode, 200);
+    const responderInbox = await kv.get<Array<Record<string, unknown>>>(`challenges:${responder}`);
+    const invitation = responderInbox?.find((entry) => entry.id === id);
+    assert.deepEqual(invitation?.challengerWarfrontPlan, challengerWarfrontPlan);
+    assert.ok(Number.isSafeInteger(invitation?.petBattleSeed) && Number(invitation?.petBattleSeed) > 0);
+    assert.notEqual(invitation?.petBattleSeed, 777, 'the API replaces a client seed with server authority');
+
+    const accepted = await post(responder, {
+        targetName: challenger,
+        challenge: {
+            ...invitation,
+            id, fromName: responder, toName: challenger, accepted: true,
+            responderTeam: responderPets.slice(0, 4),
+            responderWarfrontPlan,
+        },
+    }, '127.0.0.79');
+    assert.equal(accepted.statusCode, 200);
+    const challengerInbox = await kv.get<Array<Record<string, unknown>>>(`challenges:${challenger}`);
+    const notice = challengerInbox?.find((entry) => entry.id === id);
+    assert.equal(notice?.petBattleSeed, invitation?.petBattleSeed);
+    assert.deepEqual(notice?.challengerWarfrontPlan, challengerWarfrontPlan);
+    assert.deepEqual(notice?.responderWarfrontPlan, responderWarfrontPlan);
+});

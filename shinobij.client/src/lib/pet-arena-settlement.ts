@@ -16,6 +16,7 @@ export type WarfrontRewardSeal = Readonly<{
     stance: "balanced" | "siege" | "jungle" | "headhunt" | "turtle";
     doctrine: "none" | "vanguard" | "bulwark" | "zealot" | "warden-pact";
     buyPolicy: "balanced" | "offense" | "defense";
+    opponentBuyPolicy: "balanced";
     opponentStance: "balanced";
     opponentDoctrine: "vanguard";
     bluePets: readonly Pet[];
@@ -57,7 +58,7 @@ export function parseWarfrontRewardSeal(payload: unknown): WarfrontRewardSeal | 
     if (!(["balanced", "siege", "jungle", "headhunt", "turtle"] as const).includes(record.stance as never)) return null;
     if (!(["none", "vanguard", "bulwark", "zealot", "warden-pact"] as const).includes(record.doctrine as never)) return null;
     if (!(["balanced", "offense", "defense"] as const).includes(record.buyPolicy as never)) return null;
-    if (record.opponentStance !== "balanced" || record.opponentDoctrine !== "vanguard") return null;
+    if (record.opponentBuyPolicy !== "balanced" || record.opponentStance !== "balanced" || record.opponentDoctrine !== "vanguard") return null;
     if (!Array.isArray(record.bluePets)
         || record.bluePets.length !== 4
         || !record.bluePets.every(isSealedWarfrontPet)
@@ -80,6 +81,7 @@ export function parseWarfrontRewardSeal(payload: unknown): WarfrontRewardSeal | 
         stance: record.stance as WarfrontRewardSeal["stance"],
         doctrine: record.doctrine as WarfrontRewardSeal["doctrine"],
         buyPolicy: record.buyPolicy as WarfrontRewardSeal["buyPolicy"],
+        opponentBuyPolicy: record.opponentBuyPolicy,
         opponentStance: record.opponentStance,
         opponentDoctrine: record.opponentDoctrine,
         bluePets: record.bluePets,

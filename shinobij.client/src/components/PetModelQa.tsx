@@ -99,7 +99,7 @@ export function PetModelQa() {
     const only = params.get("pet")?.toLowerCase();
     const quality = petVisualQuality();
     const motionValue = params.get("motion");
-    const motion: PetModelFrame["motion"] = motionValue === "run" || motionValue === "dash" || motionValue === "dodge" || motionValue === "windup" || motionValue === "strike" || motionValue === "stagger" || motionValue === "dead" ? motionValue : "idle";
+    const motion: PetModelFrame["motion"] = motionValue === "run" || motionValue === "dash" || motionValue === "dodge" || motionValue === "windup" || motionValue === "strike" || motionValue === "stagger" || motionValue === "guard" || motionValue === "rest" || motionValue === "dead" ? motionValue : "idle";
     const victorious = params.get("victorious") === "1";
     const frameOverride: Partial<PetModelFrame> = {
         motion,
@@ -107,6 +107,7 @@ export function PetModelQa() {
         casting: params.get("casting") === "1",
         speed: Number(params.get("speed")) || (motion === "run" ? 3.1 : motion === "dash" ? 4.5 : 0),
         victorious,
+        entranceProgress: params.has("entrance") ? THREE.MathUtils.clamp(Number(params.get("entrance")) || 0.55, 0, 0.99) : undefined,
     };
     const rosterPet = rosterModelId ? rawPetPool.find((pet) => pet.id === rosterModelId) : undefined;
     const qaRosterPet = rosterPet ? { ...rosterPet, element: rosterPet.element ?? petElementByName[rosterPet.name] } : undefined;
