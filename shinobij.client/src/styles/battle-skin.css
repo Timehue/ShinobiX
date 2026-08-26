@@ -6403,75 +6403,46 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
 }
 }
 
-/* Keep combat-log chrome outside the scrolling surface. Several responsive
-   layouts size this panel with a tight grid row; scrolling the panel itself
-   made its sticky header consume part of that row and left the final entries
-   looking clipped. The inner region now owns all wheel, touch, and keyboard
-   scrolling while the title and Expand control remain permanently visible. */
-html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log,
-html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log.is-expanded {
+#combat .plain-combat-battle-log,
+#combat .plain-combat-battle-log.is-expanded {
     display: flex !important;
     flex-direction: column !important;
     padding: 0 !important;
     overflow: hidden !important;
 }
 
-/* The compact/zoom restore blocks use #combat selectors, so match that ID here
-   as well; otherwise their older display:block + overflow:auto declarations
-   outrank the dedicated scroll-region contract despite appearing earlier. */
-html body > #combat.arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log,
-html body > #combat.arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log.is-expanded {
-    display: flex !important;
-    flex-direction: column !important;
-    padding: 0 !important;
-    overflow: hidden !important;
-}
-
-html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .combat-log-header {
+#combat .plain-combat-battle-log > .combat-log-header {
     position: relative;
     top: auto;
     flex: 0 0 auto;
 }
 
-html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .combat-log-scroll-region {
+#combat .combat-log-scroll-region {
     flex: 1 1 auto;
-    min-width: 0;
     min-height: 0;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
+    overflow: hidden auto !important;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
-    scrollbar-color: rgba(148, 163, 184, 0.62) rgba(2, 6, 23, 0.45);
     scrollbar-width: thin;
 }
 
-html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .combat-log-scroll-region:focus-visible {
+.plain-combat-battle-log > .combat-log-scroll-region {
+    overflow-y: auto !important;
+}
+
+#combat .combat-log-scroll-region:focus-visible {
     outline: 2px solid rgba(125, 211, 252, 0.88);
     outline-offset: -2px;
 }
 
-html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .combat-log-scroll-region::-webkit-scrollbar {
-    width: 10px;
-}
-
-html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .combat-log-scroll-region::-webkit-scrollbar-thumb {
-    min-height: 36px;
-    border: 2px solid rgba(2, 6, 23, 0.45);
-    border-radius: 999px;
-    background: rgba(148, 163, 184, 0.68);
-}
-
-/* The button keeps a 44px pointer/touch target, but only the centered badge is
-   painted. That leaves the jutsu art readable and gives each card the requested
-   top-right question-mark control without sacrificing accessibility. */
-html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help {
+#combat .combat-jutsu-help {
     border: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
     color: #f4e2b0 !important;
 }
 
-html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help > .combat-help-glyph {
+#combat .combat-help-glyph {
     display: grid;
     place-items: center;
     width: 23px;
@@ -6485,7 +6456,7 @@ html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help > .combat-
     transition: border-color 120ms ease, box-shadow 120ms ease, color 120ms ease;
 }
 
-html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help:is(:hover, :focus-visible) > .combat-help-glyph {
+#combat .combat-jutsu-help:is(:hover, :focus-visible) > .combat-help-glyph {
     border-color: #fde68a;
     color: #fffbea;
     box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.2), 0 3px 9px rgba(0, 0, 0, 0.78);
