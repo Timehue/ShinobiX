@@ -33,9 +33,12 @@ test("public guide archive searches live systems and renders every cover", async
 
 test("guide reader keeps navigation, focus, images, and tables responsive", async ({ page }) => {
     await openGuideLibrary(page);
+    await page.getByRole("searchbox", { name: "Search guides" }).fill("Levels, Ranks");
     await page.getByRole("button", { name: "Read Levels, Ranks, and Daily Progress" }).click();
 
-    await expect(page.getByRole("heading", { name: "Levels, Ranks, and Daily Progress", level: 1 })).toBeVisible();
+    const progressionHeading = page.getByRole("heading", { name: "Levels, Ranks, and Daily Progress", level: 1 });
+    await expect(progressionHeading).toBeVisible();
+    await expect(progressionHeading).toBeFocused();
     await expect(page.getByRole("heading", { name: "The short version" })).toBeVisible();
     await expect(page.locator(".guide-reader-hero img")).toHaveJSProperty("complete", true);
 
@@ -60,6 +63,10 @@ test("guide reader keeps navigation, focus, images, and tables responsive", asyn
     expect(layout.brokenImages).toBe(0);
     if (phone) expect(layout.tableLocalOverflow).toBe(true);
 
+    await page.getByRole("button", { name: "Continue to Your First Hour" }).click();
+    const firstHourHeading = page.getByRole("heading", { name: "Your First Hour", level: 1 });
+    await expect(firstHourHeading).toBeVisible();
+    await expect(firstHourHeading).toBeFocused();
     await page.getByRole("button", { name: "All guides" }).first().click();
     await expect(page.getByRole("button", { name: "Read Levels, Ranks, and Daily Progress" })).toBeFocused();
 });
