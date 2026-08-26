@@ -99,7 +99,7 @@ async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Pr
                 .filter((control) => {
                     const rect = control.getBoundingClientRect();
                     const ownsHorizontalScroll = Boolean(control.closest(
-                        ".table-scroll, .ui-tabs, .admin-tabs, .profile-mobile-tabs, .chronicle-hand, .world-map-scroll, .hol-tabs, .council-tabs, .town-tabs, .clan-tabs, .user-hub-tabs, .expanded-tabs, .pet-home-tabs, .pet-arena-mode-toggle, .pet-pick-strip",
+                        ".table-scroll, .ui-tabs, .admin-tabs, .profile-mobile-tabs, .chronicle-hand, .world-map-scroll, .hol-tabs, .council-tabs, .town-tabs, .clan-tabs, .user-hub-tabs, .expanded-tabs, .pet-home-tabs, .pet-arena-mode-toggle, .pet-pick-strip, .guides-filters",
                     ));
                     return !ownsHorizontalScroll && (rect.right > viewportWidth + 1 || rect.left < -1);
                 })
@@ -274,6 +274,7 @@ for (const screen of NON_COMBAT_SCREENS) {
                 ".user-hub-tabs",
                 ".pet-home-tabs",
                 ".pet-arena-mode-toggle",
+                ".guides-filters",
             ],
             logicalStages: [".world-map-scroll"],
         });

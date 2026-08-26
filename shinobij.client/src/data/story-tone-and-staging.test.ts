@@ -80,9 +80,11 @@ function guideText(): string[] {
         ...guide.sections.flatMap((section) => [
             section.heading,
             ...section.blocks.flatMap((block) => block.type === "list"
-                ? block.items
-                : block.type === "table"
-                    ? [...block.head, ...block.rows.flat()]
+                    ? block.items
+                    : block.type === "table"
+                        ? [...block.head, ...block.rows.flat()]
+                    : block.type === "figure"
+                        ? [block.alt, block.caption]
                     : block.type === "callout"
                         ? [block.label, block.text]
                         : [block.text]),
