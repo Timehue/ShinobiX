@@ -52,7 +52,7 @@ test("shared combat HUD primitives preserve the shell class contract", () => {
     assert.match(html, /role="log" aria-live="polite" aria-label="Battle log"/);
 });
 
-test("plain combat log groups rounds newest-first and color-codes action effects", () => {
+test("plain combat log opens only the latest round and color-codes its effects", () => {
     const html = renderToStaticMarkup(React.createElement(PlainCombatBattleLog, {
         lines: [
             "Battle started: Rill versus Exam Proctor.",
@@ -75,13 +75,15 @@ test("plain combat log groups rounds newest-first and color-codes action effects
     assert.equal((html.match(/plain-combat-log-round timeline-round/g) ?? []).length, 2);
     assert.ok(html.indexOf("Round 2") < html.indexOf("Round 1"));
     assert.doesNotMatch(html, /--- Round 2 ---/);
-    assert.match(html, /bl-actor-player[^>]*>Rill</);
+    assert.doesNotMatch(html, /bl-actor-player[^>]*>Rill</);
     assert.match(html, /bl-actor-enemy[^>]*>Exam Proctor</);
-    assert.equal((html.match(/battle-log-damage/g) ?? []).length, 2);
+    assert.equal((html.match(/battle-log-damage/g) ?? []).length, 0);
     assert.match(html, /battle-log-heal/);
-    assert.match(html, /class="bl-num">160</);
+    assert.doesNotMatch(html, /class="bl-num">160</);
+    assert.match(html, /Round 1[\s\S]*?aria-expanded="false"|aria-expanded="false"[\s\S]*?Round 1/);
     assert.match(html, /aria-label="Expand battle log"/);
-    assert.match(html, /2 rounds · 6 events · scroll/);
+    assert.match(html, /2 rounds · 6 events/);
+    assert.doesNotMatch(html, /events · scroll/);
     assert.match(html, /combat-log-expand-icon/);
     assert.match(html, /role="log"/);
 });
@@ -100,6 +102,17 @@ test("plain combat log derives a trimmed pre-marker round and preserves action o
     assert.equal(rounds[0]?.actions[0]?.role, "player");
     assert.equal(rounds[1]?.actions[0]?.role, "enemy");
     assert.equal(rounds[1]?.actions[0]?.actionNumber, 2);
+});
+
+test("plain combat log hides automatic no-action turn housekeeping", () => {
+    const rounds = groupPlainCombatLog([
+        "Rill uses Meteor Axe Kick:",
+        "Exam Proctor loses 80 HP.",
+        "Rill has no legal actions remaining and ends the turn automatically.",
+    ], "Rill", "Exam Proctor");
+
+    assert.equal(rounds[0]?.lineCount, 2);
+    assert.doesNotMatch(JSON.stringify(rounds), /no legal actions remaining/i);
 });
 
 test("plain combat log colors and tokenizes effects embedded in action headlines", () => {

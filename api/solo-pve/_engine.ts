@@ -1688,7 +1688,6 @@ export function applySoloPveAction(
     const session = cloneSession(source);
     const result = directAction(session, 'player', action, opts);
     if (result.applied && session.status === 'active' && session.activeSide === 'player' && !playerHasLegalAction(session)) {
-        session.log.push(`${session.player.name} has no legal actions remaining and ends the turn automatically.`);
         endSoloPveTurn(session);
     }
     if (result.applied && session.status === 'active' && session.activeSide === 'enemy') {

@@ -1834,7 +1834,7 @@ export function PvpBattleScreen({
                         <i className="pvp-vfx-ring" />
                     </span>
                 ))}
-                <span className={`${baseClass} pvp-combat-vfx-burst`} style={styleFor(center, fx.spec.intensity === "finisher" ? 1.45 : fx.spec.intensity === "heavy" ? 1.18 : 1)}>
+                <span className={`${baseClass} pvp-combat-vfx-burst`} style={styleFor(center, fx.spec.intensity === "finisher" ? 1.1 : fx.spec.intensity === "heavy" ? 1 : 0.92)}>
                     <i className="pvp-vfx-art">
                         <img className={`pvp-vfx-asset pvp-vfx-asset-${asset.plane}`} src={asset.url} alt="" draggable={false} />
                     </i>
