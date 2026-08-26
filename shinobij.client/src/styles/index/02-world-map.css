@@ -171,6 +171,56 @@
     50% { box-shadow: 0 0 0 5px rgba(220,38,38,.5), 0 0 32px rgba(255,60,0,.85), 0 4px 14px rgba(0,0,0,.7); }
 }
 
+/* Shared daily pool, drawn on the marker — the reason to pick THIS sector.
+   1,500 explores per sector per day, drawn down by everyone standing there, so
+   busy roads run dry while quiet ones stay fat. That was invisible: the depleted
+   message told players "other sectors are still rich" and gave them no way to
+   see which, so "Picked clean" read as a dead end instead of as a signpost.
+
+   Deliberately ONE property. `filter` composes with whatever else the marker is
+   already saying — a war-map owner tint (set inline), a weekly-boss ring, a hunt
+   trail, a shrine affix — so a drained boss sector still reads as a boss sector,
+   just worked out. A ring or a glyph would have had to fight all four.
+
+   Rich and unhydrated markers are left alone: most of the board is rich, and
+   decorating the common case is noise, not information. Never dim the sector the
+   player is standing in — its YOU label has to stay crisp. */
+.atlas-sector-pool-worked:not(.atlas-sector-current) {
+    filter: grayscale(0.35) brightness(0.85);
+}
+
+.atlas-sector-pool-spent:not(.atlas-sector-current) {
+    filter: grayscale(0.8) brightness(0.62);
+    opacity: 0.8;
+}
+
+/* Hovering restores it — a spent sector is still somewhere you can go. */
+.atlas-sector-pool-worked:not(.atlas-sector-current):hover,
+.atlas-sector-pool-spent:not(.atlas-sector-current):hover {
+    filter: none;
+    opacity: 1;
+}
+/* Posted contract — the handful of sectors carrying the day's work. Same affix
+   pattern as the shrine torii, on the opposite corner so a sector can wear both.
+   The tooltip names it; this is the at-a-glance mark. */
+.atlas-sector-contract::before {
+    content: "◆";
+    position: absolute;
+    top: -9px;
+    left: -7px;
+    font-size: 11px;
+    line-height: 1;
+    color: var(--gold-300, #fde047);
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8));
+    pointer-events: none;
+}
+/* Night work — the same mark, cooled, so a player can plan their evening
+   without opening every posted sector to find out which ones need the dark. */
+.atlas-sector-contract-night::before {
+    content: "◇";
+    color: var(--blue-300);
+}
+
 /* Roaming weekly boss — highlights the sector it is CURRENTLY rampaging in
    (replaces the old floating portrait marker). A warm pulsing ring + a 👹 flag so
    players can spot which sector to travel into to challenge it. Position updates

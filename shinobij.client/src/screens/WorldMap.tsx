@@ -100,6 +100,7 @@ import { DayNightSky } from "../components/DayNightSky";
 import { HollowGateAttunement } from "../components/HollowGateAttunement";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { WorldToast } from "../components/WorldToast";
+import { TravelingOverlay } from "../components/TravelingOverlay";
 import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
 import { SECTOR_POINTS } from "../data/sector-points";
 import { sectorExits as roadExitsForSector, travelArrivalTile, type SectorExit } from "../../../shared/sector-links";
@@ -186,6 +187,8 @@ import { villagePageImage } from "../lib/village-page-image";
 import { villageOuterTerritoryMapUrl } from "../lib/village-outer-territory-map";
 import { activeVillageWarsFor, loadSectorTerritory, territoryBreachMinsLeft, territoryIsBreached, territoryRewardsSuspended, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
 import { SECTOR_DEPLETED_MESSAGE, sectorExploreRefusal, sectorPoolViewFor } from "../lib/sector-pool";
+import { richerSectorsNear, sectorRichnessLabel, sectorRichnessOf, type SectorRichness } from "../lib/sector-richness";
+import { bumpSectorContractRevision, claimSectorContract, localSectorContract, useSectorContract } from "../lib/sector-contract";
 import { useSectorIntelPlate } from "../lib/village-intel";
 import { confirmSectorBattleRegistration, isVillageWarMapEnabled, villageAccent } from "../lib/village-war-map";
 import { useWorldMapZoom } from "../lib/use-world-map-zoom";
@@ -489,6 +492,10 @@ export function WorldMap({
     const liveSectorPlayers = useLiveSectorRoster();
     const [selectedSector, setSelectedSector] = useState<number | null>(null);
     const sectorIntelPlate = useSectorIntelPlate(selectedSector, character.village); // pure projection; the refresh is its effect, never a render
+    // Only the ~6 posted sectors ever reach the network (the board itself is a
+    // pure local computation over the same shared module the server uses).
+    const sectorContract = useSectorContract(selectedSector, character.name);
+    const [contractBusy, setContractBusy] = useState(false);
     // Direction the player walked in from on an edge crossing — drives the brief
     // slide-in on the sector board (cleared right after the animation plays).
     const [sectorEnterDir, setSectorEnterDir] = useState<"north" | "east" | "south" | "west" | null>(null);
@@ -2542,6 +2549,26 @@ export function WorldMap({
     // accent (your own village ringed white) so the front line reads at a glance
     // instead of a field of identical yellow dots. Neutral / central (>=56) /
     // Death's Gate keep the default marker. Purely cosmetic — no gameplay state.
+    // The shared daily pool is the one honest reason to prefer one sector over
+    // another, and it was invisible on the overview: SECTOR_DEPLETED_MESSAGE told
+    // players "other sectors are still rich" with no way to see which. The counts
+    // for the WHOLE board already ride the world-state poll, so this is projection,
+    // not a new request.
+    // Territory owner ONLY — no home-village fallback. The owner village's pool
+    // cap carries a +50% bonus, and the selected-sector plate and the explore
+    // refusal both size their view from `loadSectorTerritory().ownerVillage`
+    // alone. Falling back to the geographic home village here (which is what the
+    // war-map TINT does) would give the overview a 50% larger cap than the panel
+    // for every unclaimed home-block sector — so the marker would read "worked"
+    // while the panel underneath it said "Picked clean".
+    function sectorOwnerVillage(id: number): string | undefined {
+        return loadSectorTerritory(id).ownerVillage;
+    }
+    function sectorRichnessTier(id: number): SectorRichness {
+        if (!isWildSector(id)) return "unknown";
+        return sectorRichnessOf(sectorPoolViewFor(id, sectorOwnerVillage(id), character.village));
+    }
+
     function sectorMarkerStyle(id: number): CSSProperties {
         if (!warMapOn || id >= 56 || id === 99) return {};
         const owner = loadSectorTerritory(id).ownerVillage || homeVillageForSector(id);
@@ -3664,6 +3691,42 @@ export function WorldMap({
         if (selectedSector != null) void exploreSector(selectedSector);
     }
 
+    // Picked clean is a signpost, not a wall. The pool is shared and per-sector,
+    // so a drained one always means a fuller one nearby; this walks the road graph
+    // for the closest and hands the player back to the overview, where the pool
+    // tiers it just named are drawn on the markers.
+    async function handleClaimContract() {
+        if (selectedSector == null || contractBusy) return;
+        setContractBusy(true);
+        // The server recomputes the bounty from the sealed sector and day and
+        // pays from that, so the only thing to do with the answer is adopt the
+        // total it reports back — never add the amount locally.
+        const result = await claimSectorContract(character.name, selectedSector);
+        setContractBusy(false);
+        bumpSectorContractRevision();
+        if (!result.ok) {
+            setTravelToast({ id: Date.now(), kicker: "Contract", text: result.message });
+            return;
+        }
+        if (onServerVersion?.(result.saveVersion) !== false) {
+            updateCharacter((prev) => (prev && prev.name === character.name ? { ...prev, ryo: result.totalRyo } : prev));
+        }
+        setTravelToast({ id: Date.now(), kicker: "Contract settled", text: `The posting pays ${result.ryo.toLocaleString()} ryo.` });
+    }
+
+    function handleFindRicherGround() {
+        if (selectedSector == null) return;
+        const richer = richerSectorsNear(selectedSector, character.village, sectorOwnerVillage);
+        setSelectedSector(null);
+        setTravelToast({
+            id: Date.now(),
+            kicker: richer.length ? "Richer ground" : "Picked clean",
+            text: richer.length
+                ? `Still rich nearby: ${richer.map((entry) => `${sectorName(entry.sector) ?? `Sector ${entry.sector}`} (${entry.hops} ${entry.hops === 1 ? "road" : "roads"} out)`).join(", ")}.`
+                : "Every road out of here has been worked over today. The pools refill at midnight UTC.",
+        });
+    }
+
     function handleHuntSelectedSector() {
         if (selectedSector != null) void huntSector(selectedSector);
     }
@@ -4178,17 +4241,9 @@ export function WorldMap({
     }
 
     if (isTraveling) {
-        const secondsLeft = Math.max(1, Math.ceil((travelingUntil - Date.now()) / 1000));
-        return (
-            <div className="map-instance">
-                <div className="card" style={{ maxWidth: 520, margin: "4rem auto", textAlign: "center" }}>
-                    <h2>Traveling</h2>
-                    <p className="hint">Moving between sectors. You cannot be attacked during travel.</p>
-                    <div className="bar ap-bar"><span style={{ width: `${Math.max(0, Math.min(100, ((3 - secondsLeft) / 3) * 100))}%` }} /></div>
-                    <p>{secondsLeft}s</p>
-                </div>
-            </div>
-        );
+        // The countdown owns its own ticker (see TravelingOverlay) — App wakes
+        // once at arrival, so a clock read during this render would never tick.
+        return <TravelingOverlay arrivalAt={travelingUntil} />;
     }
 
     // Built once and mounted in BOTH render branches (sector detail above, world
@@ -4758,7 +4813,9 @@ export function WorldMap({
                         onOpenShrine={handleOpenSectorShrine}
                         onStrikeSleeper={handleSelectedSectorSleeperAttack}
                         onAttackPlayer={handleSelectedSectorPlayerAttack}
+                        contract={sectorContract} contractBusy={contractBusy} onClaimContract={() => { void handleClaimContract(); }}
                         onExplore={handleExploreSelectedSector}
+                        onFindRicherGround={handleFindRicherGround}
                         onHunt={handleHuntSelectedSector}
                         onRecover={handleRecoverSelectedSector}
                         onLeave={handleLeaveSelectedSector}
@@ -5105,6 +5162,13 @@ export function WorldMap({
                 {sectorPoints.map((sector) => {
                     const huntTrail = huntTrailForSector(sector.id);
                     const sectorShrine = isSectorTracesEnabled() ? shrineForSector(sector.id) : undefined;
+                    // Resolved ONCE per marker. Both of these are real work — the
+                    // richness tier reads the territory row and sizes the pool,
+                    // the contract consults the day's board — and the className
+                    // and the title each want them, over ~67 markers, every render.
+                    const richness = sectorRichnessTier(sector.id);
+                    const richnessLabel = sectorRichnessLabel(richness);
+                    const contract = localSectorContract(sector.id);
                     const sectorTitle = sector.id === 99
                         ? "Death's Gate - PvP zone: 2x Ryo, stat growth & Jutsu XP, 5% Bone Charm on win"
                         : huntTrail
@@ -5121,12 +5185,14 @@ export function WorldMap({
                             + (huntTrail ? " atlas-sector-hunt-trail" : "")
                             + (sectorShrine ? " atlas-sector-shrine" : "")
                             + (currentSector === sector.id ? " atlas-sector-current" : "")
+                            + ` atlas-sector-pool-${richness}`
+                            + (contract ? ` atlas-sector-contract${contract.nightOnly ? " atlas-sector-contract-night" : ""}` : "")
                         }
                         style={{ left: sector.x + "%", top: sector.y + "%", ...sectorMarkerStyle(sector.id) }}
                         onClick={() => triggerTravelPoint(sector.id)}
                         onMouseEnter={() => setRouteHoverSector(sector.id)}
                         onMouseLeave={() => setRouteHoverSector((current) => (current === sector.id ? null : current))}
-                        title={currentSector === sector.id ? `You are here | ${sectorTitle}` : sectorTitle}
+                        title={(currentSector === sector.id ? `You are here | ${sectorTitle}` : sectorTitle) + (richnessLabel ? ` | ${richnessLabel}` : "") + (contract ? (contract.nightOnly ? " | Night contract posted today" : " | Contract posted today") : "")}
                         aria-label={currentSector === sector.id
                             ? `You are here, ${sectorName(sector.id) ?? `Sector ${sector.id}`}`
                             : `Travel to ${sectorName(sector.id) ?? `Sector ${sector.id}`} (Sector ${sector.id})`}

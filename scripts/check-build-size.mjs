@@ -383,7 +383,16 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // gate — the gate did its job and caught it. 7,845,000 keeps 11,961 B, sized
 // against the ~530 B of run-to-run variance actually observed across four
 // CI-equivalent builds, not against a guess.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_845_000;
+//
+// 2026-08-26 SECTOR CONTRACTS: 7,845,000 -> 7,860,000 B. The day's posted work
+// added shared/sector-contracts.ts, lib/sector-contract.ts, lib/sector-richness.ts
+// and SectorContractCard.tsx — measured 7,846,664 B, i.e. 4,692 B over the
+// previous build and 1,664 B past the gate, which is exactly the growth it exists
+// to make visible. NOT a startup regression: the entry chunk and both initial-graph
+// gates still pass untouched (this code is inside the lazily-loaded World Map
+// graph). 7,860,000 keeps 13,336 B, sized like the entry above it — against the
+// ~530 B of observed run-to-run variance, not a guess.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_860_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
@@ -676,7 +685,7 @@ if (budgetedJsCssTotal > TOTAL_JS_CSS_WARN_BYTES) {
     console.warn(`[sizecheck] WARN budgeted product JS/CSS is ${fmt(budgetedJsCssTotal)} (all emitted: ${fmt(jsCssTotal)}).`);
 }
 if (budgetedJsCssTotal > TOTAL_JS_CSS_FAIL_BYTES) {
-    failures.push(`budgeted product JS/CSS is ${fmt(budgetedJsCssTotal)}; threshold is ${fmt(TOTAL_JS_CSS_FAIL_BYTES)}`);
+    failures.push(`budgeted product JS/CSS is ${fmt(budgetedJsCssTotal)} (${budgetedJsCssTotal} B); threshold is ${fmt(TOTAL_JS_CSS_FAIL_BYTES)} (${TOTAL_JS_CSS_FAIL_BYTES} B)`);
 }
 
 if (failures.length) {

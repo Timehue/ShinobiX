@@ -2274,7 +2274,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1692
+            "line": 1698
           }
         ]
       },
@@ -2309,10 +2309,6 @@
         "axis": "width",
         "valuePx": 420,
         "occurrences": [
-          {
-            "source": "shinobij.client/src/components/VillagePulse.css",
-            "line": 169
-          },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
             "line": 2089
@@ -2560,11 +2556,11 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
-            "line": 176
+            "line": 196
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
-            "line": 387
+            "line": 407
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-tools.css",
@@ -2618,7 +2614,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/15-territory-panels.css",
-            "line": 705
+            "line": 783
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
@@ -2730,7 +2726,7 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
-            "line": 144
+            "line": 164
           },
           {
             "source": "shinobij.client/src/styles/ui.css",
@@ -2781,7 +2777,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1562
+            "line": 1568
           }
         ]
       },
@@ -3039,7 +3035,7 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
-            "line": 132
+            "line": 152
           },
           {
             "source": "shinobij.client/src/styles/pet-arena-lobby.css",
@@ -3120,7 +3116,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
-            "line": 238
+            "line": 288
           },
           {
             "source": "shinobij.client/src/styles/index/06-combat-core.css",
@@ -3196,19 +3192,19 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1230
+            "line": 1236
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1376
+            "line": 1382
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1711
+            "line": 1717
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1771
+            "line": 1777
           },
           {
             "source": "shinobij.client/src/styles/village-war-map-skin.css",
@@ -3250,11 +3246,11 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1522
+            "line": 1528
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1837
+            "line": 1843
           }
         ]
       },
@@ -3334,7 +3330,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
-            "line": 638
+            "line": 688
           },
           {
             "source": "shinobij.client/src/styles/index/10-layout-lock-herald.css",
@@ -3417,10 +3413,6 @@
         "valuePx": 979,
         "occurrences": [
           {
-            "source": "shinobij.client/src/components/VillagePulse.css",
-            "line": 152
-          },
-          {
             "source": "shinobij.client/src/screens/PetShowdown.css",
             "line": 1489
           },
@@ -3486,11 +3478,11 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
-            "line": 144
+            "line": 164
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
-            "line": 299
+            "line": 319
           },
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
@@ -3522,11 +3514,11 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1215
+            "line": 1221
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1680
+            "line": 1686
           }
         ]
       },
@@ -3863,7 +3855,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/15-territory-panels.css",
-            "line": 692
+            "line": 770
           }
         ]
       },
@@ -3900,7 +3892,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
-            "line": 281
+            "line": 301
           }
         ]
       },
@@ -3911,11 +3903,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1369
+            "line": 1375
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1705
+            "line": 1711
           }
         ]
       }

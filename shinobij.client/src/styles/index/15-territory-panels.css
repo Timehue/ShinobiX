@@ -228,16 +228,25 @@
     box-shadow: inset 0 0 0 2px rgba(250, 204, 21, 0.62), 0 0 14px rgba(250, 204, 21, 0.34) !important;
 }
 
+/* Exit tiles used to be flat orange squares with a hard 1px frame — a UI box
+   stamped onto a painting. They now read as trodden ground: a warm pool that
+   fades out before the tile edge, so the gate standing in it looks lit rather
+   than boxed. */
 .map-instance .sector-image-map .sector-road-exit {
     position: relative;
     z-index: 5;
-    background: linear-gradient(135deg, rgba(15, 23, 42, 0.3), rgba(217, 119, 6, 0.22)) !important;
-    box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.52) !important;
+    background:
+        radial-gradient(ellipse 78% 62% at 50% 74%, rgba(251, 191, 36, 0.4), transparent 70%),
+        linear-gradient(180deg, transparent 34%, rgba(217, 119, 6, 0.16)) !important;
+    box-shadow: inset 0 -1px 0 rgba(251, 191, 36, 0.34) !important;
 }
 
 .map-instance .sector-image-map .sector-road-exit-ready {
     animation: sector-road-ready 1.35s ease-in-out infinite;
-    box-shadow: inset 0 0 0 2px rgba(253, 224, 71, 0.82), 0 0 16px rgba(245, 158, 11, 0.62) !important;
+    background:
+        radial-gradient(ellipse 88% 72% at 50% 74%, rgba(253, 224, 71, 0.42), transparent 72%),
+        linear-gradient(180deg, transparent 28%, rgba(245, 158, 11, 0.26)) !important;
+    box-shadow: inset 0 -2px 0 rgba(253, 224, 71, 0.7), 0 0 18px rgba(245, 158, 11, 0.5) !important;
 }
 
 @keyframes sector-road-ready {
@@ -648,6 +657,75 @@
     background: linear-gradient(180deg, var(--gold-400), var(--gold-600)) !important;
 }
 
+/* Sector scars — duels fought on this ground recently. Quiet by default: it is
+   a rumour board, not an alert, so it sits under the traces heading in muted
+   text with a blooded left edge rather than competing with the sector's verbs. */
+.map-instance .sector-command-panel .sector-scar-list {
+    display: grid;
+    gap: 3px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.map-instance .sector-command-panel .sector-scar-list li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 6px;
+    padding: 3px 6px;
+    border-left: 2px solid rgba(248, 113, 113, 0.5);
+    border-radius: 2px;
+    background: rgba(127, 29, 29, 0.16);
+}
+
+.map-instance .sector-command-panel .sector-scar-list strong {
+    overflow: hidden;
+    color: var(--slate-100) !important;
+    font-size: var(--fs-2xs) !important;
+    font-weight: var(--fw-bold) !important;
+    text-overflow: ellipsis;
+    text-transform: none !important;
+    white-space: nowrap;
+}
+
+.map-instance .sector-command-panel .sector-scar-list small {
+    color: var(--slate-400) !important;
+    font-size: var(--fs-2xs) !important;
+    white-space: nowrap;
+}
+
+/* Posted contract card — gold-edged so it reads as the sector's headline offer
+   rather than another readout. */
+.map-instance .sector-command-panel .sector-contract-card {
+    border-left: 3px solid rgba(250, 204, 21, 0.62);
+}
+
+.map-instance .sector-command-panel .sector-contract-card .sector-action-btn {
+    margin-top: 2px;
+}
+
+.map-instance .sector-command-panel .sector-contract-waiting {
+    color: var(--blue-300) !important;
+    font-size: var(--fs-2xs) !important;
+    line-height: 1.3 !important;
+    text-transform: none !important;
+}
+
+.map-instance .sector-command-panel .sector-contract-objective {
+    color: var(--slate-200) !important;
+    font-size: var(--fs-xs) !important;
+    line-height: 1.3 !important;
+    text-transform: none !important;
+}
+/* Explore with the pool drained. It keeps the primary slot's full width — the
+   grid must not reflow when a sector runs out — but drops the gold, because it
+   is now a redirect to richer ground rather than the sector's own verb. */
+.map-instance .sector-command-panel .sector-action-btn.is-primary.is-spent {
+    color: var(--slate-200) !important;
+    border-color: rgba(148, 163, 184, 0.42) !important;
+    background: linear-gradient(180deg, rgba(51, 65, 85, 0.9), rgba(15, 23, 42, 0.96)) !important;
+}
 .map-instance .sector-command-panel .sector-action-btn.is-danger,
 .map-instance .sector-command-panel .sector-player-action {
     border-color: rgba(248, 113, 113, 0.42) !important;

@@ -14,6 +14,7 @@ import { sectorName } from "../../../shared/sector-geo";
 import { SectorTracesCard } from "./SectorTraces";
 import { SectorGatherReadout } from "./SectorGatherReadout";
 import { SectorIntelCard } from "./SectorIntelCard";
+import { SectorContractCard } from "./SectorContractCard";
 
 // Row/prop shapes live in a sibling module (see its header); re-exported here
 // so every existing import of these names keeps working unchanged.
@@ -41,6 +42,8 @@ export function WorldSectorCommandPanel({
     weather,
     territory,
     gathering,
+    contract,
+    contractBusy,
     intel = null,
     villageWarAdmissionOpen,
     traces,
@@ -53,7 +56,9 @@ export function WorldSectorCommandPanel({
     onOpenShrine,
     onStrikeSleeper,
     onAttackPlayer,
+    onClaimContract,
     onExplore,
+    onFindRicherGround,
     onHunt,
     onRecover,
     onLeave,
@@ -146,6 +151,7 @@ export function WorldSectorCommandPanel({
                     )}
                 </section>
             )}
+            {contract && <SectorContractCard status={contract} busy={contractBusy} onClaim={onClaimContract} />}
             {intel && <SectorIntelCard intel={intel} />}
             {traces && (
                 <SectorTracesCard
@@ -209,9 +215,17 @@ export function WorldSectorCommandPanel({
                 </section>
             )}
             <div className="sector-action-grid" aria-label="Sector actions">
-                <button type="button" className="sector-action-btn is-primary" disabled={gatherDepleted} onClick={onExplore}>
+                {/* A picked-clean sector used to leave a dead, disabled button — the
+                    end of the road. The pool is shared and per-sector, so "nothing
+                    here" always means "something nearby": the verb changes rather
+                    than switching off, and points at the ground that still pays. */}
+                <button
+                    type="button"
+                    className={`sector-action-btn is-primary${gatherDepleted ? " is-spent" : ""}`}
+                    onClick={gatherDepleted ? onFindRicherGround : onExplore}
+                >
                     <span className="sector-action-icon" aria-hidden="true"><GiCompass /></span>
-                    {gatherDepleted ? <span>Picked clean</span> : <span>Explore</span>}
+                    <span>{gatherDepleted ? "Find richer ground" : "Explore"}</span>
                 </button>
                 {hunt && (
                     <button type="button" className="sector-action-btn" onClick={onHunt}>

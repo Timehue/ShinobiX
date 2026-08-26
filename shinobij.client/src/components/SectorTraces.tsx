@@ -16,6 +16,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { SHRINE_TIERS, shrineForSector, type ShrineDef } from "../../../shared/shrines";
+import { parseScars, pruneScars, scarAgeLabel, scarLine } from "../../../shared/sector-scars";
 import {
     leaveTrailSign,
     offerAtShrine,
@@ -116,6 +117,15 @@ export function SectorTracesCard({ traces, onOpenSigns, onOpenShrine }: {
 }) {
     if (!traces) return null;
     const top = traces.shrine?.topWeek[0];
+    // PARSE the payload, do not trust its type. `traces.scars` is whatever came
+    // down the wire, and a row with no victor renders as "stood over Nobody" —
+    // caught exactly that way in a fixture. parseScars is the same validation
+    // the server applies on read, so both ends drop the same junk.
+    //
+    // The clock lives in the helpers' defaults, not here: reading it in a
+    // component body is impure (and the same reason this file's own `timeAgo`
+    // takes a defaulted `now`). Labels are coarse, so one read per render is fine.
+    const scars = pruneScars(parseScars(traces.scars));
     return (
         <section className="summary-box sector-panel-card sector-traces-card">
             <div className="sector-panel-card-head">
@@ -124,6 +134,17 @@ export function SectorTracesCard({ traces, onOpenSigns, onOpenShrine }: {
                     {traces.footfallToday > 0 ? `${traces.footfallToday} passed today` : "quiet today"}
                 </span>
             </div>
+            {scars.length > 0 && (
+                <ul className="sector-scar-list" aria-label="Duels fought here recently">
+                    {scars.map((scar) => (
+                        <li key={`${scar.victor}:${scar.at}`}>
+                            <span aria-hidden="true">⚔</span>
+                            <strong>{scarLine(scar)}</strong>
+                            <small>{scarAgeLabel(scar)}</small>
+                        </li>
+                    ))}
+                </ul>
+            )}
             <button type="button" className="sector-action-btn sector-trace-btn" onClick={onOpenSigns}>
                 <span aria-hidden="true">🪧</span>
                 <span>{traces.signs.length > 0 ? `Trail signs (${traces.signs.length})` : "Leave a trail sign"}</span>
