@@ -6,6 +6,7 @@ import {
     type PublicCapabilities,
     type PublicCapabilityId,
 } from "../../shared/public-capabilities";
+import { travelArrivalTile } from "../../shared/sector-links";
 import {
     expectFinalActionableClearsFixedNavigation,
     expectNoLargeOverlap,
@@ -138,7 +139,16 @@ async function installAuthenticatedApi(page: Page, initialSave: SavePayload | nu
             }
         }
         if (path === "/api/battle-lock") return json(route, { lock: null });
-        if (path === "/api/player/travel") return json(route, { arrivalAt: Date.now(), travelMs: 0, arrivalTile: 78 });
+        if (path === "/api/player/travel") {
+            const body = request.postDataJSON() as { destinationSector?: unknown };
+            const originSector = Number(save?.currentSector ?? 0);
+            const destinationSector = Number(body.destinationSector);
+            return json(route, {
+                arrivalAt: Date.now(),
+                travelMs: 0,
+                arrivalTile: travelArrivalTile(originSector, destinationSector) ?? 78,
+            });
+        }
         if (path === "/api/world-state") return json(route, { territories: [], wars: [], standings: [] });
         if (path === "/api/clan/war/list") return json(route, { wars: [] });
         if (path === "/api/game-state") return json(route, { villageStates: {}, arenaActiveFights: [] });
@@ -1058,11 +1068,41 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
     const tileLabels = await tiles.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("aria-label")));
     expect(tileLabels.every((label) => typeof label === "string" && label.length > 0)).toBe(true);
     expect(new Set(tileLabels).size).toBe(144);
+    const tileGeometry = await stage.locator(".walkable-sector-map").evaluate((board) => {
+        const buttons = Array.from(board.querySelectorAll<HTMLButtonElement>("button.scene-tile"));
+        const centers = buttons.map((button) => {
+            const buttonRect = button.getBoundingClientRect();
+            return {
+                x: buttonRect.left + buttonRect.width / 2,
+                y: buttonRect.top + buttonRect.height / 2,
+            };
+        });
+        // Read the rendered tracks from the buttons themselves. Mobile's
+        // adaptive stage may scale the whole board, so mixing its transformed
+        // DOMRect with unscaled computed padding/gaps gives a false failure.
+        // A sibling occupying an explicit grid cell still shows up here: later
+        // button indices shift to a different x/y track (and may add row 13).
+        const tracks = (axis: "x" | "y") => Array.from(new Set(centers.map((center) => center[axis].toFixed(2))))
+            .map(Number)
+            .sort((a, b) => a - b);
+        const xTracks = tracks("x");
+        const yTracks = tracks("y");
+        return centers.map((center, index) => {
+            const expectedX = xTracks[index % 12];
+            const expectedY = yTracks[Math.floor(index / 12)];
+            return xTracks.length === 12 && yTracks.length === 12
+                && Math.abs(center.x - expectedX) < 1
+                && Math.abs(center.y - expectedY) < 1;
+        });
+    });
+    expect(tileGeometry).toEqual(Array.from({ length: 144 }, () => true));
     await expect(stage.getByRole("button", { name: "Current tile row 7 column 7" })).toHaveCount(1);
+    await stage.getByRole("button", { name: "Move to tile row 2 column 10" }).click();
+    await expect(stage.getByRole("button", { name: "Current tile row 2 column 10" })).toHaveCount(1);
     await page.keyboard.press("d");
-    await expect(stage.getByRole("button", { name: "Current tile row 7 column 8" })).toHaveCount(1);
+    await expect(stage.getByRole("button", { name: "Current tile row 2 column 11" })).toHaveCount(1);
     await page.keyboard.press("a");
-    await expect(stage.getByRole("button", { name: "Current tile row 7 column 7" })).toHaveCount(1);
+    await expect(stage.getByRole("button", { name: "Current tile row 2 column 10" })).toHaveCount(1);
 
     const noticeDialog = page.getByRole("alertdialog", { name: "Notice" });
     await page.keyboard.press("e");
@@ -1179,6 +1219,32 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
     await expect(page.locator(".generated-world-map")).toBeVisible();
     await expect(page.getByRole("button", { name: /Return to Sector 44/ })).toBeVisible();
     await expectViewportSafe(page, { logicalStages: [".world-map-scroll"] });
+
+    // The browser, client controller, API fixture and shared topology must all
+    // agree on a sector-to-sector arrival. This specifically guards the old
+    // regression where every map trip put the avatar back on centre tile 78.
+    const destinationSector = 1;
+    const arrivalTile = travelArrivalTile(44, destinationSector);
+    expect(arrivalTile).not.toBeNull();
+    const arrivalRow = Math.floor(arrivalTile! / 12) + 1;
+    const arrivalCol = (arrivalTile! % 12) + 1;
+    const destinationMarker = page.getByRole("button", { name: "Travel to Harbor Gates (Sector 1)" });
+    if (testInfo.project.name === "chromium-mobile") {
+        const stormveilJump = page.getByRole("button", { name: "Stormveil", exact: true });
+        await stormveilJump.focus();
+        await stormveilJump.press("Enter");
+        await expect(destinationMarker).toBeInViewport();
+        await destinationMarker.focus();
+        await destinationMarker.press("Enter");
+    } else {
+        await destinationMarker.click();
+    }
+    const arrivedStage = page.locator(".sector-stage-panel");
+    await expect(arrivedStage).toBeVisible();
+    await expect(arrivedStage.getByRole("button", {
+        name: `Current tile row ${arrivalRow} column ${arrivalCol}`,
+    })).toHaveCount(1);
+    expect(arrivalTile).not.toBe(78);
     expect(capabilityRequests).toBeGreaterThan(0);
     expect(severeRuntimeErrors).toEqual([]);
 });

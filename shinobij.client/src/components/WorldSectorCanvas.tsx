@@ -2,10 +2,10 @@ import type { ReactNode } from "react";
 import type { Biome, WeatherType } from "../types/core";
 import { biomeLabel, weatherEffects } from "../data/world";
 import { sectorRegionName } from "../data/sectors";
-import { sectorName, sectorRegionKey } from "../../../shared/sector-geo";
+import { sectorName } from "../../../shared/sector-geo";
 import type { SectorDirection, SectorExit } from "../../../shared/sector-links";
 import { DayNightSky } from "./DayNightSky";
-import { RegionSplash, SectorGateMarker, SectorGatePlate } from "./WorldWalkFeel";
+import { RegionSplash, SectorGateMarker } from "./WorldWalkFeel";
 import { SceneAmbience } from "./SceneAmbience";
 import { SceneAmbience3D } from "./SceneAmbience3D";
 import { SceneCritters } from "./SceneCritters";
@@ -88,9 +88,6 @@ export function WorldSectorCanvas({
     const playerCol = (playerTile % GRID_SIZE) + 1;
     const playerRow = Math.floor(playerTile / GRID_SIZE) + 1;
     const mapMode = Boolean(mapImage);
-    // A gate that leaves the region names the region it leads into.
-    const homeRegion = sectorRegionKey(sector);
-
     return (
         <main className="tile-scene sector-stage-panel">
             <div className="scene-title sector-scene-title">
@@ -169,17 +166,6 @@ export function WorldSectorCanvas({
                         </button>
                     );
                 })}
-
-                {roadExits.map((exit) => (
-                    <SectorGatePlate
-                        key={`gate-plate-${exit.id}`}
-                        tile={exit.tile}
-                        destinationSector={exit.destinationSector}
-                        direction={exit.direction}
-                        ready={exit.tile === playerTile && isCurrent}
-                        crossesRegion={sectorRegionKey(exit.destinationSector) !== homeRegion}
-                    />
-                ))}
 
                 {showLivePeers && isCurrent && (
                     <SectorPeersLive
