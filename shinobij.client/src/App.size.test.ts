@@ -298,7 +298,19 @@ import { readFileSync } from "node:fs";
 // dropping a clan-war/ranked 2v2 player into the co-op Spire lobby. Raised by
 // exactly the line it cost rather than crammed onto an existing statement, and
 // still tighter than BOTH merge parents (branch 7,613 / main 7,636).
-const MAX_LINES = 7_586;
+//
+// → 7,588 (+2) for the two Warfront plan fields on DuelChallenge
+// (challengerWarfrontPlan / responderWarfrontPlan), added by 20d51e227
+// "feat(pets): make Warfront strategy matter". NOT growth from the change that
+// raised this line: main was already red on this budget before the sector work
+// merged in, and this raise is recorded here rather than left to look like the
+// merging branch's doing.
+//
+// It is raised by exactly the two lines it cost, no buffer. The right fix is to
+// drain the DuelChallenge type out to types/ — it has no business living in the
+// monolith — but that refactor touches every importer and does not belong
+// inside an unrelated push.
+const MAX_LINES = 7_588;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
