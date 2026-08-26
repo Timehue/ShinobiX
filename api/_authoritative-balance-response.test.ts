@@ -144,12 +144,17 @@ describe('authoritative balance response migration', () => {
     });
 
     it('war crates are consumed and rewarded by one server save mutation', () => {
-        const api = read('api/village/open-war-crate.ts');
+        const api = read('api/inventory/open-war-crate.ts');
+        const compatibilityApi = read('api/village/open-war-crate.ts');
+        const clientApi = read('shinobij.client/src/lib/inventory-settlement.ts');
         const client = read('shinobij.client/src/screens/Inventory.tsx');
         assert.match(api, /mutatePlayerSave\(playerName/);
-        assert.match(api, /character: result\.character/);
-        assert.match(client, /fetch\("\/api\/village\/open-war-crate"/);
-        assert.match(client, /onVersionedCharacter\(data\.character, data\._saveVersion\)/);
+        assert.match(api, /character: out\.character/);
+        assert.match(api, /Promise\.allSettled/);
+        assert.match(compatibilityApi, /export \{ default \} from '\.\.\/inventory\/open-war-crate\.js'/);
+        assert.match(clientApi, /fetch\('\/api\/inventory\/open-war-crate'/);
+        assert.match(client, /openWarCrate\(character\.name\)/);
+        assert.match(client, /onVersionedCharacter\(result\.character, result\._saveVersion\)/);
         assert.match(client, /if \(openingWarCrateRef\.current\) return/);
         assert.doesNotMatch(client, /Math\.random\(\) < 0\.35/);
     });

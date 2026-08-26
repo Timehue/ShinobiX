@@ -400,19 +400,14 @@ async function assertAuthoritativeCombatSurface(page: Page, compact: boolean) {
         await page.keyboard.press("Enter");
         await expect(actionsTab).toHaveAttribute("aria-selected", "true");
     } else {
-        // Wide mission combat gives the log a dedicated, scroll-owned panel.
-        // Certify the same explicit panel navigation used on compact screens.
-        const battleLogTab = combat.getByRole("tab", { name: /^Battle Log/ });
-        await expect(battleLogTab).toBeVisible();
-        await battleLogTab.focus();
-        await page.keyboard.press("Enter");
-        await expect(battleLogTab).toHaveAttribute("aria-selected", "true");
+        // Wide desktop keeps actions, loadout, and the widened log visible
+        // together; pet summon stays in the same basic-action strip as Cleanse.
+        await expect(combat.locator(".battle-tabbar")).toBeHidden();
+        await expect(combat.locator(".combat-jutsu-bar")).toBeVisible();
+        await expect(combat.locator(".shinobi-command-bar .summon-pet-command")).toBeVisible();
+        await expect(combat.locator(".combat-layout")).toHaveClass(/combat-log-wide/);
+        await expect(log).toBeVisible();
         await expect(log).toContainText(`${PLAYER_NAME} faces Mist Sentinel.`);
-
-        const actionsTab = combat.getByRole("tab", { name: "Actions" });
-        await actionsTab.focus();
-        await page.keyboard.press("Enter");
-        await expect(actionsTab).toHaveAttribute("aria-selected", "true");
     }
 }
 
@@ -470,8 +465,9 @@ test("desktop Battle Arena seals practice combat, surfaces retry, acts, and resu
         type: "basicAttack",
     });
     const postActionCombat = combatSurface(page);
-    await postActionCombat.getByRole("tab", { name: /^Battle Log/ }).click();
-    await expect(postActionCombat.getByRole("log", { name: "Battle log" })).toContainText("the sealed server advances the round");
+    const postActionLog = postActionCombat.getByRole("log", { name: "Battle log" });
+    await expect(postActionLog).toBeVisible();
+    await expect(postActionLog).toContainText("the sealed server advances the round");
 
     const startsBeforeReload = api.practiceStartCount();
     await page.reload({ waitUntil: "networkidle" });

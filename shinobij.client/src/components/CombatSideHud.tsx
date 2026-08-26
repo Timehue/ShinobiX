@@ -85,6 +85,15 @@ function statusValueText(s: GroupedStatus): string {
         : s.amount != null ? `${Math.round(s.amount)}` : "active";
 }
 
+function progressProps(label: string, value: number, max: number) {
+    return {
+        role: "progressbar" as const,
+        "aria-label": label,
+        "aria-valuemax": max,
+        "aria-valuenow": Math.max(0, Math.min(value, max)),
+    };
+}
+
 export function CombatSideHud({
     name,
     avatar,
@@ -120,9 +129,17 @@ export function CombatSideHud({
     power?: number;
 }) {
     const hpPct = Math.max(0, Math.min(100, (hp / Math.max(1, maxHp)) * 100));
+    const chakraPct = Math.max(0, Math.min(100, (chakra / Math.max(1, maxChakra)) * 100));
+    const staminaPct = Math.max(0, Math.min(100, (stamina / Math.max(1, maxStamina)) * 100));
+    const shieldMax = 1500;
+    const shieldPct = Math.max(0, Math.min(100, (shield / shieldMax) * 100));
     const hpColor = hpPct > 50 ? "var(--success)" : hpPct > 25 ? "var(--gold-2)" : "var(--danger)";
     return (
-        <aside className={`combat-side-hud${isActive ? " combat-side-hud--active" : ""}`}>
+        <aside
+            className={`combat-side-hud${isActive ? " combat-side-hud--active" : ""}`}
+            aria-label={`${name} combat status`}
+            tabIndex={0}
+        >
             <div className="combat-hud-header">
                 <h3>{name}</h3>
                 {village && <span className="combat-hud-village">{village}</span>}
@@ -147,30 +164,42 @@ export function CombatSideHud({
                 board via FighterHpBadge — chakra/stamina/shield stay visible. */}
             <div className="resource-line resource-line--hp">
                 <span className="resource-label">HP <small>{hp} / {maxHp}</small></span>
-                <div className="hud-bar hp-bar">
+                <div
+                    className="hud-bar hp-bar"
+                    {...progressProps(`${name} health`, hp, maxHp)}
+                >
                     <span style={{ width: `${hpPct}%`, background: hpColor }} />
                 </div>
             </div>
 
             <div className="resource-line resource-line--chakra">
                 <span className="resource-label">Chakra <small>{chakra} / {maxChakra}</small></span>
-                <div className="hud-bar chakra-bar">
-                    <span style={{ width: `${Math.max(0, Math.min(100, (chakra / Math.max(1, maxChakra)) * 100))}%` }} />
+                <div
+                    className="hud-bar chakra-bar"
+                    {...progressProps(`${name} chakra`, chakra, maxChakra)}
+                >
+                    <span style={{ width: `${chakraPct}%` }} />
                 </div>
             </div>
 
             <div className="resource-line resource-line--stamina">
                 <span className="resource-label">Stamina <small>{stamina} / {maxStamina}</small></span>
-                <div className="hud-bar stamina-bar">
-                    <span style={{ width: `${Math.max(0, Math.min(100, (stamina / Math.max(1, maxStamina)) * 100))}%` }} />
+                <div
+                    className="hud-bar stamina-bar"
+                    {...progressProps(`${name} stamina`, stamina, maxStamina)}
+                >
+                    <span style={{ width: `${staminaPct}%` }} />
                 </div>
             </div>
 
             {shield > 0 && (
                 <div className="resource-line resource-line--shield">
                     <span className="resource-label">Shield <small>{shield}</small></span>
-                    <div className="hud-bar shield-bar">
-                        <span style={{ width: `${Math.min(100, (shield / 1500) * 100)}%` }} />
+                    <div
+                        className="hud-bar shield-bar"
+                        {...progressProps(`${name} shield`, shield, shieldMax)}
+                    >
+                        <span style={{ width: `${shieldPct}%` }} />
                     </div>
                 </div>
             )}

@@ -73,11 +73,15 @@ test('route and client use authenticated locked settlement with no client random
     const route = readFileSync(join(process.cwd(), 'api', 'inventory', 'open-war-crate.ts'), 'utf8');
     const client = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'lib', 'inventory-settlement.ts'), 'utf8');
     const screen = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'screens', 'Inventory.tsx'), 'utf8');
-    assert.match(route, /await authedPlayer\(req, playerName\)/);
+    assert.match(route, /await authedPlayerOrAdmin\(req, playerName\)/);
     assert.match(route, /await mutatePlayerSave\(playerName/);
     assert.match(route, /strict: true/);
+    assert.match(route, /Promise\.allSettled/);
+    assert.doesNotMatch(route, /await Promise\.all\(/,
+        'economy projection failures must not turn a committed settlement into an HTTP failure');
     assert.match(client, /fetch\('\/api\/inventory\/open-war-crate'/);
+    assert.match(screen, /openWarCrate\(character\.name\)/);
     assert.doesNotMatch(screen, /Math\.random\(\)/);
-    assert.match(screen, /if \(!onVersionedCharacter\(data\.character, data\._saveVersion\)\) return;\s*setSelectedInventoryItem\(null\)/,
+    assert.match(screen, /if \(!onVersionedCharacter\(result\.character, result\._saveVersion\)\) return;\s*setSelectedInventoryItem\(null\)/,
         'the authoritative crate snapshot must be accepted before closing the item action');
 });

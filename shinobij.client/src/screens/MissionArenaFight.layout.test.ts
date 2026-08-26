@@ -27,7 +27,7 @@ const towerSource = readFileSync(new URL("./BattleTowerFight.tsx", import.meta.u
 test("mission fight reserves a row for its action notice instead of displacing the board", () => {
     assert.match(
         missionSource,
-        /<CombatHudLayout hasActionNotice>/,
+        /<CombatHudLayout className="combat-log-wide" hasActionNotice>/,
         "the combat grid must always reserve the persistent action-notice row",
     );
     assert.match(
@@ -189,6 +189,19 @@ test("the enemy HP badge clears the AI's full-body sprite instead of its face", 
 
 test("the mission summon command contains its icon and long lock copy", () => {
     assert.match(missionSource, /className="summon-pet-command"/);
+    assert.equal((missionSource.match(/type: "summon"/g) ?? []).length, 1, "mission combat must render one authoritative summon control");
+    assert.match(missionSource, /<CombatHudLayout className="combat-log-wide" hasActionNotice>/);
+    assert.doesNotMatch(missionSource, /combat-companion-panel|combat-companion-summon/);
+    assert.match(
+        battleSkinCss,
+        /#combat\.mission-arena-fight \.shinobi-command-bar\s*\{[^}]*grid-template-columns: repeat\(8, minmax\(0, 1fr\)\) !important/s,
+        "desktop PvE must keep Summon Pet beside Cleanse in its eight-command strip",
+    );
+    assert.match(
+        battleSkinCss,
+        /#combat \.combat-layout\.combat-log-wide \.combat-text-log\s*\{[^}]*grid-column: 3 \/ 6 !important/s,
+        "the PvE battle log must occupy the removed companion-panel space",
+    );
     assert.match(
         missionCss,
         /\.summon-pet-command\s*\{[^}]*grid-template-rows:\s*14px 12px 11px\s*!important;[^}]*overflow:\s*hidden\s*!important;/s,
@@ -380,7 +393,7 @@ test("mission desktop restores the dossier-board-dossier composition and full-wi
     );
     assert.match(
         missionCss,
-        /@media \(min-width:\s*1024px\) and \(max-width:\s*1359px\),\s*\(min-width:\s*1024px\) and \(max-height:\s*819px\)[\s\S]*?grid-template-rows:\s*clamp\(84px, 14dvh, 104px\) minmax\(0, 1fr\)\s*!important;[\s\S]*?"player opponent"\s*"main main"\s*!important;[\s\S]*?minmax\(160px, 1fr\)/,
+        /@media \(min-width:\s*1024px\) and \(max-width:\s*1279px\),\s*\(min-width:\s*1024px\) and \(max-height:\s*719px\)[\s\S]*?grid-template-rows:\s*clamp\(84px, 14dvh, 104px\) minmax\(0, 1fr\)\s*!important;[\s\S]*?"player opponent"\s*"main main"\s*!important;[\s\S]*?minmax\(160px, 1fr\)/,
         "compact desktop and zoom-equivalent fights must give the complete tactical HUD its own full-width row",
     );
     assert.match(

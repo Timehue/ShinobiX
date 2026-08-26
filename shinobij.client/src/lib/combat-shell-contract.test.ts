@@ -12,6 +12,7 @@ const tacticalPve = readFileSync(new URL("../screens/BattleTowerFight.tsx", impo
 const combatHud = readFileSync(new URL("../components/CombatHudLayout.tsx", import.meta.url), "utf8");
 const detailPortal = readFileSync(new URL("../components/CombatDetailPortal.tsx", import.meta.url), "utf8");
 const shellCss = css.slice(css.indexOf("SHINOBI COMBAT SHELL"));
+const desktopCommandCenter = css.slice(css.indexOf("Desktop-only command center"));
 
 test("combat modes share the authoritative shell and HUD primitives while mission PvE retains its desktop battlefield composition", () => {
     assert.match(pvp, /<ShinobiCombatShell/);
@@ -56,6 +57,24 @@ test("mode-only chat and pet controls stay owned by their battle screens", () =>
     assert.match(solo, /<span>Summon Pet<\/span>/, "authoritative PvE must label the summon explicitly");
 });
 
+test("wide desktop shares one command center and gives unused mode space to the battle log", () => {
+    assert.match(desktopCommandCenter, /@media \(min-width: 1280px\) and \(min-height: 700px\)/);
+    assert.match(desktopCommandCenter, /@container shinobi-combat \(min-width: 1180px\) and \(min-height: 660px\)/);
+    assert.match(desktopCommandCenter, /grid-template-columns:[\s\S]*?clamp\(190px, 15cqw, 260px\)[\s\S]*?minmax\(0, 1\.7fr\)[\s\S]*?minmax\(240px, 0\.9fr\)/);
+    assert.match(desktopCommandCenter, /"loadout loadout log mode mode" !important/);
+    assert.match(desktopCommandCenter, /#combat \.combat-layout > \.combat-main-area,[\s\S]*?display: contents !important/);
+    assert.match(desktopCommandCenter, /#combat \.combat-mode-panel,\s*#combat \.battle-chat-col[\s\S]*?grid-area: mode !important/);
+    assert.match(desktopCommandCenter, /#combat\.mission-arena-fight \.shinobi-command-bar\s*\{[^}]*grid-template-columns: repeat\(8, minmax\(0, 1fr\)\) !important/);
+    assert.match(desktopCommandCenter, /#combat \.combat-layout\.combat-log-wide \.combat-text-log\s*\{[^}]*grid-column: 3 \/ 6 !important/);
+    assert.match(solo, /<CombatHudLayout className="combat-log-wide" hasActionNotice>/);
+    assert.doesNotMatch(solo, /CombatModePanel|combat-companion-summon/);
+    assert.match(pvp, /className=\{`battle-chat-panel battle-chat-col/);
+    assert.match(pvp, /className=\{battleChatVisible \? undefined : "combat-log-wide combat-chat-collapsed"\}/);
+    for (const source of [solo, pvp]) {
+        assert.match(source, /role="region"\s*aria-label="Jutsu, weapons, and items"/);
+    }
+});
+
 test("the Arena screen stays a lobby and never hosts a fight again", () => {
     // Solo PvE moved server-side; Arena's browser-side reducer was deleted. If a
     // combat shell, a board, or a turn/HP reducer reappears here, a client-
@@ -85,8 +104,9 @@ test("the Arena screen stays a lobby and never hosts a fight again", () => {
 });
 
 test("shared-shell dossiers remain symmetric and mission PvE restores its desktop columns", () => {
-    assert.match(css, /@container shinobi-combat \(min-width: 1360px\) and \(min-height: 820px\)/);
+    assert.match(css, /@container shinobi-combat \(min-width: 1180px\) and \(min-height: 660px\)/);
     assert.match(css, /grid-template-columns: clamp\(210px, 14cqw, 260px\) minmax\(0, 1fr\) clamp\(210px, 14cqw, 260px\)/);
+    assert.match(css, /grid-template-areas: "header" "ap" "terrain" "board" "tabs" "notice" "commands" "panel"/);
     assert.match(shellCss, /grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\) !important/);
     assert.doesNotMatch(shellCss, /minmax\(235px[^}]*minmax\(620px/);
     assert.match(
