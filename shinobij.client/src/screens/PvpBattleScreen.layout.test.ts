@@ -110,6 +110,8 @@ test("the PvP battle log uses the scrollable, round-grouped semantic feed", () =
 test("collapsing desktop chat widens the log without borrowing mobile tab state", () => {
     assert.match(source, /<CombatHudLayout className=\{battleChatVisible \? undefined : "combat-log-wide combat-chat-collapsed"\}>/);
     assert.match(source, /className=\{`battle-chat-panel battle-chat-col\$\{battleChatVisible \? "" : " battle-chat-hidden"\}`\}/);
+    assert.match(source, /aria-controls=\{battleChatVisible \? "battle-chat-feed" : undefined\}/,
+        "collapsed chat must not retain an IDREF to an unmounted feed");
     assert.match(source, /\[battleChatMessages, battleChatVisible\]/, "reopening chat must restore the feed at its newest message");
     assert.match(
         battleSkinCss,
@@ -142,8 +144,13 @@ test("combat cards keep complete art and separated overlay metadata", () => {
     );
     assert.match(source, /localJutsuArtById\[jutsu\.id\][\s\S]*?localItemArtById\[item\.id\]/,
         "the local equipped catalogs must restore art stripped from the sealed PvP payload");
-    assert.ok((source.match(/className="combat-jutsu-fallback-icon"/g) ?? []).length >= 4,
-        "every combat card category needs a fallback behind failed artwork");
+    assert.ok((source.match(/className="combat-jutsu-fallback-icon" aria-hidden="true"/g) ?? []).length >= 4,
+        "every combat card category needs a decorative fallback behind failed artwork");
+    assert.match(
+        battleSkinCss,
+        /#combat \.battle-chat-messages\s*\{[^}]*max-height:\s*none\s*!important/s,
+        "tall desktop chat should use the full mode-panel height",
+    );
     assert.match(
         battleSkinCss,
         /html\[data-vp\] body > \.arena-fullscreen\.shinobi-combat-shell \.combat-jutsu-name\s*\{[^}]*position:\s*absolute\s*!important;[^}]*inset:\s*auto 0 17px\s*!important;[^}]*-webkit-line-clamp:\s*2\s*!important;[^}]*background:\s*linear-gradient/s,

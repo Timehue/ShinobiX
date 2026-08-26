@@ -6331,6 +6331,7 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
     #combat .battle-chat-messages {
         flex: 1 1 auto !important;
         min-height: 0 !important;
+        max-height: none !important;
         padding: 8px !important;
         overflow: hidden auto !important;
     }
