@@ -1776,8 +1776,8 @@ test('Solo-PvE combat layout viewport matrix', async ({ page, request }, testInf
     }));
     expect(soloArtwork.length, 'desktop solo combat should render loadout artwork').toBeGreaterThan(0);
     expect(
-        soloArtwork.every((art) => (art.loaded && art.fit === 'contain' && art.contained) || art.fallback),
-        `desktop solo card artwork must use complete framing or its visible fallback: ${JSON.stringify(soloArtwork)}`,
+        soloArtwork.every((art) => (art.loaded && art.fit === 'cover' && art.contained) || art.fallback),
+        `desktop solo card artwork must use the shared edge-to-edge crop or its visible fallback: ${JSON.stringify(soloArtwork)}`,
     ).toBe(true);
     await expect(soloRoot.locator('.battle-tabbar')).toBeHidden();
     await expect(soloRoot.locator('.shinobi-command-bar')).toBeVisible();
@@ -1898,10 +1898,10 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
 
     const pvpArtwork = await pvpRoot.locator('.combat-jutsu-thumb img').evaluateAll((images) => images.map((image) => {
         const art = image as HTMLImageElement;
-        return art.complete && art.naturalWidth > 0 && art.naturalHeight > 0 && getComputedStyle(art).objectFit === 'contain';
+        return art.complete && art.naturalWidth > 0 && art.naturalHeight > 0 && getComputedStyle(art).objectFit === 'cover';
     }));
     expect(pvpArtwork.length, 'desktop PvP combat should render loadout artwork').toBeGreaterThan(0);
-    expect(pvpArtwork.every(Boolean), 'desktop PvP card artwork must load without crop framing').toBe(true);
+    expect(pvpArtwork.every(Boolean), 'desktop PvP card artwork must load with the shared edge-to-edge crop').toBe(true);
 });
 
 test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, request }, testInfo) => {
