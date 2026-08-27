@@ -304,12 +304,16 @@ jobs:
           sha256sum -c server-dist.tgz.sha256
           grep -Fx "sha=$GITHUB_SHA" provenance.txt
           grep -Fx "run_id=$GITHUB_RUN_ID" provenance.txt
-          grep -Eq '^run_attempt=[1-9][0-9]*$' provenance.txt
+          artifact_attempt="$(sed -n 's/^run_attempt=//p' provenance.txt)"
+          [[ "$artifact_attempt" =~ ^[1-9][0-9]*$ ]]
+          (( artifact_attempt <= GITHUB_RUN_ATTEMPT ))
           cd ../client
           sha256sum -c client-dist.tgz.sha256
           grep -Fx "sha=$GITHUB_SHA" provenance.txt
           grep -Fx "run_id=$GITHUB_RUN_ID" provenance.txt
-          grep -Eq '^run_attempt=[1-9][0-9]*$' provenance.txt
+          artifact_attempt="$(sed -n 's/^run_attempt=//p' provenance.txt)"
+          [[ "$artifact_attempt" =~ ^[1-9][0-9]*$ ]]
+          (( artifact_attempt <= GITHUB_RUN_ATTEMPT ))
           cd ../..
           tar -xzf .ci-artifacts/server/server-dist.tgz
           tar -xzf .ci-artifacts/client/client-dist.tgz
@@ -378,7 +382,9 @@ jobs:
           # "Re-run failed jobs" reuses this SHA/run artifact from an earlier
           # attempt. The checksum, commit, and run ID are the immutable identity;
           # the attempt remains validated provenance, not an equality constraint.
-          grep -Eq '^run_attempt=[1-9][0-9]*$' provenance.txt
+          artifact_attempt="$(sed -n 's/^run_attempt=//p' provenance.txt)"
+          [[ "$artifact_attempt" =~ ^[1-9][0-9]*$ ]]
+          (( artifact_attempt <= GITHUB_RUN_ATTEMPT ))
           cd ../..
           tar -xzf .ci-artifacts/release/release-dist.tgz
           node scripts/verify-dist.mjs
@@ -429,7 +435,9 @@ jobs:
           sha256sum -c release-dist.tgz.sha256
           grep -Fx "sha=$GITHUB_SHA" provenance.txt
           grep -Fx "run_id=$GITHUB_RUN_ID" provenance.txt
-          grep -Eq '^run_attempt=[1-9][0-9]*$' provenance.txt
+          artifact_attempt="$(sed -n 's/^run_attempt=//p' provenance.txt)"
+          [[ "$artifact_attempt" =~ ^[1-9][0-9]*$ ]]
+          (( artifact_attempt <= GITHUB_RUN_ATTEMPT ))
           cd ../..
           tar -xzf .ci-artifacts/release/release-dist.tgz
           node scripts/verify-dist.mjs
@@ -488,7 +496,9 @@ jobs:
           sha256sum -c release-dist.tgz.sha256
           grep -Fx "sha=$GITHUB_SHA" provenance.txt
           grep -Fx "run_id=$GITHUB_RUN_ID" provenance.txt
-          grep -Eq '^run_attempt=[1-9][0-9]*$' provenance.txt
+          artifact_attempt="$(sed -n 's/^run_attempt=//p' provenance.txt)"
+          [[ "$artifact_attempt" =~ ^[1-9][0-9]*$ ]]
+          (( artifact_attempt <= GITHUB_RUN_ATTEMPT ))
           cd ../..
           tar -xzf .ci-artifacts/release/release-dist.tgz
       - name: Install release browsers
@@ -585,7 +595,9 @@ jobs:
           sha256sum -c release-dist.tgz.sha256
           grep -Fx "sha=$GITHUB_SHA" provenance.txt
           grep -Fx "run_id=$GITHUB_RUN_ID" provenance.txt
-          grep -Eq '^run_attempt=[1-9][0-9]*$' provenance.txt
+          artifact_attempt="$(sed -n 's/^run_attempt=//p' provenance.txt)"
+          [[ "$artifact_attempt" =~ ^[1-9][0-9]*$ ]]
+          (( artifact_attempt <= GITHUB_RUN_ATTEMPT ))
           cd ../..
           tar -xzf .ci-artifacts/release/release-dist.tgz
           node scripts/verify-dist.mjs
@@ -670,7 +682,9 @@ jobs:
           sha256sum -c release-dist.tgz.sha256
           grep -Fx "sha=$GITHUB_SHA" provenance.txt
           grep -Fx "run_id=$GITHUB_RUN_ID" provenance.txt
-          grep -Eq '^run_attempt=[1-9][0-9]*$' provenance.txt
+          artifact_attempt="$(sed -n 's/^run_attempt=//p' provenance.txt)"
+          [[ "$artifact_attempt" =~ ^[1-9][0-9]*$ ]]
+          (( artifact_attempt <= GITHUB_RUN_ATTEMPT ))
           cd ../..
           tar -xzf .ci-artifacts/release/release-dist.tgz
       - name: Install Warfront browser
@@ -734,7 +748,9 @@ jobs:
           sha256sum -c release-dist.tgz.sha256
           grep -Fx "sha=$GITHUB_SHA" provenance.txt
           grep -Fx "run_id=$GITHUB_RUN_ID" provenance.txt
-          grep -Eq '^run_attempt=[1-9][0-9]*$' provenance.txt
+          artifact_attempt="$(sed -n 's/^run_attempt=//p' provenance.txt)"
+          [[ "$artifact_attempt" =~ ^[1-9][0-9]*$ ]]
+          (( artifact_attempt <= GITHUB_RUN_ATTEMPT ))
           cd ../..
           tar -xzf .ci-artifacts/release/release-dist.tgz
       - name: Install Village Stores browser
