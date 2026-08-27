@@ -11,6 +11,7 @@
  */
 
 import { tagMatchesName } from "./tags";
+import { loneDisciplineBonusFromPotency, loneGeneralBonusFromPotency } from "./stat-effect-potency";
 import { scaleJutsuByLevel, scaleJutsuTagsForDisplay } from "./jutsu-scaling";
 import { JUTSU_MAX_LEVEL, STUN_AP_PENALTY, COMBAT_RESOURCES_V2 } from "../constants/game";
 import type { Jutsu, JutsuTag } from "../types/combat";
@@ -20,6 +21,12 @@ export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: Ju
     const pct = tag.percent > 0 ? tag.percent : 30;
     const effectPower = jutsu.effectPower;
     const percentLabel = tag.percent > 0 ? `${tag.percent}%` : "Static";
+    const recurringGroundZone = jutsu.target === "EMPTY_GROUND"
+        && (jutsu.method === "INSTANT_EFFECT" || jutsu.method === "AOE_SPIRAL");
+    const nextRound = (rounds: number) => `Starts next round · ${rounds} round${rounds === 1 ? "" : "s"}`;
+    const zoneOrNextRound = (rounds: number) => recurringGroundZone
+        ? "On catch / target turn"
+        : nextRound(rounds);
     // Display-only lens (Profile discipline dropdown). For tags that key off
     // the player's OWN outgoing damage, name the chosen discipline so it's
     // clear what's being modified (e.g. "Taijutsu damage given"). Trailing
@@ -28,31 +35,31 @@ export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: Ju
     const disc = lensDiscipline && lensDiscipline !== "Any" ? `${lensDiscipline} ` : "";
 
     if (tag.name === "Damage") return { summary: `Deals damage at ${effectPower}% effect power.`, rule: "Uses the jutsu offense type against the target's matching defense, then applies weather, terrain, bloodline, armor, and status modifiers.", duration: "Instant", value: `${effectPower}% EP` };
-    if (tag.name === "Heal") return { summary: `Restores 750 HP to the user.`, rule: "Sets direct damage to 0 and heals the caster for a flat 750 HP.", duration: "Instant", value: "750 HP" };
-    if (tag.name === "Shield") return { summary: `Adds 750 shield to the user — always succeeds.`, rule: "Shield absorbs incoming damage before HP. Pierce can bypass shield. Cannot be blocked by Buff Prevent.", duration: "Until broken", value: "750" };
-    if (tag.name === "Barrier") return { summary: "Erects an impassable wall tile one step toward the enemy on the battlefield.", rule: "Places a barrier tile that blocks movement for both fighters for 2 rounds. Cannot be bypassed.", duration: "2 rounds", value: "Wall tile" };
-    if (tag.name === "Increase Damage Given") return { summary: `Increases your damage given by ${pct}% with all offenses for 2 rounds.`, rule: "Adds one positive stack to the caster for 2 rounds. Repeated copies trigger independently and feed the shared damage-amplifier pool with diminishing returns.", duration: "2 rounds", value: `${pct}%` };
-    if (tag.name === "Decrease Damage Given") return { summary: `Makes the target deal ${pct}% less damage with all offenses.`, rule: "Adds a negative status to the target that lowers all of their outgoing damage, regardless of offense type.", duration: "2 rounds", value: `${pct}%` };
-    if (tag.name === "Increase Damage Taken") return { summary: `Makes the target take ${pct}% more damage from you with all offenses.`, rule: "Adds a negative status to the target that raises the damage they take from all of your offenses, regardless of offense type.", duration: "2 rounds", value: `${pct}%` };
-    if (tag.name === "Decrease Damage Taken") return { summary: `Makes the user take ${pct}% less damage from all offenses.`, rule: "Adds a positive status to the caster that lowers incoming damage from every offense type.", duration: "2 rounds", value: `${pct}%` };
-    if (tag.name === "Absorb") return { summary: `Converts ${pct}% of incoming damage into healing.`, rule: "Adds a positive status to the caster. Buff Prevent can block it.", duration: "2 rounds", value: `${pct}%` };
+    if (tag.name === "Heal") return { summary: "Immediately restores up to 750 HP to the user, scaling with mastery.", rule: "Resolves on cast. A damaging jutsu keeps its hit and heals on top; a 40 AP utility still deals no direct damage. Existing Increase Heal can raise the result above 750. Buff Prevent does not block direct healing.", duration: "Instant", value: "Up to 750 HP" };
+    if (tag.name === "Shield") return { summary: "Immediately adds up to 750 shield to the user, scaling with mastery.", rule: "Shield absorbs incoming damage before HP. The total shield pool is capped at one max-HP bar or 5,000, whichever is lower. Pierce bypasses it without consuming it. Buff Prevent does not block direct shielding.", duration: "Instant · until broken", value: "Up to 750" };
+    if (tag.name === "Barrier") return { summary: "Queues an impassable wall tile one step toward the enemy.", rule: "The wall becomes active at the start of the next combat round and blocks movement for both fighters for 2 complete rounds.", duration: nextRound(2), value: "Wall tile" };
+    if (tag.name === "Increase Damage Given") return { summary: `Increases your damage given by ${pct}% with all offenses for 2 rounds.`, rule: "Queues one positive stack on the caster. Repeated copies trigger independently and feed the shared damage-amplifier pool with diminishing returns; it cannot strengthen the cast that applies it.", duration: nextRound(2), value: `${pct}%` };
+    if (tag.name === "Decrease Damage Given") return { summary: `Makes the target deal ${pct}% less damage with all offenses.`, rule: recurringGroundZone ? "A caught target is affected for its current/upcoming turn, and the zone refreshes the effect at the start of each target turn spent inside it." : "Queues a negative status for the next combat round that lowers all outgoing damage, regardless of offense type.", duration: zoneOrNextRound(2), value: `${pct}%` };
+    if (tag.name === "Increase Damage Taken") return { summary: `Makes the target take ${pct}% more damage from you with all offenses.`, rule: "Queues a negative status for the next combat round. It raises damage from all offense types but cannot amplify the cast that applies it.", duration: nextRound(2), value: `${pct}%` };
+    if (tag.name === "Decrease Damage Taken") return { summary: `Makes the user take ${pct}% less damage from all offenses.`, rule: "Queues a positive status for the next combat round that lowers incoming damage from every offense type.", duration: nextRound(2), value: `${pct}%` };
+    if (tag.name === "Absorb") return { summary: `Converts ${pct}% of incoming post-shield damage into healing.`, rule: "Queues a positive status for the next combat round. Buff Prevent can block it; Pierce bypasses it. Stacked Absorb is capped at 60% of the final hit.", duration: nextRound(2), value: `${pct}%` };
     if (tag.name === "Siphon") return { summary: `Heals the user for ${pct}% of the ${disc}damage dealt.`, rule: "Triggers after damage. Instant heal based on final damage.", duration: "Instant after hit", value: `${pct}%` };
-    if (tag.name === "Lifesteal") return { summary: `Applies a 2-round status: your next 2 attacks heal you for ${pct}% of the ${disc}damage dealt.`, rule: "Adds a positive status to the caster. Each attack heals based on final damage.", duration: "2 rounds", value: `${pct}%` };
-    if (tag.name === "Reflect") return { summary: `Reflects ${pct}% damage back at attackers.`, rule: "Adds a positive status to the caster. Buff Prevent can block it.", duration: "2 rounds", value: `${pct}%` };
-    if (tag.name === "Recoil") return { summary: `Applies ${pct}% recoil to the target.`, rule: "The target suffers capped recoil damage when they attack.", duration: "2 rounds", value: `${pct}%` };
-    if (tag.name === "Wound") return { summary: `Makes the target bleed for a portion of the ${disc}damage dealt over 2 rounds.`, rule: "Applies a damage-over-time status based on capped post-damage.", duration: "2 rounds", value: `${pct}%` };
-    if (tagMatchesName(tag.name, "Ignition")) return { summary: `Ignites the target for 2 rounds — your next 2 hits on them deal an extra ${pct}% ${disc}damage.`, rule: "Adds a negative status to the enemy. Each time they are attacked while ignited, the attacker's damage is boosted by this percent (e.g. 30% ignition turns a 1000 hit into 1300).", duration: "2 rounds", value: `${pct}%` };
-    if (tag.name === "Stun") return { summary: `Removes ${STUN_AP_PENALTY} AP from the target's next turn.`, rule: "Always applies unless Stun Prevent or Debuff Prevent blocks it. It does not skip the target's turn.", duration: "Next turn", value: `-${STUN_AP_PENALTY} AP` };
-    if (tag.name === "Bloodline Seal" || tag.name === "Seal") return { summary: "Seals the target's bloodline and suppresses their bloodline damage bonus.", rule: "Always applies unless Debuff Prevent blocks it. While sealed, the target's bloodline multiplier is treated as 1.0 in the combat damage formula.", duration: "2 rounds", value: "No bloodline bonus" };
-    if (tag.name === "Elemental Seal") return { summary: "Seals elemental jutsu.", rule: "Always applies unless Debuff Prevent blocks it. Prevents elemental jutsu use while active for 1 round.", duration: "1 round", value: "Always" };
+    if (tag.name === "Lifesteal") return { summary: `During the next 2 rounds, every damaging attack heals you for ${pct}% of the ${disc}damage dealt.`, rule: "Queues a positive status on the caster. It can trigger on multiple attacks per round; stacked Lifesteal is capped at 60% of final damage.", duration: nextRound(2), value: `${pct}%` };
+    if (tag.name === "Reflect") return { summary: `Reflects ${pct}% of post-shield damage back at attackers.`, rule: "Queues a positive status for the next combat round. Buff Prevent can block it; Pierce bypasses it. Stacked Reflect is capped at 60% of the final hit.", duration: nextRound(2), value: `${pct}%` };
+    if (tag.name === "Recoil") return { summary: `Applies ${pct}% recoil to the target.`, rule: recurringGroundZone ? "A caught target suffers recoil on attacks made during that turn; the zone refreshes it at each target-turn start spent inside." : "Queues a negative status for the next combat round. The target then suffers capped self-damage whenever their attack deals damage.", duration: zoneOrNextRound(2), value: `${pct}%` };
+    if (tag.name === "Wound") return { summary: `Seeds a bleed from this hit; it starts on the target's turn next round and ticks for 2 rounds.`, rule: `Each start-of-turn tick is based on capped post-shield ${disc}damage from the applying hit. Wound supports at most 2 concurrent stacks.`, duration: nextRound(2), value: `${pct}%` };
+    if (tagMatchesName(tag.name, "Ignition")) return { summary: `Ignites the target so every hit during the next 2 rounds gains up to ${pct}% ${disc}damage.`, rule: "Queues a stackable negative status. It joins Increase Damage Given and Increase Damage Taken in the shared diminishing-returns amplification pool; it cannot amplify the cast that applies it.", duration: nextRound(2), value: `${pct}%` };
+    if (tag.name === "Stun") return { summary: `Removes ${STUN_AP_PENALTY} AP from the target's turn in the next combat round.`, rule: "Queues the penalty unless Stun Prevent or Debuff Prevent blocks it. It does not skip the turn, and it cannot reduce AP during the cast round.", duration: "Target turn next round", value: `-${STUN_AP_PENALTY} AP` };
+    if (tag.name === "Bloodline Seal" || tag.name === "Seal") return { summary: "Seals the target's bloodline and suppresses its combat bonuses.", rule: "Queues a debuff unless Debuff Prevent blocks it. While active, the bloodline multiplier is 1.0 and Increase Generals/Discipline bonuses are suppressed; it does not prevent jutsu use.", duration: nextRound(2), value: "No bloodline bonus" };
+    if (tag.name === "Elemental Seal") return { summary: "Prevents Fire, Water, Earth, Wind, and Lightning jutsu use during the next combat round.", rule: "Queues a 1-round debuff unless Debuff Prevent blocks it. None and special/custom elements remain usable.", duration: nextRound(1), value: "Five basic elements" };
     if (tag.name === "Move") return { summary: "Moves the user on the battlefield.", rule: "Always lets the user choose an open tile within the jutsu range.", duration: "Instant", value: "Always" };
-    if (tag.name === "Push") return { summary: "Pushes the target away from the user based on jutsu range.", rule: "Moves the enemy away by the jutsu's range value in tiles.", duration: "Instant", value: "Range tiles" };
-    if (tag.name === "Pull") return { summary: "Pulls the target toward the user based on jutsu range.", rule: "Moves the enemy toward the user by the jutsu's range value in tiles.", duration: "Instant", value: "Range tiles" };
-    if (tag.name === "Buff Prevent") return { summary: "Blocks positive effects on the target.", rule: "Applies a negative status to the target unless Debuff Prevent blocks it. Prevents new positive effects like Shield, Reflect, Absorb, and similar buffs.", duration: "2 rounds", value: "Always" };
-    if (tag.name === "Debuff Prevent") return { summary: "Protects the caster from debuffs for 2 rounds.", rule: "Adds a positive status to the caster. Prevents new debuffs like Stun, Bloodline Seal, Poison, Drain from being applied to them.", duration: "2 rounds", value: "Always" };
-    if (tag.name === "Cleanse Prevent") return { summary: "Prevents the target from cleansing debuffs.", rule: "Applies a negative status to the target unless Debuff Prevent blocks it. Cleanse attempts are blocked while active.", duration: "2 rounds", value: "Always" };
-    if (tag.name === "Clear Prevent") return { summary: "Prevents clear effects.", rule: "Always stops positive effects from being cleared while active.", duration: "2 rounds", value: "Always" };
-    if (tag.name === "Stun Prevent") return { summary: "Prevents stun.", rule: "Always protects against incoming Stun.", duration: "2 rounds", value: "Always" };
+    if (tag.name === "Push") return { summary: "Immediately pushes the target away from the user, up to the jutsu's range.", rule: "Moves one tile at a time and stops early at the board edge, an occupied tile, or a Barrier. Debuff Prevent blocks it.", duration: "Instant", value: "Up to range tiles" };
+    if (tag.name === "Pull") return { summary: "Immediately pulls the target toward the user, up to the jutsu's range.", rule: "Moves one tile at a time and stops early at the user, an occupied tile, or a Barrier. Debuff Prevent blocks it.", duration: "Instant", value: "Up to range tiles" };
+    if (tag.name === "Buff Prevent") return { summary: "Blocks new positive status effects on the target.", rule: "Queues a debuff unless Debuff Prevent blocks it. It stops statuses such as Reflect, Absorb, Lifesteal, damage/stat buffs, Copy, and Overclock; direct Heal, Shield, Barrier, Debuff Prevent, and Stun Prevent still resolve.", duration: nextRound(2), value: "Always" };
+    if (tag.name === "Debuff Prevent") return { summary: "Protects the caster from new debuffs.", rule: "Queues an unconditional positive ward. Once active it blocks Stun, seals, damage debuffs, DoTs, displacement, Mirror, and other new negative statuses; it does not remove existing debuffs.", duration: nextRound(2), value: "Always" };
+    if (tag.name === "Cleanse Prevent") return { summary: "Prevents the target from cleansing debuffs.", rule: "Queues a negative status unless Debuff Prevent blocks it. Cleanse attempts are blocked once it becomes active.", duration: nextRound(2), value: "Always" };
+    if (tag.name === "Clear Prevent") return { summary: "Prevents the caster's positive statuses from being cleared.", rule: "Queues a positive status for the next combat round. Buff Prevent can stop it; once active it blocks the opponent's Clear action.", duration: nextRound(2), value: "Always" };
+    if (tag.name === "Stun Prevent") return { summary: "Prevents incoming Stun.", rule: "Queues an unconditional positive ward for the next combat round; it does not remove a Stun that already resolved.", duration: nextRound(2), value: "Always" };
     // Poison's combat fallback is 6% (see api/pvp/move.ts + Arena PvE), NOT tagPower's
     // generic 30 — use the same default so an unset-percent Poison tooltip matches what
     // combat actually applies. Under combatResourcesV2 poison feeds on EXERTION (on-spend),
@@ -60,18 +67,37 @@ export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: Ju
     if (tag.name === "Poison") {
         const poisonPct = tag.percent > 0 ? tag.percent : 6;
         return COMBAT_RESOURCES_V2
-            ? { summary: `Poisons the target for 2 rounds — while poisoned, every jutsu they cast saps HP scaled by the chakra/stamina spent (at ${poisonPct}% potency). Standing still avoids it.`, rule: "Applies a 2-round negative status. While it lasts, the target loses HP whenever they spend chakra/stamina to cast a jutsu — the bigger the spend, the bigger the hit; not casting avoids the damage.", duration: "2 rounds", value: `${poisonPct}% of spend` }
+            ? { summary: `Poisons the target — while active, every jutsu they cast saps HP scaled by the chakra/stamina spent (at ${poisonPct}% potency).`, rule: recurringGroundZone ? "A caught target can be poisoned for its upcoming turn, and each target-turn start inside the zone refreshes the 2-round poison. A refreshed Poison can remain after the zone expires or the target leaves it; not casting a jutsu avoids the damage." : "Queues a 2-round debuff for the next combat round. Bigger chakra/stamina spends cause bigger HP damage; not casting a jutsu avoids it.", duration: zoneOrNextRound(2), value: `${poisonPct}% of spend` }
             : { summary: `Poisons the target — deals ${poisonPct}% of their max chakra as damage each round.`, rule: "Applies a 2-round negative status that deals damage based on the target's chakra pool.", duration: "2 rounds", value: `${poisonPct}% chakra` };
     }
-    if (tag.name === "Drain") return { summary: "Drains the target's HP and chakra each round — 50–300, scaling with mastery.", rule: "Applies a 2-round negative status that reduces the target's HP and chakra each round (not stamina); the amount scales with the caster's mastery, from 50 up to 300.", duration: "2 rounds", value: "50–300/round" };
+    if (tag.name === "Drain") return { summary: "Drains the target's HP and chakra at the start of their turns — 50–300, scaling with mastery.", rule: "Queues a 2-round negative status for the next combat round. Each tick removes equal HP and chakra (not stamina) and is partially mitigated by the target's armor/damage reduction.", duration: nextRound(2), value: "50–300/turn" };
     if (tag.name === "Pierce") return { summary: "True damage — up to 900, scaled by offense + mastery.", rule: "Ignores armor, shields, damage reduction, damage buffs, and damage debuffs. Pierce jutsus must be 60 AP, and you can equip at most one Pierce jutsu in a loadout. At max stats the cap of 900 is always reached.", duration: "Instant", value: "≤900" };
-    if (tag.name === "Copy") return { summary: "Copies enemy positive effects.", rule: "Always copies active positive statuses from the target to the user.", duration: "Up to 2 rounds", value: "Always" };
-    if (tag.name === "Mirror") return { summary: "Mirrors negative effects back to the enemy.", rule: "Always transfers the user's non-damage-over-time negative statuses to the target.", duration: "Up to 2 rounds", value: "Always" };
-    if (tagMatchesName(tag.name, "Lag")) return { summary: "Increases enemy AP costs.", rule: "Always adds a negative status that makes enemy actions cost more AP for 1 round.", duration: "1 round", value: "Always" };
-    if (tagMatchesName(tag.name, "Overclock")) return { summary: "Reduces the user's AP costs.", rule: "Always adds a positive status that makes the user's actions cost less AP for 1 round.", duration: "1 round", value: "Always" };
-    if (tag.name === "Increase Heal") return { summary: `Increases healing by ${pct}%.`, rule: "Always adds a positive status that boosts future healing and lifesteal by this amount.", duration: "2 rounds", value: `${pct}%` };
-    if (tag.name === "Increase Generals") return { summary: `Raises your general stats (strength, speed, intelligence, willpower) by ${pct}% for 2 rounds.`, rule: "Adds a positive status to the caster. Because generals feed both offense and defense, it increases the damage you deal AND lowers the damage you take. Stacks with diminishing returns; blocked by Buff Prevent, removed by Clear, and suppressed by Bloodline Seal.", duration: "2 rounds", value: `${pct}%` };
-    if (tag.name === "Increase Discipline") return { summary: `Raises the offense of this jutsu's discipline by ${pct}% for 2 rounds.`, rule: "Adds a positive status to the caster locked to this jutsu's style (Taijutsu, Bukijutsu, Genjutsu, or Ninjutsu). Only casts of that discipline hit harder — no defense side, no other styles. Stacks with diminishing returns; blocked by Buff Prevent, removed by Clear, and suppressed by Bloodline Seal.", duration: "2 rounds", value: `${pct}%` };
+    if (tag.name === "Copy") return { summary: "Copies all of the enemy's currently active positive statuses except Absorb and Lifesteal.", rule: "Snapshots active enemy buffs when cast, then gives each eligible buff to the user for a fresh 2 rounds starting next combat round. Pending enemy buffs are not included, and an active Buff Prevent on the user blocks Copy.", duration: "Starts next round · fresh 2 rounds", value: "Always" };
+    if (tag.name === "Mirror") return { summary: "Copies all of the user's currently active negative statuses onto the enemy.", rule: "Snapshots every active debuff on the user when cast, including Wound, Ignition, Poison, and Drain, then gives each one to the enemy for a fresh 2 rounds starting next combat round. The originals stay on the user, pending debuffs are not included, and an active Debuff Prevent on the enemy blocks Mirror.", duration: "Starts next round · fresh 2 rounds", value: "Always" };
+    if (tagMatchesName(tag.name, "Lag")) return { summary: "Increases enemy AP costs by 20–30% during the next combat round, scaling with mastery.", rule: "Queues a 1-round negative status unless Debuff Prevent blocks it. It changes each action's AP cost, not the target's base AP pool.", duration: nextRound(1), value: "20–30%" };
+    if (tagMatchesName(tag.name, "Overclock")) return { summary: "Reduces the user's AP costs by 20–30% during the next combat round, scaling with mastery.", rule: "Queues a 1-round positive status. Buff Prevent can block it; it cannot discount another action during the cast round.", duration: nextRound(1), value: "20–30%" };
+    if (tag.name === "Increase Heal") return { summary: `Increases future healing by ${pct}%.`, rule: "Queues a positive status that boosts later Heal, Lifesteal, and Siphon results. It cannot boost healing from the cast that applies it.", duration: nextRound(2), value: `${pct}%` };
+    if (tag.name === "Increase Generals") {
+        const flatBonus = loneGeneralBonusFromPotency(pct);
+        return {
+            summary: `Applies ${pct}% potency to strength, speed, intelligence, and willpower (+${flatBonus} to each as a lone stack).`,
+            rule: `Queues a stackable positive status. Potency feeds a diminishing-returns pool and becomes a flat general-stat bonus; it is not a literal ${pct}% multiplier. Because generals feed offense and defense, it raises damage dealt and lowers damage taken. Buff Prevent blocks it, Clear removes it, and Bloodline Seal suppresses it.`,
+            duration: nextRound(2),
+            value: `${pct}% potency · +${flatBonus} each`,
+        };
+    }
+    if (tag.name === "Increase Discipline") {
+        const discipline = ["Taijutsu", "Bukijutsu", "Genjutsu", "Ninjutsu"].includes(jutsu.type) ? jutsu.type : null;
+        const flatBonus = discipline ? loneDisciplineBonusFromPotency(pct) : 0;
+        return {
+            summary: discipline
+                ? `Applies ${pct}% potency to ${discipline} offense (+${flatBonus} as a lone stack).`
+                : `Applies ${pct}% potency to this jutsu's discipline; an Any-style cast cannot create the buff.`,
+            rule: `Queues a stackable positive status locked to Taijutsu, Bukijutsu, Genjutsu, or Ninjutsu. Potency feeds a diminishing-returns pool and becomes a flat offense bonus; it is not a literal ${pct}% multiplier. Only that style's offense rises. Buff Prevent blocks it, Clear removes it, and Bloodline Seal suppresses it.`,
+            duration: nextRound(2),
+            value: discipline ? `${pct}% potency · +${flatBonus} ${discipline}` : `${pct}% potency`,
+        };
+    }
     return { summary: tag.name || "Unnamed effect", rule: "Custom effect tag.", duration: "Varies", value: percentLabel };
 }
 
@@ -114,17 +140,17 @@ export function jutsuTargetingLabel(jutsu: Jutsu): { short: string; detail: stri
         case "AOE_SPIRAL":
             return {
                 short: "AOE Spiral",
-                detail: "The user dashes onto a chosen tile and erupts a wide radius-2 ground nova on landing.",
+                detail: "The user dashes onto a chosen tile and creates a persistent 2-round radius-2 ground zone on landing.",
             };
         case "AOE_CIRCLE":
             return {
                 short: "AOE Circle",
-                detail: "Lays a ground effect on a chosen tile plus the ring of tiles around it.",
+                detail: "The user moves to a chosen tile, then the surrounding ring takes the jutsu's direct hit. It does not create a persistent zone.",
             };
         case "INSTANT_EFFECT":
             return {
                 short: "AOE Ground",
-                detail: "Resolves instantly on a chosen tile and the ring of tiles around it.",
+                detail: "Creates a persistent 2-round zone on a chosen tile and its surrounding ring.",
             };
         case "ALL":
             return {

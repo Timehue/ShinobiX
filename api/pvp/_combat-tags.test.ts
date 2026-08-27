@@ -70,6 +70,7 @@ describe('Pierce bypasses shield, reflect, and absorb', () => {
         const r = applyJutsu(attacker, defender, jutsu([{ name: 'Pierce' }], { ap: 60 }), 1, 'central', 1);
         assert.equal(r.self.hp, 1000, 'attacker takes no reflected damage from a pierce hit');
         assert.ok(r.opponent.hp < 1000, 'pierce still deals damage through the shield');
+        assert.equal(r.opponent.shield, 500, 'pierce bypasses rather than consuming the shield');
         // Absorb would have healed the defender above its damage; instead HP only dropped.
         assert.ok(r.opponent.hp <= 1000, 'no absorb heal on a pierce hit');
         const expected = 1000 - (1000 - r.opponent.hp);
@@ -114,29 +115,186 @@ describe('Recoil scales + rank-caps like its CAPPED_AMP_TAGS siblings (PvE↔PvP
     });
 });
 
-describe('Copy / Mirror are deterministic with deferred statuses', () => {
-    it('Copy only copies the opponent ACTIVE positive statuses, not pending ones', () => {
-        const opp = fighter('B', 1000, [
-            { name: 'Reflect', rounds: 2, percent: 30, kind: 'positive' },                  // active
-            { name: 'Absorb', rounds: 2, activeRound: 2, percent: 30, kind: 'positive' },    // pending
-        ]);
-        const r = applyJutsu(fighter('A'), opp, jutsu([{ name: 'Copy' }]), 1, 'central', 1);
-        const copiedNames = r.self.statuses.map(s => s.name);
-        assert.ok(copiedNames.includes('Reflect'), 'active positive is copied');
-        assert.ok(!copiedNames.includes('Absorb'), 'pending (future-round) positive is NOT copied');
+describe('instant displacement reports actual traversed tiles', () => {
+    it('Push reports zero when the board edge leaves no away tile', () => {
+        const result = applyJutsu(
+            fighter('A', 1000, [], 1),
+            fighter('B', 1000, [], 0),
+            jutsu([{ name: 'Push' }], { range: 4, effectPower: 0, isUtility: true }),
+            1,
+            'central',
+            1,
+        );
+        assert.equal(result.opponent.pos, 0);
+        assert.ok(result.lines.includes('Push: B is pushed 0 tile(s).'));
     });
 
-    it('Mirror only mirrors the caster ACTIVE non-DoT debuffs onto the opponent', () => {
+    it('Push reports zero when active Barriers block every away route', () => {
+        const barriers: PvpStatus[] = [2, 13, 14].map((amount) => ({
+            name: 'Barrier', rounds: 2, amount, kind: 'positive',
+        }));
+        const result = applyJutsu(
+            fighter('A', 1000, barriers, 0),
+            fighter('B', 1000, [], 1),
+            jutsu([{ name: 'Push' }], { range: 4, effectPower: 0, isUtility: true }),
+            1,
+            'central',
+            1,
+        );
+        assert.equal(result.opponent.pos, 1);
+        assert.ok(result.lines.includes('Push: B is pushed 0 tile(s).'));
+    });
+});
+
+describe('post-damage Wound / Siphon use effective mastery and rank percents', () => {
+    function trainedFighter(mastery: number, hp = 100): PvpFighter {
+        const self = fighter('A', hp);
+        self.character.level = 100;
+        self.character.jutsuMastery = [{ jutsuId: 't', level: mastery }];
+        return self;
+    }
+
+    it('an authored damage jutsu with isUtility:false still mastery-scales both riders', () => {
+        const tags = [{ name: 'Wound', percent: 30 }, { name: 'Siphon', percent: 30 }];
+        const untrained = applyJutsu(
+            trainedFighter(0),
+            fighter('B'),
+            jutsu(tags, { isUtility: false }),
+            1,
+            'central',
+            1,
+        );
+        const mastered = applyJutsu(
+            trainedFighter(50),
+            fighter('B'),
+            jutsu(tags, { isUtility: false }),
+            1,
+            'central',
+            1,
+        );
+
+        assert.equal(
+            untrained.opponent.statuses.find(status => status.name === 'Wound')?.amount,
+            Math.floor(untrained.metadata.damage * 0.20),
+            'stored 30% becomes 20% at mastery 0',
+        );
+        assert.equal(untrained.self.hp - 100, Math.floor(untrained.metadata.damage * 0.20));
+        assert.equal(
+            mastered.opponent.statuses.find(status => status.name === 'Wound')?.amount,
+            Math.floor(mastered.metadata.damage * 0.25),
+            'mastered Wound reaches the basic-rank 25% ceiling',
+        );
+        assert.equal(mastered.self.hp - 100, Math.floor(mastered.metadata.damage * 0.30));
+    });
+
+    it('applies Wound 25/30/35 and Siphon 30/35/40 rank ceilings after mastery', () => {
+        const cases = [
+            { bloodlineRank: undefined, wound: 25, siphon: 30 },
+            { bloodlineRank: 'A Rank', wound: 30, siphon: 35 },
+            { bloodlineRank: 'S Rank', wound: 35, siphon: 40 },
+        ] as const;
+        for (const expected of cases) {
+            const result = applyJutsu(
+                trainedFighter(50),
+                fighter('B'),
+                jutsu(
+                    [{ name: 'Wound', percent: 100 }, { name: 'Siphon', percent: 100 }],
+                    { isUtility: false, bloodlineRank: expected.bloodlineRank },
+                ),
+                1,
+                'central',
+                1,
+            );
+            assert.equal(
+                result.opponent.statuses.find(status => status.name === 'Wound')?.amount,
+                Math.floor(result.metadata.damage * expected.wound / 100),
+            );
+            assert.equal(
+                result.self.hp - 100,
+                Math.floor(result.metadata.damage * expected.siphon / 100),
+            );
+        }
+    });
+
+    it('does not create a zero-value Wound stack or Siphon event', () => {
+        const result = applyJutsu(
+            trainedFighter(0),
+            fighter('B'),
+            jutsu([{ name: 'Wound', percent: 10 }, { name: 'Siphon', percent: 10 }]),
+            1,
+            'central',
+            1,
+        );
+
+        assert.equal(result.opponent.statuses.some(status => status.name === 'Wound'), false);
+        assert.equal(result.lines.some(line => line.startsWith('Siphon:')), false);
+    });
+});
+
+describe('Copy / Mirror are deterministic with deferred statuses', () => {
+    it('Copy grants fresh two-round copies of active buffs except Absorb/Lifesteal', () => {
+        const opp = fighter('B', 1000, [
+            { name: 'Reflect', rounds: 1, inactiveRound: 2, percent: 30, kind: 'positive' },
+            { name: 'Absorb', rounds: 2, percent: 30, kind: 'positive' },
+            { name: 'Lifesteal', rounds: 2, percent: 30, kind: 'positive' },
+            { name: 'Increase Heal', rounds: 2, activeRound: 2, percent: 30, kind: 'positive' },
+        ]);
+        const r = applyJutsu(fighter('A'), opp, jutsu([{ name: 'Copy' }]), 1, 'central', 1);
+        const reflect = r.self.statuses.find(status => status.name === 'Reflect');
+        assert.deepEqual(
+            { rounds: reflect?.rounds, activeRound: reflect?.activeRound, percent: reflect?.percent },
+            { rounds: 2, activeRound: 2, percent: 30 },
+            'an active one-round buff becomes a fresh two-round copy next round',
+        );
+        assert.equal(reflect?.inactiveRound, undefined, 'Copy clears the source retirement boundary');
+        assert.equal(r.self.statuses.some(status => status.name === 'Absorb'), false);
+        assert.equal(r.self.statuses.some(status => status.name === 'Lifesteal'), false);
+        assert.equal(r.self.statuses.some(status => status.name === 'Increase Heal'), false, 'pending buffs are not copied');
+        assert.deepEqual(opp.statuses.map(status => status.name), ['Reflect', 'Absorb', 'Lifesteal', 'Increase Heal'], 'Copy does not remove the opponent buffs');
+    });
+
+    it('Buff Prevent blocks Copy', () => {
+        const self = fighter('A', 1000, [{ name: 'Buff Prevent', rounds: 2, kind: 'negative' }]);
+        const opp = fighter('B', 1000, [{ name: 'Reflect', rounds: 2, percent: 30, kind: 'positive' }]);
+        const r = applyJutsu(self, opp, jutsu([{ name: 'Copy' }]), 1, 'central', 1);
+        assert.equal(r.self.statuses.some(status => status.name === 'Reflect'), false);
+        assert.ok(r.lines.includes("Copy: A's Buff Prevent blocks the copied buffs."));
+    });
+
+    it('Mirror grants fresh two-round copies of every active debuff and leaves originals in place', () => {
         const self = fighter('A', 1000, [
-            { name: 'Decrease Damage Given', rounds: 2, percent: 30, kind: 'negative' },     // active, mirrorable
-            { name: 'Wound', rounds: 2, amount: 100, kind: 'negative' },                     // DoT, not mirrored
-            { name: 'Buff Prevent', rounds: 2, activeRound: 2, kind: 'negative' },           // pending, not mirrored
+            { name: 'Decrease Damage Given', rounds: 1, inactiveRound: 2, percent: 30, kind: 'negative' },
+            { name: 'Wound', rounds: 1, amount: 100, kind: 'negative' },
+            { name: 'Ignition', rounds: 1, percent: 20, kind: 'negative' },
+            { name: 'Poison', rounds: 1, percent: 6, kind: 'negative' },
+            { name: 'Drain', rounds: 1, amount: 50, kind: 'negative' },
+            { name: 'Buff Prevent', rounds: 2, activeRound: 2, kind: 'negative' },
         ]);
         const r = applyJutsu(self, fighter('B'), jutsu([{ name: 'Mirror' }]), 1, 'central', 1);
-        const onOpp = r.opponent.statuses.map(s => s.name);
-        assert.ok(onOpp.includes('Decrease Damage Given'), 'active non-DoT debuff is mirrored');
-        assert.ok(!onOpp.includes('Wound'), 'DoT debuffs are not mirrored');
-        assert.ok(!onOpp.includes('Buff Prevent'), 'pending debuffs are not mirrored');
+        const expected = ['Decrease Damage Given', 'Wound', 'Ignition', 'Poison', 'Drain'];
+        assert.deepEqual(r.opponent.statuses.map(status => status.name), expected);
+        for (const status of r.opponent.statuses) {
+            assert.equal(status.rounds, 2, `${status.name} receives a fresh two-round duration`);
+            assert.equal(status.activeRound, 2, `${status.name} starts next round`);
+        }
+        assert.equal(
+            r.opponent.statuses.find(status => status.name === 'Decrease Damage Given')?.inactiveRound,
+            undefined,
+            'Mirror clears the source retirement boundary',
+        );
+        assert.deepEqual(r.self.statuses.map(status => status.name), [
+            ...expected,
+            'Buff Prevent',
+        ], 'Mirror does not remove the caster debuffs');
+        assert.equal(r.opponent.statuses.some(status => status.name === 'Buff Prevent'), false, 'pending debuffs are not mirrored');
+    });
+
+    it('Debuff Prevent blocks Mirror', () => {
+        const self = fighter('A', 1000, [{ name: 'Poison', rounds: 2, percent: 6, kind: 'negative' }]);
+        const opp = fighter('B', 1000, [{ name: 'Debuff Prevent', rounds: 2, kind: 'positive' }]);
+        const r = applyJutsu(self, opp, jutsu([{ name: 'Mirror' }]), 1, 'central', 1);
+        assert.deepEqual(r.opponent.statuses.map(status => status.name), ['Debuff Prevent']);
+        assert.ok(r.lines.includes("Mirror: B's Debuff Prevent blocks the mirrored debuffs."));
     });
 });
 
@@ -186,6 +344,21 @@ describe('ground effects apply once per pass and respect prevent / timing', () =
         f = applyGroundEffectToFighter(f, poisonZone(), 1).fighter;
         f = applyGroundEffectToFighter(f, poisonZone(), 2).fighter;
         assert.equal(f.statuses.filter(s => s.name === 'Poison').length, 1, 'still one Poison after two passes');
+    });
+
+    it('a recurring DDG zone refreshes itself without erasing an independent direct stack', () => {
+        const zone: PvpGroundEffect = {
+            id: 'ddg-zone', owner: 'p1', name: 'Weakening Field', tiles: [5], rounds: 2,
+            tags: [{ name: 'Decrease Damage Given', percent: 10 }],
+        };
+        let f = fighter('B', 1000, [
+            { name: 'Decrease Damage Given', rounds: 2, percent: 20, kind: 'negative' },
+        ], 5);
+        f = applyGroundEffectToFighter(f, zone, 1).fighter;
+        f = applyGroundEffectToFighter(f, zone, 2).fighter;
+        const ddg = f.statuses.filter(s => s.name === 'Decrease Damage Given');
+        assert.equal(ddg.length, 2, 'one direct stack plus one refreshed zone pulse');
+        assert.deepEqual(ddg.map(s => s.percent).sort((a, b) => Number(a) - Number(b)), [10, 20]);
     });
 
     it('Debuff Prevent (active) blocks the zone', () => {

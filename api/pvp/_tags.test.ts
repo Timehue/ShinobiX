@@ -16,6 +16,7 @@ import {
     STACKABLE_STATUS,
     CAPPED_AMP_TAGS,
     GROUND_EFFECT_TAGS,
+    COPY_EXCLUDED_BUFFS,
     OPPONENT_AFFECTING_TAGS,
     REQUIRES_DAMAGE_TAGS,
     FIXED_EFFECT_POWER_TAGS,
@@ -73,6 +74,7 @@ describe('PvP tag contract — set membership', () => {
         ['STACKABLE_STATUS', STACKABLE_STATUS],
         ['CAPPED_AMP_TAGS', CAPPED_AMP_TAGS],
         ['GROUND_EFFECT_TAGS', GROUND_EFFECT_TAGS],
+        ['COPY_EXCLUDED_BUFFS', COPY_EXCLUDED_BUFFS],
         ['OPPONENT_AFFECTING_TAGS', OPPONENT_AFFECTING_TAGS],
         ['REQUIRES_DAMAGE_TAGS', REQUIRES_DAMAGE_TAGS],
         ['FIXED_EFFECT_POWER_TAGS', FIXED_EFFECT_POWER_TAGS],
@@ -86,6 +88,10 @@ describe('PvP tag contract — set membership', () => {
 
     it('REQUIRES_DAMAGE_TAGS are Wound + Siphon (post-damage resolvers)', () => {
         assert.deepEqual([...REQUIRES_DAMAGE_TAGS].sort(), ['Siphon', 'Wound']);
+    });
+
+    it('Copy excludes exactly Absorb and Lifesteal', () => {
+        assert.deepEqual([...COPY_EXCLUDED_BUFFS].sort(), ['Absorb', 'Lifesteal']);
     });
 });
 

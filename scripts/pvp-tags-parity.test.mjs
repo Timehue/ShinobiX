@@ -16,6 +16,7 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const server = require('../api/pvp/_tags.ts');
+const playerSchema = require('../api/bloodlines/_jutsu-schema.ts');
 const client = require('../shinobij.client/src/lib/tags.ts');
 
 const sorted = (xs) => [...xs].sort();
@@ -55,6 +56,55 @@ describe('PvP tag parity (server ⇄ client)', () => {
                 `client allTags entry '${name}' is an alias — it must be canonical`,
             );
         }
+    });
+
+    it('the canonical registry differs from the player picker only by intentional special tags', () => {
+        const pickerAndSpecials = new Set([
+            ...client.allTags,
+            'Pierce',              // selected through the maker's damage-mode control
+            'Barrier',             // system/Tower-authored wall effect
+            'Increase Discipline', // legacy-signature-only style buff
+        ]);
+        assert.deepEqual(sorted(server.CANONICAL_TAG_NAMES), sorted(pickerAndSpecials));
+    });
+
+    it('every picker tag survives the authoritative player schema on a legal damaging cast', () => {
+        for (const name of client.allTags) {
+            const [sealed] = playerSchema.normalizePlayerBloodlineJutsus([{
+                id: `parity-${name}`,
+                name,
+                type: 'Ninjutsu',
+                element: 'Fire',
+                ap: 60,
+                range: 4,
+                effectPower: 40,
+                cooldown: 7,
+                target: name === 'Move' ? 'EMPTY_GROUND' : 'OPPONENT',
+                method: 'SINGLE',
+                tags: [{ name, percent: 35 }],
+            }], 'S Rank');
+            assert.ok(sealed?.tags.some((tag) => tag.name === name), `${name} is offered by the picker but stripped by the player schema`);
+        }
+    });
+
+    it('the schema accepts Pierce through its dedicated maker control and rejects system-only tags', () => {
+        const seal = (name) => playerSchema.normalizePlayerBloodlineJutsus([{
+            id: `special-${name}`,
+            name,
+            type: 'Ninjutsu',
+            element: 'Fire',
+            ap: 60,
+            range: 4,
+            effectPower: 40,
+            cooldown: 7,
+            target: 'OPPONENT',
+            method: 'SINGLE',
+            tags: [{ name, percent: 35 }],
+        }], 'S Rank')[0]?.tags ?? [];
+
+        assert.ok(seal('Pierce').some((tag) => tag.name === 'Pierce'));
+        assert.equal(seal('Barrier').length, 0, 'Barrier is system/Tower-authored only');
+        assert.equal(seal('Increase Discipline').length, 0, 'Increase Discipline is legacy-signature-only');
     });
 
     it('the fixed-effect-power tag set matches (server jutsuHasFixedEffectPower ⇄ client hasFixedEffectPower)', () => {

@@ -1,6 +1,7 @@
 import { strict as assert } from "node:assert";
 import { describe, it } from "node:test";
 import {
+    activeCombatDisplayStatuses,
     activeBarrierTilesForDisplay,
     adjustedCombatApCost,
     adjustedPvpCombatApCost,
@@ -8,6 +9,8 @@ import {
     combatActionAvailability,
     combatRejectionMessage,
     isElementallySealedForDisplay,
+    partitionCombatDisplayStatuses,
+    pvpCombatWardKey,
 } from "./combat-action-display.js";
 
 describe("combat action affordance parity", () => {
@@ -28,6 +31,28 @@ describe("combat action affordance parity", () => {
         ];
         assert.equal(adjustedCombatApCost(statuses, 40, 3), 40);
         assert.equal(adjustedCombatApCost(statuses, 40, 4), 60);
+    });
+
+    it("switches a refreshed status from its retiring copy to its pending replacement at the exact boundary", () => {
+        const retiring = { name: "Lag", percent: 50, rounds: 2, activeRound: 1, inactiveRound: 4 };
+        const replacement = { name: "Lag", percent: 10, rounds: 2, activeRound: 4 };
+        const statuses = [retiring, replacement];
+
+        assert.deepEqual(activeCombatDisplayStatuses(statuses, 3), [retiring]);
+        assert.deepEqual(partitionCombatDisplayStatuses(statuses, 3), {
+            active: [retiring],
+            pending: [replacement],
+            retired: [],
+        });
+        assert.deepEqual(activeCombatDisplayStatuses(statuses, 4), [replacement]);
+        assert.deepEqual(partitionCombatDisplayStatuses(statuses, 4), {
+            active: [replacement],
+            pending: [],
+            retired: [retiring],
+        });
+        // Ordinary PvP must read the replacement, not the earlier retiring copy:
+        // ceil(40 × 1.10) = 44.
+        assert.equal(adjustedPvpCombatApCost(statuses, 40, 4), 44);
     });
 
     it("matches ordinary PvP's first-active modifier rule after round filtering", () => {
@@ -98,6 +123,7 @@ describe("combat action affordance parity", () => {
         assert.equal(isElementallySealedForDisplay(seal, "Fire", 2), true);
         assert.equal(isElementallySealedForDisplay(seal, "Yin", 2), false);
         assert.equal(isElementallySealedForDisplay(seal, "None", 2), false);
+        assert.equal(isElementallySealedForDisplay([{ ...seal[0], inactiveRound: 3 }], "Fire", 3), false);
     });
 
     it("exposes only active, server-authored Tower grid barriers as blocked tiles", () => {
@@ -106,8 +132,34 @@ describe("combat action affordance parity", () => {
             { name: "Barrier", source: "jutsu:guard", amount: 8, rounds: 2, activeRound: 1 },
             { name: "Barrier", source: "tower-grid:future", amount: 9, rounds: 2, activeRound: 4 },
             { name: "Barrier", source: "tower-grid:expired", amount: 10, rounds: 0, activeRound: 1 },
+            { name: "Barrier", source: "tower-grid:retired", amount: 11, rounds: 2, activeRound: 1, inactiveRound: 3 },
         ];
         assert.deepEqual([...activeBarrierTilesForDisplay(statuses, 3, 120, "tower-grid:")], [7]);
+    });
+
+    it("does not render deferred PvP ward effects before their active round", () => {
+        const fighter = {
+            shield: 0,
+            statuses: [
+                { name: "Barrier", rounds: 2, activeRound: 4 },
+                { name: "Reflect", rounds: 2, activeRound: 4 },
+                { name: "Absorb", rounds: 2, activeRound: 4 },
+            ],
+        };
+        assert.equal(pvpCombatWardKey(fighter, 3), null);
+        assert.equal(pvpCombatWardKey(fighter, 4), "shield");
+        assert.equal(pvpCombatWardKey({ ...fighter, statuses: fighter.statuses.slice(1) }, 4), "reflect");
+        assert.equal(pvpCombatWardKey({ ...fighter, statuses: fighter.statuses.slice(2) }, 4), "absorb");
+        assert.equal(pvpCombatWardKey({ ...fighter, shield: 250 }, 3), "shield");
+    });
+
+    it("does not render a retired PvP ward at or after its inactive round", () => {
+        const retiring = {
+            shield: 0,
+            statuses: [{ name: "Reflect", rounds: 2, activeRound: 1, inactiveRound: 4 }],
+        };
+        assert.equal(pvpCombatWardKey(retiring, 3), "reflect");
+        assert.equal(pvpCombatWardKey(retiring, 4), null);
     });
 
     it("presents representative canonical rejection codes as player-facing copy", () => {

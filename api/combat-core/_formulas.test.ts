@@ -87,6 +87,17 @@ test('offense, defense, terrain, weather, home terrain, bloodline, and item mult
     assert.equal(getDefense(stats, 'Genjutsu'), 1700);
     assert.equal(getOffense(stats, 'Ninjutsu'), 1700);
 
+    // "Any" is an adaptive combat type exposed by the Bloodline Maker. It must
+    // use the fighter's strongest composite, matching the client preview, rather
+    // than falling through to Ninjutsu when another discipline is stronger.
+    const adaptiveStats = {
+        ...stats,
+        taijutsuOffense: 2000,
+        genjutsuDefense: 2100,
+    };
+    assert.equal(getOffense(adaptiveStats, 'Any'), 2300);
+    assert.equal(getDefense(adaptiveStats, 'Any'), 2800);
+
     assert.equal(terrainMultiplier({ type: 'Ninjutsu' }, 'volcano'), 1.1);
     assert.equal(terrainMultiplier({ type: 'Ninjutsu' }, 'forest'), 1);
     assert.equal(weatherMultiplier('Fire', 'Fire', 'Water'), 1.05);
@@ -230,7 +241,10 @@ test('aggregate post-damage formulas preserve current caps and ordering math', (
     });
     assert.equal(postDamagePercentAmount(1000, 80), 600);
     assert.equal(postDamagePercentAmount(1000, 80, 2), 1200);
+    assert.equal(postDamagePercentAmount(1000, 0), 0, 'an effective mastery-scaled 0% must not fall back to 30%');
+    assert.equal(postDamagePercentAmount(1000, undefined), 300, 'an absent percent keeps the 30% default');
     assert.equal(woundAmountForFinalDamage(1000, 50, { bloodlineRank: 'A Rank' }), 300);
+    assert.equal(woundAmountForFinalDamage(1000, 0, {}), 0, 'an effective mastery-scaled 0% must remain zero');
     assert.equal(woundAmountForFinalDamage(1000, undefined, {}), 250);
 });
 

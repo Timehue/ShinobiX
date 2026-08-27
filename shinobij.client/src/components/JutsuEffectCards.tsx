@@ -1,6 +1,7 @@
 import { JUTSU_MAX_LEVEL } from "../constants/game";
 import { jutsuDisplayAtLevel, jutsuEffectInfo } from "../lib/jutsu-effects";
 import { scaleJutsuTagsForDisplay } from "../lib/jutsu-scaling";
+import { normalizeTagName } from "../lib/tags";
 import type { Jutsu } from "../types/combat";
 import type { JutsuType } from "../types/core";
 
@@ -13,6 +14,63 @@ const EFFECT_TONES = [
     ["harm", /^(?:Damage|Wound|Poison|Drain|Ignition|Afterburn|Recoil|Increase Damage Taken|Decrease Damage Given)$/],
     ["control", /^(?:Stun|Push|Pull|Bloodline Seal|Elemental Seal|Buff Prevent|Cleanse Prevent|Lag|Time Compression|Mirror)$/],
 ] as const satisfies ReadonlyArray<readonly [Exclude<EffectTone, "utility">, RegExp]>;
+
+const SELF_EFFECT_TAGS = new Set([
+    "Heal",
+    "Shield",
+    "Absorb",
+    "Siphon",
+    "Lifesteal",
+    "Reflect",
+    "Increase Damage Given",
+    "Decrease Damage Taken",
+    "Debuff Prevent",
+    "Clear Prevent",
+    "Stun Prevent",
+    "Copy",
+    "Overclock",
+    "Increase Heal",
+    "Increase Generals",
+    "Increase Discipline",
+    "Move",
+]);
+
+const ENEMY_EFFECT_TAGS = new Set([
+    "Damage",
+    "Recoil",
+    "Wound",
+    "Ignition",
+    "Stun",
+    "Bloodline Seal",
+    "Elemental Seal",
+    "Push",
+    "Pull",
+    "Buff Prevent",
+    "Cleanse Prevent",
+    "Poison",
+    "Drain",
+    "Mirror",
+    "Lag",
+    "Decrease Damage Given",
+    "Increase Damage Taken",
+    "Pierce",
+]);
+
+/** The recipient of this individual effect, which may differ from the cast target on mixed-tag jutsu. */
+export function jutsuEffectTargetLabel(jutsu: Pick<Jutsu, "target">, tagName: string): string {
+    const canonicalName = normalizeTagName(tagName);
+    if (SELF_EFFECT_TAGS.has(canonicalName)) return canonicalName === "Copy" ? "Self (copies eligible enemy buffs)" : "Self";
+    if (ENEMY_EFFECT_TAGS.has(canonicalName)) return canonicalName === "Mirror" ? "Enemy (copies all your debuffs)" : "Enemy";
+    if (canonicalName === "Barrier") return "Battlefield";
+
+    switch (jutsu.target ?? "OPPONENT") {
+        case "SELF": return "Self";
+        case "OPPONENT": return "Enemy";
+        case "OTHER_USER": return "Other player";
+        case "CHARACTER": return "Character";
+        case "EMPTY_GROUND": return "Ground";
+    }
+}
 
 export function jutsuEffectTone(name: string): EffectTone {
     for (const [tone, pattern] of EFFECT_TONES) {
@@ -82,7 +140,7 @@ export function JutsuEffectCards({ jutsu, scaledEffectPower, masteryLevel, lensD
                         )}
                         <div className="jutsu-effect-meta">
                             <span><strong>Value:</strong> {info.value}</span>
-                            <span><strong>Target:</strong> {(jutsu.target ?? "OPPONENT").toLowerCase().replaceAll("_", " ")}</span>
+                            <span><strong>Target:</strong> {jutsuEffectTargetLabel(jutsu, group.name)}</span>
                         </div>
                         <small>{info.rule}</small>
                     </div>

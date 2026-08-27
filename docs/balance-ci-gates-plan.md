@@ -34,14 +34,32 @@ The harnesses `console.log` and exit 0. Nothing asserts a band, so a commit that
 makes a role/element/pet dominant (or makes the sim too passive) passes CI
 silently.
 
-## ⚠️ Caveat — gate the real-engine sims only
+## ⚠️ Caveat — gate live balance only on real-engine sims
 
-`scripts/pvp-formula-sim.ts` **intentionally diverges** from the live formula
-(`EP_MULTIPLIER = 32`, comment: "Real game value in move.ts is still 40") — it's a
-tuning sandbox, not a faithful mirror, so it must **not** be CI-gated as-is. The
-pet harnesses call the real engines and are the clean gate candidates. A PvP
-balance gate, if wanted later, should be built on the real `api/pvp/move.ts` path
-(or extend `_combat-formula-parity.test.ts`), not on the sandbox.
+`scripts/pvp-formula-sim.ts` is a deterministic tuning sandbox, not the live
+`api/pvp/move.ts` handler. It now imports the canonical formula, turn-envelope,
+status, AP-cost, and V2 resource helpers (including the live
+`EP_MULTIPLIER = 32`) and seals every five-jutsu A-rank archetype draft through
+the live player-bloodline schema, including count, AP/tag compatibility,
+percentage, uniqueness, and point-budget rules. It still omits the
+grid/range/targeting rules, ground zones, consumable policy,
+stamina-discipline loadouts, human adaptation, and stochastic decisions. Its
+rates are therefore conditioned on one deterministic rule policy; those
+omissions can materially change matchup and opener rates, so its archetype bands
+must **not** be promoted to live balance gates or presented as live win forecasts.
+
+The sandbox does have a CI-safe **harness-integrity** test now:
+`scripts/pvp-formula-sim.test.ts`. Every unordered pair is run in all four
+fighter-seat × opener configurations; entrant, archetype, seat, opener, and
+directional matchup tallies must conserve; draws score as half a win; and 100%
+seat/opener dominance is explicitly detected even when crossed archetype rates
+look 50/50. The CLI prints any actual seat/opener skew as a failed evidence
+check instead of presenting the crossed matrix as proof of fairness.
+
+A live PvP balance gate still needs a seeded harness built on the real
+`api/pvp/move.ts` path (or an extension of `_combat-formula-parity.test.ts`). The
+pet harnesses already call their real engines and remain the clean balance-band
+gate candidates.
 
 ## Design
 
@@ -119,6 +137,8 @@ per pair; the duel harness is `roster²×seeds` — cap the duel roster sample f
 
 - New: `scripts/pet-role-balance.test.ts`, `scripts/pet-duel-balance.test.ts`
   (+ the harness refactors to export the report fns).
+- Implemented harness guard: `scripts/pvp-formula-sim.test.ts` (schedule,
+  aggregation, conservation, and bias-visibility only — not live balance bands).
 - Add both to the `test` script in the root `package.json` (the runner already
   globs `scripts/*.test.*`).
 - No `dist/` impact — these are test/dev-tooling files, not shipped server code.
@@ -141,5 +161,6 @@ per pair; the duel harness is `roster²×seeds` — cap the duel roster sample f
 - Complements the **economy telemetry** plan (`docs/economy-telemetry-plan.md`):
   telemetry watches the *live* economy, these gates watch *combat balance* offline
   — together they cover the two halves the audit said were unmeasured.
-- Faithful PvP balance gating is a follow-up that needs a real-formula harness
-  (the current `pvp-formula-sim.ts` is a sandbox).
+- Faithful PvP balance gating is still a follow-up that needs the authoritative
+  move/session path; the crossed `pvp-formula-sim.ts` remains a clearly labelled
+  sandbox despite sharing canonical pure helpers.

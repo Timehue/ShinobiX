@@ -18,11 +18,12 @@ describe('_jutsu-points — point math', () => {
         assert.equal(tagPointValue({ name: 'Mirror' }, 'A Rank'), 3);
         assert.equal(tagPointValue({ name: 'Stun' }, 'A Rank'), 2);
         assert.equal(tagPointValue({ name: 'Bloodline Seal' }, 'A Rank'), 2);
-        // capped amp: at/above the rank cap costs more than below it
-        assert.equal(tagPointValue({ name: 'Increase Damage Given', percent: 35 }, 'A Rank'), 0.75);
-        assert.equal(tagPointValue({ name: 'Increase Damage Given', percent: 30 }, 'A Rank'), 0.25);
-        assert.equal(tagPointValue({ name: 'Increase Damage Given', percent: 40 }, 'S Rank'), 0.75);
-        assert.equal(tagPointValue({ name: 'Increase Damage Given', percent: 35 }, 'S Rank'), 0.25);
+        // capped amp: the PLAYER-CREATOR maximum pays the premium. Higher legacy
+        // combat caps remain valid in the resolver but are not the budget gate.
+        assert.equal(tagPointValue({ name: 'Increase Damage Given', percent: 30 }, 'A Rank'), 0.75);
+        assert.equal(tagPointValue({ name: 'Increase Damage Given', percent: 25 }, 'A Rank'), 0.25);
+        assert.equal(tagPointValue({ name: 'Increase Damage Given', percent: 35 }, 'S Rank'), 0.75);
+        assert.equal(tagPointValue({ name: 'Increase Damage Given', percent: 30 }, 'S Rank'), 0.25);
         // Wound tiers
         assert.equal(tagPointValue({ name: 'Wound', percent: 35 }, 'S Rank'), 1);
         assert.equal(tagPointValue({ name: 'Wound', percent: 30 }, 'A Rank'), 0.5);
@@ -34,12 +35,32 @@ describe('_jutsu-points — point math', () => {
     });
 
     it('jutsuPoints adds structural costs (40-AP utility, nuke, low cooldown)', () => {
-        // 40-AP utility (+1) with one capped amp below cap (0.25), cooldown 7 (no +0.5)
-        assert.equal(jutsuPoints({ ap: 40, range: 4, effectPower: 0, cooldown: 7, tags: [{ name: 'Increase Damage Given', percent: 30 }] }, 'A Rank'), 1.25);
+        // 40-AP utility (+1) with one max creator amp (+0.75), cooldown 7 (no +0.5)
+        assert.equal(jutsuPoints({ ap: 40, range: 4, effectPower: 0, cooldown: 7, tags: [{ name: 'Increase Damage Given', percent: 30 }] }, 'A Rank'), 1.75);
         // 60-AP nuke (effectPower 50 → +1), cooldown 1 (+0.5), no tags
         assert.equal(jutsuPoints({ ap: 60, range: 4, effectPower: 50, cooldown: 1, tags: [] }, 'A Rank'), 1.5);
         // fixed-effect (Stun) jutsu does NOT get the nuke point even at EP 50
         assert.equal(jutsuPoints({ ap: 60, range: 4, effectPower: 50, cooldown: 7, tags: [{ name: 'Stun' }] }, 'A Rank'), 2);
+    });
+
+    it('prices every legal max creator amp at 0.75 across B/A/S kits', () => {
+        for (const [rank, count, percent] of [
+            ['B Rank', 4, 30],
+            ['A Rank', 5, 30],
+            ['S Rank', 5, 35],
+        ] as const) {
+            const kit = Array.from({ length: count }, () => ({
+                ap: 60,
+                range: 4,
+                effectPower: 40,
+                cooldown: 7,
+                tags: [
+                    { name: 'Increase Damage Given', percent },
+                    { name: 'Increase Damage Taken', percent },
+                ],
+            }));
+            assert.equal(bloodlinePoints(kit, rank), count * 2 * 0.75, rank);
+        }
     });
 
     it('honest within-budget bloodline is unchanged (deep-equal, no-op)', () => {

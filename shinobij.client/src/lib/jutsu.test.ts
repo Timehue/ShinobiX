@@ -48,6 +48,19 @@ describe("normalizeJutsu — Bloodline combat visual choice", () => {
     });
 });
 
+describe("normalizeJutsu — bloodline draft authority", () => {
+    it("preserves bloodlineRank so creator previews and point math use the saved rank", () => {
+        const normalized = normalizeJutsu({
+            id: "ranked-draft",
+            name: "Ranked Draft",
+            type: "Ninjutsu",
+            bloodlineRank: "S Rank",
+            tags: [{ name: "Increase Damage Given", percent: 35 }],
+        });
+        assert.equal(normalized.bloodlineRank, "S Rank");
+    });
+});
+
 describe("orderEquippedJutsus - Profile loadout order reaches combat", () => {
     const catalog = [
         normalizeJutsu({ id: "catalog-first", name: "Catalog First", type: "Ninjutsu" }),

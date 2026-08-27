@@ -108,7 +108,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'clanPoints', 'weeklyClanPoints', 'weeklyClanPointsWeek', 'lifetimeClanPoints',
     'clanPointHistory', 'clanExchangePurchases',
     // Inventory, jutsu, pets, titles, legacy
-    'professionChosenAt', 'jutsuMastery', 'pets', 'tileCards', 'lastHollowGateStart',
+    'professionChosenAt', 'jutsu', 'jutsuMastery', 'pets', 'tileCards', 'lastHollowGateStart',
     'serverTitles', 'legacy', 'masterySpec', 'examsPassed',
     // Forbidden at character scope (deleted from the character on every save)
     'creatorJutsus', 'creatorItems', 'creatorAis', 'creatorMissions', 'creatorEvents',

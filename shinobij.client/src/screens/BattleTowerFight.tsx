@@ -23,6 +23,7 @@ import type { StoryFightTheme } from "../lib/story-fight-theme";
 import { playStoryChapterSting, playStoryFinalPhaseSting, playStoryVictorySting, primeStorySfx } from "../lib/story-sfx";
 import { pvpAffectsOpponent, tagMatchesName } from "../lib/tags";
 import {
+    activeCombatDisplayStatuses,
     activeBarrierTilesForDisplay,
     adjustedCombatApCost,
     isElementallySealedForDisplay,
@@ -1461,7 +1462,7 @@ export function BattleTowerFight({
                 {/* Squad rail (+ protect-target allies) */}
                 <aside style={{ minWidth: 0 }} aria-label={isTeamPvp ? "Your Team" : "Squad"}>
                     <RailHeader icon="🛡" label={isTeamPvp ? "Your Team" : "Squad"} accent="var(--green-400)" />
-                    {allies.map(a => <ActorCard key={a.id} actor={a} highlight={a.id === activeId} avatar={avatarFor(a)} emoji={emojiFor(a)} ally={a.side === "npc"} />)}
+                    {allies.map(a => <ActorCard key={a.id} actor={a} round={session.round} highlight={a.id === activeId} avatar={avatarFor(a)} emoji={emojiFor(a)} ally={a.side === "npc"} />)}
                 </aside>
 
                 {/* Board */}
@@ -1979,7 +1980,7 @@ export function BattleTowerFight({
                 {/* Enemy + log rail */}
                 <aside style={{ minWidth: 0 }} aria-label={isTeamPvp ? "Rival Team and battle log" : "Enemies and battle log"}>
                     <RailHeader icon="👹" label={isTeamPvp ? "Rival Team" : "Enemies"} accent="var(--red-400)" />
-                    {enemies.map(a => <ActorCard key={a.id} actor={a} highlight={a.id === activeId} avatar={avatarFor(a)} emoji={emojiFor(a)} boss={a.id === bossId} unknown={isUnknownCombatant(a)} />)}
+                    {enemies.map(a => <ActorCard key={a.id} actor={a} round={session.round} highlight={a.id === activeId} avatar={avatarFor(a)} emoji={emojiFor(a)} boss={a.id === bossId} unknown={isUnknownCombatant(a)} />)}
                     <RailHeader icon="📜" label="Battle Log" accent="var(--text-dim)" mt={12} />
                     <div role="log" aria-live={isTeamPvp ? "off" : "polite"} aria-relevant="additions text" aria-label="Battle log" style={{ maxHeight: 220, overflow: "auto", fontSize: "0.74rem", lineHeight: 1.45, color: "var(--slate-300)", background: "rgba(2,6,18,0.55)", border: "1px solid var(--slate-800)", borderRadius: 8, padding: "6px 8px" }}>
                         {session.log.slice(-30).map((line, i) => <div key={i} style={{ padding: "1px 0", borderBottom: i < Math.min(29, session.log.length - 1) ? "1px solid rgba(30,41,59,0.5)" : undefined }}>{line}</div>)}
@@ -2129,10 +2130,11 @@ function featureLabel(feat: TowerFeature): string {
     return `${feat.label ?? "Hazard"}: ${feat.percent}% max HP if you end the round here`;
 }
 
-function ActorCard({ actor, highlight, avatar, emoji, boss, ally, unknown }: { actor: TowerActor; highlight: boolean; avatar: string | null; emoji: string; boss?: boolean; ally?: boolean; unknown?: boolean }) {
+function ActorCard({ actor, round, highlight, avatar, emoji, boss, ally, unknown }: { actor: TowerActor; round: number; highlight: boolean; avatar: string | null; emoji: string; boss?: boolean; ally?: boolean; unknown?: boolean }) {
     const pct = Math.max(0, Math.min(100, (actor.hp / Math.max(1, actor.maxHp)) * 100));
     const dead = actor.hp <= 0;
     const accent = actor.side === "squad" ? "var(--green-400)" : actor.side === "npc" ? "var(--gold)" : "var(--red-400)";
+    const visibleStatuses = activeCombatDisplayStatuses(actor.statuses, round);
     return (
         <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "5px 7px", marginBottom: 5, borderRadius: 6, background: highlight ? "#15233b" : "rgba(11,18,32,0.7)", border: `1px solid ${highlight ? "var(--blue-400)" : "var(--slate-800)"}`, opacity: dead ? 0.4 : 1 }}>
             <div style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0, overflow: "hidden", border: `2px solid ${accent}`, display: "flex", alignItems: "center", justifyContent: "center", background: "#0b1220" }}>
@@ -2152,9 +2154,9 @@ function ActorCard({ actor, highlight, avatar, emoji, boss, ally, unknown }: { a
                         <MiniBar val={actor.stamina} max={actor.maxStamina} color="#a3e635" />
                     </div>
                 )}
-                {actor.statuses.length > 0 && (
+                {visibleStatuses.length > 0 && (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 2, marginTop: 3 }}>
-                        {actor.statuses.slice(0, 8).map((st, i) => <StatusChip key={i} status={st} />)}
+                        {visibleStatuses.slice(0, 8).map((st, i) => <StatusChip key={i} status={st} />)}
                     </div>
                 )}
                 {unknown && <span className="tower-unknown-combatant-label">Unknown combatant art</span>}

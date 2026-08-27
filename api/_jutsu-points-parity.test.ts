@@ -2,6 +2,10 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import * as server from './_jutsu-points.js';
 import * as client from '../shinobij.client/src/lib/jutsu-points.js';
+import { normalizePlayerBloodlineJutsus } from './bloodlines/_jutsu-schema.js';
+import { bloodlineArchetypes, bloodlineTemplateJutsus } from '../shinobij.client/src/lib/bloodline-templates.js';
+import { allTags } from '../shinobij.client/src/lib/tags.js';
+import type { Rank } from '../shinobij.client/src/types/core.js';
 
 // Behavioral cross-build parity: api/_jutsu-points.ts is a hand port of
 // shinobij.client/src/lib/jutsu-points.ts (separate build roots). Rather than
@@ -59,6 +63,49 @@ describe('parity: jutsu-points (api/_jutsu-points.ts ⇄ client lib/jutsu-points
                     (client.jutsuPoints as (jutsu: unknown, rank: unknown) => number)(j, r),
                     `jutsu ${JSON.stringify(j)} ${r}`,
                 );
+            }
+        }
+    });
+
+    it('every player-creator tag round-trips through the live schema at every rank', () => {
+        const creatorTags = [...allTags, 'Pierce'];
+        for (const rank of RANKS) {
+            for (const name of creatorTags) {
+                const percent = client.bloodlineCreatorPercentPolicy(name, rank).defaultPercent;
+                const [sealed] = normalizePlayerBloodlineJutsus([{
+                    id: `roundtrip-${rank}-${name}`,
+                    name: `${name} Roundtrip`,
+                    type: 'Ninjutsu',
+                    element: 'Fire',
+                    ap: 60,
+                    range: 4,
+                    effectPower: 40,
+                    cooldown: 7,
+                    target: name === 'Move' ? 'EMPTY_GROUND' : 'OPPONENT',
+                    method: 'SINGLE',
+                    tags: [{ name, percent }],
+                }], rank);
+                assert.ok(sealed, `${rank} ${name}`);
+                assert.deepEqual(sealed.tags, [{ name, percent }], `${rank} ${name}`);
+            }
+        }
+    });
+
+    it('every quick-start template is schema-stable and client/server budget-identical', () => {
+        for (const rank of RANKS as readonly Rank[]) {
+            for (const archetype of bloodlineArchetypes) {
+                const drafts = bloodlineTemplateJutsus(archetype.key, rank, 'Fire', 'Ninjutsu');
+                const sealed = normalizePlayerBloodlineJutsus(drafts, rank);
+                assert.equal(sealed.length, drafts.length, `${rank} ${archetype.key} count`);
+                assert.deepEqual(
+                    sealed.map((jutsu) => jutsu.tags),
+                    drafts.map((jutsu) => jutsu.tags),
+                    `${rank} ${archetype.key} tags`,
+                );
+                const clientPoints = client.bloodlinePoints(drafts, rank);
+                const serverPoints = server.bloodlinePoints(sealed, rank);
+                assert.equal(clientPoints, serverPoints, `${rank} ${archetype.key} budget parity`);
+                assert.ok(serverPoints <= server.pointBudgetForRank(rank), `${rank} ${archetype.key} ${serverPoints}`);
             }
         }
     });

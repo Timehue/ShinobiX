@@ -19,6 +19,8 @@ export type CombatEventStatus = {
     kind: 'positive' | 'negative';
     rounds: number;
     activeRound?: number;
+    /** Status is mechanically retired at this round by a deferred refresh. */
+    inactiveRound?: number;
     percent?: number;
     amount?: number;
     discipline?: string;
@@ -194,6 +196,7 @@ function statuses(value: unknown): CombatEventStatus[] {
             kind: source.kind === 'positive' ? 'positive' as const : 'negative' as const,
             rounds: Math.max(0, Math.floor(number(source.rounds))),
             ...(Number.isFinite(Number(source.activeRound)) ? { activeRound: Math.max(0, Math.floor(number(source.activeRound))) } : {}),
+            ...(Number.isFinite(Number(source.inactiveRound)) ? { inactiveRound: Math.max(0, Math.floor(number(source.inactiveRound))) } : {}),
             ...(Number.isFinite(Number(source.percent)) ? { percent: number(source.percent) } : {}),
             ...(Number.isFinite(Number(source.amount)) ? { amount: number(source.amount) } : {}),
             ...(typeof source.discipline === 'string' ? { discipline: text(source.discipline, 40) } : {}),

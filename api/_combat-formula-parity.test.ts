@@ -125,6 +125,23 @@ const PAIRS: Array<[string, string]> = [
 ];
 
 describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
+    it('adaptive Any casts use the strongest offense and defense composite on both mirrors', () => {
+        for (const [label, src, offenseName, defenseName] of [
+            ['server', SERVER_FORMULAS, 'getOffense', 'getDefense'],
+            ['client', CLIENT, 'getOffenseStat', 'getDefenseStat'],
+        ] as const) {
+            for (const functionName of [offenseName, defenseName]) {
+                const start = src.indexOf(`function ${functionName}`);
+                assert.ok(start >= 0, `${label} ${functionName} is missing`);
+                const body = src.slice(start, start + 1_500);
+                assert.match(body, /type === ['"]Any['"]/, `${label} ${functionName} lost its Any branch`);
+                assert.match(body, /Math\.max\(/, `${label} ${functionName} no longer selects the strongest composite for Any`);
+                for (const discipline of ['ninjutsu', 'taijutsu', 'genjutsu', 'bukijutsu']) {
+                    assert.match(body, new RegExp(`${discipline}${functionName.includes('Defense') ? 'Defense' : 'Offense'}`), `${label} ${functionName} omits ${discipline}`);
+                }
+            }
+        }
+    });
     for (const [s, c] of PAIRS) {
         it(`${s} (server) === ${c} (client)`, () => {
             assert.equal(num(SERVER_FORMULAS, s), num(CLIENT, c), `${s} and ${c} diverged — PvE and PvP damage would no longer match`);
@@ -166,7 +183,7 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
         // The client copy above is now preview/display only. Live PvE takes the
         // server's own rank cap, because it resolves jutsu through applyJutsu.
         assert.match(SERVER_FORMULAS, /function woundCapForJutsu/, 'combat-core/formulas.ts lost the Wound rank cap');
-        assert.match(SERVER_FORMULAS, /Math\.min\(rawPercent \|\| 30, woundCapForJutsu\(jutsu\), WOUND_HARD_CAP_PCT\)/, 'shared Wound formula no longer consumes woundCapForJutsu');
+        assert.match(SERVER_FORMULAS, /Math\.min\(rawPercent \?\? 30, woundCapForJutsu\(jutsu\), WOUND_HARD_CAP_PCT\)/, 'shared Wound formula must consume woundCapForJutsu without replacing an effective 0%');
         assert.match(SERVER, /woundAmountForFinalDamage\(finalDmg, pct, jutsu\)/, 'move.ts no longer consumes the shared Wound formula');
         assertSoloUsesSharedMove('applyJutsu');
     });

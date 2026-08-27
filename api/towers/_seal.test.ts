@@ -41,7 +41,14 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
     // entered Towers / Clan Boss / PvE / Anbu / merc fights a jutsu short.
     it('seals an equipped admin-authored jutsu from the authored catalog', () => {
         const authored = { id: 'starter-universal-blitz', name: 'Overload', type: 'Ninjutsu', ap: 40, effectPower: 36 };
-        const saveChar = { stats: {}, equippedJutsuIds: ['starter-tai-fire-2', 'starter-universal-blitz'] };
+        const saveChar = {
+            stats: {},
+            equippedJutsuIds: ['starter-tai-fire-2', 'starter-universal-blitz'],
+            jutsuMastery: [
+                { jutsuId: 'starter-tai-fire-2', level: 0 },
+                { jutsuId: 'starter-universal-blitz', level: 0 },
+            ],
+        };
 
         const without = sealTowerFighter(saveChar, { savedBloodlines: [], creatorJutsus: [] }, {}, null);
         assert.deepEqual((without.jutsu as Array<{ id: string }>).map((j) => j.id), ['starter-tai-fire-2']);
@@ -82,7 +89,11 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
         // The fighter carries Ashen Eyes: the bloodline gate (api/pvp/_bloodline-gate.ts)
         // drops the bloodline kit from any save that doesn't.
         const sealed = sealTowerFighter(
-            { name: 'Hero', stats: {}, bloodline: 'Ashen Eyes', equippedJutsuIds: ['ashen-eyes-blood-gaze'] },
+            {
+                name: 'Hero', stats: {}, bloodline: 'Ashen Eyes',
+                equippedJutsuIds: ['ashen-eyes-blood-gaze'],
+                jutsuMastery: [{ jutsuId: 'ashen-eyes-blood-gaze', level: 0 }],
+            },
             { character: { equippedJutsuIds: ['ashen-eyes-blood-gaze'] } },
             {},
             null,
@@ -103,6 +114,7 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
                 bloodline: 'None',
                 stats: {},
                 equippedJutsuIds,
+                jutsuMastery: [{ jutsuId: 'starter-universal-flicker', level: 0 }],
             };
             const sealed = sealTowerFighter(
                 saveChar,

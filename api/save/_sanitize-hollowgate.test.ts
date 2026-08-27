@@ -354,11 +354,12 @@ const sanitizeGrandfatheredBloodline = (bloodline: Record<string, unknown>) => s
     { savedBloodlines: [{ id: bloodline.id, rank: bloodline.rank, jutsus: [] }] },
 );
 
-test('savedBloodlines: a forged jutsu effectPower 200 / ap 1 is clamped to 50 / 40', () => {
+test('savedBloodlines: an out-of-schema AP value becomes a zero-damage 40 AP utility', () => {
     const out = sanitizeGrandfatheredBloodline({ id: 'existing-forged', rank: 'A Rank', jutsus: [{ id: 'bl-1', effectPower: 200, ap: 1 }] });
     const j = (out.savedBloodlines as any)[0].jutsus[0];
-    assert.equal(j.effectPower, 50, 'effectPower clamped to the legit nuke ceiling 50');
-    assert.equal(j.ap, 40, 'ap floored to 40');
+    assert.equal(j.effectPower, 0, '40 AP player utility cannot retain damage power');
+    assert.equal(j.ap, 40, 'out-of-schema AP is normalized to the safe utility tier');
+    assert.equal(j.isUtility, true, 'utility behavior is derived by the server');
 });
 
 test('savedBloodlines: legit jutsu (nuke 50@60, standard 40@60, utility 0@40, 40@80) pass through unchanged', () => {

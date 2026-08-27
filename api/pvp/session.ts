@@ -51,13 +51,13 @@ import { characterMayUseJutsu, BUILTIN_BLOODLINES } from './_bloodline-gate.js';
 import { loadAdminCombatContent, type AdminCombatContent } from '../_admin-content.js';
 import { safeLogValue } from '../_safe-log.js';
 import { KNOWN_TAG_NAMES, STACKABLE_STATUS, canonicalTagName, REQUIRES_DAMAGE_TAGS, jutsuHasFixedEffectPower, FIXED_EFFECT_STANDARD_EP } from './_tags.js';
-import { enforceBloodlineBudget, type RawJutsu } from '../_jutsu-points.js';
 import { sanitizeJutsuVisualEffect } from '../_jutsu-visuals.js';
+import { normalizePlayerBloodlineJutsus } from '../bloodlines/_jutsu-schema.js';
 import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
 import { COMBAT_RESOURCES_V2, v2JutsuCosts } from '../_combat-resources.js';
 import { CHAKRA_CAP_V2, STAMINA_CAP_V2 } from '../_xp-engine.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
-import { maxLoadout } from '../_entitlements.js';
+import { LOADOUT_CAP_BASE, maxLoadout } from '../_entitlements.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import {
     PLAYER_RANKED_V2_DISABLED_MESSAGE,
@@ -83,6 +83,7 @@ import {
     sectorWarRoleOf,
     type SealedWarRoleEvidence,
 } from '../_war-role.js';
+import { pvpSessionHp } from './_low-level-hp.js';
 
 // combatResourcesV2: seal each jutsu's concrete one-bar cost (chakra XOR stamina)
 // from the fighter's level + specialty, so move.ts's existing per-bar deduction
@@ -103,6 +104,8 @@ export type PvpStatus = {
     source?: string;
     rounds: number;
     activeRound?: number;
+    /** Status remains usable before this round, then yields to a deferred refresh. */
+    inactiveRound?: number;
     percent?: number;
     amount?: number;
     // 'Increase Discipline' only: which offense composite the stack lifts.
@@ -144,6 +147,10 @@ export type PvpGroundEffect = {
     name: string;
     tiles: number[];
     rounds: number;
+    /** First round in which the zone may reapply after its one cast-time hit. */
+    activeRound?: number;
+    /** Whether an in-zone target actually consumed the opener's cast-time pulse. */
+    castPulseConsumed?: boolean;
     tags: Array<{ name: string; percent?: number; amount?: number }>;
 };
 
@@ -166,6 +173,8 @@ export type PvpSession = {
     p2: PvpFighter;
     round: number;
     activePlayer: 'p1' | 'p2'; // whose turn it is
+    /** First actor in each two-turn round. Legacy rows omit this and use p1. */
+    roundOpener?: 'p1' | 'p2';
     ap: { p1: number; p2: number };
     actionsThisTurn: number;
     cooldowns: { p1: Record<string, number>; p2: Record<string, number> };
@@ -633,8 +642,8 @@ export function trimPvpLog(log: string[]): string[] {
 }
 
 // Starting positions matching arena (p1 left side, p2 right side)
-const P1_START = 62;
-const P2_START = 33;
+export const P1_START = 62;
+export const P2_START = 57;
 
 // Death's Gate is the one sector whose base PvP-win reward is doubled
 // (computePvpWinGains in api/_xp-engine.ts checks `rewardSector === 99`). The
@@ -691,6 +700,10 @@ export function sanitizeJutsuList(rawList: unknown, options: SanitizeJutsuListOp
         .filter((j): j is Record<string, unknown> => !!j && typeof j === 'object')
         .map((j) => {
             const out: Record<string, unknown> = { ...j };
+            // `weaponSwing` is an internal resolver stamp set only on a
+            // server-synthesized equipped-weapon action. Never let persisted or
+            // client-authored jutsu opt into max-mastery weapon tag scaling.
+            delete out.weaponSwing;
             // Hard caps so a tampered jutsu can't supply an instant-kill effect.
             // Max LEGIT effectPower is 50 (player bloodline jutsu, save-clamped in
             // api/save/[name].ts; built-in catalog + starters are ≤36). Ceiling 60
@@ -819,14 +832,12 @@ export function sanitizePvpItems(raw: unknown): unknown[] {
             if (out.restoreChakra != null)     out.restoreChakra  = clampNumber(out.restoreChakra,  0, 5000, 0);
             if (out.restoreStamina != null)    out.restoreStamina = clampNumber(out.restoreStamina, 0, 5000, 0);
             if (out.weaponEffectValue != null) out.weaponEffectValue = clampNumber(out.weaponEffectValue, 0, 100, 0);
-            // Barrier is JUTSU-ONLY (owner ruling 2026-08-16): it drops a wall tile on
-            // the board, a cast-time control mechanic rather than something a blade
-            // does. No built-in weapon carries it and craft/_named.ts cannot roll it,
-            // so this strips it only from an admin-authored or tampered definition —
-            // at the SEAL, so every engine inherits the rule at once.
-            const isWeaponItem = out.slot === 'hand' || out.slot === 'thrown' || out.slot === 'weapon';
-            if (isWeaponItem && String(out.weaponEffect) === 'Barrier') delete out.weaponEffect;
-            if (isWeaponItem && Array.isArray(out.weaponTags)) {
+            // Barrier is JUTSU-ONLY (owner ruling 2026-08-16): it drops a wall tile
+            // on the board, a cast-time control mechanic rather than an item
+            // payload. Both weapon and non-weapon item actions synthesize these
+            // fields into applyJutsu, so strip it from every PvP item at the seal.
+            if (String(out.weaponEffect) === 'Barrier') delete out.weaponEffect;
+            if (Array.isArray(out.weaponTags)) {
                 out.weaponTags = (out.weaponTags as unknown[]).filter(
                     (t) => !(t && typeof t === 'object' && String((t as Record<string, unknown>).name) === 'Barrier'),
                 );
@@ -978,9 +989,9 @@ export function stripNonCombatFields(character: Record<string, unknown>): Record
 //
 // Built-in jutsu ALWAYS use the catalog values, so a tampered save can't inflate
 // a starter's effectPower/tags past the real numbers. Player-owned bloodline +
-// creator jutsu come from the save; the client body is only a last-resort
-// supplement for a jutsu the save somehow lacks (no worse than the old
-// fully-client path, and still run through sanitizeJutsuList below).
+// creator jutsu come from the save. For persisted players, old character.jutsu
+// rows may contribute IDs for migration only; every definition is re-resolved
+// from a server catalog or the player's normalized bloodline save.
 //
 // ADMIN-AUTHORED jutsu are the case the save cannot cover at all: `creatorJutsus`
 // is a SERVER_LEDGER_TOPLEVEL_FIELD (api/save/[name].ts), so a regular player's
@@ -1012,20 +1023,76 @@ export function resolveEquippedLoadout(
     clientCharacter: Record<string, unknown>,
     admin: AdminCombatContent | null = null,
 ): unknown[] | null {
-    const rawIds = saveCharacter.equippedJutsuIds;
-    if (!Array.isArray(rawIds) || rawIds.length === 0) return null;
-    const uniqueIds = [...new Set(rawIds.filter((id): id is string => typeof id === 'string'))];
+    const explicitIds = Array.isArray(saveCharacter.equippedJutsuIds)
+        ? saveCharacter.equippedJutsuIds
+        : [];
+    // Legacy saves predate equippedJutsuIds and may still carry a character.jutsu
+    // snapshot. Treat that snapshot as an ID preference only. Its combat values
+    // are never trusted, and unknown IDs are dropped below.
+    const legacySavedIds = save && explicitIds.length === 0 && Array.isArray(saveCharacter.jutsu)
+        ? (saveCharacter.jutsu as unknown[]).map((entry) =>
+            entry && typeof entry === 'object' ? (entry as Record<string, unknown>).id : undefined)
+        : [];
+    const rawIds = explicitIds.length > 0 ? explicitIds : legacySavedIds;
+    if (rawIds.length === 0) return save ? [] : null;
+    const requestedIds = [...new Set(rawIds.filter((id): id is string => typeof id === 'string' && id.length > 0))];
+    // A persisted slot preference is not a learning receipt. Both modern
+    // equippedJutsuIds and the legacy character.jutsu migration path must be
+    // backed by a server-owned mastery row. Level 0 is intentionally valid:
+    // newly learned built-in/admin/custom techniques can be equipped before
+    // their first mastery level, while a forged catalog id has no such row.
+    const learnedJutsuIds = new Set(
+        (Array.isArray(saveCharacter.jutsuMastery) ? saveCharacter.jutsuMastery : [])
+            .filter((row): row is Record<string, unknown> => !!row && typeof row === 'object')
+            .map((row) => String(row.jutsuId ?? '').trim().toLowerCase())
+            .filter(Boolean),
+    );
+    // Bloodline Maker saves now receive mastery rows at ingress, but older
+    // legitimately forged bloodlines may predate that migration. The equipped
+    // saved bloodline itself is server-entitled content, so its normalized IDs
+    // remain valid learning evidence. Stored-but-unequipped bloodlines do not.
+    if (save && Array.isArray(save.savedBloodlines) && typeof saveCharacter.equippedBloodlineId === 'string') {
+        const equippedBloodlineId = saveCharacter.equippedBloodlineId;
+        const ownedBloodline = (save.savedBloodlines as unknown[]).find((entry) =>
+            !!entry
+            && typeof entry === 'object'
+            && (entry as Record<string, unknown>).id === equippedBloodlineId,
+        ) as Record<string, unknown> | undefined;
+        if (ownedBloodline) {
+            const rank = typeof ownedBloodline.rank === 'string' ? ownedBloodline.rank : null;
+            for (const jutsu of normalizePlayerBloodlineJutsus(ownedBloodline.jutsus, rank)) {
+                learnedJutsuIds.add(String(jutsu.id).trim().toLowerCase());
+            }
+        }
+    }
+    const unlearned = save
+        ? requestedIds.filter((id) => !learnedJutsuIds.has(id.trim().toLowerCase()))
+        : [];
+    const uniqueIds = save
+        ? requestedIds.filter((id) => learnedJutsuIds.has(id.trim().toLowerCase()))
+        : requestedIds;
+    if (unlearned.length > 0) {
+        console.warn(
+            '[pvp-loadout] unlearned equipped jutsu id(s) dropped',
+            safeLogValue(saveCharacter.name),
+            safeLogValue(unlearned.join(',')),
+        );
+    }
     // A save can temporarily retain 15 persisted slot preferences after a
-    // supporter lapse. Seal only the active 12/15 entitlement into combat;
+    // supporter lapse. Resolve only the active 12/15 account entitlement here;
     // never truncate the stored preference itself, so reactivation is lossless.
-    // Save-less NPC callers keep their server-authored list unchanged.
+    // Real-player PvP applies its neutral 12-slot projection after hydration;
+    // PvE callers keep the supporter flexibility. Save-less NPC callers keep
+    // their server-authored list unchanged.
     const equippedIds = save ? uniqueIds.slice(0, maxLoadout(saveCharacter)) : uniqueIds;
-    if (equippedIds.length === 0) return null;
+    if (equippedIds.length === 0) return save ? [] : null;
     // Non-catalog sources, lowest priority first so later sources overwrite:
-    //   client body (weakest) → admin-authored jutsu → save's bloodlines + creator
-    //   jutsu (authoritative).
+    //   save-less NPC body (weakest) → admin-authored jutsu → save's bloodlines
+    //   + creator jutsu (authoritative).
     const extra = new Map<string, Record<string, unknown>>();
-    jutsuObjectsById(extra, clientCharacter.jutsu);
+    // Persisted players resolve from server catalogs and their normalized save.
+    // A request-body definition is only a fallback for save-less NPC fixtures.
+    if (!save) jutsuObjectsById(extra, clientCharacter.jutsu);
     if (admin?.jutsu) {
         for (const [id, jutsu] of admin.jutsu) {
             if (jutsu && typeof jutsu === 'object') extra.set(id, jutsu);
@@ -1055,19 +1122,22 @@ export function resolveEquippedLoadout(
             // /bloodlines/forge path prevents forged ranks from claiming higher
             // caps than the player legitimately earned.
             const stampRank = true;
+            const processedBloodlineIds = new Set<string>();
             for (const b of bloodlines) {
                 if (!b || typeof b !== 'object') continue;
                 const bl = b as Record<string, unknown>;
                 const blId = typeof bl.id === 'string' ? bl.id : '';
+                if (!blId) continue;
                 if (blId !== equippedBloodlineId && blId !== starterId) continue;
+                // Old/corrupt saves can predate ingress deduplication. Never let
+                // duplicate rows sharing one id each receive a separate schema
+                // budget and then merge into the same carried combat kit.
+                if (processedBloodlineIds.has(blId)) continue;
+                processedBloodlineIds.add(blId);
                 const blRank = typeof bl.rank === 'string' ? bl.rank : null;
-                let jutsus = bl.jutsus;
-                // Defense-in-depth: enforce the bloodline point budget here too, so a
-                // pre-existing over-budget save is still clamped down when it
-                // loads into a fight.
-                if (Array.isArray(jutsus)) {
-                    jutsus = enforceBloodlineBudget(jutsus as RawJutsu[], blRank) as unknown[];
-                }
+                // The player schema also enforces the bloodline-wide point
+                // budget, so legacy/forged saves are repaired before sealing.
+                const jutsus = normalizePlayerBloodlineJutsus(bl.jutsus, blRank);
                 if (stampRank && Array.isArray(jutsus) && blRank) {
                     jutsuObjectsById(extra, (jutsus as unknown[]).map((j) =>
                         j && typeof j === 'object'
@@ -1327,9 +1397,11 @@ export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>,
     // another Legacy's signature. Mastery is the legacy stage ×10 (3→30, 4→40,
     // 5→50): signatures deepen with the Legacy, never via the training grind.
     //
-    // BALANCE (owner-documented, intentional): this is a strictly-additive 16th
-    // slot on top of the 15-jutsu loadout — a Legacy player fields one more jutsu
-    // than a no-Legacy player, with no offsetting loadout cost. That is accepted
+    // BALANCE (owner-documented, intentional): this is a strictly-additive slot
+    // on top of the regular loadout — a Legacy player fields one more jutsu than
+    // a no-Legacy player, with no offsetting loadout cost. Human PvP later seals
+    // the regular portion to 12 for both players while retaining this earned
+    // signature. That is accepted
     // prestige power: it is EARNED (achievement floors + a 5-stage trial arc),
     // never bought or RNG'd, so it stays inside the skill-gated-power pillar. Its
     // only in-combat cost is AP contention (it shares the 100 AP/turn) and its
@@ -1346,12 +1418,10 @@ export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>,
         const jutsuId = typeof lg?.legacyId === 'string' ? LEGACY_JUTSU_ID_BY_LEGACY[lg.legacyId] : undefined;
         const entry = jutsuId ? LEGACY_JUTSU_CATALOG[jutsuId] : undefined;
         if (entry && Number.isInteger(stage) && stage >= 3) {
-            // Adaptive typing: non-style damage signatures store type "Any"
-            // (any build can earn their Legacy) — stamp the owner's trained
-            // specialty so the damage formula reads the right offense composite
-            // (server getOffense has no "Any" branch and would silently scale
-            // them as Ninjutsu). Mirrors the client's stampLegacyJutsuType in
-            // shinobij.client/src/data/legacy-jutsu.ts — KEEP IN SYNC.
+            // Legacy signatures intentionally bind non-style damage to the
+            // owner's trained specialty. Player-authored "Any" casts remain
+            // adaptive in the shared formula; this older prestige convention is
+            // mirrored by stampLegacyJutsuType on the client — KEEP IN SYNC.
             const specialty = String(merged.specialty ?? '');
             const stamped = entry.type === 'Any' && entry.ap === 60
                 ? { ...entry, type: ['Taijutsu', 'Bukijutsu', 'Genjutsu', 'Ninjutsu'].includes(specialty) ? specialty : 'Taijutsu' }
@@ -1373,6 +1443,30 @@ export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>,
     // spectators (and by the unauth /api/pvp/stream endpoint) so anything
     // sensitive (ryo, currencies, inventory, journals) would leak otherwise.
     return stripNonCombatFields(merged);
+}
+
+/**
+ * Human-vs-human PvP has one neutral regular-technique cap regardless of paid
+ * account status. Supporters keep all 15 saved preferences for PvE and UI
+ * convenience, but only the first 12 authoritative equipped entries are sealed
+ * into a duel. This prevents a purchased three-button counter library from
+ * becoming combat power. A separately earned Legacy signature remains its own
+ * server-derived slot; it is not one of the paid entitlement entries.
+ */
+export function normalizeHumanPvpLoadout(character: Record<string, unknown>): Record<string, unknown> {
+    if (!Array.isArray(character.jutsu)) return character;
+    const regular: unknown[] = [];
+    const legacy: unknown[] = [];
+    for (const entry of character.jutsu) {
+        const id = entry && typeof entry === 'object'
+            ? String((entry as Record<string, unknown>).id ?? '')
+            : '';
+        if (id && Object.prototype.hasOwnProperty.call(LEGACY_JUTSU_CATALOG, id)) legacy.push(entry);
+        else regular.push(entry);
+    }
+    const normalized = [...regular.slice(0, LOADOUT_CAP_BASE), ...legacy.slice(0, 1)];
+    if (normalized.length === character.jutsu.length) return character;
+    return { ...character, jutsu: normalized };
 }
 
 // MAX_STAT = 2500 (matches api/pvp/move.ts and shinobij.client/src/App.tsx).
@@ -1514,7 +1608,12 @@ export function zeroPlayerRankedItemCharges(
     return Object.fromEntries([...ids].sort().map((id) => [id, 0] as const));
 }
 
-function makeFighter(char: Record<string, unknown>, pos: number, useCurrentVitals: boolean): PvpFighter {
+export function makePvpFighter(
+    char: Record<string, unknown>,
+    pos: number,
+    useCurrentVitals: boolean,
+    humanPvp: boolean,
+): PvpFighter {
     const maxHp = Number((char.maxHp as number) ?? 100);
     const maxChakra = Number((char.maxChakra as number) ?? 50);
     const maxStamina = Number((char.maxStamina as number) ?? 50);
@@ -1526,13 +1625,22 @@ function makeFighter(char: Record<string, unknown>, pos: number, useCurrentVital
     // continuous engagements where the fighter brings whatever vitals they
     // currently have (so a damaged player who keeps raiding stays damaged).
     // useCurrentVitals=true preserves char.hp/chakra/stamina; false resets.
-    const startHp      = useCurrentVitals ? Math.min(Number((char.hp      as number) ?? maxHp),      maxHp)      : maxHp;
+    // Low-level durability scaling belongs to this ephemeral PvP projection,
+    // never to the canonical character. Only a server-proven human-vs-human
+    // match opts in, leaving PvP-engine AI encounters and all other PvE alone.
+    const sessionHp = pvpSessionHp({
+        level: char.level,
+        currentHp: char.hp ?? maxHp,
+        maxHp,
+        useCurrentVitals,
+        humanPvp,
+    });
     const startChakra  = useCurrentVitals ? Math.min(Number((char.chakra  as number) ?? maxChakra),  maxChakra)  : maxChakra;
     const startStamina = useCurrentVitals ? Math.min(Number((char.stamina as number) ?? maxStamina), maxStamina) : maxStamina;
     return {
         name: (char.name as string) ?? 'Unknown',
-        hp: startHp,
-        maxHp,
+        hp: sessionHp.hp,
+        maxHp: sessionHp.maxHp,
         chakra: startChakra,
         maxChakra,
         stamina: startStamina,
@@ -2495,6 +2603,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const playerRankedV2 = rankedStamp.rankedKind === 'player'
                 && typeof rankedStamp.rankedMatchId === 'string';
             const realFighters = { p1: !!p1Save?.character, p2: !!p2Save?.character };
+            const humanPvp = realFighters.p1 && realFighters.p2;
+            if (humanPvp) {
+                finalP1Character = normalizeHumanPvpLoadout(finalP1Character);
+                finalP2Character = normalizeHumanPvpLoadout(finalP2Character);
+            }
             let warRoleEvidence: SealedWarRoleEvidence | undefined;
             if (rewardAuthority && realFighters.p1 && realFighters.p2) {
                 const p1Village = String((p1Save?.character as Record<string, unknown>)?.village ?? '').trim();
@@ -2524,10 +2637,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 battleId,
                 createRequestFingerprint: createRequestFingerprintFor(battleId),
                 stateRevision: INITIAL_PVP_STATE_REVISION,
-                p1: makeFighter(p1HomeTerrain ? { ...finalP1Character, homeTerrainType: p1HomeTerrain } : finalP1Character, P1_START, useCurrentVitals === true),
-                p2: makeFighter(p2HomeTerrain ? { ...finalP2Character, homeTerrainType: p2HomeTerrain } : finalP2Character, P2_START, useCurrentVitals === true),
+                p1: makePvpFighter(p1HomeTerrain ? { ...finalP1Character, homeTerrainType: p1HomeTerrain } : finalP1Character, P1_START, useCurrentVitals === true, humanPvp),
+                p2: makePvpFighter(p2HomeTerrain ? { ...finalP2Character, homeTerrainType: p2HomeTerrain } : finalP2Character, P2_START, useCurrentVitals === true, humanPvp),
                 round: 1,
                 activePlayer: firstActor,
+                roundOpener: firstActor,
                 ap: { p1: 100, p2: 100 },
                 actionsThisTurn: 0,
                 cooldowns: { p1: {}, p2: {} },

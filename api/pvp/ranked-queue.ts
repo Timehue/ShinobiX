@@ -43,19 +43,25 @@ const STALE_MS = 60 * 1000;           // Remove entries older than 60s (must re-
 const MATCH_TTL_SECONDS = 30;
 const matchKey = (slug: string) => `${QUEUE_KEY}:match:${slug}`;
 const CURRENT_SEASON_KEY = 'ranked:season:current';
-// Matchmaking level band. Without this, the queue paired purely by Elo
-// proximity — a level-5 player and a level-100 player with default 1000 Elo
-// would match, which guaranteed the low-level player a free loss. Opens
-// linearly with wait time (joinedAt → now) so a niche level stays matchable;
-// after ~LEVEL_BAND_OPEN_INTERVAL_MS × LEVEL_BAND_MAX_STEPS the band is wide
-// enough to match anyone. A wider match is never selected before its scheduled
-// band opens for BOTH players.
-const LEVEL_BAND_BASE = 10;
-const LEVEL_BAND_OPEN_INTERVAL_MS = 15_000; // widen by 1 level every 15s waiting
+// Ranked measures combat choices, not who happened to cross a progression
+// breakpoint. Keep a small widening window for queue health, but never cross a
+// stat/mastery-cap tier and never widen into the old level-10-vs-100 outcome.
+const LEVEL_BAND_BASE = 2;
+const LEVEL_BAND_MAX = 5;
+const LEVEL_BAND_OPEN_INTERVAL_MS = 30_000;
+
+function combatProgressionBand(level: number): number {
+    const value = Math.max(1, Math.min(100, Math.floor(Number(level) || 1)));
+    if (value >= 80) return 4;
+    if (value >= 50) return 3;
+    if (value >= 30) return 2;
+    if (value >= 15) return 1;
+    return 0;
+}
 
 export function rankedLevelBand(joinedAt: number, now: number): number {
     const waitMs = Math.max(0, now - joinedAt);
-    return LEVEL_BAND_BASE + Math.floor(waitMs / LEVEL_BAND_OPEN_INTERVAL_MS);
+    return Math.min(LEVEL_BAND_MAX, LEVEL_BAND_BASE + Math.floor(waitMs / LEVEL_BAND_OPEN_INTERVAL_MS));
 }
 
 export function selectRankedOpponent(me: QueueEntry, others: QueueEntry[], now: number): QueueEntry | undefined {
@@ -63,7 +69,8 @@ export function selectRankedOpponent(me: QueueEntry, others: QueueEntry[], now: 
     return others
         .filter((candidate) => {
             const mutuallyAllowedBand = Math.min(myBand, rankedLevelBand(candidate.joinedAt, now));
-            return Math.abs(candidate.level - me.level) <= mutuallyAllowedBand;
+            return combatProgressionBand(candidate.level) === combatProgressionBand(me.level)
+                && Math.abs(candidate.level - me.level) <= mutuallyAllowedBand;
         })
         .sort((a, b) => {
             const eloGap = Math.abs(a.elo - me.elo) - Math.abs(b.elo - me.elo);

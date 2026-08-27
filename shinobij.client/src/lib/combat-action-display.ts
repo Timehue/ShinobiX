@@ -4,6 +4,7 @@ export type CombatDisplayStatus = {
     name: string;
     percent?: number;
     activeRound?: number;
+    inactiveRound?: number;
     rounds?: number;
     amount?: number;
     source?: string;
@@ -97,12 +98,32 @@ const COMBAT_REJECTION_COPY = {
     "unknown-action": "That action is not available.",
 } satisfies Readonly<Record<CombatRejectionCode, string>>;
 
-function activeDisplayStatuses(
-    statuses: readonly CombatDisplayStatus[] | undefined,
+export function activeCombatDisplayStatuses<TStatus extends CombatDisplayStatus>(
+    statuses: readonly TStatus[] | undefined,
     round?: number,
-): readonly CombatDisplayStatus[] {
+): readonly TStatus[] {
     if (round === undefined) return statuses ?? [];
-    return (statuses ?? []).filter((status) => status.activeRound === undefined || status.activeRound <= round);
+    return (statuses ?? []).filter((status) => (
+        (status.activeRound === undefined || status.activeRound <= round)
+        && (status.inactiveRound === undefined || status.inactiveRound > round)
+    ));
+}
+
+/** Splits a sealed snapshot into mechanically live, deferred, and retired effects. */
+export function partitionCombatDisplayStatuses<TStatus extends CombatDisplayStatus>(
+    statuses: readonly TStatus[],
+    round?: number,
+): { active: readonly TStatus[]; pending: readonly TStatus[]; retired: readonly TStatus[] } {
+    if (round === undefined) return { active: statuses, pending: [], retired: [] };
+    return {
+        active: activeCombatDisplayStatuses(statuses, round),
+        pending: statuses.filter((status) => (
+            (status.inactiveRound === undefined || status.inactiveRound > round)
+            && status.activeRound !== undefined
+            && status.activeRound > round
+        )),
+        retired: statuses.filter((status) => status.inactiveRound !== undefined && status.inactiveRound <= round),
+    };
 }
 
 /** Mirrors the shared server resolver's Lag-then-Overclock AP adjustment. */
@@ -111,7 +132,7 @@ export function adjustedCombatApCost(
     base: number,
     round?: number,
 ): number {
-    const active = activeDisplayStatuses(statuses, round);
+    const active = activeCombatDisplayStatuses(statuses, round);
     const lagPct = active
         .filter((status) => statusMatchesName(status, "Lag"))
         .reduce((sum, status) => sum + Number(status.percent ?? 20), 0);
@@ -130,7 +151,7 @@ export function adjustedPvpCombatApCost(
     base: number,
     round?: number,
 ): number {
-    const active = activeDisplayStatuses(statuses, round);
+    const active = activeCombatDisplayStatuses(statuses, round);
     const lag = active.find((status) => statusMatchesName(status, "Lag"));
     const overclock = active.find((status) => statusMatchesName(status, "Overclock"));
     let cost = Math.max(0, Number(base) || 0);
@@ -146,7 +167,7 @@ export function isElementallySealedForDisplay(
     round?: number,
 ): boolean {
     if (!BASIC_ELEMENTS.has(String(element ?? ""))) return false;
-    return activeDisplayStatuses(statuses, round).some((status) => statusMatchesName(status, "Elemental Seal"));
+    return activeCombatDisplayStatuses(statuses, round).some((status) => statusMatchesName(status, "Elemental Seal"));
 }
 
 /**
@@ -210,13 +231,29 @@ export function activeBarrierTilesForDisplay(
     sourcePrefix?: string,
 ): Set<number> {
     const tiles = new Set<number>();
-    for (const status of activeDisplayStatuses(statuses, round)) {
+    for (const status of activeCombatDisplayStatuses(statuses, round)) {
         if (!statusMatchesName(status, "Barrier") || Number(status.rounds ?? 0) <= 0) continue;
         if (sourcePrefix && !String(status.source ?? "").startsWith(sourcePrefix)) continue;
         const tile = Number(status.amount);
         if (Number.isSafeInteger(tile) && tile >= 0 && tile < tileCount) tiles.add(tile);
     }
     return tiles;
+}
+
+/**
+ * Chooses the ward VFX from effects that are mechanically active this round.
+ * Deferred jutsu statuses are present in the authoritative snapshot immediately,
+ * but must not look live until their `activeRound` begins.
+ */
+export function pvpCombatWardKey(
+    fighter: { shield: number; statuses?: readonly CombatDisplayStatus[] },
+    round: number,
+): "shield" | "reflect" | "absorb" | null {
+    const active = activeCombatDisplayStatuses(fighter.statuses, round);
+    if (fighter.shield > 0 || active.some((status) => statusMatchesName(status, "Shield") || statusMatchesName(status, "Barrier"))) return "shield";
+    if (active.some((status) => statusMatchesName(status, "Reflect"))) return "reflect";
+    if (active.some((status) => statusMatchesName(status, "Absorb"))) return "absorb";
+    return null;
 }
 
 /** Converts canonical reducer reason codes into concise player-facing live-region copy. */

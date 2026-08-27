@@ -69,16 +69,16 @@ describe('applyJutsu characterization — heal / shield / siphon', () => {
         assert.equal(r.opponent.hp, 1000 - 960);
     });
 
-    it('Siphon heals 30%-of-final on the SAME hit: 960 → +288', () => {
+    it('Siphon mastery-scales its stored 30% to 20% at level 0: 960 → +192', () => {
         const r = applyJutsu(fighter('A', 500), fighter('B'), jutsu([{ name: 'Siphon', percent: 30 }]), 1, 'central', 1);
         assert.equal(r.opponent.hp, 1000 - 960);
-        assert.equal(r.self.hp, 500 + 288);
+        assert.equal(r.self.hp, 500 + 192);
     });
 
-    it('Wound seeds a deferred bleed capped at the basic rank (25%): amount 240', () => {
+    it('Wound mastery-scales its stored 30% to 20% before the basic-rank cap: amount 192', () => {
         const r = applyJutsu(fighter('A'), fighter('B'), jutsu([{ name: 'Wound', percent: 30 }]), 1, 'central', 1);
         const wound = r.opponent.statuses.find(s => s.name === 'Wound');
-        assert.equal(wound?.amount, 240);       // cappedPostDamage(960, 25)
+        assert.equal(wound?.amount, 192);       // cappedPostDamage(960, effective 20)
         assert.equal(wound?.activeRound, 2);    // deferred to next round
     });
 

@@ -40,6 +40,8 @@
         "soak:smoke": "node scripts/load-soak.mjs --players=24 --seconds=8 --ramp=2",
         "certify:clan-boss-operation": "node --import tsx scripts/clan-boss-operation-certification.ts",
         "audit:clan-boss-balance": "node --import tsx scripts/clan-boss-balance-sim.ts",
+        "audit:pvp-balance": "node --import tsx scripts/pvp-level-balance-sim.ts",
+        "audit:pvp-competitive": "node --import tsx scripts/pvp-level-balance-sim.ts --competitive-only",
         "scan:data": "node --import tsx scripts/data-integrity-scan.mjs",
         "ledger:audit": "node --import tsx scripts/currency-ledger-audit.mjs",
         "ledger:backfill": "node --import tsx scripts/currency-ledger-audit.mjs --backfill",

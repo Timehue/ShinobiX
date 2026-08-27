@@ -12,6 +12,8 @@ export type CombatStatus = {
     source?: string;
     rounds: number;
     activeRound?: number;
+    /** Status remains usable before this round, then yields to a deferred refresh. */
+    inactiveRound?: number;
     percent?: number;
     amount?: number;
     discipline?: string;
@@ -33,6 +35,8 @@ export type CombatJutsu = {
     cooldown?: number;
     effectPower?: number;
     isUtility?: boolean;
+    /** Server-authored marker for an equipped-weapon swing, never a player jutsu. */
+    weaponSwing?: boolean;
     bloodlineRank?: string;
     method?: string;
     chakraCost?: number;

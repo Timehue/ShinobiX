@@ -168,6 +168,97 @@ describe('jutsu loadout persistence', () => {
         const out = sanitizeCompatible(incomingSave, storedSave(true)).character as Record<string, unknown>;
         assert.deepEqual(out.equippedJutsuIds, slotOrder);
     });
+
+    it('rejects newly injected slot ids in both ledger modes but accepts a level-0 mastery row', () => {
+        const existing = wrap({
+            jutsuMastery: [
+                { jutsuId: 'learned-zero', level: 0, xp: 0 },
+                { jutsuId: 'learned-one', level: 1, xp: 0 },
+            ],
+            equippedJutsuIds: [],
+        });
+        const incoming = wrap({
+            jutsuMastery: [
+                { jutsuId: 'learned-zero', level: 0, xp: 0 },
+                { jutsuId: 'learned-one', level: 1, xp: 0 },
+            ],
+            equippedJutsuIds: ['learned-zero', 'forged-catalog-id', 'learned-one'],
+        });
+
+        for (const sanitize of [sanitizeCompatible, sanitizeStrict]) {
+            const out = sanitize(incoming, existing).character as Record<string, unknown>;
+            assert.deepEqual(out.equippedJutsuIds, ['learned-zero', 'learned-one']);
+        }
+    });
+
+    it('preserves an already-stored legacy slot preference without treating it as a new grant', () => {
+        const stored = wrap({ jutsuMastery: [], equippedJutsuIds: ['legacy-slot'] });
+        const out = sanitizeCompatible(stored, stored).character as Record<string, unknown>;
+        assert.deepEqual(out.equippedJutsuIds, ['legacy-slot']);
+    });
+
+    it('freezes the deprecated character.jutsu snapshot in both ledger modes', () => {
+        const storedSnapshot = [{ id: 'starter-nin-fire-1', effectPower: 25 }];
+        for (const sanitize of [sanitizeCompatible, sanitizeStrict]) {
+            const preserved = sanitize(
+                wrap({ jutsu: [{ id: 'starter-nin-fire-2', effectPower: 9999 }] }),
+                wrap({ jutsu: storedSnapshot }),
+            ).character as Record<string, unknown>;
+            assert.deepEqual(preserved.jutsu, storedSnapshot);
+
+            const rejected = sanitize(
+                wrap({ jutsu: [{ id: 'starter-nin-fire-2', effectPower: 9999 }] }),
+                wrap({}),
+            ).character as Record<string, unknown>;
+            assert.equal('jutsu' in rejected, false);
+        }
+    });
+});
+
+describe('saved bloodline identity boundary', () => {
+    const authoredJutsu = (id: string) => ({
+        id,
+        name: id,
+        type: 'Ninjutsu',
+        element: 'Crystal',
+        ap: 60,
+        range: 4,
+        effectPower: 40,
+        cooldown: 7,
+        target: 'OPPONENT',
+        method: 'SINGLE',
+        tags: [],
+    });
+
+    it('keeps only the first incoming row for a duplicated bloodline id', () => {
+        const existingBloodline = {
+            id: 'owned-bl', rank: 'B Rank', specialElement: 'Crystal', jutsus: [],
+        };
+        const incoming = wrap(
+            { jutsuMastery: [], equippedJutsuIds: [] },
+            { savedBloodlines: [
+                { ...existingBloodline, jutsus: [authoredJutsu('first-jutsu')] },
+                { ...existingBloodline, jutsus: [authoredJutsu('second-jutsu')] },
+            ] },
+        );
+        const existing = wrap(
+            { jutsuMastery: [], equippedJutsuIds: [] },
+            { savedBloodlines: [existingBloodline] },
+        );
+
+        const out = sanitizeCompatible(incoming, existing);
+        const saved = out.savedBloodlines as Array<Record<string, unknown>>;
+        assert.equal(saved.length, 1);
+        assert.deepEqual(
+            (saved[0]?.jutsus as Array<Record<string, unknown>>).map((jutsu) => jutsu.id),
+            ['first-jutsu'],
+        );
+        assert.deepEqual(
+            ((out.character as Record<string, unknown>).jutsuMastery as Array<Record<string, unknown>>).map((row) => row.jutsuId),
+            ['first-jutsu'],
+            'the duplicate row cannot mint a second set of learned jutsu',
+        );
+    });
 });
 
 describe('carried-pet entitlement authority', () => {

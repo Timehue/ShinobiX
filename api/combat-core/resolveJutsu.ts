@@ -58,6 +58,7 @@ export type ResolvePostDamagePhase<TFighter, TJutsu, TFx> = (
     opponent: TFighter,
     jutsu: TJutsu,
     round: number,
+    masteryLevel: number,
     damage: number,
     pierce: boolean,
     healBoost: number,
@@ -173,7 +174,7 @@ export function resolveJutsu<TFighter, TJutsu, TStats, TFx>(
         : Math.max(0, Math.min(rawDamage, damageCap));
 
     if (damage > 0) {
-        const post = phases.resolvePostDamage(s, o, jutsu, round, damage, status.pierce, healBoost);
+        const post = phases.resolvePostDamage(s, o, jutsu, round, masteryLevel, damage, status.pierce, healBoost);
         s = post.s;
         o = post.o;
         logLines.push(...post.lines);
