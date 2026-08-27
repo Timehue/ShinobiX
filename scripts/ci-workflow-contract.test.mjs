@@ -68,7 +68,9 @@ test('artifact consumers verify immutable provenance and failure evidence stays 
     assert.ok(occurrences('sha256sum -c') >= 7);
     assert.ok(occurrences('grep -Fx "sha=$GITHUB_SHA" provenance.txt') >= 7);
     assert.ok(occurrences('grep -Fx "run_id=$GITHUB_RUN_ID" provenance.txt') >= 7);
-    assert.ok(occurrences("grep -Eq '^run_attempt=[1-9][0-9]*$' provenance.txt") >= 7);
+    assert.ok(occurrences("artifact_attempt=\"$(sed -n 's/^run_attempt=//p' provenance.txt)\"") >= 7);
+    assert.ok(occurrences('[[ "$artifact_attempt" =~ ^[1-9][0-9]*$ ]]') >= 7);
+    assert.ok(occurrences('(( artifact_attempt <= GITHUB_RUN_ATTEMPT ))') >= 7);
     assert.equal(
         occurrences('grep -Fx "run_attempt=$GITHUB_RUN_ATTEMPT" provenance.txt'),
         0,
