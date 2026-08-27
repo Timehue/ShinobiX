@@ -6445,7 +6445,6 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
 #combat .plain-combat-battle-log.is-expanded,
 html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log,
 html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log.is-expanded {
-    display: flex !important;
     flex-direction: column !important;
     padding: 0 !important;
     overflow: hidden !important;
@@ -6456,10 +6455,20 @@ html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log.is-e
    outrank the dedicated scroll-region contract despite appearing earlier. */
 html body > #combat.arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log,
 html body > #combat.arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log.is-expanded {
-    display: flex !important;
     flex-direction: column !important;
     padding: 0 !important;
     overflow: hidden !important;
+}
+
+/* Visibility remains owned by the compact Actions / Battle Log tabs and the
+   desktop command-center media contract above. Only an active log tab or the
+   explicit expanded reader establishes flex layout here; a broad display rule
+   would repaint the hidden log over action cards and steal their hit targets. */
+#combat .combat-main-area.bt-log .plain-combat-battle-log,
+#combat .plain-combat-battle-log.is-expanded,
+html body > .arena-fullscreen.shinobi-combat-shell .combat-main-area.bt-log .plain-combat-battle-log,
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log.is-expanded {
+    display: flex !important;
 }
 
 #combat .plain-combat-battle-log > .combat-log-header,

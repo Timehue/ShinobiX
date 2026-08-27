@@ -85,6 +85,51 @@ test("the PvP battle log uses the scrollable, round-grouped semantic feed", () =
         "the mobile Battle Log tab must own the fixed-header scroll layout",
     );
 
+    // The fixed-header contract is deliberately late in battle-skin.css. Its
+    // broad #combat rules may define flex structure, but must not also choose
+    // visibility: doing so repaints the log over compact action cards and steals
+    // their hit targets (most visibly in Firefox). Visibility belongs to the
+    // active tab and to the separate desktop command-center media contract.
+    const fixedHeaderContract = battleSkinCss.indexOf("/* Keep combat-log chrome outside the scrolling surface.");
+    assert.ok(fixedHeaderContract >= 0, "the late fixed-header log contract must remain identifiable");
+
+    const readRule = (selectorAnchor: string) => {
+        const start = battleSkinCss.indexOf(selectorAnchor, fixedHeaderContract);
+        assert.ok(start >= fixedHeaderContract, `missing fixed-header rule beginning ${selectorAnchor}`);
+        const open = battleSkinCss.indexOf("{", start);
+        const close = battleSkinCss.indexOf("}", open);
+        assert.ok(open > start && close > open, `malformed fixed-header rule beginning ${selectorAnchor}`);
+        return {
+            start,
+            close,
+            selectors: battleSkinCss.slice(start, open),
+            declarations: battleSkinCss.slice(open + 1, close),
+        };
+    };
+    const broadChrome = readRule("#combat .plain-combat-battle-log,");
+    const idChrome = readRule("html body > #combat.arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log,");
+    for (const rule of [broadChrome, idChrome]) {
+        assert.match(rule.declarations, /flex-direction:\s*column\s*!important/);
+        assert.doesNotMatch(
+            rule.declarations,
+            /\bdisplay\s*:/,
+            "broad fixed-header chrome must not override Actions/Battle Log tab visibility",
+        );
+    }
+
+    const activeLog = readRule("#combat .combat-main-area.bt-log .plain-combat-battle-log,");
+    assert.ok(
+        activeLog.start > broadChrome.close && activeLog.start > idChrome.close,
+        "the active-log visibility rule must follow both broad fixed-header chrome rules",
+    );
+    assert.match(activeLog.selectors, /\.combat-main-area\.bt-log \.plain-combat-battle-log/);
+    assert.match(activeLog.selectors, /\.plain-combat-battle-log\.is-expanded/);
+    assert.match(
+        activeLog.declarations,
+        /display:\s*flex\s*!important/,
+        "only the active Battle Log tab or expanded reader should restore the fixed-header flex panel",
+    );
+
     assert.match(
         battleSkinCss,
         /\.plain-combat-battle-log \.timeline-entry-head\s*\{[^}]*font:\s*650 clamp\(13px, 0\.88cqw, 15px\) \/ 1\.35/s,
