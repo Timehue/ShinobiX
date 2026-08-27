@@ -37,18 +37,18 @@ export type CompanionStep = {
 const COMPANION_PHASES: Record<CompanionPhaseId, Omit<CompanionPhase, "index" | "total">> = {
     prepare: {
         id: "prepare",
-        title: "Prepare",
-        summary: "Begin long-running growth and ready a complete battle kit.",
+        title: "Answer the Call",
+        summary: "Turn Shiranui's warning into a battle-ready shinobi and companion team.",
     },
     prove: {
         id: "prove",
-        title: "Prove Yourself",
-        summary: "Use the real combat and reward loop in a safe Academy trial.",
+        title: "The Gate Stirs",
+        summary: "Test your kit, survive the first resonance, and claim the Academy record.",
     },
     direction: {
         id: "direction",
-        title: "Find Direction",
-        summary: "Learn where progression lives, then step into the wider world.",
+        title: "First Field Assignment",
+        summary: "Follow Shiranui's foxfire beyond the walls and return with evidence.",
     },
 };
 
@@ -66,11 +66,11 @@ const COMPANION_STEP_DEFINITIONS: CompanionStepDefinition[] = [
     { id: "jutsu", title: "Train a new jutsu", detail: "Learn one technique beyond your four inherited bloodline jutsu.", phaseId: "prepare" },
     { id: "jutsuLoadout", title: "Equip your jutsu loadout", detail: "Put four techniques on the action bar you will use in battle.", phaseId: "prepare" },
     { id: "inventory", title: "Equip your starter gear", detail: "Ready both Academy items so their combat stats apply.", phaseId: "prepare" },
-    { id: "academySpar", title: "Win your first spar", detail: "Practice AP, targeting, jutsu, and Wait against a training dummy.", phaseId: "prove" },
+    { id: "academySpar", title: "Complete the Resonance Trial", detail: "Practice AP, targeting, jutsu, and Wait while watching for the Gate's response.", phaseId: "prove" },
     { id: "cafeteria", title: "Recover in the Cafeteria", detail: "Learn where to restore HP after a fight.", phaseId: "prove" },
     { id: "firstMission", title: "Claim the Academy Trial", detail: "Complete the fight-to-claim reward loop at the Mission Hall.", phaseId: "prove" },
-    { id: "logbook", title: "Open your Logbook", detail: "See the persistent goals that replace tutorial instructions.", phaseId: "direction" },
-    { id: "sectorReturn", title: "Visit a sector and return", detail: "Practice safe travel before choosing your first field objective.", phaseId: "direction" },
+    { id: "logbook", title: "Read the field assignment", detail: "Use the Logbook to find the foxfire route and your persistent goals.", phaseId: "direction" },
+    { id: "sectorReturn", title: "Trace the signal and return", detail: "Inspect the Hollow Gate trace beyond the walls, then bring the evidence home.", phaseId: "direction" },
 ];
 
 /** The tutorial checklist, or null when the tutorial isn't in a coach beat

@@ -10,6 +10,7 @@ import "./intro-cinematic-preview.css";
 const PREVIEW_AVATAR = STARTER_AVATARS[1].image;
 const PREVIEW_PARAMS = new URLSearchParams(window.location.search);
 const PREVIEW_SCENE = PREVIEW_PARAMS.get("scene");
+const PREVIEW_MOMENT = PREVIEW_PARAMS.get("moment");
 const PREVIEW_ELEMENT = PREVIEW_PARAMS.get("pet")?.toLowerCase() ?? "wind";
 const PREVIEW_PET = STARTER_PETS.find(
     ({ element }) => element.toLowerCase() === PREVIEW_ELEMENT,
@@ -46,11 +47,17 @@ const WALKTHROUGH_CHARACTER = {
     activePetId: PREVIEW_PET.id,
     hp: PREVIEW_STEP === "cafeteria" ? 62 : 100,
     maxHp: 100,
+    level: 2,
     equipment: {},
     jutsuMastery: [],
     equippedJutsuIds: [],
     unspentStats: 20,
     hospitalized: false,
+    academyVow: "seeker",
+    academyIncidentSeen: PREVIEW_STEP === "cafeteria" ? false : true,
+    academyTrialClaimed: PREVIEW_STEP === "logbook" || PREVIEW_STEP === "sectorReturn",
+    academySectorVisited: PREVIEW_MOMENT === "ceremony",
+    academyFieldSeal: false,
 } as unknown as Character;
 
 const HANDOFF_CHARACTER = {
@@ -62,7 +69,9 @@ const HANDOFF_CHARACTER = {
 export function IntroCinematicPreview() {
     const [take, setTake] = useState(0);
     const [character, setCharacter] = useState<Character>(WALKTHROUGH_CHARACTER);
-    const [screen, setScreen] = useState<Screen>("village");
+    const [screen, setScreen] = useState<Screen>(
+        PREVIEW_MOMENT === "trace" ? "worldMap" : "village",
+    );
 
     if (PREVIEW_SCENE === "handoff") {
         const backgroundStyle = {
@@ -116,7 +125,7 @@ export function IntroCinematicPreview() {
                     character={character}
                     screen={screen}
                     activeTraining={null}
-                    currentSector={0}
+                    currentSector={PREVIEW_MOMENT === "trace" ? 1 : 0}
                     guidePet={PREVIEW_PET}
                     setScreen={setScreen}
                     updateCharacter={setCharacter}

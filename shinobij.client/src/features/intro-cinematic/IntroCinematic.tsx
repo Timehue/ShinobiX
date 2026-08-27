@@ -8,17 +8,17 @@
  *     the fox gifts the companion mid-cinematic.
  *
  * Forced overlay, not a screen: gated in App.tsx on the PERSISTED
- * character.onboardingStep ("academyIntro" | "starter"), so it survives a
+ * character.onboardingStep ("academyIntro" | "starter" | "companionIntro"), so it survives a
  * refresh mid-cinematic and never shows for veterans (normalizeOnboardingStep
  * maps legacy/absent steps to "done"). Portaled to document.body at z-index
  * 1000000 per the app's overlay ladder.
  *
- * Sequence: awakening/warning dialogue → companion choice → confirm → post-gift
- * dialogue (village lore + farewell) → white-out. The white-out fades to full
+ * Sequence: awakening/warning dialogue → identity vow → companion choice →
+ * confirm → post-gift dialogue (village lore + farewell) → white-out. The white-out fades to full
  * white, hides the scene, then fades back out revealing the village screen
- * already rendered beneath — and only THEN calls onComplete(pet), which grants
- * the pet and advances onboardingStep to "training" (unmounting the overlay,
- * which is by then fully transparent).
+ * already rendered beneath — and only THEN calls onComplete(pet, vow). The
+ * first pass grants the pet and advances to the companion's village arrival;
+ * that short second pass advances to "training" and unmounts the overlay.
  */
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -35,9 +35,11 @@ import {
     PRE_GIFT_LINES,
     buildCompanionIntroLines,
     buildPostGiftLines,
+    buildVowResponseLines,
     resolveCinematicLine,
     type CinematicLine,
 } from "./introCinematicScript";
+import { ACADEMY_VOWS, isAcademyVow, type AcademyVow } from "../../lib/academy-narrative";
 import hollowGateArt from "../../assets/card-clash/loc/hollow-gate.webp";
 // Bespoke gpt-image art (see project memory: generated via the owner's
 // image pipeline): the seated white kitsune deity (transparent cutout) and
@@ -69,7 +71,8 @@ function preloadCompanionModel(pet: Pet): void {
 const STAT_MAX = { hp: 420, attack: 60, defense: 45, speed: 50 } as const;
 
 type Phase =
-    | { kind: "dialogue"; stage: "pre" | "post"; idx: number }
+    | { kind: "dialogue"; stage: "pre" | "vowResponse" | "post"; idx: number }
+    | { kind: "vow" }
     | { kind: "choose" }
     | { kind: "confirm"; option: StarterPetOption }
     | { kind: "whiteout"; revealing: boolean };
@@ -94,7 +97,7 @@ export function IntroCinematic({
 }: {
     character: Character;
     sharedImages?: Record<string, string>;
-    onComplete?: (pet: Pet) => void;
+    onComplete?: (pet: Pet, vow: AcademyVow) => void;
     /** Replay mode (Story Hall): pure viewing — no grant, no step change; the
      *  white-out ends by calling onClose instead of onComplete. */
     replay?: boolean;
@@ -102,6 +105,7 @@ export function IntroCinematic({
 }) {
     const [phase, setPhase] = useState<Phase>({ kind: "dialogue", stage: "pre", idx: 0 });
     const [chosen, setChosen] = useState<StarterPetOption | null>(null);
+    const [vow, setVow] = useState<AcademyVow>(isAcademyVow(character.academyVow) ? character.academyVow : "unbound");
     const [avatarFailed, setAvatarFailed] = useState(false);
     const [foxArtFailed, setFoxArtFailed] = useState(false);
     // Typewriter progress is keyed to the line it belongs to, so switching lines
@@ -142,17 +146,24 @@ export function IntroCinematic({
         ? character.pets.find((p) => p.id === character.activePetId) ?? character.pets[0] ?? STARTER_PETS[0].pet
         : null;
     const companionLines = useMemo(
-        () => (companionPet ? buildCompanionIntroLines(character.village, companionPet.name) : []),
-        [companionPet, character.village],
+        () => (companionPet ? buildCompanionIntroLines(character.village, companionPet.name, vow) : []),
+        [companionPet, character.village, vow],
     );
 
-    const postLines = useMemo(() => buildPostGiftLines(character.village), [character.village]);
+    const vowResponseLines = useMemo(() => buildVowResponseLines(vow), [vow]);
+    const postLines = useMemo(() => buildPostGiftLines(character.village, vow), [character.village, vow]);
     const playerAvatar = character.avatarImage
         || sharedImages[`avatar:${character.name.trim().toLowerCase()}`]
         || "";
     const line: CinematicLine | null =
         phase.kind === "dialogue"
-            ? (companionMode ? companionLines : phase.stage === "pre" ? PRE_GIFT_LINES : postLines)[phase.idx] ?? null
+            ? (companionMode
+                ? companionLines
+                : phase.stage === "pre"
+                    ? PRE_GIFT_LINES
+                    : phase.stage === "vowResponse"
+                        ? vowResponseLines
+                        : postLines)[phase.idx] ?? null
             : null;
     const fullText = line
         ? resolveCinematicLine(line.text, character.name, chosen?.pet.name ?? companionPet?.name ?? "")
@@ -250,7 +261,7 @@ export function IntroCinematic({
             if (completedRef.current) return;
             completedRef.current = true;
             if (replay) { onClose?.(); return; }
-            if (chosen) onComplete?.(chosen.pet);
+            if (chosen) onComplete?.(chosen.pet, vow);
         }, whiteInMs + revealMs);
         return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -261,7 +272,7 @@ export function IntroCinematic({
     function finishCompanion() {
         if (completedRef.current || !companionPet) return;
         completedRef.current = true;
-        onComplete?.(companionPet);
+        onComplete?.(companionPet, vow);
     }
 
     function advance() {
@@ -276,13 +287,21 @@ export function IntroCinematic({
         // Double-tap grace: a force-completed line gets a beat to be read
         // before the same gesture can advance past it.
         if (Date.now() - lastCompleteRef.current < 250) return;
-        const lines = companionMode ? companionLines : phase.stage === "pre" ? PRE_GIFT_LINES : postLines;
+        const lines = companionMode
+            ? companionLines
+            : phase.stage === "pre"
+                ? PRE_GIFT_LINES
+                : phase.stage === "vowResponse"
+                    ? vowResponseLines
+                    : postLines;
         if (phase.idx + 1 < lines.length) {
             introCue("advance");
             setPhase({ kind: "dialogue", stage: phase.stage, idx: phase.idx + 1 });
         } else if (companionMode) {
             finishCompanion();
         } else if (phase.stage === "pre") {
+            setPhase({ kind: "vow" });
+        } else if (phase.stage === "vowResponse") {
             setPhase({ kind: "choose" });
         } else {
             setPhase({ kind: "whiteout", revealing: false });
@@ -294,7 +313,8 @@ export function IntroCinematic({
     function skip() {
         if (phase.kind !== "dialogue") return;
         if (companionMode) finishCompanion();
-        else if (phase.stage === "pre") setPhase({ kind: "choose" });
+        else if (phase.stage === "pre") setPhase({ kind: "vow" });
+        else if (phase.stage === "vowResponse") setPhase({ kind: "choose" });
         else setPhase({ kind: "whiteout", revealing: false });
     }
 
@@ -323,11 +343,11 @@ export function IntroCinematic({
     const foxFading = Boolean(line?.fading) || departing;
     // The deity materializes on its first spoken line ("???"), not during the
     // narrator establishing shots — the arrival IS the reveal.
-    const foxOnStage = phase.kind !== "dialogue" || phase.stage === "post" || phase.idx >= 3;
+    const foxOnStage = phase.kind !== "dialogue" || phase.stage !== "pre" || phase.idx >= 3;
     const showGiftPet = chosen != null && (departing || (phase.kind === "dialogue" && phase.stage === "post"));
     const openingBeat = companionMode
         ? "companion"
-        : phase.kind === "choose" || phase.kind === "confirm"
+        : phase.kind === "vow" || phase.kind === "choose" || phase.kind === "confirm"
             ? "choice"
             : phase.kind === "whiteout"
                 ? "departure"
@@ -426,8 +446,8 @@ export function IntroCinematic({
                 )}
                 {/* The deity keeps watch (dimmed) while the five spirits present
                     themselves on the choose/confirm screens. */}
-                {!companionMode && (showActors || phase.kind === "choose" || phase.kind === "confirm") && foxOnStage && (
-                    <div className={`icx-fox ${foxFading ? "is-fading" : ""} ${foxTalking ? "is-talking" : ""} ${phase.kind === "choose" || phase.kind === "confirm" ? "is-watching" : ""}`}>
+                {!companionMode && (showActors || phase.kind === "vow" || phase.kind === "choose" || phase.kind === "confirm") && foxOnStage && (
+                    <div className={`icx-fox ${foxFading ? "is-fading" : ""} ${foxTalking ? "is-talking" : ""} ${phase.kind === "vow" || phase.kind === "choose" || phase.kind === "confirm" ? "is-watching" : ""}`}>
                         {/* Two stacked frames: the base is ALWAYS painted; the alt
                             (mouth-open while speaking, eyes-closed while fading) is
                             layered on top and toggled by OPACITY only. Nothing swaps
@@ -555,6 +575,36 @@ export function IntroCinematic({
                         Skip ▸
                     </button>
                 </>
+            )}
+
+            {phase.kind === "vow" && (
+                <div className="icx-choose icx-vow" onClick={(e) => e.stopPropagation()}>
+                    <div className="icx-vow-heading">
+                        <p className="icx-choose-kicker">What the Gate Could Not Name</p>
+                        <h2 className="icx-choose-title">Choose the answer you will carry</h2>
+                        <p className="icx-choose-sub">
+                            This shapes later dialogue and your Field Seal. It never changes stats, rewards, or access.
+                        </p>
+                    </div>
+                    <div className="icx-vow-grid">
+                        {ACADEMY_VOWS.map((option) => (
+                            <button
+                                key={option.id}
+                                type="button"
+                                className="icx-vow-card"
+                                onClick={() => {
+                                    introCue("confirm");
+                                    setVow(option.id);
+                                    setPhase({ kind: "dialogue", stage: "vowResponse", idx: 0 });
+                                }}
+                            >
+                                <span className="icx-vow-title">{option.title}</span>
+                                <q>{option.quote}</q>
+                                <span className="icx-vow-meaning">{option.meaning}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
             )}
 
             {phase.kind === "choose" && (

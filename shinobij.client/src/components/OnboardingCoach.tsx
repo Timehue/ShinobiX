@@ -12,16 +12,15 @@
  *   jutsu         -> train a jutsu; advances when jutsuMastery grows
  *   jutsuLoadout  -> equip that jutsu; advances when equippedJutsuIds grows
  *   inventory     -> equip both starter gear pieces; advances when both are worn
- *   academySpar   -> first spar; the win advances to "cafeteria"
+ *   academySpar   -> first spar; the win reveals a persisted Hollow Gate omen
  *   cafeteria     -> "you've been hurt, heal yourself"; advances at full HP
  *   firstMission  -> claim first mission; advances when academyTrialClaimed
  *   logbook       -> open Logbook; advances when the Logbook is opened
- *   sectorReturn  -> visit any sector (latches character.academySectorVisited),
- *                    then return to the village -> "done". The "visited" milestone
- *                    is PERSISTED on the character rather than an ephemeral ref, so
- *                    it survives a coach remount (a sector-triggered battle hides
- *                    the coach), a refresh, or a snapshot revert of onboardingStep —
- *                    otherwise the beat could never complete and looped forever.
+ *   sectorReturn  -> follow foxfire to a numbered sector, acknowledge the authored
+ *                    Hollow Gate trace (then latch academySectorVisited), and return
+ *                    for the village-specific Field Seal ceremony. Choosing a real
+ *                    next activity advances to "done". The trace and seal are
+ *                    persisted, so refreshes resume the current narrative beat.
  *
  * The chosen companion IS the guide, presented as a talking character: the
  * pet's full-body 2.5D pose standee (the coliseum cutout art via petPoseImage)
@@ -45,10 +44,12 @@ import {
     normalizeOnboardingStep,
 } from "../lib/onboarding-step";
 import { companionStepMeta } from "../lib/journey-guide";
+import { academyStoryMomentFor, academyVowDefinition } from "../lib/academy-narrative";
 import { petPoseImage } from "../lib/pet-battle-anim";
 import { isLowEndMobile, prefersReducedMotion } from "../lib/device-tier";
 import type { Pet } from "../types/pet";
 import type { Character, Screen } from "../App";
+import { AcademyFieldTrace, AcademyReturnCeremony, AcademySparOmen } from "./AcademyStoryMoments";
 import "./onboarding-coach.css";
 
 const IntroCompanion3D = lazy(() =>
@@ -145,6 +146,7 @@ export function OnboardingCoach({
     setScreen,
     updateCharacter,
     onStartSpar,
+    onOpenAwakening,
 }: {
     character: Character;
     screen: Screen;
@@ -155,6 +157,7 @@ export function OnboardingCoach({
     setScreen: (s: Screen) => void;
     updateCharacter: (c: Character) => void;
     onStartSpar: () => void;
+    onOpenAwakening?: () => void;
 }) {
     const step = normalizeOnboardingStep(character.onboardingStep);
     const coachMeta = companionStepMeta(step);
@@ -233,11 +236,11 @@ export function OnboardingCoach({
     }, [step, character.equipment]);
 
     useEffect(() => {
-        if (step === "cafeteria" && character.hp >= character.maxHp) {
+        if (step === "cafeteria" && character.academyIncidentSeen && character.hp >= character.maxHp) {
             updateCharacter({ ...character, onboardingStep: "firstMission" });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [step, character.hp, character.maxHp]);
+    }, [step, character.academyIncidentSeen, character.hp, character.maxHp]);
 
     useEffect(() => {
         if (step === "firstMission" && character.academyTrialClaimed) {
@@ -253,24 +256,6 @@ export function OnboardingCoach({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step, screen]);
 
-    useEffect(() => {
-        if (step !== "sectorReturn") return;
-        // Latch the "visited a sector" milestone onto the character the instant the
-        // player reaches a numbered sector. Persisting it (vs. a component ref) is
-        // what keeps the beat completable after the coach is unmounted mid-visit (a
-        // sector-triggered battle sets screen "arena"), after a refresh, or after a
-        // snapshot reverts onboardingStep — the old ref reset to false on every such
-        // remount, so the return-home step could loop forever.
-        if (screen === "worldMap" && currentSector >= 1 && !character.academySectorVisited) {
-            updateCharacter({ ...character, academySectorVisited: true });
-            return;
-        }
-        if (character.academySectorVisited && screen === "village") {
-            updateCharacter({ ...character, onboardingStep: "done" });
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [step, screen, currentSector, character.academySectorVisited]);
-
     // A knocked-out player gets the non-blocking banner instead of the spar modal (see
     // the academySpar branch below), so they must keep page scroll — the Hospital's free
     // checkout button sits below the fold on a phone, and locking scroll here would put
@@ -278,12 +263,23 @@ export function OnboardingCoach({
     const sparKnockedOut = character.hospitalized === true || character.hp <= 0;
     useBodyScrollLock(step === "academySpar" && !sparKnockedOut);
 
+    const storyMoment = academyStoryMomentFor({
+        step,
+        screen,
+        currentSector,
+        incidentSeen: Boolean(character.academyIncidentSeen),
+        sectorVisited: Boolean(character.academySectorVisited),
+    });
+    const showSparOmen = storyMoment === "sparOmen";
+    const showFieldTrace = storyMoment === "fieldTrace";
+    const showReturnCeremony = storyMoment === "returnCeremony";
+
     // While the bottom coaching banner is on screen, reserve space under the
     // scroll area on mobile so the current screen's OWN bottom controls (e.g.
     // Training's timer tiles) sit ABOVE the banner — visible and tappable, not
     // hidden behind it. The modal steps (spar / skip-confirm) don't need it.
     const bannerVisible =
-        !confirmingSkip &&
+        !confirmingSkip && !showSparOmen && !showFieldTrace && !showReturnCeremony &&
         (step === "training" || step === "jutsu" || step === "jutsuLoadout" ||
          step === "inventory" || step === "cafeteria" || step === "firstMission" ||
          step === "logbook" || step === "sectorReturn");
@@ -293,18 +289,17 @@ export function OnboardingCoach({
         return () => document.body.classList.remove("coach-banner-open");
     }, [bannerVisible]);
 
-    // True once the sector has been reached — either live (on the map, in a sector)
-    // or from the persisted milestone, so the banner keeps saying "return home" even
-    // after a remount/refresh instead of resetting to "go find a sector".
-    const visitedSector =
-        Boolean(character.academySectorVisited) || (screen === "worldMap" && currentSector >= 1);
+    // The field discovery, not merely arriving on a map tile, commits this
+    // milestone. That keeps the final route authored while remaining refresh-safe.
+    const visitedSector = Boolean(character.academySectorVisited);
+    const vow = academyVowDefinition(character.academyVow);
 
     // The companion's coaching line for the current banner step. Plain strings
     // so the speech-bubble typewriter can slice them.
     const bannerText: string | null = (() => {
         switch (step) {
-            case "training": return "Let's grow stronger together! Start your first stat training — pick any stat and any timer.";
-            case "jutsu": return "Now train one more jutsu. Pick an untrained jutsu and use the free Level 1 unlock.";
+            case "training": return "All right, first stop: the Training Grounds. Pick a stat and start any timer. We can keep moving while it runs.";
+            case "jutsu": return "Next, let's give you one technique your bloodline didn't hand you. Pick any untrained jutsu — the first level is free.";
             case "jutsuLoadout": {
                 // Every new character starts with STARTING_STAT_POINTS (20) unspent, and
                 // nothing in the tutorial mentioned them: the only prompt lives in the
@@ -313,25 +308,25 @@ export function OnboardingCoach({
                 // immediate power spike stayed invisible for the whole first session.
                 // This beat already sends the player to the Profile screen, which is where
                 // stats are allocated, so it is the natural place to point it out.
-                const base = "Put that trained jutsu in your loadout from your Profile so it appears in battle.";
+                const base = "Now put that jutsu in your Profile loadout so it actually shows up in a fight.";
                 const points = Math.max(0, Math.floor(Number(character.unspentStats) || 0));
                 return points > 0
-                    ? `${base} While you are there, spend your ${points} stat point${points === 1 ? "" : "s"} — they do nothing sitting unused.`
+                    ? `${base} You also have ${points} unused stat point${points === 1 ? "" : "s"} there. Spend ${points === 1 ? "it" : "them"} before we spar.`
                     : base;
             }
             case "inventory": {
                 const equipped = academyEquippedItemCount(character.equipment);
-                return `Equip both starter items from your Inventory (${Math.min(equipped, ACADEMY_STARTER_GEAR_TARGET)}/${ACADEMY_STARTER_GEAR_TARGET}). Put on the Rustfang Kunai and Shinobi Vest before the spar.`;
+                return `Before we spar, put on the Rustfang Kunai and Shinobi Vest from your Inventory. That's ${Math.min(equipped, ACADEMY_STARTER_GEAR_TARGET)} of ${ACADEMY_STARTER_GEAR_TARGET} equipped.`;
             }
             case "academySpar": return "That spar knocked you out. Get patched up at the Hospital — the free checkout only takes a minute — then we'll step back onto the mat.";
             case "cafeteria": return character.hp >= character.maxHp
-                ? "You finished the spar at full HP, so there is nothing to heal. We can move on."
+                ? "You came through the spar at full HP, so there's nothing to patch up. Let's keep moving."
                 : "The spar cost you HP. Recover in the Cafeteria before we move on.";
-            case "firstMission": return "Claim your one-time Academy Trial reward at the Mission Hall.";
-            case "logbook": return "Open your Logbook to see our Academy goals.";
+            case "firstMission": return "Claim the Academy Trial at the Mission Hall. The reward is real. So was what happened to that dummy.";
+            case "logbook": return "Open your Logbook. Shiranui left us a foxfire trail to follow.";
             case "sectorReturn": return visitedSector
-                ? "Well done! Return to the village to complete Academy Training."
-                : "Open the World Map and travel to any numbered sector.";
+                ? "We found the Gate's trace. Let's get the evidence home. We cross the village gate together."
+                : "Follow Shiranui's foxfire on the World Map and travel to any numbered sector.";
             default: return null;
         }
     })();
@@ -391,6 +386,45 @@ export function OnboardingCoach({
                 </div>
             </div>,
             document.body,
+        );
+    }
+
+    if (showSparOmen) {
+        return (
+            <AcademySparOmen
+                character={character}
+                guidePet={guidePet}
+                sharedImages={sharedImages}
+                updateCharacter={updateCharacter}
+                onSkip={requestSkip}
+            />
+        );
+    }
+
+    if (showFieldTrace) {
+        return (
+            <AcademyFieldTrace
+                character={character}
+                currentSector={currentSector}
+                guidePet={guidePet}
+                sharedImages={sharedImages}
+                updateCharacter={updateCharacter}
+                onSkip={requestSkip}
+            />
+        );
+    }
+
+    if (showReturnCeremony) {
+        return (
+            <AcademyReturnCeremony
+                character={character}
+                guidePet={guidePet}
+                sharedImages={sharedImages}
+                setScreen={setScreen}
+                onOpenAwakening={onOpenAwakening}
+                updateCharacter={updateCharacter}
+                onSkip={requestSkip}
+            />
         );
     }
 
@@ -499,20 +533,22 @@ export function OnboardingCoach({
                     <div style={{ color: "var(--gold)", fontWeight: 800, fontSize: 12, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 8 }}>
                         {guideProgressLabel}
                     </div>
-                    <h2 style={{ marginTop: 0 }}>Your First Spar</h2>
+                    <h2 style={{ marginTop: 0 }}>The Resonance Trial</h2>
                     <p style={{ lineHeight: 1.5 }}>
-                        Time to test the loadout we prepared. A training dummy is waiting
-                        at the Academy. Each turn you spend <strong>AP</strong> (action
-                        points): use <strong>Basic Attack</strong> and your <strong>Jutsu</strong>
-                        to deal damage, then press <strong>Wait</strong> when your AP runs low.
-                        Drop the dummy&apos;s <strong>HP</strong> to zero to win.
+                        Time to see whether our loadout holds together. The Academy has a
+                        training dummy waiting — and after what Shiranui told us, I want
+                        to watch its seals. Each turn you spend <strong>AP</strong> (action points):
+                        use <strong>Basic Attack</strong> and your <strong>Jutsu</strong> to deal
+                        damage, then press <strong>Wait</strong> when your AP runs low. Drop the
+                        dummy&apos;s <strong>HP</strong> to zero to win. Whatever happens, remember
+                        what you told Shiranui: <em>“{vow.quote}”</em>
                     </p>
                     <button
                         className="start-primary-btn"
                         style={{ width: "100%" }}
                         onClick={onStartSpar}
                     >
-                        Begin Your First Spar
+                        Begin the Resonance Trial
                     </button>
                     <button style={{ ...skipStyle, marginLeft: 0, marginTop: 10, display: "inline-block" }} onClick={requestSkip}>
                         Skip Tutorial

@@ -55,6 +55,11 @@ const FROZEN = {
         'inventory', 'itemStacks', 'tileCards', 'savedTileDeck',
         'missions', 'missionLog', 'completedMissions', 'activeMissions', 'questLog', 'bankLog',
         'storyTraits', 'storyTitle',
+        // Academy identity and first-session records are private narrative state,
+        // not fighter inputs. This is an intentional, reviewed extension of the
+        // pre-manifest combat projection as the authored onboarding arc expands.
+        'onboardingStep', 'academySectorVisited', 'academyVow',
+        'academyIncidentSeen', 'academyTraceSector', 'academyFieldSeal',
         'weeklyBossKills', 'claimedWarCrateIds',
         'unlockedAchievements', 'achievementUnlockedAt',
         'battleHistory',
