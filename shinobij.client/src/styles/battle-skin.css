@@ -4873,6 +4873,28 @@ html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help {
         justify-self: end !important;
         border-radius: 8px !important;
     }
+
+    /* With the 44px details row carved out, the cast-card face is only
+       ~46-90px tall - the floating method/target and resource pills pinned at
+       top 5px/23px land on top of the nameplate and AP strip and every one of
+       them ellipsizes into an unreadable "S…"/"6…" chip. Hide the two
+       secondary pills here: the name and the AP · range · CD strip stay, and
+       the full method/target/resource detail remains one tap away on the
+       44px "?" details target this same block guarantees. */
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-method-target,
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-resources {
+        display: none !important;
+    }
+}
+
+/* Landscape phones hit the same collapse from the other axis: the action rail
+   turns cast cards into ~55px rows, so the two floating pills land on the
+   nameplate exactly as above. Same remedy, height-gated. */
+@container shinobi-combat (min-width: 480px) and (max-height: 500px) {
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-method-target,
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-resources {
+        display: none !important;
+    }
 }
 
 /* PvP chat remains available as a contained overlay instead of stealing a
