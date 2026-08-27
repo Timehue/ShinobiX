@@ -130,3 +130,11 @@
   .pl-standing { gap: 12px; }
   .pl-rank-num { font-size: 28px; }
 }
+
+/* -- Painted mode emblems + glyph alignment (replaced the emoji icons) ------ */
+/* img-qualified so these beat the full-bleed `.pl-hero img` banner rule when
+   an emblem sits inside the hero title. */
+img.pl-mode-art { display: inline-block; width: 26px; height: 26px; object-fit: cover; border-radius: 7px; border: 1px solid rgba(240, 202, 121, 0.35); vertical-align: -6px; transform: none; }
+img.pl-mode-art-tab { width: 20px; height: 20px; vertical-align: -5px; }
+.pl-empty-art { display: block; width: 54px; height: 54px; margin: 0 auto; object-fit: cover; border-radius: 50%; border: 1px solid rgba(240, 202, 121, 0.3); }
+.pl-h svg, .pl-charges-l svg, .pl-notify-row svg, .pl-notify-head svg, .pl-row-rec svg { vertical-align: -2px; }

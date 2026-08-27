@@ -28,6 +28,10 @@ import {
 } from "../lib/pet-ladder-client";
 import coliseumHero from "../assets/coliseum/coliseum-bg.webp";   // the real in-battle coliseum (matches the Coliseum duel backdrop)
 import tacticalHero from "../assets/ladder/tactical-hero.webp";
+import arenaModeColosseum from "../assets/coliseum/arena-mode-colosseum.webp";
+import arenaModeWarfront from "../assets/coliseum/arena-mode-warfront.webp";
+import { GameIcon } from "../components/icons/GameIcon";
+import { GiChatBubble } from "../components/icons/LightweightGameIcons";
 import "./PetLadder.css";
 
 /*
@@ -39,7 +43,9 @@ import "./PetLadder.css";
 
 const MODE_LABEL: Record<Mode, string> = { coliseum: "Pet Colosseum", tactical: "Pet Tactical" };
 const MODE_SUB: Record<Mode, string> = { coliseum: "1v1 duel · defend with one pet", tactical: "4v4 tactical · defend with a team of four" };
-const MODE_ICON: Record<Mode, string> = { coliseum: "🏆", tactical: "🛡" };
+/* Painted mode emblems shared with the Pet Arena activity tiles — the ladder
+   and the arena must read as the same two destinations. */
+const MODE_ART: Record<Mode, string> = { coliseum: arenaModeColosseum, tactical: arenaModeWarfront };
 const HERO: Record<Mode, string> = { coliseum: coliseumHero, tactical: tacticalHero };
 
 function gearLabel(pet: Pet): string | null {
@@ -197,7 +203,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                 <span className="pl-hero-badge">Ranked Ladder</span>
                 <img src={HERO[mode]} alt="" />
                 <div className="pl-hero-body">
-                    <h2 className="pl-hero-title">{MODE_ICON[mode]} {MODE_LABEL[mode]}</h2>
+                    <h2 className="pl-hero-title"><img className="pl-mode-art" src={MODE_ART[mode]} alt="" /> {MODE_LABEL[mode]}</h2>
                     <div className="pl-hero-sub">{MODE_SUB[mode]} · climb by beating the rival above you</div>
                 </div>
             </div>
@@ -209,7 +215,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                         disabled={m === "tactical" && !tacticalUnlocked}
                         title={m === "tactical" && !tacticalUnlocked ? `Locked: ${available.length}/${TACTICAL_ARENA_PET_REQUIREMENT} available pets` : undefined}
                         onClick={() => selectMode(m)}>
-                        {MODE_ICON[m]} {MODE_LABEL[m]}
+                        <img className="pl-mode-art pl-mode-art-tab" src={MODE_ART[m]} alt="" /> {MODE_LABEL[m]}
                         {m === "tactical" && !tacticalUnlocked ? ` · Locked ${available.length}/${TACTICAL_ARENA_PET_REQUIREMENT}` : ""}
                     </button>
                 ))}
@@ -231,7 +237,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                 </div>
                 <div className="pl-charges">
                     <div className="pl-charges-n">{you?.challengesLeft ?? "—"}<span style={{ fontSize: 13, opacity: .6 }}>/10</span></div>
-                    <div className="pl-charges-l">⚡ Challenges left</div>
+                    <div className="pl-charges-l"><GameIcon name="bolt" size={12} /> Challenges left</div>
                 </div>
             </div>
 
@@ -239,11 +245,11 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
             {!!view?.notifications.length && (
                 <div className="pl-notify">
                     <div className="pl-notify-head">
-                        <b>📨 While you were away</b>
+                        <b><GiChatBubble size={13} style={{ color: "var(--sj-gold)" }} /> While you were away</b>
                         <button className="pl-link" onClick={async () => { try { await clearLadderNotify(name); await refresh(); } catch { /* ignore */ } }}>Clear</button>
                     </div>
                     {view.notifications.slice().reverse().map((n, i) => (
-                        <div key={i} className="pl-notify-row">{n.won ? "❌" : "🛡"} <b>{n.from}</b> {n.won ? "took your rank" : "failed to take your rank"} in {MODE_LABEL[n.mode]}.</div>
+                        <div key={i} className="pl-notify-row"><GameIcon name={n.won ? "hazard" : "shield"} size={13} style={{ color: n.won ? "var(--sj-danger)" : "var(--sj-success)" }} /> <b>{n.from}</b> {n.won ? "took your rank" : "failed to take your rank"} in {MODE_LABEL[n.mode]}.</div>
                     ))}
                 </div>
             )}
@@ -266,7 +272,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                 <div>
                     {/* Set defense */}
                     <div className="pl-panel">
-                        <h3 className="pl-h">🛡 Your defense{mode === "tactical" ? " team" : ""}</h3>
+                        <h3 className="pl-h"><GameIcon name="shield" size={15} /> Your defense{mode === "tactical" ? " team" : ""}</h3>
                         <p className="pl-sub">
                             {mode === "tactical" ? "Pick 4 pets to defend your rank — they fight for you even while you're offline." : "Pick the pet that defends your rank while you're away."} Stats &amp; PvP items count.
                         </p>
@@ -347,9 +353,9 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
 
                 {/* Ladder list */}
                 <div className="pl-panel">
-                    <h3 className="pl-h">🪜 The ladder{view ? ` · ${view.total} ranked` : ""}</h3>
-                    {!view ? (err ? <EmptyState icon="⚠">The ladder could not be loaded.</EmptyState> : <LoadingState />)
-                        : view.ladder.length === 0 ? <EmptyState icon="🪜">No one is ranked yet — set a defense and beat the AI to claim the first rung!</EmptyState>
+                    <h3 className="pl-h"><GameIcon name="medal" size={15} /> The ladder{view ? ` · ${view.total} ranked` : ""}</h3>
+                    {!view ? (err ? <EmptyState icon={<GameIcon name="hazard" size={28} style={{ color: "var(--sj-warning)" }} />}>The ladder could not be loaded.</EmptyState> : <LoadingState />)
+                        : view.ladder.length === 0 ? <EmptyState icon={<img className="pl-empty-art" src={MODE_ART[mode]} alt="" />}>No one is ranked yet — set a defense and beat the AI to claim the first rung!</EmptyState>
                             : <div className="pl-list">
                                 {view.ladder.map((e) => (
                                     <div key={e.slug} className={`pl-row${e.slug === character.name ? " is-you" : ""}`}>
@@ -358,7 +364,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                                             <div className="pl-row-name">{e.name}{e.village ? <span className="pl-row-vil"> · {e.village}</span> : null}</div>
                                             {summaryChips(e.summary)}
                                         </div>
-                                        <div className="pl-row-rec">{e.record.wins}W {e.record.losses}L<br />🛡 {e.record.defended}</div>
+                                        <div className="pl-row-rec">{e.record.wins}W {e.record.losses}L<br /><GameIcon name="shield" size={11} /> {e.record.defended}</div>
                                     </div>
                                 ))}
                             </div>}
