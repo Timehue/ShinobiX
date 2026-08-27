@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const workflow = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+const warfrontSpec = readFileSync(new URL('../shinobij.client/e2e-warfront/warfront.spec.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
 const occurrences = (needle) => workflow.split(needle).length - 1;
 
@@ -76,4 +77,18 @@ test('artifact consumers verify immutable provenance and failure evidence stays 
     assert.ok(occurrences('if: ${{ always() }}') >= 6, 'dependent jobs must fail closed instead of disappearing');
     assert.ok(workflow.includes('.playwright-mcp/aaa-adaptive/'));
     assert.ok(!workflow.includes('shinobij.client/.playwright-mcp/aaa-adaptive/'));
+});
+
+test('Warfront interaction coverage cannot starve behind high-quality software WebGL', () => {
+    assert.match(warfrontSpec, /const councilWarfrontUrl = "[^"]*petQuality=low";/);
+    assert.equal(
+        warfrontSpec.split('${councilWarfrontUrl}&wfspeed=').length - 1,
+        2,
+        'sealed-camp and Council interaction loads must share the low-quality CI fixture',
+    );
+    assert.match(
+        warfrontSpec,
+        /\$\{warfrontUrl\}&petQuality=high&wfperf=geometry/,
+        'the dedicated renderer/DPR matrix must retain explicit high-quality coverage',
+    );
 });
