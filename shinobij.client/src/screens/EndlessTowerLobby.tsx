@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import { endlessWaveReward } from "../lib/endless-tower";
 import { endlessEntryCost } from "../lib/entry-fee";
+import endlessTowerHero from "../assets/towers/endless-tower-hero.webp";
 
 /**
  * Fire an action at most once per short window.
@@ -57,8 +58,16 @@ export function EndlessTowerLobby({
     const preview = endlessWaveReward(nextWave, character.level ?? 1);
     const entryCost = endlessEntryCost(character);
     return (
-        <div className="card" style={{ maxWidth: 720, margin: "1rem auto", padding: "1.4rem" }}>
-            <h1 style={{ marginTop: 0 }}>🗼 Endless Tower</h1>
+        <div className="card" style={{ maxWidth: 720, margin: "1rem auto", padding: 0, overflow: "hidden" }}>
+            <div style={{ position: "relative" }}>
+                <img src={endlessTowerHero} alt="" style={{ display: "block", width: "100%", height: 220, objectFit: "cover", objectPosition: "center 22%" }} />
+                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,11,15,0) 30%, rgba(8,11,15,.94))" }} />
+                <div style={{ position: "absolute", left: 22, right: 22, bottom: 12 }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--sj-spirit-bright)" }}>Celestial Tower · Solo Ascent</div>
+                    <h1 style={{ margin: "2px 0 0" }}>Endless Tower</h1>
+                </div>
+            </div>
+            <div style={{ padding: "1rem 1.4rem 1.4rem" }}>
             <p style={{ color: "var(--text-dim)", marginTop: 0 }}>
                 Each wave is harder than the last. Every 5th floor is a milestone (×2 rewards); every 10th is a boss floor (×3).
                 Banked rewards are lost if you die — retreat to bank what you've earned.
@@ -84,19 +93,21 @@ export function EndlessTowerLobby({
             )}
             <div style={{ display: "grid", gridTemplateColumns: inProgress ? "1fr 1fr" : "1fr", gap: "0.6rem", marginTop: "1rem" }}>
                 <button
-                    style={{ padding: "0.8rem 1rem", background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "var(--green-400)", fontWeight: 700 }}
+                    className="ui-btn ui-btn--primary"
+                    style={{ width: "100%", justifyContent: "center", padding: "0.8rem 1rem", fontWeight: 700 }}
                     disabled={actionLocked}
                     onClick={() => runOnce(onEnter)}
                 >
-                    {inProgress ? `▶ Resume — Floor ${nextWave}` : `▶ Enter Tower (Floor 1)${entryCost > 0 ? ` — ${entryCost.toLocaleString()} ryo` : " — free today"}`}
+                    {inProgress ? `Resume — Floor ${nextWave}` : `Enter Tower (Floor 1)${entryCost > 0 ? ` — ${entryCost.toLocaleString()} ryo` : " — free today"}`}
                 </button>
                 {inProgress && (
                     <button
-                        style={{ padding: "0.8rem 1rem", background: "linear-gradient(#3a3a1a,#201a0a)", borderColor: "var(--gold)", fontWeight: 700 }}
+                        className="ui-btn ui-btn--secondary"
+                        style={{ width: "100%", justifyContent: "center", padding: "0.8rem 1rem", fontWeight: 700 }}
                         disabled={actionLocked}
                         onClick={() => runOnce(onBank)}
                     >
-                        💰 Retreat &amp; Bank
+                        Retreat &amp; Bank
                     </button>
                 )}
             </div>
@@ -104,6 +115,7 @@ export function EndlessTowerLobby({
                 Next reward preview: {preview.ryo.toLocaleString()} ryo{preview.isMilestone ? " (milestone!)" : ""}.
             </p>
             <button className="back-btn" style={{ marginTop: "0.6rem" }} onClick={onBack}>× Back to Central</button>
+            </div>
         </div>
     );
 }
