@@ -7,7 +7,7 @@
  * Extracted from App.tsx (jutsu cluster).
  */
 
-import { normalizeTagName, binaryTags, cappedDamageTags, tagCapForRank, percentageTags, hasFixedEffectPower } from "./tags";
+import { normalizeTagName, binaryTags, cappedDamageTags, percentageTags, hasFixedEffectPower } from "./tags";
 import type { Jutsu, JutsuTag } from "../types/combat";
 import type { Rank } from "../types/core";
 
@@ -16,18 +16,53 @@ export interface JutsuPointItem { label: string; points: number; }
 
 export function jutsuCountForRank(rank: Rank) { return rank === "B Rank" ? 4 : 5; }
 export function pointBudgetForRank(rank: Rank) { return rank === "S Rank" ? 11 : rank === "A Rank" ? 10 : 7; }
-// v4.3: rank-based Wound percent caps — basic jutsus = 25, A/B bloodline = 30, S bloodline = 35.
-export function bloodlineTagPercentChoices(rank: Rank) { return rank === "S Rank" ? [30, 35] : [25, 30]; }
-export function normalizeBloodlineTagPercent(percent: number | undefined, rank: Rank) {
+// Player-created bloodlines use this closed percent policy. These are creator
+// values, deliberately separate from the larger legacy/catalog combat caps in
+// tags.ts (S 40 / A-B 35), which remain valid for shipped signature jutsu.
+export function bloodlineTagPercentChoices(rank?: Rank | null): readonly number[] {
+    return rank === "S Rank" ? [30, 35] : [25, 30];
+}
+
+export const fixedMagnitudeBloodlineTags = ["Heal", "Shield", "Drain", "Push", "Pull"] as const;
+const FIXED_MAGNITUDE_BLOODLINE_TAGS = new Set<string>(fixedMagnitudeBloodlineTags);
+
+export type BloodlineCreatorPercentPolicy = {
+    scalable: boolean;
+    choices: readonly number[];
+    defaultPercent: number;
+};
+
+/** One policy shared by the picker, draft preview, templates, and save payload. */
+export function bloodlineCreatorPercentPolicy(tagName: string, rank?: Rank | null): BloodlineCreatorPercentPolicy {
+    const name = normalizeTagName(tagName);
+    const scalable = !!name
+        && name !== "Pierce"
+        && !binaryTags.includes(name)
+        && !FIXED_MAGNITUDE_BLOODLINE_TAGS.has(name);
+    if (!scalable) return { scalable: false, choices: [0], defaultPercent: 0 };
+    const choices = bloodlineTagPercentChoices(rank);
+    return { scalable: true, choices, defaultPercent: choices[choices.length - 1]! };
+}
+
+export function normalizeBloodlineTagPercent(percent: number | undefined, rank?: Rank | null) {
     const choices = bloodlineTagPercentChoices(rank);
     return choices.includes(Number(percent)) ? Number(percent) : choices[choices.length - 1];
+}
+
+export function normalizeBloodlineCreatorTagPercent(tagName: string, percent: number | undefined, rank?: Rank | null): number {
+    const policy = bloodlineCreatorPercentPolicy(tagName, rank);
+    return policy.scalable ? normalizeBloodlineTagPercent(percent, rank) : 0;
 }
 
 export function tagPointValue(tag: JutsuTag, rank?: Rank | null) {
     if (!tag.name) return 0;
     const tagName = normalizeTagName(tag.name);
     if (cappedDamageTags.includes(tagName)) {
-        const cap = tagCapForRank(rank);
+        // Point pricing follows the PLAYER-CREATOR ceiling, not the higher
+        // legacy/catalog combat magnitude ceiling. A legal max creator tag must
+        // always pay the at-cap price on both client and server.
+        const choices = bloodlineTagPercentChoices(rank);
+        const cap = choices[choices.length - 1]!;
         if (tag.percent >= cap) return 0.75; // at-cap bonus cost
         return 0.25; // floor: a percent damage/DR amp is never free, even below cap
     }
@@ -83,6 +118,6 @@ export function jutsuPoints(jutsu: Jutsu, rank?: Rank | null) {
     return jutsuPointBreakdown(jutsu, rank).reduce((sum, item) => sum + item.points, 0);
 }
 
-export function bloodlinePoints(jutsus: Jutsu[]) {
-    return jutsus.reduce((sum, jutsu) => sum + jutsuPoints(jutsu), 0);
+export function bloodlinePoints(jutsus: Jutsu[], rank?: Rank | null) {
+    return jutsus.reduce((sum, jutsu) => sum + jutsuPoints(jutsu, rank), 0);
 }

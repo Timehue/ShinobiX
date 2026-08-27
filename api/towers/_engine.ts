@@ -49,7 +49,7 @@ import {
     pveIsBurstJutsuAp,
 } from '../_pve-difficulty.js';
 import { pveMeaningfulBuffCount } from '../_pve-ai-tactics.js';
-import { activeCombatStatuses } from '../combat-core/statuses.js';
+import { activeCombatStatuses, isCombatStatusActive } from '../combat-core/statuses.js';
 import { adjustedApCost } from '../combat-core/resources.js';
 import { MAX_COMBAT_VFX_TILES, canonicalJutsuTagNames, semanticJutsuVfx } from '../combat-core/jutsu-vfx.js';
 import type { PvpFighter, PvpGroundEffect, PvpStatus } from '../pvp/session.js';
@@ -115,6 +115,8 @@ type JutsuLike = {
     // Weapon synth sets this when the wielder lacks the weapon's element → the swing
     // gets no bloodline damage multiplier (parity with api/pvp/move.ts resolveBaseDamage).
     suppressBloodline?: boolean;
+    /** Internal server stamp for equipped-weapon tag scaling. */
+    weaponSwing?: boolean;
     /** deterministic Tower-AI authoring hints; ignored by the shared resolver */
     aiPriority?: number;
     aiHpBelowPct?: number;
@@ -1750,8 +1752,8 @@ function rejectElementallySealed(session: TowerSession, actor: TowerActor, jutsu
 }
 // Round-aware: a Stun applied THIS round (activeRound = round+1) defers to next turn,
 // matching PvP — so an earlier actor stunning a later one doesn't rob the same round.
-function isStunActive(s: { name: string; activeRound?: number }, round: number): boolean {
-    return (s.name === 'Stun' || s.name === 'Stunned') && (s.activeRound === undefined || s.activeRound <= round);
+function isStunActive(s: PvpStatus, round: number): boolean {
+    return (s.name === 'Stun' || s.name === 'Stunned') && isCombatStatusActive(s, round);
 }
 function isStunned(actor: TowerActor, round: number): boolean {
     return actor.statuses.some(s => isStunActive(s, round));
@@ -1759,7 +1761,7 @@ function isStunned(actor: TowerActor, round: number): boolean {
 /** True when the actor has an ACTIVE status of the given name (activeRound-aware, so a
  *  Prevent applied this turn doesn't block until next round — mirrors PvP hasStatus). */
 function hasActiveStatus(actor: TowerActor, name: string, round: number): boolean {
-    return actor.statuses.some(s => s.name === name && (s.activeRound === undefined || s.activeRound <= round));
+    return actor.statuses.some(s => s.name === name && isCombatStatusActive(s, round));
 }
 // combatResourcesV2: Poison feeds on exertion — spending chakra/stamina to cast a jutsu
 // deals HP damage scaled by the spend + the actor's active Poison (turtling avoids it).
@@ -2288,7 +2290,7 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
         }
         const weaponJutsu: JutsuLike = {
             id: 'weapon', name: item.name ?? 'Weapon', type: 'Bukijutsu',
-            isUtility: false, effectPower: Number(item.weaponEp ?? 15), ap: wCost, range: wRange,
+            isUtility: false, weaponSwing: true, effectPower: Number(item.weaponEp ?? 15), ap: wCost, range: wRange,
             // Elemental-weapon gate (parity with PvP): the swing rides the wielder's
             // bloodline damage multiplier only when the weapon's element is one the
             // wielder has awakened. No element → no boost.

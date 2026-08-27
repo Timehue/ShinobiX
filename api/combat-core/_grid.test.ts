@@ -6,11 +6,14 @@ import { hexDistance, hexNeighbors, nextStepToward, posFromXY, xy } from './grid
 import { adjustedApCost } from './resources.js';
 import { resolveJutsu } from './resolveJutsu.js';
 import {
+    activeCombatStatuses,
     addCombatStatus,
     capCombatStatusStacks,
+    capDeferredCombatStatusStacks,
     countActiveCombatStatuses,
     hasCombatStatus,
     isCombatStatusActive,
+    removeActiveCombatStatusesByName,
     sumActiveCombatStatusPercent,
     tickCombatStatuses,
 } from './statuses.js';
@@ -40,6 +43,23 @@ test('combat status timing stays deferred until activeRound', () => {
     assert.equal(isCombatStatusActive({}, 1), true);
     assert.equal(isCombatStatusActive({ activeRound: 1 }, 1), true);
     assert.equal(isCombatStatusActive({ activeRound: 2 }, 1), false);
+    assert.equal(isCombatStatusActive({ inactiveRound: 2 }, 1), true);
+    assert.equal(isCombatStatusActive({ inactiveRound: 2 }, 2), false);
+});
+
+test('a deferred non-stack refresh preserves the active copy, then replaces it without overlap', () => {
+    const old: CombatStatus = { name: 'Poison', rounds: 2, percent: 10, kind: 'negative' };
+    const refresh: CombatStatus = { name: 'Poison', rounds: 2, activeRound: 2, percent: 20, kind: 'negative' };
+    const statuses = addCombatStatus([old], refresh, { currentRound: 1 });
+
+    assert.equal(statuses.length, 2);
+    assert.equal(statuses[0]?.inactiveRound, 2);
+    assert.deepEqual(activeCombatStatuses(statuses, 1).map(status => status.percent), [10]);
+    assert.deepEqual(activeCombatStatuses(statuses, 2).map(status => status.percent), [20]);
+
+    const consumed = removeActiveCombatStatusesByName(statuses, ['Poison'], 1);
+    assert.deepEqual(consumed.removed.map(status => status.percent), [10]);
+    assert.deepEqual(consumed.statuses.map(status => status.percent), [20], 'future refresh survives active-only consumption');
 });
 
 test('status helpers preserve add/replace/stack/tick semantics', () => {
@@ -74,6 +94,18 @@ test('status cap keeps the strongest recent stacks', () => {
     const capped = capCombatStatusStacks(statuses, 'Wound', 2);
     assert.deepEqual(capped.map(status => [status.name, status.amount]), [['Poison', 99], ['Wound', 30], ['Wound', 30]]);
     assert.equal(capped.includes(statuses[3]!), true, 'ties keep the most recent stack');
+});
+
+test('a deferred Wound cap preserves current stacks and enforces two at activation', () => {
+    const statuses: CombatStatus[] = [
+        { name: 'Wound', rounds: 2, amount: 20, kind: 'negative' },
+        { name: 'Wound', rounds: 2, amount: 30, kind: 'negative' },
+        { name: 'Wound', rounds: 2, activeRound: 2, amount: 40, kind: 'negative' },
+    ];
+    const capped = capDeferredCombatStatusStacks(statuses, 'Wound', 2, 1, 2);
+    assert.deepEqual(activeCombatStatuses(capped, 1).map(status => status.amount), [20, 30]);
+    assert.deepEqual(activeCombatStatuses(capped, 2).map(status => status.amount), [30, 40]);
+    assert.equal(capped[0]?.inactiveRound, 2, 'the evicted active stack remains live only through the current round');
 });
 
 test('cooldown and AP helpers preserve PvP turn math', () => {
@@ -158,12 +190,13 @@ test('resolveJutsu owns phase order while phase callbacks own formulas', () => {
                 assert.equal(effectiveDR, 0.25);
                 return 11;
             },
-            resolvePostDamage: (postSelf, postOpponent, jutsu, round, damage, pierce, healBoost) => {
+            resolvePostDamage: (postSelf, postOpponent, jutsu, round, masteryLevel, damage, pierce, healBoost) => {
                 order.push('post');
                 assert.equal(postSelf.marker, 'status-self');
                 assert.equal(postOpponent.marker, 'status-opponent');
                 assert.equal(jutsu.id, 'toy');
                 assert.equal(round, 4);
+                assert.equal(masteryLevel, 12);
                 assert.equal(damage, 11);
                 assert.equal(pierce, false);
                 assert.equal(healBoost, 1);

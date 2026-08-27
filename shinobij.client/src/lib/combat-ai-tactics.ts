@@ -37,6 +37,7 @@ export interface ReadStatus {
     name: string;
     kind: "positive" | "negative";
     activeRound?: number;
+    inactiveRound?: number;
     rounds?: number;
     percent?: number;
     amount?: number;

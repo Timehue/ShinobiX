@@ -26,7 +26,7 @@ import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
 import { weatherMultiplier } from '../combat-core/formulas.js';
 import { hexDistance, hexNeighbors } from '../combat-core/grid.js';
 import { adjustedApCost } from '../combat-core/resources.js';
-import { activeCombatStatuses, addCombatStatus } from '../combat-core/statuses.js';
+import { activeCombatStatuses, addCombatStatus, removeActiveCombatStatusesByKind, removeActiveCombatStatusesByName } from '../combat-core/statuses.js';
 import { validateServerAiRules, type ServerAiRule } from '../combat-core/ai-authoring.js';
 import {
     projectAuthoritativeCombatEvent,
@@ -37,7 +37,7 @@ import type { ResolveJutsuMetadata } from '../combat-core/resolveJutsu.js';
 import type { CombatFxEvent } from '../combat-core/types.js';
 import { MAX_COMBAT_VFX_TILES, semanticJutsuVfx } from '../combat-core/jutsu-vfx.js';
 import { filledDiskTiles } from '../combat-core/aoe.js';
-import { canonicalTagName, OPPONENT_AFFECTING_TAGS, STACKABLE_STATUS } from '../pvp/_tags.js';
+import { canonicalTagName, OPPONENT_AFFECTING_TAGS, REQUIRES_DAMAGE_TAGS, STACKABLE_STATUS } from '../pvp/_tags.js';
 import {
     canonicalGroundTags,
     createCanonicalGroundEffect,
@@ -523,7 +523,8 @@ function startTurn(session: SoloPveSession, side: SoloPveSide): void {
     }
     const stunned = activeStatuses(value, session.round).some((status) => status.name === 'Stun' || status.name === 'Stunned');
     if (stunned) {
-        value = { ...value, statuses: value.statuses.filter((status) => status.name !== 'Stun' && status.name !== 'Stunned') };
+        const consumed = removeActiveCombatStatusesByName(value.statuses, ['Stun', 'Stunned'], session.round);
+        value = { ...value, statuses: consumed.statuses };
     }
     setFighter(session, side, value);
     session.activeSide = side;
@@ -825,9 +826,13 @@ function guardedDamageCap(session: SoloPveSession, side: SoloPveSide): number | 
     });
 }
 
-function applyCast(session: SoloPveSession, side: SoloPveSide, jutsu: SoloPveJutsu): ResolveJutsuMetadata {
+function applyCast(session: SoloPveSession, side: SoloPveSide, jutsu: SoloPveJutsu, damageCap?: number): ResolveJutsuMetadata {
     const self = fighter(session, side);
     const opponent = fighter(session, otherSide(side));
+    const guardCap = guardedDamageCap(session, side);
+    const effectiveDamageCap = damageCap === undefined
+        ? guardCap
+        : guardCap === undefined ? damageCap : Math.min(damageCap, guardCap);
     const result = applyJutsu(
         self,
         opponent,
@@ -835,7 +840,7 @@ function applyCast(session: SoloPveSession, side: SoloPveSide, jutsu: SoloPveJut
         weatherMult(session, jutsu) * soloPveDamageMultiplier(session, side),
         session.environment.biome,
         session.round,
-        guardedDamageCap(session, side),
+        effectiveDamageCap,
     );
     setFighter(session, side, result.self);
     setFighter(session, otherSide(side), result.opponent);
@@ -964,9 +969,24 @@ function applyJutsuAction(session: SoloPveSession, side: SoloPveSide, action: Ex
             } else {
                 session.log.push(`${opponent.name} is outside the impact area.`);
             }
-        } else if (!plan.pureMove) {
-            // A Move-tagged single-target utility relocates only. This matches
-            // the canonical PvP movement branch, where Move owns the cast.
+        } else {
+            const secondaryTags = (jutsu.tags ?? []).filter((tag) => {
+                const tagName = canonicalTagName(tag.name);
+                return tagName !== 'Move'
+                    && tagName !== 'Pierce'
+                    && !REQUIRES_DAMAGE_TAGS.has(tagName);
+            });
+            if (secondaryTags.length > 0) {
+                // SINGLE movement owns relocation, but authored secondary tags
+                // still resolve. Keep direct damage at zero so a remote target
+                // cannot be hit by a dash with no impact footprint. This mirrors
+                // the authoritative PvP movement branch.
+                resolution = resolutionFacts(applyCast(session, side, {
+                    ...jutsu,
+                    effectPower: 0,
+                    tags: secondaryTags,
+                }, 0));
+            }
         }
     } else if (plan.groundTarget) {
         if (plan.createsGroundEffect) {
@@ -1082,7 +1102,10 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
     if (action.type === 'clear') {
         if (!canAct(session, side, CLEAR_AP) || (session.cooldowns[side].clear ?? 0) > 0) return { applied: false, reason: 'cannot-act' };
         const blocked = activeStatuses(opponent, session.round).some((status) => status.name === 'Clear Prevent');
-        if (!blocked) setFighter(session, otherSide(side), { ...opponent, statuses: opponent.statuses.filter((status) => status.kind !== 'positive') });
+        if (!blocked) {
+            const cleared = removeActiveCombatStatusesByKind(opponent.statuses, 'positive', session.round);
+            setFighter(session, otherSide(side), { ...opponent, statuses: cleared.statuses });
+        }
         session.cooldowns[side].clear = 10;
         spendAction(session, side, CLEAR_AP);
         session.log.push(blocked ? `${opponent.name}'s Clear Prevent blocks the clear.` : `${self.name} clears ${opponent.name}'s positive effects.`);
@@ -1091,7 +1114,10 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
     if (action.type === 'cleanse') {
         if (!canAct(session, side, CLEANSE_AP) || (session.cooldowns[side].cleanse ?? 0) > 0) return { applied: false, reason: 'cannot-act' };
         const blocked = activeStatuses(self, session.round).some((status) => status.name === 'Cleanse Prevent');
-        if (!blocked) setFighter(session, side, { ...self, statuses: self.statuses.filter((status) => status.kind !== 'negative') });
+        if (!blocked) {
+            const cleansed = removeActiveCombatStatusesByKind(self.statuses, 'negative', session.round);
+            setFighter(session, side, { ...self, statuses: cleansed.statuses });
+        }
         session.cooldowns[side].cleanse = 10;
         spendAction(session, side, CLEANSE_AP);
         session.log.push(blocked ? `${self.name}'s Cleanse Prevent blocks the cleanse.` : `${self.name} cleanses negative effects.`);
@@ -1123,6 +1149,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
             element: item.weaponElement,
             tags,
             isUtility: false,
+            weaponSwing: true,
             suppressBloodline: !characterOwnsElement(self.character, item.weaponElement),
         };
         session.log.push(`${self.name} uses ${weapon.name}:`);

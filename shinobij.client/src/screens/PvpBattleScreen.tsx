@@ -31,14 +31,14 @@ import { CombatInstance } from "../components/CombatInstance";
 import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
 import { CombatJutsuMeta } from "../components/CombatJutsuMeta";
 import { CombatDetailPortal } from "../components/CombatDetailPortal";
-import { activeBarrierTilesForDisplay, combatActionAvailability } from "../lib/combat-action-display";
+import { activeBarrierTilesForDisplay, combatActionAvailability, pvpCombatWardKey } from "../lib/combat-action-display";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
 import { getJutsuMastery, scaleJutsuByLevel } from "../lib/jutsu-scaling";
 import { normalizeEquipmentSlot } from "../lib/equipment";
 import { hasAffordablePvpPaidAction } from "../lib/pvp-action-affordability";
 import { normalizeJutsu } from "../lib/jutsu";
 import { jutsuTargetingLabel } from "../lib/jutsu-effects";
-import { normalizeTagName, statusMatchesName, tagMatchesName, pvpAffectsOpponent } from "../lib/tags";
+import { normalizeTagName, tagMatchesName, pvpAffectsOpponent } from "../lib/tags";
 import { realtimeAvailable, subscribeKvKey } from "../lib/realtime";
 import { buildActionsFromPvpLog, makeBattleEntry } from "../lib/battle-log-history";
 import { useBoardScale } from "../lib/use-board-scale";
@@ -1821,12 +1821,6 @@ export function PvpBattleScreen({
 
     const fallbackIcon = (j: Jutsu) =>
         j.type === "Taijutsu" ? "👊" : j.type === "Bukijutsu" ? "⚔" : j.type === "Genjutsu" ? "👁" : "🌀";
-    const pvpWardKey = (fighter: { shield: number; statuses: Array<{ name: string }> }) => {
-        if (fighter.shield > 0 || fighter.statuses.some(st => statusMatchesName(st, "Shield") || statusMatchesName(st, "Barrier"))) return "shield";
-        if (fighter.statuses.some(st => statusMatchesName(st, "Reflect"))) return "reflect";
-        if (fighter.statuses.some(st => statusMatchesName(st, "Absorb"))) return "absorb";
-        return "";
-    };
     const combatVfxCenters = (fx: PvpCombatVfx) => {
         const tiles = (fx.spec.tiles ?? [])
             .filter(tile => tile >= 0 && tile < gridWidth * gridHeight)
@@ -1926,6 +1920,7 @@ export function PvpBattleScreen({
                     village={(me.character?.village as string) || ""}
                     turn={session.round}
                     statuses={me.statuses}
+                    currentRound={session.round}
                     isActive={isMyTurn && !done}
                     level={me.character?.level as number | undefined}
                     power={pvpEarnedPoints(me.character)}
@@ -2026,7 +2021,7 @@ export function PvpBattleScreen({
                                         const col = pos % gridWidth;
                                         const ox = col * X_STEP + HEX_W / 2 - ORB / 2;
                                         const oy = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0) + HEX_H * 0.85 - ORB;
-                                        const ward = pvpWardKey(fighter);
+                                        const ward = pvpCombatWardKey(fighter, session.round);
                                         return (
                                             // Walk the hex path between cells instead of snapping (Move / Dash /
                                             // Flicker / Push / Pull / ground relocation) so units read as travelling,
@@ -2385,11 +2380,14 @@ export function PvpBattleScreen({
                                                         aria-haspopup="dialog"
                                                         aria-controls={`pvp-combat-detail-item-${item.id}`}
                                                         aria-expanded={inspectedWeaponId === item.id}
+                                                        aria-label={`View ${item.name} weapon details`}
                                                         onClick={() => {
                                                             setInspectedJutsuId("");
                                                             setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id);
                                                         }}
-                                                        title={`View ${item.name} details`}>ℹ️</button>
+                                                        title={`View ${item.name} details`}>
+                                                        <span className="combat-help-glyph" aria-hidden="true">i</span>
+                                                    </button>
                                                 </div>
                                             );
                                         })}
@@ -2431,11 +2429,14 @@ export function PvpBattleScreen({
                                                         aria-haspopup="dialog"
                                                         aria-controls={`pvp-combat-detail-item-${item.id}`}
                                                         aria-expanded={inspectedWeaponId === item.id}
+                                                        aria-label={`View ${item.name} weapon details`}
                                                         onClick={() => {
                                                             setInspectedJutsuId("");
                                                             setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id);
                                                         }}
-                                                        title={`View ${item.name} details`}>ℹ️</button>
+                                                        title={`View ${item.name} details`}>
+                                                        <span className="combat-help-glyph" aria-hidden="true">i</span>
+                                                    </button>
                                                 </div>
                                             );
                                         })}
@@ -2629,6 +2630,7 @@ export function PvpBattleScreen({
                     village={(opp.character?.village as string) || ""}
                     turn={session.round}
                     statuses={opp.statuses}
+                    currentRound={session.round}
                     isActive={!isMyTurn && !done}
                     level={opp.character?.level as number | undefined}
                     power={pvpEarnedPoints(opp.character)}

@@ -348,14 +348,16 @@ describe('solo-PvE engine', () => {
 
     it('resolves movement rings, ground zones, barriers, and displacement through canonical rules', () => {
         const moving = makeSession();
+        moving.enemy.shield = 1_000;
         moving.player.character.jutsu = [{
             id: 'ring-dash', name: 'Ring Dash', type: 'Taijutsu', target: 'EMPTY_GROUND', method: 'AOE_CIRCLE',
-            effectPower: 20, ap: 60, range: 4, chakraCost: 10, tags: [{ name: 'Move' }, { name: 'Wound', percent: 10 }],
+            effectPower: 20, ap: 60, range: 4, chakraCost: 10, tags: [{ name: 'Move' }, { name: 'Pierce' }, { name: 'Wound', percent: 10 }],
         }];
         const dash = applySoloPveAction(moving, { type: 'jutsu', jutsuId: 'ring-dash', tile: 51 });
         assert.equal(dash.applied, true);
         assert.equal(dash.session.player.pos, 51);
         assert.ok(dash.session.enemy.hp < moving.enemy.hp, 'landing ring catches the adjacent enemy');
+        assert.equal(dash.session.enemy.shield, 1_000, 'AOE_CIRCLE preserves Pierce impact semantics');
 
         const ground = makeSession();
         ground.player.character.jutsu = [{
@@ -382,6 +384,87 @@ describe('solo-PvE engine', () => {
         const pushed = applySoloPveAction(displaced, { type: 'jutsu', jutsuId: 'push' });
         assert.equal(pushed.applied, true);
         assert.notEqual(pushed.session.enemy.pos, displaced.enemy.pos);
+    });
+
+    it('SINGLE movement strips Pierce and post-damage tags while retaining utility tags', () => {
+        const movementOnly = makeSession();
+        movementOnly.player.character.jutsu = [{
+            id: 'safe-step', name: 'Safe Step', type: 'Taijutsu', target: 'EMPTY_GROUND', method: 'SINGLE',
+            effectPower: 40, ap: 60, range: 4, chakraCost: 10,
+            tags: [
+                { name: 'Move' },
+                { name: 'Pierce' },
+                { name: 'Wound', percent: 30 },
+                { name: 'Siphon', percent: 30 },
+                { name: 'Reflect', percent: 30 },
+                { name: 'Decrease Damage Given', percent: 30 },
+            ],
+        }];
+
+        const stepped = applySoloPveAction(movementOnly, { type: 'jutsu', jutsuId: 'safe-step', tile: 51 });
+
+        assert.equal(stepped.applied, true);
+        assert.equal(stepped.session.player.pos, 51);
+        assert.equal(stepped.session.enemy.hp, movementOnly.enemy.hp);
+        assert.equal(stepped.session.log.some((line) => line.startsWith('Pierce:')), false);
+        assert.equal(stepped.session.enemy.statuses.some((status) => status.name === 'Wound'), false);
+        assert.ok(stepped.session.player.statuses.some((status) => status.name === 'Reflect'));
+        assert.ok(stepped.session.enemy.statuses.some((status) => status.name === 'Decrease Damage Given'));
+    });
+
+    it('Clear and Cleanse remove active effects without erasing deferred statuses', () => {
+        const cleanseSession = makeSession();
+        cleanseSession.player.statuses = [
+            { name: 'Ignition', rounds: 2, activeRound: 1, percent: 30, kind: 'negative' },
+            { name: 'Stun', rounds: 1, activeRound: 2, kind: 'negative' },
+            { name: 'Wound', rounds: 2, activeRound: 2, amount: 90, kind: 'negative' },
+            { name: 'Drain', rounds: 2, activeRound: 2, amount: 120, kind: 'negative' },
+            { name: 'Cleanse Prevent', rounds: 2, activeRound: 2, kind: 'negative' },
+        ];
+
+        const cleansed = applySoloPveAction(cleanseSession, { type: 'cleanse' });
+        assert.equal(cleansed.applied, true);
+        assert.equal(cleansed.session.player.statuses.some((status) => status.name === 'Ignition'), false);
+        for (const name of ['Stun', 'Wound', 'Drain', 'Cleanse Prevent']) {
+            assert.ok(cleansed.session.player.statuses.some((status) => status.name === name && status.activeRound === 2),
+                `pending ${name} survives Solo Cleanse`);
+        }
+
+        const clearSession = makeSession();
+        clearSession.enemy.statuses = [
+            { name: 'Increase Heal', rounds: 2, activeRound: 1, percent: 30, kind: 'positive' },
+            { name: 'Clear Prevent', rounds: 2, activeRound: 2, kind: 'positive' },
+            { name: 'Debuff Prevent', rounds: 2, activeRound: 2, kind: 'positive' },
+            { name: 'Stun Prevent', rounds: 2, activeRound: 2, kind: 'positive' },
+        ];
+
+        const cleared = applySoloPveAction(clearSession, { type: 'clear' });
+        assert.equal(cleared.applied, true);
+        assert.equal(cleared.session.enemy.statuses.some((status) => status.name === 'Increase Heal'), false);
+        for (const name of ['Clear Prevent', 'Debuff Prevent', 'Stun Prevent']) {
+            assert.ok(cleared.session.enemy.statuses.some((status) => status.name === name && status.activeRound === 2),
+                `pending ${name} survives Solo Clear`);
+        }
+    });
+
+    it('consuming an active Stun preserves a deferred refresh for the next round', () => {
+        const session = makeSession();
+        session.enemy.statuses = [
+            { name: 'Stun', rounds: 1, inactiveRound: 2, kind: 'negative' },
+            { name: 'Stun', rounds: 1, activeRound: 2, kind: 'negative' },
+        ];
+
+        endSoloPveTurn(session); // player → enemy, round 1
+        assert.equal(session.activeSide, 'enemy');
+        assert.equal(session.ap.enemy, 60);
+        assert.ok(session.enemy.statuses.some(status => status.name === 'Stun' && status.activeRound === 2),
+            'round-1 consumption keeps the deferred Stun');
+
+        endSoloPveTurn(session); // enemy → player, round 2
+        endSoloPveTurn(session); // player → enemy, round 2
+        assert.equal(session.activeSide, 'enemy');
+        assert.equal(session.ap.enemy, 60, 'the refresh penalizes exactly the next enemy turn');
+        assert.equal(session.enemy.statuses.some(status => status.name === 'Stun'), false);
     });
 
     it('persists bounded exact action events and returns rejection evidence without mutation', () => {

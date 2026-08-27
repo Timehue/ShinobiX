@@ -67,6 +67,12 @@ describe('Increase Discipline — style-locked combat effect', () => {
         assert.equal(crossStyle, base, 'a Taijutsu stack must not lift a Ninjutsu cast');
     });
 
+    it("does NOTHING for an adaptive 'Any' cast", () => {
+        const base = dealt(fighter('A'), fighter('B'), 'Any');
+        const buffed = dealt(fighter('A', [idStack('Taijutsu', 35)]), fighter('B'), 'Any');
+        assert.equal(buffed, base, "an 'Any' cast must not select a buffed discipline");
+    });
+
     it('is offense-only — a buffed DEFENDER takes baseline damage (no defense side)', () => {
         const base = dealt(fighter('A'), fighter('B'), 'Ninjutsu');
         const vsBuffedDefender = dealt(fighter('A'), fighter('B', [idStack('Ninjutsu', 35)]), 'Ninjutsu');

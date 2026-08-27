@@ -65,6 +65,9 @@ export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name"
         // Carry the weather affinity through too — set on bloodline jutsu so the
         // weather system can read it independently of the cosmetic `element`.
         ...(jutsu.weatherElement != null ? { weatherElement: jutsu.weatherElement } : {}),
+        // Draft bloodline jutsu need their rank too: tag previews and point
+        // pricing must use the same creator policy that will seal the save.
+        ...(jutsu.bloodlineRank != null ? { bloodlineRank: jutsu.bloodlineRank } : {}),
         // A custom plate is valid only for an offensive 60 AP cast. Invalid or
         // legacy values fall back to automatic resolution instead of leaking an
         // arbitrary asset key into combat.
@@ -99,10 +102,10 @@ export function makeJutsu(id: string, name: string, type: JutsuType, ap: number,
 export function blankJutsu(index: number, rank: Rank): Jutsu {
     // v4.3: Wound rank caps — S Rank tops at 35%, A/B at 30%.
     const defaultPercent = rank === "S Rank" ? 35 : 30;
-    return makeJutsu(makeId(), `Jutsu ${index + 1}`, "Ninjutsu", 60, 4, 40, 7, 300, 300, [
+    return { ...makeJutsu(makeId(), `Jutsu ${index + 1}`, "Ninjutsu", 60, 4, 40, 7, 300, 300, [
         { name: "", percent: defaultPercent },
         { name: "", percent: defaultPercent },
-    ]);
+    ]), bloodlineRank: rank };
 }
 
 export function isSelfSupportJutsu(jutsu: Jutsu) {

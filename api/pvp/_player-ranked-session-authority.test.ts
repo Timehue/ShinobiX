@@ -117,6 +117,10 @@ test('session binds exact matchId, pair, season, and epoch', async () => {
     assert.equal(out.body?.session?.rankedSeasonId, 1);
     assert.equal(out.body?.session?.rankedSeasonEpoch, 1);
     assert.equal(out.body?.session?.rewardAuthority, 'ranked');
+    assert.equal(out.body?.session?.p1?.maxHp, 206, 'level-24 human receives the final 3.33% PvP-only bonus');
+    assert.equal(out.body?.session?.p2?.maxHp, 206);
+    assert.equal(out.body?.session?.p1?.hp, 206, 'fresh ranked PvP starts at the scaled maximum');
+    assert.equal(out.body?.session?.p1?.character?.maxHp, 200, 'the canonical character maximum is not rewritten');
     assert.equal(
         out.body?.session?.itemCharges?.p1?.['thrown-shuriken'],
         0,

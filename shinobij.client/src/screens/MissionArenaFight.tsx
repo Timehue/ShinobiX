@@ -26,7 +26,7 @@ import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
 import { prefersLiteCombatFx } from "../lib/device-tier";
 import { useBoardScale } from "../lib/use-board-scale";
 import { useBattleTabs } from "../lib/use-battle-tabs";
-import { CombatSideHud } from "../components/CombatSideHud";
+import { CombatSideHud, type CombatHudStatus } from "../components/CombatSideHud";
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { BattleTabBar } from "../components/BattleTabBar";
 import {
@@ -131,10 +131,12 @@ const isSelfCastJutsu = (j: JutsuLike | null | undefined) => Boolean(j)
     && (j!.target === "SELF" || !pvpAffectsOpponent(j!));
 
 // Runtime status → CombatSideHud status shape (it requires an explicit kind).
-function hudStatuses(statuses: ServerArenaStatus[] | undefined): { name: string; rounds: number; amount?: number; percent?: number; kind: "positive" | "negative" }[] {
+function hudStatuses(statuses: ServerArenaStatus[] | undefined): CombatHudStatus[] {
     return (statuses ?? []).map((s) => ({
         name: s.name,
         rounds: s.rounds,
+        activeRound: s.activeRound,
+        inactiveRound: s.inactiveRound,
         amount: s.amount,
         percent: s.percent,
         kind: s.kind === "negative" ? "negative" : "positive",
@@ -915,6 +917,7 @@ export function MissionArenaFight({
                     village={character.village}
                     turn={session.round}
                     statuses={hudStatuses(myActor?.statuses)}
+                    currentRound={session.round}
                     isActive={myTurn}
                 />
 
@@ -1354,6 +1357,7 @@ export function MissionArenaFight({
                     village={String(enemy?.character?.village ?? "Mission")}
                     turn={session.round}
                     statuses={hudStatuses(enemy?.statuses)}
+                    currentRound={session.round}
                     isActive={enemyActive}
                 />
             </CombatHudLayout>

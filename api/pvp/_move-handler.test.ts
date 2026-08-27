@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { syncBuiltinESMExports } from 'node:module';
 import { isDeepStrictEqual } from 'node:util';
 import { applyCombatResolveResultToPvpSession, pvpSessionToCombatBattleState } from '../combat-adapters/pvpAdapter.js';
+import { activeCombatStatuses } from '../combat-core/statuses.js';
 import type { PvpFighter, PvpSession, PvpStatus } from './session.js';
 
 process.env.SUPABASE_URL ??= 'http://localhost:1';
@@ -220,6 +221,64 @@ const flickerJutsu = {
     tags: [{ name: 'Move', percent: 0 }],
 };
 
+const singleMoveWithSecondaryTags = {
+    id: 'single-move-secondary',
+    name: 'Tagged Step',
+    type: 'Genjutsu',
+    element: 'Wind',
+    target: 'EMPTY_GROUND',
+    range: 3,
+    ap: 60,
+    cooldown: 2,
+    chakraCost: 25,
+    staminaCost: 25,
+    // Deliberately non-zero and 60 AP: SINGLE movement owns utility tags, not a
+    // remote damage hit. The handler must apply an explicit zero-damage cap;
+    // effectPower=0 alone still gains mastery EP at this tier.
+    effectPower: 40,
+    method: 'SINGLE',
+    tags: [
+        { name: 'Move', percent: 0 },
+        { name: 'Pierce', percent: 0 },
+        { name: 'Wound', percent: 30 },
+        { name: 'Siphon', percent: 30 },
+        { name: 'Reflect', percent: 30 },
+        { name: 'Decrease Damage Given', percent: 30 },
+    ],
+};
+
+const ringMoveWithPierce = {
+    id: 'ring-move-pierce',
+    name: 'Piercing Ring Dash',
+    type: 'Taijutsu',
+    element: 'Wind',
+    target: 'EMPTY_GROUND',
+    range: 3,
+    ap: 60,
+    cooldown: 2,
+    chakraCost: 25,
+    staminaCost: 25,
+    effectPower: 40,
+    method: 'AOE_CIRCLE',
+    tags: [{ name: 'Move', percent: 0 }, { name: 'Pierce', percent: 0 }],
+};
+
+const phaseAwareGroundJutsu = {
+    id: 'phase-aware-ground',
+    name: 'Phase-Aware Ground',
+    type: 'Genjutsu',
+    element: 'Wind',
+    target: 'EMPTY_GROUND',
+    range: 4,
+    ap: 40,
+    cooldown: 2,
+    chakraCost: 25,
+    staminaCost: 25,
+    effectPower: 0,
+    method: 'INSTANT_EFFECT',
+    tags: [{ name: 'Decrease Damage Given', percent: 30 }],
+};
+
 function fighter(name: string, pos: number, patch: Partial<PvpFighter> = {}): PvpFighter {
     return {
         name,
@@ -311,6 +370,22 @@ test('a ranked tombstone returns terminal control instead of dereferencing fight
 
     assert.equal(out.statusCode, 409);
     assert.match(String((out.body as { error?: string }).error), /no longer active/i);
+});
+
+test('runtime role validation rejects non-p1/p2 values before role dereference', async () => {
+    const original = session('invalid-role');
+    seed(original);
+
+    const out = await postMove('bob', {
+        battleId: 'invalid-role',
+        role: 'spectator',
+        action: 'wait',
+        moveToken: 'invalid-role-token',
+    });
+
+    assert.equal(out.statusCode, 400);
+    assert.match(String((out.body as { error?: string }).error), /invalid pvp role/i);
+    assert.deepEqual(storedSession('invalid-role'), original);
 });
 
 test('an unsolicited opponent cannot claim an AFK win before both fighters join', async () => {
@@ -458,6 +533,384 @@ function storedSession(battleId: string): PvpSession {
     assert.ok(found, `missing stored session ${battleId}`);
     return clone(found) as PvpSession;
 }
+
+test('Cleanse preserves deferred Stun, Wound, Drain, and prevention in both round phases', async () => {
+    const phases = [
+        { role: 'p1' as const, player: 'alice', label: 'opener' },
+        { role: 'p2' as const, player: 'bob', label: 'closer' },
+    ];
+
+    for (const phase of phases) {
+        const pending: PvpStatus[] = [
+            { name: 'Stun', rounds: 1, activeRound: 2, kind: 'negative' },
+            { name: 'Wound', rounds: 2, activeRound: 2, amount: 90, kind: 'negative' },
+            { name: 'Drain', rounds: 2, activeRound: 2, amount: 120, kind: 'negative' },
+            { name: 'Cleanse Prevent', rounds: 2, activeRound: 2, kind: 'negative' },
+        ];
+        const active: PvpStatus = { name: 'Ignition', rounds: 2, activeRound: 1, percent: 30, kind: 'negative' };
+        const patched = fighter(phase.player, phase.role === 'p1' ? 0 : 1, { statuses: [active, ...pending] });
+        const battleId = `cleanse-pending-${phase.label}`;
+        seed(session(battleId, {
+            round: 1,
+            roundOpener: 'p1',
+            activePlayer: phase.role,
+            ...(phase.role === 'p1' ? { p1: patched } : { p2: patched }),
+        }));
+
+        const out = await postMove(phase.player, {
+            battleId,
+            role: phase.role,
+            action: 'cleanse',
+            moveToken: `${battleId}-token`,
+        });
+
+        assert.equal(out.statusCode, 200);
+        const after = storedSession(battleId);
+        const statuses = phase.role === 'p1' ? after.p1.statuses : after.p2.statuses;
+        assert.equal(statuses.some((status) => status.name === 'Ignition'), false,
+            `${phase.label}: active debuff is cleansed`);
+        for (const expected of pending) {
+            assert.ok(statuses.some((status) => status.name === expected.name && status.activeRound === 2),
+                `${phase.label}: pending ${expected.name} survives until activation`);
+        }
+    }
+});
+
+test('Clear preserves deferred positive prevention statuses in both round phases', async () => {
+    const phases = [
+        { role: 'p1' as const, player: 'alice', target: 'p2' as const, label: 'opener' },
+        { role: 'p2' as const, player: 'bob', target: 'p1' as const, label: 'closer' },
+    ];
+
+    for (const phase of phases) {
+        const pending: PvpStatus[] = [
+            { name: 'Clear Prevent', rounds: 2, activeRound: 2, kind: 'positive' },
+            { name: 'Debuff Prevent', rounds: 2, activeRound: 2, kind: 'positive' },
+            { name: 'Stun Prevent', rounds: 2, activeRound: 2, kind: 'positive' },
+        ];
+        const active: PvpStatus = { name: 'Increase Heal', rounds: 2, activeRound: 1, percent: 30, kind: 'positive' };
+        const target = fighter(phase.target === 'p1' ? 'alice' : 'bob', phase.target === 'p1' ? 0 : 1, { statuses: [active, ...pending] });
+        const battleId = `clear-pending-${phase.label}`;
+        seed(session(battleId, {
+            round: 1,
+            roundOpener: 'p1',
+            activePlayer: phase.role,
+            ...(phase.target === 'p1' ? { p1: target } : { p2: target }),
+        }));
+
+        const out = await postMove(phase.player, {
+            battleId,
+            role: phase.role,
+            action: 'clear',
+            moveToken: `${battleId}-token`,
+        });
+
+        assert.equal(out.statusCode, 200);
+        const after = storedSession(battleId);
+        const statuses = phase.target === 'p1' ? after.p1.statuses : after.p2.statuses;
+        assert.equal(statuses.some((status) => status.name === 'Increase Heal'), false,
+            `${phase.label}: active buff is cleared`);
+        for (const expected of pending) {
+            assert.ok(statuses.some((status) => status.name === expected.name && status.activeRound === 2),
+                `${phase.label}: pending ${expected.name} survives until activation`);
+        }
+    }
+});
+
+test('Copy and Mirror persist their deferred contracts through the authoritative move handler', async () => {
+    const copyJutsu = {
+        ...blast,
+        id: 'copy-handler',
+        name: 'Copy Handler',
+        cooldown: 0,
+        chakraCost: 0,
+        staminaCost: 0,
+        effectPower: 40,
+        method: 'SINGLE',
+        tags: [{ name: 'Copy', percent: 0 }],
+    };
+    const copySourceStatuses: PvpStatus[] = [
+        { name: 'Reflect', rounds: 1, inactiveRound: 2, percent: 30, kind: 'positive' },
+        { name: 'Absorb', rounds: 2, percent: 30, kind: 'positive' },
+        { name: 'Lifesteal', rounds: 2, percent: 30, kind: 'positive' },
+        { name: 'Increase Heal', rounds: 2, activeRound: 2, percent: 30, kind: 'positive' },
+    ];
+    seed(session('copy-handler-contract', {
+        p1: withExtraJutsu(fighter('alice', 0), copyJutsu),
+        p2: fighter('bob', 1, { statuses: copySourceStatuses }),
+    }));
+
+    const copyOut = await postMove('alice', {
+        battleId: 'copy-handler-contract',
+        role: 'p1',
+        action: 'jutsu',
+        jutsuId: copyJutsu.id,
+        moveToken: 'copy-handler-contract-token',
+    });
+    assert.equal(copyOut.statusCode, 200);
+    const copyStored = storedSession('copy-handler-contract');
+    assert.deepEqual(
+        copyStored.p1.statuses.map(({ name, rounds, activeRound, inactiveRound }) => ({ name, rounds, activeRound, inactiveRound })),
+        [{ name: 'Reflect', rounds: 2, activeRound: 2, inactiveRound: undefined }],
+    );
+    assert.deepEqual(copyStored.p2.statuses, copySourceStatuses, 'Copy leaves every source status untouched');
+    assert.ok(copyStored.log.some((line) => line.startsWith('Copy:')));
+
+    const mirrorJutsu = {
+        ...blast,
+        id: 'mirror-handler',
+        name: 'Mirror Handler',
+        cooldown: 0,
+        chakraCost: 0,
+        staminaCost: 0,
+        effectPower: 40,
+        method: 'SINGLE',
+        tags: [{ name: 'Mirror', percent: 0 }],
+    };
+    const mirrorSourceStatuses: PvpStatus[] = [
+        { name: 'Decrease Damage Given', rounds: 1, inactiveRound: 2, percent: 30, kind: 'negative' },
+        { name: 'Wound', rounds: 1, amount: 100, kind: 'negative' },
+        { name: 'Ignition', rounds: 1, percent: 20, kind: 'negative' },
+        { name: 'Poison', rounds: 1, percent: 6, kind: 'negative' },
+        { name: 'Drain', rounds: 1, amount: 50, kind: 'negative' },
+        { name: 'Buff Prevent', rounds: 2, activeRound: 2, kind: 'negative' },
+    ];
+    seed(session('mirror-handler-contract', {
+        p1: withExtraJutsu(fighter('alice', 0, { statuses: mirrorSourceStatuses }), mirrorJutsu),
+        p2: fighter('bob', 1, { statuses: [
+            { name: 'Wound', rounds: 2, amount: 50, kind: 'negative' },
+            { name: 'Wound', rounds: 2, amount: 60, kind: 'negative' },
+        ] }),
+    }));
+
+    const mirrorOut = await postMove('alice', {
+        battleId: 'mirror-handler-contract',
+        role: 'p1',
+        action: 'jutsu',
+        jutsuId: mirrorJutsu.id,
+        moveToken: 'mirror-handler-contract-token',
+    });
+    assert.equal(mirrorOut.statusCode, 200);
+    const mirrorStored = storedSession('mirror-handler-contract');
+    assert.deepEqual(mirrorStored.p1.statuses, mirrorSourceStatuses, 'Mirror leaves every source status untouched');
+    const mirroredNames = activeCombatStatuses(mirrorStored.p2.statuses, 2).map((status) => status.name);
+    for (const name of ['Decrease Damage Given', 'Wound', 'Ignition', 'Poison', 'Drain']) {
+        assert.ok(mirroredNames.includes(name), `Mirror persists ${name} for next round`);
+    }
+    assert.equal(mirroredNames.includes('Buff Prevent'), false, 'Mirror ignores pending source debuffs');
+    assert.deepEqual(
+        activeCombatStatuses(mirrorStored.p2.statuses, 2)
+            .filter((status) => status.name === 'Wound')
+            .map((status) => status.amount)
+            .sort((a, b) => Number(a) - Number(b)),
+        [60, 100],
+        'handler persistence keeps the strongest two Wound stacks at activation',
+    );
+    assert.equal(
+        mirrorStored.p2.statuses.find((status) => status.name === 'Decrease Damage Given')?.inactiveRound,
+        undefined,
+    );
+    assert.ok(mirrorStored.log.some((line) => line.startsWith('Mirror:')));
+});
+
+test('non-stackable negative refresh preserves the active copy through opener and closer phases', async () => {
+    const refreshDrain = {
+        id: 'refresh-drain', name: 'Refresh Drain', type: 'Ninjutsu', target: 'OPPONENT',
+        range: 1, ap: 40, cooldown: 0, chakraCost: 0, staminaCost: 0,
+        effectPower: 0, isUtility: true, tags: [{ name: 'Drain' }],
+    };
+    const phases = [
+        { role: 'p1' as const, player: 'alice', target: 'p2' as const, label: 'opener' },
+        { role: 'p2' as const, player: 'bob', target: 'p1' as const, label: 'closer' },
+    ];
+
+    for (const phase of phases) {
+        const battleId = `refresh-drain-${phase.label}`;
+        const caster = withExtraJutsu(
+            fighter(phase.player, phase.role === 'p1' ? 0 : 1),
+            refreshDrain,
+        );
+        const target = fighter(phase.target === 'p1' ? 'alice' : 'bob', phase.target === 'p1' ? 0 : 1, {
+            statuses: [{ name: 'Drain', rounds: 2, amount: 40, kind: 'negative' }],
+        });
+        seed(session(battleId, {
+            roundOpener: 'p1',
+            activePlayer: phase.role,
+            ...(phase.role === 'p1' ? { p1: caster } : { p2: caster }),
+            ...(phase.target === 'p1' ? { p1: target } : { p2: target }),
+        }));
+
+        const cast = await postMove(phase.player, {
+            battleId, role: phase.role, action: 'jutsu', jutsuId: refreshDrain.id,
+            moveToken: `${battleId}-cast`,
+        });
+        assert.equal(cast.statusCode, 200);
+        const afterCast = storedSession(battleId);
+        const currentTarget = phase.target === 'p1' ? afterCast.p1 : afterCast.p2;
+        assert.deepEqual(activeCombatStatuses(currentTarget.statuses, 1).map(status => status.amount), [40],
+            `${phase.label}: old Drain remains the sole current-round copy`);
+        assert.equal(currentTarget.statuses.filter(status => status.name === 'Drain').length, 2,
+            `${phase.label}: active and deferred copies coexist only in storage`);
+
+        await postMove(phase.player, {
+            battleId, role: phase.role, action: 'wait', moveToken: `${battleId}-wait`,
+        });
+        if (phase.role === 'p1') {
+            await postMove('bob', {
+                battleId, role: 'p2', action: 'wait', moveToken: `${battleId}-close`,
+            });
+        }
+        const nextRound = storedSession(battleId);
+        const refreshedTarget = phase.target === 'p1' ? nextRound.p1 : nextRound.p2;
+        assert.deepEqual(activeCombatStatuses(refreshedTarget.statuses, 2).map(status => status.amount), [300],
+            `${phase.label}: only the refreshed Drain is active at the round-2 boundary`);
+    }
+});
+
+test('non-stackable positive refresh preserves the active copy through opener and closer phases', async () => {
+    const refreshHeal = {
+        id: 'refresh-heal', name: 'Refresh Heal', type: 'Ninjutsu', target: 'SELF',
+        range: 0, ap: 40, cooldown: 0, chakraCost: 0, staminaCost: 0,
+        effectPower: 0, isUtility: true, tags: [{ name: 'Increase Heal', percent: 40 }],
+    };
+    const phases = [
+        { role: 'p1' as const, player: 'alice', label: 'opener' },
+        { role: 'p2' as const, player: 'bob', label: 'closer' },
+    ];
+
+    for (const phase of phases) {
+        const battleId = `refresh-heal-${phase.label}`;
+        const caster = withExtraJutsu(fighter(phase.player, phase.role === 'p1' ? 0 : 1, {
+            statuses: [{ name: 'Increase Heal', rounds: 2, percent: 10, kind: 'positive' }],
+        }), refreshHeal);
+        seed(session(battleId, {
+            roundOpener: 'p1', activePlayer: phase.role,
+            ...(phase.role === 'p1' ? { p1: caster } : { p2: caster }),
+        }));
+
+        const cast = await postMove(phase.player, {
+            battleId, role: phase.role, action: 'jutsu', jutsuId: refreshHeal.id,
+            moveToken: `${battleId}-cast`,
+        });
+        assert.equal(cast.statusCode, 200);
+        const afterCast = storedSession(battleId);
+        const currentCaster = phase.role === 'p1' ? afterCast.p1 : afterCast.p2;
+        assert.deepEqual(activeCombatStatuses(currentCaster.statuses, 1).map(status => status.percent), [10],
+            `${phase.label}: old Increase Heal remains the sole current-round copy`);
+
+        await postMove(phase.player, {
+            battleId, role: phase.role, action: 'wait', moveToken: `${battleId}-wait`,
+        });
+        if (phase.role === 'p1') {
+            await postMove('bob', {
+                battleId, role: 'p2', action: 'wait', moveToken: `${battleId}-close`,
+            });
+        }
+        const nextRound = storedSession(battleId);
+        const refreshedCaster = phase.role === 'p1' ? nextRound.p1 : nextRound.p2;
+        assert.deepEqual(activeCombatStatuses(refreshedCaster.statuses, 2).map(status => status.percent), [40],
+            `${phase.label}: only the refreshed Increase Heal is active in round 2`);
+    }
+});
+
+test('pending Stun refresh survives consumption of the currently active Stun', async () => {
+    const refreshStun = {
+        id: 'refresh-stun', name: 'Refresh Stun', type: 'Genjutsu', target: 'OPPONENT',
+        range: 1, ap: 40, cooldown: 0, chakraCost: 0, staminaCost: 0,
+        effectPower: 0, isUtility: true, tags: [{ name: 'Stun' }],
+    };
+    const p2 = fighter('bob', 1, { statuses: [{ name: 'Stun', rounds: 1, kind: 'negative' }] });
+    seed(session('refresh-stun-opener', {
+        roundOpener: 'p1',
+        p1: withExtraJutsu(fighter('alice', 0), refreshStun),
+        p2,
+    }));
+
+    await postMove('alice', {
+        battleId: 'refresh-stun-opener', role: 'p1', action: 'jutsu', jutsuId: refreshStun.id,
+        moveToken: 'refresh-stun-cast',
+    });
+    await postMove('alice', {
+        battleId: 'refresh-stun-opener', role: 'p1', action: 'wait', moveToken: 'refresh-stun-handoff',
+    });
+    const currentTurn = storedSession('refresh-stun-opener');
+    assert.equal(currentTurn.ap.p2, 60, 'the active Stun is consumed for the current closer turn');
+    assert.ok(currentTurn.p2.statuses.some(status => status.name === 'Stun' && status.activeRound === 2),
+        'consuming the active Stun preserves its pending refresh');
+
+    await postMove('bob', {
+        battleId: 'refresh-stun-opener', role: 'p2', action: 'wait', moveToken: 'refresh-stun-close',
+    });
+    await postMove('alice', {
+        battleId: 'refresh-stun-opener', role: 'p1', action: 'wait', moveToken: 'refresh-stun-round2-handoff',
+    });
+    const refreshedTurn = storedSession('refresh-stun-opener');
+    assert.equal(refreshedTurn.ap.p2, 60, 'the deferred refresh applies exactly once on the next closer turn');
+    assert.equal(refreshedTurn.p2.statuses.some(status => status.name === 'Stun'), false,
+        'the activated refresh is consumed without leaving another Stun copy');
+});
+
+test('pending third Wound preserves two current stacks, then caps the next boundary in both phases', async () => {
+    const woundJutsu = {
+        id: 'refresh-wound', name: 'Refresh Wound', type: 'Ninjutsu', target: 'OPPONENT',
+        range: 1, ap: 60, cooldown: 0, chakraCost: 0, staminaCost: 0,
+        effectPower: 1, isUtility: false, tags: [{ name: 'Wound', percent: 30 }],
+    };
+    const phases = [
+        { role: 'p1' as const, player: 'alice', target: 'p2' as const, label: 'opener' },
+        { role: 'p2' as const, player: 'bob', target: 'p1' as const, label: 'closer' },
+    ];
+
+    for (const phase of phases) {
+        const battleId = `refresh-wound-${phase.label}`;
+        const caster = withExtraJutsu(fighter(phase.player, phase.role === 'p1' ? 0 : 1), woundJutsu);
+        const target = fighter(phase.target === 'p1' ? 'alice' : 'bob', phase.target === 'p1' ? 0 : 1, {
+            statuses: [
+                { name: 'Wound', rounds: 2, amount: 40, kind: 'negative' },
+                { name: 'Wound', rounds: 2, amount: 60, kind: 'negative' },
+            ],
+        });
+        seed(session(battleId, {
+            roundOpener: 'p1', activePlayer: phase.role,
+            ...(phase.role === 'p1' ? { p1: caster } : { p2: caster }),
+            ...(phase.target === 'p1' ? { p1: target } : { p2: target }),
+        }));
+
+        await postMove(phase.player, {
+            battleId, role: phase.role, action: 'jutsu', jutsuId: woundJutsu.id,
+            moveToken: `${battleId}-cast`,
+        });
+        const afterCast = storedSession(battleId);
+        const castTarget = phase.target === 'p1' ? afterCast.p1 : afterCast.p2;
+        assert.deepEqual(
+            activeCombatStatuses(castTarget.statuses, 1).filter(status => status.name === 'Wound').map(status => status.amount).sort((a, b) => Number(a) - Number(b)),
+            [40, 60],
+            `${phase.label}: the pending third stack cannot evict a current-round Wound`,
+        );
+        const pendingAmount = castTarget.statuses.find(status => status.name === 'Wound' && status.activeRound === 2)?.amount;
+        assert.ok(Number(pendingAmount) > 60, 'fixture requires the pending Wound to win a next-round slot');
+        const hpAfterCast = castTarget.hp;
+
+        await postMove(phase.player, {
+            battleId, role: phase.role, action: 'wait', moveToken: `${battleId}-wait`,
+        });
+        if (phase.role === 'p1') {
+            const closerTurn = storedSession(battleId);
+            assert.equal(closerTurn.p2.hp, hpAfterCast - 100,
+                'opener cast: both old Wounds still tick on the closer this round');
+            await postMove('bob', {
+                battleId, role: 'p2', action: 'wait', moveToken: `${battleId}-close`,
+            });
+        }
+        const nextRound = storedSession(battleId);
+        const nextTarget = phase.target === 'p1' ? nextRound.p1 : nextRound.p2;
+        assert.deepEqual(
+            activeCombatStatuses(nextTarget.statuses, 2).filter(status => status.name === 'Wound').map(status => status.amount).sort((a, b) => Number(a) - Number(b)),
+            [60, pendingAmount].sort((a, b) => Number(a) - Number(b)),
+            `${phase.label}: exactly the strongest two Wounds are active at the refresh boundary`,
+        );
+    }
+});
 
 test('pvp adapter converts session state without changing PvP-compatible fields', () => {
     const initial = session('adapter', {
@@ -779,6 +1232,177 @@ test('pure movement jutsu leaves combat VFX empty so the board trail owns the re
     assert.equal(after.p1.pos, 12);
     assert.equal(after.vfx, undefined);
     assert.equal(after.vfxSeq, undefined);
+});
+
+test('Barrier tile authority honors its deferred activeRound', async () => {
+    const pendingBarrier: PvpStatus = {
+        name: 'Barrier',
+        rounds: 2,
+        amount: 12,
+        kind: 'positive',
+        activeRound: 2,
+    };
+    seed(session('barrier-pending', {
+        round: 1,
+        p1: fighter('alice', 0, { statuses: [pendingBarrier] }),
+        p2: fighter('bob', 3),
+    }));
+
+    const pendingMove = await postMove('alice', {
+        battleId: 'barrier-pending',
+        role: 'p1',
+        action: 'move',
+        tile: 12,
+        moveToken: 'barrier-pending-token',
+    });
+    assert.equal(pendingMove.statusCode, 200);
+    assert.equal(storedSession('barrier-pending').p1.pos, 12,
+        'the deferred wall must not block before activeRound');
+
+    seed(session('barrier-active', {
+        round: 2,
+        p1: fighter('alice', 0, { statuses: [pendingBarrier] }),
+        p2: fighter('bob', 3),
+    }));
+
+    const activeMove = await postMove('alice', {
+        battleId: 'barrier-active',
+        role: 'p1',
+        action: 'move',
+        tile: 12,
+        moveToken: 'barrier-active-token',
+    });
+    assert.equal(activeMove.statusCode, 200);
+    assert.equal(storedSession('barrier-active').p1.pos, 0,
+        'the wall must block throughout its active lifecycle');
+    assert.match((activeMove.body as PvpSession).rejected?.reason ?? '', /Move blocked/);
+});
+
+test('SINGLE movement resolves its secondary self and opponent tags without remote damage', async () => {
+    seed(session('single-move-secondary', {
+        p1: withExtraJutsu(fighter('alice', 0), singleMoveWithSecondaryTags),
+    }));
+
+    const out = await postMove('alice', {
+        battleId: 'single-move-secondary',
+        role: 'p1',
+        action: 'jutsu',
+        jutsuId: 'single-move-secondary',
+        tile: 12,
+        moveToken: 'single-move-secondary-token',
+    });
+
+    assert.equal(out.statusCode, 200);
+    const after = storedSession('single-move-secondary');
+    assert.equal(after.p1.pos, 12);
+    assert.equal(after.p2.hp, after.p2.maxHp, 'SINGLE movement does not hit at arbitrary range');
+    assert.equal(after.log.some((line) => line.startsWith('Pierce:')), false);
+    assert.equal(after.p2.statuses.some((status) => status.name === 'Wound'), false);
+    assert.ok(after.p1.statuses.some((status) => status.name === 'Reflect' && status.activeRound === 2));
+    assert.ok(after.p2.statuses.some((status) => status.name === 'Decrease Damage Given' && status.activeRound === 2));
+});
+
+test('AOE_CIRCLE movement still resolves its Pierce impact footprint', async () => {
+    seed(session('ring-move-pierce', {
+        p1: withExtraJutsu(fighter('alice', 0), ringMoveWithPierce),
+        p2: fighter('bob', 1, { shield: 5000 }),
+    }));
+
+    const out = await postMove('alice', {
+        battleId: 'ring-move-pierce',
+        role: 'p1',
+        action: 'jutsu',
+        jutsuId: 'ring-move-pierce',
+        tile: 12,
+        moveToken: 'ring-move-pierce-token',
+    });
+
+    assert.equal(out.statusCode, 200);
+    const after = storedSession('ring-move-pierce');
+    assert.equal(after.p1.pos, 12);
+    assert.ok(after.p2.hp < after.p2.maxHp, 'Pierce impact bypasses HP-protecting shield');
+    assert.equal(after.p2.shield, 5000);
+    assert.ok(after.log.some((line) => line.startsWith('Pierce:')));
+});
+
+test('ground cast pulse is phase-aware while both phases begin recurrence on the target turn', async () => {
+    seed(session('ground-opener-cast', {
+        roundOpener: 'p1',
+        p1: withExtraJutsu(fighter('alice', 0), phaseAwareGroundJutsu),
+    }));
+
+    const openerCast = await postMove('alice', {
+        battleId: 'ground-opener-cast',
+        role: 'p1',
+        action: 'jutsu',
+        jutsuId: 'phase-aware-ground',
+        tile: 12,
+        moveToken: 'ground-opener-cast-token',
+    });
+    assert.equal(openerCast.statusCode, 200);
+    const afterOpenerCast = storedSession('ground-opener-cast');
+    assert.ok(afterOpenerCast.p2.statuses.some((status) => status.name === 'Decrease Damage Given'),
+        'the opener pulse applies immediately because the target still acts this round');
+    assert.equal(afterOpenerCast.groundEffects?.[0]?.rounds, 2);
+    assert.equal(afterOpenerCast.groundEffects?.[0]?.activeRound, 2);
+    assert.equal(afterOpenerCast.groundEffects?.[0]?.castPulseConsumed, true);
+
+    seed(session('ground-closer-cast', {
+        roundOpener: 'p1',
+        activePlayer: 'p2',
+        p2: withExtraJutsu(fighter('bob', 1), phaseAwareGroundJutsu),
+    }));
+
+    const closerCast = await postMove('bob', {
+        battleId: 'ground-closer-cast',
+        role: 'p2',
+        action: 'jutsu',
+        jutsuId: 'phase-aware-ground',
+        tile: 12,
+        moveToken: 'ground-closer-cast-token',
+    });
+    assert.equal(closerCast.statusCode, 200);
+    const afterCloserCast = storedSession('ground-closer-cast');
+    assert.equal(afterCloserCast.p1.statuses.some((status) => status.name === 'Decrease Damage Given'), false,
+        'the closer cannot consume a pulse after the target has already acted');
+    assert.equal(afterCloserCast.groundEffects?.[0]?.rounds, 2);
+    assert.equal(afterCloserCast.groundEffects?.[0]?.activeRound, 2);
+    assert.equal(afterCloserCast.groundEffects?.[0]?.castPulseConsumed, false);
+
+    const handoff = await postMove('bob', {
+        battleId: 'ground-closer-cast',
+        role: 'p2',
+        action: 'wait',
+        moveToken: 'ground-closer-handoff-token',
+    });
+    assert.equal(handoff.statusCode, 200);
+    const afterHandoff = storedSession('ground-closer-cast');
+    assert.equal(afterHandoff.round, 2);
+    assert.equal(afterHandoff.activePlayer, 'p1');
+    assert.ok(afterHandoff.p1.statuses.some((status) => status.name === 'Decrease Damage Given'),
+        'the closer cast first applies when its target next begins a turn');
+});
+
+test('an off-target opener ground cast records no consumed pulse', async () => {
+    seed(session('ground-opener-off-target', {
+        roundOpener: 'p1',
+        p1: withExtraJutsu(fighter('alice', 0), phaseAwareGroundJutsu),
+        p2: fighter('bob', 119),
+    }));
+
+    const cast = await postMove('alice', {
+        battleId: 'ground-opener-off-target',
+        role: 'p1',
+        action: 'jutsu',
+        jutsuId: 'phase-aware-ground',
+        tile: 12,
+        moveToken: 'ground-opener-off-target-token',
+    });
+
+    assert.equal(cast.statusCode, 200);
+    const after = storedSession('ground-opener-off-target');
+    assert.equal(after.p2.statuses.some((status) => status.name === 'Decrease Damage Given'), false);
+    assert.equal(after.groundEffects?.[0]?.castPulseConsumed, false);
 });
 
 test('thrown status weapons layer delivery VFX with their status effect', async () => {

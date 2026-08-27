@@ -45,10 +45,12 @@ import {
 import {
     activeCombatStatuses,
     addCombatStatus,
-    capCombatStatusStacks,
+    capDeferredCombatStatusStacks,
     countActiveCombatStatuses,
     hasCombatStatus,
     isCombatStatusActive,
+    removeActiveCombatStatusesByKind,
+    removeActiveCombatStatusesByName,
     sumActiveCombatStatusPercent,
     tickCombatStatuses,
 } from '../combat-core/statuses.js';
@@ -169,7 +171,7 @@ const DEFAULT_ACTION_CATEGORIES: Record<string, ActionReceiptCategory> = {
 import { replayCommittedPvpTerminalEffects } from './_committed-terminal-effects.js';
 import { commitPvpSessionMutation } from './_session-mutation.js';
 import { enforcePvpTurnDeadlineLocked, pvpTurnLapsed } from './_turn-deadline.js';
-import { PVP_PREFIGHT_COUNTDOWN_MS } from '../../shared/pvp-turn.js';
+import { PVP_PREFIGHT_COUNTDOWN_MS, PVP_TURN_MS } from '../../shared/pvp-turn.js';
 import {
     replayCommittedPvpActionReceipt,
     withPvpActionReceiptReplay,
@@ -180,6 +182,8 @@ import {
     TAG_ALIASES,
     STACKABLE_STATUS,
     CAPPED_AMP_TAGS,
+    REQUIRES_DAMAGE_TAGS,
+    COPY_EXCLUDED_BUFFS,
 } from './_tags.js';
 import {
     createCanonicalGroundEffect,
@@ -201,12 +205,45 @@ import { pvpRewardCompletionStatus } from './_reward-completion.js';
 // Combat formula constants and pure numeric helpers live in combat-core/formulas.
 // move.ts keeps PvP session/API glue, tag aliases, grid mutation, and log wording.
 
-// ─── Tile helpers ─────────────────────────────────────────────────────────────
-function barrierTiles(...fighters: PvpFighter[]): number[] {
-    return fighters.flatMap(f => f.statuses.filter(s => s.name === 'Barrier' && typeof s.amount === 'number').map(s => s.amount!));
+type PvpRole = 'p1' | 'p2';
+
+// Legacy rows pre-date the opener stamp and used p1 as the implicit opener
+// (p2 ended every round). New sessions stamp the randomly selected first actor;
+// keeping this fallback preserves in-flight legacy matches while making every
+// newly-created match grant both fighters one turn per round.
+function roundOpenerFor(session: PvpSession): PvpRole {
+    return session.roundOpener === 'p2' ? 'p2' : 'p1';
 }
-function tileBlocked(tile: number, ...fighters: PvpFighter[]) {
-    return barrierTiles(...fighters).includes(tile);
+
+// Shields are renewable effective HP, so an unbounded `old + gain` lets a stall
+// build bank arbitrarily more health than an offense build can ever remove. Cap
+// live shield at one base health bar, with the existing 5,000 absolute item cap
+// as a second ceiling for high-HP fighters.
+export const PVP_ABSOLUTE_SHIELD_CAP = 5_000;
+export function pvpLiveShieldCap(fighter: Pick<PvpFighter, 'maxHp'>): number {
+    return Math.max(0, Math.min(PVP_ABSOLUTE_SHIELD_CAP, Number(fighter.maxHp) || 0));
+}
+function boundedShield(fighter: Pick<PvpFighter, 'shield' | 'maxHp'>): number {
+    return Math.max(0, Math.min(Number(fighter.shield) || 0, pvpLiveShieldCap(fighter)));
+}
+function withBoundedShield(fighter: PvpFighter): PvpFighter {
+    const shield = boundedShield(fighter);
+    return shield === fighter.shield ? fighter : { ...fighter, shield };
+}
+
+function idleTurnReachedClientDeadline(session: PvpSession, now = Date.now()): boolean {
+    const turnStartedAt = Number(session.turnStartedAt);
+    return Number.isFinite(turnStartedAt) && now >= turnStartedAt + PVP_TURN_MS;
+}
+
+// ─── Tile helpers ─────────────────────────────────────────────────────────────
+function barrierTiles(round: number, ...fighters: PvpFighter[]): number[] {
+    return fighters.flatMap(f => activeStatuses(f, round)
+        .filter(s => s.name === 'Barrier' && typeof s.amount === 'number')
+        .map(s => s.amount!));
+}
+function tileBlocked(tile: number, round: number, ...fighters: PvpFighter[]) {
+    return barrierTiles(round, ...fighters).includes(tile);
 }
 // ─── Jutsu types ──────────────────────────────────────────────────────────────
 type JutsuTag = CombatTag;
@@ -243,6 +280,8 @@ type Jutsu = {
     cooldown?: number;
     effectPower?: number;
     isUtility?: boolean;
+    /** Internal server stamp: this cast was synthesized from equipped weapon data. */
+    weaponSwing?: boolean;
     bloodlineRank?: string;
     method?: string;
     chakraCost?: number;
@@ -363,7 +402,7 @@ function activeStatuses(f: PvpFighter, round: number) {
 function hasStatus(f: PvpFighter, name: string, round: number) {
     return hasCombatStatus(f.statuses, name, round, nameMatches);
 }
-function addStatus(f: PvpFighter, s: PvpStatus): PvpFighter {
+function addStatus(f: PvpFighter, s: PvpStatus, currentRound?: number): PvpFighter {
     // v4.3: apply duration override (IDG/IDT/DDG/DDT → 2 rounds), then either stack or replace.
     return {
         ...f,
@@ -371,6 +410,7 @@ function addStatus(f: PvpFighter, s: PvpStatus): PvpFighter {
             durationFor: statusDurationFor,
             isStackable: name => STACKABLE_STATUS.has(name),
             nameMatches,
+            currentRound,
         }),
     };
 }
@@ -392,10 +432,14 @@ function bloodlineTagsResolveNextRound(jutsu: Pick<Jutsu, 'bloodlineRank' | 'tar
     return !(jutsu.target === 'EMPTY_GROUND' && normalizeJutsuMethod(jutsu.method) === 'INSTANT_EFFECT');
 }
 function statusForJutsu(jutsu: Pick<Jutsu, 'bloodlineRank' | 'target' | 'method'>, status: PvpStatus, round: number): PvpStatus {
-    return bloodlineTagsResolveNextRound(jutsu) ? { ...status, activeRound: round + 1 } : status;
+    // Copy/Mirror can pass through a status that is itself yielding to a refresh.
+    // A new cast authors a fresh lifecycle and must not inherit that retirement.
+    const fresh = { ...status };
+    delete fresh.inactiveRound;
+    return bloodlineTagsResolveNextRound(jutsu) ? { ...fresh, activeRound: round + 1 } : fresh;
 }
 function addJutsuStatus(f: PvpFighter, jutsu: Pick<Jutsu, 'bloodlineRank' | 'target' | 'method'>, status: PvpStatus, round: number): PvpFighter {
-    return addStatus(f, statusForJutsu(jutsu, status, round));
+    return addStatus(f, statusForJutsu(jutsu, status, round), round);
 }
 // Wound is a stacking bleed DoT (every cast adds a stack, all stacks tick). Per-hit
 // magnitude is rank-capped, but the STACK COUNT was unbounded → repeated casts
@@ -403,15 +447,51 @@ function addJutsuStatus(f: PvpFighter, jutsu: Pick<Jutsu, 'bloodlineRank' | 'tar
 // MAX_WOUND_STACKS highest-amount ones (ties → most-recently-applied wins, so a
 // re-cast refreshes rather than being dropped). Mirrors client combat-math
 // capWoundStacks — KEEP IN SYNC (parity test).
-function capWoundStacks(f: PvpFighter): PvpFighter {
-    const statuses = capCombatStatusStacks(f.statuses, 'Wound', MAX_WOUND_STACKS);
-    return statuses === f.statuses ? f : { ...f, statuses: statuses as PvpStatus[] };
+function capWoundStacks(f: PvpFighter, round: number): PvpFighter {
+    const statuses = capDeferredCombatStatusStacks(
+        f.statuses,
+        'Wound',
+        MAX_WOUND_STACKS,
+        round,
+        round + 1,
+        nameMatches,
+    );
+    return { ...f, statuses };
 }
 // Exported for the ground-effect timing test (_combat-tags.test.ts), which pins
 // "a zone applies its tags exactly once per pass and Debuff Prevent blocks it".
-export function applyGroundEffectToFighter(fighter: PvpFighter, effect: PvpGroundEffect, round: number): { fighter: PvpFighter; lines: string[] } {
+function addGroundStatus(fighter: PvpFighter, status: PvpStatus, effectId: string): PvpFighter {
+    // A recurring zone refreshes its own pulse instead of adding a fresh stack
+    // every round. Stackable status families (notably DDG) must still preserve
+    // independent direct-cast stacks, so identify only this zone's prior pulse.
+    const sourced = { ...status, source: `ground:${effectId}` };
+    if (STACKABLE_STATUS.has(status.name)) {
+        return {
+            ...fighter,
+            statuses: [
+                ...fighter.statuses.filter((existing) => !(
+                    nameMatches(existing.name, status.name)
+                    && existing.source === sourced.source
+                )),
+                sourced,
+            ],
+        };
+    }
+    // Non-stackable Poison/Recoil keep their normal replace-by-name contract,
+    // but retain the zone-authored duration instead of the direct-jutsu override.
+    return {
+        ...fighter,
+        statuses: addCombatStatus(fighter.statuses, sourced, {
+            isStackable: () => false,
+            nameMatches,
+        }),
+    };
+}
+export function applyGroundEffectToFighter(fighter: PvpFighter, effect: PvpGroundEffect, round: number, includePending = false): { fighter: PvpFighter; lines: string[] } {
     let next = { ...fighter };
     const lines: string[] = [];
+    const activeRound = effect.activeRound;
+    if (!includePending && activeRound !== undefined && activeRound > round) return { fighter: next, lines };
     if (!effect.tiles.includes(fighter.pos)) return { fighter: next, lines };
     // Round-aware: a Debuff Prevent the target cast THIS turn (deferred) must not
     // block the ground effect a round early. (hasStatus defaults to +Infinity,
@@ -430,16 +510,16 @@ export function applyGroundEffectToFighter(fighter: PvpFighter, effect: PvpGroun
         // strictly stronger than the same tag cast directly. A 1-turn refresh keeps
         // it active only while standing in the zone, ending when the zone does.
         if (tagName === 'Decrease Damage Given') {
-            next = addStatus(next, { name: 'Decrease Damage Given', rounds: 1, percent: pct, kind: 'negative' });
+            next = addGroundStatus(next, { name: 'Decrease Damage Given', rounds: 1, percent: pct, kind: 'negative' }, effect.id);
             lines.push(`${effect.name}: ${next.name} deals ${pct}% less damage this turn.`);
         } else if (tagName === 'Recoil') {
-            next = addStatus(next, { name: 'Recoil', rounds: 1, percent: pct, kind: 'negative' });
+            next = addGroundStatus(next, { name: 'Recoil', rounds: 1, percent: pct, kind: 'negative' }, effect.id);
             lines.push(`${effect.name}: ${next.name} suffers ${pct}% recoil on attacks this turn.`);
         } else if (tagName === 'Poison') {
             const poisonPct = pct > 0 ? pct : 6;
             // v2: zone poison lasts 2 rounds (on-spend model — matches PvE + jutsu poison).
             // v1: 1-round refresh tracks zone presence for the legacy per-round pool tick.
-            next = addStatus(next, { name: 'Poison', rounds: COMBAT_RESOURCES_V2 ? 2 : 1, percent: poisonPct, kind: 'negative' });
+            next = addGroundStatus(next, { name: 'Poison', rounds: COMBAT_RESOURCES_V2 ? 2 : 1, percent: poisonPct, kind: 'negative' }, effect.id);
             if (COMBAT_RESOURCES_V2) {
                 lines.push(`${effect.name}: ${next.name} is poisoned for 2 rounds — casting jutsu will hurt.`);
             } else {
@@ -450,12 +530,13 @@ export function applyGroundEffectToFighter(fighter: PvpFighter, effect: PvpGroun
     }
     return { fighter: next, lines };
 }
-function applyGroundEffects(session: PvpSession, round: number): { session: PvpSession; lines: string[] } {
+function applyGroundEffects(session: PvpSession, round: number, targetOnly?: PvpRole): { session: PvpSession; lines: string[] } {
     let p1 = session.p1;
     let p2 = session.p2;
     const lines: string[] = [];
     for (const effect of session.groundEffects ?? []) {
         const targetRole = effect.owner === 'p1' ? 'p2' : 'p1';
+        if (targetOnly !== undefined && targetRole !== targetOnly) continue;
         if (targetRole === 'p1') {
             const applied = applyGroundEffectToFighter(p1, effect, round);
             p1 = applied.fighter;
@@ -469,9 +550,20 @@ function applyGroundEffects(session: PvpSession, round: number): { session: PvpS
     return { session: { ...session, p1, p2 }, lines };
 }
 // Exported for the ground-effect timing test (_combat-tags.test.ts).
-export function tickGroundEffects(effects: PvpGroundEffect[] | undefined): PvpGroundEffect[] {
+export function tickGroundEffects(effects: PvpGroundEffect[] | undefined, completedRound = Number.POSITIVE_INFINITY, roundOpener?: PvpRole): PvpGroundEffect[] {
     return (effects ?? [])
-        .map(effect => ({ ...effect, rounds: effect.rounds - 1 }))
+        .map(effect => {
+            const activeRound = effect.activeRound;
+            // Only an opener cast whose target was actually inside the zone
+            // consumes duration here. An off-target opener zone and every closer
+            // zone remain fresh for their first future recurrence. The explicit
+            // stamp avoids inferring a hit from seat/phase alone.
+            const openerCastConsumedThisRound = effect.castPulseConsumed === true
+                && activeRound === completedRound + 1;
+            return activeRound !== undefined && activeRound > completedRound && !openerCastConsumedThisRound
+                ? effect
+                : { ...effect, rounds: effect.rounds - 1 };
+        })
         .filter(effect => effect.rounds > 0);
 }
 // Exported so other server-authoritative combat modes (Battle Towers' N-actor engine)
@@ -512,6 +604,10 @@ function ampMultiplierFor(attacker: PvpFighter, defender: PvpFighter, round: num
 // bloodline table — a weapon has no rank, so it would otherwise take the 30 floor.
 function scaledTagPercent(rawPct: number, masteryLevel: number, tagName?: string, bloodlineRank?: string | null, capOverride?: number): number {
     return scaleCombatTagPercent(rawPct, masteryLevel, tagName, bloodlineRank, CAPPED_AMP_TAGS, capOverride);
+}
+
+function isWeaponSwing(jutsu: Pick<Jutsu, 'weaponSwing'>): boolean {
+    return jutsu.weaponSwing === true;
 }
 
 // ─── Jutsu application — resolved in explicit, fixed-order phases ─────────────
@@ -599,10 +695,12 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
     // the FLAT ceiling — maxed casts stay exactly HEAL_FLAT/SHIELD_FLAT, low-mastery
     // ones heal/shield proportionally less (curbs early heal-spam). See masteryDamageFrac.
 
-    // A WEAPON SWING is not a jutsu. Every weapon synth (PvP move.ts, solo-PvE
-    // _engine.ts, towers _engine.ts) marks itself `isUtility: false` — the flag that
-    // already exempts it from the legacy 40-AP zero-damage rule, and the only place
-    // in the repo that sets it. Two jutsu-only conventions are wrong for a swing:
+    // A WEAPON SWING is not a jutsu. Every server weapon synth (PvP move.ts,
+    // solo-PvE _engine.ts, towers _engine.ts) stamps `weaponSwing: true` in
+    // addition to `isUtility: false`. The latter only opts out of the legacy
+    // 40-AP zero-damage rule; it is also valid on an authored damage jutsu and
+    // therefore must not grant weapon-only scaling. Two jutsu conventions are
+    // wrong for a stamped swing:
     //
     //  1. Heal/Shield no longer zero the direct damage at all. A cast that deals
     //     damage KEEPS it, and the heal/shield rides on top (owner ruling
@@ -626,7 +724,7 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
     //
     // The flat Heal/Shield MAGNITUDE deliberately keeps the real mastery — a swing
     // heals its ~30% share, not a full jutsu's 750. See _weapon-damage.test.ts.
-    const weaponSwing = jutsu.isUtility === false;
+    const weaponSwing = isWeaponSwing(jutsu);
     const tagPercentMastery = weaponSwing ? JUTSU_MAX_LEVEL : masteryLevel;
     for (const tag of tags) {
         // Branch on the CANONICAL name only — sessions are sealed canonical, and
@@ -639,13 +737,22 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         const stackLabel = tagTotal > 1 ? ` (stack ${tagOccurrence}/${tagTotal})` : '';
         const pct = Math.floor(scaledTagPercent(tag.percent ?? 0, tagPercentMastery, tagName, jutsu.bloodlineRank, weaponSwing ? WEAPON_AMP_TAG_CAP : undefined));
         if (tagName === 'Heal') { const healAmt = healAmountForMastery(masteryLevel, healBoost); healing += healAmt; lines.push(`Heal: ${s.name} restores ${healAmt} HP.`); continue; }
-        if (tagName === 'Shield') { const shieldAmt = shieldAmountForMastery(masteryLevel); shieldGain += shieldAmt; lines.push(`Shield: ${s.name} gains ${shieldAmt} shield.`); continue; }
+        if (tagName === 'Shield') {
+            const requested = shieldAmountForMastery(masteryLevel);
+            const available = Math.max(0, pvpLiveShieldCap(s) - boundedShield(s) - shieldGain);
+            const granted = Math.min(requested, available);
+            shieldGain += granted;
+            lines.push(granted > 0
+                ? `Shield: ${s.name} gains ${granted} shield.`
+                : `Shield: ${s.name}'s shield is already at its cap.`);
+            continue;
+        }
         // Barrier stays a JUTSU-only tag: it drops a wall tile on the board, which
         // is a cast-time control mechanic, not something a blade does. Owner ruling
         // 2026-08-16 — no built-in weapon carries it and the forge cannot roll it, so
         // this exempts nothing today; it is the fail-safe if one ever reaches a swing.
         // sanitizePvpItems strips it from weapon tags at the seal (the real gate).
-        if (tagName === 'Barrier') { const tile = nextStepToward(s.pos, o.pos); if (tile !== s.pos && tile !== o.pos) { s = addStatus(s, { name: 'Barrier', rounds: 2, amount: tile, kind: 'positive' }); lines.push(`Barrier: ${s.name} blocks hex ${tile} for 2 turns.`); } else lines.push(`Barrier: no room to place a wall.`); damage = 0; continue; }
+        if (tagName === 'Barrier') { const tile = nextStepToward(s.pos, o.pos); if (tile !== s.pos && tile !== o.pos) { s = addJutsuStatus(s, jutsu, { name: 'Barrier', rounds: 2, amount: tile, kind: 'positive' }, round); lines.push(`Barrier: ${s.name} blocks hex ${tile} for 2 turns.`); } else lines.push(`Barrier: no room to place a wall.`); damage = 0; continue; }
         if (tagName === 'Pierce') { pierce = true; lines.push(`Pierce: bypasses defenses.`); continue; }
         if (tagName === 'Stun') { if (!hasStatus(o, 'Debuff Prevent', round) && !hasStatus(o, 'Stun Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Stun', rounds: 1, kind: 'negative' }, round); lines.push(`Stun: ${o.name} loses 40 AP next turn.`); } continue; }
         if (tagName === 'Poison') { if (!hasStatus(o, 'Debuff Prevent', round)) { const poisonPct = pct > 0 ? pct : 6; o = addJutsuStatus(o, jutsu, { name: 'Poison', rounds: 2, percent: poisonPct, kind: 'negative' }, round); if (COMBAT_RESOURCES_V2) { lines.push(`Poison: ${o.name} is poisoned for 2 turns — casting jutsu will hurt.`); } else { const dmg = Math.floor(o.maxChakra * (poisonPct / 100)); lines.push(`Poison: ${o.name} takes ~${dmg}/round for 2 turns.`); } } continue; }
@@ -672,18 +779,33 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         if (tagName === 'Cleanse Prevent') { if (!hasStatus(o, 'Debuff Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Cleanse Prevent', rounds: 2, kind: 'negative' }, round); lines.push(`Cleanse Prevent: ${o.name} cannot cleanse debuffs for 2 turns.`); } continue; }
         if (tagName === 'Clear Prevent') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Clear Prevent', rounds: 2, kind: 'positive' }, round); lines.push(`Clear Prevent: ${s.name}'s buffs cannot be cleared for 2 turns.`); } continue; }
         if (tagName === 'Stun Prevent') { s = addJutsuStatus(s, jutsu, { name: 'Stun Prevent', rounds: 2, kind: 'positive' }, round); lines.push(`Stun Prevent: ${s.name} is immune to Stun for 2 turns.`); continue; }
-        if (tagName === 'Copy') { if (!hasStatus(s, 'Buff Prevent', round)) { const copied = activeStatuses(o, round).filter(st => st.kind === 'positive'); copied.forEach(st => { s = addJutsuStatus(s, jutsu, { ...st, rounds: Math.min(2, st.rounds) }, round); }); lines.push(`Copy: ${s.name} copied ${copied.length ? copied.map(st => st.name).join(', ') : 'nothing'} from ${o.name}.`); } continue; }
+        if (tagName === 'Copy') {
+            if (!hasStatus(s, 'Buff Prevent', round)) {
+                const copied = activeStatuses(o, round).filter(st => (
+                    st.kind === 'positive' && !COPY_EXCLUDED_BUFFS.has(normalizeTagName(st.name))
+                ));
+                copied.forEach(st => {
+                    s = addJutsuStatus(s, jutsu, { ...st, rounds: 2 }, round);
+                });
+                lines.push(`Copy: ${s.name} copied ${copied.length ? copied.map(st => st.name).join(', ') : 'nothing'} from ${o.name} for 2 rounds.`);
+            } else {
+                lines.push(`Copy: ${s.name}'s Buff Prevent blocks the copied buffs.`);
+            }
+            continue;
+        }
         if (tagName === 'Mirror') {
-            // Copies caster's non-DoT debuffs onto the opponent. Debuffs stay
-            // on the caster too — Mirror is "spread the pain", not "free
-            // cleanse + transfer". Sim showed the old transfer behavior let
-            // Disruption builds win 100% vs setup-heavy opponents.
-            const mirrored = activeStatuses(s, round).filter(st => st.kind === 'negative'
-                && st.name !== 'Wound' && !nameMatches(st.name, 'Ignition')
-                && st.name !== 'Poison' && st.name !== 'Drain');
+            // Copy every currently-active caster debuff for a fresh two-round
+            // window. Originals stay on the caster; pending effects are omitted
+            // by activeStatuses. Debuff Prevent blocks the whole Mirror cast.
+            const mirrored = activeStatuses(s, round).filter(st => st.kind === 'negative');
             if (!hasStatus(o, 'Debuff Prevent', round)) {
-                mirrored.forEach(st => { o = addJutsuStatus(o, jutsu, { ...st, rounds: Math.min(2, st.rounds) }, round); });
-                lines.push(`Mirror: ${s.name} copies ${mirrored.length ? mirrored.map(st => st.name).join(', ') : 'no debuffs'} onto ${o.name}.`);
+                mirrored.forEach(st => {
+                    o = addJutsuStatus(o, jutsu, { ...st, rounds: 2 }, round);
+                    if (nameMatches(st.name, 'Wound')) o = capWoundStacks(o, round);
+                });
+                lines.push(`Mirror: ${s.name} copies ${mirrored.length ? mirrored.map(st => st.name).join(', ') : 'no debuffs'} onto ${o.name} for 2 rounds.`);
+            } else {
+                lines.push(`Mirror: ${o.name}'s Debuff Prevent blocks the mirrored debuffs.`);
             }
             continue;
         }
@@ -695,7 +817,7 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         // fighters are built, so it raises this fighter's offense AND defense. Stores the
         // scaled + rank-capped pct like the amp tags; stacks (STACKABLE_STATUS) but the
         // summed effect is soft-capped by K_GENERALS.
-        if (tagName === 'Increase Generals') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Increase Generals', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Increase Generals: ${s.name}'s general stats rise ${pct}% for 2 turns.`); } continue; }
+        if (tagName === 'Increase Generals') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Increase Generals', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Increase Generals: ${s.name} gains ${pct}% general-stat potency for 2 turns.`); } continue; }
         // Increase Discipline (legacy signature jutsu): style-locked self-buff. Lifts
         // ONLY the offense composite of the cast jutsu's discipline — the discipline is
         // captured server-side from jutsu.type here (never client-supplied) and read
@@ -705,14 +827,14 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
             const disc = DISCIPLINE_OFFENSE_FIELD[String(jutsu.type ?? '')] ? (jutsu.type as PvpStatus['discipline']) : undefined;
             if (disc && !hasStatus(s, 'Buff Prevent', round)) {
                 s = addJutsuStatus(s, jutsu, { name: 'Increase Discipline', rounds: 2, percent: pct, kind: 'positive', discipline: disc }, round);
-                lines.push(`Increase Discipline: ${s.name}'s ${disc} offense rises ${pct}% for 2 turns.`);
+                lines.push(`Increase Discipline: ${s.name} gains ${pct}% ${disc} offense potency for 2 turns.`);
             }
             continue;
         }
         // Push/Pull resolve INSTANTLY (matches PvE) — was deferred to next round
         // for non-ground jutsus. Displacement happens on cast.
-        if (tagName === 'Push') { if (!hasStatus(o, 'Debuff Prevent', round)) { const dist = Math.max(1, Number(jutsu.range) || 1); let nextPos = o.pos; for (let step = 0; step < dist; step++) { const away = hexNeighbors(nextPos).filter(t => distance(t, s.pos) > distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, s, o)); if (!away.length) break; nextPos = away[0]!; } o = { ...o, pos: nextPos }; lines.push(`Push: ${o.name} is pushed ${dist} tile(s).`); } continue; }
-        if (tagName === 'Pull') { if (!hasStatus(o, 'Debuff Prevent', round)) { const dist = Math.max(1, Number(jutsu.range) || 1); let nextPos = o.pos; for (let step = 0; step < dist; step++) { const toward = hexNeighbors(nextPos).filter(t => distance(t, s.pos) < distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, s, o)); if (!toward.length) break; nextPos = toward[0]!; } o = { ...o, pos: nextPos }; lines.push(`Pull: ${o.name} is pulled ${dist} tile(s).`); } continue; }
+        if (tagName === 'Push') { if (!hasStatus(o, 'Debuff Prevent', round)) { const dist = Math.max(1, Number(jutsu.range) || 1); let nextPos = o.pos; let movedTiles = 0; for (let step = 0; step < dist; step++) { const away = hexNeighbors(nextPos).filter(t => distance(t, s.pos) > distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, round, s, o)); if (!away.length) break; nextPos = away[0]!; movedTiles += 1; } o = { ...o, pos: nextPos }; lines.push(`Push: ${o.name} is pushed ${movedTiles} tile(s).`); } continue; }
+        if (tagName === 'Pull') { if (!hasStatus(o, 'Debuff Prevent', round)) { const dist = Math.max(1, Number(jutsu.range) || 1); let nextPos = o.pos; let movedTiles = 0; for (let step = 0; step < dist; step++) { const toward = hexNeighbors(nextPos).filter(t => distance(t, s.pos) < distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, round, s, o)); if (!toward.length) break; nextPos = toward[0]!; movedTiles += 1; } o = { ...o, pos: nextPos }; lines.push(`Pull: ${o.name} is pulled ${movedTiles} tile(s).`); } continue; }
         if (tagName === 'Bloodline Seal') { if (!hasStatus(o, 'Debuff Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Bloodline Seal', rounds: 2, kind: 'negative' }, round); lines.push(`Bloodline Seal: ${o.name}'s bloodline is sealed.`); } continue; }
         if (tagName === 'Elemental Seal') { if (!hasStatus(o, 'Debuff Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Elemental Seal', rounds: 1, kind: 'negative' }, round); lines.push(`Elemental Seal: ${o.name}'s elemental jutsu are sealed.`); } continue; }
         // Recoil applies regardless of THIS jutsu's damage — a zero-damage 40-AP
@@ -758,12 +880,14 @@ function resolveDamageNumber(self: PvpFighter, opponent: PvpFighter, jutsu: Juts
 //   8. siphon                attacker heal from finalDmg
 // All post-damage effects are capped at 60% of finalDmg via cappedPostDamage().
 // Pierce skips shield/reflect/absorb (true damage). Reordering changes outcomes.
-function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round: number, damage: number, pierce: boolean, healBoost: number): { s: PvpFighter; o: PvpFighter; lines: string[]; fx: HitFxEvent[] } {
+function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round: number, masteryLevel: number, damage: number, pierce: boolean, healBoost: number): { s: PvpFighter; o: PvpFighter; lines: string[]; fx: HitFxEvent[] } {
     const tags = jutsu.tags ?? [];
     const lines: string[] = [];
     const fx: HitFxEvent[] = [];
     let s = sIn;
     let o = oIn;
+    const weaponSwing = isWeaponSwing(jutsu);
+    const tagPercentMastery = weaponSwing ? JUTSU_MAX_LEVEL : masteryLevel;
 
     // Absorb/Reflect stack additively across active stacks (hard-capped at 60%
     // by cappedPostDamage), matching Lifesteal below. Was first-stack-only (.find).
@@ -788,7 +912,10 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
         itemLifeStealPct: s.character.itemLifeStealPct,
     });
 
-    o = { ...o, hp: Math.max(0, o.hp - finalDmg), shield: Math.max(0, o.shield - damage) };
+    // Only damage actually absorbed by the shield may reduce it. Pierce reports
+    // blocked=0 and bypasses the pool entirely; subtracting raw damage here made
+    // true damage also erase the shield it was supposed to ignore.
+    o = { ...o, hp: Math.max(0, o.hp - finalDmg), shield: Math.max(0, o.shield - blocked) };
     if (absorbHeal > 0) o = { ...o, hp: Math.min(o.maxHp, o.hp + absorbHeal) };
     if (itemAbsorbHeal > 0) o = { ...o, hp: Math.min(o.maxHp, o.hp + itemAbsorbHeal) };
     if (blocked > 0) lines.push(`${blocked} absorbed by ${o.name}'s shield.`);
@@ -801,18 +928,29 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
 
     for (const tag of tags) {
         const tagName = normalizeTagName(tag.name);
-        const pct = tag.percent ?? 0;
-        if (tagName === 'Wound' && !hasStatus(o, 'Debuff Prevent', round)) {
+        // Wound/Siphon are instant post-damage riders, but their authored value
+        // follows the same mastery ramp as status-phase percentage tags. Siphon
+        // additionally uses the standard per-rank amp cap; Wound keeps its own
+        // lower rank table inside woundAmountForFinalDamage. Weapon tags resolve
+        // at their displayed/max-mastery value under the weapon amp ceiling.
+        const pct = Math.floor(scaledTagPercent(
+            tag.percent ?? 0,
+            tagPercentMastery,
+            tagName,
+            jutsu.bloodlineRank,
+            weaponSwing ? WEAPON_AMP_TAG_CAP : undefined,
+        ));
+        if (tagName === 'Wound' && pct > 0 && finalDmg > 0 && !hasStatus(o, 'Debuff Prevent', round)) {
             // v4.3: Wound bleeds finalDmg × min(tag.pct, rank_cap, 60%) per tick.
             // Basic jutsus cap at 25%, A/B-rank bloodline at 30%, S-rank at 35%.
             const amt = woundAmountForFinalDamage(finalDmg, pct, jutsu);
-            o = capWoundStacks(addJutsuStatus(o, jutsu, { name: 'Wound', rounds: 2, amount: amt, kind: 'negative' }, round));
+            o = capWoundStacks(addJutsuStatus(o, jutsu, { name: 'Wound', rounds: 2, amount: amt, kind: 'negative' }, round), round);
             lines.push(`Wound: ${o.name} bleeds ${amt}/turn for 2 turns.`);
         }
         // Recoil debuff application happens in the status phase so it applies even
         // on zero-damage utility jutsu. (Self-recoil damage is resolved below,
         // gated on finalDmg.)
-        if (tagName === 'Siphon') { const h = postDamagePercentAmount(finalDmg, pct, healBoost); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`Siphon: ${s.name} heals ${h} HP.`); pushFx(fx, 'self', h, 'heal'); }
+        if (tagName === 'Siphon' && pct > 0 && finalDmg > 0) { const h = postDamagePercentAmount(finalDmg, pct, healBoost); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`Siphon: ${s.name} heals ${h} HP.`); pushFx(fx, 'self', h, 'heal'); }
     }
 
     const recoilStatus = activeStatuses(s, round).find(st => st.name === 'Recoil');
@@ -832,7 +970,10 @@ const pvpResolveJutsuPhases = {
     resolveDamageNumber,
     resolvePostDamage,
     applyHealing: (fighter: PvpFighter, amount: number): PvpFighter => ({ ...fighter, hp: Math.min(fighter.maxHp, fighter.hp + amount) }),
-    applyShield: (fighter: PvpFighter, amount: number): PvpFighter => ({ ...fighter, shield: fighter.shield + amount }),
+    applyShield: (fighter: PvpFighter, amount: number): PvpFighter => ({
+        ...fighter,
+        shield: Math.min(pvpLiveShieldCap(fighter), boundedShield(fighter) + Math.max(0, amount)),
+    }),
     makeHitFx: (who: 'self' | 'opp', amount: number, kind: 'damage' | 'heal'): HitFxEvent | undefined => (
         amount > 0 ? { who, amount: Math.round(amount), kind } : undefined
     ),
@@ -842,6 +983,11 @@ const pvpResolveJutsuPhases = {
 // and the characterization snapshot (_applyjutsu-characterization.test.ts), which
 // pin the "lingering tags don't fire on the cast turn" behaviour + exact numbers.
 export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult = 1, biome = 'central', round = 1, damageCap?: number): { self: PvpFighter; opponent: PvpFighter; lines: string[]; fx: HitFxEvent[]; metadata: ResolveJutsuMetadata } {
+    // Normalize legacy/forged over-cap rows before either fighter participates
+    // in damage or support resolution; otherwise one old oversized shield could
+    // still absorb a full hit before checkWinner repaired it after the action.
+    self = withBoundedShield(self);
+    opponent = withBoundedShield(opponent);
     // Use jutsu mastery level (0–50) for EP scaling so trained jutsus hit harder in PvP.
     // Falls back to 0 if the jutsu has never been trained (no bonus).
     const jutsuMasteries = (self.character.jutsuMastery as Array<{ jutsuId: string; level: number }> | null) ?? [];
@@ -861,7 +1007,12 @@ export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
     // so an active buff can push the effective generals above the per-rank ceiling — the
     // only intended way to break the maxed-mirror statFactor=1.0 parity. Applied to both
     // fighters so it lifts the caster's offense AND (on the opponent's copy) their defense.
-    const cappedSelf = { ...self, character: { ...self.character, stats: withDisciplineBonuses(withGeneralsBonus(perRankStatCap((self.character.stats as Record<string, number>) ?? {}, Number(self.character.level) || 1), generalsBonus(self, round)), disciplineBonuses(self, round)) } };
+    // Increase Discipline is tied to one named style. Adaptive `Any` casts (and
+    // malformed unknown types) choose their strongest natural composite, but do
+    // not get to shop across every active style buff for an extra maximum. This
+    // matches the client preview's exact status.discipline === jutsu.type rule.
+    const castHasDiscipline = ['Ninjutsu', 'Taijutsu', 'Bukijutsu', 'Genjutsu'].includes(jutsu.type);
+    const cappedSelf = { ...self, character: { ...self.character, stats: withDisciplineBonuses(withGeneralsBonus(perRankStatCap((self.character.stats as Record<string, number>) ?? {}, Number(self.character.level) || 1), generalsBonus(self, round)), castHasDiscipline ? disciplineBonuses(self, round) : {}) } };
     const cappedOpp = { ...opponent, character: { ...opponent.character, stats: withDisciplineBonuses(withGeneralsBonus(perRankStatCap((opponent.character.stats as Record<string, number>) ?? {}, Number(opponent.character.level) || 1), generalsBonus(opponent, round)), disciplineBonuses(opponent, round)) } };
 
     const resolved = resolveCoreJutsu({
@@ -946,18 +1097,20 @@ function applyQueuedMovement(target: PvpFighter, source: PvpFighter, round: numb
     for (const status of movementStatuses) {
         const dist = Math.max(1, status.amount ?? 1);
         let nextPos = fighter.pos;
+        let movedTiles = 0;
         for (let step = 0; step < dist; step++) {
             const candidates = hexNeighbors(nextPos).filter(tile => {
-                if (tile === source.pos || tileBlocked(tile, fighter, source)) return false;
+                if (tile === source.pos || tileBlocked(tile, round, fighter, source)) return false;
                 return status.name === 'Push'
                     ? distance(tile, source.pos) > distance(nextPos, source.pos)
                     : distance(tile, source.pos) < distance(nextPos, source.pos);
             });
             if (!candidates.length) break;
             nextPos = candidates[0]!;
+            movedTiles += 1;
         }
         fighter = { ...fighter, pos: nextPos };
-        lines.push(`${status.name}: ${fighter.name} is ${status.name === 'Push' ? 'pushed' : 'pulled'} ${dist} tile(s).`);
+        lines.push(`${status.name}: ${fighter.name} is ${status.name === 'Push' ? 'pushed' : 'pulled'} ${movedTiles} tile(s).`);
     }
     if (movementStatuses.length) {
         fighter = { ...fighter, statuses: fighter.statuses.filter(status => !movementStatuses.includes(status)) };
@@ -965,9 +1118,20 @@ function applyQueuedMovement(target: PvpFighter, source: PvpFighter, round: numb
     return { fighter, lines };
 }
 
+function normalizedEffectiveHealthParts(fighter: Pick<PvpFighter, 'hp' | 'maxHp' | 'shield'>): { effective: number; maxHp: number } {
+    const maxHp = Math.max(1, Number(fighter.maxHp) || 0);
+    const hp = Math.max(0, Math.min(Number(fighter.hp) || 0, maxHp));
+    return { effective: hp + boundedShield(fighter), maxHp };
+}
+export function pvpNormalizedEffectiveHealth(fighter: Pick<PvpFighter, 'hp' | 'maxHp' | 'shield'>): number {
+    const { effective, maxHp } = normalizedEffectiveHealthParts(fighter);
+    return effective / maxHp;
+}
+
 function checkWinner(s: PvpSession): PvpSession {
     if (s.status === 'done') return s;
-    const { p1, p2 } = s;
+    const p1 = withBoundedShield(s.p1);
+    const p2 = withBoundedShield(s.p2);
     const lines: string[] = [];
     let status: 'active' | 'done' = 'active';
     let winner: 'p1' | 'p2' | 'draw' | null = null;
@@ -976,30 +1140,58 @@ function checkWinner(s: PvpSession): PvpSession {
     else if (p2.hp <= 0) { status = 'done'; winner = 'p1'; lines.push(`⚔️ ${p1.name} wins!`); }
     else if (s.round > MAX_ROUNDS) {
         status = 'done';
-        if (p1.hp > p2.hp) { winner = 'p1'; lines.push(`Time limit! ${p1.name} wins by HP!`); }
-        else if (p2.hp > p1.hp) { winner = 'p2'; lines.push(`Time limit! ${p2.name} wins by HP!`); }
-        else { winner = 'draw'; lines.push('Time limit! Draw!'); }
+        const p1Health = normalizedEffectiveHealthParts(p1);
+        const p2Health = normalizedEffectiveHealthParts(p2);
+        // Compare the ratios by cross multiplication, avoiding float epsilon
+        // surprises. Exact equality is a deterministic draw. Bounded shields
+        // count as live effective health; raw HP totals no longer privilege the
+        // fighter with the larger HP pool.
+        const comparison = p1Health.effective * p2Health.maxHp - p2Health.effective * p1Health.maxHp;
+        if (comparison > 0) { winner = 'p1'; lines.push(`Time limit! ${p1.name} wins by normalized effective health!`); }
+        else if (comparison < 0) { winner = 'p2'; lines.push(`Time limit! ${p2.name} wins by normalized effective health!`); }
+        else { winner = 'draw'; lines.push('Time limit! Equal normalized effective health — draw!'); }
     }
-    return { ...s, status, winner, log: lines.length ? [...s.log, ...lines] : s.log };
+    return { ...s, p1, p2, status, winner, log: lines.length ? [...s.log, ...lines] : s.log };
 }
 
 // ─── End active player's turn, hand off to the other ──────────────────────────
 function endTurn(session: PvpSession): PvpSession {
     const current = session.activePlayer;
     const next: 'p1' | 'p2' = current === 'p1' ? 'p2' : 'p1';
-    const newRound = current === 'p2' ? session.round + 1 : session.round;
+    const roundAdvanced = current !== roundOpenerFor(session);
+    const newRound = roundAdvanced ? session.round + 1 : session.round;
     const lines: string[] = [];
-    if (newRound > session.round) lines.push(`--- Round ${newRound} ---`);
+    if (roundAdvanced) lines.push(`--- Round ${newRound} ---`);
 
-    // Tick current player's statuses + cooldowns
+    // The closer just consumed the match's 50th and final player-turn. Resolve
+    // the timeout before granting the opener any round-26 start-of-turn DoT,
+    // ground pulse, regen, or stun processing that the closer can never receive.
+    if (newRound > MAX_ROUNDS) {
+        return checkWinner({
+            ...session,
+            round: newRound,
+            log: lines.length ? [...session.log, ...lines] : session.log,
+        });
+    }
+
+    // Status duration is a round property, not a seat property. Tick both sides
+    // once, after the round's closer acts. The prior current-player-only tick
+    // made a deferred two-round buff last one opponent attack for the opener but
+    // two for the closer. Cooldowns remain per-fighter and tick after that
+    // fighter's own turn as before.
     let s = { ...session };
-    if (newRound > session.round) {
-        s = { ...s, groundEffects: tickGroundEffects(s.groundEffects) };
+    if (roundAdvanced) {
+        s = {
+            ...s,
+            p1: tickStatuses(s.p1, session.round),
+            p2: tickStatuses(s.p2, session.round),
+            groundEffects: tickGroundEffects(s.groundEffects, session.round, roundOpenerFor(session)),
+        };
     }
     if (current === 'p1') {
-        s = { ...s, p1: tickStatuses(s.p1, session.round), cooldowns: { ...s.cooldowns, p1: tickCooldowns(s.cooldowns.p1) } };
+        s = { ...s, cooldowns: { ...s.cooldowns, p1: tickCooldowns(s.cooldowns.p1) } };
     } else {
-        s = { ...s, p2: tickStatuses(s.p2, session.round), cooldowns: { ...s.cooldowns, p2: tickCooldowns(s.cooldowns.p2) } };
+        s = { ...s, cooldowns: { ...s.cooldowns, p2: tickCooldowns(s.cooldowns.p2) } };
     }
 
     // combatResourcesV2: the next fighter regenerates chakra/stamina at the start of
@@ -1008,7 +1200,11 @@ function endTurn(session: PvpSession): PvpSession {
 
     // Apply DoTs to the next player at start of their turn
     let nextFighter = next === 'p1' ? s.p1 : s.p2;
-    const groundApplied = applyGroundEffects(s, newRound);
+    // Recurring zone effects apply only when the target starts a turn. An opener
+    // cast already supplied this round's explicit pulse; a closer cast did not,
+    // because its target had acted. Phase-aware boundary aging plus target-only
+    // recurrence yields exactly two affected target turns in either case.
+    const groundApplied = applyGroundEffects(s, newRound, next);
     s = groundApplied.session;
     nextFighter = next === 'p1' ? s.p1 : s.p2;
     lines.push(...groundApplied.lines);
@@ -1054,7 +1250,8 @@ function endTurn(session: PvpSession): PvpSession {
     const stunStatus = activeStatuses(nextFighter, newRound).find(st => st.name === 'Stun');
     const baseAp = stunStatus ? Math.max(0, 100 - STUN_AP_PENALTY) : 100;
     if (stunStatus) {
-        const unstunned = { ...nextFighter, statuses: nextFighter.statuses.filter(st => st.name !== 'Stun') };
+        const consumedStun = removeActiveCombatStatusesByName(nextFighter.statuses, ['Stun'], newRound, nameMatches);
+        const unstunned = { ...nextFighter, statuses: consumedStun.statuses };
         // Append to s.log directly: `lines` was already merged into s.log above
         // (via checkWinner) before this point, so a late lines.push() here was
         // silently dropped — the stun message never reached the combat log.
@@ -1070,8 +1267,8 @@ function endTurn(session: PvpSession): PvpSession {
 
     // The next turn's clock starts now — the server enforces its deadline
     // (api/pvp/_turn-deadline.ts) independently of the browser countdown.
-    // `commit()` re-stamps it again on every real action the next player takes,
-    // so the deadline measures silence rather than capping a multi-action turn.
+    // `commit()` re-stamps it on every real action, matching the client's reset:
+    // the deadline measures silence during a multi-action turn.
     return { ...s, activePlayer: next, ap: { ...s.ap, [next]: baseAp }, actionsThisTurn: 0, turnStartedAt: Date.now() };
 }
 
@@ -1135,9 +1332,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // NOTE: biome and weather* are intentionally NOT read from the body —
         // they were a trust-the-client hole. We pull them from the session
         // that was sealed at create time.
-        const { battleId, role, action, tile, jutsuId, itemId, itemName, auto, moveToken } = body as {
+        const { battleId, role, action, tile, jutsuId, itemId, itemName, moveToken } = body as {
             battleId?: string;
-            role?: 'p1' | 'p2';
+            role?: string;
             action?: string;
             tile?: number;
             jutsuId?: string;
@@ -1147,6 +1344,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             moveToken?: string;  // client-generated UUID for idempotency
         };
         if (!battleId || !role || !action) return res.status(400).json({ error: 'Missing battleId, role, or action' });
+        if (role !== 'p1' && role !== 'p2') return res.status(400).json({ error: 'Invalid PvP role.' });
 
         // Authenticate before selecting the named quota key. A request body is
         // not identity proof and must never be able to burn another user's cap.
@@ -1329,8 +1527,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // gate below then rejects it (only valid on the opponent's
                 // turn) - so an abandoned fight slipped a full round on every
                 // attempt instead of resolving. The claim reads consecAutoWait
-                // and lastMoveAt, which polls and the opponent's own moves
-                // already keep current.
+                // plus the sealed active-turn anchor directly.
                 if (action !== 'claim-afk-win') {
                     try {
                         const enforced = await enforcePvpTurnDeadlineLocked(kv, key, session, Date.now(), { stampLegacy: false });
@@ -1582,23 +1779,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }));
                 s = { ...s, vfx: mapped, vfxSeq: (session.vfxSeq ?? 0) + 1 };
             }
-            // Stamp lastMoveAt + reset this player's AFK counter (any real
-            // action ends the streak of skipped rounds). Both are read by
-            // the claim-afk-win action.
-            //
-            // turnStartedAt is re-stamped here too, so the server's deadline
-            // (api/pvp/_turn-deadline.ts) measures "time since your last
-            // action", NOT "time since your turn began". A turn is worth 100 AP
-            // and up to MAX_ACTIONS actions, and the browser's ring already
-            // resets on every action - anchoring the deadline to the start of
-            // the turn hard-capped a multi-action turn at one turn length and
-            // auto-passed a player who was visibly still acting, taking their
-            // unspent AP with it. The deadline exists ONLY to unfreeze a match
-            // against a closed tab; a player who is present and acting must
-            // never be timed out. A `wait` (manual or timer-fired) deliberately
-            // does NOT come through here, so an idle turn still lapses on time.
+            // A real action is combat contact: it resets this player's skipped-
+            // round streak and re-anchors the silence deadline, matching the
+            // client countdown reset. Skip credit below is still derived from
+            // this sealed timestamp rather than trusting the request's auto bit.
             const nextConsec = { ...(s.consecAutoWait ?? {}), [role as 'p1' | 'p2']: 0 };
-            s = { ...s, lastMoveAt: Date.now(), turnStartedAt: Date.now(), consecAutoWait: nextConsec };
+            const actedAt = Date.now();
+            s = { ...s, lastMoveAt: actedAt, turnStartedAt: actedAt, consecAutoWait: nextConsec };
             return checkWinner(s);
         }
 
@@ -1659,12 +1846,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         switch (action) {
             case 'wait': {
-                // Determine whether this wait counts as an AFK skip. The
-                // client passes `auto: true` when the 45s round timer fired
-                // it. If the player took zero real actions this turn AND it
-                // was auto-fired, it's a skipped round — bump the counter.
-                // Manual wait OR auto-wait after actions resets the streak.
-                const isIdleAutoSkip = auto === true && session.actionsThisTurn === 0;
+                // The server derives an idle skip from its sealed turn anchor.
+                // `auto` is presentation metadata only: a client cannot send
+                // auto:true early to manufacture a forfeit streak.
+                const isIdleAutoSkip = session.actionsThisTurn === 0 && idleTurnReachedClientDeadline(session);
                 const prevCount = session.consecAutoWait?.[role] ?? 0;
                 const nextCount = isIdleAutoSkip ? prevCount + 1 : 0;
                 const consecAutoWait = { ...(session.consecAutoWait ?? {}), [role]: nextCount };
@@ -1681,9 +1866,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return finish(withRejected(session, 'A forfeit win is unavailable until both fighters have joined the battle.'));
                 }
                 // Inactive player claims the win when the active player has
-                // skipped 2 consecutive rounds (let the 45s timer run out
-                // twice). Falls back to a 90s "no contact" timeout for the
-                // crashed-tab case where the round timer never fires.
+                // skipped 2 consecutive rounds. The crashed-tab fallback is
+                // anchored to the ACTIVE turn, not global lastMoveAt: the
+                // claimant's own prior action must never make a fresh opponent
+                // look 90 seconds idle (or keep an absent opponent alive).
                 const oppRole: 'p1' | 'p2' = role === 'p1' ? 'p2' : 'p1';
                 const oppSkipCount = session.consecAutoWait?.[oppRole] ?? 0;
                 if (session.activePlayer === role && oppSkipCount < 2) {
@@ -1697,8 +1883,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return finish(withRejected(session, 'You can only claim a forfeit while it is your opponent\'s turn.'));
                 }
                 const AFK_FALLBACK_MS = 90_000;
-                const lastMove = Number(session.lastMoveAt ?? session.createdAt);
-                const elapsed = Date.now() - lastMove;
+                const activeTurnStartedAt = Number(session.turnStartedAt ?? session.lastMoveAt ?? session.createdAt);
+                const elapsed = Date.now() - activeTurnStartedAt;
                 const timedOut = elapsed >= AFK_FALLBACK_MS;
                 if (oppSkipCount < 2 && !timedOut) {
                     const remaining = Math.max(0, Math.ceil((AFK_FALLBACK_MS - elapsed) / 1000));
@@ -1719,7 +1905,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             case 'move': {
                 if (tile === undefined || !canAct(30)) return finish(withRejected(session, 'Move blocked — out of AP/actions this turn, or no tile selected.'));
-                if (!hexNeighbors(me.pos).includes(tile) || tile === opp.pos || tileBlocked(tile, me, opp)) return finish(withRejected(session, 'Move blocked — choose an adjacent open tile.'));
+                if (!hexNeighbors(me.pos).includes(tile) || tile === opp.pos || tileBlocked(tile, session.round, me, opp)) return finish(withRejected(session, 'Move blocked — choose an adjacent open tile.'));
                 lines.push(`${me.name} moves.`);
                 result = commit({ ...me, pos: tile }, null, 30);
                 break;
@@ -1775,9 +1961,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     lines.push(`${opp.name}'s Clear Prevent blocks the clear.`);
                     result = commit(null, null, 60, { clear: 10 }, undefined, undefined, [vfxEvent('opp', 'shield', 'target', 'minor')]);
                 } else {
-                    const removed = opp.statuses.filter(s => s.kind === 'positive').map(s => s.name);
+                    const cleared = removeActiveCombatStatusesByKind(opp.statuses, 'positive', session.round);
+                    const removed = cleared.removed.map(s => s.name);
                     lines.push(`Clear: removed ${removed.length ? removed.join(', ') : 'no positive effects'} from ${opp.name}.`);
-                    result = commit(null, { ...opp, statuses: opp.statuses.filter(s => s.kind !== 'positive') }, 60, { clear: 10 }, undefined, undefined, [vfxEvent('opp', 'cleanse', 'target')]);
+                    result = commit(null, { ...opp, statuses: cleared.statuses }, 60, { clear: 10 }, undefined, undefined, [vfxEvent('opp', 'cleanse', 'target')]);
                 }
                 break;
             }
@@ -1788,9 +1975,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     lines.push(`${me.name}'s Cleanse Prevent blocks the cleanse.`);
                     result = commit(null, null, 60, { cleanse: 10 }, undefined, undefined, [vfxEvent('self', 'seal', 'caster', 'minor')]);
                 } else {
-                    const removed = me.statuses.filter(s => s.kind === 'negative').map(s => s.name);
+                    const cleansed = removeActiveCombatStatusesByKind(me.statuses, 'negative', session.round);
+                    const removed = cleansed.removed.map(s => s.name);
                     lines.push(`Cleanse: removed ${removed.length ? removed.join(', ') : 'no negative effects'} from ${me.name}.`);
-                    result = commit({ ...me, statuses: me.statuses.filter(s => s.kind !== 'negative') }, null, 60, { cleanse: 10 }, undefined, undefined, [vfxEvent('self', 'cleanse', 'caster')]);
+                    result = commit({ ...me, statuses: cleansed.statuses }, null, 60, { cleanse: 10 }, undefined, undefined, [vfxEvent('self', 'cleanse', 'caster')]);
                 }
                 break;
             }
@@ -1832,7 +2020,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     board: {
                         width: GRID_W,
                         height: GRID_H,
-                        unavailableTiles: new Set([opp.pos, ...barrierTiles(me, opp)]),
+                        unavailableTiles: new Set([opp.pos, ...barrierTiles(session.round, me, opp)]),
                     },
                 });
                 if (!plan.accepted) {
@@ -1906,28 +2094,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     lines.push(`${me.name} dashes to hex ${destTile}.`);
                     if (plan.createsGroundEffect) {
                         // Dash in, then erupt a spiral ground nova centred on the
-                        // landing tile. The filled hex disk becomes a
-                        // 2-round ground zone carrying this jutsu's ground tags; the
-                        // enemy takes the effect immediately if caught inside it and
-                        // again each round they stand in the zone.
-                        const groundEffect: PvpGroundEffect = createCanonicalGroundEffect({
-                            id: `${jutsu.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-                            owner: role,
-                            name: jutsu.name,
-                            plan,
-                        });
+                        // landing tile. If the target still has a turn this round,
+                        // apply the cast pulse now; otherwise its first pulse lands
+                        // at next-turn handoff. Either phase affects two target turns.
+                        let groundEffect: PvpGroundEffect = {
+                            ...createCanonicalGroundEffect({
+                                id: `${jutsu.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                                owner: role,
+                                name: jutsu.name,
+                                plan,
+                            }),
+                            activeRound: session.round + 1,
+                        };
                         lines.push(`${jutsu.name} erupts in a spiral, blanketing ${groundEffect.tiles.length} hexes for 2 rounds.`);
-                        const spiralGround = applyGroundEffectToFighter(opp, groundEffect, session.round);
-                        lines.push(...spiralGround.lines);
+                        const spiralGround = role === roundOpenerFor(session)
+                            ? applyGroundEffectToFighter(opp, groundEffect, session.round, true)
+                            : null;
+                        groundEffect = {
+                            ...groundEffect,
+                            castPulseConsumed: spiralGround !== null && groundEffect.tiles.includes(opp.pos),
+                        };
+                        if (spiralGround) lines.push(...spiralGround.lines);
                         result = commit(
                             movedSelf,
-                            spiralGround.fighter,
+                            spiralGround?.fighter ?? null,
                             apCost,
                             cd,
                             { groundEffects: [...(session.groundEffects ?? []), groundEffect] },
                             undefined,
                             [
-                                vfxForJutsu(jutsu, movedSelf, spiralGround.fighter, undefined, { area: true, tiles: groundEffect.tiles, persistent: true, who: 'opp' }),
+                                vfxForJutsu(jutsu, movedSelf, spiralGround?.fighter ?? opp, undefined, { area: true, tiles: groundEffect.tiles, persistent: true, who: 'opp' }),
                                 ...spendPoisonVfx,
                             ],
                         );
@@ -1967,21 +2163,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             ],
                         );
                     } else {
+                        const secondaryTags = tags.filter(t => {
+                            const tagName = normalizeTagName(t.name);
+                            return tagName !== 'Move'
+                                && tagName !== 'Pierce'
+                                && !REQUIRES_DAMAGE_TAGS.has(tagName);
+                        });
                         const movementVfx = pureMoveJutsu
                             ? (spendPoisonVfx.length ? spendPoisonVfx : undefined)
                             : [
                                 vfxForJutsu(jutsu, movedSelf, opp, undefined, { tiles: [destTile], who: 'self' }),
                                 ...spendPoisonVfx,
                             ];
-                        result = commit(
-                            movedSelf,
-                            null,
-                            apCost,
-                            cd,
-                            undefined,
-                            undefined,
-                            movementVfx,
-                        );
+                        if (secondaryTags.length) {
+                            // SINGLE movement has no impact footprint, but its
+                            // authored secondary utility still resolves. Force
+                            // zero direct damage: this branch owns relocation +
+                            // tags; AOE_CIRCLE above exclusively owns dash impact.
+                            const secondaryJutsu: Jutsu = {
+                                ...jutsu,
+                                effectPower: 0,
+                                tags: secondaryTags,
+                            };
+                            const jr = applyJutsu(movedSelf, opp, secondaryJutsu, jWMult, biome, session.round, 0);
+                            lines.push(...jr.lines);
+                            result = commit(
+                                jr.self,
+                                jr.opponent,
+                                apCost,
+                                cd,
+                                undefined,
+                                jr.fx,
+                                movementVfx,
+                            );
+                        } else {
+                            result = commit(
+                                movedSelf,
+                                null,
+                                apCost,
+                                cd,
+                                undefined,
+                                undefined,
+                                movementVfx,
+                            );
+                        }
                     }
                     break;
                 }
@@ -1989,25 +2214,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (groundTarget && plan.targetTile !== undefined) {
                     const targetTile = plan.targetTile;
                     if (plan.createsGroundEffect) {
-                        const groundEffect: PvpGroundEffect = createCanonicalGroundEffect({
-                            id: `${jutsu.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-                            owner: role,
-                            name: jutsu.name,
-                            plan,
-                        });
+                        let groundEffect: PvpGroundEffect = {
+                            ...createCanonicalGroundEffect({
+                                id: `${jutsu.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                                owner: role,
+                                name: jutsu.name,
+                                plan,
+                            }),
+                            activeRound: session.round + 1,
+                        };
                         const paidSelf = paySpendPoison({ ...me, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) });
                         lines.push(`${jutsu.name} creates a ground effect for 2 rounds.`);
-                        const instantGround = applyGroundEffectToFighter(opp, groundEffect, session.round);
-                        lines.push(...instantGround.lines);
+                        const instantGround = role === roundOpenerFor(session)
+                            ? applyGroundEffectToFighter(opp, groundEffect, session.round, true)
+                            : null;
+                        groundEffect = {
+                            ...groundEffect,
+                            castPulseConsumed: instantGround !== null && groundEffect.tiles.includes(opp.pos),
+                        };
+                        if (instantGround) lines.push(...instantGround.lines);
                         result = commit(
                             paidSelf,
-                            instantGround.fighter,
+                            instantGround?.fighter ?? null,
                             apCost,
                             cd,
                             { groundEffects: [...(session.groundEffects ?? []), groundEffect] },
                             undefined,
                             [
-                                vfxForJutsu(jutsu, paidSelf, instantGround.fighter, undefined, { ground: true, tiles: plan.footprint, persistent: true, who: 'opp' }),
+                                vfxForJutsu(jutsu, paidSelf, instantGround?.fighter ?? opp, undefined, { ground: true, tiles: plan.footprint, persistent: true, who: 'opp' }),
                                 ...spendPoisonVfx,
                             ],
                         );
@@ -2130,6 +2364,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // (isZeroDamageFortyApJutsu) and deal ZERO base damage in PvP.
                     // PvE is already exempt (its weapon synth uses an 'item-' id).
                     isUtility: false,
+                    weaponSwing: true,
                     effectPower: serverItem.weaponEp ?? 15,
                     ap: wApCost,
                     range: weapRange,

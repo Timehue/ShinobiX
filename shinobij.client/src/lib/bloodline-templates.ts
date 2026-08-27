@@ -10,8 +10,7 @@
  */
 
 import { normalizeJutsu } from "./jutsu";
-import { jutsuCountForRank } from "./jutsu-points";
-import { binaryTags, cappedDamageTags, tagCapForRank } from "./tags";
+import { bloodlineCreatorPercentPolicy, jutsuCountForRank } from "./jutsu-points";
 import { makeId } from "./utils";
 import type { Jutsu, JutsuTag } from "../types/combat";
 import type { JutsuElement, JutsuTarget, JutsuType, Rank } from "../types/core";
@@ -45,12 +44,12 @@ const ARCHETYPE_SPECS: Record<string, TemplateJutsuSpec[]> = {
     "glass-cannon": [
         { name: "Annihilation Blast", ap: 60, damageMode: "nuke", tags: ["Increase Damage Given"] },
         { name: "Piercing Lance", ap: 60, damageMode: "pierce", tags: [] },
-        { name: "Searing Barrage", ap: 60, tags: ["Ignition"] },
+        { name: "Searing Barrage", ap: 60, tags: ["Ignition", "Wound"] },
         { name: "Exposed Nerve", ap: 60, tags: ["Increase Damage Taken"] },
         { name: "Battle Trance", ap: 40, target: "SELF", tags: ["Increase Damage Given", "Overclock"] },
     ],
     "bruiser": [
-        { name: "Rending Strike", ap: 60, tags: ["Wound"] },
+        { name: "Rending Strike", ap: 60, tags: ["Wound", "Decrease Damage Given"] },
         { name: "Leeching Blow", ap: 60, tags: ["Lifesteal"] },
         { name: "Devastator", ap: 60, damageMode: "nuke", tags: ["Increase Damage Given"] },
         { name: "Chakra Siphon", ap: 60, tags: ["Siphon"] },
@@ -58,7 +57,7 @@ const ARCHETYPE_SPECS: Record<string, TemplateJutsuSpec[]> = {
     ],
     "controller": [
         { name: "Paralyzing Grip", ap: 60, tags: ["Stun"] },
-        { name: "Bloodline Sever", ap: 60, tags: ["Bloodline Seal"] },
+        { name: "Bloodline Sever", ap: 60, tags: ["Bloodline Seal", "Drain"] },
         { name: "Crippling Hex", ap: 60, tags: ["Decrease Damage Given"] },
         { name: "Venom Curse", ap: 60, tags: ["Poison"] },
         { name: "Mind Fog", ap: 40, tags: ["Buff Prevent", "Decrease Damage Given"] },
@@ -66,21 +65,16 @@ const ARCHETYPE_SPECS: Record<string, TemplateJutsuSpec[]> = {
     "support": [
         { name: "Aegis Ward", ap: 60, tags: ["Shield", "Decrease Damage Taken"] },
         { name: "Mending Tide", ap: 60, tags: ["Heal"] },
-        { name: "Reflective Guard", ap: 60, tags: ["Reflect", "Absorb"] },
+        { name: "Reflective Guard", ap: 60, tags: ["Reflect"] },
         { name: "Suppressing Field", ap: 60, tags: ["Decrease Damage Given"] },
         { name: "Bulwark Stance", ap: 40, target: "SELF", tags: ["Debuff Prevent", "Decrease Damage Taken"] },
     ],
 };
 
-// Per-rank percent for a template tag. Mirrors what the builder's TagPicker
-// would set: capped damage tags sit at the rank cap; Wound/Poison use the
-// standard bloodline values; binary tags carry no percent.
+// Per-rank percent for a template tag. Uses the exact same closed policy as the
+// Bloodline Maker picker and server-side player schema.
 function templatePercent(name: string, rank: Rank): number {
-    if (binaryTags.includes(name)) return 0;
-    if (cappedDamageTags.includes(name)) return tagCapForRank(rank);
-    if (name === "Wound") return rank === "S Rank" ? 35 : 30;
-    if (name === "Poison") return 30;
-    return 0;
+    return bloodlineCreatorPercentPolicy(name, rank).defaultPercent;
 }
 
 function buildTemplateJutsu(spec: TemplateJutsuSpec, rank: Rank, element: JutsuElement, offense: JutsuType): Jutsu {
@@ -99,6 +93,7 @@ function buildTemplateJutsu(spec: TemplateJutsuSpec, rank: Rank, element: JutsuE
         chakraCost: 100,
         staminaCost: 100,
         target: spec.target ?? "OPPONENT",
+        bloodlineRank: rank,
         tags,
     });
 }

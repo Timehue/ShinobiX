@@ -1,5 +1,6 @@
 import { K_AMP_PVE } from "../lib/combat-math";
 import { isImageAvatar } from "../lib/avatar";
+import { partitionCombatDisplayStatuses, type CombatDisplayStatus } from "../lib/combat-action-display";
 
 // Tags that feed the diminishing-returns soft-cap pools in combat (see
 // combat-math.ts). For these, stacking is NOT linear — the HUD surfaces the
@@ -19,6 +20,9 @@ function effectivePoolPercent(rawPct: number): number {
 // panel shows the capped total so a stacked Absorb/Reflect/Lifesteal can't read
 // as e.g. "90%".
 const CAP_SUM_TAGS = new Set(["Absorb", "Reflect", "Lifesteal"]);
+// These stored percentages are inputs to flat-bonus diminishing pools, not
+// literal percentage multipliers on the fighter's current stats.
+const POTENCY_TAGS = new Set(["Increase Generals", "Increase Discipline"]);
 const HARD_CAP_PCT = 60;
 
 // Short, single-line labels for the verbose damage-modifier tags. The full
@@ -51,11 +55,15 @@ function tinyStatusLabel(name: string): string {
 }
 
 type GroupedStatus = { name: string; count: number; percent?: number; amount?: number; rounds: number };
+export type CombatHudStatus = CombatDisplayStatus & {
+    rounds: number;
+    kind: "positive" | "negative";
+};
 
 // Group duplicate stacking statuses into one entry with a ×count, summing raw
 // percent/amount. Shared by the desktop panel and the mobile strip so both read
 // identically.
-function groupStatuses(statuses: { name: string; rounds: number; amount?: number; percent?: number }[]): GroupedStatus[] {
+function groupStatuses(statuses: readonly { name: string; rounds: number; amount?: number; percent?: number }[]): GroupedStatus[] {
     const grouped: GroupedStatus[] = [];
     for (const s of statuses) {
         const g = grouped.find((x) => x.name === s.name);
@@ -77,11 +85,12 @@ function groupStatuses(statuses: { name: string; rounds: number; amount?: number
 function statusValueText(s: GroupedStatus): string {
     const pooled = s.percent != null && POOL_TAGS.has(s.name);
     const capped = s.percent != null && CAP_SUM_TAGS.has(s.name);
+    const potency = s.percent != null && POTENCY_TAGS.has(s.name);
     const rawPct = s.percent != null ? Math.round(s.percent) : null;
     const effPct = pooled ? effectivePoolPercent(s.percent ?? 0) : null;
     const cappedPct = capped ? Math.min(rawPct ?? 0, HARD_CAP_PCT) : null;
     return s.percent != null
-        ? (pooled && s.count > 1 ? `~${effPct}%` : capped ? `${cappedPct}%` : `${rawPct}%`)
+        ? (pooled && s.count > 1 ? `~${effPct}%` : capped ? `${cappedPct}%` : potency ? `${rawPct}% potency` : `${rawPct}%`)
         : s.amount != null ? `${Math.round(s.amount)}` : "active";
 }
 
@@ -110,6 +119,7 @@ export function CombatSideHud({
     isActive,
     level,
     power,
+    currentRound,
 }: {
     name: string;
     avatar: string;
@@ -122,12 +132,15 @@ export function CombatSideHud({
     shield: number;
     village: string;
     turn: number;
-    statuses: { name: string; rounds: number; amount?: number; percent?: number; kind: "positive" | "negative" }[];
+    statuses: readonly CombatHudStatus[];
     isActive?: boolean;
     /** Optional dossier footer stats (level star + power). Omitted callers render no footer. */
     level?: number;
     power?: number;
+    /** Authoritative combat round used to separate deferred statuses from live effects. */
+    currentRound?: number;
 }) {
+    const displayedStatuses = partitionCombatDisplayStatuses(statuses, currentRound);
     const hpPct = Math.max(0, Math.min(100, (hp / Math.max(1, maxHp)) * 100));
     const chakraPct = Math.max(0, Math.min(100, (chakra / Math.max(1, maxChakra)) * 100));
     const staminaPct = Math.max(0, Math.min(100, (stamina / Math.max(1, maxStamina)) * 100));
@@ -209,14 +222,15 @@ export function CombatSideHud({
                 unit with its effects underneath. The ONLY effects readout on mobile
                 (the verbose Buffs/Debuffs columns below are hidden there); desktop
                 hides this strip and shows the columns instead. */}
-            <MobileEffectsStrip statuses={statuses} />
+            <MobileEffectsStrip statuses={displayedStatuses.active} />
+            <PendingEffectsStrip statuses={displayedStatuses.pending} />
 
             <div className="combat-hud-meta">
                 <span>Round {turn}</span>
             </div>
 
-            <CombatEffectsPanel title="Buffs" tone="positive" statuses={statuses.filter((s) => s.kind === "positive")} />
-            <CombatEffectsPanel title="Debuffs" tone="negative" statuses={statuses.filter((s) => s.kind === "negative")} />
+            <CombatEffectsPanel title="Buffs" tone="positive" statuses={displayedStatuses.active.filter((s) => s.kind === "positive")} />
+            <CombatEffectsPanel title="Debuffs" tone="negative" statuses={displayedStatuses.active.filter((s) => s.kind === "negative")} />
 
             {/* Dossier footer — level + accumulated power, the two numbers that
                 frame "how big is this fighter" at a glance. Rendered only when a
@@ -241,13 +255,32 @@ export function CombatSideHud({
     );
 }
 
+/** Deferred server-authored effects remain visible without being counted as live. */
+export function PendingEffectsStrip({ statuses }: { statuses: readonly CombatHudStatus[] }) {
+    const grouped = groupStatuses(statuses);
+    if (grouped.length === 0) return null;
+    return (
+        <div className="combat-pending-effects" aria-label="Effects activating next round">
+            <strong>Next round</strong>
+            <div>
+                {grouped.map((status) => (
+                    <span className="pending-effect-pill" key={status.name} title={`${status.name} activates next round`}>
+                        {tinyStatusLabel(status.name)}{status.count > 1 ? <b>×{status.count}</b> : null}
+                        <small>{statusValueText(status)} · {status.rounds}r</small>
+                    </span>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 export function CombatEffectsPanel({
     title,
     statuses,
     tone = "positive",
 }: {
     title: string;
-    statuses: { name: string; rounds: number; amount?: number; percent?: number }[];
+    statuses: readonly { name: string; rounds: number; amount?: number; percent?: number }[];
     tone?: "positive" | "negative";
 }) {
     // Group duplicate stacking statuses (e.g. three "Increase Damage Given")
@@ -269,6 +302,7 @@ export function CombatEffectsPanel({
                     // scaling that would otherwise print as "21.799999999999997%".
                     const pooled = s.percent != null && POOL_TAGS.has(s.name);
                     const capped = s.percent != null && CAP_SUM_TAGS.has(s.name);
+                    const potency = s.percent != null && POTENCY_TAGS.has(s.name);
                     const rawPct = s.percent != null ? Math.round(s.percent) : null;
                     const effPct = pooled ? effectivePoolPercent(s.percent ?? 0) : null;
                     const valueText = statusValueText(s);
@@ -277,6 +311,8 @@ export function CombatEffectsPanel({
                         ? `${s.name} — ${s.count} stack${s.count > 1 ? "s" : ""} · +${rawPct}% raw ≈ ${effPct}% effective. Diminishing-returns pool shared with other damage modifiers.`
                         : capped
                             ? `${s.name} — ${s.count} stack${s.count > 1 ? "s" : ""} · +${rawPct}% total${(rawPct ?? 0) > HARD_CAP_PCT ? `, capped at ${HARD_CAP_PCT}%` : ""}.`
+                            : potency
+                                ? `${s.name} — ${s.count} stack${s.count > 1 ? "s" : ""} · ${rawPct}% raw potency, converted into a flat bonus through diminishing returns.`
                             : s.name;
                     return (
                         <div key={i} className="effect-pill" title={title}>
@@ -300,7 +336,7 @@ export function MobileEffectsStrip({
     statuses,
     max = 6,
 }: {
-    statuses: { name: string; rounds: number; amount?: number; percent?: number; kind: "positive" | "negative" }[];
+    statuses: readonly { name: string; rounds: number; amount?: number; percent?: number; kind: "positive" | "negative" }[];
     max?: number;
 }) {
     const entries = [

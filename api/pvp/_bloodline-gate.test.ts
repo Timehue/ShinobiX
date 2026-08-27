@@ -54,7 +54,14 @@ describe('bloodline access gate (characterMayUseJutsu)', () => {
 
 describe('bloodline gate in loadout resolution (resolveEquippedLoadout)', () => {
     it('drops an equipped built-in bloodline jutsu the save does not carry', () => {
-        const saveChar = { name: 'Cheater', equippedJutsuIds: ['ashen-eyes-blood-gaze', 'starter-buki-fire-2'] };
+        const saveChar = {
+            name: 'Cheater',
+            equippedJutsuIds: ['ashen-eyes-blood-gaze', 'starter-buki-fire-2'],
+            jutsuMastery: [
+                { jutsuId: 'ashen-eyes-blood-gaze', level: 0 },
+                { jutsuId: 'starter-buki-fire-2', level: 0 },
+            ],
+        };
         const resolved = resolveEquippedLoadout(saveChar, { savedBloodlines: [] }, {}) as Array<{ id: string }>;
         const ids = resolved.map((j) => j.id);
         assert.ok(!ids.includes('ashen-eyes-blood-gaze'), 'ungranted bloodline jutsu must not seal into the fight');
@@ -62,7 +69,12 @@ describe('bloodline gate in loadout resolution (resolveEquippedLoadout)', () => 
     });
 
     it('keeps the kit when the save carries the bloodline', () => {
-        const saveChar = { name: 'Honest', bloodline: 'Ashen Eyes', equippedJutsuIds: ['ashen-eyes-blood-gaze'] };
+        const saveChar = {
+            name: 'Honest',
+            bloodline: 'Ashen Eyes',
+            equippedJutsuIds: ['ashen-eyes-blood-gaze'],
+            jutsuMastery: [{ jutsuId: 'ashen-eyes-blood-gaze', level: 0 }],
+        };
         const resolved = resolveEquippedLoadout(saveChar, { savedBloodlines: [] }, {}) as Array<{ id: string }>;
         assert.ok(resolved.some((j) => j.id === 'ashen-eyes-blood-gaze'));
     });

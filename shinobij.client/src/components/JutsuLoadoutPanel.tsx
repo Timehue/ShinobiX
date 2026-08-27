@@ -471,8 +471,8 @@ export function JutsuLoadoutPanel({
                     <section className="jutsu-sidebar-section jutsu-subscription-benefits">
                         <h3>♛ Subscription Benefits</h3>
                         <ul>
-                            <li>Unlock 3 additional loadout slots (13–15)</li>
-                            <li>More loadout flexibility in battle</li>
+                            <li>Unlock 3 additional loadout slots (13–15) for PvE.</li>
+                            <li>Human PvP seals both players to the first 12 slots for fairness.</li>
                         </ul>
                     </section>
                     <section className="jutsu-sidebar-section jutsu-element-legend">

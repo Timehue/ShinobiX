@@ -63,7 +63,7 @@ const DropletIcon = (
 );
 
 const PERKS: Perk[] = [
-    { label: '15 Jutsu Slots', detail: 'up from 12', icon: ScrollIcon },
+    { label: '15 Jutsu Slots', detail: 'PvE & loadout planning; fair PvP seals 12', icon: ScrollIcon },
     { label: '6 Pet Companions', detail: 'up from 4', icon: PawIcon },
     { label: 'Custom Avatar', detail: 'upload your own', icon: MaskIcon },
     { label: '2 Bloodlines', detail: 'store & swap', icon: DropletIcon },

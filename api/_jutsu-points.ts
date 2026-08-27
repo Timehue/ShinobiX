@@ -15,7 +15,7 @@
  * Tag-helper mapping vs the client:
  *   client normalizeTagName  -> canonicalTagName (api/pvp/_tags.ts)
  *   client cappedDamageTags  -> CAPPED_AMP_TAGS  (identical members)
- *   client tagCapForRank     -> tagCapForRank below (S 40 / A·B 35 / else 30)
+ *   client creator max       -> creatorTagPointThreshold below (S 35 / A·B 30)
  *   client percentageTags    -> only "Wound" reaches that branch (amp tags are
  *                               caught by CAPPED_AMP_TAGS first), so we test it directly
  *   client hasFixedEffectPower -> jutsuHasFixedEffectPower (api/pvp/_tags.ts)
@@ -39,11 +39,13 @@ export function pointBudgetForRank(rank: string | null | undefined): number {
     return rank === 'S Rank' ? 11 : rank === 'A Rank' ? 10 : 7;
 }
 
-/** Per-rank percent cap for amp/DR tags. Mirror of tagCapForRank (client tags.ts). */
-function tagCapForRank(rank: string | null | undefined): number {
-    if (rank === 'S Rank') return 40;
-    if (rank === 'A Rank' || rank === 'B Rank') return 35;
-    return 30; // global / no rank
+/**
+ * At-cap point threshold for PLAYER-CREATED tags. Deliberately not the higher
+ * legacy/catalog combat magnitude cap (S 40 / A-B 35): the player schema can
+ * only author S 35 / A-B 30, so its legal maximum must pay the premium price.
+ */
+function creatorTagPointThreshold(rank: string | null | undefined): number {
+    return rank === 'S Rank' ? 35 : 30;
 }
 
 /** Point cost of a single tag at a given rank. Mirror of tagPointValue (client). */
@@ -53,7 +55,7 @@ export function tagPointValue(tag: RawTag, rank: string | null | undefined): num
     const percent = Number(tag.percent) || 0;
     // Amp / DR tags: at-cap bonus cost vs the below-cap floor (never free).
     if (CAPPED_AMP_TAGS.has(name)) {
-        return percent >= tagCapForRank(rank) ? 0.75 : 0.25;
+        return percent >= creatorTagPointThreshold(rank) ? 0.75 : 0.25;
     }
     // Wound is the only percentage tag not caught by CAPPED_AMP_TAGS above.
     if (name === 'Wound') {
@@ -134,6 +136,23 @@ export function enforceBloodlineBudget(jutsus: RawJutsu[], rank: string | null |
             for (let ti = 0; ti < tags.length; ti++) {
                 const t = tags[ti];
                 if (!t || typeof t.name !== 'string' || !t.name) continue;
+                // Move is structural wherever the player schema permits it. In
+                // particular, SINGLE + Move derives EMPTY_GROUND before budget
+                // enforcement; stripping Move here would leave that target with
+                // no movement effect. Reclaim a different optional tag (or let
+                // the strict player-schema layer truncate the invalid draft).
+                if (canonicalTagName(t.name) === 'Move') continue;
+                // These ground methods also need a payload to resolve. Budget
+                // stripping runs after their method/target was derived, so keep
+                // the final payload rather than emitting an empty zone or a
+                // Move-only spiral. The player-schema layer can truncate the
+                // forged draft if its structural minimum still exceeds budget.
+                const remainingPayloads = tags.reduce((count, candidate) => {
+                    if (!candidate || typeof candidate.name !== 'string' || !candidate.name) return count;
+                    return count + (canonicalTagName(candidate.name) === 'Move' ? 0 : 1);
+                }, 0);
+                if (out[ji]?.method === 'INSTANT_EFFECT' && remainingPayloads <= 1) continue;
+                if (out[ji]?.method === 'AOE_SPIRAL' && remainingPayloads <= 1) continue;
                 const pts = tagPointValue(t, rank);
                 if (pts <= 0) continue;
                 if (!best || pts < best.pts) best = { ji, ti, pts }; // lowest first; stable on ties

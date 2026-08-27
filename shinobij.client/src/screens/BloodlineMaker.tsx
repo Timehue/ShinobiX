@@ -4,8 +4,8 @@ import type { Character } from "../types/character";
 import type { Jutsu, JutsuTag, SavedBloodline } from "../types/combat";
 import type { JutsuElement, JutsuMethod, JutsuTarget, JutsuType, Rank } from "../types/core";
 import { JUTSU_MAX_LEVEL, COMBAT_RESOURCES_V2 } from "../constants/game";
-import { allTags, binaryTags, bloodlineUniqueTags, cappedDamageTags, percentageTags, hasFixedEffectPower, normalizeJutsuTags, tagCapForRank } from "../lib/tags";
-import { bloodlinePoints, jutsuPoints, jutsuPointBreakdown, jutsuCountForRank, pointBudgetForRank, normalizeBloodlineTagPercent } from "../lib/jutsu-points";
+import { allTags, bloodlineUniqueTags, hasFixedEffectPower, normalizeJutsuTags } from "../lib/tags";
+import { bloodlineCreatorPercentPolicy, bloodlinePoints, jutsuPoints, jutsuPointBreakdown, jutsuCountForRank, normalizeBloodlineCreatorTagPercent, pointBudgetForRank } from "../lib/jutsu-points";
 import { describeJutsuEffects } from "../lib/jutsu-effects";
 import { bloodlineArchetypes, bloodlineTemplateJutsus } from "../lib/bloodline-templates";
 import { compactImage, compressDataUrl, publishSharedImage, readImageFile } from "../lib/shared-images";
@@ -13,6 +13,7 @@ import { formatJutsuResourcePercent, jutsuResourceBackingCost, lockJutsuResource
 import { maxStoredBloodlines, isPatreonSubscriber } from "../lib/entitlements";
 import { gameConfirm } from "../components/GameAlert";
 import { normalizeJutsu, blankJutsu } from "../lib/jutsu";
+import { bloodlineCreatorMethodAllowsTag, bloodlineCreatorRangeForTarget, bloodlineCreatorTargetForMethod, normalizeBloodlineCreatorMethodTags } from "../lib/bloodline-creator-methods";
 import { makeId } from "../lib/utils";
 import { replaceCharacterBloodline } from "../lib/bloodline";
 import { bloodlineWizardStepCount, bloodlineWizardStepKind, bloodlineWizardJutsuIndex, bloodlineWizardStepLabel, canLeaveBloodlineDetails, clampBloodlineWizardStep } from "../lib/bloodline-wizard";
@@ -36,6 +37,25 @@ function defaultWeatherElement(bloodline: SavedBloodline | null | undefined, spe
     return (BASE_WEATHER_ELEMENTS.includes(source) ? source : "None") as JutsuElement;
 }
 
+/** Project an editable draft through the same tag-percent rules as save ingress. */
+function normalizeCreatorDraftJutsu(jutsu: Jutsu, rank: Rank): Jutsu {
+    const method = jutsu.method ?? "SINGLE";
+    const tags = normalizeBloodlineCreatorMethodTags(normalizeJutsuTags(jutsu.tags).map((tag) => ({
+        ...tag,
+        percent: normalizeBloodlineCreatorTagPercent(tag.name, tag.percent, rank),
+    })), method);
+    const target = bloodlineCreatorTargetForMethod(method, jutsu.target, { ap: jutsu.ap, tags });
+    const normalized = normalizeJutsu({
+        ...jutsu,
+        bloodlineRank: rank,
+        method,
+        target,
+        range: bloodlineCreatorRangeForTarget(target, jutsu.range),
+        tags,
+    });
+    return target === "SELF" ? { ...normalized, range: 0 } : normalized;
+}
+
 export function BloodlineMaker({ initialRank, initialSpecialElement, character, updateCharacter, savedBloodlines, setSavedBloodlines, lockedRank, editingBloodline, onSaveBloodlines }: { initialRank: Rank; initialSpecialElement?: string; character: Character; updateCharacter: (character: Character) => void; savedBloodlines: SavedBloodline[]; setSavedBloodlines: (bloodlines: SavedBloodline[]) => void; lockedRank?: boolean; editingBloodline?: SavedBloodline | null; onSaveBloodlines?: (bloodlines: SavedBloodline[], character?: Character) => void; onClose?: () => void }) {
     const [rank, setRank] = useState<Rank>(editingBloodline?.rank ?? initialRank);
     const [bloodlineName, setBloodlineName] = useState(editingBloodline?.name ?? "Custom Bloodline");
@@ -44,7 +64,10 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
     const [specialElement, setSpecialElement] = useState(editingBloodline?.specialElement ?? initialSpecialElement ?? "");
     const [weatherElement, setWeatherElement] = useState<JutsuElement>(defaultWeatherElement(editingBloodline, initialSpecialElement ?? ""));
     const [bloodlineOffense, setBloodlineOffense] = useState<JutsuType>((editingBloodline?.jutsus[0]?.type ?? "Ninjutsu") as JutsuType);
-    const [jutsus, setJutsus] = useState<Jutsu[]>(editingBloodline?.jutsus ?? Array.from({ length: jutsuCountForRank(initialRank) }).map((_, i) => blankJutsu(i, initialRank)));
+    const [jutsus, setJutsus] = useState<Jutsu[]>(
+        editingBloodline?.jutsus.map((jutsu) => normalizeCreatorDraftJutsu(jutsu, editingBloodline.rank))
+        ?? Array.from({ length: jutsuCountForRank(initialRank) }).map((_, i) => blankJutsu(i, initialRank)),
+    );
     // Wizard step: 0 = details, 1..N = one jutsu each, final = review & save.
     const [step, setStep] = useState(0);
     const [templateMsg, setTemplateMsg] = useState("");
@@ -65,7 +88,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                 // AOE Movement (ground nova) is locked to 60 AP — correct any
                 // legacy 40-AP entry on load so the editor shows the real state.
                 const j = j0.method === "AOE_SPIRAL" && j0.ap !== 60 ? { ...j0, ap: 60 as const } : j0;
-                return j.ap === 40
+                const corrected = j.ap === 40
                     ? { ...j, effectPower: 0 }
                     // Fixed-effect 60-AP jutsu deal standard damage (40) — clamp away
                     // any legacy EP-100 sentinel so the editor shows the real value.
@@ -74,6 +97,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                     : j.ap === 60 && ![40, 50].includes(j.effectPower)
                     ? { ...j, effectPower: 40 }
                     : j;
+                return normalizeCreatorDraftJutsu(corrected, editingBloodline.rank);
             }));
             return;
         }
@@ -104,7 +128,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
         const arch = bloodlineArchetypes.find((a) => a.key === key);
         setTemplateMsg(`Loaded ${arch?.name ?? "template"} — ${generated.length} jutsu created. Rename & tweak them in the next steps.`);
     }
-    const totalPoints = bloodlinePoints(jutsus);
+    const totalPoints = bloodlinePoints(jutsus, rank);
     function setBloodlineSpecialElement(value: string) {
         setSpecialElement(value);
         setJutsus((current) => current.map((jutsu) => normalizeJutsu({ ...jutsu, element: (value.trim() || "Fire") as JutsuElement })));
@@ -123,7 +147,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             // AOE_SPIRAL (ground nova) and AOE_BURST (target-centred blast) are both
             // locked to the 60-AP damage tier — force AP before deriving resource costs.
             if (merged.method === "AOE_SPIRAL" || merged.method === "AOE_BURST") merged.ap = 60;
-            const next = normalizeJutsu(lockJutsuResourceCosts(merged));
+            const next = normalizeCreatorDraftJutsu(lockJutsuResourceCosts({ ...merged, bloodlineRank: rank }), rank);
             if (!bloodlineJutsuMethods.includes(next.method)) next.method = "SINGLE";
             if (next.method === "INSTANT_EFFECT") next.target = "EMPTY_GROUND";
             // AOE_BURST is a direct-target nuke (not a ground zone): lock it to OPPONENT
@@ -197,19 +221,9 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                 if (duplicateOnJutsu || duplicateOnBloodline) return jutsu;
             }
             // When the tag name changes, auto-set percent to the correct value for that tag type.
-            if ('name' in updated) {
-                if (!merged.name || binaryTags.includes(merged.name) || merged.name === "Pierce") {
-                    merged.percent = 0;
-                } else if (cappedDamageTags.includes(merged.name)) {
-                    merged.percent = tagCapForRank(rank);
-                } else if (percentageTags.includes(merged.name)) {
-                    merged.percent = 40; // max Wound tier → +1 pt
-                } else {
-                    merged.percent = 100;
-                }
-            }
+            if ('name' in updated) merged.percent = bloodlineCreatorPercentPolicy(merged.name ?? "", rank).defaultPercent;
             tags[tagIndex] = merged;
-            const next = normalizeJutsu({ ...jutsu, tags: normalizeJutsuTags(tags) });
+            const next = normalizeCreatorDraftJutsu({ ...jutsu, bloodlineRank: rank, tags: normalizeJutsuTags(tags) }, rank);
             if (next.method === "INSTANT_EFFECT") {
                 next.tags = next.tags.filter((tag) => instantEffectGroundTags.includes(tag.name));
             }
@@ -223,7 +237,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             return hasFixedEffectPower(next) ? { ...next, effectPower: next.ap === 60 ? 40 : 0 } : next;
         }));
     }
-    const currentTotalPoints = bloodlinePoints(jutsus);
+    const currentTotalPoints = bloodlinePoints(jutsus, rank);
     const pointLimit = pointBudgetForRank(rank);
     const overLimit = currentTotalPoints > pointLimit;
 
@@ -242,11 +256,12 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
         const finalizedJutsus = jutsus.map((jutsu) => {
             const seenJutsuTags = new Set<string>();
             const finalMethod = bloodlineJutsuMethods.includes(jutsu.method) ? jutsu.method : "SINGLE";
-            const tags = normalizeJutsuTags(jutsu.tags).map((tag) => (
-                tag.name && !binaryTags.includes(tag.name) && tag.name !== "Pierce"
-                    ? { ...tag, percent: normalizeBloodlineTagPercent(tag.percent, rank) }
-                    : tag
-            )).filter((tag) => {
+            const normalizedTags = normalizeJutsuTags(jutsu.tags).map((tag) => ({
+                ...tag,
+                percent: normalizeBloodlineCreatorTagPercent(tag.name, tag.percent, rank),
+            }));
+            const methodTags = normalizeBloodlineCreatorMethodTags(normalizedTags, finalMethod);
+            const tags = methodTags.filter((tag) => {
                 if (finalMethod === "INSTANT_EFFECT" && !instantEffectGroundTags.includes(tag.name)) return false;
                 if (finalMethod === "AOE_SPIRAL" && tag.name !== "Move" && !instantEffectGroundTags.includes(tag.name)) return false;
                 if (jutsu.ap === 40 && fortyApBlockedBloodlineTags.includes(tag.name)) return false;
@@ -258,26 +273,30 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                 }
                 return true;
             });
-            // AOE Movement (ground nova) is locked to the 60-AP damage tier;
-            // force it here too so a legacy 40-AP entry is corrected on save.
-            const finalAp = finalMethod === "AOE_SPIRAL" ? 60 : jutsu.ap;
-            return normalizeJutsu({
-            ...lockJutsuResourceCosts({ ...jutsu, ap: finalAp }),
-            type: bloodlineOffense,
-            element: finalElement,
-            // Mechanical weather affinity — chosen on the details step, stamped on
-            // every jutsu so the weather system reads it (the cosmetic `element`
-            // above stays the special-element flavor name).
-            weatherElement,
-            method: finalMethod,
-            range: jutsu.target === "SELF" ? 0 : jutsu.range,
-            cooldown: 7,
-            effectPower: finalAp === 40 ? 0 : hasFixedEffectPower(jutsu) ? 40 : finalAp === 60 ? (jutsu.effectPower === 50 ? 50 : 40) : jutsu.effectPower,
-            tags,
-        });
+            // Both creator AOE methods are locked to the 60-AP damage tier;
+            // force them here too so a legacy 40-AP entry is corrected on save.
+            const finalAp = finalMethod === "AOE_SPIRAL" || finalMethod === "AOE_BURST" ? 60 : jutsu.ap;
+            const finalTarget = bloodlineCreatorTargetForMethod(finalMethod, jutsu.target, { ap: finalAp, tags });
+            const normalized = normalizeJutsu({
+                ...lockJutsuResourceCosts({ ...jutsu, ap: finalAp }),
+                bloodlineRank: rank,
+                type: bloodlineOffense,
+                element: finalElement,
+                // Mechanical weather affinity — chosen on the details step, stamped on
+                // every jutsu so the weather system reads it (the cosmetic `element`
+                // above stays the special-element flavor name).
+                weatherElement,
+                method: finalMethod,
+                target: finalTarget,
+                range: bloodlineCreatorRangeForTarget(finalTarget, jutsu.range),
+                cooldown: 7,
+                effectPower: finalAp === 40 ? 0 : hasFixedEffectPower({ tags }) ? 40 : finalAp === 60 ? (jutsu.effectPower === 50 ? 50 : 40) : jutsu.effectPower,
+                tags,
+            });
+            return finalTarget === "SELF" ? { ...normalized, range: 0 } : normalized;
         });
         // Enforce point limit before doing any async work.
-        const finalPoints = bloodlinePoints(finalizedJutsus);
+        const finalPoints = bloodlinePoints(finalizedJutsus, rank);
         const finalLimit = pointBudgetForRank(rank);
         if (finalPoints > finalLimit) {
             alert(`${bloodlineName} is over the ${rank} point limit (${finalPoints}/${finalLimit} points). Remove or simplify jutsu tags before saving.`);
@@ -291,7 +310,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             ...finalizedJutsus.map((jutsu) => jutsu.image ? publishSharedImage('jutsu:' + jutsu.id, jutsu.image) : Promise.resolve()),
         ]);
         const imageSaveFailed = imageResults.some((result) => result === false);
-        const newBloodline = { id: finalId, name: bloodlineName, rank, image: bloodlineImage, specialElement: specialElement.trim(), weatherElement, lore: bloodlineLore.trim(), jutsus: finalizedJutsus, totalPoints: bloodlinePoints(finalizedJutsus) };
+        const newBloodline = { id: finalId, name: bloodlineName, rank, image: bloodlineImage, specialElement: specialElement.trim(), weatherElement, lore: bloodlineLore.trim(), jutsus: finalizedJutsus, totalPoints: bloodlinePoints(finalizedJutsus, rank) };
         // When creating a NEW bloodline (not editing), keep up to the player's
         // stored-bloodline cap — Patreon perk: 1 for the base tier, 2 for
         // subscribers — newest first, dropping the oldest beyond the cap. The new
@@ -370,6 +389,9 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
     function renderJutsuCard(jutsu: Jutsu, jutsuIndex: number) {
         const selectedVisualOption = JUTSU_VISUAL_EFFECT_OPTIONS.find((option) => option.key === jutsu.visualEffect);
         const selectedVisualAsset = selectedVisualOption ? combatVfxAssetFor(selectedVisualOption.key) : null;
+        const directCopyMirrorTargetLocked = jutsu.ap >= 60
+            && jutsu.tags.some((tag) => tag.name === "Copy" || tag.name === "Mirror")
+            && bloodlineCreatorTargetForMethod(jutsu.method, "SELF", { ap: jutsu.ap, tags: jutsu.tags }) === "OPPONENT";
         return (
                 <div className="jutsu-card maker-card" key={jutsu.id}>
                     <h3>{jutsu.name}</h3>
@@ -382,11 +404,12 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                     <div className="summary-box bloodline-element-lock">Element: {specialElement.trim() || "Type a special element above"}</div>
                     <label>Target / Method</label>
                     <div className="inline-grid">
-                        <select value={jutsu.target} onChange={(e) => updateJutsu(jutsuIndex, { target: e.target.value as JutsuTarget })}>{jutsuTargets.map((target) => <option key={target} value={target}>{target === "EMPTY_GROUND" ? "GROUND" : target}</option>)}</select>
+                        <select value={jutsu.target} disabled={directCopyMirrorTargetLocked} title={directCopyMirrorTargetLocked ? "Direct Copy and Mirror casts target an opponent" : undefined} onChange={(e) => updateJutsu(jutsuIndex, { target: e.target.value as JutsuTarget })}>{jutsuTargets.map((target) => <option key={target} value={target}>{target === "EMPTY_GROUND" ? "GROUND" : target}</option>)}</select>
                         <select value={bloodlineJutsuMethods.includes(jutsu.method) ? jutsu.method : "SINGLE"} onChange={(e) => updateJutsu(jutsuIndex, { method: e.target.value as JutsuMethod })}>
                             {bloodlineJutsuMethods.map((method) => <option key={method} value={method}>{method === "AOE_CIRCLE" ? "Circle Movement (Ring Damage)" : method === "INSTANT_EFFECT" ? "Instant Effect (Ground Burst)" : method === "AOE_SPIRAL" ? "AOE Movement (Ground Nova)" : method === "AOE_BURST" ? "AOE Burst (Area Damage)" : method}</option>)}
                         </select>
                     </div>
+                    {directCopyMirrorTargetLocked && <small className="tag-effect-help">Direct Copy and Mirror casts are locked to OPPONENT. Movement methods still target the ground.</small>}
                     {jutsu.method === "AOE_CIRCLE" && <div className="summary-box bloodline-element-lock">Circle Movement: you move to a chosen tile, then deal damage to every hex surrounding your destination. Move tag is required and auto-added. If the opponent is adjacent to your landing tile, they take the hit.</div>}
                     {jutsu.method === "INSTANT_EFFECT" && <div className="summary-box bloodline-element-lock">Instant Effect: target is locked to GROUND. Click an open ground tile in battle; that tile and its surrounding hexes become a 2-round defensive zone. Decrease Damage Given, Recoil, or Poison apply immediately if the enemy is caught and again while they stand in it. Costs +1 jutsu point.</div>}
                     {jutsu.method === "AOE_SPIRAL" && <div className="summary-box bloodline-element-lock">AOE Movement: you dash to a chosen ground tile, then erupt a spiral ground nova — a filled hex disk (radius 2) around your landing tile becomes a 2-round zone. Move tag is required and auto-added; the other slots take Decrease Damage Given, Recoil, or Poison. The effect hits the enemy immediately if they're inside the burst and again while they stand in it. A bigger footprint than Instant Effect. Locked to 60 AP. Costs +1 jutsu point.</div>}
@@ -489,21 +512,26 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                             );
                             return usedOnThisJutsu || usedOnAnotherJutsu;
                         });
-                        const allowedTags = jutsu.method === "INSTANT_EFFECT"
+                        let allowedTags = jutsu.method === "INSTANT_EFFECT"
                             ? instantEffectGroundTags
                             : jutsu.method === "AOE_SPIRAL"
                                 ? ["Move", ...instantEffectGroundTags]
                                 : jutsu.ap === 40
                                     ? allTags.filter((tagName) => !fortyApBlockedBloodlineTags.includes(tagName))
                                     : undefined;
-                        return <TagPicker key={tagIndex} rank={rank} jutsuTarget={jutsu.target} allowedTags={allowedTags} tag={currentTag} disabledTags={disabledTags} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />;
+                        const base = allowedTags ?? (jutsu.target === "EMPTY_GROUND"
+                            ? allTags.filter((tagName) => tagName !== "Increase Damage Taken")
+                            : allTags);
+                        const authoredTagNames = jutsu.tags.map((tag) => tag.name);
+                        allowedTags = base.filter((tagName) => bloodlineCreatorMethodAllowsTag(tagName, jutsu.method, authoredTagNames));
+                        return <TagPicker key={tagIndex} rank={rank} jutsuTarget={jutsu.target} jutsuMethod={jutsu.method} allowedTags={allowedTags} tag={currentTag} disabledTags={disabledTags} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />;
                     })}
                     <div className="summary-box bloodline-effect-preview"><strong>What it does:</strong> {describeJutsuEffects(jutsu)}</div>
                     {(() => {
-                        const items = jutsuPointBreakdown(jutsu);
+                        const items = jutsuPointBreakdown(jutsu, rank);
                         return (
                             <div className="summary-box bloodline-points-breakdown">
-                                <div className="bloodline-points-total">Jutsu Points: {jutsuPoints(jutsu)}</div>
+                                <div className="bloodline-points-total">Jutsu Points: {jutsuPoints(jutsu, rank)}</div>
                                 {items.length === 0
                                     ? <small className="tag-effect-help">Free — a standard 60 AP damage jutsu costs no points.</small>
                                     : <ul>{items.map((it, k) => <li key={k}><span>{it.label}</span><span>+{it.points}</span></li>)}</ul>}
@@ -603,7 +631,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                         ))}
                     </div>
                     {jutsus.map((j, i) => (
-                        <div className="summary-box bloodline-element-lock" key={j.id}>Jutsu {i + 1}: <strong>{j.name}</strong> — {j.ap} AP · {jutsuPoints(j)} pts<br /><small>{describeJutsuEffects(j)}</small><br /><small>Combat VFX: {jutsuVisualEffectLabel(j.visualEffect)}</small></div>
+                        <div className="summary-box bloodline-element-lock" key={j.id}>Jutsu {i + 1}: <strong>{j.name}</strong> — {j.ap} AP · {jutsuPoints(j, rank)} pts<br /><small>{describeJutsuEffects(j)}</small><br /><small>Combat VFX: {jutsuVisualEffectLabel(j.visualEffect)}</small></div>
                     ))}
                     {renderPointTotal()}
                     {!editingBloodline && !lockedRank && <p className="hint" role="status">New bloodlines require a forge purchase at the Awakening Stone. Existing bloodlines can still be viewed and equipped here.</p>}
