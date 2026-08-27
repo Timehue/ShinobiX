@@ -8,6 +8,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import { EmptyState } from "../components/ui/EmptyState";
+import { GiChatBubble } from "../components/icons/LightweightGameIcons";
 import { ReportControl } from "../components/ReportControl";
 import type { Character } from "../types/character";
 import { refreshUnreadMail } from "../lib/mail-unread";
@@ -128,7 +129,10 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
     return (
         <div className="card" style={{ maxWidth: 720, margin: "0 auto" }}>
             <div className="menu" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <h2 style={{ margin: 0 }}>📬 Messages</h2>
+                <h2 style={{ margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                    <GiChatBubble size={20} style={{ color: "var(--sj-gold)" }} />
+                    Messages
+                </h2>
                 <button onClick={onBack}>← Back</button>
             </div>
 
@@ -190,7 +194,7 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                     <div className="summary-box">
                         <strong>Inbox</strong>
                         {inbox.length === 0 ? (
-                            <EmptyState icon="📭">No conversations yet.</EmptyState>
+                            <EmptyState icon={<GiChatBubble size={30} style={{ color: "var(--sj-text-muted)" }} />}>No conversations yet.</EmptyState>
                         ) : (
                             <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
                                 {inbox.map((e) => (
