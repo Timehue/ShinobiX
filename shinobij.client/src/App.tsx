@@ -119,10 +119,6 @@ import {
     scaleJutsuTagsForDisplay,
 } from "./lib/jutsu-scaling";
 import { useJutsuTrainingQueueRunner } from "./lib/jutsu-training-queue";
-import {
-    jutsuEffectInfo,
-    jutsuDisplayAtLevel,
-} from "./lib/jutsu-effects";
 import { normalizeJutsu, orderEquippedJutsus } from "./lib/jutsu";
 import { normalizeOnboardingStep } from "./lib/onboarding-step";
 import {
@@ -1089,12 +1085,9 @@ export function playerLensDiscipline(character: Character): JutsuType {
     return character.specialty && character.specialty !== "Any" ? character.specialty : "Ninjutsu";
 }
 
-// Jutsu effect descriptions + level-aware display (jutsuEffectInfo,
-// jutsuDisplayAtLevel, describeJutsuEffects) extracted to ./lib/jutsu-effects.
-// All three are imported back near the top of this file; jutsuEffectInfo and
-// jutsuDisplayAtLevel are re-exported for the JutsuEffectCards + TagPicker
-// "../App" import sites.
-export { jutsuEffectInfo, jutsuDisplayAtLevel };
+// Jutsu effect descriptions + level-aware display live in
+// ./lib/jutsu-effects. Consumers import that leaf module directly so the
+// detailed combat tooltip catalog stays outside App's startup graph.
 
 // Jutsu mastery/XP, resource-cost and level-scaling helpers extracted to
 // ./lib/jutsu-scaling. The referenced helpers are imported back near the top of
