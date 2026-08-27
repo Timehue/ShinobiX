@@ -66,6 +66,13 @@ test('artifact consumers verify immutable provenance and failure evidence stays 
     assert.ok(occurrences('${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}') >= 10);
     assert.ok(occurrences('sha256sum -c') >= 7);
     assert.ok(occurrences('grep -Fx "sha=$GITHUB_SHA" provenance.txt') >= 7);
+    assert.ok(occurrences('grep -Fx "run_id=$GITHUB_RUN_ID" provenance.txt') >= 7);
+    assert.ok(occurrences("grep -Eq '^run_attempt=[1-9][0-9]*$' provenance.txt") >= 7);
+    assert.equal(
+        occurrences('grep -Fx "run_attempt=$GITHUB_RUN_ATTEMPT" provenance.txt'),
+        0,
+        'artifact consumers must accept exact SHA/run artifacts produced by an earlier rerun attempt',
+    );
     assert.ok(occurrences('if: ${{ always() }}') >= 6, 'dependent jobs must fail closed instead of disappearing');
     assert.ok(workflow.includes('.playwright-mcp/aaa-adaptive/'));
     assert.ok(!workflow.includes('shinobij.client/.playwright-mcp/aaa-adaptive/'));
