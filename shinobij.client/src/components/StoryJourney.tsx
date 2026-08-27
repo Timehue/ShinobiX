@@ -13,7 +13,24 @@ import { buildCompletedStoryArchive, storyArchiveGuidance, type CompletedStoryAr
 import { isStoryContentVillage } from "../lib/story-content-contract";
 import { readStoryContent } from "../lib/story-content-loader";
 import { TriggeredVisualNovel } from "./TriggeredVisualNovel";
+import { GameIcon, type GameIconName } from "./icons/GameIcon";
 import "../styles/story-archive-guidance.css";
+
+/* The archive entry icons live in the LOCKED story data as each village's
+   element emoji. Rendering maps them onto the matching village glyphs from the
+   icon package (the no-emoji-icon rule); an icon the map doesn't know renders
+   as authored, so custom content keeps whatever it declared. */
+const ARCHIVE_ICON_GLYPH: Record<string, GameIconName> = {
+    "⚡": "bolt",
+    "❄": "snow",
+    "🌙": "moon",
+    "🌿": "leaf",
+};
+
+function ArchiveIcon({ icon }: { icon: string }) {
+    const glyph = ARCHIVE_ICON_GLYPH[icon];
+    return glyph ? <GameIcon name={glyph} size={18} /> : <>{icon}</>;
+}
 
 export function StoryJourney({ character, onReturnToVillage }: { character: Character; onReturnToVillage?: () => void }) {
     const village = character.storyVillage || character.village;
@@ -121,7 +138,7 @@ export function StoryJourney({ character, onReturnToVillage }: { character: Char
                                 aria-controls={panelId}
                                 onClick={() => setOpenId(open ? null : entry.id)}
                             >
-                                <span className="story-archive-icon" aria-hidden="true">{entry.icon}</span>
+                                <span className="story-archive-icon" aria-hidden="true"><ArchiveIcon icon={entry.icon} /></span>
                                 <span className="story-archive-label">
                                     <small>{entry.eyebrow}</small>
                                     <strong>{entry.title}</strong>
