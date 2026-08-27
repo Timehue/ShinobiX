@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from "react";
+import bloodlineForgeHero from "../assets/facilities/bloodline-forge-hero.webp";
 import type { Character } from "../types/character";
 import type { Jutsu, JutsuTag, SavedBloodline } from "../types/combat";
 import type { JutsuElement, JutsuMethod, JutsuTarget, JutsuType, Rank } from "../types/core";
@@ -544,7 +545,14 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
 
     return (
         <div className="card bloodline-maker-screen global-menu-panel">
-            <h2>Bloodline Maker</h2>
+            <div style={{ position: "relative", margin: "-14px -14px 14px", overflow: "hidden", borderRadius: "8px 8px 0 0" }}>
+                <img src={bloodlineForgeHero} alt="" style={{ display: "block", width: "100%", height: 168, objectFit: "cover", objectPosition: "center 38%" }} />
+                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,11,15,.08) 25%, rgba(8,11,15,.94))" }} />
+                <div style={{ position: "absolute", left: 18, right: 18, bottom: 10 }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--sj-seal-bright)" }}>Ancestral Archive · Bloodline Forge</div>
+                    <h2 style={{ margin: "2px 0 0", fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 400, letterSpacing: ".02em" }}>Bloodline Maker</h2>
+                </div>
+            </div>
             <div className="bloodline-wizard-steps">
                 {Array.from({ length: stepCount }).map((_, s) => (
                     <button
