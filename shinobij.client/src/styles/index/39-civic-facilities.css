@@ -607,9 +607,23 @@
 
 .cafeteria-meal-art {
     position: relative;
-    height: 77px;
+    height: 96px;
     margin-bottom: 12px;
+    overflow: hidden;
+    border-radius: 8px;
+    border: 1px solid rgba(215, 148, 84, 0.3);
     color: #d79454;
+}
+
+/* Painted meal plates (assets/facilities/meal-*.webp) fill the stage; the old
+   CSS line-art bowl/steam spans were retired with them. */
+.cafeteria-meal-art img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 58%;
 }
 
 .cafeteria-bowl {

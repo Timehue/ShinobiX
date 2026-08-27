@@ -23,6 +23,16 @@ import {
 } from "../lib/cafeteria";
 import { FacilityHero } from "../components/FacilityHero";
 import { GameIcon, ShinobiCurrencyIcon } from "../components/icons/GameIcon";
+import mealSmallRamen from "../assets/facilities/meal-small-ramen.webp";
+import mealShinobiMeal from "../assets/facilities/meal-shinobi-meal.webp";
+import mealFeast from "../assets/facilities/meal-feast.webp";
+
+/* Painted meal art (gen-asset pipeline) replaces the old CSS line-art bowls. */
+const MEAL_ART: Record<CafeteriaMealId, string> = {
+    "small-ramen": mealSmallRamen,
+    "shinobi-meal": mealShinobiMeal,
+    "feast": mealFeast,
+};
 
 const MEAL_COPY: Record<CafeteriaMealId, { label: string; description: string; tag: string }> = {
     "small-ramen": { label: "Quick bowl", description: "A light broth for patching up after training or a short patrol.", tag: "Light recovery" },
@@ -163,9 +173,7 @@ export function Cafeteria({
                     return (
                         <article key={meal.id} className={`cafeteria-meal-card cafeteria-meal-card--${meal.id}`} data-affordable={affordable}>
                             <div className="cafeteria-meal-art" aria-hidden="true">
-                                <span className="cafeteria-steam cafeteria-steam--one" />
-                                <span className="cafeteria-steam cafeteria-steam--two" />
-                                <span className="cafeteria-bowl" />
+                                <img src={MEAL_ART[meal.id]} alt="" loading="lazy" />
                             </div>
                             <span className="cafeteria-meal-tag">{copy.tag}</span>
                             <p className="facility-eyebrow">{copy.label}</p>
