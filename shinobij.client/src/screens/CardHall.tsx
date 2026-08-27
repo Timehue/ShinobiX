@@ -25,7 +25,7 @@ import {
 } from "../lib/chronicle-duel";
 import { getAllTileCards } from "../data/tile-cards";
 import { cardGameLockStatus } from "../lib/chronicle-lock";
-import { GameIcon } from "../components/icons/GameIcon";
+import chronicleScribeArt from "../assets/chronicle/chronicle-scribe-lock.webp";
 import { chronicleDuelistAvatar } from "../lib/chronicle-duelist-art";
 import { ChronicleCardView } from "../components/ChronicleCardView";
 import { ChronicleCardInspector } from "../components/ChronicleCardInspector";
@@ -101,22 +101,21 @@ export function CardHall(props: CardHallProps) {
   if (!lock.locked) return <CardHallInner {...props} />;
   return (
     <div style={{ maxWidth: 560, margin: "48px auto 0", padding: "0 16px", textAlign: "center" }}>
-      <div
+      <img
+        src={chronicleScribeArt}
+        alt=""
         aria-hidden="true"
         style={{
-          width: 72,
-          height: 72,
+          width: 108,
+          height: 108,
           margin: "0 auto 14px",
-          display: "grid",
-          placeItems: "center",
+          display: "block",
+          objectFit: "cover",
           borderRadius: "50%",
           border: "1px solid var(--sj-border-strong)",
-          background: "linear-gradient(180deg, var(--sj-surface-raised), var(--sj-surface))",
-          color: "var(--sj-gold)",
+          boxShadow: "0 10px 26px rgba(0,0,0,.4)",
         }}
-      >
-        <GameIcon name="scroll" size={34} />
-      </div>
+      />
       <h2 style={{ margin: "0 0 10px" }}>{lock.title}</h2>
       <p style={{ color: "#9aa3b2", lineHeight: 1.55, fontSize: ".95rem", margin: "0 0 20px" }}>{lock.body}</p>
       <button onClick={props.onBack}>Back</button>
