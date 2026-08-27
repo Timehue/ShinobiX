@@ -9,6 +9,7 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import { EmptyState } from "../components/ui/EmptyState";
 import { GiChatBubble } from "../components/icons/LightweightGameIcons";
+import courierHero from "../assets/facilities/messages-courier-hero.webp";
 import { ReportControl } from "../components/ReportControl";
 import type { Character } from "../types/character";
 import { refreshUnreadMail } from "../lib/mail-unread";
@@ -127,14 +128,17 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
     }, [busy, loadInbox]);
 
     return (
-        <div className="card" style={{ maxWidth: 720, margin: "0 auto" }}>
-            <div className="menu" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <h2 style={{ margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
-                    <GiChatBubble size={20} style={{ color: "var(--sj-gold)" }} />
-                    Messages
-                </h2>
-                <button onClick={onBack}>← Back</button>
+        <div className="card" style={{ maxWidth: 720, margin: "0 auto", padding: 0, overflow: "hidden" }}>
+            <div style={{ position: "relative" }}>
+                <img src={courierHero} alt="" style={{ display: "block", width: "100%", height: 170, objectFit: "cover", objectPosition: "center 32%" }} />
+                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,11,15,.05) 25%, rgba(8,11,15,.94))" }} />
+                <button onClick={onBack} style={{ position: "absolute", top: 10, right: 10 }}>← Back</button>
+                <div style={{ position: "absolute", left: 18, right: 18, bottom: 10 }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--sj-gold)" }}>Village Post · Courier Desk</div>
+                    <h2 style={{ margin: "2px 0 0", fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 400, letterSpacing: ".02em" }}>Messages</h2>
+                </div>
             </div>
+            <div style={{ padding: "12px 14px 14px" }}>
 
             {active ? (
                 <div className="summary-box" style={{ display: "flex", flexDirection: "column" }}>
@@ -155,11 +159,11 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                     </div>
                     <div ref={threadRef} style={{ maxHeight: "50vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, padding: "4px 0" }}>
                         {thread.length === 0 ? (
-                            <EmptyState icon="💬">No messages yet — say hello.</EmptyState>
+                            <EmptyState icon={<GiChatBubble size={28} style={{ color: "var(--sj-text-muted)" }} />}>No messages yet — say hello.</EmptyState>
                         ) : thread.map((m, i) => {
                             const mine = m.from.toLowerCase() === me;
                             return (
-                                <div key={i} style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "78%", background: mine ? "#1e3a8a" : "#1f2937", border: `1px solid ${mine ? "#3b82f6" : "#374151"}`, borderRadius: 10, padding: "6px 10px" }}>
+                                <div key={i} style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "78%", background: mine ? "rgba(116, 173, 189, 0.16)" : "var(--sj-surface-high)", border: `1px solid ${mine ? "rgba(116, 173, 189, 0.45)" : "var(--sj-border-soft)"}`, borderRadius: 10, padding: "6px 10px" }}>
                                     <div style={{ fontSize: 13, color: "#e5e7eb", wordBreak: "break-word" }}>{m.text}</div>
                                     <div style={{ fontSize: 9, color: "var(--text-dim)", marginTop: 2, textAlign: "right" }}>{timeAgo(m.ts)}</div>
                                 </div>
@@ -185,7 +189,7 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                         ) : (
                             <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
                                 <input value={composeTo} onChange={(e) => setComposeTo(e.target.value)} placeholder="Recipient name" style={{ width: 160 }} />
-                                <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void send(composeTo, draft); }} placeholder="Message…" maxLength={500} style={{ flex: 1, minWidth: 160 }} />
+                                <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void send(composeTo, draft); }} placeholder="Message…" maxLength={500} style={{ flex: "1 1 200px", minWidth: 0 }} />
                                 <button disabled={busy || composeDisabled || !composeTo.trim() || !draft.trim()} onClick={() => void send(composeTo, draft)}>Send</button>
                             </div>
                         )}
@@ -211,6 +215,7 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                     </div>
                 </>
             )}
+            </div>
         </div>
     );
 });
