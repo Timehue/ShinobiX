@@ -167,8 +167,12 @@
 .pet-arena-activity-nav button:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(240,202,121,.48); background: rgba(12,24,36,.9); }
 .pet-arena-activity-nav button.active { border-color: rgba(102,224,223,.7); color: #e9ffff; background: linear-gradient(135deg,rgba(22,83,92,.88),rgba(7,27,40,.9)); box-shadow: 0 0 0 1px rgba(102,224,223,.14) inset,0 10px 28px rgba(0,0,0,.2); }
 .pet-arena-activity-nav button:disabled { opacity: .5; cursor: not-allowed; }
-.pet-arena-activity-icon { display: grid; place-items: center; width: 39px; height: 39px; border: 1px solid rgba(240,202,121,.24); border-radius: 10px; color: var(--arena-gold); background: rgba(240,202,121,.07); }
+.pet-arena-activity-icon { display: grid; place-items: center; overflow: hidden; width: 39px; height: 39px; border: 1px solid rgba(240,202,121,.24); border-radius: 10px; color: var(--arena-gold); background: rgba(240,202,121,.07); }
 .pet-arena-activity-nav button.active .pet-arena-activity-icon { border-color: rgba(102,224,223,.45); color: var(--arena-cyan); background: rgba(102,224,223,.1); }
+/* Painted mode emblems (assets/coliseum/arena-mode-*.webp) fill the chip; the
+   frame and active ring above still carry selection state. */
+.pet-arena-activity-icon img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.pet-arena-activity-nav button:disabled .pet-arena-activity-icon img { filter: grayscale(.7) brightness(.7); }
 .pet-arena-activity-nav button > span:last-child { display: grid; min-width: 0; gap: .2rem; }
 .pet-arena-activity-nav strong { overflow: hidden; color: inherit; font-size: .74rem; letter-spacing: .04em; text-overflow: ellipsis; white-space: nowrap; }
 .pet-arena-activity-nav small { overflow: hidden; color: #6f8794; font-size: .58rem; text-overflow: ellipsis; white-space: nowrap; }
