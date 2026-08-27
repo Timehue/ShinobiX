@@ -1152,6 +1152,9 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     border: 1px solid rgba(216, 181, 112, .2);
     border-radius: 50%;
     background: rgba(216, 181, 112, .06);
+    /* The village glyph (GameIcon via StoryJourney's ArchiveIcon) draws in
+       currentColor; antique gold matches the medallion frame. */
+    color: var(--sj-gold);
     font-size: 1.15rem;
 }
 .story-archive-label {
