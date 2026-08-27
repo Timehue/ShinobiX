@@ -6500,6 +6500,17 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
         grid-template-rows: 52px 66px 22px minmax(190px, 1fr) 60px 180px !important;
     }
 }
+
+/* Tall monitors need more depth in the lower command deck; otherwise the
+   capped 2048px shell lets the flexible board row become nearly square at
+   2560x1440. This keeps the battlefield panoramic without changing the
+   700-1099px-tall command center validated for ordinary desktop screens. */
+@container shinobi-combat (min-width: 1180px) and (min-height: 1100px) {
+    #combat .combat-layout,
+    #combat .combat-layout.has-action-notice {
+        grid-template-rows: 52px 66px 22px minmax(210px, 1fr) 60px clamp(320px, 28cqh, 400px) !important;
+    }
+}
 }
 
 /* Keep combat-log chrome outside the scrolling surface. The base #combat

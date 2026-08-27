@@ -83,6 +83,11 @@ test("wide desktop shares one command center and gives unused mode space to the 
         /#combat\.shinobi-combat-shell \.hex-battlefield > div:first-child:has\(> \.hex-grid-layer\)\s*\{[^}]*scale: var\(--combat-grid-wide-scale\) 1/s,
         "the board's painted layer and hit targets must share the same wide projection",
     );
+    assert.match(
+        desktopCommandCenter,
+        /@container shinobi-combat \(min-width: 1180px\) and \(min-height: 1100px\)[\s\S]*?clamp\(320px, 28cqh, 400px\) !important/,
+        "very tall monitors must preserve a panoramic board by returning depth to the lower command deck",
+    );
     assert.doesNotMatch(
         tacticalPve,
         /id="combat"|<ShinobiCombatShell/,
