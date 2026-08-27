@@ -35,6 +35,8 @@ import { getAllJutsus, playerLensDiscipline } from "../App";
 import { settleProfileAction, type ProfileSettlementAction } from "../lib/profile-settlement";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
+import { academyVowDefinition } from "../lib/academy-narrative";
+import academyFieldSealArt from "../assets/academy/onboarding/shiranui-field-seal.webp";
 
 type ProfileDossierRow = {
     label: string;
@@ -392,6 +394,7 @@ export function Profile({
     const disciplineLabel = playerLensDiscipline(character);
     const elementsLabel = ownedElements.length ? ownedElements.join(" / ") : "Not awakened";
     const currentTitleLabel = character.customTitle || character.storyTitle || "";
+    const academyVow = academyVowDefinition(character.academyVow);
     // XP is retired: level progress is earned stat points vs the next threshold.
     const xpLabel = character.level >= MAX_LEVEL
         ? "MAX"
@@ -532,6 +535,23 @@ export function Profile({
             />
 
             <PatreonLink character={character} />
+
+            {character.academyFieldSeal && (
+                <section className="profile-field-seal" aria-labelledby="profile-field-seal-title">
+                    <div className="profile-field-seal-art">
+                        <img src={academyFieldSealArt} alt="Shiranui's Field Seal" />
+                    </div>
+                    <div>
+                        <p className="act-label">Academy Keepsake · No Combat Stats</p>
+                        <h2 id="profile-field-seal-title">Shiranui&apos;s Field Seal</h2>
+                        <blockquote>“{academyVow.quote}”</blockquote>
+                        <p>{academyVow.keepsakeLine}</p>
+                        <small>
+                            First field return{character.academyTraceSector ? ` · Trace recovered in Sector ${character.academyTraceSector}` : ""}
+                        </small>
+                    </div>
+                </section>
+            )}
 
             <section className="profile-overview-panel profile-dossier-panel" aria-label="Profile dossier">
                 <div className="profile-dossier-grid">

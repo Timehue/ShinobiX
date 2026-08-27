@@ -755,12 +755,21 @@ export type Character = {
     academyChecklistClaimed?: boolean;
     // One-time claim gate for the onboarding "Academy Trial" mission (Workstream F).
     academyTrialClaimed?: boolean;
-    // Persisted milestone for the final "sectorReturn" onboarding beat: set true the
-    // moment the player reaches any numbered sector, so the "return to the village"
+    // Persisted milestone for the final "sectorReturn" onboarding beat: set true when
+    // the player acknowledges the authored trace in a numbered sector, so the return
     // completion survives coach remounts (a sector-triggered battle unmounts the
     // coach), refreshes, and snapshot reverts. Lives on the character — not an
     // ephemeral ref — for the same reason every other beat keys off persisted state.
     academySectorVisited?: boolean;
+    /** The answer given to Shiranui during the opening. Narrative-only: it
+     * changes callbacks and the Academy keepsake, never stats or rewards. */
+    academyVow?: "unbound" | "seeker" | "guardian";
+    /** The spar's impossible Hollow Gate resonance has been acknowledged. */
+    academyIncidentSeen?: boolean;
+    /** Numbered sector where the first foxfire trace was inspected. */
+    academyTraceSector?: number;
+    /** Cosmetic, non-power keepsake presented at the first field-return rite. */
+    academyFieldSeal?: boolean;
     // Dismissed one-time contextual screen hints (Shop/Hospital/World Map/etc.).
     seenHints?: string[];
     geninCeremonySeen?: boolean;

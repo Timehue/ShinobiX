@@ -421,7 +421,17 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // ~15 KB of deploy headroom. The startup graph still passes independently at
 // 1,450,270 B raw / 383,810 B gzip; none of its gates, the per-chunk gate, or
 // the per-CSS-file gate moved.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_890_000;
+//
+// 2026-08-27 FIRST-SESSION NARRATIVE SLICE: 7,890,000 -> 7,918,000 B.
+// The identity vow, persisted spar omen, authored foxfire field discovery,
+// village-specific return rite, Profile keepsake, and their responsive/reduced-
+// motion presentation measure 7,901,702 B after a dedicated compaction pass.
+// The work lives in the already-lazy IntroCinematic, OnboardingCoach, and Profile
+// graphs; the initial graph moved only 212 B raw / 125 B gzip and remains below
+// its independent gates at 1,443,076 B raw / 382,134 B gzip. This ceiling keeps
+// ~16 KB of local headroom (and ~15 KB after the observed ~535 B deploy delta),
+// matching the sizing rule above. No startup, per-chunk, or CSS gate moved.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_918_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

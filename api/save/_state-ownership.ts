@@ -402,6 +402,12 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('bankLog', 'character', 'client-state', 'currency', ['combat-strip-char']),
     f('storyTraits', 'character', 'client-state', 'story', ['combat-strip-char']),
     f('storyTitle', 'character', 'client-state', 'story', ['combat-strip-char']),
+    f('onboardingStep', 'character', 'client-state', 'academy', ['combat-strip-char']),
+    f('academySectorVisited', 'character', 'client-state', 'academy', ['combat-strip-char']),
+    f('academyVow', 'character', 'client-preference', 'academy', ['combat-strip-char'], 'narrative-only authored enum; never affects rewards or power'),
+    f('academyIncidentSeen', 'character', 'client-state', 'academy', ['combat-strip-char']),
+    f('academyTraceSector', 'character', 'client-state', 'academy', ['combat-strip-char'], 'bounded presentation record of the first trace'),
+    f('academyFieldSeal', 'character', 'client-state', 'academy', ['combat-strip-char'], 'cosmetic narrative keepsake; no reward authority'),
 
     // ── Forbidden at character scope ────────────────────────────────────────
     f('creatorJutsus', 'character', 'forbidden', 'authored-content', ['forbidden-creator-char'], 'authored content lives on save:admin1/2, never on a player character'),

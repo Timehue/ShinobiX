@@ -901,6 +901,26 @@ export function sanitizeCharacterSave(
     if (savedMasteryFocus === undefined) delete char.masteryFocus;
     else char.masteryFocus = normalizeMasteryFocus(savedMasteryFocus);
 
+    // Narrative-only Academy state. These fields carry no rewards or combat
+    // authority, but they still cross an untrusted JSON boundary: keep the vow
+    // on its three authored lanes and bound the recorded discovery sector so a
+    // modified client cannot park arbitrary strings/objects in the save.
+    const incomingAcademyVow = char.academyVow ?? exChar.academyVow;
+    const storedAcademyVow = exChar.academyVow;
+    if (incomingAcademyVow === "unbound" || incomingAcademyVow === "seeker" || incomingAcademyVow === "guardian") {
+        char.academyVow = incomingAcademyVow;
+    } else if (storedAcademyVow === "unbound" || storedAcademyVow === "seeker" || storedAcademyVow === "guardian") {
+        char.academyVow = storedAcademyVow;
+    } else {
+        delete char.academyVow;
+    }
+    for (const flag of ["academyIncidentSeen", "academyFieldSeal"] as const) {
+        if (Object.prototype.hasOwnProperty.call(char, flag)) char[flag] = char[flag] === true;
+    }
+    if (Object.prototype.hasOwnProperty.call(char, "academyTraceSector")) {
+        char.academyTraceSector = Math.max(1, Math.min(10_000, Math.floor(Number(char.academyTraceSector) || 1)));
+    }
+
     // ── Free-form user text moderation ──────────────────────────────
     // The DISPLAY name is player-authored too, and was capped nowhere: `safeName`
     // bounds the derived slug used in keys, but `character.name` rode through raw.
