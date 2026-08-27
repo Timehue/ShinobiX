@@ -5,6 +5,11 @@ import { expectViewportSafe } from "../e2e/helpers/adaptive-assertions";
 
 const warfrontUrl = "/petvfx.html?warfront=1&autobuy=balanced&redbuy=defense&theme=central";
 const acceleratedWarfrontUrl = `${warfrontUrl}&wfspeed=30&petQuality=low`;
+// Council coverage validates strategy controls, not high-quality rendering.
+// Keep that interaction path on the production low preset so software WebGL
+// runners cannot starve DOM clicks; the DPR/geometry matrix below still boots
+// high quality explicitly on every renderer scale.
+const councilWarfrontUrl = "/petvfx.html?warfront=1&theme=central&stance=jungle&petQuality=low";
 
 // Waiting for the boot overlay to clear is a PRECONDITION of every spec here, not
 // the thing any of them asserts. A cold Warfront load measures under 12s locally
@@ -94,11 +99,11 @@ test("sealed camps telegraph their unlock and the interactive Council grants a r
     });
     await page.route("**/api/perf-beacon", (route) => route.fulfill({ status: 204 }));
 
-    await page.goto("/petvfx.html?warfront=1&theme=central&stance=jungle&wfspeed=1&petQuality=high");
+    await page.goto(`${councilWarfrontUrl}&wfspeed=1`);
     await expect(warfrontBootStatus(page)).toBeHidden({ timeout: SCENE_LOAD_TIMEOUT_MS });
     await expect(page.getByText(/SEALED 0:/).first()).toBeVisible();
 
-    await page.goto("/petvfx.html?warfront=1&theme=central&stance=jungle&wfspeed=30&petQuality=high");
+    await page.goto(`${councilWarfrontUrl}&wfspeed=30`);
     await expect(warfrontBootStatus(page)).toBeHidden({ timeout: SCENE_LOAD_TIMEOUT_MS });
     await expect(page.getByText(/War Council — round/)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText("FIELD ORDER", { exact: true })).toBeVisible();
