@@ -60,7 +60,7 @@ test("mode-only chat and pet controls stay owned by their battle screens", () =>
 test("wide desktop shares one command center and gives unused mode space to the battle log", () => {
     assert.match(desktopCommandCenter, /@media \(min-width: 1280px\) and \(min-height: 700px\)/);
     assert.match(desktopCommandCenter, /@container shinobi-combat \(min-width: 1180px\) and \(min-height: 660px\)/);
-    assert.match(desktopCommandCenter, /grid-template-columns:[\s\S]*?clamp\(190px, 15cqw, 260px\)[\s\S]*?minmax\(0, 1\.7fr\)[\s\S]*?minmax\(240px, 0\.9fr\)/);
+    assert.match(desktopCommandCenter, /grid-template-columns:[\s\S]*?clamp\(190px, 15cqw, 260px\)[\s\S]*?minmax\(0, 0\.9fr\)[\s\S]*?minmax\(240px, 1\.35fr\)/);
     assert.match(desktopCommandCenter, /"loadout loadout log mode mode" !important/);
     assert.match(desktopCommandCenter, /#combat \.combat-layout > \.combat-main-area,[\s\S]*?display: contents !important/);
     assert.match(desktopCommandCenter, /#combat \.combat-mode-panel,\s*#combat \.battle-chat-col[\s\S]*?grid-area: mode !important/);
@@ -73,6 +73,22 @@ test("wide desktop shares one command center and gives unused mode space to the 
     for (const source of [solo, pvp]) {
         assert.match(source, /role="region"\s*aria-label="Jutsu, weapons, and items"/);
     }
+    assert.match(
+        desktopCommandCenter,
+        /#combat\.shinobi-combat-shell \.combat-layout\s*\{[^}]*--combat-grid-wide-scale: 1\.18/s,
+        "the wide board projection must be attached to the shared PvP/Solo shell",
+    );
+    assert.match(
+        desktopCommandCenter,
+        /#combat\.shinobi-combat-shell \.hex-battlefield > div:first-child:has\(> \.hex-grid-layer\)\s*\{[^}]*scale: var\(--combat-grid-wide-scale\) 1/s,
+        "the board's painted layer and hit targets must share the same wide projection",
+    );
+    assert.doesNotMatch(
+        tacticalPve,
+        /id="combat"|<ShinobiCombatShell/,
+        "Battle Tower owns a separate zoomable board and must not enter the projected duel shell",
+    );
+    assert.match(desktopCommandCenter, /grid-template-columns: repeat\(auto-fill, minmax\(142px, 160px\)\) !important/);
 });
 
 test("the Arena screen stays a lobby and never hosts a fight again", () => {
