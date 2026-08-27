@@ -188,7 +188,7 @@ test("collapsing desktop chat widens the log without borrowing mobile tab state"
     assert.doesNotMatch(desktopExpansion, /\.is-expanded[^}]*grid-column: 3 \/ 6/);
 });
 
-test("combat cards keep complete art and separated overlay metadata", () => {
+test("combat cards use consistent art crops and separated overlay metadata", () => {
     assert.match(
         battleSkinCss,
         /html body > \.arena-fullscreen\.shinobi-combat-shell \.combat-jutsu-button\s*\{[^}]*position:\s*relative\s*!important;[^}]*display:\s*block\s*!important;[^}]*padding:\s*0\s*!important;/s,
@@ -201,8 +201,8 @@ test("combat cards keep complete art and separated overlay metadata", () => {
     );
     assert.match(
         battleSkinCss,
-        /#combat \.combat-jutsu-thumb > img\s*\{[^}]*object-fit: contain !important;[^}]*object-position: center !important/s,
-        "desktop jutsu, weapon, and item art must stay fully visible instead of being center-cropped",
+        /#combat \.combat-jutsu-thumb > img\s*\{[^}]*object-fit: cover !important;[^}]*object-position: center 42% !important/s,
+        "desktop jutsu, weapon, and item art must share one stable edge-to-edge crop",
     );
     assert.match(source, /localJutsuArtById\[jutsu\.id\][\s\S]*?localItemArtById\[item\.id\]/,
         "the local equipped catalogs must restore art stripped from the sealed PvP payload");
