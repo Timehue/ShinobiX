@@ -17,7 +17,7 @@
               "cssVariable": "--accent",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 231
+              "line": 256
             }
           }
         },
@@ -29,7 +29,7 @@
               "cssVariable": "--accent-strong",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 232
+              "line": 257
             }
           }
         },
@@ -41,7 +41,7 @@
               "cssVariable": "--blue-300",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 126
+              "line": 151
             }
           }
         },
@@ -53,7 +53,7 @@
               "cssVariable": "--blue-400",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 127
+              "line": 152
             }
           }
         },
@@ -65,7 +65,7 @@
               "cssVariable": "--blue-500",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 128
+              "line": 153
             }
           }
         },
@@ -77,7 +77,7 @@
               "cssVariable": "--border",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 217
+              "line": 242
             }
           }
         },
@@ -89,7 +89,7 @@
               "cssVariable": "--border-strong",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 218
+              "line": 243
             }
           }
         },
@@ -101,7 +101,7 @@
               "cssVariable": "--cyan-400",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 129
+              "line": 154
             }
           }
         },
@@ -113,7 +113,7 @@
               "cssVariable": "--cyan-500",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 130
+              "line": 155
             }
           }
         },
@@ -125,7 +125,7 @@
               "cssVariable": "--danger",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 235
+              "line": 260
             }
           }
         },
@@ -137,7 +137,7 @@
               "cssVariable": "--gold-2",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 228
+              "line": 253
             }
           }
         },
@@ -149,7 +149,7 @@
               "cssVariable": "--gold-200",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 105
+              "line": 130
             }
           }
         },
@@ -161,7 +161,7 @@
               "cssVariable": "--gold-300",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 106
+              "line": 131
             }
           }
         },
@@ -173,7 +173,7 @@
               "cssVariable": "--gold-400",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 107
+              "line": 132
             }
           }
         },
@@ -185,7 +185,7 @@
               "cssVariable": "--gold-500",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 108
+              "line": 133
             }
           }
         },
@@ -197,7 +197,7 @@
               "cssVariable": "--gold-600",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 109
+              "line": 134
             }
           }
         },
@@ -209,7 +209,7 @@
               "cssVariable": "--gold-700",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 110
+              "line": 135
             }
           }
         },
@@ -221,7 +221,7 @@
               "cssVariable": "--green-300",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 120
+              "line": 145
             }
           }
         },
@@ -233,7 +233,7 @@
               "cssVariable": "--green-400",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 121
+              "line": 146
             }
           }
         },
@@ -245,7 +245,7 @@
               "cssVariable": "--green-500",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 122
+              "line": 147
             }
           }
         },
@@ -257,7 +257,7 @@
               "cssVariable": "--green-600",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 123
+              "line": 148
             }
           }
         },
@@ -269,7 +269,7 @@
               "cssVariable": "--info",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 238
+              "line": 263
             }
           }
         },
@@ -281,7 +281,7 @@
               "cssVariable": "--ink",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 210
+              "line": 235
             }
           }
         },
@@ -293,7 +293,7 @@
               "cssVariable": "--line",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 216
+              "line": 241
             }
           }
         },
@@ -305,7 +305,7 @@
               "cssVariable": "--panel",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 211
+              "line": 236
             }
           }
         },
@@ -317,7 +317,7 @@
               "cssVariable": "--panel-2",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 212
+              "line": 237
             }
           }
         },
@@ -329,7 +329,7 @@
               "cssVariable": "--paper",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 230
+              "line": 255
             }
           }
         },
@@ -341,7 +341,7 @@
               "cssVariable": "--purple-400",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 133
+              "line": 158
             }
           }
         },
@@ -353,7 +353,7 @@
               "cssVariable": "--purple-500",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 134
+              "line": 159
             }
           }
         },
@@ -365,7 +365,7 @@
               "cssVariable": "--rarity-common",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 71
+              "line": 96
             }
           }
         },
@@ -377,7 +377,7 @@
               "cssVariable": "--rarity-epic",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 74
+              "line": 99
             }
           }
         },
@@ -389,7 +389,7 @@
               "cssVariable": "--rarity-legendary",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 75
+              "line": 100
             }
           }
         },
@@ -401,7 +401,7 @@
               "cssVariable": "--rarity-mythic",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 76
+              "line": 101
             }
           }
         },
@@ -413,7 +413,7 @@
               "cssVariable": "--rarity-rare",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 73
+              "line": 98
             }
           }
         },
@@ -425,7 +425,7 @@
               "cssVariable": "--rarity-uncommon",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 72
+              "line": 97
             }
           }
         },
@@ -437,7 +437,7 @@
               "cssVariable": "--red-300",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 113
+              "line": 138
             }
           }
         },
@@ -449,7 +449,7 @@
               "cssVariable": "--red-400",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 114
+              "line": 139
             }
           }
         },
@@ -461,7 +461,7 @@
               "cssVariable": "--red-500",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 115
+              "line": 140
             }
           }
         },
@@ -473,7 +473,7 @@
               "cssVariable": "--red-600",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 116
+              "line": 141
             }
           }
         },
@@ -485,7 +485,7 @@
               "cssVariable": "--red-700",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 117
+              "line": 142
             }
           }
         },
@@ -497,7 +497,7 @@
               "cssVariable": "--sj-background",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 32
+              "line": 57
             }
           }
         },
@@ -509,7 +509,7 @@
               "cssVariable": "--sj-border-faint",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 38
+              "line": 63
             }
           }
         },
@@ -521,7 +521,7 @@
               "cssVariable": "--sj-border-soft",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 39
+              "line": 64
             }
           }
         },
@@ -533,7 +533,7 @@
               "cssVariable": "--sj-border-strong",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 40
+              "line": 65
             }
           }
         },
@@ -545,7 +545,7 @@
               "cssVariable": "--sj-danger",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 56
+              "line": 81
             }
           }
         },
@@ -557,7 +557,7 @@
               "cssVariable": "--sj-gold",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 47
+              "line": 72
             }
           }
         },
@@ -569,7 +569,7 @@
               "cssVariable": "--sj-gold-bright",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 48
+              "line": 73
             }
           }
         },
@@ -581,7 +581,7 @@
               "cssVariable": "--sj-info",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 57
+              "line": 82
             }
           }
         },
@@ -593,7 +593,7 @@
               "cssVariable": "--sj-seal",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 51
+              "line": 76
             }
           }
         },
@@ -605,7 +605,7 @@
               "cssVariable": "--sj-seal-bright",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 52
+              "line": 77
             }
           }
         },
@@ -617,7 +617,7 @@
               "cssVariable": "--sj-spirit",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 49
+              "line": 74
             }
           }
         },
@@ -629,7 +629,7 @@
               "cssVariable": "--sj-spirit-bright",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 50
+              "line": 75
             }
           }
         },
@@ -641,7 +641,7 @@
               "cssVariable": "--sj-success",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 54
+              "line": 79
             }
           }
         },
@@ -653,7 +653,7 @@
               "cssVariable": "--sj-surface",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 34
+              "line": 59
             }
           }
         },
@@ -665,7 +665,7 @@
               "cssVariable": "--sj-surface-high",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 35
+              "line": 60
             }
           }
         },
@@ -677,7 +677,7 @@
               "cssVariable": "--sj-surface-low",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 33
+              "line": 58
             }
           }
         },
@@ -689,7 +689,7 @@
               "cssVariable": "--sj-surface-raised",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 36
+              "line": 61
             }
           }
         },
@@ -701,7 +701,7 @@
               "cssVariable": "--sj-text-disabled",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 45
+              "line": 70
             }
           }
         },
@@ -713,7 +713,7 @@
               "cssVariable": "--sj-text-muted",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 44
+              "line": 69
             }
           }
         },
@@ -725,7 +725,7 @@
               "cssVariable": "--sj-text-primary",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 42
+              "line": 67
             }
           }
         },
@@ -737,7 +737,7 @@
               "cssVariable": "--sj-text-secondary",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 43
+              "line": 68
             }
           }
         },
@@ -749,7 +749,7 @@
               "cssVariable": "--sj-void",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 31
+              "line": 56
             }
           }
         },
@@ -761,7 +761,7 @@
               "cssVariable": "--sj-warning",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 55
+              "line": 80
             }
           }
         },
@@ -773,7 +773,7 @@
               "cssVariable": "--slate-100",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 93
+              "line": 118
             }
           }
         },
@@ -785,7 +785,7 @@
               "cssVariable": "--slate-200",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 94
+              "line": 119
             }
           }
         },
@@ -797,7 +797,7 @@
               "cssVariable": "--slate-300",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 95
+              "line": 120
             }
           }
         },
@@ -809,7 +809,7 @@
               "cssVariable": "--slate-400",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 96
+              "line": 121
             }
           }
         },
@@ -821,7 +821,7 @@
               "cssVariable": "--slate-50",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 92
+              "line": 117
             }
           }
         },
@@ -833,7 +833,7 @@
               "cssVariable": "--slate-500",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 97
+              "line": 122
             }
           }
         },
@@ -845,7 +845,7 @@
               "cssVariable": "--slate-600",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 98
+              "line": 123
             }
           }
         },
@@ -857,7 +857,7 @@
               "cssVariable": "--slate-700",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 99
+              "line": 124
             }
           }
         },
@@ -869,7 +869,7 @@
               "cssVariable": "--slate-800",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 100
+              "line": 125
             }
           }
         },
@@ -881,7 +881,7 @@
               "cssVariable": "--slate-900",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 101
+              "line": 126
             }
           }
         },
@@ -893,7 +893,7 @@
               "cssVariable": "--slate-950",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 102
+              "line": 127
             }
           }
         },
@@ -905,7 +905,7 @@
               "cssVariable": "--status-control",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 82
+              "line": 107
             }
           }
         },
@@ -917,7 +917,7 @@
               "cssVariable": "--status-negative",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 80
+              "line": 105
             }
           }
         },
@@ -929,7 +929,7 @@
               "cssVariable": "--status-neutral",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 81
+              "line": 106
             }
           }
         },
@@ -941,7 +941,7 @@
               "cssVariable": "--status-positive",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 79
+              "line": 104
             }
           }
         },
@@ -953,7 +953,7 @@
               "cssVariable": "--status-shield",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 83
+              "line": 108
             }
           }
         },
@@ -965,7 +965,7 @@
               "cssVariable": "--success",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 237
+              "line": 262
             }
           }
         },
@@ -977,7 +977,7 @@
               "cssVariable": "--surface",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 213
+              "line": 238
             }
           }
         },
@@ -989,7 +989,7 @@
               "cssVariable": "--surface-2",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 214
+              "line": 239
             }
           }
         },
@@ -1001,7 +1001,7 @@
               "cssVariable": "--surface-3",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 215
+              "line": 240
             }
           }
         },
@@ -1013,7 +1013,7 @@
               "cssVariable": "--text",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 221
+              "line": 246
             }
           }
         },
@@ -1025,7 +1025,7 @@
               "cssVariable": "--text-dim",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 222
+              "line": 247
             }
           }
         },
@@ -1037,7 +1037,7 @@
               "cssVariable": "--text-muted",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 223
+              "line": 248
             }
           }
         },
@@ -1049,7 +1049,7 @@
               "cssVariable": "--text-on-accent",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 224
+              "line": 249
             }
           }
         },
@@ -1061,7 +1061,7 @@
               "cssVariable": "--village-ashen",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 61
+              "line": 86
             }
           }
         },
@@ -1073,7 +1073,7 @@
               "cssVariable": "--village-ashen-soft",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 62
+              "line": 87
             }
           }
         },
@@ -1085,7 +1085,7 @@
               "cssVariable": "--village-frost",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 65
+              "line": 90
             }
           }
         },
@@ -1097,7 +1097,7 @@
               "cssVariable": "--village-frost-soft",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 66
+              "line": 91
             }
           }
         },
@@ -1109,7 +1109,7 @@
               "cssVariable": "--village-moon",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 67
+              "line": 92
             }
           }
         },
@@ -1121,7 +1121,7 @@
               "cssVariable": "--village-moon-soft",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 68
+              "line": 93
             }
           }
         },
@@ -1133,7 +1133,7 @@
               "cssVariable": "--village-storm",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 63
+              "line": 88
             }
           }
         },
@@ -1145,7 +1145,7 @@
               "cssVariable": "--village-storm-soft",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 64
+              "line": 89
             }
           }
         },
@@ -1157,7 +1157,7 @@
               "cssVariable": "--warning",
               "category": "color",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 239
+              "line": 264
             }
           }
         }
@@ -1171,7 +1171,7 @@
               "cssVariable": "--buff",
               "category": "other",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 264
+              "line": 289
             }
           }
         },
@@ -1183,7 +1183,7 @@
               "cssVariable": "--cyan",
               "category": "other",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 229
+              "line": 254
             }
           }
         },
@@ -1195,7 +1195,7 @@
               "cssVariable": "--damage",
               "category": "other",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 263
+              "line": 288
             }
           }
         },
@@ -1207,7 +1207,7 @@
               "cssVariable": "--debuff",
               "category": "other",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 265
+              "line": 290
             }
           }
         },
@@ -1219,7 +1219,7 @@
               "cssVariable": "--gold",
               "category": "other",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 227
+              "line": 252
             }
           }
         },
@@ -1231,7 +1231,7 @@
               "cssVariable": "--heal",
               "category": "other",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 262
+              "line": 287
             }
           }
         },
@@ -1243,7 +1243,7 @@
               "cssVariable": "--red",
               "category": "other",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 236
+              "line": 261
             }
           }
         }
@@ -1257,7 +1257,7 @@
               "cssVariable": "--dialog-viewport-margin",
               "category": "layout",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 258
+              "line": 283
             }
           }
         },
@@ -1269,7 +1269,7 @@
               "cssVariable": "--shell-content-max",
               "category": "layout",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 247
+              "line": 272
             }
           }
         },
@@ -1281,7 +1281,7 @@
               "cssVariable": "--shell-gap",
               "category": "layout",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 248
+              "line": 273
             }
           }
         },
@@ -1293,7 +1293,7 @@
               "cssVariable": "--shell-left-rail",
               "category": "layout",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 242
+              "line": 267
             }
           }
         },
@@ -1305,7 +1305,7 @@
               "cssVariable": "--shell-left-rail-compact",
               "category": "layout",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 244
+              "line": 269
             }
           }
         },
@@ -1317,7 +1317,7 @@
               "cssVariable": "--shell-left-rail-padding",
               "category": "layout",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 254
+              "line": 279
             }
           }
         },
@@ -1329,7 +1329,7 @@
               "cssVariable": "--shell-mobile-nav-clearance",
               "category": "layout",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 253
+              "line": 278
             }
           }
         },
@@ -1341,7 +1341,7 @@
               "cssVariable": "--shell-mobile-nav-height",
               "category": "layout",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 252
+              "line": 277
             }
           }
         },
@@ -1353,7 +1353,7 @@
               "cssVariable": "--shell-mobile-page-padding",
               "category": "layout",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 251
+              "line": 276
             }
           }
         },
@@ -1365,7 +1365,7 @@
               "cssVariable": "--shell-page-padding-block",
               "category": "layout",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 250
+              "line": 275
             }
           }
         },
@@ -1377,7 +1377,7 @@
               "cssVariable": "--shell-page-padding-inline",
               "category": "layout",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 249
+              "line": 274
             }
           }
         },
@@ -1389,7 +1389,7 @@
               "cssVariable": "--shell-rail-content-gap",
               "category": "layout",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 256
+              "line": 281
             }
           }
         },
@@ -1401,7 +1401,7 @@
               "cssVariable": "--shell-rail-font-size",
               "category": "layout",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 257
+              "line": 282
             }
           }
         },
@@ -1413,7 +1413,7 @@
               "cssVariable": "--shell-right-rail",
               "category": "layout",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 243
+              "line": 268
             }
           }
         },
@@ -1425,7 +1425,7 @@
               "cssVariable": "--shell-right-rail-collapsed",
               "category": "layout",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 246
+              "line": 271
             }
           }
         },
@@ -1437,7 +1437,7 @@
               "cssVariable": "--shell-right-rail-compact",
               "category": "layout",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 245
+              "line": 270
             }
           }
         },
@@ -1449,7 +1449,7 @@
               "cssVariable": "--shell-right-rail-padding",
               "category": "layout",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 255
+              "line": 280
             }
           }
         },
@@ -1461,7 +1461,7 @@
               "cssVariable": "--touch-target-min",
               "category": "layout",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 259
+              "line": 284
             }
           }
         }
@@ -1475,7 +1475,7 @@
               "cssVariable": "--font-body",
               "category": "typography",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 163
+              "line": 188
             }
           }
         },
@@ -1487,7 +1487,7 @@
               "cssVariable": "--font-display",
               "category": "typography",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 164
+              "line": 189
             }
           }
         },
@@ -1499,7 +1499,7 @@
               "cssVariable": "--font-mono",
               "category": "typography",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 165
+              "line": 190
             }
           }
         },
@@ -1511,7 +1511,7 @@
               "cssVariable": "--fs-2xl",
               "category": "typography",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 174
+              "line": 199
             }
           }
         },
@@ -1523,7 +1523,7 @@
               "cssVariable": "--fs-2xs",
               "category": "typography",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 167
+              "line": 192
             }
           }
         },
@@ -1535,7 +1535,7 @@
               "cssVariable": "--fs-3xl",
               "category": "typography",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 175
+              "line": 200
             }
           }
         },
@@ -1547,7 +1547,7 @@
               "cssVariable": "--fs-base",
               "category": "typography",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 170
+              "line": 195
             }
           }
         },
@@ -1559,7 +1559,7 @@
               "cssVariable": "--fs-lg",
               "category": "typography",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 172
+              "line": 197
             }
           }
         },
@@ -1571,7 +1571,7 @@
               "cssVariable": "--fs-md",
               "category": "typography",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 171
+              "line": 196
             }
           }
         },
@@ -1583,7 +1583,7 @@
               "cssVariable": "--fs-sm",
               "category": "typography",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 169
+              "line": 194
             }
           }
         },
@@ -1595,7 +1595,7 @@
               "cssVariable": "--fs-xl",
               "category": "typography",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 173
+              "line": 198
             }
           }
         },
@@ -1607,7 +1607,7 @@
               "cssVariable": "--fs-xs",
               "category": "typography",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 168
+              "line": 193
             }
           }
         },
@@ -1619,7 +1619,7 @@
               "cssVariable": "--fw-black",
               "category": "typography",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 183
+              "line": 208
             }
           }
         },
@@ -1631,7 +1631,7 @@
               "cssVariable": "--fw-bold",
               "category": "typography",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 182
+              "line": 207
             }
           }
         },
@@ -1643,7 +1643,7 @@
               "cssVariable": "--fw-medium",
               "category": "typography",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 181
+              "line": 206
             }
           }
         },
@@ -1655,7 +1655,7 @@
               "cssVariable": "--fw-normal",
               "category": "typography",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 180
+              "line": 205
             }
           }
         },
@@ -1667,7 +1667,7 @@
               "cssVariable": "--lh-base",
               "category": "typography",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 178
+              "line": 203
             }
           }
         },
@@ -1679,7 +1679,7 @@
               "cssVariable": "--lh-tight",
               "category": "typography",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 177
+              "line": 202
             }
           }
         }
@@ -1693,7 +1693,7 @@
               "cssVariable": "--motion-fast",
               "category": "motion",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 86
+              "line": 111
             }
           }
         },
@@ -1705,7 +1705,7 @@
               "cssVariable": "--motion-instant",
               "category": "motion",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 85
+              "line": 110
             }
           }
         },
@@ -1717,7 +1717,7 @@
               "cssVariable": "--motion-normal",
               "category": "motion",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 87
+              "line": 112
             }
           }
         },
@@ -1729,7 +1729,7 @@
               "cssVariable": "--motion-scene",
               "category": "motion",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 89
+              "line": 114
             }
           }
         },
@@ -1741,7 +1741,7 @@
               "cssVariable": "--motion-slow",
               "category": "motion",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 88
+              "line": 113
             }
           }
         }
@@ -1755,7 +1755,7 @@
               "cssVariable": "--r-full",
               "category": "radius",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 160
+              "line": 185
             }
           }
         },
@@ -1767,7 +1767,7 @@
               "cssVariable": "--r-lg",
               "category": "radius",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 157
+              "line": 182
             }
           }
         },
@@ -1779,7 +1779,7 @@
               "cssVariable": "--r-md",
               "category": "radius",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 156
+              "line": 181
             }
           }
         },
@@ -1791,7 +1791,7 @@
               "cssVariable": "--r-pill",
               "category": "radius",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 159
+              "line": 184
             }
           }
         },
@@ -1803,7 +1803,7 @@
               "cssVariable": "--r-sm",
               "category": "radius",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 155
+              "line": 180
             }
           }
         },
@@ -1815,7 +1815,7 @@
               "cssVariable": "--r-xl",
               "category": "radius",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 158
+              "line": 183
             }
           }
         },
@@ -1827,7 +1827,7 @@
               "cssVariable": "--r-xs",
               "category": "radius",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 154
+              "line": 179
             }
           }
         }
@@ -1841,7 +1841,7 @@
               "cssVariable": "--shadow-inset-top",
               "category": "shadow",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 189
+              "line": 214
             }
           }
         },
@@ -1853,7 +1853,7 @@
               "cssVariable": "--shadow-lg",
               "category": "shadow",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 188
+              "line": 213
             }
           }
         },
@@ -1865,7 +1865,7 @@
               "cssVariable": "--shadow-md",
               "category": "shadow",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 187
+              "line": 212
             }
           }
         },
@@ -1877,7 +1877,7 @@
               "cssVariable": "--shadow-sm",
               "category": "shadow",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 186
+              "line": 211
             }
           }
         }
@@ -1891,7 +1891,7 @@
               "cssVariable": "--sp-0",
               "category": "spacing",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 139
+              "line": 164
             }
           }
         },
@@ -1903,7 +1903,7 @@
               "cssVariable": "--sp-1",
               "category": "spacing",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 140
+              "line": 165
             }
           }
         },
@@ -1915,7 +1915,7 @@
               "cssVariable": "--sp-10",
               "category": "spacing",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 147
+              "line": 172
             }
           }
         },
@@ -1927,7 +1927,7 @@
               "cssVariable": "--sp-12",
               "category": "spacing",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 148
+              "line": 173
             }
           }
         },
@@ -1939,7 +1939,7 @@
               "cssVariable": "--sp-16",
               "category": "spacing",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 149
+              "line": 174
             }
           }
         },
@@ -1951,7 +1951,7 @@
               "cssVariable": "--sp-2",
               "category": "spacing",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 141
+              "line": 166
             }
           }
         },
@@ -1963,7 +1963,7 @@
               "cssVariable": "--sp-20",
               "category": "spacing",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 150
+              "line": 175
             }
           }
         },
@@ -1975,7 +1975,7 @@
               "cssVariable": "--sp-24",
               "category": "spacing",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 151
+              "line": 176
             }
           }
         },
@@ -1987,7 +1987,7 @@
               "cssVariable": "--sp-3",
               "category": "spacing",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 142
+              "line": 167
             }
           }
         },
@@ -1999,7 +1999,7 @@
               "cssVariable": "--sp-4",
               "category": "spacing",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 143
+              "line": 168
             }
           }
         },
@@ -2011,7 +2011,7 @@
               "cssVariable": "--sp-5",
               "category": "spacing",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 144
+              "line": 169
             }
           }
         },
@@ -2023,7 +2023,7 @@
               "cssVariable": "--sp-6",
               "category": "spacing",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 145
+              "line": 170
             }
           }
         },
@@ -2035,7 +2035,7 @@
               "cssVariable": "--sp-8",
               "category": "spacing",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 146
+              "line": 171
             }
           }
         }
@@ -2049,7 +2049,7 @@
               "cssVariable": "--z-background",
               "category": "z-index",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 192
+              "line": 217
             }
           }
         },
@@ -2061,7 +2061,7 @@
               "cssVariable": "--z-base",
               "category": "z-index",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 193
+              "line": 218
             }
           }
         },
@@ -2073,7 +2073,7 @@
               "cssVariable": "--z-combat",
               "category": "z-index",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 202
+              "line": 227
             }
           }
         },
@@ -2085,7 +2085,7 @@
               "cssVariable": "--z-combat-hud",
               "category": "z-index",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 203
+              "line": 228
             }
           }
         },
@@ -2097,7 +2097,7 @@
               "cssVariable": "--z-drawer",
               "category": "z-index",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 198
+              "line": 223
             }
           }
         },
@@ -2109,7 +2109,7 @@
               "cssVariable": "--z-mobile-nav",
               "category": "z-index",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 196
+              "line": 221
             }
           }
         },
@@ -2121,7 +2121,7 @@
               "cssVariable": "--z-modal",
               "category": "z-index",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 200
+              "line": 225
             }
           }
         },
@@ -2133,7 +2133,7 @@
               "cssVariable": "--z-notice",
               "category": "z-index",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 197
+              "line": 222
             }
           }
         },
@@ -2145,7 +2145,7 @@
               "cssVariable": "--z-overlay",
               "category": "z-index",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 199
+              "line": 224
             }
           }
         },
@@ -2157,7 +2157,7 @@
               "cssVariable": "--z-rail",
               "category": "z-index",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 195
+              "line": 220
             }
           }
         },
@@ -2169,7 +2169,7 @@
               "cssVariable": "--z-sticky",
               "category": "z-index",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 194
+              "line": 219
             }
           }
         },
@@ -2181,7 +2181,7 @@
               "cssVariable": "--z-toast",
               "category": "z-index",
               "source": "shinobij.client/src/styles/tokens.css",
-              "line": 201
+              "line": 226
             }
           }
         }
@@ -2437,7 +2437,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
-            "line": 816
+            "line": 819
           },
           {
             "source": "shinobij.client/src/styles/index/38-account-recovery.css",
@@ -2630,7 +2630,7 @@
           },
           {
             "source": "shinobij.client/src/styles/jutsu-training-skin.css",
-            "line": 480
+            "line": 483
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
@@ -3030,7 +3030,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/01-base-app-chrome.css",
-            "line": 568
+            "line": 577
           },
           {
             "source": "shinobij.client/src/styles/index/06-combat-core.css",
@@ -3038,7 +3038,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/08-polish-nav-passes.css",
-            "line": 546
+            "line": 549
           },
           {
             "source": "shinobij.client/src/styles/index/33-hollow-gate-cinematic.css",
@@ -3139,7 +3139,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/08-polish-nav-passes.css",
-            "line": 282
+            "line": 285
           },
           {
             "source": "shinobij.client/src/styles/index/11-sector-explore-village-themes.css",
@@ -3159,7 +3159,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
-            "line": 808
+            "line": 811
           },
           {
             "source": "shinobij.client/src/styles/index/25-mobile-profile-tabs.css",
@@ -3179,7 +3179,7 @@
           },
           {
             "source": "shinobij.client/src/styles/jutsu-training-skin.css",
-            "line": 460
+            "line": 463
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
@@ -3465,11 +3465,11 @@
           },
           {
             "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
-            "line": 453
+            "line": 456
           },
           {
             "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
-            "line": 925
+            "line": 928
           },
           {
             "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
@@ -3761,7 +3761,7 @@
           },
           {
             "source": "shinobij.client/src/styles/jutsu-training-skin.css",
-            "line": 452
+            "line": 455
           }
         ]
       },
@@ -3829,7 +3829,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/08-polish-nav-passes.css",
-            "line": 553
+            "line": 556
           }
         ]
       },
