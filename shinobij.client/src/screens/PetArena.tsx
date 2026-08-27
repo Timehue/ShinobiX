@@ -103,6 +103,9 @@ import { wfThemeForVillage } from "../lib/pet-warfront-map";
 import type { WfBuyPolicy } from "../lib/pet-warfront-sim";
 import { WF_DOCTRINES, WF_STANCES, type WfDoctrine, type WfStance } from "../lib/pet-warfront-contract";
 import tacticalArenaHero from "../assets/coliseum/tactical-arena-hero.webp";
+import arenaModeColosseum from "../assets/coliseum/arena-mode-colosseum.webp";
+import arenaModeWarfront from "../assets/coliseum/arena-mode-warfront.webp";
+import arenaModeGauntlet from "../assets/coliseum/arena-mode-gauntlet.webp";
 import petArenaCommandHero from "../assets/coliseum/pet-arena-command-v2.webp";
 import petArenaCommandMobileHero from "../assets/coliseum/pet-arena-command-mobile-v2.webp";
 import petDuelHero from "../assets/coliseum/pet-duel-hero.webp";
@@ -1800,7 +1803,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 {!isHollowGate ? (
                     <nav className="pet-arena-activity-nav" aria-label="Pet Arena activities">
                         <button type="button" className={arenaView === "battle" ? "active" : ""} aria-current={arenaView === "battle" ? "page" : undefined} onClick={() => setArenaView("battle")}>
-                            <span className="pet-arena-activity-icon"><GameIcon name="sword" size={22} /></span>
+                            <span className="pet-arena-activity-icon"><img src={arenaModeColosseum} alt="" loading="lazy" /></span>
                             <span><strong>Pet Colosseum</strong><small>Cinematic 1v1 · 2v2</small></span>
                         </button>
                         <button
@@ -1811,11 +1814,11 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                             title={!tacticalArenaUnlocked ? `Locked: ${availableArenaPetCount}/${TACTICAL_ARENA_PET_REQUIREMENT} available pets` : undefined}
                             onClick={() => setArenaView("tactical")}
                         >
-                            <span className="pet-arena-activity-icon"><GameIcon name="shield" size={22} /></span>
+                            <span className="pet-arena-activity-icon"><img src={arenaModeWarfront} alt="" loading="lazy" /></span>
                             <span><strong>Hollow Warfront</strong><small>{tacticalArenaUnlocked ? "4v4 tactical command" : `Locked · ${availableArenaPetCount}/${TACTICAL_ARENA_PET_REQUIREMENT} pets`}</small></span>
                         </button>
                         <button type="button" className={arenaView === "gauntlet" ? "active" : ""} aria-current={arenaView === "gauntlet" ? "page" : undefined} onClick={() => setArenaView("gauntlet")}>
-                            <span className="pet-arena-activity-icon"><GameIcon name="bolt" size={22} /></span>
+                            <span className="pet-arena-activity-icon"><img src={arenaModeGauntlet} alt="" loading="lazy" /></span>
                             <span><strong>Pet Gauntlet</strong><small>Escalating endurance run</small></span>
                         </button>
                     </nav>
