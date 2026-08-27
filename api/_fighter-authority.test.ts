@@ -102,6 +102,11 @@ describe('cross-mode fighter parity (the unification contract)', () => {
         maxHp: 4000, maxChakra: 3000, maxStamina: 3000,
         bloodline: 'Ashen Eyes',
         equippedJutsuIds: ['ashen-eyes-blood-gaze', 'authored-blitz', 'ghost-jutsu-does-not-exist'],
+        jutsuMastery: [
+            { jutsuId: 'ashen-eyes-blood-gaze', level: 0 },
+            { jutsuId: 'authored-blitz', level: 0 },
+            { jutsuId: 'ghost-jutsu-does-not-exist', level: 0 },
+        ],
         equipment: { hand: 'custom-storm-tanto', body: 'shinobi-vest' },
         inventory: ['shinobi-vest'],
     };

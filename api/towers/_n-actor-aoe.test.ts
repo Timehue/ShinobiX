@@ -284,12 +284,13 @@ describe('Tower N-actor AOE cutover', () => {
         assert.equal(s.log.at(-1), 'The blast also catches target-a, target-c, target-d.');
 
         // Exact receipt pins the sequential combination of reflect/recoil/heals and
-        // each target's shield/absorb/wound/status mutations.
+        // each target's shield/absorb/wound/status mutations. This fixture has no
+        // mastery entry, so its authored 15% Siphon resolves at the level-0 5%.
         assert.deepEqual({
             casterHp: outcome.caster.hp,
             targets: outcome.enemies.map(entry => [entry.id, entry.hp, entry.shield]),
         }, {
-            casterHp: 1_953,
+            casterHp: 1_797,
             targets: [
                 ['target-a', 99_594, 0],
                 ['target-b', 99_685, 0],

@@ -37,4 +37,12 @@ describe("tag groups", () => {
         const grouped = groupTags(["Move", "Quantum Flux"]);
         assert.ok(grouped.some((g) => g.label === "Other" && g.tags.includes("Quantum Flux")));
     });
+
+    it("groups Clear Prevent with self defense rather than enemy debuffs", () => {
+        const defense = tagGroups.find((group) => group.label === "Defense (you)");
+        const debuffs = tagGroups.find((group) => group.label === "Debuffs (enemy)");
+
+        assert.ok(defense?.tags.includes("Clear Prevent"));
+        assert.equal(debuffs?.tags.includes("Clear Prevent"), false);
+    });
 });

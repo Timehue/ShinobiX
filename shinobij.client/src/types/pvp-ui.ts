@@ -22,6 +22,7 @@ type PvpStatusState = {
     source?: string;
     rounds: number;
     activeRound?: number;
+    inactiveRound?: number;
     percent?: number;
     amount?: number;
     kind: "positive" | "negative";

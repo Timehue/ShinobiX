@@ -4,7 +4,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { Jutsu } from "../types/combat";
 import { describeJutsuEffects } from "../lib/jutsu-effects.js";
-import { JutsuEffectCards } from "./JutsuEffectCards.js";
+import { JutsuEffectCards, jutsuEffectTargetLabel } from "./JutsuEffectCards.js";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
@@ -40,7 +40,7 @@ it("groups Overload into one colored two-stack card with current and max values"
     assert.match(html, /role="list" aria-label="Jutsu effects"/);
     assert.equal((html.match(/role="listitem"/g) ?? []).length, 1);
     assert.match(html, /jutsu-effect-card--power/);
-    assert.match(html, /2 stacks · 2 rounds/);
+    assert.match(html, /2 stacks · Starts next round · 2 rounds/);
     assert.match(html, /Triggers 2× per cast/);
     assert.match(html, /Stack 1/);
     assert.match(html, /Stack 2/);
@@ -52,4 +52,32 @@ it("collapses the repeated plain-language effect summary", () => {
     const summary = describeJutsuEffects(overload, 8);
     assert.equal((summary.match(/Increases your damage given/g) ?? []).length, 1);
     assert.match(summary, /Triggers 2 times per cast\./);
+});
+
+it("labels each mixed-tag effect by its actual recipient rather than the cast target", () => {
+    const mixed: Jutsu = {
+        ...overload,
+        id: "mixed-target-jutsu",
+        name: "Mixed Target",
+        target: "OPPONENT",
+        tags: [
+            { name: "Heal", percent: 0 },
+            { name: "Increase Damage Taken", percent: 30 },
+            { name: "Copy", percent: 0 },
+            { name: "Mirror", percent: 0 },
+        ],
+    };
+
+    const html = renderToStaticMarkup(<JutsuEffectCards jutsu={mixed} masteryLevel={50} />);
+
+    assert.equal((html.match(/<strong>Target:<\/strong> Self<\/span>/g) ?? []).length, 1);
+    assert.equal((html.match(/<strong>Target:<\/strong> Enemy<\/span>/g) ?? []).length, 1);
+    assert.match(html, /<strong>Target:<\/strong> Self \(copies eligible enemy buffs\)<\/span>/);
+    assert.match(html, /<strong>Target:<\/strong> Enemy \(copies all your debuffs\)<\/span>/);
+});
+
+it("normalizes legacy tag aliases before choosing an effect recipient", () => {
+    assert.equal(jutsuEffectTargetLabel(overload, "Vamp"), "Self");
+    assert.equal(jutsuEffectTargetLabel(overload, "Seal"), "Enemy");
+    assert.equal(jutsuEffectTargetLabel(overload, "Barrier"), "Battlefield");
 });

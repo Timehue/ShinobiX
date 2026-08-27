@@ -457,7 +457,7 @@ export const starterSavedBloodlines: SavedBloodline[] = [
         ],
         totalPoints: 9,
     },
-].map((bloodline) => ({ ...bloodline, totalPoints: bloodlinePoints(bloodline.jutsus) }));
+].map((bloodline) => ({ ...bloodline, totalPoints: bloodlinePoints(bloodline.jutsus, bloodline.rank) }));
 
 export const jutsuTargets: JutsuTarget[] = ["OPPONENT", "SELF", "OTHER_USER", "CHARACTER", "EMPTY_GROUND"];
 export const jutsuMethods: JutsuMethod[] = ["SINGLE", "ALL", "AOE_CIRCLE", "INSTANT_EFFECT", "AOE_SPIRAL", "AOE_BURST"];

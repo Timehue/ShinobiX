@@ -5,9 +5,19 @@
  */
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { jutsuPoints, jutsuPointBreakdown } from "./jutsu-points";
+import {
+    bloodlineCreatorPercentPolicy,
+    bloodlinePoints,
+    bloodlineTagPercentChoices,
+    jutsuPoints,
+    jutsuPointBreakdown,
+    normalizeBloodlineCreatorTagPercent,
+    tagPointValue,
+} from "./jutsu-points";
 import { normalizeJutsu } from "./jutsu";
+import { allTags, cappedDamageTags } from "./tags";
 import type { Jutsu } from "../types/combat";
+import type { Rank } from "../types/core";
 
 function j(partial: Partial<Jutsu>): Jutsu {
     return normalizeJutsu({ id: "t", name: "T", type: "Ninjutsu", ...partial });
@@ -50,5 +60,49 @@ describe("jutsuPointBreakdown", () => {
         const items = jutsuPointBreakdown(j({ ap: 60, effectPower: 40, range: 4, cooldown: 7, tags: [{ name: "Increase Damage Given", percent: 20 }] }));
         const idg = items.find((it) => it.label.startsWith("Increase Damage Given"));
         assert.ok(idg && idg.points === 0.25, `expected 0.25 floor, got ${idg?.points}`);
+    });
+});
+
+describe("player bloodline creator percent policy", () => {
+    const ranks: Rank[] = ["B Rank", "A Rank", "S Rank"];
+    const creatorTags = [...allTags, "Pierce"];
+
+    for (const rank of ranks) {
+        it(`${rank}: every creator tag has a closed legal percent policy`, () => {
+            const legalChoices = bloodlineTagPercentChoices(rank);
+            for (const name of creatorTags) {
+                const policy = bloodlineCreatorPercentPolicy(name, rank);
+                const normalized = normalizeBloodlineCreatorTagPercent(name, 999, rank);
+                if (policy.scalable) {
+                    assert.deepEqual(policy.choices, legalChoices, name);
+                    assert.equal(policy.defaultPercent, legalChoices[legalChoices.length - 1], name);
+                    assert.ok(legalChoices.includes(normalized), `${name}: ${normalized}`);
+                } else {
+                    assert.deepEqual(policy.choices, [0], name);
+                    assert.equal(policy.defaultPercent, 0, name);
+                    assert.equal(normalized, 0, name);
+                }
+            }
+        });
+
+        it(`${rank}: every max creator amp pays the at-cap price`, () => {
+            const creatorMax = bloodlineTagPercentChoices(rank).at(-1)!;
+            for (const name of cappedDamageTags.filter((candidate) => allTags.includes(candidate))) {
+                assert.equal(tagPointValue({ name, percent: creatorMax }, rank), 0.75, name);
+            }
+        });
+    }
+
+    it("bloodlinePoints prices the whole kit with its explicit creator rank", () => {
+        const maxA = bloodlineTagPercentChoices("A Rank").at(-1)!;
+        const kit = [j({
+            ap: 60,
+            effectPower: 40,
+            range: 4,
+            cooldown: 7,
+            tags: [{ name: "Increase Damage Given", percent: maxA }],
+        })];
+        assert.equal(bloodlinePoints(kit, "A Rank"), jutsuPoints(kit[0]!, "A Rank"));
+        assert.equal(bloodlinePoints(kit, "A Rank"), 0.75);
     });
 });

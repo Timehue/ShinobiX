@@ -58,6 +58,25 @@ describe('authoritative combat event projection', () => {
         assert.deepEqual(event.lifecycle, [{ role: 'enemy', event: 'down' }]);
     });
 
+    it('preserves both activation boundaries for gap-free status refreshes', () => {
+        const before = snapshot();
+        before.player.statuses = [{ name: 'Drain', kind: 'negative', rounds: 2, activeRound: 1 }];
+        const after = structuredClone(before);
+        after.player.statuses = [
+            { name: 'Drain', kind: 'negative', rounds: 2, activeRound: 1, inactiveRound: 3 },
+            { name: 'Drain', kind: 'negative', rounds: 2, activeRound: 3 },
+        ];
+
+        const event = projectAuthoritativeCombatEvent({
+            runtime: 'solo-pve', mode: 'mission', sessionId: 'refresh', sequence: 3,
+            roundBefore: 2, roundAfter: 2, actor: 'enemy', target: 'player', actionType: 'jutsu', actionId: 'drain',
+            applied: true, before, after, status: 'active', winner: null, outcome: null,
+        });
+
+        assert.deepEqual(event.statusChanges[0]?.after, after.player.statuses);
+        assert.equal(event.statusChanges[0]?.after[0]?.inactiveRound, 3);
+    });
+
     it('records summon, dismissal, and flee without leaking fighter identity', () => {
         const before = snapshot();
         const summoned = structuredClone(before);

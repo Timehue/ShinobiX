@@ -35,7 +35,8 @@ function fighter(name: string, hp = 1000): PvpFighter {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function asJutsu(j: Record<string, unknown>): any {
-    return { type: 'Bukijutsu', range: 1, cooldown: 0, chakraCost: 0, staminaCost: 0, target: 'OPPONENT', method: 'SINGLE', tags: [], ...j };
+    const out: Record<string, unknown> = { type: 'Bukijutsu', range: 1, cooldown: 0, chakraCost: 0, staminaCost: 0, target: 'OPPONENT', method: 'SINGLE', tags: [], ...j };
+    return out.id === 'weapon' ? { ...out, weaponSwing: true } : out;
 }
 
 describe('PvP weapon damage', () => {
@@ -225,6 +226,23 @@ describe('weapon tag percents ignore jutsu mastery', () => {
         const sRank = applyJutsu(fighter('A'), fighter('B'), asJutsu({ id: 'blast', name: 'Blast', ap: 60, effectPower: 30, bloodlineRank: 'S Rank', tags }), 1, 'central', 1);
         assert.equal(none.self.statuses.find(s => s.name === 'Absorb')?.percent, 30, 'a no-bloodline jutsu still caps at 30');
         assert.equal(sRank.self.statuses.find(s => s.name === 'Absorb')?.percent, 40, 'an S-rank jutsu still caps at 40');
+    });
+
+    it('Wound and Siphon post-damage riders use the authored weapon value at max mastery, under weapon caps', () => {
+        const r = applyJutsu(fighter('A', 100), fighter('B'), asJutsu({
+            id: 'weapon', name: 'Named Blade', isUtility: false, ap: 40, effectPower: 30,
+            tags: [{ name: 'Wound', percent: 20 }, { name: 'Siphon', percent: 40 }],
+        }), 1, 'central', 1);
+        assert.equal(
+            r.opponent.statuses.find(status => status.name === 'Wound')?.amount,
+            Math.floor(r.metadata.damage * 0.20),
+            'the 20% printed Wound value is not docked to 10% for missing jutsu mastery',
+        );
+        assert.equal(
+            r.self.hp - 100,
+            Math.floor(r.metadata.damage * WEAPON_AMP_TAG_CAP / 100),
+            'Siphon resolves at max mastery and clamps a 40% roll to the 35% weapon ceiling',
+        );
     });
 
     it('the FLAT Heal magnitude still scales with real mastery (a swing is not a full heal jutsu)', () => {

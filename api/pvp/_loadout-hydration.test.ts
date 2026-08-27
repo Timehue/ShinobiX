@@ -31,7 +31,13 @@ describe('authoritative equipped-jutsu hydration', () => {
     const save = { savedBloodlines: [], creatorJutsus: [customJutsu] };
     const saveCharacter = {
         equippedJutsuIds: equippedOrder,
-        jutsuMastery: [],
+        // A mastery row is the server-owned learning receipt. Level 0 is a
+        // legitimate freshly learned/equipped technique and must remain usable.
+        jutsuMastery: [
+            { jutsuId: 'starter-tai-fire-2', level: 0 },
+            { jutsuId: 'custom-moon-thread', level: 0 },
+            { jutsuId: 'starter-nin-fire-1', level: 0 },
+        ],
         stats: {},
         maxHp: 100,
         maxChakra: 100,
@@ -80,7 +86,12 @@ describe('admin-authored jutsu resolve from authored content, not the client', (
     };
     // What a cheating client would send for the same id.
     const FORGED = { ...AUTHORED, effectPower: 9999, tags: [{ name: 'Wound', percent: 400 }] };
-    const saveCharacter = { equippedJutsuIds: [AUTHORED.id], jutsuMastery: [], stats: {}, equipment: {} };
+    const saveCharacter = {
+        equippedJutsuIds: [AUTHORED.id],
+        jutsuMastery: [{ jutsuId: AUTHORED.id, level: 0 }],
+        stats: {},
+        equipment: {},
+    };
     const save = { savedBloodlines: [], creatorJutsus: [] };
     const adminJutsu: AdminCombatContent = { jutsu: new Map([[AUTHORED.id, AUTHORED]]), items: new Map() };
 
@@ -103,14 +114,85 @@ describe('admin-authored jutsu resolve from authored content, not the client', (
     });
 
     it('leaves the save\'s own bloodline jutsu authoritative over an id-colliding authored one', () => {
-        const blSave = { savedBloodlines: [{ rank: 'B Rank', jutsus: [{ ...AUTHORED, effectPower: 12 }] }], creatorJutsus: [] };
-        const resolved = resolveEquippedLoadout(saveCharacter, blSave, {}, adminJutsu) as Array<Record<string, unknown>>;
-        assert.equal(resolved[0].effectPower, 12);
+        const blSave = { savedBloodlines: [{ id: 'owned-bl', rank: 'B Rank', jutsus: [{ ...AUTHORED, effectPower: 40 }] }], creatorJutsus: [] };
+        const resolved = resolveEquippedLoadout({ ...saveCharacter, equippedBloodlineId: 'owned-bl' }, blSave, {}, adminJutsu) as Array<Record<string, unknown>>;
+        assert.equal(resolved[0].effectPower, 40);
     });
 
-    it('is unchanged when no admin catalog is passed (old callers)', () => {
+    it('drops a forged explicit catalog id with no learned/mastery entitlement', () => {
+        const forgedSlots = {
+            ...saveCharacter,
+            equippedJutsuIds: ['starter-nin-fire-2'],
+            jutsuMastery: [],
+        };
+        const resolved = resolveEquippedLoadout(forgedSlots, save, {}) as Array<Record<string, unknown>>;
+        assert.deepEqual(resolved, []);
+    });
+
+    it('does not trust a client definition for a persisted player when no server definition exists', () => {
         const resolved = resolveEquippedLoadout(saveCharacter, save, { jutsu: [FORGED] }) as Array<Record<string, unknown>>;
-        assert.equal(resolved[0].effectPower, FORGED.effectPower);
+        assert.deepEqual(resolved, []);
+    });
+
+    it('treats a legacy saved jutsu snapshot as IDs only when equipped IDs are empty', () => {
+        const legacyCharacter = {
+            ...saveCharacter,
+            equippedJutsuIds: [],
+            jutsuMastery: [
+                ...saveCharacter.jutsuMastery,
+                { jutsuId: 'starter-nin-fire-1', level: 0 },
+            ],
+            jutsu: [
+                { ...FORGED, id: 'starter-nin-fire-1' },
+                FORGED,
+            ],
+        };
+        const resolved = resolveEquippedLoadout(legacyCharacter, save, {}) as Array<Record<string, unknown>>;
+        assert.deepEqual(resolved.map((jutsu) => jutsu.id), ['starter-nin-fire-1']);
+        assert.equal(resolved[0]?.effectPower, 0, 'built-in values come from the authoritative catalog');
+
+        const hydrated = hydrateCharacterFromSave(legacyCharacter, { jutsu: [FORGED] }, save);
+        assert.deepEqual((hydrated.jutsu as Array<Record<string, unknown>>).map((jutsu) => jutsu.id), ['starter-nin-fire-1']);
+    });
+
+    it('drops a forged legacy snapshot catalog id with no learned/mastery entitlement', () => {
+        const forgedLegacy = {
+            ...saveCharacter,
+            equippedJutsuIds: [],
+            jutsuMastery: [],
+            jutsu: [{ id: 'starter-nin-fire-2', effectPower: 9999 }],
+        };
+        const resolved = resolveEquippedLoadout(forgedLegacy, save, {}) as Array<Record<string, unknown>>;
+        assert.deepEqual(resolved, []);
+    });
+
+    it('never falls back to persisted or request-body definitions when no saved IDs resolve', () => {
+        const emptyCharacter = { ...saveCharacter, equippedJutsuIds: [], jutsu: [FORGED] };
+        const hydrated = hydrateCharacterFromSave(emptyCharacter, { jutsu: [FORGED] }, save);
+        assert.deepEqual(hydrated.jutsu, []);
+    });
+
+    it('hydrates only the first row from duplicate carried bloodline ids', () => {
+        const first = { ...AUTHORED, id: 'owned-first', name: 'First', element: 'Crystal' };
+        const second = { ...AUTHORED, id: 'owned-second', name: 'Second', element: 'Crystal' };
+        const duplicateSave = {
+            savedBloodlines: [
+                { id: 'owned-bl', rank: 'B Rank', specialElement: 'Crystal', jutsus: [first] },
+                { id: 'owned-bl', rank: 'B Rank', specialElement: 'Crystal', jutsus: [second] },
+            ],
+            creatorJutsus: [],
+        };
+        const duplicateCharacter = {
+            ...saveCharacter,
+            equippedBloodlineId: 'owned-bl',
+            equippedJutsuIds: [first.id, second.id],
+            jutsuMastery: [
+                { jutsuId: first.id, level: 0 },
+                { jutsuId: second.id, level: 0 },
+            ],
+        };
+        const resolved = resolveEquippedLoadout(duplicateCharacter, duplicateSave, {}) as Array<Record<string, unknown>>;
+        assert.deepEqual(resolved.map((jutsu) => jutsu.id), [first.id]);
     });
 
     it('preserves intentional duplicate stackable tags only on the trusted authored definition', () => {

@@ -109,6 +109,12 @@ export function isZeroDamageFortyApJutsu(jutsu: Pick<CombatJutsu, 'id' | 'ap' | 
 }
 
 export function getOffense(stats: Record<string, number>, type: string): number {
+    if (type === 'Any') return Math.max(
+        (stats.ninjutsuOffense ?? 0) + (stats.willpower ?? 0) + (stats.speed ?? 0),
+        (stats.taijutsuOffense ?? 0) + (stats.strength ?? 0) + (stats.speed ?? 0),
+        (stats.genjutsuOffense ?? 0) + (stats.intelligence ?? 0) + (stats.willpower ?? 0),
+        (stats.bukijutsuOffense ?? 0) + (stats.intelligence ?? 0) + (stats.strength ?? 0),
+    );
     if (type === 'Taijutsu') return (stats.taijutsuOffense ?? 0) + (stats.strength ?? 0) + (stats.speed ?? 0);
     if (type === 'Bukijutsu') return (stats.bukijutsuOffense ?? 0) + (stats.intelligence ?? 0) + (stats.strength ?? 0);
     if (type === 'Genjutsu') return (stats.genjutsuOffense ?? 0) + (stats.intelligence ?? 0) + (stats.willpower ?? 0);
@@ -116,6 +122,12 @@ export function getOffense(stats: Record<string, number>, type: string): number 
 }
 
 export function getDefense(stats: Record<string, number>, type: string): number {
+    if (type === 'Any') return Math.max(
+        (stats.ninjutsuDefense ?? 0) + (stats.willpower ?? 0) + (stats.speed ?? 0),
+        (stats.taijutsuDefense ?? 0) + (stats.strength ?? 0) + (stats.speed ?? 0),
+        (stats.genjutsuDefense ?? 0) + (stats.intelligence ?? 0) + (stats.willpower ?? 0),
+        (stats.bukijutsuDefense ?? 0) + (stats.intelligence ?? 0) + (stats.strength ?? 0),
+    );
     if (type === 'Taijutsu') return (stats.taijutsuDefense ?? 0) + (stats.strength ?? 0) + (stats.speed ?? 0);
     if (type === 'Bukijutsu') return (stats.bukijutsuDefense ?? 0) + (stats.intelligence ?? 0) + (stats.strength ?? 0);
     if (type === 'Genjutsu') return (stats.genjutsuDefense ?? 0) + (stats.intelligence ?? 0) + (stats.willpower ?? 0);
@@ -489,11 +501,11 @@ export function postDamageFormula(input: PostDamageFormulaInput): PostDamageForm
     };
 }
 
-export function postDamagePercentAmount(finalDmg: number, percent: number, multiplier = 1): number {
-    return Math.floor(cappedPostDamage(finalDmg, percent || 30) * multiplier);
+export function postDamagePercentAmount(finalDmg: number, percent: number | undefined, multiplier = 1): number {
+    return Math.floor(cappedPostDamage(finalDmg, percent ?? 30) * multiplier);
 }
 
 export function woundAmountForFinalDamage(finalDmg: number, rawPercent: number | undefined, jutsu: { bloodlineRank?: string | null }): number {
-    const effectivePct = Math.min(rawPercent || 30, woundCapForJutsu(jutsu), WOUND_HARD_CAP_PCT);
+    const effectivePct = Math.min(rawPercent ?? 30, woundCapForJutsu(jutsu), WOUND_HARD_CAP_PCT);
     return cappedPostDamage(finalDmg, effectivePct);
 }

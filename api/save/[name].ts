@@ -73,6 +73,7 @@ import { readVillageUpgrades } from '../village/_upgrade.js';
 import { readPendingWorldRewards } from '../world/_pending-rewards.js';
 import { applyDerivedLevel, earnedForLevel, earnedStatPoints } from '../_xp-engine.js';
 import { parseBloodlineForgeRank, readPendingBloodlineForges } from '../bloodlines/_forge.js';
+import { normalizePlayerBloodlineJutsus } from '../bloodlines/_jutsu-schema.js';
 import { STAT_CAP_FIELDS, statCapForLevel } from '../combat-core/formulas.js';
 import { activeCarriedPetIds, maxLoadout, maxPets, isPatreonSubscriber, isPresetAvatar, isOwnAvatarReference } from '../_entitlements.js';
 import {
@@ -1697,6 +1698,7 @@ export function sanitizeCharacterSave(
         }
         let acceptedEntitledNew = 0;
         let rejectedUnentitledNew = false;
+        const seenBloodlineIds = new Set<string>();
         const normalized = (arr as Array<Record<string, unknown>>).slice(0, BLOODLINE_CAP).map((bl) => {
             if (!bl || typeof bl !== 'object') return {};
             const out: Record<string, unknown> = { ...bl };
@@ -1706,6 +1708,12 @@ export function sanitizeCharacterSave(
             const rawRank = String(out.rank ?? '');
             let rank = KNOWN_BLOODLINE_RANKS.has(rawRank) ? rawRank : 'B Rank';
             const blId = String(out.id ?? '');
+            // A bloodline id is one ownership/budget namespace. Keeping several
+            // rows with the same id lets each row receive a fresh jutsu budget
+            // and fresh unique-tag allowance, then session hydration folds every
+            // row into one carried kit. First occurrence wins deterministically.
+            if (blId && seenBloodlineIds.has(blId)) return null;
+            if (blId) seenBloodlineIds.add(blId);
             const storedRank = blId ? existingRankById.get(blId) : undefined;
             const isUpgrade = storedRank !== undefined
                 && (BLOODLINE_RANK_ORDER[rank] ?? 0) > (BLOODLINE_RANK_ORDER[storedRank] ?? 0);
@@ -1788,6 +1796,11 @@ export function sanitizeCharacterSave(
                 else delete jOut.visualEffect;
                 return jOut;
             });
+            // Close the player-authored combat schema after text/image handling.
+            // Numeric clamps alone are insufficient: the maker exposes discrete
+            // AP/range/power/cooldown choices, derives targeting/utility, and
+            // bounds tag magnitudes. Persist only that legitimate projection.
+            out.jutsus = normalizePlayerBloodlineJutsus(out.jutsus, rank);
             // sub-1: enforce the bloodline point budget across the now numeric-clamped
             // jutsu. Strips the lowest-point tags down to the rank budget; clamp,
             // never reject. Honest within-budget bloodlines are unchanged. Uses
@@ -2329,6 +2342,24 @@ export function sanitizeCharacterSave(
     if (!isFirstSave) out.activeJutsuTraining = existing?.activeJutsuTraining ?? null;
     if (Array.isArray(incoming.savedBloodlines)) out.savedBloodlines = normalizeBloodlineArray(incoming.savedBloodlines, existing?.savedBloodlines, true);
     grantOwnedBloodlineJutsuMastery(finalChar, out.savedBloodlines);
+    // equippedJutsuIds is an ID preference, not proof that a technique was
+    // learned. Accept any persisted mastery row (including legitimate level 0),
+    // the level-one rows granted above for owned bloodline content, and an ID
+    // already present in the STORED slot list (migration-safe preference
+    // preservation). A newly forged catalog id has none of those proofs.
+    if (Array.isArray(finalChar.equippedJutsuIds)) {
+        const learnedJutsuIds = new Set(
+            (Array.isArray(finalChar.jutsuMastery) ? finalChar.jutsuMastery : [])
+                .filter((row): row is Record<string, unknown> => !!row && typeof row === 'object')
+                .map((row) => String(row.jutsuId ?? '').trim().toLowerCase())
+                .filter(Boolean),
+        );
+        for (const id of Array.isArray(exChar.equippedJutsuIds) ? exChar.equippedJutsuIds : []) {
+            if (typeof id === 'string' && id.trim()) learnedJutsuIds.add(id.trim().toLowerCase());
+        }
+        finalChar.equippedJutsuIds = (finalChar.equippedJutsuIds as unknown[])
+            .filter((id): id is string => typeof id === 'string' && learnedJutsuIds.has(id.trim().toLowerCase()));
+    }
     // Server-owned, single-use purchase ledger. Incoming copies are ignored.
     out.pendingBloodlineForges = pendingBloodlineForges.filter((entry) => !consumedBloodlineForgeIds.has(entry.id));
     // On an admin content slot the rule inverts: strip forged gear instead of

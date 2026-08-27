@@ -8,6 +8,7 @@ export type SoloPveStatus = {
     name: string;
     rounds: number;
     activeRound?: number;
+    inactiveRound?: number;
     percent?: number;
     amount?: number;
     discipline?: string;

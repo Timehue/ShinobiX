@@ -11,6 +11,7 @@ export type ServerArenaStatus = {
     source?: string;
     rounds: number;
     activeRound?: number;
+    inactiveRound?: number;
     kind?: "positive" | "negative";
     percent?: number;
     amount?: number;

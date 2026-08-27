@@ -96,6 +96,13 @@ export const GROUND_EFFECT_TAGS: ReadonlySet<string> = new Set([
     'Decrease Damage Given', 'Recoil', 'Poison',
 ]);
 
+// Copy steals active positive statuses for a fresh two-round window, except
+// for these sustain loops. Keeping the exclusion in the canonical tag contract
+// lets the live resolver and balance simulator consume the same rule.
+export const COPY_EXCLUDED_BUFFS: ReadonlySet<string> = new Set([
+    'Absorb', 'Lifesteal',
+]);
+
 // "Fixed-effect-power" tags — binary control + displacement. The bloodline
 // builder used to stamp effectPower = 100 on any jutsu carrying one of these as
 // a point-budget sentinel ("the effect always applies at 100%"), but the damage

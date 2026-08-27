@@ -95,6 +95,7 @@ export function normalizeJutsuTags(tags?: JutsuTag[]): JutsuTag[] {
         .map((tag) => binaryTags.includes(tag.name) ? { ...tag, percent: 0 } : tag);
 }
 
+/** Legacy/catalog combat magnitude cap. Player-creator choices live in jutsu-points.ts. */
 export function tagCapForRank(rank?: Rank | null): number {
     if (rank === "S Rank") return 40;
     if (rank === "A Rank" || rank === "B Rank") return 35;
@@ -153,8 +154,8 @@ export const allTags = [
 export const tagGroups: { label: string; tags: string[] }[] = [
     { label: "Damage & DoT", tags: ["Wound", "Poison", "Ignition", "Drain", "Recoil"] },
     { label: "Offense (you)", tags: ["Increase Damage Given", "Increase Generals", "Lifesteal", "Siphon", "Increase Heal", "Overclock"] },
-    { label: "Defense (you)", tags: ["Shield", "Heal", "Absorb", "Reflect", "Decrease Damage Taken", "Debuff Prevent", "Stun Prevent"] },
-    { label: "Debuffs (enemy)", tags: ["Decrease Damage Given", "Increase Damage Taken", "Buff Prevent", "Cleanse Prevent", "Clear Prevent", "Lag"] },
+    { label: "Defense (you)", tags: ["Shield", "Heal", "Absorb", "Reflect", "Decrease Damage Taken", "Debuff Prevent", "Clear Prevent", "Stun Prevent"] },
+    { label: "Debuffs (enemy)", tags: ["Decrease Damage Given", "Increase Damage Taken", "Buff Prevent", "Cleanse Prevent", "Lag"] },
     { label: "Control", tags: ["Stun", "Bloodline Seal", "Elemental Seal", "Copy", "Mirror"] },
     { label: "Movement", tags: ["Move", "Push", "Pull"] },
 ];

@@ -144,6 +144,41 @@
 .combat-mobile-effects .cme-neg { background: rgba(239,68,68,0.16); border-color: rgba(239,68,68,0.45); color: #fecaca; }
 .combat-mobile-effects .cme-more { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.25); color: #e5e7eb; }
 
+/* Server snapshots include deferred statuses as soon as a jutsu lands. Keep
+   those readable without presenting them as part of the active buff/debuff
+   totals until their authoritative activeRound begins. */
+.combat-pending-effects {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 4px 0 1px;
+    padding-top: 4px;
+    border-top: 1px dashed rgba(251, 191, 36, 0.28);
+    color: #fde68a;
+    font-size: 9px;
+}
+.combat-pending-effects > strong {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+.combat-pending-effects > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+.combat-pending-effects .pending-effect-pill {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+    padding: 1px 5px;
+    border: 1px solid rgba(251, 191, 36, 0.36);
+    border-radius: 999px;
+    background: rgba(251, 191, 36, 0.10);
+    white-space: nowrap;
+}
+.combat-pending-effects .pending-effect-pill small { opacity: 0.8; font-size: 8px; }
+
 /* ── Mobile battle tabs: Actions | Battle Log ──────────────────────────────
    Splits the action bar + jutsu/item grid ("actions") from the battle log
    ("log") so neither shares the short mobile viewport; the board (HUDs + AP +
@@ -6403,26 +6438,47 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
 }
 }
 
+/* Keep combat-log chrome outside the scrolling surface. The base #combat
+   selectors preserve the current mobile/desktop fallbacks; the shared-shell
+   selectors also outrank compact viewport restore rules. */
 #combat .plain-combat-battle-log,
-#combat .plain-combat-battle-log.is-expanded {
-    display: flex;
+#combat .plain-combat-battle-log.is-expanded,
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log,
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log.is-expanded {
+    display: flex !important;
     flex-direction: column !important;
     padding: 0 !important;
     overflow: hidden !important;
 }
 
-#combat .plain-combat-battle-log > .combat-log-header {
+/* The compact/zoom restore blocks use #combat selectors, so match that ID here
+   as well; otherwise their older display:block + overflow:auto declarations
+   outrank the dedicated scroll-region contract despite appearing earlier. */
+html body > #combat.arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log,
+html body > #combat.arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log.is-expanded {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+#combat .plain-combat-battle-log > .combat-log-header,
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .combat-log-header {
     position: relative;
     top: auto;
     flex: 0 0 auto;
 }
 
-#combat .combat-log-scroll-region {
+#combat .combat-log-scroll-region,
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .combat-log-scroll-region {
     flex: 1 1 auto;
+    min-width: 0;
     min-height: 0;
-    overflow: hidden auto !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
+    scrollbar-color: rgba(148, 163, 184, 0.62) rgba(2, 6, 23, 0.45);
     scrollbar-width: thin;
 }
 
@@ -6430,19 +6486,36 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
     overflow-y: auto !important;
 }
 
-#combat .combat-log-scroll-region:focus-visible {
+#combat .combat-log-scroll-region:focus-visible,
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .combat-log-scroll-region:focus-visible {
     outline: 2px solid rgba(125, 211, 252, 0.88);
     outline-offset: -2px;
 }
 
-#combat .combat-jutsu-help {
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .combat-log-scroll-region::-webkit-scrollbar {
+    width: 10px;
+}
+
+html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .combat-log-scroll-region::-webkit-scrollbar-thumb {
+    min-height: 36px;
+    border: 2px solid rgba(2, 6, 23, 0.45);
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.68);
+}
+
+/* The button keeps a 44px pointer/touch target, but only the centered badge is
+   painted. That leaves the jutsu art readable and gives each card the requested
+   top-right question-mark control without sacrificing accessibility. */
+#combat .combat-jutsu-help,
+html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help {
     border: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
     color: #f4e2b0 !important;
 }
 
-#combat .combat-help-glyph {
+#combat .combat-help-glyph,
+html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help > .combat-help-glyph {
     display: grid;
     place-items: center;
     width: 23px;
@@ -6456,7 +6529,8 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
     transition: border-color 120ms ease, box-shadow 120ms ease, color 120ms ease;
 }
 
-#combat .combat-jutsu-help:is(:hover, :focus-visible) > .combat-help-glyph {
+#combat .combat-jutsu-help:is(:hover, :focus-visible) > .combat-help-glyph,
+html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help:is(:hover, :focus-visible) > .combat-help-glyph {
     border-color: #fde68a;
     color: #fffbea;
     box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.2), 0 3px 9px rgba(0, 0, 0, 0.78);

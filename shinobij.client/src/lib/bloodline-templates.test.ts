@@ -7,7 +7,7 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import { bloodlineArchetypes, bloodlineTemplateJutsus } from "./bloodline-templates";
-import { bloodlinePoints, jutsuCountForRank, pointBudgetForRank } from "./jutsu-points";
+import { bloodlineCreatorPercentPolicy, bloodlinePoints, jutsuCountForRank, pointBudgetForRank } from "./jutsu-points";
 import { bloodlineUniqueTags, hasFixedEffectPower } from "./tags";
 import type { Rank } from "../types/core";
 
@@ -23,8 +23,18 @@ describe("bloodline templates", () => {
             });
 
             it(`${arch.name} / ${rank}: within point budget`, () => {
-                const total = bloodlinePoints(jutsus);
+                const total = bloodlinePoints(jutsus, rank);
                 assert.ok(total <= pointBudgetForRank(rank), `${total} > ${pointBudgetForRank(rank)}`);
+            });
+
+            it(`${arch.name} / ${rank}: templates use creator-legal tag percents and stamp rank`, () => {
+                for (const jutsu of jutsus) {
+                    assert.equal(jutsu.bloodlineRank, rank);
+                    for (const tag of jutsu.tags) {
+                        const policy = bloodlineCreatorPercentPolicy(tag.name, rank);
+                        assert.ok(policy.choices.includes(tag.percent), `${tag.name} ${tag.percent}%`);
+                    }
+                }
             });
 
             it(`${arch.name} / ${rank}: at most one Nuke and one Pierce`, () => {
@@ -51,4 +61,24 @@ describe("bloodline templates", () => {
         const jutsus = bloodlineTemplateJutsus("glass-cannon", "A Rank", "Crystal", "Ninjutsu");
         assert.ok(jutsus.every((jt) => jt.name.startsWith("Crystal ")));
     });
+
+    for (const rank of ["B Rank", "A Rank", "S Rank"] as const) {
+        it(`${rank}: applies every selected PvP balance rider`, () => {
+            const burst = bloodlineTemplateJutsus("glass-cannon", rank, "Fire", "Ninjutsu");
+            const searing = burst.find((jutsu) => jutsu.name.endsWith("Searing Barrage"));
+            assert.deepEqual(searing?.tags.map((tag) => tag.name), ["Ignition", "Wound"]);
+
+            const bruiser = bloodlineTemplateJutsus("bruiser", rank, "Fire", "Ninjutsu");
+            const rending = bruiser.find((jutsu) => jutsu.name.endsWith("Rending Strike"));
+            assert.deepEqual(rending?.tags.map((tag) => tag.name), ["Wound", "Decrease Damage Given"]);
+
+            const support = bloodlineTemplateJutsus("support", rank, "Fire", "Ninjutsu");
+            const reflective = support.find((jutsu) => jutsu.name.endsWith("Reflective Guard"));
+            assert.deepEqual(reflective?.tags.map((tag) => tag.name), ["Reflect"]);
+
+            const controller = bloodlineTemplateJutsus("controller", rank, "Fire", "Ninjutsu");
+            const sever = controller.find((jutsu) => jutsu.name.endsWith("Bloodline Sever"));
+            assert.deepEqual(sever?.tags.map((tag) => tag.name), ["Bloodline Seal", "Drain"]);
+        });
+    }
 });

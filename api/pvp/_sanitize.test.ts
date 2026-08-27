@@ -173,6 +173,10 @@ describe('sanitizeJutsuList (smoke)', () => {
         const out = sanitizeJutsuList([{ id: 'x', effectPower: 999999 }]) as Array<Record<string, unknown>>;
         assert.equal(out[0]!.effectPower, 60);
     });
+    it('strips the internal weaponSwing scaling stamp from authored jutsu', () => {
+        const out = sanitizeJutsuList([{ id: 'forged', weaponSwing: true }]) as Array<Record<string, unknown>>;
+        assert.equal(out[0]!.weaponSwing, undefined);
+    });
     it('dedupes a duplicate amp tag within one cast (no double-stack)', () => {
         const out = sanitizeJutsuList([
             { id: 'x', effectPower: 36, tags: [
@@ -321,12 +325,11 @@ describe('sanitizePvpItems — canonicalizes weapon tags + effect', () => {
 
 /*
  * Barrier is JUTSU-ONLY (owner ruling 2026-08-16): it drops a wall tile on the
- * board, a cast-time control mechanic rather than something a blade does. No
- * built-in weapon carries it and craft/_named.ts cannot roll it, so this only
- * bites an admin-authored or tampered definition — stripped at the SEAL so every
- * engine inherits the rule at once.
+ * board, a cast-time control mechanic rather than an item payload. Both weapon
+ * and non-weapon item actions synthesize weaponEffect/weaponTags into applyJutsu,
+ * so it must be stripped from every item at the SEAL.
  */
-describe('weapons cannot carry Barrier', () => {
+describe('PvP items cannot carry Barrier', () => {
     it('strips a Barrier tag and a Barrier weaponEffect from a weapon', () => {
         const [tagged, effected] = sanitizePvpItems([
             { id: 'w1', slot: 'hand', name: 'Authored Blade', weaponEp: 30, weaponTags: [{ name: 'Barrier' }, { name: 'Wound', percent: 20 }] },
@@ -334,6 +337,16 @@ describe('weapons cannot carry Barrier', () => {
         ]) as Array<Record<string, unknown>>;
         assert.deepEqual(tagged.weaponTags, [{ name: 'Wound', percent: 20 }], 'Barrier gone, the real tag kept');
         assert.equal(effected.weaponEffect, undefined, 'a Barrier weaponEffect is dropped');
+    });
+
+    it('also strips Barrier from non-weapon consumables', () => {
+        const [tagged, effected] = sanitizePvpItems([
+            { id: 'i1', slot: 'item', name: 'Authored Pill', weaponTags: [{ name: 'Barrier' }, { name: 'Heal' }] },
+            { id: 'i2', slot: 'potion', name: 'Authored Potion', weaponEffect: 'Barrier', weaponEffectValue: 30 },
+        ]) as Array<Record<string, unknown>>;
+
+        assert.deepEqual(tagged.weaponTags, [{ name: 'Heal' }], 'Barrier gone, legitimate consumable tag kept');
+        assert.equal(effected.weaponEffect, undefined, 'a consumable cannot synthesize a Barrier cast');
     });
 
     it('leaves every other weapon tag alone', () => {

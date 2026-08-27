@@ -14,10 +14,14 @@ import { bloodlinePoints } from '../_jutsu-points.js';
 describe('resolveEquippedLoadout — bloodline rank stamp (permanent)', () => {
     const save = {
         savedBloodlines: [
-            { rank: 'S Rank', jutsus: [{ id: 'bl-nuke', name: 'Nuke', tags: [{ name: 'Wound', percent: 35 }] }] },
+            { id: 'ranked-bl', rank: 'S Rank', jutsus: [{ id: 'bl-nuke', name: 'Nuke', tags: [{ name: 'Wound', percent: 35 }] }] },
         ],
     };
-    const saveChar = { equippedJutsuIds: ['bl-nuke'] };
+    const saveChar = {
+        equippedBloodlineId: 'ranked-bl',
+        equippedJutsuIds: ['bl-nuke'],
+        jutsuMastery: [{ jutsuId: 'bl-nuke', level: 0 }],
+    };
 
     /** Run with the retired env flag explicitly CLEARED — the stamp must not depend on it. */
     function withFlagCleared(fn: () => void) {
@@ -40,9 +44,13 @@ describe('resolveEquippedLoadout — bloodline rank stamp (permanent)', () => {
     it('never trusts a client-supplied rank (stamp is from the save bloodline)', () => {
         withFlagCleared(() => {
             // Client tries to assert "S Rank" on a jutsu whose save bloodline is B.
-            const bSave = { savedBloodlines: [{ rank: 'B Rank', jutsus: [{ id: 'bl-x', name: 'X', tags: [] }] }] };
+            const bSave = { savedBloodlines: [{ id: 'b-bl', rank: 'B Rank', jutsus: [{ id: 'bl-x', name: 'X', tags: [] }] }] };
             const client = { jutsu: [{ id: 'bl-x', name: 'X', tags: [], bloodlineRank: 'S Rank' }] };
-            const out = resolveEquippedLoadout({ equippedJutsuIds: ['bl-x'] }, bSave, client) as Array<Record<string, unknown>>;
+            const out = resolveEquippedLoadout({
+                equippedBloodlineId: 'b-bl',
+                equippedJutsuIds: ['bl-x'],
+                jutsuMastery: [{ jutsuId: 'bl-x', level: 0 }],
+            }, bSave, client) as Array<Record<string, unknown>>;
             assert.equal(out[0]!.bloodlineRank, 'B Rank');
         });
     });
@@ -57,9 +65,13 @@ describe('resolveEquippedLoadout — bloodline rank stamp (permanent)', () => {
             cooldown: 7,
             tags: [{ name: 'Copy' }, { name: 'Mirror' }, { name: 'Stun' }],
         }));
-        const forgedSave = { savedBloodlines: [{ rank: 'B Rank', jutsus }] };
+        const forgedSave = { savedBloodlines: [{ id: 'forged-bl', rank: 'B Rank', jutsus }] };
         const out = resolveEquippedLoadout(
-            { equippedJutsuIds: jutsus.map((j) => j.id) },
+            {
+                equippedBloodlineId: 'forged-bl',
+                equippedJutsuIds: jutsus.map((j) => j.id),
+                jutsuMastery: jutsus.map((j) => ({ jutsuId: j.id, level: 0 })),
+            },
             forgedSave,
             {},
         ) as typeof jutsus;

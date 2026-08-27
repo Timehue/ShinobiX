@@ -68,7 +68,7 @@ test("the PvP battle log uses the scrollable, round-grouped semantic feed", () =
     assert.doesNotMatch(source, /timeline-round-toggle/);
 
     const panelRule = battleSkinCss.match(/\.plain-combat-battle-log\s*\{([^}]*)\}/s)?.[1] ?? "";
-    assert.match(panelRule, /overflow-y:\s*auto\s*!important/, "the complete log must scroll vertically");
+    assert.match(panelRule, /overflow-y:\s*auto\s*!important/, "the legacy panel rule must retain its scroll fallback");
     assert.match(
         battleSkinCss,
         /\.plain-combat-battle-log > \.combat-log-scroll-region\s*\{[^}]*overflow-y:\s*auto\s*!important/s,

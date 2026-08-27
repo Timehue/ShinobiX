@@ -264,10 +264,10 @@ test('repeated lapses -> the AFK claim becomes available naturally', async () =>
     assert.ok(done.log.some((line) => /forfeits — skipped 2 rounds/.test(line)));
 });
 
-test('an acting player is never lapsed across a multi-action turn', async () => {
-    // Alice's turn started nearly a full turn ago and she now acts. Under the
-    // old "clock starts at endTurn" rule her second action would have been
-    // stolen by the server at ~48s with time still on her ring.
+test('real actions refresh the silence deadline across a multi-action turn', async () => {
+    // Alice's turn started nearly a full turn ago and she now acts. The server
+    // and client both reset from this real contact so a present player can use
+    // the remaining AP in their multi-action turn.
     const openedAt = Date.now() - (PVP_TURN_MS - 2_000);
     seed(session('multi-action', { turnStartedAt: openedAt }));
 
@@ -277,15 +277,13 @@ test('an acting player is never lapsed across a multi-action turn', async () => 
     assert.equal(afterFirst.rejected, undefined, 'her action was not bounced by the deadline');
     assert.equal(afterFirst.activePlayer, 'p1', 'she still holds the turn — she has AP left');
     assert.equal(afterFirst.actionsThisTurn, 1);
-    assert.ok(Number(afterFirst.turnStartedAt) >= Date.now() - 2_000, 'a real action re-stamps the clock');
+    assert.ok(Number(afterFirst.turnStartedAt) >= Date.now() - 2_000, 'a real action re-stamps the silence clock');
     assert.equal(afterFirst.consecAutoWait?.p1 ?? 0, 0, 'acting can never accrue the AFK streak');
 
-    // The ORIGINAL turn start is now past its old deadline; the live row is not,
-    // because the deadline follows her last action rather than the turn start.
     assert.equal(pvpTurnLapsed({ ...stored('multi-action'), turnStartedAt: openedAt }, Date.now() + PVP_TURN_MS - 3_000), true,
-        'sanity: the pre-fix anchor WOULD have lapsed by now');
+        'sanity: the original turn anchor would have lapsed');
     assert.equal(pvpTurnLapsed(stored('multi-action'), Date.now() + PVP_TURN_MS - 3_000), false,
-        'the live row is not lapsed — she acted');
+        'the live row follows the last real action');
 
     // A second action inside the same turn behaves identically.
     seed({ ...stored('multi-action'), turnStartedAt: Date.now() - (PVP_TURN_MS - 2_000) });
@@ -297,20 +295,27 @@ test('an acting player is never lapsed across a multi-action turn', async () => 
     assert.ok(Number(afterSecond.turnStartedAt) >= Date.now() - 2_000, 'and re-stamps again');
 });
 
-test('a wait never keeps the waiting player own clock alive - only real actions re-stamp', async () => {
+test('client auto:true cannot manufacture an AFK skip before the sealed deadline', async () => {
     seed(session('wait-clock', { turnStartedAt: Date.now() - 40_000 }));
     const out = await postMove('alice', { battleId: 'wait-clock', role: 'p1', action: 'wait', auto: true, moveToken: 'wait-clock-1' });
     const body = out.body as PvpSession;
     assert.equal(body.rejected, undefined);
     assert.equal(body.activePlayer, 'p2', 'the wait ended her turn instead of extending it');
-    assert.equal(body.consecAutoWait?.p1, 1, 'an idle auto-wait still counts as a skipped round');
+    assert.equal(body.consecAutoWait?.p1 ?? 0, 0, 'the untrusted auto flag cannot create a skipped round early');
     assert.equal(body.actionsThisTurn, 0);
 
-    // The fresh stamp belongs to BOB's new turn — alice cannot wait her way to
-    // an unlapsable clock, so her next idle turn lapses on schedule.
+    // A genuinely lapsed idle turn is still derived and counted server-side.
     seed({ ...stored('wait-clock'), activePlayer: 'p1', actionsThisTurn: 0, turnStartedAt: Date.now() - LAPSED });
     const poll = await pollSession('wait-clock');
-    assert.equal((poll.body as PvpSession).consecAutoWait?.p1, 2, 'a second idle turn lapses server-side');
+    assert.equal((poll.body as PvpSession).consecAutoWait?.p1, 1);
+});
+
+test('the server counts an idle wait after the client deadline without trusting auto', async () => {
+    seed(session('derived-auto', { turnStartedAt: Date.now() - PVP_TURN_MS - 1_000 }));
+    const out = await postMove('alice', { battleId: 'derived-auto', role: 'p1', action: 'wait', auto: false, moveToken: 'derived-auto-1' });
+    const body = out.body as PvpSession;
+    assert.equal(body.rejected, undefined);
+    assert.equal(body.consecAutoWait?.p1, 1);
 });
 
 test('claim-afk-win is never blocked by the deadline flipping the turn to the claimant', async () => {
@@ -346,6 +351,30 @@ test('an early AFK claim is still rejected exactly as before', async () => {
     const claim = await postMove('bob', { battleId: 'early-claim', role: 'p2', action: 'claim-afk-win', moveToken: 'early' });
     assert.match(String((claim.body as PvpSession).rejected?.reason), /skipped 0\/2 rounds/);
     assert.equal(stored('early-claim').status, 'active');
+});
+
+test('AFK fallback measures the active turn, not stale global combat activity', async () => {
+    seed(session('fresh-active-turn', {
+        activePlayer: 'p1',
+        turnStartedAt: Date.now(),
+        lastMoveAt: Date.now() - 120_000,
+    }));
+    const claim = await postMove('bob', { battleId: 'fresh-active-turn', role: 'p2', action: 'claim-afk-win', moveToken: 'fresh-active-claim' });
+    assert.match(String((claim.body as PvpSession).rejected?.reason), /inactivity remain/i);
+    assert.equal(stored('fresh-active-turn').status, 'active');
+});
+
+test('AFK fallback resolves a stale active turn even when global lastMoveAt is newer', async () => {
+    seed(session('stale-active-turn', {
+        activePlayer: 'p1',
+        turnStartedAt: Date.now() - 120_000,
+        lastMoveAt: Date.now(),
+    }));
+    const claim = await postMove('bob', { battleId: 'stale-active-turn', role: 'p2', action: 'claim-afk-win', moveToken: 'stale-active-claim' });
+    const body = claim.body as PvpSession;
+    assert.equal(body.status, 'done');
+    assert.equal(body.winner, 'p2');
+    assert.match(body.log.at(-1) ?? '', /inactive for 120s|inactive for 119s/);
 });
 
 test('a pre-deploy row without turnStartedAt is stamped, never lapsed, on first contact', async () => {

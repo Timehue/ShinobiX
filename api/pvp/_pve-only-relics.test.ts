@@ -36,6 +36,10 @@ const BLAST = {
     ap: 60, effectPower: 40, range: 3, cooldown: 0, chakraCost: 0, staminaCost: 0,
     tags: [{ name: 'Damage', percent: 100 }],
 };
+const BLAST_ADMIN = {
+    jutsu: new Map([[BLAST.id, BLAST]]),
+    items: new Map(),
+};
 
 function maxedFighter(relic: string | null): Record<string, unknown> {
     const stats: Record<string, number> = {};
@@ -46,7 +50,7 @@ function maxedFighter(relic: string | null): Record<string, unknown> {
         maxHp: 10000, hp: 10000, maxChakra: 10000, chakra: 10000, maxStamina: 10000, stamina: 10000,
         jutsu: [BLAST], jutsuMastery: [{ jutsuId: 'blast', level: 50 }],
     };
-    return hydrateCharacterFromSave(character, {}, { character, creatorItems: [] }, null);
+    return hydrateCharacterFromSave(character, {}, { character, creatorItems: [] }, BLAST_ADMIN);
 }
 
 function fighter(character: Record<string, unknown>, pos: number): PvpFighter {
