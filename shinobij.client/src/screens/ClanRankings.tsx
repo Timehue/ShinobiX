@@ -10,6 +10,7 @@
  * a few dozen clans), so a single flat board is the right shape — no tiers.
  */
 import { useEffect, useState } from "react";
+import { GameIcon } from "../components/icons/GameIcon";
 import type { Character } from "../types/character";
 import type { ClanData, EnhancedClanData } from "../types/clan";
 import { enhanceClanData } from "../lib/clan-math";
@@ -74,12 +75,12 @@ export function ClanRankings({ character }: { character: Character }) {
         return () => { alive = false; };
     }, []);
 
-    if (!rows) return <div className="summary-box"><h3>🏆 Clan Rankings</h3><p className="hint">Loading clan rankings…</p></div>;
-    if (rows.length === 0) return <div className="summary-box"><h3>🏆 Clan Rankings</h3><p className="hint">No clans exist yet. Found one and be the first on the board.</p></div>;
+    if (!rows) return <div className="summary-box"><h3><GameIcon name="medal" size={16} style={{ verticalAlign: "-2px", color: "var(--sj-gold)" }} /> Clan Rankings</h3><p className="hint">Loading clan rankings…</p></div>;
+    if (rows.length === 0) return <div className="summary-box"><h3><GameIcon name="medal" size={16} style={{ verticalAlign: "-2px", color: "var(--sj-gold)" }} /> Clan Rankings</h3><p className="hint">No clans exist yet. Found one and be the first on the board.</p></div>;
 
     return (
         <div className="summary-box">
-            <h3>🏆 Clan Rankings</h3>
+            <h3><GameIcon name="medal" size={16} style={{ verticalAlign: "-2px", color: "var(--sj-gold)" }} /> Clan Rankings</h3>
             <p className="hint">Every clan on the server, ranked by clan-war wins, then clan level, then size. Win clan wars to climb the board.</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
                 {rows.map((row, idx) => {

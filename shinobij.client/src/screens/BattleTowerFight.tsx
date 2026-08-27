@@ -2004,7 +2004,7 @@ export function BattleTowerFight({
                         <div className="spire-result-kicker">Floor {spireMeta.tier} · {spireMeta.boss.name}</div>
                         {session.winner === "squad" ? (
                             <>
-                                <h1 id="tower-spire-result-title" className="spire-result-title win">🗼 Floor {spireMeta.tier} Ascended</h1>
+                                <h1 id="tower-spire-result-title" className="spire-result-title win">Floor {spireMeta.tier} Ascended</h1>
                                 {spireMeta.isMilestone && (
                                     <div className="spire-result-milestone">🏅 Title unlocked — <b>{spireMeta.milestoneTitle}</b></div>
                                 )}
