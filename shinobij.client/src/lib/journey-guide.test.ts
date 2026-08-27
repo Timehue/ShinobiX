@@ -7,12 +7,12 @@ describe("Academy journey presentation", () => {
         const journey = buildCompanionJourney({ onboardingStep: "training" });
         assert.equal(journey?.steps.length, 9);
         assert.deepEqual(journey?.phases.map((phase) => phase.title), [
-            "Prepare",
-            "Prove Yourself",
-            "Find Direction",
+            "Answer the Call",
+            "The Gate Stirs",
+            "First Field Assignment",
         ]);
         assert.equal(journey?.current.title, "Start your first stat training");
-        assert.equal(journey?.current.phase.title, "Prepare");
+        assert.equal(journey?.current.phase.title, "Answer the Call");
     });
 
     it("marks only one immediate future action as up next", () => {
@@ -25,7 +25,7 @@ describe("Academy journey presentation", () => {
 
     it("shares phase, progress, and next-step metadata with the speech bubble", () => {
         const meta = companionStepMeta("firstMission");
-        assert.equal(meta?.current.phase.title, "Prove Yourself");
+        assert.equal(meta?.current.phase.title, "The Gate Stirs");
         assert.equal(meta?.current.index, 7);
         assert.equal(meta?.completedCount, 6);
         assert.equal(meta?.upNext?.id, "logbook");

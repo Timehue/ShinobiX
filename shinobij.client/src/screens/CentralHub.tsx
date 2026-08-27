@@ -208,6 +208,8 @@ export function CentralHub({
     setCreatorItems,
     playableAis,
     sharedImages = {},
+    openAwakeningOnMount = false,
+    onAwakeningRequestHandled,
 }: {
     character: Character;
     updateCharacter: (character: Character) => void;
@@ -225,6 +227,8 @@ export function CentralHub({
     setCreatorItems: Dispatch<SetStateAction<GameItem[]>>;
     playableAis: CreatorAi[];
     sharedImages?: Record<string, string>;
+    openAwakeningOnMount?: boolean;
+    onAwakeningRequestHandled?: () => void;
 }) {
     const commitServerCharacter = (nextCharacter: Character, version: unknown): boolean => {
         if (onVersionedCharacter) return onVersionedCharacter(nextCharacter, version);
@@ -236,8 +240,12 @@ export function CentralHub({
         "Welcome to Central — the neutral heart of the shinobi world."
     );
     const [showArchives, setShowArchives] = useState(false);
-    const [showAwakening, setShowAwakening] = useState(false);
+    const [showAwakening, setShowAwakening] = useState(openAwakeningOnMount);
     const [awakeningMsg, setAwakeningMsg] = useState("");
+    useEffect(() => {
+        if (!openAwakeningOnMount) return;
+        onAwakeningRequestHandled?.();
+    }, [openAwakeningOnMount, onAwakeningRequestHandled]);
     const [awakeningCinematic, setAwakeningCinematic] = useState<{
         elements: string[];
         mode: "awakening" | "reroll";

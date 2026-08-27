@@ -702,6 +702,70 @@
     padding: 20px !important;
 }
 
+.profile-page-card .profile-field-seal {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 136px minmax(0, 1fr);
+    align-items: center;
+    gap: 20px;
+    margin: 14px 0;
+    padding: 18px 22px;
+    border: 1px solid rgba(125, 211, 252, .3);
+    border-radius: 16px;
+    background:
+        radial-gradient(circle at 10% 50%, rgba(125, 211, 252, .12), transparent 27%),
+        linear-gradient(110deg, rgba(7, 13, 27, .97), rgba(18, 14, 34, .9));
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .025), 0 14px 35px rgba(0, 0, 0, .22);
+}
+.profile-page-card .profile-field-seal::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(100deg, transparent 48%, rgba(217, 70, 239, .045), transparent 82%);
+}
+.profile-page-card .profile-field-seal-art {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+}
+.profile-page-card .profile-field-seal-art::before {
+    content: "";
+    position: absolute;
+    width: 84%;
+    aspect-ratio: 1;
+    border: 1px solid rgba(125, 211, 252, .2);
+    border-radius: 50%;
+    box-shadow: 0 0 30px rgba(125, 211, 252, .11);
+}
+.profile-page-card .profile-field-seal-art img {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-height: 150px;
+    object-fit: contain;
+    filter: drop-shadow(0 10px 13px rgba(0, 0, 0, .55));
+}
+.profile-page-card .profile-field-seal h2 { margin: 2px 0 5px; color: #fff7d6; font-size: 21px; }
+.profile-page-card .profile-field-seal blockquote {
+    margin: 5px 0 7px;
+    color: #bae6fd;
+    font-family: var(--font-display);
+    font-size: 17px;
+    line-height: 1.4;
+}
+.profile-page-card .profile-field-seal p:not(.act-label) { margin: 0; color: #b5c3d6; font-size: 13px; line-height: 1.48; }
+.profile-page-card .profile-field-seal small { display: block; margin-top: 7px; color: #7f93ac; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+
+@media (max-width: 600px) {
+    .profile-page-card .profile-field-seal { grid-template-columns: 92px minmax(0, 1fr); gap: 13px; padding: 14px; }
+    .profile-page-card .profile-field-seal h2 { font-size: 18px; }
+    .profile-page-card .profile-field-seal blockquote { font-size: 15px; }
+}
+
 /* User Stats section — make the row of group panels span full width and center */
 .profile-page-card section:has(> .stat-group),
 .profile-page-card .stat-allocation-grid {

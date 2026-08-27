@@ -11,6 +11,7 @@
  *   {name} — the player's character name
  *   {pet}  — the chosen companion's name (post-gift lines only)
  */
+import { academyVowDefinition, type AcademyVow } from "../../lib/academy-narrative";
 
 export const FOX_NAME = "Shiranui";
 
@@ -40,13 +41,20 @@ export const PRE_GIFT_LINES: CinematicLine[] = [
     { speaker: "fox", text: `I am ${FOX_NAME}. I keep this waterfall shrine and the old road beneath it. These days I mostly keep the roof from falling in.` },
     { speaker: "fox", text: "I pulled you off the road because the buried lattice tried to name you and failed. Then it tried again." },
     { speaker: "fox", vision: true, text: "People of the Sunken Court built it to end famine, war, and winter. It does not hunger. It measures. The city is gone, but their machine, the Hollow Gate, is still working." },
-    { speaker: "fox", vision: true, rumble: true, text: "Four intakes beneath the villages are feeding it again. Each one takes a human choice and turns it into something useful." },
-    { speaker: "fox", text: "Useful is not the same as kind. Remember that when someone explains why the price is necessary." },
-    { speaker: "fox", text: "The Gate could not decide where you belong. That is not destiny. It is an error in the records." },
-    { speaker: "fox", text: "What you do with that error is your business. I am asking you to look closely before anyone fixes it for you." },
-    { speaker: "fox", text: "You should not take that road alone. Five young companions shelter here, one for each chakra nature. I raised them, and they have opinions." },
-    { speaker: "fox", text: "Choose the one willing to choose you, {name}. Then get moving before this roof proves me a liar." },
+    { speaker: "fox", vision: true, rumble: true, text: "Four intakes beneath the villages are feeding it again. Each takes a human choice and turns it into something useful. Useful is not the same as kind." },
+    { speaker: "fox", text: "The Gate could not decide where you belong. That is not destiny. It is an error in the records. Before anyone fixes that error for you, tell me what matters." },
 ];
+
+// The player's answer is a narrative identity, not a build choice. It earns an
+// immediate response here, returns after the spar, and is engraved into the
+// first field seal so the choice has visible continuity without changing power.
+export function buildVowResponseLines(vow: AcademyVow): CinematicLine[] {
+    return [
+        { speaker: "fox", text: academyVowDefinition(vow).shiranuiResponse },
+        { speaker: "fox", text: "Hold to that answer. Machines have long memories, but they do not understand promises." },
+        { speaker: "fox", text: "You should not take that road alone. Five young companions shelter here, one for each chakra nature. Choose the one willing to choose you, {name}." },
+    ];
+}
 
 // ── Beat 4: brief village lore, spoken by the fox (2 lines per village).
 // Replaces the retired VillageLoreScreen wall of text; keyed by the same
@@ -76,16 +84,15 @@ const FALLBACK_LORE_LINES: [string, string] = [
 ];
 
 // ── Beats 5-6: post-gift thanks → lore → farewell ────────────────────────────
-export function buildPostGiftLines(village: string): CinematicLine[] {
+export function buildPostGiftLines(village: string, vow: AcademyVow = "unbound"): CinematicLine[] {
     const [loreA, loreB] = VILLAGE_LORE_LINES[village] ?? FALLBACK_LORE_LINES;
+    const vowDef = academyVowDefinition(vow);
     return [
-        { speaker: "fox", text: "{pet}... a fine choice. Care for each other. A bond like that grows stronger than any blade." },
-        { speaker: "fox", text: "Now, you cannot linger here. The shrine is fading, and the world beyond has need of you." },
+        { speaker: "fox", text: "{pet}. Yes, I wondered if they would choose you. Look after each other; neither of you knows this road yet." },
         { speaker: "fox", worldReveal: true, text: loreA },
         { speaker: "fox", worldReveal: true, text: loreB },
-        { speaker: "fox", worldReveal: true, text: "Train there. Grow strong, {name}. When the Hollow Gate reaches for you, remember: it cannot choose what you become." },
-        { speaker: "fox", worldReveal: true, fading: true, text: "My light is going out, {name}. Take my hope with you." },
-        { speaker: "fox", worldReveal: true, fading: true, text: "Please... save this land." },
+        { speaker: "fox", worldReveal: true, text: `Train there. Grow strong, {name}. And remember the answer you gave me: “${vowDef.quote}”` },
+        { speaker: "fox", worldReveal: true, fading: true, text: "My light is almost gone. I wish I could walk the rest of this road with you. I cannot. Take what hope I have left, and do not let the Gate choose for us." },
     ];
 }
 
@@ -104,12 +111,12 @@ export const COMPANION_VILLAGE_FLAVOR: Record<string, string> = {
     "Moonshadow Village": "Two names on half the doors and no names on the rest. I am going to need you to explain the local rules slowly.",
 };
 
-export function buildCompanionIntroLines(village: string, petName: string): CinematicLine[] {
+export function buildCompanionIntroLines(village: string, petName: string, vow: AcademyVow = "unbound"): CinematicLine[] {
     const flavor = COMPANION_VILLAGE_FLAVOR[village]
         ?? "I can already tell there's more to this place than meets the eye.";
     return [
         { speaker: "fox", label: petName, text: `So this is ${village}. ${flavor}` },
-        { speaker: "fox", label: petName, text: "Shiranui asked me to stay close. I agreed to be your partner, not luggage, so we make road decisions together." },
+        { speaker: "fox", label: petName, text: academyVowDefinition(vow).companionCallback },
         { speaker: "fox", label: petName, text: "Come on, {name}. Guide me to where new shinobi report. If we get lost, I will blame the village signs." },
     ];
 }

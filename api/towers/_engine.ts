@@ -15,7 +15,8 @@
  * companions, and party scaling. Interleaved boss-interrupt turns remain additive future
  * work; all rules here are Tower-session policy and leave shared PvP behavior untouched.
  */
-import { hexDistance, filledDiskTiles } from '../pvp/_aoe.js';
+import { filledDiskTiles } from '../combat-core/aoe.js';
+import { hexDistance } from '../combat-core/grid.js';
 import { applyJutsu as applyPvpJutsu, applyDoTs, tickStatuses, applyGroundEffectToFighter, tickGroundEffects, characterOwnsElement } from '../pvp/move.js';
 import { resolveTowerPlayerJutsu, towerJutsuToCombatJutsu } from '../combat-adapters/clanBossAdapter.js';
 import { TOWER_PVP_TOWER_ID } from './_pvp-session.js';

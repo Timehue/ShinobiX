@@ -12,8 +12,10 @@ import {
     VILLAGE_LORE_LINES,
     buildCompanionIntroLines,
     buildPostGiftLines,
+    buildVowResponseLines,
     resolveCinematicLine,
 } from "./introCinematicScript";
+import { ACADEMY_VOWS } from "../../lib/academy-narrative";
 
 test("every village has dedicated fox lore lines", () => {
     for (const village of villages) {
@@ -49,13 +51,25 @@ test("intro names the Gate as a human-built optimizer and the player as unclassi
     assert.doesNotMatch(copy, /\bchosen\b/i);
 });
 
-test("post-gift script ends on the fading 'save this land' farewell", () => {
+test("post-gift script ends on a personal fading farewell", () => {
     for (const village of [...villages, "Unknown Test Village"]) {
         const lines = buildPostGiftLines(village);
         assert.ok(lines.length >= 5, `post-gift script too short for "${village}"`);
         const last = lines[lines.length - 1];
         assert.ok(last.fading, "final line must dim the fox");
-        assert.match(last.text, /save this land/i);
+        assert.match(last.text, /wish I could walk the rest of this road with you/i);
+        assert.match(last.text, /do not let the Gate choose for us/i);
+    }
+});
+
+test("every identity vow receives an immediate and later callback", () => {
+    for (const vow of ACADEMY_VOWS) {
+        const response = buildVowResponseLines(vow.id).map((line) => line.text).join(" ");
+        const farewell = buildPostGiftLines(villages[0], vow.id).map((line) => line.text).join(" ");
+        const companion = buildCompanionIntroLines(villages[0], "Cinder Cub", vow.id).map((line) => line.text).join(" ");
+        assert.match(response, new RegExp(vow.shiranuiResponse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+        assert.ok(farewell.includes(vow.quote), `farewell does not recall ${vow.id}`);
+        assert.ok(companion.includes(vow.companionCallback), `companion does not recall ${vow.id}`);
     }
 });
 
@@ -75,7 +89,7 @@ test("every village has companion-intro flavor and the beat asks to guide", () =
 });
 
 test("placeholders resolve with no braces left behind", () => {
-    const all = [...PRE_GIFT_LINES, ...buildPostGiftLines(villages[0]), ...buildCompanionIntroLines(villages[0], "Cinder Cub")];
+    const all = [...PRE_GIFT_LINES, ...buildVowResponseLines("seeker"), ...buildPostGiftLines(villages[0], "seeker"), ...buildCompanionIntroLines(villages[0], "Cinder Cub", "seeker")];
     for (const line of all) {
         const resolved = resolveCinematicLine(line.text, "Testkage", "Cinder Cub");
         assert.ok(!resolved.includes("{"), `unresolved placeholder in: ${resolved}`);
@@ -96,4 +110,6 @@ test("player-facing intro dialogue uses clean punctuation and reveals the chosen
     const postGift = buildPostGiftLines(villages[0]);
     assert.ok(postGift.some((line) => line.worldReveal), "post-gift sequence must reveal the player's village");
     assert.ok(postGift.at(-1)?.worldReveal, "the world reveal must remain visible through the farewell");
+    const spokenCopy = allLines.map((line) => line.text).join(" ");
+    assert.doesNotMatch(spokenCopy, /save this land|stronger than any blade|grow stronger together/i);
 });

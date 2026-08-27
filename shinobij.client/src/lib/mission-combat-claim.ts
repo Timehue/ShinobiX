@@ -132,33 +132,39 @@ export async function queueCombatMissionClaim(
 }
 
 export const DELETE_ACCOUNT_ERRORS = {
-    auth: "That password was rejected. Your character was NOT deleted.",
+    auth: "Your sign-in could not be verified. Your character was NOT deleted.",
     network: "Couldn't reach the server. Your character was NOT deleted — check your connection and try again.",
-    server: "The server could not fully delete this character, so nothing was removed. Try again in a moment.",
+    server: "The server could not fully delete this character. Try again in a moment to finish the deletion.",
 } as const;
 
 export type AccountDeletionResult =
     | { ok: true }
     | { ok: false; reason: "auth" | "server" | "network" };
 
-export async function deleteServerAccount(accountName: string, password: string): Promise<AccountDeletionResult> {
+export async function deleteServerAccount(accountName: string, password = ""): Promise<AccountDeletionResult> {
     const slug = accountName.toLowerCase();
+    const passwordHeaders: Record<string, string> = password ? { "x-player-password": password } : {};
+    const rejected = (response: Response) => response.status === 401 || response.status === 403;
+    const settled = (response: Response) => response.ok || response.status === 404;
     try {
-        const [saveRes, authRes] = await Promise.all([
-            fetch(`/api/save/${encodeURIComponent(slug)}`, {
-                method: "DELETE",
-                headers: password ? { "x-player-password": password } : {},
-            }),
-            fetch("/api/player-auth", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", ...(password ? { "x-player-password": password } : {}) },
-                body: JSON.stringify({ action: "delete", name: slug, password }),
-            }),
-        ]);
-        const settled = (response: Response) => response.ok || response.status === 404;
-        if (settled(saveRes) && settled(authRes)) return { ok: true };
-        if (saveRes.status === 401 || authRes.status === 401) return { ok: false, reason: "auth" };
-        return { ok: false, reason: "server" };
+        // Delete the save before revoking the auth record. In the token path,
+        // firing these requests in parallel allowed auth deletion to rotate the
+        // session epoch while save deletion was still authenticating, producing
+        // an intermittent 401 and leaving the character behind. A partial server
+        // failure remains safely retryable: a missing save/auth record is settled.
+        const saveRes = await fetch(`/api/save/${encodeURIComponent(slug)}`, {
+            method: "DELETE",
+            headers: passwordHeaders,
+        });
+        if (!settled(saveRes)) return { ok: false, reason: rejected(saveRes) ? "auth" : "server" };
+
+        const authRes = await fetch("/api/player-auth", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...passwordHeaders },
+            body: JSON.stringify({ action: "delete", name: slug, ...(password ? { password } : {}) }),
+        });
+        if (settled(authRes)) return { ok: true };
+        return { ok: false, reason: rejected(authRes) ? "auth" : "server" };
     } catch {
         return { ok: false, reason: "network" };
     }
