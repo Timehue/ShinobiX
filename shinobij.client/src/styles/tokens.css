@@ -23,6 +23,31 @@
        xxl = 2200px and above
    ========================================================================== */
 
+/* ---------- SHIPPED TYPEFACES -----------------------------------------------
+   The Veiled Steel type ramp names Inter (interface) and Marcellus (display),
+   but until 2026-08-27 neither file shipped, so every player silently fell
+   back (Georgia/Times headings, Arial body on macOS/iOS). Self-hosted like
+   Roboto in landing-skin.css: the CSP's font-src 'self' blocks font CDNs and
+   the privacy policy promises no third-party requests on page load. Licences
+   ship alongside the files in public/fonts/. `font-display: swap` so a slow
+   font never delays play; the fallback stacks below remain the metrics-safe
+   net. Latin subsets only — the game's copy is English. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("/fonts/inter-v20-latin-wght-400-800.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Marcellus";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/marcellus-v14-latin-regular.woff2") format("woff2");
+}
+
 :root {
   /* ---------- VEILED STEEL: canonical studio palette ----------------------
      These sj-* tokens are the public contract for new work. The legacy token

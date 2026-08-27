@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 /**
  * Standard "← Village" return button for the village menu screens (Shop, Bank,
  * Mission Hall, Clan Hall, Training, Town Hall, Hospital, etc.). Uses the shared
- * default blue button skin via the `back-button` class so every village screen
+ * default steel button skin via the `back-button` class so every village screen
  * has a consistent, obvious way back to the Village hub.
  *
  * Pass `onClick` wired to navigate to the "village" screen — e.g.
