@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { visiblePoll } from "../lib/poll";
+import { GameIcon } from "../components/icons/GameIcon";
 import type { Character, PlayerRecord } from "../types/character";
 import type { Screen } from "../types/core";
 import { ClanWarManual } from "../components/ClanWarManual";
@@ -223,7 +224,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
     if (!myClan) {
         return (
             <section className="council-section">
-                <h3 className="council-section-title">🏴 Clan Battles</h3>
+                <h3 className="council-section-title"><GameIcon name="sword" size={15} style={{ verticalAlign: "-2px" }} /> Clan Battles</h3>
                 <p className="council-empty">Join a clan to participate in clan wars.</p>
             </section>
         );
@@ -232,7 +233,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
     return (
         <section className="council-section">
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: "0.5rem" }}>
-                <h3 className="council-section-title" style={{ margin: 0 }}>🏴 Clan Battles</h3>
+                <h3 className="council-section-title" style={{ margin: 0 }}><GameIcon name="sword" size={15} style={{ verticalAlign: "-2px" }} /> Clan Battles</h3>
                 <button
                     type="button"
                     onClick={() => setShowClanWarManual(v => !v)}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { visiblePoll } from "../lib/poll";
+import { GameIcon } from "../components/icons/GameIcon";
 import type { Character } from "../types/character";
 import { fetchTowerFloors, startTowerRun, fetchMyRunStatus, fetchSpireLeaderboard, towerPlayerSlug, SPIRE_MAX_TIER, type TowerFloorMeta, type TowerSession, type TowerHostLoadout, type TowerPartyView, type SpireLeaderboardRow, type SpireWeeklyAffix } from "../lib/towers-api";
 import {
@@ -367,7 +368,7 @@ export function BattleTowersLobby({
             <section className="tower-lobby-hero" style={{ ["--tower-lobby-key-art" as string]: `url(${TOWER_KEY_ART})` }} aria-labelledby="tower-lobby-title">
                 <div className="tower-lobby-hero-copy">
                     <span className="tower-lobby-hero-kicker">Squad tactical ascent</span>
-                    <h1 id="tower-lobby-title">⚔️ Battle Towers</h1>
+                    <h1 id="tower-lobby-title">Battle Towers</h1>
                     <p>
                         Curated squad floors — objectives, battlefield gimmicks, and bosses with signature mechanics.
                         First few floors free daily, then a small ryo toll; unlimited retries — the gate is tactics, not stamina.
@@ -384,7 +385,7 @@ export function BattleTowersLobby({
                         cursor: "pointer", color: "#dbeafe", background: "linear-gradient(180deg,#1e3a8a,#172554)",
                         border: "1px solid var(--blue-400)", boxShadow: "0 0 18px rgba(96,165,250,0.45)",
                     }}>
-                    ⚔️ You've been called to a squad run — Floor {pendingRun.session.floor} · Join now ▶
+                    You've been called to a squad run — Floor {pendingRun.session.floor} · Join now
                 </button>
             )}
             {runRecoveryPending && !pendingRun && (
@@ -619,7 +620,7 @@ function SpireLadder({
             {/* Cinematic banner header — bespoke Endless Spire key art */}
             <div className="spire-banner" style={{ backgroundImage: `url(${spireKeyArt})` }}>
                 <div className="spire-banner-overlay">
-                    <span className="spire-title">🗼 The Endless Spire</span>
+                    <span className="spire-title"><GameIcon name="tower" size={15} style={{ verticalAlign: "-2px" }} /> The Endless Spire</span>
                     <span className="spire-head-stats">
                         <b style={{ color: "#f4c48a" }}>{spireUnlocked}</b><span>/{SPIRE_MAX_TIER} cleared</span>
                         <span className="spire-head-dot">·</span>
