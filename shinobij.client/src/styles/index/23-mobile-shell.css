@@ -193,19 +193,22 @@
     transition: width 220ms ease-out;
   }
 
+  /* Resource ramps match the shared ProgressBar tones (veiled-steel.css
+     .ui-progress--health/chakra/stamina) so the persistent HUD and every
+     in-screen bar read as one instrument, not two eras of UI. */
   .mthd-bar-hp .mthd-bar-fill {
-    background: linear-gradient(90deg, var(--red) 0%, var(--red-400) 100%);
-    box-shadow: 0 0 6px rgba(248, 113, 113, 0.35);
+    background: linear-gradient(90deg, var(--sj-seal) 0%, var(--sj-danger) 100%);
+    box-shadow: 0 0 6px rgba(198, 83, 89, 0.35);
   }
 
   .mthd-bar-chakra .mthd-bar-fill {
-    background: linear-gradient(90deg, #0369a1 0%, var(--cyan) 100%);
-    box-shadow: 0 0 6px rgba(56, 189, 248, 0.35);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--sj-info) 55%, var(--sj-background)) 0%, var(--sj-info) 100%);
+    box-shadow: 0 0 6px rgba(109, 159, 189, 0.35);
   }
 
   .mthd-bar-stamina .mthd-bar-fill {
-    background: linear-gradient(90deg, #65a30d 0%, #a3e635 100%);
-    box-shadow: 0 0 6px rgba(163, 230, 53, 0.35);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--sj-success) 55%, var(--sj-background)) 0%, var(--sj-success) 100%);
+    box-shadow: 0 0 6px rgba(112, 170, 128, 0.35);
   }
 
   .mthd-bar-label {
