@@ -814,18 +814,23 @@ export function Profile({
                     </span>
                 </div>
                 {(() => {
-                    const unlocked = ACHIEVEMENTS.filter(a => a.check(character));
-                    if (unlocked.length === 0) {
-                        return <p className="hint">No achievements unlocked yet. Earn one to see it appear here.</p>;
-                    }
+                    // The chase view: every ordinary achievement is on the board
+                    // from day one — locked ones as dimmed medallions with their
+                    // requirement visible. True secrets (`hidden`) never appear
+                    // before they unlock; they are only counted below.
+                    const entries = ACHIEVEMENTS
+                        .map(a => ({ a, unlocked: a.check(character) }))
+                        .filter(e => e.unlocked || !e.a.hidden);
+                    const secretsRemaining = ACHIEVEMENTS.filter(a => a.hidden && !a.check(character)).length;
                     return (
+                        <>
                         <div className="achievements-grid">
-                            {unlocked.map(a => {
-                                const unlockedAt = character.achievementUnlockedAt?.[a.id];
+                            {entries.map(({ a, unlocked }) => {
+                                const unlockedAt = unlocked ? character.achievementUnlockedAt?.[a.id] : undefined;
                                 const unlockedAtLabel = unlockedAt ? new Date(unlockedAt).toLocaleDateString() : null;
                                 const classes = [
                                     "achievement-badge",
-                                    "unlocked",
+                                    unlocked ? "unlocked" : "locked",
                                     a.hidden ? "is-secret" : "",
                                 ].filter(Boolean).join(" ");
                                 return (
@@ -840,6 +845,7 @@ export function Profile({
                                             <img
                                                 src={`/badges/${a.id}.webp`}
                                                 alt=""
+                                                loading="lazy"
                                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
                                             />
                                             <span className="achievement-emoji" aria-hidden>{a.icon}</span>
@@ -848,11 +854,18 @@ export function Profile({
                                             <strong>{a.name}</strong>
                                             <small>{a.desc}</small>
                                             {unlockedAtLabel && <small className="achievement-unlocked-at">Unlocked {unlockedAtLabel}</small>}
+                                            {!unlocked && <small className="achievement-locked-tag">Locked</small>}
                                         </div>
                                     </button>
                                 );
                             })}
                         </div>
+                        {secretsRemaining > 0 && (
+                            <p className="achievements-secrets-hint">
+                                {secretsRemaining} secret achievement{secretsRemaining === 1 ? "" : "s"} remain{secretsRemaining === 1 ? "s" : ""} undiscovered.
+                            </p>
+                        )}
+                        </>
                     );
                 })()}
             </section>
@@ -881,7 +894,7 @@ export function Profile({
             {selectedAchievement && (
                 <div className="achievement-detail-overlay" onClick={() => setSelectedAchievement(null)}>
                     <div
-                        className={`achievement-detail-card ${selectedAchievement.hidden ? "is-secret" : ""}`}
+                        className={`achievement-detail-card ${selectedAchievement.hidden ? "is-secret" : ""} ${selectedAchievement.check(character) ? "" : "is-locked"}`.trim()}
                         onClick={(e) => e.stopPropagation()}
                     >
                         <button
@@ -910,6 +923,9 @@ export function Profile({
                             return <p className="achievement-detail-desc"><strong>Reward:</strong> {r.ryo.toLocaleString()} ryo{r.fateShards ? ` · ${r.fateShards} Fate Shard${r.fateShards > 1 ? "s" : ""}` : ""}</p>;
                         })()}
                         {(() => {
+                            if (!selectedAchievement.check(character)) {
+                                return <p className="achievement-detail-date">Not yet earned.</p>;
+                            }
                             const at = character.achievementUnlockedAt?.[selectedAchievement.id];
                             return at ? (
                                 <p className="achievement-detail-date">
