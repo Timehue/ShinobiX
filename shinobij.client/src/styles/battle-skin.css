@@ -6034,9 +6034,9 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
         margin-inline: auto !important;
         grid-template-columns:
             clamp(190px, 15cqw, 260px)
-            minmax(0, 1.7fr)
-            minmax(240px, 0.9fr)
-            minmax(70px, 0.28fr)
+            minmax(0, 0.9fr)
+            minmax(240px, 1.35fr)
+            minmax(70px, 0.5fr)
             clamp(190px, 15cqw, 260px) !important;
         grid-template-rows:
             52px
@@ -6044,7 +6044,7 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
             22px
             minmax(210px, 1fr)
             60px
-            clamp(220px, 28cqh, 400px) !important;
+            clamp(210px, 24cqh, 300px) !important;
         grid-template-areas:
             "player header header header opponent"
             "player ap ap ap opponent"
@@ -6207,6 +6207,24 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
         max-height: none !important;
     }
 
+    /* The 12 x 10 tactical lattice is much squarer than a desktop arena. A
+       height-only fit left almost half of the painted battlefield unused. Use
+       a restrained wide projection on the logical grid (including its hit
+       targets), while counter-scaling fighter art so portraits stay round. */
+    #combat.shinobi-combat-shell .combat-layout {
+        --combat-grid-wide-scale: 1.18;
+    }
+
+    #combat.shinobi-combat-shell .hex-battlefield > div:first-child:has(> .hex-grid-layer) {
+        overflow: visible !important;
+        scale: var(--combat-grid-wide-scale) 1;
+        transform-origin: center center;
+    }
+
+    #combat.shinobi-combat-shell .hex-grid-layer > .battlefield-actor {
+        scale: 0.84746 1;
+    }
+
     #combat .combat-action-notice,
     #combat.mission-arena-fight .combat-action-notice {
         position: relative !important;
@@ -6285,13 +6303,13 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
     #combat .combat-equipped-jutsu-grid {
         display: grid !important;
         grid-row: 2 !important;
-        grid-template-columns: repeat(5, minmax(0, 220px)) !important;
+        grid-template-columns: repeat(auto-fill, minmax(142px, 160px)) !important;
         grid-template-rows: none !important;
         grid-auto-flow: row !important;
         grid-auto-columns: auto !important;
-        grid-auto-rows: clamp(74px, 8cqh, 90px) !important;
+        grid-auto-rows: 86px !important;
         align-content: start !important;
-        justify-content: space-between !important;
+        justify-content: start !important;
         width: 100% !important;
         height: 100% !important;
         min-height: 0 !important;
@@ -6304,12 +6322,13 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
     #combat .combat-jutsu-card-wrap:has(> .combat-jutsu-help) {
         width: 100% !important;
         height: 100% !important;
-        min-height: 74px !important;
+        min-height: 86px !important;
         aspect-ratio: auto !important;
     }
 
-    /* Card art is framed as complete artwork rather than cropped wallpaper.
-       Transparent weapons/items keep their icon fallback beneath the image. */
+    /* Every action now uses the same edge-to-edge art window. Source artwork
+       comes in several aspect ratios, so a consistent crop is less chaotic
+       than letterboxing each card differently. */
     #combat .combat-jutsu-thumb > img {
         position: absolute !important;
         inset: 0 !important;
@@ -6320,13 +6339,33 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
         min-height: 0 !important;
         max-width: 100% !important;
         max-height: 100% !important;
-        padding: 2px !important;
-        object-fit: contain !important;
-        object-position: center !important;
+        padding: 0 !important;
+        object-fit: cover !important;
+        object-position: center 42% !important;
         image-rendering: auto !important;
         border-radius: inherit !important;
         background: radial-gradient(circle at 50% 45%, rgba(38, 62, 88, 0.38), rgba(2, 6, 12, 0.78)) !important;
         filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.58));
+    }
+
+    /* Method/target repeats across most of a loadout and was competing with
+       the resource chip, nameplate, cooldown, and help target. Keep the cost
+       visible on-card and move the full targeting description to Details. */
+    #combat .combat-jutsu-method-target {
+        display: none !important;
+    }
+
+    #combat .combat-jutsu-resources {
+        top: 6px !important;
+        right: auto !important;
+        left: 6px !important;
+        max-width: calc(100% - 56px) !important;
+        transform: none !important;
+    }
+
+    #combat .combat-jutsu-button:disabled:not(.jutsu-on-cooldown) {
+        opacity: 0.62 !important;
+        filter: grayscale(0.32) brightness(0.82) !important;
     }
 
     #combat .combat-text-log,
