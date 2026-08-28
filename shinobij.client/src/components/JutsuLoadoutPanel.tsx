@@ -8,6 +8,7 @@ import { getJutsuMastery } from "../lib/jutsu-scaling";
 import { isPatreonSubscriber, LOADOUT_CAP_BASE, LOADOUT_CAP_SUB } from "../lib/entitlements";
 import { legacySignatureFor } from "../lib/legacy-jutsu-slot";
 import { resolveLoadoutLensDiscipline } from "../lib/jutsu-loadout-lens";
+import { normalizeOnboardingStep } from "../lib/onboarding-step";
 
 type JutsuCollectionSort = "default" | "name" | "level" | "ap" | "element";
 
@@ -46,6 +47,7 @@ function JutsuCard({
     view,
     onSelect,
     onEquip,
+    highlightEquip,
 }: {
     jutsu: Jutsu;
     character: Character;
@@ -54,6 +56,7 @@ function JutsuCard({
     view: "grid" | "list";
     onSelect: () => void;
     onEquip: () => void;
+    highlightEquip: boolean;
 }) {
     const mastery = getJutsuMastery(character, jutsu.id);
     return (
@@ -79,7 +82,9 @@ function JutsuCard({
             </button>
             <button
                 type="button"
-                className="jutsu-quick-equip"
+                className={`jutsu-quick-equip${highlightEquip ? " academy-click-target" : ""}`}
+                data-academy-hint={highlightEquip ? "Next · equip this" : undefined}
+                data-academy-autoscroll={highlightEquip ? "true" : undefined}
                 aria-label={equipped ? `${jutsu.name} is equipped` : `Equip ${jutsu.name}`}
                 title={equipped ? "Already equipped" : "Equip jutsu"}
                 disabled={equipped}
@@ -100,6 +105,7 @@ function SelectedJutsuDetails({
     loadoutFull,
     onEquip,
     onUnequip,
+    highlightEquip,
 }: {
     jutsu: Jutsu | undefined;
     character: Character;
@@ -108,6 +114,7 @@ function SelectedJutsuDetails({
     loadoutFull: boolean;
     onEquip: () => void;
     onUnequip: () => void;
+    highlightEquip: boolean;
 }) {
     if (!jutsu) {
         return (
@@ -150,7 +157,8 @@ function SelectedJutsuDetails({
             </div>
             <button
                 type="button"
-                className={equipped ? "jutsu-detail-remove" : "jutsu-detail-equip"}
+                className={`${equipped ? "jutsu-detail-remove" : "jutsu-detail-equip"}${highlightEquip ? " academy-click-target" : ""}`}
+                data-academy-hint={highlightEquip ? "Next · equip this" : undefined}
                 disabled={!equipped && loadoutFull}
                 onClick={equipped ? onUnequip : onEquip}
             >
@@ -182,7 +190,8 @@ export function JutsuLoadoutPanel({
     const [view, setView] = useState<"grid" | "list">("grid");
     const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
     const [lensOverride, setLensOverride] = useState<JutsuType | null>(null);
-    const [workspaceTab, setWorkspaceTab] = useState<"loadout" | "collection">("loadout");
+    const academyLoadoutStep = normalizeOnboardingStep(character.onboardingStep) === "jutsuLoadout";
+    const [workspaceTab, setWorkspaceTab] = useState<"loadout" | "collection">(academyLoadoutStep ? "collection" : "loadout");
     const subscriber = isPatreonSubscriber(character);
     const unlockedSlots = subscriber ? LOADOUT_CAP_SUB : LOADOUT_CAP_BASE;
     const loadoutFull = character.equippedJutsuIds.length >= unlockedSlots;
@@ -194,6 +203,9 @@ export function JutsuLoadoutPanel({
     const lensDiscipline = lensOverride ?? automaticLensDiscipline;
     const selectedJutsu = learnedJutsus.find((jutsu) => jutsu.id === selectedId) ?? equippedJutsus[0] ?? learnedJutsus[0];
     const signature = legacySignatureFor(character);
+    const academyRecommendedJutsuId = academyLoadoutStep
+        ? learnedJutsus.find((jutsu) => !character.equippedJutsuIds.includes(jutsu.id))?.id ?? ""
+        : "";
 
     const disciplines = Array.from(new Set(learnedJutsus.map((jutsu) => jutsu.type))).sort();
     const elements = Array.from(new Set(learnedJutsus.map((jutsu) => jutsu.element))).sort();
@@ -260,7 +272,8 @@ export function JutsuLoadoutPanel({
                             role="tab"
                             aria-selected={workspaceTab === "collection"}
                             aria-controls="jutsu-workspace-collection"
-                            className={workspaceTab === "collection" ? "is-active" : ""}
+                            className={`${workspaceTab === "collection" ? "is-active" : ""}${academyLoadoutStep && workspaceTab !== "collection" ? " academy-click-target" : ""}`}
+                            data-academy-hint={academyLoadoutStep && workspaceTab !== "collection" ? "Next · learned Jutsu" : undefined}
                             onClick={() => setWorkspaceTab("collection")}
                         >
                             <span>Learned Jutsu</span>
@@ -433,6 +446,7 @@ export function JutsuLoadoutPanel({
                                         setSelectedId(jutsu.id);
                                         onPlaceJutsu(jutsu.id);
                                     }}
+                                    highlightEquip={academyRecommendedJutsuId === jutsu.id}
                                 />
                             )) : (
                                 <div className="jutsu-collection-empty">No jutsu match these filters.</div>
@@ -458,6 +472,7 @@ export function JutsuLoadoutPanel({
                             loadoutFull={loadoutFull}
                             onEquip={() => selectedJutsu && onPlaceJutsu(selectedJutsu.id)}
                             onUnequip={() => selectedJutsu && onUnequip(selectedJutsu.id)}
+                            highlightEquip={Boolean(selectedJutsu && academyRecommendedJutsuId === selectedJutsu.id)}
                         />
                     </section>
                     <section className="jutsu-sidebar-section jutsu-how-it-works">

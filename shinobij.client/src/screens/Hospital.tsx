@@ -15,6 +15,7 @@ import { adoptHospitalDischarge, type HospitalDischargeResponse } from "../lib/h
 import { FacilityHero } from "../components/FacilityHero";
 import { serverNow } from "../lib/server-clock";
 import { GameIcon } from "../components/icons/GameIcon";
+import { normalizeOnboardingStep } from "../lib/onboarding-step";
 
 export
 function Hospital({ character, updateCharacter, setScreen, playerRoster, onServerVersion, onVersionedCharacter }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen, authoritativeCharacter?: Character) => void; playerRoster: PlayerRecord[]; onServerVersion: (version: unknown) => boolean; onVersionedCharacter: VersionedCharacterCommit }) {
@@ -26,6 +27,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
     // discharge (or wait the 60-second free checkout) and can't topUp at all.
     const dischargeCost = isHealer ? 0 : discountCost(2500, hospitalDiscount);
     const topUpCost = isHealer ? 0 : discountCost(50, hospitalDiscount);
+    const academyRecoveryStep = normalizeOnboardingStep(character.onboardingStep) === "academySpar";
     const hpPercent = Math.max(0, Math.min(100, character.maxHp > 0 ? (character.hp / character.maxHp) * 100 : 0));
     // Free-checkout timer is driven by the SERVER-stamped hospitalizedUntil
     // (persisted in the save), so it survives a page refresh — the old client-
@@ -268,7 +270,13 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                                     <small>No charge · full restoration</small>
                                 </div>
                                 {freeCheckoutReady ? (
-                                    <button className="facility-secondary-action hospital-free-checkout" onClick={() => void freeCheckout(false)} disabled={busy}>
+                                    <button
+                                        className={`facility-secondary-action hospital-free-checkout${academyRecoveryStep ? " academy-click-target" : ""}`}
+                                        data-academy-hint={academyRecoveryStep ? "Next · check out" : undefined}
+                                        data-academy-autoscroll={academyRecoveryStep ? "true" : undefined}
+                                        onClick={() => void freeCheckout(false)}
+                                        disabled={busy}
+                                    >
                                         {busy ? "Checking out…" : "Check out free"}
                                     </button>
                                 ) : (

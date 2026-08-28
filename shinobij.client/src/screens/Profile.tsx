@@ -36,6 +36,7 @@ import { settleProfileAction, type ProfileSettlementAction } from "../lib/profil
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { academyVowDefinition } from "../lib/academy-narrative";
+import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import academyFieldSealArt from "../assets/academy/onboarding/shiranui-field-seal.webp";
 
 type ProfileDossierRow = {
@@ -165,7 +166,8 @@ export function Profile({
     // capability keeps these paid actions in sync with operational truth.
     const legacyLive = legacyAvailable;
     const TITLE_COST = 10;
-    const [mobileTab, setMobileTab] = useState<'overview' | 'stats' | 'jutsu' | 'achievements' | 'battlelogs' | 'legacy'>('overview');
+    const academyLoadoutStep = normalizeOnboardingStep(character.onboardingStep) === "jutsuLoadout";
+    const [mobileTab, setMobileTab] = useState<'overview' | 'stats' | 'jutsu' | 'achievements' | 'battlelogs' | 'legacy'>(academyLoadoutStep ? 'jutsu' : 'overview');
     const visibleMobileTab = !legacyAvailable && mobileTab === 'legacy' ? 'overview' : mobileTab;
     const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
     async function runPaidProfileAction(action: ProfileSettlementAction): Promise<boolean> {
@@ -541,7 +543,8 @@ export function Profile({
                     <button
                         type="button"
                         key={id}
-                        className={`pmtab${visibleMobileTab === id ? ' pmtab-active' : ''}`}
+                        className={`pmtab${visibleMobileTab === id ? ' pmtab-active' : ''}${academyLoadoutStep && id === 'jutsu' && visibleMobileTab !== 'jutsu' ? ' academy-click-target' : ''}`}
+                        data-academy-hint={academyLoadoutStep && id === 'jutsu' && visibleMobileTab !== 'jutsu' ? "Next · open Jutsu" : undefined}
                         aria-current={visibleMobileTab === id ? 'page' : undefined}
                         onClick={() => setMobileTab(id)}
                     >{label}</button>
