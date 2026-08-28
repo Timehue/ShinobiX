@@ -57,7 +57,10 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     const [petTrainingBusy, setPetTrainingBusy] = useState(false);
     const petTrainingBusyRef = useRef(false);
     const [growthBusy, setGrowthBusy] = useState(false);
-    const [growthDraft, setGrowthDraft] = useState<PetGrowthAllocation>(emptyPetGrowthAllocation());
+    const [growthDraftState, setGrowthDraftState] = useState<{ baseKey: string; allocation: PetGrowthAllocation }>({
+        baseKey: "",
+        allocation: emptyPetGrowthAllocation(),
+    });
     const [expeditionBusy, setExpeditionBusy] = useState(false);
     const expeditionBusyRef = useRef(false);
     const [expeditionLaunchBusy, setExpeditionLaunchBusy] = useState(false);
@@ -76,6 +79,10 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     const trainingEligiblePetIds = new Set(activeTrainingPetIds(character));
     const selectedPetCanTrain = Boolean(selectedPet && trainingEligiblePetIds.has(selectedPet.id));
     const committedGrowth = selectedPet?.growthAllocation ?? emptyPetGrowthAllocation();
+    const growthDraftBaseKey = `${selectedPet?.id ?? ""}:${committedGrowth.vitality}:${committedGrowth.power}:${committedGrowth.guard}:${committedGrowth.agility}`;
+    const growthDraft = growthDraftState.baseKey === growthDraftBaseKey
+        ? growthDraftState.allocation
+        : committedGrowth;
     const growthEarned = petGrowthPointsEarned(selectedPet?.level ?? 1);
     const growthSpent = Object.values(growthDraft).reduce((sum, value) => sum + value, 0);
     const growthUnspent = Math.max(0, growthEarned - growthSpent);
@@ -103,10 +110,6 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
             expeditionLaunchBusyRef.current = false;
         };
     }, [character.name]);
-
-    useEffect(() => {
-        setGrowthDraft(selectedPet?.growthAllocation ? { ...selectedPet.growthAllocation } : emptyPetGrowthAllocation());
-    }, [selectedPet?.id, selectedPet?.growthAllocation?.vitality, selectedPet?.growthAllocation?.power, selectedPet?.growthAllocation?.guard, selectedPet?.growthAllocation?.agility]);
 
     useEffect(() => {
         if (!canOfferEscort) return;
@@ -174,6 +177,18 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         if (!res.ok || !data?.character) throw new Error(String(data?.error ?? 'Pet update failed.'));
         if (!onVersionedCharacter(data.character as Character, data._saveVersion)) throw new Error("A newer companion update is already active.");
         return data as { character: Character; pet?: Pet; settledTraining?: string | null; missionsCompleted?: Array<{ id: string; name: string; xpReward: number }>; _saveVersion?: number };
+    }
+
+    function setGrowthDraft(update: PetGrowthAllocation | ((current: PetGrowthAllocation) => PetGrowthAllocation)) {
+        setGrowthDraftState((current) => {
+            const activeDraft = current.baseKey === growthDraftBaseKey
+                ? current.allocation
+                : { ...committedGrowth };
+            return {
+                baseKey: growthDraftBaseKey,
+                allocation: typeof update === "function" ? update(activeDraft) : update,
+            };
+        });
     }
 
     function adjustGrowth(attribute: keyof PetGrowthAllocation, delta: number) {
