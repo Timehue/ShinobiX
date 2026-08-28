@@ -6,6 +6,7 @@ import {
     isSoloPveSession,
     type SoloPveSession,
 } from './_session.js';
+import { recordSoloPveLifecycle, type SoloPveTelemetryDeps } from './_telemetry.js';
 
 export type SoloPveKv = {
     get<T = unknown>(key: string): Promise<T | null>;
@@ -18,7 +19,7 @@ export type SoloPveKv = {
     ): Promise<boolean>;
 };
 
-export type SoloPveStoreDeps = { kv?: SoloPveKv };
+export type SoloPveStoreDeps = { kv?: SoloPveKv; telemetry?: SoloPveTelemetryDeps };
 
 export function soloPveSessionKey(sessionId: string): string {
     return `solo-pve:${sessionId}`;
@@ -43,6 +44,13 @@ export async function writeSoloPveSession(
     await (deps.kv ?? realKv).set(soloPveSessionKey(session.sessionId), session, {
         ex: session.status === 'done' ? SOLO_PVE_TERMINAL_TTL_SECONDS : activeTtl,
     });
+    // A version-1 active session is one that has just been created:
+    // executeSoloPveAction bumps the version on every applied action, so no
+    // later write can reach this branch. The nx gate inside the recorder makes
+    // a retried first write collapse to a single count regardless.
+    if (session.version === 1 && session.status === 'active') {
+        void recordSoloPveLifecycle('combat.session_created', session, deps.telemetry);
+    }
 }
 
 /** Replace only the exact predecessor so terminal settlement cannot clobber a
