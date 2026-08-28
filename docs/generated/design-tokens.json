@@ -2274,7 +2274,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1698
+            "line": 1941
           }
         ]
       },
@@ -2793,7 +2793,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1568
+            "line": 1811
           }
         ]
       },
@@ -3231,11 +3231,11 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1717
+            "line": 1960
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1777
+            "line": 2020
           },
           {
             "source": "shinobij.client/src/styles/village-war-map-skin.css",
@@ -3281,7 +3281,18 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1843
+            "line": 2086
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "height",
+        "valuePx": 820,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1757
           }
         ]
       },
@@ -3557,7 +3568,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1686
+            "line": 1929
           }
         ]
       },
@@ -3608,6 +3619,10 @@
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
             "line": 1016
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1757
           }
         ]
       },
@@ -3954,7 +3969,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1711
+            "line": 1954
           }
         ]
       }
