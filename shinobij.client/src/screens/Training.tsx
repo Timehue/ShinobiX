@@ -569,10 +569,13 @@ export function JutsuTrainingHall({
             return;
         }
 
-        if (!activeJutsuTraining.serverToken) return rejectJutsuAction('invalid-or-legacy-jutsu-training');
+        // A pre-modern lease has no serverToken. Refusing it here (rather than
+        // letting the server settle it from its own sealed fields) is what left
+        // these sessions un-collectible AND un-cancellable — a permanent block on
+        // starting any new jutsu training. The server admits exactly this case now.
         if (!beginJutsuAction("claim")) return;
         try {
-            const result = await mutateJutsuRyoTraining(character.name, 'complete', { serverToken: activeJutsuTraining.serverToken });
+            const result = await mutateJutsuRyoTraining(character.name, 'complete', { serverToken: activeJutsuTraining.serverToken ?? '' });
             if (!result.character) return rejectJutsuAction(result.error);
             if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             setJutsuNotice({ tone: "success", message: `${activeJutsuTraining.label} reached level ${activeJutsuTraining.toLevel}.` });
@@ -588,10 +591,9 @@ export function JutsuTrainingHall({
         if (!activeJutsuTraining) return;
         const refund = Math.floor(activeJutsuTraining.ryoCost * 0.5);
         if (!(await gameConfirm(`Cancel ${activeJutsuTraining.label} training? You'll get ${refund} ryo back (50% of ${activeJutsuTraining.ryoCost}) and forfeit the training progress.`))) return;
-        if (!activeJutsuTraining.serverToken) return rejectJutsuAction('invalid-or-legacy-jutsu-training');
         if (!beginJutsuAction("cancel")) return;
         try {
-            const result = await mutateJutsuRyoTraining(character.name, 'cancel', { serverToken: activeJutsuTraining.serverToken });
+            const result = await mutateJutsuRyoTraining(character.name, 'cancel', { serverToken: activeJutsuTraining.serverToken ?? '' });
             if (!result.character) return rejectJutsuAction(result.error);
             if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             setActiveJutsuTraining(result.activeJutsuTraining ?? null);

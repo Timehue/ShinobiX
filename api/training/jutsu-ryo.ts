@@ -77,7 +77,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 changed = startJutsuRyoTraining(character, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), Date.now(), body.trainingBonusPct, jutsuMorale.jutsuTimeMult);
             } else {
                 const active = record.activeJutsuTraining && typeof record.activeJutsuTraining === 'object' ? record.activeJutsuTraining as ServerJutsuTraining : null;
-                if (!active || active.serverToken !== String(body.serverToken ?? '')) return { ok: false as const, status: 409, error: 'invalid-or-legacy-jutsu-training' };
+                // A pre-modern lease carries no serverToken at all, so token matching
+                // can never admit it — which refused `complete` AND `cancel` alike and
+                // left the player unable to start anything new, with the ryo already
+                // spent. Settlement reads only the record's own sealed fields
+                // (jutsuId/toLevel/ryoCost/endsAt) and clears the lease, and the
+                // requestId receipt above plus the cleared lease block any replay, so
+                // admitting these two actions cannot inflate or repeat a payout.
+                // queue/advance/finish still require a real token.
+                const legacySettle = !!active
+                    && !String(active.serverToken ?? '').trim()
+                    && (action === 'complete' || action === 'cancel');
+                if (!active || (!legacySettle && active.serverToken !== String(body.serverToken ?? ''))) return { ok: false as const, status: 409, error: 'invalid-or-legacy-jutsu-training' };
                 if (action === 'queue') {
                     const jutsuId = String(body.jutsuId ?? '').trim().toLowerCase();
                     if (!JUTSU_ID.test(jutsuId) || !jutsuIsKnown(jutsuId)) return { ok: false as const, status: 409, error: 'unknown-or-unowned-jutsu' };

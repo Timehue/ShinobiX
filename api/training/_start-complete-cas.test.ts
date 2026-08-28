@@ -423,6 +423,47 @@ describe('training start/complete exact-CAS authority', { concurrency: false }, 
         assert.equal((((await kv.get<Json>(`save:${name}`))?.character as Json).stats as Json).strength, 16);
     });
 
+    // Regression: the build retired on 2026-07-12 minted a token but never wrote
+    // startedAt/expiresAt. The modern validator needs both fields, and the legacy
+    // parser used to refuse anything carrying a token, so these leases matched
+    // NEITHER path — 409 on every collect, while the client refused to start a new
+    // session because a lease was present. 14 live saves sat unable to train for
+    // ~7 weeks. The client sends `legacy: !activeTraining.token`, so the real
+    // request for this shape arrives with legacy:false and the token echoed.
+    it('collects a token-bearing lease that predates startedAt/expiresAt', async () => {
+        const name = `${TEST_PREFIX}strandedlease`;
+        const staleToken = '760cdb928fbe421781da30579188f615';
+        await seedSave(name, {
+            _saveVersion: 21,
+            character: character(name),
+            activeTraining: {
+                label: '4 Hours strength Training',
+                stat: 'strength',
+                xp: 220,
+                statGain: 84,
+                staminaCost: 35,
+                endsAt: Date.now() - 48 * 24 * 60 * 60_000,
+                durationMs: 4 * 60 * 60_000,
+                token: staleToken,
+            },
+        });
+
+        const collected = await post(completeHandler, { playerName: name, token: staleToken, legacy: false });
+        assert.equal(collected.statusCode, 200, JSON.stringify(collected.body));
+        assert.equal(collected.body?.alreadyGranted, false);
+        assert.equal(collected.body?.applied, 84);
+
+        const saved = await kv.get<Json>(`save:${name}`);
+        assert.equal(((saved?.character as Json).stats as Json).strength, 94);
+        // The lease must clear, or the client keeps refusing to start new training.
+        assert.equal(saved?.activeTraining ?? null, null);
+
+        // A second click must not pay twice now that the lease is gone.
+        const again = await post(completeHandler, { playerName: name, token: staleToken, legacy: false });
+        assert.equal(again.statusCode, 409, JSON.stringify(again.body));
+        assert.equal(((((await kv.get<Json>(`save:${name}`))?.character as Json).stats as Json).strength), 94);
+    });
+
     it('re-reads a successor autosave and debits the successor exactly once on start', async () => {
         const name = `${TEST_PREFIX}startrace`;
         const saveKey = `save:${name}`;
