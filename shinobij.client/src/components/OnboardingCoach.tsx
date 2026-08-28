@@ -85,8 +85,6 @@ function TutorialCompanionModel({
                 fallbackSrc={fallbackSrc}
                 label={label}
                 className={className}
-                hero
-                closeUp
                 enabled={enabled}
             />
         </Suspense>
