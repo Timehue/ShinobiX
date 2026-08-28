@@ -115,6 +115,41 @@ test('Warfront start CAS-clears an active pointer whose proof is missing', async
     assert.equal(await kv.get(`pet:battle-active:${PLAYER}`), null);
 });
 
+test('a resume-only Warfront probe ignores an unrelated active battle without weakening the start lock', async () => {
+    const token = 'active-colosseum-proof';
+    const activeKey = `pet:battle-active:${PLAYER}`;
+    const tokenKey = `pet:battle-token:${PLAYER}:${token}`;
+    await kv.set(tokenKey, { mode: '1v1', reportKey: 'colosseum-result' });
+    await kv.set(activeKey, token);
+
+    try {
+        const probe = response();
+        await startHandler(request({ playerName: PLAYER, resumeOnly: true }), probe.res);
+        assert.equal(probe.out.statusCode, 204, 'another battle mode is not a broken Warfront recovery');
+        assert.equal(await kv.get(activeKey), token, 'the read-only probe must not disturb the active battle lease');
+        assert.ok(await kv.get(tokenKey), 'the read-only probe must not retire another mode\'s proof');
+
+        const start = response();
+        await startHandler(request({
+            playerName: PLAYER,
+            playerPetIds: [1, 2, 3, 4].map((index) => `warfront-pet-${index}`),
+        }), start.res);
+        assert.equal(start.out.statusCode, 409, 'an actual Warfront start remains blocked by the active battle');
+        assert.equal(start.out.body?.error, 'Finish or settle your active Pet Colosseum battle first.');
+        assert.equal(await kv.get(activeKey), token);
+
+        await kv.set(tokenKey, { mode: 'warfront', reportKey: 'malformed-warfront-result' });
+        const malformedWarfront = response();
+        await startHandler(request({ playerName: PLAYER, resumeOnly: true }), malformedWarfront.res);
+        assert.equal(malformedWarfront.out.statusCode, 409, 'a malformed Warfront proof must not masquerade as no active Warfront');
+        assert.equal(malformedWarfront.out.body?.error, 'Finish or settle your active Pet Colosseum battle first.');
+        assert.equal(await kv.get(activeKey), token, 'the malformed proof remains fail-closed for explicit recovery');
+    } finally {
+        await kv.del(tokenKey);
+        await kv.delIfEqual(activeKey, token);
+    }
+});
+
 test('Warfront start mints its own resumable seed and a battle-result-compatible reward seal', async () => {
     const startBody = {
         playerName: PLAYER,

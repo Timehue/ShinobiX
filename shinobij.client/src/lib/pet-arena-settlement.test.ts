@@ -189,6 +189,8 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
     assert.match(arenaSource, /if \(!r\.ok\)[\s\S]*payload\?\.error[\s\S]*Retry-After[\s\S]*warfrontSetupErrorRef\.current/);
     assert.match(arenaSource, /Retry to recover any existing battle seal safely/);
     assert.match(arenaSource, /resumeOnly: true/);
+    assert.match(arenaSource, /if \(response\.status === 204\) return null;[\s\S]*if \(!response\.ok\)/,
+        "a no-Warfront recovery response must stop before error handling or JSON parsing");
     assert.match(arenaSource, /warfrontResumeProbeScopeRef[\s\S]*void resumeOwnedWarfront\(scope\)/);
     assert.match(arenaSource, />Warfront needs attention</);
 

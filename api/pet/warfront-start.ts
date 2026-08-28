@@ -245,6 +245,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const existing = await readActiveWarfront();
         if (existing) {
             if (!isRecoverableWarfront(existing.seal)) {
+                // A resume-only request is a background discovery probe, not an
+                // attempt to claim the shared battle lease. Another battle mode
+                // owning that lease means there is simply no Warfront to resume;
+                // surfacing its perfectly valid receipt as a broken Warfront
+                // creates a false error over the battle the player is watching.
+                // Keep malformed *Warfront* proofs loud, and keep the real start
+                // path below fail-closed against every competing battle mode.
+                if (resumeOnly && existing.seal.mode !== 'warfront') {
+                    return res.status(204).end();
+                }
                 return res.status(409).json({ error: 'Finish or settle your active Pet Colosseum battle first.' });
             }
             if (!hasSafePlaybackWindow(existing.seal)) return rejectUnsafeReplay(existing);
