@@ -64,14 +64,12 @@ test("auth deletion cannot race ahead of save deletion", { concurrency: false },
 });
 
 test("the profile flow only prompts when the server reports a password", () => {
+    const flow = readFileSync(new URL("./account-deletion-flow.ts", import.meta.url), "utf8");
     const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
-    const start = app.indexOf("async function deleteCharacter(");
-    const end = app.indexOf("function endLocalSession(", start);
-    const flow = app.slice(start, end);
 
-    assert.ok(start >= 0 && end > start, "deleteCharacter flow must remain present");
+    assert.match(app, /await requestAccountDeletion\(character\.name, accountName\)/);
     assert.match(flow, /await refreshAccountStatus\(\)/);
     assert.match(flow, /accountStatus\.name !== accountKey\(accountName\)/);
     assert.match(flow, /if \(accountStatus\.hasPassword\) \{[\s\S]*gamePasswordPrompt\(/);
-    assert.match(flow, /let localPw = "";/, "passwordless accounts must reach token-backed deletion without a fabricated password");
+    assert.match(flow, /let password = "";/, "passwordless accounts must reach token-backed deletion without a fabricated password");
 });

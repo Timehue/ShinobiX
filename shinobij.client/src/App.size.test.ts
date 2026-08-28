@@ -319,7 +319,11 @@ import { readFileSync } from "node:fs";
 // resolving identically. This pays down the +2 from the Warfront-strategy
 // challenge-plan fields plus the sector-work merge, net vs the 7,588 this
 // branch inherited. Exact achieved count, no buffer.
-const MAX_LINES = 7_538;
+//
+// → 7,525 LOWERED (−13) — the account-deletion ceremony now lives in
+// lib/account-deletion-flow.ts, leaving App responsible only for local-session
+// cleanup after the server confirms deletion.
+const MAX_LINES = 7_525;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
