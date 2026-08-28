@@ -16,6 +16,7 @@ import {
     soloPveSessionKey,
     writeSoloPveSession,
 } from './_store.js';
+import { recordSoloPveLifecycle, type SoloPveTelemetryDeps } from './_telemetry.js';
 
 export type SoloPveLock = <T>(
     target: string,
@@ -49,6 +50,7 @@ export type SoloPveActionServiceDeps = {
     lock?: SoloPveLock;
     now?: () => number;
     engineOptions?: SoloPveEngineOptions;
+    telemetry?: SoloPveTelemetryDeps;
 };
 
 export function isValidSoloPveMoveToken(value: string): boolean {
@@ -126,6 +128,12 @@ export async function executeSoloPveAction(
             ...(terminalEvidence ? { terminalEvidence } : {}),
         };
         await write(next);
+        // The active -> done edge, recorded once per session. Emitted AFTER the
+        // write so a failed persist cannot report a completion that no longer
+        // exists, and fire-and-forget so telemetry never delays the response.
+        if (session.status === 'active' && next.status === 'done') {
+            void recordSoloPveLifecycle('combat.session_completed', next, deps.telemetry);
+        }
         return { status: 200, body: { applied: true, event: resolved.event, session: next } };
     }, { failClosed: true, ttlSec: 10 });
 }
