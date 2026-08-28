@@ -1535,6 +1535,249 @@ body.coach-banner-open .coach-guide-actions .location-button {
   }
 }
 
+/* ------------------------------------------------------ command menu polish */
+
+/* The desktop rail is a compact command surface: restrained texture, readable
+   grouping, and a strong active-state signal without competing with the game
+   stage. These rules intentionally sit at the end of the studio theme so the
+   command hierarchy wins the older append-only menu passes. */
+.app-shell:not(.screen-start) .right-menu-panel {
+  isolation: isolate;
+  background-position: 52% center;
+  border-left-color: color-mix(in srgb, var(--village-accent-soft) 58%, var(--sj-border-soft));
+  box-shadow:
+    inset 1px 0 rgba(255, 255, 255, 0.04),
+    inset 12px 0 30px rgba(2, 5, 9, 0.28),
+    -12px 0 40px rgba(0, 0, 0, 0.24);
+}
+
+.app-shell:not(.screen-start) .right-menu-panel::after {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  content: "";
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025), transparent 1px),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 7px),
+    linear-gradient(180deg, rgba(5, 9, 14, 0.06), rgba(5, 9, 14, 0.52));
+}
+
+.app-shell:not(.screen-start) .right-menu-header-row {
+  position: relative;
+  z-index: 1;
+  margin: 0 0 9px;
+}
+
+.app-shell:not(.screen-start) .right-menu-header-row > button:first-child {
+  min-height: 40px;
+  color: var(--sj-text-primary);
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  background:
+    linear-gradient(100deg, color-mix(in srgb, var(--village-accent) 17%, transparent), transparent 58%),
+    linear-gradient(180deg, rgba(34, 45, 56, 0.92), rgba(13, 18, 25, 0.96));
+  border-color: color-mix(in srgb, var(--village-accent-soft) 35%, var(--sj-border-soft));
+  border-radius: 3px;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.055), 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.app-shell:not(.screen-start) .right-menu-header-row .audio-mute-btn {
+  min-height: 40px;
+  border-radius: 3px;
+  color: var(--sj-text-primary);
+  background: linear-gradient(180deg, rgba(35, 49, 62, 0.94), rgba(13, 19, 27, 0.98));
+  border-color: color-mix(in srgb, var(--village-accent-soft) 38%, var(--sj-border-soft));
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.055), 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.app-shell:not(.screen-start) .right-menu-buttons {
+  position: relative;
+  z-index: 1;
+  gap: 9px !important;
+}
+
+.app-shell:not(.screen-start) .right-menu-section h4 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 2px 5px;
+  padding: 0;
+  border: 0;
+  color: color-mix(in srgb, var(--sj-text-secondary) 82%, var(--village-accent-soft));
+  font: 800 0.56rem/1 var(--font-display);
+  letter-spacing: 0.15em;
+}
+
+.app-shell:not(.screen-start) .right-menu-section h4::after {
+  flex: 1 1 auto;
+  height: 1px;
+  content: "";
+  background: linear-gradient(90deg, color-mix(in srgb, var(--village-accent-soft) 30%, transparent), transparent);
+}
+
+.app-shell:not(.screen-start) .right-menu-section h4 small {
+  order: 3;
+  color: var(--sj-text-muted);
+  font: 700 0.48rem/1 var(--font-mono, monospace);
+  letter-spacing: 0.08em;
+}
+
+.app-shell:not(.screen-start) .right-menu-section-grid {
+  gap: 5px;
+}
+
+.app-shell:not(.screen-start) .right-menu-buttons button {
+  position: relative;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 37px !important;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 5px 4px !important;
+  overflow: hidden;
+  color: var(--sj-text-secondary);
+  font-size: 0.73rem !important;
+  line-height: 1;
+  background:
+    linear-gradient(112deg, rgba(255, 255, 255, 0.035), transparent 45%),
+    linear-gradient(180deg, rgba(32, 43, 54, 0.88), rgba(13, 19, 27, 0.94));
+  border: 1px solid rgba(143, 164, 181, 0.19);
+  border-radius: 3px !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.04), 0 5px 12px rgba(0, 0, 0, 0.16);
+  transition:
+    color 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease,
+    transform 90ms ease;
+}
+
+.app-shell:not(.screen-start) .right-menu-buttons button::after {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  content: "";
+  background: var(--village-accent-soft);
+  opacity: 0;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--village-accent-soft) 58%, transparent);
+  transition: opacity 140ms ease;
+}
+
+.app-shell:not(.screen-start) .right-menu-action-icon {
+  display: inline-grid;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 24px;
+  place-items: center;
+  color: var(--village-accent-soft);
+  background: rgba(3, 8, 13, 0.32);
+  border: 1px solid rgba(174, 196, 210, 0.1);
+  border-radius: 2px;
+  transition: color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+
+.app-shell:not(.screen-start) .right-menu-action-icon > svg {
+  width: 13px;
+  height: 13px;
+  opacity: 0.9;
+}
+
+.app-shell:not(.screen-start) .right-menu-action-label {
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell:not(.screen-start) .right-menu-buttons button:hover {
+  color: var(--sj-text-primary);
+  border-color: color-mix(in srgb, var(--village-accent-soft) 48%, var(--sj-border-soft));
+  background:
+    linear-gradient(104deg, color-mix(in srgb, var(--village-accent) 16%, transparent), transparent 52%),
+    linear-gradient(180deg, rgba(42, 56, 69, 0.96), rgba(17, 24, 33, 0.98));
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.055), 0 7px 16px rgba(0, 0, 0, 0.22);
+  transform: translateY(-1px);
+}
+
+.app-shell:not(.screen-start) .right-menu-buttons button:hover .right-menu-action-icon {
+  color: var(--sj-text-primary);
+  background: color-mix(in srgb, var(--village-accent) 18%, rgba(3, 8, 13, 0.58));
+  transform: translateX(1px);
+}
+
+.app-shell:not(.screen-start) .right-menu-buttons button[aria-current="page"] {
+  color: var(--sj-text-primary);
+  border-color: color-mix(in srgb, var(--village-accent-soft) 68%, var(--sj-border-strong));
+  background:
+    linear-gradient(100deg, color-mix(in srgb, var(--village-accent) 30%, transparent), transparent 68%),
+    linear-gradient(180deg, rgba(36, 49, 59, 0.98), rgba(12, 18, 25, 0.98));
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.075),
+    0 0 0 1px color-mix(in srgb, var(--village-accent-soft) 13%, transparent),
+    0 8px 20px rgba(0, 0, 0, 0.24);
+}
+
+.app-shell:not(.screen-start) .right-menu-buttons button[aria-current="page"]::after {
+  opacity: 1;
+}
+
+.app-shell:not(.screen-start) .right-menu-buttons button[aria-current="page"] .right-menu-action-icon {
+  color: var(--sj-text-primary);
+  background: color-mix(in srgb, var(--village-accent) 24%, rgba(3, 8, 13, 0.62));
+}
+
+.app-shell:not(.screen-start) .right-menu-section--support .right-menu-section-grid > button:last-child,
+.app-shell:not(.screen-start) .right-menu-section--system .right-menu-section-grid > button:only-child {
+  grid-column: 1 / -1;
+}
+
+.app-shell:not(.screen-start) .right-menu-buttons .right-menu-logout:hover {
+  color: #fee2e2;
+  border-color: rgba(248, 113, 113, 0.52);
+  background:
+    linear-gradient(105deg, rgba(127, 29, 29, 0.25), transparent 62%),
+    linear-gradient(180deg, rgba(48, 42, 46, 0.96), rgba(25, 17, 22, 0.98));
+}
+
+.app-shell:not(.screen-start) .right-menu-buttons .right-menu-logout:hover .right-menu-action-icon {
+  color: #fca5a5;
+  background: rgba(127, 29, 29, 0.22);
+}
+
+.app-shell:not(.screen-start) .right-menu-panel :is(button, a):focus-visible {
+  outline: 2px solid var(--village-accent-soft);
+  outline-offset: 2px;
+}
+
+@media (min-width: 980px) and (max-height: 820px) {
+  .app-shell:not(.screen-start) .right-menu-buttons {
+    gap: 7px !important;
+  }
+
+  .app-shell:not(.screen-start) .right-menu-buttons button {
+    min-height: 34px !important;
+    padding-block: 4px !important;
+  }
+
+  .app-shell:not(.screen-start) .right-menu-action-icon {
+    width: 20px;
+    height: 22px;
+    flex-basis: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell:not(.screen-start) .right-menu-buttons button,
+  .app-shell:not(.screen-start) .right-menu-action-icon {
+    transition: none;
+  }
+}
+
 .profession-approval-summary {
   display: flex;
   align-items: center;

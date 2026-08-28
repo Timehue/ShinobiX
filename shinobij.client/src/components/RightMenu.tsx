@@ -1,8 +1,8 @@
 /*
  * Desktop right-rail navigation menu — the collapsible side menu.
- * Grouped: travel/world (Tavern, Travel, Users) → activities
- * (Missions, Training) → character (Character, Inventory, Jutsu, Pets,
- * Bloodline, Logbook) → community (Discord, Patreon — external links) →
+ * Grouped: world (Travel, Tavern) → activities (Missions, Training, Jutsu,
+ * Logbook) → character (Character, Inventory, Pets, Profession) → social
+ * (Users, Mail) → community (Discord, Patreon — external links) →
  * system (Admin — shown to the protected admin name or any active admin
  * session so you can always get back into the panel, Logout).
  *
@@ -21,8 +21,6 @@ import { isProtectedAdminName } from "../constants/game";
 import { preloadScreen } from "../lib/screen-preload";
 import { isAudioMuted, setAudioMuted, subscribeAudioMute } from "../lib/pet-music";
 import { primeGameAudio } from "../lib/game-audio";
-import { useCapabilityViewAvailability } from "../lib/live-capabilities-context";
-import { capabilityAdmissionAllowed, sectorMapAdmissionMessage } from "../lib/live-capability-admission";
 import { MailUnreadBadge } from "./MailUnreadBadge";
 import { NotificationBar } from "./NotificationBar";
 import { PLAYER_MENU_GROUPS } from "./player-menu-groups";
@@ -54,9 +52,6 @@ export const RightMenu = memo(function RightMenu({
     profession: Profession | null;
     screen: Screen;
 }) {
-    const villageWarAvailability = useCapabilityViewAvailability("villageWar");
-    const sectorMapOpen = capabilityAdmissionAllowed(villageWarAvailability);
-    const sectorMapStatus = sectorMapAdmissionMessage(villageWarAvailability);
     const [menuOpen, setMenuOpen] = useState(true);
     const navLockUntilRef = useRef(0);
     // Global audio master-mute — silences music AND all battle SFX. Mirrored
@@ -117,30 +112,30 @@ export const RightMenu = memo(function RightMenu({
                         is best-effort and side-effect-free. */}
                     <div className="right-menu-buttons">
                         {PLAYER_MENU_GROUPS.map((group) => (
-                            <section className="right-menu-section" aria-labelledby={`right-menu-${group.id}`} key={group.id}>
-                                <h4 id={`right-menu-${group.id}`}>{group.label}</h4>
+                            <section className={`right-menu-section right-menu-section--${group.id}`} aria-labelledby={`right-menu-${group.id}`} key={group.id}>
+                                <h4 id={`right-menu-${group.id}`}><span>{group.label}</span><small aria-hidden="true">{String(group.items.length).padStart(2, "0")}</small></h4>
                                 <div className="right-menu-section-grid">
                                     {group.items.map(([target, label, Icon]) => (
-                                        <button key={target} aria-current={screen === target ? "page" : undefined} disabled={target === "villageWarMap" && !sectorMapOpen} onClick={() => { if (target !== "villageWarMap" || sectorMapOpen) guardedNavigate(target); }} onPointerDown={() => { if (target !== "villageWarMap" || sectorMapOpen) preloadScreen(target, storyVillage); }} title={target === "villageWarMap" && !sectorMapOpen ? sectorMapStatus : target === "tavern" ? `Enter the ${characterVillage} tavern from anywhere` : target === "professions" ? (profession ? `${PROFESSION_LABEL[profession]} profession hub` : "View the three professions") : undefined}>
-                                            <Icon size={16} />{target === "professions" && profession ? PROFESSION_LABEL[profession] : label}{target === "messages" ? <MailUnreadBadge /> : null}
+                                        <button key={target} aria-current={screen === target ? "page" : undefined} onClick={() => guardedNavigate(target)} onPointerDown={() => preloadScreen(target, storyVillage)} title={target === "tavern" ? `Enter the ${characterVillage} tavern from anywhere` : target === "professions" ? (profession ? `${PROFESSION_LABEL[profession]} profession hub` : "View the three professions") : undefined}>
+                                            <span className="right-menu-action-icon"><Icon size={16} /></span><span className="right-menu-action-label">{target === "professions" && profession ? PROFESSION_LABEL[profession] : label}</span>{target === "messages" ? <MailUnreadBadge /> : null}
                                         </button>
                                     ))}
                                 </div>
                             </section>
                         ))}
-                        <section className="right-menu-section" aria-labelledby="right-menu-support">
-                            <h4 id="right-menu-support">Support</h4>
+                        <section className="right-menu-section right-menu-section--support" aria-labelledby="right-menu-support">
+                            <h4 id="right-menu-support"><span>Support</span><small aria-hidden="true">03</small></h4>
                             <div className="right-menu-section-grid">
-                                <button aria-current={screen === "guides" ? "page" : undefined} onClick={() => guardedNavigate("guides")} onPointerDown={() => preloadScreen("guides")}><GiOpenBook size={16} />Guides</button>
-                                <button onClick={() => window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer")}><GiChatBubble size={16} />Discord</button>
-                                <button onClick={() => guardedNavigate("profile")} onPointerDown={() => preloadScreen("profile")} title="Shinobi Supporter — link Patreon, see your perks"><GiHearts size={16} />Patreon</button>
+                                <button aria-current={screen === "guides" ? "page" : undefined} onClick={() => guardedNavigate("guides")} onPointerDown={() => preloadScreen("guides")}><span className="right-menu-action-icon"><GiOpenBook size={16} /></span><span className="right-menu-action-label">Guides</span></button>
+                                <button onClick={() => window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer")}><span className="right-menu-action-icon"><GiChatBubble size={16} /></span><span className="right-menu-action-label">Discord</span></button>
+                                <button onClick={() => guardedNavigate("profile")} onPointerDown={() => preloadScreen("profile")} title="Shinobi Supporter — link Patreon, see your perks"><span className="right-menu-action-icon"><GiHearts size={16} /></span><span className="right-menu-action-label">Patreon</span></button>
                             </div>
                         </section>
-                        <section className="right-menu-section" aria-labelledby="right-menu-system">
-                            <h4 id="right-menu-system">System</h4>
+                        <section className="right-menu-section right-menu-section--system" aria-labelledby="right-menu-system">
+                            <h4 id="right-menu-system"><span>System</span><small aria-hidden="true">{isAdminAccount || adminLoggedIn ? "02" : "01"}</small></h4>
                             <div className="right-menu-section-grid">
-                                {(isAdminAccount || adminLoggedIn) && <button onClick={() => guardedNavigate(adminLoggedIn ? "adminPanel" : "adminLogin")} onPointerDown={() => preloadScreen(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiGears size={16} />Admin</button>}
-                                <button onClick={logoutPlayer}><GiExitDoor size={16} />Logout + Save</button>
+                                {(isAdminAccount || adminLoggedIn) && <button onClick={() => guardedNavigate(adminLoggedIn ? "adminPanel" : "adminLogin")} onPointerDown={() => preloadScreen(adminLoggedIn ? "adminPanel" : "adminLogin")}><span className="right-menu-action-icon"><GiGears size={16} /></span><span className="right-menu-action-label">Admin</span></button>}
+                                <button className="right-menu-logout" onClick={logoutPlayer} title="Save progress and return to sign in"><span className="right-menu-action-icon"><GiExitDoor size={16} /></span><span className="right-menu-action-label">Logout</span></button>
                             </div>
                         </section>
                     </div>
