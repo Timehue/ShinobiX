@@ -261,7 +261,9 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
                     return (
                         <button
                             key={timer.label}
-                            className={`location-button${showAcademyTrainingHint ? " academy-timer-target" : ""}`}
+                            className={`location-button${showAcademyTrainingHint ? " academy-timer-target academy-click-target" : ""}`}
+                            data-academy-hint={showAcademyTrainingHint ? "Next · start a timer" : undefined}
+                            data-academy-autoscroll={showAcademyTrainingHint && timer === timers[0] ? "true" : undefined}
                             onClick={() => startTraining(timer)}
                             disabled={!!disabledReason}
                             title={disabledReason || `Start ${timer.label} ${selectedStatLabel} training.`}
@@ -462,7 +464,11 @@ export function JutsuTrainingHall({
     const allJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
     const availableJutsus = allJutsus.filter((jutsu) => canEquipElementJutsu(character, jutsu, savedBloodlines));
     const lockedElementCount = allJutsus.length - availableJutsus.length;
-    const [selectedJutsuId, setSelectedJutsuId] = useState(availableJutsus[0]?.id ?? "");
+    const academyJutsuStep = normalizeOnboardingStep(character.onboardingStep) === "jutsu";
+    const academyUntrainedJutsuId = availableJutsus.find((jutsu) => getJutsuMastery(character, jutsu.id).level < 1)?.id ?? "";
+    const [selectedJutsuId, setSelectedJutsuId] = useState(
+        (academyJutsuStep ? academyUntrainedJutsuId : "") || availableJutsus[0]?.id || "",
+    );
     const [now, setNow] = useState(Date.now());
     const [jutsuAction, setJutsuAction] = useState<string | null>(null);
     const [jutsuNotice, setJutsuNotice] = useState<JutsuHallNotice | null>(null);
@@ -721,7 +727,7 @@ export function JutsuTrainingHall({
         );
     }
 
-    const showAcademyJutsuHint = normalizeOnboardingStep(character.onboardingStep) === "jutsu";
+    const showAcademyJutsuHint = academyJutsuStep;
     const queued = activeJutsuTraining?.next ?? null;
     const moraleName = String(warMorale.morale);
     const moralePercent = Math.max(0, Math.round(Math.abs(1 - warMorale.jutsuTimeMult) * 100));
@@ -857,7 +863,9 @@ export function JutsuTrainingHall({
                                 <span><small>Reward</small><strong>+1 level</strong></span>
                             </div>
                             <button
-                                className="jutsu-primary-action jutsu-start-action"
+                                className={`jutsu-primary-action jutsu-start-action${showAcademyJutsuHint && selectedMastery.level === 0 ? " academy-click-target" : ""}`}
+                                data-academy-hint={showAcademyJutsuHint && selectedMastery.level === 0 ? "Next · unlock this" : undefined}
+                                data-academy-autoscroll={showAcademyJutsuHint && selectedMastery.level === 0 ? "true" : undefined}
                                 type="button"
                                 onClick={startPaidJutsuTraining}
                                 disabled={!!jutsuAction || !!activeJutsuTraining || selectedAtCap || selectedInsufficientRyo}
@@ -894,6 +902,7 @@ export function JutsuTrainingHall({
                     label="Jutsu library"
                     emptyText={ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu."}
                     selectedJutsuId={selectedJutsuId}
+                    highlightJutsuId={showAcademyJutsuHint && selectedMastery?.level !== 0 ? academyUntrainedJutsuId : undefined}
                     renderDetails={renderJutsuDetails}
                     onSelectJutsu={(jutsu) => {
                         setSelectedJutsuId(jutsu.id);
@@ -919,7 +928,8 @@ export function JutsuTrainingHall({
                         </div>
                         {renderJutsuDetails(mobileInfoJutsu)}
                         <button
-                            className="jutsu-mobile-train-action"
+                            className={`jutsu-mobile-train-action${showAcademyJutsuHint && mobileInfoMastery.level === 0 ? " academy-click-target" : ""}`}
+                            data-academy-hint={showAcademyJutsuHint && mobileInfoMastery.level === 0 ? "Next · unlock this" : undefined}
                             type="button"
                             disabled={!!jutsuAction || !!activeJutsuTraining || mobileInfoAtCap || mobileInfoInsufficientRyo}
                             onClick={() => {

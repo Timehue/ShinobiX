@@ -282,12 +282,59 @@ export function OnboardingCoach({
         !confirmingSkip && !showSparOmen && !showFieldTrace && !showReturnCeremony &&
         (step === "training" || step === "jutsu" || step === "jutsuLoadout" ||
          step === "inventory" || step === "cafeteria" || step === "firstMission" ||
-         step === "logbook" || step === "sectorReturn");
+         step === "logbook" || step === "sectorReturn" ||
+         (step === "academySpar" && sparKnockedOut));
     useEffect(() => {
         if (!bannerVisible) return;
         document.body.classList.add("coach-banner-open");
         return () => document.body.classList.remove("coach-banner-open");
     }, [bannerVisible]);
+
+    // Bring an off-screen Academy target into view after navigation. Observe for
+    // late targets as well: lazy screen chunks can take longer than one timeout,
+    // and the Hospital swaps its countdown for the free-checkout button after a
+    // minute. Screens may expose several valid actions, but only one should opt
+    // into preferred auto-scroll.
+    useEffect(() => {
+        if (!bannerVisible) return;
+        const screenOwnsTarget =
+            (step === "training" && screen === "training")
+            || (step === "jutsu" && screen === "jutsuTraining")
+            || (step === "jutsuLoadout" && screen === "profile")
+            || (step === "inventory" && screen === "inventory")
+            || (step === "academySpar" && sparKnockedOut && screen === "hospital")
+            || (step === "cafeteria" && screen === "cafeteria")
+            || (step === "firstMission" && screen === "missions")
+            || (step === "sectorReturn" && !character.academySectorVisited && screen === "worldMap");
+        if (!screenOwnsTarget) return;
+        let observer: MutationObserver | null = null;
+        const revealTarget = () => {
+            const target = Array.from(document.querySelectorAll<HTMLElement>(
+                ".academy-click-target[data-academy-autoscroll='true']",
+            )).find((candidate) => candidate.offsetParent !== null);
+            if (!target) return false;
+            const rect = target.getBoundingClientRect();
+            const comfortablyVisible = rect.top >= 16
+                && rect.bottom <= window.innerHeight - 180
+                && rect.left >= 16
+                && rect.right <= window.innerWidth - 16;
+            if (!comfortablyVisible) {
+                target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+            }
+            return true;
+        };
+        observer = new MutationObserver(() => {
+            if (revealTarget()) observer?.disconnect();
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+        const timeout = window.setTimeout(() => {
+            if (revealTarget()) observer?.disconnect();
+        }, 180);
+        return () => {
+            window.clearTimeout(timeout);
+            observer?.disconnect();
+        };
+    }, [bannerVisible, character.academySectorVisited, reduced, screen, sparKnockedOut, step]);
 
     // The field discovery, not merely arriving on a map tile, commits this
     // milestone. That keeps the final route authored while remaining refresh-safe.
@@ -464,6 +511,7 @@ export function OnboardingCoach({
                     {(bannerText ?? "").slice(0, typedCount)}
                 </p>
                 <span className="coach-guide-sr" aria-live="polite">{bannerText}</span>
+                <span className="coach-guide-target-key" aria-hidden="true"><i /> Follow the gold pulse</span>
                 {coachMeta?.upNext && (
                     <p className="coach-guide-next"><strong>Up next:</strong> {coachMeta.upNext.title}</p>
                 )}
@@ -544,7 +592,8 @@ export function OnboardingCoach({
                         what you told Shiranui: <em>“{vow.quote}”</em>
                     </p>
                     <button
-                        className="start-primary-btn"
+                        className="start-primary-btn academy-click-target"
+                        data-academy-hint="Next · begin trial"
                         style={{ width: "100%" }}
                         onClick={onStartSpar}
                     >
