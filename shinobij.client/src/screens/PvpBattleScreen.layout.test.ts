@@ -189,6 +189,12 @@ test("collapsing desktop chat widens the log without borrowing mobile tab state"
 });
 
 test("combat cards use consistent art crops and separated overlay metadata", () => {
+    const combatCardCss = readFileSync(new URL("../styles/index/16-pvp-fx-combat-jutsu-ui.css", import.meta.url), "utf8");
+    assert.match(
+        combatCardCss,
+        /\.combat-item-card-wrap\s*\{[^}]*width:\s*100%\s*!important;[^}]*max-width:\s*none\s*!important;/s,
+        "weapon and item cards must not retain a narrower width cap than jutsu cards",
+    );
     assert.match(
         battleSkinCss,
         /html body > \.arena-fullscreen\.shinobi-combat-shell \.combat-jutsu-button\s*\{[^}]*position:\s*relative\s*!important;[^}]*display:\s*block\s*!important;[^}]*padding:\s*0\s*!important;/s,

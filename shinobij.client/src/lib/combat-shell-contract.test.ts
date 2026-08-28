@@ -75,13 +75,23 @@ test("wide desktop shares one command center and gives unused mode space to the 
     }
     assert.match(
         desktopCommandCenter,
-        /#combat\.shinobi-combat-shell \.combat-layout\s*\{[^}]*--combat-grid-wide-scale: 1\.18/s,
+        /#combat\.shinobi-combat-shell \.combat-layout\s*\{[^}]*--combat-grid-wide-scale: 1\.18;[^}]*--combat-actor-wide-scale: 0\.84746/s,
         "the wide board projection must be attached to the shared PvP/Solo shell",
     );
     assert.match(
         desktopCommandCenter,
         /#combat\.shinobi-combat-shell \.hex-battlefield > div:first-child:has\(> \.hex-grid-layer\)\s*\{[^}]*scale: var\(--combat-grid-wide-scale\) 1/s,
         "the board's painted layer and hit targets must share the same wide projection",
+    );
+    assert.match(
+        desktopCommandCenter,
+        /@container shinobi-combat \(min-width: 1180px\) and \(min-height: 660px\) and \(max-height: 949px\)[\s\S]*?--combat-grid-wide-scale: 1\.55;[\s\S]*?--combat-actor-wide-scale: 0\.64516/,
+        "ordinary 16:9 desktops must expand the height-fitted lattice across the painted arena",
+    );
+    assert.match(
+        desktopCommandCenter,
+        /@container shinobi-combat \(min-width: 1180px\) and \(min-height: 950px\) and \(max-height: 1099px\)[\s\S]*?--combat-grid-wide-scale: 1\.3;[\s\S]*?--combat-actor-wide-scale: 0\.76923/,
+        "taller desktop viewports must ease the projection back before the tall-monitor tier",
     );
     assert.match(
         desktopCommandCenter,
@@ -94,6 +104,8 @@ test("wide desktop shares one command center and gives unused mode space to the 
         "Battle Tower owns a separate zoomable board and must not enter the projected duel shell",
     );
     assert.match(desktopCommandCenter, /grid-template-columns: repeat\(auto-fill, minmax\(142px, 160px\)\) !important/);
+    assert.match(desktopCommandCenter, /#combat \.combat-jutsu-card-wrap,[\s\S]*?max-width: none !important/,
+        "jutsu, weapon, and item wrappers must all fill the same desktop grid track");
 });
 
 test("the Arena screen stays a lobby and never hosts a fight again", () => {

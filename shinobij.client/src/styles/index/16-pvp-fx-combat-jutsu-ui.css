@@ -399,7 +399,11 @@
 }
 
 .combat-item-card-wrap {
-    max-width: 150px !important;
+    /* Item and weapon cards occupy the same grid track as jutsu cards. The old
+       150px ceiling made the final weapon visibly narrower whenever the shared
+       loadout grid distributed 151-160px columns. */
+    width: 100% !important;
+    max-width: none !important;
 }
 
 .combat-item-button {
