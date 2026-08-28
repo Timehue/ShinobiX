@@ -235,6 +235,7 @@ const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default
 import type { HollowGatePetFightRef } from "./components/HollowGatePetFight";
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
 import { DEEP_LINKABLE_SCREENS, BATTLE_SCREENS, isHospitalNavigationBlocked, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, safeFallbackScreen, screenResetsSector, isWildSector, setTowerFightRunId, setTowerPvpMatchId } from "./lib/screen-guards";
+import { useAppHistory } from "./lib/app-history";
 import { clearImgCache, imgCacheKey, IMG_CACHE_TTL, scheduleImageCategoryRetry, URL_MODE_CATEGORIES } from "./lib/shared-image-cache";
 import { imageEntries, parseImageManifest } from "./lib/shared-image-manifest";
 import { visiblePoll } from "./lib/poll";
@@ -1396,20 +1397,10 @@ export default function App() {
         if (screen === "start") return;
         try { localStorage.setItem(LAST_SCREEN_KEY, screen); } catch { /* quota / SSR */ }
     }, [screen]);
-    // ── Shareable URL hash ──────────────────────────────────────────────
-    // Reflect the active screen in the URL (e.g. #/village) so links are
-    // visible, bookmarkable, and shareable. replaceState only — no new history
-    // entries and no popstate — so it never conflicts with the localStorage
-    // restore or the mobile back-stack. We deliberately skip the "start" (login)
-    // screen so a bookmarked deep-link hash isn't wiped before the post-login
-    // restore can read it.
-    useEffect(() => {
-        if (screen === "start") return;
-        try {
-            const want = `#/${screen}`;
-            if (window.location.hash !== want) window.history.replaceState(null, "", want);
-        } catch { /* sandboxed / SSR */ }
-    }, [screen]);
+    // Shareable URL hash (both surfaces) + the Android hardware back button
+    // (Play app only, refused mid-battle). Both write history, so they live
+    // together in lib/app-history.
+    useAppHistory(screen, setScreen, isPresenceBattleActive);
     // ── Phase 0 load/refresh telemetry ──────────────────────────────────
     // Stamp boot milestones for the perf beacon (see
     // docs/load-and-refresh-perf-audit-2026-06-08.md). All three calls are

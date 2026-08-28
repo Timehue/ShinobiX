@@ -336,7 +336,12 @@ import { readFileSync } from "node:fs";
 // its logic and reasoning went to lib/world-attack-claim.ts; only the call sites
 // are here. Still a net drain for the branch — but the next person to touch this
 // handler should extract it wholesale, which is worth ~110 lines on its own.
-const MAX_LINES = 7_505;
+// → 7,495 LOWERED (−10) — the shareable-URL-hash effect moved into
+// lib/app-history.ts, which now owns every write to window.history: the hash on
+// both surfaces, plus the Play-app-only hardware back stack. App keeps the hook
+// mount. Grouping them is deliberate — two independent writers to history is how
+// a back stack and a URL reflector start fighting.
+const MAX_LINES = 7_495;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
