@@ -1,4 +1,6 @@
 import { safeLogValue } from '../_safe-log.js';
+import { observeOnboardingFunnel } from './_onboarding-funnel.js';
+import { recordBetaFunnelStep } from '../_beta-funnel.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { WORLD_GEO_VERSION } from '../../shared/sector-geo.js';
@@ -3169,6 +3171,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const afterCharacter = (payload as Record<string, unknown>).character as Record<string, unknown> | undefined;
                         const beforeLevel = Math.max(0, Math.floor(Number(beforeCharacter?.level) || 0));
                         const afterLevel = Math.max(0, Math.floor(Number(afterCharacter?.level) || 0));
+                        // Onboarding funnel. The save boundary is the only place
+                        // an equip or a sector arrival is observable, since neither
+                        // has its own endpoint. Fire-and-forget after the write:
+                        // each crossing is gated once-per-player in KV, so a
+                        // replayed autosave carrying the same transition is inert,
+                        // and a telemetry outage can never fail a save.
+                        if (identityName && afterCharacter) {
+                            for (const step of observeOnboardingFunnel({
+                                beforeCharacter,
+                                afterCharacter,
+                                beforeTopLevel: existingObj as Record<string, unknown> | null,
+                                afterTopLevel: payload as Record<string, unknown>,
+                            })) {
+                                void recordBetaFunnelStep(step.event, identityName, {
+                                    ...(step.step ? { step: step.step } : {}),
+                                    ...(step.level === undefined ? {} : { level: step.level }),
+                                });
+                            }
+                        }
                         if (identityName && beforeCharacter && afterCharacter && beforeLevel < WORLD_CRISIS_TRIGGER_LEVEL && afterLevel >= WORLD_CRISIS_TRIGGER_LEVEL) {
                             try {
                                 const { observeWorldCrisisLevelCrossing } = await import('../world-crisis/_state.js');
