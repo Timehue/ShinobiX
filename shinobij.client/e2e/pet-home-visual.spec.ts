@@ -651,7 +651,13 @@ test("a base roster unlocks Tactical while lapsed Supporter overflow stays prese
     await expect(page.getByText(new RegExp(`${carried(basePets.length)}/${PET_CAP_BASE} combat-carried · ${basePets.length} owned`))).toBeVisible();
     await page.getByRole("button", { name: "Pet Arena" }).click();
     await expect(page.getByRole("button", { name: /Hollow Warfront/ })).toBeEnabled();
-    await expect(page.getByText(/Locked: 3\/4 pets/)).toHaveCount(0);
+    // The rendered locked copy is "Locked · N/M pets" (middle dot, from the
+    // <small> in PetArena.tsx); the separate "Locked: N/M available pets" string
+    // is a title ATTRIBUTE that getByText cannot see at all. This assertion was
+    // written with the colon form, so it matched nothing and passed no matter
+    // what the UI did. Widened to any locked count so it fails if Tactical is
+    // ever locked here.
+    await expect(page.getByText(/Locked . \d+\/\d+ pets/)).toHaveCount(0);
 
     state.character.pets = [...structuredClone(basePets), ...structuredClone(fullRosterPets)];
     await openHome(page);
