@@ -120,6 +120,7 @@ export function IntroCompanion3D({
             {renderModel ? (
                 <ModelBoundary>
                     <Canvas
+                        key={closeUp ? "close-up" : "full-body"}
                         className="icx-companion-canvas"
                         aria-hidden="true"
                         dpr={[1, 2]}
