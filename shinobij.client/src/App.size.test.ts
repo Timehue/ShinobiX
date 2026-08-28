@@ -323,7 +323,11 @@ import { readFileSync } from "node:fs";
 // → 7,525 LOWERED (−13) — the account-deletion ceremony now lives in
 // lib/account-deletion-flow.ts, leaving App responsible only for local-session
 // cleanup after the server confirms deletion.
-const MAX_LINES = 7_525;
+// → 7,513 LOWERED (−12 below the prior ratchet, −18 from the incoming 7,531-line
+// main) — Bloodline Maker rank/edit/awakening transition state moved into
+// lib/use-bloodline-maker-flow.ts. App now owns only the hook mount and render
+// wiring; the transition sequences no longer regrow the monolith at three sites.
+const MAX_LINES = 7_513;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

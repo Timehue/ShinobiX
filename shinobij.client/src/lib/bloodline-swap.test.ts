@@ -1,4 +1,5 @@
 import { strict as assert } from "node:assert";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
 import { replaceCharacterBloodline } from "./bloodline-swap";
@@ -88,5 +89,17 @@ describe("replaceCharacterBloodline", () => {
         );
 
         assert.equal(result.jutsuMastery.some((row) => row.jutsuId === "old-tech" && row.level === 31), true);
+    });
+});
+
+describe("Bloodline Maker flow wiring", () => {
+    it("keeps edit, close, and Awakening transitions in the dedicated hook", () => {
+        const flow = readFileSync(new URL("./use-bloodline-maker-flow.ts", import.meta.url), "utf8");
+        const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+
+        assert.match(flow, /setEditingBloodline\(bloodline\)[\s\S]+setInitialRank\(bloodline\.rank\)[\s\S]+setScreen\("bloodlineMaker"\)/);
+        assert.match(flow, /setAcademyAwakeningRequested\(true\)[\s\S]+setScreen\("centralHub"\)/);
+        assert.match(app, /useBloodlineMakerFlow\(setScreen, setAcademyAwakeningRequested\)/);
+        assert.doesNotMatch(app, /setBloodlineMaker(?:Initial|Rank|Editing)/);
     });
 });
