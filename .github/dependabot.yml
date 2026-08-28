@@ -1,0 +1,63 @@
+# Dependabot version updates.
+#
+# Dependabot SECURITY updates were already enabled repo-side; this file adds the
+# scheduled VERSION updates that were missing, so a CVE is not the only thing
+# that ever moves a pin. Three sharp edges are encoded below:
+#
+#  1. NO `docker` ecosystem. The Dockerfile pins `node:22.23.1-bookworm-slim` and
+#     .github/workflows/ci.yml pins `NODE_VERSION: 22.23.1`. Those two MUST match
+#     — CI would build on one Node and Railway would run another. Dependabot can
+#     only see the Dockerfile, so it would silently desync them. Node bumps stay
+#     manual: edit BOTH, in one commit.
+#  2. Minor+patch are grouped into one PR per manifest. This repo pushes to main
+#     many times a day; ungrouped updates would bury real work under bot PRs.
+#  3. Majors arrive as their own PR, one at a time, on purpose — react/vite/
+#     playwright majors have to clear the bundle-size and e2e gates, and those
+#     are read one at a time or not at all.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: 'chore(deps)'
+      prefix-development: 'chore(deps-dev)'
+    groups:
+      server-minor-patch:
+        patterns: ['*']
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /shinobij.client
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: 'chore(deps)'
+      prefix-development: 'chore(deps-dev)'
+    groups:
+      client-minor-patch:
+        patterns: ['*']
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: 'chore(ci)'
+    groups:
+      actions:
+        patterns: ['*']

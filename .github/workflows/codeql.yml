@@ -1,26 +1,22 @@
 # CodeQL — ADVANCED setup (replaces GitHub default setup).
 #
-# ┌─ CUTOVER (one-time, REQUIRED) ────────────────────────────────────────────┐
-# │ GitHub refuses to ingest an advanced-setup run while default setup is      │
-# │ still enabled ("analyses from advanced configurations cannot be processed  │
-# │ when the default setup is enabled"). Before/at the moment this lands on    │
-# │ main, disable default setup ONCE:                                          │
-# │                                                                            │
-# │   gh api -X PATCH repos/:owner/:repo/code-scanning/default-setup \         │
-# │     -f state=not-configured                                                │
-# │                                                                            │
-# │ Fully reversible — re-enable with -f state=configured to fall back.        │
-# │ Until then this workflow will run but its upload is rejected (a red check, │
-# │ not a coverage gap — default setup keeps scanning main meanwhile).         │
-# └────────────────────────────────────────────────────────────────────────────┘
+# CUTOVER IS DONE. Default setup reads `not-configured` (verified 2026-08-28), so
+# this workflow's uploads are ingested and it is the only thing scanning the repo.
+# If code scanning ever goes quiet, check that first — re-enabling default setup
+# makes GitHub reject every advanced-setup upload ("analyses from advanced
+# configurations cannot be processed when the default setup is enabled"), which
+# shows up as a red check here rather than as a missing-coverage warning:
+#
+#   gh api repos/:owner/:repo/code-scanning/default-setup --jq .state
 #
 # Mirrors what default setup ran: languages actions + javascript-typescript,
 # the "extended" query suite (see ./.github/codeql/codeql-config.yml), weekly
 # schedule. (Python is dropped from the matrix — see the note by `matrix.include`
 # below; the repo has no in-scope Python to analyse.) The main behavioural change
 # is paths-ignore in that config, dropping the offline dev-script noise. Action
-# major tags (checkout@v7) match
-# .github/workflows/ci.yml; codeql-action stays on its current major (v3).
+# major tags track the latest majors, matching .github/workflows/ci.yml:
+# checkout@v7, codeql-action@v4 (github/codeql-action ships v3 and v4 the same
+# day — v4 is simply the current major, so v3 was currency debt, not coverage).
 name: CodeQL
 
 on:
@@ -70,13 +66,13 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
           config-file: ./.github/codeql/codeql-config.yml
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"
