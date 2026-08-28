@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
+import { recordBetaFunnelStep } from '../_beta-funnel.js';
 import { randomUUID } from 'node:crypto';
 import { kv } from '../_storage.js';
 import { safeName, cors } from '../_utils.js';
@@ -286,6 +287,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // error cannot roll back a successfully persisted training start.
         dailyReservation.held = false;
 
+        // First training ever for this player. Gated per-player in KV, so a
+        // second session or a reconnect cannot re-count it.
+        void recordBetaFunnelStep('training.first_started', playerName, {
+            level: Number((result.character as { level?: unknown } | undefined)?.level),
+            source: stat,
+        });
         return res.status(200).json({
             ok: true, token: result.tokenId, startedAt, endsAt, durationMs: tier.ms,
             sealedGain: result.sealedGain, sealedXp: result.sealedXp, bonusPct: result.bonusPct,
