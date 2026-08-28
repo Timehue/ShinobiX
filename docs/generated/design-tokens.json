@@ -2368,7 +2368,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 2987
+            "line": 3051
           }
         ]
       },
@@ -2449,7 +2449,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1766
+            "line": 1830
           }
         ]
       },
@@ -2712,6 +2712,10 @@
           {
             "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",
             "line": 2604
+          },
+          {
+            "source": "shinobij.client/src/styles/profile-skin.css",
+            "line": 763
           }
         ]
       },
@@ -2869,7 +2873,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 2932
+            "line": 2996
           },
           {
             "source": "shinobij.client/src/styles/story-archive-guidance.css",
@@ -2926,11 +2930,11 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1062
+            "line": 1126
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1577
+            "line": 1641
           }
         ]
       },
@@ -3000,6 +3004,10 @@
         "axis": "width",
         "valuePx": 760,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/components/academy-story-moments.css",
+            "line": 1
+          },
           {
             "source": "shinobij.client/src/styles/card-clash-tutorial.css",
             "line": 13
@@ -3111,7 +3119,7 @@
           },
           {
             "source": "shinobij.client/src/features/intro-cinematic/intro-cinematic.css",
-            "line": 1174
+            "line": 1252
           },
           {
             "source": "shinobij.client/src/screens/ProfessionPicker.css",
@@ -3191,7 +3199,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1099
+            "line": 1163
           },
           {
             "source": "shinobij.client/src/styles/start-skin.css",
@@ -3315,7 +3323,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 2909
+            "line": 2973
           }
         ]
       },
@@ -3339,6 +3347,10 @@
         "axis": "width",
         "valuePx": 900,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/features/intro-cinematic/intro-cinematic.css",
+            "line": 1085
+          },
           {
             "source": "shinobij.client/src/screens/WorldCrisis80.css",
             "line": 14
@@ -3373,7 +3385,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 779
+            "line": 843
           },
           {
             "source": "shinobij.client/src/styles/training-skin.css",
@@ -3746,7 +3758,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 2895
+            "line": 2959
           }
         ]
       },
@@ -3859,7 +3871,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1052
+            "line": 1116
           }
         ]
       },
