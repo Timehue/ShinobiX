@@ -17,7 +17,7 @@ import {
 } from "./pet-balance";
 import { genericPetArenaOpponents } from "../data/pet-arena-opponents";
 import { rawPetPool } from "../data/pet-pool";
-import { petStatCaps, balancedPetBaseStats } from "../data/pet-stats";
+import { petStatCaps } from "../data/pet-stats";
 
 // The Phase-12 archetype mechanics — the kinds the rarity budget caps.
 const NEW_MECH = new Set<PetJutsu["kind"]>(["wound", "mark", "slow", "haste", "taunt", "push", "pull"]);
