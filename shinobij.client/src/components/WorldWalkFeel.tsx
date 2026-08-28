@@ -14,7 +14,8 @@
  * (components must not import CSS — it breaks the node test runner).
  */
 import { useEffect, useRef } from "react";
-import { SECTOR_POINTS, SECTOR_ROAD_PAIRS } from "../../../shared/sector-links";
+import { SECTOR_ROAD_PAIRS } from "../../../shared/sector-links";
+import { ATLAS_SECTOR_POINTS } from "../data/sector-points";
 import { sectorRegionKey, sectorRegionLabel, type SectorRegionKey } from "../../../shared/sector-geo";
 import type { SectorDirection } from "../../../shared/sector-links";
 
@@ -112,7 +113,7 @@ export function RegionSplash({ label, tint, stamp, onDone }: {
 
 /* ── Route glow ──────────────────────────────────────────────────────────── */
 
-const POINT_BY_ID = new Map(SECTOR_POINTS.map((p) => [p.id, p]));
+const POINT_BY_ID = new Map(ATLAS_SECTOR_POINTS.map((p) => [p.id, p]));
 const NEIGHBORS = (() => {
     const m = new Map<number, number[]>();
     for (const [a, b] of SECTOR_ROAD_PAIRS) {
