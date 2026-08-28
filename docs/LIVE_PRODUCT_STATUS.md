@@ -1,7 +1,7 @@
 # ShinobiX Live Product Status
 
-Current authority as of August 7, 2026
-Repository verification base: `59f2d46a59cbf1ec53922b512c57a6067b78bb0a`
+Current authority as of August 28, 2026
+Repository verification base: `d337aac8992d74df7d66ca577a2333570b150a23`
 
 This file is the canonical repository authority for current product stage and player-facing availability. Dated launch recommendations, rollout matrices, release notes, and implementation reports are historical evidence; when their availability wording conflicts with this file or executable runtime behavior, this file and the runtime win.
 
@@ -20,6 +20,9 @@ The shipped game includes:
 - Companions, Pet Arena, Pet Ladder, Warfront, Pet Gauntlet, expeditions, and breeding.
 - Shinobi Chronicle Showdown/Card Clash, including its AI, free-play, clan-war, and sector-war uses.
 - Clans, Clan Boss Operations, Village War, Sector War, professions, Legacy, and Hall of Legends.
+- Bloodlines, including the Bloodline Forge and the server-authoritative awakening flow.
+- Companion idle growth progression, with allocation recomputed from immutable species stats on the server.
+- The in-game player guide library.
 
 These systems are launched. Operational monitoring and emergency switches do not make them prelaunch features. Their level, ownership, clan, subscription, event, and other gameplay eligibility rules still apply.
 
