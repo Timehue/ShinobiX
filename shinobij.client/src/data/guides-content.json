@@ -371,7 +371,7 @@
           },
           {
             "type": "p",
-            "text": "Moving, attacking, healing, cleansing, and using jutsu all draw from the same 100 AP. Stun lowers that turn to 60 AP. Every action card shows its current cost. Custom techniques made in the Bloodline Maker use one of two base types: 40 AP utility or 60 AP damage. Other actions show their own costs."
+            "text": "Moving, attacking, healing, cleansing, and using jutsu all draw from the same 100 AP. Stun lowers that turn to 60 AP. Every action card shows its current cost. Custom techniques shaped in Bloodline Awakening use one of two base types: 40 AP utility or 60 AP damage. Other actions show their own costs."
           },
           {
             "type": "callout",
@@ -494,7 +494,7 @@
     "quickTake": [
       "Build around a repeatable turn before adding a high-cost finisher.",
       "Awakenings at levels 2 and 20 are free; forged Bloodlines cost rare materials, so plan them carefully.",
-      "The Bloodline Maker assigns a point cost to every advantage. If the budget turns red, simplify the technique before saving it."
+      "Bloodline Awakening assigns a point cost to every advantage. If the budget turns red, simplify the technique before sealing it."
     ],
     "relatedGuideIds": [
       "combat",
@@ -575,7 +575,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Every custom technique starts as either 40 AP utility or 60 AP damage. Range 5, Circle Movement, Instant Effect, AOE Movement, AOE Burst, Nuke damage, and higher-cost tags add build points. Use the itemized total in the Bloodline Maker because balance values can change."
+            "text": "Every custom technique starts as either 40 AP utility or 60 AP damage. Range 5, Circle Movement, Instant Effect, AOE Movement, AOE Burst, Nuke damage, and higher-cost tags add build points. Use the itemized total in Bloodline Awakening because balance values can change."
           },
           {
             "type": "p",

@@ -65,7 +65,7 @@ export function applyBloodlineForgePurchase(
     if (!rank) return { ok: false, status: 400, error: 'Invalid bloodline rank.' };
     const pending = readPendingBloodlineForges(pendingRaw);
     if (pending.length >= PENDING_FORGE_CAP) {
-        return { ok: false, status: 409, error: 'Finish a pending bloodline forge before purchasing another.' };
+        return { ok: false, status: 409, error: 'Finish your pending Bloodline Awakening before beginning another.' };
     }
     const { currency, cost } = BLOODLINE_FORGE_COSTS[rank];
     const balance = Math.max(0, Math.floor(Number(character[currency]) || 0));

@@ -5,7 +5,7 @@ import { bloodlineCreatorPercentPolicy, normalizeBloodlineCreatorTagPercent } fr
 import { jutsuEffectInfo } from "../lib/jutsu-effects";
 import { normalizeJutsu } from "../lib/jutsu";
 
-export function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuTarget, jutsuMethod, disabledTags = [], allowedTags }: { tag: string; setTag: (tag: string) => void; percent: number; setPercent: (percent: number) => void; rank?: Rank | null; jutsuTarget?: JutsuTarget; jutsuMethod?: JutsuMethod; disabledTags?: string[]; allowedTags?: string[] }) {
+export function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuTarget, jutsuMethod, disabledTags = [], allowedTags, ariaLabel = "Jutsu tag" }: { tag: string; setTag: (tag: string) => void; percent: number; setPercent: (percent: number) => void; rank?: Rank | null; jutsuTarget?: JutsuTarget; jutsuMethod?: JutsuMethod; disabledTags?: string[]; allowedTags?: string[]; ariaLabel?: string }) {
     const creatorPolicy = rank ? bloodlineCreatorPercentPolicy(tag, rank) : null;
     const displayedPercent = rank ? normalizeBloodlineCreatorTagPercent(tag, percent, rank) : percent;
     const selectedTagInfo = tag
@@ -21,6 +21,7 @@ export function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuTarget,
     return (
         <div className="tag-picker">
             <select
+                aria-label={ariaLabel}
                 value={tag}
                 onChange={(e) => {
                     const nextTag = e.target.value;

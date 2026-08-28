@@ -16,13 +16,14 @@ import { gameConfirm } from "../components/GameAlert";
 import { normalizeJutsu, blankJutsu } from "../lib/jutsu";
 import { bloodlineCreatorMethodAllowsTag, bloodlineCreatorRangeForTarget, bloodlineCreatorTargetForMethod, normalizeBloodlineCreatorMethodTags } from "../lib/bloodline-creator-methods";
 import { makeId } from "../lib/utils";
-import { replaceCharacterBloodline } from "../lib/bloodline";
+import { replaceCharacterBloodline } from "../lib/bloodline-swap";
 import { bloodlineWizardStepCount, bloodlineWizardStepKind, bloodlineWizardJutsuIndex, bloodlineWizardStepLabel, canLeaveBloodlineDetails, clampBloodlineWizardStep } from "../lib/bloodline-wizard";
 import { specialties, jutsuElements, bloodlineJutsuMethods, fortyApBlockedBloodlineTags, instantEffectGroundTags, jutsuTargets } from "../data/jutsu";
 import { AiImagePrompt } from "../components/AiImagePrompt";
 import { TagPicker } from "../components/TagPicker";
 import { JUTSU_VISUAL_EFFECT_OPTIONS, isJutsuVisualEffect, jutsuVisualEffectLabel } from "../lib/jutsu-visuals";
 import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
+import "../styles/bloodline-awakening.css";
 
 // The five base elements that interact with the weather system. A bloodline's
 // special element can behave as one of these (weather buff/debuff) or as "None".
@@ -57,7 +58,7 @@ function normalizeCreatorDraftJutsu(jutsu: Jutsu, rank: Rank): Jutsu {
     return target === "SELF" ? { ...normalized, range: 0 } : normalized;
 }
 
-export function BloodlineMaker({ initialRank, initialSpecialElement, character, updateCharacter, savedBloodlines, setSavedBloodlines, lockedRank, editingBloodline, onSaveBloodlines }: { initialRank: Rank; initialSpecialElement?: string; character: Character; updateCharacter: (character: Character) => void; savedBloodlines: SavedBloodline[]; setSavedBloodlines: (bloodlines: SavedBloodline[]) => void; lockedRank?: boolean; editingBloodline?: SavedBloodline | null; onSaveBloodlines?: (bloodlines: SavedBloodline[], character?: Character) => void; onClose?: () => void }) {
+export function BloodlineMaker({ initialRank, initialSpecialElement, character, updateCharacter, savedBloodlines, setSavedBloodlines, lockedRank, editingBloodline, onSaveBloodlines, onClose, onOpenAwakening }: { initialRank: Rank; initialSpecialElement?: string; character: Character; updateCharacter: (character: Character) => void; savedBloodlines: SavedBloodline[]; setSavedBloodlines: (bloodlines: SavedBloodline[]) => void; lockedRank?: boolean; editingBloodline?: SavedBloodline | null; onSaveBloodlines?: (bloodlines: SavedBloodline[], character?: Character) => void | Promise<void>; onClose?: () => void; onOpenAwakening?: () => void }) {
     const [rank, setRank] = useState<Rank>(editingBloodline?.rank ?? initialRank);
     const [bloodlineName, setBloodlineName] = useState(editingBloodline?.name ?? "Custom Bloodline");
     const [bloodlineLore, setBloodlineLore] = useState(editingBloodline?.lore ?? "");
@@ -72,6 +73,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
     // Wizard step: 0 = details, 1..N = one jutsu each, final = review & save.
     const [step, setStep] = useState(0);
     const [templateMsg, setTemplateMsg] = useState("");
+    const [persisting, setPersisting] = useState(false);
     const recommendedMax = pointBudgetForRank(rank);
     const elementSuggestions = ["Crystal", "Lava", "Storm", "Shadow Flame", "Ice", "Sand", "Steel", "Blood", "Magnet", "Light"];
 
@@ -243,13 +245,14 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
     const overLimit = currentTotalPoints > pointLimit;
 
     async function saveBloodline() {
+        if (persisting) return;
         // A new bloodline must be entered through the Awakening Stone purchase
         // flow, which sets lockedRank after the server issues a one-use forge
         // entitlement. The right-menu Bloodline screen is still useful for
         // viewing/swapping/editing, but must never optimistically replace a
         // player's existing bloodline with an unpurchased draft.
         if (!editingBloodline && !lockedRank) {
-            alert("Purchase a bloodline forge at the Awakening Stone before creating a new bloodline. Your current bloodline was not changed.");
+            alert("Begin a Bloodline Awakening ritual at the Awakening Stone before creating a new bloodline. Your current bloodline was not changed.");
             return;
         }
         const finalElement = (specialElement.trim() || "Fire") as JutsuElement;
@@ -323,13 +326,11 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             : [newBloodline, ...savedBloodlines].slice(0, maxStoredBloodlines(character));
         const swapped = replaceCharacterBloodline(character, newBloodline, savedBloodlines);
         // Auto-grant level-1 mastery to the new bloodline's jutsu so they are
-        // immediately equippable + usable. replaceCharacterBloodline strips their
-        // mastery (the "retrain from scratch" rule) and the loadout picker only
-        // lists jutsu with mastery level >= 1 — so without this a freshly-made
-        // bloodline's jutsu are invisible in the picker until retrained, which
-        // reads as "my bloodline didn't load". Only add entries for ids that
-        // lack one (never reset existing progress). The save endpoint clamps
-        // mastery level to [0,50], so a level-1 grant is always accepted.
+        // immediately equippable + usable. Existing mastery is deliberately
+        // preserved by replaceCharacterBloodline; only genuinely new technique
+        // ids receive the baseline row, so editing or swapping can never reset
+        // trained progress. The server independently grants the same baseline
+        // after validating ownership and the purchased rank entitlement.
         const masteredIds = new Set((swapped.jutsuMastery ?? []).map((m) => m.jutsuId));
         const grantedMastery = finalizedJutsus
             .filter((j) => !masteredIds.has(j.id))
@@ -337,9 +338,23 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
         const nextCharacter = grantedMastery.length
             ? { ...swapped, jutsuMastery: [...(swapped.jutsuMastery ?? []), ...grantedMastery] }
             : swapped;
+        // The server save is the ownership boundary consumed by every combat
+        // loader. Do not show/equip the draft locally until that authoritative
+        // write acknowledges it; otherwise a rejected entitlement or network
+        // failure leaves the UI advertising a bloodline combat will correctly
+        // refuse after reload.
+        setPersisting(true);
+        try {
+            await onSaveBloodlines?.(nextBloodlines, nextCharacter);
+        } catch (error) {
+            const detail = error instanceof Error && error.message ? ` ${error.message}` : "";
+            alert(`${bloodlineName} was not saved.${detail} Your current bloodline is unchanged.`);
+            return;
+        } finally {
+            setPersisting(false);
+        }
         setSavedBloodlines(nextBloodlines);
         updateCharacter(nextCharacter);
-        onSaveBloodlines?.(nextBloodlines, nextCharacter);
         alert(imageSaveFailed ? `${bloodlineName} saved, but one or more images did not upload to shared storage.` : `${bloodlineName} saved.`);
     }
     // Swap the equipped bloodline to another STORED one (subscriber perk: you can
@@ -354,33 +369,44 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
     // prompt). GameAlert's themed confirm has a focus trap, scroll lock and Escape
     // handling, and every other confirmation in the game already uses it.
     async function equipStoredBloodline(target: SavedBloodline) {
-        if (target.id === character.equippedBloodlineId) return;
+        if (persisting || target.id === character.equippedBloodlineId) return;
         if (!await gameConfirm(`Equip ${target.name}? Your other bloodline keeps its jutsu mastery for when you swap back.`, { title: "Swap bloodline", confirmLabel: "Equip" })) return;
-        const outgoing = savedBloodlines.find((b) => b.id === character.equippedBloodlineId);
-        const outgoingJutsuIds = new Set(outgoing?.jutsus.map((j) => j.id) ?? []);
-        const masteredIds = new Set((character.jutsuMastery ?? []).map((m) => m.jutsuId));
+        const swapped = replaceCharacterBloodline(character, target, savedBloodlines);
+        const masteredIds = new Set((swapped.jutsuMastery ?? []).map((m) => m.jutsuId));
         const granted = target.jutsus
             .filter((j) => !masteredIds.has(j.id))
             .map((j) => ({ jutsuId: j.id, level: 1, xp: 0 }));
         const next: Character = {
-            ...character,
-            equippedBloodlineId: target.id,
-            equippedJutsuIds: character.equippedJutsuIds.filter((id) => !outgoingJutsuIds.has(id)),
-            jutsuMastery: [...(character.jutsuMastery ?? []), ...granted],
+            ...swapped,
+            jutsuMastery: [...(swapped.jutsuMastery ?? []), ...granted],
         };
+        setPersisting(true);
+        try {
+            await onSaveBloodlines?.(savedBloodlines, next);
+        } catch (error) {
+            const detail = error instanceof Error && error.message ? ` ${error.message}` : "";
+            alert(`${target.name} was not equipped.${detail} Your current bloodline is unchanged.`);
+            return;
+        } finally {
+            setPersisting(false);
+        }
         updateCharacter(next);
-        onSaveBloodlines?.(savedBloodlines, next);
     }
     const stepCount = bloodlineWizardStepCount(rank);
     const stepKind = bloodlineWizardStepKind(step, rank);
     const activeJutsuIndex = bloodlineWizardJutsuIndex(step, rank);
     const jutsuCount = jutsuCountForRank(rank);
+    const storageLimit = maxStoredBloodlines(character);
+    const equippedBloodline = savedBloodlines.find((bloodline) => bloodline.id === character.equippedBloodlineId);
+    const pointProgress = Math.min(100, Math.round((currentTotalPoints / Math.max(1, pointLimit)) * 100));
+    const awakeningStatus = editingBloodline ? "Legacy refinement" : lockedRank ? "Ritual attuned" : "Archive access";
 
     function renderPointTotal() {
         return (
-            <div style={{ margin: "8px 0", padding: "8px 12px", borderRadius: 8, background: overLimit ? "rgba(220,50,50,0.15)" : "rgba(255,255,255,0.04)", border: `1px solid ${overLimit ? "rgba(220,50,50,0.5)" : "rgba(255,255,255,0.08)"}`, display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontWeight: 600, color: overLimit ? "#ff6b6b" : "inherit" }}>Total Points: {currentTotalPoints} / {pointLimit}</span>
-                {overLimit && <span style={{ color: "#ff6b6b", fontSize: "0.85em" }}>⚠️ Over the {rank} limit — reduce tags to save.</span>}
+            <div className="bloodline-awakening-point-total" data-over={overLimit || undefined} role="status">
+                <span><small>Bloodline load</small><strong>{currentTotalPoints} / {pointLimit} points</strong></span>
+                <i aria-hidden="true"><b style={{ width: `${pointProgress}%` }} /></i>
+                <span>{overLimit ? `Over the ${rank} limit — simplify a technique to continue.` : `${pointLimit - currentTotalPoints} points remain for this ritual grade.`}</span>
             </div>
         );
     }
@@ -395,18 +421,20 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             && bloodlineCreatorTargetForMethod(jutsu.method, "SELF", { ap: jutsu.ap, tags: jutsu.tags }) === "OPPONENT";
         return (
                 <div className="jutsu-card maker-card" key={jutsu.id}>
-                    <h3>{jutsu.name}</h3>
+                    <h3 className="bloodline-technique-name">{jutsu.name}</h3>
                     <label>Name</label><input value={jutsu.name} onChange={(e) => updateJutsu(jutsuIndex, { name: e.target.value })} />
                     <label>Battle Description</label><textarea rows={2} value={jutsu.battleDescription} onChange={(e) => updateJutsu(jutsuIndex, { battleDescription: e.target.value, description: e.target.value })} />
-                    <label>Jutsu Image</label><input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, (image) => updateJutsu(jutsuIndex, { image }), 100); }} />
+                    <label>Jutsu Image</label><input className="bloodline-image-file" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, (image) => updateJutsu(jutsuIndex, { image }), 100); }} />
                     <AiImagePrompt label="Jutsu Image" suggestedPrompt={`${jutsu.name}, ${specialElement || jutsu.element} ${jutsu.ap === 40 ? "Any" : bloodlineOffense} bloodline technique`} onImage={async (image) => updateJutsu(jutsuIndex, { image: await compressDataUrl(image, 512, 0.82) })} />
                     {jutsu.image && <div className="admin-jutsu-preview"><img src={jutsu.image} alt={jutsu.name} /></div>}
-                    <div className="summary-box bloodline-element-lock">Offense: {jutsu.ap === 40 ? "Any — element-only utility" : bloodlineOffense}</div>
-                    <div className="summary-box bloodline-element-lock">Element: {specialElement.trim() || "Type a special element above"}</div>
+                    <div className="bloodline-technique-foundation" aria-label="Technique foundation">
+                        <span><small>Offense</small><strong>{jutsu.ap === 40 ? "Any · Utility" : bloodlineOffense}</strong></span>
+                        <span><small>Element</small><strong>{specialElement.trim() || "Unbound"}</strong></span>
+                    </div>
                     <label>Target / Method</label>
                     <div className="inline-grid">
-                        <select value={jutsu.target} disabled={directCopyMirrorTargetLocked} title={directCopyMirrorTargetLocked ? "Direct Copy and Mirror casts target an opponent" : undefined} onChange={(e) => updateJutsu(jutsuIndex, { target: e.target.value as JutsuTarget })}>{jutsuTargets.map((target) => <option key={target} value={target}>{target === "EMPTY_GROUND" ? "GROUND" : target}</option>)}</select>
-                        <select value={bloodlineJutsuMethods.includes(jutsu.method) ? jutsu.method : "SINGLE"} onChange={(e) => updateJutsu(jutsuIndex, { method: e.target.value as JutsuMethod })}>
+                        <select aria-label="Jutsu target" value={jutsu.target} disabled={directCopyMirrorTargetLocked} title={directCopyMirrorTargetLocked ? "Direct Copy and Mirror casts target an opponent" : undefined} onChange={(e) => updateJutsu(jutsuIndex, { target: e.target.value as JutsuTarget })}>{jutsuTargets.map((target) => <option key={target} value={target}>{target === "EMPTY_GROUND" ? "GROUND" : target}</option>)}</select>
+                        <select aria-label="Jutsu method" value={bloodlineJutsuMethods.includes(jutsu.method) ? jutsu.method : "SINGLE"} onChange={(e) => updateJutsu(jutsuIndex, { method: e.target.value as JutsuMethod })}>
                             {bloodlineJutsuMethods.map((method) => <option key={method} value={method}>{method === "AOE_CIRCLE" ? "Circle Movement (Ring Damage)" : method === "INSTANT_EFFECT" ? "Instant Effect (Ground Burst)" : method === "AOE_SPIRAL" ? "AOE Movement (Ground Nova)" : method === "AOE_BURST" ? "AOE Burst (Area Damage)" : method}</option>)}
                         </select>
                     </div>
@@ -417,8 +445,8 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                     {jutsu.method === "AOE_BURST" && <div className="summary-box bloodline-element-lock">AOE Burst: a direct area nuke — no movement, no ground tile. Target an enemy in range; they take the hit and every other enemy in the 6 hexes touching them takes the same full damage. In a 1v1 fight it just hits your target like a normal nuke; in multi-enemy fights (Battle Towers, team battles) it blasts the whole cluster. Locked to 60 AP. Costs +1 jutsu point.</div>}
                     <label>AP Type</label>
                     <div className="admin-ap-toggle">
-                        <button className={jutsu.ap === 40 ? "active" : ""} disabled={jutsu.method === "AOE_SPIRAL"} title={jutsu.method === "AOE_SPIRAL" ? "AOE Movement is locked to 60 AP" : undefined} onClick={() => updateJutsuAp(jutsuIndex, 40)}>40 AP Utility</button>
-                        <button className={jutsu.ap === 60 ? "active" : ""} onClick={() => updateJutsuAp(jutsuIndex, 60)}>60 AP Damage</button>
+                        <button type="button" className={jutsu.ap === 40 ? "active" : ""} disabled={jutsu.method === "AOE_SPIRAL"} title={jutsu.method === "AOE_SPIRAL" ? "AOE Movement is locked to 60 AP" : undefined} onClick={() => updateJutsuAp(jutsuIndex, 40)}>40 AP Utility</button>
+                        <button type="button" className={jutsu.ap === 60 ? "active" : ""} onClick={() => updateJutsuAp(jutsuIndex, 60)}>60 AP Damage</button>
                     </div>
                     {jutsu.method === "AOE_SPIRAL" && <small className="tag-effect-help">AOE Movement is locked to 60 AP — it cannot be a 40 AP utility jutsu.</small>}
                     {jutsu.ap === 60 && jutsu.target !== "SELF" && (
@@ -433,7 +461,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                                         visualEffect: isJutsuVisualEffect(event.target.value) ? event.target.value : undefined,
                                     })}
                                 >
-                                    <option value="">Automatic — element and tags decide</option>
+                                    <option value="">Automatic · Smart Match</option>
                                     {JUTSU_VISUAL_EFFECT_GROUPS.map((group) => (
                                         <optgroup label={group} key={group}>
                                             {JUTSU_VISUAL_EFFECT_OPTIONS.filter((option) => option.group === group).map((option) => (
@@ -497,11 +525,13 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                     ) : (
                         <div className="summary-box bloodline-element-lock">Range: Self target</div>
                     )}
-                    <div className="summary-box bloodline-element-lock">Cooldown: 7</div>
-                    <div className="summary-box bloodline-element-lock">
-                        {COMBAT_RESOURCES_V2
-                            ? <>Chakra/Stamina Cost: a concrete amount that scales with the caster's level, drawn from one bar by discipline — shown in battle.</>
-                            : <>Chakra/Stamina Cost: {formatJutsuResourcePercent(jutsu, "chakra")} each · Level 50: {formatJutsuResourcePercent(jutsu, "chakra", JUTSU_MAX_LEVEL)} each · Reduction: -1% at mastery 50.</>}
+                    <div className="bloodline-technique-rules">
+                        <span><small>Cooldown</small><strong>7 rounds</strong></span>
+                        <span><small>Resource model</small><strong>
+                            {COMBAT_RESOURCES_V2
+                                ? <>Scales with level · drawn from your discipline bar</>
+                                : <>{formatJutsuResourcePercent(jutsu, "chakra")} each · Lv.50 {formatJutsuResourcePercent(jutsu, "chakra", JUTSU_MAX_LEVEL)} · mastery -1%</>}
+                        </strong></span>
                     </div>
                     <label>Tags</label>{Array.from({ length: jutsu.ap === 60 ? 2 : 3 }).map((_, tagIndex) => {
                         const currentTag = jutsu.tags[tagIndex]?.name ?? "";
@@ -525,7 +555,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                             : allTags);
                         const authoredTagNames = jutsu.tags.map((tag) => tag.name);
                         allowedTags = base.filter((tagName) => bloodlineCreatorMethodAllowsTag(tagName, jutsu.method, authoredTagNames));
-                        return <TagPicker key={tagIndex} rank={rank} jutsuTarget={jutsu.target} jutsuMethod={jutsu.method} allowedTags={allowedTags} tag={currentTag} disabledTags={disabledTags} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />;
+                        return <TagPicker key={tagIndex} ariaLabel={`Tag ${tagIndex + 1}`} rank={rank} jutsuTarget={jutsu.target} jutsuMethod={jutsu.method} allowedTags={allowedTags} tag={currentTag} disabledTags={disabledTags} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />;
                     })}
                     <div className="summary-box bloodline-effect-preview"><strong>What it does:</strong> {describeJutsuEffects(jutsu)}</div>
                     {(() => {
@@ -545,30 +575,63 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
 
     return (
         <div className="card bloodline-maker-screen global-menu-panel">
-            <div style={{ position: "relative", margin: "-14px -14px 14px", overflow: "hidden", borderRadius: "8px 8px 0 0" }}>
-                <img src={bloodlineForgeHero} alt="" style={{ display: "block", width: "100%", height: 168, objectFit: "cover", objectPosition: "center 38%" }} />
-                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,11,15,.08) 25%, rgba(8,11,15,.94))" }} />
-                <div style={{ position: "absolute", left: 18, right: 18, bottom: 10 }}>
-                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--sj-seal-bright)" }}>Ancestral Archive · Bloodline Forge</div>
-                    <h2 style={{ margin: "2px 0 0", fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 400, letterSpacing: ".02em" }}>Bloodline Maker</h2>
+            <header className={`bloodline-awakening-hero rank-${rank.charAt(0).toLowerCase()}`}>
+                <img src={bloodlineForgeHero} alt="" className="bloodline-awakening-hero-art" />
+                <div className="bloodline-awakening-hero-actions">
+                    {onClose && <button type="button" className="bloodline-awakening-back" onClick={onClose}>← <span>Central</span></button>}
+                    {onOpenAwakening && <button type="button" className="bloodline-awakening-stone-link" onClick={onOpenAwakening}><span>Awakening Stone</span><b aria-hidden="true">↗</b></button>}
                 </div>
-            </div>
-            <div className="bloodline-wizard-steps">
+                <div className="bloodline-awakening-hero-copy">
+                    <span className="bloodline-awakening-kicker"><i aria-hidden="true" /> Ancestral archive · {awakeningStatus}</span>
+                    <h2>Bloodline Awakening</h2>
+                    <p>Shape your inherited chakra into a combat-ready legacy, then seal its techniques and equip it to your shinobi.</p>
+                </div>
+                <div className="bloodline-awakening-hero-stats" aria-label="Awakening summary">
+                    <span><small>Ritual grade</small><strong>{rank}</strong></span>
+                    <span><small>Chakra nature</small><strong>{specialElement.trim() || "Unbound"}</strong></span>
+                    <span><small>Techniques</small><strong>{jutsuCount}</strong></span>
+                    <span><small>Build budget</small><strong className={overLimit ? "is-over" : ""}>{currentTotalPoints}/{pointLimit}</strong></span>
+                </div>
+            </header>
+
+            <section className="bloodline-awakening-legacy-bar" aria-label="Current bloodline status">
+                <div className="bloodline-awakening-legacy-copy">
+                    <span className="bloodline-awakening-legacy-seal" aria-hidden="true">{equippedBloodline?.rank.charAt(0) ?? "—"}</span>
+                    <span><small>Equipped legacy</small><strong>{equippedBloodline?.name || character.bloodline || "No custom bloodline equipped"}</strong></span>
+                </div>
+                <div className="bloodline-awakening-storage">
+                    <small>Archive capacity</small>
+                    <strong>{savedBloodlines.length}<span>/{storageLimit}</span></strong>
+                </div>
+            </section>
+
+            <nav className="bloodline-wizard-steps" aria-label="Bloodline awakening progress">
                 {Array.from({ length: stepCount }).map((_, s) => (
                     <button
                         key={s}
                         type="button"
                         className={`bloodline-wizard-step${s === step ? " active" : ""}${s < step ? " done" : ""}`}
                         onClick={() => setStep(s)}
+                        aria-current={s === step ? "step" : undefined}
                     >
-                        {bloodlineWizardStepLabel(s, rank)}
+                        <span className="bloodline-wizard-step-index">{s < step ? "✓" : String(s + 1).padStart(2, "0")}</span>
+                        <span>{bloodlineWizardStepLabel(s, rank)}</span>
                     </button>
                 ))}
+                <span className="bloodline-wizard-progress" aria-hidden="true"><i style={{ width: `${Math.round(((step + 1) / stepCount) * 100)}%` }} /></span>
+            </nav>
+
+            <div className="bloodline-awakening-build-meter" data-over={overLimit || undefined}>
+                <span><small>Awakening power</small><strong>{overLimit ? "Over capacity" : `${pointLimit - currentTotalPoints} points remaining`}</strong></span>
+                <span className="bloodline-awakening-build-track" aria-hidden="true"><i style={{ width: `${pointProgress}%` }} /></span>
+                <b>{currentTotalPoints} / {pointLimit}</b>
             </div>
+
+            <div className="bloodline-awakening-workspace">
 
             {stepKind === "details" && (
                 <div className="bloodline-wizard-panel">
-                    <h3>Bloodline Details</h3>
+                    <div className="bloodline-awakening-section-heading"><span>01</span><div><small>Identity seal</small><h3>Bloodline Details</h3></div></div>
                     <label>Name</label><input value={bloodlineName} onChange={(e) => setBloodlineName(e.target.value)} />
                     <label>Bloodline Text / Lore</label><textarea rows={3} value={bloodlineLore} onChange={(e) => setBloodlineLore(e.target.value)} placeholder="Describe what this bloodline is, where it comes from, or what makes it special." />
                     <label>Special Element</label><input value={specialElement} onChange={(e) => setBloodlineSpecialElement(e.target.value)} placeholder="Example: Crystal, Lava, Storm, Shadow Flame" />
@@ -598,7 +661,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                         </div>
                         {templateMsg && <div className="bloodline-template-msg">{templateMsg}</div>}
                     </div>
-                    <label>Bloodline Image</label><input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, setBloodlineImage, 25); }} />
+                    <label>Bloodline Image</label><input className="bloodline-image-file" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, setBloodlineImage, 25); }} />
                     <AiImagePrompt label="Bloodline Image" suggestedPrompt={`${bloodlineName}, ${specialElement || "chakra"} bloodline symbol`} onImage={async (image) => setBloodlineImage(await compactImage(image))} />
                     {bloodlineImage && <div className="admin-event-list-preview"><img src={bloodlineImage} alt={bloodlineName} /></div>}
                     <label>Rank</label>
@@ -612,7 +675,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
 
             {stepKind === "jutsu" && activeJutsuIndex >= 0 && jutsus[activeJutsuIndex] && (
                 <div className="bloodline-wizard-panel">
-                    <h3>Jutsu {activeJutsuIndex + 1} of {jutsuCount}</h3>
+                    <div className="bloodline-awakening-section-heading"><span>{String(activeJutsuIndex + 2).padStart(2, "0")}</span><div><small>Technique inscription</small><h3>Jutsu {activeJutsuIndex + 1} of {jutsuCount}</h3></div></div>
                     {renderJutsuCard(jutsus[activeJutsuIndex], activeJutsuIndex)}
                     {renderPointTotal()}
                 </div>
@@ -620,7 +683,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
 
             {stepKind === "review" && (
                 <div className="bloodline-wizard-panel">
-                    <h3>Review &amp; Save</h3>
+                    <div className="bloodline-awakening-section-heading"><span>{String(stepCount).padStart(2, "0")}</span><div><small>Final seal</small><h3>Review &amp; Awaken</h3></div></div>
                     <div className="summary-box">
                         {bloodlineImage && <div className="admin-event-list-preview"><img src={bloodlineImage} alt={bloodlineName} /></div>}
                         <p><strong>{bloodlineName || "Unnamed Bloodline"}</strong> · {rank}</p>
@@ -642,9 +705,38 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                         <div className="summary-box bloodline-element-lock" key={j.id}>Jutsu {i + 1}: <strong>{j.name}</strong> — {j.ap} AP · {jutsuPoints(j, rank)} pts<br /><small>{describeJutsuEffects(j)}</small><br /><small>Combat VFX: {jutsuVisualEffectLabel(j.visualEffect)}</small></div>
                     ))}
                     {renderPointTotal()}
-                    {!editingBloodline && !lockedRank && <p className="hint" role="status">New bloodlines require a forge purchase at the Awakening Stone. Existing bloodlines can still be viewed and equipped here.</p>}
-                    <button onClick={saveBloodline} disabled={overLimit || (!editingBloodline && !lockedRank)} style={overLimit || (!editingBloodline && !lockedRank) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}>{editingBloodline ? "Save Changes" : "Save Bloodline"}</button>
-                    {savedBloodlines.length > 0 && <><h3>Saved <small className="hint">({savedBloodlines.length}/{maxStoredBloodlines(character)} stored{!isPatreonSubscriber(character) ? " — link Patreon to store 2 & swap" : ""})</small></h3>{savedBloodlines.map((b) => <div className="summary-box" key={b.id}>{b.image && <div className="admin-event-list-preview"><img src={b.image} alt={b.name} /></div>}{b.name} | {b.rank} | {b.specialElement ? `${b.specialElement} | ` : ""}Points {b.totalPoints}{b.lore && <p className="hint">{b.lore}</p>}{b.id === character.equippedBloodlineId ? <p className="hint">✓ Equipped</p> : <button onClick={() => void equipStoredBloodline(b)}>Equip</button>}</div>)}</>}
+                    {!editingBloodline && !lockedRank && <div className="bloodline-awakening-gate" role="status"><strong>Awakening ritual required</strong><span>Begin at the Awakening Stone to choose a rank and bind the required ancient materials.</span>{onOpenAwakening && <button type="button" onClick={onOpenAwakening}>Open Awakening Stone →</button>}</div>}
+                    <button className="bloodline-awakening-save" onClick={saveBloodline} disabled={persisting || overLimit || (!editingBloodline && !lockedRank)}>{persisting ? "Sealing Legacy…" : editingBloodline ? "Seal Changes" : "Awaken Bloodline"}</button>
+                    {savedBloodlines.length > 0 && (
+                        <section className="bloodline-awakening-saved">
+                            <div className="bloodline-awakening-saved-heading">
+                                <div><small>Ancestral archive</small><h3>Saved Bloodlines</h3></div>
+                                <span>{savedBloodlines.length}/{storageLimit} stored{!isPatreonSubscriber(character) ? " · Patreon unlocks a second slot" : ""}</span>
+                            </div>
+                            <div className="bloodline-awakening-saved-grid">
+                                {savedBloodlines.map((bloodline) => {
+                                    const isEquipped = bloodline.id === character.equippedBloodlineId;
+                                    return (
+                                        <article className={`bloodline-awakening-saved-card${isEquipped ? " is-equipped" : ""}`} key={bloodline.id}>
+                                            <div className="bloodline-awakening-saved-art">
+                                                {bloodline.image ? <img src={bloodline.image} alt="" /> : <span aria-hidden="true">{bloodline.rank.charAt(0)}</span>}
+                                                <b>{bloodline.rank}</b>
+                                            </div>
+                                            <div className="bloodline-awakening-saved-copy">
+                                                <small>{bloodline.specialElement ? `${bloodline.specialElement} release` : "Unbound release"}</small>
+                                                <strong>{bloodline.name}</strong>
+                                                <span>{bloodline.jutsus.length} techniques · {bloodline.totalPoints} points</span>
+                                                {bloodline.lore && <p>{bloodline.lore}</p>}
+                                            </div>
+                                            {isEquipped
+                                                ? <span className="bloodline-awakening-equipped">✓ Equipped</span>
+                                                : <button type="button" disabled={persisting} onClick={() => void equipStoredBloodline(bloodline)}>{persisting ? "Sealing…" : "Equip legacy"}</button>}
+                                        </article>
+                                    );
+                                })}
+                            </div>
+                        </section>
+                    )}
                 </div>
             )}
 
@@ -660,6 +752,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                         Next →
                     </button>
                 )}
+            </div>
             </div>
         </div>
     );

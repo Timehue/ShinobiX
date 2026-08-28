@@ -21,10 +21,10 @@ export async function purchaseBloodlineForge(playerName: string, rank: Rank): Pr
         });
         const data = await response.json().catch(() => ({})) as BloodlineForgeResult;
         if (!response.ok || !data.ok || !data.character) {
-            return { ok: false, error: data.error || 'Could not purchase the bloodline forge.' };
+            return { ok: false, error: data.error || 'Could not begin Bloodline Awakening.' };
         }
         return data;
     } catch {
-        return { ok: false, error: 'Could not reach the bloodline forge. Please try again.' };
+        return { ok: false, error: 'Could not reach Bloodline Awakening. Please try again.' };
     }
 }

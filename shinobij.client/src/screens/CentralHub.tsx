@@ -79,6 +79,7 @@ import { gameToast } from "../components/GameToast";
 import { Modal } from "../components/ui/Modal";
 import { rollAwakeningServer } from "../lib/awakening-api";
 import { purchaseBloodlineForge } from "../lib/bloodline-forge";
+import { bloodlineTagPercentChoices, jutsuCountForRank, pointBudgetForRank } from "../lib/jutsu-points";
 import { CentralAwakeningCinematic } from "../components/CentralAwakeningCinematic";
 import { playGameSfx, primeGameAudio } from "../lib/game-audio";
 import { primeCentralAwakeningArtwork } from "../lib/central-awakening-artwork";
@@ -123,6 +124,12 @@ const DUNGEON_BIOME_ICON: Record<string, GameIconName> = {
     shadow: "moon",
     central: "gate",
 };
+
+const BLOODLINE_AWAKENING_TIERS = [
+    { rank: "B Rank", rankMark: "B", className: "rank-b", materialKey: "boneCharms", materialName: "Bone Charms", currencyIcon: "bone" },
+    { rank: "A Rank", rankMark: "A", className: "rank-a", materialKey: "auraStones", materialName: "Aura Stones", currencyIcon: "crystal" },
+    { rank: "S Rank", rankMark: "S", className: "rank-s", materialKey: "mythicSeals", materialName: "Mythic Seals", currencyIcon: "sigil" },
+] as const;
 
 // Material rarity band from its craft-point value → chip accent colour.
 function craftTier(pts: number): "common" | "uncommon" | "rare" | "epic" | "legendary" {
@@ -583,13 +590,14 @@ export function CentralHub({
         setBloodlineForgeBusy(true);
         try {
             const result = await purchaseBloodlineForge(character.name, rank);
-            if (!result.ok || !result.character) throw new Error(result.error || "The bloodline forge rejected this purchase.");
+            if (!result.ok || !result.character) throw new Error(result.error || "The Bloodline Awakening ritual rejected this purchase.");
+            if (result.rank !== rank) throw new Error("The Bloodline Awakening ritual returned a mismatched grade. No builder was opened.");
             if (!commitServerCharacter(result.character, result._saveVersion)) return;
             setShowAwakening(false);
-            setCentralLog(`${rank} bloodline forge purchased. Finish building it in the Bloodline Maker.`);
+            setCentralLog(`${rank} Bloodline Awakening attuned. Finish shaping your legacy in Bloodline Awakening.`);
             onOpenBloodlineMaker(rank, getCharacterElements(result.character)[0] ?? "");
         } catch (error) {
-            setAwakeningMsg(`❌ ${error instanceof Error ? error.message : "The bloodline forge is unavailable."}`);
+            setAwakeningMsg(`❌ ${error instanceof Error ? error.message : "Bloodline Awakening is unavailable."}`);
         } finally {
             setBloodlineForgeBusy(false);
         }
@@ -812,8 +820,8 @@ export function CentralHub({
                     art: "/assets/awakening-stone-cinematic-v1.webp",
                     artPosition: "center",
                     text: awakenedElements.length
-                        ? "Reroll your elemental nature or begin forging a bloodline from ancient materials."
-                        : "Reveal your elemental nature and open the path to bloodline forging.",
+                                ? "Reroll your elemental nature or begin a Bloodline Awakening with ancient materials."
+                                : "Reveal your elemental nature and open the path to Bloodline Awakening.",
                     action: () => {
                         primeCentralAwakeningArtwork();
                         primeGameAudio(["omen", "reveal", "mythic"]);
@@ -1204,7 +1212,7 @@ export function CentralHub({
                             <div className="aw-command-title">
                                 <span><GiCrystalBall /> Legacy district · elemental sanctum</span>
                                 <h2>Awakening Stone</h2>
-                                <p>Reveal your chakra nature, inventory ancient materials, and forge a bloodline worthy of the Thousand Gates.</p>
+                                <p>Reveal your chakra nature, inventory ancient materials, and awaken a bloodline worthy of the Thousand Gates.</p>
                             </div>
                             <div className="aw-command-seal" aria-hidden="true"><GiCrystalBall /></div>
                         </header>
@@ -1312,62 +1320,59 @@ export function CentralHub({
                             </div>
                         </div>
 
-                        {/* Bloodline forge section */}
+                        {/* Bloodline Awakening section */}
                         <div className="aw-section aw-section--forge">
-                            <h3><span className="aw-section-icon"><GiFlame /></span><span>Bloodline Forge<small>Legacy infusion</small></span></h3>
-                            <p className="aw-hint">Channel ancient materials through the stone to forge a new bloodline. The bloodline will carry your element and await further techniques.</p>
+                            <div className="aw-forge-heading">
+                                <h3><span className="aw-section-icon"><GiFlame /></span><span>Bloodline Awakening<small>Ancestral legacy ritual</small></span></h3>
+                                <span className="aw-forge-protocol">Stone attuned · Archive linked</span>
+                            </div>
+                            <p className="aw-hint">Bind ancient materials to a ritual grade, then enter the Awakening workspace to shape its identity, element, and inherited techniques.</p>
+                            <div className="aw-forge-journey" aria-label="Bloodline Awakening process">
+                                <span className="is-active"><b>01</b><small>Choose</small><strong>Ritual grade</strong></span>
+                                <i aria-hidden="true">→</i>
+                                <span><b>02</b><small>Shape</small><strong>Legacy &amp; jutsu</strong></span>
+                                <i aria-hidden="true">→</i>
+                                <span><b>03</b><small>Seal</small><strong>Equip bloodline</strong></span>
+                            </div>
                             <div className="aw-forge-grid">
-                                <div className="aw-forge-card rank-b">
-                                    <div className="aw-forge-card-header">
-                                        <span className="aw-forge-tier">B</span>
-                                        <div><small>Bloodline grade</small><div className="aw-forge-rank">B Rank</div></div>
-                                    </div>
-                                    <div className="aw-forge-material">
-                                        <ShinobiCurrencyIcon name="bone" size={29} />
-                                        <div><strong>100 Bone Charms</strong><small>{character.boneCharms ?? 0} held in inventory</small></div>
-                                    </div>
-                                    <button
-                                        className="aw-forge-btn"
-                                        onClick={() => awakeningCreateBloodline("B Rank", "boneCharms", 100)}
-                                        disabled={(character.boneCharms ?? 0) < 100 || bloodlineForgeBusy}
-                                    >
-                                        <span>Forge Bloodline</span><small>B Rank ritual</small><b aria-hidden="true">→</b>
-                                    </button>
-                                </div>
-                                <div className="aw-forge-card rank-a">
-                                    <div className="aw-forge-card-header">
-                                        <span className="aw-forge-tier">A</span>
-                                        <div><small>Bloodline grade</small><div className="aw-forge-rank">A Rank</div></div>
-                                    </div>
-                                    <div className="aw-forge-material">
-                                        <ShinobiCurrencyIcon name="crystal" size={29} />
-                                        <div><strong>100 Aura Stones</strong><small>{character.auraStones ?? 0} held in inventory</small></div>
-                                    </div>
-                                    <button
-                                        className="aw-forge-btn"
-                                        onClick={() => awakeningCreateBloodline("A Rank", "auraStones", 100)}
-                                        disabled={(character.auraStones ?? 0) < 100 || bloodlineForgeBusy}
-                                    >
-                                        <span>Forge Bloodline</span><small>A Rank ritual</small><b aria-hidden="true">→</b>
-                                    </button>
-                                </div>
-                                <div className="aw-forge-card rank-s">
-                                    <div className="aw-forge-card-header">
-                                        <span className="aw-forge-tier">S</span>
-                                        <div><small>Bloodline grade</small><div className="aw-forge-rank">S Rank</div></div>
-                                    </div>
-                                    <div className="aw-forge-material">
-                                        <ShinobiCurrencyIcon name="sigil" size={29} />
-                                        <div><strong>100 Mythic Seals</strong><small>{character.mythicSeals ?? 0} held in inventory</small></div>
-                                    </div>
-                                    <button
-                                        className="aw-forge-btn"
-                                        onClick={() => awakeningCreateBloodline("S Rank", "mythicSeals", 100)}
-                                        disabled={(character.mythicSeals ?? 0) < 100 || bloodlineForgeBusy}
-                                    >
-                                        <span>Forge Bloodline</span><small>S Rank ritual</small><b aria-hidden="true">→</b>
-                                    </button>
-                                </div>
+                                {BLOODLINE_AWAKENING_TIERS.map((tier) => {
+                                    const balance = character[tier.materialKey] ?? 0;
+                                    const remaining = Math.max(0, 100 - balance);
+                                    const isReady = balance >= 100;
+                                    const jutsuCount = jutsuCountForRank(tier.rank);
+                                    const pointBudget = pointBudgetForRank(tier.rank);
+                                    const percentChoices = bloodlineTagPercentChoices(tier.rank);
+                                    return (
+                                        <article className={`aw-forge-card ${tier.className}${isReady ? " is-ready" : " is-locked"}`} key={tier.rank}>
+                                            <div className="aw-forge-card-header">
+                                                <span className="aw-forge-tier">{tier.rankMark}</span>
+                                                <div><small>Bloodline grade</small><div className="aw-forge-rank">{tier.rank}</div></div>
+                                                <span className="aw-forge-readiness">{isReady ? "Ritual ready" : `${remaining} needed`}</span>
+                                            </div>
+                                            <div className="aw-forge-builder-spec" aria-label={`${tier.rank} builder limits`}>
+                                                <span><b>{jutsuCount}</b><small>Techniques</small></span>
+                                                <span><b>{pointBudget}</b><small>Point cap</small></span>
+                                                <span><b>{percentChoices.map((choice) => `${choice}%`).join(" / ")}</b><small>Tag power</small></span>
+                                            </div>
+                                            <div className="aw-forge-material">
+                                                <ShinobiCurrencyIcon name={tier.currencyIcon} size={29} />
+                                                <div><strong>100 {tier.materialName}</strong><small>{balance} held in inventory</small></div>
+                                            </div>
+                                            <div className="aw-forge-meter" aria-label={`${Math.min(balance, 100)} of 100 ${tier.materialName}`}>
+                                                <i style={{ width: `${Math.min(100, balance)}%` }} />
+                                            </div>
+                                            <button
+                                                className="aw-forge-btn"
+                                                onClick={() => awakeningCreateBloodline(tier.rank, tier.materialKey, 100)}
+                                                disabled={!isReady || bloodlineForgeBusy}
+                                            >
+                                                <span>{bloodlineForgeBusy && isReady ? "Attuning..." : `Awaken ${tier.rank}`}</span>
+                                                <small>{isReady ? "Enter Bloodline Awakening" : `Collect ${remaining} more`}</small>
+                                                <b aria-hidden="true">→</b>
+                                            </button>
+                                        </article>
+                                    );
+                                })}
                             </div>
                         </div>
                         </div>
