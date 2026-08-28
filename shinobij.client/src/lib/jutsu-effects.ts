@@ -16,6 +16,7 @@ import { scaleJutsuByLevel, scaleJutsuTagsForDisplay } from "./jutsu-scaling";
 import { JUTSU_MAX_LEVEL, STUN_AP_PENALTY, COMBAT_RESOURCES_V2 } from "../constants/game";
 import type { Jutsu, JutsuTag } from "../types/combat";
 import type { JutsuType } from "../types/core";
+import { canonicalizeOverloadTags } from "../../../shared/overload";
 
 export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: JutsuType) {
     const pct = tag.percent > 0 ? tag.percent : 30;
@@ -102,8 +103,9 @@ export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: Ju
 }
 
 export function jutsuDisplayAtLevel(jutsu: Jutsu, masteryLevel = JUTSU_MAX_LEVEL): Jutsu {
-    const scaled = scaleJutsuByLevel(jutsu, masteryLevel);
-    return scaleJutsuTagsForDisplay({ ...jutsu, effectPower: scaled.scaledEffectPower }, masteryLevel);
+    const canonicalJutsu = { ...jutsu, tags: canonicalizeOverloadTags(jutsu.id, jutsu.tags) };
+    const scaled = scaleJutsuByLevel(canonicalJutsu, masteryLevel);
+    return scaleJutsuTagsForDisplay({ ...canonicalJutsu, effectPower: scaled.scaledEffectPower }, masteryLevel);
 }
 
 export function describeJutsuEffects(jutsu: Jutsu, masteryLevel = JUTSU_MAX_LEVEL, lensDiscipline?: JutsuType) {

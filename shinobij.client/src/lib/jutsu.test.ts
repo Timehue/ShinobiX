@@ -61,6 +61,38 @@ describe("normalizeJutsu — bloodline draft authority", () => {
     });
 });
 
+describe("normalizeJutsu — Overload content repair", () => {
+    it("repairs a stale single IDG tag to exactly two matching pulses", () => {
+        const normalized = normalizeJutsu({
+            id: "starter-universal-blitz",
+            name: "Overload",
+            type: "Ninjutsu",
+            tags: [{ name: "Increase Damage Given", percent: 30 }],
+        });
+        assert.deepEqual(normalized.tags, [
+            { name: "Increase Damage Given", percent: 30 },
+            { name: "Increase Damage Given", percent: 30 },
+        ]);
+    });
+
+    it("caps an over-authored Overload at two pulses without changing other jutsu", () => {
+        const overload = normalizeJutsu({
+            id: "starter-universal-blitz",
+            name: "Overload",
+            type: "Ninjutsu",
+            tags: Array.from({ length: 3 }, () => ({ name: "Increase Damage Given", percent: 30 })),
+        });
+        const ordinary = normalizeJutsu({
+            id: "ordinary",
+            name: "Ordinary",
+            type: "Ninjutsu",
+            tags: [{ name: "Increase Damage Given", percent: 30 }],
+        });
+        assert.equal(overload.tags.length, 2);
+        assert.equal(ordinary.tags.length, 1);
+    });
+});
+
 describe("orderEquippedJutsus - Profile loadout order reaches combat", () => {
     const catalog = [
         normalizeJutsu({ id: "catalog-first", name: "Catalog First", type: "Ninjutsu" }),

@@ -4,6 +4,7 @@ import { scaleJutsuTagsForDisplay } from "../lib/jutsu-scaling";
 import { normalizeTagName } from "../lib/tags";
 import type { Jutsu } from "../types/combat";
 import type { JutsuType } from "../types/core";
+import { canonicalizeOverloadTags } from "../../../shared/overload";
 
 type EffectTone = "power" | "recovery" | "guard" | "harm" | "control" | "utility";
 
@@ -93,10 +94,11 @@ export function JutsuEffectCards({ jutsu, scaledEffectPower, masteryLevel, lensD
     }
 
     const level = masteryLevel ?? JUTSU_MAX_LEVEL;
+    const canonicalJutsu = { ...jutsu, tags: canonicalizeOverloadTags(jutsu.id, jutsu.tags) };
     const effectJutsu = scaledEffectPower === undefined
-        ? jutsuDisplayAtLevel(jutsu, level)
-        : scaleJutsuTagsForDisplay({ ...jutsu, effectPower: scaledEffectPower }, level);
-    const maxEffectJutsu = jutsuDisplayAtLevel(jutsu, JUTSU_MAX_LEVEL);
+        ? jutsuDisplayAtLevel(canonicalJutsu, level)
+        : scaleJutsuTagsForDisplay({ ...canonicalJutsu, effectPower: scaledEffectPower }, level);
+    const maxEffectJutsu = jutsuDisplayAtLevel(canonicalJutsu, JUTSU_MAX_LEVEL);
     const groups = effectJutsu.tags.filter((tag) => tag.name).reduce<Array<{ name: string; tags: typeof effectJutsu.tags }>>((result, tag) => {
         const existing = result.find((group) => group.name === tag.name);
         if (existing) existing.tags.push(tag);
