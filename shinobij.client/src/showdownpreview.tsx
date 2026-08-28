@@ -77,10 +77,15 @@ const MOCK_MAX_STAMINA = Math.round(SHOWDOWN_STAMINA_REFERENCE * SHOWDOWN_STAMIN
 const PREVIEW_PARAMS = new URLSearchParams(window.location.search);
 // ?facingqa renders the exact live 1v1 regression pair from the owner report.
 // ?facingqa2 renders the later 2v2 report: Oni Hound + Pebble Tortoise against
-// Coral Serval + Terra Porcupine. Both use the real PetShowdownBattle path.
+// Coral Serval + Terra Porcupine. ?format=3v3 keeps the ordinary harness cast
+// but fields three pets per side so formation/facing regressions are visible.
+// Every variant uses the real PetShowdownBattle path.
 const FACING_QA = PREVIEW_PARAMS.has("facingqa");
 const FACING_QA_2V2 = PREVIEW_PARAMS.has("facingqa2");
-const FORMAT: ShowdownFormat = FACING_QA && !FACING_QA_2V2 ? "1v1" : "2v2";
+const FORMAT: ShowdownFormat = PREVIEW_PARAMS.get("format") === "3v3"
+    ? "3v3"
+    : FACING_QA && !FACING_QA_2V2 ? "1v1" : "2v2";
+const PREVIEW_SESSION_ID = PREVIEW_PARAMS.get("session")?.trim() || "devharness";
 const FIELD_SIZE = SHOWDOWN_FORMAT_SIZE[FORMAT];
 
 /** The engine derives an action's presentation weight server-side; mirror it
@@ -228,7 +233,7 @@ const enemyPets = FACING_QA_2V2
     ]
     : FACING_QA
     ? [balanceBuiltInPetTemplate({ ...crystalBear! }) as Pet]
-    : [poolPet(LINEUP[3]), poolPet(LINEUP[4])];
+    : [poolPet(LINEUP[3]), poolPet(LINEUP[4]), ...(FORMAT === "3v3" ? [poolPet(20)] : [])];
 
 // ?elements=Wind,Earth,None,Lightning,Fire — review switch: remap the lineup's
 // elements in order (player0, player1, player2-bench, enemy0, enemy1) so every
@@ -284,12 +289,13 @@ const world = {
     meter: new Map<string, number>(),
     stamina: new Map<string, number>(),
     winded: new Set<string>(),
-    // The third player pet starts on the bench (mirrors the 2v2+bench format).
+    // Pets beyond the field size start on the bench. The ordinary 2v2 harness
+    // carries one reserve; ?format=3v3 fields that same third pet instead.
     benched: new Set<string>([]),
     // Standing arena weather, mirroring the engine's session.weather.
     weather: null as { element: string; until: number } | null,
 };
-if (playerPets[2]) world.benched.add(playerPets[2].id);
+for (const pet of playerPets.slice(FIELD_SIZE)) world.benched.add(pet.id);
 // ?glass — review switch: enemies open at 20% health so one signature is
 // lethal and the KO ceremony (impact frame, crowd eruption, scar, extended
 // fall beat) is reachable in a single order instead of a five-round grind.
@@ -305,7 +311,7 @@ for (const pet of [...playerPets, ...enemyPets]) {
 
 function stateView(finished = false, outcome: "win" | "loss" | null = null): ShowdownStateView {
     return {
-        sessionId: "devharness",
+        sessionId: PREVIEW_SESSION_ID,
         format: FORMAT,
         tier: "warrior",
         turnCap: SHOWDOWN_TURN_CAP,

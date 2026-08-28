@@ -58,7 +58,7 @@ import { ShowdownIcon, type ShowdownIconName } from "./icons/ShowdownIcon";
 import { SceneAmbience } from "./SceneAmbience";
 import type { Biome, WeatherType } from "../types/core";
 import { ELEMENT_ICON } from "../lib/element-icons";
-import { fitDistance, framedExtent, showdownFov, shotWeight, type ShotWeight } from "../lib/showdown-camera";
+import { fitDistance, framedExtent, showdownBackdropOffset, showdownFov, shotWeight, type ShotWeight } from "../lib/showdown-camera";
 import { resolveOpponentFacing } from "../lib/pet-combat-performance";
 import { pairedShowdownOpponentId, showdownLaneFacing, showdownSlotLane } from "../lib/pet-showdown-facing";
 import {
@@ -101,6 +101,7 @@ const ENEMY_Z = -4.1;
 
 const SLOT_SPACING = 3.6;
 const FLOOR_Y = 0;
+const BACKDROP_REPEAT = 2.5;
 /** KO withdrawal: how long a fallen body may lie in its slot before it leaves
  *  regardless of the queue (the queue normally moves it on sooner), and how
  *  long the sink-out itself takes. */
@@ -511,7 +512,11 @@ function StageEnvironment({ stage, beatRef, fxRef }: { stage: StageKey; beatRef:
         backdrop.wrapS = THREE.MirroredRepeatWrapping;
         // 2.5 tiles over the now-FULL ring keeps the painted arches at the same
         // apparent width the old 1.6π arc had at 2 tiles.
-        backdrop.repeat.set(2.5, 1);
+        backdrop.repeat.set(BACKDROP_REPEAT, 1);
+        // Every source image has a centred landmark, but the broadcast camera
+        // is deliberately off-axis. Align that landmark with the floor seal and
+        // the centre of play instead of leaving it a quarter-screen to the left.
+        backdrop.offset.x = showdownBackdropOffset(WIDE_POS[0], WIDE_POS[2], BACKDROP_REPEAT);
         return { floor, backdrop };
     }, [art]);
     const ambient = useRef<THREE.AmbientLight>(null);

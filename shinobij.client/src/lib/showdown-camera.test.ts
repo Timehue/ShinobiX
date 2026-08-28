@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SHOT_EXTENT, fitDistance, framedExtent, horizontalFov, showdownFov, shotWeight } from "./showdown-camera";
+import { SHOT_EXTENT, fitDistance, framedExtent, horizontalFov, showdownBackdropOffset, showdownFov, shotWeight } from "./showdown-camera";
 
 const DESKTOP = 16 / 9;
 /** The viewport the too-zoomed report came from. */
@@ -19,6 +19,19 @@ function fits(horiz: number, vert: number, distance: number, fovDeg: number, asp
 test("horizontal FOV widens with aspect and collapses on portrait", () => {
     assert.ok(horizontalFov(FOV, DESKTOP) > (FOV * Math.PI) / 180);
     assert.ok(horizontalFov(FOV, PHONE_PORTRAIT) < (FOV * Math.PI) / 180);
+});
+
+test("the mirrored arena backdrop centres its painted landmark on the resting camera", () => {
+    const repeat = 2.5;
+    const cameraX = 5.2;
+    const cameraZ = 14;
+    const angle = Math.atan2(-cameraX, -cameraZ);
+    const u = ((angle / (Math.PI * 2)) % 1 + 1) % 1;
+    const repeatedU = u * repeat + showdownBackdropOffset(cameraX, cameraZ, repeat);
+    // A half-integer is the source image's centre under mirrored repeat.
+    assert.ok(Math.abs((repeatedU - 0.5) - Math.round(repeatedU - 0.5)) < 1e-9);
+    assert.ok(Math.abs(showdownBackdropOffset(cameraX, cameraZ, repeat)) < 0.5);
+    assert.equal(showdownBackdropOffset(cameraX, cameraZ, 0), 0);
 });
 
 test("fit distance puts the whole extent on screen, and no further", () => {

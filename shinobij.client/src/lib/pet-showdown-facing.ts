@@ -29,6 +29,14 @@ export function pairedShowdownOpponentId(
     const ownIndex = ownField.indexOf(fighterId);
     if (ownIndex < 0) return opposingField[0] ?? null;
 
+    // Full formations have one unambiguous reciprocal assignment. Spell it
+    // out instead of relying on nearest-lane tie behaviour: 3v3 is the case
+    // that exposed this after 2v2 was corrected, and enemy render order is the
+    // exact mirror of player order.
+    if (ownField.length === opposingField.length) {
+        return opposingField[opposingField.length - 1 - ownIndex] ?? opposingField[0] ?? null;
+    }
+
     const ownLane = showdownSlotLane(ownIndex, ownField.length, side);
     const opposingSide = side === "player" ? "enemy" : "player";
     let pairedIndex = 0;
