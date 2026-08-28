@@ -57,6 +57,7 @@ import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.j
 import { COMBAT_RESOURCES_V2, v2JutsuCosts } from '../_combat-resources.js';
 import { CHAKRA_CAP_V2, STAMINA_CAP_V2 } from '../_xp-engine.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
+import { canonicalizeOverloadTags } from '../../shared/overload.js';
 import { LOADOUT_CAP_BASE, maxLoadout } from '../_entitlements.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import {
@@ -739,6 +740,13 @@ export function sanitizeJutsuList(rawList: unknown, options: SanitizeJutsuListOp
                     seenTagNames.add(n);
                     return true;
                 });
+                // The live Overload definition historically existed as both a
+                // one-tag and two-tag admin snapshot. Its stable contract is two
+                // independent IDG pulses. Repair only the trusted admin object;
+                // untrusted/client payloads retain the duplicate-tag defense.
+                if (allowTrustedStacks) {
+                    cleanTags = canonicalizeOverloadTags(jutsuId, cleanTags).slice(0, 10);
+                }
             }
             // v4.3 Pierce: at most one Pierce per loadout; subsequent Pierces are stripped.
             // Pierce jutsu AP is forced to 60.
