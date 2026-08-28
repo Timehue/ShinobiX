@@ -65,8 +65,16 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // handler — screen-level wiring the ratchet has never guarded. This is a
         // new signal on the overview, not a retired layer coming back. Exact
         // achieved count, no buffer.
-        lineCount(worldMapSource) <= 5_333,
-        `WorldMap.tsx grew past 5,333 lines; retired overview layers must stay retired.`,
+        // 5,355 (+22): 214815c8f highlights the tutorial's click targets, so a new
+        // player can see WHICH thing on the board the Academy is asking them to
+        // press. That is onboarding affordance on the existing overview, not a
+        // retired drawing layer coming back — which is the only thing this number
+        // guards. The structural assertions below still hold unchanged: one
+        // exhaustive chest flow, no unreachable overview fallback, live charting
+        // before sector markers, and the wanderer dialog still extracted. Exact
+        // achieved count, no buffer, per the convention above.
+        lineCount(worldMapSource) <= 5_355,
+        `WorldMap.tsx grew past 5,355 lines; retired overview layers must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,
