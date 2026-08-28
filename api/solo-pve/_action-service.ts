@@ -17,6 +17,7 @@ import {
     writeSoloPveSession,
 } from './_store.js';
 import { recordSoloPveLifecycle, type SoloPveTelemetryDeps } from './_telemetry.js';
+import { recordBetaFunnelStep } from '../_beta-funnel.js';
 
 export type SoloPveLock = <T>(
     target: string,
@@ -133,6 +134,13 @@ export async function executeSoloPveAction(
         // exists, and fire-and-forget so telemetry never delays the response.
         if (session.status === 'active' && next.status === 'done') {
             void recordSoloPveLifecycle('combat.session_completed', next, deps.telemetry);
+            // The same edge is also this player's FIRST completed combat, once
+            // ever. Gated per player rather than per session, so it survives the
+            // session TTL that the lifecycle gate above is scoped to.
+            void recordBetaFunnelStep('combat.first_completed', next.ownerSlug, {
+                level: Number(next.encounter?.level),
+                source: String(next.encounter?.kind ?? ''),
+            });
         }
         return { status: 200, body: { applied: true, event: resolved.event, session: next } };
     }, { failClosed: true, ttlSec: 10 });
