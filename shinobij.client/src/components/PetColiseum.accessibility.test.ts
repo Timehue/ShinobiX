@@ -4,6 +4,8 @@ import test from "node:test";
 
 const coliseum = readFileSync(new URL("./PetColiseum.tsx", import.meta.url), "utf8");
 const arena = readFileSync(new URL("../screens/PetArena.tsx", import.meta.url), "utf8");
+const showdownBattle = readFileSync(new URL("./PetShowdownBattle.tsx", import.meta.url), "utf8");
+const showdownStyles = readFileSync(new URL("../screens/PetShowdown.css", import.meta.url), "utf8");
 const witnessProgress = readFileSync(new URL("./PetChronicleProgress.tsx", import.meta.url), "utf8");
 
 test("Pet Coliseum result is a trapped modal boundary that restores the battle safely", () => {
@@ -43,4 +45,12 @@ test("Pet Arena does not preload the retired Coliseum renderer", () => {
     assert.doesNotMatch(arena, /import\("\.\.\/components\/PetColiseum"\)/);
     assert.match(arena, /const PetShowdownReplay = lazyWithRetry/);
     assert.match(arena, /const PetWarfrontMatch = lazyWithRetry/);
+});
+
+test("the shared Showdown battle owns the stylesheet that constrains its fullscreen replay", () => {
+    assert.match(showdownBattle, /import "\.\.\/screens\/PetShowdown\.css";/);
+    assert.match(showdownBattle, /className="pet-combat-takeover showdown-takeover"/);
+    assert.match(showdownStyles, /\.showdown-takeover\s*\{[^}]*background:/);
+    assert.match(showdownStyles, /\.showdown-vs-side img\s*\{[^}]*width:\s*84px;[^}]*height:\s*84px;/);
+    assert.match(showdownStyles, /\.showdown-result\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0;/);
 });
