@@ -127,6 +127,53 @@ test("current objective is null once every unlocked exam is passed", () => {
     assert.equal(currentLogbookObjective(c), null);
 });
 
+// Level 30 is the milestone most likely to read as broken progression, because
+// two different things called "Chunin" disagree by nine levels: the RANK starts
+// at 30 (rankFromLevel bands 80/50/30/15) while the Chunin Advancement Exam is a
+// level-39 hold (shared/progression-holds.ts). A player who skipped the Genin
+// exam is therefore titled Chunin and still held by a Genin gate.
+test("level 30 is titled Chunin but still held by the Genin gate when that exam is unpassed", () => {
+    assert.equal(rankFromLevel(29), "Genin");
+    assert.equal(rankFromLevel(30), "Chunin");
+
+    const c = makeCharacter({ level: 30 });
+    assert.equal(rankFromLevel(c.level), "Chunin");
+
+    // The hold names the exam, so the Logbook can say WHY rather than just stalling.
+    assert.equal(levelProgress(c).heldBy, "Genin Advancement Exam");
+
+    // The Chunin exam must not appear yet — offering it here would tell a held
+    // player to sit an exam they cannot reach for another nine levels.
+    const objectives = buildLogbookObjectives(c);
+    assert.deepEqual(objectives.filter((o) => o.kind === "exam").map((o) => o.examKey), ["genin"]);
+
+    // Correct objective prioritised, and it carries somewhere to go.
+    const current = currentLogbookObjective(c);
+    assert.equal(current?.examKey, "genin");
+    assert.equal(current?.progressionImpact, "blocking");
+    assert.equal(current?.unlockLevel, 20);
+    assert.ok(current?.requirements.some((r) => r.goScreen === "training"));
+    assert.ok(current?.requirements.some((r) => r.goScreen === "missions"));
+});
+
+test("clearing the Genin exam frees level 30 and leaves nothing pending until 39", () => {
+    const c = makeCharacter({ level: 30, examsPassed: ["genin"] });
+    assert.equal(levelProgress(c).heldBy, null);
+    assert.equal(currentLogbookObjective(c), null);
+
+    // Still nothing new unlocked at 30 - the next hold is the level-39 Chunin gate.
+    assert.deepEqual(buildLogbookObjectives(c).filter((o) => o.kind === "exam").map((o) => o.examKey), ["genin"]);
+    assert.equal(currentLogbookObjective(makeCharacter({ level: 39, examsPassed: ["genin"] }))?.examKey, "chunin");
+});
+
+test("profession does not change what level 30 asks for", () => {
+    // The profession checkpoint belongs to the level-13 Ready for Genin objective.
+    // Pinned here so it cannot leak into the Chunin band as a second gate.
+    const ids = (c: Character) => buildLogbookObjectives(c).map((o) => o.id);
+    assert.deepEqual(ids(makeCharacter({ level: 30 })), ["exam-genin"]);
+    assert.deepEqual(ids(makeCharacter({ level: 30, profession: "medic" } as Partial<Character>)), ["exam-genin"]);
+});
+
 test("only the two canonical progression holds can become the current exam", () => {
     assert.equal(examProgressionImpact("genin"), "blocking");
     assert.equal(examProgressionImpact("chunin"), "blocking");
