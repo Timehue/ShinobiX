@@ -20,6 +20,11 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+// This battle is reused by route-scoped replay hosts (Pet Arena, Ladder, war
+// records), so its presentation contract must travel with the component. If
+// only the PetShowdown screen imports this sheet, a fresh load into another
+// host mounts a transparent takeover with native-size portrait artwork.
+import "../screens/PetShowdown.css";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html, Sparkles } from "@react-three/drei";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
