@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { recordSoloPveLifecycle } from '../solo-pve/_telemetry.js';
 import { kv } from '../_storage.js';
 import {
     appendSettlementReceipt,
@@ -158,7 +159,13 @@ export async function settlePveFightOutcome(
         return { ok: false, status: 403, error: 'That fight belongs to another player.' };
     }
     const outcome = resolveAiFightOutcome(session);
-    if (outcome === 'unknown') return { ok: true, outcome, applied: false, replayed: false };
+    if (outcome === 'unknown') {
+        // A finished fight whose winner cannot be derived is precisely the
+        // "unresolved combat session" the daily report alerts on. That counter
+        // had no emitter, so the alert could never fire.
+        if (isSoloPveSession(session)) void recordSoloPveLifecycle('combat.session_unresolved', session);
+        return { ok: true, outcome, applied: false, replayed: false };
+    }
     if (outcome === 'win' && settlementOwnsHpOnWin(session)) {
         return { ok: true, outcome, applied: false, replayed: false, deferredToSettlement: true };
     }
@@ -208,6 +215,12 @@ export async function settlePveFightOutcome(
         outcome,
         at: now,
     }, OUTCOME_RECEIPT_TTL_SECONDS);
+    // Settled once, on the first application only. A replay is durable in the
+    // save already and must not add a second count; the recorder's nx gate is a
+    // second line of defence rather than the only one.
+    if (isSoloPveSession(session) && mutation.value.applied && !mutation.value.replayed) {
+        void recordSoloPveLifecycle('combat.session_settled', session);
+    }
     return {
         ok: true,
         ...mutation.value,
