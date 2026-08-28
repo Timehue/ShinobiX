@@ -2274,7 +2274,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1941
+            "line": 1944
           }
         ]
       },
@@ -2793,7 +2793,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1811
+            "line": 1814
           }
         ]
       },
@@ -3231,11 +3231,11 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1960
+            "line": 1963
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 2020
+            "line": 2023
           },
           {
             "source": "shinobij.client/src/styles/village-war-map-skin.css",
@@ -3277,11 +3277,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1528
-          },
-          {
-            "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 2086
+            "line": 1535
           }
         ]
       },
@@ -3292,7 +3288,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1757
+            "line": 1760
           }
         ]
       },
@@ -3568,7 +3564,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1929
+            "line": 1932
           }
         ]
       },
@@ -3622,7 +3618,15 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1757
+            "line": 1528
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1760
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 2089
           }
         ]
       },
@@ -3969,7 +3973,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1954
+            "line": 1957
           }
         ]
       }
