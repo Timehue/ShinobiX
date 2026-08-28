@@ -435,10 +435,10 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // 2026-08-28 BLOODLINE AWAKENING: 7,918,000 -> 7,965,000 B. The authoritative
 // awakening flow adds a dedicated lazy BloodlineMaker graph (32,242 B JS +
 // 27,741 B CSS) and the Central hub presentation that launches it. The exact
-// combined main + pet-release-hotfix graph measures 7,945,807 B after a clean
-// production build, leaving 19,193 B of local headroom. This is not a startup
-// regression: the independently enforced initial graph remains 1,444,143 B
-// raw / 382,519 B gzip, and the entry, per-chunk, and per-CSS gates are unchanged.
+// combined main + pet-release-hotfix graph measures 7,946,159 B after a clean
+// production build, leaving 18,841 B of local headroom. This is not a startup
+// regression: the independently enforced initial graph remains 1,444,495 B
+// raw / 382,671 B gzip, and the entry, per-chunk, and per-CSS gates are unchanged.
 const TOTAL_JS_CSS_FAIL_BYTES = 7_965_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
