@@ -3,9 +3,8 @@ import { strict as assert } from 'node:assert';
 import { petStatCeil, PET_BASE_STATS, PET_STAT_CEIL_FACTOR, petJutsuPowerCeil, PET_JUTSU_POWER_CAP } from './_pet-stat-ceil.js';
 
 const STATS = ['hp', 'attack', 'defense', 'speed'] as const;
-// The in-game all-in level-100 growth ceiling: base * (1 + PET_LEVEL_GROWTH * 99)
-// = base * (1 + 0.04 * 99) = base * 4.96 (see gainPetXp in client pet-balance).
-const ALL_IN_MULT = 1 + 0.04 * 99;
+// Level 100 with 50 points and the largest all-stat trait.
+const ALL_IN_MULT = 1 + 0.0075 * 99 + 0.01 * 50 + 0.20;
 
 describe('petStatCeil — pet-ladder anti-tamper ceiling', () => {
     it('bounds a tampered 100k stat far below the old flat clamp', () => {
@@ -18,7 +17,7 @@ describe('petStatCeil — pet-ladder anti-tamper ceiling', () => {
         }
     });
 
-    it('NEVER clips a legit all-in level-100 build (base*4.96)', () => {
+    it('NEVER clips a legit all-in level-100 build', () => {
         for (const rarity of Object.keys(PET_BASE_STATS)) {
             for (const stat of STATS) {
                 const legitMax = Math.round(PET_BASE_STATS[rarity][stat] * ALL_IN_MULT);

@@ -30,10 +30,10 @@ import { derivePetRole, roleStatMult, petTemplateArchetype, type PetSubRole } fr
 
 /**
  * Normalize the numeric pet stats. HP/ATK/DEF/SPD are intentionally **uncapped**
- * — training builds them freely (the level-100 ceiling in `gainPetXp` is the only
- * bound), so a dedicated player can out-grow a higher-tier pet on the four battle
- * stats. The higher tier's edge is its bigger BASE stats (which make its
- * base-anchored growth proportionally larger, see `gainPetXp`) plus **jutsu
+ * — authoritative level growth derives them from immutable species stats, a
+ * bounded automatic curve, and capped Growth Point allocations. A higher tier's
+ * edge is its bigger BASE stats (which make base-anchored growth proportionally
+ * larger, see `gainPetXp`) plus **jutsu
  * power**, which stays clamped per-rarity here (0-power slots are left alone so
  * utility jutsus stay utility). moveRange is bounded to [2, 5].
  */
@@ -628,43 +628,31 @@ export function renormalizedIfChanged(roster: Pet[], normalize: (pet: Pet) => Pe
 
 // ── Training math ───────────────────────────────────────────────────────
 
-/** Combined training-speed multiplier: duration tier × Loyal trait × happiness. */
+/** Reward multiplier applied to the duration's fixed base XP. */
 export function petTrainingMultiplier(pet: Pet) {
-    const durationMultiplier = petTrainingDurationMultipliers[pet.training?.durationMs ?? petTrainingDurations[0].ms] ?? 1;
     const loyalMultiplier = pet.trait === "Loyal" ? 1.5 : 1;
     const happinessMultiplier = petHappiness(pet) >= 80 ? 1.15 : petHappiness(pet) >= 50 ? 1.05 : 1;
-    return durationMultiplier * loyalMultiplier * happinessMultiplier;
+    return loyalMultiplier * happinessMultiplier;
 }
 
 /**
  * XP awarded by one completed training session. Training no longer grants flat
- * stats directly — its XP levels the pet, and each level-up channels a
- * base-anchored stat gain into the trained stat (see `gainPetXp` +
- * `petTrainingChannel`). This keeps every build bounded by the level-100 ceiling
- * while letting the player decide WHICH stat their pet grows.
+ * stats directly. Level-ups grant a Growth Point which the player commits in
+ * the Pet Yard; every XP source therefore follows the same progression rules.
  */
 export function petTrainingGains(pet: Pet) {
-    const mult = petTrainingMultiplier(pet);
+    const baseXp = petTrainingDurationMultipliers[pet.training?.durationMs ?? petTrainingDurations[0].ms] ?? 30;
     return {
-        xp: Math.max(15, Math.round(45 * mult)),
+        xp: Math.max(15, Math.round(baseXp * petTrainingMultiplier(pet))),
     };
 }
-
-const TRAINING_FOCUS_LABEL: Record<PetTrainingType, string> = {
-    strength: "Attack",
-    endurance: "HP & Defense",
-    agility: "Speed",
-    chakra: "balanced stats",
-    bond: "all stats + happiness",
-};
 
 /** Human-readable preview string for "start training" UI buttons. */
 export function petTrainingPreview(pet: Pet, type: PetTrainingType, durationMs: number) {
     if (pet.level >= pet.maxLevel) return "Maxed (Lv 100) — training no longer raises stats";
     const previewPet = { ...pet, training: { type, endsAt: Date.now() + durationMs, durationMs } };
     const xp = petTrainingGains(previewPet).xp;
-    const totalXp = type === "bond" ? xp + Math.round(xp * 0.35) : xp;
-    return `Builds ${TRAINING_FOCUS_LABEL[type]} as it levels • +${totalXp} XP`;
+    return `+${xp} XP • level-ups award Growth Points`;
 }
 
 /** Roll a random trait for a newly-acquired pet. Guardian is mythic-only. */
@@ -688,11 +676,7 @@ export function applyPetTraitBonuses(pet: Pet, trait: PetTrait): Pet {
 }
 
 /**
- * Apply a completed training session: awards XP (which levels the pet, and each
- * level-up channels a base-anchored stat gain into the trained stat — see
- * `gainPetXp`), and resets the active training slot. Bond training also nudges
- * happiness +5 and awards a +35% XP bonus. Training a level-100 pet awards XP
- * that no longer levels it, so its stats stop growing (the intended ceiling).
+ * Client mirror of server settlement. The server is authoritative in live play.
  */
 export function collectPetTraining(pet: Pet, xpMult: number = 1): Pet {
     if (!pet.training) return pet;
@@ -701,11 +685,8 @@ export function collectPetTraining(pet: Pet, xpMult: number = 1): Pet {
     // xpMult applies the server-owned village comeback-morale modifier to pet
     // training XP. Default 1 keeps every other caller unchanged.
     const xp = Math.max(0, Math.round(gains.xp * xpMult));
-    if (focus === "bond") {
-        const bondXp = Math.max(0, Math.round((gains.xp + Math.round(gains.xp * 0.35)) * xpMult));
-        return capPetStats(gainPetXp(increasePetHappiness({ ...pet, training: undefined }, 5), bondXp, "bond"));
-    }
-    return capPetStats(gainPetXp({ ...pet, training: undefined }, xp, focus));
+    const idle = focus === "bond" ? increasePetHappiness({ ...pet, training: undefined }, 5) : { ...pet, training: undefined };
+    return capPetStats(gainPetXp(idle, xp));
 }
 
 // ── XP / level-up ───────────────────────────────────────────────────────
@@ -714,57 +695,91 @@ export function petXpNeeded(level: number): number {
     return Math.max(100, Math.floor(level * 100));
 }
 
-// Each level-up grows the pet by this fraction of its RARITY-BASELINE stat,
-// channeled into the stat its training focused (balanced when untrained). Across
-// the 99 level-ups from 1→100 a single-focus build reaches ~5× its base in that
-// stat (≈ the old cap), a dual focus ~3×/3×, a balanced pet ~2× across the board
-// — every pet gets the SAME total base-fraction of growth; the player just
-// chooses its SHAPE via which training they run. Anchoring to base keeps a higher
-// tier's growth proportionally larger (its bigger base is the tier edge).
-// HP/ATK/DEF/SPD are otherwise uncapped (capPetStats no longer ceilings them);
-// reaching level 100 is the only bound.
-export const PET_LEVEL_GROWTH = 0.04;
+export const PET_CORE_GROWTH_PER_LEVEL = 0.0075;
+export const PET_SPECIALIZATION_GROWTH = 0.01;
+export const PET_AGILITY_GROWTH = 0.005;
+/** Compatibility alias for older imports; specialization now grows at 1%. */
+export const PET_LEVEL_GROWTH = PET_SPECIALIZATION_GROWTH;
+export const PET_GROWTH_VERSION = 1;
 
 type GrowthStat = "hp" | "attack" | "defense" | "speed";
+export type GrowthAttribute = "vitality" | "power" | "guard" | "agility";
+const GROWTH_ATTRIBUTES: GrowthAttribute[] = ["vitality", "power", "guard", "agility"];
+const STAT_ATTRIBUTE: Record<GrowthStat, GrowthAttribute> = { hp: "vitality", attack: "power", defense: "guard", speed: "agility" };
 
-/**
- * Which battle stat a single level-up grows, given the training focus that
- * awarded the XP and the level just reached. Multi-stat focuses ALTERNATE by the
- * level number so each level applies one FULL base-anchored bump to a single stat
- * (never a sub-1 amount that rounds to zero): endurance ping-pongs HP/DEF; bond
- * and the untrained default (battle/feed XP) rotate across all four. strength→ATK
- * and agility→SPD every level. Legacy "chakra" sessions fall through to the
- * balanced rotation — jutsu power is no longer trainable (it grows per-level below
- * and stays rarity-capped, which is the higher tier's edge).
- */
-function petTrainingChannel(focus: PetTrainingType | undefined, level: number): GrowthStat {
-    switch (focus) {
-        case "strength": return "attack";
-        case "agility": return "speed";
-        case "endurance": return level % 2 === 0 ? "hp" : "defense";
-        default: return (["hp", "attack", "defense", "speed"] as const)[level % 4];
-    }
+export const emptyPetGrowthAllocation = () => ({ vitality: 0, power: 0, guard: 0, agility: 0 });
+export const petGrowthPointsEarned = (level: number) => Math.max(0, Math.min(100, Math.floor(level || 1)) - 1);
+export const petGrowthAttributeCap = (level: number) => Math.ceil(petGrowthPointsEarned(level) / 2);
+
+function traitGrowthBonus(trait: PetTrait | undefined, stat: GrowthStat) {
+    if (trait === "Fateweaver") return 0.20;
+    if (trait === "Battleborn") return 0.10;
+    if (trait === "Hollowborn") return 0.05;
+    if (trait === "Aggressive" && stat === "attack") return 0.15;
+    if (trait === "Guardian" && (stat === "hp" || stat === "defense")) return 0.20;
+    if (trait === "Swift" && stat === "speed") return 0.20;
+    return 0;
+}
+
+export function normalizedPetGrowthAllocation(pet: Pet) {
+    const cap = petGrowthAttributeCap(pet.level);
+    const source = pet.growthAllocation ?? emptyPetGrowthAllocation();
+    const allocation = emptyPetGrowthAllocation();
+    let remaining = petGrowthPointsEarned(pet.level);
+    GROWTH_ATTRIBUTES.forEach((key) => {
+        allocation[key] = Math.min(remaining, cap, Math.max(0, Math.floor(Number(source[key]) || 0)));
+        remaining -= allocation[key];
+    });
+    return allocation;
+}
+
+export function derivePetGrowthStats(pet: Pet): Pick<Pet, GrowthStat> {
+    const earned = petGrowthPointsEarned(pet.level);
+    const allocation = normalizedPetGrowthAllocation(pet);
+    const core = earned * PET_CORE_GROWTH_PER_LEVEL;
+    const base = pet.growthBaseStats ?? {
+        hp: Math.max(1, Math.round(pet.hp / (1 + traitGrowthBonus(pet.trait, "hp")))),
+        attack: Math.max(1, Math.round(pet.attack / (1 + traitGrowthBonus(pet.trait, "attack")))),
+        defense: Math.max(1, Math.round(pet.defense / (1 + traitGrowthBonus(pet.trait, "defense")))),
+        speed: Math.max(1, Math.round(pet.speed / (1 + traitGrowthBonus(pet.trait, "speed")))),
+    };
+    const result = {} as Pick<Pet, GrowthStat>;
+    (["hp", "attack", "defense", "speed"] as GrowthStat[]).forEach((stat) => {
+        const coefficient = stat === "speed" ? PET_AGILITY_GROWTH : PET_SPECIALIZATION_GROWTH;
+        result[stat] = Math.max(1, Math.round(base[stat] * (1 + traitGrowthBonus(pet.trait, stat) + core + allocation[STAT_ATTRIBUTE[stat]] * coefficient)));
+    });
+    return result;
+}
+
+export function normalizePetGrowth(pet: Pet): Pet {
+    const allocation = normalizedPetGrowthAllocation(pet);
+    const growthBaseStats = pet.growthBaseStats ?? {
+        hp: Math.max(1, Math.round(pet.hp / (1 + traitGrowthBonus(pet.trait, "hp")))),
+        attack: Math.max(1, Math.round(pet.attack / (1 + traitGrowthBonus(pet.trait, "attack")))),
+        defense: Math.max(1, Math.round(pet.defense / (1 + traitGrowthBonus(pet.trait, "defense")))),
+        speed: Math.max(1, Math.round(pet.speed / (1 + traitGrowthBonus(pet.trait, "speed")))),
+    };
+    const spent = GROWTH_ATTRIBUTES.reduce((sum, key) => sum + allocation[key], 0);
+    const normalized = { ...pet, growthVersion: PET_GROWTH_VERSION, growthBaseStats, growthAllocation: allocation, growthPoints: Math.max(0, petGrowthPointsEarned(pet.level) - spent) };
+    return { ...normalized, ...derivePetGrowthStats(normalized) };
 }
 
 /**
  * Award XP to a pet. Cascade-levels until XP < petXpNeeded(level) or the pet hits
- * its max level. Each level-up grows a base-anchored amount of ONE battle stat,
- * chosen by `focus` (the training type that awarded this XP; balanced when omitted
- * — e.g. battle/feed XP), and adds +1 power every other level to each damage jutsu
+ * its max level. Each level grants automatic core growth and one player-assignable
+ * Growth Point, independent of the XP source, and adds +1 power every other level to each damage jutsu
  * (rarity-capped in capPetStats). Hitting level 50 flips `unlockedForPve` on. At
  * max level no levels are gained, so stats stop growing — the intended ceiling.
  */
-export function gainPetXp(pet: Pet, amount: number, focus?: PetTrainingType): Pet {
+export function gainPetXp(petRaw: Pet, amount: number, _focus?: PetTrainingType): Pet {
+    const pet = normalizePetGrowth(petRaw);
     let level = pet.level;
+    const oldLevel = level;
     let xp = pet.xp + Math.max(0, Math.floor(amount));
-    let levelUps = 0;
-    const grew: Record<GrowthStat, number> = { hp: 0, attack: 0, defense: 0, speed: 0 };
 
     while (level < pet.maxLevel && xp >= petXpNeeded(level)) {
         xp -= petXpNeeded(level);
         level += 1;
-        levelUps += 1;
-        grew[petTrainingChannel(focus, level)] += 1;
     }
 
     if (level >= pet.maxLevel) {
@@ -773,20 +788,15 @@ export function gainPetXp(pet: Pet, amount: number, focus?: PetTrainingType): Pe
     }
 
     const unlockedForPve = Boolean(pet.unlockedForPve || level >= 50);
-    if (levelUps <= 0) return { ...pet, level, xp, unlockedForPve };
-    const base = balancedPetBaseStats[pet.rarity] ?? balancedPetBaseStats.standard;
-    const grow = (stat: GrowthStat) => Math.round(base[stat] * PET_LEVEL_GROWTH * grew[stat]);
-    return capPetStats({
+    if (level === oldLevel) return normalizePetGrowth({ ...pet, level, xp, unlockedForPve });
+    const jutsuPowerGain = Math.floor(level / 2) - Math.floor(oldLevel / 2);
+    return capPetStats(normalizePetGrowth({
         ...pet,
         level,
         xp,
         unlockedForPve,
-        hp: pet.hp + grow("hp"),
-        attack: pet.attack + grow("attack"),
-        defense: pet.defense + grow("defense"),
-        speed: pet.speed + grow("speed"),
-        jutsus: pet.jutsus.map((jutsu) => ({ ...jutsu, power: jutsu.power > 0 ? jutsu.power + Math.ceil(levelUps / 2) : jutsu.power })),
-    });
+        jutsus: pet.jutsus.map((jutsu) => ({ ...jutsu, power: jutsu.power > 0 ? jutsu.power + jutsuPowerGain : jutsu.power })),
+    }));
 }
 
 // ── Misc utilities ──────────────────────────────────────────────────────

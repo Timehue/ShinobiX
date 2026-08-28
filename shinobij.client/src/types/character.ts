@@ -799,7 +799,7 @@ export type PlayerRecord = {
     village: string;
     specialty: JutsuType;
     character: Character;
-    /** Server-projected 4/6 combat roster; ownership remains character.pets. */
+    /** Server-projected 5/6 carried roster; ownership remains character.pets. */
     eligiblePets?: Pet[];
     currentSector?: number;
     lastSeenAt?: number;

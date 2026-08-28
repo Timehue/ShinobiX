@@ -3,7 +3,7 @@
  * other species OF THE SAME RARITY through the real server engine, both sides
  * driven by the same AI policy, and reports the spread:
  *
- *   node --import tsx scripts/showdown-balance.mjs [--level 50] [--seeds 3]
+ *   node --import tsx scripts/showdown-balance.mjs [--level 50] [--seeds 3] [--bench 2]
  *
  * What "balanced" means for Showdown (mirrors the pet-role-balance ratchet):
  *   - no ROLE outside ~40-60% overall win rate,
@@ -22,7 +22,7 @@ import {
     resolveShowdownRound,
 } from '../api/_pet-showdown/engine.ts';
 import { chooseShowdownAiCommands } from '../api/_pet-showdown/ai.ts';
-import { SHOWDOWN_TURN_CAP } from '../shared/pet-showdown-contract.ts';
+import { SHOWDOWN_BENCH_SIZE, SHOWDOWN_TURN_CAP } from '../shared/pet-showdown-contract.ts';
 // Sim-only backstop. The engine judges every match at SHOWDOWN_TURN_CAP (25)
 // so this can only fire if the judge ever stopped firing — it is a bug tripwire,
 // not the round limit. (It predates the judge, when the engine had no cap.)
@@ -35,20 +35,33 @@ const flag = (name, fallback) => {
 };
 const LEVEL = flag('level', 50);
 const SEEDS = flag('seeds', 3);
-/** Reserves parked behind each fighter. Default 0 — the historic 1v1 shape the
- *  ratchet is calibrated against.
- *
- *  Why this exists: several move kinds act on the BENCH (push and pull force a
- *  rotation, movelock traps a pet on the field), and with no reserves they all
- *  fall through to their degenerate no-bench path. This analyzer therefore
- *  could not see those mechanics at all — it measured the fallback and reported
- *  it as the kind's balance. `--bench 1` gives every fighter one reserve so
- *  rotation and trapping are live and measurable. */
-const BENCH = flag('bench', 0);
+/** Reserves parked behind each fighter. The default is the live Colosseum team
+ * shape; --bench 0 remains available as a focused duel diagnostic. Several move
+ * kinds act on the bench, so the release audit must keep rotation and trapping
+ * live instead of measuring their degenerate no-bench fallbacks. */
+const BENCH = flag('bench', SHOWDOWN_BENCH_SIZE);
 
-// Balanced-training growth: the same all-stat multiplier every species gets,
-// so the comparison isolates SPECIES identity (base spread + kit), not builds.
-const GROWTH = 1 + (LEVEL - 1) * 0.04 * 0.25;
+function balancedAllocation(level) {
+    const earned = Math.max(0, level - 1);
+    const each = Math.floor(earned / 4);
+    return { vitality: each + (earned % 4 > 0 ? 1 : 0), power: each + (earned % 4 > 1 ? 1 : 0), guard: each + (earned % 4 > 2 ? 1 : 0), agility: each };
+}
+
+function focusedAllocation(level, focusStat) {
+    const keyFor = { hp: 'vitality', attack: 'power', defense: 'guard', speed: 'agility' };
+    const focus = keyFor[focusStat];
+    const earned = Math.max(0, level - 1);
+    const cap = Math.ceil(earned / 2);
+    const out = balancedAllocation(level);
+    const shift = Math.min(cap - out[focus], Math.max(1, Math.round(earned * 0.08)));
+    out[focus] += shift;
+    const others = Object.keys(out).filter((key) => key !== focus);
+    for (let i = 0; i < shift; i++) {
+        const key = others[i % others.length];
+        out[key] -= 1;
+    }
+    return out;
+}
 
 function scaled(tpl, slot) {
     return {
@@ -56,10 +69,8 @@ function scaled(tpl, slot) {
         id: `${slot}:${tpl.id}`,
         templateId: tpl.id,
         level: LEVEL,
-        hp: Math.round(Number(tpl.hp) * GROWTH),
-        attack: Math.round(Number(tpl.attack) * GROWTH),
-        defense: Math.round(Number(tpl.defense) * GROWTH),
-        speed: Math.round(Number(tpl.speed) * GROWTH),
+        growthBaseStats: { hp: Number(tpl.hp), attack: Number(tpl.attack), defense: Number(tpl.defense), speed: Number(tpl.speed) },
+        growthAllocation: tpl.__showdownAllocation ?? balancedAllocation(LEVEL),
     };
 }
 
@@ -233,17 +244,10 @@ console.log(kindRows.filter(([, s]) => s.species >= KIND_SIGNAL_MIN).map(fmtKind
 console.log(`  too few carriers to read as a trend (<${KIND_SIGNAL_MIN} species):`);
 console.log(`  ${kindRows.filter(([, s]) => s.species < KIND_SIGNAL_MIN).map(fmtKind).join('  ·  ')}`);
 
-// ── Training relevance: every focus must beat an untrained twin ──────────────
-// A pet trained all-in on ONE stat (the +396% budget channeled per the live
-// growth rule, here +60% on the focused stat as a mid-game snapshot) fights
-// its untrained twin. Every focus should win CLEARLY (>=65%) or that training
-// choice is a trap.
-//
-// Driven by the REAL game AI on both sides, not the sweep's simplified policy:
-// the sweep policy is symmetric so it cancels out of role/element BANDS, but
-// it underuses tempo, which flattened the SPEED row to a 50% coin — the same
-// question asked under chooseShowdownAiCommands reads ~88%. The swapped-view
-// trick lets the enemy-side brain command the player side.
+// ── Build relevance: a legal moderate tilt vs a balanced twin ───────────────
+// Move roughly 8% of the earned budget into one attribute and fight both sides
+// of the matchup. This is diagnostic rather than a hard band: roles and kits
+// value attributes differently, but no row should imply a universal auto-win.
 const TRAIN_SAMPLES = 60;
 const aiFightWin = (trainedTpl, baseTpl, seed) => {
     const session = createShowdownSession({
@@ -253,21 +257,24 @@ const aiFightWin = (trainedTpl, baseTpl, seed) => {
     let rounds = 0;
     while (!session.finished && rounds < HARD_STOP + 1) {
         rounds += 1;
-        const mine = chooseShowdownAiCommands({ ...session, player: session.enemy, enemy: session.player });
-        resolveShowdownRound(session, mine, chooseShowdownAiCommands(session));
+        resolveShowdownRound(session, commandsFor(session, 'player'), commandsFor(session, 'enemy'));
     }
     return session.outcome === 'win';
 };
-console.log('\nTRAINING RELEVANCE (trained-in-one-stat vs untrained twin, real AI both sides):');
+console.log('\nBUILD RELEVANCE (+8%-budget tilt vs balanced twin, real AI both sides):');
 for (const focus of ['hp', 'attack', 'defense', 'speed']) {
-    let wins = 0;
+    let wins = 0, games = 0;
     const pool = [...byRarity.values()].flat();
     for (let s = 0; s < TRAIN_SAMPLES; s++) {
         const tpl = pool[(s * 13) % pool.length];
-        const trained = { ...tpl, [focus]: Math.round(Number(tpl[focus]) * 1.6) };
-        wins += aiFightWin(trained, tpl, 777_001 + s * 101) ? 1 : 0;
+        const trained = { ...tpl, __showdownAllocation: focusedAllocation(LEVEL, focus) };
+        const balanced = { ...tpl, __showdownAllocation: balancedAllocation(LEVEL) };
+        const seed = 777_001 + s * 101;
+        wins += aiFightWin(trained, balanced, seed) ? 1 : 0;
+        wins += aiFightWin(balanced, trained, seed + 53) ? 0 : 1;
+        games += 2;
     }
-    console.log(`  ${focus}: ${(100 * wins / TRAIN_SAMPLES).toFixed(1)}%`);
+    console.log(`  ${focus}: ${(100 * wins / games).toFixed(1)}%`);
 }
 
 // ── Cross-rarity spot check: higher rarity should win, sanely ────────────────

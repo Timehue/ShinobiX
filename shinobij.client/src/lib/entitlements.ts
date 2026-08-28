@@ -28,8 +28,9 @@ export function subscriberTier(character: WithPatreon): string | null {
 // Perk caps: base = non-subscriber, sub = $15 "Shinobi Supporter".
 export const LOADOUT_CAP_BASE = 12;
 export const LOADOUT_CAP_SUB = 15;
-export const PET_CAP_BASE = 4;
+export const PET_CAP_BASE = 5;
 export const PET_CAP_SUB = 6;
+export const PET_TRAINING_CAP = 5;
 export const STORED_BLOODLINES_BASE = 1;
 export const STORED_BLOODLINES_SUB = 2;
 export const PRESET_AVATARS = ['/starter-avatar-one.webp', '/starter-avatar-two.webp'] as const;
@@ -44,7 +45,7 @@ export function maxStoredBloodlines(character: WithPatreon): number {
     return isPatreonSubscriber(character) ? STORED_BLOODLINES_SUB : STORED_BLOODLINES_BASE;
 }
 
-/** Client mirror of the server's non-destructive 4/6 current-use projection. */
+/** Client mirror of the server's non-destructive 5/6 current-use projection. */
 export function activeCarriedPetIds<T extends { id?: string }>(
     character: WithPatreon & { activePetId?: string; activePetId2v2?: string; pets?: readonly T[] },
     petsOverride?: readonly T[],
@@ -67,6 +68,12 @@ export function activeCarriedPets<T extends { id?: string }>(
     return activeCarriedPetIds(character, pets)
         .map((id) => byId.get(id))
         .filter((pet): pet is T => pet !== undefined);
+}
+export function activeTrainingPetIds<T extends { id?: string }>(
+    character: WithPatreon & { activePetId?: string; activePetId2v2?: string; pets?: readonly T[] },
+    petsOverride?: readonly T[],
+): string[] {
+    return activeCarriedPetIds(character, petsOverride).slice(0, PET_TRAINING_CAP);
 }
 export function canCustomAvatar(character: WithPatreon): boolean {
     return isPatreonSubscriber(character);

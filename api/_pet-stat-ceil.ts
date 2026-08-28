@@ -1,12 +1,10 @@
 /*
  * Server-side anti-tamper ceiling for pet battle stats (hp / attack / defense / speed).
  *
- * Pet stat GROWTH is uncapped-by-design — bounded only by level 100. An all-in
- * training build channels every level-up into ONE stat, reaching
- *   base * (1 + PET_LEVEL_GROWTH * 99) = base * (1 + 0.04 * 99) ≈ base * 4.96
- * (see gainPetXp in shinobij.client/src/lib/pet-balance.ts). Evolution only adds
- * the small rarity-gap delta (api/pet/_evolution.ts), so an evolved pet stays
- * inside its rarity's base*4.96 envelope, and starters cap at legendary.
+ * Reset-era growth is bounded by level 100, a 50-point per-attribute cap, and
+ * authoritative recalculation from immutable species stats. The largest legal
+ * multiplier is an attribute at level 100 with an apex trait:
+ *   1 + 0.7425 core + 0.50 allocation + 0.20 trait = 2.4425× species base.
  *
  * The flat 100k clamp that replaced the old per-rarity caps was ~300x a legit
  * level-100 build, so it did NOT actually stop a tampered save from sealing an
@@ -30,15 +28,14 @@ export const PET_BASE_STATS: Record<string, Record<PetCeilStat, number>> = {
     mythic:    { hp: 462, attack: 60, defense: 43, speed: 45 },
 };
 
-// Legit all-in max is ~base*4.96; 8x base is a 60%+ safety margin above that, so
-// no legitimate pet is ever clamped while a tampered pet is bounded to ~1.6x a
-// legit max-build (vs ~300x under the old flat 100k clamp).
-export const PET_STAT_CEIL_FACTOR = 8;
+// 5× the rarity baseline leaves room for species/role variance above the 2.4425×
+// growth maximum while substantially tightening the legacy combat boundary.
+export const PET_STAT_CEIL_FACTOR = 5;
 
 /**
  * Per-rarity, per-stat anti-tamper ceiling for a pet battle stat. An unknown /
  * tampered rarity falls back to mythic (the loosest tier) so the clamp never
- * clips a legit pet — the absolute value is still bounded to mythic*8.
+ * clips a legit pet — the absolute value is still bounded to mythic*5.
  */
 export function petStatCeil(rarity: unknown, stat: PetCeilStat): number {
     const base = PET_BASE_STATS[String(rarity)] ?? PET_BASE_STATS.mythic;
@@ -47,7 +44,7 @@ export function petStatCeil(rarity: unknown, stat: PetCeilStat): number {
 
 /*
  * Per-rarity jutsu-power ceiling. Unlike hp/atk/def/speed (which grow with
- * training, hence the ×8 envelope), jutsu power has a fixed per-rarity cap that
+ * training, hence the ×5 envelope), jutsu power has a fixed per-rarity cap that
  * the client already enforces (capPetStats → petStatCaps[*].jutsuPower). The
  * deterministic ranked duel (api/pet-ladder/_core.ts snapshotJutsu) previously
  * clamped power to a flat 1000 — ~2-3× a legit cap — letting a tampered pet seal

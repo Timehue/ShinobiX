@@ -142,7 +142,7 @@ test('a Supporter challenge publishes all six eligible pets, then rejects a laps
     assert.equal((await kv.get<Record<string, unknown>>(`challenges:record:${id}`))?.status, 'pending');
 });
 
-test('a lapse still allows an originally selected pet that remains inside the Base four-pet projection', async () => {
+test('a lapse still allows an originally selected pet that remains inside the base five-pet projection', async () => {
     const challenger = 'challengecapeligibleone';
     const responder = 'challengecapeligibletwo';
     const challengerPets = await seedPlayer(challenger, true);
@@ -167,7 +167,7 @@ test('a lapse still allows an originally selected pet that remains inside the Ba
     const projected = inbox?.at(-1)?.challenger as { pets?: Array<{ id: string }> } | undefined;
     assert.deepEqual(
         projected?.pets?.map(({ id: petId }) => petId),
-        challengerPets.slice(0, 4).map(({ id: petId }) => petId),
+        challengerPets.slice(0, 5).map(({ id: petId }) => petId),
     );
 });
 

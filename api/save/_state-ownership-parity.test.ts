@@ -227,7 +227,8 @@ const FROZEN = {
     PET_IDENTITY_FIELDS: [
         'id', 'rarity', 'maxLevel', 'jutsus', 'unlockedForPve', 'trait', 'element',
         'evolutionStage', 'wildSpawnable', 'role', 'subRole', 'updatedAt',
-        'level', 'xp', 'hp', 'attack', 'defense', 'speed', 'happiness',
+        'level', 'xp', 'hp', 'attack', 'defense', 'speed',
+        'growthVersion', 'growthBaseStats', 'growthAllocation', 'growthPoints', 'happiness',
         'training', 'expedition', 'nickname', 'loadout',
         'templateId', 'origin', 'breedingUsesMax', 'breedingUsesRemaining',
         'paletteVariantId', 'generation', 'parentInstanceIds', 'parentTemplateIds',

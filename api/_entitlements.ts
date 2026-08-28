@@ -24,8 +24,10 @@ export function isPatreonSubscriber(character: unknown): boolean {
 // Perk caps: base = non-subscriber, sub = $15 "Shinobi Supporter".
 export const LOADOUT_CAP_BASE = 12;
 export const LOADOUT_CAP_SUB = 15;
-export const PET_CAP_BASE = 4;
+export const PET_CAP_BASE = 5;
 export const PET_CAP_SUB = 6;
+/** Only the five-pet Colosseum squad may begin idle training. */
+export const PET_TRAINING_CAP = 5;
 export const STORED_BLOODLINES_BASE = 1;
 export const STORED_BLOODLINES_SUB = 2;
 
@@ -77,6 +79,10 @@ export function activeCarriedPets<T = Record<string, unknown>>(character: unknow
     return activeCarriedPetIds(character, pets)
         .map((id) => byId.get(id))
         .filter((pet): pet is T => pet !== undefined);
+}
+
+export function activeTrainingPetIds(character: unknown, petsOverride?: unknown): string[] {
+    return activeCarriedPetIds(character, petsOverride).slice(0, PET_TRAINING_CAP);
 }
 export function canCustomAvatar(character: unknown): boolean {
     return isPatreonSubscriber(character);

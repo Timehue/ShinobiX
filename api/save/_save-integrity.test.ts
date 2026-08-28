@@ -270,7 +270,7 @@ describe('carried-pet entitlement authority', () => {
         speed: 20,
     });
 
-    it('does not let an incoming forged Patreon flag raise a base account from four to six pets', () => {
+    it('does not let an incoming forged Patreon flag raise a base account from five to six pets', () => {
         const incoming = wrap({
             name: 'PetCap',
             patreon: { active: true },
@@ -280,7 +280,7 @@ describe('carried-pet entitlement authority', () => {
         const out = sanitizeCompatible(incoming, stored).character as Record<string, unknown>;
 
         assert.deepEqual(out.patreon, { active: false });
-        assert.equal((out.pets as unknown[]).length, 4);
+        assert.equal((out.pets as unknown[]).length, 5);
     });
 
     it('preserves an already-stored six-pet roster non-destructively after a supporter lapse', () => {
@@ -349,8 +349,8 @@ describe('carried-pet entitlement authority', () => {
 
         assert.deepEqual((out.pets as Array<{ id: string }>).map(({ id }) => id), pets.map(({ id }) => id));
         assert.equal(out.activePetId, 'pet-4');
-        assert.equal(out.activePetId2v2, 'pet-3');
-        assert.deepEqual(activeCarriedPetIds(out), ['pet-4', 'pet-3', 'pet-1', 'pet-2']);
+        assert.equal(out.activePetId2v2, 'pet-5');
+        assert.deepEqual(activeCarriedPetIds(out), ['pet-4', 'pet-5', 'pet-1', 'pet-2', 'pet-3']);
     });
 });
 

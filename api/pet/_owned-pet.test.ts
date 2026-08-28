@@ -60,6 +60,9 @@ describe('owned pet identity and breeding-use migration', () => {
         assert.equal(pet.templateId, 'standard-0');
         assert.equal(pet.level, 1);
         assert.equal(pet.xp, 0);
+        assert.equal(pet.growthVersion, 1);
+        assert.deepEqual(pet.growthAllocation, { vitality: 0, power: 0, guard: 0, agility: 0 });
+        assert.equal(pet.growthPoints, 0);
         assert.equal(pet.breedingUsesMax, 5);
         assert.equal(pet.breedingUsesRemaining, 5);
         assert.equal(pet.generation, 2);

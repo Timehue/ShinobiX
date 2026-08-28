@@ -1,6 +1,7 @@
 import { createHash, randomInt, randomUUID } from 'node:crypto';
 import { BRED_ULTRA_TRAIT_DENOMINATOR, ULTRA_PET_TRAITS } from '../../shared/shrines.js';
 import { PET_CATALOG } from './_catalog.js';
+import { normalizePetGrowth } from './_growth.js';
 
 export const PET_BREEDING_MIGRATION_VERSION = 1;
 // V2 seals the apex/ordinary trait when the 24-hour session starts. V1 eggs
@@ -139,7 +140,7 @@ export function createOwnedPet(templateId: string, options: CreateOwnedPetOption
     const breedingUsesMax = secureBreedingUses(secureIntFn);
     const id = options.instanceId || uniqueInstanceId(templateId, options.existingIds);
     const generation = Math.max(0, whole(options.generation));
-    return {
+    const owned = {
         ...traitApplied,
         id,
         templateId,
@@ -162,6 +163,16 @@ export function createOwnedPet(templateId: string, options: CreateOwnedPetOption
         loadout: undefined,
         doctrine: undefined,
     };
+    // Starter validation hands us a trait-applied snapshot; the signed catalog
+    // template remains its pre-trait species baseline. Other acquisition paths
+    // provide an unmodified source directly.
+    const growthSource = options.traitAlreadyApplied ? template : source;
+    return normalizePetGrowth(owned, {
+        hp: whole(growthSource.hp, 1),
+        attack: whole(growthSource.attack, 1),
+        defense: whole(growthSource.defense, 1),
+        speed: whole(growthSource.speed, 1),
+    });
 }
 
 export function migrateOwnedPet(

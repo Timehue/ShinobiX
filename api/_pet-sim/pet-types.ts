@@ -48,6 +48,20 @@ export type PetTrait =
 
 export type PetTrainingType = "strength" | "endurance" | "agility" | "chakra" | "bond";
 
+export type PetGrowthAllocation = {
+    vitality: number;
+    power: number;
+    guard: number;
+    agility: number;
+};
+
+export type PetGrowthBaseStats = {
+    hp: number;
+    attack: number;
+    defense: number;
+    speed: number;
+};
+
 export type PetExpeditionType = "scout" | "forage" | "ruins";
 
 export type PetExpedition = {
@@ -131,6 +145,11 @@ export type Pet = {
     attack: number;
     defense: number;
     speed: number;
+    growthVersion?: number;
+    growthBaseStats?: PetGrowthBaseStats;
+    growthAllocation?: PetGrowthAllocation;
+    /** Unspent points; server-derived as level - 1 - committed allocation. */
+    growthPoints?: number;
     image?: string;
     // Optional transparent FULL-BODY battle sprite (distinct from `image`, the
     // circular portrait). When present — or when a `petbody:<id>` shared image
@@ -178,7 +197,7 @@ export type Pet = {
     // and backfilled by capPetStats, so every loaded pet carries one. The role is
     // the coarse identity the tactical-arena + grid AIs read; the sub-role is the
     // archetype that flavors stats + moveset. Optional so old saves load cleanly
-    // (capPetStats fills them); training freely customizes stats on top.
+    // (capPetStats fills them); Growth Points customize the final stat build.
     role?: PetRole;
     subRole?: PetSubRole;
     // Last-edited timestamp, stamped by the admin Pet Editor (updatePet) when a

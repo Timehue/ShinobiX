@@ -1429,14 +1429,14 @@ export function sanitizeCharacterSave(
     }
 
     // Pet roster cap: a tampered client cannot grow the carried roster beyond
-    // its entitlement. Subscriber-aware (Patreon perk): 4 for the base tier,
+    // its entitlement. Subscriber-aware (Patreon perk): 5 for the base tier,
     // 6 for subscribers. Read the entitlement from the authoritative stored
     // character, never the incoming save payload.
     //
     // NON-DESTRUCTIVE downgrade: never truncate BELOW the already-stored roster,
     // so a lapsed subscriber (or a legacy larger roster) keeps every pet — the
-    // cap only prevents GROWING past it. A legit base-tier roster is <=4, so a
-    // tampered save still can't grow the roster past 4.
+    // cap only prevents GROWING past it. A legit base-tier roster is <=5, so a
+    // tampered save still can't grow the roster past 5.
     const existingPets = Array.isArray(exChar.pets) ? exChar.pets as Array<Record<string, unknown>> : [];
     const PET_CAP = Math.max(maxPets(exChar), existingPets.length);
     const existingPetById = new Map(existingPets.map((pet) => [String(pet?.id ?? ''), pet]));
@@ -1508,7 +1508,7 @@ export function sanitizeCharacterSave(
         char.pets = kept;
     }
     // A generic save cannot rotate lapsed/legacy overflow into the current-use
-    // 4/6 projection by changing active ids. Keep valid prior selections; swaps
+    // 5/6 projection by changing active ids. Keep valid prior selections; swaps
     // happen by depositing/withdrawing through the Sanctuary.
     const eligibleStoredPetIds = new Set(activeCarriedPetIds(exChar, existingPets));
     const retainedPetIds = new Set(
@@ -1524,10 +1524,11 @@ export function sanitizeCharacterSave(
         else delete char[field];
     }
 
-    // Pet stat ceiling: HP/ATK/DEF/SPD are uncapped client-side by design (training
-    // builds them to the level-100 ceiling ≈ base*4.96), so the only guard against a
+    // Pet stat ceiling: HP/ATK/DEF/SPD are uncapped client-side by design. Reset-era
+    // growth reaches at most 2.4425× immutable base before species variance, so
+    // the only guard against a
     // tampered save injecting absurd values into the deterministic ranked pet ladder
-    // is a server clamp. Per-rarity at base*8 (~1.6x the legit all-in max) — well
+    // is a server clamp. Per-rarity at base*5 — well
     // above any legit build (native or evolved), far below the old flat 100k that
     // let a ~300x pet through. See _pet-stat-ceil.ts.
     if (Array.isArray(char.pets)) {

@@ -24,6 +24,8 @@
  *    sensitive decision — not part of this mechanic).
  */
 
+import { normalizePetGrowth, petGrowthBaseStats } from './_growth.js';
+
 export type EvolveStage = 1 | 2;
 export type PetStage = 0 | 1 | 2;
 export type EvolvedRarity = 'rare' | 'legendary';
@@ -182,18 +184,20 @@ export function evolvePet<T extends PetLike>(pet: T, nextStage: EvolveStage, evo
     // was ever discarded). image/bodyImage are the universal portrait/sprite
     // source, so this drives the Pet Yard, the cutscene reveal, and the arena.
     const evoArt = `/pet-evos/${String(pet.id ?? '')}-${nextStage === 1 ? 'r' : 'l'}.webp`;
-    return {
+    const base = petGrowthBaseStats(pet);
+    return normalizePetGrowth({
         ...pet,
         name: spec.name,
         rarity: spec.rarity,
         evolutionStage: nextStage,
         image: evoArt,
         bodyImage: evoArt,
-        hp: addStat(Number(pet.hp) || 0, spec.delta.hp),
-        attack: addStat(Number(pet.attack) || 0, spec.delta.attack),
-        defense: addStat(Number(pet.defense) || 0, spec.delta.defense),
-        speed: addStat(Number(pet.speed) || 0, spec.delta.speed),
         moveRange: Math.max(2, Math.min(5, (Number(pet.moveRange) || 3) + spec.delta.moveRange)),
         unlockedForPve: true,
-    } as T;
+    }, {
+        hp: addStat(base.hp, spec.delta.hp),
+        attack: addStat(base.attack, spec.delta.attack),
+        defense: addStat(base.defense, spec.delta.defense),
+        speed: addStat(base.speed, spec.delta.speed),
+    }) as T;
 }
