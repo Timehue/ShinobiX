@@ -62,6 +62,13 @@ test("Pet Yard form labels are programmatically associated", () => {
   );
 });
 
+test("Growth Point drafts follow the selected pet and latest committed allocation without an effect reset", () => {
+  assert.match(source, /const growthDraftBaseKey = `\$\{selectedPet\?\.id \?\? ""\}:\$\{committedGrowth\.vitality\}:\$\{committedGrowth\.power\}:\$\{committedGrowth\.guard\}:\$\{committedGrowth\.agility\}`/);
+  assert.match(source, /growthDraftState\.baseKey === growthDraftBaseKey[\s\S]*?growthDraftState\.allocation[\s\S]*?: committedGrowth/);
+  assert.match(source, /const activeDraft = current\.baseKey === growthDraftBaseKey[\s\S]*?: \{ \.\.\.committedGrowth \}/);
+  assert.doesNotMatch(source, /useEffect\(\(\) => \{\s*setGrowthDraft\(/);
+});
+
 test("expedition launch is single-flight, idempotent, and fenced to its mounted account", () => {
   assert.match(launch, /if \(expeditionLaunchBusyRef\.current\) return;/);
   assert.match(launch, /expeditionLaunchRef\.current\?\.accountKey === originAccount[\s\S]*?expeditionLaunchRef\.current\.petId === selectedPet\.id[\s\S]*?launchId:/);
