@@ -83,6 +83,7 @@ test("App and admission surfaces consume live capability truth at both boundarie
     const vanguard = readFileSync("shinobij.client/src/screens/professions/VanguardHub.tsx", "utf8");
     const desktop = readFileSync("shinobij.client/src/components/RightMenu.tsx", "utf8");
     const mobile = readFileSync("shinobij.client/src/components/MobileNav.tsx", "utf8");
+    const menuGroups = readFileSync("shinobij.client/src/components/player-menu-groups.ts", "utf8");
     const worldMap = readFileSync("shinobij.client/src/screens/WorldMap.tsx", "utf8");
 
     assert.match(app, /useCapabilityViewAvailability\("villageWar"\)/);
@@ -130,8 +131,12 @@ test("App and admission surfaces consume live capability truth at both boundarie
     assert.match(start, /if \(view\.startsWith\("legal:"\)\) \{\s*return <LegalPage/);
     assert.match(townHall, /useCapabilityViewAvailability\("villageWar"\)/);
     assert.match(vanguard, /useCapabilityViewAvailability\("villageWar"\)/);
-    assert.match(desktop, /target === "villageWarMap"/);
-    assert.match(mobile, /target === "villageWarMap"/);
+    // Sector Map is a Town Hall operation, not a global-menu destination.
+    // Town Hall retains the live capability gate above; both shared menus must
+    // stay free of the removed route and its obsolete admission branch.
+    assert.doesNotMatch(menuGroups, /"villageWarMap"/);
+    assert.doesNotMatch(desktop, /target === "villageWarMap"/);
+    assert.doesNotMatch(mobile, /target === "villageWarMap"/);
     assert.match(worldMap, /useCapabilityViewAvailability\("villageWar"\)/);
     assert.match(worldMap, /useCapabilityMutationAvailability\("villageWar"\)/);
     assert.match(worldMap, /useCapabilityViewAvailability\("anbuInfiltration"\)/);
