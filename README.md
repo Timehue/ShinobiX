@@ -114,9 +114,9 @@ $env:DISABLE_SNAPSHOT_CRON = "1"
 node dist/server.js
 ```
 
-Open `http://127.0.0.1:3000/`. This mode is blocked in production and on
-Vercel; persistent production operation still requires the database variables
-documented in `.env.example`.
+Open `http://127.0.0.1:3000/`. The in-memory backend refuses to start unless
+`NODE_ENV=test`, so it cannot be reached in production; persistent production
+operation still requires the database variables documented in `.env.example`.
 
 Build everything:
 
