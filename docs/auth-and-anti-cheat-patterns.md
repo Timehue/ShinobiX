@@ -97,7 +97,9 @@ Load-bearing consequences:
   guest player could never remove their own character.
 
 **Google flow** (`api/_google-auth.ts`, `api/auth/google/*`) is a server-side
-authorization-code flow modelled on `api/patreon/`. Notes that matter:
+authorization-code flow. (It was originally modelled on `api/patreon/`, which
+was removed on 2026-08-28 when the storefront moved to Play Billing — this is
+now the only OAuth rail in the codebase.) Notes that matter:
 
 - The CSP (`api/_http-security.ts`) blocks Google's hosted script, One Tap, and
   any Google iframe. A top-level redirect is unaffected — hence no SDK.

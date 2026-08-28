@@ -1,10 +1,11 @@
 /*
- * Canonical SERVER-SIDE Patreon perk caps + entitlement reads.
+ * Canonical SERVER-SIDE Shinobi Supporter perk caps + entitlement reads.
  *
- * The subscriber flag is character.patreon (server-owned — written only by the
- * signature-verified webhook / OAuth callback, see api/patreon/_patreon.ts, and
- * forced from stored on every save via ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS).
- * The save handler is the authoritative enforcement point for these caps.
+ * The subscriber flag is character.patreon (server-owned — written only by
+ * api/_subscription.ts, and forced from stored on every save via
+ * ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS). The save handler is the authoritative
+ * enforcement point for these caps. The stored key is still named `patreon`
+ * because it is live save data; see api/_subscription.ts for why it is frozen.
  *
  * MIRROR: shinobij.client/src/lib/entitlements.ts must stay in sync (the client
  * shapes the UI to match; the server is the real boundary).

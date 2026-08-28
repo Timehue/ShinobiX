@@ -41,7 +41,10 @@ const PET_POLICY_COPY = [
     read('shinobij.client', 'src', 'screens', 'PetYard.tsx'),
     read('shinobij.client', 'src', 'screens', 'PetArena.tsx'),
     read('shinobij.client', 'src', 'components', 'PetSanctuary.tsx'),
-    read('shinobij.client', 'src', 'components', 'PatreonLink.tsx'),
+    // PatreonLink.tsx was here until the Patreon rail was removed. The three
+    // assertions below are all `doesNotMatch` guards against the retired 3/5
+    // pet policy resurfacing in copy, so dropping a deleted source narrows the
+    // sweep rather than weakening it.
     read('shinobij.client', 'src', 'data', 'guides.ts'),
 ].join('\n');
 
