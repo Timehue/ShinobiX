@@ -154,6 +154,50 @@ describe('generic AI solo-PvE encounter seal', () => {
         assert.equal('actors' in session, false);
     });
 
+    it('carries stale authored Overload through the solo-PvE seal, cast, statuses, and log as two pulses', () => {
+        const overload = {
+            id: 'starter-universal-blitz', name: 'Overload', type: 'Ninjutsu', element: 'None',
+            ap: 40, range: 1, effectPower: 0, cooldown: 7, chakraCost: 0, staminaCost: 0,
+            target: 'SELF', method: 'SINGLE', isUtility: true,
+            tags: [{ name: 'Increase Damage Given', percent: 30 }],
+        };
+        const saveCharacter = {
+            name: 'Alice', level: 30, specialty: 'Ninjutsu',
+            hp: 1_000, maxHp: 1_000, chakra: 500, maxChakra: 500, stamina: 500, maxStamina: 500,
+            stats: {}, equippedJutsuIds: [overload.id],
+            jutsuMastery: [{ jutsuId: overload.id, level: 8 }],
+        };
+        const save = { character: saveCharacter, creatorJutsus: [], creatorItems: [], savedBloodlines: [] };
+        const admin = { jutsu: new Map([[overload.id, overload]]), items: new Map() } as unknown as AdminCombatContent;
+        const session = buildSoloPveAiEncounter({
+            sessionId: 'solo-overload', playerName: 'alice', save, now: NOW, admin,
+            profile: {
+                id: 'overload-dummy', name: 'Exam Proctor', level: 20, hp: 5_000,
+                chakra: 500, stamina: 500, stats: {}, jutsuIds: [],
+            },
+            env: { ...process.env, DISABLE_PVE_DIFFICULTY_GUARD_AI_FIGHT: '1' },
+        });
+
+        const sealedOverload = (session.player.character.jutsu as Array<Record<string, unknown>>)[0];
+        assert.equal((sealedOverload.tags as unknown[]).length, 2, 'the authoritative solo seal carries both pulses');
+
+        const cast = applySoloPveAction(session, { type: 'jutsu', jutsuId: overload.id });
+        assert.equal(cast.applied, true);
+        assert.deepEqual(
+            cast.session.player.statuses
+                .filter((status) => status.name === 'Increase Damage Given')
+                .map((status) => status.percent),
+            [21, 21],
+        );
+        assert.deepEqual(
+            cast.session.log.filter((line) => line.startsWith('+21% Damage Given')),
+            [
+                '+21% Damage Given (stack 1/2): Alice for 2 turns.',
+                '+21% Damage Given (stack 2/2): Alice for 2 turns.',
+            ],
+        );
+    });
+
     it('ignores a forged host loadout byte-for-byte', () => {
         const saveCharacter = {
             name: 'Alice', level: 12, specialty: 'Ninjutsu', hp: 300, maxHp: 500,

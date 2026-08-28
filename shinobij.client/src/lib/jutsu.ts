@@ -12,9 +12,13 @@ import { makeId } from "./utils";
 import type { Jutsu, JutsuTag } from "../types/combat";
 import type { JutsuType, JutsuElement, JutsuTarget, Rank } from "../types/core";
 import { isJutsuVisualEffect } from "./jutsu-visuals";
+import { canonicalizeOverloadTags } from "../../../shared/overload";
 
 export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name" | "type">): Jutsu {
-    const tags = normalizeJutsuTags(jutsu.tags);
+    // Overload is a two-pulse authored utility. Repair stale shared-content
+    // snapshots that contain only one IDG tag before they reach cards or local
+    // combat; the server applies the same shared rule at its trusted seal.
+    const tags = canonicalizeOverloadTags(jutsu.id, normalizeJutsuTags(jutsu.tags));
     const hasMoveTag = tags.some((tag) => tagMatchesName(tag.name, "Move"));
     // Strip the legacy EP-100 "fixed effect" sentinel: a jutsu carrying a binary
     // control / displacement tag deals STANDARD 60-AP damage (40), not

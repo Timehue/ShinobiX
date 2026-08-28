@@ -10,7 +10,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { applyJutsu } from './move.js';
-import type { PvpFighter, PvpStatus } from './session.js';
+import { sanitizeJutsuList, type PvpFighter, type PvpStatus } from './session.js';
 
 function fighter(name: string, hp = 1000, statuses: PvpStatus[] = [], extra: Partial<PvpFighter> = {}): PvpFighter {
     return {
@@ -133,8 +133,9 @@ describe('applyJutsu characterization — amp / DR pools', () => {
     });
 
     it('Overload applies both IDG pulses at 21% mastery-8 and 30% max mastery', () => {
-        const overload = jutsu([
-            { name: 'Increase Damage Given', percent: 30 },
+        // Reproduce the stale live-content shape: only one authored IDG tag.
+        // The trusted server seal repairs it to Overload's canonical two pulses.
+        const rawOverload = jutsu([
             { name: 'Increase Damage Given', percent: 30 },
         ], {
             id: 'starter-universal-blitz',
@@ -144,6 +145,9 @@ describe('applyJutsu characterization — amp / DR pools', () => {
             target: 'SELF',
             isUtility: true,
         });
+        const overload = sanitizeJutsuList([rawOverload], {
+            trustedDuplicateTagJutsuIds: new Set([rawOverload.id]),
+        })[0] as ReturnType<typeof jutsu>;
         const castAt = (masteryLevel: number) => applyJutsu(
             fighter('A', 1000, [], {
                 character: {

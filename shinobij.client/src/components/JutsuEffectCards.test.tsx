@@ -30,11 +30,10 @@ const overload: Jutsu = {
     isUtility: true,
     tags: [
         { name: "Increase Damage Given", percent: 30 },
-        { name: "Increase Damage Given", percent: 30 },
     ],
 };
 
-it("groups Overload into one colored two-stack card with current and max values", () => {
+it("repairs stale one-tag Overload content into one colored two-stack card with current and max values", () => {
     const html = renderToStaticMarkup(<JutsuEffectCards jutsu={overload} masteryLevel={8} />);
 
     assert.match(html, /role="list" aria-label="Jutsu effects"/);

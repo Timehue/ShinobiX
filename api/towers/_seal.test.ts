@@ -40,7 +40,11 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
     // parameter an equipped authored id matched nothing and was DROPPED — the player
     // entered Towers / Clan Boss / PvE / Anbu / merc fights a jutsu short.
     it('seals an equipped admin-authored jutsu from the authored catalog', () => {
-        const authored = { id: 'starter-universal-blitz', name: 'Overload', type: 'Ninjutsu', ap: 40, effectPower: 36 };
+        const authored = {
+            id: 'starter-universal-blitz', name: 'Overload', type: 'Ninjutsu', element: 'None',
+            ap: 40, range: 1, effectPower: 0, target: 'SELF', isUtility: true,
+            tags: [{ name: 'Increase Damage Given', percent: 30 }],
+        };
         const saveChar = {
             stats: {},
             equippedJutsuIds: ['starter-tai-fire-2', 'starter-universal-blitz'],
@@ -57,7 +61,12 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
         const withAuthored = sealTowerFighter(saveChar, { savedBloodlines: [], creatorJutsus: [] }, {}, admin);
         const ids = (withAuthored.jutsu as Array<{ id: string }>).map((j) => j.id);
         assert.deepEqual(ids, ['starter-tai-fire-2', 'starter-universal-blitz']);
-        assert.equal((withAuthored.jutsu as Array<Record<string, unknown>>)[1].effectPower, 36);
+        const sealedOverload = (withAuthored.jutsu as Array<Record<string, unknown>>)[1];
+        assert.equal(sealedOverload.effectPower, 0);
+        assert.deepEqual(sealedOverload.tags, [
+            { name: 'Increase Damage Given', percent: 30 },
+            { name: 'Increase Damage Given', percent: 30 },
+        ], 'the Tower seal repairs stale authored Overload content to its two-pulse contract');
     });
 
     // Gear half of the same gap (the seal path gained the admin item catalog in

@@ -195,7 +195,7 @@ describe('admin-authored jutsu resolve from authored content, not the client', (
         assert.deepEqual(resolved.map((jutsu) => jutsu.id), [first.id]);
     });
 
-    it('preserves intentional duplicate stackable tags only on the trusted authored definition', () => {
+    it('repairs stale one-tag Overload content to two stacks only on the trusted authored definition', () => {
         const overload = {
             id: 'starter-universal-blitz',
             name: 'Overload',
@@ -209,7 +209,6 @@ describe('admin-authored jutsu resolve from authored content, not the client', (
             method: 'SINGLE',
             isUtility: true,
             tags: [
-                { name: 'Increase Damage Given', percent: 30 },
                 { name: 'Increase Damage Given', percent: 30 },
             ],
         };
