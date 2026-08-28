@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) {
-            return res.status(403).json({ error: 'Can only purchase your own bloodline forge.' });
+            return res.status(403).json({ error: 'You can only begin your own Bloodline Awakening.' });
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'bloodline-forge', 6, 60_000, identity.name))) return;
 

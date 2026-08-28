@@ -9,7 +9,7 @@ const SCREEN_MESSAGES: Partial<Record<Screen, string>> = {
     arena: "Preparing Arena",
     battleArena: "Preparing Arena",
     arenaDistrict: "Loading Arena District",
-    bloodlineMaker: "Loading Bloodline Maker",
+    bloodlineMaker: "Opening Bloodline Awakening",
     worldMap: "Loading World Map",
     storyHall: "Loading Story Hall",
     storyBoss: "Loading Story Scene",

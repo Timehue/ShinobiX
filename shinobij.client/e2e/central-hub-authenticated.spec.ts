@@ -18,6 +18,7 @@ function json(route: Route, body: unknown, status = 200) {
 async function installAuthenticatedApi(page: Page) {
     let save: SavePayload | null = null;
     let saveVersion = 0;
+    let failNextAwakeningSave = false;
 
     await page.addInitScript(() => {
         for (let index = localStorage.length - 1; index >= 0; index -= 1) {
@@ -50,6 +51,15 @@ async function installAuthenticatedApi(page: Page) {
             }
             if (request.method() === "POST") {
                 const incoming = request.postDataJSON() as SavePayload;
+                const incomingBloodlineCount = Array.isArray(incoming.savedBloodlines) ? incoming.savedBloodlines.length : 0;
+                const savedBloodlineCount = Array.isArray(save?.savedBloodlines) ? save.savedBloodlines.length : 0;
+                // Forge acknowledgements can schedule an unrelated background
+                // autosave. Fail only the ownership-expanding Awakening write so
+                // that autosave cannot consume this one-shot regression fixture.
+                if (failNextAwakeningSave && incomingBloodlineCount > savedBloodlineCount) {
+                    failNextAwakeningSave = false;
+                    return json(route, { error: "Injected persistence failure" }, 500);
+                }
                 saveVersion += 1;
                 save = {
                     ...incoming,
@@ -97,6 +107,9 @@ async function installAuthenticatedApi(page: Page) {
 
     return {
         hasSave: () => save !== null,
+        getSave: () => save,
+        getSaveVersion: () => saveVersion,
+        failNextAwakeningSave: () => { failNextAwakeningSave = true; },
     };
 }
 
@@ -181,7 +194,7 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
             await expect(dialog.getByRole("button", { name: /^Reroll Element 1 element/ })).toBeVisible();
             await expect(dialog.getByRole("button", { name: /^Reroll Elements Both elements/ })).toBeVisible();
             await capture(page, testInfo, "awakening-stone-premium-desktop");
-            const forge = dialog.getByRole("heading", { name: /Bloodline Forge/i });
+            const forge = dialog.getByRole("heading", { name: /Bloodline Awakening/i });
             await forge.scrollIntoViewIfNeeded();
             await expect(forge).toBeVisible();
             const sRankForge = dialog.locator(".aw-forge-card.rank-s");
@@ -204,6 +217,143 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
     expect(accessibility.violations.filter((violation) =>
         ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);
 });
+
+const bloodlineAwakeningContracts = [
+    { rank: "B Rank", rankClass: "rank-b", currency: "boneCharms", jutsuCount: 4, pointBudget: 7, percentChoices: ["25%", "30%"] },
+    { rank: "A Rank", rankClass: "rank-a", currency: "auraStones", jutsuCount: 5, pointBudget: 10, percentChoices: ["25%", "30%"] },
+    { rank: "S Rank", rankClass: "rank-s", currency: "mythicSeals", jutsuCount: 5, pointBudget: 11, percentChoices: ["30%", "35%"] },
+] as const;
+
+for (const contract of bloodlineAwakeningContracts) {
+    test(`${contract.rank} Awakening ritual opens its rank-specific builder`, async ({ page }, testInfo) => {
+        test.setTimeout(90_000);
+        const isDesktopContract = testInfo.project.name === "chromium-desktop";
+        const isMobileSCertification = testInfo.project.name === "chromium-mobile" && contract.rank === "S Rank";
+        test.skip(!isDesktopContract && !isMobileSCertification, "desktop covers every rank; mobile certifies the densest S Rank editor");
+        const api = await installAuthenticatedApi(page);
+        await createAccount(page);
+        await expect.poll(api.hasSave).toBe(true);
+        const preAwakeningCharacter = api.getSave()?.character as Record<string, unknown>;
+        const preAwakeningEquipped = [...(preAwakeningCharacter.equippedJutsuIds as string[] ?? [])];
+        const preAwakeningMastery = [...(preAwakeningCharacter.jutsuMastery as Array<{ jutsuId: string; level: number }> ?? [])];
+        const preAwakeningBloodlines = structuredClone((api.getSave()?.savedBloodlines as unknown[] | undefined) ?? []);
+        await returnToCentral(page);
+
+        let requestedRank = "";
+        await page.route("**/api/bloodlines/forge", async (route) => {
+            const requestBody = route.request().postDataJSON() as { rank?: string };
+            requestedRank = requestBody.rank ?? "";
+            const currentSave = api.getSave();
+            const currentCharacter = currentSave?.character ?? {};
+            await route.fulfill({
+                status: 200,
+                contentType: "application/json",
+                body: JSON.stringify({
+                    ok: true,
+                    rank: contract.rank,
+                    currency: contract.currency,
+                    cost: 100,
+                    balance: 400,
+                    character: { ...currentCharacter, [contract.currency]: 400 },
+                    _saveVersion: api.getSaveVersion() + 1,
+                }),
+            });
+        });
+
+        await page.locator(".central-card").filter({ hasText: "Awakening Stone" }).click();
+        const dialog = page.getByRole("dialog", { name: "Awakening Stone" });
+        await expect(dialog).toBeVisible();
+        const ritualCard = dialog.locator(`.aw-forge-card.${contract.rankClass}`);
+        const builderSpec = ritualCard.getByLabel(`${contract.rank} builder limits`);
+        await expect(builderSpec).toContainText(`${contract.jutsuCount}Techniques`);
+        await expect(builderSpec).toContainText(`${contract.pointBudget}Point cap`);
+        await expect(builderSpec).toContainText(`${contract.percentChoices.join(" / ")}Tag power`);
+        await ritualCard.locator(".aw-forge-btn").click();
+
+        await expect.poll(() => requestedRank).toBe(contract.rank);
+        await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "bloodlineMaker");
+        await expect(page.getByRole("heading", { name: "Bloodline Awakening" })).toBeVisible();
+        await expect(page.getByText("Ritual attuned")).toBeVisible();
+        await expect(page.getByRole("button", { name: /Awakening Stone/ })).toBeVisible();
+
+        const summary = page.getByLabel("Awakening summary");
+        await expect(summary.locator("span").filter({ hasText: "Ritual grade" }).locator("strong")).toHaveText(contract.rank);
+        await expect(summary.locator("span").filter({ hasText: "Techniques" }).locator("strong")).toHaveText(String(contract.jutsuCount));
+        await expect(summary.locator("span").filter({ hasText: "Build budget" }).locator("strong")).toHaveText(`0/${contract.pointBudget}`);
+        await expect(page.locator(".bloodline-rank-locked")).toContainText(contract.rank);
+        await expect(page.locator(".bloodline-rank-locked")).toContainText("Locked");
+        await expect(page.locator(".bloodline-wizard-step")).toHaveCount(contract.jutsuCount + 2);
+        await expect(page.locator(".bloodline-awakening-build-meter b")).toHaveText(`0 / ${contract.pointBudget}`);
+
+        await page.locator(".bloodline-wizard-step").filter({ hasText: "Jutsu 1" }).click();
+        await expect(page.getByRole("heading", { name: `Jutsu 1 of ${contract.jutsuCount}` })).toBeVisible();
+        await page.locator(".tag-picker select:not(.tag-percent-select)").first().selectOption("Poison");
+
+        const percentSelect = page.locator(".tag-percent-select").first();
+        await expect(percentSelect).toBeVisible();
+        await expect(percentSelect.locator("option")).toHaveText([...contract.percentChoices]);
+        await expect(percentSelect).toHaveValue(contract.percentChoices.at(-1)!.replace("%", ""));
+        await expect(page.locator(".bloodline-points-total")).toHaveText("Jutsu Points: 0.5");
+        await expect(page.locator(".bloodline-awakening-build-meter b")).toHaveText(`0.5 / ${contract.pointBudget}`);
+        await expect(page.getByLabel("Jutsu target")).toHaveValue("OPPONENT");
+        await expect(page.getByLabel("Jutsu method")).toHaveValue("SINGLE");
+        await expect(page.getByRole("button", { name: "40 AP Utility" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "60 AP Damage" })).toBeVisible();
+
+        await page.screenshot({
+            path: testInfo.outputPath(`bloodline-awakening-${contract.rank.charAt(0).toLowerCase()}-builder.png`),
+            fullPage: false,
+            animations: "disabled",
+        });
+
+        await page.locator(".inline-grid").scrollIntoViewIfNeeded();
+        await page.screenshot({
+            path: testInfo.outputPath(`bloodline-awakening-${contract.rank.charAt(0).toLowerCase()}-editor.png`),
+            fullPage: false,
+            animations: "disabled",
+        });
+        await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+
+        await page.locator(".bloodline-wizard-step").filter({ hasText: "Details" }).click();
+        await page.locator(".bloodline-wizard-panel > input").first().fill(`${contract.rank} Audit Legacy`);
+        await page.locator(".bloodline-wizard-step").filter({ hasText: "Review" }).click();
+        const saveButton = page.getByRole("button", { name: "Awaken Bloodline" });
+        await expect(saveButton).toBeEnabled();
+        if (contract.rank === "B Rank") {
+            api.failNextAwakeningSave();
+            await saveButton.click();
+            const failure = page.getByRole("alertdialog", { name: "Notice" });
+            await expect(failure).toContainText("was not saved");
+            await expect(failure).toContainText("current bloodline is unchanged");
+            await failure.getByRole("button", { name: "OK" }).click();
+            await expect(saveButton).toBeEnabled();
+            expect(api.getSave()?.savedBloodlines).toEqual(preAwakeningBloodlines);
+            expect((api.getSave()?.character as Record<string, unknown>).equippedBloodlineId).toBe(preAwakeningCharacter.equippedBloodlineId);
+        }
+        await saveButton.click();
+
+        await expect.poll(() => {
+            const bloodlines = api.getSave()?.savedBloodlines;
+            return Array.isArray(bloodlines) ? (bloodlines[0] as Record<string, unknown> | undefined)?.rank : undefined;
+        }).toBe(contract.rank);
+        const savedBloodline = (api.getSave()?.savedBloodlines as Array<Record<string, unknown>>)[0]!;
+        const savedJutsus = savedBloodline.jutsus as Array<Record<string, unknown>>;
+        const savedTags = savedJutsus[0]!.tags as Array<Record<string, unknown>>;
+        expect(savedBloodline.totalPoints).toBe(0.5);
+        expect(savedJutsus).toHaveLength(contract.jutsuCount);
+        expect(savedTags[0]).toMatchObject({ name: "Poison", percent: Number(contract.percentChoices.at(-1)!.replace("%", "")) });
+        const savedCharacter = api.getSave()?.character as Record<string, unknown>;
+        expect(savedCharacter.equippedBloodlineId).toBe(savedBloodline.id);
+        expect(savedCharacter.equippedJutsuIds).toEqual(preAwakeningEquipped);
+        const savedMastery = savedCharacter.jutsuMastery as Array<{ jutsuId: string; level: number }>;
+        for (const previous of preAwakeningMastery) {
+            expect(savedMastery).toContainEqual(expect.objectContaining(previous));
+        }
+        for (const jutsu of savedJutsus) {
+            expect(savedMastery).toContainEqual(expect.objectContaining({ jutsuId: jutsu.id, level: 1 }));
+        }
+    });
+}
 
 test("Central premium destinations stay within the mobile viewport", async ({ page }, testInfo) => {
     test.setTimeout(120_000);
@@ -237,7 +387,7 @@ test("Central premium destinations stay within the mobile viewport", async ({ pa
             expect(rerollMetrics.every((button) => button.width >= 250)).toBe(true);
             expect(rerollMetrics.every((button) => button.height >= 60)).toBe(true);
             expect(rerollMetrics.every((button) => button.left >= 0 && button.right <= viewportWidth)).toBe(true);
-            const forge = dialog.getByRole("heading", { name: /Bloodline Forge/i });
+            const forge = dialog.getByRole("heading", { name: /Bloodline Awakening/i });
             await forge.scrollIntoViewIfNeeded();
             await expect(forge).toBeVisible();
             const sRankForge = dialog.locator(".aw-forge-card.rank-s");

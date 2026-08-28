@@ -1,0 +1,570 @@
+/* Bloodline Awakening — player-facing legacy creation workspace. */
+.app-shell[data-screen="bloodlineMaker"] .bloodline-maker-screen {
+    --ba-rgb: 210, 178, 101;
+    --ba-color: #e5c778;
+    width: min(1120px, calc(100vw - 28px));
+    max-width: 1120px;
+    padding: 0 !important;
+    overflow: hidden;
+    border: 1px solid rgba(222, 192, 120, 0.35) !important;
+    border-radius: 22px !important;
+    background:
+        radial-gradient(circle at 12% 0, rgba(211, 176, 96, 0.08), transparent 32%),
+        linear-gradient(155deg, rgba(8, 13, 24, 0.99), rgba(3, 8, 17, 0.995)) !important;
+    box-shadow: 0 34px 90px rgba(0, 0, 0, 0.68), inset 0 1px rgba(255, 255, 255, 0.04) !important;
+    backdrop-filter: none !important;
+}
+
+.bloodline-awakening-hero {
+    position: relative;
+    isolation: isolate;
+    min-height: 290px;
+    overflow: hidden;
+    padding: 24px;
+    color: #eef3f8;
+    border-bottom: 1px solid rgba(var(--ba-rgb), 0.24);
+    background: #050a14;
+}
+
+.bloodline-awakening-hero.rank-b { --ba-rgb: 72, 218, 176; --ba-color: #62dfba; }
+.bloodline-awakening-hero.rank-a { --ba-rgb: 78, 170, 248; --ba-color: #66b7fb; }
+.bloodline-awakening-hero.rank-s { --ba-rgb: 241, 202, 73; --ba-color: #f1ca49; }
+
+.bloodline-awakening-hero::before,
+.bloodline-awakening-hero::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+}
+
+.bloodline-awakening-hero::before {
+    z-index: -1;
+    inset: 0;
+    background:
+        linear-gradient(90deg, rgba(2, 6, 13, 0.985) 0%, rgba(3, 8, 17, 0.92) 42%, rgba(3, 8, 17, 0.42) 76%, rgba(3, 8, 17, 0.7) 100%),
+        linear-gradient(0deg, rgba(3, 8, 17, 0.94), transparent 58%);
+}
+
+.bloodline-awakening-hero::after {
+    z-index: 0;
+    inset: auto 0 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(var(--ba-rgb), 0.88), transparent);
+    box-shadow: 0 0 18px rgba(var(--ba-rgb), 0.32);
+}
+
+.bloodline-awakening-hero-art {
+    position: absolute;
+    z-index: -2;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 40%;
+    filter: saturate(0.9) contrast(1.08);
+    transform: scale(1.015);
+}
+
+.bloodline-awakening-hero-actions {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.app-shell[data-screen="bloodlineMaker"] .bloodline-awakening-back,
+.app-shell[data-screen="bloodlineMaker"] .bloodline-awakening-stone-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 42px;
+    padding: 10px 14px !important;
+    color: #c9d4df !important;
+    border: 1px solid rgba(173, 190, 209, 0.25) !important;
+    border-radius: 10px !important;
+    background: rgba(3, 8, 17, 0.7) !important;
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.045) !important;
+    backdrop-filter: blur(10px);
+    font: 750 9px/1 Inter, sans-serif;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    transition: color 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+
+.app-shell[data-screen="bloodlineMaker"] .bloodline-awakening-back { gap: 8px; }
+.app-shell[data-screen="bloodlineMaker"] .bloodline-awakening-back:first-letter { font-size: 16px; }
+.app-shell[data-screen="bloodlineMaker"] .bloodline-awakening-stone-link { gap: 14px; color: #f3dfa8 !important; border-color: rgba(var(--ba-rgb), 0.42) !important; }
+.bloodline-awakening-stone-link b { color: var(--ba-color); font-size: 14px; }
+
+.app-shell[data-screen="bloodlineMaker"] .bloodline-awakening-back:hover,
+.app-shell[data-screen="bloodlineMaker"] .bloodline-awakening-back:focus-visible,
+.app-shell[data-screen="bloodlineMaker"] .bloodline-awakening-stone-link:hover,
+.app-shell[data-screen="bloodlineMaker"] .bloodline-awakening-stone-link:focus-visible {
+    color: #fff5d2 !important;
+    border-color: rgba(var(--ba-rgb), 0.72) !important;
+    outline: none;
+    transform: translateY(-2px);
+}
+
+.bloodline-awakening-hero-copy {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 8px;
+    max-width: 650px;
+    margin-top: 50px;
+}
+
+.bloodline-awakening-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--ba-color);
+    font: 800 9px/1.2 Inter, sans-serif;
+    letter-spacing: 0.17em;
+    text-transform: uppercase;
+}
+
+.bloodline-awakening-kicker i {
+    width: 7px;
+    height: 7px;
+    border: 1px solid var(--ba-color);
+    transform: rotate(45deg);
+    box-shadow: 0 0 10px rgba(var(--ba-rgb), 0.6);
+}
+
+.bloodline-awakening-hero-copy h2 {
+    margin: 0;
+    color: #f8f0da;
+    font: 800 clamp(30px, 5vw, 54px)/0.98 var(--font-display);
+    letter-spacing: 0.075em;
+    text-shadow: 0 6px 28px rgba(0, 0, 0, 0.82);
+    text-transform: uppercase;
+}
+
+.bloodline-awakening-hero-copy p {
+    max-width: 600px;
+    margin: 0;
+    color: #adbac9;
+    font: 450 12px/1.55 Inter, sans-serif;
+}
+
+.bloodline-awakening-hero-stats {
+    position: absolute;
+    z-index: 1;
+    right: 24px;
+    bottom: 22px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(125px, 1fr));
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid rgba(var(--ba-rgb), 0.22);
+    border-radius: 12px;
+    background: rgba(var(--ba-rgb), 0.15);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.32);
+    backdrop-filter: blur(12px);
+}
+
+.bloodline-awakening-hero-stats > span {
+    display: grid;
+    min-width: 0;
+    gap: 5px;
+    padding: 10px 13px;
+    background: rgba(3, 8, 17, 0.82);
+}
+
+.bloodline-awakening-hero-stats small,
+.bloodline-awakening-legacy-bar small,
+.bloodline-awakening-build-meter small,
+.bloodline-awakening-section-heading small,
+.bloodline-awakening-saved-heading small {
+    color: #718197;
+    font: 750 7px/1.1 Inter, sans-serif;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+}
+
+.bloodline-awakening-hero-stats strong {
+    overflow: hidden;
+    color: #edf2f7;
+    font: 750 11px/1.2 Inter, sans-serif;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bloodline-awakening-hero-stats strong.is-over { color: #fb7185; }
+
+.bloodline-awakening-legacy-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 16px 18px 0;
+    padding: 12px 14px;
+    border: 1px solid rgba(151, 170, 194, 0.14);
+    border-radius: 12px;
+    background: linear-gradient(90deg, rgba(var(--ba-rgb), 0.07), rgba(3, 8, 17, 0.55) 45%, rgba(var(--ba-rgb), 0.035));
+}
+
+.bloodline-awakening-legacy-copy { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.bloodline-awakening-legacy-copy > span:last-child { display: grid; min-width: 0; gap: 4px; }
+.bloodline-awakening-legacy-copy strong { overflow: hidden; color: #e8edf3; font: 740 12px/1.2 var(--font-display); letter-spacing: 0.045em; text-overflow: ellipsis; white-space: nowrap; }
+.bloodline-awakening-legacy-seal { display: grid; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; color: var(--ba-color); border: 1px solid rgba(var(--ba-rgb), 0.4); border-radius: 50%; background: radial-gradient(circle, rgba(var(--ba-rgb), 0.16), rgba(3, 8, 17, 0.86) 68%); box-shadow: inset 0 0 0 4px rgba(3, 8, 17, 0.68), 0 0 15px rgba(var(--ba-rgb), 0.1); font: 800 14px/1 var(--font-display); }
+.bloodline-awakening-storage { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+.bloodline-awakening-storage strong { color: #f1dfad; font: 800 19px/1 var(--font-display); }
+.bloodline-awakening-storage strong span { color: #76869a; font-size: 11px; }
+
+.app-shell[data-screen="bloodlineMaker"] .bloodline-wizard-steps {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
+    gap: 6px;
+    margin: 14px 18px 0;
+    padding: 8px 8px 13px;
+    overflow: hidden;
+    border: 1px solid rgba(151, 170, 194, 0.14);
+    border-radius: 12px;
+    background: rgba(2, 7, 15, 0.68);
+}
+
+.app-shell[data-screen="bloodlineMaker"] .bloodline-wizard-step {
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr);
+    align-items: center;
+    gap: 7px;
+    min-height: 42px;
+    padding: 7px 8px !important;
+    color: #78889c !important;
+    border: 1px solid transparent !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+    font: 700 9px/1.15 Inter, sans-serif;
+    text-align: left;
+    transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.app-shell[data-screen="bloodlineMaker"] .bloodline-wizard-step:hover { color: #d7e0e9 !important; border-color: rgba(151, 170, 194, 0.16) !important; background: rgba(255, 255, 255, 0.025) !important; }
+.app-shell[data-screen="bloodlineMaker"] .bloodline-wizard-step.done { color: #a5b3c2 !important; }
+.app-shell[data-screen="bloodlineMaker"] .bloodline-wizard-step.active { color: #f5e6bd !important; border-color: rgba(var(--ba-rgb), 0.4) !important; background: linear-gradient(90deg, rgba(var(--ba-rgb), 0.13), rgba(var(--ba-rgb), 0.035)) !important; box-shadow: inset 0 1px rgba(255, 255, 255, 0.04) !important; }
+
+.bloodline-wizard-step-index {
+    display: grid;
+    width: 26px;
+    height: 26px;
+    place-items: center;
+    color: #75869b;
+    border: 1px solid rgba(151, 170, 194, 0.2);
+    border-radius: 50%;
+    background: rgba(3, 8, 17, 0.7);
+    font-size: 7px;
+    letter-spacing: 0.06em;
+}
+
+.bloodline-wizard-step.active .bloodline-wizard-step-index { color: var(--ba-color); border-color: rgba(var(--ba-rgb), 0.55); box-shadow: 0 0 13px rgba(var(--ba-rgb), 0.15); }
+.bloodline-wizard-step.done .bloodline-wizard-step-index { color: #65d6ad; border-color: rgba(82, 202, 158, 0.35); }
+.bloodline-wizard-progress { position: absolute; inset: auto 8px 6px; height: 2px; overflow: hidden; border-radius: 99px; background: rgba(255, 255, 255, 0.055); }
+.bloodline-wizard-progress i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, rgba(var(--ba-rgb), 0.38), var(--ba-color)); box-shadow: 0 0 10px rgba(var(--ba-rgb), 0.35); transition: width 220ms ease; }
+
+.bloodline-awakening-build-meter {
+    display: grid;
+    grid-template-columns: auto minmax(120px, 1fr) auto;
+    align-items: center;
+    gap: 13px;
+    margin: 10px 18px 0;
+    padding: 10px 12px;
+    border: 1px solid rgba(var(--ba-rgb), 0.15);
+    border-radius: 10px;
+    background: rgba(var(--ba-rgb), 0.035);
+}
+
+.bloodline-awakening-build-meter > span:first-child { display: grid; min-width: 142px; gap: 3px; }
+.bloodline-awakening-build-meter > span:first-child strong { color: #aab8c8; font: 700 9px/1.2 Inter, sans-serif; }
+.bloodline-awakening-build-track { height: 6px; overflow: hidden; border: 1px solid rgba(var(--ba-rgb), 0.17); border-radius: 99px; background: rgba(1, 5, 11, 0.82); }
+.bloodline-awakening-build-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, rgba(var(--ba-rgb), 0.55), var(--ba-color)); box-shadow: 0 0 11px rgba(var(--ba-rgb), 0.32); transition: width 180ms ease; }
+.bloodline-awakening-build-meter > b { min-width: 55px; color: var(--ba-color); font: 750 10px/1 Inter, sans-serif; text-align: right; }
+.bloodline-awakening-build-meter[data-over] { --ba-rgb: 244, 63, 94; --ba-color: #fb7185; }
+
+.bloodline-awakening-workspace { margin: 14px 18px 18px; padding: 18px; border: 1px solid rgba(151, 170, 194, 0.15); border-radius: 14px; background: radial-gradient(circle at 100% 0, rgba(var(--ba-rgb), 0.035), transparent 35%), linear-gradient(150deg, rgba(11, 18, 32, 0.9), rgba(4, 10, 20, 0.94)); box-shadow: inset 0 1px rgba(255, 255, 255, 0.035), 0 14px 28px rgba(0, 0, 0, 0.2); }
+.app-shell[data-screen="bloodlineMaker"] .bloodline-wizard-panel { gap: 8px; }
+
+.bloodline-awakening-section-heading { display: flex; align-items: center; gap: 11px; margin-bottom: 7px; padding-bottom: 12px; border-bottom: 1px solid rgba(var(--ba-rgb), 0.14); }
+.bloodline-awakening-section-heading > span { display: grid; width: 38px; height: 38px; place-items: center; color: var(--ba-color); border: 1px solid rgba(var(--ba-rgb), 0.38); border-radius: 9px; background: linear-gradient(145deg, rgba(var(--ba-rgb), 0.14), rgba(var(--ba-rgb), 0.025)); font: 800 10px/1 var(--font-display); letter-spacing: 0.08em; }
+.bloodline-awakening-section-heading > div { display: grid; gap: 4px; }
+.bloodline-awakening-section-heading h3 { margin: 0; color: #efe7d1; font: 760 16px/1.15 var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; }
+
+.app-shell[data-screen="bloodlineMaker"] .bloodline-wizard-panel > label { margin-top: 5px; color: #9faec0; font: 720 9px/1.2 Inter, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; }
+.app-shell[data-screen="bloodlineMaker"] .bloodline-wizard-panel > input,
+.app-shell[data-screen="bloodlineMaker"] .bloodline-wizard-panel > textarea,
+.app-shell[data-screen="bloodlineMaker"] .bloodline-wizard-panel > select { min-height: 42px; padding: 9px 11px; border: 1px solid rgba(151, 170, 194, 0.22) !important; border-radius: 8px; background: rgba(2, 7, 15, 0.76) !important; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.32); }
+.app-shell[data-screen="bloodlineMaker"] .bloodline-wizard-panel > input:focus,
+.app-shell[data-screen="bloodlineMaker"] .bloodline-wizard-panel > textarea:focus,
+.app-shell[data-screen="bloodlineMaker"] .bloodline-wizard-panel > select:focus { border-color: rgba(var(--ba-rgb), 0.65) !important; outline: 2px solid rgba(var(--ba-rgb), 0.12); outline-offset: 1px; }
+
+.app-shell[data-screen="bloodlineMaker"] .maker-card {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 16px;
+    border: 1px solid rgba(var(--ba-rgb), 0.17) !important;
+    border-radius: 14px;
+    background:
+        radial-gradient(circle at 100% 0, rgba(var(--ba-rgb), 0.055), transparent 30%),
+        linear-gradient(155deg, rgba(9, 17, 31, 0.94), rgba(2, 7, 15, 0.9)) !important;
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.035), 0 16px 32px rgba(0, 0, 0, 0.2);
+}
+
+.app-shell[data-screen="bloodlineMaker"] .maker-card .bloodline-technique-name {
+    margin: 0 0 4px;
+    padding-bottom: 12px;
+    color: #f1e9d7;
+    border-bottom: 1px solid rgba(var(--ba-rgb), 0.13);
+    font: 760 17px/1.2 var(--font-display);
+    letter-spacing: 0.045em;
+}
+
+.app-shell[data-screen="bloodlineMaker"] .maker-card > label,
+.app-shell[data-screen="bloodlineMaker"] .bloodline-vfx-section > label,
+.app-shell[data-screen="bloodlineMaker"] .bloodline-damage-section > label {
+    margin-top: 4px;
+    color: #91a2b5;
+    font: 760 8px/1.2 Inter, sans-serif;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.app-shell[data-screen="bloodlineMaker"] .maker-card > input,
+.app-shell[data-screen="bloodlineMaker"] .maker-card > textarea,
+.app-shell[data-screen="bloodlineMaker"] .maker-card > select,
+.app-shell[data-screen="bloodlineMaker"] .maker-card .inline-grid select,
+.app-shell[data-screen="bloodlineMaker"] .maker-card .tag-picker select,
+.app-shell[data-screen="bloodlineMaker"] .maker-card .bloodline-damage-section select,
+.app-shell[data-screen="bloodlineMaker"] .maker-card .bloodline-vfx-control > select {
+    min-height: 44px;
+    padding: 10px 12px;
+    color: #edf2f7 !important;
+    border: 1px solid rgba(151, 170, 194, 0.22) !important;
+    border-radius: 9px;
+    background: linear-gradient(180deg, rgba(7, 14, 26, 0.94), rgba(2, 7, 15, 0.96)) !important;
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.025), inset 0 -1px 3px rgba(0, 0, 0, 0.28);
+}
+
+.app-shell[data-screen="bloodlineMaker"] .maker-card > textarea { min-height: 82px; resize: vertical; line-height: 1.5; }
+.app-shell[data-screen="bloodlineMaker"] .maker-card input:focus,
+.app-shell[data-screen="bloodlineMaker"] .maker-card textarea:focus,
+.app-shell[data-screen="bloodlineMaker"] .maker-card select:focus { border-color: rgba(var(--ba-rgb), 0.68) !important; outline: 2px solid rgba(var(--ba-rgb), 0.11); outline-offset: 1px; }
+
+.app-shell[data-screen="bloodlineMaker"] .bloodline-image-file {
+    min-height: 48px;
+    padding: 5px 8px !important;
+    color: #8192a5 !important;
+    font: 650 10px/1 Inter, sans-serif;
+}
+.app-shell[data-screen="bloodlineMaker"] .bloodline-image-file::file-selector-button {
+    min-height: 36px;
+    margin-right: 11px;
+    padding: 0 14px;
+    color: var(--ba-color);
+    border: 1px solid rgba(var(--ba-rgb), 0.38);
+    border-radius: 7px;
+    background: linear-gradient(145deg, rgba(var(--ba-rgb), 0.14), rgba(var(--ba-rgb), 0.04));
+    font: 780 9px/1 Inter, sans-serif;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+.app-shell[data-screen="bloodlineMaker"] .ai-image-generator {
+    margin-top: 2px;
+    padding: 11px;
+    border-color: rgba(var(--ba-rgb), 0.3);
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(var(--ba-rgb), 0.09), rgba(2, 7, 15, 0.7));
+}
+.app-shell[data-screen="bloodlineMaker"] .ai-image-generator label { color: #aebfd0; font: 760 10px/1.2 Inter, sans-serif; }
+.app-shell[data-screen="bloodlineMaker"] .ai-image-prompt-row input { min-width: 0; min-height: 44px; border-color: rgba(151, 170, 194, 0.2) !important; background: rgba(2, 7, 15, 0.76) !important; }
+.app-shell[data-screen="bloodlineMaker"] .ai-image-prompt-row button {
+    min-height: 44px;
+    padding: 0 16px;
+    color: #06100c;
+    border: 1px solid rgba(var(--ba-rgb), 0.62);
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--ba-color), rgba(var(--ba-rgb), 0.74));
+    box-shadow: 0 8px 20px rgba(var(--ba-rgb), 0.1), inset 0 1px rgba(255, 255, 255, 0.22);
+    font: 780 10px/1 Inter, sans-serif;
+}
+
+.bloodline-technique-foundation,
+.bloodline-technique-rules {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid rgba(var(--ba-rgb), 0.15);
+    border-radius: 10px;
+    background: rgba(var(--ba-rgb), 0.09);
+}
+
+.bloodline-technique-foundation > span,
+.bloodline-technique-rules > span {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+    padding: 11px 12px;
+    background: rgba(3, 8, 17, 0.86);
+}
+
+.bloodline-technique-foundation small,
+.bloodline-technique-rules small { color: #718398; font: 750 7px/1 Inter, sans-serif; letter-spacing: 0.13em; text-transform: uppercase; }
+.bloodline-technique-foundation strong { overflow: hidden; color: var(--ba-color); font: 760 11px/1.25 Inter, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+.bloodline-technique-rules strong { color: #bac6d3; font: 650 9px/1.4 Inter, sans-serif; }
+
+.app-shell[data-screen="bloodlineMaker"] .maker-card .admin-ap-toggle { gap: 8px; }
+.app-shell[data-screen="bloodlineMaker"] .maker-card .admin-ap-toggle button {
+    min-height: 46px;
+    color: #8798aa;
+    border: 1px solid rgba(151, 170, 194, 0.2) !important;
+    border-radius: 9px;
+    background: rgba(2, 7, 15, 0.72) !important;
+    font: 760 9px/1 Inter, sans-serif;
+    letter-spacing: 0.05em;
+}
+.app-shell[data-screen="bloodlineMaker"] .maker-card .admin-ap-toggle button.active { color: #06100c; border-color: rgba(var(--ba-rgb), 0.68) !important; background: linear-gradient(135deg, var(--ba-color), rgba(var(--ba-rgb), 0.72)) !important; box-shadow: 0 8px 20px rgba(var(--ba-rgb), 0.11), inset 0 1px rgba(255, 255, 255, 0.25); }
+
+.app-shell[data-screen="bloodlineMaker"] .maker-card .summary-box {
+    margin-top: 0;
+    padding: 11px 12px;
+    color: #aab7c6;
+    border: 1px solid rgba(151, 170, 194, 0.14) !important;
+    border-radius: 10px;
+    background: rgba(2, 7, 15, 0.56) !important;
+    line-height: 1.45;
+}
+
+.app-shell[data-screen="bloodlineMaker"] .maker-card .bloodline-damage-section { border-color: rgba(var(--ba-rgb), 0.2) !important; background: linear-gradient(135deg, rgba(var(--ba-rgb), 0.055), rgba(2, 7, 15, 0.68)) !important; }
+.app-shell[data-screen="bloodlineMaker"] .maker-card .bloodline-damage-section h4 { margin: 0 0 9px; color: #efe7d4; font: 760 13px/1.2 var(--font-display); letter-spacing: 0.05em; text-transform: uppercase; }
+.app-shell[data-screen="bloodlineMaker"] .maker-card .tag-picker { grid-template-columns: minmax(0, 2fr) minmax(108px, 0.7fr); gap: 8px; margin: 0; }
+.app-shell[data-screen="bloodlineMaker"] .maker-card .tag-effect-help { color: #7f90a3; font-size: 9px; line-height: 1.45; }
+.app-shell[data-screen="bloodlineMaker"] .maker-card .bloodline-effect-preview { color: #b9c5d2; border-left: 3px solid rgba(var(--ba-rgb), 0.62) !important; background: linear-gradient(90deg, rgba(var(--ba-rgb), 0.08), rgba(2, 7, 15, 0.56)) !important; }
+.app-shell[data-screen="bloodlineMaker"] .maker-card .bloodline-effect-preview strong { color: var(--ba-color); }
+.app-shell[data-screen="bloodlineMaker"] .maker-card .bloodline-points-breakdown { border-color: rgba(var(--ba-rgb), 0.2) !important; }
+.app-shell[data-screen="bloodlineMaker"] .maker-card .bloodline-points-total { color: #f0e5c8; font: 780 11px/1.3 Inter, sans-serif; }
+.app-shell[data-screen="bloodlineMaker"] .maker-card .bloodline-points-breakdown li { padding: 4px 0; color: #91a2b5; border-bottom: 1px solid rgba(151, 170, 194, 0.08); }
+.app-shell[data-screen="bloodlineMaker"] .maker-card .bloodline-points-breakdown li:last-child { border-bottom: 0; }
+.app-shell[data-screen="bloodlineMaker"] .maker-card .bloodline-points-breakdown li span:last-child { color: var(--ba-color); }
+
+.app-shell[data-screen="bloodlineMaker"] .maker-card .bloodline-vfx-preview { border-color: rgba(var(--ba-rgb), 0.18); background: linear-gradient(135deg, rgba(var(--ba-rgb), 0.065), rgba(2, 7, 15, 0.72)); }
+.app-shell[data-screen="bloodlineMaker"] .maker-card .bloodline-vfx-thumb { border-color: rgba(var(--ba-rgb), 0.24); background: radial-gradient(circle, rgba(var(--ba-rgb), 0.18), rgba(2, 7, 15, 0.92)); }
+.app-shell[data-screen="bloodlineMaker"] .maker-card .bloodline-vfx-auto-mark { color: var(--ba-color); }
+
+.bloodline-awakening-point-total {
+    display: grid;
+    grid-template-columns: auto minmax(120px, 1fr) minmax(190px, auto);
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    padding: 11px 12px;
+    border: 1px solid rgba(var(--ba-rgb), 0.18);
+    border-radius: 10px;
+    background: linear-gradient(90deg, rgba(var(--ba-rgb), 0.07), rgba(2, 7, 15, 0.66));
+}
+.bloodline-awakening-point-total > span:first-child { display: grid; gap: 3px; }
+.bloodline-awakening-point-total small { color: #718398; font: 750 7px/1 Inter, sans-serif; letter-spacing: 0.13em; text-transform: uppercase; }
+.bloodline-awakening-point-total strong { color: var(--ba-color); font: 780 10px/1.2 Inter, sans-serif; }
+.bloodline-awakening-point-total > i { height: 5px; overflow: hidden; border: 1px solid rgba(var(--ba-rgb), 0.16); border-radius: 99px; background: rgba(1, 5, 11, 0.82); }
+.bloodline-awakening-point-total > i b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, rgba(var(--ba-rgb), 0.55), var(--ba-color)); box-shadow: 0 0 10px rgba(var(--ba-rgb), 0.28); }
+.bloodline-awakening-point-total > span:last-child { color: #8fa0b3; font: 650 8px/1.35 Inter, sans-serif; text-align: right; }
+.bloodline-awakening-point-total[data-over] { --ba-rgb: 244, 63, 94; --ba-color: #fb7185; }
+
+.app-shell[data-screen="bloodlineMaker"] .bloodline-chip { border-color: rgba(var(--ba-rgb), 0.22) !important; background: rgba(var(--ba-rgb), 0.045) !important; }
+.app-shell[data-screen="bloodlineMaker"] .bloodline-chip:hover { color: var(--ba-color) !important; border-color: rgba(var(--ba-rgb), 0.62) !important; }
+.app-shell[data-screen="bloodlineMaker"] .bloodline-template-card { border-color: rgba(var(--ba-rgb), 0.2) !important; background: linear-gradient(145deg, rgba(var(--ba-rgb), 0.06), rgba(2, 7, 15, 0.64)) !important; }
+.app-shell[data-screen="bloodlineMaker"] .bloodline-template-card:hover { border-color: rgba(var(--ba-rgb), 0.58) !important; background: rgba(var(--ba-rgb), 0.1) !important; transform: translateY(-2px); }
+.app-shell[data-screen="bloodlineMaker"] .bloodline-template-card strong { color: var(--ba-color); }
+
+.bloodline-awakening-gate { display: grid; gap: 6px; margin: 8px 0; padding: 14px; border: 1px solid rgba(233, 191, 91, 0.3); border-left: 3px solid #e9bf5b; border-radius: 10px; background: linear-gradient(90deg, rgba(233, 191, 91, 0.1), rgba(3, 8, 17, 0.5)); }
+.bloodline-awakening-gate strong { color: #f2d895; font: 750 12px/1.2 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; }
+.bloodline-awakening-gate span { color: #aab7c5; font-size: 10px; line-height: 1.45; }
+.app-shell[data-screen="bloodlineMaker"] .bloodline-awakening-gate button { justify-self: start; margin-top: 3px; color: #f2d895; border-color: rgba(233, 191, 91, 0.42); background: rgba(233, 191, 91, 0.08); }
+
+.app-shell[data-screen="bloodlineMaker"] .bloodline-awakening-save { min-height: 48px; margin-top: 3px; color: #08110e !important; border: 1px solid rgba(var(--ba-rgb), 0.72) !important; border-radius: 9px !important; background: linear-gradient(135deg, var(--ba-color), rgba(var(--ba-rgb), 0.72)) !important; box-shadow: 0 10px 24px rgba(var(--ba-rgb), 0.12), inset 0 1px rgba(255, 255, 255, 0.28) !important; font: 850 11px/1 Inter, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; }
+.app-shell[data-screen="bloodlineMaker"] .bloodline-awakening-save:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-2px); }
+.app-shell[data-screen="bloodlineMaker"] .bloodline-awakening-save:disabled { opacity: 0.42; cursor: not-allowed; filter: saturate(0.5); }
+
+.bloodline-awakening-saved { display: grid; gap: 10px; margin-top: 12px; padding-top: 15px; border-top: 1px solid rgba(var(--ba-rgb), 0.14); }
+.bloodline-awakening-saved-heading { display: flex; align-items: end; justify-content: space-between; gap: 14px; }
+.bloodline-awakening-saved-heading > div { display: grid; gap: 4px; }
+.bloodline-awakening-saved-heading h3 { margin: 0; color: #e9e1cd; font: 750 15px/1.2 var(--font-display); letter-spacing: 0.05em; text-transform: uppercase; }
+.bloodline-awakening-saved-heading > span { color: #74859a; font-size: 9px; }
+.bloodline-awakening-saved-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.bloodline-awakening-saved-card { position: relative; display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 11px; min-height: 118px; padding: 11px; overflow: hidden; border: 1px solid rgba(151, 170, 194, 0.16); border-radius: 11px; background: linear-gradient(145deg, rgba(14, 23, 40, 0.92), rgba(3, 8, 17, 0.96)); }
+.bloodline-awakening-saved-card.is-equipped { border-color: rgba(var(--ba-rgb), 0.48); box-shadow: inset 0 1px rgba(255, 255, 255, 0.04), 0 0 22px rgba(var(--ba-rgb), 0.08); }
+.bloodline-awakening-saved-art { position: relative; display: grid; place-items: center; width: 76px; min-height: 76px; align-self: stretch; overflow: hidden; color: var(--ba-color); border: 1px solid rgba(var(--ba-rgb), 0.25); border-radius: 9px; background: radial-gradient(circle, rgba(var(--ba-rgb), 0.16), rgba(2, 7, 15, 0.92) 68%); font: 800 27px/1 var(--font-display); }
+.bloodline-awakening-saved-art img { width: 100%; height: 100%; object-fit: cover; }
+.bloodline-awakening-saved-art b { position: absolute; inset: auto 5px 5px; padding: 4px 5px; color: #f8edcc; border: 1px solid rgba(var(--ba-rgb), 0.34); border-radius: 5px; background: rgba(2, 7, 15, 0.82); font: 800 7px/1 Inter, sans-serif; letter-spacing: 0.08em; text-align: center; text-transform: uppercase; backdrop-filter: blur(6px); }
+.bloodline-awakening-saved-copy { display: grid; align-content: start; gap: 4px; min-width: 0; }
+.bloodline-awakening-saved-copy small { color: var(--ba-color); font: 750 7px/1.2 Inter, sans-serif; letter-spacing: 0.12em; text-transform: uppercase; }
+.bloodline-awakening-saved-copy strong { overflow: hidden; color: #edf1f5; font: 750 13px/1.2 var(--font-display); letter-spacing: 0.035em; text-overflow: ellipsis; white-space: nowrap; }
+.bloodline-awakening-saved-copy > span { color: #8292a5; font-size: 8px; }
+.bloodline-awakening-saved-copy p { display: -webkit-box; margin: 2px 0 0; overflow: hidden; color: #9ba9b9; font-size: 9px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.app-shell[data-screen="bloodlineMaker"] .bloodline-awakening-saved-card > button,
+.bloodline-awakening-equipped { grid-column: 2; justify-self: start; align-self: end; padding: 6px 9px; border-radius: 6px; font: 750 8px/1 Inter, sans-serif; letter-spacing: 0.06em; text-transform: uppercase; }
+.app-shell[data-screen="bloodlineMaker"] .bloodline-awakening-saved-card > button { color: var(--ba-color); border: 1px solid rgba(var(--ba-rgb), 0.38); background: rgba(var(--ba-rgb), 0.07); }
+.bloodline-awakening-equipped { color: #65d6ad; border: 1px solid rgba(82, 202, 158, 0.28); background: rgba(82, 202, 158, 0.07); }
+
+.app-shell[data-screen="bloodlineMaker"] .bloodline-wizard-nav { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid rgba(var(--ba-rgb), 0.13); }
+.app-shell[data-screen="bloodlineMaker"] .bloodline-wizard-nav button { min-height: 42px; border-radius: 8px; font: 760 9px/1 Inter, sans-serif; letter-spacing: 0.075em; text-transform: uppercase; }
+.app-shell[data-screen="bloodlineMaker"] .bloodline-wizard-next { color: #07100d; border-color: rgba(var(--ba-rgb), 0.65); background: linear-gradient(135deg, var(--ba-color), rgba(var(--ba-rgb), 0.7)); }
+.app-shell[data-screen="bloodlineMaker"] .bloodline-wizard-back { color: #b5c0cc; border-color: rgba(151, 170, 194, 0.24); background: rgba(2, 7, 15, 0.66); }
+
+@media (max-width: 820px) {
+    .bloodline-awakening-hero { min-height: 330px; }
+    .bloodline-awakening-hero-copy { margin-top: 38px; }
+    .bloodline-awakening-hero-stats { position: relative; right: auto; bottom: auto; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 20px; }
+    .bloodline-awakening-saved-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 620px) {
+    .app-shell[data-screen="bloodlineMaker"] .bloodline-maker-screen { width: calc(100vw - 16px); border-radius: 16px !important; }
+    .bloodline-awakening-hero { min-height: 390px; padding: 14px; }
+    .bloodline-awakening-hero::before { background: linear-gradient(90deg, rgba(2, 6, 13, 0.97), rgba(3, 8, 17, 0.76)), linear-gradient(0deg, rgba(3, 8, 17, 0.96), transparent 62%); }
+    .bloodline-awakening-hero-actions { align-items: stretch; }
+    .app-shell[data-screen="bloodlineMaker"] .bloodline-awakening-back,
+    .app-shell[data-screen="bloodlineMaker"] .bloodline-awakening-stone-link { min-height: 38px; padding: 8px 10px !important; font-size: 7px; }
+    .bloodline-awakening-hero-copy { margin-top: 44px; }
+    .bloodline-awakening-hero-copy h2 { font-size: clamp(28px, 10vw, 40px); }
+    .bloodline-awakening-hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .bloodline-awakening-legacy-bar { margin: 10px 10px 0; }
+    .bloodline-awakening-storage small { display: none; }
+    .app-shell[data-screen="bloodlineMaker"] .bloodline-wizard-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 10px 10px 0; }
+    .bloodline-awakening-build-meter { grid-template-columns: minmax(0, 1fr) auto; margin: 8px 10px 0; }
+    .bloodline-awakening-build-meter > span:first-child { min-width: 0; }
+    .bloodline-awakening-build-track { grid-column: 1 / -1; grid-row: 2; }
+    .bloodline-awakening-workspace { margin: 10px; padding: 12px; }
+    .bloodline-awakening-saved-heading { align-items: flex-start; flex-direction: column; gap: 5px; }
+    .app-shell[data-screen="bloodlineMaker"] .maker-card { padding: 12px; }
+    .bloodline-technique-foundation,
+    .bloodline-technique-rules { grid-template-columns: 1fr; }
+    .app-shell[data-screen="bloodlineMaker"] .ai-image-prompt-row { grid-template-columns: 1fr; }
+    .app-shell[data-screen="bloodlineMaker"] .ai-image-prompt-row button { width: 100%; }
+    .app-shell[data-screen="bloodlineMaker"] .maker-card .tag-picker { grid-template-columns: minmax(0, 1fr) 100px; }
+    .bloodline-awakening-point-total { grid-template-columns: minmax(0, 1fr) auto; }
+    .bloodline-awakening-point-total > i { grid-column: 1 / -1; grid-row: 2; }
+    .bloodline-awakening-point-total > span:last-child { grid-column: 1 / -1; text-align: left; }
+}
+
+@media (max-width: 430px) {
+    .bloodline-awakening-hero { min-height: 410px; }
+    .bloodline-awakening-hero-copy p { font-size: 10.5px; }
+    .bloodline-awakening-legacy-copy strong { max-width: 175px; }
+    .bloodline-awakening-saved-card { grid-template-columns: 62px minmax(0, 1fr); }
+    .bloodline-awakening-saved-art { width: 62px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bloodline-awakening-hero-art,
+    .bloodline-wizard-progress i,
+    .bloodline-awakening-build-track i,
+    .bloodline-awakening-back,
+    .bloodline-awakening-stone-link,
+    .bloodline-template-card { transition: none !important; transform: none !important; }
+}

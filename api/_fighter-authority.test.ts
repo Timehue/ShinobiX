@@ -23,13 +23,26 @@ const read = (rel: string) => readFileSync(join(process.cwd(), 'api', rel), 'utf
 // callers are classified separately below.
 const SEAL_CALLERS = [
     'towers/start.ts',
+    'towers/_pvp-store.ts',
     'clan-boss/assault-start.ts',
+    'world-crisis-80/combat-start.ts',
     '_merc-auto.ts',
 ] as const;
 
 const DIRECT_HYDRATOR_CALLERS = [
     'village/anbu-infiltration.ts',
+    'village/sector-war.ts',
     '_anbu-infiltration-store.ts',
+] as const;
+
+const SOLO_ENCOUNTER_CALLERS = [
+    'hollow-gate/_encounter.ts',
+    'endless/_wave-session.ts',
+    'missions/combat-start.ts',
+    'missions/ai-fight-start.ts',
+    'weekly-boss.ts',
+    'story/spar-start.ts',
+    'story/boss-start.ts',
 ] as const;
 
 describe('single fighter pipeline — admin content is always supplied', () => {
@@ -55,6 +68,17 @@ describe('single fighter pipeline — admin content is always supplied', () => {
                 src,
                 /hydrateCharacterFromSave\([^;]*loadAdminCombatContent\(\)/is,
                 `${rel} must pass the admin catalog to the canonical hydrator`,
+            );
+        }
+    });
+
+    it('every generic Solo-PvE encounter caller threads the admin combat catalog', () => {
+        for (const rel of SOLO_ENCOUNTER_CALLERS) {
+            const src = read(rel);
+            assert.match(
+                src,
+                /buildSoloPveAiEncounter\([^;]*\badmin\s*(?::|,)/is,
+                `${rel} must pass the admin catalog to the canonical Solo-PvE encounter builder`,
             );
         }
     });

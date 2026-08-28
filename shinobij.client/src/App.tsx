@@ -7497,11 +7497,17 @@ export default function App() {
                         setSavedBloodlines={setSavedBloodlines}
                         lockedRank={bloodlineMakerRankLocked}
                         editingBloodline={bloodlineMakerEditingBloodline}
-                        onSaveBloodlines={(nextBloodlines, nextCharacter) => {
-                            if (!character || !currentAccountName) return;
-                            void pushSaveToServer(nextCharacter ?? character, currentAccountName, { savedBloodlines: nextBloodlines }).catch(() => {});
+                        onSaveBloodlines={async (nextBloodlines, nextCharacter) => {
+                            if (!character || !currentAccountName) throw new Error("No active player save is available.");
+                            await pushSaveToServer(nextCharacter ?? character, currentAccountName, { savedBloodlines: nextBloodlines });
                         }}
                         onClose={() => { setBloodlineMakerRankLocked(false); setBloodlineMakerEditingBloodline(null); setScreen(isAdminAccountName(character.name) ? "adminPanel" : "centralHub"); }}
+                        onOpenAwakening={isAdminAccountName(character.name) ? undefined : () => {
+                            setBloodlineMakerRankLocked(false);
+                            setBloodlineMakerEditingBloodline(null);
+                            setAcademyAwakeningRequested(true);
+                            setScreen("centralHub");
+                        }}
                     />
                 )}
                 {!introCinematicActive && <ScreenReadyProbe screen={screen} />}
