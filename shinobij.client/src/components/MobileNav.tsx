@@ -26,7 +26,7 @@ import { PLAYER_MENU_GROUPS } from "./player-menu-groups";
 // Compact local game glyphs keep the navigation consistent with the HUD emblems
 // without loading a second icon library.
 import {
-    GiChatBubble, GiExitDoor, GiGears, GiHamburgerMenu, GiHearts,
+    GiChatBubble, GiExitDoor, GiGears, GiHamburgerMenu,
     GiHealthNormal, GiKnapsack, GiNinjaHeroicStance, GiOpenBook, GiPagoda, GiTreasureMap,
 } from "./icons/LightweightGameIcons";
 
@@ -234,7 +234,6 @@ export const MobileNav = memo(function MobileNav({
                                     <div className="mobile-menu-grid">
                                         <button className="mobile-menu-btn" aria-current={screen === "guides" ? "page" : undefined} onClick={() => go("guides")} onPointerDown={() => preloadScreen("guides")}><GiOpenBook size={20} />Guides</button>
                                         <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer"); setOpen(false); }}><GiChatBubble size={20} />Discord</button>
-                                        <button className="mobile-menu-btn" onClick={() => go("profile")} onPointerDown={() => preloadScreen("profile")}><GiHearts size={20} />Patreon</button>
                                     </div>
                                 </section>
                                 <section className="mobile-menu-section" aria-labelledby="mobile-menu-system">

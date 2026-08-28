@@ -133,7 +133,7 @@ const PENDING_ECHO = new Set<string>();
 
 /**
  * Exempt, with reasons:
- *  - admin/*, cron/*, patreon/*  — no player autosave follows on that client, and the
+ *  - admin/*, cron/*, billing     — no player autosave follows on that client, and the
  *    affected player usually is not the caller at all.
  *  - multi-player writes         — they bump SOMEONE ELSE'S save too, so a single
  *    `_saveVersion` in the response would be ambiguous; handing the caller another
@@ -184,7 +184,11 @@ const EXEMPT = new Set([
     // rewarded player's next full-character autosave from overwriting the credit — that
     // client 409s and refetches the reward instead.
     'cron/_clan-boss-weekly.ts',
-    'patreon/_patreon.ts',
+    // Subscription entitlement writer (was patreon/_patreon.ts until the Patreon
+    // rail was removed). Writes the server-owned perk flag from an admin comp or
+    // a billing-provider callback — never from a request the affected player
+    // made, so there is no response of theirs in flight to carry a version.
+    '_subscription.ts',
     'clan/seal-pool/distribute.ts',
     'player/trade.ts',
     'missions/_progress.ts',

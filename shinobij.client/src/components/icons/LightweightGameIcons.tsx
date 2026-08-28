@@ -71,7 +71,7 @@ const gift = gameGlyph("gift");
 const health = gameGlyph("hp");
 // Rations and the starvation warning get their OWN glyphs. They used to alias
 // the hp heart and the ownership flag, which put three meanings on one shape on
-// the Village War Map (rations / HP / Patreon) and made "marches hungry" read
+// the Village War Map (rations / HP / hearts) and made "marches hungry" read
 // as a planted banner on a territory-control map.
 const rations = gameGlyph("rations");
 const hazard = gameGlyph("hazard");

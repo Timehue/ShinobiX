@@ -8,8 +8,8 @@
  * is `script-src 'self'` with no `frame-src` and `form-action 'self'`, which
  * blocks Google Identity Services, One Tap, and any Google-hosted iframe. A
  * top-level redirect is unaffected, needs no third-party script, and adds no
- * dependency. api/patreon/ already runs exactly this flow; the state-signing and
- * code-exchange shapes here are deliberately close to it.
+ * dependency. (The since-removed api/patreon/ rail ran exactly this flow; the
+ * state-signing and code-exchange shapes here were modelled on it.)
  *
  * Google is never the identity itself. It resolves to a shinobi slug, and from
  * there the ordinary session token (api/_auth.ts) does all the work — so linking
@@ -105,8 +105,8 @@ function timingSafeEqualStr(a: string, b: string): boolean {
 
 /**
  * Secret used to sign the OAuth `state`. Prefers SESSION_SECRET (the canonical
- * master signing key) and falls back to the Google client secret, matching
- * api/patreon/_patreon.ts. Note this fallback is fine for *state* — which only
+ * master signing key) and falls back to the Google client secret. Note this
+ * fallback is fine for *state* — which only
  * needs to be unforgeable for a few minutes — and is deliberately NOT used for
  * player session tokens, which have their own secret requirement.
  */
@@ -117,7 +117,7 @@ function stateSecret(): string {
 // ─── OAuth state ──────────────────────────────────────────────────────────────
 
 /**
- * Five minutes, not the fifteen the Patreon flow allows. The state here carries
+ * Five minutes, deliberately short. The state here carries
  * the authority to attach a Google identity to an account, so the window in
  * which a half-finished flow is completable should be no wider than an actual
  * sign-in takes.
