@@ -32,6 +32,28 @@ export function horizontalFov(verticalFovDeg: number, aspect: number): number {
 const clamp01 = (n: number): number => Math.max(0, Math.min(1, n));
 
 /**
+ * Horizontal texture offset that puts an authored backdrop's centre on the
+ * resting camera's centre ray when that image is mirrored around a full
+ * cylinder. The arena art is painted with one strong focal point (gate, crest,
+ * glacier, volcano); repeating it without an offset put that focal point well
+ * left of the floor seal in the broadcast shot.
+ *
+ * Three's cylinder UV starts at +Z and advances around Y. The wall point behind
+ * the fight is opposite the camera, so its U coordinate comes from the inverse
+ * camera vector. With MirroredRepeatWrapping, every half-integer in repeated
+ * texture space is the image centre. We move the nearest one onto that ray,
+ * keeping the adjustment below half a tile and preserving seamless action cuts.
+ */
+export function showdownBackdropOffset(cameraX: number, cameraZ: number, repeat: number): number {
+    if (!Number.isFinite(repeat) || repeat <= 0) return 0;
+    const angle = Math.atan2(-cameraX, -cameraZ);
+    const u = ((angle / (Math.PI * 2)) % 1 + 1) % 1;
+    const repeatedU = u * repeat;
+    const nearestImageCentre = Math.round(repeatedU - 0.5) + 0.5;
+    return nearestImageCentre - repeatedU;
+}
+
+/**
  * Vertical FOV for a viewport shape. Showdown used a fixed 48° at every aspect,
  * which on an upright phone leaves barely 22° of HORIZONTAL coverage — so an
  * impact effect could only be framed by dollying back past the arena's own
