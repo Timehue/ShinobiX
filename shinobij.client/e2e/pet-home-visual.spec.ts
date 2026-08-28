@@ -1,5 +1,6 @@
 import { expect, test, type Page, type Route, type TestInfo } from "@playwright/test";
 import { PUBLIC_CAPABILITY_IDS } from "../../shared/public-capabilities";
+import { PET_CAP_BASE } from "../src/lib/entitlements";
 
 type PetFixture = Record<string, unknown> & {
     id: string;
@@ -628,16 +629,26 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     expect(pageErrors.filter((message) => message !== "Failed to fetch")).toEqual([]);
 });
 
-test("Base four unlocks Tactical while lapsed Supporter overflow stays preserved", async ({ page }, testInfo) => {
+test("a base roster unlocks Tactical while lapsed Supporter overflow stays preserved", async ({ page }, testInfo) => {
     test.setTimeout(90_000);
     test.skip(testInfo.project.name !== "chromium-desktop", "the entitlement transition is certified once in desktop Chromium");
     const state = await installPetHomeApi(page);
     state.character.patreon = { ...state.character.patreon, active: false };
     state.character.pets = structuredClone(basePets);
 
+    // Sized off PET_CAP_BASE rather than literals. This spec was written when the
+    // base cap was 4; when the cap became 5 the hardcoded "4/4" stopped matching
+    // anything, and WHICH pet falls into overflow moved as well -- so read that
+    // off the same ordering the entitlement uses (array order, no active ids set).
+    const fullRoster = [...basePets, ...fullRosterPets];
+    const overflowPets = fullRoster.slice(PET_CAP_BASE) as (PetFixture & { nickname?: string })[];
+    expect(overflowPets.length).toBeGreaterThan(0);
+    const overflowPetName = overflowPets[0].nickname ?? overflowPets[0].name;
+    const carried = (owned: number) => Math.min(owned, PET_CAP_BASE);
+
     await openHome(page);
     await page.getByRole("button", { name: "Pet Yard" }).click();
-    await expect(page.getByText(/4\/4 combat-carried · 4 owned/)).toBeVisible();
+    await expect(page.getByText(new RegExp(`${carried(basePets.length)}/${PET_CAP_BASE} combat-carried · ${basePets.length} owned`))).toBeVisible();
     await page.getByRole("button", { name: "Pet Arena" }).click();
     await expect(page.getByRole("button", { name: /Hollow Warfront/ })).toBeEnabled();
     await expect(page.getByText(/Locked: 3\/4 pets/)).toHaveCount(0);
@@ -645,16 +656,16 @@ test("Base four unlocks Tactical while lapsed Supporter overflow stays preserved
     state.character.pets = [...structuredClone(basePets), ...structuredClone(fullRosterPets)];
     await openHome(page);
     await page.getByRole("button", { name: "Pet Yard" }).click();
-    await expect(page.getByText(/4\/4 combat-carried · 6 owned/)).toBeVisible();
-    await expect(page.getByText(/2 preserved overflow/)).toBeVisible();
-    await page.getByRole("button", { name: "Select Gale Heron" }).click();
+    await expect(page.getByText(new RegExp(`${carried(fullRoster.length)}/${PET_CAP_BASE} combat-carried · ${fullRoster.length} owned`))).toBeVisible();
+    await expect(page.getByText(new RegExp(`${overflowPets.length} preserved overflow`))).toBeVisible();
+    await page.getByRole("button", { name: `Select ${overflowPetName}` }).click();
     const overflowReadiness = page.locator(".pet-battle-readiness");
     await expect(overflowReadiness.locator('[data-circuit="colosseum"]')).toContainText("Resting in Sanctuary");
     await expect(overflowReadiness.locator('[data-circuit="warfront"]')).toContainText("Resting in Sanctuary");
 
     await page.getByRole("button", { name: "Pet Arena" }).click();
     await page.getByRole("button", { name: /Enter the Colosseum/ }).click();
-    const overflowColosseumPet = page.locator(".showdown-roster-card", { hasText: "Gale Heron" });
+    const overflowColosseumPet = page.locator(".showdown-roster-card", { hasText: overflowPetName });
     await expect(overflowColosseumPet).toBeDisabled();
     await expect(overflowColosseumPet).toContainText("Resting in Sanctuary");
 });
