@@ -50,6 +50,19 @@ test("the live Showdown renderer wires the paired target through the final model
     assert.match(source, /lockTargetFacing: true/);
 });
 
+test("3v3 formations pair every visible lane reciprocally", () => {
+    const players = ["player-left", "player-centre", "player-right"];
+    const enemies = ["enemy-right", "enemy-centre", "enemy-left"];
+    assert.deepEqual(
+        players.map((id) => pairedShowdownOpponentId(id, players, enemies, "player")),
+        ["enemy-left", "enemy-centre", "enemy-right"],
+    );
+    assert.deepEqual(
+        enemies.map((id) => pairedShowdownOpponentId(id, enemies, players, "enemy")),
+        ["player-right", "player-centre", "player-left"],
+    );
+});
+
 test("the entire 3D fighter performance follows the hit-stop-aware presentation clock", () => {
     assert.match(modelSource, /const presentationDelta = f\.timeline === undefined \? delta : animationDelta/);
     assert.match(modelSource, /const gaitPhase = timeline \* gait/);
