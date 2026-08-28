@@ -35,6 +35,7 @@ import { AURA_SPHERE_ITEM_ID, ELEMENTAL_CORE_ID } from "../constants/game";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { getChronicleCard } from "../lib/chronicle-duel";
 import { addItem, countItem, removeItem, unifiedItemStacks } from "../lib/inventory";
+import { ACADEMY_STARTER_GEAR_IDS, normalizeOnboardingStep } from "../lib/onboarding-step";
 import {
     type ItemCategory,
     ITEM_CATEGORY_META,
@@ -112,6 +113,7 @@ export function Inventory({
     const [attunePickFor, setAttunePickFor] = useState<string | null>(null);
     const [attuneBusy, setAttuneBusy] = useState(false);
     const [attuneMsg, setAttuneMsg] = useState("");
+    const academyInventoryStep = normalizeOnboardingStep(character.onboardingStep) === "inventory";
     const allItems = getAllItems(creatorItems, character.weaponElements);
     const allTileCards = getAllTileCards(creatorCards);
     // Village Stores: BOTH destinations this signpost can send a player to gate
@@ -776,10 +778,15 @@ export function Inventory({
                                                 : entry === "Chakra Pill"
                                                     ? "Restores 25 chakra."
                                                     : "General inventory item.";
+                                        const academyStarterTarget = academyInventoryStep
+                                            && Boolean(item)
+                                            && ACADEMY_STARTER_GEAR_IDS.some((id) => id === item?.id);
                                         return (
                                         <button
                                             type="button"
-                                            className={`backpack-item ${item ? `rarity-${item.rarity}` : "rarity-common"}`}
+                                            className={`backpack-item ${item ? `rarity-${item.rarity}` : "rarity-common"}${academyStarterTarget ? " academy-click-target" : ""}`}
+                                            data-academy-hint={academyStarterTarget ? "Next · select gear" : undefined}
+                                            data-academy-autoscroll={academyStarterTarget ? "true" : undefined}
                                             key={stackKey}
                                             onClick={() => {
                                                 setSelectedInventoryItem({
@@ -1061,7 +1068,8 @@ export function Inventory({
                                     {selectedGameItem && selectedEquippable && selected.source === "backpack" && selectedGameItem.id !== LEGENDARY_WAR_CRATE_ID && (
                                         <button
                                             type="button"
-                                            className="item-action-primary"
+                                            className={`item-action-primary${academyInventoryStep && ACADEMY_STARTER_GEAR_IDS.some((id) => id === selectedGameItem.id) ? " academy-click-target" : ""}`}
+                                            data-academy-hint={academyInventoryStep && ACADEMY_STARTER_GEAR_IDS.some((id) => id === selectedGameItem.id) ? "Next · equip gear" : undefined}
                                             onClick={() => equipItem(selectedGameItem)}
                                         >
                                             Equip to {equipmentSlotLabel(equipSlotForItem(selectedGameItem))}

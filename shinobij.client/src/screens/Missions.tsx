@@ -454,7 +454,9 @@ export function Missions({
                         Reward: stat points, ryo, and stamina. This does not use one of today's mission slots.
                     </p>
                     <button
-                        className="start-primary-btn"
+                        className="start-primary-btn academy-click-target"
+                        data-academy-hint="Next · claim reward"
+                        data-academy-autoscroll="true"
                         disabled={claimingKey !== null}
                         onClick={() => { void runClaim("academy-trial", claimAcademyTrial); }}
                     >

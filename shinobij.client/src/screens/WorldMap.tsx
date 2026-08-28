@@ -103,6 +103,7 @@ import { WorldToast } from "../components/WorldToast";
 import { TravelingOverlay } from "../components/TravelingOverlay";
 import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
 import { ATLAS_SECTOR_POINTS } from "../data/sector-points";
+import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { sectorExits as roadExitsForSector, travelArrivalTile, type SectorExit } from "../../../shared/sector-links";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { scaleWandererPetOpponent } from "../lib/pet-balance";
@@ -2529,6 +2530,22 @@ export function WorldMap({
     // route glows and ownership overlays consume the same projection, while
     // gameplay geography remains authoritative in shared/sector-links.ts.
     const sectorPoints = ATLAS_SECTOR_POINTS;
+    const academySectorTargetId = normalizeOnboardingStep(character.onboardingStep) === "sectorReturn"
+        && !character.academySectorVisited
+        ? villageOutskirtsSectorNumber(character.village)
+        : null;
+
+    // The mobile atlas opens in a full-bleed cover view, which necessarily crops
+    // the far-left or far-right villages on portrait screens. Fly the camera to
+    // the Academy destination once layout has measured the viewport; the normal
+    // desktop/legacy map is handled by the coach's nested scrollIntoView.
+    useEffect(() => {
+        if (!wmZoom.active || academySectorTargetId == null) return;
+        const target = sectorPoints.find((sector) => sector.id === academySectorTargetId);
+        if (!target) return;
+        const frame = window.requestAnimationFrame(() => wmZoom.focusPoint(target.x, target.y, 2.6));
+        return () => window.cancelAnimationFrame(frame);
+    }, [academySectorTargetId, wmZoom.active, wmZoom.focusPoint]);
 
     // Village quick-jump targets for the mobile zoom HUD (worldMapZoom.v1). Each
     // chip flies the camera to the cluster centroid at a tappable zoom.
@@ -5184,10 +5201,13 @@ export function WorldMap({
                             + (huntTrail ? " atlas-sector-hunt-trail" : "")
                             + (sectorShrine ? " atlas-sector-shrine" : "")
                             + (currentSector === sector.id ? " atlas-sector-current" : "")
+                            + (academySectorTargetId === sector.id ? " academy-click-target" : "")
                             + ` atlas-sector-pool-${richness}`
                             + (contract ? ` atlas-sector-contract${contract.nightOnly ? " atlas-sector-contract-night" : ""}` : "")
                         }
                         style={{ left: sector.x + "%", top: sector.y + "%", ...sectorMarkerStyle(sector.id) }}
+                        data-academy-hint={academySectorTargetId === sector.id ? "Next · travel here" : undefined}
+                        data-academy-autoscroll={academySectorTargetId === sector.id ? "true" : undefined}
                         onClick={() => triggerTravelPoint(sector.id)}
                         onMouseEnter={() => setRouteHoverSector(sector.id)}
                         onMouseLeave={() => setRouteHoverSector((current) => (current === sector.id ? null : current))}
@@ -5223,6 +5243,9 @@ export function WorldMap({
                                 className="atlas-hunt-flag"
                                 title={`${huntTrail.mission.name} trail is active here`}
                             ><GiPawPrint /></span>
+                        )}
+                        {academySectorTargetId === sector.id && (
+                            <span className="academy-map-target-label" aria-hidden="true">Next · travel here</span>
                         )}
                     </button>
                 ); })}

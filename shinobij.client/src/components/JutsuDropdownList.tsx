@@ -21,6 +21,7 @@ export function JutsuDropdownList({
     renderActions,
     onSelectJutsu,
     selectedJutsuId,
+    highlightJutsuId,
     onReorder,
 }: {
     jutsus: Jutsu[];
@@ -31,6 +32,8 @@ export function JutsuDropdownList({
     onSelectJutsu?: (jutsu: Jutsu) => void;
     /** Optional controlled selection used when a parent action targets a jutsu. */
     selectedJutsuId?: string;
+    /** Optional Academy wayfinding target. Other list consumers leave this unset. */
+    highlightJutsuId?: string;
     // When provided, the list is treated as a manually-ordered loadout: the
     // incoming `jutsus` order is preserved (no auto-sort), the Sort control is
     // hidden, and ◀/▶ buttons appear so the selected jutsu can be nudged a slot
@@ -108,7 +111,9 @@ export function JutsuDropdownList({
                         return (
                             <button
                                 key={jutsu.id}
-                                className={`technique-card ${selected ? "selected" : ""}`}
+                                className={`technique-card ${selected ? "selected" : ""}${highlightJutsuId === jutsu.id ? " academy-click-target" : ""}`}
+                                data-academy-hint={highlightJutsuId === jutsu.id ? "Next · choose this" : undefined}
+                                data-academy-autoscroll={highlightJutsuId === jutsu.id ? "true" : undefined}
                                 role="option"
                                 aria-selected={selected}
                                 onClick={() => {

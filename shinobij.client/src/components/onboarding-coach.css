@@ -183,6 +183,112 @@
     margin-top: 8px;
 }
 
+/* Shared Academy wayfinding. Screens opt the CURRENT actionable control into
+   this class; the coach CTA receives the same treatment automatically. Keeping
+   the effect on the real button/card (instead of drawing a detached arrow)
+   makes the instruction unambiguous at every viewport size. */
+.academy-click-target,
+.coach-guide-actions .start-primary-btn {
+    position: relative;
+    isolation: isolate;
+    overflow: visible !important;
+    outline: 3px solid #fde047 !important;
+    outline-offset: 4px;
+    box-shadow:
+        0 0 0 5px rgba(250, 204, 21, 0.18),
+        0 0 26px rgba(250, 204, 21, 0.72);
+    animation: academy-target-pulse 1.25s ease-in-out infinite;
+}
+
+.academy-click-target::after,
+.coach-guide-actions .start-primary-btn::after {
+    content: attr(data-academy-hint);
+}
+
+.academy-click-target::after,
+.coach-guide-actions .start-primary-btn::after,
+.academy-map-target-label {
+    position: absolute;
+    z-index: 30;
+    right: -7px;
+    top: -13px;
+    min-width: max-content;
+    padding: 3px 7px;
+    border: 1px solid rgba(255, 255, 255, 0.78);
+    border-radius: 999px;
+    background: #facc15;
+    color: #111827;
+    font: 900 9px/1.15 Inter, system-ui, sans-serif;
+    letter-spacing: 0.75px;
+    text-transform: uppercase;
+    pointer-events: none;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.5);
+}
+
+.academy-map-target-label {
+    display: block;
+}
+
+/* Atlas pins reserve ::after for their mobile tap ring. Keep that ring from
+   turning into the generic badge, enlarge the real Academy pin to a 44px touch
+   target, and render the badge as a child so both jobs survive. */
+.atlas-sector.academy-click-target::after {
+    display: none !important;
+}
+
+html.wm-zoom .world-map-scroll .atlas-sector.academy-click-target {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+}
+
+.coach-guide-actions .start-primary-btn::after {
+    content: "Next · click here";
+}
+
+.academy-click-target:focus-visible,
+.coach-guide-actions .start-primary-btn:focus-visible {
+    outline-color: #fff !important;
+}
+
+.coach-guide-target-key {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 5px;
+    color: #fde68a;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.35px;
+    text-transform: uppercase;
+}
+
+.coach-guide-target-key i {
+    width: 9px;
+    height: 9px;
+    border: 2px solid #fde047;
+    border-radius: 50%;
+    box-shadow: 0 0 8px rgba(250, 204, 21, 0.85);
+}
+
+@keyframes academy-target-pulse {
+    0%, 100% {
+        outline-offset: 3px;
+        box-shadow:
+            0 0 0 4px rgba(250, 204, 21, 0.14),
+            0 0 18px rgba(250, 204, 21, 0.5);
+    }
+    50% {
+        /* Outline motion remains visible even on legacy controls whose own
+           !important box-shadow wins the cascade. */
+        outline-offset: 9px;
+        box-shadow:
+            0 0 0 9px rgba(250, 204, 21, 0.28),
+            0 0 34px rgba(250, 204, 21, 0.92);
+    }
+}
+
 .lite-fx .coach-guide-pet,
 .lite-fx .coach-guide-pet.is-talking {
     animation: none;
@@ -195,5 +301,9 @@
     }
     .coach-guide-progress i {
         transition: none;
+    }
+    .academy-click-target,
+    .coach-guide-actions .start-primary-btn {
+        animation: none;
     }
 }

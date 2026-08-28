@@ -3,6 +3,7 @@ import type { Character, VersionedCharacterCommit } from "../types/character";
 import { gameToast } from "../components/GameToast";
 import { useCapabilityViewAvailability } from "../lib/live-capabilities-context";
 import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
+import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import {
     buyCafeteriaMeal,
     CAFETERIA_MEALS,
@@ -70,6 +71,11 @@ export function Cafeteria({
     const hpPercent = poolPercent(character.hp, character.maxHp);
     const chakraPercent = poolPercent(character.chakra, character.maxChakra);
     const staminaPercent = poolPercent(character.stamina, character.maxStamina);
+    const academyCafeteriaStep = normalizeOnboardingStep(character.onboardingStep) === "cafeteria";
+    const academyRecoveryMealId = academyCafeteriaStep
+        ? (CAFETERIA_MEALS.find((meal) => character.ryo >= meal.cost && character.hp + meal.hp >= character.maxHp)
+            ?? CAFETERIA_MEALS.find((meal) => character.ryo >= meal.cost))?.id
+        : undefined;
 
     async function eat(mealId: CafeteriaMealId) {
         if (busyMeal) return;
@@ -191,7 +197,9 @@ export function Cafeteria({
                                 )}
                             </div>
                             <button
-                                className={meal.id === "shinobi-meal" ? "facility-primary-action" : "facility-secondary-action"}
+                                className={`${meal.id === "shinobi-meal" ? "facility-primary-action" : "facility-secondary-action"}${academyRecoveryMealId === meal.id ? " academy-click-target" : ""}`}
+                                data-academy-hint={academyRecoveryMealId === meal.id ? "Next · recover HP" : undefined}
+                                data-academy-autoscroll={academyRecoveryMealId === meal.id ? "true" : undefined}
                                 disabled={Boolean(busyMeal) || !affordable}
                                 onClick={() => void eat(meal.id)}
                             >
