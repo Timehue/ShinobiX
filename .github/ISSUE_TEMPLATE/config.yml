@@ -1,0 +1,10 @@
+# Security must never arrive as a public issue, so the advisory form is offered
+# before the blank-issue option and blank issues are disabled.
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability (private)
+    url: https://github.com/Timehue/ShinobiX/security/advisories/new
+    about: Never open a public issue for a vulnerability. This form is private between you and the maintainer; see .github/SECURITY.md for scope and testing rules.
+  - name: Ask a question or report something in-game
+    url: https://discord.gg/bCQGs8r6SK
+    about: Player-side questions, account problems, and "is this a bug or am I confused" are usually faster in Discord than as an issue.

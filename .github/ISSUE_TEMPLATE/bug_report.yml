@@ -1,0 +1,54 @@
+name: Bug report
+description: Something in the game or the code behaves incorrectly.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security vulnerabilities do **not** belong here — use
+        [private reporting](https://github.com/Timehue/ShinobiX/security/advisories/new)
+        instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what happened, and what you expected instead.
+      placeholder: |
+        1. Went to the Pet Yard and selected a companion
+        2. Pressed Start Training
+        3. Got "Pet is already busy" — but the pet was idle
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: Which screen or system. If it is combat, say which mode.
+      placeholder: Pet Yard / Ranked PvP / Hollow Gate
+    validations:
+      required: true
+  - type: dropdown
+    id: reproducible
+    attributes:
+      label: Does it happen again if you retry?
+      options:
+        - Every time
+        - Sometimes
+        - Only saw it once
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and device
+      description: Helps a lot — several past bugs were one browser only.
+      placeholder: Firefox 145 on Windows / Safari on iPhone
+    validations:
+      required: false
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Console errors, screenshots, your shinobi name if it is account-specific.
+    validations:
+      required: false

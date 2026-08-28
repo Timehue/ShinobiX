@@ -65,7 +65,7 @@ historical rollout evidence.
 ## Tech Stack
 
 - Backend: Node 22, Express 5, TypeScript, Supabase/Postgres, Socket.IO.
-- Client: Vite, React 19, TypeScript, Three.js, React Three Fiber.
+- Client: React 19, Vite 8, TypeScript, Three.js, React Three Fiber.
 - Operations: Railway deployment notes, health checks, release flags,
   audit logs, Sentry integration, and build-size checks.
 - Testing: Node test runner plus TypeScript/tsx tests across API modules,
@@ -89,8 +89,8 @@ npm ci
 npm run dev
 ```
 
-Vite starts on port `50891` by default (HTTPS when a local development
-certificate is available):
+Vite starts on port `50891` by default (override with `DEV_SERVER_PORT`; HTTPS
+when a local development certificate is available):
 
 ```text
 https://127.0.0.1:50891/
@@ -129,13 +129,23 @@ bundle, and runs the build-size check.
 
 ## Project Layout
 
+- `server.ts` - the Express entry point. It imports every `api/**` handler and
+  registers each one explicitly, then serves the client build on the same port.
+  There is no folder-convention routing: an unregistered handler is unreachable.
 - `api/` - gameplay APIs, combat systems, storage, auth, rewards, telemetry,
-  realtime helpers, and beta hardening.
+  realtime helpers, and beta hardening. Underscore-prefixed files here are
+  shared helpers, not routes.
+- `shared/` - code used by both the server and the client.
 - `shinobij.client/` - Vite/React game client.
-- `docs/` - architecture plans, release audits, balance notes, and roadmap.
+- `supabase-migrations/` - SQL migrations for the Postgres schema.
 - `scripts/` - catalog validation, asset helpers, release checks, simulations,
-  and migration utilities.
-- `dist/` - generated deployment output.
+  and build tooling.
+- `release-audit/` - standalone release verification programs.
+- `tools/` - developer utilities.
+- `docs/` - architecture plans, release audits, balance notes, and roadmap.
+
+`dist/` is generated, gitignored, and deliberately not committed - Railway
+rebuilds it from source on every deploy.
 
 ## Roadmap
 
@@ -154,6 +164,30 @@ Repository screenshots and capture notes live in
 from verified local screenshots so visitors see real app screens instead of
 stock art.
 
+## Security
+
+Please report vulnerabilities **privately**, not in a public issue: use
+[private vulnerability reporting](https://github.com/Timehue/ShinobiX/security/advisories/new).
+The full policy - what is in scope, what is not, and the rules that keep testing
+away from other players' saves - is in
+[.github/SECURITY.md](.github/SECURITY.md).
+
+This is a live game with real player accounts, so please read the testing rules
+before probing anything.
+
+## Contributing
+
+ShinobiX is a solo-maintained live project rather than an open contribution
+model, so there is no roadmap commitment on outside pull requests. Bug reports
+are genuinely useful and welcome - open an issue with what you did, what
+happened, and what you expected. Anything security-related goes through the
+private channel above instead.
+
+Two conventions matter if you do run the code locally: the root `npm test` is
+Node's test runner and never opens a browser, and any change to a screen or
+component also needs the Playwright suites in `shinobij.client/`. Both are
+described in [CLAUDE.md](CLAUDE.md).
+
 ## Community
 
 - Discord: https://discord.gg/bCQGs8r6SK
@@ -162,6 +196,6 @@ stock art.
 
 ## License
 
-No open-source license is declared in this repository yet. Until a license is
-added, assume all code and assets are under exclusive copyright and cannot be
-redistributed or reused without permission.
+No open-source license is declared for this repository. All code and assets are
+under exclusive copyright and may not be redistributed or reused without
+permission. The source is public to read, not to reuse.
