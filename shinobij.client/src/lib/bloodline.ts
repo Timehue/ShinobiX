@@ -10,7 +10,8 @@
  *                                     bloodline's special element?
  *   • isBloodlineJutsu            — is `jutsu` in any equipped bloodline?
  *   • canEquipElementJutsu        — full equip-access check
- *   • replaceCharacterBloodline   — swap bloodlines, strip old jutsu refs
+ *   • replaceCharacterBloodline   — custom-slot transition (re-exported from
+ *                                    the pure bloodline-swap module)
  *
  * starterSavedBloodlines is imported back from "../App" because the
  * starter list lives there alongside the makeStarter* helpers and is
@@ -23,6 +24,7 @@ import { starterSavedBloodlines } from "../App";
 import { hasCharacterElement } from "./elements";
 import type { Character } from "../types/character";
 import type { Jutsu, SavedBloodline } from "../types/combat";
+export { replaceCharacterBloodline } from "./bloodline-swap";
 
 /**
  * Return every bloodline a character is currently carrying — their
@@ -87,33 +89,4 @@ export function canEquipElementJutsu(
     if (isBloodlineJutsu(character, jutsu, savedBloodlines)) return true;
     // Elemental jutsu — character must own the element (or have it via bloodline special element).
     return hasCharacterElement(character, jutsu.element) || isBloodlineSpecialElementJutsu(character, jutsu, savedBloodlines);
-}
-
-/**
- * Swap the character's equipped bloodline. Strips every bloodline-derived
- * jutsu (the previous custom, the starter, and the incoming bloodline's
- * jutsu ids) from `equippedJutsuIds` and `jutsuMastery` so the player
- * starts fresh on the new bloodline — they keep access but lose any
- * pre-existing mastery on the swapped jutsus and must retrain from
- * scratch via Jutsu Training.
- */
-export function replaceCharacterBloodline(
-    character: Character,
-    newBloodline: SavedBloodline,
-    savedBloodlines: SavedBloodline[],
-): Character {
-    const previousCustom = savedBloodlines.find((b) => b.id === character.equippedBloodlineId);
-    const starterBloodlineName = character.bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : character.bloodline;
-    const starter = starterSavedBloodlines.find((b) => b.name === starterBloodlineName);
-    const bloodlineJutsuIds = new Set<string>([
-        ...(previousCustom?.jutsus.map((j) => j.id) ?? []),
-        ...(starter?.jutsus.map((j) => j.id) ?? []),
-        ...newBloodline.jutsus.map((j) => j.id),
-    ]);
-    return {
-        ...character,
-        equippedBloodlineId: newBloodline.id,
-        equippedJutsuIds: character.equippedJutsuIds.filter((id) => !bloodlineJutsuIds.has(id)),
-        jutsuMastery: (character.jutsuMastery ?? []).filter((m) => !bloodlineJutsuIds.has(m.jutsuId)),
-    };
 }
