@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } f
 import type * as React from "react";
 import { installAuthFetch, isTokenExpired, setActivePlayer, setActiveToken, setAdminSession, SESSION_EXPIRED_EVENT, SAVE_VERSION_EVENT, type SaveVersionEventDetail } from "./authFetch";
 import { isReleaseSafeClientEvent } from "./lib/release-safe-content";
-import { GameAlertHost, GameConfirmHost, GamePasswordPromptHost, gameConfirm, gamePasswordPrompt } from "./components/GameAlert";
+import { GameAlertHost, GameConfirmHost, GamePasswordPromptHost, gameConfirm } from "./components/GameAlert";
 import { GameToastHost, gameToast } from "./components/GameToast";
 import { IncomingChallengeModal } from "./components/IncomingChallengeModal";
 import { AdaptiveGameShell } from "./components/layout/AdaptiveGameShell";
@@ -21,7 +21,6 @@ import { ScreenLoadingFallback } from "./components/ScreenLoadingFallback";
 import { ScreenReadyProbe } from "./components/ScreenReadyProbe";
 import { ToastStacks, type MissionToast } from "./components/ToastStacks";
 import { claimBountyOnWin } from "./lib/pvp-bounty";
-import { deleteServerAccount, DELETE_ACCOUNT_ERRORS } from "./lib/mission-combat-claim";
 import { useClaimOutboxDrain } from "./lib/claim-outbox";
 import {
     enqueueRaidReport,
@@ -43,7 +42,7 @@ import { runSingleFlight } from "./lib/single-flight";
 import { adoptSaveVersion } from "./lib/save-version";
 import { accountKey, forgetAccountToken, loadPlayerAccounts, normalizePendingTravel, rememberAccountToken, savePlayerAccounts } from "./lib/player-accounts";
 import type { PendingTravelSave } from "./lib/player-accounts";
-import { refreshAccountStatus } from "./lib/account-status";
+import { requestAccountDeletion } from "./lib/account-deletion-flow";
 // Types only — the tile resolver itself is loaded on demand (see
 // ./lib/hollow-gate-generator-loader); its one call site already awaits the
 // server's step seal first, so the import costs nothing extra.
@@ -5082,39 +5081,8 @@ export default function App() {
 
     async function deleteCharacter() {
         if (!character) return;
-        if (!(await gameConfirm(`Delete "${character.name}"? This permanently removes your character and all save data. This cannot be undone.`, { title: "Delete Character", confirmLabel: "Delete", danger: true }))) return;
         const accountName = currentAccountName || character.name;
-        // The server owns whether this account has a password. Google-only and
-        // guest accounts cannot satisfy a password prompt, so they authorize the
-        // deletion with their active session token instead. Refresh here because
-        // this is destructive and a cached answer from another account must never
-        // choose the credential path.
-        const accountStatus = await refreshAccountStatus();
-        if (!accountStatus || accountStatus.name !== accountKey(accountName)) {
-            alert("Couldn't verify this account's sign-in method. Nothing was deleted — check your connection and try again.");
-            return;
-        }
-        let localPw = "";
-        if (accountStatus.hasPassword) {
-            // Masked, themed field — never window.prompt, which shows the password
-            // in clear text. Cancel resolves null and is a silent bail-out; only an
-            // empty submit is worth an error.
-            const entered = await gamePasswordPrompt(
-                `Enter your password to permanently delete "${accountName}" from the server.`,
-                { title: "Confirm Deletion", confirmLabel: "Delete Forever", danger: true },
-            );
-            if (entered === null) return;
-            localPw = entered.trim();
-            if (!localPw) {
-                alert("Password required to delete this account.");
-                return;
-            }
-        }
-        // BOTH the save and the auth record must be gone before we forget the
-        // account locally — see deleteServerAccount. Keep the local session on
-        // any partial failure so the idempotent deletion can be retried.
-        const deletion = await deleteServerAccount(accountName, localPw);
-        if ("reason" in deletion) return alert(DELETE_ACCOUNT_ERRORS[deletion.reason]);
+        if (!(await requestAccountDeletion(character.name, accountName))) return;
         const accounts = loadPlayerAccounts();
         delete accounts[accountKey(accountName)]; savePlayerAccounts(accounts); endLocalSession();
     }

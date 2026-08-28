@@ -44,16 +44,13 @@ test("no source file calls window.prompt", () => {
 });
 
 test("the delete-character flow collects its password through the masked prompt", () => {
-    const app = readFileSync(join(SRC, "App.tsx"), "utf8");
-    const deleteFn = app.slice(app.indexOf("async function deleteCharacter("));
-    assert.ok(deleteFn.startsWith("async function deleteCharacter("), "deleteCharacter must still exist in App.tsx");
-    const raw = deleteFn.slice(0, deleteFn.indexOf("\n    }") + 6);
+    const raw = readFileSync(join(SRC, "lib", "account-deletion-flow.ts"), "utf8");
     // Strip comments before asserting, exactly as above -- the call site's own
     // comment explains why window.prompt is wrong, and that prose is not a call.
     const body = raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
-    assert.match(body, /gamePasswordPrompt\(/, "deleteCharacter must use the masked password prompt");
-    assert.ok(!/window\s*\.\s*prompt/.test(body), "deleteCharacter must not use window.prompt");
+    assert.match(body, /gamePasswordPrompt\(/, "account deletion must use the masked password prompt");
+    assert.ok(!/window\s*\.\s*prompt/.test(body), "account deletion must not use window.prompt");
     // A cancelled prompt resolves null and must bail out silently -- without this
     // check, `null` would fall through to the empty-string branch and scold the
     // player for pressing Cancel.
