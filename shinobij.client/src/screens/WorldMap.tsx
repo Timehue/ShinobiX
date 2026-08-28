@@ -102,7 +102,7 @@ import { BackToVillageButton } from "../components/BackToVillageButton";
 import { WorldToast } from "../components/WorldToast";
 import { TravelingOverlay } from "../components/TravelingOverlay";
 import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
-import { SECTOR_POINTS } from "../data/sector-points";
+import { ATLAS_SECTOR_POINTS } from "../data/sector-points";
 import { sectorExits as roadExitsForSector, travelArrivalTile, type SectorExit } from "../../../shared/sector-links";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { scaleWandererPetOpponent } from "../lib/pet-balance";
@@ -2525,10 +2525,10 @@ export function WorldMap({
     // Hollow Gate landmarks live in `locations`, untouched. Coords were relaxed
     // (scripts/decollide capped ≤~5%) to de-overlap the mobile zoom overview; the
     // Fixed POIs above stayed pinned.
-    // Scatter coordinates now live in data/sector-points.ts (single source of
-    // truth — shared with lib/weekly-boss-roam). Kept as a local alias so the
-    // rest of this screen is unchanged.
-    const sectorPoints = SECTOR_POINTS;
+    // Atlas coordinates include presentation-only clearance nudges. Road lines,
+    // route glows and ownership overlays consume the same projection, while
+    // gameplay geography remains authoritative in shared/sector-links.ts.
+    const sectorPoints = ATLAS_SECTOR_POINTS;
 
     // Village quick-jump targets for the mobile zoom HUD (worldMapZoom.v1). Each
     // chip flies the camera to the cluster centroid at a tappable zoom.
