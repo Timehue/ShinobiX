@@ -2333,6 +2333,10 @@
         "valuePx": 430,
         "occurrences": [
           {
+            "source": "shinobij.client/src/styles/bloodline-awakening.css",
+            "line": 555
+          },
+          {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
             "line": 305
           },
@@ -2425,7 +2429,7 @@
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 2587
+            "line": 2730
           },
           {
             "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
@@ -2752,6 +2756,10 @@
             "line": 14
           },
           {
+            "source": "shinobij.client/src/styles/bloodline-awakening.css",
+            "line": 526
+          },
+          {
             "source": "shinobij.client/src/styles/central-skin.css",
             "line": 819
           },
@@ -3018,7 +3026,7 @@
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 2552
+            "line": 2694
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
@@ -3289,6 +3297,10 @@
           {
             "source": "shinobij.client/src/screens/WorldCrisis.css",
             "line": 70
+          },
+          {
+            "source": "shinobij.client/src/styles/bloodline-awakening.css",
+            "line": 519
           },
           {
             "source": "shinobij.client/src/styles/index/20-clan-town-hall-v5.css",
