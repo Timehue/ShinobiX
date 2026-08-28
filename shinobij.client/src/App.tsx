@@ -119,6 +119,7 @@ import {
     scaleJutsuTagsForDisplay,
 } from "./lib/jutsu-scaling";
 import { useJutsuTrainingQueueRunner } from "./lib/jutsu-training-queue";
+import { useBloodlineMakerFlow } from "./lib/use-bloodline-maker-flow";
 import { normalizeJutsu, orderEquippedJutsus } from "./lib/jutsu";
 import { normalizeOnboardingStep } from "./lib/onboarding-step";
 import {
@@ -1267,6 +1268,7 @@ export function stringifyServerSavePayload(payload: unknown) {
 export default function App() {
     const [screen, setScreen] = useState<Screen>("start");
     const [academyAwakeningRequested, setAcademyAwakeningRequested] = useState(false);
+    const bloodlineMaker = useBloodlineMakerFlow(setScreen, setAcademyAwakeningRequested);
     const { mutationAvailability, refresh: refreshCapabilities, viewAvailability } = useLiveCapabilities();
     const gameplayViewAvailability = useCapabilityViewAvailability();
     const gameplayMutationAvailability = useCapabilityMutationAvailability();
@@ -1916,10 +1918,6 @@ export default function App() {
             ...(((source.creatorJutsus ?? []) as Jutsu[]).map(normalizeJutsu).map(rebalanceNonBloodlineJutsu)),
         ];
     }
-    const [bloodlineMakerInitialRank, setBloodlineMakerInitialRank] = useState<Rank>("A Rank");
-    const [bloodlineMakerInitialElement, setBloodlineMakerInitialElement] = useState("");
-    const [bloodlineMakerRankLocked, setBloodlineMakerRankLocked] = useState(false);
-    const [bloodlineMakerEditingBloodline, setBloodlineMakerEditingBloodline] = useState<SavedBloodline | null>(null);
     const [currentSector, setCurrentSector] = useState(40);
 
     useEffect(() => {
@@ -6568,13 +6566,7 @@ export default function App() {
                         setSavedBloodlines={setSavedBloodlines}
                         setAdminLoggedIn={setAdminLoggedIn}
                         setScreen={setScreen}
-                        onEditBloodline={(bl) => {
-                            setBloodlineMakerEditingBloodline(bl);
-                            setBloodlineMakerInitialRank(bl.rank);
-                            setBloodlineMakerInitialElement(bl.specialElement ?? "");
-                            setBloodlineMakerRankLocked(false);
-                            setScreen("bloodlineMaker");
-                        }}
+                        onEditBloodline={bloodlineMaker.edit}
                         playerRoster={playerRoster}
                         allServerPlayers={allServerPlayers}
                         adminPw={adminPw}
@@ -7023,12 +7015,7 @@ export default function App() {
                         sharedImages={sharedImages}
                         openAwakeningOnMount={academyAwakeningRequested}
                         onAwakeningRequestHandled={() => setAcademyAwakeningRequested(false)}
-                        onOpenBloodlineMaker={(rank, element) => {
-                            setBloodlineMakerInitialRank(rank);
-                            setBloodlineMakerInitialElement(element ?? getCharacterElements(character)[0] ?? "");
-                            setBloodlineMakerRankLocked(true);
-                            setScreen("bloodlineMaker");
-                        }}
+                        onOpenBloodlineMaker={(rank, element) => bloodlineMaker.open(rank, element ?? getCharacterElements(character)[0] ?? "")}
                     />
                 )}
                 {!activeTriggeredEvent && screen === "storyHall" && character && (
@@ -7489,25 +7476,20 @@ export default function App() {
                 })()}
                 {!activeTriggeredEvent && screen === "bloodlineMaker" && character && (
                     <BloodlineMaker
-                        initialRank={bloodlineMakerInitialRank}
-                        initialSpecialElement={bloodlineMakerInitialElement}
+                        initialRank={bloodlineMaker.initialRank}
+                        initialSpecialElement={bloodlineMaker.initialElement}
                         character={character}
                         updateCharacter={setCharacter}
                         savedBloodlines={savedBloodlines}
                         setSavedBloodlines={setSavedBloodlines}
-                        lockedRank={bloodlineMakerRankLocked}
-                        editingBloodline={bloodlineMakerEditingBloodline}
+                        lockedRank={bloodlineMaker.rankLocked}
+                        editingBloodline={bloodlineMaker.editingBloodline}
                         onSaveBloodlines={async (nextBloodlines, nextCharacter) => {
                             if (!character || !currentAccountName) throw new Error("No active player save is available.");
                             await pushSaveToServer(nextCharacter ?? character, currentAccountName, { savedBloodlines: nextBloodlines });
                         }}
-                        onClose={() => { setBloodlineMakerRankLocked(false); setBloodlineMakerEditingBloodline(null); setScreen(isAdminAccountName(character.name) ? "adminPanel" : "centralHub"); }}
-                        onOpenAwakening={isAdminAccountName(character.name) ? undefined : () => {
-                            setBloodlineMakerRankLocked(false);
-                            setBloodlineMakerEditingBloodline(null);
-                            setAcademyAwakeningRequested(true);
-                            setScreen("centralHub");
-                        }}
+                        onClose={() => bloodlineMaker.close(isAdminAccountName(character.name) ? "adminPanel" : "centralHub")}
+                        onOpenAwakening={isAdminAccountName(character.name) ? undefined : bloodlineMaker.openAwakening}
                     />
                 )}
                 {!introCinematicActive && <ScreenReadyProbe screen={screen} />}

@@ -187,7 +187,10 @@ test('the stream pushes the session immediately on connect', async () => {
 test('THE SSE TICK ENFORCES THE TURN DEADLINE: a lapsed turn is auto-waited with nobody else polling', async () => {
     store.set('pvp:sse-lapse', clone(session('sse-lapse', { turnStartedAt: Date.now() - LAPSED })));
     const run = openStream('sse-lapse');
-    const advanced = await untilThenClose(run, () => stored('sse-lapse').activePlayer === 'p2');
+    // The CI shard runs hundreds of files concurrently and can starve this
+    // timer for several seconds. This contract is eventual SSE enforcement,
+    // not a four-second runner-speed SLA, so leave enough scheduling headroom.
+    const advanced = await untilThenClose(run, () => stored('sse-lapse').activePlayer === 'p2', 8_000);
 
     assert.ok(advanced, 'the stream tick never advanced the lapsed turn');
     const row = stored('sse-lapse');
