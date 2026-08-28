@@ -1,12 +1,12 @@
-const BASE = {
-    standard: { hp: 320, attack: 40, defense: 28, speed: 30, jutsuPower: 320 },
-    rare: { hp: 370, attack: 48, defense: 34, speed: 36, jutsuPower: 360 },
-    legendary: { hp: 416, attack: 54, defense: 38, speed: 41, jutsuPower: 405 },
-    mythic: { hp: 462, attack: 60, defense: 43, speed: 45, jutsuPower: 450 },
-} as const;
+import { normalizePetGrowth } from './_growth.js';
 
-export const PET_TRAINING_DURATIONS = new Map([[900_000, 1], [3_600_000, 3], [14_400_000, 8], [28_800_000, 14]]);
-export const PET_TRAINING_FOCI = new Set(['strength', 'endurance', 'agility', 'chakra', 'bond']);
+const JUTSU_POWER_CAP: Record<string, number> = { standard: 320, rare: 360, legendary: 405, mythic: 450 };
+
+/** Duration => sealed base XP. Longer timers are increasingly efficient. */
+export const PET_TRAINING_DURATIONS = new Map([[900_000, 30], [3_600_000, 110], [14_400_000, 400], [28_800_000, 760]]);
+// New sessions use one neutral timer. settleFinishedTraining still accepts any
+// already-stored legacy type because the reward is sealed XP and focus-neutral.
+export const PET_TRAINING_FOCI = new Set(['bond']);
 export const PET_FEED_XP: Record<string, number> = { 'pet-treat': 100, 'elemental-pet-treat': 250, 'ancient-pet-treat': 500, 'golden-apple': 2000 };
 
 const whole = (v: unknown, fallback = 0) => Number.isFinite(Number(v)) ? Math.floor(Number(v)) : fallback;
@@ -15,39 +15,31 @@ export function petHappiness(pet: Record<string, unknown>): number {
     return Math.max(0, Math.min(100, whole(pet.happiness)));
 }
 
-export function gainServerPetXp(pet: Record<string, unknown>, amountRaw: unknown, focus?: string): Record<string, unknown> {
+export function gainServerPetXp(petRaw: Record<string, unknown>, amountRaw: unknown, _focus?: string): Record<string, unknown> {
+    const pet = normalizePetGrowth(petRaw);
     let level = Math.max(1, whole(pet.level, 1));
     const maxLevel = Math.max(level, Math.min(100, whole(pet.maxLevel, 100)));
     let xp = Math.max(0, whole(pet.xp)) + Math.max(0, whole(amountRaw));
-    const grew = { hp: 0, attack: 0, defense: 0, speed: 0 };
-    let levelUps = 0;
+    const oldLevel = level;
     while (level < maxLevel && xp >= Math.max(100, level * 100)) {
         xp -= Math.max(100, level * 100);
         level += 1;
-        levelUps += 1;
-        const channel = focus === 'strength' ? 'attack'
-            : focus === 'agility' ? 'speed'
-            : focus === 'endurance' ? (level % 2 === 0 ? 'hp' : 'defense')
-            : (['hp', 'attack', 'defense', 'speed'] as const)[level % 4];
-        grew[channel] += 1;
     }
     if (level >= maxLevel) xp = 0;
-    if (!levelUps) return { ...pet, level, xp, unlockedForPve: Boolean(pet.unlockedForPve || level >= 50) };
-    const rarity = String(pet.rarity) as keyof typeof BASE;
-    const base = BASE[rarity] ?? BASE.standard;
+    if (level === oldLevel) return normalizePetGrowth({ ...pet, level, xp, unlockedForPve: Boolean(pet.unlockedForPve || level >= 50) });
+    // Milestone delta, rather than ceil(batchSize / 2), makes jutsu growth
+    // identical whether two levels arrive from one reward or two separate ones.
+    const jutsuPowerGain = Math.floor(level / 2) - Math.floor(oldLevel / 2);
+    const jutsuPowerCap = JUTSU_POWER_CAP[String(pet.rarity)] ?? JUTSU_POWER_CAP.standard;
     const nextJutsus = (Array.isArray(pet.jutsus) ? pet.jutsus : []).map((entry) => {
         if (!entry || typeof entry !== 'object') return entry;
         const jutsu = entry as Record<string, unknown>;
         const power = whole(jutsu.power);
-        return { ...jutsu, power: power > 0 ? Math.min(base.jutsuPower, power + Math.ceil(levelUps / 2)) : 0 };
+        return { ...jutsu, power: power > 0 ? Math.min(jutsuPowerCap, power + jutsuPowerGain) : 0 };
     });
-    return {
+    return normalizePetGrowth({
         ...pet, level, xp, unlockedForPve: Boolean(pet.unlockedForPve || level >= 50), jutsus: nextJutsus,
-        hp: Math.max(1, whole(pet.hp, 1) + Math.round(base.hp * 0.04 * grew.hp)),
-        attack: Math.max(1, whole(pet.attack, 1) + Math.round(base.attack * 0.04 * grew.attack)),
-        defense: Math.max(1, whole(pet.defense, 1) + Math.round(base.defense * 0.04 * grew.defense)),
-        speed: Math.max(1, whole(pet.speed, 1) + Math.round(base.speed * 0.04 * grew.speed)),
-    };
+    });
 }
 
 /**
@@ -103,16 +95,11 @@ export function settleServerPetExpedition(pet: Record<string, unknown>, expType:
     const durationHours = Math.max(1, durationMinutes / 60);
     const typeXp = expType === 'forage' ? 1.45 : expType === 'ruins' ? 1.2 : 1;
     const xp = Math.max(0, Math.round(120 * durationHours * typeXp * Math.max(0, Math.min(4, xpMultiplier))));
-    const statGain = Math.max(1, Math.round(durationHours));
     const prepared = {
         ...pet,
         expedition: undefined,
-        attack: whole(pet.attack, 1) + statGain,
-        defense: whole(pet.defense, 1) + statGain + (expType === 'ruins' ? statGain : 0),
-        speed: whole(pet.speed, 1) + (expType === 'scout' ? statGain : 0),
-        hp: whole(pet.hp, 1) + statGain * 5,
     };
-    return { pet: gainServerPetXp(prepared, xp), xp, statGain };
+    return { pet: gainServerPetXp(prepared, xp), xp, statGain: 0 };
 }
 
 /**

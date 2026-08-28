@@ -10,8 +10,9 @@ import {
     applyAuthoredPetJutsus,
     capPetStats,
     gainPetXp,
+    normalizePetGrowth,
     scaleWandererPetOpponent,
-    PET_LEVEL_GROWTH,
+    PET_CORE_GROWTH_PER_LEVEL,
     type PetTemplateArchetype,
 } from "./pet-balance";
 import { genericPetArenaOpponents } from "../data/pet-arena-opponents";
@@ -324,30 +325,29 @@ test("capPetStats no longer ceilings HP/ATK/DEF/SPD but still caps jutsu power",
     for (const j of huge.jutsus) assert.ok(j.power <= cap, `jutsu ${j.name}: ${j.power} > ${cap}`);
 });
 
-test("gainPetXp channels base-anchored growth into the trained stat (strength → ATK only)", () => {
+test("gainPetXp grants one Growth Point per level regardless of XP source", () => {
     const pet = stdPet();
-    const out = gainPetXp(pet, xpForLevels(5), "strength"); // 5 level-ups, all → attack
+    const out = gainPetXp(pet, xpForLevels(5), "strength");
     assert.equal(out.level, 6);
-    const b = balancedPetBaseStats.standard;
-    assert.equal(out.attack - pet.attack, Math.round(b.attack * PET_LEVEL_GROWTH * 5));
-    assert.equal(out.hp - pet.hp, 0);        // strength doesn't grow the other stats
-    assert.equal(out.defense - pet.defense, 0);
-    assert.equal(out.speed - pet.speed, 0);
+    assert.equal(out.growthPoints, 5);
+    assert.deepEqual(out.growthAllocation, { vitality: 0, power: 0, guard: 0, agility: 0 });
+    assert.equal(out.hp, Math.round(pet.hp * (1 + PET_CORE_GROWTH_PER_LEVEL * 5)));
+    assert.equal(out.attack, Math.round(pet.attack * (1 + PET_CORE_GROWTH_PER_LEVEL * 5)));
 });
 
-test("bond / untrained XP grows all four stats — rotation avoids rounding small stats to zero", () => {
+test("treat, bond, and focused XP use identical automatic growth", () => {
     const pet = stdPet();
-    const out = gainPetXp(pet, xpForLevels(4), "bond"); // reaches level 5: one level each to def/spd/hp/atk
-    const b = balancedPetBaseStats.standard;
-    assert.equal(out.hp - pet.hp, Math.round(b.hp * PET_LEVEL_GROWTH));
-    assert.equal(out.attack - pet.attack, Math.round(b.attack * PET_LEVEL_GROWTH));
-    assert.equal(out.defense - pet.defense, Math.round(b.defense * PET_LEVEL_GROWTH));
-    assert.equal(out.speed - pet.speed, Math.round(b.speed * PET_LEVEL_GROWTH));
-    assert.ok(out.attack - pet.attack >= 1, "small-base ATK still grows (no round-to-zero)");
+    const amount = xpForLevels(4);
+    const focused = gainPetXp(pet, amount, "strength");
+    const bond = gainPetXp(pet, amount, "bond");
+    const treat = gainPetXp(pet, amount);
+    assert.deepEqual([focused.hp, focused.attack, focused.defense, focused.speed], [bond.hp, bond.attack, bond.defense, bond.speed]);
+    assert.deepEqual([focused.hp, focused.attack, focused.defense, focused.speed], [treat.hp, treat.attack, treat.defense, treat.speed]);
+    assert.equal(treat.growthPoints, 4);
 });
 
 test("a max-level pet gains no stats from further training XP (the level-100 ceiling)", () => {
-    const maxed = stdPet({ level: 100, xp: 0 });
+    const maxed = normalizePetGrowth(stdPet({ level: 100, xp: 0 }));
     const out = gainPetXp(maxed, xpForLevels(3), "strength");
     assert.equal(out.level, 100);
     assert.equal(out.attack, maxed.attack);

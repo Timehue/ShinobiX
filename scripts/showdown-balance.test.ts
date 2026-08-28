@@ -35,8 +35,13 @@ import type { Pet } from '../api/_pet-sim/pet-types.js';
 import type { ShowdownSession } from '../api/_pet-showdown/engine.js';
 
 const LEVEL = 50;
-const GROWTH = 1 + (LEVEL - 1) * 0.04 * 0.25;
 const RARITIES = new Set(['standard', 'rare', 'legendary', 'mythic']);
+
+function balancedAllocation(level: number) {
+    const earned = Math.max(0, level - 1);
+    const each = Math.floor(earned / 4);
+    return { vitality: each + (earned % 4 > 0 ? 1 : 0), power: each + (earned % 4 > 1 ? 1 : 0), guard: each + (earned % 4 > 2 ? 1 : 0), agility: each };
+}
 
 function scaled(tpl: Record<string, unknown>, slot: string): Pet {
     return {
@@ -44,10 +49,8 @@ function scaled(tpl: Record<string, unknown>, slot: string): Pet {
         id: `${slot}:${String(tpl.id)}`,
         templateId: String(tpl.id),
         level: LEVEL,
-        hp: Math.round(Number(tpl.hp) * GROWTH),
-        attack: Math.round(Number(tpl.attack) * GROWTH),
-        defense: Math.round(Number(tpl.defense) * GROWTH),
-        speed: Math.round(Number(tpl.speed) * GROWTH),
+        growthBaseStats: { hp: Number(tpl.hp), attack: Number(tpl.attack), defense: Number(tpl.defense), speed: Number(tpl.speed) },
+        growthAllocation: balancedAllocation(LEVEL),
     };
 }
 

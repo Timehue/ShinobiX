@@ -2,23 +2,26 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { gainServerPetXp, removePetItem, settleServerPetExpedition, settleFinishedTraining } from './_progress.js';
+import { gainServerPetXp, PET_TRAINING_FOCI, removePetItem, settleServerPetExpedition, settleFinishedTraining } from './_progress.js';
 import { mergePreservingImages } from '../_utils.js';
 
 describe('server pet progression', () => {
-    it('levels from bounded XP and channels growth into the chosen stat', () => {
+    it('starts only neutral companion training while still settling legacy timers', () => {
+        assert.deepEqual([...PET_TRAINING_FOCI], ['bond']);
+    });
+    it('levels from bounded XP, grants a point, and applies automatic core growth', () => {
         const pet = { rarity: 'standard', level: 1, maxLevel: 100, xp: 0, hp: 320, attack: 40, defense: 28, speed: 30, jutsus: [{ power: 50 }] };
         const out = gainServerPetXp(pet, 100, 'strength');
-        assert.equal(out.level, 2); assert.equal(out.attack, 42); assert.equal(out.hp, 320);
+        assert.equal(out.level, 2); assert.equal(out.attack, 40); assert.equal(out.hp, 322); assert.equal(out.growthPoints, 1);
     });
     it('consumes one counted or legacy inventory treat', () => {
         assert.deepEqual(removePetItem({ itemStacks: [{ itemId: 'pet-treat', count: 2 }] }, 'pet-treat')?.itemStacks, [{ itemId: 'pet-treat', count: 1 }]);
         assert.deepEqual(removePetItem({ inventory: ['pet-treat', 'x'] }, 'pet-treat')?.inventory, ['x']);
     });
-    it('settles expedition combat growth and clears the server session', () => {
+    it('settles expedition XP without bypassing Growth Points', () => {
         const pet = { rarity: 'standard', level: 1, maxLevel: 100, xp: 0, hp: 320, attack: 40, defense: 28, speed: 30, jutsus: [], expedition: { type: 'scout' } };
         const out = settleServerPetExpedition(pet, 'scout', 45, 1);
-        assert.equal(out.pet.expedition, undefined); assert.equal(out.statGain, 1); assert.ok(Number(out.pet.attack) > 40);
+        assert.equal(out.pet.expedition, undefined); assert.equal(out.statGain, 0); assert.equal(out.pet.attack, 40);
     });
     it('settleFinishedTraining leaves a still-running session untouched', () => {
         const training = { type: 'strength', endsAt: 10_000, sealedXp: 100 };
@@ -37,7 +40,9 @@ describe('server pet progression', () => {
         // a deleted key is resurrected by the image-preserving save merge (below).
         assert.ok('training' in out.pet);
         assert.equal(out.pet.level, 2);                  // 100 XP = one level-up at level 1
-        assert.equal(out.pet.attack, 42);                // strength channels the growth into attack
+        assert.equal(out.pet.attack, 40);                // focus cannot bypass the point budget
+        assert.equal(out.pet.hp, 322);                   // automatic core growth still applies
+        assert.equal(out.pet.growthPoints, 1);
     });
     it('a cleared training survives the image-preserving save merge (regression: delete resurrects it)', () => {
         // Reproduces the versioned-save write: mergePreservingImages(mutatedPet, storedPet).

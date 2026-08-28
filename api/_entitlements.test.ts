@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { activeCarriedPetIds, activeCarriedPets, canCustomAvatar, maxLoadout, maxPets, maxStoredBloodlines } from './_entitlements.js';
+import { activeCarriedPetIds, activeCarriedPets, activeTrainingPetIds, canCustomAvatar, maxLoadout, maxPets, maxStoredBloodlines } from './_entitlements.js';
 
 describe('supporter entitlement caps', () => {
     it('keeps three additional jutsu slots as a supporter perk', () => {
@@ -8,8 +8,8 @@ describe('supporter entitlement caps', () => {
         assert.equal(maxLoadout({ patreon: { active: true } }), 15);
     });
 
-    it('keeps two additional carried pets as a supporter perk', () => {
-        assert.equal(maxPets({}), 4);
+    it('keeps one reserve carried pet as a supporter perk', () => {
+        assert.equal(maxPets({}), 5);
         assert.equal(maxPets({ patreon: { active: true } }), 6);
     });
 
@@ -23,9 +23,10 @@ describe('supporter entitlement caps', () => {
     it('projects preserved overflow out of current use without deleting ownership', () => {
         const pets = Array.from({ length: 6 }, (_, index) => ({ id: `pet-${index + 1}` }));
         const character = { pets, activePetId: 'pet-6', activePetId2v2: 'pet-5' };
-        assert.deepEqual(activeCarriedPetIds(character), ['pet-6', 'pet-5', 'pet-1', 'pet-2']);
-        assert.deepEqual(activeCarriedPets<{ id: string }>(character).map(({ id }) => id), ['pet-6', 'pet-5', 'pet-1', 'pet-2']);
+        assert.deepEqual(activeCarriedPetIds(character), ['pet-6', 'pet-5', 'pet-1', 'pet-2', 'pet-3']);
+        assert.deepEqual(activeCarriedPets<{ id: string }>(character).map(({ id }) => id), ['pet-6', 'pet-5', 'pet-1', 'pet-2', 'pet-3']);
         assert.deepEqual(activeCarriedPetIds({ ...character, patreon: { active: true } }), ['pet-6', 'pet-5', 'pet-1', 'pet-2', 'pet-3', 'pet-4']);
+        assert.deepEqual(activeTrainingPetIds({ ...character, patreon: { active: true } }), ['pet-6', 'pet-5', 'pet-1', 'pet-2', 'pet-3']);
         assert.equal(character.pets.length, 6);
     });
 });
