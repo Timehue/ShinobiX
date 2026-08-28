@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="color-scheme" content="dark" />
+    <title>Shinobi Journey &mdash; Offline</title>
+    <!--
+      Served by public/sw.js ONLY when a navigation request fails outright, so
+      it is what an installed Play Store app shows instead of Chrome's error
+      page. A browser tab reaches it too, which is harmless.
+
+      NO SCRIPT. The production CSP is `script-src 'self'` with no
+      'unsafe-inline', so an inline <script> or an onclick attribute is blocked
+      and the retry would silently do nothing. The retry is a plain anchor
+      instead: following it re-navigates, which is exactly the retry. Inline
+      <style> is fine — style-src allows 'unsafe-inline'.
+
+      Deliberately self-contained: no stylesheet, font, or image reference. This
+      page renders when the network is gone, so anything it had to fetch would
+      be the one thing it cannot get.
+    -->
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        padding: 1.25rem;
+        box-sizing: border-box;
+        background: #0f172a;
+        color: #94a3b8;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      .wrap { width: min(30rem, 100%); margin: auto; text-align: center; }
+      h1 {
+        margin: 0;
+        font-size: 1.05rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #e2e8f0;
+      }
+      p { margin: 0.75rem 0 0; font-size: 0.9rem; line-height: 1.55; }
+      .card {
+        margin-top: 1.25rem;
+        padding: 1.1rem;
+        border: 1px solid #475569;
+        border-radius: 0.75rem;
+        background: #111c30;
+        color: #e2e8f0;
+        box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.35);
+      }
+      .retry {
+        display: inline-block;
+        width: min(100%, 14rem);
+        min-height: 44px;
+        margin-top: 1rem;
+        padding: 0.65rem 1rem;
+        box-sizing: border-box;
+        border: 1px solid #f59e0b;
+        border-radius: 0.55rem;
+        background: #b45309;
+        color: #fff;
+        font: 700 0.9rem system-ui, -apple-system, sans-serif;
+        text-decoration: none;
+      }
+      .retry:focus-visible { outline: 3px solid #fbbf24; outline-offset: 2px; }
+      .fine { margin-top: 0.65rem; font-size: 0.78rem; opacity: 0.75; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Shinobi Journey</h1>
+      <div class="card" role="alert">
+        <p style="font-size: 1rem; font-weight: 700; color: #e2e8f0; margin: 0;">You are offline</p>
+        <p>Shinobi Journey needs a connection to reach your village. Any progress
+          already saved is safe on the server &mdash; nothing is lost by closing this.</p>
+        <a class="retry" href="/">Try again</a>
+        <p class="fine">Reconnect to Wi-Fi or mobile data, then tap Try again.</p>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,9 +1,13 @@
 /* Narrow SW: hashed assets are cache-first; same-origin images use a bounded
- * last-known-good cache. HTML and non-image API requests are never intercepted. */
+ * last-known-good cache. Navigations are network-FIRST and fall back to a
+ * precached offline page only when the network actually fails; non-image API
+ * requests are never intercepted. */
 
 const ASSET_CACHE = 'sj-hashed-assets-v1';
 const IMAGE_CACHE = 'sj-game-images-v1';
 const MODEL_CACHE = 'sj-3d-models-v1';
+const SHELL_CACHE = 'sj-app-shell-v1';
+const OFFLINE_URL = '/offline.html';
 // Same 8-character hashed-output signature used by server.ts.
 const HASHED_ASSET_RE = /^\/assets\/[^/]+-[A-Za-z0-9_-]{8}\.[a-z0-9]+$/;
 // 3D model payloads. `request.destination` is '' for these (they're fetched as
@@ -17,14 +21,23 @@ const MAX_ASSET_ENTRIES = 220;
 const MAX_IMAGE_ENTRIES = 400;
 const MAX_MODEL_ENTRIES = 24;
 
-self.addEventListener('install', () => {
+self.addEventListener('install', (event) => {
+    // Precache the offline page. `cache: 'reload'` so a stale HTTP-cache copy is
+    // never what gets stored. Failure is non-fatal: installing while offline
+    // simply means the fallback is unavailable until the next install, which is
+    // strictly better than refusing to install the SW at all.
+    event.waitUntil(
+        caches.open(SHELL_CACHE)
+            .then((cache) => cache.add(new Request(OFFLINE_URL, { cache: 'reload' })))
+            .catch(() => undefined),
+    );
     self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
     event.waitUntil((async () => {
         const names = await caches.keys();
-        const current = new Set([ASSET_CACHE, IMAGE_CACHE, MODEL_CACHE]);
+        const current = new Set([ASSET_CACHE, IMAGE_CACHE, MODEL_CACHE, SHELL_CACHE]);
         await Promise.all(names.filter((name) => name.startsWith('sj-') && !current.has(name)).map((name) => caches.delete(name)));
         await self.clients.claim();
     })());
@@ -75,6 +88,27 @@ self.addEventListener('fetch', (event) => {
     if (request.method !== 'GET') return;
     const url = new URL(request.url);
     if (url.origin !== self.location.origin) return;
+
+    // Navigations: network-FIRST, always. Online behaviour is byte-identical to
+    // having no service worker — the response is a plain passthrough — which is
+    // what keeps a deploy from ever being shadowed by a cached shell. Only a
+    // fetch that THROWS (no network) diverges. A 4xx/5xx does not throw, so a
+    // server error still shows the server's own page rather than being
+    // mislabelled as "you are offline".
+    if (request.mode === 'navigate') {
+        event.respondWith((async () => {
+            try {
+                return await fetch(request);
+            } catch (networkError) {
+                const cache = await caches.open(SHELL_CACHE);
+                const offline = await cache.match(OFFLINE_URL);
+                if (offline) return offline;
+                throw networkError;   // nothing precached — surface the real failure
+            }
+        })());
+        return;
+    }
+
     if (HASHED_ASSET_RE.test(url.pathname)) {
         event.respondWith((async () => {
             const cache = await caches.open(ASSET_CACHE);

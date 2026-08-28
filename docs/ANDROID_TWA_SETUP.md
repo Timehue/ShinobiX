@@ -130,10 +130,24 @@ otherwise back-then-refresh becomes a flee route, which is the bug `lastScreen.v
 was added to close), and it **falls back to the village** when the popped entry
 is a battle/encounter screen that cannot be restored from the save alone.
 
+**Offline fallback** is `public/offline.html`, precached by `public/sw.js` and
+served only when a navigation genuinely fails, so a dead network shows a branded
+page instead of Chrome's error page inside the app shell.
+
+Two properties there are load-bearing:
+
+- ⛔ **Navigations are network-FIRST.** Online, the response is a plain
+  passthrough that never reads the cache. Railway self-builds on every push to
+  `main`, so a service worker that answered navigations from cache could shadow a
+  released build. A 5xx does not throw, so a server error still shows the
+  server's own page rather than being mislabelled as offline.
+- ⛔ **The page contains no JavaScript.** The production CSP is
+  `script-src 'self'` with no `'unsafe-inline'`, so an inline `<script>` or an
+  `onclick` is blocked and a scripted retry button would silently do nothing.
+  The retry is a plain anchor to `/` — following it *is* the retry.
+
 ## Still to do
 
-- **Offline fallback.** `public/sw.js` deliberately never intercepts HTML, so a
-  dead network currently shows a Chrome error page inside the app shell.
 - **Play Billing.** The storefront moves in-app via the Digital Goods API +
   Payment Request API (supported in TWA on Chrome 101+). Server-side this needs
   one endpoint that verifies the purchase token against the Google Play Developer
