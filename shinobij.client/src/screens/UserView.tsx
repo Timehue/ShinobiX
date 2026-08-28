@@ -275,7 +275,7 @@ export function UserView({
                                         </div>
                                         <div style={{ minWidth: 0 }}>
                                             <div style={{ color: "#f8fafc", fontWeight: 600, fontSize: "0.9rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
-                                            <div style={{ color: rarityColor(p.rarity), fontSize: "0.76rem" }}>{p.rarity} · Lv {p.level}{p.element ? ` · ${p.element}` : ""}</div>
+                                            <div style={{ color: rarityColor(p.rarity), fontSize: "0.76rem", textTransform: "capitalize" }}>{p.rarity} · Lv {p.level}{p.element ? ` · ${p.element}` : ""}</div>
                                         </div>
                                     </div>
                                 );
