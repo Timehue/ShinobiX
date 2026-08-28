@@ -7,7 +7,7 @@ import { GameIcon } from "../components/icons/GameIcon";
 const PF_COST = { verticalAlign: "-2px", marginRight: "3px" } as const;
 import type { GameItem, Jutsu, SavedBloodline, Stats } from "../types/combat";
 import { ACHIEVEMENTS, achievementReward, type Achievement } from "../constants/achievements";
-import { ANIMATED_MAX_MB, MAX_LEVEL, MAX_STAT } from "../constants/game";
+import { ANIMATED_MAX_MB, MAX_LEVEL, statCapForLevel } from "../constants/game";
 import { ChangePasswordCard } from "../components/ChangePasswordCard";
 import { RecoveryCodeCard } from "../components/RecoveryCodeCard";
 import { GoogleLinkCard } from "../components/GoogleLinkCard";
@@ -26,7 +26,7 @@ import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
 import { auraSphereDustNeeded, getActiveAuraSphereBonuses, hasEquippedAuraSphere } from "../lib/aura-sphere";
 import { feedAuraSphereServer } from "../lib/aura-feed-api";
 import { canEquipElementJutsu } from "../lib/bloodline";
-import { allocatedStatPoints, capStat, earnedForLevel, earnedStatPoints } from "../lib/stats";
+import { STAT_KEYS, allocatedStatPoints, capStat, earnedForLevel, earnedStatPoints, normalizeStats } from "../lib/stats";
 import { compressDataUrl, isAnimatedImageFile, publishSharedImage } from "../lib/shared-images";
 import { getAllItems, getItemById } from "../lib/items";
 import { getCharacterElements } from "../lib/elements";
@@ -150,6 +150,12 @@ export function Profile({
         })();
     }
 
+    // Read stats through the canonical normalizer rather than off the raw character:
+    // a save missing a stat key would otherwise turn the cap arithmetic below into
+    // NaN and render "NaN" straight into the grid. normalizeStats fills from base
+    // and caps, and is the same view earnedStatPoints/allocatedStatPoints take, so
+    // display, the cap math, and the spend path cannot disagree about a stat.
+    const safeStats = normalizeStats(character.stats);
     const [statInputs, setStatInputs] = useState<Partial<Record<keyof Stats, number>>>({});
     const [statWarning, setStatWarning] = useState("");
     const [titleInput, setTitleInput] = useState(character.customTitle ?? "");
@@ -204,15 +210,32 @@ export function Profile({
             setTimeout(() => setStatWarning(""), 3000);
             return;
         }
-        const newValue = capStat(character.stats[stat] + amount);
-        const actualAdded = newValue - character.stats[stat];
-        setStatWarning("");
+        // A single stat is bounded by the RANK cap (statCapForLevel), not the global
+        // MAX_STAT. The save sanitizer clamps to the rank cap and leaves the unfitting
+        // points in the pool, so allocating past it here rendered them as spent and
+        // then snapped the stat back on the next save round-trip — which reads as the
+        // game silently eating your input. Clamp to the ceiling the server enforces.
+        const rankCap = statCapForLevel(character.level);
+        const current = safeStats[stat];
+        if (current >= rankCap) {
+            setStatWarning(`${formatStatLabel(stat)} is already at ${rankCap}, the cap for your rank. Level up to raise it.`);
+            setTimeout(() => setStatWarning(""), 4000);
+            return;
+        }
+        const newValue = Math.min(rankCap, capStat(current + amount));
+        const actualAdded = newValue - current;
+        if (actualAdded < amount) {
+            setStatWarning(`Only ${actualAdded} of ${amount} point${amount !== 1 ? "s" : ""} fit — ${formatStatLabel(stat)} is now at ${rankCap}, the cap for your rank. The rest stays in your pool.`);
+            setTimeout(() => setStatWarning(""), 4000);
+        } else {
+            setStatWarning("");
+        }
         setStatInputs((prev) => ({ ...prev, [stat]: 1 }));
         updateCharacter({
             ...character,
             unspentStats: character.unspentStats - actualAdded,
             totalStatsTrained: (character.totalStatsTrained ?? 0) + actualAdded,
-            stats: { ...character.stats, [stat]: newValue },
+            stats: { ...safeStats, [stat]: newValue },
         });
     }
 
@@ -230,7 +253,7 @@ export function Profile({
             setTimeout(() => setStatWarning(""), 4000);
             return;
         }
-        const refund = allocatedStatPoints(character.stats);
+        const refund = allocatedStatPoints(safeStats);
         if (refund <= 0) {
             setStatWarning("Nothing to respec — all stats are already at base.");
             setTimeout(() => setStatWarning(""), 4000);
@@ -452,8 +475,14 @@ export function Profile({
     ];
 
     function renderStatCard(stat: keyof Stats) {
-        const value = character.stats[stat];
-        const pct = Math.round((value / MAX_STAT) * 100);
+        const value = safeStats[stat];
+        // Show the ceiling the SERVER actually enforces for this rank, not the global
+        // MAX_STAT: a level-14 shown "/ 2500" reads as ~2,150 points of headroom that
+        // the save sanitizer will never let them spend.
+        const rankCap = statCapForLevel(character.level);
+        const room = Math.max(0, rankCap - value);
+        const atCap = room === 0;
+        const pct = Math.min(100, Math.round((value / rankCap) * 100));
         const statLabel = formatStatLabel(stat);
         const inputId = `stat-points-${stat}`;
         return (
@@ -461,7 +490,7 @@ export function Profile({
                 <div className="stat-card-label" id={`${inputId}-label`}>{statLabel}</div>
                 <div className="stat-card-values">
                     <span className="stat-current">{value}</span>
-                    <span className="stat-max">/ {MAX_STAT}</span>
+                    <span className="stat-max" title="Cap for your rank. Reaching the next rank raises it.">/ {rankCap}</span>
                 </div>
                 <div className="stat-bar-track">
                     <div className="stat-bar-fill" style={{ width: `${pct}%` }} />
@@ -471,10 +500,11 @@ export function Profile({
                         id={inputId}
                         type="number"
                         min={1}
-                        max={character.unspentStats}
+                        max={Math.max(1, Math.min(character.unspentStats, room))}
                         value={statInputs[stat] ?? 1}
                         onChange={(e) => setStatInputs((prev) => ({ ...prev, [stat]: Math.max(1, parseInt(e.target.value) || 1) }))}
                         className="stat-input"
+                        disabled={atCap}
                         aria-label={`Points to add to ${statLabel}`}
                         aria-describedby={`${inputId}-label`}
                     />
@@ -482,13 +512,19 @@ export function Profile({
                         type="button"
                         className="stat-add-btn"
                         onClick={() => addStat(stat)}
-                        disabled={character.unspentStats === 0}
-                        aria-label={`Add selected points to ${statLabel}`}
-                    >Add to {statLabel}</button>
+                        disabled={character.unspentStats === 0 || atCap}
+                        aria-label={atCap ? `${statLabel} is at the cap for your rank` : `Add selected points to ${statLabel}`}
+                    >{atCap ? "At rank cap" : `Add to ${statLabel}`}</button>
                 </div>
             </div>
         );
     }
+
+    // Headroom across all twelve stats at the current rank. This is the honest answer
+    // to "why can't I spend my points?" when a large pool meets a low rank cap — the
+    // pool alone tells the player nothing about where those points can actually go.
+    const rankStatCap = statCapForLevel(character.level);
+    const totalStatRoom = STAT_KEYS.reduce((sum, key) => sum + Math.max(0, rankStatCap - safeStats[key]), 0);
 
     return (
         <div className="profile-page-card">
@@ -778,6 +814,9 @@ export function Profile({
                     </span>
                     <button type="button" onClick={respecStats} disabled={profileMutationBusy} title="Reset all 12 stats to base and refund your points to re-allocate (costs 50 Fate Shards)" style={{ marginLeft: 8, fontSize: "0.8rem", padding: "4px 10px" }}>Reallocate Stats — 50 <GameIcon name="shard" size={12} style={{ verticalAlign: "-1px" }} /></button>
                 </div>
+                <p className="hint">
+                    Each stat caps at <strong>{rankStatCap}</strong> at your rank, so you have room for <strong>{totalStatRoom}</strong> more point{totalStatRoom !== 1 ? "s" : ""} across all twelve right now — reaching the next rank raises every cap.
+                </p>
                 <p className="hint">Spend available points below. Changed your mind? <strong>Reallocate Stats</strong> resets all 12 stats to base and refunds every earned point—your training progress is not lost.</p>
                 {statWarning && <p className="stat-warning">{statWarning}</p>}
 

@@ -79,7 +79,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const receipts = Array.isArray(record._trainingReceipts)
                     ? record._trainingReceipts.filter((v): v is string => typeof v === 'string')
                     : [];
-                const legacyData = legacy ? parseLegacyTraining(record.activeTraining) : null;
+                // The STORED lease decides which validator owns it, not the client's
+                // flag. The client sends `legacy: !activeTraining.token`, so a
+                // pre-modern lease that happens to carry a token arrives with
+                // `legacy:false` — gating the parse on that flag left exactly those
+                // records unredeemable by BOTH paths. parseLegacyTraining refuses
+                // modern leases itself, so an unconditional attempt cannot double-pay.
+                const legacyData = parseLegacyTraining(record.activeTraining);
                 if (legacy && !legacyData) {
                     // A legacy client has no token to echo after its one-time
                     // migration lease is cleared. The server-owned latest

@@ -1,3 +1,5 @@
+import { normalizeActiveTrainingSession } from './_session.js';
+
 const TRAINING_STATS = new Set([
     'strength', 'speed', 'intelligence', 'willpower',
     'ninjutsuOffense', 'ninjutsuDefense', 'taijutsuOffense', 'taijutsuDefense',
@@ -20,11 +22,21 @@ export interface LegacyTrainingGrant {
     sealedXp: number;
 }
 
-/** Convert the one pre-token session already preserved in a save into a bounded grant. */
+/** Convert a pre-modern session already preserved in a save into a bounded grant. */
 export function parseLegacyTraining(value: unknown): LegacyTrainingGrant | null {
     if (!value || typeof value !== 'object') return null;
     const active = value as Record<string, unknown>;
-    if (typeof active.token === 'string' && active.token.trim()) return null;
+    // Stand down for exactly one thing: a lease the MODERN path can actually
+    // redeem. Deferring on anything else recreates the dead zone this parser
+    // exists to close — the build retired on 2026-07-12 minted a token but never
+    // wrote `startedAt`/`expiresAt`, and because this guard used to refuse any
+    // token at all, those records satisfied NEITHER validator and deadlocked
+    // their owners for weeks. Testing the field shape here (say, "has startedAt
+    // and expiresAt") would reopen the same hole one shape over: a record with
+    // those two fields but no usable token would again be refused by both sides.
+    // Asking normalizeActiveTrainingSession directly makes that impossible —
+    // whatever it turns down, this parser is still allowed to rescue.
+    if (normalizeActiveTrainingSession(value) !== null) return null;
 
     const stat = typeof active.stat === 'string' ? active.stat : '';
     const endsAt = Math.floor(Number(active.endsAt));
