@@ -30,6 +30,7 @@ import {
 } from './_ai-fight-token.js';
 import { withKvLock } from '../_lock.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { settleMaturedTravelForAction } from '../_realtime/travel-lease.js';
 import {
     WORLD_AI_ACTIVE_TTL_SECONDS,
     WORLD_AI_FIGHT_TTL_SECONDS,
@@ -342,7 +343,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const recovered = await recoverWorldFight(playerName);
                 if (recovered) return { status: 200, body: worldStartBody(recovered, true) };
 
+                const worldStartNow = Date.now();
+                const arrivedSector = worldRequest
+                    ? await settleMaturedTravelForAction(playerName, worldStartNow)
+                    : null;
                 let save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+                if (save && arrivedSector != null) save = { ...save, currentSector: arrivedSector };
                 let character = (save?.character ?? null) as Record<string, unknown> | null;
                 if (!save || !character) return { status: 404, body: { error: 'Player save not found.' } };
                 const pendingChain = cleanWorldAiPendingChain(character.worldAiPendingChain);
@@ -380,6 +386,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         request: worldRequest!,
                         save,
                         generatedChainId,
+                        now: worldStartNow,
                     });
                 } catch (error) {
                     return { status: 409, body: { error: error instanceof Error ? error.message : 'World encounter is no longer reachable.' } };

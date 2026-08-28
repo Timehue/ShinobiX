@@ -64,4 +64,15 @@ describe('generic AI fight standalone-runtime contract', () => {
         const code = sealFn.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
         assert.doesNotMatch(code, /opponentLevel/);
     });
+
+    it('reconciles a matured travel receipt before validating a World encounter sector', () => {
+        const text = src();
+        const settle = text.indexOf('settleMaturedTravelForAction(playerName, worldStartNow)');
+        const saveRead = text.indexOf('kv.get<Record<string, unknown>>(`save:${playerName}`)', settle);
+        const validate = text.indexOf('buildWorldAiFightSpec({', saveRead);
+        assert.ok(settle >= 0 && saveRead > settle && validate > saveRead);
+        assert.match(text, /const arrivedSector = worldRequest\s*\? await settleMaturedTravelForAction\(playerName, worldStartNow\)\s*: null;/);
+        assert.match(text, /if \(save && arrivedSector != null\) save = \{ \.\.\.save, currentSector: arrivedSector \};/);
+        assert.match(text.slice(validate), /now: worldStartNow/);
+    });
 });
