@@ -220,6 +220,22 @@ test("the mission summon command contains its icon and long lock copy", () => {
     );
 });
 
+test("the enemy sprite faces its nearest living opponent without moving its anchor", () => {
+    const enemyActor = missionSource.match(/<BattlefieldActor key="enemy-orb"[\s\S]*?<\/BattlefieldActor>/);
+    assert.ok(enemyActor, "mission combat must still render the enemy BattlefieldActor");
+    assert.match(
+        enemyActor![0],
+        /facing=\{spriteFacing\}/,
+        "the sprite direction must derive from the authoritative actor positions",
+    );
+    assert.match(
+        missionSource,
+        /const spriteFacing = enemyBattleSprite[\s\S]{0,180}?battlefieldFacingTowardNearest\(enemy, session\.actors, w\)/,
+        "portrait fallbacks must not pay for unused sprite-facing work",
+    );
+    assert.match(enemyActor![0], /transition: "left 280ms ease, top 280ms ease"/);
+});
+
 test("mission jutsu cards expose the same accessible detail dialog as PvP", () => {
     assert.match(missionSource, /className="combat-jutsu-help"/);
     assert.match(missionSource, /aria-label={`View \$\{j\.name\} jutsu details`}/);

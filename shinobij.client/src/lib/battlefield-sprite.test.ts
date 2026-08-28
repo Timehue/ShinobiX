@@ -10,7 +10,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { battlefieldSpriteHeadroom, inferSpriteKind, type BattlefieldSpriteKind } from "./battlefield-sprite";
+import {
+    battlefieldFacingTowardNearest,
+    battlefieldSpriteHeadroom,
+    inferSpriteKind,
+    type BattlefieldSpriteKind,
+} from "./battlefield-sprite";
 
 const actorCss = readFileSync(new URL("../styles/index/37-battlefield-actors.css", import.meta.url), "utf8");
 
@@ -76,4 +81,49 @@ test("the sprite kind inferred from a filename drives the clearance", () => {
     assert.equal(inferSpriteKind("/assets/clan-boss-ravager-idle.webp"), "boss");
     assert.equal(inferSpriteKind("/assets/hunt-ai-frost-wolf-idle.webp"), "quadruped");
     assert.ok(boss > wolf, "a boss must clear more than a low quadruped");
+});
+
+test("battlefield sprites face the nearest living opponent", () => {
+    const actor = { id: "enemy", side: "enemy" as const, hp: 100, pos: 26 };
+    const actors = [
+        actor,
+        { id: "dead-nearby", side: "squad" as const, hp: 0, pos: 27 },
+        { id: "living-right", side: "squad" as const, hp: 100, pos: 28 },
+        { id: "enemy-ally", side: "enemy" as const, hp: 100, pos: 25 },
+    ];
+    assert.equal(battlefieldFacingTowardNearest(actor, actors, 12), "right");
+    assert.equal(battlefieldFacingTowardNearest({ ...actor, pos: 29 }, actors, 12), "left");
+});
+
+test("nearest-facing follows the real odd-column hex projection", () => {
+    // Actor tile 1 is shifted a half-row down. Tile 14 on the right is therefore
+    // visually closer than tile 0 on the left even though a square row/column
+    // approximation would choose tile 0.
+    const actor = { id: "enemy", side: "enemy" as const, hp: 100, pos: 1 };
+    const actors = [
+        actor,
+        { id: "left", side: "squad" as const, hp: 100, pos: 0 },
+        { id: "right", side: "squad" as const, hp: 100, pos: 14 },
+    ];
+    assert.equal(battlefieldFacingTowardNearest(actor, actors, 12), "right");
+});
+
+test("vertical and empty matchups hold a deterministic inward pose", () => {
+    const leftActor = { id: "left", side: "enemy" as const, hp: 100, pos: 13 };
+    const verticalTarget = { id: "target", side: "squad" as const, hp: 100, pos: 37 };
+    const rightActor = { ...leftActor, id: "right", pos: 22 };
+    assert.equal(battlefieldFacingTowardNearest(leftActor, [leftActor, verticalTarget], 12), "right");
+    assert.equal(battlefieldFacingTowardNearest(rightActor, [rightActor], 12), "left");
+});
+
+test("the CSS mirror is scoped to the sprite image, not the combat anchor", () => {
+    assert.match(
+        actorCss,
+        /\.battlefield-actor\[data-battlefield-mirrored="true"\] \.battlefield-actor-sprite\s*\{[^}]*transform:\s*translateX\(-50%\) scaleX\(-1\)/s,
+    );
+    assert.doesNotMatch(
+        actorCss,
+        /\.battlefield-actor\[data-battlefield-mirrored="true"\]\s*\{[^}]*transform:/s,
+        "facing must never transform the authoritative actor anchor or its hitbox",
+    );
 });

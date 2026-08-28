@@ -14,8 +14,17 @@
  */
 
 import { isImageAvatar } from "./avatar";
+import { towerHexPixel } from "./tower-grid";
 
 export type BattlefieldSpriteKind = "humanoid" | "quadruped" | "flying" | "serpentine" | "boss" | "construct";
+export type BattlefieldSpriteFacing = "left" | "right";
+
+type BattlefieldFacingActor = {
+    id: string;
+    side: "squad" | "enemy" | "npc";
+    hp: number;
+    pos: number;
+};
 
 // Mirrors `.battlefield-actor-sprite` and its per-kind overrides. `heightPct` is
 // the sprite box height as a percentage of the anchor; `bottomPx` is the CSS
@@ -38,6 +47,42 @@ export function inferSpriteKind(src: string): BattlefieldSpriteKind {
     if (/golem/i.test(src)) return "construct";
     if (/(apex-|boss-|ravager|armored|spectral|worldstorm|drake|oni|gate-heir|mirror-shard)/i.test(src)) return "boss";
     return "humanoid";
+}
+
+/**
+ * Presentation-only horizontal facing for a board actor. Full directional art
+ * would be needed to represent north/south, so actors in the same column hold
+ * a deterministic inward pose instead of flickering between left and right.
+ */
+export function battlefieldFacingTowardNearest(
+    actor: BattlefieldFacingActor,
+    actors: readonly BattlefieldFacingActor[],
+    gridWidth: number,
+): BattlefieldSpriteFacing {
+    const width = Math.max(1, Math.floor(gridWidth));
+    const actorColumn = ((actor.pos % width) + width) % width;
+    const inwardFallback: BattlefieldSpriteFacing = actorColumn < (width - 1) / 2 ? "right" : "left";
+    const actorPixel = towerHexPixel(actor.pos, width);
+    let target: BattlefieldFacingActor | null = null;
+    let targetDistance = Number.POSITIVE_INFINITY;
+
+    for (const candidate of actors) {
+        const hostile = actor.side === "enemy" ? candidate.side !== "enemy" : candidate.side === "enemy";
+        if (!hostile || candidate.hp <= 0 || candidate.id === actor.id) continue;
+        const candidatePixel = towerHexPixel(candidate.pos, width);
+        const dx = candidatePixel.left - actorPixel.left;
+        const dy = candidatePixel.top - actorPixel.top;
+        const distance = dx * dx + dy * dy;
+        if (distance < targetDistance || (distance === targetDistance && candidate.id < (target?.id ?? "\uffff"))) {
+            target = candidate;
+            targetDistance = distance;
+        }
+    }
+
+    if (!target) return inwardFallback;
+    const targetColumn = ((target.pos % width) + width) % width;
+    if (targetColumn === actorColumn) return inwardFallback;
+    return targetColumn < actorColumn ? "left" : "right";
 }
 
 /**

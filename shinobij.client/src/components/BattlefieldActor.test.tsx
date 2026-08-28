@@ -22,8 +22,25 @@ test("AI body art renders as a non-interactive full-body sprite", () => {
     assert.match(html, /enemy-orb battlefield-actor--enemy battlefield-actor--sprite/);
     assert.match(html, /data-battlefield-presentation="sprite"/);
     assert.match(html, /data-battlefield-sprite-kind="humanoid"/);
+    assert.match(html, /data-battlefield-facing="left"/);
+    assert.match(html, /data-battlefield-native-facing="left"/);
+    assert.match(html, /data-battlefield-mirrored="false"/);
     assert.match(html, /class="battlefield-actor-sprite"/);
     assert.doesNotMatch(html, /battlefield-actor-portrait-image/);
+});
+
+test("sprite facing mirrors only when display and native directions differ", () => {
+    const mirrored = renderToStaticMarkup(
+        <BattlefieldActor side="enemy" label="Arena Rival" sprite="/assets/rival.webp" facing="right" />,
+    );
+    const rightAuthored = renderToStaticMarkup(
+        <BattlefieldActor side="enemy" label="Custom Rival" sprite="/assets/custom.webp" facing="right" nativeFacing="right" />,
+    );
+    assert.match(mirrored, /data-battlefield-facing="right"/);
+    assert.match(mirrored, /data-battlefield-native-facing="left"/);
+    assert.match(mirrored, /data-battlefield-mirrored="true"/);
+    assert.match(rightAuthored, /data-battlefield-native-facing="right"/);
+    assert.match(rightAuthored, /data-battlefield-mirrored="false"/);
 });
 
 test("creature and boss sprite geometry is selected without changing the actor anchor", () => {
@@ -45,4 +62,6 @@ test("missing art keeps a readable marker fallback", () => {
     );
     assert.match(html, /battlefield-actor--marker/);
     assert.match(html, />UR<\/span>/);
+    assert.doesNotMatch(html, /data-battlefield-facing=/);
+    assert.doesNotMatch(html, /data-battlefield-mirrored=/);
 });

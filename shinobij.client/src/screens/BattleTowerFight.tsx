@@ -35,6 +35,7 @@ import {
 import { gameConfirm } from "../components/GameAlert";
 import { CombatInstance } from "../components/CombatInstance";
 import { BattlefieldActor } from "../components/BattlefieldActor";
+import { battlefieldFacingTowardNearest } from "../lib/battlefield-sprite";
 import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
 import { resolveOwnAvatar } from "../lib/own-avatar";
 import { visiblePoll } from "../lib/poll";
@@ -1773,6 +1774,9 @@ export function BattleTowerFight({
                                     const battleSprite = a.side === "enemy" && !isTeamPvp
                                         ? battlefieldAiSprite(String(a.character?.visual ?? ""), sharedImages)
                                         : null;
+                                    const spriteFacing = battleSprite
+                                        ? battlefieldFacingTowardNearest(a, session.actors, w)
+                                        : undefined;
                                     const unknownCombatant = isUnknownCombatant(a);
                                     const ringColor = a.side === "squad" ? "#67e8f9" : a.side === "npc" ? "var(--gold)" : "#fb7185";
                                     const pct = Math.max(0, Math.min(100, (a.hp / Math.max(1, a.maxHp)) * 100));
@@ -1793,6 +1797,7 @@ export function BattleTowerFight({
                                                 label={a.name}
                                                 portrait={img}
                                                 sprite={battleSprite}
+                                                facing={spriteFacing}
                                                 fallback={emojiFor(a)}
                                                 style={{
                                                     width: size, height: size,

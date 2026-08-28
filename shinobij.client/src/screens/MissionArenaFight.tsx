@@ -49,7 +49,7 @@ import {
 } from "../lib/combat-action-display";
 import { FighterHpBadge } from "../components/FighterHpBadge";
 import { BattlefieldActor } from "../components/BattlefieldActor";
-import { battlefieldSpriteHeadroom } from "../lib/battlefield-sprite";
+import { battlefieldFacingTowardNearest, battlefieldSpriteHeadroom } from "../lib/battlefield-sprite";
 import { jutsuImpactPreviewTiles } from "../lib/jutsu-impact-preview";
 import { getJutsuMastery, scaleJutsuByLevel } from "../lib/jutsu-scaling";
 import { jutsuTargetingLabel } from "../lib/jutsu-effects";
@@ -1015,7 +1015,10 @@ export function MissionArenaFight({
                                 })()}
                                 {enemy && (() => {
                                     const { left, top } = towerHexPixel(enemyPos, w);
-                                    return <BattlefieldActor key="enemy-orb" side="enemy" label={enemyName} portrait={enemyAvatar} sprite={enemyBattleSprite} fallback={enemyName.slice(0, 2).toUpperCase()} className={gateDirective ? `hg-hound-orb hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
+                                    const spriteFacing = enemyBattleSprite
+                                        ? battlefieldFacingTowardNearest(enemy, session.actors, w)
+                                        : undefined;
+                                    return <BattlefieldActor key="enemy-orb" side="enemy" label={enemyName} portrait={enemyAvatar} sprite={enemyBattleSprite} facing={spriteFacing} fallback={enemyName.slice(0, 2).toUpperCase()} className={gateDirective ? `hg-hound-orb hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
                                         {gateDirective ? <span className="hg-hound-spectral-aura" aria-hidden="true" /> : null}
                                     </BattlefieldActor>;
                                 })()}
