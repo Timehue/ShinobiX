@@ -8,15 +8,19 @@ const menuGroups = readFileSync("shinobij.client/src/components/player-menu-grou
 const desktopCss = readFileSync("shinobij.client/src/styles/index/02-world-map.css", "utf8");
 const mobileCss = readFileSync("shinobij.client/src/styles/index/23-mobile-shell.css", "utf8");
 const themeCss = readFileSync("shinobij.client/src/styles/veiled-steel.css", "utf8");
-const groups = ["world", "growth", "character", "support", "system"];
+const townHall = readFileSync("shinobij.client/src/screens/TownHall.tsx", "utf8");
+const centralHub = readFileSync("shinobij.client/src/screens/CentralHub.tsx", "utf8");
+const app = readFileSync("shinobij.client/src/App.tsx", "utf8");
+const bloodlineFlow = readFileSync("shinobij.client/src/lib/use-bloodline-maker-flow.ts", "utf8");
+const groups = ["world", "activities", "character", "social", "support", "system"];
 const internalScreens = [
-    "tavern", "worldMap", "villageWarMap", "userHub", "messages", "missions", "training", "professions", "logbook",
-    "profile", "inventory", "jutsuTraining", "home", "bloodlineMaker", "guides",
+    "tavern", "worldMap", "userHub", "messages", "missions", "training", "professions", "logbook",
+    "profile", "inventory", "jutsuTraining", "home", "guides",
 ];
 
-test("desktop and mobile menus expose the same five semantic groups", () => {
+test("desktop and mobile menus expose the same six semantic groups", () => {
     for (const group of groups) {
-        if (["world", "growth", "character"].includes(group)) assert.match(menuGroups, new RegExp(`id: "${group}"`));
+        if (["world", "activities", "character", "social"].includes(group)) assert.match(menuGroups, new RegExp(`id: "${group}"`));
         else {
             assert.match(desktop, new RegExp(`aria-labelledby="right-menu-${group}"`));
             assert.match(mobile, new RegExp(`aria-labelledby="mobile-menu-${group}"`));
@@ -40,17 +44,31 @@ test("grouping preserves every internal menu destination and current-page afford
     assert.match(desktop, /setAudioMuted/);
     assert.match(desktop, /preloadScreen/);
     assert.match(mobile, /preloadScreen/);
-    assert.match(desktop, /target === "villageWarMap" && !sectorMapOpen/);
-    assert.match(mobile, /target === "villageWarMap" && !sectorMapOpen/);
 });
 
-test("Sector navigation composes the gameplay view gate without treating mutation freeze as an outage", () => {
-    assert.match(desktop, /useCapabilityViewAvailability\("villageWar"\)/);
-    assert.match(mobile, /useCapabilityViewAvailability\("villageWar"\)/);
-    assert.doesNotMatch(desktop, /useCapabilityMutationAvailability\("villageWar"\)/);
-    assert.doesNotMatch(mobile, /useCapabilityMutationAvailability\("villageWar"\)/);
-    assert.match(desktop, /const sectorMapOpen = capabilityAdmissionAllowed\(villageWarAvailability\)/);
-    assert.match(mobile, /const sectorMapOpen = capabilityAdmissionAllowed\(villageWarAvailability\)/);
+test("controlled destinations stay out of the global menu and remain wired to their gameplay hubs", () => {
+    assert.doesNotMatch(menuGroups, /"villageWarMap"/);
+    assert.doesNotMatch(menuGroups, /"bloodlineMaker"/);
+
+    assert.match(townHall, /setScreen\("villageWarMap"\)/);
+    assert.match(townHall, /> Sector Map<\/button>/);
+
+    assert.match(centralHub, /purchaseBloodlineForge\(character\.name, rank\)/);
+    assert.match(centralHub, /onOpenBloodlineMaker\(rank, getCharacterElements\(result\.character\)\[0\] \?\? ""\)/);
+    assert.match(app, /onOpenBloodlineMaker=\{\(rank, element\) => bloodlineMaker\.open\(/);
+    assert.match(bloodlineFlow, /setScreen\("bloodlineMaker"\)/);
+});
+
+test("logout uses the concise player-facing label while preserving the save-first callback", () => {
+    assert.match(desktop, /className="right-menu-logout" onClick=\{logoutPlayer\}/);
+    assert.match(mobile, /<GiExitDoor size=\{20\} \/>Logout<\/button>/);
+    assert.doesNotMatch(`${desktop}\n${mobile}`, /Logout \+ Save/);
+});
+
+test("desktop menu keeps the classic heading without the duplicate command card", () => {
+    assert.match(desktop, /<h3>Main Menu<\/h3>/);
+    assert.doesNotMatch(desktop, /right-menu-command-title|Field command|<h3>Shinobi Menu<\/h3>/);
+    assert.doesNotMatch(themeCss, /\.right-menu-command-title/);
 });
 
 test("grouped menus stay compact, scrollable, and touch-safe", () => {

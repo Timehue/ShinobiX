@@ -220,7 +220,11 @@ test("product truth and player focus visual matrix", async ({ page }, testInfo) 
     await page.setViewportSize({ width: 1440, height: 900 });
     await loadScreen(page, "centralHub");
     await expectRuntimeSaveCommitted(page, runtime);
-    await expect(page.locator(".right-menu-panel.open")).toBeVisible();
+    const desktopMenu = page.locator(".right-menu-panel.open");
+    await expect(desktopMenu).toBeVisible();
+    await expect(desktopMenu.getByRole("button", { name: "Sector Map" })).toHaveCount(0);
+    await expect(desktopMenu.getByRole("button", { name: "Bloodline" })).toHaveCount(0);
+    await expect(desktopMenu.getByRole("button", { name: "Logout", exact: true })).toBeVisible();
     await capture(page, testInfo, "01-desktop-menu-expanded-1440x900.png");
     await page.getByRole("button", { name: "Hide Menu" }).click();
     await expect(page.locator(".right-menu-panel.closed")).toBeVisible();
@@ -237,6 +241,9 @@ test("product truth and player focus visual matrix", async ({ page }, testInfo) 
         await expect(page.getByRole("dialog", { name: "Shinobi menu" })).toBeVisible();
         await expect(page.getByRole("heading", { name: "System" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Close menu" })).toBeVisible();
+        await expect(page.getByRole("dialog", { name: "Shinobi menu" }).getByRole("button", { name: "Sector Map" })).toHaveCount(0);
+        await expect(page.getByRole("dialog", { name: "Shinobi menu" }).getByRole("button", { name: "Bloodline" })).toHaveCount(0);
+        await expect(page.getByRole("dialog", { name: "Shinobi menu" }).getByRole("button", { name: "Logout", exact: true })).toBeVisible();
         await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
         const accessibility = await new AxeBuilder({ page }).include(".mobile-menu-overlay").withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
         expect(accessibility.violations.filter((violation) => ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);

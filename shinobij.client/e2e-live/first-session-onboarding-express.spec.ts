@@ -392,7 +392,7 @@ test('a new player completes the full persisted Academy first session against bu
     await expect(mobileMenu).toBeVisible();
     const logoutSave = page.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname.toLowerCase() === `/api/save/${playerName.toLowerCase()}`);
-    await mobileMenu.getByRole('button', { name: 'Logout + Save' }).click();
+    await mobileMenu.getByRole('button', { name: 'Logout' }).click();
     expect((await logoutSave).status()).toBe(200);
     await expect(page.getByTestId('start-create')).toBeVisible();
 

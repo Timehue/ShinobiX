@@ -19,8 +19,6 @@ import { isProtectedAdminName } from "../constants/game";
 import { PROFESSION_LABEL } from "../data/professions";
 import { preloadScreen } from "../lib/screen-preload";
 import { useOwnAvatar } from "../lib/own-avatar";
-import { useCapabilityViewAvailability } from "../lib/live-capabilities-context";
-import { capabilityAdmissionAllowed, sectorMapAdmissionMessage } from "../lib/live-capability-admission";
 import { MailUnreadBadge, MailUnreadDot } from "./MailUnreadBadge";
 import { MobileNotificationBar } from "./MobileNotificationBar";
 import { MobileProfileSheet } from "./MobileProfileSheet";
@@ -56,9 +54,6 @@ export const MobileNav = memo(function MobileNav({
     activeJutsuTraining: ActiveJutsuTraining | null;
     screen: Screen;
 }) {
-    const villageWarAvailability = useCapabilityViewAvailability("villageWar");
-    const sectorMapOpen = capabilityAdmissionAllowed(villageWarAvailability);
-    const sectorMapStatus = sectorMapAdmissionMessage(villageWarAvailability);
     const [open, setOpen] = useState(false);
     const [menuQuery, setMenuQuery] = useState("");
     // The "You" sheet — the desktop left-rail profile card, surfaced on mobile.
@@ -219,7 +214,7 @@ export const MobileNav = memo(function MobileNav({
                                 <h2 id={`mobile-menu-${group.id}`}>{group.label}</h2>
                                 <div className="mobile-menu-grid">
                                     {group.items.map(([target, label, Icon]) => (
-                                        <button className="mobile-menu-btn" key={target} aria-current={screen === target ? "page" : undefined} disabled={target === "villageWarMap" && !sectorMapOpen} title={target === "villageWarMap" && !sectorMapOpen ? sectorMapStatus : undefined} onClick={() => { if (target !== "villageWarMap" || sectorMapOpen) go(target); }} onPointerDown={() => { if (target !== "villageWarMap" || sectorMapOpen) preloadScreen(target, character.storyVillage || character.village); }}>
+                                        <button className="mobile-menu-btn" key={target} aria-current={screen === target ? "page" : undefined} onClick={() => go(target)} onPointerDown={() => preloadScreen(target, character.storyVillage || character.village)}>
                                             <Icon size={20} />{target === "professions" && character.profession ? PROFESSION_LABEL[character.profession] : label}{target === "messages" ? <MailUnreadBadge /> : null}
                                         </button>
                                     ))}
@@ -246,7 +241,7 @@ export const MobileNav = memo(function MobileNav({
                                     <h2 id="mobile-menu-system">System</h2>
                                     <div className="mobile-menu-grid">
                                         {isAdminAccount && <button className="mobile-menu-btn" onClick={() => go(adminLoggedIn ? "adminPanel" : "adminLogin")} onPointerDown={() => preloadScreen(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiGears size={20} />Admin</button>}
-                                        <button className="mobile-menu-btn danger" onClick={() => { logoutPlayer(); setOpen(false); }}><GiExitDoor size={20} />Logout + Save</button>
+                                        <button className="mobile-menu-btn danger" onClick={() => { logoutPlayer(); setOpen(false); }}><GiExitDoor size={20} />Logout</button>
                                     </div>
                                 </section>
                             </>
