@@ -60,6 +60,8 @@ test("battlefield sprites remain presentation-only inside the authoritative acto
     assert.match(fight, /import \{ BattlefieldActor \} from "\.\.\/components\/BattlefieldActor"/);
     assert.match(fight, /const battleSprite = a\.side === "enemy" && !isTeamPvp/);
     assert.match(fight, /battlefieldAiSprite\(String\(a\.character\?\.visual \?\? ""\), sharedImages\)/);
+    assert.match(fight, /const spriteFacing = battleSprite[\s\S]{0,180}?battlefieldFacingTowardNearest\(a, session\.actors, w\)/);
+    assert.match(fight, /facing=\{spriteFacing\}/);
     assert.match(
         fight,
         /<button key=\{a\.id\}[^>]*onClick=\{\(\) => onTileClick\(a\.pos\)\}[\s\S]{0,1600}?<BattlefieldActor[\s\S]{0,500}?sprite=\{battleSprite\}/,
