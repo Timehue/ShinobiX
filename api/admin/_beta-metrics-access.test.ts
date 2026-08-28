@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 type Out = { statusCode: number; body?: Record<string, unknown>; sent?: string; headers: Record<string, string> };
+type Handler = (req: never, res: never) => unknown | Promise<unknown>;
 
 function response() {
     const out: Out = { statusCode: 200, headers: {} };
@@ -35,7 +36,7 @@ function request(over: Record<string, unknown> = {}) {
  */
 describe('admin beta-metrics access control', () => {
     it('refuses a caller with no admin credential, before reading any save', async () => {
-        const handler = (await import('./beta-metrics.js')).default;
+        const handler = (await import('./beta-metrics.js')).default as unknown as Handler;
         const { out, res } = response();
         await handler(request(), res);
         assert.equal(out.statusCode, 403);
@@ -46,7 +47,7 @@ describe('admin beta-metrics access control', () => {
     });
 
     it('refuses a forged admin header just as firmly', async () => {
-        const handler = (await import('./beta-metrics.js')).default;
+        const handler = (await import('./beta-metrics.js')).default as unknown as Handler;
         for (const headers of [
             { 'x-admin-password': '' },
             { 'x-admin-password': 'not-the-password' },
@@ -59,7 +60,7 @@ describe('admin beta-metrics access control', () => {
     });
 
     it('answers CORS preflight without requiring admin, and rejects other verbs', async () => {
-        const handler = (await import('./beta-metrics.js')).default;
+        const handler = (await import('./beta-metrics.js')).default as unknown as Handler;
         const preflight = response();
         await handler(request({ method: 'OPTIONS' }), preflight.res);
         assert.equal(preflight.out.statusCode, 200);
