@@ -38,6 +38,7 @@ import type { WorldSectorCommandPanelProps } from "./WorldSectorCommandPanel.typ
  */
 export function WorldSectorCommandPanel({
     sector,
+    present,
     biome,
     weather,
     territory,
@@ -137,21 +138,21 @@ export function WorldSectorCommandPanel({
                                 </div>
                                 <div className="sector-meter sector-meter-hp"><span style={{ width: `${(territory.war.enemyVillageHp / territory.war.enemyVillageHpMax) * 100}%` }} /></div>
                             </div>
-                            <button type="button" className="danger-button sector-action-btn is-danger" disabled={!villageWarAdmissionOpen || territory.war.warGroundHp <= 0 || territory.war.ended} onClick={onRaidEnemyVillage}>
+                            <button type="button" className="danger-button sector-action-btn is-danger" disabled={!present || !villageWarAdmissionOpen || territory.war.warGroundHp <= 0 || territory.war.ended} onClick={onRaidEnemyVillage}>
                                 <span className="sector-action-icon" aria-hidden="true"><GiCrossedSwords /></span>
                                 <span>Raid Enemy Village</span>
                             </button>
                         </div>
                     )}
                     {territory.enemyControlled && (
-                        <button type="button" className="danger-button sector-action-btn is-danger" disabled={!villageWarAdmissionOpen} onClick={onRaidControlledSector}>
+                        <button type="button" className="danger-button sector-action-btn is-danger" disabled={!present || !villageWarAdmissionOpen} onClick={onRaidControlledSector}>
                             <span className="sector-action-icon" aria-hidden="true"><GiCrossedSwords /></span>
                             <span>Raid Controlled Sector</span>
                         </button>
                     )}
                 </section>
             )}
-            {contract && <SectorContractCard status={contract} busy={contractBusy} onClaim={onClaimContract} />}
+            {contract && <SectorContractCard status={contract} busy={contractBusy} disabled={!present} onClaim={onClaimContract} />}
             {intel && <SectorIntelCard intel={intel} />}
             {traces && (
                 <SectorTracesCard
@@ -181,12 +182,12 @@ export function WorldSectorCommandPanel({
                                 <span className={`sector-status-pill is-${player.status.toLowerCase()}`}>{player.status}</span>
                             </div>
                             {player.sleeping ? (
-                                <button type="button" className="danger-button sector-player-action" onClick={() => onStrikeSleeper(player.target)}>
+                                <button type="button" className="danger-button sector-player-action" disabled={!present} onClick={() => onStrikeSleeper(player.target)}>
                                     <span className="sector-action-icon" aria-hidden="true"><GiCrossedSwords /></span>
                                     <span>Strike Down</span>
                                 </button>
                             ) : (
-                                <button type="button" className="danger-button sector-player-action" disabled={player.actionDisabled} onClick={() => onAttackPlayer(player.target)}>
+                                <button type="button" className="danger-button sector-player-action" disabled={!present || player.actionDisabled} onClick={() => onAttackPlayer(player.target)}>
                                     <span className="sector-action-icon" aria-hidden="true"><GiCrossedSwords /></span>
                                     <span>{player.status === "Traveling" ? "Traveling" : (player.status === "Fighting" ? "Fighting" : "Attack")}</span>
                                 </button>
@@ -222,18 +223,19 @@ export function WorldSectorCommandPanel({
                 <button
                     type="button"
                     className={`sector-action-btn is-primary${gatherDepleted ? " is-spent" : ""}`}
+                    disabled={!present && !gatherDepleted}
                     onClick={gatherDepleted ? onFindRicherGround : onExplore}
                 >
                     <span className="sector-action-icon" aria-hidden="true"><GiCompass /></span>
                     <span>{gatherDepleted ? "Find richer ground" : "Explore"}</span>
                 </button>
                 {hunt && (
-                    <button type="button" className="sector-action-btn" onClick={onHunt}>
+                    <button type="button" className="sector-action-btn" disabled={!present} onClick={onHunt}>
                         <span className="sector-action-icon" aria-hidden="true"><GiPawPrint /></span>
                         <span>{hunt.ready ? "Fight" : "Track"} {hunt.targetName}</span>
                     </button>
                 )}
-                <button type="button" className="sector-action-btn" onClick={onRecover}>
+                <button type="button" className="sector-action-btn" disabled={!present} onClick={onRecover}>
                     <span className="sector-action-icon" aria-hidden="true"><GiHealthPotion /></span>
                     <span>Recover</span>
                 </button>

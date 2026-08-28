@@ -1289,9 +1289,9 @@ export function WorldMap({
         sector: number,
         worldEncounter: WorldAiFightRequest,
     ) {
+        if (!sameSector(currentSector, sector)) return gameToast(`Travel to Sector ${sector} before starting this encounter.`, { kind: "info" });
         if (!capabilityAdmissionAllowed(mutationAvailability())) return;
         const b = biomeForSector(sector);
-        setCurrentSector(sector);
         setCurrentBiome(b);
         setCurrentWeather(weatherForSector(sector, b));
         const launched = requestAiFight({
@@ -1832,6 +1832,7 @@ export function WorldMap({
         return !!d && !d.msg && (d.w.verb === "attack" || d.w.verb === "bountyHunter");
     }
     function handleWandererEngage(w: Wanderer) {
+        if (selectedSector == null || !sameSector(currentSector, selectedSector)) return;
         rememberWanderer(w);
         // Fresh scene, fresh verdict: whether the LAST giver's offer was taken must
         // never carry into this one's decline check. (The rift-accept branch closes
@@ -2750,7 +2751,8 @@ export function WorldMap({
     }
 
     function crossSectorExit(exit: SectorExit) {
-        if (!sameSector(currentSector, exit.sector) || sectorPlayerPos !== exit.tile) return;
+        if (!sameSector(currentSector, exit.sector)) return;
+        setSectorPlayerPos(exit.tile);
         beginSectorTravel(exit.destinationSector, (arrivalTile) => {
             const destinationTile = Number.isInteger(arrivalTile) ? Number(arrivalTile) : exit.destinationTile;
             const destinationBiome = biomeForSector(exit.destinationSector);
@@ -2770,7 +2772,7 @@ export function WorldMap({
         }, {
             mode: "edge",
             originSector: exit.sector,
-            originTile: sectorPlayerPos,
+            originTile: exit.tile,
             exitId: exit.id,
         });
     }
@@ -2782,7 +2784,7 @@ export function WorldMap({
     const SECTOR_GRID_W = 12;
     const SECTOR_GRID_SIZE = 144;
     useEffect(() => {
-        if (!selectedSector) return;
+        if (!selectedSector || !sameSector(currentSector, selectedSector)) return;
         const activeSector = selectedSector;
         function handleKey(e: KeyboardEvent) {
             const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
@@ -3613,7 +3615,7 @@ export function WorldMap({
 
     function selectedSectorCombatEnvironment() {
         const sector = selectedSector;
-        if (sector == null) return null;
+        if (sector == null || !sameSector(currentSector, sector)) return null;
         const biome = biomeForSector(sector);
         return { sector, biome, weather: weatherForSector(sector, biome) };
     }
@@ -3676,7 +3678,7 @@ export function WorldMap({
     }
 
     function handleSelectedSectorSleeperAttack(player: PlayerRecord) {
-        attackSleeper(player);
+        if (selectedSector != null && sameSector(currentSector, selectedSector)) attackSleeper(player);
     }
 
     function handleOpenSectorSigns() {
@@ -3688,7 +3690,7 @@ export function WorldMap({
     }
 
     function handleExploreSelectedSector() {
-        if (selectedSector != null) void exploreSector(selectedSector);
+        if (selectedSector != null && sameSector(currentSector, selectedSector)) void exploreSector(selectedSector);
     }
 
     // Picked clean is a signpost, not a wall. The pool is shared and per-sector,
@@ -3696,7 +3698,7 @@ export function WorldMap({
     // for the closest and hands the player back to the overview, where the pool
     // tiers it just named are drawn on the markers.
     async function handleClaimContract() {
-        if (selectedSector == null || contractBusy) return;
+        if (selectedSector == null || !sameSector(currentSector, selectedSector) || contractBusy) return;
         setContractBusy(true);
         // The server recomputes the bounty from the sealed sector and day and
         // pays from that, so the only thing to do with the answer is adopt the
@@ -3728,11 +3730,11 @@ export function WorldMap({
     }
 
     function handleHuntSelectedSector() {
-        if (selectedSector != null) void huntSector(selectedSector);
+        if (selectedSector != null && sameSector(currentSector, selectedSector)) void huntSector(selectedSector);
     }
 
     function handleRecoverSelectedSector() {
-        if (selectedSector != null) restInSector(selectedSector);
+        if (selectedSector != null && sameSector(currentSector, selectedSector)) restInSector(selectedSector);
     }
 
     function handleLeaveSelectedSector() {
@@ -4481,8 +4483,6 @@ export function WorldMap({
         return (
             <div className="map-instance">
                 <div className="instance-frame sector-instance-frame">
-                    
-
                     <WorldSectorCanvas
                         sector={selectedSector}
                         biome={biome}
@@ -4515,9 +4515,9 @@ export function WorldMap({
                             <WorldSectorOverlayLayer
                                 biome={ambienceBiomeForSector(selectedSector)}
                                 playerTile={sectorPlayerPos}
-                                wanderers={sectorOverlayWanderers}
-                                rift={sectorOverlayRift}
-                                vault={sectorOverlayVault}
+                                wanderers={sectorIsCurrent ? sectorOverlayWanderers : []}
+                                rift={sectorIsCurrent ? sectorOverlayRift : null}
+                                vault={sectorIsCurrent ? sectorOverlayVault : null}
                                 traceSigns={sectorTraces?.signs ?? []}
                                 shrine={sectorOverlayShrine}
                                 boss={sectorOverlayBoss}
@@ -4707,7 +4707,7 @@ export function WorldMap({
                             )}
                             </>
                         }
-                        encounterLayer={
+                        encounterLayer={sectorIsCurrent ? (
                             <>
                             {creatorEvents
                                 .filter((event) => event.eventKind !== "visualNovel" && event.targetSector === selectedSector)
@@ -4793,11 +4793,12 @@ export function WorldMap({
                                     );
                                 })}
                             </>
-                        }
+                        ) : null}
                     />
 
                     <WorldSectorCommandPanel
                         sector={selectedSector}
+                        present={sectorIsCurrent}
                         biome={biome}
                         weather={sectorWeather}
                         territory={commandTerritory}
@@ -5055,10 +5056,8 @@ export function WorldMap({
                             ) : (
                                 <button onClick={() => {
                                     const outskirtsSector = villageOutskirtsSector(character.village);
-                                    setCurrentBiome(biomeForSector(outskirtsSector));
-                                    setCurrentWeather(weatherForSector(outskirtsSector, biomeForSector(outskirtsSector)));
                                     setSelectedLandmark(null);
-                                    setSelectedSector(outskirtsSector);
+                                    triggerTravelPoint(outskirtsSector);
                                 }}>
                                     Outskirts
                                 </button>

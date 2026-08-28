@@ -9,9 +9,10 @@ import type { SectorContractStatus } from "../lib/sector-contract";
  * the claim is its callback, so this card cannot decide who gets paid — the
  * server recomputes the bounty from the sealed sector and day either way.
  */
-export function SectorContractCard({ status, busy, onClaim }: {
+export function SectorContractCard({ status, busy, disabled = false, onClaim }: {
     status: SectorContractStatus;
     busy: boolean;
+    disabled?: boolean;
     onClaim: () => void;
 }) {
     const contract = status.contract;
@@ -45,7 +46,7 @@ export function SectorContractCard({ status, busy, onClaim }: {
             {status.claimed ? (
                 <p className="sector-empty-note">Settled today. A new board goes up at midnight UTC.</p>
             ) : status.claimable ? (
-                <button type="button" className="sector-action-btn is-primary" disabled={busy} onClick={onClaim}>
+                <button type="button" className="sector-action-btn is-primary" disabled={busy || disabled} onClick={onClaim}>
                     <span>{busy ? "Settling…" : `Claim ${contract.ryo.toLocaleString()} ryo`}</span>
                 </button>
             ) : (
