@@ -100,6 +100,42 @@ describe('jutsu ryo training handler lifecycle', () => {
         assert.equal(masteryLevel(saved?.character, JUTSU_ID), 9);
     });
 
+    // The 2026-07 jutsu leases carry no serverToken at all, so token matching could
+    // never admit them: `complete` AND `cancel` were both refused while the lease
+    // kept blocking any new jutsu training — with the ryo already spent. Settlement
+    // reads only the record's own sealed fields, so those two are safe to admit;
+    // queue/advance/finish still need a real token because they mint the next one.
+    it('settles a tokenless legacy jutsu lease, and still gates queue behind a real token', async () => {
+        await kv.set(SAVE_KEY, {
+            character: {
+                name: PLAYER, level: 30, ryo: 50_000, village: 'Emberfall',
+                jutsuMastery: [{ jutsuId: JUTSU_ID, level: 3, xp: 0 }],
+            },
+            activeJutsuTraining: {
+                jutsuId: JUTSU_ID, label: 'Stone Needle Volley',
+                fromLevel: 3, toLevel: 4, ryoCost: 4_000, startedAt: 1, endsAt: 2,
+            },
+            _saveVersion: 1,
+        });
+
+        const queued = await mutate({ action: 'queue', requestId: 'legacy-queue-001', jutsuId: JUTSU_ID });
+        assert.equal(queued.statusCode, 409, `queue must still require a token, got ${JSON.stringify(queued.body)}`);
+        assert.equal(queued.body?.error, 'invalid-or-legacy-jutsu-training');
+
+        const out = await mutate({ action: 'complete', requestId: 'legacy-jutsu-claim-001' });
+        assert.equal(out.statusCode, 200, `expected 200, got ${out.statusCode} ${JSON.stringify(out.body)}`);
+        assert.equal(masteryLevel(out.body?.character, JUTSU_ID), 4);
+        assert.equal(out.body?.activeJutsuTraining, null);
+
+        const saved = await kv.get<Record<string, unknown>>(SAVE_KEY);
+        assert.equal(saved?.activeJutsuTraining, null);
+
+        // The cleared lease — not the token — is what stops a second settlement.
+        const again = await mutate({ action: 'complete', requestId: 'legacy-jutsu-claim-002' });
+        assert.equal(again.statusCode, 409, JSON.stringify(again.body));
+        assert.equal(masteryLevel((await kv.get<Record<string, unknown>>(SAVE_KEY))?.character, JUTSU_ID), 4);
+    });
+
     it('replays the same claim without double-granting or returning a server error', async () => {
         const request = {
             action: 'complete',
