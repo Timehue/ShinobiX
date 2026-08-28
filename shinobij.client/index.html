@@ -7,6 +7,15 @@
     <meta name="theme-color" content="#0f172a" />
     <meta name="color-scheme" content="dark" />
 
+    <!-- Installable-app metadata. The manifest is what Chrome reads for the
+         install prompt AND what the Play Store TWA wrapper is built against:
+         name, icons, start_url and scope all come from there, so a change here
+         changes the shipped Android app. Icons are generated from favicon.svg
+         by scripts/gen-pwa-icons.mjs — regenerate after any favicon change.
+         iOS ignores the manifest icons entirely, hence the separate link. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
     <!-- This tiny classic script installs before Vite's module/preload graph.
          It is external so production's script-src 'self' CSP stays strict, and
          it can recover a failed entry bundle without depending on app code. -->

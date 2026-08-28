@@ -31,7 +31,7 @@ managing secrets, overseeing sub-processors, and leading incident response.
 | --- | --- |
 | Player credentials & sessions | Account takeover, credential stuffing, token forgery |
 | Character saves & premium currency | Client tampering, reward/currency duplication, save clobber |
-| PII / security signals (IP, fingerprint, email via Patreon link) | Unauthorized disclosure, doxxing |
+| PII / security signals (IP, fingerprint, email via Google sign-in) | Unauthorized disclosure, doxxing |
 | User-generated content (chat, names, titles, images, prompts) | Abuse, harassment, illegal content, impersonation |
 | Availability | DoS, hostile traffic spikes, deploy-time outages |
 | Supply chain | Compromised dependency, leaked secret (repo is **public**) |

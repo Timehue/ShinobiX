@@ -316,7 +316,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
         const imageSaveFailed = imageResults.some((result) => result === false);
         const newBloodline = { id: finalId, name: bloodlineName, rank, image: bloodlineImage, specialElement: specialElement.trim(), weatherElement, lore: bloodlineLore.trim(), jutsus: finalizedJutsus, totalPoints: bloodlinePoints(finalizedJutsus, rank) };
         // When creating a NEW bloodline (not editing), keep up to the player's
-        // stored-bloodline cap — Patreon perk: 1 for the base tier, 2 for
+        // stored-bloodline cap — Supporter perk: 1 for the base tier, 2 for
         // subscribers — newest first, dropping the oldest beyond the cap. The new
         // one auto-equips below via replaceCharacterBloodline; a second stored
         // bloodline can be swapped in from the Saved list. Editing replaces the
@@ -711,7 +711,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                         <section className="bloodline-awakening-saved">
                             <div className="bloodline-awakening-saved-heading">
                                 <div><small>Ancestral archive</small><h3>Saved Bloodlines</h3></div>
-                                <span>{savedBloodlines.length}/{storageLimit} stored{!isPatreonSubscriber(character) ? " · Patreon unlocks a second slot" : ""}</span>
+                                <span>{savedBloodlines.length}/{storageLimit} stored{!isPatreonSubscriber(character) ? " · Shinobi Supporter unlocks a second slot" : ""}</span>
                             </div>
                             <div className="bloodline-awakening-saved-grid">
                                 {savedBloodlines.map((bloodline) => {

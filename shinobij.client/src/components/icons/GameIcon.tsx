@@ -181,7 +181,7 @@ const PATHS: Record<GameIconName, ReactElement> = {
         <path d="M10 3.2h4a.8.8 0 0 1 .8.8v2.3a1 1 0 0 0 .15.52l1.7 2.8A5.5 5.5 0 0 1 17.4 15v2.6a3.2 3.2 0 0 1-3.2 3.2H9.8a3.2 3.2 0 0 1-3.2-3.2V15a5.5 5.5 0 0 1 .75-2.78l1.7-2.8a1 1 0 0 0 .15-.52V4a.8.8 0 0 1 .8-.8Z" />
     ),
     // Rice bowl — war rations / provisions. Deliberately NOT the hp heart:
-    // the Village War Map shows rations, HP and Patreon at once, and a shared
+    // the Village War Map shows rations, HP and hearts at once, and a shared
     // glyph made "fed" read as "healthy".
     rations: (
         <>

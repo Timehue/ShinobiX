@@ -11,7 +11,6 @@ import { ANIMATED_MAX_MB, MAX_LEVEL, statCapForLevel } from "../constants/game";
 import { ChangePasswordCard } from "../components/ChangePasswordCard";
 import { RecoveryCodeCard } from "../components/RecoveryCodeCard";
 import { GoogleLinkCard } from "../components/GoogleLinkCard";
-import { PatreonLink } from "../components/PatreonLink";
 import { maxLoadout, canCustomAvatar } from "../lib/entitlements";
 import { gameConfirm } from "../components/GameAlert";
 import { JutsuLoadoutPanel } from "../components/JutsuLoadoutPanel";
@@ -113,7 +112,7 @@ export function Profile({
         if (!file.type.startsWith("image/")) return alert("Please upload an image file.");
         if (!canCustomAvatar(character)) {
             event.target.value = "";
-            return alert("Custom avatars are a Shinobi Supporter perk. Link your Patreon to unlock custom avatars.");
+            return alert("Custom avatars are a Shinobi Supporter perk. Choose one of the preset avatars for now.");
         }
 
         void (async () => {
@@ -391,7 +390,7 @@ export function Profile({
         const loadoutCap = maxLoadout(character);
         if (character.equippedJutsuIds.length >= loadoutCap) {
             alert(loadoutCap < 15
-                ? `You can only equip ${loadoutCap} jutsu. Link your Patreon (Shinobi Supporter) to equip 15.`
+                ? `You can only equip ${loadoutCap} jutsu. Shinobi Supporter raises the limit to 15.`
                 : "You can only equip 15 jutsu.");
             return;
         }
@@ -585,8 +584,6 @@ export function Profile({
                     </label>
                 )}
             />
-
-            <PatreonLink character={character} />
 
             {character.academyFieldSeal && (
                 <section className="profile-field-seal" aria-labelledby="profile-field-seal-title">

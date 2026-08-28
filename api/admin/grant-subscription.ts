@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { applyAdminSubscription } from '../patreon/_patreon.js';
+import { applyAdminSubscription } from '../_subscription.js';
 
 /*
  * POST /api/admin/grant-subscription   (x-admin-password / x-admin-token)
