@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { activeCarriedPetIds, activeCarriedPets, canCustomAvatar, maxLoadout, maxPets, maxStoredBloodlines, PET_CAP_BASE } from "./entitlements";
+import { activeCarriedPetIds, activeCarriedPets, activeTrainingPetIds, canCustomAvatar, maxLoadout, maxPets, maxStoredBloodlines, PET_CAP_BASE } from "./entitlements";
 import { TACTICAL_ARENA_PET_REQUIREMENT } from "./pet";
 
 describe("client supporter entitlement mirror", () => {
@@ -17,7 +17,7 @@ describe("client supporter entitlement mirror", () => {
     it("matches the canonical jutsu and carried-pet caps", () => {
         assert.equal(maxLoadout({}), 12);
         assert.equal(maxLoadout(supporter), 15);
-        assert.equal(maxPets({}), 4);
+        assert.equal(maxPets({}), 5);
         assert.equal(maxPets(supporter), 6);
     });
 
@@ -35,9 +35,10 @@ describe("client supporter entitlement mirror", () => {
     it("keeps six owned pets while projecting only the entitled carried roster", () => {
         const pets = Array.from({ length: 6 }, (_, index) => ({ id: `pet-${index + 1}` }));
         const character = { pets, activePetId: "pet-6", activePetId2v2: "pet-5" };
-        assert.deepEqual(activeCarriedPetIds(character), ["pet-6", "pet-5", "pet-1", "pet-2"]);
-        assert.deepEqual(activeCarriedPets(character).map(({ id }) => id), ["pet-6", "pet-5", "pet-1", "pet-2"]);
+        assert.deepEqual(activeCarriedPetIds(character), ["pet-6", "pet-5", "pet-1", "pet-2", "pet-3"]);
+        assert.deepEqual(activeCarriedPets(character).map(({ id }) => id), ["pet-6", "pet-5", "pet-1", "pet-2", "pet-3"]);
         assert.equal(activeCarriedPets({ ...character, ...supporter }).length, 6);
+        assert.deepEqual(activeTrainingPetIds({ ...character, ...supporter }), ["pet-6", "pet-5", "pet-1", "pet-2", "pet-3"]);
         assert.equal(character.pets.length, 6);
     });
 });

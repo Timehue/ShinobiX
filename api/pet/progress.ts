@@ -11,7 +11,8 @@ import { recordPetBreedingProgress, type PetBreedingProgressEvent } from './_bre
 import { activeBreedingParentIds, petBusyMessage, petBusyReason } from './_pet-busy.js';
 import { kv } from '../_storage.js';
 import { moraleForCharacter, applyMoraleToGain } from '../_war-morale.js';
-import { activeCarriedPetIds } from '../_entitlements.js';
+import { activeTrainingPetIds, PET_TRAINING_CAP } from '../_entitlements.js';
+import { applyGrowthAllocation, resetGrowthAllocation } from './_growth.js';
 
 function defensePetIds(defense: unknown): string[] {
     if (!defense || typeof defense !== 'object') return [];
@@ -43,8 +44,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Pet Tamer "trained a pet" mission credit + the client notice.
             let settledTraining: string | null = null;
             if (action === 'start-training') {
-                if (!activeCarriedPetIds(character, pets).includes(petId)) {
-                    return { ok: false as const, status: 409, error: 'Move this preserved companion into your carried roster before starting training.' };
+                if (!activeTrainingPetIds(character, pets).includes(petId)) {
+                    return { ok: false as const, status: 409, error: 'Only companions in your active five-pet squad can train.' };
                 }
                 const durationMs = Math.floor(Number(body.durationMs)); const focus = String(body.focus ?? '');
                 if (!PET_TRAINING_DURATIONS.has(durationMs) || !PET_TRAINING_FOCI.has(focus)) return { ok: false as const, status: 400, error: 'Invalid training plan.' };
@@ -73,17 +74,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (settle.settledFocus === null) return { ok: false as const, status: 409, error: 'Pet is fully trained.' };
                     nextPet = workingPet;
                 } else {
+                    const otherTraining = pets.filter((entry) => String(entry.id ?? '') !== petId && Boolean(entry.training)).length;
+                    if (otherTraining >= PET_TRAINING_CAP) return { ok: false as const, status: 409, error: 'All five active training slots are occupied.' };
                     const rank = Math.max(0, Math.min(10, Number(character.professionRank) || 0));
                     const speedPct = character.profession === 'petTamer' ? Math.min(50, 10 + rank + masteryBonus(character.profession, character.masterySpec, 'petTrainTimePct')) : 0;
                     const effectiveMs = Math.max(60_000, Math.floor(durationMs * Math.max(0.5, 1 - speedPct / 100)));
-                    const mult = PET_TRAINING_DURATIONS.get(durationMs)! * (workingPet.trait === 'Loyal' ? 1.5 : 1) * (petHappiness(workingPet) >= 80 ? 1.15 : petHappiness(workingPet) >= 50 ? 1.05 : 1);
+                    const baseXp = PET_TRAINING_DURATIONS.get(durationMs)!;
+                    const mult = (workingPet.trait === 'Loyal' ? 1.5 : 1) * (petHappiness(workingPet) >= 80 ? 1.15 : petHappiness(workingPet) >= 50 ? 1.05 : 1);
                     const masteryXp = character.profession === 'petTamer' ? masteryBonus(character.profession, character.masterySpec, 'petTrainXpPct') : 0;
                     // Village war MORALE at the SEAL. Pet training is server-settled,
                     // so the client-side multiplier this used to rely on had no seam
                     // to act on and the whole XP half of both morale windows was inert.
                     const petMorale = await moraleForCharacter(character, now);
                     const sealedXp = applyMoraleToGain(
-                        Math.max(15, Math.round(45 * mult * (1 + masteryXp / 100) * (focus === 'bond' ? 1.35 : 1))),
+                        Math.max(15, Math.round(baseXp * mult * (1 + masteryXp / 100))),
                         petMorale.xpMult,
                     );
                     nextPet = { ...workingPet, training: { type: focus, startedAt: now, endsAt: now + effectiveMs, durationMs, sealedXp } };
@@ -96,6 +100,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (settle.settledFocus === null) return { ok: false as const, status: 409, error: 'Training is not complete.' };
                 settledTraining = settle.settledFocus;
                 nextPet = settle.pet;
+            } else if (action === 'allocate-growth') {
+                const allocation = applyGrowthAllocation(pet, body.allocation);
+                if (!allocation.ok) return { ok: false as const, status: 400, error: allocation.error };
+                nextPet = allocation.pet;
+            } else if (action === 'reset-growth') {
+                if (pet.training || pet.expedition) return { ok: false as const, status: 409, error: 'Collect this companion before changing its build.' };
+                if (await kv.get(`battle-lock:${playerName}`)) return { ok: false as const, status: 409, error: 'Finish or resume your active battle before changing this build.' };
+                nextPet = resetGrowthAllocation(pet);
             } else if (action === 'feed') {
                 const itemId = String(body.itemId ?? ''); const xp = PET_FEED_XP[itemId]; if (!xp) return { ok: false as const, status: 400, error: 'Invalid pet food.' };
                 const afterItem = removePetItem(character, itemId); if (!afterItem) return { ok: false as const, status: 409, error: 'Pet food not owned.' };

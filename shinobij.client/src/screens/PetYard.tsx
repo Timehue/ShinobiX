@@ -2,13 +2,13 @@
 import { PetBattleReadiness } from "../components/PetBattleReadiness";
 import { useState, useEffect, useRef } from "react";
 import { serverNow } from "../lib/server-clock";
-import { activeCarriedPetIds, activeCarriedPets, maxPets } from "../lib/entitlements";
+import { activeCarriedPetIds, activeCarriedPets, activeTrainingPetIds, maxPets } from "../lib/entitlements";
 import "../styles/pet-skin.css";
 import type { Character, VersionedCharacterCommit } from "../types/character";
-import type { Pet, PetExpeditionType, PetTrainingType } from "../types/pet";
+import type { Pet, PetExpeditionType, PetGrowthAllocation, PetTrainingType } from "../types/pet";
 import type { Screen } from "../types/core";
 import { getPetXpBonus } from "../lib/village-upgrades";
-import { petTrainingPreview, petXpNeeded } from "../lib/pet-balance";
+import { derivePetGrowthStats, emptyPetGrowthAllocation, petGrowthAttributeCap, petGrowthPointsEarned, petTrainingPreview, petXpNeeded } from "../lib/pet-balance";
 import { nextEvolution, EVOLUTION_STONE_NAMES, petVisualId } from "../data/pet-evolutions";
 import { petEvolveCutsceneEnabled } from "../lib/pet-coliseum-flag";
 import { PetEvolutionCutscene } from "../components/PetEvolutionCutscene";
@@ -34,7 +34,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     const combatEligiblePetIds = new Set(activeCarriedPetIds(character));
     const preservedOverflowCount = Math.max(0, character.pets.length - combatEligiblePets.length);
     const [selectedPetId, setSelectedPetId] = useState(character.pets[0]?.id ?? "");
-    const [trainingType, setTrainingType] = useState<PetTrainingType>("strength");
+    const [trainingType] = useState<PetTrainingType>("bond");
     const [trainingDuration, setTrainingDuration] = useState(petTrainingDurations[0].ms);
     const [expeditionType, setExpeditionType] = useState<PetExpeditionType>("scout");
     const [expeditionResult, setExpeditionResult] = useState<{
@@ -56,6 +56,8 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     const evolveBusyRef = useRef(false);
     const [petTrainingBusy, setPetTrainingBusy] = useState(false);
     const petTrainingBusyRef = useRef(false);
+    const [growthBusy, setGrowthBusy] = useState(false);
+    const [growthDraft, setGrowthDraft] = useState<PetGrowthAllocation>(emptyPetGrowthAllocation());
     const [expeditionBusy, setExpeditionBusy] = useState(false);
     const expeditionBusyRef = useRef(false);
     const [expeditionLaunchBusy, setExpeditionLaunchBusy] = useState(false);
@@ -71,6 +73,14 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     const [escortBusy, setEscortBusy] = useState(false);
     const selectedPet = character.pets.find((p) => p.id === selectedPetId) ?? character.pets[0] ?? null;
     const selectedPetIsOverflow = Boolean(selectedPet && !combatEligiblePetIds.has(selectedPet.id));
+    const trainingEligiblePetIds = new Set(activeTrainingPetIds(character));
+    const selectedPetCanTrain = Boolean(selectedPet && trainingEligiblePetIds.has(selectedPet.id));
+    const committedGrowth = selectedPet?.growthAllocation ?? emptyPetGrowthAllocation();
+    const growthEarned = petGrowthPointsEarned(selectedPet?.level ?? 1);
+    const growthSpent = Object.values(growthDraft).reduce((sum, value) => sum + value, 0);
+    const growthUnspent = Math.max(0, growthEarned - growthSpent);
+    const growthCap = petGrowthAttributeCap(selectedPet?.level ?? 1);
+    const growthPreview = selectedPet ? derivePetGrowthStats({ ...selectedPet, growthAllocation: growthDraft }) : null;
     const breedingPetIds = activeClientBreedingParentIds(character);
     const selectedPetBreedingLocked = Boolean(selectedPet && breedingPetIds.has(selectedPet.id));
     const releaseBlocker = selectedPetBreedingLocked
@@ -93,6 +103,10 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
             expeditionLaunchBusyRef.current = false;
         };
     }, [character.name]);
+
+    useEffect(() => {
+        setGrowthDraft(selectedPet?.growthAllocation ? { ...selectedPet.growthAllocation } : emptyPetGrowthAllocation());
+    }, [selectedPet?.id, selectedPet?.growthAllocation?.vitality, selectedPet?.growthAllocation?.power, selectedPet?.growthAllocation?.guard, selectedPet?.growthAllocation?.agility]);
 
     useEffect(() => {
         if (!canOfferEscort) return;
@@ -162,11 +176,46 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         return data as { character: Character; pet?: Pet; settledTraining?: string | null; missionsCompleted?: Array<{ id: string; name: string; xpReward: number }>; _saveVersion?: number };
     }
 
+    function adjustGrowth(attribute: keyof PetGrowthAllocation, delta: number) {
+        const committed = committedGrowth[attribute] ?? 0;
+        setGrowthDraft((current) => {
+            const currentSpent = Object.values(current).reduce((sum, value) => sum + value, 0);
+            const next = Math.max(committed, Math.min(growthCap, current[attribute] + delta));
+            if (delta > 0 && currentSpent >= growthEarned) return current;
+            return { ...current, [attribute]: next };
+        });
+    }
+
+    async function commitGrowth() {
+        if (!selectedPet || growthBusy || growthUnspent === growthEarned - Object.values(committedGrowth).reduce((sum, value) => sum + value, 0)) return;
+        setGrowthBusy(true);
+        try {
+            await runPetProgress('allocate-growth', { allocation: growthDraft });
+            gameToast(`${petDisplayName(selectedPet)}'s Growth Points were committed.`);
+        } catch (error) {
+            alert(error instanceof Error ? error.message : 'Growth Points could not be committed.');
+        } finally { setGrowthBusy(false); }
+    }
+
+    async function resetGrowth() {
+        if (!selectedPet || growthBusy) return;
+        const committedSpent = Object.values(committedGrowth).reduce((sum, value) => sum + value, 0);
+        if (committedSpent <= 0) return;
+        if (!(await gameConfirm(`Respec ${petDisplayName(selectedPet)}? All committed Growth Points will be returned.`, { confirmLabel: "Respec" }))) return;
+        setGrowthBusy(true);
+        try {
+            await runPetProgress('reset-growth');
+            gameToast(`${petDisplayName(selectedPet)}'s Growth Points were returned.`);
+        } catch (error) {
+            alert(error instanceof Error ? error.message : 'This build could not be reset.');
+        } finally { setGrowthBusy(false); }
+    }
+
     async function startTraining() {
         if (petTrainingBusyRef.current) return;
         if (!requireServerSettlement("petTraining")) return;
         if (!selectedPet) return;
-        if (selectedPetIsOverflow) return alert(`${petDisplayName(selectedPet)} is preserved overflow. Move it into the carried roster through the Sanctuary before starting new training.`);
+        if (!selectedPetCanTrain) return alert(`Only companions in your active five-pet squad can train. Move ${petDisplayName(selectedPet)} into an active slot first.`);
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is away on an expedition.`);
         if (selectedPet.expedition) return alert(`${petDisplayName(selectedPet)} has an unclaimed expedition. Collect it first!`);
         if (selectedPet.training && serverNow() < selectedPet.training.endsAt) return alert(`${selectedPet.name} is already training.`);
@@ -699,7 +748,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
 
                 {preservedOverflowCount > 0 ? (
                     <p className="hint" role="status" style={{ color: "var(--gold-2)", margin: "0.35rem 0" }}>
-                        {preservedOverflowCount} preserved overflow · cannot be active, fight, breed, or start new training or expeditions. Base: 4 carried · Supporter: 6. Swap safely in Sanctuary.
+                        {preservedOverflowCount} preserved overflow · cannot be active, fight, breed, or start new training or expeditions. Base: 5 carried · Supporter: 6. Swap safely in Sanctuary.
                     </p>
                 ) : null}
 
@@ -826,11 +875,36 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 </div>
                             </div>
                             <div className="pet-stats-grid">
-                                <span>❤️ HP: {selectedPet.hp}</span>
-                                <span>⚔️ ATK: {selectedPet.attack}</span>
-                                <span>🛡️ DEF: {selectedPet.defense}</span>
-                                <span>💨 SPD: {selectedPet.speed}</span>
+                                <span>❤️ HP: {selectedPet.hp}{growthPreview && growthPreview.hp !== selectedPet.hp ? ` → ${growthPreview.hp}` : ""}</span>
+                                <span>⚔️ ATK: {selectedPet.attack}{growthPreview && growthPreview.attack !== selectedPet.attack ? ` → ${growthPreview.attack}` : ""}</span>
+                                <span>🛡️ DEF: {selectedPet.defense}{growthPreview && growthPreview.defense !== selectedPet.defense ? ` → ${growthPreview.defense}` : ""}</span>
+                                <span>💨 SPD: {selectedPet.speed}{growthPreview && growthPreview.speed !== selectedPet.speed ? ` → ${growthPreview.speed}` : ""}</span>
                             </div>
+                            <section className="pet-evolve-panel" style={{ marginTop: 8, width: "100%", border: "1px solid rgba(56,189,248,.55)", borderRadius: 8, padding: 10, background: "rgba(14,116,144,.10)" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+                                    <h4 style={{ margin: 0 }}>Growth Build</h4>
+                                    <strong style={{ color: growthUnspent > 0 ? "#67e8f9" : "#94a3b8" }}>{growthUnspent} point{growthUnspent === 1 ? "" : "s"} available</strong>
+                                </div>
+                                <p className="hint" style={{ margin: "4px 0 8px" }}>Each level grants 1 point plus automatic core growth. Any one attribute may hold at most {growthCap} points at Level {selectedPet.level}.</p>
+                                {([
+                                    ["vitality", "Vitality", "HP"],
+                                    ["power", "Power", "Attack"],
+                                    ["guard", "Guard", "Defense"],
+                                    ["agility", "Agility", "Speed / initiative"],
+                                ] as const).map(([key, label, effect]) => (
+                                    <div key={key} style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto", alignItems: "center", gap: 6, marginTop: 5 }}>
+                                        <span><strong>{label}</strong> <span className="hint">· {effect}</span></span>
+                                        <button type="button" onClick={() => adjustGrowth(key, -1)} disabled={growthBusy || growthDraft[key] <= (committedGrowth[key] ?? 0)} aria-label={`Remove staged ${label} point`}>−</button>
+                                        <output aria-label={`${label} points`}>{growthDraft[key]} / {growthCap}</output>
+                                        <button type="button" onClick={() => adjustGrowth(key, 1)} disabled={growthBusy || growthUnspent <= 0 || growthDraft[key] >= growthCap} aria-label={`Add ${label} point`}>+</button>
+                                    </div>
+                                ))}
+                                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                                    <button type="button" className="admin-button" onClick={() => void commitGrowth()} disabled={growthBusy || growthSpent === Object.values(committedGrowth).reduce((sum, value) => sum + value, 0)}>{growthBusy ? "Saving…" : "Commit Build"}</button>
+                                    <button type="button" onClick={() => void resetGrowth()} disabled={growthBusy || Object.values(committedGrowth).every((value) => value <= 0)}>Respec</button>
+                                </div>
+                                <p className="hint" style={{ margin: "6px 0 0" }}>Respecs are free outside active battles and return every committed point.</p>
+                            </section>
                             {selectedPet.description && <p className="pet-description">{selectedPet.description}</p>}
                             {(() => {
                                 const next = nextEvolution(selectedPet);
@@ -1120,12 +1194,8 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 </div>
                             ) : (
                                 <>
-                                    <label htmlFor="pet-training-type">Training Type</label>
-                                    <select id="pet-training-type" value={trainingType} onChange={(e) => setTrainingType(e.target.value as PetTrainingType)}>
-                                        {petTrainingOptions.map((opt) => (
-                                            <option key={opt.type} value={opt.type}>{opt.label} — {opt.desc}</option>
-                                        ))}
-                                    </select>
+                                    <p className="hint">Timers award XP only. Level-ups grant Growth Points, so treats, expeditions, and idle training all produce the same fair stats.</p>
+                                    {!selectedPetCanTrain && <p className="hint" role="status" style={{ color: "#fbbf24" }}>Reserve companion — only the active five-pet squad can start training.</p>}
                                     <label htmlFor="pet-training-duration">Duration</label>
                                     <select id="pet-training-duration" value={trainingDuration} onChange={(e) => setTrainingDuration(Number(e.target.value))}>
                                         {petTrainingDurations.map((d) => (
@@ -1143,7 +1213,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                             <p className="hint">Fully trained — training no longer raises stats. Use this if a previous session is still waiting to be collected.</p>
                                         </>
                                     ) : (
-                                        <button className="admin-button" onClick={startTraining} disabled={petTrainingBusy || selectedPetIsOverflow}>{petTrainingBusy ? "Starting…" : selectedPetIsOverflow ? "Move to carried first" : "Start Training"}</button>
+                                        <button className="admin-button" onClick={startTraining} disabled={petTrainingBusy || !selectedPetCanTrain}>{petTrainingBusy ? "Starting…" : !selectedPetCanTrain ? "Move into active five" : "Start Training"}</button>
                                     )}
                                 </>
                             )}
@@ -1178,9 +1248,9 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                     <p className="hint">
                                         {selectedPet.level >= selectedPet.maxLevel
                                             ? (character.profession === "petTamer"
-                                                ? "Max level — expeditions still earn ryo and rare drops, but no more pet XP or stats."
-                                                : "Max level — expeditions earn half a Pet Tamer's ryo and drop chances (no more pet XP or stats).")
-                                            : "Expeditions give ryo, pet XP, stat gains, and a chance for Aura Stones, Bone Charms, and Fate Shards."}
+                                                ? "Max level — expeditions still earn ryo and rare drops, but pet XP and automatic growth are capped."
+                                                : "Max level — expeditions earn half a Pet Tamer's ryo and drop chances (pet XP and automatic growth are capped).")
+                                            : "Expeditions give ryo and pet XP; levels grant automatic growth plus Growth Points. Rare trips can also find Aura Stones, Bone Charms, and Fate Shards."}
                                     </p>
                                 </>
                             )}

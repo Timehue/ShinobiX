@@ -24,7 +24,7 @@ export const petTraits: PetTrait[] = ["Loyal", "Aggressive", "Guardian", "Swift"
 export const ultraPetTraits: PetTrait[] = ["Fateweaver", "Hollowborn", "Boonbringer"];
 
 export const petTraitDescriptions: Record<PetTrait, string> = {
-    Loyal: "Pet trains 50% faster — gains more stats from every training session",
+    Loyal: "Earns 50% more XP from every completed training timer",
     Aggressive: "Pet spawns with +15% attack",
     Guardian: "Pet spawns with +20% HP & defense — reduces your incoming battle damage by 8% while active",
     Swift: "Pet spawns with +20% speed — you earn +25% XP from battles while active",
@@ -35,7 +35,7 @@ export const petTraitDescriptions: Record<PetTrait, string> = {
     Boonbringer: "Apex · doubles rewards and pet XP from pet expeditions",
 };
 
-// ── Training duration tiers + speed multipliers ─────────────────────────
+// ── Training duration tiers + sealed XP ─────────────────────────────────
 
 export const petTrainingDurations = [
     { label: "15 minutes", ms: 15 * 60 * 1000 },
@@ -47,28 +47,23 @@ export const petTrainingDurations = [
 export const petRarityOrder: PetRarity[] = ["standard", "rare", "legendary", "mythic"];
 
 export const petTrainingDurationMultipliers: Record<number, number> = {
-    [15 * 60 * 1000]: 1,
-    [60 * 60 * 1000]: 3,
-    [4 * 60 * 60 * 1000]: 8,
-    [8 * 60 * 60 * 1000]: 14,
+    [15 * 60 * 1000]: 30,
+    [60 * 60 * 1000]: 110,
+    [4 * 60 * 60 * 1000]: 400,
+    [8 * 60 * 60 * 1000]: 760,
 };
 
-// Training shapes a pet's build by channeling its level-up stat growth (jutsu
-// power is no longer trainable — it stays a rarity-scaled, capped tier edge, so
-// there is intentionally no "Chakra" option). "chakra" remains in PetTrainingType
-// only so a saved in-progress chakra session still resolves (it grows balanced).
+// Timed training grants XP. Leveling supplies automatic core growth and Growth
+// Points, so the timer choice never silently decides the pet's permanent build.
 export const petTrainingOptions: { type: PetTrainingType; label: string; desc: string }[] = [
-    { type: "strength", label: "Strength Training", desc: "Builds Attack as the pet levels" },
-    { type: "endurance", label: "Endurance Training", desc: "Builds HP and Defense as the pet levels" },
-    { type: "agility", label: "Agility Training", desc: "Builds Speed as the pet levels" },
-    { type: "bond", label: "Bond Training", desc: "Balanced growth across all stats, plus happiness" },
+    { type: "bond", label: "Companion Training", desc: "Earn XP now; assign Growth Points after leveling" },
 ];
 
 // ── Expedition options + flavor stories ─────────────────────────────────
 
 export const petExpeditionOptions: { type: PetExpeditionType; label: string; durationMs: number; durationLabel: string; desc: string }[] = [
     { type: "scout", label: "Scout Routes", durationMs: 45 * 60 * 1000, durationLabel: "45m", desc: "Short ryo and pet XP trip." },
-    { type: "forage", label: "Forage Wilds", durationMs: 2 * 60 * 60 * 1000, durationLabel: "2h", desc: "Balanced XP, stats, and material chance." },
+    { type: "forage", label: "Forage Wilds", durationMs: 2 * 60 * 60 * 1000, durationLabel: "2h", desc: "Strong XP and material chance." },
     { type: "ruins", label: "Explore Old Ruins", durationMs: 4 * 60 * 60 * 1000, durationLabel: "4h", desc: "Long trip with best rare currency odds." },
 ];
 

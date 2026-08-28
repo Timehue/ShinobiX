@@ -89,6 +89,7 @@ import {
     PET_CONSUMABLE_LIFELINE_THRESHOLD_PCT,
 } from '../_pet-sim/pet-config.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
+import { normalizePetGrowth } from '../pet/_growth.js';
 
 // ─── Internal state ──────────────────────────────────────────────────────────
 
@@ -516,6 +517,18 @@ export function kitPowerNormalizationMult(templateId: string | undefined, petId:
  *  steps already sit at, while preserving the rarity progression. */
 const CROSS_TIER_BLEND = 0.3;
 
+/** Narrow, measured residual corrections after budget normalization. These are
+ * Showdown-only and keyed by immutable template id; player Growth Points and
+ * gear still scale normally on top. Keep this table small and backed by the
+ * full-roster analyzer rather than globally flattening species identity. */
+const SHOWDOWN_SPECIES_TUNING: Readonly<Record<string, number>> = Object.freeze({
+    'standard-7': 0.98,  // Ashen Crow: 75.5% at level 50 in the real bench format
+    'standard-19': 0.98, // Mud Toad: 75.5% after kit surgery
+    'standard-23': 0.92, // Rock Badger: 83.7% after sustain-kit surgery
+    'standard-47': 0.94, // Dune Armadillo: 76.5% after first correction
+    'rare-21': 0.94,     // Frostbite Cub: 83.7%
+});
+
 export function speciesNormalizationMult(templateId: string | undefined, petId: string, rarity: string): number {
     const canonical = String(templateId || petId).replace(/-\d{10,}$/, '').split(':')[0];
     const tpl = PET_CATALOG[canonical];
@@ -530,7 +543,7 @@ export function speciesNormalizationMult(templateId: string | undefined, petId: 
     const reference = globalMedian
         ? median * (1 - CROSS_TIER_BLEND) + globalMedian * CROSS_TIER_BLEND
         : median;
-    return Math.pow(reference / budget, BUDGET_DAMPING);
+    return Math.pow(reference / budget, BUDGET_DAMPING) * (SHOWDOWN_SPECIES_TUNING[canonical] ?? 1);
 }
 
 /** reference-style per-move pacing: quick jabs resolve early, haymakers swing
@@ -833,6 +846,39 @@ const SHOWDOWN_KIT_OVERRIDES: Record<string, Array<{ name: string; power: number
         { name: 'Force Pulse', power: 89, kind: 'push' },
         { name: "Heaven's Sundering", power: 300, kind: 'damage', signature: true },
     ],
+    'standard-19': [ // Mud Toad — Earth sage. The catalog's heal + crush +
+                     // lifesteal package let a high-bulk standard stall through
+                     // an entire bench team. Keep the patient mud-sage identity,
+                     // but make weather/debuff turns cost real finishing tempo.
+        { name: 'Mire Bolt', power: 72, kind: 'damage' },
+        { name: 'Bog Hex', power: 62, kind: 'debuff' },
+        { name: 'Heavy Stone', power: 36, kind: 'crush' },
+        { name: "Gaia's Feast", power: 90, kind: 'damage', signature: true },
+    ],
+    'standard-23': [ // Rock Badger — the strongest species in the full sweep.
+                     // Its top-tier bulk no longer also carries two independent
+                     // sustain loops; it wins by steady pressure and disruption.
+        { name: 'Burrow Breaker', power: 68, kind: 'damage' },
+        { name: 'Faultline Feint', power: 58, kind: 'debuff' },
+        { name: 'Stone Rake', power: 34, kind: 'crush' },
+        { name: "Gaia's Feast", power: 90, kind: 'damage', signature: true },
+    ],
+    'standard-36': [ // Dust Swift — its original barrier + confuse + derived
+                     // Protect gave a defender three setup turns and one weak
+                     // attack. Preserve a single brace and restore live pressure.
+        { name: 'Dustwing Strike', power: 82, kind: 'damage' },
+        { name: 'Gale Peck', power: 58, kind: 'crush' },
+        { name: 'Iron Feather', power: 58, kind: 'barrier' },
+        { name: 'Gale Render', power: 90, kind: 'damage', signature: true },
+    ],
+    'standard-47': [ // Dune Armadillo — same sustain stack on almost the same
+                     // stat frame as Rock Badger. Sand Shell is tactical cover,
+                     // not another full heal layered over weather control.
+        { name: 'Dune Roll', power: 70, kind: 'damage' },
+        { name: 'Sand Scour', power: 60, kind: 'debuff' },
+        { name: 'Shell Ram', power: 35, kind: 'crush' },
+        { name: "Gaia's Feast", power: 90, kind: 'damage', signature: true },
+    ],
     'rare-21': [    // Frostbite Cub — Water tracker, 79.6% and the strongest
                     // species in the bench format. It stacks three forms of
                     // attrition (a wound haymaker on its better physical axis,
@@ -842,10 +888,19 @@ const SHOWDOWN_KIT_OVERRIDES: Record<string, Array<{ name: string; power: number
                     // wears you down — with the haymaker priced back and one of
                     // the two control slots given up for a live blade, so it
                     // has to spend turns killing rather than only grinding.
-        { name: 'Riptide Rend', power: 108, kind: 'wound' },
-        { name: 'Frostbite Cub Strike', power: 92, kind: 'damage' },
-        { name: 'Hobbling Shot', power: 68, kind: 'slow' },
+        { name: 'Riptide Rend', power: 86, kind: 'wound' },
+        { name: 'Frostbite Cub Strike', power: 78, kind: 'damage' },
+        { name: 'Icefang Rake', power: 70, kind: 'damage' },
         { name: 'Glacier Breaker', power: 240, kind: 'damage', signature: true },
+    ],
+    'rare-38': [    // Squall Plover — a fragile assassin whose catalog spent
+                    // two of three live slots setting up marks/debuffs. Give it
+                    // physical finishers on its better axis; the role-derived
+                    // pivot still supplies the tactical escape turn.
+        { name: 'Squall Dive', power: 118, kind: 'crush' },
+        { name: 'Galecut Talons', power: 98, kind: 'wound' },
+        { name: 'Crosswind Slash', power: 88, kind: 'damage' },
+        { name: 'Cyclone Render', power: 240, kind: 'damage', signature: true },
     ],
 };
 
@@ -854,7 +909,11 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
     // Equipped PvP gear stat mods apply to the LIVE stats before sealing —
     // an earned bonus the species normalization must not wash out (it
     // normalizes against the template, so the gear percentage survives).
-    const raw = applyPetPvpGear(rawInput);
+    // Recalculate from immutable base + committed points at the combat boundary.
+    // Stored display stats are server-owned too, but deriving here guarantees a
+    // stale snapshot can never enter the ranked engine with impossible numbers.
+    const grown = normalizePetGrowth(rawInput as unknown as Record<string, unknown>) as unknown as Pet;
+    const raw = applyPetPvpGear(grown);
     const gearDef = petPvpGearById(raw.loadout?.pvp);
     // Reactive charges come from the SAME loadout, through pet-config's own
     // helper — the legacy sims read it at fighter-build time for exactly this

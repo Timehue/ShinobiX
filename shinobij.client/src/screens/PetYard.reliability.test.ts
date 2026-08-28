@@ -48,13 +48,13 @@ test("Pet Yard form labels are programmatically associated", () => {
     "pet-pvp-gear",
     "pet-pve-gear",
     "pet-consumable",
-    "pet-training-type",
     "pet-training-duration",
     "pet-expedition-type",
   ]) {
     assert.ok(source.includes(`htmlFor="${id}"`), `${id} needs an explicit label`);
     assert.ok(source.includes(`id="${id}"`), `${id} needs the matching control id`);
   }
+  assert.doesNotMatch(source, /id="pet-training-type"/, "training focus was removed so XP sources cannot alter stat growth");
   assert.doesNotMatch(
     source,
     /<label htmlFor="pet-pvp-gear">PVP Gear<\/label>\s*\{ownedGear\.length === 0/,
