@@ -265,10 +265,6 @@ import { googleRedirectUriProblem }    from './api/_google-auth.js';
 import googleAuthStartHandler         from './api/auth/google/start.js';
 import googleAuthCallbackHandler      from './api/auth/google/callback.js';
 import googleAuthClaimHandler         from './api/auth/google/claim.js';
-import patreonOauthStartHandler       from './api/patreon/oauth-start.js';
-import patreonOauthCallbackHandler    from './api/patreon/oauth-callback.js';
-import patreonWebhookHandler          from './api/patreon/webhook.js';
-import patreonStatusHandler           from './api/patreon/status.js';
 import sectorWandererGiftHandler      from './api/sector/wanderer-gift.js';
 import sectorWandererQuestHandler     from './api/sector/wanderer-quest.js';
 import sectorRiftQuestHandler         from './api/sector/rift-quest.js';
@@ -536,18 +532,13 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
 const jsonBig = express.json({ limit: '50mb' });
 const jsonSave = express.json({ limit: '1mb' });
 const jsonDefault = express.json({ limit: '5mb' });
-// The Patreon webhook must verify an HMAC-MD5 over the EXACT raw request body,
-// so this parser stashes the raw Buffer on req.rawBody. The capture runs ONLY
-// for that one path — every other request skips it. See api/patreon/webhook.ts.
-const jsonWebhook = express.json({
-    limit: '512kb',
-    verify: (req, _res, buf) => { (req as unknown as { rawBody?: Buffer }).rawBody = buf; },
-});
-function isPatreonWebhookPath(path: string): boolean {
-    return path === '/patreon/webhook' || path === '/api/patreon/webhook';
-}
+// NOTE: there is currently no raw-body capture. The Patreon webhook was the one
+// route that needed it (HMAC-MD5 over the exact bytes) and it was removed with
+// the rest of that rail. A future billing webhook — Play's Real-time Developer
+// Notifications, say — that authenticates over raw bytes will need its own
+// scoped `express.json({ verify })` parser reinstated here, matched to that one
+// path so no other request pays for the capture.
 app.use((req: Request, res: Response, next: NextFunction) => {
-    if (isPatreonWebhookPath(req.path)) return jsonWebhook(req, res, next);
     switch (classifyBodyLimit(req.path)) {
         case 'big':  return jsonBig(req, res, next);
         case 'save': return jsonSave(req, res, next);
@@ -760,7 +751,7 @@ function route(path: string, handler: AnyHandler) {
             // `query` is a getter with no setter on the Express 5 request prototype, so
             // plain assignment throws in strict mode; define an own property to shadow
             // it. Everything else the Vercel-style handlers read (headers, method,
-            // body, and rawBody from the webhook parser) already lives on `req`.
+            // body) already lives on `req`.
             Object.defineProperty(req, 'query', {
                 value: { ...req.query, ...req.params },
                 writable: true,
@@ -1375,13 +1366,6 @@ route('/pve/fight-outcome', pveFightOutcomeHandler);
 // Durable solo-PvE sessions share these routes across every deployed server.
 route('/solo-pve/action', soloPveActionHandler);
 route('/solo-pve/state', soloPveStateHandler);
-// Patreon — OAuth account-link + membership webhook + subscriber status.
-// Perks are gated on the server-owned character.patreon flag, written ONLY by
-// the signature-verified webhook / OAuth callback (api/patreon/_patreon.ts).
-route('/patreon/oauth-start',       patreonOauthStartHandler);
-route('/patreon/oauth-callback',    patreonOauthCallbackHandler);
-route('/patreon/webhook',           patreonWebhookHandler);
-route('/patreon/status',            patreonStatusHandler);
 // Sector Wanderers — server-authoritative gift (recompute + daily cap)
 route('/sector/wanderer-gift',      sectorWandererGiftHandler);
 route('/sector/wanderer-quest',     sectorWandererQuestHandler);
@@ -1565,6 +1549,50 @@ app.get(['/.well-known/security.txt', '/security.txt'], (_req, res) => {
         `Canonical: https://shinobijourney.com/.well-known/security.txt\n` +
         `Policy: https://shinobijourney.com/notices\n`,
     );
+});
+
+// Digital Asset Links — proves this domain authorises the Android app, which is
+// what lets the Play Store TWA run WITHOUT a browser URL bar. Registered here,
+// before express.static and the SPA fallback, for the same reason security.txt
+// is: the catch-all would otherwise answer with index.html, and a 200 of HTML
+// is the classic silent TWA failure — verification fails, the app still runs,
+// and it just shows the address bar forever.
+//
+// Env-driven because the fingerprint only exists AFTER the first Play upload:
+//   ANDROID_APP_PACKAGE             e.g. com.shinobijourney.app
+//   ANDROID_APP_SHA256_FINGERPRINTS comma-separated uppercase hex, colon-grouped
+//
+// Supply MORE THAN ONE fingerprint when they differ — during closed testing the
+// Play App Signing cert and your local upload/debug cert are different keys, and
+// listing only one leaves the other build unverified.
+function androidAssetLinks(): unknown[] {
+    const pkg = String(process.env.ANDROID_APP_PACKAGE ?? '').trim();
+    const fingerprints = String(process.env.ANDROID_APP_SHA256_FINGERPRINTS ?? '')
+        .split(',')
+        .map((fp) => fp.trim().toUpperCase())
+        .filter(Boolean);
+    if (!pkg || fingerprints.length === 0) return [];
+    return [{
+        relation: ['delegate_permission/common.handle_all_urls'],
+        target: {
+            namespace: 'android_app',
+            package_name: pkg,
+            sha256_cert_fingerprints: fingerprints,
+        },
+    }];
+}
+app.get('/.well-known/assetlinks.json', (_req, res) => {
+    const statements = androidAssetLinks();
+    if (statements.length === 0) {
+        // 404 rather than an empty `[]`: an empty statement list is a VALID
+        // document meaning "this domain authorises no app", which reads as a
+        // deliberate deny. A 404 says "not set up yet", which is the truth.
+        res.status(404).json({ error: 'assetlinks-not-configured' });
+        return;
+    }
+    res.type('application/json');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(JSON.stringify(statements));
 });
 
 const staticDir = process.env.STATIC_DIR ?? join(__dirname, '..', 'shinobij.client', 'dist');

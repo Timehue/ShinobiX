@@ -8,9 +8,8 @@ import { buildAuthorizeUrl, googleAuthEnabled, signState } from '../../_google-a
  * POST /api/auth/google/start  { nonce, mode?: 'login' | 'link' }
  *
  * Returns { url } for the client to navigate to. It returns JSON rather than a
- * 302 for the same reason api/patreon/oauth-start.ts does: the request can then
- * carry auth headers, which is what lets link mode know whose account to attach
- * the Google identity to. It is a POST — not a GET — so the signed state can
+ * 302 so the request can carry auth headers, which is what lets link mode know
+ * whose account to attach the Google identity to. It is a POST — not a GET — so the signed state can
  * never come back on a response that a cross-origin page could read.
  *
  * `nonce` is generated and remembered by the calling browser. It rides through

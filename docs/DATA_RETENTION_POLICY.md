@@ -41,7 +41,7 @@ and is removed by the deletion process in §5.
 | Snapshot success marker | Backup-health monitoring | **180-day** TTL |
 | Battle receipts (`receipt:*`) | Reward-dispute / debugging | **90-day** TTL (`api/_receipts.ts`) |
 | Mission progress receipts | Anti-replay of reward claims | **14-day** TTL (`api/missions/record-progress.ts`) |
-| Server-authoritative flow tokens — raid / expedition / combat-claim / arena lobby / story session / trade nonce / Patreon OAuth state | Anti-cheat sealed-reward flows | Short TTL: 5 min → 7 days depending on flow (see each `*-start` handler) |
+| Server-authoritative flow tokens — raid / expedition / combat-claim / arena lobby / story session / trade nonce / Google OAuth state | Anti-cheat sealed-reward flows | Short TTL: 5 min → 7 days depending on flow (see each `*-start` handler) |
 | Moderation records — bans, silences, IP/fingerprint linkage (`mod:*`) | Safety, ban enforcement, repeat-abuse detection | Bans/silences expire at their set `until`; linkage indexes retained as security data while the account exists |
 | Moderation audit log (`mod:audit`) | Staff accountability | Rolling **last 5,000** entries (`api/admin/moderation.ts`) |
 | Domain audit logs (`audit:<domain>`) | Integrity/accountability (content, reward, sector, combat, legacy) | Rolling **last 5,000** per domain (`api/_audit.ts`) |

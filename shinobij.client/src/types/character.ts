@@ -471,11 +471,17 @@ export type Character = {
     professionChosenAt?: number;
     /** Legacy audit latch from the retired one-time-free-change system. */
     professionRespecUsed?: boolean;
-    // Patreon subscriber entitlement — SERVER-OWNED. Written ONLY by the
-    // signature-verified Patreon webhook / OAuth callback (api/patreon/*), never
-    // by a client save: api/save/[name].ts forces it from the stored record via
-    // ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS. Drives the $15 subscription perks
-    // (see lib/entitlements.ts). Absent/inactive → treated as non-subscriber.
+    // Shinobi Supporter subscriber entitlement — SERVER-OWNED. Written ONLY by
+    // api/_subscription.ts, never by a client save: api/save/[name].ts forces it
+    // from the stored record via ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS. Drives
+    // the subscription perks (see lib/entitlements.ts). Absent/inactive →
+    // treated as non-subscriber.
+    //
+    // The KEY IS STILL `patreon` on purpose: it is live save data, and renaming
+    // it would mean migrating every save plus the ownership ledger and golden
+    // master, with silent perk loss as the failure mode. The Patreon rail was
+    // removed 2026-08-28 when the storefront moved to Play Billing; the field is
+    // provider-agnostic and stays.
     patreon?: {
         userId: string;
         tier: string;
@@ -485,7 +491,7 @@ export type Character = {
         updatedAt: number;
         // Admin-comped subscriptions auto-expire at this epoch-ms (the entitlement
         // check treats a lapsed comp as inactive — no cron needed). Absent for
-        // Patreon-webhook-driven subs, which flip off via members:delete instead.
+        // provider-driven subs, which flip off when the provider says so.
         expiresAt?: number;
         source?: 'patreon' | 'admin';
     };
