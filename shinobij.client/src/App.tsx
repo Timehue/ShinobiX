@@ -5111,7 +5111,7 @@ export default function App() {
         setScreen("start");
     }
 
-    // "Logout + Save" must FINISH the save before tearing the session down —
+    // Logout must FINISH the save before tearing the session down —
     // clearing the character (and its auth token) first lost the last chunk of
     // progress. On save failure, offer to stay logged in.
     async function logoutPlayer() {

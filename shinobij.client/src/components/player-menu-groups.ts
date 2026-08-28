@@ -1,22 +1,22 @@
 import {
-    GiAnvil, GiBeerStein, GiBiceps, GiBookCover, GiDna1, GiEnvelope,
+    GiAnvil, GiBeerStein, GiBiceps, GiBookCover, GiEnvelope,
     GiFireSpellCast, GiKnapsack, GiNinjaHeroicStance, GiPawPrint,
     GiScrollUnfurled, GiThreeFriends, GiTreasureMap,
 } from "./icons/LightweightGameIcons";
 
 export const PLAYER_MENU_GROUPS = [
     { id: "world", label: "World", items: [
-        ["tavern", "Tavern", GiBeerStein], ["worldMap", "Travel", GiTreasureMap],
-        ["villageWarMap", "Sector Map", GiTreasureMap],
-        ["userHub", "Users", GiThreeFriends], ["messages", "Mail", GiEnvelope],
+        ["worldMap", "Travel", GiTreasureMap], ["tavern", "Tavern", GiBeerStein],
     ] },
-    { id: "growth", label: "Growth", items: [
+    { id: "activities", label: "Activities", items: [
         ["missions", "Missions", GiScrollUnfurled], ["training", "Training", GiBiceps],
         ["jutsuTraining", "Jutsu", GiFireSpellCast], ["logbook", "Logbook", GiBookCover],
     ] },
     { id: "character", label: "Character", items: [
         ["profile", "Character", GiNinjaHeroicStance], ["inventory", "Inventory", GiKnapsack],
-        ["home", "Pet Home", GiPawPrint], ["bloodlineMaker", "Bloodline", GiDna1],
-        ["professions", "Professions", GiAnvil],
+        ["home", "Pet Home", GiPawPrint], ["professions", "Professions", GiAnvil],
+    ] },
+    { id: "social", label: "Social", items: [
+        ["userHub", "Users", GiThreeFriends], ["messages", "Mail", GiEnvelope],
     ] },
 ] as const;
