@@ -98,6 +98,7 @@ export async function getTravelLease(name: string): Promise<TravelLease | null> 
  * never whether the critical section is locked.
  */
 const TRAVEL_LEASE_CLAIM_ATTEMPTS = 8;
+const TRAVEL_ACTION_SETTLE_ATTEMPTS = 8;
 
 export async function setTravelLease(name: string, lease: TravelLease): Promise<void> {
     const normalized = parseTravelLease(lease);
@@ -120,6 +121,7 @@ export async function settleTravelLease(
     name: string,
     expectedLease?: TravelLease,
     now: number = Date.now(),
+    maxAttempts?: number,
 ): Promise<boolean> {
     const key = travelLeaseKey(name);
     if (!safeName(name)) return false;
@@ -138,7 +140,24 @@ export async function settleTravelLease(
         // counter hiccup can never fail an arrival. Exactly once per settled lease.
         void kv.incr(footfallKey(lease.destinationSector, now), { ex: FOOTFALL_TTL_SEC }).catch(() => undefined);
         return true;
-    }, { failClosed: true });
+    }, { failClosed: true, ...(maxAttempts === undefined ? {} : { maxAttempts }) });
+}
+
+/**
+ * Resolve a server-minted arrival before an action validates the player's sector.
+ * The longer action retry budget outwaits the normal presence settler. A
+ * destination is returned only after this call proves the save commit completed;
+ * if another worker won the race, the caller's following save read sees its commit.
+ */
+export async function settleMaturedTravelForAction(
+    name: string,
+    now: number = Date.now(),
+): Promise<number | null> {
+    const lease = await getTravelLease(name);
+    if (!lease || now < lease.arrivalAt) return null;
+    return await settleTravelLease(name, lease, now, TRAVEL_ACTION_SETTLE_ATTEMPTS).catch(() => false)
+        ? lease.destinationSector
+        : null;
 }
 
 export async function settleTravelLeases(...names: string[]): Promise<void> {

@@ -133,14 +133,15 @@ export function WorldSectorCanvas({
                             type="button"
                             key={index}
                             title={roadExit
-                                ? `${isPlayer && isCurrent ? "Cross" : "Road"} to ${sectorName(roadExit.destinationSector) ?? `Sector ${roadExit.destinationSector}`}`
+                                ? `${isCurrent ? "Cross" : "Road"} to ${sectorName(roadExit.destinationSector) ?? `Sector ${roadExit.destinationSector}`}`
                                 : otherHere.length > 0 ? otherHere.map((player) => `${player.name} (Lv ${player.level})`).join(", ") : undefined}
                             aria-label={roadExit
-                                ? `${isPlayer && isCurrent ? "Cross" : "Move to road for"} ${sectorName(roadExit.destinationSector) ?? `Sector ${roadExit.destinationSector}`}`
+                                ? `${isCurrent ? "Cross to" : "Road to"} ${sectorName(roadExit.destinationSector) ?? `Sector ${roadExit.destinationSector}`}`
                                 : isPlayer ? `Current tile row ${tileRow} column ${tileCol}` : `Move to tile row ${tileRow} column ${tileCol}`}
-                            className={`scene-tile walkable-tile transparent-sector-tile ${isPlayer ? "sector-player-tile" : ""} ${roadExit ? "sector-road-exit" : ""} ${isPlayer && roadExit && isCurrent ? "sector-road-exit-ready" : ""} ${otherHere.length > 0 ? "sector-other-tile" : ""}`}
+                            className={`scene-tile walkable-tile transparent-sector-tile ${isPlayer ? "sector-player-tile" : ""} ${roadExit ? "sector-road-exit" : ""} ${roadExit && isCurrent ? "sector-road-exit-ready" : ""} ${otherHere.length > 0 ? "sector-other-tile" : ""}`}
+                            disabled={!isCurrent}
                             onClick={() => {
-                                if (roadExit && isPlayer && isCurrent) onCrossExit(roadExit);
+                                if (roadExit && isCurrent) onCrossExit(roadExit);
                                 else onSelectTile(index);
                             }}
                         >
@@ -148,7 +149,7 @@ export function WorldSectorCanvas({
                                 <SectorGateMarker
                                     destinationSector={roadExit.destinationSector}
                                     direction={roadExit.direction}
-                                    ready={isPlayer && isCurrent}
+                                    ready={isCurrent}
                                 />
                             )}
                             {otherHere.length > 0 ? (
@@ -176,13 +177,15 @@ export function WorldSectorCanvas({
                     />
                 )}
 
-                <SectorAvatar
-                    targetIndex={playerTile}
-                    sector={sector}
-                    avatarImage={playerAvatarImage}
-                    name={playerName}
-                    biome={ambienceBiome}
-                />
+                {isCurrent && (
+                    <SectorAvatar
+                        targetIndex={playerTile}
+                        sector={sector}
+                        avatarImage={playerAvatarImage}
+                        name={playerName}
+                        biome={ambienceBiome}
+                    />
+                )}
 
                 {overlayLayer}
                 {!mapMode && <SectorForeground biome={ambienceBiome} focus={playerTile} />}

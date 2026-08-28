@@ -73,19 +73,21 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         `WorldSectorCanvas.tsx grew past 220 lines; overlays and controllers must remain separate.`,
     );
     assert.ok(
+        // 249 (+2): the explicit presence projection makes scouting read-only.
         // 247 (+14): Explore no longer switches off on a drained pool — it changes
         // verb to "Find richer ground" — and the day's posted contract gets a card.
         // Presentation only: the richer-ground search, the contract fetch and the
         // claim all stayed in WorldMap behind onFindRicherGround/onClaimContract,
         // and the card itself is its own leaf (SectorContractCard.tsx).
-        lineCount(commandPanelBody) <= 247,
-        `WorldSectorCommandPanel.tsx grew past 247 lines; commands and authority must remain in WorldMap.`,
+        lineCount(commandPanelBody) <= 249,
+        `WorldSectorCommandPanel.tsx grew past 249 lines; commands and authority must remain in WorldMap.`,
     );
     assert.ok(
+        // 92 (+2): the explicit presence prop keeps remote scouting read-only.
         // 90 (+8): two more command callbacks (onFindRicherGround, onClaimContract)
         // and the posted-contract row shape, with their doc lines.
-        lineCount(commandPanelTypes) <= 90,
-        `WorldSectorCommandPanel.types.ts grew past 90 lines; it holds row/prop shapes only — logic belongs in the panel, and commands in WorldMap.`,
+        lineCount(commandPanelTypes) <= 92,
+        `WorldSectorCommandPanel.types.ts grew past 92 lines; it holds row/prop shapes only — logic belongs in the panel, and commands in WorldMap.`,
     );
     assert.ok(
         lineCount(overlaySource) <= 165,
@@ -216,9 +218,9 @@ test("selected-sector canvas preserves stage and stacking order", () => {
         "{encounterLayer}",
     ], "selected-sector stage order");
     assertOrdered(canvasSource, [
-        "if (roadExit && isPlayer && isCurrent) onCrossExit(roadExit);",
+        "if (roadExit && isCurrent) onCrossExit(roadExit);",
         "else onSelectTile(index);",
-    ], "road crossing before ordinary movement");
+    ], "one-click road crossing before ordinary movement");
     // Every visual that belongs to a tile must stay nested in that tile button.
     // An explicitly placed sibling grid item reserves its cell before the 144
     // auto-placed buttons are laid out, shifting every later button away from
@@ -334,4 +336,53 @@ test("WorldMap keeps live Village War admission checks around command-panel asyn
     ], "selected-sector Village War authority");
     assert.match(worldMapSource, /onRaidEnemyVillage=\{handleSelectedSectorVillageWarRaid\}/u);
     assert.match(worldMapSource, /onAttackPlayer=\{handleSelectedSectorPlayerAttack\}/u);
+});
+
+test("selected-sector scouting is read-only and never impersonates travel", () => {
+    const launch = sliceBetween(worldMapSource, "function launchWorldMapFight", "async function launchAiGuardRaid");
+    assertOrdered(launch, ["sameSector(currentSector, sector)", "capabilityAdmissionAllowed", "requestAiFight"], "World fight location guard");
+    assert.doesNotMatch(launch, /setCurrentSector\(/u);
+
+    const projection = sliceBetween(worldMapSource, "<WorldSectorCanvas", "onLeave={handleLeaveSelectedSector}");
+    assert.match(projection, /wanderers=\{sectorIsCurrent \? sectorOverlayWanderers : \[\]\}/u);
+    assert.match(projection, /rift=\{sectorIsCurrent \? sectorOverlayRift : null\}/u);
+    assert.match(projection, /vault=\{sectorIsCurrent \? sectorOverlayVault : null\}/u);
+    assert.match(projection, /encounterLayer=\{sectorIsCurrent \? \(/u);
+    assert.match(projection, /<WorldSectorCommandPanel[\s\S]*present=\{sectorIsCurrent\}/u);
+
+    assert.match(canvasSource, /disabled=\{!isCurrent\}[\s\S]*onClick/u);
+    assert.match(canvasSource, /\{isCurrent && \(\s*<SectorAvatar/u);
+    assert.match(commandPanelSource, /disabled=\{!present \|\| !villageWarAdmissionOpen/u);
+    assert.match(commandPanelSource, /disabled=\{!present \|\| player\.actionDisabled\}/u);
+    assert.match(commandPanelSource, /disabled=\{!present\} onClick=\{onHunt\}/u);
+    assert.match(commandPanelSource, /disabled=\{!present\} onClick=\{onRecover\}/u);
+
+    const keyboard = sliceBetween(worldMapSource, "// ── WASD / E keyboard controls", "// Clear the edge-crossing slide class");
+    assertOrdered(keyboard, ["!sameSector(currentSector, selectedSector)", "const activeSector = selectedSector", "void exploreSector(activeSector)", "setSectorPlayerPos"], "remote scouting keyboard guard");
+    const combatEnvironment = sliceBetween(worldMapSource, "function selectedSectorCombatEnvironment", "function focusSectorCombat");
+    assert.match(combatEnvironment, /!sameSector\(currentSector, sector\)/u);
+    assert.match(worldMapSource, /function handleExploreSelectedSector\(\)[\s\S]*sameSector\(currentSector, selectedSector\)[\s\S]*exploreSector\(selectedSector\)/u);
+    assert.match(worldMapSource, /async function handleClaimContract\(\)[\s\S]*!sameSector\(currentSector, selectedSector\)/u);
+});
+
+test("the village Outskirts control uses authoritative travel", () => {
+    const outskirts = sliceBetween(worldMapSource, "const outskirtsSector = villageOutskirtsSector", "Outskirts");
+    assert.match(outskirts, /triggerTravelPoint\(outskirtsSector\)/u);
+    assert.doesNotMatch(outskirts, /set(?:CurrentSector|SelectedSector|CurrentBiome|CurrentWeather)\(/u);
+});
+
+test("a current-sector gate click atomically moves to and crosses its shared road exit", () => {
+    const crossing = sliceBetween(worldMapSource, "function crossSectorExit", "// ── WASD / E keyboard controls");
+    assertOrdered(crossing, [
+        "sameSector(currentSector, exit.sector)",
+        "setSectorPlayerPos(exit.tile)",
+        "beginSectorTravel(exit.destinationSector",
+        'mode: "edge"',
+        "originSector: exit.sector",
+        "originTile: exit.tile",
+        "exitId: exit.id",
+    ], "atomic gate activation");
+    assert.doesNotMatch(crossing, /sectorPlayerPos !== exit\.tile/u);
+    assert.match(canvasSource, /title=\{roadExit[\s\S]*\? `\$\{isCurrent \? "Cross" : "Road"\}/u);
+    assert.match(canvasSource, /ready=\{isCurrent\}/u);
 });

@@ -58,6 +58,8 @@ export type WorldSectorCommandHunt = Readonly<{
 
 export type WorldSectorCommandPanelProps = Readonly<{
     sector: number;
+    /** False while scouting; command controls become read-only. */
+    present: boolean;
     biome: Biome;
     weather: WeatherType;
     territory: WorldSectorCommandTerritory | null;

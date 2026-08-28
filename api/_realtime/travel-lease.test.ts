@@ -119,3 +119,48 @@ test('matured travel is committed to the versioned save before its lease is dele
     assert.equal(await travel.getTravelLease(name), null, 'lease clears only after the save commit');
     await kv.del(saveKey);
 });
+
+test('an action reconciles a matured travel receipt before sector validation', async () => {
+    const name = `travel-action-${process.pid}`;
+    const saveKey = `save:${name}`;
+    await kv.set(saveKey, {
+        character: { name },
+        currentSector: lease.originSector,
+        pendingTravel: { destinationSector: lease.destinationSector, arrivalAt: lease.arrivalAt },
+        _saveVersion: 9,
+    });
+    await travel.setTravelLease(name, lease);
+
+    assert.equal(await travel.settleMaturedTravelForAction(name, lease.arrivalAt - 1), null);
+    assert.equal(await travel.settleMaturedTravelForAction(name, lease.arrivalAt), lease.destinationSector);
+    const saved = await kv.get<Record<string, unknown>>(saveKey);
+    assert.equal(saved?.currentSector, lease.destinationSector);
+    assert.equal(saved?.pendingTravel, null);
+    assert.equal(saved?._saveVersion, 10);
+    await kv.del(saveKey, travel.travelLeaseKey(name));
+});
+
+test('an action waits for a competing presence settle lock before committing arrival', async () => {
+    const name = `travel-action-lock-${process.pid}`;
+    const saveKey = `save:${name}`;
+    const lockKey = `lock:${travel.travelLeaseKey(name)}`;
+    await kv.set(saveKey, {
+        character: { name },
+        currentSector: lease.originSector,
+        pendingTravel: { destinationSector: lease.destinationSector, arrivalAt: lease.arrivalAt },
+        _saveVersion: 11,
+    });
+    await travel.setTravelLease(name, lease);
+    await kv.set(lockKey, 'presence-settler', { nx: true, ex: 5 });
+    const release = setTimeout(() => { void kv.del(lockKey); }, 900);
+    try {
+        assert.equal(await travel.settleMaturedTravelForAction(name, lease.arrivalAt), lease.destinationSector);
+        const saved = await kv.get<Record<string, unknown>>(saveKey);
+        assert.equal(saved?.currentSector, lease.destinationSector);
+        assert.equal(saved?._saveVersion, 12);
+        assert.equal(await travel.getTravelLease(name), null);
+    } finally {
+        clearTimeout(release);
+        await kv.del(lockKey, saveKey, travel.travelLeaseKey(name));
+    }
+});
