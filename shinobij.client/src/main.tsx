@@ -11,7 +11,7 @@ import './lib/imageErrorGuard.ts' // install the global broken-image guard befor
 import './lib/perfTelemetry.ts' // register load/refresh perf observers before first paint
 import { initSentry } from './lib/sentry.ts' // env-gated crash reporting (no-op without VITE_SENTRY_DSN)
 import { applyLiteFxClass } from './lib/device-tier.ts' // tag <html class="lite-fx"> on weak mobiles to drop decorative motion
-import { registerAssetServiceWorker } from './lib/register-sw.ts' // prod-only cache-first SW for hashed assets (never HTML/API)
+import { registerAssetServiceWorker } from './lib/register-sw.ts' // prod-only SW: hashed assets + offline fallback (never API)
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import { LiveCapabilitiesProvider } from './components/LiveCapabilitiesProvider.tsx'
