@@ -106,6 +106,13 @@
     user-select: none;
 }
 
+/* Bundled battlefield art is authored facing left. Mirror only the painted
+   sprite when its opponent is to the right; the actor anchor, targeting button,
+   HP badge, VFX, and movement transition keep their original geometry. */
+.arena-fullscreen .battlefield-actor[data-battlefield-mirrored="true"] .battlefield-actor-sprite {
+    transform: translateX(-50%) scaleX(-1);
+}
+
 .arena-fullscreen .battlefield-actor[data-battlefield-sprite-kind="quadruped"] .battlefield-actor-sprite {
     width: 172%;
     height: 126%;
