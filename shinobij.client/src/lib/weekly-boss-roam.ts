@@ -14,7 +14,7 @@
  *             no teleporting, so the trail reads as a creature crossing the map
  *   current = path[hop] ; next = path[hop+1] (telegraphed)
  *
- * Leaf module: depends only on the sector scatter (data/sector-points) and the
+ * Leaf module: depends only on the authoritative shared sector geography and
  * boss-state shape. No React, no UI — Phase 2 renders a marker from this; Phase 3
  * spawns the in-sector actor when the player enters `currentSector`.
  *
@@ -25,7 +25,7 @@
  * `serverNow()` so a skewed device agrees with everyone else on where it is.
  */
 
-import { SECTOR_POINTS } from "../data/sector-points";
+import { SECTOR_POINTS } from "../../../shared/sector-links";
 import { isWildSector } from "../../../shared/sector-geo";
 
 // The whole roaming layer — world-map marker, in-sector encounter, and the

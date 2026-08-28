@@ -9,15 +9,16 @@
  * Styles live in world-map-charting.css, imported by the WorldMap SCREEN
  * (components must not import CSS — it breaks the node test runner).
  */
-import { SECTOR_POINTS, SECTOR_ROAD_PAIRS } from "../../../shared/sector-links";
+import { SECTOR_ROAD_PAIRS } from "../../../shared/sector-links";
 import { SECTOR_REGION_LABELS, type SectorRegionKey } from "../../../shared/sector-geo";
+import { ATLAS_SECTOR_POINTS } from "../data/sector-points";
 
 export function isWorldRoadsEnabled(): boolean {
     if (typeof window === "undefined") return false;
     try { return window.localStorage?.getItem("worldRoads.v1") !== "off"; } catch { return true; }
 }
 
-const POINT_BY_ID = new Map(SECTOR_POINTS.map((p) => [p.id, p]));
+const POINT_BY_ID = new Map(ATLAS_SECTOR_POINTS.map((p) => [p.id, p]));
 
 /** Gentle quadratic bow so roads read as trails, not survey lines. */
 function roadPath(a: number, b: number): string {
@@ -59,7 +60,7 @@ const REGION_LABEL_POINTS: ReadonlyArray<{ key: SectorRegionKey; x: number; y: n
 // Each plate must read as ATTACHED to its landmark, so it is placed just clear
 // of the icon's own anchor — the `icon:` note on each row below, which is the
 // authoritative coordinate from the `locations` table in screens/WorldMap.tsx
-// (plus SECTOR_POINTS 99 / 54 for Death's Gate and the Festival). Placement was
+// (plus ATLAS_SECTOR_POINTS 99 / 54 for Death's Gate and the Festival). Placement was
 // re-derived 2026-07-30: the plates had drifted 14-26% BELOW their icons, which
 // on the 16:9 board is 120-220px and reads as a caption for nothing.
 //
