@@ -73,6 +73,7 @@ import {
     isPetArenaPlayerScopeActive,
     normalizePetArenaVersionDecision,
     parseWarfrontRewardSeal,
+    petBattleSettlementBlocksExit,
     responseBelongsToPetArenaPlayer,
     type PetArenaPlayerScope,
     type PetArenaServerVersionDecision,
@@ -100,11 +101,11 @@ import { publicEligiblePets } from "../lib/public-pet-roster";
 import { buildPetArenaLiveRoster, isLivePetDuelAvailable } from "../lib/pet-duel-live-roster";
 import type { ArenaSlot, ArenaRole } from "../lib/pet-arena-sim";
 import { wfThemeForVillage } from "../lib/pet-warfront-map";
-import type { WfBuyPolicy } from "../lib/pet-warfront-sim";
+import type { WarfrontResult, WfBuyPolicy } from "../lib/pet-warfront-sim";
 import { WF_DOCTRINES, WF_STANCES, type WfDoctrine, type WfStance } from "../lib/pet-warfront-contract";
-import tacticalArenaHero from "../assets/coliseum/tactical-arena-hero.webp";
 import arenaModeColosseum from "../assets/coliseum/arena-mode-colosseum.webp";
-import arenaModeWarfront from "../assets/coliseum/arena-mode-warfront.webp";
+import warfrontKeyArt from "../assets/warfront-three-lane/warfront-three-lane-keyart.webp";
+import warfrontCardArt from "../assets/warfront-three-lane/warfront-three-lane-card.webp";
 import arenaModeGauntlet from "../assets/coliseum/arena-mode-gauntlet.webp";
 import petArenaCommandHero from "../assets/coliseum/pet-arena-command-v2.webp";
 import petArenaCommandMobileHero from "../assets/coliseum/pet-arena-command-mobile-v2.webp";
@@ -200,9 +201,9 @@ function BattlePlan({ pets, size }: { pets: Pet[]; size: number }) {
                 <span>Elements <strong>{elements.size ? [...elements].map((e) => <ElIcon key={e} el={e} size={15} />) : "—"}</strong></span>
             </div>
             <div className="bp-tips">
-                <div>🏁 Break the enemy Ward Seal before time runs out.</div>
+                <div>🏁 Three sealed lanes. The first commander to break two Ward Towers wins.</div>
                 <div>🧠 Pets auto-fight by role — defenders tank, sages heal, trackers poke, assassins dive.</div>
-                <div>⚡ Element edge ±15%: Fire▸Wind▸Lightning▸Earth▸Water▸Fire.</div>
+                <div>♜ Earn Favor through combat, then summon the Gate Warden during a command window.</div>
             </div>
         </div>
     );
@@ -217,9 +218,9 @@ const preloadPetColiseumModels = (pets: readonly Pet[]) => import("../lib/pet-mo
 // is that the legacy stack stops being needed, so pulling it in here would
 // defeat the drain.
 const PetShowdownReplay = lazyWithRetry(() => import("../components/PetShowdownReplay").then((m) => ({ default: m.PetShowdownReplay })));
-// Hollow Warfront — the lane-war game mode that REPLACED the capture-scroll
-// Tactical Arena (Ward Seal objective, Guardian Totems, the Hollow Gate breach,
-// bounty coins + the 30 s War Council). Own lazy chunk (three-heavy).
+// Hollow Warfront — four pets, three navigation-isolated causeways, first to
+// break two Ward Towers. Own lazy chunk so its simulation and presentation do
+// not tax the cinematic Colosseum route.
 const PetWarfrontMatch = lazyWithRetry(() => import("../components/PetWarfrontMatch").then((m) => ({ default: m.PetWarfrontMatch })));
 // Pet Gauntlet — the roguelike run mode (3rd tab). Self-contained (owns its run
 // state + its own fight), so it's lazy-loaded and never touches the duel/arena state here.
@@ -247,7 +248,18 @@ type PetBattleSettlementResponse = PetChronicleSettlementPayload & {
     outcome?: "win" | "loss" | "draw";
     reason?: string;
     _saveVersion?: number;
+    retryAfterMs?: number;
 };
+
+class PetSettlementRetryError extends Error {
+    readonly retryAfterMs: number;
+
+    constructor(message: string, retryAfterMs: number) {
+        super(message);
+        this.name = "PetSettlementRetryError";
+        this.retryAfterMs = retryAfterMs;
+    }
+}
 
 /*
  * What /api/pet/battle-start hands back. One shape now, because every fight this
@@ -396,6 +408,10 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     const [chronicleCeremony, setChronicleCeremony] = useState<PetChronicleCeremonyReceipt | null>(null);
     const [chronicleProgress, setChronicleProgress] = useState<PetChronicleProgressReceipt | null>(null);
     const settlementAttemptRef = useRef<PetSettlementAttempt | null>(null);
+    const settlementRetryTimerRef = useRef<number | null>(null);
+    useEffect(() => () => {
+        if (settlementRetryTimerRef.current !== null) window.clearTimeout(settlementRetryTimerRef.current);
+    }, []);
     const [settlementPresentation, setSettlementPresentation] = useState<PetSettlementPresentation | null>(null);
     const battleSetupRetryRef = useRef<(() => void) | null>(null);
     const [battleSetupIssue, setBattleSetupIssue] = useState<{ scope: PetArenaPlayerScope; message: string } | null>(null);
@@ -410,8 +426,8 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     // Default the 2v2 reserve to the saved "2v2 Partner" set in the Pet Yard
     // (character.activePetId2v2). Still overridable per battle via the dropdown.
     const [reservePetId, setReservePetId] = useState<string>(character.activePetId2v2 ?? "");
-    // Hollow Warfront — a full-screen 4v4 lane war with Ward Seals, Guardian
-    // Totems and a timed War Council. Teams are built + frozen on launch.
+    // Hollow Warfront — a full-screen 4v4 command battle on three sealed
+    // causeways. Teams are built and frozen on launch; lanes are assigned next.
     const [arenaMatch, setArenaMatch] = useState<WarfrontMatch | null>(null);
     // Server-authoritative Warfront seed + reward proof. This exact promise is
     // retained through rendering and retries so the battle cannot be re-seeded.
@@ -432,12 +448,12 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     // Challenge-a-Player. Picks seed to the top available pets.
     // Warfront is always 4v4 (2v2 retired with capture-scroll); kept as state-shaped
     // const so the challenge payload + pick caps read unchanged.
-    const [tacticalSize] = useState<2 | 4>(4);
-    // Warfront pre-match loadout — War Council auto-buy policy, opening FORMATION
-    // (stance) and team DOCTRINE. These live on the ACCOUNT (character.warfrontLoadout,
+    const [tacticalSize] = useState<4>(4);
+    // Warfront pre-match loadout — formation stance and team doctrine. These live
+    // on the ACCOUNT (character.warfrontLoadout,
     // a client-preference save field) rather than the device, so the same shinobi
-    // fights with the same plan from any browser. PvP/co-op always lock auto-buy so
-    // both clients' replays stay deterministic. Migration: a save with no value falls
+    // fights with the same plan from any browser. The old autoBuy value remains only
+    // for save/challenge compatibility; the coin shop is gone. Migration: a save with no value falls
     // back ONCE to the retired per-device localStorage keys, and the first change
     // writes the whole loadout to the save (after which localStorage is never read).
     const wfLoadout = character.warfrontLoadout;
@@ -460,7 +476,6 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             warfrontLoadout: { autoBuy: wfAutoPref, stance: wfStancePref, doctrine: wfDoctrinePref, ...current.warfrontLoadout, ...patch },
         } : current);
     };
-    const setWfAuto = (p: Exclude<WfBuyPolicy, "off">) => writeWfLoadout({ autoBuy: p });
     const setWfStance = (s: WfStance) => writeWfLoadout({ stance: s });
     const setWfDoctrine = (d: WfDoctrine) => writeWfLoadout({ doctrine: d });
     const receivePetBattleSettlement = (
@@ -547,6 +562,10 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             body: JSON.stringify(body),
         });
         const data = await response.json().catch(() => null) as PetBattleSettlementResponse | null;
+        const retryAfterMs = Number(data?.retryAfterMs);
+        if (response.status === 425 && Number.isFinite(retryAfterMs) && retryAfterMs > 0) {
+            throw new PetSettlementRetryError(data?.error || "The Hollow Warfront is still in progress.", retryAfterMs);
+        }
         if (!response.ok) throw new Error(data?.error || "The arena could not record this pet battle.");
         if (!data) throw new Error("The arena returned an unreadable pet battle receipt.");
         return data;
@@ -579,6 +598,26 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             });
         } catch (error) {
             if (settlementAttemptRef.current !== attempt || !playerScopeIsActive(attempt.scope)) return;
+            if (error instanceof PetSettlementRetryError) {
+                attempt.status = "pending";
+                const delayMs = Math.min(10 * 60_000, Math.max(500, Math.ceil(error.retryAfterMs) + 250));
+                setSettlementPresentation({
+                    id: attempt.id,
+                    kind: attempt.kind,
+                    label: attempt.label,
+                    scope: attempt.scope,
+                    status: "pending",
+                    detail: `Battle replay complete. Sealing the authoritative result in ${Math.max(1, Math.ceil(delayMs / 1_000))}s…`,
+                });
+                if (settlementRetryTimerRef.current !== null) window.clearTimeout(settlementRetryTimerRef.current);
+                settlementRetryTimerRef.current = window.setTimeout(() => {
+                    settlementRetryTimerRef.current = null;
+                    if (settlementAttemptRef.current === attempt && playerScopeIsActive(attempt.scope)) {
+                        void runPetSettlementAttempt(attempt);
+                    }
+                }, delayMs);
+                return;
+            }
             attempt.status = "error";
             setSettlementPresentation({
                 id: attempt.id,
@@ -602,6 +641,10 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     }
 
     function resetPetSettlement(): void {
+        if (settlementRetryTimerRef.current !== null) {
+            window.clearTimeout(settlementRetryTimerRef.current);
+            settlementRetryTimerRef.current = null;
+        }
         settlementAttemptRef.current = null;
         setSettlementPresentation(null);
     }
@@ -783,12 +826,10 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         });
     }
 
-    // Hollow Warfront vs-AI is SERVER-AUTHORITATIVE. At launch we mint a token via
-    // /api/pet/warfront-start: the server RE-RUNS the exact deterministic match and
-    // seals the winner + reward level, then returns the seed the client must use.
-    // Same sealed inputs → same result on any browser
-    // (the sim is cross-engine deterministic; scripts/warfront-parity.test.ts proves
-    // server re-sim === the streamed render), so a win on screen always redeems.
+    // Hollow Warfront vs-AI is SERVER-AUTHORITATIVE. Kickoff seals the stored
+    // roster, AI team, seed, plan modifiers, and an automatic fallback outcome.
+    // Settlement replays the validated opening lanes + compact command log on
+    // those same inputs, so the client reports decisions but never its verdict.
     function mintWarfrontToken(
         bluePets: Pet[],
         scope: PetArenaPlayerScope,
@@ -893,9 +934,10 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     // PvP Warfront matches intentionally have no economy settlement.
     function reportTacticalArenaResult(
         m: WarfrontMatch,
-        winner: "blue" | "red" | "draw",
+        result: WarfrontResult,
     ) {
         if (!m.vsAi || !playerAuthorityIsActive(m.scope)) return;
+        const winner = result.winner ?? "draw";
         const outcome = winner === "blue" ? "win" : winner === "red" ? "loss" : "draw";
         const reportKey = `${m.seed}:tactical`;
         const playerPetIds = m.blue.map((slot) => slot.pet.id);
@@ -923,7 +965,14 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     || seal.redPets.map((pet) => pet.id).join("\0") !== rivalPetIds.join("\0")) {
                     throw new Error("The Warfront battle proof does not match this replay. Keep this result open and retry.");
                 }
-                const data = await postPetBattleSettlement({ ...bodyBase, battleToken: seal.token });
+                const data = await postPetBattleSettlement({
+                    ...bodyBase,
+                    battleToken: seal.token,
+                    warfrontPlan: {
+                        initialLanes: result.initialLanes.blue,
+                        commands: result.commandLog,
+                    },
+                });
                 if (!playerScopeIsActive(m.scope)) return false;
                 return applyPetBattleSettlement(data, m.scope, playerPetIds);
             },
@@ -935,7 +984,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     // "clanWarPet" so the global accept banner surfaces it) but flagged
     // arenaMatch; my roster is referenced by id (resolved against the server-kept
     // challenger.pets snapshot) for a deterministic match.
-    async function sendArenaChallenge(toName: string, size: 2 | 4, teamIds: string[]) {
+    async function sendArenaChallenge(toName: string, size: 4, teamIds: string[]) {
         const name = toName.trim();
         if (!name) { setArenaChallengeMsg("Enter a player name to challenge."); return; }
         if (name.toLowerCase() === character.name.toLowerCase()) { setArenaChallengeMsg("You can't challenge yourself."); return; }
@@ -982,15 +1031,16 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 ...duelChallenges.filter((c: DuelChallenge) => !(c.fromName === character.name && !c.accepted && !c.declined && !c.battleId)),
                 challenge,
             ]);
-            setArenaChallengeMsg(`✅ ${size === 4 ? "4v4" : "2v2"} challenge sent to ${name}! Waiting for them to accept and pick their team…`);
+            setArenaChallengeMsg(`✅ 4v4 challenge sent to ${name}! Waiting for them to accept and pick their team…`);
         } catch {
             setArenaChallengeMsg("❌ Network error sending challenge.");
         }
     }
 
     // Responder side: I picked my team for an incoming arena challenge. Echo it
-    // back (image-stripped) on the accepted notice and launch the same match the
-    // challenger will — blue resolved from their snapshot, red = my picks.
+    // back (image-stripped) on the accepted notice, then command my own roster as
+    // Azure against the challenger's sealed Crimson defense. The challenger runs
+    // the reciprocal attack locally; challenge exhibitions carry no rewards.
     async function respondToArenaChallenge(challenge: DuelChallenge, teamIds: string[]) {
         const size = arenaSizeOf(challenge);
         const challengerPlan = parseWarfrontChallengePlan(challenge.challengerWarfrontPlan);
@@ -1015,7 +1065,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             return;
         }
         try {
-            await fetch('/api/player/challenge', {
+            const response = await fetch('/api/player/challenge', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ targetName: challenge.fromName, challenge: {
@@ -1024,9 +1074,17 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     responderWarfrontPlan: responderPlan,
                 } }),
             });
-        } catch { /* the challenger just won't auto-launch; my side still plays */ }
+            if (!response.ok) {
+                const payload = await response.json().catch(() => null) as { error?: unknown } | null;
+                setArenaChallengeMsg(`❌ ${typeof payload?.error === "string" ? payload.error : "The Warfront invitation could not be accepted."}`);
+                return;
+            }
+        } catch {
+            setArenaChallengeMsg("❌ Network error accepting the Warfront challenge. Nothing was started.");
+            return;
+        }
         onArenaResponseHandled?.();
-        void startArenaMatch(blue, myTeam, challenge.petBattleSeed ?? 1, false, { blue: challengerPlan, red: responderPlan });
+        void startArenaMatch(myTeam, blue, challenge.petBattleSeed ?? 1, false, { blue: responderPlan, red: challengerPlan });
     }
 
     const selectedPet = combatEligiblePets.find((pet) => pet.id === selectedPetId) ?? combatEligiblePets.find((pet) => !isPetOnExpedition(pet));
@@ -1605,12 +1663,15 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         && playerScopeIsActive(settlementAttemptRef.current.scope)
         ? settlementAttemptRef.current
         : null;
-    const petSettlementBlocksExit = Boolean(
-        activeSettlementAttempt && activeSettlementAttempt.status !== "settled",
+    const activeSettlementStatus = activeSettlementAttempt?.status ?? null;
+    const petSettlementBlocksExit = petBattleSettlementBlocksExit(activeSettlementStatus);
+    const warfrontSettlementBlocksExit = petBattleSettlementBlocksExit(
+        activeSettlementStatus,
+        Boolean(arenaMatch?.vsAi),
     );
     const warfrontResultActionsLocked = Boolean(
         chronicleCeremony
-        || (arenaMatch?.vsAi && (!activeSettlementAttempt || activeSettlementAttempt.status !== "settled")),
+        || warfrontSettlementBlocksExit,
     );
     const activeBattleSetupIssue = battleSetupIssue && playerScopeIsActive(battleSetupIssue.scope)
         ? battleSetupIssue
@@ -1621,8 +1682,8 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             void runPetSettlementAttempt(attempt);
         }
     };
-    const canLeaveCurrentPetBattle = () => {
-        if (petSettlementBlocksExit) {
+    const canLeaveCurrentPetBattle = (blocksExit = petSettlementBlocksExit) => {
+        if (blocksExit) {
             alert(activeSettlementAttempt?.status === "error"
                 ? "This result is not recorded yet. Use Retry Settlement before leaving; the same battle receipt will be replayed safely."
                 : "The arena is still recording this result. You can leave as soon as the receipt is confirmed.");
@@ -1699,7 +1760,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     const arenaHeroImage = isHollowGate
         ? forcedDuelHero
         : arenaView === "tactical"
-            ? tacticalArenaHero
+            ? warfrontKeyArt
             : petArenaCommandHero;
     const arenaHeroMobileImage = isHollowGate || arenaView === "tactical"
         ? arenaHeroImage
@@ -1718,14 +1779,14 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     const arenaHeroEyebrow = isHollowGate
         ? "The Hollow Gate · sealed encounter"
         : arenaView === "tactical"
-            ? "Squad command · 4v4 lane war"
+            ? "Four bonded pets · three sealed fronts"
             : arenaView === "gauntlet"
                 ? "Endurance command · escalating run"
                 : "Companion combat command";
     const arenaHeroCopy = isHollowGate
         ? "Face the corrupted guardian and seal the result before returning to the shrine."
         : arenaView === "tactical"
-            ? "Build a role-complete squad, seal its doctrine, and break the enemy Ward Seal before Judgment."
+            ? "Deploy 2–1–1, redirect one pet every two minutes, and be first to shatter two enemy Ward Towers."
             : arenaView === "gauntlet"
                 ? "Draft once, read every counter, and carry your squad through an escalating chain of fights."
                 : "Choose the contender, read the matchup, then call every stance and technique from ringside.";
@@ -1814,8 +1875,8 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                             title={!tacticalArenaUnlocked ? `Locked: ${availableArenaPetCount}/${TACTICAL_ARENA_PET_REQUIREMENT} available pets` : undefined}
                             onClick={() => setArenaView("tactical")}
                         >
-                            <span className="pet-arena-activity-icon"><img src={arenaModeWarfront} alt="" loading="lazy" /></span>
-                            <span><strong>Hollow Warfront</strong><small>{tacticalArenaUnlocked ? "4v4 tactical command" : `Locked · ${availableArenaPetCount}/${TACTICAL_ARENA_PET_REQUIREMENT} pets`}</small></span>
+                            <span className="pet-arena-activity-icon"><img src={warfrontCardArt} alt="" loading="lazy" /></span>
+                            <span><strong>Hollow Warfront</strong><small>{tacticalArenaUnlocked ? "3 sealed lanes · first to 2 towers" : `Locked · ${availableArenaPetCount}/${TACTICAL_ARENA_PET_REQUIREMENT} pets`}</small></span>
                         </button>
                         <button type="button" className={arenaView === "gauntlet" ? "active" : ""} aria-current={arenaView === "gauntlet" ? "page" : undefined} onClick={() => setArenaView("gauntlet")}>
                             <span className="pet-arena-activity-icon"><img src={arenaModeGauntlet} alt="" loading="lazy" /></span>
@@ -2132,7 +2193,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                             const size = arenaSizeOf(pendingArenaResponse);
                             return (
                                 <div style={{ display: "grid", gap: "0.6rem" }}>
-                                    <strong>⚔️ {pendingArenaResponse.fromName} challenged you to a {size === 4 ? "4v4" : "2v2"}!</strong>
+                                    <strong>⚔️ {pendingArenaResponse.fromName} challenged you to a 4v4!</strong>
                                     <p className="hint" style={{ margin: 0 }}>Pick up to {size} pets, then accept — the match begins after a short countdown.</p>
                                     {available.length < size
                                         ? <p className="hint" style={{ color: "var(--gold-2)" }}>You need {size} available pets to accept this {size}v{size} challenge. You currently have {available.length}.</p>
@@ -2148,7 +2209,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                             );
                         }
 
-                        // ── Single screen: council preference + team grid + actions ───
+                        // ── Single screen: doctrine + squad grid + actions ───────────
                         // (Warfront is always 4v4 — the old 2v2 size toggle retired with
                         // the capture-scroll mode.)
                         const canStart = isExactAvailableSelection(tacticalPicks, tacticalSize);
@@ -2157,13 +2218,8 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                             .filter((pet): pet is Pet => Boolean(pet));
                         const selectedFormation = WF_STANCES.find((stance) => stance.id === wfStancePref) ?? WF_STANCES[0];
                         const selectedDoctrine = WF_DOCTRINES.find((doctrine) => doctrine.id === wfDoctrinePref) ?? WF_DOCTRINES[0];
-                        const councilPolicy = wfAutoPref === "offense"
-                            ? { icon: "🗡", label: "Assault economy", detail: "Attack and movement spikes go to the squad first." }
-                            : wfAutoPref === "defense"
-                                ? { icon: "🛡", label: "Fortress economy", detail: "Durability, sustain, and recovery are prioritized." }
-                                : { icon: "⚖", label: "Role-balanced economy", detail: "Every role receives a purpose-built upgrade path." };
                         const planSynergy = wfStancePref === "jungle" && wfDoctrinePref === "warden-pact"
-                            ? "Camp Dominion: fast rotations feed 18%-harder recruited Wardens with 50% longer contracts."
+                            ? "Oathbound Warden: accelerated Favor reaches the 85-point Pact summon sooner and extends its normal duration before the shared Omen is applied."
                             : wfStancePref === "siege" && wfDoctrinePref === "vanguard"
                                 ? "Breach Column: +8% team attack compounds a structure-first march."
                                 : wfStancePref === "turtle" && wfDoctrinePref === "bulwark"
@@ -2173,16 +2229,18 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                             <div style={{ display: "grid", gap: "0.7rem" }}>
                                 <div className="pet-arena-tactical-top">
                                     <div style={{ display: "grid", gap: "0.7rem", alignContent: "start" }}>
-                                        <div>
-                                            <p style={{ margin: 0, fontWeight: 600, fontSize: "0.85rem" }}>📯 War Council (every 90s)</p>
-                                            <div className="pet-arena-mode-toggle" role="group" aria-label="War Council control" style={{ maxWidth: 470, marginTop: 6 }}>
-                                                {(["balanced", "offense", "defense"] as const).map((p) => (
-                                                    <button key={p} type="button" className={wfAutoPref === p ? "active" : ""} aria-pressed={wfAutoPref === p} onClick={() => setWfAuto(p)}>
-                                                        {p === "balanced" ? "⚖ Auto-Balanced" : p === "offense" ? "🗡 Auto-Attack" : "🛡 Auto-Guard"}
-                                                    </button>
-                                                ))}
+                                        <div className="wf-pregame-readout" aria-label="Hollow Warfront battle laws">
+                                            <div className="wf-pregame-readout-title">
+                                                <span>BATTLE LAWS</span>
+                                                <strong>THREE LANES · TWO TOWERS TO WIN</strong>
                                             </div>
-                                            <p className="hint" style={{ margin: "4px 0 0" }}>Rewarded AI uses the automatic policy you seal at kickoff. The arena replays that exact plan, so rewards always match the fight you watched.</p>
+                                            <div className="wf-pregame-readout-grid">
+                                                <div><span>OPENING</span><strong>2–1–1 deployment</strong><small>Every isolated causeway must be defended.</small></div>
+                                                <div><span>COMMAND</span><strong>Every 2 minutes</strong><small>Seal-transfer exactly one pet; Storm Gate accelerates this to 90 seconds.</small></div>
+                                                <div><span>BREAKTHROUGH</span><strong>Redeploy the lane</strong><small>A destroyed tower frees every pet assigned there.</small></div>
+                                            </div>
+                                            <p><span>♜ WARDEN</span>Earn Favor from combat and tower pressure, then choose a Breaker, Sentinel, or Harrier Aspect during a command window.</p>
+                                            <p><span>◐ HOLLOW OMEN</span>One shared match rule is revealed before deployment; both sides fight under the same condition.</p>
                                         </div>
 
                                         <div>
@@ -2215,7 +2273,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                                 <strong>{selectedFormation.icon} {selectedFormation.label} · {selectedDoctrine.icon} {selectedDoctrine.label}</strong>
                                             </div>
                                             <div className="wf-pregame-readout-grid">
-                                                <div><span>COUNCIL AI</span><strong>{councilPolicy.icon} {councilPolicy.label}</strong><small>{councilPolicy.detail}</small></div>
+                                                <div><span>COMMAND RHYTHM</span><strong>120-second baseline</strong><small>One transfer or hold; the sealed Omen may alter the rhythm.</small></div>
                                                 <div><span>FIELD BEHAVIOR</span><strong>{selectedFormation.label}</strong><small>{selectedFormation.desc}</small></div>
                                                 <div><span>PERMANENT BOON</span><strong>{selectedDoctrine.label}</strong><small>{selectedDoctrine.desc}</small></div>
                                             </div>
@@ -2293,9 +2351,9 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                         doctrine={arenaMatch.doctrine}
                         opponentStance={arenaMatch.opponentStance}
                         opponentDoctrine={arenaMatch.opponentDoctrine}
-                        onResult={(result) => reportTacticalArenaResult(arenaMatch, result.winner ?? "draw")}
+                        onResult={(result) => reportTacticalArenaResult(arenaMatch, result)}
                         resultActionsLocked={warfrontResultActionsLocked}
-                        settlementPending={petSettlementBlocksExit}
+                        settlementPending={warfrontSettlementBlocksExit}
                         resultSupplement={chronicleProgress || chronicleCeremony ? (
                             <>
                                 {chronicleProgress ? <PetChronicleProgress receipt={chronicleProgress} /> : null}
@@ -2313,7 +2371,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                 ) : null}
                             </>
                         ) : undefined}
-                        onExit={() => { if (canLeaveCurrentPetBattle()) setArenaMatch(null); }}
+                        onExit={() => { if (canLeaveCurrentPetBattle(warfrontSettlementBlocksExit)) setArenaMatch(null); }}
                     />
                 </Suspense>
             )}

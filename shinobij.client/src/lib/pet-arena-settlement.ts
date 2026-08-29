@@ -9,6 +9,18 @@ export type PetArenaServerVersionDecision = "accepted" | "stale" | "foreign";
 
 export type PetArenaServerVersionResult = PetArenaServerVersionDecision | boolean | void;
 
+export type PetBattleSettlementStatus = "pending" | "error" | "settled";
+
+/** A rewarded battle blocks exit before its receipt attempt exists as well as
+ * while that attempt is pending or recoverably failed. Ordinary battles only
+ * block once an actual settlement attempt is present. */
+export function petBattleSettlementBlocksExit(
+    status: PetBattleSettlementStatus | null,
+    receiptRequired = false,
+): boolean {
+    return status !== "settled" && (receiptRequired || status !== null);
+}
+
 export type WarfrontRewardSeal = Readonly<{
     token: string;
     seed: number;

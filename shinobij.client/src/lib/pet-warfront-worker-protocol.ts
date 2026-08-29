@@ -1,14 +1,16 @@
 import type { ArenaSlot } from "./pet-arena-sim";
 import type {
     WarfrontChoice,
+    WarfrontCommandEntry,
     WarfrontMatchCtl,
     WarfrontResult,
     WfBuyPolicy,
+    WfCommandState,
     WfDoctrine,
     WfSnapshot,
     WfStance,
 } from "./pet-warfront-sim";
-import type { WfTheme } from "./pet-warfront-map";
+import type { WfLaneId, WfTheme } from "./pet-warfront-map";
 
 export type WarfrontBuyState = ReturnType<WarfrontMatchCtl["buyState"]>;
 
@@ -25,6 +27,7 @@ export type WarfrontWorkerInit = Readonly<{
         redStance: WfStance;
         blueDoctrine: WfDoctrine;
         redDoctrine: WfDoctrine;
+        initialLanes?: Partial<Record<"blue" | "red", readonly WfLaneId[]>>;
     };
 }>;
 
@@ -44,6 +47,12 @@ export type WarfrontWorkerBatch = Readonly<{
     done: boolean;
     winner: WarfrontResult["winner"];
     coins: { blue: number; red: number };
+    favor: { blue: number; red: number };
+    lanes: Record<"blue" | "red", WfLaneId[]>;
+    commandState: WfCommandState | null;
+    commandLog: WarfrontCommandEntry[];
+    omen: WarfrontResult["omen"];
+    commandImpacts: WarfrontResult["commandImpacts"];
     stances: Record<"blue" | "red", WfStance>;
     buyState: WarfrontBuyState;
     petStats?: WarfrontResult["petStats"];

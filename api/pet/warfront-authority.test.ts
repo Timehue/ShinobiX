@@ -1,5 +1,6 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
+import type { Pet } from '../_pet-sim/pet-types.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -224,7 +225,9 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
     const rewardRyo = Number(seal?.rewardRyo);
     assert.ok(Number.isSafeInteger(rewardRyo) && rewardRyo >= 20 && rewardRyo <= 250);
     const settleAfter = Number(seal?.settleAfter);
+    const playbackStartedAt = Number(seal?.playbackStartedAt);
     assert.ok(Number.isSafeInteger(settleAfter) && settleAfter > Date.now() + 50_000);
+    assert.ok(Number.isSafeInteger(playbackStartedAt) && playbackStartedAt > 0 && playbackStartedAt < settleAfter);
 
     const saveBeforeRecovery = await kv.get<Record<string, unknown>>(`save:${PLAYER}`);
     assert.ok(saveBeforeRecovery);
@@ -283,14 +286,18 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
         const settled = response();
         await resultHandler(request({
             playerName: PLAYER,
-            outcome: 'win',
+            outcome: 'loss', // deliberately forged; the server replay owns this value
             reportKey,
             battleToken: token,
+            warfrontPlan: {
+                initialLanes: ['n', 'm', 's', 'm'],
+                commands: [],
+            },
         }), settled.res);
         assert.equal(settled.out.statusCode, 200);
         const sealedOutcome = String(seal?.authoritativeOutcome ?? 'draw');
         assert.equal(sealedOutcome, 'win', 'the authoritative fixture must reach its witness settlement path');
-        assert.equal(Number(settled.out.body?.reward ?? 0) > 0, sealedOutcome === 'win', 'forged reported win cannot override the sealed result');
+        assert.equal(Number(settled.out.body?.reward ?? 0) > 0, true, 'forged reported loss cannot override the authoritative three-lane replay');
         assert.deepEqual(new Set(settled.out.body?.chronicleCards as string[]), new Set([
             'pet-witness-water', 'pet-witness-fire', 'pet-witness-wind', 'pet-witness-earth',
         ]));
@@ -310,4 +317,94 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
     await startHandler(request({ playerName: PLAYER, resumeOnly: true }), emptyProbe.res);
     assert.equal(emptyProbe.out.statusCode, 204, 'a resume-only probe must never mint a new seed when no proof exists');
     assert.equal(await kv.get(`pet:battle-active:${PLAYER}`), null);
+});
+
+test('Warfront settlement follows a faster commanded replay instead of the slower automatic baseline', async () => {
+    const { runWarfrontMatch, WARFRONT_TPS } = await import('../_pet-sim/pet-warfront-sim.js');
+    const roles = ['defender', 'tracker', 'assassin', 'sage'] as const;
+    const bluePets = roles.map((role, index) => {
+        const { image: _image, bodyImage: _bodyImage, ...pet } = warfrontPet(index + 1);
+        return { ...pet, role } as Pet & { role: typeof role };
+    });
+    const redPets = roles.map((role, index) => {
+        const { image: _image, bodyImage: _bodyImage, ...pet } = warfrontPet(index + 1);
+        return {
+            ...pet,
+            id: `settlement-rival-${index + 1}`,
+            name: `Settlement Rival ${index + 1}`,
+            nickname: `Settlement Rival ${index + 1}`,
+            role,
+        } as Pet & { role: typeof role };
+    });
+    const slots = (pets: typeof bluePets) => pets.map((pet) => ({ pet, role: pet.role }));
+    const baseline = runWarfrontMatch(
+        slots(bluePets), slots(redPets), 1,
+        'balanced', 'balanced', undefined,
+        { blue: 'balanced', red: 'balanced' },
+        { blue: 'none', red: 'vanguard' },
+        undefined,
+        { captureSnapshots: false },
+    );
+    const commanded = runWarfrontMatch(
+        slots(bluePets), slots(redPets), 1,
+        'balanced', 'balanced', undefined,
+        { blue: 'balanced', red: 'balanced' },
+        { blue: 'none', red: 'vanguard' },
+        { initialLanes: { blue: ['n', 'm', 's', 'n'] }, commands: [] },
+        { captureSnapshots: false },
+    );
+    assert.ok(baseline.ticks - commanded.ticks > WARFRONT_TPS * 5, 'fixture must expose the former settlement-clock defect');
+
+    const playbackStartedAt = Date.now();
+    const baselineDurationMs = Math.ceil(baseline.ticks / WARFRONT_TPS * 1_000);
+    const commandedDurationMs = Math.ceil(commanded.ticks / WARFRONT_TPS * 1_000);
+    const settleAfter = playbackStartedAt + Math.max(60_000, baselineDurationMs - 5_000);
+    const commandedSettleAfter = playbackStartedAt + Math.max(60_000, commandedDurationMs - 5_000);
+    assert.ok(commandedSettleAfter < settleAfter);
+
+    const token = 'fastercommandedwarfront';
+    const reportKey = '1:tactical-clock-regression';
+    await kv.set(`pet:battle-token:${PLAYER}:${token}`, {
+        playerName: PLAYER,
+        reportKey,
+        opponentLevel: 20,
+        rewardRyo: 20,
+        playerPetIds: bluePets.map((pet) => pet.id),
+        bluePets,
+        redPets,
+        seed: 1,
+        buyPolicy: 'balanced',
+        opponentBuyPolicy: 'balanced',
+        stance: 'balanced',
+        opponentStance: 'balanced',
+        doctrine: 'none',
+        opponentDoctrine: 'vanguard',
+        authoritativeOutcome: baseline.winner === 'blue' ? 'win' : baseline.winner === 'red' ? 'loss' : 'draw',
+        mode: 'warfront',
+        settlementPolicy: 'warfront-reward',
+        matchDurationMs: baselineDurationMs,
+        playbackStartedAt,
+        settleAfter,
+    });
+    await kv.set(`pet:battle-active:${PLAYER}`, token);
+
+    const realDateNow = Date.now;
+    Date.now = () => commandedSettleAfter + 1;
+    try {
+        const settled = response();
+        await resultHandler(request({
+            playerName: PLAYER,
+            outcome: 'win',
+            reportKey,
+            battleToken: token,
+            warfrontPlan: { initialLanes: ['n', 'm', 's', 'n'], commands: [] },
+        }), settled.res);
+        assert.equal(settled.out.statusCode, 200, `the actual commanded replay should settle without waiting for the slower baseline: ${JSON.stringify(settled.out.body)}`);
+        assert.equal(settled.out.body?.outcome, commanded.winner === 'blue' ? 'win' : commanded.winner === 'red' ? 'loss' : 'draw');
+        assert.equal(await kv.get(`pet:battle-token:${PLAYER}:${token}`), null);
+    } finally {
+        Date.now = realDateNow;
+        await kv.delIfEqual(`pet:battle-active:${PLAYER}`, token);
+        await kv.del(`pet:battle-token:${PLAYER}:${token}`);
+    }
 });

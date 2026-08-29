@@ -33,7 +33,15 @@ const squad = (p: string, boost = 0): ArenaSlot[] =>
 // deepEqual over ~18k snapshots but just as strict on the outcome.
 function digest(r: ReturnType<typeof serverRun>) {
     const last = r.snapshots[r.snapshots.length - 1];
-    return JSON.stringify({ winner: r.winner, ticks: r.ticks, events: r.events, coins: last.coins, structures: last.structures });
+    return JSON.stringify({
+        winner: r.winner,
+        ticks: r.ticks,
+        events: r.events,
+        towers: last.towers,
+        favor: last.favor,
+        initialLanes: r.initialLanes,
+        commandLog: r.commandLog,
+    });
 }
 
 test("server Warfront sim is byte-identical to the client (mirror + boosted, several seeds)", () => {
@@ -61,12 +69,24 @@ test("server Warfront parity holds across buy policies and forced stances", () =
     }
 });
 
+test("outcome-only authority stays byte-identical across the generated server mirror", () => {
+    const client = clientRun(squad("A"), squad("B"), 5150, "balanced", "balanced", undefined,
+        { blue: "jungle", red: "balanced" }, { blue: "warden-pact", red: "vanguard" }, undefined,
+        { captureSnapshots: false });
+    const server = serverRun(squad("A"), squad("B"), 5150, "balanced", "balanced", undefined,
+        { blue: "jungle", red: "balanced" }, { blue: "warden-pact", red: "vanguard" }, undefined,
+        { captureSnapshots: false });
+    assert.equal(client.snapshots.length, 1);
+    assert.equal(server.snapshots.length, 1);
+    assert.equal(JSON.stringify({ winner: server.winner, ticks: server.ticks, events: server.events, petStats: server.petStats }),
+        JSON.stringify({ winner: client.winner, ticks: client.ticks, events: client.events, petStats: client.petStats }));
+});
+
 // THE LINCHPIN for a seamless server-auth reward: the client RENDERS the match
-// via the STREAMED advanceRoundPartial (chunked, so the 3D playback never
-// freezes), but the reward server runs the FULL-AUTO runWarfrontMatch. If those
-// two ever disagreed, a player would watch a win the server scored as a loss.
-// This proves they are byte-identical — exactly the render path (autobuy, blue
-// stance, fixed balanced/vanguard red, default theme) the reward endpoint mirrors.
+// via STREAMED advanceRoundPartial (chunked, so playback never freezes), while
+// settlement runs the full deterministic loop with the recorded commands. This
+// baseline proof guarantees both execution styles agree before player inputs are
+// layered on top and replayed.
 function streamedRender(blue: ArenaSlot[], red: ArenaSlot[], seed: number, policy: WfBuyPolicy, stance: WfStance) {
     const ctl = startWarfrontMatch(blue, red, seed, {
         bluePolicy: policy,
