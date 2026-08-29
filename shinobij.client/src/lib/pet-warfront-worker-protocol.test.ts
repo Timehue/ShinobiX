@@ -5,12 +5,18 @@ import { decodeWarfrontWorkerBatch, encodeWarfrontWorkerBatch, type WarfrontWork
 test("Warfront worker batches round-trip through a transferable byte buffer", () => {
     const batch = {
         snapshots: [],
-        events: [{ t: 0, type: "stance", team: "blue", stance: "balanced", answer: false }],
+        events: [{ t: 0, type: "phase", name: "DEPLOYMENT" }],
         ticks: 60,
         round: 0,
         done: false,
         winner: null,
         coins: { blue: 12, red: 11 },
+        favor: { blue: 25, red: 18 },
+        lanes: { blue: ["n", "m", "s", "m"], red: ["n", "m", "s", "m"] },
+        commandState: null,
+        commandLog: [],
+        omen: "thin-veil",
+        commandImpacts: [],
         stances: { blue: "balanced", red: "siege" },
         buyState: [],
     } satisfies WarfrontWorkerBatch;

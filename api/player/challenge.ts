@@ -379,6 +379,9 @@ async function buildNewChallenge(
     if (raw.arenaMatch === true) safe.arenaMatch = true;
     if (raw.arenaSize === 2 || raw.arenaSize === 4) safe.arenaSize = raw.arenaSize;
     if (raw.arenaMatch === true) {
+        if (raw.arenaSize !== 4) {
+            return { ok: false, status: 400, error: 'Hollow Warfront challenges require exactly four pets per side.' };
+        }
         const challengerWarfrontPlan = safeWarfrontChallengePlan(raw.challengerWarfrontPlan);
         if (!challengerWarfrontPlan) {
             return { ok: false, status: 400, error: 'Hollow Warfront challenges require a complete sealed challenger battle plan.' };
@@ -551,9 +554,12 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
             } | null = null;
             if (accepted && petProtocol) {
                 const stored = record.challenge;
-                const arenaSize = stored.arenaMatch === true && (stored.arenaSize === 2 || stored.arenaSize === 4)
-                    ? stored.arenaSize
+                const arenaSize = stored.arenaMatch === true && stored.arenaSize === 4
+                    ? 4
                     : null;
+                if (stored.arenaMatch === true && arenaSize === null) {
+                    return res.status(409).json({ error: 'This legacy Warfront invitation is no longer compatible with the required 4v4 three-lane rules.' });
+                }
                 if (arenaSize && (!safeWarfrontChallengePlan(stored.challengerWarfrontPlan)
                     || !safeWarfrontChallengePlan(rawChallenge.responderWarfrontPlan))) {
                     return res.status(409).json({ error: 'Both Warfront battle plans must be sealed before acceptance.' });

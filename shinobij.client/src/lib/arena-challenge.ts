@@ -1,8 +1,9 @@
 /*
- * Pure helpers for the Tactical Arena player-vs-player challenge. Both clients
- * resolve the SAME embedded teams + seed so runPetArenaMatch stays
- * deterministic. Kept out of App.tsx (line-budget ratchet) — App holds only the
- * React glue (state, notify, screen routing); PetArena drives the pickers.
+ * Pure helpers for the Tactical Arena asynchronous player challenge. Both
+ * clients receive the same embedded teams, seed, and sealed defense plans; each
+ * commands their own roster as Azure in a reciprocal no-reward exhibition.
+ * Kept out of App.tsx (line-budget ratchet) — App holds only the React glue
+ * (state, notify, screen routing); PetArena drives the pickers.
  */
 import type { Pet } from "../types/pet";
 
@@ -29,12 +30,14 @@ export type ArenaChallengeLike = {
 export type ArenaMatchPayload = {
     blue: Pet[];
     red: Pet[];
-    size: 2 | 4;
+    size: 4;
     seed: number;
     plans: WarfrontChallengePlans;
 };
 
-export const arenaSizeOf = (c: { arenaSize?: 2 | 4 }): 2 | 4 => (c.arenaSize === 2 ? 2 : 4);
+/** Hollow Warfront is permanently 4v4. Legacy 2v2 invitations are surfaced as
+ * needing four pets and will be rejected by the authoritative challenge API. */
+export const arenaSizeOf = (_challenge: { arenaSize?: 2 | 4 }): 4 => 4;
 
 export function parseWarfrontChallengePlan(value: unknown): WarfrontChallengePlan | null {
     if (!value || typeof value !== "object" || Array.isArray(value)) return null;
