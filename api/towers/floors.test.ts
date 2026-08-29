@@ -23,6 +23,23 @@ test('public Tower floor metadata previews rewards and authored tactical warning
     assert.equal('boss' in crossfire, false, 'boss stat blocks stay private');
 });
 
+test('public Tower floor metadata carries the exact adaptive arena ladder', () => {
+    assert.deepEqual(
+        FLOOR_CATALOG.map(floor => publicTowerFloorMeta(floor).map),
+        [
+            { width: 16, height: 10 }, { width: 16, height: 10 },
+            { width: 16, height: 10 }, { width: 16, height: 10 },
+            { width: 20, height: 14 },
+            { width: 18, height: 12 }, { width: 18, height: 12 },
+            { width: 18, height: 12 }, { width: 18, height: 12 },
+            { width: 20, height: 14 },
+            { width: 18, height: 12 }, { width: 18, height: 12 },
+            { width: 18, height: 12 }, { width: 18, height: 12 },
+            { width: 20, height: 14 },
+        ],
+    );
+});
+
 test('the story boss curve introduces telegraphs and real add-gated objectives in order', () => {
     const floor = (id: number) => FLOOR_CATALOG.find(candidate => candidate.id === id)!;
     assert.equal(floor(5).boss?.strike, undefined, 'the first boss teaches its kit before strike telegraphs');

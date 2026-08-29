@@ -634,9 +634,9 @@ function summonAdds(session: TowerSession): void {
  *    • total blocked capped at 10% of the board (same ceiling as scatterTerrain).
  *  Deterministic: an LCG salted from (session.seed, gates fired so far) — no RNG/wall-clock —
  *  so the settle recompute reproduces every eruption. Bosses without phasePillars never call this. */
-function dropPhasePillars(session: TowerSession, boss: TowerActor): void {
+function dropPhasePillars(session: TowerSession, boss: TowerActor): number[] {
     const want = Math.max(0, Math.min(3, Math.floor(Number(boss.character.phasePillars ?? 0))));
-    if (want <= 0) return;
+    if (want <= 0) return [];
     const w = session.map.width, h = session.map.height;
     const maxBlocked = Math.floor(w * h * 0.10);
     const blocked = new Set(session.map.blockedTiles);
@@ -664,8 +664,8 @@ function dropPhasePillars(session: TowerSession, boss: TowerActor): void {
         towerNeighbors(pos, w, h).filter(t => t !== minus && !blocked.has(t) && !barrierTiles.has(t) && !occupied.has(t)).length;
     let s = (((session.seed >>> 0) ^ 0x27d4eb2f ^ Math.imul(session.phaseState.triggeredPhases.length, 0x9e3779b9)) >>> 0) || 1;
     const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 0x100000000; };
-    let added = 0;
-    for (let attempt = 0; attempt < 200 && added < want && blocked.size < maxBlocked; attempt++) {
+    const addedTiles: number[] = [];
+    for (let attempt = 0; attempt < 200 && addedTiles.length < want && blocked.size < maxBlocked; attempt++) {
         const cx = 1 + Math.floor(rnd() * Math.max(1, w - 2));
         const cy = 1 + Math.floor(rnd() * Math.max(1, h - 2));
         const t = cy * w + cx;
@@ -675,9 +675,10 @@ function dropPhasePillars(session: TowerSession, boss: TowerActor): void {
         if (living.some(a => a.pos !== t && towerNeighbors(a.pos, w, h).includes(t) && freeNeighbors(a.pos, t) === 0)) continue;
         blocked.add(t);
         session.map.blockedTiles.push(t);
-        added++;
+        addedTiles.push(t);
     }
-    if (added > 0) session.log.push(`${boss.name} shatters the arena — ${added} stone pillar${added !== 1 ? 's' : ''} erupt${added === 1 ? 's' : ''} from the ground!`);
+    if (addedTiles.length > 0) session.log.push(`${boss.name} shatters the arena — ${addedTiles.length} stone pillar${addedTiles.length !== 1 ? 's' : ''} erupt${addedTiles.length === 1 ? 's' : ''} from the ground!`);
+    return addedTiles;
 }
 
 /** Fired when the boss crosses an HP-phase gate. */
@@ -697,15 +698,16 @@ function applyBossPhaseMechanic(session: TowerSession, boss: TowerActor): void {
  *  any regen/stall risk. Total live shield is hard-capped at AEGIS_SHIELD_MAX_PCT of maxHp
  *  so back-to-back gates can't stack a wall. Bosses without `aegis` never enter (byte-identical). */
 export const AEGIS_SHIELD_MAX_PCT = 25;
-function applyBossAegis(session: TowerSession, boss: TowerActor): void {
+function applyBossAegis(session: TowerSession, boss: TowerActor): number {
     const cfg = boss.character.aegis as { shieldPct?: number } | undefined;
     const pct = Math.max(0, Math.min(AEGIS_SHIELD_MAX_PCT, Math.floor(Number(cfg?.shieldPct ?? 0))));
-    if (pct <= 0) return;
+    if (pct <= 0) return 0;
     const ceiling = Math.floor((boss.maxHp * AEGIS_SHIELD_MAX_PCT) / 100);
     const grant = Math.min(Math.floor((boss.maxHp * pct) / 100), Math.max(0, ceiling - boss.shield));
-    if (grant <= 0) return;
+    if (grant <= 0) return 0;
     boss.shield += grant;
     session.log.push(`${boss.name} raises an aegis — a shield of ${grant} forms around it!`);
+    return grant;
 }
 /** Per-round heal for a 'regen' boss. In the ENDLESS SPIRE the heal is 7% of CURRENT HP (self-
  *  limiting), plus the sealed FLAT cap (session.regenFlatCap): a boss near full still drains you
@@ -713,16 +715,20 @@ function applyBossAegis(session: TowerSession, boss: TowerActor): void {
  *  this kills the "unkillable regen" DPS-cliff the balance sim exposed (a flat %-of-MAX heal makes
  *  a regen boss binary: impossible below a DPS threshold, trivial above). STORY runs (no
  *  ascensionTier) keep the old 7%-of-MAX behaviour → byte-identical. */
-function applyBossRegen(session: TowerSession): void {
+function applyBossRegen(session: TowerSession): TowerVfxEvent | undefined {
     const id = session.phaseState.bossId;
     const boss = id ? getActor(session, id) : undefined;
-    if (!boss || boss.hp <= 0 || String(boss.character.mechanic ?? '') !== 'regen') return;
+    if (!boss || boss.hp <= 0 || String(boss.character.mechanic ?? '') !== 'regen') return undefined;
     const cap = Number(session.regenFlatCap ?? Infinity);
     const regenBase = session.ascensionTier ? boss.hp : boss.maxHp; // spire: % of CURRENT hp; story: % of max
     const heal = Math.min(Math.max(1, Math.floor(regenBase * 0.07)), cap);
     const before = boss.hp;
     boss.hp = Math.min(boss.maxHp, boss.hp + heal);
-    if (boss.hp > before) session.log.push(`${boss.name} regenerates ${boss.hp - before} HP.`);
+    if (boss.hp > before) {
+        session.log.push(`${boss.name} regenerates ${boss.hp - before} HP.`);
+        return { key: 'heal', target: boss.id, anchor: 'caster' };
+    }
+    return undefined;
 }
 /** Wave 3 'Second Wind' (extraPhase): a ONE-TIME desperation blast when the boss crosses its
  *  sealed extra HP-gate — a bounded % chip to every living SQUAD member (never regen/heal, so
@@ -833,12 +839,14 @@ function dynamicHazardTiles(session: TowerSession, round: number): number[] {
 }
 /** Round-end: an erupting geyser scalds EVERY living unit standing on it (any side — neutral board
  *  danger the AI dodges), flat %-maxHp. Absent → no-op (byte-identical). */
-function applyRoundDynamicHazards(session: TowerSession): void {
+function applyRoundDynamicHazards(session: TowerSession): number[] {
     const hazards = session.map.dynamicHazards;
-    if (!hazards || hazards.length === 0) return;
+    if (!hazards || hazards.length === 0) return [];
+    const eruptingTiles = new Set<number>();
     for (const hz of hazards) {
         if (!geyserErupts(hz, session.round)) continue;
         const tiles = new Set(hz.tiles ?? []);
+        for (const tile of tiles) eruptingTiles.add(tile);
         const pct = Math.max(1, Math.floor(Number(hz.pct) || 4));
         for (const a of session.actors) {
             if (a.hp <= 0 || !tiles.has(a.pos) || objectiveBossDamageLocked(session, a)) continue;
@@ -847,6 +855,7 @@ function applyRoundDynamicHazards(session: TowerSession): void {
             session.log.push(`${a.name} is scalded by an erupting geyser for ${dmg} (${a.hp}/${a.maxHp}).`);
         }
     }
+    return [...eruptingTiles].sort((a, b) => a - b);
 }
 /** Shove `actor` up to `dist` tiles directly AWAY from `centerTile` (seismic-slam knockback).
  *  Deterministic (first legal outward neighbour in tile-index order); stops at walls/edges/units. */
@@ -866,6 +875,7 @@ function pushAwayFrom(session: TowerSession, actor: TowerActor, centerTile: numb
 /** Round-end: detonate a primed boss strike + chip anyone caught outside the closing ring. Squad
  *  only (boss/adds/escort exempt), flat %-maxHp outside wMult; the strike is cleared so it fires once. */
 function applyBossStrikeAndRing(session: TowerSession): void {
+    const plates: TowerVfxEvent[] = [];
     const strike = session.bossStrike;
     if (strike && strike.round === session.round) {
         const zone = new Set(strike.tiles);
@@ -879,18 +889,25 @@ function applyBossStrikeAndRing(session: TowerSession): void {
             // hazard/geyser — the combo). Only when the boss is alive to have thrown it.
             if (isSlam && a.hp > 0 && typeof strike.center === 'number') pushAwayFrom(session, a, strike.center, 2);
         }
+        // The telegraph is useful only if its payoff reads as an impact. Publish the
+        // exact sealed footprint so every client sees the same neutral boss burst.
+        plates.push({ key: 'heavy', anchor: 'area', tiles: strike.tiles });
         session.bossStrike = undefined;
     }
     const ring = session.map.closingRing;
     if (ring) {
         const lethal = new Set(closingRingTiles(session, session.round));
-        if (lethal.size) for (const a of session.actors) {
-            if (a.hp <= 0 || a.side !== 'squad' || !lethal.has(a.pos)) continue;
-            const dmg = Math.max(1, Math.floor((a.maxHp * Math.max(1, Number(ring.pct ?? SUDDEN_DEATH_PCT))) / 100));
-            a.hp = Math.max(0, a.hp - dmg);
-            session.log.push(`${a.name} is caught in the closing ring for ${dmg} (${a.hp}/${a.maxHp}).`);
+        if (lethal.size) {
+            plates.push({ key: 'shadow', anchor: 'area', tiles: [...lethal].sort((a, b) => a - b) });
+            for (const a of session.actors) {
+                if (a.hp <= 0 || a.side !== 'squad' || !lethal.has(a.pos)) continue;
+                const dmg = Math.max(1, Math.floor((a.maxHp * Math.max(1, Number(ring.pct ?? SUDDEN_DEATH_PCT))) / 100));
+                a.hp = Math.max(0, a.hp - dmg);
+                session.log.push(`${a.name} is caught in the closing ring for ${dmg} (${a.hp}/${a.maxHp}).`);
+            }
         }
     }
+    publishTowerVfx(session, plates);
 }
 
 // ─── Targeting / sides ───────────────────────────────────────────────────────
@@ -2027,10 +2044,28 @@ function tickBossPhases(session: TowerSession): void {
         session.phaseState.triggeredPhases.push(t);
         session.log.push(`${boss.name} enters a new phase (${t}% HP).`);
         applyBossPhaseMechanic(session, boss); // enrage / summon fire at each gate
-        dropPhasePillars(session, boss); // a 'phasePillars' boss reshapes the arena at each gate
-        applyBossAegis(session, boss); // an 'aegis' boss raises a fresh (capped) shield at each gate
+        const newPillars = dropPhasePillars(session, boss); // a 'phasePillars' boss reshapes the arena at each gate
+        const aegisGranted = applyBossAegis(session, boss); // an 'aegis' boss raises a fresh (capped) shield at each gate
         // Wave 3: the desperation blast fires on the sealed extra gate (once).
-        if (session.extraPhaseThreshold != null && t === session.extraPhaseThreshold) applyExtraPhaseShockwave(session, boss);
+        const extraPhase = session.extraPhaseThreshold != null && t === session.extraPhaseThreshold;
+        if (extraPhase) applyExtraPhaseShockwave(session, boss);
+        const mechanic = String(boss.character.mechanic ?? '');
+        const phaseZone = [boss.pos, ...towerNeighbors(boss.pos, session.map.width, session.map.height)];
+        const plates: TowerVfxEvent[] = [];
+        if (extraPhase) {
+            plates.push({
+                key: 'heavy', anchor: 'area',
+                tiles: session.actors.filter(actor => actor.side === 'squad' && actor.hp > 0).map(actor => actor.pos),
+            });
+        } else if (aegisGranted > 0 || mechanic === 'bulwark') {
+            plates.push({ key: 'shield', anchor: 'area', tiles: phaseZone, persistent: true });
+        } else if (mechanic === 'summon') {
+            plates.push({ key: 'shadow', anchor: 'area', tiles: phaseZone });
+        } else if (mechanic === 'enrage') {
+            plates.push({ key: 'buff', anchor: 'area', tiles: phaseZone });
+        }
+        if (newPillars.length > 0) plates.push({ key: 'earth', anchor: 'area', tiles: newPillars });
+        publishTowerVfx(session, plates);
         // For break-objective these server-authored HP gates ARE the staged objective.
         // Refresh after phase mechanics so a summon can also restore an adds barrier.
         refreshObjectiveProgress(session);
@@ -2120,12 +2155,14 @@ function towerActionVfx(session: TowerSession, actor: TowerActor, action: TowerA
  */
 export function applyAction(session: TowerSession, floor: TowerFloor, action: TowerAction, rng: () => number): ActionResult {
     const hpBefore = new Map(session.actors.map(a => [a.id, a.hp]));
+    const vfxSeqBefore = session.vfxSeq;
     const result = applyResolvedAction(session, floor, action, rng);
     if (!result.applied) return result;
     const actor = session.actors.find(a => a.id === action.actorId);
     if (actor) {
         const ko = session.actors.some(a => a.hp <= 0 && (hpBefore.get(a.id) ?? 0) > 0);
-        publishTowerVfx(session, towerActionVfx(session, actor, action, ko));
+        const phasePlates = session.vfxSeq !== vfxSeqBefore ? (session.vfx ?? []) : [];
+        publishTowerVfx(session, [...phasePlates, ...towerActionVfx(session, actor, action, ko)]);
     }
     return result;
 }
@@ -2250,6 +2287,9 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
         const cTarget = getActor(session, action.targetId);
         if (!cTarget || cTarget.hp <= 0) return { applied: false, reason: 'no-target' };
         if (!hostileSidesFor(actor.side).includes(cTarget.side)) return { applied: false, reason: 'friendly-fire' };
+        if (actor.side === 'squad' && rejectObjectiveLockedBoss(session, actor, cTarget)) {
+            return { applied: false, reason: 'objective-locked' };
+        }
         if (hasActiveStatus(cTarget, 'Clear Prevent', session.round)) {
             session.log.push(`${cTarget.name}'s Clear Prevent blocks the clear.`);
         } else {
@@ -2470,6 +2510,7 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             const affected: string[] = [];
             for (const foe of session.actors) {
                 if (foe.hp <= 0 || !hostileSidesFor(actor.side).includes(foe.side)) continue;
+                if (actor.side === 'squad' && objectiveBossDamageLocked(session, foe)) continue;
                 if (hasActiveStatus(foe, 'Debuff Prevent', session.round)) continue;
                 addTowerStatus(foe, status);
                 affected.push(foe.name);
@@ -2559,18 +2600,33 @@ export function endTurn(session: TowerSession, floor: TowerFloor): void {
         return;
     }
     // round complete
+    const roundPlates: TowerVfxEvent[] = [];
+    let observedVfxSeq = session.vfxSeq;
+    const collectRoundPlates = () => {
+        if (session.vfxSeq === observedVfxSeq) return;
+        roundPlates.push(...(session.vfx ?? []));
+        observedVfxSeq = session.vfxSeq;
+    };
     session.objectiveState.roundsSurvived = (session.objectiveState.roundsSurvived ?? 0) + 1;
     applyRoundGroundEffects(session); // re-apply persistent ground zones to units standing in them, then tick
     applyRoundStatusTicks(session); // bleed Wound/Poison/Drain + expire statuses (PvP DoT math)
+    collectRoundPlates();
     applyRoundHazards(session); // chip anyone standing on a hazard tile at round end
     applyBossStrikeAndRing(session); // detonate the telegraphed boss strike + closing-ring chip
-    applyRoundDynamicHazards(session); // erupt any geyser vents scheduled for this round
+    collectRoundPlates();
+    const geyserTiles = applyRoundDynamicHazards(session); // erupt any geyser vents scheduled for this round
+    if (geyserTiles.length) roundPlates.push({ key: 'magma', anchor: 'area', tiles: geyserTiles });
     // Resolve every HP gate before fonts/regen can heal the boss back above a threshold.
     // checkTowerWinner also ticks defensively, but that later call is deliberately after
     // healing and cannot prove that a transient round-end crossing actually occurred.
     tickBossPhases(session);
+    collectRoundPlates();
     applyRoundFonts(session);   // fonts restore whoever holds them (capped; heal-cut honoured)
-    applyBossRegen(session);    // a 'regen' boss heals each round
+    const regenPlate = applyBossRegen(session); // a 'regen' boss heals each round
+    if (regenPlate) roundPlates.push(regenPlate);
+    // Round-end systems resolve sequentially, but their feedback is one beat. Preserve
+    // every plate authored during this mutation instead of letting the last system win.
+    publishTowerVfx(session, roundPlates);
     checkTowerWinner(session, floor);
     if (session.status !== 'active') return;
     // Endless Spire seals a per-floor roundCap (<= MAX_ROUNDS) as the real clear deadline;

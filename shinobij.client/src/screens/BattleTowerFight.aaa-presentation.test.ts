@@ -39,7 +39,7 @@ test("combat hierarchy remains legible and reachable on narrow touch screens", (
     assert.match(tacticalCss, /\.combat-instance\.screen-battleTowerFight \.tower-board-area\s*\{[\s\S]{0,100}?flex-basis:\s*clamp\(280px, 38dvh, 340px\)/);
     assert.match(tacticalCss, /\.screen-battleTowerFight \[role="dialog"\] button\s*\{\s*min-height:\s*44px/);
     assert.match(tacticalCss, /\.tower-fight-statusbar\[data-has-encounter-art="true"\]\s*\{[\s\S]{0,500}?var\(--tower-encounter-art\)/);
-    assert.match(tacticalCss, /@media \(prefers-reduced-data: reduce\)[\s\S]{0,180}?background-image:\s*none !important/);
+    assert.match(tacticalCss, /@media \(prefers-reduced-data: reduce\)[\s\S]{0,300}?background-image:\s*none !important/);
 });
 
 test("targeting guidance is truthful and hides inert board controls from assistive tech", () => {
@@ -54,6 +54,31 @@ test("targeting guidance is truthful and hides inert board controls from assisti
     assert.match(tacticalCss, /\.tower-action-state--blocked\s*\{/);
     assert.match(tacticalCss, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.tower-phase-banner/);
     assert.match(tacticalCss, /@media \(forced-colors: active\)/);
+});
+
+test("adds-gated bosses are visibly protected and omitted from legal target highlights", () => {
+    assert.match(fight, /const lockedBossId = session\.objectiveState\.bossUnlocked === false \? bossId : undefined/);
+    assert.match(fight, /if \(a\.id === lockedBossId\) continue/);
+    assert.match(fight, /const bossBarrierActive = isBoss/);
+    assert.match(fight, /className="tower-board-actor" onClick=\{\(\) => onTileClick\(a\.pos\)\} data-protected=\{bossBarrierActive \? "true" : undefined\}/);
+    assert.match(fight, /bossBarrierActive \? "\. Barrier active" : ""/);
+    assert.match(fight, /className="tower-boss-barrier"/);
+    assert.match(tacticalCss, /\.tower-boss-barrier\s*\{[\s\S]{0,360}?animation:\s*towerBossBarrierPulse/);
+    assert.match(tacticalCss, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.tower-boss-barrier/);
+});
+
+test("desktop dead space becomes authoritative combat intel without crowding mobile rails", () => {
+    assert.match(fight, /className="tower-combat-intel" aria-labelledby="tower-combat-intel-title"/);
+    assert.match(fight, /const objectiveDirective = bossUnlocked === false[\s\S]{0,300}?Break the boss barrier/);
+    assert.match(fight, /className="tower-objective-dossier" aria-label="Primary objective"/);
+    assert.match(fight, /className="tower-boss-dossier" aria-label=\{`\$\{bossActor\.name\} boss dossier`\}/);
+    assert.match(fight, /className="tower-boss-health-meter" role="progressbar"[\s\S]{0,180}?aria-valuenow=\{hpPct\(bossActor\)\}/);
+    assert.match(fight, /className="tower-board-legend"[\s\S]{0,180}?role="list" aria-label="Battlefield legend"/);
+    assert.match(fight, /if \(strikeTiles\.size > 0\) boardLegend\.push\(\{ kind: "strike"/);
+    assert.match(fight, /fieldFeatures\.has\("pylon"\)[\s\S]{0,220}?fieldFeatures\.has\("ward"\)/);
+    assert.match(tacticalCss, /\.tower-combat-intel\s*\{[\s\S]{0,300}?linear-gradient/);
+    assert.match(tacticalCss, /@media \(max-width: 1023px\)\s*\{[\s\S]{0,120}?\.tower-combat-intel\s*\{\s*display:\s*none/);
+    assert.match(tacticalCss, /@media \(prefers-reduced-data: reduce\)[\s\S]{0,260}?\.tower-combat-intel/);
 });
 
 test("battlefield sprites remain presentation-only inside the authoritative actor button", () => {

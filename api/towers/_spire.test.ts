@@ -7,6 +7,7 @@ import {
 } from './_modifiers.js';
 import {
     getSpireFloor, isValidSpireTier, spireBossForFloor, SPIRE_MILESTONE_FLOORS, SPIRE_BOSS_VISUALS,
+    spireArenaClassForTier, SPIRE_MAJOR_ARENA_FROM_TIER,
 } from './_spire-catalog.js';
 import {
     settleSpireForMember, isSpireRun, floorPaidKey, spireRewardKey, spireLbKey, SPIRE_SHARDS_PER_TIER,
@@ -16,8 +17,9 @@ import { weekKey } from '../missions/_weekly-board.js';
 import { buildTowerEncounter, type SquadMemberInput } from './_encounter.js';
 import { runTowerFloor, startRound, endTurn, applyAction, type TowerAction } from './_engine.js';
 import { makeRng } from './_sim.js';
-import { getFloor } from './_floor-catalog.js';
+import { getFloor, TOWER_ARENA_SIZES } from './_floor-catalog.js';
 import { validateFloor } from './_floor-validate.js';
+import { floorForSession, sealTowerCatalogFloor } from './_session-floor.js';
 import type { TowerSession, TowerActor } from './_tower-session.js';
 
 // ─── resolveAscensionModifiers (pure single source of truth) ─────────────────
@@ -104,6 +106,21 @@ describe('Endless Spire — floor catalog', () => {
             assert.ok((f.boss!.hp ?? 0) > 0, `floor ${t} has authored HP`);
             assert.ok(f.boss!.aiId.startsWith('spire-'), 'uses an endgame spire boss template');
             assert.deepEqual(validateFloor(f), [], `floor ${t} satisfies the shared Tower content schema`);
+        }
+    });
+    it('steps from the standard arena into the major mechanic canvas at tier 11', () => {
+        assert.equal(SPIRE_MAJOR_ARENA_FROM_TIER, 11);
+        assert.equal(spireArenaClassForTier(0), undefined);
+        assert.equal(spireArenaClassForTier(SPIRE_MAX_TIER + 1), undefined);
+        for (let tier = 1; tier <= SPIRE_MAX_TIER; tier++) {
+            const expectedClass = tier < SPIRE_MAJOR_ARENA_FROM_TIER ? 'standard' : 'major';
+            const floor = getSpireFloor(tier)!;
+            assert.equal(spireArenaClassForTier(tier), expectedClass, `tier ${tier} class`);
+            assert.deepEqual(floor.map, TOWER_ARENA_SIZES[expectedClass], `tier ${tier} footprint`);
+            for (const feature of floor.features ?? []) {
+                assert.equal(feature.tiles.length, 7, `tier ${tier} ${feature.kind} owns a full seven-tile flower`);
+                assert.ok(feature.tiles.every(tile => tile >= 0 && tile < floor.map.width * floor.map.height), `tier ${tier} feature is in bounds`);
+            }
         }
     });
     it('the Sovereign anchors the first three title floors and the authored apex owns tier 20', () => {
@@ -194,6 +211,10 @@ describe('Endless Spire — encounter sealing', () => {
         assert.equal(s.dmgMult, seal.dmgMult);
         assert.ok(Array.isArray(s.modifierStack) && s.modifierStack.length > 0);
         assert.ok(isSpireRun(s));
+        sealTowerCatalogFloor(s, floor, 'spire');
+        assert.deepEqual({ width: s.map.width, height: s.map.height }, TOWER_ARENA_SIZES.major);
+        assert.deepEqual(s.sealedCatalogFloor?.map, TOWER_ARENA_SIZES.major);
+        assert.deepEqual(floorForSession(s)?.map, TOWER_ARENA_SIZES.major);
         const boss = s.actors.find(a => a.id === 'boss')!;
         assert.equal(boss.maxHp, floor.boss!.hp); // per-floor authored HP, not the template hp
     });
@@ -205,6 +226,10 @@ describe('Endless Spire — encounter sealing', () => {
         assert.equal(s.enrageCap, undefined);
         assert.equal(s.dmgMult, undefined);
         assert.equal(isSpireRun(s), false);
+        sealTowerCatalogFloor(s, story, 'story');
+        assert.deepEqual({ width: s.map.width, height: s.map.height }, TOWER_ARENA_SIZES.compact);
+        assert.deepEqual(s.sealedCatalogFloor?.map, TOWER_ARENA_SIZES.compact);
+        assert.deepEqual(floorForSession(s)?.map, TOWER_ARENA_SIZES.compact);
     });
 });
 

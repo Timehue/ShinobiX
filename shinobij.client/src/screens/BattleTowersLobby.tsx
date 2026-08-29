@@ -26,7 +26,10 @@ import { BATTLE_TOWERS_MIN_LEVEL } from "../../../shared/tower-pvp";
 // One shared source of truth with the server gate in api/towers/pvp-queue.ts and
 // api/towers/_story-eligibility.ts — this used to be an independent literal.
 const TOWER_MIN_LEVEL = BATTLE_TOWERS_MIN_LEVEL;
-const FLOOR_CACHE_KEY = "tower-floors:v4";
+// Bump whenever the public floor DTO changes. v5 invalidates pre-adaptive-arena
+// snapshots so the lobby and the authoritative encounter cannot describe
+// different footprints during the five-minute cache window.
+const FLOOR_CACHE_KEY = "tower-floors:v5";
 const FLOOR_CACHE_TTL_MS = 5 * 60_000;
 
 function isTowerFloorList(value: unknown): value is TowerFloorMeta[] {
@@ -51,8 +54,10 @@ function isTowerFloorList(value: unknown): value is TowerFloorMeta[] {
             && Number.isFinite(reward.fateShards)
             && Number.isFinite(reward.boneCharms)
             && !!map
-            && Number.isFinite(map.width)
-            && Number.isFinite(map.height);
+            && Number.isInteger(map.width)
+            && map.width > 0
+            && Number.isInteger(map.height)
+            && map.height > 0;
     });
 }
 
