@@ -1,459 +1,254 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-    runWarfrontMatch, startWarfrontMatch, wfPowerupCost,
-    WARFRONT_TPS, WF_MAX_SECONDS, WF_PHASE_SKIRMISH, WF_PHASE_SUDDEN, WF_PHASE_WAR, WF_ROUND_SECONDS, WF_STACK_CAP,
-} from "./pet-warfront-sim";
-import type { ArenaRole, ArenaSlot } from "./pet-arena-sim";
 import type { Pet } from "../types/pet";
-import { WF_X, WF_Y, wfWalkable } from "./pet-warfront-map";
+import type { ArenaRole, ArenaSlot } from "./pet-arena-sim";
+import { wfLaneAt } from "./pet-warfront-map";
+import {
+    parseWarfrontCommandPlan,
+    runWarfrontMatch,
+    startWarfrontMatch,
+    WARFRONT_TPS,
+    WF_MAX_SECONDS,
+    WF_ROUND_SECONDS,
+    WF_OMENS,
+    wfOmenForSeed,
+    wfTakedownFavor,
+    wfVerdictScore,
+} from "./pet-warfront-sim";
+import { pruneWarfrontSnapshots } from "./pet-warfront-worker-client";
 
-function mkPet(id: string, name: string, element: string, over: Partial<Pet> = {}): Pet {
+function mkPet(id: string, boost = 0): Pet {
     return {
-        id, name, element,
-        hp: 700, attack: 90, defense: 45, speed: 60,
-        ...over,
+        id,
+        name: id,
+        element: ["Earth", "Water", "Fire", "Wind"][Number(id.at(-1)) || 0],
+        hp: 700 + boost * 4,
+        attack: 90 + boost,
+        defense: 45 + boost / 4,
+        speed: 60,
+        jutsus: [],
     } as Pet;
 }
+
 function squad(prefix: string, boost = 0): ArenaSlot[] {
     const roles: ArenaRole[] = ["defender", "tracker", "assassin", "sage"];
-    const elements = ["Earth", "Water", "Fire", "Wind"];
-    return roles.map((role, i) => ({
-        pet: mkPet(`${prefix}-${i}`, `${prefix}${i}`, elements[i], { attack: 90 + boost, hp: 700 + boost * 4 }),
-        role,
-    }));
+    return roles.map((role, index) => ({ pet: mkPet(`${prefix}-${index}`, boost), role }));
 }
 
-test("stances are real: forced stances change the match, and declarations fire", () => {
-    const a = runWarfrontMatch(squad("A"), squad("B"), 77, "balanced", "balanced", undefined, { blue: "headhunt", red: "turtle", adapt: false });
-    const b = runWarfrontMatch(squad("A"), squad("B"), 77, "balanced", "balanced", undefined, { blue: "siege", red: "siege", adapt: false });
-    assert.notEqual(JSON.stringify(a.events), JSON.stringify(b.events), "different stances must produce different matches");
-    const decls = a.events.filter((e) => e.type === "stance");
-    assert.ok(decls.length >= 2, "both teams declare a stance at 0:00");
-    assert.ok(decls.every((d) => d.t === 0), "forced stances never change mid-match when adaptation is off");
+test("opening deployment normalizes to 2–1–1 and records the sealed lanes", () => {
+    const ctl = startWarfrontMatch(squad("A"), squad("B"), 11, {
+        initialLanes: { blue: ["s", "s", "n", "m"] },
+    });
+    assert.deepEqual(ctl.result.initialLanes.blue, ["s", "s", "n", "m"]);
+    assert.deepEqual(ctl.lanes().blue, ["s", "s", "n", "m"]);
+    assert.deepEqual(ctl.result.snapshots[0].actors.filter((actor) => actor.team === "blue").map((actor) => actor.lane), ["s", "s", "n", "m"]);
+
+    const invalid = startWarfrontMatch(squad("A"), squad("B"), 11, {
+        initialLanes: { blue: ["m", "m", "m", "m"] },
+    });
+    assert.deepEqual(invalid.result.initialLanes.blue, ["n", "m", "s", "m"], "a lane may never begin empty");
 });
 
-test("pregame doctrines are build-defining and match their advertised values", () => {
-    const baseline = startWarfrontMatch(squad("A"), squad("B"), 12, {
-        bluePolicy: "off", redPolicy: "off", blueDoctrine: "none", redDoctrine: "none",
-    }).result.snapshots[0];
-    const bulwark = startWarfrontMatch(squad("A"), squad("B"), 12, {
-        bluePolicy: "off", redPolicy: "off", blueDoctrine: "bulwark", redDoctrine: "none",
-    }).result.snapshots[0];
-    for (let slot = 0; slot < 4; slot++) {
-        const before = baseline.actors.find((actor) => actor.id === `blue-${slot}`)!;
-        const after = bulwark.actors.find((actor) => actor.id === `blue-${slot}`)!;
-        assert.equal(after.maxHp, Math.round(before.maxHp * 1.12), `slot ${slot} did not receive the sealed +12% HP doctrine`);
-        assert.equal(after.hp, after.maxHp, `slot ${slot} must enter at the doctrine-adjusted health cap`);
-    }
+test("scheduled windows pause at two minutes and permit exactly one transfer or Hold", () => {
+    const ctl = startWarfrontMatch(squad("A", -45), squad("B", -45), 23, { snapshotEvery: WARFRONT_TPS });
+    ctl.advanceRoundPartial(WARFRONT_TPS * (WF_ROUND_SECONDS + 10));
+    const command = ctl.commandState();
+    assert.equal(command?.reason, "scheduled");
+    assert.equal(command?.t, WARFRONT_TPS * WF_ROUND_SECONDS);
+    assert.equal(command?.maxMoves, 1);
+    const before = ctl.lanes().blue;
+    ctl.advanceRound([{ type: "move", petIndex: 0, lane: "m" }, { type: "move", petIndex: 2, lane: "m" }]);
+    const after = ctl.lanes().blue;
+    assert.equal(after.filter((lane, index) => lane !== before[index]).length, 1);
+    assert.deepEqual(ctl.commandLog()[0].moves, [{ petIndex: 0, lane: "m" }]);
+
+    const hold = startWarfrontMatch(squad("A", -45), squad("B", -45), 23, { snapshotEvery: WARFRONT_TPS });
+    hold.advanceRoundPartial(WARFRONT_TPS * (WF_ROUND_SECONDS + 10));
+    const holdBefore = hold.lanes().blue;
+    hold.advanceRound([]);
+    assert.deepEqual(hold.commandLog()[0].moves, []);
+    assert.deepEqual(hold.lanes().blue, holdBefore, "an explicit empty command is Hold, not an AI move");
 });
 
-test("full-auto match is deterministic (byte-identical snapshots + events)", () => {
+test("the match is deterministic and actors never leave their sealed lane graph", () => {
     const a = runWarfrontMatch(squad("A"), squad("B"), 12345);
     const b = runWarfrontMatch(squad("A"), squad("B"), 12345);
     assert.equal(a.winner, b.winner);
     assert.equal(a.ticks, b.ticks);
-    assert.equal(JSON.stringify(a.snapshots[a.snapshots.length - 1]), JSON.stringify(b.snapshots[b.snapshots.length - 1]));
-    assert.equal(JSON.stringify(a.events), JSON.stringify(b.events));
-    for (const [seconds, name] of [[WF_PHASE_SKIRMISH, "SKIRMISH"], [WF_PHASE_WAR, "WAR"], [WF_PHASE_SUDDEN, "SUDDEN DEATH"]] as const) {
-        if (a.ticks >= seconds * WARFRONT_TPS) {
-            assert.ok(a.events.some((event) => event.type === "phase" && event.name === name && event.t === seconds * WARFRONT_TPS), `${name} fires on schedule`);
-        }
+    assert.deepEqual(a.events, b.events);
+    assert.deepEqual(a.commandLog, b.commandLog);
+    for (const frame of a.snapshots.filter((_, index) => index % 90 === 0)) {
+        for (const actor of frame.actors) assert.equal(wfLaneAt(actor.x, actor.y), actor.lane, `${actor.id} crossed out of ${actor.lane}`);
     }
 });
 
-test("15 Hz presentation snapshots preserve the exact 30 Hz simulation result", () => {
-    const options = {
-        bluePolicy: "off" as const,
-        redPolicy: "off" as const,
-        blueStance: "balanced" as const,
-        redStance: "balanced" as const,
-        adaptStances: false,
-    };
-    const full = startWarfrontMatch(squad("A"), squad("B"), 4242, options);
-    const compact = startWarfrontMatch(squad("A"), squad("B"), 4242, { ...options, snapshotEvery: 2 });
-    full.advanceRoundPartial(WARFRONT_TPS * 12);
-    compact.advanceRoundPartial(WARFRONT_TPS * 12);
-    assert.equal(compact.result.snapshots.length, full.result.snapshots.length / 2 + 0.5);
-    assert.ok(compact.result.snapshots.slice(1).every((frame) => frame.t % 2 === 0));
-    assert.deepEqual(compact.result.snapshots.at(-1), full.result.snapshots.at(-1));
-    assert.deepEqual(compact.result.events, full.result.events);
+test("authoritative replay is outcome-identical without retaining presentation history", () => {
+    const full = runWarfrontMatch(squad("A"), squad("B"), 8080, "balanced", "balanced", undefined,
+        { blue: "jungle", red: "balanced" }, { blue: "warden-pact", red: "vanguard" });
+    const authority = runWarfrontMatch(squad("A"), squad("B"), 8080, "balanced", "balanced", undefined,
+        { blue: "jungle", red: "balanced" }, { blue: "warden-pact", red: "vanguard" }, undefined,
+        { captureSnapshots: false });
+    assert.equal(authority.winner, full.winner);
+    assert.equal(authority.ticks, full.ticks);
+    assert.deepEqual(authority.events, full.events);
+    assert.deepEqual(authority.commandLog, full.commandLog);
+    assert.deepEqual(authority.petStats, full.petStats);
+    assert.equal(authority.snapshots.length, 1, "authority keeps only the structural tick-zero frame");
+
+    const tenMinuteAuthority = runWarfrontMatch(squad("A", -75), squad("B", -75), 7,
+        "balanced", "balanced", undefined, undefined, undefined, undefined,
+        { captureSnapshots: false });
+    assert.equal(tenMinuteAuthority.ticks, WARFRONT_TPS * WF_MAX_SECONDS);
+    assert.equal(tenMinuteAuthority.snapshots.length, 1);
+    assert.ok(JSON.stringify(tenMinuteAuthority).length < 500_000, "authority result must remain below the 500 KB serialized budget");
 });
 
-test("mirrored squads leave spawn immediately without a west-biased gate jam", () => {
-    const ctl = startWarfrontMatch(squad("A"), squad("B"), 123, {
-        bluePolicy: "off",
-        redPolicy: "off",
-        blueStance: "balanced",
-        redStance: "balanced",
-        adaptStances: false,
+test("browser playback prunes consumed frames while retaining an interpolation anchor", () => {
+    const ctl = startWarfrontMatch(squad("A", -45), squad("B", -45), 71, { snapshotEvery: 2 });
+    ctl.advanceRoundPartial(WARFRONT_TPS * (WF_ROUND_SECONDS + 1));
+    const frames = ctl.result.snapshots;
+    assert.ok(frames.length > 1_000, "the worker should have streamed a complete command segment");
+    const removed = pruneWarfrontSnapshots(frames, ctl.result.ticks, WARFRONT_TPS * 2);
+    assert.ok(removed > 1_000);
+    assert.ok(frames.length <= WARFRONT_TPS + 2, "only the two-second 15 Hz interpolation tail should remain");
+    assert.ok(frames[0].t <= ctl.result.ticks - WARFRONT_TPS * 2);
+    assert.ok(frames.length === 1 || frames[1].t > ctl.result.ticks - WARFRONT_TPS * 2);
+});
+
+test("command log replay produces the identical authoritative winner and event stream", () => {
+    const played = runWarfrontMatch(squad("A"), squad("B"), 9090, "balanced", "balanced", undefined,
+        { blue: "jungle", red: "balanced" }, { blue: "warden-pact", red: "vanguard" });
+    const replay = runWarfrontMatch(squad("A"), squad("B"), 9090, "balanced", "balanced", undefined,
+        { blue: "jungle", red: "balanced" }, { blue: "warden-pact", red: "vanguard" }, {
+            initialLanes: played.initialLanes,
+            commands: played.commandLog,
+        });
+    assert.equal(replay.winner, played.winner);
+    assert.equal(replay.ticks, played.ticks);
+    assert.deepEqual(replay.events, played.events);
+});
+
+test("a supplied plan treats omitted command windows as Hold instead of AI assistance", () => {
+    const held = runWarfrontMatch(squad("A", -20), squad("B", -20), 5, "balanced", "balanced", undefined,
+        undefined, undefined, { initialLanes: { blue: ["n", "m", "s", "m"] }, commands: [] });
+    const firstScheduled = held.commandLog.find((entry) => entry.reason === "scheduled");
+    assert.ok(firstScheduled, "the match should reach a scheduled command window");
+    assert.deepEqual(firstScheduled.moves, []);
+    assert.equal(firstScheduled.summonLane, undefined);
+    assert.equal(firstScheduled.summonAspect, undefined);
+});
+
+test("first to destroy two towers wins and a first break opens a breakthrough", () => {
+    const result = runWarfrontMatch(squad("A", 180), squad("B", -60), 44, "balanced", "balanced", undefined,
+        { blue: "siege", red: "balanced" }, { blue: "vanguard", red: "none" });
+    assert.equal(result.winner, "blue");
+    const last = result.snapshots.at(-1)!;
+    assert.equal(wfVerdictScore(last).blue, 2);
+    assert.equal(result.events.filter((event) => event.type === "towerdown" && event.by === "blue").length, 2);
+    assert.ok(result.events.some((event) => event.type === "commandwindow" && event.reason === "breakthrough"));
+});
+
+test("Favor is earned and can call the Warden from a command window", () => {
+    const result = runWarfrontMatch(squad("A", 20), squad("B"), 31337, "balanced", "balanced", undefined,
+        { blue: "jungle", red: "balanced" }, { blue: "warden-pact", red: "vanguard" });
+    assert.ok(result.snapshots.some((frame) => frame.favor.blue > 0), "combat and tower pressure should earn Favor");
+    assert.ok(result.events.some((event) => event.type === "wardensummon" && event.team === "blue"), "Oathseekers + Pact should reach a summon in a representative match");
+});
+
+test("server-facing command plans reject malformed or lane-empty input", () => {
+    assert.equal(parseWarfrontCommandPlan(null), null);
+    assert.equal(parseWarfrontCommandPlan({ initialLanes: ["m", "m", "m", "m"], commands: [] }), null);
+    assert.equal(parseWarfrontCommandPlan({ initialLanes: ["n", "m", "s", "m"], commands: [{ t: 3600, reason: "scheduled", moves: [{ petIndex: 9, lane: "n" }] }] }), null);
+    assert.deepEqual(parseWarfrontCommandPlan({
+        initialLanes: ["n", "m", "s", "m"],
+        commands: [{ t: 3600, reason: "scheduled", moves: [], summonLane: "s" }],
+    }), {
+        initialLanes: { blue: ["n", "m", "s", "m"], red: ["n", "m", "s", "m"] },
+        commands: [{ t: 3600, reason: "scheduled", moves: [], summonLane: "s" }],
     });
-    ctl.advanceRoundPartial(WARFRONT_TPS * 5);
-    const first = ctl.result.snapshots[0];
-    const fifth = ctl.result.snapshots[WARFRONT_TPS * 5];
-    for (let slot = 0; slot < 4; slot++) {
-        const blueStart = first.actors.find((actor) => actor.id === `blue-${slot}`)!;
-        const redStart = first.actors.find((actor) => actor.id === `red-${slot}`)!;
-        const blue = fifth.actors.find((actor) => actor.id === `blue-${slot}`)!;
-        const red = fifth.actors.find((actor) => actor.id === `red-${slot}`)!;
-        const blueTravel = Math.hypot(blue.x - blueStart.x, blue.y - blueStart.y);
-        const redTravel = Math.hypot(red.x - redStart.x, red.y - redStart.y);
-        assert.ok(blueTravel > 6, `blue slot ${slot} stalled after ${blueTravel.toFixed(2)}u`);
-        assert.ok(redTravel > 6, `red slot ${slot} stalled after ${redTravel.toFixed(2)}u`);
-        assert.ok(Math.abs(blueTravel - redTravel) < 1.2, `slot ${slot} opening travel diverged ${blueTravel.toFixed(2)}u vs ${redTravel.toFixed(2)}u`);
-        assert.ok(Math.abs(blue.x + red.x) < 1.2, `slot ${slot} lost x-mirror fairness`);
-        assert.ok(Math.abs(blue.y - red.y) < 1.2, `slot ${slot} lost lane-mirror fairness`);
-    }
+    assert.ok(parseWarfrontCommandPlan({
+        initialLanes: ["n", "m", "s", "m"],
+        commands: [{ t: 1777, reason: "omen", moves: [{ petIndex: 1, lane: "n" }] }],
+    }), "a Shattered Wards reaction must survive the client-to-server replay parser");
 });
 
-test("macro AI covers every lane and dynamically reassigns its flex fighter", () => {
-    const result = runWarfrontMatch(squad("A"), squad("B"), 3);
-    const cleanPatterns = new Set(
-        result.snapshots
-            .filter((_, tick) => tick % (WARFRONT_TPS * 5) === 0)
-            .map((frame) => frame.actors
-                .filter((actor) => actor.team === "blue")
-                .map((actor) => actor.intent.split(":")[0]))
-            .filter((lanes) => lanes.every((lane) => lane === "n" || lane === "m" || lane === "s"))
-            .map((lanes) => lanes.join("")),
+test("every match terminates by the ten-minute Riftfall verdict", () => {
+    const result = runWarfrontMatch(squad("A", -75), squad("B", -75), 7);
+    assert.ok(result.ticks <= WARFRONT_TPS * WF_MAX_SECONDS);
+    assert.notEqual(result.winner, null);
+});
+
+test("Hollow Omens are deterministic, shared, and alter command cadence without adding hidden randomness", () => {
+    assert.deepEqual([4, 5, 6, 7].map(wfOmenForSeed), WF_OMENS.map((omen) => omen.id));
+    const storm = runWarfrontMatch(squad("A"), squad("B"), 5);
+    assert.equal(storm.omen, "storm-gate");
+    const firstScheduled = storm.events.find((event) => event.type === "commandwindow" && event.reason === "scheduled");
+    assert.equal(firstScheduled?.t, WARFRONT_TPS * 90);
+
+    const thinVeil = runWarfrontMatch(squad("A", 20), squad("B"), 4, "balanced", "balanced", undefined,
+        { blue: "jungle", red: "balanced" }, { blue: "warden-pact", red: "vanguard" });
+    const thinVeilMaxDuration = Math.max(...thinVeil.snapshots.map((frame) => frame.wardens.blue.active ? frame.wardens.blue.secs : 0));
+    assert.ok(thinVeil.events.some((event) => event.type === "wardensummon" && event.team === "blue"));
+    assert.ok(thinVeilMaxDuration > 27 && thinVeilMaxDuration <= 28, `Thin Veil duration drifted to ${thinVeilMaxDuration}s`);
+
+    assert.equal(wfTakedownFavor("blood-moon", true), 24, "Blood Moon adds 12 Favor to the normal takedown award");
+    assert.equal(wfTakedownFavor("thin-veil", true), 18, "ordinary fractured-tower defense keeps the six-Favor comeback award");
+    assert.equal(wfTakedownFavor("blood-moon", false), 12, "Blood Moon is not a global takedown multiplier");
+});
+
+test("command reveals and impact records preserve the plan-to-consequence story", () => {
+    const result = runWarfrontMatch(squad("A", 35), squad("B"), 8);
+    const resolved = result.events.filter((event) => event.type === "commandresolved");
+    assert.ok(resolved.length > 0);
+    assert.ok(result.commandImpacts.length > 0);
+    assert.ok(result.events.some((event) => event.type === "commandimpact"));
+    assert.ok(result.commandImpacts.every((impact) => impact.resolvedAt >= impact.t));
+    assert.ok(result.commandImpacts.every((impact) => impact.towerDamageDealt >= 0 && impact.towerDamageTaken >= 0));
+});
+
+test("Warden summons seal a visible behavior Aspect into the authoritative event and snapshots", () => {
+    const result = runWarfrontMatch(squad("A", 20), squad("B"), 31337, "balanced", "balanced", undefined,
+        { blue: "jungle", red: "balanced" }, { blue: "warden-pact", red: "vanguard" });
+    const summon = result.events.find((event) => event.type === "wardensummon");
+    assert.ok(summon && ["breaker", "sentinel", "harrier"].includes(summon.aspect));
+    assert.ok(result.snapshots.some((frame) => frame.wardens.blue.active || frame.wardens.red.active));
+    assert.ok(result.snapshots.filter((frame) => frame.wardens.blue.active).every((frame) => ["breaker", "sentinel", "harrier"].includes(frame.wardens.blue.aspect)));
+});
+
+test("Breaker, Sentinel, and Harrier produce distinct authoritative battlefield behavior", () => {
+    const runAspect = (aspect: "breaker" | "sentinel" | "harrier") => runWarfrontMatch(
+        squad("A", -60), squad("B", -60), 4, "balanced", "balanced", undefined,
+        { blue: "jungle", red: "balanced" }, { blue: "warden-pact", red: "vanguard" }, {
+            initialLanes: { blue: ["n", "m", "s", "m"] },
+            commands: [
+                { t: WARFRONT_TPS * 120, reason: "scheduled", moves: [] },
+                { t: WARFRONT_TPS * 240, reason: "scheduled", moves: [], summonLane: "m", summonAspect: aspect },
+            ],
+        },
     );
-    assert.ok(cleanPatterns.size >= 2, "the fourth fighter should rotate when lane pressure changes");
-    for (const pattern of cleanPatterns) {
-        assert.ok(pattern.includes("n") && pattern.includes("m") && pattern.includes("s"), `${pattern} abandoned a lane`);
-    }
+    const breaker = runAspect("breaker");
+    const sentinel = runAspect("sentinel");
+    const harrier = runAspect("harrier");
+    const maxWardenX = (result: typeof breaker) => Math.max(...result.snapshots
+        .filter((frame) => frame.wardens.blue.active)
+        .map((frame) => frame.wardens.blue.x));
+    const petDamage = (result: typeof breaker) => result.events.reduce((sum, event) => (
+        sum + (event.type === "hit" && event.actorId === "warden-blue" ? event.dmg : 0)
+    ), 0);
+    const towerDamage = (result: typeof breaker) => result.events.reduce((sum, event) => (
+        sum + (event.type === "towerhit" && event.actorId === "warden-blue" ? event.dmg : 0)
+    ), 0);
+
+    assert.ok(maxWardenX(sentinel) < -20, "Sentinel must return to the allied tower anchor");
+    assert.ok(maxWardenX(breaker) > 20 && maxWardenX(harrier) > 20, "offensive Aspects must advance down the lane");
+    assert.ok(petDamage(harrier) > petDamage(breaker), "Harrier must outperform Breaker against pets");
+    assert.ok(towerDamage(breaker) > towerDamage(harrier), "Breaker must outperform Harrier against structures");
 });
 
-test("low-health fighters can complete a recall, heal, and rejoin alive", () => {
-    const result = runWarfrontMatch(squad("A"), squad("B"), 3);
-    let completedRecall = false;
-    for (let tick = 1; tick < result.snapshots.length && !completedRecall; tick++) {
-        const before = result.snapshots[tick - 1];
-        const after = result.snapshots[tick];
-        for (const actor of before.actors) {
-            const next = after.actors.find((candidate) => candidate.id === actor.id);
-            if (actor.intent === "recall" && next?.intent !== "recall" && next?.state !== "respawning") {
-                assert.ok(next && next.hp / next.maxHp >= 0.74, "a completed recall rejoins at the recovery threshold");
-                completedRecall = true;
-                break;
-            }
-        }
-    }
-    assert.equal(completedRecall, true, "at least one fighter should survive a fountain reset");
-});
-
-test("match always terminates with a verdict within the cap", () => {
-    for (const seed of [1, 77, 20260719]) {
-        const r = runWarfrontMatch(squad("A"), squad("B"), seed);
-        assert.ok(r.winner === "blue" || r.winner === "red" || r.winner === "draw");
-        assert.ok(r.ticks <= WARFRONT_TPS * WF_MAX_SECONDS);
-        assert.ok(r.snapshots.length > WARFRONT_TPS * 30, "should run past the first round");
-    }
-});
-
-test("a much stronger team wins by breaking the ward seal (statues first)", () => {
-    const r = runWarfrontMatch(squad("A", 400), squad("B"), 42);
-    assert.equal(r.winner, "blue");
-    const coreDown = r.events.find((e) => e.type === "coredown");
-    assert.ok(coreDown, "core must be destroyed for a strength win");
-    // The gate: both enemy statues fell (and coreexposed fired) before the core fell.
-    const statueDowns = r.events.filter((e) => e.type === "statuedown" && e.team === "red");
-    const exposed = r.events.find((e) => e.type === "coreexposed" && e.team === "red");
-    assert.equal(statueDowns.length, 2);
-    assert.ok(exposed && coreDown && exposed.t <= coreDown.t);
-    if (exposed) assert.equal(r.snapshots[exposed.t].structures.red.core.exposed, true, "core exposure reaches the renderer snapshot on the event tick");
-    for (const sd of statueDowns) assert.ok(sd.t <= coreDown.t, "statues fall before the core");
-    // No core damage of the gated core before exposure.
-    const firstCoreHit = r.events.find((e) => e.type === "structhit" && e.core && e.team === "red");
-    if (firstCoreHit && exposed) assert.ok(firstCoreHit.t >= exposed.t, "core is invulnerable until both statues fall");
-    const wardenPhases = r.events.filter((event) => event.type === "wardenphase");
-    const wardenKill = r.events.find((event) => event.type === "wardenkill");
-    if (wardenKill) {
-        assert.deepEqual(wardenPhases.map((event) => event.phase), [2, 3], "the Warden escalates through both health phases");
-        assert.ok(wardenPhases[0].t < wardenPhases[1].t && wardenPhases[1].t <= wardenKill.t);
-    }
-    const wardenFrame = r.snapshots[r.snapshots.length - 1];
-    assert.equal(typeof wardenFrame.warden.damage.blue, "number", "snapshots expose Warden damage attribution");
-    assert.equal(typeof wardenFrame.warden.slamRadius, "number");
-    assert.equal(typeof wardenFrame.warden.resetSecs, "number");
-});
-
-test("hollow-spawn waves flow until the Gate Warden dies, then stop", () => {
-    const r = runWarfrontMatch(squad("A", 400), squad("B"), 9);
-    const wardenKill = r.events.find((e) => e.type === "wardenkill");
-    const waves = r.events.filter((e) => e.type === "mobwave");
-    assert.ok(waves.length >= 2, "waves must spawn while the warden lives");
-    if (wardenKill) {
-        for (const w of waves) assert.ok(w.t <= wardenKill.t + 1, "no waves after the warden dies");
-    }
-});
-
-test("coins flow from trickle and bounties, and the warden pays a ton", () => {
-    const r = runWarfrontMatch(squad("A", 400), squad("B"), 5);
-    // Coins FLOW (trickle/farm/bounties). Check the PEAK, not the end balance —
-    // a fast-winning team spends its coins on buys and correctly ends near zero,
-    // which the old end-balance check mistook for "no coins earned".
-    const peakBlueCoins = Math.max(...r.snapshots.map((s) => s.coins.blue));
-    assert.ok(peakBlueCoins > 150, "blue should accumulate coins");
-    const mobKills = r.events.filter((e) => e.type === "mobkill");
-    assert.ok(mobKills.length > 0, "farming happens");
-    const wardenKill = r.events.find((e) => e.type === "wardenkill");
-    if (wardenKill) {
-        const at = r.snapshots[Math.min(r.snapshots.length - 1, wardenKill.t + 2)];
-        const before = r.snapshots[Math.max(0, wardenKill.t - 2)];
-        const team = wardenKill.type === "wardenkill" ? wardenKill.team : "blue";
-        assert.ok(at.coins[team] - before.coins[team] >= 1000, "warden bounty is huge");
-    }
-});
-
-test("interactive buys: valid choice deducts coins + adds a stack; invalid ones are skipped", () => {
-    const ctl = startWarfrontMatch(squad("A"), squad("B"), 321, { redPolicy: "off" });
-    ctl.advanceRound();          // round 1 sims 0→90s (no buys yet)
-    assert.equal(ctl.round, 1);
-    const coinsBefore = ctl.coins("blue");
-    const buyBefore = ctl.buyState("blue");
-    assert.equal(buyBefore.length, 4);
-    const cost = buyBefore[0].costs.strike;
-    assert.equal(cost, wfPowerupCost(0));
-    ctl.advanceRound([
-        { petIndex: 0, kind: "strike" },
-        { petIndex: 99, kind: "strike" },            // no such pet — skipped
-        { petIndex: 0, kind: "__proto__" as never },  // untrusted worker payload — skipped
-    ]);
-    const buyAfter = ctl.buyState("blue");
-    assert.equal(buyAfter[0].stacks.strike, 1);
-    assert.equal(buyAfter[0].costs.strike, wfPowerupCost(1));
-    // The deduction itself is proven by the escalated price + stack above; a
-    // control-run coin comparison is inherently chaotic over a 90 s round (the
-    // buff changes fights, kills and bounties), so only sanity-check solvency.
-    assert.ok(ctl.coins("blue") >= 0);
-    void coinsBefore;
-});
-
-test("streamed interactive opening reaches 90s before Council and applies its choices", () => {
-    const ctl = startWarfrontMatch(squad("A"), squad("B"), 321, { redPolicy: "off" });
-    ctl.advanceRoundPartial(WARFRONT_TPS * 8);
-    assert.equal(ctl.round, 0, "the initial runway is still inside the opening round");
-
-    while (ctl.round === 0 && !ctl.done) ctl.advanceRoundPartial(70);
-    assert.equal(ctl.round, 1, "the first Council belongs to round one");
-    assert.equal(ctl.result.ticks, WARFRONT_TPS * 90, "the Council opens at the real round boundary");
-
-    const before = ctl.buyState("blue")[0].stacks.strike;
-    ctl.advanceRoundPartial(1, [{ petIndex: 0, kind: "strike" }]);
-    assert.equal(ctl.buyState("blue")[0].stacks.strike, before + 1, "Council choices apply to the next round");
-});
-
-test("Lesser Wardens path out of their dens instead of shaking at spawn", () => {
-    const ctl = startWarfrontMatch(squad("A"), squad("B"), 42, {
-        bluePolicy: "off",
-        redPolicy: "off",
-        adaptStances: false,
-    });
-    while (ctl.result.ticks < WARFRONT_TPS * 85 && !ctl.done) {
-        ctl.advanceRoundPartial(WARFRONT_TPS);
-    }
-    for (let padIdx = 0; padIdx < 4; padIdx++) {
-        const spawned = ctl.result.events.find((event) => event.type === "minispawn" && event.padIdx === padIdx);
-        assert.ok(spawned, `camp ${padIdx} never spawned`);
-        const start = spawned?.t ?? 0;
-        const frames = ctl.result.snapshots.slice(
-            start,
-            Math.min(ctl.result.snapshots.length, start + WARFRONT_TPS * 15),
-        ).map((snapshot) => snapshot.minis[padIdx]);
-        const origin = frames[0];
-        const maxTravel = Math.max(...frames.map((mini) => Math.hypot(mini.x - origin.x, mini.y - origin.y)));
-        assert.ok(maxTravel > 0.75, `camp ${padIdx} remained trapped in its den (${maxTravel.toFixed(2)}u)`);
-        assert.ok(frames.every((mini) => mini.attackPhase >= -1 && mini.attackPhase <= 1));
-    }
-});
-
-test("captured Wardens lead waves and overcharge surviving lane sentinels", () => {
-    // This replay recruits early enough for the full 50-second vanguard contract
-    // to play out before either Ward Seal falls.
-    const result = runWarfrontMatch(squad("A"), squad("B"), 1);
-    const capture = result.events.find((event) => event.type === "minikill");
-    assert.ok(capture, "the fixture must capture a Lesser Warden");
-    if (!capture) return;
-
-    const rally = result.events.find((event) =>
-        event.type === "guardianrally"
-        && event.t === capture.t
-        && event.team === capture.team
-        && event.padIdx === capture.padIdx);
-    assert.ok(rally, "a capture must issue the sentinel rally");
-    const captureFrame = result.snapshots[capture.t];
-    assert.ok(captureFrame.guardians[capture.team].some((guardian) => guardian.rallySecs > 15));
-    assert.ok(captureFrame.guardians[capture.team].every((guardian) =>
-        guardian.attackPhase >= -1 && guardian.attackPhase <= 1));
-
-    const ward = result.events.find((event) =>
-        event.type === "guardianward"
-        && event.team === capture.team
-        && event.t >= capture.t
-        && event.t <= capture.t + WARFRONT_TPS * 16);
-    assert.ok(ward && ward.amount > 0, "an overcharged sentinel must project a real lane ward");
-
-    const vanguardHit = result.events.find((event) =>
-        event.type === "mobhit"
-        && event.targetId === `mini-${capture.padIdx}`
-        && event.t >= capture.t
-        && event.t <= capture.t + WARFRONT_TPS * 50);
-    assert.ok(vanguardHit, "the recruited Warden must clear a hostile wave during its contract");
-});
-
-test("stack cap holds and prices escalate", () => {
-    assert.ok(wfPowerupCost(1) > wfPowerupCost(0));
-    assert.ok(wfPowerupCost(5) > wfPowerupCost(3));
-    const ctl = startWarfrontMatch(squad("A"), squad("B"), 55, { redPolicy: "off" });
-    ctl.advanceRound();
-    for (let r = 0; r < 12 && !ctl.done; r++) {
-        ctl.advanceRound(Array.from({ length: 8 }, () => ({ petIndex: 0, kind: "strike" as const })));
-    }
-    const stacks = ctl.buyState("blue")[0].stacks.strike;
-    assert.ok(stacks <= WF_STACK_CAP, `stacks ${stacks} exceed cap`);
-});
-
-test("auto-buy policies spend coins deterministically", () => {
-    const a = runWarfrontMatch(squad("A"), squad("B"), 777, "offense", "defense");
-    const b = runWarfrontMatch(squad("A"), squad("B"), 777, "offense", "defense");
-    assert.equal(JSON.stringify(a.events.filter((e) => e.type === "buy")), JSON.stringify(b.events.filter((e) => e.type === "buy")));
-    const buys = a.events.filter((e) => e.type === "buy" && e.team === "blue");
-    assert.ok(buys.length > 0, "offense policy must actually buy");
-});
-
-test("every War Council executes a visible squad redeploy on top of purchases", () => {
-    const ctl = startWarfrontMatch(squad("A"), squad("B"), 777, {
-        bluePolicy: "off", redPolicy: "off", adaptStances: false,
-    });
-    ctl.advanceRound();
-    assert.equal(ctl.done, false, "the opening round must reach its first council");
-    ctl.advanceRound([{ petIndex: 0, kind: "strike" }], "siege");
-    const council = ctl.result.events.find((event) => event.type === "council" && event.team === "blue");
-    assert.ok(council, "the council must emit its battlefield redeploy");
-    assert.equal(council.buys, 1);
-    assert.equal(council.spent, wfPowerupCost(0));
-    assert.equal(council.shieldPct, 6.5);
-    assert.equal(council.ult, 9);
-    assert.equal(council.stance, "siege");
-});
-
-test("balanced auto-buy gives each role a tactical build priority", () => {
-    const result = runWarfrontMatch(squad("A"), squad("B"), 777, "balanced", "balanced");
-    const firstBlueBuy = new Map<string, string>();
-    for (const event of result.events) {
-        if (event.type !== "buy" || event.team !== "blue" || firstBlueBuy.has(event.petId)) continue;
-        firstBlueBuy.set(event.petId, event.kind);
-    }
-    assert.deepEqual([...firstBlueBuy.entries()].sort(), [
-        ["blue-0", "guard"],
-        ["blue-1", "strike"],
-        ["blue-2", "strike"],
-        ["blue-3", "mend"],
-    ]);
-});
-
-test("rounds fire on the 90-second cadence", () => {
-    const r = runWarfrontMatch(squad("A"), squad("B"), 2);
-    const rounds = r.events.filter((e) => e.type === "round");
-    if (r.ticks > WARFRONT_TPS * WF_ROUND_SECONDS * 2) {
-        assert.ok(rounds.length >= 1);
-        for (const e of rounds) assert.equal(e.t % (WARFRONT_TPS * WF_ROUND_SECONDS), 0);
-    }
-});
-
-test("snapshots keep every entity inside the field bounds", () => {
-    const r = runWarfrontMatch(squad("A"), squad("B"), 8);
-    const some = [0, Math.floor(r.snapshots.length / 2), r.snapshots.length - 1];
-    for (const i of some) {
-        const s = r.snapshots[i];
-        for (const a of s.actors) { assert.ok(Math.abs(a.x) <= WF_X && Math.abs(a.y) <= WF_Y); }
-        for (const m of s.mobs) { assert.ok(Math.abs(m.x) <= WF_X && Math.abs(m.y) <= WF_Y); }
-    }
-});
-
-test("fighter footprints stay off wall cells and crowding is only momentary", () => {
-    const result = runWarfrontMatch(squad("A"), squad("B"), 3);
-    let closePairs = 0;
-    let pairSamples = 0;
-    const footprint = [[0, 0], [0.65, 0], [-0.65, 0], [0, 0.65], [0, -0.65]] as const;
-    for (let tick = 0; tick < result.snapshots.length; tick += WARFRONT_TPS) {
-        const live = result.snapshots[tick].actors.filter((actor) => actor.state !== "respawning");
-        for (const actor of live) {
-            for (const [dx, dy] of footprint) {
-                assert.equal(wfWalkable(actor.x + dx, actor.y + dy), true, `${actor.id} clipped terrain at tick ${tick}`);
-            }
-        }
-        for (let i = 0; i < live.length; i++) {
-            for (let j = i + 1; j < live.length; j++) {
-                pairSamples++;
-                if (Math.hypot(live[i].x - live[j].x, live[i].y - live[j].y) < 1.25) closePairs++;
-            }
-        }
-    }
-    assert.ok(closePairs / Math.max(1, pairSamples) < 0.002, `sustained pet dogpiles: ${closePairs}/${pairSamples}`);
-});
-
-test("the smarter macro coach forces and contests the Gate Warden before minute four", () => {
-    const result = runWarfrontMatch(squad("A"), squad("B"), 3);
-    const firstObjectiveCall = result.snapshots.find((frame) => frame.actors.some((actor) => actor.intent === "squad:warden"));
-    assert.ok(firstObjectiveCall && firstObjectiveCall.t < WARFRONT_TPS * WF_PHASE_WAR, "teams should force the headline boss during Skirmish");
-    const wardenKill = result.events.find((event) => event.type === "wardenkill");
-    assert.ok(wardenKill && wardenKill.t < WARFRONT_TPS * WF_PHASE_WAR, "the early objective call must become a real boss fight");
-    const wardenHitsByTick = new Map<number, number>();
-    for (const event of result.events) if (event.type === "hit" && event.actorId === "warden") {
-        wardenHitsByTick.set(event.t, (wardenHitsByTick.get(event.t) ?? 0) + 1);
-    }
-    assert.ok([...wardenHitsByTick.values()].some((hits) => hits >= 2), "the Gate Warden should threaten grouped pets with cleaves/slams");
-});
-
-test("fighters read the Gate Warden telegraph and fan out before the slam", () => {
-    const result = runWarfrontMatch(squad("A"), squad("B"), 3);
-    const windups = result.events.filter((event) => event.type === "wardenwindup").slice(0, 12);
-    let threatened = 0;
-    let escaped = 0;
-    for (const windup of windups) {
-        const slam = result.events.find((event) => event.type === "wardenslam" && event.t >= windup.t);
-        if (!slam) continue;
-        const before = result.snapshots[windup.t];
-        const landing = result.snapshots[Math.max(windup.t, slam.t - 1)];
-        const inside = (frame: typeof before) => frame.actors.filter((actor) =>
-            actor.state !== "respawning"
-            && Math.hypot(actor.x - frame.warden.x, actor.y - frame.warden.y) <= frame.warden.slamRadius
-        ).length;
-        const startInside = inside(before);
-        if (startInside === 0) continue;
-        threatened += startInside;
-        escaped += Math.max(0, startInside - inside(landing));
-    }
-    assert.ok(threatened >= 5, "the fixture should create repeated readable slam danger");
-    assert.ok(escaped / threatened >= 0.6, `pets only escaped ${escaped}/${threatened} telegraphed threats`);
-});
-
-test("multi-seed balance soak stays bounded, contests objectives, and permits a comeback", () => {
-    const winners = new Set<string>();
-    let comebackObserved = false;
-    let lesserWardenMatches = 0;
-    for (const seed of [3, 7, 11, 83, 203]) {
-        const r = runWarfrontMatch(squad("A"), squad("B"), seed);
-        winners.add(r.winner);
-        assert.ok(r.ticks >= WARFRONT_TPS * 300, `seed ${seed} ended before the strategic game developed`);
-        assert.ok(r.ticks <= WARFRONT_TPS * WF_MAX_SECONDS);
-        assert.ok(r.events.some((event) => event.type === "wardenkill"), `seed ${seed} never contested the Gate Warden`);
-        if (r.events.some((event) => event.type === "minikill")) lesserWardenMatches++;
-        for (let tick = 0; tick < r.snapshots.length; tick += WARFRONT_TPS * 15) {
-            const frame = r.snapshots[tick];
-            assert.ok(frame.mobs.filter((mob) => mob.side === "hollow").length <= 6);
-            assert.ok(frame.mobs.filter((mob) => mob.side === "blue").length <= 12);
-            assert.ok(frame.mobs.filter((mob) => mob.side === "red").length <= 12);
-            for (const actor of frame.actors) {
-                assert.ok(Number.isFinite(actor.x) && Number.isFinite(actor.y) && Number.isFinite(actor.hp));
-            }
-        }
-        const midpoint = r.snapshots[Math.min(r.snapshots.length - 1, WARFRONT_TPS * 300)];
-        if (r.winner === "blue" && midpoint.coins.blue < midpoint.coins.red) comebackObserved = true;
-        if (r.winner === "red" && midpoint.coins.red < midpoint.coins.blue) comebackObserved = true;
-    }
-    assert.ok(lesserWardenMatches >= 4, `Lesser Wardens only influenced ${lesserWardenMatches}/5 matches`);
-    assert.deepEqual([...winners].sort(), ["blue", "red"], "mirror balance should permit either side to win");
-    assert.equal(comebackObserved, true, "an early economy deficit must not make the match unwinnable");
+test("Shattered Wards opens one immediate fracture reaction window", () => {
+    const result = runWarfrontMatch(squad("A", 180), squad("B", -60), 7);
+    assert.equal(result.omen, "shattered-wards");
+    const reactions = result.events.filter((event) => event.type === "commandwindow" && event.reason === "omen" && event.lane !== undefined);
+    assert.equal(reactions.length, 1);
+    assert.equal(result.commandLog.filter((entry) => entry.reason === "omen").length, 1);
 });

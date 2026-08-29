@@ -18,11 +18,10 @@ import { coordinateWarfrontStart } from './_warfront-start-coordinator.js';
  * /api/pet/warfront-start — POST only.
  *
  * Mints the single-use reward token for a Hollow Warfront vs-AI match, the
- * SERVER-AUTHORITATIVE way: the server RE-RUNS the exact deterministic match the
- * browser is about to render (same player pets, canonical AI red team, server
- * seed, buy policy, stance) and seals the winner + reward into a `pet:battle-token`
- * — the SAME token shape battle-result.ts already redeems for 1v1/2v2. A client
- * can't fake a win; the server computed it independently.
+ * SERVER-AUTHORITATIVE way: kickoff seals teams, server seed, stances, doctrines,
+ * and an automatic baseline into a one-use `pet:battle-token`. Settlement then
+ * replays the player's validated opening lanes and compact command log on this
+ * same deterministic engine. A client reports choices, never the scored winner.
  *
  * Determinism: the Warfront sim meets the cross-engine contract (no
  * sin/cos/atan2/hypot — see its header), and warfront-parity.test.ts proves the
@@ -61,6 +60,7 @@ type StoredWarfrontSeal = {
     redPets?: Pet[];
     expiresAt?: number;
     matchDurationMs?: number;
+    playbackStartedAt?: number;
     settleAfter?: number;
 };
 type ActiveWarfront = { token: string; seal: StoredWarfrontSeal };
@@ -344,11 +344,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         undefined,
                         { blue: stance, red: AI_STANCE },
                         { blue: doctrine, red: AI_DOCTRINE },
+                        undefined,
+                        { captureSnapshots: false },
                     );
                     const authoritativeOutcome: 'win' | 'loss' | 'draw' = result.winner === 'blue' ? 'win' : result.winner === 'red' ? 'loss' : 'draw';
                     const matchDurationMs = Math.ceil((result.ticks / WARFRONT_TPS) * 1_000);
-                    const settledAtBase = Date.now();
-                    const settleAfter = settledAtBase + Math.max(
+                    const playbackStartedAt = Date.now();
+                    const settleAfter = playbackStartedAt + Math.max(
                         WARFRONT_MIN_SETTLE_MS,
                         matchDurationMs - WARFRONT_SETTLE_CLOCK_SKEW_MS,
                     );
@@ -370,6 +372,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         createdAt,
                         expiresAt,
                         matchDurationMs,
+                        playbackStartedAt,
                         settleAfter,
                         playerPetIds,
                         bluePets: sealedBluePets,

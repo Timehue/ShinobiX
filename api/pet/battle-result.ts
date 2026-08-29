@@ -11,6 +11,15 @@ import { resolveRankedPetDuel } from './_ranked-duel.js';
 import { replayCasualPetDuel, parseDuelInputLog } from './_duel-replay.js';
 import type { SealedDuelParams } from './_duel-replay.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
+import {
+    parseWarfrontCommandPlan,
+    runWarfrontMatch,
+    WARFRONT_TPS,
+    type WfBuyPolicy,
+    type WfDoctrine,
+    type WfStance,
+} from '../_pet-sim/pet-warfront-sim.js';
+import { derivePetRole } from '../_pet-sim/pet-roles.js';
 import { writeSaveProjected } from '../save/_projected-write.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { petWitnessReceiptForSettlement, recordPetArenaVictory } from '../card-clash/_pet-witness.js';
@@ -84,6 +93,11 @@ const RANKED_RESULT_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
 // retained, including enough outcome evidence to resume winner-only side effects
 // if the shared receipt store stays unavailable until the short proof expires.
 const RANKED_SAVE_RECEIPT_CAP = 256;
+// Warfront settlement must follow the battle the player actually commanded,
+// not the automatic baseline sealed at kickoff. Keep the same anti-seed-oracle
+// floor and small playback skew as the start route.
+const WARFRONT_MIN_SETTLE_MS = 60_000;
+const WARFRONT_SETTLE_CLOCK_SKEW_MS = 5_000;
 
 type RankedPetSettlementReceipt = {
     a: string;
@@ -482,9 +496,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 sealedParams?: SealedDuelParams | null;
                 casualPveSeal?: CasualPveBattleSeal;
                 bluePets?: Pet[];
+                redPets?: Pet[];
+                seed?: number;
+                buyPolicy?: WfBuyPolicy;
+                opponentBuyPolicy?: WfBuyPolicy;
+                stance?: WfStance;
+                opponentStance?: WfStance;
+                doctrine?: WfDoctrine;
+                opponentDoctrine?: WfDoctrine;
                 authoritativeOutcome?: PetBattleOutcome;
                 mode?: string;
                 settleAfter?: number;
+                playbackStartedAt?: number;
+                matchDurationMs?: number;
                 hollowGate?: { runId?: string };
                 dungeon?: unknown;
                 settlementPolicy?: unknown;
@@ -597,18 +621,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (hasDungeonBinding && !dungeonPetBinding) {
                 return res.status(409).json({ error: 'Pet battle token carries an invalid Dungeon binding.' });
             }
-            if (tokenData.mode === 'warfront') {
-                const settleAfter = Number(tokenData.settleAfter);
-                if (!Number.isSafeInteger(settleAfter) || settleAfter <= 0) {
-                    return res.status(409).json({ error: 'Warfront token lacks its authoritative settlement clock.' });
-                }
-                if (Date.now() < settleAfter) {
-                    return res.status(425).json({
-                        error: 'The Hollow Warfront is still in progress.',
-                        retryAfterMs: settleAfter - Date.now(),
-                    });
-                }
-            }
             if (tokenData.authoritativeOutcome !== 'win' && tokenData.authoritativeOutcome !== 'loss' && tokenData.authoritativeOutcome !== 'draw') {
                 return res.status(409).json({ error: 'Pet battle token lacks an authoritative outcome.' });
             }
@@ -655,9 +667,68 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
             if (tokenData.mode === 'warfront') {
+                const baselineSettleAfter = Number(tokenData.settleAfter);
+                const baselineDurationMs = Number(tokenData.matchDurationMs);
+                const sealedPlaybackStartedAt = Number(tokenData.playbackStartedAt);
+                const playbackStartedAt = Number.isSafeInteger(sealedPlaybackStartedAt) && sealedPlaybackStartedAt > 0
+                    ? sealedPlaybackStartedAt
+                    : baselineSettleAfter - Math.max(
+                        WARFRONT_MIN_SETTLE_MS,
+                        baselineDurationMs - WARFRONT_SETTLE_CLOCK_SKEW_MS,
+                    );
+                if (!Number.isSafeInteger(baselineSettleAfter) || baselineSettleAfter <= 0
+                    || !Number.isSafeInteger(baselineDurationMs) || baselineDurationMs <= 0
+                    || !Number.isSafeInteger(playbackStartedAt) || playbackStartedAt <= 0
+                    || playbackStartedAt >= baselineSettleAfter) {
+                    return res.status(409).json({ error: 'Warfront token lacks its authoritative settlement clock.' });
+                }
                 casualPvePlayerPets = parseSealedPetSnapshots(tokenData.bluePets, tokenPlayerPetIds);
                 if (!casualPvePlayerPets) {
                     return res.status(409).json({ error: 'Warfront token carries an invalid participating-pet snapshot.' });
+                }
+                const rivalIds = Array.isArray(tokenData.redPets)
+                    ? tokenData.redPets.map((pet) => String(pet?.id ?? ''))
+                    : [];
+                const rivalPets = parseSealedPetSnapshots(tokenData.redPets, rivalIds);
+                const plan = parseWarfrontCommandPlan((body as Record<string, unknown>).warfrontPlan);
+                const seed = Number(tokenData.seed);
+                let commandedSettleAfter = baselineSettleAfter;
+                if (plan && rivalPets?.length === 4 && casualPvePlayerPets.length === 4
+                    && Number.isSafeInteger(seed) && seed > 0) {
+                    try {
+                        const autoRole = (pets: Pet[]) => pets.map((pet) => ({
+                            pet,
+                            role: (pet.role ?? derivePetRole(pet).role) as 'defender' | 'tracker' | 'assassin' | 'sage',
+                        }));
+                        const replay = runWarfrontMatch(
+                            autoRole(casualPvePlayerPets),
+                            autoRole(rivalPets),
+                            seed,
+                            tokenData.buyPolicy ?? 'balanced',
+                            tokenData.opponentBuyPolicy ?? 'balanced',
+                            undefined,
+                            { blue: tokenData.stance, red: tokenData.opponentStance },
+                            { blue: tokenData.doctrine, red: tokenData.opponentDoctrine },
+                            plan,
+                            { captureSnapshots: false },
+                        );
+                        outcome = replay.winner === 'blue' ? 'win' : replay.winner === 'red' ? 'loss' : 'draw';
+                        const commandedDurationMs = Math.ceil((replay.ticks / WARFRONT_TPS) * 1_000);
+                        commandedSettleAfter = playbackStartedAt + Math.max(
+                            WARFRONT_MIN_SETTLE_MS,
+                            commandedDurationMs - WARFRONT_SETTLE_CLOCK_SKEW_MS,
+                        );
+                    } catch (replayError) {
+                        // A damaged input log never becomes client outcome authority.
+                        // Preserve the sealed automatic baseline and permit an exact retry.
+                        console.error('[pet/battle-result] Warfront command replay failed', replayError);
+                    }
+                }
+                if (Date.now() < commandedSettleAfter) {
+                    return res.status(425).json({
+                        error: 'The Hollow Warfront is still in progress.',
+                        retryAfterMs: commandedSettleAfter - Date.now(),
+                    });
                 }
             }
             if (tokenData.pvpChallengeId) {

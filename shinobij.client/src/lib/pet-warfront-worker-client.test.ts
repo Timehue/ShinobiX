@@ -15,9 +15,17 @@ class FakeWorker {
     postMessage(command: WarfrontWorkerCommand) { this.commands.push(command); }
     terminate() { /* test worker owns no resources */ }
     send(round: number) {
+        const commandState = round === 0 ? null : {
+            sequence: round, t: round * 2_700, reason: "scheduled" as const,
+            activeLanes: ["n", "m", "s"] as const,
+            freedPetSlots: { blue: [], red: [] }, maxMoves: 1,
+        };
         const batch = {
             snapshots: [], events: [], ticks: round * 2_700, round, done: false, winner: null,
-            coins: { blue: 0, red: 0 }, stances: { blue: "balanced", red: "balanced" }, buyState: [],
+            coins: { blue: 0, red: 0 }, favor: { blue: 0, red: 0 },
+            lanes: { blue: ["m"], red: ["m"] }, commandState, commandLog: [],
+            omen: "shattered-wards", commandImpacts: [],
+            stances: { blue: "balanced", red: "balanced" }, buyState: [],
         } satisfies WarfrontWorkerBatch;
         this.onmessage?.({ data: { type: "batch", buffer: encodeWarfrontWorkerBatch(batch) } } as MessageEvent<{ type: "batch"; buffer: ArrayBuffer }>);
     }

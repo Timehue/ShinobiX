@@ -9,19 +9,17 @@ test("Warfront UI contract stays byte-for-byte aligned with the authoritative si
     assert.equal(contract.WF_PHASE_SKIRMISH, simulation.WF_PHASE_SKIRMISH);
     assert.equal(contract.WF_PHASE_WAR, simulation.WF_PHASE_WAR);
     assert.equal(contract.WF_PHASE_SUDDEN, simulation.WF_PHASE_SUDDEN);
-    assert.equal(contract.WF_STACK_CAP, simulation.WF_STACK_CAP);
-    assert.deepEqual(contract.WF_STANCES, simulation.WF_STANCES);
-    assert.deepEqual(contract.WF_DOCTRINES, simulation.WF_DOCTRINES);
-    assert.deepEqual(contract.WF_POWERUPS, simulation.WF_POWERUPS);
+    assert.deepEqual(contract.WF_STANCES.map(({ id }) => id), ["balanced", "siege", "jungle", "headhunt", "turtle"]);
+    assert.deepEqual(contract.WF_DOCTRINES.map(({ id }) => id), ["vanguard", "bulwark", "zealot", "warden-pact"]);
 });
 
 test("Warfront UI verdict uses the simulator's structure scoring rule", () => {
     const snapshot = {
-        structures: {
-            blue: { statues: [{ alive: false }, { alive: true }], core: { alive: true } },
-            red: { statues: [{ alive: false }, { alive: false }], core: { alive: false } },
+        towers: {
+            blue: { n: { alive: false }, m: { alive: true }, s: { alive: true } },
+            red: { n: { alive: false }, m: { alive: false }, s: { alive: true } },
         },
     };
-    assert.deepEqual(contract.wfVerdictScore(snapshot), { blue: 3, red: 1 });
+    assert.deepEqual(contract.wfVerdictScore(snapshot), { blue: 2, red: 1 });
     assert.deepEqual(contract.wfVerdictScore(snapshot), simulation.wfVerdictScore(snapshot as simulation.WfSnapshot));
 });

@@ -5,6 +5,7 @@ import {
     isPetArenaPlayerScopeActive,
     normalizePetArenaVersionDecision,
     parseWarfrontRewardSeal,
+    petBattleSettlementBlocksExit,
     responseBelongsToPetArenaPlayer,
 } from "./pet-arena-settlement";
 
@@ -138,15 +139,29 @@ test("every authoritative Pet Arena result exposes an idempotent retry receipt",
         }
     }
     assert.doesNotMatch(arenaSource, /unrewarded:\$\{/);
-    assert.match(arenaSource, /if \(petSettlementBlocksExit\)/);
+    assert.match(arenaSource, /const canLeaveCurrentPetBattle = \(blocksExit = petSettlementBlocksExit\)[\s\S]*if \(blocksExit\)/);
+    assert.match(arenaSource, /response\.status === 425[\s\S]*PetSettlementRetryError/,
+        "a legitimate early Warfront settlement must preserve the server retry interval");
+    assert.match(arenaSource, /window\.setTimeout\(\(\) => \{[\s\S]*runPetSettlementAttempt\(attempt\)/,
+        "the pending authoritative receipt must retry automatically instead of stranding the result screen");
+});
+
+test("rewarded Warfront exit is blocked from its first result frame through settlement", () => {
+    assert.equal(petBattleSettlementBlocksExit(null), false, "ordinary screens do not invent a missing receipt");
+    assert.equal(petBattleSettlementBlocksExit(null, true), true, "a rewarded terminal frame waits for its receipt attempt");
+    assert.equal(petBattleSettlementBlocksExit("pending", true), true);
+    assert.equal(petBattleSettlementBlocksExit("error", true), true, "recoverable failure keeps the receipt on screen");
+    assert.equal(petBattleSettlementBlocksExit("settled", true), false);
+    assert.match(arenaSource, /settlementPending=\{warfrontSettlementBlocksExit\}/);
+    assert.match(arenaSource, /canLeaveCurrentPetBattle\(warfrontSettlementBlocksExit\)/);
 });
 
 test("a rewarded Warfront keeps authoritative Witness progress and its final Chronicle ceremony on the result screen", () => {
     const warfront = readFileSync(new URL("../components/PetWarfrontMatch.tsx", import.meta.url), "utf8");
     assert.match(arenaSource, /resultSupplement=\{chronicleProgress \|\| chronicleCeremony \? \([\s\S]*chronicleProgress \? <PetChronicleProgress receipt=\{chronicleProgress\} \/> : null[\s\S]*chronicleCeremony \? \([\s\S]*<PetChronicleCeremony/);
     assert.match(arenaSource, /resultActionsLocked=\{warfrontResultActionsLocked\}/);
-    assert.match(arenaSource, /arenaMatch\?\.vsAi[\s\S]*activeSettlementAttempt\.status !== "settled"/);
-    assert.match(warfront, /\{resultSupplement \? \([\s\S]*\{resultSupplement\}/);
+    assert.match(arenaSource, /petBattleSettlementBlocksExit\([\s\S]*Boolean\(arenaMatch\?\.vsAi\)/);
+    assert.match(warfront, /\{resultSupplement\}/);
     assert.match(warfront, /disabled=\{resultActionsLocked\}/);
     assert.match(warfront, /disabled=\{settlementPending\}/);
     // Fight Again survives only on the WARFRONT result screen, which is what
@@ -186,6 +201,7 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
     assert.match(arenaSource, /seal\.seed !== m\.seed[\s\S]*seal\.reportKey !== reportKey[\s\S]*seal\.stance !== m\.stance[\s\S]*seal\.doctrine !== m\.doctrine[\s\S]*seal\.buyPolicy !== m\.buyPolicy[\s\S]*seal\.opponentBuyPolicy !== m\.opponentBuyPolicy[\s\S]*seal\.opponentStance !== m\.opponentStance/);
     assert.match(arenaSource, /seal\.redPets\.map\(\(pet\) => pet\.id\)[\s\S]*rivalPetIds/);
     assert.match(arenaSource, /battleToken: seal\.token/);
+    assert.match(arenaSource, /warfrontPlan: \{[\s\S]*initialLanes: result\.initialLanes\.blue,[\s\S]*commands: result\.commandLog/);
     assert.match(arenaSource, /if \(!r\.ok\)[\s\S]*payload\?\.error[\s\S]*Retry-After[\s\S]*warfrontSetupErrorRef\.current/);
     assert.match(arenaSource, /Retry to recover any existing battle seal safely/);
     assert.match(arenaSource, /resumeOnly: true/);
@@ -194,19 +210,22 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
     assert.match(arenaSource, /warfrontResumeProbeScopeRef[\s\S]*void resumeOwnedWarfront\(scope\)/);
     assert.match(arenaSource, />Warfront needs attention</);
 
-    const setupSource = arenaSource.slice(arenaSource.indexOf("War Council (every 90s)"), arenaSource.indexOf("Full-screen game-mode overlays"));
-    assert.doesNotMatch(setupSource, /Manual/);
-    assert.match(setupSource, /Rewarded AI uses the automatic policy you seal at kickoff/);
+    const setupSource = arenaSource.slice(arenaSource.indexOf("BATTLE LAWS"), arenaSource.indexOf("Full-screen game-mode overlays"));
+    assert.doesNotMatch(setupSource, /War Council|Auto-Attack|Auto-Guard|coin shop/);
+    assert.match(setupSource, /THREE LANES · TWO TOWERS TO WIN/);
+    assert.match(setupSource, /Every 2 minutes/);
+    assert.match(setupSource, /Earn Favor from combat and tower pressure/);
     assert.match(setupSource, /Fixed rival plan: Balanced formation · Vanguard doctrine/);
 });
 
-test("PvP Warfront seals and replays both players' complete battle plans", () => {
+test("a Warfront challenge lets each participant command their own roster against the sealed rival defense", () => {
     const challenge = readFileSync(new URL("./arena-challenge.ts", import.meta.url), "utf8");
     const worker = readFileSync(new URL("./pet-warfront-worker-client.ts", import.meta.url), "utf8");
 
     assert.match(arenaSource, /challengerWarfrontPlan,[\s\S]*fetch\('\/api\/player\/challenge'/);
     assert.match(arenaSource, /responderWarfrontPlan: responderPlan/);
-    assert.match(arenaSource, /startArenaMatch\(blue, myTeam,[\s\S]*\{ blue: challengerPlan, red: responderPlan \}/);
+    assert.match(arenaSource, /startArenaMatch\(myTeam, blue,[\s\S]*\{ blue: responderPlan, red: challengerPlan \}/);
+    assert.match(arenaSource, /if \(!response\.ok\)[\s\S]*Nothing was started/);
     assert.match(arenaSource, /startArenaMatch\(pendingArenaMatch\.blue,[\s\S]*pendingArenaMatch\.plans\)/);
     assert.match(challenge, /plans: \{ blue: bluePlan, red: redPlan \}/);
     assert.match(worker, /redPolicy: args\.redPolicy/);

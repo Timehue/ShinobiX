@@ -3,21 +3,17 @@ import { warfrontE2ePort } from "./e2e-ports";
 
 const port = warfrontE2ePort();
 const baseURL = `http://127.0.0.1:${port}`;
-const releasePreviewRoot = `.playwright-dist-warfront-${port}`;
-const webServerCommand = process.env.CI
-    ? `npm run build:warfront-e2e && node scripts/prepare-e2e-preview.mjs ${releasePreviewRoot} dist-perf && npm run preview -- --host 127.0.0.1 --port ${port} --outDir ${releasePreviewRoot}`
-    : `npm run dev -- --host 127.0.0.1 --port ${port}`;
+// The snapshot helper deliberately refuses to overwrite an existing directory.
+// Process-scoped roots keep each QA artifact immutable while allowing repeated
+// local runs against the same deterministic port.
+const releasePreviewRoot = `.playwright-dist-warfront-${port}-${process.pid}`;
+const webServerCommand = `npm run build:warfront-e2e && node scripts/prepare-e2e-preview.mjs ${releasePreviewRoot} dist-perf && npm run preview -- --host 127.0.0.1 --port ${port} --outDir ${releasePreviewRoot}`;
 
 export default defineConfig({
     testDir: "./e2e-warfront",
-    // CI renders this 3D scene through software WebGL (SwiftShader, no GPU on
-    // the runner), which is far slower than any developer machine: the same
-    // four specs pass locally in 2.7 min against a real GPU. The tell was that
-    // every assertion carrying an explicit 30s wait passed on CI while the ones
-    // falling back to the 12s default failed -- first-load waits had already
-    // been bumped to 30s by whoever hit this before. Adopt that proven number as
-    // the default instead of leaving the rest of the suite on a GPU-speed
-    // budget, and give the whole test room for the slower frames.
+    // Hosted runners can be substantially slower during first-load asset decode.
+    // Keep explicit release-scale budgets while exercising real phone, tablet,
+    // desktop, and high-DPI CSS viewports rather than DPR-only duplicates.
     timeout: 120_000,
     expect: { timeout: 30_000 },
     workers: 1,
@@ -31,10 +27,9 @@ export default defineConfig({
         screenshot: "only-on-failure",
     },
     webServer: {
-        // Hosted CI receives the already-built release candidate and snapshots
-        // it before serving, so this suite cannot accidentally certify source
-        // that differs from the client artifact. Local iteration keeps Vite's
-        // faster development server.
+        // Every environment receives the same immutable release candidate.
+        // This prevents first-request Vite transforms from delaying DOM ready
+        // and ensures local QA cannot certify source that differs from CI.
         command: webServerCommand,
         url: `${baseURL}/petvfx.html`,
         env: { VITE_SKIP_HTTPS: "1" },
@@ -42,9 +37,9 @@ export default defineConfig({
         timeout: 120_000,
     },
     projects: [
-        { name: "chromium-dpr1", use: { deviceScaleFactor: 1 } },
-        { name: "chromium-dpr125", use: { deviceScaleFactor: 1.25 } },
-        { name: "chromium-dpr15", use: { deviceScaleFactor: 1.5 } },
-        { name: "chromium-dpr2", use: { deviceScaleFactor: 2 } },
+        { name: "desktop", use: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 } },
+        { name: "desktop-retina", use: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 } },
+        { name: "tablet", use: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 1.25, hasTouch: true } },
+        { name: "phone", use: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, hasTouch: true, isMobile: true } },
     ],
 });

@@ -266,3 +266,25 @@ test('Warfront acceptance preserves both sealed plans and a server-minted seed',
     assert.deepEqual(notice?.challengerWarfrontPlan, challengerWarfrontPlan);
     assert.deepEqual(notice?.responderWarfrontPlan, responderWarfrontPlan);
 });
+
+test('Warfront challenge authority rejects retired 2v2 invitations', async () => {
+    const challenger = 'challengewarfrontfouronlyone';
+    const responder = 'challengewarfrontfouronlytwo';
+    const challengerPets = await seedPlayer(challenger);
+    await seedPlayer(responder);
+    const sent = await post(challenger, {
+        targetName: responder,
+        challenge: {
+            id: 'challenge-warfront-retired-2v2',
+            fromName: challenger,
+            toName: responder,
+            mode: 'clanWarPet',
+            arenaMatch: true,
+            arenaSize: 2,
+            challengerTeamIds: challengerPets.slice(0, 2).map(({ id }) => id),
+            challengerWarfrontPlan: { buyPolicy: 'balanced', stance: 'balanced', doctrine: 'vanguard' },
+        },
+    }, '127.0.0.80');
+    assert.equal(sent.statusCode, 400);
+    assert.match(String(sent.body?.error), /exactly four pets/i);
+});
