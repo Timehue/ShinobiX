@@ -1,4 +1,5 @@
 import { safeLogValue } from '../_safe-log.js';
+import { recordBetaMetric, betaRareGrantTally } from '../_beta-metrics.js';
 import { randomInt } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -35,6 +36,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
+        // Scarcity signal: how often a pack actually yields a scarce card. The
+        // pack type is the source so the tally can be read per tier, and the
+        // tally itself drops ordinary rarities. Fire-and-forget — a metrics
+        // outage must not fail an opened pack the save has already recorded.
+        const openedCards = Array.isArray(result.value?.cards) ? result.value.cards : [];
+        void recordBetaMetric({
+            event: 'card.pack_opened',
+            playerName,
+            source: String(body.packType ?? 'unknown'),
+            itemCount: openedCards.length,
+            rareGrants: betaRareGrantTally('card', openedCards.map((card) => (card as { rarity?: unknown })?.rarity)),
+        });
         return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
     } catch (err) {
         console.error('[card-clash/open-pack]', safeLogValue(err));

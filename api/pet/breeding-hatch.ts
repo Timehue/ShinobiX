@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
+import { recordBetaMetric, betaRareGrantTally } from '../_beta-metrics.js';
 import { safeLogValue } from '../_safe-log.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
@@ -95,6 +96,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }, { failClosed: true });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
         if (result.sealedKey) await kv.del(result.sealedKey).catch((error) => console.error('[pet/breeding/hatch] sealed cleanup', safeLogValue(error)));
+        // Bred pets are the other way a scarce companion enters the world, and
+        // the one whose odds are tunable — so it matters that it is counted
+        // separately from a wild befriend via the source. A replay is the same
+        // child handed back and must not move the tally.
+        if (!result.replayed) {
+            void recordBetaMetric({
+                event: 'pet.acquired',
+                playerName,
+                source: `breeding:${result.destination}`,
+                rareGrants: betaRareGrantTally('pet', [(result.pet as { rarity?: unknown })?.rarity]),
+            });
+        }
         return res.status(200).json({ ok: true, replayed: result.replayed, destination: result.destination, pet: result.pet, character: result.character, _saveVersion: result.version });
     } catch (error) {
         console.error('[pet/breeding/hatch]', safeLogValue(error));

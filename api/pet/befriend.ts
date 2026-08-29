@@ -1,4 +1,5 @@
 import { safeLogValue } from '../_safe-log.js';
+import { recordBetaMetric, betaRareGrantTally } from '../_beta-metrics.js';
 import { randomInt } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -95,6 +96,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.del(key);
             if (active?.token === token) await kv.del(activeKey);
         }, { failClosed: true });
+        // A replayed befriend is the same pet, already counted; only a fresh
+        // grant moves the scarcity tally.
+        if (result.value && !result.value.replayed && result.value.pet) {
+            void recordBetaMetric({
+                event: 'pet.acquired',
+                playerName,
+                source: String(result.value.destination ?? 'roster'),
+                rareGrants: betaRareGrantTally('pet', [(result.value.pet as { rarity?: unknown })?.rarity]),
+            });
+        }
         return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
     } catch (error) { console.error('[pet/befriend]', safeLogValue(error)); return res.status(500).json({ error: 'Internal server error.' }); }
 }

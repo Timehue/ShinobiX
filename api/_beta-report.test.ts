@@ -7,11 +7,14 @@ import {
 } from './_beta-report.js';
 import type { BetaMetricsSnapshot } from './_beta-metrics.js';
 
-const metrics = (events: Record<string, number> = {}): BetaMetricsSnapshot => ({
+const metrics = (
+    events: Record<string, number> = {},
+    rareGrants: Record<string, number> = {},
+): BetaMetricsSnapshot => ({
     generatedAt: Date.UTC(2026, 6, 14, 12),
     days: 1,
     daily: [],
-    totals: { events, levelBands: {}, sources: {}, rewardTotals: { xp: 50, ryo: 25 } },
+    totals: { events, levelBands: {}, sources: {}, rewardTotals: { xp: 50, ryo: 25 }, rareGrants },
 });
 
 test('population report is aggregate-only and calculates progression/economy risk signals', () => {
