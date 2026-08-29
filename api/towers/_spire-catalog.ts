@@ -17,13 +17,13 @@
  * across every tier and weekly blessing. Never reuses getFloor / FLOOR_CATALOG.
  */
 import type {
-    TowerFloor, TowerBiome, TowerBoss, TowerFeature, TowerBoardObject, TowerDynamicHazard,
+    TowerFloor, TowerBiome, TowerBoss, TowerFeature, TowerBoardObject, TowerDynamicHazard, TowerArenaClass,
 } from './_floor-catalog.js';
-import { hexZone } from './_floor-catalog.js';
+import { hexZone, towerArenaMap } from './_floor-catalog.js';
 import { SPIRE_MAX_TIER } from './_modifiers.js';
 
 /** Increment only when generated Spire floor rules change. Active runs seal this value. */
-export const SPIRE_CATALOG_VERSION = 'endless-spire-v3' as const;
+export const SPIRE_CATALOG_VERSION = 'endless-spire-v4' as const;
 
 export type SpireBossKey =
     | 'warden' | 'revenant' | 'ravager' | 'sovereign'
@@ -34,7 +34,6 @@ type SpireBossDef = {
     mechanic: NonNullable<TowerBoss['mechanic']>;
     phases: number[];
     roundBudget: number;
-    map: { width: number; height: number };
     biome: TowerBiome;
     /** number of static guard-pod adds spawned in the base encounter (bulwark needs live guards) */
     guardPod: number;
@@ -58,26 +57,26 @@ type SpireBossDef = {
 const SPIRE_BOSSES: Record<SpireBossKey, SpireBossDef> = {
     warden: {
         aiId: 'spire-warden', mechanic: 'bulwark', phases: [60, 30], roundBudget: 16,
-        map: { width: 22, height: 16 }, biome: 'volcano', guardPod: 3, name: 'Spire Warden',
+        biome: 'volcano', guardPod: 3, name: 'Spire Warden',
         targetMode: 'squishiest',
         strike: { kind: 'slam', pct: 6, radius: 1, everyRounds: 4, firstRound: 4 },
     },
     revenant: {
         aiId: 'spire-revenant', mechanic: 'regen', phases: [66, 33], roundBudget: 18,
-        map: { width: 22, height: 16 }, biome: 'shadow', guardPod: 0, regenFlatCap: 2800, name: 'Hollow Revenant',
+        biome: 'shadow', guardPod: 0, regenFlatCap: 2800, name: 'Hollow Revenant',
         targetMode: 'support',
         strike: { kind: 'volley', pct: 6, radius: 1, everyRounds: 4, firstRound: 4 },
     },
     ravager: {
         aiId: 'spire-ravager', mechanic: 'summon', phases: [66, 33], roundBudget: 18,
-        map: { width: 22, height: 16 }, biome: 'volcano', guardPod: 2,
+        biome: 'volcano', guardPod: 2,
         summonAiId: 'spire-guard', summonCount: 3, name: 'Pit Ravager',
         targetMode: 'lowest-hp',
         strike: { kind: 'nova', pct: 7, radius: 1, everyRounds: 4, firstRound: 4 },
     },
     sovereign: {
         aiId: 'spire-sovereign', mechanic: 'enrage', phases: [75, 50, 25], roundBudget: 20,
-        map: { width: 24, height: 16 }, biome: 'shadow', guardPod: 2, name: 'Spire Sovereign',
+        biome: 'shadow', guardPod: 2, name: 'Spire Sovereign',
         targetMode: 'lowest-hp',
         strike: { kind: 'nova', pct: 8, radius: 1, everyRounds: 3, firstRound: 3 },
     },
@@ -87,7 +86,7 @@ const SPIRE_BOSSES: Record<SpireBossKey, SpireBossDef> = {
     // gives an organised team a resource objective without adding another healing wall.
     stormcaller: {
         aiId: 'spire-stormcaller', mechanic: 'summon', phases: [72, 44], roundBudget: 18,
-        map: { width: 22, height: 16 }, biome: 'snow', guardPod: 1,
+        biome: 'snow', guardPod: 1,
         guardAiId: 'spire-tempest-shade', summonAiId: 'spire-tempest-shade', summonCount: 2,
         terrainPillars: 5,
         boardObjects: [{ kind: 'font', resource: 'chakra', percent: 12, cap: 180, label: 'Stormwell' }],
@@ -100,7 +99,7 @@ const SPIRE_BOSSES: Record<SpireBossKey, SpireBossDef> = {
     // makes melee stacking readable but costly, while the shrine asks the party to hold ground.
     'mirror-shogun': {
         aiId: 'spire-mirror-shogun', mechanic: 'bulwark', phases: [70, 40], roundBudget: 16,
-        map: { width: 22, height: 16 }, biome: 'central', guardPod: 2,
+        biome: 'central', guardPod: 2,
         guardAiId: 'spire-mirror-guard', phasePillars: 2, aegis: { shieldPct: 10 },
         terrainPillars: 4,
         boardObjects: [{ kind: 'shrine', percent: 8, label: 'Hall of Reflections' }],
@@ -113,7 +112,7 @@ const SPIRE_BOSSES: Record<SpireBossKey, SpireBossDef> = {
     // sealed Spire contract; shields and ring chips are bounded, deterministic, and dodgeable.
     'void-emperor': {
         aiId: 'spire-void-emperor', mechanic: 'enrage', phases: [75, 50, 25], roundBudget: 20,
-        map: { width: 24, height: 18 }, biome: 'shadow', guardPod: 2,
+        biome: 'shadow', guardPod: 2,
         guardAiId: 'spire-eclipse-herald', phasePillars: 2, aegis: { shieldPct: 8 },
         terrainPillars: 6, closingRing: { pct: 5, fromRound: 14, minRadius: 3 },
         name: 'Emperor of the Last Eclipse', targetMode: 'support',
@@ -134,13 +133,14 @@ const BOSS_BY_FLOOR: SpireBossKey[] = [
 // real-engine release sim in scripts/spire-balance.test.ts. HP stays the per-encounter tuning
 // knob because each boss mechanic adds a very different TTK tax; global stat/damage changes
 // would also perturb the already-shipped story tower.
-// F15's 47,900 is the Spire-only calibration for Sovereign's canonical radius-2 AOE_SPIRAL;
-// shared PvE/PvP combat remains the source of truth and is intentionally not retuned here.
+// F8/F11/F12/F13/F18/F20 include the small TTK correction measured after the reviewed arena
+// ladder replaced their oversized boards. F15's 47,900 is the Spire-only calibration for
+// Sovereign's canonical radius-2 AOE_SPIRAL; shared PvE/PvP combat remains the source of truth.
 const HP_BY_FLOOR: number[] = [
     17600, 13800, 25000, 21000, 36300,   // 1-5
-    19300, 33300, 50000, 31000, 53010,   // 6-10
-    50400, 45500, 42000, 51000, 47900,   // 11-15
-    38000, 31200, 40000, 28000, 28750,   // 16-20
+    19300, 33300, 52500, 31000, 53010,   // 6-10
+    51250, 46750, 43000, 51000, 47900,   // 11-15
+    38000, 31200, 41000, 28000, 29500,   // 16-20
 ];
 
 /** The four milestone floors (title/border unlocks; keys namespaced spire-tier-N in settle). */
@@ -154,6 +154,15 @@ export const SPIRE_BOSS_VISUALS: Readonly<Record<SpireBossKey, string>> = {
 
 export function isValidSpireTier(tier: number): boolean {
     return Number.isInteger(tier) && tier >= 1 && tier <= SPIRE_MAX_TIER;
+}
+
+/** Lower ascension floors use the readable standard arena; the upper half earns
+ *  the major footprint for wider strike radii, milestone mechanics, and denser
+ *  modifier stacks. The threshold is content policy, not client presentation. */
+export const SPIRE_MAJOR_ARENA_FROM_TIER = 11;
+export function spireArenaClassForTier(tier: number): TowerArenaClass | undefined {
+    if (!isValidSpireTier(tier)) return undefined;
+    return tier >= SPIRE_MAJOR_ARENA_FROM_TIER ? 'major' : 'standard';
 }
 
 /** The boss key featured on a given floor (for validation + display). */
@@ -185,6 +194,8 @@ export function getSpireFloor(tier: number): TowerFloor | undefined {
     const key = BOSS_BY_FLOOR[tier - 1]!;
     const def = SPIRE_BOSSES[key];
     const hp = HP_BY_FLOOR[tier - 1]!;
+    const arenaClass = spireArenaClassForTier(tier)!;
+    const map = towerArenaMap(arenaClass);
 
     const boss: TowerBoss = {
         aiId: def.aiId,
@@ -205,12 +216,12 @@ export function getSpireFloor(tier: number): TowerFloor | undefined {
         biome: def.biome,
         objective: 'defeat-boss',
         roundBudget: def.roundBudget,
-        map: { ...def.map },
+        map,
         fieldRule: { kind: 'none' },
         // Guard pod (bulwark needs live guards; authored milestones may carry tactical adds).
         enemies: def.guardPod > 0 ? [{ aiId: def.guardAiId ?? 'spire-guard', count: def.guardPod }] : [],
         boss,
-        features: spireFeatures(def.map.width, def.map.height),
+        features: spireFeatures(map.width, map.height),
         ...(def.terrainPillars != null ? { terrainPillars: def.terrainPillars } : {}),
         ...(def.boardObjects ? { boardObjects: structuredClone(def.boardObjects) } : {}),
         ...(def.dynamicHazards ? { dynamicHazards: structuredClone(def.dynamicHazards) } : {}),

@@ -4,7 +4,8 @@ import { makeRng } from './_sim.js';
 import { buildTowerEncounter, pickTowerElements, scatterTerrain, type SquadMemberInput } from './_encounter.js';
 import { checkTowerWinner, runTowerFloor, startRound, towerNeighbors } from './_engine.js';
 import { getActor, type TowerMap } from './_tower-session.js';
-import { FLOOR_CATALOG, type TowerFloor } from './_floor-catalog.js';
+import { CLAN_BOSS_FLOORS, FLOOR_CATALOG, type TowerFloor } from './_floor-catalog.js';
+import { getSpireFloor } from './_spire-catalog.js';
 import { hasEnemyTemplate, getEnemyTemplate, ENEMY_TEMPLATE_IDS } from './_enemy-templates.js';
 
 function smallFloor(over: Partial<TowerFloor> = {}): TowerFloor {
@@ -17,7 +18,7 @@ function smallFloor(over: Partial<TowerFloor> = {}): TowerFloor {
 function strongMember(id: string): SquadMemberInput {
     return {
         id, name: id, ownerSlug: `slug-${id}`, ai: true,
-        character: { specialty: 'Taijutsu', maxHp: 1500, stats: { taijutsuOffense: 2500, taijutsuDefense: 2500, strength: 100, speed: 100 } },
+        character: { specialty: 'Taijutsu', maxHp: 12000, stats: { taijutsuOffense: 2500, taijutsuDefense: 2500, strength: 100, speed: 100 } },
     };
 }
 function build(floor: TowerFloor, squad: SquadMemberInput[], over: Partial<Parameters<typeof buildTowerEncounter>[0]> = {}) {
@@ -295,6 +296,62 @@ describe('Battle Towers feature placement (non-overlapping, off the spawn band)'
                 // (c) no actor stands on a feature tile at spawn
                 for (const a of session.actors) {
                     assert.ok(!seen.has(a.pos), `floor ${floor.id} seed ${seed}: ${a.id} spawned on a feature (${a.pos})`);
+                }
+            }
+        }
+    });
+
+    it('keeps every shipped compact, standard, and major arena collision-free under a full squad', () => {
+        const shipped: Array<{ label: string; floor: TowerFloor }> = [
+            ...FLOOR_CATALOG.map(floor => ({ label: `story ${floor.id}`, floor })),
+            ...CLAN_BOSS_FLOORS.map(floor => ({ label: `clan ${floor.id}`, floor })),
+            ...Array.from({ length: 20 }, (_, index) => {
+                const floor = getSpireFloor(index + 1)!;
+                return { label: `spire ${index + 1}`, floor };
+            }),
+        ];
+        const squad = ['a', 'b', 'c', 'd'].map(strongMember);
+
+        for (const { label, floor } of shipped) {
+            for (const seed of [1, 7, 19, 55, 144, 377, 1597, 4242]) {
+                const session = buildTowerEncounter({
+                    floor, squad, runId: `layout-${label}`, seed, partySize: 4, now: 1,
+                });
+                const boardSize = session.map.width * session.map.height;
+                const reserved = new Set<number>();
+                const claim = (tile: number, owner: string) => {
+                    assert.ok(tile >= 0 && tile < boardSize, `${label} seed ${seed}: ${owner} tile ${tile} is in bounds`);
+                    assert.ok(!reserved.has(tile), `${label} seed ${seed}: ${owner} overlaps tile ${tile}`);
+                    reserved.add(tile);
+                };
+
+                for (const feature of session.map.features ?? []) {
+                    assert.equal(feature.tiles.length, 7, `${label} seed ${seed}: ${feature.kind} has a complete flower`);
+                    for (const tile of feature.tiles) claim(tile, `feature ${feature.kind}`);
+                }
+                for (const tile of session.map.blockedTiles) claim(tile, 'terrain pillar');
+                for (const object of session.map.boardObjects ?? []) {
+                    assert.equal(object.tiles?.length, 1, `${label} seed ${seed}: ${object.kind} receives one tile`);
+                    for (const tile of object.tiles ?? []) claim(tile, `board object ${object.kind}`);
+                }
+                for (const hazard of session.map.dynamicHazards ?? []) {
+                    for (const tile of hazard.tiles) claim(tile, `dynamic hazard ${hazard.kind}`);
+                }
+
+                const expectedHazardTiles = (floor.dynamicHazards ?? []).reduce((sum, hazard) => sum + hazard.count, 0);
+                const actualHazardTiles = (session.map.dynamicHazards ?? []).reduce((sum, hazard) => sum + hazard.tiles.length, 0);
+                assert.equal(actualHazardTiles, expectedHazardTiles, `${label} seed ${seed}: all authored hazard vents are placed`);
+
+                const sealedActors = [
+                    ...session.actors,
+                    ...(session.pendingEnemyWaves ?? []).flatMap(wave => wave.actors),
+                ];
+                const actorTiles = new Set<number>();
+                for (const actor of sealedActors) {
+                    assert.ok(actor.pos >= 0 && actor.pos < boardSize, `${label} seed ${seed}: ${actor.id} is in bounds`);
+                    assert.ok(!reserved.has(actor.pos), `${label} seed ${seed}: ${actor.id} avoids board content at ${actor.pos}`);
+                    assert.ok(!actorTiles.has(actor.pos), `${label} seed ${seed}: ${actor.id} has a unique sealed spawn at ${actor.pos}`);
+                    actorTiles.add(actor.pos);
                 }
             }
         }

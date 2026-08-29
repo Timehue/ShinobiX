@@ -1,6 +1,10 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { FLOOR_CATALOG, getFloor, TOWER_FLOOR_COUNT, partyScaleFactor, scaleEnemyStat, getFloorBalanceFor, MIN_PARTY_SIZE, DEFAULT_PARTY_SIZE, type TowerFloor } from './_floor-catalog.js';
+import {
+    FLOOR_CATALOG, CLAN_BOSS_FLOORS, getFloor, TOWER_FLOOR_COUNT, TOWER_ARENA_SIZES,
+    towerArenaMap, partyScaleFactor, scaleEnemyStat, getFloorBalanceFor,
+    MIN_PARTY_SIZE, DEFAULT_PARTY_SIZE, type TowerFloor,
+} from './_floor-catalog.js';
 import { validateFloor, validateCatalog } from './_floor-validate.js';
 
 describe('Battle Towers floor catalog', () => {
@@ -32,6 +36,25 @@ describe('Battle Towers floor catalog', () => {
         const chapterOneMechs = FLOOR_CATALOG.filter(f => f.id <= 10 && f.boss).map(f => f.boss!.mechanic);
         assert.deepEqual(chapterOneMechs, ['bulwark', 'regen', 'summon', 'enrage']);
         assert.deepEqual(FLOOR_CATALOG.filter(f => f.id > 10 && f.boss).map(f => f.boss!.mechanic), ['bulwark', 'summon']);
+    });
+
+    it('uses the reviewed adaptive arena ladder and reserves the major footprint for milestones', () => {
+        assert.deepEqual(TOWER_ARENA_SIZES, {
+            compact: { width: 16, height: 10 },
+            standard: { width: 18, height: 12 },
+            major: { width: 20, height: 14 },
+        });
+        assert.deepEqual(
+            FLOOR_CATALOG.map(f => [f.map.width, f.map.height]),
+            [
+                [16, 10], [16, 10], [16, 10], [16, 10], [20, 14],
+                [18, 12], [18, 12], [18, 12], [18, 12], [20, 14],
+                [18, 12], [18, 12], [18, 12], [18, 12], [20, 14],
+            ],
+        );
+        assert.deepEqual(FLOOR_CATALOG.filter(f => f.map.width === 20).map(f => f.id), [5, 10, 15]);
+        assert.ok(CLAN_BOSS_FLOORS.every(f => f.map.width === 20 && f.map.height === 14), 'clan bosses retain the major mechanic canvas');
+        assert.notEqual(towerArenaMap('standard'), towerArenaMap('standard'), 'catalog helpers return fresh map objects');
     });
 
     it('ships Chapter 2 as one cohesive, fully briefed Stormglass arc', () => {

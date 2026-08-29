@@ -28,7 +28,11 @@ import type {
     TowerActionResponse,
 } from "./lib/towers-api";
 
-const W = 20, H = 14;
+// The showcase uses the shipped STANDARD arena. Major bosses retain 20×14 and
+// early Story tutorials use 16×10; the combat screen reads either size from the
+// sealed session and applies the same responsive scale path.
+const W = 18, H = 12;
+const at = (x: number, y: number) => y * W + x;
 function neighbors(pos: number): number[] {
     const x = pos % W, y = Math.floor(pos / W);
     const even = x % 2 === 0;
@@ -46,43 +50,43 @@ function enemy(id: string, visual: string, name: string, pos: number, hp = 300, 
 }
 
 // The Warden's primed volley: a violet telegraph centred on the squad's tile-region.
-const STRIKE_TILES = [102, 103, 104, 122, 123, 124, 143];
+const STRIKE_TILES = zone(at(3, 5));
 
 const session: TowerSession = {
-    towerId: "celestial", runId: "preview", floor: 2, seed: 1, partySize: 1,
+    towerId: "celestial", runId: "preview", floor: 6, seed: 1, partySize: 2,
     map: {
         width: W, height: H, biome: "forest",
         // Scattered terrain pillars (non-adjacent, like the server's scatterTerrain).
-        blockedTiles: [46, 89, 132, 174, 216, 111],
+        blockedTiles: [at(4, 1), at(9, 3), at(10, 4), at(11, 5), at(11, 7), at(15, 9)],
         hazardTiles: [], objectiveTiles: [],
         // Spread, non-overlapping flowers (what the server's procedural placement produces).
         features: [
-            { kind: "pylon", tiles: zone(66), element: "Fire", weakenElement: "Water", percent: 25, label: "Flame Pylon" },
-            { kind: "pylon", tiles: zone(74), element: "Earth", weakenElement: "Lightning", percent: 25, label: "Stone Pylon" },
-            { kind: "pylon", tiles: zone(128), element: "Wind", weakenElement: "Fire", percent: 25, label: "Gale Pylon" },
-            { kind: "ward", tiles: zone(156), percent: 20, label: "Warded Stone" },
-            { kind: "hazard", tiles: zone(210), percent: 12, label: "Frost Spikes" },
+            { kind: "pylon", tiles: zone(at(6, 2)), element: "Fire", weakenElement: "Water", percent: 25, label: "Flame Pylon" },
+            { kind: "pylon", tiles: zone(at(12, 2)), element: "Earth", weakenElement: "Lightning", percent: 25, label: "Stone Pylon" },
+            { kind: "pylon", tiles: zone(at(7, 5)), element: "Wind", weakenElement: "Fire", percent: 25, label: "Gale Pylon" },
+            { kind: "ward", tiles: zone(at(13, 8)), percent: 20, label: "Warded Stone" },
+            { kind: "hazard", tiles: zone(at(9, 9)), percent: 12, label: "Frost Spikes" },
         ],
         // Board objects: a healing spring on the flank, a squad-held shrine (cyan ring —
         // Rill's ally stands on it) and an enemy-held shrine (rose ring).
         boardObjects: [
-            { kind: "font", resource: "hp", percent: 8, cap: 120, tiles: [63], label: "Healing Spring" },
-            { kind: "shrine", percent: 10, tiles: [105], label: "Battle Shrine" },
-            { kind: "shrine", percent: 10, tiles: [176], label: "Battle Shrine" },
+            { kind: "font", resource: "hp", percent: 8, cap: 120, tiles: [at(3, 3)], label: "Healing Spring" },
+            { kind: "shrine", percent: 10, tiles: [at(5, 5)], label: "Battle Shrine" },
+            { kind: "shrine", percent: 10, tiles: [at(14, 10)], label: "Battle Shrine" },
         ],
-        // Dynamic hazards: three geyser vents (tile 85 is PRIMED — it joins the crimson
+        // Dynamic hazards: three geyser vents (the first is PRIMED — it joins the crimson
         // telegraph below to show the about-to-erupt pulse; the other two idle-pulse).
-        dynamicHazards: [{ kind: "geyser", tiles: [85, 149, 193], pct: 4, everyRounds: 3 }],
+        dynamicHazards: [{ kind: "geyser", tiles: [at(5, 3), at(9, 6), at(17, 8)], pct: 4, everyRounds: 3 }],
         // The volley's tiles double into the crimson channel like the server's union
-        // (the client subtracts them back out for the violet read). The primed vent (85)
+        // (the client subtracts them back out for the violet read). The primed vent
         // rides the same channel so its eruption telegraphs a round ahead.
-        nextRoundHazardTiles: [...STRIKE_TILES, 85],
+        nextRoundHazardTiles: [...STRIKE_TILES, at(5, 3)],
     },
     actors: [
         {
             id: "sq-0", side: "squad", name: "Rill", ownerSlug: "rill", ai: false,
             hp: 8200, maxHp: 10000, chakra: 220, maxChakra: 300, stamina: 180, maxStamina: 250,
-            shield: 0, statuses: [{ name: "Increase Damage Given", rounds: 2, kind: "positive", percent: 30 }], pos: 123,
+            shield: 0, statuses: [{ name: "Increase Damage Given", rounds: 2, kind: "positive", percent: 30 }], pos: at(3, 5),
             cooldowns: { "raiton-spear": 1 },
             itemCharges: { "kunai": 3, "rejuvenation-potion": 2, "smoke-bomb": 1 },
             character: {
@@ -104,25 +108,25 @@ const session: TowerSession = {
             },
         },
         // A squadmate HOLDING the near shrine (its ring reads cyan).
-        { id: "sq-1", side: "squad", name: "Roku", ownerSlug: null, ai: true, hp: 1200, maxHp: 1500, chakra: 90, maxChakra: 120, stamina: 90, maxStamina: 120, shield: 0, statuses: [], pos: 105, character: { specialty: "Taijutsu", stats: {} } },
-        // Formation: grunts in two ranks (cols 16-18), boss anchoring the back (col 19).
-        enemy("en-0", "bandit", "Bandit", 118),
-        enemy("en-1", "archer", "Archer", 117, 270, 270),
-        enemy("en-2", "brute", "Brute", 116, 570, 570),
-        enemy("en-3", "acolyte", "Acolyte", 198, 250, 250),
-        enemy("en-4", "bandit", "Bandit", 197),
+        { id: "sq-1", side: "squad", name: "Roku", ownerSlug: null, ai: true, hp: 1200, maxHp: 1500, chakra: 90, maxChakra: 120, stamina: 90, maxStamina: 120, shield: 0, statuses: [], pos: at(5, 5), character: { specialty: "Taijutsu", stats: {} } },
+        // Formation: grunts in two ranks (cols 14-16), boss anchoring the back (col 17).
+        enemy("en-0", "bandit", "Bandit", at(14, 4)),
+        enemy("en-1", "archer", "Archer", at(15, 4), 270, 270),
+        enemy("en-2", "brute", "Brute", at(16, 4), 570, 570),
+        enemy("en-3", "acolyte", "Acolyte", at(16, 8), 250, 250),
+        enemy("en-4", "bandit", "Bandit", at(15, 8)),
         // This one HOLDS the far shrine (its ring reads rose).
-        enemy("en-5", "archer", "Archer", 176, 270, 270),
+        enemy("en-5", "archer", "Archer", at(14, 10), 270, 270),
         {
-            ...enemy("boss", "warden", "Spire Warden", 159, 2520, 2520),
+            ...enemy("boss", "warden", "Spire Warden", at(17, 6), 2520, 2520),
             shield: 300, // the aegis it raised at the 60% gate
             character: {
-                specialty: "Taijutsu", stats: {}, visual: "warden", boss: true,
+                specialty: "Taijutsu", stats: {}, visual: "warden", boss: true, mechanic: "bulwark",
                 aiTargetMode: "squishiest", aegis: { shieldPct: 12 },
                 bossStrike: { kind: "volley", pct: 8, radius: 1, everyRounds: 3 },
             },
         },
-        { id: "npc-0", side: "npc", name: "Allied Genin", ownerSlug: null, ai: true, hp: 430, maxHp: 600, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100, shield: 0, statuses: [{ name: "Poison", rounds: 2, kind: "negative", percent: 12 }], pos: 84, character: { specialty: "Taijutsu", stats: {}, visual: "genin" } },
+        { id: "npc-0", side: "npc", name: "Allied Genin", ownerSlug: null, ai: true, hp: 430, maxHp: 600, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100, shield: 0, statuses: [{ name: "Poison", rounds: 2, kind: "negative", percent: 12 }], pos: at(4, 3), character: { specialty: "Taijutsu", stats: {}, visual: "genin" } },
     ],
     turnQueue: ["sq-0", "sq-1", "en-0", "en-1", "en-2", "en-3", "en-4", "en-5", "boss"],
     activeIndex: 0, round: 3, activeAp: 100, actionsThisTurn: 0,
@@ -130,7 +134,7 @@ const session: TowerSession = {
     phaseState: { bossId: "boss", pendingPhases: [30], triggeredPhases: [60] },
     status: "active", winner: null,
     groundEffects: [
-        { id: "gz-demo", owner: "p1", name: "Poison Mire", rounds: 2, tiles: [140, 141, 142, 160, 161, 162], tags: [{ name: "Poison", percent: 12 }] },
+        { id: "gz-demo", owner: "p1", name: "Poison Mire", rounds: 2, tiles: [at(0, 7), at(1, 7), at(2, 7), at(0, 8), at(1, 8), at(2, 8)], tags: [{ name: "Poison", percent: 12 }] },
     ],
     // The primed volley (violet tiles + the danger banner this round).
     bossStrike: { tiles: STRIKE_TILES, round: 3, pct: 8, kind: "volley", label: "Spire Warden's barrage" },
@@ -153,12 +157,11 @@ const session: TowerSession = {
 // advance through real state transitions, not to reproduce server damage.
 const live = new URLSearchParams(window.location.search).has("live");
 
-// The static board is an ART showcase: it parks the squad at tile 123 and the
-// enemy ranks at 116-118, which reads well but leaves every offensive command
-// out of range. Live mode starts the player adjacent to the front grunt (138 is
-// a neighbour of 118) so Attack / weapons / short-range jutsu are actually
+// The static board is an ART showcase: it parks the squad in its own read-safe
+// formation. Live mode starts the player adjacent to the front grunt so Attack,
+// weapons, and short-range jutsu are actually
 // exercisable. Only the live session is moved; the showcase is untouched.
-const LIVE_PLAYER_TILE = 138;
+const LIVE_PLAYER_TILE = at(13, 4);
 const liveSession: TowerSession = {
     ...session,
     actionVersion: 0,
@@ -240,7 +243,7 @@ function harnessVfx(action: TowerActionInput, victimId?: string): TowerSession["
     }
     if (action.type === "jutsu") {
         // Stand in for an elemental AOE so the tile-spread path renders too.
-        return victimId ? [{ key: "fire60", target: victimId, anchor: "area", tiles: [118, 119, 138] }] : [];
+        return victimId ? [{ key: "fire60", target: victimId, anchor: "area", tiles: [at(14, 4), at(15, 4), at(14, 5)] }] : [];
     }
     return [];
 }
