@@ -101,6 +101,47 @@ describe('tower combat VFX', () => {
         );
     });
 
+    it('a boss phase and the triggering attack publish one combined visual beat', () => {
+        const session = duel({ bossId: 'en-1', bossPhases: [90] });
+        const boss = session.actors.find(actor => actor.id === 'en-1')!;
+        boss.hp = 3601;
+        boss.character = { ...FIGHTER, mechanic: 'enrage' };
+        startRound(session);
+        session.activeAp = 100;
+
+        const result = applyAction(session, makeFloor({ objective: 'defeat-boss' }), {
+            actorId: 'sq-1', type: 'attack', targetId: 'en-1',
+        }, makeRng(1));
+
+        assert.equal(result.applied, true);
+        assert.deepEqual(session.phaseState.triggeredPhases, [90]);
+        assert.ok(session.vfx?.some(plate => plate.key === 'buff' && plate.anchor === 'area'), 'enrage has a phase burst');
+        assert.ok(session.vfx?.some(plate => plate.key === 'impact' && plate.target === 'en-1'), 'the triggering hit remains visible');
+    });
+
+    it('DoT, boss-strike, geyser, and regeneration payoffs remain visible together at round end', () => {
+        const session = duel({ bossId: 'en-1' });
+        const boss = session.actors.find(actor => actor.id === 'en-1')!;
+        const squad = session.actors.find(actor => actor.id === 'sq-1')!;
+        boss.hp = 3000;
+        boss.character = { ...FIGHTER, mechanic: 'regen' };
+        startRound(session);
+        squad.statuses = [{ name: 'Wound', rounds: 3, amount: 90, kind: 'negative', activeRound: 1 }];
+        session.map.dynamicHazards = [{ kind: 'geyser', tiles: [0], pct: 4, everyRounds: 2, firstRound: 1 }];
+        const squadHp = squad.hp;
+        session.bossStrike = { tiles: [0], round: session.round, pct: 10, kind: 'volley', label: 'test volley' };
+        session.activeIndex = session.turnQueue.length - 1;
+
+        endTurn(session, makeFloor({ objective: 'defeat-boss' }));
+
+        assert.ok(session.actors.find(actor => actor.id === 'sq-1')!.hp < squadHp, 'the strike dealt its sealed damage');
+        assert.ok(boss.hp > 3000, 'the boss regenerated');
+        assert.ok(session.vfx?.some(plate => plate.key === 'wound' && plate.target === 'sq-1'), 'the DoT tick remains visible');
+        assert.ok(session.vfx?.some(plate => plate.key === 'heavy' && plate.tiles?.includes(0)), 'detonation has an impact plate');
+        assert.ok(session.vfx?.some(plate => plate.key === 'magma' && plate.tiles?.includes(0)), 'geyser eruption has a payoff plate');
+        assert.ok(session.vfx?.some(plate => plate.key === 'heal' && plate.target === 'en-1'), 'regen has a heal plate');
+    });
+
     it('the plate shape is mirrored on the client (separate build roots)', () => {
         // api/ and shinobij.client/ compile independently, so TowerVfxEvent is
         // hand-mirrored — the same drift gap _combat-formula-parity.test.ts

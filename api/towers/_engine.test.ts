@@ -1098,6 +1098,22 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         assert.equal(actor.cooldowns.smoke, 9);
     });
 
+    it('Smoke Bomb respects an adds-gated boss barrier while still affecting exposed combatants', () => {
+        const sq = makeActor('sq-1', 'squad', 0, {
+            itemCharges: { smoke: 1 },
+            character: { specialty: 'Ninjutsu', stats: {}, pvpItems: [{ id: 'smoke', name: 'Smoke Bomb', slot: 'item', weaponEffect: 'Decrease Damage Given', weaponEffectValue: 100, weaponEffectTarget: 'both', apCost: 20 }], equipment: { item: 'smoke' } },
+        });
+        const boss = makeActor('boss', 'enemy', 1, { character: WEAK });
+        const add = makeActor('en-1', 'enemy', 2, { character: WEAK });
+        const s = makeSession([sq, boss, add], { objectiveKind: 'kill-adds-first', bossId: 'boss' });
+        startRound(s);
+
+        assert.ok(applyAction(s, makeFloor('kill-adds-first'), { actorId: 'sq-1', type: 'item', itemId: 'smoke' }, makeRng(1)).applied);
+        assert.ok(getActor(s, 'sq-1')!.statuses.some(status => status.name === 'Decrease Damage Given'));
+        assert.ok(getActor(s, 'en-1')!.statuses.some(status => status.name === 'Decrease Damage Given'));
+        assert.ok(!getActor(s, 'boss')!.statuses.some(status => status.name === 'Decrease Damage Given'), 'protected boss ignores the field debuff');
+    });
+
     it('biome terrain gives the matching discipline +10%', () => {
         const j = { id: 'tj', type: 'Taijutsu', effectPower: 40, ap: 60, range: 1 };
         const hit = (biome: string) => {
@@ -1364,6 +1380,27 @@ describe('Battle Towers basic actions', () => {
         startRound(s);
         assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'clear', targetId: 'en-1' }, makeRng(1)).applied);
         assert.ok(!getActor(s, 'en-1')!.statuses.some(x => x.kind === 'positive'), 'enemy buffs cleared');
+    });
+
+    it('an adds-gated boss rejects Clear without spending AP or stripping its barrier buffs', () => {
+        const buff = { name: 'Reflect', rounds: 2, kind: 'positive' as const };
+        const boss = makeActor('boss', 'enemy', 1, { statuses: [buff], character: WEAK });
+        const add = makeActor('en-1', 'enemy', 2, { character: WEAK });
+        const s = makeSession([
+            makeActor('sq-1', 'squad', 0, { character: { specialty: 'Ninjutsu', stats: {} } }),
+            boss,
+            add,
+        ], { objectiveKind: 'kill-adds-first', bossId: 'boss' });
+        startRound(s);
+        const apBefore = s.activeAp;
+
+        const result = applyAction(s, makeFloor('kill-adds-first'), {
+            actorId: 'sq-1', type: 'clear', targetId: 'boss',
+        }, makeRng(1));
+
+        assert.equal(result.reason, 'objective-locked');
+        assert.equal(s.activeAp, apBefore, 'a rejected clear spends no AP');
+        assert.ok(getActor(s, 'boss')!.statuses.some(status => status.name === 'Reflect'), 'barrier buff remains intact');
     });
 
     it('dash relocates up to 3 hexes and rejects farther', () => {

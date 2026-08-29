@@ -14,7 +14,7 @@
  */
 
 /** Increment only when shipped Story-Tower rules/rewards change. Active runs seal this value. */
-export const TOWER_CATALOG_VERSION = 'story-tower-v2' as const;
+export const TOWER_CATALOG_VERSION = 'story-tower-v3' as const;
 
 export const TOWER_OBJECTIVES = [
     'defeat-all',           // clear every enemy
@@ -43,6 +43,21 @@ export const OBJECTIVES_NEEDING_GOAL: ReadonlySet<TowerObjective> = new Set([
 // Map biomes mirror the PvP session's valid biomes (api/pvp/session.ts).
 export const TOWER_BIOMES = ['forest', 'snow', 'volcano', 'shadow', 'central'] as const;
 export type TowerBiome = (typeof TOWER_BIOMES)[number];
+
+/** Reviewed encounter footprints. Keep every shipped Tower arena on one of these
+ *  three classes so actors remain readable while complex bosses retain enough
+ *  room for phase walls, summons, telegraphs, and closing-ring play. */
+export const TOWER_ARENA_SIZES = {
+    compact: { width: 16, height: 10 },
+    standard: { width: 18, height: 12 },
+    major: { width: 20, height: 14 },
+} as const;
+export type TowerArenaClass = keyof typeof TOWER_ARENA_SIZES;
+
+/** Return a fresh map shape; catalog entries must never share a mutable object. */
+export function towerArenaMap(kind: TowerArenaClass): { width: number; height: number } {
+    return { ...TOWER_ARENA_SIZES[kind] };
+}
 
 // A per-floor passive "field rule" (Ley-Line-Disorder style, plan §19): one of
 // hazard / debuff / buff, applied each round. `none` for warm-up floors.
@@ -261,8 +276,9 @@ function ph(w: number, h: number): number[] {
     return hexZone(Math.floor(h / 2) * w + Math.floor(w / 2), w, h);
 }
 
-// ─── Chapter 1 seed catalog: 10 escalating floors on a roomy 20×14 board (22×16 / 24×16 for
-// bosses). Varied objectives + 4 boss floors, each boss with a DISTINCT mechanic
+// ─── Chapter 1 seed catalog: 10 escalating floors on adaptive reviewed boards — 16×10
+// tutorials, 18×12 standard encounters, and 20×14 milestone bosses. Varied objectives +
+// 4 boss floors, each boss with a DISTINCT mechanic
 // (bulwark / regen / summon / enrage). Features carry placeholder tiles (ph); the
 // encounter builder scatters them procedurally each run and assigns 3-of-5 pylon
 // elements. Milestones at floor 5 + floor 10.
@@ -289,9 +305,9 @@ const CHAPTER_ONE_PRESENTATION = {
 export const FLOOR_CATALOG: readonly TowerFloor[] = [
     {
         id: 1, name: 'Foothold', biome: 'forest', objective: 'defeat-all',
-        roundBudget: 8, map: { width: 20, height: 14 }, fieldRule: { kind: 'none' },
+        roundBudget: 8, map: towerArenaMap('compact'), fieldRule: { kind: 'none' },
         enemies: [{ aiId: 'grunt-bandit', count: 8 }],
-        features: [pylon(20, 14), pylon(20, 14)],
+        features: [pylon(16, 10), pylon(16, 10)],
         firstClearReward: { ryo: 400, xp: 150 },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'foothold',
@@ -307,11 +323,11 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
     },
     {
         id: 2, name: 'Crossfire Glade', biome: 'forest', objective: 'defeat-all',
-        roundBudget: 8, map: { width: 20, height: 14 }, fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 15 },
+        roundBudget: 8, map: towerArenaMap('compact'), fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 15 },
         terrainPillars: 6, // terrain debuts here — light cover, learn to use it
         dynamicHazards: [{ kind: 'geyser', count: 3, pct: 4, everyRounds: 3 }], // geysers debut — learn the beat
         enemies: [{ aiId: 'grunt-bandit', count: 5 }, { aiId: 'grunt-archer', count: 4, spawnRound: 2 }],
-        features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), ward(20, 14, 20)],
+        features: [pylon(16, 10), pylon(16, 10), pylon(16, 10), ward(16, 10, 20)],
         firstClearReward: { ryo: 600, xp: 220, boneCharms: 5 },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'crossfire-glade',
@@ -327,14 +343,14 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
     },
     {
         id: 3, name: 'Frozen Gauntlet', biome: 'snow', objective: 'defeat-all',
-        roundBudget: 9, map: { width: 20, height: 14 }, fieldRule: { kind: 'hazard', tag: 'Drain', percent: 5 },
+        roundBudget: 9, map: towerArenaMap('compact'), fieldRule: { kind: 'hazard', tag: 'Drain', percent: 5 },
         terrainPillars: 8,
         // Reworked off "reach the goal" (too easy here) into a hazard-strewn brawl. The Drain
         // field rule bleeds chakra — the well is the counter-play if you go claim it.
         boardObjects: [{ kind: 'font', resource: 'chakra', percent: 20, cap: 40, label: 'Chakra Well' }],
         dynamicHazards: [{ kind: 'geyser', count: 4, pct: 4, everyRounds: 3 }],
         enemies: [{ aiId: 'grunt-blocker', count: 6 }, { aiId: 'grunt-archer', count: 4 }],
-        features: [pylon(20, 14), hazard(20, 14), hazard(20, 14)],
+        features: [pylon(16, 10), hazard(16, 10), hazard(16, 10)],
         firstClearReward: { ryo: 800, xp: 300 },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'frozen-gauntlet',
@@ -350,7 +366,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
     },
     {
         id: 4, name: 'Hold the Line', biome: 'central', objective: 'protect-npc',
-        roundBudget: 8, map: { width: 20, height: 14 }, fieldRule: { kind: 'debuff', tag: 'Increase Damage Taken', percent: 10 },
+        roundBudget: 8, map: towerArenaMap('compact'), fieldRule: { kind: 'debuff', tag: 'Increase Damage Taken', percent: 10 },
         // Timed defense, deliberately distinct from F8's kill-all escort: pressure arrives in
         // escalating lanes through round 6 and the squad wins by keeping the Genin alive for 8.
         enemies: [
@@ -360,7 +376,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
             { aiId: 'grunt-brute', count: 1, spawnRound: 6 },
         ],
         npc: { aiId: 'npc-genin' },
-        features: [pylon(20, 14), pylon(20, 14), ward(20, 14, 25)],
+        features: [pylon(16, 10), pylon(16, 10), ward(16, 10, 25)],
         firstClearReward: { ryo: 1000, xp: 380, fateShards: 5 },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'hold-the-line',
@@ -376,7 +392,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
     },
     {
         id: 5, name: 'Warden of the Spire', biome: 'volcano', objective: 'defeat-boss',
-        roundBudget: 14, map: { width: 22, height: 16 }, fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 10 },
+        roundBudget: 14, map: towerArenaMap('major'), fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 10 },
         terrainPillars: 10,
         // FIRST BOSS — the wall. BULWARK (half damage while guards live) + AEGIS (fresh shield
         // at each gate) + hunts the softest guard. Deliberately NO telegraphed strike yet:
@@ -384,7 +400,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         // squishy" — strikes debut on floor 7.
         enemies: [{ aiId: 'grunt-bandit', count: 3 }, { aiId: 'grunt-acolyte', count: 2, spawnRound: 2 }],
         boss: { aiId: 'boss-warden', phases: [60, 30], mechanic: 'bulwark', targetMode: 'squishiest', aegis: { shieldPct: 17 } },
-        features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
+        features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), ward(20, 14, 25)],
         firstClearReward: { ryo: 2000, xp: 800, fateShards: 10, milestone: 'tower-floor-5' },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'spire-warden',
@@ -400,13 +416,13 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
     },
     {
         id: 6, name: 'The Acolyte Coven', biome: 'shadow', objective: 'defeat-all',
-        roundBudget: 10, map: { width: 20, height: 14 }, fieldRule: { kind: 'none' },
+        roundBudget: 10, map: towerArenaMap('standard'), fieldRule: { kind: 'none' },
         terrainPillars: 8,
         // A contested battle shrine mid-board: whoever holds it hits harder — take it and keep it.
         boardObjects: [{ kind: 'shrine', percent: 10, label: 'Battle Shrine' }, { kind: 'font', resource: 'chakra', percent: 20, cap: 40, label: 'Chakra Well' }],
         dynamicHazards: [{ kind: 'geyser', count: 4, pct: 4, everyRounds: 3 }],
         enemies: [{ aiId: 'grunt-acolyte', count: 5 }, { aiId: 'grunt-brute', count: 4 }],
-        features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), hazard(20, 14)],
+        features: [pylon(18, 12), pylon(18, 12), pylon(18, 12), hazard(18, 12)],
         firstClearReward: { ryo: 1400, xp: 550, boneCharms: 8 },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'acolyte-coven',
@@ -422,7 +438,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
     },
     {
         id: 7, name: 'The Hollow Revenant', biome: 'shadow', objective: 'defeat-all-then-boss',
-        roundBudget: 16, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
+        roundBudget: 16, map: towerArenaMap('standard'), fieldRule: { kind: 'none' },
         terrainPillars: 10,
         // REGEN: the Revenant heals every round — burst it down through the heal. It hunts the
         // squad's sustain (Heal/Lifesteal/Siphon/Shield carriers) to win the attrition race.
@@ -432,7 +448,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         // VOLLEY — telegraphed strikes DEBUT here: a barrage at the nearest shinobi every 3
         // rounds. Violet tiles + a full round to scatter teach the read on a forgiving 11%.
         boss: { aiId: 'boss-revenant', phases: [66, 33], mechanic: 'regen', regenFlatCap: 650, targetMode: 'support', strike: { kind: 'volley', pct: 11, radius: 1, everyRounds: 3 } },
-        features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
+        features: [pylon(18, 12), pylon(18, 12), pylon(18, 12), ward(18, 12, 25)],
         firstClearReward: { ryo: 2400, xp: 950, fateShards: 12 },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'hollow-revenant',
@@ -448,11 +464,11 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
     },
     {
         id: 8, name: 'Escort the Vanguard', biome: 'central', objective: 'kill-escort',
-        roundBudget: 12, map: { width: 20, height: 14 }, fieldRule: { kind: 'debuff', tag: 'Increase Damage Taken', percent: 10 },
+        roundBudget: 12, map: towerArenaMap('standard'), fieldRule: { kind: 'debuff', tag: 'Increase Damage Taken', percent: 10 },
         // Clear EVERY enemy while the ally survives.
         enemies: [{ aiId: 'grunt-bandit', count: 4 }, { aiId: 'grunt-brute', count: 2 }, { aiId: 'grunt-archer', count: 3, spawnRound: 2 }],
         npc: { aiId: 'npc-genin' },
-        features: [pylon(20, 14), pylon(20, 14), ward(20, 14, 25), hazard(20, 14)],
+        features: [pylon(18, 12), pylon(18, 12), ward(18, 12, 25), hazard(18, 12)],
         firstClearReward: { ryo: 1800, xp: 700, fateShards: 8 },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'escort-vanguard',
@@ -468,7 +484,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
     },
     {
         id: 9, name: 'Pit of Embers', biome: 'volcano', objective: 'kill-adds-first',
-        roundBudget: 16, map: { width: 22, height: 16 }, fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 10 },
+        roundBudget: 16, map: towerArenaMap('standard'), fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 10 },
         terrainPillars: 11,
         // SUMMON: the Ravager calls reinforcements at each phase — don't get swarmed. It presses
         // whoever's already wounded to snowball a kill through the swarm; the spring keeps the
@@ -478,7 +494,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         enemies: [{ aiId: 'grunt-brute', count: 2 }],
         // NOVA debut: the Ravager erupts a boss-centred blast — melee learns to back off mid-swarm.
         boss: { aiId: 'boss-ravager', phases: [66, 33], mechanic: 'summon', summonAiId: 'grunt-bandit', summonCount: 3, targetMode: 'lowest-hp', strike: { kind: 'nova', pct: 14, radius: 1, everyRounds: 2, firstRound: 2 } },
-        features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), hazard(22, 16), hazard(22, 16)],
+        features: [pylon(18, 12), pylon(18, 12), pylon(18, 12), hazard(18, 12), hazard(18, 12)],
         firstClearReward: { ryo: 3000, xp: 1200, fateShards: 15 },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'pit-of-embers',
@@ -494,7 +510,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
     },
     {
         id: 10, name: 'The Spire Sovereign', biome: 'shadow', objective: 'defeat-boss',
-        roundBudget: 18, map: { width: 24, height: 16 }, fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 10 },
+        roundBudget: 18, map: towerArenaMap('major'), fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 10 },
         terrainPillars: 12,
         // ENRAGE: the Sovereign hits harder at every phase gate — race the clock. It focus-fires
         // the wounded, ruthlessly closing out kills as its damage escalates.
@@ -506,7 +522,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         // trivializing the final wall. Its threat is the collapsing ring squeezing you IN — a nova fits.
         boss: { aiId: 'boss-sovereign', phases: [75, 50, 25], mechanic: 'enrage', targetMode: 'lowest-hp', strike: { kind: 'nova', pct: 14, radius: 1, everyRounds: 2 }, phasePillars: 2 },
         closingRing: { pct: 3, fromRound: 11, minRadius: 3 },
-        features: [pylon(24, 16), pylon(24, 16), pylon(24, 16), pylon(24, 16), ward(24, 16, 25), hazard(24, 16)],
+        features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), pylon(20, 14), ward(20, 14, 25), hazard(20, 14)],
         firstClearReward: { ryo: 6000, xp: 2500, fateShards: 30, milestone: 'tower-floor-10' },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'spire-sovereign',
@@ -527,7 +543,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
     // add-gated phase finale. No Chapter 2 rule exists outside Tower combat.
     {
         id: 11, name: 'Stormglass Breach', biome: 'forest', objective: 'defeat-all',
-        roundBudget: 12, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
+        roundBudget: 12, map: towerArenaMap('standard'), fieldRule: { kind: 'none' },
         terrainPillars: 9,
         boardObjects: [{ kind: 'font', resource: 'stamina', percent: 18, cap: 45, label: 'Grounding Font' }],
         dynamicHazards: [{ kind: 'geyser', count: 5, pct: 5, everyRounds: 3, firstRound: 2 }],
@@ -536,7 +552,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
             { aiId: 'stormglass-marksman', count: 3, spawnRound: 2 },
             { aiId: 'stormglass-weaver', count: 2, spawnRound: 4 },
         ],
-        features: [pylon(22, 16), pylon(22, 16), ward(22, 16, 24), hazard(22, 16, 10)],
+        features: [pylon(18, 12), pylon(18, 12), ward(18, 12, 24), hazard(18, 12, 10)],
         firstClearReward: { ryo: 3500, xp: 1400, boneCharms: 10 },
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
@@ -555,7 +571,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
     },
     {
         id: 12, name: 'The Thunder Archive', biome: 'snow', objective: 'break-objective',
-        roundBudget: 17, map: { width: 24, height: 16 }, fieldRule: { kind: 'hazard', tag: 'Drain', percent: 3 },
+        roundBudget: 17, map: towerArenaMap('standard'), fieldRule: { kind: 'hazard', tag: 'Drain', percent: 3 },
         terrainPillars: 10,
         boardObjects: [{ kind: 'font', resource: 'chakra', percent: 20, cap: 45, label: 'Mnemonic Well' }],
         enemies: [{ aiId: 'stormglass-bastion', count: 2 }, { aiId: 'stormglass-weaver', count: 1, spawnRound: 3 }],
@@ -564,7 +580,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
             targetMode: 'support', strike: { kind: 'volley', pct: 12, radius: 1, everyRounds: 3, firstRound: 3 },
             phasePillars: 1, aegis: { shieldPct: 12 },
         },
-        features: [pylon(24, 16), pylon(24, 16), pylon(24, 16), ward(24, 16, 25)],
+        features: [pylon(18, 12), pylon(18, 12), pylon(18, 12), ward(18, 12, 25)],
         firstClearReward: { ryo: 4500, xp: 1800, fateShards: 14 },
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
@@ -587,7 +603,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
     },
     {
         id: 13, name: 'Bridge of a Thousand Bolts', biome: 'central', objective: 'protect-npc',
-        roundBudget: 10, map: { width: 22, height: 16 }, fieldRule: { kind: 'debuff', tag: 'Increase Damage Taken', percent: 8 },
+        roundBudget: 10, map: towerArenaMap('standard'), fieldRule: { kind: 'debuff', tag: 'Increase Damage Taken', percent: 8 },
         terrainPillars: 7,
         boardObjects: [{ kind: 'font', resource: 'hp', percent: 8, cap: 140, label: 'Wayfarer Spring' }],
         dynamicHazards: [{ kind: 'geyser', count: 6, pct: 5, everyRounds: 2, firstRound: 2 }],
@@ -599,7 +615,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
             { aiId: 'stormglass-weaver', count: 2, spawnRound: 8 },
         ],
         npc: { aiId: 'npc-tower-scout' },
-        features: [pylon(22, 16), pylon(22, 16), ward(22, 16, 28), hazard(22, 16, 10)],
+        features: [pylon(18, 12), pylon(18, 12), ward(18, 12, 28), hazard(18, 12, 10)],
         firstClearReward: { ryo: 4200, xp: 1700, fateShards: 10 },
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
@@ -618,7 +634,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
     },
     {
         id: 14, name: 'Hall of Broken Reflections', biome: 'shadow', objective: 'defeat-all',
-        roundBudget: 14, map: { width: 24, height: 16 }, fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 8 },
+        roundBudget: 14, map: towerArenaMap('standard'), fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 8 },
         terrainPillars: 12,
         closingRing: { pct: 3, fromRound: 8, minRadius: 4 },
         boardObjects: [{ kind: 'shrine', percent: 8, label: 'Prism Shrine' }],
@@ -628,7 +644,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
             { aiId: 'stormglass-weaver', count: 3, spawnRound: 3 },
             { aiId: 'stormglass-lancer', count: 3, spawnRound: 5 },
         ],
-        features: [pylon(24, 16), pylon(24, 16), pylon(24, 16), ward(24, 16, 24), hazard(24, 16, 11)],
+        features: [pylon(18, 12), pylon(18, 12), pylon(18, 12), ward(18, 12, 24), hazard(18, 12, 11)],
         firstClearReward: { ryo: 5000, xp: 2100, fateShards: 12, boneCharms: 12 },
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
@@ -647,7 +663,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
     },
     {
         id: 15, name: 'The Stormglass Crown', biome: 'volcano', objective: 'kill-adds-first',
-        roundBudget: 20, map: { width: 24, height: 18 }, fieldRule: { kind: 'none' },
+        roundBudget: 20, map: towerArenaMap('major'), fieldRule: { kind: 'none' },
         terrainPillars: 13,
         closingRing: { pct: 3, fromRound: 11, minRadius: 3 },
         boardObjects: [{ kind: 'font', resource: 'hp', percent: 8, cap: 150, label: 'Eye of the Storm' }],
@@ -659,7 +675,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
             strike: { kind: 'slam', pct: 12, radius: 1, everyRounds: 3, firstRound: 2 },
             phasePillars: 2, aegis: { shieldPct: 10 },
         },
-        features: [pylon(24, 18), pylon(24, 18), pylon(24, 18), pylon(24, 18), ward(24, 18, 25), hazard(24, 18, 12), hazard(24, 18, 12)],
+        features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), pylon(20, 14), ward(20, 14, 25), hazard(20, 14, 12), hazard(20, 14, 12)],
         firstClearReward: { ryo: 9000, xp: 3600, fateShards: 45, boneCharms: 15, milestone: 'tower-floor-15' },
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
@@ -689,43 +705,43 @@ export const CLAN_BOSS_FLOOR_BASE = 9001;
 export const CLAN_BOSS_FLOORS: readonly TowerFloor[] = [
     {
         id: CLAN_BOSS_FLOOR_BASE + 0, name: 'The Oni Warlord', biome: 'volcano', objective: 'defeat-boss',
-        roundBudget: 18, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
+        roundBudget: 18, map: towerArenaMap('major'), fieldRule: { kind: 'none' },
         enemies: [{ aiId: 'grunt-brute', count: 3 }],
         // Elite kit: focus-fires the wounded + a periodic SEISMIC SLAM — the Warlord's ground-pound
         // hurls the caught back (fits a melee brute, and scatter costs less here than on the razor-tuned
         // story floors). Gentle cadence (every 4) keeps the weekly chip economy intact — tune with clan balance.
         boss: { aiId: 'clan-boss-oni', phases: [75, 50, 25], mechanic: 'enrage', targetMode: 'lowest-hp', strike: { kind: 'slam', pct: 8, radius: 1, everyRounds: 4 } },
-        features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
+        features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), ward(20, 14, 25)],
         balanceFor: 3, firstClearReward: {},
     },
     {
         id: CLAN_BOSS_FLOOR_BASE + 1, name: 'Abyssal Leviathan', biome: 'snow', objective: 'defeat-boss',
-        roundBudget: 18, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
+        roundBudget: 18, map: towerArenaMap('major'), fieldRule: { kind: 'none' },
         enemies: [{ aiId: 'grunt-acolyte', count: 2 }],
         boss: { aiId: 'clan-boss-leviathan', phases: [66, 33], mechanic: 'summon', summonAiId: 'grunt-bandit', summonCount: 2, targetMode: 'lowest-hp', strike: { kind: 'nova', pct: 8, radius: 1, everyRounds: 4 } },
-        features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), hazard(22, 16)],
+        features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), hazard(20, 14)],
         balanceFor: 3, firstClearReward: {},
     },
     {
         id: CLAN_BOSS_FLOOR_BASE + 2, name: 'The Fallen Kage', biome: 'shadow', objective: 'defeat-boss',
-        roundBudget: 18, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
+        roundBudget: 18, map: towerArenaMap('major'), fieldRule: { kind: 'none' },
         enemies: [{ aiId: 'grunt-acolyte', count: 3 }],
         // The operation can be entered solo. Cap regeneration below a competent
         // solo player's per-round pressure so the low-population fallback always
         // banks progress instead of hitting a binary percentage-heal wall.
         boss: { aiId: 'clan-boss-kage', phases: [66, 33], mechanic: 'regen', regenFlatCap: 150, targetMode: 'support', strike: { kind: 'volley', pct: 8, radius: 1, everyRounds: 4 } },
-        features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
+        features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), ward(20, 14, 25)],
         balanceFor: 3, firstClearReward: {},
     },
     {
         id: CLAN_BOSS_FLOOR_BASE + 3, name: 'Ancient Stone Golem', biome: 'central', objective: 'defeat-boss',
-        roundBudget: 20, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
+        roundBudget: 20, map: towerArenaMap('major'), fieldRule: { kind: 'none' },
         // BULWARK: the golem takes half damage while its guards live — break them first.
         // Elite kit hunts the softest guard + a periodic nova (no aegis — a shield would absorb
         // boss-HP damage and shrink the weekly chip pool).
         enemies: [{ aiId: 'grunt-blocker', count: 3 }],
         boss: { aiId: 'clan-boss-golem', phases: [60, 30], mechanic: 'bulwark', targetMode: 'squishiest', strike: { kind: 'nova', pct: 8, radius: 1, everyRounds: 4 } },
-        features: [pylon(22, 16), pylon(22, 16), ward(22, 16, 25), ward(22, 16, 25)],
+        features: [pylon(20, 14), pylon(20, 14), ward(20, 14, 25), ward(20, 14, 25)],
         balanceFor: 3, firstClearReward: {},
     },
 ];
