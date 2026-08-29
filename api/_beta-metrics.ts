@@ -39,7 +39,9 @@ export type BetaMetricEvent =
     | 'tower.run_started'
     | 'tower.run_settled'
     | 'pvp.settled'
-    | 'bank.interest.claimed';
+    | 'bank.interest.claimed'
+    | 'card.pack_opened'
+    | 'pet.acquired';
 
 export type BetaRewardTotals = Record<string, number>;
 
@@ -50,6 +52,8 @@ export interface BetaMetricDay {
     levelBands: Record<string, number>;
     sources: Record<string, number>;
     rewardTotals: BetaRewardTotals;
+    /** `domain:rarity` -> count, scarce tiers only. See betaRareGrantKey. */
+    rareGrants: Record<string, number>;
 }
 
 export interface BetaMetricInput {
@@ -63,6 +67,8 @@ export interface BetaMetricInput {
     territoryScrolls?: number;
     itemCount?: number;
     currencies?: Record<string, unknown>;
+    /** Pre-normalized by betaRareGrantTally; ordinary tiers are already dropped. */
+    rareGrants?: Record<string, number>;
     ts?: number;
 }
 
@@ -100,6 +106,47 @@ export function betaLevelBand(level: unknown): string {
     return 'L80-100';
 }
 
+/*
+ * Rare-grant normalization.
+ *
+ * The repo has four rarity vocabularies that do not agree: ItemRarity is
+ * common|uncommon|rare|epic|legendary|mythic|named, PetRarity is
+ * standard|rare|legendary|mythic, MarketplaceCardRarity drops mythic, and
+ * Chronicle has its own. What an operator actually wants is one question across
+ * all of them — how much SCARCE stuff is being handed out today — so the tiers
+ * every vocabulary treats as ordinary are dropped and the rest are counted under
+ * a `domain:rarity` key.
+ */
+export type BetaGrantDomain = 'pet' | 'card' | 'item' | 'jutsu' | 'bloodline';
+
+/** The ordinary tiers, across every vocabulary. Anything else is scarce. */
+const ORDINARY_RARITIES = new Set(['standard', 'common', 'uncommon', 'basic', 'normal', '']);
+
+const GRANT_DOMAINS = new Set<string>(['pet', 'card', 'item', 'jutsu', 'bloodline']);
+
+/**
+ * `pet:mythic`, `card:legendary`, ... or null when the rarity is an ordinary
+ * tier, unreadable, or the domain is not one we track. Null means "do not
+ * count", never "count as unknown" — a junk rarity must not inflate scarcity.
+ */
+export function betaRareGrantKey(domain: string, rarity: unknown): string | null {
+    if (!GRANT_DOMAINS.has(domain)) return null;
+    const tier = String(rarity ?? '').trim().toLowerCase();
+    if (!/^[a-z][a-z-]{0,23}$/.test(tier)) return null;
+    if (ORDINARY_RARITIES.has(tier)) return null;
+    return `${domain}:${tier}`;
+}
+
+/** Tally a batch of grants (a pack open, a clutch) into a rareGrants map. */
+export function betaRareGrantTally(domain: string, rarities: readonly unknown[]): Record<string, number> {
+    const tally: Record<string, number> = {};
+    for (const rarity of rarities ?? []) {
+        const key = betaRareGrantKey(domain, rarity);
+        if (key) tally[key] = (tally[key] ?? 0) + 1;
+    }
+    return tally;
+}
+
 function emptyDay(date: string, updatedAt = 0): BetaMetricDay {
     return {
         date,
@@ -108,6 +155,7 @@ function emptyDay(date: string, updatedAt = 0): BetaMetricDay {
         levelBands: {},
         sources: {},
         rewardTotals: {},
+        rareGrants: {},
     };
 }
 
@@ -135,6 +183,7 @@ export function applyBetaMetric(day: BetaMetricDay | null | undefined, input: Be
         levelBands: { ...(day?.levelBands ?? {}) },
         sources: { ...(day?.sources ?? {}) },
         rewardTotals: { ...(day?.rewardTotals ?? {}) },
+        rareGrants: { ...(day?.rareGrants ?? {}) },
     };
 
     inc(next.events, input.event, 1);
@@ -149,6 +198,13 @@ export function applyBetaMetric(day: BetaMetricDay | null | undefined, input: Be
     inc(next.rewardTotals, 'items', input.itemCount);
     for (const [currency, amount] of Object.entries(input.currencies ?? {})) {
         inc(next.rewardTotals, currency, Number(amount));
+    }
+    for (const [grant, count] of Object.entries(input.rareGrants ?? {})) {
+        // Re-validated on the way in: an emitter cannot smuggle an ordinary tier
+        // or a junk key into the scarcity tally by hand-building the map.
+        const [domain, ...rest] = grant.split(':');
+        const key = betaRareGrantKey(domain, rest.join(':'));
+        if (key) inc(next.rareGrants, key, Number(count));
     }
 
     return next;
@@ -197,12 +253,14 @@ export async function readBetaMetricsSnapshot(days = DEFAULT_DAYS, opts: { kv?: 
         levelBands: {},
         sources: {},
         rewardTotals: {},
+        rareGrants: {},
     };
     for (const day of daily) {
         mergeCounts(totals.events, day.events);
         mergeCounts(totals.levelBands, day.levelBands);
         mergeCounts(totals.sources, day.sources);
         mergeCounts(totals.rewardTotals, day.rewardTotals);
+        mergeCounts(totals.rareGrants, day.rareGrants);
     }
     return { generatedAt: now, days: dates.length, daily, totals };
 }

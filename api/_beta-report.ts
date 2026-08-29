@@ -149,12 +149,18 @@ function mapLine(label: string, value: Record<string, number> | undefined): stri
 export function formatDailyBetaReport(report: DailyBetaReport): string {
     const events = report.metrics.totals.events;
     const rewards = report.metrics.totals.rewardTotals;
+    // Scarce-tier grants, `domain:rarity` -> count. Deliberately its own line
+    // rather than folded into reward totals: reward totals answer "how much did
+    // the economy pay out", this answers "how often did something scarce drop",
+    // and mixing them hides the second question inside the first.
+    const rareGrants = report.metrics.totals.rareGrants;
     const population = report.population;
     return [
         `ShinobiX beta report — ${new Date(report.generatedAt).toISOString()}`,
         `Window: ${report.metrics.days} day(s)`,
         mapLine('Events', events),
         mapLine('Reward totals', rewards),
+        mapLine('Rare grants', rareGrants),
         mapLine('Event level bands', report.metrics.totals.levelBands),
         ...(population ? [
             `Saves scanned: ${population.savesScanned} (${population.malformedSaves} malformed)`,
