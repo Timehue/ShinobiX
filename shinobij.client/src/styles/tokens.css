@@ -226,6 +226,13 @@
   --z-toast:      1200;
   --z-combat:     2000;
   --z-combat-hud: 2100;
+  /* Re-authentication sits above EVERY gameplay surface, including the
+     ad-hoc 999999-1000002 band that predates this scale (side rails,
+     GameAlert, card packs, VN cinematics, the Warfront takeover). It is the
+     one prompt a player must always be able to reach: it holds their unsaved
+     progress in memory, and refreshing to escape it loses exactly what it
+     exists to protect. Only ErrorBoundary (2147483647) is above it. */
+  --z-reauth:     2000000;
 
   /* =========================================================================
      SEMANTIC TOKENS — reference these in components, not the primitives above.
