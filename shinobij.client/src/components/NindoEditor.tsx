@@ -76,9 +76,16 @@ export function NindoEditor({ value, onSave }: { value: NindoValue; onSave: (v: 
     const hasBg = Object.keys(previewBg).length > 0;
 
     return (
-        <section className="profile-build-panel nindo-editor">
-            <h2>Nindo</h2>
-            <p className="hint" style={{ marginTop: "-0.4rem" }}>
+        <details className="profile-build-panel nindo-editor profile-title-manager" open>
+            <summary className="profile-title-manager-summary">
+                <span>
+                    <strong>Nindo</strong>
+                    <small>Your shinobi creed, shown publicly on your profile.</small>
+                </span>
+                <em>{dirty ? "Unsaved changes" : draft.trim() ? "Creed saved" : "No creed written"}</em>
+            </summary>
+            <div className="profile-title-manager-body">
+            <p className="hint" style={{ marginTop: 0 }}>
                 Your shinobi creed — shown on your profile to everyone who views it. Safe BBCode only:
                 {" "}<code>[b] [i] [u] [color=gold] [size=22] [center] [quote] [url] [img]</code>. Scripts and raw HTML
                 are stripped; images and links must be <code>https://</code> URLs.
@@ -152,6 +159,7 @@ export function NindoEditor({ value, onSave }: { value: NindoValue; onSave: (v: 
                     {draft.trim() ? renderNindo(draft) : <span className="hint">Nothing yet — your creed will appear here.</span>}
                 </div>
             </div>
-        </section>
+            </div>
+        </details>
     );
 }
