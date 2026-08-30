@@ -227,12 +227,18 @@
   --z-combat:     2000;
   --z-combat-hud: 2100;
   /* Re-authentication sits above EVERY gameplay surface, including the
-     ad-hoc 999999-1000002 band that predates this scale (side rails,
+     ad-hoc 10000-1000002 band that predates this scale (rails,
      GameAlert, card packs, VN cinematics, the Warfront takeover). It is the
      one prompt a player must always be able to reach: it holds their unsaved
      progress in memory, and refreshing to escape it loses exactly what it
      exists to protect. Only ErrorBoundary (2147483647) is above it. */
   --z-reauth:     2000000;
+  /* NOTE: many overlays still bypass this scale entirely. The values in
+     live use as of 2026-08 are 10000, 10001, 99999, 100000, 100001,
+     1000000, 1000001, 1000002 and ErrorBoundary's 2147483647. Several
+     comments around the codebase still cite a "right-menu 999999" rail;
+     that rail has since moved onto --z-rail and no 999999 remains. Check
+     what a value actually competes with before copying either. */
 
   /* =========================================================================
      SEMANTIC TOKENS — reference these in components, not the primitives above.

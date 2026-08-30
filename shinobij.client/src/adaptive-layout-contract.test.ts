@@ -221,7 +221,7 @@ test('adaptive CSS authorities load after legacy and theme styles', () => {
  * exactly what it exists to protect.
  *
  * It was mounted inline inside AdaptiveGameShell at z-index 100000, beneath the
- * whole ad-hoc 999999-1000002 band (side rails, GameAlert, card packs, VN
+ * whole ad-hoc 10000-1000002 band (rails, GameAlert, card packs, VN
  * cinematics, the Warfront takeover). GameAlertHost had already hit this and was
  * fixed with a portal plus a raised z-index; this prompt never was. These
  * assertions keep the ordering true as new overlays get added.
@@ -233,6 +233,15 @@ test('the re-auth prompt outranks every gameplay overlay and escapes the app she
     // A portal, or the app shell's stacking context traps it however high it goes.
     assert.match(modal, /createPortal\(/, 'the re-auth prompt must portal out of the app shell');
     assert.match(modal, /document\.body/);
+    // Dialog semantics. autoFocus already put the caret in the password box, but
+    // without these a screen reader announced a bare password field with no
+    // statement of what it belonged to — on the one prompt gating the session.
+    assert.match(modal, /role="dialog"/);
+    assert.match(modal, /aria-modal="true"/);
+    assert.match(modal, /aria-labelledby="session-expired-title"/);
+    assert.match(modal, /id="session-expired-title"/, 'the labelled heading must exist');
+    assert.match(modal, /autoFocus/, 'focus must still land inside the prompt');
+
     // A token, not a literal, so the ordering below is checkable.
     assert.match(modal, /zIndex: "var\(--z-reauth\)"/);
 
