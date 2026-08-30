@@ -21,8 +21,8 @@ describe("VN action gate", () => {
     });
 
     it("self-heals a claim whose continuation never advanced the scene", () => {
-        // Losing a VN-launched battle (or a failed finale claim) hands control
-        // back to the still-mounted VN without changing page/line/finale state,
+        // A rejected launch (or a failed finale claim) hands control back to the
+        // still-mounted VN without changing page/line/finale state,
         // so the renderer's unlock effect never fires. The claim must expire or
         // every control on the full-screen overlay stays dead forever.
         const lock = { current: false };
@@ -40,5 +40,7 @@ describe("VN action gate", () => {
         const source = readFileSync(new URL("../components/TriggeredVisualNovel.tsx", import.meta.url), "utf8");
         assert.match(source, /function cancelScene\(\) \{ onCancel\(\); \}/,
             "cancelScene must call onCancel unconditionally, not behind beginAction()");
+        assert.match(source, /onClick=\{\(\) => startBattle\(\)\}>Enter Battle<\/button>[\s\S]{0,120}onClick=\{cancelScene\}>Leave - No Reward<\/button>/,
+            "Enter must launch combat while Leave remains wired only to cancellation");
     });
 });

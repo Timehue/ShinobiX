@@ -3809,7 +3809,7 @@ export function WorldMap({
         const opponent = creatorEventPracticeOpponent(event.aiProfileId, battle?.aiProfileId, character.level);
         setCurrentBiome(event.biome);
         setCurrentWeather(weatherForBiome(event.biome));
-        if (!requestAiFight({
+        const launched = requestAiFight({
             opponentId: opponent.id,
             opponentLevel: Math.max(1, event.levelReq || character.level),
             // Published creator-event battles do not yet have a sealed event
@@ -3818,12 +3818,9 @@ export function WorldMap({
             battleKind: "practice",
             sector: event.targetSector,
             returnScreen: "worldMap",
-            onResolved: (result) => {
-                if (result.outcome === "win") {
-                    setSelectedCreatorEvent((current) => current?.id === event.id ? null : current);
-                }
-            },
-        })) alert("The sealed practice arena is unavailable. Your event remains open.");
+        });
+        if (launched) setSelectedCreatorEvent(null);
+        else alert("The sealed practice arena is unavailable. Your event remains open.");
     }
     if (activePetEncounter && !petVnDone) {
         const vn = petEncounterVn;

@@ -49,7 +49,7 @@ export type AiFightRequest = {
     onResolved?: (result: AiFightSettleResult) => void;
 };
 
-type Listener = (request: AiFightRequest) => void;
+type Listener = (request: AiFightRequest) => boolean;
 let listener: Listener | null = null;
 
 /** Host registration (single subscriber — the App-mounted AiFightHost). */
@@ -59,11 +59,12 @@ export function onAiFightRequest(fn: Listener): () => void {
 }
 
 /**
- * Launch one AI fight through the host. Returns false when no host is mounted;
- * callers use that only for diagnostics because App owns the singleton host.
+ * Launch one AI fight through the host. Returns true only when the host accepts
+ * the request for immediate start (or its one supported chained queue slot).
+ * A missing or busy host returns false, so callers do not dismiss launch UI for
+ * a fight that was never actually admitted.
  */
 export function requestAiFight(request: AiFightRequest): boolean {
     if (!listener) return false;
-    listener(request);
-    return true;
+    return listener(request);
 }
