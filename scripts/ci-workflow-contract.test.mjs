@@ -81,16 +81,16 @@ test('artifact consumers verify immutable provenance and failure evidence stays 
     assert.ok(!workflow.includes('shinobij.client/.playwright-mcp/aaa-adaptive/'));
 });
 
-test('Warfront interaction coverage cannot starve behind high-quality software WebGL', () => {
-    assert.match(warfrontSpec, /const councilWarfrontUrl = "[^"]*petQuality=low";/);
+test('Warfront interaction coverage uses the deterministic low-cost fixture', () => {
+    assert.match(warfrontSpec, /const warfrontUrl = "[^"]*petQuality=low";/);
     assert.equal(
-        warfrontSpec.split('${councilWarfrontUrl}&wfspeed=').length - 1,
+        warfrontSpec.split('${warfrontUrl}&wfspeed=').length - 1,
         2,
-        'sealed-camp and Council interaction loads must share the low-quality CI fixture',
+        'command-window and result-lifecycle loads must share the low-cost CI fixture',
     );
     assert.match(
         warfrontSpec,
-        /\$\{warfrontUrl\}&petQuality=high&wfperf=geometry/,
-        'the dedicated renderer/DPR matrix must retain explicit high-quality coverage',
+        /background-image[\s\S]*ground-portrait/,
+        'the responsive matrix must verify the portrait battlefield art',
     );
 });
