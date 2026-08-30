@@ -12,11 +12,18 @@ import { createPortal } from "react-dom";
  *
  * It PORTALS TO BODY and sits at --z-reauth for the same reason GameAlertHost
  * does. Mounted inline inside AdaptiveGameShell at z-index 100000 it rendered
- * BENEATH every overlay in the ad-hoc 999999-1000002 band - side rails,
+ * BENEATH every overlay in the ad-hoc 10000-1000002 band - rails,
  * GameAlert, card-pack opening, VN cinematics, the Warfront takeover. A session
  * expiring while any of those was open left the player looking at a screen they
  * could not dismiss, whose only escape was the refresh that discards the
  * unsaved progress this modal exists to save.
+ *
+ * It carries dialog semantics for the same reason ModalDialogScrim does. The
+ * password field already had autoFocus, so focus lands in the right place — but
+ * with no role, no aria-modal and no label, a screen reader announced a bare
+ * password box with no statement of what it belonged to or why it appeared. On
+ * the one prompt standing between a player and their session, "type your
+ * password" with no context is the worst possible thing to say.
  */
 export function SessionExpiredModal({ password, error, busy, onPasswordChange, onContinue, onLogout }: {
     password: string;
@@ -28,6 +35,10 @@ export function SessionExpiredModal({ password, error, busy, onPasswordChange, o
 }) {
     return createPortal(
         <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="session-expired-title"
+            aria-describedby="session-expired-body"
             style={{
                 position: "fixed", inset: 0, zIndex: "var(--z-reauth)",
                 display: "grid", placeItems: "center",
@@ -41,8 +52,8 @@ export function SessionExpiredModal({ password, error, busy, onPasswordChange, o
                     boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
                 }}
             >
-                <h3 style={{ marginTop: 0, color: "#e2e8f0" }}>Session timed out</h3>
-                <p style={{ color: "#cbd5e1", fontSize: "0.95rem" }}>
+                <h3 id="session-expired-title" style={{ marginTop: 0, color: "#e2e8f0" }}>Session timed out</h3>
+                <p id="session-expired-body" style={{ color: "#cbd5e1", fontSize: "0.95rem" }}>
                     Your login session expired. Enter your password to keep playing —{" "}
                     <strong>your progress is safe and will be saved.</strong>
                 </p>
