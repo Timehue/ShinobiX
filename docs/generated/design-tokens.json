@@ -2541,7 +2541,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1527
+            "line": 1563
           },
           {
             "source": "shinobij.client/src/styles/pet-arena-lobby.css",
@@ -2654,7 +2654,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1387
+            "line": 1463
           },
           {
             "source": "shinobij.client/src/styles/living-chronicle-spine.css",
@@ -2890,6 +2890,10 @@
           {
             "source": "shinobij.client/src/styles/index/32-cinematic-vn.css",
             "line": 1292
+          },
+          {
+            "source": "shinobij.client/src/styles/landing-skin.css",
+            "line": 1410
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-tools.css",
@@ -3358,7 +3362,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1676
+            "line": 1712
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
@@ -3416,7 +3420,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1297
+            "line": 1308
           },
           {
             "source": "shinobij.client/src/styles/living-chronicle-spine.css",
@@ -3443,7 +3447,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1717
+            "line": 1753
           }
         ]
       },
@@ -3885,7 +3889,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1717
+            "line": 1753
           }
         ]
       },
