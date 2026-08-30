@@ -6,6 +6,10 @@ export type LegalPageSlug =
     | "cookies"
     | "copyright"
     | "privacy-request"
+    // Google Play's Data safety form requires a deletion URL that works WITHOUT
+    // installing the app, so this is a dedicated slug rather than a section of
+    // privacy-request. Submit https://shinobijourney.com/delete-account there.
+    | "delete-account"
     | "notices";
 
 export const LEGAL_PAGE_LINKS: ReadonlyArray<{ slug: LegalPageSlug; label: string }> = [
@@ -16,6 +20,7 @@ export const LEGAL_PAGE_LINKS: ReadonlyArray<{ slug: LegalPageSlug; label: strin
     { slug: "cookies", label: "Cookies" },
     { slug: "copyright", label: "Copyright" },
     { slug: "privacy-request", label: "Privacy Request" },
+    { slug: "delete-account", label: "Delete Account" },
     { slug: "notices", label: "Notices" },
 ];
 
