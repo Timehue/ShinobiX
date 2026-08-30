@@ -2384,7 +2384,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3051
+            "line": 3095
           }
         ]
       },
@@ -2465,7 +2465,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1830
+            "line": 1874
           }
         ]
       },
@@ -2897,7 +2897,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 2996
+            "line": 3040
           },
           {
             "source": "shinobij.client/src/styles/story-archive-guidance.css",
@@ -2958,7 +2958,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1641
+            "line": 1685
           }
         ]
       },
@@ -3366,7 +3366,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 2973
+            "line": 3017
           }
         ]
       },
@@ -3813,7 +3813,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 2959
+            "line": 3003
           }
         ]
       },
