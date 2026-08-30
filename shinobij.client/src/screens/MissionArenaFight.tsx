@@ -14,6 +14,7 @@ import type { JutsuMethod } from "../types/core";
 import { JUTSU_MAX_LEVEL } from "../constants/game";
 import type {
     ServerArenaAction,
+    ServerArenaMovementEvent,
     ServerArenaSession,
     ServerArenaStatus,
     ServerArenaTransport,
@@ -115,6 +116,10 @@ type ArenaCombatVfx = { id: string; target: string; spec: CombatVfxSpec };
 
 const ORB = 68;             // larger solo-combat actors; still centred over the hex
 const ATTACK_AP = 40, MOVE_AP = 30, UTILITY_AP = 60, MAX_ACTIONS = 5;
+// The server resolves a whole AI turn before returning it. Replay its recorded
+// adjacent Move events at a readable cadence instead of gliding directly from
+// the turn's first tile to its final tile.
+const ENEMY_MOVEMENT_STEP_MS = 320;
 
 // Which jutsu school the biome's +10% terrain buff favors (mirrors the server's
 // combat-core terrainMultiplier), for the terrain strip readout.
@@ -403,6 +408,69 @@ export function MissionArenaFight({
 
     const myPos = myActor?.pos ?? -1;
     const enemyPos = enemy?.pos ?? -1;
+    const [displayEnemyPos, setDisplayEnemyPos] = useState(enemyPos);
+    const authoritativeEnemyPosRef = useRef(enemyPos);
+    const enemyMovementQueueRef = useRef<ServerArenaMovementEvent[]>([]);
+    const enemyMovementTimerRef = useRef<number | null>(null);
+    const enemyMovementActiveRef = useRef(false);
+    const lastMovementSeqRef = useRef(initialSession.movementSeq);
+
+    const playNextEnemyMovement = useCallback(function playNext(): void {
+        const step = enemyMovementQueueRef.current.shift();
+        if (!step) {
+            enemyMovementActiveRef.current = false;
+            enemyMovementTimerRef.current = null;
+            setDisplayEnemyPos(authoritativeEnemyPosRef.current);
+            return;
+        }
+        setDisplayEnemyPos(step.to);
+        enemyMovementTimerRef.current = window.setTimeout(playNext, ENEMY_MOVEMENT_STEP_MS);
+    }, []);
+
+    useEffect(() => {
+        authoritativeEnemyPosRef.current = enemyPos;
+        const seq = session.movementSeq;
+        const last = lastMovementSeqRef.current;
+
+        if (seq === undefined) {
+            if (!enemyMovementActiveRef.current) setDisplayEnemyPos(enemyPos);
+            return;
+        }
+        if (last === undefined) {
+            lastMovementSeqRef.current = seq;
+            if (!enemyMovementActiveRef.current) setDisplayEnemyPos(enemyPos);
+            return;
+        }
+        if (seq <= last) {
+            if (!enemyMovementActiveRef.current) setDisplayEnemyPos(enemyPos);
+            return;
+        }
+        lastMovementSeqRef.current = seq;
+
+        const freshSteps = (session.movements ?? [])
+            .filter((step) => step.actorId === "enemy" && step.seq > last)
+            .sort((a, b) => a.seq - b.seq);
+        const reduceMotion = typeof window.matchMedia === "function"
+            && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (!freshSteps.length || reduceMotion) {
+            if (!enemyMovementActiveRef.current) setDisplayEnemyPos(enemyPos);
+            return;
+        }
+
+        enemyMovementQueueRef.current.push(...freshSteps);
+        if (!enemyMovementActiveRef.current) {
+            // Paint the authoritative starting tile before advancing so React
+            // cannot batch the first two positions into another apparent jump.
+            enemyMovementActiveRef.current = true;
+            setDisplayEnemyPos(freshSteps[0]!.from);
+            enemyMovementTimerRef.current = window.setTimeout(playNextEnemyMovement, 24);
+        }
+    }, [enemyPos, playNextEnemyMovement, session.movementSeq, session.movements]);
+
+    useEffect(() => () => {
+        if (enemyMovementTimerRef.current !== null) window.clearTimeout(enemyMovementTimerRef.current);
+        enemyMovementQueueRef.current = [];
+    }, []);
     const biome = String(session.map.biome ?? "central");
     const gateFloor = hollowGate?.floor;
     const gateKind = hollowGate?.kind;
@@ -1014,7 +1082,7 @@ export function MissionArenaFight({
                                     return <FighterHpBadge key="pet-hp" left={left + HEX_W / 2 - ORB / 2} top={top + HEX_H * 0.85 - ORB - 16} width={ORB} hp={companion.hp} maxHp={companion.maxHp} side="pet" caption={`${companion.name} · ${companionRoundsLeft}⟳`} />;
                                 })()}
                                 {enemy && (() => {
-                                    const { left, top } = towerHexPixel(enemyPos, w);
+                                    const { left, top } = towerHexPixel(displayEnemyPos, w);
                                     const spriteFacing = enemyBattleSprite
                                         ? battlefieldFacingTowardNearest(enemy, session.actors, w)
                                         : undefined;
@@ -1023,7 +1091,7 @@ export function MissionArenaFight({
                                     </BattlefieldActor>;
                                 })()}
                                 {enemy && (() => {
-                                    const { left, top } = towerHexPixel(enemyPos, w);
+                                    const { left, top } = towerHexPixel(displayEnemyPos, w);
                                     // AI fighters render full-body art that overflows the fixed orb
                                     // anchor upward, so the standard -16 lift used for marker-pin
                                     // actors put the badge squarely on the enemy's face. Clear the
