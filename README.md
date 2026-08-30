@@ -227,6 +227,10 @@ described in [CLAUDE.md](CLAUDE.md).
 
 ## License
 
-No open-source license is declared for this repository. All code and assets are
-under exclusive copyright and may not be redistributed or reused without
-permission. The source is public to read, not to reuse.
+Source-available, not open source — see [LICENSE](LICENSE).
+
+The source is published so it can be read and studied. Copying, redistributing,
+hosting an instance, or reusing the artwork, audio, story content or names
+requires written permission. Bundled third-party components (the Inter,
+Marcellus and Roboto fonts, and one CC0 base mesh) stay under their own
+licenses, which the LICENSE file points at.
