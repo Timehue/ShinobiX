@@ -631,6 +631,7 @@ export type PetWarfrontStage3DProps = {
     blue: ArenaSlot[];
     red: ArenaSlot[];
     quality: PetVisualQualityConfig;
+    paused: boolean;
     displayTick: number;
     events: readonly WfEvent[];
     theme: WfTheme;
@@ -645,6 +646,7 @@ export function PetWarfrontStage3D(props: PetWarfrontStage3DProps) {
                 orthographic
                 shadows={props.quality.modelShadows ? "percentage" : false}
                 dpr={props.quality.dpr}
+                frameloop={props.paused ? "demand" : "always"}
                 gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
                 camera={{ position: [0, 47, 18], near: 0.1, far: 110, zoom: 18 }}
                 onCreated={({ camera }) => camera.lookAt(0, 0, 0)}
