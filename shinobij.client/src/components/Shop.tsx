@@ -94,7 +94,19 @@ function ShopBase({
     const [purchaseBusy, setPurchaseBusy] = useState(false);
     const purchaseBusyRef = useRef(false);
 
-    const closeItem = useCallback(() => { if (!purchaseBusyRef.current) setSelectedItem(null); }, []);
+    /*
+     * Not gated on purchaseBusyRef: an escape hatch a busy flag can disable is no hatch at
+     * all. Escape, the "×" button, the "Close" button and the backdrop all went dead together while
+     * buy() was in flight, and that call has no timeout, so one
+     * stalled connection trapped the player here with only a refresh out.
+     * Closing mid-purchase is safe: Shop itself stays mounted, so the response
+     * still applies the character update, and purchaseBusyRef independently
+     * blocks a second purchase, so reopening the item and confirming again is
+     * a no-op rather than a double-spend.
+     * The backdrop stays guarded because it is easy to hit by accident and is
+     * not the only way out.
+     */
+    const closeItem = useCallback(() => { setSelectedItem(null); }, []);
 
     // Open an item's popup, resetting the bulk-buy quantity to 1 for a fresh
     // start. (The render also clamps the shown qty to what's buyable, so a stale
@@ -303,7 +315,6 @@ function ShopBase({
                             type="button"
                             className="item-popup-close"
                             onClick={closeItem}
-                            disabled={purchaseBusy}
                             aria-label="Close"
                         >
                             ×
@@ -465,7 +476,6 @@ function ShopBase({
                                         type="button"
                                         className="danger-button"
                                         onClick={closeItem}
-                                        disabled={purchaseBusy}
                                     >
                                         Close
                                     </button>
