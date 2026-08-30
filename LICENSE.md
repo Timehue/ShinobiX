@@ -2,10 +2,9 @@
 
 <https://polyformproject.org/licenses/strict/1.0.0>
 
-**Licensor: Timehue.** The software licensed under these terms is ShinobiX /
-Shinobi Journey — the contents of this repository, including its source code and
-its creative assets (artwork, audio, written story content, and names), except
-for the third-party material listed under *Additional Notices* below.
+Licensor: Timehue. See NOTICE.md for what the software covers, the
+third-party material these terms do not cover, and how to ask for permission
+beyond them.
 
 ## Acceptance
 
@@ -94,47 +93,3 @@ Control can be direct or indirect.
 these terms.
 
 **Use** means anything you do with the software requiring one of your licenses.
-
----
-
-# Additional Notices
-
-*The following is not part of the PolyForm Strict License 1.0.0 above. It
-identifies material in this repository that the license does not cover.*
-
-## Third-party components
-
-This repository bundles third-party material that is **not** the licensor's and
-is **not** licensed under the terms above. Each remains under its own license,
-and that license governs it:
-
-- **Inter** (font) — SIL Open Font License 1.1 —
-  `shinobij.client/public/fonts/inter-LICENSE.txt`
-- **Marcellus** (font) — SIL Open Font License 1.1 —
-  `shinobij.client/public/fonts/marcellus-LICENSE.txt`
-- **Roboto** (font) — Apache License 2.0 —
-  `shinobij.client/public/fonts/roboto-LICENSE.txt`
-- **`ember-wolf-rigged.gltf`** — Creative Commons Zero 1.0 (CC0), by Quaternius —
-  `shinobij.client/public/pet-models/THIRD_PARTY_ASSETS.md`
-
-Software dependencies installed from npm are likewise governed by their own
-licenses and are not covered here.
-
-## Trademarks
-
-No trademark or branding rights are granted. "ShinobiX" and "Shinobi Journey",
-and the associated logos and artwork, are not licensed for reuse.
-
-## Contributions
-
-Contributions to this repository are welcomed under
-[.github/CONTRIBUTING.md](.github/CONTRIBUTING.md). The license above does not
-grant permission to make changes or new works; contributing back to this
-repository is by arrangement with the licensor, which opening a pull request is
-taken to be.
-
-## Permission beyond these terms
-
-For anything these terms do not allow — commercial use, distribution, derivative
-works, or reuse of the creative assets — ask. Contact the maintainer through the
-Discord linked in README.md.
