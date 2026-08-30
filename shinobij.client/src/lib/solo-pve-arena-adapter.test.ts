@@ -69,6 +69,39 @@ test("a fight with no VFX yet still projects an empty stream rather than undefin
     assert.equal(view.vfxSeq, 0);
 });
 
+test("the Arena view preserves every authoritative enemy movement step", () => {
+    const source = session();
+    source.eventSeq = 14;
+    source.enemy.pos = 43;
+    source.events = [
+        {
+            kind: "action", seq: 12, round: 2, actor: "player", target: "enemy", action: "basicAttack",
+            before: { player: { pos: 62 }, enemy: { pos: 33 } } as never,
+            after: { player: { pos: 62 }, enemy: { pos: 33 } } as never,
+            log: [], vfx: [], status: "active", winner: null, outcome: null,
+        },
+        {
+            kind: "action", seq: 13, round: 2, actor: "enemy", target: "tile", action: "move", tile: 44,
+            before: { player: { pos: 62 }, enemy: { pos: 33 } } as never,
+            after: { player: { pos: 62 }, enemy: { pos: 44 } } as never,
+            log: [], vfx: [], status: "active", winner: null, outcome: null,
+        },
+        {
+            kind: "action", seq: 14, round: 2, actor: "enemy", target: "tile", action: "move", tile: 43,
+            before: { player: { pos: 62 }, enemy: { pos: 44 } } as never,
+            after: { player: { pos: 62 }, enemy: { pos: 43 } } as never,
+            log: [], vfx: [], status: "active", winner: null, outcome: null,
+        },
+    ];
+
+    const view = soloPveSessionForArena(source);
+    assert.equal(view.movementSeq, 14);
+    assert.deepEqual(view.movements, [
+        { seq: 13, actorId: "enemy", from: 33, to: 44 },
+        { seq: 14, actorId: "enemy", from: 44, to: 43 },
+    ]);
+});
+
 test("the Arena view preserves whether the one-time PvE pet summon was consumed", () => {
     const source = session();
     source.companionUsage = { petId: "pet-1" };
