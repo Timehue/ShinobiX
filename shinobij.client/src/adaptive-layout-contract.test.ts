@@ -214,3 +214,54 @@ test('adaptive CSS authorities load after legacy and theme styles', () => {
     const tools = main.indexOf("./styles/layout/adaptive-tools.css");
     assert.ok(theme >= 0 && theme < shell && shell < stages && stages < tools);
 });
+
+/*
+ * The re-auth prompt is the one surface a player must ALWAYS be able to reach.
+ * It holds their unsaved progress in memory, so a refresh to escape it destroys
+ * exactly what it exists to protect.
+ *
+ * It was mounted inline inside AdaptiveGameShell at z-index 100000, beneath the
+ * whole ad-hoc 999999-1000002 band (side rails, GameAlert, card packs, VN
+ * cinematics, the Warfront takeover). GameAlertHost had already hit this and was
+ * fixed with a portal plus a raised z-index; this prompt never was. These
+ * assertions keep the ordering true as new overlays get added.
+ */
+test('the re-auth prompt outranks every gameplay overlay and escapes the app shell', () => {
+    const modal = readFileSync(join(srcDir, 'components', 'SessionExpiredModal.tsx'), 'utf8');
+    const tokens = readFileSync(join(srcDir, 'styles', 'tokens.css'), 'utf8');
+
+    // A portal, or the app shell's stacking context traps it however high it goes.
+    assert.match(modal, /createPortal\(/, 'the re-auth prompt must portal out of the app shell');
+    assert.match(modal, /document\.body/);
+    // A token, not a literal, so the ordering below is checkable.
+    assert.match(modal, /zIndex: "var\(--z-reauth\)"/);
+
+    const reauth = Number(/--z-reauth:\s*(\d+)/.exec(tokens)?.[1]);
+    assert.ok(Number.isFinite(reauth) && reauth > 0, '--z-reauth must be defined in tokens.css');
+
+    // The crash boundary is deliberately above everything, re-auth included.
+    const boundary = readFileSync(join(srcDir, 'components', 'ErrorBoundary.tsx'), 'utf8');
+    const crash = Number(/zIndex:\s*(\d+)/.exec(boundary)?.[1]);
+    assert.ok(crash > reauth, 'only the crash boundary may sit above re-auth');
+
+    // Nothing else may. Scans every literal the client actually ships.
+    const layerFiles = (directory: string): string[] =>
+        readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+            const target = join(directory, entry.name);
+            if (entry.isDirectory()) return layerFiles(target);
+            return /\.(css|tsx)$/.test(entry.name) ? [target] : [];
+        });
+    const offenders: string[] = [];
+    for (const file of layerFiles(srcDir)) {
+        if (file.endsWith('ErrorBoundary.tsx')) continue;
+        const text = readFileSync(file, 'utf8');
+        for (const match of text.matchAll(/z-?[iI]ndex:\s*"?(\d{4,})/g)) {
+            if (Number(match[1]) >= reauth) offenders.push(`${relative(srcDir, file)} -> ${match[1]}`);
+        }
+    }
+    assert.deepEqual(
+        offenders,
+        [],
+        `these sit at or above the re-auth layer, so an expired session would render behind them: ${offenders.join(', ')}`,
+    );
+});
