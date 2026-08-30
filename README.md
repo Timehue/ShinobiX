@@ -5,22 +5,31 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-game%20server%20%2B%20client-3178c6)
 ![Beta](https://img.shields.io/badge/status-live%20public%20beta-2f7d32)
 
-ShinobiX is a browser-based ninja MMORPG built around long-term character
-growth, jutsu combat, missions, clans, pets, village systems, towers, ranked
-PvP, and live-service progression loops.
+### ▶ Play it at [shinobijourney.com](https://shinobijourney.com/)
 
-The playable client currently presents itself as **Shinobi Journey** while the
-repository and backend package use the **ShinobiX** name.
+ShinobiX is a browser-based ninja MMORPG. You build one shinobi over months —
+training stats and jutsu rather than grinding XP, taking missions and hunts,
+joining a clan, raising companions, and fighting AP-based tactical battles where
+positioning, chakra and cooldowns decide the turn. Combat, rewards and saves are
+resolved on the server, not in the browser.
+
+It runs live, in the open, with real player saves. The client presents itself as
+**Shinobi Journey**; the repository and backend package keep the **ShinobiX**
+name.
 
 ![ShinobiX demo preview](docs/screenshots/demo.gif)
 
 ## Why Star This Repo
 
-Star ShinobiX if you want to follow a serious live browser MMORPG codebase. The
-project is more than a landing page: it
-has a real React client, an Express/Supabase backend, server-side reward and
-anti-cheat checks, and a broad automated test suite covering combat, missions,
-economy, PvP, saves, pets, towers, village systems, and release gates.
+This is a live game's actual codebase, not a demo or a landing page: a React 19
+client, an Express/Supabase backend, server-authoritative reward and anti-cheat
+paths, and roughly 8,400 automated tests covering combat, missions, economy,
+PvP, saves, pets, towers, village systems and the release gates themselves.
+
+If you are here to read rather than to play, the interesting parts are
+`api/_lock.ts` (shared-state read-modify-write), the mint-token reward pattern
+in [docs/auth-and-anti-cheat-patterns.md](docs/auth-and-anti-cheat-patterns.md),
+and `server.ts`, where every route is registered by hand on purpose.
 
 ## Gameplay
 
@@ -40,6 +49,8 @@ economy, PvP, saves, pets, towers, village systems, and release gates.
 | Character creation | Tactical combat |
 | --- | --- |
 | ![Character creator](docs/screenshots/character-creator.png) | ![Combat screen](docs/screenshots/combat.png) |
+| **Bloodlines** | **Your village** |
+| ![Bloodline screen](docs/screenshots/shot-bloodlines.png) | ![Village screen](docs/screenshots/shot-village.png) |
 
 ## Current Status
 
@@ -49,9 +60,9 @@ Gate, companions and their battle modes, Chronicle Showdown, clans and Clan Boss
 Operations, Village and Sector War, professions, Legacy, Hall of Legends, and
 the village story chronicles.
 
-Emergency disable controls remain available for incident response. Admin and
-creator operations retain their existing permissions; operational safeguards do
-not describe player systems as unlaunched.
+Every system above has a kill switch, because a live game needs one. A feature
+having an emergency disable does not mean it is unreleased — the switches exist
+for incident response, and the systems are shipped.
 
 All shipped Solo PvE combat modes now seal player loadouts, resolve actions,
 recover sessions, and settle rewards on the server. The server rejects the
@@ -146,6 +157,23 @@ bundle, and runs the build-size check.
 
 `dist/` is generated, gitignored, and deliberately not committed - Railway
 rebuilds it from source on every deploy.
+
+## Documentation
+
+Only six markdown files live at the repo root, and each is load-bearing:
+this README, [CLAUDE.md](CLAUDE.md) (conventions and hard rules),
+[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md),
+[FEATURE_FLAG_RELEASE_MATRIX.md](FEATURE_FLAG_RELEASE_MATRIX.md),
+[RAILWAY_SETUP.md](RAILWAY_SETUP.md), and
+[PUBLIC_BETA_LAUNCH_RECOMMENDATION.md](PUBLIC_BETA_LAUNCH_RECOMMENDATION.md).
+
+Everything else is under `docs/`. The one file to trust about what is actually
+live is [docs/LIVE_PRODUCT_STATUS.md](docs/LIVE_PRODUCT_STATUS.md) — where a
+dated audit disagrees with it, that file wins.
+
+[docs/archive/](docs/archive/) holds point-in-time snapshots kept only for the
+audit trail. Nothing in there describes how the system works today, and it is
+safe to ignore.
 
 ## Roadmap
 
