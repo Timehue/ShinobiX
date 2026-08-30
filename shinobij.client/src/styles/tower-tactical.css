@@ -1,4 +1,4 @@
-.screen-battleTowerFight .tower-turn-queue {
+.tower-turn-queue {
     display: flex;
     flex: 0 0 auto;
     gap: 6px;
@@ -12,7 +12,7 @@
     scrollbar-width: thin;
 }
 
-.screen-battleTowerFight .tower-turn-queue li {
+.tower-turn-queue li {
     display: inline-flex;
     flex: 0 0 auto;
     align-items: center;
@@ -27,34 +27,34 @@
     scroll-snap-align: start;
 }
 
-.screen-battleTowerFight .tower-turn-queue:focus-visible {
+.tower-turn-queue:focus-visible {
     outline: 3px solid #67e8f9;
     outline-offset: 2px;
 }
 
-.screen-battleTowerFight .tower-turn-queue li.is-active {
+.tower-turn-queue li.is-active {
     border-color: var(--gold);
     color: #fff7d6;
     box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.15);
 }
 
-.screen-battleTowerFight .tower-turn-queue small {
+.tower-turn-queue small {
     color: var(--gold-400);
     font-weight: 800;
 }
 
-.screen-battleTowerFight .tower-turn-dot {
+.tower-turn-dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
     background: var(--gold);
 }
 
-.screen-battleTowerFight .tower-turn-dot--squad { background: #67e8f9; }
-.screen-battleTowerFight .tower-turn-dot--enemy { background: #fb7185; }
-.screen-battleTowerFight .tower-turn-dot--npc { background: var(--gold); }
+.tower-turn-dot--squad { background: #67e8f9; }
+.tower-turn-dot--enemy { background: #fb7185; }
+.tower-turn-dot--npc { background: var(--gold); }
 
-.screen-battleTowerFight .tower-threat-summary {
+.tower-threat-summary {
     display: flex;
     align-items: center;
     gap: 7px;
@@ -70,24 +70,24 @@
     scrollbar-width: thin;
 }
 
-.screen-battleTowerFight .tower-threat-summary.has-threats {
+.tower-threat-summary.has-threats {
     border-color: rgba(251, 146, 60, 0.7);
     background: repeating-linear-gradient(135deg, rgba(194, 65, 12, 0.2) 0 8px, rgba(32, 10, 5, 0.78) 8px 16px);
     color: #ffedd5;
 }
 
-.screen-battleTowerFight .tower-threat-summary strong,
-.screen-battleTowerFight .tower-threat-summary span {
+.tower-threat-summary strong,
+.tower-threat-summary span {
     flex: 0 0 auto;
 }
 
-.screen-battleTowerFight .tower-threat-summary span + span::before {
+.tower-threat-summary span + span::before {
     content: "•";
     margin-right: 7px;
     color: #fdba74;
 }
 
-.screen-battleTowerFight .tower-board-toolbar {
+.tower-board-toolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -95,19 +95,19 @@
     margin-bottom: 5px;
 }
 
-.screen-battleTowerFight .tower-board-help {
+.tower-board-help {
     color: var(--text-dim);
     font-size: 0.68rem;
 }
 
-.screen-battleTowerFight .tower-board-controls {
+.tower-board-controls {
     display: inline-flex;
     align-items: center;
     gap: 5px;
     margin-left: auto;
 }
 
-.screen-battleTowerFight .tower-board-controls button {
+.tower-board-controls button {
     min-width: 44px;
     min-height: 44px;
     padding: 4px 8px;
@@ -116,12 +116,12 @@
     font-size: 0.76rem;
 }
 
-.screen-battleTowerFight .tower-board-controls input[type="range"] {
+.tower-board-controls input[type="range"] {
     width: 92px;
     min-height: 44px;
 }
 
-.screen-battleTowerFight .tower-board-controls output {
+.tower-board-controls output {
     min-width: 42px;
     color: #bae6fd;
     font-size: 0.72rem;
@@ -129,16 +129,16 @@
     text-align: center;
 }
 
-.screen-battleTowerFight .tower-board-area {
+.tower-board-area {
     touch-action: pan-y;
     user-select: none;
     overscroll-behavior: contain;
 }
 
-.screen-battleTowerFight .tower-board-area.is-pannable { cursor: grab; touch-action: none; }
-.screen-battleTowerFight .tower-board-area.is-pannable:active { cursor: grabbing; }
+.tower-board-area.is-pannable { cursor: grab; touch-action: none; }
+.tower-board-area.is-pannable:active { cursor: grabbing; }
 
-.screen-battleTowerFight .tower-fight-title {
+.tower-fight-title {
     min-width: 0;
     margin: 0;
     color: var(--slate-100);
@@ -147,7 +147,7 @@
     overflow-wrap: anywhere;
 }
 
-.screen-battleTowerFight .tower-fight-statusbar[data-has-encounter-art="true"] {
+.tower-fight-statusbar[data-has-encounter-art="true"] {
     position: relative;
     isolation: isolate;
     padding: 4px 6px;
@@ -161,22 +161,22 @@
     box-shadow: inset 0 0 24px rgba(2, 6, 18, 0.34), 0 5px 16px rgba(2, 6, 18, 0.25);
 }
 
-.screen-battleTowerFight .tower-fight-statusbar[data-has-encounter-art="true"] > * {
+.tower-fight-statusbar[data-has-encounter-art="true"] > * {
     position: relative;
     z-index: 1;
     text-shadow: 0 1px 3px #020612, 0 0 10px rgba(2, 6, 18, 0.88);
 }
 
-.screen-battleTowerFight .tower-fight-statusbar > button { min-height: 44px; }
+.tower-fight-statusbar > button { min-height: 44px; }
 
-.screen-battleTowerFight .tower-objective-progress {
+.tower-objective-progress {
     color: var(--gold-400);
     font-size: 0.8rem;
     font-weight: 750;
     white-space: nowrap;
 }
 
-.screen-battleTowerFight .tower-round-readout {
+.tower-round-readout {
     flex: 1;
     min-width: max-content;
     font-weight: 700;
@@ -184,21 +184,21 @@
     white-space: nowrap;
 }
 
-.screen-battleTowerFight .tower-fight-turn-pill { min-width: 0; }
-.screen-battleTowerFight .tower-fight-turn-label {
+.tower-fight-turn-pill { min-width: 0; }
+.tower-fight-turn-label {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.screen-battleTowerFight .tower-mechanic-chip {
+.tower-mechanic-chip {
     max-width: 100%;
     overflow-wrap: anywhere;
     white-space: normal;
 }
 
-.screen-battleTowerFight .tower-mechanic-strip {
+.tower-mechanic-strip {
     display: flex;
     flex: 0 0 auto;
     flex-wrap: wrap;
@@ -206,7 +206,7 @@
     margin-bottom: 6px;
 }
 
-.screen-battleTowerFight .tower-arena-loadout-note {
+.tower-arena-loadout-note {
     margin: 8px 0 0;
     padding: 7px 9px;
     border: 1px solid rgba(167, 139, 250, 0.5);
@@ -217,7 +217,7 @@
     line-height: 1.4;
 }
 
-.screen-battleTowerFight .tower-sr-only {
+.tower-sr-only {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -228,22 +228,22 @@
     border: 0;
 }
 
-.screen-battleTowerFight .tower-action-dock {
+.tower-action-dock {
     margin-top: 8px;
 }
 
-.screen-battleTowerFight .tower-hex-tile:focus-visible,
-.screen-battleTowerFight .tower-board-actor:focus-visible {
+.tower-hex-tile:focus-visible,
+.tower-board-actor:focus-visible {
     outline: 4px solid #fef08a !important;
     outline-offset: 3px !important;
     filter: brightness(1.25) drop-shadow(0 0 4px rgba(250, 204, 21, 0.9));
 }
 
-.screen-battleTowerFight .tower-board-actor[data-protected="true"] {
+.tower-board-actor[data-protected="true"] {
     filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.78));
 }
 
-.screen-battleTowerFight .tower-boss-barrier {
+.tower-boss-barrier {
     position: absolute;
     inset: -7px;
     border: 2px solid rgba(125, 211, 252, 0.92);
@@ -258,7 +258,7 @@
     50% { opacity: 1; transform: scale(1.05); }
 }
 
-.screen-battleTowerFight .tower-board-actor {
+.tower-board-actor {
     appearance: none;
     display: block;
     height: auto;
@@ -272,11 +272,11 @@
     text-align: inherit;
 }
 
-.screen-battleTowerFight .tower-board-actor:disabled {
+.tower-board-actor:disabled {
     opacity: 1;
 }
 
-.screen-battleTowerFight .tower-unknown-combatant {
+.tower-unknown-combatant {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -289,7 +289,7 @@
     text-shadow: 0 1px 2px #000;
 }
 
-.screen-battleTowerFight .tower-unknown-combatant-badge {
+.tower-unknown-combatant-badge {
     position: absolute;
     right: -7px;
     bottom: -5px;
@@ -304,7 +304,7 @@
     text-transform: uppercase;
 }
 
-.screen-battleTowerFight .tower-unknown-combatant-label {
+.tower-unknown-combatant-label {
     display: inline-block;
     margin-top: 3px;
     padding: 1px 4px;
@@ -317,344 +317,74 @@
     text-transform: uppercase;
 }
 
-/* Desktop-only tactical dossier. The left rail previously became an empty navy
-   column below the squad cards; this turns that space into an encounter-aware
-   objective, boss, and battlefield-recognition surface. */
-.screen-battleTowerFight .tower-combat-intel {
+/* Encounter-aware use of the open desktop squad rail. */
+.tower-combat-intel {
     position: relative;
-    isolation: isolate;
-    margin-top: 13px;
-    padding: 8px;
+    margin-top: 12px;
+    padding: 9px;
     overflow: hidden;
-    border: 1px solid rgba(100, 116, 139, 0.56);
-    border-radius: 11px;
-    background:
-        linear-gradient(155deg, rgba(14, 26, 46, 0.98), rgba(2, 8, 21, 0.96) 58%, rgba(8, 24, 35, 0.98));
-    box-shadow:
-        inset 0 1px 0 rgba(226, 232, 240, 0.06),
-        inset 0 -24px 44px rgba(2, 6, 18, 0.34),
-        0 12px 26px rgba(2, 6, 18, 0.28);
+    border: 1px solid #475569;
+    border-radius: 10px;
+    background: linear-gradient(155deg, #0e1a2e, #020815 62%, #081823);
+    color: #94a3b8;
+    font-size: 0.58rem;
 }
 
-.screen-battleTowerFight .tower-combat-intel[data-has-encounter-art="true"]::before {
+.tower-combat-intel[data-has-encounter-art="true"]::before {
     position: absolute;
     inset: 0 0 auto;
-    z-index: -1;
-    height: 150px;
-    background-image:
-        linear-gradient(180deg, rgba(2, 6, 18, 0.22), rgba(2, 8, 21, 0.98)),
-        var(--tower-intel-art);
-    background-position: center, center 28%;
-    background-size: cover;
+    height: 145px;
+    background: linear-gradient(#02061238, #020815), var(--tower-intel-art) center 28%/cover;
     content: "";
     opacity: 0.58;
 }
 
-.screen-battleTowerFight .tower-combat-intel::after {
-    position: absolute;
-    inset: 0 8px auto;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(103, 232, 249, 0.72), transparent);
-    content: "";
-    opacity: 0.72;
-}
+.tower-combat-intel > * { position: relative; }
+.tower-intel-header,
+.tower-boss-dossier-heading,
+.tower-board-legend-item { display: grid; align-items: center; gap: 6px; }
+.tower-intel-header { grid-template-columns: auto 1fr auto; padding-bottom: 8px; }
+.tower-boss-dossier-heading > div:last-child { display: grid; min-width: 0; }
+.tower-intel-header strong,
+.tower-boss-dossier-heading strong { overflow: hidden; color: #f8fafc; text-overflow: ellipsis; white-space: nowrap; }
+.tower-intel-header em { padding: 2px 5px; border: 1px solid #4ade806b; border-radius: 20px; color: #86efac; font-size: 0.44rem; font-style: normal; font-weight: 900; }
+.tower-objective-dossier,
+.tower-boss-dossier,
+.tower-board-legend { padding-top: 8px; border-top: 1px solid #334155; }
+.tower-boss-dossier,
+.tower-board-legend { margin-top: 8px; }
+.tower-intel-kicker,
+.tower-boss-dossier-heading small { color: #94a3b8; font-size: 0.5rem; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; }
+.tower-intel-kicker { display: block; margin-bottom: 4px; }
+.tower-objective-dossier > strong { display: block; color: #fef3c7; font-size: 0.76rem; }
+.tower-intel-progress { display: block; margin-top: 6px; padding: 4px 6px; border: 1px solid #facc1547; border-radius: 6px; background: #713f123d; color: #fde68a; font-weight: 800; }
+.tower-boss-dossier[data-barrier-active="true"] { border-color: #7dd3fc80; }
+.tower-boss-dossier-heading { grid-template-columns: 42px 1fr; }
+.tower-boss-dossier-portrait { display: grid; place-items: center; width: 42px; height: 42px; overflow: hidden; border: 1px solid #fb7185d1; border-radius: 8px; background: radial-gradient(circle at top, #7f1d1db8, #020612); }
+.tower-boss-dossier[data-barrier-active="true"] .tower-boss-dossier-portrait { border-color: #7dd3fc; box-shadow: 0 0 12px #38bdf86b; }
+.tower-boss-dossier-portrait img,
+.tower-boss-dossier-portrait > span { width: 100%; height: 100%; object-fit: cover; }
+.tower-boss-dossier-heading small { color: #fb7185; }
+.tower-boss-dossier-heading em { color: #fda4af; font-style: normal; font-weight: 750; }
+.tower-boss-dossier[data-barrier-active="true"] :is(small, em) { color: #bae6fd; }
+.tower-boss-health-meter { height: 6px; margin-top: 7px; overflow: hidden; border-radius: 20px; background: #020617; }
+.tower-boss-health-meter > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #be123c, #fb7185); box-shadow: 0 0 8px #fb71858a; transition: width 240ms ease-out; }
+.tower-boss-phase-readout { margin: 6px 0 0; color: #c4b5fd; font-weight: 700; }
+.tower-boss-phase-readout b { color: #e2e8f0; }
+.tower-board-legend > div { display: grid; gap: 5px; }
+.tower-board-legend-item { grid-template-columns: 14px 1fr; align-items: start; }
+.tower-board-legend-item strong { color: #dbeafe; }
+.tower-legend-swatch { width: 12px; height: 12px; border: 1px solid #e2e8f09e; border-radius: 3px; background: #475569; }
+.tower-legend-swatch--strike { background: #9333ea; }
+.tower-legend-swatch--hazard { background: #dc2626; }
+.tower-legend-swatch--ring { background: #c2410c; }
+.tower-legend-swatch--pylon { background: conic-gradient(#ef4444, #38bdf8, #facc15, #4ade80, #ef4444); }
+.tower-legend-swatch--ward,
+.tower-legend-swatch--terrain { background: linear-gradient(135deg, #e2e8f0, #334155); }
+.tower-legend-swatch--font { background: #14b8a6; }
+.screen-battleTowerFight :is(.tower-legend-swatch--shrine, .tower-legend-swatch--objective) { background: #eab308; }
 
-.screen-battleTowerFight .tower-intel-header {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 6px;
-    padding: 1px 1px 8px;
-    border-bottom: 1px solid rgba(71, 85, 105, 0.52);
-}
-
-.screen-battleTowerFight .tower-intel-header > span {
-    color: #67e8f9;
-    font-size: 0.88rem;
-    filter: drop-shadow(0 0 5px rgba(34, 211, 238, 0.5));
-}
-
-.screen-battleTowerFight .tower-intel-header > div {
-    display: grid;
-    min-width: 0;
-}
-
-.screen-battleTowerFight .tower-intel-header small,
-.screen-battleTowerFight .tower-intel-header strong {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.screen-battleTowerFight .tower-intel-header small {
-    color: #64748b;
-    font-size: 0.5rem;
-    font-weight: 900;
-    letter-spacing: 0.09em;
-    line-height: 1.1;
-    text-transform: uppercase;
-}
-
-.screen-battleTowerFight .tower-intel-header strong {
-    color: #e2e8f0;
-    font-size: 0.79rem;
-    letter-spacing: 0.02em;
-}
-
-.screen-battleTowerFight .tower-intel-header em {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 2px 4px;
-    border: 1px solid rgba(74, 222, 128, 0.42);
-    border-radius: 999px;
-    background: rgba(20, 83, 45, 0.34);
-    color: #86efac;
-    font-size: 0.44rem;
-    font-style: normal;
-    font-weight: 950;
-    letter-spacing: 0.08em;
-}
-
-.screen-battleTowerFight .tower-intel-header em::before {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: #4ade80;
-    box-shadow: 0 0 7px rgba(74, 222, 128, 0.85);
-    content: "";
-    animation: towerIntelLivePulse 1.8s ease-in-out infinite;
-}
-
-@keyframes towerIntelLivePulse {
-    0%, 100% { opacity: 0.55; transform: scale(0.82); }
-    50% { opacity: 1; transform: scale(1.08); }
-}
-
-.screen-battleTowerFight .tower-objective-dossier,
-.screen-battleTowerFight .tower-boss-dossier,
-.screen-battleTowerFight .tower-board-legend {
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid rgba(51, 65, 85, 0.52);
-}
-
-.screen-battleTowerFight .tower-objective-dossier {
-    margin-top: 0;
-    padding: 8px 1px 0;
-    border-top: 0;
-}
-
-.screen-battleTowerFight .tower-intel-kicker {
-    display: block;
-    margin-bottom: 4px;
-    color: #94a3b8;
-    font-size: 0.53rem;
-    font-weight: 900;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-}
-
-.screen-battleTowerFight .tower-objective-dossier > strong {
-    display: block;
-    color: #fef3c7;
-    font-size: 0.77rem;
-    line-height: 1.22;
-}
-
-.screen-battleTowerFight .tower-objective-dossier > p {
-    margin: 4px 0 6px;
-    color: #a7b4c7;
-    font-size: 0.62rem;
-    line-height: 1.35;
-}
-
-.screen-battleTowerFight .tower-intel-progress {
-    display: block;
-    padding: 4px 6px;
-    border: 1px solid rgba(250, 204, 21, 0.28);
-    border-radius: 6px;
-    background: linear-gradient(90deg, rgba(113, 63, 18, 0.42), rgba(40, 28, 10, 0.18));
-    color: #fde68a;
-    font-size: 0.59rem;
-    font-weight: 800;
-    line-height: 1.25;
-}
-
-.screen-battleTowerFight .tower-boss-dossier[data-barrier-active="true"] {
-    border-top-color: rgba(125, 211, 252, 0.5);
-}
-
-.screen-battleTowerFight .tower-boss-dossier-heading {
-    display: grid;
-    grid-template-columns: 42px minmax(0, 1fr);
-    align-items: center;
-    gap: 7px;
-}
-
-.screen-battleTowerFight .tower-boss-dossier-portrait {
-    position: relative;
-    display: grid;
-    place-items: center;
-    width: 42px;
-    height: 42px;
-    overflow: hidden;
-    border: 1px solid rgba(251, 113, 133, 0.82);
-    border-radius: 8px;
-    background: radial-gradient(circle at 50% 25%, rgba(127, 29, 29, 0.72), rgba(2, 6, 18, 0.96));
-    box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.45), 0 0 12px rgba(244, 63, 94, 0.14);
-}
-
-.screen-battleTowerFight .tower-boss-dossier[data-barrier-active="true"] .tower-boss-dossier-portrait {
-    border-color: #7dd3fc;
-    box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.45), 0 0 12px rgba(56, 189, 248, 0.42);
-}
-
-.screen-battleTowerFight .tower-boss-dossier-portrait img,
-.screen-battleTowerFight .tower-boss-dossier-portrait > span {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.screen-battleTowerFight .tower-boss-dossier-heading > div:last-child {
-    display: grid;
-    min-width: 0;
-}
-
-.screen-battleTowerFight .tower-boss-dossier-heading small {
-    color: #fb7185;
-    font-size: 0.49rem;
-    font-weight: 900;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.screen-battleTowerFight .tower-boss-dossier-heading strong {
-    overflow: hidden;
-    color: #f8fafc;
-    font-size: 0.73rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.screen-battleTowerFight .tower-boss-dossier-heading em {
-    color: #fda4af;
-    font-size: 0.57rem;
-    font-style: normal;
-    font-weight: 750;
-}
-
-.screen-battleTowerFight .tower-boss-dossier[data-barrier-active="true"] .tower-boss-dossier-heading small,
-.screen-battleTowerFight .tower-boss-dossier[data-barrier-active="true"] .tower-boss-dossier-heading em {
-    color: #bae6fd;
-}
-
-.screen-battleTowerFight .tower-boss-health-meter {
-    height: 6px;
-    margin-top: 7px;
-    overflow: hidden;
-    border: 1px solid rgba(100, 116, 139, 0.42);
-    border-radius: 999px;
-    background: #020617;
-}
-
-.screen-battleTowerFight .tower-boss-health-meter > span {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: linear-gradient(90deg, #be123c, #fb7185);
-    box-shadow: 0 0 8px rgba(251, 113, 133, 0.54);
-    transition: width 240ms ease-out;
-}
-
-.screen-battleTowerFight .tower-boss-dossier-metrics {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 5px;
-    margin-top: 6px;
-}
-
-.screen-battleTowerFight .tower-boss-dossier-metrics > span {
-    display: grid;
-    padding: 4px 5px;
-    border: 1px solid rgba(71, 85, 105, 0.52);
-    border-radius: 6px;
-    background: rgba(2, 6, 18, 0.52);
-    color: #64748b;
-    font-size: 0.48rem;
-    font-weight: 850;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-}
-
-.screen-battleTowerFight .tower-boss-dossier-metrics b {
-    color: #e2e8f0;
-    font-size: 0.66rem;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0;
-}
-
-.screen-battleTowerFight .tower-boss-phase-readout {
-    margin: 6px 0 0;
-    color: #c4b5fd;
-    font-size: 0.57rem;
-    font-weight: 700;
-    line-height: 1.3;
-}
-
-.screen-battleTowerFight .tower-board-legend > div {
-    display: grid;
-    gap: 5px;
-}
-
-.screen-battleTowerFight .tower-board-legend-item {
-    display: grid;
-    grid-template-columns: 14px minmax(0, 1fr);
-    align-items: start;
-    gap: 6px;
-}
-
-.screen-battleTowerFight .tower-board-legend-item > span {
-    display: grid;
-    min-width: 0;
-}
-
-.screen-battleTowerFight .tower-board-legend-item strong {
-    color: #dbeafe;
-    font-size: 0.61rem;
-    line-height: 1.18;
-}
-
-.screen-battleTowerFight .tower-board-legend-item small {
-    margin-top: 1px;
-    color: #738299;
-    font-size: 0.52rem;
-    line-height: 1.22;
-}
-
-.screen-battleTowerFight .tower-legend-swatch {
-    display: block;
-    width: 12px;
-    height: 12px;
-    margin-top: 1px;
-    border: 1px solid rgba(226, 232, 240, 0.62);
-    border-radius: 3px;
-    background: #475569;
-    box-shadow: inset 0 0 4px rgba(255, 255, 255, 0.12), 0 0 5px rgba(148, 163, 184, 0.18);
-}
-
-.screen-battleTowerFight .tower-legend-swatch--strike { background: #9333ea; box-shadow: 0 0 6px rgba(192, 132, 252, 0.7); }
-.screen-battleTowerFight .tower-legend-swatch--hazard { background: #dc2626; box-shadow: 0 0 6px rgba(248, 113, 113, 0.64); }
-.screen-battleTowerFight .tower-legend-swatch--ring { background: #c2410c; box-shadow: 0 0 6px rgba(251, 146, 60, 0.62); }
-.screen-battleTowerFight .tower-legend-swatch--pylon { background: conic-gradient(#ef4444, #38bdf8, #facc15, #4ade80, #ef4444); }
-.screen-battleTowerFight .tower-legend-swatch--ward { background: linear-gradient(135deg, #e2e8f0, #64748b); }
-.screen-battleTowerFight .tower-legend-swatch--font { background: #14b8a6; box-shadow: 0 0 6px rgba(45, 212, 191, 0.66); }
-.screen-battleTowerFight .tower-legend-swatch--shrine,
-.screen-battleTowerFight .tower-legend-swatch--objective { background: #eab308; box-shadow: 0 0 6px rgba(250, 204, 21, 0.58); }
-.screen-battleTowerFight .tower-legend-swatch--terrain { background: linear-gradient(135deg, #64748b, #1e293b); }
-
-.screen-battleTowerFight .tower-action-state {
+.tower-action-state {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -671,40 +401,40 @@
     overflow: hidden;
 }
 
-.screen-battleTowerFight .tower-action-state > div {
+.tower-action-state > div {
     display: grid;
     gap: 2px;
     min-width: 0;
 }
 
-.screen-battleTowerFight .tower-action-state strong,
-.screen-battleTowerFight .tower-action-state span {
+.tower-action-state strong,
+.tower-action-state span {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.screen-battleTowerFight .tower-action-state strong { font-size: 0.78rem; }
-.screen-battleTowerFight .tower-action-state span { color: #bae6fd; font-size: 0.72rem; }
+.tower-action-state strong { font-size: 0.78rem; }
+.tower-action-state span { color: #bae6fd; font-size: 0.72rem; }
 
-.screen-battleTowerFight .tower-action-state--submitting {
+.tower-action-state--submitting {
     border-color: rgba(250, 204, 21, 0.7);
     background: rgba(113, 63, 18, 0.45);
 }
 
-.screen-battleTowerFight .tower-action-state--error {
+.tower-action-state--error {
     border-color: rgba(248, 113, 113, 0.8);
     background: rgba(127, 29, 29, 0.42);
 }
 
-.screen-battleTowerFight .tower-action-state--blocked {
+.tower-action-state--blocked {
     border-color: rgba(251, 191, 36, 0.76);
     background: rgba(69, 42, 8, 0.72);
     color: #fef3c7;
 }
 
-.screen-battleTowerFight .tower-action-state--blocked span { color: #fde68a; }
+.tower-action-state--blocked span { color: #fde68a; }
 
-.screen-battleTowerFight .tower-action-state button {
+.tower-action-state button {
     flex: 0 0 auto;
     min-height: 36px;
     padding: 5px 10px;
@@ -712,7 +442,7 @@
     color: #e0f2fe;
 }
 
-.screen-battleTowerFight .tower-dialog-primary {
+.tower-dialog-primary {
     min-width: 150px;
     min-height: 44px;
     margin-top: 14px;
@@ -724,23 +454,23 @@
 
 .screen-battleTowerFight [role="dialog"] button { min-height: 44px; }
 
-.screen-battleTowerFight .tower-phase-banner {
+.tower-phase-banner {
     animation-duration: 4.2s;
 }
 
-.screen-battleTowerFight .tower-phase-banner > span {
+.tower-phase-banner > span {
     display: grid;
     gap: 3px;
     width: min(680px, calc(100vw - 24px));
     text-align: center;
 }
 
-.screen-battleTowerFight .tower-phase-banner strong {
+.tower-phase-banner strong {
     color: #fff7ed;
     font-size: 1rem;
 }
 
-.screen-battleTowerFight .tower-phase-banner small {
+.tower-phase-banner small {
     color: #fed7aa;
     font-size: 0.76rem;
     font-weight: 700;
@@ -758,7 +488,7 @@
     outline-offset: 3px;
 }
 
-.screen-battleTowerFight .tower-settlement-status {
+.tower-settlement-status {
     display: grid;
     gap: 5px;
     margin: 12px auto 0;
@@ -771,7 +501,7 @@
     font-size: 0.8rem;
 }
 
-.screen-battleTowerFight .tower-result-milestone-receipt {
+.tower-result-milestone-receipt {
     margin: 8px auto 0;
     color: #bae6fd;
     font-size: 0.78rem;
@@ -779,7 +509,7 @@
     letter-spacing: 0.02em;
 }
 
-.screen-battleTowerFight .tower-story-result-kicker {
+.tower-story-result-kicker {
     margin: 0 0 6px;
     color: #67e8f9;
     font-size: 0.66rem;
@@ -788,7 +518,7 @@
     text-transform: uppercase;
 }
 
-.screen-battleTowerFight .tower-result-debrief {
+.tower-result-debrief {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
@@ -797,7 +527,7 @@
     text-align: left;
 }
 
-.screen-battleTowerFight .tower-result-debrief > div {
+.tower-result-debrief > div {
     min-width: 0;
     padding: 7px 8px;
     border: 1px solid rgba(100, 116, 139, 0.52);
@@ -805,7 +535,7 @@
     background: rgba(2, 6, 18, 0.52);
 }
 
-.screen-battleTowerFight .tower-result-debrief dt {
+.tower-result-debrief dt {
     color: #94a3b8;
     font-size: 0.62rem;
     font-weight: 800;
@@ -813,7 +543,7 @@
     text-transform: uppercase;
 }
 
-.screen-battleTowerFight .tower-result-debrief dd {
+.tower-result-debrief dd {
     margin: 2px 0 0;
     color: #e2e8f0;
     font-size: 0.76rem;
@@ -821,13 +551,13 @@
     overflow-wrap: anywhere;
 }
 
-.screen-battleTowerFight .tower-settlement-status--error {
+.tower-settlement-status--error {
     border-color: rgba(248, 113, 113, 0.75);
     background: rgba(69, 10, 10, 0.68);
     color: #fee2e2;
 }
 
-.screen-battleTowerFight .tower-settlement-status button {
+.tower-settlement-status button {
     justify-self: center;
     min-height: 44px;
     padding: 7px 12px;
@@ -838,7 +568,7 @@
    give the action dock its own contained scroll; its AP and command bar remain
    first in reading/tab order, with loadout cards directly below. */
 @media (min-width: 1024px) and (max-height: 900px) {
-    html body > .combat-instance.screen-battleTowerFight .tower-fight-grid > main {
+    .tower-fight-grid > main {
         overflow: hidden;
     }
 
@@ -847,7 +577,7 @@
         min-height: clamp(250px, 37dvh, 333px) !important;
     }
 
-    html body > .combat-instance.screen-battleTowerFight .tower-action-dock {
+    .tower-action-dock {
         flex: 0 0 240px;
         min-height: 240px;
         max-height: 240px;
@@ -857,7 +587,7 @@
         scrollbar-width: thin;
     }
 
-    .screen-battleTowerFight .tower-action-state {
+    .tower-action-state {
         box-sizing: border-box;
         height: 44px;
         min-height: 44px;
@@ -865,7 +595,7 @@
         padding: 3px 6px;
     }
 
-    html body > .combat-instance.screen-battleTowerFight .tower-action-dock .basic-action-bar {
+    .tower-action-dock .basic-action-bar {
         grid-template-columns: none !important;
         grid-auto-flow: column;
         grid-auto-columns: minmax(78px, 1fr);
@@ -884,7 +614,7 @@
         overflow: hidden;
     }
 
-    html body > .combat-instance.screen-battleTowerFight .tower-action-dock .jutsu-layout-card {
+    .tower-action-dock .jutsu-layout-card {
         height: 94px !important;
         min-height: 94px !important;
         max-height: 94px !important;
@@ -892,7 +622,7 @@
         overflow: auto hidden !important;
     }
 
-    html body > .combat-instance.screen-battleTowerFight .tower-action-dock .combat-equipped-jutsu-grid {
+    .tower-action-dock .combat-equipped-jutsu-grid {
         grid-template-columns: none !important;
         grid-auto-flow: column;
         grid-auto-columns: 100px;
@@ -904,38 +634,38 @@
         scrollbar-width: thin;
     }
 
-    html body > .combat-instance.screen-battleTowerFight .tower-action-dock .combat-jutsu-card-wrap,
-    html body > .combat-instance.screen-battleTowerFight .tower-action-dock .combat-jutsu-button {
+    .tower-action-dock .combat-jutsu-card-wrap,
+    .tower-action-dock .combat-jutsu-button {
         height: 82px !important;
         min-height: 82px !important;
         max-height: 82px !important;
         scroll-snap-align: start;
     }
 
-    html body > .combat-instance.screen-battleTowerFight .tower-action-dock .combat-jutsu-thumb {
+    .tower-action-dock .combat-jutsu-thumb {
         height: 44px !important;
         aspect-ratio: auto !important;
     }
 
-    html body > .combat-instance.screen-battleTowerFight .tower-action-dock .combat-jutsu-name {
+    .tower-action-dock .combat-jutsu-name {
         overflow: hidden;
         font-size: 10px !important;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
-    html body > .combat-instance.screen-battleTowerFight .tower-action-dock .combat-jutsu-info {
+    .tower-action-dock .combat-jutsu-info {
         font-size: 8px !important;
         white-space: nowrap;
     }
 }
 
 @media (max-width: 1023px) {
-    .screen-battleTowerFight .tower-combat-intel {
+    .tower-combat-intel {
         display: none;
     }
 
-    html body > .combat-instance.screen-battleTowerFight .tower-fight-grid {
+    .tower-fight-grid {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         align-content: start;
         gap: 7px;
@@ -944,13 +674,13 @@
         overscroll-behavior: contain;
     }
 
-    html body > .combat-instance.screen-battleTowerFight .tower-fight-grid > main {
+    .tower-fight-grid > main {
         grid-column: 1 / -1;
         order: -1;
         min-height: min(860px, calc(100dvh - 14px));
     }
 
-    html body > .combat-instance.screen-battleTowerFight .tower-fight-grid > aside {
+    .tower-fight-grid > aside {
         overflow: visible;
     }
 
@@ -959,12 +689,12 @@
         min-height: clamp(300px, 52dvh, 520px) !important;
     }
 
-    .screen-battleTowerFight .tower-board-controls button {
+    .tower-board-controls button {
         min-width: 44px;
         min-height: 44px;
     }
 
-    .screen-battleTowerFight .tower-fight-statusbar > button { min-height: 44px; }
+    .tower-fight-statusbar > button { min-height: 44px; }
 
     html body > .combat-instance.screen-battleTowerFight .tower-action-dock .basic-action-bar button {
         min-height: 44px !important;
@@ -974,14 +704,14 @@
 /* BattleTowerFight's current action markup keeps its live command and loadout
    bands horizontal at the same compact tiers as the containment contract. */
 @media (max-width: 979px) {
-    html body > .combat-instance.screen-battleTowerFight .tower-action-dock {
+    .tower-action-dock {
         flex: 0 0 auto;
         min-width: 0;
         margin-top: 4px;
         overflow: hidden;
     }
 
-    html body > .combat-instance.screen-battleTowerFight .tower-action-dock > .shinobi-command-bar {
+    .tower-action-dock > .shinobi-command-bar {
         display: flex !important;
         flex-wrap: nowrap !important;
         align-items: center;
@@ -995,7 +725,7 @@
         scrollbar-width: thin;
     }
 
-    html body > .combat-instance.screen-battleTowerFight .tower-action-dock > .shinobi-command-bar > button {
+    .tower-action-dock > .shinobi-command-bar > button {
         flex: 0 0 78px;
         width: 78px;
         min-width: 78px !important;
@@ -1004,7 +734,7 @@
         padding: 3px 4px !important;
     }
 
-    html body > .combat-instance.screen-battleTowerFight .tower-action-dock > .combat-jutsu-bar {
+    .tower-action-dock > .combat-jutsu-bar {
         width: 100%;
         height: 94px !important;
         min-height: 94px !important;
@@ -1015,7 +745,7 @@
         scrollbar-width: thin;
     }
 
-    html body > .combat-instance.screen-battleTowerFight .tower-action-dock .combat-equipped-jutsu-grid {
+    .tower-action-dock .combat-equipped-jutsu-grid {
         display: flex !important;
         flex-wrap: nowrap !important;
         align-items: stretch !important;
@@ -1027,8 +757,8 @@
         overflow: visible !important;
     }
 
-    html body > .combat-instance.screen-battleTowerFight .tower-action-dock .combat-jutsu-card-wrap,
-    html body > .combat-instance.screen-battleTowerFight .tower-action-dock .combat-jutsu-button {
+    .tower-action-dock .combat-jutsu-card-wrap,
+    .tower-action-dock .combat-jutsu-button {
         flex: 0 0 82px;
         width: 82px !important;
         min-width: 82px !important;
@@ -1043,11 +773,11 @@
    first sealed technique stays entirely inside the main grid row; the squad,
    enemy, mechanic, and real-threat surfaces remain visible. */
 @media (max-width: 979px) and (max-height: 740px) {
-    .screen-battleTowerFight .tower-turn-queue {
+    .tower-turn-queue {
         display: none;
     }
 
-    .screen-battleTowerFight .tower-action-state {
+    .tower-action-state {
         box-sizing: border-box;
         height: 44px;
         min-height: 44px;
@@ -1058,13 +788,13 @@
 }
 
 @media (max-width: 979px) and (max-height: 500px) {
-    .screen-battleTowerFight .tower-turn-queue,
-    .screen-battleTowerFight .tower-threat-summary:not(.has-threats),
-    .screen-battleTowerFight .tower-board-toolbar {
+    .tower-turn-queue,
+    .tower-threat-summary:not(.has-threats),
+    .tower-board-toolbar {
         display: none;
     }
 
-    .screen-battleTowerFight .tower-arena-loadout-note {
+    .tower-arena-loadout-note {
         height: 24px;
         min-height: 24px;
         margin: 2px 0 0;
@@ -1075,7 +805,7 @@
         white-space: nowrap;
     }
 
-    .screen-battleTowerFight .tower-action-state {
+    .tower-action-state {
         box-sizing: border-box;
         height: 44px;
         min-height: 44px;
@@ -1086,24 +816,24 @@
 }
 
 @media (max-width: 640px) {
-    html body > .combat-instance.screen-battleTowerFight .tower-fight-grid {
+    .tower-fight-grid {
         grid-template-columns: minmax(0, 1fr);
         padding: 5px;
     }
 
-    html body > .combat-instance.screen-battleTowerFight .tower-fight-grid > main,
-    html body > .combat-instance.screen-battleTowerFight .tower-fight-grid > aside {
+    .tower-fight-grid > main,
+    .tower-fight-grid > aside {
         grid-column: 1;
     }
 
-    .screen-battleTowerFight .tower-board-help { display: none; }
-    .screen-battleTowerFight .tower-board-toolbar { justify-content: flex-end; }
-    .screen-battleTowerFight .tower-board-controls { width: 100%; justify-content: flex-end; }
-    .screen-battleTowerFight .tower-board-controls input[type="range"] { flex: 1 1 80px; min-width: 70px; }
-    .screen-battleTowerFight .tower-board-controls button:last-child { min-width: 78px; }
-    .screen-battleTowerFight .tower-fight-turn-pill { flex: 1 1 180px; }
-    .screen-battleTowerFight .tower-threat-summary { white-space: nowrap; }
-    .screen-battleTowerFight .tower-mechanic-strip {
+    .tower-board-help { display: none; }
+    .tower-board-toolbar { justify-content: flex-end; }
+    .tower-board-controls { width: 100%; justify-content: flex-end; }
+    .tower-board-controls input[type="range"] { flex: 1 1 80px; min-width: 70px; }
+    .tower-board-controls button:last-child { min-width: 78px; }
+    .tower-fight-turn-pill { flex: 1 1 180px; }
+    .tower-threat-summary { white-space: nowrap; }
+    .tower-mechanic-strip {
         flex-wrap: nowrap;
         padding-bottom: 2px;
         overflow: auto hidden;
@@ -1111,7 +841,7 @@
         scrollbar-color: rgba(103, 232, 249, 0.72) rgba(15, 23, 42, 0.68);
         scrollbar-width: thin;
     }
-    .screen-battleTowerFight .tower-mechanic-chip {
+    .tower-mechanic-chip {
         flex: 0 0 auto;
         max-width: none;
         white-space: nowrap;
@@ -1121,16 +851,16 @@
         flex-basis: clamp(280px, 38dvh, 340px);
         min-height: clamp(280px, 38dvh, 340px) !important;
     }
-    .screen-battleTowerFight .tower-action-state { align-items: stretch; }
-    .screen-battleTowerFight .tower-action-state button { min-height: 44px; }
-    .screen-battleTowerFight .tower-result-debrief { grid-template-columns: minmax(0, 1fr); }
+    .tower-action-state { align-items: stretch; }
+    .tower-action-state button { min-height: 44px; }
+    .tower-result-debrief { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* The smallest portrait tier cannot spend a full row saying that no threat is
    present and still keep the first sealed technique directly tappable. Real
    telegraphs remain visible; only the empty-state filler collapses. */
 @media (max-width: 360px) and (max-height: 600px) {
-    html body > .combat-instance.screen-battleTowerFight .tower-fight-grid > aside {
+    .tower-fight-grid > aside {
         display: none !important;
     }
 
@@ -1144,11 +874,11 @@
         min-height: clamp(224px, 40dvh, 240px) !important;
     }
 
-    .screen-battleTowerFight .tower-turn-queue {
+    .tower-turn-queue {
         display: none;
     }
 
-    .screen-battleTowerFight .tower-threat-summary:not(.has-threats) {
+    .tower-threat-summary:not(.has-threats) {
         display: none;
     }
 }
@@ -1160,56 +890,54 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .screen-battleTowerFight .tower-hex-tile,
-    .screen-battleTowerFight .tower-threat-summary,
-    .screen-battleTowerFight .tower-action-state,
-    .screen-battleTowerFight .tower-phase-banner,
-    .screen-battleTowerFight .tower-board-actor,
-    .screen-battleTowerFight .tower-boss-barrier,
-    .screen-battleTowerFight .tower-intel-header em::before,
-    .screen-battleTowerFight .tower-boss-health-meter > span,
-    .screen-battleTowerFight .tower-mechanic-chip {
+    .tower-hex-tile,
+    .tower-threat-summary,
+    .tower-action-state,
+    .tower-phase-banner,
+    .tower-board-actor,
+    .tower-boss-barrier,
+    .tower-intel-header em::before,
+    .tower-boss-health-meter > span,
+    .tower-mechanic-chip {
         animation: none !important;
         transition: none !important;
     }
 }
 
 @media (prefers-reduced-data: reduce) {
-    .screen-battleTowerFight .tower-fight-statusbar[data-has-encounter-art="true"],
-    .screen-battleTowerFight .tower-combat-intel[data-has-encounter-art="true"]::before {
+    .tower-fight-statusbar[data-has-encounter-art="true"],
+    .tower-combat-intel[data-has-encounter-art="true"]::before {
         background-image: none !important;
     }
 }
 
 @media (forced-colors: active) {
-    .screen-battleTowerFight .tower-fight-statusbar[data-has-encounter-art="true"] {
+    .tower-fight-statusbar[data-has-encounter-art="true"] {
         border-color: CanvasText;
         background-image: none !important;
         box-shadow: none;
     }
 
-    .screen-battleTowerFight .tower-fight-statusbar[data-has-encounter-art="true"] > * { text-shadow: none; }
+    .tower-fight-statusbar[data-has-encounter-art="true"] > * { text-shadow: none; }
 
-    .screen-battleTowerFight .tower-fight-turn-pill,
-    .screen-battleTowerFight .tower-threat-summary,
-    .screen-battleTowerFight .tower-action-state,
-    .screen-battleTowerFight .tower-combat-intel,
-    .screen-battleTowerFight .tower-intel-progress,
-    .screen-battleTowerFight .tower-boss-dossier-metrics > span,
-    .screen-battleTowerFight .tower-mechanic-chip {
+    .tower-fight-turn-pill,
+    .tower-threat-summary,
+    .tower-action-state,
+    .tower-combat-intel,
+    .tower-intel-progress,
+    .tower-mechanic-chip {
         border: 1px solid CanvasText !important;
         background: Canvas !important;
         color: CanvasText !important;
     }
 
-    .screen-battleTowerFight .tower-combat-intel::before,
-    .screen-battleTowerFight .tower-combat-intel::after {
+    .tower-combat-intel::before {
         display: none;
     }
 
-    .screen-battleTowerFight .tower-turn-queue li.is-active,
-    .screen-battleTowerFight .tower-hex-tile:focus-visible,
-    .screen-battleTowerFight .tower-board-actor:focus-visible {
+    .tower-turn-queue li.is-active,
+    .tower-hex-tile:focus-visible,
+    .tower-board-actor:focus-visible {
         outline-color: Highlight !important;
         border-color: Highlight !important;
     }

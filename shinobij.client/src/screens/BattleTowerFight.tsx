@@ -1374,22 +1374,22 @@ export function BattleTowerFight({
     const pendingBossPhases = session.phaseState.pendingPhases ?? [];
     const nextBossPhase = pendingBossPhases.length > 0 ? Math.max(...pendingBossPhases) : undefined;
     const objectiveDirective = bossUnlocked === false
-        ? { title: "Break the boss barrier", detail: "Eliminate the remaining reinforcements to expose the commander." }
+        ? "Break the boss barrier"
         : Number.isFinite(breakProgress) && Number.isFinite(breakGoal)
-            ? { title: "Shatter the objective seals", detail: "Advance the break condition before the enemy formation overwhelms the squad." }
+            ? "Shatter the objective seals"
             : isTeamPvp
-                ? { title: "Eliminate the rival team", detail: "Coordinate focus fire and leave no opposing fighter standing." }
+                ? "Eliminate the rival team"
                 : objective === "defeat-boss" && bossActor
-                    ? { title: `Defeat ${bossActor.name}`, detail: "Read each phase gate, avoid telegraphed ground, and finish the commander." }
+                    ? `Defeat ${bossActor.name}`
                     : objective === "protect-npc" && npcActor
-                        ? { title: `Protect ${npcActor.name}`, detail: "Keep the protected ally alive until the hold is complete." }
+                        ? `Protect ${npcActor.name}`
                         : objective === "survive"
-                            ? { title: "Hold the line", detail: "Keep at least one squad fighter standing through the final hold round." }
+                            ? "Hold the line"
                             : objective === "kill-escort" && npcActor
-                                ? { title: `Eliminate ${npcActor.name}`, detail: "Break through the escort and defeat the marked target." }
+                                ? `Eliminate ${npcActor.name}`
                                 : objective === "reach-tile"
-                                    ? { title: "Reach the marked tile", detail: "Create a safe route and move a squad fighter onto the objective." }
-                                    : { title: "Eliminate the enemy force", detail: "Control the field and defeat every remaining hostile." };
+                                    ? "Reach the marked tile"
+                                    : "Eliminate the enemy force";
     const bossDossierBarrierActive = Boolean(bossActor && (
         lockedBossId === bossActor.id
         || (String(bossActor.character?.mechanic ?? "") === "bulwark"
@@ -1398,18 +1398,18 @@ export function BattleTowerFight({
     const bossDossierArt = bossActor ? avatarFor(bossActor) : null;
     const fieldFeatures = new Set((session.map.features ?? []).map(feature => feature.kind));
     const fieldObjects = new Set((session.map.boardObjects ?? []).map(object => object.kind));
-    const boardLegend: Array<{ kind: string; label: string; detail: string }> = [];
-    if (strikeTiles.size > 0) boardLegend.push({ kind: "strike", label: "Boss strike", detail: "Leave violet tiles before round end." });
+    const boardLegend: Array<{ kind: string; label: string }> = [];
+    if (strikeTiles.size > 0) boardLegend.push({ kind: "strike", label: "Boss strike" });
     if (crimsonTiles.length > 0 || fieldFeatures.has("hazard") || (session.map.dynamicHazards ?? []).length > 0) {
-        boardLegend.push({ kind: "hazard", label: "Hazard", detail: "Crimson ground deals end-round damage." });
+        boardLegend.push({ kind: "hazard", label: "Hazard" });
     }
-    if (ringTiles.size > 0) boardLegend.push({ kind: "ring", label: "Collapse zone", detail: "Ember tiles sit outside the safe ring." });
-    if (fieldFeatures.has("pylon")) boardLegend.push({ kind: "pylon", label: "Elemental pylon", detail: "Attack from its field for the shown affinity." });
-    if (fieldFeatures.has("ward")) boardLegend.push({ kind: "ward", label: "Ward", detail: "Reduces damage while you hold its tiles." });
-    if (fieldObjects.has("font")) boardLegend.push({ kind: "font", label: "Restoration font", detail: "Restores the displayed resource at round end." });
-    if (fieldObjects.has("shrine")) boardLegend.push({ kind: "shrine", label: "Battle shrine", detail: "Hold it to empower your team's damage." });
-    if (session.map.objectiveTiles.length > 0) boardLegend.push({ kind: "objective", label: "Objective tile", detail: "Gold ground advances the mission." });
-    if (session.map.blockedTiles.length > 0) boardLegend.push({ kind: "terrain", label: "Impassable terrain", detail: "Pillars block movement and line routes." });
+    if (ringTiles.size > 0) boardLegend.push({ kind: "ring", label: "Collapse zone" });
+    if (fieldFeatures.has("pylon")) boardLegend.push({ kind: "pylon", label: "Elemental pylon" });
+    if (fieldFeatures.has("ward")) boardLegend.push({ kind: "ward", label: "Protective ward" });
+    if (fieldObjects.has("font")) boardLegend.push({ kind: "font", label: "Restoration font" });
+    if (fieldObjects.has("shrine")) boardLegend.push({ kind: "shrine", label: "Battle shrine" });
+    if (session.map.objectiveTiles.length > 0) boardLegend.push({ kind: "objective", label: "Objective tile" });
+    if (session.map.blockedTiles.length > 0) boardLegend.push({ kind: "terrain", label: "Impassable" });
     const threatSummary = buildTowerThreatSummary({
         round: session.round,
         strikeLabel: session.bossStrike?.label,
@@ -1508,17 +1508,13 @@ export function BattleTowerFight({
                         data-has-encounter-art={encounterArt ? "true" : undefined}>
                         <header className="tower-intel-header">
                             <span aria-hidden="true">◈</span>
-                            <div>
-                                <small>Live tactical feed</small>
-                                <strong id="tower-combat-intel-title">Combat intel</strong>
-                            </div>
+                            <strong id="tower-combat-intel-title">Combat intel</strong>
                             <em>LIVE</em>
                         </header>
 
                         <article className="tower-objective-dossier" aria-label="Primary objective">
                             <span className="tower-intel-kicker">Primary objective</span>
-                            <strong>{objectiveDirective.title}</strong>
-                            <p>{objectiveDirective.detail}</p>
+                            <strong>{objectiveDirective}</strong>
                             <span className="tower-intel-progress">{objectiveProgress}</span>
                         </article>
 
@@ -1540,11 +1536,8 @@ export function BattleTowerFight({
                                     aria-valuemin={0} aria-valuemax={100} aria-valuenow={hpPct(bossActor)}>
                                     <span style={{ width: `${hpPct(bossActor)}%` }} />
                                 </div>
-                                <div className="tower-boss-dossier-metrics">
-                                    <span><b>{hpPct(bossActor)}%</b>Health</span>
-                                    <span><b>{Math.max(0, Math.round(bossActor.shield))}</b>Aegis</span>
-                                </div>
                                 <p className="tower-boss-phase-readout">
+                                    <b>{hpPct(bossActor)}% HP · {Math.max(0, Math.round(bossActor.shield))} Aegis</b><br />
                                     {bossDossierBarrierActive
                                         ? "Reinforcements are sustaining the barrier."
                                         : nextBossPhase != null
@@ -1561,7 +1554,7 @@ export function BattleTowerFight({
                                     {boardLegend.map(item => (
                                         <div key={item.kind} className="tower-board-legend-item" role="listitem">
                                             <i className={`tower-legend-swatch tower-legend-swatch--${item.kind}`} aria-hidden="true" />
-                                            <span><strong>{item.label}</strong><small>{item.detail}</small></span>
+                                            <strong>{item.label}</strong>
                                         </div>
                                     ))}
                                 </div>
@@ -1866,11 +1859,7 @@ export function BattleTowerFight({
                                 {session.actors.filter(a => a.hp > 0).map(a => {
                                     const { left, top } = towerHexPixel(a.pos, w);
                                     const isBoss = a.id === bossId;
-                                    const bossBarrierActive = isBoss && (
-                                        lockedBossId === a.id
-                                        || (String(a.character?.mechanic ?? "") === "bulwark"
-                                            && session.actors.some(other => other.side === "enemy" && other.id !== a.id && other.hp > 0))
-                                    );
+                                    const bossBarrierActive = isBoss && bossDossierBarrierActive;
                                     const size = isBoss ? BOSS_ORB : ORB;
                                     const ox = left + HEX_W / 2 - size / 2;
                                     const oy = top + HEX_H * 0.85 - size;
