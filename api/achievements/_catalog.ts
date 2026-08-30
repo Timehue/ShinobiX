@@ -9,6 +9,24 @@ const countItems = (character: Character): number => {
         : 0;
     return inventory + stacks;
 };
+const rows = (value: unknown): Array<Record<string, unknown>> => Array.isArray(value)
+    ? value.filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === 'object'))
+    : [];
+const objectValueTotal = (value: unknown): number => value && typeof value === 'object'
+    ? Object.values(value as Record<string, unknown>).reduce<number>((sum, entry) => sum + Math.max(0, Math.floor(Number(entry) || 0)), 0)
+    : 0;
+const jutsuAtLevel = (character: Character, level: number): number => rows(character.jutsuMastery)
+    .filter((entry) => Math.max(0, Math.floor(Number(entry.level) || 0)) >= level).length;
+const petAtLevel = (character: Character, level: number): boolean => rows(character.pets)
+    .some((pet) => Math.max(0, Math.floor(Number(pet.level) || 0)) >= level);
+const evolvedPetAtStage = (character: Character, stage: number): boolean => rows(character.pets)
+    .some((pet) => Math.max(0, Math.floor(Number(pet.evolutionStage) || 0)) >= stage);
+const coreEquipmentCount = (character: Character): number => {
+    const equipment = character.equipment && typeof character.equipment === 'object'
+        ? character.equipment as Record<string, unknown> : {};
+    return ['hand', 'gloves', 'body', 'waist', 'legs', 'feet', 'head', 'thrown']
+        .filter((slot) => Boolean(equipment[slot])).length;
+};
 
 const numeric: Array<[string, string, number]> = [
     ['level-10', 'level', 10], ['level-40', 'level', 40], ['level-70', 'level', 70], ['level-100', 'level', 100],
@@ -21,6 +39,24 @@ const numeric: Array<[string, string, number]> = [
     ['aura-1', 'auraSphereLevel', 1], ['aura-150', 'auraSphereLevel', 150], ['aura-300', 'auraSphereLevel', 300],
     ['raid-25', 'totalVillageRaids', 25], ['raid-250', 'totalVillageRaids', 250], ['tournament-3', 'totalTournamentsCompleted', 3], ['tower-25', 'totalEndlessTowerWins', 25],
     ['spire-5', 'battleTowerAscension', 5], ['spire-10', 'battleTowerAscension', 10], ['spire-15', 'battleTowerAscension', 15], ['spire-20', 'battleTowerAscension', 20], ['pet-100', 'totalPetWins', 100], ['clan-500', 'clanBattleContrib', 500],
+    ['training-first', 'totalStatsTrained', 1], ['training-100', 'totalStatsTrained', 100], ['training-1000', 'totalStatsTrained', 1000],
+    ['story-chapter-1', 'storyProgress', 1], ['story-chapter-5', 'storyProgress', 5], ['story-chapter-9', 'storyProgress', 9],
+    ['questbook-first', 'redeemedQuestbookRuns.length', 1], ['questbook-5', 'redeemedQuestbookRuns.length', 5],
+    ['profession-rank-5', 'professionRank', 5], ['profession-rank-10', 'professionRank', 10],
+    ['hollow-clear-1', 'redeemedHollowGateRuns.length', 1], ['hollow-clear-10', 'redeemedHollowGateRuns.length', 10], ['hollow-clear-50', 'redeemedHollowGateRuns.length', 50],
+    ['hollow-warden-1', 'hollowGateWardenKills', 1], ['hollow-warden-25', 'hollowGateWardenKills', 25],
+    ['dungeon-clear-1', 'redeemedDungeonRuns.length', 1], ['dungeon-clear-25', 'redeemedDungeonRuns.length', 25],
+    ['endless-wave-10', 'endlessTowerBestWave', 10], ['endless-wave-25', 'endlessTowerBestWave', 25], ['endless-wave-50', 'endlessTowerBestWave', 50],
+    ['pet-hatch-1', 'petBreedingHatchReceipts.length', 1], ['pet-hatch-10', 'petBreedingHatchReceipts.length', 10],
+    ['pet-win-1', 'totalPetWins', 1], ['pet-win-25', 'totalPetWins', 25], ['pet-ranked-1800', 'petRankedRating', 1800],
+    ['chronicle-win-1', 'cardClashWins', 1], ['chronicle-win-25', 'cardClashWins', 25], ['chronicle-win-100', 'cardClashWins', 100], ['chronicle-deck-40', 'cardClashDeck.length', 40],
+    ['craft-first', 'redeemedCrafts.length', 1], ['craft-25', 'redeemedCrafts.length', 25], ['named-forge-first', 'redeemedNamedForges.length', 1],
+    ['clan-lifetime-1000', 'lifetimeClanPoints', 1000], ['clan-lifetime-10000', 'lifetimeClanPoints', 10000],
+    ['war-win-1', 'warsWon', 1], ['war-win-10', 'warsWon', 10], ['war-mvp-1', 'warMvpCount', 1], ['war-mvp-10', 'warMvpCount', 10], ['war-damage-1m', 'lifetimeWarDamage', 1_000_000],
+    ['tournament-first', 'totalTournamentsCompleted', 1], ['tournament-10', 'totalTournamentsCompleted', 10], ['ranked-season-3', 'rankedSeasonsWon', 3],
+    ['login-streak-7', 'loginStreak', 7], ['login-streak-30', 'loginStreak', 30],
+    ['wanderer-first', 'redeemedWandererQuests.length', 1], ['wanderer-25', 'redeemedWandererQuests.length', 25],
+    ['achievements-25', 'unlockedAchievements.length', 25], ['achievements-75', 'unlockedAchievements.length', 75], ['achievements-100', 'unlockedAchievements.length', 100], ['achievements-125', 'unlockedAchievements.length', 125],
     ['secret-charms-100', 'boneCharms', 100], ['secret-stones-100', 'auraStones', 100], ['secret-mythic-10', 'mythicSeals', 10], ['secret-loadout-full', 'equippedJutsuIds.length', 15],
     ['secret-monthly-50', 'monthlyPvpKills', 50], ['secret-hunter-5', 'hunterRank', 5], ['secret-bestiary-50', 'defeatedAiIds.length', 50], ['secret-bestiary-200', 'defeatedAiIds.length', 200],
     ['secret-elements-3', 'elements.length', 3], ['secret-menagerie-5', 'pets.length', 5], ['secret-exams-3', 'examsPassed.length', 3], ['secret-war-vet-50', 'villageWarMissionsCompleted', 50],
@@ -47,6 +83,11 @@ export const ACHIEVEMENT_TITLES: Readonly<Record<string, string>> = {
     'spire-20': 'Spire Immortal', 'pet-100': 'Beast Tamer', 'clan-founder': 'Clan Founder', 'secret-bestiary-200': 'Encyclopedia',
     'secret-elements-3': 'Polyelementalist', 'secret-war-vet-50': 'War Veteran', 'secret-weekly-bosses-5': 'Weekly Reaper',
     'secret-hunter-5': 'Chakra Beast Warden',
+    'story-chapter-9': 'Living Chronicle', 'legacy-stage-5': 'Myth Made Flesh', 'profession-rank-10': 'Master of the Calling',
+    'hollow-clear-50': 'Gatebound', 'pet-ranked-1800': 'Apex Handler', 'chronicle-win-100': 'Duel Archivist',
+    'named-forge-first': 'Named in Steel', 'clan-lifetime-10000': 'Pillar of the Clan', 'war-mvp-10': 'Living Banner',
+    'tournament-10': 'Colosseum Legend', 'ranked-season-3': 'Ranked Dynasty', 'achievements-100': 'Shinobi Journey',
+    'achievements-125': 'Living Legend',
 };
 
 export function achievementTitlesForIds(ids: Iterable<string>): string[] {
@@ -58,6 +99,26 @@ export const ACHIEVEMENT_RULES: Rule[] = [
     { id: 'ryo-5m', check: (c) => n(c, 'ryo') + n(c, 'bankRyo') >= 5_000_000 },
     { id: 'bloodline-equipped', check: (c) => Boolean(c.equippedBloodlineId) },
     { id: 'clan-founder', check: (c) => c.clanFounder === true },
+    { id: 'jutsu-mastery-10', check: (c) => jutsuAtLevel(c, 10) >= 1 },
+    { id: 'jutsu-mastery-40', check: (c) => jutsuAtLevel(c, 40) >= 1 },
+    { id: 'jutsu-versatile-10', check: (c) => jutsuAtLevel(c, 20) >= 10 },
+    { id: 'legacy-stage-1', check: (c) => n(c.legacy && typeof c.legacy === 'object' ? c.legacy as Character : {}, 'stage') >= 1 },
+    { id: 'legacy-stage-3', check: (c) => n(c.legacy && typeof c.legacy === 'object' ? c.legacy as Character : {}, 'stage') >= 3 },
+    { id: 'legacy-stage-5', check: (c) => n(c.legacy && typeof c.legacy === 'object' ? c.legacy as Character : {}, 'stage') >= 5 },
+    { id: 'profession-chosen', check: (c) => typeof c.profession === 'string' && c.profession.length > 0 },
+    { id: 'profession-mastery-10', check: (c) => objectValueTotal(c.masterySpec) >= 10 },
+    { id: 'pet-active', check: (c) => typeof c.activePetId === 'string' && c.activePetId.length > 0 },
+    { id: 'pet-pack-tactics', check: (c) => typeof c.activePetId === 'string' && c.activePetId.length > 0 && typeof c.activePetId2v2 === 'string' && c.activePetId2v2.length > 0 && c.activePetId !== c.activePetId2v2 },
+    { id: 'pet-level-25', check: (c) => petAtLevel(c, 25) },
+    { id: 'pet-level-max', check: (c) => rows(c.pets).some((pet) => n(pet, 'maxLevel') > 0 && n(pet, 'level') >= n(pet, 'maxLevel')) },
+    { id: 'pet-evolution-1', check: (c) => evolvedPetAtStage(c, 1) },
+    { id: 'pet-evolution-2', check: (c) => evolvedPetAtStage(c, 2) },
+    { id: 'chronicle-starter', check: (c) => c.starterCardsClaimed === true },
+    { id: 'chronicle-unique-25', check: (c) => new Set(Array.isArray(c.tileCards) ? c.tileCards.filter((entry): entry is string => typeof entry === 'string') : []).size >= 25 },
+    { id: 'weapon-attuned', check: (c) => c.weaponElements != null && typeof c.weaponElements === 'object' && Object.keys(c.weaponElements as object).length >= 1 },
+    { id: 'equipment-core-8', check: (c) => coreEquipmentCount(c) >= 8 },
+    { id: 'clan-joined', check: (c) => typeof c.clan === 'string' && c.clan.length > 0 },
+    { id: 'clan-all-fronts', check: (c) => n(c, 'clanBattleContrib') > 0 && n(c, 'clanEventContrib') > 0 && n(c, 'clanMissionContrib') > 0 },
     { id: 'secret-untouched', hidden: true, check: (c) => n(c, 'ryo') >= 1_000_000 && n(c, 'bankRyo') === 0 },
     { id: 'secret-packrat', hidden: true, check: (c) => countItems(c) >= 100 },
     { id: 'secret-titled', hidden: true, check: (c) => Boolean(c.customTitle) },

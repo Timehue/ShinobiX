@@ -28,6 +28,7 @@ import { makeId } from "../lib/utils";
 import {
     loadArenaActiveFights,
     loadArenaTournament,
+    finalizeArenaTournamentWinner,
     saveArenaTournament,
     savePendingClanPetBattle,
     type ArenaSpectatorFight,
@@ -35,9 +36,9 @@ import {
 } from "../lib/world-state";
 import {
     getPvpJutsuLoadout,
-    isAdminAccountName,
     type DuelChallenge,
 } from "../App";
+import { isFullAdminAccountName } from "../lib/admin-identity";
 
 type ArenaProps = {
     lobbyMode?: "battleArena" | "arenaDistrict";
@@ -112,6 +113,7 @@ export function Arena({
         () => (hasActiveTeamArenaMatch() ? "teamArena" : "spar"),
     );
     const [arenaTournament, setArenaTournament] = useState<ArenaTournament | null>(() => loadArenaTournament());
+    const [tournamentWinnerBusy, setTournamentWinnerBusy] = useState(false);
     const [spectatorFights, setSpectatorFights] = useState<ArenaSpectatorFight[]>(() => loadArenaActiveFights());
     const [opponentClanData, setOpponentClanData] = useState<EnhancedClanData | null>(null);
 
@@ -327,6 +329,22 @@ export function Arena({
         setArenaTournament(null);
     }
 
+    async function declareTournamentWinner(playerName: string) {
+        if (!arenaTournament || tournamentWinnerBusy) return;
+        setTournamentWinnerBusy(true);
+        try {
+            const settled = await finalizeArenaTournamentWinner(arenaTournament.id, playerName);
+            if (!settled) {
+                alert("Tournament finalization could not be confirmed. Advance the winner first, then try again.");
+                return;
+            }
+            setArenaTournament(settled.tournament);
+            alert(`${settled.tournament.winnerName ?? playerName} is the official tournament champion. Their win and achievements were credited.`);
+        } finally {
+            setTournamentWinnerBusy(false);
+        }
+    }
+
     const availablePetCount = availablePetBattleCount(combatEligiblePets);
     const sparOpponents = sparSearch.trim()
         ? playerRoster.filter((player) =>
@@ -483,7 +501,7 @@ export function Arena({
             arenaTournament={arenaTournament}
             tournamentRemaining={tournamentRemaining}
             matchRemaining={matchRemaining}
-            isAdminTournamentManager={isAdminAccountName(character.name)}
+            isAdminTournamentManager={isFullAdminAccountName(character.name)}
             playerRankedEnabled={playerRankedEnabled && rankedMutationsAvailable}
             rankedQueueActive={rankedQueueActive}
             rankedQueueSize={rankedQueueSize}
@@ -495,6 +513,8 @@ export function Arena({
             onAcceptDistrictChallenge={acceptDistrictChallenge}
             onDeclineChallenge={onDeclineChallenge}
             onAdvanceTournamentPlayer={advanceTournamentPlayer}
+            onDeclareTournamentWinner={declareTournamentWinner}
+            tournamentWinnerBusy={tournamentWinnerBusy}
             onClearTournament={clearTournament}
             onStartTournament={startTournament}
             onJoinRankedQueue={joinRankedQueue}

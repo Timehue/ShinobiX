@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ChangeEvent, type ReactNode } from "react";
+import { useState, useEffect, useMemo, useRef, type ChangeEvent, type ReactNode } from "react";
 import "../styles/profile-skin.css";
 import "../styles/training-skin.css";
 import type { Character, VersionedCharacterCommit } from "../types/character";
@@ -6,7 +6,7 @@ import type { Character, VersionedCharacterCommit } from "../types/character";
 import { GameIcon } from "../components/icons/GameIcon";
 const PF_COST = { verticalAlign: "-2px", marginRight: "3px" } as const;
 import type { GameItem, Jutsu, SavedBloodline, Stats } from "../types/combat";
-import { ACHIEVEMENTS, achievementReward, type Achievement } from "../constants/achievements";
+import { ACHIEVEMENTS, ACHIEVEMENT_CATEGORY_ORDER, achievementReward, isAchievementUnlocked, type Achievement, type AchievementCategory } from "../constants/achievements";
 import { ANIMATED_MAX_MB, MAX_LEVEL, statCapForLevel } from "../constants/game";
 import { ChangePasswordCard } from "../components/ChangePasswordCard";
 import { RecoveryCodeCard } from "../components/RecoveryCodeCard";
@@ -170,6 +170,19 @@ export function Profile({
     const [mobileTab, setMobileTab] = useState<'overview' | 'stats' | 'jutsu' | 'achievements' | 'battlelogs' | 'legacy'>(academyLoadoutStep ? 'jutsu' : 'overview');
     const visibleMobileTab = !legacyAvailable && mobileTab === 'legacy' ? 'overview' : mobileTab;
     const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
+    const [achievementCategory, setAchievementCategory] = useState<AchievementCategory | "All">("All");
+    const achievementStates = useMemo(
+        () => ACHIEVEMENTS.map(a => ({ a, unlocked: isAchievementUnlocked(character, a) })),
+        [character],
+    );
+    const unlockedAchievementTotal = achievementStates.reduce((total, entry) => total + (entry.unlocked ? 1 : 0), 0);
+    const visibleAchievementEntries = useMemo(
+        () => achievementStates.filter(entry =>
+            (entry.unlocked || !entry.a.hidden)
+            && (achievementCategory === "All" || entry.a.category === achievementCategory)),
+        [achievementCategory, achievementStates],
+    );
+    const secretsRemaining = achievementStates.filter(entry => entry.a.hidden && !entry.unlocked).length;
     async function runPaidProfileAction(action: ProfileSettlementAction): Promise<boolean> {
         const result = await settleProfileAction(character.name, action);
         if (!result.ok) {
@@ -872,24 +885,28 @@ export function Profile({
                 <div className="achievements-heading">
                     <h3>Achievements</h3>
                     <span className="achievements-count">
-                        {ACHIEVEMENTS.filter(a => a.check(character)).length}/{ACHIEVEMENTS.length} unlocked
+                        {unlockedAchievementTotal}/{ACHIEVEMENTS.length} unlocked
                     </span>
                 </div>
+                <label className="achievement-category-filter">
+                    <span>Category</span>
+                    <select value={achievementCategory} onChange={(event) => setAchievementCategory(event.target.value as AchievementCategory | "All")}>
+                        <option value="All">All achievements</option>
+                        {ACHIEVEMENT_CATEGORY_ORDER.map((category) => <option value={category} key={category}>{category}</option>)}
+                    </select>
+                </label>
                 {(() => {
                     // The chase view: every ordinary achievement is on the board
                     // from day one — locked ones as dimmed medallions with their
                     // requirement visible. True secrets (`hidden`) never appear
                     // before they unlock; they are only counted below.
-                    const entries = ACHIEVEMENTS
-                        .map(a => ({ a, unlocked: a.check(character) }))
-                        .filter(e => e.unlocked || !e.a.hidden);
-                    const secretsRemaining = ACHIEVEMENTS.filter(a => a.hidden && !a.check(character)).length;
                     return (
                         <>
                         <div className="achievements-grid">
-                            {entries.map(({ a, unlocked }) => {
+                            {visibleAchievementEntries.map(({ a, unlocked }) => {
                                 const unlockedAt = unlocked ? character.achievementUnlockedAt?.[a.id] : undefined;
                                 const unlockedAtLabel = unlockedAt ? new Date(unlockedAt).toLocaleDateString() : null;
+                                const progress = !unlocked ? a.progress?.(character) : undefined;
                                 const classes = [
                                     "achievement-badge",
                                     unlocked ? "unlocked" : "locked",
@@ -915,6 +932,12 @@ export function Profile({
                                         <div className="achievement-meta">
                                             <strong>{a.name}</strong>
                                             <small>{a.desc}</small>
+                                            {progress ? (
+                                                <span className="achievement-progress" aria-label={`${progress.current} of ${progress.target} ${progress.label ?? "progress"}`}>
+                                                    <span className="achievement-progress-track"><span style={{ width: `${Math.min(100, Math.round((progress.current / Math.max(1, progress.target)) * 100))}%` }} /></span>
+                                                    <small>{progress.current.toLocaleString()} / {progress.target.toLocaleString()}{progress.label ? ` ${progress.label}` : ""}</small>
+                                                </span>
+                                            ) : null}
                                             {unlockedAtLabel && <small className="achievement-unlocked-at">Unlocked {unlockedAtLabel}</small>}
                                             {!unlocked && <small className="achievement-locked-tag">Locked</small>}
                                         </div>
@@ -956,7 +979,7 @@ export function Profile({
             {selectedAchievement && (
                 <div className="achievement-detail-overlay" onClick={() => setSelectedAchievement(null)}>
                     <div
-                        className={`achievement-detail-card ${selectedAchievement.hidden ? "is-secret" : ""} ${selectedAchievement.check(character) ? "" : "is-locked"}`.trim()}
+                        className={`achievement-detail-card ${selectedAchievement.hidden ? "is-secret" : ""} ${isAchievementUnlocked(character, selectedAchievement) ? "" : "is-locked"}`.trim()}
                         onClick={(e) => e.stopPropagation()}
                     >
                         <button
@@ -985,7 +1008,7 @@ export function Profile({
                             return <p className="achievement-detail-desc"><strong>Reward:</strong> {r.ryo.toLocaleString()} ryo{r.fateShards ? ` · ${r.fateShards} Fate Shard${r.fateShards > 1 ? "s" : ""}` : ""}</p>;
                         })()}
                         {(() => {
-                            if (!selectedAchievement.check(character)) {
+                            if (!isAchievementUnlocked(character, selectedAchievement)) {
                                 return <p className="achievement-detail-date">Not yet earned.</p>;
                             }
                             const at = character.achievementUnlockedAt?.[selectedAchievement.id];

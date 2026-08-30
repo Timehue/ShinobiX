@@ -67,6 +67,8 @@ export type ArenaTournament = {
     matchDeadline: number;
     participants: string[];
     advancedPlayers: string[];
+    winnerName?: string;
+    endedAt?: number;
 };
 export type ArenaSpectatorFight = { id: string; title: string; mode: string; startedAt: number; fighters: string[]; battleId?: string; biome?: string };
 type PendingClanPetBattle = { clanName?: string; points: number; opponentName: string; createdAt: number };
@@ -88,6 +90,28 @@ export function loadArenaTournament(): ArenaTournament | null {
 export function saveArenaTournament(tournament: ArenaTournament | null) {
     sharedArenaTournamentCache = tournament;
     persistSharedGameState({ kind: "arenaTournament", tournament });
+}
+
+export async function finalizeArenaTournamentWinner(tournamentId: string, winnerName: string): Promise<{
+    tournament: ArenaTournament;
+    character: Character;
+    _saveVersion: number;
+} | null> {
+    if (typeof fetch === "undefined") return null;
+    const response = await fetch(GAME_STATE_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "arenaTournamentWinner", tournamentId, winnerName }),
+    });
+    if (!response.ok) return null;
+    const data = await response.json() as {
+        tournament?: ArenaTournament;
+        character?: Character;
+        _saveVersion?: number;
+    };
+    if (!data.tournament || !data.character || !Number.isSafeInteger(data._saveVersion)) return null;
+    sharedArenaTournamentCache = data.tournament;
+    return { tournament: data.tournament, character: data.character, _saveVersion: Number(data._saveVersion) };
 }
 
 export function loadArenaActiveFights(): ArenaSpectatorFight[] {

@@ -252,7 +252,9 @@ export function settleRankedSeasonCharacter(
         if (reward.relics > 0) {
             const inventory = Array.isArray(character.inventory) ? character.inventory as unknown[] : [];
             next.inventory = [...inventory, ...Array(reward.relics).fill(CHAMPION_RELIC_ID)];
-            next.rankedSeasonsWon = num(character.rankedSeasonsWon) + reward.championOf.length;
+            // This counter means distinct seasons won, not ladder crowns. A player
+            // who tops both the player and pet ladders still won this season once.
+            next.rankedSeasonsWon = num(character.rankedSeasonsWon) + (reward.championOf.length > 0 ? 1 : 0);
         }
     }
     return { character: next, changed: true, resetApplied, rewardApplied };

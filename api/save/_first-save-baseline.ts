@@ -85,6 +85,7 @@ export function applyCanonicalFirstSave(character: Record<string, unknown>): Rec
     delete next.wandererAmbushRewardDate;
     next.wandererAmbushRewardCount = 0;
     next.redeemedQuestbookRuns = [];
+    next.tournamentWinReceipts = [];
     next.villageUpgrades = {};
 
     for (const key of ZERO_CURRENCIES) next[key] = 0;
