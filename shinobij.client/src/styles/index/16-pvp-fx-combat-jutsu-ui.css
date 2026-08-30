@@ -125,31 +125,8 @@
 
 /* ===== Combat equipped jutsu buttons only ===== */
 
-.combat-jutsu-bar {
-    padding: 8px !important;
-    max-height: 170px !important;
-    overflow-y: auto !important;
-}
-
-.combat-equipped-jutsu-grid {
-    display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
-    gap: 7px !important;
-}
-
 .combat-jutsu-button {
-    min-height: 58px !important;
-    padding: 7px 8px !important;
-    display: grid !important;
-    grid-template-rows: auto auto auto !important;
     align-content: center !important;
-    gap: 2px !important;
-    text-align: left !important;
-    border-radius: 7px !important;
-    background: linear-gradient(#1e3a8a, #172554) !important;
-    border: 1px solid var(--text-muted) !important;
-    color: #e0f2fe !important;
-    box-shadow: none !important;
 }
 
     .combat-jutsu-button strong {
@@ -170,17 +147,10 @@
         color: var(--slate-300) !important;
     }
 
-    .combat-jutsu-button.selected-action {
-        border-color: var(--gold) !important;
-        background: linear-gradient(#92400e, #451a03) !important;
-        box-shadow: 0 0 10px rgba(250, 204, 21, 0.45) !important;
-    }
-
 /* Make sure the old dropdown browser never appears in combat */
 .combat-jutsu-bar .jutsu-dropdown-list,
 .combat-jutsu-bar .technique-browser,
-.combat-jutsu-bar .technique-filter-panel,
-.combat-jutsu-bar .jutsu-art {
+.combat-jutsu-bar .technique-filter-panel {
     display: none !important;
 }
 /* ===== Combat jutsu icon grid ===== */
@@ -192,16 +162,11 @@
 }
 
 .combat-jutsu-button {
-    min-height: 96px !important;
     padding: 3px !important;
     display: grid !important;
-    grid-template-rows: 64px auto auto !important;
     gap: 2px !important;
     text-align: center !important;
     border-radius: 6px !important;
-    background: #e8f1fb !important;
-    border: 2px solid var(--slate-700) !important;
-    color: #020617 !important;
     box-shadow: none !important;
     overflow: hidden !important;
 }
@@ -209,7 +174,6 @@
 .combat-jutsu-thumb {
     position: relative !important;
     width: 100% !important;
-    height: 64px !important;
     display: grid !important;
     place-items: center !important;
     border-radius: 4px !important;
@@ -257,7 +221,6 @@
     font-size: 9px !important;
     line-height: 1.05 !important;
     font-weight: 900 !important;
-    color: #111827 !important;
     white-space: normal !important;
     overflow: hidden !important;
     overflow-wrap: anywhere !important;
@@ -267,16 +230,9 @@
     display: block !important;
     font-size: 8px !important;
     line-height: 1 !important;
-    color: var(--slate-700) !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
-}
-
-.combat-jutsu-button.selected-action {
-    border-color: var(--gold) !important;
-    background: #fef3c7 !important;
-    box-shadow: 0 0 10px rgba(250, 204, 21, 0.55) !important;
 }
 
 .combat-jutsu-button:hover {

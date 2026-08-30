@@ -5,11 +5,13 @@ import test from "node:test";
 const arenaSource = readFileSync(new URL("./Arena.tsx", import.meta.url), "utf8");
 const battleLobbySource = readFileSync(new URL("../features/arena/components/BattleArenaLobby.tsx", import.meta.url), "utf8");
 const districtLobbySource = readFileSync(new URL("../features/arena/components/ArenaDistrictLobby.tsx", import.meta.url), "utf8");
+const tournamentPanelSource = readFileSync(new URL("../features/arena/components/ArenaTournamentPanel.tsx", import.meta.url), "utf8");
 const typesSource = readFileSync(new URL("../features/arena/types.ts", import.meta.url), "utf8");
 
 const leaves = [
     ["BattleArenaLobby.tsx", battleLobbySource, 180],
     ["ArenaDistrictLobby.tsx", districtLobbySource, 240],
+    ["ArenaTournamentPanel.tsx", tournamentPanelSource, 80],
     ["types.ts", typesSource, 10],
 ] as const;
 
@@ -50,7 +52,7 @@ test("Arena.tsx and its two lobby leaves keep the retirement line-budget ratchet
 });
 
 test("Arena lobby leaves stay hook-free and authority-free", () => {
-    for (const [name, source] of leaves.slice(0, 2)) {
+    for (const [name, source] of leaves.filter(([name]) => name.endsWith(".tsx"))) {
         assert.doesNotMatch(source, /\buse(?:State|Effect|LayoutEffect|Reducer|Ref|Memo|Callback|ImperativeHandle)\s*\(/u, `${name} must remain hook-free`);
         assert.doesNotMatch(source, /\bfetch\s*\(/u, `${name} must not own networking`);
         assert.doesNotMatch(source, /\b(?:localStorage|sessionStorage)\b/u, `${name} must not own browser persistence`);

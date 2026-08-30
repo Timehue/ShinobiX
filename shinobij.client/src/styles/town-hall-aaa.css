@@ -1,0 +1,657 @@
+/* ========================================================================== *
+   Town Hall — civic command center
+
+   Loaded after the studio theme because the Hall needs a distinct hierarchy:
+   an image-led command header, a dense bureau rail, legible decision cards,
+   and an elder appointment state that cannot be mistaken for another action.
+ * ========================================================================== */
+
+.app-shell.screen-townHall .town-hall-screen {
+    --town-gold: #e6b85c;
+    --town-gold-bright: #f7d98c;
+    --town-cyan: #78c9e8;
+    --town-ink: #050a10;
+    --town-panel: #0a131e;
+    --town-line: rgba(169, 197, 219, 0.2);
+    width: min(100%, 1280px);
+    gap: 16px;
+    padding: clamp(10px, 1.6vw, 20px);
+    overflow: visible;
+    border: 1px solid rgba(230, 184, 92, 0.24);
+    background:
+        radial-gradient(circle at 50% -15%, rgba(230, 184, 92, 0.13), transparent 32rem),
+        linear-gradient(165deg, rgba(9, 17, 26, 0.98), rgba(4, 9, 15, 0.99)) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 24px 70px rgba(0, 0, 0, 0.46);
+    container-type: inline-size;
+}
+
+.app-shell.screen-townHall .town-hall-screen > .facility-hero {
+    min-height: clamp(300px, 31vw, 410px);
+    border-color: rgba(230, 184, 92, 0.54);
+    border-radius: 16px;
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.035),
+        inset 0 -80px 90px rgba(1, 4, 8, 0.26),
+        0 20px 50px rgba(0, 0, 0, 0.4);
+}
+
+.app-shell.screen-townHall .facility-hero--town-hall::before {
+    background-position: 58% 45%;
+    filter: saturate(0.86) contrast(1.1) brightness(0.88);
+    transform: scale(1.025);
+}
+
+.app-shell.screen-townHall .facility-hero--town-hall::after {
+    background:
+        linear-gradient(90deg, rgba(2, 6, 11, 0.97) 0%, rgba(3, 8, 14, 0.86) 34%, rgba(3, 8, 14, 0.13) 74%),
+        linear-gradient(0deg, rgba(2, 6, 12, 0.96) 0%, rgba(2, 6, 12, 0.12) 63%, rgba(2, 6, 12, 0.36) 100%),
+        repeating-linear-gradient(118deg, transparent 0 96px, rgba(230, 184, 92, 0.035) 97px 98px);
+}
+
+.app-shell.screen-townHall .facility-hero-copy h2 {
+    color: #fff7df;
+    text-shadow: 0 3px 25px rgba(0, 0, 0, 0.96), 0 0 34px rgba(230, 184, 92, 0.18);
+}
+
+.app-shell.screen-townHall .facility-hero-metrics {
+    border-color: rgba(230, 184, 92, 0.46);
+    background: linear-gradient(160deg, rgba(6, 12, 19, 0.9), rgba(12, 20, 28, 0.72));
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.app-shell.screen-townHall .facility-hero-metrics > div {
+    padding: 12px 15px;
+}
+
+.app-shell.screen-townHall .facility-hero-metrics dd {
+    color: #f8dda0;
+    font-size: 0.96rem;
+}
+
+/* Bureau rail ------------------------------------------------------------ */
+
+.app-shell.screen-townHall .town-tabs {
+    position: sticky;
+    top: 8px;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 5px;
+    margin: 0;
+    padding: 6px;
+    overflow: hidden;
+    border: 1px solid rgba(230, 184, 92, 0.3);
+    border-radius: 12px;
+    background: rgba(5, 10, 16, 0.88);
+    box-shadow: 0 13px 34px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(15px);
+}
+
+.app-shell.screen-townHall .town-tabs > button {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    justify-content: start;
+    gap: 8px;
+    min-width: 0;
+    min-height: 54px;
+    padding: 8px 9px;
+    overflow: hidden;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: #8799aa;
+    text-align: left;
+    box-shadow: none;
+    transition: color 150ms ease, border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+
+.app-shell.screen-townHall .town-tabs > button::after {
+    content: "";
+    position: absolute;
+    right: 14%;
+    bottom: 0;
+    left: 14%;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--town-gold-bright);
+    box-shadow: 0 0 13px rgba(230, 184, 92, 0.68);
+    opacity: 0;
+    transform: scaleX(0.35);
+    transition: opacity 150ms ease, transform 150ms ease;
+}
+
+.app-shell.screen-townHall .town-tabs > button:hover {
+    border-color: rgba(120, 201, 232, 0.22);
+    background: rgba(120, 201, 232, 0.06);
+    color: #e8f4fa;
+    transform: translateY(-1px);
+}
+
+.app-shell.screen-townHall .town-tabs > button:is(.active, [aria-pressed="true"]) {
+    border-color: rgba(230, 184, 92, 0.43);
+    background:
+        linear-gradient(135deg, rgba(230, 184, 92, 0.15), rgba(120, 201, 232, 0.05)),
+        #101a25;
+    color: #fff6db;
+}
+
+.app-shell.screen-townHall .town-tabs > button:is(.active, [aria-pressed="true"])::after {
+    opacity: 1;
+    transform: scaleX(1);
+}
+
+.app-shell.screen-townHall .town-tab-icon {
+    width: 20px;
+    height: 20px;
+    color: var(--town-cyan);
+    filter: drop-shadow(0 0 8px rgba(120, 201, 232, 0.18));
+}
+
+.app-shell.screen-townHall .town-tabs > button:is(.active, [aria-pressed="true"]) .town-tab-icon {
+    color: var(--town-gold-bright);
+    filter: drop-shadow(0 0 9px rgba(230, 184, 92, 0.35));
+}
+
+.app-shell.screen-townHall .town-tabs button > span {
+    display: grid;
+    min-width: 0;
+}
+
+.app-shell.screen-townHall .town-tabs button strong {
+    overflow: hidden;
+    font-size: 0.76rem;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.app-shell.screen-townHall .town-tabs button small {
+    overflow: hidden;
+    color: #6f8192;
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* Command surfaces ------------------------------------------------------- */
+
+.app-shell.screen-townHall .town-command,
+.app-shell.screen-townHall .town-hall-screen > .summary-box,
+.app-shell.screen-townHall .town-hall-screen > :is(section, div) {
+    min-width: 0;
+}
+
+.app-shell.screen-townHall .town-command,
+.app-shell.screen-townHall .town-hall-screen > .summary-box,
+.app-shell.screen-townHall .town-hall-screen > .town-council-panel {
+    animation: town-panel-in 260ms ease both;
+}
+
+.app-shell.screen-townHall .town-action-center,
+.app-shell.screen-townHall .town-hall-panel,
+.app-shell.screen-townHall .town-secondary-grid > .summary-box,
+.app-shell.screen-townHall .town-upgrade-summary,
+.app-shell.screen-townHall .town-hall-screen > .summary-box {
+    border: 1px solid var(--town-line) !important;
+    border-radius: 13px;
+    background:
+        radial-gradient(circle at 90% 0%, rgba(120, 201, 232, 0.055), transparent 18rem),
+        linear-gradient(155deg, rgba(11, 21, 32, 0.96), rgba(6, 13, 21, 0.98)) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 14px 34px rgba(0, 0, 0, 0.24);
+}
+
+.app-shell.screen-townHall .town-action-center,
+.app-shell.screen-townHall .town-hall-panel,
+.app-shell.screen-townHall .town-hall-screen > .summary-box {
+    padding: clamp(16px, 2vw, 22px);
+}
+
+.app-shell.screen-townHall .town-section-heading,
+.app-shell.screen-townHall .town-council-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(169, 197, 219, 0.13);
+}
+
+.app-shell.screen-townHall .town-section-heading h3,
+.app-shell.screen-townHall .town-council-heading h3 {
+    margin: 2px 0 0;
+    color: #fff0c9;
+    font: 800 clamp(1.25rem, 2.2vw, 1.65rem) / 1.1 Georgia, "Times New Roman", serif;
+    letter-spacing: -0.015em;
+}
+
+.app-shell.screen-townHall .town-priority-grid {
+    gap: 12px;
+}
+
+.app-shell.screen-townHall .town-priority-card {
+    position: relative;
+    isolation: isolate;
+    min-height: 220px;
+    overflow: hidden;
+    border: 1px solid rgba(151, 178, 200, 0.19);
+    border-top: 1px solid rgba(151, 178, 200, 0.19);
+    border-radius: 12px;
+    background:
+        linear-gradient(145deg, rgba(19, 32, 45, 0.82), rgba(7, 14, 22, 0.96));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 10px 26px rgba(0, 0, 0, 0.22);
+    transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.app-shell.screen-townHall .town-priority-card::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 0 0 auto;
+    height: 3px;
+    background: #52677a;
+    box-shadow: 0 0 18px rgba(82, 103, 122, 0.35);
+}
+
+.app-shell.screen-townHall .town-priority-card[data-state="ready"]::before {
+    background: var(--town-gold);
+    box-shadow: 0 0 18px rgba(230, 184, 92, 0.45);
+}
+
+.app-shell.screen-townHall .town-priority-card[data-state="done"]::before {
+    background: #59b98e;
+    box-shadow: 0 0 18px rgba(89, 185, 142, 0.38);
+}
+
+.app-shell.screen-townHall .town-priority-card:hover {
+    border-color: rgba(230, 184, 92, 0.35);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 15px 32px rgba(0, 0, 0, 0.3);
+    transform: translateY(-2px);
+}
+
+.app-shell.screen-townHall .town-task-list span {
+    border: 1px solid rgba(151, 178, 200, 0.1);
+    background: rgba(3, 8, 14, 0.54);
+}
+
+.app-shell.screen-townHall .town-leader-row {
+    padding: 12px;
+    border: 1px solid rgba(230, 184, 92, 0.16);
+    border-radius: 11px;
+    background: linear-gradient(125deg, rgba(230, 184, 92, 0.07), rgba(5, 11, 18, 0.45));
+}
+
+.app-shell.screen-townHall .town-leader-row > div:last-child,
+.app-shell.screen-townHall .town-leader-row > p {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.app-shell.screen-townHall .town-leader-row strong {
+    color: #f7d98c;
+    font-size: 1rem;
+}
+
+.app-shell.screen-townHall .village-buff-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+}
+
+.app-shell.screen-townHall .village-buff-list span {
+    justify-content: space-between;
+    border-color: rgba(120, 201, 232, 0.19);
+    background: rgba(120, 201, 232, 0.055);
+    color: #cae9f4;
+}
+
+.app-shell.screen-townHall .town-upgrade-card,
+.app-shell.screen-townHall .war-record-card,
+.app-shell.screen-townHall .notice-post,
+.app-shell.screen-townHall .clan-guard-row {
+    border-color: rgba(151, 178, 200, 0.18);
+    background: linear-gradient(145deg, rgba(14, 25, 37, 0.88), rgba(6, 13, 21, 0.94));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.app-shell.screen-townHall .treasury-grid > p {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 48px;
+    padding: 10px 12px;
+    border: 1px solid rgba(151, 178, 200, 0.16);
+    border-radius: 9px;
+    background: rgba(4, 10, 17, 0.56);
+}
+
+/* Council chamber -------------------------------------------------------- */
+
+.app-shell.screen-townHall .town-council-panel {
+    overflow: hidden;
+    border-color: rgba(230, 184, 92, 0.34) !important;
+    background:
+        radial-gradient(circle at 50% -20%, rgba(230, 184, 92, 0.13), transparent 32rem),
+        linear-gradient(155deg, rgba(12, 20, 29, 0.98), rgba(5, 11, 18, 0.99)) !important;
+}
+
+.app-shell.screen-townHall .town-council-heading {
+    align-items: center;
+}
+
+.app-shell.screen-townHall .town-council-heading .hint {
+    max-width: 660px;
+    margin: 7px 0 0;
+    line-height: 1.5;
+}
+
+.app-shell.screen-townHall .town-focus-summary {
+    flex: 0 0 auto;
+    padding: 7px 11px;
+    border: 1px solid rgba(151, 178, 200, 0.24);
+    border-radius: 999px;
+    background: rgba(4, 10, 17, 0.62);
+    color: #91a4b5;
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.app-shell.screen-townHall .town-focus-summary[data-active="true"] {
+    border-color: rgba(230, 184, 92, 0.48);
+    background: rgba(230, 184, 92, 0.1);
+    color: #f7dda0;
+    box-shadow: 0 0 20px rgba(230, 184, 92, 0.08);
+}
+
+.app-shell.screen-townHall .town-kage-card {
+    margin: 0 0 16px;
+    padding: 14px;
+}
+
+.app-shell.screen-townHall .town-kage-card .leader-portrait-img {
+    width: 76px;
+    height: 76px;
+}
+
+.app-shell.screen-townHall .elder-seat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.app-shell.screen-townHall .elder-seat-grid .elder-card {
+    --elder-accent: #78c9e8;
+    position: relative;
+    isolation: isolate;
+    display: grid;
+    grid-template-rows: auto auto auto auto 1fr auto auto;
+    justify-items: center;
+    gap: 7px;
+    min-width: 0;
+    min-height: 330px;
+    padding: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(120, 201, 232, 0.22);
+    border-radius: 13px;
+    background:
+        radial-gradient(circle at 50% 23%, color-mix(in srgb, var(--elder-accent) 13%, transparent), transparent 36%),
+        linear-gradient(165deg, rgba(14, 25, 37, 0.96), rgba(5, 11, 18, 0.99));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 12px 28px rgba(0, 0, 0, 0.24);
+    text-align: center;
+    transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.app-shell.screen-townHall .elder-seat-grid .elder-card[data-focus="war"] { --elder-accent: #e27166; }
+.app-shell.screen-townHall .elder-seat-grid .elder-card[data-focus="trade"] { --elder-accent: #6bc6df; }
+.app-shell.screen-townHall .elder-seat-grid .elder-card[data-focus="training"] { --elder-accent: #c99a62; }
+
+.app-shell.screen-townHall .elder-seat-grid .elder-card::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 0 0 auto;
+    height: 3px;
+    background: var(--elder-accent);
+    box-shadow: 0 0 20px color-mix(in srgb, var(--elder-accent) 48%, transparent);
+}
+
+.app-shell.screen-townHall .elder-seat-grid .elder-card:hover {
+    border-color: color-mix(in srgb, var(--elder-accent) 62%, #253749);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 17px 34px rgba(0, 0, 0, 0.32);
+    transform: translateY(-2px);
+}
+
+.app-shell.screen-townHall .elder-seat-grid .elder-card-active {
+    border-color: color-mix(in srgb, var(--elder-accent) 72%, var(--town-gold)) !important;
+    box-shadow:
+        inset 0 0 0 1px color-mix(in srgb, var(--elder-accent) 18%, transparent),
+        0 0 28px color-mix(in srgb, var(--elder-accent) 14%, transparent),
+        0 18px 38px rgba(0, 0, 0, 0.34);
+}
+
+.app-shell.screen-townHall .town-elder-state {
+    justify-self: stretch;
+    color: #75899b;
+    font-size: 0.62rem;
+    font-weight: 900;
+    letter-spacing: 0.11em;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.app-shell.screen-townHall .elder-card-active .town-elder-state {
+    color: color-mix(in srgb, var(--elder-accent) 72%, #fff);
+}
+
+.app-shell.screen-townHall .town-elder-portrait {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 88px;
+    height: 88px;
+    margin: 2px 0 3px;
+    overflow: hidden;
+    border-radius: 13px;
+    background:
+        radial-gradient(circle at 50% 36%, color-mix(in srgb, var(--elder-accent) 22%, transparent), transparent 60%),
+        linear-gradient(145deg, #152331, #07101a);
+}
+
+.app-shell.screen-townHall .town-elder-portrait::before {
+    content: "✦";
+    position: absolute;
+    color: color-mix(in srgb, var(--elder-accent) 58%, #eef7fb);
+    font-size: 1.5rem;
+    text-shadow: 0 0 16px color-mix(in srgb, var(--elder-accent) 48%, transparent);
+}
+
+.app-shell.screen-townHall .town-elder-portrait::after {
+    content: "";
+    position: absolute;
+    inset: -5px;
+    z-index: -1;
+    border: 1px solid color-mix(in srgb, var(--elder-accent) 45%, transparent);
+    border-radius: 17px;
+    opacity: 0.65;
+}
+
+.app-shell.screen-townHall .town-elder-portrait .leader-portrait-img {
+    position: relative;
+    z-index: 1;
+    width: 88px;
+    height: 88px;
+    border-color: color-mix(in srgb, var(--elder-accent) 68%, #26384a);
+    box-shadow: 0 13px 27px rgba(0, 0, 0, 0.42), 0 0 19px color-mix(in srgb, var(--elder-accent) 16%, transparent);
+}
+
+.app-shell.screen-townHall .town-elder-role {
+    color: color-mix(in srgb, var(--elder-accent) 76%, #fff);
+    font-size: 0.69rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.app-shell.screen-townHall .town-elder-name {
+    color: #fff0c9;
+    font: 800 1.02rem/1.2 Georgia, "Times New Roman", serif;
+}
+
+.app-shell.screen-townHall .town-elder-brief {
+    align-self: start;
+    margin: 2px 0 0;
+    color: #8fa3b5;
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+.app-shell.screen-townHall .town-elder-bonus {
+    width: 100%;
+    padding: 7px 8px;
+    border: 1px solid color-mix(in srgb, var(--elder-accent) 22%, transparent);
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--elder-accent) 7%, rgba(3, 8, 14, 0.65));
+    color: #d6e4ed;
+    font-size: 0.75rem;
+    font-weight: 800;
+}
+
+.app-shell.screen-townHall .elder-card > button,
+.app-shell.screen-townHall .town-elder-selected {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    width: 100%;
+    min-height: 42px;
+    margin-top: 3px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 900;
+}
+
+.app-shell.screen-townHall .elder-card > button {
+    border-color: color-mix(in srgb, var(--elder-accent) 42%, #26384a);
+    background: linear-gradient(180deg, rgba(36, 52, 67, 0.92), rgba(12, 22, 32, 0.96));
+    color: #eef6fa;
+}
+
+.app-shell.screen-townHall .elder-card > button:not(:disabled):hover {
+    border-color: var(--elder-accent);
+    background: color-mix(in srgb, var(--elder-accent) 15%, #111c27);
+    color: #fff;
+}
+
+.app-shell.screen-townHall .town-elder-selected {
+    border: 1px solid color-mix(in srgb, var(--elder-accent) 62%, var(--town-gold));
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--elder-accent) 25%, rgba(5, 12, 19, 0.95)), rgba(230, 184, 92, 0.12));
+    color: #fff2cc;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 20px color-mix(in srgb, var(--elder-accent) 12%, transparent);
+    cursor: default;
+}
+
+.app-shell.screen-townHall .town-elder-selected svg {
+    width: 17px;
+    height: 17px;
+    color: var(--town-gold-bright);
+}
+
+.app-shell.screen-townHall :is(button, input, select, textarea):focus-visible,
+.app-shell.screen-townHall .town-elder-selected:focus-visible {
+    outline: 2px solid #9adcf2;
+    outline-offset: 2px;
+}
+
+@keyframes town-panel-in {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 1120px) {
+    .app-shell.screen-townHall .town-tabs button small { display: none; }
+    .app-shell.screen-townHall .town-tabs > button { justify-content: center; }
+    .app-shell.screen-townHall .town-tabs button strong { white-space: normal; }
+}
+
+@container (max-width: 1040px) {
+    .app-shell.screen-townHall .town-tabs > button {
+        grid-template-columns: minmax(0, 1fr);
+        justify-items: center;
+        gap: 4px;
+        padding-inline: 4px;
+        text-align: center;
+    }
+
+    .app-shell.screen-townHall .town-tabs button small { display: none; }
+    .app-shell.screen-townHall .town-tabs button strong {
+        font-size: 0.7rem;
+        white-space: normal;
+    }
+}
+
+@media (max-width: 920px) {
+    .app-shell.screen-townHall .town-hall-screen { padding: 10px; }
+    .app-shell.screen-townHall .town-tabs {
+        top: calc(var(--mobile-aaa-hud-height, 0px) + env(safe-area-inset-top, 0px));
+    }
+    .app-shell.screen-townHall .town-tabs > button {
+        display: inline-flex;
+        flex: 0 0 auto;
+        min-width: 112px;
+        min-height: 48px;
+    }
+    .app-shell.screen-townHall .town-tabs button > span { display: block; }
+    .app-shell.screen-townHall .elder-seat-grid { grid-template-columns: minmax(0, 1fr); }
+    .app-shell.screen-townHall .elder-seat-grid .elder-card {
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-rows: auto auto auto auto auto;
+        justify-items: start;
+        min-height: 0;
+        text-align: left;
+    }
+    .app-shell.screen-townHall .town-elder-state { grid-column: 1 / -1; }
+    .app-shell.screen-townHall .town-elder-portrait { grid-row: 2 / span 3; margin-right: 8px; }
+    .app-shell.screen-townHall .town-elder-role,
+    .app-shell.screen-townHall .town-elder-name,
+    .app-shell.screen-townHall .town-elder-brief { grid-column: 2; }
+    .app-shell.screen-townHall .town-elder-bonus,
+    .app-shell.screen-townHall .elder-card > button,
+    .app-shell.screen-townHall .town-elder-selected { grid-column: 1 / -1; }
+}
+
+@media (max-width: 640px) {
+    .app-shell.screen-townHall .town-hall-screen {
+        gap: 11px;
+        padding: 0;
+        border: 0;
+        background: transparent !important;
+        box-shadow: none;
+    }
+    .app-shell.screen-townHall .town-hall-screen > .facility-hero { border-radius: 12px; }
+    .app-shell.screen-townHall .town-section-heading,
+    .app-shell.screen-townHall .town-council-heading { align-items: flex-start; flex-direction: column; }
+    .app-shell.screen-townHall .town-focus-summary { align-self: flex-start; }
+    .app-shell.screen-townHall .village-buff-list { grid-template-columns: minmax(0, 1fr); }
+    .app-shell.screen-townHall .elder-seat-grid .elder-card { padding: 14px; }
+    .app-shell.screen-townHall .town-elder-portrait .leader-portrait-img { width: 78px; height: 78px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-shell.screen-townHall .town-command,
+    .app-shell.screen-townHall .town-hall-screen > .summary-box,
+    .app-shell.screen-townHall .town-hall-screen > .town-council-panel { animation: none; }
+    .app-shell.screen-townHall .town-tabs > button,
+    .app-shell.screen-townHall .town-priority-card,
+    .app-shell.screen-townHall .elder-seat-grid .elder-card { transition: none; }
+}

@@ -9,7 +9,7 @@ const textExtensions = new Set([
     ".cjs", ".ejs", ".hbs", ".htm", ".html", ".js", ".json", ".jsx",
     ".mjs", ".svg", ".ts", ".tsx", ".txt", ".xml",
 ]);
-const retiredClassFamily = /\b(?:hex-zoom-|story-journey-|story-fight-portal\b|pvp-(?:rich-|log-|round-|block-|actor-|effect-|uses-text\b|jutsu-name\b|victory-text\b)|tower-action-(?:deck|status|resources)\b|tower-fight-(?:objective|round|zoom)\b)/;
+const retiredClassFamily = /\b(?:hex-zoom-|story-journey-|story-fight-portal\b|pet-arena-party(?:\b|-)|pvp-(?:rich-|log-|round-|block-|actor-|effect-|uses-text\b|jutsu-name\b|victory-text\b)|tower-action-(?:deck|status|resources)\b|tower-fight-(?:objective|round|zoom)\b)/;
 const retiredWorldMapDrawingClass = /\b(?:sea-label|sea-(?:north|east|south)|atlas-landmass|continent-(?:west|east)|frozen-north|island-south|atlas-region-label|label-(?:volcano|forest|fire|ice))\b/;
 
 function filesUnder(root: string, accept: (path: string) => boolean): string[] {

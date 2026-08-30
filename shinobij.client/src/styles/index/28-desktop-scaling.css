@@ -31,8 +31,7 @@
    pointer-events:none so gameplay clicks pass straight through. */
 /* Scene containers that host an ambience overlay need a positioning context. */
 .sector-image-map,
-.generated-world-map,
-.village-scene-stage { position: relative; }
+.generated-world-map { position: relative; }
 .scene-ambience {
     position: absolute;
     inset: 0;

@@ -22,11 +22,13 @@ describe("Academy first-session wiring", () => {
     });
 
     it("persists each beat only after its explicit acknowledgement", () => {
-        assert.match(momentsSource, /doneLabel="Keep the vow"[\s\S]*academyIncidentSeen:\s*true/);
-        assert.match(momentsSource, /doneLabel="Return with the evidence"[\s\S]*academySectorVisited:\s*true[\s\S]*academyTraceSector:\s*props\.currentSector/);
-        assert.match(momentsSource, /academyFieldSeal:\s*true[\s\S]*Accept the Field Seal/);
-        assert.match(momentsSource, /const finish = \(screen: Screen, intent\?: "openAwakening"\)[\s\S]*onboardingStep:\s*"done"/);
+        assert.match(momentsSource, /doneLabel="Keep the vow"[\s\S]*persistMilestone\(props, "incident"\)/);
+        assert.match(momentsSource, /doneLabel="Return with the evidence"[\s\S]*persistMilestone\(props, "trace", props\.currentSector\)/);
+        assert.match(momentsSource, /saveAction\("seal"\)[\s\S]*Accept the Field Seal/);
+        assert.match(momentsSource, /const finish = async \(screen: Screen, intent\?: "openAwakening"\)[\s\S]*saveAction\("complete"\)/);
         assert.match(momentsSource, /buildAcademyHandoff\(\{ \.\.\.props\.character, onboardingStep: "done" \}\)/);
+        assert.match(appSource, /onVersionedCharacter=\{commitVersionedCharacter\}/);
+        assert.match(coachSource, /commitAcademyNarrativeAction\(character\.name, action, sector\)/);
     });
 
     it("carries the awakening choice through Central Hub instead of dropping its intent", () => {

@@ -559,6 +559,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                                     {tournament.advancedPlayers?.length > 0 && (
                                         <p><strong>Advanced Players:</strong> {tournament.advancedPlayers.join(", ")}</p>
                                     )}
+                                    {tournament.winnerName ? <p><strong>Champion:</strong> {tournament.winnerName}</p> : null}
                                     <p className="hol-tournament-ended">Ended {new Date(tournament.endsAt).toLocaleDateString()}</p>
                                 </div>
                             )

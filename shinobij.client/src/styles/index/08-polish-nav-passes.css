@@ -6,7 +6,6 @@
 body {
     color: var(--text);
     font-family: var(--font-body);
-    background: radial-gradient(circle at 14% 8%, rgba(56, 189, 248, .18), transparent 28%), radial-gradient(circle at 82% 2%, rgba(247, 201, 72, .15), transparent 24%), radial-gradient(circle at 60% 92%, rgba(185, 28, 28, .12), transparent 28%), linear-gradient(135deg, #07101d, #0f1b2d 46%, #120712);
 }
 
 .hero,
@@ -35,13 +34,6 @@ h2 {
     background: linear-gradient(180deg, rgba(255,255,255,.035), transparent 120px), linear-gradient(135deg, var(--panel), var(--panel-2));
 }
 
-.nav {
-    border-radius: 10px;
-    background: linear-gradient(180deg, rgba(30, 58, 138, .34), rgba(9, 14, 26, .96));
-    position: relative;
-    top: auto;
-}
-
 /* This pass used to deepen the navy default; it now deepens the steel one.
    Same cascade slot so every later per-screen override still wins the same
    specificity ties it always won. */
@@ -65,7 +57,6 @@ button {
 .location-button,
 .summary-box,
 .jutsu-card,
-.shinobi-jutsu-card,
 .stat-card {
     border-color: rgba(148,163,184,.24);
     box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 10px 24px rgba(0,0,0,.18);
@@ -122,7 +113,6 @@ button {
     box-shadow: 0 22px 55px rgba(0,0,0,.48), inset 0 0 0 2px rgba(250,204,21,.42), inset 0 0 45px rgba(0,0,0,.28);
 }
 
-.instance-sidebar,
 .instance-actions,
 .combat-side-hud {
     border-radius: 6px;
@@ -131,7 +121,6 @@ button {
 
 .tile-scene,
 .pixel-map,
-.village-map,
 .hex-battlefield {
     border-radius: 6px;
 }
@@ -155,11 +144,6 @@ button {
 .arena-fullscreen .jutsu-layout-card {
     border-radius: 6px;
     background: linear-gradient(180deg, #efe7ff, #cfc3ed);
-}
-
-.arena-fullscreen .shinobi-jutsu-card {
-    border-radius: 6px;
-    background: linear-gradient(180deg, #fff, #eef2ff);
 }
 
 .arena-fullscreen .combat-text-log {
@@ -189,7 +173,6 @@ button {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    background: radial-gradient(circle at center, rgba(37,99,235,.25), transparent 55%), linear-gradient(135deg, #063b8f, #0757d8 50%, #032968) !important;
     border: 4px solid var(--slate-700) !important;
     border-radius: 8px !important;
 }
@@ -408,14 +391,12 @@ body {
 
 .location-button,
 .equipment-item,
-.shinobi-jutsu-card,
 .jutsu-card {
     transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
 }
 
     .location-button:hover,
     .equipment-item:hover,
-    .shinobi-jutsu-card:hover,
     .jutsu-card:hover {
         transform: translateY(-2px);
         border-color: rgba(250,204,21,.56);
@@ -423,17 +404,13 @@ body {
     }
 
 .admin-jutsu-preview,
-.jutsu-art,
-.shinobi-jutsu-image-frame,
 .admin-event-list-preview {
     border-color: rgba(186,230,253,.6);
     box-shadow: 0 10px 24px rgba(0,0,0,.32), inset 0 0 0 1px rgba(255,255,255,.08);
 }
 
     .admin-jutsu-preview img,
-    .jutsu-art img,
-    .admin-event-list-preview img,
-    .shinobi-jutsu-image-frame img {
+    .admin-event-list-preview img {
         width: 100%;
         height: 100%;
         object-fit: cover;

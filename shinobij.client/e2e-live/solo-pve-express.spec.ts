@@ -89,10 +89,23 @@ async function seedAccount(request: APIRequestContext, testInfo: TestInfo, optio
     // This brand-new disposable account has no mounted client to reload. Setting
     // signal=1 here would make its first heartbeat report forceReload and create
     // an artificial protected-draft conflict during a later hospital/reload path.
-    const seeded = await request.post(`/api/save/${name}`, {
+    const seedRequest = () => request.post(`/api/save/${name}`, {
         headers: { 'x-admin-password': 'live-express-e2e-admin' },
         data: { character, currentSector: 40, acceptedMissionIds: [], missionProgress: {}, triggeredEvents: [] },
     });
+    let seeded = await seedRequest();
+    if (seeded.status() === 429) {
+        // Adjacent project cases share the loopback-IP save-burst bucket. Keep the
+        // production guard enabled and honor its exact retry hint instead of making
+        // suite speed determine whether this disposable admin seed is admitted.
+        const limited = await seeded.json().catch(() => ({})) as Record<string, unknown>;
+        const hintedDelay = Number(limited.retryAfterMs);
+        const retryAfterMs = Number.isFinite(hintedDelay)
+            ? Math.min(5_000, Math.max(0, hintedDelay))
+            : 3_100;
+        await new Promise((resolve) => setTimeout(resolve, retryAfterMs + 100));
+        seeded = await seedRequest();
+    }
     expect(seeded.status()).toBe(200);
     const canonicalResponse = await request.get(`/api/save/${name}`, {
         headers: { 'x-player-name': name, 'x-player-token': token },
@@ -695,69 +708,36 @@ test('real built client records a flee without queueing a mission reward', async
         await enterMissionHall.click();
     }
     await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();
-    let outcomeRequestCount = 0;
-    let resolveLostOutcome!: (body: Record<string, unknown>) => void;
-    let resolveRecoveredOutcome!: (body: Record<string, unknown>) => void;
-    const lostOutcome = new Promise<Record<string, unknown>>((resolve) => { resolveLostOutcome = resolve; });
-    const recoveredOutcome = new Promise<Record<string, unknown>>((resolve) => { resolveRecoveredOutcome = resolve; });
-    await page.route('**/api/pve/fight-outcome', async (route) => {
-        outcomeRequestCount += 1;
-        const response = await route.fetch();
-        const body = await response.json() as Record<string, unknown>;
-        if (outcomeRequestCount === 1) {
-            resolveLostOutcome(body);
-            await route.abort('failed');
-            return;
-        }
-        if (outcomeRequestCount === 2) resolveRecoveredOutcome(body);
-        await route.fulfill({
-            status: response.status(),
-            headers: response.headers(),
-            body: JSON.stringify(body),
-        });
-    });
-    const resumedResponse = page.waitForResponse((response) => response.url().includes('/api/missions/combat-start') && response.request().method() === 'POST');
-    await page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' }).getByRole('button', { name: /Begin Mission/ }).click();
-    expect((await (await resumedResponse).json()).runId).toBe(started.runId);
-    await expect(page.getByRole('heading', { name: 'Defeat' })).toBeVisible();
-    const lostReplay = await lostOutcome;
-    const recoveredReplay = await recoveredOutcome;
-    expect(lostReplay.replayed).toBe(true);
-    expect(recoveredReplay.replayed).toBe(true);
-    const replayBodies = [lostReplay, recoveredReplay];
-    for (const replay of replayBodies) {
-        const replayCharacter = replay.character as Record<string, unknown>;
-        const replayHp = Number(replayCharacter.hp);
-        const replayReceipts = (replayCharacter.serverSettlementReceipts as Array<Record<string, unknown> & { value?: { kind?: string; runId?: string } }> ?? [])
-            .filter((receipt) => receipt.value?.kind === 'pve-outcome' && receipt.value.runId === started.runId);
-        expect(Number(replay._saveVersion)).toBeGreaterThanOrEqual(immediatelySettledVersion);
-        expect(replayReceipts).toHaveLength(1);
-        expect(replayReceipts[0]).toEqual(immediateReceipts[0]);
-        if (dischargedAuthority) {
-            expect(Number(replay._saveVersion)).toBeGreaterThanOrEqual(dischargedAuthority.saveVersion);
-            expect(replayCharacter.hospitalized).toBe(false);
-            expect(replayHp).toBe(dischargedAuthority.hp);
-            expect(Number(replayCharacter.maxHp)).toBe(dischargedAuthority.maxHp);
-            expect(replayReceipts[0]).toEqual(dischargedAuthority.receipt);
-        } else {
-            expect(replayHp).toBeGreaterThanOrEqual(immediateHp);
-            expect(replayHp).toBeLessThan(Number(replayCharacter.maxHp));
-        }
-    }
-    expect(recoveredReplay._saveVersion).toBe(lostReplay._saveVersion);
-    expect(recoveredReplay.character).toEqual(lostReplay.character);
-    expect(outcomeRequestCount).toBe(2);
-
-    const refusedClaim = await browserApi(page, '/api/missions/queue-combat-claim', {
+    const refusedTerminalClaim = await browserApi(page, '/api/missions/queue-combat-claim', {
         playerName: name,
         missionId: 'combat-e-drill',
         runId: started.runId,
     });
-    expect(refusedClaim.body.queued).toBe(false);
-    expect(refusedClaim.body.reason).toBe('not-won');
+    expect(refusedTerminalClaim.body.queued).toBe(false);
+    expect(refusedTerminalClaim.body.reason).toBe('not-won');
+
+    // A loss or flee is physically settled before this screen returns. Retrying
+    // must retire that terminal authority and mint a fresh unpaid attempt; only
+    // terminal WINS remain resumable so their claim can be queued exactly once.
+    const retryResponse = page.waitForResponse((response) => response.url().includes('/api/missions/combat-start') && response.request().method() === 'POST');
+    await page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' }).getByRole('button', { name: /Begin Mission/ }).click();
+    const retry = await (await retryResponse).json() as { runId: string; resumed: boolean; session: Session };
+    expect(retry.runId).not.toBe(started.runId);
+    expect(retry.resumed).toBe(false);
+    expect(retry.session.sessionId).toBe(retry.runId);
+    expect(retry.session.status).toBe('active');
+    await expect(page.locator('.mission-arena-fight')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Defeat' })).toBeHidden();
+
+    const retiredClaim = await browserApi(page, '/api/missions/queue-combat-claim', {
+        playerName: name,
+        missionId: 'combat-e-drill',
+        runId: started.runId,
+    });
+    expect(retiredClaim.body.queued).toBe(false);
+    expect(retiredClaim.body.reason).toBe('invalid-binding');
     const persisted = await browserGet(page, `/api/save/${name}`);
     const character = persisted.body.character as Record<string, unknown>;
-    const replayHpFloor = Math.max(immediateHp, ...replayBodies.map((body) => Number((body.character as Record<string, unknown>).hp)));
     expect(Number(character.ryo)).toBe(100);
     if (dischargedAuthority) {
         expect(character.hospitalized).toBe(false);
@@ -770,7 +750,7 @@ test('real built client records a flee without queueing a mission reward', async
         // A reload plus the injected retry takes long enough for normal village
         // regeneration to tick. It may raise HP, but must never resurrect the
         // player to the newly-derived maximum as the old load normalizer did.
-        expect(Number(character.hp)).toBeGreaterThanOrEqual(Math.max(1, Number(terminal.player.hp), replayHpFloor));
+        expect(Number(character.hp)).toBeGreaterThanOrEqual(Math.max(1, Number(terminal.player.hp), immediateHp));
         expect(Number(character.hp)).toBeLessThan(Number(character.maxHp));
     }
     const finalReceipts = (character.serverSettlementReceipts as Array<Record<string, unknown> & { value?: { kind?: string; runId?: string } }> ?? [])
@@ -778,8 +758,6 @@ test('real built client records a flee without queueing a mission reward', async
     expect(finalReceipts).toHaveLength(1);
     expect(finalReceipts[0]).toEqual(immediateReceipts[0]);
     expect(Array.isArray(character.pendingCombatMissionClaims) ? character.pendingCombatMissionClaims : []).not.toContain('combat-e-drill');
-    await page.getByRole('button', { name: /Return to Mission Hall/ }).click();
-    await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();
 
     expect(runtimeErrors).toEqual([]);
     expect(serverFailures).toEqual([]);

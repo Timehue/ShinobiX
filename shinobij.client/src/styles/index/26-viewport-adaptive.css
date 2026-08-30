@@ -571,20 +571,6 @@ html[data-vp="lg"] .arena-fullscreen .jutsu-layout-card {
     padding: clamp(5px, 0.55vw, 11px) !important;
 }
 
-/* Combat tabs (Jutsu/Weapons/Items tab buttons) */
-html[data-vp="xl"] .arena-fullscreen .combat-tabs,
-html[data-vp="lg"] .arena-fullscreen .combat-tabs {
-    gap: 4px !important;
-    margin-top: 5px !important;
-}
-
-html[data-vp="xl"] .arena-fullscreen .combat-tabs button,
-html[data-vp="lg"] .arena-fullscreen .combat-tabs button {
-    min-height: clamp(32px, 2.2vw, 42px) !important;
-    font-size: clamp(12px, 0.78vw, 15px) !important;
-    padding: clamp(3px, 0.35vw, 7px) clamp(8px, 0.65vw, 14px) !important;
-}
-
 /* Village stormveil map: fit the whole town scene within the viewport so the
    bottom row of building tiles is always visible.
 
@@ -781,12 +767,6 @@ html[data-vp="xxl"] .arena-fullscreen .jutsu-layout-card {
     padding: 12px !important;
     max-height: clamp(360px, 28vh, 480px) !important;
 }
-html[data-vp="xxl"] .arena-fullscreen .combat-tabs button {
-    min-height: 48px !important;
-    font-size: 16px !important;
-    padding: 10px 18px !important;
-}
-
 /* Combat log — readable not microscopic. */
 html[data-vp="xxl"] .arena-fullscreen .combat-text-log {
     font-size: 14px !important;
