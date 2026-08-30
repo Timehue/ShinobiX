@@ -222,9 +222,21 @@ export function ClanExchange({
         .map((entry) => ({ ...entry, items: EXCHANGE_ITEMS.filter((item) => item.reward.kind !== "locked" && item.hall === entry.hall && clanData.level < entry.level) }))
         .filter((entry) => entry.items.length > 0);
     const comingSoonItems = EXCHANGE_ITEMS.filter((item) => item.reward.kind === "locked");
-    const closeConfirmation = useCallback(() => {
-        if (!purchaseBusyRef.current) setConfirming(null);
-    }, []);
+    /*
+      * Not gated on purchaseBusyRef: closing this dialog is an escape hatch, and
+      * an escape hatch a busy flag can disable is no hatch at all. All four exits
+      * here (Escape via this callback, the CloseButton, Cancel, and the backdrop)
+      * used to go dead together while postClanExchangePurchase was in flight, and
+      * that call is a bare fetch with no timeout — one stalled connection
+      * trapped the player in the dialog with only a refresh out.
+      *
+      * Closing mid-purchase is safe. ClanExchange itself stays mounted, so the
+      * response still applies the character update and still opens the reveal;
+      * purchaseBusyRef independently blocks a second purchase, so reopening and
+      * confirming again is a no-op rather than a double-spend. The backdrop stays
+      * guarded because it is easy to hit by accident and is not the only way out.
+      */
+    const closeConfirmation = useCallback(() => setConfirming(null), []);
     const closeReveal = useCallback(() => setReveal(null), []);
 
     async function purchase(item: ExchangeItem) {
@@ -328,7 +340,7 @@ export function ClanExchange({
             >
                 {confirming && (
                     <>
-                        <CloseButton className="modal-close" onClick={closeConfirmation} disabled={busyItem !== null} />
+                        <CloseButton className="modal-close" onClick={closeConfirmation} />
                         <span className={`clan-exchange-rarity ${confirming.rarity}`}>{confirming.rarity}</span>
                         <h3>{confirming.name}</h3>
                         <p>{confirming.description}</p>
@@ -342,7 +354,7 @@ export function ClanExchange({
                         </div>
                         <div className="menu">
                             <button onClick={() => void purchase(confirming)} disabled={busyItem === confirming.id}>{busyItem === confirming.id ? "Purchasing..." : "Confirm Purchase"}</button>
-                            <button className="ghost-button" onClick={closeConfirmation} disabled={busyItem !== null}>Cancel</button>
+                            <button className="ghost-button" onClick={closeConfirmation}>Cancel</button>
                         </div>
                     </>
                 )}

@@ -151,7 +151,29 @@ export function SageOfferModal({ offer, playerName, actionsAllowed, canMutate, o
         }
     }
 
-    const close = useCallback(() => { if (!busyRef.current) onClose(); }, [onClose]);
+    /*
+     * Escape and "Step Away" are NOT gated on busy, deliberately.
+     *
+     * sageAccept/sageDecline go through postJson, which is a bare fetch with no
+     * AbortController and no timeout, so a stalled connection leaves the promise
+     * pending forever. This modal used to disable all four of its exits while
+     * that was in flight — both buttons, the backdrop, and Escape via this
+     * callback — which meant one dropped connection trapped the player in a
+     * dialog with every control dead and only a refresh out.
+     *
+     * SessionExpiredModal already carries this lesson: "an escape hatch a busy
+     * flag can disable is no hatch at all". This modal's own copy makes the
+     * promise explicit too — "stepping away remains safe", "step away and he
+     * keeps waiting here" — so disabling that button contradicted the text
+     * beside it.
+     *
+     * Stepping away mid-request is safe: an in-flight decline may still land
+     * server-side, which is exactly what the button said would happen anyway,
+     * and the mountedRef/requestRef guards already stop a late response
+     * touching state. The backdrop stays guarded because it is easy to hit by
+     * accident and is not the only way out.
+     */
+    const close = useCallback(() => { onClose(); }, [onClose]);
 
     return (
         <>
@@ -261,7 +283,7 @@ export function SageOfferModal({ offer, playerName, actionsAllowed, canMutate, o
                     <button disabled={busy || !actionsAllowed} onClick={() => void handleDecline()} style={{ flex: 1 }}>
                         Turn Down for Now
                     </button>
-                    <button disabled={busy} onClick={onClose} style={{ flex: 1 }}>
+                    <button onClick={onClose} style={{ flex: 1 }}>
                         Step Away
                     </button>
                 </div>
