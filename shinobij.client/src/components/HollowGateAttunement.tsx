@@ -74,7 +74,22 @@ export function HollowGateAttunement({ character, onClose, onVersionedCharacter 
         }
     }
 
-    const close = useCallback(() => { if (!forgeBusyRef.current) onClose(); }, [onClose]);
+    /*
+     * Not gated on forgeBusyRef: an escape hatch a busy flag can disable is no hatch at
+     * all. Escape, the header close button and the backdrop all went dead together while
+     * forgeHollowGateKey was in flight, and that call has no timeout, so one
+     * stalled connection trapped the player here with only a refresh out.
+     * Closing mid-forge is safe in the sense that already applies here: the
+     * catch below tells the player to refresh and confirm whether the key was
+     * forged, so a lost receipt is a state this screen already handles — being
+     * unable to leave at all was not.
+     *
+     * Note forgeBusyRef is also set before the gameConfirm above, so this used
+     * to disable the exits merely while that confirm was open.
+     * The backdrop stays guarded because it is easy to hit by accident and is
+     * not the only way out.
+     */
+    const close = useCallback(() => { onClose(); }, [onClose]);
 
     return (
         <Modal open onClose={close} title="⛩ Shrine Attunement" size="md" disableBackdropClose={forgeBusy || attuneBusy}>
