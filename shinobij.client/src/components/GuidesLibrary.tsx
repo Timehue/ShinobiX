@@ -28,7 +28,7 @@ import worldHero from "../assets/guides/living-world.webp";
 import missionHallHero from "../assets/facilities/mission-hall.webp";
 import forgeHero from "../assets/central/crafter-forge-v1.webp";
 import townHallHero from "../assets/town-hall/town-hall-command-center.webp";
-import worldMapFigure from "../assets/Maps/world_map.webp";
+import worldMapFigure from "../assets/Maps/world_map-v2.webp";
 import chronicleHero from "../assets/card-clash/board.webp";
 import professionsHero from "../assets/professions/overview.webp";
 import towersHero from "../assets/towers/battle-towers-key-art-v1.webp";

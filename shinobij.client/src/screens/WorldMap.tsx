@@ -155,7 +155,7 @@ import { getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus, 
 import { hiddenDungeonVnEvent } from "../data/vn-events";
 import { petTraitDescriptions } from "../data/pet-config";
 import { starterItems } from "../data/starter-items";
-import worldMapBg from "../assets/Maps/world_map.webp";
+import worldMapBg from "../assets/Maps/world_map-v2.webp";
 import castleImg from "../assets/castle.webp";
 import houseImg from "../assets/house1.webp";
 import towerImg from "../assets/tower.webp";

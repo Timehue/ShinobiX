@@ -28,7 +28,7 @@ const PublicLeaderboard = lazyWithRetry(() => import("./PublicLeaderboard").then
 // game rather than stock art. Bundled from src/assets (Vite-hashed); the two
 // full-bleed cinematics (hero + clash band) live in public/ and are referenced
 // by URL from landing-skin.css.
-import worldMapImg from "../assets/Maps/world_map.webp";
+import worldMapImg from "../assets/Maps/world_map-v2.webp";
 import villageImg from "../assets/sectors/stormveil-village.webp";
 import coliseumImg from "../assets/coliseum/coliseum-bg.webp";
 
@@ -43,10 +43,10 @@ type StartView = "main" | "create" | "login" | "leaderboard" | "guides" | `legal
 // ── Landing feature showcase ─────────────────────────────────────────────
 
 // public/ scenes referenced by URL (Vite copies public/ to the site root).
-const PVP_IMG = "/deathsgate-arena.webp";
-const PET_IMG = "/landing-petclash.webp";
-const CLAN_IMG = "/landing-clanwar.webp";
-const LEGACY_IMG = "/landing-legacy.webp";
+const PVP_IMG = "/deathsgate-arena-v2.webp";
+const PET_IMG = "/landing-petclash-v2.webp";
+const CLAN_IMG = "/landing-clanwar-v2.webp";
+const LEGACY_IMG = "/landing-legacy-v2.webp";
 
 type Feature = { tag: string; title: string; blurb: string; img: string };
 
@@ -128,10 +128,21 @@ type BrandLockupVariant = "nav" | "hero" | "footer";
 export const APP_NAME = "Shinobi Journey";
 
 function BrandLockup({ variant = "nav" }: { variant?: BrandLockupVariant }) {
-    const src = variant === "hero" ? "/shinobi-journey-title-art.webp" : "/shinobi-journey-logo-wide.webp";
+    const hero = variant === "hero";
+    const src = hero ? "/shinobi-journey-title-art.webp" : "/shinobi-journey-logo-wide.webp";
     return (
         <span className={`landing-logo landing-logo--${variant}`}>
-            <img className="landing-logo-art" src={src} alt={APP_NAME} draggable={false} />
+            <img
+                className="landing-logo-art"
+                src={src}
+                alt={APP_NAME}
+                width={hero ? 1520 : 1412}
+                height={hero ? 839 : 456}
+                loading={variant === "footer" ? "lazy" : "eager"}
+                decoding="async"
+                fetchPriority={hero ? "high" : "auto"}
+                draggable={false}
+            />
         </span>
     );
 }
@@ -351,12 +362,8 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
     // CTAs can jump straight into the create flow.
     const year = new Date().getFullYear();
 
-    // Hide the mobile sticky CTA whenever the auth panel is itself on screen, so
-    // the bar never covers the create/login form's own submit button.
     const scrollToFeatures = () => featuresRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     const scrollTop = () => rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    // Hero / band CTAs → switch to the Create tab, bring the panel into view,
-    // then focus the name field (without a second scroll jump).
     return (
         <div className="landing-root" ref={rootRef}>
             <header className="landing-topbar">
@@ -364,12 +371,12 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                     <button type="button" className="landing-brand" onClick={scrollTop}>
                         <BrandLockup variant="nav" />
                     </button>
-                    <nav className="landing-topnav">
+                    <nav className="landing-topnav" aria-label="Primary navigation">
                         <a className="landing-navlink" href={DISCORD_URL} target="_blank" rel="noopener noreferrer">Discord</a>
                         <button type="button" className="landing-navlink" onClick={onOpenGuides}>Guides</button>
                         <button type="button" className="landing-navlink" onClick={onOpenLeaderboard}>Leaderboard</button>
                         <button type="button" className="landing-navlink" onClick={onOpenLogin}>Log In</button>
-                        <button type="button" className="landing-navlink landing-navlink--cta" onClick={onOpenCreate} disabled={!registrationOpen} title={!registrationOpen ? registrationMessage : undefined}>Play Now</button>
+                        <button type="button" className="landing-navlink landing-cta--primary" onClick={onOpenCreate} disabled={!registrationOpen} title={!registrationOpen ? registrationMessage : undefined}>Play Now</button>
                     </nav>
                 </div>
             </header>
@@ -513,31 +520,33 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                     <p className="landing-kicker">✦ Your Journey Awaits ✦</p>
                     <h2 className="landing-section-title">Begin Your Shinobi Journey</h2>
                     <p className="landing-begin-sub">Create your shinobi, choose a village, and grow into the role you want to play.</p>
-                    <ol className="landing-steps">
+                    <ol className="landing-steps" aria-label="Your path into the world">
                         <li>
-                            <span className="landing-step-num">01</span>
+                            <span className="landing-step-num">Phase 01</span>
                             <h3 className="landing-step-title">Create Your Shinobi</h3>
                             <p className="landing-step-desc">Choose a village, name your shinobi, and pick a starting bloodline.</p>
                         </li>
                         <li>
-                            <span className="landing-step-num">02</span>
+                            <span className="landing-step-num">Phase 02</span>
                             <h3 className="landing-step-title">Master the Shinobi Arts</h3>
                             <p className="landing-step-desc">Train your attributes, master new jutsu, and earn your rank through missions.</p>
                         </li>
                         <li>
-                            <span className="landing-step-num">03</span>
+                            <span className="landing-step-num">Phase 03</span>
                             <h3 className="landing-step-title">Choose Your Path</h3>
                             <p className="landing-step-desc">Explore battles, clans, pets, guides, and long-term goals as your journey opens up.</p>
                         </li>
                     </ol>
                     <div className="landing-guide-spotlight" aria-labelledby="landing-guide-title">
                         <div className="landing-guide-head">
-                            <p className="landing-kicker">✦ Guide Spotlight ✦</p>
+                            <p className="landing-kicker">Field Intelligence</p>
                             <h3 id="landing-guide-title" className="landing-guide-title">Know the world before you enter it</h3>
                             <p className="landing-guide-sub">
-                                The guide library is already built into the game, so this space points new players
-                                toward useful explanations instead of repeating another create button.
+                                Learn the systems that shape every mission, then enter the village with a plan worthy of your shinobi.
                             </p>
+                            <button type="button" className="landing-cta landing-cta--primary landing-guide-cta" onClick={onOpenGuides}>
+                                Open Guide Library
+                            </button>
                         </div>
                         <div className="landing-guide-grid">
                             {GUIDE_SPOTLIGHTS.map((guide) => (
@@ -547,9 +556,6 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                                 </article>
                             ))}
                         </div>
-                        <button type="button" className="landing-cta landing-cta--primary landing-guide-cta" onClick={onOpenGuides}>
-                            Open Guide Library
-                        </button>
                     </div>
                 </div>
             </section>
@@ -562,7 +568,7 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                         </span>
                         <p className="landing-footer-tag">A browser-based shinobi RPG. Begin your journey for free.</p>
                     </div>
-                    <nav className="landing-footer-links">
+                    <nav className="landing-footer-links" aria-label="Footer navigation">
                         <button type="button" onClick={onOpenCreate} disabled={!registrationOpen} title={!registrationOpen ? registrationMessage : undefined}>Start Playing</button>
                         <button type="button" onClick={onOpenGuides}>Guides</button>
                         <button type="button" onClick={onOpenLeaderboard}>Leaderboard</button>
@@ -577,11 +583,6 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                 </div>
             </footer>
 
-            <div className="landing-mobile-cta">
-                <button type="button" className="landing-cta landing-cta--primary" onClick={onOpenCreate} disabled={!registrationOpen} title={!registrationOpen ? registrationMessage : undefined}>
-                    Play Free Now
-                </button>
-            </div>
         </div>
     );
 }
