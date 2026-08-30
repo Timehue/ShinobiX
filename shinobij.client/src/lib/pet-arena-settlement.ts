@@ -1,4 +1,5 @@
 import type { Pet } from "../types/pet";
+import type { WfTheme } from "./pet-warfront-map";
 
 export type PetArenaPlayerScope = Readonly<{
     playerName: string;
@@ -25,6 +26,7 @@ export type WarfrontRewardSeal = Readonly<{
     token: string;
     seed: number;
     reportKey: string;
+    theme: WfTheme;
     stance: "balanced" | "siege" | "jungle" | "headhunt" | "turtle";
     doctrine: "none" | "vanguard" | "bulwark" | "zealot" | "warden-pact";
     buyPolicy: "balanced" | "offense" | "defense";
@@ -40,6 +42,7 @@ export type WarfrontRewardSeal = Readonly<{
 }>;
 
 const WARFRONT_SETTLEMENT_RETRY_WINDOW_MS = 10 * 60_000;
+const WARFRONT_THEMES = ["central", "forest", "snow", "volcano", "shadow"] as const satisfies readonly WfTheme[];
 
 function isSealedWarfrontPet(value: unknown): value is Pet {
     if (!value || typeof value !== "object") return false;
@@ -67,6 +70,7 @@ export function parseWarfrontRewardSeal(payload: unknown): WarfrontRewardSeal | 
         || record.seed >= 2 ** 31) return null;
     const reportKey = `${record.seed}:tactical`;
     if (record.reportKey !== undefined && record.reportKey !== reportKey) return null;
+    if (!WARFRONT_THEMES.includes(record.theme as WfTheme)) return null;
     if (!(["balanced", "siege", "jungle", "headhunt", "turtle"] as const).includes(record.stance as never)) return null;
     if (!(["none", "vanguard", "bulwark", "zealot", "warden-pact"] as const).includes(record.doctrine as never)) return null;
     if (!(["balanced", "offense", "defense"] as const).includes(record.buyPolicy as never)) return null;
@@ -90,6 +94,7 @@ export function parseWarfrontRewardSeal(payload: unknown): WarfrontRewardSeal | 
         token: record.token,
         seed: record.seed,
         reportKey,
+        theme: record.theme as WfTheme,
         stance: record.stance as WarfrontRewardSeal["stance"],
         doctrine: record.doctrine as WarfrontRewardSeal["doctrine"],
         buyPolicy: record.buyPolicy as WarfrontRewardSeal["buyPolicy"],

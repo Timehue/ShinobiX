@@ -1,6 +1,8 @@
 import type { ArenaSlot } from "./pet-arena-sim";
 import {
     WARFRONT_TPS,
+    WF_HAZARDS,
+    wfMutatorForSeed,
     wfOmenForSeed,
     type WarfrontChoice,
     type WarfrontCommandEntry,
@@ -76,6 +78,8 @@ export function createWarfrontWorkerController(args: {
         },
         commandLog: [],
         omen: wfOmenForSeed(args.seed),
+        mutator: wfMutatorForSeed(args.seed),
+        hazard: WF_HAZARDS[args.theme].id,
         commandImpacts: [],
     };
     let worker: Worker | null = null;
@@ -167,6 +171,8 @@ export function createWarfrontWorkerController(args: {
                     result.petStats = batch.petStats;
                     result.commandLog = batch.commandLog;
                     result.omen = batch.omen;
+                    result.mutator = batch.mutator;
+                    result.hazard = batch.hazard;
                     result.commandImpacts = batch.commandImpacts;
                     favor = batch.favor;
                     lanes = batch.lanes;

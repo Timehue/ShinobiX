@@ -39,6 +39,7 @@ test("authoritative character receipts cannot cross player identities", () => {
 test("Warfront proofs bind the token and report identity to the server-minted seed", () => {
     const now = 1_000_000;
     const canonicalConfig = {
+        theme: "forest",
         stance: "balanced",
         doctrine: "none",
         buyPolicy: "balanced",
@@ -79,6 +80,7 @@ test("Warfront proofs bind the token and report identity to the server-minted se
     );
     assert.equal(parseWarfrontRewardSeal({ token: "sealed-proof", seed: "7301", ...authority }), null);
     assert.equal(parseWarfrontRewardSeal({ token: "sealed-proof", seed: 7301, reportKey: "1:tactical", ...authority }), null);
+    assert.equal(parseWarfrontRewardSeal({ token: "sealed-proof", seed: 7301, ...authority, theme: "ocean" }), null);
     assert.equal(parseWarfrontRewardSeal({ token: "", seed: 7301, ...authority }), null);
     assert.equal(parseWarfrontRewardSeal({ token: "sealed-proof", seed: 7301 }), null);
     assert.equal(parseWarfrontRewardSeal({ token: "sealed-proof", seed: 7301, ...authority, opponentStance: "adaptive", opponentDoctrine: "none" }), null);
@@ -188,7 +190,7 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
     assert.match(arenaSource, /const blue = seal\.bluePets\.map/);
     assert.match(arenaSource, /const red = seal\.redPets\.map/);
     assert.match(arenaSource, /localPetsById\.get\(pet\.id\)[\s\S]*cosmetic\?\.image[\s\S]*cosmetic\?\.bodyImage/);
-    assert.match(queueSource, /blue: autoRoleTeam\(blue, blue\.length\)[\s\S]*red: autoRoleTeam\(red, red\.length\)[\s\S]*seed: seal\.seed[\s\S]*buyPolicy: seal\.buyPolicy/);
+    assert.match(queueSource, /blue: autoRoleTeam\(blue, blue\.length\)[\s\S]*red: autoRoleTeam\(red, red\.length\)[\s\S]*seed: seal\.seed[\s\S]*theme: seal\.theme[\s\S]*buyPolicy: seal\.buyPolicy/);
     assert.doesNotMatch(queueSource, /Math\.random|Date\.now|seed\s*=/,
         "the queued rewarded replay must freeze the server seal's seed without local derivation or mutation");
     assert.match(arenaSource, /startArenaMatch\(selectedTacticalPets, \[\], [^\n]+true\)/);
@@ -197,8 +199,11 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
     assert.match(arenaSource, /opponentAutoBuy=\{arenaMatch\.opponentBuyPolicy\}/);
     assert.match(arenaSource, /opponentStance=\{arenaMatch\.opponentStance\}/);
     assert.match(arenaSource, /opponentDoctrine=\{arenaMatch\.opponentDoctrine\}/);
+    assert.match(arenaSource, /theme=\{arenaMatch\.theme\}/);
+    assert.match(arenaSource, /const matchConfig = sealedPlans[\s\S]*theme: "central" as WfTheme/,
+        "shared PvP replays must not derive different gameplay hazards from each participant's village");
     assert.doesNotMatch(arenaSource, /allowReseed=/);
-    assert.match(arenaSource, /seal\.seed !== m\.seed[\s\S]*seal\.reportKey !== reportKey[\s\S]*seal\.stance !== m\.stance[\s\S]*seal\.doctrine !== m\.doctrine[\s\S]*seal\.buyPolicy !== m\.buyPolicy[\s\S]*seal\.opponentBuyPolicy !== m\.opponentBuyPolicy[\s\S]*seal\.opponentStance !== m\.opponentStance/);
+    assert.match(arenaSource, /seal\.seed !== m\.seed[\s\S]*seal\.theme !== m\.theme[\s\S]*seal\.reportKey !== reportKey[\s\S]*seal\.stance !== m\.stance[\s\S]*seal\.doctrine !== m\.doctrine[\s\S]*seal\.buyPolicy !== m\.buyPolicy[\s\S]*seal\.opponentBuyPolicy !== m\.opponentBuyPolicy[\s\S]*seal\.opponentStance !== m\.opponentStance/);
     assert.match(arenaSource, /seal\.redPets\.map\(\(pet\) => pet\.id\)[\s\S]*rivalPetIds/);
     assert.match(arenaSource, /battleToken: seal\.token/);
     assert.match(arenaSource, /warfrontPlan: \{[\s\S]*initialLanes: result\.initialLanes\.blue,[\s\S]*commands: result\.commandLog/);
