@@ -47,9 +47,30 @@ export type NamedRoll =
     | { kind: 'armor'; slot: typeof SLOTS[number]; armorQuality: 'Elite' | 'Legendary' | 'Mythic'; offenseVal: number; defenseVal: number; special: { kind: string; bonusKey: string; value: number } };
 
 const pick = <T>(values: readonly T[]): T => values[randomInt(values.length)];
+
+/**
+ * Fisher–Yates. This replaced `[...values].sort(() => randomInt(3) - 1)`, which
+ * is the classic broken shuffle: a random comparator does not produce a uniform
+ * permutation, and the actual bias depends on V8's sort internals rather than on
+ * anything anyone designed. Weapon tags were measurably skewed as a result — a
+ * bug, not a balance choice, since the code plainly intended an even draw.
+ *
+ * Keep it exact. If a paid randomized roll is ever put behind this, Play
+ * requires the odds to be disclosed before purchase, and odds cannot be stated
+ * for a distribution that depends on a sort implementation.
+ */
+export function shuffled<T>(values: readonly T[]): T[] {
+    const out = [...values];
+    for (let i = out.length - 1; i > 0; i -= 1) {
+        const j = randomInt(i + 1);
+        [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+}
+
 export function rollNamedForge(kind: 'weapon' | 'armor', slotRaw?: unknown): NamedRoll {
     if (kind === 'weapon') {
-        const tags = [...WEAPON_TAGS].sort(() => randomInt(3) - 1);
+        const tags = shuffled(WEAPON_TAGS);
         const single = randomInt(2) === 0;
         return { kind, ep: randomInt(30, 36), range: pick([3, 4, 5] as const), offenseVal: randomInt(168, 181), tags: single ? [{ name: tags[0], percent: randomInt(35, 41) }] : [{ name: tags[0], percent: randomInt(15, 21) }, { name: tags[1], percent: randomInt(15, 21) }] };
     }
