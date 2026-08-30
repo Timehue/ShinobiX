@@ -112,26 +112,32 @@ this currency.
 
 ### Three things to settle before building this
 
-1. ⛔ **Selling Fate Shards sells combat power. This is the blocker.** Measured
-   against `api/pvp/_item-catalog.ts` at the implied 20 shards/$1:
+1. **Selling Fate Shards is pay-for-time, not pay-to-win.** Measured against
+   `api/pvp/_item-catalog.ts` and `api/combat-core/formulas.ts` at the implied
+   20 shards/$1:
 
    | | |
    | --- | --- |
-   | Shard-priced items granting combat stats | **48** |
-   | `bulwark-gloves` — 150 shards | **$7.50** for **+420** combat stats |
-   | Best one-per-slot legendary loadout — 900 shards | **$45.00** for **+1,660** combat stats |
-   | Every shard-priced power item — 6,250 shards | $312.50 |
+   | Best purchasable offense set | 850 shards ≈ **$42.50** |
+   | Offense-composite gain | **+340** |
+   | statFactor 1.0000 → 1.0578 | **5.8% damage** |
+   | Versus an opponent with the same gear | **0%** |
+   | Level requirement on all 48 power items | **40+** (40 at L40, five at L55, two at L60, one at L75) |
 
-   $45 buying a full legendary loadout is pay-to-win by this project's own
-   standard: power is meant to come from skill, never bought or grinded. The
-   Chronicle Marketplace concern is real but secondary — the armour sets are the
-   decisive part, because shards are fungible and nothing stops a buyer spending
-   them on gear instead of on the convenience they came for.
+   ⚠ **A correction, recorded so it is not repeated.** An earlier version of this
+   section claimed "$45 buys +1,660 combat stats" and called it pay-to-win. That
+   summed all eight offense/defense fields into one figure, but
+   `statFactorFromComposites` reads **one** offense composite against **one**
+   defense composite per hit — those fields never stack. The real edge is ~5.8%,
+   it saturates against the `[0.35, 1.85]` clamp, it is gated behind level 40 so
+   nothing is buyable early, and every item is earnable in game. Do not price
+   gear by summing its bonus fields.
 
-   **If the intent is to sell those two conveniences, sell them as direct SKUs,
-   not as shards.** That gets the same revenue, prices nothing else in the game,
-   and leaves the balance pillar untouched. Selling shards is a different product
-   decision and should be made deliberately, not inherited from a price shorthand.
+   The remaining considerations are real but minor: shards are fungible, so a
+   buyer may spend them on gear rather than the convenience they came for, and
+   the same shards reach the Chronicle Marketplace. Selling the two conveniences
+   as **direct SKUs** avoids both and costs nothing, but it is a preference, not
+   a blocker.
 2. **Village transfer has to be built first**, and it is a real feature, not a
    shop entry: village identity touches clan membership, war allegiance,
    territory, story progress, and the public directory. Decide what happens to
