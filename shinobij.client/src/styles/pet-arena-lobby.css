@@ -286,7 +286,6 @@
 
 /* Selected exhibition contract */
 
-.pet-arena-lobby .pet-coliseum-fight-card { border-radius: 18px; border-color: rgba(240,202,121,.36); background: radial-gradient(circle at 50% 0,rgba(240,202,121,.11),transparent 38%),linear-gradient(135deg,rgba(7,18,34,.98),rgba(21,12,18,.98)); }
 .pet-arena-lobby .pet-coliseum-contender { min-height: 94px; }
 .pet-arena-lobby button.pet-exhibition-start { min-height: 94px; border-left-color: rgba(240,202,121,.28); background: linear-gradient(135deg,#a95418,#d67a24); }
 
@@ -359,7 +358,6 @@
     .pet-party-toggle em { grid-column: 3; justify-self: start; }
     .pet-arena-destination { min-height: 155px; padding: .85rem; }
     .pet-arena-destination-icon { width: 46px; height: 46px; }
-    .pet-arena-lobby .pet-coliseum-fight-card { grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); }
     .pet-arena-lobby button.pet-exhibition-start { grid-column: 1 / -1; min-height: 62px; border-top: 1px solid rgba(240,202,121,.3); border-left: 0; }
 }
 

@@ -11,6 +11,8 @@ type PublicTournament = {
     endsAt?: number;
     participants?: string[];
     advancedPlayers?: string[];
+    winnerName?: string;
+    endedAt?: number;
 } | null;
 
 type PublicLeaderboardBoardId =
@@ -193,6 +195,7 @@ export function PublicLeaderboard({ onBack }: { onBack: () => void }) {
                                 {tournament.advancedPlayers && tournament.advancedPlayers.length > 0 && (
                                     <p><strong>Advanced Players:</strong> {tournament.advancedPlayers.join(", ")}</p>
                                 )}
+                                {tournament.winnerName ? <p><strong>Champion:</strong> {tournament.winnerName}</p> : null}
                                 {tournament.endsAt && (
                                     <p className="start-tournament-ended">
                                         Ended {new Date(tournament.endsAt).toLocaleDateString()}

@@ -191,22 +191,6 @@ html body.ui-scroll-locked {
     transform var(--motion-instant) ease;
 }
 
-.app-shell:not(.screen-start) .right-menu-buttons button:hover {
-  color: var(--sj-text-primary);
-  border-color: color-mix(in srgb, var(--village-accent-soft) 56%, var(--sj-border-soft));
-  background: linear-gradient(180deg, rgba(49, 65, 79, 0.92), rgba(25, 34, 44, 0.96));
-  transform: translateY(-1px);
-}
-
-.app-shell:not(.screen-start) .right-menu-buttons button[aria-current="page"] {
-  color: var(--sj-text-primary);
-  border-color: color-mix(in srgb, var(--village-accent-soft) 70%, var(--sj-border-strong));
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--village-accent) 26%, transparent), transparent 72%),
-    var(--sj-surface-high);
-  box-shadow: inset 3px 0 var(--village-accent-soft), inset 0 1px rgba(255,255,255,0.06);
-}
-
 .app-shell:not(.screen-start) .right-menu-buttons button > svg {
   color: var(--village-accent-soft);
   filter: none;
@@ -1457,7 +1441,8 @@ body.coach-banner-open .coach-guide-pet {
 
 /* The live tutorial model needs a larger stage than the legacy pose cutout.
    Keep it character-sized beside the dialogue instead of reducing it to an
-   icon; the full-body camera keeps tall heads inside the small canvas. */
+   icon; OnboardingCoach uses the full-body camera so tall heads remain inside
+   this small canvas. */
 body.coach-banner-open .coach-guide-pet.icx-companion-render {
   width: clamp(88px, 9vmin, 112px) !important;
   height: clamp(88px, 9vmin, 112px) !important;
@@ -1527,7 +1512,10 @@ body.coach-banner-open .coach-guide-actions .location-button {
 
 @media (min-width: 980px) {
   body.coach-banner-open .onboarding-coach-banner.coach-guide {
-    /* Center inside the game stage; this overlay already lives inside it. */
+    /* The adaptive shell's left and right rails are close in width, so the
+       viewport midpoint is also the visual midpoint of the play area. The old
+       -84px correction aligned the banner with the play area's left edge and
+       made the companion/card read as visibly off-centre. */
     left: 50% !important;
   }
 }

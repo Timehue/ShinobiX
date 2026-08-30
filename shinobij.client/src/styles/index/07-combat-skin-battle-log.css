@@ -98,16 +98,6 @@
     max-height: 270px;
 }
 
-.arena-fullscreen .shinobi-jutsu-card {
-    min-height: 126px;
-    grid-template-rows: 60px auto auto auto;
-    border-radius: 3px;
-}
-
-.arena-fullscreen .jutsu-art {
-    font-size: 34px;
-}
-
 .arena-fullscreen .combat-text-log {
     max-height: 460px;
     border: 3px solid #7c3f11;
@@ -120,12 +110,6 @@
     background: #7f1d1d;
     color: #fef3c7;
 }
-
-        .combat-tabs button.active {
-            border-color: #ffd21f;
-            color: #ffd21f;
-            box-shadow: 0 0 10px rgba(255, 210, 31, .35);
-        }
 
 .combat-timeline .timeline-entry strong {
     color: #ffd21f;

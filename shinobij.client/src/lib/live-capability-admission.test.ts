@@ -137,6 +137,7 @@ test("App and admission surfaces consume live capability truth at both boundarie
     assert.doesNotMatch(menuGroups, /"villageWarMap"/);
     assert.doesNotMatch(desktop, /target === "villageWarMap"/);
     assert.doesNotMatch(mobile, /target === "villageWarMap"/);
+    assert.match(townHall, /setScreen\("villageWarMap"\)[\s\S]{0,160}disabled=\{!sectorMapOpen\}/);
     assert.match(worldMap, /useCapabilityViewAvailability\("villageWar"\)/);
     assert.match(worldMap, /useCapabilityMutationAvailability\("villageWar"\)/);
     assert.match(worldMap, /useCapabilityViewAvailability\("anbuInfiltration"\)/);

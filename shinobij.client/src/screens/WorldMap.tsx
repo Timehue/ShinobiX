@@ -103,7 +103,6 @@ import { WorldToast } from "../components/WorldToast";
 import { TravelingOverlay } from "../components/TravelingOverlay";
 import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
 import { ATLAS_SECTOR_POINTS } from "../data/sector-points";
-import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { sectorExits as roadExitsForSector, travelArrivalTile, type SectorExit } from "../../../shared/sector-links";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { scaleWandererPetOpponent } from "../lib/pet-balance";
@@ -192,7 +191,7 @@ import { richerSectorsNear, sectorRichnessLabel, sectorRichnessOf, type SectorRi
 import { bumpSectorContractRevision, claimSectorContract, localSectorContract, useSectorContract } from "../lib/sector-contract";
 import { useSectorIntelPlate } from "../lib/village-intel";
 import { confirmSectorBattleRegistration, isVillageWarMapEnabled, villageAccent } from "../lib/village-war-map";
-import { useWorldMapZoom } from "../lib/use-world-map-zoom";
+import { useAcademyWorldMapFocus, useWorldMapZoom } from "../lib/use-world-map-zoom";
 import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
 import { isMercAiId } from "../lib/merc-ai";
 import { fetchMercRoster, engageMerc, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
@@ -223,11 +222,9 @@ import "../components/world-walk-feel.css";
 import { SectorTracesModal, type TracesModalState } from "../components/SectorTraces";
 import { fetchSectorTraces, isSectorTracesEnabled, type SectorTracesView } from "../lib/sector-traces";
 
-
 // Middle of the 12x12 sector board (row 6, col 6). Where a player lands after a
 // map jump that has no direction to preserve, and the initial standing tile.
 const SECTOR_CENTRE_TILE = 78;
-
 // Which scene-image theme each sector shows. Single source of truth shared by
 // the background image picker and the ambience-biome picker so the drifting
 // particles always match the painted scene the player is looking at.
@@ -2530,23 +2527,7 @@ export function WorldMap({
     // route glows and ownership overlays consume the same projection, while
     // gameplay geography remains authoritative in shared/sector-links.ts.
     const sectorPoints = ATLAS_SECTOR_POINTS;
-    const academySectorTargetId = normalizeOnboardingStep(character.onboardingStep) === "sectorReturn"
-        && !character.academySectorVisited
-        ? villageOutskirtsSectorNumber(character.village)
-        : null;
-
-    // The mobile atlas opens in a full-bleed cover view, which necessarily crops
-    // the far-left or far-right villages on portrait screens. Fly the camera to
-    // the Academy destination once layout has measured the viewport; the normal
-    // desktop/legacy map is handled by the coach's nested scrollIntoView.
-    useEffect(() => {
-        if (!wmZoom.active || academySectorTargetId == null) return;
-        const target = sectorPoints.find((sector) => sector.id === academySectorTargetId);
-        if (!target) return;
-        const frame = window.requestAnimationFrame(() => wmZoom.focusPoint(target.x, target.y, 2.6));
-        return () => window.cancelAnimationFrame(frame);
-    }, [academySectorTargetId, wmZoom.active, wmZoom.focusPoint]);
-
+    const academySectorTargetId = useAcademyWorldMapFocus({ character, sectorPoints, zoomActive: wmZoom.active, focusPoint: wmZoom.focusPoint });
     // Village quick-jump targets for the mobile zoom HUD (worldMapZoom.v1). Each
     // chip flies the camera to the cluster centroid at a tappable zoom.
     // Region-block numbering (shared/sector-geo.ts): each village's home block,

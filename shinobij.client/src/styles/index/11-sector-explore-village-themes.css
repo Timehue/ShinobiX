@@ -4,7 +4,6 @@
 
 /* Instance-frame coordinate geometry is owned by layout/adaptive-stages.css. */
 
-.instance-sidebar,
 .instance-actions {
     padding: 6px !important;
     font-size: 10px !important;
@@ -31,7 +30,6 @@
     font-size: 16px !important;
 }
 
-.avatar-badge,
 .battle-avatar,
 .combat-layout {
     grid-template-columns: 220px minmax(0, 1fr) 220px !important;
@@ -55,7 +53,6 @@
         object-fit: cover !important;
     }
 
-    .avatar-badge img,
     .battle-avatar img,
     .combat-avatar img {
         width: 100% !important;
@@ -324,15 +321,6 @@
     box-shadow: 0 0 6px rgba(0,0,0,0.9) !important;
 }
 
-.avatar-badge img,
-.battle-avatar img,
-.combat-avatar img {
-    width: 100% !important;
-    height: 100% !important;
-    object-fit: cover !important;
-    display: block !important;
-}
-
 .generated-world-map {
     /* Lock the container to the source map's aspect and paint the image at
        100% 100%. Previously `cover` cropped a near-square container, hiding
@@ -381,14 +369,6 @@
 /* LABEL */
 
 /* THEMES */
-
-.leaf .village-castle {
-    filter: drop-shadow(0 0 12px rgba(34,197,94,.8));
-}
-
-.storm .village-castle {
-    filter: drop-shadow(0 0 12px rgba(59,130,246,.8));
-}
 
 .village-full-scene {
     position: relative;
@@ -440,14 +420,6 @@
     display: grid;
     place-items: center;
     background: radial-gradient(circle, #5b3b12, #111827 70%);
-}
-
-.frost .village-castle {
-    filter: drop-shadow(0 0 12px rgba(147,197,253,.9));
-}
-
-.shadow .village-castle {
-    filter: drop-shadow(0 0 14px rgba(168,85,247,.9));
 }
 
 .sunscar-festival {

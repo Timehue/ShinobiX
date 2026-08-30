@@ -29,11 +29,14 @@ export function ActivitySpine({
     updateCharacter: (c: Character | ((prev: Character | null) => Character | null)) => void;
     onNavigate: (screen: Screen) => void;
 }) {
-    const focus = normalizeMasteryFocus(character.masteryFocus);
+    const storedFocus = normalizeMasteryFocus(character.masteryFocus);
     const [spine, setSpine] = useState<ActivitySpineData | null>(null);
     const [status, setStatus] = useState<"loading" | "ready" | "offline" | "error">("loading");
     const [retry, setRetry] = useState(0);
     const { availability, snapshot } = useLiveCapabilities();
+    const legacyFocusAvailable = availability("legacy") === "available";
+    const focus = storedFocus === "legacy" && !legacyFocusAvailable ? "auto" : storedFocus;
+    const focusOptions = MASTERY_FOCUS_OPTIONS.filter((option) => option.id !== "legacy" || legacyFocusAvailable);
     const projectedAdmissionAllowed = (capabilityIds: ActivitySpineItem["requiredCapabilityIds"]): boolean =>
         !!capabilityIds?.length && capabilityIds.every((id) => availability(id) === "available");
     const focusAdmissionAllowed = (["gameplay", "gameplayMutations"] as const)
@@ -65,6 +68,7 @@ export function ActivitySpine({
     }, [character.name, focus, retry, capabilityStateSignature]);
 
     const chooseFocus = (next: MasteryFocus) => {
+        if (next === "legacy" && !legacyFocusAvailable) return;
         if (!(["gameplay", "gameplayMutations"] as const).every((id) => availability(id) === "available")) return;
         setSpine(null);
         setStatus("loading");
@@ -94,7 +98,7 @@ export function ActivitySpine({
                     disabled={!focusAdmissionAllowed}
                     onChange={(event) => chooseFocus(normalizeMasteryFocus(event.target.value))}
                 >
-                    {MASTERY_FOCUS_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+                    {focusOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
                 </select>
             </label>
             {spine?.returningPlayer ? <span className="activity-spine-returner">Returner plan</span> : null}

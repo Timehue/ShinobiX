@@ -18,6 +18,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { VIEWPORT_BREAKPOINTS } from "./viewport-contract";
+import { normalizeOnboardingStep } from "./onboarding-step";
+import { villageOutskirtsSectorNumber } from "../data/sectors";
+import type { Character } from "../types/character";
 
 const MIN_ZOOM = 1;            // fit-to-width — the whole painting is visible
 const MAX_ZOOM = 4;            // deep enough for comfortable tap targets
@@ -30,6 +33,15 @@ const TAP_SLOP_PX = 14;        // max finger travel that still counts as a tap
 // stretched away from its interactive coordinate system.
 export const WORLD_MAP_ASPECT_RATIO = 1672 / 941;
 const MOBILE_SHELL_QUERY = `(max-width: ${VIEWPORT_BREAKPOINTS.md - 1}px)`;
+const WORLD_MAP_CONTROL_SELECTOR = "button, a, input, select, textarea, [role='button']";
+
+/** Interactive descendants keep ownership of a clean tap. Capturing their
+ * pointer on the pan surface retargets the browser's synthesized click to the
+ * viewport, so sector and landmark buttons look pressed but never activate. */
+export function isWorldMapControlTarget(target: EventTarget | null): boolean {
+    const closest = (target as { closest?: (selector: string) => unknown } | null)?.closest;
+    return typeof closest === "function" && Boolean(closest.call(target, WORLD_MAP_CONTROL_SELECTOR));
+}
 
 /** Master flag. Default ON for narrow / touch viewports; a per-device
  *  `worldMapZoom.v1` localStorage override forces gestures on ("1") or off
@@ -112,6 +124,29 @@ export interface WorldMapZoomApi {
     reset: () => void;
     /** Fly to a map point given in map-percent coords (0–100) at a tappable zoom. */
     focusPoint: (xPct: number, yPct: number, targetZoom?: number) => void;
+}
+
+type AcademyMapPoint = Readonly<{ id: number; x: number; y: number }>;
+
+/** Keep the mobile Academy handoff visible without putting onboarding camera
+ * choreography back into the already-large WorldMap owner. */
+export function useAcademyWorldMapFocus({ character, sectorPoints, zoomActive, focusPoint }: {
+    character: Pick<Character, "onboardingStep" | "academySectorVisited" | "village">;
+    sectorPoints: readonly AcademyMapPoint[];
+    zoomActive: boolean;
+    focusPoint: WorldMapZoomApi["focusPoint"];
+}): number | null {
+    const targetId = normalizeOnboardingStep(character.onboardingStep) === "sectorReturn" && !character.academySectorVisited
+        ? villageOutskirtsSectorNumber(character.village)
+        : null;
+    useEffect(() => {
+        if (!zoomActive || targetId == null) return;
+        const target = sectorPoints.find((sector) => sector.id === targetId);
+        if (!target) return;
+        const frame = window.requestAnimationFrame(() => focusPoint(target.x, target.y, DOUBLE_TAP_ZOOM));
+        return () => window.cancelAnimationFrame(frame);
+    }, [focusPoint, sectorPoints, targetId, zoomActive]);
+    return targetId;
 }
 
 export function useWorldMapZoom(): WorldMapZoomApi {
@@ -285,6 +320,7 @@ export function useWorldMapZoom(): WorldMapZoomApi {
 
     const onPointerDown = useCallback((e: React.PointerEvent) => {
         if (!activeRef.current) return;
+        if (isWorldMapControlTarget(e.target)) return;
         (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
         const p = localPt(e);
         pointers.current.set(e.pointerId, p);
@@ -338,6 +374,7 @@ export function useWorldMapZoom(): WorldMapZoomApi {
 
     const endPointer = useCallback((e: React.PointerEvent) => {
         if (!activeRef.current) return;
+        if (!pointers.current.has(e.pointerId)) return;
         const p = localPt(e);
         pointers.current.delete(e.pointerId);
         if (pointers.current.size < 2) pinch.current = null;

@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef } from "react";
-import { GiBroadsword, GiCrossedSwords, GiMoneyStack, GiPagoda, GiShield, GiTreasureMap } from "../components/icons/LightweightGameIcons";
+import "../styles/town-hall-aaa.css";
+import { GiBroadsword, GiCrossedSwords, GiCrown, GiMoneyStack, GiPagoda, GiScrollUnfurled, GiShield, GiTreasureMap, GiUpgrade } from "../components/icons/LightweightGameIcons";
 import { visiblePoll } from "../lib/poll";
 import {
     KAGE_CHALLENGE_RYO_COST,
@@ -51,7 +52,28 @@ import { MERCENARY_TIERS, hiredTiersForWar } from "../lib/mercenaries";
 import { mercPortrait } from "../lib/merc-ai";
 import { activeVillageWarsFor, endedVillageWarRecordsFor, hollowGateDaysLeft, HOLLOW_GATE_UNLOCK_DAYS, isHollowGateUnlocked, isVillageAnbu, loadVillageState, normalizeVillageState, saveVillageState, villageOwnedTerritories, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX, type VillageAgendaTask, type VillageState, type VillageTreasury, type VillageTreasuryCurrencyKey } from "../lib/world-state";
 
-const TOWN_TABS = [["status", "Command"], ["upgrades", "Upgrades"], ["treasury", "Treasury"], ["guard", "Guard"], ["notices", "Orders"], ["mercenaries", "Mercenaries"], ["politics", "Council"]] as const;
+const TOWN_TABS = [
+    { id: "status", label: "Command", caption: "Village posture", icon: GiPagoda },
+    { id: "upgrades", label: "Upgrades", caption: "Civic works", icon: GiUpgrade },
+    { id: "treasury", label: "Treasury", caption: "Shared stores", icon: GiMoneyStack },
+    { id: "guard", label: "Guard", caption: "Defenders", icon: GiShield },
+    { id: "notices", label: "Orders", caption: "Field dispatches", icon: GiScrollUnfurled },
+    { id: "mercenaries", label: "Mercenaries", caption: "War bands", icon: GiCrossedSwords },
+    { id: "politics", label: "Council", caption: "Leadership", icon: GiCrown },
+] as const;
+
+type ElderFocusKey = NonNullable<Character["elderFocus"]>;
+
+const ELDER_FOCUS_OPTIONS: ReadonlyArray<{
+    key: ElderFocusKey;
+    role: string;
+    bonus: string;
+    brief: string;
+}> = [
+    { key: "war", role: "War Elder", bonus: "−1% wartime damage", brief: "Steel the village for open conflict." },
+    { key: "trade", role: "Trade Elder", bonus: "−5% shop prices", brief: "Turn every ryo into more supplies." },
+    { key: "training", role: "Training Elder", bonus: "+10% XP and jutsu speed", brief: "Accelerate the next generation." },
+];
 
 // Server-authoritative Kage succession (mirrors api/village/_kage-challenge.ts —
 // keep these in sync). The full rules + obligation math live server-side; the
@@ -120,8 +142,10 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         }
         return fallbackImage ?? "";
     };
-    const [tab, setTab] = useState<(typeof TOWN_TABS)[number][0]>("status");
+    const [tab, setTab] = useState<(typeof TOWN_TABS)[number]["id"]>("status");
     const [mercBusy, setMercBusy] = useState<string | null>(null);
+    const [elderFocusBusy, setElderFocusBusy] = useState<ElderFocusKey | null>(null);
+    const elderFocusBusyRef = useRef(false);
     const [state, setState] = useState<VillageState>(() => loadVillageState(character.village));
     // MIRRORS api/_treasury-gift-tax.ts and the donate caps in
     // api/village/treasury/donate.ts — shown up front so the server's limits are
@@ -694,14 +718,25 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         if (!sent) return alert(`${targetName} is not reachable right now. Try again while they're online.`);
         alert(`Official Kage duel sent to ${targetName}. They must accept it — or keep burning their accept obligation until they forfeit the seat.`);
     }
-    async function supportVillageFocus(focus: string, elderFocusKey: "war" | "trade" | "training") {
+    async function supportVillageFocus(focus: string, elderFocusKey: ElderFocusKey) {
+        // The selected appointment is a state, not a repeatable action. This
+        // guard also closes the small pre-render window in which a rapid second
+        // click could post twice and award the same civic contribution twice.
+        if (character.elderFocus === elderFocusKey || elderFocusBusyRef.current) return;
+        elderFocusBusyRef.current = true;
+        setElderFocusBusy(elderFocusKey);
         try {
             const response = await fetch('/api/village/elder-focus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, focus: elderFocusKey }) });
             const data = await response.json().catch(() => null) as { character?: Character; error?: string; _saveVersion?: number } | null;
             if (!response.ok || !data?.character) return alert(data?.error || 'Could not select that focus.');
-            updateVillageState(addNotice(`${character.name} selected the ${focus} elder focus.`, { ...state, contributionPoints: state.contributionPoints + 10 }));
             if (!onVersionedCharacter(data.character, data._saveVersion)) return;
+            updateVillageState(addNotice(`${character.name} selected the ${focus} elder focus.`, { ...state, contributionPoints: state.contributionPoints + 10 }));
+            gameToast(`${focus} appointed — ${ELDER_FOCUS_OPTIONS.find(option => option.key === elderFocusKey)?.bonus ?? "focus active"}.`, { kind: "success" });
         } catch { alert('Could not reach the server. Try again.'); }
+        finally {
+            elderFocusBusyRef.current = false;
+            setElderFocusBusy(null);
+        }
     }
     function updateAnbuAppointmentInput(index: number, value: string) {
         setAnbuAppointmentInputs(inputs => inputs.map((input, inputIndex) => inputIndex === index ? value : input));
@@ -906,7 +941,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
                 { label: "Honor seals", value: (character.honorSeals ?? 0).toLocaleString(), tone: "good" },
             ]}
         />
-        <nav className="town-tabs" aria-label="Town Hall sections">{TOWN_TABS.map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}</nav>
+        <nav className="town-tabs" aria-label="Town Hall sections">{TOWN_TABS.map(({ id, label, caption, icon: TabIcon }) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-pressed={tab === id} onClick={() => setTab(id)}><TabIcon className="town-tab-icon" aria-hidden="true" /><span><strong>{label}</strong><small>{caption}</small></span></button>)}</nav>
         {tab === "status" && <div className="town-command">
             {supplyCall && <section className="summary-box town-supply-call" data-tone={supplyCall.tone} role="status"><div className="town-supply-call-copy"><p className="act-label">Village supply</p><h3>{supplyCall.headline}</h3><p>{supplyCall.body}</p></div><button type="button" className="town-supply-call-action" onClick={() => setScreen(supplyCall.screen)}>{supplyCall.actionLabel}</button></section>}
             <section className="town-action-center"><div className="town-section-heading"><p className="act-label">Ready now</p><h3>Village priorities</h3></div><div className="town-priority-grid">
@@ -958,11 +993,30 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         {tab === "notices" && <section className="summary-box town-notice-board"><h3>Village Orders</h3><p className="hint">Kage, ANBU, and Elders can post and pin orders for {character.village}.</p>{canPostVillageOrder && <div className="summary-box"><div className="treasury-grid"><div><label>Type</label><select value={villageNoticeType} onChange={(event) => setVillageNoticeType(event.target.value as NoticePostType)}><option value="order">Leadership Order</option><option value="raid">Raid Target</option><option value="guard">Guard Request</option><option value="medic">Medic Request</option><option value="trade">Trade / Supply</option><option value="general">General</option></select></div><div><label>Sector</label><input type="number" min={1} max={MAX_WILD_SECTOR} value={villageNoticeSector} onChange={(event) => setVillageNoticeSector(event.target.value)} placeholder="Optional" /></div></div><label>Title</label><input value={villageNoticeTitle} maxLength={70} onChange={(event) => setVillageNoticeTitle(event.target.value)} placeholder="Defend Sector 18" /><label>Message</label><textarea value={villageNoticeBody} maxLength={500} onChange={(event) => setVillageNoticeBody(event.target.value)} placeholder="Issue the order…" /><button onClick={postVillageNotice} disabled={!villageNoticeTitle.trim() || !villageNoticeBody.trim()}>Post Order</button></div>}<div className="notice-board-list">{state.noticePosts.length === 0 ? <p className="hint">No active orders.</p> : state.noticePosts.map(notice => { const canEditNotice = isSeatedKage || notice.author === character.name; return <div key={notice.id} className={`notice-post ${notice.pinned ? "pinned" : ""}`}><div className="notice-post-head"><span>{notice.pinned ? "Pinned " : ""}{noticeTypeLabel(notice.type)}</span><small>{new Date(notice.createdAt).toLocaleString()} · {notice.author} · {notice.authorRole}</small></div><strong>{notice.title}</strong><p>{notice.body}</p>{notice.sector && <small>Sector {notice.sector}</small>}{canEditNotice && <div className="menu"><button onClick={() => toggleVillageNoticePin(notice.id)}>{notice.pinned ? "Unpin" : "Pin"}</button><button className="danger-button" onClick={() => removeVillageNotice(notice.id)}>Delete</button></div>}</div>; })}</div></section>}
         {tab === "mercenaries" && <section className="summary-box"><h3><GiCrossedSwords aria-hidden="true" /> War Mercenaries</h3>{!primaryVillageWar ? <p className="hint">Mercenaries become available during an active village war.</p> : <><p className="hint">Hire each band once per war to strike {activeWarEnemyVillage}. Mercenaries cannot land the final blow.</p><p className="hint"><strong>{(character.honorSeals ?? 0).toLocaleString()}</strong> seals · {hiredMercTiers.length}/{MERCENARY_TIERS.length} bands hired</p><div className="town-upgrade-grid">{MERCENARY_TIERS.map(tier => { const hired = hiredMercTiers.includes(tier.id); const afford = (character.honorSeals ?? 0) >= tier.costSeals; const busy = mercBusy === tier.id; return <div key={tier.id} className="town-upgrade-card" data-state={hired ? "done" : afford ? "ready" : "locked"} style={{ order: hired ? 2 : afford ? 0 : 1 }}><div className="town-upgrade-topline"><span className="town-upgrade-icon town-merc-icon">{mercPortrait(tier.id) ? <img src={mercPortrait(tier.id)} alt={tier.name} /> : <GiBroadsword aria-hidden="true" />}</span><div><strong>{tier.name}</strong><p>Level {tier.level}</p></div></div><p className="town-upgrade-desc">{tier.blurb}</p><p className="town-upgrade-bonus"><strong>{tier.warDamage.toLocaleString()}</strong> war damage · <strong>{tier.costSeals.toLocaleString()}</strong> seals</p><button disabled={hired || !afford || busy} onClick={() => hireMercenary(tier.id)}>{hired ? "Hired" : busy ? "Hiring…" : afford ? `Hire · ${tier.costSeals.toLocaleString()} seals` : `Need ${tier.costSeals.toLocaleString()} seals`}</button></div>; })}</div></>}</section>}
         {tab === "politics" && <>
-            <section className="summary-box"><h3>Village Council</h3><div className="town-leader-row town-kage-card"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={displayedKage} fallback="?" /><p><strong>Kage:</strong> {displayedKage}{kageActivity && <><br /><small>{kageActivity.lastActive}</small></>}{kageActivity?.warning && <><br /><small className="town-kage-warning">⚠️ {kageActivity.warning}</small></>}</p></div>{kageSeatVacant && <p className="hint town-seat-vacant">The seat stands empty — claim it at the Shinobi Council Hall. <button type="button" className="town-seat-claim" onClick={() => setScreen("shinobiCouncil")}>Open the Council Hall</button></p>}<div className="elder-seat-grid">
-                <div className={`elder-card${character.elderFocus === "war" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[0]} name={leadership.elders[0]} fallback="?" /><span>War Elder</span><strong>{leadership.elders[0]}</strong><small>−1% wartime damage</small><button className={character.elderFocus === "war" ? "active" : ""} onClick={() => supportVillageFocus("War Elder", "war")}>{character.elderFocus === "war" ? "War focus active" : "Select focus"}</button></div>
-                <div className={`elder-card${character.elderFocus === "trade" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[1]} name={leadership.elders[1]} fallback="?" /><span>Trade Elder</span><strong>{leadership.elders[1]}</strong><small>−5% shop prices</small><button className={character.elderFocus === "trade" ? "active" : ""} onClick={() => supportVillageFocus("Trade Elder", "trade")}>{character.elderFocus === "trade" ? "Trade focus active" : "Select focus"}</button></div>
-                <div className={`elder-card${character.elderFocus === "training" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[2]} name={leadership.elders[2]} fallback="?" /><span>Training Elder</span><strong>{leadership.elders[2]}</strong><small>+10% XP and jutsu speed</small><button className={character.elderFocus === "training" ? "active" : ""} onClick={() => supportVillageFocus("Training Elder", "training")}>{character.elderFocus === "training" ? "Training focus active" : "Select focus"}</button></div>
-            </div></section>
+            <section className="summary-box town-council-panel">
+                <div className="town-council-heading">
+                    <div><p className="act-label">Council chamber</p><h3>Village Council</h3><p className="hint">Choose one elder doctrine. Changing focus replaces your current personal bonus immediately.</p></div>
+                    <span className="town-focus-summary" data-active={Boolean(character.elderFocus)}>{character.elderFocus ? `${character.elderFocus[0].toUpperCase()}${character.elderFocus.slice(1)} focus` : "No focus selected"}</span>
+                </div>
+                <div className="town-leader-row town-kage-card"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={displayedKage} fallback="?" /><p><small>Presiding seat</small><strong>{displayedKage}</strong>{kageActivity && <><br /><small>{kageActivity.lastActive}</small></>}{kageActivity?.warning && <><br /><small className="town-kage-warning">⚠️ {kageActivity.warning}</small></>}</p></div>
+                {kageSeatVacant && <p className="hint town-seat-vacant">The seat stands empty — claim it at the Shinobi Council Hall. <button type="button" className="town-seat-claim" onClick={() => setScreen("shinobiCouncil")}>Open the Council Hall</button></p>}
+                <div className="elder-seat-grid">{ELDER_FOCUS_OPTIONS.map((option, index) => {
+                    const active = character.elderFocus === option.key;
+                    const busy = elderFocusBusy === option.key;
+                    const elderName = leadership.elders[index] ?? option.role;
+                    return <article key={option.key} className={`elder-card${active ? " elder-card-active" : ""}`} data-focus={option.key} data-active={active}>
+                        <span className="town-elder-state">{active ? "Appointed focus" : "Available doctrine"}</span>
+                        <div className="town-elder-portrait"><LeaderPortrait image={leadershipImages.elders?.[index]} name={elderName} fallback="?" /></div>
+                        <span className="town-elder-role">{option.role}</span>
+                        <strong className="town-elder-name">{elderName}</strong>
+                        <p className="town-elder-brief">{option.brief}</p>
+                        <small className="town-elder-bonus">{option.bonus}</small>
+                        {active
+                            ? <div className="town-elder-selected" role="status"><GiCrown aria-hidden="true" /> Current focus</div>
+                            : <button type="button" disabled={elderFocusBusy !== null} onClick={() => supportVillageFocus(option.role, option.key)}>{busy ? "Appointing…" : "Select focus"}</button>}
+                    </article>;
+                })}</div>
+            </section>
             <section className="summary-box"><h3>ANBU Black Ops</h3><p className="hint">Seats 1–3 are Kage-appointed; 4–10 rank by monthly PvP kills ({currentAnbuMonth}).</p><datalist id="anbu-player-options">{villagePlayers.map(name => <option key={name} value={name} />)}</datalist>{isSeatedKage && <div className="treasury-grid">{[0, 1, 2].map(index => <div key={index}><label>Seat {index + 1}</label><input list="anbu-player-options" value={anbuAppointmentInputs[index] ?? ""} onChange={(event) => updateAnbuAppointmentInput(index, event.target.value)} placeholder="Choose player" /><div className="menu"><button onClick={() => appointAnbu(index)}>Appoint</button><button className="danger-button" onClick={() => clearAnbuAppointment(index)}>Clear</button></div></div>)}</div>}<div className="contrib-rank-grid">{anbuSlots.map((slot, idx) => <div key={`anbu-${idx}-${slot?.name ?? "empty"}`} className="clan-guard-row"><span>#{idx + 1} <strong>{slot?.name ?? "Open seat"}</strong>{slot && ` · ${slot.rankTitle}`}</span><span>{slot ? `${idx < 3 ? "Appointed" : "Earned"} · ${slot.monthlyKills.toLocaleString()} kills` : "Vacant"}</span></div>)}</div><h4>Field authority</h4><div className="contrib-rank-grid"><div className="clan-guard-row"><span>Recon sectors</span><span>Reveal defenses</span></div><div className="clan-guard-row"><span>Guard sectors</span><span>Village-wide access</span></div><div className="clan-guard-row"><span>Support raids</span><span>Clan pressure</span></div></div></section>
             <section className="summary-box"><h3>Kage Challenge</h3><p className="hint">Win the duel or exhaust the Kage’s accept clock. The seat gate is <strong>Village Merit</strong> — a personal record, not the village contribution ranking below.</p><div className="contrib-rank-grid">{kageEligibility(character, kageNow).map(req => <div key={req.label} className="clan-guard-row"><span>{req.ok ? "✅" : "⬜"} {req.label}</span><span>{req.detail ?? ""}</span></div>)}</div><div className="contrib-rank-grid">{contributionRankings.map((row, idx) => <div key={row.name} className="clan-guard-row"><span>#{idx + 1} <strong>{row.name}</strong> · {row.role}</span><span>{row.points.toLocaleString()} points</span></div>)}</div>{kageChallenge ? <div className={`notice-post ${kageChallenge.status === "accepted" ? "pinned" : ""}`}><div className="notice-post-head"><span>{kageChallenge.status.toUpperCase()}</span><small>{new Date(kageChallenge.createdAt).toLocaleString()}</small></div><strong>{kageChallenge.challenger} vs {serverKage?.seatedKage}</strong><p>Accept clock <strong>{formatObligation(kageChallenge.obligationRemainingMs)}</strong></p>{isKageChallenger && <button onClick={() => void sendKageDuel()}>Send Official Duel</button>}{isSeatedKage && <p className="hint">Accept the duel before the clock expires.</p>}</div> : <><button onClick={() => void declareChallenge()} disabled={!serverKage?.kageSystemUnlocked || isSeatedKage}>Declare Challenge · {KAGE_CHALLENGE_RYO_COST.toLocaleString()} ryo</button><p className="hint">{isSeatedKage ? "You hold the Kage seat." : "No active challenge."}</p></>}</section>
         </>}

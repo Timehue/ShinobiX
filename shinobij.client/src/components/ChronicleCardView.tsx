@@ -308,5 +308,3 @@ export function ChronicleCardView({
     </CardRoot>
   );
 }
-
-export { FRAME as CHRONICLE_FRAME_COLORS, RARITY as CHRONICLE_RARITY_COLORS };

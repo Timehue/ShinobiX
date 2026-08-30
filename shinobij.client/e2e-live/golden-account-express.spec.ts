@@ -89,6 +89,7 @@ test('registration survives refresh and a clean-device login against real Expres
     await page.goto('/', { waitUntil: 'networkidle' });
     intentionallyResettingClient = false;
     await page.getByRole('button', { name: 'Log In' }).click();
+    await page.getByRole('button', { name: 'Use a name and password' }).click();
     await page.getByLabel('Name').fill(PLAYER_NAME);
     await page.getByPlaceholder('Enter your password').fill(PASSWORD);
 

@@ -4,7 +4,8 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { Jutsu } from "../types/combat";
 import { describeJutsuEffects } from "../lib/jutsu-effects.js";
-import { JutsuEffectCards, jutsuEffectTargetLabel } from "./JutsuEffectCards.js";
+import { JutsuEffectCards } from "./JutsuEffectCards.js";
+import { jutsuEffectTargetLabel } from "../lib/jutsu-effect-card-model.js";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
