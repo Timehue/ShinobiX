@@ -117,6 +117,9 @@ export const ProfileCardBody = memo(function ProfileCardBody({
     // hydrated yet, so the rail never shows initials to a player who has a
     // portrait everyone else can see (lib/own-avatar.ts).
     const avatarSrc = useOwnAvatar(character);
+    const now = serverNow();
+    const trainingReady = activeTraining !== null && now >= activeTraining.endsAt;
+    const jutsuTrainingReady = activeJutsuTraining !== null && now >= activeJutsuTraining.endsAt;
 
     return (
         <>
@@ -228,56 +231,75 @@ export const ProfileCardBody = memo(function ProfileCardBody({
             <NextGoalPin character={character} navigate={setScreen} compact />
 
             {/* Active training timers */}
-            {((activeTraining && serverNow() < activeTraining.endsAt) ||
-              (activeJutsuTraining && serverNow() < activeJutsuTraining.endsAt) ||
+            {(activeTraining ||
+              activeJutsuTraining ||
               (character.pets ?? []).some(
-                  (p) => (p.training && serverNow() < p.training.endsAt) ||
-                         (p.expedition)
+                  (p) => Boolean(p.training || p.expedition)
               )) && (
                 <div className="left-active-timers">
-                    {activeTraining && serverNow() < activeTraining.endsAt && (
+                    {activeTraining && (
                         <div className="left-timer-bar">
                             <div className="left-timer-row">
                                 <span className="left-timer-icon"><GameIcon name="dumbbell" size={13} style={{ display: "block", color: "var(--red-400)" }} /></span>
                                 <span className="left-timer-label">{activeTraining.label}</span>
-                                <span className="left-timer-value">{formatPetTimer(activeTraining.endsAt - serverNow())}</span>
+                                <span
+                                    className="left-timer-value"
+                                    style={trainingReady ? { color: "var(--green-400)" } : undefined}
+                                >
+                                    {trainingReady
+                                        ? "Ready"
+                                        : formatPetTimer(activeTraining.endsAt - now)}
+                                </span>
                             </div>
                         </div>
                     )}
-                    {activeJutsuTraining && serverNow() < activeJutsuTraining.endsAt && (
+                    {activeJutsuTraining && (
                         <div className="left-timer-bar">
                             <div className="left-timer-row">
                                 <span className="left-timer-icon"><GameIcon name="chakra" size={13} style={{ display: "block", color: "#67e8f9" }} /></span>
                                 <span className="left-timer-label">{activeJutsuTraining.label}</span>
-                                <span className="left-timer-value">{formatPetTimer(activeJutsuTraining.endsAt - serverNow())}</span>
+                                <span
+                                    className="left-timer-value"
+                                    style={jutsuTrainingReady ? { color: "var(--green-400)" } : undefined}
+                                >
+                                    {jutsuTrainingReady
+                                        ? "Ready"
+                                        : formatPetTimer(activeJutsuTraining.endsAt - now)}
+                                </span>
                             </div>
                         </div>
                     )}
                     {(character.pets ?? []).map((pet) => {
                         const rows: ReactNode[] = [];
-                        if (pet.training && serverNow() < pet.training.endsAt) {
+                        if (pet.training) {
+                            const petTrainingReady = now >= pet.training.endsAt;
                             const label = petTrainingOptions.find((o) => o.type === pet.training!.type)?.label ?? pet.training.type;
                             rows.push(
                                 <div key={`pt-${pet.id}`} className="left-timer-bar">
                                     <div className="left-timer-row">
                                         <span className="left-timer-icon"><GameIcon name="paw" size={13} style={{ display: "block", color: "#6ee7b7" }} /></span>
                                         <span className="left-timer-label">{petDisplayName(pet)} · {label}</span>
-                                        <span className="left-timer-value">{formatPetTimer(pet.training!.endsAt - serverNow())}</span>
+                                        <span
+                                            className="left-timer-value"
+                                            style={petTrainingReady ? { color: "var(--green-400)" } : undefined}
+                                        >
+                                            {petTrainingReady ? "Ready" : formatPetTimer(pet.training.endsAt - now)}
+                                        </span>
                                     </div>
                                 </div>,
                             );
                         }
-                        if (pet.expedition && serverNow() < pet.expedition.endsAt) {
+                        if (pet.expedition && now < pet.expedition.endsAt) {
                             rows.push(
                                 <div key={`pe-${pet.id}`} className="left-timer-bar">
                                     <div className="left-timer-row">
                                         <span className="left-timer-icon"><GameIcon name="map" size={13} style={{ display: "block", color: "var(--blue-300)" }} /></span>
                                         <span className="left-timer-label">{petDisplayName(pet)} · Expedition</span>
-                                        <span className="left-timer-value">{formatPetTimer(pet.expedition!.endsAt - serverNow())}</span>
+                                        <span className="left-timer-value">{formatPetTimer(pet.expedition.endsAt - now)}</span>
                                     </div>
                                 </div>,
                             );
-                        } else if (pet.expedition && serverNow() >= pet.expedition.endsAt) {
+                        } else if (pet.expedition) {
                             rows.push(
                                 <div key={`pe-${pet.id}`} className="left-timer-bar">
                                     <div className="left-timer-row">

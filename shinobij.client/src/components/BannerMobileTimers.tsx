@@ -36,48 +36,58 @@ export const BannerMobileTimers = memo(function BannerMobileTimers({
 }) {
     useSharedNow(); // sync to global timer so desktop timers match mobile
 
+    const now = serverNow();
     const t = new Date();
     const utcTime = `${String(t.getUTCHours()).padStart(2, "0")}:${String(t.getUTCMinutes()).padStart(2, "0")} UTC`;
 
     const timerRows: ReactNode[] = [];
-    if (activeTraining && serverNow() < activeTraining.endsAt) {
+    if (activeTraining) {
+        const trainingReady = now >= activeTraining.endsAt;
         timerRows.push(
             <div key="stat" className="bmt-row">
                 <span className="bmt-icon">💪</span>
                 <span className="bmt-label">{activeTraining.label}</span>
-                <span className="bmt-value">{formatPetTimer(activeTraining.endsAt - serverNow())}</span>
+                <span className="bmt-value" style={trainingReady ? { color: "var(--green-400)" } : undefined}>
+                    {trainingReady ? "Ready" : formatPetTimer(activeTraining.endsAt - now)}
+                </span>
             </div>,
         );
     }
-    if (activeJutsuTraining && serverNow() < activeJutsuTraining.endsAt) {
+    if (activeJutsuTraining) {
+        const jutsuTrainingReady = now >= activeJutsuTraining.endsAt;
         timerRows.push(
             <div key="jutsu" className="bmt-row">
                 <span className="bmt-icon">🌀</span>
                 <span className="bmt-label">{activeJutsuTraining.label}</span>
-                <span className="bmt-value">{formatPetTimer(activeJutsuTraining.endsAt - serverNow())}</span>
+                <span className="bmt-value" style={jutsuTrainingReady ? { color: "var(--green-400)" } : undefined}>
+                    {jutsuTrainingReady ? "Ready" : formatPetTimer(activeJutsuTraining.endsAt - now)}
+                </span>
             </div>,
         );
     }
     for (const pet of pets) {
-        if (pet.training && serverNow() < pet.training.endsAt) {
+        if (pet.training) {
+            const petTrainingReady = now >= pet.training.endsAt;
             const label = petTrainingOptions.find(o => o.type === pet.training!.type)?.label ?? pet.training.type;
             timerRows.push(
                 <div key={`pt-${pet.id}`} className="bmt-row">
                     <span className="bmt-icon">🐾</span>
                     <span className="bmt-label">{petDisplayName(pet)} · {label}</span>
-                    <span className="bmt-value">{formatPetTimer(pet.training!.endsAt - serverNow())}</span>
+                    <span className="bmt-value" style={petTrainingReady ? { color: "var(--green-400)" } : undefined}>
+                        {petTrainingReady ? "Ready" : formatPetTimer(pet.training.endsAt - now)}
+                    </span>
                 </div>,
             );
         }
-        if (pet.expedition && serverNow() < pet.expedition.endsAt) {
+        if (pet.expedition && now < pet.expedition.endsAt) {
             timerRows.push(
                 <div key={`pe-${pet.id}`} className="bmt-row">
                     <span className="bmt-icon">🗺️</span>
                     <span className="bmt-label">{petDisplayName(pet)} · Exp</span>
-                    <span className="bmt-value">{formatPetTimer(pet.expedition!.endsAt - serverNow())}</span>
+                    <span className="bmt-value">{formatPetTimer(pet.expedition.endsAt - now)}</span>
                 </div>,
             );
-        } else if (pet.expedition && serverNow() >= pet.expedition.endsAt) {
+        } else if (pet.expedition) {
             timerRows.push(
                 <div key={`pe-${pet.id}`} className="bmt-row">
                     <span className="bmt-icon">🎁</span>
