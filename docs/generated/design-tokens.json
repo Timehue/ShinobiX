@@ -2549,7 +2549,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-three-lane.css",
-            "line": 305
+            "line": 398
           }
         ]
       },
@@ -3335,11 +3335,11 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-three-lane.css",
-            "line": 257
+            "line": 347
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-three-lane.css",
-            "line": 317
+            "line": 410
           }
         ]
       },
