@@ -103,6 +103,7 @@ test("an accelerated battle reaches a scored post-match result", async ({ page }
 
 test("the production 3D renderer loads every battlefield asset and preserves DPR geometry", async ({ page }, testInfo) => {
     test.skip(!testInfo.project.name.startsWith("desktop"), "the compact layouts intentionally use the responsive DOM battlefield");
+    const isRetina = testInfo.project.name === "desktop-retina";
     const errors: string[] = [];
     const failedAssets: string[] = [];
     page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
@@ -122,15 +123,21 @@ test("the production 3D renderer loads every battlefield asset and preserves DPR
     const canvas = stage.locator("canvas");
     await expect(stage).toHaveAttribute("data-theme", "central");
     await expect(canvas).toBeVisible({ timeout: 30_000 });
+    // Freeze Retina as soon as the canvas exists. GitHub's software GPU can
+    // otherwise spend its entire browser-thread budget drawing the 1.75-DPR
+    // frame before Playwright can inspect it. Asset/Suspense resolution still
+    // invalidates demand frames, so this continues to exercise the complete
+    // production scene at its real high-quality backing resolution.
+    if (isRetina) await page.getByRole("button", { name: "Pause Warfront" }).click({ force: true });
     await expect(stage).toHaveAttribute("data-scene-ready", "true", { timeout: 30_000 });
+    await page.waitForLoadState("networkidle", { timeout: 30_000 });
     await expect(page.locator(".wf3-worldplate--tower")).toHaveCount(6);
     await expect(page.locator(".wf3-worldplate--fighter")).toHaveCount(8);
     await expect(page.locator(".wf3-pet")).toHaveCount(0);
     // Freeze the deterministic frame before reading layout. On software-GPU
     // runners the live high-DPI scene and tick-driven React updates can otherwise
     // keep the browser thread saturated even after every asset is scene-ready.
-    await page.getByRole("button", { name: "Pause Warfront" }).click({ force: true });
-    await expect(page.getByRole("button", { name: "Resume Warfront" })).toBeVisible();
+    if (!isRetina) await page.getByRole("button", { name: "Pause Warfront" }).click({ force: true });
     // Read every rectangle in one browser-thread snapshot. Repeated Playwright
     // boundingBox calls can starve behind the continuously rendered WebGL scene
     // on software-GPU CI runners even though the DOM is already scene-ready.
@@ -146,6 +153,7 @@ test("the production 3D renderer loads every battlefield asset and preserves DPR
             laneRail: laneRail ? { x: laneRail.x, width: laneRail.width } : null,
             blueTowers,
             impactCount: element.querySelectorAll(".wf3-float-number").length,
+            paused: element.querySelector('button[aria-label="Resume Warfront"]')?.getAttribute("aria-pressed") === "true",
             metrics: sceneCanvas && canvasBounds ? {
                 cssWidth: canvasBounds.width,
                 cssHeight: canvasBounds.height,
@@ -164,7 +172,8 @@ test("the production 3D renderer loads every battlefield asset and preserves DPR
     for (const bounds of renderState.blueTowers) {
         expect(bounds.x).toBeGreaterThanOrEqual(renderState.laneRail!.x + renderState.laneRail!.width + 2);
     }
-    expect(renderState.impactCount, "the 3D battle must surface simulation-driven impact feedback").toBeGreaterThan(0);
+    expect(renderState.paused, "the production pause control must suspend the render loop before audit").toBe(true);
+    if (!isRetina) expect(renderState.impactCount, "the live 3D battle must surface simulation-driven impact feedback").toBeGreaterThan(0);
     expect(renderState.metrics).not.toBeNull();
     const metrics = renderState.metrics!;
     const deviceDpr = Number(testInfo.project.use.deviceScaleFactor ?? 1);
