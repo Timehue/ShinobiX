@@ -24,6 +24,40 @@ describe('client product analytics', () => {
         assert.match(runtime, /import\(['"]\.\/posthog['"]\)/);
     });
 
+    it('accepts the ambient surface and viewport buckets', () => {
+        const event = createProductEvent('landing_viewed', {
+            screenId: 'landing', surface: 'play-app', viewportClass: 'sm',
+        });
+        assert.equal(event?.properties.surface, 'play-app');
+        assert.equal(event?.properties.viewportClass, 'sm');
+    });
+
+    it('still drops anything outside the allowlist', () => {
+        // Widening the allowlist for `surface` must not have widened it generally.
+        const event = createProductEvent('landing_viewed', { deviceId: 'abc-123', userAgent: 'Mozilla' });
+        assert.equal(event?.properties && 'deviceId' in event.properties, false);
+        assert.equal(event?.properties && 'userAgent' in event.properties, false);
+    });
+
+    it('stamps ambient properties AFTER the caller, so a call site cannot forge its surface', () => {
+        // Ordering is the whole guarantee here: spread the caller first, then
+        // overwrite with runtime truth. If these are ever swapped, a call site
+        // could claim to be the Play app and quietly skew the split that the
+        // storefront decision rests on.
+        const runtime = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'lib', 'analytics', 'runtime.ts'), 'utf8');
+        const spread = runtime.indexOf('...properties,');
+        const ambient = runtime.indexOf('...ambientProperties(),');
+        assert.ok(spread >= 0 && ambient >= 0, 'both spreads should be present');
+        assert.ok(ambient > spread, 'ambientProperties() must be spread after the caller properties');
+    });
+
+    it('leaves server-authoritative events without a surface or viewport', () => {
+        // The server has no viewport and cannot tell the surfaces apart, so it
+        // must never invent one.
+        const server = readFileSync(join(process.cwd(), 'api', '_product-analytics.ts'), 'utf8');
+        assert.doesNotMatch(server, /viewportClass|surface|getSurface/);
+    });
+
     it('dispatches only the already-sanitized anonymous event', async () => {
         let body = '';
         const event = createProductEvent('landing_viewed', { screenId: 'landing', playerName: 'private' });

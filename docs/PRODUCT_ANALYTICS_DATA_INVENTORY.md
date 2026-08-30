@@ -22,7 +22,9 @@ PostHog requires a `distinct_id` even for anonymous events. Every event uses the
 
 ## Property contract
 
-`shared/product-analytics.ts` rejects unknown event names, unknown properties, freeform strings, values longer than 80 characters, strings outside a conservative identifier alphabet, and numeric values. The allowlist is: `source`, `screenId`, `mode`, `resultCategory`, `levelBand`, `villageCode`, `deviceTier`, `viewportClass`, `featureFlag`, `featureFlagState`, `durationBucket`, `errorCategory`, `contentId`, and `eventAuthority`.
+`shared/product-analytics.ts` rejects unknown event names, unknown properties, freeform strings, values longer than 80 characters, strings outside a conservative identifier alphabet, and numeric values. The allowlist is: `source`, `screenId`, `mode`, `resultCategory`, `levelBand`, `villageCode`, `deviceTier`, `viewportClass`, `surface`, `featureFlag`, `featureFlagState`, `durationBucket`, `errorCategory`, `contentId`, and `eventAuthority`.
+
+**Ambient properties.** `surface` and `viewportClass` are stamped onto every *client-observed* event automatically by `shinobij.client/src/lib/analytics/runtime.ts`; no call site passes them, and a call site cannot override them (they are applied after the caller's properties, like `eventAuthority`). Server-authoritative events carry neither, because the server has no viewport and cannot tell the surfaces apart. `surface` is `play-app` or `web`; `viewportClass` is one of six width buckets. Both stay aggregate-only: two values and six, with the shared `distinct_id` leaving nothing to join them against. They exist to answer what share of play is phone-shaped and what share happens inside the Play app — the two questions that decide whether an Android-only storefront is viable.
 
 Never add player names/slugs, email, IP, fingerprints, tokens, save keys, request IDs, exact balances, freeform text, chat, reports, prompts, URLs, inventories, combat logs, raw errors, or whole objects. New events/properties require updating this inventory and the schema tests before a call site can emit them.
 

@@ -25,6 +25,12 @@ export const PRODUCT_EVENT_PROPERTY_KEYS = [
     'durationBucket', 'errorCategory', 'contentId', 'eventAuthority',
     'partySizeBucket', 'queueWaitBucket', 'stateCategory', 'contributionCategory',
     'horizon', 'focus',
+    // Stamped automatically onto every CLIENT-observed event by
+    // shinobij.client/src/lib/analytics/runtime.ts — never passed by a call
+    // site. `surface` is 'play-app' | 'web'; `viewportClass` is one of six
+    // width buckets. Both are coarse enough to stay aggregate-only: with the
+    // shared distinct_id there is no per-person linkage to widen.
+    'surface',
 ] as const;
 
 export type ProductEventPropertyKey = (typeof PRODUCT_EVENT_PROPERTY_KEYS)[number];
