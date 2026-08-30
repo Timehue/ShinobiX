@@ -45,5 +45,5 @@ test('Weekly Boss operations require full admin without restricting AI curation'
         /if \(kind === 'reset'\) \{\s*if \(!isFullAdmin\(req\)\) return res\.status\(403\)/s,
         'spawning/replacing the Weekly Boss must require full admin',
     );
-    assert.match(gameState, /fullAdminOnlyKinds = new Set\(\['arenaTournament', 'weeklyBossOverride'\]\)/);
+    assert.match(gameState, /fullAdminOnlyKinds = new Set\(\['arenaTournament', 'arenaTournamentWinner', 'weeklyBossOverride'\]\)/);
 });

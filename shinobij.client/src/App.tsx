@@ -360,7 +360,7 @@ export {
 import {
 } from "./constants/hunter";
 
-import { type Achievement, ACHIEVEMENTS, titlesForAchievementIds } from "./constants/achievements";
+import type { Achievement } from "./constants/achievements";
 import { claimAchievementSync, createAchievementSyncGate, planAchievementSync, releaseAchievementSync, syncedToastIds, versionedAchievementMutationFromSync, type AchievementSyncResponse } from "./lib/achievement-sync";
 import { markAchievementsToasted, unseenAchievements } from "./lib/achievement-toast-ledger";
 
@@ -553,8 +553,8 @@ type PendingEventEncounter = {
 
 // defaultVnPortrait + defaultVnScene moved to ./lib/vn.
 
-// Achievement / AchievementCategory types + ACHIEVEMENTS table moved to
-// ./constants/achievements — imported at the top of this file.
+// Achievement types live in ./constants/achievements; the runtime catalog is
+// dynamically imported by the server-sync effect after gameplay opens.
 // STARTING_STAT_POINTS / CHARACTER_XP_GAIN_MULTIPLIER / AWAKENING_*_ID /
 // AWAKENING_ELEMENTS / STUN_AP_PENALTY moved to ./constants/game.
 // STAT_KEYS + the character stat/level math moved to ./lib/stats (imported
@@ -1499,21 +1499,24 @@ export default function App() {
     useEffect(() => {
         const playerName = character?.name;
         if (!gameplayMutationsOpen || !character || !playerName) return;
-        const eligibleIds = ACHIEVEMENTS.filter(a => a.check(character)).map(a => a.id);
-        const plan = planAchievementSync({
-            eligibleIds,
-            unlocked: character.unlockedAchievements,
-            earnedTitles: character.earnedTitles,
-            titlesForUnlocked: titlesForAchievementIds(eligibleIds),
-        });
-        // First-ever sync for this save: the server seeds its claim ledger (so
-        // existing progress pays no retroactive windfall), which also means it
-        // rewards and toasts nothing — so suppress the popups for that pass. It
-        // runs as soon as the character loads, which keeps the player's first
-        // real unlock a genuine, celebrated, paid one.
-        const silent = plan.uninitialized;
-        if (!claimAchievementSync(achievementGateRef.current, playerName, plan)) return;
+        let cancelled = false;
         void (async () => {
+            // The server is authoritative; the presentation catalog is only
+            // needed after gameplay opens. Deferring it keeps 135 descriptions
+            // and predicates out of the render-blocking startup graph.
+            const { ACHIEVEMENTS, titlesForAchievementIds } = await import("./constants/achievements");
+            if (cancelled) return;
+            const eligibleIds = ACHIEVEMENTS.filter(a => a.check(character)).map(a => a.id);
+            const plan = planAchievementSync({
+                eligibleIds,
+                unlocked: character.unlockedAchievements,
+                earnedTitles: character.earnedTitles,
+                titlesForUnlocked: titlesForAchievementIds(eligibleIds),
+            });
+            // First-ever sync for this save: the server seeds its claim ledger
+            // so existing progress pays no retroactive windfall.
+            const silent = plan.uninitialized;
+            if (!claimAchievementSync(achievementGateRef.current, playerName, plan)) return;
             try {
                 const res = await fetch('/api/achievements/sync', {
                     method: 'POST',
@@ -1539,6 +1542,7 @@ export default function App() {
                 releaseAchievementSync(achievementGateRef.current);
             }
         })();
+        return () => { cancelled = true; };
     }, [character, gameplayMutationsOpen]);
 
     // Auto-dismiss toasts one at a time so a flood doesn't pile up forever.

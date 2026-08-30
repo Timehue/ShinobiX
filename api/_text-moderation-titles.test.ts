@@ -50,12 +50,12 @@ test('stage 4/5 prestige variants are registered and strict for every legacy', (
         assert.ok(isServerCreditedTitle(`Proven ${d.title}`), `missing proven variant: ${d.title}`);
         assert.ok(isServerCreditedTitle(`Eternal ${d.title}`), `missing eternal variant: ${d.title}`);
     }
-    // 100 base + 100 proven + 100 eternal + 22 achievements + era titles.
+    // 100 base + 100 proven + 100 eternal + achievement and era titles.
     assert.ok(KNOWN_EARNED_TITLES.size >= 320, `registry too small: ${KNOWN_EARNED_TITLES.size}`);
 });
 
 test('titles registry covers every legacy + achievement title and flags them', () => {
-    assert.equal(ACHIEVEMENT_TITLES.length, 27, 'mirrors TITLE_ACHIEVEMENT_IDS — update both together');
+    assert.equal(ACHIEVEMENT_TITLES.length, 40, 'mirrors TITLE_ACHIEVEMENT_IDS — update both together');
     for (const d of LEGACY_DEFS) {
         assert.ok(isKnownEarnedTitle(d.title), `legacy title missing from registry: ${d.title}`);
     }

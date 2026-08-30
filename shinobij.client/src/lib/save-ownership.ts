@@ -78,7 +78,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'redeemedShopPurchases', 'redeemedShopSales', 'redeemedCrafts', 'redeemedNamedForges',
     'redeemedStoryBattles', 'redeemedPetEncounters', 'claimedCreatorEvents',
     'redeemedCardClashAiSessions', 'redeemedPetRankedMatchTokens', 'chroniclePetWitnesses',
-    'chroniclePetArenaProgressReceipts',
+    'chroniclePetArenaProgressReceipts', 'tournamentWinReceipts',
     // One-time boolean latches
     'academySparClaimed', 'starterPetClaimed', 'starterCardsClaimed',
     // Progression entitlements

@@ -52,6 +52,19 @@ export const ACHIEVEMENT_TITLES: readonly string[] = [
     'Weekly Reaper',        // secret-weekly-bosses-5
     'War Veteran',          // secret-war-vet-50
     'Chakra Beast Warden',  // secret-hunter-5 (max Hunter Rank)
+    'Living Chronicle',     // story-chapter-9
+    'Myth Made Flesh',      // legacy-stage-5
+    'Master of the Calling',// profession-rank-10
+    'Gatebound',            // hollow-clear-50
+    'Apex Handler',         // pet-ranked-1800
+    'Duel Archivist',       // chronicle-win-100
+    'Named in Steel',       // named-forge-first
+    'Pillar of the Clan',   // clan-lifetime-10000
+    'Living Banner',        // war-mvp-10
+    'Colosseum Legend',     // tournament-10
+    'Ranked Dynasty',       // ranked-season-3
+    'Shinobi Journey',      // achievements-100
+    'Living Legend',        // achievements-125
 ];
 
 /** Village-story liberator titles (keyed by lowercased village name) —

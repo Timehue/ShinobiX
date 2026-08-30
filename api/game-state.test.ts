@@ -59,3 +59,37 @@ describe('heartbeat — contention and the offline-notice inbox', () => {
         assert.match(src, /\.\.\.\(pendingNotices\.length > 0 \? \{ pendingNotices \} : \{\}\)/);
     });
 });
+
+describe('game-state arena tournament winner — authoritative settlement', () => {
+    const src = read('game-state.ts');
+
+    it('restricts winner declaration to full admins and settles under the tournament lock', () => {
+        assert.match(src, /fullAdminOnlyKinds = new Set\(\[[^\]]*'arenaTournamentWinner'/);
+        const branch = src.indexOf("if (kind === 'arenaTournamentWinner')");
+        assert.ok(branch > 0, 'winner settlement branch exists');
+        const branchEnd = src.indexOf("if (kind === 'arenaActiveFights')", branch);
+        assert.ok(branchEnd > branch, 'winner settlement branch has a stable boundary');
+        const tail = src.slice(branch, branchEnd);
+        assert.match(tail, /withKvLock\(ARENA_TOURNAMENT_KEY/);
+        assert.match(tail, /\{ failClosed: true \}/);
+        assert.match(tail, /applyTournamentVictory\(character, id\)/);
+        assert.match(tail, /winnerName:\s*canonicalWinner/);
+    });
+
+    it('validates that the winner is an advanced tournament participant', () => {
+        const branch = src.indexOf("if (kind === 'arenaTournamentWinner')");
+        const branchEnd = src.indexOf("if (kind === 'arenaActiveFights')", branch);
+        const tail = src.slice(branch, branchEnd);
+        assert.match(tail, /participants\.find\(\(name\) => safeName\(name\) === winnerSlug\)/);
+        assert.match(tail, /advanced\.some\(\(name\) => safeName\(name\) === winnerSlug\)/);
+    });
+
+    it('shows tournament controls only to the client identity with full-admin authority', () => {
+        const adminIdentity = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'lib', 'admin-identity.ts'), 'utf8');
+        const arena = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'screens', 'Arena.tsx'), 'utf8');
+        const lobby = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'features', 'arena', 'components', 'ArenaDistrictLobby.tsx'), 'utf8');
+        assert.match(adminIdentity, /isFullAdminAccountName[\s\S]*?return name === "Admin 1"/);
+        assert.match(arena, /isAdminTournamentManager=\{isFullAdminAccountName\(character\.name\)\}/);
+        assert.doesNotMatch(lobby, /Admin 1 or Admin 2 can start/);
+    });
+});

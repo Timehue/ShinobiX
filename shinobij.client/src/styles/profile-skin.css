@@ -1508,6 +1508,28 @@
     letter-spacing: 0.16em;
     color: var(--bsv2-gold);
 }
+
+.profile-page-card .achievement-category-filter {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin: 0.75rem 0 1rem;
+    color: var(--text-muted, #aeb7c5);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.profile-page-card .achievement-category-filter select {
+    min-height: 2.25rem;
+    max-width: 15rem;
+    padding: 0.35rem 2rem 0.35rem 0.65rem;
+    border: 1px solid rgba(212, 175, 55, 0.38);
+    border-radius: 0.45rem;
+    background: rgba(7, 12, 20, 0.86);
+    color: #f4e7bd;
+}
 .profile-page-card .achievements-grid {
     display: grid !important;
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -1629,6 +1651,28 @@
     font: 400 10px/1.35 Inter, sans-serif !important;
     color: #c8cfdc !important;
     margin-top: 2px;
+}
+
+.profile-page-card .achievement-progress {
+    display: grid;
+    gap: 0.25rem;
+    margin-top: 0.35rem;
+}
+
+.profile-page-card .achievement-progress-track {
+    display: block;
+    width: 100%;
+    height: 0.28rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.profile-page-card .achievement-progress-track > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #a87924, #f1cf69);
 }
 .profile-page-card .achievement-unlocked-at {
     font: 500 9px/1.35 var(--font-display) !important;

@@ -108,6 +108,19 @@ test('ranked season settlement resets and rewards exactly once through an in-sav
     assert.equal(replay.character.auraStones, 15, 'the additive payout is not applied a second time');
 });
 
+test('winning both ladders counts as one distinct ranked season victory', () => {
+    const result = settleRankedSeasonCharacter({
+        rankedSeasonsWon: 2,
+    }, 8, {
+        auraStones: PODIUM_AURA_STONES[0] * 2,
+        relics: 2,
+        championOf: ['player', 'pet'],
+    });
+
+    assert.equal(result.character.rankedSeasonsWon, 3);
+    assert.equal((result.character.inventory as unknown[]).length, 2, 'both ladder relics are still paid');
+});
+
 test('ranked settlement skips untouched non-podium players without growing a receipt ledger', () => {
     const character: Record<string, unknown> = { rankedRating: 1_000, petRankedRating: 1_000 };
     const result = settleRankedSeasonCharacter(character, 9);
