@@ -187,6 +187,8 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
             doctrine={r.blueDoctrine ?? "vanguard"}
             opponentStance={r.redStance ?? "balanced"}
             opponentDoctrine={r.redDoctrine ?? "vanguard"}
+            matchType="ranked"
+            spectator
             onExit={exitCinematic}
         /></Suspense>;
     }

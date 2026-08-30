@@ -16,6 +16,8 @@ test("Warfront worker batches round-trip through a transferable byte buffer", ()
         commandState: null,
         commandLog: [],
         omen: "thin-veil",
+        mutator: "resonant-souls",
+        hazard: "rift-pulse",
         commandImpacts: [],
         stances: { blue: "balanced", red: "siege" },
         buyState: [],

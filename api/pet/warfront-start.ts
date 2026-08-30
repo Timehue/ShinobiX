@@ -6,6 +6,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { runWarfrontMatch, WARFRONT_TPS } from '../_pet-sim/pet-warfront-sim.js';
+import { wfThemeForVillage, type WfTheme } from '../_pet-sim/pet-warfront-map.js';
 import { derivePetRole } from '../_pet-sim/pet-roles.js';
 import { buildWarfrontAiTeam } from './_warfront-ai.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
@@ -50,6 +51,7 @@ type StoredWarfrontSeal = {
     seed?: number;
     reportKey?: string;
     authoritativeOutcome?: 'win' | 'loss' | 'draw';
+    theme?: WfTheme;
     stance?: WfStance;
     doctrine?: WfDoctrine;
     buyPolicy?: WfBuyPolicy;
@@ -68,6 +70,7 @@ type ActiveWarfront = { token: string; seal: StoredWarfrontSeal };
 const WF_STANCES: readonly WfStance[] = ['balanced', 'siege', 'jungle', 'headhunt', 'turtle'];
 const WF_DOCTRINES: readonly WfDoctrine[] = ['none', 'vanguard', 'bulwark', 'zealot', 'warden-pact'];
 const WF_BUY_POLICIES: readonly WfBuyPolicy[] = ['balanced', 'offense', 'defense'];
+const WF_THEMES: readonly WfTheme[] = ['central', 'forest', 'snow', 'volcano', 'shadow'];
 
 const WARFRONT_TEAM_SIZE = 4;
 const AI_STANCE: WfStance = 'balanced';
@@ -130,6 +133,10 @@ function isRecoverableWarfront(seal: StoredWarfrontSeal): boolean {
         && WF_STANCES.includes(seal.stance as WfStance)
         && WF_DOCTRINES.includes(seal.doctrine as WfDoctrine)
         && WF_BUY_POLICIES.includes(seal.buyPolicy as WfBuyPolicy)
+        // Proofs minted before hazards became gameplay-authoritative had no
+        // theme and replayed under the engine's Central default. Keep those
+        // resumable while requiring every new non-default theme to be valid.
+        && (seal.theme === undefined || WF_THEMES.includes(seal.theme))
         && seal.opponentBuyPolicy === AI_BUY_POLICY
         && seal.opponentStance === AI_STANCE
         && seal.opponentDoctrine === AI_DOCTRINE
@@ -224,6 +231,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             token: active.token,
             reportKey: active.seal.reportKey,
             seed: active.seal.seed,
+            theme: WF_THEMES.includes(active.seal.theme as WfTheme) ? active.seal.theme : 'central',
             stance: active.seal.stance,
             doctrine: active.seal.doctrine,
             buyPolicy: active.seal.buyPolicy,
@@ -274,6 +282,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // never client-supplied), in the picked order.
         const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const myChar = mySave?.character as Record<string, unknown> | undefined;
+        const theme = wfThemeForVillage(typeof myChar?.village === 'string' ? myChar.village : null);
         const myPets = activeCarriedPets<Pet>(myChar ?? {});
         const bluePets = playerPetIds
             .map((id) => myPets.find((p) => String((p as { id?: unknown }).id ?? '') === id))
@@ -305,6 +314,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const provisionalSeal = {
                     playerName,
                     mode: 'warfront-initializing',
+                    theme,
                     stance,
                     doctrine,
                     buyPolicy,
@@ -341,7 +351,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         seed,
                         buyPolicy,
                         AI_BUY_POLICY,
-                        undefined,
+                        theme,
                         { blue: stance, red: AI_STANCE },
                         { blue: doctrine, red: AI_DOCTRINE },
                         undefined,
@@ -363,6 +373,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         seed,
                         mode: 'warfront',
                         settlementPolicy: 'warfront-reward',
+                        theme,
                         stance,
                         doctrine,
                         buyPolicy,

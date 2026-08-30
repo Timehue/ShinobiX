@@ -22,6 +22,7 @@ import {
     WF_TOWERS,
     wfSpawnPoint,
     type WfLaneId,
+    type WfTheme,
 } from "./pet-warfront-map.js";
 
 export const WARFRONT_TPS = 30;
@@ -57,6 +58,11 @@ const FAVOR_DEFENSE_BONUS = 6;
 const FAVOR_WARDEN_KILL = 20;
 const FAVOR_PER_TOWER_DAMAGE = 1 / 125;
 const FAVOR_PASSIVE_EVERY = WARFRONT_TPS * 6;
+export const WF_ULTIMATE_FAVOR_COST = 30;
+const TRANSFER_EXPOSURE_TICKS = WARFRONT_TPS * 8;
+const LAST_WARD_TICKS = WARFRONT_TPS * 12;
+const RIFT_RALLY_TICKS = WARFRONT_TPS * 30;
+const HAZARD_INTERVAL_TICKS = WARFRONT_TPS * 75;
 
 export type WfStance = "balanced" | "siege" | "jungle" | "headhunt" | "turtle";
 export type WfDoctrine = "none" | "vanguard" | "bulwark" | "zealot" | "warden-pact";
@@ -64,6 +70,37 @@ export type WfBuyPolicy = "off" | "balanced" | "offense" | "defense";
 export type WfPowerupKind = "strike" | "guard" | "vitality" | "swift" | "mend";
 export type WfWardenAspect = "breaker" | "sentinel" | "harrier";
 export type WfOmen = "thin-veil" | "storm-gate" | "blood-moon" | "shattered-wards";
+export type WfSignatureId = "aegis-oath" | "horizon-volley" | "rift-execution" | "renewal-wave";
+export type WfMutator = "standard" | "resonant-souls" | "fortified-seals" | "warden-tide";
+export type WfHazard = "rift-pulse" | "verdant-bloom" | "frostbind" | "emberfall" | "umbral-rush";
+
+export const WF_SIGNATURES: Readonly<Record<ArenaRole, {
+    id: WfSignatureId; icon: string; label: string; desc: string;
+}>> = Object.freeze({
+    defender: { id: "aegis-oath", icon: "⬡", label: "Aegis Oath", desc: "Shields the lane and staggers every nearby rival." },
+    tracker: { id: "horizon-volley", icon: "⌁", label: "Horizon Volley", desc: "Marks and strikes every rival on the causeway." },
+    assassin: { id: "rift-execution", icon: "✦", label: "Rift Execution", desc: "Riftsteps to the weakest rival for an execution strike." },
+    sage: { id: "renewal-wave", icon: "✧", label: "Renewal Wave", desc: "Restores and wards every allied pet on the lane." },
+});
+
+export const WF_MUTATORS: ReadonlyArray<{
+    id: WfMutator; icon: string; label: string; desc: string;
+}> = Object.freeze([
+    { id: "standard", icon: "◇", label: "Classic Seals", desc: "Standard command economy and tower wards." },
+    { id: "resonant-souls", icon: "✦", label: "Resonant Souls", desc: "Signature charge is generated 30% faster." },
+    { id: "fortified-seals", icon: "⬡", label: "Fortified Seals", desc: "Towers resist 10% more damage before Riftfall." },
+    { id: "warden-tide", icon: "◈", label: "Warden Tide", desc: "Favor rises 20% faster and Wardens cost 85 Favor." },
+]);
+
+export const WF_HAZARDS: Readonly<Record<WfTheme, {
+    id: WfHazard; icon: string; label: string; desc: string;
+}>> = Object.freeze({
+    central: { id: "rift-pulse", icon: "◉", label: "Rift Pulse", desc: "The active causeway grants both squads signature charge." },
+    forest: { id: "verdant-bloom", icon: "❈", label: "Verdant Bloom", desc: "The most wounded pet on the active causeway is restored." },
+    snow: { id: "frostbind", icon: "❄", label: "Frostbind", desc: "Every combatant on the active causeway is briefly slowed." },
+    volcano: { id: "emberfall", icon: "◆", label: "Emberfall", desc: "Every combatant on the active causeway suffers max-health damage." },
+    shadow: { id: "umbral-rush", icon: "◐", label: "Umbral Rush", desc: "Both squads gain Favor and signature charge." },
+});
 
 export const WF_WARDEN_ASPECTS: ReadonlyArray<{
     id: WfWardenAspect; icon: string; label: string; desc: string;
@@ -85,6 +122,11 @@ export const WF_OMENS: ReadonlyArray<{
 export function wfOmenForSeed(seed: number): WfOmen {
     const index = ((Math.floor(seed) >>> 0) % WF_OMENS.length + WF_OMENS.length) % WF_OMENS.length;
     return WF_OMENS[index].id;
+}
+
+export function wfMutatorForSeed(seed: number): WfMutator {
+    const index = (((Math.floor(seed) >>> 0) >>> 3) % WF_MUTATORS.length + WF_MUTATORS.length) % WF_MUTATORS.length;
+    return WF_MUTATORS[index].id;
 }
 
 export function wfTakedownFavor(omen: WfOmen, defendingFracturedTower: boolean): number {
@@ -160,6 +202,8 @@ interface WfPet {
     intent: string;
     attackCd: number;
     abilityCd: number;
+    ultimateCharge: number;
+    ultimateQueued: boolean;
     respawnLeft: number;
     invulnerable: number;
     shieldHp: number;
@@ -167,6 +211,9 @@ interface WfPet {
     assists: number;
     dmg: number;
     towerDamage: number;
+    healing: number;
+    damageTaken: number;
+    ultimates: number;
     hitLog: Array<{ id: string; t: number }>;
 }
 
@@ -182,6 +229,8 @@ interface WfTower {
     targetId: string | null;
     sameTargetShots: number;
     damageTaken: number;
+    exposedLeft: number;
+    guardLeft: number;
 }
 
 interface WfWarden {
@@ -212,7 +261,8 @@ export interface WfCommandState {
 
 export type WarfrontChoice =
     | { type: "move"; petIndex: number; lane: WfLaneId }
-    | { type: "summon"; lane: WfLaneId; aspect: WfWardenAspect };
+    | { type: "summon"; lane: WfLaneId; aspect: WfWardenAspect }
+    | { type: "ultimate"; petIndex: number };
 
 export interface WarfrontCommandEntry {
     t: number;
@@ -220,6 +270,10 @@ export interface WarfrontCommandEntry {
     moves: Array<{ petIndex: number; lane: WfLaneId }>;
     summonLane?: WfLaneId;
     summonAspect?: WfWardenAspect;
+    ultimatePetIndex?: number;
+    ultimateName?: string;
+    favorSpent?: number;
+    exposedLane?: WfLaneId;
 }
 
 export interface WarfrontCommandPlan {
@@ -248,6 +302,9 @@ export interface WfActorSnap {
     statuses: string[];
     shielded: boolean;
     intent: string;
+    ultimateCharge: number;
+    ultimateReady: boolean;
+    signature: WfSignatureId;
 }
 
 export interface WfTowerSnap {
@@ -260,6 +317,8 @@ export interface WfTowerSnap {
     alive: boolean;
     fractured: boolean;
     targetId: string | null;
+    exposedSecs: number;
+    guardSecs: number;
 }
 
 export interface WfWardenSnap {
@@ -285,6 +344,9 @@ export interface WfSnapshot {
     towerDamage: Record<Team, number>;
     stances: Record<Team, WfStance>;
     omen: WfOmen;
+    mutator: WfMutator;
+    hazard: WfHazard;
+    rallySecs: Record<Team, number>;
     command: WfCommandState | null;
     riftfall: boolean;
 }
@@ -294,6 +356,8 @@ export type WfEvent =
     | { t: number; type: "heal"; targetId: string; actorId: string; amount: number }
     | { t: number; type: "kill"; targetId: string; actorId: string; team: Team }
     | { t: number; type: "ability"; petId: string; kind: "shield" | "dash" | "mark"; x: number; y: number; targetId?: string }
+    | { t: number; type: "ultimatearmed"; petId: string; team: Team; lane: WfLaneId; signature: WfSignatureId; name: string }
+    | { t: number; type: "ultimate"; petId: string; team: Team; lane: WfLaneId; signature: WfSignatureId; name: string; x: number; y: number; targetId?: string }
     | { t: number; type: "elemsig"; petId: string; el: string; name: string; px: number; py: number; x: number; y: number; targetId: string }
     | { t: number; type: "towerhit"; team: Team; lane: WfLaneId; actorId: string; dmg: number; x: number; y: number }
     | { t: number; type: "towerfractured"; team: Team; lane: WfLaneId; by: Team; actorId: string }
@@ -302,11 +366,16 @@ export type WfEvent =
     | { t: number; type: "commandresolved"; sequence: number; reason: WfCommandReason; blue: WarfrontCommandEntry; red: WarfrontCommandEntry }
     | { t: number; type: "commandimpact"; impact: WfCommandImpact }
     | { t: number; type: "redeploy"; team: Team; petId: string; from: WfLaneId; lane: WfLaneId }
+    | { t: number; type: "sealexposed"; team: Team; lane: WfLaneId; secs: number }
     | { t: number; type: "favorready"; team: Team }
     | { t: number; type: "wardensummon"; team: Team; lane: WfLaneId; aspect: WfWardenAspect }
     | { t: number; type: "wardenhit"; team: Team; actorId: string; dmg: number; x: number; y: number }
     | { t: number; type: "wardenslam"; team: Team; lane: WfLaneId; x: number; y: number }
     | { t: number; type: "wardendown"; team: Team; by: Team; expired: boolean }
+    | { t: number; type: "favorsteal"; team: Team; from: Team; amount: number }
+    | { t: number; type: "lastward"; team: Team; lanes: WfLaneId[]; secs: number }
+    | { t: number; type: "riftrally"; team: Team; secs: number }
+    | { t: number; type: "hazard"; hazard: WfHazard; lane: WfLaneId; label: string }
     | { t: number; type: "riftfall" }
     | { t: number; type: "phase"; name: string }
     | { t: number; type: "round"; round: number };
@@ -320,6 +389,10 @@ export interface WfCommandImpact {
     moves: Array<{ petIndex: number; lane: WfLaneId }>;
     summonLane?: WfLaneId;
     summonAspect?: WfWardenAspect;
+    ultimatePetIndex?: number;
+    ultimateName?: string;
+    favorSpent?: number;
+    exposedLane?: WfLaneId;
     towerDamageDealt: number;
     towerDamageTaken: number;
     towersBroken: number;
@@ -329,7 +402,7 @@ export interface WfCommandImpact {
 export interface WarfrontResult {
     winner: Team | "draw" | null;
     ticks: number;
-    petStats?: Array<{ id: string; name: string; team: Team; level: number; kills: number; assists: number; dmg: number; coins: number }>;
+    petStats?: Array<{ id: string; name: string; team: Team; level: number; kills: number; assists: number; dmg: number; towerDamage: number; healing: number; damageTaken: number; ultimates: number; coins: number }>;
     snapshots: WfSnapshot[];
     events: WfEvent[];
     theme?: string;
@@ -337,6 +410,8 @@ export interface WarfrontResult {
     initialLanes: Record<Team, WfLaneId[]>;
     commandLog: WarfrontCommandEntry[];
     omen: WfOmen;
+    mutator: WfMutator;
+    hazard: WfHazard;
     commandImpacts: WfCommandImpact[];
 }
 
@@ -361,6 +436,11 @@ interface WfState {
     stance: Record<Team, WfStance>;
     doctrine: Record<Team, WfDoctrine>;
     omen: WfOmen;
+    mutator: WfMutator;
+    theme: WfTheme;
+    rallyUntil: Record<Team, number>;
+    lastWardUsed: Record<Team, boolean>;
+    hazardSequence: number;
     shatteredWindowUsed: boolean;
     winner: Team | "draw" | null;
     pendingCommand: WfCommandState | null;
@@ -378,6 +458,10 @@ function validLane(value: unknown): value is WfLaneId {
 
 function validWardenAspect(value: unknown): value is WfWardenAspect {
     return value === "breaker" || value === "sentinel" || value === "harrier";
+}
+
+function validTheme(value: unknown): value is WfTheme {
+    return value === "central" || value === "forest" || value === "snow" || value === "volcano" || value === "shadow";
 }
 
 export function normalizeWarfrontLanes(values: readonly WfLaneId[] | undefined, size = 4): WfLaneId[] {
@@ -422,12 +506,18 @@ export function parseWarfrontCommandPlan(value: unknown): WarfrontCommandPlan | 
         if (command.summonLane !== undefined && !validLane(command.summonLane)) return null;
         if (command.summonAspect !== undefined && !validWardenAspect(command.summonAspect)) return null;
         if (command.summonAspect !== undefined && command.summonLane === undefined) return null;
+        if (command.ultimatePetIndex !== undefined && (
+            !Number.isSafeInteger(Number(command.ultimatePetIndex))
+            || Number(command.ultimatePetIndex) < 0
+            || Number(command.ultimatePetIndex) >= 4
+        )) return null;
         commands.push({
             t,
             reason,
             moves,
             ...(validLane(command.summonLane) ? { summonLane: command.summonLane } : {}),
             ...(validWardenAspect(command.summonAspect) ? { summonAspect: command.summonAspect } : {}),
+            ...(command.ultimatePetIndex !== undefined ? { ultimatePetIndex: Number(command.ultimatePetIndex) } : {}),
         });
     }
     return { initialLanes: { blue, red: normalizeWarfrontLanes(undefined, 4) }, commands };
@@ -463,6 +553,8 @@ function makePet(slot: ArenaSlot, team: Team, index: number, lane: WfLaneId): Wf
         intent: `hold:${lane}`,
         attackCd: index * 3,
         abilityCd: WARFRONT_TPS * (4 + index),
+        ultimateCharge: 0,
+        ultimateQueued: false,
         respawnLeft: 0,
         invulnerable: WARFRONT_TPS,
         shieldHp: 0,
@@ -470,6 +562,9 @@ function makePet(slot: ArenaSlot, team: Team, index: number, lane: WfLaneId): Wf
         assists: 0,
         dmg: 0,
         towerDamage: 0,
+        healing: 0,
+        damageTaken: 0,
+        ultimates: 0,
         hitLog: [],
     };
 }
@@ -482,7 +577,7 @@ function applyDoctrine(pet: WfPet, doctrine: WfDoctrine) {
 
 function makeTower(team: Team, lane: WfLaneId): WfTower {
     const [x, y] = WF_TOWERS[team][lane];
-    return { team, lane, x, y, hp: TOWER_HP, alive: true, fractured: false, attackCd: 0, targetId: null, sameTargetShots: 0, damageTaken: 0 };
+    return { team, lane, x, y, hp: TOWER_HP, alive: true, fractured: false, attackCd: 0, targetId: null, sameTargetShots: 0, damageTaken: 0, exposedLeft: 0, guardLeft: 0 };
 }
 
 function makeWarden(team: Team): WfWarden {
@@ -493,6 +588,7 @@ function initState(
     blue: ArenaSlot[],
     red: ArenaSlot[],
     seed: number,
+    themeValue: string | undefined,
     initialLanes: Partial<Record<Team, readonly WfLaneId[]>> | undefined,
     stances: Partial<Record<Team, WfStance>>,
     doctrines: Partial<Record<Team, WfDoctrine>>,
@@ -506,6 +602,8 @@ function initState(
     const stance: Record<Team, WfStance> = { blue: stances.blue ?? "balanced", red: stances.red ?? "balanced" };
     const doctrine: Record<Team, WfDoctrine> = { blue: doctrines.blue ?? "none", red: doctrines.red ?? "none" };
     const omen = wfOmenForSeed(seed);
+    const mutator = wfMutatorForSeed(seed);
+    const theme: WfTheme = validTheme(themeValue) ? themeValue : "central";
     for (const pet of pets) applyDoctrine(pet, doctrine[pet.team]);
     return {
         t: 0,
@@ -522,6 +620,11 @@ function initState(
         stance,
         doctrine,
         omen,
+        mutator,
+        theme,
+        rallyUntil: { blue: 0, red: 0 },
+        lastWardUsed: { blue: false, red: false },
+        hazardSequence: 0,
         shatteredWindowUsed: false,
         winner: null,
         pendingCommand: null,
@@ -569,6 +672,11 @@ function finalizeCommandImpacts(state: WfState) {
             ...(pending.entry.summonLane && pending.entry.summonAspect
                 ? { summonLane: pending.entry.summonLane, summonAspect: pending.entry.summonAspect }
                 : {}),
+            ...(pending.entry.ultimatePetIndex !== undefined
+                ? { ultimatePetIndex: pending.entry.ultimatePetIndex, ultimateName: pending.entry.ultimateName }
+                : {}),
+            ...(pending.entry.favorSpent ? { favorSpent: pending.entry.favorSpent } : {}),
+            ...(pending.entry.exposedLane ? { exposedLane: pending.entry.exposedLane } : {}),
             towerDamageDealt: Math.max(0, Math.round(state.towerDamage[team] - pending.towerDamage[team])),
             towerDamageTaken: Math.max(0, Math.round(state.towerDamage[foe] - pending.towerDamage[foe])),
             towersBroken: Math.max(0, score[team] - pending.score[team]),
@@ -595,11 +703,19 @@ function addFavor(state: WfState, team: Team, amount: number) {
     const score = stateScore(state);
     const behind = score[team] < score[other(team)];
     const before = state.favor[team];
-    state.favor[team] = quant(clamp(before + amount * (behind ? 1.25 : 1), 0, 100));
+    const mutatorRate = state.mutator === "warden-tide" ? 1.2 : 1;
+    const stanceRate = state.stance[team] === "turtle" ? 0.8 : 1;
+    state.favor[team] = quant(clamp(before + amount * mutatorRate * stanceRate * (behind ? 1.25 : 1), 0, 100));
     if (before < 100 && state.favor[team] >= 100 && !state.favorReady[team]) {
         state.favorReady[team] = true;
         state.events.push({ t: state.t, type: "favorready", team });
     }
+}
+
+function chargeUltimate(state: WfState, pet: WfPet, amount: number) {
+    if (pet.ultimateQueued || pet.ultimateCharge >= 100) return;
+    const rate = state.mutator === "resonant-souls" ? 1.3 : 1;
+    pet.ultimateCharge = quant(clamp(pet.ultimateCharge + amount * rate, 0, 100));
 }
 
 function snapshot(state: WfState): WfSnapshot {
@@ -607,6 +723,8 @@ function snapshot(state: WfState): WfSnapshot {
         team: tower.team, lane: tower.lane, x: tower.x, y: tower.y,
         hp: quant(tower.hp), maxHp: TOWER_HP, alive: tower.alive,
         fractured: tower.fractured, targetId: tower.targetId,
+        exposedSecs: tower.exposedLeft / WARFRONT_TPS,
+        guardSecs: tower.guardLeft / WARFRONT_TPS,
     });
     const wardenSnap = (warden: WfWarden): WfWardenSnap => ({
         team: warden.team, aspect: warden.aspect, active: warden.active, lane: warden.lane,
@@ -627,6 +745,9 @@ function snapshot(state: WfState): WfSnapshot {
             ],
             shielded: pet.shieldHp > 0,
             intent: pet.intent,
+            ultimateCharge: quant(pet.ultimateCharge),
+            ultimateReady: pet.ultimateCharge >= 100,
+            signature: WF_SIGNATURES[pet.role].id,
         })),
         towers: {
             blue: { n: towerSnap(state.towers.blue.n), m: towerSnap(state.towers.blue.m), s: towerSnap(state.towers.blue.s) },
@@ -637,6 +758,12 @@ function snapshot(state: WfState): WfSnapshot {
         towerDamage: { blue: quant(state.towerDamage.blue), red: quant(state.towerDamage.red) },
         stances: { ...state.stance },
         omen: state.omen,
+        mutator: state.mutator,
+        hazard: WF_HAZARDS[state.theme].id,
+        rallySecs: {
+            blue: Math.max(0, state.rallyUntil.blue - state.t) / WARFRONT_TPS,
+            red: Math.max(0, state.rallyUntil.red - state.t) / WARFRONT_TPS,
+        },
         command: state.pendingCommand ? {
             ...state.pendingCommand,
             activeLanes: [...state.pendingCommand.activeLanes],
@@ -674,14 +801,18 @@ function petDamage(state: WfState, target: WfPet, raw: number, actorId: string, 
     }
     if (damage <= 0) return;
     target.hp = quant(Math.max(0, target.hp - damage));
+    target.damageTaken += damage;
     recordDamager(target, actorId, state.t);
     const attacker = state.pets.find((pet) => pet.id === actorId);
-    if (attacker) attacker.dmg += damage;
+    if (attacker) {
+        attacker.dmg += damage;
+        chargeUltimate(state, attacker, crit ? 13 : 9);
+    }
     state.events.push({ t: state.t, type: "hit", targetId: target.id, actorId, dmg: Math.round(damage), crit, element });
     if (target.hp > 0) return;
 
     const killer = state.pets.find((pet) => pet.id === actorId);
-    if (killer) killer.kills++;
+    if (killer) { killer.kills++; chargeUltimate(state, killer, 18); }
     for (const entry of target.hitLog) {
         const assist = state.pets.find((pet) => pet.id === entry.id && pet.team === actorTeam && pet.id !== actorId);
         if (assist) { assist.assists++; addFavor(state, actorTeam, FAVOR_ASSIST); }
@@ -690,7 +821,8 @@ function petDamage(state: WfState, target: WfPet, raw: number, actorId: string, 
     const threatenedDefense = ownTower.alive && ownTower.hp <= TOWER_HP * 0.5;
     addFavor(state, actorTeam, wfTakedownFavor(state.omen, threatenedDefense));
     state.events.push({ t: state.t, type: "kill", targetId: target.id, actorId, team: actorTeam });
-    target.respawnLeft = WARFRONT_TPS * Math.min(14, 8 + Math.floor(state.t / (WARFRONT_TPS * 60)));
+    const stanceRespawn = state.stance[target.team] === "siege" ? 2 : state.stance[target.team] === "headhunt" ? 1 : state.stance[target.team] === "turtle" ? -1 : 0;
+    target.respawnLeft = WARFRONT_TPS * Math.max(6, Math.min(16, 8 + Math.floor(state.t / (WARFRONT_TPS * 60)) + stanceRespawn));
     target.state = "respawning";
     target.intent = "seal:reforming";
     target.attackCd = 0;
@@ -699,18 +831,25 @@ function petDamage(state: WfState, target: WfPet, raw: number, actorId: string, 
 }
 
 function stancePetDamage(state: WfState, team: Team): number {
-    if (state.stance[team] === "headhunt") return 1.08;
-    if (state.stance[team] === "siege") return 0.95;
-    return 1;
+    const stance = state.stance[team];
+    const rally = state.t < state.rallyUntil[team] ? 1.12 : 1;
+    if (stance === "headhunt") return 1.1 * rally;
+    if (stance === "siege") return 0.94 * rally;
+    if (stance === "jungle") return 0.96 * rally;
+    if (stance === "turtle") return 0.9 * rally;
+    return rally;
 }
 function stanceTowerDamage(state: WfState, team: Team): number {
-    if (state.stance[team] === "siege") return 1.1;
-    if (state.stance[team] === "headhunt") return 0.9;
+    if (state.stance[team] === "siege") return 1.14;
+    if (state.stance[team] === "headhunt") return 0.88;
+    if (state.stance[team] === "jungle") return 0.96;
+    if (state.stance[team] === "turtle") return 0.92;
     return 1;
 }
 
 function wardenCost(state: WfState, team: Team): number {
     if (state.omen === "thin-veil") return 80;
+    if (state.mutator === "warden-tide") return 85;
     return state.doctrine[team] === "warden-pact" ? WARDEN_PACT_COST : WARDEN_COST;
 }
 
@@ -748,12 +887,26 @@ function queueBreakthrough(state: WfState, lane: WfLaneId) {
     state.events.push({ t: state.t, type: "commandwindow", reason: "breakthrough", sequence: state.commandSequence, lane });
 }
 
+function activateLastWard(state: WfState, team: Team) {
+    if (state.lastWardUsed[team]) return;
+    const lanes = WF_LANE_IDS.filter((lane) => state.towers[team][lane].alive && laneActive(state, lane));
+    if (!lanes.length) return;
+    state.lastWardUsed[team] = true;
+    for (const lane of lanes) state.towers[team][lane].guardLeft = LAST_WARD_TICKS;
+    for (const pet of state.pets) {
+        if (pet.team !== team || pet.respawnLeft > 0 || !lanes.includes(pet.lane)) continue;
+        pet.shieldHp = quant(Math.max(pet.shieldHp, pet.maxHp * 0.14));
+    }
+    state.events.push({ t: state.t, type: "lastward", team, lanes, secs: LAST_WARD_TICKS / WARFRONT_TPS });
+}
+
 function finishTower(state: WfState, tower: WfTower, by: Team, actorId: string) {
     if (!tower.alive) return;
     tower.alive = false;
     tower.hp = 0;
     tower.targetId = null;
     state.events.push({ t: state.t, type: "towerdown", team: tower.team, lane: tower.lane, by, actorId });
+    activateLastWard(state, tower.team);
     const score = stateScore(state);
     if (score.blue >= 2 || score.red >= 2) {
         state.winner = score.blue >= 2 && score.red >= 2 ? "draw" : score.blue >= 2 ? "blue" : "red";
@@ -769,13 +922,20 @@ function damageTower(state: WfState, tower: WfTower, raw: number, actorId: strin
     let damage = raw * stanceTowerDamage(state, by);
     if (state.t < RIFTFALL_TICKS) damage *= 1 - TOWER_REDUCTION;
     else damage *= 1.3;
+    if (state.t < RIFTFALL_TICKS && state.mutator === "fortified-seals") damage *= 0.9;
+    if (state.stance[tower.team] === "turtle") damage *= 0.88;
+    if (tower.guardLeft > 0) damage *= 0.65;
+    if (tower.exposedLeft > 0) damage *= 1.18;
     damage = quant(Math.max(1, damage));
     tower.hp = quant(Math.max(0, tower.hp - damage));
     tower.damageTaken += damage;
     state.towerDamage[by] += damage;
     addFavor(state, by, damage * FAVOR_PER_TOWER_DAMAGE * (state.stance[by] === "jungle" ? 1.2 : 1));
     const attacker = state.pets.find((pet) => pet.id === actorId);
-    if (attacker) attacker.towerDamage += damage;
+    if (attacker) {
+        attacker.towerDamage += damage;
+        chargeUltimate(state, attacker, 6);
+    }
     state.events.push({ t: state.t, type: "towerhit", team: tower.team, lane: tower.lane, actorId, dmg: Math.round(damage), x: tower.x, y: tower.y });
     if (!tower.fractured && tower.hp <= TOWER_HP * 0.5) {
         tower.fractured = true;
@@ -820,7 +980,10 @@ function damageWarden(state: WfState, warden: WfWarden, raw: number, actorId: st
     const damage = quant(Math.max(1, raw * 0.86));
     warden.hp = quant(Math.max(0, warden.hp - damage));
     const attacker = state.pets.find((pet) => pet.id === actorId);
-    if (attacker) attacker.dmg += damage;
+    if (attacker) {
+        attacker.dmg += damage;
+        chargeUltimate(state, attacker, 10);
+    }
     state.events.push({ t: state.t, type: "wardenhit", team: warden.team, actorId, dmg: Math.round(damage), x: warden.x, y: warden.y });
     if (warden.hp <= 0) dismissWarden(state, warden, by, false);
 }
@@ -831,7 +994,15 @@ function dismissWarden(state: WfState, warden: WfWarden, by: Team, expired: bool
     warden.hp = 0;
     warden.left = 0;
     warden.targetId = null;
-    if (!expired) addFavor(state, by, FAVOR_WARDEN_KILL);
+    if (!expired) {
+        addFavor(state, by, FAVOR_WARDEN_KILL);
+        const stolen = quant(Math.min(15, state.favor[warden.team]));
+        if (stolen > 0) {
+            state.favor[warden.team] = quant(Math.max(0, state.favor[warden.team] - stolen));
+            addFavor(state, by, stolen);
+            state.events.push({ t: state.t, type: "favorsteal", team: by, from: warden.team, amount: stolen });
+        }
+    }
     state.events.push({ t: state.t, type: "wardendown", team: warden.team, by, expired });
 }
 
@@ -847,7 +1018,7 @@ function moveToward(pet: WfPet, targetX: number, targetY: number) {
     pet.state = "move";
 }
 
-function triggerRoleAbility(state: WfState, pet: WfPet): boolean {
+function applyRoleAbility(state: WfState, pet: WfPet): boolean {
     if (pet.abilityCd > 0) return false;
     if (pet.role === "sage") {
         const ally = state.pets
@@ -856,17 +1027,80 @@ function triggerRoleAbility(state: WfState, pet: WfPet): boolean {
         if (ally && distance(pet.x, pet.y, ally.x, ally.y) <= 6) {
             const amount = quant(Math.min(ally.maxHp - ally.hp, ally.maxHp * 0.16));
             ally.hp += amount;
+            pet.healing += amount;
+            chargeUltimate(state, pet, 12);
             pet.abilityCd = WARFRONT_TPS * 7;
             state.events.push({ t: state.t, type: "heal", targetId: ally.id, actorId: pet.id, amount: Math.round(amount) });
             return true;
         }
     } else if (pet.role === "defender" && pet.hp < pet.maxHp * 0.62 && pet.shieldHp <= 0) {
         pet.shieldHp = quant(pet.maxHp * 0.18);
+        chargeUltimate(state, pet, 12);
         pet.abilityCd = WARFRONT_TPS * 8;
         state.events.push({ t: state.t, type: "ability", petId: pet.id, kind: "shield", x: pet.x, y: pet.y });
         return true;
     }
     return false;
+}
+
+function castSignatureUltimate(state: WfState, pet: WfPet): boolean {
+    if (!pet.ultimateQueued || pet.respawnLeft > 0 || !laneActive(state, pet.lane)) return false;
+    const signature = WF_SIGNATURES[pet.role];
+    const rivals = state.pets
+        .filter((candidate) => candidate.team !== pet.team && candidate.lane === pet.lane && candidate.respawnLeft <= 0 && candidate.hp > 0)
+        .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp || a.slot - b.slot);
+    const target = rivals[0];
+    state.events.push({
+        t: state.t,
+        type: "ultimate",
+        petId: pet.id,
+        team: pet.team,
+        lane: pet.lane,
+        signature: signature.id,
+        name: signature.label,
+        x: pet.x,
+        y: pet.y,
+        ...(target ? { targetId: target.id } : {}),
+    });
+    pet.ultimateQueued = false;
+    pet.ultimateCharge = 0;
+    pet.ultimates++;
+    pet.attackCd = Math.max(pet.attackCd, Math.round(WARFRONT_TPS * 1.25));
+
+    if (pet.role === "defender") {
+        for (const ally of state.pets) {
+            if (ally.team !== pet.team || ally.lane !== pet.lane || ally.respawnLeft > 0) continue;
+            ally.shieldHp = quant(Math.max(ally.shieldHp, ally.maxHp * 0.24));
+        }
+        for (const rival of rivals) if (distance(pet.x, pet.y, rival.x, rival.y) <= 5.2) {
+            petDamage(state, rival, pet.atk * 1.5, pet.id, pet.team, false, pet.element);
+        }
+    } else if (pet.role === "tracker") {
+        for (const rival of rivals) petDamage(state, rival, pet.atk * 1.35, pet.id, pet.team, true, pet.element);
+        const enemyWarden = state.wardens[other(pet.team)];
+        if (enemyWarden.active && enemyWarden.lane === pet.lane) damageWarden(state, enemyWarden, pet.atk * 1.6, pet.id, pet.team);
+    } else if (pet.role === "assassin") {
+        if (target) {
+            pet.x = quant(target.x + (pet.team === "blue" ? -1.15 : 1.15));
+            pet.y = target.y;
+            pet.faceX = target.x < pet.x ? -1 : 1;
+            state.events.push({ t: state.t, type: "ability", petId: pet.id, kind: "dash", x: pet.x, y: pet.y, targetId: target.id });
+            const execute = target.hp <= target.maxHp * 0.35 ? 2.85 : 2.15;
+            petDamage(state, target, pet.atk * execute, pet.id, pet.team, true, pet.element);
+        } else {
+            damageTower(state, state.towers[other(pet.team)][pet.lane], pet.atk * 1.6, pet.id, pet.team);
+        }
+    } else {
+        for (const ally of state.pets) {
+            if (ally.team !== pet.team || ally.lane !== pet.lane || ally.respawnLeft > 0) continue;
+            const amount = quant(Math.min(ally.maxHp - ally.hp, ally.maxHp * 0.24));
+            ally.hp = quant(ally.hp + amount);
+            ally.shieldHp = quant(Math.max(ally.shieldHp, ally.maxHp * 0.1));
+            pet.healing += amount;
+            if (amount > 0) state.events.push({ t: state.t, type: "heal", targetId: ally.id, actorId: pet.id, amount: Math.round(amount) });
+        }
+    }
+    return true;
 }
 
 function updatePet(state: WfState, pet: WfPet) {
@@ -879,7 +1113,8 @@ function updatePet(state: WfState, pet: WfPet) {
     if (pet.attackCd > 0) pet.attackCd--;
     if (pet.abilityCd > 0) pet.abilityCd--;
     if (pet.invulnerable > 0) pet.invulnerable--;
-    triggerRoleAbility(state, pet);
+    if (castSignatureUltimate(state, pet)) return;
+    applyRoleAbility(state, pet);
 
     const target = nearestCombatTarget(state, pet.team, pet.lane, pet.x, pet.y);
     if (target) {
@@ -1041,8 +1276,59 @@ function timeoutWinner(state: WfState): Team | "draw" {
     return "draw";
 }
 
+function trailingTeam(state: WfState): Team | null {
+    const score = stateScore(state);
+    if (score.blue !== score.red) return score.blue < score.red ? "blue" : "red";
+    if (Math.round(state.towerDamage.blue) === Math.round(state.towerDamage.red)) return null;
+    return state.towerDamage.blue < state.towerDamage.red ? "blue" : "red";
+}
+
+function applyArenaHazard(state: WfState) {
+    const lanes = activeLanes(state);
+    if (!lanes.length) return;
+    const lane = lanes[state.hazardSequence % lanes.length];
+    state.hazardSequence++;
+    const hazard = WF_HAZARDS[state.theme];
+    state.events.push({ t: state.t, type: "hazard", hazard: hazard.id, lane, label: hazard.label });
+    const occupants = state.pets.filter((pet) => pet.lane === lane && pet.respawnLeft <= 0 && pet.hp > 0);
+    if (hazard.id === "rift-pulse") {
+        for (const pet of occupants) chargeUltimate(state, pet, 22);
+    } else if (hazard.id === "verdant-bloom") {
+        for (const team of ["blue", "red"] as const) {
+            const ally = occupants
+                .filter((pet) => pet.team === team && pet.hp < pet.maxHp)
+                .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp || a.slot - b.slot)[0];
+            if (!ally) continue;
+            const amount = quant(Math.min(ally.maxHp - ally.hp, ally.maxHp * 0.12));
+            ally.hp = quant(ally.hp + amount);
+            state.events.push({ t: state.t, type: "heal", targetId: ally.id, actorId: `hazard-${hazard.id}`, amount: Math.round(amount) });
+        }
+    } else if (hazard.id === "frostbind") {
+        for (const pet of occupants) pet.attackCd = Math.max(pet.attackCd, Math.round(WARFRONT_TPS * 1.5));
+    } else if (hazard.id === "emberfall") {
+        for (const pet of occupants) {
+            const damage = quant(Math.min(Math.max(0, pet.hp - 1), pet.maxHp * 0.08));
+            if (damage <= 0) continue;
+            pet.hp = quant(pet.hp - damage);
+            pet.damageTaken += damage;
+            state.events.push({ t: state.t, type: "hit", targetId: pet.id, actorId: `hazard-${hazard.id}`, dmg: Math.round(damage), crit: false, element: "Fire" });
+        }
+    } else {
+        for (const team of ["blue", "red"] as const) addFavor(state, team, 7);
+        for (const pet of occupants) chargeUltimate(state, pet, 16);
+    }
+}
+
 function tick(state: WfState, snapshotEvery: number) {
     state.t++;
+    for (const team of ["blue", "red"] as const) for (const lane of WF_LANE_IDS) {
+        const tower = state.towers[team][lane];
+        if (tower.exposedLeft > 0) tower.exposedLeft--;
+        if (tower.guardLeft > 0) tower.guardLeft--;
+    }
+    if (state.t % (WARFRONT_TPS * 3) === 0) {
+        for (const pet of state.pets) if (pet.respawnLeft <= 0) chargeUltimate(state, pet, 4);
+    }
     if (state.t % FAVOR_PASSIVE_EVERY === 0) {
         addFavor(state, "blue", state.stance.blue === "jungle" ? 1.2 : 1);
         addFavor(state, "red", state.stance.red === "jungle" ? 1.2 : 1);
@@ -1050,7 +1336,13 @@ function tick(state: WfState, snapshotEvery: number) {
     if (state.t === RIFTFALL_TICKS) {
         state.events.push({ t: state.t, type: "riftfall" });
         state.events.push({ t: state.t, type: "phase", name: "RIFTFALL" });
+        const team = trailingTeam(state);
+        if (team) {
+            state.rallyUntil[team] = state.t + RIFT_RALLY_TICKS;
+            state.events.push({ t: state.t, type: "riftrally", team, secs: RIFT_RALLY_TICKS / WARFRONT_TPS });
+        }
     }
+    if (state.t % HAZARD_INTERVAL_TICKS === 0) applyArenaHazard(state);
 
     updateWarden(state, state.wardens.blue);
     updateWarden(state, state.wardens.red);
@@ -1106,6 +1398,11 @@ function autoChoices(state: WfState, team: Team, command: WfCommandState): Warfr
     if (state.favor[team] >= cost && !state.wardens[team].active && command.activeLanes.length) {
         const lane = desiredLane(state, team, command.activeLanes);
         choices.push({ type: "summon", lane, aspect: autoWardenAspect(state, team, lane) });
+    } else if (state.favor[team] >= WF_ULTIMATE_FAVOR_COST) {
+        const signaturePet = state.pets
+            .filter((pet) => pet.team === team && pet.ultimateCharge >= 100 && pet.respawnLeft <= 0 && command.activeLanes.includes(pet.lane))
+            .sort((a, b) => b.kills - a.kills || b.dmg - a.dmg || a.slot - b.slot)[0];
+        if (signaturePet) choices.push({ type: "ultimate", petIndex: signaturePet.slot });
     }
     return choices;
 }
@@ -1118,7 +1415,7 @@ function parseChoices(values: readonly WarfrontChoice[] | undefined): WarfrontCh
         if (value.type === "move" && Number.isSafeInteger(value.petIndex) && value.petIndex >= 0 && value.petIndex < 4 && validLane(value.lane)) parsed.push({ type: "move", petIndex: value.petIndex, lane: value.lane });
         else if (value.type === "summon" && validLane(value.lane) && validWardenAspect(value.aspect)) {
             parsed.push({ type: "summon", lane: value.lane, aspect: value.aspect });
-        }
+        } else if (value.type === "ultimate" && Number.isSafeInteger(value.petIndex) && value.petIndex >= 0 && value.petIndex < 4) parsed.push({ type: "ultimate", petIndex: value.petIndex });
     }
     return parsed;
 }
@@ -1128,10 +1425,12 @@ function applyTeamCommand(state: WfState, team: Team, command: WfCommandState, r
     const provided = parseChoices(raw);
     const moves = provided.filter((choice): choice is Extract<WarfrontChoice, { type: "move" }> => choice.type === "move");
     const summon = provided.find((choice): choice is Extract<WarfrontChoice, { type: "summon" }> => choice.type === "summon");
+    const ultimate = provided.find((choice): choice is Extract<WarfrontChoice, { type: "ultimate" }> => choice.type === "ultimate");
     const fallbackMoves = fallback.filter((choice): choice is Extract<WarfrontChoice, { type: "move" }> => choice.type === "move");
     const allowedSlots = command.reason === "breakthrough" ? new Set(command.freedPetSlots[team]) : null;
     const used = new Set<number>();
     const appliedMoves: Array<{ petIndex: number; lane: WfLaneId }> = [];
+    let exposedLane: WfLaneId | undefined;
     // `undefined` means an unattended/AI window and may use the deterministic
     // fallback. An explicit empty or invalid array is the player's Hold command.
     const candidates = raw === undefined ? fallbackMoves : moves;
@@ -1148,6 +1447,11 @@ function applyTeamCommand(state: WfState, team: Team, command: WfCommandState, r
         pet.faceX = team === "blue" ? 1 : -1;
         pet.invulnerable = Math.max(pet.invulnerable, WARFRONT_TPS * 2);
         pet.intent = `redeploy:${move.lane}`;
+        if (command.reason !== "breakthrough" && state.towers[team][from].alive) {
+            state.towers[team][from].exposedLeft = Math.max(state.towers[team][from].exposedLeft, TRANSFER_EXPOSURE_TICKS);
+            exposedLane = from;
+            state.events.push({ t: state.t, type: "sealexposed", team, lane: from, secs: TRANSFER_EXPOSURE_TICKS / WARFRONT_TPS });
+        }
         appliedMoves.push({ petIndex: pet.slot, lane: move.lane });
         used.add(pet.slot);
         state.events.push({ t: state.t, type: "redeploy", team, petId: pet.id, from, lane: move.lane });
@@ -1169,13 +1473,32 @@ function applyTeamCommand(state: WfState, team: Team, command: WfCommandState, r
     const summonChoice = summon ?? (raw === undefined
         ? fallback.find((choice): choice is Extract<WarfrontChoice, { type: "summon" }> => choice.type === "summon")
         : undefined);
+    const ultimateChoice = ultimate ?? (raw === undefined
+        ? fallback.find((choice): choice is Extract<WarfrontChoice, { type: "ultimate" }> => choice.type === "ultimate")
+        : undefined);
     let summonLane: WfLaneId | undefined;
     let summonAspect: WfWardenAspect | undefined;
+    let ultimatePetIndex: number | undefined;
+    let ultimateName: string | undefined;
+    let favorSpent = 0;
+    if (ultimateChoice && state.favor[team] >= WF_ULTIMATE_FAVOR_COST) {
+        const pet = state.pets.find((candidate) => candidate.team === team && candidate.slot === ultimateChoice.petIndex);
+        if (pet && pet.ultimateCharge >= 100 && pet.respawnLeft <= 0 && command.activeLanes.includes(pet.lane)) {
+            state.favor[team] = quant(state.favor[team] - WF_ULTIMATE_FAVOR_COST);
+            state.favorReady[team] = state.favor[team] >= wardenCost(state, team);
+            pet.ultimateQueued = true;
+            ultimatePetIndex = pet.slot;
+            ultimateName = WF_SIGNATURES[pet.role].label;
+            favorSpent += WF_ULTIMATE_FAVOR_COST;
+            state.events.push({ t: state.t, type: "ultimatearmed", petId: pet.id, team, lane: pet.lane, signature: WF_SIGNATURES[pet.role].id, name: WF_SIGNATURES[pet.role].label });
+        }
+    }
     if (summonChoice && command.activeLanes.includes(summonChoice.lane) && !state.wardens[team].active) {
         const cost = wardenCost(state, team);
         if (state.favor[team] >= cost) {
             state.favor[team] = quant(state.favor[team] - cost);
             state.favorReady[team] = false;
+            favorSpent += cost;
             const warden = state.wardens[team];
             warden.active = true;
             warden.aspect = summonChoice.aspect;
@@ -1197,6 +1520,9 @@ function applyTeamCommand(state: WfState, team: Team, command: WfCommandState, r
         reason: command.reason,
         moves: appliedMoves,
         ...(summonLane && summonAspect ? { summonLane, summonAspect } : {}),
+        ...(ultimatePetIndex !== undefined ? { ultimatePetIndex, ultimateName } : {}),
+        ...(favorSpent > 0 ? { favorSpent } : {}),
+        ...(exposedLane ? { exposedLane } : {}),
     };
 }
 
@@ -1263,6 +1589,7 @@ export function startWarfrontMatch(
         blue,
         red,
         seed,
+        opts?.theme,
         opts?.initialLanes,
         { blue: opts?.blueStance, red: opts?.redStance },
         { blue: opts?.blueDoctrine, red: opts?.redDoctrine },
@@ -1285,6 +1612,8 @@ export function startWarfrontMatch(
         initialLanes: openingLanes,
         commandLog: state.commandLog,
         omen: state.omen,
+        mutator: state.mutator,
+        hazard: WF_HAZARDS[state.theme].id,
         commandImpacts: state.commandImpacts,
     };
     let segments = 0;
@@ -1293,7 +1622,9 @@ export function startWarfrontMatch(
         result.winner = state.winner;
         result.petStats = state.pets.map((pet) => ({
             id: pet.id, name: pet.pet.name, team: pet.team, level: 1,
-            kills: pet.kills, assists: pet.assists, dmg: Math.round(pet.dmg + pet.towerDamage), coins: 0,
+            kills: pet.kills, assists: pet.assists, dmg: Math.round(pet.dmg + pet.towerDamage),
+            towerDamage: Math.round(pet.towerDamage), healing: Math.round(pet.healing), damageTaken: Math.round(pet.damageTaken),
+            ultimates: pet.ultimates, coins: 0,
         }));
     };
     const emptyStacks = (): Record<WfPowerupKind, number> => ({ strike: 0, guard: 0, vitality: 0, swift: 0, mend: 0 });
@@ -1369,6 +1700,9 @@ export function runWarfrontMatch(
                     ...command.moves.map((move) => ({ type: "move" as const, petIndex: move.petIndex, lane: move.lane })),
                     ...(command.summonLane
                         ? [{ type: "summon" as const, lane: command.summonLane, aspect: command.summonAspect ?? "breaker" }]
+                        : []),
+                    ...(command.ultimatePetIndex !== undefined
+                        ? [{ type: "ultimate" as const, petIndex: command.ultimatePetIndex }]
                         : []),
                 ];
             }

@@ -109,7 +109,7 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
                 {/* Shared replay must be identical on every client — lock the auto-buy
                     policy (no interactive council) so the match is a pure function of
                     {blue, red, seed} on every machine. */}
-                <PetWarfrontMatch blue={lobby.match.blue} red={lobby.match.red} seed={lobby.match.seed} autoBuy="balanced" onExit={onExit} />
+                <PetWarfrontMatch blue={lobby.match.blue} red={lobby.match.red} seed={lobby.match.seed} autoBuy="balanced" matchType="coop" spectator onExit={onExit} />
             </Suspense>
         );
     }

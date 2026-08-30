@@ -1,4 +1,6 @@
 import {
+    lazy,
+    Suspense,
     useCallback,
     useEffect,
     useMemo,
@@ -11,15 +13,22 @@ import { createPortal } from "react-dom";
 import type { ArenaSlot } from "../lib/pet-arena-sim";
 import {
     WARFRONT_TPS,
+    WF_HAZARDS,
+    WF_MUTATORS,
     WF_OMENS,
+    WF_SIGNATURES,
+    WF_ULTIMATE_FAVOR_COST,
     WF_WARDEN_ASPECTS,
     wfVerdictScore,
     type WarfrontChoice,
+    type WarfrontCommandEntry,
     type WarfrontResult,
     type WfBuyPolicy,
     type WfCommandState,
     type WfDoctrine,
     type WfEvent,
+    type WfHazard,
+    type WfMutator,
     type WfOmen,
     type WfSnapshot,
     type WfStance,
@@ -40,11 +49,30 @@ import battlefieldArt from "../assets/warfront-three-lane/warfront-three-lane-gr
 import battlefieldPortraitArt from "../assets/warfront-three-lane/warfront-three-lane-ground-portrait.webp";
 import keyArt from "../assets/warfront-three-lane/warfront-three-lane-keyart.webp";
 import wardenArt from "../assets/coliseum/boss-warden.webp";
+import { petVisualQuality } from "../lib/pet-visual-quality";
 import "../styles/pet-warfront-three-lane.css";
 
+const loadPetWarfrontStage3D = () => import("./PetWarfrontStage3D").then((module) => ({ default: module.PetWarfrontStage3D }));
+const PetWarfrontStage3D = lazy(loadPetWarfrontStage3D);
+
 type Team = "blue" | "red";
+export type WarfrontMatchType = "unranked" | "ranked" | "coop" | "spectator";
 const TEAM_LABEL: Record<Team, string> = { blue: "Azure", red: "Crimson" };
 const DEFAULT_FORMATION: WfLaneId[] = ["n", "m", "s", "m"];
+const COMPACT_WARFRONT_QUERY = "(max-width: 820px), (max-height: 520px), (orientation: portrait)";
+const MATCH_TYPE_LABEL: Record<WarfrontMatchType, string> = {
+    unranked: "OPEN WARFRONT",
+    ranked: "RANKED WARFRONT",
+    coop: "CO-OP WARFRONT",
+    spectator: "SEALED REPLAY",
+};
+const STANCE_BRIEF: Record<WfStance, string> = {
+    balanced: "No combat modifier.",
+    siege: "+14% tower pressure · −6% pet damage · +2s reform time.",
+    jungle: "+20% Favor sources · −4% combat and tower damage.",
+    headhunt: "+10% pet damage · −12% tower pressure · +1s reform time.",
+    turtle: "−12% tower damage taken · −10% pet damage · −20% Favor.",
+};
 const MODAL_FOCUSABLE = [
     "button:not([disabled])",
     "select:not([disabled])",
@@ -53,6 +81,11 @@ const MODAL_FOCUSABLE = [
     "a[href]",
     "[tabindex]:not([tabindex='-1'])",
 ].join(",");
+
+function compactWarfrontPresentation(): boolean {
+    if (typeof window === "undefined" || !window.matchMedia) return false;
+    return window.matchMedia(COMPACT_WARFRONT_QUERY).matches;
+}
 
 const mmss = (seconds: number) => {
     const value = Math.max(0, Math.floor(seconds));
@@ -142,6 +175,13 @@ function eventLabel(event: WfEvent, blue: readonly ArenaSlot[], red: readonly Ar
     if (event.type === "favorready") return `${TEAM_LABEL[event.team]} Warden summon ready`;
     if (event.type === "wardensummon") return `${TEAM_LABEL[event.team]} summoned the ${event.aspect[0].toUpperCase()}${event.aspect.slice(1)} Warden to ${WF_LANE_LABEL[event.lane]}`;
     if (event.type === "wardendown") return event.expired ? `${TEAM_LABEL[event.team]} Warden returned to the seal` : `${TEAM_LABEL[event.by]} felled the enemy Warden`;
+    if (event.type === "ultimatearmed") return `${actorName(event.petId, blue, red)} armed ${event.name}`;
+    if (event.type === "ultimate") return `${actorName(event.petId, blue, red)} unleashed ${event.name}`;
+    if (event.type === "sealexposed") return `${TEAM_LABEL[event.team]} ${WF_LANE_LABEL[event.lane]} seal exposed for ${event.secs}s`;
+    if (event.type === "favorsteal") return `${TEAM_LABEL[event.team]} stole ${Math.round(event.amount)} Warden Favor`;
+    if (event.type === "lastward") return `${TEAM_LABEL[event.team]} invoked the Last Ward`;
+    if (event.type === "riftrally") return `${TEAM_LABEL[event.team]} gained a ${event.secs}s Rift Rally`;
+    if (event.type === "hazard") return `${event.label} swept ${WF_LANE_LABEL[event.lane]}`;
     if (event.type === "commandimpact" && event.impact.team === "blue") {
         const impact = event.impact;
         if (impact.towersBroken > 0) return `Your command secured ${impact.towersBroken} tower`;
@@ -162,9 +202,12 @@ function lanePressure(snapshot: WfSnapshot, team: Team, lane: WfLaneId): number 
     return petPower + (warden.active && warden.lane === lane ? 1.75 : 0);
 }
 
-function commandEntryLabel(entry: { moves: Array<{ petIndex: number; lane: WfLaneId }>; summonLane?: WfLaneId; summonAspect?: WfWardenAspect }, roster: readonly ArenaSlot[]): string {
+function commandEntryLabel(entry: Pick<WarfrontCommandEntry, "moves" | "summonLane" | "summonAspect" | "ultimatePetIndex" | "ultimateName" | "favorSpent" | "exposedLane">, roster: readonly ArenaSlot[]): string {
     const beats = entry.moves.map((move) => `${roster[move.petIndex]?.pet.name ?? `Pet ${move.petIndex + 1}`} → ${WF_LANE_LABEL[move.lane]}`);
     if (entry.summonLane && entry.summonAspect) beats.push(`${entry.summonAspect} Warden → ${WF_LANE_LABEL[entry.summonLane]}`);
+    if (entry.ultimatePetIndex !== undefined) beats.push(`${roster[entry.ultimatePetIndex]?.pet.name ?? `Pet ${entry.ultimatePetIndex + 1}`} · ${entry.ultimateName ?? "Signature"}`);
+    if (entry.exposedLane) beats.push(`${WF_LANE_LABEL[entry.exposedLane]} exposed`);
+    if (entry.favorSpent) beats.push(`${entry.favorSpent} Favor committed`);
     return beats.length ? beats.join(" · ") : "Hold formation";
 }
 
@@ -173,7 +216,7 @@ function majorEventLane(events: readonly WfEvent[], tick: number): WfLaneId | nu
         const event = events[index];
         if (event.t > tick) continue;
         if (tick - event.t > WARFRONT_TPS * 2.5) return null;
-        if (event.type === "towerdown" || event.type === "towerfractured" || event.type === "wardensummon" || event.type === "wardenslam") return event.lane;
+        if (event.type === "towerdown" || event.type === "towerfractured" || event.type === "wardensummon" || event.type === "wardenslam" || event.type === "ultimate" || event.type === "hazard" || event.type === "sealexposed") return event.lane;
     }
     return null;
 }
@@ -186,7 +229,7 @@ function directorRate(result: WarfrontResult, tick: number, reducedMotion: boole
         const event = result.events[index];
         if (event.t > tick) continue;
         if (tick - event.t > WARFRONT_TPS * 0.75) break;
-        if (event.type === "towerdown" || event.type === "towerfractured" || event.type === "wardensummon" || event.type === "wardenslam") {
+        if (event.type === "towerdown" || event.type === "towerfractured" || event.type === "wardensummon" || event.type === "wardenslam" || event.type === "ultimate" || event.type === "hazard" || event.type === "lastward") {
             recentMajor = true;
             break;
         }
@@ -208,12 +251,12 @@ function TowerMarker({ snapshot, team, lane }: { snapshot: WfSnapshot; team: Tea
     const fraction = tower.hp / Math.max(1, tower.maxHp);
     return (
         <div
-            className={`wf3-tower wf3-tower--${team}${tower.alive ? "" : " is-destroyed"}${tower.fractured ? " is-fractured" : ""}`}
+            className={`wf3-tower wf3-tower--${team}${tower.alive ? "" : " is-destroyed"}${tower.fractured ? " is-fractured" : ""}${tower.exposedSecs > 0 ? " is-exposed" : ""}${tower.guardSecs > 0 ? " is-guarded" : ""}`}
             style={{ ...boardPosition(tower.x, tower.y), "--tower-hp": `${Math.round(fraction * 100)}%` } as CSSProperties}
             role="img"
-            aria-label={`${TEAM_LABEL[team]} ${WF_LANE_LABEL[lane]} Tower ${Math.round(fraction * 100)} percent`}
+            aria-label={`${TEAM_LABEL[team]} ${WF_LANE_LABEL[lane]} Tower ${Math.round(fraction * 100)} percent${tower.exposedSecs > 0 ? ", exposed" : tower.guardSecs > 0 ? ", Last Ward protected" : ""}`}
         >
-            <div className="wf3-tower__ring"><span>{tower.alive ? "◆" : "✕"}</span></div>
+            <div className="wf3-tower__ring"><span>{tower.alive ? tower.exposedSecs > 0 ? "!" : tower.guardSecs > 0 ? "⬡" : "◆" : "✕"}</span></div>
             <div className="wf3-tower__bar"><i style={{ width: `${Math.max(0, fraction * 100)}%` }} /></div>
         </div>
     );
@@ -240,6 +283,7 @@ function PetToken({ actor, slot }: {
             </div>
             <div className="wf3-pet__name">{slot?.pet.name ?? actor.id}</div>
             <div className="wf3-pet__hp"><i style={{ width: `${Math.max(0, hp * 100)}%` }} /></div>
+            <div className={`wf3-pet__ultimate${actor.ultimateReady ? " is-ready" : ""}`} title={`${WF_SIGNATURES[actor.role].label} ${Math.floor(actor.ultimateCharge)}%`}><i style={{ width: `${actor.ultimateCharge}%` }} /></div>
             {down ? <div className="wf3-pet__respawn">{Math.ceil(actor.respawnSecs)}s</div> : null}
         </div>
     );
@@ -290,15 +334,22 @@ function LaneRibbon({ snapshot, lane, selected, onSelect }: { snapshot: WfSnapsh
     );
 }
 
-function DeploymentPanel({ blue, formation, omen, onChange, onDeploy }: {
+function DeploymentPanel({ blue, formation, omen, mutator, hazard, stance, doctrine, matchType, onChange, onDeploy }: {
     blue: ArenaSlot[];
     formation: WfLaneId[];
     omen: WfOmen;
+    mutator: WfMutator;
+    hazard: WfHazard;
+    stance: WfStance;
+    doctrine: WfDoctrine;
+    matchType: WarfrontMatchType;
     onChange: (index: number, lane: WfLaneId) => void;
     onDeploy: () => void;
 }) {
     const valid = formationValid(formation, blue.length);
     const omenSpec = WF_OMENS.find((entry) => entry.id === omen) ?? WF_OMENS[0];
+    const mutatorSpec = WF_MUTATORS.find((entry) => entry.id === mutator) ?? WF_MUTATORS[0];
+    const hazardSpec = Object.values(WF_HAZARDS).find((entry) => entry.id === hazard) ?? WF_HAZARDS.central;
     const dialogRef = useDialogFocus<HTMLDivElement>();
     return (
         <div ref={dialogRef} className="wf3-deploy" role="dialog" aria-modal="true" aria-labelledby="wf3-deploy-title" tabIndex={-1}>
@@ -307,13 +358,24 @@ function DeploymentPanel({ blue, formation, omen, onChange, onDeploy }: {
                 <strong>Three fronts. Two towers. One command.</strong>
             </div>
             <div className="wf3-deploy__plan">
-                <p className="wf3-eyebrow">OPENING DEPLOYMENT</p>
+                <p className="wf3-eyebrow">{MATCH_TYPE_LABEL[matchType]} · OPENING DEPLOYMENT</p>
                 <h2 id="wf3-deploy-title">Commit your squad</h2>
                 <p>Every causeway needs a guardian. Your fourth pet creates the opening advantage.</p>
-                <section className="wf3-omen-card" aria-label={`Hollow Omen: ${omenSpec.label}`}>
-                    <b>{omenSpec.icon}</b>
-                    <div><small>HOLLOW OMEN</small><strong>{omenSpec.label}</strong><p>{omenSpec.desc}</p></div>
-                </section>
+                <div className="wf3-directive-grid">
+                    <section className="wf3-omen-card" aria-label={`Hollow Omen: ${omenSpec.label}`}>
+                        <b>{omenSpec.icon}</b>
+                        <div><small>HOLLOW OMEN</small><strong>{omenSpec.label}</strong><p>{omenSpec.desc}</p></div>
+                    </section>
+                    <section className="wf3-omen-card is-mutator" aria-label={`Warfront directive: ${mutatorSpec.label}`}>
+                        <b>{mutatorSpec.icon}</b>
+                        <div><small>WARFRONT DIRECTIVE</small><strong>{mutatorSpec.label}</strong><p>{mutatorSpec.desc}</p></div>
+                    </section>
+                    <section className="wf3-omen-card is-hazard" aria-label={`Arena hazard: ${hazardSpec.label}`}>
+                        <b>{hazardSpec.icon}</b>
+                        <div><small>ARENA HAZARD</small><strong>{hazardSpec.label}</strong><p>{hazardSpec.desc}</p></div>
+                    </section>
+                </div>
+                <section className="wf3-plan-tradeoff"><small>SEALED BATTLE PLAN</small><strong>{stance.toUpperCase()} · {doctrine.replace("-", " ").toUpperCase()}</strong><p>{STANCE_BRIEF[stance]}</p></section>
                 <div className="wf3-deploy__roster">
                     {blue.map((slot, index) => (
                         <article key={slot.pet.id}>
@@ -357,9 +419,12 @@ function CommandPanel({ command, snapshot, blue, doctrine, onConfirm }: {
     ));
     const [summonLane, setSummonLane] = useState<WfLaneId | "">("");
     const [summonAspect, setSummonAspect] = useState<WfWardenAspect>("breaker");
-    const favorCost = snapshot.omen === "thin-veil" ? 80 : doctrine === "warden-pact" ? 85 : 100;
-    const summonReady = snapshot.favor.blue >= favorCost && !snapshot.wardens.blue.active;
+    const [ultimatePet, setUltimatePet] = useState<number | null>(null);
+    const favorCost = snapshot.omen === "thin-veil" ? 80 : snapshot.mutator === "warden-tide" ? 85 : doctrine === "warden-pact" ? 85 : 100;
+    const summonReady = snapshot.favor.blue >= favorCost && !snapshot.wardens.blue.active && ultimatePet === null;
     const currentLane = (slot: number) => snapshot.actors.find((actor) => actor.team === "blue" && actor.slot === slot)?.lane;
+    const signatureActors = snapshot.actors.filter((actor) => actor.team === "blue" && actor.respawnSecs <= 0 && command.activeLanes.includes(actor.lane));
+    const selectedSpend = summonLane ? favorCost : ultimatePet !== null ? WF_ULTIMATE_FAVOR_COST : 0;
     const submit = () => {
         const choices: WarfrontChoice[] = [];
         if (command.reason !== "breakthrough" && scheduledPet !== null && currentLane(scheduledPet) !== scheduledLane) {
@@ -369,6 +434,7 @@ function CommandPanel({ command, snapshot, blue, doctrine, onConfirm }: {
             for (const slot of command.freedPetSlots.blue) choices.push({ type: "move", petIndex: slot, lane: breakthrough[slot] ?? command.activeLanes[0] });
         }
         if (summonReady && summonLane) choices.push({ type: "summon", lane: summonLane, aspect: summonAspect });
+        if (ultimatePet !== null) choices.push({ type: "ultimate", petIndex: ultimatePet });
         onConfirm(choices);
     };
     return (
@@ -380,21 +446,24 @@ function CommandPanel({ command, snapshot, blue, doctrine, onConfirm }: {
             </div>
             <div className="wf3-command__body">
                 {command.reason !== "breakthrough" ? (
-                    <div className="wf3-command__move-grid">
-                        <label>
-                            <span>Pet to transfer</span>
-                            <select value={scheduledPet ?? ""} onChange={(event) => setScheduledPet(event.target.value === "" ? null : Number(event.target.value))}>
-                                <option value="">Hold formation</option>
-                                {blue.map((slot, index) => <option key={slot.pet.id} value={index}>{slot.pet.name} · {WF_LANE_LABEL[currentLane(index) ?? "m"]}</option>)}
-                            </select>
-                        </label>
-                        <label>
-                            <span>Destination</span>
-                            <select value={scheduledLane} disabled={scheduledPet === null} onChange={(event) => setScheduledLane(event.target.value as WfLaneId)}>
-                                {command.activeLanes.map((lane) => <option key={lane} value={lane}>{WF_LANE_LABEL[lane]}</option>)}
-                            </select>
-                        </label>
-                    </div>
+                    <>
+                        <div className="wf3-command__move-grid">
+                            <label>
+                                <span>Pet to transfer</span>
+                                <select value={scheduledPet ?? ""} onChange={(event) => setScheduledPet(event.target.value === "" ? null : Number(event.target.value))}>
+                                    <option value="">Hold formation</option>
+                                    {blue.map((slot, index) => <option key={slot.pet.id} value={index}>{slot.pet.name} · {WF_LANE_LABEL[currentLane(index) ?? "m"]}</option>)}
+                                </select>
+                            </label>
+                            <label>
+                                <span>Destination</span>
+                                <select value={scheduledLane} disabled={scheduledPet === null} onChange={(event) => setScheduledLane(event.target.value as WfLaneId)}>
+                                    {command.activeLanes.map((lane) => <option key={lane} value={lane}>{WF_LANE_LABEL[lane]}</option>)}
+                                </select>
+                            </label>
+                        </div>
+                        {scheduledPet !== null ? <p className="wf3-command__risk"><b>TRANSFER RISK</b> {WF_LANE_LABEL[currentLane(scheduledPet) ?? "m"]} loses its seal protection for 8 seconds.</p> : null}
+                    </>
                 ) : (
                     <div className="wf3-command__freed">
                         {command.freedPetSlots.blue.map((slot) => (
@@ -407,10 +476,35 @@ function CommandPanel({ command, snapshot, blue, doctrine, onConfirm }: {
                         ))}
                     </div>
                 )}
+                <section className="wf3-command__signatures" aria-label="Authorize a pet signature ultimate">
+                    <header><div><small>SIGNATURE AUTHORIZATION</small><strong>Spend {WF_ULTIMATE_FAVOR_COST} Favor for one ultimate</strong></div><span>{Math.floor(snapshot.favor.blue - selectedSpend)} remaining</span></header>
+                    <div>
+                        {signatureActors.map((actor) => {
+                            const slot = blue[actor.slot];
+                            const signature = WF_SIGNATURES[actor.role];
+                            const ready = actor.ultimateReady && snapshot.favor.blue >= WF_ULTIMATE_FAVOR_COST && !summonLane;
+                            return (
+                                <button
+                                    key={actor.id}
+                                    type="button"
+                                    disabled={!ready && ultimatePet !== actor.slot}
+                                    className={ultimatePet === actor.slot ? "is-selected" : ""}
+                                    aria-pressed={ultimatePet === actor.slot}
+                                    onClick={() => {
+                                        setUltimatePet((current) => current === actor.slot ? null : actor.slot);
+                                        setSummonLane("");
+                                    }}
+                                >
+                                    <b>{signature.icon}</b><span>{slot?.pet.name ?? actor.id}<small>{signature.label}</small></span><em>{Math.floor(actor.ultimateCharge)}%</em>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </section>
                 <section className={`wf3-command__warden${summonReady ? " is-ready" : ""}`}>
                     <img src={wardenArt} alt="" />
                     <div><strong>Gate Warden</strong><small>{Math.floor(snapshot.favor.blue)}/{favorCost} Favor</small></div>
-                    <select aria-label="Warden summon lane" value={summonLane} disabled={!summonReady} onChange={(event) => setSummonLane(event.target.value as WfLaneId | "")}>
+                    <select aria-label="Warden summon lane" value={summonLane} disabled={!summonReady} onChange={(event) => { setSummonLane(event.target.value as WfLaneId | ""); setUltimatePet(null); }}>
                         <option value="">{summonReady ? "Hold summon" : "Gather more Favor"}</option>
                         {command.activeLanes.map((lane) => <option key={lane} value={lane}>Summon · {WF_LANE_LABEL[lane]}</option>)}
                     </select>
@@ -488,25 +582,29 @@ function CommandImpactToast({ event }: { event: Extract<WfEvent, { type: "comman
 function ResultPanel({
     result,
     blue,
+    red,
     score,
+    matchType,
     resultSupplement,
     settlementPending,
     resultActionsLocked,
     allowReseed,
     onExit,
-    onReplayHighlight,
+    onReplayTurningPoint,
     onReplay,
     onReseed,
 }: {
     result: WarfrontResult;
     blue: readonly ArenaSlot[];
+    red: readonly ArenaSlot[];
     score: Record<Team, number>;
+    matchType: WarfrontMatchType;
     resultSupplement?: ReactNode;
     settlementPending: boolean;
     resultActionsLocked: boolean;
     allowReseed: boolean;
     onExit: () => void;
-    onReplayHighlight: () => void;
+    onReplayTurningPoint: (tick: number) => void;
     onReplay: () => void;
     onReseed: () => void;
 }) {
@@ -521,6 +619,21 @@ function ResultPanel({
         a.towersBroken * 5000 - a.towersLost * 3500 + a.towerDamageDealt - a.towerDamageTaken * 0.35
     ))[0];
     const lastTower = [...result.events].reverse().find((event): event is Extract<WfEvent, { type: "towerdown" }> => event.type === "towerdown");
+    const blueStats = result.petStats?.filter((row) => row.team === "blue") ?? [];
+    const mvp = [...blueStats].sort((a, b) => (
+        b.kills * 900 + b.assists * 450 + b.towerDamage + b.healing * 0.8 + b.damageTaken * 0.2 + b.ultimates * 700
+    ) - (
+        a.kills * 900 + a.assists * 450 + a.towerDamage + a.healing * 0.8 + a.damageTaken * 0.2 + a.ultimates * 700
+    ) || a.name.localeCompare(b.name))[0];
+    const turningTick = bestImpact?.t ?? lastTower?.t ?? result.ticks;
+    const notableEvents = result.events.filter((event) => (
+        event.type === "ultimate" || event.type === "towerfractured" || event.type === "towerdown"
+        || event.type === "lastward" || event.type === "riftrally" || event.type === "hazard"
+    )).slice(-5);
+    const finalSnapshot = result.snapshots[result.snapshots.length - 1];
+    const mutatorSpec = WF_MUTATORS.find((entry) => entry.id === result.mutator) ?? WF_MUTATORS[0];
+    const hazardSpec = Object.values(WF_HAZARDS).find((entry) => entry.id === result.hazard) ?? WF_HAZARDS.central;
+    const teamUltimates = blueStats.reduce((total, row) => total + row.ultimates, 0);
     return (
         <div
             ref={dialogRef}
@@ -530,6 +643,7 @@ function ResultPanel({
             aria-labelledby="wf3-result-verdict wf3-result-title"
             tabIndex={-1}
         >
+            <small className="wf3-result__mode">{MATCH_TYPE_LABEL[matchType]} · {mutatorSpec.label} · {hazardSpec.label}</small>
             <div id="wf3-result-verdict" className={`wf3-result__crest is-${winner}`}>{verdict}</div>
             <p>{score.blue} <span>towers</span> {score.red}</p>
             <h2 id="wf3-result-title">{winner === "blue" ? "The Hollow answers your command." : winner === "red" ? "The rival seals claimed the Warfront." : "Neither command could break the final ward."}</h2>
@@ -545,13 +659,32 @@ function ResultPanel({
                     <span>{commandEntryLabel(bestImpact, blue)}</span>
                 </section>
             ) : null}
+            <section className="wf3-result__overview" aria-label="Match overview">
+                <div><small>DURATION</small><strong>{mmss(result.ticks / WARFRONT_TPS)}</strong></div>
+                <div><small>TOWER PRESSURE</small><strong>{Math.round(finalSnapshot?.towerDamage.blue ?? 0).toLocaleString()}</strong></div>
+                <div><small>SIGNATURES</small><strong>{teamUltimates}</strong></div>
+                <div><small>MVP</small><strong>{mvp?.name ?? "—"}</strong></div>
+            </section>
+            {mvp ? (
+                <section className="wf3-result__mvp">
+                    <small>WARFRONT MVP</small>
+                    <strong>{mvp.name}</strong>
+                    <span>{mvp.kills} takedowns · {mvp.assists} assists · {mvp.towerDamage.toLocaleString()} tower · {mvp.healing.toLocaleString()} restored</span>
+                </section>
+            ) : null}
             <div className="wf3-result__stats">
-                {result.petStats?.filter((row) => row.team === "blue").map((row) => <div key={row.id}><strong>{row.name}</strong><span>{row.kills} K · {row.assists} A · {row.dmg.toLocaleString()} impact</span></div>)}
+                {blueStats.map((row) => <div key={row.id}><strong>{row.name}</strong><span>{row.kills} K · {row.assists} A · {row.towerDamage.toLocaleString()} tower · {row.healing.toLocaleString()} heal · {row.ultimates} signature</span></div>)}
             </div>
+            {notableEvents.length ? (
+                <section className="wf3-result__timeline" aria-label="Warfront turning points">
+                    <small>TURNING-POINT TIMELINE</small>
+                    {notableEvents.map((event, index) => <div key={`${event.t}-${event.type}-${index}`}><time>{mmss(event.t / WARFRONT_TPS)}</time><span>{eventLabel(event, blue, red) ?? event.type}</span></div>)}
+                </section>
+            ) : null}
             {resultSupplement}
             <div className="wf3-result__actions">
                 <button type="button" onClick={onExit} disabled={settlementPending}>{settlementPending ? "Recording result…" : "Return to arena"}</button>
-                <button type="button" onClick={onReplayHighlight} disabled={resultActionsLocked}>Replay final break</button>
+                <button type="button" onClick={() => onReplayTurningPoint(turningTick)} disabled={resultActionsLocked}>Replay turning point</button>
                 <button type="button" onClick={onReplay} disabled={resultActionsLocked}>Full replay</button>
                 {allowReseed ? <button type="button" onClick={onReseed} disabled={resultActionsLocked}>New opponent plan</button> : null}
             </div>
@@ -577,6 +710,8 @@ export type PetWarfrontMatchProps = {
     resultActionsLocked?: boolean;
     settlementPending?: boolean;
     resultSupplement?: ReactNode;
+    matchType?: WarfrontMatchType;
+    spectator?: boolean;
 };
 
 export function PetWarfrontMatch({
@@ -597,9 +732,13 @@ export function PetWarfrontMatch({
     resultActionsLocked = false,
     settlementPending = false,
     resultSupplement,
+    matchType = "unranked",
+    spectator = false,
 }: PetWarfrontMatchProps) {
+    const isSpectator = spectator || matchType === "spectator";
     const [formation, setFormation] = useState<WfLaneId[]>(() => DEFAULT_FORMATION.slice(0, blue.length));
-    const [deployed, setDeployed] = useState(false);
+    const [deployed, setDeployed] = useState(isSpectator);
+    const [run, setRun] = useState(0);
     const [seedBump, setSeedBump] = useState(0);
     const [version, setVersion] = useState(0);
     const [displayTick, setDisplayTick] = useState(0);
@@ -608,6 +747,8 @@ export function PetWarfrontMatch({
     const [paused, setPaused] = useState(false);
     const [selectedFocusLane, setSelectedFocusLane] = useState<WfLaneId | null>(null);
     const [reducedMotion] = useState(() => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    const [visualQuality] = useState(() => petVisualQuality());
+    const [compactPresentation, setCompactPresentation] = useState(compactWarfrontPresentation);
     const shellRef = useRef<HTMLDivElement | null>(null);
     const clockRef = useRef(0);
     const lastFrameRef = useRef<number | null>(null);
@@ -618,19 +759,36 @@ export function PetWarfrontMatch({
     const effectiveSeed = seed + seedBump * 1000003;
     const safePlaybackRate = Number.isFinite(playbackRate) ? clamp(playbackRate, 0.1, 20) : 1;
     const themeSpec = WF_THEMES[theme];
-    const controller = useMemo(() => createWarfrontWorkerController({
-        blue,
-        red,
-        seed: effectiveSeed,
-        bluePolicy: autoBuy,
-        redPolicy: opponentAutoBuy,
-        theme,
-        blueStance: stance,
-        redStance: opponentStance,
-        blueDoctrine: doctrine,
-        redDoctrine: opponentDoctrine,
-        initialLanes: { blue: formation, red: DEFAULT_FORMATION.slice(0, red.length) },
-    }), [blue, red, effectiveSeed, autoBuy, opponentAutoBuy, theme, stance, opponentStance, doctrine, opponentDoctrine, formation]);
+    const controller = useMemo(() => {
+        // `run` is the generation key that intentionally replaces a completed
+        // worker even when the player replays the same sealed seed.
+        void run;
+        return createWarfrontWorkerController({
+            blue,
+            red,
+            seed: effectiveSeed,
+            bluePolicy: autoBuy,
+            redPolicy: opponentAutoBuy,
+            theme,
+            blueStance: stance,
+            redStance: opponentStance,
+            blueDoctrine: doctrine,
+            redDoctrine: opponentDoctrine,
+            initialLanes: { blue: formation, red: DEFAULT_FORMATION.slice(0, red.length) },
+        });
+    }, [blue, red, effectiveSeed, autoBuy, opponentAutoBuy, theme, stance, opponentStance, doctrine, opponentDoctrine, formation, run]);
+
+    useEffect(() => {
+        if (typeof window === "undefined" || !window.matchMedia) return;
+        const query = window.matchMedia(COMPACT_WARFRONT_QUERY);
+        const update = () => setCompactPresentation(query.matches);
+        query.addEventListener("change", update);
+        return () => query.removeEventListener("change", update);
+    }, []);
+
+    useEffect(() => {
+        if (visualQuality.id !== "low" && !compactPresentation) void loadPetWarfrontStage3D();
+    }, [compactPresentation, visualQuality.id]);
 
     useEffect(() => {
         const shell = shellRef.current;
@@ -657,6 +815,14 @@ export function PetWarfrontMatch({
 
     useEffect(() => {
         clockRef.current = 0;
+        // A new worker controller is a new match; resetting its presentation in
+        // one batched effect prevents state from leaking between sealed runs.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setDisplayTick(0);
+        setCommandOpen(null);
+        setResultShown(false);
+        setPaused(false);
+        setSelectedFocusLane(null);
         resultReportedRef.current = false;
         audioEventCursorRef.current = 0;
         lastPruneTickRef.current = 0;
@@ -666,7 +832,15 @@ export function PetWarfrontMatch({
 
     const result = controller.result;
     const command = controller.commandState();
+    const commandSequence = command?.sequence;
+    const commandTick = command?.t;
     const frontier = result.ticks;
+
+    useEffect(() => {
+        if (!isSpectator || commandSequence === undefined) return;
+        lastResolvedCommandSequenceRef.current = commandSequence;
+        controller.advanceRound(undefined);
+    }, [commandSequence, controller, isSpectator]);
 
     useEffect(() => {
         if (!deployed) return;
@@ -687,16 +861,16 @@ export function PetWarfrontMatch({
                 lastPruneTickRef.current = tick;
             }
             setDisplayTick((current) => current === tick ? current : tick);
-            if (command && tick >= command.t && command.sequence > lastResolvedCommandSequenceRef.current) {
-                clockRef.current = command.t;
-                setCommandOpen(command.sequence);
+            if (!isSpectator && commandTick !== undefined && commandSequence !== undefined && tick >= commandTick && commandSequence > lastResolvedCommandSequenceRef.current) {
+                clockRef.current = commandTick;
+                setCommandOpen(commandSequence);
             }
             if (result.winner && tick >= frontier) setResultShown(true);
             raf = requestAnimationFrame(frame);
         };
         raf = requestAnimationFrame(frame);
         return () => cancelAnimationFrame(raf);
-    }, [controller, deployed, frontier, command, result, result.winner, paused, resultShown, safePlaybackRate, reducedMotion, version]);
+    }, [controller, deployed, frontier, commandSequence, commandTick, result, result.winner, paused, resultShown, safePlaybackRate, reducedMotion, version, isSpectator]);
 
     useEffect(() => {
         if (!resultShown || resultReportedRef.current || !result.winner) return;
@@ -728,6 +902,8 @@ export function PetWarfrontMatch({
     const commandInterval = result.omen === "storm-gate" ? 90 : 120;
     const nextCommandSeconds = Math.max(0, commandInterval - (displayTick / WARFRONT_TPS) % commandInterval);
     const omenSpec = WF_OMENS.find((entry) => entry.id === result.omen) ?? WF_OMENS[0];
+    const mutatorSpec = WF_MUTATORS.find((entry) => entry.id === result.mutator) ?? WF_MUTATORS[0];
+    const hazardSpec = Object.values(WF_HAZARDS).find((entry) => entry.id === result.hazard) ?? WF_HAZARDS.central;
 
     useEffect(() => {
         let cue: Parameters<typeof playPetSfx>[0] | null = null;
@@ -741,6 +917,9 @@ export function PetWarfrontMatch({
             else if (event.type === "favorready") cue = "buff";
             else if (event.type === "kill") cue = "ko";
             else if (event.type === "redeploy") cue = "move";
+            else if (event.type === "ultimate") cue = "finisher";
+            else if (event.type === "lastward" || event.type === "riftrally") cue = "buff";
+            else if (event.type === "hazard") cue = "crit";
         }
         if (cue) playPetSfx(cue);
     }, [displayTick, result.events, result.events.length]);
@@ -777,14 +956,14 @@ export function PetWarfrontMatch({
         setPaused(false);
         setSelectedFocusLane(null);
         if (newSeed) setSeedBump((value) => value + 1);
-        setDeployed(false);
+        setRun((value) => value + 1);
+        setDeployed(isSpectator);
         setFormation(DEFAULT_FORMATION.slice(0, blue.length));
     };
 
-    const replayFinalBreak = () => {
+    const replayFromTick = (requestedTick: number) => {
         if (resultActionsLocked || !result.winner) return;
-        const finalBreak = [...result.events].reverse().find((event) => event.type === "towerdown");
-        const highlightTick = Math.max(0, (finalBreak?.t ?? result.ticks) - WARFRONT_TPS * 8);
+        const highlightTick = Math.max(0, requestedTick - WARFRONT_TPS * 7);
         const firstHighlightEvent = result.events.findIndex((event) => event.t >= highlightTick);
         clockRef.current = highlightTick;
         audioEventCursorRef.current = firstHighlightEvent < 0 ? result.events.length : firstHighlightEvent;
@@ -795,23 +974,35 @@ export function PetWarfrontMatch({
         startBattleMusic();
     };
 
-    const commandVisible = Boolean(snapshot && command && commandOpen === command.sequence);
+    const commandVisible = Boolean(!isSpectator && snapshot && command && commandOpen === command.sequence);
     const resultVisible = Boolean(resultShown && snapshot && result.winner);
     const stageInteractionBlocked = !deployed
         || commandVisible
         || resultVisible
         || controller.status === "loading"
         || controller.status === "error";
+    const useThreeDimensionalStage = visualQuality.id !== "low" && !compactPresentation;
+    const domBattlefield = snapshot ? (
+        <>
+            {WF_LANE_IDS.map((lane) => <TowerMarker key={`bt-${lane}`} snapshot={snapshot} team="blue" lane={lane} />)}
+            {WF_LANE_IDS.map((lane) => <TowerMarker key={`rt-${lane}`} snapshot={snapshot} team="red" lane={lane} />)}
+            {snapshot.actors.map((actor) => (
+                <PetToken key={actor.id} actor={actor} slot={(actor.team === "blue" ? blue : red)[actor.slot]} />
+            ))}
+            <WardenToken snapshot={snapshot} team="blue" />
+            <WardenToken snapshot={snapshot} team="red" />
+        </>
+    ) : null;
 
     const overlay = (
         <div ref={shellRef} className="pet-combat-takeover wf3-shell" style={{ "--wf3-void": themeSpec.voidColor, "--wf3-glow": themeSpec.breachGlow } as CSSProperties}>
             <header className="wf3-topbar" inert={stageInteractionBlocked} aria-hidden={stageInteractionBlocked}>
-                <div className="wf3-brand"><span>HOLLOW WARFRONT</span><strong>FIRST TO TWO TOWERS</strong></div>
+                <div className="wf3-brand"><span>HOLLOW WARFRONT · {MATCH_TYPE_LABEL[matchType]}</span><strong>FIRST TO TWO TOWERS</strong></div>
                 <div className="wf3-score" aria-label={`Azure ${score.blue}, Crimson ${score.red}`} aria-live="polite">
                     <b className="is-blue">{score.blue}</b><span>◆</span><b className="is-red">{score.red}</b>
                 </div>
                 <div className={`wf3-clock${nextCommandSeconds <= 15 ? " is-imminent" : ""}`}><strong>{mmss(displayTick / WARFRONT_TPS)}</strong><small>{displayTick >= WARFRONT_TPS * 480 ? `RIFTFALL · CMD ${mmss(nextCommandSeconds)}` : `COMMAND ${mmss(nextCommandSeconds)}`}</small></div>
-                <div className="wf3-omen-chip" title={omenSpec.desc}><b>{omenSpec.icon}</b><span>{omenSpec.label}</span></div>
+                <div className="wf3-omen-chip" title={`${omenSpec.desc} ${mutatorSpec.desc} Arena hazard: ${hazardSpec.desc}`}><b>{omenSpec.icon}</b><div><span>{omenSpec.label}</span><small>{mutatorSpec.label}</small></div></div>
                 <div className="wf3-actions">
                     <button type="button" onClick={() => setPaused((value) => !value)} aria-pressed={paused} aria-label={paused ? "Resume Warfront" : "Pause Warfront"}>{paused ? "▶" : "Ⅱ"}</button>
                     <button type="button" onClick={onExit} disabled={settlementPending} aria-label="Leave Warfront">×</button>
@@ -827,17 +1018,19 @@ export function PetWarfrontMatch({
                     } as CSSProperties}
                 >
                     <div className="wf3-board__vignette" />
-                    {snapshot ? (
-                        <>
-                            {WF_LANE_IDS.map((lane) => <TowerMarker key={`bt-${lane}`} snapshot={snapshot} team="blue" lane={lane} />)}
-                            {WF_LANE_IDS.map((lane) => <TowerMarker key={`rt-${lane}`} snapshot={snapshot} team="red" lane={lane} />)}
-                            {snapshot.actors.map((actor) => (
-                                <PetToken key={actor.id} actor={actor} slot={(actor.team === "blue" ? blue : red)[actor.slot]} />
-                            ))}
-                            <WardenToken snapshot={snapshot} team="blue" />
-                            <WardenToken snapshot={snapshot} team="red" />
-                        </>
-                    ) : null}
+                    {snapshot ? useThreeDimensionalStage ? (
+                        <Suspense fallback={domBattlefield}>
+                            <PetWarfrontStage3D
+                                snapshot={snapshot}
+                                blue={blue}
+                                red={red}
+                                quality={visualQuality}
+                                displayTick={displayTick}
+                                events={result.events}
+                                theme={theme}
+                            />
+                        </Suspense>
+                    ) : domBattlefield : null}
                 </div>
 
                 <aside className="wf3-lanes" aria-label="Lane status">
@@ -863,7 +1056,7 @@ export function PetWarfrontMatch({
                 {snapshot ? (
                     <div className="wf3-favor">
                         <div className="wf3-favor__side is-blue" role="progressbar" aria-label="Azure Warden Favor" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(snapshot.favor.blue)}><span>WARDEN FAVOR</span><strong>{Math.floor(snapshot.favor.blue)}</strong><i><b style={{ width: `${snapshot.favor.blue}%` }} /></i></div>
-                        <div className="wf3-favor__crest">♜</div>
+                        <div className="wf3-favor__crest"><img src={wardenArt} alt="" draggable={false} /></div>
                         <div className="wf3-favor__side is-red" role="progressbar" aria-label="Crimson Warden Favor" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(snapshot.favor.red)}><span>RIVAL FAVOR</span><strong>{Math.floor(snapshot.favor.red)}</strong><i><b style={{ width: `${snapshot.favor.red}%` }} /></i></div>
                     </div>
                 ) : null}
@@ -874,6 +1067,11 @@ export function PetWarfrontMatch({
                     blue={blue}
                     formation={formation}
                     omen={result.omen}
+                    mutator={result.mutator}
+                    hazard={result.hazard}
+                    stance={stance}
+                    doctrine={doctrine}
+                    matchType={matchType}
                     onChange={(index, lane) => setFormation((current) => current.map((value, at) => at === index ? lane : value))}
                     onDeploy={deploy}
                 />
@@ -890,13 +1088,15 @@ export function PetWarfrontMatch({
                 <ResultPanel
                     result={result}
                     blue={blue}
+                    red={red}
                     score={score}
+                    matchType={matchType}
                     resultSupplement={resultSupplement}
                     settlementPending={settlementPending}
                     resultActionsLocked={resultActionsLocked}
                     allowReseed={allowReseed}
                     onExit={onExit}
-                    onReplayHighlight={replayFinalBreak}
+                    onReplayTurningPoint={replayFromTick}
                     onReplay={() => restart(false)}
                     onReseed={() => restart(true)}
                 />

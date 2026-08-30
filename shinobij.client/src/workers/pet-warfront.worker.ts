@@ -33,6 +33,8 @@ function emitBatch() {
         commandState: ctl.commandState(),
         commandLog: ctl.commandLog(),
         omen: result.omen,
+        mutator: result.mutator,
+        hazard: result.hazard,
         commandImpacts: result.commandImpacts,
         stances: ctl.stances(),
         buyState: ctl.buyState("blue"),
