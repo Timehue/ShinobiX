@@ -580,7 +580,7 @@ export function IntroCinematic({
             {phase.kind === "vow" && (
                 <div className="icx-choose icx-vow" onClick={(e) => e.stopPropagation()}>
                     <div className="icx-vow-heading">
-                        <p className="icx-choose-kicker">What the Gate Could Not Name</p>
+                        <p className="icx-choose-kicker">The Choice the Gate Could Not Make</p>
                         <h2 className="icx-choose-title">Choose the answer you will carry</h2>
                         <p className="icx-choose-sub">
                             This shapes later dialogue and your Field Seal. It never changes stats, rewards, or access.
