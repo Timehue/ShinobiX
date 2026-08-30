@@ -5672,19 +5672,14 @@ export default function App() {
         }
         const returnTarget = returnScreen ?? activeTriggerReturnScreen;
         const opponent = creatorEventPracticeOpponent(event.aiProfileId, battle?.aiProfileId, character?.level ?? event.levelReq);
-        if (!requestAiFight({
+        const launched = requestAiFight({
             opponentId: opponent.id,
             opponentLevel: Math.max(1, character?.level ?? event.levelReq),
             battleKind: "practice",
             returnScreen: returnTarget,
-            onResolved: (result) => {
-                // Practice has no event payout. A verified win only continues
-                // presentation; loss/forfeit leaves the VN available to retry.
-                if (result.outcome === "win") {
-                    setActiveTriggeredEvent((current) => current?.id === event.id ? null : current);
-                }
-            },
-        })) return alert("The sealed practice arena is unavailable. Your event remains open.");
+        });
+        if (!launched) return alert("The sealed practice arena is unavailable. Your event remains open.");
+        setActiveTriggeredEvent(null);
         setCurrentBiome(event.biome);
         setCurrentWeather(weatherForBiome(event.biome));
     }

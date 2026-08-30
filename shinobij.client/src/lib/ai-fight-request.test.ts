@@ -15,12 +15,29 @@ test("with no host mounted, a request fails closed instead of running local comb
 
 test("with a host mounted, the request is delivered", () => {
     const seen: AiFightRequest[] = [];
-    const unsubscribe = onAiFightRequest((request) => seen.push(request));
+    const unsubscribe = onAiFightRequest((request) => {
+        seen.push(request);
+        return true;
+    });
     try {
         assert.equal(requestAiFight(makeRequest({ opponentId: "ai-hunt-beast", sector: 41 })), true);
         assert.equal(seen.length, 1);
         assert.equal(seen[0].opponentId, "ai-hunt-beast");
         assert.equal(seen[0].sector, 41);
+    } finally {
+        unsubscribe();
+    }
+});
+
+test("a busy host can reject delivery without reporting a launched fight", () => {
+    const seen: AiFightRequest[] = [];
+    const unsubscribe = onAiFightRequest((request) => {
+        seen.push(request);
+        return false;
+    });
+    try {
+        assert.equal(requestAiFight(makeRequest()), false);
+        assert.equal(seen.length, 1, "the host must inspect the request before rejecting it");
     } finally {
         unsubscribe();
     }
@@ -141,11 +158,16 @@ test("creator VN battles use canonical non-paying practice until an event receip
     const triggered = app.slice(triggeredStart, triggeredEnd);
     assert.match(launch, /requestAiFight\(/);
     assert.match(launch, /battleKind: "practice"/);
+    assert.match(launch, /const launched = requestAiFight\([\s\S]{0,700}if \(launched\) setSelectedCreatorEvent\(null\);\s*else alert\("The sealed practice arena is unavailable\. Your event remains open\."\);/,
+        "an accepted launch must dismiss the VN covering the fight, while a missing host leaves it open for retry");
     assert.doesNotMatch(launch, /battleKind: "world"|setScreen\("arena"\)/);
     assert.doesNotMatch(worldMap, /onStartEventEncounter/);
     assert.match(triggered, /requestAiFight\(/);
     assert.match(triggered, /battleKind: "practice"/);
-    assert.match(triggered, /result\.outcome === "win"/);
+    assert.match(triggered, /const launched = requestAiFight\([\s\S]{0,700}if \(!launched\) return alert\("The sealed practice arena is unavailable\. Your event remains open\."\);\s*setActiveTriggeredEvent\(null\);/,
+        "the global triggered-event path must also dismiss its VN as soon as the combat host accepts the launch");
+    assert.doesNotMatch(triggered, /onResolved:/,
+        "the VN must not remain mounted over combat until a later settlement callback");
     assert.doesNotMatch(triggered, /temp-vn-ai|setPendingAiProfileId|setScreen\("arena"\)|setPendingArenaStoryBattle/);
 });
 
