@@ -8,6 +8,7 @@ import type {
     ServerArenaAction,
     ServerArenaActionResponse,
     ServerArenaActor,
+    ServerArenaMovementEvent,
     ServerArenaSession,
     ServerArenaTransport,
     ServerArenaVfxEvent,
@@ -91,6 +92,22 @@ export function soloPveVfxStream(session: SoloPveSession): ServerArenaVfxEvent[]
     );
 }
 
+/**
+ * Preserve each authoritative tile relocation in event order. The final Solo
+ * session contains only each fighter's latest position, but one AI turn can
+ * contain several adjacent Move actions. The Arena screen replays this trail
+ * cosmetically while continuing to use the final snapshot for combat authority.
+ */
+export function soloPveMovementStream(session: SoloPveSession): ServerArenaMovementEvent[] {
+    const roles = ["player", "enemy", "companion"] as const;
+    return (session.events ?? []).flatMap((event) => roles.flatMap((role) => {
+        const before = event.before?.[role];
+        const after = event.after?.[role];
+        if (!before || !after || before.pos === after.pos) return [];
+        return [{ seq: event.seq, actorId: role, from: before.pos, to: after.pos }];
+    }));
+}
+
 export function soloPveSessionForArena(session: SoloPveSession): ServerArenaSession {
     const companion = companionActor(session);
     return {
@@ -119,6 +136,8 @@ export function soloPveSessionForArena(session: SoloPveSession): ServerArenaSess
         // then the enemy's whole multi-action turn).
         vfx: soloPveVfxStream(session),
         vfxSeq: session.eventSeq,
+        movements: soloPveMovementStream(session),
+        movementSeq: session.eventSeq,
         ...(session.pendingCompanion ? {
             pendingCompanion: {
                 petId: session.pendingCompanion.petId,

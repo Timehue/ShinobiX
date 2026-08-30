@@ -58,6 +58,19 @@ export type ServerArenaVfxEvent = {
     persistent?: boolean;
 };
 
+/**
+ * One server-authored board relocation, projected for cosmetic replay only.
+ * A Solo PvE enemy can spend several actions moving during one server turn;
+ * retaining every event keeps those adjacent steps from collapsing into one
+ * apparent teleport when the final session snapshot reaches the client.
+ */
+export type ServerArenaMovementEvent = {
+    seq: number;
+    actorId: string;
+    from: number;
+    to: number;
+};
+
 export type ServerArenaSession = {
     sessionId: string;
     /** Opaque runtime revision used only by the selected transport. */
@@ -88,6 +101,10 @@ export type ServerArenaSession = {
     vfx?: ServerArenaVfxEvent[];
     /** Highest event seq the session has produced; bumps when new VFX arrive. */
     vfxSeq?: number;
+    /** Rolling server-authored movement trail for presentation-only replay. */
+    movements?: ServerArenaMovementEvent[];
+    /** Highest combat event seq observed by the movement projection. */
+    movementSeq?: number;
 };
 
 export type ServerArenaAction =

@@ -236,6 +236,28 @@ test("the enemy sprite faces its nearest living opponent without moving its anch
     assert.match(enemyActor![0], /transition: "left 280ms ease, top 280ms ease"/);
 });
 
+test("PvE enemy movement replays every server-authored tile instead of teleporting", () => {
+    assert.match(
+        missionSource,
+        /session\.movements[\s\S]{0,260}?step\.actorId === "enemy"[\s\S]{0,260}?step\.seq > last/,
+        "the board must consume only fresh authoritative enemy movement events",
+    );
+    assert.match(
+        missionSource,
+        /enemyMovementQueueRef\.current\.push\(\.\.\.freshSteps\)/,
+        "all steps from one server-resolved AI turn must be queued in order",
+    );
+    assert.ok(
+        (missionSource.match(/towerHexPixel\(displayEnemyPos, w\)/g) ?? []).length >= 2,
+        "the enemy sprite and its HP badge must visit the same replayed tile",
+    );
+    assert.match(
+        missionSource,
+        /prefers-reduced-motion: reduce/,
+        "the cosmetic replay must respect the player's reduced-motion preference",
+    );
+});
+
 test("mission jutsu cards expose the same accessible detail dialog as PvP", () => {
     assert.match(missionSource, /className="combat-jutsu-help"/);
     assert.match(missionSource, /aria-label={`View \$\{j\.name\} jutsu details`}/);
