@@ -82,11 +82,17 @@ test('artifact consumers verify immutable provenance and failure evidence stays 
 });
 
 test('Warfront interaction coverage uses the deterministic low-cost fixture', () => {
-    assert.match(warfrontSpec, /const warfrontUrl = "[^"]*petQuality=low";/);
+    assert.match(warfrontSpec, /const warfrontUrl = "[^"]*";/);
+    assert.match(warfrontSpec, /const lowWarfrontUrl = `\$\{warfrontUrl\}&petQuality=low`;/);
     assert.equal(
-        warfrontSpec.split('${warfrontUrl}&wfspeed=').length - 1,
+        warfrontSpec.split('${lowWarfrontUrl}&wfspeed=').length - 1,
         2,
         'command-window and result-lifecycle loads must share the low-cost CI fixture',
+    );
+    assert.match(
+        warfrontSpec,
+        /\$\{warfrontUrl\}&petQuality=high&wfperf=geometry/,
+        'the production renderer audit must explicitly exercise the high-quality fixture',
     );
     assert.match(
         warfrontSpec,
