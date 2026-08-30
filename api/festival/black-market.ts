@@ -6,7 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
-import { rollBlackMarket, BLACK_MARKET_COST, BLACK_MARKET_DAILY_CAP } from './_black-market.js';
+import { rollBlackMarket, settleBlackMarketPull, BLACK_MARKET_COST, BLACK_MARKET_DAILY_CAP } from './_black-market.js';
 import { recordEconomyTxn } from '../_economy.js';
 
 /*
@@ -59,25 +59,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
 
             const used = num(await kv.get<number>(countKey));
-            if (used >= BLACK_MARKET_DAILY_CAP) {
-                return { status: 429, body: { error: `The black market is done with you today (${BLACK_MARKET_DAILY_CAP}/${BLACK_MARKET_DAILY_CAP}). Return after midnight UTC.`, dailyUsed: used, dailyCap: BLACK_MARKET_DAILY_CAP } };
-            }
-            if (num(char.ryo) < BLACK_MARKET_COST) {
-                return { status: 400, body: { error: `Not enough ryo. A pull costs ${BLACK_MARKET_COST.toLocaleString()}.` } };
-            }
+            const settled = settleBlackMarketPull({ character: char, used, roll: rollBlackMarket(Math.random) });
+            if (!settled.ok) return { status: settled.status, body: settled.body };
 
-            const reward = rollBlackMarket(Math.random);
-            const nextChar = {
-                ...char,
-                ryo: num(char.ryo) - BLACK_MARKET_COST + reward.ryo,
-                fateShards: num(char.fateShards) + reward.fateShards,
-                boneCharms: num(char.boneCharms) + reward.boneCharms,
-                auraStones: num(char.auraStones) + reward.auraStones,
-                mythicSeals: num(char.mythicSeals) + reward.mythicSeals,
-            };
+            const { reward, nextCharacter: nextChar, nextUsed } = settled;
             const updatedRecord = bumpSaveVersion<Record<string, unknown>>({ ...rec, character: nextChar });
+            // Save BEFORE the counter, deliberately: a crash between them costs
+            // the house one uncounted pull, never the player a paid-for one.
             await kv.set(`save:${playerName}`, mergePreservingImages(updatedRecord, rec));
-            await kv.set(countKey, used + 1, { ex: COUNT_TTL_SECONDS } as never);
+            await kv.set(countKey, nextUsed, { ex: COUNT_TTL_SECONDS } as never);
 
             return {
                 status: 200,
@@ -85,7 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ok: true,
                     cost: BLACK_MARKET_COST,
                     reward,
-                    dailyUsed: used + 1,
+                    dailyUsed: nextUsed,
                     dailyCap: BLACK_MARKET_DAILY_CAP,
                     balanceRyo: num(nextChar.ryo),
                     character: nextChar,
