@@ -97,20 +97,41 @@ Fate Shards are earned-only — nothing mints them for money.
 
 **Implied exchange rate.** If the existing 200-shard profession change is the
 $10 anchor, that sets **20 Fate Shards ≈ $1**, which makes the $20 village
-transfer slip **400 shards**. Check that rate against how fast a player actually
-earns shards before committing — it is the number that decides whether these are
-real prices or nominal ones, and it silently prices every other shard item in
-the game.
+transfer slip **400 shards** — and silently prices every other shard item in the
+game. See the blocker below for what that actually buys.
+
+⚠ **Do not price shards off `docs/generated/economy-faucets.csv`.** It lists only
+five Fate Shard faucets (three daily missions, the academy checklist, a 7-day
+login streak), but at least thirteen code paths grant shards — dungeon runs
+(+5), Endless Spire milestones, achievements, the weekly clan boss, the weekly
+board, the black market, Sunscar, Hollow Gate events, pet events, the gauntlet,
+map control, and admin/legacy refunds. Real income is materially higher than the
+generated model implies and varies hugely by how a player plays, so any
+"days to earn" figure derived from that CSV is wrong. The exporter under-reports
+this currency.
 
 ### Three things to settle before building this
 
-1. **You would be selling fungible currency, not two items.** Fate Shards buy
-   anything shard-priced, including the Chronicle Marketplace. The standing
-   position has been that the Marketplace is not pay-to-win *because* shards are
-   free-earnable. Selling shards changes that argument even though a village
-   transfer and a profession switch are both pure convenience. If the intent is
-   to sell only those two conveniences, selling them as **direct SKUs** rather
-   than as shards keeps the economy argument intact.
+1. ⛔ **Selling Fate Shards sells combat power. This is the blocker.** Measured
+   against `api/pvp/_item-catalog.ts` at the implied 20 shards/$1:
+
+   | | |
+   | --- | --- |
+   | Shard-priced items granting combat stats | **48** |
+   | `bulwark-gloves` — 150 shards | **$7.50** for **+420** combat stats |
+   | Best one-per-slot legendary loadout — 900 shards | **$45.00** for **+1,660** combat stats |
+   | Every shard-priced power item — 6,250 shards | $312.50 |
+
+   $45 buying a full legendary loadout is pay-to-win by this project's own
+   standard: power is meant to come from skill, never bought or grinded. The
+   Chronicle Marketplace concern is real but secondary — the armour sets are the
+   decisive part, because shards are fungible and nothing stops a buyer spending
+   them on gear instead of on the convenience they came for.
+
+   **If the intent is to sell those two conveniences, sell them as direct SKUs,
+   not as shards.** That gets the same revenue, prices nothing else in the game,
+   and leaves the balance pillar untouched. Selling shards is a different product
+   decision and should be made deliberately, not inherited from a price shorthand.
 2. **Village transfer has to be built first**, and it is a real feature, not a
    shop entry: village identity touches clan membership, war allegiance,
    territory, story progress, and the public directory. Decide what happens to
