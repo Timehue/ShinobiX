@@ -98,11 +98,32 @@ later, which is worse than a higher rating.
 
 ⚠ **Simulated gambling — decide deliberately.** Randomised rewards exist (pet
 breeding odds in `api/pet/_breeding.ts`, chests in `api/world/_chest.ts`, the
-festival black market in `api/festival/_black-market.ts`). None of it is bought
-with real money today, so it is not a loot box in the payments sense. Read the
-questionnaire's own definition of simulated gambling against these before
-answering, and revisit it if Fate Shards ever become purchasable — at that point
-Play requires the odds to be disclosed before purchase.
+festival black market in `api/festival/_black-market.ts`). Read the
+questionnaire's own definition against these before answering.
+
+### Randomised purchases, surveyed 2026-08-28
+
+Fate Shards are planned to become purchasable, so this is what would then be
+buyable with real money:
+
+| Surface | Randomised? | Currency | Verdict |
+| --- | --- | --- | --- |
+| **Card packs** | Yes — which card you get | **Fate Shards** (Elite 10, Legendary 30) | ✅ **The one that needs disclosure.** Done — odds are stated in the Shop above the buy buttons, and pinned to the live `PACKS` table by a parity test |
+| Standard card pack | Yes | ryo | Not a real-money purchase |
+| Named weapon / armour forge | Yes | 1,000 pts (mixed, incl. shards) | ⚠ **Not a loot box** — `action:'roll'` is free and reveals the complete roll; `action:'forge'` then charges for the item already shown. Preview-then-buy, not a blind purchase |
+| Festival black market | Yes, incl. a jackpot | **ryo only** | Not a real-money gamble |
+| Pet breeding, world chests | Yes | earned only | Not purchasable |
+
+**Disclosed odds** (`api/shop/_settlement.ts`, `PACKS`): every pack guarantees
+the rarity on its button — Standard draws Common or Rare, Elite is always Epic,
+Legendary is always Legendary. Within the eligible rarity every card is equally
+likely; no weighting, no pity timer. Draws are independent (with replacement), so
+a multi-card pack can repeat.
+
+⚠ If a paid randomised roll is ever put behind the **named forge**, its odds must
+be disclosed too — and the weapon tag draw had to be fixed first, because it used
+a `sort()` comparator shuffle whose distribution was non-uniform and depended on
+V8 internals. It is Fisher–Yates now, with a fairness test.
 
 **User-generated content follow-ups.** Play will ask how UGC is moderated. The
 answers exist: in-app reporting via `api/report.ts` with the `ReportControl`

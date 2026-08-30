@@ -561,7 +561,14 @@ function CardPackSection({ character, currency, creatorCards, onVersionedCharact
             {currency === "fateShards" && (
                 <>
                     <button onClick={() => void openPack("epic", 10)} disabled={packBusy || character.fateShards < packCost(10)} style={{ color: "#ce93d8" }}>
-                        <GameIcon name="crystal" size={13} style={{ display: "inline-block", verticalAlign: "-2px", color: "#ce93d8" }} /> Elite Pack — 1 top-tier card (Rare / Epic) — 10 Fate Shards
+                        {/* Label corrected 2026-08-28: this said "(Rare / Epic)",
+                            but the server pool is rarities:['epic'] only
+                            (api/shop/_settlement.ts PACKS), so the pack always
+                            yields an Epic. Understating it was harmless while
+                            packs cost earned currency; it is not once Fate
+                            Shards are purchasable and this text becomes a
+                            pre-purchase odds statement. */}
+                        <GameIcon name="crystal" size={13} style={{ display: "inline-block", verticalAlign: "-2px", color: "#ce93d8" }} /> Elite Pack — 1 guaranteed Epic card — 10 Fate Shards
                     </button>
                     {/* Legendary pack — sits right next to the Elite pack, costs
                         3× as much for the corresponding tier jump. Same draw
@@ -575,6 +582,24 @@ function CardPackSection({ character, currency, creatorCards, onVersionedCharact
                     </button>
                 </>
             )}
+            {/* Pack odds, stated before purchase.
+                Google Play requires the odds of a randomised virtual item to be
+                disclosed prior to purchase, and that applies the moment Fate
+                Shards become buyable with real money. Disclosing now means the
+                requirement is already met rather than becoming a release
+                blocker — and players are entitled to it regardless.
+                Every claim here is the live behaviour of applyCardPackPurchase
+                in api/shop/_settlement.ts: the pool is every card of the
+                eligible rarity, each draw is an independent uniform pick, and
+                nothing is weighted. Duplicates follow from drawing with
+                replacement. KEEP THIS IN SYNC with the PACKS table. */}
+            <p className="pack-odds" style={{ color: "#8b98a8", fontSize: "0.78rem", lineHeight: 1.5, marginTop: "0.9rem", marginBottom: 0 }}>
+                <strong style={{ color: "#aab4c2" }}>Pack odds:</strong> every pack guarantees the rarity shown on its
+                button — Standard draws Common or Rare, Elite is always Epic, Legendary is always Legendary.
+                Within the eligible rarity, <strong style={{ color: "#aab4c2" }}>every card is equally likely</strong>;
+                there are no weighted tiers, no pity timer, and no hidden jackpot.
+                Each card is drawn independently, so a multi-card pack can repeat a card you already own.
+            </p>
             {packReveal && (
                 <CardPackOpening
                     key={packReveal.nonce}

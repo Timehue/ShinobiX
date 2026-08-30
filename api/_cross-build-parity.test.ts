@@ -246,3 +246,47 @@ describe('parity: pet jutsu-power caps (pet-stats.ts petStatCaps ⇄ api/_pet-st
         });
     }
 });
+
+describe('parity: card-pack odds disclosure (Shop.tsx ⇄ api/shop/_settlement.ts PACKS)', () => {
+    // Google Play requires the odds of a randomised virtual item to be disclosed
+    // before purchase, which binds the moment Fate Shards are purchasable with
+    // real money. The disclosure therefore has to track the live PACKS table,
+    // not drift from it — this caught the Elite Pack button advertising
+    // "(Rare / Epic)" when the server pool was rarities:['epic'] only.
+    const SETTLEMENT = read('api', 'shop', '_settlement.ts');
+    const SHOP = read('shinobij.client', 'src', 'components', 'Shop.tsx');
+
+    // One literal regex over the whole PACKS table rather than a per-pack
+    // RegExp built from a string: the escaping in a constructed pattern is easy
+    // to get subtly wrong, and a silently over-permissive guard is worse than none.
+    const packRarities = (packId: string): string[] => {
+        const rows = [...SETTLEMENT.matchAll(/(\w+):\s*\{[^}]*?rarities:\s*\[([^\]]*)\]/g)];
+        const row = rows.find((match) => match[1] === packId);
+        assert.ok(row, `${packId} not found in the PACKS table`);
+        return row![2].split(',').map((value) => value.trim().replace(/['"]/g, '')).filter(Boolean);
+    };
+
+    it('the shop still states pack odds before purchase', () => {
+        assert.match(SHOP, /Pack odds:/, 'the pre-purchase odds disclosure was removed');
+        assert.match(SHOP, /every card is equally likely/i);
+    });
+
+    it('each pack draws exactly the rarities the buttons claim', () => {
+        assert.deepEqual(packRarities('standard'), ['common', 'rare']);
+        assert.deepEqual(packRarities('epic'), ['epic']);
+        assert.deepEqual(packRarities('legendary'), ['legendary']);
+    });
+
+    it('the Elite Pack button does not understate its guaranteed rarity', () => {
+        // It always yields an Epic; claiming "Rare / Epic" is an inaccurate odds
+        // statement even though it errs in the player's favour.
+        assert.doesNotMatch(SHOP, /Elite Pack[^<]*Rare\s*\/\s*Epic/i);
+        assert.match(SHOP, /Elite Pack — 1 guaranteed Epic card/);
+    });
+
+    it('the draw is uniform and unweighted, as the disclosure claims', () => {
+        // A weighted table or a pity counter would make the wording false.
+        assert.match(SETTLEMENT, /const index = pickIndex\(pool\.length\)/);
+        assert.doesNotMatch(SETTLEMENT, /weight|pity|luckBonus/i);
+    });
+});
