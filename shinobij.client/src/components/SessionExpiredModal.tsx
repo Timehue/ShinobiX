@@ -1,3 +1,5 @@
+import { createPortal } from "react-dom";
+
 /** The session-expiry re-auth prompt (verbatim drain from App.tsx).
  *
  * It exists to prevent the "refresh and lose levels" data loss: the player's
@@ -7,6 +9,14 @@
  * "Log out instead" is deliberately NOT disabled while a verify is busy — an
  * escape hatch a busy flag can disable is no hatch at all (a hung verify used
  * to trap the player behind this modal with every control dead).
+ *
+ * It PORTALS TO BODY and sits at --z-reauth for the same reason GameAlertHost
+ * does. Mounted inline inside AdaptiveGameShell at z-index 100000 it rendered
+ * BENEATH every overlay in the ad-hoc 999999-1000002 band - side rails,
+ * GameAlert, card-pack opening, VN cinematics, the Warfront takeover. A session
+ * expiring while any of those was open left the player looking at a screen they
+ * could not dismiss, whose only escape was the refresh that discards the
+ * unsaved progress this modal exists to save.
  */
 export function SessionExpiredModal({ password, error, busy, onPasswordChange, onContinue, onLogout }: {
     password: string;
@@ -16,10 +26,10 @@ export function SessionExpiredModal({ password, error, busy, onPasswordChange, o
     onContinue: () => void;
     onLogout: () => void;
 }) {
-    return (
+    return createPortal(
         <div
             style={{
-                position: "fixed", inset: 0, zIndex: 100000,
+                position: "fixed", inset: 0, zIndex: "var(--z-reauth)",
                 display: "grid", placeItems: "center",
                 background: "rgba(2, 6, 23, 0.82)", padding: "1rem",
             }}
@@ -74,6 +84,7 @@ export function SessionExpiredModal({ password, error, busy, onPasswordChange, o
                     Log out instead
                 </button>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }
