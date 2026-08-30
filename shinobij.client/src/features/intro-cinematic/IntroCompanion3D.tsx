@@ -17,6 +17,15 @@ type IntroCompanion3DProps = {
     enabled?: boolean;
 };
 
+// These taller starter silhouettes reach above their normalized idle bounds
+// during several authored poses. Their shared camera must reserve headroom in
+// every compact presentation: confirmation, companion handoff, and Academy guide.
+const COMPANION_HEADROOM_IDS = new Set([
+    "starter-fire",
+    "starter-lightning",
+    "starter-earth",
+]);
+
 type ModelBoundaryProps = {
     children: ReactNode;
 };
@@ -104,6 +113,8 @@ export function IntroCompanion3D({
     const handleReady = useCallback(() => setReady(true), []);
     const config = useMemo(() => petCombatModel(pet), [pet]);
     const renderModel = enabled && Boolean(config);
+    const companionVisualId = config?.identityVisualId ?? config?.visualId ?? pet.id;
+    const needsHeadroom = COMPANION_HEADROOM_IDS.has(companionVisualId);
 
     return (
         <div
@@ -125,7 +136,7 @@ export function IntroCompanion3D({
                         aria-hidden="true"
                         dpr={[1, 2]}
                         camera={{
-                            position: closeUp ? [0, 1.62, 3.72] : [0, 1.65, 4.35],
+                            position: closeUp ? [0, 1.62, 3.72] : needsHeadroom ? [0, 1.65, 4.85] : [0, 1.65, 4.35],
                             fov: closeUp ? 30 : 32,
                             near: 0.1,
                             far: 30,
@@ -134,7 +145,7 @@ export function IntroCompanion3D({
                         onCreated={({ gl, camera }) => {
                             gl.setClearColor(new THREE.Color("#000000"), 0);
                             gl.toneMappingExposure = 0.8;
-                            camera.lookAt(0, 0.92, 0);
+                            camera.lookAt(0, needsHeadroom && !closeUp ? 0.84 : 0.92, 0);
                         }}
                     >
                         <ambientLight intensity={0.68} color="#b8d8ff" />
