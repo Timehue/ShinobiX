@@ -432,10 +432,10 @@ export function parseWarfrontCommandPlan(value: unknown): WarfrontCommandPlan | 
 function makePet(slot: ArenaSlot, team: Team, index: number, lane: WfLaneId): WfPet {
     const cfg = ROLE_CFG[slot.role];
     const pet = slot.pet;
-    let hp = Math.max(220, Number(pet.hp ?? 400)) * cfg.hp * 2.0;
-    let atk = Math.max(12, Number(pet.attack ?? 40)) * cfg.atk;
+    const hp = Math.max(220, Number(pet.hp ?? 400)) * cfg.hp * 2.0;
+    const atk = Math.max(12, Number(pet.attack ?? 40)) * cfg.atk;
     const def = Math.max(6, Number(pet.defense ?? 20)) * cfg.def;
-    let speed = PET_BASE_SPEED * cfg.speed * clamp(0.88 + Number(pet.speed ?? 40) / 220, 0.88, 1.32);
+    const speed = PET_BASE_SPEED * cfg.speed * clamp(0.88 + Number(pet.speed ?? 40) / 220, 0.88, 1.32);
     const [x, y] = wfSpawnPoint(team, lane, index);
     return {
         id: `${team}-${index}`,
@@ -843,7 +843,7 @@ function moveToward(pet: WfPet, targetX: number, targetY: number) {
     pet.state = "move";
 }
 
-function useRoleAbility(state: WfState, pet: WfPet): boolean {
+function triggerRoleAbility(state: WfState, pet: WfPet): boolean {
     if (pet.abilityCd > 0) return false;
     if (pet.role === "sage") {
         const ally = state.pets
@@ -875,7 +875,7 @@ function updatePet(state: WfState, pet: WfPet) {
     if (pet.attackCd > 0) pet.attackCd--;
     if (pet.abilityCd > 0) pet.abilityCd--;
     if (pet.invulnerable > 0) pet.invulnerable--;
-    useRoleAbility(state, pet);
+    triggerRoleAbility(state, pet);
 
     const target = nearestCombatTarget(state, pet.team, pet.lane, pet.x, pet.y);
     if (target) {

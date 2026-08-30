@@ -600,7 +600,6 @@ export function PetWarfrontMatch({
 }: PetWarfrontMatchProps) {
     const [formation, setFormation] = useState<WfLaneId[]>(() => DEFAULT_FORMATION.slice(0, blue.length));
     const [deployed, setDeployed] = useState(false);
-    const [run, setRun] = useState(0);
     const [seedBump, setSeedBump] = useState(0);
     const [version, setVersion] = useState(0);
     const [displayTick, setDisplayTick] = useState(0);
@@ -618,7 +617,6 @@ export function PetWarfrontMatch({
     const lastResolvedCommandSequenceRef = useRef(0);
     const effectiveSeed = seed + seedBump * 1000003;
     const safePlaybackRate = Number.isFinite(playbackRate) ? clamp(playbackRate, 0.1, 20) : 1;
-    const formationKey = formation.join("");
     const themeSpec = WF_THEMES[theme];
     const controller = useMemo(() => createWarfrontWorkerController({
         blue,
@@ -632,7 +630,7 @@ export function PetWarfrontMatch({
         blueDoctrine: doctrine,
         redDoctrine: opponentDoctrine,
         initialLanes: { blue: formation, red: DEFAULT_FORMATION.slice(0, red.length) },
-    }), [blue, red, effectiveSeed, autoBuy, opponentAutoBuy, theme, stance, opponentStance, doctrine, opponentDoctrine, formationKey, run]);
+    }), [blue, red, effectiveSeed, autoBuy, opponentAutoBuy, theme, stance, opponentStance, doctrine, opponentDoctrine, formation]);
 
     useEffect(() => {
         const shell = shellRef.current;
@@ -659,11 +657,6 @@ export function PetWarfrontMatch({
 
     useEffect(() => {
         clockRef.current = 0;
-        setDisplayTick(0);
-        setCommandOpen(null);
-        setResultShown(false);
-        setPaused(false);
-        setSelectedFocusLane(null);
         resultReportedRef.current = false;
         audioEventCursorRef.current = 0;
         lastPruneTickRef.current = 0;
@@ -703,7 +696,7 @@ export function PetWarfrontMatch({
         };
         raf = requestAnimationFrame(frame);
         return () => cancelAnimationFrame(raf);
-    }, [controller, deployed, frontier, command?.sequence, result, result.winner, paused, resultShown, safePlaybackRate, reducedMotion, version]);
+    }, [controller, deployed, frontier, command, result, result.winner, paused, resultShown, safePlaybackRate, reducedMotion, version]);
 
     useEffect(() => {
         if (!resultShown || resultReportedRef.current || !result.winner) return;
@@ -715,22 +708,22 @@ export function PetWarfrontMatch({
 
     const snapshot = snapshotAt(result.snapshots, displayTick);
     const score = snapshot ? wfVerdictScore(snapshot) : { blue: 0, red: 0 };
-    const recentEvents = useMemo(() => result.events
+    const recentEvents = result.events
         .filter((event) => event.t <= displayTick)
         .map((event) => ({ event, label: eventLabel(event, blue, red) }))
         .filter((entry): entry is { event: WfEvent; label: string } => Boolean(entry.label))
         .slice(-6)
-        .reverse(), [result.events.length, displayTick, blue, red]);
+        .reverse();
 
-    const commandReveal = useMemo(() => [...result.events].reverse().find((event): event is Extract<WfEvent, { type: "commandresolved" }> => (
+    const commandReveal = [...result.events].reverse().find((event): event is Extract<WfEvent, { type: "commandresolved" }> => (
         event.type === "commandresolved" && event.t <= displayTick && displayTick - event.t <= WARFRONT_TPS * 1.6
-    )) ?? null, [result.events.length, displayTick]);
+    )) ?? null;
     const transferTrails = commandReveal
         ? result.events.filter((event): event is Extract<WfEvent, { type: "redeploy" }> => event.type === "redeploy" && event.t === commandReveal.t)
         : [];
-    const impactToast = useMemo(() => [...result.events].reverse().find((event): event is Extract<WfEvent, { type: "commandimpact" }> => (
+    const impactToast = [...result.events].reverse().find((event): event is Extract<WfEvent, { type: "commandimpact" }> => (
         event.type === "commandimpact" && event.impact.team === "blue" && event.t <= displayTick && displayTick - event.t <= WARFRONT_TPS * 5
-    )) ?? null, [result.events.length, displayTick]);
+    )) ?? null;
     const focusLane = commandOpen === null ? majorEventLane(result.events, displayTick) ?? selectedFocusLane : null;
     const commandInterval = result.omen === "storm-gate" ? 90 : 120;
     const nextCommandSeconds = Math.max(0, commandInterval - (displayTick / WARFRONT_TPS) % commandInterval);
@@ -750,7 +743,7 @@ export function PetWarfrontMatch({
             else if (event.type === "redeploy") cue = "move";
         }
         if (cue) playPetSfx(cue);
-    }, [displayTick, result.events.length]);
+    }, [displayTick, result.events, result.events.length]);
 
     useEffect(() => {
         if (commandOpen !== null) playPetSfx("command");
@@ -777,8 +770,13 @@ export function PetWarfrontMatch({
     const restart = (newSeed: boolean) => {
         if (resultActionsLocked) return;
         stopBattleMusic();
+        clockRef.current = 0;
+        setDisplayTick(0);
+        setCommandOpen(null);
+        setResultShown(false);
+        setPaused(false);
+        setSelectedFocusLane(null);
         if (newSeed) setSeedBump((value) => value + 1);
-        setRun((value) => value + 1);
         setDeployed(false);
         setFormation(DEFAULT_FORMATION.slice(0, blue.length));
     };
@@ -806,7 +804,7 @@ export function PetWarfrontMatch({
         || controller.status === "error";
 
     const overlay = (
-        <div ref={shellRef} className="wf3-shell" style={{ "--wf3-void": themeSpec.voidColor, "--wf3-glow": themeSpec.breachGlow } as CSSProperties}>
+        <div ref={shellRef} className="pet-combat-takeover wf3-shell" style={{ "--wf3-void": themeSpec.voidColor, "--wf3-glow": themeSpec.breachGlow } as CSSProperties}>
             <header className="wf3-topbar" inert={stageInteractionBlocked} aria-hidden={stageInteractionBlocked}>
                 <div className="wf3-brand"><span>HOLLOW WARFRONT</span><strong>FIRST TO TWO TOWERS</strong></div>
                 <div className="wf3-score" aria-label={`Azure ${score.blue}, Crimson ${score.red}`} aria-live="polite">

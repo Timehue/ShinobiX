@@ -187,12 +187,13 @@ test('all full-screen pet modes use the shared takeover contract', () => {
     assert.match(stages, /z-index: var\(--z-combat\)/);
 });
 
-test('pet WebGL stages release pointer and timer resources without extra Warfront scene renders', () => {
+test('pet WebGL stages release resources while the new Warfront remains DOM-only', () => {
     const warfront = readFileSync(join(srcDir, 'components', 'PetWarfrontMatch.tsx'), 'utf8');
     const board = readFileSync(join(srcDir, 'components', 'PetBoardArena.tsx'), 'utf8');
     const stages = readFileSync(stageAuthority, 'utf8');
-    assert.match(warfront, /setPointerCapture\(e\.pointerId\)/);
-    assert.match(warfront, /lostpointercapture/);
+    assert.doesNotMatch(warfront, /<Canvas/);
+    assert.doesNotMatch(warfront, /setPointerCapture/);
+    assert.doesNotMatch(warfront, /lostpointercapture/);
     assert.doesNotMatch(warfront, /<WfMultiCam/);
     assert.doesNotMatch(warfront, /window\.innerWidth/);
     assert.match(board, /useTexture\(gauntletBoard\)/);
