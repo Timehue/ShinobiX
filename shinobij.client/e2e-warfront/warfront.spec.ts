@@ -129,7 +129,7 @@ test("the production 3D renderer loads every battlefield asset and preserves DPR
     // Freeze the deterministic frame before reading layout. On software-GPU
     // runners the live high-DPI scene and tick-driven React updates can otherwise
     // keep the browser thread saturated even after every asset is scene-ready.
-    await page.getByRole("button", { name: "Pause Warfront" }).click();
+    await page.getByRole("button", { name: "Pause Warfront" }).click({ force: true });
     await expect(page.getByRole("button", { name: "Resume Warfront" })).toBeVisible();
     // Read every rectangle in one browser-thread snapshot. Repeated Playwright
     // boundingBox calls can starve behind the continuously rendered WebGL scene
@@ -156,6 +156,7 @@ test("the production 3D renderer loads every battlefield asset and preserves DPR
                 scrollWidth: document.documentElement.scrollWidth,
                 scrollHeight: document.documentElement.scrollHeight,
             } : null,
+            hasViteOverlay: Boolean(document.querySelector("vite-error-overlay")),
         };
     });
     expect(renderState.laneRail).not.toBeNull();
@@ -172,7 +173,7 @@ test("the production 3D renderer loads every battlefield asset and preserves DPR
     expect(metrics.backingHeight / metrics.cssHeight).toBeCloseTo(rendererDpr, 1);
     expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.viewportWidth + 2);
     expect(metrics.scrollHeight).toBeLessThanOrEqual(metrics.viewportHeight + 2);
-    await expect(page.locator("vite-error-overlay")).toHaveCount(0);
+    expect(renderState.hasViteOverlay).toBe(false);
     if (testInfo.project.name === "desktop") {
         await page.screenshot({ path: testInfo.outputPath("production-3d-warfront.png"), animations: "disabled" });
     }

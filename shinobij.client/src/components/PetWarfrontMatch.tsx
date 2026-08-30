@@ -1025,6 +1025,7 @@ export function PetWarfrontMatch({
                                 blue={blue}
                                 red={red}
                                 quality={visualQuality}
+                                paused={paused || resultVisible}
                                 displayTick={displayTick}
                                 events={result.events}
                                 theme={theme}
