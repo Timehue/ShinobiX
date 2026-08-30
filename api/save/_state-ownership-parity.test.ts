@@ -69,6 +69,7 @@ const FROZEN = {
         'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed', 'battleTowerMilestones',
         'totalStatsTrained', 'totalMissionsCompleted', 'totalAiKills', 'totalVillageRaids',
         'totalTilesExplored', 'totalTournamentsCompleted', 'totalEndlessTowerWins', 'totalPetWins',
+        'tournamentWinReceipts',
         // Relic-survey quest bookkeeping — non-combat, so stripped from the
         // sealed fighter snapshot like every other progress counter.
         'relicSurvey', 'relicSurveyCount',
@@ -120,6 +121,8 @@ const FROZEN = {
         'petBreeding', 'petBreedingMigrationVersion', 'petBreedingReceipts',
         'petBreedingHatchReceipts', 'petBreedingProgressReceipts',
         'expeditionStartAllowance', 'expeditionStartReceipts',
+        // Full-admin tournament finalization owns this idempotency ledger.
+        'tournamentWinReceipts',
         'aiFightRewardSettlements', 'combatMissionClaimSettlements',
         'worldAiChainWins', 'worldAiChainHeals', 'worldAiContextWins', 'worldAiPendingChain', 'worldAiPendingOutcome', 'serverHuntTrails', 'serverFieldMissionRuns', 'raidProgressionSettlements', 'serverFreeDungeonProbeReceipts',
     ],
@@ -212,6 +215,7 @@ const FROZEN = {
     SERVER_ARRAY_LEDGER_CHARACTER_FIELDS: [
         'redeemedTrainingTokens', 'redeemedJutsuTrainingActions', 'redeemedAiFightRewards',
         'redeemedShopPurchases', 'redeemedShopSales', 'redeemedCrafts', 'redeemedNamedForges',
+        'tournamentWinReceipts',
         'redeemedStoryBattles', 'redeemedPetEncounters', 'claimedCreatorEvents',
         'claimedWarCrateIds', 'redeemedCardClashAiSessions',
         'redeemedPetRankedMatchTokens', 'chroniclePetWitnesses', 'chroniclePetArenaProgressReceipts',

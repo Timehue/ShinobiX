@@ -9,6 +9,7 @@ import type { ArenaSpectatorFight, ArenaTournament } from "../../../lib/world-st
 import type { ArenaDistrictTab } from "../types";
 import { Ranked2v2Panel } from "../../../components/Ranked2v2Panel";
 import { CentralDestinationHeader } from "../../../components/CentralDestinationHeader";
+import { ArenaTournamentPanel } from "./ArenaTournamentPanel";
 
 const ARENA_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 
@@ -35,6 +36,8 @@ type ArenaDistrictLobbyProps = {
     onAcceptDistrictChallenge: (challenge: DuelChallenge) => void;
     onDeclineChallenge: (challenge: DuelChallenge) => void;
     onAdvanceTournamentPlayer: (name: string) => void;
+    onDeclareTournamentWinner: (name: string) => void;
+    tournamentWinnerBusy: boolean;
     onClearTournament: () => void;
     onStartTournament: () => void;
     onJoinRankedQueue: () => void;
@@ -70,6 +73,8 @@ export function ArenaDistrictLobby({
     onAcceptDistrictChallenge,
     onDeclineChallenge,
     onAdvanceTournamentPlayer,
+    onDeclareTournamentWinner,
+    tournamentWinnerBusy,
     onClearTournament,
     onStartTournament,
     onJoinRankedQueue,
@@ -147,24 +152,17 @@ export function ArenaDistrictLobby({
             )}
 
             {activeTab === "tournaments" && (
-                <section className="summary-box">
-                    <h3>Tournaments</h3>
-                    {arenaTournament ? (
-                        <>
-                            <p><strong>{arenaTournament.name}</strong> | Started by {arenaTournament.createdBy}</p>
-                            <p>Event ends in {Math.ceil(tournamentRemaining / (60 * 60 * 1000))} hour(s). Match timer: {Math.ceil(matchRemaining / (60 * 60 * 1000))} hour(s).</p>
-                            <p className="hint">Participants: {arenaTournament.participants.join(", ") || "No participants"}</p>
-                            <p className="hint">Advanced: {arenaTournament.advancedPlayers.join(", ") || "None yet"}</p>
-                            {isAdminTournamentManager && <div className="jutsu-list">{arenaTournament.participants.map((name) => <div className="summary-box" key={`advance-${name}`}><strong>{name}</strong><button onClick={() => onAdvanceTournamentPlayer(name)}>Advance Player</button></div>)}</div>}
-                            {isAdminTournamentManager && <button className="danger-button" onClick={onClearTournament}>End Tournament</button>}
-                        </>
-                    ) : (
-                        <>
-                            <p className="hint">Only Admin 1 or Admin 2 can start a weekly tournament.</p>
-                            <button disabled={!isAdminTournamentManager} onClick={onStartTournament}>{isAdminTournamentManager ? "Start 1 Week Tournament" : "Admin Only"}</button>
-                        </>
-                    )}
-                </section>
+                <ArenaTournamentPanel
+                    tournament={arenaTournament}
+                    tournamentRemaining={tournamentRemaining}
+                    matchRemaining={matchRemaining}
+                    isAdminTournamentManager={isAdminTournamentManager}
+                    tournamentWinnerBusy={tournamentWinnerBusy}
+                    onAdvancePlayer={onAdvanceTournamentPlayer}
+                    onDeclareWinner={onDeclareTournamentWinner}
+                    onClear={onClearTournament}
+                    onStart={onStartTournament}
+                />
             )}
 
             {activeTab === "ranked" && <Ranked2v2Panel character={character} sharedImages={sharedImages} />}

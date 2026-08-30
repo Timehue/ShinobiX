@@ -8,6 +8,8 @@ import { authedPlayerOrAdmin, isFullAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { withKvLock, LockContendedError } from './_lock.js';
 import { validateVillageStateWrite, loadAuthoritativeKage } from './_village-state-validate.js';
+import { mutatePlayerSave } from './save/_mutate-player-save.js';
+import { applyTournamentVictory } from './achievements/_tournament.js';
 
 const LEADERSHIP_IMAGES_KEY = 'game:village-leadership-images';
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
@@ -128,8 +130,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // so they pass the basic admin check. But for the kinds Admin 2
             // shouldn't touch (arenaTournament, weeklyBossOverride — neither
             // is exposed by their UI), require the full admin password.
-            const adminOnlyKinds = new Set(['villageLeadershipImages', 'arenaTournament', 'weeklyBossOverride']);
-            const fullAdminOnlyKinds = new Set(['arenaTournament', 'weeklyBossOverride']);
+            const adminOnlyKinds = new Set(['villageLeadershipImages', 'arenaTournament', 'arenaTournamentWinner', 'weeklyBossOverride']);
+            const fullAdminOnlyKinds = new Set(['arenaTournament', 'arenaTournamentWinner', 'weeklyBossOverride']);
             if (adminOnlyKinds.has(String(kind)) && !identity.admin) {
                 return res.status(403).json({ error: 'Admin only.' });
             }
@@ -217,6 +219,59 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await kv.set(ARENA_TOURNAMENT_KEY, tournament);
                 }
                 return res.status(200).json({ ok: true });
+            }
+
+            if (kind === 'arenaTournamentWinner') {
+                const { tournamentId, winnerName } = body as { tournamentId?: unknown; winnerName?: unknown };
+                const id = String(tournamentId ?? '').trim();
+                const winnerSlug = safeName(String(winnerName ?? ''));
+                if (!id || !winnerSlug) return res.status(400).json({ error: 'Tournament and winner are required.' });
+
+                const settled = await withKvLock(ARENA_TOURNAMENT_KEY, async () => {
+                    const current = await kv.get<Record<string, unknown>>(ARENA_TOURNAMENT_KEY);
+                    if (!current || String(current.id ?? '') !== id) {
+                        return { ok: false as const, status: 409, error: 'Tournament is no longer current.' };
+                    }
+                    const participants = Array.isArray(current.participants)
+                        ? current.participants.filter((name): name is string => typeof name === 'string') : [];
+                    const advanced = Array.isArray(current.advancedPlayers)
+                        ? current.advancedPlayers.filter((name): name is string => typeof name === 'string') : [];
+                    const canonicalWinner = participants.find((name) => safeName(name) === winnerSlug);
+                    if (!canonicalWinner) return { ok: false as const, status: 400, error: 'Winner must be a tournament participant.' };
+                    if (!advanced.some((name) => safeName(name) === winnerSlug)) {
+                        return { ok: false as const, status: 409, error: 'Advance the winner before finalizing the tournament.' };
+                    }
+                    if (current.winnerName && safeName(String(current.winnerName)) !== winnerSlug) {
+                        return { ok: false as const, status: 409, error: 'Tournament already has a different winner.' };
+                    }
+
+                    const credited = await mutatePlayerSave(canonicalWinner, ({ character }) => {
+                        const victory = applyTournamentVictory(character, id);
+                        return {
+                            ok: true as const,
+                            character: victory.character,
+                            write: victory.replayed ? false : undefined,
+                            value: { replayed: victory.replayed },
+                        };
+                    });
+                    if (!credited.ok) return { ok: false as const, status: credited.status, error: credited.error };
+
+                    const tournament = {
+                        ...current,
+                        winnerName: canonicalWinner,
+                        endedAt: Number(current.endedAt) || Date.now(),
+                    };
+                    await kv.set(ARENA_TOURNAMENT_KEY, tournament);
+                    return {
+                        ok: true as const,
+                        tournament,
+                        character: credited.character,
+                        _saveVersion: credited._saveVersion,
+                        replayed: credited.value.replayed,
+                    };
+                }, { failClosed: true });
+                if (!settled.ok) return res.status(settled.status).json({ error: settled.error });
+                return res.status(200).json(settled);
             }
 
             if (kind === 'arenaActiveFights') {

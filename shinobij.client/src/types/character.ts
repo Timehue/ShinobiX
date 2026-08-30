@@ -433,6 +433,12 @@ export type Character = {
     }>;
     redeemedDungeonRuns?: string[];
     redeemedHollowGateRuns?: string[];
+    /** Server-authored activity receipts used for permanent achievement progress. */
+    redeemedCrafts?: string[];
+    redeemedNamedForges?: string[];
+    redeemedWandererQuests?: Array<string | Record<string, unknown>>;
+    redeemedQuestbookRuns?: Array<string | Record<string, unknown>>;
+    tournamentWinReceipts?: string[];
     boneCharms: number;
     auraStones: number;
     mythicSeals: number;

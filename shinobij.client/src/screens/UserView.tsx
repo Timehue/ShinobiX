@@ -16,7 +16,7 @@ import { ReportControl } from "../components/ReportControl";
 import "../styles/profile-skin.css";
 import type { Character, ServerPlayerSummary, PlayerRecord } from "../types/character";
 import type { SavedBloodline, Jutsu } from "../types/combat";
-import { type Achievement, ACHIEVEMENTS } from "../constants/achievements";
+import { type Achievement, ACHIEVEMENTS, isAchievementUnlocked } from "../constants/achievements";
 import { getCharacterElements } from "../lib/elements";
 import { sendStandardDuel } from "../lib/duel-challenge";
 import { RankBadge } from "../components/RankBadge";
@@ -140,6 +140,8 @@ export function UserView({
     const bloodlineName = equippedBloodline?.name || viewedCharacter.bloodline;
     const professionLabel = viewedCharacter.profession ? PROFESSION_LABEL[viewedCharacter.profession] : "";
     const pets = viewedCharacter.pets ?? [];
+    const achievementStates = ACHIEVEMENTS.map(a => ({ a, unlocked: isAchievementUnlocked(viewedCharacter, a) }));
+    const unlockedAchievements = achievementStates.filter(entry => entry.unlocked).map(entry => entry.a);
     const metrics: { label: string; value: string | number }[] = [
         { label: "Ranked Rating", value: viewedCharacter.rankedRating ?? 0 },
         { label: "PvP Kills", value: viewedCharacter.totalPvpKills ?? 0 },
@@ -293,11 +295,11 @@ export function UserView({
                     <div className="achievements-heading">
                         <h3>Achievements</h3>
                         <span className="achievements-count">
-                            {ACHIEVEMENTS.filter(a => a.check(viewedCharacter)).length}/{ACHIEVEMENTS.length} unlocked
+                            {unlockedAchievements.length}/{ACHIEVEMENTS.length} unlocked
                         </span>
                     </div>
                     {(() => {
-                        const unlocked = ACHIEVEMENTS.filter(a => a.check(viewedCharacter));
+                        const unlocked = unlockedAchievements;
                         if (unlocked.length === 0) {
                             return <p className="hint">This shinobi hasn't unlocked any achievements yet.</p>;
                         }

@@ -248,6 +248,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('redeemedShopSales', 'character', 'server-payout-stamp', 'shop', ['server-array-ledger-char']),
     f('redeemedCrafts', 'character', 'server-payout-stamp', 'crafting', ['server-array-ledger-char']),
     f('redeemedNamedForges', 'character', 'server-payout-stamp', 'crafting', ['server-array-ledger-char']),
+    f('tournamentWinReceipts', 'character', 'server-payout-stamp', 'tournament', ['server-array-ledger-char', 'strict-ledger-char', 'combat-strip-char'], 'official tournament id credited exactly once by full-admin finalization'),
     f('redeemedStoryBattles', 'character', 'server-payout-stamp', 'story', ['server-array-ledger-char']),
     f('redeemedPetEncounters', 'character', 'server-payout-stamp', 'pets', ['server-array-ledger-char']),
     f('claimedCreatorEvents', 'character', 'server-payout-stamp', 'events', ['server-array-ledger-char']),
