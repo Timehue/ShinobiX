@@ -52,6 +52,8 @@ export type WarfrontWorkerBatch = Readonly<{
     commandState: WfCommandState | null;
     commandLog: WarfrontCommandEntry[];
     omen: WarfrontResult["omen"];
+    mutator: WarfrontResult["mutator"];
+    hazard: WarfrontResult["hazard"];
     commandImpacts: WarfrontResult["commandImpacts"];
     stances: Record<"blue" | "red", WfStance>;
     buyState: WarfrontBuyState;

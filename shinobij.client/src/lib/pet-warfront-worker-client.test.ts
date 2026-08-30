@@ -24,7 +24,7 @@ class FakeWorker {
             snapshots: [], events: [], ticks: round * 2_700, round, done: false, winner: null,
             coins: { blue: 0, red: 0 }, favor: { blue: 0, red: 0 },
             lanes: { blue: ["m"], red: ["m"] }, commandState, commandLog: [],
-            omen: "shattered-wards", commandImpacts: [],
+            omen: "shattered-wards", mutator: "fortified-seals", hazard: "verdant-bloom", commandImpacts: [],
             stances: { blue: "balanced", red: "balanced" }, buyState: [],
         } satisfies WarfrontWorkerBatch;
         this.onmessage?.({ data: { type: "batch", buffer: encodeWarfrontWorkerBatch(batch) } } as MessageEvent<{ type: "batch"; buffer: ArrayBuffer }>);

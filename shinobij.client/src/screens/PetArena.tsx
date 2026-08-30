@@ -100,7 +100,7 @@ import { activeClientBreedingParentIds } from "../lib/pet-breeding";
 import { publicEligiblePets } from "../lib/public-pet-roster";
 import { buildPetArenaLiveRoster, isLivePetDuelAvailable } from "../lib/pet-duel-live-roster";
 import type { ArenaSlot, ArenaRole } from "../lib/pet-arena-sim";
-import { wfThemeForVillage } from "../lib/pet-warfront-map";
+import type { WfTheme } from "../lib/pet-warfront-map";
 import type { WarfrontResult, WfBuyPolicy } from "../lib/pet-warfront-sim";
 import { WF_DOCTRINES, WF_STANCES, type WfDoctrine, type WfStance } from "../lib/pet-warfront-contract";
 import arenaModeColosseum from "../assets/coliseum/arena-mode-colosseum.webp";
@@ -318,6 +318,7 @@ type WarfrontMatch = {
     blue: ArenaSlot[];
     red: ArenaSlot[];
     seed: number;
+    theme: WfTheme;
     vsAi: boolean;
     scope: PetArenaPlayerScope;
     buyPolicy: WfBuyPolicy;
@@ -743,6 +744,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 blue: autoRoleTeam(blue, blue.length),
                 red: autoRoleTeam(red, red.length),
                 seed: seal.seed,
+                theme: seal.theme,
                 vsAi: true,
                 scope,
                 buyPolicy: seal.buyPolicy,
@@ -763,6 +765,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         const scope = capturePlayerScope();
         const matchConfig = sealedPlans
             ? {
+                theme: "central" as WfTheme,
                 buyPolicy: sealedPlans.blue.buyPolicy as WfBuyPolicy,
                 opponentBuyPolicy: sealedPlans.red.buyPolicy,
                 stance: sealedPlans.blue.stance as WfStance,
@@ -771,6 +774,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 opponentDoctrine: sealedPlans.red.doctrine as WfDoctrine,
             }
             : {
+                theme: "central" as WfTheme,
                 buyPolicy: (vsAi ? wfAutoPref : "balanced") as WfBuyPolicy,
                 opponentBuyPolicy: "balanced" as const,
                 stance: wfStancePref,
@@ -954,6 +958,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 if (!playerScopeIsActive(m.scope)) return false;
                 if (!seal) throw new Error("The Warfront battle seal is unavailable. Retry this receipt before leaving.");
                 if (seal.seed !== m.seed
+                    || seal.theme !== m.theme
                     || seal.reportKey !== reportKey
                     || seal.stance !== m.stance
                     || seal.doctrine !== m.doctrine
@@ -2344,13 +2349,14 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading the Warfront…</div>}>
                     <PetWarfrontMatch
                         blue={arenaMatch.blue} red={arenaMatch.red} seed={arenaMatch.seed}
-                        theme={wfThemeForVillage(character.village)}
+                        theme={arenaMatch.theme}
                         autoBuy={arenaMatch.buyPolicy}
                         opponentAutoBuy={arenaMatch.opponentBuyPolicy}
                         stance={arenaMatch.stance}
                         doctrine={arenaMatch.doctrine}
                         opponentStance={arenaMatch.opponentStance}
                         opponentDoctrine={arenaMatch.opponentDoctrine}
+                        matchType="unranked"
                         onResult={(result) => reportTacticalArenaResult(arenaMatch, result)}
                         resultActionsLocked={warfrontResultActionsLocked}
                         settlementPending={warfrontSettlementBlocksExit}

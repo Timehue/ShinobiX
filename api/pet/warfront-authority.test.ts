@@ -1,6 +1,8 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Pet } from '../_pet-sim/pet-types.js';
+import { derivePetRole } from '../_pet-sim/pet-roles.js';
+import { runWarfrontMatch, WARFRONT_TPS } from '../_pet-sim/pet-warfront-sim.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -59,6 +61,7 @@ before(async () => {
         _saveVersion: 1,
         character: {
             name: PLAYER,
+            village: 'Leaf Village',
             level: 20,
             ryo: 0,
             professionRank: 0,
@@ -201,6 +204,7 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
     assert.equal(started.out.body?.stance, 'balanced');
     assert.equal(started.out.body?.doctrine, 'none');
     assert.equal(started.out.body?.buyPolicy, 'balanced');
+    assert.equal(started.out.body?.theme, 'forest', 'the server must derive and seal the gameplay hazard theme from the saved village');
     assert.ok(Number(started.out.body?.safePlaybackForMs) >= Number(started.out.body?.matchDurationMs) + 10 * 60_000);
     assert.ok(Number(started.out.body?.safePlaybackForMs) > 29 * 60_000, 'fresh proofs retain a background-tab-safe thirty-minute budget');
     const responseBlue = started.out.body?.bluePets as Array<Record<string, unknown>>;
@@ -215,6 +219,7 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
     assert.equal(seal?.settlementPolicy, 'warfront-reward', 'Warfront remains an explicit non-Coliseum reward authority');
     assert.equal(seal?.seed, seed);
     assert.equal(seal?.reportKey, reportKey);
+    assert.equal(seal?.theme, 'forest');
     assert.equal(seal?.opponentStance, 'balanced');
     assert.equal(seal?.opponentDoctrine, 'vanguard');
     assert.equal(seal?.opponentBuyPolicy, 'balanced');
@@ -226,6 +231,20 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
     assert.ok(Number.isSafeInteger(rewardRyo) && rewardRyo >= 20 && rewardRyo <= 250);
     const settleAfter = Number(seal?.settleAfter);
     const playbackStartedAt = Number(seal?.playbackStartedAt);
+    const authoritySlots = (pets: Array<Record<string, unknown>>) => pets.map((pet) => ({
+        pet: pet as unknown as Pet,
+        role: ((pet as { role?: unknown }).role ?? derivePetRole(pet as unknown as Pet).role) as 'defender' | 'tracker' | 'assassin' | 'sage',
+    }));
+    const expectedBaseline = runWarfrontMatch(
+        authoritySlots(sealedBlue), authoritySlots(sealedRed), seed,
+        'balanced', 'balanced', 'forest',
+        { blue: 'balanced', red: 'balanced' },
+        { blue: 'none', red: 'vanguard' },
+        undefined,
+        { captureSnapshots: false },
+    );
+    assert.equal(seal?.authoritativeOutcome, expectedBaseline.winner === 'blue' ? 'win' : expectedBaseline.winner === 'red' ? 'loss' : 'draw');
+    assert.equal(Number(seal?.matchDurationMs), Math.ceil(expectedBaseline.ticks / WARFRONT_TPS * 1_000), 'the sealed clock must come from the same themed baseline the player watches');
     assert.ok(Number.isSafeInteger(settleAfter) && settleAfter > Date.now() + 50_000);
     assert.ok(Number.isSafeInteger(playbackStartedAt) && playbackStartedAt > 0 && playbackStartedAt < settleAfter);
 
@@ -250,6 +269,7 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
     assert.equal(resumed.out.body?.token, token);
     assert.equal(resumed.out.body?.seed, seed);
     assert.equal(resumed.out.body?.stance, 'balanced', 'resume must return its sealed config, not reload defaults');
+    assert.equal(resumed.out.body?.theme, 'forest', 'resume must preserve the original hazard authority');
     assert.deepEqual((resumed.out.body?.bluePets as Array<Record<string, unknown>>).map((pet) => pet.id), startBody.playerPetIds);
     assert.equal(resumed.out.body?.outcome, undefined);
     await kv.set(`save:${PLAYER}`, saveBeforeRecovery);
@@ -284,17 +304,27 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
 
         Date.now = () => settleAfter + 1;
         const settled = response();
+        const submittedLanes = ['n', 'm', 's', 'm'] as const;
+        const expectedCommanded = runWarfrontMatch(
+            authoritySlots(sealedBlue), authoritySlots(sealedRed), seed,
+            'balanced', 'balanced', 'forest',
+            { blue: 'balanced', red: 'balanced' },
+            { blue: 'none', red: 'vanguard' },
+            { initialLanes: { blue: submittedLanes }, commands: [] },
+            { captureSnapshots: false },
+        );
         await resultHandler(request({
             playerName: PLAYER,
             outcome: 'loss', // deliberately forged; the server replay owns this value
             reportKey,
             battleToken: token,
             warfrontPlan: {
-                initialLanes: ['n', 'm', 's', 'm'],
+                initialLanes: submittedLanes,
                 commands: [],
             },
         }), settled.res);
         assert.equal(settled.out.statusCode, 200);
+        assert.equal(settled.out.body?.outcome, expectedCommanded.winner === 'blue' ? 'win' : expectedCommanded.winner === 'red' ? 'loss' : 'draw', 'settlement must replay commands under the sealed hazard theme');
         const sealedOutcome = String(seal?.authoritativeOutcome ?? 'draw');
         assert.equal(sealedOutcome, 'win', 'the authoritative fixture must reach its witness settlement path');
         assert.equal(Number(settled.out.body?.reward ?? 0) > 0, true, 'forged reported loss cannot override the authoritative three-lane replay');
@@ -320,7 +350,6 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
 });
 
 test('Warfront settlement follows a faster commanded replay instead of the slower automatic baseline', async () => {
-    const { runWarfrontMatch, WARFRONT_TPS } = await import('../_pet-sim/pet-warfront-sim.js');
     const roles = ['defender', 'tracker', 'assassin', 'sage'] as const;
     const bluePets = roles.map((role, index) => {
         const { image: _image, bodyImage: _bodyImage, ...pet } = warfrontPet(index + 1);

@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-const warfrontUrl = "/petvfx.html?warfront=1&theme=central&stance=jungle&petQuality=low";
+const warfrontUrl = "/petvfx.html?warfront=1&theme=central&stance=jungle";
+const lowWarfrontUrl = `${warfrontUrl}&petQuality=low`;
 
-async function openWarfront(page: import("@playwright/test").Page, url = warfrontUrl) {
+async function openWarfront(page: import("@playwright/test").Page, url = lowWarfrontUrl) {
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
 }
 
@@ -21,6 +22,9 @@ test("deployment communicates the complete three-lane contract and enforces 2–
     await expect(page.getByRole("button", { name: "Seal deployment" })).toBeFocused();
     await expect(page.getByText("Three fronts. Two towers. One command.")).toBeVisible();
     await expect(page.getByText("HOLLOW OMEN", { exact: true })).toBeVisible();
+    await expect(page.getByText("WARFRONT DIRECTIVE", { exact: true })).toBeVisible();
+    await expect(page.getByText("ARENA HAZARD", { exact: true })).toBeVisible();
+    await expect(page.getByText("SEALED BATTLE PLAN", { exact: true })).toBeVisible();
     await expect(page.getByText("Crescent 1", { exact: true })).toBeVisible();
     await expect(page.getByText("Hollow 2", { exact: true })).toBeVisible();
     await expect(page.getByText("Ember 1", { exact: true })).toBeVisible();
@@ -41,13 +45,15 @@ test("deployment communicates the complete three-lane contract and enforces 2–
 
 test("the two-minute Lane Command supports Hold and one explicit transfer", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop", "interaction runs once; responsive coverage runs separately");
-    await openWarfront(page, `${warfrontUrl}&wfspeed=30`);
+    await openWarfront(page, `${lowWarfrontUrl}&wfspeed=30`);
     await deploy(page);
     const heading = page.getByRole("heading", { name: /Shift the pressure|Answer the fracture/ });
     await expect(heading).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("dialog", { name: /Shift the pressure|Answer the fracture/ })).toBeFocused();
     await expect(page.getByText(/TWO-MINUTE LANE COMMAND|STORM-GATE COMMAND|SHATTERED-WARD REACTION/)).toBeVisible();
     await expect(page.getByLabel("Warden summon lane")).toBeVisible();
+    await expect(page.getByLabel("Authorize a pet signature ultimate")).toBeVisible();
+    await expect(page.getByText("SIGNATURE AUTHORIZATION", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /Breaker/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /Sentinel/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /Harrier/ })).toBeVisible();
@@ -68,7 +74,7 @@ test("an accelerated battle reaches a scored post-match result", async ({ page }
         if (message.type() === "error") errors.push(message.text());
     });
     await page.route("**/api/perf-beacon", (route) => route.fulfill({ status: 204 }));
-    await openWarfront(page, `${warfrontUrl}&wfspeed=30`);
+    await openWarfront(page, `${lowWarfrontUrl}&wfspeed=30`);
     await deploy(page);
 
     const result = page.getByRole("dialog", { name: /VICTORY|DEFEAT|STALEMATE/ });
@@ -87,9 +93,85 @@ test("an accelerated battle reaches a scored post-match result", async ({ page }
     await expect(result.getByText(/towers/)).toBeVisible();
     await expect(result.getByText("DECISIVE BREAK", { exact: true })).toBeVisible();
     await expect(result.getByText("MOST INFLUENTIAL COMMAND", { exact: true })).toBeVisible();
-    await result.getByRole("button", { name: "Replay final break" }).click();
+    await expect(result.getByText("WARFRONT MVP", { exact: true })).toBeVisible();
+    await expect(result.getByText("TURNING-POINT TIMELINE", { exact: true })).toBeVisible();
+    await result.getByRole("button", { name: "Replay turning point" }).click();
     await expect(result).toBeHidden();
     await expect(result).toBeVisible({ timeout: 20_000 });
+    expect(errors).toEqual([]);
+});
+
+test("the production 3D renderer loads every battlefield asset and preserves DPR geometry", async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.name.startsWith("desktop"), "the compact layouts intentionally use the responsive DOM battlefield");
+    const errors: string[] = [];
+    const failedAssets: string[] = [];
+    page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
+    page.on("console", (message) => {
+        if (message.type() === "error") errors.push(`console: ${message.text()}`);
+    });
+    page.on("response", (response) => {
+        if (/\/pet-models\/(?:ward-totem|wf-boulder|wf-lantern|gate-warden-rigged|roster\/)/.test(response.url()) && response.status() >= 400) {
+            failedAssets.push(`${response.status()} ${response.url()}`);
+        }
+    });
+    await page.route("**/api/perf-beacon", (route) => route.fulfill({ status: 204 }));
+    await openWarfront(page, `${warfrontUrl}&petQuality=high&wfperf=geometry&wfspeed=4`);
+    await deploy(page);
+
+    const stage = page.getByRole("img", { name: "Three-dimensional Hollow Warfront battlefield" });
+    const canvas = stage.locator("canvas");
+    await expect(stage).toHaveAttribute("data-theme", "central");
+    await expect(canvas).toBeVisible({ timeout: 30_000 });
+    await expect(stage).toHaveAttribute("data-scene-ready", "true", { timeout: 30_000 });
+    await expect(page.locator(".wf3-worldplate--tower")).toHaveCount(6);
+    await expect(page.locator(".wf3-worldplate--fighter")).toHaveCount(8);
+    await expect(page.locator(".wf3-pet")).toHaveCount(0);
+    // Read every rectangle in one browser-thread snapshot. Repeated Playwright
+    // boundingBox calls can starve behind the continuously rendered WebGL scene
+    // on software-GPU CI runners even though the DOM is already scene-ready.
+    const renderState = await page.locator(".wf3-shell").evaluate((element) => {
+        const laneRail = element.querySelector(".wf3-lanes")?.getBoundingClientRect() ?? null;
+        const blueTowers = Array.from(element.querySelectorAll(".wf3-worldplate--tower.is-blue"), (tower) => {
+            const bounds = tower.getBoundingClientRect();
+            return { x: bounds.x, width: bounds.width };
+        });
+        const sceneCanvas = element.querySelector<HTMLCanvasElement>("canvas");
+        const canvasBounds = sceneCanvas?.getBoundingClientRect() ?? null;
+        return {
+            laneRail: laneRail ? { x: laneRail.x, width: laneRail.width } : null,
+            blueTowers,
+            impactCount: element.querySelectorAll(".wf3-float-number").length,
+            metrics: sceneCanvas && canvasBounds ? {
+                cssWidth: canvasBounds.width,
+                cssHeight: canvasBounds.height,
+                backingWidth: sceneCanvas.width,
+                backingHeight: sceneCanvas.height,
+                viewportWidth: window.innerWidth,
+                viewportHeight: window.innerHeight,
+                scrollWidth: document.documentElement.scrollWidth,
+                scrollHeight: document.documentElement.scrollHeight,
+            } : null,
+        };
+    });
+    expect(renderState.laneRail).not.toBeNull();
+    expect(renderState.blueTowers).toHaveLength(3);
+    for (const bounds of renderState.blueTowers) {
+        expect(bounds.x).toBeGreaterThanOrEqual(renderState.laneRail!.x + renderState.laneRail!.width + 2);
+    }
+    expect(renderState.impactCount, "the 3D battle must surface simulation-driven impact feedback").toBeGreaterThan(0);
+    expect(renderState.metrics).not.toBeNull();
+    const metrics = renderState.metrics!;
+    const deviceDpr = Number(testInfo.project.use.deviceScaleFactor ?? 1);
+    const rendererDpr = Math.min(deviceDpr, 1.75);
+    expect(metrics.backingWidth / metrics.cssWidth).toBeCloseTo(rendererDpr, 1);
+    expect(metrics.backingHeight / metrics.cssHeight).toBeCloseTo(rendererDpr, 1);
+    expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.viewportWidth + 2);
+    expect(metrics.scrollHeight).toBeLessThanOrEqual(metrics.viewportHeight + 2);
+    await expect(page.locator("vite-error-overlay")).toHaveCount(0);
+    if (testInfo.project.name === "desktop") {
+        await page.screenshot({ path: testInfo.outputPath("production-3d-warfront.png"), animations: "disabled" });
+    }
+    expect(failedAssets).toEqual([]);
     expect(errors).toEqual([]);
 });
 

@@ -20,6 +20,7 @@ import {
     type WfStance,
 } from '../_pet-sim/pet-warfront-sim.js';
 import { derivePetRole } from '../_pet-sim/pet-roles.js';
+import type { WfTheme } from '../_pet-sim/pet-warfront-map.js';
 import { writeSaveProjected } from '../save/_projected-write.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { petWitnessReceiptForSettlement, recordPetArenaVictory } from '../card-clash/_pet-witness.js';
@@ -98,6 +99,7 @@ const RANKED_SAVE_RECEIPT_CAP = 256;
 // floor and small playback skew as the start route.
 const WARFRONT_MIN_SETTLE_MS = 60_000;
 const WARFRONT_SETTLE_CLOCK_SKEW_MS = 5_000;
+const WARFRONT_THEMES: readonly WfTheme[] = ['central', 'forest', 'snow', 'volcano', 'shadow'];
 
 type RankedPetSettlementReceipt = {
     a: string;
@@ -498,6 +500,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 bluePets?: Pet[];
                 redPets?: Pet[];
                 seed?: number;
+                theme?: WfTheme;
                 buyPolicy?: WfBuyPolicy;
                 opponentBuyPolicy?: WfBuyPolicy;
                 stance?: WfStance;
@@ -692,6 +695,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const rivalPets = parseSealedPetSnapshots(tokenData.redPets, rivalIds);
                 const plan = parseWarfrontCommandPlan((body as Record<string, unknown>).warfrontPlan);
                 const seed = Number(tokenData.seed);
+                const theme = WARFRONT_THEMES.includes(tokenData.theme as WfTheme)
+                    ? tokenData.theme as WfTheme
+                    : 'central';
                 let commandedSettleAfter = baselineSettleAfter;
                 if (plan && rivalPets?.length === 4 && casualPvePlayerPets.length === 4
                     && Number.isSafeInteger(seed) && seed > 0) {
@@ -706,7 +712,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             seed,
                             tokenData.buyPolicy ?? 'balanced',
                             tokenData.opponentBuyPolicy ?? 'balanced',
-                            undefined,
+                            theme,
                             { blue: tokenData.stance, red: tokenData.opponentStance },
                             { blue: tokenData.doctrine, red: tokenData.opponentDoctrine },
                             plan,

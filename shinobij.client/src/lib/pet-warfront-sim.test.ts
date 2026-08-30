@@ -9,8 +9,12 @@ import {
     startWarfrontMatch,
     WARFRONT_TPS,
     WF_MAX_SECONDS,
+    WF_HAZARDS,
+    WF_MUTATORS,
     WF_ROUND_SECONDS,
     WF_OMENS,
+    WF_ULTIMATE_FAVOR_COST,
+    wfMutatorForSeed,
     wfOmenForSeed,
     wfTakedownFavor,
     wfVerdictScore,
@@ -68,6 +72,26 @@ test("scheduled windows pause at two minutes and permit exactly one transfer or 
     hold.advanceRound([]);
     assert.deepEqual(hold.commandLog()[0].moves, []);
     assert.deepEqual(hold.lanes().blue, holdBefore, "an explicit empty command is Hold, not an AI move");
+});
+
+test("a command can expose a transferred seal and authorize one charged signature", () => {
+    const ctl = startWarfrontMatch(squad("A", -45), squad("B", -45), 24, { snapshotEvery: WARFRONT_TPS });
+    ctl.advanceRoundPartial(WARFRONT_TPS * (WF_ROUND_SECONDS + 10));
+    const command = ctl.commandState();
+    assert.equal(command?.reason, "scheduled");
+    const actor = ctl.result.snapshots.at(-1)?.actors.find((candidate) => candidate.team === "blue" && candidate.slot === 0);
+    assert.equal(actor?.ultimateReady, true, "the first signature should be charged by the first command window");
+    assert.ok(ctl.favor("blue") >= WF_ULTIMATE_FAVOR_COST, "the team must have enough Favor to authorize a signature");
+
+    ctl.advanceRound([{ type: "move", petIndex: 0, lane: "m" }, { type: "ultimate", petIndex: 0 }]);
+    const entry = ctl.commandLog()[0];
+    assert.equal(entry.exposedLane, "n");
+    assert.equal(entry.ultimatePetIndex, 0);
+    assert.equal(entry.favorSpent, WF_ULTIMATE_FAVOR_COST);
+    assert.ok(ctl.result.events.some((event) => event.type === "sealexposed" && event.team === "blue" && event.lane === "n"));
+    assert.ok(ctl.result.events.some((event) => event.type === "ultimatearmed" && event.team === "blue"));
+    assert.ok(ctl.result.events.some((event) => event.type === "ultimate" && event.team === "blue"));
+    assert.equal(ctl.result.petStats?.find((row) => row.team === "blue" && row.id === "blue-0")?.ultimates, 1);
 });
 
 test("the match is deterministic and actors never leave their sealed lane graph", () => {
@@ -146,6 +170,7 @@ test("first to destroy two towers wins and a first break opens a breakthrough", 
     assert.equal(wfVerdictScore(last).blue, 2);
     assert.equal(result.events.filter((event) => event.type === "towerdown" && event.by === "blue").length, 2);
     assert.ok(result.events.some((event) => event.type === "commandwindow" && event.reason === "breakthrough"));
+    assert.ok(result.events.some((event) => event.type === "lastward" && event.team === "red"), "losing a first tower must activate Last Ward");
 });
 
 test("Favor is earned and can call the Warden from a command window", () => {
@@ -194,6 +219,22 @@ test("Hollow Omens are deterministic, shared, and alter command cadence without 
     assert.equal(wfTakedownFavor("blood-moon", true), 24, "Blood Moon adds 12 Favor to the normal takedown award");
     assert.equal(wfTakedownFavor("thin-veil", true), 18, "ordinary fractured-tower defense keeps the six-Favor comeback award");
     assert.equal(wfTakedownFavor("blood-moon", false), 12, "Blood Moon is not a global takedown multiplier");
+});
+
+test("directives and themed arena hazards rotate deterministically and enter the authoritative event stream", () => {
+    assert.deepEqual([0, 8, 16, 24].map(wfMutatorForSeed), WF_MUTATORS.map((mutator) => mutator.id));
+    const themes = Object.keys(WF_HAZARDS) as Array<keyof typeof WF_HAZARDS>;
+    for (const theme of themes) {
+        const result = runWarfrontMatch(squad(`A-${theme}`, -75), squad(`B-${theme}`, -75), 7, "balanced", "balanced", theme);
+        assert.equal(result.hazard, WF_HAZARDS[theme].id);
+        assert.ok(result.events.some((event) => event.type === "hazard" && event.hazard === WF_HAZARDS[theme].id), `${theme} never fired its arena hazard`);
+    }
+});
+
+test("Riftfall grants a visible rally to the trailing team before the hard verdict", () => {
+    const result = runWarfrontMatch(squad("A", -75), squad("B", -74), 7);
+    assert.ok(result.events.some((event) => event.type === "riftfall"));
+    assert.ok(result.events.some((event) => event.type === "riftrally"), "an asymmetric timeout match must rally its trailing side");
 });
 
 test("command reveals and impact records preserve the plan-to-consequence story", () => {
