@@ -4,24 +4,44 @@ This folder contains GitHub-ready media that shows real app screens.
 
 ## Current Assets
 
-- `docs/screenshots/demo.gif` - small animated README preview generated from
-  verified local screenshots.
-- `docs/screenshots/character-creator.png` - local Vite capture of character
-  creation.
-- `docs/screenshots/combat.png` - local Vite capture of the first mission
-  combat flow.
+Captured 2026-08-30 from the running client at 1440x900, JPEG q92 - the same
+frames were 0.6-1.1 MB as PNG and are about a sixth of that as JPEG, with no
+visible softening of the UI text at the size the README renders them:
 
-## Capture Notes
+- `docs/screenshots/landing.jpg` - the public landing page (README hero).
+- `docs/screenshots/character-creator.jpg` - the Academy Gate.
+- `docs/screenshots/village-select.jpg` - the four rival villages.
 
-The current screenshots were captured from local development on July 7, 2026
-using:
+Older but still current-looking, kept as-is:
+
+- `docs/screenshots/shot-bloodlines.png` - starter bloodline selection.
+- `docs/screenshots/shot-village.png` - a visual-novel story scene.
+
+`demo.gif` and `combat.png` were REMOVED. They were captured 2026-07-13 and the
+game went through roughly 128 visual commits after that - the Veiled Steel
+material pass, real typefaces, the combat HUD redesign - so they showed a build
+no player would recognise. The combat shot also had a giveaway: the account in
+it is literally named `ReadmeCapture0707`, and the enemy is an unstyled cyan
+placeholder. The README claimed visitors "see real app screens"; showing those
+made the claim false.
+
+## Refreshing them
 
 ```bash
-cd shinobij.client
-npm run dev -- --host 127.0.0.1 --port 5173
+npm run dev --prefix shinobij.client              # one shell
+npm run capture:screenshots --prefix shinobij.client -- http://127.0.0.1:5173
 ```
 
-The capture account was temporary and removed after screenshots were saved.
+`shinobij.client/scripts/capture-screenshots.mjs` drives a headless browser
+through the public funnel and overwrites the three files above. It exists
+because the July pass was manual, and a manual pass is exactly why these went
+seven weeks stale while the README insisted they were real app screens.
+
+**It deliberately stops before the account step.** Creation runs Gate -> Village
+-> Bloodline -> Avatar -> Preview -> Account, and everything past Preview needs a
+real account and password. So combat, the village hub, the Pet Yard and
+everything else below still need a human with a throwaway account, the way the
+July 2026 pass did.
 
 ## Recommended Next Captures
 

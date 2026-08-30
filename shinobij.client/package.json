@@ -11,6 +11,7 @@
     "dev": "vite",
     "server": "tsx server.ts",
     "build": "npm run check:story-content && tsc -b && vite build",
+    "capture:screenshots": "node scripts/capture-screenshots.mjs",
     "build:warfront-e2e": "vite build --config vite.config.perf.mts --mode warfront-qa",
     "check:story-content": "node ../node_modules/tsx/dist/cli.mjs ../scripts/generate-story-content.mts --check",
     "lint": "eslint .",
