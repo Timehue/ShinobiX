@@ -3,8 +3,11 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const root = fileURLToPath(new URL('../e2e-visual/__snapshots__/', import.meta.url));
-const maxFiles = 8;
-const maxBytes = 3 * 1024 * 1024;
+// The release suite intentionally covers 17 landing crops plus the character
+// creator and authenticated hub. Keep a small allowance for one added surface
+// without turning the baseline check into an unbounded screenshot archive.
+const maxFiles = 20;
+const maxBytes = 12 * 1024 * 1024;
 
 let entries;
 try {

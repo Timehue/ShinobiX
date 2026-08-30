@@ -51,7 +51,7 @@ SCENES = [
     SceneSpec("hollow-gate-finale", "cinematic/09-hollow-gate-finale.png", 4.0, "arc", "magic", "embers", 909),
     SceneSpec("four-clan-charge", "cinematic/10-four-clan-charge-v3.png", 5.0, "charge", "mixed", "ash", 1010),
     SceneSpec("landing-hero", "public/landing-hero-keyart.webp", 4.0, "drift", "cold", "snow", 1111),
-    SceneSpec("world-map", "assets/Maps/world_map.webp", 4.0, "map", "neutral", "ash", 1212),
+    SceneSpec("world-map", "assets/Maps/world_map-v2.webp", 4.0, "map", "neutral", "ash", 1212),
     SceneSpec("inferno-world", "public/bloodline-inferno-cataclysm.webp", 4.0, "push", "fire", "embers", 1313),
     SceneSpec("companion-bond", "assets/pet-home/home-hero.webp", 4.0, "drift", "warm", "ash", 1414),
     SceneSpec("hollow-hound", "public/hollow-gate/hollow-hound-alpha-cinematic.webp", 4.0, "charge", "magic", "ash", 1515),

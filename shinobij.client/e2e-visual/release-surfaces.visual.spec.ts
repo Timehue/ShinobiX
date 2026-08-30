@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Route } from '@playwright/test';
+import { expect, test, type Locator, type Page, type Route } from '@playwright/test';
 import { PUBLIC_CAPABILITY_IDS } from '../../shared/public-capabilities';
 
 const FIXED_NOW = Date.UTC(2026, 0, 15, 12, 0, 0);
@@ -57,19 +57,96 @@ async function screenshot(page: Page, name: string) {
     });
 }
 
+async function sectionScreenshot(page: Page, section: Locator, name: string) {
+    await section.scrollIntoViewIfNeeded();
+    await section.locator('img').evaluateAll(async (images) => {
+        await Promise.all(images.map((image) => image instanceof HTMLImageElement ? image.decode().catch(() => undefined) : undefined));
+    });
+    await expect(section).toHaveScreenshot(name, {
+        animations: 'disabled',
+        caret: 'hide',
+    });
+}
+
+async function expectNoHorizontalOverflow(page: Page) {
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(overflow).toBeLessThanOrEqual(1);
+}
+
 test.beforeEach(async ({ page }) => installDeterministicRuntime(page));
 
 test('landing hero - desktop', async ({ page }) => {
     await page.goto('/', { waitUntil: 'networkidle' });
     await expect(page.getByTestId('start-create')).toBeVisible();
+    await expectNoHorizontalOverflow(page);
     await screenshot(page, 'landing-desktop.png');
+});
+
+test('landing hero - compact', async ({ page }) => {
+    await page.setViewportSize({ width: 600, height: 900 });
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await expect(page.getByTestId('start-create')).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await screenshot(page, 'landing-compact.png');
 });
 
 test('landing hero - mobile', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/', { waitUntil: 'networkidle' });
     await expect(page.getByTestId('start-create')).toBeVisible();
+    await expectNoHorizontalOverflow(page);
     await screenshot(page, 'landing-mobile.png');
+});
+
+test('landing finale - desktop', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'networkidle' });
+    const finale = page.locator('.landing-begin');
+    await expect(finale).toBeVisible();
+    await finale.scrollIntoViewIfNeeded();
+    await settleVisualState(page);
+    // Isolate the long section capture from the sticky global nav. Playwright
+    // stitches element screenshots taller than the viewport and would otherwise
+    // composite the sticky bar through the middle of the section artwork.
+    await page.addStyleTag({ content: '.landing-topbar { visibility: hidden !important; }' });
+    await expect(finale).toHaveScreenshot('landing-finale-desktop.png', {
+        animations: 'disabled',
+        caret: 'hide',
+    });
+});
+
+test('landing story sections - desktop', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await settleVisualState(page);
+    await page.addStyleTag({ content: '.landing-topbar { visibility: hidden !important; }' });
+    await sectionScreenshot(page, page.locator('.landing-features'), 'landing-features-desktop.png');
+    await sectionScreenshot(page, page.locator('.landing-band'), 'landing-band-desktop.png');
+    await sectionScreenshot(page, page.locator('.landing-clan').nth(0), 'landing-clan-desktop.png');
+    await sectionScreenshot(page, page.locator('.landing-clan').nth(1), 'landing-legacy-desktop.png');
+    await sectionScreenshot(page, page.locator('.landing-footer'), 'landing-footer-desktop.png');
+});
+
+test('landing story sections - tablet', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await settleVisualState(page);
+    await expectNoHorizontalOverflow(page);
+    await page.addStyleTag({ content: '.landing-topbar { visibility: hidden !important; }' });
+    await sectionScreenshot(page, page.locator('.landing-features'), 'landing-features-tablet.png');
+    await sectionScreenshot(page, page.locator('.landing-clan').first(), 'landing-clan-tablet.png');
+});
+
+test('landing story sections - mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await settleVisualState(page);
+    await expectNoHorizontalOverflow(page);
+    await page.addStyleTag({ content: '.landing-topbar { visibility: hidden !important; }' });
+    await sectionScreenshot(page, page.locator('.landing-features'), 'landing-features-mobile.png');
+    await sectionScreenshot(page, page.locator('.landing-band'), 'landing-band-mobile.png');
+    await sectionScreenshot(page, page.locator('.landing-clan').first(), 'landing-clan-mobile.png');
+    await sectionScreenshot(page, page.locator('.landing-clan').nth(1), 'landing-legacy-mobile.png');
+    await sectionScreenshot(page, page.locator('.landing-begin'), 'landing-finale-mobile.png');
+    await sectionScreenshot(page, page.locator('.landing-footer'), 'landing-footer-mobile.png');
 });
 
 test('character creator entry', async ({ page }) => {
