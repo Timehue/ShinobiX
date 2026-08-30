@@ -943,6 +943,7 @@
 .profile-page-card .profile-dossier-grid {
     display: grid !important;
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    align-items: start;
     gap: 10px !important;
 }
 .profile-page-card .profile-dossier-section {
@@ -956,10 +957,37 @@
     background: linear-gradient(180deg, rgba(10,16,32,0.86), rgba(3,7,18,0.72));
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 18px rgba(0,0,0,0.22);
 }
-.profile-page-card .profile-dossier-section h3 {
-    margin: 0;
+.profile-page-card .profile-dossier-section-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
     padding-bottom: 7px;
     border-bottom: 1px solid rgba(196,162,90,0.22);
+    cursor: pointer;
+    list-style: none;
+}
+.profile-page-card .profile-dossier-section-summary::-webkit-details-marker {
+    display: none;
+}
+.profile-page-card .profile-dossier-section-summary::after {
+    content: "+";
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--blue-300);
+    border: 1px solid rgba(78,168,255,0.35);
+    background: rgba(78,168,255,0.08);
+    font: 800 14px/1 Inter, sans-serif;
+}
+.profile-page-card .profile-dossier-section[open] .profile-dossier-section-summary::after {
+    content: "-";
+}
+.profile-page-card .profile-dossier-section-summary h3 {
+    margin: 0;
     color: var(--bsv2-gold-bright) !important;
     font: 700 11px var(--font-display) !important;
     letter-spacing: 0.2em !important;

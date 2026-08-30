@@ -608,8 +608,10 @@ export function Profile({
             <section className="profile-overview-panel profile-dossier-panel" aria-label="Profile dossier">
                 <div className="profile-dossier-grid">
                     {profileDossierSections.map((section) => (
-                        <section className="profile-dossier-section" key={section.title}>
-                            <h3>{section.title}</h3>
+                        <details className="profile-dossier-section" key={section.title} open>
+                            <summary className="profile-dossier-section-summary">
+                                <h3>{section.title}</h3>
+                            </summary>
                             <div className="profile-dossier-rows">
                                 {section.rows.map((row) => (
                                     <div className={`profile-dossier-row tone-${row.tone ?? "neutral"}`} key={`${section.title}-${row.label}`}>
@@ -624,7 +626,7 @@ export function Profile({
                                     <img src={equippedBloodline.image} alt={equippedBloodline.name} />
                                 </div>
                             )}
-                        </section>
+                        </details>
                     ))}
 
                     <div className="profile-dossier-legacy-hide">
