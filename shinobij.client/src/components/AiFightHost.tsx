@@ -375,7 +375,7 @@ export function AiFightHost({
         if (!subscribedPlayerKey) return;
         return onAiFightRequest((request) => {
             const me = latestCharacter.current;
-            if (!me) return;
+            if (!me) return false;
             const originatingPlayerName = me.name;
             const originatingPlayerKey = aiFightPlayerKey(originatingPlayerName);
             // One fight at a time. A second request while a start is in flight —
@@ -384,15 +384,18 @@ export function AiFightHost({
             // intended fight, and the second would silently replace the first,
             // leaving the abandoned run to be scored a forfeit.
             if (originatingPlayerKey !== subscribedPlayerKey
-                || activePlayerKeyRef.current !== originatingPlayerKey) return;
+                || activePlayerKeyRef.current !== originatingPlayerKey) return false;
             if (activeRef.current) {
                 // A settled chain wave may schedule exactly one server-proved
                 // successor. Hold it until the player closes the result card;
                 // starting while the old overlay is live would replace its run.
-                if (settledRef.current && request.worldEncounter) queuedWorldRequestRef.current = request;
-                return;
+                if (settledRef.current && request.worldEncounter) {
+                    queuedWorldRequestRef.current = request;
+                    return true;
+                }
+                return false;
             }
-            if (startingRef.current) return;
+            if (startingRef.current) return false;
             startingRef.current = true;
             const requestId = ++startRequestIdRef.current;
             settledRef.current = false;
@@ -460,6 +463,7 @@ export function AiFightHost({
                 .finally(() => {
                     if (startRequestIdRef.current === requestId) startingRef.current = false;
                 });
+            return true;
         });
     }, [playerName]);
 
