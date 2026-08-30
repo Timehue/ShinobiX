@@ -227,10 +227,16 @@ described in [CLAUDE.md](CLAUDE.md).
 
 ## License
 
-Source-available, not open source — see [LICENSE](LICENSE).
+[PolyForm Strict License 1.0.0](LICENSE.md) — source-available, not open source.
 
-The source is published so it can be read and studied. Copying, redistributing,
-hosting an instance, or reusing the artwork, audio, story content or names
-requires written permission. Bundled third-party components (the Inter,
-Marcellus and Roboto fonts, and one CC0 base mesh) stay under their own
-licenses, which the LICENSE file points at.
+In short: **noncommercial use is permitted, distribution and modification are
+not.** You may read and study the source, and use it for personal study, private
+entertainment, hobby projects, or by a school, charity or government body.
+You may not distribute it, make changes or derivative works from it, or use it
+for any commercial purpose. Read the licence rather than this summary; where
+they differ, the licence governs.
+
+The creative assets — artwork, audio, story content and names — are covered as
+part of the software. Bundled third-party material is not: the Inter, Marcellus
+and Roboto fonts and one CC0 base mesh stay under their own licences, listed at
+the end of [LICENSE.md](LICENSE.md).
