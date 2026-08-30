@@ -5,6 +5,8 @@ import {
     type ProductEvent,
     type ProductEventName,
 } from '../../../../shared/product-analytics';
+import { viewportClassForWidth } from '../viewport-contract';
+import { getSurface } from '../surface';
 
 type ClientAnalyticsEnv = Record<string, string | undefined>;
 type ProviderModule = typeof import('./posthog');
@@ -58,6 +60,30 @@ async function drainQueue(config: PostHogDispatchConfig): Promise<void> {
     }
 }
 
+/**
+ * Coarse buckets stamped onto every client-observed event: which surface the
+ * document is on (Play app vs web) and which width band it is rendering at.
+ *
+ * Stamped centrally rather than at each call site so coverage cannot drift —
+ * a new event gets them for free. Both are deliberately low-cardinality (two
+ * values and six), which keeps the pilot aggregate-only: they answer "what
+ * share of play happens on a phone, and in the app" without approaching a
+ * device identity, and the shared distinct_id means there is nothing to join
+ * them against anyway.
+ *
+ * Never throws: analytics must not be able to break a render path.
+ */
+function ambientProperties(): Record<string, string> {
+    const ambient: Record<string, string> = {};
+    try {
+        ambient.surface = getSurface();
+        if (typeof window !== 'undefined' && Number.isFinite(window.innerWidth)) {
+            ambient.viewportClass = viewportClassForWidth(window.innerWidth);
+        }
+    } catch { /* headless, sandboxed, or storage-denied — omit rather than fail */ }
+    return ambient;
+}
+
 export function captureConfiguredProductEvent(name: ProductEventName, properties: Record<string, unknown> = {}): boolean {
     const config = clientAnalyticsConfig();
     if (!config) {
@@ -66,7 +92,13 @@ export function captureConfiguredProductEvent(name: ProductEventName, properties
         status.lastDispatchStatus = 'disabled';
         return false;
     }
-    const event = createProductEvent(name, { ...properties, eventAuthority: 'client_observed' });
+    // Ambient values go AFTER the spread, like eventAuthority: they are runtime
+    // truth and a call site must not be able to claim a different surface.
+    const event = createProductEvent(name, {
+        ...properties,
+        ...ambientProperties(),
+        eventAuthority: 'client_observed',
+    });
     status.enabled = true;
     status.provider = 'posthog';
     if (!event || queue.length >= MAX_QUEUE) {

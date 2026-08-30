@@ -21,8 +21,8 @@ type LegalDocument = {
 // fingerprint processing stated plainly rather than implied).
 // 1.5: third-party notices — Apache 2.0 attribution for the self-hosted Roboto
 // webfont, and the Google trademark disclaimer for the sign-in button.
-const LAST_UPDATED = "August 17, 2026";
-const VERSION = "1.5";
+const LAST_UPDATED = "August 28, 2026";
+const VERSION = "1.6";
 
 const documents: Record<LegalPageSlug, LegalDocument> = {
     terms: {
@@ -339,12 +339,51 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
             {
                 id: "deletion",
                 title: "Account deletion",
-                content: <p>Clearing browser storage or deleting a local login reference does not delete the server account. A deletion request is complete only after credentials, active sessions, the player save, public profile references, connected social records, uploaded content, and relevant security indexes have been reviewed for deletion or appropriate anonymization.</p>,
+                content: <>
+                    <p>You can delete your own account at any time without contacting anyone &mdash; see <a href="/delete-account">Delete Your Account</a> for the steps and for exactly what is removed.</p>
+                    <p>Clearing browser storage or deleting a local login reference does not delete the server account. A deletion request is complete only after credentials, active sessions, the player save, public profile references, connected social records, uploaded content, and relevant security indexes have been reviewed for deletion or appropriate anonymization.</p>
+                </>,
             },
             {
                 id: "safety",
                 title: "Request safety",
                 content: <p>Staff will not ask you to publish a password or authentication token. Requests may be paused when identity cannot be verified or when fulfilling them would expose another player's private information, undermine service security, or conflict with a lawful retention duty.</p>,
+            },
+        ],
+    },
+    "delete-account": {
+        shortTitle: "Delete Account",
+        title: "Delete Your Account",
+        summary: "How to permanently delete your Shinobi Journey account and what is removed.",
+        sections: [
+            {
+                id: "in-game",
+                title: "Delete it yourself, in the game",
+                content: <>
+                    <p>This is the fastest route and needs no one's help. Sign in, open your <strong>Profile</strong>, and choose <strong>Delete Character</strong>. You will be asked to confirm twice, and accounts with a password must re-enter it, so the action cannot happen by accident.</p>
+                    <p>Deletion is immediate and permanent. There is no undo, no grace period, and no way for staff to restore the account afterwards.</p>
+                </>,
+            },
+            {
+                id: "cannot-sign-in",
+                title: "If you cannot sign in",
+                content: <>
+                    <p>Email <a href="mailto:rillt27@gmail.com">rillt27@gmail.com</a> from an address connected to the account, or contact staff privately through the official community link on the main page, and state that you want your account deleted. Include your player name.</p>
+                    <p>Verification is required before anything is deleted, so that no one can erase another player's account. Never send a password, session token, or identity document in a public channel &mdash; staff will never ask for one.</p>
+                </>,
+            },
+            {
+                id: "what-is-deleted",
+                title: "What is deleted",
+                content: <>
+                    <p>Deleting the account removes your sign-in credentials, any linked Google sign-in, your recovery code, your character save, your friends list, and your entry in the public player directory. Your membership is removed from any clan roster, and existing sign-in sessions are invalidated so no previously issued token keeps working.</p>
+                    <p>Clearing your browser storage, or removing the app, does <strong>not</strong> delete the server account &mdash; only the steps above do.</p>
+                </>,
+            },
+            {
+                id: "what-remains",
+                title: "What may remain for a limited time",
+                content: <p>Content that is part of another player's record can outlive the account: messages you sent to others, shared battle and chat history, clan and war outcomes, and moderation or security evidence. Backups are retained on their normal schedule before ageing out. Where this material is kept, it is kept because deleting it would erase another player's history or remove evidence of abuse, and it is anonymized or aged out rather than kept indefinitely. See <a href="/privacy-request">Privacy Requests</a> for the wider set of data rights.</p>,
             },
         ],
     },
