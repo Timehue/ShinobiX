@@ -26,7 +26,10 @@ type SaveRecord = {
         equipment?: Record<string, string | undefined>;
         academySparClaimed?: boolean;
         academyTrialClaimed?: boolean;
+        academyIncidentSeen?: boolean;
         academySectorVisited?: boolean;
+        academyTraceSector?: number;
+        academyFieldSeal?: boolean;
     };
 };
 
@@ -196,6 +199,9 @@ test('a new player completes the full persisted Academy first session against bu
     // The cinematic can be fast-forwarded, but the canonical companion grant
     // remains mandatory and is committed through its dedicated server endpoint.
     await page.getByRole('button', { name: /^Skip/ }).click();
+    await expect(page.getByRole('heading', { name: 'Choose the answer you will carry' })).toBeVisible();
+    await page.getByRole('button', { name: /Remain Unbound/ }).click();
+    await page.getByRole('button', { name: /^Skip/ }).click();
     await expect(page.getByRole('heading', { name: 'Choose Your Companion' })).toBeVisible();
     const firstPet = page.locator('.icx-pet-card').first();
     const petName = (await firstPet.locator('.icx-pet-name').innerText()).trim();
@@ -207,6 +213,7 @@ test('a new player completes the full persisted Academy first session against bu
     await expect(page.getByRole('button', { name: 'Go to Training Grounds' })).toBeVisible();
     await waitForPersisted(page, playerName, (save) => (
         save.character?.onboardingStep === 'training'
+        && save.character?.academyVow === 'unbound'
         && save.character?.pets?.length === 1
         && Boolean(save.character.activePetId)
     ), 'the selected companion and training handoff must persist');
@@ -260,7 +267,8 @@ test('a new player completes the full persisted Academy first session against bu
         await expect(itemDialog).toBeVisible();
         await itemDialog.getByRole('button', { name: /^Equip to / }).click();
     }
-    await expect(page.getByRole('button', { name: 'Begin Your First Spar' })).toBeVisible();
+    const beginSparButton = page.getByRole('button', { name: /Begin the Resonance Trial/ });
+    await expect(beginSparButton).toBeVisible();
     await waitForPersisted(page, playerName, (save) => (
         save.character?.onboardingStep === 'academySpar'
         && Object.values(save.character.equipment ?? {}).includes('rustfang-kunai')
@@ -269,7 +277,7 @@ test('a new player completes the full persisted Academy first session against bu
 
     const sparStart = page.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname === '/api/story/spar-start');
-    await page.getByRole('button', { name: 'Begin Your First Spar' }).click();
+    await beginSparButton.click();
     const sparStartHttp = await sparStart;
     expect(sparStartHttp.status()).toBe(200);
     const started = await sparStartHttp.json() as { runId: string; session: Session };
@@ -285,21 +293,26 @@ test('a new player completes the full persisted Academy first session against bu
     // the arena recovers rather than relying on test-only state injection.
     const settleResponse = page.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname === '/api/story/settle');
-    const sparResultStartedAt = Date.now();
     await page.getByRole('button', { name: /^Wait/ }).click();
     const sparResult = page.getByRole('dialog', { name: 'Sparring match won' });
     await expect(sparResult).toBeVisible();
-    expect(Date.now() - sparResultStartedAt,
-        'the Academy result must not inherit the chapter-victory final-bark pause').toBeLessThan(1_500);
     await expect(sparResult).not.toHaveClass(/story-fight-complete--cinematic/);
+    await expect(sparResult).toHaveCSS('animation-delay', '0s');
     expect((await settleResponse).status()).toBe(200);
     await expect(sparResult).toContainText(/stat points/);
     await sparResult.getByRole('button', { name: 'Continue' }).click();
+    const sparAftermath = page.getByRole('dialog', { name: 'The dummy falls. Its seals do not.' });
+    await expect(sparAftermath).toBeVisible();
+    await sparAftermath.getByRole('button', { name: 'Continue' }).click();
+    const echoedVow = page.getByRole('dialog', { name: 'Your answer comes back in the wrong voice.' });
+    await expect(echoedVow).toBeVisible();
+    await echoedVow.getByRole('button', { name: 'Keep the vow' }).click();
     await expect(page.getByRole('button', { name: 'Go to Cafeteria' })).toBeVisible();
     await waitForPersisted(page, playerName, (save) => (
         save.character?.onboardingStep === 'cafeteria'
         && save.character.academySparClaimed === true
-    ), 'the sealed spar reward and recovery handoff must persist');
+        && save.character.academyIncidentSeen === true
+    ), 'the sealed spar reward, aftermath, and recovery handoff must persist');
 
     await page.getByRole('button', { name: 'Go to Cafeteria' }).click();
     await expect(page.getByRole('heading', { name: 'Cafeteria' })).toBeVisible();
@@ -312,7 +325,7 @@ test('a new player completes the full persisted Academy first session against bu
         && new URL(response.url()).pathname === '/api/player/cafeteria');
     await page.getByRole('button', { name: /Feast/ }).click();
     expect((await cafeteriaResponse).status()).toBe(200);
-    await dismissNotice(page, 'Feast restored your resources.');
+    await expect(page.getByRole('status')).toContainText('Feast restored your resources.');
     await expect(page.getByRole('button', { name: 'Go to Mission Hall' })).toBeVisible();
     await waitForPersisted(page, playerName, (save) => save.character?.onboardingStep === 'firstMission',
         'full recovery and the mission handoff must persist');
@@ -336,8 +349,8 @@ test('a new player completes the full persisted Academy first session against bu
 
     // The long authority journey runs once, but its final navigation/recovery
     // seam deliberately switches to the canonical 390x844 viewport. This pairs
-    // the stateful desktop coverage with the same inspect-before-travel and
-    // critical mobile-control contract exercised by adaptive-shell.spec.ts.
+    // the stateful desktop coverage with the direct-travel and critical
+    // mobile-control contract exercised by adaptive-shell.spec.ts.
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole('button', { name: 'Open World Map' }).click();
     await expect(page.locator('.anime-world-map')).toBeVisible();
@@ -348,18 +361,33 @@ test('a new player completes the full persisted Academy first session against bu
         if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/player/travel') travelPosts += 1;
     });
     await page.getByRole('button', { name: 'Stormveil', exact: true }).click();
-    const sectorMarker = page.getByRole('button', { name: 'Inspect Harbor Gates (Sector 1)' });
-    await sectorMarker.click();
-    const sectorInspector = page.getByRole('dialog', { name: 'Harbor Gates' });
-    await expect(sectorInspector).toBeVisible();
-    expect(travelPosts, 'inspecting a mobile map sector must not start travel').toBe(0);
+    const sectorMarker = page.getByRole('button', { name: 'Travel to Harbor Gates (Sector 1)' });
+    expect(travelPosts).toBe(0);
     const travelResponse = page.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname === '/api/player/travel');
-    await sectorInspector.getByRole('button', { name: 'Travel to Sector 1' }).click();
+    await sectorMarker.click();
     expect((await travelResponse).status()).toBe(200);
     expect(travelPosts).toBe(1);
+
+    const fieldTrace = page.getByRole('dialog', { name: 'The foxfire stops at an old road marker.' });
+    await expect(fieldTrace).toBeVisible();
+    await fieldTrace.getByRole('button', { name: 'Continue' }).click();
+    const measuredRoad = page.getByRole('dialog', { name: 'The mark is measuring the road.' });
+    await expect(measuredRoad).toBeVisible();
+    await measuredRoad.getByRole('button', { name: 'Return with the evidence' }).click();
+    await waitForPersisted(page, playerName, (save) => (
+        save.character?.academySectorVisited === true
+        && save.character.academyTraceSector === 1
+    ), 'the acknowledged field trace must persist before returning');
+
     await expect(page.getByRole('button', { name: 'Return to Village' })).toBeVisible();
     await page.getByRole('button', { name: 'Return to Village' }).click();
+    const fieldSeal = page.getByRole('dialog', { name: "Shiranui's Field Seal" });
+    await expect(fieldSeal).toBeVisible();
+    await fieldSeal.getByRole('button', { name: 'Accept the Field Seal' }).click();
+    const nextStep = page.getByRole('dialog', { name: 'Your next step is yours.' });
+    await expect(nextStep).toBeVisible();
+    await nextStep.getByRole('button', { name: 'Stay in the village for now' }).click();
 
     const completed = await waitForPersisted(page, playerName, (save) => {
         const character = save.character;
@@ -373,7 +401,8 @@ test('a new player completes the full persisted Academy first session against bu
             && Object.values(character.equipment ?? {}).includes('shinobi-vest')
             && character.academySparClaimed === true
             && character.academyTrialClaimed === true
-            && character.academySectorVisited === true;
+            && character.academySectorVisited === true
+            && character.academyFieldSeal === true;
     }, 'the complete first-session contract must persist');
     expect(Number(completed._saveVersion)).toBeGreaterThan(0);
     expect(completed.currentSector).toBe(0);
@@ -397,6 +426,7 @@ test('a new player completes the full persisted Academy first session against bu
     await expect(page.getByTestId('start-create')).toBeVisible();
 
     await page.locator('.landing-topnav').getByRole('button', { name: 'Log In', exact: true }).click();
+    await page.getByRole('button', { name: 'Use a name and password' }).click();
     await page.getByLabel('Name').fill(playerName);
     await page.getByPlaceholder('Enter your password').fill(password);
     const loginSave = page.waitForResponse((response) => response.request().method() === 'GET'

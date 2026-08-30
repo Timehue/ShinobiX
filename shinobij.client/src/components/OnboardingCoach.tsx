@@ -45,10 +45,12 @@ import {
 } from "../lib/onboarding-step";
 import { companionStepMeta } from "../lib/journey-guide";
 import { academyStoryMomentFor, academyVowDefinition } from "../lib/academy-narrative";
+import { commitAcademyNarrativeAction, type AcademyNarrativeAction } from "../lib/academy-narrative-api";
 import { petPoseImage } from "../lib/pet-battle-anim";
 import { isLowEndMobile, prefersReducedMotion } from "../lib/device-tier";
 import type { Pet } from "../types/pet";
 import type { Character, Screen } from "../App";
+import type { VersionedCharacterCommit } from "../types/character";
 import { AcademyFieldTrace, AcademyReturnCeremony, AcademySparOmen } from "./AcademyStoryMoments";
 import "./onboarding-coach.css";
 
@@ -142,7 +144,10 @@ export function OnboardingCoach({
     guidePet = null,
     sharedImages = {},
     setScreen,
+    onReturnToVillage,
     updateCharacter,
+    onVersionedCharacter,
+    commitNarrativeAction,
     onStartSpar,
     onOpenAwakening,
 }: {
@@ -153,18 +158,29 @@ export function OnboardingCoach({
     guidePet?: Pet | null;
     sharedImages?: Record<string, string>;
     setScreen: (s: Screen) => void;
+    onReturnToVillage?: () => void;
     updateCharacter: (c: Character) => void;
+    onVersionedCharacter?: VersionedCharacterCommit;
+    commitNarrativeAction?: (action: AcademyNarrativeAction, sector?: number) => Promise<void>;
     onStartSpar: () => void;
     onOpenAwakening?: () => void;
 }) {
     const step = normalizeOnboardingStep(character.onboardingStep);
     const coachMeta = companionStepMeta(step);
     const [confirmingSkip, setConfirmingSkip] = useState(false);
+    const [skipBusy, setSkipBusy] = useState(false);
     const jutsuBaselineRef = useRef<number | null>(null);
     const loadoutBaselineRef = useRef<number | null>(null);
     const equipmentBaselineRef = useRef<number | null>(null);
     const reduced = prefersReducedMotion();
     const liteFx = isLowEndMobile();
+    const persistNarrativeAction = async (action: AcademyNarrativeAction, sector?: number) => {
+        if (commitNarrativeAction) { await commitNarrativeAction(action, sector); return; }
+        const result = await commitAcademyNarrativeAction(character.name, action, sector);
+        if (!onVersionedCharacter?.(result.character, result._saveVersion)) {
+            throw new Error("A newer Academy save is already active. Reopen this moment and try again.");
+        }
+    };
 
     useEffect(() => {
         if (step === "training" && activeTraining) {
@@ -401,7 +417,16 @@ export function OnboardingCoach({
     // Skipping wipes the WHOLE tutorial, so it always goes through a confirm —
     // an accidental tap (e.g. reaching for a control the banner overlaps on
     // mobile) must never silently end onboarding.
-    const doSkip = () => updateCharacter({ ...character, onboardingStep: "done" });
+    const doSkip = async () => {
+        if (skipBusy) return;
+        setSkipBusy(true);
+        try {
+            await persistNarrativeAction("skip");
+        } catch (error) {
+            alert(error instanceof Error ? error.message : "The Academy choice could not be saved.");
+            setSkipBusy(false);
+        }
+    };
     const requestSkip = () => setConfirmingSkip(true);
     const guideArt = guidePet ? petPoseImage(guidePet, sharedImages) : "";
     const guideLabel = guidePet ? `${guidePet.name} — your companion` : "Academy Guide";
@@ -425,8 +450,8 @@ export function OnboardingCoach({
                     <button className="start-primary-btn" style={{ width: "100%" }} onClick={() => setConfirmingSkip(false)}>
                         Keep going
                     </button>
-                    <button style={{ ...skipStyle, marginLeft: 0, marginTop: 10, display: "inline-block" }} onClick={doSkip}>
-                        Yes, skip the tutorial
+                    <button disabled={skipBusy} style={{ ...skipStyle, marginLeft: 0, marginTop: 10, display: "inline-block" }} onClick={() => { void doSkip(); }}>
+                        {skipBusy ? "Saving…" : "Yes, skip the tutorial"}
                     </button>
                 </div>
             </div>,
@@ -440,7 +465,7 @@ export function OnboardingCoach({
                 character={character}
                 guidePet={guidePet}
                 sharedImages={sharedImages}
-                updateCharacter={updateCharacter}
+                commitMilestone={persistNarrativeAction}
                 onSkip={requestSkip}
             />
         );
@@ -453,7 +478,7 @@ export function OnboardingCoach({
                 currentSector={currentSector}
                 guidePet={guidePet}
                 sharedImages={sharedImages}
-                updateCharacter={updateCharacter}
+                commitMilestone={persistNarrativeAction}
                 onSkip={requestSkip}
             />
         );
@@ -467,7 +492,7 @@ export function OnboardingCoach({
                 sharedImages={sharedImages}
                 setScreen={setScreen}
                 onOpenAwakening={onOpenAwakening}
-                updateCharacter={updateCharacter}
+                commitMilestone={persistNarrativeAction}
                 onSkip={requestSkip}
             />
         );
@@ -631,7 +656,7 @@ export function OnboardingCoach({
                     <button className="start-primary-btn" onClick={() => setScreen("worldMap")}>Open World Map</button>
                 )}
                 {visitedSector && (
-                    <button className="start-primary-btn" onClick={() => setScreen("village")}>Return to Village</button>
+                    <button className="start-primary-btn" onClick={() => { if (onReturnToVillage) onReturnToVillage(); else setScreen("village"); }}>Return to Village</button>
                 )}
             </>,
         );

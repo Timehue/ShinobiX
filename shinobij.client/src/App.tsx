@@ -201,7 +201,6 @@ const ClanHall = lazyWithRetry(() => import("./screens/ClanHall").then(m => ({ d
 import { BATTLE_LOCK_ID_KEY, BATTLE_LOCK_RESOLVED_KEY, postBattleLock, arenaStoryCtxKey, fetchBattleLockStatus, battleResumeStateExists, readArenaStoryContext, type ClientBattleLock } from "./lib/battle-save";
 import { postFieldTrail } from "./lib/field-trail-api";
 import { postPlayerChallengeNotice } from "./lib/player-api";
-import { EXAM_LEVEL_GATES } from "./constants/game";
 const WorldMap = lazyWithRetry(() => import("./screens/WorldMap").then(m => ({ default: m.WorldMap })));
 const WorldCrisis = lazyWithRetry(() => import("./screens/WorldCrisis").then(m => ({ default: m.WorldCrisis })));
 const loadMissionCatalog = () => import("./data/missions");
@@ -711,9 +710,10 @@ export function setHollowGateKeyFateShardCost(v: number) { HOLLOW_GATE_KEY_FATE_
 
 // addToAllStats / maxedStats moved to ./lib/stats (imported back above).
 
-export function isAdminAccountName(name?: string): name is AdminAccount {
-    return name === "Admin 1" || name === "Admin 2";
-}
+export function isAdminAccountName(name?: string): name is AdminAccount { return name === "Admin 1" || name === "Admin 2"; }
+
+/** Client mirror of the server's full-admin role assignment. */
+export function isFullAdminAccountName(name?: string): name is "Admin 1" { return name === "Admin 1"; }
 
 function normalizeAdminCharacter(character: Character): Character {
     const normalized = normalizeCharacter(character);
@@ -727,13 +727,7 @@ function normalizeAdminCharacter(character: Character): Character {
     };
 }
 
-function examLevelCap(character: Character): number {
-    const passed = character.examsPassed ?? [];
-    for (const gate of EXAM_LEVEL_GATES) {
-        if (!passed.includes(gate.exam)) return gate.level;
-    }
-    return MAX_LEVEL;
-}
+function examLevelCap(character: Character): number { return EXAM_LEVEL_GATES.find((gate) => !(character.examsPassed ?? []).includes(gate.exam))?.level ?? MAX_LEVEL; }
 
 // gainXp — RETIRED XP driver, kept as a derived-level compatibility shim.
 // Character XP is removed (docs/leveling-without-xp-map.md): level derives from
@@ -1263,7 +1257,6 @@ export function getPvpJutsuLoadout(savedBloodlines: SavedBloodline[], creatorJut
 export function stringifyServerSavePayload(payload: unknown) {
     return JSON.stringify(payload, (_key, value) => typeof value === "string" && value.startsWith("data:image") ? "" : value);
 }
-
 
 export default function App() {
     const [screen, setScreen] = useState<Screen>("start");
@@ -6795,8 +6788,9 @@ export default function App() {
                         currentSector={currentSector}
                         guidePet={activeCarriedPets<Pet>(character)[0] ?? null}
                         sharedImages={sharedImages}
-                        setScreen={navigate}
+                        setScreen={navigate} onReturnToVillage={() => { setCurrentSector(0); navigate("village"); }}
                         updateCharacter={setCharacter}
+                        onVersionedCharacter={commitVersionedCharacter}
                         onStartSpar={startAcademySparringMatch}
                         onOpenAwakening={() => {
                             setAcademyAwakeningRequested(true);
@@ -7510,3 +7504,4 @@ export default function App() {
    only. Desktop already has the left profile card for this information.
    ──────────────────────────────────────────────────────────────────── */
 export type { LbTab, TavernMessage, PvpGroundEffectState, PvpSessionState } from "./types/pvp-ui";
+import { EXAM_LEVEL_GATES } from "./constants/game";

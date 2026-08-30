@@ -39,7 +39,9 @@ test("every clickable Academy path screen marks its real next action", () => {
     assert.match(loadout, /Next · equip this/);
 
     const worldMap = screenSource("WorldMap");
-    assert.match(worldMap, /wmZoom\.focusPoint\(target\.x, target\.y, 2\.6\)/);
+    const worldMapZoom = readFileSync(new URL("../lib/use-world-map-zoom.ts", import.meta.url), "utf8");
+    assert.match(worldMap, /useAcademyWorldMapFocus\(/);
+    assert.match(worldMapZoom, /focusPoint\(target\.x, target\.y, DOUBLE_TAP_ZOOM\)/);
     assert.match(worldMap, /data-academy-autoscroll=\{academySectorTargetId === sector\.id/);
     assert.match(worldMap, /academy-map-target-label/);
     assert.match(css, /atlas-sector\.academy-click-target::after[\s\S]*?display: none !important/);

@@ -2,12 +2,8 @@
     --wf3-bg: #03070c;
     --wf3-panel: rgba(7, 15, 22, 0.92);
     --wf3-line: rgba(143, 206, 226, 0.22);
-    position: fixed;
-    inset: 0;
-    z-index: 1000002;
     display: grid;
     grid-template-rows: 68px minmax(0, 1fr);
-    overflow: hidden;
     color: #eef9ff;
     background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--wf3-glow) 12%, transparent), transparent 48%), var(--wf3-bg);
     font-family: Inter, ui-sans-serif, system-ui, sans-serif;

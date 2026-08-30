@@ -3,6 +3,7 @@ import type { Character, Screen } from "../../App";
 import { OnboardingCoach } from "../../components/OnboardingCoach";
 import { STARTER_PETS } from "../../data/starter-pets";
 import { villagePageImage } from "../../lib/village-page-image";
+import type { AcademyNarrativeAction } from "../../lib/academy-narrative-api";
 import { STARTER_AVATARS } from "../character-creator/characterCreatorCopy";
 import { IntroCinematic } from "./IntroCinematic";
 import "./intro-cinematic-preview.css";
@@ -72,6 +73,14 @@ export function IntroCinematicPreview() {
     const [screen, setScreen] = useState<Screen>(
         PREVIEW_MOMENT === "trace" ? "worldMap" : "village",
     );
+    const commitPreviewNarrative = async (action: AcademyNarrativeAction, sector?: number) => {
+        setCharacter((current) => {
+            if (action === "incident") return { ...current, academyIncidentSeen: true };
+            if (action === "trace") return { ...current, academySectorVisited: true, academyTraceSector: sector };
+            if (action === "seal") return { ...current, academyFieldSeal: true };
+            return { ...current, onboardingStep: "done" };
+        });
+    };
 
     if (PREVIEW_SCENE === "handoff") {
         const backgroundStyle = {
@@ -129,6 +138,7 @@ export function IntroCinematicPreview() {
                     guidePet={PREVIEW_PET}
                     setScreen={setScreen}
                     updateCharacter={setCharacter}
+                    commitNarrativeAction={commitPreviewNarrative}
                     onStartSpar={() => undefined}
                 />
             </main>
