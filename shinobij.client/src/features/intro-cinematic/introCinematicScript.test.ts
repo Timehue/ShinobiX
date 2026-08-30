@@ -45,7 +45,9 @@ test("intro names the Gate as a human-built optimizer and the player as unclassi
     const copy = [...PRE_GIFT_LINES, ...buildPostGiftLines(villages[0])].map((line) => line.text).join(" ");
     assert.match(copy, /People of the Sunken Court built it/i);
     assert.match(copy, /It does not hunger\. It measures\./i);
-    assert.match(copy, /lattice tried to name you and failed/i);
+    assert.match(copy, /machine beneath the road tried to identify you and pull you in/i);
+    assert.match(copy, /brought you here before it could succeed/i);
+    assert.match(copy, /Gate could not decide where you belong/i);
     assert.match(copy, /That is not destiny/i);
     assert.doesNotMatch(copy, /before your kind first drew breath|it hungers|held the seal/i);
     assert.doesNotMatch(copy, /\bchosen\b/i);
