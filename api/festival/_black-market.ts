@@ -63,3 +63,61 @@ export function rollBlackMarket(rand: () => number): BlackMarketReward {
     }
     return { ...EMPTY, tier: 'jackpot', label: 'THE BLACK SUN JACKPOT', ryo: 150_000, fateShards: 10, boneCharms: 5, auraStones: 2 };
 }
+
+function num(v: unknown): number {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+}
+
+export type BlackMarketPullSettlement =
+    | { ok: false; status: 429; body: { error: string; dailyUsed: number; dailyCap: number } }
+    | { ok: false; status: 400; body: { error: string } }
+    | { ok: true; reward: BlackMarketReward; nextCharacter: Record<string, unknown>; nextUsed: number };
+
+/**
+ * Settle one pull. Pure: the handler owns every I/O step (lock, read, the two
+ * writes) and this owns everything that MOVES MONEY, so the money path is
+ * testable — under this repo's conventions a thin HTTP wrapper is not.
+ *
+ * `roll` is injected rather than rolled here so a test can pin the payout;
+ * production passes rollBlackMarket(Math.random).
+ *
+ * The debit and every credit land on ONE character object, so a pull can never
+ * charge without paying: the single save write carries both halves or neither
+ * happens. The caller must persist `nextCharacter` before `nextUsed` — writing
+ * the counter first would let a crash bill a player for a pull they never got.
+ */
+export function settleBlackMarketPull(input: {
+    character: Record<string, unknown>;
+    used: number;
+    roll: BlackMarketReward;
+}): BlackMarketPullSettlement {
+    const { character, used, roll } = input;
+    if (used >= BLACK_MARKET_DAILY_CAP) {
+        return {
+            ok: false,
+            status: 429,
+            body: {
+                error: `The black market is done with you today (${BLACK_MARKET_DAILY_CAP}/${BLACK_MARKET_DAILY_CAP}). Return after midnight UTC.`,
+                dailyUsed: used,
+                dailyCap: BLACK_MARKET_DAILY_CAP,
+            },
+        };
+    }
+    if (num(character.ryo) < BLACK_MARKET_COST) {
+        return { ok: false, status: 400, body: { error: `Not enough ryo. A pull costs ${BLACK_MARKET_COST.toLocaleString()}.` } };
+    }
+    return {
+        ok: true,
+        reward: roll,
+        nextUsed: used + 1,
+        nextCharacter: {
+            ...character,
+            ryo: num(character.ryo) - BLACK_MARKET_COST + roll.ryo,
+            fateShards: num(character.fateShards) + roll.fateShards,
+            boneCharms: num(character.boneCharms) + roll.boneCharms,
+            auraStones: num(character.auraStones) + roll.auraStones,
+            mythicSeals: num(character.mythicSeals) + roll.mythicSeals,
+        },
+    };
+}

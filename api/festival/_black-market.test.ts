@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { rollBlackMarket, BLACK_MARKET_COST } from './_black-market.js';
+import {
+    rollBlackMarket,
+    settleBlackMarketPull,
+    BLACK_MARKET_COST,
+    BLACK_MARKET_DAILY_CAP,
+    type BlackMarketReward,
+} from './_black-market.js';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -71,4 +77,106 @@ test('the displayed price matches the charged price', () => {
     const match = /export const BLACK_MARKET_COST = ([\d_]+);/.exec(client);
     assert.ok(match, 'client BLACK_MARKET_COST not found');
     assert.equal(Number(match![1].replace(/_/g, '')), BLACK_MARKET_COST);
+});
+
+/*
+ * Settlement tests. The odds tests above cover WHAT a pull pays; these cover
+ * whether the player is charged correctly for it. This is a live ryo gamble, so
+ * the property that matters most is that a pull can never take the stake without
+ * handing back the roll.
+ */
+
+const PAYOUT: BlackMarketReward = {
+    tier: 'haul', label: 'test haul',
+    ryo: 30_000, fateShards: 2, boneCharms: 3, auraStones: 4, mythicSeals: 5,
+};
+
+const player = (over: Record<string, unknown> = {}) => ({
+    name: 'Kaze', ryo: 200_000, fateShards: 1, boneCharms: 1,
+    auraStones: 1, mythicSeals: 1, level: 40, ...over,
+});
+
+test('a pull debits the stake and credits the roll on ONE character object', () => {
+    const before = player();
+    const settled = settleBlackMarketPull({ character: before, used: 0, roll: PAYOUT });
+    assert.equal(settled.ok, true);
+    if (!settled.ok) return;
+
+    // Charge and payout are inseparable: both land on the object the caller
+    // writes once, so a pull can never bill without paying.
+    assert.equal(settled.nextCharacter.ryo, 200_000 - BLACK_MARKET_COST + PAYOUT.ryo);
+    assert.equal(settled.nextCharacter.fateShards, 1 + PAYOUT.fateShards);
+    assert.equal(settled.nextCharacter.boneCharms, 1 + PAYOUT.boneCharms);
+    assert.equal(settled.nextCharacter.auraStones, 1 + PAYOUT.auraStones);
+    assert.equal(settled.nextCharacter.mythicSeals, 1 + PAYOUT.mythicSeals);
+    assert.equal(settled.nextUsed, 1, 'exactly one pull is counted');
+
+    // The input is untouched, so a caller that discards the result on a failed
+    // write leaves the player exactly as they were.
+    assert.equal(before.ryo, 200_000);
+    assert.equal(before.fateShards, 1);
+});
+
+test('a pull preserves every unrelated field on the save', () => {
+    const settled = settleBlackMarketPull({ character: player({ nindo: 'never retreat' }), used: 3, roll: PAYOUT });
+    assert.equal(settled.ok, true);
+    if (!settled.ok) return;
+    assert.equal(settled.nextCharacter.name, 'Kaze');
+    assert.equal(settled.nextCharacter.level, 40);
+    assert.equal(settled.nextCharacter.nindo, 'never retreat');
+});
+
+test('the daily cap refuses at the boundary and charges nothing', () => {
+    const atCap = settleBlackMarketPull({ character: player(), used: BLACK_MARKET_DAILY_CAP, roll: PAYOUT });
+    assert.equal(atCap.ok, false);
+    if (atCap.ok) return;
+    assert.equal(atCap.status, 429);
+    assert.equal(atCap.body.dailyUsed, BLACK_MARKET_DAILY_CAP);
+    assert.equal(atCap.body.dailyCap, BLACK_MARKET_DAILY_CAP);
+    assert.equal('nextCharacter' in atCap, false, 'a refused pull hands back no save to write');
+
+    // One below the cap is still allowed: the cap must not be off by one.
+    const lastPull = settleBlackMarketPull({ character: player(), used: BLACK_MARKET_DAILY_CAP - 1, roll: PAYOUT });
+    assert.equal(lastPull.ok, true);
+    if (!lastPull.ok) return;
+    assert.equal(lastPull.nextUsed, BLACK_MARKET_DAILY_CAP);
+});
+
+test('an unaffordable pull is refused without mutation, exactly at the boundary', () => {
+    const broke = settleBlackMarketPull({ character: player({ ryo: BLACK_MARKET_COST - 1 }), used: 0, roll: PAYOUT });
+    assert.equal(broke.ok, false);
+    if (broke.ok) return;
+    assert.equal(broke.status, 400);
+    assert.equal('nextCharacter' in broke, false);
+
+    // Exactly the cost is affordable, and spends down to just the payout.
+    const exact = settleBlackMarketPull({ character: player({ ryo: BLACK_MARKET_COST }), used: 0, roll: PAYOUT });
+    assert.equal(exact.ok, true);
+    if (!exact.ok) return;
+    assert.equal(exact.nextCharacter.ryo, PAYOUT.ryo);
+});
+
+test('a losing roll still only ever costs the advertised stake', () => {
+    const nothing: BlackMarketReward = {
+        tier: 'scraps', label: 'dust', ryo: 0, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals: 0,
+    };
+    const settled = settleBlackMarketPull({ character: player(), used: 0, roll: nothing });
+    assert.equal(settled.ok, true);
+    if (!settled.ok) return;
+    assert.equal(settled.nextCharacter.ryo, 200_000 - BLACK_MARKET_COST);
+    assert.equal(settled.nextCharacter.fateShards, 1, 'a losing roll credits nothing');
+});
+
+test('a missing or malformed balance never reads as free money', () => {
+    for (const bad of [undefined, null, 'lots', NaN, {}]) {
+        const settled = settleBlackMarketPull({ character: player({ ryo: bad }), used: 0, roll: PAYOUT });
+        assert.equal(settled.ok, false, `ryo=${String(bad)} must not afford a pull`);
+        if (settled.ok) return;
+        assert.equal(settled.status, 400);
+    }
+    // A junk secondary balance counts as zero rather than poisoning the credit.
+    const settled = settleBlackMarketPull({ character: player({ fateShards: 'many' }), used: 0, roll: PAYOUT });
+    assert.equal(settled.ok, true);
+    if (!settled.ok) return;
+    assert.equal(settled.nextCharacter.fateShards, PAYOUT.fateShards);
 });
