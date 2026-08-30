@@ -17,7 +17,7 @@ It runs live, in the open, with real player saves. The client presents itself as
 **Shinobi Journey**; the repository and backend package keep the **ShinobiX**
 name.
 
-![ShinobiX demo preview](docs/screenshots/demo.gif)
+![Shinobi Journey landing page](docs/screenshots/landing.jpg)
 
 ## Why Star This Repo
 
@@ -46,11 +46,15 @@ and `server.ts`, where every route is registered by hand on purpose.
 
 ## Screenshots
 
-| Character creation | Tactical combat |
+| Academy Gate | Four rival villages |
 | --- | --- |
-| ![Character creator](docs/screenshots/character-creator.png) | ![Combat screen](docs/screenshots/combat.png) |
-| **Bloodlines** | **Your village** |
-| ![Bloodline screen](docs/screenshots/shot-bloodlines.png) | ![Village screen](docs/screenshots/shot-village.png) |
+| ![Character creation](docs/screenshots/character-creator.jpg) | ![Village selection](docs/screenshots/village-select.jpg) |
+| **Starter bloodlines** | **Story chronicles** |
+| ![Bloodline selection](docs/screenshots/shot-bloodlines.png) | ![A visual-novel story scene](docs/screenshots/shot-village.png) |
+
+Refresh these with `npm run capture:screenshots --prefix shinobij.client -- <url>`
+against a running client. In-game shots past character creation need an account,
+so they are still captured by hand - see [docs/MEDIA_KIT.md](docs/MEDIA_KIT.md).
 
 ## Current Status
 
@@ -188,9 +192,8 @@ Historical draft notes for the first beta are in
 ## Media Kit
 
 Repository screenshots and capture notes live in
-[docs/MEDIA_KIT.md](docs/MEDIA_KIT.md). The current README GIF is generated
-from verified local screenshots so visitors see real app screens instead of
-stock art.
+[docs/MEDIA_KIT.md](docs/MEDIA_KIT.md). Every image on this page is a real app
+screen, captured from the running client rather than mocked up.
 
 ## Security
 
