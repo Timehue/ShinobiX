@@ -1,6 +1,6 @@
 // World-map pinch/drag zoom (worldMapZoom.v1).
 //
-// The painted world map (`world_map.webp`) is a fixed 1672x941 layer with ~60 sector
+// The painted world map (`world_map-v2.webp`) is a fixed 1672x941 layer with ~60 sector
 // markers pinned to percentage coordinates. On desktop it already fits the
 // screen responsively (`.generated-world-map { width:100%; aspect-ratio }`), but
 // the legacy MOBILE path forced it to a fixed 1100×733 canvas with horizontal
