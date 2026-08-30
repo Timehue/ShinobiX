@@ -126,6 +126,11 @@ test("the production 3D renderer loads every battlefield asset and preserves DPR
     await expect(page.locator(".wf3-worldplate--tower")).toHaveCount(6);
     await expect(page.locator(".wf3-worldplate--fighter")).toHaveCount(8);
     await expect(page.locator(".wf3-pet")).toHaveCount(0);
+    // Freeze the deterministic frame before reading layout. On software-GPU
+    // runners the live high-DPI scene and tick-driven React updates can otherwise
+    // keep the browser thread saturated even after every asset is scene-ready.
+    await page.getByRole("button", { name: "Pause Warfront" }).click();
+    await expect(page.getByRole("button", { name: "Resume Warfront" })).toBeVisible();
     // Read every rectangle in one browser-thread snapshot. Repeated Playwright
     // boundingBox calls can starve behind the continuously rendered WebGL scene
     // on software-GPU CI runners even though the DOM is already scene-ready.
