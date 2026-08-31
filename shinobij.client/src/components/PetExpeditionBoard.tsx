@@ -8,7 +8,7 @@ import type {
 } from "../types/pet";
 import { countItem } from "../lib/inventory";
 import { masteryBonus, masteryHasCapstone } from "../lib/profession-mastery";
-import { petDisplayName, petHappiness } from "../lib/pet";
+import { petCurrentHappiness, petDisplayName } from "../lib/pet";
 import { formatPetTimer } from "../lib/utils";
 import {
     PET_EXPEDITION_CARAVAN_BONUS,
@@ -114,7 +114,10 @@ export function PetExpeditionBoard({
     const selectedAway = Boolean(selectedPet?.expedition && !selectedReady);
     const selectedLocked = Boolean(selectedPet && selectedPet.level < 20);
     const selectedTraining = Boolean(selectedPet?.training);
-    const lacksBoldHappiness = risk === "bold" && Boolean(selectedPet && petHappiness(selectedPet) < PET_EXPEDITION_RISK_RULES.bold.happinessCost);
+    // Mirror the server gate in api/missions/expedition-start.ts: it charges
+    // against the CURRENT happiness (pending daily decay applied), so reading the
+    // raw stored value here would offer a bold route the server then rejects.
+    const lacksBoldHappiness = risk === "bold" && Boolean(selectedPet && petCurrentHappiness(selectedPet) < PET_EXPEDITION_RISK_RULES.bold.happinessCost);
     const selectedProvisionCount = provision === "none" ? 0 : countItem(character, provision);
     const lacksProvision = provision !== "none" && selectedProvisionCount <= 0;
     const startDisabled = !selectedPet || selectedLocked || selectedTraining || Boolean(selectedPet.expedition)
