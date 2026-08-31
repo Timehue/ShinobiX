@@ -17,7 +17,15 @@
 
 import type { Profession, JutsuType, VillageUpgrades } from "./core";
 import type { Stats, EquipmentSlots, JutsuMastery } from "./combat";
-import type { Pet, PetBreedingSession } from "./pet";
+import type {
+    Pet,
+    PetBreedingSession,
+    PetExpeditionProvision,
+    PetExpeditionReturnChoice,
+    PetExpeditionReturnOutcome,
+    PetExpeditionRisk,
+    PetExpeditionType,
+} from "./pet";
 import type { MasteryFocus } from "../../../shared/activity-spine";
 
 // ── Hollow Gate Shrine run state ──────────────────────────────────────────
@@ -493,6 +501,33 @@ export type Character = {
     // Pet Tamer daily First Expedition tracking (UTC).
     lastExpeditionClaimDate?: string;
     expeditionsClaimedToday?: number;
+    expeditionStartAllowance?: { date: string; count: number };
+    petExpeditionLog?: Array<{
+        id: string;
+        settledAt: number;
+        petId: string;
+        petName: string;
+        expType: PetExpeditionType;
+        risk: PetExpeditionRisk;
+        provision: PetExpeditionProvision;
+        returnChoice: PetExpeditionReturnChoice;
+        returnOutcome: PetExpeditionReturnOutcome;
+        outcomeLabel: string;
+        story: string;
+        sector: number;
+        place: string;
+        region: string;
+        biome: string;
+        ryo: number;
+        petXp: number;
+        tamerXp: number;
+        foundBone: number;
+        foundAura: number;
+        foundFate: number;
+        happinessCost: number;
+        firstExpedition: boolean;
+        escortBonus: boolean;
+    }>;
     // Clan Seal donation per-day cumulative cap tracking (UTC).
     dailyDonatedSeals?: number;
     dailyDonationDate?: string;

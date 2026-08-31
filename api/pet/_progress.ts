@@ -1,4 +1,5 @@
 import { normalizePetGrowth } from './_growth.js';
+import { PET_EXPEDITION_TYPES, petExpeditionBasePetXp, type PetExpeditionType } from '../../shared/pet-expedition-contract.js';
 
 const JUTSU_POWER_CAP: Record<string, number> = { standard: 320, rare: 360, legendary: 405, mythic: 450 };
 
@@ -92,9 +93,13 @@ export function removePetItem(character: Record<string, unknown>, itemId: string
 
 export function settleServerPetExpedition(pet: Record<string, unknown>, expType: string, durationMinutes: number, xpMultiplier: number): { pet: Record<string, unknown>; xp: number; statGain: number } {
     if (Number(pet.level) >= Number(pet.maxLevel)) return { pet: { ...pet, expedition: undefined }, xp: 0, statGain: 0 };
-    const durationHours = Math.max(1, durationMinutes / 60);
-    const typeXp = expType === 'forage' ? 1.45 : expType === 'ruins' ? 1.2 : 1;
-    const xp = Math.max(0, Math.round(120 * durationHours * typeXp * Math.max(0, Math.min(4, xpMultiplier))));
+    const type = PET_EXPEDITION_TYPES.includes(expType as PetExpeditionType) ? expType as PetExpeditionType : 'scout';
+    const canonicalBaseXp = petExpeditionBasePetXp(type);
+    // Legacy leases may carry non-canonical durations. Keep their historical
+    // scaling while all current routes read the shared canonical base.
+    const canonicalMinutes = type === 'scout' ? 45 : type === 'forage' ? 120 : 240;
+    const durationScale = Math.max(0, Math.min(1, durationMinutes / canonicalMinutes));
+    const xp = Math.max(0, Math.round(canonicalBaseXp * durationScale * Math.max(0, Math.min(4, xpMultiplier))));
     const prepared = {
         ...pet,
         expedition: undefined,

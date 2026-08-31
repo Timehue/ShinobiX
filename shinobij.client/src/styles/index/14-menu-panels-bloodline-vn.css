@@ -626,6 +626,19 @@ textarea {
     min-width: 0;
 }
 
+.left-timer-link {
+    width: 100%;
+    border: 0;
+    color: inherit;
+    background: transparent;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+}
+
+.left-timer-link:hover .left-timer-label,
+.left-timer-link:focus-visible .left-timer-label { color: #f4e2b5; }
+
 .left-timer-icon {
     font-size: 0.75rem;
     flex-shrink: 0;

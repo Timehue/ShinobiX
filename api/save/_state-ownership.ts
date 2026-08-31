@@ -186,6 +186,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('expeditionsClaimedToday', 'character', 'server-payout-stamp', 'pets', ['payout-char', 'combat-strip-char']),
     f('expeditionStartAllowance', 'character', 'server-payout-stamp', 'pets', ['always-ledger-char', 'strict-ledger-char', 'combat-strip-char'], 'daily start allowance committed atomically with the expedition lease'),
     f('expeditionStartReceipts', 'character', 'server-payout-stamp', 'pets', ['server-array-ledger-char', 'strict-ledger-char', 'combat-strip-char'], 'durable expedition launch idempotency receipts'),
+    f('petExpeditionLog', 'character', 'server-payout-stamp', 'pets', ['server-array-ledger-char', 'strict-ledger-char', 'combat-strip-char'], 'bounded server-authored expedition outcomes and exact replay receipts'),
     f('petEscortBonusReady', 'character', 'server-payout-stamp', 'pets', ['payout-char', 'combat-strip-char']),
     f('dailyHonorSealsEarned', 'character', 'server-payout-stamp', 'pvp', ['payout-char', 'combat-strip-char']),
     f('dailyHonorSealsByTarget', 'character', 'server-payout-stamp', 'pvp', ['payout-char', 'combat-strip-char']),

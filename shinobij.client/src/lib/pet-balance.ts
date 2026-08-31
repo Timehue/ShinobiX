@@ -609,7 +609,20 @@ export function normalizePetTemplate(pet: Pet, petPool: Pet[]): Pet {
         unlockedForPve: Boolean(merged.unlockedForPve || Math.floor(merged.level ?? 1) >= 50),
         happiness: petHappiness(merged),
         expedition: merged.expedition
-            ? { type: merged.expedition.type ?? "scout", startedAt: Number(merged.expedition.startedAt ?? Date.now()), endsAt: Number(merged.expedition.endsAt), durationMs: Number(merged.expedition.durationMs ?? 60 * 60 * 1000), token: typeof merged.expedition.token === "string" ? merged.expedition.token : undefined }
+            ? {
+                type: merged.expedition.type ?? "scout",
+                startedAt: Number(merged.expedition.startedAt ?? Date.now()),
+                endsAt: Number(merged.expedition.endsAt),
+                durationMs: Number(merged.expedition.durationMs ?? 60 * 60 * 1000),
+                token: typeof merged.expedition.token === "string" ? merged.expedition.token : undefined,
+                risk: merged.expedition.risk,
+                provision: merged.expedition.provision,
+                sector: Number.isFinite(Number(merged.expedition.sector)) ? Number(merged.expedition.sector) : undefined,
+                place: typeof merged.expedition.place === "string" ? merged.expedition.place : undefined,
+                region: typeof merged.expedition.region === "string" ? merged.expedition.region : undefined,
+                biome: typeof merged.expedition.biome === "string" ? merged.expedition.biome : undefined,
+                choiceVersion: Number.isFinite(Number(merged.expedition.choiceVersion)) ? Number(merged.expedition.choiceVersion) : undefined,
+            }
             : undefined,
     });
 }
