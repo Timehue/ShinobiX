@@ -74,9 +74,9 @@ export const defaultAncientChestVn: CreatorEvent = {
             speaker: "Narrator",
             dialogue: [
                 "Narrator: You clear two loose stones and uncover a shinobi courier chest, lacquer split but hinges intact.",
-                "Narrator: Three field seals guard the lid: water, rot, and chakra tampering. Old quartermaster work.",
+                "%name: Three field seals. Water, rot, and chakra tampering. Old quartermaster work.",
                 "Narrator: The last seal has weakened with age. It is not choosing you. It is simply failing.",
-                "Narrator: You trace the release order cut beside the hinge and feed a narrow thread of chakra through each mark.",
+                "%name: The release order is cut beside the hinge. I can open this without breaking it.",
                 "Narrator: The lock gives with a dry click.",
             ],
             choices: [],
@@ -87,9 +87,9 @@ export const defaultAncientChestVn: CreatorEvent = {
             speaker: "Narrator",
             dialogue: [
                 "Narrator: The hinges complain loudly enough to wake every bird in the waystation roof.",
-                "Narrator: Oilcloth kept the contents dry. A faded patrol mark dates the cache to the wars before the villages drew their present borders.",
+                "%name: Oilcloth bundles. That patrol mark is older than the present village borders.",
                 "Narrator: Whoever packed it expected to come back. They never did.",
-                "Narrator: You take what the road can still use and leave the lid standing upright, the field sign for a cleared cache.",
+                "%name: Take what the road can use. Leave the lid upright so the next patrol knows it is clear.",
             ],
             choices: [],
         },

@@ -73,6 +73,10 @@ test("story actor overrides cannot put another character under the speaker label
         resolveVnAuthoredActorImage("creator-generic", "Guide", "data:image/webp;base64,custom"),
         "data:image/webp;base64,custom",
     );
+    assert.equal(
+        resolveVnAuthoredActorImage("sys-pet-encounter", "Ember Lynx", "/pet-poses/generic-ai-pet-emberlynx-idle.webp"),
+        "/pet-poses/generic-ai-pet-emberlynx-idle.webp",
+    );
 });
 
 test("addStoryTrait: appends, dedupes, and never mutates the input character", () => {
@@ -167,6 +171,7 @@ test("dialogue round-trips and is stable across repeated passes", () => {
 
 test("splitDialogueLine: 'Speaker: text' splits on the first colon", () => {
     assert.deepEqual(splitDialogueLine("Mira: Wait: listen.", "Narrator"), { speaker: "Mira", text: "Wait: listen." });
+    assert.deepEqual(splitDialogueLine("%name: I can open this.", "Narrator"), { speaker: "%name", text: "I can open this." });
 });
 
 test("splitDialogueLine: a colon-less line uses (trimmed) fallback speaker + whole line", () => {

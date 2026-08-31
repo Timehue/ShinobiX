@@ -6,16 +6,23 @@ import sharp from "sharp";
 const argumentsList = process.argv.slice(2);
 const chromaArgument = argumentsList.find((argument) => argument.startsWith("--chroma="));
 const chromaMode = chromaArgument?.slice("--chroma=".length);
-const pairs = argumentsList.filter((argument) => !argument.startsWith("--chroma="));
+const qualityArgument = argumentsList.find((argument) => argument.startsWith("--quality="));
+const quality = qualityArgument ? Number(qualityArgument.slice("--quality=".length)) : 90;
+const pairs = argumentsList.filter((argument) => !argument.startsWith("--chroma=") && !argument.startsWith("--quality="));
 
-if (chromaMode && chromaMode !== "green" && chromaMode !== "magenta") {
-    console.error("Chroma mode must be green or magenta.");
+if (chromaMode && chromaMode !== "green" && chromaMode !== "magenta" && chromaMode !== "checker") {
+    console.error("Chroma mode must be green, magenta, or checker.");
+    process.exit(1);
+}
+
+if (!Number.isInteger(quality) || quality < 1 || quality > 100) {
+    console.error("Quality must be an integer from 1 to 100.");
     process.exit(1);
 }
 
 if (!pairs.length || pairs.some((pair) => !pair.includes("="))) {
     console.error(
-        "Usage: node scripts/process-cinematic-vn-actor-assets.mjs [--chroma=green|magenta] <output.webp=source.png> [...]",
+        "Usage: node scripts/process-cinematic-vn-actor-assets.mjs [--chroma=green|magenta|checker] [--quality=1..100] <output.webp=source.png> [...]",
     );
     process.exit(1);
 }
@@ -89,13 +96,77 @@ async function removeChromaSpill(source) {
     });
 }
 
+async function removeCheckerMatte(source) {
+    const { data, info } = await sharp(source)
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+    const pixelCount = info.width * info.height;
+    const background = new Uint8Array(pixelCount);
+    const queue = new Int32Array(pixelCount);
+    let head = 0;
+    let tail = 0;
+
+    const isMatte = (pixel) => {
+        const offset = pixel * 4;
+        const red = data[offset];
+        const green = data[offset + 1];
+        const blue = data[offset + 2];
+        return Math.min(red, green, blue) >= 205
+            && Math.max(red, green, blue) - Math.min(red, green, blue) <= 20;
+    };
+    const enqueue = (pixel) => {
+        if (pixel < 0 || pixel >= pixelCount || background[pixel] || !isMatte(pixel)) return;
+        background[pixel] = 1;
+        queue[tail++] = pixel;
+    };
+
+    for (let x = 0; x < info.width; x += 1) {
+        enqueue(x);
+        enqueue((info.height - 1) * info.width + x);
+    }
+    for (let y = 0; y < info.height; y += 1) {
+        enqueue(y * info.width);
+        enqueue(y * info.width + info.width - 1);
+    }
+    while (head < tail) {
+        const pixel = queue[head++];
+        const x = pixel % info.width;
+        if (x > 0) enqueue(pixel - 1);
+        if (x + 1 < info.width) enqueue(pixel + 1);
+        enqueue(pixel - info.width);
+        enqueue(pixel + info.width);
+    }
+
+    for (let pixel = 0; pixel < pixelCount; pixel += 1) {
+        if (!background[pixel]) continue;
+        const offset = pixel * 4;
+        data[offset] = 0;
+        data[offset + 1] = 0;
+        data[offset + 2] = 0;
+        data[offset + 3] = 0;
+    }
+
+    return sharp(data, {
+        raw: {
+            width: info.width,
+            height: info.height,
+            channels: 4,
+        },
+    });
+}
+
 for (const pair of pairs) {
     const separator = pair.indexOf("=");
     const output = path.resolve(pair.slice(0, separator));
     const source = path.resolve(pair.slice(separator + 1));
 
     await mkdir(path.dirname(output), { recursive: true });
-    const sourceImage = chromaMode ? await removeChromaSpill(source) : sharp(source);
+    const sourceImage = chromaMode === "checker"
+        ? await removeCheckerMatte(source)
+        : chromaMode
+            ? await removeChromaSpill(source)
+            : sharp(source);
     const result = await sourceImage
         .trim({ background: transparent, threshold: 2 })
         .resize(1000, 1536, {
@@ -104,7 +175,7 @@ for (const pair of pairs) {
             background: transparent,
         })
         .webp({
-            quality: 90,
+            quality,
             alphaQuality: 100,
             effort: 6,
             smartSubsample: true,

@@ -1,4 +1,4 @@
-import { open, stat } from "node:fs/promises";
+import { open, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import sharp from "sharp";
@@ -7,6 +7,29 @@ const publicRoot = path.resolve("public");
 const environmentDir = path.join(publicRoot, "scenes", "story", "cinematic");
 const actorDir = path.join(publicRoot, "portraits", "cinematic");
 const scoreDir = path.join(publicRoot, "music", "vn");
+const directionSourcePath = path.resolve("src", "lib", "vn-storywide-direction.ts");
+const storySourcePaths = [
+    path.resolve("src", "data", "storylines.ts"),
+    path.resolve("src", "data", "story-interludes.ts"),
+    path.resolve("src", "data", "story-road-events.ts"),
+    path.resolve("src", "data", "hollow-rifts.ts"),
+    path.resolve("src", "data", "vn-events.ts"),
+    path.resolve("src", "data", "default-vn-events.ts"),
+];
+
+const directionSource = await readFile(directionSourcePath, "utf8");
+const actorMapBlock = directionSource.match(/export const STORYWIDE_ACTORS[^=]*=\s*\{([\s\S]*?)\n\};/)?.[1] ?? "";
+const storywideActorMap = new Map(
+    [...actorMapBlock.matchAll(/^\s*(?:"([^"]+)"|([a-z][a-z0-9_-]*)):\s*"([^"]+)",/gm)]
+        .map((match) => [match[1] ?? match[2], match[3]]),
+);
+const sideEnvironmentMapBlock = directionSource.match(/export const SIDE_STORY_ENVIRONMENTS[^=]*=\s*\{([\s\S]*?)\n\};/)?.[1] ?? "";
+const sideEnvironments = [...sideEnvironmentMapBlock.matchAll(
+    /^\s*"[^"]+":\s*"\/scenes\/story\/cinematic\/([^"]+)",/gm,
+)].map((match) => match[1]);
+const mappedActors = [...new Set([...storywideActorMap.values()].map((asset) =>
+    asset.replace(/^\/portraits\/cinematic\//, ""),
+))];
 
 const environments = [
     "ashen-register-hall-wide.webp",
@@ -37,38 +60,11 @@ const environments = [
     ].map((environment) => `storywide/${environment}.webp`),
     "storywide/frostfang-pale-pack-cavern-mouth.webp",
     "storywide/frostfang-pale-pack-cavern-interior.webp",
+    ...sideEnvironments,
 ];
 
 const actors = [
-    "toma-reed.webp",
-    "registry-duty-clerk.webp",
-    "elder-mori.webp",
-    "kite-harrow.webp",
-    ...[
-        "mira-volt",
-        "kage-raiko-veyr",
-        "elder-vanta",
-        "kage-hoshina-enju-canon",
-        "captain-yura",
-        "kage-kael-whitefang",
-        "elder-sova-canon",
-        "nyx",
-        "kage-sable-nocturne",
-        "shade-master-iro",
-        "ledger-clerk",
-        "tempest-guard-captain",
-        "joren-pike",
-        "rebel-medic",
-        "imera",
-        "sera-reed",
-        "first-flame-avatar",
-        "frost-seal-echo",
-        "seal-keeper-vess",
-        "hollow-moon",
-        "veil-adaza",
-        "shrine-witness",
-        "veiled-hand-collector",
-    ].map((actor) => `storywide/${actor}.webp`),
+    ...mappedActors,
     ...[
         "mira-volt-neutral",
         "kage-sable-nocturne-readable",
@@ -105,6 +101,21 @@ const scores = [
 const failures = [];
 let totalBytes = 0;
 
+const namedSpeakers = new Set();
+for (const sourcePath of storySourcePaths) {
+    const source = await readFile(sourcePath, "utf8");
+    for (const match of source.matchAll(/\b(?:speaker|leftName|rightName):\s*"([^"]+)"/g)) {
+        if (match[1] !== "Narrator" && match[1] !== "Player") namedSpeakers.add(match[1]);
+    }
+}
+namedSpeakers.add("Scribe Ihara");
+namedSpeakers.add("Wandering Sage");
+for (const speaker of namedSpeakers) {
+    const asset = storywideActorMap.get(speaker.trim().toLowerCase());
+    if (!asset) failures.push(`${speaker}: named main-story speaker has no cinematic actor route`);
+    else if (!asset.startsWith("/portraits/cinematic/")) failures.push(`${speaker}: actor route still uses legacy boxed art (${asset})`);
+}
+
 async function inspectAsset(root, relativePath, kind) {
     const file = path.join(root, relativePath);
     try {
@@ -117,6 +128,17 @@ async function inspectAsset(root, relativePath, kind) {
         }
         if (kind === "actor" && !info.hasAlpha) failures.push(`${relativePath}: actor art has no alpha channel`);
         if (kind === "actor" && (info.width ?? 0) < 900) failures.push(`${relativePath}: actor width is below 900px`);
+        if (kind === "actor") {
+            const { data } = await sharp(file).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+            let transparentPixels = 0;
+            for (let index = 3; index < data.length; index += 4) {
+                if (data[index] < 16) transparentPixels += 1;
+            }
+            const transparentRatio = transparentPixels / (data.length / 4);
+            if (transparentRatio < 0.15) {
+                failures.push(`${relativePath}: only ${(transparentRatio * 100).toFixed(1)}% transparent area; likely contains a baked matte`);
+            }
+        }
         console.log(`PASS ${kind.padEnd(11)} ${String(info.width).padStart(4)}x${String(info.height).padEnd(4)} ${String(fileStat.size).padStart(7)} B  ${relativePath}`);
     } catch (error) {
         failures.push(`${relativePath}: ${error instanceof Error ? error.message : String(error)}`);
