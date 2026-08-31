@@ -447,6 +447,32 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // initial graph is smaller than the prior baseline at 1,439,854 B raw /
 // 380,809 B gzip; no startup, per-chunk, or CSS gate moved. The new ceiling
 // leaves 17,030 B of measured product-graph headroom.
+// 2026-08-31 RUNTIME AUDIT: NOT raised. The heartbeat jitter scheduler, the
+// visiblePoll migration (21 poll sites), the versioned/immutable image URLs, and
+// the conditional landing-hero preload measure 7,990,350 B on a clean production
+// build — reproduced twice on this tree. That consumes 12,380 B of the 17,030 B
+// the entry above recorded, leaving 4,650 B. The ceiling stays where it is: the
+// tree passes, and raising a gate to fit work that already fits is how a ratchet
+// stops ratcheting. The startup gates are unmoved and pass independently
+// (1,442,868 B raw / 382,016 B gzip).
+//
+// ⚠ 4,650 B is ~0.05% headroom. The next change of any size trips this. Read the
+// paragraph below BEFORE reaching for a bigger number.
+//
+// CORRECTION TO THE MARGIN RULE — the "~7 KB CI instrumentation" figure that
+// entries from 2026-07-25 through 2026-08-26 size against is OBSOLETE, and it is
+// worth knowing why before it inflates another decision. It came from
+// @sentry/vite-plugin injecting instrumentation into the product chunks. That
+// plugin is NO LONGER INSTALLED — it appears in neither package.json, and
+// vite.config.ts references @sentry/* only in a manualChunks rule for the runtime
+// SDK. What CI and Railway actually add over a bare local build is the build-arg
+// strings Vite inlines (VITE_SENTRY_DSN / _RELEASE / _BUILD_COMMIT). Measured on
+// this tree with a production-length DSN: 7,990,818 B, a delta of 468 B. That
+// agrees with the ~535 B deploy delta the 2026-08-26 and 2026-08-27 entries
+// measured directly, and disagrees with ~7 KB by more than an order of
+// magnitude. Size future ceilings against a measured deploy build, never against
+// the ~7 KB band — budgeting ~6.5 KB of overhead that no longer exists silently
+// converts real headroom into an unnecessary raise.
 const TOTAL_JS_CSS_FAIL_BYTES = 7_995_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
