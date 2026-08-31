@@ -695,17 +695,19 @@ export function LegacyAnimePetAccents({ config }: { config: PetCombatModelConfig
     return null;
 }
 
-function LoadedPetModel3D({ config, frame, element, showIdentity = true, surfaceTreatment, signature }: {
+function LoadedPetModel3D({ config, frame, element, showIdentity = true, surfaceTreatment, signature, quality: qualityOverride }: {
     config: PetCombatModelConfig;
     frame: MutableRefObject<PetModelFrame>;
     element?: string;
     showIdentity?: boolean;
     surfaceTreatment?: PetModelSurfaceTreatment;
     signature?: PetSignaturePerformance;
+    quality?: PetVisualQualityConfig;
 }) {
     const gltf = useGLTF(config.url) as { scene: THREE.Group; animations: THREE.AnimationClip[] };
     const persistentAtlas = ROSTER_VISUAL_ID.test(config.visualId) ? readPetGlbAtlas(config.url) : null;
-    const quality = useMemo(() => petVisualQuality(), []);
+    const fallbackQuality = useMemo(() => petVisualQuality(), []);
+    const quality = qualityOverride ?? fallbackQuality;
     const prepared = useMemo(
         () => prepareModel(gltf.scene, config, gltf.animations ?? [], quality, element, persistentAtlas, surfaceTreatment),
         [gltf.scene, gltf.animations, config, quality, element, persistentAtlas, surfaceTreatment],
@@ -1304,13 +1306,14 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
 /** Approved textured GLBs are the production combat bodies. Their dense surface
  * detail reads far more cleanly than the earlier primitive-built prototypes; the
  * shared deformation rig supplies combat motion until authored skeletal clips land. */
-export function PetModel3D({ config, frame, element, showIdentity = true, surfaceTreatment, signature }: {
+export function PetModel3D({ config, frame, element, showIdentity = true, surfaceTreatment, signature, quality }: {
     config: PetCombatModelConfig;
     frame: MutableRefObject<PetModelFrame>;
     element?: string;
     showIdentity?: boolean;
     surfaceTreatment?: PetModelSurfaceTreatment;
     signature?: PetSignaturePerformance;
+    quality?: PetVisualQualityConfig;
 }) {
     return (
         <LoadedPetModel3D
@@ -1320,6 +1323,7 @@ export function PetModel3D({ config, frame, element, showIdentity = true, surfac
             showIdentity={showIdentity}
             surfaceTreatment={surfaceTreatment}
             signature={signature}
+            quality={quality}
         />
     );
 }

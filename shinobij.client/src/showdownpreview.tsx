@@ -75,6 +75,9 @@ function mockCost(power: number, kind: string): number {
 const MOCK_MAX_STAMINA = Math.round(SHOWDOWN_STAMINA_REFERENCE * SHOWDOWN_STAMINA_POOL_SCALE);
 
 const PREVIEW_PARAMS = new URLSearchParams(window.location.search);
+const ROSTER_PET_ID = PREVIEW_PARAMS.get("rosterpet")?.trim() || null;
+const ENEMY_PET_ID = PREVIEW_PARAMS.get("enemypet")?.trim() || null;
+const ROSTER_QA = ROSTER_PET_ID !== null;
 // ?facingqa renders the exact live 1v1 regression pair from the owner report.
 // ?facingqa2 renders the later 2v2 report: Oni Hound + Pebble Tortoise against
 // Coral Serval + Terra Porcupine. ?format=3v3 keeps the ordinary harness cast
@@ -84,7 +87,7 @@ const FACING_QA = PREVIEW_PARAMS.has("facingqa");
 const FACING_QA_2V2 = PREVIEW_PARAMS.has("facingqa2");
 const FORMAT: ShowdownFormat = PREVIEW_PARAMS.get("format") === "3v3"
     ? "3v3"
-    : FACING_QA && !FACING_QA_2V2 ? "1v1" : "2v2";
+    : (ROSTER_QA || (FACING_QA && !FACING_QA_2V2)) ? "1v1" : "2v2";
 const PREVIEW_SESSION_ID = PREVIEW_PARAMS.get("session")?.trim() || "devharness";
 const FIELD_SIZE = SHOWDOWN_FORMAT_SIZE[FORMAT];
 
@@ -208,6 +211,11 @@ const reportedOniHound = rawPetPool.find((pet) => pet.id === "mythic-4");
 const reportedCoralServal = rawPetPool.find((pet) => pet.id === "rare-32");
 const reportedTerraPorcupine = rawPetPool.find((pet) => pet.id === "rare-48");
 const reportedPebbleTortoise = STARTER_PETS.find((entry) => entry.pet.id === "starter-earth")?.pet;
+const requestedRosterPet = ROSTER_PET_ID ? rawPetPool.find((pet) => pet.id === ROSTER_PET_ID) : null;
+const requestedEnemyPet = ENEMY_PET_ID ? rawPetPool.find((pet) => pet.id === ENEMY_PET_ID) : rawPetPool.find((pet) => pet.id === "rare-24");
+if (ROSTER_QA && (!requestedRosterPet || !requestedEnemyPet)) {
+    throw new Error(`roster QA requires valid rosterpet/enemypet ids (${ROSTER_PET_ID ?? "missing"}/${ENEMY_PET_ID ?? "rare-24"})`);
+}
 if (FACING_QA_2V2 && (!reportedOniHound || !reportedCoralServal || !reportedTerraPorcupine || !reportedPebbleTortoise)) {
     throw new Error("2v2 facing QA requires the four owner-reported pet identities");
 }
@@ -216,6 +224,8 @@ const playerPets = FACING_QA_2V2
         balanceBuiltInPetTemplate({ ...reportedOniHound! }) as Pet,
         { ...reportedPebbleTortoise! },
     ]
+    : ROSTER_QA
+    ? [balanceBuiltInPetTemplate({ ...requestedRosterPet! }) as Pet]
     : FACING_QA
     ? [{
         ...poolPet(LINEUP[0]),
@@ -231,6 +241,8 @@ const enemyPets = FACING_QA_2V2
         balanceBuiltInPetTemplate({ ...reportedCoralServal! }) as Pet,
         balanceBuiltInPetTemplate({ ...reportedTerraPorcupine! }) as Pet,
     ]
+    : ROSTER_QA
+    ? [balanceBuiltInPetTemplate({ ...requestedEnemyPet! }) as Pet]
     : FACING_QA
     ? [balanceBuiltInPetTemplate({ ...crystalBear! }) as Pet]
     : [poolPet(LINEUP[3]), poolPet(LINEUP[4]), ...(FORMAT === "3v3" ? [poolPet(20)] : [])];

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
     showdownBodyRadius,
+    showdownAttackRhythm,
     showdownCinematicImpulse,
     showdownContactGap,
     showdownMeleeContact,
@@ -25,6 +26,20 @@ test("Pet Showdown melee never overshoots contact and returns home after recover
         assert.equal(showdownMeleeDrive(0.31), 0);
         assert.equal(showdownMeleeDrive(0.55), 1);
         assert.equal(showdownMeleeDrive(1), 0);
+});
+
+test("Pet Showdown shares a weight-aware anticipation, contact, and recovery clock", () => {
+    const quick = showdownAttackRhythm({ weight: "light", superMove: false, delivery: "melee" });
+    const heavy = showdownAttackRhythm({ weight: "heavy", superMove: false, delivery: "melee", moveKind: "crush" });
+    const ranged = showdownAttackRhythm({ weight: "normal", superMove: false, delivery: "ranged" });
+    assert.ok(heavy.windupStart < heavy.dashStart);
+    assert.ok(heavy.dashStart < heavy.contact);
+    assert.ok(heavy.contact < heavy.contactEnd);
+    assert.ok(heavy.contactEnd < heavy.recoverEnd);
+    assert.ok(heavy.contact > quick.contact);
+    assert.equal(ranged.dashStart, ranged.contact);
+    assert.equal(showdownMeleeDrive(heavy.contact, heavy), 1);
+    assert.equal(showdownMeleeDrive(heavy.recoverEnd, heavy), 0);
 });
 
 test("strongly committed signature poses reserve extra limb reach", () => {

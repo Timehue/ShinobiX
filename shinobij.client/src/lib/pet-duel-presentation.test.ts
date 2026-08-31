@@ -12,6 +12,8 @@ import {
     duelHeroCutEligible,
     duelHeroCutEventIndexes,
     duelMoveOutcome,
+    petDuelAttackRhythm,
+    petDuelContactTiming,
     petDuelImpactStrength,
     precedingNamedMove,
     selectDuelSpotlightEvent,
@@ -183,6 +185,28 @@ test("impact strength gives light hits a floor and preserves heavy/critical hier
     assert.ok(critical > heavy);
     assert.equal(petDuelImpactStrength(Number.NaN, false), 0.48);
     assert.equal(petDuelImpactStrength(10, true), 1.25);
+});
+
+test("attack rhythm gives heavy blows more anticipation than quick pokes", () => {
+    const quick = petDuelAttackRhythm(0.1, false);
+    const heavy = petDuelAttackRhythm(0.7, false);
+    const critical = petDuelAttackRhythm(0.7, true);
+    assert.ok(quick.pulseMultiplier < 1);
+    assert.ok(heavy.pulseMultiplier > 1);
+    assert.ok(critical.pulseMultiplier > heavy.pulseMultiplier);
+    assert.ok(heavy.anticipationShare > quick.anticipationShare);
+});
+
+test("contact timing preserves a basic-to-finisher feedback hierarchy", () => {
+    const basic = petDuelContactTiming({ damageFraction: 0.04 });
+    const authored = petDuelContactTiming({ damageFraction: 0.04, playerAuthored: true });
+    const heavy = petDuelContactTiming({ damageFraction: 0.34, heavy: true, critical: true });
+    const finisher = petDuelContactTiming({ damageFraction: 0.5, signature: true, dash: true, perfect: true });
+    assert.ok(authored.hitStop > basic.hitStop);
+    assert.ok(heavy.shake > authored.shake);
+    assert.ok(finisher.hitStop > heavy.hitStop);
+    assert.ok(finisher.zoomKick > heavy.zoomKick);
+    assert.ok(finisher.savorScale < basic.savorScale);
 });
 
 test("finisher anticipation only arms for an authoritative lethal payoff", () => {
