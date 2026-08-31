@@ -1,13 +1,56 @@
+/*
+ * LOCAL DEV TOOL — `npm run server` inside shinobij.client/. NOT a deploy target.
+ *
+ * Production is the repo-root `server.ts` → `dist/server.js` (Railway); this file
+ * is never built, imported, or served by it. What lives here is a standalone
+ * Express app with two unrelated halves:
+ *
+ *   • an in-memory presence mock (/api/player/heartbeat|attack|clear-attack).
+ *     `npm run dev` does NOT use these — vite.config.ts carries its own
+ *     equivalent middleware in-process. Kept for running the SPA against a plain
+ *     static host with no vite dev server.
+ *   • /api/generate-image, the gpt-image-1 asset generator used for card/AI art.
+ *
+ * ⚠ The presence half has NO auth, NO rate limit, and NO identity check: any
+ * caller can register as any name and mark anyone as under attack. That is
+ * acceptable ONLY because it holds throwaway in-memory state on a loopback
+ * socket. It is a deliberately dumb stub, not a second implementation of
+ * api/player/* — the real ones are token-authed and presence-gated.
+ *
+ * The three guards below keep it that way, and exist because this file has the
+ * same shape as the unauthenticated .NET API mirror removed in 2026-06:
+ *   1. refuses to start in production,
+ *   2. binds to loopback only, so it is never reachable off this machine,
+ *   3. allows only localhost origins instead of `cors()`'s open default.
+ * If you ever need it reachable from another device, put a real authenticating
+ * proxy in front — do not relax these.
+ */
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import OpenAI from "openai";
 
+if (process.env.NODE_ENV === "production") {
+    console.error(
+        "[dev-server] Refusing to start: this is the unauthenticated local dev stub, "
+        + "not the production API. Run `node dist/server.js` from the repo root instead.",
+    );
+    process.exit(1);
+}
+
 const app = express();
-app.use(cors());
+// Loopback origins only. The open `cors()` default let any page the developer
+// happened to visit POST to this server through their browser.
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true); // curl / same-origin / non-browser
+        callback(null, /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin));
+    },
+}));
 app.use(express.json({ limit: "2mb" }));
 
 const PORT = parseInt(process.env.API_PORT || "3001");
+const HOST = "127.0.0.1";
 const PRESENCE_TTL_MS = 60_000;
 const MAX_PROMPT_LENGTH = 1_500;
 const MAX_LABEL_LENGTH = 120;
@@ -183,6 +226,6 @@ Style rules:
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`API server running on http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+    console.log(`Local dev API stub running on http://${HOST}:${PORT} (loopback only, unauthenticated)`);
 });

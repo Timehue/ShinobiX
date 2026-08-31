@@ -24,6 +24,8 @@ let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
 let computePvpWinGains: typeof import('../_xp-engine.js').computePvpWinGains;
 let repeatWinDecayMultiplier: typeof import('../pvp/_reward-farm.js').repeatWinDecayMultiplier;
 let setSleeperCamp: typeof import('../_realtime/sleeper-camps.js').setSleeperCamp;
+let stampPlayerIp: typeof import('../_player-ips.js').stampPlayerIp;
+let hasRecentIpOrFpOverlap: typeof import('../_player-ips.js').hasRecentIpOrFpOverlap;
 let getSleeperCamp: typeof import('../_realtime/sleeper-camps.js').getSleeperCamp;
 
 before(async () => {
@@ -36,6 +38,7 @@ before(async () => {
     ({ computePvpWinGains } = await import('../_xp-engine.js'));
     ({ repeatWinDecayMultiplier } = await import('../pvp/_reward-farm.js'));
     ({ setSleeperCamp, getSleeperCamp } = await import('../_realtime/sleeper-camps.js'));
+    ({ stampPlayerIp, hasRecentIpOrFpOverlap } = await import('../_player-ips.js'));
 });
 
 /** Exactly what api/_merc-auto.ts does: take the target's save lock, settle. */
@@ -173,6 +176,76 @@ test('sleeper-kill handler: pays the base ryo + a PvP kill credit, and tells the
     const post = (await recentAnnouncements(50)).find((a) => a.type === 'sleeper_kill' && a.player === 'raiden');
     assert.ok(post, 'the world feed heard about it');
     assert.equal(post.importance, 'low');
+});
+
+test('sleeper-kill handler: returns the bumped save version so the attacker can adopt it', async () => {
+    // A server credit that bumps _saveVersion without handing it back leaves the
+    // open tab on the old version: its next autosave 409s and has to refetch. The
+    // credit was never lost, but the round trip is avoidable — every other credit
+    // endpoint returns the version, and this one now does too.
+    await seedSave('kiyo', 0, { ryo: 0 });
+    await stage('kiyo', 'dozer', 9);
+
+    const before = Number((await kv.get<Record<string, unknown>>('save:kiyo'))?._saveVersion ?? 0);
+    const out = await postKill('kiyo', 'dozer');
+    assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+
+    const stored = Number((await kv.get<Record<string, unknown>>('save:kiyo'))?._saveVersion ?? 0);
+    assert.ok(stored > before, 'the credit must bump the stored version (bumpSaveVersion contract)');
+    assert.equal(out.body._saveVersion, stored,
+        'the response must carry the version that actually landed on the save');
+});
+
+test('sleeper-kill handler: collects the head bounty, once, and clears it from the board', async () => {
+    // A bounty is "kill this player, collect" — and a sleeping-camp KO is a real
+    // kill (it hospitalizes them and books a PvP kill credit). It just has no
+    // PvpSession, so it could never reach api/pvp/bounty.ts's session-keyed
+    // claim route, and the hunter got nothing.
+    const BOUNTY_KEY = 'pvp:bounties';
+    await kv.set(BOUNTY_KEY, { bounties: [{ target: 'napper', amount: 25_000, contributors: ['someone'], updatedAt: Date.now() }] });
+
+    await seedSave('hunter', 0, { ryo: 500 });
+    await stage('hunter', 'napper', 8);
+    const before = Number((await charOf('hunter')).ryo);
+
+    const out = await postKill('hunter', 'napper');
+    assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+    const reward = out.body.reward as Record<string, unknown>;
+    assert.equal(reward.bounty, 25_000, 'the head bounty must be paid to the hunter');
+
+    const hunter = await charOf('hunter');
+    const baseRyo = Number(reward.ryo);
+    assert.equal(hunter.ryo, before + baseRyo + 25_000, 'base ryo AND the bounty land on the committed save');
+    const returned = out.body.character as Record<string, unknown>;
+    assert.equal(Number(returned.ryo), Number(hunter.ryo),
+        'the returned character must match what was persisted, or the client paints a stale balance');
+
+    // The pool pays ONCE: claimBounty removes the head under the board lock.
+    const board = await kv.get<{ bounties: unknown[] }>(BOUNTY_KEY);
+    assert.deepEqual(board?.bounties, [], 'the claimed head must leave the board');
+});
+
+test('sleeper-kill handler: an ineligible (same-device) KO leaves the bounty for a real hunter', async () => {
+    const BOUNTY_KEY = 'pvp:bounties';
+    await kv.set(BOUNTY_KEY, { bounties: [{ target: 'dozy', amount: 9_000, contributors: ['x'], updatedAt: Date.now() }] });
+
+    await seedSave('altfarm', 0, { ryo: 0 });
+    await stage('altfarm', 'dozy', 6);
+    // The victim must have been SEEN on that address for the overlap to exist —
+    // seeding only the attacker's request IP proves nothing about a shared device.
+    const sharedIp = '10.9.9.9';
+    await stampPlayerIp({ headers: { 'x-forwarded-for': sharedIp }, socket: { remoteAddress: sharedIp } }, 'dozy');
+    await stampPlayerIp({ headers: { 'x-forwarded-for': sharedIp }, socket: { remoteAddress: sharedIp } }, 'altfarm');
+    assert.equal(await hasRecentIpOrFpOverlap('altfarm', 'dozy'), true, 'test setup: the two must look same-device');
+
+    const out = await postKill('altfarm', 'dozy', sharedIp);
+    assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+    assert.equal((out.body.reward as Record<string, unknown>).rewardEligible, false, 'the KO must be ruled ineligible');
+    assert.equal((out.body.reward as Record<string, unknown>).bounty, 0, 'an ineligible KO pays no bounty');
+
+    const board = await kv.get<{ bounties: { amount: number }[] }>(BOUNTY_KEY);
+    assert.equal(board?.bounties.length, 1, 'an alt-farmed KO must not drain the pool');
+    assert.equal(board?.bounties[0].amount, 9_000);
 });
 
 test('sleeper-kill handler: repeat kills on the SAME victim taper by the repeat-opponent decay', async () => {

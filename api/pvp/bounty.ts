@@ -9,7 +9,7 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { pvpSessionMayGrantProgress, type PvpSession } from './session.js';
 import { loadPvpRewardRecoverySnapshot } from './_reward-recovery.js';
-import { normalizeBoard, placeBounty, claimBounty, findBounty, type BountyBoard } from './_bounty.js';
+import { normalizeBoard, placeBounty, claimBounty, findBounty, BOUNTY_KEY, BOUNTY_AUDIT_PREFIX, type BountyBoard } from './_bounty.js';
 import { pushOfflineNotice } from '../player/_offline-notices.js';
 import { announce } from '../_announce.js';
 
@@ -32,10 +32,8 @@ import { announce } from '../_announce.js';
  *     VOID when the two fighters share an IP/device (no paying your own alt).
  */
 
-const BOUNTY_KEY = 'pvp:bounties';
 const SESSION_REPLAY_WINDOW_MS = 2 * 60 * 60 * 1000;
 const CLAIM_TTL_SECONDS = 24 * 60 * 60;
-const AUDIT_PREFIX = 'audit:pvp-bounty:';
 
 function num(v: unknown): number {
     const n = Number(v);
@@ -127,7 +125,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
             }, { failClosed: true });
 
-            if (out.status === 200) await kv.set(`${AUDIT_PREFIX}place:${Date.now()}`, { ts: now, placer: playerName, target: targetSlug, amount }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+            if (out.status === 200) await kv.set(`${BOUNTY_AUDIT_PREFIX}place:${Date.now()}`, { ts: now, placer: playerName, target: targetSlug, amount }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
             if (out.status === 200 && out.placed) {
                 // Feed-only ("medium") — the board write is durable; the receipt
                 // is the head + its updatedAt stamp (the stamp placeBounty wrote),
@@ -252,7 +250,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { status: 200, body: { ok: true, amount: result.amount, target: loserName, balances: { ryo: credit.balance }, _saveVersion: credit.saveVersion }, paid: result.amount };
             }, { failClosed: true });
 
-            if (out.paid) await kv.set(`${AUDIT_PREFIX}claim:${Date.now()}`, { ts: now, winner: playerName, target: safeName(loserName), amount: out.paid, battleId }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+            if (out.paid) await kv.set(`${BOUNTY_AUDIT_PREFIX}claim:${Date.now()}`, { ts: now, winner: playerName, target: safeName(loserName), amount: out.paid, battleId }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
             if (out.paid) {
                 // World Herald — the pool is credited; exact-once per battle.
                 try {

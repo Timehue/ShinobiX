@@ -86,7 +86,7 @@ import { useCapabilityGuardedAutosave } from "./lib/use-capability-guarded-autos
 import { pushLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLiveSectorContext } from "./lib/presence-store";
 import { worldSectorReconcileTarget } from "./lib/sector-reconcile";
 import { mergeServerPendingWorldRewards } from "./lib/world-reward-recovery";
-import { presenceCharacter, peerIsTraveling } from "./lib/presence-character";
+import { presenceCharacter } from "./lib/presence-character";
 import { noteServerTime } from "./lib/server-clock";
 import {
     percentageTags,
@@ -248,6 +248,8 @@ import { extendHollowGateUnlock, hydrateSharedGameState, hydrateSharedWorldState
 import { useWarRewardClaims } from "./lib/use-war-reward-claims";
 import { useVillageTax } from "./lib/use-village-tax";
 import { requireServerSettlement } from "./lib/server-settlement-gate";
+import { heartbeatIntervalMs } from "./lib/heartbeat-cadence";
+import { claimWorldAttack, releaseWorldAttack } from "./lib/world-attack-claim";
 import { masteryBonus } from "./lib/profession-mastery";
 const StartScreen = lazyWithRetry(() => import("./screens/StartScreen").then(m => ({ default: m.StartScreen })));
 const OnboardingCoach = lazyWithRetry(() => import("./components/OnboardingCoach").then(m => ({ default: m.OnboardingCoach })));
@@ -2570,29 +2572,15 @@ export default function App() {
             if (heartbeatRef.current === heartbeat) heartbeatRef.current = () => {};
         };
 
-        if (!tabVisible) return retireHeartbeat; // pause heartbeat when tab hidden
         heartbeat();
-        // Adaptive heartbeat interval. When the Socket.IO presence channel is
-        // CONNECTED it owns liveness: it pushes live sector presence and kicks an
-        // immediate poll on incoming attack/challenge, so the HTTP poll only needs
-        // to be a slow (~20s) reconcile + forceReload backstop — this is the win
-        // that removes the bulk of the request volume. When the socket is DOWN we
-        // fall back to a fast adaptive cadence so combat never regresses: 1s in
-        // combat/arena, 3s while exploring sectors (a wild ambush is less urgent
-        // than an active fight), 15s in the village (sector 0). Village-queued
-        // guards stay at 1s so a raider's attack reaches the defender within ~1s.
-        const currentScreen = screenRef.current;
-        const SOCKET_RECONCILE_MS = 20000;
-        const interval = socketConnected
-            ? SOCKET_RECONCILE_MS
-            : isBattleFlowScreen(currentScreen)
-            ? 1000   // in combat — fast challenge/attack delivery
-            : character?.guardQueued
-            ? 1000   // queued for village defense — must respond to raids fast
-            : currentSector === 0
-            ? 15000  // village — no urgent combat needs
-            : 3000;  // exploring sectors (socket down) — presence + pendingAttacker backstop, ~3x less volume than 1s
-        const id = setInterval(heartbeat, interval);
+        // Cadence (incl. why a HIDDEN tab keeps beating) lives in lib/heartbeat-cadence.
+        const id = setInterval(heartbeat, heartbeatIntervalMs({
+            tabVisible,
+            socketConnected,
+            inBattleFlow: isBattleFlowScreen(screenRef.current),
+            guardQueued: !!character?.guardQueued,
+            sector: currentSector,
+        }));
         return () => { retireHeartbeat(); clearInterval(id); };
     }, [
         gameplayMutationsOpen, character?.name, character?.guardQueued, currentSector, isTraveling, travelingUntil, screen, tabVisible, socketConnected,
@@ -6863,7 +6851,7 @@ export default function App() {
                         creatorItems={creatorItems}
                         onVersionedCharacter={commitVersionedCharacter} onOwnSaveRead={adoptOwnSaveRead}
                         capturePvpCreateScope={capturePvpCreateScope}
-                        onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} attackSleeper={(opponent) => { void strikeDownSleeper({ opponent, attackerName: character.name, isTraveling, setCharacter, setPlayerRoster }); }}
+                        onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} attackSleeper={(opponent) => { void strikeDownSleeper({ opponent, attackerName: character.name, isTraveling, setCharacter, setPlayerRoster, onServerVersion: (version) => acceptExternalSaveVersion(version, character.name) === "accepted" }); }}
                         sectorAttackPlayer={async (opponent) => { if (!requireServerSettlement("pvpSession")) return;
                             const createOwnerName = character.name;
                             const createScope = capturePvpCreateScope(createOwnerName);
@@ -6872,7 +6860,10 @@ export default function App() {
                                 alert("You cannot attack while traveling.");
                                 return;
                             }
-                            if (peerIsTraveling(opponent)) return void alert(`${opponent.name} is traveling and cannot be attacked right now.`);
+                            // The world path's admission gate — Academy protection and the
+                            // engaged/traveling/in-battle refusals. See lib/world-attack-claim.
+                            const claim = await claimWorldAttack(opponent.name, character.name, createScope.signal);
+                            if (!createIsCurrent()) return; if (!claim.ok) return void alert(claim.error);
                             // Use local character data — the server hydrates both
                             // fighters from their KV save records directly (see
                             // api/pvp/session.ts ~line 502), so the redundant
@@ -6930,6 +6921,7 @@ export default function App() {
                                 return;
                             }
                             if (createResult.kind === "rejected") {
+                                releaseWorldAttack(opponent.name); // no fight started — don't leave them "engaged"
                                 setPvpBattleId('');
                                 setPvpSeedSession(null);
                                 setRaidBattleKind("none");
@@ -6948,6 +6940,7 @@ export default function App() {
                                 const { confirmSectorBattleRegistration } = await import("./lib/village-war-map"); // lazy: sector-war client stays off the startup graph
                                 await confirmSectorBattleRegistration(createOwnerName, currentSector, battleId, createScope);
                             } catch (error) {
+                                releaseWorldAttack(opponent.name); // registration never confirmed — release the claim
                                 if (!createIsCurrent()) return;
                                 alert(error instanceof Error ? error.message : "The sector battle is still registering. Retry the same attack.");
                                 return;

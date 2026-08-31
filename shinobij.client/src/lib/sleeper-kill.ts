@@ -8,8 +8,15 @@ import type { Dispatch, SetStateAction } from "react";
 import { gameConfirm } from "../components/GameAlert";
 import type { Character, PlayerRecord } from "../types/character";
 
-type SleeperReward = { ryo: number; xp: number; seals: number; rewardEligible: boolean; target: string };
-type SleeperKillResponse = { ok?: boolean; error?: string; character?: Character; reward?: SleeperReward };
+type SleeperReward = { ryo: number; xp: number; seals: number; rewardEligible: boolean; target: string; bounty?: number };
+type SleeperKillResponse = {
+    ok?: boolean;
+    error?: string;
+    character?: Character;
+    reward?: SleeperReward;
+    /** Present only when the KO actually credited (and so bumped) the attacker's save. */
+    _saveVersion?: number;
+};
 
 // Tombstone: names we just struck down → when to stop suppressing them. After a
 // KO the server relocates the victim to the village (sector 0), but the roster
@@ -38,8 +45,15 @@ export async function strikeDownSleeper(opts: {
     isTraveling: boolean;
     setCharacter: Dispatch<SetStateAction<Character | null>>;
     setPlayerRoster: Dispatch<SetStateAction<PlayerRecord[]>>;
+    /**
+     * Adopt the save version the server bumped when it credited the KO. Returns
+     * false for a stale/foreign version, in which case we must NOT paint the
+     * mirrored character — the snapshot belongs to a save we no longer own.
+     * Optional so existing callers (and tests) keep working unchanged.
+     */
+    onServerVersion?: (version: unknown) => boolean;
 }): Promise<void> {
-    const { opponent, attackerName, isTraveling, setCharacter, setPlayerRoster } = opts;
+    const { opponent, attackerName, isTraveling, setCharacter, setPlayerRoster, onServerVersion } = opts;
     if (isTraveling) { alert("You cannot attack while traveling."); return; }
     if (!(await gameConfirm(`🌙 ${opponent.name} sleeps, defenseless, in this sector.\n\nStrike them down? They'll wake battered in their village's hospital.`, { danger: true, confirmLabel: "Strike" }))) return;
 
@@ -60,7 +74,12 @@ export async function strikeDownSleeper(opts: {
 
         // Apply the server-authoritative reward to our own character — the server
         // already persisted it, so we just mirror the changed fields locally.
-        const sc = data.character;
+        // Adopt the bumped version FIRST: a rejected version means this snapshot
+        // is for a save this tab no longer owns, so painting it would be wrong.
+        // A KO that paid nothing sends no version and skips the check entirely.
+        const sc = data._saveVersion !== undefined && onServerVersion?.(data._saveVersion) === false
+            ? undefined
+            : data.character;
         if (sc) {
             setCharacter(prev => prev ? {
                 ...prev,
@@ -91,8 +110,15 @@ export async function strikeDownSleeper(opts: {
         setPlayerRoster(prev => prev.map(p => p.name.toLowerCase() === opponent.name.toLowerCase() ? { ...p, currentSector: 0 } : p));
 
         const r = data.reward;
-        // Character XP is retired — a sleeper kill pays ryo (+ Vanguard seals).
-        const gains = r ? [r.ryo ? `+${r.ryo} ryo` : "", r.seals ? `+${r.seals} Honor Seals` : ""].filter(Boolean).join(", ") : "";
+        // Character XP is retired — a sleeper kill pays ryo (+ Vanguard seals),
+        // plus any bounty standing on that head. Name the bounty separately: it
+        // is the loudest thing that can happen here and is often far larger than
+        // the base ryo, so folding it into one number would just look like a bug.
+        const gains = r ? [
+            r.ryo ? `+${r.ryo.toLocaleString()} ryo` : "",
+            r.bounty ? `+${r.bounty.toLocaleString()} ryo BOUNTY on their head` : "",
+            r.seals ? `+${r.seals} Honor Seals` : "",
+        ].filter(Boolean).join(", ") : "";
         alert(`💤 You struck down ${r?.target ?? opponent.name}! They've been sent to the hospital.`
             + (gains ? `\n${gains}` : (r && !r.rewardEligible ? "\n(No rewards — same household/device.)" : "")));
     } catch {

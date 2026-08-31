@@ -60,9 +60,14 @@ describe("heartbeat force-reload account authority", () => {
         const retire = heartbeat.indexOf("const retireHeartbeat = () => {");
         const deactivate = heartbeat.indexOf("heartbeatEffectActive = false", retire);
         const detachKick = heartbeat.indexOf("heartbeatRef.current = () => {}", deactivate);
-        const hiddenCleanup = heartbeat.indexOf("if (!tabVisible) return retireHeartbeat", detachKick);
-        const intervalCleanup = heartbeat.indexOf("return () => { retireHeartbeat(); clearInterval(id); }", hiddenCleanup);
-        assert.ok(retire >= 0 && retire < deactivate && deactivate < detachKick && detachKick < hiddenCleanup && hiddenCleanup < intervalCleanup);
+        const intervalCleanup = heartbeat.indexOf("return () => { retireHeartbeat(); clearInterval(id); }", detachKick);
+        assert.ok(retire >= 0 && retire < deactivate && deactivate < detachKick && detachKick < intervalCleanup);
+
+        // The effect must never bail out BEFORE arming the interval — it used to
+        // return early on a hidden tab, which silently retired heartbeatRef and
+        // left presence:kick calling a no-op. See lib/heartbeat-cadence.ts.
+        assert.doesNotMatch(heartbeat, /return retireHeartbeat/u,
+            "a hidden tab must keep a (slow) beat, not retire the heartbeat early");
 
         assert.equal(
             (heartbeat.match(/\bfetch\(/g) ?? []).length,
