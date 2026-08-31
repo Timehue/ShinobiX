@@ -64,6 +64,21 @@ test("epilogue prose passes the story gates: dialogue present, zero dashes, no b
     assert.deepEqual(offenders, [], offenders.join("\n"));
 });
 
+test("epilogue dialogue stays paced into readable beats", () => {
+    const offenders: string[] = [];
+    for (const [village, defs] of Object.entries(storyEpiloguesByVillage)) {
+        for (const def of defs) {
+            for (const page of def.pages) {
+                for (const line of page.dialogue) {
+                    const words = line.trim().split(/\s+/).filter(Boolean).length;
+                    if (words > 55) offenders.push(`${village} / ${def.title} / ${page.title}: ${words} words`);
+                }
+            }
+        }
+    }
+    assert.deepEqual(offenders, [], `epilogue lines that should be split into natural beats:\n${offenders.join("\n")}`);
+});
+
 test("every epilogue speaker has portrait art and every backdrop exists on disk", () => {
     const missing: string[] = [];
     for (const [village, defs] of Object.entries(storyEpiloguesByVillage)) {

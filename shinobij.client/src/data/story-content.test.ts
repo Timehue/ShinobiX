@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { storylines } from "./storylines";
 import { storyInterludesByVillage } from "./story-interludes";
+import { storyEpiloguesByVillage } from "./story-epilogues";
 import { storyRoadEvents } from "./story-road-events";
 import { hollowRifts } from "./hollow-rifts";
 import { splitDialogueLine } from "../lib/vn";
@@ -51,6 +52,132 @@ function allContent(): { label: string; pages: AnyPage[]; kind: "milestone" | "i
     for (const event of storyRoadEvents) out.push({ label: `road ${event.slug}`, pages: event.pages as AnyPage[], kind: "road" });
     return out;
 }
+
+test("Frostfang's quarry count and Kessa's escape stay internally consistent", () => {
+    const quarry = storylines["Frostfang Village"].find((step) => step.levelReq === 65);
+    assert.ok(quarry);
+    const escort = quarry.pages?.at(-1)?.choices?.find((choice) => choice.text.startsWith("Escort the camp"));
+    assert.match(escort?.conclusion ?? "", /all nineteen names/i);
+
+    const shortcut = storyInterludesByVillage["Frostfang Village"].find((entry) => entry.levelReq === 80);
+    assert.ok(shortcut);
+    const copy = shortcut.pages.flatMap((page) => page.dialogue).join(" ");
+    assert.match(copy, /Kessa's refusal.*escaped before it could finish/i);
+    assert.doesNotMatch(copy, /Dren went with it\. Kessa too/i);
+});
+
+test("the four village themes stay distinct through the grid reveal, finale, and epilogue", () => {
+    const sharedFeedstocks = [
+        /Stormveil supplies the reasons people fight/i,
+        /Ashen Leaf supplies futures people were becoming/i,
+        /Frostfang supplies the choice to leave/i,
+        /Moonshadow supplies trust people placed in someone/i,
+    ];
+    const villageThemes: Record<string, RegExp> = {
+        "Stormveil Village": /\breason(?:s)?\b|\bwhy\b|\bgrudge(?:s)?\b/i,
+        "Ashen Leaf Village": /\bfuture(?:s)?\b|\bplan(?:s)?\b|\bambition(?:s)?\b|\bprun(?:e|ed|ing)\b/i,
+        "Frostfang Village": /\brefus(?:al|als|e|ed)\b|\bchoice(?:s)?\b|\bexit(?:s)?\b|\bleave\b/i,
+        "Moonshadow Village": /\btrust\b|\bentrust(?:ed|ing)?\b|\bconfession(?:s)?\b|\btruth(?:s)?\b/i,
+    };
+
+    for (const [village, theme] of Object.entries(villageThemes)) {
+        const gridReveal = storyInterludesByVillage[village].find((entry) => entry.levelReq === 80);
+        assert.ok(gridReveal, `${village}: missing level-80 grid reveal`);
+        const gridCopy = gridReveal.pages.flatMap((page) => page.dialogue).join(" ");
+        for (const feedstock of sharedFeedstocks) assert.match(gridCopy, feedstock, `${village}: grid reveal changed a village's feedstock`);
+
+        const finale = storylines[village].find((step) => step.levelReq === 100);
+        assert.ok(finale, `${village}: missing finale`);
+        const finaleCopy = (finale.pages ?? []).flatMap((page) => [
+            ...page.dialogue,
+            ...(page.choices ?? []).flatMap((choice) => [choice.text, choice.conclusion ?? ""]),
+        ]).join(" ");
+        assert.match(finaleCopy, theme, `${village}: finale dropped its village theme`);
+
+        for (const epilogue of storyEpiloguesByVillage[village]) {
+            const epilogueCopy = epilogue.pages.flatMap((page) => page.dialogue).join(" ");
+            assert.match(epilogueCopy, theme, `${village}: ${epilogue.title} dropped its village theme`);
+        }
+    }
+});
+
+test("the Hollow Gate remains human-built infrastructure in the main campaign", () => {
+    const campaignPages: AnyPage[] = [
+        ...allContent().filter(({ kind }) => kind !== "road").flatMap(({ pages }) => pages),
+        ...Object.values(storyEpiloguesByVillage).flatMap((epilogues) => epilogues.flatMap((epilogue) => epilogue.pages)),
+    ];
+    const corpus = campaignPages.flatMap((page) => [
+        page.title,
+        page.scene,
+        ...page.dialogue,
+        ...(page.choices ?? []).flatMap((choice) => [choice.text, choice.conclusion ?? ""]),
+    ]).join(" ");
+
+    assert.match(corpus, /It isn't alive\. It was built to recognize leverage/i);
+    assert.doesNotMatch(corpus, /something enormous notices the arithmetic|something beyond the village notices|the Gate claims what remains|the Gate calls in what remains|the thing under the Vault knows your hand/i);
+});
+
+test("each level-88 alternative carries into the finale and its specific epilogue", () => {
+    const alternatives: Record<string, { proof: RegExp; finaleTraits: string[]; epilogueTrait: string }> = {
+        "Stormveil Village": {
+            proof: /anchors can stop a major storm without taking anyone's reason/i,
+            finaleTraits: ["sv88-better-storm-carried", "sv88-better-storm-deferred"],
+            epilogueTrait: "sv88-better-storm-ready",
+        },
+        "Ashen Leaf Village": {
+            proof: /ninety mouths.*without burning a single future/i,
+            finaleTraits: ["al88-better-winter-carried", "al88-better-winter-deferred"],
+            epilogueTrait: "al88-better-winter-ready",
+        },
+        "Frostfang Village": {
+            proof: /vault is not the only way to bring someone home/i,
+            finaleTraits: ["ff88-better-roll-carried", "ff88-better-roll-deferred"],
+            epilogueTrait: "ff88-better-roll-ready",
+        },
+        "Moonshadow Village": {
+            proof: /Trust doesn't need an owner\. It needs a witness/i,
+            finaleTraits: ["ms88-better-truth-ready", "ms88-better-truth-deferred"],
+            epilogueTrait: "ms88-better-truth-ready",
+        },
+    };
+
+    for (const [village, expected] of Object.entries(alternatives)) {
+        const alternative = storyInterludesByVillage[village].find((entry) => entry.levelReq === 88);
+        assert.ok(alternative, `${village}: missing level-88 alternative`);
+        assert.match(alternative.pages.flatMap((page) => page.dialogue).join(" "), expected.proof, `${village}: alternative proof is unclear`);
+
+        const finale = storylines[village].find((step) => step.levelReq === 100);
+        assert.ok(finale, `${village}: missing finale`);
+        const finaleGates = new Set((finale.pages ?? []).flatMap((page) => (page.choices ?? []).map((choice) => choice.requireTrait).filter(Boolean)));
+        for (const trait of expected.finaleTraits) assert.ok(finaleGates.has(trait), `${village}: finale does not pay off ${trait}`);
+
+        assert.ok(storyEpiloguesByVillage[village].some((epilogue) => epilogue.requireTrait === expected.epilogueTrait), `${village}: alternative has no tailored epilogue`);
+    }
+});
+
+test("main-story dialogue stays paced into readable beats", () => {
+    const dialogueOffenders: string[] = [];
+    const conclusionOffenders: string[] = [];
+    const wordCount = (copy: string) => copy.trim().split(/\s+/).filter(Boolean).length;
+
+    for (const { label, pages, kind } of allContent()) {
+        if (kind === "road") continue;
+        for (const page of pages) {
+            for (const line of page.dialogue) {
+                const words = wordCount(line);
+                if (words > 55) dialogueOffenders.push(`${label} / ${page.title}: ${words} words`);
+            }
+            for (const choice of page.choices ?? []) {
+                if (!choice.conclusion) continue;
+                const words = wordCount(choice.conclusion);
+                if (words > 65) conclusionOffenders.push(`${label} / ${page.title}: ${words} words`);
+            }
+        }
+    }
+
+    assert.deepEqual(dialogueOffenders, [], `dialogue lines that should be split into natural beats:\n${dialogueOffenders.join("\n")}`);
+    assert.deepEqual(conclusionOffenders, [], `choice outcomes that need a clearer, shorter result:\n${conclusionOffenders.join("\n")}`);
+});
 
 test("every story speaker has portrait art (or is an intentional initials speaker)", () => {
     const speakers = new Map<string, string>();
