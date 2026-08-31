@@ -43,7 +43,7 @@ test("Pet Yard primary controls and expedition receipt are keyboard accessible",
   assert.match(source, /const fallbackFocus = selectedPetSlotRef\.current/);
   assert.match(source, /if \(trigger\?\.isConnected\) trigger\.focus\(\);\s*else fallbackFocus\?\.focus\(\)/);
   assert.match(source, /ref=\{pet && selectedPet\?\.id === pet\.id \? selectedPetSlotRef : undefined\}/);
-  assert.match(source, /role="progressbar"[\s\S]*?aria-valuenow=\{petHappiness\(selectedPet\)\}/);
+  assert.match(source, /role="progressbar"[\s\S]*?aria-valuenow=\{selectedPetHappiness\}/);
 });
 
 test("Pet Yard form labels are programmatically associated", () => {

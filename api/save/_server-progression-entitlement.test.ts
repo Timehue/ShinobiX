@@ -67,10 +67,23 @@ test('first save canonicalizes server-owned progression', () => {
 });
 
 test('generic saves cannot forge an owned pet combat build or paid loadout', () => {
-    const storedPet = { id: 'pet-1', name: 'Wolf', rarity: 'rare', maxLevel: 100, level: 12, xp: 30, hp: 400, attack: 55, defense: 40, speed: 38, jutsus: [{ name: 'Bite', power: 60 }], unlockedForPve: false, happiness: 20, training: null, nickname: 'Ash', loadout: { pvp: 'owned-gear' } };
+    const storedPet = { id: 'pet-1', name: 'Wolf', rarity: 'rare', maxLevel: 100, level: 12, xp: 30, hp: 400, attack: 55, defense: 40, speed: 38, jutsus: [{ name: 'Bite', power: 60 }], unlockedForPve: false, happiness: 20, happinessDay: 20_000, happinessPets: 30, training: null, nickname: 'Ash', loadout: { pvp: 'owned-gear' } };
     const forgedPet = { ...storedPet, level: 100, xp: 0, hp: 99999, attack: 99999, defense: 99999, speed: 99999, jutsus: [{ name: 'Bite', power: 99999 }], unlockedForPve: true, happiness: 100, training: { type: 'strength', endsAt: 1 }, nickname: 'Free Rename', loadout: { pvp: 'unowned-gear' } };
     const out = sanitizeCharacterSave({ character: { pets: [forgedPet] } }, { character: { pets: [storedPet] } }) as Record<string, any>;
     for (const field of ['level', 'xp', 'hp', 'attack', 'defense', 'speed', 'jutsus', 'unlockedForPve', 'happiness', 'training', 'nickname', 'loadout']) {
         assert.deepEqual(out.character.pets[0][field], (storedPet as Record<string, unknown>)[field], field);
     }
+});
+
+// The bond-decay bookkeeping is server-owned for the same reason `happiness` is:
+// a generic save that could rewind `happinessDay` would skip a decay tick, and one
+// that could zero `happinessPets` would hand back an unlimited free-petting budget.
+test('generic saves cannot rewind the pet bond-decay clock or refill the petting budget', () => {
+    const today = 20_000;
+    const storedPet = { id: 'pet-1', name: 'Wolf', rarity: 'rare', maxLevel: 100, level: 12, xp: 30, hp: 400, attack: 55, defense: 40, speed: 38, jutsus: [], unlockedForPve: false, happiness: 40, happinessDay: today, happinessPets: 50 };
+    const forgedPet = { ...storedPet, happiness: 100, happinessDay: today + 999, happinessPets: 0 };
+    const out = sanitizeCharacterSave({ character: { pets: [forgedPet] } }, { character: { pets: [storedPet] } }) as Record<string, any>;
+    assert.equal(out.character.pets[0].happiness, 40);
+    assert.equal(out.character.pets[0].happinessDay, today, 'a forged future stamp must not survive');
+    assert.equal(out.character.pets[0].happinessPets, 50, 'the spent free-petting budget must not be refilled by a save');
 });

@@ -14,7 +14,14 @@ import { petEvolveCutsceneEnabled } from "../lib/pet-coliseum-flag";
 import { PetEvolutionCutscene } from "../components/PetEvolutionCutscene";
 import { gameConfirm } from "../components/GameAlert";
 import { formatPetTimer } from "../lib/utils";
-import { isPetOnExpedition, petDisplayName, petHappiness } from "../lib/pet";
+import { isPetOnExpedition, petCurrentHappiness, petDisplayName, petFreePettingLeft } from "../lib/pet";
+import {
+    PET_HAPPINESS_DAILY_DECAY,
+    PET_HAPPINESS_PET_GAIN,
+    PET_HAPPINESS_TIER_LABEL,
+    petHappinessPenaltyNote,
+    petHappinessTier,
+} from "../../../shared/pet-happiness";
 import { petCardImage, petPoseImage } from "../lib/pet-battle-anim";
 import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petConsumableById, petConsumables, petExpeditionOptions, petFeedItems, petPveGear, petPveGearById, petPvpGear, petPvpGearById, petTrainingDurations, petTrainingOptions, petTraitDescriptions, ultraPetTraits } from "../data/pet-config";
 import { petTamerExpeditionMult, petTamerTrainingSpeedPct } from "../App";
@@ -80,6 +87,8 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     const mountedRef = useRef(false);
     const activeAccountRef = useRef(character.name.trim().toLowerCase());
     const [evolveMsg, setEvolveMsg] = useState("");
+    // Why the Pet button did nothing — today's free-petting budget is spent.
+    const [petMsg, setPetMsg] = useState("");
     const [evolveCutscene, setEvolveCutscene] = useState<{ pet: Pet; oldName: string; oldVisualId: string; oldImage?: string } | null>(null);
     // Pet escort offer state (Pet Tamer in clan only).
     const [escortOffered, setEscortOffered] = useState<boolean | null>(null);
@@ -101,6 +110,18 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     const growthPreview = selectedPet ? derivePetGrowthStats({ ...selectedPet, growthAllocation: growthDraft }) : null;
     const breedingPetIds = activeClientBreedingParentIds(character);
     const selectedPetBreedingLocked = Boolean(selectedPet && breedingPetIds.has(selectedPet.id));
+    // Bond upkeep (shared/pet-happiness.ts). petCurrentHappiness projects the
+    // decay that has come due since the server last settled this pet, so the
+    // meter stays honest if the player is sitting on the screen past midnight.
+    const selectedPetHappiness = selectedPet ? petCurrentHappiness(selectedPet) : 0;
+    const selectedPetFreePetting = selectedPet ? petFreePettingLeft(selectedPet) : 0;
+    // The upkeep rules and any active penalty ride on the meter's tooltip and
+    // its accessible name — deliberately NOT as visible copy, so the happiness
+    // display stays the compact bar it has always been.
+    const selectedPetHappinessSummary = [
+        `${PET_HAPPINESS_TIER_LABEL[petHappinessTier(selectedPetHappiness)]} — drops ${PET_HAPPINESS_DAILY_DECAY}% every daily reset.`,
+        petHappinessPenaltyNote(selectedPetHappiness),
+    ].filter(Boolean).join(" ");
     const releaseBlocker = selectedPetBreedingLocked
         ? "This companion is committed to the Breeding Barn until its timer completes."
         : selectedPet?.training
@@ -588,7 +609,11 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     async function petSelectedPet() {
         if (!selectedPet) return;
         setPetHeartBurst(Date.now());
-        try { await runPetProgress('pet'); } catch { /* harmless; retry on next interaction */ }
+        setPetMsg("");
+        // A spent daily budget comes back as a 409 — surface it rather than
+        // swallowing it, or the button looks broken.
+        try { await runPetProgress('pet'); }
+        catch (error) { setPetMsg(error instanceof Error ? error.message : "Petting failed."); }
     }
 
     async function feedPet(treat: typeof petFeedItems[number]) {
@@ -858,7 +883,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 key={i}
                                 ref={pet && selectedPet?.id === pet.id ? selectedPetSlotRef : undefined}
                                 className={`pet-slot-card${pet ? (selectedPet?.id === pet.id ? " pet-selected" : "") : " pet-empty"}${character.activePetId === pet?.id ? " pet-active" : ""} ${pet ? petVisualVariantClass(pet) : ""}`}
-                                onClick={() => { if (pet) { setSelectedPetId(pet.id); setExpeditionError(""); } }}
+                                onClick={() => { if (pet) { setSelectedPetId(pet.id); setExpeditionError(""); setPetMsg(""); } }}
                                 disabled={!pet}
                                 aria-pressed={pet ? selectedPet?.id === pet.id : undefined}
                                 aria-label={pet
@@ -965,18 +990,21 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 </div>
                                 {nicknameMsg && <p className="hint" style={{ fontSize: "0.72rem", color: nicknameMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{nicknameMsg}</p>}
                             </div>
-                            <div className="pet-happiness-meter" style={{ ["--pet-happiness" as string]: `${petHappiness(selectedPet)}%` }}>
+                            {/* The meter stays exactly as it shipped — no tier panel, no
+                                extra copy. The upkeep rules ride along as the hover/AT
+                                description so nothing new takes up room on the screen. */}
+                            <div className="pet-happiness-meter" style={{ ["--pet-happiness" as string]: `${selectedPetHappiness}%` }} title={selectedPetHappinessSummary}>
                                 <div className="pet-happiness-meter-top">
                                     <strong>Happiness</strong>
-                                    <span>{petHappiness(selectedPet)}%</span>
+                                    <span>{selectedPetHappiness}%</span>
                                 </div>
                                 <div
                                     className="pet-happiness-track"
                                     role="progressbar"
-                                    aria-label={`${petDisplayName(selectedPet)} happiness`}
+                                    aria-label={`${petDisplayName(selectedPet)} happiness — ${selectedPetHappinessSummary}`}
                                     aria-valuemin={0}
                                     aria-valuemax={100}
-                                    aria-valuenow={petHappiness(selectedPet)}
+                                    aria-valuenow={selectedPetHappiness}
                                 >
                                     <span aria-hidden="true" />
                                 </div>
@@ -1036,9 +1064,18 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                     </section>
                                 );
                             })()}
+                            {/* Same button, same place. The daily free-petting budget only
+                                shows itself in the label once it is spent, and the
+                                server's 409 shows transiently — same pattern as
+                                evolveMsg/nicknameMsg. No standing copy, no new panel. */}
                             <div className="pet-care-actions">
-                                <button onClick={petSelectedPet}>Pet +10% Happiness</button>
+                                <button onClick={petSelectedPet} disabled={selectedPetFreePetting <= 0} title={selectedPetHappinessSummary}>
+                                    {selectedPetFreePetting > 0
+                                        ? `Pet +${PET_HAPPINESS_PET_GAIN}% Happiness`
+                                        : "Petted out for today"}
+                                </button>
                             </div>
+                            {petMsg && <p className="hint" style={{ margin: "0 0 8px", fontSize: "0.72rem", color: "#f87171" }}>{petMsg}</p>}
                             <section className="pet-feed-panel">
                                 <h4>Feed</h4>
                                 {selectedPet.level >= selectedPet.maxLevel && (

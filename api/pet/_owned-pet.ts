@@ -1,5 +1,6 @@
 import { createHash, randomInt, randomUUID } from 'node:crypto';
 import { BRED_ULTRA_TRAIT_DENOMINATOR, ULTRA_PET_TRAITS } from '../../shared/shrines.js';
+import { petStartingHappiness } from '../../shared/pet-happiness.js';
 import { PET_CATALOG } from './_catalog.js';
 import { normalizePetGrowth } from './_growth.js';
 
@@ -157,7 +158,13 @@ export function createOwnedPet(templateId: string, options: CreateOwnedPetOption
         ...(options.hatchedAt ? { hatchedAt: options.hatchedAt } : {}),
         ...(options.breedingSessionId ? { breedingSessionId: options.breedingSessionId } : {}),
         nickname: undefined,
-        happiness: 0,
+        // A freshly acquired companion starts RESTLESS, not at zero. Happiness
+        // now decays daily and carries real penalties below 50, so handing the
+        // player a pet at 0 would mean every new companion arrived already
+        // neglected — two free pettings from the obedience line instead of
+        // eight. `happinessDay` is deliberately left unstamped: the first settle
+        // stamps it, which is also what grandfathers every pre-decay save.
+        happiness: petStartingHappiness(),
         training: undefined,
         expedition: undefined,
         loadout: undefined,
