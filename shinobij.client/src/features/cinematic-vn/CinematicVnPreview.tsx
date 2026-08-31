@@ -21,7 +21,7 @@ const CAST: Record<StoryVillageKey, PreviewCast> = {
 
 const HOLLOW_ACTORS: Record<StoryVillageKey, string> = {
     stormveil: "/portraits/cinematic/storywide/kage-raiko-veyr-hollow.webp",
-    ashen: "/portraits/cinematic/storywide/kage-hoshina-enju-hollow.webp",
+    ashen: "/portraits/kage-hoshina-enju-hollow.webp",
     frostfang: "/portraits/cinematic/storywide/kage-kael-whitefang-hollow.webp",
     moonshadow: "/portraits/cinematic/storywide/kage-sable-nocturne-hollow.webp",
 };

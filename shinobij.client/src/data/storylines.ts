@@ -1323,7 +1323,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "I've held these shears for thirty years. I don't know how to put them down, and I still don't trust anyone else to get this village through winter.",
                 "If you want them, take them from me.",
                 "Show me what replaces this."
-            ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", leftName: "Player", rightName: "Kage Hoshina Enju", rightImage: "/portraits/cinematic/storywide/kage-hoshina-enju-hollow.webp", choices: [
+            ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", leftName: "Player", rightName: "Kage Hoshina Enju", rightImage: "/portraits/cinematic/storywide/kage-hoshina-enju-hollow-canon.webp", choices: [
                 { text: "Show her the better winter.", nextPage: 5, requireTrait: "al88-better-winter-carried" },
                 { text: "Let the Reeds show her the better winter.", nextPage: 10, requireTrait: "al88-better-winter-deferred" },
                 { text: "Let Mori answer for his charts.", nextPage: 15, requireTrait: "al92-mori-present" },

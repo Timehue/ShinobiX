@@ -51,6 +51,9 @@ const PORTRAIT_BASE = "character portrait bust, head and shoulders, facing sligh
 // Hand-authored looks for the named story NPCs. Anyone else who slips through
 // gets a role-derived fallback.
 const PORTRAIT_PROMPTS = {
+    "kage-hoshina-enju": `dignified mature woman Kage with long black hair arranged in a high formal knot, composed closed eyes, red-and-cream fire Kage hat and ceremonial flame robes, warm firelight, absolutely no beard or moustache, ${PORTRAIT_BASE}`,
+    "elder-sova": `formidable elderly woman records-keeper in her late seventies, stern icy-blue eyes, deep age lines, thick white hair swept into a practical braided bun, layered pale and dark blue winter robes, absolutely no beard or moustache, ${PORTRAIT_BASE}`,
+    "pale-pack-runner": `gaunt young adult woman refugee runner, patched brown winter furs and a heavy hood pack, weather-beaten practical face, wary hunted eyes, dark neutral backdrop, not glamorous, ${PORTRAIT_BASE}`,
     "kite-harrow": `strikingly attractive young woman in her early twenties, long PINK hair loosely tied back with a few strands falling over sharp amused eyes, sly confident half-smile, traveling broker's layered road clothes in charcoal and slate with a wide belt hung with small brass ledger charms and tally-sticks, NO village headband or insignia anywhere, ${PORTRAIT_BASE}`,
     "jorun": `weathered old carpenter in his sixties, broad scarred hands dusted with wood shavings, gray stubble and deep kind creases around puzzled eyes, plain work apron over faded village work clothes, warm lamplight, the look of a man remembering something with his hands, ${PORTRAIT_BASE}`,
     "pell-marrow": `wiry courier man with singed hair and a soot-streaked face, road-worn message satchel strap across his chest, nervous urgent expression, ${PORTRAIT_BASE}`,
