@@ -26,6 +26,51 @@ export function defaultVnPortrait(name: string | undefined | null): string {
 }
 
 /**
+ * Story actor overrides must identify the actor in their asset name. This
+ * keeps a stale admin-published page image from placing one character's art
+ * under another character's caption while still allowing deliberate variants
+ * such as `kage-hoshina-enju-hollow.webp`. Generic creator VNs retain their
+ * unrestricted custom-image behavior.
+ */
+export function resolveVnAuthoredActorImage(
+    eventId: string,
+    actorName: string,
+    authoredImage?: string,
+): string {
+    const authored = authoredImage?.trim() ?? "";
+    if (!authored || !eventId.startsWith("story-")) return authored;
+    const canonical = defaultVnPortrait(actorName);
+    const slug = canonical.slice("/portraits/".length, -".webp".length);
+    if (!slug) return "";
+    const source = authored.toLowerCase().split(/[?#]/, 1)[0];
+    return source.includes(`/${slug}.`)
+        || source.includes(`/${slug}-`)
+        || source.includes(`/${slug}_`)
+        ? authored
+        : "";
+}
+
+/**
+ * Resolve the unposed actor art used by the VN renderer. Story events always
+ * prefer the current page's named speaker portrait over the event-wide avatar:
+ * a chapter can contain a dozen different characters, while the event avatar
+ * is only a legacy single-actor fallback. Page-specific art remains an explicit
+ * override, and non-story creator VNs retain the legacy event-avatar behavior.
+ */
+export function resolveVnActorBaseImage(
+    eventId: string,
+    actorName: string,
+    authoredImage?: string,
+    eventAvatarImage?: string,
+): string {
+    const authored = resolveVnAuthoredActorImage(eventId, actorName, authoredImage);
+    if (authored) return authored;
+    const canonical = defaultVnPortrait(actorName);
+    if (eventId.startsWith("story-")) return canonical;
+    return eventAvatarImage?.trim() || canonical;
+}
+
+/**
  * Best-fit scene background for a VN page. Tries an event-specific
  * /scenes/<eventid>.png first, then falls back to a biome default.
  * CSS background-image silently ignores 404s, so absent files just

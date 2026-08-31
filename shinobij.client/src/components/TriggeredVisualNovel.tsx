@@ -12,7 +12,7 @@ import type { Character } from "../types/character";
 import type { CreatorEvent } from "../types/vn";
 import { AURA_SPHERE_VN_ID } from "../constants/game";
 import { rewardSummary } from "../lib/currency";
-import { applyVnTextVars, vnTextVarsFor, defaultVnPortrait, defaultVnScene, hidePlayerPortraitDuringNarration, isChoiceAvailable, splitDialogueLine } from "../lib/vn";
+import { applyVnTextVars, vnTextVarsFor, defaultVnPortrait, defaultVnScene, hidePlayerPortraitDuringNarration, isChoiceAvailable, resolveVnActorBaseImage, resolveVnAuthoredActorImage, splitDialogueLine } from "../lib/vn";
 import { claimVnAction } from "../lib/vn-action-gate";
 import { biomeLabel } from "../data/world";
 import { isLowEndMobile, prefersReducedMotion } from "../lib/device-tier";
@@ -63,16 +63,23 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
         : null;
     const leftInitials = leftName === "Narrator" ? "..." : leftName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
     const rightInitials = rightName.toLowerCase() === "player" ? character.name.slice(0, 2).toUpperCase() : rightName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+    const authoredLeftImage = savedRightWasPlayer
+        ? ""
+        : resolveVnAuthoredActorImage(event.id, leftName, page.leftImage);
+    const authoredRightImage = resolveVnAuthoredActorImage(
+        event.id,
+        rightName,
+        savedRightWasPlayer ? (page.leftImage || page.rightImage) : page.rightImage,
+    );
     const baseLeftImage = savedRightWasPlayer
         ? playerAvatar
-        : (page.leftImage || (leftName.toLowerCase() === "player" ? playerAvatar : defaultVnPortrait(leftName)));
-    const baseRightImage = savedRightWasPlayer
-        ? (page.leftImage || page.rightImage || event.avatarImage || "" || defaultVnPortrait(rightName))
-        : (page.rightImage || event.avatarImage || "" || defaultVnPortrait(rightName));
-    const authoredLeftImage = savedRightWasPlayer ? "" : page.leftImage;
-    const authoredRightImage = savedRightWasPlayer
-        ? (page.leftImage || page.rightImage)
-        : page.rightImage;
+        : (authoredLeftImage || (leftName.toLowerCase() === "player" ? playerAvatar : defaultVnPortrait(leftName)));
+    const baseRightImage = resolveVnActorBaseImage(
+        event.id,
+        rightName,
+        authoredRightImage,
+        event.avatarImage,
+    );
     const canBack = lineIndex > 0 || pageIndex > 0;
     const isLastLine = pageIndex === pages.length - 1 && lineIndex >= pageDialogue.length - 1;
     // Trait-gated branching: a choice with requireTrait only shows if the player
@@ -232,24 +239,31 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
             : (upcomingPage.rightName || upcomingPage.speaker || event.vnSpeaker || upcomingSpeaker))
         : "";
     const upcomingAuthoredLeftImage = upcomingPage && !upcomingSavedRightWasPlayer
-        ? upcomingPage.leftImage
+        ? resolveVnAuthoredActorImage(event.id, upcomingLeftName, upcomingPage.leftImage)
         : "";
     const upcomingAuthoredRightImage = upcomingPage
-        ? (upcomingSavedRightWasPlayer
-            ? (upcomingPage.leftImage || upcomingPage.rightImage)
-            : upcomingPage.rightImage)
+        ? resolveVnAuthoredActorImage(
+            event.id,
+            upcomingRightName,
+            upcomingSavedRightWasPlayer
+                ? (upcomingPage.leftImage || upcomingPage.rightImage)
+                : upcomingPage.rightImage,
+        )
         : "";
     const upcomingBaseLeftImage = upcomingPage
         ? (upcomingSavedRightWasPlayer
             ? playerAvatar
-            : (upcomingPage.leftImage || (upcomingLeftName.toLowerCase() === "player"
+            : (upcomingAuthoredLeftImage || (upcomingLeftName.toLowerCase() === "player"
                 ? playerAvatar
                 : defaultVnPortrait(upcomingLeftName))))
         : "";
     const upcomingBaseRightImage = upcomingPage
-        ? (upcomingSavedRightWasPlayer
-            ? (upcomingPage.leftImage || upcomingPage.rightImage || event.avatarImage || defaultVnPortrait(upcomingRightName))
-            : (upcomingPage.rightImage || event.avatarImage || defaultVnPortrait(upcomingRightName)))
+        ? resolveVnActorBaseImage(
+            event.id,
+            upcomingRightName,
+            upcomingAuthoredRightImage,
+            event.avatarImage,
+        )
         : "";
     const upcomingLeftImage = upcomingPage && upcomingPresentation
         ? resolveCinematicActorImage(
