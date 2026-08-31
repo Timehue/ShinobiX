@@ -56,6 +56,7 @@ import {
     StatusAuraFx,
     BeatDrivenVfx,
     SuperPillar,
+    castFlipbookKey,
     impactFlipbookKey,
     vfxElementTint as elementVfxTint,
     type VfxSpawn,
@@ -688,7 +689,7 @@ function StageAmbient({ stage, particleCount }: { stage: StageKey; particleCount
             <bufferGeometry>
                 <bufferAttribute attach="attributes-position" args={[new Float32Array(particleCount * 3), 3]} />
             </bufferGeometry>
-            <pointsMaterial color={color} size={kind === "leaves" ? 0.22 : 0.16} transparent opacity={0.75} depthWrite={false} sizeAttenuation />
+            <pointsMaterial color={color} size={kind === "leaves" ? 5.5 : 4.5} transparent opacity={0.75} depthWrite={false} sizeAttenuation={false} />
         </points>
     );
 }
@@ -830,7 +831,7 @@ function CrowdEruption({ fxRef, ember }: { fxRef: React.MutableRefObject<SceneFx
             <bufferGeometry>
                 <bufferAttribute attach="attributes-position" args={[new Float32Array(COUNT * 3), 3]} />
             </bufferGeometry>
-            <pointsMaterial ref={mat} map={dot} color={ember} size={0.22} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} sizeAttenuation />
+            <pointsMaterial ref={mat} map={dot} color={ember} size={5.5} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} sizeAttenuation={false} />
         </points>
     );
 }
@@ -840,12 +841,7 @@ function CrowdEruption({ fxRef, ember }: { fxRef: React.MutableRefObject<SceneFx
 /** The resting broadcast shot, shared by the Canvas' initial camera and the
  *  director so the first frame is already the framing the fight settles into.
  *
- *  It sits OFF the centre line on purpose. A camera parked dead behind your own
- *  line shows four backs down the middle of frame — your pets are turned away
- *  (they face the enemy, which is correct) and the enemy is hidden behind them.
- *  Sliding it to the player's right turns the whole board three-quarter: your
- *  pets read in profile, the enemy line reads as faces, and the lanes between
- *  the slots open up instead of stacking front-to-back. */
+ *  Keep this aligned with the established broadcast angle used by the arena. */
 const WIDE_POS: readonly [number, number, number] = [5.2, 7.8, 14.0];
 const WIDE_LOOK: readonly [number, number, number] = [0, 1.0, -0.6];
 /** What the resting shot has to keep on screen: the widest pair of slots plus a
@@ -918,8 +914,7 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
                             .setY(4.6 + swoop * 0.6);
                         targetLook = (reduced || frac >= 0.45 ? b : a).clone().setY(1.1);
                     } else {
-                        // Player signature: the shoulder swoop into the impact
-                        // (kept as a continuous move — the letterbox moment).
+                        // Player signature: the established shoulder swoop.
                         const behind = a.clone().sub(b).normalize().multiplyScalar(8.2);
                         targetPos = a.clone().add(behind).add(new THREE.Vector3(2.8 - swoop * 1.1, 3.6 + swoop * 0.8, 0));
                         targetLook = reduced || frac >= 0.45 ? b.clone().setY(1.1) : a.clone().setY(1.2);
@@ -2314,11 +2309,18 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     /** The arena's CLIMATE: the last landed signature's element holds the
      *  field (faint sheen + motes + tinted light) until another replaces it. */
     const [climate, setClimate] = useState<ClimateState | null>(null);
+    /** During playback, the authoritative next state is deliberately withheld
+     *  until the script finishes. This tiny overlay keeps weather presentation
+     *  in lockstep with the beat that sets or expires it: null state means no
+     *  override, while `{ element: null }` explicitly reveals residue climate. */
+    const [weatherPreview, setWeatherPreview] = useState<{ element: string | null } | null>(null);
     // Standing WEATHER owns the arena's climate whenever it is up — setting
     // the sky is real board state and has to be visible without reading a
     // number. A signature's residue climate only shows when no weather stands.
     // Derived, never stored: the layer owns its own fade clock.
-    const climateElement = stateView.weather?.element ?? climate?.element ?? null;
+    const climateElement = weatherPreview
+        ? (weatherPreview.element ?? climate?.element ?? null)
+        : (stateView.weather?.element ?? climate?.element ?? null);
     /** Per-kind move accents + impact streak-throughs + debris chunks. */
     const [kindFx, setKindFx] = useState<KindAccentSpawn[]>([]);
     const [streakFx, setStreakFx] = useState<StreakBurstSpawn[]>([]);
@@ -2641,6 +2643,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 const response = settlementRef.current;
                 if (response?.state) {
                     setStateView(response.state);
+                    setWeatherPreview(null);
                     setDisplay(buildDisplay(response.state));
                     setLineup(lineupFromState(response.state));
                     if (response.state.finished) {
@@ -2671,6 +2674,12 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         if (spoken) later(() => setAnnouncement(spoken), durationMs * (event.t === "action" ? actionRhythm(event).contact : 0.1));
 
         if (event.t === "roundStart") {
+            // The server expires one-round weather before emitting this beat,
+            // but stateView remains the previous authoritative snapshot until
+            // playback ends. Stop painting stale weather at the same moment.
+            if (stateView.weather && event.round > stateView.round && stateView.weather.roundsLeft <= 1) {
+                later(() => setWeatherPreview({ element: null }), 0);
+            }
             // The old cap's moment survives as the pressure cue: this is where
             // attrition starts biting, not where a timer ends the fight.
             const isFinal = event.round >= stateView.attritionAt;
@@ -2801,9 +2810,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             if (!event.super && event.moveKind !== "guard" && event.moveKind !== "rest") {
                 later(() => showBanner(`${nameOf(stateView, event.actorId)} used ${event.moveName}!`, "declare", durationMs * 0.42), 0);
             }
-            // Windup: a charge-gather flipbook on the caster for real attacks.
-            if (event.moveKind !== "guard" && event.moveKind !== "rest") {
-                later(() => spawnFlipbook(event.actorId, event.super ? "charge" : event.delivery === "ranged" ? "charge" : "aura", event.super ? 2.6 : 1.7, durationMs * (event.delivery === "melee" ? 0.28 : 0.36), 1.05), durationMs * 0.04);
+            // Windup: intent-specific paint. Utility, control and offense no
+            // longer all gather the same generic aura/charge on the caster.
+            const castKey = event.super ? "charge" : castFlipbookKey(event.moveKind, event.delivery);
+            if (castKey) {
+                later(() => spawnFlipbook(event.actorId, castKey, event.super ? 2.6 : 1.7, durationMs * (event.delivery === "melee" ? 0.28 : 0.36), 1.05), durationMs * 0.04);
             }
             // Strike moment: damage numbers, HP drains, shake, effectiveness call.
             later(() => {
@@ -2861,12 +2872,6 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         const frac = target.damage / Math.max(1, stateMaxHp(stateView, target.id));
                         const weightMul = event.super ? 1.5 : event.weight === "heavy" ? 1.25 : event.weight === "light" ? 0.78 : 1;
                         const burst = Math.min(4.2, (1.5 + Math.min(1, frac * 2.4) * 1.9) * weightMul) * (target.splash ? 0.7 : 1);
-                        // Contact reads in two layers, anime grammar: a hard
-                        // white flash the instant the hit lands, then the
-                        // element's own burst blooming through it. One burst
-                        // alone read as a decal; the flash is what sells the
-                        // FRAME of contact (and it is why hit-stop exists).
-                        spawnFlipbook(target.id, "spark", burst * 0.72, 200 / speed, 1.0, 1, "#ffffff");
                         // The casts that EARNED a spectacle stage their element
                         // as an arena event — a tsunami that travels the lane,
                         // a tornado that spins up, fire that catches the ground
@@ -2874,6 +2879,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         // Reduced-motion keeps the readable burst and skips the
                         // traveling/spinning layer, same policy as the flash.
                         const staged = !reducedMotion && (event.super || event.weight === "heavy") && !target.splash && target.id !== event.actorId;
+                        // Contact punctuation stays compact when a hero set
+                        // piece owns the frame. Previously the full-size white
+                        // spark, generic explosion and KO smoke all landed on
+                        // top of the signature painting and erased its shape.
+                        spawnFlipbook(target.id, "spark", burst * (staged ? 0.34 : 0.72), (staged ? 145 : 200) / speed, 1.0, 1, "#ffffff");
                         if (staged) {
                             // A signature stages its element's SUPER sequence —
                             // longer, layered, and choreographed down the lane.
@@ -2914,7 +2924,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         later(() => spawnFlipbook(
                             target.id,
                             impactFlipbookKey(event.element, event.moveKind, event.super),
-                            staged ? burst * 1.5 : burst,
+                            staged ? burst * 1.05 : burst,
                             ((staged ? 620 : 440) + Math.min(1, frac * 2.4) * 380) / speed,
                             1.0,
                             1,
@@ -2930,9 +2940,15 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         // the sim carries the mass, the procedural layers keep
                         // the crisp hot core.
                         if (target.ko && !target.splash && !reducedMotion) {
-                            later(() => spawnFlipbook(target.id, "burst", burst * 2.1, 1150 / speed, 1.15, 1, undefined, true), 40 / speed);
+                            // Let the element crest first, then roll in the
+                            // normal-blended smoke as aftermath. This preserves
+                            // both the signature silhouette and the KO read.
+                            later(
+                                () => spawnFlipbook(target.id, "burst", burst * (staged ? 1.35 : 2.1), 1150 / speed, 1.15, 1, undefined, true),
+                                (staged ? 980 : 40) / speed,
+                            );
                         }
-                        if (target.ko || event.weight === "heavy" || event.super) {
+                        if (!staged && (target.ko || event.weight === "heavy" || event.super)) {
                             later(() => spawnFlipbook(
                                 target.id,
                                 target.ko ? "explosion" : "bighit",
@@ -2972,14 +2988,25 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     }
                     if (target.applied && target.damage === 0 && target.heal === 0) {
                         addPopup(target.id, String(target.applied).toUpperCase(), "status");
-                        spawnFlipbook(target.id, impactFlipbookKey(event.element, target.applied, false), 1.9, 620);
+                        // Preserve the authored kind here. `applied` is the
+                        // normalized stored status (barrier -> shield, move ->
+                        // haste), which used to erase the move's own identity.
+                        // A chained Protect attempt arrives as `failed`: its
+                        // windup may begin, but no successful shield should
+                        // materialize at contact.
+                        if (target.applied !== "failed") {
+                            spawnFlipbook(target.id, impactFlipbookKey(event.element, event.moveKind, false), 1.9, 620);
+                        }
+                        if (event.moveKind === "weather" && target.applied === "weather") {
+                            setWeatherPreview({ element: event.element });
+                        }
                     }
                     // The moveset reads — PER-TARGET scope, not inside the
                     // damage branch: a buff deals 0 damage, and gating the kind
                     // accent on damage meant the Swords Dance shaft cage could
                     // never fire for an actual stat-up. Accents fire for any
                     // landed effect; streaks and debris stay damage-gated.
-                    if (!reducedMotion && !target.splash && (target.damage > 0 || target.heal > 0 || target.applied)) {
+                    if (!reducedMotion && !target.splash && (target.damage > 0 || target.heal > 0 || (target.applied && target.applied !== "failed"))) {
                         const at = posRef.current.get(target.id);
                         const from = posRef.current.get(event.actorId);
                         if (at) {
@@ -2989,7 +3016,21 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             const dirZ = from ? (kz - from[2]) / len : 1;
                             if (kindAccentFamily(event.moveKind)) {
                                 const kKey = popupKey.current++;
-                                setKindFx((list) => appendCapped(list, { key: kKey, kind: event.moveKind, element: event.element, x: kx, z: kz, dirX, dirZ, startedAt: performance.now(), durationMs: 1000 / speed }, Math.max(2, renderQuality.translucentLayers * 2)));
+                                setKindFx((list) => appendCapped(list, {
+                                    key: kKey,
+                                    kind: event.moveKind,
+                                    moveName: event.moveName,
+                                    element: event.element,
+                                    weight: event.weight,
+                                    delivery: event.delivery,
+                                    superMove: event.super,
+                                    x: kx,
+                                    z: kz,
+                                    dirX,
+                                    dirZ,
+                                    startedAt: performance.now(),
+                                    durationMs: 1000 / speed,
+                                }, Math.max(2, renderQuality.translucentLayers * 2)));
                                 window.setTimeout(() => setKindFx((list) => list.filter((k) => k.key !== kKey)), 1400 / speed);
                             }
                             if (target.damage > 0 && (event.super || event.weight === "heavy" || target.ko)) {
@@ -3077,8 +3118,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         fxRef.current.crowdBurstKind = "super";
                     }
                     if (event.super) {
-                        // Signature detonation: light pillar on the primary target
-                        // + a full-screen white flash.
+                    // Signature detonation: a light pillar on the primary
+                    // target plus a restrained element wash. The element art,
+                    // not a white frame, remains the hero.
                         const primary = posRef.current.get(event.targets[0].id);
                         if (primary) {
                             pillarDrive.current = {
@@ -3104,7 +3146,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     spawnFlipbook(event.actorId, "eshield", 2.0, 600);
                 } else if (anyHeal) {
                     playPetSfx("heal");
-                } else if (event.targets.some((t) => t.applied)) {
+                } else if (event.targets.some((t) => t.applied === "failed")) {
+                    playPetSfx("uiDenied");
+                } else if (event.targets.some((t) => t.applied && t.applied !== "failed")) {
                     playPetSfx("buff");
                 }
                 // Overdraft: the actor bleeds for the deficit (the reference model's chip).
@@ -3235,6 +3279,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         if (!response.events.length && response.state) {
             // Finished session replay (e.g. payout retry) — no script to play.
             setStateView(response.state);
+            setWeatherPreview(null);
             setDisplay(buildDisplay(response.state));
             setLineup(lineupFromState(response.state));
             if (response.state.finished) {
@@ -3607,6 +3652,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     biome={ELEMENT_WEATHER[climateElement].biome}
                     weather={ELEMENT_WEATHER[climateElement].weather}
                     intensity={1.25}
+                    hazeStyle="wisps"
                     className="showdown-sky"
                 />
             )}
@@ -3625,7 +3671,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 <div
                     key={flash}
                     className="showdown-flash element"
-                    style={{ background: `radial-gradient(circle at 50% 45%, ${flashTint}e8 0%, ${flashTint}88 48%, ${flashTint}2e 100%)` }}
+                    style={{ background: `radial-gradient(circle at 50% 45%, ${flashTint}70 0%, ${flashTint}2e 48%, ${flashTint}00 100%)` }}
                 />
             )}
             {/* The killing blow's impact frame: white core, manga radial

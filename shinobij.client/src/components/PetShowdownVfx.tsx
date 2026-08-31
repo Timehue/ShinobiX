@@ -123,7 +123,7 @@ export function epicTexture(slug: string): THREE.Texture | null {
 
 /** Impact/one-shot flipbook key for a move — kind identity first (every
  *  buff/debuff/heal family has its own painted burst), element fallback. */
-export { impactFlipbookKey, vfxElementTint, VFX_ELEMENT_TINT } from "../lib/showdown-vfx-map";
+export { castFlipbookKey, impactFlipbookKey, vfxElementTint, VFX_ELEMENT_TINT } from "../lib/showdown-vfx-map";
 
 
 // ─── One-shot flipbook billboard ─────────────────────────────────────────────
@@ -355,9 +355,10 @@ const SUPER_SET_PIECES: Record<string, SetPieceLayer[]> = {
         { frames: "impact", scale: 3.2, aspect: 0.6, delay: 0.55, y0: 0.3, y1: 0.6, travel: 0, spin: 0, grow: 1.35, tint: "#d8a86a" },
     ],
     Lightning: [
-        // Lightning is intentionally additive: unlike the other painted hero
-        // layers, this one should flash rather than lay opaque over the pets.
-        { sprite: "stormbolt", scale: 7.8, aspect: 1.5, delay: 0.02, dur: 0.72, y0: 0.85, y1: 1.25, travel: 0, spin: 0, grow: 1.18, puls: 0.025, tint: "#f6f8ff", add: true },
+        // Keep the authored branching and blue-violet values. Additive
+        // compositing turned its pale canvas into a featureless white slab
+        // once the point light and bloom arrived on the same frame.
+        { sprite: "stormbolt", scale: 7.8, aspect: 1.5, delay: 0.02, dur: 0.72, y0: 0.85, y1: 1.25, travel: 0, spin: 0, grow: 1.18, puls: 0.025, tint: "#dce8ff" },
         { frames: "spark", scale: 3.4, aspect: 0.8, delay: 0.52, dur: 0.35, y0: 0.8, y1: 1.1, travel: 0, spin: 0, grow: 1.45, tint: "#fff6c0" },
     ],
 };
@@ -415,7 +416,8 @@ function SetPieceLayerMesh({ spawn, layer }: { spawn: SetPieceSpawn; layer: SetP
         // as the lens closes in, so no cut can ever show a plane's edge.
         const camD = state.camera.position.distanceTo(group.current.position);
         const nearFade = Math.min(1, Math.max(0, (camD - 1.6) / 2.4));
-        mat.current.opacity = (t < 0.14 ? t / 0.14 : t > 0.72 ? Math.max(0, (1 - t) / 0.28) : 1) * nearFade;
+        const opacityCap = layer.sprite === "tornado" ? 0.66 : layer.sprite ? 0.8 : layer.normalBlend ? 0.72 : 0.68;
+        mat.current.opacity = (t < 0.14 ? t / 0.14 : t > 0.72 ? Math.max(0, (1 - t) / 0.28) : 1) * nearFade * opacityCap;
     });
     if (!textures && !sprite) return null;
     // Hero sprites face the lens FULLY (no axis lock): the action camera's high
@@ -513,12 +515,14 @@ const STATUS_AURA: Record<string, { frames: string; scale: number; y: number; op
     debuff: { frames: "shadow", scale: 1.6, y: 0.85, opacity: 0.6 },
     crush: { frames: "shadow", scale: 1.4, y: 0.8, opacity: 0.5 },
     slow: { frames: "vortex", scale: 1.5, y: 0.55, opacity: 0.55 },
+    movelock: { frames: "magma", scale: 1.45, y: 0.42, opacity: 0.62 },
     confuse: { frames: "vortex", scale: 1.1, y: 1.9, opacity: 0.65 },
     mark: { frames: "spark", scale: 1.2, y: 1.9, opacity: 0.7 },
     stun: { frames: "spark", scale: 1.4, y: 1.7, opacity: 0.75 },
     // The absorb pool, the redirect and the CC immunity are all things the
     // player has to be able to SEE on a foe; none of them had an aura.
     shield: { frames: "shield", scale: 1.7, y: 0.95, opacity: 0.6 },
+    protect: { frames: "eshield", scale: 1.85, y: 0.95, opacity: 0.68 },
     taunt: { frames: "power", scale: 1.5, y: 1.0, opacity: 0.55 },
     steadfast: { frames: "eshield", scale: 1.35, y: 0.8, opacity: 0.45 },
 };
@@ -526,7 +530,7 @@ const STATUS_AURA: Record<string, { frames: string; scale: number; y: number; op
 /** Which auras win when a pet carries more than two. Raw engine push order used
  *  to decide, so a third status was dropped arbitrarily — a stun mattering less
  *  than a buff purely because of insertion order. */
-const AURA_PRIORITY = ["stun", "freeze", "confuse", "shield", "burn", "wound", "taunt", "slow", "debuff", "crush", "mark", "steadfast", "buff", "haste"];
+const AURA_PRIORITY = ["stun", "freeze", "confuse", "protect", "shield", "movelock", "burn", "wound", "taunt", "slow", "debuff", "crush", "mark", "steadfast", "buff", "haste"];
 
 export function StatusAuraFx({ statuses }: { statuses: readonly { kind: string }[] }) {
     // At most two auras so a debuff-stacked pet doesn't become a bonfire.
@@ -990,7 +994,7 @@ export function SuperPillar({ drive }: { drive: React.MutableRefObject<PillarDri
                 const w = 0.9 + Math.sin(now * 0.02) * 0.12;
                 beam.current.scale.set(w * (1 - t * 0.4), 1, w * (1 - t * 0.4));
                 beamMat.current.color.set(d.color);
-                beamMat.current.opacity = 0.5 * (1 - t);
+                beamMat.current.opacity = 0.3 * (1 - t);
             }
         }
         if (ring.current && ringMat.current) {
@@ -1001,7 +1005,7 @@ export function SuperPillar({ drive }: { drive: React.MutableRefObject<PillarDri
                 const s = 0.8 + t * 4.2;
                 ring.current.scale.set(s, s, s);
                 ringMat.current.color.set(d.color);
-                ringMat.current.opacity = 0.7 * (1 - t);
+                ringMat.current.opacity = 0.45 * (1 - t);
             }
         }
     });
