@@ -98,6 +98,26 @@ async function installApi(page: Page, currentSector = 0, completedLessonIds: str
     const savedCharacter = character(completedLessonIds);
 
     await page.addInitScript(() => {
+        // WebKit rejects this large intercepted autosave before page.route can
+        // fulfill it. Keep the UI test deterministic inside the page instead.
+        let mockedSaveVersion = 1;
+        const nativeFetch = window.fetch.bind(window);
+        window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+            const requestUrl = typeof input === "string"
+                ? input
+                : input instanceof URL
+                    ? input.href
+                    : input.url;
+            const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
+            if (method === "POST" && new URL(requestUrl, window.location.href).pathname.toLowerCase() === "/api/save/petmentorqa") {
+                mockedSaveVersion += 1;
+                return new Response(JSON.stringify({ ok: true, _saveVersion: mockedSaveVersion }), {
+                    status: 200,
+                    headers: { "content-type": "application/json" },
+                });
+            }
+            return nativeFetch(input, init);
+        };
         for (let index = localStorage.length - 1; index >= 0; index -= 1) {
             const key = localStorage.key(index);
             if (key?.startsWith("ninjav-save-conflict-v1:")) localStorage.removeItem(key);

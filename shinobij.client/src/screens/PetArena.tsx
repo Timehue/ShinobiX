@@ -449,6 +449,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     // hint can land a Yard CTA directly in Tactical setup or the Gauntlet.
     const [arenaView, setArenaView] = useState<"battle" | "tactical" | "gauntlet">(arenaNavigationHint.view);
     const [showPetMentorGuide, setShowPetMentorGuide] = useState(false);
+    const petMentorGuideButtonRef = useRef<HTMLButtonElement>(null);
     useEffect(() => clearPetArenaNavigationHint(), []);
     // Warfront setup (single screen): a team grid shared by Fight AI and
     // Challenge-a-Player. Picks seed to the top available pets.
@@ -1808,7 +1809,12 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     <PetMentorGuide
                         open
                         character={character}
-                        onClose={() => setShowPetMentorGuide(false)}
+                        onClose={() => {
+                            setShowPetMentorGuide(false);
+                            requestAnimationFrame(() => {
+                                requestAnimationFrame(() => petMentorGuideButtonRef.current?.focus());
+                            });
+                        }}
                         onProgress={(progress: PetTutorialProgress) => updateCharacter((current) => current ? { ...current, petTutorialProgress: progress } : current)}
                         setScreen={setScreen}
                     />
@@ -1869,6 +1875,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     </button>
                     <span className="pet-arena-season"><i aria-hidden="true" /> Arena command online</span>
                     <button
+                        ref={petMentorGuideButtonRef}
                         type="button"
                         className="pet-arena-guide-button"
                         onClick={() => setShowPetMentorGuide(true)}
