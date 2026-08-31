@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { storyInterludesByVillage } from "../data/story-interludes";
+import { storylines } from "../data/storylines";
 import type { CreatorEvent } from "../types/vn";
+import { interludeToCreatorEvent, storyToCreatorEvent } from "./story-trigger";
 import { resolveCinematicActorImage, resolveVnPresentation } from "./vn-presentation";
 import { isPremiumVnEvent } from "./vn-storywide-direction";
 
@@ -160,6 +163,41 @@ test("pilot recurring actors resolve to the cinematic package", () => {
         resolveCinematicActorImage("story-interlude-ashen-leaf-village-20", "Kite Harrow", "/fallback.webp"),
         "/portraits/cinematic/kite-harrow.webp",
     );
+});
+
+test("every main-story page resolves to a shipped stage background", () => {
+    const publicRoot = existsSync(resolve(process.cwd(), "shinobij.client/public"))
+        ? resolve(process.cwd(), "shinobij.client/public")
+        : resolve(process.cwd(), "public");
+    let pageCount = 0;
+    const inspectEvent = (e: CreatorEvent) => {
+        for (const [pageIndex, page] of (e.vnPages ?? []).entries()) {
+            const presentation = resolveVnPresentation({
+                event: e,
+                page,
+                pageIndex,
+                lineIndex: 0,
+                speaker: page.speaker,
+                speakingSide: null,
+                pageImage: page.image || e.image || "",
+            });
+            assert.match(presentation.backgroundImage, /^\/scenes\//, `${e.id} page ${pageIndex} has no stage background`);
+            assert.equal(
+                existsSync(resolve(publicRoot, presentation.backgroundImage.replace(/^\//, ""))),
+                true,
+                `${e.id} page ${pageIndex} references missing background ${presentation.backgroundImage}`,
+            );
+            pageCount += 1;
+        }
+    };
+
+    for (const [village, chapters] of Object.entries(storylines)) {
+        chapters.forEach((chapter, index) => inspectEvent(storyToCreatorEvent(chapter, village, index)));
+    }
+    for (const interludes of Object.values(storyInterludesByVillage)) {
+        interludes.forEach((interlude) => inspectEvent(interludeToCreatorEvent(interlude)));
+    }
+    assert.equal(pageCount, 473);
 });
 
 test("premium pilot asset package is complete", () => {

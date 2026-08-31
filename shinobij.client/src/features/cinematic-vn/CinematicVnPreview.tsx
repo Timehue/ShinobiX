@@ -1,5 +1,14 @@
 import { useState } from "react";
 import { TriggeredVisualNovel } from "../../components/TriggeredVisualNovel";
+import { storylines } from "../../data/storylines";
+import { storyRoadEvents } from "../../data/story-road-events";
+import { hollowRifts } from "../../data/hollow-rifts";
+import { hiddenDungeonVnEvent } from "../../data/vn-events";
+import { defaultAncientChestVn, defaultPetEncounterVn } from "../../data/default-vn-events";
+import { storyToCreatorEvent } from "../../lib/story-trigger";
+import { roadEventToCreatorEvent } from "../../lib/story-road-events";
+import { riftIntroEvent } from "../../lib/hollow-rifts";
+import { scribeIntroEvent } from "../../lib/chronicle-scribe";
 import type { Character } from "../../types/character";
 import type { CreatorEvent, VnActorPose } from "../../types/vn";
 import type { StorySceneVariant, StoryVillageKey } from "../../lib/vn-storywide-direction";
@@ -11,6 +20,7 @@ type PreviewCast = {
 
 const VILLAGES: readonly StoryVillageKey[] = ["stormveil", "ashen", "frostfang", "moonshadow"];
 const VARIANTS: readonly StorySceneVariant[] = ["standard", "crisis", "aftermath"];
+const CHAPTERS = ["semantic", "pale-pack", "road", "rift", "scribe", "dungeon", "pet", "chest"] as const;
 
 const CAST: Record<StoryVillageKey, PreviewCast> = {
     stormveil: { left: "Mira Volt", right: "Kage Raiko Veyr" },
@@ -21,7 +31,7 @@ const CAST: Record<StoryVillageKey, PreviewCast> = {
 
 const HOLLOW_ACTORS: Record<StoryVillageKey, string> = {
     stormveil: "/portraits/cinematic/storywide/kage-raiko-veyr-hollow.webp",
-    ashen: "/portraits/cinematic/storywide/kage-hoshina-enju-hollow.webp",
+    ashen: "/portraits/cinematic/storywide/kage-hoshina-enju-hollow-canon.webp",
     frostfang: "/portraits/cinematic/storywide/kage-kael-whitefang-hollow.webp",
     moonshadow: "/portraits/cinematic/storywide/kage-sable-nocturne-hollow.webp",
 };
@@ -139,14 +149,55 @@ function previewEvent(village: StoryVillageKey, variant: StorySceneVariant, holl
     };
 }
 
+function palePackEvent(): CreatorEvent {
+    const chapters = storylines["Frostfang Village"] ?? [];
+    const index = chapters.findIndex((chapter) => chapter.levelReq === 35);
+    if (index < 0) throw new Error("Cinematic VN QA could not find The Pale Pack chapter");
+    return storyToCreatorEvent(chapters[index], "Frostfang Village", index);
+}
+
+function sideStoryEvent(chapter: Exclude<typeof CHAPTERS[number], "semantic" | "pale-pack">): CreatorEvent {
+    if (chapter === "road") {
+        const road = storyRoadEvents.find((candidate) => candidate.id === "story-road-border-smoke");
+        if (!road) throw new Error("Cinematic VN QA could not find Border Smoke");
+        return roadEventToCreatorEvent(road, "forest");
+    }
+    if (chapter === "rift") {
+        const rift = hollowRifts.find((candidate) => candidate.slug === "legacy-echo");
+        if (!rift) throw new Error("Cinematic VN QA could not find Legacy Echo");
+        return riftIntroEvent(rift, 20, "shadow");
+    }
+    if (chapter === "scribe") return scribeIntroEvent("forest");
+    if (chapter === "pet") {
+        const petImage = "/pet-poses/generic-ai-pet-guardhound-idle.webp";
+        return {
+            ...defaultPetEncounterVn,
+            avatarImage: petImage,
+            vnPages: defaultPetEncounterVn.vnPages?.map((page) => ({
+                ...page,
+                rightName: "Guard Hound",
+                rightImage: petImage,
+            })),
+        };
+    }
+    if (chapter === "chest") return defaultAncientChestVn;
+    return hiddenDungeonVnEvent;
+}
+
 export function CinematicVnPreview() {
     const village = parameter("village", VILLAGES, "moonshadow");
     const variant = parameter("state", VARIANTS, "crisis");
     const playerAvatar = parameter("avatar", PLAYER_AVATAR_SHAPES, "none");
+    const chapter = parameter("chapter", CHAPTERS, "semantic");
     const hollow = new URLSearchParams(window.location.search).get("hollow") === "1";
-    const [pageIndex, setPageIndex] = useState(1);
+    const initialPage = chapter === "pale-pack" ? 4 : chapter === "road" ? 1 : chapter === "semantic" ? 1 : 0;
+    const [pageIndex, setPageIndex] = useState(initialPage);
     const [lineIndex, setLineIndex] = useState(0);
-    const event = previewEvent(village, variant, hollow, playerAvatar);
+    const event = chapter === "pale-pack"
+        ? palePackEvent()
+        : chapter === "semantic"
+            ? previewEvent(village, variant, hollow, playerAvatar)
+            : sideStoryEvent(chapter);
 
     return (
         <TriggeredVisualNovel
@@ -157,11 +208,11 @@ export function CinematicVnPreview() {
             setPageIndex={setPageIndex}
             setLineIndex={setLineIndex}
             onCancel={() => {
-                setPageIndex(1);
+                setPageIndex(initialPage);
                 setLineIndex(0);
             }}
             onComplete={() => {
-                setPageIndex(1);
+                setPageIndex(initialPage);
                 setLineIndex(0);
             }}
             onBattle={() => {}}

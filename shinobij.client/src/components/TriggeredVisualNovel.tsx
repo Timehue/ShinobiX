@@ -12,7 +12,7 @@ import type { Character } from "../types/character";
 import type { CreatorEvent } from "../types/vn";
 import { AURA_SPHERE_VN_ID } from "../constants/game";
 import { rewardSummary } from "../lib/currency";
-import { applyVnTextVars, vnTextVarsFor, defaultVnPortrait, defaultVnScene, hidePlayerPortraitDuringNarration, isChoiceAvailable, splitDialogueLine } from "../lib/vn";
+import { applyVnTextVars, vnTextVarsFor, defaultVnPortrait, defaultVnScene, hidePlayerPortraitDuringNarration, isChoiceAvailable, resolveVnActorBaseImage, resolveVnAuthoredActorImage, splitDialogueLine } from "../lib/vn";
 import { claimVnAction } from "../lib/vn-action-gate";
 import { biomeLabel } from "../data/world";
 import { isLowEndMobile, prefersReducedMotion } from "../lib/device-tier";
@@ -49,7 +49,9 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     // has them; otherwise parse the legacy "Speaker: text" string. Existing VNs
     // carry no `lines`, so this resolves identically for them.
     const typedLine = page.lines?.[lineIndex];
-    const { speaker, text: spoken } = typedLine ?? splitDialogueLine(activeLine, page.speaker || event.vnSpeaker || "Narrator");
+    const parsedLine = typedLine ?? splitDialogueLine(activeLine, page.speaker || event.vnSpeaker || "Narrator");
+    const speaker = applyVnTextVars(parsedLine.speaker, textVars);
+    const spoken = parsedLine.text;
     const pageImage = page.image || event.image || defaultVnScene(event.id, event.biome);
     const savedRightWasPlayer = (page.rightName ?? "").trim().toLowerCase() === "player";
     const leftName = savedRightWasPlayer ? "Player" : (page.leftName || "Player");
@@ -58,21 +60,31 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     // the line's speaker to the resolved left/right name (case-insensitive); a
     // narrator line matches neither and dims no one — so it never mis-highlights.
     const speakerKey = speaker.trim().toLowerCase();
+    const playerSpeaker = speakerKey === "player" || speakerKey === character.name.trim().toLowerCase();
     const speakingSide = speakerKey && speakerKey === rightName.trim().toLowerCase() ? "right"
         : speakerKey && speakerKey === leftName.trim().toLowerCase() ? "left"
+        : playerSpeaker && rightName.trim().toLowerCase() === "player" ? "right"
+        : playerSpeaker && leftName.trim().toLowerCase() === "player" ? "left"
         : null;
     const leftInitials = leftName === "Narrator" ? "..." : leftName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
     const rightInitials = rightName.toLowerCase() === "player" ? character.name.slice(0, 2).toUpperCase() : rightName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+    const authoredLeftImage = savedRightWasPlayer
+        ? ""
+        : resolveVnAuthoredActorImage(event.id, leftName, page.leftImage);
+    const authoredRightImage = resolveVnAuthoredActorImage(
+        event.id,
+        rightName,
+        savedRightWasPlayer ? (page.leftImage || page.rightImage) : page.rightImage,
+    );
     const baseLeftImage = savedRightWasPlayer
         ? playerAvatar
-        : (page.leftImage || (leftName.toLowerCase() === "player" ? playerAvatar : defaultVnPortrait(leftName)));
-    const baseRightImage = savedRightWasPlayer
-        ? (page.leftImage || page.rightImage || event.avatarImage || "" || defaultVnPortrait(rightName))
-        : (page.rightImage || event.avatarImage || "" || defaultVnPortrait(rightName));
-    const authoredLeftImage = savedRightWasPlayer ? "" : page.leftImage;
-    const authoredRightImage = savedRightWasPlayer
-        ? (page.leftImage || page.rightImage)
-        : page.rightImage;
+        : (authoredLeftImage || (leftName.toLowerCase() === "player" ? playerAvatar : defaultVnPortrait(leftName)));
+    const baseRightImage = resolveVnActorBaseImage(
+        event.id,
+        rightName,
+        authoredRightImage,
+        event.avatarImage,
+    );
     const canBack = lineIndex > 0 || pageIndex > 0;
     const isLastLine = pageIndex === pages.length - 1 && lineIndex >= pageDialogue.length - 1;
     // Trait-gated branching: a choice with requireTrait only shows if the player
@@ -122,6 +134,8 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     const isStoryReckoningEvent = event.id.startsWith("story-reckoning-");
     // The Chronicle Scribe's traveler's-codex event (lib/chronicle-scribe).
     const isScribeEvent = event.id === "chronicle-scribe";
+    const isPetEncounterEvent = event.id === "sys-pet-encounter";
+    const isAncientChestEvent = event.id === "sys-ancient-chest";
     // Catch-all for pure conversation scenes: a zero-reward visualNovel event
     // has nothing to claim, and its "free battle" would pay that same nothing —
     // on such events both footer buttons are traps, not affordances. Story
@@ -150,15 +164,19 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     const isSageEvent = event.id === "legacy-sage-offer";
     const eventLabel = readOnlyReplay
         ? "Story Replay"
-        : event.id.startsWith("story-road-")
-            ? "Road Story"
-            : isStoryEpilogue
-                ? "Epilogue"
-                : isStoryInterlude
-                    ? "Story Interlude"
-                    : isStoryChapterEvent
-                        ? "Village Chronicle"
-                        : "Story Event";
+        : isPetEncounterEvent
+            ? "Pet Encounter"
+            : isAncientChestEvent
+                ? "Ancient Chest"
+                : event.id.startsWith("story-road-")
+                    ? "Road Story"
+                    : isStoryEpilogue
+                        ? "Epilogue"
+                        : isStoryInterlude
+                            ? "Story Interlude"
+                            : isStoryChapterEvent
+                                ? "Village Chronicle"
+                                : "Story Event";
     const spokenText = applyVnTextVars(spoken, textVars);
     const presentation = resolveVnPresentation({
         event,
@@ -204,7 +222,10 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
         ?? "";
     const upcomingTypedLine = upcomingPage?.lines?.[upcomingLineIndex];
     const upcomingSpeaker = upcomingPage
-        ? (upcomingTypedLine ?? splitDialogueLine(upcomingRawLine, upcomingPage.speaker || event.vnSpeaker || "Narrator")).speaker
+        ? applyVnTextVars(
+            (upcomingTypedLine ?? splitDialogueLine(upcomingRawLine, upcomingPage.speaker || event.vnSpeaker || "Narrator")).speaker,
+            textVars,
+        )
         : "";
     const upcomingPageImage = upcomingPage
         ? (upcomingPage.image || event.image || defaultVnScene(event.id, event.biome))
@@ -232,24 +253,31 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
             : (upcomingPage.rightName || upcomingPage.speaker || event.vnSpeaker || upcomingSpeaker))
         : "";
     const upcomingAuthoredLeftImage = upcomingPage && !upcomingSavedRightWasPlayer
-        ? upcomingPage.leftImage
+        ? resolveVnAuthoredActorImage(event.id, upcomingLeftName, upcomingPage.leftImage)
         : "";
     const upcomingAuthoredRightImage = upcomingPage
-        ? (upcomingSavedRightWasPlayer
-            ? (upcomingPage.leftImage || upcomingPage.rightImage)
-            : upcomingPage.rightImage)
+        ? resolveVnAuthoredActorImage(
+            event.id,
+            upcomingRightName,
+            upcomingSavedRightWasPlayer
+                ? (upcomingPage.leftImage || upcomingPage.rightImage)
+                : upcomingPage.rightImage,
+        )
         : "";
     const upcomingBaseLeftImage = upcomingPage
         ? (upcomingSavedRightWasPlayer
             ? playerAvatar
-            : (upcomingPage.leftImage || (upcomingLeftName.toLowerCase() === "player"
+            : (upcomingAuthoredLeftImage || (upcomingLeftName.toLowerCase() === "player"
                 ? playerAvatar
                 : defaultVnPortrait(upcomingLeftName))))
         : "";
     const upcomingBaseRightImage = upcomingPage
-        ? (upcomingSavedRightWasPlayer
-            ? (upcomingPage.leftImage || upcomingPage.rightImage || event.avatarImage || defaultVnPortrait(upcomingRightName))
-            : (upcomingPage.rightImage || event.avatarImage || defaultVnPortrait(upcomingRightName)))
+        ? resolveVnActorBaseImage(
+            event.id,
+            upcomingRightName,
+            upcomingAuthoredRightImage,
+            event.avatarImage,
+        )
         : "";
     const upcomingLeftImage = upcomingPage && upcomingPresentation
         ? resolveCinematicActorImage(
@@ -346,17 +374,32 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     }
     const finaleText = readOnlyReplay
         ? "The preserved scene reaches its end. Nothing has been changed or claimed; this is the road exactly as the Chronicle remembers it."
-        : isAuraSphereEvent
-            ? "The elder places the Aura Sphere in your hands. It waits in your inventory until you equip it in your aura slot."
-            : isSageEvent
-                ? "The Sage falls silent, watching you. The paths he named still hang in the air, and only one of them can ever be yours."
-                : isStoryEpilogue
-                    ? "The last page of this village's story turns. What the village becomes next, it becomes with you in it."
+        : isPetEncounterEvent
+            ? "The animal closes the last careful step. The meeting is no longer chance; what happens next belongs to both of you."
+            : isAncientChestEvent
+                ? "The final field seal releases. The courier chest is ready to open, and whatever survived inside has waited long enough."
+                : isAuraSphereEvent
+                    ? "The elder places the Aura Sphere in your hands. It waits in your inventory until you equip it in your aura slot."
+                    : isSageEvent
+                        ? "The Sage falls silent, watching you. The paths he named still hang in the air, and only one of them can ever be yours."
+                        : isStoryEpilogue
+                            ? "The last page of this village's story turns. What the village becomes next, it becomes with you in it."
+                            : isStoryInterlude
+                                ? "The road moves on. What you chose here is written down somewhere that matters."
+                                : isStoryChapterEvent
+                                    ? "The scene settles into silence. Your village story continues. The chapter's guardian is waiting."
+                                    : `The scene fades. A shinobi challenger steps from the shadows of ${biomeLabel(event.biome)}.`;
+    const completionLabel = isPetEncounterEvent
+        ? "Meet Companion"
+        : isAncientChestEvent
+            ? "Open Chest"
+            : isAuraSphereEvent
+                ? "Claim Aura Sphere"
+                : isSageEvent
+                    ? "Hear the Sage's Offer"
                     : isStoryInterlude
-                        ? "The road moves on. What you chose here is written down somewhere that matters."
-                        : isStoryChapterEvent
-                            ? "The scene settles into silence. Your village story continues. The chapter's guardian is waiting."
-                            : `The scene fades. A shinobi challenger steps from the shadows of ${biomeLabel(event.biome)}.`;
+                        ? "Continue"
+                        : "Continue to Story Hall";
     if (showFinale && !readerUsesClassic && presentation.mode === "cinematic") return (
         <CinematicVisualNovelStage
             eventId={event.id}
@@ -386,7 +429,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                         </>
                     ) : (
                         <button onClick={completeScene}>
-                            {isAuraSphereEvent ? "Claim Aura Sphere" : isSageEvent ? "Hear the Sage's Offer" : isStoryInterlude ? "Continue" : "Continue to Story Hall"}
+                            {completionLabel}
                         </button>
                     )}
                 </div>
@@ -406,21 +449,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                 <h2>{event.name}</h2>
             </div>
             <div className="vn-finale-body">
-                <p className="vn-scene-card">
-                    {readOnlyReplay
-                        ? "The preserved scene reaches its end. Nothing has been changed or claimed; this is the road exactly as the Chronicle remembers it."
-                        : isAuraSphereEvent
-                        ? "The elder places the Aura Sphere in your hands. It waits in your inventory until you equip it in your aura slot."
-                        : isSageEvent
-                            ? "The Sage falls silent, watching you. The paths he named still hang in the air — and only one of them can ever be yours."
-                            : isStoryEpilogue
-                                ? <>The last page of this village's story turns. What the village becomes next, it becomes with you in it.</>
-                                : isStoryInterlude
-                                    ? <>The road moves on. What you chose here is written down somewhere that matters.</>
-                                    : isStoryChapterEvent
-                                        ? <>The scene fades. Your village story continues — face the chapter boss when you are ready.</>
-                                        : <>The scene fades — a shinobi challenger steps from the shadows of <strong>{biomeLabel(event.biome)}</strong>. The fight is not over.</>}
-                </p>
+                <p className="vn-scene-card">{finaleText}</p>
             </div>
             <div className="menu">
                 {!isAuraSphereEvent && !isStoryChapterEvent && !isSageEvent && !isStoryInterlude ? (
@@ -437,7 +466,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                     </>
                 ) : (
                     <button onClick={completeScene}>
-                        {isAuraSphereEvent ? "Claim Aura Sphere" : isSageEvent ? "Hear the Sage's Offer" : isStoryInterlude ? "Continue" : "Continue to Story Hall"}
+                        {completionLabel}
                     </button>
                 )}
             </div>
@@ -445,6 +474,10 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                 <span>
                     {readOnlyReplay
                         ? "Read-only Story Hall replay · no rewards or decisions can be changed"
+                        : isPetEncounterEvent
+                        ? "Next: decide whether this wild companion joins you."
+                        : isAncientChestEvent
+                            ? "Next: open the cleared cache and recover its contents."
                         : isAuraSphereEvent
                         ? "Reward: Aura Sphere item"
                         : isSageEvent

@@ -60,16 +60,6 @@ export function riftGiverPortrait(rift: HollowRift): string {
 export function riftBossPortrait(rift: HollowRift): string {
     return `/portraits/${rift.bossAiId}.webp`;
 }
-/** Portrait for whoever speaks on a rift VN page: the giver wears its face, the
- *  boss its portrait, everyone else (Narrator) none — so the slot hides instead
- *  of showing initials. */
-function riftPortraitFor(rift: HollowRift, speaker: string): string | undefined {
-    const s = speaker.trim().toLowerCase();
-    if (s === rift.giverName.trim().toLowerCase()) return riftGiverPortrait(rift);
-    if (s === rift.bossName.trim().toLowerCase()) return riftBossPortrait(rift);
-    return undefined;
-}
-
 /** Deterministic wilderness sector for a (player, rift): stable, avoids village
  *  outskirts + the neutral castle city + the lava arena. The server recomputes
  *  the SAME value at accept (api/sector/_rift-quest.ts riftTargetSector — keep
@@ -152,12 +142,11 @@ export function sectorPhrase(sector: number): string {
     return `${region} (sector ${sector})`;
 }
 
-function mapPages(pages: RiftPage[], last: number, portraitFor: (speaker: string) => string | undefined): NonNullable<CreatorEvent["vnPages"]> {
+function mapPages(pages: RiftPage[], last: number): NonNullable<CreatorEvent["vnPages"]> {
     return pages.map((page, index) => ({
         title: page.title,
         scene: page.scene,
         speaker: page.speaker,
-        rightImage: portraitFor(page.speaker),
         dialogue: page.dialogue,
         choices: index === last
             ? page.choices?.map((choice) => ({
@@ -176,7 +165,6 @@ export function riftIntroEvent(rift: HollowRift, targetSector: number, biome: Bi
     const pages = mapPages(
         rift.intro.map((p) => ({ ...p, dialogue: p.dialogue.map((line) => line.replace(/%sector/g, phrase)) })),
         rift.intro.length - 1,
-        (speaker) => riftPortraitFor(rift, speaker),
     );
     return {
         id: `${RIFT_GIVER_PREFIX}${rift.slug}`,
@@ -200,7 +188,7 @@ export function riftIntroEvent(rift: HollowRift, targetSector: number, biome: Bi
 
 /** The at-the-rift VN (before descending). */
 export function riftDescentEvent(rift: HollowRift, biome: Biome): CreatorEvent {
-    const pages = mapPages(rift.descent, rift.descent.length - 1, (speaker) => riftPortraitFor(rift, speaker));
+    const pages = mapPages(rift.descent, rift.descent.length - 1);
     return {
         id: `rift-descend-${rift.slug}`,
         name: `The Rift: ${rift.bossName}`,

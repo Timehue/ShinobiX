@@ -12,6 +12,8 @@
  * Extracted from App.tsx.
  */
 
+import { isPremiumVnEvent } from "./vn-storywide-direction";
+
 /**
  * Slug-ifies a speaker name into a /portraits/<slug>.png path. Returns ""
  * for empty / Narrator / Player so callers can decide whether to hide
@@ -23,6 +25,56 @@ export function defaultVnPortrait(name: string | undefined | null): string {
     if (!n || n === "narrator" || n === "player") return "";
     const slug = n.replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-");
     return slug ? `/portraits/${slug}.webp` : "";
+}
+
+/**
+ * Story actor overrides must identify the actor in their asset name. This
+ * keeps a stale admin-published page image from placing one character's art
+ * under another character's caption while still allowing deliberate variants
+ * such as `kage-hoshina-enju-hollow.webp`. Generic creator VNs retain their
+ * unrestricted custom-image behavior.
+ */
+export function resolveVnAuthoredActorImage(
+    eventId: string,
+    actorName: string,
+    authoredImage?: string,
+): string {
+    const authored = authoredImage?.trim() ?? "";
+    if (!authored || !isPremiumVnEvent(eventId)) return authored;
+    // The pet encounter's actor is selected at runtime, so it cannot have a
+    // stable name-to-file entry in the storywide cast ledger. WorldMap supplies
+    // the discovered pet's already-authoritative card art for this one system
+    // event; keep the premium identity lock for every authored human actor.
+    if (eventId === "sys-pet-encounter") return authored;
+    const canonical = defaultVnPortrait(actorName);
+    const slug = canonical.slice("/portraits/".length, -".webp".length);
+    if (!slug) return "";
+    const source = authored.toLowerCase().split(/[?#]/, 1)[0];
+    return source.includes(`/${slug}.`)
+        || source.includes(`/${slug}-`)
+        || source.includes(`/${slug}_`)
+        ? authored
+        : "";
+}
+
+/**
+ * Resolve the unposed actor art used by the VN renderer. Story events always
+ * prefer the current page's named speaker portrait over the event-wide avatar:
+ * a chapter can contain a dozen different characters, while the event avatar
+ * is only a legacy single-actor fallback. Page-specific art remains an explicit
+ * override, and non-story creator VNs retain the legacy event-avatar behavior.
+ */
+export function resolveVnActorBaseImage(
+    eventId: string,
+    actorName: string,
+    authoredImage?: string,
+    eventAvatarImage?: string,
+): string {
+    const authored = resolveVnAuthoredActorImage(eventId, actorName, authoredImage);
+    if (authored) return authored;
+    const canonical = defaultVnPortrait(actorName);
+    if (isPremiumVnEvent(eventId)) return canonical;
+    return eventAvatarImage?.trim() || canonical;
 }
 
 /**
@@ -164,6 +216,7 @@ export function serializeDialogueLines(lines: DialogueLine[]): string {
 function looksLikeSpeakerName(prefix: string, fallbackSpeaker: string): boolean {
     const p = prefix.trim();
     if (!p || p.length > 32) return false;
+    if (p === "%name") return true;
     if (p.toLowerCase() === fallbackSpeaker.trim().toLowerCase()) return true;
     if (/[.!?,;'’\d—–]/.test(p)) return false;
     const words = p.split(/\s+/);

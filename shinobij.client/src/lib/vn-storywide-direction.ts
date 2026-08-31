@@ -62,26 +62,225 @@ export const STORYWIDE_CLIMAX_ENVIRONMENTS: Record<StoryVillageKey, string> = {
     moonshadow: "/scenes/story/cinematic/storywide/moonshadow-climax-black-glass.webp",
 };
 
+/**
+ * Event-specific paintings for narrative VNs outside the four village chapter
+ * families. Keeping these keyed by event id prevents a road, rift, tutorial, or
+ * roaming side story from falling back to a generic biome or a low-resolution
+ * legacy painting on later pages.
+ */
+export const SIDE_STORY_ENVIRONMENTS: Readonly<Record<string, string>> = {
+    "story-road-alliance-drill": "/scenes/story/cinematic/side-stories/story-road-alliance-drill.webp",
+    "story-road-black-bridge": "/scenes/story/cinematic/side-stories/story-road-black-bridge.webp",
+    "story-road-border-smoke": "/scenes/story/cinematic/side-stories/story-road-border-smoke.webp",
+    "story-road-emergency-powers": "/scenes/story/cinematic/side-stories/story-road-emergency-powers.webp",
+    "story-road-fifth-anchor": "/scenes/story/cinematic/side-stories/story-road-fifth-anchor.webp",
+    "story-road-four-seals-one-gate": "/scenes/story/cinematic/side-stories/story-road-four-seals-one-gate.webp",
+    "story-road-last-road": "/scenes/story/cinematic/side-stories/story-road-last-road.webp",
+    "story-road-legacy-without-a-name": "/scenes/story/cinematic/side-stories/story-road-legacy-without-a-name.webp",
+    "story-road-rival-who-keeps-losing": "/scenes/story/cinematic/side-stories/story-road-rival-who-keeps-losing.webp",
+    "story-road-seat-of-scars": "/scenes/story/cinematic/side-stories/story-road-seat-of-scars.webp",
+    "story-road-second-teacher": "/scenes/story/cinematic/side-stories/story-road-second-teacher.webp",
+    "story-road-shrine-of-two-flags": "/scenes/story/cinematic/side-stories/story-road-shrine-of-two-flags.webp",
+    "story-road-three-footprints": "/scenes/story/cinematic/side-stories/story-road-three-footprints.webp",
+    "story-road-unsworn-ledger": "/scenes/story/cinematic/side-stories/story-road-unsworn-ledger.webp",
+    "story-road-withheld-cache": "/scenes/story/cinematic/side-stories/story-road-withheld-cache.webp",
+    "rift-descend-beast-warren": "/scenes/story/cinematic/side-stories/rift-descend-beast-warren.webp",
+    "rift-descend-engine-echo": "/scenes/story/cinematic/side-stories/rift-descend-engine-echo.webp",
+    "rift-descend-gate-heir": "/scenes/story/cinematic/side-stories/rift-descend-gate-heir.webp",
+    "rift-descend-hollow-name": "/scenes/story/cinematic/side-stories/rift-descend-hollow-name.webp",
+    "rift-descend-hollow-stalker": "/scenes/story/cinematic/side-stories/rift-descend-hollow-stalker.webp",
+    "rift-descend-legacy-echo": "/scenes/story/cinematic/side-stories/rift-descend-legacy-echo.webp",
+    "rift-descend-mirror-shard": "/scenes/story/cinematic/side-stories/rift-descend-mirror-shard.webp",
+    "rift-giver-beast-warren": "/scenes/story/cinematic/side-stories/rift-giver-beast-warren.webp",
+    "rift-giver-engine-echo": "/scenes/story/cinematic/side-stories/rift-giver-engine-echo.webp",
+    "rift-giver-gate-heir": "/scenes/story/cinematic/side-stories/rift-giver-gate-heir.webp",
+    "rift-giver-hollow-name": "/scenes/story/cinematic/side-stories/rift-giver-hollow-name.webp",
+    "rift-giver-hollow-stalker": "/scenes/story/cinematic/side-stories/rift-giver-hollow-stalker.webp",
+    "rift-giver-legacy-echo": "/scenes/story/cinematic/side-stories/rift-giver-legacy-echo.webp",
+    "rift-giver-mirror-shard": "/scenes/story/cinematic/side-stories/rift-giver-mirror-shard.webp",
+    "legacy-sage-offer": "/scenes/story/cinematic/side-stories/legacy-sage-offer.webp",
+    "chronicle-scribe": "/scenes/story/cinematic/side-stories/chronicle-scribe.webp",
+    "builtin-awakening-lv2": "/scenes/story/cinematic/side-stories/builtin-awakening-lv2.webp",
+    "builtin-aura-sphere-lv9": "/scenes/story/cinematic/side-stories/builtin-aura-sphere-lv9.webp",
+    "builtin-hidden-dungeon": "/scenes/story/cinematic/side-stories/builtin-hidden-dungeon.webp",
+    "craft-dungeon-forest": "/scenes/story/cinematic/side-stories/craft-dungeon-forest.webp",
+    "craft-dungeon-snow": "/scenes/story/cinematic/side-stories/craft-dungeon-snow.webp",
+    "craft-dungeon-volcano": "/scenes/story/cinematic/side-stories/craft-dungeon-volcano.webp",
+    "craft-dungeon-shadow": "/scenes/story/cinematic/side-stories/craft-dungeon-shadow.webp",
+    "craft-dungeon-central": "/scenes/story/cinematic/side-stories/craft-dungeon-central.webp",
+    "sys-pet-encounter": "/scenes/story/cinematic/side-stories/sys-pet-encounter.webp",
+    "sys-ancient-chest": "/scenes/story/cinematic/side-stories/sys-ancient-chest.webp",
+};
+
 export const STORYWIDE_ACTORS: Record<string, string> = {
     "mira volt": "/portraits/cinematic/storywide/mira-volt.webp",
     "kage raiko veyr": "/portraits/cinematic/storywide/kage-raiko-veyr.webp",
     "raiko veyr": "/portraits/cinematic/storywide/kage-raiko-veyr.webp",
     "elder vanta": "/portraits/cinematic/storywide/elder-vanta.webp",
+    "ledger clerk": "/portraits/cinematic/storywide/ledger-clerk.webp",
+    "tempest guard captain": "/portraits/cinematic/storywide/tempest-guard-captain.webp",
+    "joren pike": "/portraits/cinematic/storywide/joren-pike.webp",
+    "rebel medic": "/portraits/cinematic/storywide/rebel-medic.webp",
     "toma reed": "/portraits/cinematic/toma-reed.webp",
     "registry duty clerk": "/portraits/cinematic/registry-duty-clerk.webp",
     "elder mori": "/portraits/cinematic/elder-mori.webp",
     "kite harrow": "/portraits/cinematic/kite-harrow.webp",
-    "kage hoshina enju": "/portraits/cinematic/storywide/kage-hoshina-enju.webp",
-    "hoshina enju": "/portraits/cinematic/storywide/kage-hoshina-enju.webp",
+    "imera": "/portraits/cinematic/storywide/imera.webp",
+    "sera reed": "/portraits/cinematic/storywide/sera-reed.webp",
+    "first flame avatar": "/portraits/cinematic/storywide/first-flame-avatar.webp",
+    "kage hoshina enju": "/portraits/cinematic/storywide/kage-hoshina-enju-canon.webp",
+    "hoshina enju": "/portraits/cinematic/storywide/kage-hoshina-enju-canon.webp",
     "captain yura": "/portraits/cinematic/storywide/captain-yura.webp",
+    "pale pack runner": "/portraits/cinematic/storywide/pale-pack-runner.webp",
+    "frost seal echo": "/portraits/cinematic/storywide/frost-seal-echo.webp",
+    "seal-keeper vess": "/portraits/cinematic/storywide/seal-keeper-vess.webp",
     "kage kael whitefang": "/portraits/cinematic/storywide/kage-kael-whitefang.webp",
     "kael whitefang": "/portraits/cinematic/storywide/kage-kael-whitefang.webp",
-    "elder sova": "/portraits/cinematic/storywide/elder-sova.webp",
-    nyx: "/portraits/cinematic/storywide/nyx.webp",
+    "elder sova": "/portraits/cinematic/storywide/elder-sova-canon.webp",
+    "nyx": "/portraits/cinematic/storywide/nyx.webp",
+    "hollow moon": "/portraits/cinematic/storywide/hollow-moon.webp",
+    "veil adaza": "/portraits/cinematic/storywide/veil-adaza.webp",
+    "shrine witness": "/portraits/cinematic/storywide/shrine-witness.webp",
+    "veiled hand collector": "/portraits/cinematic/storywide/veiled-hand-collector.webp",
     "kage sable nocturne": "/portraits/cinematic/storywide/kage-sable-nocturne.webp",
     "sable nocturne": "/portraits/cinematic/storywide/kage-sable-nocturne.webp",
     "shade-master iro": "/portraits/cinematic/storywide/shade-master-iro.webp",
     "shade master iro": "/portraits/cinematic/storywide/shade-master-iro.webp",
+    "adjutant denn": "/portraits/cinematic/side-stories/adjutant-denn.webp",
+    "amra tull": "/portraits/cinematic/side-stories/amra-tull.webp",
+    "anji vesk": "/portraits/cinematic/side-stories/anji-vesk.webp",
+    "bellis crane": "/portraits/cinematic/side-stories/bellis-crane.webp",
+    bracken: "/portraits/cinematic/side-stories/bracken.webp",
+    "captain hela dray": "/portraits/cinematic/side-stories/captain-hela-dray.webp",
+    "captain joss arne": "/portraits/cinematic/side-stories/captain-joss-arne.webp",
+    "corvo latch": "/portraits/cinematic/side-stories/corvo-latch.webp",
+    "deni cros": "/portraits/cinematic/side-stories/deni-cros.webp",
+    "emissary corvane": "/portraits/cinematic/side-stories/emissary-corvane.webp",
+    "foreman dray": "/portraits/cinematic/side-stories/foreman-dray.webp",
+    "hob setter": "/portraits/cinematic/side-stories/hob-setter.webp",
+    "instructor havek": "/portraits/cinematic/side-stories/instructor-havek.webp",
+    meru: "/portraits/cinematic/side-stories/meru.webp",
+    "oren slate": "/portraits/cinematic/side-stories/oren-slate.webp",
+    "pell marrow": "/portraits/cinematic/side-stories/pell-marrow.webp",
+    petra: "/portraits/cinematic/side-stories/petra.webp",
+    "proctor hasse": "/portraits/cinematic/side-stories/proctor-hasse.webp",
+    "registrar corin vell": "/portraits/cinematic/side-stories/registrar-corin-vell.webp",
+    sefa: "/portraits/cinematic/side-stories/sefa.webp",
+    serel: "/portraits/cinematic/side-stories/serel.webp",
+    "sergeant aldis rime": "/portraits/cinematic/side-stories/sergeant-aldis-rime.webp",
+    "sergeant brekka": "/portraits/cinematic/side-stories/sergeant-brekka.webp",
+    "sergeant venn": "/portraits/cinematic/side-stories/sergeant-venn.webp",
+    suma: "/portraits/cinematic/side-stories/suma.webp",
+    umi: "/portraits/cinematic/side-stories/umi.webp",
+    "undersecretary corvel": "/portraits/cinematic/side-stories/undersecretary-corvel.webp",
+    verah: "/portraits/cinematic/side-stories/verah.webp",
+    "wandering sage": "/portraits/cinematic/side-stories/wandering-sage.webp",
+    "warden suvi rell": "/portraits/cinematic/side-stories/warden-suvi-rell.webp",
+    "senna graveward": "/portraits/cinematic/side-stories/senna-graveward.webp",
+    "scout vessa": "/portraits/cinematic/side-stories/scout-vessa.webp",
+    "houndmaster bel": "/portraits/cinematic/side-stories/houndmaster-bel.webp",
+    "recorder sann": "/portraits/cinematic/side-stories/recorder-sann.webp",
+    "keeper oru": "/portraits/cinematic/side-stories/keeper-oru.webp",
+    "broker nemo": "/portraits/cinematic/side-stories/broker-nemo.webp",
+    "the unremembered": "/portraits/cinematic/side-stories/the-unremembered.webp",
+    "hollow stalker": "/portraits/cinematic/side-stories/hollow-stalker.webp",
+    "warren alpha": "/portraits/cinematic/side-stories/warren-alpha.webp",
+    "engine-echo": "/portraits/cinematic/side-stories/engine-echo.webp",
+    "the hollowed name": "/portraits/cinematic/side-stories/the-hollowed-name.webp",
+    "mirror-shard warden": "/portraits/cinematic/side-stories/mirror-shard-warden.webp",
+    "hollow gate heir": "/portraits/cinematic/side-stories/hollow-gate-heir.webp",
+    "scribe ihara": "/portraits/cinematic/side-stories/scribe-ihara.webp",
+    "village elder": "/portraits/cinematic/side-stories/village-elder.webp",
+    "dungeon warden": "/portraits/cinematic/side-stories/dungeon-warden.webp",
+};
+
+export type StoryCharacterGender = "woman" | "man" | "entity" | "unspecified";
+
+/*
+ * Canon ledger for visual direction. Keep aliases here as well as in the actor
+ * map so a future portrait pass cannot infer a different character identity
+ * from a title spelling or a masked/androgynous cutout.
+ */
+export const STORYWIDE_CHARACTER_GENDERS: Readonly<Record<string, StoryCharacterGender>> = {
+    "mira volt": "woman",
+    "kage raiko veyr": "man",
+    "raiko veyr": "man",
+    "elder vanta": "man",
+    "ledger clerk": "man",
+    "tempest guard captain": "man",
+    "joren pike": "man",
+    "rebel medic": "man",
+    "toma reed": "man",
+    "registry duty clerk": "woman",
+    "elder mori": "man",
+    "kite harrow": "woman",
+    imera: "woman",
+    "sera reed": "woman",
+    "first flame avatar": "entity",
+    "kage hoshina enju": "woman",
+    "hoshina enju": "woman",
+    "captain yura": "woman",
+    "pale pack runner": "woman",
+    "frost seal echo": "entity",
+    "seal-keeper vess": "man",
+    "kage kael whitefang": "man",
+    "kael whitefang": "man",
+    "elder sova": "woman",
+    nyx: "woman",
+    "hollow moon": "entity",
+    "veil adaza": "woman",
+    "shrine witness": "woman",
+    "veiled hand collector": "unspecified",
+    "kage sable nocturne": "woman",
+    "sable nocturne": "woman",
+    "shade-master iro": "man",
+    "shade master iro": "man",
+    "adjutant denn": "man",
+    "amra tull": "woman",
+    "anji vesk": "woman",
+    "bellis crane": "man",
+    bracken: "man",
+    "captain hela dray": "woman",
+    "captain joss arne": "man",
+    "corvo latch": "man",
+    "deni cros": "man",
+    "emissary corvane": "man",
+    "foreman dray": "man",
+    "hob setter": "man",
+    "instructor havek": "man",
+    meru: "woman",
+    "oren slate": "man",
+    "pell marrow": "woman",
+    petra: "woman",
+    "proctor hasse": "man",
+    "registrar corin vell": "man",
+    sefa: "woman",
+    serel: "woman",
+    "sergeant aldis rime": "man",
+    "sergeant brekka": "woman",
+    "sergeant venn": "man",
+    suma: "woman",
+    umi: "woman",
+    "undersecretary corvel": "man",
+    verah: "woman",
+    "wandering sage": "man",
+    "warden suvi rell": "woman",
+    "senna graveward": "woman",
+    "scout vessa": "woman",
+    "houndmaster bel": "woman",
+    "recorder sann": "unspecified",
+    "keeper oru": "unspecified",
+    "broker nemo": "unspecified",
+    "the unremembered": "entity",
+    "hollow stalker": "entity",
+    "warren alpha": "entity",
+    "engine-echo": "entity",
+    "the hollowed name": "entity",
+    "mirror-shard warden": "entity",
+    "hollow gate heir": "entity",
+    "scribe ihara": "woman",
+    "village elder": "unspecified",
+    "dungeon warden": "unspecified",
 };
 
 export const STORYWIDE_ACTOR_VARIANTS: Record<string, Partial<Record<VnActorPose, string>>> = {
@@ -100,17 +299,17 @@ export const STORYWIDE_ACTOR_VARIANTS: Record<string, Partial<Record<VnActorPose
         solemn: "/portraits/cinematic/storywide/elder-mori-solemn.webp",
     },
     "kage hoshina enju": {
-        tense: "/portraits/cinematic/storywide/kage-hoshina-enju-tense.webp",
+        tense: "/portraits/cinematic/storywide/kage-hoshina-enju-tense-canon.webp",
     },
     "hoshina enju": {
-        tense: "/portraits/cinematic/storywide/kage-hoshina-enju-tense.webp",
+        tense: "/portraits/cinematic/storywide/kage-hoshina-enju-tense-canon.webp",
     },
     "captain yura": {
         injured: "/portraits/cinematic/storywide/captain-yura-injured.webp",
         defiant: "/portraits/cinematic/storywide/captain-yura-defiant.webp",
     },
     "elder sova": {
-        solemn: "/portraits/cinematic/storywide/elder-sova-solemn.webp",
+        solemn: "/portraits/cinematic/storywide/elder-sova-solemn-canon.webp",
     },
     nyx: {
         neutral: "/portraits/cinematic/storywide/nyx-neutral.webp",
@@ -170,7 +369,11 @@ export const MAJOR_STORY_DIRECTIONS: Readonly<Record<string, VnCinematicDirectio
 
     "frostfang:the corrected man": { shot: "close", focus: "left", backgroundMotion: "push", tone: "cold", atmosphere: "snow", impact: "soft", cue: "reveal" },
     "frostfang:the deep script": { shot: "detail", focus: "center", backgroundMotion: "push", tone: "hollow", atmosphere: "snow", cue: "reveal" },
-    "frostfang:returned to the count": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "dip-black", tone: "danger", atmosphere: "snow", cue: "omen" },
+    "frostfang:the struck names": { backgroundImage: "/scenes/story/cinematic/storywide/frostfang-pale-pack-cavern-interior.webp", shot: "wide", focus: "right", backgroundMotion: "push", backgroundPosition: "50% 50%", transition: "dip-black", tone: "warm", atmosphere: "motes", actorEntrance: "fade", ambience: "interior", cue: "title" },
+    "frostfang:yura's roster-mate": { backgroundImage: "/scenes/story/cinematic/storywide/frostfang-pale-pack-cavern-interior.webp", shot: "medium", focus: "right", backgroundMotion: "none", backgroundPosition: "48% 50%", transition: "crossfade", tone: "elegy", atmosphere: "motes", actorEntrance: "none", ambience: "interior", cue: "reveal" },
+    "frostfang:returned to the count": { backgroundImage: "/scenes/story/cinematic/storywide/frostfang-pale-pack-cavern-mouth.webp", shot: "wide", focus: "center", backgroundMotion: "push", backgroundPosition: "50% 48%", transition: "dip-black", tone: "danger", atmosphere: "snow", ambience: "road", cue: "omen" },
+    "frostfang:the captain's arithmetic": { backgroundImage: "/scenes/story/cinematic/storywide/frostfang-pale-pack-cavern-mouth.webp", shot: "close", focus: "right", backgroundMotion: "none", backgroundPosition: "47% 48%", transition: "crossfade", tone: "elegy", atmosphere: "snow", actorEntrance: "none", ambience: "road", cue: "reveal" },
+    "frostfang:one bell": { backgroundImage: "/scenes/story/cinematic/storywide/frostfang-pale-pack-cavern-mouth.webp", shot: "wide", focus: "right", backgroundMotion: "push", backgroundPosition: "50% 48%", transition: "dip-black", tone: "danger", atmosphere: "snow", actorEntrance: "fade", impact: "soft", ambience: "road", cue: "decision" },
     "frostfang:the pen gets lighter": { shot: "close", focus: "left", backgroundMotion: "none", tone: "elegy", atmosphere: "motes", leftActorPose: "defiant", cue: "reveal" },
     "frostfang:the confiscated kits": { shot: "detail", focus: "left", backgroundMotion: "drift", tone: "elegy", atmosphere: "snow", leftActorPose: "injured", cue: "paper" },
     "frostfang:self-injury, filed": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "dip-black", tone: "danger", atmosphere: "snow", impact: "soft", cue: "omen" },
@@ -356,10 +559,35 @@ export function resolveStorywideDirection(
     page: VnPage,
     pageIndex: number,
 ): VnCinematicDirection | undefined {
-    if (!event.id.startsWith("story-")) return undefined;
+    if (!isPremiumVnEvent(event.id)) return undefined;
     const pageCount = event.vnPages?.length ?? 1;
     const opening = pageIndex === 0;
     const ending = pageIndex === pageCount - 1;
+    const sideStoryEnvironment = SIDE_STORY_ENVIRONMENTS[event.id];
+    if (sideStoryEnvironment) {
+        const riftLike = event.id.startsWith("rift-")
+            || event.id.includes("dungeon")
+            || event.id === "legacy-sage-offer";
+        const atmosphere = riftLike ? "mist"
+            : event.biome === "snow" ? "snow"
+                : event.biome === "volcano" ? "embers"
+                    : "motes";
+        return {
+            backgroundImage: sideStoryEnvironment,
+            shot: opening ? "wide" : ending ? "medium" : "medium",
+            focus: "speaker",
+            backgroundMotion: opening ? "push" : "none",
+            backgroundPosition: "50% 50%",
+            transition: opening || ending ? "dip-black" : "crossfade",
+            tone: riftLike ? "hollow" : "neutral",
+            atmosphere,
+            actorEntrance: opening ? "fade" : "none",
+            impact: "none",
+            titleCard: opening,
+            ambience: riftLike ? "hollow" : event.id.startsWith("story-road-") ? "road" : "interior",
+            cue: opening ? "title" : ending ? "decision" : "none",
+        };
+    }
     const village = storyVillageKey(event, page);
     const major = village ? MAJOR_STORY_DIRECTIONS[`${village}:${page.title.trim().toLowerCase()}`] : undefined;
 
@@ -386,7 +614,8 @@ export function resolveStorywideDirection(
 }
 
 export function isPremiumVnEvent(eventId: string): boolean {
-    return eventId.startsWith("story-");
+    return eventId.startsWith("story-")
+        || Object.prototype.hasOwnProperty.call(SIDE_STORY_ENVIRONMENTS, eventId);
 }
 
 export function resolveStorywideActorImage(

@@ -9,7 +9,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { applyVnTextVars, vnTextVarsFor, hidePlayerPortraitDuringNarration, isChoiceAvailable, analyzeVnFlow, parseDialogueString, serializeDialogueLines, splitDialogueLine, type VnFlowPage } from "./vn";
+import { applyVnTextVars, vnTextVarsFor, hidePlayerPortraitDuringNarration, isChoiceAvailable, analyzeVnFlow, parseDialogueString, resolveVnActorBaseImage, resolveVnAuthoredActorImage, serializeDialogueLines, splitDialogueLine, type VnFlowPage } from "./vn";
 import { addStoryTrait } from "./character-progress";
 import type { Character } from "../types/character";
 
@@ -39,6 +39,44 @@ test("narration hides generic Player portraits in either slot, not authored acto
     assert.equal(hidePlayerPortraitDuringNarration("Narrator", "Player", "/portraits/player-scene.webp"), false);
     assert.equal(hidePlayerPortraitDuringNarration("Narrator", "Sefa"), false);
     assert.equal(hidePlayerPortraitDuringNarration("Sefa", "Player"), false);
+});
+
+test("story actors use their named portrait instead of a stale event-wide avatar", () => {
+    assert.equal(
+        resolveVnActorBaseImage("story-interlude-frostfang-village-92", "Pale Pack Runner", undefined, "/portraits/elder-sova.webp"),
+        "/portraits/pale-pack-runner.webp",
+    );
+    assert.equal(
+        resolveVnActorBaseImage("story-frostfang-village-50-4", "Elder Sova", "/portraits/elder-sova-solemn.webp", "/portraits/wrong-elder.webp"),
+        "/portraits/elder-sova-solemn.webp",
+    );
+    assert.equal(
+        resolveVnActorBaseImage("creator-generic", "Guide", undefined, "/portraits/admin-guide.webp"),
+        "/portraits/admin-guide.webp",
+    );
+});
+
+test("story actor overrides cannot put another character under the speaker label", () => {
+    assert.equal(
+        resolveVnAuthoredActorImage("story-frostfang-village-35-3", "Pale Pack Runner", "/portraits/elder-sova.webp"),
+        "",
+    );
+    assert.equal(
+        resolveVnActorBaseImage("story-frostfang-village-35-3", "Pale Pack Runner", "/portraits/elder-sova.webp"),
+        "/portraits/pale-pack-runner.webp",
+    );
+    assert.equal(
+        resolveVnAuthoredActorImage("story-ashen-leaf-village-100-8", "Kage Hoshina Enju", "/portraits/kage-hoshina-enju-hollow.webp"),
+        "/portraits/kage-hoshina-enju-hollow.webp",
+    );
+    assert.equal(
+        resolveVnAuthoredActorImage("creator-generic", "Guide", "data:image/webp;base64,custom"),
+        "data:image/webp;base64,custom",
+    );
+    assert.equal(
+        resolveVnAuthoredActorImage("sys-pet-encounter", "Ember Lynx", "/pet-poses/generic-ai-pet-emberlynx-idle.webp"),
+        "/pet-poses/generic-ai-pet-emberlynx-idle.webp",
+    );
 });
 
 test("addStoryTrait: appends, dedupes, and never mutates the input character", () => {
@@ -133,6 +171,7 @@ test("dialogue round-trips and is stable across repeated passes", () => {
 
 test("splitDialogueLine: 'Speaker: text' splits on the first colon", () => {
     assert.deepEqual(splitDialogueLine("Mira: Wait: listen.", "Narrator"), { speaker: "Mira", text: "Wait: listen." });
+    assert.deepEqual(splitDialogueLine("%name: I can open this.", "Narrator"), { speaker: "%name", text: "I can open this." });
 });
 
 test("splitDialogueLine: a colon-less line uses (trimmed) fallback speaker + whole line", () => {
