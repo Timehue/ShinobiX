@@ -101,6 +101,22 @@ export function grantPetHappiness(pet: RawPet, amount: number, now: number): Raw
 }
 
 /**
+ * SPEND happiness as the price of something (today: the bold expedition route,
+ * shared/pet-expedition-contract.ts). Settles the pending daily decay first, so
+ * the charge comes off what the pet actually holds and the stamp advances with
+ * the same write — a long expedition's collect can otherwise settle its cost
+ * against pre-decay happiness. Floors at 0; never goes negative.
+ */
+export function spendPetHappiness(pet: RawPet, amount: number, now: number): RawPet {
+    const settled = settlePetHappinessState(happinessStateOf(pet), now);
+    return withHappinessSettlement(pet, {
+        ...settled,
+        happiness: Math.max(0, settled.happiness - Math.max(0, Math.floor(Number(amount) || 0))),
+        changed: true,
+    });
+}
+
+/**
  * SUSPEND the bond clock for a pet leaving the carried roster (the Pet
  * Sanctuary). Settles whatever decay is owed up to this moment — so the banked
  * happiness is honest as of the deposit — then drops the stamp, which makes the

@@ -12,6 +12,7 @@ import {
     petFreeInteraction,
     settleCharacterPetHappiness,
     settlePetHappiness,
+    spendPetHappiness,
 } from './_happiness.js';
 
 const DAY = 86_400_000;
@@ -132,5 +133,19 @@ describe('server pet-happiness — interactions', () => {
     it('lets treats and bond training through even when free petting is spent', () => {
         const spentOut = { ...stampedPet('p1', 50), happinessPets: PET_HAPPINESS_DAILY_PET_BUDGET };
         assert.equal(grantPetHappiness(spentOut, 10, DAY_0).happiness, 60);
+    });
+
+    // The bold expedition route (shared/pet-expedition-contract.ts) charges 5
+    // happiness on return. It must come off what the pet ACTUALLY holds.
+    it('spends against the settled value, not the stale stored one', () => {
+        const stale = stampedPet('p1', 20, DAY_0);
+        const spent = spendPetHappiness(stale, 5, daysLater(1));
+        assert.equal(spent.happiness, 20 - PET_HAPPINESS_DAILY_DECAY - 5, 'decay settles first, then the charge');
+        assert.equal(spent.happinessDay, utcDayIndex(daysLater(1)), 'and the stamp advances with the same write');
+    });
+
+    it('floors a spend at 0 rather than going negative', () => {
+        assert.equal(spendPetHappiness(stampedPet('p1', 3), 5, DAY_0).happiness, 0);
+        assert.equal(spendPetHappiness(stampedPet('p1', 0), 5, DAY_0).happiness, 0);
     });
 });
