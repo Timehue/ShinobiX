@@ -18,7 +18,17 @@
          same-origin, or the preload is refetched and wasted. -->
     <link rel="preload" href="/fonts/inter-v20-latin-wght-400-800.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/marcellus-v14-latin-regular.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="/landing-hero-village-v2.webp" as="image" type="image/webp" fetchpriority="high" />
+
+    <!-- The landing hero (193 KB) is NOT preloaded here. It is the LCP element for
+         a first-time visitor and worth fetching at high priority for them, but it
+         is only ever painted by .landing-login-screen and the character creator —
+         a returning player with a saved session goes straight to restore and never
+         renders it, so a static preload spent 193 KB of high-priority bandwidth
+         competing with the entry chunk for a screen they do not see.
+         boot-watchdog.js (the blocking classic script above, which therefore runs
+         BEFORE the parser would have reached this point) injects the preload only
+         when localStorage holds no account. It has to stay in that external file:
+         production's script-src is 'self', so an inline script would be blocked. -->
 
     <title>Shinobi Journey &mdash; A Living Ninja MMO</title>
     <!-- There are four villages (src/data/sectors.ts). This said five, which is
