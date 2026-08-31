@@ -34,47 +34,47 @@ export const SHOWDOWN_MOVE_VFX_KINDS = [
 /** A unique motion grammar per mechanic. Element supplies color/material;
  * family supplies silhouette and movement, so readability never depends on
  * hue alone. */
-export type MoveAccentFamily =
-    | "impact" | "slam" | "siphon" | "repulse" | "vacuum" | "pivot"
-    | "toxin" | "embers" | "wound" | "stun" | "freeze" | "confuse"
-    | "hex" | "mark" | "slow" | "bind" | "buff" | "haste" | "step"
-    | "shield" | "barrier" | "absorb" | "taunt" | "heal" | "weather"
-    | "protect" | "guard" | "rest";
+// Numeric family ids keep the full per-mechanic grammar without shipping the
+// same descriptive string dozens of times through the 3D animation branches.
+// The values are deliberately literal so the client compiler can inline every
+// comparison instead of retaining a runtime enum/lookup object.
+const MOVE_ACCENT_FAMILY = {
+    damage: 1,
+    crush: 2,
+    lifesteal: 3,
+    push: 4,
+    pull: 5,
+    pivot: 6,
+    dot: 7,
+    burn: 8,
+    wound: 9,
+    lacerate: 9,
+    stun: 10,
+    freeze: 11,
+    confuse: 12,
+    debuff: 13,
+    mark: 14,
+    slow: 15,
+    movelock: 16,
+    buff: 17,
+    haste: 18,
+    move: 19,
+    shield: 20,
+    barrier: 21,
+    absorb: 22,
+    taunt: 23,
+    heal: 24,
+    weather: 25,
+    protect: 26,
+    guard: 27,
+    rest: 28,
+} as const;
 
-const MOVE_ACCENT_FAMILY: Record<string, MoveAccentFamily> = {
-    damage: "impact",
-    crush: "slam",
-    lifesteal: "siphon",
-    push: "repulse",
-    pull: "vacuum",
-    pivot: "pivot",
-    dot: "toxin",
-    burn: "embers",
-    wound: "wound",
-    lacerate: "wound",
-    stun: "stun",
-    freeze: "freeze",
-    confuse: "confuse",
-    debuff: "hex",
-    mark: "mark",
-    slow: "slow",
-    movelock: "bind",
-    buff: "buff",
-    haste: "haste",
-    move: "step",
-    shield: "shield",
-    barrier: "barrier",
-    absorb: "absorb",
-    taunt: "taunt",
-    heal: "heal",
-    weather: "weather",
-    protect: "protect",
-    guard: "guard",
-    rest: "rest",
-};
+export type MoveAccentFamily = typeof MOVE_ACCENT_FAMILY[keyof typeof MOVE_ACCENT_FAMILY];
 
 export function moveAccentFamily(kind: string): MoveAccentFamily | null {
-    return MOVE_ACCENT_FAMILY[String(kind ?? "").toLowerCase()] ?? null;
+    const normalized = String(kind ?? "").toLowerCase() as keyof typeof MOVE_ACCENT_FAMILY;
+    return MOVE_ACCENT_FAMILY[normalized] ?? null;
 }
 
 /** Stable per-technique art direction. Same-kind techniques share a readable
