@@ -2,6 +2,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { AdminRole, Biome, JutsuElement, JutsuMethod, JutsuTarget, JutsuType, Rank, Screen } from "../types/core";
 import type { Character, HollowGateEventConfig, PlayerRecord, RewardCurrencyKey, ServerPlayerSummary, VersionedCharacterCommit } from "../types/character";
+import { visiblePoll } from "../lib/poll";
 import type { ArmorQuality, EquipmentSlot, GameItem, Jutsu, ReviewBloodline, SavedBloodline, Stats } from "../types/combat";
 import type { AiAction, AiCondition, AiLoadoutId, AiRecentAction, AiResource, AiRule, AiTarget, CreatorAi } from "../types/creator-ai";
 import type { CreatorMission, CreatorRaid } from "../types/missions";
@@ -1774,8 +1775,7 @@ export function AdminPanel({
         if (activeAdminPanel !== "villageLeaders") return;
         const refreshLeadershipImages = () => setLeadershipImages(loadVillageLeadershipImages());
         refreshLeadershipImages();
-        const id = setInterval(refreshLeadershipImages, 10000);
-        return () => clearInterval(id);
+        return visiblePoll(refreshLeadershipImages, 10000);
     }, [activeAdminPanel]);
     const eventKindFilter: "All" | "reward" | "visualNovel" =
         activeAdminPanel === "eventsRaids" ? "reward"

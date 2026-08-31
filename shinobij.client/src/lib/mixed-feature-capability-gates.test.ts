@@ -60,7 +60,11 @@ describe("mixed-feature public capability wiring", () => {
         assert.ok(hatch.indexOf("breedingRecoveryActionsAvailable") < hatch.indexOf("hatchPetBreeding("));
         assert.ok(hatch.indexOf("mutationAvailability()") < hatch.indexOf("hatchPetBreeding("));
         assert.match(barn, /if \(!breedingReadAvailable\) return;[\s\S]*window\.setTimeout\(\(\) => void refresh\(controller\.signal\), 0\)/, "one initial reconciliation read remains available for stale or cross-device sessions");
-        assert.match(barn, /if \(!breedingReadAvailable \|\| !trackedSessionId\) return;[\s\S]*window\.setInterval/);
+        // The repeating session read is armed through lib/poll's visiblePoll (it
+        // pauses while the tab is hidden and jitters the interval), not a bare
+        // setInterval. What this pins is unchanged: the capability gate and the
+        // tracked-session guard both precede whatever schedules that read.
+        assert.match(barn, /if \(!breedingReadAvailable \|\| !trackedSessionId\) return;[\s\S]*visiblePoll\(/);
         assert.match(barn, /BreedingCountdown[\s\S]*onElapsed=\{\(\) => void refresh\(\)\}/);
         assert.match(barn, /Hatching is paused, but this egg and its bond progress remain safe and visible/);
     });

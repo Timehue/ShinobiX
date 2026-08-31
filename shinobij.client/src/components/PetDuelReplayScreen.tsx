@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Pet } from "../types/pet";
+import { visiblePoll } from "../lib/poll";
 import { PetShowdownReplay } from "./PetShowdownReplay";
 import type { ShowdownReplayScript } from "../../../shared/pet-showdown-contract";
 
@@ -88,10 +89,10 @@ export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: 
     useEffect(() => {
         if (!ready || !session || resolved) return;
         let alive = true;
-        const id = setInterval(() => {
+        const stop = visiblePoll(() => {
             void fetchState().then((s) => { if (alive && s) setSession(s); }).catch(() => { /* best-effort */ });
         }, 4000);
-        return () => { alive = false; clearInterval(id); };
+        return () => { alive = false; stop(); };
     }, [ready, !!session, !!resolved]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const send = useCallback(async () => {

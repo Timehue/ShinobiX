@@ -9,6 +9,7 @@
  */
 import { useState, useEffect, lazy, Suspense } from "react";
 import { createPortal } from "react-dom";
+import { visiblePoll } from "../lib/poll";
 import type { Character } from "../types/character";
 import type { ArenaSlot } from "../lib/pet-arena-sim";
 import { isPetOnExpedition, petDisplayName } from "../lib/pet";
@@ -76,8 +77,8 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
             try { const d = await lobbyApi(myName, "poll", { code: lobby.code }); if (active && d.lobby) setLobby(d.lobby); }
             catch (e) { if (active) { setError((e as Error).message); setLobby(null); } }
         };
-        const iv = setInterval(poll, 2000);
-        return () => { active = false; clearInterval(iv); };
+        const stop = visiblePoll(poll, 2000);
+        return () => { active = false; stop(); };
         // Re-key the interval only on the lobby identity/phase, not every poll result.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [lobby?.code, lobby?.state, myName]);

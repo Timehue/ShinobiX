@@ -3,6 +3,7 @@
    file-level disable for this idiomatic data-fetch effect. */
 import { useCallback, useEffect, useState } from "react";
 import { cwListWars, type CwWar } from "../lib/clan-war-api";
+import { visiblePoll } from "../lib/poll";
 import { ClanWarManual } from "./ClanWarManual";
 import { CW_HP_MAX, CW_DAMAGE } from "../constants/clan";
 import { clanStoresReadout, clanWarFedToday, type ClanStoresTone } from "../lib/clan-stores";
@@ -44,8 +45,7 @@ export function ClanWarsPanel({ character, clanName, provisions, storesOpen = tr
     }, []);
     useEffect(() => {
         void refresh();
-        const id = setInterval(refresh, 20_000);
-        return () => clearInterval(id);
+        return visiblePoll(refresh, 20_000);
     }, [refresh]);
 
     const activeWar = wars.find(w => !w.endedAt && w.clans.includes(clanName));

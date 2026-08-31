@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import barnArt from "../assets/pet-home/breeding-barn.webp";
+import { visiblePoll } from "../lib/poll";
 import eggFire from "../assets/pet-home/egg-fire.webp";
 import eggWater from "../assets/pet-home/egg-water.webp";
 import eggWind from "../assets/pet-home/egg-wind.webp";
@@ -128,8 +129,8 @@ export function PetBreedingBarn({ character, updateCharacter, onVersionedCharact
     useEffect(() => {
         if (!breedingReadAvailable || !trackedSessionId) return;
         const controller = new AbortController();
-        const id = window.setInterval(() => void refresh(controller.signal), 45_000);
-        return () => { controller.abort(); window.clearInterval(id); };
+        const stop = visiblePoll(() => void refresh(controller.signal), 45_000);
+        return () => { controller.abort(); stop(); };
     }, [breedingReadAvailable, refresh, trackedSessionId]);
     useEffect(() => {
         if (!confirmOpen && !hatchedPet) return;

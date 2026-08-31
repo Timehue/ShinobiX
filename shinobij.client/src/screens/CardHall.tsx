@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Character, VersionedCharacterCommit } from "../types/character";
+import { visiblePoll } from "../lib/poll";
 import type { TileCard } from "../data/tile-cards";
 import "../styles/chronicle-duel.css";
 import {
@@ -1044,13 +1045,13 @@ function FreePlayQueue({
         lease.pollBusy = false;
       }
     };
-    const timer = window.setInterval(() => void poll(), 2500);
+    const stop = visiblePoll(() => void poll(), 2500);
     void poll();
     return () => {
       alive = false;
       controller.abort();
       lease.controllers.delete(controller);
-      window.clearInterval(timer);
+      stop();
     };
   }, [searching, pageVisible, activeAuthority, onStart, leaseIsCurrent]);
 
