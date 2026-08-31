@@ -13,9 +13,10 @@ import path from "node:path";
 import { storylines } from "./storylines";
 import { storyInterludesByVillage } from "./story-interludes";
 import { storyEpiloguesByVillage } from "./story-epilogues";
+import { storyReckonings } from "./story-reckonings";
 import { storyRoadEvents } from "./story-road-events";
 import { hollowRifts } from "./hollow-rifts";
-import { splitDialogueLine } from "../lib/vn";
+import { defaultVnPortrait, resolveVnActorBaseImage, splitDialogueLine } from "../lib/vn";
 import { DERIVED_TRAIT_LEVELS } from "../lib/story-derive";
 
 const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "public");
@@ -26,9 +27,10 @@ const slugify = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-")
 // Speakers that intentionally render as initials (no portrait file).
 const NO_PORTRAIT_OK = new Set(["narrator", "player", "unknown-voice"]);
 
-type AnyPage = { title: string; scene: string; speaker: string; dialogue: string[]; image?: string; rightImage?: string; choices?: { text: string; nextPage: number; requireTrait?: string; forbidTrait?: string; trait?: string; battle?: unknown; conclusion?: string }[] };
+type AnyPage = { title: string; scene: string; speaker: string; dialogue: string[]; image?: string; leftName?: string; rightName?: string; leftImage?: string; rightImage?: string; choices?: { text: string; nextPage: number; requireTrait?: string; forbidTrait?: string; trait?: string; battle?: unknown; conclusion?: string }[] };
+type SpeakerPage = Pick<AnyPage, "speaker" | "dialogue">;
 
-function collectSpeakers(pages: AnyPage[], into: Map<string, string>) {
+function collectSpeakers(pages: readonly SpeakerPage[], into: Map<string, string>) {
     for (const page of pages) {
         into.set(slugify(page.speaker), page.speaker);
         // Dialogue lines may carry a "Speaker: text" prefix that the renderer
@@ -51,6 +53,14 @@ function allContent(): { label: string; pages: AnyPage[]; kind: "milestone" | "i
     }
     for (const event of storyRoadEvents) out.push({ label: `road ${event.slug}`, pages: event.pages as AnyPage[], kind: "road" });
     return out;
+}
+
+function allStorySpeakerPages(): SpeakerPage[] {
+    return [
+        ...allContent().flatMap(({ pages }) => pages),
+        ...Object.values(storyEpiloguesByVillage).flatMap((epilogues) => epilogues.flatMap((epilogue) => epilogue.pages)),
+        ...storyReckonings.flatMap((reckoning) => [...reckoning.intro, ...reckoning.payoff]),
+    ];
 }
 
 test("Frostfang's quarry count and Kessa's escape stay internally consistent", () => {
@@ -181,13 +191,68 @@ test("main-story dialogue stays paced into readable beats", () => {
 
 test("every story speaker has portrait art (or is an intentional initials speaker)", () => {
     const speakers = new Map<string, string>();
-    for (const { pages } of allContent()) collectSpeakers(pages, speakers);
+    collectSpeakers(allStorySpeakerPages(), speakers);
     const missing: string[] = [];
     for (const [slug, name] of speakers) {
         if (!slug || NO_PORTRAIT_OK.has(slug)) continue;
         if (!existsSync(path.join(PUBLIC_DIR, "portraits", `${slug}.webp`))) missing.push(`${name} -> portraits/${slug}.webp`);
     }
     assert.deepEqual(missing, [], `speakers without portrait art:\n${missing.join("\n")}`);
+});
+
+test("every story line binds the displayed character to that character's portrait", () => {
+    let checkedLines = 0;
+    for (const page of allStorySpeakerPages() as AnyPage[]) {
+        const savedRightWasPlayer = (page.rightName ?? "").trim().toLowerCase() === "player";
+        const leftName = savedRightWasPlayer ? "Player" : (page.leftName || "Player");
+        for (const line of page.dialogue) {
+            checkedLines += 1;
+            const { speaker } = splitDialogueLine(line, page.speaker);
+            const rightName = savedRightWasPlayer
+                ? (page.leftName || page.speaker || speaker)
+                : (page.rightName || page.speaker || speaker);
+            const speakerKey = speaker.trim().toLowerCase();
+            const isLeftSpeaker = speakerKey === leftName.trim().toLowerCase();
+            const isRightSpeaker = speakerKey === rightName.trim().toLowerCase();
+            assert.ok(isLeftSpeaker || isRightSpeaker, `${page.title}: ${speaker} has no matching actor slot`);
+            if (!isRightSpeaker) continue;
+
+            const authoredImage = savedRightWasPlayer
+                ? (page.leftImage || page.rightImage)
+                : page.rightImage;
+            const resolvedImage = resolveVnActorBaseImage(
+                "story-character-route-audit",
+                rightName,
+                authoredImage,
+                "/portraits/elder-sova.webp",
+            );
+            assert.equal(
+                resolvedImage,
+                authoredImage?.trim() || defaultVnPortrait(rightName),
+                `${page.title}: ${rightName} inherited another character's event avatar`,
+            );
+            if (authoredImage && !NO_PORTRAIT_OK.has(slugify(rightName))) {
+                assert.ok(
+                    authoredImage.includes(slugify(rightName)),
+                    `${page.title}: ${rightName} is explicitly mapped to ${authoredImage}`,
+                );
+            }
+        }
+    }
+    assert.ok(checkedLines > 2_400, `portrait-route audit unexpectedly covered only ${checkedLines} lines`);
+});
+
+test("canonical story copy keeps Hoshina Enju, Elder Sova, and the Pale Pack Runner female", () => {
+    const ashenCopy = (storylines["Ashen Leaf Village"].flatMap((step) => step.pages ?? []) as AnyPage[])
+        .flatMap((page) => page.dialogue).join(" ");
+    const palePackCopy = storyInterludesByVillage["Frostfang Village"]
+        .flatMap((entry) => entry.pages).flatMap((page) => [page.scene, ...page.dialogue]).join(" ");
+    const sovaCopy = storyReckonings.find((reckoning) => reckoning.slug === "sova-true-roll")
+        ?.intro.flatMap((page) => page.dialogue).join(" ") ?? "";
+
+    assert.match(ashenCopy, /Hoshina kept this village alive.*since she became Kage/i);
+    assert.match(palePackCopy, /Pale Pack Runner with frost in her hood/i);
+    assert.match(sovaCopy, /Sova stands.*with her coat open to the cold/i);
 });
 
 test("every stamped scene backdrop and finale hollow-form image exists on disk", () => {

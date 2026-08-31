@@ -60,7 +60,7 @@ test("intermediate pages resolve to a semantic village scene family", () => {
 });
 
 test("major chapter beats receive authored camera, motion, cue, and expression direction", () => {
-    assert.equal(Object.keys(MAJOR_STORY_DIRECTIONS).length, 52);
+    assert.equal(Object.keys(MAJOR_STORY_DIRECTIONS).length, 56);
     const villageKeys = {
         "Stormveil Village": "stormveil",
         "Ashen Leaf Village": "ashen",
@@ -123,13 +123,34 @@ test("recurring story actors receive consistent transparent cutouts", () => {
     );
     assert.equal(
         resolveStorywideActorImage("story-frostfang-village-100-8", "Elder Sova", "solemn"),
-        "/portraits/cinematic/storywide/elder-sova-solemn.webp",
+        "/portraits/cinematic/storywide/elder-sova-solemn-canon.webp",
+    );
+    assert.equal(
+        resolveStorywideActorImage("story-ashen-leaf-village-100-8", "Kage Hoshina Enju", "tense"),
+        "/portraits/cinematic/storywide/kage-hoshina-enju-tense-canon.webp",
+    );
+    assert.equal(
+        resolveStorywideActorImage("story-frostfang-village-35-3", "Pale Pack Runner"),
+        "/portraits/pale-pack-runner.webp",
     );
     assert.equal(
         resolveStorywideActorImage("story-moonshadow-village-100-8", "Shade Master Iro", "solemn"),
         "/portraits/cinematic/storywide/shade-master-iro-solemn.webp",
     );
     assert.equal(resolveStorywideActorImage("creator-generic", "Mira Volt"), undefined);
+});
+
+test("every cinematic actor route names the character it depicts", () => {
+    const actorSlug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    for (const [name, asset] of Object.entries(STORYWIDE_ACTORS)) {
+        assert.ok(asset.includes(actorSlug(name)), `${name} is incorrectly routed to ${asset}`);
+    }
+    for (const [name, variants] of Object.entries(STORYWIDE_ACTOR_VARIANTS)) {
+        for (const asset of Object.values(variants)) {
+            if (!asset) continue;
+            assert.ok(asset.includes(actorSlug(name)), `${name} variant is incorrectly routed to ${asset}`);
+        }
+    }
 });
 
 test("each final reckoning resolves to its bespoke climax environment", () => {
@@ -197,7 +218,7 @@ test("the story-wide cinematic package is present and within asset budgets", () 
         ...new Set(Object.values(STORYWIDE_ACTOR_VARIANTS).flatMap((variants) => Object.values(variants))),
     ];
 
-    assert.equal(new Set(Object.values(STORYWIDE_ACTORS)).size, 14);
+    assert.equal(new Set(Object.values(STORYWIDE_ACTORS)).size, 28);
     assert.equal(Object.values(STORYWIDE_ENVIRONMENTS).flatMap((families) => Object.values(families)).length, 16);
     assert.equal(Object.values(STORYWIDE_ENVIRONMENT_VARIANTS).flatMap((variants) => Object.values(variants)).length, 8);
     assert.equal(Object.values(STORYWIDE_CLIMAX_ENVIRONMENTS).length, 4);
