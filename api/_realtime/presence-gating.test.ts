@@ -32,13 +32,20 @@ test('attackBlock: already has pendingAttacker → 409', () => {
 test('attackBlock: inBattle → 409', () => {
     assert.equal(attackBlock(player({ inBattle: true }), NOW)?.status, 409);
 });
-test('attackBlock: sub-Genin (level < 15) → 403 Academy protection', () => {
-    const b = attackBlock(player({ character: { level: 10 } }), NOW);
+test('attackBlock: below level 10 → 403 newcomer protection', () => {
+    // Owner ruling 2026-08-30: protection ends at level 10, NOT at Genin (15).
+    // This used to assert the Academy floor, which made a sector raid refuse
+    // levels 10-14 — protection the owner explicitly ruled against. It also has
+    // to agree with the session chokepoint, which gates on the same floor from
+    // the authoritative save.
+    const b = attackBlock(player({ character: { level: 9 } }), NOW);
     assert.equal(b?.status, 403);
-    assert.match(b!.error, /Academy/i);
+    assert.match(b!.error, /newcomer/i);
 });
-test('attackBlock: Genin (level 15) is NOT Academy-protected', () => {
-    assert.equal(attackBlock(player({ character: { level: 15 } }), NOW), null);
+test('attackBlock: level 10 and up is attackable, including levels 10-14', () => {
+    for (const level of [10, 12, 14, 15, 40]) {
+        assert.equal(attackBlock(player({ character: { level } }), NOW), null, `level ${level} must be attackable`);
+    }
 });
 test('attackBlock: unknown level (0 / missing) does NOT block', () => {
     assert.equal(attackBlock(player({ character: { level: 0 } }), NOW), null);

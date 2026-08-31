@@ -7,19 +7,57 @@
  * `onlineStore.get(name)` and passes the result here.
  *
  * Behavior matches the previous DB-backed checks in attack.ts / challenge.ts,
- * including the Academy-Student protection (sub-Genin players can't be
- * attacked/challenged). A `null` target means "not online".
+ * with ONE deliberate divergence (2026-08-30): Academy protection now applies to
+ * challenges only. A world raid gates on ATTACKABLE_MIN_LEVEL (10), per the
+ * owner's ruling that a player is protected only until level 10.
+ * A `null` target means "not online".
  */
 import type { OnlinePlayer } from './types.js';
 import { safeName } from '../_utils.js';
 
 export type Block = { status: 403 | 404 | 409; error: string };
 
-// Shinobi below this level are under "Academy protection" — they can't be
-// attacked in the sectors (or sign up for guard duty, which exposes them to
-// sector attacks), so brand-new players aren't farmed before they learn the
-// game. Level 0/unknown is NOT protected (a missing field can't break a
-// legitimate fight).
+/*
+ * ⚠ KNOWN GAP — `target.inBattle` is asserted by the client and nothing corroborates it.
+ *
+ * Every "is in a battle" 409 below reads a flag the target's own heartbeat set
+ * (api/player/heartbeat.ts passes `inBattle` straight into onlineStore.upsert).
+ * The identity check there stops you setting it on SOMEONE ELSE, but nothing
+ * stops a tampered client asserting it about ITSELF forever: they stay visible
+ * in their sector, keep full wild-field income (sectorPresenceBlock only checks
+ * the sector), and are un-attackable — and, being online, they never convert to
+ * a sleeper camp either. That is the same "PvE income, PvP immunity" trade
+ * _sector-presence-gate.ts was written to close via `sector: 0`; this is the
+ * other door.
+ *
+ * It is deliberately NOT patched here, because there is no honest corroboration
+ * source yet:
+ *   • `battle:lock:<slug>` (api/battle/lock.ts) does NOT cover current fights —
+ *     "Current Solo PvE, PvP, and Tower hosts instead recover their sealed
+ *     sessions from their own server stores". Gating on it would strip immunity
+ *     from players genuinely mid-fight and pull them into a second battle.
+ *   • the PvP pending-session pointer is authoritative but PvP-only, so it would
+ *     do the same to anyone in a Solo PvE / Tower / dungeon / pet fight.
+ * Closing this needs a server-side battle-state source that every fight-start
+ * path writes — a design change, not a predicate tweak.
+ *
+ * Sibling fields, for contrast: `travelingUntil` looks equally client-supplied
+ * and is NOT — upsert ignores `entry.travelingUntil` entirely and only a minted
+ * travel lease can set it (pinned in online-store.test.ts). And an actor
+ * blocking THEMSELVES with `inBattle` is harmless; only the target-side reads
+ * below confer immunity.
+ */
+
+// "Academy protection". ⚠ This is NOT the attackability floor — per the owner's
+// 2026-08-30 ruling, **a player is protected only until level 10**, and that
+// floor is ATTACKABLE_MIN_LEVEL below. What this threshold still governs:
+//   • signing up for guard duty (api/village-guard/queue.ts) — volunteering FOR
+//     danger, which is a different question from being protected from it; and
+//   • being pulled into a competitive CHALLENGE (ranked / clan-war) by someone
+//     else, where a level-10 floor already applies via each queue's own gate.
+// Level 0/unknown is NOT protected (a missing field can't break a legitimate
+// fight). Do not reintroduce this into attackBlock: it made sector raids refuse
+// levels 10-14, which is exactly the protection the owner ruled against.
 export const ACADEMY_MIN_LEVEL = 15;
 
 // Hard floor for NON-consensual / competitive PvP (sector raids + ranked).
@@ -53,7 +91,9 @@ export function isAcademyProtectedLevel(level: number): boolean {
 // Competitive PvP ladders (ranked, clan-war 1v1/2v2) keep the sub-Genin gate.
 const ACADEMY_EXEMPT_CHALLENGE_MODES = new Set<string>(['standard', 'clanWarPet', 'rankedPet']);
 
-function academyBlock(target: OnlinePlayer, verb: 'attacked' | 'challenged'): Block | null {
+// Only CHALLENGES still consult this. attackBlock deliberately does not —
+// world raids gate on ATTACKABLE_MIN_LEVEL (10) per the owner's ruling.
+function academyBlock(target: OnlinePlayer, verb: 'challenged'): Block | null {
     const level = Number((target.character as Record<string, unknown> | null)?.level ?? 0);
     if (isAcademyProtectedLevel(level)) {
         return {
@@ -66,13 +106,29 @@ function academyBlock(target: OnlinePlayer, verb: 'attacked' | 'challenged'): Bl
 
 /**
  * Why an attack on `target` must be rejected, or null if it may proceed.
- * Order mirrors attack.ts: offline → 404; Academy → 403; traveling / already-
- * queued / in-battle → 409.
+ * Order mirrors attack.ts: offline → 404; newcomer floor → 403; traveling /
+ * already-queued / in-battle → 409.
+ *
+ * The floor is ATTACKABLE_MIN_LEVEL (10), matching the owner's ruling that a
+ * player is protected only until level 10 — and matching the gate the session
+ * chokepoint already applies from the authoritative save, so the two cannot
+ * disagree and refuse a raid here that would have been allowed there. This
+ * deliberately does NOT use ACADEMY_MIN_LEVEL (15); see its note above.
+ *
+ * Presence levels can momentarily read 0 on an un-warmed record, and
+ * isBelowAttackableFloor treats 0 as "unknown, not protected", so this can pass
+ * a target the session gate then refuses from their real save. That ordering is
+ * correct: the save-backed gate is the authority, this one is the fast refusal.
  */
 export function attackBlock(target: OnlinePlayer | null, now: number = Date.now()): Block | null {
     if (!target) return { status: 404, error: 'Target not online.' };
-    const academy = academyBlock(target, 'attacked');
-    if (academy) return academy;
+    const level = Number((target.character as Record<string, unknown> | null)?.level ?? 0);
+    if (isBelowAttackableFloor(level)) {
+        return {
+            status: 403,
+            error: `Shinobi below level ${ATTACKABLE_MIN_LEVEL} are under newcomer protection and cannot be attacked.`,
+        };
+    }
     if (target.travelingUntil && target.travelingUntil > now) {
         return { status: 409, error: 'Target is traveling and cannot be attacked.' };
     }

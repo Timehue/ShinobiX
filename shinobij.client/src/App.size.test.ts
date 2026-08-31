@@ -327,7 +327,16 @@ import { readFileSync } from "node:fs";
 // main) — Bloodline Maker rank/edit/awakening transition state moved into
 // lib/use-bloodline-maker-flow.ts. App now owns only the hook mount and render
 // wiring; the transition sequences no longer regrow the monolith at three sites.
-const MAX_LINES = 7_513;
+// → 7,499 LOWERED (−14) — the heartbeat's adaptive interval moved into
+// lib/heartbeat-cadence.ts, which is also where the reasoning for a hidden tab's
+// slow beat now lives instead of growing App.
+// → 7,505 (−8 net vs the 7,513 this branch inherited). Restoring the world
+// attack gate cost App six lines it cannot avoid: the gate is a step in the
+// sector-attack flow, whose 120-line inline handler still lives in App. All of
+// its logic and reasoning went to lib/world-attack-claim.ts; only the call sites
+// are here. Still a net drain for the branch — but the next person to touch this
+// handler should extract it wholesale, which is worth ~110 lines on its own.
+const MAX_LINES = 7_505;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

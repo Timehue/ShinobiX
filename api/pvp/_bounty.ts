@@ -11,6 +11,13 @@
  * the core small-population retention hook.
  */
 
+// Storage keys live HERE, not in the route, because more than one settlement
+// path now pays a head: the live duel (api/pvp/bounty.ts) and the sleeping-camp
+// KO (api/player/sleeper-kill.ts). Two copies of this string would silently
+// split the board in half — one pool nobody could claim from the other door.
+export const BOUNTY_KEY = 'pvp:bounties';
+export const BOUNTY_AUDIT_PREFIX = 'audit:pvp-bounty:';
+
 export const BOUNTY_MIN_PLACE = 1_000;        // min ryo per placement
 export const BOUNTY_MAX_PLACE = 1_000_000;    // max ryo per single placement
 export const BOUNTY_MAX_PER_TARGET = 10_000_000; // cap on a single head's pool
