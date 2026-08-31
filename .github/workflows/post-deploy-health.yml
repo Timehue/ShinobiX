@@ -1,0 +1,124 @@
+# Post-deploy readiness probe.
+#
+# Railway's configured health check is `/health`, which reports process liveness
+# WITHOUT touching storage (server.ts). That is the right call for a liveness
+# check — a slow database must not flap the deploy — but with numReplicas: 1 the
+# same check is also the cutover gate. A container that boots cleanly with a bad
+# SUPABASE_* env or an unreachable database passes it, Railway routes traffic to
+# it and kills the old one, and the game is down with no automatic rollback.
+#
+# The probe that would catch this already exists (`/health?deep=1`, and
+# scripts/release-health-check.mjs which drives it). Nothing ran it. This does.
+#
+# It cannot block the cutover — Railway has already switched by the time the new
+# container answers — so this is an ALARM, not a gate: it turns a silent
+# bad-env deploy into a failed workflow run instead of a live outage nobody is
+# paged for. Roll back from the Railway dashboard when it fires.
+name: Post-deploy health
+
+permissions:
+  contents: read
+
+on:
+  # Railway builds from main after CI passes, so a completed CI run is the
+  # earliest reliable signal that a deploy is on its way.
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  # Manual re-check (after a rollback, or to confirm a hotfix landed).
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: "Full SHA the live server must report (blank = accept any)"
+        required: false
+        type: string
+
+concurrency:
+  group: post-deploy-health
+  cancel-in-progress: true
+
+# ci.yml's note applies here too: GitHub's default `run:` shell has no pipefail,
+# so a piped step reports the LAST command's status and a crashing probe records
+# as green. Naming the shell gets `bash --noprofile --norc -eo pipefail {0}`.
+defaults:
+  run:
+    shell: bash
+
+env:
+  NODE_VERSION: 22.23.1
+
+jobs:
+  probe:
+    # A failed CI run means Railway never deployed; probing would just re-test
+    # whatever is already live and could red-X for an unrelated reason.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # Both secrets are required to probe anything. Skipping (rather than
+      # failing) keeps this workflow from red-X-ing a fork or a checkout that
+      # was never wired to a deployment.
+      - name: Check probe configuration
+        id: config
+        env:
+          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
+          HEALTH_DEEP_TOKEN: ${{ secrets.HEALTH_DEEP_TOKEN }}
+        run: |
+          if [ -z "$PRODUCTION_URL" ] || [ -z "$HEALTH_DEEP_TOKEN" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipped — set the PRODUCTION_URL and HEALTH_DEEP_TOKEN repository secrets to enable the post-deploy probe."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Railway rebuilds the image from source, so the new revision can be
+      # minutes away. Wait for /health to report the commit we expect rather
+      # than probing whatever happens to be live and calling it a pass.
+      - name: Wait for the new revision to serve
+        if: steps.config.outputs.configured == 'true'
+        env:
+          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
+          EXPECTED_COMMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.commit || github.event.workflow_run.head_sha }}
+        run: |
+          base="${PRODUCTION_URL%/}"
+          want="$(printf '%s' "$EXPECTED_COMMIT" | tr '[:upper:]' '[:lower:]')"
+          if [ -z "$want" ]; then
+            echo "No expected commit — probing whatever is currently live."
+            exit 0
+          fi
+          # 40 tries x 30s = 20 minutes, comfortably past a cold Docker build.
+          for i in $(seq 1 40); do
+            # `|| true` is load-bearing: `defaults.run.shell: bash` gives -eo
+            # pipefail, so an unreachable server (curl -f on a 502 mid-cutover)
+            # would otherwise abort this script on the first attempt — during
+            # exactly the window this loop exists to wait out.
+            got="$(curl -fsS --max-time 20 "$base/health" 2>/dev/null \
+              | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write(String(JSON.parse(s).commit??""))}catch{process.stdout.write("")}})' \
+              | tr '[:upper:]' '[:lower:]' || true)"
+            if [ "$got" = "$want" ]; then
+              echo "Live revision matches $want after $i attempt(s)."
+              exit 0
+            fi
+            echo "attempt $i/40: live=${got:-unreachable} want=$want"
+            sleep 30
+          done
+          echo "::error::Timed out after 20 minutes waiting for $want to go live. The deploy may have failed or been rolled back — check the Railway dashboard."
+          exit 1
+
+      # The real check: /health?deep=1 exercises the storage layer the game
+      # actually depends on, and 503s when it cannot reach it.
+      - name: Deep health probe
+        if: steps.config.outputs.configured == 'true'
+        env:
+          HEALTH_DEEP_TOKEN: ${{ secrets.HEALTH_DEEP_TOKEN }}
+          EXPECTED_SAVE_STORE: ${{ vars.EXPECTED_SAVE_STORE || 'base-store' }}
+          REQUIRE_KNOWN_COMMIT: '1'
+        run: node scripts/release-health-check.mjs "${{ secrets.PRODUCTION_URL }}"
