@@ -145,7 +145,6 @@ export function scribeIntroEvent(biome: Biome): CreatorEvent {
             title: page.title,
             scene: page.scene,
             speaker: SCRIBE_NAME,
-            rightImage: SCRIBE_PORTRAIT,
             dialogue: page.dialogue,
             choices: index === last
                 ? [

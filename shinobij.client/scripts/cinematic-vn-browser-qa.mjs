@@ -4,7 +4,7 @@ import path from "node:path";
 import process from "node:process";
 import { chromium } from "playwright";
 
-const baseUrl = process.env.CINEMATIC_VN_BASE_URL ?? "https://127.0.0.1:4173";
+const baseUrl = process.argv[2] ?? process.env.CINEMATIC_VN_BASE_URL ?? "https://vite.dev.localhost:4173";
 const outputDir = path.resolve("tmp", "imagegen", "vn-improvements", "browser-qa");
 await mkdir(outputDir, { recursive: true });
 
@@ -49,6 +49,10 @@ async function openPreview({
     reducedMotion = false,
     hollow = false,
     expectedActor,
+    expectedBackground,
+    expectedDialogueText,
+    expectedActorCount = 2,
+    chapter,
     playerAvatar,
 }) {
     const page = await browser.newPage({
@@ -77,12 +81,17 @@ async function openPreview({
     url.searchParams.set("preview", "vn");
     url.searchParams.set("village", village);
     url.searchParams.set("state", state);
+    if (chapter) url.searchParams.set("chapter", chapter);
     if (hollow) url.searchParams.set("hollow", "1");
     if (playerAvatar) url.searchParams.set("avatar", playerAvatar);
-    const response = await page.goto(url.href, { waitUntil: "networkidle", timeout: 30_000 });
+    // Vite keeps its HMR transport open in development, so DOM readiness plus
+    // explicit stage/image waits is a more deterministic contract than the
+    // browser-wide network-idle heuristic.
+    const response = await page.goto(url.href, { waitUntil: "domcontentloaded", timeout: 90_000 });
     assert.equal(response?.status(), 200, `${name}: preview did not load`);
     await page.locator(".cvn-root").waitFor({ state: "visible" });
     await page.waitForFunction(() => Array.from(document.images).every((image) => image.complete));
+    await page.waitForTimeout(800);
 
     const metrics = await page.evaluate(() => {
         const visible = (element) => {
@@ -127,11 +136,12 @@ async function openPreview({
 
     assert.equal(metrics.overlay, false, `${name}: framework error overlay`);
     assert.ok(metrics.horizontalOverflow <= 1, `${name}: ${metrics.horizontalOverflow}px horizontal overflow`);
-    assert.equal(metrics.actorImages.length, 2, `${name}: actor pair missing`);
+    assert.equal(metrics.actorImages.length, expectedActorCount, `${name}: unexpected actor count`);
     assert.ok(metrics.actorImages.every((image) => image.decoded), `${name}: actor image failed to decode`);
     assert.ok(metrics.buttons.every((button) => button.width >= 44 && button.height >= 44), `${name}: undersized control ${JSON.stringify(metrics.buttons)}`);
-    assert.match(metrics.background, new RegExp(expectedBackdrop[village][state].replace(".", "\\.")), `${name}: semantic backdrop was not routed`);
-    assert.match(metrics.dialogueText, new RegExp(expectedDialogue[state]), `${name}: dialogue line was not rendered`);
+    const backdrop = expectedBackground ?? expectedBackdrop[village][state];
+    assert.match(metrics.background, new RegExp(backdrop.replace(".", "\\.")), `${name}: expected backdrop was not routed`);
+    assert.match(metrics.dialogueText, new RegExp(expectedDialogueText ?? expectedDialogue[state]), `${name}: dialogue line was not rendered`);
     if (expectedActor) {
         assert.ok(
             metrics.actorImages.some((image) => image.src?.includes(expectedActor)),
@@ -218,6 +228,91 @@ try {
         { name: "frostfang-aftermath-768x1024", width: 768, height: 1024, village: "frostfang", state: "aftermath" },
         { name: "ashen-crisis-1366x768", width: 1366, height: 768, village: "ashen", state: "crisis" },
         {
+            name: "frostfang-pale-pack-one-bell-1366x768",
+            width: 1366,
+            height: 768,
+            village: "frostfang",
+            state: "standard",
+            chapter: "pale-pack",
+            playerAvatar: "square",
+            expectedActor: "pale-pack-runner.webp",
+            expectedBackground: "frostfang-pale-pack-cavern-mouth.webp",
+            expectedDialogueText: "They've done this before",
+        },
+        {
+            name: "road-border-smoke-1366x768",
+            width: 1366,
+            height: 768,
+            village: "stormveil",
+            state: "standard",
+            chapter: "road",
+            playerAvatar: "square",
+            expectedActor: "pell-marrow.webp",
+            expectedBackground: "story-road-border-smoke.webp",
+            expectedDialogueText: "Miller's Ford",
+        },
+        {
+            name: "rift-legacy-echo-1366x768",
+            width: 1366,
+            height: 768,
+            village: "moonshadow",
+            state: "standard",
+            chapter: "rift",
+            playerAvatar: "square",
+            expectedActor: "senna-graveward.webp",
+            expectedBackground: "rift-giver-legacy-echo.webp",
+            expectedDialogueText: "Hold this brush",
+        },
+        {
+            name: "chronicle-scribe-1366x768",
+            width: 1366,
+            height: 768,
+            village: "stormveil",
+            state: "standard",
+            chapter: "scribe",
+            playerAvatar: "square",
+            expectedActor: "scribe-ihara.webp",
+            expectedBackground: "chronicle-scribe.webp",
+            expectedDialogueText: "Hold up, you",
+        },
+        {
+            name: "hidden-dungeon-1366x768",
+            width: 1366,
+            height: 768,
+            village: "moonshadow",
+            state: "standard",
+            chapter: "dungeon",
+            playerAvatar: "square",
+            expectedActor: "dungeon-warden.webp",
+            expectedBackground: "builtin-hidden-dungeon.webp",
+            expectedDialogueText: "Field record",
+        },
+        {
+            name: "pet-encounter-1366x768",
+            width: 1366,
+            height: 768,
+            village: "stormveil",
+            state: "standard",
+            chapter: "pet",
+            expectedActorCount: 1,
+            expectedActor: "generic-ai-pet-guardhound-idle.webp",
+            expectedBackground: "sys-pet-encounter.webp",
+            expectedDialogueText: "A branch snaps",
+            completionAction: "Meet Companion",
+        },
+        {
+            name: "ancient-chest-1366x768",
+            width: 1366,
+            height: 768,
+            village: "ashen",
+            state: "standard",
+            chapter: "chest",
+            expectedActorCount: 0,
+            expectedBackground: "sys-ancient-chest.webp",
+            expectedDialogueText: "You clear two loose stones",
+            completionAction: "Open Chest",
+        },
+        {
             name: "stormveil-hollow-finale-1366x768",
             width: 1366,
             height: 768,
@@ -231,7 +326,7 @@ try {
     ];
     for (const scenario of scenarios) {
         const page = await openPreview(scenario);
-        if (scenario.expectedActor) {
+        if (scenario.hollow) {
             await page.getByRole("button", { name: "Unmute game audio" }).click();
             await page.waitForFunction(() => window.__vnQaAudio?.some((audio) => audio.src.includes("/music/vn/hollow-gate-four-debts.ogg")));
             const scoreBefore = await page.evaluate(() => {
@@ -252,6 +347,31 @@ try {
                 `${scenario.name}: score restarted between lines`,
             );
             await page.screenshot({ path: path.join(outputDir, `${scenario.name}-speaking.png`) });
+        }
+        if (scenario.completionAction) {
+            for (let step = 0; step < 20; step += 1) {
+                const completion = page.getByRole("button", { name: scenario.completionAction });
+                if (await completion.isVisible().catch(() => false)) break;
+                const advance = page.getByRole("button", { name: /^(Next|Continue)$/ }).last();
+                assert.equal(await advance.isVisible().catch(() => false), true, `${scenario.name}: story could not reach its completion handoff`);
+                await advance.click();
+                await page.waitForTimeout(50);
+            }
+            assert.equal(
+                await page.getByRole("button", { name: scenario.completionAction }).isVisible().catch(() => false),
+                true,
+                `${scenario.name}: ${scenario.completionAction} handoff missing`,
+            );
+            // Let the finale's entrance transform settle before preserving the
+            // visual artifact; an in-flight scale/slide is intentionally clipped
+            // by the immersive viewport and is not the resting layout.
+            await page.waitForTimeout(900);
+            // Playwright scrolls the active control into view before clicking;
+            // reset that test-only document scroll so fixed immersive framing is
+            // captured from the same origin as a normal pointer interaction.
+            await page.evaluate(() => window.scrollTo(0, 0));
+            await page.waitForTimeout(100);
+            await page.screenshot({ path: path.join(outputDir, `${scenario.name}-finale.png`) });
         }
         if (scenario.width >= 801) {
             assert.equal(await page.getByRole("button", { name: "Visual novel settings" }).isVisible().catch(() => false), false, `${scenario.name}: mobile settings should be hidden`);

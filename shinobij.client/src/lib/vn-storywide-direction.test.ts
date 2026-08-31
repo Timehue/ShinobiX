@@ -4,6 +4,11 @@ import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import type { CreatorEvent } from "../types/vn";
 import { storylines } from "../data/storylines";
+import { storyInterludesByVillage } from "../data/story-interludes";
+import { storyRoadEvents } from "../data/story-road-events";
+import { hollowRifts } from "../data/hollow-rifts";
+import { defaultAncientChestVn, defaultPetEncounterVn } from "../data/default-vn-events";
+import { auraSphereLv9VnEvent, awakeningLv2VnEvent, craftDungeonEvents, hiddenDungeonVnEvent } from "../data/vn-events";
 import {
     isPremiumVnEvent,
     MAJOR_STORY_DIRECTIONS,
@@ -12,8 +17,10 @@ import {
     resolveStorySceneVariant,
     resolveStorywideActorImage,
     resolveStorywideDirection,
+    SIDE_STORY_ENVIRONMENTS,
     STORYWIDE_ACTOR_VARIANTS,
     STORYWIDE_ACTORS,
+    STORYWIDE_CHARACTER_GENDERS,
     STORYWIDE_CLIMAX_ENVIRONMENTS,
     STORYWIDE_ENVIRONMENT_VARIANTS,
     STORYWIDE_ENVIRONMENTS,
@@ -93,7 +100,29 @@ test("major chapter beats receive authored camera, motion, cue, and expression d
 
 test("all story events are premium while creator events stay automatic", () => {
     assert.equal(isPremiumVnEvent("story-road-border-smoke"), true);
+    assert.equal(isPremiumVnEvent("rift-giver-legacy-echo"), true);
+    assert.equal(isPremiumVnEvent("rift-descend-legacy-echo"), true);
+    assert.equal(isPremiumVnEvent("chronicle-scribe"), true);
+    assert.equal(isPremiumVnEvent("legacy-sage-offer"), true);
+    assert.equal(isPremiumVnEvent("builtin-hidden-dungeon"), true);
+    assert.equal(isPremiumVnEvent("craft-dungeon-snow"), true);
+    assert.equal(isPremiumVnEvent("sys-ancient-chest"), true);
     assert.equal(isPremiumVnEvent("creator-generic"), false);
+});
+
+test("side stories keep their bespoke cinematic environment on every page", () => {
+    const road = event({ id: "story-road-border-smoke" });
+    const rift = event({ id: "rift-descend-legacy-echo" });
+    const builtIn = event({ id: "builtin-hidden-dungeon" });
+
+    for (const candidate of [road, rift, builtIn]) {
+        for (const [index, page] of candidate.vnPages!.entries()) {
+            assert.equal(
+                resolveStorywideDirection(candidate, page, index)?.backgroundImage,
+                SIDE_STORY_ENVIRONMENTS[candidate.id],
+            );
+        }
+    }
 });
 
 test("recurring story actors receive consistent transparent cutouts", () => {
@@ -131,7 +160,7 @@ test("recurring story actors receive consistent transparent cutouts", () => {
     );
     assert.equal(
         resolveStorywideActorImage("story-frostfang-village-35-3", "Pale Pack Runner"),
-        "/portraits/pale-pack-runner.webp",
+        "/portraits/cinematic/storywide/pale-pack-runner.webp",
     );
     assert.equal(
         resolveStorywideActorImage("story-moonshadow-village-100-8", "Shade Master Iro", "solemn"),
@@ -150,6 +179,97 @@ test("every cinematic actor route names the character it depicts", () => {
             if (!asset) continue;
             assert.ok(asset.includes(actorSlug(name)), `${name} variant is incorrectly routed to ${asset}`);
         }
+    }
+});
+
+test("every cinematic actor alias carries canonical gender direction", () => {
+    assert.deepEqual(
+        Object.keys(STORYWIDE_CHARACTER_GENDERS).sort(),
+        Object.keys(STORYWIDE_ACTORS).sort(),
+        "actor and gender ledgers drifted apart",
+    );
+
+    const women = [
+        "mira volt",
+        "registry duty clerk",
+        "kite harrow",
+        "imera",
+        "sera reed",
+        "kage hoshina enju",
+        "captain yura",
+        "pale pack runner",
+        "elder sova",
+        "nyx",
+        "veil adaza",
+        "shrine witness",
+        "kage sable nocturne",
+        "pell marrow",
+        "serel",
+        "senna graveward",
+        "scout vessa",
+        "houndmaster bel",
+        "scribe ihara",
+    ];
+    for (const name of women) {
+        assert.equal(STORYWIDE_CHARACTER_GENDERS[name], "woman", `${name} lost her canon identity`);
+    }
+});
+
+test("every named narrative-VN speaker resolves to cinematic cutout art", () => {
+    const speakers = new Map<string, string>();
+    const add = (eventId: string, name: string | undefined) => {
+        if (name && name !== "Narrator" && name !== "Player") speakers.set(name, eventId);
+    };
+    for (const events of [
+        ...Object.values(storylines),
+        ...Object.values(storyInterludesByVillage),
+    ]) {
+        for (const entry of events) {
+            for (const page of entry.pages ?? []) {
+                for (const name of [page.speaker, page.leftName, page.rightName]) {
+                    add(entry.id ?? "story-aaa-coverage", name);
+                }
+            }
+        }
+    }
+
+    for (const road of storyRoadEvents) {
+        for (const page of road.pages) add(road.id, page.speaker);
+    }
+    for (const rift of hollowRifts) {
+        for (const page of rift.intro) add(`rift-giver-${rift.slug}`, page.speaker);
+        for (const page of rift.descent) add(`rift-descend-${rift.slug}`, page.speaker);
+    }
+    for (const builtIn of [
+        awakeningLv2VnEvent,
+        auraSphereLv9VnEvent,
+        hiddenDungeonVnEvent,
+        ...craftDungeonEvents,
+        defaultPetEncounterVn,
+        defaultAncientChestVn,
+    ]) {
+        for (const page of builtIn.vnPages ?? []) {
+            add(builtIn.id, page.speaker);
+            add(builtIn.id, page.leftName);
+            add(builtIn.id, page.rightName);
+        }
+    }
+    add("chronicle-scribe", "Scribe Ihara");
+    add("legacy-sage-offer", "Wandering Sage");
+
+    assert.equal(speakers.size, 68);
+    for (const [speaker, eventId] of speakers) {
+        const actor = resolveStorywideActorImage(eventId, speaker);
+        assert.ok(actor, `Missing cinematic actor mapping for ${speaker}`);
+        assert.match(actor, /^\/portraits\/cinematic\//, `${speaker} still resolves to legacy boxed art`);
+    }
+
+    // Six rift bosses are currently revealed through narration rather than a
+    // spoken line. Their cutouts are still pre-bound so a later voiced page can
+    // never fall back to the square combat portrait.
+    for (const rift of hollowRifts) {
+        const actor = resolveStorywideActorImage(`rift-descend-${rift.slug}`, rift.bossName);
+        assert.match(actor ?? "", /^\/portraits\/cinematic\//, `Missing cinematic boss mapping for ${rift.bossName}`);
     }
 });
 
@@ -214,14 +334,16 @@ test("the story-wide cinematic package is present and within asset budgets", () 
         ...Object.values(STORYWIDE_ENVIRONMENTS).flatMap((families) => Object.values(families)),
         ...Object.values(STORYWIDE_ENVIRONMENT_VARIANTS).flatMap((variants) => Object.values(variants)),
         ...Object.values(STORYWIDE_CLIMAX_ENVIRONMENTS),
+        ...Object.values(SIDE_STORY_ENVIRONMENTS),
         ...new Set(Object.values(STORYWIDE_ACTORS)),
         ...new Set(Object.values(STORYWIDE_ACTOR_VARIANTS).flatMap((variants) => Object.values(variants))),
     ];
 
-    assert.equal(new Set(Object.values(STORYWIDE_ACTORS)).size, 28);
+    assert.equal(new Set(Object.values(STORYWIDE_ACTORS)).size, 74);
     assert.equal(Object.values(STORYWIDE_ENVIRONMENTS).flatMap((families) => Object.values(families)).length, 16);
     assert.equal(Object.values(STORYWIDE_ENVIRONMENT_VARIANTS).flatMap((variants) => Object.values(variants)).length, 8);
     assert.equal(Object.values(STORYWIDE_CLIMAX_ENVIRONMENTS).length, 4);
+    assert.equal(Object.values(SIDE_STORY_ENVIRONMENTS).length, 41);
     for (const asset of assets) {
         const file = resolve(publicRoot, asset.replace(/^\//, ""));
         assert.equal(existsSync(file), true, `Missing story-wide VN asset: ${asset}`);
