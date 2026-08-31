@@ -20,7 +20,7 @@ type PreviewCast = {
 
 const VILLAGES: readonly StoryVillageKey[] = ["stormveil", "ashen", "frostfang", "moonshadow"];
 const VARIANTS: readonly StorySceneVariant[] = ["standard", "crisis", "aftermath"];
-const CHAPTERS = ["semantic", "pale-pack", "road", "rift", "scribe", "dungeon", "pet", "chest"] as const;
+const CHAPTERS = ["semantic", "pale-pack", "elder-sova", "road", "rift", "scribe", "dungeon", "pet", "chest"] as const;
 
 const CAST: Record<StoryVillageKey, PreviewCast> = {
     stormveil: { left: "Mira Volt", right: "Kage Raiko Veyr" },
@@ -156,7 +156,14 @@ function palePackEvent(): CreatorEvent {
     return storyToCreatorEvent(chapters[index], "Frostfang Village", index);
 }
 
-function sideStoryEvent(chapter: Exclude<typeof CHAPTERS[number], "semantic" | "pale-pack">): CreatorEvent {
+function elderSovaEvent(): CreatorEvent {
+    const chapters = storylines["Frostfang Village"] ?? [];
+    const index = chapters.findIndex((chapter) => chapter.levelReq === 50);
+    if (index < 0) throw new Error("Cinematic VN QA could not find Elder Sova's rank trial chapter");
+    return storyToCreatorEvent(chapters[index], "Frostfang Village", index);
+}
+
+function sideStoryEvent(chapter: Exclude<typeof CHAPTERS[number], "semantic" | "pale-pack" | "elder-sova">): CreatorEvent {
     if (chapter === "road") {
         const road = storyRoadEvents.find((candidate) => candidate.id === "story-road-border-smoke");
         if (!road) throw new Error("Cinematic VN QA could not find Border Smoke");
@@ -195,9 +202,11 @@ export function CinematicVnPreview() {
     const [lineIndex, setLineIndex] = useState(0);
     const event = chapter === "pale-pack"
         ? palePackEvent()
-        : chapter === "semantic"
-            ? previewEvent(village, variant, hollow, playerAvatar)
-            : sideStoryEvent(chapter);
+        : chapter === "elder-sova"
+            ? elderSovaEvent()
+            : chapter === "semantic"
+                ? previewEvent(village, variant, hollow, playerAvatar)
+                : sideStoryEvent(chapter);
 
     return (
         <TriggeredVisualNovel
