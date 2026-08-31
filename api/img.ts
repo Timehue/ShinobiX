@@ -3,6 +3,7 @@ import { kv } from './_storage.js';
 import { cors } from './_utils.js';
 import { categoryFromId } from './images.js';
 import { r2ReadEnabled, r2ObjectExists, r2PublicUrl } from './_r2.js';
+import { isValidImageVersion } from './_image-version.js';
 
 // Phase 2 — per-image binary serving (see
 // docs/load-and-refresh-perf-audit-2026-06-08.md).
@@ -76,6 +77,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     const cat = categoryFromId(id);
 
+    // A caller that supplied `?v=<category version>` is asking for one specific
+    // generation of this art, so the answer can never go stale under that URL —
+    // a new upload bumps the category and the client asks for a DIFFERENT URL
+    // (api/_image-version.ts). Serve it immutable and stop paying a revalidation
+    // per image per five minutes. Anything without a usable `v` (an old cached
+    // client, admin tooling, a hand-typed URL) keeps the original short TTL.
+    const versioned = isValidImageVersion(req.query.v);
+    const IMMUTABLE_CACHE = 'public, max-age=31536000, immutable';
+    const REVALIDATED_CACHE = 'public, max-age=300, stale-while-revalidate=86400';
+    const artCache = versioned ? IMMUTABLE_CACHE : REVALIDATED_CACHE;
+
     // Stage 3 (R2): when R2 reads are enabled AND this image's bytes exist in R2,
     // redirect straight to the public (Cloudflare-fronted) URL — the browser
     // fetches the bytes from R2, never from Postgres through this function. This
@@ -87,7 +99,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (r2ReadEnabled()) {
         const url = r2PublicUrl(id);
         if (url && (await r2ObjectExists(id))) {
-            res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=86400');
+            res.setHeader('Cache-Control', artCache);
             return res.redirect(302, url);
         }
     }
@@ -152,7 +164,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Some non-avatar categories allow a remote http(s) URL instead of an
         // inline data URL — redirect to it (the browser fetches it directly).
         if (/^https?:\/\//i.test(raw)) {
-            res.setHeader('Cache-Control', 'public, max-age=300');
+            res.setHeader('Cache-Control', versioned ? IMMUTABLE_CACHE : 'public, max-age=300');
             return res.redirect(302, raw);
         }
 
@@ -163,10 +175,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         res.setHeader('Content-Type', decoded.mime);
-        // Served instantly from cache for 5 min, then revalidated in the
-        // background. Cloudflare + the browser absorb refreshes; the client only
-        // ever fetches the handful of images on the current screen.
-        res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=86400');
+        // Versioned callers get a year (the URL names the generation); everyone
+        // else keeps the original 5-minute serve-then-revalidate. Cloudflare + the
+        // browser absorb refreshes; the client only ever fetches the handful of
+        // images on the current screen.
+        res.setHeader('Cache-Control', artCache);
         return res.status(200).send(decoded.buf);
     } catch (err) {
         console.error('[img]', err);
