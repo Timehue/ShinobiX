@@ -2722,6 +2722,10 @@
             "line": 902
           },
           {
+            "source": "shinobij.client/src/styles/index/15-territory-panels.css",
+            "line": 928
+          },
+          {
             "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",
             "line": 1369
           },
@@ -2732,6 +2736,10 @@
           {
             "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",
             "line": 2604
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-arena-lobby.css",
+            "line": 387
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
@@ -3095,6 +3103,10 @@
           {
             "source": "shinobij.client/src/styles/pet-arena-lobby.css",
             "line": 313
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-mentor-guide.css",
+            "line": 236
           },
           {
             "source": "shinobij.client/src/styles/relic-dungeons.css",
