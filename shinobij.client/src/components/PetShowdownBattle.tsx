@@ -113,6 +113,8 @@ import type {
 // there really close together"): allies stand a full body apart, the lines a
 // touch further from each other, and each slot staggers off the baseline so a
 // team reads as individuals taking the field, not a queue.
+const TRANSPARENT_UNLIT_PROPS = { transparent: true, toneMapped: false } as const;
+
 const PLAYER_Z = 4.1;
 const ENEMY_Z = -4.1;
 
@@ -1520,7 +1522,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                 <Billboard lockX lockZ>
                     <mesh position={[0, 1.05, 0]}>
                         <planeGeometry args={[2.0, 2.0]} />
-                        <meshBasicMaterial map={fallbackTexture} transparent alphaTest={0.06} toneMapped={false} />
+                        <meshBasicMaterial map={fallbackTexture} {...TRANSPARENT_UNLIT_PROPS} alphaTest={0.06} />
                     </mesh>
                 </Billboard>
             )}
@@ -1542,19 +1544,19 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
             {/* Impact shockwave ring (visibility driven per-frame). */}
             <mesh ref={impactRing} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]} visible={false}>
                 <ringGeometry args={[0.7, 0.92, 40]} />
-                <meshBasicMaterial ref={impactMat} color={tint} transparent opacity={0} toneMapped={false} side={THREE.DoubleSide} />
+                <meshBasicMaterial ref={impactMat} color={tint} {...TRANSPARENT_UNLIT_PROPS} opacity={0} side={THREE.DoubleSide} />
             </mesh>
             {/* Guard shell. */}
             <mesh ref={guardBubble} position={[0, 1.0, 0]} visible={false}>
                 <sphereGeometry args={[1.35, 20, 14]} />
-                <meshBasicMaterial ref={guardMat} color="#8ecdf7" transparent opacity={0.16} toneMapped={false} depthWrite={false} />
+                <meshBasicMaterial ref={guardMat} color="#8ecdf7" {...TRANSPARENT_UNLIT_PROPS} opacity={0.16} depthWrite={false} />
             </mesh>
             {/* Persistent painted status auras: burning pets burn, frozen pets frost. */}
             {!ko && <StatusAuraFx statuses={statuses} />}
             {highlight !== "none" && (
                 <mesh ref={selRing} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
                     <ringGeometry args={[0.95, 1.12, 32]} />
-                    <meshBasicMaterial color={highlight === "commander" ? "#fbbf24" : "#f87171"} transparent opacity={0.85} toneMapped={false} />
+                    <meshBasicMaterial color={highlight === "commander" ? "#fbbf24" : "#f87171"} {...TRANSPARENT_UNLIT_PROPS} opacity={0.85} />
                 </mesh>
             )}
             {/* Floating reticle: the "this is clickable" affordance. */}
@@ -1562,14 +1564,14 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                 <Billboard position={[0, labelY, 0]}>
                     <mesh ref={reticle}>
                         <ringGeometry args={[0.3, 0.4, 3]} />
-                        <meshBasicMaterial color="#f87171" transparent opacity={0.95} toneMapped={false} side={THREE.DoubleSide} />
+                        <meshBasicMaterial color="#f87171" {...TRANSPARENT_UNLIT_PROPS} opacity={0.95} side={THREE.DoubleSide} />
                     </mesh>
                 </Billboard>
             )}
             {!ko && highlight === "none" && (
                 <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.035, 0]}>
                     <ringGeometry args={[0.9, 0.97, 32]} />
-                    <meshBasicMaterial color={tint} transparent opacity={0.35} toneMapped={false} />
+                    <meshBasicMaterial color={tint} {...TRANSPARENT_UNLIT_PROPS} opacity={0.35} />
                 </mesh>
             )}
             {myPopups.map((p) => (

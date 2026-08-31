@@ -42,6 +42,25 @@ import {
     type MoveAccentFamily,
 } from "../lib/showdown-vfx-map";
 
+// Shared immutable props keep every additive layer visually identical while
+// avoiding the same React prop object being emitted dozens of times.
+const TRANSPARENT_MATERIAL_PROPS = {
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    toneMapped: false,
+} as const;
+
+const ADDITIVE_MATERIAL_PROPS = {
+    ...TRANSPARENT_MATERIAL_PROPS,
+    blending: THREE.AdditiveBlending,
+} as const;
+
+const ADDITIVE_PARTICLE_PROPS = {
+    ...ADDITIVE_MATERIAL_PROPS,
+    sizeAttenuation: false,
+} as const;
+
 // ─── Deterministic helpers ───────────────────────────────────────────────────
 
 /** mulberry32 — same generator family the engine uses; seeded per spawn. */
@@ -65,7 +84,7 @@ const ELEMENT_GLOW: Record<string, string> = {
 };
 
 /** Piece-life clock: 0..1 across the spawn, matching the flat layer. */
-function pieceT(spawn: SetPieceSpawn): number {
+function pieceT(spawn: Pick<SetPieceSpawn, "startedAt" | "durationMs">): number {
     return (performance.now() - spawn.startedAt) / spawn.durationMs;
 }
 
@@ -149,7 +168,7 @@ function ShockRing({ spawn, color, size = 4.6 }: { spawn: SetPieceSpawn; color: 
     return (
         <mesh ref={mesh} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
             <ringGeometry args={[0.78, 1, 48]} />
-            <meshBasicMaterial ref={mat} color={color} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+            <meshBasicMaterial ref={mat} color={color} {...ADDITIVE_MATERIAL_PROPS} side={THREE.DoubleSide} />
         </mesh>
     );
 }
@@ -240,7 +259,7 @@ function ParticleCloud({ spawn, spec }: { spawn: SetPieceSpawn; spec: ParticleSp
             </bufferGeometry>
             {/* Screen-space sizing prevents a mote that passes near an action
                 camera from ballooning into a frame-sized translucent disc. */}
-            <pointsMaterial ref={mat} map={tex} color={spec.color} size={spec.size * 24} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} sizeAttenuation={false} />
+            <pointsMaterial ref={mat} map={tex} color={spec.color} size={spec.size * 24} {...ADDITIVE_PARTICLE_PROPS} />
         </points>
     );
 }
@@ -582,14 +601,14 @@ function BoltStrikeMesh({ spawn, strike }: { spawn: SetPieceSpawn; strike: BoltS
     return (
         <group ref={group} visible={false}>
             <mesh geometry={geos.core}>
-                <meshBasicMaterial ref={coreMat} color="#ffffff" transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                <meshBasicMaterial ref={coreMat} color="#ffffff" {...ADDITIVE_MATERIAL_PROPS} />
             </mesh>
             <mesh geometry={geos.glow}>
-                <meshBasicMaterial ref={glowMat} color="#9db8ff" transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                <meshBasicMaterial ref={glowMat} color="#9db8ff" {...ADDITIVE_MATERIAL_PROPS} />
             </mesh>
             {geos.forkCore && (
                 <mesh geometry={geos.forkCore}>
-                    <meshBasicMaterial ref={forkMat} color="#e8f0ff" transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                    <meshBasicMaterial ref={forkMat} color="#e8f0ff" {...ADDITIVE_MATERIAL_PROPS} />
                 </mesh>
             )}
         </group>
@@ -688,7 +707,7 @@ export function ClimateLayer({ element, reduced }: { element: string | null; red
         <group>
             <mesh ref={floorMesh} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]} visible={false}>
                 <planeGeometry args={[23, 23]} />
-                <meshBasicMaterial ref={floorMat} transparent opacity={0} depthWrite={false} toneMapped={false} />
+                <meshBasicMaterial ref={floorMat} {...TRANSPARENT_MATERIAL_PROPS} />
             </mesh>
             <pointLight ref={light} position={[0, 3.4, 0]} intensity={0} distance={17} decay={2} />
             <points ref={points} visible={false}>
@@ -698,7 +717,7 @@ export function ClimateLayer({ element, reduced }: { element: string | null; red
                 {/* Climate motes may cross the close signature camera. Keep
                     them screen-sized so they stay flecks instead of becoming
                     large translucent discs as they approach the lens. */}
-                <pointsMaterial ref={mat} map={dot} size={4.5} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} sizeAttenuation={false} />
+                <pointsMaterial ref={mat} map={dot} size={4.5} {...ADDITIVE_PARTICLE_PROPS} />
             </points>
         </group>
     );
@@ -727,7 +746,7 @@ export interface KindAccentSpawn {
     durationMs: number;
 }
 
-export function kindAccentFamily(kind: string): string | null {
+export function kindAccentFamily(kind: string): MoveAccentFamily | null {
     return moveAccentFamily(kind);
 }
 
@@ -737,11 +756,11 @@ function AccentRing({ spawn, family }: { spawn: KindAccentSpawn; family: MoveAcc
     const shaftRefs = useRef<Array<THREE.Group | null>>([]);
     const shaftMats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
     const variant = moveAccentVariant(spawn.moveName);
-    const up = family === "buff" || family === "haste" || family === "heal" || family === "weather";
-    const RINGS = family === "weather" ? 4 : 3;
+    const up = family === 17 || family === 18 || family === 24 || family === 25;
+    const RINGS = family === 25 ? 4 : 3;
     // Power builds a stout cage, haste uses fewer needle-thin streaks, and
     // weather throws a wide radial crown. Healing deliberately stays soft.
-    const SHAFTS = family === "buff" ? 6 : family === "haste" ? 4 : family === "weather" ? 8 : 0;
+    const SHAFTS = family === 17 ? 6 : family === 18 ? 4 : family === 25 ? 8 : 0;
     const shaftParams = useMemo(() => {
         const rand = seededRand((spawn.key + moveAccentVariant(spawn.moveName) * 101) * 59 + 11);
         return Array.from({ length: SHAFTS }, () => ({
@@ -754,25 +773,25 @@ function AccentRing({ spawn, family }: { spawn: KindAccentSpawn; family: MoveAcc
     }, [spawn.key, spawn.moveName, SHAFTS]);
     const weightScale = (spawn.weight === "heavy" ? 1.16 : spawn.weight === "light" ? 0.9 : 1) * (spawn.superMove ? 1.2 : 1);
     useFrame(() => {
-        const t = (performance.now() - spawn.startedAt) / spawn.durationMs;
+        const t = pieceT(spawn);
         for (let i = 0; i < RINGS; i++) {
             const m = refs.current[i], mm = mats.current[i];
             if (!m || !mm) continue;
-            const delay = family === "haste" ? 0.08 : family === "weather" ? 0.1 : 0.14;
-            const k = (t - i * delay) / (family === "weather" ? 0.72 : 0.6);
+            const delay = family === 18 ? 0.08 : family === 25 ? 0.1 : 0.14;
+            const k = (t - i * delay) / (family === 25 ? 0.72 : 0.6);
             if (t < 0 || k < 0 || k >= 1) { m.visible = false; continue; }
             m.visible = true;
-            const y = family === "weather" ? 0.1 + k * 0.45
-                : up ? 0.25 + k * (family === "haste" ? 1.55 : 2.1)
-                    : 2.35 - k * (family === "slow" ? 1.5 : 2.1);
+            const y = family === 25 ? 0.1 + k * 0.45
+                : up ? 0.25 + k * (family === 18 ? 1.55 : 2.1)
+                    : 2.35 - k * (family === 15 ? 1.5 : 2.1);
             m.position.set(spawn.x, y, spawn.z);
-            const s = family === "weather" ? 1.1 + k * 3.3
-                : family === "haste" ? 0.78 + k * 1.15
+            const s = family === 25 ? 1.1 + k * 3.3
+                : family === 18 ? 0.78 + k * 1.15
                     : up ? 1.5 - k * 0.5
-                        : family === "slow" ? 1.65 - k * 0.62 : 0.9 + k * 0.7;
+                        : family === 15 ? 1.65 - k * 0.62 : 0.9 + k * 0.7;
             m.scale.set(s * weightScale * (1 + variant * 0.025), s * weightScale * (1 - variant * 0.018), s);
-            m.rotation.z = (variant - 1.5) * 0.16 + k * (family === "haste" ? 0.8 : 0.24);
-            mm.opacity = (family === "weather" ? 0.48 : 0.7) * Math.sin(Math.PI * k);
+            m.rotation.z = (variant - 1.5) * 0.16 + k * (family === 18 ? 0.8 : 0.24);
+            mm.opacity = (family === 25 ? 0.48 : 0.7) * Math.sin(Math.PI * k);
         }
         shaftParams.forEach((p, i) => {
             // Position the BILLBOARD GROUP, never the mesh inside it — an
@@ -789,29 +808,29 @@ function AccentRing({ spawn, family }: { spawn: KindAccentSpawn; family: MoveAcc
                 spawn.z + Math.sin(p.angle) * p.r,
             );
             g.scale.set(1, 0.55 + rise * 0.6, 1);
-            mm.opacity = (family === "weather" ? 0.48 : 0.72) * (k < 0.2 ? k / 0.2 : (1 - k) / 0.8);
+            mm.opacity = (family === 25 ? 0.48 : 0.72) * (k < 0.2 ? k / 0.2 : (1 - k) / 0.8);
         });
     });
-    const tint = family === "heal" ? "#6ee7a0"
-        : family === "buff" ? "#ffe08a"
-            : family === "haste" ? "#7dd3fc"
-                : family === "weather" ? ELEMENT_GLOW[spawn.element] ?? "#dbeafe"
-                    : family === "slow" ? "#8ea6ff" : "#b48ef0";
-    const shaftTint = family === "haste" ? "#bde9ff" : family === "weather" ? tint : "#ffdf8a";
-    const ringShape: [number, number, number] = family === "haste" ? [0.78, 0.85, 40] : [0.78, 0.92, 40];
+    const tint = family === 24 ? "#6ee7a0"
+        : family === 17 ? "#ffe08a"
+            : family === 18 ? "#7dd3fc"
+                : family === 25 ? ELEMENT_GLOW[spawn.element] ?? "#dbeafe"
+                    : family === 15 ? "#8ea6ff" : "#b48ef0";
+    const shaftTint = family === 18 ? "#bde9ff" : family === 25 ? tint : "#ffdf8a";
+    const ringShape: [number, number, number] = family === 18 ? [0.78, 0.85, 40] : [0.78, 0.92, 40];
     return (
         <group>
             {Array.from({ length: RINGS }, (_, i) => (
                 <mesh key={i} ref={(el) => { refs.current[i] = el; }} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
                     <ringGeometry args={ringShape} />
-                    <meshBasicMaterial ref={(el) => { mats.current[i] = el; }} color={tint} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+                    <meshBasicMaterial ref={(el) => { mats.current[i] = el; }} color={tint} {...ADDITIVE_MATERIAL_PROPS} side={THREE.DoubleSide} />
                 </mesh>
             ))}
             {shaftParams.map((p, i) => (
                 <Billboard key={`s${i}`} ref={(el) => { shaftRefs.current[i] = el; }} visible={false} lockX lockZ>
                     <mesh>
                         <planeGeometry args={[p.w, p.h]} />
-                        <meshBasicMaterial ref={(el) => { shaftMats.current[i] = el; }} color={shaftTint} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+                        <meshBasicMaterial ref={(el) => { shaftMats.current[i] = el; }} color={shaftTint} {...ADDITIVE_MATERIAL_PROPS} side={THREE.DoubleSide} />
                     </mesh>
                 </Billboard>
             ))}
@@ -819,33 +838,33 @@ function AccentRing({ spawn, family }: { spawn: KindAccentSpawn; family: MoveAcc
     );
 }
 
-function AccentSlash({ spawn, family }: { spawn: KindAccentSpawn; family: "wound" | "pivot" }) {
+function AccentSlash({ spawn, family }: { spawn: KindAccentSpawn; family: 9 | 6 }) {
     const a = useRef<THREE.Mesh>(null);
     const b = useRef<THREE.Mesh>(null);
     const am = useRef<THREE.MeshBasicMaterial>(null);
     const bm = useRef<THREE.MeshBasicMaterial>(null);
     const variant = moveAccentVariant(spawn.moveName);
-    const glow = family === "wound" ? "#ff5f68" : ELEMENT_GLOW[spawn.element] ?? "#dbeafe";
+    const glow = family === 9 ? "#ff5f68" : ELEMENT_GLOW[spawn.element] ?? "#dbeafe";
     const weightScale = (spawn.weight === "heavy" ? 1.22 : spawn.weight === "light" ? 0.9 : 1) * (spawn.superMove ? 1.18 : 1);
     useFrame(() => {
-        const t = (performance.now() - spawn.startedAt) / spawn.durationMs;
+        const t = pieceT(spawn);
         const show = t >= 0 && t < 1;
         const grow = 0.7 + Math.min(1, t * 3) * 0.5;
         const fade = t < 0.12 ? t / 0.12 : Math.max(0, (1 - t) / 0.5);
         if (a.current && am.current) {
             a.current.visible = show;
-            const travel = family === "pivot" ? Math.min(1, t * 2.2) * 0.55 : 0;
+            const travel = family === 6 ? Math.min(1, t * 2.2) * 0.55 : 0;
             a.current.position.set(spawn.x + spawn.dirX * travel, 1.1, spawn.z + spawn.dirZ * travel);
             a.current.scale.setScalar(grow * weightScale);
-            a.current.rotation.z = (family === "pivot" ? 0.32 : 0.58) + (variant - 1.5) * 0.13;
+            a.current.rotation.z = (family === 6 ? 0.32 : 0.58) + (variant - 1.5) * 0.13;
             am.current.opacity = 0.85 * fade;
         }
         if (b.current && bm.current) {
             b.current.visible = show;
-            const travel = family === "pivot" ? Math.min(1, t * 2.2) * -0.35 : 0;
+            const travel = family === 6 ? Math.min(1, t * 2.2) * -0.35 : 0;
             b.current.position.set(spawn.x + spawn.dirX * travel, 1.05, spawn.z + spawn.dirZ * travel);
             b.current.scale.setScalar(grow * 0.92 * weightScale);
-            b.current.rotation.z = (family === "pivot" ? -1.0 : -0.7) - (variant - 1.5) * 0.1;
+            b.current.rotation.z = (family === 6 ? -1.0 : -0.7) - (variant - 1.5) * 0.1;
             bm.current.opacity = 0.7 * fade;
         }
     });
@@ -853,14 +872,14 @@ function AccentSlash({ spawn, family }: { spawn: KindAccentSpawn; family: "wound
         <group>
             <Billboard>
                 <mesh ref={a} visible={false}>
-                    <planeGeometry args={[family === "pivot" ? 2.8 : 2.3, family === "pivot" ? 0.11 : 0.16]} />
-                    <meshBasicMaterial ref={am} color={glow} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                    <planeGeometry args={[family === 6 ? 2.8 : 2.3, family === 6 ? 0.11 : 0.16]} />
+                    <meshBasicMaterial ref={am} color={glow} {...ADDITIVE_MATERIAL_PROPS} />
                 </mesh>
             </Billboard>
             <Billboard>
                 <mesh ref={b} visible={false}>
-                    <planeGeometry args={[family === "pivot" ? 2.5 : 2.1, family === "pivot" ? 0.09 : 0.13]} />
-                    <meshBasicMaterial ref={bm} color={family === "wound" ? "#ffc0c3" : "#ffffff"} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                    <planeGeometry args={[family === 6 ? 2.5 : 2.1, family === 6 ? 0.09 : 0.13]} />
+                    <meshBasicMaterial ref={bm} color={family === 9 ? "#ffc0c3" : "#ffffff"} {...ADDITIVE_MATERIAL_PROPS} />
                 </mesh>
             </Billboard>
         </group>
@@ -881,49 +900,49 @@ function AccentGeneric({ spawn, family }: { spawn: KindAccentSpawn; family: Move
     const glow = ELEMENT_GLOW[spawn.element] ?? "#ffe9c0";
     const variant = moveAccentVariant(spawn.moveName);
     const weightScale = (spawn.weight === "heavy" ? 1.18 : spawn.weight === "light" ? 0.88 : 1) * (spawn.superMove ? 1.22 : 1);
-    const accent = family === "siphon" || family === "wound" ? "#ff6678"
-        : family === "toxin" ? "#b17cff"
-            : family === "embers" ? "#ff9a55"
-                : family === "stun" ? "#ffe86b"
-                    : family === "freeze" ? "#9de7ff"
-                        : family === "confuse" || family === "hex" ? "#c084fc"
-                            : family === "mark" || family === "taunt" ? "#ffcc66"
-                                : family === "slow" || family === "bind" ? "#a5b4fc"
-                                    : family === "shield" || family === "barrier" || family === "protect" || family === "guard" ? "#8ed8ff"
-                                        : family === "absorb" ? "#bb8cff"
-                                            : family === "heal" || family === "rest" ? "#6ee7a0" : glow;
+    const accent = family === 3 || family === 9 ? "#ff6678"
+        : family === 7 ? "#b17cff"
+            : family === 8 ? "#ff9a55"
+                : family === 10 ? "#ffe86b"
+                    : family === 11 ? "#9de7ff"
+                        : family === 12 || family === 13 ? "#c084fc"
+                            : family === 14 || family === 23 ? "#ffcc66"
+                                : family === 15 || family === 16 ? "#a5b4fc"
+                                    : family === 20 || family === 21 || family === 26 || family === 27 ? "#8ed8ff"
+                                        : family === 22 ? "#bb8cff"
+                                            : family === 24 || family === 28 ? "#6ee7a0" : glow;
     useFrame(() => {
-        const t = (performance.now() - spawn.startedAt) / spawn.durationMs;
+        const t = pieceT(spawn);
         const show = t >= 0 && t < 1;
         const ease = 1 - (1 - Math.min(1, t)) * (1 - Math.min(1, t));
         if (mesh.current && mat.current) {
             mesh.current.visible = show;
             if (show) {
-                if (family === "slam") {
+                if (family === 2) {
                     mesh.current.position.set(spawn.x, 0.09, spawn.z);
                     mesh.current.rotation.set(-Math.PI / 2, 0, 0);
                     const s = 0.6 + ease * 2.6;
                     mesh.current.scale.set(s * weightScale, s * weightScale, s);
                     mat.current.opacity = 0.8 * (1 - ease);
-                } else if (family === "repulse" || family === "vacuum") {
+                } else if (family === 4 || family === 5) {
                     // Push drives away from the victim; pull visibly implodes
                     // back toward the attacker instead of reusing the shove.
-                    const sign = family === "vacuum" ? -1 : 1;
+                    const sign = family === 5 ? -1 : 1;
                     const d = 0.4 + ease * 2.4;
                     mesh.current.position.set(spawn.x + spawn.dirX * d * sign, 0.75, spawn.z + spawn.dirZ * d * sign);
                     mesh.current.rotation.set(0, Math.atan2(spawn.dirX, spawn.dirZ), 0);
-                    const sx = family === "vacuum" ? 2.1 - ease * 1.1 : 1 + ease * 1.3;
+                    const sx = family === 5 ? 2.1 - ease * 1.1 : 1 + ease * 1.3;
                     mesh.current.scale.set(sx * weightScale, (0.85 + ease * 0.5) * weightScale, 1);
                     mat.current.opacity = 0.65 * (1 - ease);
-                } else if (family === "shield" || family === "freeze" || family === "absorb") {
+                } else if (family === 20 || family === 11 || family === 22) {
                     mesh.current.position.set(spawn.x, 0.85, spawn.z);
-                    mesh.current.rotation.set(family === "freeze" ? t * 0.55 : 0, variant * 0.35 + t * (family === "absorb" ? -1.2 : 0.12), 0);
+                    mesh.current.rotation.set(family === 11 ? t * 0.55 : 0, variant * 0.35 + t * (family === 22 ? -1.2 : 0.12), 0);
                     const open = Math.min(1, t * 2.4);
-                    const s = family === "absorb" ? 1.65 - open * 0.68 : 0.84 + open * (family === "freeze" ? 0.62 : 0.46);
+                    const s = family === 22 ? 1.65 - open * 0.68 : 0.84 + open * (family === 11 ? 0.62 : 0.46);
                     mesh.current.scale.setScalar(s * weightScale);
-                    mat.current.opacity = (family === "freeze" ? 0.58 : family === "absorb" ? 0.48 : 0.4)
+                    mat.current.opacity = (family === 11 ? 0.58 : family === 22 ? 0.48 : 0.4)
                         * (t < 0.16 ? t / 0.16 : Math.max(0, (1 - t) / 0.6));
-                } else if (family === "impact") {
+                } else if (family === 1) {
                     // The plain strike's shockwave: a fast ring blowing out
                     // horizontally at the victim's chest, gone in a blink.
                     const k = Math.min(1, t * 2.6);
@@ -933,7 +952,7 @@ function AccentGeneric({ spawn, family }: { spawn: KindAccentSpawn; family: Move
                     const s = 0.45 + ke * 2.1;
                     mesh.current.scale.set(s * weightScale, s * weightScale, s);
                     mat.current.opacity = 0.75 * (1 - ke);
-                } else if (family === "protect" || family === "guard" || family === "barrier") {
+                } else if (family === 26 || family === 27 || family === 21) {
                     // Slams UP into place, holds flat while the block is live,
                     // then drops. Vertical (not a dome) so it reads as a raised
                     // guard rather than a bubble around the body.
@@ -941,11 +960,11 @@ function AccentGeneric({ spawn, family }: { spawn: KindAccentSpawn; family: Move
                     const fall = t > 0.72 ? (t - 0.72) / 0.28 : 0;
                     mesh.current.position.set(spawn.x, 0.15 + rise * 1.0 - fall * 0.55, spawn.z);
                     mesh.current.rotation.set(0, Math.atan2(spawn.dirX, spawn.dirZ), 0);
-                    const width = family === "protect" ? 2.15 : family === "barrier" ? 1.9 : 1.55;
-                    const height = family === "barrier" ? 1.45 : family === "protect" ? 1.2 : 0.95;
+                    const width = family === 26 ? 2.15 : family === 21 ? 1.9 : 1.55;
+                    const height = family === 21 ? 1.45 : family === 26 ? 1.2 : 0.95;
                     mesh.current.scale.set(width * weightScale, (0.15 + rise * height) * (1 - fall * 0.7), 1);
-                    mat.current.opacity = (family === "guard" ? 0.48 : 0.62) * rise * (1 - fall);
-                } else if (family === "bind") {
+                    mat.current.opacity = (family === 27 ? 0.48 : 0.62) * rise * (1 - fall);
+                } else if (family === 16) {
                     // The snare CLAMPS: the ring contracts onto the legs and
                     // holds a moment before releasing.
                     const k = Math.min(1, t * 1.9);
@@ -955,81 +974,81 @@ function AccentGeneric({ spawn, family }: { spawn: KindAccentSpawn; family: Move
                     const s = 2.2 - ke * 1.45;
                     mesh.current.scale.set(s * weightScale, s * weightScale, s);
                     mat.current.opacity = 0.7 * (t < 0.14 ? t / 0.14 : Math.max(0, (1 - t) / 0.55));
-                } else if (family === "confuse" || family === "mark" || family === "hex" || family === "slow" || family === "taunt") {
-                    const descend = family === "hex" || family === "slow";
-                    const y = family === "taunt" ? 1.95 : family === "mark" || family === "confuse" ? 1.35 : 2.2 - ease * 1.35;
+                } else if (family === 12 || family === 14 || family === 13 || family === 15 || family === 23) {
+                    const descend = family === 13 || family === 15;
+                    const y = family === 23 ? 1.95 : family === 14 || family === 12 ? 1.35 : 2.2 - ease * 1.35;
                     mesh.current.position.set(spawn.x, y, spawn.z);
                     mesh.current.rotation.set(
-                        family === "confuse" ? Math.PI / 2 + t * 1.4 : descend ? -Math.PI / 2 : 0,
-                        t * (family === "confuse" ? 5 : 1.5) + variant * 0.4,
+                        family === 12 ? Math.PI / 2 + t * 1.4 : descend ? -Math.PI / 2 : 0,
+                        t * (family === 12 ? 5 : 1.5) + variant * 0.4,
                         (variant - 1.5) * 0.18,
                     );
-                    const base = family === "slow" ? 1.55 - ease * 0.5 : family === "mark" ? 0.65 + ease * 0.35 : 0.85 + Math.sin(Math.PI * t) * 0.35;
+                    const base = family === 15 ? 1.55 - ease * 0.5 : family === 14 ? 0.65 + ease * 0.35 : 0.85 + Math.sin(Math.PI * t) * 0.35;
                     mesh.current.scale.setScalar(base * weightScale);
-                    mat.current.opacity = (family === "taunt" ? 0.72 : 0.62) * (t < 0.12 ? t / 0.12 : Math.max(0, (1 - t) / 0.5));
-                } else if (family === "siphon" || family === "toxin" || family === "embers" || family === "stun" || family === "step" || family === "rest") {
-                    const travel = family === "step" ? ease * 1.15 : 0;
-                    const y = family === "stun" ? 1.7 : family === "siphon" ? 1.0 : 0.18;
+                    mat.current.opacity = (family === 23 ? 0.72 : 0.62) * (t < 0.12 ? t / 0.12 : Math.max(0, (1 - t) / 0.5));
+                } else if (family === 3 || family === 7 || family === 8 || family === 10 || family === 19 || family === 28) {
+                    const travel = family === 19 ? ease * 1.15 : 0;
+                    const y = family === 10 ? 1.7 : family === 3 ? 1.0 : 0.18;
                     mesh.current.position.set(spawn.x + spawn.dirX * travel, y, spawn.z + spawn.dirZ * travel);
-                    mesh.current.rotation.set(family === "stun" || family === "siphon" ? Math.PI / 2 : -Math.PI / 2, 0, variant * 0.25 + t * (family === "step" ? 2.4 : 0.6));
-                    const pulse = 0.72 + Math.sin(Math.PI * Math.min(1, t * 1.4)) * (family === "rest" ? 0.4 : 0.7);
+                    mesh.current.rotation.set(family === 10 || family === 3 ? Math.PI / 2 : -Math.PI / 2, 0, variant * 0.25 + t * (family === 19 ? 2.4 : 0.6));
+                    const pulse = 0.72 + Math.sin(Math.PI * Math.min(1, t * 1.4)) * (family === 28 ? 0.4 : 0.7);
                     mesh.current.scale.setScalar(pulse * weightScale);
-                    mat.current.opacity = (family === "rest" ? 0.38 : 0.64) * (t < 0.16 ? t / 0.16 : Math.max(0, (1 - t) / 0.5));
+                    mat.current.opacity = (family === 28 ? 0.38 : 0.64) * (t < 0.16 ? t / 0.16 : Math.max(0, (1 - t) / 0.5));
                 } else {
                     mesh.current.visible = false;
                 }
             }
         }
         if (pts.current && ptsMat.current) {
-            const wantPts = family !== "shield" && family !== "barrier"
-                && family !== "protect" && family !== "guard";
+            const wantPts = family !== 20 && family !== 21
+                && family !== 26 && family !== 27;
             pts.current.visible = show && wantPts;
             if (show && wantPts) {
                 const attr = pts.current.geometry.attributes.position as THREE.BufferAttribute;
                 const pos = attr.array as Float32Array;
                 for (let i = 0; i < params.length; i++) {
                     const p = params[i];
-                    if (family === "stun" || family === "confuse" || family === "mark" || family === "taunt") {
-                        const spin = family === "confuse" ? 5.2 : family === "stun" ? 3.2 : 1.8;
+                    if (family === 10 || family === 12 || family === 14 || family === 23) {
+                        const spin = family === 12 ? 5.2 : family === 10 ? 3.2 : 1.8;
                         const a = p.angle + t * Math.PI * spin * (variant % 2 ? -1 : 1);
                         pos[i * 3] = spawn.x + Math.cos(a) * (0.55 + p.r * 0.3);
-                        pos[i * 3 + 1] = (family === "taunt" ? 1.45 : 1.85) + Math.sin(t * 8 + p.phase * 6) * (family === "confuse" ? 0.3 : 0.08);
+                        pos[i * 3 + 1] = (family === 23 ? 1.45 : 1.85) + Math.sin(t * 8 + p.phase * 6) * (family === 12 ? 0.3 : 0.08);
                         pos[i * 3 + 2] = spawn.z + Math.sin(a) * (0.55 + p.r * 0.3);
-                    } else if (family === "siphon" || family === "toxin" || family === "embers") {
+                    } else if (family === 3 || family === 7 || family === 8) {
                         const cycle = (t * 1.6 + p.phase) % 1;
-                        const inward = family === "siphon" ? 1 - cycle * 0.7 : 1;
+                        const inward = family === 3 ? 1 - cycle * 0.7 : 1;
                         pos[i * 3] = spawn.x + Math.cos(p.angle) * p.r * 0.7 * inward;
-                        pos[i * 3 + 1] = family === "embers" ? 0.15 + cycle * 2.1 : family === "siphon" ? 0.25 + cycle * 1.5 : Math.max(0.1, 1.5 - cycle * 1.5);
+                        pos[i * 3 + 1] = family === 8 ? 0.15 + cycle * 2.1 : family === 3 ? 0.25 + cycle * 1.5 : Math.max(0.1, 1.5 - cycle * 1.5);
                         pos[i * 3 + 2] = spawn.z + Math.sin(p.angle) * p.r * 0.7 * inward;
-                    } else if (family === "impact") {
+                    } else if (family === 1) {
                         // Sparks thrown outward at chest height with the ring.
                         const d = p.r * (0.25 + ease * 2.0);
                         pos[i * 3] = spawn.x + Math.cos(p.angle) * d;
                         pos[i * 3 + 1] = 1.05 + Math.sin(Math.min(1, t * 2) * Math.PI) * 0.45 * p.phase;
                         pos[i * 3 + 2] = spawn.z + Math.sin(p.angle) * d;
-                    } else if (family === "bind") {
+                    } else if (family === 16) {
                         // Dust drawn INWARD behind the clamping ring.
                         const d = p.r * (1.9 - ease * 1.4);
                         pos[i * 3] = spawn.x + Math.cos(p.angle) * d;
                         pos[i * 3 + 1] = 0.18 + Math.sin(Math.min(1, t) * Math.PI) * 0.3;
                         pos[i * 3 + 2] = spawn.z + Math.sin(p.angle) * d;
-                    } else if (family === "freeze") {
+                    } else if (family === 11) {
                         const a = p.angle + variant * 0.35;
                         pos[i * 3] = spawn.x + Math.cos(a) * p.r;
                         pos[i * 3 + 1] = 0.35 + p.phase * 1.8;
                         pos[i * 3 + 2] = spawn.z + Math.sin(a) * p.r;
-                    } else if (family === "hex" || family === "slow") {
-                        const a = p.angle + t * (family === "slow" ? 1.2 : 2.2);
-                        const r = p.r * (family === "slow" ? 1.25 - ease * 0.45 : 0.8);
+                    } else if (family === 13 || family === 15) {
+                        const a = p.angle + t * (family === 15 ? 1.2 : 2.2);
+                        const r = p.r * (family === 15 ? 1.25 - ease * 0.45 : 0.8);
                         pos[i * 3] = spawn.x + Math.cos(a) * r;
-                        pos[i * 3 + 1] = 1.9 - ease * (family === "slow" ? 1.3 : 1.8) + p.phase * 0.25;
+                        pos[i * 3 + 1] = 1.9 - ease * (family === 15 ? 1.3 : 1.8) + p.phase * 0.25;
                         pos[i * 3 + 2] = spawn.z + Math.sin(a) * r;
-                    } else if (family === "step") {
+                    } else if (family === 19) {
                         const lag = p.phase * 1.2;
                         pos[i * 3] = spawn.x + spawn.dirX * (ease * 1.5 - lag) + Math.cos(p.angle) * 0.16;
                         pos[i * 3 + 1] = 0.2 + p.phase * 0.7;
                         pos[i * 3 + 2] = spawn.z + spawn.dirZ * (ease * 1.5 - lag) + Math.sin(p.angle) * 0.16;
-                    } else if (family === "rest") {
+                    } else if (family === 28) {
                         const a = p.angle + t * 0.8;
                         pos[i * 3] = spawn.x + Math.cos(a) * p.r * 0.65;
                         pos[i * 3 + 1] = 0.15 + ((t * 0.7 + p.phase) % 1) * 1.1;
@@ -1043,31 +1062,31 @@ function AccentGeneric({ spawn, family }: { spawn: KindAccentSpawn; family: Move
                 }
                 attr.needsUpdate = true;
                 ptsMat.current.color.set(accent);
-                ptsMat.current.opacity = (family === "rest" ? 0.48 : 0.78) * (t < 0.15 ? t / 0.15 : Math.max(0, (1 - t) / 0.4));
+                ptsMat.current.opacity = (family === 28 ? 0.48 : 0.78) * (t < 0.15 ? t / 0.15 : Math.max(0, (1 - t) / 0.4));
             }
         }
     });
     return (
         <group>
             <mesh ref={mesh} visible={false}>
-                {family === "freeze"
+                {family === 11
                     ? <octahedronGeometry args={[1.05, 1]} />
-                    : family === "shield"
+                    : family === 20
                     ? <sphereGeometry args={[1.15, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.55]} />
-                    : family === "absorb"
+                    : family === 22
                         ? <sphereGeometry args={[1.15, 18, 12]} />
-                        : family === "repulse" || family === "vacuum" || family === "barrier" || family === "protect" || family === "guard"
+                        : family === 4 || family === 5 || family === 21 || family === 26 || family === 27
                         ? <planeGeometry args={[2.4, 1.3]} />
-                        : family === "confuse" || family === "taunt"
+                        : family === 12 || family === 23
                             ? <torusGeometry args={[0.82, 0.075, 8, 40]} />
                         : <ringGeometry args={[0.7, 0.95, 40]} />}
-                <meshBasicMaterial ref={mat} color={accent} wireframe={family === "freeze" || family === "absorb"} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+                <meshBasicMaterial ref={mat} color={accent} wireframe={family === 11 || family === 22} {...ADDITIVE_MATERIAL_PROPS} side={THREE.DoubleSide} />
             </mesh>
             <points ref={pts} visible={false}>
                 <bufferGeometry>
                     <bufferAttribute attach="attributes-position" args={[new Float32Array(COUNT * 3), 3]} />
                 </bufferGeometry>
-                <pointsMaterial ref={ptsMat} map={dot} size={6} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} sizeAttenuation={false} />
+                <pointsMaterial ref={ptsMat} map={dot} size={6} {...ADDITIVE_PARTICLE_PROPS} />
             </points>
         </group>
     );
@@ -1076,8 +1095,8 @@ function AccentGeneric({ spawn, family }: { spawn: KindAccentSpawn; family: Move
 export function KindAccentFx({ spawn }: { spawn: KindAccentSpawn }) {
     const family = moveAccentFamily(spawn.kind);
     if (!family) return null;
-    if (family === "wound" || family === "pivot") return <AccentSlash spawn={spawn} family={family} />;
-    if (family === "buff" || family === "haste" || family === "heal" || family === "weather" || family === "hex" || family === "slow") {
+    if (family === 9 || family === 6) return <AccentSlash spawn={spawn} family={family} />;
+    if (family === 17 || family === 18 || family === 24 || family === 25 || family === 13 || family === 15) {
         return <AccentRing spawn={spawn} family={family} />;
     }
     return <AccentGeneric spawn={spawn} family={family} />;
@@ -1178,11 +1197,11 @@ export function CastGlyphFx({ beatRef, posRef }: {
         <group>
             <mesh ref={inner} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
                 <planeGeometry args={[1, 1]} />
-                <meshBasicMaterial ref={innerMat} map={tex} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                <meshBasicMaterial ref={innerMat} map={tex} {...ADDITIVE_MATERIAL_PROPS} />
             </mesh>
             <mesh ref={outer} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
                 <planeGeometry args={[1, 1]} />
-                <meshBasicMaterial ref={outerMat} map={tex} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                <meshBasicMaterial ref={outerMat} map={tex} {...ADDITIVE_MATERIAL_PROPS} />
             </mesh>
         </group>
     );
@@ -1298,25 +1317,25 @@ export function ChargeOrbFx({ beatRef, posRef, onSun }: {
             </mesh>
             <mesh ref={core} visible={false}>
                 <sphereGeometry args={[1, 18, 14]} />
-                <meshBasicMaterial ref={coreMat} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                <meshBasicMaterial ref={coreMat} {...ADDITIVE_MATERIAL_PROPS} />
             </mesh>
             <mesh ref={glowRef} visible={false}>
                 <sphereGeometry args={[1, 14, 10]} />
-                <meshBasicMaterial ref={glowMat} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                <meshBasicMaterial ref={glowMat} {...ADDITIVE_MATERIAL_PROPS} />
             </mesh>
             <mesh ref={ringA} visible={false}>
                 <torusGeometry args={[1, 0.035, 8, 48]} />
-                <meshBasicMaterial ref={ringAMat} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                <meshBasicMaterial ref={ringAMat} {...ADDITIVE_MATERIAL_PROPS} />
             </mesh>
             <mesh ref={ringB} visible={false}>
                 <torusGeometry args={[1, 0.022, 8, 48]} />
-                <meshBasicMaterial ref={ringBMat} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                <meshBasicMaterial ref={ringBMat} {...ADDITIVE_MATERIAL_PROPS} />
             </mesh>
             <points ref={pts} visible={false}>
                 <bufferGeometry>
                     <bufferAttribute attach="attributes-position" args={[new Float32Array(COUNT * 3), 3]} />
                 </bufferGeometry>
-                <pointsMaterial ref={ptsMat} map={dot} size={5} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} sizeAttenuation={false} />
+                <pointsMaterial ref={ptsMat} map={dot} size={5} {...ADDITIVE_PARTICLE_PROPS} />
             </points>
         </group>
     );
@@ -1355,7 +1374,7 @@ export function StreakBurstFx({ spawn, budget }: { spawn: StreakBurstSpawn; budg
     }, [spawn.key, COUNT, spawn.heavy]);
     const glow = ELEMENT_GLOW[spawn.element] ?? "#ffe9c0";
     useFrame(() => {
-        const t = (performance.now() - spawn.startedAt) / spawn.durationMs;
+        const t = pieceT(spawn);
         params.forEach((p, i) => {
             const m = refs.current[i], mm = mats.current[i];
             if (!m || !mm) return;
@@ -1391,12 +1410,12 @@ export function StreakBurstFx({ spawn, budget }: { spawn: StreakBurstSpawn; budg
             {params.map((p, i) => (
                 <mesh key={i} ref={(el) => { refs.current[i] = el; }} visible={false}>
                     <planeGeometry args={[1, p.w]} />
-                    <meshBasicMaterial ref={(el) => { mats.current[i] = el; }} color={glow} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+                    <meshBasicMaterial ref={(el) => { mats.current[i] = el; }} color={glow} {...ADDITIVE_MATERIAL_PROPS} side={THREE.DoubleSide} />
                 </mesh>
             ))}
             <mesh ref={disc} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
                 <circleGeometry args={[1.15, 40]} />
-                <meshBasicMaterial ref={discMat} color={glow} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                <meshBasicMaterial ref={discMat} color={glow} {...ADDITIVE_MATERIAL_PROPS} />
             </mesh>
         </group>
     );
@@ -1420,7 +1439,7 @@ export function DebrisFx({ spawn, budget }: { spawn: StreakBurstSpawn; budget: n
         }));
     }, [spawn.key, COUNT]);
     useFrame(() => {
-        const t = (performance.now() - spawn.startedAt) / spawn.durationMs;
+        const t = pieceT(spawn);
         params.forEach((p, i) => {
             const m = refs.current[i];
             if (!m) return;
@@ -1526,7 +1545,7 @@ function ScarDecal({ scar }: { scar: BattleScar }) {
     return (
         <mesh ref={mesh} rotation={[-Math.PI / 2, 0, spin]} position={[scar.x, 0.045, scar.z]} visible={false}>
             <planeGeometry args={[size, size]} />
-            <meshBasicMaterial ref={mat} map={tex} transparent opacity={0} depthWrite={false} toneMapped={false} />
+            <meshBasicMaterial ref={mat} map={tex} {...TRANSPARENT_MATERIAL_PROPS} />
         </mesh>
     );
 }
@@ -1578,7 +1597,7 @@ export function ResidueFx({ spawn, particleBudget }: { spawn: ResidueSpawn; part
     const floorTex = useMemo(() => (style?.floor ? epicTexture(style.floor) : null), [style]);
     useFrame(() => {
         if (!style) return;
-        const t = (performance.now() - spawn.startedAt) / spawn.durationMs;
+        const t = pieceT(spawn);
         const env = t < 0.2 ? t / 0.2 : t > 0.65 ? Math.max(0, (1 - t) / 0.35) : 1;
         if (points.current && mat.current) {
             if (t < 0 || t >= 1) points.current.visible = false;
@@ -1634,12 +1653,12 @@ export function ResidueFx({ spawn, particleBudget }: { spawn: ResidueSpawn; part
                 <bufferGeometry>
                     <bufferAttribute attach="attributes-position" args={[new Float32Array(params.length * 3), 3]} />
                 </bufferGeometry>
-                <pointsMaterial ref={mat} map={dot} color={style.color} size={Math.max(4, style.size * 24)} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} sizeAttenuation={false} />
+                <pointsMaterial ref={mat} map={dot} color={style.color} size={Math.max(4, style.size * 24)} {...ADDITIVE_PARTICLE_PROPS} />
             </points>
             {floorTex && (
                 <mesh ref={floorMesh} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
                     <planeGeometry args={[7.5, 7.5]} />
-                    <meshBasicMaterial ref={floorMat} transparent opacity={0} depthWrite={false} toneMapped={false} />
+                    <meshBasicMaterial ref={floorMat} {...TRANSPARENT_MATERIAL_PROPS} />
                 </mesh>
             )}
         </group>
