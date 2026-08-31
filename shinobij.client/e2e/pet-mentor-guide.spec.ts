@@ -295,7 +295,11 @@ test("Tomoe provides a complete, responsive seven-chapter pet battle course", as
     await expect(warfrontHeading).toBeVisible();
     await expect(warfrontHeading).toBeInViewport();
     expect(await guide.locator(".pet-mentor-lesson").evaluate((lesson) => lesson.scrollTop)).toBeLessThanOrEqual(1);
-    await expect(guide).toContainText(/break two (?:enemy )?Ward Towers/i);
+    // Hollow Warfront is the RITE now — four a side at once, best of three
+    // clashes. The lesson used to teach Ward Towers and lane redirects, which
+    // are rules the mode no longer has (docs/hollow-warfront-rite.md).
+    await expect(guide).toContainText(/two clashes out of three/i);
+    await expect(guide).not.toContainText(/Ward Tower/i);
     await expect(guide.locator(".pet-mentor-hero")).toBeInViewport();
     const modalBody = await guide.locator(".ui-modal-body--bare").evaluate((body) => ({
         clientHeight: body.clientHeight,

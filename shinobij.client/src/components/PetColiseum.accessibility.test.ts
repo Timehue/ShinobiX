@@ -44,7 +44,7 @@ test("Pet Coliseum result and Chronicle ceremony remain reachable at mobile widt
 test("Pet Arena does not preload the retired Coliseum renderer", () => {
     assert.doesNotMatch(arena, /import\("\.\.\/components\/PetColiseum"\)/);
     assert.match(arena, /const PetShowdownReplay = lazyWithRetry/);
-    assert.match(arena, /const PetWarfrontMatch = lazyWithRetry/);
+    assert.match(arena, /const PetWarfrontRite = lazyWithRetry/);
 });
 
 test("the shared Showdown battle owns the stylesheet that constrains its fullscreen replay", () => {

@@ -18,11 +18,12 @@ import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import coopHero from "../assets/coliseum/coop-hero.webp";
 import { activeCarriedPets } from "../lib/entitlements";
 
-// The sealed co-op match now plays as the Hollow Warfront (the lane-war mode
-// that replaced the capture-scroll arena). Both clients lock the same auto-buy
-// policy, so the match stays a pure function of {blue, red, seed} — the same
-// shared-determinism contract the old renderer had.
-const PetWarfrontMatch = lazy(() => import("./PetWarfrontMatch").then((m) => ({ default: m.PetWarfrontMatch })));
+// The sealed co-op match plays as the Hollow Warfront Rite. It renders as a
+// SPECTATOR: no formation panel and no re-form, because a shared replay cannot
+// take one client's decisions and still be identical on every machine. That
+// keeps the match a pure function of {blue, red, seed} — the same
+// shared-determinism contract the retired lane-war renderer relied on.
+const PetWarfrontRite = lazy(() => import("./PetWarfrontRite").then((m) => ({ default: m.PetWarfrontRite })));
 
 type Team = "blue" | "red";
 type Seat = { team: Team; slot: 0 | 1; name: string | null; ready: boolean; petCount: number; isYou: boolean };
@@ -107,10 +108,7 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
     if (lobby?.state === "running" && lobby.match) {
         return (
             <Suspense fallback={<Overlay><div style={{ color: "var(--text-dim)" }}>Loading the Warfront…</div></Overlay>}>
-                {/* Shared replay must be identical on every client — lock the auto-buy
-                    policy (no interactive council) so the match is a pure function of
-                    {blue, red, seed} on every machine. */}
-                <PetWarfrontMatch blue={lobby.match.blue} red={lobby.match.red} seed={lobby.match.seed} autoBuy="balanced" matchType="coop" spectator onExit={onExit} />
+                <PetWarfrontRite blue={lobby.match.blue} red={lobby.match.red} seed={lobby.match.seed} sharedImages={sharedImages} spectator onExit={onExit} />
             </Suspense>
         );
     }

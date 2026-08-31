@@ -18,11 +18,13 @@ const WARFRONT_MODELS = [
     "../../public/pet-models/roster/legendary-5.glb",
 ] as const;
 
+// The lane-war art that survives is what the PET LADDER's tactical replay still
+// renders. Hollow Warfront itself no longer plays here — see
+// docs/hollow-warfront-rite.md — so the mode card went with the mode.
 const WARFRONT_ART = [
     "../assets/warfront-three-lane/warfront-three-lane-ground.webp",
     "../assets/warfront-three-lane/warfront-three-lane-ground-portrait.webp",
     "../assets/warfront-three-lane/warfront-three-lane-keyart.webp",
-    "../assets/warfront-three-lane/warfront-three-lane-card.webp",
     "../assets/warfront-three-lane/IMAGEGEN_PROMPTS.md",
 ] as const;
 
