@@ -40,8 +40,6 @@ above. Each remains under its own license, and those licenses govern it:
     shinobij.client/public/fonts/marcellus-LICENSE.txt
   - Roboto (font) — Apache License 2.0
     shinobij.client/public/fonts/roboto-LICENSE.txt
-  - ember-wolf-rigged.gltf — Creative Commons Zero 1.0 (CC0), by Quaternius
-    shinobij.client/public/pet-models/THIRD_PARTY_ASSETS.md
 
 Software dependencies installed from npm are likewise governed by their own
 licenses and are not covered here.
