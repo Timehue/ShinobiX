@@ -2727,6 +2727,47 @@ export function runPetPartyDuelCinematic(
     if (enemyReserve) fighters.push(buildFighter(enemyReserve, "enemy", 1, 5.0, -3.2, playerReserve?.element ?? playerLead.element, 1, 1, false, applyItems));
     return simulate(fighters, seed, accuracyEnabled, debugTrace);
 }
+/**
+ * N-vs-N cinematic squad clash — Hollow Warfront's Rite fields up to four a side.
+ *
+ * ADDITIVE ONLY. This does not touch runPetDuelCinematic / runPetPartyDuelCinematic
+ * or anything they call, so every Coliseum path stays byte-identical; it exists
+ * because the engine was already squad-capable and only its public entry points
+ * were capped at two. `simulate` takes a fighter ARRAY, `_partyMode` switches
+ * itself on at `fighters.length > 2`, and the ally-separation rule loops over all
+ * teammates rather than assuming one — so the AI already spaces an arbitrary
+ * team. The caps were an entry-point limitation, not an engine one.
+ *
+ * Spawn lanes are a real FORMATION, not just spacing: slots 0-1 are the FRONT
+ * line (closer to the enemy, so they meet first and absorb the opening) and
+ * slots 2-3 are the BACK line. Which pet a caller puts in which slot is the
+ * mode's tactical decision — a Sage in the front line dies, a Defender there
+ * holds. The x separation is what makes that real; the y separation is what
+ * keeps four bodies from rendering as one mass.
+ */
+export const SQUAD_FRONT_SLOTS = 2;
+const SQUAD_LANES: readonly (readonly [number, number])[] = Object.freeze([
+    [4.4, 1.9], [4.4, -1.9],   // front line
+    [6.8, 4.6], [6.8, -4.6],   // back line
+]);
+
+export function runPetSquadDuelCinematic(
+    playerSquad: readonly Pet[], enemySquad: readonly Pet[], seed: number,
+    applyItems = true, accuracyEnabled = petAccuracyEnabled(), debugTrace = false,
+): DuelResult {
+    const fighters: Fighter[] = [];
+    const leadElement = (squad: readonly Pet[]) => squad[0]?.element ?? null;
+    playerSquad.forEach((pet, slot) => {
+        const [x, y] = SQUAD_LANES[Math.min(slot, SQUAD_LANES.length - 1)];
+        fighters.push(buildFighter(pet, "player", slot, -x, y, enemySquad[slot]?.element ?? leadElement(enemySquad), 1, 1, false, applyItems));
+    });
+    enemySquad.forEach((pet, slot) => {
+        const [x, y] = SQUAD_LANES[Math.min(slot, SQUAD_LANES.length - 1)];
+        fighters.push(buildFighter(pet, "enemy", slot, x, y, playerSquad[slot]?.element ?? leadElement(playerSquad), 1, 1, false, applyItems));
+    });
+    return simulate(fighters, seed, accuracyEnabled, debugTrace);
+}
+
 /** The fighting archetype the engine assigns a pet — exported for the balance harness
  *  so per-archetype win-rate is measured from the SAME classifier the sim uses. */
 export function petCinematicArchetype(pet: Pet): Archetype {

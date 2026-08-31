@@ -1,3 +1,19 @@
+/*
+ * ⚠ THIS IS NOT THE HOLLOW WARFRONT GAME MODE ANY MORE.
+ *
+ * Hollow Warfront is now the RITE — four pets a side fighting at once, best of
+ * three clashes (docs/hollow-warfront-rite.md, lib/pet-warfront-rite.ts). The
+ * three-lane war it replaced is no longer playable: the arena lobby, co-op and
+ * the dev harness all launch the Rite.
+ *
+ * This file survives for ONE reason: the PET LADDER's tactical ladder still
+ * resolves and replays on it (api/pet-ladder/_core.ts calls runWarfrontMatch,
+ * screens/PetLadder.tsx renders the replay). That is server-authoritative
+ * ranked play with existing standings, so the engine cannot simply be swapped.
+ *
+ * Do not wire this into anything new, and do not let player-facing copy call it
+ * "the Warfront" — that name belongs to the Rite.
+ */
 import {
     lazy,
     Suspense,

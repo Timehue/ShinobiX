@@ -93,7 +93,7 @@ Each runtime owns orchestration and persistence:
 | `solo-pve` | one human versus server AI, optional companion, difficulty, versioned intent API, reconnect, terminal evidence |
 | `tower` | party membership, N-actor queue, objectives, boss phases, Tower terrain/modifiers and settlement |
 | `pet-showdown` | turn-based pet commands, bench/switch/stamina state, Showdown scripts, and the only new paid Coliseum receipts |
-| `pet-warfront` | positional teams, formations, lanes/objectives, deterministic Warfront replay, and Warfront-family settlement |
+| `pet-warfront` | positional teams, formations, deterministic replay, and Warfront-family settlement. Covers BOTH the Hollow Warfront Rite (4v4 simultaneous clashes, best of three — docs/hollow-warfront-rite.md) and the Pet Ladder's tactical lane sim, which is the only remaining user of lanes/objectives |
 | `pet-gauntlet-grid` | run-only draft state, grid placements, deterministic transcript replay, and capped run settlement |
 | `pet-cinematic-duel` | cinematic 1v1/party input logs; recovery and settlement of exact already-issued Arena-AI receipts without new admission; the parent-prebound Hollow Gate proof; the server-selected Dungeon Rare Beast and its parent-run proof; and server-sealed, memory-only live PvP transport with no reward/rating write |
 | `legacy-pet-duel` | retained sealed legacy ranked challenge inputs and compatibility settlement; new notices are retired and it is not a substitute for the public ranked surface, Showdown, Warfront, Gauntlet, or cinematic authority |

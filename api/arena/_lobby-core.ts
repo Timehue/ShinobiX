@@ -4,8 +4,12 @@
  * and delegates every decision to the functions here so they can be unit-tested
  * in isolation (api/arena/_lobby-core.test.ts).
  *
- * MODEL: the arena auto-battle is a DETERMINISTIC replay
- * (shinobij.client/src/lib/pet-arena-sim.ts → runPetArenaMatch(blue, red, seed)).
+ * MODEL: the arena auto-battle is a DETERMINISTIC replay. Co-op now plays the
+ * Hollow Warfront RITE (shinobij.client/src/lib/pet-warfront-rite.ts →
+ * runWarfrontRite(blue, red, seed)) rendered as a SPECTATOR: no formation panel
+ * and no mid-match re-form, because a shared replay cannot take one client's
+ * decisions and still be identical on every machine. It is therefore a pure
+ * function of {blue, red, seed}, exactly as the retired lane-war replay was.
  * So co-op needs no real-time netcode: the server is a lobby coordinator that,
  * at start, SEALS the match inputs — each player's two pets (snapshotted from
  * their server-side save, so the client can't inject buffed pets) plus a
