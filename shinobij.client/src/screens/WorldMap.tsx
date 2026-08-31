@@ -71,6 +71,7 @@ import type { StoryReckoning } from "../data/story-reckonings";
 import { RIFT_GIVER_PREFIX, RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_ABANDON_MARKER, nextRift, synthRiftGiver, riftBySynthId, riftIntroEvent, riftDescentEvent, riftByDescentEventId, isRiftDescentEventId, riftTargetSector, acceptRift, abandonRift } from "../lib/hollow-rifts";
 import { hollowRiftById, type HollowRift } from "../data/hollow-rifts";
 import { SCRIBE_WANDERER_ID, SCRIBE_ACCEPT_MARKER, CODEX_FLIP_LIMIT, scribeWandererFor, scribeIntroEvent, claimTravelersCodex, codexRevealCards } from "../lib/chronicle-scribe";
+import { usePetMentorGuide } from "../lib/use-pet-mentor-guide";
 import { CardPackOpening } from "../components/CardPackOpening";
 import { displayCardsById } from "../lib/chronicle-duel";
 // The RAW count, not lib/chronicle-duel's ownedChronicleCounts: that one applies
@@ -1151,6 +1152,7 @@ export function WorldMap({
         if (!isWanderersEnabled()) return [];
         return scribeWandererFor(character, selectedSector);
     }, [character.level, character.starterCardsClaimed, character.name, selectedSector]);
+    const petMentor = usePetMentorGuide({ character, selectedSector: isWanderersEnabled() ? selectedSector : null, updateCharacter, setScreen });
     // The codex hand-off ends on the pack-opening cinematic, so the scene closes
     // on the player actually seeing the cards instead of on an alert.
     //
@@ -1908,6 +1910,7 @@ export function WorldMap({
             }
             return;
         }
+        if (petMentor.engage(w)) return;
         // A roaming mercenary doesn't parley — it forces a server-resolved fight.
         if (isMercAiId(w.id)) { void engageRoamingMerc(w); return; }
         if (w.verb === "bountyHunter") {
@@ -4412,6 +4415,7 @@ export function WorldMap({
             ...emissaryWanderers,
             ...storyReckoningWanderers,
             ...scribeWanderers,
+            ...petMentor.wanderers,
             ...roamingQuestGivers,
         ];
         const sectorOverlayRift = (() => {
@@ -4477,6 +4481,7 @@ export function WorldMap({
 
         return (
             <div className="map-instance">
+                {petMentor.guide}
                 <div className="instance-frame sector-instance-frame">
                     <WorldSectorCanvas
                         sector={selectedSector}
@@ -4520,6 +4525,7 @@ export function WorldMap({
                                 onOpenTrace={(signId) => setTracesModal({ view: "signs", focusSignId: signId })}
                                 onOpenShrine={() => setTracesModal({ view: "shrine" })}
                             />
+                            {sectorIsCurrent ? petMentor.roadPrompt : null}
                             {tracesModal && sectorTraces && (
                                 <SectorTracesModal
                                     state={tracesModal}

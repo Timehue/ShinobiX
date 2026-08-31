@@ -886,3 +886,46 @@ body .arena-fullscreen .hex-tile.jutsu-target-tile {
     .sector-intel-payoff p:last-child {
         margin-bottom: 0;
     }
+.map-instance .pet-mentor-road-prompt {
+    position: absolute;
+    right: clamp(10px, 2vw, 18px);
+    bottom: clamp(10px, 2vw, 18px);
+    z-index: 24;
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    width: min(360px, calc(100% - 20px));
+    min-height: 64px;
+    padding: 9px 12px;
+    text-align: left;
+    border: 1px solid rgba(244, 184, 96, .72);
+    border-radius: 13px;
+    background: linear-gradient(135deg, rgba(30, 22, 14, .97), rgba(7, 17, 21, .97));
+    color: #f7ead2;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, .56), inset 0 1px rgba(255, 255, 255, .06);
+    backdrop-filter: blur(8px);
+}
+
+.map-instance .pet-mentor-road-art {
+    width: 40px;
+    height: 40px;
+    overflow: hidden;
+    border: 1px solid rgba(244, 184, 96, .56);
+    border-radius: 50%;
+    background: #0a111b;
+    box-shadow: 0 3px 11px rgba(0, 0, 0, .38);
+}
+.map-instance .pet-mentor-road-art img { width: 100%; height: 100%; object-fit: cover; object-position: 56% center; }
+.map-instance .pet-mentor-road-prompt > span:nth-child(2) { display: grid; min-width: 0; gap: 2px; }
+.map-instance .pet-mentor-road-prompt small { color: #f4c77f; font-size: .58rem; font-style: normal; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.map-instance .pet-mentor-road-prompt strong { overflow: hidden; color: #fff5e4; font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
+.map-instance .pet-mentor-road-prompt em { overflow: hidden; color: #acbac8; font-size: .62rem; font-style: normal; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.map-instance .pet-mentor-road-prompt b { color: #f4c77f; font-size: .68rem; white-space: nowrap; }
+.map-instance .pet-mentor-road-prompt:hover { border-color: #f8d28c; transform: translateY(-1px); }
+.map-instance .pet-mentor-road-prompt:focus-visible { outline: 3px solid #f8d28c; outline-offset: 3px; }
+
+@media (max-width: 600px) {
+    .map-instance .pet-mentor-road-prompt { grid-template-columns: 40px minmax(0, 1fr) auto; min-height: 58px; }
+    .map-instance .pet-mentor-road-prompt em { display: none; }
+}
