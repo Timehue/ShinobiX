@@ -101,11 +101,15 @@ import { publicEligiblePets } from "../lib/public-pet-roster";
 import { buildPetArenaLiveRoster, isLivePetDuelAvailable } from "../lib/pet-duel-live-roster";
 import type { ArenaSlot, ArenaRole } from "../lib/pet-arena-sim";
 import type { WfTheme } from "../lib/pet-warfront-map";
-import type { WarfrontResult, WfBuyPolicy } from "../lib/pet-warfront-sim";
-import { WF_DOCTRINES, WF_STANCES, type WfDoctrine, type WfStance } from "../lib/pet-warfront-contract";
+import type { WfBuyPolicy } from "../lib/pet-warfront-sim";
+import { RITE_MIN_ELEMENTS, riteBandElements, riteBandProblem, type RitePlan, type RiteResult } from "../lib/pet-warfront-rite";
+import { type WfDoctrine, type WfStance } from "../lib/pet-warfront-contract";
 import arenaModeColosseum from "../assets/coliseum/arena-mode-colosseum.webp";
-import warfrontKeyArt from "../assets/warfront-three-lane/warfront-three-lane-keyart.webp";
-import warfrontCardArt from "../assets/warfront-three-lane/warfront-three-lane-card.webp";
+// The Rite's own art. The three-lane key art and card depicted lanes and Ward
+// Towers — a mode that no longer exists — so the lobby was advertising the
+// retired game right up to the launch button.
+import warfrontKeyArt from "../assets/warfront-rite/warfront-rite-keyart.webp";
+import warfrontCardArt from "../assets/warfront-rite/warfront-rite-card.webp";
 import arenaModeGauntlet from "../assets/coliseum/arena-mode-gauntlet.webp";
 import type { PetTutorialProgress } from "../../../shared/pet-tutorial";
 import petArenaCommandHero from "../assets/coliseum/pet-arena-command-v2.webp";
@@ -202,9 +206,9 @@ function BattlePlan({ pets, size }: { pets: Pet[]; size: number }) {
                 <span>Elements <strong>{elements.size ? [...elements].map((e) => <ElIcon key={e} el={e} size={15} />) : "—"}</strong></span>
             </div>
             <div className="bp-tips">
-                <div>🏁 Three sealed lanes. The first commander to break two Ward Towers wins.</div>
+                <div>🏁 One ring, one duel at a time. Down all four of theirs to take the Rite.</div>
                 <div>🧠 Pets auto-fight by role — defenders tank, sages heal, trackers poke, assassins dive.</div>
-                <div>♜ Earn Favor through combat, then summon the Gate Warden during a command window.</div>
+                <div>♜ The winner of a duel stays in wounded, so a narrow win is also your next problem.</div>
             </div>
         </div>
     );
@@ -222,10 +226,10 @@ const PetShowdownReplay = lazyWithRetry(() => import("../components/PetShowdownR
 const loadPetMentorGuide = () => import("../components/PetMentorGuide");
 const preloadPetMentorGuide = () => { void loadPetMentorGuide().catch(() => undefined); };
 const PetMentorGuide = lazyWithRetry(() => loadPetMentorGuide().then((module) => ({ default: module.PetMentorGuide })));
-// Hollow Warfront — four pets, three navigation-isolated causeways, first to
-// break two Ward Towers. Own lazy chunk so its simulation and presentation do
-// not tax the cinematic Colosseum route.
-const PetWarfrontMatch = lazyWithRetry(() => import("../components/PetWarfrontMatch").then((m) => ({ default: m.PetWarfrontMatch })));
+// Hollow Warfront — the Rite: four pets a side fighting at once, best of three
+// clashes, with the front line as the decision (docs/hollow-warfront-rite.md).
+// Own lazy chunk so its simulation and eight rigs do not tax the Colosseum route.
+const PetWarfrontRite = lazyWithRetry(() => import("../components/PetWarfrontRite").then((m) => ({ default: m.PetWarfrontRite })));
 // Pet Gauntlet — the roguelike run mode (3rd tab). Self-contained (owns its run
 // state + its own fight), so it's lazy-loaded and never touches the duel/arena state here.
 const PetGauntlet = lazyWithRetry(() => import("../components/PetGauntlet").then((m) => ({ default: m.PetGauntlet })));
@@ -431,8 +435,9 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     // Default the 2v2 reserve to the saved "2v2 Partner" set in the Pet Yard
     // (character.activePetId2v2). Still overridable per battle via the dropdown.
     const [reservePetId, setReservePetId] = useState<string>(character.activePetId2v2 ?? "");
-    // Hollow Warfront — a full-screen 4v4 command battle on three sealed
-    // causeways. Teams are built and frozen on launch; lanes are assigned next.
+    // Hollow Warfront — the Rite: a full-screen 4v4 clash where both bands fight
+    // at once, best of three. Teams are built and frozen on launch; the player
+    // then commits a FORMATION (which two hold the front line).
     const [arenaMatch, setArenaMatch] = useState<WarfrontMatch | null>(null);
     // Server-authoritative Warfront seed + reward proof. This exact promise is
     // retained through rendering and retries so the battle cannot be re-seeded.
@@ -476,15 +481,10 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         () => parseWfDoctrine(wfLoadout?.doctrine) ?? parseWfDoctrine(legacyWfPref("wfDoctrine.v1")) ?? "vanguard",
         [wfLoadout?.doctrine],
     );
-    const writeWfLoadout = (patch: Partial<NonNullable<Character["warfrontLoadout"]>>) => {
-        updateCharacter((current) => current ? {
-            ...current,
-            // Persist all three so the device fallback is retired in one write.
-            warfrontLoadout: { autoBuy: wfAutoPref, stance: wfStancePref, doctrine: wfDoctrinePref, ...current.warfrontLoadout, ...patch },
-        } : current);
-    };
-    const setWfStance = (s: WfStance) => writeWfLoadout({ stance: s });
-    const setWfDoctrine = (d: WfDoctrine) => writeWfLoadout({ doctrine: d });
+    // The stance/doctrine/buy prefs are READ-ONLY now. Nothing in the Rite lets a
+    // player change them — the retired lane war's pickers were the only writers —
+    // but they are still sealed into the battle token and validated by
+    // isRecoverableWarfront, so the values themselves must keep resolving.
     const receivePetBattleSettlement = (
         data: PetBattleSettlementResponse,
         scope: PetArenaPlayerScope,
@@ -944,7 +944,8 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     // PvP Warfront matches intentionally have no economy settlement.
     function reportTacticalArenaResult(
         m: WarfrontMatch,
-        result: WarfrontResult,
+        result: RiteResult,
+        plan: RitePlan,
     ) {
         if (!m.vsAi || !playerAuthorityIsActive(m.scope)) return;
         const winner = result.winner ?? "draw";
@@ -979,9 +980,15 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 const data = await postPetBattleSettlement({
                     ...bodyBase,
                     battleToken: seal.token,
+                    // The Rite's whole command transcript: the FORMATION the
+                    // player committed (which pets hold the front line) plus an
+                    // optional mid-match re-form. The server re-runs the clashes
+                    // from the sealed bands + seed and this plan, and pays from
+                    // ITS winner — no outcome or reward is asserted here.
                     warfrontPlan: {
-                        initialLanes: result.initialLanes.blue,
-                        commands: result.commandLog,
+                        formation: plan.formation,
+                        reformAfterClash: plan.reformAfterClash,
+                        reform: plan.reform ?? null,
                     },
                 });
                 if (!playerScopeIsActive(m.scope)) return false;
@@ -1790,14 +1797,14 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     const arenaHeroEyebrow = isHollowGate
         ? "The Hollow Gate · sealed encounter"
         : arenaView === "tactical"
-            ? "Four bonded pets · three sealed fronts"
+            ? "Four bonded pets · one sealed ring"
             : arenaView === "gauntlet"
                 ? "Endurance command · escalating run"
                 : "Companion combat command";
     const arenaHeroCopy = isHollowGate
         ? "Face the corrupted guardian and seal the result before returning to the shrine."
         : arenaView === "tactical"
-            ? "Deploy 2–1–1, redirect one pet every two minutes, and be first to shatter two enemy Ward Towers."
+            ? "Set your front line, send all four in at once, and take two clashes out of three."
             : arenaView === "gauntlet"
                 ? "Draft once, read every counter, and carry your squad through an escalating chain of fights."
                 : "Choose the contender, read the matchup, then call every stance and technique from ringside.";
@@ -2250,19 +2257,16 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                         // ── Single screen: doctrine + squad grid + actions ───────────
                         // (Warfront is always 4v4 — the old 2v2 size toggle retired with
                         // the capture-scroll mode.)
-                        const canStart = isExactAvailableSelection(tacticalPicks, tacticalSize);
                         const selectedTacticalPets = tacticalPicks
                             .map((id) => availableById.get(id))
                             .filter((pet): pet is Pet => Boolean(pet));
-                        const selectedFormation = WF_STANCES.find((stance) => stance.id === wfStancePref) ?? WF_STANCES[0];
-                        const selectedDoctrine = WF_DOCTRINES.find((doctrine) => doctrine.id === wfDoctrinePref) ?? WF_DOCTRINES[0];
-                        const planSynergy = wfStancePref === "jungle" && wfDoctrinePref === "warden-pact"
-                            ? "Oathbound Warden: accelerated Favor reaches the 85-point Pact summon sooner and extends its normal duration before the shared Omen is applied."
-                            : wfStancePref === "siege" && wfDoctrinePref === "vanguard"
-                                ? "Breach Column: +8% team attack compounds a structure-first march."
-                                : wfStancePref === "turtle" && wfDoctrinePref === "bulwark"
-                                    ? "Unbroken Line: +12% team HP reinforces the strongest home-ground defense."
-                                    : `${selectedFormation.label} controls field behavior; ${selectedDoctrine.label} supplies the permanent team-wide edge.`;
+                        const bandElements = riteBandElements(selectedTacticalPets);
+                        const bandProblem = riteBandProblem(selectedTacticalPets);
+                        // Gate the START on band legality, not just on the count.
+                        // Without this a player can launch a single-element band,
+                        // reach the Rite's deploy panel, and find "Begin the Rite"
+                        // permanently disabled with no way forward but Withdraw.
+                        const canStart = isExactAvailableSelection(tacticalPicks, tacticalSize) && !bandProblem;
                         return (
                             <div style={{ display: "grid", gap: "0.7rem" }}>
                                 <div className="pet-arena-tactical-top">
@@ -2270,52 +2274,34 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                         <div className="wf-pregame-readout" aria-label="Hollow Warfront battle laws">
                                             <div className="wf-pregame-readout-title">
                                                 <span>BATTLE LAWS</span>
-                                                <strong>THREE LANES · TWO TOWERS TO WIN</strong>
+                                                <strong>ONE RING · LAST BAND STANDING</strong>
                                             </div>
                                             <div className="wf-pregame-readout-grid">
-                                                <div><span>OPENING</span><strong>2–1–1 deployment</strong><small>Every isolated causeway must be defended.</small></div>
-                                                <div><span>COMMAND</span><strong>Every 2 minutes</strong><small>Seal-transfer exactly one pet; Storm Gate accelerates this to 90 seconds.</small></div>
-                                                <div><span>BREAKTHROUGH</span><strong>Redeploy the lane</strong><small>A destroyed tower frees every pet assigned there.</small></div>
+                                                <div><span>OPENING</span><strong>Commit your order</strong><small>Four pets, one batting order. You see their lead before you lock yours.</small></div>
+                                                <div><span>THE RITE</span><strong>Winner stays in</strong><small>Duels run one at a time, and the survivor keeps every wound into the next.</small></div>
+                                                <div><span>VICTORY</span><strong>Take all four</strong><small>Kills are the only scoreboard. Down their whole band to win.</small></div>
                                             </div>
-                                            <p><span>♜ WARDEN</span>Earn Favor from combat and tower pressure, then choose a Breaker, Sentinel, or Harrier Aspect during a command window.</p>
-                                            <p><span>◐ HOLLOW OMEN</span>One shared match rule is revealed before deployment; both sides fight under the same condition.</p>
+                                            <p><span>♜ SWAP TOKEN</span>Once per Rite you may pull a wounded winner. It goes to the back of the line and gives up 12% health.</p>
+                                            <p><span>◐ ELEMENTS</span>Type advantage decides duels, so a band of three or more elements cannot be countered outright.</p>
                                         </div>
 
-                                        <div>
-                                            <p style={{ margin: 0, fontWeight: 600, fontSize: "0.85rem" }}>📜 Opening formation</p>
-                                            <div className="pet-arena-mode-toggle" role="group" aria-label="Opening formation" style={{ maxWidth: 620, marginTop: 6, flexWrap: "wrap" }}>
-                                                {WF_STANCES.map((s) => (
-                                                    <button key={s.id} type="button" title={s.desc} className={wfStancePref === s.id ? "active" : ""} aria-pressed={wfStancePref === s.id} onClick={() => setWfStance(s.id)}>
-                                                        {s.icon} {s.label}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                            <p className="hint" style={{ margin: "4px 0 0" }}>Your formation is sealed at kickoff. The AI rival always fields Balanced formation.</p>
-                                        </div>
-
-                                        <div>
-                                            <p style={{ margin: 0, fontWeight: 600, fontSize: "0.85rem" }}>🎖 Team doctrine</p>
-                                            <div className="pet-arena-mode-toggle" role="group" aria-label="Team doctrine" style={{ maxWidth: 620, marginTop: 6, flexWrap: "wrap" }}>
-                                                {WF_DOCTRINES.map((d) => (
-                                                    <button key={d.id} type="button" title={d.desc} className={wfDoctrinePref === d.id ? "active" : ""} aria-pressed={wfDoctrinePref === d.id} onClick={() => setWfDoctrine(d.id)}>
-                                                        {d.icon} {d.label}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                            <p className="hint" style={{ margin: "4px 0 0" }}>Choose your sealed team-wide boon. The AI rival always fields Vanguard doctrine.</p>
-                                        </div>
-
-                                        <div className="wf-pregame-readout" aria-label="Sealed battle plan impact">
+                                        {/* The Rite's only pre-match decision is WHO IS IN THE BAND —
+                                            the batting order is committed on the Rite's own deploy
+                                            panel, and element spread is the one composition rule that
+                                            actually decides matches. The retired formation/doctrine
+                                            pickers lived here and did nothing once the lane war was
+                                            replaced, so they are gone rather than left as decoration. */}
+                                        <div className="wf-pregame-readout" aria-label="Band composition">
                                             <div className="wf-pregame-readout-title">
-                                                <span>SEALED BATTLE PLAN</span>
-                                                <strong>{selectedFormation.icon} {selectedFormation.label} · {selectedDoctrine.icon} {selectedDoctrine.label}</strong>
+                                                <span>YOUR BAND</span>
+                                                <strong>{bandElements.length} element{bandElements.length === 1 ? "" : "s"} · {bandElements.join(" · ") || "—"}</strong>
                                             </div>
-                                            <div className="wf-pregame-readout-grid">
-                                                <div><span>COMMAND RHYTHM</span><strong>120-second baseline</strong><small>One transfer or hold; the sealed Omen may alter the rhythm.</small></div>
-                                                <div><span>FIELD BEHAVIOR</span><strong>{selectedFormation.label}</strong><small>{selectedFormation.desc}</small></div>
-                                                <div><span>PERMANENT BOON</span><strong>{selectedDoctrine.label}</strong><small>{selectedDoctrine.desc}</small></div>
-                                            </div>
-                                            <p><span>◆ TACTICAL READ</span>{planSynergy}</p>
+                                            <p>
+                                                <span>◆ ELEMENT RULE</span>
+                                                {bandProblem
+                                                    ? bandProblem
+                                                    : `Legal band. Type advantage decides duels, and ${RITE_MIN_ELEMENTS}+ elements means no single rival band counters yours outright.`}
+                                            </p>
                                         </div>
 
                                         <div>
@@ -2334,7 +2320,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.7rem" }}>
                                     <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>
                                         <strong>🤖 Fight AI</strong>
-                                        <p className="hint" style={{ margin: 0 }}>Fixed rival plan: Balanced formation · Vanguard doctrine. Both squads are sealed before kickoff.</p>
+                                        <p className="hint" style={{ margin: 0 }}>The rival leads with its most durable pets. Both bands are sealed before the first clash.</p>
                                         <button
                                             disabled={!canStart || warfrontSetupPending}
                                             aria-busy={warfrontSetupPending}
@@ -2380,17 +2366,10 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 view; rendered here so they sit above whichever view is active. */}
             {arenaMatch && (
                 <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading the Warfront…</div>}>
-                    <PetWarfrontMatch
+                    <PetWarfrontRite
                         blue={arenaMatch.blue} red={arenaMatch.red} seed={arenaMatch.seed}
-                        theme={arenaMatch.theme}
-                        autoBuy={arenaMatch.buyPolicy}
-                        opponentAutoBuy={arenaMatch.opponentBuyPolicy}
-                        stance={arenaMatch.stance}
-                        doctrine={arenaMatch.doctrine}
-                        opponentStance={arenaMatch.opponentStance}
-                        opponentDoctrine={arenaMatch.opponentDoctrine}
-                        matchType="unranked"
-                        onResult={(result) => reportTacticalArenaResult(arenaMatch, result)}
+                        sharedImages={sharedImages}
+                        onResult={(result, plan) => reportTacticalArenaResult(arenaMatch, result, plan)}
                         resultActionsLocked={warfrontResultActionsLocked}
                         settlementPending={warfrontSettlementBlocksExit}
                         resultSupplement={chronicleProgress || chronicleCeremony ? (

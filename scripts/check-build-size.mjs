@@ -483,7 +483,29 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // entry, initial-graph, per-chunk, and CSS gates below remain unchanged. The new
 // ceiling leaves 17,971 B locally and about 17.5 KB after the measured 468 B
 // deploy-build delta documented above.
-const TOTAL_JS_CSS_FAIL_BYTES = 8_030_000;
+// 2026-08-31 HOLLOW WARFRONT REBUILD (the Rite, docs/hollow-warfront-rite.md).
+// The mode's engine, its two components, its stylesheet and its art are new
+// product surface. The retired three-lane sim and renderer are STILL in the tree
+// — not because co-op needs them (co-op now plays the Rite) but because the Pet
+// Ladder's ranked tactical ladder resolves and replays on them, and swapping a
+// ranked engine would invalidate existing standings.
+//
+// This landed alongside the expeditions raise above, so the ceiling below covers
+// BOTH and neither entry's own number is the live one — measured together on the
+// merged tree, the product graph is 8,054,964 B, which OVERSHOOTS the expeditions
+// ceiling (8,030,000) and the Rite's own (8,045,000) alike. Two independent
+// raises against the same pre-merge baseline do not compose: each was sized
+// against 7,995,000 as if it were the only one landing. Re-measure after a
+// conflict here rather than taking the larger side. The 20,036 B of remaining
+// headroom covers the ~500 B of VITE_SENTRY_* build-arg strings a deploy build
+// inlines (see the correction above — size against the MEASURED ~500 B delta,
+// never the obsolete ~7 KB band) plus minor churn.
+//
+// LOWER IT when the tactical ladder migrates off the lane sim: that removes
+// pet-warfront-{sim,map,mask-baked,worker,presentation,contract} plus
+// PetWarfrontMatch/PetWarfrontStage3D, which together are far larger than the
+// mode that replaced them. This is a bridge, not a new baseline.
+const TOTAL_JS_CSS_FAIL_BYTES = 8_075_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

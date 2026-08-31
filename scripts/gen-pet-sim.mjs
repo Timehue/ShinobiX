@@ -135,9 +135,21 @@ const doctrine = read("lib/pet-duel-doctrine.ts")
     .replace(/from "\.\/pet-bond-meter"/g, 'from "./pet-bond-meter.js"');
 write("pet-duel-doctrine.ts", "lib/pet-duel-doctrine.ts", doctrine);
 
+// 12. pet-warfront-rite.ts → pet-warfront-rite.ts. Hollow Warfront's AUTOBATTLER
+//     mode: an ordered chain of cinematic duels where the last band standing
+//     wins. Its vs-AI reward is server-authoritative — api/pet/battle-result.ts
+//     re-runs this exact chain from the sealed pets + seed + the player's
+//     committed plan and pays from ITS winner, never the client's. It only
+//     composes pet-duel-cinematic, so no new siblings are needed.
+const rite = read("lib/pet-warfront-rite.ts")
+    .replace(/from "\.\.\/types\/pet"/g, 'from "./pet-types.js"')
+    .replace(/from "\.\/pet-duel-sim"/g, 'from "./pet-duel-sim.js"')
+    .replace(/from "\.\/pet-duel-cinematic"/g, 'from "./pet-duel-cinematic.js"');
+write("pet-warfront-rite.ts", "lib/pet-warfront-rite.ts", rite);
+
 // Sanity: no client-only import paths may survive into the server copy.
 const STRAY = ['../types/pet', '../data/pet-config', './pet-coliseum-flag', '../constants/game', '"./core"', '../lib/pet-roles', './pet-arena-walkmask"', './pet-duel-sim"', './pet-arena-sim', './pet-warfront-map"', './pet-warfront-mask-baked"', '../types/core'];
-for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts", "pet-warfront-mask-baked.ts", "pet-warfront-map.ts", "pet-warfront-sim.ts", "pet-roles.ts", "pet-bond-meter.ts", "pet-duel-doctrine.ts"]) {
+for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts", "pet-warfront-mask-baked.ts", "pet-warfront-map.ts", "pet-warfront-sim.ts", "pet-roles.ts", "pet-bond-meter.ts", "pet-duel-doctrine.ts", "pet-warfront-rite.ts"]) {
     const body = readFileSync(join(OUT, name), "utf8");
     for (const s of STRAY) if (body.includes(s)) throw new Error(`gen-pet-sim: stray client import "${s}" left in ${name} — a rewrite rule missed it`);
 }

@@ -1,0 +1,500 @@
+/*
+ * Hollow Warfront — the Rite.
+ *
+ * A full-screen mode overlay. The 3D stage owns the frame; every HUD element
+ * sits at an edge so the two fighters are never covered. Panels are translucent
+ * over the void rather than opaque cards, so the arena light reads through them.
+ */
+
+.wfr-root {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    background: radial-gradient(120% 90% at 50% 40%, #0d1a24 0%, #05090e 70%, #03060a 100%);
+    color: #e6f1f6;
+    font-family: inherit;
+    overflow: hidden;
+}
+
+.wfr-stage { position: absolute; inset: 0; }
+.wfr-canvas { display: block; width: 100%; height: 100%; }
+
+.wfr-loading {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: #8fb6c6;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 0.82rem;
+}
+
+.wfr-eyebrow {
+    margin: 0;
+    font-size: 0.68rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #6fd7ef;
+}
+
+.wfr-el {
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+/* ── Portraits ─────────────────────────────────────────────────────────── */
+
+.wfr-portrait {
+    display: inline-grid;
+    place-items: center;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid rgba(120, 190, 215, 0.5);
+    background: rgba(10, 22, 30, 0.85);
+    flex: 0 0 auto;
+}
+.wfr-portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wfr-portrait-glyph { font-weight: 800; font-size: 1.1rem; }
+
+/* ── Deploy ────────────────────────────────────────────────────────────── */
+
+.wfr-deploy {
+    position: relative;
+    z-index: 2;
+    margin: auto;
+    width: min(560px, 94vw);
+    max-height: 94vh;
+    overflow-y: auto;
+    padding: 22px 24px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    background: rgba(9, 18, 26, 0.92);
+    border: 1px solid rgba(111, 215, 239, 0.24);
+    border-radius: 14px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+}
+
+.wfr-deploy-head h2 { margin: 6px 0 8px; font-size: 1.5rem; letter-spacing: -0.01em; }
+.wfr-deploy-copy { margin: 0; font-size: 0.9rem; line-height: 1.5; color: #a9c4d1; }
+.wfr-deploy-copy strong { color: #e6f1f6; }
+
+.wfr-scout {
+    border: 1px solid rgba(255, 84, 112, 0.34);
+    background: rgba(48, 12, 20, 0.42);
+    border-radius: 10px;
+    padding: 12px 14px;
+}
+.wfr-scout h3 {
+    margin: 0 0 8px;
+    font-size: 0.66rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #ff8fa3;
+}
+.wfr-scout-body { display: flex; align-items: center; gap: 12px; }
+.wfr-scout-body strong { display: block; font-size: 1rem; }
+.wfr-scout-note { margin: 10px 0 0; font-size: 0.78rem; color: #9fb6c2; }
+
+.wfr-order { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.wfr-order li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    background: rgba(16, 30, 40, 0.8);
+    border: 1px solid rgba(120, 190, 215, 0.16);
+}
+.wfr-order li.is-lead { border-color: rgba(111, 215, 239, 0.55); background: rgba(16, 44, 56, 0.85); }
+.wfr-slot-no {
+    width: 22px;
+    font-weight: 800;
+    color: #6fd7ef;
+    font-variant-numeric: tabular-nums;
+}
+.wfr-order-id { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.wfr-order-id strong { font-size: 0.94rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wfr-order-moves { display: flex; flex-direction: column; gap: 3px; }
+.wfr-order-moves button {
+    width: 30px;
+    height: 22px;
+    border-radius: 6px;
+    border: 1px solid rgba(120, 190, 215, 0.3);
+    background: rgba(20, 40, 52, 0.9);
+    color: #cfe6ef;
+    cursor: pointer;
+    line-height: 1;
+    font-size: 0.7rem;
+}
+.wfr-order-moves button:disabled { opacity: 0.3; cursor: default; }
+.wfr-order-moves button:not(:disabled):hover { background: rgba(32, 66, 84, 0.95); }
+
+.wfr-matchup {
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: #9fb6c2;
+}
+.wfr-matchup.is-strong { color: #5fdc93; }
+.wfr-matchup.is-weak { color: #ff8fa3; }
+
+.wfr-swap {
+    border: 1px solid rgba(111, 215, 239, 0.2);
+    border-radius: 10px;
+    padding: 12px 14px;
+    background: rgba(12, 26, 34, 0.6);
+}
+.wfr-swap h3 { margin: 0 0 6px; font-size: 0.9rem; display: flex; align-items: baseline; gap: 8px; }
+.wfr-swap h3 span {
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #6fd7ef;
+    font-weight: 600;
+}
+.wfr-swap p { margin: 0 0 10px; font-size: 0.8rem; color: #9fb6c2; line-height: 1.45; }
+.wfr-swap-picks { display: flex; flex-wrap: wrap; gap: 6px; }
+.wfr-swap-picks button {
+    padding: 6px 11px;
+    border-radius: 999px;
+    border: 1px solid rgba(120, 190, 215, 0.3);
+    background: rgba(16, 32, 42, 0.9);
+    color: #cfe6ef;
+    font-size: 0.76rem;
+    cursor: pointer;
+    min-height: 32px;
+}
+.wfr-swap-picks button.is-on { background: #17627a; border-color: #6fd7ef; color: #eaf9ff; }
+
+.wfr-problem {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: rgba(90, 24, 24, 0.5);
+    border: 1px solid rgba(255, 107, 107, 0.45);
+    color: #ffc9c9;
+    font-size: 0.82rem;
+}
+
+.wfr-deploy-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.wfr-btn-primary, .wfr-btn-ghost {
+    padding: 10px 18px;
+    border-radius: 9px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    min-height: 44px;
+    border: 1px solid transparent;
+}
+.wfr-btn-primary { background: #17627a; border-color: #6fd7ef; color: #eaf9ff; }
+.wfr-btn-primary:disabled { opacity: 0.45; cursor: default; }
+.wfr-btn-primary:not(:disabled):hover { background: #1d7d99; }
+.wfr-btn-ghost { background: transparent; border-color: rgba(120, 190, 215, 0.32); color: #a9c4d1; }
+.wfr-btn-ghost:hover { background: rgba(120, 190, 215, 0.1); }
+
+/* ── Clash HUD ─────────────────────────────────────────────────────────── */
+
+/* Eight fighters means eight bars, so each side gets a compact roster column
+   pinned to its own edge. The centre carries the clash number and the running
+   best-of-three score — the only two numbers that decide the match. */
+.wfr-hud {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 3;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    pointer-events: none;
+    background: linear-gradient(to bottom, rgba(3, 8, 13, 0.82), rgba(3, 8, 13, 0));
+}
+
+.wfr-roster {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 0 1 250px;
+    min-width: 0;
+}
+.wfr-roster li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 6px;
+    border-radius: 8px;
+    border-left: 3px solid transparent;
+}
+/* The front line is the formation decision, so it stays marked during the
+   fight — otherwise the player cannot see whether their read paid off. */
+.wfr-roster.is-blue li.is-front { border-left-color: #4cc9f0; background: rgba(76, 201, 240, 0.09); }
+.wfr-roster.is-red li.is-front { border-left-color: #ff5470; background: rgba(255, 84, 112, 0.09); }
+.wfr-roster.is-red { flex-direction: column; align-items: flex-end; }
+.wfr-roster.is-red li { flex-direction: row-reverse; border-left: 0; border-right: 3px solid transparent; }
+.wfr-roster.is-red li.is-front { border-right-color: #ff5470; }
+
+.wfr-roster-meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 auto; }
+.wfr-roster.is-red .wfr-roster-meta { align-items: flex-end; }
+.wfr-roster-meta strong {
+    font-size: 0.74rem;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 150px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+.wfr-bar {
+    display: block;
+    width: 100%;
+    min-width: 96px;
+    height: 7px;
+    border-radius: 999px;
+    background: rgba(6, 14, 20, 0.85);
+    border: 1px solid rgba(120, 190, 215, 0.28);
+    overflow: hidden;
+}
+.wfr-bar-fill { display: block; height: 100%; border-radius: 999px; transition: background 220ms linear; }
+.wfr-bar-fill.is-blue { background: #4cc9f0; }
+.wfr-bar-fill.is-red { background: #ff5470; }
+
+.wfr-hud-center { flex: 0 0 auto; text-align: center; display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.wfr-duel-no {
+    font-size: 0.66rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #8fb6c6;
+}
+.wfr-rounds {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+.wfr-rounds b { font-size: 1.5rem; font-weight: 800; }
+.wfr-rounds i { font-style: normal; color: #8fb6c6; }
+
+/* ── VS card + interlude ───────────────────────────────────────────────── */
+
+.wfr-vs-card, .wfr-interlude {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(16px, 6vw, 64px);
+    pointer-events: none;
+    background: radial-gradient(60% 50% at 50% 50%, rgba(3, 8, 13, 0.72), rgba(3, 8, 13, 0.94));
+    animation: wfr-fade 260ms ease both;
+}
+.wfr-vs-side, .wfr-interlude-ko, .wfr-interlude-victor, .wfr-interlude-next {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+}
+.wfr-vs-side strong, .wfr-interlude p strong { font-size: 1.05rem; }
+.wfr-vs-mid { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.wfr-vs-word {
+    font-size: clamp(1.8rem, 6vw, 3rem);
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    color: #6fd7ef;
+    text-shadow: 0 0 26px rgba(111, 215, 239, 0.6);
+}
+.wfr-interlude p { margin: 0; font-size: 0.94rem; }
+.wfr-interlude-ko { opacity: 0.55; filter: grayscale(0.8); }
+.wfr-interlude-hp { font-size: 0.76rem; color: #9fb6c2; }
+.wfr-next-label {
+    font-size: 0.64rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #8fb6c6;
+}
+.wfr-next-pair { display: flex; align-items: center; gap: 14px; }
+.wfr-next-pair span { display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 0.82rem; }
+.wfr-vs { font-weight: 800; color: #6fd7ef; }
+
+.wfr-pip {
+    display: block;
+    width: 88px;
+    height: 7px;
+    border-radius: 999px;
+    background: rgba(6, 14, 20, 0.9);
+    border: 1px solid rgba(120, 190, 215, 0.3);
+    overflow: hidden;
+}
+.wfr-pip-fill { display: block; height: 100%; border-radius: 999px; }
+
+@keyframes wfr-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── Result ────────────────────────────────────────────────────────────── */
+
+.wfr-result {
+    position: relative;
+    z-index: 2;
+    margin: auto;
+    width: min(560px, 94vw);
+    max-height: 94vh;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: rgba(9, 18, 26, 0.94);
+    border: 1px solid rgba(111, 215, 239, 0.24);
+    border-radius: 14px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+}
+.wfr-result h2 { margin: 4px 0 0; font-size: 1.7rem; }
+.wfr-result h2.is-win { color: #6fe8b0; }
+.wfr-result h2.is-loss { color: #ff8fa3; }
+.wfr-result-line { margin: 0; font-size: 0.86rem; color: #a9c4d1; }
+.wfr-mvp {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 10px;
+    background: rgba(16, 44, 56, 0.6);
+    border: 1px solid rgba(111, 215, 239, 0.28);
+}
+.wfr-mvp strong { display: block; font-size: 1.05rem; }
+
+.wfr-recap { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.wfr-recap li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 11px;
+    border-radius: 8px;
+    background: rgba(16, 30, 40, 0.7);
+    border-left: 3px solid #ff5470;
+    font-size: 0.82rem;
+}
+.wfr-recap li.is-win { border-left-color: #4cc9f0; }
+.wfr-recap-no { font-weight: 800; color: #8fb6c6; font-variant-numeric: tabular-nums; }
+.wfr-recap-pair { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wfr-recap-pair em { color: #8fb6c6; font-style: normal; }
+.wfr-recap-out { color: #9fb6c2; font-size: 0.76rem; white-space: nowrap; }
+.wfr-settling { margin: 0; font-size: 0.8rem; color: #ffd166; }
+
+.wfr-exit {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 5;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid rgba(120, 190, 215, 0.3);
+    background: rgba(8, 18, 26, 0.8);
+    color: #cfe6ef;
+    font-size: 1rem;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+}
+.wfr-exit:hover { background: rgba(20, 44, 58, 0.92); }
+
+/* ── Mobile ────────────────────────────────────────────────────────────── */
+
+@media (max-width: 680px) {
+    .wfr-hud { padding: 10px 10px 14px; gap: 6px; }
+    .wfr-hud-meta { flex-basis: 120px; }
+    .wfr-bar { min-width: 76px; height: 8px; }
+    .wfr-hud-pct { font-size: 0.9rem; }
+    .wfr-bench { gap: 6px; }
+    .wfr-bench.is-blue { left: 4px; }
+    .wfr-bench.is-red { right: 4px; }
+    .wfr-bench .wfr-portrait { width: 32px !important; height: 32px !important; }
+    .wfr-vs-card, .wfr-interlude { gap: 14px; padding: 0 12px; }
+    .wfr-deploy, .wfr-result { padding: 16px 14px; border-radius: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wfr-vs-card, .wfr-interlude { animation: none; }
+    .wfr-bench li { transition: none; }
+}
+
+
+/* ── Formation ─────────────────────────────────────────────────────────── */
+
+.wfr-slot-no {
+    width: 44px;
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    color: #6fd7ef;
+}
+.wfr-order li:not(.is-lead) .wfr-slot-no { color: #6d8796; }
+
+.wfr-formation-hint {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: #9fb6c2;
+    border-left: 2px solid rgba(111, 215, 239, 0.34);
+    padding-left: 10px;
+}
+
+.wfr-scout-body { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.wfr-scout-pet { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+
+.wfr-interlude-victor h3 { margin: 0; font-size: 1.35rem; }
+.wfr-interlude-victor h3.is-win { color: #6fe8b0; }
+.wfr-interlude-victor h3.is-loss { color: #ff8fa3; }
+
+@media (max-width: 860px) {
+    .wfr-roster { flex-basis: 150px; }
+    .wfr-roster-meta strong { max-width: 84px; font-size: 0.66rem; }
+    .wfr-bar { min-width: 62px; }
+    .wfr-roster li .wfr-portrait { width: 26px !important; height: 26px !important; }
+    .wfr-rounds b { font-size: 1.15rem; }
+}
+
+/* Survivor health going into the next clash — the number that tells a player
+   whether their formation needs changing. */
+.wfr-survivor { display: flex; align-items: center; gap: 8px; }
+.wfr-interlude-next { gap: 6px; }
+
+/* ── Mid-match re-form ─────────────────────────────────────────────────── */
+
+/* The one decision taken DURING a match, so it gets a real panel rather than a
+   corner prompt — the handoff pauses until the player answers it. */
+.wfr-reform {
+    pointer-events: auto;
+    width: min(460px, 94vw);
+    max-height: 88vh;
+    overflow-y: auto;
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: rgba(9, 18, 26, 0.96);
+    border: 1px solid rgba(111, 215, 239, 0.34);
+    border-radius: 14px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.7);
+}
+.wfr-reform h3 { margin: 0; font-size: 1.3rem; }
+.wfr-reform-copy { margin: 0; font-size: 0.86rem; line-height: 1.5; color: #a9c4d1; }
+.wfr-reform .wfr-order li { padding: 7px 10px; }
+.wfr-reform .wfr-pip { width: 70px; }
+
+/* The interlude normally ignores pointer events; the re-form panel needs them. */
+.wfr-interlude:has(.wfr-reform) { pointer-events: auto; }

@@ -111,3 +111,24 @@ describe("Tamer Tomoe curriculum", () => {
         assert.deepEqual(twice.completedLessonIds, ["bond"]);
     });
 });
+
+describe("Warfront lesson content", () => {
+    it("teaches the Rite, not the retired lane war", () => {
+        // The tutorial is how a player LEARNS the mode, so stale copy here is
+        // worse than stale copy anywhere else: it teaches rules that no longer
+        // exist. The lane war (three lanes, Ward Towers, Favor, the Gate Warden,
+        // 2-1-1 deployment) was replaced by four-a-side clashes — see
+        // docs/hollow-warfront-rite.md.
+        const lesson = PET_TUTORIAL_LESSONS.find((entry) => entry.id === "warfront");
+        assert.ok(lesson, "the Warfront lesson must exist");
+        const text = JSON.stringify(lesson);
+        for (const retired of ["Ward Tower", "Gate Warden", "sealed lanes", "three lanes", "Favor", "doctrine", "redirect"]) {
+            assert.equal(text.includes(retired), false, `the Warfront lesson still teaches "${retired}"`);
+        }
+        // And it must actually teach what decides a Rite.
+        const lower = text.toLowerCase();
+        for (const current of ["front line", "clash"]) {
+            assert.ok(lower.includes(current), `the Warfront lesson never mentions "${current}"`);
+        }
+    });
+});

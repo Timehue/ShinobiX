@@ -177,10 +177,16 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
         }
         const blue: ArenaSlot[] = r.blue.map((s) => ({ pet: toClientPet(s.pet), role: s.role }));
         const red: ArenaSlot[] = r.red.map((s) => ({ pet: toClientPet(s.pet), role: s.role }));
-        // The tactical ladder resolves on the WARFRONT (the lane war people play),
-        // with the War Council on auto for both sides because neither player is
-        // present. Replaying anything else would show a different fight.
-        return <Suspense fallback={<div className="pl-empty">Loading the warfront…</div>}><PetWarfrontMatch
+        // The tactical ladder resolves on the LANE SIM, with both sides on auto
+        // because neither player is present. Replaying anything else would show a
+        // different fight than the one the server scored.
+        //
+        // NOTE ON THE NAME: this engine used to be the Hollow Warfront mode.
+        // Warfront is now the Rite (four pets a side, best of three clashes —
+        // docs/hollow-warfront-rite.md) and the lane war is no longer playable
+        // anywhere. It survives ONLY here, as the tactical ladder's engine and
+        // replay viewer, so nothing player-facing may call this "the warfront".
+        return <Suspense fallback={<div className="pl-empty">Loading the tactical replay…</div>}><PetWarfrontMatch
             blue={blue} red={red} seed={r.seed}
             autoBuy="balanced"
             stance={r.blueStance ?? "balanced"}

@@ -5,7 +5,8 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { runWarfrontMatch, WARFRONT_TPS } from '../_pet-sim/pet-warfront-sim.js';
+import { WARFRONT_TPS } from '../_pet-sim/pet-warfront-sim.js';
+import { runWarfrontRite } from '../_pet-sim/pet-warfront-rite.js';
 import { wfThemeForVillage, type WfTheme } from '../_pet-sim/pet-warfront-map.js';
 import { derivePetRole } from '../_pet-sim/pet-roles.js';
 import { buildWarfrontAiTeam } from './_warfront-ai.js';
@@ -349,20 +350,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         throw new WarfrontStartBusyError('Another Pet Colosseum battle is being published.');
                     }
 
-                    const result = runWarfrontMatch(
-                        autoRole(JSON.parse(JSON.stringify(sealedBluePets)) as Pet[]),
-                        autoRole(JSON.parse(JSON.stringify(sealedRedPets)) as Pet[]),
+                    // The sealed AUTOMATIC baseline: the Rite as it resolves with
+                    // the default batting order and no swap. It is what settlement
+                    // falls back to when a plan is missing or malformed, and it
+                    // sets the settlement clock the player's playback is gated on.
+                    const result = runWarfrontRite(
+                        JSON.parse(JSON.stringify(sealedBluePets)) as Pet[],
+                        JSON.parse(JSON.stringify(sealedRedPets)) as Pet[],
                         seed,
-                        buyPolicy,
-                        AI_BUY_POLICY,
-                        theme,
-                        { blue: stance, red: AI_STANCE },
-                        { blue: doctrine, red: AI_DOCTRINE },
-                        undefined,
-                        { captureSnapshots: false },
                     );
                     const authoritativeOutcome: 'win' | 'loss' | 'draw' = result.winner === 'blue' ? 'win' : result.winner === 'red' ? 'loss' : 'draw';
-                    const matchDurationMs = Math.ceil((result.ticks / WARFRONT_TPS) * 1_000);
+                    const matchDurationMs = Math.ceil(result.totalSeconds * 1_000);
                     const playbackStartedAt = Date.now();
                     const settleAfter = playbackStartedAt + Math.max(
                         WARFRONT_MIN_SETTLE_MS,
