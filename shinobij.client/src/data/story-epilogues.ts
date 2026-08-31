@@ -43,10 +43,10 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "Dawn over the arena, the board in pieces, slates raining reasons",
                     speaker: "Narrator",
                     dialogue: [
-                        "By morning the whole village knows what broke on the tower. The board is down, and every posted account came due at once: reasons flooding home to people who had forgotten they owned them.",
+                        "By morning the whole village knows the board is gone. When it broke, every reason stored in its accounts returned to the person it came from. People remember why old fights began and what those reasons meant to them.",
                         "It is loud. Old feuds wake up mid-sentence. The Harlan brothers are shouting about a field again, and crying about it, and it is theirs to shout about, every word.",
                         "The sky over the coast is honest now, which means it is dangerous again, and nobody's grudge is holding it off anybody's roof.",
-                        "The cistern under the arena has not drawn a drop since the board came down. On whatever ledger keeps the Hollow Gate, the Stormveil quarter reads unpaid, and for the first time in four hundred years the coast owes the dark nothing at all.",
+                        "The cistern under the arena has not drawn a drop since the board came down. Hollow Gate's collection ledger marks the Stormveil quarter unpaid and its intake at zero. For the first time in four hundred years, the coast is feeding it nothing at all.",
                     ],
                 },
                 {
@@ -70,10 +70,10 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "Dawn over the arena, the board in pieces",
                     speaker: "Narrator",
                     dialogue: [
-                        "By morning the whole village knows what broke on the tower. The board is down, and every posted account came due at once: reasons flooding home to people who had forgotten they owned them.",
+                        "By morning the whole village knows the board is gone. When it broke, every reason stored in its accounts returned to the person it came from. People remember why old fights began and what those reasons meant to them.",
                         "It is loud, and it is going to stay loud. Anger with its memory back is weather of its own kind.",
                         "And above the loudness, the actual sky. Nobody's grudge holds it off anymore. The storm shield is a story now, and the season is turning.",
-                        "Under the sand the floor's seams have gone dark, and the sweepers swear the old hum has finally stopped. If the Hollow Gate still expects its Stormveil quarter, it will be waiting a long time on an empty pipe.",
+                        "Under the sand the floor's seams have gone dark, and the sweepers swear the old hum has finally stopped. Hollow Gate's Stormveil account now shows an unpaid quarter and an empty intake pipe.",
                     ],
                 },
                 {
@@ -100,9 +100,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Narrator",
                     dialogue: [
                         "The floor still drinks, but now it drinks in public. A meter the size of a wagon wheel hangs over the arena where the odds used to be chalked, and anyone can read the draw, any hour, any day.",
-                        "Posting requires consent now, witnessed, written, revocable. The queues are short. It turns out very few people feed the floor when the floor has to ask.",
+                        "Posting a reason requires consent now, witnessed, written, revocable. The queues are short. It turns out very few people feed the floor when the floor has to ask.",
                         "The Guard checks the meter at every bell. So do the grandmothers, which is the part that actually keeps it honest.",
-                        "On the ledger up the hill the Hollow Gate's Stormveil quarter still shows open, but the draw against it shrinks with every season the meter is read aloud. A debt no one will feed is, in the end, a debt dying slowly, in public, on the record.",
+                        "Hollow Gate still lists Stormveil's old debt as open. But the public meter shows the payment shrinking each season because fewer people consent to feed it. The debt remains on paper while its supply steadily disappears.",
                     ],
                 },
                 {
@@ -158,7 +158,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "The quiet hour arrives on schedule. Worse, you understand immediately why Raiko wanted it. The board reposts itself by morning bell.",
                         "In the routing office, the clerks have already changed the pressing mark to your teeth.",
                         "Down the coast, one ridge line hums over one district, holding its stretch of sky for free, signed with a dead rigger's name your board has already stopped saying.",
-                        "The Hollow Gate's quarter of the circle is yours to feed now. The cistern under your floor kept the old Kage's rhythm without a missed draw for thirty years, and it has already learned yours; it is certain, the way only machinery is certain, that nothing of importance has changed but the hand on the pen.",
+                        "You are now responsible for Stormveil's payments to Hollow Gate. The cistern continues draining reasons on the old schedule and has already accepted your authority. The system has not changed; only its keeper has.",
                     ],
                 },
                 {
@@ -187,7 +187,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "For one full hour, every grudge in Stormveil goes silent. It is exactly as good as he promised. The board reposts itself by morning bell, and the odds-runners are calling numbers on next week's weather.",
                         "In the routing office, the clerks have already changed the pressing mark to your teeth.",
                         "Down the coast, one ridge line hums over one district, holding its stretch of sky for free, and the board has begun, gently, to bet against it.",
-                        "The cistern under the square keeps its own counsel now that the seat is yours. It does not go still; it goes quiet, the way a creditor goes quiet when an account has only changed names. The Hollow Gate keeps its Stormveil quarter, and the pen that feeds it is warm in your hand.",
+                        "The cistern remains active after you take the Kage's seat. Hollow Gate keeps collecting Stormveil's payment, and you now decide which posted reasons will feed it. Control changed hands, but the system did not end.",
                     ],
                 },
                 {
@@ -214,7 +214,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     dialogue: [
                         "The sky obeys, the quiet hour is everything he promised, and nothing in the tower needs re-rigging for your hand.",
                         "The board reposts itself by morning. The clerks do not ask questions; the clerks have never asked questions. The meter of the elders' cut finds your account within the week.",
-                        "Somewhere below, the board chalks a fresh bout between two friends, and the odds are very good, and the floor is already listening.",
+                        "Somewhere below, the board chalks a fresh bout between two friends, and the odds are very good. The floor has already begun drawing out their reasons.",
                         "The cistern never went still; it only changed seats. Up the hill the Hollow Gate marks Stormveil's quarter paid, on time, by a fresh hand, exactly as it has every season since the founders stopped giving and started being taken from.",
                     ],
                 },
@@ -243,10 +243,10 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "Dawn over the wall, bare wrists everywhere, breath-fog rising",
                     speaker: "Narrator",
                     dialogue: [
-                        "By morning the whole village knows what cracked in the night. The vault is dark, and every banked exit went home to its wrist: forty years of surrendered doubts and walkings-away, returned mid-life.",
+                        "By morning the whole village knows the vault is dark. It has returned forty years of stored refusals and doubts to the people it took them from. Many suddenly remember that they once wanted to leave, object, or choose differently.",
                         "It is quiet, and it is not calm. People keep touching their own wrists like a healed break. Two soldiers resigned at first bell. One asked to re-enlist an hour later, and Sova entered him with a note: BY CHOICE, and underlined it.",
                         "The hearths burn wood now. Wood runs short. The cold is honest again, which means it is dangerous again, and nobody's surrendered exit is holding it off anybody's child.",
-                        "Far below the dark Vault, the lower draw goes quiet for the first time in thirty years, and finds no marked exit left to drink.",
+                        "Far below the dark Vault, the lower draw goes quiet for the first time in thirty years. No marked exit remains for it to collect.",
                     ],
                 },
                 {
@@ -270,7 +270,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "Dawn over the wall, the vault dark, wood smoke where the deep warmth used to be",
                     speaker: "Narrator",
                     dialogue: [
-                        "By morning the whole village knows what cracked in the night. The vault is dark. Every banked exit went home, and every hearth in Frostfang now answers to firewood and effort, the old way, the only honest way left.",
+                        "By morning the vault is dark and every stored refusal has returned to its owner. Frostfang has also lost the unnatural heat those choices powered, so every home must rely on firewood and shared labor again.",
                         "The Roll still forms at every bell. Smaller. Slower. Every answer a choice now, and everyone can hear the difference, and the difference is terrible and it is better.",
                         "The first blizzard after will be the whole argument. Everybody knows it. Nobody says it. They stack wood.",
                         "Far below the dark Vault, the lower draw goes quiet. The silence is honest. It is also not warm.",
@@ -299,7 +299,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The vault hall, a public meter above the door, consent forms in a rack",
                     speaker: "Narrator",
                     dialogue: [
-                        "The vault survives, caged. Draws by posted consent, witnessed, revocable; every mark in the village re-signed or struck by its own wrist inside a month.",
+                        "The vault survives, caged. It may draw on a person's choice to leave only through posted consent, witnessed and revocable. Every mark in the village is re-signed or struck by its own wrist inside a month.",
                         "The meter above the door reads out the vault's hunger to anyone passing. The grandmothers check it the way they check weather. So do the children, who have invented a game about it, which the wardens have given up stopping.",
                         "And on the ridge, the lanterns burn every night: the searches that need no vault at all, eating into its purpose one found volunteer at a time.",
                         "Below the Vault, the lower draw opens once against the new law, finds nothing lawful left to drink, and shuts.",
@@ -326,7 +326,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The vault hall, the meter ticking, the consent rack half empty",
                     speaker: "Narrator",
                     dialogue: [
-                        "The vault survives, caged. Draws by consent, posted, witnessed. It is better. Everyone agrees it is better, in the voice soldiers use for orders they intend to obey.",
+                        "The vault survives, caged. It may draw on a person's choice to leave only by posted, witnessed consent. It is better. Everyone agrees it is better, in the voice soldiers use for orders they intend to obey.",
                         "Because consent, it turns out, runs thin. Eleven marks re-signed the first week. Eleven, from a village of hundreds. Surrender was always a poor fuel when somebody had to ASK.",
                         "The wardens read the meter twice a bell. Nobody says the arithmetic out loud. Everybody does it.",
                         "The lower draw is sealed by law now, but the village feels every theft it can no longer make, an ache with no name, all winter long.",
@@ -355,9 +355,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The vault floor, the script beginning at your wrist, warm as a bath",
                     speaker: "Narrator",
                     dialogue: [
-                        "The valve settles under your palm as if it remembers you. The Count reforms by second bell, the wardens change nothing but the name they report to, and the vault's warmth settles over the village like a coat it never stopped wearing.",
+                        "The valve unlocks under your palm when the keeper registry verifies you. The Count reforms by second bell, and the vault goes on turning people's choice to leave into warmth. The wardens change nothing but the name they report to.",
                         "On the ridge, one lantern relay burns where you drilled it, finding the lost for free, and the vault has already begun, gently, to schedule its wardens elsewhere.",
-                        "The script at your wrist is patient. It has done this before. It can wait for the rest of you.",
+                        "The script at your wrist has begun the same slow spread recorded for every keeper before you.",
                     ],
                 },
                 {
@@ -366,7 +366,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Captain Yura",
                     dialogue: [
                         "I watched the lanterns find a man in nineteen minutes. You proved it. You carried Dren's plans into that vault in your own hands. I stood the stair believing we'd finally built the thing he died un-thanked for.",
-                        "You lit the road out of the Count. Then you locked the door from the warm side. And the thing under the Vault knows your hand now.",
+                        "You lit the road out of the Count. Then you locked the door from the warm side. And the keeper controls under the Vault recognize your hand now.",
                         "I don't have a drill for that. I've been standing here since dawn trying to write the report, and there's no format. There's no FORMAT, Jonin.",
                         "Keep the letter. I can't carry it anymore; it reads different now. And don't send for me when the Count needs a captain, because it will, and we both already know whose script answers.",
                     ],
@@ -383,10 +383,10 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The vault floor, the script beginning at your wrist, warm as a bath",
                     speaker: "Narrator",
                     dialogue: [
-                        "The valve is warm before you touch it. It has been waiting. The Count reforms by second bell, and the vault's warmth settles over the village like a coat it never stopped wearing.",
+                        "The valve is warm before you touch it. The keeper registry has already verified you. The Count reforms by second bell, and the vault goes on turning people's choice to leave into warmth.",
                         "On the ridge, one lantern relay burns where a captain answered a dead man's roll, and the vault has already begun, gently, to reschedule its wardens around it.",
-                        "The script at your wrist is patient. It has done this before.",
-                        "Beneath the Vault, the lower draw waits. Not open. Not closed. Waiting for your first order.",
+                        "The script at your wrist has begun the same slow spread recorded for every keeper before you.",
+                        "Beneath the Vault, the lower draw remains closed until your first order.",
                     ],
                 },
                 {
@@ -411,7 +411,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The vault floor, the valve warm, the Count already reforming",
                     speaker: "Narrator",
                     dialogue: [
-                        "The Count reforms by second bell, and the warmth is everything he promised.",
+                        "The Count reforms by second bell, and the warmth is everything he promised. The vault continues turning people's choice to leave into heat.",
                         "The wardens do not ask questions; the wardens have never asked questions. The meter finds your draw rhythm within a week and adjusts, accommodating, patient.",
                         "Somewhere above, the mark plate at the gate reads a new intake's wrist, holds it half a count long, and the frost leans in, and begins to wait again.",
                         "Beneath the Vault, the lower draw warms by one degree.",
@@ -442,10 +442,11 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "Dawn over the canal, the Mirror dark, four hundred years of trust flowing home",
                     speaker: "Narrator",
                     dialogue: [
-                        "By morning the whole village knows what opened in the night. The tank is empty. Four hundred years of surrendered trust went home before dawn: every confession, every traded name, every held piece of everyone, delivered to its owner like the world's overdue post.",
+                        "By morning the Mirror's tank is empty. It has returned four hundred years of stored confessions, names, memories, and trust to the people they came from.",
                         "The moment the tank opened, one clear line crossed the glass ahead of the flood, and the oldest voice in the Mirror spoke its release. OWNERSHIP RETURNED. CLAIMS RELEASED.",
                         "Some of it burns. A broker's marriage. Two old feuds, rearmed. The village chose to own its own fires, and some of them are real fires.",
-                        "And down the canal, at a booth with a lead-plugged drain, the returns queue is already forming, because the give-back house taught this village the trick of surviving its own truth: witnesses, tea, and nobody rushed. The old black plate above the drain wakes for every return now, and since the night the tank opened it has learned a new closing line. OWNER VERIFIED. RETURN WITNESSED. NO HOLDER REQUIRED. Nobody calls it a miracle anymore; it is simply the rule of the booth.",
+                        "A return queue forms at the booth with the blocked drain. Witnesses sit with each person, offer tea, and give them time to process what came back.",
+                        "The black plate now confirms every return with the same message: OWNER VERIFIED. RETURN WITNESSED. NO HOLDER REQUIRED. Giving a record back to its owner has become the booth's normal rule.",
                         "Far below the tower's foundations, the deeper pipe that fed the quartered circle for four hundred years pulls once at the empty tank, finds nothing left to hold, and goes still.",
                     ],
                 },
@@ -511,7 +512,8 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The open square, the audit table, the whole market entitled to ask",
                     speaker: "Nyx",
                     dialogue: [
-                        "So this is what you built instead of a spider: a keeper with office hours. Every noon, any soul on this canal can stand at that table and ask what you hold and why, and you have to ANSWER, and if the answer's bad, the covenant says the market can vote the seal open.",
+                        "You built a public keeper instead of another hidden ruler. Every noon, anyone can ask what the Mirror holds and why, and you must answer.",
+                        "If the answer is not acceptable, the new covenant allows the market to vote the seal open and inspect the records itself.",
                         "I audited you myself last week. You know what I found? Receipts. Actual receipts, for every sealed page, each one signed by the person it protects. Held BY consent, for once in this village's rotten beautiful history.",
                         "It's still holding, friend. Don't get comfortable; I never will, and that's my job now, and you gave it to me, which was either very wise or the best trap ever laid. Both-true. This village runs on both-true. See you at noon.",
                     ],
@@ -556,9 +558,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The Mirror chamber, the tank recognizing a keeper it cannot appraise",
                     speaker: "Narrator",
                     dialogue: [
-                        "The tank takes your hand and finds no price on it, and settles, for the first time in four centuries, into custody it cannot bill.",
-                        "The buyer's escrow hangs unexecutable. Somewhere below the canal, something files its first extension in four hundred years.",
-                        "And in the glass's black depth, one ripple never quite stills: the place where a woman said her own name for free, the one entry the tank holds that it does not own.",
+                        "The tank's registry reads your hand, finds no price on it, and settles, for the first time in four centuries, into custody it cannot bill.",
+                        "The buyer's escrow hangs unexecutable. Below the canal, Hollow Gate's collection ledger adds its first extension in four hundred years.",
+                        "And in the glass's black depth, one ripple never quite stills: the copied act of trust created when a woman said her own name for free, the one entry the tank holds that it does not own.",
                         "When your hand first rests on the glass, the oldest voice in it speaks once, without heat. OWNER VERIFIED. HOLDER PRESENT. RELEASE INCOMPLETE. The First Reflection remembers Nerissa Vale. It records that the keeper's chair is occupied. It offers no opinion.",
                     ],
                 },
@@ -585,9 +587,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The Mirror chamber, the tank recognizing a keeper it cannot appraise",
                     speaker: "Narrator",
                     dialogue: [
-                        "The tank takes your hand and finds no price on it, and settles, for the first time in four centuries, into custody it cannot bill.",
-                        "The buyer's escrow hangs over the glass, unexecutable, a collection notice served on a blank line. Somewhere below the canal, something files its first extension in four hundred years.",
-                        "The market reforms by noon; markets always do. But the booths' drains run to a tank with a keeper now, and the keeper watched a returns queue teach a village to hand things back, and the tank feels the difference in every swallow it is no longer sure it should take.",
+                        "The tank's registry reads your hand, finds no price on it, and settles, for the first time in four centuries, into custody it cannot bill.",
+                        "The buyer's escrow hangs over the glass, unexecutable, a collection notice served on a blank line. Below the canal, Hollow Gate's collection ledger adds its first extension in four hundred years.",
+                        "The market reforms by noon; markets always do. But the booths' drains run to a tank with a keeper now, and that keeper watched a returns queue teach a village to hand things back. Every new act of trust copied by the Mirror is now a choice you must make, not an automatic claim.",
                     ],
                 },
                 {
@@ -614,7 +616,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     dialogue: [
                         "The glass recognizes you before the village does. The market reforms by noon, and the booths' drains resume their patient swallowing, reporting now to you.",
                         "The Veiled Hands renew their contracts within the week. The clerks do not ask questions; the clerks have never asked questions. The quarterly buyer's mark arrives on schedule, addressed, this time, to the new holder.",
-                        "Somewhere below, the Mirror registry reads a new intake half a second late, and begins, patiently, to build the file.",
+                        "Somewhere below, the Mirror registry reads a new intake half a second late and begins building the file.",
                         "Deep in the glass, an older instruction tries once to speak. The new intake drowns it out.",
                     ],
                 },
@@ -644,9 +646,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Narrator",
                     dialogue: [
                         "By dawn the whole village knows what broke in the night. Forty strides of cedar stand dark for the first time in four hundred years, and the wall's lines are just names now, keeping nobody.",
-                        "People stand in their doorways holding what came back. Jorun has a bridge in his hands, forty years late. The weaver is reading her own school out loud to anyone who passes.",
+                        "People stand in their doorways holding the futures that came back. Jorun has a bridge in his hands, forty years late. The weaver is reading her own school out loud to anyone who passes.",
                         "The walls groan when the wind leans on them. The ash in the mortar has stopped holding. It will be a hard winter, and an honest one.",
-                        "And far below the old kiln, where no root should reach, the lower pipe has gone cold. Somewhere beyond the village, something that fed on Ashen Leaf for generations notices the missing warmth. That reckoning belongs to another season.",
+                        "And far below the old kiln, where no root should reach, the lower pipe has gone cold. In Hollow Gate's collection ledger, Ashen Leaf's four-hundred-year flow now reads zero. What the people maintaining that system do about the shortfall belongs to another season.",
                     ],
                 },
                 {
@@ -670,10 +672,10 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "Dawn over ash-house row, doors open to the cold",
                     speaker: "Narrator",
                     dialogue: [
-                        "By dawn the whole village knows what broke in the night. The Register wall stands dark, the lines just names now, and everything the fire was holding has come home to people who had learned to live without it.",
+                        "By dawn the Register wall is dark and shows only names. The Rootfire has returned the plans, ambitions, and possible futures it stored to the people they were taken from.",
                         "There is crying in ash-house row, the good kind and the other kind. The walls groan when the wind leans on them. The granary is being counted twice.",
                         "Nobody has said thank you yet. Nobody has thrown a stone either. It is going to be close, all winter, every winter, for a while.",
-                        "Far below the kiln, where no root should reach, a pipe has gone cold, and something beyond the village notices the missing warmth. Nobody in ash-house row knows to fear it yet. That is a story for another season.",
+                        "Far below the kiln, where no root should reach, a pipe has gone cold. Hollow Gate's collection ledger records the missing warmth. Nobody in ash-house row knows who will read that entry yet. That is a story for another season.",
                     ],
                 },
                 {
@@ -699,10 +701,10 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The Rootfire chamber, one small clean flame, the alcove dusted",
                     speaker: "Narrator",
                     dialogue: [
-                        "The Rootfire is small now, and clean. It burns exactly as bright as what people bring it, and people have been bringing things all morning: carved tokens, signed and given gladly, one by one.",
+                        "The Rootfire is small now, and clean. It burns exactly as bright as the futures people bring it, and people have been bringing carved tokens all morning, signed and given gladly, one by one.",
                         "The founders' alcove has been dusted. The iron racks stand empty, and Mori has already measured them for ordinary shelves.",
                         "Upstairs, the village is learning the new arithmetic. The fire keeps what is given freely, and only that.",
-                        "And below the floor, the lower seam has found nothing legal left to take, and gone cold. Somewhere beyond the village, something notices the missing surplus. That reckoning is for another season.",
+                        "And below the floor, the lower seam has found nothing legal left to take, and gone cold. Hollow Gate's collection ledger records the missing surplus. The response from whoever maintains it is a reckoning for another season.",
                     ],
                 },
                 {
@@ -727,9 +729,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Narrator",
                     dialogue: [
                         "The Rootfire is small now, and clean, and honest, and everyone in the village understands exactly what that means for the cold season.",
-                        "The willing alcove holds eleven new tokens by nightfall. Eleven, from a village of hundreds. Gladness was always a poor fuel. It is the only one left.",
+                        "The willing alcove holds eleven new tokens by nightfall. Eleven, from a village of hundreds. Freely given futures were always poor fuel. They are the only fuel left.",
                         "Nobody says the arithmetic out loud. Everyone is doing it.",
-                        "Far below the kiln, the lower draw has run dry and gone cold. Somewhere beyond the village, something notices, and waits. But that is a colder season's problem.",
+                        "Far below the kiln, the lower draw has run dry and gone cold. Hollow Gate's collection ledger records the loss, but whoever reads that ledger is a colder season's problem.",
                     ],
                 },
                 {
@@ -757,7 +759,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Narrator",
                     dialogue: [
                         "The shears balance perfectly in your hand. That is worse than if they had felt wrong. Upstairs, forty strides of cedar are already learning your grip.",
-                        "Hoshina's chair is still warm. Her room of taken wonders is yours now, every shelf of it, and the little walking loom goes still when you enter.",
+                        "Hoshina's chair is still warm. Her room of stolen futures is yours now, every shelf of it, and the little walking loom goes still when you enter.",
                         "The keeper is dead. Long live the keeper. The wall has already put out a fresh black flower, and it is not for you.",
                     ],
                 },
@@ -785,7 +787,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Narrator",
                     dialogue: [
                         "The shears balance perfectly in your hand. That is worse than if they had felt wrong. Upstairs, forty strides of cedar are already learning your grip.",
-                        "Hoshina's chair is still warm. Her room of taken wonders is yours now, every shelf of it, and the little walking loom goes still when you enter.",
+                        "Hoshina's chair is still warm. Her room of stolen futures is yours now, every shelf of it, and the little walking loom goes still when you enter.",
                         "The keeper is dead. Long live the keeper. The wall has already put out a fresh black flower, and it is not for you.",
                     ],
                 },
@@ -813,7 +815,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     dialogue: [
                         "The fire settles around you like a coat cut to your measure. It does not celebrate. It has done this before.",
                         "In the morning the survey asks, very carefully, how you would like the schedules kept. The clerks have already changed the name on the approvals. The village is quiet, the way a field is quiet under snow.",
-                        "Somewhere above, the wall puts out a fresh black flower on a stranger's line, and begins to wait again.",
+                        "Somewhere above, the wall puts out a fresh black flower on a stranger's line and marks another future for the shears.",
                     ],
                 },
                 {
