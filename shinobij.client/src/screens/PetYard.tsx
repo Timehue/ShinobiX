@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/purity */
 import { PetBattleReadiness } from "../components/PetBattleReadiness";
 import { useState, useEffect, useRef } from "react";
 import { visiblePoll } from "../lib/poll";
@@ -6,7 +5,7 @@ import { serverNow } from "../lib/server-clock";
 import { activeCarriedPetIds, activeCarriedPets, activeTrainingPetIds, maxPets } from "../lib/entitlements";
 import "../styles/pet-skin.css";
 import type { Character, VersionedCharacterCommit } from "../types/character";
-import type { Pet, PetExpeditionType, PetGrowthAllocation, PetTrainingType } from "../types/pet";
+import type { Pet, PetExpeditionProvision, PetExpeditionReturnChoice, PetExpeditionRisk, PetExpeditionType, PetGrowthAllocation, PetTrainingType } from "../types/pet";
 import type { Screen } from "../types/core";
 import { getPetXpBonus } from "../lib/village-upgrades";
 import { derivePetGrowthStats, emptyPetGrowthAllocation, petGrowthAttributeCap, petGrowthPointsEarned, petTrainingPreview, petXpNeeded } from "../lib/pet-balance";
@@ -17,7 +16,7 @@ import { gameConfirm } from "../components/GameAlert";
 import { formatPetTimer } from "../lib/utils";
 import { isPetOnExpedition, petDisplayName, petHappiness } from "../lib/pet";
 import { petCardImage, petPoseImage } from "../lib/pet-battle-anim";
-import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petConsumableById, petConsumables, petExpeditionOptions, petExpeditionStories, petFeedItems, petPveGear, petPveGearById, petPvpGear, petPvpGearById, petTrainingDurations, petTrainingOptions, petTraitDescriptions, ultraPetTraits } from "../data/pet-config";
+import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petConsumableById, petConsumables, petExpeditionOptions, petFeedItems, petPveGear, petPveGearById, petPvpGear, petPvpGearById, petTrainingDurations, petTrainingOptions, petTraitDescriptions, ultraPetTraits } from "../data/pet-config";
 import { petTamerExpeditionMult, petTamerTrainingSpeedPct } from "../App";
 import { countItem, ownsItem } from "../lib/inventory";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
@@ -29,25 +28,35 @@ import { activeClientBreedingParentIds } from "../lib/pet-breeding";
 import { authoritativePetExpeditionGains } from "../lib/pet-expedition-result";
 import "../styles/pet-home.css";
 import { GameIcon } from "../components/icons/GameIcon";
+import { PetExpeditionBoard } from "../components/PetExpeditionBoard";
+import { clearPetExpeditionPetHint, PET_EXPEDITION_OPEN_EVENT, readPetExpeditionPetHint } from "../lib/pet-expedition-navigation";
 
 export function PetYard({ character, updateCharacter, onVersionedCharacter, onServerVersion, setScreen, onBack, backLabel = "Village", onImmediateSave: _onImmediateSave, sharedImages = {} }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; onVersionedCharacter: VersionedCharacterCommit; onServerVersion: (version: unknown) => boolean; setScreen: (s: Screen) => void; onBack: () => void; backLabel?: string; onImmediateSave?: (c: Character) => void; sharedImages?: Record<string, string> }) {
     const combatEligiblePets = activeCarriedPets<Pet>(character);
     const combatEligiblePetIds = new Set(activeCarriedPetIds(character));
     const preservedOverflowCount = Math.max(0, character.pets.length - combatEligiblePets.length);
-    const [selectedPetId, setSelectedPetId] = useState(character.pets[0]?.id ?? "");
+    const [selectedPetId, setSelectedPetId] = useState(() => {
+        const hinted = readPetExpeditionPetHint();
+        return hinted && character.pets.some((pet) => pet.id === hinted) ? hinted : character.pets[0]?.id ?? "";
+    });
     const [trainingType] = useState<PetTrainingType>("bond");
     const [trainingDuration, setTrainingDuration] = useState(petTrainingDurations[0].ms);
     const [expeditionType, setExpeditionType] = useState<PetExpeditionType>("scout");
+    const [expeditionRisk, setExpeditionRisk] = useState<PetExpeditionRisk>("safe");
+    const [expeditionProvision, setExpeditionProvision] = useState<PetExpeditionProvision>("none");
     const [expeditionResult, setExpeditionResult] = useState<{
         petName: string; summary: string; expType: PetExpeditionType;
         ryo: number; xp: number; statSummary: string;
         foundFate: number; foundAura: number; foundBone: number; leveledUp: boolean;
+        tamerXp: number; outcomeLabel: string; returnOutcome: string;
+        happinessCost: number; place: string; provision: PetExpeditionProvision; risk: PetExpeditionRisk;
     } | null>(null);
     const [expeditionError, setExpeditionError] = useState("");
     const expeditionReturnFocusRef = useRef<HTMLElement | null>(null);
     const selectedPetSlotRef = useRef<HTMLButtonElement>(null);
+    const expeditionBoardRef = useRef<HTMLDivElement>(null);
     // Counter we bump once a second purely to force a re-render so the pet
-    // training/expedition countdowns (computed from Date.now() in render) tick.
+    // training/expedition countdowns (computed from the synced server clock) tick.
     // The value is never read — only the setter is used.
     const [, setTick] = useState(0);
     const [petHeartBurst, setPetHeartBurst] = useState(0);
@@ -76,6 +85,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     const [escortOffered, setEscortOffered] = useState<boolean | null>(null);
     const [escortBusy, setEscortBusy] = useState(false);
     const selectedPet = character.pets.find((p) => p.id === selectedPetId) ?? character.pets[0] ?? null;
+    const now = serverNow();
     const selectedPetIsOverflow = Boolean(selectedPet && !combatEligiblePetIds.has(selectedPet.id));
     const trainingEligiblePetIds = new Set(activeTrainingPetIds(character));
     const selectedPetCanTrain = Boolean(selectedPet && trainingEligiblePetIds.has(selectedPet.id));
@@ -105,12 +115,30 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     useEffect(() => {
         mountedRef.current = true;
         activeAccountRef.current = character.name.trim().toLowerCase();
+        const expeditionHint = readPetExpeditionPetHint();
+        if (expeditionHint) {
+            requestAnimationFrame(() => expeditionBoardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+            clearPetExpeditionPetHint();
+        }
         return () => {
             mountedRef.current = false;
             expeditionLaunchRequestRef.current += 1;
             expeditionLaunchBusyRef.current = false;
         };
     }, [character.name]);
+
+    useEffect(() => {
+        const openRequestedExpedition = (event: Event) => {
+            const petId = String((event as CustomEvent<{ petId?: string }>).detail?.petId ?? "");
+            if (!character.pets.some((pet) => pet.id === petId)) return;
+            setSelectedPetId(petId);
+            setExpeditionError("");
+            clearPetExpeditionPetHint();
+            requestAnimationFrame(() => expeditionBoardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+        };
+        window.addEventListener(PET_EXPEDITION_OPEN_EVENT, openRequestedExpedition);
+        return () => window.removeEventListener(PET_EXPEDITION_OPEN_EVENT, openRequestedExpedition);
+    }, [character.pets]);
 
     useEffect(() => {
         if (!canOfferEscort) return;
@@ -317,12 +345,12 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         // ambiguous or capped response so the UI never invents a local lease that
         // the server cannot later settle.
         try {
-            let data: { token?: string; reason?: string; character?: Character; _saveVersion?: number } | null;
+                let data: { token?: string; reason?: string; dailyStarts?: number; dailyCap?: number; resetAt?: number; character?: Character; _saveVersion?: number } | null;
             try {
                 const r = await fetch('/api/missions/expedition-start', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ playerName: character.name, petId: selectedPet.id, expType: option.type, petLevel: selectedPet.level, launchId: launch.launchId }),
+                    body: JSON.stringify({ playerName: character.name, petId: selectedPet.id, expType: option.type, risk: expeditionRisk, provision: expeditionProvision, launchId: launch.launchId }),
                 });
                 if (!r.ok) {
                     if (r.status < 500 && expeditionLaunchRef.current === launch) expeditionLaunchRef.current = null;
@@ -335,6 +363,12 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                 return;
             }
             if (!requestIsCurrent()) return;
+            if (data?.reason === "daily-mint-cap") {
+                if (expeditionLaunchRef.current === launch) expeditionLaunchRef.current = null;
+                const reset = Number(data.resetAt ?? 0);
+                const resetCopy = reset > now ? ` Resets in ${formatPetTimer(reset - serverNow())}.` : " Resets at 00:00 UTC.";
+                return alert(`Daily expedition start cap reached (${Number(data.dailyStarts ?? data.dailyCap ?? 12)}/${Number(data.dailyCap ?? 12)}).${resetCopy}`);
+            }
             const token = typeof data?.token === "string" ? data.token : undefined;
             // No token AND not the daily-cap path: for a Tamer that's an unexpected
             // response — don't burn a currency-earning expedition. For a non-Tamer
@@ -357,18 +391,16 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         }
     }
 
-    async function collectExpedition() {
+    async function collectExpedition(returnChoice: PetExpeditionReturnChoice) {
         if (expeditionBusyRef.current) return;
         if (!selectedPet?.expedition) return;
         if (serverNow() < selectedPet.expedition.endsAt)
-            return alert(`${petDisplayName(selectedPet)} returns in ${formatPetTimer(selectedPet.expedition.endsAt - Date.now())}.`);
+            return alert(`${petDisplayName(selectedPet)} returns in ${formatPetTimer(selectedPet.expedition.endsAt - serverNow())}.`);
 
         const expeditionPet = selectedPet;
         const expedition = expeditionPet.expedition;
         if (!expedition) return;
         const expType = expedition.type;
-        const minutes = Math.floor(expedition.durationMs / 60_000);
-        const longExpedition = minutes >= 240;
         expeditionReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         expeditionBusyRef.current = true;
         setExpeditionBusy(true);
@@ -380,12 +412,10 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     playerName: character.name,
-                    event: longExpedition ? 'long-expedition' : 'expedition',
-                    durationMinutes: minutes,
-                    expType,
-                    petLevel: expeditionPet.level,
+                    event: 'expedition',
                     petId: expeditionPet.id,
                     expeditionToken: expedition.token,
+                    returnChoice,
                 }),
             });
             const data = await response.json().catch(() => ({})) as {
@@ -397,11 +427,25 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                 foundBone?: number;
                 foundAura?: number;
                 foundFate?: number;
+                petXpEarned?: number;
+                story?: string;
+                returnOutcome?: string;
+                outcomeLabel?: string;
+                happinessCost?: number;
+                resetAt?: number;
+                dailyClaims?: number;
+                dailyCap?: number;
                 missionsCompleted?: Array<{ id: string; name: string; xpReward: number }>;
                 _saveVersion?: number;
             };
             if (!response.ok) throw new Error(data.error || 'The expedition record was rejected.');
 
+            if (data.reason === 'daily-expedition-cap') {
+                const reset = Number(data.resetAt ?? 0);
+                const resetCopy = reset > serverNow() ? ` Resets in ${formatPetTimer(reset - serverNow())}.` : " Resets at 00:00 UTC.";
+                setExpeditionError(`Daily expedition claim cap reached (${Number(data.dailyClaims ?? data.dailyCap ?? 12)}/${Number(data.dailyCap ?? 12)}). This journey remains ready.${resetCopy}`);
+                return;
+            }
             if (data.character && !onVersionedCharacter(data.character, data._saveVersion)) return;
             if (data.reason === 'invalid-or-spent-expedition-token' || data.reason === 'missing-expedition-token') {
                 setExpeditionResult(null);
@@ -419,8 +463,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                 throw new Error('The expedition log did not confirm this collection. Retry the claim.');
             }
             const gains = authoritativePetExpeditionGains(expeditionPet, settledPet);
-            const summaries = petExpeditionStories[expType];
-            const summary = summaries[Math.floor(Math.random() * summaries.length)];
+            const summary = String(data.story || "completed the route and secured the field report.");
 
             for (const mission of Array.isArray(data.missionsCompleted) ? data.missionsCompleted : []) {
                 window.dispatchEvent(new CustomEvent('profession-mission-complete', {
@@ -441,12 +484,19 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                 summary,
                 expType,
                 ryo: Math.max(0, Number(data.ryoEarned ?? 0)),
-                xp: gains.xp,
+                xp: Math.max(0, Number(data.petXpEarned ?? gains.xp)),
                 statSummary: gains.statSummary,
                 foundBone: Math.max(0, Number(data.foundBone ?? 0)),
                 foundAura: Math.max(0, Number(data.foundAura ?? 0)),
                 foundFate: Math.max(0, Number(data.foundFate ?? 0)),
                 leveledUp: gains.leveledUp,
+                tamerXp: Math.max(0, Number(data.expeditionXp ?? 0)),
+                outcomeLabel: String(data.outcomeLabel ?? "Haul secured"),
+                returnOutcome: String(data.returnOutcome ?? "secured"),
+                happinessCost: Math.max(0, Number(data.happinessCost ?? 0)),
+                place: expedition.place || expedition.region || "the field",
+                provision: expedition.provision ?? "none",
+                risk: expedition.risk ?? "safe",
             });
             setExpeditionError("");
         } catch (error) {
@@ -464,7 +514,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         if (!requireServerSettlement("petTraining")) return;
         if (!selectedPet?.training) return;
         if (serverNow() < selectedPet.training.endsAt) {
-            return alert(`${selectedPet.name} needs ${formatPetTimer(selectedPet.training.endsAt - Date.now())} more.`);
+            return alert(`${selectedPet.name} needs ${formatPetTimer(selectedPet.training.endsAt - serverNow())} more.`);
         }
         // NOTE: pet training completion is SERVER-SETTLED (runPetProgress), so the
         // village war-morale XP multiplier is not applied on this path — see
@@ -692,8 +742,13 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                         </div>
 
                         <p id="pet-expedition-result-story" className="expedition-result-story">
-                            <em>{expeditionResult.petName}</em> {expeditionResult.summary}.
+                            <em>{expeditionResult.petName}</em> — {expeditionResult.summary}
                         </p>
+
+                        <div className={`expedition-outcome expedition-outcome--${expeditionResult.returnOutcome}`}>
+                            <strong>{expeditionResult.outcomeLabel}</strong>
+                            <span>{expeditionResult.place} · {expeditionResult.risk === "bold" ? "Bold route" : "Safe route"}{expeditionResult.provision !== "none" ? " · provision used" : ""}</span>
+                        </div>
 
                         {expeditionResult.leveledUp && (
                             <div className="expedition-level-up">⭐ Level Up! Your pet grew stronger from this journey.</div>
@@ -710,6 +765,20 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                     <span className="expedition-reward-icon">✨</span>
                                     <span className="expedition-reward-label">Pet XP</span>
                                     <span className="expedition-reward-value">+{expeditionResult.xp.toLocaleString()}</span>
+                                </div>
+                            )}
+                            {expeditionResult.tamerXp > 0 && (
+                                <div className="expedition-reward-row">
+                                    <span className="expedition-reward-icon">🐾</span>
+                                    <span className="expedition-reward-label">Tamer XP</span>
+                                    <span className="expedition-reward-value">+{expeditionResult.tamerXp.toLocaleString()}</span>
+                                </div>
+                            )}
+                            {expeditionResult.happinessCost > 0 && (
+                                <div className="expedition-reward-row">
+                                    <span className="expedition-reward-icon">💚</span>
+                                    <span className="expedition-reward-label">Bold-route cost</span>
+                                    <span className="expedition-reward-value">−{expeditionResult.happinessCost} happiness</span>
                                 </div>
                             )}
                             {expeditionResult.statSummary && (
@@ -815,7 +884,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                         {pet.expedition && serverNow() < pet.expedition.endsAt && <span className="pet-training-tag">Exploring {formatPetTimer(pet.expedition!.endsAt - serverNow())}</span>}
                                         {expeditionReady && <span className="pet-ready-tag" aria-hidden="true">🎁 Claim</span>}
                                         {pet.training && serverNow() < pet.training.endsAt && (
-                                            <span className="pet-training-tag">⏳ {formatPetTimer(pet.training.endsAt - Date.now())}</span>
+                                            <span className="pet-training-tag">⏳ {formatPetTimer(pet.training.endsAt - now)}</span>
                                         )}
                                         {pet.training && serverNow() >= pet.training.endsAt && (
                                             <span className="pet-ready-tag">✅ Ready</span>
@@ -827,6 +896,28 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                             </button>
                         );
                     })}
+                </div>
+
+                <div ref={expeditionBoardRef}>
+                    <PetExpeditionBoard
+                        character={character}
+                        pets={combatEligiblePets}
+                        selectedPet={selectedPetIsOverflow ? null : selectedPet}
+                        selectedPetId={selectedPetIsOverflow ? "" : selectedPetId}
+                        expeditionType={expeditionType}
+                        risk={expeditionRisk}
+                        provision={expeditionProvision}
+                        now={now}
+                        launchBusy={expeditionLaunchBusy}
+                        claimBusy={expeditionBusy}
+                        error={expeditionError}
+                        onSelectPet={(petId) => { setSelectedPetId(petId); setExpeditionError(""); }}
+                        onTypeChange={setExpeditionType}
+                        onRiskChange={setExpeditionRisk}
+                        onProvisionChange={setExpeditionProvision}
+                        onStart={() => void startExpedition()}
+                        onCollect={(choice) => void collectExpedition(choice)}
+                    />
                 </div>
 
                 {selectedPet ? (
@@ -1201,7 +1292,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                             {selectedPet.training && serverNow() < selectedPet.training.endsAt ? (
                                 <div className="training-in-progress">
                                     <p>⏳ {petTrainingOptions.find((o) => o.type === selectedPet.training?.type)?.label}</p>
-                                    <p className="training-timer">{formatPetTimer(selectedPet.training.endsAt - Date.now())} remaining</p>
+                                    <p className="training-timer">{formatPetTimer(selectedPet.training.endsAt - now)} remaining</p>
                                 </div>
                             ) : selectedPet.training ? (
                                 <div className="training-complete">
@@ -1237,39 +1328,10 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
 
                         <div className="pet-training-panel">
                             <h4>Expedition</h4>
-                            {selectedPet.expedition && serverNow() < selectedPet.expedition.endsAt ? (
-                                <div className="training-in-progress">
-                                    <p>Exploring Badge Active</p>
-                                    <p className="training-timer">{formatPetTimer(selectedPet.expedition.endsAt - Date.now())} remaining</p>
-                                    <p className="hint">This pet cannot enter pet battles or PvE until it returns.</p>
-                                </div>
-                             ) : selectedPet.expedition ? (
-                                 <div className="training-complete">
-                                     <p>Expedition complete!</p>
-                                     {expeditionError && <p id="pet-expedition-claim-error" className="hint" role="alert">{expeditionError}</p>}
-                                     <button type="button" className="admin-button" onClick={collectExpedition} disabled={expeditionBusy} aria-describedby={expeditionError ? "pet-expedition-claim-error" : undefined}>{expeditionBusy ? "Collecting…" : expeditionError ? "Retry Expedition Claim" : "Collect Expedition"}</button>
-                                </div>
-                            ) : selectedPet.level < PET_EXPEDITION_UNLOCK_LEVEL ? (
-                                <div className="pet-expedition-locked">
-                                    <p className="pet-lock-title">🔒 Unlocks at Level {PET_EXPEDITION_UNLOCK_LEVEL}</p>
-                                    <p className="hint">{petDisplayName(selectedPet)} is Level {selectedPet.level}. Train to Level {PET_EXPEDITION_UNLOCK_LEVEL} to send it on expeditions.</p>
-                                </div>
-                            ) : (
-                                <>
-                                    <label htmlFor="pet-expedition-type">Expedition Type</label>
-                                    <select id="pet-expedition-type" value={expeditionType} disabled={expeditionLaunchBusy || selectedPetIsOverflow} onChange={(e) => setExpeditionType(e.target.value as PetExpeditionType)}>
-                                        {petExpeditionOptions.map((option) => <option key={option.type} value={option.type}>{option.label} ({option.durationLabel}) - {option.desc}</option>)}
-                                    </select>
-                                    <button type="button" className="admin-button" onClick={startExpedition} disabled={expeditionLaunchBusy || selectedPetIsOverflow} aria-busy={expeditionLaunchBusy}>{expeditionLaunchBusy ? "Sending…" : selectedPetIsOverflow ? "Move to carried first" : "Send Exploring"}</button>
-                                    <p className="hint">
-                                        {selectedPet.level >= selectedPet.maxLevel
-                                            ? (character.profession === "petTamer"
-                                                ? "Max level — expeditions still earn ryo and rare drops, but pet XP and automatic growth are capped."
-                                                : "Max level — expeditions earn half a Pet Tamer's ryo and drop chances (pet XP and automatic growth are capped).")
-                                            : "Expeditions give ryo and pet XP; levels grant automatic growth plus Growth Points. Rare trips can also find Aura Stones, Bone Charms, and Fate Shards."}
-                                    </p>
-                                </>
-                            )}
+                            <p className="hint">Routes, exact previews, daily caps, provisions, return choices, and recent stories now live on the Expedition Board above.</p>
+                            <button type="button" onClick={() => expeditionBoardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+                                {selectedPet.expedition && now >= selectedPet.expedition.endsAt ? "Choose return outcome" : "Open Expedition Board"}
+                            </button>
                         </div>
                         </div>
 

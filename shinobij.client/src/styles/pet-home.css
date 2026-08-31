@@ -394,10 +394,89 @@
 }
 .pet-settlement-notice[data-status="error"] button { color: #fff; background: #b91c1c; }
 
+/* Expedition Board — the route contract is visible before a pet departs. */
+.pet-expedition-board {
+    scroll-margin-top: 1rem;
+    margin: 1rem 0 1.25rem;
+    border: 1px solid rgba(120,217,189,.28);
+    border-radius: 22px;
+    color: #edf6f7;
+    background: linear-gradient(145deg,rgba(9,25,34,.98),rgba(4,11,21,.99));
+    padding: clamp(.85rem,2vw,1.25rem);
+    box-shadow: 0 22px 55px rgba(0,0,0,.26), inset 0 1px rgba(255,255,255,.035);
+}
+.pet-expedition-board__header { display: flex; align-items: end; justify-content: space-between; gap: 1rem; }
+.pet-expedition-board__header h3 { margin: .1rem 0 .3rem; color: #f7e5b7; font: 700 clamp(1.4rem,3vw,2.1rem) Georgia,serif; }
+.pet-expedition-board__header p { max-width: 650px; margin: 0; color: #9fb4bd; font-size: .78rem; line-height: 1.5; }
+.pet-expedition-caps { display: grid; grid-template-columns: repeat(3,minmax(92px,1fr)); gap: 1px; overflow: hidden; min-width: min(390px,100%); border: 1px solid rgba(230,189,112,.2); border-radius: 13px; background: rgba(230,189,112,.16); }
+.pet-expedition-caps span { display: grid; gap: .12rem; background: rgba(4,13,24,.94); padding: .55rem .7rem; text-align: center; }
+.pet-expedition-caps small { color: #738b97; font-size: .52rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.pet-expedition-caps strong { color: #f4dfaa; font-size: .82rem; font-variant-numeric: tabular-nums; }
+.pet-expedition-badges { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .8rem; }
+.pet-expedition-badges span { border: 1px solid rgba(132,204,22,.32); border-radius: 999px; color: #c9f58b; background: rgba(74,105,15,.18); padding: .3rem .58rem; font-size: .62rem; font-weight: 800; }
+.pet-expedition-companions { display: flex; gap: .45rem; overflow-x: auto; margin-top: .8rem; padding-bottom: .15rem; scrollbar-width: thin; }
+.pet-expedition-companions button { display: grid; flex: 0 0 min(180px,42vw); gap: .12rem; min-height: 48px; border: 1px solid rgba(178,210,229,.14); border-radius: 10px; color: #b8c9d0; background: rgba(255,255,255,.035); padding: .48rem .65rem; text-align: left; }
+.pet-expedition-companions button.is-selected { border-color: #78d9bd; color: #effff9; background: rgba(52,124,105,.2); }
+.pet-expedition-companions button[data-status="ready"] span { color: #86efac; }
+.pet-expedition-companions button[data-status="away"] span { color: #7dd3fc; }
+.pet-expedition-companions strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pet-expedition-companions span { color: #839aa5; font-size: .62rem; font-weight: 800; text-transform: uppercase; }
+.pet-expedition-routes { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .65rem; margin-top: .8rem; }
+.pet-expedition-routes > button { position: relative; display: grid; gap: .34rem; min-height: 180px; border: 1px solid rgba(178,210,229,.17); border-radius: 15px; color: #dce8eb; background: linear-gradient(155deg,rgba(22,43,56,.9),rgba(7,17,29,.95)); padding: .8rem; text-align: left; }
+.pet-expedition-routes > button:hover:not(:disabled) { border-color: rgba(230,189,112,.48); transform: translateY(-1px); }
+.pet-expedition-routes > button.is-selected { border-color: #e6bd70; box-shadow: inset 0 0 0 1px rgba(230,189,112,.18),0 10px 28px rgba(0,0,0,.18); }
+.pet-expedition-routes strong { padding-right: 2.6rem; color: #f7e7bc; font: 700 1rem Georgia,serif; }
+.pet-expedition-routes > button > small { min-height: 2.5em; color: #8fa6b1; font-size: .68rem; line-height: 1.4; }
+.pet-expedition-route__time { position: absolute; top: .65rem; right: .65rem; border-radius: 999px; color: #07131c; background: #78d9bd; padding: .2rem .45rem; font-size: .62rem; font-weight: 900; }
+.pet-expedition-routes dl { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem; margin: auto 0 0; }
+.pet-expedition-routes dl div { border-radius: 7px; background: rgba(255,255,255,.035); padding: .35rem .42rem; }
+.pet-expedition-routes dt { color: #718995; font-size: .52rem; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
+.pet-expedition-routes dd { margin: .12rem 0 0; color: #dce9e9; font-size: .69rem; font-weight: 800; }
+.pet-expedition-setup { display: grid; grid-template-columns: minmax(0,1.5fr) minmax(250px,1fr); gap: .65rem; margin-top: .65rem; }
+.pet-expedition-setup fieldset,.pet-expedition-provision { min-width: 0; margin: 0; border: 1px solid rgba(178,210,229,.14); border-radius: 12px; background: rgba(255,255,255,.025); padding: .65rem; }
+.pet-expedition-setup fieldset { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem; }
+.pet-expedition-setup legend,.pet-expedition-provision > span { color: #86a0ab; font-size: .58rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.pet-expedition-setup fieldset label { display: flex; align-items: start; gap: .45rem; border-radius: 8px; padding: .35rem; }
+.pet-expedition-setup fieldset label:has(input:checked) { background: rgba(120,217,189,.09); }
+.pet-expedition-setup fieldset span { display: grid; gap: .12rem; }
+.pet-expedition-setup fieldset strong { color: #dce9e9; font-size: .74rem; }
+.pet-expedition-setup fieldset small,.pet-expedition-provision small { color: #8097a2; font-size: .62rem; line-height: 1.35; }
+.pet-expedition-provision { display: grid; align-content: start; gap: .35rem; }
+.pet-expedition-provision select { min-width: 0; width: 100%; border-color: rgba(178,210,229,.2); color: #e8f2f3; background: #0a1725; }
+.pet-expedition-action { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: .65rem; border: 1px solid rgba(230,189,112,.2); border-radius: 13px; background: rgba(230,189,112,.055); padding: .7rem; }
+.pet-expedition-action > div,.pet-expedition-return-choice > div { display: grid; gap: .16rem; }
+.pet-expedition-action strong { color: #f1e1b8; font-size: .82rem; }
+.pet-expedition-action span { color: #8fa5ae; font-size: .68rem; line-height: 1.4; }
+.pet-expedition-action button { flex: 0 0 auto; min-height: 42px; }
+.pet-expedition-return-choice { display: flex !important; flex: 1; align-items: center; gap: .55rem; }
+.pet-expedition-return-choice > div { margin-right: auto; }
+.pet-expedition-return-choice .is-bold { border-color: rgba(251,191,36,.45); color: #2c1c00; background: #fbbf24; }
+.pet-expedition-error { margin: .5rem 0 0; border-left: 3px solid #f87171; color: #fecaca; background: rgba(127,29,29,.2); padding: .5rem .65rem; font-size: .72rem; }
+.pet-expedition-log { margin-top: .8rem; border-top: 1px solid rgba(178,210,229,.12); padding-top: .7rem; }
+.pet-expedition-log h4 { margin: 0 0 .45rem; color: #d8e6e9; font: 700 .9rem Georgia,serif; }
+.pet-expedition-log > p { margin: 0; color: #738b96; font-size: .7rem; }
+.pet-expedition-log ol { display: grid; grid-template-columns: repeat(auto-fit,minmax(230px,1fr)); gap: .45rem; margin: 0; padding: 0; list-style: none; }
+.pet-expedition-log li { display: grid; gap: .2rem; border-radius: 9px; background: rgba(255,255,255,.028); padding: .55rem; }
+.pet-expedition-log li strong { color: #d7e5e7; font-size: .7rem; }
+.pet-expedition-log li span { color: #8da3ad; font-size: .64rem; line-height: 1.4; }
+.pet-expedition-log li small { color: #b8d889; font-size: .58rem; }
+.expedition-outcome { display: grid; gap: .15rem; margin: .6rem 0; border: 1px solid rgba(120,217,189,.25); border-radius: 10px; background: rgba(120,217,189,.08); padding: .55rem .7rem; }
+.expedition-outcome--discovery { border-color: rgba(250,204,21,.4); background: rgba(250,204,21,.09); }
+.expedition-outcome--setback { border-color: rgba(248,113,113,.35); background: rgba(127,29,29,.15); }
+.expedition-outcome strong { color: #f4e2b5; }
+.expedition-outcome span { color: #9bb0b8; font-size: .68rem; }
+
 @media (max-width: 620px) {
     .pet-settlement-notice {
         right: .65rem;
         bottom: max(.65rem, env(safe-area-inset-bottom));
         width: calc(100vw - 1.3rem);
     }
+    .pet-expedition-board__header { align-items: stretch; flex-direction: column; }
+    .pet-expedition-caps { width: 100%; min-width: 0; }
+    .pet-expedition-routes { grid-template-columns: 1fr; }
+    .pet-expedition-routes > button { min-height: 155px; }
+    .pet-expedition-setup { grid-template-columns: 1fr; }
+    .pet-expedition-action,.pet-expedition-return-choice { align-items: stretch; flex-direction: column; }
+    .pet-expedition-action button,.pet-expedition-return-choice button { width: 100%; }
 }

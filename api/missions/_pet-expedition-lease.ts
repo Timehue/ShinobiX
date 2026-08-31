@@ -1,5 +1,14 @@
-export const PET_EXPEDITION_TYPES = ['scout', 'forage', 'ruins'] as const;
-export type PetExpeditionType = typeof PET_EXPEDITION_TYPES[number];
+import {
+    PET_EXPEDITION_PROVISIONS,
+    PET_EXPEDITION_RISKS,
+    PET_EXPEDITION_TYPES,
+    type PetExpeditionProvision,
+    type PetExpeditionRisk,
+    type PetExpeditionType,
+} from '../../shared/pet-expedition-contract.js';
+
+export { PET_EXPEDITION_TYPES } from '../../shared/pet-expedition-contract.js';
+export type { PetExpeditionType } from '../../shared/pet-expedition-contract.js';
 
 export interface PetExpeditionSeal {
     playerName: string;
@@ -12,6 +21,13 @@ export interface PetExpeditionSeal {
     expMaterialMult: number;
     rewardScale: number;
     tamer: boolean;
+    risk: PetExpeditionRisk;
+    provision: PetExpeditionProvision;
+    sector: number;
+    place: string;
+    region: string;
+    biome: string;
+    choiceVersion: number;
 }
 type RecordLike = Record<string, unknown>;
 
@@ -60,6 +76,17 @@ export function petExpeditionSealForToken(characterRaw: unknown, token: string, 
             expMaterialMult: clamped(saved?.expMaterialMult ?? 1, 1, 2),
             rewardScale: clamped(saved?.rewardScale ?? (isTamer ? 1 : 0.5), 0, 1),
             tamer: saved ? saved.tamer !== false : isTamer,
+            risk: PET_EXPEDITION_RISKS.includes(saved?.risk as PetExpeditionRisk)
+                ? saved?.risk as PetExpeditionRisk
+                : 'safe',
+            provision: PET_EXPEDITION_PROVISIONS.includes(saved?.provision as PetExpeditionProvision)
+                ? saved?.provision as PetExpeditionProvision
+                : 'none',
+            sector: Math.floor(clamped(saved?.sector ?? expedition.sector, 0, 999)),
+            place: String(saved?.place ?? expedition.place ?? '').slice(0, 80),
+            region: String(saved?.region ?? expedition.region ?? '').slice(0, 80),
+            biome: String(saved?.biome ?? expedition.biome ?? 'central').slice(0, 24),
+            choiceVersion: Math.floor(clamped(saved?.choiceVersion ?? 0, 0, 1)),
         };
     }
     return null;

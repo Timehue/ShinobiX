@@ -21,7 +21,7 @@ const PATH_BLURBS: Record<string, string> = {
     reaver: "Wring more Honor Seals out of every win.",
     quartermaster: "Spend Seals further — cheaper training & speedups.",
     warden: "Stamina, AI hunting, and Seal-fueled grit.",
-    expeditioner: "Bigger expedition hauls — run two at once.",
+    expeditioner: "Bigger expedition hauls — plus two more daily starts at the capstone.",
     "beast-handler": "A tougher, deadlier pet in PvE.",
     trainer: "Train pets faster and smarter.",
 };
