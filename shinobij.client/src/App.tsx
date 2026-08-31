@@ -236,6 +236,8 @@ import type { HollowGatePetFightRef } from "./components/HollowGatePetFight";
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
 import { DEEP_LINKABLE_SCREENS, BATTLE_SCREENS, isHospitalNavigationBlocked, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, safeFallbackScreen, screenResetsSector, isWildSector, setTowerFightRunId, setTowerPvpMatchId } from "./lib/screen-guards";
 import { clearImgCache, imgCacheKey, IMG_CACHE_TTL, scheduleImageCategoryRetry, URL_MODE_CATEGORIES } from "./lib/shared-image-cache";
+import { imageEntries, parseImageManifest } from "./lib/shared-image-manifest";
+import { visiblePoll } from "./lib/poll";
 import { useBattleNavigationGuard } from "./lib/use-battle-navigation-guard";
 import { isBattleViewScreen, shouldHideBattleChrome } from "./lib/notifications-core";
 import { isPetHomeScreen, petHomeReturnLabel } from "./lib/pet-home-navigation";
@@ -248,7 +250,7 @@ import { extendHollowGateUnlock, hydrateSharedGameState, hydrateSharedWorldState
 import { useWarRewardClaims } from "./lib/use-war-reward-claims";
 import { useVillageTax } from "./lib/use-village-tax";
 import { requireServerSettlement } from "./lib/server-settlement-gate";
-import { heartbeatIntervalMs } from "./lib/heartbeat-cadence";
+import { scheduleHeartbeat } from "./lib/heartbeat-cadence";
 import { claimWorldAttack, releaseWorldAttack } from "./lib/world-attack-claim";
 import { masteryBonus } from "./lib/profession-mastery";
 const StartScreen = lazyWithRetry(() => import("./screens/StartScreen").then(m => ({ default: m.StartScreen })));
@@ -1652,10 +1654,10 @@ export default function App() {
             } catch { /* dev/offline fallback */ }
         }
         refreshClanWars();
-        const id = setInterval(refreshClanWars, 30_000);
+        const stop = visiblePoll(refreshClanWars, 30_000);
         return () => {
             alive = false;
-            clearInterval(id);
+            stop();
         };
     }, [gameplayViewOpen, tabVisible, character?.name, character?.clan]);
 
@@ -1710,9 +1712,9 @@ export default function App() {
             }
         }
         refreshWorldState(); // fetch fresh data on tab return
-        const id = setInterval(refreshWorldState, 15000);
+        const stop = visiblePoll(refreshWorldState, 15000);
         return () => {
-            clearInterval(id);
+            stop();
         };
     }, [character?.name, gameplayViewOpen, refreshWorldStateSnapshot, restoringSession, tabVisible]);
     useEffect(() => {
@@ -1737,10 +1739,10 @@ export default function App() {
             }
         }
         refreshSharedGameState(); // fetch fresh data on tab return
-        const id = setInterval(refreshSharedGameState, 10000); // 10s (was 5s): non-critical shared state, already ETag/304-revalidated
+        const stop = visiblePoll(refreshSharedGameState, 10000); // 10s (was 5s): non-critical shared state, already ETag/304-revalidated
         return () => {
             alive = false;
-            clearInterval(id);
+            stop();
         };
     }, [currentAccountName, character?.name, gameplayViewOpen, restoringSession, tabVisible]);
     // Village leadership portraits are large base64 images that change rarely,
@@ -1769,10 +1771,10 @@ export default function App() {
             }
         }
         refreshLeadershipImages();
-        const id = setInterval(refreshLeadershipImages, 5 * 60_000); // every 5 min — portraits change rarely
+        const stop = visiblePoll(refreshLeadershipImages, 5 * 60_000); // every 5 min — portraits change rarely
         return () => {
             alive = false;
-            clearInterval(id);
+            stop();
         };
     }, [character?.name, gameplayViewOpen, restoringSession, screen, tabVisible]);
     useEffect(() => {
@@ -2303,6 +2305,7 @@ export default function App() {
     // heartbeat being in scope (it's redefined each effect run).
     const heartbeatRef = useRef<() => void>(() => {});
     const heartbeatInFlightRef = useRef(false);
+    const lastSocketConnectedRef = useRef(false);
     // Throttles the per-beat roster ingest (see heartbeat) so the cross-device
     // player list isn't re-normalized + re-set on the hot 1s combat/explore beat.
     const lastRosterMergeAt = useRef(0);
@@ -2572,16 +2575,17 @@ export default function App() {
             if (heartbeatRef.current === heartbeat) heartbeatRef.current = () => {};
         };
 
-        heartbeat();
-        // Cadence (incl. why a HIDDEN tab keeps beating) lives in lib/heartbeat-cadence.
-        const id = setInterval(heartbeat, heartbeatIntervalMs({
+        // Cadence (incl. why a HIDDEN tab keeps beating), the ±10% jitter, and
+        // why only a socket-state flip's first beat is staggered all live in
+        // lib/heartbeat-cadence. It beats immediately for every other trigger.
+        const stopHeartbeat = scheduleHeartbeat(heartbeat, {
             tabVisible,
             socketConnected,
             inBattleFlow: isBattleFlowScreen(screenRef.current),
             guardQueued: !!character?.guardQueued,
             sector: currentSector,
-        }));
-        return () => { retireHeartbeat(); clearInterval(id); };
+        }, { lastSocketConnected: lastSocketConnectedRef });
+        return () => { retireHeartbeat(); stopHeartbeat(); };
     }, [
         gameplayMutationsOpen, character?.name, character?.guardQueued, currentSector, isTraveling, travelingUntil, screen, tabVisible, socketConnected,
         raidBattleKind, pvpBattleId, pvpCompletionConfirmed, endlessBattleActive, pendingArenaStoryBattle,
@@ -2808,8 +2812,8 @@ export default function App() {
         // forcing every poll past the CDN to the origin — the most amplified request in
         // the game, re-serialising EVERY player's save each time. The response is already
         // ≤60s stale by design (the server's process cache bakes the online flags in).
-        const id = setInterval(fetchRoster, 60000);
-        return () => clearInterval(id);
+        const stop = visiblePoll(fetchRoster, 60000);
+        return () => stop();
     }, [character?.name, currentSector, gameplayViewOpen]);
 
     useEffect(() => {
@@ -2831,8 +2835,8 @@ export default function App() {
             } catch { /* silently skip */ }
         }
         fetchPublicBloodlines();
-        const id = setInterval(fetchPublicBloodlines, 300000);
-        return () => clearInterval(id);
+        const stop = visiblePoll(fetchPublicBloodlines, 300000); // mgets every save — worth pausing while hidden
+        return () => stop();
     }, [character?.name, gameplayViewOpen]);
 
     // Sector-attack auto-routing: if a sectorAttack challenge arrives, route defender to
@@ -4021,7 +4025,8 @@ export default function App() {
     // Image category loader — fetches from shared KV store and hydrates
     // embedded image fields so all existing display code works without changes.
     // A ref prevents duplicate fetches even when called from multiple effects.
-    const loadedCatsRef = useRef<Set<string>>(new Set());
+    // cat -> when its manifest was accepted; expires on IMG_CACHE_TTL (see lib/shared-image-cache).
+    const loadedCatsRef = useRef<Map<string, number>>(new Map());
     const loadingCatsRef = useRef<Map<string, Promise<void>>>(new Map());
     const imgRetryRoundsRef = useRef<Map<string, number>>(new Map());
 
@@ -4223,7 +4228,8 @@ export default function App() {
 
 
     function loadCategory(cat: string): Promise<void> {
-        if (loadedCatsRef.current.has(cat)) return Promise.resolve();
+        const loadedAt = loadedCatsRef.current.get(cat);
+        if (loadedAt !== undefined && Date.now() - loadedAt < IMG_CACHE_TTL) return Promise.resolve();
         return runSingleFlight(loadingCatsRef.current, cat, () => loadCategoryOnce(cat));
     }
 
@@ -4242,7 +4248,7 @@ export default function App() {
                 // Only use cache if it has actual entries (not an empty timeout result)
                 if (Date.now() - ts < IMG_CACHE_TTL && Object.keys(data).length > 0) {
                     hydrateImages(cat, data);
-                    loadedCatsRef.current.add(cat);
+                    loadedCatsRef.current.set(cat, ts); // inherit the entry's age, don't renew it
                     return; // served from cache — zero KV reads
                 }
             }
@@ -4263,16 +4269,14 @@ export default function App() {
                 const cb = Math.floor(Date.now() / 300_000);
                 let entries: Record<string, string>;
                 if (urlMode) {
-                    // Manifest mode: fetch just the id list and map each to a
-                    // per-image URL. The actual bytes load lazily via <img src>.
-                    const r = await fetch(`/api/images?cat=${encodeURIComponent(cat)}&ids=1&cb=${cb}`, { signal: AbortSignal.timeout(12_000) });
+                    // Manifest mode: ids plus a category version map to per-image
+                    // URLs; the bytes load lazily via <img src>. The version is what
+                    // makes /api/img immutable — see api/_image-version.ts.
+                    const r = await fetch(`/api/images?cat=${encodeURIComponent(cat)}&ids=1&ver=1&cb=${cb}`, { signal: AbortSignal.timeout(12_000) });
                     if (!r.ok) continue;
-                    const ids = await r.json() as unknown;
-                    if (!Array.isArray(ids)) continue;
-                    entries = {};
-                    for (const id of ids) {
-                        if (typeof id === 'string') entries[id] = `/api/img?id=${encodeURIComponent(id)}`;
-                    }
+                    const manifest = parseImageManifest(await r.json());
+                    if (!manifest) continue;
+                    entries = imageEntries(manifest);
                 } else {
                     const r = await fetch(`/api/images?cat=${encodeURIComponent(cat)}&cb=${cb}`, { signal: AbortSignal.timeout(12_000) });
                     if (!r.ok) continue;
@@ -4290,7 +4294,7 @@ export default function App() {
                     } catch { /* quota exceeded — skip caching */ }
                 }
                 // Mark loaded even if empty — the category genuinely has no images yet
-                loadedCatsRef.current.add(cat); imgRetryRoundsRef.current.delete(cat);
+                loadedCatsRef.current.set(cat, Date.now()); imgRetryRoundsRef.current.delete(cat);
                 return;
             } catch { /* network error — retry */ }
         }

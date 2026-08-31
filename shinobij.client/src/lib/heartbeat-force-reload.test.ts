@@ -60,7 +60,11 @@ describe("heartbeat force-reload account authority", () => {
         const retire = heartbeat.indexOf("const retireHeartbeat = () => {");
         const deactivate = heartbeat.indexOf("heartbeatEffectActive = false", retire);
         const detachKick = heartbeat.indexOf("heartbeatRef.current = () => {}", deactivate);
-        const intervalCleanup = heartbeat.indexOf("return () => { retireHeartbeat(); clearInterval(id); }", detachKick);
+        // The beat is armed by lib/heartbeat-cadence's jittered scheduler rather
+        // than a bare setInterval, so the cleanup cancels its chain instead of
+        // clearing an interval id. What this pins is unchanged: the cleanup must
+        // retire the session BEFORE it stops the timer.
+        const intervalCleanup = heartbeat.indexOf("return () => { retireHeartbeat(); stopHeartbeat(); }", detachKick);
         assert.ok(retire >= 0 && retire < deactivate && deactivate < detachKick && detachKick < intervalCleanup);
 
         // The effect must never bail out BEFORE arming the interval — it used to

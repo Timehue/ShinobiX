@@ -5,6 +5,7 @@ import {
     GiCrossedSwords, GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime,
 } from "../components/icons/LightweightGameIcons";
 import "../styles/battle-skin.css";
+import { visiblePoll } from "../lib/poll";
 import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, BattleHistoryEntry } from "../types/character";
 import type { GameItem, Jutsu } from "../types/combat";
@@ -1296,12 +1297,11 @@ export function PvpBattleScreen({
                 .catch(() => {});
         };
         poll();
-        const iv = setInterval(poll, 3000);
-        // Catch up immediately when the tab is refocused (the poll early-returns
-        // while hidden, so without this the chat is stale for up to one interval).
-        const onVisible = () => { if (document.visibilityState !== "hidden") poll(); };
-        document.addEventListener("visibilitychange", onVisible);
-        return () => { active = false; clearInterval(iv); document.removeEventListener("visibilitychange", onVisible); };
+        // visiblePoll owns all three behaviours this used to hand-roll: skip the
+        // tick while hidden, catch up the moment the tab is shown, and jitter the
+        // interval so every client in the battle does not poll on the same tick.
+        const stop = visiblePoll(poll, 3000);
+        return () => { active = false; stop(); };
     }, [battleId]);
 
     /* Auto-scroll chat */
@@ -1348,10 +1348,8 @@ export function PvpBattleScreen({
                 .catch(() => {});
         };
         poll();
-        const iv = setInterval(poll, 5000);
-        const onVisible = () => { if (document.visibilityState !== "hidden") poll(); };
-        document.addEventListener("visibilitychange", onVisible);
-        return () => { active = false; clearInterval(iv); document.removeEventListener("visibilitychange", onVisible); };
+        const stop = visiblePoll(poll, 5000);
+        return () => { active = false; stop(); };
     }, [battleId]);
 
     /* Spectator presence heartbeat. The server prunes any spectator whose last

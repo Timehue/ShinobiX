@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/purity */
 import { PetBattleReadiness } from "../components/PetBattleReadiness";
 import { useState, useEffect, useRef } from "react";
+import { visiblePoll } from "../lib/poll";
 import { serverNow } from "../lib/server-clock";
 import { activeCarriedPetIds, activeCarriedPets, activeTrainingPetIds, maxPets } from "../lib/entitlements";
 import "../styles/pet-skin.css";
@@ -125,8 +126,8 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
             } catch { /* ignore */ }
         }
         void fetchOffer();
-        const id = setInterval(fetchOffer, 60_000);
-        return () => { cancelled = true; clearInterval(id); };
+        const stop = visiblePoll(fetchOffer, 60_000);
+        return () => { cancelled = true; stop(); };
      
     }, [canOfferEscort, character.clan, character.name]);
 

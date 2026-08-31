@@ -75,3 +75,113 @@ export function heartbeatIntervalMs(input: HeartbeatCadenceInput): number {
     if (input.inBattleFlow || input.guardQueued) return COMBAT_MS;
     return input.sector === 0 ? VILLAGE_MS : FIELD_MS;
 }
+
+/*
+ * ── Why the beat is scheduled, not just intervalled ─────────────────────────
+ *
+ * The cadence above says how OFTEN a client beats. It says nothing about WHEN,
+ * and a bare `setInterval` answers that with "the same instant as everybody
+ * else", which is how the beat turns a deploy into a load spike:
+ *
+ *   1. Railway replaces the container. Every live socket drops in the same
+ *      instant, so every client's `socketConnected` flips false at once.
+ *   2. That flip re-runs App's heartbeat effect on every client simultaneously,
+ *      each firing an immediate beat and then arming an interval — all with the
+ *      same period and, because they started together, the same PHASE.
+ *   3. Anyone still in a battle flow is on COMBAT_MS. The result is a
+ *      phase-aligned 1 Hz stampede onto a container that is still cold: empty
+ *      proc-cache (api/_proc-cache.ts), unwarmed pg pool.
+ *
+ * lib/poll.ts already solved this shape for screen polls — it jitters "to
+ * de-synchronise clients (avoids a thundering-herd of beats landing on the same
+ * wall-clock tick after a deploy bounce)". The beat is the highest-frequency
+ * call in the game and was the one poll that never adopted it.
+ *
+ * `visiblePoll` itself is NOT usable here, and the difference is load-bearing:
+ * it skips the tick while the tab is hidden, which is exactly the behaviour the
+ * long note at the top of this file exists to forbid. A hidden tab that stops
+ * beating stays present and attackable while its challenge inbox goes undrained,
+ * which strands the attacker in a session that can neither pay out nor forfeit.
+ * So this scheduler borrows the jitter and nothing else — it keeps beating while
+ * hidden, at HIDDEN_TAB_MS.
+ */
+
+/** Interval spread, as a fraction of the cadence. Matches visiblePoll's ±10%. */
+export const HEARTBEAT_JITTER_PCT = 0.1;
+
+/** Upper bound on the delay applied to a staggered first beat. */
+export const HEARTBEAT_RECONNECT_STAGGER_MS = 500;
+
+/** One interval, spread ±HEARTBEAT_JITTER_PCT around the cadence. */
+export function jitterHeartbeatMs(baseMs: number, random: () => number = Math.random): number {
+    const spread = baseMs * HEARTBEAT_JITTER_PCT;
+    return Math.max(1, Math.round(baseMs - spread + random() * spread * 2));
+}
+
+export type HeartbeatScheduleOptions = {
+    /**
+     * Mutable box holding the `socketConnected` this scheduler last saw. When it
+     * disagrees with the incoming input, the run is treated as a socket-state
+     * FLIP and its first beat is delayed by up to
+     * {@link HEARTBEAT_RECONNECT_STAGGER_MS}; the box is then updated.
+     *
+     * The discrimination matters. App's heartbeat effect re-runs on many
+     * triggers, and most of them — a sector change, a screen change, travel —
+     * depend on the immediate beat to propagate the move to sector-mates, so
+     * delaying those would be a real regression. A connectivity flip is the one
+     * trigger that carries no new player state to publish, and the only one that
+     * fires for every player at the same instant. Stagger just that.
+     *
+     * Omit the box to always beat immediately (the pre-jitter behaviour).
+     */
+    lastSocketConnected?: { current: boolean };
+    /** Test seam. */
+    random?: () => number;
+};
+
+/**
+ * Arm the presence heartbeat: beat now (or after a short stagger), then keep
+ * beating on a jittered chain until the returned canceller runs.
+ *
+ * Self-rescheduling rather than `setInterval` on purpose — re-jittering every
+ * tick spreads clients progressively, where a once-jittered fixed period still
+ * lands its FIRST tick inside one narrow window for everybody.
+ *
+ * @returns a canceller. Idempotent, safe to call from an effect cleanup.
+ */
+export function scheduleHeartbeat(
+    beat: () => void,
+    input: HeartbeatCadenceInput,
+    opts: HeartbeatScheduleOptions = {},
+): () => void {
+    const random = opts.random ?? Math.random;
+    const baseMs = heartbeatIntervalMs(input);
+
+    const box = opts.lastSocketConnected;
+    const socketStateFlipped = box ? box.current !== input.socketConnected : false;
+    if (box) box.current = input.socketConnected;
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let stopped = false;
+
+    const armNext = (delayMs: number): void => {
+        timer = setTimeout(() => {
+            if (stopped) return;
+            beat();
+            armNext(jitterHeartbeatMs(baseMs, random));
+        }, delayMs);
+    };
+
+    if (socketStateFlipped) {
+        armNext(Math.round(random() * HEARTBEAT_RECONNECT_STAGGER_MS));
+    } else {
+        beat();
+        armNext(jitterHeartbeatMs(baseMs, random));
+    }
+
+    return () => {
+        stopped = true;
+        if (timer !== null) clearTimeout(timer);
+        timer = null;
+    };
+}

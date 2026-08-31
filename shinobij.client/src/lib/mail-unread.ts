@@ -10,12 +10,13 @@
  * re-polls on focus so the badge is fresh when the player returns.
  */
 
+import { visiblePoll } from "./poll";
+
 const POLL_MS = 30000;
 
 let unread = 0;
 const subs = new Set<(n: number) => void>();
-let timer: ReturnType<typeof setInterval> | null = null;
-let visHandler: (() => void) | null = null;
+let stopPoll: (() => void) | null = null;
 
 function emit(): void {
     subs.forEach((cb) => {
@@ -43,19 +44,16 @@ async function poll(): Promise<void> {
 }
 
 function start(): void {
-    if (timer) return;
+    if (stopPoll) return;
     void poll();
-    timer = setInterval(() => void poll(), POLL_MS);
-    visHandler = () => { if (!document.hidden) void poll(); };
-    try { document.addEventListener("visibilitychange", visHandler); } catch { /* ignore */ }
+    // visiblePoll already owns the three things this hand-rolled: skip the tick
+    // while hidden, re-poll the moment the tab is shown, and jitter the interval
+    // so every badge-bearing client does not hit /api/messages on one tick.
+    stopPoll = visiblePoll(() => void poll(), POLL_MS);
 }
 
 function stop(): void {
-    if (timer) { clearInterval(timer); timer = null; }
-    if (visHandler) {
-        try { document.removeEventListener("visibilitychange", visHandler); } catch { /* ignore */ }
-        visHandler = null;
-    }
+    if (stopPoll) { stopPoll(); stopPoll = null; }
 }
 
 export function getUnreadMail(): number {
