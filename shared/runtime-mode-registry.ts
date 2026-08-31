@@ -598,6 +598,23 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         participantModel: 'party', rewardPolicy: 'none', replayKind: 'bounded-terminal-command-ring', status: 'match',
     }),
 
+    // The open-world sector raid: attacking a live player standing in your own
+    // wild sector, off the "Players Here" panel. Distinct from
+    // sector-war-shinobi-human below, which is the village CONTEST (capabilityKey
+    // 'villageWar'); this one needs no war and no clan, and its authority is pure
+    // co-located presence — api/pvp/session.ts stamps rewardAuthority 'world' only
+    // when the server itself sees both fighters in the claimed sector.
+    defineMode({
+        id: 'world-sector-player-raid', label: 'Open-world sector raid', category: 'shinobi-pvp', authorityEngine: E.PVP,
+        clientEntries: ['App.tsx', 'screens/WorldMap.tsx', 'components/WorldSectorCommandPanel.tsx', 'lib/world-attack-claim.ts', 'lib/village-war-map.ts', ...PVP_CLIENT],
+        routes: [
+            ...pvpRuntimeRoutes(),
+            mountedRoute('/player/attack', 'player/attack', ['lifecycle']),
+            mountedRoute('/player/clear-attack', 'player/clear-attack', ['lifecycle']),
+            mountedRoute('/player/challenge', 'player/challenge', ['lifecycle']),
+        ],
+        participantModel: 'two-player', rewardPolicy: 'server-settled', replayKind: 'durable-pvp-history', status: 'match', migrationStatus: 'keep',
+    }),
     defineMode({
         id: 'sector-war-shinobi-human', label: 'Sector war shinobi combat', category: 'shinobi-pvp', authorityEngine: E.PVP,
         orchestrationOwner: O.SECTOR_WAR, capabilityKey: 'villageWar',

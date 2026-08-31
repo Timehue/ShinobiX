@@ -182,6 +182,34 @@ test('clearPendingAttacker and setInBattle mutate in place', () => {
     assert.equal(store.get('rill')!.inBattle, undefined, 'false clears the flag');
 });
 
+test('a client-claimed travelingUntil confers NO immunity — only a minted lease does', () => {
+    // "Target is traveling" is a hard 409 in attackBlock / sessionOpponentBlock /
+    // challengeBlock, so if presence honoured a self-reported travelingUntil a
+    // tampered client could re-assert it every beat and stand in the wild
+    // permanently un-attackable while still farming it.
+    //
+    // It cannot: upsert seeds travelingUntil from `prev` alone and never reads
+    // `entry.travelingUntil`, so the field is accepted by the handler, capped by
+    // capTravelingUntil, and then discarded. This test exists because that is
+    // invisible at the call site — api/player/heartbeat.ts and
+    // api/_realtime/socket.ts both still PASS the client value in, which reads
+    // exactly like it is trusted. If a future upsert starts honouring it, the
+    // immunity hole opens silently; this fails first.
+    const { store, at } = makeStore();
+    store.upsert({ name: 'rill', sector: 5, character: null });
+    store.upsert({ name: 'rill', sector: 5, character: null, travelingUntil: at() + 600_000 });
+    assert.equal(store.get('rill')!.travelingUntil, undefined,
+        'a self-reported travel window must never reach the presence row');
+
+    // The server-minted path is the only one that sets it.
+    assert.ok(store.startTravel('rill', 6, at() + 3_000));
+    assert.equal(store.get('rill')!.travelingUntil, at() + 3_000);
+
+    // ...and a beat cannot EXTEND a real lease either.
+    store.upsert({ name: 'rill', sector: 5, character: null, travelingUntil: at() + 600_000 });
+    assert.equal(store.get('rill')!.travelingUntil, at() + 3_000, 'the lease deadline is not client-extendable');
+});
+
 test('remove forgets the player', () => {
     const { store } = makeStore();
     store.upsert({ name: 'rill', sector: 1, character: null });

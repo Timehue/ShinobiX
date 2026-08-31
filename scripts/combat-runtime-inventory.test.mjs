@@ -139,10 +139,16 @@ describe('executable multi-engine runtime registry', () => {
     const expectedIds = EXPECTED_RUNTIME_MODE_CONTRACTS.map((contract) => contract.id);
     const expectedFactIds = Object.keys(EXPECTED_RUNTIME_MODE_FACTS);
     const expectedMetadataIds = Object.keys(EXPECTED_RUNTIME_MODE_METADATA);
-    // 61 since the level-80 crisis added its Tower 1v3 and Showdown 3v3 modes. This count is a
+    // 62 since the open-world sector raid was entered — a live, reward-paying
+    // PvP mode that had never been listed, because its gate route
+    // (/player/attack) sat on the exclusion list as a "retired endpoint with no
+    // current production caller". That was true when it was written and is not
+    // any more. Found by the 2026-08-30 sector-PvP audit; not newly built.
+    // (The sleeping-camp KO stays deliberately EXCLUDED, not modelled — see the
+    // reason on '/player/sleeper-kill' in the fixture.) This count is a
     // deliberate ratchet: raising it should be a conscious act, not a side
     // effect of a mode appearing.
-    assert.equal(ids.length, 61, 'The corrected inventory must retain the independently pinned 61-row model.');
+    assert.equal(ids.length, 62, 'The corrected inventory must retain the independently pinned 62-row model.');
     assert.equal(new Set(ids).size, ids.length, 'Runtime mode ids must be unique.');
     assert.equal(new Set(labels).size, labels.length, 'Runtime mode labels must be unique.');
     assert.equal(new Set(expectedIds).size, expectedIds.length, 'Independent expected mode ids must be unique.');

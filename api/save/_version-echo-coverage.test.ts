@@ -32,6 +32,11 @@ const BUMP_MARKERS = ['bumpSaveVersion', 'versionedPlayerRecord'];
  * have echoed from the start, which is why mission rewards survive a 409.
  */
 const ECHOES_VERSION = new Set([
+    // Sleeping-camp KO. It credits the attacker (base ryo, kill count, Vanguard
+    // seals) and may then credit a head bounty on top; it echoes whichever write
+    // touched the save LAST, so the client adopts the balance it will actually
+    // read back. Used to be EXEMPT ("bumps silently") — it no longer does.
+    'player/sleeper-kill.ts',
     // Ranked 2v2 ladder settlement. It rates up to four saves in one call, but
     // the CALLER is always one of them, and its only caller — pvp/ranked-2v2.ts's
     // settle action — echoes that participant's committed `_saveVersion` so the
@@ -136,6 +141,11 @@ const PENDING_ECHO = new Set<string>();
  *  - shared helpers / world state — reached through many callers; the caller owns the echo.
  */
 const EXEMPT = new Set([
+    // Head-bounty settlement for a kill with no PvP session behind it. A helper,
+    // not a route: it bumps the hunter's save and RETURNS that version to its
+    // caller (player/sleeper-kill.ts), which echoes it. Exposing a version from
+    // here would duplicate that responsibility, not discharge it.
+    'pvp/_bounty-settle.ts',
     // Clan War 2v2 consumable charge. It debits every fighter who spent an item
     // — up to four saves in one call — so there is no single participant whose
     // `_saveVersion` it could echo. It is also reached from settlement rather
@@ -176,7 +186,6 @@ const EXEMPT = new Set([
     'cron/_clan-boss-weekly.ts',
     'patreon/_patreon.ts',
     'clan/seal-pool/distribute.ts',
-    'player/sleeper-kill.ts',
     'player/trade.ts',
     'missions/_progress.ts',
     // Shared two-save ranked helper. pet/battle-result settles both fighters,

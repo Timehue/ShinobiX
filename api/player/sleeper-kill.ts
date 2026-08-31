@@ -24,6 +24,7 @@ import { clearSleeperCamp, getSleeperCamp } from '../_realtime/sleeper-camps.js'
 import type { OnlinePlayer } from '../_realtime/types.js';
 import { pushOfflineNotice } from './_offline-notices.js';
 import { announce } from '../_announce.js';
+import { settleBountyForSessionlessKill } from '../pvp/_bounty-settle.js';
 
 // "Sleeping target" KO. When a player logs out / closes the tab while standing
 // in a WILD sector (currentSector >= 1) they don't vanish — they remain a
@@ -309,6 +310,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const tChar = ko.character;
 
             let updatedAttacker = aChar;
+            // Stays null when the KO pays nothing (anti-alt): no save write, so no
+            // version moved and the caller has nothing to adopt.
+            let attackerSaveVersion: number | null = null;
             let ryoGained = 0;
             const xpGained = 0; // character XP retired — kept in the response shape for old clients
             let sealsGained = 0;
@@ -355,6 +359,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 const attackerRecord = bumpSaveVersion({ ...aRec, character: updatedAttacker });
+                // Hand the bumped version back so the caller can ADOPT it. Without
+                // it the open tab keeps its pre-KO version, and the recovery is the
+                // slow one bumpSaveVersion documents: the next autosave 409s and
+                // refetchAfterSaveConflict re-pulls the credited snapshot. Correct
+                // either way — this just skips the round trip, matching every other
+                // server credit (api/battle/lock.ts, the dungeon run mutations).
+                const nextVersion = Number(attackerRecord._saveVersion);
+                if (Number.isFinite(nextVersion)) attackerSaveVersion = nextVersion;
                 await kv.set(`save:${attackerSlug}`, mergePreservingImages(attackerRecord, aRec));
             }
 
@@ -363,6 +375,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 character: updatedAttacker,
                 attackerName: String((aChar.name as string) ?? attackerSlug),
                 koSector: ko.sector,
+                saveVersion: attackerSaveVersion,
                 reward: {
                     ryo: ryoGained,
                     xp: xpGained,
@@ -376,6 +389,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (settled.status !== 200) {
             return res.status(settled.status).json({ error: settled.error });
         }
+        // Collect any bounty standing on that head. MUST run out here, after the
+        // KO's save locks have released: the bounty path takes the board lock and
+        // THEN save:<attacker>, so taking it while still holding the save would
+        // invert bounty.ts's order and deadlock the two paths against each other.
+        // Best-effort by construction — an unsettled bounty leaves the pool
+        // claimable and never undoes a committed KO.
+        const bounty = await settleBountyForSessionlessKill({
+            attackerSlug,
+            victimSlug: targetSlug,
+            victimName: settled.reward.target,
+            rewardEligible: settled.reward.rewardEligible,
+        });
+        if (bounty.amount > 0) {
+            await Promise.all([
+                pushOfflineNotice(targetSlug, {
+                    kind: 'bounty-claimed',
+                    by: settled.attackerName,
+                    sector: settled.koSector,
+                    amount: bounty.amount,
+                    at: Date.now(),
+                }).catch(() => null),
+                announce({
+                    type: 'bounty_claimed',
+                    importance: 'high',
+                    title: 'Bounty Collected',
+                    message: `${settled.attackerName} collected the ${bounty.amount.toLocaleString('en-US')}-ryo bounty on ${settled.reward.target}.`,
+                    player: settled.attackerName,
+                    meta: { target: targetSlug, amount: bounty.amount, via: 'sleeper-ko' },
+                }).catch(() => null),
+            ]);
+        }
         // Tell the victim who did it (next heartbeat) + feed the world. Outside
         // the save locks, best-effort, never fails the already-settled KO.
         await notifySleeperKill({
@@ -384,7 +428,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             victimName: settled.reward.target,
             sector: settled.koSector,
         });
-        return res.status(200).json({ ok: true, koed: true, character: settled.character, reward: settled.reward });
+        // The bounty write is the LAST touch of the attacker's save, so its
+        // version supersedes the KO's for the client to adopt.
+        const finalSaveVersion = bounty.saveVersion ?? settled.saveVersion;
+        return res.status(200).json({
+            ok: true,
+            koed: true,
+            character: bounty.amount > 0
+                ? { ...settled.character, ryo: Number(settled.character.ryo ?? 0) + bounty.amount }
+                : settled.character,
+            reward: { ...settled.reward, bounty: bounty.amount },
+            ...(finalSaveVersion !== null ? { _saveVersion: finalSaveVersion } : {}),
+        });
     } catch (err) {
         // failClosed lock contention surfaces here — signal "transient, retry".
         if (err instanceof LockContendedError) {
