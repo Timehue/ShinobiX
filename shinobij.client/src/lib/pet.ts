@@ -15,6 +15,11 @@
 
 import type { Pet } from "../types/pet";
 import { serverNow } from "./server-clock";
+import {
+    clampHappiness,
+    petHappinessBudgetRemaining,
+    settlePetHappinessState,
+} from "../../../shared/pet-happiness";
 
 // Display name — prefer the user's nickname if set, else the pet's
 // canonical name. Trim guards against accidental empty-string nicknames.
@@ -22,9 +27,36 @@ export function petDisplayName(pet: Pick<Pet, "name" | "nickname">): string {
     return pet.nickname?.trim() || pet.name;
 }
 
-// Clamp happiness into [0, 100]; default to 0 if undefined.
+// Clamp the STORED happiness into [0, 100]; default to 0 if undefined.
+//
+// This is the raw value as the server last wrote it. For anything the player
+// sees or that decides an outcome, prefer petCurrentHappiness below — happiness
+// decays at every UTC daily reset, and the stored number is only correct until
+// the next rollover. Keeping the two apart is load-bearing: normalizePetTemplate
+// writes `happiness: petHappiness(merged)` back onto the local pet, and a
+// decay-projecting function there would re-decay an already-decayed value on
+// every render (the stamp it decays from lives on the server).
 export function petHappiness(pet: Pick<Pet, "happiness">): number {
-    return Math.max(0, Math.min(100, Math.floor(pet.happiness ?? 0)));
+    return clampHappiness(pet.happiness);
+}
+
+// Happiness the pet ACTUALLY has right now: the stored value minus whatever
+// daily decay has come due since the server last settled it. Never written back
+// onto the pet — the server owns that (see api/pet/_happiness.ts). Use this for
+// the meter, for tier/penalty display, and for any client-run fight decision.
+export function petCurrentHappiness(
+    pet: Pick<Pet, "happiness" | "happinessDay" | "happinessPets">,
+    now = serverNow(),
+): number {
+    return settlePetHappinessState(pet, now).happiness;
+}
+
+// Free petting points still available today. 0 means the Pet button will 409.
+export function petFreePettingLeft(
+    pet: Pick<Pet, "happiness" | "happinessDay" | "happinessPets">,
+    now = serverNow(),
+): number {
+    return petHappinessBudgetRemaining(pet, now);
 }
 
 // True if the pet is mid-expedition and hasn't reached its endsAt time.

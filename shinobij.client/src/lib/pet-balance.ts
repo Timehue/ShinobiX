@@ -23,7 +23,8 @@ import {
     petRarityOrder,
 } from "../data/pet-config";
 import { petElementByName } from "../data/pet-elements";
-import { petHappiness, increasePetHappiness, petVariantIndex } from "./pet";
+import { petHappiness, petCurrentHappiness, increasePetHappiness, petVariantIndex } from "./pet";
+import { petHappinessTrainingMult } from "../../../shared/pet-happiness";
 import { derivePetRole, roleStatMult, petTemplateArchetype, type PetSubRole } from "./pet-roles";
 
 // ── Per-rarity stat clamp ───────────────────────────────────────────────
@@ -641,11 +642,12 @@ export function renormalizedIfChanged(roster: Pet[], normalize: (pet: Pet) => Pe
 
 // ── Training math ───────────────────────────────────────────────────────
 
-/** Reward multiplier applied to the duration's fixed base XP. */
+/** Reward multiplier applied to the duration's fixed base XP. Display mirror of
+ *  the seal in api/pet/progress.ts — uses the CURRENT happiness (pending daily
+ *  decay projected) so the previewed number matches what the server will seal. */
 export function petTrainingMultiplier(pet: Pet) {
     const loyalMultiplier = pet.trait === "Loyal" ? 1.5 : 1;
-    const happinessMultiplier = petHappiness(pet) >= 80 ? 1.15 : petHappiness(pet) >= 50 ? 1.05 : 1;
-    return loyalMultiplier * happinessMultiplier;
+    return loyalMultiplier * petHappinessTrainingMult(petCurrentHappiness(pet));
 }
 
 /**

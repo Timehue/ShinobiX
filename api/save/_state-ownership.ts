@@ -476,6 +476,8 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('growthAllocation', 'pet', 'server-owned', 'pets', ['pet-identity']),
     f('growthPoints', 'pet', 'server-owned', 'pets', ['pet-identity'], 'derived from level minus committed allocation'),
     f('happiness', 'pet', 'server-owned', 'pets', ['pet-identity']),
+    f('happinessDay', 'pet', 'server-owned', 'pets', ['pet-identity'], 'UTC day index of the last bond-decay settle (shared/pet-happiness.ts)'),
+    f('happinessPets', 'pet', 'server-owned', 'pets', ['pet-identity'], 'free petting points already spent on happinessDay'),
     f('training', 'pet', 'server-owned', 'pets', ['pet-identity']),
     f('expedition', 'pet', 'server-owned', 'pets', ['pet-identity']),
     f('nickname', 'pet', 'server-owned', 'pets', ['pet-identity'], 'renames go through the pet endpoints'),

@@ -1,5 +1,7 @@
 import { normalizePetGrowth } from './_growth.js';
 import { PET_EXPEDITION_TYPES, petExpeditionBasePetXp, type PetExpeditionType } from '../../shared/pet-expedition-contract.js';
+import { grantPetHappiness } from './_happiness.js';
+import { clampHappiness } from '../../shared/pet-happiness.js';
 
 const JUTSU_POWER_CAP: Record<string, number> = { standard: 320, rare: 360, legendary: 405, mythic: 450 };
 
@@ -12,8 +14,14 @@ export const PET_FEED_XP: Record<string, number> = { 'pet-treat': 100, 'elementa
 
 const whole = (v: unknown, fallback = 0) => Number.isFinite(Number(v)) ? Math.floor(Number(v)) : fallback;
 
+/**
+ * The pet's STORED happiness, clamped. Kept as a wrapper over the shared clamp
+ * so there is one implementation. Callers that care what the pet actually has
+ * right now want `currentPetHappiness` in ./_happiness.js instead — this value
+ * is only correct until the next daily reset.
+ */
 export function petHappiness(pet: Record<string, unknown>): number {
-    return Math.max(0, Math.min(100, whole(pet.happiness)));
+    return clampHappiness(pet.happiness);
 }
 
 export function gainServerPetXp(petRaw: Record<string, unknown>, amountRaw: unknown, _focus?: string): Record<string, unknown> {
@@ -71,8 +79,11 @@ export function settleFinishedTraining(pet: Record<string, unknown>, now: number
     const training = pet.training as Record<string, unknown> | undefined;
     if (!training || now < Number(training.endsAt)) return { pet, settledFocus: null };
     const idle = { ...pet, training: undefined };
-    const settled = gainServerPetXp(idle, Math.min(5000, Math.max(0, Number(training.sealedXp) || 0)), String(training.type ?? ''));
-    if (training.type === 'bond') settled.happiness = Math.min(100, petHappiness(settled) + 5);
+    let settled = gainServerPetXp(idle, Math.min(5000, Math.max(0, Number(training.sealedXp) || 0)), String(training.type ?? ''));
+    // Bond training's +5 is UNBUDGETED (it already cost a training slot and a
+    // timer) but still settles the pending daily decay first, so a collect can
+    // never be used to skip a missed day. See shared/pet-happiness.ts.
+    if (training.type === 'bond') settled = grantPetHappiness(settled, 5, now);
     return { pet: settled, settledFocus: String(training.type ?? '') };
 }
 

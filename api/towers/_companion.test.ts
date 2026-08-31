@@ -90,12 +90,47 @@ describe('summoned companion (mission pet)', () => {
         assert.equal(s.status, 'active');
     });
 
-    it('obeys on happiness or loyalty, else disobeys on a 35% roll (Arena parity)', () => {
+    it('obeys on happiness or loyalty, else disobeys on a happiness-scaled roll (Arena parity)', () => {
         assert.equal(companionObeys(71, false, 0), true, 'happy pets always obey');
         assert.equal(companionObeys(0, true, 0), true, 'loyalty gear always obeys');
-        assert.equal(companionObeys(0, false, 0.35), true, 'roll at the threshold obeys');
-        assert.equal(companionObeys(0, false, 0.34), false, 'unhappy + unlucky → disobeys');
         assert.equal(companionObeys(70, false, 0.1), false, 'just below the happiness gate');
+        // Restless (50-70) keeps the original flat 35%.
+        assert.equal(companionObeys(50, false, 0.35), true, 'roll at the restless threshold obeys');
+        assert.equal(companionObeys(50, false, 0.34), false, 'restless + unlucky → disobeys');
+        // Below 50 the chance steepens — the neglect penalty.
+        assert.equal(companionObeys(30, false, 0.49), false, 'unhappy pets disobey up to a 0.5 roll');
+        assert.equal(companionObeys(30, false, 0.5), true);
+        assert.equal(companionObeys(0, false, 0.64), false, 'neglected pets disobey up to a 0.65 roll');
+        assert.equal(companionObeys(0, false, 0.65), true);
+    });
+
+    it('seals a neglected companion at reduced strike damage', () => {
+        const pet = {
+            id: 'p1', name: 'Wolf', level: 60, hp: 400, attack: 100, defense: 40, speed: 50,
+            jutsus: [{ name: 'Bite', kind: 'damage', power: 60 }],
+        };
+        const full = companionStrikeDamage(pet);
+        const char = (happiness: number) => ({
+            name: 'Ren', activePetId: 'p1', pets: [{ ...pet, happiness, happinessDay: Math.floor(Date.now() / 86_400_000) }],
+        });
+        assert.equal(sealCompanionFromSave(char(100))?.damage, full, 'a content pet keeps its full strike');
+        assert.equal(sealCompanionFromSave(char(60))?.damage, full, 'restless is still full strength');
+        assert.equal(sealCompanionFromSave(char(30))?.damage, Math.floor(full * 0.9), 'unhappy hits softer');
+        assert.equal(sealCompanionFromSave(char(0))?.damage, Math.floor(full * 0.8), 'neglected hits softest');
+    });
+
+    it('seals the DECAYED happiness, not the stale stored value', () => {
+        const day = Math.floor(Date.now() / 86_400_000);
+        const seal = sealCompanionFromSave({
+            name: 'Ren',
+            activePetId: 'p1',
+            pets: [{
+                id: 'p1', name: 'Wolf', level: 60, hp: 400, attack: 100, defense: 40, speed: 50,
+                jutsus: [{ name: 'Bite', kind: 'damage', power: 60 }],
+                happiness: 100, happinessDay: day - 3, happinessPets: 0,
+            }],
+        });
+        assert.equal(seal?.happiness, 70, 'three missed daily resets cost 30 points at seal time');
     });
 
     it('picks a heal when hurt, else the signature/strongest offensive move', () => {

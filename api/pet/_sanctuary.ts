@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { withKvLock } from '../_lock.js';
 import { kv, type KvLike } from '../_storage.js';
 import { safeName } from '../_utils.js';
+import { suspendPetHappiness } from './_happiness.js';
 
 export const PET_SANCTUARY_SCHEMA_VERSION = 1;
 export const PET_SANCTUARY_PAGE_SIZE = 24;
@@ -185,7 +186,12 @@ export async function storePetInSanctuaryCore(
 
     const item: PetSanctuaryItem = {
         schemaVersion: PET_SANCTUARY_SCHEMA_VERSION,
-        pet: structuredClone(pet),
+        // The bond clock stops at the Sanctuary door. A stored pet is out of
+        // `character.pets`, so it cannot be petted, fed or trained — decaying it
+        // would charge the player for neglect they had no way to avoid. See
+        // suspendPetHappiness. Every sanctuary write funnels through here, so no
+        // caller (deposit, wild befriend, hatch-to-sanctuary) can miss it.
+        pet: suspendPetHappiness(structuredClone(pet), now),
         page: pageNumber,
         storedAt: Math.max(0, Math.floor(now)),
         source,
