@@ -9,7 +9,12 @@
     --cvn-accent: var(--sj-gold);
     --cvn-grade: rgba(23, 18, 15, 0.08);
     --cvn-dialogue-bg: rgba(8, 11, 15, 0.93);
-    --cvn-actor-height: clamp(360px, 66vh, 780px);
+    /* Keep the cast inside a deliberate stage between the HUD and dialogue.
+       Full-height viewport scaling made 16:9 laptop scenes feel crowded while
+       also letting names disappear behind the dialogue glass. */
+    --cvn-stage-floor: clamp(166px, 20dvh, 220px);
+    --cvn-actor-height: clamp(350px, min(61.5dvh, calc(100dvh - var(--cvn-stage-floor) - 96px)), 720px);
+    --cvn-actor-gutter: clamp(22px, 3.4vw, 72px);
     position: relative;
     isolation: isolate;
     overflow: hidden;
@@ -310,9 +315,9 @@
     top: 20%;
     left: 50%;
     display: grid;
-    width: min(620px, 80vw);
+    width: min(560px, 68vw);
     gap: 7px;
-    padding: 22px 44px;
+    padding: 19px 36px 21px;
     border-block: 1px solid rgba(230, 196, 119, .34);
     background: linear-gradient(90deg, transparent, rgba(5, 8, 11, .72) 18% 82%, transparent);
     text-align: center;
@@ -321,6 +326,11 @@
     animation: cvn-title-reveal 3.4s ease both;
     pointer-events: none;
 }
+
+/* Preserve a clean title lane opposite the featured actor. Actor-aware root
+   classes keep actorless establishing cards perfectly centered. */
+.cvn-root.focus-right.has-right-actor .cvn-title-card { left: 44%; }
+.cvn-root.focus-left.has-left-actor .cvn-title-card { left: 56%; }
 
 .cvn-title-card span {
     color: var(--cvn-accent);
@@ -333,9 +343,10 @@
 .cvn-title-card strong {
     color: #f6f0e5;
     font-family: Georgia, "Times New Roman", serif;
-    font-size: clamp(1.8rem, 4.2vw, 3.9rem);
+    font-size: clamp(1.85rem, 3.7vw, 3.5rem);
     font-weight: 500;
     letter-spacing: .04em;
+    line-height: 1.08;
 }
 
 .cvn-stage {
@@ -348,8 +359,8 @@
 .cvn-actor {
     position: absolute;
     z-index: 16;
-    bottom: clamp(150px, 20vh, 230px);
-    width: min(38vw, 520px);
+    bottom: var(--cvn-stage-floor);
+    width: min(35vw, 500px);
     height: var(--cvn-actor-height);
     margin: 0;
     opacity: .7;
@@ -362,8 +373,16 @@
     will-change: transform, filter, opacity;
 }
 
-.cvn-actor.is-left { left: clamp(-44px, 2vw, 38px); }
-.cvn-actor.is-right { right: clamp(-44px, 2vw, 38px); }
+.cvn-actor.is-left { left: var(--cvn-actor-gutter); }
+.cvn-actor.is-right { right: var(--cvn-actor-gutter); }
+
+.cvn-root.shot-medium {
+    --cvn-actor-height: clamp(370px, min(64dvh, calc(100dvh - var(--cvn-stage-floor) - 88px)), 750px);
+}
+
+.cvn-root.shot-close {
+    --cvn-actor-height: clamp(390px, min(68dvh, calc(100dvh - var(--cvn-stage-floor) - 82px)), 790px);
+}
 
 .cvn-actor img {
     width: 100%;
@@ -401,7 +420,7 @@
 .cvn-actor figcaption {
     position: absolute;
     right: 12%;
-    bottom: 8%;
+    bottom: 13%;
     left: 12%;
     overflow: hidden;
     padding: 5px 10px;
@@ -414,18 +433,27 @@
     text-shadow: 0 2px 6px #000;
     text-transform: uppercase;
     white-space: nowrap;
+    transition: opacity 240ms ease, transform 240ms ease;
+}
+
+/* The dialogue speaker plate already identifies the active character. Keeping
+   a second label on their hem read as a rendering mistake when it crossed the
+   dialogue glass; reserve stage labels for listeners only. */
+.cvn-actor.is-speaking figcaption {
+    opacity: 0;
+    transform: translateY(6px);
 }
 
 .cvn-actor.is-speaking {
     z-index: 18;
     opacity: 1;
     filter: saturate(1) brightness(1.04);
-    transform: translateY(-7px) scale(1.025);
+    transform: translateY(-5px) scale(1.018);
 }
 
 .cvn-root.focus-left .cvn-actor.is-left,
 .cvn-root.focus-right .cvn-actor.is-right {
-    transform: translateY(-7px) scale(1.025);
+    transform: translateY(-5px) scale(1.018);
 }
 
 .cvn-root.focus-center .cvn-actor {
@@ -440,17 +468,17 @@
  * and no oversized oval plinth competing with the scene painting.
  */
 .cvn-actor.is-player:has(img.cvn-avatar-square, img.cvn-avatar-wide) {
-    width: min(31vw, 360px);
-    height: min(50vh, 480px);
+    width: min(23vw, 300px);
+    height: min(43dvh, 350px);
 }
 
 .cvn-actor.is-player:has(img.cvn-avatar-square, img.cvn-avatar-wide)::before {
     position: absolute;
     z-index: -1;
     right: 5%;
-    bottom: 4%;
+    bottom: 14%;
     left: 5%;
-    height: 80%;
+    height: 72%;
     border: 1px solid color-mix(in srgb, var(--cvn-accent) 54%, transparent);
     background:
         linear-gradient(135deg, color-mix(in srgb, var(--cvn-accent) 24%, transparent) 0 1px, transparent 1px 18px) 0 0 / 22px 22px,
@@ -468,7 +496,7 @@
     position: absolute;
     z-index: 2;
     right: 44%;
-    bottom: 77%;
+    bottom: 79%;
     left: 44%;
     aspect-ratio: 1;
     border: 1px solid color-mix(in srgb, var(--cvn-accent) 74%, #f4ead3);
@@ -484,10 +512,10 @@
 .cvn-actor.is-player img.cvn-avatar-wide {
     position: absolute;
     right: 11%;
-    bottom: 10%;
+    bottom: 16%;
     left: 11%;
     width: 78%;
-    height: 67%;
+    height: 62%;
     border: 1px solid color-mix(in srgb, var(--cvn-accent) 62%, transparent);
     border-radius: 2px;
     background: rgba(8, 13, 19, .82);
@@ -531,7 +559,11 @@
 }
 
 .cvn-actor.is-player:not(.is-speaking) {
-    opacity: .68;
+    opacity: .56;
+}
+
+.cvn-root.has-title-card .cvn-actor.is-player:not(.is-speaking) {
+    opacity: .46;
 }
 
 .cvn-actor.enters-left { animation: cvn-actor-left 650ms cubic-bezier(.18, .78, .18, 1) both; }
@@ -1064,6 +1096,11 @@
 }
 
 @media (max-width: 800px) {
+    .cvn-root.focus-right.has-right-actor .cvn-title-card,
+    .cvn-root.focus-left.has-left-actor .cvn-title-card {
+        left: 50%;
+    }
+
     .cvn-actor.is-left { left: -12vw; }
     .cvn-actor.is-right { right: -12vw; }
     .cvn-actor.is-player.is-left:has(img.cvn-avatar-square, img.cvn-avatar-wide) {
