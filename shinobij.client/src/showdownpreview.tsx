@@ -301,6 +301,12 @@ const world = {
     meter: new Map<string, number>(),
     stamina: new Map<string, number>(),
     winded: new Set<string>(),
+    // The visual harness must preserve Protect's real two-part lifecycle: a
+    // successful block is active for this round, while the next consecutive
+    // attempt fails. Without these markers the preview rendered Bulwark as a
+    // generic damage move and could never exercise the production failure VFX.
+    protectedThisRound: new Set<string>(),
+    lastProtectedRound: new Map<string, number>(),
     // Pets beyond the field size start on the bench. The ordinary 2v2 harness
     // carries one reserve; ?format=3v3 fields that same third pet instead.
     benched: new Set<string>([]),
@@ -370,6 +376,7 @@ function restStamina(petId: string): number {
 async function mockSubmitTurn(commands: ShowdownCommand[]): Promise<ShowdownTurnResponse | null> {
     await new Promise((resolve) => setTimeout(resolve, 250));
     world.round += 1;
+    world.protectedThisRound.clear();
     const events: ShowdownEvent[] = [{ t: "roundStart", round: world.round }];
     const livingEnemy = () => enemyPets.find((p) => (world.hp.get(p.id) ?? 0) > 0 && !world.benched.has(p.id));
     const livingPlayer = () => playerPets.find((p) => (world.hp.get(p.id) ?? 0) > 0 && !world.benched.has(p.id));
@@ -433,6 +440,24 @@ async function mockSubmitTurn(commands: ShowdownCommand[]): Promise<ShowdownTurn
             });
             continue;
         }
+        if (peeked?.kind === "protect") {
+            const chained = world.lastProtectedRound.get(actor.id) === world.round - 1;
+            const staminaAfterP = spendStamina(actor.id, peeked.cost);
+            if (!chained) {
+                world.protectedThisRound.add(actor.id);
+                world.lastProtectedRound.set(actor.id, world.round);
+            }
+            events.push({
+                t: "action", actorId: actor.id, actorSide: "player", moveName: peeked.name,
+                moveKind: "protect", element: actor.element ?? "None", delivery: "self", weight: "light", super: false,
+                targets: [{
+                    id: actor.id, damage: 0, heal: 0, effectiveness: "neutral", guarded: false, ko: false,
+                    applied: chained ? "failed" : "protect",
+                }],
+                staminaAfter: staminaAfterP, meterAfter: world.meter.get(actor.id) ?? 0, overexerted: false,
+            });
+            continue;
+        }
         if (!target) break;
         const kit = mockKit(actor);
         const superCast = c.kind === "super";
@@ -473,14 +498,18 @@ async function mockSubmitTurn(commands: ShowdownCommand[]): Promise<ShowdownTurn
         if ((world.hp.get(enemy.id) ?? 0) <= 0 || world.benched.has(enemy.id)) continue;
         const target = livingPlayer();
         if (!target) break;
-        const damage = mockDamage(target, 60, false);
-        const ko = hit(target.id, damage);
+        const protectedTarget = world.protectedThisRound.has(target.id);
+        const damage = protectedTarget ? 0 : mockDamage(target, 60, false);
+        const ko = damage > 0 ? hit(target.id, damage) : false;
         const meter = Math.min(SHOWDOWN_METER_MAX, (world.meter.get(target.id) ?? 0) + SHOWDOWN_METER_ON_HIT_TAKEN);
         world.meter.set(target.id, meter);
         events.push({
             t: "action", actorId: enemy.id, actorSide: "enemy", moveName: "Fang Rush",
             moveKind: "damage", element: enemy.element ?? "None", delivery: "melee", weight: "normal", super: false,
-            targets: [{ id: target.id, damage, heal: 0, effectiveness: "neutral", guarded: false, ko }],
+            targets: [{
+                id: target.id, damage, heal: 0, effectiveness: "neutral", guarded: protectedTarget, ko,
+                ...(protectedTarget ? { applied: "protect" } : {}),
+            }],
             staminaAfter: spendStamina(enemy.id, SHOWDOWN_COST_BASIC), meterAfter: world.meter.get(enemy.id) ?? 0,
             overexerted: false,
         });
