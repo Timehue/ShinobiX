@@ -439,7 +439,15 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // production build, leaving 18,841 B of local headroom. This is not a startup
 // regression: the independently enforced initial graph remains 1,444,495 B
 // raw / 382,671 B gzip, and the entry, per-chunk, and per-CSS gates are unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_965_000;
+//
+// 2026-08-30 STORY PORTRAIT INTEGRITY: 7,965,000 -> 7,995,000 B. Exhaustive
+// speaker-to-portrait validation, safe story actor resolution, 14 missing
+// cinematic actor routes, and five authored Frostfang directions measure
+// 7,977,970 B after a clean production build. The independently enforced
+// initial graph is smaller than the prior baseline at 1,439,854 B raw /
+// 380,809 B gzip; no startup, per-chunk, or CSS gate moved. The new ceiling
+// leaves 17,030 B of measured product-graph headroom.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_995_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
