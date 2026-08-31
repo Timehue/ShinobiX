@@ -8,6 +8,20 @@ import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { activeBreedingParentIds } from '../pet/_pet-busy.js';
 import { activeCarriedPetIds, PET_CAP_SUB } from '../_entitlements.js';
+import { removePetItem } from '../pet/_progress.js';
+import {
+    PET_EXPEDITION_DAILY_CAP,
+    PET_EXPEDITION_PROVISION_RULES,
+    PET_EXPEDITION_PROVISIONS,
+    PET_EXPEDITION_RISK_RULES,
+    PET_EXPEDITION_RISKS,
+    PET_EXPEDITION_ROUTES,
+    PET_EXPEDITION_TYPES,
+    type PetExpeditionProvision,
+    type PetExpeditionRisk,
+    type PetExpeditionType,
+} from '../../shared/pet-expedition-contract.js';
+import { sectorBiomeOf, sectorName, sectorRegionLabel } from '../../shared/sector-geo.js';
 
 /*
  * /api/missions/expedition-start - POST only
@@ -18,18 +32,13 @@ import { activeCarriedPetIds, PET_CAP_SUB } from '../_entitlements.js';
  * response replay the exact launch without another save bump or allowance use.
  */
 
-const VALID_EXPEDITION_TYPES = ['scout', 'forage', 'ruins'] as const;
-type ExpType = typeof VALID_EXPEDITION_TYPES[number];
-
-const EXP_DURATION_MINUTES: Record<ExpType, number> = { scout: 45, forage: 120, ruins: 240 };
-const MAX_EXPEDITION_STARTS_PER_DAY = 12;
 const EXPEDITION_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 const EXPEDITION_START_RECEIPT_CAP = 64;
 
 type ExpeditionStartReceipt = {
     token: string;
     petId: string;
-    expType: ExpType;
+    expType: PetExpeditionType;
     startedAt: number;
     endsAt: number;
     durationMinutes: number;
@@ -51,7 +60,7 @@ function expeditionStartReceipts(character: Record<string, unknown>): Expedition
         return typeof receipt.token === 'string'
             && /^[A-Za-z0-9]+$/.test(receipt.token)
             && typeof receipt.petId === 'string'
-            && VALID_EXPEDITION_TYPES.includes(receipt.expType as ExpType)
+            && PET_EXPEDITION_TYPES.includes(receipt.expType as PetExpeditionType)
             && Number.isSafeInteger(receipt.startedAt)
             && Number.isSafeInteger(receipt.endsAt)
             && Number.isSafeInteger(receipt.durationMinutes);
@@ -87,12 +96,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const playerName = safeName(String(body.playerName ?? ''));
-        const expType = (body.expType && VALID_EXPEDITION_TYPES.includes(body.expType)
+        const expType = (body.expType && PET_EXPEDITION_TYPES.includes(body.expType)
             ? body.expType
-            : null) as ExpType | null;
+            : null) as PetExpeditionType | null;
         const petIdRaw = typeof body.petId === 'string' ? body.petId.trim().slice(0, 64) : '';
         const petId = /^[A-Za-z0-9:_-]+$/.test(petIdRaw) ? petIdRaw : '';
-        const requestedPetLevel = Math.max(1, Math.min(100, Math.floor(Number(body.petLevel ?? 1))));
+        const risk = (PET_EXPEDITION_RISKS.includes(body.risk) ? body.risk : 'safe') as PetExpeditionRisk;
+        const provision = (PET_EXPEDITION_PROVISIONS.includes(body.provision) ? body.provision : 'none') as PetExpeditionProvision;
         const launchIdRaw = typeof body.launchId === 'string' ? body.launchId.trim() : '';
         const launchId = /^[0-9a-f-]{36}$/i.test(launchIdRaw) ? launchIdRaw.toLowerCase() : '';
 
@@ -121,7 +131,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? legacyCountRaw
             : 0;
 
-        const mutation = await mutatePlayerSave<ExpeditionStartDecision>(playerName, ({ character }) => {
+        const mutation = await mutatePlayerSave<ExpeditionStartDecision>(playerName, ({ record, character }) => {
             const pets = Array.isArray(character.pets)
                 ? character.pets as Array<Record<string, unknown>>
                 : [];
@@ -148,6 +158,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     write: false,
                 };
             }
+            if (exactReceipt) {
+                return { ok: false as const, status: 409, error: 'This launchId has already been settled or replaced.' };
+            }
             // Old clients cannot send a stable UUID. Recover their lost response
             // only for the exact active pet/type and a protected server receipt.
             if (!launchId && activeExpedition) {
@@ -169,6 +182,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const petMaxed = realLevel >= realMaxLevel;
             if (realLevel < 20) return { ok: false as const, status: 409, error: 'Pet must reach level 20.' };
             if (pet.training || pet.expedition) return { ok: false as const, status: 409, error: 'Pet is already busy.' };
+            if (risk === 'bold' && Number(pet.happiness ?? 0) < PET_EXPEDITION_RISK_RULES.bold.happinessCost) {
+                return { ok: false as const, status: 409, error: `Bold routes require at least ${PET_EXPEDITION_RISK_RULES.bold.happinessCost} happiness.` };
+            }
 
             const caravanBonus = masteryHasCapstone(
                 character.profession,
@@ -176,7 +192,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 'caravan-master',
             ) ? 2 : 0;
             const startedToday = expeditionStartsToday(character, today, legacyStartedToday);
-            if (startedToday >= MAX_EXPEDITION_STARTS_PER_DAY + caravanBonus) {
+            if (startedToday >= PET_EXPEDITION_DAILY_CAP + caravanBonus) {
                 return {
                     ok: true as const,
                     character,
@@ -186,16 +202,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             const rewardScale = isTamer ? 1 : petMaxed ? 0.5 : 0;
-            const sealedPetLevel = isTamer
-                ? requestedPetLevel
-                : Math.max(1, Math.min(100, realLevel));
+            // Pet level is always read from the saved pet. The client cannot
+            // inflate the level term in the authoritative ryo formula.
+            const sealedPetLevel = Math.max(1, Math.min(100, realLevel));
             const expRewardMult = isTamer
                 ? 1 + masteryBonus(character.profession, character.masterySpec, 'expRewardPct') / 100
                 : 1;
             const expMaterialMult = isTamer
                 ? 1 + masteryBonus(character.profession, character.masterySpec, 'expMaterialPct') / 100
                 : 1;
-            const durationMinutes = EXP_DURATION_MINUTES[expType];
+            const provisionedCharacter = provision === 'none'
+                ? character
+                : removePetItem(character, provision);
+            if (!provisionedCharacter) {
+                return { ok: false as const, status: 409, error: `${PET_EXPEDITION_PROVISION_RULES[provision].label} are no longer in your inventory.` };
+            }
+            const sector = Math.max(0, Math.floor(Number(record.currentSector ?? 0)));
+            const place = (sectorName(sector) ?? 'the village outskirts').slice(0, 80);
+            const region = (sectorRegionLabel(sector) ?? 'the surrounding country').slice(0, 80);
+            const biome = (sector > 0 ? sectorBiomeOf(sector) : String(record.currentBiome ?? 'central')).slice(0, 24);
+            const durationMinutes = PET_EXPEDITION_ROUTES[expType].durationMinutes;
             const endsAt = requestedAt + durationMinutes * 60_000;
             const receipt: ExpeditionStartReceipt = {
                 token: requestedToken,
@@ -213,6 +239,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     endsAt,
                     durationMs: durationMinutes * 60_000,
                     token: requestedToken,
+                    risk,
+                    provision,
+                    sector,
+                    place,
+                    region,
+                    biome,
+                    choiceVersion: 1,
                     // Durable fallback authority if the acceleration token cache
                     // is unavailable. report-pet-event verifies this exact lease.
                     serverSeal: {
@@ -221,13 +254,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         expMaterialMult,
                         rewardScale,
                         tamer: isTamer,
+                        risk,
+                        provision,
+                        sector,
+                        place,
+                        region,
+                        biome,
+                        choiceVersion: 1,
                     },
                 },
             } : candidate);
             return {
                 ok: true as const,
                 character: {
-                    ...character,
+                    ...provisionedCharacter,
                     pets: nextPets,
                     expeditionStartAllowance: { date: today, count: startedToday + 1 },
                     expeditionStartReceipts: [
@@ -243,11 +283,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const finalCharacter = mutation.character;
         const isTamer = finalCharacter.profession === 'petTamer';
         if (mutation.value.capped || !mutation.value.receipt) {
+            const dailyCap = PET_EXPEDITION_DAILY_CAP + (masteryHasCapstone(finalCharacter.profession, finalCharacter.masterySpec, 'caravan-master') ? 2 : 0);
             return res.status(200).json({
                 ok: true,
                 petTamer: isTamer,
                 reason: 'daily-mint-cap',
                 token: null,
+                dailyStarts: dailyCap,
+                dailyCap,
+                resetAt: Date.parse(`${new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)}T00:00:00.000Z`),
                 character: finalCharacter,
                 _saveVersion: mutation._saveVersion,
             });
@@ -272,6 +316,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             expMaterialMult: Number(seal?.expMaterialMult ?? 1),
             rewardScale: Number(seal?.rewardScale ?? 0),
             tamer: seal?.tamer === true,
+            risk: seal?.risk,
+            provision: seal?.provision,
+            sector: Number(seal?.sector ?? expedition?.sector ?? 0),
+            place: String(seal?.place ?? expedition?.place ?? ''),
+            region: String(seal?.region ?? expedition?.region ?? ''),
+            biome: String(seal?.biome ?? expedition?.biome ?? ''),
+            choiceVersion: Number(seal?.choiceVersion ?? 1),
         }, { ex: EXPEDITION_TOKEN_TTL_SECONDS });
 
         return res.status(200).json({
@@ -281,6 +332,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             durationMinutes: receipt.durationMinutes,
             endsAt: receipt.endsAt,
             replayed: mutation.value.replayed,
+            dailyStarts: Number((finalCharacter.expeditionStartAllowance as { count?: unknown } | undefined)?.count ?? 0),
+            dailyCap: PET_EXPEDITION_DAILY_CAP + (masteryHasCapstone(finalCharacter.profession, finalCharacter.masterySpec, 'caravan-master') ? 2 : 0),
+            resetAt: Date.parse(`${new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)}T00:00:00.000Z`),
             character: finalCharacter,
             _saveVersion: mutation._saveVersion,
         });

@@ -65,7 +65,7 @@ export function PetTamerHub({
                 <ProfessionBonusStat label="Expedition Rewards" value={`+${expeditionPct}%`} />
             </div>
             <p className="hint" style={{ margin: "0 0 1rem", fontSize: "0.78rem" }}>
-                Your first expedition each day grants <strong style={{ color: ACCENT }}>2× Tamer XP</strong>. Bonuses scale as you rank up.
+                Your first collected expedition each day grants <strong style={{ color: ACCENT }}>2× Tamer XP, pet XP, and ryo</strong>, plus a large material-find boost. Bonuses scale as you rank up.
             </p>
 
             {/* Companions */}

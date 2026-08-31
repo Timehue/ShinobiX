@@ -51,7 +51,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     // Server-owned payout stamps.
     'warDeclarationFundingReceipts', 'warMercenaryHireReceipts',
     'villageWarRaidProgress', 'lastExpeditionClaimDate', 'expeditionsClaimedToday',
-    'expeditionStartAllowance', 'expeditionStartReceipts', 'petEscortBonusReady',
+    'expeditionStartAllowance', 'expeditionStartReceipts', 'petExpeditionLog', 'petEscortBonusReady',
     'dailyHonorSealsEarned', 'dailyHonorSealsByTarget', 'vanguardDailyResetDate',
     'dailyDonatedSeals', 'dailyDonationDate', 'pendingCombatMissionClaims',
     'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed', 'battleTowerMilestones',

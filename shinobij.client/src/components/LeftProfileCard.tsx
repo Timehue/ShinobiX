@@ -44,6 +44,7 @@ import { RankUpCelebration } from "./RankUpCelebration";
 import { PatchNotesModal } from "./PatchNotesModal";
 import { RankBadge } from "./RankBadge";
 import { NextGoalPin } from "./NextGoalPin";
+import { openPetExpedition } from "../lib/pet-expedition-navigation";
 
 // The shared prop shape for the card body + its desktop host. Both read the
 // same slice of App state; keeping one type keeps the two call-sites in sync.
@@ -292,21 +293,21 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                         if (pet.expedition && now < pet.expedition.endsAt) {
                             rows.push(
                                 <div key={`pe-${pet.id}`} className="left-timer-bar">
-                                    <div className="left-timer-row">
+                                    <button type="button" className="left-timer-row left-timer-link" onClick={() => openPetExpedition(pet.id, setScreen)} title="Open this expedition">
                                         <span className="left-timer-icon"><GameIcon name="map" size={13} style={{ display: "block", color: "var(--blue-300)" }} /></span>
                                         <span className="left-timer-label">{petDisplayName(pet)} · Expedition</span>
                                         <span className="left-timer-value">{formatPetTimer(pet.expedition.endsAt - now)}</span>
-                                    </div>
+                                    </button>
                                 </div>,
                             );
                         } else if (pet.expedition) {
                             rows.push(
                                 <div key={`pe-${pet.id}`} className="left-timer-bar">
-                                    <div className="left-timer-row">
+                                    <button type="button" className="left-timer-row left-timer-link" onClick={() => openPetExpedition(pet.id, setScreen)} title="Choose this expedition's return outcome">
                                         <span className="left-timer-icon"><GameIcon name="gift" size={13} style={{ display: "block", color: "var(--green-400)" }} /></span>
                                         <span className="left-timer-label">{petDisplayName(pet)} · Expedition</span>
                                         <span className="left-timer-value" style={{ color: "var(--green-400)" }}>Ready!</span>
-                                    </div>
+                                    </button>
                                 </div>,
                             );
                         }

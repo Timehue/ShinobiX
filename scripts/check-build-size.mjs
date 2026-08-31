@@ -473,7 +473,17 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // magnitude. Size future ceilings against a measured deploy build, never against
 // the ~7 KB band — budgeting ~6.5 KB of overhead that no longer exists silently
 // converts real headroom into an unnecessary raise.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_995_000;
+// 2026-08-31 AUTHORITATIVE PET EXPEDITIONS: 7,995,000 -> 8,030,000 B. The
+// Expedition Board, shared client/server reward contract, exact route previews,
+// provisions, risk stance, sealed return choice, recent field reports, and the
+// Pet Home navigation handoff add 17,643 B to the complete product graph: exact
+// clean builds measure 7,994,386 B on origin/main and 8,012,029 B here. This is
+// not a startup regression: the independently enforced initial graph moves only
+// +458 B raw and improves by 188 B gzip (1,443,206 B / 381,780 B), while the
+// entry, initial-graph, per-chunk, and CSS gates below remain unchanged. The new
+// ceiling leaves 17,971 B locally and about 17.5 KB after the measured 468 B
+// deploy-build delta documented above.
+const TOTAL_JS_CSS_FAIL_BYTES = 8_030_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

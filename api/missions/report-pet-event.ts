@@ -11,6 +11,18 @@ import { bumpLegacyStats } from '../_legacy-track.js';
 import { settleServerPetExpedition } from '../pet/_progress.js';
 import { PET_EXPEDITION_TYPES, petExpeditionSealForToken, type PetExpeditionSeal, type PetExpeditionType } from './_pet-expedition-lease.js';
 import { recordPetBreedingProgress } from '../pet/_breeding-requirements.js';
+import {
+    PET_EXPEDITION_DAILY_CAP,
+    PET_EXPEDITION_LOG_CAP,
+    PET_EXPEDITION_PROVISION_RULES,
+    PET_EXPEDITION_RETURN_CHOICES,
+    PET_EXPEDITION_RISK_RULES,
+    petExpeditionBaseRyo,
+    petExpeditionMaterialChances,
+    petExpeditionStory,
+    resolvePetExpeditionChoice,
+    type PetExpeditionReturnChoice,
+} from '../../shared/pet-expedition-contract.js';
 
 // Server-side Tamer XP for completed expeditions. Matches the client-side
 // formula (5 XP/min base, +50% for >=1h, +100% for >=4h, x2 daily First
@@ -23,7 +35,6 @@ const MAX_EXPEDITION_MINUTES = 240;
 // Hard daily ceiling on claims, even with the six-pet supporter roster running
 // back-to-back short expeditions. Stops a 30s-spam attack from accumulating
 // thousands of claims/day.
-const MAX_EXPEDITIONS_PER_DAY = 12;
 function utcDateKey(): string {
     return new Date().toISOString().slice(0, 10);
 }
@@ -59,12 +70,6 @@ const EVENT_TO_KIND: Record<PetEvent, 'pet-tamer-expeditions' | 'pet-tamer-long-
 
 const VALID_EXPEDITION_TYPES = PET_EXPEDITION_TYPES;
 type ExpType = PetExpeditionType;
-
-// Per-type Ryo/drop tables (mirrors client formula in PetYard.collectExpedition).
-const RYO_MULT: Record<ExpType, number> = { scout: 1.35, forage: 1.0, ruins: 1.1 };
-const BONE_RATE: Record<ExpType, number> = { scout: 0.25, forage: 0.30, ruins: 0.40 };
-const AURA_RATE: Record<ExpType, number> = { scout: 0.00, forage: 0.01, ruins: 0.01 };
-const FATE_RATE: Record<ExpType, number> = { scout: 0.05, forage: 0.05, ruins: 0.10 };
 
 /** Boonbringer doubles expedition Ryo and pet XP. Keep this server-owned so a
  * modified client cannot claim the bonus for a pet that does not have it. */
@@ -126,8 +131,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let durationMinutes = Math.max(0, Math.min(MAX_EXPEDITION_MINUTES, Math.floor(Number(body.durationMinutes ?? 0))));
         let expType = (body.expType && VALID_EXPEDITION_TYPES.includes(body.expType) ? body.expType : null) as ExpType | null;
         let petLevel = Math.max(1, Math.min(100, Math.floor(Number(body.petLevel ?? 1))));
+        const returnChoice = (body.returnChoice == null
+            ? 'secure'
+            : PET_EXPEDITION_RETURN_CHOICES.includes(body.returnChoice)
+                ? body.returnChoice
+                : null) as PetExpeditionReturnChoice | null;
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
         if (!VALID_EVENTS.includes(event)) return res.status(400).json({ error: 'Invalid event.' });
+        if (!returnChoice) return res.status(400).json({ error: 'Invalid expedition return choice.' });
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
@@ -189,6 +200,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let expeditionPetId = '';
         let expeditionTokenKey: string | null = null;
         let expeditionReceipt = '';
+        let expeditionSeal: PetExpeditionSeal | null = null;
         if (event === 'expedition' || event === 'long-expedition') {
             const tokRaw: string | undefined = typeof body.expeditionToken === 'string' && body.expeditionToken.trim() ? body.expeditionToken.trim() : undefined;
             const tok = tokRaw && /^[A-Za-z0-9]+$/.test(tokRaw) ? tokRaw : undefined;
@@ -204,6 +216,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // out, including a conservative migration path for older leases.
                 const current = await kv.get<Record<string, unknown>>(saveKey);
                 tokenData = petExpeditionSealForToken(current?.character, tok, playerName);
+                const currentChar = current?.character as Record<string, unknown> | undefined;
+                const completed = (Array.isArray(currentChar?.petExpeditionLog)
+                    ? currentChar.petExpeditionLog as Array<Record<string, unknown>>
+                    : []).find((entry) => entry?.id === tok);
+                if (!tokenData && completed) {
+                    return res.status(200).json({
+                        ok: true,
+                        petTamer: isTamer,
+                        replayed: true,
+                        expeditionXp: Number(completed.tamerXp ?? 0),
+                        petXpEarned: Number(completed.petXp ?? 0),
+                        ryoEarned: Number(completed.ryo ?? 0),
+                        foundBone: Number(completed.foundBone ?? 0),
+                        foundAura: Number(completed.foundAura ?? 0),
+                        foundFate: Number(completed.foundFate ?? 0),
+                        story: String(completed.story ?? ''),
+                        returnOutcome: String(completed.returnOutcome ?? 'secured'),
+                        outcomeLabel: String(completed.outcomeLabel ?? 'Haul secured'),
+                        happinessCost: Number(completed.happinessCost ?? 0),
+                        character: currentChar ?? null,
+                        _saveVersion: Number(current?._saveVersion ?? 0),
+                        missionsCompleted: [],
+                    });
+                }
             }
             if (!tokenData || tokenData.playerName.toLowerCase() !== playerName.toLowerCase()) {
                 const healed = await selfHealStuckExpedition({ token: tok, petId: bodyPetId });
@@ -216,6 +252,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Remember the token key; it is consumed under the save lock below.
             expeditionTokenKey = tokenKey;
             expeditionReceipt = tok;
+            expeditionSeal = tokenData;
             // Drive all reward math from the SEALED token values, not the client
             // body — including the expedition/long-expedition split (long fires
             // extra mission progress) which is re-derived from the sealed duration.
@@ -233,30 +270,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             expeditionPetId = String(tokenData.petId ?? '');
         }
 
-        // For expedition events, server computes Tamer XP AND the Ryo + drop
-        // currencies (previously client-trusted). Pet stat/XP gains stay
-        // client-side since they're per-pet state not global currency.
-        //
-        // Wrap the whole daily-counter check + currency credit in
-        // withKvLock(save:<player>) so a concurrent /api/save auto-save can't
-        // clobber the credit (previously an unlocked RMW — concurrent saves
-        // could lose ryo / bone / aura / fate, or double-consume the escort
-        // bonus). awardProfessionXp + reportMissionEvent run OUTSIDE the
-        // lock because they take their own save lock.
+        // Reward math, pet progress, choice resolution, story log, and token
+        // consumption settle in one save lock. The return choice is client-picked
+        // but allowlisted; its random outcome is rolled and persisted here.
         let expeditionXp = 0;
         let ryoEarned = 0;
+        let petXpEarned = 0;
         let foundBone = 0;
         let foundAura = 0;
         let foundFate = 0;
+        let expeditionStory = '';
+        let returnOutcome = 'secured';
+        let outcomeLabel = 'Haul secured';
+        let happinessCost = 0;
+        let firstExpedition = false;
+        let escortBonus = false;
         let dailyCapHit = false;
+        let dailyClaimCount = 0;
+        let dailyClaimCap = PET_EXPEDITION_DAILY_CAP;
         let tokenAlreadySpent = false;
+        let replayedLog: Record<string, unknown> | null = null;
         const isExpedition = event === 'expedition' || event === 'long-expedition';
+        if (isExpedition && returnChoice === 'investigate' && Number(expeditionSeal?.choiceVersion ?? 0) < 1) {
+            return res.status(409).json({ error: 'This legacy expedition supports Secure haul only.' });
+        }
         if (isExpedition && durationMinutes > 0) {
-            // ── withKvLock: the daily-cap check + write must be atomic ────
-            // Two concurrent expedition claims (multi-tab race) used to both
-            // read the same `expeditionsClaimedToday`, both pass the cap
-            // check, and both grant ryo/drops/Tamer XP. The lock serializes
-            // them so the second sees the updated counter and short-circuits.
             await withKvLock(saveKey, async () => {
                 const record = await kv.get<Record<string, unknown>>(saveKey);
                 const char = record?.character as Record<string, unknown> | undefined;
@@ -268,6 +306,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (receipts.includes(expeditionReceipt)) {
                         await kv.del(expeditionTokenKey).catch(() => undefined);
                         tokenAlreadySpent = true;
+                        replayedLog = (Array.isArray(char.petExpeditionLog)
+                            ? char.petExpeditionLog as Array<Record<string, unknown>>
+                            : []).find((entry) => entry?.id === expeditionReceipt) ?? null;
                         return;
                     }
                     // The claim must still own this exact saved lease. A delayed
@@ -283,62 +324,118 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         tokenAlreadySpent = true;
                         return;
                     }
-                    char.redeemedPetExpeditionTokens = [...receipts, expeditionReceipt];
                 }
 
                 const today = utcDateKey();
                 const sameDay = char.lastExpeditionClaimDate === today;
                 const claimedToday = sameDay ? Number(char.expeditionsClaimedToday ?? 0) : 0;
                 // Caravan Master mastery capstone: +2 to the daily expedition cap.
-                const dailyCap = MAX_EXPEDITIONS_PER_DAY + (masteryHasCapstone('petTamer', char.masterySpec, 'caravan-master') ? 2 : 0);
-                if (claimedToday >= dailyCap) {
+                dailyClaimCap = PET_EXPEDITION_DAILY_CAP + (masteryHasCapstone('petTamer', char.masterySpec, 'caravan-master') ? 2 : 0);
+                dailyClaimCount = claimedToday;
+                if (claimedToday >= dailyClaimCap) {
+                    // Do not consume the lease or token. The completed expedition
+                    // stays ready and can be collected after the UTC reset.
                     dailyCapHit = true;
-                    const pets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [];
-                    const nextPets = pets.map((pet) => String(pet?.id ?? '') === expeditionPetId
-                        ? settleServerPetExpedition(pet, expType ?? 'scout', durationMinutes, 1).pet
-                        : pet);
-                    const cappedUpdated = bumpSaveVersion({ ...record, character: { ...char, pets: nextPets } });
-                    await kv.set(saveKey, mergePreservingImages(cappedUpdated, record));
-                    if (expeditionTokenKey) await kv.del(expeditionTokenKey).catch(() => undefined);
                     return;
+                }
+                if (expeditionTokenKey) {
+                    const receipts = Array.isArray(char.redeemedPetExpeditionTokens)
+                        ? (char.redeemedPetExpeditionTokens as unknown[]).filter((entry): entry is string => typeof entry === 'string').slice(-63)
+                        : [];
+                    char.redeemedPetExpeditionTokens = [...receipts, expeditionReceipt];
                 }
                 const isFirstToday = claimedToday === 0;
                 const escortReady = !!char.petEscortBonusReady;
+                firstExpedition = tamerToken && isFirstToday;
+                escortBonus = tamerToken && escortReady;
                 const rank = Number(char.professionRank ?? 1);
                 const rewardPet = (Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [])
                     .find((pet) => String(pet?.id ?? '') === expeditionPetId);
                 const boonMult = petExpeditionTraitMultiplier(rewardPet);
+                const riskRule = PET_EXPEDITION_RISK_RULES[expeditionSeal?.risk ?? 'safe'];
+                const provisionRule = PET_EXPEDITION_PROVISION_RULES[expeditionSeal?.provision ?? 'none'];
+                const choice = resolvePetExpeditionChoice(returnChoice, Math.random());
+                returnOutcome = choice.outcome;
+                outcomeLabel = choice.label;
+                happinessCost = riskRule.happinessCost;
 
                 // Tamer XP only on the full Tamer path; a non-Tamer (half-rate
                 // maxed-pet) token earns currency only.
                 expeditionXp = tamerToken ? tamerXpForExpedition(durationMinutes, { isFirstToday, escortReady }) : 0;
 
-                // Ryo + drop calculation (mirrors client formula). Requires expType.
+                // Non-Tamers get no rank/first/mastery modifiers. Their saved
+                // rewardScale makes a maxed pet half-rate and a growing pet XP-only.
                 if (expType) {
-                    const durationHours = Math.max(1, durationMinutes / 60);
-                    // Non-Tamer tokens get NO rank mult, NO First-Expedition 2x and
-                    // NO mastery — just the base formula scaled by rewardScale (0.5):
-                    // exactly half a Tamer's base ryo and half the base drop chances.
                     const tamerMult = tamerToken ? petTamerExpeditionMultFromRank(rank, char.profession) : 1;
                     const firstBonus = tamerToken && isFirstToday ? 2 : 1;
                     const dropBonus = tamerToken ? (tamerMult - 1) + (isFirstToday ? 0.5 : 0) : 0;
-
-                    ryoEarned = Math.round((90 * durationHours * RYO_MULT[expType] + petLevel * 6) * tamerMult * firstBonus * expRewardMult * rewardScale * boonMult);
-                    foundBone = Math.random() < (BONE_RATE[expType] + dropBonus) * expMaterialMult * rewardScale ? 1 : 0;
-                    foundAura = Math.random() < (AURA_RATE[expType] + dropBonus * 0.1) * expMaterialMult * rewardScale ? 1 : 0;
-                    foundFate = Math.random() < (FATE_RATE[expType] + dropBonus * 0.1) * expMaterialMult * rewardScale ? 1 : 0;
+                    ryoEarned = Math.round(petExpeditionBaseRyo(expType, petLevel)
+                        * tamerMult * firstBonus * expRewardMult * rewardScale * boonMult
+                        * riskRule.ryoMultiplier * choice.ryoMultiplier);
+                    const chances = petExpeditionMaterialChances(expType, {
+                        dropBonus,
+                        multiplier: expMaterialMult * riskRule.materialMultiplier
+                            * provisionRule.materialMultiplier * choice.materialMultiplier,
+                        rewardScale,
+                    });
+                    foundBone = Math.random() < chances.bone ? 1 : 0;
+                    foundAura = Math.random() < chances.aura ? 1 : 0;
+                    foundFate = Math.random() < chances.fate ? 1 : 0;
                 }
 
                 // Stamp daily tracking + consume escort bonus + apply currencies.
                 const pets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [];
-                const petXpMult = (tamerToken ? petTamerExpeditionMultFromRank(rank, char.profession) * (isFirstToday ? 2 : 1) : 1) * boonMult;
-                const nextPets = pets.map((pet) => String(pet?.id ?? '') === expeditionPetId
-                    ? settleServerPetExpedition(pet, expType ?? 'scout', durationMinutes, petXpMult).pet
-                    : pet);
+                const petXpMult = (tamerToken ? petTamerExpeditionMultFromRank(rank, char.profession) * (isFirstToday ? 2 : 1) : 1)
+                    * boonMult * provisionRule.petXpMultiplier;
+                const nextPets = pets.map((pet) => {
+                    if (String(pet?.id ?? '') !== expeditionPetId) return pet;
+                    const settled = settleServerPetExpedition(pet, expType ?? 'scout', durationMinutes, petXpMult);
+                    petXpEarned = settled.xp;
+                    return happinessCost > 0
+                        ? { ...settled.pet, happiness: Math.max(0, Number(settled.pet.happiness ?? 0) - happinessCost) }
+                        : settled.pet;
+                });
                 const expeditionPet = pets.find((pet) => String(pet?.id ?? '') === expeditionPetId);
+                expeditionStory = petExpeditionStory({
+                    token: expeditionReceipt,
+                    type: expType ?? 'scout',
+                    place: expeditionSeal?.place ?? '',
+                    biome: expeditionSeal?.biome ?? 'central',
+                    outcome: choice.outcome,
+                });
+                const logEntry = {
+                    id: expeditionReceipt,
+                    settledAt: Date.now(),
+                    petId: expeditionPetId,
+                    petName: String(expeditionPet?.nickname ?? expeditionPet?.name ?? 'Companion').slice(0, 80),
+                    expType: expType ?? 'scout',
+                    risk: expeditionSeal?.risk ?? 'safe',
+                    provision: expeditionSeal?.provision ?? 'none',
+                    returnChoice,
+                    returnOutcome: choice.outcome,
+                    outcomeLabel: choice.label,
+                    story: expeditionStory,
+                    sector: expeditionSeal?.sector ?? 0,
+                    place: expeditionSeal?.place ?? '',
+                    region: expeditionSeal?.region ?? '',
+                    biome: expeditionSeal?.biome ?? 'central',
+                    ryo: ryoEarned,
+                    petXp: petXpEarned,
+                    tamerXp: expeditionXp,
+                    foundBone,
+                    foundAura,
+                    foundFate,
+                    happinessCost,
+                    firstExpedition,
+                    escortBonus,
+                };
+                const priorLog = Array.isArray(char.petExpeditionLog)
+                    ? char.petExpeditionLog as Array<Record<string, unknown>>
+                    : [];
                 const progressedCharacter = recordPetBreedingProgress({
                     ...char,
                     pets: nextPets,
+                    petExpeditionLog: [...priorLog.slice(-(PET_EXPEDITION_LOG_CAP - 1)), logEntry],
                     lastExpeditionClaimDate: today,
                     expeditionsClaimedToday: claimedToday + 1,
                     ryo: Number(char.ryo ?? 0) + ryoEarned,
@@ -360,6 +457,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }, { failClosed: true });
             if (tokenAlreadySpent) {
                 const current = await kv.get<Record<string, unknown>>(saveKey);
+                // The lock callback may assign this replay record; TypeScript
+                // does not model closure writes across the awaited boundary.
+                const replay = replayedLog as Record<string, unknown> | null;
+                if (replay) {
+                    return res.status(200).json({
+                        ok: true,
+                        petTamer: isTamer,
+                        replayed: true,
+                        expeditionXp: Number(replay.tamerXp ?? 0),
+                        petXpEarned: Number(replay.petXp ?? 0),
+                        ryoEarned: Number(replay.ryo ?? 0),
+                        foundBone: Number(replay.foundBone ?? 0),
+                        foundAura: Number(replay.foundAura ?? 0),
+                        foundFate: Number(replay.foundFate ?? 0),
+                        story: String(replay.story ?? ''),
+                        returnOutcome: String(replay.returnOutcome ?? 'secured'),
+                        outcomeLabel: String(replay.outcomeLabel ?? 'Haul secured'),
+                        happinessCost: Number(replay.happinessCost ?? 0),
+                        character: current?.character ?? null,
+                        _saveVersion: Number(current?._saveVersion ?? 0),
+                        missionsCompleted: [],
+                    });
+                }
                 return res.status(200).json({ ok: true, petTamer: isTamer, reason: 'invalid-or-spent-expedition-token', ...NO_REWARD, character: current?.character ?? null, _saveVersion: Number(current?._saveVersion ?? 0) });
             }
             // failClosed: this credits real currency (ryo/bone/aura/fate), so under
@@ -379,6 +499,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     foundBone: 0,
                     foundAura: 0,
                     foundFate: 0,
+                    dailyClaims: dailyClaimCount,
+                    dailyCap: dailyClaimCap,
+                    resetAt: Date.parse(`${new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)}T00:00:00.000Z`),
                     missionsCompleted: [],
                     character: capRecord?.character ?? null,
                     _saveVersion: Number(capRecord?._saveVersion ?? 0),
@@ -431,10 +554,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ok: true,
             petTamer: isTamer,
             expeditionXp,
+            petXpEarned,
             ryoEarned,
             foundBone,
             foundAura,
             foundFate,
+            story: expeditionStory,
+            returnChoice,
+            returnOutcome,
+            outcomeLabel,
+            happinessCost,
+            firstExpedition,
+            escortBonus,
+            dailyClaims: dailyClaimCount + 1,
+            dailyCap: dailyClaimCap,
             balances: {
                 ryo: Number(finalChar?.ryo ?? 0),
                 boneCharms: Number(finalChar?.boneCharms ?? 0),
