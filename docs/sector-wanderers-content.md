@@ -38,7 +38,7 @@
 | 1 | **Old Mibu of the Tea-Road** | Peddler | Gift | forest / central | — |
 | 2 | **Sister Yuki of the Broken Bell** | Shrine Keeper | Quest | snow | Healer |
 | 3 | **Kazan the Ashbound** | Toll bandit | Shinobi duel / Rob | volcano | the **nemesis** centerpiece |
-| 4 | **Tomoe & Kuro the Oni-Hound** | Beastmaster | Pet Coliseum | any | Pet Tamer |
+| 4 | **Tomoe & Kuro the Bondwake Ember-Ocelot** | Beastmaster | Pet Coliseum | any | Pet Tamer |
 | 5 | **Saji Two-Coins** | Gambler | Card Clash | central / shadow | — |
 | 6 | **Hibiki the Tireless** | Wandering duelist | Shinobi duel (honor, not theft) | shadow | Vanguard; the *friendly* rival |
 | 7 | **A [Enemy-Village] Patrol** | Faction unit | reactive (gift→duel in war) | any contested | village-war reactivity |
@@ -188,15 +188,20 @@ Wanderers) can now hunt *you* for it.
 
 ---
 
-## 5. Tomoe & Kuro the Oni-Hound — *Pet Coliseum challenge*
+## 5. Tomoe & Kuro the Bondwake Ember-Ocelot — *Pet Coliseum challenge*
 
 **Where:** any biome; near water and shade. **Affiliation:** Pet Tamer. **Tell:**
 wanderer mon. **Voice:** bright, proud, treats Kuro as family. Competitive but kind —
 a *sport* rival, not a thief.
 
+**Bondwake lore:** Ember-ocelots are born with one tail. After a rare mature shinobi
+bond settles into a stable shared chakra rhythm, a second tail grows and follows the
+first by a heartbeat—instinct, then learned intent. Handlers call this the Bondwake.
+It is visible proof of mutual responsiveness, not a hidden stat bonus or evolution tier.
+
 **Intro:**
 > "Oh-ho! That %element pet of yours — Kuro, look, look! It's got *eyes* on it.
-> Tamer, I'll make you a deal: my hound against your best beast, in the coliseum.
+> Tamer, I'll make you a deal: my ember-ocelot against your best beast, in the coliseum.
 > No purse-snatching. Just the joy of a good scrap. You in?"
 
 **Choices:**
@@ -214,7 +219,7 @@ a *sport* rival, not a thief.
 > a tamer pays a tamer." *(Sealed pet-win reward.)*
 
 **On your loss:**
-> "Good fight! No shame — Kuro's been at this since he was a pup. Patch your beast up
+> "Good fight! No shame — Kuro's been at this since he was a one-tail kit. Patch your beast up
 > and come find us. I want the rematch more than you do!" *(Casual; no ranked
 > rating touched — plan §4.5. No real theft unless an ante was set.)*
 

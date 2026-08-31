@@ -60,6 +60,7 @@ const FROZEN = {
         // pre-manifest combat projection as the authored onboarding arc expands.
         'onboardingStep', 'academySectorVisited', 'academyVow',
         'academyIncidentSeen', 'academyTraceSector', 'academyFieldSeal',
+        'petTutorialProgress',
         'weeklyBossKills', 'claimedWarCrateIds',
         'unlockedAchievements', 'achievementUnlockedAt',
         'battleHistory',

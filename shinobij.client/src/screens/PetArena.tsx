@@ -107,6 +107,7 @@ import arenaModeColosseum from "../assets/coliseum/arena-mode-colosseum.webp";
 import warfrontKeyArt from "../assets/warfront-three-lane/warfront-three-lane-keyart.webp";
 import warfrontCardArt from "../assets/warfront-three-lane/warfront-three-lane-card.webp";
 import arenaModeGauntlet from "../assets/coliseum/arena-mode-gauntlet.webp";
+import type { PetTutorialProgress } from "../../../shared/pet-tutorial";
 import petArenaCommandHero from "../assets/coliseum/pet-arena-command-v2.webp";
 import petArenaCommandMobileHero from "../assets/coliseum/pet-arena-command-mobile-v2.webp";
 import petDuelHero from "../assets/coliseum/pet-duel-hero.webp";
@@ -218,6 +219,9 @@ const preloadPetColiseumModels = (pets: readonly Pet[]) => import("../lib/pet-mo
 // is that the legacy stack stops being needed, so pulling it in here would
 // defeat the drain.
 const PetShowdownReplay = lazyWithRetry(() => import("../components/PetShowdownReplay").then((m) => ({ default: m.PetShowdownReplay })));
+const loadPetMentorGuide = () => import("../components/PetMentorGuide");
+const preloadPetMentorGuide = () => { void loadPetMentorGuide().catch(() => undefined); };
+const PetMentorGuide = lazyWithRetry(() => loadPetMentorGuide().then((module) => ({ default: module.PetMentorGuide })));
 // Hollow Warfront — four pets, three navigation-isolated causeways, first to
 // break two Ward Towers. Own lazy chunk so its simulation and presentation do
 // not tax the cinematic Colosseum route.
@@ -444,6 +448,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     // Normal visits default to the cinematic battle; a one-shot cross-screen
     // hint can land a Yard CTA directly in Tactical setup or the Gauntlet.
     const [arenaView, setArenaView] = useState<"battle" | "tactical" | "gauntlet">(arenaNavigationHint.view);
+    const [showPetMentorGuide, setShowPetMentorGuide] = useState(false);
     useEffect(() => clearPetArenaNavigationHint(), []);
     // Warfront setup (single screen): a team grid shared by Fight AI and
     // Challenge-a-Player. Picks seed to the top available pets.
@@ -1798,6 +1803,17 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
 
     return (
         <div className="card pet-arena-screen pet-arena-lobby" data-arena-view={arenaView}>
+            {showPetMentorGuide ? (
+                <Suspense fallback={null}>
+                    <PetMentorGuide
+                        open
+                        character={character}
+                        onClose={() => setShowPetMentorGuide(false)}
+                        onProgress={(progress: PetTutorialProgress) => updateCharacter((current) => current ? { ...current, petTutorialProgress: progress } : current)}
+                        setScreen={setScreen}
+                    />
+                </Suspense>
+            ) : null}
             {activeSettlementPresentation && typeof document !== "undefined" && createPortal(
                 <aside
                     className="pet-settlement-notice"
@@ -1852,6 +1868,16 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                         <span><small>Exit arena</small><strong>{returnLabel}</strong></span>
                     </button>
                     <span className="pet-arena-season"><i aria-hidden="true" /> Arena command online</span>
+                    <button
+                        type="button"
+                        className="pet-arena-guide-button"
+                        onClick={() => setShowPetMentorGuide(true)}
+                        onPointerEnter={preloadPetMentorGuide}
+                        onFocus={preloadPetMentorGuide}
+                        aria-label="Open Tamer Tomoe's pet battle field guide"
+                    >
+                        <GameIcon name="scroll" size={16} /><span>Tomoe's field guide</span>
+                    </button>
                 </div>
                 <div className="pet-arena-command-copy">
                     <span className="pet-arena-eyebrow">{arenaHeroEyebrow}</span>

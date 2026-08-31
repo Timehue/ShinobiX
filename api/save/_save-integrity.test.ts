@@ -6,6 +6,7 @@ import {
     CHRONICLE_FIXED_FALLBACK_DECK,
     CHRONICLE_RULES_VERSION,
 } from '../../shared/chronicle-duel.js';
+import { PET_TUTORIAL_VERSION } from '../../shared/pet-tutorial.js';
 
 const wrap = (character: Record<string, unknown>, extra: Record<string, unknown> = {}) => ({ ...extra, character });
 
@@ -212,6 +213,30 @@ describe('jutsu loadout persistence', () => {
             ).character as Record<string, unknown>;
             assert.equal('jutsu' in rejected, false);
         }
+    });
+});
+
+describe('Tomoe pet tutorial save validation', () => {
+    it('keeps only known, unique lesson identifiers and pins the current version', () => {
+        const out = sanitizeCompatible(
+            wrap({ petTutorialProgress: { version: 999, completedLessonIds: ['bond', 'forged', 'bond', 'warfront'] } }),
+            wrap({}),
+        ).character as Record<string, unknown>;
+        assert.deepEqual(out.petTutorialProgress, {
+            version: PET_TUTORIAL_VERSION,
+            completedLessonIds: ['bond', 'warfront'],
+        });
+    });
+
+    it('normalizes malformed progress to an empty bounded course record', () => {
+        const out = sanitizeCompatible(
+            wrap({ petTutorialProgress: { completedLessonIds: 'all-of-them' } }),
+            wrap({}),
+        ).character as Record<string, unknown>;
+        assert.deepEqual(out.petTutorialProgress, {
+            version: PET_TUTORIAL_VERSION,
+            completedLessonIds: [],
+        });
     });
 });
 

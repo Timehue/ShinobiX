@@ -11,6 +11,7 @@ import { enforceBloodlineBudget, bloodlinePoints, type RawJutsu } from '../_juts
 import { sanitizeJutsuVisualEffect } from '../_jutsu-visuals.js';
 import { normalizeMasteryFocus } from '../../shared/activity-spine.js';
 import { PROGRESSION_EXAM_HOLDS } from '../../shared/progression-holds.js';
+import { normalizePetTutorialProgress } from '../../shared/pet-tutorial.js';
 import { budgetItemBonuses } from '../_item-budget.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { AURA_SPHERE_ITEM_ID } from '../pvp/_multipliers.js';
@@ -2019,6 +2020,9 @@ export function sanitizeCharacterSave(
                 Math.floor(Number(char.cardClashTutorialVersion) || 0),
             ),
         );
+    }
+    if ('petTutorialProgress' in char) {
+        char.petTutorialProgress = normalizePetTutorialProgress(char.petTutorialProgress);
     }
 
     // ─── battleHistory caps ───────────────────────────────────────────────────
