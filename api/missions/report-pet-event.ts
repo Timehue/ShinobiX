@@ -9,6 +9,7 @@ import { reportMissionEvent, awardProfessionXp, type CompletedMissionInfo } from
 import { masteryHasCapstone } from '../_profession-mastery.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { settleServerPetExpedition } from '../pet/_progress.js';
+import { spendPetHappiness } from '../pet/_happiness.js';
 import { PET_EXPEDITION_TYPES, petExpeditionSealForToken, type PetExpeditionSeal, type PetExpeditionType } from './_pet-expedition-lease.js';
 import { recordPetBreedingProgress } from '../pet/_breeding-requirements.js';
 import {
@@ -391,8 +392,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (String(pet?.id ?? '') !== expeditionPetId) return pet;
                     const settled = settleServerPetExpedition(pet, expType ?? 'scout', durationMinutes, petXpMult);
                     petXpEarned = settled.xp;
+                    // Settle the daily bond decay BEFORE charging the bold-route
+                    // cost, so the deduction comes off the happiness the pet
+                    // actually holds and the decay stamp advances with the write
+                    // (shared/pet-happiness.ts). Charging a stale value would let a
+                    // long expedition's collect settle against pre-decay happiness.
                     return happinessCost > 0
-                        ? { ...settled.pet, happiness: Math.max(0, Number(settled.pet.happiness ?? 0) - happinessCost) }
+                        ? spendPetHappiness(settled.pet, happinessCost, Date.now())
                         : settled.pet;
                 });
                 const expeditionPet = pets.find((pet) => String(pet?.id ?? '') === expeditionPetId);

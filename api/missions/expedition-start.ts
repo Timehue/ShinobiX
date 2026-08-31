@@ -9,6 +9,7 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { activeBreedingParentIds } from '../pet/_pet-busy.js';
 import { activeCarriedPetIds, PET_CAP_SUB } from '../_entitlements.js';
 import { removePetItem } from '../pet/_progress.js';
+import { currentPetHappiness } from '../pet/_happiness.js';
 import {
     PET_EXPEDITION_DAILY_CAP,
     PET_EXPEDITION_PROVISION_RULES,
@@ -182,7 +183,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const petMaxed = realLevel >= realMaxLevel;
             if (realLevel < 20) return { ok: false as const, status: 409, error: 'Pet must reach level 20.' };
             if (pet.training || pet.expedition) return { ok: false as const, status: 409, error: 'Pet is already busy.' };
-            if (risk === 'bold' && Number(pet.happiness ?? 0) < PET_EXPEDITION_RISK_RULES.bold.happinessCost) {
+            // Gate on the happiness the pet ACTUALLY has, not the stored number:
+            // happiness decays at every daily reset (shared/pet-happiness.ts), so a
+            // pet stored at 7 that has missed a reset really holds 2 and must not
+            // clear a 5-happiness bold route on a value it no longer owns.
+            if (risk === 'bold' && currentPetHappiness(pet, requestedAt) < PET_EXPEDITION_RISK_RULES.bold.happinessCost) {
                 return { ok: false as const, status: 409, error: `Bold routes require at least ${PET_EXPEDITION_RISK_RULES.bold.happinessCost} happiness.` };
             }
 
