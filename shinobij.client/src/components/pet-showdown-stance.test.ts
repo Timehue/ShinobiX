@@ -80,6 +80,15 @@ test("identity-authored presentation clips are routed through every Colosseum pe
     assert.match(modelSource, /frame\.casting \? findClip\(clips, \["cast", "attack"\]\)/);
     assert.match(modelSource, /findClip\(clips, \["guard", "idle", "walk", "swimming_normal"\]\)/);
     assert.match(modelSource, /findClip\(clips, \["rest", "idle", "walk", "swimming_normal"\]\)/);
-    assert.match(source, /f\.casting = frac < 0\.84/);
-    assert.match(source, /f\.casting = ev\.delivery !== "melee" && frac < 0\.84/);
+    assert.match(source, /const rhythm = actionRhythm\(ev\)/);
+    assert.match(source, /f\.casting = frac < rhythm\.recoverEnd/);
+    assert.match(source, /f\.casting = ev\.delivery !== "melee" && frac < rhythm\.recoverEnd/);
+});
+
+test("one selected Showdown quality preset owns the arena, post stack, and pet models", () => {
+    assert.match(source, /<StageEnvironment[^>]+quality=\{renderQuality\}/);
+    assert.match(source, /<ShowdownPostStack[\s\S]*?distortion=\{renderQuality\.distortion\}/);
+    assert.match(source, /<ShowdownFighter[\s\S]*?quality=\{renderQuality\}/);
+    assert.match(source, /<PetModel3D[^>]+quality=\{quality\}/);
+    assert.match(modelSource, /const quality = qualityOverride \?\? fallbackQuality/);
 });

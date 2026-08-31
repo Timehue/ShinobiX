@@ -13,6 +13,16 @@ export type PetVisualQualityConfig = {
     dynamicPetLight: boolean;
     translucentLayers: number;
     distortion: boolean;
+    /** Geometric fragments emitted by a native contact volume. */
+    impactDebris: number;
+    /** Short HDR streaks allowed to enter the isolated bloom pass. */
+    impactSparks: number;
+    /** Simultaneous lingering element residues retained on the battlefield. */
+    aftermathLayers: number;
+    /** Persistent floor marks retained during a long fight. */
+    decalLimit: number;
+    /** Post-effect intensity; zero removes the fullscreen composer entirely. */
+    bloomIntensity: number;
 };
 
 export const PET_VISUAL_QUALITY_PRESETS: Readonly<Record<PetVisualQuality, PetVisualQualityConfig>> = Object.freeze({
@@ -20,7 +30,8 @@ export const PET_VISUAL_QUALITY_PRESETS: Readonly<Record<PetVisualQuality, PetVi
         id: "low", dpr: [1, 1] as [number, number], modelShadows: false, outline: false,
         textureAnisotropy: 2, ambientParticles: 12, identityParticles: 3,
         setPieceParticles: 16, dynamicPetLight: false, translucentLayers: 1,
-        distortion: false,
+        distortion: false, impactDebris: 4, impactSparks: 3, aftermathLayers: 1,
+        decalLimit: 3, bloomIntensity: 0,
     }),
     medium: Object.freeze({
         // Medium is the shipped/default battle preset. Keep the anime outline and
@@ -30,13 +41,15 @@ export const PET_VISUAL_QUALITY_PRESETS: Readonly<Record<PetVisualQuality, PetVi
         id: "medium", dpr: [1, 1.16] as [number, number], modelShadows: false, outline: true,
         textureAnisotropy: 6, ambientParticles: 20, identityParticles: 5,
         setPieceParticles: 28, dynamicPetLight: false, translucentLayers: 2,
-        distortion: false,
+        distortion: false, impactDebris: 7, impactSparks: 7, aftermathLayers: 2,
+        decalLimit: 6, bloomIntensity: 0.28,
     }),
     high: Object.freeze({
         id: "high", dpr: [1, 1.75] as [number, number], modelShadows: true, outline: true,
         textureAnisotropy: 8, ambientParticles: 42, identityParticles: 12,
         setPieceParticles: 52, dynamicPetLight: true, translucentLayers: 3,
-        distortion: true,
+        distortion: true, impactDebris: 12, impactSparks: 12, aftermathLayers: 3,
+        decalLimit: 10, bloomIntensity: 0.48,
     }),
 });
 
