@@ -19,6 +19,7 @@ test('saved expedition seal survives cache loss only for its exact lease token',
     assert.deepEqual(petExpeditionSealForToken(character, 'token123', 'Player'), {
         playerName: 'Player', petId: 'pet-1', expType: 'scout', durationMinutes: 45, petLevel: 30,
         endsAt: 2_701_000, expRewardMult: 1.2, expMaterialMult: 1.1, rewardScale: 1, tamer: true,
+        risk: 'safe', provision: 'none', sector: 0, place: '', region: '', biome: 'central', choiceVersion: 0,
     });
     assert.equal(petExpeditionSealForToken(character, 'newerToken', 'Player'), null);
 });

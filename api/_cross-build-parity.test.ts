@@ -23,6 +23,7 @@ const HEAL = read('api', 'player', 'heal.ts');
 const PROGRESS = read('api', 'missions', '_progress.ts');
 const EVOLUTION = read('api', 'pet', '_evolution.ts');
 const EXPEDITION = read('api', 'missions', 'expedition-start.ts');
+const PET_EXPEDITION_CONTRACT = read('shared', 'pet-expedition-contract.ts');
 const DOCTRINES = read('shinobij.client', 'src', 'lib', 'clan-doctrines.ts');
 const PROFESSION = read('shinobij.client', 'src', 'professionLogic.ts');
 const PETCONFIG = read('shinobij.client', 'src', 'data', 'pet-config.ts');
@@ -135,24 +136,13 @@ describe('parity: pet evolution stat deltas (_evolution.ts ⇄ pet-evolutions.ts
     }
 });
 
-describe('parity: pet expedition durations (EXP_DURATION_MINUTES ⇄ petExpeditionOptions.durationMs)', () => {
-    it('scout/forage/ruins durations match', () => {
-        const block = EXPEDITION.match(/EXP_DURATION_MINUTES[^{]*\{([^}]*)\}/);
-        assert.ok(block, 'EXP_DURATION_MINUTES not found');
-        const serverMin: Record<string, number> = {};
-        for (const m of block![1].matchAll(/(\w+):\s*(\d+)/g)) serverMin[m[1]] = Number(m[2]);
-        assert.ok(Object.keys(serverMin).length >= 3, 'expected >= 3 expedition types');
-        let checked = 0;
-        for (const m of PETCONFIG.matchAll(/type:\s*"(\w+)"[^}]*?durationMs:\s*([0-9*\s]+?)\s*,/g)) {
-            const type = m[1];
-            if (serverMin[type] === undefined) continue;
-            const expr = m[2].trim();
-            assert.match(expr, /^[\d*\s]+$/, `durationMs expr for ${type} is not pure digit*digit`);
-            const ms = expr.split('*').map(x => Number(x.trim())).reduce((a, b) => a * b, 1);
-            assert.equal(ms / 60000, serverMin[type], `${type} duration drifted (server ${serverMin[type]}m vs client ${ms / 60000}m)`);
-            checked += 1;
-        }
-        assert.equal(checked, Object.keys(serverMin).length, 'did not match every server expedition type to a client option');
+describe('parity: pet expedition routes use the shared contract', () => {
+    it('server and client derive scout/forage/ruins durations from one source', () => {
+        const routes = [...PET_EXPEDITION_CONTRACT.matchAll(/^\s*(scout|forage|ruins):\s*\{[^}]*?durationMinutes:\s*(\d+)/gm)];
+        assert.deepEqual(routes.map((match) => match[1]), ['scout', 'forage', 'ruins']);
+        assert.deepEqual(routes.map((match) => Number(match[2])), [45, 120, 240]);
+        assert.match(EXPEDITION, /PET_EXPEDITION_ROUTES\[expType\]\.durationMinutes/);
+        assert.match(PETCONFIG, /PET_EXPEDITION_ROUTES\[type as PetExpeditionType\]\.durationMinutes\s*\*\s*60_000/);
     });
 });
 

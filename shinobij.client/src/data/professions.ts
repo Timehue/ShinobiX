@@ -96,7 +96,7 @@ export const PROFESSION_INFO: ProfessionInfo[] = [
             "Pets deal +6.5% to +20% more PvE damage by rank",
             "Pet training 10–20% faster",
             "Expedition rewards +10% to +25%",
-            "First expedition each day grants 2× Tamer XP",
+            "First collected expedition daily: 2× Tamer XP, pet XP, and ryo + boosted finds",
         ],
         rankHighlights: [
             { rank: "Rank 1", perk: "+6.5% pet PvE damage · +10% training speed" },

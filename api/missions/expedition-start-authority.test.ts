@@ -41,12 +41,12 @@ async function post(playerName: string, body: Record<string, unknown>, address?:
     return out;
 }
 
-async function seedPlayer(playerName: string, options: { allowance?: number; pets?: number } = {}) {
+async function seedPlayer(playerName: string, options: { allowance?: number; pets?: number; petLevel?: number; happiness?: number; inventory?: string[] } = {}) {
     const pets = Array.from({ length: options.pets ?? 1 }, (_, index) => ({
         id: `pet-${index + 1}`,
         name: `Pet ${index + 1}`,
         rarity: 'standard',
-        level: 30,
+        level: options.petLevel ?? 30,
         maxLevel: 100,
         xp: 0,
         hp: 300,
@@ -54,6 +54,7 @@ async function seedPlayer(playerName: string, options: { allowance?: number; pet
         defense: 40,
         speed: 35,
         jutsus: [],
+        happiness: options.happiness ?? 50,
     }));
     const today = new Date().toISOString().slice(0, 10);
     await kv.set(`save:${playerName}`, {
@@ -63,6 +64,7 @@ async function seedPlayer(playerName: string, options: { allowance?: number; pet
             level: 30,
             profession: 'petTamer',
             pets,
+            inventory: options.inventory ?? [],
             ...(options.allowance == null
                 ? {}
                 : { expeditionStartAllowance: { date: today, count: options.allowance } }),
@@ -178,4 +180,55 @@ test('deployment migration honors today\'s higher legacy KV allowance without wr
     const character = save?.character as Record<string, unknown>;
     assert.equal((character.expeditionStartAllowance as Record<string, unknown>).count, 10);
     assert.equal(await kv.get(legacyKey), 9, 'new launches do not mutate the deprecated split counter');
+});
+
+test('the saved pet level is sealed even when a client submits a forged level', async () => {
+    const player = 'expeditionlevelauthority';
+    await seedPlayer(player, { petLevel: 30 });
+    const out = await post(player, {
+        petId: 'pet-1', expType: 'scout', petLevel: 100,
+        launchId: '00000000-0000-4000-8000-000000000501',
+    }, '127.0.0.61');
+    assert.equal(out.statusCode, 200);
+    const save = await kv.get<Record<string, unknown>>(`save:${player}`);
+    const pet = ((save?.character as Record<string, unknown>).pets as Array<Record<string, unknown>>)[0];
+    const seal = ((pet.expedition as Record<string, unknown>).serverSeal as Record<string, unknown>);
+    assert.equal(seal.petLevel, 30);
+});
+
+test('a provision is consumed exactly once and replay keeps the sealed route setup', async () => {
+    const player = 'expeditionprovisionreplay';
+    await seedPlayer(player, { inventory: ['ancient-pet-treat'] });
+    const body = {
+        petId: 'pet-1', expType: 'forage', risk: 'bold', provision: 'ancient-pet-treat',
+        launchId: '00000000-0000-4000-8000-000000000601',
+    };
+    const first = await post(player, body, '127.0.0.71');
+    const replay = await post(player, body, '127.0.0.72');
+    assert.equal(first.statusCode, 200);
+    assert.equal(replay.body?.replayed, true);
+    const save = await kv.get<Record<string, unknown>>(`save:${player}`);
+    const character = save?.character as Record<string, unknown>;
+    const pet = (character.pets as Array<Record<string, unknown>>)[0];
+    const expedition = pet.expedition as Record<string, unknown>;
+    assert.deepEqual(character.inventory, []);
+    assert.equal(expedition.risk, 'bold');
+    assert.equal(expedition.provision, 'ancient-pet-treat');
+    assert.equal((expedition.serverSeal as Record<string, unknown>).petLevel, 30);
+    assert.equal((character.expeditionStartAllowance as Record<string, unknown>).count, 1);
+});
+
+test('bold routes require enough saved happiness and consume no allowance on rejection', async () => {
+    const player = 'expeditionboldhappiness';
+    await seedPlayer(player, { happiness: 4 });
+    const out = await post(player, {
+        petId: 'pet-1', expType: 'scout', risk: 'bold',
+        launchId: '00000000-0000-4000-8000-000000000701',
+    }, '127.0.0.81');
+    assert.equal(out.statusCode, 409);
+    assert.match(String(out.body?.error), /at least 5 happiness/i);
+    const save = await kv.get<Record<string, unknown>>(`save:${player}`);
+    const character = save?.character as Record<string, unknown>;
+    assert.equal(character.expeditionStartAllowance, undefined);
+    assert.equal((character.pets as Array<Record<string, unknown>>)[0].expedition, undefined);
 });
