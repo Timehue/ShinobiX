@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense, type ReactNode, type CSSProperties } from "react";
 import "../styles/atlas-skin.css";
+import { visiblePoll } from "../lib/poll";
 // The Chronicle Scribe's codex hand-off ends on the pack-opening cinematic, so
 // this screen chunk owns those two stylesheets the same way Shop does (the card
 // view and the overlay are component modules and must stay CSS-free).
@@ -871,8 +872,8 @@ export function WorldMap({
             void fetchBountyBoard().then((board) => { if (alive) setBountyBoard(board); }).catch(() => { /* best-effort */ });
         };
         load();
-        const id = setInterval(load, 45000);
-        return () => { alive = false; clearInterval(id); };
+        const stop = visiblePoll(load, 45000);
+        return () => { alive = false; stop(); };
     }, [character.name, globalViewOpen, selectedSector != null]);
     const selfBounty = useMemo(
         () => bountyBoard.find((b) => b.target.trim().toLowerCase() === character.name.trim().toLowerCase()) ?? null,
@@ -916,8 +917,8 @@ export function WorldMap({
         let alive = true;
         const load = () => { void fetchMercRoster(character.name, village, sec).then(m => { if (alive) setMercRoster({ sector: sec, mercs: m }); }).catch(() => { /* roster is best-effort */ }); };
         load();
-        const id = setInterval(load, 20000);
-        return () => { alive = false; clearInterval(id); };
+        const stop = visiblePoll(load, 20000);
+        return () => { alive = false; stop(); };
     }, [selectedSector, character.name, character.village, villageWarViewOpen]);
 
     // Roaming weekly boss (weeklyBossRoam.v1, default ON — opt out per-device
@@ -936,8 +937,8 @@ export function WorldMap({
                 .catch(() => { /* best-effort — no marker if the fetch fails */ });
         };
         load();
-        const id = setInterval(load, 45000);
-        return () => { alive = false; clearInterval(id); };
+        const stop = visiblePoll(load, 45000);
+        return () => { alive = false; stop(); };
     }, [globalViewOpen]);
 
     // ── Roaming weekly boss — in-sector encounter (weeklyBossRoam.v1, Phase 3) ──

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { liveServiceNotice } from "../lib/live-service-notice";
+import { visiblePoll } from "../lib/poll";
 import { useLiveCapabilities } from "../lib/live-capabilities-context";
 import { fetchWorldCrisis } from "../lib/world-crisis";
 import { fetchWorldCrisis80 } from "../lib/world-crisis-80";
@@ -21,8 +22,8 @@ export function LiveServiceNotice({ screen, onNavigate }: { screen: Screen; onNa
         let alive = true;
         const refresh = () => { void Promise.all([fetchWorldCrisis(), fetchWorldCrisis80()]).then(([next, next80]) => { if (!alive) return; if (next) setCrisis(next); if (next80) setReckoning(next80); }); };
         refresh();
-        const timer = window.setInterval(refresh, 15_000);
-        return () => { alive = false; window.clearInterval(timer); };
+        const stop = visiblePoll(refresh, 15_000);
+        return () => { alive = false; stop(); };
     }, []);
     if (notice) return (
         <aside role="status" aria-live="polite" aria-label="Live service status" className="live-service-notice">

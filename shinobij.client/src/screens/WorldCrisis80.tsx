@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { BattleHistoryEntry, Character, VersionedCharacterCommit } from "../types/character";
+import { visiblePoll } from "../lib/poll";
 import type { Pet } from "../types/pet";
 import type { Screen } from "../types/core";
 import { BattleTowerFight } from "./BattleTowerFight";
@@ -102,8 +103,8 @@ export function WorldCrisis80({
     }, []);
     useEffect(() => {
         const start = window.setTimeout(() => { void refresh(); }, 0);
-        const timer = window.setInterval(() => { void refresh(); }, 12_000);
-        return () => { window.clearTimeout(start); window.clearInterval(timer); };
+        const stop = visiblePoll(() => { void refresh(); }, 12_000);
+        return () => { window.clearTimeout(start); stop(); };
     }, [refresh]);
 
     useEffect(() => {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import type { BattleHistoryEntry, Character, VersionedCharacterCommit } from "../types/character";
+import { visiblePoll } from "../lib/poll";
 import type { Screen } from "../types/core";
 import type { TowerHostLoadout } from "../lib/towers-api";
 import { requestAiFight } from "../lib/ai-fight-request";
@@ -55,8 +56,8 @@ export function WorldCrisis({ character, setScreen, sharedImages, hostLoadout, o
 
     useEffect(() => {
         const start = window.setTimeout(() => { void refresh(); }, 0);
-        const timer = window.setInterval(() => { void refresh(); }, 12_000);
-        return () => { window.clearTimeout(start); window.clearInterval(timer); };
+        const stop = visiblePoll(() => { void refresh(); }, 12_000);
+        return () => { window.clearTimeout(start); stop(); };
     }, [refresh]);
 
     const local = crisis?.villages[village];

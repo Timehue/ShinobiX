@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity */
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import { visiblePoll } from "../lib/poll";
 import type { Screen } from "../types/core";
 import type { Character, PlayerRecord } from "../types/character";
 import type { Jutsu, SavedBloodline } from "../types/combat";
@@ -130,8 +131,7 @@ export function Arena({
             setSpectatorFights(loadArenaActiveFights());
         };
         refreshArenaState();
-        const id = window.setInterval(refreshArenaState, 5000);
-        return () => window.clearInterval(id);
+        return visiblePoll(refreshArenaState, 5000);
     }, []);
 
     useEffect(() => {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import "../styles/battle-skin.css";
+import { visiblePoll } from "../lib/poll";
 import "../styles/mission-arena-fight.css";
 import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
@@ -515,15 +516,17 @@ export function MissionArenaFight({
         if (session.status !== "active" || myTurn) return;
         let alive = true;
         let requestInFlight = false;
-        const id = setInterval(() => {
-            if (document.visibilityState === "hidden" || requestInFlight) return;
+        // visiblePoll owns the hidden-tab skip (and adds jitter); the in-flight
+        // latch stays, since it guards against overlap, not against visibility.
+        const stop = visiblePoll(() => {
+            if (requestInFlight) return;
             requestInFlight = true;
             transport.fetchState(runId, me)
                 .then(next => { if (alive) adoptAuthoritativeSession(next); })
                 .catch(() => {})
                 .finally(() => { requestInFlight = false; });
         }, 2500);
-        return () => { alive = false; clearInterval(id); };
+        return () => { alive = false; stop(); };
     }, [session.status, myTurn, runId, me, transport, adoptAuthoritativeSession]);
 
     // Auto-settle the win (queue the claim). Losses/draws pay nothing — the run

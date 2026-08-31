@@ -6,6 +6,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import type { Screen } from "../types/core";
+import { visiblePoll } from "./poll";
 import { computeNotifications, type GameNotification } from "./notifications";
 
 const REFRESH_MS = 5000;
@@ -31,8 +32,7 @@ export function useNotifications(screen: Screen, clan: string, village: string):
             }
         }
         refresh(); // re-derive immediately when screen/clan/village change
-        const id = setInterval(refresh, REFRESH_MS);
-        return () => clearInterval(id);
+        return visiblePoll(refresh, REFRESH_MS);
     }, [screen, clan, village]);
 
     return notes;

@@ -5,7 +5,23 @@
  * and behaviour are unchanged.
  */
 
-/** Images change rarely; a 10-minute tab-local cache kills most repeat KV reads. */
+/**
+ * Images change rarely; a 10-minute tab-local cache kills most repeat KV reads.
+ *
+ * This also bounds how long a REPLACED image stays stale, which it did not have
+ * to do before per-image URLs carried a category version. Previously the URL was
+ * version-free, so the browser's own 5-minute revalidation refreshed the bytes
+ * even though App pinned the id→URL map for the whole session. Now `/api/img`
+ * serves a versioned URL as `immutable`, so nothing re-checks those bytes — the
+ * only thing that can surface new art is re-reading the manifest and getting a
+ * new version, i.e. a new URL.
+ *
+ * So App's `loadedCatsRef` guard expires on this TTL rather than lasting the
+ * session. Without that, an admin replacing art mid-session would not reach a
+ * player until they reloaded the page. Net effect versus the old behaviour:
+ * per-image revalidation traffic goes to zero, and worst-case propagation moves
+ * from ~5 min to ~10 min (on the player's next screen visit after expiry).
+ */
 export const IMG_CACHE_TTL = 10 * 60 * 1000;
 
 export function imgCacheKey(cat: string): string { return `imgcat:${cat}`; }
