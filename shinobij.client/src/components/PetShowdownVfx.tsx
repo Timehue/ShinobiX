@@ -28,6 +28,14 @@ import type { PetSignaturePerformance } from "../lib/pet-signature-performance";
 import { VolumetricSetPiece } from "./PetShowdownVfx3d";
 import type { ShowdownEvent } from "../lib/pet-showdown-api";
 
+const ADDITIVE_MATERIAL_PROPS = {
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    toneMapped: false,
+} as const;
+
 /** The slice of the battle's beat/slot state this layer needs. */
 export interface VfxBeat {
     event: ShowdownEvent | null;
@@ -172,12 +180,9 @@ function FlipbookOnce({ spawn }: { spawn: VfxSpawn }) {
                 <planeGeometry args={[spawn.scale, spawn.scale * (spawn.aspect ?? 1)]} />
                 <meshBasicMaterial
                     ref={mat}
-                    transparent
-                    opacity={0}
+                    {...ADDITIVE_MATERIAL_PROPS}
                     color={spawn.tint ?? "#ffffff"}
-                    depthWrite={false}
                     blending={spawn.normalBlend ? THREE.NormalBlending : THREE.AdditiveBlending}
-                    toneMapped={false}
                 />
             </mesh>
         </Billboard>
@@ -431,15 +436,12 @@ function SetPieceLayerMesh({ spawn, layer }: { spawn: SetPieceSpawn; layer: SetP
                 <planeGeometry args={[layer.scale, layer.scale * layer.aspect]} />
                 <meshBasicMaterial
                     ref={mat}
-                    transparent
-                    opacity={0}
+                    {...ADDITIVE_MATERIAL_PROPS}
                     color={layer.tint ?? "#ffffff"}
-                    depthWrite={false}
                     // Painted hero art keeps its true values (foam whites, flame
                     // cores) under normal blending; flipbook accents and bolts
                     // glow additive.
                     blending={(layer.sprite || layer.normalBlend) && !layer.add ? THREE.NormalBlending : THREE.AdditiveBlending}
-                    toneMapped={false}
                     side={THREE.DoubleSide}
                 />
             </mesh>
@@ -569,11 +571,8 @@ function StatusAuraLoop({ aura, phase }: { aura: { frames: string; scale: number
                 <planeGeometry args={[aura.scale, aura.scale]} />
                 <meshBasicMaterial
                     ref={mat}
-                    transparent
+                    {...ADDITIVE_MATERIAL_PROPS}
                     opacity={aura.opacity}
-                    depthWrite={false}
-                    blending={THREE.AdditiveBlending}
-                    toneMapped={false}
                 />
             </mesh>
         </Billboard>
@@ -790,14 +789,14 @@ export function PaintedProjectile({ drive }: { drive: React.MutableRefObject<Pro
                     </Billboard>
                     <mesh ref={(el) => { glows.current[i] = el; }} visible={false}>
                         <sphereGeometry args={[1, 12, 12]} />
-                        <meshBasicMaterial ref={(el) => { glowMats.current[i] = el; }} transparent opacity={0.28} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                        <meshBasicMaterial ref={(el) => { glowMats.current[i] = el; }} {...ADDITIVE_MATERIAL_PROPS} opacity={0.28} />
                     </mesh>
                 </group>
             ))}
             {Array.from({ length: TRAIL_LEN }, (_, i) => (
                 <mesh key={i} ref={(el) => { trailRefs.current[i] = el; }} visible={false}>
                     <sphereGeometry args={[1, 8, 8]} />
-                    <meshBasicMaterial transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                    <meshBasicMaterial {...ADDITIVE_MATERIAL_PROPS} />
                 </mesh>
             ))}
         </group>
@@ -881,7 +880,7 @@ export function MeleeStreaks({ drive }: { drive: React.MutableRefObject<MeleeStr
         <group>
             {Array.from({ length: STREAK_COUNT }, (_, i) => (
                 <mesh key={i} ref={(el) => { refs.current[i] = el; }} geometry={streakGeometry} visible={false}>
-                    <meshBasicMaterial transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+                    <meshBasicMaterial {...ADDITIVE_MATERIAL_PROPS} side={THREE.DoubleSide} />
                 </mesh>
             ))}
         </group>
@@ -944,24 +943,24 @@ export function MeleeContactBurst({ drive }: { drive: React.MutableRefObject<Mel
             <Billboard position={[0, 1.05, 0]}>
                 <mesh>
                     <circleGeometry args={[0.42, 28]} />
-                    <meshBasicMaterial ref={coreMat} transparent opacity={0} depthWrite={false} depthTest={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                    <meshBasicMaterial ref={coreMat} {...ADDITIVE_MATERIAL_PROPS} depthTest={false} />
                 </mesh>
                 <mesh scale={1.7}>
                     <ringGeometry args={[0.34, 0.5, 32]} />
-                    <meshBasicMaterial ref={shellMat} transparent opacity={0} depthWrite={false} depthTest={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+                    <meshBasicMaterial ref={shellMat} {...ADDITIVE_MATERIAL_PROPS} depthTest={false} side={THREE.DoubleSide} />
                 </mesh>
                 <group ref={rayRoot}>
                     {Array.from({ length: 9 }, (_, index) => (
                         <mesh ref={(mesh) => { rayRefs.current[index] = mesh; }} key={index} rotation={[0, 0, index * Math.PI * 2 / 9]}>
                             <planeGeometry args={[1.7 + (index % 2) * 0.45, 0.065]} />
-                            <meshBasicMaterial ref={(material) => { rayMats.current[index] = material; }} transparent opacity={0} depthWrite={false} depthTest={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+                            <meshBasicMaterial ref={(material) => { rayMats.current[index] = material; }} {...ADDITIVE_MATERIAL_PROPS} depthTest={false} side={THREE.DoubleSide} />
                         </mesh>
                     ))}
                 </group>
             </Billboard>
             <mesh rotation={[-Math.PI / 2, 0, 0]}>
                 <ringGeometry args={[0.44, 0.58, 40]} />
-                <meshBasicMaterial ref={groundMat} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+                <meshBasicMaterial ref={groundMat} {...ADDITIVE_MATERIAL_PROPS} side={THREE.DoubleSide} />
             </mesh>
         </group>
     );
@@ -1013,11 +1012,11 @@ export function SuperPillar({ drive }: { drive: React.MutableRefObject<PillarDri
         <group>
             <mesh ref={beam} visible={false}>
                 <cylinderGeometry args={[1, 1.25, 8.5, 20, 1, true]} />
-                <meshBasicMaterial ref={beamMat} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+                <meshBasicMaterial ref={beamMat} {...ADDITIVE_MATERIAL_PROPS} side={THREE.DoubleSide} />
             </mesh>
             <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
                 <ringGeometry args={[0.82, 1, 48]} />
-                <meshBasicMaterial ref={ringMat} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+                <meshBasicMaterial ref={ringMat} {...ADDITIVE_MATERIAL_PROPS} side={THREE.DoubleSide} />
             </mesh>
         </group>
     );
