@@ -392,6 +392,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     // ── Preferences & cosmetics ─────────────────────────────────────────────
     f('masteryFocus', 'character', 'client-preference', 'recommendations', [], 'allowlisted Activity Spine focus; unknown values normalize to Auto'),
     f('warfrontLoadout', 'character', 'client-preference', 'pet-arena', [], 'Warfront stance/doctrine/auto-buy picks (account-level, was per-device localStorage); client validates on read, never affects rewards'),
+    f('petTutorialProgress', 'character', 'client-preference', 'pet-arena', ['combat-strip-char'], 'bounded chapter completion for Tamer Tomoe field guide; presentation only'),
     f('nindo', 'character', 'client-preference', 'profile', [], 'moderated BBCode creed'),
     f('nindoBg', 'character', 'cosmetic-ref', 'profile', [], 'allowlisted preset id'),
     f('bloodline', 'character', 'client-state', 'bloodlines', [], 'starter bloodline choice; gates the first-save starter jutsu kit'),

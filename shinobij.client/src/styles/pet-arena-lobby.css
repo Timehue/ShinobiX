@@ -364,3 +364,26 @@
 @media (prefers-reduced-motion: reduce) {
     .pet-arena-activity-nav button,.pet-arena-destination,.pet-party-switch i,.pet-party-switch i::after { transition: none; }
 }
+.pet-arena-guide-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-width: 44px;
+    min-height: 44px;
+    margin-left: auto;
+    padding: 9px 13px;
+    border: 1px solid rgba(244, 184, 96, .52);
+    border-radius: 999px;
+    background: rgba(9, 15, 24, .82);
+    color: #f8dda9;
+    font: 800 .68rem/1 Inter, system-ui, sans-serif;
+    letter-spacing: .04em;
+}
+
+.pet-arena-guide-button:hover { border-color: #f4b860; background: rgba(244, 184, 96, .15); }
+.pet-arena-guide-button:focus-visible { outline: 3px solid #f6d18f; outline-offset: 3px; }
+
+@media (max-width: 600px) {
+    .pet-arena-guide-button span { display: none; }
+}

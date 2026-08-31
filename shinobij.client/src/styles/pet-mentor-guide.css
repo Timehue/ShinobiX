@@ -1,0 +1,286 @@
+.pet-mentor-backdrop {
+    background:
+        radial-gradient(circle at 18% 22%, rgba(244, 184, 96, .17), transparent 32%),
+        radial-gradient(circle at 82% 78%, rgba(72, 173, 128, .12), transparent 34%),
+        rgba(3, 7, 14, .9);
+    padding: clamp(10px, 2.5vw, 30px);
+}
+
+.ui-modal-card.pet-mentor-modal {
+    width: min(1180px, 97vw);
+    max-width: 1180px;
+    max-height: min(92dvh, 940px);
+    overflow: hidden;
+    border: 1px solid rgba(244, 184, 96, .52);
+    border-radius: 22px;
+    background: #0b111b;
+    box-shadow: 0 30px 90px rgba(0, 0, 0, .72), 0 0 70px rgba(244, 184, 96, .08);
+}
+
+.ui-modal-card.pet-mentor-modal > .ui-modal-body--bare { overflow: hidden; }
+
+.pet-mentor-guide {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: min(790px, 88dvh);
+    min-height: 0;
+    color: #e8edf5;
+    background:
+        linear-gradient(135deg, rgba(244, 184, 96, .035), transparent 42%),
+        linear-gradient(#0c131f, #080d15);
+}
+
+.pet-mentor-hero {
+    position: relative;
+    min-height: 176px;
+    display: grid;
+    grid-template-columns: 185px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 22px;
+    padding: 22px 28px 38px;
+    overflow: hidden;
+    border-bottom: 1px solid rgba(244, 184, 96, .24);
+    background:
+        linear-gradient(90deg, rgba(4, 9, 15, .2), rgba(4, 9, 15, .83) 42%, rgba(4, 9, 15, .96)),
+        radial-gradient(circle at 14% 52%, rgba(244, 184, 96, .25), transparent 30%);
+}
+
+.pet-mentor-hero::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0;
+    height: 3px;
+    background: linear-gradient(90deg, #f4b860, #76c893 52%, transparent 88%);
+    opacity: .72;
+}
+
+.pet-mentor-portraits {
+    position: relative;
+    width: 176px;
+    height: 122px;
+}
+
+.pet-mentor-portraits img {
+    position: absolute;
+    width: 112px;
+    height: 112px;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 3px solid #f4b860;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .52);
+}
+
+.pet-mentor-portraits img:first-child { left: 0; top: 0; z-index: 2; }
+.pet-mentor-portraits img:last-child { right: 0; bottom: 0; border-color: #76c893; transform: scale(.82); }
+
+.pet-mentor-hero-copy { min-width: 0; }
+.pet-mentor-kicker,
+.pet-mentor-lesson-topline,
+.pet-mentor-page > span {
+    color: #f4c77f;
+    font: 800 .7rem/1.2 Inter, system-ui, sans-serif;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+}
+
+.pet-mentor-hero h2 {
+    margin: 5px 0 7px;
+    color: #fff4df;
+    font: 850 clamp(1.55rem, 3vw, 2.45rem)/1.02 var(--font-display, Inter), system-ui, sans-serif;
+}
+
+.pet-mentor-hero p { max-width: 720px; margin: 0; color: #bdc8d8; line-height: 1.55; }
+.pet-mentor-close {
+    align-self: start;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, .16);
+    background: rgba(5, 9, 15, .64);
+    color: #eef2f7;
+    font-size: 1.55rem;
+}
+
+.pet-mentor-progress {
+    position: absolute;
+    left: 235px;
+    right: 74px;
+    bottom: 13px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #91a0b4;
+    font-size: .72rem;
+}
+
+.pet-mentor-progress-track { flex: 1; height: 5px; overflow: hidden; border-radius: 99px; background: rgba(255, 255, 255, .09); }
+.pet-mentor-progress-track > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #f4b860, #76c893); transition: width .3s ease; }
+
+.pet-mentor-layout { position: relative; display: grid; grid-template-columns: 275px minmax(0, 1fr); min-height: 0; }
+.pet-mentor-curriculum {
+    min-height: 0;
+    padding: 18px 14px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-right: 1px solid rgba(255, 255, 255, .08);
+    background: rgba(5, 10, 17, .72);
+}
+
+.pet-mentor-curriculum button {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 7px;
+    padding: 11px 10px;
+    text-align: left;
+    border: 1px solid transparent;
+    border-radius: 11px;
+    background: transparent;
+    color: #c7d0de;
+}
+
+.pet-mentor-curriculum button:hover:not([aria-disabled="true"]) { background: rgba(255, 255, 255, .045); border-color: rgba(244, 184, 96, .16); }
+.pet-mentor-curriculum button.is-active { background: linear-gradient(90deg, rgba(244, 184, 96, .16), rgba(244, 184, 96, .035)); border-color: rgba(244, 184, 96, .4); color: #fff3dc; }
+.pet-mentor-curriculum button.is-complete .pet-mentor-chapter-number { background: rgba(118, 200, 147, .18); border-color: #76c893; color: #a7f3c1; }
+.pet-mentor-curriculum button[aria-disabled="true"] { opacity: .52; cursor: not-allowed; }
+.pet-mentor-curriculum strong { display: block; font-size: .83rem; }
+.pet-mentor-curriculum small { display: block; margin-top: 2px; color: #7f8da2; font-size: .64rem; line-height: 1.25; }
+.pet-mentor-chapter-number { display: grid; place-items: center; width: 31px; height: 31px; border: 1px solid #465267; border-radius: 50%; color: #9eabc0; font-size: .68rem; font-weight: 900; }
+.pet-mentor-lock { color: #738096; font-size: .76rem; }
+
+.pet-mentor-lesson { min-width: 0; min-height: 0; padding: 25px clamp(20px, 4vw, 48px) 22px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.pet-mentor-lesson-topline { display: flex; justify-content: space-between; gap: 20px; }
+.pet-mentor-lesson-topline span:last-child { color: #7f8da2; }
+.pet-mentor-lesson h3 { margin: 7px 0 4px; color: #fff6e7; font: 850 clamp(1.45rem, 2.5vw, 2.2rem)/1.08 var(--font-display, Inter), system-ui, sans-serif; }
+.pet-mentor-summary { margin: 0; color: #9daabe; line-height: 1.45; }
+
+.pet-mentor-story {
+    position: relative;
+    min-height: 142px;
+    margin: 16px 0 1px;
+    overflow: hidden;
+    border: 1px solid rgba(244, 184, 96, .27);
+    border-radius: 14px;
+    background: #070d14;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, .25);
+}
+
+.pet-mentor-story::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(90deg, rgba(5, 10, 17, .96) 0%, rgba(5, 10, 17, .77) 36%, transparent 72%);
+}
+
+.pet-mentor-story img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 48%; }
+.pet-mentor-story figcaption { position: relative; z-index: 1; width: min(53%, 470px); padding: 17px 20px; }
+.pet-mentor-story figcaption > span { color: #f4c77f; font-size: .62rem; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+.pet-mentor-story figcaption > strong { display: block; margin: 3px 0 5px; color: #fff4df; font: 800 1rem/1.2 var(--font-display, Inter), system-ui, sans-serif; }
+.pet-mentor-story figcaption > p { margin: 0; color: #c3cddd; font-size: .75rem; line-height: 1.45; }
+.pet-mentor-story.is-finale::after { background: linear-gradient(90deg, rgba(5, 10, 17, .94), rgba(5, 10, 17, .64) 40%, transparent 76%); }
+
+.pet-mentor-page-dots { display: flex; gap: 2px; margin: 5px 0; }
+.pet-mentor-page-dots button { position: relative; width: 44px; height: 44px; padding: 0; border: 0; background: transparent; }
+.pet-mentor-page-dots button::before { content: ""; position: absolute; inset: 19px 5px; border-radius: 99px; background: #303b4d; }
+.pet-mentor-page-dots button.is-read::before { background: #557264; }
+.pet-mentor-page-dots button.is-active::before { background: #f4b860; box-shadow: 0 0 13px rgba(244, 184, 96, .42); }
+
+.pet-mentor-page {
+    min-height: 335px;
+    padding: clamp(18px, 3vw, 30px);
+    border: 1px solid rgba(255, 255, 255, .09);
+    border-radius: 16px;
+    background:
+        linear-gradient(135deg, rgba(244, 184, 96, .07), transparent 42%),
+        rgba(15, 23, 36, .78);
+    box-shadow: inset 0 1px rgba(255, 255, 255, .025);
+}
+
+.pet-mentor-page h4 { margin: 6px 0 11px; color: #edf3fb; font-size: clamp(1.2rem, 2.2vw, 1.65rem); }
+.pet-mentor-page p { margin: 0 0 16px; color: #c0cad8; line-height: 1.65; }
+.pet-mentor-page ul { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+.pet-mentor-page li { position: relative; padding-left: 22px; color: #aebaca; line-height: 1.45; }
+.pet-mentor-page li::before { content: "◆"; position: absolute; left: 2px; top: .15em; color: #76c893; font-size: .66rem; }
+.pet-mentor-page blockquote { margin: 18px 0 0; padding: 11px 14px; border-left: 3px solid #f4b860; border-radius: 0 9px 9px 0; background: rgba(244, 184, 96, .07); color: #f2d8aa; font-style: italic; }
+
+.pet-mentor-actions { display: flex; align-items: center; gap: 12px; margin-top: 17px; }
+.pet-mentor-actions button { min-height: 44px; padding: 9px 15px; border-radius: 10px; font-weight: 800; }
+.pet-mentor-primary { margin-left: auto; border-color: #d89a43; background: linear-gradient(135deg, #d99538, #ad632b); color: #fff9ee; box-shadow: 0 8px 22px rgba(173, 99, 43, .2); }
+.pet-mentor-secondary { border-color: #445168; background: #151e2c; color: #cbd5e1; }
+.pet-mentor-secondary:disabled { opacity: .35; }
+.pet-mentor-level-note { color: #91a0b4; font-size: .69rem; }
+.pet-mentor-final-actions { margin-left: auto; display: flex; gap: 9px; }
+.pet-mentor-final-actions .pet-mentor-primary { margin-left: 0; }
+
+.pet-mentor-guide button:focus-visible {
+    outline: 3px solid #f6d18f;
+    outline-offset: 3px;
+}
+
+.pet-mentor-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+@media (max-width: 760px) {
+    .ui-modal-card.pet-mentor-modal { width: 100%; max-height: 96dvh; border-radius: 15px; }
+    .pet-mentor-guide { height: min(900px, 92dvh); min-height: 0; }
+    .pet-mentor-hero { grid-template-columns: 96px minmax(0, 1fr) auto; min-height: 145px; gap: 8px; padding: 16px 14px 34px; }
+    .pet-mentor-portraits { width: 96px; height: 83px; }
+    .pet-mentor-portraits img { width: 70px; height: 70px; border-width: 2px; }
+    .pet-mentor-portraits img:last-child { right: 0; bottom: 0; width: 59px; height: 59px; transform: none; }
+    .pet-mentor-hero-copy p { display: none; }
+    .pet-mentor-kicker { font-size: .57rem; letter-spacing: .09em; }
+    .pet-mentor-hero h2 { font-size: 1.35rem; }
+    .pet-mentor-close { width: 44px; height: 44px; }
+    .pet-mentor-progress { left: 118px; right: 54px; bottom: 10px; }
+    .pet-mentor-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+    }
+    .pet-mentor-curriculum { display: flex; gap: 7px; padding: 10px; overflow-x: auto; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, .08); }
+    .pet-mentor-curriculum button { flex: 0 0 150px; grid-template-columns: 29px minmax(0, 1fr); margin: 0; padding: 8px; }
+    .pet-mentor-lock { display: none; }
+    .pet-mentor-chapter-number { width: 27px; height: 27px; }
+    .pet-mentor-lesson { max-height: none; padding: 17px 14px 16px; }
+    .pet-mentor-page { min-height: 0; padding: 17px; }
+    .pet-mentor-story { min-height: 118px; margin-top: 13px; }
+    .pet-mentor-story::after,
+    .pet-mentor-story.is-finale::after { background: linear-gradient(90deg, rgba(5, 10, 17, .94), rgba(5, 10, 17, .63) 72%, rgba(5, 10, 17, .24)); }
+    .pet-mentor-story img { object-position: 58% center; }
+    .pet-mentor-story figcaption { width: 78%; padding: 13px 14px; }
+    .pet-mentor-story figcaption > p { display: none; }
+    .pet-mentor-actions { flex-wrap: wrap; }
+    .pet-mentor-level-note { order: 3; width: 100%; text-align: center; }
+    .pet-mentor-final-actions { width: 100%; margin-left: 0; }
+    .pet-mentor-final-actions button { flex: 1; }
+    .pet-mentor-actions > .pet-mentor-primary { margin-left: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pet-mentor-backdrop,
+    .ui-modal-card.pet-mentor-modal { animation: none; }
+    .pet-mentor-progress-track > span { transition: none; }
+}
+
+@media (forced-colors: active) {
+    .pet-mentor-page-dots button::before,
+    .pet-mentor-progress-track { border: 1px solid CanvasText; }
+    .pet-mentor-page-dots button.is-active::before,
+    .pet-mentor-progress-track > span { background: Highlight; }
+}
