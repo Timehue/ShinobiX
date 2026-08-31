@@ -12,6 +12,8 @@
  * Extracted from App.tsx.
  */
 
+import { isPremiumVnEvent } from "./vn-storywide-direction";
+
 /**
  * Slug-ifies a speaker name into a /portraits/<slug>.png path. Returns ""
  * for empty / Narrator / Player so callers can decide whether to hide
@@ -38,7 +40,12 @@ export function resolveVnAuthoredActorImage(
     authoredImage?: string,
 ): string {
     const authored = authoredImage?.trim() ?? "";
-    if (!authored || !eventId.startsWith("story-")) return authored;
+    if (!authored || !isPremiumVnEvent(eventId)) return authored;
+    // The pet encounter's actor is selected at runtime, so it cannot have a
+    // stable name-to-file entry in the storywide cast ledger. WorldMap supplies
+    // the discovered pet's already-authoritative card art for this one system
+    // event; keep the premium identity lock for every authored human actor.
+    if (eventId === "sys-pet-encounter") return authored;
     const canonical = defaultVnPortrait(actorName);
     const slug = canonical.slice("/portraits/".length, -".webp".length);
     if (!slug) return "";
@@ -66,7 +73,7 @@ export function resolveVnActorBaseImage(
     const authored = resolveVnAuthoredActorImage(eventId, actorName, authoredImage);
     if (authored) return authored;
     const canonical = defaultVnPortrait(actorName);
-    if (eventId.startsWith("story-")) return canonical;
+    if (isPremiumVnEvent(eventId)) return canonical;
     return eventAvatarImage?.trim() || canonical;
 }
 
@@ -209,6 +216,7 @@ export function serializeDialogueLines(lines: DialogueLine[]): string {
 function looksLikeSpeakerName(prefix: string, fallbackSpeaker: string): boolean {
     const p = prefix.trim();
     if (!p || p.length > 32) return false;
+    if (p === "%name") return true;
     if (p.toLowerCase() === fallbackSpeaker.trim().toLowerCase()) return true;
     if (/[.!?,;'’\d—–]/.test(p)) return false;
     const words = p.split(/\s+/);

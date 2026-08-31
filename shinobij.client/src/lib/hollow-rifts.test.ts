@@ -13,6 +13,7 @@ import {
 import { hollowRifts } from "../data/hollow-rifts";
 import { builtinAis } from "./combat-ai";
 import { CASTLE_SECTORS, OUTSKIRTS_SECTORS, MAX_WILD_SECTOR } from "../../../shared/sector-geo";
+import { resolveStorywideActorImage } from "./vn-storywide-direction";
 
 const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "public");
 const publicAssetExists = (p: string) => existsSync(join(PUBLIC_DIR, p.replace(/^\//, "")));
@@ -83,24 +84,28 @@ test("nextRift PREFERS the highest tier reached but still surfaces lower rifts",
     assert.ok(legacy >= 1, `intro rift still surfaces (got ${legacy})`);
 });
 
-test("rift VN portraits are wired to real assets (giver face + boss crop, Narrator none)", () => {
+test("rift map portraits remain valid while VN pages defer to cinematic actor routes", () => {
     for (const rift of hollowRifts) {
         const giverArt = riftGiverPortrait(rift);
         const bossArt = riftBossPortrait(rift);
-        // The referenced files must actually be on disk (no initials fallback).
+        // Compact map/combat surfaces keep their square portraits.
         assert.ok(publicAssetExists(giverArt), `${rift.id}: missing giver portrait ${giverArt}`);
         assert.ok(publicAssetExists(bossArt), `${rift.id}: missing boss portrait ${bossArt}`);
-        // Giver-spoken intro pages carry the giver's face…
+
+        const giverCinematic = resolveStorywideActorImage(`rift-giver-${rift.slug}`, rift.giverName);
+        const bossCinematic = resolveStorywideActorImage(`rift-descend-${rift.slug}`, rift.bossName);
+        assert.match(giverCinematic ?? "", /^\/portraits\/cinematic\//, `${rift.id}: missing cinematic giver`);
+        assert.match(bossCinematic ?? "", /^\/portraits\/cinematic\//, `${rift.id}: missing cinematic boss`);
+        assert.ok(publicAssetExists(giverCinematic!), `${rift.id}: missing cinematic giver asset`);
+        assert.ok(publicAssetExists(bossCinematic!), `${rift.id}: missing cinematic boss asset`);
+
+        // VN pages deliberately carry no boxed-art override; the central
+        // premium resolver binds the named actor to its transparent cutout.
         for (const page of riftIntroEvent(rift, 20, "shadow").vnPages!) {
-            if ((page.speaker ?? "").trim().toLowerCase() === rift.giverName.trim().toLowerCase()) {
-                assert.equal(page.rightImage, giverArt, `${rift.id}: giver page portrait`);
-            }
+            assert.equal(page.rightImage, undefined, `${rift.id}: intro page bypasses cinematic routing`);
         }
-        // …the descent boss page carries the boss crop, the Narrator page none.
         for (const page of riftDescentEvent(rift, "shadow").vnPages!) {
-            const sp = (page.speaker ?? "").trim().toLowerCase();
-            if (sp === rift.bossName.trim().toLowerCase()) assert.equal(page.rightImage, bossArt, `${rift.id}: boss page portrait`);
-            else if (sp === "narrator") assert.equal(page.rightImage, undefined, `${rift.id}: narrator page has no portrait`);
+            assert.equal(page.rightImage, undefined, `${rift.id}: descent page bypasses cinematic routing`);
         }
     }
 });

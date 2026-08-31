@@ -10,7 +10,6 @@ import "../styles/card-pack-opening.css";
 // Compact local event-modal glyphs shared with the rest of the game.
 import {
     GiCardPickup,
-    GiChest,
     GiOpenTreasureChest,
     GiPawPrint,
     GiTrail,
@@ -91,7 +90,6 @@ import { createPortal } from "react-dom";
 import { travelMaskMs } from "../lib/travel-mask";
 import { serverNow } from "../lib/server-clock";
 import { peerIsTraveling } from "../lib/presence-character";
-import { playGameSfx, primeGameAudio } from "../lib/game-audio";
 
 // Anbu Vault Infiltration (anbuInfiltration.v1) — lazy so the raid (which pulls
 // in the whole BattleTowerFight screen) never weighs down the WorldMap chunk.
@@ -140,7 +138,7 @@ import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
 import type { SectorPeer } from "../components/SectorPeers";
 import { isWeeklyBossRoamEnabled, weeklyBossRoamState, weeklyBossRoamCooldownId, WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS, type RoamingBoss } from "../lib/weekly-boss-roam";
 import { playerNameTile } from "../lib/sector-tile";
-import { defaultVnScene, hidePlayerPortraitDuringNarration, splitDialogueLine } from "../lib/vn";
+import { defaultVnScene, splitDialogueLine } from "../lib/vn";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
 import { createPvpSessionWithRecovery, pvpStableBattleIdFromRequestBody } from "../lib/pvp-session-create";
 import type { PendingPvpRecovery } from "../lib/pvp-pending-session";
@@ -3808,54 +3806,38 @@ export function WorldMap({
         else alert("The sealed practice arena is unavailable. Your event remains open.");
     }
     if (activePetEncounter && !petVnDone) {
-        const vn = petEncounterVn;
-        const pages = vn.vnPages && vn.vnPages.length > 0 ? vn.vnPages : [{ title: vn.vnTitle || vn.name, scene: vn.vnScene || "", speaker: vn.vnSpeaker || "Narrator", dialogue: vn.dialogue, image: vn.image, choices: [] }];
-        const page = pages[Math.min(petVnPage, pages.length - 1)];
-        const pageDialogue = page.dialogue.length > 0 ? page.dialogue : vn.dialogue;
-        const activeLine = pageDialogue[petVnLine] ?? pageDialogue[0] ?? page.scene ?? "Fresh tracks stop beside your own.";
-        const { speaker, text: spoken } = splitDialogueLine(activeLine, page.speaker || vn.vnSpeaker || "Narrator");
-        const initials = speaker === "Narrator" ? "..." : speaker.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
-        const pageImage = page.image || vn.image || activePetEncounter.image || defaultVnScene(vn.id, "forest");
-        const canBack = petVnLine > 0 || petVnPage > 0;
-        const isLastPage = petVnPage >= pages.length - 1;
-        const isLastLine = petVnLine >= pageDialogue.length - 1;
-
-        function vnBack() {
-            if (petVnLine > 0) { setPetVnLine((l) => l - 1); return; }
-            if (petVnPage > 0) { const prev = pages[petVnPage - 1]; setPetVnPage((p) => p - 1); setPetVnLine(Math.max(0, (prev.dialogue.length || 1) - 1)); }
-        }
-        function vnNext() {
-            if (!isLastLine) { setPetVnLine((l) => l + 1); return; }
-            if (!isLastPage) { setPetVnPage((p) => p + 1); setPetVnLine(0); return; }
-            setPetVnDone(true);
-        }
-
+        const petActorImage = petCardImage(activePetEncounter, sharedImages);
+        const sourcePages: NonNullable<CreatorEvent["vnPages"]> = petEncounterVn.vnPages?.length
+            ? petEncounterVn.vnPages
+            : [{
+                title: petEncounterVn.vnTitle || petEncounterVn.name,
+                scene: petEncounterVn.vnScene || "Fresh tracks stop beside your own.",
+                speaker: petEncounterVn.vnSpeaker || "Narrator",
+                dialogue: petEncounterVn.dialogue,
+            }];
+        const cinematicPetEvent: CreatorEvent = {
+            ...petEncounterVn,
+            biome: "forest",
+            avatarImage: petActorImage || petEncounterVn.avatarImage,
+            vnPages: sourcePages.map((page) => ({
+                ...page,
+                rightName: page.rightName || activePetEncounter.name,
+                rightImage: page.rightImage || petActorImage || undefined,
+            })),
+        };
         return (
-            <div className="card cinematic-card">
-                <div className="visual-novel admin-vn-play">
-                    <div className="vn-header">
-                        <div>
-                            <p className="act-label"><GiPawPrint style={{ verticalAlign: "-0.14em", marginRight: "0.3rem" }} />PET ENCOUNTER</p>
-                            <h2>{page.title || vn.vnTitle || "Tracks Beside Your Own"}</h2>
-                        </div>
-                        <div className="vn-progress">Page {petVnPage + 1}/{pages.length} | Line {petVnLine + 1}/{Math.max(1, pageDialogue.length)}</div>
-                    </div>
-                    <div className={"vn-stage vn-biome-forest" + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}>
-                        <div className="vn-backdrop"><span className="vn-village-silhouette" /></div>
-                        <div className="vn-character mentor-character">{character.avatarImage ? <img src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : character.name.slice(0, 2).toUpperCase()}</div>
-                        <div className="vn-character hero-character">{(() => { const heroImg = petCardImage(activePetEncounter, sharedImages); return heroImg ? <img src={heroImg} alt={activePetEncounter.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : "🐾"; })()}</div>
-                        <div className="vn-scene-card">{page.scene || vn.vnScene || "Something moves through the undergrowth."}</div>
-                        <div className="vn-dialogue">
-                            <div className="vn-speaker">{speaker === "Narrator" ? initials : speaker}</div>
-                            <p>{spoken}</p>
-                            <div className="vn-controls">
-                                <button disabled={!canBack} onClick={vnBack}>Back</button>
-                                <button onClick={vnNext}>{isLastPage && isLastLine ? "Continue" : "Next"}</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <TriggeredVisualNovel
+                event={cinematicPetEvent}
+                character={character}
+                pageIndex={petVnPage}
+                lineIndex={petVnLine}
+                setPageIndex={setPetVnPage}
+                setLineIndex={setPetVnLine}
+                onCancel={() => setPetVnDone(true)}
+                onComplete={() => setPetVnDone(true)}
+                onBattle={() => setPetVnDone(true)}
+                sharedImages={sharedImages}
+            />
         );
     }
 
@@ -4110,93 +4092,20 @@ export function WorldMap({
     }
     if (activeChest && !chestVnDone) {
         const biome = biomeForSector(selectedSector ?? 40);
-        const biomeLabelText = biome === "snow" ? "frozen tundra" : biome === "volcano" ? "volcanic ash fields" : biome === "shadow" ? "shadowed ruins" : biome === "central" ? "ancient central district" : "dense forest";
-        const vnPages = [
-            {
-                title: "A Seal Under the Rubble",
-                scene: `A straight lacquered edge shows beneath the moss of a collapsed waystation in the ${biomeLabelText}.`,
-                speaker: "Narrator",
-                dialogue: [
-                    "Narrator: You clear two loose stones and uncover a shinobi courier chest, lacquer split but hinges intact.",
-                    `${character.name}: Three field seals. Water, rot, and chakra tampering. Old quartermaster work.`,
-                    "Narrator: The final seal has weakened with age. It is not choosing you. It is simply failing.",
-                    `${character.name}: The release order is cut beside the hinge. I can open this without breaking it.`,
-                    "Narrator: You feed a narrow thread of chakra through each mark. The lock gives with a dry click.",
-                ],
-            },
-            {
-                title: "The Chest Opens",
-                scene: "The old courier chest opens on a row of oilcloth bundles.",
-                speaker: "Narrator",
-                dialogue: [
-                    "Narrator: The hinges complain loudly enough to wake every bird in the waystation roof.",
-                    `${character.name}: Oilcloth bundles. That patrol mark is older than the present village borders.`,
-                    "Narrator: Whoever packed the cache expected to come back. They never did.",
-                    `${character.name}: Take what the road can use. Leave the lid upright so the next patrol knows it is clear.`,
-                ],
-            },
-        ];
-        const page = vnPages[Math.min(chestVnPage, vnPages.length - 1)];
-        const pageDialogue = page.dialogue;
-        const activeLine = pageDialogue[chestVnLine] ?? pageDialogue[0];
-        const { speaker, text: spoken } = splitDialogueLine(activeLine, "Narrator");
-        const hidePlayerPortrait = hidePlayerPortraitDuringNarration(speaker, "Player");
-        const initials = speaker === "Narrator" ? "..." : speaker.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
-        const canBack = chestVnLine > 0 || chestVnPage > 0;
-        const isLastPage = chestVnPage >= vnPages.length - 1;
-        const isLastLine = chestVnLine >= pageDialogue.length - 1;
-        function chestVnBack() {
-            if (chestVnLine > 0) { setChestVnLine((l) => l - 1); return; }
-            if (chestVnPage > 0) { const prev = vnPages[chestVnPage - 1]; setChestVnPage((p) => p - 1); setChestVnLine(Math.max(0, prev.dialogue.length - 1)); }
-        }
-        function chestVnNext() {
-            primeGameAudio(["decision", "reveal"]);
-            if (!isLastLine) { setChestVnLine((l) => l + 1); return; }
-            if (!isLastPage) {
-                playGameSfx("decision", { gain: 0.58 });
-                setChestVnPage((p) => p + 1);
-                setChestVnLine(0);
-                return;
-            }
-            playGameSfx("reveal", { gain: 0.78 });
-            setChestVnDone(true);
-        }
-
-        const chestPageImage = ancientChestVn.vnPages?.[chestVnPage]?.image || ancientChestVn.image || defaultVnScene(ancientChestVn.id, biome);
+        const cinematicChestEvent: CreatorEvent = { ...ancientChestVn, biome };
         return (
-            <div className="card cinematic-card ancient-chest-vn-card">
-                <div className="visual-novel admin-vn-play">
-                    <div className="vn-header">
-                        <div>
-                            <p className="act-label"><GiChest style={{ verticalAlign: "-0.14em", marginRight: "0.3rem" }} />ANCIENT CHEST DISCOVERED</p>
-                            <h2>{page.title}</h2>
-                        </div>
-                        <div className="vn-progress">Page {chestVnPage + 1}/{vnPages.length} | Line {chestVnLine + 1}/{pageDialogue.length}</div>
-                    </div>
-                    <div className={`vn-stage vn-biome-${biome}${chestPageImage ? " vn-has-image" : ""}`} style={chestPageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${chestPageImage})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}>
-                        <div className="vn-backdrop">
-                            {!chestPageImage && <span className="vn-village-silhouette" />}
-                        </div>
-                        {hidePlayerPortrait ? null : <div className="vn-character mentor-character">
-                            {(() => {
-                                const playerAvatar = sharedImages?.['avatar:' + character.name.trim().toLowerCase()] || character.avatarImage || "";
-                                return playerAvatar
-                                    ? <img src={playerAvatar} alt={character.name} />
-                                    : character.name.slice(0, 2).toUpperCase();
-                            })()}
-                        </div>}
-                        <div className="vn-scene-card">{page.scene}</div>
-                        <div className="vn-dialogue">
-                            <div className="vn-speaker">{speaker === "Narrator" ? initials : speaker}</div>
-                            <p>{spoken}</p>
-                            <div className="vn-controls">
-                                <button disabled={!canBack} onClick={chestVnBack}>Back</button>
-                                <button onClick={chestVnNext}>{isLastPage && isLastLine ? "Open Chest" : "Next"}</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <TriggeredVisualNovel
+                event={cinematicChestEvent}
+                character={character}
+                pageIndex={chestVnPage}
+                lineIndex={chestVnLine}
+                setPageIndex={setChestVnPage}
+                setLineIndex={setChestVnLine}
+                onCancel={() => setChestVnDone(true)}
+                onComplete={() => setChestVnDone(true)}
+                onBattle={() => setChestVnDone(true)}
+                sharedImages={sharedImages}
+            />
         );
     }
 
