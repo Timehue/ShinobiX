@@ -7,13 +7,22 @@ import {
 } from '../_pet-sim/pet-config.js';
 import { activeCarriedPets } from '../_entitlements.js';
 import { petCombatBusyReason } from '../pet/_pet-busy.js';
+import { currentPetHappiness } from '../pet/_happiness.js';
+import {
+    PET_HAPPINESS_OBEDIENT,
+    PET_HAPPINESS_RESTLESS,
+    petHappinessCombatMult,
+    petHappinessDisobeyChance,
+} from '../../shared/pet-happiness.js';
 
 export const COMPANION_MAX_DAMAGE_FRAC = 0.16;
 export const COMPANION_FIELD_ROUNDS = 4;
 export const COMPANION_ACTOR_ID = 'companion-0';
 export const COMPANION_RANGE = 2;
-export const COMPANION_DISOBEY_CHANCE = 0.35;
-export const COMPANION_OBEDIENT_HAPPINESS = 71;
+/** The disobey chance of the RESTLESS band (50-70). Below 50 it is steeper —
+ *  see petHappinessDisobeyChance, which `companionObeys` actually rolls against. */
+export const COMPANION_DISOBEY_CHANCE = petHappinessDisobeyChance(PET_HAPPINESS_RESTLESS);
+export const COMPANION_OBEDIENT_HAPPINESS = PET_HAPPINESS_OBEDIENT;
 
 const SELF_KINDS = new Set(['heal', 'shield', 'barrier', 'buff', 'haste', 'absorb', 'taunt', 'move']);
 const SUPPORT_KINDS = new Set(['heal', 'shield', 'barrier']);
@@ -46,6 +55,8 @@ type PetLike = {
     defense?: number;
     speed?: number;
     happiness?: number;
+    happinessDay?: number;
+    happinessPets?: number;
     unlockedForPve?: boolean;
     training?: unknown;
     expedition?: unknown;
@@ -98,12 +109,20 @@ export function sealCompanionFromSave(char: Record<string, unknown>, now = Date.
             rounds: Math.max(1, Math.floor(Number(jutsu.rounds ?? 2)) || 2),
             signature: jutsu.signature === true,
         }));
+    // PROJECT the pending bond decay rather than reading `pet.happiness` raw:
+    // the owner may not have re-read their save since the UTC rollover, and a
+    // fight must never resolve against a happiness the player no longer has.
+    // Nothing is written here — the durable tick happens on the owner's save
+    // read and on any pet action (api/pet/_happiness.ts).
+    const happiness = currentPetHappiness(pet as Record<string, unknown>, now);
     return {
         petId: String(pet.id ?? ''),
         name: String(pet.nickname?.trim() || pet.name || 'Companion').slice(0, 40),
         hp: Math.max(1, Math.floor(Number(pet.hp ?? 0)) || 1),
-        damage: companionStrikeDamage(pet),
-        happiness: Math.max(0, Math.min(100, Math.floor(Number(pet.happiness ?? 0)) || 0)),
+        // A neglected companion hits softer (x0.9 unhappy / x0.8 neglected).
+        // The multiplier is 1 at 50+, so a maintained pet is untouched.
+        damage: Math.max(1, Math.floor(companionStrikeDamage(pet) * petHappinessCombatMult(happiness))),
+        happiness,
         loyal: petPveLoyalty(pet as never) === true,
         moves,
         pveGearId: Number(pet.loadout?.pveDurability ?? 0) > 0 ? String(pet.loadout?.pve ?? '') : '',
@@ -129,8 +148,17 @@ export function companionHealOnSummonPct(gearId: string): number {
     return gearId ? petPveHealOnSummonPct(asGearedPet(gearId)) : 0;
 }
 
+/**
+ * Does the companion follow its owner's command this round?
+ *
+ * The disobey chance now SCALES with happiness (shared/pet-happiness.ts) instead
+ * of being one flat 35% below the 71 cliff: 35% restless, 50% unhappy, 65%
+ * neglected. At or above 71 the chance is 0, so `roll >= 0` is always true and
+ * the pre-existing "happy pets always obey" rule is preserved exactly. A Loyal
+ * pet (or loyalty gear) still bypasses the roll entirely.
+ */
 export function companionObeys(happiness: number, loyal: boolean, roll: number): boolean {
-    return happiness >= COMPANION_OBEDIENT_HAPPINESS || loyal || roll >= COMPANION_DISOBEY_CHANCE;
+    return loyal || roll >= petHappinessDisobeyChance(happiness);
 }
 
 export function pickCompanionMove(

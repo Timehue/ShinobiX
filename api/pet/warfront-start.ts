@@ -114,7 +114,11 @@ const warfrontPetSnapshot = (pet: Pet): Pet => ({
     ...(pet.nickname ? { nickname: String(pet.nickname).slice(0, 80) } : {}),
     ...(pet.element ? { element: pet.element } : {}),
     ...(pet.trait ? { trait: pet.trait } : {}),
-    ...(pet.happiness !== undefined ? { happiness: pet.happiness } : {}),
+    // NO happiness. Owner ruling 2026-08-31: the bond only affects a companion the
+    // player SUMMONS in PvE (api/combat-core/companion.ts) — it must never reach a
+    // pet-vs-pet duel. Nothing in _pet-sim reads happiness and no client surface
+    // displays it from this payload, so carrying it here was dead weight that only
+    // invited someone to wire it in later. See shared/pet-happiness.ts.
     ...(pet.moveRange !== undefined ? { moveRange: pet.moveRange } : {}),
     ...(pet.loadout ? { loadout: { ...pet.loadout } } : {}),
     ...(pet.evolutionStage !== undefined ? { evolutionStage: pet.evolutionStage } : {}),

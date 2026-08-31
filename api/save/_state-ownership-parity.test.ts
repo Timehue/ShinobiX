@@ -234,6 +234,10 @@ const FROZEN = {
         'evolutionStage', 'wildSpawnable', 'role', 'subRole', 'updatedAt',
         'level', 'xp', 'hp', 'attack', 'defense', 'speed',
         'growthVersion', 'growthBaseStats', 'growthAllocation', 'growthPoints', 'happiness',
+        // Reviewed extension 2026-08-31: the bond-decay stamp + the free-petting
+        // budget counter must be server-owned for the same reason `happiness`
+        // itself is — a client save could otherwise rewind the daily decay.
+        'happinessDay', 'happinessPets',
         'training', 'expedition', 'nickname', 'loadout',
         'templateId', 'origin', 'breedingUsesMax', 'breedingUsesRemaining',
         'paletteVariantId', 'generation', 'parentInstanceIds', 'parentTemplateIds',

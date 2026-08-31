@@ -586,6 +586,20 @@
     transform: translateY(-1px);
     box-shadow: 0 0 16px rgba(78,168,255,0.45) !important;
 }
+/* The enabled gradient above is !important, so it beat the generic disabled
+   style and a disabled care button still read as clickable — which the Pet
+   button now needs, because it disables once the daily bond budget is spent.
+   Deliberately scoped to .pet-care-actions ONLY: `.menu button:disabled` has the
+   same latent problem, but fixing it here would restyle controls that already
+   shipped (Set as Active / Release under a breeding lock) in a change that is
+   supposed to alter behaviour, not appearance. */
+.pet-yard-screen .pet-care-actions button:disabled {
+    background: linear-gradient(180deg, #1b2334 0%, #131a28 100%) !important;
+    border-color: rgba(148,163,184,0.3) !important;
+    color: rgba(203,213,225,0.55) !important;
+    box-shadow: none !important;
+    cursor: not-allowed;
+}
 .pet-yard-screen .danger-button,
 .pet-yard-screen .back-btn,
 .pet-arena-screen .back-btn,

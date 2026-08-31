@@ -176,6 +176,15 @@ export type Pet = {
     unlockedForPve: boolean;
     trait?: PetTrait;
     happiness?: number;
+    // Bond upkeep bookkeeping — see shared/pet-happiness.ts. `happinessDay` is
+    // the UTC day index of the last decay settle and `happinessPets` the free
+    // petting points already spent that day. Both are server-owned; the client
+    // only reads them (petCurrentHappiness projects the pending decay for
+    // display so the meter is honest across a midnight rollover). Undefined on
+    // every save written before the decay shipped — that is "never settled",
+    // which stamps rather than retro-decays.
+    happinessDay?: number;
+    happinessPets?: number;
     training?: { type: PetTrainingType; endsAt: number; durationMs?: number };
     expedition?: PetExpedition;
     moveRange?: number; // tiles moved per turn (2–5); defaults to 2

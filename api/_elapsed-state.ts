@@ -6,6 +6,7 @@ import { bumpSaveVersion } from './save/_save-version.js';
 import { remapLegacySector, sectorBiomeOf, WORLD_GEO_VERSION } from '../shared/sector-geo.js';
 import { migrateCharacterOwnedPets } from './pet/_owned-pet.js';
 import { settlePetBreedingSession } from './pet/_breeding-requirements.js';
+import { settleCharacterPetHappiness } from './pet/_happiness.js';
 
 const AURA_SPHERE_ITEM_ID = 'aura-sphere';
 const VITAL_REGEN_MS = 1000;
@@ -300,10 +301,14 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
     if (opts.persist && projected.record.character && typeof projected.record.character === 'object') {
         const migrated = migrateCharacterOwnedPets(slug, projected.record.character as Record<string, unknown>);
         const breeding = settlePetBreedingSession(migrated.character, now);
-        if (migrated.changed || breeding.changed) {
+        // Pet bond decay ticks here — the owner's own save read is the once-a-day
+        // seam that durably applies it (shared/pet-happiness.ts). It is
+        // deliberately owner-only: a foreign profile read must never write.
+        const bond = settleCharacterPetHappiness(breeding.character, now);
+        if (migrated.changed || breeding.changed || bond.changed) {
             projected = {
                 ...projected,
-                record: { ...projected.record, character: breeding.character },
+                record: { ...projected.record, character: bond.character },
                 changed: true,
             };
         }
@@ -326,8 +331,9 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
         if (next.record.character && typeof next.record.character === 'object') {
             const migrated = migrateCharacterOwnedPets(slug, next.record.character as Record<string, unknown>);
             const breeding = settlePetBreedingSession(migrated.character, now);
-            if (migrated.changed || breeding.changed) {
-                next = { ...next, record: { ...next.record, character: breeding.character }, changed: true };
+            const bond = settleCharacterPetHappiness(breeding.character, now);
+            if (migrated.changed || breeding.changed || bond.changed) {
+                next = { ...next, record: { ...next.record, character: bond.character }, changed: true };
             }
         }
         if (!next.changed) return next;

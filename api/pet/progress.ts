@@ -5,7 +5,13 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { masteryBonus } from '../_profession-mastery.js';
-import { applyPetSummonCost, gainServerPetXp, petHappiness, PET_FEED_XP, PET_TRAINING_DURATIONS, PET_TRAINING_FOCI, removePetItem, settleFinishedTraining } from './_progress.js';
+import { applyPetSummonCost, gainServerPetXp, PET_FEED_XP, PET_TRAINING_DURATIONS, PET_TRAINING_FOCI, removePetItem, settleFinishedTraining } from './_progress.js';
+import { grantPetHappiness, petFreeInteraction, settlePetHappiness } from './_happiness.js';
+import {
+    PET_HAPPINESS_DAILY_PET_BUDGET,
+    clampHappiness,
+    petHappinessTrainingMult,
+} from '../../shared/pet-happiness.js';
 import { reportMissionEvent, type CompletedMissionInfo } from '../missions/_progress.js';
 import { recordPetBreedingProgress, type PetBreedingProgressEvent } from './_breeding-requirements.js';
 import { activeBreedingParentIds, petBusyMessage, petBusyReason } from './_pet-busy.js';
@@ -35,7 +41,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await mutatePlayerSave<{ action: string; pet: Record<string, unknown> | null; settledTraining?: string | null; gearBroke?: boolean; consumableSpent?: string | null }>(playerName, async ({ character }) => {
             const pets = Array.isArray(character.pets) ? character.pets as Array<Record<string, unknown>> : [];
             const index = pets.findIndex((pet) => String(pet?.id ?? '') === petId); if (index < 0) return { ok: false as const, status: 404, error: 'Pet not found.' };
-            const pet = pets[index]; let nextCharacter = character; let nextPet = pet;
+            // Settle the pending bond decay BEFORE anything reads happiness. We
+            // hold the save mutation lock here, so this is the authoritative
+            // tick even if the owner has not re-read their save since the UTC
+            // rollover — no pet action can bank a missed day.
+            const pet = settlePetHappiness(pets[index], now).pet;
+            let nextCharacter = character; let nextPet = pet;
             if (activeBreedingParentIds(character, now).has(petId)) {
                 return { ok: false as const, status: 409, error: 'This pet is in the breeding barn until the timer completes.' };
             }
@@ -80,7 +91,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const speedPct = character.profession === 'petTamer' ? Math.min(50, 10 + rank + masteryBonus(character.profession, character.masterySpec, 'petTrainTimePct')) : 0;
                     const effectiveMs = Math.max(60_000, Math.floor(durationMs * Math.max(0.5, 1 - speedPct / 100)));
                     const baseXp = PET_TRAINING_DURATIONS.get(durationMs)!;
-                    const mult = (workingPet.trait === 'Loyal' ? 1.5 : 1) * (petHappiness(workingPet) >= 80 ? 1.15 : petHappiness(workingPet) >= 50 ? 1.05 : 1);
+                    // Happiness ladder: 1.15 content / 1.05 steady+restless / 1
+                    // unhappy — unchanged from before — plus a 0.85 malus once a
+                    // pet is neglected (shared/pet-happiness.ts).
+                    const mult = (workingPet.trait === 'Loyal' ? 1.5 : 1) * petHappinessTrainingMult(clampHappiness(workingPet.happiness));
                     const masteryXp = character.profession === 'petTamer' ? masteryBonus(character.profession, character.masterySpec, 'petTrainXpPct') : 0;
                     // Village war MORALE at the SEAL. Pet training is server-settled,
                     // so the client-side multiplier this used to rely on had no seam
@@ -113,9 +127,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const afterItem = removePetItem(character, itemId); if (!afterItem) return { ok: false as const, status: 409, error: 'Pet food not owned.' };
                 nextCharacter = afterItem;
                 nextPet = Number(pet.level) >= Number(pet.maxLevel) ? { ...pet } : gainServerPetXp(pet, xp);
-                nextPet.happiness = Math.min(100, petHappiness(nextPet) + 10);
+                // Treats cost an item, so their +10 is NOT rationed by the daily
+                // free-petting budget.
+                nextPet = grantPetHappiness(nextPet, 10, now);
             } else if (action === 'pet') {
-                nextPet = { ...pet, happiness: Math.min(100, petHappiness(pet) + 10) };
+                // The free interaction IS rationed: without a cap, one click
+                // would undo a decay tick that cost nothing to avoid, and the
+                // whole upkeep loop would be decorative. See shared/pet-happiness.ts.
+                const petted = petFreeInteraction(pet, now);
+                if (!petted) {
+                    return {
+                        ok: false as const,
+                        status: 409,
+                        error: `${String(pet.nickname ?? '').trim() || String(pet.name ?? '').trim() || 'This companion'} has had all the attention it can take today — free petting gives up to +${PET_HAPPINESS_DAILY_PET_BUDGET}% a day and refills at the daily reset. Treats and bond training still raise its happiness.`,
+                    };
+                }
+                nextPet = petted;
             } else if (action === 'nickname') {
                 const nickname = String(body.nickname ?? '').trim().slice(0, 24); if (!nickname) return { ok: false as const, status: 400, error: 'Nickname required.' };
                 const shards = Math.max(0, Number(character.fateShards) || 0); if (shards < 10) return { ok: false as const, status: 409, error: 'Need 10 Fate Shards.' };
