@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from './_auth.js';
 import { writeAssetMeta, deleteAssetMeta, imageFormat } from './_asset-registry.js';
 import { recordAudit } from './_audit.js';
 import { r2WriteEnabled, putImage } from './_r2.js';
+import { bumpImageVersion, readImageVersion } from './_image-version.js';
 
 // Max raw image string length (≈ base64 of a ~2 MB image). Anything bigger is
 // rejected — keeps disk usage bounded and stops one player from filling the
@@ -389,7 +390,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         res.setHeader('Cache-Control', 'no-store');
                         return res.status(503).json({ error: 'image index temporarily unavailable' });
                     }
-                    return res.status(200).json(Array.from(new Set([...leaderKeys, ...blobKeys, ...hashKeys])));
+                    const ids = Array.from(new Set([...leaderKeys, ...blobKeys, ...hashKeys]));
+                    // `?ver=1` opts into the versioned shape so this endpoint's
+                    // long-standing bare-array contract is untouched for anything
+                    // still asking the old way (a CDN-cached client, admin tooling).
+                    // The version lets the client mint immutable /api/img URLs —
+                    // see api/_image-version.ts for why it is per-category. A null
+                    // read degrades to the unversioned URL, i.e. today's behaviour.
+                    if (req.query.ver) {
+                        const version = await readImageVersion(cat);
+                        return res.status(200).json(version === null ? { ids } : { version, ids });
+                    }
+                    return res.status(200).json(ids);
                 }
 
                 // Full-content mode (admin/bulk use) — fetch hash (primary) and
@@ -499,6 +511,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // authoritative; /api/img falls back to it and self-heals on read).
             await kv.set(`shared:img:${id}`, image).catch(() => undefined);
 
+            // This id now resolves to different bytes, so every cached
+            // /api/img?id=…&v=<old> URL must stop being reused. Bumping the
+            // category retires them all at once (api/_image-version.ts). Best-
+            // effort by contract — the writes above are authoritative.
+            await bumpImageVersion(cat);
+
             // Stage 3 (R2): also dual-write the decoded bytes to R2 so GET /api/img
             // can redirect there instead of reading Postgres (see api/_r2.ts +
             // docs/R2_IMAGE_MIGRATION_PLAN.md). Best-effort + gated: no-op unless
@@ -566,6 +584,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.hdel(catHashKey(cat), id);
             // Phase 2: also drop the per-image key so /api/img stops serving it.
             await kv.del(`shared:img:${id}`).catch(() => undefined);
+            // Retire the immutable URLs that still point at the deleted bytes,
+            // for the same reason as the upload path above.
+            await bumpImageVersion(cat);
             // Release the ownership claim so a fully-deleted slot is freed.
             await kv.del(imgOwnerKey(id)).catch(() => undefined);
             // Drop the registry metadata + audit the removal (best-effort).

@@ -4,6 +4,7 @@ import { cors } from '../_utils.js';
 import { isFullAdmin, rotatePlayerSessionEpoch } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { RESERVED_USERNAMES } from '../player-auth.js';
+import { bumpImageVersion } from '../_image-version.js';
 
 // Usernames whose save, auth, and registry entries survive a full server
 // reset. Sourced from the same RESERVED_USERNAMES set that gates registration,
@@ -240,6 +241,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (Object.keys(imgPayload).length > 0) {
                 await kv.hset('shared:imgfields:misc', imgPayload);
                 leaderReseed = Object.keys(imgPayload).length;
+                // Reseeded portraits are new bytes behind existing ids, so the
+                // immutable /api/img URLs holding the old ones have to retire
+                // (api/_image-version.ts). These land in the `misc` hash but are
+                // served as the `leader` category, and the leader manifest reads
+                // both — so both counters move.
+                await bumpImageVersion('leader');
+                await bumpImageVersion('misc');
             }
         } catch {
             // Non-fatal — portraits still load from game:village-leadership-images
