@@ -30,12 +30,15 @@ import { Billboard, Html, Sparkles } from "@react-three/drei";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { SHOWDOWN_POST_SHADER } from "../lib/showdown-post";
 import { petBloomEnabled } from "../lib/pet-coliseum-flag";
 import * as THREE from "three";
 import { PetModel3D, DEFAULT_PET_MODEL_FRAME, type PetModelFrame } from "./PetModel3D";
 import { PetModelBoundary } from "./PetModelBoundary";
+import { PetGraphicsQualityControl } from "./PetGraphicsQualityControl";
 import { petCombatModel, showdownFighterIdentity, type PetCombatModelConfig } from "../lib/pet-3d-models";
+import { petDuelModelCalibration } from "../lib/pet-duel-model-presentation";
 import { petHeroMoveStyle, type PetHeroMoveStyle } from "../lib/pet-hero-moves";
 import {
     ScarLayer, ResidueFx, ClimateLayer, KindAccentFx, CastGlyphFx, ChargeOrbFx, StreakBurstFx, DebrisFx, kindAccentFamily,
@@ -44,7 +47,7 @@ import {
 import { petCardImage } from "../lib/pet-battle-anim";
 import { startBattleMusic, stopBattleMusic, setBattleMusicIntensity, isAudioMuted, setAudioMuted } from "../lib/pet-music";
 import { playPetSfx, primePetSfx, petHaptic } from "../lib/pet-sfx";
-import { petDuelImpactStrength } from "../lib/pet-duel-presentation";
+import { appendCapped, petDuelImpactStrength } from "../lib/pet-duel-presentation";
 import { promptablePets } from "../lib/showdown-turn";
 import { prefersReducedMotion } from "../lib/device-tier";
 import {
@@ -68,6 +71,7 @@ import { resolveOpponentFacing } from "../lib/pet-combat-performance";
 import { pairedShowdownOpponentId, showdownLaneFacing, showdownSlotLane } from "../lib/pet-showdown-facing";
 import {
     showdownBodyRadius,
+    showdownAttackRhythm,
     showdownCinematicImpulse,
     showdownDodgeOffset,
     showdownMeleeContact,
@@ -75,9 +79,16 @@ import {
     showdownPerformanceVariant,
     showdownReactionAge,
     showdownReactionRecoil,
+    showdownRarityScale,
 } from "../lib/pet-showdown-choreography";
 import { petSignaturePerformance, type PetSignaturePerformance } from "../lib/pet-signature-performance";
-import { petVisualQuality } from "../lib/pet-visual-quality";
+import {
+    PET_VISUAL_QUALITY_PRESETS,
+    petVisualQuality,
+    savePetVisualQuality,
+    type PetVisualQuality,
+    type PetVisualQualityConfig,
+} from "../lib/pet-visual-quality";
 import {
     SHOWDOWN_ELEMENT_BEATS,
     SHOWDOWN_GUARD_COST,
@@ -300,8 +311,8 @@ function sceneRand(seed: number): () => number {
 
 function beatDurationMs(event: ShowdownEvent, speed: number): number {
     // Staged casts (signatures and heavies — the ones that earn a volumetric
-    // set-piece) own their WHOLE choreography: the piece spawns at the strike
-    // (STRIKE_FRAC) and runs 2100/1150ms, so the beat must hold the strike
+    // set-piece) own their WHOLE choreography: the piece spawns at the shared
+    // attack rhythm's contact point and runs 2100/1150ms, so the beat must hold
     // point + the full piece + a settle breath of stillness before the next
     // actor winds up. 3300 used to end a super beat 600ms before the tsunami
     // finished landing — the next move attacked THROUGH the spectacle.
@@ -333,8 +344,15 @@ function beatDurationMs(event: ShowdownEvent, speed: number): number {
     return base / speed;
 }
 
-/** Fraction of an action beat at which the hit lands (damage pops, camera kicks). */
-const STRIKE_FRAC = 0.55;
+/** One source of truth for skeletal motion, travel FX and authoritative contact. */
+function actionRhythm(event: ActionEvent) {
+    return showdownAttackRhythm({
+        weight: event.weight,
+        superMove: event.super,
+        delivery: event.delivery,
+        moveKind: event.moveKind,
+    });
+}
 
 // ─── Shared mutable scene state (refs — read per frame inside the Canvas) ────
 
@@ -506,7 +524,12 @@ function SuperLightRig({ beatRef }: { beatRef: React.MutableRefObject<SceneBeat>
     );
 }
 
-function StageEnvironment({ stage, beatRef, fxRef }: { stage: StageKey; beatRef: React.MutableRefObject<SceneBeat>; fxRef: React.MutableRefObject<SceneFx> }) {
+function StageEnvironment({ stage, beatRef, fxRef, quality }: {
+    stage: StageKey;
+    beatRef: React.MutableRefObject<SceneBeat>;
+    fxRef: React.MutableRefObject<SceneFx>;
+    quality: PetVisualQualityConfig;
+}) {
     const art = STAGES[stage];
     const textures = useMemo(() => {
         const loader = new THREE.TextureLoader();
@@ -600,8 +623,8 @@ function StageEnvironment({ stage, beatRef, fxRef }: { stage: StageKey; beatRef:
                 <meshStandardMaterial map={textures.floor} roughness={0.95} />
             </mesh>
             {/* Stage-tinted drifting motes — living air (embers/spores/snow). */}
-            <Sparkles count={38} scale={[16, 6, 14]} position={[0, 3, 0]} size={2.6} speed={0.28} color={art.ember} opacity={0.5} />
-            <StageAmbient stage={stage} />
+            <Sparkles count={quality.ambientParticles} scale={[16, 6, 14]} position={[0, 3, 0]} size={2.6} speed={0.28} color={art.ember} opacity={0.5} />
+            <StageAmbient stage={stage} particleCount={quality.ambientParticles} />
             <CrowdEruption fxRef={fxRef} ember={art.ember} />
             <SuperLightRig beatRef={beatRef} />
         </group>
@@ -612,24 +635,23 @@ function StageEnvironment({ stage, beatRef, fxRef }: { stage: StageKey; beatRef:
  *  snowfall over the frost bowl, leaves drifting through the grove, embers
  *  climbing off the volcano floor, and the storm sky flashing distant
  *  lightning through the arches. The coliseum keeps its lantern motes. */
-function StageAmbient({ stage }: { stage: StageKey }) {
+function StageAmbient({ stage, particleCount }: { stage: StageKey; particleCount: number }) {
     const points = useRef<THREE.Points>(null);
     const flash = useRef<THREE.DirectionalLight>(null);
     const nextFlash = useRef(0);
-    const COUNT = 44;
     const kind = stage === "frost" ? "snow" : stage === "grove" ? "leaves" : stage === "volcano" ? "embers" : stage === "storm" ? "storm" : "none";
     const params = useMemo(() => {
         let h = 0;
         for (const c of stage) h = (h * 31 + c.charCodeAt(0)) | 0;
         const rand = sceneRand(h);
-        return Array.from({ length: COUNT }, () => ({
+        return Array.from({ length: particleCount }, () => ({
             x: (rand() - 0.5) * 26,
             z: (rand() - 0.5) * 22,
             speed: 0.3 + rand() * 0.7,
             phase: rand(),
             sway: 0.4 + rand() * 1.1,
         }));
-    }, [stage]);
+    }, [particleCount, stage]);
     useFrame((state) => {
         const t = state.clock.elapsedTime;
         if (points.current && kind !== "none" && kind !== "storm") {
@@ -664,7 +686,7 @@ function StageAmbient({ stage }: { stage: StageKey }) {
     return (
         <points ref={points}>
             <bufferGeometry>
-                <bufferAttribute attach="attributes-position" args={[new Float32Array(COUNT * 3), 3]} />
+                <bufferAttribute attach="attributes-position" args={[new Float32Array(particleCount * 3), 3]} />
             </bufferGeometry>
             <pointsMaterial color={color} size={kind === "leaves" ? 0.22 : 0.16} transparent opacity={0.75} depthWrite={false} sizeAttenuation />
         </points>
@@ -675,7 +697,11 @@ function StageAmbient({ stage }: { stage: StageKey }) {
  * supply the directional rays; this pass lifts their HDR bloom, resolves edges,
  * and adds the contact-only chromatic/zoom punch without a second renderer
  * framework in the production bundle. */
-function ShowdownPostStack({ fxRef }: { fxRef: React.MutableRefObject<SceneFx> }) {
+function ShowdownPostStack({ fxRef, bloomIntensity, distortion }: {
+    fxRef: React.MutableRefObject<SceneFx>;
+    bloomIntensity: number;
+    distortion: boolean;
+}) {
     const gl = useThree((s) => s.gl);
     const scene = useThree((s) => s.scene);
     const camera = useThree((s) => s.camera);
@@ -689,14 +715,24 @@ function ShowdownPostStack({ fxRef }: { fxRef: React.MutableRefObject<SceneFx> }
         composer.renderTarget2.samples = 0;
         const render = new RenderPass(scene, camera);
         const finish = new ShaderPass(SHOWDOWN_POST_SHADER);
+        const output = new OutputPass();
+        finish.uniforms.glowThreshold.value = bloomIntensity >= 0.45 ? 0.86 : 0.91;
+        finish.uniforms.glowIntensity.value = bloomIntensity * 0.34;
         composer.addPass(render);
         composer.addPass(finish);
+        // Composer targets are linear. Without the final output transform,
+        // Balanced/Cinematic rendered directly to the display in linear space,
+        // crushing dark coats and the entire arena compared with Performance.
+        composer.addPass(output);
         stackRef.current = { composer, finish };
         return () => {
             stackRef.current = null;
+            render.dispose();
+            finish.dispose();
+            output.dispose();
             composer.dispose();
         };
-    }, [camera, gl, scene]);
+    }, [bloomIntensity, camera, gl, scene]);
     useEffect(() => {
         const stack = stackRef.current;
         if (!stack) return;
@@ -714,8 +750,13 @@ function ShowdownPostStack({ fxRef }: { fxRef: React.MutableRefObject<SceneFx> }
             const k = (fx.shakeUntil - now) / 320;
             punch = Math.min(1, fx.shakeAmp * k * k * 4);
         }
-        stack.finish.uniforms.offset.value.set(0.0003 + punch * 0.0034, 0.0002 + punch * 0.002);
-        stack.finish.uniforms.strength.value = punch * 0.085;
+        if (distortion) {
+            stack.finish.uniforms.offset.value.set(0.0003 + punch * 0.0034, 0.0002 + punch * 0.002);
+            stack.finish.uniforms.strength.value = punch * 0.085;
+        } else {
+            stack.finish.uniforms.offset.value.set(0, 0);
+            stack.finish.uniforms.strength.value = 0;
+        }
         stack.composer.render();
     }, 1);
     return null;
@@ -895,7 +936,7 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
                     const perp = new THREE.Vector3(-dir.z, 0, dir.x);
                     const ranged = beat.event.delivery === "ranged";
                     const heavy = beat.event.targets.some((t) => t.ko || t.damage > 260);
-                    if (frac < STRIKE_FRAC * 0.92) {
+                    if (frac < actionRhythm(beat.event).contact * 0.92) {
                         const variant = v % 3;
                         nextShot = `windup:${beat.index}:${variant}`;
                         weight = "windup";
@@ -1062,7 +1103,7 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
 
 interface PopupEntry { key: number; petId: string; text: string; cls: string }
 
-function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, introActive, beatRef, fxRef, posRef, radii, benchedRef, restingTargetId, popups, highlight, targetable, onPick, onHover }: {
+function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, introActive, beatRef, fxRef, posRef, radii, benchedRef, restingTargetId, popups, highlight, targetable, quality, onPick, onHover }: {
     info: FighterSlotInfo;
     displayHp: number;
     ko: boolean;
@@ -1086,6 +1127,8 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     highlight: "none" | "commander" | "targeted";
     /** You pick your target by clicking the CREATURE, not a name card. */
     targetable: boolean;
+    /** One battle-selected preset owns model materials, identity VFX, and lights. */
+    quality: PetVisualQualityConfig;
     onPick: (petId: string) => void;
     onHover: (petId: string | null) => void;
 }) {
@@ -1115,6 +1158,11 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
      *  starts withdrawn instead of replaying an exit it never earned. */
     const mounted = useRef(false);
     const [modelFailed, setModelFailed] = useState(false);
+    const modelCalibration = useMemo(
+        () => info.model ? petDuelModelCalibration(info.model) : null,
+        [info.model],
+    );
+    const rarityScale = showdownRarityScale(info.view.rarity);
     // Species performance identity (pet-hero-moves): the stalk idles, charger
     // drives and dragon looms authored for the coliseum were NEVER wired into
     // Showdown — every pet fell to the EMPTY_POSE generic. The base style
@@ -1292,18 +1340,16 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                 }
                 f.moveStyle = actionStyle.current.style;
                 f.moveName = ev.moveName;
-                // Attack take pacing follows the move's WEIGHT: jabs snap,
-                // heavies grind, and signatures crawl through their long beat.
-                f.attackPace = ev.super ? 0.55 : ev.weight === "heavy" ? 0.75 : ev.weight === "light" ? 1.3 : 1;
+                const rhythm = actionRhythm(ev);
+                // Attack take pacing and pose windows use the same weight-aware
+                // phrase as contact side effects and travel VFX.
+                f.attackPace = rhythm.attackPace;
                 const targetPos = ev.targets[0] ? posRef.current.get(ev.targets[0].id) : undefined;
                 if (targetPos && ev.targets[0].id !== info.view.id) {
                     const dx = targetPos[0] - stand[0];
                     const dz = targetPos[2] - stand[2];
                     const len = Math.hypot(dx, dz) || 1;
                     faceX = dx / len; faceZ = dz / len;
-                    // The coil begins a fixed ~900ms before commitment; earlier
-                    // time remains the species' living idle.
-                    const windupLead = 900 / beat.durationMs;
                     if (ev.delivery === "melee") {
                         // Species-sized contact: compact pets close farther;
                         // legendary bodies stop earlier. The same radii place the
@@ -1314,25 +1360,31 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                             radii.get(ev.targets[0].id) ?? 0.82,
                             signature.strikeDrive,
                         );
-                        const drive = showdownMeleeDrive(frac);
+                        const drive = showdownMeleeDrive(frac, rhythm);
                         px = stand[0] + faceX * contact.travel * drive;
                         pz = stand[2] + faceZ * contact.travel * drive;
-                        const coilAt = Math.max(0.06, 0.32 - windupLead);
-                        f.motion = frac < coilAt ? "idle" : frac < 0.32 ? "windup" : frac < 0.54 ? "dash" : frac < 0.66 ? "strike" : frac < 0.84 ? "recover" : "idle";
+                        f.motion = frac < rhythm.windupStart ? "idle"
+                            : frac < rhythm.dashStart ? "windup"
+                            : frac < rhythm.contact ? "dash"
+                            : frac < rhythm.contactEnd ? "strike"
+                            : frac < rhythm.recoverEnd ? "recover" : "idle";
                         if (f.motion === "dash") { f.moving = true; f.speed = 9; f.moveX = faceX; f.moveZ = faceZ; }
                     } else {
-                        const coilAt = Math.max(0.05, 0.4 - windupLead);
-                        f.motion = frac < coilAt ? "idle" : frac < 0.4 ? "windup" : frac < 0.62 ? "strike" : frac < 0.84 ? "recover" : "idle";
+                        f.motion = frac < rhythm.windupStart ? "idle"
+                            : frac < rhythm.contact ? "windup"
+                            : frac < rhythm.contactEnd ? "strike"
+                            : frac < rhythm.recoverEnd ? "recover" : "idle";
                         // Keep the dedicated cast take alive through release and
                         // recovery so it cannot snap back to the melee bank on
                         // the exact impact frame.
-                        f.casting = frac < 0.84;
+                        f.casting = frac < rhythm.recoverEnd;
                     }
                 } else {
-                    const windupLead = 900 / beat.durationMs;
-                    const coilAt = Math.max(0.05, 0.4 - windupLead);
-                    f.motion = frac < coilAt ? "idle" : frac < 0.4 ? "windup" : frac < 0.62 ? "strike" : frac < 0.84 ? "recover" : "idle";
-                    f.casting = ev.delivery !== "melee" && frac < 0.84;
+                    f.motion = frac < rhythm.windupStart ? "idle"
+                        : frac < rhythm.contact ? "windup"
+                        : frac < rhythm.contactEnd ? "strike"
+                        : frac < rhythm.recoverEnd ? "recover" : "idle";
+                    f.casting = ev.delivery !== "melee" && frac < rhythm.recoverEnd;
                 }
             }
         } else if (reactionAge >= 0 && reactionAge < 520 && lastHit > 0) {
@@ -1394,7 +1446,8 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
             // The withdrawal rides on the group transform, so it composes with
             // whatever pose the death clip left the rig in.
             const ease = koSink * koSink;
-            group.current.position.set(px, py - ease * 1.7, pz);
+            const calibratedGround = info.model && !modelFailed ? modelCalibration?.groundOffset ?? 0 : 0;
+            group.current.position.set(px, py + calibratedGround - ease * 1.7, pz);
             group.current.scale.setScalar(Math.max(0.02, 1 - ease * 0.55));
         }
 
@@ -1433,6 +1486,10 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
 
     const tint = ELEMENT_TINT[info.view.element] ?? ELEMENT_TINT.None;
     const myPopups = popups.filter((p) => p.petId === info.view.id);
+    const labelY = info.model && !modelFailed
+        ? info.model.targetHeight * (modelCalibration?.modelScale ?? 1) * rarityScale
+            + (modelCalibration?.labelOffset ?? 0.5)
+        : 2.5;
 
     return (
         <group ref={group} position={info.basePos}>
@@ -1458,8 +1515,8 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                             visibly larger than a standard. Purely visual; the
                             reticle, rings and popups are siblings and keep
                             their shared scale. */}
-                        <group scale={info.view.rarity === "mythic" ? 1.13 : info.view.rarity === "legendary" ? 1.07 : info.view.rarity === "rare" ? 1.02 : 1}>
-                            <PetModel3D config={info.model} frame={frame} element={info.view.element} signature={signature} />
+                        <group scale={(modelCalibration?.modelScale ?? 1) * rarityScale}>
+                            <PetModel3D config={info.model} frame={frame} element={info.view.element} signature={signature} quality={quality} />
                         </group>
                     </Suspense>
                 </PetModelBoundary>
@@ -1473,9 +1530,19 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                 </Billboard>
             )}
             {/* Contact blob shadow grounds the silhouette. */}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-                <circleGeometry args={[0.85, 24]} />
-                <meshBasicMaterial color="#000" transparent opacity={ko ? 0.14 : 0.34} />
+            <mesh
+                rotation={[-Math.PI / 2, 0, 0]}
+                position={[0, 0.02, 0]}
+                scale={info.model && !modelFailed && modelCalibration
+                    ? [
+                        Math.max(0.9, info.model.targetHeight * 0.72 * modelCalibration.modelScale * rarityScale * modelCalibration.shadowWidth),
+                        Math.max(0.9, info.model.targetHeight * 0.72 * modelCalibration.modelScale * rarityScale * modelCalibration.shadowWidth) * modelCalibration.shadowDepth,
+                        1,
+                    ]
+                    : [0.85, 0.5, 1]}
+            >
+                <circleGeometry args={[1, 24]} />
+                <meshBasicMaterial color="#000" transparent opacity={ko ? 0.14 : modelCalibration?.shadowOpacity ?? 0.34} depthWrite={false} />
             </mesh>
             {/* Impact shockwave ring (visibility driven per-frame). */}
             <mesh ref={impactRing} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]} visible={false}>
@@ -1497,7 +1564,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
             )}
             {/* Floating reticle: the "this is clickable" affordance. */}
             {targetable && !ko && (
-                <Billboard position={[0, 2.75, 0]}>
+                <Billboard position={[0, labelY, 0]}>
                     <mesh ref={reticle}>
                         <ringGeometry args={[0.3, 0.4, 3]} />
                         <meshBasicMaterial color="#f87171" transparent opacity={0.95} toneMapped={false} side={THREE.DoubleSide} />
@@ -1511,7 +1578,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                 </mesh>
             )}
             {myPopups.map((p) => (
-                <Html key={p.key} center position={[0, 2.5, 0]} zIndexRange={[30, 0]} wrapperClass="showdown-popup-anchor">
+                <Html key={p.key} center position={[0, labelY, 0]} zIndexRange={[30, 0]} wrapperClass="showdown-popup-anchor">
                     <div className={`showdown-popup ${p.cls}`}>{p.text}</div>
                 </Html>
             ))}
@@ -2192,7 +2259,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     onExit: () => void;
     onRematch: () => void;
 }) {
-    const renderQuality = useMemo(() => petVisualQuality(), []);
+    const [qualityId, setQualityId] = useState<PetVisualQuality>(() => petVisualQuality().id);
+    const renderQuality = PET_VISUAL_QUALITY_PRESETS[qualityId];
     const [stateView, setStateView] = useState(initialState);
     const [phase, setPhase] = useState<"command" | "playing" | "finished">("command");
     const [display, setDisplay] = useState<Record<string, DisplayEntry>>(() => buildDisplay(initialState));
@@ -2256,6 +2324,20 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const [streakFx, setStreakFx] = useState<StreakBurstSpawn[]>([]);
     const [debrisFx, setDebrisFx] = useState<StreakBurstSpawn[]>([]);
     const [settlement, setSettlement] = useState<ShowdownTurnResponse | null>(null);
+    const changeGraphicsQuality = useCallback((next: PetVisualQuality) => {
+        const preset = PET_VISUAL_QUALITY_PRESETS[next];
+        savePetVisualQuality(next);
+        setQualityId(next);
+        // A downgrade takes effect immediately instead of waiting for old
+        // battle residue to age out. The keyed Canvas below remounts GPU state.
+        setScars((items) => items.slice(-preset.decalLimit));
+        setResidues((items) => items.slice(-preset.aftermathLayers));
+        setSetPieces((items) => items.slice(-Math.max(1, preset.translucentLayers + 1)));
+        setVfx((items) => items.slice(-Math.max(6, preset.impactDebris + preset.impactSparks)));
+        setKindFx((items) => items.slice(-Math.max(2, preset.translucentLayers * 2)));
+        setStreakFx((items) => items.slice(-Math.max(2, Math.ceil(preset.impactSparks / 2))));
+        setDebrisFx((items) => items.slice(-Math.max(2, Math.ceil(preset.impactDebris / 2))));
+    }, []);
 
     // Command drafting.
     const [draft, setDraft] = useState<ShowdownCommand[]>([]);
@@ -2445,10 +2527,12 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const fighterRadii = useMemo<ReadonlyMap<string, number>>(() => {
         const map = new Map<string, number>();
         for (const [id, info] of slots) {
+            const calibration = info.model ? petDuelModelCalibration(info.model) : null;
             map.set(id, showdownBodyRadius({
                 targetHeight: info.model?.targetHeight,
                 profile: info.model?.profile,
                 rarity: info.view.rarity,
+                presentationScale: calibration?.modelScale,
             }));
         }
         return map;
@@ -2488,15 +2572,15 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         const to = posRef.current.get(victimId);
         if (!from || !to) return;
         const key = popupKey.current++;
-        setSetPieces((list) => [...list.slice(-6), {
+        setSetPieces((list) => appendCapped(list, {
             key, element,
             from: [from[0], from[1], from[2]] as const,
             to: [to[0], to[1], to[2]] as const,
             startedAt: performance.now(), durationMs,
             ...(superCast ? { superCast: true } : {}),
-        }]);
+        }, Math.max(1, renderQuality.translucentLayers + 1)));
         window.setTimeout(() => setSetPieces((list) => list.filter((s) => s.key !== key)), durationMs + 400);
-    }, [fxStretch]);
+    }, [fxStretch, renderQuality.translucentLayers]);
 
     const spawnFlipbook = useCallback((petId: string, frames: string, scale: number, durationMs: number, yLift = 1.0, aspect = 1, tint?: string, normalBlend = false) => {
         // An empty key means "this action detonates nothing" (Rest).
@@ -2504,13 +2588,13 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         const at = posRef.current.get(petId);
         if (!at) return;
         const key = popupKey.current++;
-        setVfx((list) => [...list.slice(-14), {
+        setVfx((list) => appendCapped(list, {
             key, frames, scale, durationMs, aspect, tint, normalBlend,
             pos: [at[0], at[1] + yLift, at[2]] as [number, number, number],
             startedAt: performance.now(),
-        }]);
+        }, Math.max(6, renderQuality.impactDebris + renderQuality.impactSparks)));
         window.setTimeout(() => setVfx((list) => list.filter((s) => s.key !== key)), durationMs + 400);
-    }, []);
+    }, [renderQuality.impactDebris, renderQuality.impactSparks]);
 
     const clearTimers = useCallback(() => {
         for (const id of timeouts.current) window.clearTimeout(id);
@@ -2584,7 +2668,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         // screen reader, so the same numbers go out on the live region at the
         // moment of contact rather than when the beat opens.
         const spoken = describeBeat(event, stateView);
-        if (spoken) later(() => setAnnouncement(spoken), durationMs * (event.t === "action" ? STRIKE_FRAC : 0.1));
+        if (spoken) later(() => setAnnouncement(spoken), durationMs * (event.t === "action" ? actionRhythm(event).contact : 0.1));
 
         if (event.t === "roundStart") {
             // The old cap's moment survives as the pressure cue: this is where
@@ -2807,11 +2891,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             if (at) {
                                 const [sx, , sz] = at;
                                 const scarKey = popupKey.current++;
-                                setScars((list) => [...list.slice(-9), { key: scarKey, x: sx, z: sz, element: event.element, bornAt: performance.now() }]);
+                                setScars((list) => appendCapped(list, { key: scarKey, x: sx, z: sz, element: event.element, bornAt: performance.now() }, renderQuality.decalLimit));
                                 if (event.super) {
                                     const residueKey = popupKey.current++;
                                     later(() => {
-                                        setResidues((list) => [...list.slice(-3), { key: residueKey, element: event.element, x: sx, z: sz, startedAt: performance.now(), durationMs: 7000 }]);
+                                        setResidues((list) => appendCapped(list, { key: residueKey, element: event.element, x: sx, z: sz, startedAt: performance.now(), durationMs: 7000 }, renderQuality.aftermathLayers));
                                         window.setTimeout(() => setResidues((list) => list.filter((r) => r.key !== residueKey)), 7400);
                                     }, (event.super ? 2100 : 1150) / speed);
                                 }
@@ -2905,17 +2989,17 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             const dirZ = from ? (kz - from[2]) / len : 1;
                             if (kindAccentFamily(event.moveKind)) {
                                 const kKey = popupKey.current++;
-                                setKindFx((list) => [...list.slice(-7), { key: kKey, kind: event.moveKind, element: event.element, x: kx, z: kz, dirX, dirZ, startedAt: performance.now(), durationMs: 1000 / speed }]);
+                                setKindFx((list) => appendCapped(list, { key: kKey, kind: event.moveKind, element: event.element, x: kx, z: kz, dirX, dirZ, startedAt: performance.now(), durationMs: 1000 / speed }, Math.max(2, renderQuality.translucentLayers * 2)));
                                 window.setTimeout(() => setKindFx((list) => list.filter((k) => k.key !== kKey)), 1400 / speed);
                             }
                             if (target.damage > 0 && (event.super || event.weight === "heavy" || target.ko)) {
                                 const sKey = popupKey.current++;
-                                setStreakFx((list) => [...list.slice(-5), { key: sKey, element: event.element, x: kx, z: kz, startedAt: performance.now(), durationMs: 750 / speed, heavy: event.super || target.ko }]);
+                                setStreakFx((list) => appendCapped(list, { key: sKey, element: event.element, x: kx, z: kz, startedAt: performance.now(), durationMs: 750 / speed, heavy: event.super || target.ko }, Math.max(2, Math.ceil(renderQuality.impactSparks / 2))));
                                 window.setTimeout(() => setStreakFx((list) => list.filter((s) => s.key !== sKey)), 1100 / speed);
                             }
                             if (target.damage > 0 && (event.moveKind === "crush" || (event.element === "Earth" && (event.super || event.weight === "heavy")))) {
                                 const dKey = popupKey.current++;
-                                setDebrisFx((list) => [...list.slice(-4), { key: dKey, element: event.element, x: kx, z: kz, startedAt: performance.now(), durationMs: 1300 / speed, heavy: event.super || event.weight === "heavy" }]);
+                                setDebrisFx((list) => appendCapped(list, { key: dKey, element: event.element, x: kx, z: kz, startedAt: performance.now(), durationMs: 1300 / speed, heavy: event.super || event.weight === "heavy" }, Math.max(2, Math.ceil(renderQuality.impactDebris / 2))));
                                 window.setTimeout(() => setDebrisFx((list) => list.filter((d) => d.key !== dKey)), 1700 / speed);
                             }
                         }
@@ -3055,7 +3139,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 else if (bestEffect === "weak") showBanner("Not very effective…", "weak", 900 / speed);
                 if (anyKo) later(() => { showBanner("KO!", "ko", 900 / speed); playPetSfx("ko"); }, 220);
                 if (event.overexerted) later(() => addPopup(event.actorId, "OVEREXERTED!", "overexert"), 300);
-            }, durationMs * STRIKE_FRAC);
+            }, durationMs * actionRhythm(event).contact);
         }
 
         later(() => setQueueIndex((i) => i + 1), durationMs);
@@ -3375,11 +3459,61 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const hoveredName = activeHover
         ? [...stateView.player, ...stateView.enemy].find((p) => p.id === activeHover)?.name ?? null
         : null;
+    const visualAudit = useMemo(() => JSON.stringify({
+        renderer: "PetShowdownBattle",
+        quality: renderQuality.id,
+        budgets: {
+            dpr: renderQuality.dpr,
+            modelShadows: renderQuality.modelShadows,
+            outline: renderQuality.outline,
+            textureAnisotropy: renderQuality.textureAnisotropy,
+            ambientParticles: renderQuality.ambientParticles,
+            identityParticles: renderQuality.identityParticles,
+            setPieceParticles: renderQuality.setPieceParticles,
+            dynamicPetLight: renderQuality.dynamicPetLight,
+            translucentLayers: renderQuality.translucentLayers,
+            distortion: renderQuality.distortion,
+            impactDebris: renderQuality.impactDebris,
+            impactSparks: renderQuality.impactSparks,
+            aftermathLayers: renderQuality.aftermathLayers,
+            decalLimit: renderQuality.decalLimit,
+            bloomIntensity: renderQuality.bloomIntensity,
+        },
+        fighters: [...slots.values()].map((info) => {
+            const calibration = info.model ? petDuelModelCalibration(info.model) : null;
+            const rarityScale = showdownRarityScale(info.view.rarity);
+            return {
+                id: info.view.id,
+                templateId: info.view.templateId,
+                rarity: info.view.rarity,
+                element: info.view.element,
+                modelUrl: info.model?.url ?? null,
+                visualId: info.model?.visualId ?? null,
+                profile: info.model?.profile ?? null,
+                targetHeight: info.model?.targetHeight ?? null,
+                calibration,
+                rarityScale,
+                presentationScale: calibration ? calibration.modelScale * rarityScale : 1,
+            };
+        }),
+        attackRhythm: queue[queueIndex]?.t === "action" ? actionRhythm(queue[queueIndex] as ActionEvent) : null,
+        activeEffects: {
+            flipbooks: vfx.length,
+            setPieces: setPieces.length,
+            scars: scars.length,
+            residues: residues.length,
+            kindAccents: kindFx.length,
+            streaks: streakFx.length,
+            debris: debrisFx.length,
+        },
+    }), [debrisFx.length, kindFx.length, queue, queueIndex, renderQuality, residues.length, scars.length, setPieces.length, slots, streakFx.length, vfx.length]);
 
     const overlay = (
         <div
             ref={takeoverRef}
             className="pet-combat-takeover showdown-takeover"
+            data-testid="pet-showdown-root"
+            data-pet-visual-audit={visualAudit}
             role="dialog"
             aria-modal="true"
             aria-label={`Pet Showdown — your team against ${stateView.enemyTeamName}`}
@@ -3397,32 +3531,37 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 deepens the blacks and lets the VFX (toneMapped:false) pop
                 against them without touching any material. */}
             <Canvas
+                key={renderQuality.id}
                 shadows={renderQuality.modelShadows ? "percentage" : false}
                 dpr={renderQuality.dpr}
                 gl={{ antialias: true, preserveDrawingBuffer: fxStretch > 1 || captureFlag, toneMappingExposure: 1.12 }}
                 camera={{ fov: 48, position: [...WIDE_POS], near: 0.1, far: 80 }}
             >
-                <StageEnvironment stage={stage} beatRef={beatRef} fxRef={fxRef} />
+                <StageEnvironment stage={stage} beatRef={beatRef} fxRef={fxRef} quality={renderQuality} />
                 <CameraDirector beatRef={beatRef} fxRef={fxRef} posRef={posRef} lineup={lineup} reduced={reducedMotion} />
                 <BeatDrivenVfx beatRef={beatRef} posRef={posRef} radii={fighterRadii} signatures={fighterSignatures} />
                 <SuperPillar drive={pillarDrive} />
                 <ShowdownVfxLayer spawns={vfx} />
-                <ShowdownSetPieceLayer spawns={setPieces} />
+                <ShowdownSetPieceLayer spawns={setPieces} quality={renderQuality} />
                 {/* The arena remembers: persistent strike scars, the element
                     residue after each signature, and the CLIMATE the last
                     signature left holding the field. */}
                 <ScarLayer scars={scars} />
-                {residues.map((r) => <ResidueFx key={r.key} spawn={r} />)}
+                {residues.map((r) => <ResidueFx key={r.key} spawn={r} particleBudget={renderQuality.setPieceParticles} />)}
                 <ClimateLayer element={climateElement} reduced={reducedMotion} />
                 {/* The moveset READS: casting glyph + charge orb during ranged
                     channels, per-kind accents, streak-throughs and debris. */}
                 <CastGlyphFx beatRef={beatRef} posRef={posRef} />
                 <ChargeOrbFx beatRef={beatRef} posRef={posRef} onSun={setGodRaySun} />
                 {kindFx.map((k) => <KindAccentFx key={k.key} spawn={k} />)}
-                {streakFx.map((s) => <StreakBurstFx key={s.key} spawn={s} />)}
-                {debrisFx.map((d) => <DebrisFx key={d.key} spawn={d} />)}
-                {petBloomEnabled() && !reducedMotion && godRaySun && (
-                    <ShowdownPostStack fxRef={fxRef} />
+                {streakFx.map((s) => <StreakBurstFx key={s.key} spawn={s} budget={renderQuality.impactSparks} />)}
+                {debrisFx.map((d) => <DebrisFx key={d.key} spawn={d} budget={renderQuality.impactDebris} />)}
+                {renderQuality.bloomIntensity > 0 && (renderQuality.id === "high" || petBloomEnabled()) && !reducedMotion && godRaySun && (
+                    <ShowdownPostStack
+                        fxRef={fxRef}
+                        bloomIntensity={renderQuality.bloomIntensity}
+                        distortion={renderQuality.distortion}
+                    />
                 )}
                 {[...slots.values()].map((info) => (
                     <ShowdownFighter
@@ -3453,6 +3592,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             : pendingMove && ((info.side === "enemy" && !targetingAllies) || (info.side === "player" && targetingAllies)) && !(display[info.view.id]?.ko) ? "targeted"
                             : "none"}
                         targetable={isTargetable(info)}
+                        quality={renderQuality}
                         onPick={pickTarget}
                         onHover={setHoveredTarget}
                     />
@@ -3536,6 +3676,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         hoveredId={activeHover}
                     />
                     <div className="showdown-topbar-right">
+                        <PetGraphicsQualityControl value={qualityId} onChange={changeGraphicsQuality} compact />
                         {/* stateView.round reconciles at playback end, so the round
                             IN PROGRESS (command or playing) is always round + 1. */}
                         <div className="showdown-round">R{stateView.finished ? stateView.round : stateView.round + 1}/{stateView.turnCap}</div>

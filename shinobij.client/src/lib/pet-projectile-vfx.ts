@@ -108,8 +108,8 @@ const SUPPORT_TINT = { core: "#dcfce7", glow: "#34d399" };
 
 const SUPPORT_KINDS = new Set(["heal", "shield", "barrier", "absorb", "buff", "haste"]);
 
-// Element (incl. bloodline natures) → the bundled real painted projectile sprite
-// in src/assets/fx/projectiles/<key>.webp. Lava rides the fireball, Iron the
+// Element (incl. bloodline natures) → the bundled high-resolution projectile
+// sprite. Lava rides the fireball, Iron the
 // boulder; Blood/Shadow/None have no painted sprite and keep the procedural glow.
 const SPRITE_FOR: Record<string, string> = {
     fire: "fire", lava: "fire",

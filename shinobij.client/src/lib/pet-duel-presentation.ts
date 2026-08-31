@@ -324,3 +324,75 @@ export function petDuelImpactStrength(damageFraction: number, critical: boolean)
     const fraction = Number.isFinite(damageFraction) ? Math.max(0, damageFraction) : 0;
     return Math.min(1.25, 0.48 + fraction * 1.55 + (critical ? 0.24 : 0));
 }
+
+export type PetDuelAttackRhythm = Readonly<{
+    pulseMultiplier: number;
+    anticipationShare: number;
+    contactShare: number;
+}>;
+
+/** A readable anticipation/contact/recovery rhythm derived from combat weight. */
+export function petDuelAttackRhythm(damageFraction: number, critical: boolean, heavySlam = false): PetDuelAttackRhythm {
+    const fraction = Number.isFinite(damageFraction) ? Math.max(0, Math.min(1, damageFraction)) : 0;
+    const heavy = heavySlam || critical || fraction >= 0.55;
+    const quick = !heavy && fraction <= 0.28;
+    if (heavy) return Object.freeze({ pulseMultiplier: critical ? 1.62 : 1.5, anticipationShare: 0.34, contactShare: 0.28 });
+    if (quick) return Object.freeze({ pulseMultiplier: 0.74, anticipationShare: 0.23, contactShare: 0.18 });
+    return Object.freeze({ pulseMultiplier: 1, anticipationShare: 0.29, contactShare: 0.22 });
+}
+
+export type PetDuelContactTiming = Readonly<{
+    hitStop: number;
+    shake: number;
+    savorScale: number;
+    savorHold: number;
+    zoomKick: number;
+    aimHold: number;
+    cameraBiasHold: number;
+}>;
+
+/**
+ * One hierarchy for contact weight. Keeping these values together prevents a
+ * basic poke from inheriting a finisher camera while still guaranteeing that a
+ * player-authored light hit has visible response.
+ */
+export function petDuelContactTiming({
+    damageFraction,
+    critical = false,
+    heavy = false,
+    dash = false,
+    perfect = false,
+    playerAuthored = false,
+    signature = false,
+    ability = false,
+}: {
+    damageFraction: number;
+    critical?: boolean;
+    heavy?: boolean;
+    dash?: boolean;
+    perfect?: boolean;
+    playerAuthored?: boolean;
+    signature?: boolean;
+    ability?: boolean;
+}): PetDuelContactTiming {
+    const fraction = Number.isFinite(damageFraction) ? Math.max(0, Math.min(1, damageFraction)) : 0;
+    const floor = playerAuthored ? 1 : 0;
+    const hitStop = Math.min(0.36,
+        Math.min(0.18, 0.045 + fraction * 0.5)
+        + (critical ? 0.04 : 0) + (heavy ? 0.05 : 0) + (dash ? 0.11 : 0)
+        + floor * 0.02 + (perfect ? 0.08 : 0));
+    const shake = 0.5 + fraction * 2.4 + (critical ? 0.7 : 0) + (heavy ? 0.9 : 0)
+        + (dash ? 1.6 : 0) + floor * 0.4 + (perfect ? 1.35 : 0);
+    const savorScale = signature ? 0.48 : critical || heavy ? 0.72 : dash ? 0.54 : ability ? 0.98 : playerAuthored ? 1.02 : 1;
+    const savorHold = signature ? 0.22 : critical || heavy ? 0.12 : dash ? 0.26 : ability ? 0.04 : playerAuthored ? 0.03 : 0;
+    const zoomKick = signature ? 3.2 : critical ? 2.8 : dash ? 2.65 : ability || heavy ? 1.45 : 0.42;
+    return Object.freeze({
+        hitStop,
+        shake,
+        savorScale,
+        savorHold,
+        zoomKick,
+        aimHold: heavy || critical || signature ? 0.44 : ability || dash ? 0.3 : 0.18,
+        cameraBiasHold: heavy || critical || signature ? 0.36 : ability || dash ? 0.22 : 0.14,
+    });
+}

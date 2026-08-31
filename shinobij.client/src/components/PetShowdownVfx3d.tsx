@@ -35,6 +35,7 @@ import * as THREE from "three";
 import { epicTexture, type SetPieceSpawn } from "./PetShowdownVfx";
 import { makeVolumeMaterial } from "../lib/showdown-volume-shaders";
 import { makeGpuCloud, type GpuParticleMode } from "../lib/showdown-gpu-particles";
+import type { PetVisualQualityConfig } from "../lib/pet-visual-quality";
 
 // ─── Deterministic helpers ───────────────────────────────────────────────────
 
@@ -1275,12 +1276,12 @@ export interface StreakBurstSpawn {
     heavy: boolean;
 }
 
-export function StreakBurstFx({ spawn }: { spawn: StreakBurstSpawn }) {
+export function StreakBurstFx({ spawn, budget }: { spawn: StreakBurstSpawn; budget: number }) {
     const refs = useRef<Array<THREE.Mesh | null>>([]);
     const mats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
     const disc = useRef<THREE.Mesh>(null);
     const discMat = useRef<THREE.MeshBasicMaterial>(null);
-    const COUNT = spawn.heavy ? 5 : 3;
+    const COUNT = Math.max(1, Math.min(spawn.heavy ? 5 : 3, budget));
     const params = useMemo(() => {
         const rand = seededRand(spawn.key * 83 + 29);
         return Array.from({ length: COUNT }, () => ({
@@ -1342,9 +1343,9 @@ export function StreakBurstFx({ spawn }: { spawn: StreakBurstSpawn }) {
 
 // ─── Debris chunks — physical rubble for crushes and heavy contact ───────────
 
-export function DebrisFx({ spawn }: { spawn: StreakBurstSpawn }) {
+export function DebrisFx({ spawn, budget }: { spawn: StreakBurstSpawn; budget: number }) {
     const refs = useRef<Array<THREE.Mesh | null>>([]);
-    const COUNT = spawn.heavy ? 7 : 5;
+    const COUNT = Math.max(1, Math.min(spawn.heavy ? 7 : 5, budget));
     const params = useMemo(() => {
         const rand = seededRand(spawn.key * 101 + 41);
         return Array.from({ length: COUNT }, () => ({
@@ -1496,7 +1497,7 @@ const RESIDUE_STYLE: Record<string, { color: string; count: number; size: number
     Lightning: { color: "#dfe8ff", count: 12, size: 0.18, mode: "burst", height: 1.6, floor: "floor-storm", floorOpacity: 0.14 },
 };
 
-export function ResidueFx({ spawn }: { spawn: ResidueSpawn }) {
+export function ResidueFx({ spawn, particleBudget }: { spawn: ResidueSpawn; particleBudget: number }) {
     const style = RESIDUE_STYLE[spawn.element];
     const points = useRef<THREE.Points>(null);
     const mat = useRef<THREE.PointsMaterial>(null);
@@ -1504,14 +1505,14 @@ export function ResidueFx({ spawn }: { spawn: ResidueSpawn }) {
     const floorMat = useRef<THREE.MeshBasicMaterial>(null);
     const params = useMemo(() => {
         const rand = seededRand(spawn.key * 53 + 9);
-        const count = style?.count ?? 10;
+        const count = Math.max(1, Math.min(style?.count ?? 10, particleBudget));
         return Array.from({ length: count }, () => ({
             angle: rand() * Math.PI * 2,
             r: 0.5 + rand() * 1.6,
             speed: 0.25 + rand() * 0.5,
             phase: rand(),
         }));
-    }, [spawn.key, style]);
+    }, [particleBudget, spawn.key, style]);
     const dot = useMemo(() => dotTexture(), []);
     const floorTex = useMemo(() => (style?.floor ? epicTexture(style.floor) : null), [style]);
     useFrame(() => {
@@ -1570,7 +1571,7 @@ export function ResidueFx({ spawn }: { spawn: ResidueSpawn }) {
         <group>
             <points ref={points} visible={false}>
                 <bufferGeometry>
-                    <bufferAttribute attach="attributes-position" args={[new Float32Array((style.count) * 3), 3]} />
+                    <bufferAttribute attach="attributes-position" args={[new Float32Array(params.length * 3), 3]} />
                 </bufferGeometry>
                 <pointsMaterial ref={mat} map={dot} color={style.color} size={style.size} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} sizeAttenuation />
             </points>
@@ -1605,11 +1606,12 @@ const GPU_SUPER_CLOUDS: Record<string, GpuCloudSpec> = {
     Lightning: { mode: "sparks", count: 560, tint: "#f4f8ff", radius: 2.3, height: 2.5, t0: 0.05, t1: 0.9, size: 7 },
 };
 
-function GpuBurst({ spawn, spec }: { spawn: SetPieceSpawn; spec: GpuCloudSpec }) {
+function GpuBurst({ spawn, spec, density }: { spawn: SetPieceSpawn; spec: GpuCloudSpec; density: number }) {
+    const count = Math.max(96, Math.round(spec.count * density));
     const cloud = useMemo(() => makeGpuCloud({
-        mode: spec.mode, count: spec.count, seed: spawn.key * 7919 + 3,
+        mode: spec.mode, count, seed: spawn.key * 7919 + 3,
         tint: spec.tint, radius: spec.radius, height: spec.height, size: spec.size,
-    }), [spawn.key, spec]);
+    }), [count, spawn.key, spec]);
     useEffect(() => () => cloud.dispose(), [cloud]);
     const points = useRef<THREE.Points>(null);
     useFrame(() => {
@@ -1631,10 +1633,11 @@ function GpuBurst({ spawn, spec }: { spawn: SetPieceSpawn; spec: GpuCloudSpec })
 
 /** The 3D structure for one staged cast. Rendered alongside the floor
  *  takeover and the slimmed painted accents by SetPieceOnce. */
-export function VolumetricSetPiece({ spawn }: { spawn: SetPieceSpawn }) {
+export function VolumetricSetPiece({ spawn, quality }: { spawn: SetPieceSpawn; quality: PetVisualQualityConfig }) {
     const glow = ELEMENT_GLOW[spawn.element];
     if (!glow) return null;
-    const spec = PARTICLES[spawn.element](spawn.superCast === true);
+    const baseSpec = PARTICLES[spawn.element](spawn.superCast === true);
+    const spec = { ...baseSpec, count: Math.min(baseSpec.count, quality.setPieceParticles) };
     const strobe = spawn.element === "Lightning"
         ? boltStrikes(spawn.key, spawn.superCast === true).map((s) => [s.t0, s.t1] as const)
         : undefined;
@@ -1650,10 +1653,10 @@ export function VolumetricSetPiece({ spawn }: { spawn: SetPieceSpawn }) {
                 computed entirely in the vertex shader — one uniform write per
                 frame regardless of count. */}
             {spawn.superCast && GPU_SUPER_CLOUDS[spawn.element] && (
-                <GpuBurst spawn={spawn} spec={GPU_SUPER_CLOUDS[spawn.element]} />
+                <GpuBurst spawn={spawn} spec={GPU_SUPER_CLOUDS[spawn.element]} density={quality.setPieceParticles / 52} />
             )}
             <ShockRing spawn={spawn} color={glow} size={spawn.superCast ? 5.6 : 4.2} />
-            <PieceLight spawn={spawn} color={glow} intensity={spawn.superCast ? 34 : 20} strobeWindows={strobe} />
+            {quality.dynamicPetLight && <PieceLight spawn={spawn} color={glow} intensity={spawn.superCast ? 34 : 20} strobeWindows={strobe} />}
         </group>
     );
 }
