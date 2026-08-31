@@ -321,6 +321,13 @@ export type Character = {
      *  from any browser. Loose strings: PetArena validates each on read and falls
      *  back to its default for anything unknown. Never changes rewards or access. */
     warfrontLoadout?: { stance?: string; doctrine?: string; autoBuy?: string };
+    /** Account-level progress through Tamer Tomoe's pet-battle field guide.
+     *  Presentation only: it changes tutorial availability, never rewards,
+     *  combat rules, or mode access. Sanitized and bounded by api/save. */
+    petTutorialProgress?: {
+        version: number;
+        completedLessonIds: Array<"bond" | "showdown" | "colosseum" | "party" | "ladder" | "warfront" | "gauntlet">;
+    };
     equippedBloodlineId?: string;
     stats: Stats;
     unspentStats: number;
