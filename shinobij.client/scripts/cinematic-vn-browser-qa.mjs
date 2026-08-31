@@ -109,6 +109,19 @@ async function openPreview({
                     height: Math.round(rect.height),
                 };
             });
+        const box = (selector) => {
+            const element = document.querySelector(selector);
+            if (!element || !visible(element)) return null;
+            const rect = element.getBoundingClientRect();
+            return {
+                left: rect.left,
+                right: rect.right,
+                top: rect.top,
+                bottom: rect.bottom,
+                width: rect.width,
+                height: rect.height,
+            };
+        };
         return {
             overlay: Boolean(document.querySelector("[data-nextjs-dialog], .vite-error-overlay, #webpack-dev-server-client-overlay")),
             horizontalOverflow: document.documentElement.scrollWidth - window.innerWidth,
@@ -125,11 +138,26 @@ async function openPreview({
             rootClass: document.querySelector(".cvn-root")?.className ?? "",
             background: document.querySelector(".cvn-root")?.style.getPropertyValue("--cvn-background") ?? "",
             dialogueText: document.querySelector(".cvn-dialogue-text")?.textContent?.trim() ?? "",
+            topActionsBox: box(".cvn-top-actions"),
+            titleBox: box(".cvn-title-card"),
+            dialogueBox: box(".cvn-dialogue-shell"),
+            actorBoxes: Array.from(document.querySelectorAll(".cvn-actor")).map((actor) => {
+                const rect = actor.getBoundingClientRect();
+                return {
+                    className: actor.className,
+                    left: rect.left,
+                    right: rect.right,
+                    top: rect.top,
+                    bottom: rect.bottom,
+                    width: rect.width,
+                    height: rect.height,
+                };
+            }),
             playerBox: (() => {
                 const actor = document.querySelector(".cvn-actor.is-player");
                 if (!actor) return null;
                 const rect = actor.getBoundingClientRect();
-                return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+                return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
             })(),
         };
     });
@@ -139,6 +167,29 @@ async function openPreview({
     assert.equal(metrics.actorImages.length, expectedActorCount, `${name}: unexpected actor count`);
     assert.ok(metrics.actorImages.every((image) => image.decoded), `${name}: actor image failed to decode`);
     assert.ok(metrics.buttons.every((button) => button.width >= 44 && button.height >= 44), `${name}: undersized control ${JSON.stringify(metrics.buttons)}`);
+    assert.ok(metrics.dialogueBox, `${name}: dialogue panel is missing`);
+    assert.ok(metrics.dialogueBox.left >= 0 && metrics.dialogueBox.right <= width, `${name}: dialogue panel leaves the viewport`);
+    assert.ok(metrics.dialogueBox.top > 0 && metrics.dialogueBox.bottom <= height, `${name}: dialogue panel is vertically clipped`);
+    if (metrics.titleBox) {
+        assert.ok(metrics.topActionsBox && metrics.titleBox.top >= metrics.topActionsBox.bottom + 24, `${name}: title card crowds the HUD`);
+        assert.ok(metrics.titleBox.bottom <= metrics.dialogueBox.top - 24, `${name}: title card crowds the dialogue panel`);
+        if (width >= 801 && metrics.rootClass.includes("focus-right") && metrics.rootClass.includes("has-right-actor")) {
+            assert.ok(metrics.titleBox.right <= width * .68, `${name}: title card intrudes into the right actor lane`);
+        }
+        if (width >= 801 && metrics.rootClass.includes("focus-left") && metrics.rootClass.includes("has-left-actor")) {
+            assert.ok(metrics.titleBox.left >= width * .32, `${name}: title card intrudes into the left actor lane`);
+        }
+    }
+    if (width >= 801 && height >= 700) {
+        for (const actor of metrics.actorBoxes) {
+            assert.ok(actor.bottom >= metrics.dialogueBox.top - 30, `${name}: actor floats above the dialogue plane`);
+            assert.ok(actor.bottom <= metrics.dialogueBox.top + 72, `${name}: actor is buried too deeply behind dialogue`);
+        }
+        const speakingActor = metrics.actorBoxes.find((actor) => actor.className.includes("is-speaking"));
+        if (speakingActor && metrics.topActionsBox && speakingActor.right > metrics.topActionsBox.left) {
+            assert.ok(speakingActor.top >= metrics.topActionsBox.bottom + 14, `${name}: speaking actor crowds the HUD controls`);
+        }
+    }
     const backdrop = expectedBackground ?? expectedBackdrop[village][state];
     assert.match(metrics.background, new RegExp(backdrop.replace(".", "\\.")), `${name}: expected backdrop was not routed`);
     assert.match(metrics.dialogueText, new RegExp(expectedDialogueText ?? expectedDialogue[state]), `${name}: dialogue line was not rendered`);
@@ -158,6 +209,7 @@ async function openPreview({
             `${name}: ${playerAvatar} upload did not receive aspect-aware framing`,
         );
         assert.ok(metrics.playerBox.left < width && metrics.playerBox.right > 0, `${name}: player framing left the viewport`);
+        assert.ok(metrics.playerBox.width <= (width >= 801 ? 320 : 220), `${name}: player dossier dominates the stage`);
     }
     assert.deepEqual(consoleErrors, [], `${name}: console errors`);
     if (reducedMotion) {
