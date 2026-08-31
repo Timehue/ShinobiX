@@ -316,7 +316,30 @@ export function resolveCinematicActorImage(
     // A page-specific actor image is deliberate story direction (not a generic
     // fallback). Preserve transformations such as the Hollow Kage finales and
     // admin-published actor overrides.
-    return authoredImage?.trim()
+    const resolved = authoredImage?.trim()
         || resolveStorywideActorImage(eventId, actorName, pose)
         || fallback;
+    return versionCinematicActorAsset(resolved);
+}
+
+/**
+ * Cinematic portraits live under public/ rather than Vite's content-hashed
+ * asset graph. Production and the image service worker both cache those URLs,
+ * so replacing a cutout in place can otherwise leave players on the old matte
+ * for days. Bump this revision whenever any cinematic portrait bytes change.
+ */
+export const CINEMATIC_ACTOR_ASSET_REVISION = "891202c8e";
+
+export function versionCinematicActorAsset(source: string): string {
+    const trimmed = source.trim();
+    if (!trimmed.startsWith("/portraits/cinematic/")) return source;
+
+    const hashIndex = trimmed.indexOf("#");
+    const pathAndQuery = hashIndex >= 0 ? trimmed.slice(0, hashIndex) : trimmed;
+    const hash = hashIndex >= 0 ? trimmed.slice(hashIndex) : "";
+    if (/[?&]v=[^&#]*/.test(pathAndQuery)) {
+        return `${pathAndQuery.replace(/[?&]v=[^&#]*/, (match) => `${match[0]}v=${CINEMATIC_ACTOR_ASSET_REVISION}`)}${hash}`;
+    }
+    const separator = pathAndQuery.includes("?") ? "&" : "?";
+    return `${pathAndQuery}${separator}v=${CINEMATIC_ACTOR_ASSET_REVISION}${hash}`;
 }

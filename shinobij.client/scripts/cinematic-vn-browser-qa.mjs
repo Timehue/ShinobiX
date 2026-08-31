@@ -148,6 +148,9 @@ async function openPreview({
             `${name}: authored actor ${expectedActor} was not rendered`,
         );
     }
+    for (const image of metrics.actorImages.filter((candidate) => candidate.src?.startsWith("/portraits/cinematic/"))) {
+        assert.match(image.src, /[?&]v=891202c8e(?:[&#]|$)/, `${name}: cinematic actor URL is not release-versioned`);
+    }
     if (playerAvatar) {
         assert.ok(metrics.playerBox, `${name}: player upload was not put on stage`);
         assert.ok(
@@ -238,6 +241,18 @@ try {
             expectedActor: "pale-pack-runner.webp",
             expectedBackground: "frostfang-pale-pack-cavern-mouth.webp",
             expectedDialogueText: "They've done this before",
+        },
+        {
+            name: "frostfang-elder-sova-both-or-neither-1366x768",
+            width: 1366,
+            height: 768,
+            village: "frostfang",
+            state: "standard",
+            chapter: "elder-sova",
+            playerAvatar: "square",
+            expectedActor: "elder-sova-canon.webp?v=891202c8e",
+            expectedBackground: "story-frostfang-village-50-4.webp",
+            expectedDialogueText: "Read before you sign",
         },
         {
             name: "road-border-smoke-1366x768",

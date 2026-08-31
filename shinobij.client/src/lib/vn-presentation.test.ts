@@ -153,7 +153,7 @@ test("explicit page actor art wins over automatic storywide variants", () => {
             "tense",
             "/portraits/cinematic/storywide/kage-sable-nocturne-hollow.webp",
         ),
-        "/portraits/cinematic/storywide/kage-sable-nocturne-hollow.webp",
+        "/portraits/cinematic/storywide/kage-sable-nocturne-hollow.webp?v=891202c8e",
     );
 });
 
@@ -161,8 +161,37 @@ test("pilot recurring actors resolve to the cinematic package", () => {
     assert.equal(isPremiumVnEvent("story-interlude-ashen-leaf-village-20"), true);
     assert.equal(
         resolveCinematicActorImage("story-interlude-ashen-leaf-village-20", "Kite Harrow", "/fallback.webp"),
-        "/portraits/cinematic/kite-harrow.webp",
+        "/portraits/cinematic/kite-harrow.webp?v=891202c8e",
     );
+});
+
+test("cinematic actor URLs are revisioned without changing uploads or legacy fallbacks", () => {
+    assert.equal(
+        resolveCinematicActorImage("story-frostfang-village-50-4", "Elder Sova", "/fallback.webp"),
+        "/portraits/cinematic/storywide/elder-sova-canon.webp?v=891202c8e",
+    );
+    assert.equal(
+        resolveCinematicActorImage(
+            "story-frostfang-village-50-4",
+            "Elder Sova",
+            "/fallback.webp",
+            "neutral",
+            "/portraits/cinematic/storywide/elder-sova-canon.webp?crop=full#actor",
+        ),
+        "/portraits/cinematic/storywide/elder-sova-canon.webp?crop=full&v=891202c8e#actor",
+    );
+    assert.equal(
+        resolveCinematicActorImage(
+            "story-frostfang-village-50-4",
+            "Elder Sova",
+            "/fallback.webp",
+            "neutral",
+            "/portraits/cinematic/storywide/elder-sova-canon.webp?v=old&crop=full",
+        ),
+        "/portraits/cinematic/storywide/elder-sova-canon.webp?v=891202c8e&crop=full",
+    );
+    assert.equal(resolveCinematicActorImage("creator-generic", "Guide", "/portraits/guide.webp"), "/portraits/guide.webp");
+    assert.equal(resolveCinematicActorImage("story-preview", "Player", "data:image/webp;base64,avatar"), "data:image/webp;base64,avatar");
 });
 
 test("every main-story page resolves to a shipped stage background", () => {

@@ -8,6 +8,7 @@ const environmentDir = path.join(publicRoot, "scenes", "story", "cinematic");
 const actorDir = path.join(publicRoot, "portraits", "cinematic");
 const scoreDir = path.join(publicRoot, "music", "vn");
 const directionSourcePath = path.resolve("src", "lib", "vn-storywide-direction.ts");
+const presentationSourcePath = path.resolve("src", "lib", "vn-presentation.ts");
 const storySourcePaths = [
     path.resolve("src", "data", "storylines.ts"),
     path.resolve("src", "data", "story-interludes.ts"),
@@ -18,6 +19,8 @@ const storySourcePaths = [
 ];
 
 const directionSource = await readFile(directionSourcePath, "utf8");
+const presentationSource = await readFile(presentationSourcePath, "utf8");
+const actorRevision = presentationSource.match(/export const CINEMATIC_ACTOR_ASSET_REVISION = "([^"]+)";/)?.[1];
 const actorMapBlock = directionSource.match(/export const STORYWIDE_ACTORS[^=]*=\s*\{([\s\S]*?)\n\};/)?.[1] ?? "";
 const storywideActorMap = new Map(
     [...actorMapBlock.matchAll(/^\s*(?:"([^"]+)"|([a-z][a-z0-9_-]*)):\s*"([^"]+)",/gm)]
@@ -101,6 +104,11 @@ const scores = [
 const failures = [];
 let totalBytes = 0;
 
+if (!actorRevision) failures.push("cinematic actor delivery has no cache-busting release revision");
+if (!/return versionCinematicActorAsset\(resolved\);/.test(presentationSource)) {
+    failures.push("cinematic actor resolver does not apply its cache-busting release revision");
+}
+
 const namedSpeakers = new Set();
 for (const sourcePath of storySourcePaths) {
     const source = await readFile(sourcePath, "utf8");
@@ -176,4 +184,4 @@ if (failures.length) {
     process.exit(1);
 }
 
-console.log(`\nCertified ${environments.length} environments, ${actors.length + authoredActors.length} actor cutouts, and ${scores.length} score loops (${(totalBytes / 1_048_576).toFixed(2)} MiB total).`);
+console.log(`\nCertified ${environments.length} environments, ${actors.length + authoredActors.length} actor cutouts at revision ${actorRevision}, and ${scores.length} score loops (${(totalBytes / 1_048_576).toFixed(2)} MiB total).`);
