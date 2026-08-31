@@ -1,4 +1,4 @@
-import { open, readFile, stat } from "node:fs/promises";
+import { open, readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import sharp from "sharp";
@@ -109,6 +109,18 @@ if (!/return versionCinematicActorAsset\(resolved\);/.test(presentationSource)) 
     failures.push("cinematic actor resolver does not apply its cache-busting release revision");
 }
 
+async function listWebpFiles(root, current = root) {
+    const files = [];
+    for (const entry of await readdir(current, { withFileTypes: true })) {
+        const absolute = path.join(current, entry.name);
+        if (entry.isDirectory()) files.push(...await listWebpFiles(root, absolute));
+        else if (entry.isFile() && entry.name.toLowerCase().endsWith(".webp")) {
+            files.push(path.relative(root, absolute).split(path.sep).join("/"));
+        }
+    }
+    return files.sort();
+}
+
 const namedSpeakers = new Set();
 for (const sourcePath of storySourcePaths) {
     const source = await readFile(sourcePath, "utf8");
@@ -137,14 +149,44 @@ async function inspectAsset(root, relativePath, kind) {
         if (kind === "actor" && !info.hasAlpha) failures.push(`${relativePath}: actor art has no alpha channel`);
         if (kind === "actor" && (info.width ?? 0) < 900) failures.push(`${relativePath}: actor width is below 900px`);
         if (kind === "actor") {
-            const { data } = await sharp(file).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+            const { data, info: rawInfo } = await sharp(file).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
             let transparentPixels = 0;
-            for (let index = 3; index < data.length; index += 4) {
-                if (data[index] < 16) transparentPixels += 1;
+            let minX = rawInfo.width;
+            let maxX = -1;
+            let minY = rawInfo.height;
+            let maxY = -1;
+            for (let pixel = 0; pixel < data.length / 4; pixel += 1) {
+                const alpha = data[pixel * 4 + 3];
+                if (alpha < 16) {
+                    transparentPixels += 1;
+                    continue;
+                }
+                const x = pixel % rawInfo.width;
+                const y = Math.floor(pixel / rawInfo.width);
+                minX = Math.min(minX, x);
+                maxX = Math.max(maxX, x);
+                minY = Math.min(minY, y);
+                maxY = Math.max(maxY, y);
             }
             const transparentRatio = transparentPixels / (data.length / 4);
             if (transparentRatio < 0.15) {
                 failures.push(`${relativePath}: only ${(transparentRatio * 100).toFixed(1)}% transparent area; likely contains a baked matte`);
+            }
+            if (maxX >= minX && maxY >= minY) {
+                const contentWidth = maxX - minX + 1;
+                const contentHeight = maxY - minY + 1;
+                let nearSolidRows = 0;
+                for (let y = minY; y <= maxY; y += 1) {
+                    let opaquePixels = 0;
+                    for (let x = minX; x <= maxX; x += 1) {
+                        if (data[(y * rawInfo.width + x) * 4 + 3] >= 240) opaquePixels += 1;
+                    }
+                    if (opaquePixels / contentWidth >= 0.9) nearSolidRows += 1;
+                }
+                const solidRowRatio = nearSolidRows / contentHeight;
+                if (solidRowRatio > 0.45) {
+                    failures.push(`${relativePath}: ${(solidRowRatio * 100).toFixed(1)}% of cutout rows are rectangular and opaque; likely contains an inner card matte`);
+                }
             }
         }
         console.log(`PASS ${kind.padEnd(11)} ${String(info.width).padStart(4)}x${String(info.height).padEnd(4)} ${String(fileStat.size).padStart(7)} B  ${relativePath}`);
@@ -173,9 +215,14 @@ async function inspectScore(relativePath) {
     }
 }
 
+const allActorAssets = await listWebpFiles(actorDir);
+const routedActorAssets = new Set([...actors, ...authoredActors]);
+const additionalActorAssets = allActorAssets.filter((actor) => !routedActorAssets.has(actor));
+
 for (const environment of environments) await inspectAsset(environmentDir, environment, "environment");
 for (const actor of actors) await inspectAsset(actorDir, actor, "actor");
 for (const actor of authoredActors) await inspectAsset(actorDir, actor, "actor");
+for (const actor of additionalActorAssets) await inspectAsset(actorDir, actor, "actor");
 for (const score of scores) await inspectScore(score);
 
 if (failures.length) {
@@ -184,4 +231,4 @@ if (failures.length) {
     process.exit(1);
 }
 
-console.log(`\nCertified ${environments.length} environments, ${actors.length + authoredActors.length} actor cutouts at revision ${actorRevision}, and ${scores.length} score loops (${(totalBytes / 1_048_576).toFixed(2)} MiB total).`);
+console.log(`\nCertified ${environments.length} environments, all ${allActorAssets.length} cinematic actor cutouts at revision ${actorRevision}, and ${scores.length} score loops (${(totalBytes / 1_048_576).toFixed(2)} MiB total).`);
