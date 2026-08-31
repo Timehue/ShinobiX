@@ -2256,7 +2256,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/32-cinematic-vn.css",
-            "line": 1116
+            "line": 1153
           }
         ]
       },
@@ -2685,7 +2685,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/32-cinematic-vn.css",
-            "line": 1128
+            "line": 1165
           }
         ]
       },
@@ -2878,11 +2878,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/32-cinematic-vn.css",
-            "line": 910
+            "line": 942
           },
           {
             "source": "shinobij.client/src/styles/index/32-cinematic-vn.css",
-            "line": 1122
+            "line": 1159
           }
         ]
       },
@@ -2901,7 +2901,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/32-cinematic-vn.css",
-            "line": 1292
+            "line": 1329
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
@@ -3219,11 +3219,11 @@
           },
           {
             "source": "shinobij.client/src/styles/index/32-cinematic-vn.css",
-            "line": 910
+            "line": 942
           },
           {
             "source": "shinobij.client/src/styles/index/32-cinematic-vn.css",
-            "line": 1066
+            "line": 1098
           },
           {
             "source": "shinobij.client/src/styles/jutsu-training-skin.css",
@@ -3301,7 +3301,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/32-cinematic-vn.css",
-            "line": 1122
+            "line": 1159
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
