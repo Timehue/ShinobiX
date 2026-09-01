@@ -14,7 +14,11 @@ import type { Character } from "../types/character";
 import type { Jutsu, SavedBloodline } from "../types/combat";
 import { getBloodlineMultiplier } from "./combat-math";
 import { makeId } from "./utils";
-import { getPvpJutsuLoadout, type DuelChallenge } from "../App";
+// Both from their real homes rather than round-tripping through "../App":
+// reaching back into App pulls its .webp and component CSS into every consumer
+// of this file, which is what made them unloadable under node:test.
+import { getPvpJutsuLoadout } from "./jutsu-loadout";
+import type { DuelChallenge } from "../types/duel-challenge";
 
 export async function sendStandardDuel(opts: {
     character: Character;

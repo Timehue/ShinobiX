@@ -2,7 +2,7 @@
 // dev-only petvfx harness as a build input and writes to dist-perf so the
 // production dist and its size budgets are untouched. Safe to delete.
 import { defineConfig, mergeConfig } from "vite";
-import base from "./vite.config";
+import base from "./vite.config.ts";
 
 export default mergeConfig(base, defineConfig({
     build: {

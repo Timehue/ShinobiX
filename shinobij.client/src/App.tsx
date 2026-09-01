@@ -1,7 +1,4 @@
 import { retireStalePetDuel } from "./lib/pet-duel-legacy-challenge";
-// Canonical seal balance lives in professionLogic; App.tsx held a byte-identical
-// copy of this rule, which is exactly how two versions of a reward table drift.
-import { levelGapSealMultiplier } from "./professionLogic";
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import type * as React from "react";
@@ -106,7 +103,6 @@ import {
 } from "./lib/aura-sphere";
 import {
     defaultVillageUpgrades,
-    normalizeVillageUpgrades,
     discountCost,
     getBankInterestPercent,
     getHospitalDiscountPercent,
@@ -123,7 +119,7 @@ import {
 } from "./lib/jutsu-scaling";
 import { useJutsuTrainingQueueRunner } from "./lib/jutsu-training-queue";
 import { useBloodlineMakerFlow } from "./lib/use-bloodline-maker-flow";
-import { normalizeJutsu, orderEquippedJutsus } from "./lib/jutsu";
+import { normalizeJutsu } from "./lib/jutsu";
 import { normalizeOnboardingStep } from "./lib/onboarding-step";
 import {
     starterBloodlineOffense,
@@ -141,12 +137,10 @@ import {
 export { endlessScaleFactor, endlessWaveReward, endlessTowerMilestoneReward };
 import {
     baseStats,
-    normalizeStats,
     maxedStats,
     maxHpForLevel,
     maxChakraForLevel,
     maxStaminaForLevel,
-    rankFromLevel,
     levelForEarned,
     earnedStatPoints,
     reconcileCharacterStatBudget,
@@ -155,9 +149,9 @@ import {
     dailyMissionsCompleted,
     dailyHuntsCompleted,
     rankTitleForLevel,
-    applyStoryChoice, deriveStoryTraits,
+    applyStoryChoice,
 } from "./lib/character-progress";
-import { normalizeLoadedVital, regenerateIdleVitals } from "./lib/loaded-vitals";
+import { regenerateIdleVitals } from "./lib/loaded-vitals";
 import { acceptVersionedSnapshot } from "./lib/versioned-snapshot";
 export { dailyMissionsCompleted, dailyHuntsCompleted };
 // Install the global fetch interceptor once at module load. From here on,
@@ -203,7 +197,7 @@ const TownHall = lazyWithRetry(() => import("./screens/TownHall").then(m => ({ d
 const ClanHall = lazyWithRetry(() => import("./screens/ClanHall").then(m => ({ default: m.ClanHall })));
 import { BATTLE_LOCK_ID_KEY, BATTLE_LOCK_RESOLVED_KEY, postBattleLock, arenaStoryCtxKey, fetchBattleLockStatus, battleResumeStateExists, readArenaStoryContext, type ClientBattleLock } from "./lib/battle-save";
 import { postFieldTrail } from "./lib/field-trail-api";
-import { postPlayerChallengeNotice } from "./lib/player-api";
+import { loadPlayerApi, warmPlayerApi } from "./lib/player-api-loader";
 const WorldMap = lazyWithRetry(() => import("./screens/WorldMap").then(m => ({ default: m.WorldMap })));
 const WorldCrisis = lazyWithRetry(() => import("./screens/WorldCrisis").then(m => ({ default: m.WorldCrisis })));
 const loadMissionCatalog = () => import("./data/missions");
@@ -255,8 +249,7 @@ import { useWarRewardClaims } from "./lib/use-war-reward-claims";
 import { useVillageTax } from "./lib/use-village-tax";
 import { requireServerSettlement } from "./lib/server-settlement-gate";
 import { scheduleHeartbeat } from "./lib/heartbeat-cadence";
-import { claimWorldAttack, releaseWorldAttack } from "./lib/world-attack-claim";
-import { masteryBonus } from "./lib/profession-mastery";
+import { attackSectorPlayer } from "./lib/sector-attack";
 const StartScreen = lazyWithRetry(() => import("./screens/StartScreen").then(m => ({ default: m.StartScreen })));
 const OnboardingCoach = lazyWithRetry(() => import("./components/OnboardingCoach").then(m => ({ default: m.OnboardingCoach })));
 const ScreenHint = lazyWithRetry(() => import("./components/ScreenHint").then(m => ({ default: m.ScreenHint })));
@@ -350,12 +343,8 @@ export {
 };
 
 import {
-    VANGUARD_SEALS_PER_KILL,
     VANGUARD_DAILY_SEAL_CAP,
     VANGUARD_PER_TARGET_DAILY_CAP,
-    ANTI_ALT_ACCOUNT_AGE_MS,
-    PROFESSION_XP_BASELINE,
-    PROFESSION_XP_HEALER,
     PROFESSION_MAX_RANK,
 } from "./constants/profession";
 export {
@@ -392,7 +381,6 @@ export { armorReductionForQuality, consolidateItemBonuses };
 import {
     currentMonthKey,
     currentDateKey,
-    makeId,
     playerSlug,
 } from "./lib/utils";
 
@@ -420,9 +408,6 @@ const RightMenu = lazyWithRetry(() => import("./components/RightMenu").then(m =>
 const MobileNav = lazyWithRetry(() => import("./components/MobileNav").then(m => ({ default: m.MobileNav })));
 
 import { starterItems } from "./data/starter-items";
-import { rawPetPool } from "./data/pet-pool";
-import { STARTER_PETS } from "./data/starter-pets";
-import { STARTER_EVOLUTIONS } from "./data/pet-evolutions";
 import { loadStoryTrigger } from "./lib/story-trigger-loader";
 import { resolveStoryContinuation } from "./lib/story-load-authority";
 import {
@@ -440,7 +425,6 @@ import {
 export { petTrainingOptions, petFeedXpForItem };
 
 import {
-    villages,
     weatherForBiome,
 } from "./data/sectors";
 
@@ -621,13 +605,16 @@ export { adminIconOptions } from "./data/admin-icons";
 // stay here because they close over the petPool array (which itself is
 // derived via balanceBuiltInPetTemplate from the imported lib).
 import {
-    balanceBuiltInPetTemplate,
-    registerPublishedPetTemplates, normalizePetTemplate, renormalizedIfChanged,
+    registerPublishedPetTemplates, renormalizedIfChanged,
     applyPetTraitBonuses,
     collectPetTraining,
     gainPetXp,
 } from "./lib/pet-balance";
 import { chooseStarterPetServer, reconcileOwnedStarter } from "./lib/pet-acquisition-api";
+import { mergeMissingBuiltInPets, normalizePet, petPool } from "./lib/pet-roster";
+import { normalizeCharacter } from "./lib/normalize-character";
+import { getAllJutsus, getPvpJutsuLoadout } from "./lib/jutsu-loadout";
+import { isAdminAccountName, isFullAdminAccountName } from "./lib/admin-identity";
 export { gainPetXp, collectPetTraining };
 // Pet element/special jutsu tables + balance/training/XP helpers all
 // moved to ./lib/pet-balance — imported above. See that file for the
@@ -637,32 +624,9 @@ export { gainPetXp, collectPetTraining };
 export { useSharedNow } from "./lib/use-shared-now";
 
 // formatPetTimer moved to ./lib/utils.
-// Raw pet templates (./data/pet-pool) are scaled by the balancer; the 5 starter
-// companions AND their 10 evolved templates (data/starter-pets, pet-evolutions)
-// are appended UNBALANCED (hand-authored stats/kits). Both are surfaced in the
-// admin Pet Editor for imaging and seeded into editablePets, but excluded from
-// wild encounters by isWildSpawnable — a starter or evolution never shows up as
-// a random wild beast.
-const petPool: Pet[] = [
-    ...rawPetPool.map(balanceBuiltInPetTemplate),
-    ...STARTER_PETS.map((option) => option.pet),
-    ...STARTER_EVOLUTIONS,
-];
-
-function mergeMissingBuiltInPets(currentPets: Pet[]): Pet[] {
-    const currentIds = new Set(currentPets.map((pet) => pet.id));
-    const missingBuiltInPets = petPool.filter((pet) => !currentIds.has(pet.id));
-
-    return [...currentPets, ...missingBuiltInPets];
-}
-
-// normalizePet's logic lives in ./lib/pet-balance (normalizePetTemplate); here we
-// only bind the App-local petPool (balanced rawPetPool + starters/evolutions) as
-// its baseline fallback. cloneEncounterPet + the published-template registry also
-// live in ./lib/pet-balance.
-function normalizePet(pet: Pet): Pet {
-    return normalizePetTemplate(pet, petPool);
-}
+// The built-in pet roster (petPool / mergeMissingBuiltInPets / normalizePet)
+// moved to ./lib/pet-roster: normalizeCharacter calls normalizePet, and a lib
+// module cannot reach back into App for it. Imported back near the top.
 // eventPetDifficultyMultiplier + scaleEventPetOpponent moved to ./lib/pet-balance,
 // and no longer have a caller: an authored VN pet battle is scaled by the SERVER
 // (api/pet/_authored-encounter.ts), which is a port of those two functions.
@@ -719,10 +683,10 @@ export function setHollowGateKeyFateShardCost(v: number) { HOLLOW_GATE_KEY_FATE_
 
 // addToAllStats / maxedStats moved to ./lib/stats (imported back above).
 
-export function isAdminAccountName(name?: string): name is AdminAccount { return name === "Admin 1" || name === "Admin 2"; }
-
-/** Client mirror of the server's full-admin role assignment. */
-export function isFullAdminAccountName(name?: string): name is "Admin 1" { return name === "Admin 1"; }
+// isAdminAccountName + isFullAdminAccountName live in ./lib/admin-identity
+// (this file carried a duplicate of the latter). Imported back above and
+// re-exported for any "../App" caller.
+export { isAdminAccountName, isFullAdminAccountName };
 
 function normalizeAdminCharacter(character: Character): Character {
     const normalized = normalizeCharacter(character);
@@ -777,120 +741,25 @@ export function gainXp(character: Character, _amount: number): Character {
 // implementation of a payout is how these drift.
 
 // ── Profession combat bonuses ────────────────────────────────────────────
-// Pet Tamer PvE pet damage mult (+5% unlock, +1.5%/rank, +Savagery mastery); PvE only.
-export function petTamerPveMultiplier(character: Character | null | undefined): number {
-    if (!character || character.profession !== "petTamer") return 1;
-    const rank = Math.max(0, Math.min(PROFESSION_MAX_RANK, character.professionRank ?? 1));
-    // Unlock = +5%; rank 1 = +6.5%; rank 10 = +20%.
-    const bonusPct = 5 + rank * 1.5 + masteryBonus(character, "petPveDamagePct");
-    return 1 + bonusPct / 100;
-}
-
-// VANGUARD_SEALS_PER_KILL / VANGUARD_DAILY_SEAL_CAP /
-// VANGUARD_PER_TARGET_DAILY_CAP moved to ./constants/profession.
-
-// Vanguard XP per PvP kill: 100 base + 10 per target level above 30.
-export function vanguardXpForKill(opponent: Character | null | undefined): number {
-    if (!opponent) return 0;
-    const lvl = Number(opponent.level ?? 1);
-    return 100 + 10 * Math.max(0, lvl - 30);
-}
-
-// ANTI_ALT_ACCOUNT_AGE_MS moved to ./constants/profession.
-function targetTooYoungForRewards(opponent: Character | null | undefined): boolean {
-    if (!opponent?.createdAt) return false;
-    return (Date.now() - opponent.createdAt) < ANTI_ALT_ACCOUNT_AGE_MS;
-}
-
-// Pet Tamer Phase 2 bonuses (client-side). Training speed % faster, expedition
-// reward multiplier, daily First Expedition 2x flag.
-export function petTamerTrainingSpeedPct(character: Character | null | undefined): number {
-    if (!character || character.profession !== "petTamer") return 0;
-    const rank = Math.max(0, Math.min(PROFESSION_MAX_RANK, character.professionRank ?? 1));
-    // Unlock 10%; +1%/rank to 20% at L10; +Drill Sergeant mastery (PvE/utility).
-    return 10 + rank + masteryBonus(character, "petTrainTimePct");
-}
-
-export function petTamerExpeditionMult(character: Character | null | undefined): number {
-    if (!character || character.profession !== "petTamer") return 1;
-    const rank = Math.max(0, Math.min(PROFESSION_MAX_RANK, character.professionRank ?? 1));
-    // Unlock +10%; +1.5% per rank to +25% at rank 10.
-    return 1 + (10 + rank * 1.5) / 100;
-}
-
-// Returns true if this is the first expedition the player has claimed today
-// (UTC). Updates `lastExpeditionClaimDate` and `expeditionsClaimedToday` on
-// the returned character.
-export function petTamerClaimFirstExpeditionToday(character: Character, todayKey: string): { isFirst: boolean; nextCharacter: Character } {
-    const sameDay = character.lastExpeditionClaimDate === todayKey;
-    const count = sameDay ? (character.expeditionsClaimedToday ?? 0) : 0;
-    const isFirst = character.profession === "petTamer" && count === 0;
-    return {
-        isFirst,
-        nextCharacter: {
-            ...character,
-            lastExpeditionClaimDate: todayKey,
-            expeditionsClaimedToday: count + 1,
-        },
-    };
-}
-
-// Compute Honor Seals earned for a PvP kill given Vanguard rank, level gap,
-// daily cap, and per-target cap. Returns {amount, byTarget} where byTarget is
-// the new count for that target today.
-export function vanguardSealsForKill(
-    killer: Character,
-    opponent: Character,
-    todayKey: string,
-): { amount: number; updatedByTarget: Record<string, number> } {
-    if (killer.profession !== "vanguard") return { amount: 0, updatedByTarget: killer.dailyHonorSealsByTarget ?? {} };
-
-    // Anti-alt: zero rewards for targets whose account is brand new.
-    if (targetTooYoungForRewards(opponent)) {
-        return { amount: 0, updatedByTarget: killer.dailyHonorSealsByTarget ?? {} };
-    }
-
-    const rank = Math.max(1, Math.min(PROFESSION_MAX_RANK, killer.professionRank ?? 1));
-    const baseSeals = VANGUARD_SEALS_PER_KILL[rank];
-
-    const gapMult = levelGapSealMultiplier(killer.level, opponent.level);
-    let amount = Math.floor(baseSeals * gapMult);
-    if (amount <= 0) return { amount: 0, updatedByTarget: killer.dailyHonorSealsByTarget ?? {} };
-
-    // Daily cap.
-    const todayActive = killer.vanguardDailyResetDate === todayKey;
-    const dailySoFar = todayActive ? (killer.dailyHonorSealsEarned ?? 0) : 0;
-    const remainingDaily = Math.max(0, VANGUARD_DAILY_SEAL_CAP - dailySoFar);
-    amount = Math.min(amount, remainingDaily);
-
-    // Per-target daily cap.
-    const byTarget = todayActive ? (killer.dailyHonorSealsByTarget ?? {}) : {};
-    const targetName = opponent.name.toLowerCase();
-    const targetSoFar = byTarget[targetName] ?? 0;
-    const remainingForTarget = Math.max(0, VANGUARD_PER_TARGET_DAILY_CAP - targetSoFar);
-    amount = Math.min(amount, remainingForTarget);
-
-    if (amount <= 0) return { amount: 0, updatedByTarget: byTarget };
-
-    const updatedByTarget = { ...byTarget, [targetName]: targetSoFar + amount };
-    return { amount, updatedByTarget };
-}
-
-// PROFESSION_XP_BASELINE / PROFESSION_XP_HEALER / PROFESSION_MAX_RANK
-// moved to ./constants/profession.
-
-export function professionThresholds(profession: Profession): readonly number[] {
-    return profession === "healer" ? PROFESSION_XP_HEALER : PROFESSION_XP_BASELINE;
-}
-
-export function getProfessionRankForXp(profession: Profession, xp: number): number {
-    const t = professionThresholds(profession);
-    let rank = 1;
-    for (let i = 1; i <= PROFESSION_MAX_RANK; i += 1) {
-        if (xp >= t[i]) rank = i + 1;
-    }
-    return Math.min(PROFESSION_MAX_RANK, rank);
-}
+// Extracted verbatim to ./lib/profession-bonuses (Pet Tamer multipliers,
+// Vanguard Honor Seal accounting, profession XP→rank curve). App calls none
+// of them itself; they are re-exported here because every consumer —
+// professionLogic, PetTamerHub, PetYard, HallOfLegends, ProfessionRankBar —
+// imports them from "../App". Moving them out also made them testable: this
+// file imports a .webp, so node:test cannot load it.
+//
+// petTamerClaimFirstExpeditionToday has NO caller anywhere in the repo. It
+// was moved rather than deleted — retiring a public export is an owner call.
+export {
+    petTamerPveMultiplier,
+    vanguardXpForKill,
+    petTamerTrainingSpeedPct,
+    petTamerExpeditionMult,
+    petTamerClaimFirstExpeditionToday,
+    vanguardSealsForKill,
+    professionThresholds,
+    getProfessionRankForXp,
+} from "./lib/profession-bonuses";
 
 // Reward-currency helpers (normalize/apply/format + rewardSummary) extracted to
 // ./lib/currency. The symbols still referenced here are imported back near the
@@ -906,7 +775,6 @@ export function setHollowGateUnlockCost(v: number) { HOLLOW_GATE_UNLOCK_COST = v
 // ./data/village-leadership (import from those modules, not from App).
 import { normalizeVillageLeadershipImages, type VillageLeadershipImages } from "./data/village-leadership";
 import { setVillageLeadershipImagesCache } from "./lib/village-leadership-images";
-import { isDeletedJutsuEntry } from "../../shared/admin-content-tombstone";
 import { isMpvpLeaseMode } from "../../shared/tower-pvp";
 
 // Village upgrade system (definitions, levels/bonuses, costs + the derived
@@ -929,135 +797,13 @@ export { normalizeJutsu };
 // ./lib/presence-character — drained out of App.tsx to keep it under the size
 // ratchet. Imported at the top of this file.
 
-export function normalizeCharacter(parsed: Character): Character {
-    const level = Math.max(1, Math.min(MAX_LEVEL, Math.floor(parsed.level ?? 1)));
-    // Character XP is retired: the field is frozen ballast (pre-wipe rollback
-    // insurance) — carry it through untouched instead of curve-clamping it.
-    const xp = Math.max(0, Math.floor(parsed.xp ?? 0));
-    const currentMonth = currentMonthKey();
-    const expectedMaxHp = maxHpForLevel(level);
-    const expectedMaxChakra = maxChakraForLevel(level);
-    const expectedMaxStamina = maxStaminaForLevel(level);
-    const hp = normalizeLoadedVital(parsed.hp, parsed.maxHp, expectedMaxHp);
-    const chakra = normalizeLoadedVital(parsed.chakra, parsed.maxChakra, expectedMaxChakra);
-    const stamina = normalizeLoadedVital(parsed.stamina, parsed.maxStamina, expectedMaxStamina);
-    const stats = normalizeStats(parsed.stats);
-
-    const normalized: Character = {
-        ...parsed,
-        level,
-        xp,
-        avatarImage: parsed.avatarImage ?? "",
-        specialty: (parsed.specialty ?? "Ninjutsu") as JutsuType,
-        storyProgress: parsed.storyProgress ?? 0,
-        storyVillage: parsed.storyVillage ?? parsed.village ?? villages[0],
-        bankRyo: parsed.bankRyo ?? 0,
-        honorSeals: parsed.honorSeals ?? 0,
-        auraDust: parsed.auraDust ?? 0,
-        auraSphereLevel: Math.max(1, Math.floor(parsed.auraSphereLevel ?? 1)),
-        fateShards: parsed.fateShards ?? 0,
-        tileCards: parsed.tileCards ?? [],
-        savedTileDeck: parsed.savedTileDeck ?? undefined,
-        elements: getCharacterElements(parsed),
-        hp: hp.current,
-        maxHp: hp.maximum,
-        chakra: chakra.current,
-        maxChakra: chakra.maximum,
-        stamina: stamina.current,
-        maxStamina: stamina.maximum,
-        rankTitle: parsed.rankTitle ?? rankFromLevel(level),
-        storyTitle: parsed.storyTitle ?? "",
-        storyTraits: deriveStoryTraits(Array.isArray(parsed.storyTraits) ? parsed.storyTraits.filter(Boolean) : []),
-        inventory: parsed.inventory ?? [],
-        equipment: parsed.equipment ?? {},
-        stats,
-        unspentStats: Math.max(0, Math.floor(parsed.unspentStats ?? STARTING_STAT_POINTS)), // two-axis: stored pool, not budget-derived
-        equippedJutsuIds: (parsed.equippedJutsuIds ?? []).slice(0, 15),
-        jutsuMastery: parsed.jutsuMastery ?? [],
-        // The server is authoritative for roster entitlement and grandfathers
-        // legitimate larger rosters. Hydration must not silently discard a
-        // Supporter's sixth pet or any preserved overflow.
-        pets: (parsed.pets ?? []).map(normalizePet),
-        activePetId: parsed.activePetId,
-        activePetId2v2: parsed.activePetId2v2,
-        boneCharms: parsed.boneCharms ?? 0,
-        auraStones: parsed.auraStones ?? 0,
-        mythicSeals: parsed.mythicSeals ?? 0,
-        clan: parsed.clan,
-        clanFounder: parsed.clanFounder ?? false,
-        clanPoints: Math.max(0, Math.floor(Number(parsed.clanPoints ?? 0) || 0)),
-        weeklyClanPoints: Math.max(0, Math.floor(Number(parsed.weeklyClanPoints ?? 0) || 0)),
-        weeklyClanPointsWeek: typeof parsed.weeklyClanPointsWeek === "string" ? parsed.weeklyClanPointsWeek : undefined,
-        lifetimeClanPoints: Math.max(0, Math.floor(Number(parsed.lifetimeClanPoints ?? 0) || 0)),
-        clanPointHistory: Array.isArray(parsed.clanPointHistory) ? parsed.clanPointHistory : [],
-        clanExchangePurchases: (parsed.clanExchangePurchases && typeof parsed.clanExchangePurchases === "object" && !Array.isArray(parsed.clanExchangePurchases)) ? parsed.clanExchangePurchases : { weekly: {}, monthly: {}, oneTime: {} },
-        clanBattleContrib: parsed.clanBattleContrib ?? 0,
-        clanEventContrib: parsed.clanEventContrib ?? 0,
-        clanMissionContrib: parsed.clanMissionContrib ?? 0,
-        totalStatsTrained: parsed.totalStatsTrained ?? 0,
-        totalMissionsCompleted: parsed.totalMissionsCompleted ?? parsed.clanMissionContrib ?? 0,
-        totalAiKills: parsed.totalAiKills ?? 0,
-        totalPvpKills: parsed.totalPvpKills ?? 0,
-        monthlyPvpKills: parsed.pvpKillMonth === currentMonth ? parsed.monthlyPvpKills ?? 0 : 0,
-        pvpKillMonth: parsed.pvpKillMonth === currentMonth ? parsed.pvpKillMonth : currentMonth,
-        totalVillageRaids: parsed.totalVillageRaids ?? 0,
-        villageWarMissionDate: parsed.villageWarMissionDate === currentDateKey() ? parsed.villageWarMissionDate : currentDateKey(),
-        villageWarRaidProgress: parsed.villageWarMissionDate === currentDateKey() ? parsed.villageWarRaidProgress ?? 0 : 0,
-        villageWarMissionsCompleted: parsed.villageWarMissionDate === currentDateKey() ? parsed.villageWarMissionsCompleted ?? 0 : 0,
-        totalTilesExplored: parsed.totalTilesExplored ?? 0,
-        totalTournamentsCompleted: parsed.totalTournamentsCompleted ?? 0,
-        totalEndlessTowerWins: parsed.totalEndlessTowerWins ?? 0,
-        endlessTowerBestWave: parsed.endlessTowerBestWave ?? 0,
-        endlessTowerRun: parsed.endlessTowerRun ?? null,
-        battleTowerBestFloor: parsed.battleTowerBestFloor ?? 0,
-        battleTowerRating: parsed.battleTowerRating ?? 0,
-        battleTowerClearedFloors: Array.isArray(parsed.battleTowerClearedFloors) ? parsed.battleTowerClearedFloors : [],
-        battleTowerClaimedRewards: Array.isArray(parsed.battleTowerClaimedRewards) ? parsed.battleTowerClaimedRewards : [],
-        battleTowerAssistRewardsClaimed: Array.isArray(parsed.battleTowerAssistRewardsClaimed) ? parsed.battleTowerAssistRewardsClaimed : [],
-        totalPetWins: parsed.totalPetWins ?? 0,
-        defeatedAiIds: Array.isArray(parsed.defeatedAiIds) ? parsed.defeatedAiIds.filter(Boolean) : [],
-        rankedRating: parsed.rankedRating ?? 1000,
-        rankedWins: parsed.rankedWins ?? 0,
-        rankedLosses: parsed.rankedLosses ?? 0,
-        petRankedRating: parsed.petRankedRating ?? 1000,
-        petRankedWins: parsed.petRankedWins ?? 0,
-        petRankedLosses: parsed.petRankedLosses ?? 0,
-        weeklyBossKills: parsed.weeklyBossKills ?? {},
-        claimedWarCrateIds: Array.isArray(parsed.claimedWarCrateIds) ? parsed.claimedWarCrateIds : [],
-        clanContribMonth: parsed.clanContribMonth,
-        guardQueued: parsed.guardQueued ?? false,
-        hospitalized: parsed.hospitalized ?? false,
-        villageUpgrades: normalizeVillageUpgrades(parsed.villageUpgrades),
-        // Clan member-passive snapshot + per-AI kill counts — explicitly typed +
-        // validated here. (normalize spreads ...parsed first, so unlisted fields
-        // are preserved, not dropped; these just get an explicit shape check.)
-        clanUpgradeLevels: (parsed.clanUpgradeLevels && typeof parsed.clanUpgradeLevels === "object" && !Array.isArray(parsed.clanUpgradeLevels)) ? parsed.clanUpgradeLevels : undefined,
-        aiKills: (parsed.aiKills && typeof parsed.aiKills === "object" && !Array.isArray(parsed.aiKills)) ? parsed.aiKills : {},
-        lastBankInterestAt: parsed.lastBankInterestAt ?? 0,
-        lastDailyReset: currentDateKey(),
-        dailyTilesExplored: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyTilesExplored ?? 0) : 0,
-        dailyMissionsCompleted: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyMissionsCompleted ?? 0) : 0,
-        dailyHuntsCompleted: parsed.lastHuntReset === currentDateKey() ? (parsed.dailyHuntsCompleted ?? 0) : 0,
-        lastHuntReset: currentDateKey(),
-        dailyFateSpins: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyFateSpins ?? 0) : 0,
-        dailyAiKills: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyAiKills ?? 0) : 0,
-        dailyPetWins: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyPetWins ?? 0) : 0,
-        dailyHollowGateRuns: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyHollowGateRuns ?? 0) : 0,
-        dailyTowerXp: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyTowerXp ?? 0) : 0,
-        // A server start persists a minimal private projection before the
-        // browser generates floor 1. Never render that incomplete projection;
-        // entry recovery rebuilds it from lastHollowGateStart instead.
-        hollowGateRun: parsed.hollowGateRun && Array.isArray(parsed.hollowGateRun.tiles)
-            ? parsed.hollowGateRun
-            : null,
-        hollowGateWardenKills: parsed.hollowGateWardenKills ?? 0,
-        hollowGateIntroSeen: parsed.hollowGateIntroSeen ?? false,
-        claimedVillageAgendaDate: parsed.claimedVillageAgendaDate,
-        claimedMapControlDate: parsed.claimedMapControlDate,
-        examsPassed: Array.isArray(parsed.examsPassed) ? parsed.examsPassed.filter(Boolean) : [],
-    };
-    return normalizeInventory(normalized); // migrate inline stackables → itemStacks (idempotent)
-}
+// Save hydration (normalizeCharacter) drained to ./lib/normalize-character.
+// Imported back near the top of this file and re-exported here for the three
+// screens that still take it from "../App" (PvpBattleScreen, TownHall,
+// WorldMap). lib/pvp-session.ts now imports the module DIRECTLY — that edge is
+// what made every module downstream of it unloadable under node:test, because
+// reaching back into App drags App's .webp and component CSS along with it.
+export { normalizeCharacter };
 
 
 
@@ -1216,42 +962,14 @@ function createAdminCharacter(adminName: AdminAccount = "Admin 1"): Character {
     };
 }
 
-function allStarterBloodlineJutsus() {
-    return starterSavedBloodlines.flatMap((bloodline) => bloodline.jutsus.map((jutsu) => ({ jutsu, rank: bloodline.rank })));
-}
-
-function starterBloodlineJutsuRank(jutsuId: string): Rank | undefined {
-    return allStarterBloodlineJutsus().find(({ jutsu }) => jutsu.id === jutsuId)?.rank;
-}
-
-export function getAllJutsus(savedBloodlines: SavedBloodline[], creatorJutsus: Jutsu[], character?: Character | null) {
-    // Tombstones ride in creatorJutsus so a delete survives publish; not jutsu.
-    creatorJutsus = creatorJutsus.filter((j) => !isDeletedJutsuEntry(j));
-    const starterBloodlineName = character?.bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : character?.bloodline;
-    const starterBloodline = starterSavedBloodlines.find((b) => b.name === starterBloodlineName);
-    const equippedBloodline = savedBloodlines.find((b) => b.id === character?.equippedBloodlineId);
-    const merged = new Map<string, Jutsu>();
-    const markRank = (jutsus: Jutsu[], rank: Rank) => jutsus.map(j => ({ ...j, bloodlineRank: rank }));
-    const includeAllStarterBloodlines = !character || isAdminAccountName(character.name);
-    [
-        ...starterJutsus,
-        ...(includeAllStarterBloodlines ? allStarterBloodlineJutsus().map(({ jutsu, rank }) => ({ ...jutsu, bloodlineRank: rank })) : []),
-        ...markRank(starterBloodline?.jutsus ?? [], starterBloodline?.rank ?? "B Rank"),
-        ...markRank(equippedBloodline?.jutsus ?? [], equippedBloodline?.rank ?? "B Rank"),
-        ...creatorJutsus.map((jutsu) => {
-            const starterBloodlineRank = starterBloodlineJutsuRank(jutsu.id);
-            // Do NOT rebalance here — admin-saved values must be preserved as-is.
-            return starterBloodlineRank ? { ...normalizeJutsu(jutsu), bloodlineRank: starterBloodlineRank } : normalizeJutsu(jutsu);
-        }),
-    ].map(normalizeJutsu).forEach((jutsu) => {
-        merged.set(jutsu.id, jutsu);
-    });
-    return [...merged.values()];
-}
-
-export function getPvpJutsuLoadout(savedBloodlines: SavedBloodline[], creatorJutsus: Jutsu[], character: Character) {
-    return orderEquippedJutsus(getAllJutsus(savedBloodlines, creatorJutsus, character), character.equippedJutsuIds);
-}
+// Jutsu loadout resolution (allStarterBloodlineJutsus / starterBloodlineJutsuRank
+// / getAllJutsus / getPvpJutsuLoadout) moved to ./lib/jutsu-loadout. It was the
+// last App-local value lib/ imported back — lib/duel-challenge.ts took
+// getPvpJutsuLoadout from "../App", which dragged this file's .webp and
+// component CSS into every consumer. Re-exported here for the screens
+// (Arena, TownHall, WorldMap, Profile, Training, AdminPanel) that still
+// import them from "../App".
+export { getAllJutsus, getPvpJutsuLoadout };
 
 export function stringifyServerSavePayload(payload: unknown) {
     return JSON.stringify(payload, (_key, value) => typeof value === "string" && value.startsWith("data:image") ? "" : value);
@@ -2626,6 +2344,7 @@ export default function App() {
         const acceptingCharacter = character;
         const myEligiblePets = activeCarriedPets<Pet>(acceptingCharacter);
         if (processingChallengeIds.includes(challenge.id)) return;
+        warmPlayerApi(); // the duel notice below is awaited BEFORE routing; fetch its chunk now, not then
 
         // PvP pet duels are live-only (plan §10) — retire a pre-deploy challenge.
         if (retireStalePetDuel(challenge, duelChallenges, setDuelChallenges)) return;
@@ -2710,7 +2429,7 @@ export default function App() {
                     responderParty: myParty,
                 } : {}),
             };
-            const notified = await postPlayerChallengeNotice(challenge.fromName, acceptedNotice, { shouldContinue: acceptanceIsCurrent });
+            const notified = await (await loadPlayerApi()).postPlayerChallengeNotice(challenge.fromName, acceptedNotice, { shouldContinue: acceptanceIsCurrent });
             if (!acceptanceIsCurrent()) return;
             const opponentForResume: PetArenaOpponent = {
                 owner: challenge.fromName,
@@ -3073,10 +2792,10 @@ export default function App() {
             // Publication is authoritative; route the accepter before advisory
             // notification so a hung notice cannot strand a live session.
             const acceptedNotice: DuelChallenge = { ...challenge, battleId, accepted: true, fromName: acceptingCharacter.name, toName: challenge.fromName };
-            void postPlayerChallengeNotice(challenge.fromName, acceptedNotice, {
+            void loadPlayerApi().then(({ postPlayerChallengeNotice }) => postPlayerChallengeNotice(challenge.fromName, acceptedNotice, {
                 shouldContinue: () => acceptanceIsCurrent() && createScope.isCurrent(),
                 signal: createScope.signal,
-            }).then((notified) => {
+            })).then((notified) => {
                 if (!notified && acceptanceIsCurrent() && createScope.isCurrent()) {
                     alert(`${challenge.fromName} may not be pulled in automatically. Ask them to reopen the game or wait for heartbeat.`);
                 }
@@ -6841,127 +6560,7 @@ export default function App() {
                         onVersionedCharacter={commitVersionedCharacter} onOwnSaveRead={adoptOwnSaveRead}
                         capturePvpCreateScope={capturePvpCreateScope}
                         onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} attackSleeper={(opponent) => { void strikeDownSleeper({ opponent, attackerName: character.name, isTraveling, setCharacter, setPlayerRoster, onServerVersion: (version) => acceptExternalSaveVersion(version, character.name) === "accepted" }); }}
-                        sectorAttackPlayer={async (opponent) => { if (!requireServerSettlement("pvpSession")) return;
-                            const createOwnerName = character.name;
-                            const createScope = capturePvpCreateScope(createOwnerName);
-                            const createIsCurrent = createScope.isCurrent;
-                            if (isTraveling) {
-                                alert("You cannot attack while traveling.");
-                                return;
-                            }
-                            // The world path's admission gate — Academy protection and the
-                            // engaged/traveling/in-battle refusals. See lib/world-attack-claim.
-                            const claim = await claimWorldAttack(opponent.name, character.name, createScope.signal);
-                            if (!createIsCurrent()) return; if (!claim.ok) return void alert(claim.error);
-                            // Use local character data — the server hydrates both
-                            // fighters from their KV save records directly (see
-                            // api/pvp/session.ts ~line 502), so the redundant
-                            // fetchPlayerCombatSave round trips that used to gate
-                            // this flow are unnecessary. The payload below is
-                            // only consulted as a fallback for fighters without
-                            // a save (NPCs).
-                            const selfChar = character;
-                            const selfAllItems = getAllItems(creatorItems);
-                            const p1Jutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, selfChar);
-
-                            // Optimistic navigation — flip to the pvpBattle screen
-                            // immediately so the player sees the proper battle
-                            // backdrop + a "Connecting to battle session..." card
-                            // instead of staring at the sector view for 1–3
-                            // seconds while the session POST resolves. The
-                            // PvpBattleScreen session-fetch effect is keyed on
-                            // battleId, so the empty id just renders the
-                            // loading card; once we set the real id below the
-                            // effect re-runs and loads the grid.
-                            // Sector-mate records from /api/player/heartbeat only carry { avatarImage }
-                            // (the full character is intentionally stripped for bandwidth). Fetch the
-                            // opponent's combat save and resolve their FULL loadout — stats, armor,
-                            // weapons + consumables/throwables (pvpItems), jutsu and bloodline — from
-                            // THEIR own bloodlines + creator content. fetchPlayerCombatSave returns null
-                            // (never throws) on failure, so the optimistic navigation above stays safe;
-                            // the server also re-hydrates authoritatively from the save by p2Character.name.
-                            const oppSave = await fetchPlayerCombatSave(opponent.name);
-                            if (!createIsCurrent()) return;
-                            const oppChar = oppSave?.character ?? normalizeCharacter(opponent.character as Character);
-                            const oppBloodlines = oppSave?.savedBloodlines?.length ? oppSave.savedBloodlines : savedBloodlines;
-                            const oppCreatorJutsus = oppSave?.creatorJutsus?.length ? [...creatorJutsus, ...oppSave.creatorJutsus] : creatorJutsus;
-                            const opponentAllItems = getAllItems(oppSave?.creatorItems?.length ? [...creatorItems, ...oppSave.creatorItems] : creatorItems);
-                            const p2Jutsus = getPvpJutsuLoadout(oppBloodlines, oppCreatorJutsus, oppChar);
-
-                            const createBody = stringifyPvpSessionPayload({
-                                useCurrentVitals: true,
-                                requireWorldCoLocation: true,
-                                baseRewards: true,
-                                rewardSector: currentSector,
-                                ...pvpSessionEnvironment(false, currentBiome, weatherEffects[currentWeather]?.positiveElement, weatherEffects[currentWeather]?.negativeElement),
-                                p1Character: { ...selfChar, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfChar, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfChar, savedBloodlines), armorFactor: getCharacterArmorFactor(selfChar, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfChar, selfAllItems), itemDamagePct: getEquippedItemBonus(selfChar, selfAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(selfChar, selfAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(selfChar, selfAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(selfChar, selfAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(selfChar, selfAllItems, "shield") },
-                                p2Character: { ...oppChar, name: opponent.name, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(oppChar, opponentAllItems), bloodlineMult: getBloodlineMultiplier(oppChar, oppBloodlines), armorFactor: getCharacterArmorFactor(oppChar, opponentAllItems), armorRawDR: getCharacterArmorRawDR(oppChar, opponentAllItems), itemDamagePct: getEquippedItemBonus(oppChar, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(oppChar, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(oppChar, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(oppChar, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(oppChar, opponentAllItems, "shield") },
-                            });
-                            setPvpBattleId((await loadPvpSessionCreate()).pvpStableBattleIdFromRequestBody(createBody));
-                            setPvpRole("p1");
-                            setPvpBattleContext({ mode: "standard", sectorAttack: true, raidKind: "raidPlayer", sector: currentSector });
-                            const createResult = await (await loadPvpSessionCreate()).createPvpSessionWithRecovery(fetch, createOwnerName, createBody, {
-                                signal: createScope.signal, isCurrent: createIsCurrent,
-                            });
-                            if (!createIsCurrent()) return;
-                            if (createResult.kind === "recovered") {
-                                installPvpRecovery(createResult.pending);
-                                setScreen("pvpBattle");
-                                return;
-                            }
-                            if (createResult.kind === "rejected") {
-                                releaseWorldAttack(opponent.name); // no fight started — don't leave them "engaged"
-                                setPvpBattleId('');
-                                setPvpSeedSession(null);
-                                setRaidBattleKind("none");
-                                setScreen("worldMap");
-                                alert(createResult.error);
-                                return;
-                            }
-                            const battleId = createResult.battleId;
-                            if (createResult.kind === "ambiguous") {
-                                setPvpBattleId(battleId);
-                                setScreen("pvpBattle");
-                                alert("The battle response was interrupted. Reconnecting to the authoritative session…");
-                                return;
-                            }
-                            try {
-                                const { confirmSectorBattleRegistration } = await import("./lib/village-war-map"); // lazy: sector-war client stays off the startup graph
-                                await confirmSectorBattleRegistration(createOwnerName, currentSector, battleId, createScope);
-                            } catch (error) {
-                                releaseWorldAttack(opponent.name); // registration never confirmed — release the claim
-                                if (!createIsCurrent()) return;
-                                alert(error instanceof Error ? error.message : "The sector battle is still registering. Retry the same attack.");
-                                return;
-                            }
-                            if (!createIsCurrent()) return;
-                            setPvpSeedSession(createResult.session);
-                            setPvpBattleId(battleId);
-                            setScreen("pvpBattle");
-
-                            // Notification is advisory after session+pointer publication.
-                            const challenge: DuelChallenge = {
-                                id: makeId(),
-                                fromName: character.name,
-                                toName: opponent.name,
-                                challenger: character,
-                                challengerJutsus: p1Jutsus,
-                                challengerBloodlineMult: getBloodlineMultiplier(character, savedBloodlines),
-                                createdAt: Date.now(),
-                                mode: "standard" as const,
-                                sectorAttack: true,
-                                battleId,
-                            };
-                            fetch('/api/player/challenge', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ targetName: opponent.name, challenge }),
-                            }).then((res) => {
-                                if (!res.ok) {
-                                    alert(`The battle is live, but ${opponent.name} could not be notified yet.`);
-                                }
-                            }).catch(() => { /* defender notification is best-effort; session is live regardless */ });
-                        }}
+                        sectorAttackPlayer={(opponent) => { void attackSectorPlayer({ opponent, character, isTraveling, creatorItems, creatorJutsus, savedBloodlines, currentSector, currentBiome, currentWeather, capturePvpCreateScope, installPvpRecovery, setPvpBattleId, setPvpRole, setPvpBattleContext, setPvpSeedSession, setRaidBattleKind, setScreen }); }}
                     />
                 )}
                 {!activeTriggeredEvent && screen === "sunscarFestival" && character && (

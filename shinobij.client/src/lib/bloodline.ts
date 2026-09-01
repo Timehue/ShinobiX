@@ -13,14 +13,15 @@
  *   • replaceCharacterBloodline   — custom-slot transition (re-exported from
  *                                    the pure bloodline-swap module)
  *
- * starterSavedBloodlines is imported back from "../App" because the
- * starter list lives there alongside the makeStarter* helpers and is
- * too big to extract in this pass. lib/elements is already split out.
+ * starterSavedBloodlines comes straight from ../data/jutsu, where it is defined.
+ * This used to read it back from "../App" on the belief that the starter list
+ * lived there; it does not — App imports it from data/jutsu too, so the detour
+ * only dragged App's component/CSS graph into every consumer of this file.
  *
  * Extracted from App.tsx.
  */
 
-import { starterSavedBloodlines } from "../App";
+import { starterSavedBloodlines } from "../data/jutsu";
 import { hasCharacterElement } from "./elements";
 import type { Character } from "../types/character";
 import type { Jutsu, SavedBloodline } from "../types/combat";
