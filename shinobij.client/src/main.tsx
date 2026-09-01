@@ -39,10 +39,13 @@ const LegalPage = lazy(() => import('./screens/LegalPage.tsx').then((m) => ({ de
 // inline presentation styles on the render-blocking module-preload graph.
 // eslint-disable-next-line react-refresh/only-export-components -- entry module, not a fast-refresh boundary
 const StorageNotice = lazy(() => import('./components/StorageNotice.tsx').then((m) => ({ default: m.StorageNotice })))
-const IntroCinematicPreview = import.meta.env.DEV
+// Explicitly allow production-like QA bundles to retain the isolated preview
+// routes without exposing them in ordinary production builds.
+const qaPreviewsEnabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_QA_PREVIEWS === '1'
+const IntroCinematicPreview = qaPreviewsEnabled
     ? lazy(() => import('./features/intro-cinematic/IntroCinematicPreview.tsx').then((m) => ({ default: m.IntroCinematicPreview })))
     : null
-const CinematicVnPreview = import.meta.env.DEV
+const CinematicVnPreview = qaPreviewsEnabled
     ? lazy(() => import('./features/cinematic-vn/CinematicVnPreview.tsx').then((m) => ({ default: m.CinematicVnPreview })))
     : null
 
@@ -58,8 +61,8 @@ registerAssetServiceWorker()
 const legalSlug = (() => {
     try { return legalPageForPath(window.location.pathname); } catch { return null; }
 })()
-const introPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === 'intro'
-const cinematicVnPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === 'vn'
+const introPreview = qaPreviewsEnabled && new URLSearchParams(window.location.search).get('preview') === 'intro'
+const cinematicVnPreview = qaPreviewsEnabled && new URLSearchParams(window.location.search).get('preview') === 'vn'
 
 const root = createRoot(document.getElementById('root')!)
 root.render(

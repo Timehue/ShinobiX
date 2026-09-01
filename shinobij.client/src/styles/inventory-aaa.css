@@ -558,6 +558,22 @@
         grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
         gap: 8px !important;
     }
+
+    .inventory-page .inventory-backpack-panel .backpack-item {
+        grid-template-rows: 96px minmax(0, 1fr) auto !important;
+    }
+
+    .inventory-page .inventory-backpack-panel .backpack-item-art {
+        height: 96px !important;
+        min-height: 0 !important;
+        aspect-ratio: auto;
+    }
+
+    .inventory-page .inventory-backpack-panel .backpack-item-copy,
+    .inventory-page .inventory-backpack-panel .backpack-item-action {
+        position: relative;
+        z-index: 1;
+    }
 }
 
 @media (max-width: 420px) {

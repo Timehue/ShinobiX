@@ -64,7 +64,11 @@ void main() {
     vec4 mv = modelViewMatrix * vec4(p, 1.0);
     gl_Position = projectionMatrix * mv;
     float sizeJitter = 0.55 + rFrac * 0.9;
-    gl_PointSize = uSize * sizeJitter * (240.0 / max(1.0, -mv.z));
+    // uSize is authored in screen-pixel territory. The old 240 multiplier
+    // expanded an 8px mote into 100–300px translucent discs in normal battle
+    // shots, so particles read as cheap bokeh bubbles and covered the move.
+    // Keep perspective falloff, but bound every mote to a crisp support scale.
+    gl_PointSize = clamp(uSize * sizeJitter * (18.0 / max(6.0, -mv.z)), 1.5, 12.0);
 }
 `;
 

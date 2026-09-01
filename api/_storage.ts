@@ -89,7 +89,10 @@ const _noCachePrefixes = [
     // A cached prior spawn would defeat the distributed lock and let a late
     // phase-3 continuation overwrite the replacement generation.
     'game:weekly-boss-state',
-    'chat:village:',
+    // Direct-message inboxes, threads, and per-player deletion cutoffs are all
+    // lock-coordinated live state. A worker-local snapshot can resurrect a
+    // deleted row or lose a concurrently delivered message.
+    'chat:village:', 'dm:',
     // Solo-PvE move/state versions and their story bindings are likewise
     // distributed-lock authority. A cached pre-move session can accept an old
     // expectedVersion after another worker committed, overwriting that move and

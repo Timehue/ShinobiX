@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useBodyScrollLock } from "../../lib/useBodyScrollLock";
 import { CloseButton } from "./CloseButton";
@@ -21,6 +21,8 @@ export interface ModalProps {
   disableEscapeClose?: boolean;
   /** Optional ceremony/theming class applied to the portaled backdrop. */
   backdropClassName?: string;
+  /** Explicit opener for conditionally-mounted dialogs whose browser click semantics may blur before mount. */
+  returnFocusRef?: RefObject<HTMLElement | null>;
   /** Decorative backdrop content rendered outside the semantic dialog card. */
   backdropDecoration?: ReactNode;
   className?: string;
@@ -103,6 +105,7 @@ export function Modal({
   disableBackdropClose = false,
   disableEscapeClose = false,
   backdropClassName = "",
+  returnFocusRef,
   backdropDecoration,
   className = "",
   children,
@@ -142,7 +145,7 @@ export function Modal({
 
   useEffect(() => {
     if (!open) return;
-    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const previouslyFocused = returnFocusRef?.current ?? document.activeElement as HTMLElement | null;
     const card = cardRef.current;
     const focusableSelector = [
       "button:not([disabled])",
@@ -190,7 +193,7 @@ export function Modal({
       // immediately after that; focusing an inert opener is ignored by browsers.
       queueMicrotask(() => previouslyFocused?.focus());
     };
-  }, [open, titleId]);
+  }, [open, returnFocusRef, titleId]);
 
   if (!open) return null;
 

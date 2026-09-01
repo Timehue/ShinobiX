@@ -46,6 +46,7 @@ beforeEach(() => {
     store.set('auth:wanderer', { hash: 'scrypt:x', salt: 's', sessionEpoch: 0 });
     store.set('save:wanderer', { character: { name: 'wanderer', clan: 'Storm Petals' } });
     store.set('friends:wanderer', ['kaze']);
+    store.set('player-friends:wanderer', ['kaze']);
     store.set('save:clan-stormpetals', {
         founderName: 'Kaze',
         members: [{ name: 'Kaze' }, { name: 'wanderer' }],
@@ -65,6 +66,7 @@ describe('player deletion', () => {
         assert.equal(clan.roleOverrides.wanderer, undefined);
         assert.deepEqual(store.get('mod:by-ip:1.2.3.4'), ['realplayer'], 'a dead name must not hold an alt-detection slot');
         assert.equal(store.has('friends:wanderer'), false);
+        assert.equal(store.has('player-friends:wanderer'), false);
 
         // The half this function must NOT do.
         assert.equal(store.has('auth:wanderer'), true, 'the credential is not this function\'s business');
@@ -82,6 +84,7 @@ describe('player deletion', () => {
         const result = await detachPlayerReferences('!!!');
         assert.deepEqual(result.failures, ['empty slug']);
         assert.equal(store.has('friends:wanderer'), true, 'nothing else may be touched');
+        assert.equal(store.has('player-friends:wanderer'), true, 'nothing else may be touched');
     });
 
     it('full deletion removes the account AND every reference, in that safe order', async () => {
@@ -91,6 +94,7 @@ describe('player deletion', () => {
         assert.equal(store.has('auth:wanderer'), false);
         assert.equal(store.has('save:wanderer'), false);
         assert.equal(store.has('friends:wanderer'), false);
+        assert.equal(store.has('player-friends:wanderer'), false);
         assert.equal((hashes.get('player:registry') ?? {}).wanderer, undefined);
         // The clan is read off the save, so detaching has to happen before the
         // save is deleted — if the order regressed, this roster would still

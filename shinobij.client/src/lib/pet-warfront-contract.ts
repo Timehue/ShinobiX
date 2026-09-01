@@ -4,10 +4,10 @@
  * These values mirror the deterministic engine's exported public contract.
  */
 export const WARFRONT_TPS = 30;
-export const WF_MAX_SECONDS = 600;
-export const WF_PHASE_SKIRMISH = 120;
-export const WF_PHASE_WAR = 240;
-export const WF_PHASE_SUDDEN = 480;
+export const WF_MAX_SECONDS = 420;
+export const WF_PHASE_SKIRMISH = 60;
+export const WF_PHASE_WAR = 180;
+export const WF_PHASE_SUDDEN = 300;
 
 export type WfStance = "balanced" | "siege" | "jungle" | "headhunt" | "turtle";
 export type WfDoctrine = "none" | "vanguard" | "bulwark" | "zealot" | "warden-pact";
