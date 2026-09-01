@@ -22,7 +22,7 @@ import {
 import { derivePetRole } from '../_pet-sim/pet-roles.js';
 import type { WfTheme } from '../_pet-sim/pet-warfront-map.js';
 import { writeSaveProjected } from '../save/_projected-write.js';
-import { bumpLegacyStats } from '../_legacy-track.js';
+import { bumpLegacyStats, legacyBootstrapBeforeCounterIncrement } from '../_legacy-track.js';
 import { petWitnessReceiptForSettlement, recordPetArenaVictory } from '../card-clash/_pet-witness.js';
 import { casualPvePetSnapshot, parseCasualPveBattleSeal, parseSealedPetSnapshots, type CasualPveBattleSeal } from './_casual-pve-seal.js';
 import { removePetItem } from './_progress.js';
@@ -569,6 +569,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         console.error('[pet/battle-result] casual replay pointer cleanup failed', error);
                         return res.status(503).json({ error: 'Your pet result is recorded, but its active battle lease could not be retired — please retry.' });
                     }
+                    const paidMarker = await kv.get<{ at?: number; legacyApplied?: boolean }>(
+                        paidReceiptKey(playerName, battleToken),
+                    );
+                    if (paidMarker && paidMarker.legacyApplied !== true) {
+                        const legacyDelivered = await bumpLegacyStats(
+                            playerName,
+                            { petDuelWins: 1 },
+                            {
+                                receiptId: `pet-casual:${battleToken}`,
+                                characterForBootstrap: legacyBootstrapBeforeCounterIncrement(
+                                    priorCharacter,
+                                    'totalPetWins',
+                                ),
+                            },
+                        );
+                        if (!legacyDelivered) {
+                            return res.status(503).json({ error: 'The pet win is safe, but its Legacy record is still being sealed. Please retry.' });
+                        }
+                        await kv.set(
+                            paidReceiptKey(playerName, battleToken),
+                            { ...paidMarker, at: Number(paidMarker.at) || Date.now(), legacyApplied: true },
+                            { ex: PAID_RECEIPT_TTL_SECONDS },
+                        ).catch(() => undefined);
+                    }
                     const replayReceipt = petWitnessReceiptForSettlement(priorCharacter, `pet-casual:${battleToken}`);
                     return res.status(200).json({
                         ok: true,
@@ -1066,11 +1090,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     const won = settlementReceipt.winnerName === playerName;
                     if (settlementReceipt.winnerName) {
-                        await bumpLegacyStats(
+                        const legacyDelivered = await bumpLegacyStats(
                             settlementReceipt.winnerName,
                             { petDuelWins: 1 },
                             { receiptId: `pet-ranked:${matchToken}` },
                         );
+                        if (!legacyDelivered) {
+                            return res.status(503).json({ error: 'The ranked result is safe, but its Legacy record is still being sealed. Please retry.' });
+                        }
                     }
                     const replayReceipt = won
                         ? petWitnessReceiptForSettlement(replayCharacter, `pet-ranked:${matchToken}`)
@@ -1112,11 +1139,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const replayOutcome = structured?.outcome;
                     const won = replayOutcome === 'win';
                     if (structured?.winnerName) {
-                        await bumpLegacyStats(
+                        const legacyDelivered = await bumpLegacyStats(
                             structured.winnerName,
                             { petDuelWins: 1 },
                             { receiptId: `pet-ranked:${matchToken}` },
                         );
+                        if (!legacyDelivered) {
+                            return res.status(503).json({ error: 'The ranked result is safe, but its Legacy record is still being sealed. Please retry.' });
+                        }
                     }
                     // A lone historical save receipt proves only this side. Do
                     // not promote it to a shared final receipt: that would make a
@@ -1306,12 +1336,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                  // authoritative saves are durable. Its stable receipt makes this
                  // safe on every retry; the structured save ledger can retry it if
                  // Legacy storage is down at the same time.
-                 await bumpLegacyStats(
+                 const legacyDelivered = await bumpLegacyStats(
                      winnerName,
                      { petDuelWins: 1 },
                      { receiptId: `pet-ranked:${matchToken}` },
                  );
-                 await writeRankedSettlementReceipt(matchToken, tok, winnerName);
+                 let resultReceiptWritten = false;
+                 try {
+                     await writeRankedSettlementReceipt(matchToken, tok, winnerName);
+                     resultReceiptWritten = true;
+                 } catch (error) {
+                     console.error('[pet/battle-result] ranked result receipt write failed', error);
+                 }
+                 // Both side effects are independently retryable from the
+                 // pair intent plus the structured save receipts. Attempt both
+                 // before returning, and retain that authority until both land.
+                 if (!legacyDelivered || !resultReceiptWritten) {
+                     return res.status(503).json({ error: 'The ranked result is safe, but its settlement records are still being sealed. Please retry.' });
+                 }
                  const finalSave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                  const finalChar = characterFromSave(finalSave);
                  if (!finalChar) throw new Error('Ranked result settled, but the authoritative save could not be reloaded.');
@@ -1364,7 +1406,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // The durable key does not move when other battles are reported,
                 // so a paid battle cannot be cashed again by flushing the array
                 // out from under its receipt.
-                if (receipts.includes(casualBattleReceipt) || await kv.get(paidReceiptKey(playerName, casualBattleReceipt))) {
+                const paidMarker = await kv.get<{ at?: number; legacyApplied?: boolean }>(
+                    paidReceiptKey(playerName, casualBattleReceipt),
+                );
+                if (receipts.includes(casualBattleReceipt) || paidMarker) {
                     await releaseCasualBattle();
                     const replayReceipt = petWitnessReceiptForSettlement(char, `pet-casual:${casualBattleReceipt}`);
                     return {
@@ -1377,6 +1422,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         chronicleCards: replayReceipt.granted,
                         witnessedPets: replayReceipt.witnessed,
                         livingWitnessProgress: replayReceipt.livingWitnessProgress,
+                        progressionEligible: paidMarker?.legacyApplied !== true && Boolean(paidMarker),
                         _saveVersion: Number(record._saveVersion ?? 0),
                         character: char,
                     };
@@ -1487,7 +1533,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // It is also written BEFORE the token is released: while the
                 // token still exists a re-report is possible, and the durable
                 // receipt is what refuses it.
-                await kv.set(paidReceiptKey(playerName, casualBattleReceipt), { at: Date.now() }, { nx: true, ex: PAID_RECEIPT_TTL_SECONDS })
+                await kv.set(
+                    paidReceiptKey(playerName, casualBattleReceipt),
+                    { at: Date.now(), legacyApplied: false },
+                    { nx: true, ex: PAID_RECEIPT_TTL_SECONDS },
+                )
                     .catch(() => undefined);
             }
             await releaseCasualBattle();
@@ -1512,14 +1562,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(code).json({ error: result.error });
         }
         if (outcome === 'win' && battleToken && result.progressionEligible === true) {
-            await bumpLegacyStats(
+            const legacyDelivered = await bumpLegacyStats(
                 playerName,
                 { petDuelWins: 1 },
                 {
                     receiptId: `pet-casual:${battleToken}`,
-                    characterForBootstrap: result.character as Record<string, unknown>,
+                    characterForBootstrap: legacyBootstrapBeforeCounterIncrement(
+                        result.character as Record<string, unknown>,
+                        'totalPetWins',
+                    ),
                 },
             );
+            if (!legacyDelivered) {
+                return res.status(503).json({
+                    error: 'The pet win is safe, but its Legacy record is still being sealed. Please retry.',
+                    code: 'legacy-delivery-pending',
+                    retryable: true,
+                });
+            }
+            await kv.set(
+                paidReceiptKey(playerName, battleToken),
+                { at: Date.now(), legacyApplied: true },
+                { ex: PAID_RECEIPT_TTL_SECONDS },
+            ).catch(() => undefined);
         }
         return res.status(200).json(result);
     } catch (err) {

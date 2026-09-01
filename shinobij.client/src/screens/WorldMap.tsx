@@ -199,7 +199,7 @@ import { contractHunterLevel } from "../../../shared/contract-hunter";
 import { contractHunterWanderers } from "../lib/contract-hunter-wanderers";
 import { postWandererService, type WandererFavor } from "../lib/wanderer-service";
 import { homeVillageForSector } from "../data/war-map-sectors";
-import { isLegacyServerLive, useLegacyAvailability, useLegacyMutationAvailability, sageRoll, fetchLegacyStatus, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
+import { isLegacyServerLive, useLegacyAvailability, useLegacyMutationAvailability, fetchSageState, fetchLegacyStatus, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
 import { rollEmissarySpawn, EMISSARY_BY_SLUG, type EmissarySlug, type EmissaryQuestDef } from "../lib/legacy-emissaries";
 import { EmissaryTrialPanel } from "../components/EmissaryTrialPanel";
 import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rumorForCategory } from "../lib/legacy-rumors";
@@ -1004,10 +1004,10 @@ export function WorldMap({
         const cd = character.wandererCooldowns; const now = Date.now();
         return mercRoster.mercs.filter(m => !isWandererOnCooldown(cd, m.id, now)).map(synthMercWanderer);
     }, [mercRoster, selectedSector, character.wandererCooldowns, villageWarViewOpen]);
-    // Wandering Sage (Legacy system, legacy.v1 + server ENABLE_LEGACY). The
-    // OFFER is server-decided (eligibility, odds, pity, daily caps all live in
-    // api/legacy/sage.ts) — this roll call is a free no-op when nothing is due.
-    // While an offer is waiting the Sage stands in its sector until answered.
+    // Wandering Sage (Legacy system, legacy.v1 + server ENABLE_LEGACY). Verified
+    // progress writes perform the server-owned roll; the map only reads and
+    // presents an offer that already exists. While waiting, the Sage stands in
+    // his sector until answered.
     const [sageOffer, setSageOffer] = useState<SageOfferView | null>(null);
     const [sageVnEvent, setSageVnEvent] = useState<CreatorEvent | null>(null);
     const [sageVnPage, setSageVnPage] = useState(0);
@@ -1016,18 +1016,23 @@ export function WorldMap({
     // Themed delivery for the system's atmospheric beats (rumors, Sage arrival,
     // Sage departure) — these used to be native alert() dialogs.
     const [whisper, setWhisper] = useState<{ text: string; kicker?: string } | null>(null);
+    const characterLegacyId = character.legacy?.legacyId ?? null;
     useEffect(() => {
-        if (!legacyActionsAvailable || character.level < 50 || character.legacy) return;
+        if (!legacyActionsAvailable || character.level < 50 || characterLegacyId) return;
         let alive = true;
-        void sageRoll(character.name).then(r => {
+        const refreshOffer = () => void fetchSageState(character.name).then(r => {
             if (!alive) return;
-            if (r?.spawn && r.offer) {
+            if (r?.offer) {
                 setSageOffer(r.offer);
                 try { window.localStorage?.setItem("legacy.sage.lastOffer", String(r.offer.expiresAt ?? 0)); } catch { /* best-effort */ }
-                if (r.reason !== "already-waiting") {
+                let lastAnnounced = 0;
+                try { lastAnnounced = Number(window.localStorage?.getItem("legacy.sage.lastAnnounced") ?? 0); } catch { /* best-effort */ }
+                if (lastAnnounced !== r.offer.spawnedAt) {
+                    try { window.localStorage?.setItem("legacy.sage.lastAnnounced", String(r.offer.spawnedAt)); } catch { /* best-effort */ }
                     setWhisper({ kicker: "The Sage has appeared", text: `The Wandering Sage is waiting in ${sectorRegionName(r.offer.sector)} — sector ${r.offer.sector} on your map. He's been asking after you by name.` });
                 }
             } else {
+                setSageOffer(null);
                 // One-time "moved on" beat: we knew of an offer, and it is gone.
                 try {
                     const last = Number(window.localStorage?.getItem("legacy.sage.lastOffer") ?? 0);
@@ -1038,8 +1043,10 @@ export function WorldMap({
                 } catch { /* best-effort */ }
             }
         });
-        return () => { alive = false; };
-    }, [legacyActionsAvailable, character.name, character.level, character.legacy]);
+        refreshOffer();
+        const poll = window.setInterval(refreshOffer, 30_000);
+        return () => { alive = false; window.clearInterval(poll); };
+    }, [legacyActionsAvailable, character.name, character.level, characterLegacyId]);
     // Pre-50 Legacy rumors: at level milestones, one vague hint about the
     // strongest path the player is carving (never formulas — the mystery rule).
     // Fires for the highest unseen milestone at level >= it, so leveling past
@@ -1092,19 +1099,19 @@ export function WorldMap({
         return () => { alive = false; };
     }, [legacyAvailable]);
     useEffect(() => {
-        if (!legacyAvailable || !character.legacy) { setLegacyCategory(null); return; }
+        if (!legacyAvailable || !characterLegacyId) { setLegacyCategory(null); return; }
         let alive = true;
         void fetchLegacyStatus(character.name).then(s => { if (alive) setLegacyCategory(s?.legacyCategory ?? null); });
         return () => { alive = false; };
-    }, [legacyAvailable, character.name, character.legacy]);
+    }, [legacyAvailable, character.name, characterLegacyId]);
     const emissaryWanderers = useMemo(() => {
         if (!legacyAvailable || !legacyServerLive || !isWanderersEnabled() || selectedSector == null) return [];
         // A legacy holder's emissary is category-bound; until the category fetch
         // resolves, don't fall into the pre-acceptance roaming branch by mistake.
-        if (character.legacy && !legacyCategory) return [];
+        if (characterLegacyId && !legacyCategory) return [];
         const spawn = rollEmissarySpawn(character.name, character.level, legacyCategory, currentWandererDayBucket(), selectedSector);
         return spawn && spawn.sector === selectedSector ? [spawn.wanderer] : [];
-    }, [legacyAvailable, legacyServerLive, character.name, character.level, character.legacy, legacyCategory, selectedSector]);
+    }, [legacyAvailable, legacyServerLive, character.name, character.level, characterLegacyId, legacyCategory, selectedSector]);
     // Story road events (docs/fable-5-story-rebuild.md §10): the next eligible
     // event's NPC walks WHATEVER sector the player is in — the road finds them.
     // Completion is trait-presence, so the memo re-evaluates when traits change.

@@ -37,7 +37,8 @@ test('ANBU start and report paths retain durable replay state', async () => {
     assert.match(handler, /reserveInfilStartAttempt\(playerName, activeRun\.runId/);
     assert.match(handler, /startState: 'prepared'/);
     assert.match(handler, /withKvLock\(infilRunKey\(runId\), \(\) => doReportLocked/);
-    assert.match(handler, /if \(run\.settlement\) return res\.status\(200\)\.json\(run\.settlement\.response\)/);
+    assert.match(handler, /if \(run\.settlement\) \{[\s\S]*deliverInfiltrationLegacy\([\s\S]*return res\.status\(200\)\.json\(run\.settlement\.response\)[\s\S]*\}/,
+        'a replay must finish its exact-once Legacy receipt before returning the cached settlement');
     assert.match(handler, /settlement: \{ settledAt, response/);
     assert.doesNotMatch(handler, /deleteInfilRun/);
     assert.match(store, /inspectSettlementReceipt\(char, receiptId, fingerprint\)/);

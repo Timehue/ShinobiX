@@ -388,10 +388,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // already exactly-once; deleting this lookup made that durable replay
         // unreachable.
 
+        let durableSideEffectError: unknown = null;
+
         // Legacy tracking (ENABLE_LEGACY): PvE kill credit follows the same
         // daily soft cap as the reward — grinding past it stops feeding Legacy
         // eligibility too. Style kills bucket by the save's declared specialty.
-        if (paysReward && !reward.replayed && legacyEnabled() && dailyCount <= AI_FIGHT_SOFT_CAP_PER_DAY) {
+        if (paysReward && legacyEnabled() && dailyCount <= AI_FIGHT_SOFT_CAP_PER_DAY) {
             try {
                 const char = result.character;
                 const deltas: LegacyStatDeltas = { pveKills: 1 };
@@ -400,11 +402,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 else if (specialty === 'Genjutsu') deltas.genjutsuKills = 1;
                 else if (specialty === 'Taijutsu') deltas.taijutsuKills = 1;
                 else if (specialty === 'Bukijutsu') deltas.bukijutsuKills = 1;
-                await bumpLegacyStats(playerName, deltas, { characterForBootstrap: char ?? null });
+                const bootstrapCharacter = {
+                    ...char,
+                    // This payout already raised the save mirror. A brand-new
+                    // Legacy row must seed from the pre-fight value, then apply
+                    // the token receipt exactly once.
+                    totalAiKills: Math.max(0, Math.floor(Number(char?.totalAiKills) || 0) - 1),
+                };
+                const delivered = await bumpLegacyStats(playerName, deltas, {
+                    characterForBootstrap: bootstrapCharacter,
+                    receiptId: `ai-fight:${playerName}:${aiFightToken}`,
+                });
+                if (!delivered) durableSideEffectError = new Error('legacy-ai-fight-delivery-pending');
             } catch (legacyErr) {
-                // Tracking must never 500 a reward response whose daily counter
-                // already advanced (verification finding).
                 console.error('[report-ai-fight] legacy tracking failed:', legacyErr);
+                durableSideEffectError = durableSideEffectError ?? legacyErr;
             }
         }
         // ── Field-raid producer ───────────────────────────────────────────────
@@ -415,7 +427,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // showed the win. Stamp the proven raid from the same AI-fight token
         // whose sealed session supplied the WIN. The helper hashes the proof and
         // deduplicates it, so retries cannot count one fight twice.
-        let durableSideEffectError: unknown = null;
         let fetchMissionsCredited: string[] = [];
         let raidProgression: RaidProgressionSettlement | null = null;
         let raidProgressionReplayed = false;

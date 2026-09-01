@@ -58,7 +58,7 @@ const LEGENDARY_AWAKEN_MSGS: ReadonlyArray<(p: string, defName: string, title: s
 ];
 const MYTHIC_AWAKEN_MSGS: ReadonlyArray<(p: string, defName: string, flavor: string) => string> = [
     (p, n, _f) => `${p} has awakened the ${n}. The world will remember.`,
-    (p, n, f) => `A mythic path has opened its eyes: ${p} carries the ${n}. ${f}`,
+    (p, n, f) => `A storied path has opened its eyes: ${p} carries the ${n}. ${f}`,
     (p, n, _f) => `The taverns will argue about this for a generation — ${p} has awakened the ${n}.`,
 ];
 const MYTHIC_BIND_MSGS: ReadonlyArray<(p: string, defName: string) => string> = [
@@ -186,14 +186,14 @@ async function deliverTrialCompletionEffects(
         if (def.rarity === 'legendary') {
             if (!(await announce({
                 type: 'legacy_awakening', importance: 'high',
-                title: 'LEGENDARY LEGACY AWAKENED',
+                title: 'A LEGACY AWAKENS',
                 message: pick(LEGENDARY_AWAKEN_MSGS)(playerName, def.name, def.title, def.flavor),
                 player: playerName, village, legacyId: def.id,
             }, { receiptId: `${effectId}:announcement` }))) return false;
         } else if (def.rarity === 'mythic') {
             if (!(await announce({
                 type: 'mythic_legacy', importance: 'mythic',
-                title: 'MYTHIC LEGACY AWAKENED',
+                title: 'A LEGACY AWAKENS',
                 message: pick(MYTHIC_AWAKEN_MSGS)(playerName, def.name, def.flavor),
                 player: playerName, village, legacyId: def.id,
             }, { receiptId: `${effectId}:announcement` }))) return false;
@@ -202,22 +202,22 @@ async function deliverTrialCompletionEffects(
                 entryType: 'mythic_legacy',
                 title: def.name,
                 description: `Awakened by ${playerName}${village ? ` of ${village}` : ''}. ${def.flavor}`,
-                player: playerName, village, legacyId: def.id, rarity: def.rarity,
+                player: playerName, village, legacyId: def.id,
             }, mythicKey))) return false;
 
             const firstKey = 'server-first:mythic-awakening';
             await claimServerFirst({
                 entryType: 'server_first',
-                title: 'First Mythic Awakening',
-                description: `${playerName}${village ? ` of ${village}` : ''} was the first shinobi on the server to awaken a mythic legacy — the ${def.name}.`,
-                player: playerName, village, legacyId: def.id, rarity: def.rarity,
+                title: 'First Great Legacy Awakening',
+                description: `${playerName}${village ? ` of ${village}` : ''} was the first shinobi on the server to awaken one of the world's most storied paths — the ${def.name}.`,
+                player: playerName, village, legacyId: def.id,
             }, firstKey);
             if (!(await hallClaimDone(firstKey))) return false;
             if ((await hallClaimPlayer(firstKey)) === playerName) {
                 if (!(await announce({
                     type: 'server_first', importance: 'mythic',
-                    title: 'SERVER FIRST — MYTHIC AWAKENING',
-                    message: `History: ${playerName} is the FIRST to awaken a mythic legacy. The ${def.name} chose well.`,
+                    title: 'SERVER FIRST — GREAT LEGACY AWAKENING',
+                    message: `History: ${playerName} is the FIRST to awaken one of the world's most storied paths. The ${def.name} chose well.`,
                     player: playerName, village, legacyId: def.id,
                 }, { receiptId: `${effectId}:server-first-announcement` }))) return false;
             }
@@ -244,7 +244,7 @@ async function deliverTrialCompletionEffects(
     } else if (receipt.kind === 'bind' && def.rarity === 'mythic') {
         if (!(await announce({
             type: 'mythic_legacy', importance: 'high',
-            title: 'A MYTHIC LEGACY IS BOUND',
+            title: 'A LEGACY IS BOUND',
             message: pick(MYTHIC_BIND_MSGS)(playerName, def.name),
             player: playerName, village, legacyId: def.id,
         }, { receiptId: `${effectId}:announcement` }))) return false;
@@ -259,8 +259,8 @@ async function deliverTrialCompletionEffects(
         if (!(await ensureHallEntry({
             entryType: 'legacy_summit',
             title: `${def.name} — Stage V`,
-            description: `${playerName}${village ? ` of ${village}` : ''} carried this legacy to its mythic summit. ${def.flavor}`,
-            player: playerName, village, legacyId: def.id, rarity: def.rarity,
+            description: `${playerName}${village ? ` of ${village}` : ''} carried this legacy to its summit. ${def.flavor}`,
+            player: playerName, village, legacyId: def.id,
         }, summitKey))) return false;
 
         const firstKey = 'server-first:legacy-summit';
@@ -268,7 +268,7 @@ async function deliverTrialCompletionEffects(
             entryType: 'server_first',
             title: 'First Legacy Summit',
             description: `${playerName}${village ? ` of ${village}` : ''} was the first shinobi on the server to carry a legacy to Stage V — the ${def.name}.`,
-            player: playerName, village, legacyId: def.id, rarity: def.rarity,
+            player: playerName, village, legacyId: def.id,
         }, firstKey);
         if (!(await hallClaimDone(firstKey))) return false;
         if ((await hallClaimPlayer(firstKey)) === playerName) {
