@@ -74,6 +74,10 @@ test("all eight fighters are on screen at once, with the clash score", async ({ 
 
 test("playback advances and the fighters actually take damage", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop", "interaction runs once");
+    // CI has no GPU. The software renderer draws this eight-rig scene at a small
+    // fraction of local speed, so every wait below is sized for that, not for a
+    // developer machine.
+    test.setTimeout(300_000);
     await openRite(page);
     await page.getByRole("button", { name: "Begin the Rite" }).click();
     await expect(page.locator(".wfr-canvas canvas")).toBeVisible({ timeout: 30_000 });
@@ -86,8 +90,15 @@ test("playback advances and the fighters actually take damage", async ({ page },
     // single clearest symptom of the mode being broken — and unlike the health
     // bars it moves immediately, instead of waiting out the opening approach.
     // Assert it first so a real freeze fails fast and unambiguously.
-    await expect.poll(tick, { timeout: 20_000, message: "the playback clock never advanced" })
-        .toBeGreaterThan(30);
+    //
+    // Assert ADVANCEMENT from an observed baseline, never an absolute tick. A
+    // fixed threshold measures how fast the RENDERER is, not whether the clock
+    // is running: CI's software renderer landed on exactly 30 against a
+    // ">30 within 20s" bar and reported a healthy mode as frozen. The margin
+    // keeps this sustained motion rather than one stray frame.
+    const startTick = await tick();
+    await expect.poll(tick, { timeout: 60_000, message: "the playback clock never advanced" })
+        .toBeGreaterThan(startTick + 10);
 
     // Then the consequence: health must actually come off. Damage lands well
     // into the fight, and CI GPUs throttle rAF hard enough that wall-clock time
@@ -96,7 +107,7 @@ test("playback advances and the fighters actually take damage", async ({ page },
         (nodes) => nodes.map((node) => (node as HTMLElement).style.width).join("|"),
     );
     const untouched = await widths();
-    await expect.poll(widths, { timeout: 90_000, message: "no fighter ever took damage" })
+    await expect.poll(widths, { timeout: 180_000, message: "no fighter ever took damage" })
         .not.toEqual(untouched);
 });
 
