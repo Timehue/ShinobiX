@@ -169,36 +169,39 @@ export function riteBandElements(band: readonly Pet[]): string[] {
 }
 
 /**
- * Distinct elements a legal band must carry.
+ * ⛔ THERE IS NO ELEMENT REQUIREMENT. Owner ruling 2026-09-01 — do not add one back.
  *
- * MEASURED. A mono-element band against its counter loses effectively every
- * match — the shared ±15% chart compounds hard once eight fighters trade for
- * thirty seconds, and a best-of-three repeats the same mismatch. Three distinct
- * elements in four slots means no band is hard-countered as a whole. Enforced on
- * the AI's generated band too (api/pet/_warfront-ai.test.ts) so a player is
- * never auto-lost at kickoff.
+ * A `RITE_MIN_ELEMENTS = 3` gate used to block a band carrying fewer than three
+ * distinct elements, on the measurement that a mono-element band loses ~1.2% of
+ * matches against its hard counter (two of five matchups measured a flat 0.0%).
+ *
+ * That measurement was real but it answered the wrong question: it ran level-1
+ * pets on BOTH sides, so it only ever showed the ±15% chart working as intended.
+ * A counter beating its victim at equal level is the mechanic, not a defect —
+ * and levels are the axis a player actually invests in. Blocking entry protected
+ * players from a correct mechanic while removing the choice to answer it by
+ * levelling, or simply to take a bad matchup knowingly.
+ *
+ * The ruling is that players decide what is best for them. A band that can be
+ * fielded is a band that may enter; the enemy front line is already scouted on
+ * the deploy screen, so the matchup is visible before anyone commits.
  */
-export const RITE_MIN_ELEMENTS = 3;
 
 /** Whether a band may ENTER. Deliberately allows duplicate pet ids: the
  *  generated rival band cycles a three-pet pool into four slots, and the engine
  *  keys on slot rather than id, so a repeat is harmless. */
 export function isValidRiteBand(band: readonly Pet[], bandSize = RITE_BAND_SIZE): boolean {
     if (!Array.isArray(band) || band.length !== bandSize) return false;
-    if (band.some((pet) => !pet?.id)) return false;
-    return riteBandElements(band).length >= RITE_MIN_ELEMENTS;
+    return !band.some((pet) => !pet?.id);
 }
 
 /** Player-facing reason a band cannot be SELECTED. Stricter by one rule: a
- *  player fields four DIFFERENT pets, because one pet cannot hold two slots. */
+ *  player fields four DIFFERENT pets, because one pet cannot hold two slots.
+ *  Composition is NOT policed — see the ruling above. */
 export function riteBandProblem(band: readonly Pet[], bandSize = RITE_BAND_SIZE): string | null {
     if (!Array.isArray(band) || band.length !== bandSize) return `Pick ${bandSize} pets for your band.`;
     if (band.some((pet) => !pet?.id)) return `Pick ${bandSize} pets for your band.`;
     if (new Set(band.map((pet) => String(pet.id))).size !== bandSize) return "Each pet can only take one slot.";
-    const elements = riteBandElements(band).length;
-    if (elements < RITE_MIN_ELEMENTS) {
-        return `Your band needs ${RITE_MIN_ELEMENTS} different elements — it has ${elements}. A single-element band gets hard-countered before the first clash.`;
-    }
     return null;
 }
 
