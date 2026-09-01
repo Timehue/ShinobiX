@@ -5,16 +5,24 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
-import { getLegacyStats, appendLegacyEvent, legacyEnabled } from '../_legacy-track.js';
+import { appendLegacyEvent, legacyEnabled } from '../_legacy-track.js';
 import { currentEraNumber } from '../_era.js';
-import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from '../pvp/_legacy-jutsu-catalog.js';
-import { evaluateAllLegacies, getLegacyOverlay, pickSageOffers } from '../_legacy-score.js';
-import { LEGACY_BY_ID, LEGACY_MIN_LEVEL } from '../_legacy-defs.js';
+import { getLegacyOverlay } from '../_legacy-score.js';
+import { LEGACY_BY_ID } from '../_legacy-defs.js';
 import {
     legacyAcceptedKey, trialProgress, trialIntroFor,
     type CharacterLegacy,
 } from '../_legacy-core.js';
-import { storyKeyFor, type StoryRecord } from '../_story-record.js';
+import {
+    attemptSageRoll,
+    bumpSageMetric,
+    publicSageOffer,
+    sageMetricKey,
+    sageOfferKey as offerKey,
+    sagePityKey as pityKey,
+    SAGE_OFFER_TTL_SECONDS as OFFER_TTL_SECONDS,
+    type SageOffer,
+} from '../_legacy-sage-roll.js';
 import {
     AURA_STONES_BY_RARITY,
     commitLegacyAcceptance,
@@ -28,9 +36,9 @@ import {
  * /api/legacy/sage — the Wandering Sage.
  *
  *   GET  ?playerName=            → { offer, legacy, pity }
- *   POST { action:'roll' }       → server-decided spawn (pity-backed; client
- *                                  calls this after qualifying moments — extra
- *                                  calls are free no-ops behind the daily cap)
+ *   POST { action:'roll' }       → admin-only forced/recovery control. Ordinary
+ *                                  rolls are triggered only by verified server
+ *                                  progress writes, never by client polling.
  *   POST { action:'decline' }    → offer declined, NO lock, re-offer cooldown
  *   POST { action:'accept', legacyId } → THE PERMANENT CHOICE. NX marker
  *                                  `legacy:accepted:<player>` is the one-legacy-
@@ -42,69 +50,14 @@ import {
  * (soft+hard pity). Tunable via the shared:legacy-defs overlay.
  */
 
-const OFFER_TTL_SECONDS = 7 * 24 * 60 * 60;
-const offerKey = (p: string) => `legacy:sage-offer:${p}`;
-const pityKey = (p: string) => `legacy:sage-pity:${p}`;
-const rollCountKey = (p: string) => `legacy:sage-roll:${p}:${new Date().toISOString().slice(0, 10)}`;
-// Aggregate daily funnel counters (offers spawned / accepted / declined) so a
-// launch-week operator can see the Sage working without inspecting players one
-// by one. Read by api/admin/legacy.ts action 'metrics'. Best-effort.
-export const sageMetricKey = (field: 'offers' | 'accepts' | 'declines', d = new Date()) =>
-    `legacy:metrics:${d.toISOString().slice(0, 10)}:${field}`;
-const bumpSageMetric = (field: 'offers' | 'accepts' | 'declines') =>
-    kv.incr(sageMetricKey(field), { ex: 8 * 24 * 60 * 60 }).catch(() => 0);
-
-const VILLAGE_OUTSKIRTS: Record<string, number> = {
-    stormveil: 31, 'ashen leaf': 38, frostfang: 47, moonshadow: 11,
-};
-
-type SageOffer = {
-    status: 'spawned' | 'declined' | 'accepted' | 'expired';
-    offers: Array<{ legacyId: string; name: string; rarity: string; category: string; flavor: string; title: string; villageAffinity: string | null; badge?: string | null; signature?: SignaturePreview | null }>;
-    sector: number;
-    spawnedAt: number;
-    expiresAt: number;
-    declinedAt?: number;
-    acceptedAt?: number;
-    acceptedLegacyId?: string;
-};
-
 type PityState = {
     eligibleSince?: number;    // first roll where the player had >=1 eligible legacy
     lastSpawnAt?: number;
     declinedUntil?: number;    // re-offer cooldown after a decline
 };
 
-const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-// A rank-FREE preview of a legacy's signature jutsu for the offer sheet, so the
-// permanent choice previews the POWER you're committing to — WHAT the technique
-// does (name, shape, effect names) — with NO numbers that would leak the hidden
-// rank (no percents, no EP, no rarity). Unlocks at Stage 3 (Bound).
-type SignaturePreview = { name: string; shape: string; effects: string[]; unlockStage: number };
-function signaturePreview(legacyId: string): SignaturePreview | null {
-    const jid = LEGACY_JUTSU_ID_BY_LEGACY[legacyId];
-    const j = jid ? LEGACY_JUTSU_CATALOG[jid] : undefined;
-    if (!j) return null;
-    const shape = j.method === 'AOE_BURST' ? 'Area nova' : j.method === 'AOE_CIRCLE' ? 'Dashing strike' : j.ap === 40 ? 'Self technique' : 'Focused strike';
-    const effects = j.tags.filter((t) => t.name !== 'Move').map((t) => t.name);
-    return { name: j.name, shape, effects, unlockStage: 3 };
-}
-// Aura Stones granted once when a legacy is first accepted, by (server-only)
-// rarity. The amount is a soft prestige boon — the player receives the stones
-// but is NEVER told the rank (rank is owner-only). The in-save acceptance
-// receipt commits atomically with the balance; the old marker is read-only
-// migration evidence for accepts completed before that receipt shipped.
-function homeSector(village: unknown, requested: unknown): number {
-    const want = Math.floor(num(requested));
-    if (want >= 1 && want <= 99) return want;
-    const v = String(village ?? '').toLowerCase();
-    for (const [name, sector] of Object.entries(VILLAGE_OUTSKIRTS)) {
-        if (v.includes(name)) return sector;
-    }
-    return 56; // central
-}
+export { sageMetricKey };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -142,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const character = (rec?.character ?? null) as Record<string, unknown> | null;
             const legacy = (character?.legacy ?? null) as CharacterLegacy | null;
             return res.status(200).json({
-                offer: offer && offer.status === 'spawned' ? offer : null,
+                offer: offer && offer.status === 'spawned' ? publicSageOffer(offer) : null,
                 legacy,
                 sealed: Boolean(accepted),
                 repaired: recovery.status === 'ok' && recovery.repaired,
@@ -158,88 +111,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // ── ROLL: server-decided spawn attempt ───────────────────────────────
         if (action === 'roll') {
-            if (!identity.admin && !(await enforceRateLimitKv(req, res, 'legacy-sage-roll', 10, 60_000, identity.name))) return;
-            const overlay = await getLegacyOverlay();
-            const cfg = overlay.sage ?? {};
-            const baseChance = cfg.baseChance ?? 0.05;
-            const pityPerDay = cfg.pityPerDay ?? 0.05;
-            const guaranteeDays = cfg.guaranteeDays ?? 7;
-            const dailyRollCap = cfg.dailyRollCap ?? 6;
-            const declineCooldownDays = cfg.declineCooldownDays ?? 3;
-            const forced = Boolean(body.force) && identity.admin === true;
-
-            // Cheap gates before any heavy work.
-            const accepted = await kv.get(legacyAcceptedKey(playerName));
-            if (accepted) return res.status(200).json({ spawn: false, reason: 'sealed' });
-            const existing = await kv.get<SageOffer>(offerKey(playerName));
-            if (existing && existing.status === 'spawned') {
-                return res.status(200).json({ spawn: true, offer: existing, reason: 'already-waiting' });
+            if (!identity.admin) {
+                return res.status(403).json({
+                    error: 'Sage appearances are decided by witnessed deeds.',
+                    reason: 'verified-progress-only',
+                });
             }
-
-            const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-            const char = (rec?.character ?? null) as Record<string, unknown> | null;
-            if (!char) return res.status(404).json({ error: 'Save not found.' });
-            const level = num(char.level);
-            if (level < LEGACY_MIN_LEVEL) return res.status(200).json({ spawn: false, reason: 'under-level' });
-
-            const pity = (await kv.get<PityState>(pityKey(playerName))) ?? {};
-            const now = Date.now();
-            if (!forced && pity.declinedUntil && now < pity.declinedUntil) {
-                return res.status(200).json({ spawn: false, reason: 'resting' });
-            }
-            if (!forced) {
-                const rolls = await kv.incr(rollCountKey(playerName), { ex: 25 * 60 * 60 });
-                if (rolls > dailyRollCap) return res.status(200).json({ spawn: false, reason: 'daily-cap' });
-            }
-
-            const [stats, storyRecord] = await Promise.all([
-                getLegacyStats(playerName, char),
-                kv.get<StoryRecord>(storyKeyFor(playerName)),
-            ]);
-            const village = typeof char.village === 'string' ? char.village : null;
-            const evals = evaluateAllLegacies(stats, {
-                level,
-                village,
-                overlay,
-                storyLanes: storyRecord?.lanes ?? null,
+            const result = await attemptSageRoll(playerName, {
+                sector: typeof body.sector === 'number' ? body.sector : null,
+                forced: Boolean(body.force),
             });
-            const offers = pickSageOffers(evals);
-            if (offers.length === 0) {
-                return res.status(200).json({ spawn: false, reason: 'not-eligible' });
-            }
-
-            // Pity clock starts at first eligibility and RESETS on every spawn —
-            // otherwise letting an offer expire would bank an ever-guaranteed
-            // on-demand Sage, strictly better than the designed decline
-            // cooldown (verification finding).
-            const eligibleSince = Math.max(pity.eligibleSince ?? now, pity.lastSpawnAt ?? 0);
-            const daysWaiting = Math.floor((now - eligibleSince) / DAY_MS);
-            const chance = Math.min(1, baseChance + pityPerDay * daysWaiting);
-            const guaranteed = daysWaiting >= guaranteeDays;
-            if (!forced && !guaranteed && Math.random() >= chance) {
-                await kv.set(pityKey(playerName), { ...pity, eligibleSince });
-                return res.status(200).json({ spawn: false, reason: 'no-show', daysWaiting });
-            }
-
-            const offer: SageOffer = {
-                status: 'spawned',
-                offers: offers.map((o) => {
-                    const def = LEGACY_BY_ID.get(o.legacyId)!;
-                    return {
-                        legacyId: def.id, name: def.name, rarity: def.rarity, category: def.category,
-                        flavor: def.flavor, title: def.title, villageAffinity: def.villageAffinity ?? null,
-                        badge: def.badge ?? null, signature: signaturePreview(def.id),
-                    };
-                }),
-                sector: homeSector(char.village, body.sector),
-                spawnedAt: now,
-                expiresAt: now + OFFER_TTL_SECONDS * 1000,
-            };
-            await kv.set(offerKey(playerName), offer, { ex: OFFER_TTL_SECONDS });
-            await kv.set(pityKey(playerName), { eligibleSince, lastSpawnAt: now });
-            await appendLegacyEvent(playerName, { type: 'sage-spawned', meta: { offers: offer.offers.map((o) => o.legacyId), forced } });
-            await bumpSageMetric('offers');
-            return res.status(200).json({ spawn: true, offer });
+            if (result.reason === 'no-save') return res.status(404).json({ error: 'Save not found.' });
+            return res.status(200).json(result);
         }
 
         // ── DECLINE: free walk-away, cooldown before re-offers ──────────────

@@ -111,7 +111,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('village', 'character', 'server-owned', 'identity', ['public-char'], 'locked; changes cross-validated (validateClanAndVillageIdentity)'),
     f('rank', 'character', 'server-owned', 'progression', ['public-char']),
     f('avatarImage', 'character', 'cosmetic-ref', 'cosmetics', ['public-char'], 'preset/own-reference free; custom values Patreon-gated'),
-    f('specialty', 'character', 'client-state', 'combat-loadout', ['public-char']),
+    f('specialty', 'character', 'server-owned', 'combat-loadout', ['public-char'], 'chosen at character creation; stored value wins on every later generic save'),
     f('storyProgress', 'character', 'server-owned', 'story', ['public-char'], 'clamped to stored; advanced only by story/settle'),
     f('hp', 'character', 'server-clamped', 'vitals', ['public-char'], 'clamped to maxHp'),
     f('maxHp', 'character', 'derived', 'vitals', ['public-char', 'strict-ledger-char']),

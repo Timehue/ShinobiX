@@ -315,7 +315,7 @@ test("AI terminal Legacy credit repairs on a later state poll exactly once", asy
   store.set(key, session);
   failLegacyWrites = 1;
 
-  assert.equal((await call(aiMove, { matchId, action: "state" })).statusCode, 200);
+  assert.equal((await call(aiMove, { matchId, action: "state" })).statusCode, 503);
   assert.equal((store.get(key) as { legacyCredit: { status: string } }).legacyCredit.status, "pending");
   assert.equal(store.get("legacy:stats:repair"), undefined);
 

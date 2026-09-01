@@ -5,7 +5,7 @@ import { enforceRateLimitKv } from "../_ratelimit.js";
 import { cors } from "../_utils.js";
 import { withKvLock } from "../_lock.js";
 import { mutatePlayerSave } from "../save/_mutate-player-save.js";
-import { bumpLegacyStats } from "../_legacy-track.js";
+import { bumpLegacyStats, legacyBootstrapBeforeCounterIncrement } from "../_legacy-track.js";
 import {
   CARD_CLASH_AI_MIN_WIN_DURATION_MS,
   CARD_CLASH_AI_TOKEN_TTL_SECONDS,
@@ -81,10 +81,15 @@ function ensureAiLegacyCredit(session: StoredSession, key: string): boolean {
 async function repairAiLegacyCredit(session: StoredSession, key: string): Promise<boolean> {
   const prepared = ensureAiLegacyCredit(session, key);
   if (session.legacyCredit?.status !== "pending") return prepared;
+  const save = await kv.get<Record<string, unknown>>(`save:${session.playerName}`);
+  const character = (save?.character ?? null) as Record<string, unknown> | null;
   const delivered = await bumpLegacyStats(
     session.playerName,
     { cardClashWins: 1 },
-    { receiptId: session.legacyCredit.receiptId, characterForBootstrap: null },
+    {
+      receiptId: session.legacyCredit.receiptId,
+      characterForBootstrap: legacyBootstrapBeforeCounterIncrement(character, "cardClashWins"),
+    },
   );
   if (!delivered) return prepared;
   session.legacyCredit.status = "done";
@@ -265,6 +270,12 @@ async function persistOrSettle(
   }
   if (session.settledAt) {
     if (await repairAiLegacyCredit(session, key)) await kv.set(key, session, { ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS });
+    if (session.legacyCredit?.status === "pending") {
+      return {
+        status: 503 as const,
+        body: { error: "The match is safe, but its Legacy record is still being sealed. Please retry." },
+      };
+    }
     const snapshot = await authoritativePlayerSnapshot(session.playerName);
     return {
       status: 200 as const,
@@ -326,12 +337,21 @@ async function persistOrSettle(
     const delivered = await bumpLegacyStats(
       session.playerName,
       { cardClashWins: 1 },
-      { receiptId: session.legacyCredit.receiptId, characterForBootstrap: paid.character },
+      {
+        receiptId: session.legacyCredit.receiptId,
+        characterForBootstrap: legacyBootstrapBeforeCounterIncrement(paid.character, "cardClashWins"),
+      },
     );
     if (delivered) {
       session.legacyCredit.status = "done";
       await kv.set(key, session, { ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS });
     }
+  }
+  if (session.legacyCredit?.status === "pending") {
+    return {
+      status: 503 as const,
+      body: { error: "The match is safe, but its Legacy record is still being sealed. Please retry." },
+    };
   }
   return {
     status: 200 as const,
@@ -404,6 +424,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
           if (session.settledAt && await repairAiLegacyCredit(session, key)) {
             await kv.set(key, session, { ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS });
+          }
+          if (session.legacyCredit?.status === "pending") {
+            return {
+              status: 503 as const,
+              body: { error: "The match is safe, but its Legacy record is still being sealed. Please retry." },
+            };
           }
           const snapshot = session.settledAt
             ? await authoritativePlayerSnapshot(session.playerName)

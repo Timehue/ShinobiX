@@ -6,8 +6,16 @@ import {
     LEGACY_DEFS, LEGACY_BY_ID, EXPECTED_RARITY_COUNTS, STAT_CATEGORY, RARITY_ORDER,
     type LegacyDef, type LegacyRarity, type LegacyCategory, type LegacyStatKey,
 } from './_legacy-defs.js';
-import { trialObjectivesFor, TRIAL_VARIANT_COUNT } from './_legacy-core.js';
-import { BOOTSTRAP_CAPS } from './_legacy-track.js';
+import {
+    mythicTitleFor, provenTitleFor, trialObjectivesFor, TRIAL_VARIANT_COUNT,
+} from './_legacy-core.js';
+import {
+    BOOTSTRAP_CAPS, legacyBootstrapBeforeCounterIncrement, seedLegacyStatsFromSave,
+} from './_legacy-track.js';
+import { AI_FIGHT_SOFT_CAP_PER_DAY } from './missions/_ai-fight-reward.js';
+import { DAILY_HUNT_LIMIT, DAILY_MISSION_LIMIT } from './missions/_mission-catalog.js';
+import { AMBUSH_REWARDS_PER_DAY } from './sector/_wanderer-ambush.js';
+import { PET_EXPEDITION_DAILY_CAP } from '../shared/pet-expedition-contract.js';
 
 // ─── Stat liveness registry ─────────────────────────────────────────────────
 // LIVE: incremented by a server settle hook (grep the bumpLegacyStats call
@@ -32,11 +40,31 @@ const LIVE_STATS: ReadonlySet<LegacyStatKey> = new Set<LegacyStatKey>([
     'bossContribution', 'weeklyBossTop10', 'eventCompletions', 'firstClears',
     'sectorDiscoveries', 'hiddenFinds', 'wandererQuests',
     'villageDonations', 'warContribution', 'sectorCaptures', 'sectorDefenses',
-    'warsWon', 'villageTenureDays', 'petExpeditions', 'cardClashWins',
+    'warsWon', 'villageTenureDays', 'petDuelWins', 'petExpeditions', 'cardClashWins',
 ]);
 const MIRRORED_STATS: ReadonlySet<LegacyStatKey> = new Set<LegacyStatKey>([
-    'tilesExplored', 'petDuelWins', 'endlessTowerBest', 'arenaTournaments',
+    'tilesExplored', 'endlessTowerBest', 'arenaTournaments',
 ]);
+const STANDARD_DAILY_RATE: Partial<Record<LegacyStatKey, number>> = {
+    eventCompletions: 1 / 7,
+    weeklyBossTop10: 1 / 7,
+    villageTenureDays: 1,
+    hollowGateClears: 2,
+    missionCompletions: DAILY_MISSION_LIMIT,
+    pveKills: AI_FIGHT_SOFT_CAP_PER_DAY,
+    huntCompletions: DAILY_HUNT_LIMIT,
+    petExpeditions: PET_EXPEDITION_DAILY_CAP,
+    hiddenFinds: AMBUSH_REWARDS_PER_DAY,
+};
+
+test('post-settlement mirror snapshots are rewound before first-touch bootstrap', () => {
+    assert.deepEqual(
+        legacyBootstrapBeforeCounterIncrement({ totalPetWins: 12, marker: 'kept' }, 'totalPetWins'),
+        { totalPetWins: 11, marker: 'kept' },
+    );
+    assert.equal(legacyBootstrapBeforeCounterIncrement({ totalPetWins: 0 }, 'totalPetWins')?.totalPetWins, 0);
+    assert.equal(legacyBootstrapBeforeCounterIncrement(null, 'totalPetWins'), null);
+});
 
 test('roster has exactly 100 legacies with the design rarity split', () => {
     assert.equal(LEGACY_DEFS.length, 100);
@@ -105,6 +133,78 @@ test('multi-proof rule holds per rarity', () => {
     }
 });
 
+test('same-tier identities are not strict requirement upgrades of one another', () => {
+    const simple = LEGACY_DEFS.filter((definition) => definition.reqs.every((req) => 'stat' in req));
+    const dominates = (easier: LegacyDef, harder: LegacyDef): boolean => {
+        const harderFloors = new Map(harder.reqs.map((req) => {
+            if (!('stat' in req)) throw new Error('simple requirement expected');
+            return [req.stat, req.atLeast] as const;
+        }));
+        return easier.reqs.every((req) => {
+            if (!('stat' in req)) return false;
+            const harderFloor = harderFloors.get(req.stat);
+            return harderFloor !== undefined && harderFloor >= req.atLeast;
+        });
+    };
+
+    for (let left = 0; left < simple.length; left += 1) {
+        for (let right = left + 1; right < simple.length; right += 1) {
+            const a = simple[left]!;
+            const b = simple[right]!;
+            if (a.rarity !== b.rarity || a.category !== b.category) continue;
+            assert.equal(
+                dominates(a, b) || dominates(b, a),
+                false,
+                `${a.id} and ${b.id}: one same-tier path is only a stricter version of the other`,
+            );
+        }
+    }
+});
+
+test('all 100 badge and wearable-title links resolve without identity collisions', () => {
+    const titles = new Set<string>();
+    for (const d of LEGACY_DEFS) {
+        assert.equal(d.badge, d.id, `${d.id}: badge key drifted from the canonical asset slug`);
+        assert.ok(
+            fs.existsSync(path.join(process.cwd(), 'shinobij.client', 'public', 'badges', `legacy-${d.badge}.webp`)),
+            `${d.id}: missing public badge asset legacy-${d.badge}.webp`,
+        );
+        for (const title of [d.title, provenTitleFor(d.title), mythicTitleFor(d.title)]) {
+            assert.ok(!titles.has(title), `${d.id}: duplicate wearable title "${title}"`);
+            titles.add(title);
+        }
+    }
+    assert.equal(titles.size, LEGACY_DEFS.length * 3);
+});
+
+test('requirement breadth follows the intended basic-to-mythic effort curve', () => {
+    const bands: Record<LegacyRarity, readonly [number, number]> = {
+        basic: [1, 1],
+        rare: [2, 2],
+        legendary: [3, 5],
+        mythic: [6, 8],
+    };
+    for (const d of LEGACY_DEFS) {
+        const [min, max] = bands[d.rarity];
+        assert.ok(
+            d.reqs.length >= min && d.reqs.length <= max,
+            `${d.rarity} ${d.id} has ${d.reqs.length} requirements; expected ${min}-${max}`,
+        );
+    }
+});
+
+test('a genuine level-50 villager always has an attainable basic fallback', () => {
+    const stats = seedLegacyStatsFromSave({ level: 50, village: 'Ashen Leaf' }, Date.now());
+    const fallback = LEGACY_BY_ID.get('village-veteran');
+    assert.ok(fallback, 'village-veteran definition is missing');
+    assert.equal(fallback.rarity, 'basic');
+    for (const req of fallback.reqs) {
+        assert.ok('stat' in req, 'the guaranteed fallback must stay a single direct proof');
+        assert.ok((stats[req.stat] ?? 0) >= req.atLeast,
+            `level-50 village bootstrap no longer reaches ${req.stat}:${req.atLeast}`);
+    }
+});
+
 test('all requirement stats are known counters and thresholds are sane', () => {
     for (const d of LEGACY_DEFS) {
         for (const req of d.reqs) {
@@ -137,6 +237,99 @@ test('rarity thresholds escalate: a mythic is never cheaper than a basic on shar
         const mythic = m.get('mythic');
         if (basic !== undefined && mythic !== undefined) {
             assert.ok(mythic > basic, `${stat}: mythic floor ${mythic} <= basic floor ${basic}`);
+        }
+    }
+});
+
+test('basic proofs stay below every higher-tier use of the same stat', () => {
+    const basicFloors = new Map<LegacyStatKey, number>();
+    for (const d of LEGACY_DEFS) {
+        if (d.rarity !== 'basic') continue;
+        for (const req of d.reqs) {
+            const floors = 'stat' in req ? [req] : req.anyOf;
+            for (const floor of floors) basicFloors.set(floor.stat, floor.atLeast);
+        }
+    }
+    for (const d of LEGACY_DEFS) {
+        if (d.rarity === 'basic') continue;
+        for (const req of d.reqs) {
+            const floors = 'stat' in req ? [req] : req.anyOf;
+            for (const floor of floors) {
+                const basic = basicFloors.get(floor.stat);
+                if (basic !== undefined) {
+                    assert.ok(floor.atLeast > basic,
+                        `${d.rarity} ${d.id}: ${floor.stat}:${floor.atLeast} must exceed basic ${basic}`);
+                }
+            }
+        }
+    }
+});
+
+test('weighted primary mastery floors strictly increase between tiers', () => {
+    const tiers: readonly LegacyRarity[] = ['basic', 'rare', 'legendary', 'mythic'];
+    const lowerTierPrimaryMax = new Map<LegacyStatKey, number>();
+    for (const tier of tiers) {
+        const tierPrimaries: Array<{ def: LegacyDef; stat: LegacyStatKey; atLeast: number }> = [];
+        for (const d of LEGACY_DEFS) {
+            if (d.rarity !== tier) continue;
+            const direct = d.reqs.filter((req): req is Extract<typeof req, { stat: LegacyStatKey }> => 'stat' in req);
+            const primaryWeight = Math.max(...direct.map((req) => req.weight ?? 1));
+            for (const req of direct.filter((floor) => (floor.weight ?? 1) === primaryWeight)) {
+                tierPrimaries.push({ def: d, stat: req.stat, atLeast: req.atLeast });
+            }
+        }
+        for (const primary of tierPrimaries) {
+            const lower = lowerTierPrimaryMax.get(primary.stat);
+            if (lower !== undefined) {
+                assert.ok(primary.atLeast > lower,
+                    `${tier} ${primary.def.id}: primary ${primary.stat}:${primary.atLeast} must exceed lower-tier ${lower}`);
+            }
+        }
+        for (const primary of tierPrimaries) {
+            lowerTierPrimaryMax.set(
+                primary.stat,
+                Math.max(lowerTierPrimaryMax.get(primary.stat) ?? 0, primary.atLeast),
+            );
+        }
+    }
+});
+
+test('mythics are calendar-scale but remain possible within bounded earning cadences', () => {
+    // Standard daily rates from the authoritative faucets. These are not an
+    // estimate of player skill or total effort; they verify that every mythic
+    // includes a meaningful time gate without turning one into a multi-year or
+    // mathematically unreachable path.
+    for (const d of LEGACY_DEFS.filter((definition) => definition.rarity === 'mythic')) {
+        const gatedDays: number[] = [];
+        for (const req of d.reqs) {
+            const floors = 'stat' in req ? [req] : req.anyOf;
+            for (const floor of floors) {
+                const dailyRate = STANDARD_DAILY_RATE[floor.stat];
+                if (dailyRate === undefined) continue;
+                const days = floor.atLeast / dailyRate;
+                gatedDays.push(days);
+                assert.ok(days <= 365,
+                    `${d.id}: ${floor.stat}:${floor.atLeast} requires ${days.toFixed(1)} standard-cadence days`);
+            }
+        }
+        assert.ok(gatedDays.length > 0, `${d.id}: mythic has no bounded cadence proof`);
+        assert.ok(Math.max(...gatedDays) >= 20,
+            `${d.id}: mythic has no requirement representing at least 20 standard-cadence days`);
+    }
+});
+
+test('fresh-delta trials never demand more than 30 standard days from a capped faucet', () => {
+    for (const d of LEGACY_DEFS) {
+        for (const kind of ['awaken', 'bind', 'prove', 'mythic'] as const) {
+            for (let variant = 0; variant < TRIAL_VARIANT_COUNT; variant += 1) {
+                for (const objective of trialObjectivesFor(d, kind, variant)) {
+                    const dailyRate = STANDARD_DAILY_RATE[objective.stat];
+                    if (dailyRate === undefined) continue;
+                    const days = objective.delta / dailyRate;
+                    assert.ok(days <= 30,
+                        `${d.id} ${kind} v${variant}: ${objective.stat}+${objective.delta} needs ${days.toFixed(1)} standard-cadence days`);
+                }
+            }
         }
     }
 });

@@ -7,9 +7,14 @@ import { reportMissionEvent } from './_progress.js';
 import { pvpSessionMayGrantProgress, type PvpSession } from '../pvp/session.js';
 import { loadPvpRewardRecoverySnapshot } from '../pvp/_reward-recovery.js';
 import { hasRecentIpOverlap, hasRecentIpOrFpOverlap } from '../_player-ips.js';
-import { legacyEnabled, bumpLegacyStats } from '../_legacy-track.js';
+import {
+    legacyEnabled,
+    bumpLegacyStats,
+    legacyBootstrapBeforeCounterIncrement,
+} from '../_legacy-track.js';
 import { extractPvpLegacyDeltas, guardDefenseDeltas } from '../_legacy-pvp.js';
-import { bumpEraContribution } from '../_era.js';
+import { acknowledgeEraContribution, bumpEraContributionOnce } from '../_era.js';
+import { inspectPvpCredit, pvpSettlementId } from '../pvp/_reward-settlement.js';
 
 // Quick-surrender protection: fights ending in <15s grant no mission progress.
 const MIN_FIGHT_DURATION_MS = 15_000;
@@ -105,59 +110,96 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // ── Legacy tracking (ENABLE_LEGACY) ─────────────────────────────────
         // Server-owned progression counters for BOTH fighters, recorded before
         // the Vanguard-only mission gate so every player's real wins count.
-        // Own NX idempotency key; abuse signals feed suspicionFlags instead of
-        // credit. Best-effort — a tracking hiccup never fails the report.
+        // Stable sidecar receipts make the win replay-safe. The completion
+        // marker is written only after every required counter write lands, so
+        // a lost lock/write can be repaired by reporting the same battle.
+        let legacyDeliveryPending = false;
         if (legacyEnabled()) {
             try {
-                const tracked = await kv.set(`legacy:pvp-tracked:${battleId}`, true, { nx: true, ex: 24 * 60 * 60 });
-                if (tracked && inSessionDuration >= MIN_FIGHT_DURATION_MS) {
+                const trackedKey = `legacy:pvp-tracked:${battleId}`;
+                const tracked = await kv.get(trackedKey);
+                if (!tracked && inSessionDuration >= MIN_FIGHT_DURATION_MS) {
                     const opponentCreatedForLegacy = Number(opponentChar?.createdAt ?? 0);
                     const youngOpponent = opponentCreatedForLegacy > 0 && (Date.now() - opponentCreatedForLegacy) < ACCOUNT_AGE_MIN_MS;
                     // IP OR device-fingerprint overlap — alts feeding a main
                     // usually share one of the two (anti-farm wave 2).
                     const farmedIp = await hasRecentIpOrFpOverlap(playerName, opponentName);
                     if (youngOpponent || farmedIp) {
-                        await bumpLegacyStats(playerName, {}, { characterForBootstrap: char ?? null, suspicion: true });
+                        const delivered = await bumpLegacyStats(playerName, {}, {
+                            characterForBootstrap: char ?? null,
+                            suspicion: true,
+                            receiptId: `pvp:${battleId}:suspicion`,
+                        });
+                        if (!delivered) legacyDeliveryPending = true;
                     } else {
                         const extract = extractPvpLegacyDeltas(session, winnerName, loserName);
                         // Queue-defense credit (always available — no war needed):
                         // village-guard/challenge.ts marked this battle server-side.
                         // playerName IS the winner (validated at the 403 gate above);
                         // guard-won → defensiveWins/sectorDefenses, raider-won →
-                        // warPvpKills. Marker del'd on read; the pvp-tracked NX above
-                        // already makes this whole block once-per-battle.
-                        try {
-                            const guardMarker = await kv.get<{ defender?: string; attacker?: string }>(`legacy:guard-defense:${battleId}`);
-                            if (guardMarker) {
-                                await kv.del(`legacy:guard-defense:${battleId}`).catch(() => undefined);
-                                const gd = guardDefenseDeltas({
-                                    defender: safeName(String(guardMarker.defender ?? '')),
-                                    attacker: safeName(String(guardMarker.attacker ?? '')),
-                                }, playerName);
-                                for (const [k, v] of Object.entries(gd)) {
-                                    const key = k as keyof typeof extract.winnerDeltas;
-                                    extract.winnerDeltas[key] = (extract.winnerDeltas[key] ?? 0) + (v as number);
-                                }
+                        // warPvpKills. The marker is deleted only after both fighter
+                        // receipts and the Era receipt are durable.
+                        const guardMarker = await kv.get<{ defender?: string; attacker?: string }>(`legacy:guard-defense:${battleId}`);
+                        if (guardMarker) {
+                            const gd = guardDefenseDeltas({
+                                defender: safeName(String(guardMarker.defender ?? '')),
+                                attacker: safeName(String(guardMarker.attacker ?? '')),
+                            }, playerName);
+                            for (const [k, v] of Object.entries(gd)) {
+                                const key = k as keyof typeof extract.winnerDeltas;
+                                extract.winnerDeltas[key] = (extract.winnerDeltas[key] ?? 0) + (v as number);
                             }
-                        } catch { /* best-effort — defense credit is non-blocking */ }
+                        }
                         const winnerLevel = Number(char?.level ?? 0) || 0;
                         const loserLevel = Number(opponentChar?.level ?? 0) || 0;
-                        await bumpLegacyStats(playerName, extract.winnerDeltas, {
-                            characterForBootstrap: char ?? null,
+                        // The normal client calls this after claim-rewards, whose
+                        // atomic base receipt already raised totalPvpKills. A
+                        // direct/recovery call may arrive before that payout.
+                        // Inspect the server-owned base receipt so first-touch
+                        // bootstrap rewinds only when the save already contains
+                        // this exact battle's lifetime-counter increment.
+                        const winnerBootstrap = char && !inspectPvpCredit(
+                            char,
+                            pvpSettlementId('base', battleId),
+                            'base',
+                        ).fresh
+                            ? legacyBootstrapBeforeCounterIncrement(char, 'totalPvpKills')
+                            : char ?? null;
+                        const winnerDelivered = await bumpLegacyStats(playerName, extract.winnerDeltas, {
+                            characterForBootstrap: winnerBootstrap,
                             pvpTarget: opponentName,
                             pvpLevelGap: winnerLevel - loserLevel,
                             streak: 'win',
+                            receiptId: `pvp:${battleId}:winner`,
                         });
-                        await bumpLegacyStats(opponentName, extract.loserDeltas, {
+                        const loserDelivered = await bumpLegacyStats(opponentName, extract.loserDeltas, {
                             characterForBootstrap: opponentChar ?? null,
                             streak: 'reset',
+                            receiptId: `pvp:${battleId}:loser`,
                         });
-                        await bumpEraContribution('pvpWins');
+                        if (!winnerDelivered || !loserDelivered) {
+                            legacyDeliveryPending = true;
+                        } else {
+                            const eraReceiptId = `pvp:${battleId}:era`;
+                            await bumpEraContributionOnce('pvpWins', eraReceiptId);
+                            await acknowledgeEraContribution('pvpWins', eraReceiptId);
+                            await kv.del(`legacy:guard-defense:${battleId}`).catch(() => undefined);
+                        }
                     }
+                    if (!legacyDeliveryPending) await kv.set(trackedKey, true, { ex: 24 * 60 * 60 });
                 }
             } catch (legacyErr) {
                 console.error('[report-pvp-win] legacy tracking failed:', legacyErr);
+                legacyDeliveryPending = true;
             }
+        }
+
+        if (legacyDeliveryPending) {
+            return res.status(503).json({
+                error: 'The battle result is safe, but its Legacy record is still being sealed. Retry the same battle.',
+                code: 'legacy-delivery-pending',
+                retryable: true,
+            });
         }
 
         if (char?.profession !== 'vanguard') {

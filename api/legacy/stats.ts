@@ -11,6 +11,7 @@ import { LEGACY_BY_ID } from '../_legacy-defs.js';
 import { LockContendedError } from '../_lock.js';
 import { recoverLegacyAcceptance } from './_acceptance.js';
 import { repairPendingTrialCompletionEffects } from './trial.js';
+import { publicSageOffer, type SageOffer } from '../_legacy-sage-roll.js';
 
 /*
  * GET /api/legacy/stats?playerName=... — the LegacyPanel's single fetch.
@@ -74,8 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 tier: TIERS[Math.min(TIERS.length - 1, Math.floor(Math.min(s, 1.31) / 0.35))],
             }));
 
-        const eligibleCounts: Record<string, number> = { basic: 0, rare: 0, legendary: 0, mythic: 0 };
-        for (const ev of evals) if (ev.eligible) eligibleCounts[ev.rarity] += 1;
+        const eligibleCount = evals.filter((evaluation) => evaluation.eligible).length;
 
         const legacy = (char.legacy ?? null) as CharacterLegacy | null;
         const trialRaw = await kv.get<LegacyTrial>(legacyTrialKey(playerName));
@@ -85,7 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const trialIntro = trialRaw && LEGACY_BY_ID.has(trialRaw.legacyId)
             ? trialIntroFor(LEGACY_BY_ID.get(trialRaw.legacyId)!, trialRaw.kind)
             : null;
-        const offer = await kv.get<Record<string, unknown>>(`legacy:sage-offer:${playerName}`);
+        const offer = await kv.get<SageOffer>(`legacy:sage-offer:${playerName}`);
 
         return res.status(200).json({
             level,
@@ -97,9 +97,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             legacyCategory: legacy ? (LEGACY_BY_ID.get(legacy.legacyId)?.category ?? null) : null,
             trial,
             trialIntro,
-            offer: offer && offer.status === 'spawned' ? offer : null,
+            offer: offer && offer.status === 'spawned' ? publicSageOffer(offer) : null,
             strongest,
-            eligibleCounts,
+            eligibleCount,
             repaired: recovery.status === 'ok' && recovery.repaired,
             effectsPending: (recovery.status === 'ok' && recovery.effectsPending)
                 || trialEffectsRepair.effectsPending,

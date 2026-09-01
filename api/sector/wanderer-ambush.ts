@@ -8,7 +8,7 @@ import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { rollAmbushReward, ambushCleared, AMBUSH_REWARDS_PER_DAY } from './_wanderer-ambush.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
-import { bumpEraContribution } from '../_era.js';
+import { bumpEraContributionOnce } from '../_era.js';
 import { cleanWorldAiPendingOutcome } from '../missions/_world-ai-fight.js';
 
 /*
@@ -57,6 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // ── CLAIM: verify the gauntlet was cleared, then pay ──────────────────
         if (action === 'claim') {
             const today = utcDateKey();
+            let legacyReceiptId = '';
 
             const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
                 const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
@@ -67,11 +68,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const fresh = await kv.get<{ baseline: number; at?: number; authority?: string; chainId?: string; kind?: string; sourceId?: string; sector?: number }>(tokenKey);
                 if (!pending && !fresh) {
                     const priorWorld = [...receipts].reverse().find((entry) => entry.source === 'world-ai-chain');
-                    return priorWorld
-                        ? { status: 200, body: { ok: true, replayed: true, reward: priorWorld.reward, totals: { ryo: num(char.ryo), fateShards: num(char.fateShards), boneCharms: num(char.boneCharms) }, character: char, _saveVersion: Number(rec._saveVersion ?? 0) } }
-                        : { status: 200, body: { ok: false, reason: 'none' } };
+                    if (!priorWorld) return { status: 200, body: { ok: false, reason: 'none' } };
+                    legacyReceiptId = String(priorWorld.id ?? '');
+                    return { status: 200, body: { ok: true, replayed: true, reward: priorWorld.reward, totals: { ryo: num(char.ryo), fateShards: num(char.fateShards), boneCharms: num(char.boneCharms) }, character: char, _saveVersion: Number(rec._saveVersion ?? 0) } };
                 }
                 const receiptId = pending ? `world:${pending.claimId}` : `${fresh!.baseline}:${Number(fresh!.at ?? 0)}`;
+                legacyReceiptId = receiptId;
                 const prior = receipts.find((entry) => entry.id === receiptId);
                 if (prior) {
                     await kv.del(tokenKey).catch(() => undefined);
@@ -137,9 +139,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // Legacy tracking (ENABLE_LEGACY): a cleared ambush gauntlet is a
             // hidden find + an elite takedown (the warlord boss).
-            if (out.status === 200 && (out.body as { ok?: boolean; replayed?: boolean })?.ok === true && !(out.body as { replayed?: boolean }).replayed) {
-                await bumpLegacyStats(playerName, { hiddenFinds: 1, eliteKills: 1 });
-                await bumpEraContribution('discoveries');
+            if (out.status === 200 && (out.body as { ok?: boolean })?.ok === true && legacyReceiptId) {
+                const receiptId = `wanderer-ambush:${legacyReceiptId}`;
+                const delivered = await bumpLegacyStats(
+                    playerName,
+                    { hiddenFinds: 1, eliteKills: 1 },
+                    {
+                        receiptId,
+                        characterForBootstrap: (out.body as { character?: Record<string, unknown> }).character ?? null,
+                    },
+                );
+                if (!delivered) {
+                    return res.status(503).json({
+                        error: 'The ambush reward is safe, but its Legacy record is still being sealed. Retry the same claim.',
+                        code: 'legacy-delivery-pending',
+                        retryable: true,
+                    });
+                }
+                await bumpEraContributionOnce('discoveries', receiptId);
             }
             return res.status(out.status).json(out.body);
         }

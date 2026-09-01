@@ -897,6 +897,23 @@ export function sanitizeCharacterSave(
 
     const char: Record<string, unknown> = { ...inChar };
 
+    // A combat specialty is a permanent character-creation identity. Legacy
+    // style proof is attributed to this field, so allowing an ordinary client
+    // save to rotate it would let one character manufacture progress in all
+    // four disciplines. Accept one valid choice on the canonical first save;
+    // thereafter the stored value always wins. Old malformed saves are healed
+    // to Ninjutsu instead of preserving an attacker-controlled string.
+    const combatSpecialties = new Set(['Ninjutsu', 'Genjutsu', 'Taijutsu', 'Bukijutsu']);
+    const storedSpecialty = typeof exChar.specialty === 'string' && combatSpecialties.has(exChar.specialty)
+        ? exChar.specialty
+        : null;
+    const requestedSpecialty = typeof char.specialty === 'string' && combatSpecialties.has(char.specialty)
+        ? char.specialty
+        : null;
+    char.specialty = isFirstSave
+        ? (requestedSpecialty ?? 'Ninjutsu')
+        : (storedSpecialty ?? 'Ninjutsu');
+
     // Optional, presentation-only recommendation preference. Unknown or retired
     // values safely fall back to Auto; older saves remain sparse until a player
     // actually chooses a focus.

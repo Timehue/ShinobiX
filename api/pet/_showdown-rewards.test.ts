@@ -283,9 +283,17 @@ describe('showdown.ts wires practice as unpaid', () => {
         assert.deepEqual(recovery.chronicleCards, ['pet-witness-fire']);
         await bumpLegacyStats(playerName, { petDuelWins: 1 }, {
             receiptId: `pet-showdown:${session.sessionId}`,
-            characterForBootstrap: recovery.character as Record<string, unknown>,
+            // The helper itself is covered in _legacy-defs.test. Keep this test
+            // free of a static storage import so its QA-memory flag is in place
+            // before _storage chooses a backend.
+            characterForBootstrap: {
+                ...(recovery.character as Record<string, unknown>),
+                totalPetWins: Math.max(0, Number((recovery.character as Record<string, unknown>).totalPetWins ?? 0) - 1),
+            },
         });
         const statsAfterRepair = await kv.get<Record<string, unknown>>(`legacy:stats:${playerName}`);
+        assert.equal(statsAfterRepair?.petDuelWins, 5,
+            'first-touch bootstrap counts the four historical wins plus this receipt exactly once');
         const saveAfterRepair = await kv.get<Record<string, unknown>>(`save:${playerName}`);
 
         const replay = await settleShowdownWin(playerName, session);

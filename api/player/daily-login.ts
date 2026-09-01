@@ -8,6 +8,7 @@ import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { computeLoginReward, daysUntilShardBonus, STREAK_SHARD_INTERVAL } from './_daily-login.js';
 import { bumpLegacyStats, reconcileLegacyStatsFromSave } from '../_legacy-track.js';
+import { deliverPendingEconomyLegacyIntents } from '../_legacy-economy-outbox.js';
 
 /*
  * /api/player/daily-login — POST only
@@ -106,17 +107,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // (already once-per-UTC-day by the alreadyClaimed gate above), plus the
         // daily capped reconcile of client-tracked progression counters.
         //
-        // This bookkeeping is intentionally best-effort and off the response
-        // path. The reward save above is the critical mutation; waiting on the
-        // extra Legacy lock/read/write sequence made the Daily Briefing claim
-        // button sit in "Claiming..." for several seconds on warm accounts.
-        if (!out.alreadyClaimed) {
-            const legacyCharacter = out.legacyCharacter ?? null;
-            void (async () => {
-                await bumpLegacyStats(playerName, { villageTenureDays: 1 }, { characterForBootstrap: legacyCharacter });
-                await reconcileLegacyStatsFromSave(playerName, legacyCharacter);
-            })().catch((err) => {
-                console.error('[player/daily-login] legacy tracking failed', safeLogValue(err));
+        // The same date receipt is retried even when the reward was already
+        // committed. That closes the old crash window where the save payout
+        // succeeded, the fire-and-forget sidecar write failed, and every retry
+        // skipped Legacy progress forever.
+        const legacyCharacter = out.legacyCharacter ?? null;
+        const legacyDelivered = await bumpLegacyStats(
+            playerName,
+            { villageTenureDays: 1 },
+            {
+                characterForBootstrap: legacyCharacter,
+                receiptId: `daily-login:${playerName}:${today}`,
+            },
+        );
+        await reconcileLegacyStatsFromSave(playerName, legacyCharacter);
+        // Sweeping unrelated, already-committed economy intents is best-effort;
+        // the outbox keeps them retryable without invalidating today's reward.
+        await deliverPendingEconomyLegacyIntents(playerName).catch((error) => {
+            console.error('[daily-login] Legacy economy sweep failed:', error);
+        });
+        if (!legacyDelivered) {
+            return res.status(503).json({
+                error: 'Your daily reward is safe, but its Legacy record is still being sealed. Please retry.',
+                code: 'legacy-delivery-pending',
             });
         }
 

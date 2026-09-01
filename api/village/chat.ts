@@ -29,7 +29,6 @@ type ChatMessage = {
     /** Legacy prestige chip: derived server-side from the author's save
      *  (character.legacy is server-owned/sanitizer-reinjected — unspoofable). */
     legacyStage?: number;
-    legacyRarity?: string;
     level?: number;
     replyTo?: ReplyRef;
     // Server-authored lines only (World Herald announcements from
@@ -146,7 +145,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let derivedTitleStyle: string | undefined;
             let derivedTitleIcon: string | undefined;
             let derivedLegacyStage: number | undefined;
-            let derivedLegacyRarity: string | undefined;
             let derivedLevel: number | undefined;
             if (!identity.admin) {
                 try {
@@ -181,7 +179,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             const lgStage = Number(lg?.stage);
                             if (lgDef && Number.isInteger(lgStage) && lgStage >= 1 && lgStage <= 5) {
                                 derivedLegacyStage = lgStage;
-                                derivedLegacyRarity = lgDef.rarity;
                             }
                         }
                         if (typeof char.level === 'number') derivedLevel = char.level;
@@ -216,7 +213,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ...(derivedCustomTitle ? { customTitle: derivedCustomTitle } : {}),
                 ...(derivedTitleStyle  ? { customTitleStyle: derivedTitleStyle } : {}),
                 ...(derivedTitleIcon   ? { customTitleIcon: derivedTitleIcon } : {}),
-                ...(derivedLegacyStage != null ? { legacyStage: derivedLegacyStage, legacyRarity: derivedLegacyRarity } : {}),
+                ...(derivedLegacyStage != null ? { legacyStage: derivedLegacyStage } : {}),
                 ...(derivedLevel != null ? { level: derivedLevel }          : {}),
                 ...(replyRef ? { replyTo: replyRef } : {}),
             };

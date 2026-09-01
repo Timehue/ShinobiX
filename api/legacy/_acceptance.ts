@@ -243,7 +243,7 @@ export async function deliverLegacyAcceptanceEffects(
             if (!(await announce({
                 type: 'mythic_legacy',
                 importance: 'mythic',
-                title: 'MYTHIC LEGACY CLAIMED',
+                title: 'A LEGACY PATH IS CLAIMED',
                 message: `${playerName} accepted the ${def.name}. From this moment, their path is sealed forever.`,
                 player: playerName,
                 legacyId: def.id,
@@ -254,7 +254,6 @@ export async function deliverLegacyAcceptanceEffects(
                 description: `${playerName} accepted the ${def.name}. Their path is sealed forever.`,
                 player: playerName,
                 legacyId: def.id,
-                rarity: def.rarity,
             }, { nxKey: `mythic-claim:${def.id}:${playerName}` });
             if (!(await hallAcceptanceClaimDone(playerName, def.id))) return false;
         }

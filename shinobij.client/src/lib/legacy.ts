@@ -77,13 +77,13 @@ export function eraAgeName(n: number | undefined | null): string | null {
 }
 
 export type LegacyDefView = {
-    id: string; name: string; rarity: LegacyRarity; category: string;
+    id: string; name: string; category: string;
     villageAffinity: string | null; title: string; flavor: string; badge: string | null;
 };
 
 export type SageOfferView = {
     status: "spawned" | "declined" | "accepted" | "expired";
-    offers: Array<{ legacyId: string; name: string; rarity: LegacyRarity; category: string; flavor: string; title: string; villageAffinity: string | null; badge?: string | null;
+    offers: Array<{ legacyId: string; name: string; category: string; flavor: string; title: string; villageAffinity: string | null; badge?: string | null;
         /** Rank-free preview of the signature technique this legacy grants (name,
          *  shape, effect names; NO percents/EP/rank). Unlocks at Stage 3. */
         signature?: { name: string; shape: string; effects: string[]; unlockStage: number } | null }>;
@@ -174,7 +174,7 @@ export type LegacyStatusView = {
     trialIntro?: string | null;
     offer: SageOfferView | null;
     strongest: Array<{ category: string; tier: string }>;
-    eligibleCounts: Record<LegacyRarity, number>;
+    eligibleCount: number;
     /** Present on authenticated reads so a marker-only acceptance repair is
      * adopted atomically instead of waiting for the next full save load. */
     character?: Character;
@@ -191,7 +191,7 @@ export type AnnouncementView = {
 
 export type HallEntryView = {
     id: number; ts: number; entryType: string; title: string; description: string;
-    player?: string; village?: string; legacyId?: string; rarity?: string;
+    player?: string; village?: string; legacyId?: string;
     status: "active" | "corrected" | "revoked" | "hidden"; correctionNote?: string;
 };
 
@@ -253,8 +253,9 @@ export function useLegacyMutationAvailability(): boolean {
     return legacyAvailabilityAllowed(legacyPreferenceEnabled(), availability === "available");
 }
 
-export function sageRoll(playerName: string, sector?: number | null): Promise<{ spawn: boolean; offer?: SageOfferView; reason?: string } | null> {
-    return postJson(`/api/legacy/sage`, { action: "roll", playerName, ...(sector != null ? { sector } : {}) });
+/** Read the already-server-decided Sage offer without consuming a roll. */
+export function fetchSageState(playerName: string): Promise<{ offer: SageOfferView | null } | null> {
+    return getJson(`/api/legacy/sage?playerName=${encodeURIComponent(playerName)}`);
 }
 
 export function sageDecline(playerName: string): Promise<{ ok: boolean } | null> {
@@ -350,10 +351,10 @@ export function synthSageWanderer(sector: number): Wanderer {
 // the server lint (api/_legacy-defs.test.ts) fails if a trial template uses a
 // stat with no label here.
 export const TRIAL_STAT_LABELS: Record<string, string> = {
-    ninjutsuKills: "Ninjutsu victories", genjutsuKills: "Genjutsu victories",
-    taijutsuKills: "Taijutsu victories", bukijutsuKills: "Bukijutsu victories",
-    ninjutsuDamage: "Ninjutsu damage dealt", genjutsuDamage: "Genjutsu damage dealt",
-    taijutsuDamage: "Taijutsu damage dealt", bukijutsuDamage: "Bukijutsu damage dealt",
+    ninjutsuKills: "Ninjutsu specialist victories", genjutsuKills: "Genjutsu specialist victories",
+    taijutsuKills: "Taijutsu specialist victories", bukijutsuKills: "Bukijutsu specialist victories",
+    ninjutsuDamage: "damage dealt as a Ninjutsu specialist", genjutsuDamage: "damage dealt as a Genjutsu specialist",
+    taijutsuDamage: "damage dealt as a Taijutsu specialist", bukijutsuDamage: "damage dealt as a Bukijutsu specialist",
     pvpWins: "PvP wins", pvpKills: "PvP takedowns",
     sameRankWins: "wins against your own rank", defensiveWins: "defensive wins",
     missionCompletions: "missions completed",

@@ -130,7 +130,6 @@ export function SageOfferModal({ offer, playerName, actionsAllowed, canMutate, o
                     mode: "trial-start",
                     kindName: "Trial of Awakening",
                     legacyName: picked.name,
-                    rarity: picked.rarity,
                     text: result.intro
                         ?? "Then walk forward. Your first trial has already begun — the path is watching.",
                     hint: "Your trial is already underway — track it anytime in Profile → 🌠 Legacy.",

@@ -65,6 +65,28 @@ describe('canonical first player save', () => {
         assert.deepEqual(character.tileCards, []);
     });
 
+    it('accepts one valid specialty at creation and freezes it on later saves', () => {
+        const first = sanitizeCharacterSave({ character: {
+            name: 'Specialist', village: 'Stormveil Village', specialty: 'Genjutsu',
+            stats: {}, inventory: [], pets: [], tileCards: [],
+        } }, null);
+        assert.equal((first.character as Record<string, unknown>).specialty, 'Genjutsu');
+
+        const later = sanitizeCharacterSave({
+            ...first,
+            character: { ...(first.character as Record<string, unknown>), specialty: 'Taijutsu' },
+        }, first);
+        assert.equal((later.character as Record<string, unknown>).specialty, 'Genjutsu');
+    });
+
+    it('normalizes invalid specialties instead of persisting arbitrary style proof', () => {
+        const first = sanitizeCharacterSave({ character: {
+            name: 'Invalid Specialist', village: 'Stormveil Village', specialty: 'Any',
+            stats: {}, inventory: [], pets: [], tileCards: [],
+        } }, null);
+        assert.equal((first.character as Record<string, unknown>).specialty, 'Ninjutsu');
+    });
+
     it('does not let a later generic save erase or forge the war-crate claim ledger', () => {
         const base = { name: 'Audit', level: 10, xp: 0, ryo: 100, stats: {}, claimedWarCrateIds: ['war-crate-a-vs-b'] };
         const out = sanitizeCharacterSave(

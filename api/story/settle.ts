@@ -163,10 +163,11 @@ async function settleSealedStoryRun(params: { runId: string; playerName: string;
             }
         }
         // A story first-clear is a witnessed deed for Legacy purposes. The
-        // run-scoped receipt makes retries exact-once; if the best-effort side
-        // car write fails, replaying settlement safely attempts it again.
+        // run-scoped receipt makes retries exact-once. The redemption remains
+        // replayable until this sidecar confirms, so an outage cannot silently
+        // discard the witnessed deed after paying the story reward.
         if (result.ok && !isSpar) {
-            await bumpLegacyStats(
+            const delivered = await bumpLegacyStats(
                 playerName,
                 { firstClears: 1, bossContribution: 1 },
                 {
@@ -175,6 +176,11 @@ async function settleSealedStoryRun(params: { runId: string; playerName: string;
                     durableReceipt: true,
                 },
             );
+            if (!delivered) return {
+                ok: false as const,
+                status: 503,
+                error: 'Story reward settled; Legacy ledger delivery is pending. Retry to reconcile.',
+            };
         }
         return result;
     }, { failClosed: true });

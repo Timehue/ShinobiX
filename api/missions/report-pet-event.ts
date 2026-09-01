@@ -25,6 +25,18 @@ import {
     type PetExpeditionReturnChoice,
 } from '../../shared/pet-expedition-contract.js';
 
+async function deliverPetExpeditionLegacy(
+    playerName: string,
+    expeditionReceipt: string,
+    character?: Record<string, unknown> | null,
+): Promise<boolean> {
+    if (!expeditionReceipt) return true;
+    return bumpLegacyStats(playerName, { petExpeditions: 1 }, {
+        receiptId: `pet-expedition:${expeditionReceipt}`,
+        characterForBootstrap: character ?? null,
+    });
+}
+
 // Server-side Tamer XP for completed expeditions. Matches the client-side
 // formula (5 XP/min base, +50% for >=1h, +100% for >=4h, x2 daily First
 // Expedition, x1.2 if petEscortBonusReady is consumed).
@@ -222,6 +234,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? currentChar.petExpeditionLog as Array<Record<string, unknown>>
                     : []).find((entry) => entry?.id === tok);
                 if (!tokenData && completed) {
+                    if (!await deliverPetExpeditionLegacy(playerName, tok, currentChar)) {
+                        return res.status(503).json({
+                            error: 'The expedition is safe, but its Legacy record is still being sealed. Retry the same expedition.',
+                            code: 'legacy-delivery-pending',
+                            retryable: true,
+                        });
+                    }
                     return res.status(200).json({
                         ok: true,
                         petTamer: isTamer,
@@ -467,6 +486,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // does not model closure writes across the awaited boundary.
                 const replay = replayedLog as Record<string, unknown> | null;
                 if (replay) {
+                    if (!await deliverPetExpeditionLegacy(
+                        playerName,
+                        expeditionReceipt,
+                        (current?.character ?? null) as Record<string, unknown> | null,
+                    )) {
+                        return res.status(503).json({
+                            error: 'The expedition is safe, but its Legacy record is still being sealed. Retry the same expedition.',
+                            code: 'legacy-delivery-pending',
+                            retryable: true,
+                        });
+                    }
                     return res.status(200).json({
                         ok: true,
                         petTamer: isTamer,
@@ -520,8 +550,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (expeditionXp > 0) {
                 await awardProfessionXp(playerName, 'petTamer', expeditionXp);
             }
-            // Legacy tracking (ENABLE_LEGACY): a token-validated expedition.
-            await bumpLegacyStats(playerName, { petExpeditions: 1 });
         }
 
         // Mission progress + profession XP are Pet Tamer–only. A non-Tamer earns
@@ -549,6 +577,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     kind: 'pet-tamer-expeditions',
                 });
                 extraCompleted = extra.missionsCompleted;
+            }
+        }
+
+        // The save receipt makes this exact expedition replayable. Deliver
+        // after the other progression hooks so a transient Legacy write cannot
+        // strand Tamer XP or mission progress; a 503 retry resumes only this
+        // receipt and never pays the expedition twice.
+        if (isExpeditionEvent && expeditionReceipt) {
+            const legacyRecord = await kv.get<Record<string, unknown>>(saveKey);
+            if (!await deliverPetExpeditionLegacy(
+                playerName,
+                expeditionReceipt,
+                (legacyRecord?.character ?? null) as Record<string, unknown> | null,
+            )) {
+                return res.status(503).json({
+                    error: 'The expedition is safe, but its Legacy record is still being sealed. Retry the same expedition.',
+                    code: 'legacy-delivery-pending',
+                    retryable: true,
+                });
             }
         }
 

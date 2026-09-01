@@ -643,7 +643,7 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
                 const saveKey = `save:${entry.name}`;
                 const fresh = await kv.get<Record<string, unknown>>(saveKey);
                 const freshChar = fresh?.character as Record<string, unknown> | undefined;
-                if (!fresh || !freshChar) return { complete: true, newlyApplied: false }; // no save → nothing to credit; count as done
+                if (!fresh || !freshChar) return { complete: true, newlyApplied: false, character: null }; // no save → nothing to credit; count as done
 
                 // Exactly-once is proven by a receipt committed in the same
                 // save write as the payout. A separate NX reservation is not
@@ -659,29 +659,34 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
                     entry,
                     Date.now(),
                 );
-                if (applied.alreadyApplied) return { complete: true, newlyApplied: false };
+                if (applied.alreadyApplied) return { complete: true, newlyApplied: false, character: freshChar };
                 const updated = {
                     ...fresh,
                     character: applied.character,
                 };
                 await kv.set(saveKey, mergePreservingImages(bumpSaveVersion(updated), fresh));
-                return { complete: true, newlyApplied: true };
+                return { complete: true, newlyApplied: true, character: applied.character };
             }, { failClosed: true });
             if (did.complete) {
-                newlyCredited.push(entry.name);
                 // Legacy tracking (ENABLE_LEGACY): the weekly boss is the live
                 // source for boss/event legacy proof — contribution damage,
                 // top-10 placements, event participation, and (for the MVP) a
-                // server-history first-clear. Rides the exactly-once receipt
-                // above; best-effort by design.
-                if (did.newlyApplied) {
-                    await bumpLegacyStats(entry.name, {
+                // server-history first-clear. The stable receipt is retried
+                // even when the save payout was already applied. We do not mark
+                // the contributor credited until both writes are durable.
+                if (did.character) {
+                    const legacyDelivered = await bumpLegacyStats(entry.name, {
                         bossContribution: Math.max(0, Math.floor(entry.damage ?? 0)),
                         eventCompletions: 1,
                         ...(entry.rank <= 10 ? { weeklyBossTop10: 1, eliteKills: 5 } : {}),
                         ...(entry.isMvp ? { firstClears: 1 } : {}),
+                    }, {
+                        characterForBootstrap: did.character,
+                        receiptId: `weekly-boss:${weekKey}:${entry.name}`,
                     });
+                    if (!legacyDelivered) throw new Error('weekly-boss-legacy-delivery-pending');
                 }
+                newlyCredited.push(entry.name);
             }
         } catch (err) {
             // Leave this player OUT of creditedPlayers so a later run retries.

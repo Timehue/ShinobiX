@@ -6,7 +6,7 @@ import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { getLegacyStats, legacyStatsKey, legacyEventsKey, appendLegacyEvent, legacyEnabled, LEGACY_SUSPECTS_KEY, type LegacyEvent, type LegacyStats } from '../_legacy-track.js';
 import { evaluateAllLegacies, getLegacyOverlay, LEGACY_OVERLAY_KEY, type LegacyOverlay } from '../_legacy-score.js';
-import { LEGACY_BY_ID } from '../_legacy-defs.js';
+import { LEGACY_BY_ID, LEGACY_DEFS } from '../_legacy-defs.js';
 import { legacyAcceptedKey, legacyTrialKey, type CharacterLegacy } from '../_legacy-core.js';
 import { currentEraNumber } from '../_era.js';
 import { recordAudit } from '../_audit.js';
@@ -50,9 +50,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // the on-window keep rendering (customTitle predates Legacy), so the
         // operator still needs to see and revoke them, inspect players, and
         // correct Hall history. Only gameplay-mutating actions stay gated.
-        const FLAG_OFF_ALLOWED = new Set(['view', 'recalc', 'suspects', 'clear-suspicion', 'titles-log', 'title-revoke', 'hall-list', 'hall-correct', 'metrics']);
+        const FLAG_OFF_ALLOWED = new Set(['definitions', 'view', 'recalc', 'suspects', 'clear-suspicion', 'titles-log', 'title-revoke', 'hall-list', 'hall-correct', 'metrics']);
         if (!legacyEnabled() && !FLAG_OFF_ALLOWED.has(action)) {
             return res.status(404).json({ error: 'ENABLE_LEGACY is not set.' });
+        }
+
+        // Rarity and raw requirement formulas are operator-only. The public
+        // codex intentionally omits both; authenticated admins receive the
+        // complete roster here for correction and tuning tools.
+        if (action === 'definitions') {
+            return res.status(200).json({ definitions: LEGACY_DEFS });
         }
 
         if (action === 'view' || action === 'recalc') {

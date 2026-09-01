@@ -6,7 +6,7 @@ import { withKvLock } from '../_lock.js';
 import { cors, safeName, clanRecordKey } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { legacyEnabled, bumpLegacyStats } from '../_legacy-track.js';
-import { bumpEraContribution } from '../_era.js';
+import { bumpEraContributionOnce } from '../_era.js';
 import { reportMissionEvent, type CompletedMissionInfo } from '../missions/_progress.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { isWarVillage, isWarSector, homeVillageForSector } from '../_war-map-sectors.js';
@@ -32,6 +32,23 @@ import {
     INFIL_RUN_TTL,
     type InfilRun,
 } from '../_anbu-infiltration-store.js';
+
+async function deliverInfiltrationLegacy(
+    playerName: string,
+    runId: string,
+    character?: Record<string, unknown> | null,
+): Promise<boolean> {
+    if (!legacyEnabled()) return true;
+    const receiptId = `anbu-infiltration:${runId}`;
+    const delivered = await bumpLegacyStats(
+        playerName,
+        { raidsCompleted: 1, warContribution: 500 },
+        { receiptId, characterForBootstrap: character ?? null },
+    );
+    if (!delivered) return false;
+    await bumpEraContributionOnce('warBattles', receiptId);
+    return true;
+}
 import { MAX_RAID_ATTEMPTS_PER_DAY, type WarPool } from '../_anbu-infiltration.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
@@ -270,7 +287,20 @@ async function doReportLocked(res: VercelResponse, identity: Identity, playerNam
     const run = await readInfilRun(runId);
     if (!run) return res.status(404).json({ error: 'Run not found or expired.' });
     if (!identity.admin && run.raiderSlug !== playerName) return res.status(403).json({ error: 'Not your run.' });
-    if (run.settlement) return res.status(200).json(run.settlement.response);
+    if (run.settlement) {
+        if (run.settlement.response?.won === true && !await deliverInfiltrationLegacy(
+            playerName,
+            runId,
+            run.settlement.response.character as Record<string, unknown> | undefined,
+        )) {
+            return res.status(503).json({
+                error: 'The raid is safe, but its Legacy record is still being sealed. Retry the same run.',
+                code: 'legacy-delivery-pending',
+                retryable: true,
+            });
+        }
+        return res.status(200).json(run.settlement.response);
+    }
     const session = await readSoloPveSession(runId);
     if (!infiltrationSessionMatches(run, session)) return res.status(409).json({ error: 'The infiltration combat binding is invalid.' });
     if (session.status !== 'done' || !session.terminalEvidence) return res.status(409).json({ error: 'The fight is not finished.' });
@@ -353,10 +383,6 @@ async function doReportLocked(res: VercelResponse, identity: Identity, playerNam
             missionsCompleted = missionRes.missionsCompleted;
             missionXp = missionRes.xpAwarded;
         }
-        if (legacyEnabled()) {
-            await bumpLegacyStats(playerName, { raidsCompleted: 1, warContribution: 500 });
-            await bumpEraContribution('warBattles');
-        }
         const clan = String(char?.clan ?? '').trim();
         if (clan) {
             await withKvLock(clanRecordKey(clan), async () => {
@@ -376,6 +402,13 @@ async function doReportLocked(res: VercelResponse, identity: Identity, playerNam
 
     const response = { ...economicResponse, missionsCompleted, missionXp };
     await writeInfilRun({ ...run, settlement: { settledAt, response } });
+    if (legacyEnabled() && !await deliverInfiltrationLegacy(playerName, runId, out.character)) {
+        return res.status(503).json({
+            error: 'The raid is safe, but its Legacy record is still being sealed. Retry the same run.',
+            code: 'legacy-delivery-pending',
+            retryable: true,
+        });
+    }
     return res.status(200).json(response);
 }
 

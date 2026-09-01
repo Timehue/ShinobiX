@@ -10,7 +10,12 @@ import { useCallback, useEffect, useState } from "react";
 import { gameConfirm } from "../components/GameAlert";
 import { AdminWorldCrisisControls } from "../components/AdminWorldCrisisControls";
 import { AdminWorldCrisis80Controls } from "../components/AdminWorldCrisis80Controls";
-import { RARITY_COLORS, fetchLegacyDefinitions, type LegacyDefView, type LegacyRarity } from "../lib/legacy";
+import { RARITY_COLORS, type LegacyRarity } from "../lib/legacy";
+
+type AdminLegacyDef = {
+    id: string; name: string; rarity: LegacyRarity; category: string;
+    title: string; flavor: string;
+};
 
 type AdminView = {
     player: string;
@@ -18,7 +23,7 @@ type AdminView = {
     legacy: { legacyId: string; stage: number; titles: string[] } | null;
     customTitle?: string;
     sealed: { legacyId: string } | null;
-    offer: { status: string; offers: Array<{ legacyId: string; rarity: string }>; sector: number } | null;
+    offer: { status: string; offers: Array<{ legacyId: string }>; sector: number } | null;
     trial: { legacyId: string; kind: string; objectives: Array<{ stat: string; delta: number }> } | null;
     events: Array<{ ts: number; type: string; key?: string }>;
     eligible: Array<{ legacyId: string; name: string; rarity: LegacyRarity; score: number }>;
@@ -58,12 +63,14 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
     // ── Player inspector ─────────────────────────────────────────────────
     const [inspectName, setInspectName] = useState("");
     const [view, setView] = useState<AdminView | null>(null);
-    const [defs, setDefs] = useState<LegacyDefView[]>([]);
+    const [defs, setDefs] = useState<AdminLegacyDef[]>([]);
     const [changeLegacyId, setChangeLegacyId] = useState("");
     const [changeReason, setChangeReason] = useState("");
     useEffect(() => {
-        void fetchLegacyDefinitions().then((d) => { if (d) setDefs(d.legacies); });
-    }, []);
+        void post({ action: 'definitions' }).then((data) => {
+            if (data && Array.isArray(data.definitions)) setDefs(data.definitions as AdminLegacyDef[]);
+        });
+    }, [post]);
 
     async function inspect() {
         if (!inspectName.trim()) return;

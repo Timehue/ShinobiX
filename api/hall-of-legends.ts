@@ -5,6 +5,35 @@ import { enforceRateLimitKv } from './_ratelimit.js';
 import { readHallEntries } from './_announce.js';
 import { legacyEnabled } from './_legacy-track.js';
 
+type StoredHallEntry = Awaited<ReturnType<typeof readHallEntries>>[number];
+
+function neutralizeLegacyTierText(value: string): string {
+    return value
+        .replace(/\bmythic\b/gi, 'storied')
+        .replace(/\blegendary\b/gi, 'distinguished');
+}
+
+/** Public projection keeps internal rarity classification admin-only. */
+export function publicHallEntry(entry: StoredHallEntry): Omit<StoredHallEntry, 'rarity'> {
+    const { rarity: _privateRarity, ...publicEntry } = entry;
+    if (!entry.legacyId) return publicEntry;
+    const publicMeta = entry.meta && typeof entry.meta === 'object'
+        ? (() => {
+            const { rarity: _privateMetaRarity, ...meta } = entry.meta;
+            return meta;
+        })()
+        : entry.meta;
+    return {
+        ...publicEntry,
+        entryType: /(?:mythic|legendary)_legacy/i.test(entry.entryType)
+            ? 'legacy_milestone'
+            : entry.entryType,
+        title: neutralizeLegacyTierText(entry.title),
+        description: neutralizeLegacyTierText(entry.description),
+        ...(publicMeta ? { meta: publicMeta } : { meta: undefined }),
+    };
+}
+
 /*
  * GET /api/hall-of-legends?type=<entryType> — permanent server history
  * (docs/legacy-system-plan.md §13). Entries are append-only; revoked ones
@@ -23,11 +52,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const type = typeof req.query.type === 'string' ? req.query.type : '';
         const limit = Math.max(1, Math.min(200, Math.floor(Number(req.query.limit) || 100)));
         let entries = await readHallEntries({ includeHidden: admin, limit: 500 });
-        if (type) entries = entries.filter((e) => e.entryType === type);
+        if (type && admin) entries = entries.filter((e) => e.entryType === type);
         // Admin responses include hidden entries — never let a shared cache
         // serve one to a player (verification finding).
         res.setHeader('Cache-Control', admin ? 'no-store' : 'public, max-age=60');
-        return res.status(200).json({ entries: entries.slice(0, limit) });
+        const publicEntries = admin ? entries : entries.map(publicHallEntry);
+        const filtered = type && !admin
+            ? publicEntries.filter((entry) => entry.entryType === type)
+            : publicEntries;
+        const visible = filtered.slice(0, limit);
+        return res.status(200).json({ entries: visible });
     } catch (err) {
         console.error('[hall-of-legends]', err);
         return res.status(500).json({ error: 'Internal server error.' });

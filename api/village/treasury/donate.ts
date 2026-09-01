@@ -6,13 +6,16 @@ import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../../_lock.js';
 import { applyTreasuryDonation, type TreasuryDonation } from '../../_treasury-donate.js';
-import { bumpLegacyStats } from '../../_legacy-track.js';
 import { mutatePlayerSave } from '../../save/_mutate-player-save.js';
 import { meritForDonation, meritNum } from '../_village-merit.js';
 import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../../_economy-tx.js';
 import { CRAFT_POINTS } from '../../craft/_forge.js';
 import { villageStoresEnabled } from '../../_release-flags.js';
 import { routeStoresDonation, type StoresRouted } from '../../_treasury-stores-donate.js';
+import {
+    deliverEconomyLegacyIntent,
+    queueEconomyLegacyIntent,
+} from '../../_legacy-economy-outbox.js';
 
 /*
  * /api/village/treasury/donate  — POST only
@@ -116,6 +119,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const villageStateKey = `${VILLAGE_STATE_PREFIX}${slug}`;
         const donorSaveKey = `save:${playerName}`;
         txId = makeEconomyTxId('village-treasury-donate');
+        const legacyDeltas = {
+            villageDonations: donation.kind === 'currency'
+                ? Math.max(0, Math.floor(donation.amount))
+                : Math.max(0, Math.floor(donation.count)) * 500,
+        };
 
         // ── Atomic donate ──────────────────────────────────────────────
         // Village-state row locked first (shared resource), donor save row
@@ -158,6 +166,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     meta: { village, playerName },
                 });
                 txState = 'reserved';
+                // Queue before the debit mutation is allowed to return. If the
+                // outbox cannot persist, the donation has not committed yet;
+                // if the process dies later, delivery waits for tx=complete.
+                await queueEconomyLegacyIntent(playerName, txId!, legacyDeltas);
                 // Personal Village Merit toward a Kage challenge, scaled by the
                 // ryo-value donated (items = 500 each, mirroring the villageDonations
                 // legacy bump below). Costs real currency, so no free farming.
@@ -199,10 +211,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Legacy tracking (ENABLE_LEGACY): villageDonations counts ryo-value
         // donated (currency amount; items count a flat 500 each).
-        await bumpLegacyStats(playerName, {
-            villageDonations: donation.kind === 'currency'
-                ? Math.max(0, Math.floor(donation.amount))
-                : Math.max(0, Math.floor(donation.count)) * 500,
+        // The donation is already committed at this point. Legacy delivery is
+        // backed by the durable economy outbox, so an infrastructure failure
+        // here must not make the client retry (and donate a second time).
+        await deliverEconomyLegacyIntent(playerName, txId).catch((error) => {
+            console.error('[treasury/donate] deferred Legacy delivery failed:', error);
         });
         const stores = result.routed ? { stores: result.routed.stores } : {};
         return res.status(200).json({ ok: true, treasury: result.treasury, character: result.character, _saveVersion: result._saveVersion, ...stores });
