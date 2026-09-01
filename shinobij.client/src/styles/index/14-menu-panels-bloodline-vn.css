@@ -702,6 +702,36 @@ textarea {
     z-index: 50;
 }
 
+/* Screen-centred variant, for a result that is a sibling of the combat grid
+   rather than a child of one of its cells. PvP used to render its result card
+   inside the jutsu bar, which pinned it to the bottom-left cell and pushed the
+   exit buttons below the fold. Mirrors .pvp-countdown-overlay, the other
+   full-arena layer in this screen. */
+.battle-ended-overlay--stage {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: transparent;
+    /* The duel is over, but the battle log and chat behind this are still live.
+       The scrim is presentation only: it must not swallow clicks. Only the card
+       itself takes pointer events. */
+    pointer-events: none;
+}
+
+/* .arena-fullscreen .battle-ended-overlay paints a blurred 0.85 scrim with
+   !important, which would leave chat technically clickable but unreadable.
+   Three classes so this wins on specificity regardless of stylesheet order.
+   The card carries its own gradient, gold border and drop shadow, so it still
+   reads as a floating panel without a scrim behind it. */
+.arena-fullscreen .battle-ended-overlay.battle-ended-overlay--stage {
+    background: transparent !important;
+    backdrop-filter: none !important;
+}
+
+.battle-ended-overlay--stage > .battle-ended-card {
+    pointer-events: auto;
+}
+
 .battle-ended-card {
     display: flex;
     flex-direction: column;
