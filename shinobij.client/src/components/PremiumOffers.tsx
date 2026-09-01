@@ -32,9 +32,9 @@ import { SUBSCRIPTION_ID } from "../../../shared/shard-packages";
 
 /*
  * Tile art. The shard COUNT is painted into each image, but the PRICE
- * deliberately is not: Tebex charges in the buyer's own currency with their tax
- * applied, so a baked-in "$5" would be a wrong number on screen for most of the
- * world. The price is live text underneath, straight from the storefront.
+ * deliberately is not: the price lives as live text underneath, read from the
+ * storefront, so repricing a tier in the Tebex dashboard does not leave four
+ * images quietly advertising the old amount.
  */
 const TIER_ART: Record<string, string> = {
     "shards-35": shards35Art,
@@ -249,11 +249,11 @@ export function PremiumOffers({ character, onVersionedCharacter }: {
             )}
 
             <p style={{ color: "#8b98a8", fontSize: "0.78rem", lineHeight: 1.5, marginTop: "0.9rem", marginBottom: 0 }}>
-                Payments are handled by Tebex, who are the merchant of record. Prices are shown in your local currency
-                where available, and the exact amount is confirmed at checkout before you pay. Purchases are added to
-                the account you are signed in as, usually within a few seconds. The subscription renews monthly until
-                you cancel it, which you can do at any time from the receipt Tebex emails you. Everything Fate Shards
-                buy can also be earned in game.
+                Payments are handled by Tebex, who are the merchant of record. Prices are listed in US dollars; if
+                you pay in another currency, the exact amount and any tax are shown at checkout before you pay.
+                Purchases are added to the account you are signed in as, usually within a few seconds. The
+                subscription renews monthly until you cancel it, which you can do at any time from the receipt Tebex
+                emails you. Everything Fate Shards buy can also be earned in game.
             </p>
         </div>
     );
