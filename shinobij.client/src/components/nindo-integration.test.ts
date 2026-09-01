@@ -21,7 +21,8 @@ test("Profile feeds both Nindo fields into the editor and writes them through ch
 });
 
 test("Clear removes both the creed and banner, and clean editors adopt server snapshots", () => {
-    assert.match(editor, /useEffect\(\(\) => \{\s*if \(dirty\) return;\s*setDraft\(value\.nindo \?\? ""\);\s*setBg\(value\.nindoBg \?\? ""\);/s);
+    assert.match(editor, /const visibleDraft = dirty \? draft : value\.nindo \?\? "";/);
+    assert.match(editor, /const visibleBg = dirty \? bg : value\.nindoBg \?\? "";/);
     assert.match(editor, /function clear\(\) \{\s*setDraft\(""\);\s*setBg\(""\);\s*onSave\(\{ nindo: "", nindoBg: "" \}\);/s);
 });
 
