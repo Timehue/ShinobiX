@@ -2326,6 +2326,10 @@
             "line": 2135
           },
           {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 4832
+          },
+          {
             "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
             "line": 956
           },
@@ -2941,6 +2945,10 @@
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
             "line": 1602
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 4832
           }
         ]
       },
@@ -3081,6 +3089,10 @@
             "line": 4303
           },
           {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 4713
+          },
+          {
             "source": "shinobij.client/src/styles/index/01-base-app-chrome.css",
             "line": 577
           },
@@ -3115,6 +3127,21 @@
           {
             "source": "shinobij.client/src/styles/relic-dungeons.css",
             "line": 136
+          }
+        ]
+      },
+      {
+        "direction": "min",
+        "axis": "width",
+        "valuePx": 761,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 4533
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 4652
           }
         ]
       },
@@ -3421,6 +3448,10 @@
           {
             "source": "shinobij.client/src/screens/WorldCrisis80.css",
             "line": 14
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 4652
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
