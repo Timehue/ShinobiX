@@ -11,6 +11,8 @@ import {
     isValidationWebhook,
     isReversalWebhook,
     shardGrantsForPayment,
+    isSubscriptionWebhook,
+    subscriptionOutcome,
     type TebexWebhookEnvelope,
 } from './_webhook-core.js';
 import { shardPackage, type ShardPackage } from '../../shared/shard-packages.js';
@@ -243,5 +245,97 @@ describe('identity on a universal webstore', () => {
         assert.equal(outcome.action, 'ignore');
         if (outcome.action !== 'ignore') return;
         assert.equal(outcome.reason, 'no-player-identity');
+    });
+});
+
+describe('shinobi supporter subscription', () => {
+    const SUB_PKG = '9001';
+
+    /** Tebex's recurring envelope: two nested payment subjects + a price. */
+    function sub(type: string, overrides: Record<string, unknown> = {}): TebexWebhookEnvelope {
+        return {
+            id: 'wh-sub-1',
+            type,
+            date: '2026-09-01T00:00:00+00:00',
+            subject: {
+                reference: 'tbx-r-abc123',
+                price: { amount: 15, currency: 'USD' },
+                initial_payment: {
+                    transaction_id: 'tbx-p-1',
+                    products: [{ id: 9001, name: 'Shinobi Supporter', custom: { playerName: 'kaito' } }],
+                },
+                last_payment: {
+                    transaction_id: 'tbx-p-2',
+                    products: [{ id: 9001, name: 'Shinobi Supporter', custom: { playerName: 'kaito' } }],
+                },
+                ...overrides,
+            },
+        };
+    }
+
+    it('entitles on started and renewed', () => {
+        for (const type of ['recurring-payment.started', 'recurring-payment.renewed']) {
+            const outcome = subscriptionOutcome(sub(type), SUB_PKG);
+            assert.equal(outcome.action, 'entitle', type);
+            if (outcome.action !== 'entitle') continue;
+            assert.equal(outcome.playerName, 'kaito');
+            assert.equal(outcome.active, true);
+            assert.equal(outcome.amountCents, 1500);
+        }
+    });
+
+    it('revokes ONLY on ended', () => {
+        const outcome = subscriptionOutcome(sub('recurring-payment.ended'), SUB_PKG);
+        assert.equal(outcome.action, 'entitle');
+        if (outcome.action !== 'entitle') return;
+        assert.equal(outcome.active, false);
+    });
+
+    it('⛔ does NOT revoke when cancellation is merely REQUESTED', () => {
+        // They have asked to stop renewing but are paid through the current
+        // period. Revoking here bills someone for time they never receive —
+        // the single most expensive way to get this table wrong.
+        const outcome = subscriptionOutcome(sub('recurring-payment.cancellation.requested'), SUB_PKG);
+        assert.equal(outcome.action, 'ignore');
+        if (outcome.action !== 'ignore') return;
+        assert.equal(outcome.reason, 'cancellation-requested-still-entitled');
+    });
+
+    it('re-entitles when a cancellation is aborted', () => {
+        const outcome = subscriptionOutcome(sub('recurring-payment.cancellation.aborted'), SUB_PKG);
+        assert.equal(outcome.action, 'entitle');
+        if (outcome.action !== 'entitle') return;
+        assert.equal(outcome.active, true);
+    });
+
+    it('ignores a recurring product that is not ours', () => {
+        // Any other recurring product on the store must not grant supporter perks.
+        const outcome = subscriptionOutcome(sub('recurring-payment.started'), '7777');
+        assert.equal(outcome.action, 'ignore');
+        if (outcome.action !== 'ignore') return;
+        assert.equal(outcome.reason, 'not-the-subscription-package');
+    });
+
+    it('fails closed when the subscription package is unconfigured', () => {
+        const outcome = subscriptionOutcome(sub('recurring-payment.started'), '');
+        assert.equal(outcome.action, 'ignore');
+        if (outcome.action !== 'ignore') return;
+        assert.equal(outcome.reason, 'subscription-package-unconfigured');
+    });
+
+    it('refuses to entitle a subscription it cannot attribute', () => {
+        const anonymous = sub('recurring-payment.started', {
+            initial_payment: { products: [{ id: 9001, name: 'Shinobi Supporter' }] },
+            last_payment: { products: [{ id: 9001, name: 'Shinobi Supporter' }] },
+        });
+        const outcome = subscriptionOutcome(anonymous, SUB_PKG);
+        assert.equal(outcome.action, 'ignore');
+        if (outcome.action !== 'ignore') return;
+        assert.equal(outcome.reason, 'no-player-identity');
+    });
+
+    it('leaves one-off payments to the shard path', () => {
+        assert.equal(isSubscriptionWebhook(payment()), false);
+        assert.equal(isSubscriptionWebhook(sub('recurring-payment.started')), true);
     });
 });

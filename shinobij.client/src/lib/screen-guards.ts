@@ -20,7 +20,7 @@ export { isWildSector };
 export const DEEP_LINKABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     "village", "profile", "inventory", "logbook", "training",
     "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "worldCrisis", "townHall",
-    "bank", "shop", "grandMarketplace", "hospital", "cafeteria", "storyHall",
+    "bank", "shop", "premiumShop", "grandMarketplace", "hospital", "cafeteria", "storyHall",
     "centralHub", "home", "pets", "petLadder", "hunting", "tavern", "hallOfLegends", "shinobiCouncil",
     "messages", "professions", "villageWarMap",
     // Added: safe, save-only hub screens that previously fell through to the

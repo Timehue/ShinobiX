@@ -128,7 +128,7 @@ export const RightMenu = memo(function RightMenu({
                             <div className="right-menu-section-grid">
                                 <button aria-current={screen === "guides" ? "page" : undefined} onClick={() => guardedNavigate("guides")} onPointerDown={() => preloadScreen("guides")}><span className="right-menu-action-icon"><GiOpenBook size={16} /></span><span className="right-menu-action-label">Guides</span></button>
                                 <button onClick={() => window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer")}><span className="right-menu-action-icon"><GiChatBubble size={16} /></span><span className="right-menu-action-label">Discord</span></button>
-                                <button aria-current={screen === "shop" ? "page" : undefined} onClick={() => guardedNavigate("shop")} onPointerDown={() => preloadScreen("shop")} title="Fate Shards, card packs and Shinobi Supporter"><span className="right-menu-action-icon"><GiShop size={16} /></span><span className="right-menu-action-label">Shop</span></button>
+                                <button aria-current={screen === "premiumShop" ? "page" : undefined} onClick={() => guardedNavigate("premiumShop")} onPointerDown={() => preloadScreen("premiumShop")} title="Buy Fate Shards and Shinobi Supporter with real money — the village Shop trades in ryo"><span className="right-menu-action-icon"><GiShop size={16} /></span><span className="right-menu-action-label">Premium Shop</span></button>
                             </div>
                         </section>
                         <section className="right-menu-section right-menu-section--system" aria-labelledby="right-menu-system">

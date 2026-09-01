@@ -39,6 +39,10 @@ export type Screen =
     | "townHall"
     | "bank"
     | "shop"
+    // Real-money storefront. Deliberately NOT the village "shop", which trades
+    // in ryo — premium purchases live on their own screen so currency bought
+    // with money never sits beside currency earned in play.
+    | "premiumShop"
     | "grandMarketplace"
     | "hospital"
     | "cafeteria"
