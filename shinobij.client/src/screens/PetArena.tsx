@@ -1824,6 +1824,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                         }}
                         onProgress={(progress: PetTutorialProgress) => updateCharacter((current) => current ? { ...current, petTutorialProgress: progress } : current)}
                         setScreen={setScreen}
+                        returnFocusRef={petMentorGuideButtonRef}
                     />
                 </Suspense>
             ) : null}

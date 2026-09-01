@@ -389,15 +389,18 @@ async function assertAuthoritativeCombatSurface(page: Page, compact: boolean) {
 
     const log = combat.getByRole("log", { name: "Battle log" });
     if (compact) {
+        const actionsTab = combat.getByRole("tab", { name: "Actions" });
         const battleLogTab = combat.getByRole("tab", { name: /^Battle Log/ });
-        await battleLogTab.focus();
-        await page.keyboard.press("Enter");
+        await expect(actionsTab).toHaveAttribute("tabindex", "0");
+        await expect(battleLogTab).toHaveAttribute("tabindex", "-1");
+        await actionsTab.focus();
+        await actionsTab.press("ArrowRight");
+        await expect(battleLogTab).toBeFocused();
         await expect(battleLogTab).toHaveAttribute("aria-selected", "true");
         await expect(log).toContainText(`${PLAYER_NAME} faces Mist Sentinel.`);
 
-        const actionsTab = combat.getByRole("tab", { name: "Actions" });
-        await actionsTab.focus();
-        await page.keyboard.press("Enter");
+        await battleLogTab.press("ArrowLeft");
+        await expect(actionsTab).toBeFocused();
         await expect(actionsTab).toHaveAttribute("aria-selected", "true");
     } else {
         // Wide desktop keeps actions, loadout, and the widened log visible

@@ -4,10 +4,10 @@ import test from "node:test";
 
 const source = readFileSync(new URL("./ActivitySpine.tsx", import.meta.url), "utf8");
 
-test("Legacy mastery focus fails closed against live server capability", () => {
-    assert.match(source, /legacyFocusAvailable = availability\("legacy"\) === "available"/);
-    assert.match(source, /storedFocus === "legacy" && !legacyFocusAvailable \? "auto" : storedFocus/);
-    assert.match(source, /MASTERY_FOCUS_OPTIONS\.filter\(\(option\) => option\.id !== "legacy" \|\| legacyFocusAvailable\)/);
-    assert.match(source, /if \(next === "legacy" && !legacyFocusAvailable\) return/);
-    assert.match(source, /focusOptions\.map\(\(option\) => <option/);
+test("Daily Briefing uses automatic focus without rendering mastery controls", () => {
+    assert.match(source, /const focus = "auto"/);
+    assert.match(source, /focus=\$\{encodeURIComponent\(focus\)\}/);
+    assert.doesNotMatch(source, /Mastery focus/);
+    assert.doesNotMatch(source, /activity-focus-select/);
+    assert.doesNotMatch(source, /<select/);
 });

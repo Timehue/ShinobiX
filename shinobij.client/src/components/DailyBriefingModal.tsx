@@ -205,7 +205,7 @@ export function DailyBriefingModal({
                                 </div>
                             </div>
 
-                            <ActivitySpine character={character} updateCharacter={updateCharacter} onNavigate={go} />
+                            <ActivitySpine character={character} onNavigate={go} />
 
                             {/* ── Era effort strip (server-wide progress at a glance) ── */}
                             {legacyAvailable && activeEra && (() => {

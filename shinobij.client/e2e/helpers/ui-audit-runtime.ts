@@ -222,7 +222,7 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
                 trial: null,
                 offer: null,
                 strongest: [],
-                eligibleCounts: { basic: 0, rare: 0, legendary: 0, mythic: 0 },
+                eligibleCount: 0,
             });
         }
         if (path === "/api/legacy/definitions") return json(route, { minLevel: 50, legacies: [] });
