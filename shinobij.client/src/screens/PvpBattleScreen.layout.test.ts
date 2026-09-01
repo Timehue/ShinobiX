@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 const source = readFileSync(new URL("./PvpBattleScreen.tsx", import.meta.url), "utf8");
@@ -186,6 +186,41 @@ test("collapsing desktop chat widens the log without borrowing mobile tab state"
     const desktopExpansion = battleSkinCss.slice(battleSkinCss.indexOf("Desktop-only command center"));
     assert.doesNotMatch(desktopExpansion, /\.bt-log[^}]*grid-column: 3 \/ 6/);
     assert.doesNotMatch(desktopExpansion, /\.is-expanded[^}]*grid-column: 3 \/ 6/);
+});
+
+test("the desktop wordmark and turn timer stay in separate contained rails", () => {
+    assert.ok(
+        existsSync(new URL("../../public/shinobi-journey-hud-wordmark.webp", import.meta.url)),
+        "the compact transparent HUD wordmark must ship with the combat screen",
+    );
+    assert.match(
+        battleSkinCss,
+        /grid-template-rows:\s*52px\s*94px\s*22px/,
+        "the timer/AP rail needs its own clearance beneath the 52px title rail",
+    );
+    assert.match(
+        battleSkinCss,
+        /#combat \.arena-top-panel\s*\{[^}]*height:\s*100%\s*!important;[^}]*overflow:\s*hidden\s*!important;/s,
+        "the title rail must clip decorative artwork before it reaches the timer",
+    );
+    assert.match(
+        battleSkinCss,
+        /#combat \.combat-brand-mark\s*\{[^}]*max-height:\s*calc\(100% - 8px\)\s*!important;[^}]*aspect-ratio:\s*706 \/ 190\s*!important;[^}]*url\("\/shinobi-journey-hud-wordmark\.webp"\)/s,
+        "the wordmark must use the compact transparent crop and remain contained in its rail",
+    );
+});
+
+test("mobile AP captions remain inside the timer capsule's curved edge", () => {
+    assert.match(
+        battleSkinCss,
+        /@container shinobi-combat \(max-width: 979px\) and \(min-height: 501px\)[\s\S]*?#combat \.dual-ap-panel\s*\{[^}]*grid-template-rows:\s*20px minmax\(0, 1fr\) 12px\s*!important;/s,
+        "the compact timer capsule needs explicit interior rows for both AP captions",
+    );
+    assert.match(
+        battleSkinCss,
+        /#combat \.dual-ap-panel > div:first-child > small\s*\{[^}]*grid-row:\s*1\s*!important;[^}]*align-self:\s*end\s*!important;[^}]*padding:\s*0 3px 1px\s*!important;/s,
+        "the active AP caption must sit below the capsule's fully rounded top edge",
+    );
 });
 
 test("combat cards use consistent art crops and separated overlay metadata", () => {

@@ -199,8 +199,13 @@ test("the mission summon command contains its icon and long lock copy", () => {
     );
     assert.match(
         battleSkinCss,
-        /#combat \.combat-layout\.combat-log-wide \.combat-text-log\s*\{[^}]*grid-column: 3 \/ 6 !important/s,
-        "the PvE battle log must occupy the removed companion-panel space",
+        /#combat\.shinobi-combat-shell--solo \.combat-main-area \.combat-jutsu-bar,\s*#combat\.shinobi-combat-shell--solo \.combat-main-area \.combat-text-log\s*\{[^}]*grid-column: 1 \/ -1 !important;[^}]*grid-row: 6 !important;[^}]*width: calc\(50% - 3px\) !important;[^}]*max-width: calc\(50% - 3px\) !important;/s,
+        "desktop PvE must divide the complete chat-free command deck equally between jutsu and log",
+    );
+    assert.match(
+        battleSkinCss,
+        /#combat\.shinobi-combat-shell--solo \.combat-main-area \.combat-jutsu-bar\s*\{[^}]*justify-self: start !important;[^}]*\}[\s\S]*?#combat\.shinobi-combat-shell--solo \.combat-main-area \.combat-text-log\s*\{[^}]*justify-self: end !important;/s,
+        "the equal PvE panels must anchor to opposite edges with the normal desktop gap between them",
     );
     assert.match(
         missionCss,
