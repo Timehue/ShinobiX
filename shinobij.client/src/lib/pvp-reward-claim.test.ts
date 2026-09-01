@@ -251,8 +251,22 @@ describe("pvp-reward-claim", () => {
             "participant draws must use the same durable claim protocol");
         assert.match(screen, /!amSpectator && pvpRewardClaimState === "failed"/,
             "draw failures must expose the retry UI instead of silently enabling exit");
-        assert.match(screen, /disabled=\{!amSpectator && pvpRewardClaimState !== "confirmed"\}>Return to Village/,
-            "every participant outcome, including draw, must stay fenced until completion ACK");
+        assert.match(screen, /disabled=\{!amSpectator && pvpRewardClaimState === "claiming"\}>Return to Village/,
+            "every participant outcome, including draw, must stay fenced while a claim is in flight");
+        // …but only while it is IN FLIGHT. This used to read `!== "confirmed"`,
+        // which also killed both exits in the FAILED state. On 2026-09-01 two
+        // stacked deterministic failures (a CAS against a territory row that had
+        // never been stored, then a completion phase that always overran its
+        // ceiling) left Retry as the only control on screen — and neither could
+        // ever succeed. Leaving is non-destructive: the durable reward receipt and
+        // the pending-session pointer both survive and replay the claim.
+        assert.ok(
+            !/disabled=\{!amSpectator && pvpRewardClaimState !== "confirmed"\}>(Return to Village|World Map)/.test(screen),
+            "a failed settlement must not disable every exit at once — Retry is an escape hatch only if retry can succeed",
+        );
+        assert.match(screen, /renewDeadline = \(\) => \{[\s\S]*?completionPhaseStartedAt = Date\.now\(\)/,
+            "a completed stage must restart the phase budget, or a slow-but-progressing settlement "
+            + "aborts at the same ceiling on every retry and can never finish");
         assert.match(screen, /disabled=\{pvpRewardClaimState !== "confirmed"\}[\s\S]*>View Full Battle Record/,
             "battle-record navigation must not bypass a draw's pending completion");
         assert.match(serverClaim, /if \(terminalIsDraw\)[\s\S]*await replayCommittedPvpTerminalEffects\(session\)/,
