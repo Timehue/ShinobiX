@@ -201,3 +201,47 @@ describe('shard grant decision', () => {
         assert.equal(isReversalWebhook(payment()), false);
     });
 });
+
+describe('identity on a universal webstore', () => {
+    /*
+     * The store we actually run collects NO username — Tebex's own docs say so
+     * for non-game webstores — so `username.id` arrives empty on every real
+     * payment. Identity has to come from the `custom` blob our server sealed
+     * into the basket. These are the payloads production will see; if they stop
+     * resolving, players pay and receive nothing while the webhook answers 200.
+     */
+    it('resolves the player from product custom when no username exists', () => {
+        const webhook = payment({
+            products: [{ id: 4, name: '155 Fate Shards', quantity: 1, custom: { playerName: 'kaito' } }],
+            customer: { first_name: 'K', username: null },
+        });
+        const outcome = shardGrantsForPayment(webhook, lookup);
+        assert.equal(outcome.action, 'grant');
+        if (outcome.action !== 'grant') return;
+        assert.equal(outcome.playerName, 'kaito');
+        assert.equal(outcome.totalShards, 155);
+    });
+
+    it('falls back to subject-level custom', () => {
+        const webhook = payment({
+            products: [{ id: 4, name: '155 Fate Shards', quantity: 1 }],
+            customer: {},
+            custom: { playerName: 'kaito' },
+        });
+        const outcome = shardGrantsForPayment(webhook, lookup);
+        assert.equal(outcome.action, 'grant');
+        if (outcome.action !== 'grant') return;
+        assert.equal(outcome.playerName, 'kaito');
+    });
+
+    it('still ignores a payment it cannot attribute to anyone', () => {
+        const webhook = payment({
+            products: [{ id: 4, name: '155 Fate Shards', quantity: 1 }],
+            customer: {},
+        });
+        const outcome = shardGrantsForPayment(webhook, lookup);
+        assert.equal(outcome.action, 'ignore');
+        if (outcome.action !== 'ignore') return;
+        assert.equal(outcome.reason, 'no-player-identity');
+    });
+});
