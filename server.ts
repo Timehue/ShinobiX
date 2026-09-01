@@ -1543,7 +1543,7 @@ app.get(['/.well-known/security.txt', '/security.txt'], (_req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=86400');
     const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
     res.send(
-        `Contact: mailto:rillt27@gmail.com\n` +
+        `Contact: mailto:support@shinobijourney.com\n` +
         `Expires: ${expires}\n` +
         `Preferred-Languages: en\n` +
         `Canonical: https://shinobijourney.com/.well-known/security.txt\n` +
