@@ -62,7 +62,11 @@ describe("challenge acceptance save-session authority", () => {
             "await clearChallengeOnServer(challenge);",
             "if (!acceptanceIsCurrent()) return;",
             "const acceptedNotice: DuelChallenge",
-            "const notified = await postPlayerChallengeNotice(challenge.fromName, acceptedNotice, { shouldContinue: acceptanceIsCurrent });",
+            // player-api is imported lazily so it (and pvp-session-runtime, which
+            // it pulls in) stay off the startup graph; the ordering it sits in —
+            // and the fact that THIS path awaits the notice before routing — is
+            // unchanged. Same shape as loadPvpSessionCreate/loadOwnSaveRead below.
+            "const notified = await (await loadPlayerApi()).postPlayerChallengeNotice(challenge.fromName, acceptedNotice, { shouldContinue: acceptanceIsCurrent });",
             "if (!acceptanceIsCurrent()) return;",
             "localStorage.setItem(PENDING_PET_PVP_KEY",
             "setPendingPetBattleOpponent(opponentForResume);",
@@ -87,7 +91,7 @@ describe("challenge acceptance save-session authority", () => {
             "setPvpBattleId(battleId);",
             'setPvpRole("p2");',
             'setScreen("pvpBattle");',
-            "void postPlayerChallengeNotice(challenge.fromName, acceptedNotice, {",
+            "void loadPlayerApi().then(({ postPlayerChallengeNotice }) => postPlayerChallengeNotice(challenge.fromName, acceptedNotice, {",
         ], "player acceptance");
 
         // This ordering is deliberate and is the opposite of what this test used
@@ -101,9 +105,12 @@ describe("challenge acceptance save-session authority", () => {
         const notice = playerAccept.indexOf("postPlayerChallengeNotice", routed);
         assert.ok(publication >= 0 && routed > publication && notice > routed,
             "a published session must route before the advisory notice is sent");
+        // Both the direct call and the lazy-loader form count as awaiting: going
+        // through loadPlayerApi() must not become a way to smuggle an await back
+        // onto this path (it would add a chunk fetch to the hang, not remove it).
         assert.doesNotMatch(
             playerAccept.slice(routed, notice + 400),
-            /const notified = await postPlayerChallengeNotice/,
+            /const notified = await (?:\(await loadPlayerApi\(\)\)\.)?postPlayerChallengeNotice/,
             "the notice must not be awaited on the routing path — a hung notice cannot strand a live session",
         );
         assert.match(playerAccept, /may not be pulled in automatically/,
