@@ -60,23 +60,60 @@ test('unknown package ids resolve to null, never a default', () => {
     assert.equal(shardPackage('__proto__'), null);
 });
 
-test('provider lookup returns null while the id tables are unfilled', () => {
-    // Until the dashboards are configured a rail simply cannot sell — which is
-    // the safe failure. Taking money for a package the server cannot resolve
-    // back to a shard amount is the outcome this prevents.
+test('an unrecognised provider id resolves to null, never a default', () => {
+    // A rail that cannot resolve an id simply cannot sell — the safe failure.
+    // Taking money for a package the server cannot map back to a shard amount
+    // is the outcome this prevents.
     assert.equal(shardPackageForProvider('tebex', 'anything'), null);
+    assert.equal(shardPackageForProvider('tebex', ''), null);
+    // Play has no products yet, so every id is unknown there.
     assert.equal(shardPackageForProvider('play', 'anything'), null);
+});
+
+test('⛔ each live Tebex id is paired with the tier the buyer paid for', () => {
+    /*
+     * THE PAIRING IS THE PAYOUT. The webhook resolves the id Tebex reports to a
+     * row in the catalogue and credits THAT row's shards. A mis-filed id means
+     * the customer is charged one tier and credited another — a $100 buyer
+     * receiving 35 shards — and nothing else in the system would notice.
+     *
+     * The ids are not sequential with the tiers, so they cannot be checked by
+     * eye. Read from the dashboard 2026-09-01; re-read the package pages before
+     * changing any line here.
+     */
+    const LIVE: Record<string, number> = {
+        '7651603': 35,
+        '7651606': 155,
+        '7651608': 420,
+        '7651609': 900,
+    };
+    for (const [tebexId, shards] of Object.entries(LIVE)) {
+        assert.equal(
+            shardPackageForProvider('tebex', tebexId)?.shards, shards,
+            `Tebex package ${tebexId} must credit ${shards} shards`,
+        );
+    }
+    // Every tier sellable, and no two tiers sharing an id.
+    const configured = Object.values(PROVIDER_PACKAGE_IDS.tebex ?? {});
+    assert.equal(configured.length, SHARD_PACKAGES.length, 'every tier needs an id or it cannot be sold');
+    assert.equal(new Set(configured).size, configured.length, 'two tiers share a Tebex id');
+    // 7651601 is the SUBSCRIPTION; it must never map to a shard tier.
+    assert.equal(shardPackageForProvider('tebex', '7651601'), null);
 });
 
 test('provider lookup resolves a configured id back to its package', () => {
     const table = PROVIDER_PACKAGE_IDS.tebex!;
+    // ⛔ RESTORE, do not delete. This cleanup used `delete`, which was harmless
+    // while the table was empty and destructive once it held real ids: it
+    // stripped shards-155's mapping for every test that ran afterwards, so the
+    // live tier would silently stop resolving mid-suite.
+    const original = table['shards-155'];
     try {
-        // Exercised with a temporary entry so the test still proves the mapping
-        // works before the real dashboards exist.
         table['shards-155'] = 'test-pkg-150';
         assert.equal(shardPackageForProvider('tebex', 'test-pkg-150')?.shards, 155);
         assert.equal(shardPackageForProvider('tebex', 'test-pkg-151'), null);
     } finally {
-        delete table['shards-155'];
+        if (original === undefined) delete table['shards-155'];
+        else table['shards-155'] = original;
     }
 });
