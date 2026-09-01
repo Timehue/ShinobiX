@@ -213,9 +213,13 @@ const FROZEN = {
     // The individual copy-if-array statements, unified into one loop.
     // redeemedCardClashAiSessions added in P0-2 (AI-match payout receipts) —
     // a deliberate, reviewed extension of the frozen P0-1 membership.
+    // redeemedTebexPurchases added 2026-08-31 for the Tebex shard webhook: it
+    // holds the Tebex transaction id, written in the same committed save as the
+    // shards it paid for, which is what makes a redelivered webhook a no-op.
     SERVER_ARRAY_LEDGER_CHARACTER_FIELDS: [
         'redeemedTrainingTokens', 'redeemedJutsuTrainingActions', 'redeemedAiFightRewards',
         'redeemedShopPurchases', 'redeemedShopSales', 'redeemedCrafts', 'redeemedNamedForges',
+        'redeemedTebexPurchases',
         'tournamentWinReceipts',
         'redeemedStoryBattles', 'redeemedPetEncounters', 'claimedCreatorEvents',
         'claimedWarCrateIds', 'redeemedCardClashAiSessions',
