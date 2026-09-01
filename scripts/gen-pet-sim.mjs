@@ -31,6 +31,12 @@ const header = (src) =>
     `   The client file is the source of truth; re-run the script after changing it. The\n` +
     `   parity test (api/pet-sim/_parity.test.ts) fails if this copy drifts in behaviour. */\n`;
 
+// repo-root shared/ is REAL on the server too, so these imports are retargeted
+// rather than inlined. The client reaches shared/ from shinobij.client/src/<dir>/
+// (three up); api/_pet-sim/ is two up, and Node16 needs the explicit .js.
+const SHARED_IMPORT = /from "\.\.\/\.\.\/\.\.\/shared\/([^"]+)"/g;
+const SHARED_SERVER_PATH = 'from "../../shared/$1.js"';
+
 const read = (p) => readFileSync(join(CLIENT, p), "utf8");
 const write = (name, src, body) => writeFileSync(join(OUT, name), header(src) + body, "utf8");
 
@@ -40,7 +46,8 @@ let petTypes = read("types/pet.ts")
         'export type JutsuElement = "Earth" | "Wind" | "Lightning" | "Fire" | "Water" | "None";')
     .replace(/import type \{ PetRole, PetSubRole \} from "\.\.\/lib\/pet-roles";/,
         'export type PetRole = "defender" | "tracker" | "assassin" | "sage";\n' +
-        'export type PetSubRole = "tank" | "bruiser" | "striker" | "assassin" | "kite" | "control" | "support";');
+        'export type PetSubRole = "tank" | "bruiser" | "striker" | "assassin" | "kite" | "control" | "support";')
+    .replace(SHARED_IMPORT, SHARED_SERVER_PATH);
 write("pet-types.ts", "types/pet.ts", petTypes);
 
 // 2. constants/game.ts → _game-consts.ts (only the 5 ids pet-config imports).
@@ -56,7 +63,14 @@ write("_game-consts.ts", "constants/game.ts (subset)", consts + "\n");
 // 3. data/pet-config.ts → pet-config.ts (redirect its 2 imports).
 let petConfig = read("data/pet-config.ts")
     .replace(/from "\.\.\/types\/pet"/g, 'from "./pet-types.js"')
-    .replace(/import \{[\s\S]*?\} from "\.\.\/constants\/game";/,
+    .replace(SHARED_IMPORT, SHARED_SERVER_PATH)
+    // `[^}]*`, NOT `[\s\S]*?`. A lazy any-character match starts at the FIRST
+    // `import {` in the file and expands until it can close on
+    // `} from "../constants/game";`, silently SWALLOWING every import between
+    // the two. That is exactly how the PET_EXPEDITION_ROUTES import vanished,
+    // leaving the generated mirror referencing an undefined name. An import
+    // specifier list cannot contain `}`, so this stays inside one statement.
+    .replace(/import \{[^}]*\} from "\.\.\/constants\/game";/,
         'import {\n    TERRITORY_CONTROL_SCROLL_ID, DUNGEON_KEY_ID, LEGENDARY_WAR_CRATE_ID,\n    WARFORGED_RELIC_ID, DUNGEON_LEGENDARY_RELIC_ID,\n} from "./_game-consts.js";');
 write("pet-config.ts", "data/pet-config.ts", petConfig);
 
@@ -148,7 +162,10 @@ const rite = read("lib/pet-warfront-rite.ts")
 write("pet-warfront-rite.ts", "lib/pet-warfront-rite.ts", rite);
 
 // Sanity: no client-only import paths may survive into the server copy.
-const STRAY = ['../types/pet', '../data/pet-config', './pet-coliseum-flag', '../constants/game', '"./core"', '../lib/pet-roles', './pet-arena-walkmask"', './pet-duel-sim"', './pet-arena-sim', './pet-warfront-map"', './pet-warfront-mask-baked"', '../types/core'];
+const STRAY = ['../types/pet', '../data/pet-config', './pet-coliseum-flag', '../constants/game', '"./core"', '../lib/pet-roles', './pet-arena-walkmask"', './pet-duel-sim"', './pet-arena-sim', './pet-warfront-map"', './pet-warfront-mask-baked"', '../types/core',
+    // A client-depth shared/ path compiles on the client and NOT on the server,
+    // so without this the mirror ships broken and only tsc notices.
+    '../../../shared/'];
 for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts", "pet-warfront-mask-baked.ts", "pet-warfront-map.ts", "pet-warfront-sim.ts", "pet-roles.ts", "pet-bond-meter.ts", "pet-duel-doctrine.ts", "pet-warfront-rite.ts"]) {
     const body = readFileSync(join(OUT, name), "utf8");
     for (const s of STRAY) if (body.includes(s)) throw new Error(`gen-pet-sim: stray client import "${s}" left in ${name} — a rewrite rule missed it`);
