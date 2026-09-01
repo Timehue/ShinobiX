@@ -83,9 +83,16 @@ that writes it changed.
 ## Prices
 
 ⛔ **Never display `usd` from `shared/shard-packages.ts`.** Those are planning
-reference figures. Tebex charges in the buyer's own currency with their tax
-applied, so the shop asks `/api/tebex/catalogue` what to show and falls back to
-a clearly-labelled estimate only when that call cannot answer.
+reference figures that can drift from the dashboard. The shop asks
+`/api/tebex/catalogue` what the storefront actually has configured, and falls
+back to a clearly-labelled estimate only when that call cannot answer.
+
+⚠ Those are the store's **base-currency** prices, not per-buyer localized ones.
+Do NOT add an `ipAddress` parameter to that call to try to localize them: the
+Headless packages endpoint answers **302 for any value of it** — valid IPv4,
+IPv6 and private ranges alike — and 200 without it. Because the route fails
+soft, this broke prices *invisibly*, leaving only `reason: 'upstream'` in the
+response body. The buyer's real localized amount is shown by Tebex at checkout.
 
 The tile artwork carries the shard count but deliberately **no price**, for the
 same reason — a baked-in "$5" is a wrong number for most of the world.
