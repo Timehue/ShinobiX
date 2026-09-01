@@ -44,7 +44,8 @@ describe('Activity Spine capability wiring contract', () => {
         assert.match(component, /snapshot\.freshness/);
         assert.doesNotMatch(component, /snapshot\.lastUpdatedAt/);
         assert.match(component, /const blocked = activity\.eligibility === "blocked" \|\| !liveAdmissionAllowed/);
-        assert.match(component, /disabled=\{!focusAdmissionAllowed\}/);
+        assert.match(component, /const focus = "auto"/);
+        assert.doesNotMatch(component, /focusAdmissionAllowed|Mastery focus|activity-focus-select/);
         assert.match(component, /disabled=\{blocked\}/);
         assert.match(component, /onClick=\{blocked \? undefined :/);
     });

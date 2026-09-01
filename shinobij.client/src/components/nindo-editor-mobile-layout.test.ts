@@ -22,7 +22,7 @@ test("Nindo actions stack safely on very narrow phones", () => {
 
 test("Nindo formatting and banner controls keep phone-size touch targets", () => {
     assert.match(source, /className="nindo-bg-option"/);
-    assert.match(source, /aria-pressed=\{bg === b\.id\}/);
+    assert.match(source, /aria-pressed=\{visibleBg === b\.id\}/);
     assert.match(css, /\.profile-page-card \.nindo-toolbar > button\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;/s);
     assert.match(css, /\.profile-page-card \.nindo-bg-option\s*\{[^}]*width:\s*58px;[^}]*height:\s*44px;[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;/s);
 });
