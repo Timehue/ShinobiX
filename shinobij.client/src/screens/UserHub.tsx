@@ -13,10 +13,23 @@
 
 // Relative-time display reads Date.now() in render by design; verbatim-moved from App.tsx (rule disabled file-wide there).
 /* eslint-disable react-hooks/purity */
-import { useState, useEffect } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import "../styles/profile-skin.css";
 import type { PlayerRecord, ServerPlayerSummary } from "../types/character";
-import { subscribeFollowing, follow, unfollow } from "../lib/friends";
+import { addFriend, follow, removeFriend, subscribeFollowing, subscribeFriends, unfollow } from "../lib/friends";
+
+type UserHubTab = 'all' | 'following' | 'friends' | 'blocked';
+type HubPlayer = {
+    name: string;
+    level: number;
+    village: string;
+    online: boolean;
+    lastSeenAt: number;
+    avatar?: string;
+    rank?: string;
+    title?: string;
+    detailsKnown?: boolean;
+};
 
 export function UserHub({
     currentName,
@@ -34,18 +47,108 @@ export function UserHub({
     onBack: () => void;
 }) {
     const [search, setSearch] = useState("");
-    const [tab, setTab] = useState<'all' | 'following'>('all');
+    const [tab, setTab] = useState<UserHubTab>('all');
     const [following, setFollowing] = useState<string[]>([]);
+    const [friends, setFriends] = useState<string[]>([]);
+    const [blocked, setBlocked] = useState<string[]>([]);
+    const [friendName, setFriendName] = useState("");
+    const [blockName, setBlockName] = useState("");
+    const [listBusy, setListBusy] = useState(false);
+    const [listNotice, setListNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+
     useEffect(() => subscribeFollowing(currentName, setFollowing), [currentName]);
+    useEffect(() => subscribeFriends(currentName, setFriends), [currentName]);
+    useEffect(() => {
+        let current = true;
+        void (async () => {
+            try {
+                const r = await fetch('/api/player/blocks');
+                if (!r.ok) return;
+                const data = await r.json() as { blocked?: unknown };
+                if (current) setBlocked(Array.isArray(data.blocked) ? data.blocked.map(String) : []);
+            } catch { /* offline — leave the list empty */ }
+        })();
+        return () => { current = false; };
+    }, [currentName]);
+
     const isFollowed = (name: string) => following.some(f => f.toLowerCase() === name.toLowerCase());
+    const isOnList = (list: string[], name: string) => list.some(entry => entry.toLowerCase() === name.toLowerCase());
+
     function toggleFollow(name: string) {
         if (isFollowed(name)) void unfollow(currentName, name);
         else void follow(currentName, name);
     }
 
+    function selectTab(next: UserHubTab) {
+        setTab(next);
+        setListNotice(null);
+    }
+
+    async function setPlayerBlocked(target: string, value: boolean): Promise<void> {
+        const cleanTarget = target.trim();
+        if (!cleanTarget || listBusy) return;
+        setListBusy(true);
+        setListNotice(null);
+        try {
+            const r = await fetch('/api/player/blocks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target: cleanTarget, blocked: value }),
+            });
+            const data = await r.json().catch(() => ({})) as { error?: string; blocked?: unknown };
+            if (!r.ok) throw new Error(data.error || 'Could not update your blocked list.');
+            setBlocked(Array.isArray(data.blocked) ? data.blocked.map(String) : []);
+            if (value) setBlockName("");
+            setListNotice({ tone: 'success', text: value ? `${cleanTarget} is now blocked.` : `${cleanTarget} was unblocked.` });
+        } catch (cause) {
+            setListNotice({ tone: 'error', text: cause instanceof Error ? cause.message : 'Could not update your blocked list.' });
+        } finally {
+            setListBusy(false);
+        }
+    }
+
+    async function submitListEntry(event: FormEvent<HTMLFormElement>): Promise<void> {
+        event.preventDefault();
+        if (listBusy) return;
+        const target = (tab === 'friends' ? friendName : blockName).trim();
+        if (!target) return;
+
+        if (tab === 'blocked') {
+            await setPlayerBlocked(target, true);
+            return;
+        }
+        if (tab !== 'friends') return;
+
+        setListBusy(true);
+        setListNotice(null);
+        try {
+            await addFriend(currentName, target);
+            setFriendName("");
+            setListNotice({ tone: 'success', text: `${target} was added to Friends.` });
+        } catch (cause) {
+            setListNotice({ tone: 'error', text: cause instanceof Error ? cause.message : 'Could not update your friends list.' });
+        } finally {
+            setListBusy(false);
+        }
+    }
+
+    async function deleteFriend(target: string): Promise<void> {
+        if (listBusy) return;
+        setListBusy(true);
+        setListNotice(null);
+        try {
+            await removeFriend(currentName, target);
+            setListNotice({ tone: 'success', text: `${target} was removed from Friends.` });
+        } catch (cause) {
+            setListNotice({ tone: 'error', text: cause instanceof Error ? cause.message : 'Could not update your friends list.' });
+        } finally {
+            setListBusy(false);
+        }
+    }
+
     // Merge roster + server list so we have avatars for as many players as possible.
     const merged = (() => {
-        const byName = new Map<string, { name: string; level: number; village: string; online: boolean; lastSeenAt: number; avatar?: string; rank?: string; title?: string }>();
+        const byName = new Map<string, HubPlayer>();
         for (const p of playerRoster) {
             byName.set(p.name.toLowerCase(), {
                 name: p.name,
@@ -56,6 +159,7 @@ export function UserHub({
                 avatar: p.character.avatarImage,
                 rank: p.character.rankTitle,
                 title: p.character.customTitle,
+                detailsKnown: true,
             });
         }
         for (const s of allServerPlayers) {
@@ -70,6 +174,7 @@ export function UserHub({
                 avatar: s.character?.avatarImage ?? prior?.avatar,
                 rank: s.character?.rankTitle ?? prior?.rank,
                 title: s.character?.customTitle ?? prior?.title,
+                detailsKnown: true,
             });
         }
         return [...byName.values()]
@@ -85,9 +190,21 @@ export function UserHub({
     // Sort offline group by most-recently-seen; online ones grouped first via render below.
     merged.sort((a, b) => (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0));
 
+    const selectedList = tab === 'following' ? following : tab === 'friends' ? friends : tab === 'blocked' ? blocked : null;
+    const candidates = [...merged];
+    // A saved social relationship should remain manageable when that player is
+    // offline long enough to fall out of the polled/public directory.
+    if (selectedList) {
+        for (const name of selectedList) {
+            if (!candidates.some(player => player.name.toLowerCase() === name.toLowerCase())) {
+                candidates.push({ name, level: 1, village: '', online: false, lastSeenAt: 0, detailsKnown: false });
+            }
+        }
+    }
+
     const q = search.trim().toLowerCase();
-    const searched = q ? merged.filter(p => p.name.toLowerCase().includes(q)) : merged;
-    const filtered = tab === 'following' ? searched.filter(p => isFollowed(p.name)) : searched;
+    const searched = q ? candidates.filter(p => p.name.toLowerCase().includes(q)) : candidates;
+    const filtered = selectedList ? searched.filter(p => isOnList(selectedList, p.name)) : searched;
 
     // Split into online + offline so we can render section headers.
     // Cleaner than a flat list — players know at a glance who's actually around.
@@ -125,14 +242,49 @@ export function UserHub({
             />
 
             <div className="user-hub-tabs">
-                <button className={`user-hub-tab${tab === 'all' ? ' active' : ''}`} onClick={() => setTab('all')}>All</button>
-                <button className={`user-hub-tab${tab === 'following' ? ' active' : ''}`} onClick={() => setTab('following')}>
+                <button className={`user-hub-tab${tab === 'all' ? ' active' : ''}`} onClick={() => selectTab('all')}>All</button>
+                <button className={`user-hub-tab${tab === 'following' ? ' active' : ''}`} onClick={() => selectTab('following')}>
                     ★ Following{following.length ? ` (${following.length})` : ''}
+                </button>
+                <button className={`user-hub-tab${tab === 'friends' ? ' active' : ''}`} onClick={() => selectTab('friends')}>
+                    ♥ Friends{friends.length ? ` (${friends.length})` : ''}
+                </button>
+                <button className={`user-hub-tab${tab === 'blocked' ? ' active blocked' : ''}`} onClick={() => selectTab('blocked')}>
+                    ⊘ Blocked{blocked.length ? ` (${blocked.length})` : ''}
                 </button>
             </div>
 
+            {(tab === 'friends' || tab === 'blocked') && (
+                <form className={`user-hub-list-manager ${tab}`} onSubmit={(event) => void submitListEntry(event)}>
+                    <label htmlFor={`user-hub-${tab}-name`}>
+                        {tab === 'friends' ? 'Add a friend by player name' : 'Block a player by name'}
+                    </label>
+                    <div className="user-hub-list-manager-row">
+                        <input
+                            id={`user-hub-${tab}-name`}
+                            type="text"
+                            value={tab === 'friends' ? friendName : blockName}
+                            onChange={(event) => tab === 'friends' ? setFriendName(event.target.value) : setBlockName(event.target.value)}
+                            placeholder="Enter exact player name…"
+                            autoComplete="off"
+                            maxLength={40}
+                        />
+                        <button type="submit" disabled={listBusy || !(tab === 'friends' ? friendName : blockName).trim()}>
+                            {listBusy ? 'Saving…' : tab === 'friends' ? 'Add Friend' : 'Block Player'}
+                        </button>
+                    </div>
+                    {listNotice && <p className={`user-hub-list-notice ${listNotice.tone}`} role="status">{listNotice.text}</p>}
+                </form>
+            )}
+
             {filtered.length === 0 ? (
-                <p className="hint">{tab === 'following' ? "You're not following anyone yet. Open a profile to follow them." : "No users found."}</p>
+                <p className="hint">{
+                    search.trim() ? 'No matching players found.'
+                        : tab === 'following' ? "You're not following anyone yet. Open a profile to follow them."
+                            : tab === 'friends' ? 'Your Friends list is empty. Add someone by player name above.'
+                                : tab === 'blocked' ? 'You have not blocked anyone.'
+                                    : 'No users found.'
+                }</p>
             ) : (
                 <>
                     {online.length > 0 && (
@@ -142,7 +294,7 @@ export function UserHub({
                                 <span className="user-hub-section-count">{online.length}</span>
                             </div>
                             <div className="user-hub-list">
-                                {online.map(p => renderRow(p, sharedImages, timeAgo, onSelect, isFollowed(p.name), toggleFollow))}
+                                {online.map(p => renderRow(p, sharedImages, timeAgo, onSelect, tab, isFollowed(p.name), toggleFollow, listBusy, deleteFriend, setPlayerBlocked))}
                             </div>
                         </>
                     )}
@@ -154,7 +306,7 @@ export function UserHub({
                                 <span className="user-hub-section-count">{offline.length}</span>
                             </div>
                             <div className="user-hub-list">
-                                {offline.map(p => renderRow(p, sharedImages, timeAgo, onSelect, isFollowed(p.name), toggleFollow))}
+                                {offline.map(p => renderRow(p, sharedImages, timeAgo, onSelect, tab, isFollowed(p.name), toggleFollow, listBusy, deleteFriend, setPlayerBlocked))}
                             </div>
                         </>
                     )}
@@ -167,12 +319,16 @@ export function UserHub({
 // Row renderer extracted so the online/offline sections share the same
 // markup without duplication.
 function renderRow(
-    p: { name: string; level: number; village: string; online: boolean; lastSeenAt: number; avatar?: string; rank?: string; title?: string },
+    p: HubPlayer,
     sharedImages: Record<string, string>,
     timeAgo: (ts: number) => string,
     onSelect: (name: string) => void,
+    tab: UserHubTab,
     isFollowed: boolean,
     onToggleFollow: (name: string) => void,
+    listBusy: boolean,
+    onRemoveFriend: (name: string) => Promise<void>,
+    onUnblock: (name: string, value: boolean) => Promise<void>,
 ) {
     const sharedAvatar = sharedImages['avatar:' + p.name.toLowerCase()];
     const avatar = sharedAvatar || p.avatar || "";
@@ -196,20 +352,38 @@ function renderRow(
                     {p.title && <span className="user-hub-title">{p.title}</span>}
                 </div>
                 <div className="user-hub-sub">
-                    Lv {p.level} · {p.rank || "Shinobi"} · {p.village || "Unknown Village"}
+                    {p.detailsKnown === false
+                        ? 'Saved player · profile details unavailable'
+                        : `Lv ${p.level} · ${p.rank || "Shinobi"} · ${p.village || "Unknown Village"}`}
                 </div>
             </div>
             <div className="user-hub-status">
                 <span className={`user-hub-dot ${p.online ? "online" : "offline"}`} />
                 <small>{p.online ? "Online" : timeAgo(p.lastSeenAt)}</small>
             </div>
-            <button
-                type="button"
-                className={`user-hub-follow-star${isFollowed ? " following" : ""}`}
-                aria-label={isFollowed ? "Unfollow" : "Follow"}
-                title={isFollowed ? "Unfollow" : "Follow"}
-                onClick={(e) => { e.stopPropagation(); onToggleFollow(p.name); }}
-            >{isFollowed ? "★" : "☆"}</button>
+            {tab === 'friends' ? (
+                <button
+                    type="button"
+                    className="user-hub-list-action remove"
+                    disabled={listBusy}
+                    onClick={(event) => { event.stopPropagation(); void onRemoveFriend(p.name); }}
+                >Remove</button>
+            ) : tab === 'blocked' ? (
+                <button
+                    type="button"
+                    className="user-hub-list-action unblock"
+                    disabled={listBusy}
+                    onClick={(event) => { event.stopPropagation(); void onUnblock(p.name, false); }}
+                >Unblock</button>
+            ) : (
+                <button
+                    type="button"
+                    className={`user-hub-follow-star${isFollowed ? " following" : ""}`}
+                    aria-label={isFollowed ? "Unfollow" : "Follow"}
+                    title={isFollowed ? "Unfollow" : "Follow"}
+                    onClick={(e) => { e.stopPropagation(); onToggleFollow(p.name); }}
+                >{isFollowed ? "★" : "☆"}</button>
+            )}
         </div>
     );
 }

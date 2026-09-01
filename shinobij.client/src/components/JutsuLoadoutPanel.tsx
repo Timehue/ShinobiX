@@ -9,6 +9,7 @@ import { isPatreonSubscriber, LOADOUT_CAP_BASE, LOADOUT_CAP_SUB } from "../lib/e
 import { legacySignatureFor } from "../lib/legacy-jutsu-slot";
 import { resolveLoadoutLensDiscipline } from "../lib/jutsu-loadout-lens";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
+import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
 
 type JutsuCollectionSort = "default" | "name" | "level" | "ap" | "element";
 
@@ -260,7 +261,9 @@ export function JutsuLoadoutPanel({
                             role="tab"
                             aria-selected={workspaceTab === "loadout"}
                             aria-controls="jutsu-workspace-loadout"
+                            tabIndex={workspaceTab === "loadout" ? 0 : -1}
                             className={workspaceTab === "loadout" ? "is-active" : ""}
+                            onKeyDown={handleHorizontalTabKeyDown}
                             onClick={() => setWorkspaceTab("loadout")}
                         >
                             <span>Loadout</span>
@@ -272,8 +275,10 @@ export function JutsuLoadoutPanel({
                             role="tab"
                             aria-selected={workspaceTab === "collection"}
                             aria-controls="jutsu-workspace-collection"
+                            tabIndex={workspaceTab === "collection" ? 0 : -1}
                             className={`${workspaceTab === "collection" ? "is-active" : ""}${academyLoadoutStep && workspaceTab !== "collection" ? " academy-click-target" : ""}`}
                             data-academy-hint={academyLoadoutStep && workspaceTab !== "collection" ? "Next · learned Jutsu" : undefined}
+                            onKeyDown={handleHorizontalTabKeyDown}
                             onClick={() => setWorkspaceTab("collection")}
                         >
                             <span>Learned Jutsu</span>

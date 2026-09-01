@@ -1141,6 +1141,53 @@
     padding: 14px;
 }
 
+/* Nindo editor controls. The generic phone rule makes every
+   .profile-title-btn full-width, so this action pair needs its own bounded
+   layout or the Save button can squeeze Clear down to a few pixels. */
+.profile-page-card .nindo-toolbar > button {
+    min-width: 44px;
+    min-height: 44px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+.profile-page-card .nindo-bg-option {
+    flex: 0 0 58px;
+    width: 58px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+}
+.profile-page-card .nindo-editor-foot {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    align-items: center;
+    gap: 8px 12px;
+    min-width: 0;
+    margin: 0.5rem 0;
+}
+.profile-page-card .nindo-editor-count {
+    min-width: 0;
+    white-space: nowrap;
+}
+.profile-page-card .nindo-editor-actions {
+    justify-self: end;
+    display: grid;
+    grid-template-columns: minmax(76px, 0.72fr) minmax(112px, 1.28fr);
+    gap: 8px;
+    width: min(100%, 240px);
+    min-width: 0;
+}
+.profile-page-card .nindo-editor-actions > button,
+.profile-page-card .nindo-editor-actions > .profile-title-btn {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    min-height: 44px;
+    padding-inline: 8px !important;
+    white-space: nowrap;
+}
+
 @media (max-width: 1180px) {
     .profile-page-card .profile-dossier-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
@@ -1184,6 +1231,19 @@
         margin-left: 0;
         white-space: normal;
         padding-right: 34px;
+    }
+}
+
+@media (max-width: 359px) {
+    .profile-page-card .nindo-editor-foot {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .profile-page-card .nindo-editor-count {
+        justify-self: end;
+    }
+    .profile-page-card .nindo-editor-actions {
+        justify-self: stretch;
+        width: 100%;
     }
 }
 
@@ -1470,7 +1530,7 @@
 /* ---- Backpack item cards: tighten image fit, reduce icon size ---- */
 .inventory-page .backpack-item {
     padding: 8px !important;
-    grid-template-rows: 88px auto 1fr auto !important;
+    grid-template-rows: auto minmax(0, 1fr) auto !important;
     gap: 6px !important;
 }
 .inventory-page .backpack-item-art {
@@ -1480,13 +1540,14 @@
     font-size: 16px !important;
     overflow: hidden;
     position: relative;
-    min-height: 88px;
+    min-height: 0;
+    aspect-ratio: 1 / 1;
     box-shadow: inset 0 0 12px rgba(0,0,0,0.4);
 }
 .inventory-page .backpack-item-art img {
     width: 100% !important;
     height: 100% !important;
-    object-fit: cover !important;
+    object-fit: contain !important;
     border-radius: 3px !important;
     padding: 0 !important;
     display: block;
@@ -1952,6 +2013,100 @@
     border-radius: 6px;
     color: #e8edf5;
     font: 400 13px Inter, sans-serif;
+}
+.user-hub-screen .user-hub-list-manager {
+    margin: 4px 0 16px;
+    padding: 12px;
+    border: 1px solid rgba(196,162,90,0.24);
+    border-radius: 8px;
+    background: rgba(0,0,0,0.25);
+}
+.user-hub-screen .user-hub-list-manager.blocked {
+    border-color: rgba(248,113,113,0.25);
+    background: rgba(127,29,29,0.09);
+}
+.user-hub-screen .user-hub-list-manager label {
+    display: block;
+    margin-bottom: 7px;
+    color: #e8d496;
+    font: 600 11px var(--font-display);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.user-hub-screen .user-hub-list-manager-row {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+}
+.user-hub-screen .user-hub-list-manager-row input {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 40px;
+    padding: 9px 11px;
+    border: 1px solid rgba(196,162,90,0.32);
+    border-radius: 6px;
+    background: rgba(2,6,15,0.76);
+    color: #e8edf5;
+    font: 400 13px Inter, sans-serif;
+}
+.user-hub-screen .user-hub-list-manager-row input:focus {
+    outline: none;
+    border-color: rgba(196,162,90,0.72);
+    box-shadow: 0 0 0 2px rgba(196,162,90,0.14);
+}
+.user-hub-screen .user-hub-list-manager.blocked .user-hub-list-manager-row input:focus {
+    border-color: rgba(248,113,113,0.65);
+    box-shadow: 0 0 0 2px rgba(248,113,113,0.12);
+}
+.user-hub-screen .user-hub-list-manager-row button,
+.user-hub-screen .user-hub-list-action {
+    flex: 0 0 auto;
+    min-height: 40px;
+    padding: 7px 12px;
+    border: 1px solid rgba(196,162,90,0.4);
+    border-radius: 6px;
+    background: rgba(196,162,90,0.12);
+    color: #e8d496;
+    font: 600 11px var(--font-display);
+    letter-spacing: 0.05em;
+    cursor: pointer;
+}
+.user-hub-screen .user-hub-list-manager.blocked .user-hub-list-manager-row button,
+.user-hub-screen .user-hub-list-action.remove {
+    border-color: rgba(248,113,113,0.38);
+    background: rgba(127,29,29,0.22);
+    color: #fca5a5;
+}
+.user-hub-screen .user-hub-list-action.unblock {
+    border-color: rgba(74,222,128,0.38);
+    background: rgba(20,83,45,0.22);
+    color: #86efac;
+}
+.user-hub-screen .user-hub-list-manager-row button:disabled,
+.user-hub-screen .user-hub-list-action:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+.user-hub-screen .user-hub-list-notice {
+    margin: 8px 0 0;
+    font: 500 11px Inter, sans-serif;
+}
+.user-hub-screen .user-hub-list-notice.success {
+    color: #86efac;
+}
+.user-hub-screen .user-hub-list-notice.error {
+    color: #fca5a5;
+}
+
+@media (max-width: 560px) {
+    .user-hub-screen .user-hub-list-manager-row {
+        flex-direction: column;
+    }
+    .user-hub-screen .user-hub-list-manager-row input,
+    .user-hub-screen .user-hub-list-manager-row button {
+        min-height: 44px;
+        width: 100%;
+    }
 }
 
 /* =========================================================================

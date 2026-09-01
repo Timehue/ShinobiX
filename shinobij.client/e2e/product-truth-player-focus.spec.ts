@@ -265,14 +265,9 @@ test("product truth and player focus visual matrix", async ({ page }, testInfo) 
     await page.evaluate(() => localStorage.setItem("e2e:showBriefing", "1"));
     await page.reload({ waitUntil: "networkidle" });
     await expect(page.getByRole("dialog", { name: "Daily Briefing" })).toBeVisible();
-    await expect(page.getByLabel("Mastery focus")).toHaveValue("auto");
+    await expect(page.getByLabel("Mastery focus")).toHaveCount(0);
+    await expect(page.getByText(/Auto focus:/)).toHaveCount(0);
     await capture(page, testInfo, "07-activity-spine-auto.png");
-    await page.getByLabel("Mastery focus").selectOption("towers-spire");
-    await expect(page.getByText("Challenge Battle Tower floor 31")).toBeVisible();
-    await capture(page, testInfo, "08-activity-spine-endgame-focus.png");
-    await page.getByLabel("Mastery focus").selectOption("companions");
-    await expect(page.getByText(/Choose a companion at the Pet Yard first/).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Visit Pet Yard" }).first()).toBeEnabled();
     await page.getByRole("button", { name: "Close briefing" }).click();
 
     await page.evaluate(() => { localStorage.removeItem("e2e:showBriefing"); });

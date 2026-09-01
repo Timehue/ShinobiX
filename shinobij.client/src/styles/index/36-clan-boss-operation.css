@@ -8,8 +8,6 @@
 .activity-spine-returner,.operation-population,.operation-queue-badge {
     border:1px solid #338c9d;border-radius:99px;padding:4px 8px;color:#67e8f9;font-size:.7rem;
 }
-.activity-focus-select { display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700; }
-.activity-focus-select select { min-height:34px;max-width:190px; }
 .activity-card-progress { color:var(--cyan);font-size:12px;font-weight:650; }
 .activity-spine-grid,.operation-world-context { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px; }
 /* The spine only ever renders inside the Daily Briefing card, which is capped
@@ -75,8 +73,6 @@
 }
 @media (max-width: 559px) {
     .activity-spine-heading,.operation-lobby-heading,.operation-comms-status { align-items:flex-start;flex-direction:column; }
-    .activity-focus-select { width:100%;justify-content:space-between; }
-    .activity-focus-select select { min-height:44px; }
     .operation-finder-row { align-items:flex-start; }
     .operation-invite-row { flex-direction:column; }
     .operation-invite-grid { display:grid;grid-template-columns:1fr; }

@@ -39,18 +39,33 @@ test("deployment communicates the complete three-lane contract and enforces 2–
     await page.getByRole("button", { name: "Seal deployment" }).click();
     await expect(page.getByText("FIRST TO TWO TOWERS", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Pause Warfront" })).toBeVisible();
+    const audioToggle = page.getByRole("button", { name: "Unmute Warfront audio" });
+    await expect(audioToggle).toBeVisible();
+    await audioToggle.click();
+    await expect(page.getByRole("button", { name: "Mute Warfront audio" })).toBeVisible();
+    await page.getByRole("button", { name: "Mute Warfront audio" }).click();
+    await expect(audioToggle).toBeVisible();
     await expect(page.locator(".wf3-pet").first()).toBeVisible({ timeout: 10_000 });
     await page.screenshot({ path: testInfo.outputPath("tactical-board.png"), fullPage: true });
 });
 
-test("the two-minute Lane Command supports Hold and one explicit transfer", async ({ page }, testInfo) => {
+test("quick orders and the one-minute Lane Command both preview their consequences", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop", "interaction runs once; responsive coverage runs separately");
     await openWarfront(page, `${lowWarfrontUrl}&wfspeed=30`);
     await deploy(page);
+    const quickHeading = page.getByRole("heading", { name: "Call the next clash" });
+    await expect(quickHeading).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: /^✦ Focus Fire/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^⬡ Guard Seal/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^⌖ Hunt/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^↺ Regroup/ })).toBeVisible();
+    await page.getByRole("button", { name: /^✦ Focus Fire/ }).click();
+    await expect(page.getByText(/Focus Fire lasts 24 seconds/)).toBeVisible();
+    await page.getByRole("button", { name: "Lock Focus Fire" }).click();
     const heading = page.getByRole("heading", { name: /Shift the pressure|Answer the fracture/ });
     await expect(heading).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("dialog", { name: /Shift the pressure|Answer the fracture/ })).toBeFocused();
-    await expect(page.getByText(/TWO-MINUTE LANE COMMAND|STORM-GATE COMMAND|SHATTERED-WARD REACTION/)).toBeVisible();
+    await expect(page.getByText(/60-SECOND LANE COMMAND|STORM-GATE COMMAND|SHATTERED-WARD REACTION/)).toBeVisible();
     await expect(page.getByLabel("Warden summon lane")).toBeVisible();
     await expect(page.getByLabel("Authorize a pet signature ultimate")).toBeVisible();
     await expect(page.getByText("SIGNATURE AUTHORIZATION", { exact: true })).toBeVisible();
@@ -61,6 +76,7 @@ test("the two-minute Lane Command supports Hold and one explicit transfer", asyn
     const destination = page.getByLabel("Destination");
     await petSelect.selectOption({ index: 1 });
     await destination.selectOption("m");
+    await expect(page.getByText("PROJECTED CONSEQUENCE", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Lock command" }).click();
     await expect(heading).toBeHidden();
 });
@@ -78,8 +94,8 @@ test("an accelerated battle reaches a scored post-match result", async ({ page }
     await deploy(page);
 
     const result = page.getByRole("dialog", { name: /VICTORY|DEFEAT|STALEMATE/ });
-    for (let guard = 0; guard < 12 && !(await result.isVisible().catch(() => false)); guard++) {
-        const lock = page.getByRole("button", { name: "Lock command" });
+    for (let guard = 0; guard < 30 && !(await result.isVisible().catch(() => false)); guard++) {
+        const lock = page.locator(".wf3-command .wf3-primary");
         await expect(lock.or(result)).toBeVisible({ timeout: 20_000 });
         if (await result.isVisible().catch(() => false)) break;
         await lock.click({ timeout: 3_000 }).catch(async (error) => {
@@ -94,6 +110,8 @@ test("an accelerated battle reaches a scored post-match result", async ({ page }
     await expect(result.getByText("DECISIVE BREAK", { exact: true })).toBeVisible();
     await expect(result.getByText("MOST INFLUENTIAL COMMAND", { exact: true })).toBeVisible();
     await expect(result.getByText("WARFRONT MVP", { exact: true })).toBeVisible();
+    await expect(result.getByText("WHAT WON THE MATCH", { exact: true })).toBeVisible();
+    await expect(result.getByText(/HOW TO MAKE IT CLEANER|TRY THIS NEXT TIME/)).toBeVisible();
     await expect(result.getByText("TURNING-POINT TIMELINE", { exact: true })).toBeVisible();
     await result.getByRole("button", { name: "Replay turning point" }).click();
     await expect(result).toBeHidden();

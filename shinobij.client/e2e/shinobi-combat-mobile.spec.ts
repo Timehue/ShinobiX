@@ -45,11 +45,11 @@ function actionCards(count = 12) {
     return Array.from({ length: count }, (_, index) => `
         <div class="combat-jutsu-card-wrap">
             <button class="combat-jutsu-button" type="button">
-                <span class="combat-jutsu-thumb"></span>
+                <span class="combat-jutsu-thumb"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 9'%3E%3Crect width='16' height='9' fill='%231e40af'/%3E%3Ccircle cx='8' cy='4.5' r='3' fill='%23fbbf24'/%3E%3C/svg%3E" alt="" /></span>
                 <span class="combat-jutsu-name">Windmill Shuriken Line ${index + 1}</span>
                 <small class="combat-jutsu-info">40 AP · R4 · CD 7</small>
             </button>
-            <button class="combat-jutsu-help" type="button" aria-label="Details for Windmill Shuriken Line ${index + 1}">?</button>
+            <button class="combat-jutsu-help" type="button" aria-label="Details for Windmill Shuriken Line ${index + 1}"><span class="combat-help-glyph" aria-hidden="true">?</span></button>
         </div>
     `).join("");
 }
@@ -145,6 +145,30 @@ for (const mode of ["solo", "pvp"] as const) {
             expect(command.height).toBeGreaterThanOrEqual(44);
             expect(tab.height).toBeGreaterThanOrEqual(44);
             expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+
+            if (viewport.width <= 430) {
+                const firstCard = page.locator(".combat-jutsu-card-wrap").first();
+                const cardBox = await box(page, ".combat-jutsu-card-wrap");
+                const castBox = await firstCard.locator(".combat-jutsu-button").boundingBox();
+                const artBox = await firstCard.locator(".combat-jutsu-thumb img").boundingBox();
+                const detailsBox = await firstCard.locator(".combat-jutsu-help").boundingBox();
+                const glyphBox = await firstCard.locator(".combat-help-glyph").boundingBox();
+                expect(castBox).not.toBeNull();
+                expect(artBox).not.toBeNull();
+                expect(detailsBox).not.toBeNull();
+                expect(glyphBox).not.toBeNull();
+                expect(Math.abs(castBox!.width - cardBox.width)).toBeLessThanOrEqual(1);
+                expect(Math.abs(castBox!.height - cardBox.height)).toBeLessThanOrEqual(1);
+                expect(Math.abs(artBox!.width - castBox!.width)).toBeLessThanOrEqual(1);
+                expect(Math.abs(artBox!.height - castBox!.height)).toBeLessThanOrEqual(1);
+                expect(detailsBox!.width).toBeGreaterThanOrEqual(44);
+                expect(detailsBox!.height).toBeGreaterThanOrEqual(44);
+                expect(Math.abs(detailsBox!.x + detailsBox!.width - (cardBox.x + cardBox.width))).toBeLessThanOrEqual(1);
+                expect(Math.abs(detailsBox!.y - cardBox.y)).toBeLessThanOrEqual(1);
+                expect(glyphBox!.width).toBeLessThanOrEqual(24);
+                expect(glyphBox!.height).toBeLessThanOrEqual(24);
+                await expect(firstCard.locator(".combat-jutsu-thumb img")).toHaveCSS("object-fit", "cover");
+            }
 
             if (viewport.width === 390) {
                 await testInfo.attach(`${mode}-mobile-combat-hud`, {

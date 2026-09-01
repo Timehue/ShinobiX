@@ -406,6 +406,110 @@ test("mobile shell uses five anchors and a keyboard-safe destination search", as
     await expect(menuTrigger).toBeFocused();
 });
 
+test("Inventory and Jutsu tabs keep selection, focus, and panels in sync", async ({ page }) => {
+    const initialSave = uiAuditSave();
+    initialSave.character = {
+        ...initialSave.character,
+        equippedJutsuIds: ["ashen-eyes-blood-gaze"],
+        jutsuMastery: [{ jutsuId: "ashen-eyes-blood-gaze", level: 10, xp: 0 }],
+    };
+    const runtime = await installUiAuditRuntime(page, initialSave);
+    await expectUiAuditBoot(page, runtime, "inventory");
+
+    const firstBackpackItem = page.locator(".backpack-item").first();
+    await expect(firstBackpackItem).toBeVisible();
+    const backpackLayout = await firstBackpackItem.evaluate((card) => {
+        const art = card.querySelector(".backpack-item-art")?.getBoundingClientRect();
+        const copy = card.querySelector(".backpack-item-copy")?.getBoundingClientRect();
+        const action = card.querySelector(".backpack-item-action")?.getBoundingClientRect();
+        return {
+            viewportWidth: window.innerWidth,
+            artHeight: art?.height ?? 0,
+            artBottom: art?.bottom ?? 0,
+            copyTop: copy?.top ?? 0,
+            copyBottom: copy?.bottom ?? 0,
+            actionTop: action?.top ?? 0,
+        };
+    });
+    expect(backpackLayout.artBottom, "item artwork must end before its text begins").toBeLessThanOrEqual(backpackLayout.copyTop + 0.5);
+    expect(backpackLayout.copyBottom, "item text must end before the action row begins").toBeLessThanOrEqual(backpackLayout.actionTop + 0.5);
+    if (backpackLayout.viewportWidth <= 720) {
+        expect(backpackLayout.artHeight, "phone artwork should use the compact 96px stage").toBeLessThanOrEqual(96.5);
+    }
+
+    const inventoryTabs = page.getByRole("tablist", { name: "Inventory sections" });
+    const itemsTab = inventoryTabs.getByRole("tab", { name: "Items" });
+    const cardsTab = inventoryTabs.getByRole("tab", { name: "Chronicle Showdown" });
+    await expect(itemsTab).toHaveAttribute("aria-selected", "true");
+    await expect(itemsTab).toHaveAttribute("tabindex", "0");
+    await expect(cardsTab).toHaveAttribute("tabindex", "-1");
+    await expect(itemsTab).toHaveAttribute("aria-controls", "inventory-panel-items");
+    await expect(page.locator("#inventory-panel-items")).toHaveAttribute("aria-labelledby", "inventory-tab-items");
+    await itemsTab.focus();
+    await itemsTab.press("ArrowRight");
+    await expect(cardsTab).toBeFocused();
+    await expect(cardsTab).toHaveAttribute("aria-selected", "true");
+    await expect(cardsTab).toHaveAttribute("aria-controls", "inventory-panel-tile-cards");
+    await expect(page.locator("#inventory-panel-tile-cards"))
+        .toHaveAttribute("aria-labelledby", "inventory-tab-tile-cards");
+    await expect(page.locator("#inventory-panel-tile-cards")).toBeVisible();
+    await cardsTab.press("ArrowLeft");
+    await expect(itemsTab).toHaveAttribute("aria-selected", "true");
+
+    const categoryTabs = page.getByRole("tablist", { name: "Backpack categories" });
+    const allTab = categoryTabs.getByRole("tab", { name: /^All/ });
+    const gearTab = categoryTabs.getByRole("tab", { name: /^Gear/ });
+    await allTab.focus();
+    await allTab.press("ArrowRight");
+    await expect(gearTab).toBeFocused();
+    await expect(gearTab).toHaveAttribute("aria-selected", "true");
+    await expect(gearTab).toHaveAttribute("aria-controls", "inventory-backpack-panel");
+    await expect(page.locator("#inventory-backpack-panel")).toHaveAttribute("aria-labelledby", "inventory-category-gear");
+
+    await page.goto("/#/profile");
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "profile");
+    if ((await page.viewportSize())!.width <= 979) {
+        const dossierGrid = page.locator(".profile-dossier-grid");
+        const buildSection = dossierGrid.locator(".profile-dossier-section").filter({ hasText: "Build" });
+        await expect(buildSection).toBeVisible();
+        const closedWidths = await dossierGrid.evaluate((grid) => ({
+            grid: grid.getBoundingClientRect().width,
+            sections: Array.from(grid.querySelectorAll(".profile-dossier-section"), (section) => section.getBoundingClientRect().width),
+        }));
+        expect(Math.min(...closedWidths.sections), "every mobile dossier accordion should fill its grid").toBeGreaterThanOrEqual(closedWidths.grid - 1);
+        await buildSection.evaluate((section) => { (section as HTMLDetailsElement).open = false; });
+        await buildSection.locator("summary").click();
+        await expect(buildSection).toHaveAttribute("open", "");
+        await expect(buildSection.locator(".profile-dossier-rows")).toBeVisible();
+        const openWidths = await buildSection.evaluate((section) => ({
+            content: section.clientWidth
+                - Number.parseFloat(getComputedStyle(section).paddingLeft)
+                - Number.parseFloat(getComputedStyle(section).paddingRight),
+            rows: section.querySelector(".profile-dossier-rows")?.getBoundingClientRect().width ?? 0,
+        }));
+        expect(openWidths.rows, "opened Build content should fill its accordion content box").toBeGreaterThanOrEqual(openWidths.content - 0.5);
+    }
+    await page.locator(".profile-mobile-tabs").getByRole("button", { name: "Jutsu" }).click();
+    const jutsuTabs = page.getByRole("tablist", { name: "Jutsu workspace" });
+    const loadoutTab = jutsuTabs.getByRole("tab", { name: /^Loadout/ });
+    const collectionTab = jutsuTabs.getByRole("tab", { name: /^Learned Jutsu/ });
+    await loadoutTab.focus();
+    await loadoutTab.press("End");
+    await expect(collectionTab).toBeFocused();
+    await expect(collectionTab).toHaveAttribute("aria-selected", "true");
+    await expect(collectionTab).toHaveAttribute("aria-controls", "jutsu-workspace-collection");
+    await expect(page.locator("#jutsu-workspace-collection"))
+        .toHaveAttribute("aria-labelledby", "jutsu-workspace-tab-collection");
+    await expect(page.locator("#jutsu-workspace-collection")).toBeVisible();
+    await collectionTab.press("Home");
+    await expect(loadoutTab).toHaveAttribute("aria-selected", "true");
+    await expect(loadoutTab).toHaveAttribute("aria-controls", "jutsu-workspace-loadout");
+    await expect(page.locator("#jutsu-workspace-loadout"))
+        .toHaveAttribute("aria-labelledby", "jutsu-workspace-tab-loadout");
+    await expect(page.locator("#jutsu-workspace-loadout")).toBeVisible();
+});
+
 test("Mission Hall Field board follows D-to-S progression and is alphabetized within rank", async ({ page }, testInfo) => {
     const runtimeErrors = collectRuntimeErrors(page);
     const runtime = await installUiAuditRuntime(page);

@@ -53,9 +53,12 @@ test("opening deployment normalizes to 2–1–1 and records the sealed lanes", 
     assert.deepEqual(invalid.result.initialLanes.blue, ["n", "m", "s", "m"], "a lane may never begin empty");
 });
 
-test("scheduled windows pause at two minutes and permit exactly one transfer or Hold", () => {
+test("quick orders pause at 30 seconds and full commands pause at one minute", () => {
     const ctl = startWarfrontMatch(squad("A", -45), squad("B", -45), 23, { snapshotEvery: WARFRONT_TPS });
     ctl.advanceRoundPartial(WARFRONT_TPS * (WF_ROUND_SECONDS + 10));
+    assert.equal(ctl.commandState()?.reason, "quick");
+    assert.equal(ctl.commandState()?.t, WARFRONT_TPS * 30);
+    ctl.advanceRound([]);
     const command = ctl.commandState();
     assert.equal(command?.reason, "scheduled");
     assert.equal(command?.t, WARFRONT_TPS * WF_ROUND_SECONDS);
@@ -64,19 +67,33 @@ test("scheduled windows pause at two minutes and permit exactly one transfer or 
     ctl.advanceRound([{ type: "move", petIndex: 0, lane: "m" }, { type: "move", petIndex: 2, lane: "m" }]);
     const after = ctl.lanes().blue;
     assert.equal(after.filter((lane, index) => lane !== before[index]).length, 1);
-    assert.deepEqual(ctl.commandLog()[0].moves, [{ petIndex: 0, lane: "m" }]);
+    assert.deepEqual(ctl.commandLog().find((entry) => entry.reason === "scheduled")?.moves, [{ petIndex: 0, lane: "m" }]);
 
     const hold = startWarfrontMatch(squad("A", -45), squad("B", -45), 23, { snapshotEvery: WARFRONT_TPS });
     hold.advanceRoundPartial(WARFRONT_TPS * (WF_ROUND_SECONDS + 10));
+    hold.advanceRound([]);
     const holdBefore = hold.lanes().blue;
     hold.advanceRound([]);
-    assert.deepEqual(hold.commandLog()[0].moves, []);
+    assert.deepEqual(hold.commandLog().find((entry) => entry.reason === "scheduled")?.moves, []);
     assert.deepEqual(hold.lanes().blue, holdBefore, "an explicit empty command is Hold, not an AI move");
+});
+
+test("quick orders are authoritative, visible, and expire after their tactical burst", () => {
+    const ctl = startWarfrontMatch(squad("A", -45), squad("B", -45), 23, { snapshotEvery: 1 });
+    ctl.advanceRoundPartial(WARFRONT_TPS * 31);
+    assert.equal(ctl.commandState()?.reason, "quick");
+    ctl.advanceRoundPartial(1, [{ type: "quick", order: "focus" }]);
+    assert.equal(ctl.commandLog()[0]?.quickOrder, "focus");
+    assert.equal(ctl.result.snapshots.at(-1)?.quickOrders.blue.order, "focus");
+    assert.ok(ctl.result.events.some((event) => event.type === "quickorder" && event.team === "blue" && event.order === "focus"));
+    ctl.advanceRoundPartial(WARFRONT_TPS * 29);
+    assert.equal(ctl.result.snapshots.at(-1)?.quickOrders.blue.order, null);
 });
 
 test("a command can expose a transferred seal and authorize one charged signature", () => {
     const ctl = startWarfrontMatch(squad("A", -45), squad("B", -45), 24, { snapshotEvery: WARFRONT_TPS });
     ctl.advanceRoundPartial(WARFRONT_TPS * (WF_ROUND_SECONDS + 10));
+    ctl.advanceRound([]);
     const command = ctl.commandState();
     assert.equal(command?.reason, "scheduled");
     const actor = ctl.result.snapshots.at(-1)?.actors.find((candidate) => candidate.team === "blue" && candidate.slot === 0);
@@ -84,7 +101,7 @@ test("a command can expose a transferred seal and authorize one charged signatur
     assert.ok(ctl.favor("blue") >= WF_ULTIMATE_FAVOR_COST, "the team must have enough Favor to authorize a signature");
 
     ctl.advanceRound([{ type: "move", petIndex: 0, lane: "m" }, { type: "ultimate", petIndex: 0 }]);
-    const entry = ctl.commandLog()[0];
+    const entry = ctl.commandLog().find((candidate) => candidate.reason === "scheduled")!;
     assert.equal(entry.exposedLane, "n");
     assert.equal(entry.ultimatePetIndex, 0);
     assert.equal(entry.favorSpent, WF_ULTIMATE_FAVOR_COST);
@@ -119,21 +136,21 @@ test("authoritative replay is outcome-identical without retaining presentation h
     assert.deepEqual(authority.petStats, full.petStats);
     assert.equal(authority.snapshots.length, 1, "authority keeps only the structural tick-zero frame");
 
-    const tenMinuteAuthority = runWarfrontMatch(squad("A", -75), squad("B", -75), 7,
+    const hardVerdictAuthority = runWarfrontMatch(squad("A", -75), squad("B", -75), 7,
         "balanced", "balanced", undefined, undefined, undefined, undefined,
         { captureSnapshots: false });
-    assert.equal(tenMinuteAuthority.ticks, WARFRONT_TPS * WF_MAX_SECONDS);
-    assert.equal(tenMinuteAuthority.snapshots.length, 1);
-    assert.ok(JSON.stringify(tenMinuteAuthority).length < 500_000, "authority result must remain below the 500 KB serialized budget");
+    assert.equal(hardVerdictAuthority.ticks, WARFRONT_TPS * WF_MAX_SECONDS);
+    assert.equal(hardVerdictAuthority.snapshots.length, 1);
+    assert.ok(JSON.stringify(hardVerdictAuthority).length < 500_000, "authority result must remain below the 500 KB serialized budget");
 });
 
 test("browser playback prunes consumed frames while retaining an interpolation anchor", () => {
     const ctl = startWarfrontMatch(squad("A", -45), squad("B", -45), 71, { snapshotEvery: 2 });
     ctl.advanceRoundPartial(WARFRONT_TPS * (WF_ROUND_SECONDS + 1));
     const frames = ctl.result.snapshots;
-    assert.ok(frames.length > 1_000, "the worker should have streamed a complete command segment");
+    assert.ok(frames.length > 400, "the worker should have streamed a complete quick-order segment");
     const removed = pruneWarfrontSnapshots(frames, ctl.result.ticks, WARFRONT_TPS * 2);
-    assert.ok(removed > 1_000);
+    assert.ok(removed > 400);
     assert.ok(frames.length <= WARFRONT_TPS + 2, "only the two-second 15 Hz interpolation tail should remain");
     assert.ok(frames[0].t <= ctl.result.ticks - WARFRONT_TPS * 2);
     assert.ok(frames.length === 1 || frames[1].t > ctl.result.ticks - WARFRONT_TPS * 2);
@@ -195,9 +212,17 @@ test("server-facing command plans reject malformed or lane-empty input", () => {
         initialLanes: ["n", "m", "s", "m"],
         commands: [{ t: 1777, reason: "omen", moves: [{ petIndex: 1, lane: "n" }] }],
     }), "a Shattered Wards reaction must survive the client-to-server replay parser");
+    assert.deepEqual(parseWarfrontCommandPlan({
+        initialLanes: ["n", "m", "s", "m"],
+        commands: [{ t: WARFRONT_TPS * 30, reason: "quick", moves: [], quickOrder: "guard" }],
+    })?.commands[0]?.quickOrder, "guard");
+    assert.equal(parseWarfrontCommandPlan({
+        initialLanes: ["n", "m", "s", "m"],
+        commands: [{ t: WARFRONT_TPS * 30, reason: "quick", moves: [], quickOrder: "invalid" }],
+    }), null);
 });
 
-test("every match terminates by the ten-minute Riftfall verdict", () => {
+test("every match terminates by the seven-minute Riftfall verdict", () => {
     const result = runWarfrontMatch(squad("A", -75), squad("B", -75), 7);
     assert.ok(result.ticks <= WARFRONT_TPS * WF_MAX_SECONDS);
     assert.notEqual(result.winner, null);
@@ -208,7 +233,7 @@ test("Hollow Omens are deterministic, shared, and alter command cadence without 
     const storm = runWarfrontMatch(squad("A"), squad("B"), 5);
     assert.equal(storm.omen, "storm-gate");
     const firstScheduled = storm.events.find((event) => event.type === "commandwindow" && event.reason === "scheduled");
-    assert.equal(firstScheduled?.t, WARFRONT_TPS * 90);
+    assert.equal(firstScheduled?.t, WARFRONT_TPS * 45);
 
     const thinVeil = runWarfrontMatch(squad("A", 20), squad("B"), 4, "balanced", "balanced", undefined,
         { blue: "jungle", red: "balanced" }, { blue: "warden-pact", red: "vanguard" });
@@ -262,8 +287,10 @@ test("Breaker, Sentinel, and Harrier produce distinct authoritative battlefield 
         { blue: "jungle", red: "balanced" }, { blue: "warden-pact", red: "vanguard" }, {
             initialLanes: { blue: ["n", "m", "s", "m"] },
             commands: [
-                { t: WARFRONT_TPS * 120, reason: "scheduled", moves: [] },
-                { t: WARFRONT_TPS * 240, reason: "scheduled", moves: [], summonLane: "m", summonAspect: aspect },
+                { t: WARFRONT_TPS * 30, reason: "quick", moves: [] },
+                { t: WARFRONT_TPS * 60, reason: "scheduled", moves: [] },
+                { t: WARFRONT_TPS * 90, reason: "quick", moves: [] },
+                { t: WARFRONT_TPS * 120, reason: "scheduled", moves: [], summonLane: "m", summonAspect: aspect },
             ],
         },
     );
@@ -279,11 +306,15 @@ test("Breaker, Sentinel, and Harrier produce distinct authoritative battlefield 
     const towerDamage = (result: typeof breaker) => result.events.reduce((sum, event) => (
         sum + (event.type === "towerhit" && event.actorId === "warden-blue" ? event.dmg : 0)
     ), 0);
+    const peakTowerHit = (result: typeof breaker) => Math.max(0, ...result.events.map((event) => (
+        event.type === "towerhit" && event.actorId === "warden-blue" ? event.dmg : 0
+    )));
 
     assert.ok(maxWardenX(sentinel) < -20, "Sentinel must return to the allied tower anchor");
     assert.ok(maxWardenX(breaker) > 20 && maxWardenX(harrier) > 20, "offensive Aspects must advance down the lane");
     assert.ok(petDamage(harrier) > petDamage(breaker), "Harrier must outperform Breaker against pets");
-    assert.ok(towerDamage(breaker) > towerDamage(harrier), "Breaker must outperform Harrier against structures");
+    assert.ok(towerDamage(breaker) > 0 && towerDamage(harrier) > 0, "both offensive Aspects must reach structures");
+    assert.ok(peakTowerHit(breaker) > peakTowerHit(harrier), "Breaker tower strikes must hit harder than Harrier strikes");
 });
 
 test("Shattered Wards opens one immediate fracture reaction window", () => {

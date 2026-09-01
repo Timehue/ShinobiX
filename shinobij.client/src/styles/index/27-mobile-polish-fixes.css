@@ -46,6 +46,7 @@
        variable-height text box (long lines / choice buttons) never overlaps the
        portraits the way the desktop absolute-overlay did. ─────────────────────── */
     .vn-stage {
+        --vn-mobile-picture-height: clamp(210px, 42svh, 330px);
         display: grid !important;
         grid-template-rows: auto auto !important;
         min-height: 0 !important;
@@ -55,8 +56,11 @@
     }
 
     .vn-stage.vn-has-image {
-        background-image: none !important;
         background-color: #040812 !important;
+    }
+
+    .vn-stage.vn-has-image:has(> .vn-picture) {
+        background-image: none !important;
     }
 
     .vn-stage::after {
@@ -66,7 +70,7 @@
     .vn-picture {
         display: block !important;
         position: relative;
-        height: clamp(240px, 58svh, 430px);
+        height: var(--vn-mobile-picture-height);
         overflow: hidden;
         background:
             linear-gradient(180deg, rgba(7,12,27,.05) 0%, rgba(7,12,27,.24) 64%, rgba(3,7,18,.7) 100%),
@@ -83,6 +87,25 @@
 
     .vn-has-image .vn-picture .vn-backdrop {
         display: none !important;
+    }
+
+    /* Story Hall, hidden-dungeon, and legacy creator screens predate the
+       shared .vn-picture wrapper. Give those readers the same artwork band so
+       their relative dialogue block cannot collapse over the portraits. */
+    .vn-stage:not(:has(> .vn-picture)) {
+        padding-top: var(--vn-mobile-picture-height) !important;
+        background-position: center top !important;
+        background-size: cover !important;
+    }
+
+    .vn-stage:not(:has(> .vn-picture)) > .vn-backdrop {
+        inset: 0 0 auto !important;
+        height: var(--vn-mobile-picture-height) !important;
+    }
+
+    .vn-stage:not(:has(> .vn-picture)) > .vn-character {
+        top: calc(var(--vn-mobile-picture-height) - 118px) !important;
+        bottom: auto !important;
     }
 
     .vn-character {
@@ -167,13 +190,25 @@
 
     .vn-header-actions {
         width: 100%;
-        justify-content: space-between;
+        flex-wrap: nowrap !important;
+        justify-content: flex-end;
+        gap: 6px !important;
+    }
+
+    .vn-header-actions .vn-progress {
+        flex: 0 1 auto;
+        min-width: 0;
+        margin-right: auto;
+        padding: 6px 8px !important;
+        white-space: nowrap;
     }
 
     .vn-skip-button {
         min-height: 44px !important;
-        padding: 8px 12px !important;
+        padding: 7px 10px !important;
         flex: 0 0 auto;
+        font-size: 0.72rem !important;
+        white-space: nowrap;
     }
 
     .vn-header h2 {
@@ -301,6 +336,9 @@ html[data-vp="sm"] .profile-overview-panel {
     padding: 2px 6px;
     max-width: 190px;
 }
+
+.bmt-row-link { color: inherit; font: inherit; text-align: left; }
+.bmt-row-link:disabled { opacity: 1; cursor: default; }
 
 .bmt-icon {
     font-size: 10px;

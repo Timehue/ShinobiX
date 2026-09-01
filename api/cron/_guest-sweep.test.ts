@@ -79,12 +79,14 @@ describe('guest sweep', () => {
     it('deletes an abandoned guest and everything keyed to it', async () => {
         seed('wanderer', { guest: true, createdAt: LONG_AGO, sessionEpoch: 0 }, { lastSeen: LONG_AGO });
         store.set('friends:wanderer', ['someone']);
+        store.set('player-friends:wanderer', ['someone']);
 
         const result = await runGuestSweep(NOW);
         assert.deepEqual(result.expired, ['wanderer']);
         assert.equal(store.has('auth:wanderer'), false);
         assert.equal(store.has('save:wanderer'), false);
         assert.equal(store.has('friends:wanderer'), false);
+        assert.equal(store.has('player-friends:wanderer'), false);
         assert.equal((hashes.get('player:registry') ?? {}).wanderer, undefined, 'must not linger on the leaderboard');
         assert.deepEqual(result.failures, []);
     });

@@ -1194,8 +1194,8 @@
 }
 @keyframes showdown-flash-element-out {
     0% { opacity: 0; }
-    12% { opacity: 0.95; }
-    55% { opacity: 0.55; }
+    12% { opacity: 0.48; }
+    55% { opacity: 0.2; }
     100% { opacity: 0; }
 }
 
