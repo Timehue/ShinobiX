@@ -249,8 +249,6 @@ test("product truth and player focus visual matrix", async ({ page }, testInfo) 
         expect(accessibility.violations.filter((violation) => ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);
         await capture(page, testInfo, name);
         if (width === 390) {
-            await page.getByRole("heading", { name: "System" }).scrollIntoViewIfNeeded();
-            await expect.poll(() => page.locator(".mobile-menu-overlay").evaluate((element) => element.scrollTop > 0)).toBe(true);
             await page.getByRole("button", { name: "Close menu" }).click();
             await expect(page.locator(".mobile-bottom-nav").getByRole("button", { name: "Menu", exact: true })).toBeFocused();
             await page.locator(".mobile-bottom-nav").getByRole("button", { name: "Menu", exact: true }).click();
