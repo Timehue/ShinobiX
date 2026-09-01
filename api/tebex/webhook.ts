@@ -1,12 +1,16 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { clientIp } from '../_client-ip.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { applyEntitlementToSave, SUBSCRIBER_TIER } from '../_subscription.js';
+import { tebexSubscriptionPackageId } from './_basket-core.js';
 import {
     isReversalWebhook,
+    isSubscriptionWebhook,
     isTebexSourceIp,
     isValidationWebhook,
     parseTebexWebhook,
     shardGrantsForPayment,
+    subscriptionOutcome,
     verifyTebexSignature,
 } from './_webhook-core.js';
 
@@ -105,6 +109,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (isReversalWebhook(webhook)) {
         console.warn('[tebex] reversal', webhook.type, JSON.stringify(webhook.subject.transaction_id ?? ''));
         return res.status(200).json({ ok: true, action: 'logged' });
+    }
+
+    // 5. Shinobi Supporter. Recurring billing writes the perk flag rather than
+    //    currency, through applyEntitlementToSave — the single writer of
+    //    character.patreon, shared with the admin comp path. It is idempotent,
+    //    so Tebex re-delivering a renewal costs nothing.
+    if (isSubscriptionWebhook(webhook)) {
+        const decision = subscriptionOutcome(webhook, tebexSubscriptionPackageId());
+        if (decision.action === 'ignore') {
+            console.log('[tebex] subscription ignored', webhook.type, decision.reason);
+            return res.status(200).json({ ok: true, action: 'ignored', reason: decision.reason });
+        }
+        const applied = await applyEntitlementToSave(decision.playerName, decision.reference, {
+            active: decision.active,
+            tier: SUBSCRIBER_TIER,
+            entitledCents: decision.amountCents,
+        });
+        if (!applied) {
+            // No save yet — the account exists at Tebex but not in game. Asking
+            // for a retry is right: the player is paying, and the flag should
+            // land once they finish creating a character.
+            console.error('[tebex] subscription save missing', decision.playerName, decision.reference);
+            return res.status(500).json({ error: 'No save to entitle; will retry.' });
+        }
+        console.log('[tebex] subscription', webhook.type, decision.playerName, decision.active ? 'ACTIVE' : 'ended');
+        return res.status(200).json({ ok: true, action: 'entitled', active: decision.active });
     }
 
     const outcome = shardGrantsForPayment(webhook);

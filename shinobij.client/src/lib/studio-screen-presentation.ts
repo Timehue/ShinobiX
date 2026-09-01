@@ -85,6 +85,9 @@ export const STUDIO_SCREEN_PRESENTATION: Record<Screen, StudioScreenPresentation
   townHall: atFacility(town, "town-hall"),
   bank: atFacility(civic, "bank"),
   shop: atFacility(civic, "shop"),
+  // Storefront art is shared with the village shop; the screens are separate
+  // (ryo vs real money) but they present as the same kind of place.
+  premiumShop: atFacility(civic, "shop"),
   grandMarketplace: atFacility(civic, "shop"),
   hospital: atFacility(civic, "hospital"),
   cafeteria: atFacility(civic, "cafeteria"),
