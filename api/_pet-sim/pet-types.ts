@@ -12,6 +12,13 @@
 export type JutsuElement = "Earth" | "Wind" | "Lightning" | "Fire" | "Water" | "None";
 export type PetRole = "defender" | "tracker" | "assassin" | "sage";
 export type PetSubRole = "tank" | "bruiser" | "striker" | "assassin" | "kite" | "control" | "support";
+import type {
+    PetExpeditionProvision as SharedPetExpeditionProvision,
+    PetExpeditionReturnChoice as SharedPetExpeditionReturnChoice,
+    PetExpeditionReturnOutcome as SharedPetExpeditionReturnOutcome,
+    PetExpeditionRisk as SharedPetExpeditionRisk,
+    PetExpeditionType as SharedPetExpeditionType,
+} from "../../shared/pet-expedition-contract.js";
 
 export type PetRarity = "standard" | "rare" | "legendary" | "mythic";
 
@@ -62,7 +69,11 @@ export type PetGrowthBaseStats = {
     speed: number;
 };
 
-export type PetExpeditionType = "scout" | "forage" | "ruins";
+export type PetExpeditionType = SharedPetExpeditionType;
+export type PetExpeditionRisk = SharedPetExpeditionRisk;
+export type PetExpeditionProvision = SharedPetExpeditionProvision;
+export type PetExpeditionReturnChoice = SharedPetExpeditionReturnChoice;
+export type PetExpeditionReturnOutcome = SharedPetExpeditionReturnOutcome;
 
 export type PetExpedition = {
     type: PetExpeditionType;
@@ -74,6 +85,13 @@ export type PetExpedition = {
     // persisted expedition state so it survives reloads. Absent on expeditions
     // started before this feature (those forfeit Tamer rewards on collect).
     token?: string;
+    risk?: PetExpeditionRisk;
+    provision?: PetExpeditionProvision;
+    sector?: number;
+    place?: string;
+    region?: string;
+    biome?: string;
+    choiceVersion?: number;
 };
 
 // Pet loadout — four equip slots surfaced in the Pet Yard. The Collar slot is

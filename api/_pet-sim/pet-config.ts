@@ -11,6 +11,7 @@
  */
 
 import type { Pet, PetRarity, PetTrait, PetTrainingType, PetExpeditionType } from "./pet-types.js";
+import { PET_EXPEDITION_ROUTES } from "../../shared/pet-expedition-contract.js";
 import {
     TERRITORY_CONTROL_SCROLL_ID, DUNGEON_KEY_ID, LEGENDARY_WAR_CRATE_ID,
     WARFORGED_RELIC_ID, DUNGEON_LEGENDARY_RELIC_ID,
@@ -62,10 +63,14 @@ export const petTrainingOptions: { type: PetTrainingType; label: string; desc: s
 // ── Expedition options + flavor stories ─────────────────────────────────
 
 export const petExpeditionOptions: { type: PetExpeditionType; label: string; durationMs: number; durationLabel: string; desc: string }[] = [
-    { type: "scout", label: "Scout Routes", durationMs: 45 * 60 * 1000, durationLabel: "45m", desc: "Short ryo and pet XP trip." },
-    { type: "forage", label: "Forage Wilds", durationMs: 2 * 60 * 60 * 1000, durationLabel: "2h", desc: "Strong XP and material chance." },
-    { type: "ruins", label: "Explore Old Ruins", durationMs: 4 * 60 * 60 * 1000, durationLabel: "4h", desc: "Long trip with best rare currency odds." },
-];
+    "scout", "forage", "ruins",
+].map((type) => ({
+    type: type as PetExpeditionType,
+    label: PET_EXPEDITION_ROUTES[type as PetExpeditionType].label,
+    durationMs: PET_EXPEDITION_ROUTES[type as PetExpeditionType].durationMinutes * 60_000,
+    durationLabel: PET_EXPEDITION_ROUTES[type as PetExpeditionType].durationLabel,
+    desc: PET_EXPEDITION_ROUTES[type as PetExpeditionType].description,
+}));
 
 export const petExpeditionStories: Record<PetExpeditionType, string[]> = {
     scout: [
