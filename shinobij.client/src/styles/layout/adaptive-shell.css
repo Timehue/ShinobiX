@@ -338,6 +338,36 @@ body {
   }
 }
 
+/* Chronicle duels are sealed, viewport-sized play surfaces. Keep this
+   takeover geometry here so the adaptive shell remains the single authority
+   for rail visibility, root columns, and center-stage scrolling at every
+   breakpoint. */
+.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) {
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 0;
+}
+
+.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) > .left-profile-card,
+.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) > .right-menu-panel,
+.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) > .sector-banner-panel,
+.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) > .mobile-top-hud,
+.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) > .mobile-bottom-nav {
+  display: none !important;
+}
+
+.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) > .center-game {
+  grid-column: 1;
+  grid-row: 1;
+  container: normal;
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  margin: 0;
+  padding: 0 !important;
+  overflow: hidden !important;
+  scrollbar-gutter: auto;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .app-shell[data-shell="adaptive"] *,
   .storage-notice {
