@@ -442,11 +442,23 @@ export function runWarfrontRite(
         if (winner === "blue") blueRounds++;
         else if (winner === "red") redRounds++;
 
+        // ⛔ A `ko` event names the pet that FELL, not the pet that felled it:
+        // the engine emits `{ side: f.team, actorId: f.id }` for the dying
+        // fighter. Reading `actorId` as the killer therefore looked for
+        // "player-<lane>" among ids that are always "enemy-<lane>", matched
+        // nothing, and left the MVP permanently unawarded (measured: 0 of 25
+        // matches, against 155 enemy KOs). Credit the last blue fighter to land
+        // a hit on that pet instead — `hit` carries attacker in `actorId` and
+        // victim in `targetId`, and events arrive in time order.
+        const lastBlueToHit = new Map<string, string>();
         for (const event of result.events) {
+            if (event.type === "hit" && event.side === "player" && event.targetId) {
+                lastBlueToHit.set(String(event.targetId), String(event.actorId));
+                continue;
+            }
             if (event.type !== "ko" || event.side !== "enemy") continue;
-            // A KO event on the enemy side was scored BY blue; credit the lane
-            // that dealt it back to its roster slot.
-            const actor = blue.find((c) => `player-${c.lane}` === event.actorId);
+            const killerId = lastBlueToHit.get(String(event.actorId));
+            const actor = killerId ? blue.find((c) => `player-${c.lane}` === killerId) : undefined;
             if (actor) blueKos.set(actor.slot, (blueKos.get(actor.slot) ?? 0) + 1);
         }
 
