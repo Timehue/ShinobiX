@@ -378,7 +378,7 @@ for (const profession of PROFESSION_HUB_VARIANTS) {
     });
 }
 
-test("mobile shell uses five anchors and a keyboard-safe destination search", async ({ page }, testInfo) => {
+test("mobile shell uses five anchors and a compact keyboard-safe destination catalog", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "chromium-mobile", "the persistent navigation is mobile-only");
     const runtime = await installUiAuditRuntime(page);
     await expectUiAuditBoot(page, runtime, "village");
@@ -393,13 +393,12 @@ test("mobile shell uses five anchors and a keyboard-safe destination search", as
     await menuTrigger.click();
     const dialog = page.getByRole("dialog", { name: "Shinobi menu" });
     await expect(dialog).toBeVisible();
-    const search = dialog.getByRole("searchbox", { name: "Find a destination" });
-    await expect(search).toBeFocused();
-    await search.fill("training");
-    await expect(dialog.getByRole("button", { name: "Training", exact: true })).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Travel", exact: true })).toHaveCount(0);
+    await expect(dialog.getByRole("button", { name: "Close menu" })).toBeFocused();
+    await expect(dialog.getByRole("searchbox")).toHaveCount(0);
+    await expect(dialog.getByRole("button", { name: "Training", exact: true })).toHaveCount(1);
+    await expect(dialog.getByRole("button", { name: "Travel", exact: true })).toHaveCount(1);
     await expectViewportSafe(page);
-    await capture(page, testInfo, "mobile-menu-search");
+    await capture(page, testInfo, "mobile-menu-catalog");
 
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
