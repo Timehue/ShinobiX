@@ -1,8 +1,8 @@
 # Data Retention Policy — Shinobi Journey
 
 **Status:** Internal operational policy. Not user-facing legal advice.
-**Owner:** _Fill in — responsible person (name + contact); see [Security Program](SECURITY_PROGRAM.md)._
-**Version:** 1.0 · **Last reviewed:** 2026-07-20 · **Review cadence:** at least annually and after any material change to what is collected.
+**Owner:** Tyler Rill — Operator, Shinobi Journey · support@shinobijourney.com; see [Security Program](SECURITY_PROGRAM.md).
+**Version:** 1.1 · **Last reviewed:** 2026-08-31 · **Review cadence:** at least annually and after any material change to what is collected.
 
 This policy satisfies the written data-retention-policy requirement of the amended
 US COPPA Rule (in full effect 22 Apr 2026) and supports GDPR/UK-GDPR storage-limitation

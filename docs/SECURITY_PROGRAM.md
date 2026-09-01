@@ -19,8 +19,12 @@ fingerprint) used to keep play fair.
 
 ## 2. Governance — responsible person
 
-> **Fill in:** the designated individual responsible for this program (name + contact).
-> COPPA expects a named person. For this project it is the site Operator / lead admin.
+**Responsible person:** Tyler Rill, Operator of Shinobi Journey.
+**Contact:** support@shinobijourney.com (also the published security-disclosure
+address in `/.well-known/security.txt` and on the Notices page).
+
+The amended COPPA Rule expects a named individual rather than a role, which is why
+this is a person and not "the team".
 
 The Operator is accountable for: keeping this document current, applying security patches,
 managing secrets, overseeing sub-processors, and leading incident response.
