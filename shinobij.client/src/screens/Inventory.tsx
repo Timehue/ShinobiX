@@ -50,6 +50,7 @@ import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { useCapabilityViewAvailability } from "../lib/live-capabilities-context";
 import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
 import { storesItemSignpost } from "../lib/village-stores-signposts";
+import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
 import type { VersionedCharacterCommit } from "../types/character";
 import type { Screen } from "../types/core";
 
@@ -688,11 +689,16 @@ export function Inventory({
                                 : `${tileCardStacks.length} unique · ${character.tileCards.length} total`}</p>
                         </div>
 
-                        <div className="inventory-tabs">
+                        <div className="inventory-tabs" role="tablist" aria-label="Inventory sections">
                             <button
                                 type="button"
+                                id="inventory-tab-items"
+                                role="tab"
                                 className={inventoryTab === "items" ? "active" : ""}
-                                aria-pressed={inventoryTab === "items"}
+                                aria-selected={inventoryTab === "items"}
+                                aria-controls="inventory-panel-items"
+                                tabIndex={inventoryTab === "items" ? 0 : -1}
+                                onKeyDown={handleHorizontalTabKeyDown}
                                 onClick={() => setInventoryTab("items")}
                             >
                                 <FiPackage aria-hidden="true" /> Items
@@ -700,8 +706,13 @@ export function Inventory({
 
                             <button
                                 type="button"
+                                id="inventory-tab-tile-cards"
+                                role="tab"
                                 className={inventoryTab === "tileCards" ? "active" : ""}
-                                aria-pressed={inventoryTab === "tileCards"}
+                                aria-selected={inventoryTab === "tileCards"}
+                                aria-controls="inventory-panel-tile-cards"
+                                tabIndex={inventoryTab === "tileCards" ? 0 : -1}
+                                onKeyDown={handleHorizontalTabKeyDown}
                                 onClick={() => setInventoryTab("tileCards")}
                             >
                                 <FiGrid aria-hidden="true" /> Chronicle Showdown
@@ -710,13 +721,21 @@ export function Inventory({
                     </div>
 
                     {inventoryTab === "items" && (
-                        <>
+                        <section
+                            id="inventory-panel-items"
+                            role="tabpanel"
+                            aria-labelledby="inventory-tab-items"
+                        >
                             <div className="inventory-category-bar" role="tablist" aria-label="Backpack categories">
                                 <button
                                     type="button"
+                                    id="inventory-category-all"
                                     role="tab"
                                     aria-selected={categoryFilter === "all"}
+                                    aria-controls="inventory-backpack-panel"
+                                    tabIndex={categoryFilter === "all" ? 0 : -1}
                                     className={categoryFilter === "all" ? "active" : ""}
+                                    onKeyDown={handleHorizontalTabKeyDown}
                                     onClick={() => { setCategoryFilter("all"); setSlotFilter(null); }}
                                 >
                                     All <span className="cat-count">{categoryCounts.all ?? 0}</span>
@@ -728,9 +747,13 @@ export function Inventory({
                                         <button
                                             key={category}
                                             type="button"
+                                            id={`inventory-category-${category}`}
                                             role="tab"
                                             aria-selected={categoryFilter === category}
+                                            aria-controls="inventory-backpack-panel"
+                                            tabIndex={categoryFilter === category ? 0 : -1}
                                             className={`${categoryFilter === category ? "active" : ""}${count === 0 ? " is-empty" : ""}`}
+                                            onKeyDown={handleHorizontalTabKeyDown}
                                             onClick={() => { setCategoryFilter(category); setSlotFilter(null); }}
                                             title={meta.label}
                                         >
@@ -742,6 +765,11 @@ export function Inventory({
                                 })}
                             </div>
 
+                            <div
+                                id="inventory-backpack-panel"
+                                role="tabpanel"
+                                aria-labelledby={`inventory-category-${categoryFilter}`}
+                            >
                             <div className="inventory-search-row">
                                 <input
                                     type="search"
@@ -832,11 +860,16 @@ export function Inventory({
                                     })}
                                 </div>
                             )}
-                        </>
+                            </div>
+                        </section>
                     )}
 
                     {inventoryTab === "tileCards" && (
-                        <>
+                        <section
+                            id="inventory-panel-tile-cards"
+                            role="tabpanel"
+                            aria-labelledby="inventory-tab-tile-cards"
+                        >
                             <p className="tile-card-collection-summary">
                                 Collection: <strong>{character.tileCards.length}</strong> total cards |{" "}
                                 <strong>{tileCardStacks.length}</strong> unique cards
@@ -913,7 +946,7 @@ export function Inventory({
                                     </div>
                                 );
                             })()}
-                        </>
+                        </section>
                     )}
                 </section>
             </div>

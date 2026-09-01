@@ -1,4 +1,5 @@
 import type { PetVisualQuality } from "./pet-visual-quality";
+import type { WfSnapshot } from "./pet-warfront-sim";
 
 export type WarfrontPresentationBudget = Readonly<{
     hollowHoundRigs: number;
@@ -69,6 +70,92 @@ export function advanceWarfrontMotionFilter(
 
 export function warfrontMotionFilterSpeed(state: WarfrontMotionFilterState): number {
     return Math.hypot(state.vx, state.vz);
+}
+
+export type WarfrontPresentationPoint = Readonly<{ x: number; y: number }>;
+
+function warfrontSnapshotPair(
+    snapshots: readonly WfSnapshot[],
+    tick: number,
+): Readonly<{ from: WfSnapshot; to: WfSnapshot; blend: number }> | null {
+    if (!snapshots.length) return null;
+    const safeTick = Number.isFinite(tick) ? tick : snapshots[0].t;
+    let lo = 0;
+    let hi = snapshots.length - 1;
+    while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        if (snapshots[mid].t <= safeTick) lo = mid;
+        else hi = mid - 1;
+    }
+    const from = snapshots[lo];
+    const to = snapshots[Math.min(lo + 1, snapshots.length - 1)];
+    const span = Math.max(1, to.t - from.t);
+    return {
+        from,
+        to,
+        blend: Math.max(0, Math.min(1, (safeTick - from.t) / span)),
+    };
+}
+
+function interpolateWarfrontPoint(
+    from: WarfrontPresentationPoint | undefined,
+    to: WarfrontPresentationPoint | undefined,
+    blend: number,
+    fallback: WarfrontPresentationPoint,
+): WarfrontPresentationPoint {
+    if (!from && !to) return fallback;
+    if (!from) return to ?? fallback;
+    if (!to) return from;
+    // Lane transfers and respawns are authored teleports. Interpolating those
+    // would streak a model across the entire battlefield, so snap at the tick.
+    if (Math.hypot(to.x - from.x, to.y - from.y) > 7) {
+        const point = blend < 1 ? from : to;
+        return { x: point.x, y: point.y };
+    }
+    return {
+        x: from.x + (to.x - from.x) * blend,
+        y: from.y + (to.y - from.y) * blend,
+    };
+}
+
+/**
+ * Interpolate a fighter against the fractional presentation clock. Gameplay
+ * remains locked to the authoritative 30 Hz snapshot; only rendered position
+ * is promoted to the display refresh rate.
+ */
+export function warfrontActorPresentationPoint(
+    snapshots: readonly WfSnapshot[],
+    actorId: string,
+    tick: number,
+    fallback: WarfrontPresentationPoint,
+): WarfrontPresentationPoint {
+    const pair = warfrontSnapshotPair(snapshots, tick);
+    if (!pair) return fallback;
+    const from = pair.from.actors.find((actor) => actor.id === actorId);
+    const to = pair.to.actors.find((actor) => actor.id === actorId);
+    if (from?.state === "respawning" || to?.state === "respawning") {
+        const point = pair.blend < 1 ? (from ?? to ?? fallback) : (to ?? from ?? fallback);
+        return { x: point.x, y: point.y };
+    }
+    return interpolateWarfrontPoint(from, to, pair.blend, fallback);
+}
+
+/** Fractional-clock companion for the two summoned Wardens. */
+export function warfrontWardenPresentationPoint(
+    snapshots: readonly WfSnapshot[],
+    team: "blue" | "red",
+    tick: number,
+    fallback: WarfrontPresentationPoint,
+): WarfrontPresentationPoint {
+    const pair = warfrontSnapshotPair(snapshots, tick);
+    if (!pair) return fallback;
+    const from = pair.from.wardens[team];
+    const to = pair.to.wardens[team];
+    if (from.active !== to.active) {
+        const point = pair.blend < 1 ? from : to;
+        return { x: point.x, y: point.y };
+    }
+    return interpolateWarfrontPoint(from, to, pair.blend, fallback);
 }
 
 /** MVP values decisive contributions instead of simply awarding the damage

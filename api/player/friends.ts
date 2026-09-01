@@ -5,22 +5,44 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 
-// One-way "follow" list, stored in its OWN KV key (`friends:<slug>`) — mirrors
-// the per-player `challenges:<name>` precedent — so it never round-trips or
-// clobbers the ~100KB character save and is immune to the multi-tab save
-// lost-update window. Online status is NOT stored here: the client joins this
-// list against the player roster it already polls (which carries the online
-// flag). One-way follow has no inbox / accept-decline, so no harassment surface.
+// Player-owned social lists, stored in their OWN KV keys — mirrors the
+// per-player `challenges:<name>` precedent — so they never round-trip or
+// clobber the ~100KB character save and are immune to the multi-tab save
+// lost-update window. `following` remains the original one-way subscription;
+// `friends` is a separate, explicit address-book list with no request/inbox
+// handshake. Online status is NOT stored here: the client joins both lists
+// against the player roster it already polls (which carries the online flag).
 //
-//   GET    ?playerName=<me>             → { following: string[] }
-//   POST   { playerName, targetName }   → follow   → { following }
-//   DELETE { playerName, targetName }   → unfollow → { following }
+//   GET    ?playerName=<me>                         → { following, friends }
+//   POST   { playerName, targetName, list? }        → add    → selected list
+//   DELETE { playerName, targetName, list? }        → remove → selected list
+//
+// Omitting `list` keeps the legacy Following contract for existing callers.
 
-const MAX_FOLLOWS = 200;
-const FOLLOWS_TTL_SEC = 365 * 24 * 60 * 60;
+const MAX_SOCIAL_LIST_ENTRIES = 200;
+const SOCIAL_LIST_TTL_SEC = 365 * 24 * 60 * 60;
 
-function friendsKey(name: string): string {
+function followingKey(name: string): string {
     return `friends:${safeName(name)}`;
+}
+
+function friendListKey(name: string): string {
+    return `player-friends:${safeName(name)}`;
+}
+
+function cleanList(value: unknown): string[] {
+    if (!Array.isArray(value)) return [];
+    const seen = new Set<string>();
+    const clean: string[] = [];
+    for (const entry of value) {
+        const displayName = String(entry ?? '').trim();
+        const slug = safeName(displayName);
+        if (!slug || seen.has(slug)) continue;
+        seen.add(slug);
+        clean.push(displayName);
+        if (clean.length >= MAX_SOCIAL_LIST_ENTRIES) break;
+    }
+    return clean;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -38,51 +60,68 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const identity = await authedPlayerOrAdmin(req, playerName);
     if (!identity) return res.status(401).json({ error: 'Authentication required.' });
     if (!identity.admin && identity.name !== playerName) {
-        return res.status(403).json({ error: 'Can only manage your own follows.' });
+        return res.status(403).json({ error: 'Can only manage your own social lists.' });
     }
 
-    const key = friendsKey(playerName);
-
     if (req.method === 'GET') {
-        const list = await kv.get<string[]>(key);
-        return res.status(200).json({ following: Array.isArray(list) ? list : [] });
+        res.setHeader('Cache-Control', 'no-store');
+        const [following, friends] = await Promise.all([
+            kv.get<unknown>(followingKey(playerName)),
+            kv.get<unknown>(friendListKey(playerName)),
+        ]);
+        return res.status(200).json({ following: cleanList(following), friends: cleanList(friends) });
     }
 
     if (req.method === 'POST' || req.method === 'DELETE') {
-        // Follow-spam guard, by IP, KV-backed (survives instance hops).
+        // Social-list spam guard, by IP, KV-backed (survives instance hops).
         if (!(await enforceRateLimitKv(req, res, 'friends-mutate', 40, 60_000))) return;
 
         const targetRaw = String(bodyObj.targetName ?? '').trim();
         const targetSlug = safeName(targetRaw);
+        const listKind = bodyObj.list === 'friends' ? 'friends' : 'following';
+        const listLabel = listKind === 'friends' ? 'friends list' : 'following list';
         if (!targetSlug) return res.status(400).json({ error: 'Invalid target name.' });
-        if (targetSlug === playerName) return res.status(400).json({ error: "You can't follow yourself." });
+        if (targetSlug === playerName) return res.status(400).json({ error: `You can't add yourself to your ${listLabel}.` });
 
-        // Lock the follow list for the read-modify-write so two concurrent
-        // follows can't both read the old list and one lose its write.
+        if (req.method === 'POST') {
+            // Only store real accounts so either list cannot be filled with
+            // typos or junk names. Do this before the lock to keep its critical
+            // section to a single-list read/modify/write.
+            const exists = await kv.get<Record<string, unknown>>(`save:${targetSlug}`);
+            if (!exists) {
+                if (listKind === 'friends') return res.status(404).json({ error: 'No such player.' });
+                // Preserve the original Following endpoint's idempotent no-op
+                // response for old clients that submit a stale directory row.
+                return res.status(200).json({ following: cleanList(await kv.get<unknown>(followingKey(playerName))) });
+            }
+        }
+
+        const key = listKind === 'friends' ? friendListKey(playerName) : followingKey(playerName);
+
+        // Lock the selected list for the read-modify-write so two concurrent
+        // additions cannot both read the old list and lose one write.
         const next = await withKvLock(key, async () => {
-            const current = await kv.get<string[]>(key);
-            const list = Array.isArray(current) ? current : [];
+            const list = cleanList(await kv.get<unknown>(key));
             const has = list.some((n) => safeName(n) === targetSlug);
 
             if (req.method === 'POST') {
-                if (has) return list;                       // already following — idempotent
-                if (list.length >= MAX_FOLLOWS) return list; // cap — silently ignore overflow
-                // Only follow real accounts (must have a save) so the list can't
-                // be stuffed with junk names.
-                const exists = await kv.get<Record<string, unknown>>(`save:${targetSlug}`);
-                if (!exists) return list;
+                if (has) return list; // idempotent
+                if (list.length >= MAX_SOCIAL_LIST_ENTRIES) return list;
                 const updated = [...list, targetRaw];
-                await kv.set(key, updated, { ex: FOLLOWS_TTL_SEC });
+                await kv.set(key, updated, { ex: SOCIAL_LIST_TTL_SEC });
                 return updated;
             }
             // DELETE
             if (!has) return list;
             const updated = list.filter((n) => safeName(n) !== targetSlug);
-            await kv.set(key, updated, { ex: FOLLOWS_TTL_SEC });
+            await kv.set(key, updated, { ex: SOCIAL_LIST_TTL_SEC });
             return updated;
         });
 
-        return res.status(200).json({ following: next });
+        if (req.method === 'POST' && listKind === 'friends' && !next.some((name) => safeName(name) === targetSlug)) {
+            return res.status(409).json({ error: `Your friends list is limited to ${MAX_SOCIAL_LIST_ENTRIES} players.` });
+        }
+        return res.status(200).json(listKind === 'friends' ? { friends: next } : { following: next });
     }
 
     return res.status(405).end();

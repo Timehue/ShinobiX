@@ -102,7 +102,7 @@ import { buildPetArenaLiveRoster, isLivePetDuelAvailable } from "../lib/pet-duel
 import type { ArenaSlot, ArenaRole } from "../lib/pet-arena-sim";
 import type { WfTheme } from "../lib/pet-warfront-map";
 import type { WfBuyPolicy } from "../lib/pet-warfront-sim";
-import { RITE_MIN_ELEMENTS, riteBandElements, riteBandProblem, type RitePlan, type RiteResult } from "../lib/pet-warfront-rite";
+import { riteBandElements, riteBandProblem, type RitePlan, type RiteResult } from "../lib/pet-warfront-rite";
 import { type WfDoctrine, type WfStance } from "../lib/pet-warfront-contract";
 import arenaModeColosseum from "../assets/coliseum/arena-mode-colosseum.webp";
 // The Rite's own art. The three-lane key art and card depicted lanes and Ward
@@ -1824,6 +1824,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                         }}
                         onProgress={(progress: PetTutorialProgress) => updateCharacter((current) => current ? { ...current, petTutorialProgress: progress } : current)}
                         setScreen={setScreen}
+                        returnFocusRef={petMentorGuideButtonRef}
                     />
                 </Suspense>
             ) : null}
@@ -2277,30 +2278,30 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                                 <strong>ONE RING · LAST BAND STANDING</strong>
                                             </div>
                                             <div className="wf-pregame-readout-grid">
-                                                <div><span>OPENING</span><strong>Commit your order</strong><small>Four pets, one batting order. You see their lead before you lock yours.</small></div>
-                                                <div><span>THE RITE</span><strong>Winner stays in</strong><small>Duels run one at a time, and the survivor keeps every wound into the next.</small></div>
-                                                <div><span>VICTORY</span><strong>Take all four</strong><small>Kills are the only scoreboard. Down their whole band to win.</small></div>
+                                                <div><span>OPENING</span><strong>Commit your formation</strong><small>Four pets, two on the front line. You see their front before you lock yours.</small></div>
+                                                <div><span>THE CLASH</span><strong>All eight at once</strong><small>Both bands fight simultaneously. More pets standing takes the clash.</small></div>
+                                                <div><span>VICTORY</span><strong>Best of three</strong><small>First to two clashes. The fallen return wounded, so it is never over early.</small></div>
                                             </div>
-                                            <p><span>♜ SWAP TOKEN</span>Once per Rite you may pull a wounded winner. It goes to the back of the line and gives up 12% health.</p>
-                                            <p><span>◐ ELEMENTS</span>Type advantage decides duels, so a band of three or more elements cannot be countered outright.</p>
+                                            <p><span>♜ RE-FORM</span>Once per Rite, after the opening clash, you may move a pet forward or back before the next one.</p>
+                                            <p><span>◐ ELEMENTS</span>Type advantage matters, but the band is yours to build — bring whatever you think wins.</p>
                                         </div>
 
-                                        {/* The Rite's only pre-match decision is WHO IS IN THE BAND —
-                                            the batting order is committed on the Rite's own deploy
-                                            panel, and element spread is the one composition rule that
-                                            actually decides matches. The retired formation/doctrine
-                                            pickers lived here and did nothing once the lane war was
-                                            replaced, so they are gone rather than left as decoration. */}
+                                        {/* The Rite's only pre-match decision here is WHO IS IN THE BAND;
+                                            the formation is committed on the Rite's own deploy panel.
+                                            Element spread is shown as INFORMATION, never as a rule —
+                                            there is no composition requirement (owner ruling
+                                            2026-09-01, see pet-warfront-rite.ts). The retired
+                                            formation/doctrine pickers lived here and did nothing once
+                                            the lane war was replaced, so they are gone rather than
+                                            left as decoration. */}
                                         <div className="wf-pregame-readout" aria-label="Band composition">
                                             <div className="wf-pregame-readout-title">
                                                 <span>YOUR BAND</span>
                                                 <strong>{bandElements.length} element{bandElements.length === 1 ? "" : "s"} · {bandElements.join(" · ") || "—"}</strong>
                                             </div>
                                             <p>
-                                                <span>◆ ELEMENT RULE</span>
-                                                {bandProblem
-                                                    ? bandProblem
-                                                    : `Legal band. Type advantage decides duels, and ${RITE_MIN_ELEMENTS}+ elements means no single rival band counters yours outright.`}
+                                                <span>◆ COMPOSITION</span>
+                                                {bandProblem ?? "Your band, your call. A narrow spread hits harder into the right rival and folds against its counter."}
                                             </p>
                                         </div>
 

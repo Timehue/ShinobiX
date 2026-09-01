@@ -9,6 +9,7 @@ type Handler = (req: never, res: never) => Promise<unknown>;
 let chat: Handler;
 let messages: Handler;
 let blocks: Handler;
+let friends: Handler;
 let issuePlayerToken: (name: string) => string | null;
 let kv: typeof import('./_storage.js').kv;
 
@@ -37,6 +38,7 @@ before(async () => {
     chat = (await import('./village/chat.js')).default as unknown as Handler;
     messages = (await import('./messages.js')).default as unknown as Handler;
     blocks = (await import('./player/blocks.js')).default as unknown as Handler;
+    friends = (await import('./player/friends.js')).default as unknown as Handler;
     for (const [name, village] of [['alicechat', 'Frostfang'], ['bobchat', 'Frostfang'], ['carachat', 'Moonshadow']]) {
         await kv.set(`save:${name}`, { _saveVersion: 1, character: { name, village, level: 10 } });
     }
@@ -72,4 +74,26 @@ test('village membership and player blocks are enforced across chat and direct m
     const dm = response();
     await messages(request('bobchat', 'POST', { to: 'alicechat', text: 'bypass attempt' }), dm.res);
     assert.equal(dm.out.statusCode, 403);
+});
+
+test('explicit friends stay separate from the backwards-compatible following list', async () => {
+    const follow = response();
+    await friends(request('alicechat', 'POST', { playerName: 'alicechat', targetName: 'bobchat' }), follow.res);
+    assert.equal(follow.out.statusCode, 200);
+    assert.deepEqual((follow.out.body as { following: string[] }).following, ['bobchat']);
+
+    const addFriend = response();
+    await friends(request('alicechat', 'POST', { playerName: 'alicechat', targetName: 'carachat', list: 'friends' }), addFriend.res);
+    assert.equal(addFriend.out.statusCode, 200);
+    assert.deepEqual((addFriend.out.body as { friends: string[] }).friends, ['carachat']);
+
+    const read = response();
+    await friends(request('alicechat', 'GET', {}, { playerName: 'alicechat' }), read.res);
+    assert.equal(read.out.statusCode, 200);
+    assert.deepEqual(read.out.body, { following: ['bobchat'], friends: ['carachat'] });
+
+    const removeFriend = response();
+    await friends(request('alicechat', 'DELETE', { playerName: 'alicechat', targetName: 'carachat', list: 'friends' }), removeFriend.res);
+    assert.equal(removeFriend.out.statusCode, 200);
+    assert.deepEqual((removeFriend.out.body as { friends: string[] }).friends, []);
 });

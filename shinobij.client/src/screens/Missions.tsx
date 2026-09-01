@@ -39,6 +39,7 @@ import { queueCombatMissionClaim } from "../lib/mission-combat-claim";
 import { postFieldTrail, type FieldTrailResult } from "../lib/field-trail-api";
 import missionHallArt from "../assets/facilities/mission-hall.webp";
 import { sectorArtKey, sectorName, sectorRegionLabel } from "../../../shared/sector-geo";
+import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
 
 export function Missions({
     character,
@@ -397,23 +398,6 @@ export function Missions({
     // structure itself stands out in its target sector, never on the overview).
     const activeRift = character.activeRiftQuest ?? null;
 
-    function handleMissionTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
-        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-        const tabs = Array.from(
-            event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? [],
-        );
-        const currentIndex = tabs.indexOf(event.currentTarget);
-        if (currentIndex < 0 || tabs.length === 0) return;
-        event.preventDefault();
-        const nextIndex = event.key === "Home"
-            ? 0
-            : event.key === "End"
-                ? tabs.length - 1
-                : (currentIndex + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
-        tabs[nextIndex]?.focus();
-        tabs[nextIndex]?.click();
-    }
-
     return (
         <div className="card mission-hall">
             <BackToVillageButton onClick={onBack} label="← Back" />
@@ -488,28 +472,28 @@ export function Missions({
             {/* -- Tabs -- */}
             <div className="clan-tabs expanded-tabs" role="tablist" aria-label="Mission categories">
                 {hasProfession && (
-                    <button id="mission-tab-profession" type="button" role="tab" aria-controls="mission-tab-panel" aria-selected={activeMissionTab === "profession"} tabIndex={activeMissionTab === "profession" ? 0 : -1} data-tab="profession" className={activeMissionTab === "profession" ? "active" : ""} onKeyDown={handleMissionTabKeyDown} onClick={() => setActiveMissionTab("profession")}>
+                    <button id="mission-tab-profession" type="button" role="tab" aria-controls="mission-tab-panel" aria-selected={activeMissionTab === "profession"} tabIndex={activeMissionTab === "profession" ? 0 : -1} data-tab="profession" className={activeMissionTab === "profession" ? "active" : ""} onKeyDown={handleHorizontalTabKeyDown} onClick={() => setActiveMissionTab("profession")}>
                         <span className="mh-tab-index" aria-hidden="true">01</span>
                         <GameIcon className="mh-tab-icon" name="dumbbell" size={23} />
                         <span className="mh-tab-label">Profession</span>
                     </button>
                 )}
-                <button id="mission-tab-combat" type="button" role="tab" aria-controls="mission-tab-panel" aria-selected={activeMissionTab === "combat"} tabIndex={activeMissionTab === "combat" ? 0 : -1} data-tab="combat" className={activeMissionTab === "combat" ? "active" : ""} onKeyDown={handleMissionTabKeyDown} onClick={() => setActiveMissionTab("combat")}>
+                <button id="mission-tab-combat" type="button" role="tab" aria-controls="mission-tab-panel" aria-selected={activeMissionTab === "combat"} tabIndex={activeMissionTab === "combat" ? 0 : -1} data-tab="combat" className={activeMissionTab === "combat" ? "active" : ""} onKeyDown={handleHorizontalTabKeyDown} onClick={() => setActiveMissionTab("combat")}>
                     <span className="mh-tab-index" aria-hidden="true">{hasProfession ? "02" : "01"}</span>
                     <GameIcon className="mh-tab-icon" name="sword" size={23} />
                     <span className="mh-tab-label">Combat</span>
                 </button>
-                <button id="mission-tab-field" type="button" role="tab" aria-controls="mission-tab-panel" aria-selected={activeMissionTab === "field"} tabIndex={activeMissionTab === "field" ? 0 : -1} data-tab="field" className={activeMissionTab === "field" ? "active" : ""} onKeyDown={handleMissionTabKeyDown} onClick={() => setActiveMissionTab("field")}>
+                <button id="mission-tab-field" type="button" role="tab" aria-controls="mission-tab-panel" aria-selected={activeMissionTab === "field"} tabIndex={activeMissionTab === "field" ? 0 : -1} data-tab="field" className={activeMissionTab === "field" ? "active" : ""} onKeyDown={handleHorizontalTabKeyDown} onClick={() => setActiveMissionTab("field")}>
                     <span className="mh-tab-index" aria-hidden="true">{hasProfession ? "03" : "02"}</span>
                     <GameIcon className="mh-tab-icon" name="leaf" size={23} />
                     <span className="mh-tab-label">Field</span>
                 </button>
-                <button id="mission-tab-weekly" type="button" role="tab" aria-controls="mission-tab-panel" aria-selected={activeMissionTab === "weekly"} tabIndex={activeMissionTab === "weekly" ? 0 : -1} data-tab="weekly" className={activeMissionTab === "weekly" ? "active" : ""} onKeyDown={handleMissionTabKeyDown} onClick={() => setActiveMissionTab("weekly")}>
+                <button id="mission-tab-weekly" type="button" role="tab" aria-controls="mission-tab-panel" aria-selected={activeMissionTab === "weekly"} tabIndex={activeMissionTab === "weekly" ? 0 : -1} data-tab="weekly" className={activeMissionTab === "weekly" ? "active" : ""} onKeyDown={handleHorizontalTabKeyDown} onClick={() => setActiveMissionTab("weekly")}>
                     <span className="mh-tab-index" aria-hidden="true">{hasProfession ? "04" : "03"}</span>
                     <GameIcon className="mh-tab-icon" name="clock" size={23} />
                     <span className="mh-tab-label">Weekly</span>
                 </button>
-                <button id="mission-tab-wandering" type="button" role="tab" aria-controls="mission-tab-panel" aria-selected={activeMissionTab === "wandering"} tabIndex={activeMissionTab === "wandering" ? 0 : -1} data-tab="world" className={activeMissionTab === "wandering" ? "active" : ""} onKeyDown={handleMissionTabKeyDown} onClick={() => setActiveMissionTab("wandering")}>
+                <button id="mission-tab-wandering" type="button" role="tab" aria-controls="mission-tab-panel" aria-selected={activeMissionTab === "wandering"} tabIndex={activeMissionTab === "wandering" ? 0 : -1} data-tab="world" className={activeMissionTab === "wandering" ? "active" : ""} onKeyDown={handleHorizontalTabKeyDown} onClick={() => setActiveMissionTab("wandering")}>
                     <span className="mh-tab-index" aria-hidden="true">{hasProfession ? "05" : "04"}</span>
                     <GameIcon className="mh-tab-icon" name="map" size={23} />
                     <span className="mh-tab-label">World{(hasWanderingQuest || activeRift) && <span className="mh-tab-alert" aria-label="Active world mission">•</span>}</span>

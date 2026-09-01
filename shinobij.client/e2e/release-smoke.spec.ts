@@ -87,6 +87,8 @@ test('landing and creator journey render without runtime, image, or responsive f
 
     await startCreateButton(page).click();
     await expect(page.getByRole('heading', { name: 'Begin as a Shinobi' })).toBeVisible();
+    const creatorProgress = page.getByRole('list', { name: 'Character creation progress' });
+    await expect(creatorProgress.locator('[aria-current="step"]')).toHaveText('Gate');
     const chooseVillage = page.getByRole('button', { name: 'Choose Village' });
     const chooseVillageBox = await chooseVillage.boundingBox();
     const viewport = page.viewportSize();
@@ -95,6 +97,8 @@ test('landing and creator journey render without runtime, image, or responsive f
     expect(chooseVillageBox!.y + chooseVillageBox!.height, 'the first creator action must be visible without scrolling')
         .toBeLessThanOrEqual(viewport!.height + 1);
     await chooseVillage.click();
+    await expect(creatorProgress.locator('[aria-current="step"]')).toHaveText('Village');
+    await expect(creatorProgress.getByRole('listitem').filter({ hasText: 'Gate' })).toHaveClass(/is-complete/);
     await page.locator('.cc-village-card').first().click();
     await page.getByRole('button', { name: 'Choose Bloodline' }).click();
     await page.locator('.cc-bloodline-card').first().click();

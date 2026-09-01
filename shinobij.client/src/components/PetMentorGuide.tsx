@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { Modal } from "./ui/Modal";
@@ -29,6 +29,7 @@ type PetMentorGuideProps = {
     onProgress: (progress: PetTutorialProgress) => void;
     setScreen: (screen: Screen) => void;
     initialLessonId?: PetTutorialLessonId;
+    returnFocusRef?: RefObject<HTMLElement | null>;
 };
 
 function initialLesson(character: Character, requested?: PetTutorialLessonId): PetTutorialLesson {
@@ -88,6 +89,7 @@ export function PetMentorGuide({
     onProgress,
     setScreen,
     initialLessonId,
+    returnFocusRef,
 }: PetMentorGuideProps) {
     const [lessonId, setLessonId] = useState<PetTutorialLessonId>(() => initialLesson(character, initialLessonId).id);
     const [pageIndex, setPageIndex] = useState(0);
@@ -158,6 +160,7 @@ export function PetMentorGuide({
             ariaDescribedBy={descriptionId}
             backdropClassName="pet-mentor-backdrop"
             className="pet-mentor-modal"
+            returnFocusRef={returnFocusRef}
         >
             <div className="pet-mentor-guide">
                 <header className="pet-mentor-hero">

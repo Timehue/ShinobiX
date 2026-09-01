@@ -263,10 +263,14 @@ test("a stronger band reliably beats a weaker one", () => {
     assert.ok(wins >= SEEDS.length - 1, `the stronger band only won ${wins}/${SEEDS.length}`);
 });
 
-test("band legality: three elements to enter, four distinct pets to select", () => {
+test("band legality: composition is NOT policed, four distinct pets to select", () => {
+    // Owner ruling 2026-09-01: there is no element requirement. A mono-element
+    // band is a bad matchup the player may knowingly take, not an illegal one —
+    // the gate that used to block it protected players from the type chart
+    // working correctly. Guard the ABSENCE so it cannot be reintroduced.
     const mono = Array.from({ length: RITE_BAND_SIZE }, (_, i) => mk({ id: `m${i}`, element: "Fire" }));
-    assert.equal(isValidRiteBand(mono), false, "a single-element band cannot enter");
-    assert.match(riteBandProblem(mono) ?? "", /different elements/);
+    assert.equal(isValidRiteBand(mono), true, "a single-element band may enter — composition is the player's call");
+    assert.equal(riteBandProblem(mono), null, "a mono-element band must not be blocked or scolded");
     assert.equal(isValidRiteBand(band("ok")), true);
     assert.equal(riteBandProblem(band("ok")), null);
 

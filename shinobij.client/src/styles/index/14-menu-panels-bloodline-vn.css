@@ -1483,6 +1483,59 @@ textarea {
         margin-left: auto;
     }
 
+/* A roster entry has five distinct pieces of information. On phones, keeping
+   them in one wrapping flex line lets the role badge and contribution totals
+   compete for the same pixels. Give each piece a stable row instead. */
+@media (max-width: 620px) {
+    .clan-member-row-v2 {
+        display: grid;
+        grid-template-columns: 26px minmax(0, 1fr) auto;
+        grid-template-areas:
+            "position identity role"
+            ". contribution contribution"
+            ". actions actions";
+        gap: 8px 10px;
+        padding: 12px;
+    }
+
+    .clan-member-row-v2 .clan-member-pos {
+        grid-area: position;
+    }
+
+    .clan-member-row-v2 .clan-member-info {
+        grid-area: identity;
+        min-inline-size: 0;
+    }
+
+    .clan-member-row-v2 > .clan-rank-badge {
+        grid-area: role;
+        justify-self: end;
+    }
+
+    .clan-member-row-v2 .clan-contrib-col {
+        grid-area: contribution;
+        inline-size: 100%;
+        min-inline-size: 0;
+        flex-flow: row wrap;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 4px 12px;
+    }
+
+    .clan-member-row-v2 .clan-contrib-breakdown {
+        white-space: normal;
+        text-align: end;
+    }
+
+    .clan-member-row-v2 .clan-member-actions {
+        grid-area: actions;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        inline-size: 100%;
+        margin-inline-start: 0;
+    }
+}
+
 .clan-role-select {
     background: var(--slate-900);
     color: var(--slate-300);
