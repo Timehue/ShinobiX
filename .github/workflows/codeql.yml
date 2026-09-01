@@ -30,12 +30,30 @@ on:
     - cron: '31 5 * * 1'
 
 concurrency:
-  group: codeql-${{ github.ref }}
-  # PRs only. A cancelled analysis still uploads to code scanning, as an analysis
-  # with error "unsuccessful execution, exit code: 0" — which is what puts the
-  # "CodeQL is reporting errors" banner on the alerts page. On PRs that is an
-  # acceptable trade for not queueing a scan per push; on main it would mark the
-  # branch's own configuration as errored, so pushes to main run to completion.
+  # Per-COMMIT on push, per-branch on pull_request.
+  #
+  # `cancel-in-progress: false` protects a main scan that is already RUNNING, but
+  # it does not protect a QUEUED one: GitHub cancels the previously pending run in
+  # a concurrency group whenever a newer run joins it, whatever this flag says. A
+  # single `codeql-refs/heads/main` group therefore serialised every push, and
+  # since pushes to main land faster than the 20-80 min javascript-typescript
+  # analysis, scans sat in that queue and were evicted by the next push. Measured
+  # 2026-09-01: of five cancelled main runs, FOUR never started a single job
+  # (`/actions/runs/<id>/jobs` -> total_count 0) — they died queued.
+  #
+  # Every one of those uploads an analysis carrying
+  # `error: "unsuccessful execution, exit code: 0"` with rules=0/results=0, which
+  # both banners the alerts page and reads as a clean `results=0` scan when it is
+  # nothing of the kind. That produced 15 errored, empty analyses on main between
+  # 2026-08-02 and 2026-09-01 (deleted 2026-09-01).
+  #
+  # Keying the group on the SHA gives each pushed commit its own group, so main
+  # scans never queue behind one another and each runs to completion. The repo is
+  # public, so the extra concurrent runs cost no Actions minutes.
+  group: codeql-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  # PRs still collapse onto the branch head: superseding a PR scan uploads that
+  # same errored record, but on a PR ref that is an acceptable trade for not
+  # queueing a scan per push.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
