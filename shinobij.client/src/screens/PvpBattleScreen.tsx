@@ -974,11 +974,20 @@ export function PvpBattleScreen({
         // healthy mobile settle into a spurious "settlement failed". Re-arming
         // between stages keeps the liveness guarantee (nothing may hang longer
         // than PVP_REWARD_CLAIM_TIMEOUT_MS) without punishing progress.
-        const completionStartedAt = Date.now();
+        // The phase budget bounds a STALL, not total work: it restarts whenever a
+        // stage completes, because a completed stage is proof the settlement is
+        // progressing. Measured from the phase START it instead capped the whole
+        // completion at PVP_REWARD_COMPLETION_CEILING_MS, so an account whose
+        // callbacks are merely slow (a large save) aborted at the ceiling every
+        // time — and since the completion marker is only written after the LAST
+        // stage, each retry redid the same work and hit the same wall. That is a
+        // permanent trap, not a timeout. Liveness is unchanged: nothing may hang
+        // longer than PVP_REWARD_CLAIM_TIMEOUT_MS without progress.
+        let completionPhaseStartedAt = Date.now();
         const armDeadline = () => window.setTimeout(
             () => completionAbort.abort(),
             settlementDeadlineMs({
-                startedAt: completionStartedAt,
+                startedAt: completionPhaseStartedAt,
                 now: Date.now(),
                 perStageMs: PVP_REWARD_CLAIM_TIMEOUT_MS,
                 ceilingMs: PVP_REWARD_COMPLETION_CEILING_MS,
@@ -987,6 +996,7 @@ export function PvpBattleScreen({
         let completionTimeout = armDeadline();
         const renewDeadline = () => {
             if (completionAbort.signal.aborted) return;
+            completionPhaseStartedAt = Date.now();
             window.clearTimeout(completionTimeout);
             completionTimeout = armDeadline();
         };
@@ -1906,6 +1916,67 @@ export function PvpBattleScreen({
                     </div>
                 </div>
             )}
+            {done && (
+                <div className="battle-ended-overlay battle-ended-overlay--stage">
+                    <div className="card battle-ended-card">
+                        <h2 className={isDraw ? "" : amSpectator ? "" : iWon ? "battle-result-win" : session.fleedBy === role ? "battle-result-fled" : "battle-result-loss"}>
+                            {isDraw ? "Draw" : amSpectator ? "Battle Over" : iWon ? "Victory" : session.fleedBy === role ? "Escaped" : "💥 Defeated"}
+                        </h2>
+                        <p style={{ color: "var(--text-dim)", fontSize: "0.9rem", margin: "0.4rem 0 0.8rem" }}>
+                            {isDraw ? "The duel ended with equal honor."
+                                : amSpectator ? `${session.winner === "p1" ? session.p1.name : session.winner === "p2" ? session.p2.name : "Nobody"} wins the duel!`
+                                : iWon ? `${me.name} wins the duel!`
+                                : session.fleedBy === role ? `${me.name} fled the battle.`
+                                : `${opp.name} wins the duel.`}
+                        </p>
+                        {!amSpectator && pvpRewardClaimState === "claiming" && (
+                            <p role="status" style={{ color: "#fcd34d", fontSize: "0.82rem", margin: "0 0 0.8rem" }}>
+                                Verifying battle settlement with the server…
+                            </p>
+                        )}
+                        {!amSpectator && pvpRewardClaimState === "failed" && (
+                            <div role="alert" style={{ margin: "0 0 0.8rem", padding: "0.65rem", border: "1px solid #f97316", borderRadius: 8, background: "rgba(124,45,18,0.25)" }}>
+                                <p style={{ color: "#fed7aa", fontSize: "0.82rem", margin: "0 0 0.55rem" }}>
+                                    Battle settlement is still pending. {pvpRewardClaimError}
+                                </p>
+                                <p style={{ color: "#fed7aa", fontSize: "0.75rem", margin: "0 0 0.55rem", opacity: 0.85 }}>
+                                    Your result is already recorded on the server. You can retry now, or
+                                    leave — this settlement is picked up again next time you play.
+                                </p>
+                                <button type="button" onClick={() => { void claimResolvedPvpReward(); }}>
+                                    Retry Battle Settlement
+                                </button>
+                            </div>
+                        )}
+                        {!amSpectator && pvpRewardClaimState === "confirmed" && pvpRewardNotice && (
+                            <p style={{ color: "#ffd700", fontSize: "0.85rem", margin: "0 0 0.8rem" }}>
+                                {pvpRewardNotice}
+                            </p>
+                        )}
+                        <div className="menu">
+                            {/* Handoff to the DURABLE record. The live log above stays the
+                                low-latency source during the fight; this reads the server
+                                receipts once, on demand — we never poll them per move. */}
+                            {onViewBattleRecord && !amSpectator && (
+                                <button
+                                    onClick={() => onViewBattleRecord(session.battleId)}
+                                    disabled={pvpRewardClaimState !== "confirmed"}
+                                >View Full Battle Record</button>
+                            )}
+                            {/* Escape hatch. These stay disabled only while a claim is
+                                actually IN FLIGHT — never in the "failed" state. Both of
+                                the 2026-09-01 traps were deterministic server rejections,
+                                so a Retry button was the only exit and it could never
+                                succeed. Leaving is non-destructive: exitBattle() merely
+                                navigates, while the durable reward receipt and the
+                                account's pending-session pointer both survive and replay
+                                the claim on return. */}
+                            <button onClick={() => exitBattle("village")} disabled={!amSpectator && pvpRewardClaimState === "claiming"}>Return to Village</button>
+                            <button onClick={() => exitBattle("worldMap")} disabled={!amSpectator && pvpRewardClaimState === "claiming"}>World Map</button>
+                        </div>
+                    </div>
+                </div>
+            )}
             <CombatHudLayout className={battleChatVisible ? undefined : "combat-log-wide combat-chat-collapsed"}>
                 {/* In-grid player HUD — visible on non-xl, hidden on xl via CSS */}
                 <CombatSideHud
@@ -2219,55 +2290,7 @@ export function PvpBattleScreen({
                         role="region"
                         aria-label="Jutsu, weapons, and items"
                     >
-                        {done ? (
-                            <div className="battle-ended-overlay" style={{ position: "relative", inset: "unset", background: "none" }}>
-                                <div className="card battle-ended-card">
-                                    <h2 className={isDraw ? "" : amSpectator ? "" : iWon ? "battle-result-win" : session.fleedBy === role ? "battle-result-fled" : "battle-result-loss"}>
-                                        {isDraw ? "Draw" : amSpectator ? "Battle Over" : iWon ? "Victory" : session.fleedBy === role ? "Escaped" : "💥 Defeated"}
-                                    </h2>
-                                    <p style={{ color: "var(--text-dim)", fontSize: "0.9rem", margin: "0.4rem 0 0.8rem" }}>
-                                        {isDraw ? "The duel ended with equal honor."
-                                            : amSpectator ? `${session.winner === "p1" ? session.p1.name : session.winner === "p2" ? session.p2.name : "Nobody"} wins the duel!`
-                                            : iWon ? `${me.name} wins the duel!`
-                                            : session.fleedBy === role ? `${me.name} fled the battle.`
-                                            : `${opp.name} wins the duel.`}
-                                    </p>
-                                    {!amSpectator && pvpRewardClaimState === "claiming" && (
-                                        <p role="status" style={{ color: "#fcd34d", fontSize: "0.82rem", margin: "0 0 0.8rem" }}>
-                                            Verifying battle settlement with the server…
-                                        </p>
-                                    )}
-                                    {!amSpectator && pvpRewardClaimState === "failed" && (
-                                        <div role="alert" style={{ margin: "0 0 0.8rem", padding: "0.65rem", border: "1px solid #f97316", borderRadius: 8, background: "rgba(124,45,18,0.25)" }}>
-                                            <p style={{ color: "#fed7aa", fontSize: "0.82rem", margin: "0 0 0.55rem" }}>
-                                                Battle settlement is still pending. {pvpRewardClaimError}
-                                            </p>
-                                            <button type="button" onClick={() => { void claimResolvedPvpReward(); }}>
-                                                Retry Battle Settlement
-                                            </button>
-                                        </div>
-                                    )}
-                                    {!amSpectator && pvpRewardClaimState === "confirmed" && pvpRewardNotice && (
-                                        <p style={{ color: "#ffd700", fontSize: "0.85rem", margin: "0 0 0.8rem" }}>
-                                            {pvpRewardNotice}
-                                        </p>
-                                    )}
-                                    <div className="menu">
-                                        {/* Handoff to the DURABLE record. The live log above stays the
-                                            low-latency source during the fight; this reads the server
-                                            receipts once, on demand — we never poll them per move. */}
-                                        {onViewBattleRecord && !amSpectator && (
-                                            <button
-                                                onClick={() => onViewBattleRecord(session.battleId)}
-                                                disabled={pvpRewardClaimState !== "confirmed"}
-                                            >View Full Battle Record</button>
-                                        )}
-                                        <button onClick={() => exitBattle("village")} disabled={!amSpectator && pvpRewardClaimState !== "confirmed"}>Return to Village</button>
-                                        <button onClick={() => exitBattle("worldMap")} disabled={!amSpectator && pvpRewardClaimState !== "confirmed"}>World Map</button>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : amSpectator ? (
+                        {done ? null : amSpectator ? (
                             <p style={{ textAlign: "center", color: "#a78bfa", padding: "0.75rem", fontSize: "0.85em", margin: 0 }}>
                                 👁 Spectating — {session.activePlayer === "p1" ? session.p1.name : session.p2.name}'s turn (Round {session.round})
                             </p>
