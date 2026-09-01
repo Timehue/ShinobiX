@@ -261,6 +261,7 @@ import missionsRecordProgressHandler from './api/missions/record-progress.js';
 import pveFightOutcomeHandler from './api/pve/fight-outcome.js';
 import soloPveActionHandler from './api/solo-pve/action.js';
 import soloPveStateHandler from './api/solo-pve/state.js';
+import tebexWebhookHandler from './api/tebex/webhook.js';
 import { googleRedirectUriProblem }    from './api/_google-auth.js';
 import googleAuthStartHandler         from './api/auth/google/start.js';
 import googleAuthCallbackHandler      from './api/auth/google/callback.js';
@@ -532,13 +533,20 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
 const jsonBig = express.json({ limit: '50mb' });
 const jsonSave = express.json({ limit: '1mb' });
 const jsonDefault = express.json({ limit: '5mb' });
-// NOTE: there is currently no raw-body capture. The Patreon webhook was the one
-// route that needed it (HMAC-MD5 over the exact bytes) and it was removed with
-// the rest of that rail. A future billing webhook — Play's Real-time Developer
-// Notifications, say — that authenticates over raw bytes will need its own
-// scoped `express.json({ verify })` parser reinstated here, matched to that one
-// path so no other request pays for the capture.
+// The Tebex purchase webhook authenticates an HMAC over the EXACT raw bytes, so
+// this parser stashes the raw Buffer on req.rawBody. Express parses and discards
+// the original otherwise, and a re-stringified body does not reproduce it
+// byte-for-byte — Tebex's docs call out Express by name for this. The capture
+// runs ONLY for that one path; every other request skips it.
+const jsonWebhook = express.json({
+    limit: '512kb',
+    verify: (req, _res, buf) => { (req as unknown as { rawBody?: Buffer }).rawBody = buf; },
+});
+function isBillingWebhookPath(path: string): boolean {
+    return path === '/tebex/webhook' || path === '/api/tebex/webhook';
+}
 app.use((req: Request, res: Response, next: NextFunction) => {
+    if (isBillingWebhookPath(req.path)) return jsonWebhook(req, res, next);
     switch (classifyBodyLimit(req.path)) {
         case 'big':  return jsonBig(req, res, next);
         case 'save': return jsonSave(req, res, next);
@@ -1366,6 +1374,11 @@ route('/pve/fight-outcome', pveFightOutcomeHandler);
 // Durable solo-PvE sessions share these routes across every deployed server.
 route('/solo-pve/action', soloPveActionHandler);
 route('/solo-pve/state', soloPveStateHandler);
+// Tebex purchase webhook — the delivery mechanism for every shard package.
+// Tebex refuses to publish a package with no deliverable unless a VALIDATED
+// webhook endpoint exists, so this route has to be live before the storefront
+// can be finished. Reads req.rawBody (see the scoped parser above).
+route('/tebex/webhook', tebexWebhookHandler);
 // Sector Wanderers — server-authoritative gift (recompute + daily cap)
 route('/sector/wanderer-gift',      sectorWandererGiftHandler);
 route('/sector/wanderer-quest',     sectorWandererQuestHandler);

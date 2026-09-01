@@ -76,6 +76,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'worldAiChainHeals', 'worldAiContextWins', 'worldAiPendingChain', 'worldAiPendingOutcome',
     'serverHuntTrails', 'serverFieldMissionRuns', 'raidProgressionSettlements',
     'redeemedShopPurchases', 'redeemedShopSales', 'redeemedCrafts', 'redeemedNamedForges',
+    'redeemedTebexPurchases',
     'redeemedStoryBattles', 'redeemedPetEncounters', 'claimedCreatorEvents',
     'redeemedCardClashAiSessions', 'redeemedPetRankedMatchTokens', 'chroniclePetWitnesses',
     'chroniclePetArenaProgressReceipts', 'tournamentWinReceipts',
