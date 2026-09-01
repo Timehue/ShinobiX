@@ -261,6 +261,8 @@ import missionsRecordProgressHandler from './api/missions/record-progress.js';
 import pveFightOutcomeHandler from './api/pve/fight-outcome.js';
 import soloPveActionHandler from './api/solo-pve/action.js';
 import soloPveStateHandler from './api/solo-pve/state.js';
+import tebexBasketHandler from './api/tebex/basket.js';
+import tebexCatalogueHandler from './api/tebex/catalogue.js';
 import tebexWebhookHandler from './api/tebex/webhook.js';
 import { googleRedirectUriProblem }    from './api/_google-auth.js';
 import googleAuthStartHandler         from './api/auth/google/start.js';
@@ -1379,6 +1381,11 @@ route('/solo-pve/state', soloPveStateHandler);
 // webhook endpoint exists, so this route has to be live before the storefront
 // can be finished. Reads req.rawBody (see the scoped parser above).
 route('/tebex/webhook', tebexWebhookHandler);
+// Opens a checkout basket bound to the authenticated player. Grants nothing —
+// the webhook above is the only thing that credits shards.
+route('/tebex/basket', tebexBasketHandler);
+// Public price list, so the shop shows what Tebex will actually charge.
+route('/tebex/catalogue', tebexCatalogueHandler);
 // Sector Wanderers — server-authoritative gift (recompute + daily cap)
 route('/sector/wanderer-gift',      sectorWandererGiftHandler);
 route('/sector/wanderer-quest',     sectorWandererQuestHandler);

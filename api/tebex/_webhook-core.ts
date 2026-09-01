@@ -24,6 +24,7 @@
  */
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import { shardPackageForProvider, type ShardPackage } from '../../shared/shard-packages.js';
+import { readPlayerNameFromCustom } from './_basket-core.js';
 
 /** The only two addresses Tebex sends webhooks from (their docs, 2026-08). */
 export const TEBEX_WEBHOOK_IPS: readonly string[] = ['18.209.80.3', '54.87.231.232'];
@@ -118,6 +119,15 @@ export type PaymentOutcome =
         totalShards: number;
     };
 
+/**
+ * Read `username.id`, the identity field GAME stores populate.
+ *
+ * ⚠ Ours is a universal webstore, so this is empty in practice — Tebex never
+ * asks our buyers for a username. It is kept as a fallback rather than deleted
+ * because it costs nothing and would be the correct source if the store type
+ * ever changed. `readPlayerNameFromCustom` is the path that actually fires; see
+ * the long note at the top of _basket-core.ts for why.
+ */
 function readUsernameId(source: unknown): string {
     if (!source || typeof source !== 'object') return '';
     const username = (source as { username?: unknown }).username;
@@ -156,9 +166,11 @@ export function shardGrantsForPayment(
     const products = Array.isArray(subject.products) ? subject.products : [];
     if (products.length === 0) return { action: 'ignore', reason: 'no-products' };
 
-    // Identity comes from the ident we bound at basket creation, never from
-    // anything the buyer typed. Product-level wins over customer-level because
-    // that is where the basket ident lands.
+    // Identity comes from the `custom` blob our server attached at basket
+    // creation, never from anything the buyer typed — see _basket-core.ts.
+    // Product-level is checked before subject-level because that is the
+    // narrower scope, and the game-store `username` fields trail both as an
+    // inert fallback for a store type we do not currently run.
     let playerName = '';
     const lines: ShardGrantLine[] = [];
 
@@ -177,11 +189,13 @@ export function shardGrantsForPayment(
         if (!Number.isFinite(rawQuantity) || rawQuantity < 1) continue;
         const quantity = Math.min(rawQuantity, MAX_PACKAGE_QUANTITY);
 
-        playerName = playerName || readUsernameId(product);
+        playerName = playerName || readPlayerNameFromCustom(product.custom) || readUsernameId(product);
         lines.push({ packageId: pack.id, shards: pack.shards * quantity, quantity });
     }
 
-    playerName = playerName || readUsernameId(subject.customer);
+    playerName = playerName
+        || readPlayerNameFromCustom(subject.custom)
+        || readUsernameId(subject.customer);
     if (!playerName) return { action: 'ignore', reason: 'no-player-identity' };
     if (lines.length === 0) return { action: 'ignore', reason: 'no-known-packages' };
 
