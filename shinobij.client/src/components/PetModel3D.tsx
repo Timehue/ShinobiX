@@ -358,6 +358,14 @@ function prepareModel(
         if (!node.geometry.getAttribute("normal")) node.geometry.computeVertexNormals();
         node.castShadow = quality.modelShadows;
         node.receiveShadow = quality.modelShadows;
+        // A pet is ALWAYS the subject of its shot — every camera in the project
+        // frames the fighters deliberately — so the frustum test can never cull
+        // one, and it is pure cost. For a SkinnedMesh that cost is not the plane
+        // check: three.js has to derive the mesh's world bounds from the posed
+        // skeleton, which walks vertices through applyBoneTransform every frame.
+        // A call-tree profile of a 4v4 clash put that path at ~7% of samples,
+        // directly under `render` (so no useFrame throttle can reach it).
+        node.frustumCulled = false;
         const sourceMaterials = Array.isArray(node.material) ? node.material : [node.material];
         const cloned = sourceMaterials.map((sourceMaterial) => {
             // Approved roster reconstructions ship with authored smooth normals
