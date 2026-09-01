@@ -199,7 +199,7 @@ export const MobileNav = memo(function MobileNav({
                             <div className="mobile-menu-grid">
                                 <button className="mobile-menu-btn" aria-current={screen === "guides" ? "page" : undefined} onClick={() => go("guides")} onPointerDown={() => preloadScreen("guides")}><GiOpenBook size={20} />Guides</button>
                                 <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer"); setOpen(false); }}><GiChatBubble size={20} />Discord</button>
-                                <button className="mobile-menu-btn" aria-current={screen === "shop" ? "page" : undefined} onClick={() => go("shop")} onPointerDown={() => preloadScreen("shop")}><GiShop size={20} />Shop</button>
+                                <button className="mobile-menu-btn" aria-current={screen === "premiumShop" ? "page" : undefined} onClick={() => go("premiumShop")} onPointerDown={() => preloadScreen("premiumShop")}><GiShop size={20} />Premium Shop</button>
                             </div>
                         </section>
                         <section className="mobile-menu-section" aria-labelledby="mobile-menu-system">

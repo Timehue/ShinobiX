@@ -8,7 +8,7 @@ import {
     buildAddPackageBody,
     buildCreateBasketBody,
     parseCreatedBasket,
-    tebexPackageIdFor,
+    resolvePurchasable,
 } from './_basket-core.js';
 
 /*
@@ -71,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // An id we do not sell, or one with no Tebex product behind it yet, is
     // refused rather than substituted. Charging for a package the webhook cannot
     // map back to a shard amount would take money for nothing.
-    const resolved = tebexPackageIdFor(requestedId);
+    const resolved = resolvePurchasable(requestedId);
     if (!resolved) return res.status(400).json({ error: 'That package is not for sale.', packageId: requestedId });
 
     try {
@@ -93,16 +93,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(502).json({ error: 'Could not add that package. Please try again.' });
         }
 
-        console.log('[tebex] basket', basket.ident, playerName, resolved.pack.id);
+        console.log('[tebex] basket', basket.ident, playerName, requestedId, resolved.kind);
         return res.status(200).json({
             ok: true,
             ident: basket.ident,
             checkoutUrl: basket.checkoutUrl,
-            packageId: resolved.pack.id,
+            packageId: requestedId,
             // Echoed so the client can show what it is about to charge for
             // without re-deriving it. NOT authoritative for the grant — the
             // webhook reads the catalogue itself.
-            shards: resolved.pack.shards,
+            shards: resolved.shards,
         });
     } catch (error) {
         // Includes the AbortSignal timeout. Tebex being slow or down is not a

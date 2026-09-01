@@ -341,7 +341,7 @@ import { readFileSync } from "node:fs";
 // both surfaces, plus the Play-app-only hardware back stack. App keeps the hook
 // mount. Grouping them is deliberate — two independent writers to history is how
 // a back stack and a URL reflector start fighting.
-const MAX_LINES = 7_495;
+const MAX_LINES = 7_490;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

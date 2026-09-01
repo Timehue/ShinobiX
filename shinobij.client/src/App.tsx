@@ -1,4 +1,7 @@
 import { retireStalePetDuel } from "./lib/pet-duel-legacy-challenge";
+// Canonical seal balance lives in professionLogic; App.tsx held a byte-identical
+// copy of this rule, which is exactly how two versions of a reward table drift.
+import { levelGapSealMultiplier } from "./professionLogic";
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import type * as React from "react";
@@ -412,6 +415,7 @@ const Training = lazyWithRetry(() => import("./screens/Training").then(m => ({ d
 const JutsuTrainingHall = lazyWithRetry(() => import("./screens/Training").then(m => ({ default: m.JutsuTrainingHall })));
 const Shop = lazyWithRetry(() => import("./components/Shop").then(m => ({ default: m.Shop })));
 const GrandMarketplace = lazyWithRetry(() => import("./components/Shop").then(m => ({ default: m.GrandMarketplace })));
+const PremiumShop = lazyWithRetry(() => import("./screens/PremiumShop").then(m => ({ default: m.PremiumShop })));
 const RightMenu = lazyWithRetry(() => import("./components/RightMenu").then(m => ({ default: m.RightMenu })));
 const MobileNav = lazyWithRetry(() => import("./components/MobileNav").then(m => ({ default: m.MobileNav })));
 
@@ -796,16 +800,6 @@ export function vanguardXpForKill(opponent: Character | null | undefined): numbe
 function targetTooYoungForRewards(opponent: Character | null | undefined): boolean {
     if (!opponent?.createdAt) return false;
     return (Date.now() - opponent.createdAt) < ANTI_ALT_ACCOUNT_AGE_MS;
-}
-
-// Apply level-gap rule from docs/professions.md anti-abuse table:
-//   within 10 levels = full reward; 10-20 below = 50%; >20 below = 0.
-// "Below" is from the attacker's perspective.
-function levelGapSealMultiplier(attackerLevel: number, opponentLevel: number): number {
-    const gap = attackerLevel - opponentLevel;
-    if (gap > 20) return 0;
-    if (gap > 10) return 0.5;
-    return 1;
 }
 
 // Pet Tamer Phase 2 bonuses (client-side). Training speed % faster, expedition
@@ -3489,7 +3483,7 @@ export default function App() {
             let didOptimisticPaint = false;
             try {
                 const hubHash = (() => { try { return window.location.hash.replace(/^#\/?/, ""); } catch { return ""; } })();
-                const OPTIMISTIC_HUB_SCREENS = new Set<string>(["village", "profile", "inventory", "logbook", "training", "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "townHall", "bank", "shop", "grandMarketplace", "hospital", "cafeteria", "storyHall", "centralHub", "home", "pets", "hunting", "tavern", "hallOfLegends", "shinobiCouncil", "messages"]);
+                const OPTIMISTIC_HUB_SCREENS = new Set<string>(["village", "profile", "inventory", "logbook", "training", "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "townHall", "bank", "shop", "premiumShop", "grandMarketplace", "hospital", "cafeteria", "storyHall", "centralHub", "home", "pets", "hunting", "tavern", "hallOfLegends", "shinobiCouncil", "messages"]);
                 if (OPTIMISTIC_HUB_SCREENS.has(hubHash)) {
                     const preview = readSavePreview(localAccountName);
                     if (preview && preview.character) {
@@ -7041,6 +7035,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} creatorItems={creatorItems} setScreen={setScreen} sharedImages={sharedImages} onRecordBattle={recordBattle} towerHostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} />}
                 {!activeTriggeredEvent && screen === "bank" && character && <Bank character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "shop" && character && <Shop character={character} creatorItems={creatorItems} creatorCards={creatorCards} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
+                {!activeTriggeredEvent && screen === "premiumShop" && character && <PremiumShop character={character} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "grandMarketplace" && character && <GrandMarketplace character={character} creatorItems={creatorItems} creatorCards={creatorCards} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "shinobiTiles" && character && <CardHall character={character} updateCharacter={setCharacter} creatorCards={creatorCards} onBack={goBack} autoStart={cardAutoStart} onAutoStartConsumed={() => setCardAutoStart(false)} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} onStartFreePlay={(matchId) => { try { sessionStorage.setItem("cardClashFreePlay.v1", JSON.stringify({ matchId })); } catch { /* ignore */ } setScreen("cardClashFreePlay"); }} />}
                 {!activeTriggeredEvent && screen === "guides" && <GuidesLibrary onExit={goBack} />}

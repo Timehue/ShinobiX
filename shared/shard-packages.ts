@@ -122,6 +122,34 @@ export const PROVIDER_PACKAGE_IDS: ProviderPackageMap = {
     play: {},
 };
 
+/*
+ * ── Shinobi Supporter subscription ────────────────────────────────────────
+ *
+ * Not a shard pack — it grants the recurring perk flag rather than currency —
+ * but it lives here because this file is the one place that maps our concepts
+ * to provider product ids, and splitting that across two files is how a mapping
+ * ends up half-updated.
+ *
+ * The provider id is read from the environment rather than committed because,
+ * unlike the shard tiers, there is exactly one of them and it is the only
+ * thing standing between a created dashboard package and a working
+ * subscription. Unset means the rail is inert: recurring webhooks are
+ * acknowledged and ignored rather than entitling someone off an unverified
+ * product.
+ */
+/** The catalogue id the client names to buy the recurring supporter tier. */
+export const SUBSCRIPTION_ID = 'shinobi-supporter';
+
+/** Reference monthly price, for the same planning-only purpose as `usd` above. */
+export const SUBSCRIPTION_REFERENCE_USD = 15;
+
+/*
+ * The Tebex product id itself is read from the environment SERVER-SIDE (see
+ * api/tebex/_basket-core.ts). It is deliberately not here: this module is
+ * bundled into the browser, which has no `process`, and a storefront product id
+ * has no business shipping to the client anyway.
+ */
+
 /** Reverse lookup: a verified provider package id → our canonical package. */
 export function shardPackageForProvider(
     provider: keyof ProviderPackageMap,
