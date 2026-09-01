@@ -29,10 +29,12 @@ export const BannerMobileTimers = memo(function BannerMobileTimers({
     activeTraining,
     activeJutsuTraining,
     pets,
+    onOpenExpedition,
 }: {
     activeTraining: ActiveTraining | null;
     activeJutsuTraining: ActiveJutsuTraining | null;
     pets: Pet[];
+    onOpenExpedition?: (petId: string) => void;
 }) {
     useSharedNow(); // sync to global timer so desktop timers match mobile
 
@@ -81,19 +83,19 @@ export const BannerMobileTimers = memo(function BannerMobileTimers({
         }
         if (pet.expedition && now < pet.expedition.endsAt) {
             timerRows.push(
-                <div key={`pe-${pet.id}`} className="bmt-row">
+                <button type="button" key={`pe-${pet.id}`} className="bmt-row bmt-row-link" onClick={() => onOpenExpedition?.(pet.id)} disabled={!onOpenExpedition}>
                     <span className="bmt-icon">🗺️</span>
                     <span className="bmt-label">{petDisplayName(pet)} · Exp</span>
                     <span className="bmt-value">{formatPetTimer(pet.expedition.endsAt - now)}</span>
-                </div>,
+                </button>,
             );
         } else if (pet.expedition) {
             timerRows.push(
-                <div key={`pe-${pet.id}`} className="bmt-row">
+                <button type="button" key={`pe-${pet.id}`} className="bmt-row bmt-row-link" onClick={() => onOpenExpedition?.(pet.id)} disabled={!onOpenExpedition}>
                     <span className="bmt-icon">🎁</span>
                     <span className="bmt-label">{petDisplayName(pet)} · Exp</span>
                     <span className="bmt-value" style={{ color: "var(--green-400)" }}>Ready!</span>
-                </div>,
+                </button>,
             );
         }
     }

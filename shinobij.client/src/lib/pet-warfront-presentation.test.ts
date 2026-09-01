@@ -7,11 +7,25 @@ import {
     evaluateWarfrontPerformance,
     reconcileWarfrontMobSlots,
     shouldRenderWarfrontHoundRig,
+    warfrontActorPresentationPoint,
     warfrontMotionFilterSpeed,
     warfrontMvpId,
     warfrontPresentationBudget,
     warfrontPercentile,
+    warfrontWardenPresentationPoint,
 } from "./pet-warfront-presentation.ts";
+import type { WfSnapshot } from "./pet-warfront-sim.ts";
+
+function motionSnapshot(t: number, actorX: number, wardenX: number): WfSnapshot {
+    return {
+        t,
+        actors: [{ id: "blue-0", x: actorX, y: 4, state: "move" }],
+        wardens: {
+            blue: { team: "blue", active: true, x: wardenX, y: -3 },
+            red: { team: "red", active: false, x: 0, y: 0 },
+        },
+    } as unknown as WfSnapshot;
+}
 
 test("motion filter rejects tick-level reversals but follows sustained travel", () => {
     const jitter = createWarfrontMotionFilter();
@@ -34,6 +48,30 @@ test("motion filter rejects tick-level reversals but follows sustained travel", 
     }
     assert.ok(travel.x > 5.5, "sustained travel must not be mistaken for jitter");
     assert.ok(warfrontMotionFilterSpeed(travel) > 2);
+});
+
+test("fractional playback interpolates the entire Warfront field at display rate", () => {
+    const snapshots = [motionSnapshot(30, 10, 20), motionSnapshot(31, 12, 24)];
+    assert.deepEqual(
+        warfrontActorPresentationPoint(snapshots, "blue-0", 30.5, { x: 0, y: 0 }),
+        { x: 11, y: 4 },
+    );
+    assert.deepEqual(
+        warfrontWardenPresentationPoint(snapshots, "blue", 30.25, { x: 0, y: 0 }),
+        { x: 21, y: -3 },
+    );
+});
+
+test("fractional playback snaps authored teleports instead of streaking across lanes", () => {
+    const snapshots = [motionSnapshot(40, -12, -18), motionSnapshot(41, 12, 18)];
+    assert.deepEqual(
+        warfrontActorPresentationPoint(snapshots, "blue-0", 40.75, { x: 0, y: 0 }),
+        { x: -12, y: 4 },
+    );
+    assert.deepEqual(
+        warfrontActorPresentationPoint(snapshots, "blue-0", 41, { x: 0, y: 0 }),
+        { x: 12, y: 4 },
+    );
 });
 
 test("Warfront budgets reserve expensive cameras and the largest rig pool for High", () => {

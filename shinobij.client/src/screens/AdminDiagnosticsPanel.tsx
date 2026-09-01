@@ -11,6 +11,7 @@ import {
     type PublicCapabilities,
     type PublicCapabilitiesResponse,
 } from "../../../shared/public-capabilities";
+import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
 
 // ─── Admin Diagnostics Panel ──────────────────────────────────────────────────
 // Read-only operations/observability surface backing the reliability work:
@@ -49,6 +50,10 @@ type AuditEntry = {
 };
 type AuditDomain = "content" | "reward" | "sector" | "combat" | "legacy";
 type DiagnosticsSection = "capabilities" | "assets" | "receipts" | "audit" | "economy" | "beta" | "operations" | "index";
+
+const DIAGNOSTICS_SECTIONS: readonly DiagnosticsSection[] = [
+    "capabilities", "assets", "receipts", "audit", "economy", "beta", "operations", "index",
+];
 type RuntimeCapabilityRow = {
     modeId: string;
     label: string;
@@ -508,12 +513,30 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
                 Read-only operations tools — public capabilities, assets, battle receipts, audit log, economy, beta telemetry, and player index health.
             </p>
             <div className="admin-diagnostics-tabs" role="tablist" aria-label="Diagnostics sections">
-                {(["capabilities", "assets", "receipts", "audit", "economy", "beta", "operations", "index"] as const).map((s) => (
-                    <button key={s} type="button" role="tab" aria-selected={section === s} className={section === s ? "active" : ""} onClick={() => setSection(s)}>
+                {DIAGNOSTICS_SECTIONS.map((s) => (
+                    <button
+                        key={s}
+                        id={`admin-diagnostics-tab-${s}`}
+                        type="button"
+                        role="tab"
+                        aria-selected={section === s}
+                        aria-controls="admin-diagnostics-panel"
+                        tabIndex={section === s ? 0 : -1}
+                        className={section === s ? "active" : ""}
+                        onKeyDown={handleHorizontalTabKeyDown}
+                        onClick={() => setSection(s)}
+                    >
                         {s === "capabilities" ? "Capabilities" : s === "assets" ? "Assets" : s === "receipts" ? "Battle Receipts" : s === "audit" ? "Audit Log" : s === "economy" ? "Economy" : s === "beta" ? "Beta" : s === "operations" ? "Clan Boss" : "Player Index"}
                     </button>
                 ))}
             </div>
+
+            <div
+                id="admin-diagnostics-panel"
+                role="tabpanel"
+                aria-labelledby={`admin-diagnostics-tab-${section}`}
+                tabIndex={0}
+            >
 
             {section === "capabilities" && (
                 <div>
@@ -1028,6 +1051,7 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
                     )}
                 </div>
             )}
+            </div>
         </div>
     );
 }

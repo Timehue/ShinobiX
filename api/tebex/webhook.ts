@@ -1,12 +1,16 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { clientIp } from '../_client-ip.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { applyEntitlementToSave, SUBSCRIBER_TIER } from '../_subscription.js';
+import { tebexSubscriptionPackageId } from './_basket-core.js';
 import {
     isReversalWebhook,
+    isSubscriptionWebhook,
     isTebexSourceIp,
     isValidationWebhook,
     parseTebexWebhook,
     shardGrantsForPayment,
+    subscriptionOutcome,
     verifyTebexSignature,
 } from './_webhook-core.js';
 
@@ -45,16 +49,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // No CORS: this is server-to-server. A browser has no business here.
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
 
-    // 1. Source. Tebex publishes exactly two addresses and recommends 404 for
-    //    anything else — a 404 leaks less than a 403 about what lives here.
-    const ip = clientIp(req as Parameters<typeof clientIp>[0]);
-    if (!isTebexSourceIp(ip)) return res.status(404).end();
-
-    // 2. Signature over the raw bytes, fail-closed on an unset secret.
+    // 1. Signature over the raw bytes. THIS is the authentication: an HMAC we
+    //    recompute with a secret only Tebex has. It fails closed on an unset
+    //    secret, and a caller without the secret cannot produce a valid one.
+    //
+    //    It runs BEFORE the source-IP check on purpose, and that ordering was
+    //    a bug fix. The IP allowlist used to gate first and 404 anything that
+    //    did not match — but this origin sits behind Cloudflare AND Railway,
+    //    two proxies deep, so the address we attribute a request to depends on
+    //    CF-Connecting-IP and X-Forwarded-For resolving exactly right. When
+    //    that attribution slipped, a genuine, correctly-signed Tebex delivery
+    //    was refused with a bare 404 and no log line anywhere — the player had
+    //    already paid, and nothing recorded that we had thrown their purchase
+    //    away. A cryptographic signature does not care which proxy relayed it.
     const rawBody = (req as unknown as { rawBody?: Buffer }).rawBody;
     const rawText = typeof rawBody === 'string' ? rawBody : Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : '';
     if (!verifyTebexSignature(rawText, req.headers['x-signature'], TEBEX_WEBHOOK_SECRET())) {
-        return res.status(403).json({ error: 'Invalid signature.' });
+        // Log the two silent causes apart, because both look identical from
+        // Tebex's side and neither used to leave a trace: an unset secret in
+        // the environment, and a rawBody the parser never captured (which
+        // means server.ts stopped routing this path to the raw-body parser).
+        console.warn('[tebex] signature rejected',
+            JSON.stringify({
+                secretConfigured: Boolean(TEBEX_WEBHOOK_SECRET()),
+                rawBodyBytes: rawText.length,
+                signaturePresent: Boolean(req.headers['x-signature']),
+            }));
+        // 404 rather than 403: unsigned junk from the open internet learns
+        // nothing about what lives here, which is what Tebex's own guidance
+        // was reaching for with the IP allowlist.
+        return res.status(404).end();
+    }
+
+    // 2. Source IP — now a SIGNAL, not a gate. A request that got this far
+    //    already proved it holds the shared secret, so refusing it over a
+    //    proxy-attribution mismatch would only ever discard real money. Logged
+    //    so a genuine change in Tebex's published addresses is still visible.
+    const ip = clientIp(req as Parameters<typeof clientIp>[0]);
+    if (!isTebexSourceIp(ip)) {
+        console.warn('[tebex] signed webhook from unlisted source ip', JSON.stringify(ip));
     }
 
     let payload: unknown;
@@ -76,6 +109,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (isReversalWebhook(webhook)) {
         console.warn('[tebex] reversal', webhook.type, JSON.stringify(webhook.subject.transaction_id ?? ''));
         return res.status(200).json({ ok: true, action: 'logged' });
+    }
+
+    // 5. Shinobi Supporter. Recurring billing writes the perk flag rather than
+    //    currency, through applyEntitlementToSave — the single writer of
+    //    character.patreon, shared with the admin comp path. It is idempotent,
+    //    so Tebex re-delivering a renewal costs nothing.
+    if (isSubscriptionWebhook(webhook)) {
+        const decision = subscriptionOutcome(webhook, tebexSubscriptionPackageId());
+        if (decision.action === 'ignore') {
+            console.log('[tebex] subscription ignored', webhook.type, decision.reason);
+            return res.status(200).json({ ok: true, action: 'ignored', reason: decision.reason });
+        }
+        const applied = await applyEntitlementToSave(decision.playerName, decision.reference, {
+            active: decision.active,
+            tier: SUBSCRIBER_TIER,
+            entitledCents: decision.amountCents,
+        });
+        if (!applied) {
+            // No save yet — the account exists at Tebex but not in game. Asking
+            // for a retry is right: the player is paying, and the flag should
+            // land once they finish creating a character.
+            console.error('[tebex] subscription save missing', decision.playerName, decision.reference);
+            return res.status(500).json({ error: 'No save to entitle; will retry.' });
+        }
+        console.log('[tebex] subscription', webhook.type, decision.playerName, decision.active ? 'ACTIVE' : 'ended');
+        return res.status(200).json({ ok: true, action: 'entitled', active: decision.active });
     }
 
     const outcome = shardGrantsForPayment(webhook);

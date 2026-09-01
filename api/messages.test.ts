@@ -1,6 +1,13 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { threadKey, upsertInbox, type InboxEntry } from './messages.js';
+import {
+    messagesAfterDeletion,
+    removeInboxConversation,
+    threadKey,
+    upsertInbox,
+    type DmMessage,
+    type InboxEntry,
+} from './messages.js';
 
 describe('threadKey', () => {
     it('is order-independent (same key regardless of who sends)', () => {
@@ -45,5 +52,29 @@ describe('upsertInbox', () => {
     it('tolerates a non-array starting inbox', () => {
         const out = upsertInbox(undefined as unknown as InboxEntry[], { with: 'bob', lastTs: 1, lastText: 'hi', unread: 0 });
         assert.equal(out.length, 1);
+    });
+});
+
+describe('conversation deletion helpers', () => {
+    it('removes the deleted partner while preserving unrelated conversations', () => {
+        const inbox: InboxEntry[] = [
+            { with: 'bob', lastTs: 100, lastText: 'old', unread: 2 },
+            { with: 'carol', lastTs: 90, lastText: 'hello', unread: 0 },
+        ];
+        assert.deepEqual(removeInboxConversation(inbox, 'BOB', 100), [inbox[1]]);
+    });
+
+    it('keeps a message that arrived after the deletion cutoff', () => {
+        const fresh: InboxEntry = { with: 'bob', lastTs: 101, lastText: 'new', unread: 1 };
+        assert.deepEqual(removeInboxConversation([fresh], 'bob', 100), [fresh]);
+    });
+
+    it('hides prior thread history but shows messages after deletion', () => {
+        const messages: DmMessage[] = [
+            { from: 'alice', text: 'old', ts: 99 },
+            { from: 'bob', text: 'at cutoff', ts: 100 },
+            { from: 'alice', text: 'new', ts: 101 },
+        ];
+        assert.deepEqual(messagesAfterDeletion(messages, 100), [messages[2]]);
     });
 });

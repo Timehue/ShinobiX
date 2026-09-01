@@ -32,7 +32,6 @@ import { makeId } from "../lib/utils";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { Modal } from "./ui/Modal";
-import { FateShardSection } from "./FateShardSection";
 
 function shopArtworkIcon(item: GameItem): GameIconName {
     switch (normalizeEquipmentSlot(item.slot)) {
@@ -631,9 +630,8 @@ export function Shop({ character, creatorItems, creatorCards, onBack, onVersione
                 onBack={onBack}
                 onVersionedCharacter={onVersionedCharacter}
             />
-            {/* The nav's Shop button lands here, so this is where buying Fate
-                Shards lives — above the packs it pays for. */}
-            <FateShardSection character={character} onVersionedCharacter={onVersionedCharacter} />
+            {/* ⛔ Fate Shard PURCHASING does not belong here — this screen trades
+                in ryo. Real money lives on screens/PremiumShop.tsx. */}
             <CardPackSection character={character} currency="ryo" creatorCards={creatorCards} onVersionedCharacter={onVersionedCharacter} />
         </>
     );
