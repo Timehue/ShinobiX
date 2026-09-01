@@ -77,6 +77,7 @@ function json(route: Route, body: unknown, status = 200) {
 async function installAuthenticatedApi(page: Page, initialSave: SavePayload | null = null) {
     let save: SavePayload | null = initialSave ? structuredClone(initialSave) : null;
     let saveVersion = save ? 1 : 0;
+    let saveReadCount = 0;
     let acknowledgedVersion = 0;
     let lastCommit: SaveFixtureCommit | null = null;
     let battleHistoryFailure = false;
@@ -102,6 +103,7 @@ async function installAuthenticatedApi(page: Page, initialSave: SavePayload | nu
             : null;
         if (requestedSavePlayer?.startsWith("adaptiveninja")) {
             if (request.method() === "GET") {
+                saveReadCount += 1;
                 if (!save) return json(route, { error: "Not found" }, 404);
                 return json(route, { ...save, _saveVersion: saveVersion });
             }
@@ -222,6 +224,7 @@ async function installAuthenticatedApi(page: Page, initialSave: SavePayload | nu
         });
     });
     return {
+        saveReadCount: () => saveReadCount,
         committedVersion: () => saveVersion,
         acknowledgedVersion: () => acknowledgedVersion,
         lastCommit: () => lastCommit,
@@ -276,6 +279,15 @@ async function expectCommittedSave(page: Page, api: AuthenticatedApiFixture) {
         timeout: 20_000,
         message: "the exact-version save fixture must persist and acknowledge the posted state",
     }).toBe(true);
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("complementary", { name: "Device and server saves diverged" })).toHaveCount(0);
+}
+
+async function expectLoadedSave(page: Page, api: AuthenticatedApiFixture) {
+    await expect.poll(api.saveReadCount, {
+        timeout: 20_000,
+        message: "the persisted adaptive save must be read before the screen is certified",
+    }).toBeGreaterThan(0);
     await page.waitForLoadState("networkidle");
     await expect(page.getByRole("complementary", { name: "Device and server saves diverged" })).toHaveCount(0);
 }
@@ -449,7 +461,7 @@ async function bootPersistedAdaptiveScreen(page: Page, api: AuthenticatedApiFixt
     await installPersistedAdaptiveSession(page);
     await page.goto(`/#/${screen}`, { waitUntil: "networkidle" });
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", screen);
-    await expectCommittedSave(page, api);
+    await expectLoadedSave(page, api);
 }
 
 const boundaryMatrix = [
@@ -564,7 +576,7 @@ test("mobile storage notice clears fixed navigation and remains dismissible", as
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/#/centralHub", { waitUntil: "networkidle" });
     await expect(page.getByRole("heading", { name: /Central/ })).toBeVisible();
-    await expectCommittedSave(page, api);
+    await expectLoadedSave(page, api);
 
     const notice = page.getByRole("region", { name: "Data storage notice" });
     const mobileNav = page.locator(".mobile-bottom-nav");

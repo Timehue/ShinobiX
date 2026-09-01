@@ -21,7 +21,9 @@ import { petModelVariantSurface } from "../lib/pet-visual-variant";
 import {
     advanceWarfrontMotionFilter,
     createWarfrontMotionFilter,
+    warfrontActorPresentationPoint,
     warfrontMotionFilterSpeed,
+    warfrontWardenPresentationPoint,
 } from "../lib/pet-warfront-presentation";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
 import type { PetVisualQualityConfig } from "../lib/pet-visual-quality";
@@ -208,7 +210,7 @@ function Tower3D({ tower }: { tower: WfSnapshot["towers"][Team]["n"] }) {
                 former 2.4-unit offset left the Azure labels underneath that
                 HUD on desktop, clipping the lane name despite a healthy tower. */}
             <Html position={[team === "blue" ? 4.6 : -4.6, 4.62, 0]} center pointerEvents="none" zIndexRange={[14, 0]}>
-                <div className={`wf3-worldplate wf3-worldplate--tower is-${team}${tower.fractured ? " is-fractured" : ""}${tower.exposedSecs > 0 ? " is-exposed" : ""}${tower.guardSecs > 0 ? " is-guarded" : ""}${tower.alive ? "" : " is-destroyed"}`}>
+                <div className={`wf3-worldplate wf3-worldplate--tower is-${team} is-lane-${tower.lane}${tower.fractured ? " is-fractured" : ""}${tower.exposedSecs > 0 ? " is-exposed" : ""}${tower.guardSecs > 0 ? " is-guarded" : ""}${tower.alive ? "" : " is-destroyed"}`}>
                     <span>{WF_LANE_LABEL[tower.lane]} WARD{tower.exposedSecs > 0 ? " · EXPOSED" : tower.guardSecs > 0 ? " · LAST WARD" : ""}</span>
                     <i><b style={{ width: `${Math.max(0, hp * 100)}%` }} /></i>
                 </div>
@@ -226,10 +228,12 @@ function PetFallback({ height, color }: { height: number; color: string }) {
     );
 }
 
-function Fighter3D({ actor, slot, displayTick }: {
+function Fighter3D({ actor, slot, displayTick, playbackTickRef, snapshots }: {
     actor: WfSnapshot["actors"][number];
     slot: ArenaSlot | undefined;
     displayTick: number;
+    playbackTickRef: MutableRefObject<number>;
+    snapshots: readonly WfSnapshot[];
 }) {
     const pet = slot?.pet;
     const config = useMemo(() => pet ? petCombatModel(pet) : null, [pet]);
@@ -243,7 +247,6 @@ function Fighter3D({ actor, slot, displayTick }: {
     const scale = config ? Math.min(1.18, 2.7 / Math.max(0.1, config.targetHeight)) : 1;
     const renderedHeight = config ? config.targetHeight * scale : 1.7;
     const trackOffset = LANE_PRESENTATION_TRACKS[team][actor.slot] ?? 0;
-    const targetZ = actor.y + trackOffset;
     const hp = actor.hp / Math.max(1, actor.maxHp);
     const down = actor.state === "respawning";
 
@@ -251,9 +254,16 @@ function Fighter3D({ actor, slot, displayTick }: {
         const group = root.current;
         if (!group) return;
         const filter = renderMotion.current;
+        const target = warfrontActorPresentationPoint(
+            snapshots,
+            actor.id,
+            playbackTickRef.current,
+            { x: actor.x, y: actor.y },
+        );
+        const targetZ = target.y + trackOffset;
         const rewound = displayTick < lastTick.current;
-        const teleport = filter.initialized && Math.hypot(filter.x - actor.x, filter.z - targetZ) > 7;
-        advanceWarfrontMotionFilter(filter, actor.x, targetZ, delta, rewound || teleport || down);
+        const teleport = filter.initialized && Math.hypot(filter.x - target.x, filter.z - targetZ) > 7;
+        advanceWarfrontMotionFilter(filter, target.x, targetZ, delta, rewound || teleport || down);
         group.position.x = filter.x;
         group.position.z = filter.z;
         const speed = warfrontMotionFilterSpeed(filter);
@@ -281,7 +291,7 @@ function Fighter3D({ actor, slot, displayTick }: {
     });
 
     return (
-        <group ref={root} position={[actor.x, 0, targetZ]}>
+        <group ref={root} position={[actor.x, 0, actor.y + trackOffset]}>
             <group ref={body}>
                 {config && pet ? (
                     <Suspense fallback={<PetFallback height={renderedHeight} color={TEAM_COLOR[team]} />}>
@@ -302,7 +312,7 @@ function Fighter3D({ actor, slot, displayTick }: {
                 <meshBasicMaterial color={TEAM_COLOR[team]} transparent opacity={down ? 0.1 : 0.26} depthWrite={false} />
             </mesh>
             <Html position={[0, renderedHeight + 0.92, 0]} center pointerEvents="none" zIndexRange={[16, 0]}>
-                <div className={`wf3-worldplate wf3-worldplate--fighter is-${team} is-slot-${actor.slot}${down ? " is-down" : ""}`}>
+                <div className={`wf3-worldplate wf3-worldplate--fighter is-${team} is-lane-${actor.lane} is-slot-${actor.slot}${down ? " is-down" : ""}`}>
                     <div><small>{ROLE_LABEL[actor.role] ?? actor.role}</small><strong>{pet?.name ?? actor.id}</strong></div>
                     <i><b style={{ width: `${Math.max(0, hp * 100)}%` }} /></i>
                     <i className={`wf3-worldplate__ultimate${actor.ultimateReady ? " is-ready" : ""}`}><b style={{ width: `${actor.ultimateCharge}%` }} /></i>
@@ -362,7 +372,13 @@ function findRecentWardenEvent(events: readonly WfEvent[], displayTick: number, 
     return undefined;
 }
 
-function Warden3D({ warden, events, displayTick }: { warden: WfWardenSnap; events: readonly WfEvent[]; displayTick: number }) {
+function Warden3D({ warden, events, displayTick, playbackTickRef, snapshots }: {
+    warden: WfWardenSnap;
+    events: readonly WfEvent[];
+    displayTick: number;
+    playbackTickRef: MutableRefObject<number>;
+    snapshots: readonly WfSnapshot[];
+}) {
     const root = useRef<THREE.Group>(null);
     const renderMotion = useRef(createWarfrontMotionFilter());
     const lastTick = useRef(displayTick);
@@ -380,9 +396,15 @@ function Warden3D({ warden, events, displayTick }: { warden: WfWardenSnap; event
     useFrame((_state, delta) => {
         if (!root.current) return;
         const filter = renderMotion.current;
+        const target = warfrontWardenPresentationPoint(
+            snapshots,
+            warden.team,
+            playbackTickRef.current,
+            { x: warden.x, y: warden.y },
+        );
         const rewound = displayTick < lastTick.current;
-        const teleport = filter.initialized && Math.hypot(filter.x - warden.x, filter.z - warden.y) > 7;
-        advanceWarfrontMotionFilter(filter, warden.x, warden.y, delta, rewound || teleport);
+        const teleport = filter.initialized && Math.hypot(filter.x - target.x, filter.z - target.y) > 7;
+        advanceWarfrontMotionFilter(filter, target.x, target.y, delta, rewound || teleport);
         root.current.position.x = filter.x;
         root.current.position.z = filter.z;
         lastTick.current = displayTick;
@@ -399,7 +421,7 @@ function Warden3D({ warden, events, displayTick }: { warden: WfWardenSnap; event
             </mesh>
             <pointLight color={TEAM_COLOR[warden.team]} intensity={2.4} distance={8} decay={2} position={[0, 2, 0]} />
             <Html position={[0, 4.28, 0]} center pointerEvents="none" zIndexRange={[18, 0]}>
-                <div className={`wf3-worldplate wf3-worldplate--warden is-${warden.team}`}>
+                <div className={`wf3-worldplate wf3-worldplate--warden is-${warden.team} is-lane-${warden.lane}`}>
                     <span>{warden.aspect} WARDEN · {Math.ceil(warden.secs)}s</span>
                     <i><b style={{ width: `${Math.max(0, hp * 100)}%` }} /></i>
                 </div>
@@ -556,10 +578,15 @@ function EventPulse({ event, snapshot, displayTick, quality }: { event: WfEvent;
 function WarfrontEventLayer({ events, snapshot, displayTick, quality }: { events: readonly WfEvent[]; snapshot: WfSnapshot; displayTick: number; quality: PetVisualQualityConfig }) {
     const oldestVisibleTick = displayTick - WARFRONT_TPS * 1.2;
     const visible: Array<{ event: WfEvent; sourceIndex: number }> = [];
+    let minorCount = 0;
+    const minorLimit = quality.id === "high" ? 9 : 5;
     for (let sourceIndex = events.length - 1; sourceIndex >= 0; sourceIndex -= 1) {
         const event = events[sourceIndex];
         if (event.t > displayTick) continue;
         if (event.t < oldestVisibleTick) break;
+        const major = event.type === "towerfractured" || event.type === "towerdown" || event.type === "wardenslam" || event.type === "wardensummon"
+            || event.type === "ultimate" || event.type === "hazard" || event.type === "lastward" || event.type === "riftrally";
+        if (!major && minorCount++ >= minorLimit) continue;
         visible.push({ event, sourceIndex });
     }
     return visible.map(({ event, sourceIndex }) => (
@@ -589,7 +616,7 @@ function SetDressing({ quality }: { quality: PetVisualQualityConfig }) {
     );
 }
 
-function WarfrontScene({ snapshot, blue, red, quality, displayTick, events, theme, onSceneReady }: PetWarfrontStage3DProps & { onSceneReady: () => void }) {
+function WarfrontScene({ snapshot, snapshots, playbackTickRef, blue, red, quality, displayTick, events, theme, onSceneReady }: PetWarfrontStage3DProps & { onSceneReady: () => void }) {
     const themeSpec = WF_THEMES[theme];
     return (
         <>
@@ -615,10 +642,10 @@ function WarfrontScene({ snapshot, blue, red, quality, displayTick, events, them
                 <Tower3D key={`red-${lane}`} tower={snapshot.towers.red[lane]} />,
             ])}
             {snapshot.actors.map((actor) => (
-                <Fighter3D key={actor.id} actor={actor} slot={(actor.team === "blue" ? blue : red)[actor.slot]} displayTick={displayTick} />
+                <Fighter3D key={actor.id} actor={actor} slot={(actor.team === "blue" ? blue : red)[actor.slot]} displayTick={displayTick} playbackTickRef={playbackTickRef} snapshots={snapshots} />
             ))}
-            <Warden3D warden={snapshot.wardens.blue} events={events} displayTick={displayTick} />
-            <Warden3D warden={snapshot.wardens.red} events={events} displayTick={displayTick} />
+            <Warden3D warden={snapshot.wardens.blue} events={events} displayTick={displayTick} playbackTickRef={playbackTickRef} snapshots={snapshots} />
+            <Warden3D warden={snapshot.wardens.red} events={events} displayTick={displayTick} playbackTickRef={playbackTickRef} snapshots={snapshots} />
             <WarfrontEventLayer events={events} snapshot={snapshot} displayTick={displayTick} quality={quality} />
             {quality.id !== "low" ? <Sparkles count={quality.id === "high" ? 54 : 28} scale={[62, 4, 34]} size={1.2} speed={0.18} color={themeSpec.breachGlow} opacity={0.24} position={[0, 2.3, 0]} /> : null}
             {quality.id === "high" ? <EffectComposer><Bloom luminanceThreshold={0.78} luminanceSmoothing={0.2} intensity={0.42} mipmapBlur /></EffectComposer> : null}
@@ -628,6 +655,8 @@ function WarfrontScene({ snapshot, blue, red, quality, displayTick, events, them
 
 export type PetWarfrontStage3DProps = {
     snapshot: WfSnapshot;
+    snapshots: readonly WfSnapshot[];
+    playbackTickRef: MutableRefObject<number>;
     blue: ArenaSlot[];
     red: ArenaSlot[];
     quality: PetVisualQualityConfig;

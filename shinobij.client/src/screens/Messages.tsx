@@ -8,13 +8,14 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import { EmptyState } from "../components/ui/EmptyState";
-import { GiChatBubble } from "../components/icons/LightweightGameIcons";
+import { GiChatBubble, GiTrashCan } from "../components/icons/LightweightGameIcons";
 import courierHero from "../assets/facilities/messages-courier-hero.webp";
 import { ReportControl } from "../components/ReportControl";
 import type { Character } from "../types/character";
 import { refreshUnreadMail } from "../lib/mail-unread";
 import { GuestSocialLock } from "../components/GuestSocialLock";
 import { useSocialLock } from "../lib/account-status";
+import { gameConfirm } from "../components/GameAlert";
 
 type DmMessage = { from: string; text: string; ts: number };
 type InboxEntry = { with: string; lastTs: number; lastText: string; unread: number };
@@ -39,6 +40,7 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
     const [draft, setDraft] = useState("");
     const [composeTo, setComposeTo] = useState(initialWith ?? "");
     const [busy, setBusy] = useState(false);
+    const [deleting, setDeleting] = useState<string | null>(null);
     const [error, setError] = useState("");
     const [blocked, setBlocked] = useState<Set<string>>(() => new Set());
     // Guests can still READ the mail they were sent — only sending is shut, so
@@ -127,6 +129,34 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
         }
     }, [busy, loadInbox]);
 
+    const deleteConversation = useCallback(async (target: string) => {
+        const partner = target.toLowerCase();
+        if (busy || deleting) return;
+        const confirmed = await gameConfirm(
+            `Delete your conversation with ${target}? This clears it from your inbox and hides its message history for you.`,
+            { title: "Delete conversation", confirmLabel: "Delete", danger: true },
+        );
+        if (!confirmed) return;
+
+        setDeleting(partner);
+        setError("");
+        try {
+            const r = await fetch(`/api/messages?with=${encodeURIComponent(partner)}`, { method: "DELETE" });
+            const data = await r.json().catch(() => ({})) as { error?: string };
+            if (!r.ok) throw new Error(data.error || "Could not delete this conversation.");
+            setInbox((current) => current.filter((entry) => entry.with.toLowerCase() !== partner));
+            if (active?.toLowerCase() === partner) {
+                setActive(null);
+                setThread([]);
+            }
+            refreshUnreadMail();
+        } catch (cause) {
+            setError(cause instanceof Error ? cause.message : "Could not delete this conversation.");
+        } finally {
+            setDeleting(null);
+        }
+    }, [active, busy, deleting]);
+
     return (
         <div className="card" style={{ maxWidth: 720, margin: "0 auto", padding: 0, overflow: "hidden" }}>
             <div style={{ position: "relative" }}>
@@ -202,13 +232,25 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                         ) : (
                             <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
                                 {inbox.map((e) => (
-                                    <button key={e.with} onClick={() => { setActive(e.with); setError(""); }} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left", padding: "6px 10px", background: e.unread > 0 ? "var(--slate-800)" : "transparent", border: "1px solid var(--slate-700)", borderRadius: 8 }}>
-                                        <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                                            <strong style={{ color: "#e5e7eb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{e.with}{e.unread > 0 ? ` (${e.unread})` : ""}</strong>
-                                            <small style={{ color: "var(--text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 360 }}>{e.lastText}</small>
-                                        </span>
-                                        <small style={{ color: "var(--text-muted)", flexShrink: 0, marginLeft: 8 }}>{timeAgo(e.lastTs)}</small>
-                                    </button>
+                                    <div key={e.with} style={{ display: "flex", alignItems: "stretch", gap: 6, minWidth: 0 }}>
+                                        <button onClick={() => { setActive(e.with); setError(""); }} style={{ display: "flex", flex: 1, minWidth: 0, justifyContent: "space-between", alignItems: "center", textAlign: "left", padding: "6px 10px", background: e.unread > 0 ? "var(--slate-800)" : "transparent", border: "1px solid var(--slate-700)", borderRadius: 8 }}>
+                                            <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                                                <strong style={{ color: "#e5e7eb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{e.with}{e.unread > 0 ? ` (${e.unread})` : ""}</strong>
+                                                <small style={{ color: "var(--text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 360 }}>{e.lastText}</small>
+                                            </span>
+                                            <small style={{ color: "var(--text-muted)", flexShrink: 0, marginLeft: 8 }}>{timeAgo(e.lastTs)}</small>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            aria-label={`Delete conversation with ${e.with}`}
+                                            title={`Delete conversation with ${e.with}`}
+                                            disabled={busy || deleting !== null}
+                                            onClick={() => void deleteConversation(e.with)}
+                                            style={{ width: 42, flex: "0 0 42px", display: "grid", placeItems: "center", padding: 0, color: "#fca5a5", border: "1px solid rgba(248, 113, 113, .45)", borderRadius: 8, background: "rgba(127, 29, 29, .14)" }}
+                                        >
+                                            <GiTrashCan size={17} aria-hidden="true" />
+                                        </button>
+                                    </div>
                                 ))}
                             </div>
                         )}

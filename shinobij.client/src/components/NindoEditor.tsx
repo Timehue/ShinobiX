@@ -8,7 +8,7 @@
  * uses; the server (api/save) caps length + moderates the visible text and
  * allowlists the background id.
  */
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { renderNindo } from "../lib/nindo-bbcode";
 import { NINDO_BACKGROUNDS, nindoBgStyle } from "../lib/nindo-backgrounds";
 
@@ -34,6 +34,15 @@ export function NindoEditor({ value, onSave }: { value: NindoValue; onSave: (v: 
     const [bg, setBg] = useState(value.nindoBg ?? "");
     const [dirty, setDirty] = useState(false);
     const ref = useRef<HTMLTextAreaElement>(null);
+
+    // Autosave may reconcile this character with a newer server snapshot while
+    // Profile stays mounted. Adopt that authoritative value once there is no
+    // unsaved local edit, but never overwrite a draft the player is typing.
+    useEffect(() => {
+        if (dirty) return;
+        setDraft(value.nindo ?? "");
+        setBg(value.nindoBg ?? "");
+    }, [dirty, value.nindo, value.nindoBg]);
 
     function applyDraft(next: string, caret: number) {
         setDraft(next.slice(0, NINDO_MAX));
@@ -68,7 +77,8 @@ export function NindoEditor({ value, onSave }: { value: NindoValue; onSave: (v: 
     }
     function clear() {
         setDraft("");
-        onSave({ nindo: "", nindoBg: bg });
+        setBg("");
+        onSave({ nindo: "", nindoBg: "" });
         setDirty(false);
     }
 
@@ -112,11 +122,13 @@ export function NindoEditor({ value, onSave }: { value: NindoValue; onSave: (v: 
                     <button
                         key={b.id || "none"}
                         type="button"
+                        className="nindo-bg-option"
                         title={b.label}
                         aria-label={b.label}
+                        aria-pressed={bg === b.id}
                         onClick={() => pickBg(b.id)}
                         style={{
-                            width: 58, height: 34, borderRadius: 8, cursor: "pointer",
+                            borderRadius: 8, cursor: "pointer",
                             background: b.background || "transparent",
                             backgroundSize: "cover", backgroundPosition: "center",
                             border: bg === b.id ? "2px solid var(--gold)" : "1px solid rgba(255,255,255,.25)",
@@ -140,9 +152,9 @@ export function NindoEditor({ value, onSave }: { value: NindoValue; onSave: (v: 
                 style={{ width: "100%", resize: "vertical", fontFamily: "inherit", fontSize: "0.95rem", lineHeight: 1.5 }}
             />
 
-            <div className="nindo-editor-foot" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "0.5rem 0" }}>
-                <span className="hint">{draft.length}/{NINDO_MAX}</span>
-                <div style={{ display: "flex", gap: 8 }}>
+            <div className="nindo-editor-foot">
+                <span className="hint nindo-editor-count">{draft.length}/{NINDO_MAX}</span>
+                <div className="nindo-editor-actions">
                     {(draft.trim() || bg) && <button type="button" className="danger-button" onClick={clear}>Clear</button>}
                     <button type="button" className="profile-title-btn" disabled={!dirty} onClick={save}>
                         {dirty ? "Save Nindo" : "Saved"}

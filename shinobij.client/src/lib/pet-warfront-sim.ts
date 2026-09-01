@@ -22,12 +22,15 @@ import {
 } from "./pet-warfront-map";
 
 export const WARFRONT_TPS = 30;
-export const WF_ROUND_SECONDS = 120;
-export const WF_MAX_SECONDS = 600;
-export const WF_PHASE_SKIRMISH = 120;
-export const WF_PHASE_WAR = 240;
-export const WF_PHASE_SUDDEN = 480;
+export const WF_ROUND_SECONDS = 60;
+export const WF_QUICK_ORDER_SECONDS = 30;
+export const WF_MAX_SECONDS = 420;
+export const WF_PHASE_SKIRMISH = 60;
+export const WF_PHASE_WAR = 180;
+export const WF_PHASE_SUDDEN = 300;
 const COMMAND_TICKS = WARFRONT_TPS * WF_ROUND_SECONDS;
+const QUICK_ORDER_TICKS = WARFRONT_TPS * WF_QUICK_ORDER_SECONDS;
+const QUICK_ORDER_DURATION_TICKS = WARFRONT_TPS * 24;
 const MAX_TICKS = WARFRONT_TPS * WF_MAX_SECONDS;
 const RIFTFALL_TICKS = WARFRONT_TPS * WF_PHASE_SUDDEN;
 
@@ -58,7 +61,7 @@ export const WF_ULTIMATE_FAVOR_COST = 30;
 const TRANSFER_EXPOSURE_TICKS = WARFRONT_TPS * 8;
 const LAST_WARD_TICKS = WARFRONT_TPS * 12;
 const RIFT_RALLY_TICKS = WARFRONT_TPS * 30;
-const HAZARD_INTERVAL_TICKS = WARFRONT_TPS * 75;
+const HAZARD_INTERVAL_TICKS = WARFRONT_TPS * 60;
 
 export type WfStance = "balanced" | "siege" | "jungle" | "headhunt" | "turtle";
 export type WfDoctrine = "none" | "vanguard" | "bulwark" | "zealot" | "warden-pact";
@@ -244,7 +247,8 @@ interface WfWarden {
     targetId: string | null;
 }
 
-export type WfCommandReason = "scheduled" | "breakthrough" | "omen";
+export type WfCommandReason = "scheduled" | "quick" | "breakthrough" | "omen";
+export type WfQuickOrder = "focus" | "guard" | "hunt" | "regroup";
 export interface WfCommandState {
     sequence: number;
     t: number;
@@ -258,7 +262,8 @@ export interface WfCommandState {
 export type WarfrontChoice =
     | { type: "move"; petIndex: number; lane: WfLaneId }
     | { type: "summon"; lane: WfLaneId; aspect: WfWardenAspect }
-    | { type: "ultimate"; petIndex: number };
+    | { type: "ultimate"; petIndex: number }
+    | { type: "quick"; order: WfQuickOrder };
 
 export interface WarfrontCommandEntry {
     t: number;
@@ -270,6 +275,7 @@ export interface WarfrontCommandEntry {
     ultimateName?: string;
     favorSpent?: number;
     exposedLane?: WfLaneId;
+    quickOrder?: WfQuickOrder;
 }
 
 export interface WarfrontCommandPlan {
@@ -343,6 +349,7 @@ export interface WfSnapshot {
     mutator: WfMutator;
     hazard: WfHazard;
     rallySecs: Record<Team, number>;
+    quickOrders: Record<Team, { order: WfQuickOrder | null; secs: number }>;
     command: WfCommandState | null;
     riftfall: boolean;
 }
@@ -361,6 +368,7 @@ export type WfEvent =
     | { t: number; type: "commandwindow"; reason: WfCommandReason; sequence: number; lane?: WfLaneId }
     | { t: number; type: "commandresolved"; sequence: number; reason: WfCommandReason; blue: WarfrontCommandEntry; red: WarfrontCommandEntry }
     | { t: number; type: "commandimpact"; impact: WfCommandImpact }
+    | { t: number; type: "quickorder"; team: Team; order: WfQuickOrder; secs: number }
     | { t: number; type: "redeploy"; team: Team; petId: string; from: WfLaneId; lane: WfLaneId }
     | { t: number; type: "sealexposed"; team: Team; lane: WfLaneId; secs: number }
     | { t: number; type: "favorready"; team: Team }
@@ -389,6 +397,7 @@ export interface WfCommandImpact {
     ultimateName?: string;
     favorSpent?: number;
     exposedLane?: WfLaneId;
+    quickOrder?: WfQuickOrder;
     towerDamageDealt: number;
     towerDamageTaken: number;
     towersBroken: number;
@@ -435,6 +444,7 @@ interface WfState {
     mutator: WfMutator;
     theme: WfTheme;
     rallyUntil: Record<Team, number>;
+    quickOrders: Record<Team, { order: WfQuickOrder | null; until: number }>;
     lastWardUsed: Record<Team, boolean>;
     hazardSequence: number;
     shatteredWindowUsed: boolean;
@@ -454,6 +464,10 @@ function validLane(value: unknown): value is WfLaneId {
 
 function validWardenAspect(value: unknown): value is WfWardenAspect {
     return value === "breaker" || value === "sentinel" || value === "harrier";
+}
+
+function validQuickOrder(value: unknown): value is WfQuickOrder {
+    return value === "focus" || value === "guard" || value === "hunt" || value === "regroup";
 }
 
 function validTheme(value: unknown): value is WfTheme {
@@ -481,7 +495,7 @@ export function parseWarfrontCommandPlan(value: unknown): WarfrontCommandPlan | 
     if (!Array.isArray(rawInitialLanes) || rawInitialLanes.length !== 4 || !rawInitialLanes.every(validLane)) return null;
     if (!WF_LANE_IDS.every((lane) => rawInitialLanes.includes(lane))) return null;
     const blue = normalizeWarfrontLanes(rawInitialLanes, 4);
-    if (!Array.isArray(record.commands) || record.commands.length > 12) return null;
+    if (!Array.isArray(record.commands) || record.commands.length > 24) return null;
     const commands: WarfrontCommandEntry[] = [];
     for (const raw of record.commands) {
         if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
@@ -489,7 +503,7 @@ export function parseWarfrontCommandPlan(value: unknown): WarfrontCommandPlan | 
         const t = Number(command.t);
         const reason = command.reason;
         if (!Number.isSafeInteger(t) || t <= 0 || t > MAX_TICKS
-            || (reason !== "scheduled" && reason !== "breakthrough" && reason !== "omen")) return null;
+            || (reason !== "scheduled" && reason !== "quick" && reason !== "breakthrough" && reason !== "omen")) return null;
         if (!Array.isArray(command.moves) || command.moves.length > 4) return null;
         const moves: WarfrontCommandEntry["moves"] = [];
         for (const rawMove of command.moves) {
@@ -507,6 +521,7 @@ export function parseWarfrontCommandPlan(value: unknown): WarfrontCommandPlan | 
             || Number(command.ultimatePetIndex) < 0
             || Number(command.ultimatePetIndex) >= 4
         )) return null;
+        if (command.quickOrder !== undefined && !validQuickOrder(command.quickOrder)) return null;
         commands.push({
             t,
             reason,
@@ -514,6 +529,7 @@ export function parseWarfrontCommandPlan(value: unknown): WarfrontCommandPlan | 
             ...(validLane(command.summonLane) ? { summonLane: command.summonLane } : {}),
             ...(validWardenAspect(command.summonAspect) ? { summonAspect: command.summonAspect } : {}),
             ...(command.ultimatePetIndex !== undefined ? { ultimatePetIndex: Number(command.ultimatePetIndex) } : {}),
+            ...(validQuickOrder(command.quickOrder) ? { quickOrder: command.quickOrder } : {}),
         });
     }
     return { initialLanes: { blue, red: normalizeWarfrontLanes(undefined, 4) }, commands };
@@ -619,6 +635,10 @@ function initState(
         mutator,
         theme,
         rallyUntil: { blue: 0, red: 0 },
+        quickOrders: {
+            blue: { order: null, until: 0 },
+            red: { order: null, until: 0 },
+        },
         lastWardUsed: { blue: false, red: false },
         hazardSequence: 0,
         shatteredWindowUsed: false,
@@ -673,6 +693,7 @@ function finalizeCommandImpacts(state: WfState) {
                 : {}),
             ...(pending.entry.favorSpent ? { favorSpent: pending.entry.favorSpent } : {}),
             ...(pending.entry.exposedLane ? { exposedLane: pending.entry.exposedLane } : {}),
+            ...(pending.entry.quickOrder ? { quickOrder: pending.entry.quickOrder } : {}),
             towerDamageDealt: Math.max(0, Math.round(state.towerDamage[team] - pending.towerDamage[team])),
             towerDamageTaken: Math.max(0, Math.round(state.towerDamage[foe] - pending.towerDamage[foe])),
             towersBroken: Math.max(0, score[team] - pending.score[team]),
@@ -760,6 +781,16 @@ function snapshot(state: WfState): WfSnapshot {
             blue: Math.max(0, state.rallyUntil.blue - state.t) / WARFRONT_TPS,
             red: Math.max(0, state.rallyUntil.red - state.t) / WARFRONT_TPS,
         },
+        quickOrders: {
+            blue: {
+                order: state.t < state.quickOrders.blue.until ? state.quickOrders.blue.order : null,
+                secs: Math.max(0, state.quickOrders.blue.until - state.t) / WARFRONT_TPS,
+            },
+            red: {
+                order: state.t < state.quickOrders.red.until ? state.quickOrders.red.order : null,
+                secs: Math.max(0, state.quickOrders.red.until - state.t) / WARFRONT_TPS,
+            },
+        },
         command: state.pendingCommand ? {
             ...state.pendingCommand,
             activeLanes: [...state.pendingCommand.activeLanes],
@@ -829,11 +860,14 @@ function petDamage(state: WfState, target: WfPet, raw: number, actorId: string, 
 function stancePetDamage(state: WfState, team: Team): number {
     const stance = state.stance[team];
     const rally = state.t < state.rallyUntil[team] ? 1.12 : 1;
-    if (stance === "headhunt") return 1.1 * rally;
-    if (stance === "siege") return 0.94 * rally;
-    if (stance === "jungle") return 0.96 * rally;
-    if (stance === "turtle") return 0.9 * rally;
-    return rally;
+    const riftfall = state.t >= RIFTFALL_TICKS ? 1.45 : 1;
+    const order = state.t < state.quickOrders[team].until ? state.quickOrders[team].order : null;
+    const orderRate = order === "hunt" ? 1.15 : order === "focus" ? 0.93 : order === "guard" ? 0.94 : 1;
+    if (stance === "headhunt") return 1.1 * rally * riftfall * orderRate;
+    if (stance === "siege") return 0.94 * rally * riftfall * orderRate;
+    if (stance === "jungle") return 0.96 * rally * riftfall * orderRate;
+    if (stance === "turtle") return 0.9 * rally * riftfall * orderRate;
+    return rally * riftfall * orderRate;
 }
 function stanceTowerDamage(state: WfState, team: Team): number {
     if (state.stance[team] === "siege") return 1.14;
@@ -917,9 +951,11 @@ function damageTower(state: WfState, tower: WfTower, raw: number, actorId: strin
     if (!tower.alive || !laneActive(state, tower.lane)) return;
     let damage = raw * stanceTowerDamage(state, by);
     if (state.t < RIFTFALL_TICKS) damage *= 1 - TOWER_REDUCTION;
-    else damage *= 1.3;
+    else damage *= 1.3 + clamp((state.t - RIFTFALL_TICKS) / (WARFRONT_TPS * 120), 0, 0.9);
     if (state.t < RIFTFALL_TICKS && state.mutator === "fortified-seals") damage *= 0.9;
     if (state.stance[tower.team] === "turtle") damage *= 0.88;
+    if (state.t < state.quickOrders[by].until && state.quickOrders[by].order === "focus") damage *= 1.18;
+    if (state.t < state.quickOrders[tower.team].until && state.quickOrders[tower.team].order === "guard") damage *= 0.82;
     if (tower.guardLeft > 0) damage *= 0.65;
     if (tower.exposedLeft > 0) damage *= 1.18;
     damage = quant(Math.max(1, damage));
@@ -1265,6 +1301,20 @@ function openScheduledWindow(state: WfState) {
     state.events.push({ t: state.t, type: "commandwindow", reason: "scheduled", sequence: state.commandSequence });
 }
 
+function openQuickOrderWindow(state: WfState) {
+    finalizeCommandImpacts(state);
+    state.commandSequence++;
+    state.pendingCommand = {
+        sequence: state.commandSequence,
+        t: state.t,
+        reason: "quick",
+        activeLanes: activeLanes(state),
+        freedPetSlots: { blue: [], red: [] },
+        maxMoves: 0,
+    };
+    state.events.push({ t: state.t, type: "commandwindow", reason: "quick", sequence: state.commandSequence });
+}
+
 function timeoutWinner(state: WfState): Team | "draw" {
     const score = stateScore(state);
     if (score.blue !== score.red) return score.blue > score.red ? "blue" : "red";
@@ -1332,6 +1382,16 @@ function tick(state: WfState, snapshotEvery: number) {
     if (state.t === RIFTFALL_TICKS) {
         state.events.push({ t: state.t, type: "riftfall" });
         state.events.push({ t: state.t, type: "phase", name: "RIFTFALL" });
+        // Riftfall is real sudden death, not merely a HUD label: every surviving
+        // contested ward loses its outer shell so a concentrated final push can
+        // end a close match before the hard verdict.
+        for (const lane of activeLanes(state)) {
+            for (const team of ["blue", "red"] as const) {
+                const tower = state.towers[team][lane];
+                tower.hp = quant(Math.min(tower.hp, TOWER_HP * 0.5));
+                tower.fractured = true;
+            }
+        }
         const team = trailingTeam(state);
         if (team) {
             state.rallyUntil[team] = state.t + RIFT_RALLY_TICKS;
@@ -1356,8 +1416,11 @@ function tick(state: WfState, snapshotEvery: number) {
             updateTower(state, state.towers.red[lane]);
         }
     }
-    const commandTicks = state.omen === "storm-gate" ? WARFRONT_TPS * 90 : COMMAND_TICKS;
-    if (state.winner === null && !state.pendingCommand && state.t < MAX_TICKS && state.t % commandTicks === 0) openScheduledWindow(state);
+    const commandTicks = state.omen === "storm-gate" ? WARFRONT_TPS * 45 : COMMAND_TICKS;
+    if (state.winner === null && !state.pendingCommand && state.t < MAX_TICKS) {
+        if (state.t % commandTicks === 0) openScheduledWindow(state);
+        else if (state.t % QUICK_ORDER_TICKS === 0) openQuickOrderWindow(state);
+    }
     if (state.t >= MAX_TICKS && state.winner === null) {
         state.winner = timeoutWinner(state);
         finalizeCommandImpacts(state);
@@ -1380,6 +1443,14 @@ function desiredLane(state: WfState, team: Team, lanes: readonly WfLaneId[]): Wf
 
 function autoChoices(state: WfState, team: Team, command: WfCommandState): WarfrontChoice[] {
     const choices: WarfrontChoice[] = [];
+    if (command.reason === "quick") {
+        const foe = other(team);
+        const danger = command.activeLanes.some((lane) => state.towers[team][lane].hp < TOWER_HP * 0.42);
+        const finish = command.activeLanes.some((lane) => state.towers[foe][lane].hp < TOWER_HP * 0.42);
+        const wounded = state.pets.filter((pet) => pet.team === team && pet.respawnLeft <= 0).reduce((sum, pet) => sum + pet.hp / pet.maxHp, 0) < 2.35;
+        choices.push({ type: "quick", order: danger ? "guard" : finish ? "focus" : wounded ? "regroup" : "hunt" });
+        return choices;
+    }
     if (command.reason === "breakthrough") {
         for (const slot of command.freedPetSlots[team]) choices.push({ type: "move", petIndex: slot, lane: desiredLane(state, team, command.activeLanes) });
     } else {
@@ -1412,6 +1483,7 @@ function parseChoices(values: readonly WarfrontChoice[] | undefined): WarfrontCh
         else if (value.type === "summon" && validLane(value.lane) && validWardenAspect(value.aspect)) {
             parsed.push({ type: "summon", lane: value.lane, aspect: value.aspect });
         } else if (value.type === "ultimate" && Number.isSafeInteger(value.petIndex) && value.petIndex >= 0 && value.petIndex < 4) parsed.push({ type: "ultimate", petIndex: value.petIndex });
+        else if (value.type === "quick" && validQuickOrder(value.order)) parsed.push({ type: "quick", order: value.order });
     }
     return parsed;
 }
@@ -1422,6 +1494,7 @@ function applyTeamCommand(state: WfState, team: Team, command: WfCommandState, r
     const moves = provided.filter((choice): choice is Extract<WarfrontChoice, { type: "move" }> => choice.type === "move");
     const summon = provided.find((choice): choice is Extract<WarfrontChoice, { type: "summon" }> => choice.type === "summon");
     const ultimate = provided.find((choice): choice is Extract<WarfrontChoice, { type: "ultimate" }> => choice.type === "ultimate");
+    const quick = provided.find((choice): choice is Extract<WarfrontChoice, { type: "quick" }> => choice.type === "quick");
     const fallbackMoves = fallback.filter((choice): choice is Extract<WarfrontChoice, { type: "move" }> => choice.type === "move");
     const allowedSlots = command.reason === "breakthrough" ? new Set(command.freedPetSlots[team]) : null;
     const used = new Set<number>();
@@ -1429,7 +1502,7 @@ function applyTeamCommand(state: WfState, team: Team, command: WfCommandState, r
     let exposedLane: WfLaneId | undefined;
     // `undefined` means an unattended/AI window and may use the deterministic
     // fallback. An explicit empty or invalid array is the player's Hold command.
-    const candidates = raw === undefined ? fallbackMoves : moves;
+    const candidates = command.reason === "quick" ? [] : raw === undefined ? fallbackMoves : moves;
     for (const move of candidates) {
         if (appliedMoves.length >= command.maxMoves || used.has(move.petIndex) || !command.activeLanes.includes(move.lane)) continue;
         if (allowedSlots && !allowedSlots.has(move.petIndex)) continue;
@@ -1466,10 +1539,10 @@ function applyTeamCommand(state: WfState, team: Team, command: WfCommandState, r
             state.events.push({ t: state.t, type: "redeploy", team, petId: pet.id, from, lane });
         }
     }
-    const summonChoice = summon ?? (raw === undefined
+    const summonChoice = command.reason === "quick" ? undefined : summon ?? (raw === undefined
         ? fallback.find((choice): choice is Extract<WarfrontChoice, { type: "summon" }> => choice.type === "summon")
         : undefined);
-    const ultimateChoice = ultimate ?? (raw === undefined
+    const ultimateChoice = command.reason === "quick" ? undefined : ultimate ?? (raw === undefined
         ? fallback.find((choice): choice is Extract<WarfrontChoice, { type: "ultimate" }> => choice.type === "ultimate")
         : undefined);
     let summonLane: WfLaneId | undefined;
@@ -1477,6 +1550,26 @@ function applyTeamCommand(state: WfState, team: Team, command: WfCommandState, r
     let ultimatePetIndex: number | undefined;
     let ultimateName: string | undefined;
     let favorSpent = 0;
+    let quickOrder: WfQuickOrder | undefined;
+    if (command.reason === "quick") {
+        const fallbackQuick = fallback.find((choice): choice is Extract<WarfrontChoice, { type: "quick" }> => choice.type === "quick");
+        const selected = quick ?? (raw === undefined ? fallbackQuick : undefined);
+        if (selected) {
+            quickOrder = selected.order;
+            state.quickOrders[team] = { order: selected.order, until: state.t + QUICK_ORDER_DURATION_TICKS };
+            if (selected.order === "regroup") {
+                for (const pet of state.pets) {
+                    if (pet.team !== team || pet.respawnLeft > 0 || pet.hp <= 0) continue;
+                    const amount = quant(Math.min(pet.maxHp - pet.hp, pet.maxHp * 0.1));
+                    if (amount <= 0) continue;
+                    pet.hp = quant(pet.hp + amount);
+                    pet.healing += amount;
+                    state.events.push({ t: state.t, type: "heal", targetId: pet.id, actorId: `order-${team}-regroup`, amount: Math.round(amount) });
+                }
+            }
+            state.events.push({ t: state.t, type: "quickorder", team, order: selected.order, secs: QUICK_ORDER_DURATION_TICKS / WARFRONT_TPS });
+        }
+    }
     if (ultimateChoice && state.favor[team] >= WF_ULTIMATE_FAVOR_COST) {
         const pet = state.pets.find((candidate) => candidate.team === team && candidate.slot === ultimateChoice.petIndex);
         if (pet && pet.ultimateCharge >= 100 && pet.respawnLeft <= 0 && command.activeLanes.includes(pet.lane)) {
@@ -1519,6 +1612,7 @@ function applyTeamCommand(state: WfState, team: Team, command: WfCommandState, r
         ...(ultimatePetIndex !== undefined ? { ultimatePetIndex, ultimateName } : {}),
         ...(favorSpent > 0 ? { favorSpent } : {}),
         ...(exposedLane ? { exposedLane } : {}),
+        ...(quickOrder ? { quickOrder } : {}),
     };
 }
 
@@ -1699,6 +1793,9 @@ export function runWarfrontMatch(
                         : []),
                     ...(command.ultimatePetIndex !== undefined
                         ? [{ type: "ultimate" as const, petIndex: command.ultimatePetIndex }]
+                        : []),
+                    ...(command.quickOrder
+                        ? [{ type: "quick" as const, order: command.quickOrder }]
                         : []),
                 ];
             }

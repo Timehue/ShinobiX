@@ -20,6 +20,8 @@ uniform sampler2D tDiffuse;
 uniform vec2 resolution;
 uniform vec2 offset;
 uniform float strength;
+uniform float glowThreshold;
+uniform float glowIntensity;
 varying vec2 vUv;
 
 float luma(vec3 c) {
@@ -28,7 +30,7 @@ float luma(vec3 c) {
 
 vec3 glow(vec2 p) {
     vec3 c = texture2D(tDiffuse, p).rgb;
-    return c * smoothstep(0.52, 1.0, max(c.r, max(c.g, c.b)));
+    return c * smoothstep(glowThreshold, 1.0, max(c.r, max(c.g, c.b)));
 }
 
 void main() {
@@ -41,7 +43,7 @@ void main() {
         color = sum / 7.0;
     }
     vec2 step = px * 3.25;
-    color.rgb += 0.2125 * (
+    color.rgb += glowIntensity * (
         glow(vUv + vec2(step.x, 0.0)) + glow(vUv - vec2(step.x, 0.0)) +
         glow(vUv + vec2(0.0, step.y)) + glow(vUv - vec2(0.0, step.y))
     );
@@ -73,6 +75,8 @@ export const SHOWDOWN_POST_SHADER = {
         resolution: { value: new Vector2(1, 1) },
         offset: { value: new Vector2(0.0003, 0.0002) },
         strength: { value: 0 },
+        glowThreshold: { value: 0.88 },
+        glowIntensity: { value: 0.12 },
     },
     vertexShader: SHOWDOWN_POST_VERTEX,
     fragmentShader: SHOWDOWN_POST_FRAGMENT,

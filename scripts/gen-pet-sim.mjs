@@ -40,7 +40,8 @@ let petTypes = read("types/pet.ts")
         'export type JutsuElement = "Earth" | "Wind" | "Lightning" | "Fire" | "Water" | "None";')
     .replace(/import type \{ PetRole, PetSubRole \} from "\.\.\/lib\/pet-roles";/,
         'export type PetRole = "defender" | "tracker" | "assassin" | "sage";\n' +
-        'export type PetSubRole = "tank" | "bruiser" | "striker" | "assassin" | "kite" | "control" | "support";');
+        'export type PetSubRole = "tank" | "bruiser" | "striker" | "assassin" | "kite" | "control" | "support";')
+    .replace(/from "\.\.\/\.\.\/\.\.\/shared\/pet-expedition-contract"/g, 'from "../../shared/pet-expedition-contract.js"');
 write("pet-types.ts", "types/pet.ts", petTypes);
 
 // 2. constants/game.ts → _game-consts.ts (only the 5 ids pet-config imports).
@@ -56,7 +57,8 @@ write("_game-consts.ts", "constants/game.ts (subset)", consts + "\n");
 // 3. data/pet-config.ts → pet-config.ts (redirect its 2 imports).
 let petConfig = read("data/pet-config.ts")
     .replace(/from "\.\.\/types\/pet"/g, 'from "./pet-types.js"')
-    .replace(/import \{[\s\S]*?\} from "\.\.\/constants\/game";/,
+    .replace(/from "\.\.\/\.\.\/\.\.\/shared\/pet-expedition-contract"/g, 'from "../../shared/pet-expedition-contract.js"')
+    .replace(/import \{\s*TERRITORY_CONTROL_SCROLL_ID,[\s\S]*?\} from "\.\.\/constants\/game";/,
         'import {\n    TERRITORY_CONTROL_SCROLL_ID, DUNGEON_KEY_ID, LEGENDARY_WAR_CRATE_ID,\n    WARFORGED_RELIC_ID, DUNGEON_LEGENDARY_RELIC_ID,\n} from "./_game-consts.js";');
 write("pet-config.ts", "data/pet-config.ts", petConfig);
 
@@ -136,7 +138,7 @@ const doctrine = read("lib/pet-duel-doctrine.ts")
 write("pet-duel-doctrine.ts", "lib/pet-duel-doctrine.ts", doctrine);
 
 // Sanity: no client-only import paths may survive into the server copy.
-const STRAY = ['../types/pet', '../data/pet-config', './pet-coliseum-flag', '../constants/game', '"./core"', '../lib/pet-roles', './pet-arena-walkmask"', './pet-duel-sim"', './pet-arena-sim', './pet-warfront-map"', './pet-warfront-mask-baked"', '../types/core'];
+const STRAY = ['../types/pet', '../data/pet-config', './pet-coliseum-flag', '../constants/game', '../../../shared/pet-expedition-contract', '"./core"', '../lib/pet-roles', './pet-arena-walkmask"', './pet-duel-sim"', './pet-arena-sim', './pet-warfront-map"', './pet-warfront-mask-baked"', '../types/core'];
 for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts", "pet-warfront-mask-baked.ts", "pet-warfront-map.ts", "pet-warfront-sim.ts", "pet-roles.ts", "pet-bond-meter.ts", "pet-duel-doctrine.ts"]) {
     const body = readFileSync(join(OUT, name), "utf8");
     for (const s of STRAY) if (body.includes(s)) throw new Error(`gen-pet-sim: stray client import "${s}" left in ${name} — a rewrite rule missed it`);

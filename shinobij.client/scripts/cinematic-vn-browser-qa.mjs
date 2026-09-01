@@ -125,6 +125,26 @@ async function openPreview({
             rootClass: document.querySelector(".cvn-root")?.className ?? "",
             background: document.querySelector(".cvn-root")?.style.getPropertyValue("--cvn-background") ?? "",
             dialogueText: document.querySelector(".cvn-dialogue-text")?.textContent?.trim() ?? "",
+            dialogueBox: (() => {
+                const element = document.querySelector(".cvn-dialogue-shell");
+                if (!element) return null;
+                const rect = element.getBoundingClientRect();
+                return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+            })(),
+            floatingSceneVisible: (() => {
+                const element = document.querySelector(".cvn-scene-caption");
+                return element ? visible(element) : false;
+            })(),
+            dialogueSceneVisible: (() => {
+                const element = document.querySelector(".cvn-dialogue-scene");
+                return element ? visible(element) : false;
+            })(),
+            actorBoxes: Array.from(document.querySelectorAll(".cvn-actor"))
+                .filter(visible)
+                .map((actor) => {
+                    const rect = actor.getBoundingClientRect();
+                    return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+                }),
             playerBox: (() => {
                 const actor = document.querySelector(".cvn-actor.is-player");
                 if (!actor) return null;
@@ -142,6 +162,17 @@ async function openPreview({
     const backdrop = expectedBackground ?? expectedBackdrop[village][state];
     assert.match(metrics.background, new RegExp(backdrop.replace(".", "\\.")), `${name}: expected backdrop was not routed`);
     assert.match(metrics.dialogueText, new RegExp(expectedDialogueText ?? expectedDialogue[state]), `${name}: dialogue line was not rendered`);
+    if (width <= 800 && height > width) {
+        assert.equal(metrics.floatingSceneVisible, false, `${name}: floating scene caption still covers mobile artwork`);
+        assert.equal(metrics.dialogueSceneVisible, true, `${name}: mobile dialogue card lost the scene context`);
+        assert.ok(metrics.dialogueBox, `${name}: mobile dialogue card is missing`);
+        assert.ok((metrics.dialogueBox?.left ?? -1) >= 0 && (metrics.dialogueBox?.right ?? width + 1) <= width, `${name}: dialogue card leaves the viewport`);
+        assert.ok((metrics.dialogueBox?.bottom ?? height + 1) <= height, `${name}: dialogue card falls below the viewport`);
+        assert.ok(
+            metrics.actorBoxes.every((actor) => actor.bottom <= (metrics.dialogueBox?.top ?? height) + 2),
+            `${name}: mobile actor overlaps the dialogue card ${JSON.stringify({ actors: metrics.actorBoxes, dialogue: metrics.dialogueBox })}`,
+        );
+    }
     if (expectedActor) {
         assert.ok(
             metrics.actorImages.some((image) => image.src?.includes(expectedActor)),
@@ -217,7 +248,8 @@ try {
     await menu.getByRole("button", { name: "Classic reader" }).click();
     await mobile.locator(".visual-novel.admin-vn-play").waitFor({ state: "visible" });
     assert.equal(await mobile.locator(".cvn-root").count(), 0, "mobile: cinematic stage remained mounted in Classic mode");
-    await mobile.getByRole("button", { name: "Cinematic Mode" }).click();
+    await mobile.screenshot({ path: path.join(outputDir, "moonshadow-classic-390x844.png") });
+    await mobile.getByRole("button", { name: "Cinematic" }).click();
     await mobile.locator(".cvn-root").waitFor({ state: "visible" });
     await mobile.close();
 

@@ -14,7 +14,7 @@ test("LegacyMoment delegates its complete dialog lifecycle to the canonical moda
     assert.match(moment, /disableEscapeClose=\{!dismissible\}/);
     assert.doesNotMatch(moment, /createPortal|role="dialog" aria-modal="true"|autoFocus/);
 
-    assert.match(modal, /const previouslyFocused = document\.activeElement/);
+    assert.match(modal, /const previouslyFocused = returnFocusRef\?\.current \?\? document\.activeElement/);
     assert.match(modal, /e\.key === "Tab"/);
     assert.match(modal, /disableEscapeCloseRef\.current/);
     assert.match(modal, /e\.stopImmediatePropagation\(\)/);

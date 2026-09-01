@@ -142,10 +142,12 @@ export async function detachPlayerReferences(rawName: string): Promise<DeletePla
         result.failures.push(`save:${slug} read: ${(err as Error).message}`);
     }
 
-    try {
-        if (await kv.del(`friends:${slug}`)) result.removed.push(`friends:${slug}`);
-    } catch (err) {
-        result.failures.push(`friends:${slug}: ${(err as Error).message}`);
+    for (const socialKey of [`friends:${slug}`, `player-friends:${slug}`]) {
+        try {
+            if (await kv.del(socialKey)) result.removed.push(socialKey);
+        } catch (err) {
+            result.failures.push(`${socialKey}: ${(err as Error).message}`);
+        }
     }
 
     if (clanName) await detachFromClan(slug, clanName, result);

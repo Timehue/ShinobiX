@@ -198,7 +198,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
 
     return (
         <div className="pl-screen">
-            <button className="pl-back" onClick={() => setScreen("petArena")}>← Arena District</button>
+            <button className="pl-back" onClick={() => setScreen("arenaDistrict")}>← Arena District</button>
 
             {/* Hero banner */}
             <div className="pl-hero">
@@ -211,9 +211,10 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
             </div>
 
             {/* Mode tabs */}
-            <div className="pl-tabs">
+            <div className="pl-tabs" role="group" aria-label="Pet Ladder mode">
                 {(["coliseum", "tactical"] as Mode[]).map((m) => (
                     <button key={m} className={`pl-tab${mode === m ? " is-active" : ""}`}
+                        aria-pressed={mode === m}
                         disabled={m === "tactical" && !tacticalUnlocked}
                         title={m === "tactical" && !tacticalUnlocked ? `Locked: ${available.length}/${TACTICAL_ARENA_PET_REQUIREMENT} available pets` : undefined}
                         onClick={() => selectMode(m)}>

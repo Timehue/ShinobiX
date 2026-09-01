@@ -90,12 +90,16 @@ export function SceneAmbience({
     weather,
     intensity = 1,
     className,
+    hazeStyle = "orbs",
 }: {
     biome: Biome;
     weather?: WeatherType;
     /** scales particle count (0–1.5). Lower on cramped panels. */
     intensity?: number;
     className?: string;
+    /** Battle cinematics use sparse wind-swept ribbons instead of the broad
+     *  ambient bokeh that suits an overworld backdrop. */
+    hazeStyle?: "orbs" | "wisps";
 }) {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const kinds = useMemo(() => kindsFor(biome, weather), [biome, weather]);
@@ -134,7 +138,8 @@ export function SceneAmbience({
                 const cfg = KINDS[kind];
                 // Heavier rain during a thunderstorm so the bolts land in real weather.
                 const stormFactor = (kind === "rain" && lightning) ? 1.4 : 1;
-                const n = Math.round(cfg.count * widthScale * effIntensity * stormFactor);
+                const hazeFactor = kind === "haze" && hazeStyle === "wisps" ? 0.38 : 1;
+                const n = Math.round(cfg.count * widthScale * effIntensity * stormFactor * hazeFactor);
                 for (let i = 0; i < n; i++) {
                     const c = cfg;
                     particles.push({
@@ -247,6 +252,21 @@ export function SceneAmbience({
                     ctx!.ellipse(0, 0, p.size, p.size * 0.5, 0, 0, Math.PI * 2);
                     ctx!.fill();
                     ctx!.restore();
+                } else if (p.kind === "haze" && hazeStyle === "wisps") {
+                    // A signature camera turns the overworld's broad haze
+                    // circles into giant foreground bokeh. In battle, stretch
+                    // them into low-alpha ribbons so the atmosphere reads as
+                    // moving air without masking pets or authored set pieces.
+                    ctx!.save();
+                    ctx!.translate(p.x, p.y);
+                    ctx!.rotate(Math.sin(p.phase) * 0.16);
+                    ctx!.globalAlpha = p.alpha * 0.52;
+                    ctx!.shadowBlur = p.size * 0.22;
+                    ctx!.shadowColor = p.color;
+                    ctx!.beginPath();
+                    ctx!.ellipse(0, 0, p.size * 1.65, Math.max(3, p.size * 0.11), 0, 0, Math.PI * 2);
+                    ctx!.fill();
+                    ctx!.restore();
                 } else {
                     ctx!.beginPath();
                     ctx!.arc(p.x, p.y, p.size, 0, Math.PI * 2);
@@ -336,7 +356,7 @@ export function SceneAmbience({
             ro.disconnect();
             document.removeEventListener("visibilitychange", onVis);
         };
-    }, [kinds, intensity, lightning]);
+    }, [hazeStyle, kinds, intensity, lightning]);
 
     return (
         <div className={"scene-ambience" + (className ? " " + className : "")} aria-hidden="true">

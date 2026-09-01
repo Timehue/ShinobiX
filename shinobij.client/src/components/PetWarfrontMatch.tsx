@@ -13,6 +13,8 @@ import { createPortal } from "react-dom";
 import type { ArenaSlot } from "../lib/pet-arena-sim";
 import {
     WARFRONT_TPS,
+    WF_PHASE_SUDDEN,
+    WF_ROUND_SECONDS,
     WF_HAZARDS,
     WF_MUTATORS,
     WF_OMENS,
@@ -30,6 +32,7 @@ import {
     type WfHazard,
     type WfMutator,
     type WfOmen,
+    type WfQuickOrder,
     type WfSnapshot,
     type WfStance,
     type WfWardenAspect,
@@ -44,7 +47,9 @@ import {
 } from "../lib/pet-warfront-map";
 import { createWarfrontWorkerController } from "../lib/pet-warfront-worker-client";
 import { playPetSfx, primePetSfx } from "../lib/pet-sfx";
-import { startBattleMusic, stopBattleMusic } from "../lib/pet-music";
+import { duckBattleMusic, isAudioMuted, setAudioMuted, setBattleMusicIntensity, startBattleMusic, stopBattleMusic, subscribeAudioMute } from "../lib/pet-music";
+import { ELEMENT_ICON } from "../lib/element-icons";
+import { ROLE_ICON } from "../lib/role-icons";
 import battlefieldArt from "../assets/warfront-three-lane/warfront-three-lane-ground.webp";
 import battlefieldPortraitArt from "../assets/warfront-three-lane/warfront-three-lane-ground-portrait.webp";
 import keyArt from "../assets/warfront-three-lane/warfront-three-lane-keyart.webp";
@@ -73,6 +78,12 @@ const STANCE_BRIEF: Record<WfStance, string> = {
     headhunt: "+10% pet damage · −12% tower pressure · +1s reform time.",
     turtle: "−12% tower damage taken · −10% pet damage · −20% Favor.",
 };
+const QUICK_ORDER_SPEC: Readonly<Record<WfQuickOrder, { icon: string; label: string; desc: string }>> = Object.freeze({
+    focus: { icon: "✦", label: "Focus Fire", desc: "+18% tower pressure; pet clashes soften." },
+    guard: { icon: "⬡", label: "Guard Seal", desc: "Towers take 18% less damage; pet pressure softens." },
+    hunt: { icon: "⌖", label: "Hunt", desc: "+15% damage against enemy pets." },
+    regroup: { icon: "↺", label: "Regroup", desc: "Restore 10% health to every active pet." },
+});
 const MODAL_FOCUSABLE = [
     "button:not([disabled])",
     "select:not([disabled])",
@@ -146,6 +157,18 @@ function snapshotAt(snapshots: readonly WfSnapshot[], tick: number): WfSnapshot 
     return snapshots[lo];
 }
 
+function lastTimedIndexAt<T extends { t: number }>(events: readonly T[], tick: number): number {
+    if (!events.length || events[0].t > tick) return -1;
+    let lo = 0;
+    let hi = events.length - 1;
+    while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        if (events[mid].t <= tick) lo = mid;
+        else hi = mid - 1;
+    }
+    return lo;
+}
+
 function boardPosition(x: number, y: number): CSSProperties {
     return {
         left: `${clamp(50 + x / 70 * 100, 3, 97)}%`,
@@ -182,6 +205,7 @@ function eventLabel(event: WfEvent, blue: readonly ArenaSlot[], red: readonly Ar
     if (event.type === "lastward") return `${TEAM_LABEL[event.team]} invoked the Last Ward`;
     if (event.type === "riftrally") return `${TEAM_LABEL[event.team]} gained a ${event.secs}s Rift Rally`;
     if (event.type === "hazard") return `${event.label} swept ${WF_LANE_LABEL[event.lane]}`;
+    if (event.type === "quickorder") return `${TEAM_LABEL[event.team]} ordered ${QUICK_ORDER_SPEC[event.order].label}`;
     if (event.type === "commandimpact" && event.impact.team === "blue") {
         const impact = event.impact;
         if (impact.towersBroken > 0) return `Your command secured ${impact.towersBroken} tower`;
@@ -202,8 +226,9 @@ function lanePressure(snapshot: WfSnapshot, team: Team, lane: WfLaneId): number 
     return petPower + (warden.active && warden.lane === lane ? 1.75 : 0);
 }
 
-function commandEntryLabel(entry: Pick<WarfrontCommandEntry, "moves" | "summonLane" | "summonAspect" | "ultimatePetIndex" | "ultimateName" | "favorSpent" | "exposedLane">, roster: readonly ArenaSlot[]): string {
+function commandEntryLabel(entry: Pick<WarfrontCommandEntry, "moves" | "summonLane" | "summonAspect" | "ultimatePetIndex" | "ultimateName" | "favorSpent" | "exposedLane" | "quickOrder">, roster: readonly ArenaSlot[]): string {
     const beats = entry.moves.map((move) => `${roster[move.petIndex]?.pet.name ?? `Pet ${move.petIndex + 1}`} → ${WF_LANE_LABEL[move.lane]}`);
+    if (entry.quickOrder) beats.push(`${QUICK_ORDER_SPEC[entry.quickOrder].icon} ${QUICK_ORDER_SPEC[entry.quickOrder].label}`);
     if (entry.summonLane && entry.summonAspect) beats.push(`${entry.summonAspect} Warden → ${WF_LANE_LABEL[entry.summonLane]}`);
     if (entry.ultimatePetIndex !== undefined) beats.push(`${roster[entry.ultimatePetIndex]?.pet.name ?? `Pet ${entry.ultimatePetIndex + 1}`} · ${entry.ultimateName ?? "Signature"}`);
     if (entry.exposedLane) beats.push(`${WF_LANE_LABEL[entry.exposedLane]} exposed`);
@@ -212,9 +237,8 @@ function commandEntryLabel(entry: Pick<WarfrontCommandEntry, "moves" | "summonLa
 }
 
 function majorEventLane(events: readonly WfEvent[], tick: number): WfLaneId | null {
-    for (let index = events.length - 1; index >= 0; index--) {
+    for (let index = lastTimedIndexAt(events, tick); index >= 0; index--) {
         const event = events[index];
-        if (event.t > tick) continue;
         if (tick - event.t > WARFRONT_TPS * 2.5) return null;
         if (event.type === "towerdown" || event.type === "towerfractured" || event.type === "wardensummon" || event.type === "wardenslam" || event.type === "ultimate" || event.type === "hazard" || event.type === "sealexposed") return event.lane;
     }
@@ -223,19 +247,24 @@ function majorEventLane(events: readonly WfEvent[], tick: number): WfLaneId | nu
 
 function directorRate(result: WarfrontResult, tick: number, reducedMotion: boolean): number {
     if (reducedMotion) return 1;
+    let recentTowerDown = false;
+    let recentFracture = false;
     let recentMajor = false;
     let recentTakedown = false;
-    for (let index = result.events.length - 1; index >= 0; index--) {
+    for (let index = lastTimedIndexAt(result.events, tick); index >= 0; index--) {
         const event = result.events[index];
-        if (event.t > tick) continue;
         if (tick - event.t > WARFRONT_TPS * 0.75) break;
-        if (event.type === "towerdown" || event.type === "towerfractured" || event.type === "wardensummon" || event.type === "wardenslam" || event.type === "ultimate" || event.type === "hazard" || event.type === "lastward") {
+        if (event.type === "towerdown") { recentTowerDown = true; break; }
+        if (event.type === "towerfractured") { recentFracture = true; break; }
+        if (event.type === "wardensummon" || event.type === "wardenslam" || event.type === "ultimate" || event.type === "hazard" || event.type === "lastward") {
             recentMajor = true;
             break;
         }
         if (event.type === "kill") recentTakedown = true;
     }
-    if (recentMajor) return 0.72;
+    if (recentTowerDown) return 0.2;
+    if (recentFracture) return 0.54;
+    if (recentMajor) return 0.7;
     if (recentTakedown) return 0.84;
     const frame = snapshotAt(result.snapshots, tick);
     const engaged = Boolean(frame && (
@@ -251,7 +280,7 @@ function TowerMarker({ snapshot, team, lane }: { snapshot: WfSnapshot; team: Tea
     const fraction = tower.hp / Math.max(1, tower.maxHp);
     return (
         <div
-            className={`wf3-tower wf3-tower--${team}${tower.alive ? "" : " is-destroyed"}${tower.fractured ? " is-fractured" : ""}${tower.exposedSecs > 0 ? " is-exposed" : ""}${tower.guardSecs > 0 ? " is-guarded" : ""}`}
+            className={`wf3-tower wf3-tower--${team} is-lane-${lane}${tower.alive ? "" : " is-destroyed"}${tower.fractured ? " is-fractured" : ""}${tower.exposedSecs > 0 ? " is-exposed" : ""}${tower.guardSecs > 0 ? " is-guarded" : ""}`}
             style={{ ...boardPosition(tower.x, tower.y), "--tower-hp": `${Math.round(fraction * 100)}%` } as CSSProperties}
             role="img"
             aria-label={`${TEAM_LABEL[team]} ${WF_LANE_LABEL[lane]} Tower ${Math.round(fraction * 100)} percent${tower.exposedSecs > 0 ? ", exposed" : tower.guardSecs > 0 ? ", Last Ward protected" : ""}`}
@@ -267,18 +296,21 @@ function PetToken({ actor, slot }: {
     slot: ArenaSlot | undefined;
 }) {
     const portrait = petPortrait(slot);
+    const fallbackIcon = ELEMENT_ICON[String(slot?.pet.element ?? actor.element ?? "")] ?? ROLE_ICON[actor.role];
     const hp = actor.hp / Math.max(1, actor.maxHp);
     const down = actor.state === "respawning";
     return (
         <div
-            className={`wf3-pet wf3-pet--${actor.team}${down ? " is-down" : ""}${actor.state === "attack" ? " is-attacking" : ""}`}
+            className={`wf3-pet wf3-pet--${actor.team} is-lane-${actor.lane}${down ? " is-down" : ""}${actor.state === "attack" ? " is-attacking" : ""}`}
             style={boardPosition(actor.x, actor.y)}
             role="img"
             aria-label={`${slot?.pet.name ?? "Pet"}, ${TEAM_LABEL[actor.team]}, ${Math.round(hp * 100)} percent health`}
         >
             <div className="wf3-pet__portrait">
-                {portrait ? <img src={portrait} alt="" draggable={false} /> : <span>{String(slot?.pet.element ?? "?").slice(0, 1)}</span>}
-                <b>{actor.role.slice(0, 1).toUpperCase()}</b>
+                {portrait
+                    ? <img src={portrait} alt="" draggable={false} />
+                    : <span className="wf3-pet__fallback"><img src={fallbackIcon} alt="" draggable={false} /></span>}
+                <b><img src={ROLE_ICON[actor.role]} alt="" draggable={false} /></b>
                 {actor.shielded ? <em>◇</em> : null}
             </div>
             <div className="wf3-pet__name">{slot?.pet.name ?? actor.id}</div>
@@ -295,7 +327,7 @@ function WardenToken({ snapshot, team }: { snapshot: WfSnapshot; team: Team }) {
     const hp = warden.hp / Math.max(1, warden.maxHp);
     return (
         <div
-            className={`wf3-warden wf3-warden--${team} wf3-warden--${warden.aspect}`}
+            className={`wf3-warden wf3-warden--${team} wf3-warden--${warden.aspect} is-lane-${warden.lane}`}
             style={boardPosition(warden.x, warden.y)}
             role="img"
             aria-label={`${TEAM_LABEL[team]} ${warden.aspect} Warden, ${Math.round(hp * 100)} percent health, ${Math.ceil(warden.secs)} seconds remaining`}
@@ -420,32 +452,76 @@ function CommandPanel({ command, snapshot, blue, doctrine, onConfirm }: {
     const [summonLane, setSummonLane] = useState<WfLaneId | "">("");
     const [summonAspect, setSummonAspect] = useState<WfWardenAspect>("breaker");
     const [ultimatePet, setUltimatePet] = useState<number | null>(null);
+    const recommendedQuickOrder = useMemo<WfQuickOrder>(() => {
+        const active = command.activeLanes;
+        const ownLow = active.some((lane) => snapshot.towers.blue[lane].hp / snapshot.towers.blue[lane].maxHp < 0.45);
+        const foeLow = active.some((lane) => snapshot.towers.red[lane].hp / snapshot.towers.red[lane].maxHp < 0.45);
+        const living = snapshot.actors.filter((actor) => actor.team === "blue" && actor.respawnSecs <= 0);
+        const health = living.length ? living.reduce((sum, actor) => sum + actor.hp / actor.maxHp, 0) / living.length : 1;
+        return ownLow ? "guard" : foeLow ? "focus" : health < 0.66 ? "regroup" : "hunt";
+    }, [command.activeLanes, snapshot]);
+    const [quickOrder, setQuickOrder] = useState<WfQuickOrder>(recommendedQuickOrder);
     const favorCost = snapshot.omen === "thin-veil" ? 80 : snapshot.mutator === "warden-tide" ? 85 : doctrine === "warden-pact" ? 85 : 100;
     const summonReady = snapshot.favor.blue >= favorCost && !snapshot.wardens.blue.active && ultimatePet === null;
-    const currentLane = (slot: number) => snapshot.actors.find((actor) => actor.team === "blue" && actor.slot === slot)?.lane;
+    const currentLane = useCallback(
+        (slot: number) => snapshot.actors.find((actor) => actor.team === "blue" && actor.slot === slot)?.lane,
+        [snapshot.actors],
+    );
     const signatureActors = snapshot.actors.filter((actor) => actor.team === "blue" && actor.respawnSecs <= 0 && command.activeLanes.includes(actor.lane));
     const selectedSpend = summonLane ? favorCost : ultimatePet !== null ? WF_ULTIMATE_FAVOR_COST : 0;
+    const prediction = useMemo(() => {
+        if (command.reason === "quick") return `${QUICK_ORDER_SPEC[quickOrder].label} lasts 24 seconds. ${QUICK_ORDER_SPEC[quickOrder].desc}`;
+        if (command.reason === "breakthrough") return "Safe redeploy: the sealed lane is gone, so these transfers do not expose another tower.";
+        if (summonLane) return `${WF_WARDEN_ASPECTS.find((entry) => entry.id === summonAspect)?.label ?? "Warden"} commits to ${WF_LANE_LABEL[summonLane]} for a visible ${summonAspect === "breaker" ? "tower push" : summonAspect === "sentinel" ? "seal defense" : "pet hunt"}.`;
+        if (ultimatePet !== null) return `${blue[ultimatePet]?.pet.name ?? "This pet"} will fire ${WF_SIGNATURES[snapshot.actors.find((actor) => actor.team === "blue" && actor.slot === ultimatePet)?.role ?? "tracker"].label} on contact.`;
+        if (scheduledPet === null) return "Stable formation: no lane gains pressure and no seal becomes exposed.";
+        const from = currentLane(scheduledPet) ?? "m";
+        const actor = snapshot.actors.find((candidate) => candidate.team === "blue" && candidate.slot === scheduledPet);
+        const weight = actor ? 0.55 + actor.hp / Math.max(1, actor.maxHp) : 1;
+        const before = lanePressure(snapshot, "blue", scheduledLane) - lanePressure(snapshot, "red", scheduledLane);
+        const after = before + weight;
+        const sourceAfter = lanePressure(snapshot, "blue", from) - lanePressure(snapshot, "red", from) - weight;
+        const gain = after > 0.65 ? "Strong push" : after > -0.65 ? "Contested push" : "Outnumbered push";
+        const risk = sourceAfter < -0.65 ? `High risk: ${WF_LANE_LABEL[from]} likely swings Crimson.` : `${WF_LANE_LABEL[from]} should remain stable.`;
+        return `${gain} on ${WF_LANE_LABEL[scheduledLane]}. ${risk} The source seal is exposed for 8 seconds.`;
+    }, [blue, command.reason, currentLane, quickOrder, scheduledLane, scheduledPet, snapshot, summonAspect, summonLane, ultimatePet]);
     const submit = () => {
         const choices: WarfrontChoice[] = [];
-        if (command.reason !== "breakthrough" && scheduledPet !== null && currentLane(scheduledPet) !== scheduledLane) {
+        if (command.reason === "quick") choices.push({ type: "quick", order: quickOrder });
+        if (command.reason !== "breakthrough" && command.reason !== "quick" && scheduledPet !== null && currentLane(scheduledPet) !== scheduledLane) {
             choices.push({ type: "move", petIndex: scheduledPet, lane: scheduledLane });
         }
         if (command.reason === "breakthrough") {
             for (const slot of command.freedPetSlots.blue) choices.push({ type: "move", petIndex: slot, lane: breakthrough[slot] ?? command.activeLanes[0] });
         }
-        if (summonReady && summonLane) choices.push({ type: "summon", lane: summonLane, aspect: summonAspect });
-        if (ultimatePet !== null) choices.push({ type: "ultimate", petIndex: ultimatePet });
+        if (command.reason !== "quick" && summonReady && summonLane) choices.push({ type: "summon", lane: summonLane, aspect: summonAspect });
+        if (command.reason !== "quick" && ultimatePet !== null) choices.push({ type: "ultimate", petIndex: ultimatePet });
         onConfirm(choices);
     };
     return (
         <div ref={dialogRef} className="wf3-command" role="dialog" aria-modal="true" aria-labelledby="wf3-command-title" tabIndex={-1}>
             <div className="wf3-command__header">
-                <p className="wf3-eyebrow">{command.reason === "breakthrough" ? "BREAKTHROUGH REDEPLOY" : command.reason === "omen" ? "SHATTERED-WARD REACTION" : snapshot.omen === "storm-gate" ? "STORM-GATE COMMAND" : "TWO-MINUTE LANE COMMAND"}</p>
-                <h2 id="wf3-command-title">{command.reason === "breakthrough" ? `${WF_LANE_LABEL[command.resolvedLane ?? "m"]} is sealed` : command.reason === "omen" ? "Answer the fracture" : "Shift the pressure"}</h2>
-                <p>{command.reason === "breakthrough" ? "Every pet on the resolved causeway can reinforce a surviving front." : "Move one pet, hold formation, or commit the Warden."}</p>
+                <p className="wf3-eyebrow">{command.reason === "breakthrough" ? "BREAKTHROUGH REDEPLOY" : command.reason === "omen" ? "SHATTERED-WARD REACTION" : command.reason === "quick" ? "QUICK ORDER" : snapshot.omen === "storm-gate" ? "STORM-GATE COMMAND" : `${WF_ROUND_SECONDS}-SECOND LANE COMMAND`}</p>
+                <h2 id="wf3-command-title">{command.reason === "breakthrough" ? `${WF_LANE_LABEL[command.resolvedLane ?? "m"]} is sealed` : command.reason === "omen" ? "Answer the fracture" : command.reason === "quick" ? "Call the next clash" : "Shift the pressure"}</h2>
+                <p>{command.reason === "breakthrough" ? "Every pet on the resolved causeway can reinforce a surviving front." : command.reason === "quick" ? "Choose one immediate team order. The fight resumes as soon as you lock it." : "Move one pet, hold formation, or commit the Warden."}</p>
             </div>
             <div className="wf3-command__body">
-                {command.reason !== "breakthrough" ? (
+                {command.reason === "quick" ? (
+                    <section className="wf3-command__quick" aria-label="Choose a quick order">
+                        {Object.entries(QUICK_ORDER_SPEC).map(([id, spec]) => (
+                            <button
+                                key={id}
+                                type="button"
+                                className={quickOrder === id ? "is-selected" : ""}
+                                aria-pressed={quickOrder === id}
+                                onClick={() => setQuickOrder(id as WfQuickOrder)}
+                            >
+                                <b>{spec.icon}</b><span>{spec.label}<small>{spec.desc}</small></span>
+                                {recommendedQuickOrder === id ? <em>RECOMMENDED</em> : null}
+                            </button>
+                        ))}
+                    </section>
+                ) : command.reason !== "breakthrough" ? (
                     <>
                         <div className="wf3-command__move-grid">
                             <label>
@@ -476,7 +552,7 @@ function CommandPanel({ command, snapshot, blue, doctrine, onConfirm }: {
                         ))}
                     </div>
                 )}
-                <section className="wf3-command__signatures" aria-label="Authorize a pet signature ultimate">
+                {command.reason !== "quick" ? <><section className="wf3-command__signatures" aria-label="Authorize a pet signature ultimate">
                     <header><div><small>SIGNATURE AUTHORIZATION</small><strong>Spend {WF_ULTIMATE_FAVOR_COST} Favor for one ultimate</strong></div><span>{Math.floor(snapshot.favor.blue - selectedSpend)} remaining</span></header>
                     <div>
                         {signatureActors.map((actor) => {
@@ -523,8 +599,9 @@ function CommandPanel({ command, snapshot, blue, doctrine, onConfirm }: {
                             </button>
                         ))}
                     </div>
-                </section>
-                <button className="wf3-primary" type="button" onClick={submit}>Lock command</button>
+                </section></> : null}
+                <div className="wf3-command__prediction" role="status"><small>PROJECTED CONSEQUENCE</small><strong>{prediction}</strong></div>
+                <button className="wf3-primary" type="button" onClick={submit}>{command.reason === "quick" ? `Lock ${QUICK_ORDER_SPEC[quickOrder].label}` : "Lock command"}</button>
             </div>
         </div>
     );
@@ -634,6 +711,25 @@ function ResultPanel({
     const mutatorSpec = WF_MUTATORS.find((entry) => entry.id === result.mutator) ?? WF_MUTATORS[0];
     const hazardSpec = Object.values(WF_HAZARDS).find((entry) => entry.id === result.hazard) ?? WF_HAZARDS.central;
     const teamUltimates = blueStats.reduce((total, row) => total + row.ultimates, 0);
+    const quickOrders = result.commandLog.filter((entry) => entry.quickOrder);
+    const exposedCommands = result.commandLog.filter((entry) => entry.exposedLane);
+    const lostTower = [...result.events].reverse().find((event): event is Extract<WfEvent, { type: "towerdown" }> => event.type === "towerdown" && event.team === "blue");
+    const whatWon = bestImpact?.towersBroken
+        ? `${commandEntryLabel(bestImpact, blue)} converted into ${bestImpact.towersBroken} tower break${bestImpact.towersBroken === 1 ? "" : "s"}.`
+        : lastTower
+            ? `${TEAM_LABEL[lastTower.by]} concentrated enough pressure on ${WF_LANE_LABEL[lastTower.lane]} to decide the final ward.`
+            : `${TEAM_LABEL[winner === "draw" ? "blue" : winner]} finished with the stronger tower-pressure verdict.`;
+    const nextLesson = teamUltimates === 0
+        ? "Spend Favor on a ready Signature before the next command window; unused power cannot change a lane."
+        : quickOrders.length === 0
+            ? "Use quick orders to shape the fight between full commands—Guard a threatened seal or Focus a nearly broken tower."
+            : winner === "red" && exposedCommands.length > 1
+                ? `You exposed a source seal ${exposedCommands.length} times. Move only when the destination gain outweighs that eight-second opening.`
+                : winner === "red" && lostTower
+                    ? `Protect ${WF_LANE_LABEL[lostTower.lane]} sooner with Guard Seal, a Sentinel Warden, or a defender transfer.`
+                    : bestImpact
+                        ? `Repeat the setup behind Command ${bestImpact.sequence}, then spend the next quick order covering its weakest source lane.`
+                        : "Break a stalemate by pairing Focus Fire with a Breaker Warden or a siege formation on one lane.";
     return (
         <div
             ref={dialogRef}
@@ -659,6 +755,10 @@ function ResultPanel({
                     <span>{commandEntryLabel(bestImpact, blue)}</span>
                 </section>
             ) : null}
+            <section className="wf3-result__lessons" aria-label="Warfront coaching">
+                <article><small>WHAT WON THE MATCH</small><strong>{whatWon}</strong></article>
+                <article><small>{winner === "blue" ? "HOW TO MAKE IT CLEANER" : "TRY THIS NEXT TIME"}</small><strong>{nextLesson}</strong></article>
+            </section>
             <section className="wf3-result__overview" aria-label="Match overview">
                 <div><small>DURATION</small><strong>{mmss(result.ticks / WARFRONT_TPS)}</strong></div>
                 <div><small>TOWER PRESSURE</small><strong>{Math.round(finalSnapshot?.towerDamage.blue ?? 0).toLocaleString()}</strong></div>
@@ -745,6 +845,7 @@ export function PetWarfrontMatch({
     const [commandOpen, setCommandOpen] = useState<number | null>(null);
     const [resultShown, setResultShown] = useState(false);
     const [paused, setPaused] = useState(false);
+    const [audioMuted, setAudioMutedState] = useState(isAudioMuted);
     const [selectedFocusLane, setSelectedFocusLane] = useState<WfLaneId | null>(null);
     const [reducedMotion] = useState(() => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
     const [visualQuality] = useState(() => petVisualQuality());
@@ -785,6 +886,8 @@ export function PetWarfrontMatch({
         query.addEventListener("change", update);
         return () => query.removeEventListener("change", update);
     }, []);
+
+    useEffect(() => subscribeAudioMute(() => setAudioMutedState(isAudioMuted())), []);
 
     useEffect(() => {
         if (visualQuality.id !== "low" && !compactPresentation) void loadPetWarfrontStage3D();
@@ -835,6 +938,14 @@ export function PetWarfrontMatch({
     const commandSequence = command?.sequence;
     const commandTick = command?.t;
     const frontier = result.ticks;
+    const labeledEvents = useMemo(() => {
+        const entries: Array<{ event: WfEvent; label: string; t: number }> = [];
+        for (const event of result.events) {
+            const label = eventLabel(event, blue, red);
+            if (label) entries.push({ event, label, t: event.t });
+        }
+        return entries;
+    }, [blue, red, result.events]);
 
     useEffect(() => {
         if (!isSpectator || commandSequence === undefined) return;
@@ -882,45 +993,71 @@ export function PetWarfrontMatch({
 
     const snapshot = snapshotAt(result.snapshots, displayTick);
     const score = snapshot ? wfVerdictScore(snapshot) : { blue: 0, red: 0 };
-    const recentEvents = result.events
-        .filter((event) => event.t <= displayTick)
-        .map((event) => ({ event, label: eventLabel(event, blue, red) }))
-        .filter((entry): entry is { event: WfEvent; label: string } => Boolean(entry.label))
-        .slice(-6)
-        .reverse();
-
-    const commandReveal = [...result.events].reverse().find((event): event is Extract<WfEvent, { type: "commandresolved" }> => (
-        event.type === "commandresolved" && event.t <= displayTick && displayTick - event.t <= WARFRONT_TPS * 1.6
-    )) ?? null;
+    const visibleEventIndex = lastTimedIndexAt(result.events, displayTick);
+    const visibleLabelIndex = lastTimedIndexAt(labeledEvents, displayTick);
+    const recentEvents = visibleLabelIndex < 0
+        ? []
+        : labeledEvents.slice(Math.max(0, visibleLabelIndex - 5), visibleLabelIndex + 1).reverse();
+    let commandReveal: Extract<WfEvent, { type: "commandresolved" }> | null = null;
+    for (let index = visibleEventIndex; index >= 0; index--) {
+        const event = result.events[index];
+        if (displayTick - event.t > WARFRONT_TPS * 1.6) break;
+        if (event.type === "commandresolved") { commandReveal = event; break; }
+    }
     const transferTrails = commandReveal
         ? result.events.filter((event): event is Extract<WfEvent, { type: "redeploy" }> => event.type === "redeploy" && event.t === commandReveal.t)
         : [];
-    const impactToast = [...result.events].reverse().find((event): event is Extract<WfEvent, { type: "commandimpact" }> => (
-        event.type === "commandimpact" && event.impact.team === "blue" && event.t <= displayTick && displayTick - event.t <= WARFRONT_TPS * 5
-    )) ?? null;
+    let impactToast: Extract<WfEvent, { type: "commandimpact" }> | null = null;
+    for (let index = visibleEventIndex; index >= 0; index--) {
+        const event = result.events[index];
+        if (displayTick - event.t > WARFRONT_TPS * 5) break;
+        if (event.type === "commandimpact" && event.impact.team === "blue") { impactToast = event; break; }
+    }
+    let towerMoment: Extract<WfEvent, { type: "towerfractured" | "towerdown" }> | null = null;
+    for (let index = visibleEventIndex; index >= 0; index--) {
+        const event = result.events[index];
+        if (displayTick - event.t > WARFRONT_TPS * 1.8) break;
+        if (event.type === "towerdown" || event.type === "towerfractured") { towerMoment = event; break; }
+    }
     const focusLane = commandOpen === null ? majorEventLane(result.events, displayTick) ?? selectedFocusLane : null;
-    const commandInterval = result.omen === "storm-gate" ? 90 : 120;
-    const nextCommandSeconds = Math.max(0, commandInterval - (displayTick / WARFRONT_TPS) % commandInterval);
+    const elapsedSeconds = displayTick / WARFRONT_TPS;
+    const commandInterval = result.omen === "storm-gate" ? 45 : WF_ROUND_SECONDS;
+    const nextFullCommand = Math.max(0, commandInterval - elapsedSeconds % commandInterval);
+    const nextQuickOrder = Math.max(0, 30 - elapsedSeconds % 30);
+    const nextPauseIsQuick = nextQuickOrder < nextFullCommand - 0.01;
+    const nextCommandSeconds = Math.min(nextFullCommand, nextQuickOrder);
     const omenSpec = WF_OMENS.find((entry) => entry.id === result.omen) ?? WF_OMENS[0];
     const mutatorSpec = WF_MUTATORS.find((entry) => entry.id === result.mutator) ?? WF_MUTATORS[0];
     const hazardSpec = Object.values(WF_HAZARDS).find((entry) => entry.id === result.hazard) ?? WF_HAZARDS.central;
+    const musicIntensity = snapshot?.riftfall
+        || (snapshot && WF_LANE_IDS.some((lane) => snapshot.towers.blue[lane].hp / snapshot.towers.blue[lane].maxHp < 0.34 || snapshot.towers.red[lane].hp / snapshot.towers.red[lane].maxHp < 0.34))
+        ? "climax"
+        : snapshot && (snapshot.wardens.blue.active || snapshot.wardens.red.active || WF_LANE_IDS.some((lane) => snapshot.towers.blue[lane].fractured || snapshot.towers.red[lane].fractured))
+            ? "pressure"
+            : "calm";
+
+    useEffect(() => {
+        if (deployed && !resultShown) setBattleMusicIntensity(musicIntensity);
+    }, [deployed, musicIntensity, resultShown]);
 
     useEffect(() => {
         let cue: Parameters<typeof playPetSfx>[0] | null = null;
+        let shouldDuck = false;
         while (audioEventCursorRef.current < result.events.length) {
             const event = result.events[audioEventCursorRef.current];
             if (event.t > displayTick) break;
             audioEventCursorRef.current++;
-            if (event.type === "towerdown") cue = "finisher";
-            else if (event.type === "towerfractured") cue = "crit";
+            if (event.type === "towerdown") { cue = "finisher"; shouldDuck = true; }
+            else if (event.type === "towerfractured") { cue = "crit"; shouldDuck = true; }
             else if (event.type === "wardensummon") cue = "crowd";
             else if (event.type === "favorready") cue = "buff";
             else if (event.type === "kill") cue = "ko";
             else if (event.type === "redeploy") cue = "move";
-            else if (event.type === "ultimate") cue = "finisher";
+            else if (event.type === "ultimate") { cue = "finisher"; shouldDuck = true; }
             else if (event.type === "lastward" || event.type === "riftrally") cue = "buff";
             else if (event.type === "hazard") cue = "crit";
         }
+        if (shouldDuck) duckBattleMusic(0.34, 620);
         if (cue) playPetSfx(cue);
     }, [displayTick, result.events, result.events.length]);
 
@@ -942,8 +1079,20 @@ export function PetWarfrontMatch({
     const deploy = () => {
         primePetSfx();
         playPetSfx("command");
-        startBattleMusic();
+        startBattleMusic("hollow-gate");
         setDeployed(true);
+    };
+
+    const toggleAudio = () => {
+        const nextMuted = !audioMuted;
+        setAudioMuted(nextMuted);
+        if (nextMuted) {
+            stopBattleMusic();
+            return;
+        }
+        primePetSfx();
+        if (deployed && !resultShown) startBattleMusic("hollow-gate");
+        playPetSfx("buff");
     };
 
     const restart = (newSeed: boolean) => {
@@ -971,7 +1120,7 @@ export function PetWarfrontMatch({
         setResultShown(false);
         setPaused(false);
         lastFrameRef.current = null;
-        startBattleMusic();
+        startBattleMusic("hollow-gate");
     };
 
     const commandVisible = Boolean(!isSpectator && snapshot && command && commandOpen === command.sequence);
@@ -1001,9 +1150,10 @@ export function PetWarfrontMatch({
                 <div className="wf3-score" aria-label={`Azure ${score.blue}, Crimson ${score.red}`} aria-live="polite">
                     <b className="is-blue">{score.blue}</b><span>◆</span><b className="is-red">{score.red}</b>
                 </div>
-                <div className={`wf3-clock${nextCommandSeconds <= 15 ? " is-imminent" : ""}`}><strong>{mmss(displayTick / WARFRONT_TPS)}</strong><small>{displayTick >= WARFRONT_TPS * 480 ? `RIFTFALL · CMD ${mmss(nextCommandSeconds)}` : `COMMAND ${mmss(nextCommandSeconds)}`}</small></div>
-                <div className="wf3-omen-chip" title={`${omenSpec.desc} ${mutatorSpec.desc} Arena hazard: ${hazardSpec.desc}`}><b>{omenSpec.icon}</b><div><span>{omenSpec.label}</span><small>{mutatorSpec.label}</small></div></div>
+                <div className={`wf3-clock${nextCommandSeconds <= 15 ? " is-imminent" : ""}`}><strong>{mmss(displayTick / WARFRONT_TPS)}</strong><small>{displayTick >= WARFRONT_TPS * WF_PHASE_SUDDEN ? "RIFTFALL · " : ""}{nextPauseIsQuick ? "ORDER" : "COMMAND"} {mmss(nextCommandSeconds)}</small></div>
+                <div className="wf3-omen-chip" title={`${omenSpec.desc} ${mutatorSpec.desc} Arena hazard: ${hazardSpec.desc}`}><b>{omenSpec.icon}</b><div><span>{omenSpec.label}</span><small>{mutatorSpec.label} · {hazardSpec.label}</small></div></div>
                 <div className="wf3-actions">
+                    <button type="button" className={audioMuted ? "is-muted" : ""} onClick={toggleAudio} aria-pressed={audioMuted} aria-label={audioMuted ? "Unmute Warfront audio" : "Mute Warfront audio"} title={audioMuted ? "Turn on Warfront music and sound" : "Mute Warfront music and sound"}>{audioMuted ? "🔇" : "🔊"}</button>
                     <button type="button" onClick={() => setPaused((value) => !value)} aria-pressed={paused} aria-label={paused ? "Resume Warfront" : "Pause Warfront"}>{paused ? "▶" : "Ⅱ"}</button>
                     <button type="button" onClick={onExit} disabled={settlementPending} aria-label="Leave Warfront">×</button>
                 </div>
@@ -1011,7 +1161,7 @@ export function PetWarfrontMatch({
 
             <main className="wf3-stage" inert={stageInteractionBlocked} aria-hidden={stageInteractionBlocked}>
                 <div
-                    className={`wf3-board${focusLane ? ` is-focusing is-focus-${focusLane}` : ""}`}
+                    className={`wf3-board${focusLane ? ` is-focusing is-focus-${focusLane}` : ""}${snapshot?.riftfall ? " is-riftfall" : ""}`}
                     style={{
                         "--wf3-board-landscape": `url(${battlefieldArt})`,
                         "--wf3-board-portrait": `url(${battlefieldPortraitArt})`,
@@ -1022,16 +1172,19 @@ export function PetWarfrontMatch({
                         <Suspense fallback={domBattlefield}>
                             <PetWarfrontStage3D
                                 snapshot={snapshot}
+                                snapshots={result.snapshots}
+                                playbackTickRef={clockRef}
                                 blue={blue}
                                 red={red}
                                 quality={visualQuality}
-                                paused={paused || resultVisible}
+                                paused={paused || commandVisible || resultVisible}
                                 displayTick={displayTick}
                                 events={result.events}
                                 theme={theme}
                             />
                         </Suspense>
                     ) : domBattlefield : null}
+                    {focusLane ? <div className={`wf3-board__focus-mask is-${focusLane}`} aria-hidden="true" /> : null}
                 </div>
 
                 <aside className="wf3-lanes" aria-label="Lane status">
@@ -1053,6 +1206,14 @@ export function PetWarfrontMatch({
                 {commandReveal ? <CommandReveal event={commandReveal} blue={blue} red={red} /> : null}
                 {commandReveal ? <TransferTrails events={transferTrails} /> : null}
                 {impactToast && !commandReveal ? <CommandImpactToast event={impactToast} /> : null}
+                {towerMoment ? <div className={`wf3-tower-moment is-${towerMoment.type}`} role="status"><small>{WF_LANE_LABEL[towerMoment.lane]}</small><strong>{towerMoment.type === "towerdown" ? "WARD SHATTERED" : "WARD FRACTURED"}</strong><span>{TEAM_LABEL[towerMoment.by]} pressure broke through</span></div> : null}
+
+                {snapshot && (snapshot.quickOrders.blue.order || snapshot.quickOrders.red.order) ? (
+                    <div className="wf3-live-orders" aria-label="Active quick orders">
+                        <span className="is-blue">{snapshot.quickOrders.blue.order ? `${QUICK_ORDER_SPEC[snapshot.quickOrders.blue.order].icon} ${QUICK_ORDER_SPEC[snapshot.quickOrders.blue.order].label} · ${Math.ceil(snapshot.quickOrders.blue.secs)}s` : "Azure · no order"}</span>
+                        <span className="is-red">{snapshot.quickOrders.red.order ? `${QUICK_ORDER_SPEC[snapshot.quickOrders.red.order].icon} ${QUICK_ORDER_SPEC[snapshot.quickOrders.red.order].label} · ${Math.ceil(snapshot.quickOrders.red.secs)}s` : "Crimson · no order"}</span>
+                    </div>
+                ) : null}
 
                 {snapshot ? (
                     <div className="wf3-favor">

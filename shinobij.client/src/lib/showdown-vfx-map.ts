@@ -20,6 +20,101 @@ export function vfxElementTint(element: string): string {
     return VFX_ELEMENT_TINT[element] ?? VFX_ELEMENT_TINT.None;
 }
 
+/** Every move kind the Showdown engine can put on an action event, including
+ * the two synthesized commands. Keeping the presentation list exported makes
+ * missing VFX a test failure instead of a silent generic fallback. */
+export const SHOWDOWN_MOVE_VFX_KINDS = [
+    "damage", "crush", "lifesteal", "push", "pull", "pivot",
+    "dot", "burn", "wound", "stun", "freeze", "confuse", "debuff",
+    "mark", "slow", "movelock", "buff", "haste", "move", "shield",
+    "barrier", "absorb", "taunt", "heal", "weather", "protect",
+    "guard", "rest",
+] as const;
+
+/** A unique motion grammar per mechanic. Element supplies color/material;
+ * family supplies silhouette and movement, so readability never depends on
+ * hue alone. */
+export type MoveAccentFamily =
+    | "impact" | "slam" | "siphon" | "repulse" | "vacuum" | "pivot"
+    | "toxin" | "embers" | "wound" | "stun" | "freeze" | "confuse"
+    | "hex" | "mark" | "slow" | "bind" | "buff" | "haste" | "step"
+    | "shield" | "barrier" | "absorb" | "taunt" | "heal" | "weather"
+    | "protect" | "guard" | "rest";
+
+const MOVE_ACCENT_FAMILY: Record<string, MoveAccentFamily> = {
+    damage: "impact",
+    crush: "slam",
+    lifesteal: "siphon",
+    push: "repulse",
+    pull: "vacuum",
+    pivot: "pivot",
+    dot: "toxin",
+    burn: "embers",
+    wound: "wound",
+    lacerate: "wound",
+    stun: "stun",
+    freeze: "freeze",
+    confuse: "confuse",
+    debuff: "hex",
+    mark: "mark",
+    slow: "slow",
+    movelock: "bind",
+    buff: "buff",
+    haste: "haste",
+    move: "step",
+    shield: "shield",
+    barrier: "barrier",
+    absorb: "absorb",
+    taunt: "taunt",
+    heal: "heal",
+    weather: "weather",
+    protect: "protect",
+    guard: "guard",
+    rest: "rest",
+};
+
+export function moveAccentFamily(kind: string): MoveAccentFamily | null {
+    return MOVE_ACCENT_FAMILY[String(kind ?? "").toLowerCase()] ?? null;
+}
+
+/** Stable per-technique art direction. Same-kind techniques share a readable
+ * grammar but receive one of four rotations/cadences from their authored name,
+ * so a whole catalog does not look like one cloned effect. */
+export function moveAccentVariant(moveName: string): 0 | 1 | 2 | 3 {
+    let hash = 2166136261;
+    for (const ch of String(moveName ?? "")) {
+        hash ^= ch.charCodeAt(0);
+        hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) % 4 as 0 | 1 | 2 | 3;
+}
+
+/** Windup paint is mechanic-aware. Previously every melee move gathered the
+ * same aura and every ranged move gathered the same charge, erasing a move's
+ * intent before it even left the caster. */
+export function castFlipbookKey(moveKind: string, delivery: string): string {
+    switch (String(moveKind ?? "").toLowerCase()) {
+        case "rest": return "";
+        case "guard": case "protect": return "eshield";
+        case "heal": return "heal";
+        case "shield": case "barrier": return "shield";
+        case "absorb": return "vortex";
+        case "buff": return "buff";
+        case "haste": case "move": return "charge";
+        case "weather": return "aura";
+        case "taunt": case "mark": return "power";
+        case "debuff": return "shadow";
+        case "slow": case "movelock": case "confuse": return "vortex";
+        case "stun": return "spark";
+        case "freeze": return "ice";
+        case "burn": case "dot": return "burn";
+        case "wound": case "lifesteal": return "blood";
+        case "crush": return "power";
+        case "push": case "pull": case "pivot": return "aura";
+        default: return delivery === "ranged" ? "charge" : "aura";
+    }
+}
+
 /** Which painted frame set a move detonates.
  *
  *  KIND chooses the shape, because the shape is what the move DOES; element is
@@ -39,7 +134,7 @@ export function impactFlipbookKey(element: string, moveKind: string, superCast: 
         // used to fall through to the element branch, so a Fire pet catching
         // its breath set off a fireball on its own head.
         case "rest": return "";
-        case "guard": return "eshield";
+        case "guard": case "protect": return "eshield";
         case "heal": return "heal";
         case "burn": case "dot": return "burn";
         case "wound": return "poison";
@@ -51,13 +146,15 @@ export function impactFlipbookKey(element: string, moveKind: string, superCast: 
         case "slow": case "movelock": return "magma";
         case "stun": return "spark";
         case "mark": return "power";
-        case "taunt": return "aura";
+        case "taunt": return "power";
         case "buff": return "buff";
         case "haste": case "move": return "charge";
+        case "weather": return "aura";
         case "shield": case "barrier": case "absorb": return "eshield";
         // Offense: crush lands heavier, shoves land as blunt contact.
         case "crush": return "bighit";
         case "push": case "pull": return "impact";
+        case "pivot": return "slash";
         default: break;
     }
     if (superCast) return "explosion";

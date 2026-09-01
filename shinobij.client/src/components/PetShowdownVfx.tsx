@@ -22,7 +22,8 @@ import { Billboard } from "@react-three/drei";
 import * as THREE from "three";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { projectileVisual } from "../lib/pet-projectile-vfx";
-import { showdownMeleeContact } from "../lib/pet-showdown-choreography";
+import { showdownAttackRhythm, showdownMeleeContact } from "../lib/pet-showdown-choreography";
+import type { PetVisualQualityConfig } from "../lib/pet-visual-quality";
 import type { PetSignaturePerformance } from "../lib/pet-signature-performance";
 import { VolumetricSetPiece } from "./PetShowdownVfx3d";
 import type { ShowdownEvent } from "../lib/pet-showdown-api";
@@ -64,11 +65,11 @@ function flipbookTextures(key: string, smooth = false): THREE.Texture[] | null {
 }
 
 const PROJECTILE_SPRITES: Record<string, string> = {
-    fire: new URL("../assets/fx/projectiles/fire.webp", import.meta.url).href,
-    water: new URL("../assets/fx/projectiles/water.webp", import.meta.url).href,
-    wind: new URL("../assets/fx/projectiles/wind.webp", import.meta.url).href,
-    earth: new URL("../assets/fx/projectiles/earth.webp", import.meta.url).href,
-    lightning: new URL("../assets/fx/projectiles/lightning.webp", import.meta.url).href,
+    fire: new URL("../assets/fx/projectiles-v2/fire.webp", import.meta.url).href,
+    water: new URL("../assets/fx/projectiles-v2/water.webp", import.meta.url).href,
+    wind: new URL("../assets/fx/projectiles-v2/wind.webp", import.meta.url).href,
+    earth: new URL("../assets/fx/projectiles-v2/earth.webp", import.meta.url).href,
+    lightning: new URL("../assets/fx/projectiles-v2/lightning.webp", import.meta.url).href,
 };
 
 const projectileTexCache = new Map<string, THREE.Texture>();
@@ -122,7 +123,7 @@ export function epicTexture(slug: string): THREE.Texture | null {
 
 /** Impact/one-shot flipbook key for a move — kind identity first (every
  *  buff/debuff/heal family has its own painted burst), element fallback. */
-export { impactFlipbookKey, vfxElementTint, VFX_ELEMENT_TINT } from "../lib/showdown-vfx-map";
+export { castFlipbookKey, impactFlipbookKey, vfxElementTint, VFX_ELEMENT_TINT } from "../lib/showdown-vfx-map";
 
 
 // ─── One-shot flipbook billboard ─────────────────────────────────────────────
@@ -319,6 +320,9 @@ const SUPER_SET_PIECES: Record<string, SetPieceLayer[]> = {
     // the grounded dust, the final spark pop. The structures themselves live
     // in PetShowdownVfx3d.
     Fire: [
+        // Painted firewall is the silhouette/read layer. Keep it first so it
+        // survives every quality tier's translucent-layer budget.
+        { sprite: "firewall", scale: 10.2, aspect: 0.667, delay: 0.02, y0: 0.55, y1: 1.15, travel: 0, spin: 0, grow: 1.22, sway: 0.02, tint: "#fff0dc" },
         // Blender-baked Mantaflow plume: real simulated smoke with a burning
         // core rises over the shader flame crown (normal-blended — the dark
         // smoke body would vanish under additive).
@@ -338,13 +342,23 @@ const SUPER_SET_PIECES: Record<string, SetPieceLayer[]> = {
         { frames: "mist", scale: 3.6, aspect: 1.0, delay: 0.5, y0: 0.5, y1: 1.7, travel: 0, spin: 0, grow: 1.45, normalBlend: true },
     ],
     Wind: [
+        // The authored tornado supplies a readable column behind the shader
+        // vortex; it stays upright while the accent flipbook does the spin.
+        { sprite: "tornado", scale: 7.8, aspect: 1.5, delay: 0.02, y0: 0.45, y1: 1.3, travel: 0, spin: 0, grow: 1.2, sway: 0.025, tint: "#e0fff1" },
         { frames: "vortex", scale: 3.2, aspect: 0.9, delay: 0.08, y0: 0.3, y1: 0.5, travel: 0, spin: 3.2, grow: 1.5, tint: "#c8ffe9" },
         { frames: "wind", scale: 4.6, aspect: 0.8, delay: 0.4, y0: 0.5, y1: 1.1, travel: 0, spin: 0, grow: 1.35 },
     ],
     Earth: [
+        // The large quake painting restores the arena-scale fissure/read that
+        // was authored but previously unreachable from the live renderer.
+        { sprite: "quake", scale: 10.2, aspect: 0.667, delay: 0.03, y0: 0.38, y1: 0.78, travel: 0, spin: 0, grow: 1.24, tint: "#f0d2a0" },
         { frames: "impact", scale: 3.2, aspect: 0.6, delay: 0.55, y0: 0.3, y1: 0.6, travel: 0, spin: 0, grow: 1.35, tint: "#d8a86a" },
     ],
     Lightning: [
+        // Keep the authored branching and blue-violet values. Additive
+        // compositing turned its pale canvas into a featureless white slab
+        // once the point light and bloom arrived on the same frame.
+        { sprite: "stormbolt", scale: 7.8, aspect: 1.5, delay: 0.02, dur: 0.72, y0: 0.85, y1: 1.25, travel: 0, spin: 0, grow: 1.18, puls: 0.025, tint: "#dce8ff" },
         { frames: "spark", scale: 3.4, aspect: 0.8, delay: 0.52, dur: 0.35, y0: 0.8, y1: 1.1, travel: 0, spin: 0, grow: 1.45, tint: "#fff6c0" },
     ],
 };
@@ -402,7 +416,8 @@ function SetPieceLayerMesh({ spawn, layer }: { spawn: SetPieceSpawn; layer: SetP
         // as the lens closes in, so no cut can ever show a plane's edge.
         const camD = state.camera.position.distanceTo(group.current.position);
         const nearFade = Math.min(1, Math.max(0, (camD - 1.6) / 2.4));
-        mat.current.opacity = (t < 0.14 ? t / 0.14 : t > 0.72 ? Math.max(0, (1 - t) / 0.28) : 1) * nearFade;
+        const opacityCap = layer.sprite === "tornado" ? 0.66 : layer.sprite ? 0.8 : layer.normalBlend ? 0.72 : 0.68;
+        mat.current.opacity = (t < 0.14 ? t / 0.14 : t > 0.72 ? Math.max(0, (1 - t) / 0.28) : 1) * nearFade * opacityCap;
     });
     if (!textures && !sprite) return null;
     // Hero sprites face the lens FULLY (no axis lock): the action camera's high
@@ -466,7 +481,7 @@ function FloorTakeoverMesh({ spawn, floor, presence }: { spawn: SetPieceSpawn; f
     );
 }
 
-function SetPieceOnce({ spawn }: { spawn: SetPieceSpawn }) {
+function SetPieceOnce({ spawn, quality }: { spawn: SetPieceSpawn; quality: PetVisualQualityConfig }) {
     const layers = (spawn.superCast ? SUPER_SET_PIECES[spawn.element] : undefined) ?? SET_PIECES[spawn.element];
     if (!layers) return null;
     const floor = FLOOR_TAKEOVERS[spawn.element];
@@ -476,16 +491,16 @@ function SetPieceOnce({ spawn }: { spawn: SetPieceSpawn }) {
             {/* The 3D structure (wave shell / flame crown / vortex cones /
                 real rocks / procedural bolt + particles + light + shock ring)
                 — reads from every camera; the flat layers are accents now. */}
-            <VolumetricSetPiece spawn={spawn} />
-            {layers.map((layer, i) => (
+            <VolumetricSetPiece spawn={spawn} quality={quality} />
+            {layers.slice(0, quality.translucentLayers).map((layer, i) => (
                 <SetPieceLayerMesh key={i} spawn={spawn} layer={layer} />
             ))}
         </group>
     );
 }
 
-export function ShowdownSetPieceLayer({ spawns }: { spawns: SetPieceSpawn[] }) {
-    return <group>{spawns.map((s) => <SetPieceOnce key={s.key} spawn={s} />)}</group>;
+export function ShowdownSetPieceLayer({ spawns, quality }: { spawns: SetPieceSpawn[]; quality: PetVisualQualityConfig }) {
+    return <group>{spawns.map((s) => <SetPieceOnce key={s.key} spawn={s} quality={quality} />)}</group>;
 }
 
 // ─── Looping status aura (burn keeps burning, poison keeps dripping) ─────────
@@ -500,12 +515,14 @@ const STATUS_AURA: Record<string, { frames: string; scale: number; y: number; op
     debuff: { frames: "shadow", scale: 1.6, y: 0.85, opacity: 0.6 },
     crush: { frames: "shadow", scale: 1.4, y: 0.8, opacity: 0.5 },
     slow: { frames: "vortex", scale: 1.5, y: 0.55, opacity: 0.55 },
+    movelock: { frames: "magma", scale: 1.45, y: 0.42, opacity: 0.62 },
     confuse: { frames: "vortex", scale: 1.1, y: 1.9, opacity: 0.65 },
     mark: { frames: "spark", scale: 1.2, y: 1.9, opacity: 0.7 },
     stun: { frames: "spark", scale: 1.4, y: 1.7, opacity: 0.75 },
     // The absorb pool, the redirect and the CC immunity are all things the
     // player has to be able to SEE on a foe; none of them had an aura.
     shield: { frames: "shield", scale: 1.7, y: 0.95, opacity: 0.6 },
+    protect: { frames: "eshield", scale: 1.85, y: 0.95, opacity: 0.68 },
     taunt: { frames: "power", scale: 1.5, y: 1.0, opacity: 0.55 },
     steadfast: { frames: "eshield", scale: 1.35, y: 0.8, opacity: 0.45 },
 };
@@ -513,7 +530,7 @@ const STATUS_AURA: Record<string, { frames: string; scale: number; y: number; op
 /** Which auras win when a pet carries more than two. Raw engine push order used
  *  to decide, so a third status was dropped arbitrarily — a stun mattering less
  *  than a buff purely because of insertion order. */
-const AURA_PRIORITY = ["stun", "freeze", "confuse", "shield", "burn", "wound", "taunt", "slow", "debuff", "crush", "mark", "steadfast", "buff", "haste"];
+const AURA_PRIORITY = ["stun", "freeze", "confuse", "protect", "shield", "movelock", "burn", "wound", "taunt", "slow", "debuff", "crush", "mark", "steadfast", "buff", "haste"];
 
 export function StatusAuraFx({ statuses }: { statuses: readonly { kind: string }[] }) {
     // At most two auras so a debuff-stacked pet doesn't become a bonfire.
@@ -568,10 +585,6 @@ function StatusAuraLoop({ aura, phase }: { aura: { frames: string; scale: number
 // refs), translates the current beat into them each frame, and renders the
 // painted projectile + afterimage streaks.
 
-/** Fraction of an action beat at which the hit lands — keep in sync with the
- *  battle component's STRIKE_FRAC. */
-const VFX_STRIKE_FRAC = 0.55;
-
 export function BeatDrivenVfx({ beatRef, posRef, radii, signatures }: {
     beatRef: React.MutableRefObject<VfxBeat>;
     posRef: React.MutableRefObject<VfxPositions>;
@@ -594,10 +607,17 @@ export function BeatDrivenVfx({ beatRef, posRef, radii, signatures }: {
         if (!actor || !target || ev.targets[0].id === ev.actorId) return;
         const signature = signatures?.get(ev.actorId) ?? null;
         const frac = (performance.now() - beat.startedAt) / beat.durationMs;
+        const rhythm = showdownAttackRhythm({
+            weight: ev.weight,
+            superMove: ev.super,
+            delivery: ev.delivery,
+            moveKind: ev.moveKind,
+        });
 
         if (ev.delivery === "ranged" && ev.moveKind !== "heal") {
             const travel = ELEMENT_TRAVEL[ev.element] ?? ELEMENT_TRAVEL.None;
-            const t0 = 0.36, t1 = VFX_STRIKE_FRAC;
+            const t0 = rhythm.windupStart + (rhythm.contact - rhythm.windupStart) * 0.46;
+            const t1 = rhythm.contact;
             if (!travel.instant && frac >= t0 && frac <= t1) {
                 const p = (frac - t0) / (t1 - t0);
                 const ax = actor[0], az = actor[2];
@@ -620,7 +640,7 @@ export function BeatDrivenVfx({ beatRef, posRef, radii, signatures }: {
             // Mirror the fighter's acceleration/contact/recovery window. The
             // wake terminates at the same profile-sized SURFACE point as the
             // body instead of drawing through the target's centre.
-            if (frac >= 0.3 && frac <= 0.66) {
+            if (frac >= rhythm.windupStart && frac <= rhythm.contactEnd) {
                 const contact = showdownMeleeContact(
                     actor[0], actor[2], target[0], target[2],
                     radii.get(ev.actorId) ?? 0.82,
@@ -635,8 +655,8 @@ export function BeatDrivenVfx({ beatRef, posRef, radii, signatures }: {
                 melee.contactX = contact.impactX;
                 melee.contactZ = contact.impactZ;
                 melee.element = ev.element;
-                melee.progress = Math.min(1, Math.max(0, (frac - 0.32) / 0.22));
-                melee.impactProgress = frac < 0.54 ? -1 : Math.min(1, (frac - 0.54) / 0.12);
+                melee.progress = Math.min(1, Math.max(0, (frac - rhythm.dashStart) / Math.max(0.01, rhythm.contact - rhythm.dashStart)));
+                melee.impactProgress = frac < rhythm.contact ? -1 : Math.min(1, (frac - rhythm.contact) / Math.max(0.01, rhythm.contactEnd - rhythm.contact));
                 melee.heavy = ev.super || ev.weight === "heavy";
                 melee.signature = signature;
             }
@@ -974,7 +994,7 @@ export function SuperPillar({ drive }: { drive: React.MutableRefObject<PillarDri
                 const w = 0.9 + Math.sin(now * 0.02) * 0.12;
                 beam.current.scale.set(w * (1 - t * 0.4), 1, w * (1 - t * 0.4));
                 beamMat.current.color.set(d.color);
-                beamMat.current.opacity = 0.5 * (1 - t);
+                beamMat.current.opacity = 0.3 * (1 - t);
             }
         }
         if (ring.current && ringMat.current) {
@@ -985,7 +1005,7 @@ export function SuperPillar({ drive }: { drive: React.MutableRefObject<PillarDri
                 const s = 0.8 + t * 4.2;
                 ring.current.scale.set(s, s, s);
                 ringMat.current.color.set(d.color);
-                ringMat.current.opacity = 0.7 * (1 - t);
+                ringMat.current.opacity = 0.45 * (1 - t);
             }
         }
     });

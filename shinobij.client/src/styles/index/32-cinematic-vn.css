@@ -560,6 +560,10 @@
     backdrop-filter: blur(8px);
 }
 
+.cvn-dialogue-scene {
+    display: none;
+}
+
 .cvn-dialogue-shell {
     position: absolute;
     z-index: 50;
@@ -1075,6 +1079,136 @@
         right: -1vw;
         width: min(46vw, 210px);
         height: min(38dvh, 320px);
+    }
+}
+
+/* Portrait phones use a composed upper artwork band instead of scaling the
+   desktop two-actor shot until it fills the screen. Keep faces below the title,
+   stop portraits above the dialogue card, and carry scene context inside that
+   card so captions never sit across character art. */
+@media (max-width: 800px) and (orientation: portrait) {
+    .cvn-root {
+        --cvn-actor-height: min(40dvh, 360px);
+    }
+
+    .cvn-topbar {
+        top: max(10px, env(safe-area-inset-top, 0px));
+        right: 8px;
+        left: 10px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+        gap: 7px;
+    }
+
+    .cvn-chapter-mark {
+        min-height: 44px;
+        padding: 4px 0 4px 8px;
+        align-content: center;
+    }
+
+    .cvn-chapter-mark strong {
+        display: -webkit-box;
+        overflow: hidden;
+        font-size: clamp(.78rem, 3.6vw, .94rem);
+        line-height: 1.14;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+    }
+
+    .cvn-top-actions {
+        gap: 3px;
+    }
+
+    .cvn-icon-control {
+        min-width: 44px;
+        width: 44px;
+    }
+
+    .cvn-skip {
+        min-width: 48px;
+        padding-inline: 7px;
+        font-size: .68rem;
+    }
+
+    .cvn-scene-caption {
+        display: none;
+    }
+
+    .cvn-actor {
+        bottom: min(41dvh, 340px);
+        width: min(51vw, 230px);
+    }
+
+    .cvn-actor.is-left {
+        left: -3vw;
+    }
+
+    .cvn-actor.is-right {
+        right: -3vw;
+    }
+
+    .cvn-actor.is-player:has(img.cvn-avatar-square, img.cvn-avatar-wide) {
+        width: min(34vw, 150px);
+        height: min(26dvh, 238px);
+    }
+
+    .cvn-actor.is-player.is-left:has(img.cvn-avatar-square, img.cvn-avatar-wide) {
+        left: 1vw;
+        width: min(34vw, 150px);
+        height: min(26dvh, 238px);
+    }
+
+    .cvn-actor.is-player.is-right:has(img.cvn-avatar-square, img.cvn-avatar-wide) {
+        right: 1vw;
+        width: min(34vw, 150px);
+        height: min(26dvh, 238px);
+    }
+
+    .cvn-dialogue-shell {
+        right: 8px;
+        bottom: max(8px, calc(env(safe-area-inset-bottom, 0px) + 5px));
+        left: 8px;
+        max-height: min(48dvh, 410px);
+        min-height: 154px;
+        padding: 12px 14px 10px;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+    }
+
+    .cvn-dialogue-scene {
+        display: -webkit-box;
+        overflow: hidden;
+        margin: 0 0 7px;
+        color: color-mix(in srgb, var(--cvn-accent) 54%, #d8dde2);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: .68rem;
+        font-style: italic;
+        line-height: 1.25;
+        letter-spacing: .025em;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+    }
+
+    .cvn-speaker {
+        position: static;
+        display: inline-flex;
+        max-width: 100%;
+        width: fit-content;
+        margin: 0 0 7px;
+        padding: 5px 10px;
+        font-size: .66rem;
+    }
+
+    .cvn-dialogue-text {
+        min-height: 2.8em;
+        font-size: clamp(.94rem, 4.05vw, 1.08rem);
+        line-height: 1.38;
+    }
+
+    .cvn-dialogue-footer {
+        align-items: stretch;
+        margin-top: 8px;
     }
 }
 

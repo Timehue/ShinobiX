@@ -1,4 +1,5 @@
 import type { PetCombatModelProfile } from "./pet-3d-models";
+import { petDuelAttackRhythm } from "./pet-duel-presentation";
 
 export type ShowdownPerformanceVariant = 0 | 1 | 2;
 
@@ -24,13 +25,20 @@ export function showdownBodyRadius({
     targetHeight = 2.1,
     profile = "quadruped",
     rarity = "common",
+    presentationScale = 1,
 }: {
     targetHeight?: number;
     profile?: PetCombatModelProfile;
     rarity?: string;
+    presentationScale?: number;
 }): number {
-    const rarityScale = /mythic|legend/i.test(rarity) ? 1.06 : /epic/i.test(rarity) ? 1.03 : 1;
-    return clamp(targetHeight * PROFILE_RADIUS[profile] * rarityScale, 0.62, 1.58);
+    return clamp(targetHeight * PROFILE_RADIUS[profile] * showdownRarityScale(rarity) * presentationScale, 0.62, 1.58);
+}
+
+/** The production renderer's visual rarity scale, shared with its footprint and
+ * audit data so the contact solver cannot use a smaller body than the player sees. */
+export function showdownRarityScale(rarity: string): number {
+    return rarity === "mythic" ? 1.13 : rarity === "legendary" ? 1.07 : rarity === "rare" ? 1.02 : 1;
 }
 
 /** The attacker reaches beyond its resting silhouette during the strike pose. */
@@ -73,13 +81,72 @@ export function showdownMeleeContact(
     };
 }
 
+export interface ShowdownAttackRhythm {
+    /** First authored anticipation frame; earlier time remains the living idle. */
+    windupStart: number;
+    /** Melee root travel begins here. Ranged attacks keep charging instead. */
+    dashStart: number;
+    /** Authoritative contact/release point shared by playback and VFX. */
+    contact: number;
+    /** End of the held contact pose. */
+    contactEnd: number;
+    /** End of visible recovery; the remaining beat is a settle breath. */
+    recoverEnd: number;
+    /** Skeletal animation pace for this presentation weight. */
+    attackPace: number;
+}
+
+/**
+ * One attack clock for the production Showdown renderer. It deliberately
+ * consumes both anticipationShare and contactShare from the duel presentation
+ * policy: body travel, cast release, impact side effects, and painted VFX must
+ * not each invent a different strike frame.
+ */
+export function showdownAttackRhythm({
+    weight,
+    superMove,
+    delivery,
+    moveKind,
+}: {
+    weight: "light" | "normal" | "heavy";
+    superMove: boolean;
+    delivery: "melee" | "ranged" | "self";
+    moveKind?: string;
+}): Readonly<ShowdownAttackRhythm> {
+    const damageProxy = superMove ? 1 : weight === "heavy" ? 0.7 : weight === "light" ? 0.08 : 0.36;
+    const authored = petDuelAttackRhythm(damageProxy, superMove, moveKind === "crush");
+    const contact = clamp(
+        (delivery === "ranged" ? 0.4 : 0.35) + authored.anticipationShare * (delivery === "ranged" ? 0.55 : 0.72),
+        0.48,
+        0.6,
+    );
+    const windupStart = clamp(contact - authored.anticipationShare, 0.16, 0.38);
+    const dashStart = delivery === "melee"
+        ? clamp(contact - Math.min(0.22, authored.anticipationShare * 0.65), windupStart + 0.06, contact - 0.07)
+        : contact;
+    const contactEnd = clamp(contact + authored.contactShare * 0.45, contact + 0.07, 0.76);
+    const recoveryShare = superMove ? 0.16 : weight === "heavy" ? 0.19 : weight === "light" ? 0.24 : 0.22;
+    return Object.freeze({
+        windupStart,
+        dashStart,
+        contact,
+        contactEnd,
+        recoverEnd: clamp(contactEnd + recoveryShare, contactEnd + 0.12, 0.94),
+        attackPace: superMove ? 0.55 : weight === "heavy" ? 0.75 : weight === "light" ? 1.3 : 1,
+    });
+}
+
 /** One attack phrase: accelerate, hold the committed contact pose through the
  * hit frame, then recoil home. The smooth edges keep paws from sliding. */
-export function showdownMeleeDrive(progress: number): number {
-    if (progress < 0.32) return 0;
-    if (progress < 0.5) return smoothstep((progress - 0.32) / 0.18);
-    if (progress < 0.68) return 1;
-    if (progress < 0.92) return 1 - smoothstep((progress - 0.68) / 0.24);
+export function showdownMeleeDrive(progress: number, rhythm?: Pick<ShowdownAttackRhythm, "dashStart" | "contact" | "contactEnd" | "recoverEnd">): number {
+    const dashStart = rhythm?.dashStart ?? 0.32;
+    const contact = rhythm?.contact ?? 0.5;
+    const contactEnd = rhythm?.contactEnd ?? 0.68;
+    const recoverEnd = rhythm?.recoverEnd ?? 0.92;
+    if (progress < dashStart) return 0;
+    if (progress < contact) return smoothstep((progress - dashStart) / Math.max(0.001, contact - dashStart));
+    if (progress < contactEnd) return 1;
+    if (progress < recoverEnd) return 1 - smoothstep((progress - contactEnd) / Math.max(0.001, recoverEnd - contactEnd));
     return 0;
 }
 

@@ -210,6 +210,16 @@ test("combat cards use consistent art crops and separated overlay metadata", () 
         /#combat \.combat-jutsu-thumb > img\s*\{[^}]*object-fit: cover !important;[^}]*object-position: center 42% !important/s,
         "desktop jutsu, weapon, and item art must share one stable edge-to-edge crop",
     );
+    assert.match(
+        battleSkinCss,
+        /@media \(max-width: 479px\)[\s\S]*?#combat \.combat-jutsu-card-wrap:has\(> \.combat-jutsu-help\) > \.combat-jutsu-button\s*\{[^}]*position: absolute !important;[^}]*inset: 0 !important;[^}]*width: 100% !important;[^}]*height: 100% !important;/s,
+        "phone jutsu artwork must retain the full card instead of yielding a row to Details",
+    );
+    assert.match(
+        battleSkinCss,
+        /#combat \.combat-jutsu-card-wrap > \.combat-jutsu-help\s*\{[^}]*position: absolute !important;[^}]*inset: 0 0 auto auto !important;[^}]*width: 44px !important;[^}]*height: 44px !important;/s,
+        "phone Details must be an accessible top-right overlay instead of a card-sized layout track",
+    );
     assert.match(source, /localJutsuArtById\[jutsu\.id\][\s\S]*?localItemArtById\[item\.id\]/,
         "the local equipped catalogs must restore art stripped from the sealed PvP payload");
     assert.ok((source.match(/className="combat-jutsu-fallback-icon" aria-hidden="true"/g) ?? []).length >= 4,

@@ -439,7 +439,15 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // production build, leaving 18,841 B of local headroom. This is not a startup
 // regression: the independently enforced initial graph remains 1,444,495 B
 // raw / 382,671 B gzip, and the entry, per-chunk, and per-CSS gates are unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_965_000;
+//
+// 2026-08-31 PET COMBAT AAA PASS: 7,965,000 -> 8,050,000 B. The expanded,
+// already-lazy pet Showdown/Colosseum and Warfront graphs add calibrated body-
+// profile choreography, quality-tiered 3D/VFX, elemental set pieces, and the
+// complete three-lane tactical presentation. The exact production build measures
+// 8,033,836 B, leaving 16,164 B of local headroom. Startup did not regress: the
+// independently enforced initial graph is 1,439,335 B raw / 380,245 B gzip, and
+// the entry, per-chunk, per-CSS, and initial-graph gates remain unchanged.
+const TOTAL_JS_CSS_FAIL_BYTES = 8_050_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

@@ -169,7 +169,6 @@ async function installApi(page: Page, currentSector = 0, completedLessonIds: str
 
 async function openArena(page: Page) {
     await page.goto("/#/village", { waitUntil: "networkidle" });
-    await page.reload({ waitUntil: "networkidle" });
     await page.getByRole("button", { name: "Enter Pet Home" }).click();
     await expect(page.getByRole("heading", { name: "Pet Home", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Pet Arena" }).click();

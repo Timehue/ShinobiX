@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-    MASTERY_FOCUS_OPTIONS,
-    normalizeMasteryFocus,
     type ActivityHorizon,
     type ActivitySpine as ActivitySpineData,
     type ActivitySpineItem,
-    type MasteryFocus,
 } from "../../../shared/activity-spine";
 import { PUBLIC_CAPABILITY_IDS } from "../../../shared/public-capabilities";
 import type { Character } from "../types/character";
@@ -22,25 +19,18 @@ const HORIZON_LABEL: Record<ActivityHorizon, string> = {
 
 export function ActivitySpine({
     character,
-    updateCharacter,
     onNavigate,
 }: {
     character: Character;
-    updateCharacter: (c: Character | ((prev: Character | null) => Character | null)) => void;
     onNavigate: (screen: Screen) => void;
 }) {
-    const storedFocus = normalizeMasteryFocus(character.masteryFocus);
     const [spine, setSpine] = useState<ActivitySpineData | null>(null);
     const [status, setStatus] = useState<"loading" | "ready" | "offline" | "error">("loading");
     const [retry, setRetry] = useState(0);
     const { availability, snapshot } = useLiveCapabilities();
-    const legacyFocusAvailable = availability("legacy") === "available";
-    const focus = storedFocus === "legacy" && !legacyFocusAvailable ? "auto" : storedFocus;
-    const focusOptions = MASTERY_FOCUS_OPTIONS.filter((option) => option.id !== "legacy" || legacyFocusAvailable);
+    const focus = "auto";
     const projectedAdmissionAllowed = (capabilityIds: ActivitySpineItem["requiredCapabilityIds"]): boolean =>
         !!capabilityIds?.length && capabilityIds.every((id) => availability(id) === "available");
-    const focusAdmissionAllowed = (["gameplay", "gameplayMutations"] as const)
-        .every((id) => availability(id) === "available");
     const capabilityStateSignature = [
         snapshot.freshness,
         ...PUBLIC_CAPABILITY_IDS.map((id) => `${id}:${availability(id)}`),
@@ -67,15 +57,6 @@ export function ActivitySpine({
         return () => controller.abort();
     }, [character.name, focus, retry, capabilityStateSignature]);
 
-    const chooseFocus = (next: MasteryFocus) => {
-        if (next === "legacy" && !legacyFocusAvailable) return;
-        if (!(["gameplay", "gameplayMutations"] as const).every((id) => availability(id) === "available")) return;
-        setSpine(null);
-        setStatus("loading");
-        updateCharacter((prev) => prev ? { ...prev, masteryFocus: next } : prev);
-        captureProductEvent("activity_recommendation_viewed", { screenId: "daily-briefing", mode: "focus-selected", focus: next });
-    };
-
     const navigate = useCallback((screen: string, context?: string, horizon?: ActivityHorizon) => {
         if (context === "clan-boss") {
             try { sessionStorage.setItem("clan.initialView", "boss"); } catch { /* optional navigation hint */ }
@@ -86,21 +67,7 @@ export function ActivitySpine({
 
     const heading = (
         <div className="activity-spine-heading">
-            <div>
-                <h3>Your Activity Spine</h3>
-                {focus === "auto" && spine?.selectedFocus === "auto" ? <small>Auto focus: {MASTERY_FOCUS_OPTIONS.find((option) => option.id === spine.resolvedFocus)?.label}</small> : null}
-            </div>
-            <label className="activity-focus-select">
-                <span>Mastery focus</span>
-                <select
-                    aria-label="Mastery focus"
-                    value={focus}
-                    disabled={!focusAdmissionAllowed}
-                    onChange={(event) => chooseFocus(normalizeMasteryFocus(event.target.value))}
-                >
-                    {focusOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-                </select>
-            </label>
+            <h3>Your Activity Spine</h3>
             {spine?.returningPlayer ? <span className="activity-spine-returner">Returner plan</span> : null}
         </div>
     );
