@@ -217,3 +217,112 @@ export function isReversalWebhook(webhook: TebexWebhookEnvelope): boolean {
         || webhook.type === 'payment.dispute.lost'
         || webhook.type === 'payment.dispute.opened';
 }
+
+/*
+ * ── Shinobi Supporter subscription ────────────────────────────────────────
+ *
+ * Tebex wraps recurring billing in its own envelope: the subject carries a
+ * `reference`, a `price`, and TWO nested payment subjects — `initial_payment`
+ * (the basket we created, which is where our `custom` identity lives) and
+ * `last_payment` (the most recent charge). Identity is read from those, so a
+ * subscription is attributed exactly the way a one-off purchase is.
+ *
+ * ⛔ THE FIVE EVENT TYPES ARE NOT THREE. Getting this table wrong costs a
+ * paying customer their perks:
+ *   started / renewed .............. entitled
+ *   cancellation.aborted ........... entitled (they changed their mind)
+ *   cancellation.requested ......... STILL ENTITLED — they have asked to stop
+ *                                    renewing but are paid through the current
+ *                                    period. Revoking here bills someone for
+ *                                    time they do not receive.
+ *   ended .......................... revoked; this is the only stop signal
+ */
+const SUBSCRIPTION_ACTIVE_TYPES = new Set([
+    'recurring-payment.started',
+    'recurring-payment.renewed',
+    'recurring-payment.cancellation.aborted',
+]);
+const SUBSCRIPTION_ENDED_TYPE = 'recurring-payment.ended';
+/** Acknowledged and deliberately inert — see the table above. */
+const SUBSCRIPTION_NOOP_TYPES = new Set(['recurring-payment.cancellation.requested']);
+
+export function isSubscriptionWebhook(webhook: TebexWebhookEnvelope): boolean {
+    return webhook.type.startsWith('recurring-payment.');
+}
+
+export type SubscriptionOutcome =
+    | { action: 'ignore'; reason: string }
+    | { action: 'entitle'; playerName: string; active: boolean; reference: string; amountCents: number };
+
+/** Pull our player slug out of either nested payment subject. */
+function identityFromPayment(payment: unknown): string {
+    if (!payment || typeof payment !== 'object') return '';
+    const subject = payment as Record<string, unknown>;
+    const products = Array.isArray(subject.products) ? subject.products : [];
+    for (const entry of products) {
+        if (!entry || typeof entry !== 'object') continue;
+        const name = readPlayerNameFromCustom((entry as Record<string, unknown>).custom);
+        if (name) return name;
+    }
+    return readPlayerNameFromCustom(subject.custom) || readUsernameId(subject.customer);
+}
+
+/** True when either nested payment names the configured subscription product. */
+function mentionsPackage(payment: unknown, packageId: string): boolean {
+    if (!payment || typeof payment !== 'object') return false;
+    const products = (payment as Record<string, unknown>).products;
+    if (!Array.isArray(products)) return false;
+    return products.some((entry) => {
+        if (!entry || typeof entry !== 'object') return false;
+        const id = (entry as Record<string, unknown>).id;
+        return id !== undefined && id !== null && String(id) === packageId;
+    });
+}
+
+/**
+ * Decide what a recurring-payment webhook means for the supporter flag.
+ *
+ * `subscriptionPackageId` is injected so this stays pure. An empty id means the
+ * rail is unconfigured, and every event is ignored rather than entitling
+ * someone off a product we cannot confirm is ours — the same fail-closed rule
+ * the shard path uses for unmapped packages.
+ */
+export function subscriptionOutcome(
+    webhook: TebexWebhookEnvelope,
+    subscriptionPackageId: string,
+): SubscriptionOutcome {
+    if (!isSubscriptionWebhook(webhook)) return { action: 'ignore', reason: `not-subscription:${webhook.type}` };
+    if (!subscriptionPackageId) return { action: 'ignore', reason: 'subscription-package-unconfigured' };
+    if (SUBSCRIPTION_NOOP_TYPES.has(webhook.type)) {
+        // Paid through the period. Do nothing until `ended` arrives.
+        return { action: 'ignore', reason: 'cancellation-requested-still-entitled' };
+    }
+
+    const active = SUBSCRIPTION_ACTIVE_TYPES.has(webhook.type);
+    if (!active && webhook.type !== SUBSCRIPTION_ENDED_TYPE) {
+        return { action: 'ignore', reason: `unhandled-subscription-type:${webhook.type}` };
+    }
+
+    const subject = webhook.subject;
+    const reference = typeof subject.reference === 'string' ? subject.reference.trim() : '';
+    if (!reference) return { action: 'ignore', reason: 'missing-reference' };
+
+    // The product must be OURS. Without this, any recurring product on the
+    // store would grant supporter perks.
+    if (!mentionsPackage(subject.initial_payment, subscriptionPackageId)
+        && !mentionsPackage(subject.last_payment, subscriptionPackageId)) {
+        return { action: 'ignore', reason: 'not-the-subscription-package' };
+    }
+
+    const playerName = identityFromPayment(subject.initial_payment)
+        || identityFromPayment(subject.last_payment);
+    if (!playerName) return { action: 'ignore', reason: 'no-player-identity' };
+
+    // Informational only — isPatreonSubscriber gates on `active`, never on the
+    // amount — so the buyer's own currency is fine to record here unconverted.
+    const price = subject.price as { amount?: unknown } | undefined;
+    const amount = Number(price?.amount);
+    const amountCents = Number.isFinite(amount) && amount > 0 ? Math.round(amount * 100) : 0;
+
+    return { action: 'entitle', playerName, active, reference, amountCents };
+}

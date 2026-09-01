@@ -47,7 +47,15 @@ the match.** Every second on screen moves the result.
   move a pet forward or back, seeing each survivor's health as you decide. This
   is a genuine mid-match decision, not a pre-commitment: the panel gates the
   handoff, so nothing advances until you answer.
-- A band must carry **three distinct elements** (`RITE_MIN_ELEMENTS`).
+- **There is no composition requirement.** Any four pets you own may enter,
+  including a single-element band. Type advantage is real and a narrow band folds
+  against its counter — that is a matchup to read, not a rule to enforce, and the
+  enemy front line is scouted before you commit. (Owner ruling 2026-09-01; the
+  former `RITE_MIN_ELEMENTS = 3` gate was removed. It rested on a measurement
+  that ran level-1 pets on both sides, so it only ever showed the ±15% chart
+  working as designed, while blocking players from answering a matchup by
+  levelling — the axis they actually invest in. The generated RIVAL band still
+  holds a diversity floor, because that one is nobody's choice.)
 
 ### How the re-form stays honest
 

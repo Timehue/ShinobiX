@@ -394,6 +394,7 @@
 
 .user-hub-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin: 10px 0;
 }
@@ -410,6 +411,11 @@
   border-color: rgba(250, 204, 21, 0.5);
   background: rgba(250, 204, 21, 0.12);
   color: var(--gold);
+}
+.user-hub-tab.active.blocked {
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(248, 113, 113, 0.11);
+  color: #fca5a5;
 }
 
 .user-hub-follow-star {
@@ -454,6 +460,10 @@
 
 /* 979px, matching the shell contract — see the note at the top of this file. */
 @media (max-width: 979px) {
+  .user-hub-tabs {
+    flex-wrap: nowrap;
+  }
+
   /* The onboarding tutorial banner is fixed to the bottom (inline bottom:16px)
      and sits at z-index 9000 — above the bottom nav (z-index 1000). On mobile
      the nav occupies that bottom strip (~70px + safe-area inset), so the banner

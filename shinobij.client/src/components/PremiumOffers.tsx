@@ -1,5 +1,6 @@
 /*
- * Fate Shard purchasing — the real-money tile row on the Shop screen.
+ * Premium offers — the real-money products: Fate Shard tiers and the
+ * recurring Shinobi Supporter tier.
  *
  * Deliberately a SECTION of the existing Shop rather than a screen of its own,
  * matching CardPackSection directly above it: the nav's "Shop" button is where
@@ -13,6 +14,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import { GameIcon } from "./icons/GameIcon";
+import shards35Art from "../assets/premium-shop/shards-35.webp";
+import shards155Art from "../assets/premium-shop/shards-155.webp";
+import shards420Art from "../assets/premium-shop/shards-420.webp";
+import shards900Art from "../assets/premium-shop/shards-900.webp";
+import supporterArt from "../assets/premium-shop/supporter.webp";
 import {
     buildShardTiers,
     fetchShardPrices,
@@ -22,8 +28,22 @@ import {
     shardRail,
     type ShardTier,
 } from "../lib/shard-store";
+import { SUBSCRIPTION_ID } from "../../../shared/shard-packages";
 
-export function FateShardSection({ character, onVersionedCharacter }: {
+/*
+ * Tile art. The shard COUNT is painted into each image, but the PRICE
+ * deliberately is not: Tebex charges in the buyer's own currency with their tax
+ * applied, so a baked-in "$5" would be a wrong number on screen for most of the
+ * world. The price is live text underneath, straight from the storefront.
+ */
+const TIER_ART: Record<string, string> = {
+    "shards-35": shards35Art,
+    "shards-155": shards155Art,
+    "shards-420": shards420Art,
+    "shards-900": shards900Art,
+};
+
+export function PremiumOffers({ character, onVersionedCharacter }: {
     character: Character;
     onVersionedCharacter: VersionedCharacterCommit;
 }) {
@@ -33,6 +53,10 @@ export function FateShardSection({ character, onVersionedCharacter }: {
     const [awaitingPurchase, setAwaitingPurchase] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const rail = shardRail();
+    // `character.patreon` keeps its original storage key — it is live save data
+    // and provider-agnostic; only the rail that writes it changed.
+    const isSupporter = (character as { patreon?: { active?: boolean } }).patreon?.active === true;
+    const [supporterPrice, setSupporterPrice] = useState<{ amount: number; currency: string } | null>(null);
 
     // Prices come from Tebex, not from the catalogue's reference USD — a player
     // in France is charged euros including VAT, and showing them dollars would
@@ -40,7 +64,10 @@ export function FateShardSection({ character, onVersionedCharacter }: {
     useEffect(() => {
         const abort = new AbortController();
         void fetchShardPrices(abort.signal).then((prices) => {
-            if (!abort.signal.aborted) setTiers(buildShardTiers(prices));
+            if (abort.signal.aborted) return;
+            setTiers(buildShardTiers(prices));
+            const sub = prices.find((row) => row.packageId === SUBSCRIPTION_ID);
+            setSupporterPrice(sub ? { amount: sub.amount, currency: sub.currency } : null);
         });
         return () => abort.abort();
     }, []);
@@ -79,17 +106,17 @@ export function FateShardSection({ character, onVersionedCharacter }: {
         return () => window.removeEventListener("focus", onFocus);
     }, [awaitingPurchase]);
 
-    async function buy(tier: ShardTier) {
+    async function buy(packageId: string) {
         if (busyId) return;
         // Opened SYNCHRONOUSLY, before any await: a popup blocker only trusts a
         // window opened directly from the click. The tab sits blank while the
         // basket is created, then gets pointed at checkout.
         const tab = window.open("about:blank", "_blank");
         if (tab) tab.opener = null;
-        setBusyId(tier.pack.id);
+        setBusyId(packageId);
         setStatus("");
         try {
-            const result = await openShardCheckout(tier.pack.id, tab);
+            const result = await openShardCheckout(packageId, tab);
             if (!result.ok) {
                 setStatus(result.error ?? "Could not open checkout.");
                 return;
@@ -131,28 +158,80 @@ export function FateShardSection({ character, onVersionedCharacter }: {
             </p>
             <p style={{ marginBottom: "0.8rem" }}>Balance: <strong>{character.fateShards}</strong> Fate Shards</p>
 
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {/* Auto-fit rather than fixed columns: four tiles on a desktop rail,
+                two on a phone, without a media query or a new stylesheet. */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
                 {tiers.map((tier) => (
                     <button
                         key={tier.pack.id}
-                        onClick={() => void buy(tier)}
+                        onClick={() => void buy(tier.pack.id)}
                         disabled={busyId !== null}
-                        style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2, minWidth: 132 }}
+                        // The tile's words live inside the artwork, which a screen
+                        // reader cannot read, so the button carries the whole offer.
+                        aria-label={`Buy ${tier.pack.shards} Fate Shards${tier.bonusPercent > 0 ? `, ${tier.bonusPercent}% extra` : ""}${tier.price ? ` for ${formatPrice(tier.price)}` : ""}`}
+                        style={{
+                            display: "flex", flexDirection: "column", alignItems: "stretch",
+                            gap: 8, padding: 8, height: "auto", textAlign: "center",
+                        }}
                     >
-                        <span style={{ color: "#7dd3fc", fontWeight: 600 }}>
-                            {tier.pack.shards} Fate Shards
-                            {tier.bonusPercent > 0 ? <span style={{ color: "#facc15" }}> +{tier.bonusPercent}%</span> : null}
+                        <span style={{ position: "relative", display: "block" }}>
+                            <img
+                                src={TIER_ART[tier.pack.id]}
+                                alt=""
+                                loading="lazy"
+                                style={{ width: "100%", height: "auto", display: "block", borderRadius: 6 }}
+                            />
+                            {tier.bonusPercent > 0 && (
+                                <span style={{
+                                    position: "absolute", top: 6, right: 6,
+                                    background: "rgba(9,12,24,0.86)", color: "#facc15",
+                                    border: "1px solid rgba(250,204,21,0.55)", borderRadius: 999,
+                                    padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700,
+                                }}>+{tier.bonusPercent}% extra</span>
+                            )}
                         </span>
-                        <span style={{ fontSize: "0.82rem", color: "#c8d2de" }}>
+                        <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "#e8eef6" }}>
                             {tier.price
                                 ? formatPrice(tier.price)
-                                /* No provider price available — label it as an
-                                   approximation rather than presenting the
-                                   planning figure as the amount charged. */
+                                /* No provider price yet — labelled as an estimate
+                                   rather than presented as the amount charged. */
                                 : `about $${tier.pack.usd} USD`}
                         </span>
                     </button>
                 ))}
+            </div>
+
+            <h2 style={{ marginTop: "1.4rem" }}>Shinobi Supporter</h2>
+            <p style={{ color: "#aaa", marginBottom: "0.8rem" }}>
+                A monthly subscription: a larger jutsu loadout, an extra pet and bloodline slot, and a custom avatar.
+                Convenience and cosmetics — it buys no combat power.
+            </p>
+
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(150px, 232px)", gap: 12 }}>
+                <button
+                    onClick={() => void buy(SUBSCRIPTION_ID)}
+                    disabled={busyId !== null || isSupporter}
+                    aria-label={isSupporter ? "Shinobi Supporter is already active" : "Subscribe to Shinobi Supporter"}
+                    style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: 8, padding: 8, height: "auto", textAlign: "center" }}
+                >
+                    <span style={{ position: "relative", display: "block" }}>
+                        <img src={supporterArt} alt="" loading="lazy" style={{ width: "100%", height: "auto", display: "block", borderRadius: 6, opacity: isSupporter ? 0.55 : 1 }} />
+                        {isSupporter && (
+                            <span style={{
+                                position: "absolute", top: 6, right: 6, background: "rgba(9,12,24,0.86)",
+                                color: "#86efac", border: "1px solid rgba(134,239,172,0.55)", borderRadius: 999,
+                                padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700,
+                            }}>Active</span>
+                        )}
+                    </span>
+                    <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "#e8eef6" }}>
+                        {isSupporter
+                            ? "Already active"
+                            : supporterPrice
+                                ? `${formatPrice(supporterPrice)} / month`
+                                : "about $15 USD / month"}
+                    </span>
+                </button>
             </div>
 
             {awaitingPurchase && (
@@ -171,9 +250,10 @@ export function FateShardSection({ character, onVersionedCharacter }: {
 
             <p style={{ color: "#8b98a8", fontSize: "0.78rem", lineHeight: 1.5, marginTop: "0.9rem", marginBottom: 0 }}>
                 Payments are handled by Tebex, who are the merchant of record. Prices are shown in your local currency
-                where available, and the exact amount is confirmed at checkout before you pay. Shards are added to the
-                account you are signed in as, usually within a few seconds. Everything Fate Shards buy can also be
-                earned in game.
+                where available, and the exact amount is confirmed at checkout before you pay. Purchases are added to
+                the account you are signed in as, usually within a few seconds. The subscription renews monthly until
+                you cancel it, which you can do at any time from the receipt Tebex emails you. Everything Fate Shards
+                buy can also be earned in game.
             </p>
         </div>
     );

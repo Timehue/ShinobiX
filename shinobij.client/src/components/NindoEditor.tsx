@@ -35,6 +35,12 @@ export function NindoEditor({ value, onSave }: { value: NindoValue; onSave: (v: 
     const [dirty, setDirty] = useState(false);
     const ref = useRef<HTMLTextAreaElement>(null);
 
+    // Autosave may reconcile this character with a newer server snapshot while
+    // Profile stays mounted. Read that authoritative value while clean, but
+    // keep the local buffer authoritative while the player has unsaved edits.
+    const visibleDraft = dirty ? draft : value.nindo ?? "";
+    const visibleBg = dirty ? bg : value.nindoBg ?? "";
+
     function applyDraft(next: string, caret: number) {
         setDraft(next.slice(0, NINDO_MAX));
         setDirty(true);
@@ -49,10 +55,10 @@ export function NindoEditor({ value, onSave }: { value: NindoValue; onSave: (v: 
 
     function wrap(open: string, close: string) {
         const el = ref.current;
-        if (!el) { applyDraft(draft + open + close, (draft + open).length); return; }
+        if (!el) { applyDraft(visibleDraft + open + close, (visibleDraft + open).length); return; }
         const s = el.selectionStart;
         const e = el.selectionEnd;
-        const next = draft.slice(0, s) + open + draft.slice(s, e) + close + draft.slice(e);
+        const next = visibleDraft.slice(0, s) + open + visibleDraft.slice(s, e) + close + visibleDraft.slice(e);
         // Drop the caret just after the opening tag so the user can type the value.
         applyDraft(next, s + open.length + (e - s));
     }
@@ -63,16 +69,17 @@ export function NindoEditor({ value, onSave }: { value: NindoValue; onSave: (v: 
     }
 
     function save() {
-        onSave({ nindo: draft.trim(), nindoBg: bg });
+        onSave({ nindo: visibleDraft.trim(), nindoBg: visibleBg });
         setDirty(false);
     }
     function clear() {
         setDraft("");
-        onSave({ nindo: "", nindoBg: bg });
+        setBg("");
+        onSave({ nindo: "", nindoBg: "" });
         setDirty(false);
     }
 
-    const previewBg = nindoBgStyle(bg);
+    const previewBg = nindoBgStyle(visibleBg);
     const hasBg = Object.keys(previewBg).length > 0;
 
     return (
@@ -82,7 +89,7 @@ export function NindoEditor({ value, onSave }: { value: NindoValue; onSave: (v: 
                     <strong>Nindo</strong>
                     <small>Your shinobi creed, shown publicly on your profile.</small>
                 </span>
-                <em>{dirty ? "Unsaved changes" : draft.trim() ? "Creed saved" : "No creed written"}</em>
+                <em>{dirty ? "Unsaved changes" : visibleDraft.trim() ? "Creed saved" : "No creed written"}</em>
             </summary>
             <div className="profile-title-manager-body">
             <p className="hint" style={{ marginTop: 0 }}>
@@ -112,14 +119,16 @@ export function NindoEditor({ value, onSave }: { value: NindoValue; onSave: (v: 
                     <button
                         key={b.id || "none"}
                         type="button"
+                        className="nindo-bg-option"
                         title={b.label}
                         aria-label={b.label}
+                        aria-pressed={visibleBg === b.id}
                         onClick={() => pickBg(b.id)}
                         style={{
-                            width: 58, height: 34, borderRadius: 8, cursor: "pointer",
+                            borderRadius: 8, cursor: "pointer",
                             background: b.background || "transparent",
                             backgroundSize: "cover", backgroundPosition: "center",
-                            border: bg === b.id ? "2px solid var(--gold)" : "1px solid rgba(255,255,255,.25)",
+                            border: visibleBg === b.id ? "2px solid var(--gold)" : "1px solid rgba(255,255,255,.25)",
                             color: "var(--slate-300)", fontSize: "0.68rem", lineHeight: 1,
                             display: "flex", alignItems: "center", justifyContent: "center",
                         }}
@@ -132,7 +141,7 @@ export function NindoEditor({ value, onSave }: { value: NindoValue; onSave: (v: 
             <textarea
                 ref={ref}
                 className="nindo-textarea"
-                value={draft}
+                value={visibleDraft}
                 maxLength={NINDO_MAX}
                 onChange={(e) => { setDraft(e.target.value.slice(0, NINDO_MAX)); setDirty(true); }}
                 placeholder={"Write your ninja way…\n[center][size=24][color=gold]Never retreat. Never explain.[/color][/size][/center]\nSworn blade of [b]Frostfang[/b]."}
@@ -140,10 +149,10 @@ export function NindoEditor({ value, onSave }: { value: NindoValue; onSave: (v: 
                 style={{ width: "100%", resize: "vertical", fontFamily: "inherit", fontSize: "0.95rem", lineHeight: 1.5 }}
             />
 
-            <div className="nindo-editor-foot" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "0.5rem 0" }}>
-                <span className="hint">{draft.length}/{NINDO_MAX}</span>
-                <div style={{ display: "flex", gap: 8 }}>
-                    {(draft.trim() || bg) && <button type="button" className="danger-button" onClick={clear}>Clear</button>}
+            <div className="nindo-editor-foot">
+                <span className="hint nindo-editor-count">{visibleDraft.length}/{NINDO_MAX}</span>
+                <div className="nindo-editor-actions">
+                    {(visibleDraft.trim() || visibleBg) && <button type="button" className="danger-button" onClick={clear}>Clear</button>}
                     <button type="button" className="profile-title-btn" disabled={!dirty} onClick={save}>
                         {dirty ? "Save Nindo" : "Saved"}
                     </button>
@@ -156,7 +165,7 @@ export function NindoEditor({ value, onSave }: { value: NindoValue; onSave: (v: 
                     className="nindo-body"
                     style={hasBg ? { ...previewBg, padding: "14px 16px", borderRadius: 8, border: "1px solid rgba(250,204,21,.22)" } : undefined}
                 >
-                    {draft.trim() ? renderNindo(draft) : <span className="hint">Nothing yet — your creed will appear here.</span>}
+                    {visibleDraft.trim() ? renderNindo(visibleDraft) : <span className="hint">Nothing yet — your creed will appear here.</span>}
                 </div>
             </div>
             </div>

@@ -47,16 +47,16 @@ test("portaled combat suppresses ambient mobile hint expansion before body mode 
     }
 });
 
-test("mobile navigation keeps five anchors and a searchable destination sheet", () => {
+test("mobile navigation keeps five anchors and a compact destination sheet", () => {
     const anchorCount = nav.match(/className="mobile-nav-btn(?: menu-btn)?"/g)?.length ?? 0;
     assert.equal(anchorCount, 5, "the persistent bar must keep the five-anchor mobile pattern");
     assert.ok(nav.includes('aria-label="Primary game navigation"'));
     assert.ok(nav.includes("PLAYER_MENU_GROUPS"), "destinations must remain catalog-derived");
-    assert.ok(nav.includes("visibleMenuGroups.map"), "the destination catalog must render through its filtered view");
-    assert.ok(nav.includes('type="search"'));
-    assert.ok(nav.includes("Find a destination"));
-    assert.ok(nav.includes("menuSearchRef.current?.focus"), "opening the sheet must focus destination search");
-    assert.ok(css.includes(".mobile-menu-search"), "the search control must retain its mobile treatment");
+    assert.ok(nav.includes("PLAYER_MENU_GROUPS.map"), "the complete destination catalog must render directly");
+    assert.ok(!nav.includes('type="search"'), "the compact destination sheet must not include a search field");
+    assert.ok(!nav.includes("Find a destination"));
+    assert.ok(nav.includes("menuCloseRef.current?.focus"), "opening the sheet must focus its close control");
+    assert.ok(!css.includes(".mobile-menu-search"), "removed search controls must not leave dead mobile styling");
     assert.match(css, /mobile-menu-overlay > :where\([^)]+mobile-menu-groups\)[^{]*\{[^}]*flex:\s*0 0 auto;/s);
 });
 
@@ -71,4 +71,9 @@ test("mobile jutsu cards open readable details with the training action inside",
 test("accepted field missions keep their abandon action in mobile flow", () => {
     assert.match(missionCss, /\.mh-field-card\.mh-field-accepted \.mh-fetch-actions \{[\s\S]*display: contents;/);
     assert.match(missionCss, /\.mh-field-secondary-action \{[\s\S]*min-height: 30px;/);
+});
+
+test("profile dossier accordions fill the mobile content width", () => {
+    assert.match(css, /\.screen-profile \.profile-dossier-grid \{[\s\S]*width:\s*100% !important;[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\) !important;[\s\S]*justify-items:\s*stretch !important;/);
+    assert.match(css, /\.screen-profile \.profile-dossier-section,[\s\S]*\.screen-profile \.profile-dossier-rows,[\s\S]*\.screen-profile \.profile-dossier-row \{[\s\S]*width:\s*100% !important;[\s\S]*max-width:\s*none !important;/);
 });

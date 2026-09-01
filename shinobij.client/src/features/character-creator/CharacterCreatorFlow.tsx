@@ -384,7 +384,8 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false, google
                             <span
                                 key={progressStep.id}
                                 role="listitem"
-                                className={`cc-progress-step ${index <= stepIndex ? "is-active" : ""}`}
+                                className={`cc-progress-step${index <= stepIndex ? " is-active" : ""}${index < stepIndex ? " is-complete" : ""}`}
+                                aria-current={index === stepIndex ? "step" : undefined}
                             >
                                 <i aria-hidden="true" />
                                 <span>{progressStep.label}</span>

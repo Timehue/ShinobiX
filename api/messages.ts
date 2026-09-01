@@ -22,6 +22,7 @@ import { blockRelationship, blockedPlayersFor } from './player/_blocks.js';
  *   GET  /api/messages              -> my inbox (conversation summaries)
  *   GET  /api/messages?with=<name>  -> the thread with <name> (marks it read)
  *   POST /api/messages  { to, text} -> send a message (sender = authed player)
+ *   DELETE /api/messages?with=<name> -> delete my copy of a conversation
  */
 
 export type DmMessage = { from: string; text: string; ts: number };
@@ -46,12 +47,29 @@ export function threadKey(a: string, b: string): string {
 function inboxKey(user: string): string {
     return `dm:inbox:${norm(user)}`;
 }
+function deletedAtKey(user: string, partner: string): string {
+    return `dm:deleted-at:${norm(user)}|${norm(partner)}`;
+}
 
 // Move/insert a conversation summary to the front of an inbox, de-duped by
 // partner, newest-first, capped. Pure so it can be unit-tested.
 export function upsertInbox(inbox: InboxEntry[], entry: InboxEntry, max = INBOX_MAX): InboxEntry[] {
     const rest = (Array.isArray(inbox) ? inbox : []).filter((e) => norm(e.with) !== norm(entry.with));
     return [entry, ...rest].sort((p, q) => q.lastTs - p.lastTs).slice(0, max);
+}
+
+// Deleting a DM is deliberately per-player: the shared thread remains available
+// to the other participant, while this player's inbox and visible history are
+// cleared through the deletion timestamp. A message arriving after that cutoff
+// starts the conversation again.
+export function removeInboxConversation(inbox: InboxEntry[], partner: string, deletedAt: number): InboxEntry[] {
+    return (Array.isArray(inbox) ? inbox : []).filter(
+        (entry) => norm(entry.with) !== norm(partner) || entry.lastTs > deletedAt,
+    );
+}
+
+export function messagesAfterDeletion(messages: DmMessage[], deletedAt: number): DmMessage[] {
+    return (Array.isArray(messages) ? messages : []).filter((message) => message.ts > deletedAt);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -75,6 +93,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Reading a thread clears its unread badge in MY inbox.
         const messages = (await kv.get<DmMessage[]>(threadKey(me, withName))) ?? [];
+        const deletedAt = (await kv.get<number>(deletedAtKey(me, withName))) ?? 0;
         try {
             await withKvLock(inboxKey(me), async () => {
                 const inbox = (await kv.get<InboxEntry[]>(inboxKey(me))) ?? [];
@@ -87,7 +106,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         } catch { /* best-effort read-receipt; never fail the read */ }
 
-        return res.status(200).json(messages);
+        return res.status(200).json(messagesAfterDeletion(messages, deletedAt));
+    }
+
+    if (req.method === 'DELETE') {
+        try {
+            const identity = await authedPlayerOrAdmin(req);
+            if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+            if (identity.admin) return res.status(403).json({ error: 'Direct messages require a player account.' });
+
+            const me = identity.name;
+            const withName = typeof req.query.with === 'string' ? norm(req.query.with) : '';
+            if (!withName) return res.status(400).json({ error: 'Missing conversation.' });
+            if (withName === norm(me)) return res.status(400).json({ error: 'Invalid conversation.' });
+
+            const deletedAt = Date.now();
+            // Write the cutoff first. The conditional inbox removal preserves a
+            // genuinely newer message if one arrives while deletion is running.
+            // Keep this marker permanently. The shared thread's TTL is extended
+            // by later messages, so expiring the marker could otherwise make
+            // deleted history reappear while that thread is still active.
+            await kv.set(deletedAtKey(me, withName), deletedAt);
+            await withKvLock(inboxKey(me), async () => {
+                const inbox = (await kv.get<InboxEntry[]>(inboxKey(me))) ?? [];
+                const next = removeInboxConversation(inbox, withName, deletedAt);
+                await kv.set(inboxKey(me), next, { ex: KV_TTL_SECONDS });
+            });
+
+            res.setHeader('Cache-Control', 'no-store');
+            return res.status(200).json({ ok: true });
+        } catch (err) {
+            console.error('[messages delete]', err);
+            return res.status(500).json({ error: 'Internal server error.' });
+        }
     }
 
     if (req.method === 'POST') {
@@ -145,14 +196,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await withKvLock(inboxKey(recipient), async () => {
                 const inbox = (await kv.get<InboxEntry[]>(inboxKey(recipient))) ?? [];
                 const prevUnread = inbox.find((e) => norm(e.with) === from)?.unread ?? 0;
-                await kv.set(inboxKey(recipient), upsertInbox(inbox, { with: from, lastTs: ts, lastText: safeText, unread: prevUnread + 1 }), { ex: KV_TTL_SECONDS });
+                const deletedAt = (await kv.get<number>(deletedAtKey(recipient, from))) ?? 0;
+                if (ts > deletedAt) {
+                    await kv.set(inboxKey(recipient), upsertInbox(inbox, { with: from, lastTs: ts, lastText: safeText, unread: prevUnread + 1 }), { ex: KV_TTL_SECONDS });
+                }
             });
             await withKvLock(inboxKey(from), async () => {
                 const inbox = (await kv.get<InboxEntry[]>(inboxKey(from))) ?? [];
-                await kv.set(inboxKey(from), upsertInbox(inbox, { with: recipient, lastTs: ts, lastText: safeText, unread: 0 }), { ex: KV_TTL_SECONDS });
+                const deletedAt = (await kv.get<number>(deletedAtKey(from, recipient))) ?? 0;
+                if (ts > deletedAt) {
+                    await kv.set(inboxKey(from), upsertInbox(inbox, { with: recipient, lastTs: ts, lastText: safeText, unread: 0 }), { ex: KV_TTL_SECONDS });
+                }
             });
 
-            return res.status(200).json(thread);
+            const senderDeletedAt = (await kv.get<number>(deletedAtKey(from, recipient))) ?? 0;
+            return res.status(200).json(messagesAfterDeletion(thread, senderDeletedAt));
         } catch (err) {
             console.error('[messages]', err);
             return res.status(500).json({ error: 'Internal server error.' });

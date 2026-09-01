@@ -38,6 +38,7 @@ const SCREEN_PRELOADERS: Partial<Record<Screen, () => Promise<unknown>>> = {
     townHall: () => import("../screens/TownHall"),
     bank: () => import("../screens/Bank"),
     shop: () => import("../components/Shop"),
+    premiumShop: () => import("../screens/PremiumShop"),
     clan: () => import("../screens/ClanHall"),
     hospital: () => import("../screens/Hospital"),
     cafeteria: () => import("../screens/Cafeteria"),

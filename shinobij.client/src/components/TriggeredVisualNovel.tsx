@@ -574,9 +574,9 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                     <div className="vn-header-actions">
                         <div className="vn-progress">Page {pageIndex + 1}/{pages.length} | Line {lineIndex + 1}/{Math.max(1, pageDialogue.length)}</div>
                         {surface === "immersive" && classicReader && presentation.mode === "cinematic" && (
-                            <button type="button" className="vn-skip-button" onClick={useCinematicReader}>Cinematic Mode</button>
+                            <button type="button" className="vn-skip-button" onClick={useCinematicReader}>Cinematic</button>
                         )}
-                        <button type="button" className="vn-skip-button" onClick={cancelScene} aria-label="Skip visual novel scene">Skip Scene</button>
+                        <button type="button" className="vn-skip-button" onClick={cancelScene} aria-label="Skip visual novel scene">Skip</button>
                     </div>
                 </div>
                 <div className={"vn-stage vn-biome-" + event.biome + (pageImage ? " vn-has-image" : "")} style={stageStyle}>

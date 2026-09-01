@@ -90,6 +90,26 @@
     box-shadow: 0 0 14px rgba(250, 204, 21, 0.55);
 }
 
+/* Completed steps stay legible without competing with the current location.
+   aria-current carries the same distinction for non-visual navigation. */
+.cc-progress-step.is-active.is-complete {
+    color: #c9b36d;
+}
+
+.cc-progress-step.is-active.is-complete i {
+    background: #8f793c;
+    box-shadow: none;
+}
+
+.cc-progress-step[aria-current="step"] {
+    color: #ffd85a;
+}
+
+.cc-progress-step[aria-current="step"] i {
+    background: #ffd85a;
+    box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.16), 0 0 14px rgba(250, 204, 21, 0.58);
+}
+
 .cc-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(320px, 390px);

@@ -28,7 +28,16 @@
  * account, or more likely, typo their own shards into the void.
  */
 import { canonicalOrigin } from '../_canonical-domain.js';
-import { PROVIDER_PACKAGE_IDS, shardPackage, type ShardPackage } from '../../shared/shard-packages.js';
+import { PROVIDER_PACKAGE_IDS, shardPackage, SUBSCRIPTION_ID, type ShardPackage } from '../../shared/shard-packages.js';
+
+/**
+ * Tebex product id for the recurring Shinobi Supporter package. Empty until the
+ * dashboard package exists, which keeps the whole subscription rail inert
+ * rather than entitling anyone off an unverified product.
+ */
+export function tebexSubscriptionPackageId(env: NodeJS.ProcessEnv = process.env): string {
+    return String(env.TEBEX_SUBSCRIPTION_PACKAGE_ID ?? '').trim();
+}
 
 /** Headless API host. The webstore's PUBLIC token goes in the path. */
 export const TEBEX_HEADLESS_BASE = 'https://headless.tebex.io/api/accounts';
@@ -92,6 +101,31 @@ export function tebexPackageIdFor(ourPackageId: string): { pack: ShardPackage; t
     return { pack, tebexId };
 }
 
+
+export interface ResolvedProduct {
+    tebexId: string;
+    /** Shards credited on purchase; 0 for the subscription, which grants a flag. */
+    shards: number;
+    kind: 'shards' | 'subscription';
+}
+
+/**
+ * Resolve any purchasable id — shard tier or subscription — to its Tebex
+ * product. Unknown or unconfigured ids return null so the route refuses rather
+ * than charging for something the webhook could not act on afterwards.
+ */
+export function resolvePurchasable(
+    ourId: string,
+    env: NodeJS.ProcessEnv = process.env,
+): ResolvedProduct | null {
+    if (ourId === SUBSCRIPTION_ID) {
+        const tebexId = tebexSubscriptionPackageId(env);
+        return tebexId ? { tebexId, shards: 0, kind: 'subscription' } : null;
+    }
+    const shard = tebexPackageIdFor(ourId);
+    return shard ? { tebexId: shard.tebexId, shards: shard.pack.shards, kind: 'shards' } : null;
+}
+
 export interface CreateBasketInput {
     playerName: string;
     /** Buyer's address, forwarded for Tebex's own fraud checks. */
@@ -114,8 +148,8 @@ export interface CreateBasketInput {
 export function buildCreateBasketBody(input: CreateBasketInput): Record<string, unknown> {
     const origin = canonicalOrigin(input.env ?? process.env);
     const body: Record<string, unknown> = {
-        complete_url: `${origin}/#/shop?purchase=complete`,
-        cancel_url: `${origin}/#/shop?purchase=cancelled`,
+        complete_url: `${origin}/#/premiumShop?purchase=complete`,
+        cancel_url: `${origin}/#/premiumShop?purchase=cancelled`,
         custom: basketCustomForPlayer(input.playerName),
         complete_auto_redirect: false,
     };
@@ -178,6 +212,10 @@ export function parseCataloguePrices(json: unknown): CataloguePrice[] {
     for (const [ourId, theirId] of Object.entries(PROVIDER_PACKAGE_IDS.tebex ?? {})) {
         if (theirId) byTebexId.set(String(theirId), ourId);
     }
+    // The subscription is priced by the same storefront call, so the supporter
+    // tile shows a real localized figure rather than the reference dollar one.
+    const subscriptionId = tebexSubscriptionPackageId();
+    if (subscriptionId) byTebexId.set(subscriptionId, SUBSCRIPTION_ID);
 
     const prices: CataloguePrice[] = [];
     for (const entry of list) {
