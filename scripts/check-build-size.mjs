@@ -505,7 +505,22 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // pet-warfront-{sim,map,mask-baked,worker,presentation,contract} plus
 // PetWarfrontMatch/PetWarfrontStage3D, which together are far larger than the
 // mode that replaced them. This is a bridge, not a new baseline.
-const TOTAL_JS_CSS_FAIL_BYTES = 8_075_000;
+//
+// 2026-08-31 CHRONICLE DUEL PRESENTATION: 8,075,000 -> 8,125,000 B. The AAA
+// duel presentation and the adaptive duel-shell geometry fix added 17,563 B
+// (8,054,964 -> 8,072,527 B measured here), leaving the previous ceiling just
+// 2,473 B of headroom. That is BELOW the ~500 B of VITE_SENTRY_* build-arg
+// strings a deploy build inlines plus any ordinary churn, so the gate was one
+// trivial commit away from blocking production deploys again — the failure mode
+// that has already cost two blocked deploys.
+//
+// Sized deliberately at ~52 KB of headroom, roughly two features at the ~17-30 KB
+// each that recent ones have cost. This is NOT permission to spend it: it exists
+// so the next ordinary commit does not red the gate, and it is still the same
+// bridge the entry above describes. The drain that pays for all of it remains the
+// tactical-ladder migration. If you find yourself raising this again before that
+// lands, drain something instead — a ceiling raised on every squeeze is not a gate.
+const TOTAL_JS_CSS_FAIL_BYTES = 8_125_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
