@@ -226,9 +226,21 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
     assert.doesNotMatch(setupSource, /THREE LANES|Ward Tower|Gate Warden|Hollow Omen/i,
         "the lobby must not advertise the retired three-lane mode");
     assert.match(setupSource, /ONE RING · LAST BAND STANDING/);
-    assert.match(setupSource, /Winner stays in/);
-    assert.match(setupSource, /Kills are the only scoreboard/);
-    assert.match(setupSource, /SWAP TOKEN/);
+    // The laws shown must be the laws FOUGHT. This block previously pinned the
+    // copy of an earlier SEQUENTIAL design — "Winner stays in", a per-duel swap
+    // token, kills as the only scoreboard — which survived the rebuild to 4v4
+    // simultaneous and kept telling players the wrong rules on the very screen
+    // where they commit. Assert the real ones, and guard the retired wording so
+    // it cannot drift back in.
+    assert.match(setupSource, /All eight at once/, "the clash is simultaneous, not a sequence of duels");
+    assert.match(setupSource, /Best of three/, "the match is best-of-three clashes");
+    assert.match(setupSource, /RE-FORM/, "the one mid-match decision must be advertised");
+    assert.doesNotMatch(setupSource, /Winner stays in|SWAP TOKEN|batting order/i,
+        "that is the retired sequential design — the Rite fights all eight at once");
+    // Composition is the player's call (owner ruling 2026-09-01): the lobby must
+    // not advertise an element requirement that no longer exists.
+    assert.doesNotMatch(setupSource, /needs \d+ different elements|three or more elements/i,
+        "there is no element requirement — do not re-advertise one");
 });
 
 test("the retired lane war is unreachable from anything a player can open", () => {
