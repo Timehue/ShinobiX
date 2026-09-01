@@ -21,8 +21,12 @@ type LegalDocument = {
 // fingerprint processing stated plainly rather than implied).
 // 1.5: third-party notices — Apache 2.0 attribution for the self-hosted Roboto
 // webfont, and the Google trademark disclaimer for the sign-in button.
-const LAST_UPDATED = "August 28, 2026";
-const VERSION = "1.6";
+// 1.7: the published contact moved from a personal Gmail to
+// support@shinobijourney.com (Cloudflare Email Routing on the game's own
+// domain). Same human behind it; the address players are told to write to is
+// what changed, which is exactly what these version fields exist to record.
+const LAST_UPDATED = "August 31, 2026";
+const VERSION = "1.7";
 
 const documents: Record<LegalPageSlug, LegalDocument> = {
     terms: {
@@ -280,7 +284,7 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 id: "report",
                 title: "Copyright reports",
                 content: <>
-                    <p>Send a copyright notice by email to <a href="mailto:rillt27@gmail.com">rillt27@gmail.com</a>, or privately through the official community link on the main page. Do not post personal contact details in a public channel. Include:</p>
+                    <p>Send a copyright notice by email to <a href="mailto:support@shinobijourney.com">support@shinobijourney.com</a>, or privately through the official community link on the main page. Do not post personal contact details in a public channel. Include:</p>
                     <ul>
                         <li>your contact information and authority to act;</li>
                         <li>the copyrighted work you believe is affected;</li>
@@ -304,7 +308,7 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
             {
                 id: "dmca",
                 title: "DMCA status",
-                content: <p>Copyright and DMCA notices may be sent to <a href="mailto:rillt27@gmail.com">rillt27@gmail.com</a>. Any registered United States DMCA designated-agent details, once filed with the U.S. Copyright Office, will be published here.</p>,
+                content: <p>Copyright and DMCA notices may be sent to <a href="mailto:support@shinobijourney.com">support@shinobijourney.com</a>. Any registered United States DMCA designated-agent details, once filed with the U.S. Copyright Office, will be published here.</p>,
             },
         ],
     },
@@ -368,7 +372,7 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 id: "cannot-sign-in",
                 title: "If you cannot sign in",
                 content: <>
-                    <p>Email <a href="mailto:rillt27@gmail.com">rillt27@gmail.com</a> from an address connected to the account, or contact staff privately through the official community link on the main page, and state that you want your account deleted. Include your player name.</p>
+                    <p>Email <a href="mailto:support@shinobijourney.com">support@shinobijourney.com</a> from an address connected to the account, or contact staff privately through the official community link on the main page, and state that you want your account deleted. Include your player name.</p>
                     <p>Verification is required before anything is deleted, so that no one can erase another player's account. Never send a password, session token, or identity document in a public channel &mdash; staff will never ask for one.</p>
                 </>,
             },
@@ -396,14 +400,14 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 id: "provider-contact",
                 title: "Provider and contact",
                 content: <>
-                    <p>Shinobi Journey is an independent browser game. For account, legal, privacy, copyright, or safety matters, contact the operator by email at <a href="mailto:rillt27@gmail.com">rillt27@gmail.com</a>, or privately through the official community link on the main page.</p>
+                    <p>Shinobi Journey is an independent browser game. For account, legal, privacy, copyright, or safety matters, contact the operator by email at <a href="mailto:support@shinobijourney.com">support@shinobijourney.com</a>, or privately through the official community link on the main page.</p>
                     <p>Email is the direct contact point for formal notices; community channels are for general help. Please do not put passwords, session tokens, or identity documents in any public channel.</p>
                 </>,
             },
             {
                 id: "accessibility",
                 title: "Accessibility",
-                content: <p>We want the game to be usable by as many players as possible and treat the WCAG 2.1 AA guidelines as our target. Accessibility is a work in progress and some features are inherently visual. If you hit a barrier that stops you playing, email <a href="mailto:rillt27@gmail.com">rillt27@gmail.com</a> with what you were trying to do, and we will try to help or improve it.</p>,
+                content: <p>We want the game to be usable by as many players as possible and treat the WCAG 2.1 AA guidelines as our target. Accessibility is a work in progress and some features are inherently visual. If you hit a barrier that stops you playing, email <a href="mailto:support@shinobijourney.com">support@shinobijourney.com</a> with what you were trying to do, and we will try to help or improve it.</p>,
             },
             {
                 id: "children",
@@ -428,7 +432,7 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 id: "security",
                 title: "Security and responsible disclosure",
                 content: <>
-                    <p>If you find a security vulnerability, please report it privately to <a href="mailto:rillt27@gmail.com">rillt27@gmail.com</a> and give us a reasonable chance to fix it before sharing it publicly. While testing, do not access other players' data, degrade the service, or use the issue for in-game advantage.</p>
+                    <p>If you find a security vulnerability, please report it privately to <a href="mailto:support@shinobijourney.com">support@shinobijourney.com</a> and give us a reasonable chance to fix it before sharing it publicly. While testing, do not access other players' data, degrade the service, or use the issue for in-game advantage.</p>
                     <p>A machine-readable contact is published at <a href="/.well-known/security.txt">/.well-known/security.txt</a>. We appreciate good-faith reports and will not pursue researchers who follow this policy.</p>
                 </>,
             },
