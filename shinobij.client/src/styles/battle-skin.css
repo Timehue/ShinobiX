@@ -5724,7 +5724,10 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
         align-self: stretch !important;
         display: grid !important;
         grid-template-columns: minmax(0, 1fr) !important;
-        grid-template-rows: auto minmax(0, 1fr) auto !important;
+        /* Keep the two AP captions clear of the capsule's fully rounded top.
+           With auto rows, the first 8px caption sat only 5px below the edge
+           and was physically clipped by the 999px corner radius. */
+        grid-template-rows: 20px minmax(0, 1fr) 12px !important;
         gap: 2px !important;
         width: 100% !important;
         min-width: 0 !important;
@@ -5761,10 +5764,14 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
 
     #combat .dual-ap-panel > div:first-child > small {
         grid-row: 1 !important;
+        align-self: end !important;
+        padding: 0 3px 1px !important;
     }
 
     #combat .dual-ap-panel > div:last-child > small {
         grid-row: 3 !important;
+        align-self: start !important;
+        padding: 1px 3px 0 !important;
     }
 
     #combat .round-timer-display {
@@ -6071,7 +6078,7 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
             clamp(190px, 15cqw, 260px) !important;
         grid-template-rows:
             52px
-            66px
+            94px
             22px
             minmax(210px, 1fr)
             60px
@@ -6146,19 +6153,24 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
     #combat .arena-top-panel {
         grid-area: header !important;
         display: block !important;
+        height: 100% !important;
         min-width: 0 !important;
         min-height: 0 !important;
         padding: 0 !important;
-        overflow: visible !important;
+        overflow: hidden !important;
     }
 
     #combat .arena-title-panel {
+        position: relative !important;
         display: grid !important;
         grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important;
         align-items: center !important;
         width: 100% !important;
         height: 100% !important;
+        min-height: 0 !important;
+        box-sizing: border-box !important;
         padding: 0 12px !important;
+        overflow: hidden !important;
         border: 1px solid rgba(205, 153, 54, 0.42) !important;
         border-radius: 8px !important;
         background: linear-gradient(180deg, rgba(5, 13, 24, 0.96), rgba(1, 6, 13, 0.98)) !important;
@@ -6173,14 +6185,18 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
     }
 
     #combat .arena-title-panel h2 {
+        grid-column: 1 !important;
         justify-self: start !important;
+        z-index: 2 !important;
         font-size: 12px !important;
         letter-spacing: 0.12em !important;
         text-transform: uppercase !important;
     }
 
     #combat .arena-title-panel p {
+        grid-column: 3 !important;
         justify-self: end !important;
+        z-index: 2 !important;
         font-size: 10px !important;
         letter-spacing: 0.12em !important;
         text-transform: uppercase !important;
@@ -6188,11 +6204,29 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
 
     #combat .combat-brand-mark {
         display: block !important;
+        position: static !important;
         grid-column: 2 !important;
-        width: clamp(118px, 12cqw, 178px) !important;
-        aspect-ratio: 1412 / 456 !important;
-        background: center / contain no-repeat url("/shinobi-journey-logo-wide.webp") !important;
-        filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.8)) !important;
+        align-self: center !important;
+        justify-self: center !important;
+        width: clamp(144px, 11cqw, 156px) !important;
+        height: auto !important;
+        max-height: calc(100% - 8px) !important;
+        aspect-ratio: 706 / 190 !important;
+        transform: none !important;
+        overflow: hidden !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: center / contain no-repeat url("/shinobi-journey-hud-wordmark.webp") !important;
+        box-shadow: none !important;
+        filter: none !important;
+        contain: paint;
+        pointer-events: none;
+    }
+
+    #combat .combat-brand-mark::before,
+    #combat .combat-brand-mark::after {
+        content: none !important;
+        display: none !important;
     }
 
     #combat .dual-ap-panel {
@@ -6492,6 +6526,26 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
         grid-column: 3 / 6 !important;
     }
 
+    /* Solo PvE has no chat panel. Share the complete lower command deck
+       evenly between the loadout and battle log instead of leaving the PvP
+       chat region empty. Both items span the same row and anchor to opposite
+       edges, preserving the outer desktop grid used by the board/dossiers. */
+    #combat.shinobi-combat-shell--solo .combat-main-area .combat-jutsu-bar,
+    #combat.shinobi-combat-shell--solo .combat-main-area .combat-text-log {
+        grid-column: 1 / -1 !important;
+        grid-row: 6 !important;
+        width: calc(50% - 3px) !important;
+        max-width: calc(50% - 3px) !important;
+    }
+
+    #combat.shinobi-combat-shell--solo .combat-main-area .combat-jutsu-bar {
+        justify-self: start !important;
+    }
+
+    #combat.shinobi-combat-shell--solo .combat-main-area .combat-text-log {
+        justify-self: end !important;
+    }
+
     /* A collapsed desktop chat becomes a small reopen control over the newly
        widened log instead of reserving an empty lower-right column. */
     #combat .combat-layout.combat-chat-collapsed > .battle-chat-col.battle-chat-hidden {
@@ -6550,7 +6604,7 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
 @container shinobi-combat (min-width: 1180px) and (min-height: 660px) and (max-height: 739px) {
     #combat .combat-layout,
     #combat .combat-layout.has-action-notice {
-        grid-template-rows: 52px 66px 22px minmax(190px, 1fr) 60px 180px !important;
+        grid-template-rows: 52px 94px 22px minmax(190px, 1fr) 60px 180px !important;
     }
 }
 
@@ -6561,7 +6615,7 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
 @container shinobi-combat (min-width: 1180px) and (min-height: 1100px) {
     #combat .combat-layout,
     #combat .combat-layout.has-action-notice {
-        grid-template-rows: 52px 66px 22px minmax(210px, 1fr) 60px clamp(320px, 28cqh, 400px) !important;
+        grid-template-rows: 52px 94px 22px minmax(210px, 1fr) 60px clamp(320px, 28cqh, 400px) !important;
     }
 }
 }
