@@ -100,13 +100,11 @@ the handoff as written.
    fraction of the machinery. Industry practice supports hybrid
    automatic-filter + human-review rather than blocking queues.
 
-5. **Sage spawn checks are client-*initiated*, server-*decided*.** There is no
-   server push channel for per-player events (Realtime only covers
-   `pvp:*`/`cw-tilecards:*`/`challenges:*`). Instead of new push
-   infrastructure, the client calls a cheap `sage/roll` endpoint at the
-   handoff's qualifying moments (login, PvP win, mission claim, dungeon
-   settle, sector discovery). The server owns eligibility, odds, pity, and
-   cooldowns, so a spam-clicking client gains nothing (§7.2).
+5. **Sage spawn checks are server-triggered by witnessed deeds.** Every
+   verified Legacy counter write invokes the shared roll helper after its stats
+   lock releases. The map only polls `GET /api/legacy/sage` to present an offer
+   that already exists; player POSTs cannot manufacture roll opportunities.
+   The server owns eligibility, odds, pity, daily caps, and cooldowns (§7.2).
 
 6. **Era milestone counters use `kv.incr` fan-out keys, not one hot blob.**
    The handoff's `milestone_current` single row would become a lock-contention
@@ -236,8 +234,10 @@ other art. `legacy:stats` is a flat counter object (~40 numbers).
 
 ### 4.1 The counter set (`legacy:stats:<player>`)
 
-Flat counters, all `number`, all default 0 — grouped per the handoff's
-categories but trimmed to what the engines can actually attribute today:
+Flat counters, all `number`, all default 0. `LegacyStatKey` also reserves a
+few future counters, but definitions are linted so an unlock may use only a
+server-written LIVE counter or one of the three bounded MIRRORED counters
+(`tilesExplored`, `endlessTowerBest`, `arenaTournaments`):
 
 - **Style:** `ninjutsuKills, ninjutsuDamage, genjutsuKills, genjutsuControlUses,
   taijutsuKills, taijutsuDamage, bukijutsuKills, bukijutsuDamage`
@@ -253,32 +253,38 @@ categories but trimmed to what the engines can actually attribute today:
 - **Events:** `eventCompletions, weeklyBossTop10, gauntletTop25`
 - **Anti-gaming inputs:** `repeatKillsByTarget` (small map, cap 20 entries,
   decayed), `suspicionFlags`
-- **Meta:** `updatedAt, bootstrappedAt, bootstrapSnapshot` (§5.4)
+- **Meta:** `updatedAt, bootstrappedAt`, exact-once activity receipts, bounded
+  repeat-kill evidence, and suspicion timestamps (§5.4)
 
 ### 4.2 Hook points (exact, from the survey)
 
-`api/_legacy-track.ts` exports `bumpLegacyStats(playerName, deltas)` —
-a `kv.get`/merge/`kv.set` on `legacy:stats:<player>`. Call sites (all already
-run server-side, most already inside a save lock; the side-car write happens
-*after* the existing save write so it can never block a payout):
+`api/_legacy-track.ts` exports `bumpLegacyStats(playerName, deltas, opts)` — a
+locked read/merge/write on `legacy:stats:<player>`. Authoritative call sites
+pass a stable server receipt. A settlement either keeps a replayable pending
+marker and returns 503, includes Legacy delivery in its settlement barrier, or
+(for a completed multi-row economy action that must not be retried) queues a
+durable outbox intent before the debit can commit.
 
 | Hook | File | What it records |
 |---|---|---|
-| PvP win report | `api/missions/report-pvp-win.ts:127–144` (after `reportMissionEvent`) | `pvpKills/pvpWins`, same-rank/higher-level flags (both saves are loaded there), `repeatKillsByTarget`, streaks. Reuses the endpoint's existing account-age + IP-overlap farming checks — those failing ⇒ `suspicionFlags++` instead of credit |
+| PvP win report | `api/missions/report-pvp-win.ts` | `pvpKills/pvpWins`, same-rank/higher-level flags, repeat-target decay, streaks and suspicion receipts. First-touch bootstrap distinguishes whether the base PvP save receipt has already moved the lifetime mirror |
 | PvP loss / defensive win | same session-settle surface | `pvpLosses`, `defensiveWins` (defender won), `comebackWins` (winner HP < 15% — read from finished `PvpSession`) |
 | Style attribution | `api/pvp/move.ts` — add per-cast accumulation on the session object (`session.styleTotals[type] += damage`), rolled into `legacy:stats` at settle | The engine knows each jutsu's `type` at cast time; a per-session accumulator avoids log re-parsing. **Log format unchanged** (no AI-rule-style lines) |
 | Support attribution | same accumulator: `Heal`/`Shield` tag applications already resolve in `resolveTagStatuses()` | `healingDone`, `shieldsApplied`, `damageBlocked` |
 | Mission claim | `api/missions/claim-mission.ts` (inside save lock, after `gainXp`) | `missionCompletions` / `huntCompletions` |
 | AI-fight soft-cap gate | `api/missions/report-ai-fight.ts` | `pveKills` (only up to the existing daily cap — the cap doubles as anti-farm), `eliteKills` when the reported tier qualifies |
-| Raid report | `api/missions/report-raid.ts` (inside save lock) | `warContribution`, raid counts |
-| Pet expedition | `api/missions/report-pet-event.ts` | event/exploration flavor counters |
+| Raid report | `api/missions/_raid-progression.ts` (shared by both raid producers) | `warContribution`, `raidsCompleted` |
+| Pet expedition | `api/missions/report-pet-event.ts` | `petExpeditions` after the authoritative expedition receipt is complete |
+| Pet duel wins | `api/pet/{battle-result,showdown}.ts` | `petDuelWins`; casual, ranked and Showdown paths retain durable settlement evidence for repair |
 | Hollow Gate settle | `api/hollow-gate/settle.ts` (extraction only, not death) | `hollowGateClears`, `dungeonClears` |
-| Sector war resolve | `api/village/sector-war.ts` (reads authoritative finished PvpSession) | `sectorCaptures`/`sectorDefenses`, `warPvpKills` |
-| War crate claim | `api/village/claim-war-crate.ts` | `warContribution` roll-up (war-end stats already stamped here) |
+| Sector war resolve | `api/_sector-war-settle.ts` + `api/pvp/_sector-war-continuation.ts` | per-contributor `sectorCaptures`; receipt-backed `sectorDefenses` and `warPvpKills` |
+| War crate claim | `api/village/claim-war-crate.ts` | `warsWon`, using the crate id as the durable deed receipt |
 | Weekly boss distribution | `api/weekly-boss.ts` distribution phase | `bossContribution`, `weeklyBossTop10` |
-| Wanderer endpoints | `api/sector/wanderer-{gift,quest,ambush}.ts` | `sectorDiscoveries`, `hiddenFinds` |
-| Village treasury donate | `api/village/treasury/donate.ts` | `villageDonations` |
-| Card clash finalize | `api/card-clash/match.ts` | event counters |
+| Wanderer endpoints | `api/sector/wanderer-{gift,service,quest,ambush}.ts` | one `sectorDiscoveries` receipt per NPC interaction; `wandererQuests` and `hiddenFinds` for their completed deeds |
+| Village treasury donate | `api/village/treasury/donate.ts` + `api/_legacy-economy-outbox.ts` | exact donated ryo-value as `villageDonations`, delivered only after the economy transaction is complete |
+| Card clash finalize | `api/card-clash/_freeplay-legacy.ts` + `api/card-clash/ai-move.ts` | `cardClashWins` from terminal server sessions |
+| ANBU infiltration | `api/village/anbu-infiltration.ts` | `raidsCompleted`, `warContribution` from a settled run id |
+| Story first clear | `api/story/settle.ts` | durable `firstClears`, `bossContribution` |
 | Daily login | `api/player/daily-login.ts` | `villageTenureDays` (+1 per claimed day in current village) |
 
 Deliberately **not** hooked: raw tile movement, chat, per-hit events — the
@@ -323,8 +329,8 @@ era-unlock credit, hall entries. Capped at 200, newest-first (same shape as
 {
   id: "moonlit-ghost",
   name: "Legacy of the Moonlit Ghost",
-  rarity: "epic",                    // common | rare | epic | legendary | mythic
-  category: "genjutsu",              // ninjutsu|genjutsu|taijutsu|bukijutsu|pvp|pve|village|support|explorer|mythic
+  rarity: "rare",                    // internal: basic | rare | legendary | mythic
+  category: "genjutsu",              // ninjutsu|genjutsu|taijutsu|bukijutsu|pvp|pve|village|support|explorer|pets|cards|war
   villageAffinity: "Moonshadow",     // influence weight only — never a hard lock
   title: "Moonlit Ghost",
   badgeIcon: "legacy-moonlit-ghost", // GameIcon glyph or /legacy/*.webp
@@ -371,41 +377,56 @@ functions):
   (from `repeatKillsByTarget`).
 - **Level-gap zeroing:** kills ≥15 levels below the killer contribute 0
   (already computable — `report-pvp-win` loads both saves).
+- **Style identity sealing:** the combat specialty chosen at character creation
+  is server-owned thereafter, so a player cannot swap specialties between AI
+  settlements to route easy wins into whichever style Legacy they want next.
 - **Diminishing returns:** `diminishAfter` applies sqrt scaling past the knee.
-- **Multi-proof for legendary/mythic:** rarity ≥ legendary requires `all` with
-  ≥3 distinct stat categories, enforced structurally by a definition-lint test
-  (a legendary def with fewer categories fails `npm test`).
+- **Multi-proof for legendary/mythic:** legendary paths span ≥2 distinct stat
+  categories and mythic paths span ≥4, enforced structurally by a
+  definition-lint test (a narrower high-tier definition fails `npm test`).
 - **Suspicion gate:** `suspicionFlags` above threshold caps offered rarity at
   rare, and surfaces the player on the admin dashboard.
 
+#### Audited requirement curve
+
+The internal `basic` tier is the approachable/common entry tier. Each basic
+path asks for exactly one modest proof, and the level-50 bootstrap guarantees a
+real village member can meet Village Veteran's ten-day proof. Rare paths pair
+exactly two proofs. Legendary paths require 3-5 proofs across at least two
+categories. Mythic paths require 6-8 proofs across at least four categories.
+
+At the authoritative standard earning cadences, every mythic contains at least
+one 20-day-or-longer proof; the slowest fixed gate is World Awakener's fifteen
+weekly event completions (105 days). Every fixed-cadence floor fits within one
+year, every mirrored floor fits its hard cap, and uncapped accumulation floors
+have live server-owned writers. This makes mythics exceptionally difficult
+without making any of them mathematically impossible. Post-acceptance trials
+are fresh-delta proofs; no objective tied to a capped faucet exceeds thirty
+days at its standard production cadence.
+
 ### 5.3 Evaluation flow
 
-`POST /api/legacy/evaluate` (authed player or admin; rate-limited 2/min):
-reads `legacy:stats`, runs all active defs, writes `legacy:eligibility:<player>`
-`{ evaluatedAt, entries: [{legacyId, score, rarity, reasons[]}] }`, returns the
-top summary. Also invoked internally by `sage/roll` when the cache is stale.
-`reasons[]` powers both the Sage's "evaluation summary" dialogue and the admin
-"why is this player eligible" view — human-readable strings, never raw
-formulas to players (§6).
+`POST /api/legacy/evaluate` reads `legacy:stats` and runs all active defs. The
+player response exposes only rank-free summaries and a total eligible count;
+the full `{legacyId, score, rarity, reasons[]}` evaluation is available through
+the full-admin Legacy inspector. The same evaluator runs inside the
+server-triggered Sage helper. Player-facing reasons remain qualitative and
+never reveal formulas or internal tier buckets (§6).
 
 ### 5.4 Existing-player fallback (retroactive bootstrap)
 
 First time `legacy:stats:<player>` is created (lazily, on first hook or first
-evaluate), the tracker snapshots the save's existing lifetime counters into
-`bootstrapSnapshot` and seeds mapped stats (`totalPvpKills → pvpKills`,
+evaluate), the tracker seeds mapped stats (`totalPvpKills → pvpKills`,
 `totalMissionsCompleted → missionCompletions`, `totalTilesExplored →
-tilesExplored`, `warsWon/warMvpCount/lifetimeWarDamage → warContribution`,
-ranked W/L, card clash, `totalEndlessTowerWins`, `hollowGateWardenKills`,
-unlocked achievement ids). Because those save counters are client-writable,
-bootstrap values are **capped per-stat at plausibility ceilings** (e.g.
-`pvpKills ≤ 2× rankedWins+monthly history`, level-scaled caps) and can only
-ever qualify a player for **common/rare/epic** — legendary/mythic require
-post-launch, server-observed play. Guarantees per the handoff: every Level-50+
-veteran is at minimum eligible for the 4 Common fallbacks
-(Wandering Shinobi / Village Veteran / Proven Fighter / Road-Worn Shinobi);
-nothing is auto-assigned; the Sage still offers; the same warning applies. The
-client shows the `ExistingPlayerLegacyNotice` copy from the handoff once
-(dedupe via `legacyRumorsSeen`).
+tilesExplored`, `warsWon → warsWon`, `warMvpCount → warMvps`,
+`lifetimeWarDamage → warContribution`,
+ranked wins, pet/card wins, `totalEndlessTowerWins`, and
+`hollowGateWardenKills`). Because those save counters were client-writable,
+bootstrap and daily reconciliation are **capped per-stat at fixed plausibility
+ceilings**. Definition lint proves no legendary or mythic identity can be
+fully covered by seeded/mirrored counters; those tiers require at least one
+post-launch, server-witnessed proof. Nothing is auto-assigned: an eligible
+veteran still receives the normal Sage choice.
 
 ---
 
@@ -440,28 +461,31 @@ button calls the server (§8); the VN is presentation only.
 
 ### 7.2 Spawn logic (server-decided, pity-backed)
 
-`POST /api/legacy/sage { action: "roll" }` — called by the client on: login
-(daily briefing check), PvP win report success, mission claim success, hollow
-gate settle, sector discovery. Server logic:
+Every successful `bumpLegacyStats` invokes the shared roll helper after the
+stats lock is released. The player-facing Sage endpoint only polls an offer
+that the server already created; its POST roll action is admin-only. Server
+logic:
 
 1. Gate: level ≥ 50, no `legacy:accepted` marker, no active accepted trial,
-   no live offer already, `legacy:sage-roll:<p>:<date>` under daily roll cap
-   (e.g. 6 — extra client calls are free no-ops).
-2. Ensure fresh eligibility (recompute if cache stale); if zero eligible
-   Legacies → record pity day, return `{spawn:false}`.
-3. Odds: base 5% per qualifying roll, +5% per full day elapsed since
+   no live offer already, and no decline cooldown.
+2. Evaluate current verified stats; if zero Legacies are eligible, return
+   `{spawn:false}` without consuming an opportunity or starting pity.
+3. For an eligible witnessed deed, enforce
+   `legacy:sage-roll:<p>:<date>` under the daily roll cap (default 6).
+4. Odds: base 5% per qualifying roll, +5% per full day elapsed since
    eligibility without a spawn (`legacy:sage-pity`), **hard pity: guaranteed
    on day 7**. (Soft+hard pity per standard bad-luck-protection practice.)
    Admin can force-spawn (§16) and tune base/pity via `shared:legacy-defs`
    overlay config.
-4. On spawn: write `legacy:sage-offer:<player>` with the offer set — **best
-   fit + alternate + fallback, max 3** (top scores across distinct
-   categories; a Common fallback always padded in if fewer than 2 qualify) —
+5. On spawn: write `legacy:sage-offer:<player>` with the offer set — **best
+   fit + alternate + fallback, max 3** (highest earned rarity first, then fit
+   score within that tier, across distinct categories; a basic fallback is
+   padded when one is eligible) —
    status `spawned`, TTL 7d. Location: the player's current sector if set,
    else their village-outskirts sector (31/38/47/11).
 
-Client learns about it from the roll response or from
-`GET /api/legacy/sage` (piggybacked onto the login/briefing fetch). Rendering:
+Client learns about it only from `GET /api/legacy/sage`, polled while the map is
+eligible to present Legacy events. Rendering:
 Sage appears in that sector (deterministic tile via the wanderer relocation
 placement helper), a toast fires ("A Wandering Sage has appeared near …"), and
 a violet marker dot shows on the world map at the sector's coordinates.
@@ -527,7 +551,7 @@ surface, ever.
 | 2 | Awakened | trial completion (§9.2) | base title, badge, profile display, base aura |
 | 3 | Bound | follow-up challenge | **Specialty Jutsu** (§10), stronger title, aura upgrade |
 | 4 | Proven | high-end challenge | prestige title, badge frame (no numeric bonus at launch, §1.8) |
-| 5 | Mythic | mythic challenge (mythic-track Legacies only) | Hall of Legends entry, server announcement, mythic aura/frame |
+| 5 | Mythic | culmination challenge (every accepted Legacy) | Hall of Legends entry, server announcement, final aura/frame |
 
 Failed trials: `legacy:trial` records the attempt (`attemptNumber++`), stays
 retryable forever, never unlocks a different Legacy. Retry friction is a
@@ -548,11 +572,11 @@ Each Legacy's `trial`/`bound`/`proven` blocks compose from:
 2. **Metric objective** — clone of wanderer-quest: sealed baseline over any
    `legacy:stats` counter ("win 5 PvP matches", "clear 2 Hollow Gate floors",
    "heal 50k in battles"), progress read live, claim verifies delta.
-3. **Composite** — `all[]` of the above (legendary/mythic tiers).
+3. **Composite** — `all[]` of the above (the higher internal tiers).
 
 Rewards on completion are computed server-side from the definition (title
-grant, stage bump) — nothing from the client body. Stage-2/3 completions of
-epic+ rarity fire announcements per the importance matrix (§12.2).
+grant, stage bump) — nothing from the client body. Stage-2 awakenings of the
+two highest internal tiers fire rank-neutral announcements per §12.2.
 
 The handoff's "Stage-1 rewards on acceptance" question: plan grants **nothing
 tangible at acceptance** except the lock + trial access (cleanest
@@ -738,7 +762,7 @@ Delivery (cheapest→richest):
 
 Extend `screens/HallOfLegends.tsx` (already tabbed) with a **"Legends"** tab
 group backed by `GET /api/hall-of-legends`: Era Unlockers, Server Firsts,
-Mythic/Legendary Legacy Holders, plus the existing live boards satisfying the
+Legacy milestones, plus the existing live boards satisfying the
 handoff's PvP-Champions/Village-Heroes/Pet-Masters tabs as-is.
 
 Entries (`hall:entries`, §3) are append-only with
@@ -753,9 +777,10 @@ idempotency trick as `ranked:season:rewarded`). Admin correction endpoints
 `hidden`; `revoked` renders with a strikethrough badge (admin-configurable
 display flag in the defs overlay).
 
-Legacy entries carry the handoff's fields (player, village, legacy, rarity,
-path, trial, date, title) — all available at write time from the settle
-context.
+Legacy entries retain rarity only in their internal/admin record. The public
+Hall projection exposes player, village, Legacy identity, path/stage, date, and
+title while stripping rarity, tier-coded entry types, metadata, and old tier
+wording.
 
 ---
 

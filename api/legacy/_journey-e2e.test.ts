@@ -46,6 +46,7 @@ let sage: (req: never, res: never) => Promise<unknown>;
 let trial: (req: never, res: never) => Promise<unknown>;
 let statsEp: (req: never, res: never) => Promise<unknown>;
 let LEGACY_BY_ID: ReadonlyMap<string, { title: string; rarity: string; category: string }>;
+let bumpLegacyStats: typeof import('../_legacy-track.js').bumpLegacyStats;
 
 before(async () => {
     const storage = await import('../_storage.js');
@@ -84,6 +85,7 @@ before(async () => {
     trial = (await import('./trial.js')).default as unknown as typeof trial;
     statsEp = (await import('./stats.js')).default as unknown as typeof statsEp;
     LEGACY_BY_ID = (await import('../_legacy-defs.js')).LEGACY_BY_ID;
+    bumpLegacyStats = (await import('../_legacy-track.js')).bumpLegacyStats;
 
     store.set(`save:${P}`, {
         character: { name: P, level: 50, village: 'Stormveil Village', rank: 'Jonin', rankTitle: 'Jonin', earnedTitles: [] },
@@ -122,16 +124,43 @@ test('definitions serves the full 100-legacy codex', async () => {
     const { res, out } = fakeRes();
     await definitions(fakeReq('GET'), res);
     assert.equal(out.statusCode, 200);
-    assert.equal((out.body as { legacies: unknown[] }).legacies.length, 100);
+    const legacies = (out.body as { legacies: Array<Record<string, unknown>> }).legacies;
+    assert.equal(legacies.length, 100);
+    assert.ok(legacies.every((legacy) => !Object.prototype.hasOwnProperty.call(legacy, 'rarity')),
+        'the public codex must not expose internal rarity');
+    assert.deepEqual(
+        legacies.map((legacy) => String(legacy.name)),
+        [...legacies.map((legacy) => String(legacy.name))].sort((a, b) => a.localeCompare(b)),
+        'public codex order must not preserve the internal rarity buckets',
+    );
+});
+
+test('verified server progress performs the Sage roll without a map-screen call', async () => {
+    store.set('shared:legacy-defs', { sage: { baseChance: 1 } });
+    const before = Number((store.get(`legacy:stats:${P}`) as Record<string, number>).pveKills ?? 0);
+    const delivered = await bumpLegacyStats(P, { pveKills: 1 }, {
+        receiptId: 'e2e:qualifying-progress:1',
+    });
+    assert.equal(delivered, true);
+    const offer = store.get(`legacy:sage-offer:${P}`) as { status?: string } | undefined;
+    assert.equal(offer?.status, 'spawned');
+    assert.equal(Number((store.get(`legacy:stats:${P}`) as Record<string, number>).pveKills), before + 1);
+
+    await bumpLegacyStats(P, { pveKills: 1 }, { receiptId: 'e2e:qualifying-progress:1' });
+    assert.equal(Number((store.get(`legacy:stats:${P}`) as Record<string, number>).pveKills), before + 1,
+        'replaying the verified deed is exact-once and does not consume another progression event');
+    store.delete('shared:legacy-defs');
 });
 
 test('forced sage roll spawns a multi-choice offer', async () => {
     const { res, out } = fakeRes();
     await sage(fakeReq('POST', { action: 'roll', playerName: P, force: true, sector: 12 }), res);
-    const b = out.body as { spawn: boolean; offer?: { offers: Array<{ legacyId: string }> } };
+    const b = out.body as { spawn: boolean; offer?: { offers: Array<{ legacyId: string; rarity?: unknown }> } };
     assert.equal(b.spawn, true);
     offerIds = b.offer!.offers.map((o) => o.legacyId);
     assert.ok(offerIds.length >= 2, `expected >=2 offers, got ${offerIds.length}`);
+    assert.ok(b.offer!.offers.every((offer) => !Object.prototype.hasOwnProperty.call(offer, 'rarity')),
+        'Sage choices must not expose internal rarity');
 });
 
 test('accept rejects a legacy that was not offered', async () => {
@@ -515,8 +544,10 @@ test('the summit is permanent history: hall entries minted, no further trials', 
 test('status endpoint reflects the finished journey (stage 5, 3 titles, category resolved)', async () => {
     const { res, out } = fakeRes();
     await statsEp(fakeReq('GET', undefined, { playerName: P }), res);
-    const b = out.body as { legacy: { stage: number; titles: string[] }; legacyCategory?: string };
+    const b = out.body as { legacy: { stage: number; titles: string[] }; legacyCategory?: string; eligibleCount?: number; eligibleCounts?: unknown };
     assert.equal(b.legacy.stage, 5);
     assert.equal(b.legacy.titles.length, 3);
     assert.equal(b.legacyCategory, chosenDef().category);
+    assert.equal(typeof b.eligibleCount, 'number');
+    assert.equal(b.eligibleCounts, undefined, 'status must not expose per-rarity eligibility counts');
 });

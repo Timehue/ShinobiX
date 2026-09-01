@@ -10,7 +10,7 @@ import { evaluateAllLegacies, getLegacyOverlay } from '../_legacy-score.js';
 /*
  * POST /api/legacy/evaluate { playerName } — recompute eligibility and cache
  * it at legacy:eligibility:<player>. Player-facing responses stay vague
- * (counts per rarity only); the full per-requirement breakdown is only in the
+ * (one total eligible count); the full per-requirement breakdown is only in the
  * cache, which the ADMIN dashboard reads (api/admin/legacy.ts).
  */
 
@@ -47,9 +47,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const evaluatedAt = Date.now();
         await kv.set(eligibilityKey(playerName), { evaluatedAt, level, village, entries: evals }, { ex: ELIGIBILITY_TTL_SECONDS });
 
-        const eligibleCounts: Record<string, number> = { basic: 0, rare: 0, legendary: 0, mythic: 0 };
-        for (const ev of evals) if (ev.eligible) eligibleCounts[ev.rarity] += 1;
-        return res.status(200).json({ ok: true, evaluatedAt, eligibleCounts });
+        const eligibleCount = evals.filter((evaluation) => evaluation.eligible).length;
+        return res.status(200).json({ ok: true, evaluatedAt, eligibleCount });
     } catch (err) {
         console.error('[legacy/evaluate]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });

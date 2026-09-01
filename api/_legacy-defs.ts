@@ -11,9 +11,11 @@
  * legendary >= 2) so a mis-authored entry fails `npm test` instead of shipping.
  *
  * Requirement numbers are the launch baseline for what a player achieved from
- * level 1-50 — mythic is intentionally brutal. All thresholds are tunable at
- * runtime through the `shared:legacy-defs` admin overlay (see _legacy-score.ts)
- * without a deploy, so balancing passes never need to edit this file.
+ * level 1-50. Basic paths are one approachable proof, rare paths pair two,
+ * legendary paths require 3-5 proofs, and mythics require 6-8 proofs spanning
+ * at least four categories. Mythic is intentionally brutal but every floor is
+ * below its real earning cap. All thresholds are tunable at runtime through the
+ * `shared:legacy-defs` admin overlay (see _legacy-score.ts) without a deploy.
  *
  * Specialty Jutsu: every Legacy grants one signature jutsu, authored in
  * shinobij.client/src/data/legacy-jutsu.ts and generated into the server
@@ -143,13 +145,13 @@ const MYTHIC: LegacyDef[] = [
         id: 'gate-opener', name: 'Legacy of the Sundered Seal', rarity: 'mythic', category: 'pve',
         title: 'Sundered Seal',
         flavor: 'The Central keepers logged seventy-five descents under the same name. Most shinobi stop returning after the first bad extraction.',
-        reqs: [r('hollowGateClears', 75, 3), r('dungeonClears', 40), r('eliteKills', 500), r('bossContribution', 1_000_000), r('firstClears', 1), r('hiddenFinds', 30), r('damageBlocked', 500_000)],
+        reqs: [r('hollowGateClears', 75, 3), r('eliteKills', 500), r('bossContribution', 1_000_000), r('firstClears', 1), r('hiddenFinds', 30), r('damageBlocked', 500_000)],
     },
     {
         id: 'hundred-storms', name: 'Legacy of the Hundred Storms', rarity: 'mythic', category: 'ninjutsu',
         title: 'Hundred Storms',
-        flavor: 'Mission reports credit this shinobi with victories in all four combat disciplines. None of those victories reads like improvisation.',
-        reqs: [r('ninjutsuKills', 400), r('genjutsuKills', 400), r('taijutsuKills', 400), r('bukijutsuKills', 400), r('pveKills', 3000)],
+        flavor: 'Mission reports follow the same ninjutsu specialist through thousands of victories, great-beast hunts, border wars, and storms that changed the ground beneath whole squads.',
+        reqs: [r('ninjutsuKills', 800, 3), r('ninjutsuDamage', 600_000), r('pveKills', 3000), r('eliteKills', 400), r('pvpWins', 150), r('eventCompletions', 8), r('warContribution', 100_000)],
     },
     {
         id: 'duel-sovereign', name: 'Legacy of the Duel Sovereign', rarity: 'mythic', category: 'pvp',
@@ -187,7 +189,9 @@ const MYTHIC: LegacyDef[] = [
         id: 'horizons-end', name: "Legacy of the Horizon's End", rarity: 'mythic', category: 'explorer',
         title: "Horizon's End",
         flavor: 'Surveyors have redrawn their outer lines around this shinobi’s discoveries. Their oldest boots have crossed more blank country than most maps contain.',
-        reqs: [r('tilesExplored', 2400, 3), r('sectorDiscoveries', 250), r('hiddenFinds', 60), r('wandererQuests', 75), r('huntCompletions', 150), r('petExpeditions', 50), r('eventCompletions', 8)],
+        // 2,500 is the trusted Legacy mirror ceiling. Unlike Mapless One's
+        // 2,400-tile legendary proof, this mythic reaches the full safe cap.
+        reqs: [r('tilesExplored', 2500, 3), r('sectorDiscoveries', 250), r('hiddenFinds', 60), r('wandererQuests', 75), r('huntCompletions', 150), r('petExpeditions', 50), r('eventCompletions', 8)],
     },
     {
         id: 'deathless-ember', name: 'Legacy of the Deathless Ember', rarity: 'mythic', category: 'taijutsu',
@@ -357,7 +361,7 @@ const RARE: LegacyDef[] = [
     { id: 'elemental-storm', name: 'Legacy of the Elemental Storm', rarity: 'rare', category: 'ninjutsu', title: 'Elemental Storm',
       flavor: 'Mission ledgers show five elemental natures used with the same disciplined timing.', reqs: [r('ninjutsuKills', 250, 2), r('ninjutsuDamage', 150_000)] },
     { id: 'burning-vanguard', name: 'Legacy of the Burning Vanguard', rarity: 'rare', category: 'ninjutsu', villageAffinity: 'Ashen Leaf', title: 'Burning Vanguard',
-      flavor: 'Raid captains keep assigning this shinobi to the first breach because the entry is usually clear by the time the squad arrives.', reqs: [r('ninjutsuKills', 200, 2), r('raidsCompleted', 25)] },
+      flavor: 'Raid captains keep assigning this shinobi to the first breach because the entry is usually clear by the time the squad arrives.', reqs: [r('ninjutsuKills', 200, 2), r('warContribution', 15_000)] },
     { id: 'chakra-tempest', name: 'Legacy of the Chakra Tempest', rarity: 'rare', category: 'ninjutsu', title: 'Chakra Tempest',
       flavor: 'Damage reports describe unusually heavy ninjutsu placed close enough to allies that careful aim clearly mattered.', reqs: [r('ninjutsuDamage', 250_000, 2), r('pveKills', 600)] },
     { id: 'stormcallers-path', name: "Legacy of the Stormcaller's Path", rarity: 'rare', category: 'ninjutsu', villageAffinity: 'Stormveil', title: 'Stormcaller',

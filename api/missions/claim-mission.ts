@@ -22,7 +22,6 @@ import {
 } from '../_legacy-track.js';
 import {
     acknowledgeEraContribution,
-    bumpEraContribution,
     bumpEraContributionOnce,
 } from '../_era.js';
 import {
@@ -129,6 +128,87 @@ function betaEventForMissionType(missionType: string): BetaMetricEvent {
 }
 
 type SaveChar = Record<string, unknown>;
+
+export type LegacyMissionProgressSpec = {
+    receiptId: string;
+    deltas: { missionCompletions?: number; huntCompletions?: number };
+    durableReceipt: boolean;
+};
+
+/** Derive Legacy progress only from proof already committed in the save. */
+export function legacyMissionProgressSpec(
+    missionType: string,
+    missionId: string,
+    todayKey: string,
+    character: Record<string, unknown> | null | undefined,
+): LegacyMissionProgressSpec | null {
+    if (!character) return null;
+    if (missionType === 'field' || missionType === 'hunt') {
+        const missionReceipt = `${todayKey}:${missionType}:${missionId}`;
+        const claimed = Array.isArray(character.claimedServerMissions)
+            ? character.claimedServerMissions.map(String)
+            : [];
+        if (!claimed.includes(missionReceipt)) return null;
+        return {
+            receiptId: `mission:${missionReceipt}`,
+            deltas: missionType === 'hunt' ? { huntCompletions: 1 } : { missionCompletions: 1 },
+            durableReceipt: false,
+        };
+    }
+    if (missionType === 'academy-trial' && character.academyTrialClaimed === true) {
+        return {
+            receiptId: 'mission:academy-trial:once',
+            deltas: { missionCompletions: 1 },
+            durableReceipt: true,
+        };
+    }
+    if (missionType === 'apex') {
+        const week = typeof character.apexWeekClaimed === 'string'
+            ? character.apexWeekClaimed.trim().slice(0, 32)
+            : '';
+        if (!week) return null;
+        return {
+            receiptId: `mission:apex:${week}`,
+            deltas: { missionCompletions: 1 },
+            durableReceipt: false,
+        };
+    }
+    // The academy checklist intentionally has completion='none' and never fed
+    // Legacy mission totals in the original rules.
+    return null;
+}
+
+async function deliverLegacyMissionProgress(
+    playerName: string,
+    spec: LegacyMissionProgressSpec,
+    character: Record<string, unknown>,
+): Promise<boolean> {
+    // The authoritative save already includes this claim in its lifetime
+    // mission mirror. Seed a brand-new Legacy row from the pre-claim value,
+    // then apply the receipted deed once; otherwise a player's first tracked
+    // mission would be counted twice (bootstrap + delta).
+    const bootstrapCharacter = spec.deltas.missionCompletions
+        ? {
+            ...character,
+            totalMissionsCompleted: Math.max(0, Math.floor(Number(character.totalMissionsCompleted) || 0) - 1),
+        }
+        : character;
+    const delivered = await bumpLegacyStats(playerName, spec.deltas, {
+        characterForBootstrap: bootstrapCharacter,
+        receiptId: spec.receiptId,
+        durableReceipt: spec.durableReceipt,
+    });
+    if (!delivered) return false;
+    const eraReceiptId = `${spec.receiptId}:era`;
+    try {
+        await bumpEraContributionOnce('missions', eraReceiptId);
+        await acknowledgeEraContribution('missions', eraReceiptId);
+        return true;
+    } catch (error) {
+        console.error('[claim-mission legacy-era]', error);
+        return false;
+    }
+}
 
 type ClaimOutcome =
     | {
@@ -1280,17 +1360,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     console.error('[claim-mission newbie]', e);
                 }
             }
-            // Legacy tracking (ENABLE_LEGACY): mission/hunt completions are the
-            // PvE spine of Legacy eligibility. Best-effort, after the save lock.
-            if (missionType !== 'combat') {
-                const legacyDeltas: Record<string, number> = {};
-                if (outcome.completion === 'hunt') legacyDeltas.huntCompletions = 1;
-                else if (outcome.completion === 'daily' || outcome.completion === 'total') legacyDeltas.missionCompletions = 1;
-                if (Object.keys(legacyDeltas).length > 0) {
-                    await bumpLegacyStats(playerName, legacyDeltas);
-                    await bumpEraContribution('missions');
-                }
-            }
             // Economy telemetry — log the server-computed faucet deltas (ryo +
             // any premium currency) so created-vs-destroyed is measurable.
             const r = outcome.reward;
@@ -1317,6 +1386,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const finalRecord = await kv.get<Record<string, unknown>>(saveKey);
             finalCharacter = (finalRecord?.character ?? null) as Record<string, unknown> | null;
             finalSaveVersion = Number(finalRecord?._saveVersion ?? finalSaveVersion);
+            if (missionType !== 'combat') {
+                const spec = legacyMissionProgressSpec(missionType, missionId, todayKey, finalCharacter);
+                const shouldDeliver = missionType !== 'academy-checklist';
+                if (shouldDeliver && (!spec || !finalCharacter
+                    || !(await deliverLegacyMissionProgress(playerName, spec, finalCharacter)))) {
+                    return res.status(503).json({
+                        error: 'Mission reward settled; Legacy ledger delivery is pending. Retry to reconcile.',
+                        code: 'legacy-delivery-pending',
+                        character: finalCharacter,
+                        _saveVersion: finalSaveVersion,
+                    });
+                }
+            }
         }
 
         if (outcome.applied) {
@@ -1337,6 +1419,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             source: `mission:${missionType}:${String(outcome.reason ?? 'unknown').slice(0, 40)}`,
         });
         const recoveryRecord = await kv.get<Record<string, unknown>>(saveKey).catch(() => null);
+        if (missionType !== 'combat') {
+            const recoveryCharacter = (recoveryRecord?.character ?? null) as Record<string, unknown> | null;
+            const spec = legacyMissionProgressSpec(missionType, missionId, todayKey, recoveryCharacter);
+            if (spec && recoveryCharacter && !(await deliverLegacyMissionProgress(playerName, spec, recoveryCharacter))) {
+                return res.status(503).json({
+                    error: 'Mission reward settled; Legacy ledger delivery is still pending.',
+                    code: 'legacy-delivery-pending',
+                    character: recoveryCharacter,
+                    _saveVersion: Number(recoveryRecord?._saveVersion ?? 0),
+                });
+            }
+        }
         return res.status(200).json({
             ok: true,
             ...outcome,

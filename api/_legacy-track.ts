@@ -5,9 +5,11 @@
  * Player saves are client-writable via autosave, so save-embedded counters can
  * be tampered with. Legacy eligibility gates prestige, titles, and server
  * announcements, so its inputs live in a SIDE-CAR key `legacy:stats:<player>`
- * that only server settle endpoints ever write. Hooks call bumpLegacyStats()
- * AFTER their existing save write, best-effort: a lost increment is a shrug, a
- * blocked payout would be a bug, so tracking must never throw into the caller.
+ * that only server settle endpoints ever write. Durable settlements pass a
+ * stable receipt and keep their own completion/outbox marker until the boolean
+ * result confirms delivery. Lower-risk mirrors remain best-effort and are
+ * reconciled from bounded save totals. Each newly verified increase also gives
+ * the Sage one server-owned opportunity to appear.
  *
  * The whole subsystem is gated on ENABLE_LEGACY=1 — flag off means every
  * exported hook is a no-op and live behavior is byte-identical.
@@ -138,6 +140,28 @@ export function appendLegacyActivityReceipt(
 
 const num = (v: unknown): number => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
+/**
+ * Build the save snapshot that existed immediately BEFORE an authoritative
+ * settlement incremented one of the old lifetime mirror counters.
+ *
+ * A first Legacy write seeds historical progress from the save, then applies
+ * the current deed. Passing the post-settlement character would therefore
+ * count that deed once in the seed and once in the receipt delta. Producers
+ * whose own save write moved a mirrored counter use this helper before calling
+ * `bumpLegacyStats`; existing Legacy rows ignore the bootstrap snapshot.
+ */
+export function legacyBootstrapBeforeCounterIncrement(
+    character: Record<string, unknown> | null | undefined,
+    counter: string,
+    delta = 1,
+): Record<string, unknown> | null {
+    if (!character) return null;
+    return {
+        ...character,
+        [counter]: Math.max(0, Math.floor(num(character[counter])) - Math.max(0, Math.floor(num(delta)))),
+    };
+}
+
 /** Stats that record a best-ever value; bumping takes max() instead of sum. */
 const MAX_STATS: ReadonlySet<LegacyStatKey> = new Set<LegacyStatKey>([
     'bestKillStreak', 'endlessTowerBest', 'biomesVisited',
@@ -265,6 +289,20 @@ export async function getLegacyStats(
 
 export type LegacyStatDeltas = Partial<Record<LegacyStatKey, number>>;
 
+async function attemptSageAfterVerifiedProgress(playerName: string, stats?: LegacyStats): Promise<void> {
+    try {
+        // Dynamic import keeps the tracker as the low-level stats authority
+        // while the roll helper is free to read/bootstrap stats for direct HTTP
+        // attempts. This runs only after the stats lock has been released.
+        const { attemptSageRoll } = await import('./_legacy-sage-roll.js');
+        await attemptSageRoll(playerName, { stats });
+    } catch (err) {
+        // An offer attempt must never roll back the authoritative settlement
+        // whose proof triggered it. A later verified deed or login retries.
+        console.error(`[legacy-track] sage roll failed for ${playerName}:`, err instanceof Error ? err.message : err);
+    }
+}
+
 /**
  * Apply counter deltas (sum for totals, max for best-ever stats). Best-effort:
  * catches everything and never throws into the settle endpoint that called it.
@@ -293,6 +331,8 @@ export async function bumpLegacyStats(
     if (!legacyEnabled()) return true;
     if (!playerName) return false;
     let completed = false;
+    let progressApplied = false;
+    let writtenStats: LegacyStats | undefined;
     try {
         await withKvLock(legacyStatsKey(playerName), async () => {
             const stats = await getLegacyStats(playerName, opts?.characterForBootstrap ?? null);
@@ -330,7 +370,9 @@ export async function bumpLegacyStats(
                 if (decayed) delta *= pvpWeight;
                 if (delta <= 0) continue;
                 const prev = num(next[stat]);
-                next[stat] = MAX_STATS.has(stat) ? Math.max(prev, delta) : prev + delta;
+                const value = MAX_STATS.has(stat) ? Math.max(prev, delta) : prev + delta;
+                next[stat] = value;
+                if (value > prev) progressApplied = true;
             }
             let suspicionRaised = Boolean(opts?.suspicion);
             // Ring detection: track credited win targets and flag rotations
@@ -353,6 +395,7 @@ export async function bumpLegacyStats(
                 if (!decayed || pvpWeight > 0) {
                     next.winStreak = num(stats.winStreak) + 1;
                     next.bestKillStreak = Math.max(num(next.bestKillStreak), next.winStreak);
+                    progressApplied = true;
                 }
             } else if (opts?.streak === 'reset') {
                 next.winStreak = 0;
@@ -361,6 +404,7 @@ export async function bumpLegacyStats(
                 next = appendLegacyActivityReceipt(next, receiptId, opts?.durableReceipt === true);
             }
             await kv.set(legacyStatsKey(playerName), next);
+            writtenStats = next;
             // Surface flagged players on the admin suspects queue (dedup,
             // newest-first, capped). Own lock on the GLOBAL list — two
             // different players flagged concurrently must not clobber each
@@ -384,6 +428,7 @@ export async function bumpLegacyStats(
     } catch (err) {
         console.error(`[legacy-track] bump failed for ${playerName}:`, err instanceof Error ? err.message : err);
     }
+    if (completed && progressApplied) await attemptSageAfterVerifiedProgress(playerName, writtenStats);
     return completed;
 }
 
@@ -395,7 +440,8 @@ export async function bumpLegacyStatsForCombatRunOnce(
     characterForBootstrap?: Record<string, unknown> | null,
 ): Promise<boolean> {
     if (!legacyEnabled() || !playerName || !runId) return false;
-    return withKvLock(legacyStatsKey(playerName), async () => {
+    let writtenStats: LegacyStats | undefined;
+    const applied = await withKvLock(legacyStatsKey(playerName), async () => {
         await getLegacyStats(playerName, characterForBootstrap ?? null);
         const expected = await kv.get<LegacyStats>(legacyStatsKey(playerName));
         if (!expected) throw new Error('legacy-combat-effect-stats-unavailable');
@@ -424,10 +470,16 @@ export async function bumpLegacyStatsForCombatRunOnce(
             writeError = error;
         }
         const readback = await kv.get<LegacyStats>(legacyStatsKey(playerName));
-        if (swapped || combatMissionEffects(readback ?? {}).some((entry) => entry.runId === runId)) return true;
+        if (swapped) {
+            writtenStats = next;
+            return true;
+        }
+        if (combatMissionEffects(readback ?? {}).some((entry) => entry.runId === runId)) return true;
         if (writeError) throw writeError;
         throw new Error('legacy-combat-effect-write-conflict');
     }, { failClosed: true });
+    if (writtenStats) await attemptSageAfterVerifiedProgress(playerName, writtenStats);
+    return applied;
 }
 
 export async function acknowledgeLegacyCombatRun(playerName: string, runId: string): Promise<void> {
@@ -475,6 +527,8 @@ export async function reconcileLegacyStatsFromSave(
             ['endlessTowerBest', 'endlessTowerBestWave'],
             ['arenaTournaments', 'totalTournamentsCompleted'],
         ];
+        let progressionChanged = false;
+        let writtenStats: LegacyStats | undefined;
         await withKvLock(legacyStatsKey(playerName), async () => {
             const stats = await getLegacyStats(playerName, character);
             const next: LegacyStats = { ...stats };
@@ -482,7 +536,11 @@ export async function reconcileLegacyStatsFromSave(
             for (const [stat, field] of MIRRORS) {
                 const cap = BOOTSTRAP_CAPS[stat] ?? Number.MAX_SAFE_INTEGER;
                 const fromSave = Math.min(Math.max(0, Math.floor(num(character[field]))), cap);
-                if (fromSave > num(next[stat])) { next[stat] = fromSave; changed = true; }
+                if (fromSave > num(next[stat])) {
+                    next[stat] = fromSave;
+                    changed = true;
+                    progressionChanged = true;
+                }
             }
             // Slow suspicion decay: honest CGNAT / shared-device collisions and
             // occasional false ring flags shouldn't lock a player out of
@@ -497,8 +555,10 @@ export async function reconcileLegacyStatsFromSave(
             if (changed) {
                 next.updatedAt = Date.now();
                 await kv.set(legacyStatsKey(playerName), next);
+                writtenStats = next;
             }
         }, { ttlSec: 5, failClosed: true });
+        if (progressionChanged) await attemptSageAfterVerifiedProgress(playerName, writtenStats);
     } catch (err) {
         console.error(`[legacy-track] reconcile failed for ${playerName}:`, err instanceof Error ? err.message : err);
     }

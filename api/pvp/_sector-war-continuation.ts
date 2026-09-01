@@ -78,9 +78,8 @@ async function helpAppliedSectorWarEffects(
         durableReceipt: true,
     });
     if (!legacySettled) throw new Error('sector-war-legacy-effects-unconfirmed');
-    // The exact-once helper returns false for an already-present receipt. That
-    // is a confirmed replay, while write/read failures throw and keep PvP
-    // completion pending for a later help-forward attempt.
+    // Era delivery is also receipt-backed. Existing receipts confirm replay;
+    // write/read failures keep PvP completion pending for help-forward.
     await bumpEraContributionOnce('warBattles', receiptId);
 }
 

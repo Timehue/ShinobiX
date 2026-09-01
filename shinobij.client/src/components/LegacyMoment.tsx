@@ -7,7 +7,7 @@
  * portaled to <body>, reusing the RankUpCelebration visual chrome so the
  * game's big moments share one language.
  */
-import { type ChronicleRecordReceipt, type LegacyRarity } from "../lib/legacy";
+import { type ChronicleRecordReceipt } from "../lib/legacy";
 import { Modal } from "./ui/Modal";
 import "./RankUpCelebration.css";
 
@@ -18,7 +18,6 @@ export type LegacyMomentData =
         mode: "trial-start";
         kindName: string;
         legacyName: string;
-        rarity: LegacyRarity;
         text: string;
         /** Optional wayfinding line (e.g. where to track the trial). */
         hint?: string;
@@ -34,7 +33,6 @@ export type LegacyMomentData =
         stage: number;
         stageName: string;
         legacyName: string;
-        rarity: LegacyRarity;
         badge: string | null;
         grantedTitle: string | null;
         text: string;

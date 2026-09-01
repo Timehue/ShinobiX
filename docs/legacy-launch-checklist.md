@@ -120,7 +120,7 @@ Deliberate flag-off exceptions (they keep working, by design):
 
 ## 7. Design decisions (owner-signed, documented)
 
-- **Rank is owner-only.** A Legacy's rarity (basic/rare/legendary/mythic) is
+- **Rank is admin-only.** A Legacy's rarity (basic/rare/legendary/mythic) is
   **never shown to players and never used to separate/sort/colour any
   player-facing surface** — offer modal, accepted card, Codex, tavern chip,
   nameplate, Hall, VN. Every legacy renders with the same violet accent. Rarity
@@ -135,8 +135,9 @@ Deliberate flag-off exceptions (they keep working, by design):
   spoofable in `api/pvp/session.ts`.
 - **Accept boon: Aura Stones**, granted once on accept by rank (mythic 10 /
   legendary 8 / rare 5 / basic 3), server-side under the accept lock,
-  exactly-once via the `legacy:aura-granted` NX marker. The player receives the
-  stones but is never told the rank.
+  exactly-once in the same save receipt as the permanent Legacy. The retired
+  `legacy:aura-granted` marker is read only for migration. The player receives
+  the stones but is never told the rank.
 - **No Legacy weakness/tradeoff, and no mechanical Bloodline link — by design.**
   Legacy is a *third*, secondary identity layer; Bloodlines remain the main
   power identity. Legacy stays pure prestige (signature + title + aura + stones).

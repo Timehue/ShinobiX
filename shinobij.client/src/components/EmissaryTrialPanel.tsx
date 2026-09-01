@@ -111,7 +111,6 @@ export function EmissaryTrialPanel({ playerName, emissary, onVersionedCharacter 
                     stage: r.legacy.stage,
                     stageName: STAGE_NAMES[r.legacy.stage] ?? "Advanced",
                     legacyName: defView.name,
-                    rarity: defView.rarity,
                     badge: defView.badge,
                     grantedTitle: r.title ?? null,
                     text: r.completion ?? "Your legacy deepens.",

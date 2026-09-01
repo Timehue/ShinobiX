@@ -91,8 +91,8 @@ export function UserView({
     useEffect(() => subscribeFollowing(viewerCharacter.name, setFollowing), [viewerCharacter.name]);
 
     // The viewed player's Legacy (public prestige — depth-audit finding: an
-    // identity system only the owner could see). Resolves the def for badge/
-    // rarity from the public definitions endpoint; null while flag-off (404).
+    // identity system only the owner could see). Resolves rank-free identity
+    // presentation from the public definitions endpoint; null while flag-off.
     // A stale def never renders: the chip below also checks the def's id
     // against the currently viewed legacy, so no synchronous reset is needed.
     const [viewedLegacyDef, setViewedLegacyDef] = useState<LegacyDefView | null>(null);
@@ -232,10 +232,10 @@ export function UserView({
                     strict id-match guard, so flag-off (definitions 404 → null def)
                     renders nothing and stays byte-identical. Rank is owner-only:
                     name/title/flavor/era/stage only, single violet accent. */}
-                {legacyAvailable && viewedCharacter.legacy && viewedLegacyDef && viewedLegacyDef.id === viewedCharacter.legacy.legacyId && (() => {
+                {legacyAvailable && viewedCharacter.legacy && viewedCharacter.legacy.stage >= 2 && viewedLegacyDef && viewedLegacyDef.id === viewedCharacter.legacy.legacyId && (() => {
                     const L = viewedCharacter.legacy;
                     const roman = ["", "I", "II", "III", "IV", "V"][L.stage] ?? L.stage;
-                    const earnedTitle = L.titles?.[L.titles.length - 1] ?? viewedLegacyDef.title;
+                    const earnedTitle = L.titles?.[L.titles.length - 1] ?? null;
                     const era = eraAgeName(L.eraBorn);
                     return (
                         <section style={{ marginTop: 12, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(192,132,252,.35)" }}>
@@ -244,7 +244,9 @@ export function UserView({
                                 <div style={{ minWidth: 0 }}>
                                     <div style={{ fontSize: ".6rem", letterSpacing: ".1em", textTransform: "uppercase", color: "var(--purple-400)" }}>🌠 Legacy</div>
                                     <b style={{ fontSize: "1.05rem", color: "#e9d5ff" }}>{viewedLegacyDef.name}</b>
-                                    <div style={{ fontSize: ".76rem", color: "var(--slate-300)" }}>Stage {roman} · «{earnedTitle}»</div>
+                                    <div style={{ fontSize: ".76rem", color: "var(--slate-300)" }}>
+                                        Stage {roman}{earnedTitle ? ` · «${earnedTitle}»` : ""}
+                                    </div>
                                 </div>
                             </div>
                             <div style={{ padding: "10px 14px" }}>

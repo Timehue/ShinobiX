@@ -20,7 +20,6 @@ type TavernMsg = TavernMessage & {
     customTitleStyle?: string;
     customTitleIcon?: string;
     legacyStage?: number;
-    legacyRarity?: string;
     system?: boolean;
 };
 

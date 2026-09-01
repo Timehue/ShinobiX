@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyClaimedMissionState, clearStalePendingCombatClaim } from './claim-mission.js';
+import {
+    applyClaimedMissionState,
+    clearStalePendingCombatClaim,
+    legacyMissionProgressSpec,
+} from './claim-mission.js';
 
 test('applyClaimedMissionState clears claimed field missions from accepted ids and progress', () => {
     const record = {
@@ -76,4 +80,35 @@ test('clearStalePendingCombatClaim tolerates a missing/invalid pending list', ()
 
     assert.equal(result.cleared, false);
     assert.equal(result.char, char);
+});
+
+test('Legacy mission progress is derived from committed save receipts', () => {
+    const date = '2026-09-01';
+    assert.equal(legacyMissionProgressSpec('field', 'field-1', date, {
+        claimedServerMissions: [],
+    }), null);
+    assert.deepEqual(legacyMissionProgressSpec('field', 'field-1', date, {
+        claimedServerMissions: [`${date}:field:field-1`],
+    }), {
+        receiptId: `mission:${date}:field:field-1`,
+        deltas: { missionCompletions: 1 },
+        durableReceipt: false,
+    });
+    assert.deepEqual(legacyMissionProgressSpec('hunt', 'hunt-1', date, {
+        claimedServerMissions: [`${date}:hunt:hunt-1`],
+    })?.deltas, { huntCompletions: 1 });
+    assert.deepEqual(legacyMissionProgressSpec('academy-trial', 'academy', date, {
+        academyTrialClaimed: true,
+    }), {
+        receiptId: 'mission:academy-trial:once',
+        deltas: { missionCompletions: 1 },
+        durableReceipt: true,
+    });
+    assert.equal(legacyMissionProgressSpec('academy-checklist', 'academy', date, {
+        academyChecklistClaimed: true,
+    }), null);
+    assert.equal(legacyMissionProgressSpec('apex', 'apex', date, {}), null);
+    assert.equal(legacyMissionProgressSpec('apex', 'apex', date, {
+        apexWeekClaimed: '2026-W36',
+    })?.receiptId, 'mission:apex:2026-W36');
 });

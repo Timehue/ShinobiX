@@ -168,7 +168,11 @@ describe('both handlers wire the durable receipt in the safe order', () => {
         ['battle-result.ts', coliseumSrc, 'await writeSaveProjected(saveKey, updated, record);'],
     ] as const) {
         it(`${label} checks the durable receipt before paying`, () => {
-            const check = indexOfOrFail(src, label, /await kv\.get\(paidReceiptKey\(|await kv\.get\(paidKey\)/);
+            const check = indexOfOrFail(
+                src,
+                label,
+                /await kv\.get(?:<[^>]+>)?\(\s*(?:paidReceiptKey\(|paidKey)/,
+            );
             const write = src.lastIndexOf(payingWrite);
             assert.ok(check < write, 'the durable receipt must be read before the paying write');
         });
@@ -177,9 +181,8 @@ describe('both handlers wire the durable receipt in the safe order', () => {
             // Claiming it first would let a failed save write swallow a reward
             // the player earned, with no way to retry.
             const write = src.lastIndexOf(payingWrite);
-            const place = src.indexOf('kv.set(paidReceiptKey(', write) >= 0
-                ? src.indexOf('kv.set(paidReceiptKey(', write)
-                : src.indexOf('kv.set(paidKey,', write);
+            const relativePlace = src.slice(write).search(/kv\.set\(\s*paidReceiptKey\(|kv\.set\(paidKey,/);
+            const place = relativePlace < 0 ? -1 : write + relativePlace;
             assert.ok(place > write, `${label} must place the durable receipt after the paying write`);
             assert.match(src.slice(place, place + 220), /nx: true/, 'placed NX so a retry cannot restart its TTL');
             assert.match(src.slice(place, place + 220), /ex: PAID_RECEIPT_TTL_SECONDS/, 'placed with the durable TTL');

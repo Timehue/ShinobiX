@@ -6,7 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
-import { bumpLegacyStats } from '../_legacy-track.js';
+import { bumpLegacyStats, legacyBootstrapBeforeCounterIncrement } from '../_legacy-track.js';
 
 /*
  * /api/village/claim-war-crate  — POST only  (P0.2c, warCrateServerAuth.v1)
@@ -123,11 +123,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const outcome = await withKvLock(saveKey, async () => {
             const fresh = await kv.get<Record<string, unknown>>(saveKey);
             const c = (fresh?.character ?? null) as Record<string, unknown> | null;
-            if (!fresh || !c) return { granted: false as const, reason: 'no-save', character: null };
+            if (!fresh || !c) return { granted: false as const, reason: 'no-save', legacyEligible: false, character: null };
             const side = String((parsed.kind === 'village' ? c.village : c.clan) ?? '').trim();
             const claimed = Array.isArray(c.claimedWarCrateIds) ? (c.claimedWarCrateIds as unknown[]).map(String) : [];
             const decision = warCrateClaimDecision(war, warCrateId, side, claimed, Date.now());
-            if (!decision.granted) return { ...decision, character: c, _saveVersion: Number(fresh._saveVersion ?? 0) };
+            if (!decision.granted) return {
+                ...decision,
+                // A prior exact crate claim is still durable proof of the same
+                // won war, so a retry can repair Legacy delivery without
+                // minting another crate.
+                legacyEligible: decision.reason === 'already-claimed',
+                character: c,
+                _saveVersion: Number(fresh._saveVersion ?? 0),
+            };
             const inventory = Array.isArray(c.inventory) ? [...(c.inventory as unknown[])] : [];
             inventory.push(LEGENDARY_WAR_CRATE_ID);
             const nextCharacter = {
@@ -141,23 +149,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 character: nextCharacter,
             });
             await kv.set(saveKey, mergePreservingImages(updated, fresh));
-            return { granted: true as const, reason: 'granted', character: nextCharacter, _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0) };
+            return {
+                granted: true as const,
+                reason: 'granted',
+                legacyEligible: true,
+                character: nextCharacter,
+                _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0),
+            };
         }, { failClosed: true });
 
-        // Legacy tracking (ENABLE_LEGACY): a granted crate proves a won war.
-        // Own NX per (player, war) — claimedWarCrateIds lives on the
-        // client-writable save, so strip-and-reclaim could re-mint the crate
-        // grant but must NOT re-mint war legacy credit (verification finding).
-        if (outcome.granted) {
-            try {
-                const onceKey = `legacy:war-won:${playerName}:${warCrateId}`;
-                const first = await kv.set(onceKey, true, { nx: true });
-                if (first) await bumpLegacyStats(playerName, { warsWon: 1 });
-            } catch (legacyErr) {
-                console.error('[claim-war-crate] legacy tracking failed:', legacyErr);
+        // The tracker's own durable receipt is the one-time marker. Unlike the
+        // old pre-claimed NX key, it is committed atomically with the counter;
+        // an already-claimed crate can therefore retry a failed side effect.
+        if (outcome.legacyEligible) {
+            const delivered = await bumpLegacyStats(playerName, { warsWon: 1 }, {
+                receiptId: `war-won:${warCrateId}`,
+                durableReceipt: true,
+                characterForBootstrap: legacyBootstrapBeforeCounterIncrement(
+                    outcome.character,
+                    'warsWon',
+                ),
+            });
+            if (!delivered) {
+                return res.status(503).json({
+                    error: 'The war win is safe, but its Legacy record is still being sealed. Retry the same crate claim.',
+                    code: 'legacy-delivery-pending',
+                    retryable: true,
+                });
             }
         }
-        return res.status(200).json({ ok: true, ...outcome });
+        const { legacyEligible: _legacyEligible, ...publicOutcome } = outcome;
+        return res.status(200).json({ ok: true, ...publicOutcome });
     } catch (err) {
         console.error('[village/claim-war-crate]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });

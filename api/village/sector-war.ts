@@ -101,8 +101,6 @@ import { intelDeclareCost, sectorIntelFor, type IntelTier } from '../_village-in
 import { SECTOR_WAR_WR } from '../_war-economy.js';
 import { recordWarEcoEvent } from '../_war-telemetry.js';
 import { announce, postVillageHerald } from '../_announce.js';
-import { legacyEnabled, bumpLegacyStats } from '../_legacy-track.js';
-import { bumpEraContribution } from '../_era.js';
 import { pvpSessionMayGrantProgress, type PvpSession } from '../pvp/session.js';
 import { loadPvpRewardRecoverySnapshot } from '../pvp/_reward-recovery.js';
 import { pvpSessionPublicationTombstoneFor } from '../pvp/_session-publication-tombstone.js';
@@ -1049,21 +1047,6 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
         attackerPoints: result.session.attackerPoints,
         defenderPoints: result.session.defenderPoints,
     });
-    // Legacy tracking (ENABLE_LEGACY): war credit from the authoritative
-    // resolve — winner banked a war kill + contribution; a defender hold is a
-    // defense, an attacker capture is a capture. Best-effort, after the lock.
-    if (!result.replayed && legacyEnabled() && winnerName) {
-        await bumpLegacyStats(winnerName, {
-            warPvpKills: 1,
-            // Flat war-contribution points per validated war battle (role swings
-            // are small numbers — using them raw made every warContribution floor
-            // unreachable; verification finding). Sector captures are settlement's
-            // business now, not any single battle's.
-            warContribution: 2000,
-            ...(!attackerWon ? { sectorDefenses: 1, defensiveWins: 1 } : {}),
-        });
-        await bumpEraContribution('warBattles');
-    }
     return sendSectorResolutionReceipt(res, durable);
     */
 }

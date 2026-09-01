@@ -12,6 +12,10 @@ import { strict as assert } from "node:assert";
 import { rollEmissarySpawn, emissaryForCategory, EMISSARY_DEFS, EMISSARY_MIN_LEVEL, EMISSARY_WANDERER_PREFIX } from "./legacy-emissaries";
 
 const CATEGORY = EMISSARY_DEFS[0].categories[0];
+const PUBLIC_LEGACY_CATEGORIES = [
+    "ninjutsu", "genjutsu", "taijutsu", "bukijutsu", "pvp", "pve",
+    "village", "support", "explorer", "pets", "cards", "war",
+] as const;
 
 /** A (player, bucket) pair whose window roll is active, so branch logic is testable. */
 function activeWindow(): { name: string; bucket: number } {
@@ -22,6 +26,14 @@ function activeWindow(): { name: string; bucket: number } {
 }
 
 describe("rollEmissarySpawn", () => {
+    it("has exactly one trial-giver for every player-facing Legacy category", () => {
+        for (const category of PUBLIC_LEGACY_CATEGORIES) {
+            const serving = EMISSARY_DEFS.filter((definition) => definition.categories.includes(category));
+            assert.equal(serving.length, 1, `${category} must resolve to exactly one emissary`);
+            assert.equal(emissaryForCategory(category), serving[0]);
+        }
+    });
+
     it("respects the level gate and empty names", () => {
         assert.equal(rollEmissarySpawn("", 60, CATEGORY, 9000), null);
         assert.equal(rollEmissarySpawn("aki", EMISSARY_MIN_LEVEL - 1, CATEGORY, 9000), null);
