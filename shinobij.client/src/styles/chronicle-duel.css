@@ -4344,29 +4344,6 @@ button.chronicle-card {
    This is the final active-duel art direction layer. The Hall, collection and
    deck builder keep their document layouts; only the fullscreen match becomes
    a sealed viewport with one visual hierarchy and no page-level scroll. */
-.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) {
-  grid-template-columns: minmax(0, 1fr);
-  column-gap: 0;
-}
-.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) > .left-profile-card,
-.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) > .right-menu-panel,
-.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) > .sector-banner-panel,
-.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) > .mobile-top-hud,
-.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) > .mobile-bottom-nav {
-  display: none !important;
-}
-.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) > .center-game {
-  grid-column: 1;
-  grid-row: 1;
-  container: normal;
-  width: 100%;
-  height: 100dvh;
-  min-height: 0;
-  margin: 0;
-  padding: 0 !important;
-  overflow: hidden !important;
-  scrollbar-gutter: auto;
-}
 .chronicle-shell--duel-active {
   box-sizing: border-box;
   width: 100vw;
