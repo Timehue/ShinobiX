@@ -67,10 +67,22 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
     const [changeLegacyId, setChangeLegacyId] = useState("");
     const [changeReason, setChangeReason] = useState("");
     useEffect(() => {
-        void post({ action: 'definitions' }).then((data) => {
-            if (data && Array.isArray(data.definitions)) setDefs(data.definitions as AdminLegacyDef[]);
-        });
-    }, [post]);
+        const controller = new AbortController();
+        void fetch('/api/admin/legacy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+            body: JSON.stringify({ action: 'definitions' }),
+            signal: controller.signal,
+        })
+            .then(async (res) => res.ok ? res.json().catch(() => null) : null)
+            .then((data: Record<string, unknown> | null) => {
+                if (data && Array.isArray(data.definitions)) {
+                    setDefs(data.definitions as AdminLegacyDef[]);
+                }
+            })
+            .catch(() => undefined);
+        return () => controller.abort();
+    }, [adminPw]);
 
     async function inspect() {
         if (!inspectName.trim()) return;
