@@ -177,7 +177,8 @@ async function helpForwardPendingReceipt(
 
 async function pinAndFinalizeReceipt(
     territoryKey: string,
-    expectedRow: Record<string, unknown>,
+    /** null = the row does not exist yet and must be created by this CAS. */
+    expectedRow: Record<string, unknown> | null,
     projectedRow: Record<string, unknown>,
     receipt: DurableRaidDamageReceipt,
 ): Promise<Record<string, unknown>> {
@@ -279,7 +280,8 @@ export async function settleRaidTerritoryDamage(params: {
             };
         }
         return withKvLock(key, async () => {
-            let current = (await kv.get<Record<string, unknown>>(key)) ?? {
+            const stored = await kv.get<Record<string, unknown>>(key);
+            let current = stored ?? {
                 sector,
                 controlScore: 0,
                 hp: TERRITORY_HP_MAX,
@@ -288,18 +290,28 @@ export async function settleRaidTerritoryDamage(params: {
                 warSupply: 0,
                 updatedAt: Date.now(),
             };
+            // A sector nobody has captured or raided yet has NO row, and the
+            // default above is a projection, not a stored predecessor. CAS with
+            // a non-null expected compiles to `UPDATE ... WHERE value = ?`,
+            // which matches nothing on an absent key — so every raid in such a
+            // sector threw raid-territory-row-conflict forever and pinned its
+            // winner on the victory screen. Absence is expressed as a null
+            // expected, which routes to the insert-if-absent CAS branch.
+            let expected: Record<string, unknown> | null = stored ? current : null;
             current = await helpForwardPendingReceipt(key, sector, current);
+            if (expected !== null) expected = current;
             const lifecycleNow = Date.now();
             const lifecycle = settleExpiredTerritoryBreach(current, lifecycleNow);
             if (lifecycle.changed) {
                 const projected = lifecycle.row as Record<string, unknown>;
                 try {
-                    if (!(await kv.compareSet(key, current, projected))) throw new Error('raid-territory-lifecycle-conflict');
+                    if (!(await kv.compareSet(key, expected, projected))) throw new Error('raid-territory-lifecycle-conflict');
                 } catch (error) {
                     const recovered = await kv.get<unknown>(key).catch(() => null);
                     if (!isDeepStrictEqual(recovered, projected)) throw error;
                 }
                 current = projected;
+                expected = projected;
             }
             const existing = receipts(current.serverRaidDamageReceipts);
             const prior = existing.find((entry) => entry.proofId === proofId);
@@ -308,7 +320,7 @@ export async function settleRaidTerritoryDamage(params: {
                 // Rolling-upgrade rows may predate terminal proof keys. Pin the
                 // old exact result before backfilling so a crash cannot let later
                 // raids evict it from the bounded audit ring.
-                await pinAndFinalizeReceipt(key, current, current, durable);
+                await pinAndFinalizeReceipt(key, expected, current, durable);
                 return {
                     proofId,
                     playerName,
@@ -375,7 +387,7 @@ export async function settleRaidTerritoryDamage(params: {
                 next = beginTerritoryBreach(next, lifecycleNow, bankedSupply) as typeof next;
             }
             const durable: DurableRaidDamageReceipt = { version: 1, sector, ...receipt };
-            await pinAndFinalizeReceipt(key, current, next, durable);
+            await pinAndFinalizeReceipt(key, expected, next, durable);
             return { proofId, playerName, amount, sector, hpAfter, destroyed, at: eventAt, replayed: false };
         }, { failClosed: true });
     }, { failClosed: true });

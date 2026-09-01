@@ -426,6 +426,16 @@ export function StoryBossFightHost({
                                                 ? <p className="story-fight-complete-rewards">This sparring reward was already collected.</p>
                                                 : <p className="story-fight-complete-rewards">+{result.statPoints ?? 20} stat points · +{result.ryo} ryo</p>)
                                         : <p className="story-fight-complete-boss">The dummy got the better of you. Patch up at the Hospital and step back onto the mat.</p>}
+                                    {/* escape-hatch-exempt — deliberate, unlike the PvP and AI-fight
+                                        result screens. Those two keep a DURABLE handle on an unsettled
+                                        reward (a 48h server receipt, or a retained token plus an active
+                                        pointer), so leaving them is free. A story run's id lives only in
+                                        memory, so an exit here silently destroys the reward it was
+                                        offering to retry. ⚠ The trade-off is real but not free: a
+                                        deterministic settle failure still leaves Retry as the only
+                                        control. The fix is to persist the run id the way the PvP
+                                        completion marker does, and THEN add the exit — not to add the
+                                        exit on its own. */}
                                     {won && settleState === "failed"
                                         ? <button onClick={retry}>Retry Reward</button>
                                         : <button disabled={won && (settleState !== "settled" || !result)} onClick={closeFight}>Continue</button>}
@@ -464,6 +474,9 @@ export function StoryBossFightHost({
                                                     ) : null}
                                                 </p>
                                             )}
+                                    {/* escape-hatch-exempt — same in-memory run id as the branch above;
+                                        see that comment for why leaving is destructive here and what
+                                        the real fix is. */}
                                     {settleState === "failed"
                                         ? <button onClick={retry}>Retry Reward</button>
                                         : <button disabled={settleState !== "settled" || !result} onClick={closeFight}>Continue</button>}

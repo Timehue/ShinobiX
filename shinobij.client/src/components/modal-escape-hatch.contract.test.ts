@@ -135,3 +135,67 @@ test('no exit control is disabled by a busy flag', () => {
         `a player cannot leave once these go dead; disable the committing action instead: ${offenders.join(', ')}`,
     );
 });
+
+/** Controls that RETRY a failed operation rather than leaving the screen. */
+const RETRYISH = /retry/i;
+/** Controls that leave. */
+const EXITISH = /exit|leave|close|dismiss|return|continue|back/i;
+
+/**
+ * Slice `cond ? <button…</button> : <button…</button>` pairs out of JSX.
+ * Bounded so a runaway match cannot swallow the rest of the file.
+ */
+function buttonTernaries(text: string): Array<{ consequent: string; alternate: string; at: number }> {
+    const pair = /\?\s*(<button\b[\s\S]{0,300}?<\/button>)\s*:\s*(<button\b[\s\S]{0,300}?<\/button>)/g;
+    const out: Array<{ consequent: string; alternate: string; at: number }> = [];
+    for (const match of text.matchAll(pair)) {
+        out.push({ consequent: match[1], alternate: match[2], at: match.index ?? 0 });
+    }
+    return out;
+}
+
+const swapsExitForRetry = (consequent: string, alternate: string): boolean => (
+    RETRYISH.test(attribute(consequent, 'onClick'))
+    && !EXITISH.test(attribute(consequent, 'onClick'))
+    && EXITISH.test(attribute(alternate, 'onClick'))
+);
+
+test('a failed settlement never swaps the exit out for a bare Retry', () => {
+    // Self-test first: a detector that cannot see the original bug is a no-op
+    // that passes forever. This is AiFightHost's exact pre-2026-09-01 shape.
+    const original = `{settleState === "failed"
+                    ? <button onClick={onRetry}>Retry</button>
+                    : <button disabled={settleState === "pending"} onClick={onExit}>Continue</button>}`;
+    const sample = buttonTernaries(original);
+    assert.equal(sample.length, 1, 'the ternary slicer stopped matching button pairs');
+    assert.ok(
+        swapsExitForRetry(sample[0].consequent, sample[0].alternate),
+        'the detector no longer recognizes the shape it exists to ban',
+    );
+
+    // The rule: on a result screen, Retry is ADDITIVE. Both of the 2026-09-01
+    // settlement failures were deterministic server rejections, so a Retry that
+    // could never succeed was the only control left on screen. Rendering
+    // `{failed && <button onClick={onRetry}/>}` next to an always-present exit
+    // keeps the retry affordance without the lockout.
+    const offenders: string[] = [];
+    for (const file of files) {
+        const text = readFileSync(file, 'utf8');
+        for (const { consequent, alternate, at } of buttonTernaries(text)) {
+            // A comment above the ternary opts it out, for the rare screen where
+            // leaving genuinely costs the player their reward. The lookback is
+            // generous because an exemption worth granting needs a real
+            // explanation, and that explanation is usually a paragraph.
+            if (text.slice(Math.max(0, at - 1_400), at + 400).includes(EXEMPT)) continue;
+            if (swapsExitForRetry(consequent, alternate)) {
+                offenders.push(`${posix(file)} -> ${attribute(consequent, 'onClick')} replaces ${attribute(alternate, 'onClick')}`);
+            }
+        }
+    }
+    assert.deepEqual(
+        offenders,
+        [],
+        'a failed operation must not remove the only way out; render Retry ALONGSIDE the exit: '
+        + offenders.join(', '),
+    );
+});

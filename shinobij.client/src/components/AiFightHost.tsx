@@ -643,9 +643,17 @@ function AiFightResultCard({
                             ? "Neither side could finish it. No reward was earned."
                             : `${opponentName} stands over you. You are carried to the hospital — no reward was earned.`}
                     </p>
-                    {settleState === "failed"
-                        ? <button onClick={onRetry}>Retry</button>
-                        : <button disabled={settleState === "pending"} onClick={onExit}>Return</button>}
+                    {/* "failed" must keep an EXIT, not just a Retry. The 12s-per-
+                        attempt race above fixed the stalled-connection case, but a
+                        deterministic server rejection still exhausts all four
+                        attempts and lands here — and a Retry that can never
+                        succeed is not an escape hatch. Leaving is safe: the settle
+                        is token-based and report-ai-fight retains the token and
+                        active pointer on a retryable failure, so the reward
+                        settles on a later attempt. Same reasoning as the PvP
+                        result screen. */}
+                    {settleState === "failed" && <button onClick={onRetry}>Retry</button>}
+                    <button disabled={settleState === "pending"} onClick={onExit}>Return</button>
                 </div>
             </div>
         );
@@ -682,9 +690,10 @@ function AiFightResultCard({
                                         <span className="story-fight-complete-title">Stat points come from training, your dailies, and serious PvP.</span>
                                     </p>
                                     )}
-                {settleState === "failed"
-                    ? <button onClick={onRetry}>Retry</button>
-                    : <button disabled={settleState === "pending"} onClick={onExit}>Continue</button>}
+                {/* Same escape hatch as the defeat branch above: a failed
+                    settlement offers Retry AND a way out, never Retry alone. */}
+                {settleState === "failed" && <button onClick={onRetry}>Retry</button>}
+                <button disabled={settleState === "pending"} onClick={onExit}>Continue</button>
             </div>
         </div>
     );
