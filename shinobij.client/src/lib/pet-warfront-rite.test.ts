@@ -364,3 +364,32 @@ test("the verdict view drops snapshots but keeps everything settlement needs", (
     assert.ok(!("clashes" in (verdict as Record<string, unknown>)), "verdict must not carry snapshot streams");
     assert.ok(JSON.stringify(verdict).length < 400, "verdict must stay small enough to seal");
 });
+
+test("the MVP is credited to the pet that dealt the killing blow", () => {
+    // REGRESSION. This shipped awarding an MVP in 0 of 25 matches despite 155
+    // enemy KOs, because a `ko` event names the pet that FELL — `actorId` is
+    // always "enemy-<lane>" there — while the crediting code read it as the
+    // killer and looked for "player-<lane>". Nothing covered the MVP, so the
+    // result screen silently never showed one.
+    const seeds = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
+    let awarded = 0;
+    let decisive = 0;
+    for (const seed of seeds) {
+        const result = runWarfrontRite(band("b"), band("r"), seed);
+        // Only matches where blue actually downed someone can have an MVP.
+        const blueDownedSomeone = result.clashes.some((clash) =>
+            clash.result.events.some((event) => event.type === "ko" && event.side === "enemy"));
+        if (!blueDownedSomeone) continue;
+        decisive++;
+        if (result.mvpSlot !== null) awarded++;
+        if (result.mvpSlot !== null) {
+            assert.ok(result.mvpSlot >= 0 && result.mvpSlot < RITE_BAND_SIZE,
+                `mvpSlot ${result.mvpSlot} is outside the band`);
+            assert.equal(result.mvpPetId, String(band("b")[result.mvpSlot]?.id ?? ""),
+                "mvpPetId must name the pet in mvpSlot");
+        }
+    }
+    assert.ok(decisive > 0, "no seed produced an enemy KO — the fixture is wrong, not the code");
+    assert.equal(awarded, decisive,
+        `only ${awarded} of ${decisive} matches with an enemy KO awarded an MVP`);
+});
