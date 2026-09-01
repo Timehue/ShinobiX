@@ -249,6 +249,30 @@ test("product truth and player focus visual matrix", async ({ page }, testInfo) 
         expect(accessibility.violations.filter((violation) => ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);
         await capture(page, testInfo, name);
         if (width === 390) {
+            // The overlay itself owns the scroll range: its panels stay at their
+            // authored height so nothing is stranded below the fold. Flex shrinking
+            // used to squeeze the whole catalog into a zero-scroll container, which
+            // broke keyboard focus and deep destinations — see the note on
+            // .mobile-menu-overlay in styles/mobile-noncombat-aaa.css.
+            //
+            // Assert that mechanism rather than "System sits below the fold": since
+            // the destination search came out, the catalog clears a 844px phone by
+            // only a handful of pixels, so its exact height is not a contract and
+            // scrolling to a named heading no longer moves the sheet at all.
+            const overlay = page.locator(".mobile-menu-overlay");
+            await expect(overlay).toHaveCSS("overflow-y", "auto");
+            const panels = await overlay.evaluate((element) => [...element.children]
+                .filter((child): child is HTMLElement => child instanceof HTMLElement)
+                .map((child) => ({ panel: child.className, flexShrink: getComputedStyle(child).flexShrink })));
+            expect(panels.length).toBeGreaterThan(0);
+            expect(panels.filter((panel) => panel.flexShrink !== "0")).toEqual([]);
+            const scrolled = await overlay.evaluate((element) => {
+                element.scrollTop = element.scrollHeight;
+                return { scrollTop: element.scrollTop, scrollRange: element.scrollHeight - element.clientHeight };
+            });
+            expect(scrolled.scrollTop).toBe(scrolled.scrollRange);
+            await expect(page.getByRole("heading", { name: "System" })).toBeInViewport();
+            await expect(page.getByRole("button", { name: "Logout", exact: true })).toBeInViewport();
             await page.getByRole("button", { name: "Close menu" }).click();
             await expect(page.locator(".mobile-bottom-nav").getByRole("button", { name: "Menu", exact: true })).toBeFocused();
             await page.locator(".mobile-bottom-nav").getByRole("button", { name: "Menu", exact: true }).click();
