@@ -105,6 +105,19 @@ export async function settleDueSectorWars(now: number = Date.now()): Promise<Sec
                     // territory write takes its own nested lock; order war → territory,
                     // same as every other capture path).
                     await captureSectorForVillage(fresh.sector, fresh.attackerVillage, now);
+                    // Capture credit is part of the settlement barrier, not a
+                    // best-effort tail. Stable per-(war, contributor) receipts
+                    // make retry safe if a later contributor or the final war
+                    // write fails; the war remains due until every winner's
+                    // Legacy counter is confirmed.
+                    if (legacyEnabled()) {
+                        for (const name of captureContributors(verdict.session)) {
+                            const delivered = await bumpLegacyStats(name, { sectorCaptures: 1 }, {
+                                receiptId: `sector-capture:${war.id}:${name.toLowerCase()}`,
+                            });
+                            if (!delivered) throw new Error('sector-capture-legacy-delivery-pending');
+                        }
+                    }
                     await saveSectorWar(verdict.session);
                 } else {
                     // A defended hold carries the attacker's re-siege cooldown as its TTL.
@@ -143,17 +156,6 @@ export async function settleDueSectorWars(now: number = Date.now()): Promise<Sec
                     amount: 1,
                     meta: `sector:${war.sector}`,
                 });
-                // Legacy credit (ENABLE_LEGACY): a capture counts for every attacker
-                // who won a battle in this war (see captureContributors). Best-effort
-                // AFTER the war lock — bumpLegacyStats takes each player's own save
-                // lock, and a missed credit must never unsettle a settled war.
-                if (legacyEnabled()) {
-                    for (const name of captureContributors(outcome.session)) {
-                        try {
-                            await bumpLegacyStats(name, { sectorCaptures: 1 });
-                        } catch { /* per-player best-effort */ }
-                    }
-                }
             }
             settled.push({
                 id: war.id,

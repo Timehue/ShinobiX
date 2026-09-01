@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { bumpLegacyStats } from '../_legacy-track.js';
+import { bumpLegacyStats, legacyBootstrapBeforeCounterIncrement } from '../_legacy-track.js';
 import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
@@ -265,7 +265,7 @@ export async function settleRaidProgression(params: {
     if (!result.ok) throw new Error(result.error);
 
     const legacyComplete = await bumpLegacyStats(params.playerName, { raidsCompleted: 1, warContribution: 500 }, {
-        characterForBootstrap: result.character,
+        characterForBootstrap: legacyBootstrapBeforeCounterIncrement(result.character, 'totalVillageRaids'),
         receiptId: eventReceiptId,
     });
     if (!legacyComplete) throw new Error('raid-legacy-progression-pending');

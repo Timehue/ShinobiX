@@ -14,7 +14,7 @@ import {
     type HollowGateRunToken,
 } from './_run-token.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
-import { bumpEraContribution } from '../_era.js';
+import { acknowledgeEraContribution, bumpEraContributionOnce } from '../_era.js';
 import {
     hollowGateCombatBindingKey,
     isHollowGatePetAuthority,
@@ -215,7 +215,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }, { failClosed: true });
 
         if (!result.ok) return res.status(404).json({ error: 'Your save was not found.' });
-        await kv.set(`hg-settled:${playerName}:${token}`, '1', { ex: 24 * 60 * 60 }).catch(() => undefined);
+
+        // Deliver the sidecar proof BEFORE consuming the run token. The player
+        // save receipt above makes settlement replayable; a stable Legacy
+        // receipt makes the associated clear exact-once. If delivery is
+        // temporarily unavailable we leave the run record in place and return
+        // a retryable response — the next call enters alreadyReported and
+        // repairs the missing proof without paying currency twice.
+        const legacyQualifyingClear = outcome === 'extract'
+            && (runAgeMs >= 3 * 60 * 1000 || bossResolved);
+        if (legacyQualifyingClear) {
+            const legacyBootstrapCharacter = bossResolved
+                ? {
+                    ...result.character,
+                    // combat-settle already raised this mirror for the run's
+                    // boss. Seed pre-run history, then add the extraction deed.
+                    hollowGateWardenKills: Math.max(
+                        0,
+                        Math.floor(Number(result.character.hollowGateWardenKills) || 0) - 1,
+                    ),
+                }
+                : result.character;
+            const legacyDelivered = await bumpLegacyStats(
+                playerName,
+                { hollowGateClears: 1, dungeonClears: 1, eliteKills: 2 },
+                {
+                    characterForBootstrap: legacyBootstrapCharacter,
+                    receiptId: `hollow-gate:${playerName}:${token}`,
+                },
+            );
+            if (!legacyDelivered) {
+                return res.status(503).json({
+                    error: 'Your extraction is safe, but its Legacy record is still being sealed. Please retry.',
+                    code: 'legacy-delivery-pending',
+                    character: result.character,
+                    _saveVersion: result._saveVersion,
+                });
+            }
+            const eraReceiptId = `hollow-gate:${playerName}:${token}:era`;
+            await bumpEraContributionOnce('gateClears', eraReceiptId);
+            await acknowledgeEraContribution('gateClears', eraReceiptId);
+        }
+        await kv.set(`hg-settled:${playerName}:${token}`, {
+            outcome,
+            legacyQualifyingClear,
+            settledAt: Date.now(),
+        }, { ex: 24 * 60 * 60 }).catch(() => undefined);
         await kv.del(runKey).catch(() => undefined);
         if (result.alreadyReported) {
             await recordBetaMetric({
@@ -224,15 +269,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 source: outcome,
             });
             return res.status(200).json({ ok: true, alreadyReported: true, character: result.character, _saveVersion: result._saveVersion });
-        }
-        // Legacy tracking (ENABLE_LEGACY): only a successful EXTRACTION counts
-        // as a clear — deaths settle currency but don't feed Legacy progress.
-        // Anti-farm gate: an instant start→settle round-trip is not a dive; a
-        // clear needs either a few real minutes or the authoritative final-boss
-        // receipt (short official Rift gates can clear faster).
-        if (outcome === 'extract' && (runAgeMs >= 3 * 60 * 1000 || bossResolved)) {
-            await bumpLegacyStats(playerName, { hollowGateClears: 1, dungeonClears: 1, eliteKills: 2 });
-            await bumpEraContribution('gateClears');
         }
         await recordBetaMetric({
             event: outcome === 'death'

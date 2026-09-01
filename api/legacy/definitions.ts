@@ -8,7 +8,7 @@ import { legacyEnabled } from '../_legacy-track.js';
 /*
  * GET /api/legacy/definitions — the public Legacy codex.
  *
- * Names, rarity, category, village affinity, flavor, and titles only — the
+ * Names, category, village affinity, flavor, and titles only — the
  * requirement formulas deliberately stay server-side (design rule: players see
  * mystery and rumors, never a min-max checklist).
  */
@@ -22,11 +22,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         const overlay = await getLegacyOverlay();
         const disabled = new Set(overlay.disabled ?? []);
-        const legacies = LEGACY_DEFS.filter((d) => !disabled.has(d.id)).map((d) => ({
-            id: d.id, name: d.name, rarity: d.rarity, category: d.category,
-            villageAffinity: d.villageAffinity ?? null, title: d.title,
-            flavor: d.flavor, badge: d.badge ?? null,
-        }));
+        const legacies = LEGACY_DEFS
+            .filter((definition) => !disabled.has(definition.id))
+            .map((definition) => ({
+                id: definition.id, name: definition.name, category: definition.category,
+                villageAffinity: definition.villageAffinity ?? null, title: definition.title,
+                flavor: definition.flavor, badge: definition.badge ?? null,
+            }))
+            .sort((left, right) => left.name.localeCompare(right.name));
         res.setHeader('Cache-Control', 'public, max-age=300');
         return res.status(200).json({ minLevel: LEGACY_MIN_LEVEL, legacies });
     } catch (err) {

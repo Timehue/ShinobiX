@@ -29,6 +29,7 @@ import { buildShowdownAiTeam, chooseShowdownAiCommands } from '../_pet-showdown/
 import {
     bumpLegacyStats,
     hasLegacyActivityReceipt,
+    legacyBootstrapBeforeCounterIncrement,
     legacyEnabled,
     legacyStatsKey,
     type LegacyStats,
@@ -868,7 +869,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         { petDuelWins: 1 },
                         {
                             receiptId: `pet-showdown:${session.sessionId}`,
-                            characterForBootstrap: settlement.character as Record<string, unknown> | undefined,
+                            characterForBootstrap: legacyBootstrapBeforeCounterIncrement(
+                                settlement.character as Record<string, unknown> | undefined,
+                                'totalPetWins',
+                            ),
                         },
                     );
                     if (legacyApplied) {
@@ -877,6 +881,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             { sessionId: session.sessionId, at: Date.now(), legacyApplied: true },
                             { ex: PAID_RECEIPT_TTL_SECONDS },
                         ).catch(() => undefined);
+                    } else {
+                        return res.status(503).json({
+                            error: 'The arena win is safe, but its Legacy record is still being sealed. Retry the finishing turn.',
+                            code: 'legacy-delivery-pending',
+                            retryable: true,
+                        });
                     }
                 }
             }

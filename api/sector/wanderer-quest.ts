@@ -9,7 +9,7 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import { WANDERER_QUESTS, isWandererQuestId, wandererQuestRyo, wandererQuestComplete, parseWandererQuestSeal, RESET_ON_ACCEPT_METRICS, SURVEY_RESET_FIELDS, type WandererQuestSeal } from './_wanderer-quest.js';
 import { currentWandererCooldownUntil, naturalWandererClaimOk, parseNaturalWandererId, withWandererUseState } from './_wanderer-encounter.js';
 import { bumpLegacyStats, legacyEnabled } from '../_legacy-track.js';
-import { bumpEraContribution } from '../_era.js';
+import { bumpEraContributionOnce } from '../_era.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
@@ -127,6 +127,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // ── CLAIM ────────────────────────────────────────────────────────────
         if (action === 'claim') {
+            let completedReceiptId = '';
             const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
                 const now = Date.now();
                 const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
@@ -146,6 +147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 const def = WANDERER_QUESTS[sealed.id];
                 const receiptId = `${sealed.id}:${sealed.baseline}:${Number(sealed.at ?? 0)}`;
+                completedReceiptId = receiptId;
                 const receipts = Array.isArray(char.redeemedWandererQuests) ? char.redeemedWandererQuests as Array<Record<string, unknown>> : [];
                 const prior = receipts.find((entry) => entry.id === receiptId);
                 if (prior) {
@@ -196,9 +198,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // releases — bumpLegacyStats takes its own lock, and nesting it
             // inside a currency critical section adds up to ~900ms of backoff
             // to the lock hold (verification finding).
-            if (out.status === 200 && (out.body as { ok?: boolean; replayed?: boolean })?.ok === true && !(out.body as { replayed?: boolean }).replayed) {
-                await bumpLegacyStats(playerName, { wandererQuests: 1 });
-                await bumpEraContribution('discoveries');
+            if (out.status === 200 && (out.body as { ok?: boolean })?.ok === true && completedReceiptId) {
+                const receiptId = `wanderer-quest:${completedReceiptId}`;
+                const delivered = await bumpLegacyStats(playerName, { wandererQuests: 1 }, {
+                    receiptId,
+                    characterForBootstrap: (out.body as { character?: Record<string, unknown> }).character ?? null,
+                });
+                if (!delivered) {
+                    return res.status(503).json({
+                        error: 'The quest reward is safe, but its Legacy record is still being sealed. Retry the same claim.',
+                        code: 'legacy-delivery-pending',
+                        retryable: true,
+                    });
+                }
+                await bumpEraContributionOnce('discoveries', receiptId);
             }
             return res.status(out.status).json(out.body);
         }

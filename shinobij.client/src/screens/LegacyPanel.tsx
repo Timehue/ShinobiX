@@ -166,7 +166,6 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                     mode: "trial-start",
                     kindName: reshaped ? "The Trial, Reshaped" : (TRIAL_NAMES[result.trial.kind] ?? "Legacy Trial"),
                     legacyName: def.name,
-                    rarity: def.rarity,
                     text: reshaped
                         ? "You asked me to pose this differently. So I have — the height is the same, the road is new."
                         : (result.intro ?? "Walk your path where the world can see it."),
@@ -193,7 +192,6 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                     stage: result.legacy.stage,
                     stageName: STAGE_NAMES[result.legacy.stage] ?? "Advanced",
                     legacyName: def.name,
-                    rarity: def.rarity,
                     badge: def.badge,
                     grantedTitle: result.title ?? null,
                     text: result.completion ?? "Your legacy deepens.",
@@ -220,7 +218,6 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                 customTitleStyle={character.customTitleStyle}
                 customTitleIcon={character.customTitleIcon}
                 legacyTitle={status.legacy?.titles?.[status.legacy.titles.length - 1] ?? null}
-                legacyRarity={def?.rarity ?? null}
                 village={character.village}
             />
 
@@ -247,11 +244,11 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                     {/* Hero band — the standing home for the player's permanent identity. */}
                     <div style={{ padding: 14, background: `linear-gradient(135deg, ${LEGACY_ACCENT}1f, transparent 72%)`, borderBottom: `1px solid ${LEGACY_ACCENT}2b` }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                            {def.badge && (
+                            {status.legacy.stage >= 2 && def.badge && (
                                 // Aura class lives on a wrapper span, not the <img>:
                                 // browsers don't render ::before/::after on replaced elements.
                                 <span
-                                    className={`legacy-aura-s${Math.max(2, status.legacy.stage)}`}
+                                    className={`legacy-aura-s${Math.min(5, status.legacy.stage)}`}
                                     style={{ width: 62, height: 62, borderRadius: 12, display: "inline-block", flexShrink: 0 }}
                                 >
                                     <img
@@ -543,7 +540,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                         </p>
                     ))}
                     {status.minLevelReached && (() => {
-                        const n = Object.values(status.eligibleCounts).reduce((a, b) => a + b, 0);
+                        const n = status.eligibleCount;
                         return (
                             <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#9aa3b2" }}>
                                 {n === 1 ? "One legacy would answer you today." : `${n} legacies would answer you today.`}

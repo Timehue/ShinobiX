@@ -11,10 +11,11 @@ import {
     claimWandererUseCooldown,
     currentWandererCooldownUntil,
     naturalWandererClaimOk,
+    wandererUseCooldownKey,
     withWandererUseState,
 } from './_wanderer-encounter.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
-import { bumpEraContribution } from '../_era.js';
+import { bumpEraContributionOnce } from '../_era.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 
 /*
@@ -67,6 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const dayKey = `wanderer-gift:${playerName}:${utcDateKey()}`;
+        let legacyWandererId = '';
 
         const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
             const now = Date.now();
@@ -76,6 +78,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const saveCooldownUntil = currentWandererCooldownUntil(char, wandererId, now);
             if (saveCooldownUntil) {
+                // The hard server row plus the saved cooldown prove a prior
+                // interaction committed. That makes this branch the recovery
+                // path if its Legacy side effect failed after payout.
+                if (await kv.get(wandererUseCooldownKey(playerName, wandererId))) {
+                    legacyWandererId = wandererId;
+                }
                 return { status: 200, body: { ok: false, reason: 'cooldown', cooldownUntil: saveCooldownUntil } };
             }
 
@@ -107,6 +115,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
             const used = withWandererUseState(rewarded, wandererId, now, sector);
             const updated = used.character;
+            legacyWandererId = wandererId;
             const record = bumpSaveVersion({ ...rec, character: updated });
             await kv.set(`save:${playerName}`, mergePreservingImages(record, rec));
             return {
@@ -125,9 +134,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Legacy tracking (ENABLE_LEGACY): a wanderer encounter is a sector
         // discovery. Rides the same daily cap as the gift itself.
-        if (out.status === 200 && (out.body as { ok?: boolean })?.ok === true) {
-            await bumpLegacyStats(playerName, { sectorDiscoveries: 1 });
-            await bumpEraContribution('discoveries');
+        if (legacyWandererId) {
+            const receiptId = `wanderer-discovery:${legacyWandererId}`;
+            const delivered = await bumpLegacyStats(playerName, { sectorDiscoveries: 1 }, { receiptId });
+            if (!delivered) {
+                return res.status(503).json({
+                    error: 'The encounter is safe, but its Legacy record is still being sealed. Retry the same wanderer.',
+                    code: 'legacy-delivery-pending',
+                    retryable: true,
+                });
+            }
+            await bumpEraContributionOnce('discoveries', receiptId);
         }
         return res.status(out.status).json(out.body);
     } catch (err) {
