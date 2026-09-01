@@ -4339,3 +4339,638 @@ button.chronicle-card {
     animation: none;
   }
 }
+
+/* ── AAA presentation pass ──────────────────────────────────────────────────
+   This is the final active-duel art direction layer. The Hall, collection and
+   deck builder keep their document layouts; only the fullscreen match becomes
+   a sealed viewport with one visual hierarchy and no page-level scroll. */
+.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) {
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 0;
+}
+.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) > .left-profile-card,
+.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) > .right-menu-panel,
+.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) > .sector-banner-panel,
+.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) > .mobile-top-hud,
+.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) > .mobile-bottom-nav {
+  display: none !important;
+}
+.app-shell[data-shell="adaptive"]:has(.chronicle-shell--duel-active) > .center-game {
+  grid-column: 1;
+  grid-row: 1;
+  container: normal;
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  margin: 0;
+  padding: 0 !important;
+  overflow: hidden !important;
+  scrollbar-gutter: auto;
+}
+.chronicle-shell--duel-active {
+  box-sizing: border-box;
+  width: 100vw;
+  max-width: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% -12%, rgba(229, 180, 92, 0.14), transparent 34%),
+    radial-gradient(circle at 50% 112%, rgba(44, 119, 145, 0.12), transparent 38%),
+    #030609;
+}
+.chronicle-shell--duel-active > div {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+.chronicle-shell--duel-active .chronicle-table {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  border-color: rgba(209, 168, 94, 0.5);
+  box-shadow:
+    inset 0 0 110px rgba(0, 0, 0, 0.72),
+    inset 0 0 0 1px rgba(121, 192, 208, 0.07),
+    0 0 0 1px #020406,
+    0 24px 80px rgba(0, 0, 0, 0.66);
+}
+.chronicle-shell--duel-active .chronicle-table::before {
+  content: "";
+  position: absolute;
+  z-index: 100;
+  inset: 1px;
+  border: 1px solid rgba(255, 224, 165, 0.08);
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 32px rgba(0, 0, 0, 0.7),
+    inset 0 0 0 4px rgba(3, 8, 12, 0.32);
+  pointer-events: none;
+}
+
+.chronicle-shell--duel-active .chronicle-room-banner {
+  position: relative;
+  z-index: 25;
+  border-color: rgba(218, 174, 98, 0.46);
+  background:
+    linear-gradient(90deg, rgba(7, 16, 22, 0.97), rgba(42, 38, 27, 0.93) 50%, rgba(7, 16, 22, 0.97)),
+    rgba(5, 11, 16, 0.96);
+  box-shadow:
+    inset 0 1px rgba(255, 231, 181, 0.08),
+    inset 0 -1px rgba(111, 187, 205, 0.08),
+    0 5px 18px rgba(0, 0, 0, 0.3);
+}
+.chronicle-shell--duel-active .chronicle-room-banner strong {
+  text-shadow: 0 1px 0 #000, 0 0 18px rgba(239, 193, 108, 0.22);
+}
+.chronicle-shell--duel-active .chronicle-room-banner__actions button,
+.chronicle-shell--duel-active .chronicle-utility-trigger {
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+.chronicle-shell--duel-active .chronicle-room-banner__actions button:hover,
+.chronicle-shell--duel-active .chronicle-utility-trigger:hover {
+  transform: translateY(-1px);
+}
+
+.chronicle-shell--duel-active .chronicle-duel-status {
+  position: relative;
+  z-index: 20;
+  grid-template-columns: minmax(250px, 1fr) minmax(120px, auto) minmax(220px, 1fr);
+  gap: 10px;
+  border-bottom: 1px solid rgba(122, 164, 181, 0.1);
+  padding: 2px 7px 4px;
+}
+.chronicle-shell--duel-active .chronicle-duel-status .chronicle-combatant,
+.chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant {
+  border: 1px solid transparent;
+  border-radius: 9px;
+  padding: 3px 6px;
+  transition: border-color 240ms ease, background 240ms ease, box-shadow 240ms ease;
+}
+.chronicle-shell--duel-active .chronicle-table[data-active-side="opponent"] .chronicle-duel-status .chronicle-combatant {
+  border-color: rgba(217, 99, 82, 0.34);
+  background: linear-gradient(90deg, rgba(80, 26, 24, 0.4), transparent 82%);
+  box-shadow: inset 3px 0 rgba(228, 111, 86, 0.72), 0 0 18px rgba(124, 43, 35, 0.14);
+}
+.chronicle-shell--duel-active .chronicle-table[data-active-side="player"] .chronicle-player-bar .chronicle-combatant {
+  border-color: rgba(221, 178, 91, 0.32);
+  background: linear-gradient(90deg, rgba(89, 63, 21, 0.34), transparent 88%);
+  box-shadow: inset 3px 0 rgba(232, 187, 92, 0.76), 0 0 18px rgba(166, 116, 37, 0.12);
+}
+.chronicle-shell--duel-active .chronicle-turn {
+  min-width: 116px;
+  border: 1px solid rgba(214, 174, 99, 0.32);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 50% 0, rgba(211, 167, 85, 0.14), transparent 72%),
+    rgba(5, 12, 17, 0.82);
+  padding: 4px 9px;
+  box-shadow: inset 0 1px rgba(255, 229, 176, 0.06);
+}
+.chronicle-shell--duel-active .chronicle-turn > b {
+  color: #ffe0a2;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+}
+.chronicle-shell--duel-active .chronicle-duel-status > div:last-child {
+  position: relative;
+  z-index: 3;
+  flex-wrap: nowrap;
+  gap: 5px;
+}
+.chronicle-shell--duel-active .chronicle-duel-status > div:last-child > span {
+  display: inline-flex;
+  min-height: 25px;
+  align-items: center;
+  border: 1px solid rgba(116, 147, 164, 0.28);
+  border-radius: 999px;
+  background: rgba(5, 13, 19, 0.76);
+  padding: 3px 8px;
+  color: #b8c8d3;
+  font-size: 0.61rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.chronicle-shell--duel-active .chronicle-health-meter {
+  border-color: rgba(238, 211, 157, 0.38);
+  background:
+    repeating-linear-gradient(90deg, transparent 0 19%, rgba(255,255,255,0.09) 19% 20%),
+    rgba(0, 4, 7, 0.9);
+  box-shadow: inset 0 1px 5px #000, 0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+.chronicle-shell--duel-active .chronicle-health-meter::after {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.42), transparent 34%),
+    linear-gradient(90deg, #9f302f, #e88637 56%, #f1cb61);
+  box-shadow: 0 0 10px rgba(238, 151, 57, 0.5);
+  transition: width 600ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.chronicle-opponent-hand__count {
+  display: none;
+}
+.chronicle-shell--duel-active .chronicle-opponent-hand {
+  z-index: 18;
+  left: 40%;
+  filter: drop-shadow(0 8px 9px rgba(0, 0, 0, 0.7));
+}
+.chronicle-shell--duel-active .chronicle-opponent-hand__card {
+  transform-origin: 50% 100%;
+}
+.chronicle-shell--duel-active .chronicle-opponent-hand__card:nth-of-type(2n) {
+  transform: translateY(2px) rotate(1.5deg);
+}
+.chronicle-shell--duel-active .chronicle-opponent-hand__card:nth-of-type(2n + 1) {
+  transform: rotate(-1.5deg);
+}
+
+.chronicle-shell--duel-active .chronicle-phase-rail {
+  border-bottom: 1px solid rgba(125, 168, 185, 0.1);
+  padding-bottom: 4px;
+}
+.chronicle-shell--duel-active .chronicle-phase-rail li {
+  border-color: rgba(96, 134, 151, 0.34);
+  background: linear-gradient(180deg, rgba(13, 27, 35, 0.88), rgba(4, 10, 15, 0.91));
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.025);
+}
+.chronicle-shell--duel-active .chronicle-phase-rail li.active {
+  border-color: #dcb56d;
+  background:
+    linear-gradient(180deg, rgba(118, 83, 30, 0.82), rgba(24, 31, 32, 0.96));
+  box-shadow:
+    inset 0 1px rgba(255, 235, 192, 0.15),
+    0 0 0 1px rgba(245, 202, 119, 0.12),
+    0 0 18px rgba(221, 172, 77, 0.24);
+}
+
+.chronicle-shell--duel-active .chronicle-playmat {
+  border: 1px solid rgba(111, 181, 196, 0.2);
+  border-radius: 9px;
+  box-shadow:
+    inset 0 0 120px rgba(0, 0, 0, 0.66),
+    inset 0 0 0 1px rgba(153, 210, 220, 0.06),
+    0 12px 32px rgba(0, 0, 0, 0.48);
+}
+@media (min-width: 761px) {
+  .chronicle-shell--duel-active .chronicle-playmat {
+    --chron-zone-w: clamp(62px, 7.8vh, 88px);
+  }
+}
+.chronicle-shell--duel-active .chronicle-playmat .chronicle-zone {
+  border-color: rgba(102, 177, 192, 0.28);
+  background:
+    linear-gradient(145deg, rgba(11, 29, 37, 0.34), rgba(2, 8, 12, 0.72)),
+    repeating-linear-gradient(135deg, transparent 0 12px, rgba(103, 190, 205, 0.04) 12px 13px);
+}
+.chronicle-shell--duel-active .chronicle-playmat .chronicle-zone:not(:has(.chronicle-card)) > span {
+  opacity: 0.38;
+  letter-spacing: 0.08em;
+  text-shadow: 0 1px 2px #000;
+}
+.chronicle-shell--duel-active .chronicle-playmat .chronicle-zone:has(.chronicle-card) {
+  border-color: rgba(154, 211, 220, 0.5);
+  background: rgba(4, 12, 18, 0.72);
+  box-shadow:
+    inset 0 0 16px rgba(58, 137, 153, 0.1),
+    0 6px 13px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(0, 0, 0, 0.42);
+}
+.chronicle-shell--duel-active .chronicle-playmat .chronicle-zone.inspectable:hover:not(:disabled),
+.chronicle-shell--duel-active .chronicle-playmat .chronicle-zone.inspectable:focus-visible {
+  z-index: 8;
+  border-color: rgba(150, 218, 233, 0.85);
+  filter: brightness(1.16) saturate(1.08);
+  transform: translateY(-3px) scale(1.025);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.52), 0 0 18px rgba(85, 183, 207, 0.22);
+}
+.chronicle-shell--duel-active .chronicle-field-divider {
+  grid-template-columns: minmax(210px, 0.75fr) minmax(240px, 1.25fr);
+  border-color: rgba(157, 192, 188, 0.2);
+  background:
+    linear-gradient(90deg, rgba(8, 30, 28, 0.82), rgba(5, 12, 17, 0.92) 48%, rgba(13, 10, 9, 0.88));
+  box-shadow: inset 0 1px rgba(255,255,255,0.035), 0 5px 15px rgba(0,0,0,0.32);
+}
+.chronicle-shell--duel-active .chronicle-battle-message {
+  border-left: 2px solid rgba(221, 177, 95, 0.68);
+  padding-left: 10px;
+}
+.chronicle-shell--duel-active .chronicle-battle-message strong {
+  color: #e8edf1;
+  text-shadow: 0 1px 2px #000;
+}
+
+.chronicle-shell--duel-active .chronicle-player-console {
+  border-color: rgba(205, 160, 84, 0.48);
+  background:
+    radial-gradient(circle at 53% -40%, rgba(128, 86, 35, 0.16), transparent 56%),
+    linear-gradient(100deg, rgba(5, 12, 17, 0.98), rgba(10, 8, 17, 0.98));
+  box-shadow:
+    0 -14px 35px rgba(0, 0, 0, 0.4),
+    inset 0 1px rgba(255, 225, 168, 0.09),
+    inset 0 0 30px rgba(62, 105, 122, 0.05);
+}
+.chronicle-shell--duel-active .chronicle-hand {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-inline: 1px solid rgba(113, 139, 157, 0.15);
+  border-radius: 8px;
+  background:
+    radial-gradient(ellipse at 50% 112%, rgba(112, 78, 40, 0.14), transparent 64%),
+    rgba(2, 7, 12, 0.34);
+  scrollbar-width: none;
+}
+.chronicle-shell--duel-active .chronicle-hand::-webkit-scrollbar {
+  display: none;
+}
+.chronicle-shell--duel-active .chronicle-hand .chronicle-card {
+  filter: drop-shadow(0 7px 6px rgba(0, 0, 0, 0.66));
+  transition: transform 180ms cubic-bezier(0.2, 0.9, 0.25, 1), filter 180ms ease;
+}
+.chronicle-shell--duel-active .chronicle-hand .chronicle-card:hover:not(:disabled):not(.selected) {
+  filter: brightness(1.1) saturate(1.07) drop-shadow(0 12px 8px rgba(0, 0, 0, 0.72));
+}
+.chronicle-shell--duel-active .chronicle-command-context {
+  border-left-color: #e0b66a;
+}
+.chronicle-shell--duel-active .chronicle-command-dock button.primary {
+  position: relative;
+  overflow: hidden;
+  border-color: #e2b65f;
+  background:
+    linear-gradient(180deg, rgba(154, 108, 38, 0.95), rgba(70, 48, 20, 0.98)),
+    #3a2c16;
+  color: #fff0c7;
+  text-shadow: 0 1px 2px #271500;
+  box-shadow:
+    inset 0 1px rgba(255, 239, 196, 0.22),
+    inset 0 -1px rgba(0, 0, 0, 0.5),
+    0 6px 18px rgba(0, 0, 0, 0.34),
+    0 0 16px rgba(210, 151, 52, 0.08);
+}
+.chronicle-shell--duel-active .chronicle-command-dock button.primary:hover:not(:disabled),
+.chronicle-shell--duel-active .chronicle-command-dock button.primary:focus-visible {
+  border-color: #ffd98a;
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px rgba(255, 247, 215, 0.3),
+    0 8px 22px rgba(0, 0, 0, 0.42),
+    0 0 20px rgba(232, 180, 81, 0.2);
+}
+.chronicle-shell--duel-active .chronicle-command-dock button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.chronicle-shell--duel-active .chronicle-utility-menu,
+.chronicle-shell--duel-active .chronicle-log[open] {
+  border-color: rgba(211, 172, 101, 0.5);
+  background: rgba(4, 10, 15, 0.97);
+  box-shadow: 0 18px 48px rgba(0,0,0,0.72), inset 0 1px rgba(255,255,255,0.04);
+}
+.chronicle-shell--duel-active .chronicle-log {
+  top: 164px;
+}
+
+@media (min-width: 761px) and (max-width: 900px) {
+  .chronicle-shell--duel-active .chronicle-room-banner {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+  .chronicle-shell--duel-active .chronicle-room-banner > span,
+  .chronicle-shell--duel-active .chronicle-room-banner__actions small {
+    display: none;
+  }
+  .chronicle-shell--duel-active .chronicle-room-banner strong {
+    text-align: left;
+  }
+  .chronicle-shell--duel-active .chronicle-duel-status {
+    grid-template-columns: minmax(210px, 1fr) auto minmax(158px, 0.72fr);
+    gap: 6px;
+  }
+  .chronicle-shell--duel-active .chronicle-duel-status > div:last-child {
+    gap: 3px;
+  }
+  .chronicle-shell--duel-active .chronicle-duel-status > div:last-child > span {
+    min-height: 22px;
+    padding: 2px 5px;
+    font-size: 0.52rem;
+  }
+  .chronicle-shell--duel-active .chronicle-opponent-hand {
+    display: none;
+  }
+  .chronicle-shell--duel-active .chronicle-duel-stage {
+    grid-template-columns: minmax(0, 1fr) 72px;
+  }
+  .chronicle-shell--duel-active .chronicle-player-console {
+    grid-template-columns: minmax(158px, 0.65fr) minmax(220px, 1.2fr) minmax(180px, 0.85fr) 38px;
+    gap: 4px;
+  }
+  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-duelist-avatar {
+    width: 36px;
+    height: 36px;
+  }
+  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant__identity > strong {
+    font-size: 0.64rem;
+  }
+  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-health-meter {
+    width: min(78px, 10vw);
+  }
+  .chronicle-shell--duel-active .chronicle-player-bar > div:last-child {
+    padding-left: 41px;
+    font-size: 0.54rem;
+  }
+  .chronicle-shell--duel-active .chronicle-hand .chronicle-card {
+    width: clamp(62px, 8.6vw, 76px);
+  }
+  .chronicle-shell--duel-active .chronicle-command-dock button {
+    min-height: 36px;
+    padding-inline: 7px;
+    font-size: 0.62rem;
+  }
+}
+
+@media (max-width: 760px) {
+  .chronicle-shell--duel-active {
+    width: 100%;
+    padding: 0;
+  }
+  .chronicle-shell--duel-active .chronicle-table {
+    grid-template-rows: 50px 64px 31px minmax(0, 1fr) clamp(172px, 22dvh, 186px);
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border-radius: 0;
+    padding: 4px;
+  }
+  .chronicle-shell--duel-active .chronicle-room-banner {
+    min-height: 0;
+    padding-block: 2px;
+    padding-inline: 8px;
+  }
+  .chronicle-shell--duel-active .chronicle-room-banner__actions button {
+    box-sizing: border-box;
+    block-size: 44px;
+    min-block-size: 44px !important;
+  }
+  .chronicle-shell--duel-active .chronicle-duel-status {
+    grid-template-columns: minmax(0, 1fr) auto;
+    min-height: 64px;
+    padding: 2px 3px;
+  }
+  .chronicle-shell--duel-active .chronicle-duel-status .chronicle-combatant,
+  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant {
+    padding: 2px 3px;
+  }
+  .chronicle-shell--duel-active .chronicle-turn {
+    min-width: 72px;
+    border-color: transparent;
+    background: transparent;
+    padding: 2px 3px;
+    box-shadow: none;
+  }
+  .chronicle-shell--duel-active .chronicle-turn > b {
+    font-size: 0.68rem;
+  }
+  .chronicle-shell--duel-active .chronicle-opponent-hand {
+    top: 73px;
+    right: clamp(94px, 30vw, 120px);
+    left: auto;
+    min-height: 0;
+    padding: 0;
+    transform: none;
+    filter: none;
+  }
+  .chronicle-shell--duel-active .chronicle-opponent-hand__card,
+  .chronicle-shell--duel-active .chronicle-opponent-hand > b {
+    display: none;
+  }
+  .chronicle-shell--duel-active .chronicle-opponent-hand__count {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+    border: 1px solid rgba(119, 153, 170, 0.36);
+    border-radius: 999px;
+    background: rgba(4, 11, 16, 0.9);
+    padding: 2px 6px;
+    color: #c2d1da;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.34);
+  }
+  .chronicle-shell--duel-active .chronicle-opponent-hand__count b {
+    color: #f2cc83;
+    font-size: 0.62rem;
+  }
+  .chronicle-shell--duel-active .chronicle-opponent-hand__count small {
+    color: #8096a4;
+    font-size: 0.38rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+  }
+  .chronicle-shell--duel-active .chronicle-phase-rail {
+    padding-bottom: 3px;
+  }
+  .chronicle-shell--duel-active .chronicle-duel-stage {
+    min-height: 0;
+  }
+  .chronicle-shell--duel-active .chronicle-field-divider {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+  .chronicle-shell--duel-active .chronicle-player-console {
+    grid-template-rows: 42px minmax(72px, 1fr) 46px;
+    height: 100%;
+    min-height: 0;
+    border-radius: 8px 8px 0 0;
+  }
+  .chronicle-shell--duel-active .chronicle-hand {
+    height: auto;
+    border-inline: 0;
+  }
+  .chronicle-shell--duel-active .chronicle-command-dock {
+    min-height: 0;
+    justify-content: flex-start;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+  .chronicle-shell--duel-active .chronicle-command-dock::-webkit-scrollbar {
+    display: none;
+  }
+  .chronicle-shell--duel-active .chronicle-command-dock button {
+    flex: 0 0 auto;
+    min-height: 42px;
+    font-size: 0.68rem;
+    scroll-snap-align: start;
+  }
+  .chronicle-shell--duel-active .chronicle-command-dock button.primary {
+    flex: 0 0 auto;
+  }
+  .chronicle-shell--duel-active .chronicle-log {
+    top: 138px;
+    right: 5px;
+  }
+}
+
+@media (max-width: 420px) and (max-height: 700px) {
+  .chronicle-shell--duel-active .chronicle-table {
+    grid-template-rows: 50px 50px 24px minmax(0, 1fr) 156px;
+    gap: 2px;
+    padding: 3px;
+  }
+  .chronicle-shell--duel-active .chronicle-room-banner {
+    min-height: 0;
+    padding: 2px 5px;
+  }
+  .chronicle-shell--duel-active .chronicle-room-banner strong {
+    font-size: 0.61rem;
+  }
+  .chronicle-shell--duel-active .chronicle-room-banner__actions button {
+    min-height: 44px;
+    padding: 2px 5px;
+    font-size: 0.5rem;
+  }
+  .chronicle-shell--duel-active .chronicle-duel-status {
+    min-height: 50px;
+  }
+  .chronicle-shell--duel-active .chronicle-duel-status .chronicle-duelist-avatar {
+    width: 34px;
+    height: 34px;
+  }
+  .chronicle-shell--duel-active .chronicle-duel-status .chronicle-combatant {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+  .chronicle-shell--duel-active .chronicle-duel-status .chronicle-combatant b {
+    min-width: 68px;
+    padding: 2px 5px;
+  }
+  .chronicle-shell--duel-active .chronicle-duel-status .chronicle-health-meter {
+    width: min(76px, 23vw);
+    height: 7px;
+  }
+  .chronicle-shell--duel-active .chronicle-opponent-hand {
+    top: 57px;
+  }
+  .chronicle-shell--duel-active .chronicle-phase-rail li {
+    min-height: 21px;
+    padding: 2px 1px;
+  }
+  .chronicle-shell--duel-active .chronicle-phase-rail b {
+    font-size: 0.5rem;
+  }
+  .chronicle-shell--duel-active .chronicle-playmat {
+    --chron-zone-w: min(15.8vw, 50px);
+  }
+  .chronicle-shell--duel-active .chronicle-playmat .chronicle-zone {
+    min-height: calc(var(--chron-zone-w) * 0.98);
+  }
+  .chronicle-shell--duel-active .chronicle-playmat .chronicle-zone .chronicle-card {
+    width: 38px;
+  }
+  .chronicle-shell--duel-active .chronicle-playmat .chronicle-zone-row.backrow .chronicle-zone {
+    min-height: calc(var(--chron-zone-w) * 0.54);
+  }
+  .chronicle-shell--duel-active .chronicle-playmat .chronicle-zone-row.backrow .chronicle-card {
+    width: 30px;
+  }
+  .chronicle-shell--duel-active .chronicle-field-divider {
+    min-height: 34px;
+  }
+  .chronicle-shell--duel-active .chronicle-field-zone,
+  .chronicle-shell--duel-active .chronicle-field-zone__empty {
+    min-height: 30px;
+  }
+  .chronicle-shell--duel-active .chronicle-pile-rail {
+    min-height: 32px;
+  }
+  .chronicle-shell--duel-active .chronicle-pile-zone {
+    min-height: 28px;
+  }
+  .chronicle-shell--duel-active .chronicle-player-console {
+    grid-template-rows: 32px minmax(66px, 1fr) 44px;
+    min-height: 0;
+  }
+  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-duelist-avatar {
+    width: 30px;
+    height: 30px;
+  }
+  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant__identity > strong {
+    font-size: 0.62rem;
+  }
+  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant b {
+    min-width: 66px;
+    padding: 2px 4px;
+  }
+  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-health-meter {
+    height: 6px;
+  }
+  .chronicle-shell--duel-active .chronicle-hand .chronicle-card {
+    width: 54px;
+  }
+  .chronicle-shell--duel-active .chronicle-command-dock button,
+  .chronicle-shell--duel-active .chronicle-utility-trigger {
+    min-height: 44px;
+  }
+  .chronicle-shell--duel-active .chronicle-command-dock {
+    padding-block: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chronicle-shell--duel-active .chronicle-room-banner__actions button,
+  .chronicle-shell--duel-active .chronicle-utility-trigger,
+  .chronicle-shell--duel-active .chronicle-hand .chronicle-card,
+  .chronicle-shell--duel-active .chronicle-command-dock button,
+  .chronicle-shell--duel-active .chronicle-health-meter::after {
+    transition: none !important;
+  }
+  .chronicle-shell--duel-active .chronicle-room-banner__actions button:hover,
+  .chronicle-shell--duel-active .chronicle-utility-trigger:hover,
+  .chronicle-shell--duel-active .chronicle-command-dock button:hover,
+  .chronicle-shell--duel-active .chronicle-playmat .chronicle-zone.inspectable:hover:not(:disabled) {
+    transform: none;
+  }
+}

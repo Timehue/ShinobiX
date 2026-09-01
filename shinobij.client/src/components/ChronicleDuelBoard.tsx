@@ -846,6 +846,7 @@ export function ChronicleDuelBoard({
       style={arenaStyle}
       data-field={state.activeField?.fieldId ?? "neutral"}
       data-attacker={attacker ?? undefined}
+      data-active-side={state.activePlayer === meKey ? "player" : "opponent"}
       aria-label="Shinobi Journey Chronicle Showdown board"
     >
       <div className="chronicle-room-banner">
@@ -918,7 +919,14 @@ export function ChronicleDuelBoard({
           <span>Grave {foe.graveyard.length}</span>
         </div>
       </header>
-      <div className="chronicle-opponent-hand" aria-label="Opponent hand">
+      <div
+        className="chronicle-opponent-hand"
+        aria-label={`Opponent hand, ${foe.handCount} ${foe.handCount === 1 ? "card" : "cards"}`}
+      >
+        <span className="chronicle-opponent-hand__count" aria-hidden="true">
+          <b>{foe.handCount}</b>
+          <small>CARDS</small>
+        </span>
         {opponentHandBacks.map((_, index) => (
           <div className="chronicle-opponent-hand__card" key={index}>
             <ChronicleCardView hidden compact />
