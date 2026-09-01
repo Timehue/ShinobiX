@@ -6704,7 +6704,11 @@ html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help:is(:hover,
 
     #combat .combat-jutsu-card-wrap > .combat-jutsu-help {
         position: absolute !important;
-        inset: 0 0 auto auto !important;
+        /* The grid's minimum card width is 86px. Let the transparent edge of
+           this 44px target use 3px of the inter-card gutter so its painted
+           glyph stays inside the corner while the card's centre remains the
+           cast action in every browser's subpixel projection. */
+        inset: 0 -3px auto auto !important;
         z-index: 50 !important;
         display: grid !important;
         place-items: start end !important;
