@@ -167,7 +167,14 @@ for (const mode of ["solo", "pvp"] as const) {
                 // device-pixel projection, so compare the rendered pixel size.
                 expect(Math.round(detailsBox!.width)).toBeGreaterThanOrEqual(44);
                 expect(Math.round(detailsBox!.height)).toBeGreaterThanOrEqual(44);
-                expect(Math.abs(detailsBox!.x + detailsBox!.width - (cardBox.x + cardBox.width + 3))).toBeLessThanOrEqual(1);
+                // Details keeps its 44px target pinned to the corner with the
+                // transparent edge overhanging into the inter-card gutter. The
+                // CSS reads `inset: 0 -3px auto auto`, but `right` resolves from
+                // the wrap's padding box and the wrap's own 1px border eats one
+                // of those pixels, so the overhang measured against the border
+                // box -- which is what boundingBox() returns -- is 2px, not 3.
+                // Measured 2.00 at 320, 375, 390 and 430 wide.
+                expect(Math.abs(detailsBox!.x + detailsBox!.width - (cardBox.x + cardBox.width + 2))).toBeLessThanOrEqual(1);
                 expect(Math.abs(detailsBox!.y - cardBox.y)).toBeLessThanOrEqual(1);
                 expect(glyphBox!.width).toBeLessThanOrEqual(24);
                 expect(glyphBox!.height).toBeLessThanOrEqual(24);
