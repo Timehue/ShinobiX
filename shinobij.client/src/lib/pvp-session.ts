@@ -5,7 +5,10 @@
  * verbatim from App.tsx. normalizeCharacter stays in App (it normalizes the
  * whole legacy save shape) and is read here as a live binding.
  */
-import { normalizeCharacter } from "../App";
+// Imported from the module, NOT from "../App". Reaching back into App pulled its
+// .webp and component CSS into every consumer of this file, which is why nothing
+// downstream of it could be loaded under node:test.
+import { normalizeCharacter } from "./normalize-character";
 import { normalizeJutsu } from "./jutsu";
 import { sanitizeArmorAndGloveItem } from "./items";
 import type { Character } from "../types/character";

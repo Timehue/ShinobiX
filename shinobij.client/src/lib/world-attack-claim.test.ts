@@ -66,7 +66,9 @@ describe("world attack claim", () => {
 });
 
 describe("world attack claim wiring", () => {
-    const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+    // The sector-attack flow moved out of App.tsx's JSX into lib/sector-attack.ts;
+    // the claim/release ordering it pins is unchanged, only its address is.
+    const app = readFileSync(new URL("./sector-attack.ts", import.meta.url), "utf8");
 
     it("claims BEFORE creating the session, and releases on both failure paths", () => {
         const claim = app.indexOf("await claimWorldAttack(opponent.name");
