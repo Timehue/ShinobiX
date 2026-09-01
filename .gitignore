@@ -476,3 +476,7 @@ shinobij.client/scripts/.restyle-keyart-done.json
 # that customizes a folder view.
 desktop.ini
 Desktop.ini
+
+# Generated storefront card art (upload artifacts, not source).
+# Regenerate with: node scripts/gen-store-art.mjs
+store-art/
