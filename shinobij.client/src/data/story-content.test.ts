@@ -16,6 +16,7 @@ import { storyEpiloguesByVillage } from "./story-epilogues";
 import { storyReckonings } from "./story-reckonings";
 import { storyRoadEvents } from "./story-road-events";
 import { hollowRifts } from "./hollow-rifts";
+import { ECHOES_SCENES } from "./echoes-of-war-scenes";
 import { defaultVnPortrait, resolveVnActorBaseImage, splitDialogueLine } from "../lib/vn";
 import { DERIVED_TRAIT_LEVELS } from "../lib/story-derive";
 
@@ -111,10 +112,19 @@ test("the four village themes stay distinct through the grid reveal, finale, and
     }
 });
 
-test("the Hollow Gate remains human-built infrastructure in the main campaign", () => {
+test("the Hollow Gate remains human-built infrastructure across every campaign", () => {
+    // The Echoes of War campaign is authored outside the village storylines
+    // (data/echoes-of-war-scenes.ts, shipped as on-demand story JSON), so it
+    // has to be scanned explicitly or it can contradict this canon and stay
+    // green — which is exactly how "we did not build it" once shipped on the
+    // floor before the boss. See [[project_echoes_of_war_campaign]].
+    const echoesPages: AnyPage[] = Object.values(ECHOES_SCENES).flatMap((scenes) => [
+        ...scenes.preShowdown, ...scenes.defeat, ...scenes.firstVictory, ...scenes.rematch,
+    ]);
     const campaignPages: AnyPage[] = [
         ...allContent().filter(({ kind }) => kind !== "road").flatMap(({ pages }) => pages),
         ...Object.values(storyEpiloguesByVillage).flatMap((epilogues) => epilogues.flatMap((epilogue) => epilogue.pages)),
+        ...echoesPages,
     ];
     const corpus = campaignPages.flatMap((page) => [
         page.title,
@@ -125,6 +135,13 @@ test("the Hollow Gate remains human-built infrastructure in the main campaign", 
 
     assert.match(corpus, /It isn't alive\. It was built to recognize leverage/i);
     assert.doesNotMatch(corpus, /something enormous notices the arithmetic|something beyond the village notices|the Gate claims what remains|the Gate calls in what remains|the thing under the Vault knows your hand/i);
+
+    // The Sunken Court BUILT the Gate; it is not an older thing they found and
+    // woke. The opening cinematic states it ("People of the Sunken Court built
+    // it to end famine, war, and winter"), so no campaign may reverse it.
+    assert.doesNotMatch(corpus, /we did not build it|did not build the Gate|found it under the ridge|old(?:er)? (?:before|than) the Court/i);
+    const echoesCopy = echoesPages.flatMap((page) => [page.title, page.scene, ...page.dialogue]).join(" ");
+    assert.match(echoesCopy, /The Court built the Gate/i, "the Gate engineer must still affirm the Court built it");
 });
 
 test("each level-88 alternative carries into the finale and its specific epilogue", () => {
