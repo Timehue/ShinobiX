@@ -7,7 +7,7 @@ import { storyEpiloguesByVillage } from "./story-epilogues";
 import { storyReckonings } from "./story-reckonings";
 import { hollowRifts } from "./hollow-rifts";
 import { ECHOES_ERA_INTROS, ECHOES_SCENES } from "./echoes-of-war-scenes";
-import { ECHOES_HERO_COPY } from "./echoes-of-war";
+import { ECHOES_ERAS, ECHOES_HERO_COPY } from "./echoes-of-war";
 import { awakeningLv2VnEvent, auraSphereLv9VnEvent, craftDungeonEvents, hiddenDungeonVnEvent } from "./vn-events";
 import { defaultAncientChestVn, defaultPetEncounterVn } from "./default-vn-events";
 import { hidePlayerPortraitDuringNarration, splitDialogueLine } from "../lib/vn";
@@ -66,6 +66,10 @@ const pages: PageLike[] = [
     // does the heaviest canon work in the feature, so it must be gated here and
     // in the Gate-origin corpus.
     { speaker: "Narrator", dialogue: [ECHOES_HERO_COPY.eyebrow, ECHOES_HERO_COPY.subtitle, ECHOES_HERO_COPY.footnote] },
+    // The Age plates' display strings are player-facing authored text as
+    // well (titles, taglines, sealed teases) — scan every field so a new
+    // era string can never ship ungated.
+    { speaker: "Narrator", dialogue: ECHOES_ERAS.flatMap((era) => [era.ageLabel, era.title, era.tagline, era.sealedTease]) },
     ...[
         awakeningLv2VnEvent,
         auraSphereLv9VnEvent,

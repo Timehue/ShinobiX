@@ -64,7 +64,7 @@
     flex-wrap: wrap;
     align-items: flex-end;
     gap: 0.6rem 1rem;
-    padding: 2.2rem 1.1rem 0.9rem;
+    padding: 3.3rem 1.1rem 0.9rem;
 }
 .echoes-hero .back-btn { position: absolute; top: 0.7rem; left: 0.7rem; }
 
@@ -159,9 +159,14 @@
 /* ── The Ages (century plates) ────────────────────────────────────────── */
 .echoes-ages {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
     gap: 0.9rem;
     margin-bottom: 1rem;
+}
+@media (min-width: 760px) {
+    /* Two columns, always: four Ages read as a 2x2 chronicle spread,
+       never three-plus-an-orphan. */
+    .echoes-ages { grid-template-columns: 1fr 1fr; }
 }
 
 .echoes-age-plate {
@@ -169,7 +174,7 @@
     position: relative;
     display: block;
     text-align: left;
-    min-height: 176px;
+    min-height: 196px;
     padding: 0;
     border: 1px solid color-mix(in srgb, var(--band) 45%, rgba(150, 135, 105, 0.32));
     border-radius: 12px;
@@ -179,7 +184,21 @@
     background-color: #14120d;
     cursor: pointer;
     isolation: isolate;
+    box-shadow:
+        inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(255, 240, 200, 0.1),
+        inset 0 0 34px rgba(0, 0, 0, 0.45),
+        0 6px 18px rgba(0, 0, 0, 0.42);
     transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+}
+.echoes-age-plate::after {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    z-index: 0;
+    pointer-events: none;
+    border: 1px solid color-mix(in srgb, var(--band) 26%, transparent);
+    border-radius: 9px;
 }
 .echoes-age-plate--band-mid { --band: var(--echoes-mid); }
 .echoes-age-plate--band-high { --band: var(--echoes-high); }
@@ -198,13 +217,23 @@
     position: absolute;
     inset: 0;
     z-index: -1;
-    background: linear-gradient(105deg,
-        rgba(10, 9, 6, 0.93) 0%,
-        rgba(10, 9, 6, 0.78) 45%,
-        color-mix(in srgb, var(--band) 22%, rgba(10, 9, 6, 0.35)) 100%);
+    /* Art-forward: the banner art carries the right half; the text
+       rides a directional scrim on the left instead of a full dim. */
+    background:
+        linear-gradient(to top, rgba(10, 9, 6, 0.78) 0%, rgba(10, 9, 6, 0) 34%),
+        linear-gradient(100deg,
+            rgba(10, 9, 6, 0.88) 0%,
+            rgba(10, 9, 6, 0.5) 36%,
+            rgba(10, 9, 6, 0.06) 64%,
+            color-mix(in srgb, var(--band) 16%, rgba(10, 9, 6, 0)) 100%);
 }
-.echoes-age-plate--locked { cursor: not-allowed; opacity: 0.72; }
-.echoes-age-plate--locked .echoes-age-plate-scrim { background: rgba(10, 9, 6, 0.9); }
+.echoes-age-plate--locked { cursor: not-allowed; }
+.echoes-age-plate--locked .echoes-age-plate-scrim {
+    background:
+        linear-gradient(100deg, rgba(8, 8, 9, 0.94) 0%, rgba(8, 8, 9, 0.86) 55%, rgba(10, 11, 14, 0.72) 100%);
+}
+.echoes-age-plate--locked .echoes-age-plate-title { color: #b8b2a4; }
+.echoes-age-plate--locked .echoes-age-plate-tagline { color: #a49e91; }
 .echoes-age-plate--complete { border-color: rgba(126, 166, 116, 0.5); }
 
 .echoes-age-plate-body {
@@ -223,10 +252,14 @@
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 .echoes-age-plate-title {
-    font-size: 1.5rem;
-    line-height: 1.1;
-    color: #f4ecd6;
-    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(1.7rem, 3.2vw, 2.2rem);
+    line-height: 1.06;
+    color: #f6eed8;
+    letter-spacing: 0.02em;
+    text-shadow:
+        0 2px 0 rgba(20, 15, 6, 0.85),
+        0 6px 18px rgba(0, 0, 0, 0.95);
 }
 .echoes-age-plate-tagline {
     font-size: 0.86rem;
@@ -551,17 +584,215 @@
 .echoes-detail-actions button { min-height: 44px; }
 
 /* ── "Entering the memory" veil ───────────────────────────────────────── */
+/* ── The matchup splash ─────────────────────────────────────────────────
+   The beat between choosing a Showdown and the board mounting. The floor's
+   own scene art backs it; the echo and the challenger slide in across a
+   slashed divide. Skipped entirely under prefers-reduced-motion (the
+   screen never mounts it), so the animations here only ever play for
+   motion-tolerant viewers. */
 .echoes-veil {
     position: fixed;
     inset: 0;
-    z-index: 60;
+    /* Above the app's side rails and menus (which live at z <= 1200)
+       but far below the critical-modal and re-auth bands: the splash
+       is a true fullscreen takeover for its 1.65s. */
+    z-index: 2500;
+    overflow: hidden;
+    background: rgba(8, 7, 5, 0.985);
+    pointer-events: all;
+}
+.echoes-veil::before {
+    content: "";
+    position: absolute;
+    inset: -3%;
+    background: var(--vs-scene) center / cover no-repeat;
+    filter: blur(3px) saturate(0.85) brightness(0.62);
+    opacity: 0.85;
+}
+.echoes-veil::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(ellipse at center, color-mix(in srgb, var(--band, #d9c88a) 16%, transparent), transparent 58%),
+        linear-gradient(rgba(5, 4, 3, 0.5), rgba(5, 4, 3, 0.72));
+}
+.echoes-vs-slash {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+}
+.echoes-vs-slash::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: min(46vmin, 460px);
+    height: min(46vmin, 460px);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    background: radial-gradient(
+        circle,
+        color-mix(in srgb, var(--band, #d9c88a) 26%, transparent) 0%,
+        color-mix(in srgb, var(--band, #d9c88a) 10%, transparent) 34%,
+        transparent 68%
+    );
+}
+.echoes-vs-slash::before {
+    content: "";
+    position: absolute;
+    top: -12%;
+    bottom: -12%;
+    left: 50%;
+    width: 3px;
+    transform: rotate(16deg);
+    background: linear-gradient(
+        transparent,
+        color-mix(in srgb, var(--band, #d9c88a) 85%, #fff) 30%,
+        color-mix(in srgb, var(--band, #d9c88a) 85%, #fff) 70%,
+        transparent
+    );
+    box-shadow: 0 0 28px 4px color-mix(in srgb, var(--band, #d9c88a) 45%, transparent);
+}
+.echoes-vs-slash b {
+    position: relative;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(4.4rem, 15vmin, 9.5rem);
+    font-style: italic;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+    background: linear-gradient(
+        173deg,
+        #fdf2cd 12%,
+        #f0ca82 38%,
+        #a9791f 52%,
+        #f6dc9c 66%,
+        #caa14a 88%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter:
+        drop-shadow(0 3px 0 rgba(32, 22, 6, 0.95))
+        drop-shadow(0 10px 26px rgba(0, 0, 0, 0.85))
+        drop-shadow(0 0 40px color-mix(in srgb, var(--band, #d9c88a) 55%, transparent));
+}
+/* The splash content lives on a centered stage sized to the play
+   column, so the app's persistent side rails never eat a panel. */
+.echoes-vs-stage {
+    position: absolute;
+    inset: 0;
+    max-width: 1180px;
+    margin-inline: auto;
+}
+.echoes-vs-panel {
+    position: absolute;
+    z-index: 3;
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: clamp(0.8rem, 2.4vmin, 1.6rem);
+}
+.echoes-vs-panel--echo {
+    top: clamp(0.5rem, 6%, 3rem);
+    right: clamp(1rem, 13%, 10rem);
+    flex-direction: row-reverse;
+    text-align: right;
+}
+.echoes-vs-panel--challenger {
+    bottom: clamp(1.5rem, 9%, 4rem);
+    left: clamp(1rem, 13%, 10rem);
+    text-align: left;
+}
+.echoes-vs-portrait {
+    width: clamp(170px, 40vmin, 400px);
+    height: clamp(220px, 52vmin, 520px);
+    flex: none;
+    background-position: center top;
+    background-size: cover;
+    /* Soft-edged mask melts the figure into the scene instead of a
+       hard pasted rectangle; the slash keeps a diagonal bias. */
+    -webkit-mask-image:
+        linear-gradient(106deg, transparent 2%, #000 16%, #000 84%, transparent 98%),
+        linear-gradient(to bottom, #000 78%, transparent 99%);
+    mask-image:
+        linear-gradient(106deg, transparent 2%, #000 16%, #000 84%, transparent 98%),
+        linear-gradient(to bottom, #000 78%, transparent 99%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+    filter:
+        drop-shadow(0 18px 34px rgba(0, 0, 0, 0.8))
+        drop-shadow(0 0 30px color-mix(in srgb, var(--band, #d9c88a) 46%, transparent));
+}
+/* Kinetic streaks trailing each fighter along the slash axis. */
+.echoes-vs-panel::before {
+    content: "";
+    position: absolute;
+    inset: -18% -30%;
+    z-index: -1;
+    pointer-events: none;
+    transform: rotate(16deg);
+    background: repeating-linear-gradient(
+        90deg,
+        transparent 0 34px,
+        color-mix(in srgb, var(--band, #d9c88a) 26%, transparent) 34px 37px,
+        transparent 37px 92px,
+        color-mix(in srgb, var(--band, #d9c88a) 14%, transparent) 92px 94px
+    );
+    -webkit-mask-image: radial-gradient(75% 62% at 50% 50%, #000 22%, transparent 74%);
+    mask-image: radial-gradient(75% 62% at 50% 50%, #000 22%, transparent 74%);
+    opacity: 0.6;
+}
+.echoes-vs-portrait--mark {
+    display: grid;
+    place-items: center;
     background:
-        radial-gradient(ellipse at center, color-mix(in srgb, var(--band, #d9c88a) 14%, transparent), transparent 55%),
-        rgba(8, 7, 5, 0.97);
-    pointer-events: all;
+        radial-gradient(circle at 40% 28%, color-mix(in srgb, var(--band, #d9c88a) 30%, transparent), transparent 45%),
+        linear-gradient(150deg, #241d12, #0b0906);
+    color: #efdda6;
+    font-family: Georgia, serif;
+    font-size: clamp(2.6rem, 9vmin, 5rem);
+    font-weight: 900;
+}
+.echoes-vs-id {
+    display: grid;
+    gap: 0.3rem;
+    min-width: 0;
+}
+.echoes-vs-id small {
+    color: color-mix(in srgb, var(--band, #d9c88a) 78%, #fff);
+    font-size: clamp(0.62rem, 1.5vmin, 0.8rem);
+    font-weight: 800;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    text-shadow: 0 1px 3px #000;
+}
+.echoes-vs-id strong {
+    color: #f6ecc9;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(1.8rem, 6.6vmin, 4.2rem);
+    font-weight: 900;
+    line-height: 1.02;
+    letter-spacing: 0.03em;
+    text-shadow:
+        0 2px 0 rgba(24, 18, 8, 0.9),
+        0 8px 26px rgba(0, 0, 0, 0.85);
+}
+.echoes-vs-id em {
+    color: #cdbd93;
+    font-size: clamp(0.78rem, 2vmin, 1.02rem);
+    font-style: italic;
+    letter-spacing: 0.08em;
+    text-shadow: 0 1px 3px #000;
+}
+.echoes-vs-caption {
+    position: absolute;
+    right: 0;
+    bottom: clamp(0.4rem, 2.5vh, 1.3rem);
+    left: 0;
+    z-index: 2;
 }
 .echoes-veil-text {
     color: #e8dcb5;
@@ -578,9 +809,25 @@
     letter-spacing: 0.14em;
     color: #a89a76;
 }
+@media (max-width: 700px) {
+    .echoes-vs-panel--echo,
+    .echoes-vs-panel--challenger {
+        right: 0;
+        left: 0;
+        flex-direction: column;
+        justify-content: center;
+        text-align: center;
+    }
+    .echoes-vs-panel--echo { top: clamp(0.5rem, 4vh, 2rem); }
+    .echoes-vs-panel--challenger { bottom: clamp(1.6rem, 7vh, 3.4rem); }
+    .echoes-vs-portrait { width: clamp(96px, 34vmin, 180px); height: clamp(96px, 34vmin, 180px); }
+}
 @media (prefers-reduced-motion: no-preference) {
-    .echoes-veil { animation: echoes-veil-in 700ms ease both; }
-    .echoes-veil-text { animation: echoes-veil-text 700ms ease both; }
+    .echoes-veil { animation: echoes-veil-in 600ms ease both; }
+    .echoes-vs-panel--echo { animation: echoes-vs-from-right 640ms cubic-bezier(0.16, 0.84, 0.3, 1) both; }
+    .echoes-vs-panel--challenger { animation: echoes-vs-from-left 640ms cubic-bezier(0.16, 0.84, 0.3, 1) both; }
+    .echoes-vs-slash b { animation: echoes-vs-stamp 460ms cubic-bezier(0.2, 1.2, 0.36, 1) 240ms both; }
+    .echoes-vs-caption { animation: echoes-veil-text 700ms ease 650ms both; }
 }
 @keyframes echoes-veil-in {
     from { opacity: 0; }
@@ -590,6 +837,18 @@
 @keyframes echoes-veil-text {
     from { opacity: 0; transform: translateY(8px); letter-spacing: 0.34em; }
     to { opacity: 1; transform: translateY(0); letter-spacing: 0.22em; }
+}
+@keyframes echoes-vs-from-right {
+    from { opacity: 0; transform: translateX(64px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+@keyframes echoes-vs-from-left {
+    from { opacity: 0; transform: translateX(-64px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+@keyframes echoes-vs-stamp {
+    from { opacity: 0; transform: scale(2.1); }
+    to { opacity: 1; transform: scale(1); }
 }
 
 /* ── Showdown result (rendered inside the chronicle shell) ────────────── */
