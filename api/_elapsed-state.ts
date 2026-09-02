@@ -2,7 +2,7 @@ import { kv } from './_storage.js';
 import { withKvLock } from './_lock.js';
 import { mergePreservingImages, safeName } from './_utils.js';
 import { hollowGateRunKey } from './hollow-gate/_run-token.js';
-import { bumpSaveVersion } from './save/_save-version.js';
+import { bumpSaveVersion, unversionedSettledRecord } from './save/_save-version.js';
 import { remapLegacySector, sectorBiomeOf, WORLD_GEO_VERSION } from '../shared/sector-geo.js';
 import { migrateCharacterOwnedPets } from './pet/_owned-pet.js';
 import { settlePetBreedingSession } from './pet/_breeding-requirements.js';
@@ -317,6 +317,7 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
 
     const saveKey = `save:${slug}`;
     const persisted = await withKvLock<SettleResult<T>>(saveKey, async () => {
+        let petStateChanged = false;
         const fresh = await kv.get<T>(saveKey);
         if (!fresh) return projected;
         // Re-probe under the lock against the FRESH record: the run token it names
@@ -334,21 +335,46 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
             const bond = settleCharacterPetHappiness(breeding.character, now);
             if (migrated.changed || breeding.changed || bond.changed) {
                 next = { ...next, record: { ...next.record, character: bond.character }, changed: true };
+                petStateChanged = true;
             }
         }
         if (!next.changed) return next;
 
-        // Persist the same settled vitals returned to the owner. Many
-        // server-authoritative admissions (training, Weekly Boss, combat starts)
-        // intentionally read the raw save while holding their own save lock. If
-        // an owner GET only projected regeneration, those later mutations would
-        // continue to see the pre-regeneration stamina/HP indefinitely and could
-        // reject an action the player's authoritative read just showed as ready.
-        // The response includes this bumped version, and owner client call sites
-        // must adopt it before their next optimistic save.
-        const versioned = bumpSaveVersion(next.record);
-        await kv.set(saveKey, mergePreservingImages(versioned, fresh));
-        return { ...next, record: versioned };
+        // WRITE always; PUBLISH A VERSION only for a settle a later read could
+        // not recompute for itself. These are two different questions, and
+        // conflating them is what has broken this function twice.
+        //
+        // The write is unconditional because server-authoritative admissions
+        // (`training/start.ts`, the Weekly Boss, combat starts) read the raw
+        // `save:` row under their own lock and debit from exactly what they find
+        // there. If an owner GET only projected regeneration, those mutations
+        // would keep seeing pre-regeneration stamina/HP forever and could refuse
+        // an action the player's own authoritative read had just shown as ready.
+        // `api/save/_elapsed-vital-consumers.test.ts` pins that end-to-end.
+        //
+        // The BUMP is what must not happen for a projection-only settle. Vitals
+        // regen is re-derived from `_saveAt` on every read, so it tells the
+        // owner's open client nothing it cannot compute itself — but bumping
+        // declared that client's base version stale. With VITAL_REGEN_MS = 1s
+        // that fired on essentially every owner read below full vitals, so the
+        // next autosave echoed a stale `_baseSaveVersion`, took a 409, and the
+        // conflict recovery captured a "device draft" for a divergence that never
+        // existed. Travel arrival, an expired Hollow Gate run, the geo migration
+        // and pet breeding/bond decay DO carry state no reader can re-derive, so
+        // they still publish a version the client is required to adopt.
+        //
+        // ⛔ History: this guard was added in `d453f9257`, then silently dropped
+        // by the merge `d9ef64aa9` ("integrate upstream save recovery into Phase
+        // 2"), which put the 409 loop straight back into production. `git log -S`
+        // does not surface a loss inside a merge. The four discriminators below
+        // exist for nothing else — if they ever go unread again, this regressed.
+        const durable = next.travelChanged || next.hollowGateRunCleared || next.geoChanged || petStateChanged;
+        // A projection-only settle already carries `_saveAt = now` (set by the
+        // vitals branch of settleSaveRecord), so the next read still measures
+        // elapsed time from this write even though the version stands still.
+        const settled = durable ? bumpSaveVersion(next.record) : unversionedSettledRecord(next.record);
+        await kv.set(saveKey, mergePreservingImages(settled, fresh));
+        return { ...next, record: settled };
     });
     return persisted;
 }

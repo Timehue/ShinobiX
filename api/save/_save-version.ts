@@ -99,3 +99,25 @@ export function bumpSaveVersion<T extends Record<string, unknown>>(record: T): T
     r._saveAt = Date.now();
     return r;
 }
+
+/**
+ * Mark a player-save write as DELIBERATELY versionless. Returns the record
+ * untouched.
+ *
+ * Its only job is to make "this write must not publish a new `_saveVersion`" an
+ * explicit, greppable decision instead of an omission.
+ * `_versioned-save-writes.test.ts` accepts this name alongside `bumpSaveVersion`,
+ * so the reward-integrity guard still catches a mutation that merely FORGOT to
+ * version itself — and a second test there pins this helper to its single
+ * legitimate call site so it cannot quietly become a general escape hatch.
+ *
+ * ⛔ Legitimate ONLY when the write carries nothing a later read could not
+ * recompute for itself. The one caller is the vitals-regen projection in
+ * `settleSaveRecordForRead`: regen is re-derived from `_saveAt` on every read,
+ * so publishing a version for it declared the owner's open client stale and 409'd
+ * its own next autosave. Anything that credits ryo, XP, items or progress is NOT
+ * this — it must bump, or a stale tab will clobber it (see `bumpSaveVersion`).
+ */
+export function unversionedSettledRecord<T extends Record<string, unknown>>(record: T): T {
+    return record;
+}
