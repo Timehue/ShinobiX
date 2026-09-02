@@ -341,7 +341,95 @@ import { readFileSync } from "node:fs";
 // both surfaces, plus the Play-app-only hardware back stack. App keeps the hook
 // mount. Grouping them is deliberate — two independent writers to history is how
 // a back stack and a URL reflector start fighting.
-const MAX_LINES = 7_490;
+// → 7,400 LOWERED (−105) — the "Profession combat bonuses" block (Pet Tamer
+// multipliers, Vanguard Honor Seal accounting, the profession XP→rank curve)
+// moved VERBATIM to lib/profession-bonuses.ts; App.tsx is now 7,394 lines
+// (−110: 125 lines of block out, 20 lines of re-export back, and 5 imports that
+// the block was the last consumer of). App called none of it, so only the
+// `"../App"` re-export stayed behind. The
+// move also gave that math its first direct coverage
+// (lib/profession-bonuses.test.ts, 22 cases): App.tsx imports a .webp, so
+// node:test can never load it, and anything living here is untestable by
+// construction. That is the strongest argument for continuing this drain.
+//
+// Buffer note: this lands at count + 6 rather than the usual count + 1. The
+// budget had exactly ONE line free, which blocks even the "mandatory wiring
+// only" growth this history records for new lazy screens (Pet Ladder +2,
+// jutsu-training queue +4). Six lines is deliberately not enough for a feature —
+// it is enough for a lazy-screen mount. New logic still belongs in a module.
+// → 7,279 LOWERED (−121) — the sector-attack handler, the ~120-line inline JSX
+// arrow on WorldMap's sectorAttackPlayer prop that the note above flagged as
+// "worth ~110 lines on its own", moved to lib/sector-attack.ts. App.tsx is now
+// 7,273 lines. Only the closure changed: every identifier the body reads is a
+// destructured parameter with the SAME name, so the statements are token-for-
+// token what App ran (verified by comparing with all indentation stripped). The
+// one real edit is the dynamic import path, rebased from "./lib/village-war-map"
+// to "./village-war-map" because the code now lives in lib/.
+//
+// Its two ordering guarantees — settlement gate before session creation, and a
+// "recovered" create installing the pointer in the same mount — were previously
+// pinned by string-matching App's JSX in lib/server-settlement-gate.test.ts and
+// lib/pvp-session-runtime.test.ts. Both now read lib/sector-attack.ts, and the
+// settlement assertion got STRONGER: it pins the gate as the first statement.
+//
+// Still NOT unit-testable, and it is worth knowing why: the module imports
+// lib/pvp-session.ts, which does `import { normalizeCharacter } from "../App"`,
+// which drags App's component/CSS imports in and dies under node:test with
+// ERR_UNKNOWN_FILE_EXTENSION. Draining normalizeCharacter (App.tsx:826-954, 129
+// lines, save-hydration — its own careful job) unlocks real tests for BOTH this
+// module and lib/pvp-session.
+// → 7,128 LOWERED (−151) — save hydration finally left the monolith.
+// normalizeCharacter (129 lines) moved to lib/normalize-character.ts, and the
+// pet roster it depends on (petPool / mergeMissingBuiltInPets / normalizePet, 26
+// lines) to lib/pet-roster.ts, because a lib module cannot reach back into App
+// for normalizePet. Eleven imports were left orphaned and removed with them.
+// App.tsx is now 7,122 lines. normalizeCharacter's body is byte-identical (8,799
+// chars); the pet-roster block differs only by the `export` keyword on its three
+// declarations. App re-exports normalizeCharacter for the three screens that
+// still take it from "../App".
+//
+// The point was never the line count. lib/pvp-session.ts did
+// `import { normalizeCharacter } from "../App"`, which dragged App's .webp and
+// component CSS into every consumer and made them all unloadable under
+// node:test. That edge now points at the module, and one more pointless
+// round-trip went with it: lib/combat-math.ts imported starterSavedBloodlines
+// from "../App" when App only re-exports it from ../data/jutsu.
+//
+// Result: lib/normalize-character, lib/pet-roster, lib/pvp-session,
+// lib/combat-math AND lib/sector-attack all load under node:test now. Save
+// hydration has its first direct coverage (normalize-character.test.ts, 15
+// cases, including idempotence on four save shapes — the property that stops a
+// live save drifting a little on every login).
+// → 7,101 LOWERED (−27) — jutsu loadout resolution (allStarterBloodlineJutsus /
+// starterBloodlineJutsuRank / getAllJutsus / getPvpJutsuLoadout) moved verbatim
+// to lib/jutsu-loadout.ts, and isAdminAccountName joined its existing partner in
+// lib/admin-identity.ts (App carried a duplicate isFullAdminAccountName). Bodies
+// byte-identical apart from `export` on the two helpers App kept private.
+// App.tsx is now 7,095 lines and re-exports all of them for the screens.
+//
+// This one finishes the job: getPvpJutsuLoadout was the LAST value that lib/
+// imported back from App. Two more pointless round-trips went with it —
+// lib/combat-math and lib/bloodline both read starterSavedBloodlines from
+// "../App" when App only re-exports it from ../data/jutsu, so the detour bought
+// nothing and cost every consumer its testability.
+//
+// src/lib, src/data, src/constants and src/types now value-import App NOWHERE,
+// and lib/no-app-value-imports.test.ts keeps it that way (`import type` stays
+// allowed — types are erased). That gate is the point of the last three drains:
+// the coupling was invisible, because the bundler resolves it fine and only
+// node:test ever complains.
+// → 7,092 after rebasing this branch onto main. The four drains above were
+// measured against a base where App.tsx was 7,504 lines; main had meanwhile
+// drained its own 9 lines (the app-history entry above). The two are
+// independent and both net-negative, so they simply compose: 7,095 from this
+// branch minus main's 9 = 7086 lines. Budget is count + 6, the buffer this
+// branch has used throughout — enough for a lazy-screen mount, not a feature.
+// → 7094 after rebasing onto main's Premium Shop change, which lowered its own
+// budget to 7,490 and moved levelGapSealMultiplier to professionLogic as the
+// canonical seal table. lib/profession-bonuses now imports it from there rather
+// than carrying the copy this drain had moved out of App — restoring that copy
+// would have recreated exactly the duplication main removed. App.tsx is 7088.
+const MAX_LINES = 7_094;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

@@ -27,7 +27,27 @@ const forbiddenClientPrefixes = [
     'pet-models/roster-concepts/',
     'pet-models/roster-references/',
 ];
-const forbiddenClientExtensions = new Set(['.blend', '.blend1', '.psd', '.kra', '.xcf']);
+// Authoring/intermediate formats that must never reach the runtime artifact.
+// The public/ copy filter is a DENYLIST of five `pet-models/*` prefixes, so an
+// authoring folder added anywhere else in public/ ships by default and nothing
+// upstream objects; this extension gate is the format-level backstop for that.
+//
+// Deliberately NOT listed: `.wav`. The 25 SFX/ambience masters under
+// sfx/production are a real runtime fallback — src/lib/audio-delivery.ts serves
+// the .ogg (gapless Vorbis) or .m4a (WebKit) sibling and falls back to the
+// master when a browser decodes neither, or when a deploy is missing siblings.
+// Players fetch ~1.1 MB of .ogg, not the 13.6 MB of masters. Banning .wav here
+// would delete a documented safety net to save deploy size only.
+const forbiddenClientExtensions = new Set([
+    // 2D authoring
+    '.psd', '.kra', '.xcf', '.ai', '.sketch', '.afphoto', '.afdesign',
+    '.tif', '.tiff', '.exr', '.tga', '.dng', '.cr2',
+    // 3D authoring
+    '.blend', '.blend1', '.blend2', '.fbx', '.obj', '.mtl', '.dae',
+    '.max', '.ma', '.mb', '.c4d', '.ztl',
+    // audio/video authoring projects and lossless intermediates
+    '.aiff', '.aif', '.flac', '.als', '.flp', '.rpp', '.aup3', '.aep', '.prproj',
+]);
 const requiredClientFiles = [
     'pet-models/gate-warden-rigged.glb',
     'pet-models/ward-totem.glb',
