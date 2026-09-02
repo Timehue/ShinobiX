@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { before, describe, it } from "node:test";
 import {
     loadSaveOwnershipClassifier,
+    MAX_SAVE_CONFLICT_REVISIONS,
     SAVE_CONFLICT_DRAFT_TTL_MS,
     buildSaveConflictRestorePayload,
     createSaveConflictDraftStore,
@@ -78,6 +79,88 @@ describe("save-conflict drafts", () => {
         const loaded = loadSaveConflictDraft(storage, "kaya", detectedAt + 100);
         assert.deepEqual(loaded.draft?.revisions.map((revision) => revision.id), ["flight-a", "flight-b"]);
         assert.deepEqual(loaded.draft?.revisions.map((revision) => (revision.payload.character as { level: number }).level), [8, 9]);
+    });
+
+    it("keeps only the newest revisions so a conflict loop cannot grow without bound", () => {
+        const detectedAt = 1_700_000_000_000;
+        const revisions = Array.from({ length: MAX_SAVE_CONFLICT_REVISIONS + 3 }, (_unused, index) =>
+            createSaveConflictRevision({
+                id: `conflict-${index}`,
+                accountName: "Kaya",
+                detectedAt: detectedAt + index,
+                payload: { character: { name: "Kaya", level: index } },
+            }));
+
+        const draft = mergeSaveConflictRevisions("Kaya", revisions, detectedAt + 100);
+        assert.ok(draft);
+        assert.equal(draft.revisions.length, MAX_SAVE_CONFLICT_REVISIONS);
+        // The OLDEST go. Restore rebuilds from latestSaveConflictRevision, so
+        // capping the other end would silently rewind the player to the first
+        // conflict of the run instead of their most recent local progress.
+        assert.equal(latestSaveConflictRevision(draft).id, `conflict-${revisions.length - 1}`);
+        assert.ok(!draft.revisions.some((revision) => revision.id === "conflict-0"));
+    });
+
+    it("evicts the storage keys the cap drops instead of orphaning them", () => {
+        const storage = new MemoryStorage();
+        const store = createSaveConflictDraftStore({
+            storage,
+            activeAccountKey: () => saveConflictAccountKey("Kaya"),
+            onVisibleDraft: () => undefined,
+            reportStorageFailure: assert.fail,
+        });
+        const conflicts = MAX_SAVE_CONFLICT_REVISIONS + 5;
+        const originalNow = Date.now;
+        Date.now = () => 1_000;
+        try {
+            for (let index = 0; index < conflicts; index += 1) {
+                store.capture("Kaya", { character: { name: "Kaya", level: index } });
+            }
+        } finally { Date.now = originalNow; }
+
+        // The leak this pins: every 409 captured a full save payload (two on the
+        // paths that also protect a newer in-flight snapshot) and every dirty
+        // beforeunload captured a guard the keepalive POST could not discard in
+        // time, while nothing ever removed one. The account's localStorage
+        // footprint grew until every write threw QuotaExceededError — taking the
+        // session token and the boot account marker down with it.
+        assert.equal(storage.length, MAX_SAVE_CONFLICT_REVISIONS, "durable storage stays bounded across a conflict loop");
+        const reloaded = loadSaveConflictDraft(storage, "Kaya", 1_000);
+        assert.equal(reloaded.draft?.revisions.length, MAX_SAVE_CONFLICT_REVISIONS);
+        assert.equal(
+            (latestSaveConflictRevision(reloaded.draft!).payload.character as { level: number }).level,
+            conflicts - 1,
+            "and the newest capture is the one that survives",
+        );
+    });
+
+    it("reclaims the surplus an uncapped client already wrote", () => {
+        // Players arrive at this build with a store an earlier client filled, so
+        // the cap has to reclaim retroactively, not just stop adding.
+        const storage = new MemoryStorage();
+        const detectedAt = Date.now();
+        const written = Array.from({ length: MAX_SAVE_CONFLICT_REVISIONS + 2 }, (_unused, index) =>
+            createSaveConflictRevision({
+                id: `legacy-${index}`,
+                accountName: "Kaya",
+                detectedAt: detectedAt + index,
+                payload: { character: { name: "Kaya", level: index } },
+            }));
+        for (const revision of written) writeSaveConflictRevision(storage, revision);
+        assert.equal(storage.length, MAX_SAVE_CONFLICT_REVISIONS + 2);
+
+        const loaded = loadSaveConflictDraft(storage, "Kaya", detectedAt + 100);
+        assert.equal(loaded.draft?.revisions.length, MAX_SAVE_CONFLICT_REVISIONS);
+        assert.equal(loaded.staleKeys.length, 2, "the surplus is named for deletion, not just hidden from the draft");
+
+        const store = createSaveConflictDraftStore({
+            storage,
+            activeAccountKey: () => saveConflictAccountKey("Kaya"),
+            onVisibleDraft: () => undefined,
+            reportStorageFailure: assert.fail,
+        });
+        assert.equal(store.load("Kaya")?.revisions.length, MAX_SAVE_CONFLICT_REVISIONS);
+        assert.equal(storage.length, MAX_SAVE_CONFLICT_REVISIONS, "load() is what actually frees the leaked quota");
     });
 
     it("orders same-millisecond captures by capture sequence instead of random UUID", () => {

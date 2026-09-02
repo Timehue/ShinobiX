@@ -152,7 +152,7 @@ import {
     rankTitleForLevel,
     applyStoryChoice,
 } from "./lib/character-progress";
-import { regenerateIdleVitals } from "./lib/loaded-vitals";
+import { isIdleVitalsOnlyChange, regenerateIdleVitals } from "./lib/loaded-vitals";
 import { acceptVersionedSnapshot } from "./lib/versioned-snapshot";
 export { dailyMissionsCompleted, dailyHuntsCompleted };
 // Install the global fetch interceptor once at module load. From here on,
@@ -4340,7 +4340,8 @@ export default function App() {
         }
         // Detect genuine local character changes (reference inequality = new React state).
         if (character !== prevCharRef.current) {
-            charDirtyRef.current = true;
+            // ⛔ A pure idle-regen tick must NOT dirty the save, or a merely-open tab autosaves forever: lib/loaded-vitals.ts isIdleVitalsOnlyChange.
+            if (!isIdleVitalsOnlyChange(prevCharRef.current, character)) charDirtyRef.current = true;
             prevCharRef.current = character;
         }
         const payloadIdentity: readonly unknown[] = [

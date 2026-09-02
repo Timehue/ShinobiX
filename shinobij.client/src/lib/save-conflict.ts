@@ -1,6 +1,32 @@
 export const SAVE_CONFLICT_DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
 export const SAVE_CONFLICT_STORAGE_PREFIX = "ninjav-save-conflict-v1:";
 
+/**
+ * How many revisions an account keeps. The NEWEST are retained.
+ *
+ * A revision is a whole save payload with only embedded artwork stripped, and
+ * /api/save accepts bodies up to 1 MB, so the retained set is what a conflicted
+ * account can cost in localStorage — a ~5 MB origin budget it shares with the
+ * session token, the account marker, and every UI preference the app persists.
+ *
+ * Unbounded, this was a storage leak rather than a cache. Every 409 captures a
+ * revision (two on the paths that also protect a newer in-flight snapshot), and
+ * every `beforeunload` with a dirty save captures a guard that is only discarded
+ * once the keepalive POST round-trips — which on a real unload it does not,
+ * because the page is gone before the response resolves. Nothing evicted, so a
+ * day of refreshes filled the quota and every later write threw
+ * QuotaExceededError. That breaks more than recovery: the same quota carries
+ * authFetch's session token and the account marker the boot path reads to decide
+ * whether to restore, so a full store logs the player out on their next cold
+ * open.
+ *
+ * Three is chosen against what actually reads them. Restore only ever builds
+ * from `latestSaveConflictRevision`, and the banner describes that revision's
+ * areas; the older entries exist solely so the JSON download carries the run of
+ * conflicts leading up to it, for which a short tail is enough.
+ */
+export const MAX_SAVE_CONFLICT_REVISIONS = 3;
+
 /** The two area labels that mean "there is nothing here for the player to recover". */
 export const SAVE_TIMING_ONLY_AREA = "Save timing only";
 export const SERVER_MANAGED_AREA = "Server-managed progress";
@@ -210,7 +236,12 @@ export function mergeSaveConflictRevisions(
         if (revision.accountKey !== normalized || revision.expiresAt <= now) continue;
         byId.set(revision.id, revision);
     }
-    const merged = [...byId.values()].sort((left, right) => left.detectedAt - right.detectedAt || left.id.localeCompare(right.id));
+    // Newest-last ordering, then keep the tail: latestSaveConflictRevision() reads
+    // the end of this array, so the cap must drop the OLDEST entries or a restore
+    // would rebuild from stale progress.
+    const merged = [...byId.values()]
+        .sort((left, right) => left.detectedAt - right.detectedAt || left.id.localeCompare(right.id))
+        .slice(-MAX_SAVE_CONFLICT_REVISIONS);
     return merged.length ? { accountName: accountName.trim(), accountKey: normalized, revisions: merged } : null;
 }
 
@@ -266,7 +297,16 @@ export function loadSaveConflictDraft(
             staleKeys.push(key);
         }
     }
-    return { draft: mergeSaveConflictRevisions(accountName, revisions, now), staleKeys };
+    const draft = mergeSaveConflictRevisions(accountName, revisions, now);
+    // A revision the cap dropped is no longer reachable through the draft, so its
+    // key would sit in storage forever holding quota nothing can spend. Name it
+    // here with the unparseable ones — every caller deletes what staleKeys names,
+    // which is what makes the cap free bytes rather than just hide them.
+    const retained = new Set(draft?.revisions.map((revision) => revision.id) ?? []);
+    for (const revision of revisions) {
+        if (!retained.has(revision.id)) staleKeys.push(saveConflictRevisionStorageKey(revision));
+    }
+    return { draft, staleKeys };
 }
 
 export function clearSaveConflictStorage(storage: SaveConflictStorage, accountName: string): void {
@@ -366,6 +406,15 @@ export function createSaveConflictDraftStore(params: {
         ]);
         if (!merged) throw new Error("The local conflict draft could not be prepared.");
         memory.set(revision.accountKey, merged);
+        // Free what the cap just dropped BEFORE writing the new revision, so the
+        // reclaimed bytes are available to it. Deferring this to the next load()
+        // would leave the store one revision over budget at exactly the moment a
+        // quota-tight account is trying to protect its newest draft.
+        const retained = new Set(merged.revisions.map((entry) => entry.id));
+        for (const entry of existing?.revisions ?? []) {
+            if (retained.has(entry.id)) continue;
+            try { params.storage.removeItem(saveConflictRevisionStorageKey(entry)); } catch (error) { params.reportStorageFailure(error); }
+        }
         // ⛔ Capture PROTECTS, it does not ANNOUNCE. Never surface the draft here.
         //
         // A capture happens the moment a save is rejected, before recovery has run
