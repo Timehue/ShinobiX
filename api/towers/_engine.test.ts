@@ -1158,12 +1158,19 @@ describe('Battle Towers tag/status combat (heal / DoT / buff / stun / self-cast)
         assert.ok(getActor(s, 'sq-1')!.hp > 100, 'self-heal applied');
     });
 
-    it('carries stale authored Overload through the Tower seal, cast, statuses, and log as two pulses', () => {
+    it('carries authored Overload through the Tower seal, cast, statuses, and log as two pulses', () => {
+        // The live authored shape: a 40 AP SELF utility with TWO independent
+        // Increase Damage Given pulses written into the record, plus self-directed
+        // flavor that towers must now print (they used to drop it entirely).
         const overload = {
-            id: 'starter-universal-blitz', name: 'Overload', type: 'Ninjutsu', element: 'None',
+            id: 'admin-99c8efb8-8fa2-4b28-98d1-b95ad81af554', name: 'Overload', type: 'Ninjutsu', element: 'None',
             ap: 40, range: 1, effectPower: 0, cooldown: 7, chakraCost: 0, staminaCost: 0,
             target: 'SELF', method: 'SINGLE', isUtility: true,
-            tags: [{ name: 'Increase Damage Given', percent: 30 }],
+            battleDescription: '%user forces their chakra gates wide, and %target takes the surge twice.',
+            tags: [
+                { name: 'Increase Damage Given', percent: 30 },
+                { name: 'Increase Damage Given', percent: 30 },
+            ],
         };
         const saveChar = {
             name: 'sq-1', level: 30, specialty: 'Ninjutsu', stats: {},
@@ -1201,6 +1208,12 @@ describe('Battle Towers tag/status combat (heal / DoT / buff / stun / self-cast)
                 '+21% Damage Given (stack 1/2): sq-1 for 2 turns.',
                 '+21% Damage Given (stack 2/2): sq-1 for 2 turns.',
             ],
+        );
+        // Towers logged a bare "X uses Y." and dropped authored flavor entirely,
+        // so the same jutsu read as prose in an arena fight and as nothing here.
+        assert.equal(
+            s.log.find((line) => line.includes('uses Overload')),
+            'sq-1 uses Overload. sq-1 forces their chakra gates wide, and sq-1 takes the surge twice.',
         );
     });
 

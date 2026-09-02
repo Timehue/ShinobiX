@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { GRID_H, GRID_W, MAX_ACTIONS, MAX_ROUNDS, SESSION_TTL, SPIRAL_RADIUS } from './constants.js';
 import { tickCombatCooldowns } from './cooldowns.js';
 import { hexDistance, hexNeighbors, nextStepToward, posFromXY, xy } from './grid.js';
-import { adjustedApCost } from './resources.js';
+import { adjustedApCost, TEMPO_AP_SWING } from './resources.js';
 import { resolveJutsu } from './resolveJutsu.js';
 import {
     activeCombatStatuses,
@@ -110,11 +110,16 @@ test('a deferred Wound cap preserves current stacks and enforces two at activati
 
 test('cooldown and AP helpers preserve PvP turn math', () => {
     assert.deepEqual(tickCombatCooldowns({ ready: 1, almost: 2, long: 5 }), { almost: 1, long: 4 });
+    // Lag / Overclock are a FLAT ±TEMPO_AP_SWING, not a percentage: the swing is
+    // the same on a 20 AP dash and a 60 AP cast, and the two cancel exactly.
     assert.equal(adjustedApCost(60), 60);
-    assert.equal(adjustedApCost(60, { lagPct: 20 }), 72);
-    assert.equal(adjustedApCost(60, { overclockPct: 20 }), 48);
-    assert.equal(adjustedApCost(60, { lagPct: 20, overclockPct: 20 }), 57);
-    assert.equal(adjustedApCost(1, { overclockPct: 99 }), 1);
+    assert.equal(adjustedApCost(60, { lagged: true }), 60 + TEMPO_AP_SWING);
+    assert.equal(adjustedApCost(60, { overclocked: true }), 60 - TEMPO_AP_SWING);
+    assert.equal(adjustedApCost(60, { lagged: true, overclocked: true }), 60);
+    assert.equal(adjustedApCost(20, { overclocked: true }), 20 - TEMPO_AP_SWING);
+    // Never free: a cost at or under the swing floors at 1 AP.
+    assert.equal(adjustedApCost(1, { overclocked: true }), 1);
+    assert.equal(adjustedApCost(TEMPO_AP_SWING, { overclocked: true }), 1);
 });
 
 test('mastery fraction helper preserves the pinned ramp shape', () => {
