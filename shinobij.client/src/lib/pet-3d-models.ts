@@ -89,10 +89,15 @@ export function petCombatModel(pet: PetCombatModelIdentity): PetCombatModelConfi
     // Player/PvP encounter records may append a timestamp to the canonical id.
     // Normalize it before both starter evolution lookup and roster approval so a
     // cloned pet does not silently lose its production model.
-    const canonicalId = pet.id.replace(/-\d{10,}$/, "");
+    const explicitTemplate = typeof pet.templateId === "string" ? pet.templateId.trim() : "";
+    const persistedId = typeof pet.id === "string" ? pet.id.trim() : "";
+    // Old/bad save data must lose only its 3D enhancement, never the whole
+    // Gauntlet screen. A valid template id can still rescue an instance whose
+    // own id was omitted by an old encounter serializer.
+    if (!persistedId && !explicitTemplate) return null;
+    const canonicalId = (persistedId || explicitTemplate).replace(/-\d{10,}$/, "");
     const instanceSeparator = canonicalId.indexOf(":");
     const legacyInstanceTemplate = instanceSeparator > 0 ? canonicalId.slice(0, instanceSeparator) : "";
-    const explicitTemplate = typeof pet.templateId === "string" ? pet.templateId.trim() : "";
     const canonicalPet: PetCombatModelIdentity = {
         ...pet,
         id: canonicalId,
