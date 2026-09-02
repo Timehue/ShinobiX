@@ -99,6 +99,7 @@ test('either claimant can finalize the sealed Clan War result and crash replay c
     const loser = await kv.get<Record<string, any>>('save:clanpvpto');
     assert.equal(winner?.character.clanPoints, 50);
     assert.equal(loser?.character.clanPoints, 25);
+    assert.deepEqual(first?.pointsByPlayer, { clanpvpfrom: 50, clanpvpto: 25 });
     const expectedScrolls = scrollDrop(session.battleId, 'clanpvpfrom') ? 1 : 0;
     assert.deepEqual(first?.territoryScrollsByPlayer, { clanpvpfrom: expectedScrolls });
     assert.equal(scrollCount(winner), expectedScrolls, 'winner receives exactly one scroll only when the 20% roll succeeds');
@@ -110,6 +111,7 @@ test('either claimant can finalize the sealed Clan War result and crash replay c
     await kv.del(`pvp:clan-war-continuation:${session.battleId}`);
     const recovered = await settle(session);
     assert.equal(recovered?.outcome, 'applied');
+    assert.deepEqual(recovered?.pointsByPlayer, { clanpvpfrom: 50, clanpvpto: 25 });
     assert.deepEqual(recovered?.territoryScrollsByPlayer, { clanpvpfrom: expectedScrolls });
     const recoveredWinner = await kv.get<Record<string, any>>('save:clanpvpfrom');
     const recoveredLoser = await kv.get<Record<string, any>>('save:clanpvpto');
@@ -119,6 +121,7 @@ test('either claimant can finalize the sealed Clan War result and crash replay c
     assert.equal(scrollCount(recoveredLoser), 0);
     const replay = await settle(session);
     assert.equal(replay?.replayed, true);
+    assert.deepEqual(replay?.pointsByPlayer, { clanpvpfrom: 50, clanpvpto: 25 });
     assert.deepEqual(replay?.territoryScrollsByPlayer, { clanpvpfrom: expectedScrolls });
 });
 
@@ -158,6 +161,7 @@ test('a battle overtaken by another ending blow records a canonical superseded c
     });
     const result = await settle(session);
     assert.equal(result?.outcome, 'superseded');
+    assert.deepEqual(result?.pointsByPlayer, {});
     assert.deepEqual(result?.territoryScrollsByPlayer, {});
     assert.equal((await kv.get<Record<string, any>>(key))?.hp?.To, 100);
     assert.equal(scrollCount(await kv.get<Record<string, any>>('save:clanpvpfrom')), 0);
