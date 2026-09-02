@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 # ─────────────────────────────────────────────────────────────────────────────
 # ShinobiX / Shinobi Journey — active Railway container image.
 # The image remains portable to other Docker hosts for recovery or migration,
@@ -41,12 +43,14 @@ WORKDIR /app
 # vite, sharp — lives in devDependencies, so we must force them in with
 # `--include=dev` or the build dies at `tsc: not found`.
 COPY package.json package-lock.json ./
-RUN npm ci --include=dev
+RUN --mount=type=cache,id=shinobix-root-npm,target=/root/.npm \
+    npm ci --include=dev
 
 # Install client dependencies (vite, typescript, sharp are devDependencies too —
 # same --include=dev requirement as above).
 COPY shinobij.client/package.json shinobij.client/package-lock.json ./shinobij.client/
-RUN cd shinobij.client && npm ci --include=dev
+RUN --mount=type=cache,id=shinobix-client-npm,target=/root/.npm \
+    cd shinobij.client && npm ci --include=dev
 
 # Copy the rest of the source. node_modules and the committed dist/ are excluded
 # via .dockerignore, so the installs above are preserved and the build is fresh.
@@ -81,6 +85,28 @@ ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL \
 # App.tsx against OOM on smaller builders.
 RUN NODE_OPTIONS=--max-old-space-size=4096 npm run build
 
+# The client dist is dominated by already-compressed WebP, GLB, and audio
+# assets. Keeping all ~363 MB in one Docker layer makes Railway's image-export
+# upload a single long-lived blob and has repeatedly timed out after otherwise
+# green builds. Partition the immutable output into balanced trees so BuildKit
+# can export/cache several sub-85 MB linked layers independently. The final
+# filesystem is byte-for-byte the same shinobij.client/dist tree.
+RUN set -eux; \
+    mkdir -p \
+      /runtime-client/01/shinobij.client/dist \
+      /runtime-client/02/shinobij.client/dist \
+      /runtime-client/03/shinobij.client/dist \
+      /runtime-client/04/shinobij.client/dist \
+      /runtime-client/05/shinobij.client/dist \
+      /runtime-client/06/shinobij.client/dist; \
+    mv shinobij.client/dist/pet-models /runtime-client/01/shinobij.client/dist/; \
+    mv shinobij.client/dist/chronicle /runtime-client/02/shinobij.client/dist/; \
+    mv shinobij.client/dist/pet-poses shinobij.client/dist/sector-map /runtime-client/03/shinobij.client/dist/; \
+    mv shinobij.client/dist/assets shinobij.client/dist/music /runtime-client/04/shinobij.client/dist/; \
+    mv shinobij.client/dist/scenes shinobij.client/dist/portraits shinobij.client/dist/sfx /runtime-client/05/shinobij.client/dist/; \
+    find shinobij.client/dist -mindepth 1 -maxdepth 1 \
+      -exec mv {} /runtime-client/06/shinobij.client/dist/ \;
+
 # ── Stage 2: runtime — production deps + built output only (small final image) ──
 FROM node:22.23.1-bookworm-slim AS runtime
 
@@ -98,13 +124,22 @@ ENV NODE_ENV=production \
 # pg, compression, dotenv, @sentry/node, socket.io, undici — all declared under
 # "dependencies" (not "devDependencies").
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN --mount=type=cache,id=shinobix-runtime-npm,target=/root/.npm \
+    npm ci --omit=dev
 
 # The built server + API (dist/) and the React SPA static bundle, which
 # express.static serves from join(__dirname,'..','shinobij.client','dist').
 # Nothing else from source is read at runtime.
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/shinobij.client/dist ./shinobij.client/dist
+COPY --link --from=builder /app/dist ./dist
+
+# Each linked copy is an independently exportable layer. Together they restore
+# the exact client dist tree partitioned at the end of the builder stage.
+COPY --link --from=builder /runtime-client/01/ ./
+COPY --link --from=builder /runtime-client/02/ ./
+COPY --link --from=builder /runtime-client/03/ ./
+COPY --link --from=builder /runtime-client/04/ ./
+COPY --link --from=builder /runtime-client/05/ ./
+COPY --link --from=builder /runtime-client/06/ ./
 
 # The platform injects PORT; the server reads process.env.PORT (server.ts:456)
 # and falls back to 3000 for local `docker run`.
