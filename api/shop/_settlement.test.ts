@@ -10,7 +10,7 @@ const item = (overrides: Partial<SettlementItem> = {}): SettlementItem => ({
     id: 'test-kunai', name: 'Test Kunai', slot: 'hand', rarity: 'common', cost: 100, ...overrides,
 } as SettlementItem);
 const character = (overrides: Record<string, unknown> = {}) => ({
-    name: 'rill', level: 10, ryo: 1000, fateShards: 100, inventory: [], itemStacks: [], tileCards: [], equipment: {}, ...overrides,
+    name: 'rill', level: 10, ryo: 1000, fateShards: 100, chroniclePoints: 250, inventory: [], itemStacks: [], tileCards: [], equipment: {}, ...overrides,
 });
 
 test('item purchase computes the authoritative discount, grants once, and replays safely', () => {
@@ -53,11 +53,16 @@ test('card packs draw only from the server rarity pool and debit only once', () 
     const opened = applyCardPackPurchase(character(), cards, 'standard', 'cardpack00000001', 100, (length) => length - 1);
     assert.equal(opened.ok, true);
     if (!opened.ok || opened.value.kind !== 'card-pack') return;
-    assert.equal(opened.character.ryo, 750);
+    // The Basic pack debits Chronicle Points only; ryo is untouched.
+    assert.equal(opened.character.chroniclePoints, 150);
+    assert.equal(opened.character.ryo, 1000);
     assert.deepEqual(opened.value.drawn, ['rare-a', 'rare-a', 'rare-a', 'rare-a', 'rare-a']);
     const replay = applyCardPackPurchase(opened.character, cards, 'standard', 'cardpack00000001', 101, () => 0);
     assert.equal(replay.ok, true);
-    if (replay.ok) assert.equal(replay.character.ryo, 750);
+    if (replay.ok) {
+        assert.equal(replay.character.chroniclePoints, 150);
+        assert.equal(replay.character.ryo, 1000);
+    }
 });
 
 test('every shop pack enforces the shared 1,200 packable-card ceiling before charging', () => {
@@ -75,7 +80,8 @@ test('every shop pack enforces the shared 1,200 packable-card ceiling before cha
     );
     assert.equal(at1195.ok, true);
     if (at1195.ok) {
-        assert.equal(at1195.character.ryo, 750);
+        assert.equal(at1195.character.chroniclePoints, 150);
+        assert.equal(at1195.character.ryo, 1000);
         assert.equal((at1195.character.tileCards as string[]).length, 1_200 + STORY_PROGRESSION_CARD_IDS.length);
     }
 

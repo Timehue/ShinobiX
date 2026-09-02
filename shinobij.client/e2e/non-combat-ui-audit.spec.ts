@@ -33,6 +33,7 @@ const NON_COMBAT_SCREENS = [
     "professions",
     "guides",
     "shinobiTiles",
+    "echoesOfWar",
 ] as const;
 
 type AuditMetrics = {
@@ -207,6 +208,7 @@ for (const destination of CENTRAL_ROUTE_CARDS) {
 const CELESTIAL_DESTINATIONS = [
     { option: "Enter Celestial Tower", screen: "endlessTower" },
     { option: "Battle Towers", screen: "battleTowers" },
+    { option: "Echoes of War", screen: "echoesOfWar" },
 ] as const;
 
 for (const destination of CELESTIAL_DESTINATIONS) {
