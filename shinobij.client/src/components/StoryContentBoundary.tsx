@@ -4,8 +4,13 @@ import { resetStoryContent } from "../lib/story-content-loader";
 import { StoryContentLoadError } from "../lib/story-content-loader-core";
 import { reportError } from "../lib/sentry";
 
-type Props = {
-    village: StoryContentVillage;
+type BoundaryProps = {
+    /** Clears both cache layers so Retry issues a fresh, validated request. */
+    reset: () => void;
+    title: string;
+    body: string;
+    retryLabel: string;
+    returnLabel?: string;
     children: ReactNode;
     onReturn?: () => void;
 };
@@ -14,7 +19,7 @@ type State = { error: StoryContentLoadError | null };
 
 /** A narrow boundary for fetched story archives. Retry is deliberate: malformed
  * payloads remain failed until the player asks for a fresh, validated request. */
-export class StoryContentBoundary extends Component<Props, State> {
+export class ContentLoadBoundary extends Component<BoundaryProps, State> {
     state: State = { error: null };
 
     static getDerivedStateFromError(error: unknown): State {
@@ -27,7 +32,7 @@ export class StoryContentBoundary extends Component<Props, State> {
     }
 
     private retry = (): void => {
-        resetStoryContent(this.props.village);
+        this.props.reset();
         this.setState({ error: null });
     };
 
@@ -38,17 +43,38 @@ export class StoryContentBoundary extends Component<Props, State> {
         const staleDeployment = this.state.error.staleDeployment;
         return (
             <section className="summary-box" role="alert" aria-live="assertive">
-                <h2>{staleDeployment ? "A newer game release is ready" : "Village chronicle unavailable"}</h2>
+                <h2>{staleDeployment ? "A newer game release is ready" : this.props.title}</h2>
                 <p>{staleDeployment
                     ? "This open game version points to a retired archive. Reload the latest game to continue; progress since your last completed save may be lost."
-                    : "The archive could not be verified. No chapter, reward, or story choice was changed."}</p>
+                    : this.props.body}</p>
                 <div className="menu">
                     {staleDeployment
                         ? <button type="button" onClick={this.reloadLatest}>Reload Latest Game</button>
-                        : <button type="button" onClick={this.retry}>Retry Chronicle Load</button>}
-                    {!staleDeployment && this.props.onReturn ? <button type="button" onClick={this.props.onReturn}>Return to Village</button> : null}
+                        : <button type="button" onClick={this.retry}>{this.props.retryLabel}</button>}
+                    {!staleDeployment && this.props.onReturn ? <button type="button" onClick={this.props.onReturn}>{this.props.returnLabel ?? "Go Back"}</button> : null}
                 </div>
             </section>
         );
     }
+}
+
+/** The village-chronicle boundary, unchanged API: the generic boundary with the
+ * village loader's reset and copy. */
+export function StoryContentBoundary({ village, children, onReturn }: {
+    village: StoryContentVillage;
+    children: ReactNode;
+    onReturn?: () => void;
+}) {
+    return (
+        <ContentLoadBoundary
+            reset={() => resetStoryContent(village)}
+            title="Village chronicle unavailable"
+            body="The archive could not be verified. No chapter, reward, or story choice was changed."
+            retryLabel="Retry Chronicle Load"
+            returnLabel="Return to Village"
+            onReturn={onReturn}
+        >
+            {children}
+        </ContentLoadBoundary>
+    );
 }

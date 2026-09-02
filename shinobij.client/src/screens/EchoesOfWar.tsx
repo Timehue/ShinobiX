@@ -18,10 +18,13 @@ import {
     echoesOpponentById,
     echoesStoriesCompleted,
     type EchoesOpponent,
+    type EchoesOpponentScenes,
     type EchoesScenePage,
 } from "../data/echoes-of-war";
+import { readEchoesContent, resetEchoesContent } from "../lib/echoes-content-loader";
 import { cardGameLockStatus } from "../lib/chronicle-lock";
 import type { EchoesSettleSummary } from "../lib/chronicle-duel";
+import { ContentLoadBoundary } from "../components/StoryContentBoundary";
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
 import { CardClashDuel } from "./CardClashDuel";
 import "./EchoesOfWar.css";
@@ -49,12 +52,13 @@ function writeResumePointer(pointer: ResumePointer | null): void {
 
 type SceneKind = "pre" | "defeat" | "victory" | "rematch";
 
-/** Wrap a scene as a zero-reward VN event for the shared reader. */
-function sceneEvent(opponent: EchoesOpponent, kind: SceneKind): CreatorEvent {
-    const pages: EchoesScenePage[] = kind === "pre" ? opponent.preShowdown
-        : kind === "defeat" ? opponent.defeat
-        : kind === "victory" ? opponent.firstVictory
-        : opponent.rematch;
+/** Wrap a scene as a zero-reward VN event for the shared reader. The scripts
+ * arrive via the on-demand story-content payload, not the route chunk. */
+function sceneEvent(opponent: EchoesOpponent, scenes: EchoesOpponentScenes, kind: SceneKind): CreatorEvent {
+    const pages: EchoesScenePage[] = kind === "pre" ? scenes.preShowdown
+        : kind === "defeat" ? scenes.defeat
+        : kind === "victory" ? scenes.firstVictory
+        : scenes.rematch;
     return {
         id: `${opponent.id}-${kind}`,
         name: `${opponent.name}, ${opponent.title}`,
@@ -89,13 +93,33 @@ const TILE_DIFFICULTY: Record<EchoesOpponent["difficultyLabel"], "easy" | "norma
     Introductory: "easy", Moderate: "normal", Difficult: "hard", Boss: "hard",
 };
 
-export function EchoesOfWar({ character, creatorCards, updateCharacter, onVersionedCharacter, onBack }: {
+type EchoesOfWarProps = {
     character: Character;
     creatorCards: TileCard[];
     updateCharacter: (character: Character) => void;
     onVersionedCharacter: (character: Character, saveVersion?: number) => boolean;
     onBack: () => void;
-}) {
+};
+
+export function EchoesOfWar(props: EchoesOfWarProps) {
+    return (
+        <ContentLoadBoundary
+            reset={resetEchoesContent}
+            title="The tower's memories are unavailable"
+            body="The Echoes of War script could not be verified. No Showdown, reward, or story progress was changed."
+            retryLabel="Retry Loading the Memories"
+            returnLabel="Leave the Tower"
+            onReturn={props.onBack}
+        >
+            <EchoesOfWarContent {...props} />
+        </ContentLoadBoundary>
+    );
+}
+
+function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersionedCharacter, onBack }: EchoesOfWarProps) {
+    // Suspends to App's lazy-screen fallback on the first visit; the payload is
+    // content-addressed and immutable-cached, so every later mount is sync.
+    const { scenes: echoesScenes } = readEchoesContent();
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [vn, setVn] = useState<ActiveVn | null>(null);
     const [vnPage, setVnPage] = useState(0);
@@ -124,9 +148,21 @@ export function EchoesOfWar({ character, creatorCards, updateCharacter, onVersio
     }
 
     function playScene(opponent: EchoesOpponent, kind: SceneKind, after: VnAfter) {
+        const scenes = echoesScenes[opponent.id];
+        if (!scenes) {
+            // The generator guarantees scene parity with the shell, so this is
+            // unreachable in a healthy build — but never trap a player behind a
+            // missing script: apply the scene's outcome directly.
+            if (after.markSeen) markStorySeen(after.markSeen.id, after.markSeen.kind);
+            if (after.battleEncounterId) {
+                const target = echoesOpponentById(after.battleEncounterId);
+                if (target) beginBattle(target);
+            }
+            return;
+        }
         setVnPage(0);
         setVnLine(0);
-        setVn({ event: sceneEvent(opponent, kind), after });
+        setVn({ event: sceneEvent(opponent, scenes, kind), after });
     }
 
     function beginBattle(opponent: EchoesOpponent, resumeMatchId?: string) {
