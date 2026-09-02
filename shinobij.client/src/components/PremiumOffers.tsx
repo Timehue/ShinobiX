@@ -133,11 +133,24 @@ export function PremiumOffers({ character, onVersionedCharacter }: {
         }
     }
 
-    // Inside the Android app without Play Billing there is no lawful rail:
-    // Play's policy forbids sending players to a web checkout for digital
-    // goods. Show the balance, offer nothing, and say nothing that reads as a
-    // workaround.
-    if (rail === "blocked") {
+    /*
+     * ⛔ ONLY the web rail may render a web checkout.
+     *
+     * Written as `!== "web"` rather than `=== "blocked"` on purpose. The
+     * original form let EVERY other rail fall through to the Tebex tiles,
+     * including `"play"` — so the moment the Android build shipped with Play
+     * Billing enabled, the app would have offered an external payment page for
+     * digital goods. That is the exact Play policy breach shardRail() exists to
+     * prevent, and grounds for removal. Enumerating the safe case instead of
+     * the unsafe one means a rail added later is refused until someone
+     * deliberately handles it.
+     *
+     * `"play"` lands here today because there are no Play products yet
+     * (PROVIDER_PACKAGE_IDS.play is empty), so there is genuinely nothing to
+     * sell in-app. When those exist, this branch becomes the Digital Goods
+     * purchase flow — it must never become a fall-through to the web.
+     */
+    if (rail !== "web") {
         return (
             <div className="card" style={{ marginTop: "1rem" }}>
                 <h2><GameIcon name="crystal" size={18} style={{ display: "inline-block", verticalAlign: "-3px" }} /> Fate Shards</h2>
