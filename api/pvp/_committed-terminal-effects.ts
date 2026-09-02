@@ -28,12 +28,14 @@ import type { PlayerRankedJournal } from './_player-ranked-journal.js';
 import { replayCommittedPvpActionReceipt } from './_action-receipt-replay.js';
 import { ensurePvpTerminalRecoveryPublication } from './_reward-recovery.js';
 import { settlePvpSectorWarContinuation } from './_sector-war-continuation.js';
+import type { SectorWarResolutionReceipt } from '../_sector-war-store.js';
 import { settlePvpClanWarContinuation } from '../clan/war/_pvp-settlement.js';
 import type { PvpClanWarSettlement } from '../clan/war/_pvp-settlement.js';
 
 export type CommittedPvpTerminalReplay = {
     playerRankedJournal?: PlayerRankedJournal;
     clanWarSettlement?: PvpClanWarSettlement;
+    sectorWarSettlement?: SectorWarResolutionReceipt;
 };
 
 function jsonCanonical<T>(value: T): T {
@@ -156,9 +158,9 @@ export async function replayCommittedPvpTerminalEffects(
     // This runs for either participant's retry (and terminal move replay) before
     // reward completion can ACK-clear the recovery pointer. Ordinary world PvP
     // durably records a canonical no-op when no contest binding exists.
-    if (session.rewardAuthority === 'world' && pvpSessionMayGrantProgress(session)) {
-        await settlePvpSectorWarContinuation(session);
-    }
+    const sectorWarSettlement = session.rewardAuthority === 'world' && pvpSessionMayGrantProgress(session)
+        ? await settlePvpSectorWarContinuation(session)
+        : undefined;
 
     // The terminal PvP row is the exact opposite-side Clan War proof. Settle
     // wins, losses, and draws here so every terminal replay (including either
@@ -173,7 +175,7 @@ export async function replayCommittedPvpTerminalEffects(
             eligible: async (a, b) => !(await hasRecentIpOrFpOverlapStrict(a, b, kv)),
             lock: (saveKey, action) => withKvLock(saveKey, action, { failClosed: true }),
         });
-        return { playerRankedJournal, clanWarSettlement };
+        return { playerRankedJournal, clanWarSettlement, sectorWarSettlement };
     }
 
     // The receipt inside the Vanguard settlement is the authority; the old
@@ -187,5 +189,5 @@ export async function replayCommittedPvpTerminalEffects(
         await grantVanguardRewardsForSession(session);
     }
 
-    return { clanWarSettlement };
+    return { clanWarSettlement, sectorWarSettlement };
 }

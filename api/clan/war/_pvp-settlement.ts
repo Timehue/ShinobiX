@@ -16,6 +16,7 @@ import {
     awardPvpFinalizedWarPoints,
     challengeWinners,
     clanWarPvpTerritoryScrollDrop,
+    finalizedWarPointTotals,
 } from './_war-points.js';
 import { awardPvpWarEndClanXp } from './_war-xp.js';
 
@@ -37,6 +38,8 @@ export type PvpClanWarSettlement = {
     warId: string;
     challengeId: string;
     result: ChallengeResult;
+    /** Exact points credited to each participant by this settlement. */
+    pointsByPlayer: Record<string, number>;
     /** Exact server-authored scroll result keyed by canonical winner name. */
     territoryScrollsByPlayer: Record<string, number>;
 };
@@ -194,9 +197,18 @@ export async function settlePvpClanWarContinuation(
             throw new Error('pvp-clan-war-receipt-result-conflict');
         }
         await ensureCooldown(war);
+        const settlementBody = {
+            war,
+            challenge,
+            warEnded: Number.isSafeInteger(war.endedAt),
+            tentative: false,
+        };
         return {
             ...prior,
             replayed: true,
+            pointsByPlayer: prior.outcome === 'applied'
+                ? finalizedWarPointTotals(settlementBody)
+                : {},
             territoryScrollsByPlayer: territoryScrollsByPlayer(challenge, session.battleId, prior.outcome),
         };
     }
@@ -311,14 +323,14 @@ export async function settlePvpClanWarContinuation(
         throw new Error('pvp-clan-war-publication-busy');
     }, { failClosed: true });
 
+    const settlementBody = {
+        war: publication.war,
+        challenge: publication.challenge,
+        warEnded: publication.warEnded,
+        tentative: false,
+    };
     if (publication.outcome === 'applied') {
-        const body = {
-            war: publication.war,
-            challenge: publication.challenge,
-            warEnded: publication.warEnded,
-            tentative: false,
-        };
-        await awardPvpFinalizedWarPoints(body, session.battleId, terminalAt);
+        await awardPvpFinalizedWarPoints(settlementBody, session.battleId, terminalAt);
         if (publication.warEnded) {
             await awardPvpWarEndClanXp(publication.war, session.battleId, terminalAt);
         }
@@ -337,6 +349,9 @@ export async function settlePvpClanWarContinuation(
     return {
         ...receipt,
         replayed: false,
+        pointsByPlayer: publication.outcome === 'applied'
+            ? finalizedWarPointTotals(settlementBody)
+            : {},
         territoryScrollsByPlayer: territoryScrollsByPlayer(
             publication.challenge,
             session.battleId,
