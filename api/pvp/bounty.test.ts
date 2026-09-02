@@ -65,6 +65,29 @@ async function feedOf(type: string) {
     return ((await kv.get<Array<Record<string, unknown>>>('game:announcements')) ?? []).filter((a) => a.type === type);
 }
 
+async function seedHunterWin(battleId: string): Promise<void> {
+    const now = Date.now();
+    await kv.set(`pvp:${battleId}`, {
+        battleId,
+        p1: { name: 'Bounty Hunter', character: { name: 'Bounty Hunter' } },
+        p2: { name: 'Bounty Target', character: { name: 'Bounty Target' } },
+        status: 'done',
+        winner: 'p1',
+        rewardAuthority: 'world',
+        joined: { p1: true, p2: true },
+        baseRewards: true,
+        log: [],
+        createdAt: now - 5_000,
+        endedAt: now - 1_000,
+    });
+}
+
+async function stampSharedConnection(): Promise<void> {
+    const sharedIp = '203.0.113.42';
+    await kv.set(`player-ip:${HUNTER}:${sharedIp}`, true);
+    await kv.set(`player-ip:${TARGET}:${sharedIp}`, true);
+}
+
 test('placing a bounty posts Bounty Posted exactly once per board stamp', async () => {
     const frozen = 1_900_000_000_000;
     const realNow = Date.now;
@@ -98,24 +121,11 @@ test('placing a bounty posts Bounty Posted exactly once per board stamp', async 
 });
 
 test('collecting a bounty heralds Bounty Collected exactly once per battle', async () => {
-    const now = Date.now();
     const placed = await call(PLACER, { action: 'place', target: 'Bounty Target', amount: 2_000 });
     assert.equal(placed.statusCode, 200, JSON.stringify(placed.body));
 
     const battleId = 'pvp-bounty-herald-battle-12345678';
-    await kv.set(`pvp:${battleId}`, {
-        battleId,
-        p1: { name: 'Bounty Hunter', character: { name: 'Bounty Hunter' } },
-        p2: { name: 'Bounty Target', character: { name: 'Bounty Target' } },
-        status: 'done',
-        winner: 'p1',
-        rewardAuthority: 'world',
-        joined: { p1: true, p2: true },
-        baseRewards: true,
-        log: [],
-        createdAt: now - 5_000,
-        endedAt: now - 1_000,
-    });
+    await seedHunterWin(battleId);
 
     const first = await call(HUNTER, { action: 'claim', battleId });
     assert.equal(first.statusCode, 200, JSON.stringify(first.body));
@@ -140,4 +150,49 @@ test('collecting a bounty heralds Bounty Collected exactly once per battle', asy
     assert.equal(claimed[0].amount, 2_000);
     assert.equal(claimed[0].sector, 0);
     assert.equal(await kv.get(`offline-notices:${HUNTER}`), null, 'winner gets no notice');
+});
+
+test('a no-bounty win settles successfully even when both players share a connection', async () => {
+    const battleId = 'pvp-no-bounty-shared-connection-12345678';
+    await stampSharedConnection();
+    await seedHunterWin(battleId);
+
+    const first = await call(HUNTER, { action: 'claim', battleId });
+    assert.equal(first.statusCode, 200, JSON.stringify(first.body));
+    assert.equal(first.body?.ok, true);
+    assert.equal(first.body?.amount, 0);
+    assert.equal(first.body?.voided, undefined, 'no bounty is a plain successful no-op');
+    assert.ok(await kv.get(`pvp:bounty-claimed:${battleId}`), 'the battle is consumed even when no bounty exists');
+
+    // A bounty posted after this battle must not become collectible by retrying
+    // the old settlement callback.
+    const placedLater = await call(PLACER, { action: 'place', target: 'Bounty Target', amount: 1_000 });
+    assert.equal(placedLater.statusCode, 200, JSON.stringify(placedLater.body));
+    const retry = await call(HUNTER, { action: 'claim', battleId });
+    assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
+    assert.equal(retry.body?.alreadyClaimed, true);
+    const board = await kv.get<{ bounties: Array<{ target: string; amount: number }> }>('pvp:bounties');
+    assert.equal(board?.bounties[0]?.amount, 1_000, 'the later bounty remains available to a legitimate hunter');
+});
+
+test('a shared-connection bounty is preserved but does not fail battle completion', async () => {
+    const placed = await call(PLACER, { action: 'place', target: 'Bounty Target', amount: 2_000 });
+    assert.equal(placed.statusCode, 200, JSON.stringify(placed.body));
+    await stampSharedConnection();
+
+    const battleId = 'pvp-bounty-shared-connection-12345678';
+    await seedHunterWin(battleId);
+    const result = await call(HUNTER, { action: 'claim', battleId });
+
+    assert.equal(result.statusCode, 200, JSON.stringify(result.body));
+    assert.equal(result.body?.ok, true);
+    assert.equal(result.body?.amount, 0);
+    assert.equal(result.body?.voided, 'shared-connection');
+    assert.ok(await kv.get(`pvp:bounty-claimed:${battleId}`), 'the voided callback is idempotently consumed');
+
+    const hunterSave = await kv.get<{ character: { ryo: number } }>(`save:${HUNTER}`);
+    assert.equal(hunterSave?.character.ryo, 100, 'the shared-connection winner receives no payout');
+    const board = await kv.get<{ bounties: Array<{ target: string; amount: number }> }>('pvp:bounties');
+    assert.equal(board?.bounties[0]?.amount, 2_000, 'the bounty remains for another player');
+    assert.equal((await feedOf('bounty_claimed')).length, 0, 'a voided payout emits no herald');
 });

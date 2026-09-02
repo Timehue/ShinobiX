@@ -35,20 +35,36 @@ export async function placeBounty(playerName: string, target: string, amount: nu
 }
 
 // Claim any bounty on the player you just beat. Returns the payout, or null if
-// there was none / it was voided (shared connection) / it errored — the caller
-// only credits + notifies when a real amount comes back.
-export async function claimBountyOnWin(playerName: string, battleId: string, signal?: AbortSignal): Promise<{ amount: number; target: string; balances: { ryo: number } } | null> {
-    const res = await fetch("/api/pvp/bounty", {
+// there was none / it was voided (shared connection). Transport and unexpected
+// authorization failures throw so the durable PvP completion can retry them.
+export async function claimBountyOnWin(
+    playerName: string,
+    battleId: string,
+    signal?: AbortSignal,
+    fetchFn: typeof fetch = fetch,
+): Promise<{ amount: number; target: string; balances: { ryo: number } } | null> {
+    const res = await fetchFn("/api/pvp/bounty", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "claim", playerName, battleId }),
         ...(signal ? { signal } : {}),
     });
-    const data = await res.json().catch(() => ({})) as { amount?: number; target?: string; balances?: { ryo: number } };
+    const data = await res.json().catch(() => ({})) as {
+        error?: string;
+        amount?: number;
+        target?: string;
+        balances?: { ryo: number };
+    };
     // PvP completion awaits this promise before ACKing its durable callback
     // obligation. Propagate transport/abort ambiguity so a retry can replay the
     // battle-idempotent bounty claim instead of silently stranding it.
-    if (!res.ok) throw new Error(`Bounty settlement failed (HTTP ${res.status}).`);
+    // Rolling-deploy compatibility: older servers returned 403 when a bounty
+    // payout was voided for a shared connection. That is a valid no-payout
+    // outcome, not a failure of the battle settlement, so it must not prevent
+    // the PvP completion ACK. Other authorization failures remain retryable.
+    if (res.status === 403
+        && data.error === "Bounty not paid: you and that player share a connection.") return null;
+    if (!res.ok) throw new Error(data.error || `Bounty settlement failed (HTTP ${res.status}).`);
     return (data.amount ?? 0) > 0 && data.balances ? { amount: data.amount!, target: data.target ?? "your opponent", balances: data.balances } : null;
 }
 
