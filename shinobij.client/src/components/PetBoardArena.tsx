@@ -9,7 +9,7 @@
  * topple. It is its OWN renderer (not the 2v2 PetColiseumDuel); pure presentation
  * over the deterministic stream, so it never touches combat.
  */
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
@@ -24,7 +24,10 @@ import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { petCombatModel, type PetCombatModelConfig } from "../lib/pet-3d-models";
 import { petModelVariantSurface } from "../lib/pet-visual-variant";
 import { petVisualQuality, type PetVisualQualityConfig } from "../lib/pet-visual-quality";
+import { gauntletPetPresentationKey, gauntletTeamFacing, resolveGauntletBoardQuality } from "../lib/pet-gauntlet-presentation";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
+import { PetModelBoundary } from "./PetModelBoundary";
+import { PetBattleRenderBoundary } from "./PetBattleRenderBoundary";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
 import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
 import "./PetBoardArena.css";
@@ -98,6 +101,14 @@ function loadBoardSprite(url: string): Promise<BoardSprite> {
 // animation (the bundled jutsu FX frames) plays on impact. ───────────────────
 const EL_GLOW: Record<string, string> = { Fire: "#ff7a2f", Water: "#39b6ff", Wind: "#74f0d0", Lightning: "#ffe14d", Earth: "#caa46a" };
 const elGlow = (el?: string | null) => (el && EL_GLOW[el]) || "#cbd5e1";
+const EL_FX: Record<string, { primary: string; secondary: string; shape: "fire" | "water" | "wind" | "lightning" | "earth" | "neutral" }> = {
+    Fire: { primary: "#ff6a2b", secondary: "#ffd166", shape: "fire" },
+    Water: { primary: "#38bdf8", secondary: "#bff8ff", shape: "water" },
+    Wind: { primary: "#5eead4", secondary: "#e0fff8", shape: "wind" },
+    Lightning: { primary: "#fde047", secondary: "#ffffff", shape: "lightning" },
+    Earth: { primary: "#c89b62", secondary: "#f2d29b", shape: "earth" },
+};
+const elementFx = (element?: string | null) => (element && EL_FX[element]) || { primary: "#cbd5e1", secondary: "#ffffff", shape: "neutral" as const };
 
 const fxTexCache = new Map<string, THREE.Texture>();
 function fxTex(url: string): THREE.Texture {
@@ -117,57 +128,85 @@ function orbTex(): THREE.Texture {
 }
 type Vec3 = [number, number, number];
 
-function BoardProjectile({ from, to, color, onArrive }: { from: Vec3; to: Vec3; color: string; onArrive: () => void }) {
+function BoardProjectile({ from, to, element, onArrive }: { from: Vec3; to: Vec3; element?: string | null; onArrive: () => void }) {
     const grp = useRef<THREE.Group>(null);
-    const core = useRef<THREE.Mesh>(null);
+    const core = useRef<THREE.Group>(null);
     const born = useRef<number | null>(null);
     const fired = useRef(false);
+    const fx = elementFx(element);
     useFrame((state) => {
         if (born.current === null) born.current = state.clock.elapsedTime;
         const t = Math.min(1, (state.clock.elapsedTime - born.current) / 0.26);
         const g = grp.current;
         if (g) g.position.set(from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t + Math.sin(t * Math.PI) * 0.7, from[2] + (to[2] - from[2]) * t);
-        if (core.current) core.current.scale.setScalar(0.8 + Math.sin(state.clock.elapsedTime * 28) * 0.18);
+        if (core.current) {
+            core.current.scale.setScalar(0.82 + Math.sin(state.clock.elapsedTime * 28) * 0.16);
+            core.current.rotation.x += 0.08;
+            core.current.rotation.y += fx.shape === "lightning" ? 0.22 : 0.12;
+        }
         if (t >= 1 && !fired.current) { fired.current = true; onArrive(); }
     });
     return (
         <group ref={grp} position={from}>
-            <mesh ref={core}>
-                <icosahedronGeometry args={[0.16, 1]} />
-                <meshBasicMaterial color={color} toneMapped={false} />
-            </mesh>
+            <group ref={core}>
+                {fx.shape === "fire" ? <mesh scale={[0.78, 1.35, 0.78]}><dodecahedronGeometry args={[0.18, 0]} /><meshBasicMaterial color={fx.primary} toneMapped={false} /></mesh>
+                    : fx.shape === "water" ? <mesh scale={[0.86, 1.18, 0.86]}><sphereGeometry args={[0.17, 12, 8]} /><meshBasicMaterial color={fx.primary} transparent opacity={0.9} toneMapped={false} /></mesh>
+                        : fx.shape === "wind" ? <mesh rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.18, 0.055, 6, 18]} /><meshBasicMaterial color={fx.primary} toneMapped={false} /></mesh>
+                            : fx.shape === "lightning" ? <mesh scale={[0.7, 1.65, 0.7]}><octahedronGeometry args={[0.18, 0]} /><meshBasicMaterial color={fx.secondary} toneMapped={false} /></mesh>
+                                : fx.shape === "earth" ? <mesh><dodecahedronGeometry args={[0.19, 0]} /><meshStandardMaterial color={fx.primary} emissive={fx.primary} emissiveIntensity={0.45} roughness={0.8} /></mesh>
+                                    : <mesh><icosahedronGeometry args={[0.16, 1]} /><meshBasicMaterial color={fx.primary} toneMapped={false} /></mesh>}
+            </group>
             <Billboard>
-                <mesh><planeGeometry args={[1.05, 1.05]} /><meshBasicMaterial map={orbTex()} color={color} transparent opacity={0.95} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh>
-                <mesh position={[0, 0, -0.02]} scale={[1.8, 0.32, 1]}><planeGeometry args={[1, 1]} /><meshBasicMaterial map={orbTex()} color={color} transparent opacity={0.42} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh>
+                <mesh><planeGeometry args={[1.05, 1.05]} /><meshBasicMaterial map={orbTex()} color={fx.primary} transparent opacity={0.95} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh>
+                <mesh position={[0, 0, -0.02]} scale={[2.15, 0.36, 1]}><planeGeometry args={[1, 1]} /><meshBasicMaterial map={orbTex()} color={fx.secondary} transparent opacity={0.4} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh>
             </Billboard>
         </group>
     );
 }
 
-function BoardBurst({ pos, frames, onDone }: { pos: Vec3; frames: string[]; onDone: () => void }) {
+function BoardBurst({ pos, frames, element, onDone }: { pos: Vec3; frames: string[]; element?: string | null; onDone: () => void }) {
     const mat = useRef<THREE.MeshBasicMaterial>(null);
     const ring = useRef<THREE.Mesh>(null);
     const ringMat = useRef<THREE.MeshBasicMaterial>(null);
+    const fragments = useRef<THREE.Group>(null);
     const born = useRef<number | null>(null);
     const texes = useMemo(() => frames.map(fxTex), [frames]);
+    const fx = elementFx(element);
     useFrame((state) => {
         if (born.current === null) born.current = state.clock.elapsedTime;
         const t = (state.clock.elapsedTime - born.current) / 0.48;
         if (t >= 1) { onDone(); return; }
-        const m = mat.current; if (!m) return;
-        m.map = texes[Math.min(texes.length - 1, Math.floor(t * texes.length))];
-        m.opacity = 1 - t * t;
-        m.needsUpdate = true;
+        const m = mat.current;
+        if (m && texes.length) {
+            m.map = texes[Math.min(texes.length - 1, Math.floor(t * texes.length))];
+            m.opacity = 1 - t * t;
+            m.needsUpdate = true;
+        }
         if (ring.current) ring.current.scale.setScalar(0.3 + t * 1.75);
         if (ringMat.current) ringMat.current.opacity = (1 - t) * 0.78;
+        if (fragments.current) {
+            fragments.current.scale.setScalar(0.25 + t * 1.9);
+            fragments.current.rotation.y += 0.08;
+        }
     });
     return (
         <group>
-            <Billboard position={pos}><mesh><planeGeometry args={[3.2, 3.2]} /><meshBasicMaterial ref={mat} transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh></Billboard>
+            {texes.length ? <Billboard position={pos}><mesh><planeGeometry args={[3.2, 3.2]} /><meshBasicMaterial ref={mat} color={fx.secondary} transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh></Billboard> : null}
             <mesh ref={ring} position={[pos[0], 0.08, pos[2]]} rotation={[-Math.PI / 2, 0, 0]}>
                 <ringGeometry args={[0.54, 0.72, 36]} />
-                <meshBasicMaterial ref={ringMat} color="#fff4c2" transparent opacity={0.75} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                <meshBasicMaterial ref={ringMat} color={fx.primary} transparent opacity={0.75} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
             </mesh>
+            <group ref={fragments} position={pos}>
+                {[0, 1, 2, 3, 4, 5].map((i) => {
+                    const angle = i / 6 * Math.PI * 2;
+                    return (
+                        <mesh key={i} position={[Math.cos(angle) * 0.45, 0.12 + (i % 2) * 0.22, Math.sin(angle) * 0.45]} rotation={[angle, angle * 0.7, 0]}>
+                            {fx.shape === "wind" ? <torusGeometry args={[0.08, 0.025, 4, 8]} /> : <tetrahedronGeometry args={[0.08, 0]} />}
+                            <meshBasicMaterial color={i % 2 ? fx.secondary : fx.primary} transparent opacity={0.82} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                        </mesh>
+                    );
+                })}
+            </group>
         </group>
     );
 }
@@ -261,9 +300,9 @@ function Standee({ x, z, sprite, pet, team, hp, maxHp, alive, element, star, pul
     );
 }
 
-function ModelFighter({ x, z, pet, team, config, quality, hp, maxHp, alive, star, pulse, attackPulse, supportPulse }: {
+function ModelFighter({ x, z, pet, team, config, quality, hp, maxHp, alive, star, pulse, attackPulse, supportPulse, onModelFail }: {
     x: number; z: number; pet: Pet; team: "player" | "enemy"; config: PetCombatModelConfig; quality: PetVisualQualityConfig;
-    hp: number; maxHp: number; alive: boolean; star?: number; pulse: number; attackPulse: number; supportPulse: number;
+    hp: number; maxHp: number; alive: boolean; star?: number; pulse: number; attackPulse: number; supportPulse: number; onModelFail: () => void;
 }) {
     const body = useRef<THREE.Group>(null);
     const aura = useRef<THREE.MeshBasicMaterial>(null);
@@ -273,16 +312,17 @@ function ModelFighter({ x, z, pet, team, config, quality, hp, maxHp, alive, star
     const attackAt = useRef(-10);
     const supportAt = useRef(-10);
     const deathAt = useRef<number | null>(null);
-    const facing = team === "player" ? -1 : 1;
+    const [facingX, facingZ] = gauntletTeamFacing(team);
     const height = boardModelHeight(pet);
     const modelScale = height / Math.max(0.001, config.targetHeight);
     const glow = elGlow(pet.element);
+    const identityKey = gauntletPetPresentationKey(pet);
     const frame = useRef<PetModelFrame>({
         ...DEFAULT_PET_MODEL_FRAME,
-        faceX: 0,
-        faceZ: facing,
+        faceX: facingX,
+        faceZ: facingZ,
         lockTargetFacing: true,
-        performanceVariant: (Math.abs(pet.id.split("").reduce((n, c) => n + c.charCodeAt(0), 0)) % 3) as 0 | 1 | 2,
+        performanceVariant: (Math.abs(identityKey.split("").reduce((n, c) => n + c.charCodeAt(0), 0)) % 3) as 0 | 1 | 2,
     });
 
     useEffect(() => { if (pulse > 0) hitAt.current = performance.now() / 1000; }, [pulse]);
@@ -302,8 +342,8 @@ function ModelFighter({ x, z, pet, team, config, quality, hp, maxHp, alive, star
         const attackK = attackAge < 0.64 ? Math.sin(attackAge / 0.64 * Math.PI) : 0;
         const supportK = supportAge < 0.8 ? Math.sin(supportAge / 0.8 * Math.PI) : 0;
         const f = frame.current;
-        f.faceX = 0;
-        f.faceZ = facing;
+        f.faceX = facingX;
+        f.faceZ = facingZ;
         f.hit = hitK;
         f.impactPower = hitK > 0 ? 0.72 : 0.55;
         f.casting = alive && supportK > 0;
@@ -326,7 +366,7 @@ function ModelFighter({ x, z, pet, team, config, quality, hp, maxHp, alive, star
             body.current.position.set(
                 Math.sin(hitAge * 58) * hitK * 0.055,
                 -deathAge * 0.08,
-                facing * attackK * 0.2 - facing * hitK * 0.1,
+                facingZ * attackK * 0.2 - facingZ * hitK * 0.1,
             );
             body.current.scale.setScalar(modelScale * (1 - deathAge * 0.18));
         }
@@ -350,20 +390,27 @@ function ModelFighter({ x, z, pet, team, config, quality, hp, maxHp, alive, star
                 <meshBasicMaterial ref={supportMat} color="#8fffd2" transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
             </mesh>
             <group ref={body} scale={modelScale}>
-                <Suspense fallback={(
+                <PetModelBoundary onFail={onModelFail} fallback={(
                     <mesh position={[0, config.targetHeight * 0.45, 0]}>
                         <capsuleGeometry args={[config.targetHeight * 0.2, config.targetHeight * 0.52, 4, 10]} />
                         <meshStandardMaterial color={glow} emissive={glow} emissiveIntensity={0.34} roughness={0.56} />
                     </mesh>
                 )}>
-                    <PetModel3D
-                        config={config}
-                        frame={frame}
-                        element={pet.element}
-                        showIdentity={quality.id !== "low"}
-                        surfaceTreatment={petModelVariantSurface(pet)}
-                    />
-                </Suspense>
+                    <Suspense fallback={(
+                        <mesh position={[0, config.targetHeight * 0.45, 0]}>
+                            <capsuleGeometry args={[config.targetHeight * 0.2, config.targetHeight * 0.52, 4, 10]} />
+                            <meshStandardMaterial color={glow} emissive={glow} emissiveIntensity={0.34} roughness={0.56} />
+                        </mesh>
+                    )}>
+                        <PetModel3D
+                            config={config}
+                            frame={frame}
+                            element={pet.element}
+                            showIdentity={quality.id !== "low"}
+                            surfaceTreatment={petModelVariantSurface(pet)}
+                        />
+                    </Suspense>
+                </PetModelBoundary>
             </group>
             <BoardUnitPlate pet={pet} team={team} hp={hp} maxHp={maxHp} star={star} y={height + 0.55} />
         </group>
@@ -520,12 +567,13 @@ function BoardScene({ result, round, spriteMap, modelConfigs, quality, stars }: 
 }) {
     const idRef = useRef(0);
     const [shots, setShots] = useState<Array<{ id: number; from: Vec3; to: Vec3; targetId: string; element?: string | null; dmg: number; crit: boolean }>>([]);
-    const [bursts, setBursts] = useState<Array<{ id: number; pos: Vec3; frames: string[] }>>([]);
+    const [bursts, setBursts] = useState<Array<{ id: number; pos: Vec3; frames: string[]; element?: string | null }>>([]);
     const [pops, setPops] = useState<Array<{ id: number; pos: Vec3; text: string; color: string; size: number }>>([]);
     const [hpView, setHpView] = useState<Record<string, number>>({});   // live, per-impact HP (drives the bars)
     const [pulses, setPulses] = useState<Record<string, number>>({});   // per-unit hit counter (drives the flash)
     const [attackPulses, setAttackPulses] = useState<Record<string, number>>({});
     const [supportPulses, setSupportPulses] = useState<Record<string, number>>({});
+    const [failedModels, setFailedModels] = useState<ReadonlySet<string>>(() => new Set());
     const [impactBeat, setImpactBeat] = useState(0);
     const popTimers = useRef(new Set<number>());
     useEffect(() => () => {
@@ -543,8 +591,8 @@ function BoardScene({ result, round, spriteMap, modelConfigs, quality, stars }: 
     const headOf = (id?: string): Vec3 | null => { const u = unitOf(id); return u ? [cx(u.col), boardModelHeight(u.pet) + 0.62, cz(boardRowOf(u))] : null; };
 
     const spawnBurst = (pos: Vec3, element?: string | null) => {
-        const frames = bundledJutsuFxFrames(elementVfxKey(element));
-        if (frames && frames.length) setBursts((b) => [...b, { id: ++idRef.current, pos, frames }]);
+        const frames = bundledJutsuFxFrames(elementVfxKey(element)) ?? [];
+        setBursts((b) => [...b, { id: ++idRef.current, pos, frames, element }]);
     };
     const spawnPop = (id: string, text: string, color: string, size: number) => {
         const pos = headOf(id); if (!pos) return;
@@ -625,9 +673,21 @@ function BoardScene({ result, round, spriteMap, modelConfigs, quality, stars }: 
                     pulse: pulses[u.id] ?? 0,
                     attackPulse: attackPulses[u.id] ?? 0,
                 };
-                if (config) {
+                if (config && !failedModels.has(u.id)) {
                     return (
-                        <ModelFighter key={u.id} {...common} config={config} quality={quality} supportPulse={supportPulses[u.id] ?? 0} />
+                        <ModelFighter
+                            key={u.id}
+                            {...common}
+                            config={config}
+                            quality={quality}
+                            supportPulse={supportPulses[u.id] ?? 0}
+                            onModelFail={() => setFailedModels((current) => {
+                                if (current.has(u.id)) return current;
+                                const next = new Set(current);
+                                next.add(u.id);
+                                return next;
+                            })}
+                        />
                     );
                 }
                 return (
@@ -635,11 +695,11 @@ function BoardScene({ result, round, spriteMap, modelConfigs, quality, stars }: 
                 );
             })}
             {shots.map((s) => (
-                <BoardProjectile key={s.id} from={s.from} to={s.to} color={elGlow(s.element)}
+                <BoardProjectile key={s.id} from={s.from} to={s.to} element={s.element}
                     onArrive={() => { setShots((x) => x.filter((y) => y.id !== s.id)); spawnBurst(s.to, s.element); landDamage(s.targetId, s.dmg, s.crit); }} />
             ))}
             {bursts.map((b) => (
-                <BoardBurst key={b.id} pos={b.pos} frames={b.frames} onDone={() => setBursts((x) => x.filter((y) => y.id !== b.id))} />
+                <BoardBurst key={b.id} pos={b.pos} frames={b.frames} element={b.element} onDone={() => setBursts((x) => x.filter((y) => y.id !== b.id))} />
             ))}
             {pops.map((p) => (
                 <Html key={p.id} position={p.pos} center style={{ pointerEvents: "none", userSelect: "none" }}>
@@ -652,11 +712,44 @@ function BoardScene({ result, round, spriteMap, modelConfigs, quality, stars }: 
     );
 }
 
+function BoardContextGuard({ onLost }: { onLost: () => void }) {
+    const gl = useThree((state) => state.gl);
+    useEffect(() => {
+        const canvas = gl.domElement;
+        const handleLost = (event: Event) => {
+            event.preventDefault();
+            onLost();
+        };
+        canvas.addEventListener("webglcontextlost", handleLost);
+        return () => canvas.removeEventListener("webglcontextlost", handleLost);
+    }, [gl, onLost]);
+    return null;
+}
+
+function BoardRenderRecovery() {
+    return (
+        <div className="gauntlet-board-recovery" role="status" aria-live="polite">
+            <strong>Battle resolved safely</strong>
+            <span>The 3D arena was released to protect this device. Your Gauntlet run and result are intact.</span>
+        </div>
+    );
+}
+
 export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { result: BoardResult; sharedImages?: Record<string, string>; stars?: Record<string, number>; onDone: () => void }) {
     const total = result.snapshots.length;
     const [round, setRound] = useState(0);
+    const [arenaFailed, setArenaFailed] = useState(false);
     const done = round >= total - 1;
-    const quality = useMemo(() => petVisualQuality(), []);
+    const quality = useMemo(() => {
+        const requested = petVisualQuality();
+        if (typeof window === "undefined") return requested;
+        // URL overrides are deliberate QA controls. Stored preferences are
+        // capped on a model-heavy mobile round because stability wins there.
+        if (new URLSearchParams(window.location.search).has("petQuality")) return requested;
+        const memory = Number((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8);
+        return resolveGauntletBoardQuality(requested, result.roster.length, window.innerWidth, memory);
+    }, [result.roster.length]);
+    const handleArenaFailure = useCallback(() => setArenaFailed(true), []);
     const modelConfigs = useMemo(() => {
         const configs = new Map<string, PetCombatModelConfig>();
         for (const unit of result.roster) {
@@ -698,13 +791,13 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
         return () => window.clearTimeout(t);
     }, [round, total, done, impactsByRound]);
 
-    // Preload pose art only for pets without an approved GLB. This keeps the
-    // fallback resilient without paying the texture cost for the 3D roster.
+    // Preload the lightweight pose for every unit. Approved GLBs still render by
+    // default; this is the immediate, identity-correct fallback if one model
+    // fails after Suspense (missing CDN file, corrupt cache, or GPU rejection).
     const [spriteMap, setSpriteMap] = useState<Map<string, BoardSprite>>(new Map());
     useEffect(() => {
         let live = true;
         for (const u of result.roster) {
-            if (modelConfigs.has(u.id)) continue;
             const url = petPoseImage(u.pet, sharedImages);
             if (!url) continue;
             void loadBoardSprite(url).then((s) => { if (live) setSpriteMap((prev) => new Map(prev).set(u.id, s)); });
@@ -733,16 +826,21 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
             data-model-count={modelConfigs.size}
             style={{ backgroundImage: `linear-gradient(rgba(6,8,17,0.48), rgba(5,7,16,0.88)), url(${gauntletHero})` }}
         >
-            <Canvas
-                aria-hidden="true"
-                dpr={quality.dpr}
-                shadows={quality.modelShadows ? "percentage" : false}
-                gl={{ alpha: true, antialias: quality.id !== "low", powerPreference: "high-performance" }}
-                camera={{ position: [0, 16.2, 11.35], fov: 39, near: 0.35, far: 80 }}
-                onCreated={({ camera }) => camera.lookAt(0, 0, 0.6)}
-            >
-                <BoardScene result={result} round={round} spriteMap={spriteMap} modelConfigs={modelConfigs} quality={quality} stars={stars} />
-            </Canvas>
+            <PetBattleRenderBoundary fallback={<BoardRenderRecovery />} onFail={handleArenaFailure}>
+                {arenaFailed ? <BoardRenderRecovery /> : (
+                    <Canvas
+                        aria-hidden="true"
+                        dpr={quality.dpr}
+                        shadows={quality.modelShadows ? "percentage" : false}
+                        gl={{ alpha: true, antialias: quality.id !== "low", powerPreference: "high-performance" }}
+                        camera={{ position: [0, 16.2, 11.35], fov: 39, near: 0.35, far: 80 }}
+                        onCreated={({ camera }) => camera.lookAt(0, 0, 0.6)}
+                    >
+                        <BoardContextGuard onLost={handleArenaFailure} />
+                        <BoardScene result={result} round={round} spriteMap={spriteMap} modelConfigs={modelConfigs} quality={quality} stars={stars} />
+                    </Canvas>
+                )}
+            </PetBattleRenderBoundary>
 
             <div className="gauntlet-board-vignette" aria-hidden="true" />
             <header className="gauntlet-board-hud" aria-label="Gauntlet battle status">
@@ -769,7 +867,7 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
             <div className="gauntlet-board-side-label gauntlet-board-side-label--player" aria-hidden="true">
                 <span>Your line</span>
             </div>
-            <div className="gauntlet-board-build" aria-hidden="true">build g26 · {quality.id}</div>
+            <div className="gauntlet-board-build" aria-hidden="true">build g27 · {quality.id}</div>
 
             {done && (
                 <div className="gauntlet-board-result" role="dialog" aria-modal="true" aria-labelledby="gauntlet-result-title">

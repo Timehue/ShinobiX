@@ -191,6 +191,33 @@
     text-transform: uppercase;
 }
 
+.gauntlet-board-recovery {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: grid;
+    place-content: center;
+    gap: 8px;
+    padding: 28px;
+    text-align: center;
+    color: #cbd5e1;
+    background:
+        radial-gradient(circle at 50% 48%, rgba(30, 64, 175, 0.2), transparent 34%),
+        linear-gradient(rgba(4, 7, 16, 0.38), rgba(4, 7, 16, 0.76));
+    pointer-events: none;
+}
+
+.gauntlet-board-recovery strong {
+    color: #f8d68a;
+    font: 800 clamp(18px, 3vw, 28px)/1.1 var(--font-display, Georgia, serif);
+    letter-spacing: 0.04em;
+}
+
+.gauntlet-board-recovery span {
+    max-width: 460px;
+    font: 700 12px/1.5 Inter, system-ui, sans-serif;
+}
+
 .gauntlet-unitplate {
     width: 88px;
     filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.8));
