@@ -14,9 +14,9 @@
 
 import { isChunkLoadError } from "./chunk-load-recovery";
 
-const DSN = import.meta.env.VITE_SENTRY_DSN;
-const SENTRY_ENVIRONMENT = import.meta.env.MODE;
-const SENTRY_RELEASE = import.meta.env.VITE_SENTRY_RELEASE || import.meta.env.VITE_BUILD_COMMIT;
+const DSN = import.meta.env?.VITE_SENTRY_DSN;
+const SENTRY_ENVIRONMENT = import.meta.env?.MODE;
+const SENTRY_RELEASE = import.meta.env?.VITE_SENTRY_RELEASE || import.meta.env?.VITE_BUILD_COMMIT;
 
 type SentryModule = typeof import("./sentry-runtime");
 
