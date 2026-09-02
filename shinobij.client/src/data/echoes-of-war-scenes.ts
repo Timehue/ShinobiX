@@ -68,8 +68,8 @@ export const ECHOES_SCENES: Readonly<Record<string, EchoesOpponentScenes>> = {
         preShowdown: [
             pg("The Grain Floor", "A landing stacked with grain sacks gone grey with dust, a woman weighing nothing on a balance scale", "Vetta",
                 "Before you say anything. Yes, I held grain in the famine year. No, I did not steal it. Buying early is not stealing.",
-                "You're not here about the grain, though. You're here about Joren.",
-                "Everyone is always here about Joren."),
+                "You're not here about the grain, though. You're here about Doran.",
+                "Everyone is always here about Doran."),
             pg("The Accusation", "The landing, flour dust hanging in the lamplight", "Vetta",
                 "He was a gate guard. Grain went missing from my east store, nine sacks, then eleven. I accused him in the open market with the flour still under my fingernails.",
                 "It ruined him. They took his post and struck his name from the roll.",
@@ -98,7 +98,7 @@ export const ECHOES_SCENES: Readonly<Record<string, EchoesOpponentScenes>> = {
                 "If I had said that in the market, the inspectors would have opened my books, and my books had a second cellar in them. So I said thief instead. It was cheaper."),
             pg("The Name", "The landing, dust drifting off the sacks like smoke", "Vetta",
                 "I don't need you to forgive me. My accounts never balanced on forgiveness.",
-                "But when this floor is written down, make sure the record keeps his name. Joren, of the east gate. Not mine.",
+                "But when this floor is written down, make sure the record keeps his name. Doran, of the east gate. Not mine.",
                 "Mine has had enough ink."),
         ],
         rematch: [

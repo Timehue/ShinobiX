@@ -153,7 +153,7 @@ export const ECHOES_OPPONENTS: readonly EchoesOpponent[] = [
     {
         id: "echoes-4-ansel", floor: 4, name: "Ansel", title: "The Ledger Clerk",
         deckName: "Amended Records",
-        deckTheme: "Draw, discard, and recovery from the discard pile. Numbers moved twice.",
+        deckTheme: "Draw, discard, and recovery from the Graveyard. Numbers moved twice.",
         difficultyLabel: "Moderate",
         shortDescription: "He altered ration records, and a colleague took the blame. Both halves of that sentence are true, and he has been precise about it ever since.",
         lockedHint: "Finish the Courier's Showdown to open this memory.",
@@ -186,7 +186,7 @@ export const ECHOES_OPPONENTS: readonly EchoesOpponent[] = [
     {
         id: "echoes-7-nima", floor: 7, name: "Nima", title: "The Archivist",
         deckName: "The Burned Shelf",
-        deckTheme: "The discard pile is her second hand. What burns keeps coming back.",
+        deckTheme: "The Graveyard is her second hand. What burns keeps coming back.",
         difficultyLabel: "Difficult",
         shortDescription: "History says she burned the civilization's last records. History is working from incomplete sources. She saw to that personally.",
         lockedHint: "Finish the Watch Captain's Showdown to open this memory.",
