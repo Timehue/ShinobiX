@@ -24,6 +24,16 @@ const RECORD_VERSIONING_HELPERS = new Set([
     'versionedPlayerRecord',
 ]);
 const VERSION_PRESERVING_WRAPPERS = new Set(['mergePreservingImages']);
+/*
+ * Writes that must NOT publish a version, stated deliberately rather than
+ * omitted. Exactly one exists: the vitals-regen projection in
+ * `_elapsed-state.ts`, which persists only values a later read re-derives from
+ * `_saveAt`. Bumping for it declared the owner's open client stale and 409'd its
+ * own next autosave. The second test below pins this to that single call site,
+ * so accepting the name here cannot turn into a general way past this guard.
+ */
+const VERSIONLESS_BY_DESIGN = new Set(['unversionedSettledRecord']);
+const VERSIONLESS_BY_DESIGN_CALLERS: ReadonlyArray<readonly [string, number]> = [['_elapsed-state.ts', 1]];
 
 type Binding = { initializer?: ts.Expression };
 type Scope = Map<string, Binding>;
@@ -175,7 +185,7 @@ function derivesFromVersioningHelper(
     }
     if (ts.isCallExpression(value)) {
         const name = callName(value.expression) ?? '';
-        if (RECORD_VERSIONING_HELPERS.has(name)) return true;
+        if (RECORD_VERSIONING_HELPERS.has(name) || VERSIONLESS_BY_DESIGN.has(name)) return true;
         if (VERSION_PRESERVING_WRAPPERS.has(name) && value.arguments.length > 0) {
             // mergePreservingImages writes incoming over existing. The incoming
             // record itself must be bumped; merely passing an old versioned
@@ -272,6 +282,31 @@ test('every raw player-save kv.set derives that exact value from a versioned hel
         `These raw player-save writes do not derive their value from a versioning helper. ` +
         `Route the mutation through writeVersionedPlayerSave/mutatePlayerSave or write a ` +
         `record produced by bumpSaveVersion/nextSaveVersion:\n  ${offenders.join('\n  ')}`,
+    );
+});
+
+test('the versionless-by-design escape hatch stays at its one intended call site', () => {
+    // Accepting `unversionedSettledRecord` above is what lets a projection-only
+    // settle write without publishing a version. That is correct for regen and
+    // WRONG for anything that credits ryo, XP, items or progress — a stale tab
+    // would clobber it. So the hatch is counted, not merely allowed: a new caller
+    // has to change this list and justify itself in review.
+    const callers: Array<readonly [string, number]> = [];
+    for (const file of collectTsFiles(API_DIR)) {
+        const rel = relative(API_DIR, file).replace(/\\/g, '/');
+        if (rel === 'save/_save-version.ts') continue; // the declaration itself
+        const source = readFileSync(file, 'utf8');
+        let uses = 0;
+        for (const helper of VERSIONLESS_BY_DESIGN) {
+            uses += (source.match(new RegExp(`\\b${helper}\\s*\\(`, 'g')) ?? []).length;
+        }
+        if (uses > 0) callers.push([rel, uses]);
+    }
+    assert.deepEqual(
+        callers.map(([file, uses]) => `${file}:${uses}`),
+        VERSIONLESS_BY_DESIGN_CALLERS.map(([file, uses]) => `${file}:${uses}`),
+        'A versionless player-save write appeared outside the settle projection. ' +
+        'If it credits anything a player keeps, it must use bumpSaveVersion instead.',
     );
 });
 

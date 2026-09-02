@@ -14,6 +14,11 @@ let settleSaveRecordForRead: typeof import('../_elapsed-state.js').settleSaveRec
 let mutatePlayerSave: typeof import('./_mutate-player-save.js').mutatePlayerSave;
 let applyBankTransfer: typeof import('../bank/_transfer.js').applyBankTransfer;
 let startTraining: Handler;
+// Without this stamp migrateCharacterOwnedPets reports a one-time durable
+// migration, which legitimately publishes a version and would shift the counts
+// asserted below by one. Stamping it keeps the owner settlement projection-only,
+// which is the case these tests are about.
+let PET_BREEDING_MIGRATION_VERSION: number;
 
 const TEST_PREFIX = 'elapsedvitalconsumer';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
@@ -22,6 +27,7 @@ function character(name: string): Json {
     return {
         name,
         level: 1,
+        petBreedingMigrationVersion: PET_BREEDING_MIGRATION_VERSION,
         hp: 10,
         maxHp: 100,
         chakra: 20,
@@ -80,6 +86,7 @@ before(async () => {
     ({ mutatePlayerSave } = await import('./_mutate-player-save.js'));
     ({ applyBankTransfer } = await import('../bank/_transfer.js'));
     startTraining = (await import('../training/start.js')).default as unknown as Handler;
+    ({ PET_BREEDING_MIGRATION_VERSION } = await import('../pet/_owned-pet.js'));
 });
 
 after(async () => {
@@ -102,8 +109,12 @@ describe('durable elapsed vitals across raw-save consumers', { concurrency: fals
 
         const durable = await kv.get<Json>(`save:${playerName}`);
         assert.equal((durable?.character as Json).stamina, 5);
-        assert.equal(durable?._saveVersion, 3,
-            'owner settlement and training each publish one authoritative version');
+        // Only the TRAINING write publishes a version. The owner settlement above
+        // is durable — training read 10 stamina, not the stored 0 — but it is a
+        // projection any reader could recompute from `_saveAt`, so bumping for it
+        // only served to 409 the player's own next autosave. Was `3`.
+        assert.equal(durable?._saveVersion, 2,
+            'the settle persists without publishing; only the mutation bumps');
     });
 
     it('a normal bank mutation preserves all vitals from the preceding owner settlement', async () => {
@@ -140,6 +151,6 @@ describe('durable elapsed vitals across raw-save consumers', { concurrency: fals
             { hp: durableCharacter.hp, chakra: durableCharacter.chakra, stamina: durableCharacter.stamina },
             { hp: 20, chakra: 30, stamina: 10 },
         );
-        assert.equal(durable?._saveVersion, 3);
+        assert.equal(durable?._saveVersion, 2, 'only the bank mutation publishes a version — see above');
     });
 });
