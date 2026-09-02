@@ -429,7 +429,11 @@ import { readFileSync } from "node:fs";
 // canonical seal table. lib/profession-bonuses now imports it from there rather
 // than carrying the copy this drain had moved out of App — restoring that copy
 // would have recreated exactly the duplication main removed. App.tsx is 7088.
-const MAX_LINES = 7_094;
+// → 7088 after draining the report-pvp-win call into lib/pvp-win-report.ts. The
+// inline fetch threw on every non-2xx, which turned a decided refusal into a
+// permanent PvP settlement lockout; the extraction is what let that rule be
+// stated once and unit-tested. App.tsx is 7083, budget is count + 5.
+const MAX_LINES = 7_088;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
