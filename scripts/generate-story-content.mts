@@ -74,6 +74,15 @@ async function expectedFiles() {
         introIds.length === eraIds.length && eraIds.every((id, index) => introIds[index] === id),
         "echoes-of-war-scenes.ts ECHOES_ERA_INTROS must cover exactly ECHOES_ERAS, in order",
     );
+    // The browsable ladder renders exclusively through ECHOES_ERAS (era plates ->
+    // era.floors), so a floor belonging to no era is unreachable in the UI, and
+    // because the server unlocks floors strictly in sequence, an orphaned floor
+    // stalls the whole campaign. Every opponent floor must land in exactly one era.
+    const eraFloors = ECHOES_ERAS.flatMap((era) => era.floors).sort((a, b) => a - b);
+    invariant(
+        eraFloors.length === echoesIds.length && eraFloors.every((floor, index) => floor === index + 1),
+        "ECHOES_ERAS floors must cover every opponent floor exactly once, in sequence",
+    );
     const echoesPayload: EchoesContentPayload = {
         schemaVersion: ECHOES_CONTENT_SCHEMA_VERSION,
         scope: ECHOES_CONTENT_KEY,
