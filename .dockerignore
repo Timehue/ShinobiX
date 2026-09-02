@@ -17,6 +17,19 @@ shinobij.client/.env
 .claude
 .vercel
 
+# Release builds need application source and runtime assets, not the 68 MB of
+# review evidence or browser-test fixtures. Keeping these out of Railway's
+# Docker context shortens the build's critical path without changing dist/.
+.github
+docs
+release-audit
+**/*.test.*
+**/*.spec.*
+shinobij.client/e2e*
+shinobij.client/art-references
+shinobij.client/playwright*.ts
+shinobij.client/*preview.html
+
 # Docker
 Dockerfile
 .dockerignore
