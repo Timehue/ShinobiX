@@ -204,7 +204,7 @@ const WorldCrisis = lazyWithRetry(() => import("./screens/WorldCrisis").then(m =
 const loadMissionCatalog = () => import("./data/missions");
 const mutateDungeonRunServer = (playerName: string, action: "start" | "settle" | "abandon", token = "") =>
     import("./lib/dungeon-api").then((api) => api.mutateDungeonRunServer(playerName, action, token));
-import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment } from "./lib/pvp-session";
+import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment, pvpResultReturn } from "./lib/pvp-session";
 import { readPvpBrowserBreadcrumb, type PvpRecoveryContext } from "./lib/pvp-pending-session";
 const loadPvpSessionCreate = () => import("./lib/pvp-session-create"), loadPvpPendingFetch = () => import("./lib/pvp-pending-fetch");
 import { usePvpSessionController } from "./lib/use-pvp-session-controller";
@@ -6843,17 +6843,6 @@ export default function App() {
                     const pvpOriginatingPlayerName = character.name;
                     const pvpOriginatingSessionEpoch = saveSessionEpochRef.current;
                     const pvpSettlementScopeKey = `${playerSlug(pvpOriginatingPlayerName)}:${pvpOriginatingSessionEpoch}:${pvpRole}:${pvpBattleId}`;
-                    const pvpReturnTarget: Screen = pvpBattleContext?.sectorAttack
-                        ? "worldMap"
-                        : pvpBattleContext?.mode?.startsWith("clanWar")
-                            ? "clan"
-                            : "battleArena";
-                    const pvpReturnSector = pvpBattleContext?.sector ?? currentSector;
-                    const pvpReturnLabel = pvpReturnTarget === "worldMap"
-                        ? `Return to Sector ${pvpReturnSector}`
-                        : pvpReturnTarget === "clan"
-                            ? "Return to Clan War"
-                            : "Return to Arena";
                     const pvpJutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, character);
                     const pvpAllItems = getAllItems(creatorItems);
                     const pvpItems = (["hand", "weapon", "thrown", "item1", "item2", "item3", "item", "potion"] as EquipmentSlot[])
@@ -7018,8 +7007,7 @@ export default function App() {
                             battleId={pvpBattleId}
                             role={pvpRole}
                             setScreen={navigate}
-                            returnTarget={pvpReturnTarget}
-                            returnLabel={pvpReturnLabel}
+                            {...pvpResultReturn(pvpBattleContext, currentSector)}
                             equippedJutsu={pvpJutsus}
                             equippedItems={pvpItems}
                             currentBiome={currentBiome}
