@@ -37,20 +37,17 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
 let _client: SupabaseClient | null = null;
 let _initialized = false;
-
-function getEnv(name: string): string {
-    // Vite exposes import.meta.env.VITE_* at build time.
-    const v = (import.meta as { env?: Record<string, string | undefined> }).env?.[name];
-    return typeof v === 'string' ? v : '';
-}
 
 function init(): SupabaseClient | null {
     if (_initialized) return _client;
     _initialized = true;
-    const url = getEnv('VITE_SUPABASE_URL');
-    const key = getEnv('VITE_SUPABASE_ANON_KEY');
+    const url = SUPABASE_URL;
+    const key = SUPABASE_ANON_KEY;
     if (!url || !key) {
         // No-op when env vars aren't set — consumers fall back to SSE.
         return null;

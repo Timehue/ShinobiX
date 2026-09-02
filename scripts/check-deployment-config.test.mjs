@@ -99,3 +99,21 @@ test('Railway Docker build can receive every client analytics gate', async () =>
     assert.match(dockerfile, new RegExp(`${name}=\\$${name}`));
   }
 });
+
+test('production image gate reproduces every Railway client build argument', async () => {
+  const workflow = await readFile('.github/workflows/production-image.yml', 'utf8');
+  for (const name of [
+    'VITE_SUPABASE_URL',
+    'VITE_SUPABASE_ANON_KEY',
+    'VITE_SENTRY_DSN',
+    'VITE_SENTRY_RELEASE',
+    'VITE_BUILD_COMMIT',
+    'VITE_PRODUCT_ANALYTICS_ENABLED',
+    'VITE_PRODUCT_ANALYTICS_PROVIDER',
+    'VITE_POSTHOG_KEY',
+    'VITE_POSTHOG_HOST',
+  ]) {
+    assert.match(workflow, new RegExp(`^\\s+${name}: \\S`, 'm'));
+    assert.match(workflow, new RegExp(`--build-arg ${name}\\b`));
+  }
+});

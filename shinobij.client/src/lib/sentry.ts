@@ -14,8 +14,9 @@
 
 import { isChunkLoadError } from "./chunk-load-recovery";
 
-const ENV = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env ?? {};
-const DSN = ENV.VITE_SENTRY_DSN;
+const DSN = import.meta.env.VITE_SENTRY_DSN;
+const SENTRY_ENVIRONMENT = import.meta.env.MODE;
+const SENTRY_RELEASE = import.meta.env.VITE_SENTRY_RELEASE || import.meta.env.VITE_BUILD_COMMIT;
 
 type SentryModule = typeof import("./sentry-runtime");
 
@@ -35,8 +36,8 @@ function loadSentry(): Promise<SentryModule | null> {
             try {
                 module.init({
                     dsn: DSN,
-                    environment: ENV.MODE,
-                    release: ENV.VITE_SENTRY_RELEASE || ENV.VITE_BUILD_COMMIT,
+                    environment: SENTRY_ENVIRONMENT,
+                    release: SENTRY_RELEASE,
                     // Our tiny listeners below load the SDK on the first error.
                     // Disable Sentry's duplicate global handlers once it arrives.
                     integrations: (defaults) => defaults.filter((integration) => integration.name !== "GlobalHandlers"),
