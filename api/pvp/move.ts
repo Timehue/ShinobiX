@@ -9,7 +9,8 @@ import { COMBAT_RESOURCES_V2, v2ResourceRegen, v2PoisonOnSpend } from '../_comba
 import { GRID_H, GRID_W, MAX_ACTIONS, MAX_ROUNDS, SESSION_TTL } from '../combat-core/constants.js';
 import { hexDistance as distance, hexNeighbors, nextStepToward } from '../combat-core/grid.js';
 import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
-import { adjustedApCost } from '../combat-core/resources.js';
+import { adjustedApCost, TEMPO_AP_SWING } from '../combat-core/resources.js';
+import { castHeaderLine } from '../combat-core/cast-flavor.js';
 import { resolveJutsu as resolveCoreJutsu, type ResolveJutsuMetadata } from '../combat-core/resolveJutsu.js';
 import {
     DISCIPLINE_OFFENSE_FIELD,
@@ -809,8 +810,11 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
             }
             continue;
         }
-        if (tagName === 'Lag') { if (!hasStatus(o, 'Debuff Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Lag', rounds: 1, percent: pct || 20, kind: 'negative' }, round); lines.push(`Lag: ${o.name}'s actions cost ${pct || 20}% more AP for 1 turn.`); } continue; }
-        if (tagName === 'Overclock') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Overclock', rounds: 1, percent: pct || 20, kind: 'positive' }, round); lines.push(`Overclock: ${s.name}'s actions cost ${pct || 20}% less AP for 1 turn.`); } continue; }
+        // Lag / Overclock: a FLAT ±TEMPO_AP_SWING on every action the affected
+        // fighter takes next round (see combat-core/resources.ts). The percent is
+        // still stored so the status shape stays uniform, but nothing reads it.
+        if (tagName === 'Lag') { if (!hasStatus(o, 'Debuff Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Lag', rounds: 1, percent: pct || 20, kind: 'negative' }, round); lines.push(`Lag: each of ${o.name}'s actions costs ${TEMPO_AP_SWING} more AP next round.`); } continue; }
+        if (tagName === 'Overclock') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Overclock', rounds: 1, percent: pct || 20, kind: 'positive' }, round); lines.push(`Overclock: each of ${s.name}'s actions costs ${TEMPO_AP_SWING} less AP next round.`); } continue; }
         if (tagName === 'Increase Heal') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Increase Heal', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Increase Heal: ${s.name}'s healing is increased by ${pct}% for 2 turns.`); } continue; }
         // Increase Generals: self-buff to str/spd/int/wil for 2 turns. The stat lift is
         // read from active stacks in generalsBonus (pooled + Seal-gated) when the capped
@@ -1261,8 +1265,8 @@ function endTurn(session: PvpSession): PvpSession {
             : { ...s, p2: unstunned, log: [...s.log, stunMsg] };
     }
 
-    // Lag: next player's AP costs increase by percent
-    // Overclock: next player's AP costs decrease by percent — stored on fighter, applied by canAct in handler
+    // Lag: next player's action costs rise by a flat TEMPO_AP_SWING
+    // Overclock: they fall by the same — stored on fighter, applied by canAct in handler
     // Both are status effects already applied; the handler reads them via the session
 
     // The next turn's clock starts now — the server enforces its deadline
@@ -1739,13 +1743,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const myAp = role === 'p1' ? session.ap.p1 : session.ap.p2;
         const lines: string[] = [];
 
-        // Apply Lag (costs more) and Overclock (costs less) to AP
+        // Apply Lag (costs more) and Overclock (costs less) to AP. Both are a
+        // flat ±TEMPO_AP_SWING, so only PRESENCE is read — the stored percent is
+        // ignored and a second stack cannot deepen the swing.
         function adjustedCost(base: number): number {
-            const compression = activeStatuses(me, session.round).find(st => nameMatches(st.name, 'Lag'));
-            const dilation = activeStatuses(me, session.round).find(st => nameMatches(st.name, 'Overclock'));
             return adjustedApCost(base, {
-                lagPct: compression ? compression.percent ?? 20 : null,
-                overclockPct: dilation ? dilation.percent ?? 20 : null,
+                lagged: activeStatuses(me, session.round).some(st => nameMatches(st.name, 'Lag')),
+                overclocked: activeStatuses(me, session.round).some(st => nameMatches(st.name, 'Overclock')),
             });
         }
         function canAct(cost: number) { return myAp >= adjustedCost(cost) && session.actionsThisTurn < MAX_ACTIONS; }
@@ -2075,9 +2079,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Append the jutsu's flavor line (from the catalog) after the cast
                 // header so PvP players see the same battle-log flavor as PvE.
                 // Purely cosmetic — no effect on damage/AP/targeting/cooldowns.
-                const castFlavor = (typeof jutsu.battleDescription === 'string' ? jutsu.battleDescription.trim() : '')
-                    .replace(/%user/g, me.name).replace(/%target/g, opp.name);
-                lines.push(`${me.name} uses ${jutsu.name}:${castFlavor ? ' ' + castFlavor : ''}`);
+                // castHeaderLine owns the %user/%target substitution so a SELF
+                // cast resolves %target to its CASTER, not the enemy.
+                lines.push(castHeaderLine(jutsu, me.name, opp.name));
                 // Weather keys off the jutsu's weather affinity: bloodline jutsu
                 // set an explicit weatherElement (base element, or "None" for no
                 // interaction); others fall back to their own element. Mirrors the

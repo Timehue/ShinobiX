@@ -12,13 +12,28 @@ import { makeId } from "./utils";
 import type { Jutsu, JutsuTag } from "../types/combat";
 import type { JutsuType, JutsuElement, JutsuTarget, Rank } from "../types/core";
 import { isJutsuVisualEffect } from "./jutsu-visuals";
-import { canonicalizeOverloadTags } from "../../../shared/overload";
+
+/**
+ * Fallback battle-log flavor for a jutsu whose author never wrote any.
+ *
+ * Branching on TARGET matters: the old single default was
+ * `<name> strikes %target`, which on a SELF-cast buff produced log lines that
+ * named the enemy for something that only ever touched the caster. Authored
+ * flavor always wins — this is only the floor.
+ */
+export function defaultBattleDescription(name: string, target: JutsuTarget): string {
+    if (target === "SELF") return `${name} surges through %user.`;
+    if (target === "EMPTY_GROUND") return `${name} breaks across the ground.`;
+    return `${name} strikes %target`;
+}
 
 export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name" | "type">): Jutsu {
-    // Overload is a two-pulse authored utility. Repair stale shared-content
-    // snapshots that contain only one IDG tag before they reach cards or local
-    // combat; the server applies the same shared rule at its trusted seal.
-    const tags = canonicalizeOverloadTags(jutsu.id, normalizeJutsuTags(jutsu.tags));
+    // Authored tag lists are taken as written, DUPLICATES INCLUDED: a technique
+    // that pulses the same effect twice (the live "Overload" is two independent
+    // Increase Damage Given stacks) is a legitimate authoring choice, and the
+    // server preserves it too for definitions that come from the trusted admin
+    // catalog (sanitizeJutsuList's trustedDuplicateTagJutsuIds).
+    const tags = normalizeJutsuTags(jutsu.tags);
     const hasMoveTag = tags.some((tag) => tagMatchesName(tag.name, "Move"));
     // Strip the legacy EP-100 "fixed effect" sentinel: a jutsu carrying a binary
     // control / displacement tag deals STANDARD 60-AP damage (40), not
@@ -37,6 +52,10 @@ export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name"
     // combat-math → App import chain (avoids a module cycle).
     const isUtilityFortyAp = ap === 40 && jutsu.id !== "basic-attack" && !jutsu.id.startsWith("item-");
     const type = isUtilityFortyAp ? "Any" : jutsu.type;
+    // Hoisted so the flavor default below can branch on it: a SELF cast that
+    // falls back to "<name> strikes %target" describes something that never
+    // happens, and the log then names the OPPONENT for a pure self-buff.
+    const target = (hasMoveTag ? "EMPTY_GROUND" : (jutsu.target ?? "OPPONENT")) as JutsuTarget;
     return {
         id: jutsu.id,
         name: jutsu.name,
@@ -53,9 +72,9 @@ export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name"
         chakraCost: jutsu.chakraCost ?? 20,
         staminaCost: jutsu.staminaCost ?? 10,
         healthCost: jutsu.healthCost ?? 0,
-        target: (hasMoveTag ? "EMPTY_GROUND" : (jutsu.target ?? "OPPONENT")) as JutsuTarget,
+        target,
         method: normalizeJutsuMethod(jutsu.method),
-        battleDescription: jutsu.battleDescription ?? `${jutsu.name} strikes %target`,
+        battleDescription: jutsu.battleDescription ?? defaultBattleDescription(jutsu.name, target),
         healthCostReducePerLvl: jutsu.healthCostReducePerLvl ?? 0,
         chakraCostReducePerLvl: jutsu.chakraCostReducePerLvl ?? 0,
         staminaCostReducePerLvl: jutsu.staminaCostReducePerLvl ?? 0,
@@ -79,6 +98,30 @@ export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name"
             ? { visualEffect: jutsu.visualEffect }
             : {}),
     };
+}
+
+/**
+ * Fold one jutsu into a display catalog keyed by id.
+ *
+ * An ADMIN-authored entry must never replace a BUILT-IN definition's combat
+ * values. `hydrateImages` seeds full copies of built-in jutsu into
+ * `creatorJutsus` purely to carry their artwork, and an admin autosave persists
+ * those snapshots — frozen at whatever the client bundle held that day. The
+ * SERVER already ignores them (`resolveEquippedLoadout` reads JUTSU_CATALOG
+ * first), so letting them win on the client only ever produces a card that
+ * disagrees with what combat does. On 2026-09-01 that was 61 of 101 starters:
+ * Ironbody Stance showed Stun and cast Absorb + Reflect.
+ *
+ * The artwork is the one thing the snapshot legitimately owns, so it is the one
+ * thing taken from it — and only when the built-in has none of its own.
+ */
+export function mergeDisplayJutsu(merged: Map<string, Jutsu>, jutsu: Jutsu, builtInIds: ReadonlySet<string>): void {
+    const existing = merged.get(jutsu.id);
+    if (existing && builtInIds.has(jutsu.id)) {
+        if (jutsu.image && !existing.image) merged.set(jutsu.id, { ...existing, image: jutsu.image });
+        return;
+    }
+    merged.set(jutsu.id, jutsu);
 }
 
 /**
