@@ -25,10 +25,14 @@ function runNpm(args) {
 // Fresh and CI builds still get npm ci's deterministic lockfile install. Local
 // builds reuse an already-installed tree so Windows does not try to unlink a
 // native Rolldown binding that a recently exited Vite process is releasing.
-if (process.env.CI || !existsSync(installMarker)) {
+// Docker installs the exact client lockfile in its own cached layer before this
+// wrapper runs; its explicit marker prevents Railway's CI=true environment from
+// doing the same expensive install a second time inside the 50-minute build.
+const dependenciesPreinstalled = process.env.SHINOBIX_CLIENT_DEPS_PREINSTALLED === '1';
+if (!dependenciesPreinstalled && (process.env.CI || !existsSync(installMarker))) {
     runNpm(['ci']);
 } else {
-    console.log('[build:client] Reusing installed client dependencies (set CI=1 for a clean install).');
+    console.log('[build:client] Reusing installed client dependencies.');
 }
 
 runNpm(['run', 'build']);
