@@ -1,0 +1,44 @@
+name: Production Image
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: production-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build_and_boot:
+    name: Production Image / build-and-boot
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the Railway production image
+        env:
+          DOCKER_BUILDKIT: "1"
+        run: docker build --progress=plain --tag shinobix-production:${GITHUB_SHA} .
+
+      - name: Boot the production image
+        run: docker run --detach --name shinobix-production --publish 3000:3000 shinobix-production:${GITHUB_SHA}
+
+      - name: Probe health and branded icon
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/health >/dev/null; then
+              curl --fail --silent --show-error http://127.0.0.1:3000/shinobi-journey-mark-48-v3.png >/dev/null
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+
+      - name: Retain container diagnostics
+        if: always()
+        run: docker logs shinobix-production 2>&1 || true
