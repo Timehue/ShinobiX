@@ -34,7 +34,9 @@ export default defineConfig({
         url: `${baseURL}/petvfx.html`,
         env: { VITE_SKIP_HTTPS: "1" },
         reuseExistingServer: !process.env.CI,
-        timeout: 120_000,
+        // This command runs a full `build:warfront-e2e` AND the ~370 MB verified
+        // snapshot before preview binds — minutes of work, not server boot.
+        timeout: 600_000,
     },
     projects: [
         { name: "desktop", use: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 } },
