@@ -39,6 +39,8 @@ import {
 } from './_reward-completion.js';
 import {
     creditPvpWarGroundReward,
+    PVP_WAR_GROUND_BOUNTY_FATE_SHARDS,
+    PVP_WAR_GROUND_BOUNTY_RYO,
 } from './_war-ground-reward.js';
 import { settlePvpVillageWarContinuation } from '../world-state.js';
 import {
@@ -402,6 +404,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 chancePercent: Math.round(CLAN_WAR_PVP_SCROLL_DROP_CHANCE * 100),
             }
             : undefined;
+        const clanWarPoints = committedTerminalReplay.clanWarSettlement?.outcome === 'applied'
+            ? committedTerminalReplay.clanWarSettlement.pointsByPlayer[playerName] ?? 0
+            : 0;
+        const sectorWarPoints = outcome === 'win'
+            && committedTerminalReplay.sectorWarSettlement?.outcome === 'applied'
+            ? committedTerminalReplay.sectorWarSettlement.points
+            : 0;
+        const warPoints = clanWarPoints > 0
+            ? { awarded: clanWarPoints, kind: 'clan' as const }
+            : sectorWarPoints > 0
+                ? { awarded: sectorWarPoints, kind: 'sector' as const }
+                : undefined;
 
         // Settle world-raid progression from the canonical PvP reward claim so
         // a dropped response cannot lose the client-enqueued report callback.
@@ -496,11 +510,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 totalPvpKills?: number;
                 monthlyPvpKills?: number;
                 pvpKillMonth?: string;
+                reward?: { ryo: number; combatGrowth: number; auraDust: number };
             };
             type WarGroundOut = {
                 fresh: boolean;
                 bountyCredited: boolean;
                 raidProgress: number;
+                ryoAwarded: number;
+                fateShardsAwarded: number;
             };
 
             // Ladder-integrity guard (audit #2): when the two fighters share a
@@ -631,7 +648,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const dRyo = Math.max(0, Math.floor(ryoGain * decay));
                     const credit = creditPvpWinBase(char, dRyo);
                     let finalChar: Record<string, unknown> = credit.char;
-                    let summary = credit.summary;
+                    let summary: BaseOut = credit.summary;
+                    let combatGrowthAwarded = 0;
                     // Stage 4: casual PvP grants a small, daily-capped combat stat
                     // reward into the unspent POOL (ranked = 0, skill-pure — this branch
                     // only runs when !isRankedClaim). Pool-only keeps this write clean:
@@ -660,6 +678,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const baseEarned = statBudget.points;
                         const boosted = Math.round(baseEarned * growthMult * statGainMultiplier());
                         const g = computeCombatStatGrowth(statsNow, Number(finalChar.level) || 1, boosted, boosted);
+                        combatGrowthAwarded = g.spent;
                         if (baseEarned > 0 && g.spent > 0) {
                             const newStats: Record<string, number> = { ...statsNow };
                             for (const [k, v] of Object.entries(g.allocated)) newStats[k] = (Number(newStats[k]) || 0) + (v ?? 0);
@@ -699,6 +718,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     };
                     summary = {
                         ...summary,
+                        reward: { ryo: dRyo, combatGrowth: combatGrowthAwarded, auraDust: 6 },
                         auraDust: Number(finalChar.auraDust),
                         inventory: finalChar.inventory,
                         totalPvpKills: Number(finalChar.totalPvpKills),
@@ -752,6 +772,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     fresh: credited.fresh,
                     bountyCredited: credited.bountyCredited,
                     raidProgress: credited.raidProgress,
+                    ryoAwarded: credited.fresh && credited.bountyCredited ? PVP_WAR_GROUND_BOUNTY_RYO : 0,
+                    fateShardsAwarded: credited.fresh && credited.bountyCredited ? PVP_WAR_GROUND_BOUNTY_FATE_SHARDS : 0,
                 };
             };
 
@@ -867,6 +889,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ...(out.rating ? { rating: out.rating } : {}),
                     ...(out.base ? { base: out.base } : {}),
                     ...(out.warGround ? { warGroundReward: out.warGround } : {}),
+                    ...(warPoints ? { warPoints } : {}),
                     ...(worldRaidProgressionForCaller ? { raidProgression: raidProgressionBody(worldRaidProgressionForCaller) } : {}),
                     ...(clanWarScrollDrop ? { clanWarScrollDrop } : {}),
                     ...(finalChar ? { character: finalChar } : {}),
@@ -938,6 +961,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 rewardAuthorized,
                 progressionAuthorized,
                 ...(worldRaidProgressionForCaller ? { raidProgression: raidProgressionBody(worldRaidProgressionForCaller) } : {}),
+                ...(warPoints ? { warPoints } : {}),
                 ...(clanWarScrollDrop ? { clanWarScrollDrop } : {}),
                 ...(finalChar ? { character: finalChar } : {}),
                 _saveVersion: Number(finalSave?._saveVersion ?? 0),

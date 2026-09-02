@@ -4,6 +4,14 @@ import { playerSlug } from "./utils";
 
 export type PvpRewardRating = { field: string; value: number; delta: number };
 export type ClanWarScrollDrop = { awarded: 0 | 1; chancePercent: number };
+export type PvpWarPoints = { awarded: number; kind: "clan" | "sector" };
+export type PvpWarGroundReward = {
+    fresh: boolean;
+    bountyCredited: boolean;
+    raidProgress: number;
+    ryoAwarded: number;
+    fateShardsAwarded: number;
+};
 export type PvpRaidProgression = {
     fetchMissionsCredited: string[];
     missionsCompleted: Array<{ id: string; name: string; xpReward: number }>;
@@ -29,6 +37,8 @@ export type PvpRewardClaimConfirmed = {
     character?: Character;
     _saveVersion?: number;
     raidProgression?: PvpRaidProgression;
+    warPoints?: PvpWarPoints;
+    warGroundReward?: PvpWarGroundReward;
     /** Present only for the winning player in a settled Clan War shinobi duel. */
     clanWarScrollDrop?: ClanWarScrollDrop;
 };
@@ -218,23 +228,62 @@ function cleanClanWarScrollDrop(raw: unknown): ClanWarScrollDrop | undefined {
     return { awarded, chancePercent: Math.round(chancePercent) };
 }
 
+function cleanWarPoints(raw: unknown): PvpWarPoints | undefined {
+    if (!raw || typeof raw !== "object") return undefined;
+    const value = raw as Record<string, unknown>;
+    const awarded = Number(value.awarded);
+    if (!Number.isSafeInteger(awarded) || awarded <= 0 || (value.kind !== "clan" && value.kind !== "sector")) return undefined;
+    return { awarded, kind: value.kind };
+}
+
+function cleanWarGroundReward(raw: unknown): PvpWarGroundReward | undefined {
+    if (!raw || typeof raw !== "object") return undefined;
+    const value = raw as Record<string, unknown>;
+    const raidProgress = Number(value.raidProgress);
+    const ryoAwarded = Number(value.ryoAwarded);
+    const fateShardsAwarded = Number(value.fateShardsAwarded);
+    if (typeof value.fresh !== "boolean"
+        || typeof value.bountyCredited !== "boolean"
+        || !Number.isSafeInteger(raidProgress) || raidProgress < 0
+        || !Number.isSafeInteger(ryoAwarded) || ryoAwarded < 0
+        || !Number.isSafeInteger(fateShardsAwarded) || fateShardsAwarded < 0) return undefined;
+    return { fresh: value.fresh, bountyCredited: value.bountyCredited, raidProgress, ryoAwarded, fateShardsAwarded };
+}
+
+function cleanBaseReward(raw: unknown): PvpWinBaseSummary["reward"] {
+    if (!raw || typeof raw !== "object") return undefined;
+    const value = raw as Record<string, unknown>;
+    const ryo = Number(value.ryo);
+    const combatGrowth = Number(value.combatGrowth);
+    const auraDust = Number(value.auraDust);
+    if (![ryo, combatGrowth, auraDust].every((amount) => Number.isSafeInteger(amount) && amount >= 0)) return undefined;
+    return { ryo, combatGrowth, auraDust };
+}
+
 /** Player-facing copy for the exact authoritative terminal settlement. */
 export function pvpRewardSettlementNotice(
     result: PvpRewardClaimConfirmed,
     options: { draw: boolean; spar: boolean },
 ): string {
     if (options.draw) return "Draw confirmed — terminal battle effects are settled.";
-    if (result.clanWarScrollDrop) {
-        return result.clanWarScrollDrop.awarded > 0
-            ? "Clan War victory settled — Territory Control Scroll dropped! +1 added to your inventory."
-            : `Clan War victory settled — no Territory Control Scroll this time (${result.clanWarScrollDrop.chancePercent}% chance per win).`;
-    }
-    if (!result.rewardAuthorized || options.spar) return "Spar complete — no progression rewards.";
-    if (result.rating) {
-        return `Server-settled rating: ${result.rating.delta >= 0 ? "+" : ""}${result.rating.delta}.${result.base ? " Combat rewards credited." : ""}`;
-    }
-    if (result.base) return "Combat rewards settled by the server.";
-    return "Official result verified; no generic payout for this mode.";
+    if (options.spar) return "Spar complete — no progression rewards.";
+    const base = result.base?.reward;
+    const raid = result.raidProgression;
+    const ryo = (base?.ryo ?? 0) + (result.warGroundReward?.ryoAwarded ?? 0) + (raid?.bonusRyo ?? 0);
+    const rewards = [
+        ryo && `+${ryo.toLocaleString()} Ryo`,
+        base?.combatGrowth && `+${base.combatGrowth} Combat Growth`,
+        raid?.xpAwarded && `+${raid.xpAwarded} Vanguard XP`,
+        result.warPoints?.awarded && `+${result.warPoints.awarded} ${result.warPoints.kind === "sector" ? "War Score" : "Clan War Points"}`,
+        base?.auraDust && `+${base.auraDust} Aura Dust`,
+        result.warGroundReward?.fateShardsAwarded && `+${result.warGroundReward.fateShardsAwarded} Fate Shards`,
+        raid?.bonusSeals && `+${raid.bonusSeals} Honor Seals`,
+        result.clanWarScrollDrop?.awarded && "+1 Territory Scroll",
+        result.rating?.delta && `${result.rating.delta > 0 ? "+" : ""}${result.rating.delta} Rating`,
+    ].filter(Boolean);
+    if (rewards.length) return `Rewards secured — ${rewards.join(" · ")}.`;
+    if (result.clanWarScrollDrop) return `No Territory Control Scroll this time (${result.clanWarScrollDrop.chancePercent}% chance per win).`;
+    return "Official result verified; no personal payout for this result.";
 }
 
 function cleanRaidProgression(raw: unknown): PvpRaidProgression | undefined {
@@ -291,13 +340,19 @@ export async function postPvpRewardClaim(
             };
         }
         const rating = cleanRating(payload.rating);
-        const base = payload.base && typeof payload.base === "object" ? payload.base as PvpWinBaseSummary : undefined;
+        const basePayload = payload.base && typeof payload.base === "object"
+            ? payload.base as Record<string, unknown>
+            : undefined;
+        const base = basePayload as PvpWinBaseSummary | undefined;
+        if (base) base.reward = cleanBaseReward(basePayload?.reward);
         const character = payload.character && typeof payload.character === "object"
             ? payload.character as Character
             : undefined;
         const saveVersion = Number(payload._saveVersion);
         const raidProgression = cleanRaidProgression(payload.raidProgression);
         const clanWarScrollDrop = cleanClanWarScrollDrop(payload.clanWarScrollDrop);
+        const warPoints = cleanWarPoints(payload.warPoints);
+        const warGroundReward = cleanWarGroundReward(payload.warGroundReward);
         if (typeof payload.completionPending !== "boolean") {
             return {
                 status: "retry",
@@ -317,6 +372,8 @@ export async function postPvpRewardClaim(
             ...(character ? { character } : {}),
             ...(Number.isFinite(saveVersion) ? { _saveVersion: saveVersion } : {}),
             ...(raidProgression ? { raidProgression } : {}),
+            ...(warPoints ? { warPoints } : {}),
+            ...(warGroundReward ? { warGroundReward } : {}),
             ...(clanWarScrollDrop ? { clanWarScrollDrop } : {}),
         };
     } catch {

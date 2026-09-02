@@ -66,6 +66,8 @@ export type PvpWinBaseSummary = {
     totalPvpKills?: number;
     monthlyPvpKills?: number;
     pvpKillMonth?: string;
+    /** Exact gains from this battle, separate from the post-credit totals above. */
+    reward?: { ryo: number; combatGrowth: number; auraDust: number };
     // Serious (non-ranked) PvP combat-use stat growth. The pool share is already in
     // `unspentStats`; `allocated` is the per-stat auto-growth the client adds on top
     // via applyStatGrowth (server wrote the same delta, so no double-count/clobber).

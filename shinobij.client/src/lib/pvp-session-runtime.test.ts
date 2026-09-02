@@ -12,6 +12,7 @@ import {
     splitPvpMoveResponse,
 } from "./pvp-session-runtime";
 import { bindPvpSessionCreateIntent, clearPvpSessionCreateIntent } from "./pvp-session-intent";
+import { pvpResultReturn } from "./pvp-session";
 
 function fighter(name: string, pos: number) {
     return {
@@ -46,6 +47,12 @@ function projection(stateRevision: number, patch: Partial<PvpSessionState> = {})
         ...patch,
     };
 }
+
+it("returns a finished PvP player to the exact battlefield origin", () => {
+    assert.deepEqual(pvpResultReturn({ sectorAttack: true, sector: 44 }, 1), { returnTarget: "worldMap", returnLabel: "Return to Sector 44" });
+    assert.deepEqual(pvpResultReturn({ mode: "clanWar1v1" }, 1), { returnTarget: "clan", returnLabel: "Return to Clan War" });
+    assert.deepEqual(pvpResultReturn({ mode: "standard" }, 1), { returnTarget: "battleArena", returnLabel: "Return to Arena" });
+});
 
 describe("PvP live-session projection authority", () => {
     it("accepts only a structurally valid, exactly bound, revisioned session", () => {
@@ -275,6 +282,8 @@ describe("PvP reliability source wiring", () => {
             "an unavailable battle may expose destructive exit only after authenticated pending-session proof");
         assert.match(screen, /sessionExitCheck === "safe"[\s\S]*Return Safely/,
             "transient GET failure must keep the same-mount retry/recovery controller alive");
+        assert.match(screen, /sessionExitCheck === "safe"[\s\S]*exitBattle\(returnTarget\)[\s\S]*Return Safely/,
+            "a proven-safe recovery exit must restore the sealed battle origin, never infer Village or World Map from live sector state");
         // The sector-attack flow moved out of App's JSX into lib/sector-attack.ts,
         // so the whole module IS the slice this used to carve out of App.
         const sectorCreate = readFileSync(new URL("./sector-attack.ts", import.meta.url), "utf8");
