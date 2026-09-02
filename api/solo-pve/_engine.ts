@@ -26,6 +26,7 @@ import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
 import { weatherMultiplier } from '../combat-core/formulas.js';
 import { hexDistance, hexNeighbors } from '../combat-core/grid.js';
 import { adjustedApCost } from '../combat-core/resources.js';
+import { castHeaderLine } from '../combat-core/cast-flavor.js';
 import { activeCombatStatuses, addCombatStatus, removeActiveCombatStatusesByKind, removeActiveCombatStatusesByName } from '../combat-core/statuses.js';
 import { validateServerAiRules, type ServerAiRule } from '../combat-core/ai-authoring.js';
 import {
@@ -364,17 +365,17 @@ function jutsuActionPlan(
     });
 }
 
-function statusPct(value: PvpFighter, name: string, round: number): number | undefined {
-    const statuses = activeStatuses(value, round).filter((status) => status.name === name);
-    if (!statuses.length) return undefined;
-    return statuses.reduce((sum, status) => sum + Number(status.percent ?? 0), 0);
+// Lag / Overclock are flat ±TEMPO_AP_SWING (combat-core/resources.ts): only
+// PRESENCE matters, and a second stack cannot deepen the swing.
+function hasTempoStatus(value: PvpFighter, name: string, round: number): boolean {
+    return activeStatuses(value, round).some((status) => status.name === name);
 }
 
 function actionCost(session: SoloPveSession, side: SoloPveSide, base: number): number {
     const value = fighter(session, side);
     return adjustedApCost(base, {
-        lagPct: statusPct(value, 'Lag', session.round),
-        overclockPct: statusPct(value, 'Overclock', session.round),
+        lagged: hasTempoStatus(value, 'Lag', session.round),
+        overclocked: hasTempoStatus(value, 'Overclock', session.round),
     });
 }
 
@@ -946,10 +947,9 @@ function applyJutsuAction(session: SoloPveSession, side: SoloPveSide, action: Ex
     const plan = jutsuActionPlan(session, side, jutsu, tile);
     if (!plan.accepted) return { applied: false, reason: plan.rejection };
 
-    const flavor = String(jutsu.battleDescription ?? '').trim()
-        .replace(/%user/g, self.name)
-        .replace(/%target/g, opponent.name);
-    session.log.push(`${self.name} uses ${jutsu.name}:${flavor ? ` ${flavor}` : ''}`);
+    // castHeaderLine owns the %user/%target substitution so a SELF cast
+    // resolves %target to its CASTER, not the enemy.
+    session.log.push(castHeaderLine(jutsu, self.name, opponent.name));
     let resolution: CombatResolutionFacts | undefined;
 
     // PvP pays a tile-target cast before movement/impact resolution. Preserve

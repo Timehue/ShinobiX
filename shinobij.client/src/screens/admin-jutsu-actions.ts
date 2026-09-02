@@ -13,7 +13,7 @@
  * reload instead.
  */
 import type { Jutsu, SavedBloodline } from "../types/combat";
-import { rebalanceNonBloodlineJutsu } from "../data/jutsu";
+import { builtInJutsuIds, rebalanceNonBloodlineJutsu } from "../data/jutsu";
 import { publishSharedImage } from "../lib/shared-images";
 import { jutsuPoints } from "../lib/jutsu-points";
 import { gameConfirm } from "../components/GameAlert";
@@ -84,6 +84,23 @@ export function makeAdminJutsuActions(deps: AdminJutsuActionDeps) {
         // Skip the publish when there's no image — an empty string is rejected (400).
         if (updatedJutsu.image) void publishSharedImage('jutsu:' + updatedJutsu.id, updatedJutsu.image);
         const sourceBloodline = savedBloodlines.find((bloodline) => bloodline.jutsus.some((jutsu) => jutsu.id === editingJutsuId));
+        // A BUILT-IN jutsu is defined in code (data/jutsu.ts -> the generated
+        // api/pvp/_jutsu-catalog.ts) and every combat seal path reads the catalog
+        // copy, never an authored one. An override here could therefore only ever
+        // change the CARD, never the cast — which is exactly what it did: on
+        // 2026-09-01, 61 of 101 starters advertised tags combat never used.
+        // Artwork is genuinely admin-owned and was already published above, so it
+        // still lands; only the combat values are refused.
+        if (!sourceBloodline && builtInJutsuIds.has(editingJutsuId)) {
+            alert(`${updatedJutsu.name} is a built-in jutsu, so its stats are owned by the game code and the server always fights with that version — saving them here would only change the card, not the cast.`
+                + `
+
+The image was published and will appear for players.`
+                + `
+
+To change its stats: edit shinobij.client/src/data/jutsu.ts, then regenerate api/pvp/_jutsu-catalog.ts.`);
+            return;
+        }
         let nextCreatorJutsus = creatorJutsus;
         if (sourceBloodline) {
             // Bloodline jutsu are per-character, not shared content — no publish.
@@ -97,7 +114,8 @@ export function makeAdminJutsuActions(deps: AdminJutsuActionDeps) {
             nextCreatorJutsus = creatorJutsus.map((jutsu) => jutsu.id === editingJutsuId ? updatedJutsu : jutsu);
             setCreatorJutsus(nextCreatorJutsus);
         } else {
-            // Override a starter jutsu — stored in creatorJutsus, wins via Map in getAllJutsus
+            // A brand-new authored id. Built-ins were refused above, so this can
+            // never manufacture an override of a code-owned jutsu.
             nextCreatorJutsus = [...creatorJutsus, updatedJutsu];
             setCreatorJutsus(nextCreatorJutsus);
         }
@@ -109,6 +127,11 @@ export function makeAdminJutsuActions(deps: AdminJutsuActionDeps) {
     async function deleteAdminJutsu(jutsuId: string = editingJutsuId) {
         if (!jutsuId) return alert("Load an existing admin jutsu first.");
         const label = allGameJutsus.find((jutsu) => jutsu.id === jutsuId)?.name ?? jutsuId;
+        // Same reason as the edit guard: a tombstone would hide a built-in from
+        // the client while every combat path kept casting it.
+        if (builtInJutsuIds.has(jutsuId)) {
+            return alert(`${label} is a built-in jutsu and cannot be deleted here — the server would still fight with it. Remove it from shinobij.client/src/data/jutsu.ts and regenerate api/pvp/_jutsu-catalog.ts.`);
+        }
         if (!(await gameConfirm(`Permanently delete "${label}"? This cannot be undone.`, { danger: true, confirmLabel: "Delete" }))) return;
         const sourceBloodline = savedBloodlines.find((bloodline) => bloodline.jutsus.some((jutsu) => jutsu.id === jutsuId));
         if (sourceBloodline) {

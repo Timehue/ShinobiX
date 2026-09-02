@@ -77,3 +77,36 @@ describe("admin jutsu editor publishes through the guarded content endpoint", ()
         }
     });
 });
+
+/*
+ * The editor used to let an admin "override a starter jutsu" by writing a copy
+ * into creatorJutsus, which won the client-side Map in getAllJutsus. The SERVER
+ * always fights with the code-owned catalog, so such an override could only ever
+ * change the CARD, never the cast — and on 2026-09-01 that had drifted into 61
+ * of 101 starters advertising tags combat never used. The path is gone; these
+ * pin that it stays gone.
+ */
+describe("built-in jutsu cannot be overridden from the admin editor", () => {
+    it("the edit path refuses a built-in id before touching creatorJutsus", () => {
+        const save = functionBody(actionsSource, "saveAdminJutsuEdit");
+        assert.match(save, /builtInJutsuIds\.has\(editingJutsuId\)/, "the edit path must check builtInJutsuIds");
+        const guardIndex = save.indexOf("builtInJutsuIds.has(editingJutsuId)");
+        const writeIndex = save.indexOf("setCreatorJutsus(");
+        assert.ok(guardIndex >= 0 && writeIndex >= 0, "expected both the guard and a creatorJutsus write");
+        assert.ok(guardIndex < writeIndex, "the built-in guard must run BEFORE any creatorJutsus write");
+    });
+
+    it("the edit path no longer describes a starter override", () => {
+        const save = functionBody(actionsSource, "saveAdminJutsuEdit");
+        assert.doesNotMatch(save, /Override a starter jutsu/i, "the starter-override branch must not come back");
+    });
+
+    it("the delete path refuses a built-in id rather than tombstoning it", () => {
+        const remove = functionBody(actionsSource, "deleteAdminJutsu");
+        assert.match(remove, /builtInJutsuIds\.has\(jutsuId\)/, "the delete path must check builtInJutsuIds");
+        const guardIndex = remove.indexOf("builtInJutsuIds.has(jutsuId)");
+        const tombstoneIndex = remove.indexOf("deletedJutsuEntry(");
+        assert.ok(guardIndex >= 0 && tombstoneIndex >= 0, "expected both the guard and the tombstone write");
+        assert.ok(guardIndex < tombstoneIndex, "the built-in guard must run BEFORE the tombstone write");
+    });
+});

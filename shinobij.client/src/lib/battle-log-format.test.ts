@@ -69,8 +69,8 @@ describe("classifyBattleLogLine — other tag colors", () => {
     it("tempo → violet", () => {
         assert.equal(classifyBattleLogLine("Copy: Raiko copied Shield, Reflect from Mira."), "tempo");
         assert.equal(classifyBattleLogLine("Mirror: Raiko copies Stun onto Mira."), "tempo");
-        assert.equal(classifyBattleLogLine("Lag: Mira's actions cost 20% more AP for 1 turn."), "tempo");
-        assert.equal(classifyBattleLogLine("Overclock: Raiko's actions cost 20% less AP for 1 turn."), "tempo");
+        assert.equal(classifyBattleLogLine("Lag: each of Mira's actions costs 10 more AP next round."), "tempo");
+        assert.equal(classifyBattleLogLine("Overclock: each of Raiko's actions costs 10 less AP next round."), "tempo");
     });
 
     it("system → gold (cast headers, rounds, win/turn-end)", () => {
