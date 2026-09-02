@@ -235,6 +235,11 @@ export function StoryBossFightHost({
     onOutcome?: (character: Character, saveVersion?: number) => void;
 }) {
     const [fight, setFight] = useState<ActiveStoryFight | null>(null);
+    // Mirrors startingRef into render so the host can announce itself engaged from
+    // the moment it ACCEPTS a request. The sealed start is a network round-trip, and
+    // the caller closes its launch UI immediately — announcing only once `fight`
+    // lands leaves that whole window looking like "no fight in progress".
+    const [starting, setStarting] = useState(false);
     const startingRef = useRef(false);
     const activeFightRef = useRef(false);
     const startRequestIdRef = useRef(0);
@@ -259,6 +264,7 @@ export function StoryBossFightHost({
         activePlayerKeyRef.current = nextPlayerKey;
         startRequestIdRef.current += 1;
         startingRef.current = false;
+        setStarting(false);
         activeFightRef.current = false;
         returnFocusRef.current = null;
         setFight((current) => current
@@ -274,8 +280,9 @@ export function StoryBossFightHost({
         return onStoryBossFightRequest((theme) => {
             if (activePlayerKeyRef.current !== originatingPlayerKey
                 || startingRef.current
-                || activeFightRef.current) return;
+                || activeFightRef.current) return false;
             startingRef.current = true;
+            setStarting(true);
             const requestId = ++startRequestIdRef.current;
             returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
             // Warm the code-split combat chunk alongside the start-combat network
@@ -306,8 +313,11 @@ export function StoryBossFightHost({
                     }
                 })
                 .finally(() => {
-                    if (startRequestIdRef.current === requestId) startingRef.current = false;
+                    if (startRequestIdRef.current !== requestId) return;
+                    startingRef.current = false;
+                    setStarting(false);
                 });
+            return true;
         });
     }, [playerName]);
 
@@ -317,8 +327,10 @@ export function StoryBossFightHost({
         : null;
 
     // Announced from an effect, not from render, and with a cleanup so an
-    // unmount mid-fight still closes it out.
-    const open = !!activeFight;
+    // unmount mid-fight still closes it out. `starting` is part of it: a request
+    // this host has accepted is already committed combat, and the caller has
+    // already dismissed the UI it was launched from.
+    const open = starting || !!activeFight;
     useEffect(() => {
         onFightOpenChange?.(open);
         return () => { if (open) onFightOpenChange?.(false); };

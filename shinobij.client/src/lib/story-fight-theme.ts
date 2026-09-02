@@ -41,7 +41,7 @@ export type StoryFightTheme = {
     village?: string;
 };
 
-type Listener = (theme: StoryFightTheme) => void;
+type Listener = (theme: StoryFightTheme) => boolean;
 let listener: Listener | null = null;
 
 /** Host registration (single subscriber — the App-mounted StoryBossFightHost). */
@@ -50,11 +50,16 @@ export function onStoryBossFightRequest(fn: Listener): () => void {
     return () => { if (listener === fn) listener = null; };
 }
 
-/** Returns false when no server-combat host is mounted. */
+/**
+ * Returns false when no server-combat host is mounted, and — as requestAiFight
+ * already did — when the mounted host DECLINED the request (a start is in flight,
+ * a fight is already on screen, the account changed). This used to answer true for
+ * every declined request, so a caller dismissed its launch UI for a fight that was
+ * never admitted: the chapter VN closed itself onto nothing.
+ */
 export function requestStoryBossFight(theme: StoryFightTheme): boolean {
     if (!listener) return false;
-    listener(theme);
-    return true;
+    return listener(theme);
 }
 
 const BARK_MAX_CHARS = 160;

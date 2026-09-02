@@ -527,6 +527,8 @@ import {
 import { useHollowGateAppFlow } from "./lib/hollow-gate-app-flow";
 import type { StoryBossSettleResult } from "./lib/story-combat-api";
 import { extractMentorLines, extractStoryFightScript, requestStoryBossFight } from "./lib/story-fight-theme";
+import { useSealedFightPresence } from "./lib/use-sealed-fight-presence";
+import { dismissStorySceneForSession } from "./lib/vn-session-dismissal";
 import { StoryBossFightHost } from "./components/StoryBossFightHost";
 import { AiFightHost } from "./components/AiFightHost";
 import { wingEntryEffect } from "./lib/hollow-gate-wings";
@@ -1511,7 +1513,7 @@ export default function App() {
         if (screen !== "pvpBattle" && pvpCompletionConfirmed && pvpBattleId) clearPvpBattleState();
     }, [screen, pvpCompletionConfirmed, pvpBattleId]);
     const [temporaryStoryAi, setTemporaryStoryAi] = useState<CreatorAi | null>(null);
-    const [storyFightOpen, setStoryFightOpen] = useState(false); // sealed story-lane fights are body portals, so `screen` never changes — screen-keyed chrome checks this instead
+    const { storyFightOpen, setStoryFightOpen, setAiFightOpen, sealedFightOpen, engagedRef: sealedFightEngagedRef } = useSealedFightPresence();
     // Set when a sector gambler deals the player into Chronicle Showdown.
     const [cardAutoStart, setCardAutoStart] = useState(false);
     const [raidBattleKind, setRaidBattleKind] = useState<"none" | "raidAi" | "raidPlayer" | "defense">("none");
@@ -2101,8 +2103,12 @@ export default function App() {
         });
     }
 
-    function isBattleFlowScreen(screenSnapshot: Screen = screenRef.current): boolean {
-        return BATTLE_SCREENS.has(screenSnapshot)
+    function isBattleFlowScreen(screenSnapshot: Screen = screenRef.current, sealedFightOnScreen = false): boolean {
+        // A sealed story/AI fight is a BODY PORTAL: `screen` never moves while one is
+        // up, so the screen alone reports "no battle" for the whole fight. Callers in a
+        // render pass hand in the state; the ref is the same fact read synchronously.
+        return sealedFightOnScreen || sealedFightEngagedRef.current
+            || BATTLE_SCREENS.has(screenSnapshot)
             || screenSnapshot === "sectorPet"
             || screenSnapshot === "clanWarPet"
             || isPresenceBattleActive(screenSnapshot);
@@ -3602,7 +3608,7 @@ export default function App() {
 
     useEffect(() => {
         if (!character || activeTriggeredEvent) return;
-        if (isBattleFlowScreen(screen)) return;
+        if (isBattleFlowScreen(screen, sealedFightOpen)) return;
         if (character.level < 9 || triggeredEvents.includes(AURA_SPHERE_VN_ID)) return;
         const alreadyHasAuraSphere = character.inventory.includes(AURA_SPHERE_ITEM_ID) || Object.values(character.equipment).includes(AURA_SPHERE_ITEM_ID);
         if (alreadyHasAuraSphere) {
@@ -3614,7 +3620,7 @@ export default function App() {
         setActiveTriggerReturnScreen(screen);
         setTriggerPage(0);
         setTriggerLine(0);
-    }, [activeTriggeredEvent, character, screen, triggeredEvents]);
+    }, [activeTriggeredEvent, character, screen, sealedFightOpen, triggeredEvents]);
 
     // Auto-trigger level-gated creator VN events (eventKind === "visualNovel", no special trigger)
     // The two VN auto-trigger effects below run in the same commit and would
@@ -3629,7 +3635,7 @@ export default function App() {
     const dismissedStoryScenesRef = useRef<Set<string>>(new Set());
     useEffect(() => {
         if (!character || activeTriggeredEvent) return;
-        if (isBattleFlowScreen(screen)) return;
+        if (isBattleFlowScreen(screen, sealedFightOpen)) return;
         if (normalizeOnboardingStep(character.onboardingStep) !== "done") return; // never consume a VN beneath the cinematic/tutorial
         const candidate = creatorEvents.find(
             (ev) =>
@@ -3646,7 +3652,7 @@ export default function App() {
         setActiveTriggerReturnScreen(screen);
         setTriggerPage(0);
         setTriggerLine(0);
-    }, [activeTriggeredEvent, character, creatorEvents, screen, triggeredEvents]);
+    }, [activeTriggeredEvent, character, creatorEvents, screen, sealedFightOpen, triggeredEvents]);
 
     // Auto-trigger the next story beat — a milestone chapter VN (boss) or a
     // VN-only interlude (road scene) — when the player qualifies. Selection and
@@ -3654,7 +3660,7 @@ export default function App() {
     useEffect(() => {
         if (!character || activeTriggeredEvent) return;
         // Don't interrupt battle flows — let the VN fire after the player returns.
-        if (isBattleFlowScreen(screen)) return;
+        if (isBattleFlowScreen(screen, sealedFightOpen)) return;
         // Gate the village story behind tutorial completion (skip sets "done").
         if (normalizeOnboardingStep(character.onboardingStep) !== "done") return;
         // Don't fire beneath the forced ProfessionPicker modal (level 13+, no
@@ -3667,7 +3673,7 @@ export default function App() {
         void loadStoryTrigger().then(async ({ nextStoryTrigger, overlayVnImages }) => {
             const resolved = await resolveStoryContinuation(() => nextStoryTrigger(character, triggeredEvents, [...dismissedStoryScenesRef.current]), character.name, () => currentAccountNameRef.current || characterRef.current?.name || "", () => stale);
             const next = resolved.current ? resolved.value : null;
-            if (!next || vnTriggerClaimRef.current) return;
+            if (!next || vnTriggerClaimRef.current || sealedFightEngagedRef.current) return;
             vnTriggerClaimRef.current = true;
             // Prefer the admin-edited version from creatorEvents (uploaded images,
             // custom dialogue, etc.), then overlay any KV-stored images.
@@ -3682,7 +3688,7 @@ export default function App() {
             setTriggerLine(0);
         }).catch(() => undefined);
         return () => { stale = true; };
-    }, [activeTriggeredEvent, character, creatorEvents, screen, sharedImages, triggeredEvents]);
+    }, [activeTriggeredEvent, character, creatorEvents, screen, sealedFightOpen, sharedImages, triggeredEvents]);
 
     // When sharedImages updates while any VN is open (images loaded after trigger fired),
     // patch the live activeTriggeredEvent so images appear without re-triggering the whole flow.
@@ -5362,7 +5368,10 @@ export default function App() {
                 ...extractStoryFightScript(event.vnPages, battle.bossName || ""),
                 ally: extractMentorLines(event.vnPages, battle.bossName || "", character?.name ?? ""), village: event.village || character?.village,
             });
-            if (started) { setActiveTriggeredEvent(null); return; }
+            // Declined (a fight is already engaged) keeps the scene open — falling
+            // through would hand the current chapter a flavor practice bout instead.
+            if (started) setActiveTriggeredEvent(null);
+            return;
         }
         const returnTarget = returnScreen ?? activeTriggerReturnScreen;
         const opponent = creatorEventPracticeOpponent(event.aiProfileId, battle?.aiProfileId, character?.level ?? event.levelReq);
@@ -6091,7 +6100,7 @@ export default function App() {
                         detail: { name: mission.name, xp: mission.xpReward, profession: "vanguard" },
                     }));
                 }
-            }} onClose={(back) => { setMissionBattleActive(false); if (back) navigate(back as Screen); }} onRecordBattle={recordBattle} />
+            }} onFightOpenChange={setAiFightOpen} onClose={(back) => { setMissionBattleActive(false); if (back) navigate(back as Screen); }} onRecordBattle={recordBattle} />
 
             <main
                 className={`center-game screen-${screen}${hideBattleChrome ? " battle-focus" : ""}`}
@@ -6298,12 +6307,7 @@ export default function App() {
                         lineIndex={triggerLine}
                         setPageIndex={setTriggerPage}
                         setLineIndex={setTriggerLine}
-                        onCancel={() => {
-                            if (/^story-(?:interlude-|[^-].*-\d+-\d+$)/.test(activeTriggeredEvent.id)) {
-                                dismissedStoryScenesRef.current.add(activeTriggeredEvent.id);
-                            }
-                            setActiveTriggeredEvent(null);
-                        }}
+                        onCancel={() => { dismissStorySceneForSession(activeTriggeredEvent.id, dismissedStoryScenesRef.current); setActiveTriggeredEvent(null); }}
                         onComplete={() => { void completeTriggeredEvent(activeTriggeredEvent); }}
                         onBattle={startTriggeredEventArenaBattle}
                         onChoice={(c) => { const t = c.trait; if (t) setCharacter(prev => prev ? applyStoryChoice(prev, t) : prev); if (t && c.battle && activeTriggeredEvent.kageFinale) storyEpilogueRef.current.lane = t; }}
