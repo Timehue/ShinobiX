@@ -6,7 +6,7 @@ import { storyInterludesByVillage } from "./story-interludes";
 import { storyEpiloguesByVillage } from "./story-epilogues";
 import { storyReckonings } from "./story-reckonings";
 import { hollowRifts } from "./hollow-rifts";
-import { ECHOES_OPPONENTS } from "./echoes-of-war";
+import { ECHOES_SCENES } from "./echoes-of-war-scenes";
 import { awakeningLv2VnEvent, auraSphereLv9VnEvent, craftDungeonEvents, hiddenDungeonVnEvent } from "./vn-events";
 import { defaultAncientChestVn, defaultPetEncounterVn } from "./default-vn-events";
 import { hidePlayerPortraitDuringNarration, splitDialogueLine } from "../lib/vn";
@@ -52,8 +52,8 @@ const pages: PageLike[] = [
     ...Object.values(storyEpiloguesByVillage).flatMap((events) => events.flatMap((event) => event.pages)),
     ...storyReckonings.flatMap((event) => [...event.intro, ...event.payoff]),
     ...hollowRifts.flatMap((rift) => [...rift.intro, ...rift.descent]),
-    ...ECHOES_OPPONENTS.flatMap((opponent) => [
-        ...opponent.preShowdown, ...opponent.defeat, ...opponent.firstVictory, ...opponent.rematch,
+    ...Object.values(ECHOES_SCENES).flatMap((scenes) => [
+        ...scenes.preShowdown, ...scenes.defeat, ...scenes.firstVictory, ...scenes.rematch,
     ]),
     ...[
         awakeningLv2VnEvent,

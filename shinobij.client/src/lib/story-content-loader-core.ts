@@ -1,15 +1,18 @@
 import type { StoryStep } from "../types/vn";
 import {
+    ECHOES_CONTENT_KEY,
+    ECHOES_CONTENT_SCHEMA_VERSION,
     STORY_CONTENT_SCHEMA_VERSION,
+    type EchoesContentPayload,
     type StoryContentPayload,
     type StoryContentVillage,
 } from "./story-content-contract";
 
 export type StoryContentFetch = (url: string, init: RequestInit) => Promise<Response>;
 
-type StoryContentResource =
+type ContentResource<P> =
     | { status: "pending"; promise: Promise<void> }
-    | { status: "ready"; value: StoryContentPayload }
+    | { status: "ready"; value: P }
     | { status: "error"; error: unknown };
 
 export class StoryContentLoadError extends Error {
@@ -189,21 +192,61 @@ export function validateStoryContentPayload(value: unknown, village: StoryConten
     return payload as StoryContentPayload;
 }
 
-export function createStoryContentLoader({
+const ECHOES_SCENE_KINDS = ["preShowdown", "defeat", "firstVictory", "rematch"] as const;
+
+function validEchoesScenePage(value: unknown): boolean {
+    const page = object(value);
+    return Boolean(page && exactKeys(page, ["title", "scene", "speaker", "dialogue"])
+        && nonEmptyString(page.title) && nonEmptyString(page.scene) && nonEmptyString(page.speaker)
+        && Array.isArray(page.dialogue) && page.dialogue.length > 0
+        && page.dialogue.every((line) => nonEmptyString(line)));
+}
+
+/** Shape-only, fail-closed: id parity against ECHOES_OPPONENTS is enforced by
+ * the generator at build time (the payload is content-addressed, so a bundle
+ * only ever fetches the payload generated from its own source tree). */
+export function validateEchoesContentPayload(value: unknown): EchoesContentPayload {
+    const payload = object(value);
+    if (!payload || !exactKeys(payload, ["schemaVersion", "scope", "scenes"])
+        || payload.schemaVersion !== ECHOES_CONTENT_SCHEMA_VERSION || payload.scope !== ECHOES_CONTENT_KEY) {
+        throw new StoryContentLoadError("The Echoes of War script failed schema validation.");
+    }
+    const scenes = object(payload.scenes);
+    if (!scenes || Object.keys(scenes).length === 0) throw new StoryContentLoadError("The Echoes of War script has no scenes.");
+    for (const [id, entry] of Object.entries(scenes)) {
+        const record = object(entry);
+        if (!record || !exactKeys(record, [...ECHOES_SCENE_KINDS])
+            || !ECHOES_SCENE_KINDS.every((kind) => Array.isArray(record[kind])
+                && (record[kind] as unknown[]).length > 0
+                && (record[kind] as unknown[]).every(validEchoesScenePage))) {
+            throw new StoryContentLoadError(`The Echoes of War scenes for ${id} failed schema validation.`);
+        }
+    }
+    return payload as EchoesContentPayload;
+}
+
+/** Generic content-addressed JSON loader. The village chronicles and the
+ * Echoes of War campaign share this transport (retry, timeout, immutable-cache
+ * semantics, fail-closed validation); each caller supplies its own validator. */
+export function createContentLoader<K extends string, P>({
     urlFor,
     fetchContent,
+    validate,
+    staleMessage = "This story content belongs to an older game release.",
     attempts = 3,
     timeoutMs = 12_000,
     retryDelayMs = 250,
 }: {
-    urlFor: (village: StoryContentVillage) => string;
+    urlFor: (key: K) => string;
     fetchContent: StoryContentFetch;
+    validate: (parsed: unknown, key: K) => P;
+    staleMessage?: string;
     attempts?: number;
     timeoutMs?: number;
     retryDelayMs?: number;
 }) {
-    const cache = new Map<StoryContentVillage, Promise<StoryContentPayload>>();
-    const once = async (village: StoryContentVillage, refreshGeneration = 0): Promise<StoryContentPayload> => {
+    const cache = new Map<K, Promise<P>>();
+    const once = async (village: K, refreshGeneration = 0): Promise<P> => {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), timeoutMs);
         try {
@@ -226,7 +269,7 @@ export function createStoryContentLoader({
             if (!response.ok) {
                 const staleDeployment = response.status === 404 || response.status === 410;
                 throw new StoryContentLoadError(
-                    staleDeployment ? "This village chronicle belongs to an older game release." : `Story content request failed (${response.status}).`,
+                    staleDeployment ? staleMessage : `Story content request failed (${response.status}).`,
                     response.status >= 500 || response.status === 408 || response.status === 429,
                     staleDeployment,
                 );
@@ -237,13 +280,13 @@ export function createStoryContentLoader({
             } catch {
                 throw new StoryContentLoadError(`Story content for ${village} was not valid JSON.`);
             }
-            return validateStoryContentPayload(parsed, village);
+            return validate(parsed, village);
         } finally {
             clearTimeout(timeout);
         }
     };
-    const refreshGenerations = new Map<StoryContentVillage, number>();
-    const start = (village: StoryContentVillage, refreshGeneration = 0): Promise<StoryContentPayload> => {
+    const refreshGenerations = new Map<K, number>();
+    const start = (village: K, refreshGeneration = 0): Promise<P> => {
         const pending = (async () => {
             let lastError: unknown;
             for (let attempt = 0; attempt < Math.max(1, attempts); attempt += 1) {
@@ -261,32 +304,47 @@ export function createStoryContentLoader({
         void pending.catch(() => { if (cache.get(village) === pending) cache.delete(village); });
         return pending;
     };
-    const load = (village: StoryContentVillage): Promise<StoryContentPayload> => {
+    const load = (village: K): Promise<P> => {
         const cached = cache.get(village);
         if (cached) return cached;
         return start(village);
     };
-    const refresh = (village: StoryContentVillage): Promise<StoryContentPayload> => {
+    const refresh = (village: K): Promise<P> => {
         cache.delete(village);
         const generation = (refreshGenerations.get(village) ?? 0) + 1;
         refreshGenerations.set(village, generation);
         return start(village, generation);
     };
-    return { load, refresh, clear: (village?: StoryContentVillage) => village ? cache.delete(village) : cache.clear() };
+    return { load, refresh, clear: (village?: K) => village ? cache.delete(village) : cache.clear() };
+}
+
+/** The village-chronicle loader, unchanged API: transport + village validator. */
+export function createStoryContentLoader(options: {
+    urlFor: (village: StoryContentVillage) => string;
+    fetchContent: StoryContentFetch;
+    attempts?: number;
+    timeoutMs?: number;
+    retryDelayMs?: number;
+}) {
+    return createContentLoader<StoryContentVillage, StoryContentPayload>({
+        ...options,
+        validate: validateStoryContentPayload,
+        staleMessage: "This village chronicle belongs to an older game release.",
+    });
 }
 
 /** Suspense adapter kept separate from transport caching so a same-screen retry
  * can forget a rejected render resource without creating an automatic loop. */
-export function createStoryContentResource({
+export function createContentResource<K extends string, P>({
     load,
     refresh,
 }: {
-    load: (village: StoryContentVillage) => Promise<StoryContentPayload>;
-    refresh: (village: StoryContentVillage) => Promise<StoryContentPayload>;
+    load: (key: K) => Promise<P>;
+    refresh: (key: K) => Promise<P>;
 }) {
-    const resources = new Map<StoryContentVillage, StoryContentResource>();
-    const prime = (village: StoryContentVillage, request: Promise<StoryContentPayload>): StoryContentResource => {
-        const pending: StoryContentResource = { status: "pending", promise: Promise.resolve() };
+    const resources = new Map<K, ContentResource<P>>();
+    const prime = (village: K, request: Promise<P>): ContentResource<P> => {
+        const pending: ContentResource<P> = { status: "pending", promise: Promise.resolve() };
         pending.promise = request.then(
             (value) => { resources.set(village, { status: "ready", value }); },
             (error) => { resources.set(village, { status: "error", error }); },
@@ -294,13 +352,21 @@ export function createStoryContentResource({
         resources.set(village, pending);
         return pending;
     };
-    const read = (village: StoryContentVillage): StoryContentPayload => {
+    const read = (village: K): P => {
         let resource = resources.get(village);
         if (!resource) resource = prime(village, load(village));
         if (resource.status === "pending") throw resource.promise;
         if (resource.status === "error") throw resource.error;
         return resource.value;
     };
-    const reset = (village: StoryContentVillage): void => { prime(village, refresh(village)); };
-    return { read, reset, clear: (village?: StoryContentVillage) => village ? resources.delete(village) : resources.clear() };
+    const reset = (village: K): void => { prime(village, refresh(village)); };
+    return { read, reset, clear: (village?: K) => village ? resources.delete(village) : resources.clear() };
+}
+
+/** The village-chronicle resource, unchanged API. */
+export function createStoryContentResource(options: {
+    load: (village: StoryContentVillage) => Promise<StoryContentPayload>;
+    refresh: (village: StoryContentVillage) => Promise<StoryContentPayload>;
+}) {
+    return createContentResource<StoryContentVillage, StoryContentPayload>(options);
 }

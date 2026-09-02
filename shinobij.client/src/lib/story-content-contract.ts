@@ -1,5 +1,6 @@
 import type { StoryStep } from "../types/vn";
 import type { StoryInterlude } from "../data/story-interludes";
+import type { EchoesOpponentScenes } from "../data/echoes-of-war";
 
 export const STORY_CONTENT_SCHEMA_VERSION = 1 as const;
 export const STORY_CONTENT_VILLAGES = [
@@ -24,3 +25,17 @@ export function isStoryContentVillage(value: string): value is StoryContentVilla
 export function storyContentSlug(village: StoryContentVillage): string {
     return village.toLowerCase().replace(/\s+village$/, "").replace(/[^a-z0-9]+/g, "-");
 }
+
+/** The Echoes of War campaign script rides the same content-addressed pipeline
+ * as the village chronicles: authored in data/echoes-of-war-scenes.ts, emitted
+ * by scripts/generate-story-content.mts, fetched by lib/echoes-content-loader.ts. */
+export const ECHOES_CONTENT_SCHEMA_VERSION = 1 as const;
+export const ECHOES_CONTENT_KEY = "echoes-of-war" as const;
+
+export type EchoesContentKey = typeof ECHOES_CONTENT_KEY;
+export type EchoesContentPayload = {
+    schemaVersion: typeof ECHOES_CONTENT_SCHEMA_VERSION;
+    scope: EchoesContentKey;
+    /** Scene scripts keyed by opponent id, in floor order. */
+    scenes: Record<string, EchoesOpponentScenes>;
+};
