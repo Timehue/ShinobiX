@@ -64,6 +64,10 @@ export type EchoesEra = {
     title: string;
     /** One-line evocation shown under the title on the plate. */
     tagline: string;
+    /** One-line tease shown on the plate while the age is still sealed,
+     * so locked ages read as four different promises, not one repeated
+     * placeholder. */
+    sealedTease: string;
     /** Contiguous, inclusive floor range this age covers. */
     floors: readonly number[];
     /** Wide establishing banner for the age plate. */
@@ -244,21 +248,25 @@ export const ECHOES_ERAS: readonly EchoesEra[] = [
     {
         id: "echoes-age-1", ageLabel: "Age I", title: "The Unheard",
         tagline: "The ones history blamed first.",
+        sealedTease: "Three of the blamed are waiting on the first floors.",
         floors: [1, 2, 3], plateImage: eraScene("age-1"), band: "low",
     },
     {
         id: "echoes-age-2", ageLabel: "Age II", title: "The Buried",
         tagline: "When the ledgers learned to lie.",
+        sealedTease: "The people who kept the Court's books are waiting above.",
         floors: [4, 5, 6], plateImage: eraScene("age-2"), band: "mid",
     },
     {
         id: "echoes-age-3", ageLabel: "Age III", title: "The Silenced",
         tagline: "When the Gate had a name, and naming it was a crime.",
+        sealedTease: "Three who kept the quiet, kept by the tower in turn.",
         floors: [7, 8, 9], plateImage: eraScene("age-3"), band: "high",
     },
     {
         id: "echoes-age-4", ageLabel: "Age IV", title: "The Last Day",
         tagline: "One man, and one more day.",
+        sealedTease: "One door at the top, and one lamp still burning behind it.",
         floors: [10], plateImage: eraScene("age-4"), band: "court",
     },
 ];

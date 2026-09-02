@@ -17,7 +17,7 @@ import { storyReckonings } from "./story-reckonings";
 import { storyRoadEvents } from "./story-road-events";
 import { hollowRifts } from "./hollow-rifts";
 import { ECHOES_ERA_INTROS, ECHOES_SCENES } from "./echoes-of-war-scenes";
-import { ECHOES_HERO_COPY } from "./echoes-of-war";
+import { ECHOES_ERAS, ECHOES_HERO_COPY } from "./echoes-of-war";
 import { defaultVnPortrait, resolveVnActorBaseImage, splitDialogueLine } from "../lib/vn";
 import { DERIVED_TRAIT_LEVELS } from "../lib/story-derive";
 
@@ -140,6 +140,7 @@ test("the Hollow Gate remains human-built infrastructure across every campaign",
         // The landing copy carries the "not their souls" reconciliation and the
         // two-age framing; it must be scanned for origin reversal too.
         { title: "", scene: "", speaker: "Narrator", dialogue: [ECHOES_HERO_COPY.eyebrow, ECHOES_HERO_COPY.subtitle, ECHOES_HERO_COPY.footnote] },
+        { title: "", scene: "", speaker: "Narrator", dialogue: ECHOES_ERAS.flatMap((era) => [era.ageLabel, era.title, era.tagline, era.sealedTease]) },
     ];
     const campaignPages: AnyPage[] = [
         ...allContent().filter(({ kind }) => kind !== "road").flatMap(({ pages }) => pages),

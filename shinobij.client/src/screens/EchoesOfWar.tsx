@@ -41,8 +41,10 @@ import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
 import { CardClashDuel } from "./CardClashDuel";
 import "./EchoesOfWar.css";
 
-/** Beat between "you chose to enter" and the board mounting: the veil. */
-const ENTER_MEMORY_VEIL_MS = 850;
+/** Beat between "you chose to enter" and the board mounting: the matchup
+ * splash. Long enough to read both names once; skipped entirely under
+ * prefers-reduced-motion. */
+const ENTER_MEMORY_VEIL_MS = 1650;
 
 function prefersReducedMotion(): boolean {
     try {
@@ -366,13 +368,49 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
         />;
     }
 
-    // The pre-Showdown veil covers whichever browsing view is behind it.
+    // The pre-Showdown veil covers whichever browsing view is behind it: a
+    // full matchup splash where the echo and the challenger meet across the
+    // tower's divide before the memory opens. The floor's own scene art is
+    // the backdrop, so every floor gets a bespoke card.
     const veilBand = veil ? echoesBandForFloor(veil.opponent.floor) : "low";
+    const veilEra = veil ? echoesEraForFloor(veil.opponent.floor) : null;
     const veilOverlay = veil ? (
-        <div className="echoes-veil" style={{ "--band": `var(--echoes-${veilBand})` } as CSSProperties} role="status">
-            <div className="echoes-veil-text">
-                Floor {veil.opponent.floor} · {veil.opponent.name}, {veil.opponent.title}
+        <div
+            className="echoes-veil"
+            style={{
+                "--band": `var(--echoes-${veilBand})`,
+                "--vs-scene": `url(${veil.opponent.sceneImage})`,
+            } as CSSProperties}
+            role="status"
+            aria-label={`Floor ${veil.opponent.floor}. ${veil.opponent.name}, ${veil.opponent.title}, versus ${character.name}. The tower opens the memory.`}
+        >
+            <div className="echoes-vs-stage">
+            <div className="echoes-vs-panel echoes-vs-panel--echo" aria-hidden="true">
+                <span
+                    className="echoes-vs-portrait"
+                    style={{ backgroundImage: `linear-gradient(color-mix(in srgb, var(--band, #d9c88a) 14%, transparent), transparent 46%), url(${veil.opponent.portrait})` }}
+                />
+                <span className="echoes-vs-id">
+                    <small>Floor {veil.opponent.floor}{veilEra ? ` · ${veilEra.title}` : ""}</small>
+                    <strong>{veil.opponent.name}</strong>
+                    <em>{veil.opponent.title}</em>
+                </span>
+            </div>
+            <div className="echoes-vs-slash" aria-hidden="true"><b>VS</b></div>
+            <div className="echoes-vs-panel echoes-vs-panel--challenger" aria-hidden="true">
+                <span
+                    className="echoes-vs-portrait"
+                    style={{ backgroundImage: `linear-gradient(color-mix(in srgb, var(--band, #d9c88a) 14%, transparent), transparent 46%), url(${character.avatarImage || "/portraits/echoes-challenger.webp"})` }}
+                />
+                <span className="echoes-vs-id">
+                    <small>Challenger</small>
+                    <strong>{character.name}</strong>
+                    <em>The one who climbs</em>
+                </span>
+            </div>
+            <div className="echoes-veil-text echoes-vs-caption" aria-hidden="true">
                 <small>The tower opens the memory.</small>
+            </div>
             </div>
         </div>
     ) : null;
@@ -597,7 +635,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                                 unlocked ? "" : "echoes-age-plate--locked",
                                 complete ? "echoes-age-plate--complete" : "",
                             ].filter(Boolean).join(" ")}
-                            style={{ backgroundImage: unlocked ? `url(${era.plateImage})` : undefined }}
+                            style={{ backgroundImage: `url(${era.plateImage})` }}
                             disabled={!unlocked}
                             onClick={() => openEra(era)}
                         >
@@ -606,7 +644,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                                 <span className="echoes-age-plate-label">{era.ageLabel}{eraIntroSeen(era) ? "" : unlocked ? " · New" : ""}</span>
                                 <strong className="echoes-age-plate-title">{unlocked ? era.title : "A sealed age"}</strong>
                                 <span className="echoes-age-plate-tagline">
-                                    {unlocked ? era.tagline : "Finish the age below to uncover these memories."}
+                                    {unlocked ? era.tagline : era.sealedTease}
                                 </span>
                                 {unlocked ? (
                                     <span className="echoes-age-plate-progress">
