@@ -6601,10 +6601,19 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
     }
 }
 
+/* Short-desktop tier (1280x720, 1366x768). The board is the only 1fr row, so
+   it absorbs whatever the fixed rows leave -- which made it silent collateral
+   when the AP capsule grew 66px -> 94px to stop its captions being clipped by
+   the capsule's rounded top. The board fell 250px -> 222px, below the 240px
+   this composition is built around, and the dossier column shrank with it
+   until the closing "Level / Power" line dropped out of view entirely.
+   Give the board an explicit 240px floor and take the 18px from the command
+   deck, which scrolls internally and still shows the same single card row at
+   this height. Nothing is taken from the AP capsule or the title bar. */
 @container shinobi-combat (min-width: 1180px) and (min-height: 660px) and (max-height: 739px) {
     #combat .combat-layout,
     #combat .combat-layout.has-action-notice {
-        grid-template-rows: 52px 94px 22px minmax(190px, 1fr) 60px 180px !important;
+        grid-template-rows: 52px 94px 22px minmax(240px, 1fr) 60px 162px !important;
     }
 }
 
