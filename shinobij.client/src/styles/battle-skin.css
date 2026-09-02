@@ -967,6 +967,13 @@
     letter-spacing: 0.22em;
 }
 
+/* PvP result — generated key art over the existing battle-end grammar. */
+.arena-fullscreen .battle-ended-overlay.battle-ended-overlay--stage.pvp-result-overlay { background: linear-gradient(#01060d9e, #01060de8), url("/combat/results/pvp-victory-backdrop.webp") center/cover !important; }
+.arena-fullscreen .pvp-result-overlay.pvp-result-defeat { background-image: linear-gradient(#0f020499, #080205eb), url("/combat/results/pvp-defeat-backdrop.webp") !important; }
+.pvp-result-card { max-width: 680px; max-height: calc(100% - 20px); overflow: auto; }
+.pvp-result-rewards, .pvp-result-settlement { width: 100%; padding: 10px; border: 1px solid #cfae5645; background: #020914df; }
+.pvp-result-rewards > header, .pvp-result-settlement { display: flex; justify-content: space-between; gap: 8px; }
+.pvp-result-settlement.is-failed { color: #ffd0c7; border-color: #ef7770; }
 .arena-fullscreen .combat-jutsu-detail-popover,
 .arena-fullscreen .combat-item-detail-popover,
 body > .combat-detail-backdrop > .combat-jutsu-detail-popover,

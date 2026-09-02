@@ -65,6 +65,12 @@ describe("pvp-reward-claim", () => {
             // case: an already-claimed battle must not re-run either callback.
             progressionAuthorized: false,
         });
+        if (result.status === "confirmed") {
+            assert.equal(
+                pvpRewardSettlementNotice(result, { draw: false, spar: false }),
+                "Official result verified; no personal payout for this result.",
+            );
+        }
     });
 
     it("preserves the authoritative Clan War scroll roll and explains both outcomes", async () => {
@@ -83,11 +89,52 @@ describe("pvp-reward-claim", () => {
             assert.deepEqual(result.clanWarScrollDrop, { awarded, chancePercent: 20 });
             const notice = pvpRewardSettlementNotice(result, { draw: false, spar: false });
             if (awarded === 1) {
-                assert.match(notice, /Scroll dropped.*\+1 added to your inventory/i);
+                assert.match(notice, /\+1 Territory Scroll/i);
             } else {
                 assert.match(notice, /no Territory Control Scroll.*20% chance/i);
             }
         }
+    });
+
+    it("projects exact server rewards for the battle result panel", async () => {
+        const result = await postPvpRewardClaim(async () => response(200, {
+            ok: true,
+            alreadyClaimed: false,
+            completionPending: true,
+            rewardAuthorized: true,
+            progressionAuthorized: true,
+            rating: { field: "rankedRating", value: 1016, delta: 16 },
+            base: {
+                ryo: 175,
+                reward: { ryo: 75, combatGrowth: 4, auraDust: 6 },
+            },
+            warGroundReward: {
+                fresh: true,
+                bountyCredited: true,
+                raidProgress: 1,
+                ryoAwarded: 500,
+                fateShardsAwarded: 1,
+            },
+            raidProgression: {
+                fetchMissionsCredited: [],
+                missionsCompleted: [],
+                xpAwarded: 30,
+                bonusRyo: 50,
+                bonusSeals: 2,
+                territoryDamage: 250,
+                sector: 44,
+                replayed: false,
+            },
+            warPoints: { awarded: 50, kind: "clan" },
+            clanWarScrollDrop: { awarded: 1, chancePercent: 20 },
+        }), { playerName: "rin", battleId: "reward-panel", outcome: "win" });
+
+        assert.equal(result.status, "confirmed");
+        if (result.status !== "confirmed") return;
+        assert.equal(
+            pvpRewardSettlementNotice(result, { draw: false, spar: false }),
+            "Rewards secured — +625 Ryo · +4 Combat Growth · +30 Vanguard XP · +50 Clan War Points · +6 Aura Dust · +1 Fate Shards · +2 Honor Seals · +1 Territory Scroll · +16 Rating.",
+        );
     });
 
     it("rejects malformed Clan War scroll projections instead of inventing reward copy", async () => {
@@ -224,6 +271,7 @@ describe("pvp-reward-claim", () => {
 
     it("adopts a replay snapshot before durable completion and does not invoke legacy raid authority", () => {
         const screen = readFileSync(new URL("../screens/PvpBattleScreen.tsx", import.meta.url), "utf8");
+        const resultPanel = readFileSync(new URL("../components/PvpBattleResultPanel.tsx", import.meta.url), "utf8");
         const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
         const serverClaim = readFileSync(new URL("../../../api/pvp/claim-rewards.ts", import.meta.url), "utf8");
         const adopt = screen.indexOf("await bounded(onRewardClaim?.(result, continuationContext))");
@@ -249,26 +297,23 @@ describe("pvp-reward-claim", () => {
         assert.match(app, /pvpContinuationResultRef\.current\.get\(pvpSettlementScopeKey\)/);
         assert.match(screen, /const outcome: "win" \| "loss" \| "draw" = isDrawNow \? "draw"/,
             "participant draws must use the same durable claim protocol");
-        assert.match(screen, /!amSpectator && pvpRewardClaimState === "failed"/,
+        assert.match(resultPanel, /const failed = p\.settlementState === "failed"[\s\S]*onClick=\{p\.onRetrySettlement\}>Retry/,
             "draw failures must expose the retry UI instead of silently enabling exit");
-        assert.match(screen, /disabled=\{!amSpectator && pvpRewardClaimState === "claiming"\}>Return to Village/,
-            "every participant outcome, including draw, must stay fenced while a claim is in flight");
-        // …but only while it is IN FLIGHT. This used to read `!== "confirmed"`,
-        // which also killed both exits in the FAILED state. On 2026-09-01 two
-        // stacked deterministic failures (a CAS against a territory row that had
-        // never been stored, then a completion phase that always overran its
-        // ceiling) left Retry as the only control on screen — and neither could
-        // ever succeed. Leaving is non-destructive: the durable reward receipt and
-        // the pending-session pointer both survive and replay the claim.
-        assert.ok(
-            !/disabled=\{!amSpectator && pvpRewardClaimState !== "confirmed"\}>(Return to Village|World Map)/.test(screen),
-            "a failed settlement must not disable every exit at once — Retry is an escape hatch only if retry can succeed",
-        );
+        assert.match(screen, /settlementState=\{pvpRewardClaimState\}[\s\S]*onRetrySettlement=\{\(\) => \{ void claimResolvedPvpReward\(\); \}\}/,
+            "the result panel retry must resubmit the authoritative claim");
+        assert.match(resultPanel, /const exitsEnabled = confirmed \|\| failed/,
+            "participants must stay fenced while a claim is in flight, but a deterministic failure must never trap them");
+        assert.match(resultPanel, /onClick=\{p\.onReturnToBattlefield\} disabled=\{!exitsEnabled\}/,
+            "only the contextual battlefield return is settlement-gated");
+        assert.match(screen, /battleTabs\.setTab\("log"\);[\s\S]*setShowResultPanel\(false\)/,
+            "the Battle Log action must reveal the final inline log instead of navigating away");
+        assert.ok(!resultPanel.includes("Return to Village"),
+            "the result panel must not offer a generic village escape");
+        // A completed stage must also refresh its phase budget. Without this,
+        // every retry can abort at the same ceiling even while making progress.
         assert.match(screen, /renewDeadline = \(\) => \{[\s\S]*?completionPhaseStartedAt = Date\.now\(\)/,
             "a completed stage must restart the phase budget, or a slow-but-progressing settlement "
             + "aborts at the same ceiling on every retry and can never finish");
-        assert.match(screen, /disabled=\{pvpRewardClaimState !== "confirmed"\}[\s\S]*>View Full Battle Record/,
-            "battle-record navigation must not bypass a draw's pending completion");
         assert.match(serverClaim, /if \(terminalIsDraw\)[\s\S]*await replayCommittedPvpTerminalEffects\(session\)/,
             "draw claims must help forward official terminal effects before completion");
         const pvpMount = app.slice(

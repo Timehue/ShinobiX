@@ -13,7 +13,18 @@ import { normalizeJutsu } from "./jutsu";
 import { sanitizeArmorAndGloveItem } from "./items";
 import type { Character } from "../types/character";
 import type { GameItem, Jutsu, SavedBloodline } from "../types/combat";
+import type { Screen } from "../types/core";
+import type { PvpRecoveryContext } from "./pvp-pending-session";
 import { bindPvpSessionCreateIntent } from "./pvp-session-intent";
+
+export function pvpResultReturn(context: PvpRecoveryContext | null, currentSector: number): { returnTarget: Screen; returnLabel: string } {
+    const returnTarget: Screen = context?.sectorAttack ? "worldMap" : context?.mode?.startsWith("clanWar") ? "clan" : "battleArena";
+    return {
+        returnTarget,
+        returnLabel: returnTarget === "worldMap" ? `Return to Sector ${context?.sector ?? currentSector}`
+            : returnTarget === "clan" ? "Return to Clan War" : "Return to Arena",
+    };
+}
 
 // PvP session environment selector. The server reads biome + weather elements
 // from the SEALED session at create time and intentionally ignores them on

@@ -204,7 +204,7 @@ const WorldCrisis = lazyWithRetry(() => import("./screens/WorldCrisis").then(m =
 const loadMissionCatalog = () => import("./data/missions");
 const mutateDungeonRunServer = (playerName: string, action: "start" | "settle" | "abandon", token = "") =>
     import("./lib/dungeon-api").then((api) => api.mutateDungeonRunServer(playerName, action, token));
-import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment } from "./lib/pvp-session";
+import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment, pvpResultReturn } from "./lib/pvp-session";
 import { readPvpBrowserBreadcrumb, type PvpRecoveryContext } from "./lib/pvp-pending-session";
 const loadPvpSessionCreate = () => import("./lib/pvp-session-create"), loadPvpPendingFetch = () => import("./lib/pvp-pending-fetch");
 import { usePvpSessionController } from "./lib/use-pvp-session-controller";
@@ -6988,7 +6988,7 @@ export default function App() {
                             battleId={pvpBattleId}
                             role={pvpRole}
                             setScreen={navigate}
-                            onViewBattleRecord={(battleId) => { setViewedBattleId(battleId); navigate("battleLog"); }}
+                            {...pvpResultReturn(pvpBattleContext, currentSector)}
                             equippedJutsu={pvpJutsus}
                             equippedItems={pvpItems}
                             currentBiome={currentBiome}
