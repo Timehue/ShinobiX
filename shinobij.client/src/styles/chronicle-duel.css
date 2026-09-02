@@ -4951,3 +4951,590 @@ button.chronicle-card {
     transform: none;
   }
 }
+
+/* ==============================================================
+   AAA DEPTH PASS v1 (2026-09) — give the flat mat a raked, lit
+   battlefield read using ONLY paint, non-interactive pseudo
+   layers, and card-local transforms. No interactive-zone geometry
+   changes, so click hit-testing and the chronicle-duel-ux /
+   non-combat-ui-audit e2e geometry stay intact.
+   ============================================================== */
+
+/* Play rows paint above the depth layers. Already in normal flow;
+   z-index sets paint order only, never geometry. */
+.chronicle-playmat > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Raked ground plane: a tactical floor grid that recedes toward a
+   horizon high on the mat. The tilt lives on a pseudo-element, so
+   cards stay axis-aligned + clickable while the stage reads 3D. */
+.chronicle-playmat::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 6% -35% -16% -35%;
+  pointer-events: none;
+  transform: perspective(1180px) rotateX(62deg);
+  transform-origin: center 10%;
+  background-color: rgba(6, 13, 19, 0.22);
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 calc(6.5% - 1px),
+      rgba(150, 198, 216, 0.16) calc(6.5% - 1px) 6.5%
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 calc(9% - 1px),
+      rgba(150, 198, 216, 0.11) calc(9% - 1px) 9%
+    );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 30%,
+    #000 82%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 30%,
+    #000 82%,
+    transparent 100%
+  );
+}
+
+/* Focal light at the horizon + edge vignette for depth and drama. */
+.chronicle-playmat::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      74% 34% at 50% 18%,
+      rgba(152, 202, 226, 0.13),
+      transparent 62%
+    ),
+    radial-gradient(125% 82% at 50% 44%, transparent 50%, rgba(2, 6, 10, 0.52) 100%);
+}
+
+/* Opponent monsters/support stand upright and readable (like the
+   bar) instead of flipped 180deg upside-down. The more-specific
+   defense-position rule still lays defenders on their side. */
+.chronicle-zone-row.opponent .chronicle-card {
+  transform: none;
+}
+
+/* Ground the played cards: a contact shadow so a monster sits on
+   the floor instead of floating on wallpaper. box-shadow does not
+   affect layout or hit-testing. */
+.chronicle-playmat .chronicle-zone .chronicle-card.compact {
+  box-shadow:
+    0 13px 17px -8px rgba(0, 0, 0, 0.8),
+    0 3px 6px rgba(0, 0, 0, 0.52);
+}
+
+/* Empty zones read as quiet sockets, not debug text. The label is
+   kept for onboarding + screen readers but dropped back visually. */
+.chronicle-playmat .chronicle-zone > span:only-child {
+  opacity: 0.34;
+  font-size: 0.46rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+/* ---- AAA DEPTH PASS v1 — gap 3: life + turn state read at a glance ---- */
+.chronicle-combatant b {
+  min-width: 100px;
+  padding: 4px 13px;
+  border-color: rgba(240, 196, 105, 0.62);
+  background: linear-gradient(180deg, rgba(13, 21, 29, 0.94), rgba(6, 11, 17, 0.94));
+  font-size: 1.24rem;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  color: #ffe6b0;
+  text-shadow: 0 0 12px rgba(255, 205, 120, 0.38);
+  box-shadow:
+    inset 0 0 14px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    0 4px 14px rgba(0, 0, 0, 0.42);
+}
+.chronicle-combatant b small {
+  font-size: 0.44rem;
+  color: #b7c6d4;
+  vertical-align: 0.42em;
+  letter-spacing: 0.12em;
+}
+.chronicle-turn {
+  border: 1px solid rgba(240, 196, 99, 0.5);
+  border-radius: 9px;
+  background:
+    radial-gradient(120% 140% at 50% 0%, rgba(240, 196, 99, 0.17), transparent 62%),
+    linear-gradient(180deg, rgba(21, 27, 21, 0.96), rgba(8, 12, 10, 0.96));
+  padding: 6px 18px;
+  box-shadow:
+    inset 0 0 20px rgba(240, 196, 99, 0.08),
+    0 0 20px rgba(240, 196, 99, 0.1);
+}
+.chronicle-turn b {
+  color: #f7d99d;
+  font-size: 0.94rem;
+  letter-spacing: 0.14em;
+  text-shadow: 0 0 12px rgba(246, 215, 154, 0.42);
+}
+.chronicle-turn span {
+  color: #d9c69c;
+  letter-spacing: 0.16em;
+}
+
+/* ---- gap 2: a played monster's stat reads as a bold floating plate,
+   not a full-width bar jammed under a thumbnail. ---- */
+.chronicle-playmat .chronicle-zone > small {
+  right: auto;
+  left: 50%;
+  bottom: 5px;
+  width: max-content;
+  max-width: calc(100% - 8px);
+  transform: translateX(-50%);
+  border: 1px solid rgba(240, 196, 99, 0.44);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(18, 13, 4, 0.95), rgba(6, 5, 2, 0.95));
+  padding: 2px 10px;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  color: #ffdf9c;
+  text-shadow: 0 0 10px rgba(255, 200, 110, 0.42);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+/* ==============================================================
+   AAA DEPTH PASS v2 — the raked stage. Desktop only; mobile keeps
+   the flat (already-upgraded) mat. Pure transforms: layout boxes,
+   pointer hit-testing, and the e2e rect assertions all project
+   through CSS 3D correctly.
+   ============================================================== */
+
+/* The opponent's field label reads right-side up. */
+.chronicle-side-label.opponent {
+  transform: none;
+}
+
+/* Stat plates never wrap to two lines. */
+.chronicle-playmat .chronicle-zone > small {
+  white-space: nowrap;
+}
+
+/* Compact board/hand backs read as clean card backs, not text
+   panels (the container keeps its aria-label for screen readers). */
+.chronicle-card.back.compact span {
+  display: none;
+}
+.chronicle-card.back.compact {
+  border-color: rgba(151, 118, 61, 0.8);
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.55);
+}
+
+@media (min-width: 1024px) {
+  /* The rake: tilt the whole mat into perspective. The 0.982
+     counter-scale keeps the PROJECTED box inside the layout box —
+     without it the projected top edge rises ~6px above the layout
+     rect and the device-matrix "playmat starts outside the
+     viewport" containment assertion reds on every project. */
+  .chronicle-playmat {
+    transform: perspective(1500px) rotateX(16deg) scale(0.982);
+    transform-origin: 50% 66%;
+  }
+  /* The mat itself is tilted now, so the floor pseudo becomes a
+     straight tactical grid lying ON that plane instead of faking
+     its own tilt. */
+  .chronicle-playmat::before {
+    inset: -2%;
+    transform: none;
+  }
+  /* Stand face-up cards upright on the raked floor, feet planted.
+     Face-down sets stay lying on the mat, and the more-specific
+     defense-position rules keep defenders lying sideways. */
+  .chronicle-playmat .chronicle-zone .chronicle-card:not(.back) {
+    transform: rotateX(-16deg);
+    transform-origin: 50% 100%;
+  }
+  /* Zones stop clipping so standees rise past the socket edge. */
+  .chronicle-playmat .chronicle-zone {
+    overflow: visible;
+  }
+  /* Stat plates stand with their card. */
+  .chronicle-playmat .chronicle-zone > small {
+    transform: translateX(-50%) rotateX(-16deg);
+    transform-origin: 50% 100%;
+  }
+  /* Elliptical contact shadow at a standee's feet. */
+  .chronicle-playmat .chronicle-zone:has(> .chronicle-card:not(.back))::after {
+    content: "";
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    bottom: 1px;
+    height: 13px;
+    pointer-events: none;
+    background: radial-gradient(50% 100% at 50% 50%, rgba(0, 0, 0, 0.58), transparent 72%);
+    filter: blur(2px);
+  }
+  /* Elemental rim light so a summoned monster reads lit, not flat. */
+  .chronicle-playmat .monster-zone .chronicle-card:not(.back) {
+    box-shadow:
+      0 14px 18px -8px rgba(0, 0, 0, 0.82),
+      0 3px 6px rgba(0, 0, 0, 0.5),
+      0 0 24px -4px color-mix(in srgb, var(--chronicle-element, #f0c463) 55%, transparent);
+  }
+}
+
+/* Opponent pile labels (deck/graveyard rail) read right-side up. */
+.chronicle-pile-zone.opponent {
+  transform: none;
+}
+
+@media (min-width: 1024px) {
+  /* Defense cards pivot around their center again — the standee
+     rule's foot-pivot transform-origin must not leak into the
+     higher-specificity defense rotation, or the 90deg turn swings
+     the card out of its zone. */
+  .chronicle-playmat .chronicle-zone.defense-position .chronicle-card {
+    transform-origin: 50% 50%;
+  }
+  /* A summoned attack-position monster rises past its socket with
+     real presence instead of sitting inside it as a thumbnail. */
+  .chronicle-playmat .chronicle-zone.monster-zone.attack-position .chronicle-card:not(.back) {
+    transform: rotateX(-16deg) scale(1.16);
+    filter: saturate(1.07) contrast(1.04);
+  }
+}
+
+/* Hand cards: names wrap to two lines instead of truncating to a
+   letter — you must be able to read what you are holding. */
+.chronicle-hand .chronicle-card .chronicle-card__name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 0.4rem;
+  letter-spacing: 0.03em;
+  line-height: 1.18;
+}
+
+@media (min-width: 1024px) {
+  /* On the mat a card reads as an art figure: the nameplate is
+     inspector information, so only the element gem stays, floating
+     over full-bleed art. (Hand cards keep their nameplates.) */
+  .chronicle-playmat .chronicle-zone .chronicle-card.compact {
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .chronicle-playmat .chronicle-zone .chronicle-card.compact .chronicle-card__header {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    left: auto;
+    z-index: 4;
+    min-height: 0;
+    margin: 0;
+    border: none;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .chronicle-playmat .chronicle-zone .chronicle-card.compact .chronicle-card__name {
+    display: none;
+  }
+  /* The mid-field band becomes a narrower glass strip so the raked
+     floor reads as one continuous stage behind it. */
+  .chronicle-field-divider {
+    min-height: 78px;
+    margin-inline: 6%;
+    border-radius: 10px;
+    border: 1px solid rgba(189, 153, 91, 0.24);
+    background: rgba(3, 7, 11, 0.46);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+  }
+}
+
+/* ==============================================================
+   AAA DEPTH PASS v3 — execution energy. Summons read as lit
+   figures on a stage; the mat is the brightest plane on screen;
+   vitals carry real mass. Still pure paint + card-local transforms.
+   ============================================================== */
+
+@media (min-width: 1024px) {
+  /* A summoned attacker is a figure on the stage, not a thumbnail
+     in a slot: bigger, lit, casting a real shadow, breathing. */
+  .chronicle-playmat .chronicle-zone.monster-zone.attack-position .chronicle-card:not(.back) {
+    transform: rotateX(-16deg) scale(1.3);
+    animation: chronicle-standee-breathe 3.6s ease-in-out infinite;
+  }
+  /* An occupied zone paints above its empty neighbors so a standee
+     is never sliced by the next socket's border. */
+  .chronicle-playmat .chronicle-zone:has(> .chronicle-card:not(.back)) {
+    z-index: 2;
+  }
+  .chronicle-playmat .chronicle-zone:has(> .chronicle-card:not(.back))::after {
+    left: 2%;
+    right: 2%;
+    height: 16px;
+    background: radial-gradient(50% 100% at 50% 50%, rgba(0, 0, 0, 0.66), transparent 74%);
+  }
+
+  /* Lighting hierarchy: the battlefield is the brightest plane on
+     screen; the arena backdrop behind it falls away. */
+  .chronicle-table {
+    background:
+      radial-gradient(
+        ellipse at center,
+        rgba(14, 22, 26, 0.55),
+        rgba(3, 6, 9, 0.94) 76%
+      ),
+      url("/chronicle/fields/neutral.webp") center / cover no-repeat,
+      linear-gradient(#141a20, #070b10);
+  }
+  .chronicle-table.has-field {
+    background-image:
+      linear-gradient(rgba(3, 7, 11, 0.6), rgba(3, 7, 11, 0.82)),
+      var(--chronicle-field-art);
+  }
+  .chronicle-playmat {
+    background:
+      linear-gradient(rgba(6, 14, 20, 0.28), rgba(4, 11, 17, 0.44)),
+      repeating-linear-gradient(
+        90deg,
+        transparent 0 19%,
+        rgba(95, 171, 186, 0.07) 19% 20%
+      ),
+      url("/chronicle/fields/neutral.webp") center / cover no-repeat;
+  }
+  .chronicle-table.has-field .chronicle-playmat {
+    background-image:
+      linear-gradient(rgba(3, 9, 13, 0.16), rgba(3, 9, 13, 0.4)),
+      var(--chronicle-field-art);
+  }
+  /* Warm stage pool where the action lives + a deeper outer falloff. */
+  .chronicle-playmat::after {
+    background:
+      radial-gradient(58% 52% at 50% 50%, rgba(255, 194, 128, 0.1), transparent 64%),
+      radial-gradient(74% 34% at 50% 16%, rgba(152, 202, 226, 0.12), transparent 62%),
+      radial-gradient(128% 85% at 50% 46%, transparent 44%, rgba(2, 5, 9, 0.66) 100%);
+  }
+
+  /* Vitals with mass: LP numerals dominate their plates. */
+  .chronicle-combatant b {
+    min-width: 118px;
+    font-size: 1.44rem;
+  }
+  /* The live phase chip is a lit medallion, not a strip entry. */
+  .chronicle-phase-rail li.active {
+    transform: scale(1.07);
+    box-shadow:
+      inset 0 0 18px rgba(240, 196, 99, 0.18),
+      0 0 16px rgba(240, 196, 99, 0.28);
+  }
+  .chronicle-phase-rail li.active b {
+    font-size: 0.78rem;
+  }
+  .chronicle-phase-rail li.active span {
+    font-weight: 800;
+  }
+}
+
+@keyframes chronicle-standee-breathe {
+  0%,
+  100% {
+    filter: saturate(1.1) contrast(1.05) brightness(1.07);
+  }
+  50% {
+    filter: saturate(1.16) contrast(1.06) brightness(1.19);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chronicle-playmat .chronicle-zone .chronicle-card {
+    animation: none !important;
+  }
+}
+
+/* ==============================================================
+   AAA DEPTH PASS v4 — the monsters dominate. The socket grid only
+   used ~40% of the mat's width; on desktop the zones themselves
+   grow, and the standees on them approach twice their old size.
+   ============================================================== */
+@media (min-width: 1024px) {
+  .chronicle-playmat {
+    --chron-zone-w: clamp(72px, 13.8vmin, 165px);
+  }
+  /* Hotter presence: brighter breathe + stronger elemental rim. */
+  .chronicle-playmat .monster-zone .chronicle-card:not(.back) {
+    box-shadow:
+      0 16px 20px -8px rgba(0, 0, 0, 0.85),
+      0 3px 7px rgba(0, 0, 0, 0.5),
+      0 0 30px -2px color-mix(in srgb, var(--chronicle-element, #f0c463) 72%, transparent);
+  }
+  /* Hero vitals: LP numerals you can read from across the room,
+     riding a thicker health meter. */
+  .chronicle-combatant b {
+    min-width: 132px;
+    font-size: 1.72rem;
+    padding: 3px 15px;
+  }
+  .chronicle-health-meter {
+    height: 13px;
+  }
+  .chronicle-turn {
+    padding: 8px 22px;
+  }
+  .chronicle-turn b {
+    font-size: 1.06rem;
+  }
+  .chronicle-turn span {
+    font-size: 0.72rem;
+  }
+}
+
+/* ==============================================================
+   AAA DEPTH PASS v5 — the board center reads from across the room.
+   Standees half again bigger, stat plates at readable weight, and
+   a colored summon aura pooling under every fielded monster.
+   ============================================================== */
+@media (min-width: 1024px) {
+  .chronicle-playmat .chronicle-zone.monster-zone.attack-position .chronicle-card:not(.back) {
+    transform: rotateX(-16deg) scale(1.5);
+  }
+  .chronicle-playmat .chronicle-zone.monster-zone.defense-position .chronicle-card:not(.back) {
+    filter: saturate(1.06) brightness(1.05);
+  }
+  .chronicle-playmat .chronicle-zone > small {
+    bottom: 2px;
+    padding: 3px 11px;
+    font-size: 0.84rem;
+    border-width: 2px;
+  }
+  /* The summon aura: an elemental light pool under the standee,
+     over the contact shadow. */
+  .chronicle-playmat .chronicle-zone.monster-zone:has(> .chronicle-card:not(.back))::after {
+    left: -6%;
+    right: -6%;
+    height: 22px;
+    background:
+      radial-gradient(50% 100% at 50% 50%, rgba(0, 0, 0, 0.6), transparent 74%);
+    box-shadow: 0 0 34px 10px color-mix(in srgb, var(--chronicle-aura, #f0c463) 26%, transparent);
+  }
+}
+
+/* ==============================================================
+   AAA DEPTH PASS v6 — duelist portrait plates, and the desktop
+   restructure that hands the monster rows the vertical space the
+   backrows never needed. Desktop-only; mobile untouched.
+   ============================================================== */
+@media (min-width: 1024px) {
+  /* Duelists are faces, not monogram chips. */
+  .chronicle-combatant {
+    grid-template-columns: 84px minmax(0, 1fr) !important;
+  }
+  .chronicle-duelist-avatar {
+    width: 84px;
+    height: 84px;
+    border-width: 2px;
+    box-shadow:
+      inset 0 0 18px rgba(0, 0, 0, 0.72),
+      0 0 0 2px rgba(5, 10, 15, 0.82),
+      0 0 22px rgba(217, 175, 98, 0.22),
+      0 8px 20px rgba(0, 0, 0, 0.5);
+  }
+  .chronicle-duelist-avatar.opponent {
+    box-shadow:
+      inset 0 0 18px rgba(0, 0, 0, 0.72),
+      0 0 0 2px rgba(5, 10, 15, 0.82),
+      0 0 22px rgba(181, 67, 58, 0.26),
+      0 8px 20px rgba(0, 0, 0, 0.5);
+  }
+
+  /* The monster rows own the stage: sockets grow, backrows shrink
+     to support strips underneath the action. */
+  .chronicle-playmat {
+    --chron-zone-w: clamp(72px, 15.2vmin, 182px);
+  }
+  .chronicle-playmat .chronicle-zone {
+    min-height: calc(var(--chron-zone-w) * 1.3);
+  }
+  .chronicle-playmat .chronicle-zone-row.backrow .chronicle-zone {
+    min-height: calc(var(--chron-zone-w) * 0.54);
+  }
+  .chronicle-playmat .chronicle-zone-row.backrow .chronicle-card {
+    width: calc(var(--chron-zone-w) * 0.46);
+  }
+
+  /* The live phase medallion owns the rail; spent/future phases
+     recede instead of six equal grey tabs. */
+  .chronicle-phase-rail li:not(.active) {
+    opacity: 0.55;
+  }
+}
+
+@media (min-width: 1024px) {
+  /* LP numerals never wrap into an egg on narrow desktops. */
+  .chronicle-combatant b {
+    white-space: nowrap;
+  }
+  /* Backrow sockets hug their support chips instead of leaving
+     them adrift in monster-width frames. The 72px floor keeps the
+     PROJECTED zone width above the layout gate's 60px minimum: the
+     far row shrinks ~9% under the rake's perspective, and the gate
+     measures the projected rect, not the layout track. */
+  .chronicle-playmat .chronicle-zone-row.backrow {
+    grid-template-columns: repeat(5, minmax(72px, calc(var(--chron-zone-w) * 0.62)));
+  }
+}
+
+/* ==============================================================
+   Element marks on the duel board read as quiet inlaid chips in
+   the corner, not medallions (owner call: smaller, still top-right,
+   premium finish). Collection/pack surfaces keep the full gem.
+   ============================================================== */
+.chronicle-shell--duel-active .chronicle-card.compact .chronicle-card__element {
+  width: 24px;
+  height: 23px;
+  filter:
+    drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8))
+    drop-shadow(0 0 5px color-mix(in srgb, var(--chronicle-element) 48%, transparent));
+}
+.chronicle-shell--duel-active .chronicle-card.compact .chronicle-card__element b {
+  font-size: 0.5rem;
+}
+.chronicle-shell--duel-active .chronicle-card.compact .chronicle-card__element b svg {
+  width: 12px;
+  height: 12px;
+}
+.chronicle-shell--duel-active .chronicle-card.compact .chronicle-card__element small {
+  display: none;
+}
+@media (min-width: 1024px) {
+  /* Field standees: smaller still — an 18px chip on a lit figure. */
+  .chronicle-playmat .chronicle-zone .chronicle-card.compact .chronicle-card__element {
+    width: 19px;
+    height: 18px;
+    filter:
+      drop-shadow(0 1px 2px rgba(0, 0, 0, 0.85))
+      drop-shadow(0 0 4px color-mix(in srgb, var(--chronicle-element) 42%, transparent));
+  }
+  .chronicle-playmat .chronicle-zone .chronicle-card.compact .chronicle-card__element b {
+    font-size: 0.42rem;
+  }
+  .chronicle-playmat .chronicle-zone .chronicle-card.compact .chronicle-card__element b svg {
+    width: 10px;
+    height: 10px;
+  }
+}
