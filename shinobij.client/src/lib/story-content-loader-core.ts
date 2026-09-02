@@ -207,7 +207,7 @@ function validEchoesScenePage(value: unknown): boolean {
  * only ever fetches the payload generated from its own source tree). */
 export function validateEchoesContentPayload(value: unknown): EchoesContentPayload {
     const payload = object(value);
-    if (!payload || !exactKeys(payload, ["schemaVersion", "scope", "scenes"])
+    if (!payload || !exactKeys(payload, ["schemaVersion", "scope", "scenes", "eras"])
         || payload.schemaVersion !== ECHOES_CONTENT_SCHEMA_VERSION || payload.scope !== ECHOES_CONTENT_KEY) {
         throw new StoryContentLoadError("The Echoes of War script failed schema validation.");
     }
@@ -220,6 +220,13 @@ export function validateEchoesContentPayload(value: unknown): EchoesContentPaylo
                 && (record[kind] as unknown[]).length > 0
                 && (record[kind] as unknown[]).every(validEchoesScenePage))) {
             throw new StoryContentLoadError(`The Echoes of War scenes for ${id} failed schema validation.`);
+        }
+    }
+    const eras = object(payload.eras);
+    if (!eras || Object.keys(eras).length === 0) throw new StoryContentLoadError("The Echoes of War script has no era intros.");
+    for (const [id, entry] of Object.entries(eras)) {
+        if (!Array.isArray(entry) || entry.length === 0 || !entry.every(validEchoesScenePage)) {
+            throw new StoryContentLoadError(`The Echoes of War era intro for ${id} failed schema validation.`);
         }
     }
     return payload as EchoesContentPayload;

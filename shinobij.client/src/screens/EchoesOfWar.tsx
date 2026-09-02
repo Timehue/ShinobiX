@@ -11,15 +11,23 @@ import type { Character } from "../types/character";
 import type { TileCard } from "../data/tile-cards";
 import type { CreatorEvent } from "../types/vn";
 import {
+    ECHOES_ERAS,
+    ECHOES_HERO_COPY,
     ECHOES_OPPONENTS,
     ECHOES_REWARD_DISPLAY,
     ECHOES_TOWER_HERO,
     echoesBandForFloor,
     echoesClientProgress,
+    echoesEraById,
+    echoesEraCleared,
+    echoesEraForFloor,
+    echoesEraOpponents,
+    echoesEraUnlocked,
     echoesFloorUnlockedClient,
     echoesHighestUnlockedFloorClient,
     echoesOpponentById,
     echoesStoriesCompleted,
+    type EchoesEra,
     type EchoesOpponent,
     type EchoesOpponentScenes,
     type EchoesScenePage,
@@ -95,10 +103,40 @@ function sceneEvent(opponent: EchoesOpponent, scenes: EchoesOpponentScenes, kind
     };
 }
 
+/** Wrap an Age intro as a zero-reward VN event for the shared reader. */
+function eraIntroEvent(era: EchoesEra, pages: EchoesScenePage[]): CreatorEvent {
+    return {
+        id: `${era.id}-intro`,
+        name: `${era.ageLabel} · ${era.title}`,
+        biome: "central",
+        icon: "📜",
+        eventKind: "visualNovel",
+        vnTitle: `${era.ageLabel} · ${era.title}`,
+        image: era.plateImage,
+        levelReq: 0,
+        xpReward: 0,
+        ryoReward: 0,
+        staminaReward: 0,
+        dialogue: [],
+        vnPages: pages.map((page) => ({
+            title: page.title,
+            scene: page.scene,
+            speaker: page.speaker,
+            dialogue: [...page.dialogue],
+        })),
+    };
+}
+
 /** What happens when a scene finishes. Data, not closures: the completion
  * handler interprets it against the CURRENT render's character, so a scene
- * played across regen ticks or a settle commit never clobbers fresh state. */
-type VnAfter = { markSeen?: { id: string; kind: "pre" | "post" }; battleEncounterId?: string };
+ * played across regen ticks or a settle commit never clobbers fresh state.
+ * `markEraSeen`/`openEra` handle the Age intro flow. */
+type VnAfter = {
+    markSeen?: { id: string; kind: "pre" | "post" };
+    battleEncounterId?: string;
+    markEraSeen?: string;
+    openEra?: string;
+};
 type ActiveVn = { event: CreatorEvent; after: VnAfter };
 type ActiveBattle = { opponent: EchoesOpponent; resumeMatchId?: string };
 
@@ -132,7 +170,8 @@ export function EchoesOfWar(props: EchoesOfWarProps) {
 function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersionedCharacter, onBack }: EchoesOfWarProps) {
     // Suspends to App's lazy-screen fallback on the first visit; the payload is
     // content-addressed and immutable-cached, so every later mount is sync.
-    const { scenes: echoesScenes } = readEchoesContent();
+    const { scenes: echoesScenes, eras: echoesEraIntros } = readEchoesContent();
+    const [selectedEraId, setSelectedEraId] = useState<string | null>(null);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [vn, setVn] = useState<ActiveVn | null>(null);
     const [vnPage, setVnPage] = useState(0);
@@ -172,6 +211,41 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
             ...character,
             echoesStorySeen: { ...seen, [id]: { ...seen[id], [kind]: true } },
         });
+    }
+
+    // Age intros reuse the same client-owned seen map, under an "era:<id>" key.
+    const eraIntroSeen = (era: EchoesEra) => storySeen[`era:${era.id}`]?.pre === true;
+    function markEraSeen(eraId: string) {
+        const seen = character.echoesStorySeen ?? {};
+        const key = `era:${eraId}`;
+        if (seen[key]?.pre) return;
+        updateCharacter({
+            ...character,
+            echoesStorySeen: { ...seen, [key]: { ...seen[key], pre: true } },
+        });
+    }
+
+    function playEraIntro(era: EchoesEra, after: VnAfter) {
+        const pages = echoesEraIntros[era.id];
+        if (!pages) {
+            // Missing intro must never trap the player: apply the outcome.
+            if (after.markEraSeen) markEraSeen(after.markEraSeen);
+            if (after.openEra) setSelectedEraId(after.openEra);
+            return;
+        }
+        setVnPage(0);
+        setVnLine(0);
+        setVn({ event: eraIntroEvent(era, pages), after });
+    }
+
+    /** Open an Age: play its intro the first time (then reveal its floors),
+     * or go straight to the floors on later visits. */
+    function openEra(era: EchoesEra) {
+        if (!eraIntroSeen(era)) {
+            playEraIntro(era, { markEraSeen: era.id, openEra: era.id });
+            return;
+        }
+        setSelectedEraId(era.id);
     }
 
     function playScene(opponent: EchoesOpponent, kind: SceneKind, after: VnAfter) {
@@ -269,11 +343,20 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
             lineIndex={vnLine}
             setPageIndex={setVnPage}
             setLineIndex={setVnLine}
-            onCancel={() => setVn(null)}
+            onCancel={() => {
+                // Cancelling an Age intro still reveals its floors and marks it
+                // seen, so the intro never blocks access on a mis-tap.
+                const after = vn.after;
+                setVn(null);
+                if (after.markEraSeen) markEraSeen(after.markEraSeen);
+                if (after.openEra) setSelectedEraId(after.openEra);
+            }}
             onComplete={() => {
                 const after = vn.after;
                 setVn(null);
                 if (after.markSeen) markStorySeen(after.markSeen.id, after.markSeen.kind);
+                if (after.markEraSeen) markEraSeen(after.markEraSeen);
+                if (after.openEra) setSelectedEraId(after.openEra);
                 if (after.battleEncounterId) {
                     const opponent = echoesOpponentById(after.battleEncounterId);
                     if (opponent) beginBattle(opponent);
@@ -300,9 +383,9 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
             <button className="back-btn" onClick={onBackClick}>{backLabel}</button>
             <div className="echoes-hero-inner">
                 <div className="echoes-header-titles">
-                    <span className="echoes-kicker">Celestial Tower · Chapter One · The Sunken Court</span>
+                    <span className="echoes-kicker">{ECHOES_HERO_COPY.eyebrow}</span>
                     <h1>Echoes of War</h1>
-                    {subline ? <p className="echoes-sub">The tower keeps the memories of the fallen, not their souls. Finish the Showdowns they never got, and the pattern of the Hollow Gate begins to surface across the centuries.</p> : null}
+                    {subline ? <p className="echoes-sub">{ECHOES_HERO_COPY.subtitle}</p> : null}
                 </div>
                 <div className="echoes-header-stats">
                     <span className="echoes-points-chip" title="Chronicle Points buy the Basic Card Pack in the Card Shop.">🏛️ Chronicle Points: <strong>{chroniclePoints}</strong></span>
@@ -394,7 +477,100 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
         );
     }
 
-    // ── The tower ladder ─────────────────────────────────────────────────────
+    const renderNode = (opponent: EchoesOpponent) => {
+        const entry = progress[opponent.id];
+        const cleared = (entry?.wins ?? 0) > 0;
+        const unlocked = echoesFloorUnlockedClient(progress, opponent.floor);
+        const state = cleared ? "cleared" : unlocked ? "available" : "locked";
+        const current = !cleared && unlocked;
+        const band = echoesBandForFloor(opponent.floor);
+        return (
+            <li
+                key={opponent.id}
+                className={[
+                    "echoes-node",
+                    `echoes-node--${state}`,
+                    `echoes-node--band-${band}`,
+                    opponent.isBoss ? "echoes-node--boss" : "",
+                    current ? "echoes-node--current" : "",
+                ].filter(Boolean).join(" ")}
+            >
+                <span className="echoes-node-floor">{opponent.floor}</span>
+                <img
+                    className="echoes-node-portrait"
+                    src={opponent.portrait}
+                    alt={state === "locked" ? "A sealed memory" : `${opponent.name}, ${opponent.title}`}
+                />
+                <div className="echoes-node-body">
+                    {state === "locked" ? (
+                        <>
+                            <strong className="echoes-node-name">🔒 A sealed memory</strong>
+                            <span className="echoes-node-meta">{opponent.lockedHint}</span>
+                        </>
+                    ) : (
+                        <>
+                            <strong className="echoes-node-name">
+                                {opponent.name}, {opponent.title}{opponent.isBoss ? " · Boss" : ""}
+                                {cleared ? <span className="echoes-node-seal">✓ Recorded</span> : null}
+                            </strong>
+                            <span className="echoes-node-meta">{opponent.deckName} · {opponent.difficultyLabel}{cleared ? ` · ${entry?.wins ?? 0} ${(entry?.wins ?? 0) === 1 ? "win" : "wins"}` : ""}</span>
+                            <span className="echoes-node-reward">
+                                {cleared
+                                    ? `Repeat win: ${ECHOES_REWARD_DISPLAY.repeatWin} Chronicle Points`
+                                    : `First clear: ${ECHOES_REWARD_DISPLAY.repeatWin + ECHOES_REWARD_DISPLAY.firstClearBonus + (opponent.isBoss ? ECHOES_REWARD_DISPLAY.bossFirstClearBonus : 0)} Chronicle Points`}
+                            </span>
+                        </>
+                    )}
+                </div>
+                {state !== "locked" ? (
+                    <button className="echoes-node-action" onClick={() => setSelectedId(opponent.id)}>
+                        {cleared ? "Rematch / Story" : "Challenge"}
+                    </button>
+                ) : null}
+            </li>
+        );
+    };
+
+    // ── One Age: its intro is behind it, its floors are the ladder ──────────
+    const selectedEra = selectedEraId ? echoesEraById(selectedEraId) : null;
+    if (selectedEra) {
+        const eraOpponents = echoesEraOpponents(selectedEra);
+        const eraCleared = echoesEraCleared(progress, selectedEra);
+        const resumeInEra = resume && eraOpponents.some((o) => o.id === resume.encounterId) ? resume : null;
+        return (
+            <div className="echoes-shell" style={{ "--band": `var(--echoes-${selectedEra.band})` } as CSSProperties}>
+                {veilOverlay}
+                <header className="echoes-hero echoes-hero--era">
+                    <div className="echoes-hero-art" style={{ backgroundImage: `url(${selectedEra.plateImage})` }} aria-hidden="true" />
+                    <button className="back-btn" onClick={() => setSelectedEraId(null)}>← All ages</button>
+                    <div className="echoes-hero-inner">
+                        <div className="echoes-header-titles">
+                            <span className="echoes-kicker">{selectedEra.ageLabel} · The Sunken Court</span>
+                            <h1>{selectedEra.title}</h1>
+                            <p className="echoes-sub">{selectedEra.tagline}</p>
+                        </div>
+                        <div className="echoes-header-stats">
+                            <span className="echoes-points-chip">🏛️ {chroniclePoints}</span>
+                            <span className="echoes-stat">{eraCleared}/{eraOpponents.length} memories finished</span>
+                            <button className="echoes-ghost-btn" onClick={() => playEraIntro(selectedEra, {})}>Replay Age Intro</button>
+                        </div>
+                    </div>
+                </header>
+                {resumeInEra ? (
+                    <section className="echoes-panel echoes-resume-note">
+                        <p>An interrupted Showdown is still on the table.</p>
+                        <button className="echoes-primary" onClick={() => setSelectedId(resumeInEra.encounterId)}>Continue</button>
+                    </section>
+                ) : null}
+                <ol className="echoes-ladder echoes-ladder--era">
+                    {eraOpponents.map(renderNode)}
+                </ol>
+                <p className="echoes-footnote">Chronicle Points buy the Basic Card Pack in the Card Shop. Losses cost nothing except the climb back down.</p>
+            </div>
+        );
+    }
+
+    // ── The Ages of the fall: pick a century to descend into ────────────────
     return (
         <div className="echoes-shell">
             {veilOverlay}
@@ -402,65 +578,48 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
             {resume ? (
                 <section className="echoes-panel echoes-resume-note">
                     <p>An interrupted Showdown is still on the table.</p>
-                    <button className="echoes-primary" onClick={() => setSelectedId(resume.encounterId)}>Continue</button>
+                    <button className="echoes-primary" onClick={() => { const era = echoesEraForFloor(echoesOpponentById(resume.encounterId)?.floor ?? 1); if (era) setSelectedEraId(era.id); setSelectedId(resume.encounterId); }}>Continue</button>
                 </section>
             ) : null}
-            <ol className="echoes-ladder" style={{ "--echoes-progress": `${Math.max(6, (completed / ECHOES_OPPONENTS.length) * 100)}%` } as CSSProperties}>
-                {[...ECHOES_OPPONENTS].reverse().map((opponent) => {
-                    const entry = progress[opponent.id];
-                    const cleared = (entry?.wins ?? 0) > 0;
-                    const unlocked = echoesFloorUnlockedClient(progress, opponent.floor);
-                    const state = cleared ? "cleared" : unlocked ? "available" : "locked";
-                    const current = !cleared && unlocked;
-                    const band = echoesBandForFloor(opponent.floor);
+            <div className="echoes-ages">
+                {ECHOES_ERAS.map((era) => {
+                    const unlocked = echoesEraUnlocked(progress, era);
+                    const done = echoesEraCleared(progress, era);
+                    const total = era.floors.length;
+                    const complete = done >= total;
                     return (
-                        <li
-                            key={opponent.id}
+                        <button
+                            key={era.id}
+                            type="button"
                             className={[
-                                "echoes-node",
-                                `echoes-node--${state}`,
-                                `echoes-node--band-${band}`,
-                                opponent.isBoss ? "echoes-node--boss" : "",
-                                current ? "echoes-node--current" : "",
+                                "echoes-age-plate",
+                                `echoes-age-plate--band-${era.band}`,
+                                unlocked ? "" : "echoes-age-plate--locked",
+                                complete ? "echoes-age-plate--complete" : "",
                             ].filter(Boolean).join(" ")}
+                            style={{ backgroundImage: unlocked ? `url(${era.plateImage})` : undefined }}
+                            disabled={!unlocked}
+                            onClick={() => openEra(era)}
                         >
-                            <span className="echoes-node-floor">{opponent.floor}</span>
-                            <img
-                                className="echoes-node-portrait"
-                                src={opponent.portrait}
-                                alt={state === "locked" ? "A sealed memory" : `${opponent.name}, ${opponent.title}`}
-                            />
-                            <div className="echoes-node-body">
-                                {state === "locked" ? (
-                                    <>
-                                        <strong className="echoes-node-name">🔒 A sealed memory</strong>
-                                        <span className="echoes-node-meta">{opponent.lockedHint}</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <strong className="echoes-node-name">
-                                            {opponent.name}, {opponent.title}{opponent.isBoss ? " · Boss" : ""}
-                                            {cleared ? <span className="echoes-node-seal">✓ Recorded</span> : null}
-                                        </strong>
-                                        <span className="echoes-node-meta">{opponent.deckName} · {opponent.difficultyLabel}{cleared ? ` · ${entry?.wins ?? 0} ${(entry?.wins ?? 0) === 1 ? "win" : "wins"}` : ""}</span>
-                                        <span className="echoes-node-reward">
-                                            {cleared
-                                                ? `Repeat win: ${ECHOES_REWARD_DISPLAY.repeatWin} Chronicle Points`
-                                                : `First clear: ${ECHOES_REWARD_DISPLAY.repeatWin + ECHOES_REWARD_DISPLAY.firstClearBonus + (opponent.isBoss ? ECHOES_REWARD_DISPLAY.bossFirstClearBonus : 0)} Chronicle Points`}
-                                        </span>
-                                    </>
-                                )}
-                            </div>
-                            {state !== "locked" ? (
-                                <button className="echoes-node-action" onClick={() => setSelectedId(opponent.id)}>
-                                    {cleared ? "Rematch / Story" : "Challenge"}
-                                </button>
-                            ) : null}
-                        </li>
+                            <span className="echoes-age-plate-scrim" aria-hidden="true" />
+                            <span className="echoes-age-plate-body">
+                                <span className="echoes-age-plate-label">{era.ageLabel}{eraIntroSeen(era) ? "" : unlocked ? " · New" : ""}</span>
+                                <strong className="echoes-age-plate-title">{unlocked ? era.title : "A sealed age"}</strong>
+                                <span className="echoes-age-plate-tagline">
+                                    {unlocked ? era.tagline : "Finish the age below to uncover these memories."}
+                                </span>
+                                {unlocked ? (
+                                    <span className="echoes-age-plate-progress">
+                                        <span className="echoes-age-plate-track"><span className="echoes-age-plate-fill" style={{ width: `${(done / total) * 100}%` }} /></span>
+                                        <span className="echoes-age-plate-count">{complete ? "✓ Recorded" : `${done}/${total}`}</span>
+                                    </span>
+                                ) : <span className="echoes-age-plate-lock">🔒</span>}
+                            </span>
+                        </button>
                     );
                 })}
-            </ol>
-            <p className="echoes-footnote">Chronicle Points buy the Basic Card Pack in the Card Shop. Losses cost nothing except the climb back down.</p>
+            </div>
+            <p className="echoes-footnote">{ECHOES_HERO_COPY.footnote}</p>
         </div>
     );
 }

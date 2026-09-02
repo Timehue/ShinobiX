@@ -3,7 +3,7 @@ import test from "node:test";
 import { readFileSync, readdirSync } from "node:fs";
 import { storylines } from "../data/storylines";
 import { storyInterludesByVillage } from "../data/story-interludes";
-import { ECHOES_SCENES } from "../data/echoes-of-war-scenes";
+import { ECHOES_ERA_INTROS, ECHOES_SCENES } from "../data/echoes-of-war-scenes";
 import {
     ECHOES_CONTENT_KEY,
     ECHOES_CONTENT_SCHEMA_VERSION,
@@ -52,6 +52,7 @@ test("the generated Echoes of War payload exactly mirrors the authored scenes mo
         schemaVersion: ECHOES_CONTENT_SCHEMA_VERSION,
         scope: ECHOES_CONTENT_KEY,
         scenes: ECHOES_SCENES,
+        eras: ECHOES_ERA_INTROS,
     };
     assert.deepEqual(validateEchoesContentPayload(parsed), JSON.parse(JSON.stringify(authored)));
 });
@@ -71,6 +72,11 @@ test("a malformed Echoes of War payload fails closed", () => {
             scope: ECHOES_CONTENT_KEY,
             scenes: { "echoes-1-tovin": { preShowdown: [{ title: "T", scene: "S", speaker: "V", dialogue: ["ok"], extra: true }], defeat: [], firstVictory: [], rematch: [] } },
         },
+        // Valid scenes but the era intros are missing or malformed: still fail closed.
+        { schemaVersion: ECHOES_CONTENT_SCHEMA_VERSION, scope: ECHOES_CONTENT_KEY, scenes: ECHOES_SCENES },
+        { schemaVersion: ECHOES_CONTENT_SCHEMA_VERSION, scope: ECHOES_CONTENT_KEY, scenes: ECHOES_SCENES, eras: {} },
+        { schemaVersion: ECHOES_CONTENT_SCHEMA_VERSION, scope: ECHOES_CONTENT_KEY, scenes: ECHOES_SCENES, eras: { "echoes-age-1": [] } },
+        { schemaVersion: ECHOES_CONTENT_SCHEMA_VERSION, scope: ECHOES_CONTENT_KEY, scenes: ECHOES_SCENES, eras: { "echoes-age-1": [{ title: "T", scene: "S", speaker: "V", dialogue: ["ok"], extra: true }] } },
     ]) {
         assert.throws(() => validateEchoesContentPayload(invalid), StoryContentLoadError);
     }

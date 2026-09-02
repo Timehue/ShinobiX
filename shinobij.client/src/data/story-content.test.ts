@@ -16,7 +16,8 @@ import { storyEpiloguesByVillage } from "./story-epilogues";
 import { storyReckonings } from "./story-reckonings";
 import { storyRoadEvents } from "./story-road-events";
 import { hollowRifts } from "./hollow-rifts";
-import { ECHOES_SCENES } from "./echoes-of-war-scenes";
+import { ECHOES_ERA_INTROS, ECHOES_SCENES } from "./echoes-of-war-scenes";
+import { ECHOES_HERO_COPY } from "./echoes-of-war";
 import { defaultVnPortrait, resolveVnActorBaseImage, splitDialogueLine } from "../lib/vn";
 import { DERIVED_TRAIT_LEVELS } from "../lib/story-derive";
 
@@ -61,6 +62,16 @@ function allStorySpeakerPages(): SpeakerPage[] {
         ...allContent().flatMap(({ pages }) => pages),
         ...Object.values(storyEpiloguesByVillage).flatMap((epilogues) => epilogues.flatMap((epilogue) => epilogue.pages)),
         ...storyReckonings.flatMap((reckoning) => [...reckoning.intro, ...reckoning.payoff]),
+        // The Echoes of War campaign has its own speakers (the ten echoes,
+        // Shiranui, Narrator). They must be portrait-gated here too, or a new
+        // speaker with no art ships green — the exact class of gap that let the
+        // reversed Gate origin through. The ten opponents also have an on-disk
+        // check in the catalog test; this closes the guard for any FUTURE
+        // speaker introduced in the scenes or era intros.
+        ...Object.values(ECHOES_SCENES).flatMap((scenes) => [
+            ...scenes.preShowdown, ...scenes.defeat, ...scenes.firstVictory, ...scenes.rematch,
+        ]),
+        ...Object.values(ECHOES_ERA_INTROS).flat(),
     ];
 }
 
@@ -118,9 +129,18 @@ test("the Hollow Gate remains human-built infrastructure across every campaign",
     // has to be scanned explicitly or it can contradict this canon and stay
     // green — which is exactly how "we did not build it" once shipped on the
     // floor before the boss. See [[project_echoes_of_war_campaign]].
-    const echoesPages: AnyPage[] = Object.values(ECHOES_SCENES).flatMap((scenes) => [
-        ...scenes.preShowdown, ...scenes.defeat, ...scenes.firstVictory, ...scenes.rematch,
-    ]);
+    const echoesPages: AnyPage[] = [
+        ...Object.values(ECHOES_SCENES).flatMap((scenes) => [
+            ...scenes.preShowdown, ...scenes.defeat, ...scenes.firstVictory, ...scenes.rematch,
+        ]),
+        // The Age intro VNs are the highest-risk spot for Gate-origin drift
+        // ("an ancient power older than the Court"), so they must be in this
+        // corpus, not just the tone scan.
+        ...Object.values(ECHOES_ERA_INTROS).flat(),
+        // The landing copy carries the "not their souls" reconciliation and the
+        // two-age framing; it must be scanned for origin reversal too.
+        { title: "", scene: "", speaker: "Narrator", dialogue: [ECHOES_HERO_COPY.eyebrow, ECHOES_HERO_COPY.subtitle, ECHOES_HERO_COPY.footnote] },
+    ];
     const campaignPages: AnyPage[] = [
         ...allContent().filter(({ kind }) => kind !== "road").flatMap(({ pages }) => pages),
         ...Object.values(storyEpiloguesByVillage).flatMap((epilogues) => epilogues.flatMap((epilogue) => epilogue.pages)),

@@ -12,7 +12,7 @@
 // helpers). Tests reach the authored text here directly:
 // api/card-clash/_echoes-catalog.test.ts (beat budgets) and
 // story-tone-and-staging.test.ts (tone scan).
-import type { EchoesOpponentScenes, EchoesScenePage } from "./echoes-of-war";
+import type { EchoesEraIntro, EchoesOpponentScenes, EchoesScenePage } from "./echoes-of-war";
 
 function pg(title: string, scene: string, speaker: string, ...dialogue: string[]): EchoesScenePage {
     return { title, scene, speaker, dialogue };
@@ -41,7 +41,7 @@ export const ECHOES_SCENES: Readonly<Record<string, EchoesOpponentScenes>> = {
         ],
         defeat: [
             pg("The Watch Continues", "The landing, Tovin gathering the cards without hurry", "Tovin",
-                "No shame in it. I had forty years of standing still to think about my openings.",
+                "No shame in it. I had an age of standing still to think about my openings.",
                 "The rope will still be here when you come back.",
                 "So will I."),
         ],
@@ -49,7 +49,7 @@ export const ECHOES_SCENES: Readonly<Record<string, EchoesOpponentScenes>> = {
             pg("There", "The landing, the last card face up between them", "Tovin",
                 "There.",
                 "That's all it was supposed to be. Two decks, one table, somebody writing it down.",
-                "Forty years of waiting, for one hour of cards."),
+                "Four hundred years of waiting, for one hour of cards."),
             pg("The Record", "Tovin sets the cut rope down on the stone table", "Narrator",
                 "He puts the rope down carefully, the way a man sets down something he has carried too far.",
                 "For the first time, he steps away from it."),
@@ -90,7 +90,7 @@ export const ECHOES_SCENES: Readonly<Record<string, EchoesOpponentScenes>> = {
         ],
         firstVictory: [
             pg("Paid in Full", "The landing, the scale finally still", "Vetta",
-                "There. He wins. Forty years late and by proxy, but he wins.",
+                "There. He wins. Four hundred years late and by proxy, but he wins.",
                 "Write it the way it happened. Not the way I told it."),
             pg("The Truth", "The landing, Vetta looking at her own hands", "Vetta",
                 "I knew where the grain went. I suspected by the second week and I knew by the fourth.",
@@ -180,7 +180,7 @@ export const ECHOES_SCENES: Readonly<Record<string, EchoesOpponentScenes>> = {
                 "So that is what it feels like from the losing chair. Marrek never got to sit in either one.",
                 "Record it. All of it. The twenty-six, and the kilns, and his name."),
             pg("The Confession", "The landing, his hands flat on the stand for once", "Ansel",
-                "Understand me clearly, because I have had forty years to make this exact. I did not ruin him in order to feed the poor. Those were two ledgers.",
+                "Understand me clearly, because I have had centuries to make this exact. I did not ruin him in order to feed the poor. Those were two ledgers.",
                 "I fed the kilns because it was right. I ruined Marrek because I wanted to, and the audit let me do both in one motion.",
                 "I have tried to make those balance ever since. They don't. They were never the same currency."),
             pg("Adjournment", "The landing, the stool beside him pushed neatly in", "Ansel",
@@ -206,7 +206,7 @@ export const ECHOES_SCENES: Readonly<Record<string, EchoesOpponentScenes>> = {
                 "We argued for two days. Then I took it to the arbitration table and won the right to decide. My deck against hers, in front of the whole ward."),
             pg("The Decision", "The landing, her thumb pressed against a dried bloodstain on the curtain edge", "Sela",
                 "Full doses. The twelve worst. All twelve died with clean dressings on and the medicine still in their blood. Then the rest died slower.",
-                "Afterward I said we decided. For forty years I have said we. Talis stood at my shoulder through every funeral and never once corrected me in public.",
+                "Afterward I said we decided. For four hundred years I have said we. Talis stood at my shoulder through every funeral and never once corrected me in public.",
                 "She corrected me in private exactly once. I didn't speak to her for a month. That was my answer."),
             pg("What I Need", "The landing, the linen finally set down", "Sela",
                 "I won the match that made it my decision, so the record says the decision was sound. You see the problem. The table said I was right, and the ward said otherwise.",
@@ -224,7 +224,7 @@ export const ECHOES_SCENES: Readonly<Record<string, EchoesOpponentScenes>> = {
                 "It changes nothing for the twelve. It changes what the page says. Pages are what's left."),
             pg("We", "The landing, Sela standing very straight", "Sela",
                 "The truth then, since the table is cleared. It was never our decision. I took it. I made certain I had the authority, and then I called it ours when it curdled.",
-                "Talis carried half my guilt for forty years because I handed it to her, and she loved me too much to hand it back.",
+                "Talis carried half my guilt for four hundred years because I handed it to her, and she loved me too much to hand it back.",
                 "If her name ever comes up in this tower, it comes up clean. I need to hear that said back to me someday, by somebody. Maybe it was you."),
             pg("Discharge", "The landing, the curtains stirring though there is no wind", "Sela",
                 "Understand, I would still argue for the strong dose. That was medicine. It was defensible, and it failed, and failing is a thing medicine does.",
@@ -246,7 +246,7 @@ export const ECHOES_SCENES: Readonly<Record<string, EchoesOpponentScenes>> = {
             pg("Word for Word", "The landing, his eyes fixed on a point above your head", "Korin",
                 "You notice that I quote it. I always quote it. If I put it in my own words, it becomes my sentence, and it was never my sentence.",
                 "There were people at that gate when the second bell rang. I knew forty of them by name. I closed it on schedule.",
-                "A captain who improvises during an evacuation kills more people than one who obeys. That is true, by the way. It is also the plank I have floated on for forty years."),
+                "A captain who improvises during an evacuation kills more people than one who obeys. That is true, by the way. It is also the plank I have floated on for four hundred years."),
             pg("The Families", "The landing, the gate's shadow falling across the table", "Korin",
                 "The families demanded a Showdown afterward. That was their right. A public table, me answering for the gate.",
                 "I refused three times, on procedure. No tables during emergency rule, and the city was under emergency rule.",
@@ -254,7 +254,7 @@ export const ECHOES_SCENES: Readonly<Record<string, EchoesOpponentScenes>> = {
             pg("One Detail", "The landing, Korin finally looking at you", "Korin",
                 "Here is the detail that never made a report. The order came down at the second bell. The hill terraces were already empty by the first.",
                 "They cleared their own people, and then they sealed mine in. The gate was never about saving the city. It was about choosing which half.",
-                "Take the table, then. Forty years late, I stand for the gate. Somebody finally answers for it, and it appears to be me."),
+                "Take the table, then. Four hundred years late, I stand for the gate. Somebody finally answers for it, and it appears to be me."),
         ],
         defeat: [
             pg("As Ordered", "The landing, Korin squaring the cards like kit for inspection", "Korin",
@@ -306,7 +306,7 @@ export const ECHOES_SCENES: Readonly<Record<string, EchoesOpponentScenes>> = {
         ],
         firstVictory: [
             pg("Reopened", "The landing, the burned shelves looking more like ribs than furniture", "Nima",
-                "Well. That entry stays open forty years and closes in an afternoon.",
+                "Well. That entry stays open four hundred years and closes in an afternoon.",
                 "You play like someone with nothing hidden in their pockets. I never once had that luxury."),
             pg("Restitution", "The landing, her cuffs pushed back, ink stains old and permanent", "Nima",
                 "Then let the record take this, in order of importance. Corvale was right. The works were drinking this city dry, his figures proved it, and I burned the proof to keep my own name out of a question.",
@@ -343,7 +343,7 @@ export const ECHOES_SCENES: Readonly<Record<string, EchoesOpponentScenes>> = {
                 "The city died anyway, of the very thing she tried to say. So my arithmetic protected nothing except the schedule of the dying."),
             pg("The Vacant Chair", "The landing, the witness table waiting", "Eren",
                 "Her table was never honestly played. That is the open entry on this floor. You will stand in for the challenger, and I will play the match I should have certified.",
-                "No arranged opponent. No sealed evidence. One fair table, forty years late, against the man who made certain there was not one.",
+                "No arranged opponent. No sealed evidence. One fair table, four hundred years late, against the man who made certain there was not one.",
                 "I still believe the panic would have been a massacre. Hold that against me while you deal."),
         ],
         defeat: [
@@ -385,7 +385,7 @@ export const ECHOES_SCENES: Readonly<Record<string, EchoesOpponentScenes>> = {
                 "The Gate put out less than it took in, and the gap widened every year. The intake was not coal and it was not water, because I metered both, and the figures laughed at me.",
                 "It was drawing on the people. Chakra, vigor, whatever word you use for the thing that gets a man up a ladder. The work crews below went first because they stood closest. The whole lower city was standing in the shallow end of the same drain."),
             pg("My Part", "The landing, Lyra rolling up her sleeves out of old habit", "Lyra",
-                "Now the part I rehearsed for forty years and never got to say at a fair table.",
+                "Now the part I rehearsed for four hundred years and never got to say at a fair table.",
                 "I saw the early signs in year three. Tremor in the crews. The draw curve bending the wrong way. I had standing, I had the data, and I had a career built on that machine being a miracle.",
                 "I wrote acceptable variance in the margin. Three winters running. By the time I wrote anything else, the city could not live without the thing that was eating it, and the council had a man like Eren for people like me."),
             pg("The Fair Table", "The landing, a deck laid out on a workbench between tools", "Lyra",
@@ -422,7 +422,7 @@ export const ECHOES_SCENES: Readonly<Record<string, EchoesOpponentScenes>> = {
             pg("The Council Floor", "The tower's high chamber, a long table set for a full council, one grey man seated alone at its head", "Halden",
                 "You have met my city on your way up. The bell keeper. The clerk. My captain, my arbiter, my engineer.",
                 "I could tell you what each of them got wrong. I kept a file on everyone. That was rather the problem. Files instead of faces.",
-                "Sit. You are the first person to reach this table in forty years who does not owe me anything."),
+                "Sit. You are the first person to reach this table in four hundred years who does not owe me anything."),
             pg("What I Knew", "The chamber, the empty council chairs ranked down the table", "Halden",
                 "Let us dispose of the mystery early. I knew. From Lyra's third report onward, I knew what the Gate was drawing, and from whom.",
                 "People imagine a chancellor deceived by his ministers. I was the best-informed man in the Court. Every floor below you crossed this desk as a number.",
@@ -470,4 +470,78 @@ export const ECHOES_SCENES: Readonly<Record<string, EchoesOpponentScenes>> = {
                 "Refuse it as often as you like. That was only ever the vote that mattered."),
         ],
     },
+};
+
+/** Bespoke opener-style intro VN for each Age of the Sunken Court's fall,
+ * keyed by era id (data/echoes-of-war.ts ECHOES_ERAS). Played the first time
+ * the player opens an age, replayable after. Voice is SHIRANUI, the white fox
+ * of the opening cinematic and keeper of the old road, walking the player
+ * through the tower's memories. She names each age's affliction and, above
+ * all, why these particular memories still linger. CANON, load-bearing: the
+ * Sunken Court BUILT the Hollow Gate (Shiranui states this in the opener); it
+ * was the world's first civilization, and the present village age is the
+ * SECOND the Gate is feeding on. Never frame the Gate as an older or foreign
+ * power. Wired into BOTH the tone scan (story-tone-and-staging.test.ts) and the
+ * Gate-origin canon guard (story-content.test.ts) alongside ECHOES_SCENES. */
+export const ECHOES_ERA_INTROS: Readonly<Record<string, EchoesEraIntro>> = {
+    "echoes-age-1": [
+        pg("The Lowest Floors", "The white fox Shiranui sits at a tower window, a dust-grey quarter of the fallen city below at dusk", "Shiranui",
+            "You wanted to understand the machine under your villages. Good. Then you have to understand who built it, and what it did to them first.",
+            "This tower keeps the Sunken Court. Not the dead of it. The memories. The way the Chronicle keeps a page after the hand that wrote it is gone.",
+            "Start at the bottom, with the smallest people. A bell keeper. A grain seller. A girl who ran messages."),
+        pg("What the Gate Took First", "The quarter below, lamps failing one by one along a street", "Shiranui",
+            "The Court built the Hollow Gate to end famine and winter, and for a lifetime it did. Then it began to take more than it gave.",
+            "It does not hunger. It measures. It took from the bottom of the city first, quietly, where the people had the least to spare and the least voice to say so.",
+            "Bells failed. Grain went short. Water dried in the low wards. It all looked like ordinary bad luck, and ordinary people carried the blame for it."),
+        pg("Why They Linger", "The tower landing, a single worn table waiting", "Shiranui",
+            "Each of them asked for a Showdown to answer the charge against them. Each was promised one. Not one was ever held.",
+            "So the Chronicle closed on the accusation and never on the reply. That is a wound a record does not heal on its own.",
+            "That is why they linger. Not for revenge. For the answer they were owed and never given."),
+        pg("Sit Down", "The table, two seats, your deck in your hands", "Shiranui",
+            "You cannot give them back their city. You can do the one thing the Court would not.",
+            "You can show up, and let them finish.",
+            "Go on. One table at a time."),
+    ],
+    "echoes-age-2": [
+        pg("The Middle Floors", "Shiranui pads along a gallery above shuttered halls of records and offices", "Shiranui",
+            "Climb, and the memories change. They stop being the blamed and start being the ones who did the blaming.",
+            "A clerk who moved the numbers. A healer who kept the last dose. A captain who sealed a gate on his own neighbors. An archivist who chose what would be remembered.",
+            "Do not look for monsters here. These were people with ledgers, in a city that was quietly starving, and that is worse."),
+        pg("The Ledgers That Learned to Lie", "A hall of pigeonhole shelves, one entry scraped clean", "Shiranui",
+            "By now the Court understood, at the middle heights, that its own Gate was draining its own people. Understanding did not stop a single hand.",
+            "It was easier to alter a ration book than to shut the machine that lit the city. Useful is not the same as kind, and neither is convenient.",
+            "So the records learned to lie, one careful correction at a time, and the truth was filed where no one would think to look."),
+        pg("Why They Linger", "The sealed official gate, wax seals gone grey", "Shiranui",
+            "Every one of them can explain themselves. That is the trouble. Each decision sounds reasonable, heard alone.",
+            "None of them was ever made to say it all out loud, in order, at a fair table, while someone wrote it down.",
+            "So they linger with their explanations still folded in their pockets, waiting for someone who will not accept the short version. That someone is you."),
+    ],
+    "echoes-age-3": [
+        pg("The Upper Floors", "Shiranui at a high parapet, the tribunal dome and a distant machine leaking faint teal light beyond", "Shiranui",
+            "Near the top, the memories belong to the ones who could have stopped it. And to the machine itself.",
+            "An arbiter who fixed a public Showdown. The engineer who built the Gate and then spent her life trying to warn the city about it.",
+            "This is the age when the Hollow Gate finally had a name spoken aloud, and speaking it aloud became a crime."),
+        pg("Whose Machine It Was", "A workbench of dead conduits, one still faintly lit", "Shiranui",
+            "Hold onto whose machine it was. The Court sank the Gate under its own ridge, with its own engineers, to end its own winters. Nobody found it. They made it.",
+            "When one of those engineers came back to say it was eating the people, the Court did not deny the Gate. It denied her.",
+            "A rigged table, an unfair opponent, a verdict written before the decks were dealt. That was cheaper than the truth."),
+        pg("Why They Linger", "The empty witness table under the dome", "Shiranui",
+            "They linger because the tables that should have judged them were never honest.",
+            "The one who deserved to lose was handed the win. The one who was right was entered into the Chronicle as a saboteur.",
+            "Give them the fair Showdown the Court refused. A false page can still be corrected. That is the whole reason the Chronicle exists."),
+    ],
+    "echoes-age-4": [
+        pg("The Highest Floor", "Shiranui at the doors of a high council palace, one lit window against a dead unlit city at night", "Shiranui",
+            "One floor remains, and one memory. The last chancellor of the Sunken Court. I will wait out here for this one.",
+            "He was not deceived, and he was not cruel. He knew exactly what the Gate was doing, and he kept it running anyway.",
+            "One more day, he decided. Then he decided it again, until there were no days left to decide."),
+        pg("Why He Lingers", "The long council table beyond the doors, every chair empty but one", "Shiranui",
+            "He said history would judge him. Then he made certain it could not, by keeping the record in his own hands.",
+            "Every arbiter he chose. Every table he scheduled. Every Showdown with his name on it that he quietly postponed until there was no city left to hold it.",
+            "So he lingers at the head of a table no one was ever allowed to sit across from."),
+        pg("The Witness He Could Not Choose", "The head chair, a single lamp, your deck on the table", "Shiranui",
+            "You are the one thing he never accounted for. A witness he did not appoint, cannot dismiss, and does not control.",
+            "Sit down across from the man who governed a city that was already gone. Close the last page of the Sunken Court honestly, for the first time.",
+            "Then come back down, and remember what he chose. Four intakes are feeding the Gate under your villages right now. Someone in your age is standing exactly where he stood."),
+    ],
 };

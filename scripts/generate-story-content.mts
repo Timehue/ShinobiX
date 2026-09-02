@@ -3,8 +3,8 @@ import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
-import { ECHOES_OPPONENTS } from "../shinobij.client/src/data/echoes-of-war.ts";
-import { ECHOES_SCENES } from "../shinobij.client/src/data/echoes-of-war-scenes.ts";
+import { ECHOES_ERAS, ECHOES_OPPONENTS } from "../shinobij.client/src/data/echoes-of-war.ts";
+import { ECHOES_ERA_INTROS, ECHOES_SCENES } from "../shinobij.client/src/data/echoes-of-war-scenes.ts";
 import { storyInterludesByVillage } from "../shinobij.client/src/data/story-interludes.ts";
 import { storylines } from "../shinobij.client/src/data/storylines.ts";
 import {
@@ -68,10 +68,17 @@ async function expectedFiles() {
         sceneIds.length === echoesIds.length && echoesIds.every((id, index) => sceneIds[index] === id),
         "echoes-of-war-scenes.ts must cover exactly ECHOES_OPPONENTS, in floor order",
     );
+    const eraIds = ECHOES_ERAS.map(({ id }) => id);
+    const introIds = Object.keys(ECHOES_ERA_INTROS);
+    invariant(
+        introIds.length === eraIds.length && eraIds.every((id, index) => introIds[index] === id),
+        "echoes-of-war-scenes.ts ECHOES_ERA_INTROS must cover exactly ECHOES_ERAS, in order",
+    );
     const echoesPayload: EchoesContentPayload = {
         schemaVersion: ECHOES_CONTENT_SCHEMA_VERSION,
         scope: ECHOES_CONTENT_KEY,
         scenes: ECHOES_SCENES,
+        eras: ECHOES_ERA_INTROS,
     };
     const echoesJson = stableJson(echoesPayload);
     validateEchoesContentPayload(JSON.parse(echoesJson));
