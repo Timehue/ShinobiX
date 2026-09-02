@@ -21,6 +21,7 @@ import { ScreenLoadingFallback } from "./components/ScreenLoadingFallback";
 import { ScreenReadyProbe } from "./components/ScreenReadyProbe";
 import { ToastStacks, type MissionToast } from "./components/ToastStacks";
 import { claimBountyOnWin } from "./lib/pvp-bounty";
+import { reportPvpWin } from "./lib/pvp-win-report";
 import { useClaimOutboxDrain } from "./lib/claim-outbox";
 import {
     enqueueRaidReport,
@@ -6947,20 +6948,13 @@ export default function App() {
                         // it fires for every real (non-spar) win, any profession.
                         if (!isFriendlyDuel && opponent && !serverClaim?.raidProgression) {
                             if (projection.missionCompletions === undefined) {
-                                const response = await fetch('/api/missions/report-pvp-win', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        playerName: pvpOriginatingPlayerName,
-                                        battleId: settledBattleId,
-                                        opponentName: opponent.name,
-                                    }),
-                                    signal: activeContinuation.signal,
-                                });
-                                const data = await response.json().catch(() => ({}));
-                                if (!response.ok) throw new Error(String(data?.error ?? `Mission settlement failed (HTTP ${response.status}).`));
+                                const missionsCompleted = await reportPvpWin({
+                                    playerName: pvpOriginatingPlayerName,
+                                    battleId: settledBattleId,
+                                    opponentName: opponent.name,
+                                }, activeContinuation.signal);
                                 requirePvpContinuation(activeContinuation);
-                                projection.missionCompletions = Array.isArray(data?.missionsCompleted) ? data.missionsCompleted : [];
+                                projection.missionCompletions = missionsCompleted;
                             }
                         } else if (projection.missionCompletions === undefined) {
                             projection.missionCompletions = [];
