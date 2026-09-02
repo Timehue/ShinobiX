@@ -2611,7 +2611,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/components/PetBoardArena.css",
-            "line": 426
+            "line": 453
           }
         ]
       },
@@ -3009,7 +3009,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/components/PetBoardArena.css",
-            "line": 379
+            "line": 406
           },
           {
             "source": "shinobij.client/src/features/character-creator/character-creator.css",
