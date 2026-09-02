@@ -37,6 +37,9 @@ const SERVER_ENTITLEMENTS = read('api', '_entitlements.ts');
 const CLIENT_ENTITLEMENTS = read('shinobij.client', 'src', 'lib', 'entitlements.ts');
 const CLIENT_PET = read('shinobij.client', 'src', 'lib', 'pet.ts');
 const CLIENT_APP = read('shinobij.client', 'src', 'App.tsx');
+// Save hydration moved out of App.tsx into its own module; the carried-slot
+// assertions below follow it there.
+const CLIENT_HYDRATION = read('shinobij.client', 'src', 'lib', 'normalize-character.ts');
 const PET_POLICY_COPY = [
     read('shinobij.client', 'src', 'screens', 'PetYard.tsx'),
     read('shinobij.client', 'src', 'screens', 'PetArena.tsx'),
@@ -96,8 +99,11 @@ describe('parity: carried-pet entitlements (server ⇄ client)', () => {
     });
 
     it('client hydration preserves every supporter carried slot', () => {
-        assert.match(CLIENT_APP, /pets:\s*\(parsed\.pets \?\? \[\]\)\.map\(normalizePet\)/);
-        assert.doesNotMatch(CLIENT_APP, /pets:\s*\(parsed\.pets \?\? \[\]\)\.slice\(/);
+        assert.match(CLIENT_HYDRATION, /pets:\s*\(parsed\.pets \?\? \[\]\)\.map\(normalizePet\)/);
+        assert.doesNotMatch(CLIENT_HYDRATION, /pets:\s*\(parsed\.pets \?\? \[\]\)\.slice\(/);
+        // The hydration path must not drift back into App: a second copy there
+        // would be the one that silently truncates a supporter's roster.
+        assert.doesNotMatch(CLIENT_APP, /pets:\s*\(parsed\.pets \?\? \[\]\)\./);
     });
 
     it('Pet Home and supporter copy never advertises the retired 3/5 policy', () => {
