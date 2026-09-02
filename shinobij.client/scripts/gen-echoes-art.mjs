@@ -49,6 +49,12 @@ const SCENES = [
     ['echoes-lyra', 'An engine chamber landing in an ancient tower, thick dead metal conduits crossing the walls and floor, one conduit still glowing faint eerie teal, a workbench with abandoned tools, dramatic side light, no people.'],
     ['echoes-halden', 'A high council chamber at the top of an ancient tower, one long dark table with many empty chairs, a single burning oil lamp at the head seat, tall dark windows overlooking a dead unlit stone city, solemn and final, no people.'],
     ['echoes-tower-hero', 'Looking up the hollow interior of a vast ancient stone tower from its base, ten ringed floors spiraling upward into pale golden mist and faint teal light at the top, hanging preserved paper records drifting like leaves, awe and melancholy, cinematic scale, no people.'],
+    // Age plate banners for the memory-selection screen. Each is a wide
+    // atmospheric establishing shot of one age of the Sunken Court's fall.
+    ['echoes-age-1', 'A wide melancholy establishing shot of a dust-grey stone quarter of an ancient fallen city at dusk, ordinary humble buildings, a silent bell tower, faded notices peeling from a wall, weak golden light, the ordinary places where the small people lived and were blamed, no people, cinematic.'],
+    ['echoes-age-2', 'A wide establishing shot of the administrative heart of an ancient fallen city, grand shuttered halls of records and offices, a sealed official gate, cold blue-grey light, ledgers and archives behind dark windows, the machinery of a bureaucracy that buried the truth, no people, cinematic.'],
+    ['echoes-age-3', 'A wide ominous establishing shot of the upper spires of an ancient fallen city, a great tribunal dome and a distant machine structure leaking faint teal energy into a bruised sky, the age when the Hollow Gate had a name, tense and grand, no people, cinematic.'],
+    ['echoes-age-4', 'A wide desolate establishing shot of a high council palace at the very top of an ancient fallen city, one lit window against a vast dead unlit metropolis at night, the final seat of power on the last day, solemn and final, no people, cinematic.'],
 ];
 
 async function generate(prompt, size) {

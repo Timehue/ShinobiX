@@ -1,6 +1,6 @@
 import type { StoryStep } from "../types/vn";
 import type { StoryInterlude } from "../data/story-interludes";
-import type { EchoesOpponentScenes } from "../data/echoes-of-war";
+import type { EchoesEraIntro, EchoesOpponentScenes } from "../data/echoes-of-war";
 
 export const STORY_CONTENT_SCHEMA_VERSION = 1 as const;
 export const STORY_CONTENT_VILLAGES = [
@@ -38,4 +38,6 @@ export type EchoesContentPayload = {
     scope: EchoesContentKey;
     /** Scene scripts keyed by opponent id, in floor order. */
     scenes: Record<string, EchoesOpponentScenes>;
+    /** Bespoke intro VN pages keyed by era id (data/echoes-of-war.ts ECHOES_ERAS). */
+    eras: Record<string, EchoesEraIntro>;
 };

@@ -143,6 +143,129 @@
     transition: width 600ms ease;
 }
 
+.echoes-hero--era { min-height: 190px; }
+
+.echoes-ghost-btn {
+    background: rgba(20, 17, 10, 0.6);
+    border: 1px solid rgba(217, 200, 138, 0.4);
+    border-radius: 6px;
+    color: #e6d7ae;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.78rem;
+    min-height: 34px;
+}
+.echoes-ghost-btn:hover { background: rgba(217, 200, 138, 0.16); }
+
+/* ── The Ages (century plates) ────────────────────────────────────────── */
+.echoes-ages {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.echoes-age-plate {
+    --band: var(--echoes-low);
+    position: relative;
+    display: block;
+    text-align: left;
+    min-height: 176px;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--band) 45%, rgba(150, 135, 105, 0.32));
+    border-radius: 12px;
+    overflow: hidden;
+    background-size: cover;
+    background-position: center;
+    background-color: #14120d;
+    cursor: pointer;
+    isolation: isolate;
+    transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+}
+.echoes-age-plate--band-mid { --band: var(--echoes-mid); }
+.echoes-age-plate--band-high { --band: var(--echoes-high); }
+.echoes-age-plate--band-court { --band: var(--echoes-court); }
+
+.echoes-age-plate:not(:disabled):hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--band) 70%, transparent);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), 0 0 20px color-mix(in srgb, var(--band) 28%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+    .echoes-age-plate:not(:disabled):hover { transform: none; }
+}
+
+.echoes-age-plate-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(105deg,
+        rgba(10, 9, 6, 0.93) 0%,
+        rgba(10, 9, 6, 0.78) 45%,
+        color-mix(in srgb, var(--band) 22%, rgba(10, 9, 6, 0.35)) 100%);
+}
+.echoes-age-plate--locked { cursor: not-allowed; opacity: 0.72; }
+.echoes-age-plate--locked .echoes-age-plate-scrim { background: rgba(10, 9, 6, 0.9); }
+.echoes-age-plate--complete { border-color: rgba(126, 166, 116, 0.5); }
+
+.echoes-age-plate-body {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    height: 100%;
+    padding: 0.9rem 1rem;
+}
+.echoes-age-plate-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--band) 60%, #d9c88a);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+.echoes-age-plate-title {
+    font-size: 1.5rem;
+    line-height: 1.1;
+    color: #f4ecd6;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+}
+.echoes-age-plate-tagline {
+    font-size: 0.86rem;
+    color: #cec4ab;
+    line-height: 1.45;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    max-width: 34ch;
+}
+.echoes-age-plate-progress {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding-top: 0.5rem;
+}
+.echoes-age-plate-track {
+    flex: 1 1 auto;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+}
+.echoes-age-plate-fill {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--band) 75%, #d9c88a);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--band) 60%, transparent);
+    transition: width 500ms ease;
+}
+.echoes-age-plate-count {
+    font-size: 0.76rem;
+    color: #d4c89e;
+    white-space: nowrap;
+}
+.echoes-age-plate-lock { margin-top: auto; font-size: 1.1rem; padding-top: 0.5rem; }
+
+.echoes-ladder--era::before { top: 0.6rem; bottom: 0.6rem; background: linear-gradient(to top, color-mix(in srgb, var(--band, #d9c88a) 55%, transparent), rgba(150, 135, 105, 0.14)); }
+
 /* ── Panels ───────────────────────────────────────────────────────────── */
 .echoes-panel {
     background: rgba(20, 18, 14, 0.82);
@@ -580,7 +703,9 @@
 @media (max-width: 560px) {
     .echoes-shell { padding: 0.6rem 0.6rem 2rem; }
     .echoes-hero { min-height: 170px; }
-    .echoes-hero-inner { padding: 2rem 0.8rem 0.75rem; }
+    /* Clear the absolute back button (top 0.7rem + 44px touch target) so the
+       eyebrow never sits under it on a narrow hero. */
+    .echoes-hero-inner { padding: 3.9rem 0.8rem 0.75rem; }
     .echoes-node { flex-wrap: wrap; }
     .echoes-node-action { flex-basis: 100%; }
     .echoes-detail-portrait { width: 120px; height: 120px; }
