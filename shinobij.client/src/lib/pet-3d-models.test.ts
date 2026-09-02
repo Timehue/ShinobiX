@@ -79,6 +79,15 @@ test("unrelated unmodeled pets keep the safe standee fallback", () => {
     assert.equal(hasPetCombatModel(pet("unmodeled-event-pet")), false);
 });
 
+test("malformed legacy identities fall back instead of crashing model resolution", () => {
+    assert.doesNotThrow(() => petCombatModel({ id: undefined as never, name: "Dopey Companion", rarity: "standard" }));
+    assert.equal(petCombatModel({ id: undefined as never, name: "Dopey Companion", rarity: "standard" }), null);
+    assert.equal(
+        petCombatModel({ id: undefined as never, templateId: "rare-9", name: "Bristle Boar", rarity: "rare" })?.visualId,
+        "rare-9",
+    );
+});
+
 test("all built-in Coliseum AI opponents resolve to approved roster models", () => {
     assert.equal(petCombatModel(pet("generic-ai-pet-sparrow"))?.url, `/pet-models/roster/standard-44.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
     assert.equal(petCombatModel(pet("generic-ai-pet-guardhound"))?.url, `/pet-models/roster/rare-24.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
