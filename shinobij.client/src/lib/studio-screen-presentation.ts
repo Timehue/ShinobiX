@@ -117,6 +117,7 @@ export const STUDIO_SCREEN_PRESENTATION: Record<Screen, StudioScreenPresentation
   hollowGateTiles: frontier,
   endlessTower: combat,
   battleTowers: combat,
+  echoesOfWar: combat,
   weeklyBoss: frontier,
   villageWar: frontier,
   villageWarMap: frontier,

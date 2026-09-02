@@ -380,6 +380,15 @@ export type Character = {
     cardClashTutorialSeen?: boolean;
     // Current Chronicle rules tutorial acknowledged by the player.
     cardClashTutorialVersion?: number;
+    // ── Echoes of War (Celestial Tower Chronicle Showdown campaign) ──────────
+    // Chronicle Points: SERVER-OWNED campaign currency. Credited only by the
+    // ai-move echoes settle; spent only through the server pack endpoints.
+    chroniclePoints?: number;
+    // SERVER-OWNED per-encounter campaign record (wins + first-clear stamp).
+    // Written only by the ai-move echoes settle; a generic save mirrors it.
+    echoesOfWar?: Record<string, { wins: number; firstClearAt?: number }>;
+    // Client-owned story-seen display flags (which scenes have been watched).
+    echoesStorySeen?: Record<string, { pre?: boolean; post?: boolean }>;
     element?: string;
     elements?: string[];
     // Per-weapon elemental attunement (weaponId → element). SERVER-OWNED: written

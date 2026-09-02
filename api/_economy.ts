@@ -18,11 +18,13 @@ import { kv } from './_storage.js';
 
 export type EconCurrency =
     | 'ryo' | 'fateShards' | 'boneCharms' | 'auraStones'
-    | 'auraDust' | 'honorSeals' | 'mythicSeals' | 'hollowShards';
+    | 'auraDust' | 'honorSeals' | 'mythicSeals' | 'hollowShards'
+    | 'chroniclePoints';
 
 export const ECON_CURRENCIES: readonly EconCurrency[] = [
     'ryo', 'fateShards', 'boneCharms', 'auraStones',
     'auraDust', 'honorSeals', 'mythicSeals', 'hollowShards',
+    'chroniclePoints',
 ];
 
 export interface EconTxn {

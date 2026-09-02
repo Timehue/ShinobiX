@@ -4,23 +4,31 @@ import { BUILTIN_CLASH, isMarketplaceCard } from '../clan/war/_card-catalog.js';
 import { CHRONICLE_STARTER_GRANT_IDS, deckLimitForCard } from '../../shared/chronicle-duel.js';
 import { applyCardPackOpen, cardPackCost, cardPackDiscountPercent } from './_pack.js';
 
-test('standard pack mirrors the village, elder, clan, and doctrine discount and grants five canonical cards', () => {
+test('the Basic pack costs exactly 100 Chronicle Points, ignores ryo-economy discounts, and never touches ryo', () => {
     const character = {
         ryo: 1_000,
         fateShards: 50,
+        chroniclePoints: 150,
         tileCards: ['tc-01'],
-        villageUpgrades: { shop: 20 },       // 5%
-        elderFocus: 'trade',                 // 5%
-        clanUpgradeLevels: { blacksmith: 25 }, // 5%
-        clanDoctrine: 'merchant',            // 5%
+        villageUpgrades: { shop: 20 },       // would be 5% on a ryo pack
+        elderFocus: 'trade',                 // would be 5%
+        clanUpgradeLevels: { blacksmith: 25 }, // would be 5%
+        clanDoctrine: 'merchant',            // would be 5%
     };
-    assert.equal(cardPackDiscountPercent(character, 'standard'), 20);
-    assert.equal(cardPackCost(character, 'standard'), 200);
+    // Chronicle Points sit outside the ryo economy: no discount ever applies.
+    assert.equal(cardPackDiscountPercent(character, 'standard'), 0);
+    assert.equal(cardPackCost(character, 'standard'), 100);
     const opened = applyCardPackOpen(character, 'standard', () => 0);
     assert.equal(opened.ok, true);
     if (!opened.ok) return;
-    assert.equal(opened.cost, 200);
-    assert.equal(opened.balance, 800);
+    assert.equal(opened.currency, 'chroniclePoints');
+    assert.equal(opened.cost, 100);
+    assert.equal(opened.balance, 50);
+    assert.equal(opened.character.chroniclePoints, 50);
+    // The debit and the grant ride one atomic character write; ryo and Fate
+    // Shards are byte-identical before and after.
+    assert.equal(opened.character.ryo, 1_000);
+    assert.equal(opened.character.fateShards, 50);
     assert.equal(opened.cards.length, 5);
     assert.equal(opened.character.tileCards instanceof Array, true);
     // Shop pack draws only the weaker half: Commons + non-marketplace Rares.
@@ -28,6 +36,20 @@ test('standard pack mirrors the village, elder, clan, and doctrine discount and 
         assert.ok(['common', 'rare'].includes(BUILTIN_CLASH[id].rarity));
         assert.equal(isMarketplaceCard(id), false);
     }
+});
+
+test('a player with exactly 100 Chronicle Points can buy the Basic pack; 99 cannot, and nothing is spent', () => {
+    const exact = applyCardPackOpen({ chroniclePoints: 100, tileCards: [] }, 'standard', () => 0);
+    assert.equal(exact.ok, true);
+    if (exact.ok) assert.equal(exact.balance, 0);
+    const character = { chroniclePoints: 99, ryo: 999_999, fateShards: 999, tileCards: [] };
+    const short = applyCardPackOpen(character, 'standard', () => 0);
+    assert.equal(short.ok, false);
+    if (!short.ok) assert.equal(short.status, 409);
+    // Refusal spends nothing anywhere — ryo can never be a fallback.
+    assert.equal(character.chroniclePoints, 99);
+    assert.equal(character.ryo, 999_999);
+    assert.equal(character.fateShards, 999);
 });
 
 test('premium packs debit Fate Shards and draw only best-50% Marketplace cards', () => {
@@ -57,9 +79,14 @@ test('pack opening fails closed for invalid type, insufficient balance, and coll
     );
     assert.deepEqual(
         applyCardPackOpen({ fateShards: 9, tileCards: [] }, 'epic', () => 0),
-        { ok: false, status: 409, error: 'Not enough fateShards.' },
+        { ok: false, status: 409, error: 'Not enough Fate Shards.' },
     );
-    const capped = applyCardPackOpen({ ryo: 999, tileCards: Array(1200).fill('tc-01') }, 'standard', () => 0);
+    // A ryo fortune buys nothing from the Basic pack: it trades only in
+    // Chronicle Points, and the shortage message says where to earn them.
+    const ryoRich = applyCardPackOpen({ ryo: 999_999, tileCards: [] }, 'standard', () => 0);
+    assert.equal(ryoRich.ok, false);
+    if (!ryoRich.ok) assert.match(ryoRich.error, /Chronicle Points.*Echoes of War/);
+    const capped = applyCardPackOpen({ chroniclePoints: 999, tileCards: Array(1200).fill('tc-01') }, 'standard', () => 0);
     assert.deepEqual(capped, { ok: false, status: 409, error: 'Card collection is capped at 1200.' });
 });
 
@@ -68,7 +95,7 @@ test('earned Chronicle records never consume the 1200-card pack inventory budget
     assert.equal(BUILTIN_CLASH['legacy-first-flame'], undefined);
     assert.equal(BUILTIN_CLASH['pet-witness-fire'], undefined);
     const opened = applyCardPackOpen({
-        ryo: 999,
+        chroniclePoints: 999,
         tileCards: [
             ...Array(1195).fill('tc-01'),
             'story-wandering-sage',
@@ -84,7 +111,7 @@ test('earned Chronicle records never consume the 1200-card pack inventory budget
 
 test('the fixed Traveler codex floor never consumes purchasable collection capacity', () => {
     const opened = applyCardPackOpen({
-        ryo: 999,
+        chroniclePoints: 999,
         tileCards: [...CHRONICLE_STARTER_GRANT_IDS, ...Array(1195).fill('tc-142')],
     }, 'standard', () => 0);
     assert.equal(opened.ok, true);
@@ -97,7 +124,7 @@ test('packs prefer useful second and third deck copies and protect completed tie
         .map(([id]) => id);
     const cappedId = standardPool[0];
     const opened = applyCardPackOpen(
-        { ryo: 999, tileCards: [cappedId, cappedId, cappedId] },
+        { chroniclePoints: 999, tileCards: [cappedId, cappedId, cappedId] },
         'standard',
         () => 0,
     );
