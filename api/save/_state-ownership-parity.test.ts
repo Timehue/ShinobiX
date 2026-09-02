@@ -91,7 +91,9 @@ const FROZEN = {
         'petEscortBonusReady', 'hunterRank',
         'petBreeding', 'petBreedingMigrationVersion', 'petBreedingReceipts',
         'petBreedingHatchReceipts', 'petBreedingProgressReceipts',
-        'ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals', 'auraDust', 'hollowShards',
+        'ryo', 'honorSeals', 'fateShards', 'chroniclePoints', 'boneCharms', 'auraStones', 'mythicSeals', 'auraDust', 'hollowShards',
+        // Echoes of War campaign record — non-combat bookkeeping.
+        'echoesOfWar',
         'rankedWins', 'rankedLosses', 'rankedSeasonSettlementReceipts', 'pvpRewardSettlementReceipts',
         'petRankedSettlementStamp', 'playerRankedSettlementStamp', 'vanguardRewardSettlementStamp', 'warDeclarationFundingReceipts', 'warMercenaryHireReceipts',
         'aiFightRewardSettlements', 'combatMissionClaimSettlements',
@@ -109,7 +111,7 @@ const FROZEN = {
     ],
     STRICT_SERVER_LEDGER_CHARACTER_FIELDS: [
         'level', 'xp', 'experience', 'ryo', 'bankRyo',
-        'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'auraDust',
+        'honorSeals', 'fateShards', 'chroniclePoints', 'boneCharms', 'auraStones', 'auraDust',
         'mythicSeals', 'hollowShards',
         'stats', 'unspentStats', 'totalStatsTrained', 'maxHp', 'maxChakra', 'maxStamina',
         'rankTitle', 'professionXp', 'professionRank', 'auraSphereLevel',
@@ -164,7 +166,7 @@ const FROZEN = {
         'lifetimeClanPoints', 'clanPointHistory', 'clanExchangePurchases',
     ],
     CURRENCY_CAP_FIELDS: [
-        'fateShards', 'boneCharms', 'auraStones', 'auraDust',
+        'fateShards', 'chroniclePoints', 'boneCharms', 'auraStones', 'auraDust',
         'mythicSeals', 'honorSeals', 'hollowShards',
     ],
     LIFETIME_COUNTER_FIELDS: [
@@ -190,6 +192,8 @@ const FROZEN = {
         'dailyTowerXp', 'dailyEndlessRuns', 'dailyEndlessDate', 'redeemedEndlessActions',
         // Village Stores daily cook/donate counters (api/village-stores/*).
         'rationsCookedDate', 'rationsCookedToday', 'storesDonatedDate', 'rationsDonatedToday', 'craftPointsDonatedToday',
+        // Echoes of War campaign record (card-clash/ai-move echoes settle).
+        'echoesOfWar',
     ],
     PROGRESSION_ENTITLEMENT_CHARACTER_FIELDS: [
         'auraSphereLevel', 'redeemedAuraFeeds', 'battleTowerAscension', 'rankedSeasonsWon',

@@ -11,6 +11,7 @@ import {
     type ChronicleAiDifficulty,
     type ChronicleAiResult,
     type ChronicleProjection,
+    type EchoesSettleSummary,
 } from "../lib/chronicle-duel";
 import { chronicleDuelistAvatar } from "../lib/chronicle-duelist-art";
 import { ChronicleDuelBoard } from "../components/ChronicleDuelBoard";
@@ -28,11 +29,24 @@ const ENCOUNTER_AI_DIFFICULTY: Record<TileDifficulty, ChronicleAiDifficulty> = {
     hard: "hard",
 };
 
+/** Echoes of War campaign binding: the server seals the real opponent deck,
+ * difficulty and Chronicle Point reward from the encounter id — these fields
+ * only shape the framing copy around the board. */
+export type EchoesDuelBinding = {
+    encounterId: string;
+    floor: number;
+    opponentName: string;
+    opponentTitle: string;
+    isBoss?: boolean;
+    /** Resume an interrupted showdown instead of starting a fresh one. */
+    resumeMatchId?: string;
+};
+
 /** Current-rules PvE host. Encounter callers retain ownership of their reward, HP,
  * torch and seal consequences; the showdown server owns every card-game decision. */
 export function CardClashDuel({
     character, creatorCards, tileDifficulty = "normal", dungeonSceneImage,
-    opponentAvatar, dungeonRunToken, onVersionedCharacter,
+    opponentAvatar, dungeonRunToken, echoes, onVersionedCharacter, onEchoesSettled, onMatchStarted,
     onDungeonWin, onDungeonLose, onDungeonDraw, onDungeonLeave,
 }: {
     character: Character;
@@ -41,7 +55,13 @@ export function CardClashDuel({
     dungeonSceneImage?: string;
     opponentAvatar?: string;
     dungeonRunToken?: string;
+    echoes?: EchoesDuelBinding;
     onVersionedCharacter?: (character: Character, saveVersion: number) => boolean;
+    /** Fires once the server has committed an Echoes settlement (null on a
+     * loss/draw settle). Settlement lands BEFORE the replay animation ends. */
+    onEchoesSettled?: (summary: EchoesSettleSummary | null) => void;
+    /** Fires with the live match id so hosts can persist a resume pointer. */
+    onMatchStarted?: (matchId: string) => void;
     onDungeonWin: () => void;
     onDungeonLose?: () => void;
     onDungeonDraw?: () => void;
@@ -55,6 +75,7 @@ export function CardClashDuel({
     const [busy, setBusy] = useState(true);
     const [aiActing, setAiActing] = useState(false);
     const [dungeonTerminalReady, setDungeonTerminalReady] = useState(false);
+    const [echoesSummary, setEchoesSummary] = useState<EchoesSettleSummary | null>(null);
     const started = useRef(false);
     const replayToken = useRef(0);
     useEffect(() => () => { replayToken.current += 1; }, []);
@@ -63,15 +84,24 @@ export function CardClashDuel({
     async function presentSession(result: ChronicleAiResult) {
         const final = result.session;
         if (!final) return false;
-        if (dungeonRunToken && final.status === "complete") {
+        if ((dungeonRunToken || echoes) && final.status === "complete") {
             const version = Number(result._saveVersion);
             if (!result.character || !Number.isSafeInteger(version) || version < 1) {
-                setError("The Dungeon Card proof could not be reconciled. Retry the final action.");
+                setError(echoes
+                    ? "The showdown result is not confirmed yet. Retry the final action — nothing is lost."
+                    : "The Dungeon Card proof could not be reconciled. Retry the final action.");
                 return false;
             }
             if (!onVersionedCharacter?.(result.character, version)) {
-                setError("The Dungeon Card proof belongs to a no-longer-active save session.");
+                setError(echoes
+                    ? "The showdown result belongs to a no-longer-active save session."
+                    : "The Dungeon Card proof belongs to a no-longer-active save session.");
                 return false;
+            }
+            if (echoes) {
+                const summary = result.reward?.echoes ?? null;
+                setEchoesSummary(summary);
+                onEchoesSettled?.(summary);
             }
             setDungeonTerminalReady(true);
         }
@@ -101,12 +131,23 @@ export function CardClashDuel({
         // busy=true with the encounter unfinishable.
         void (async () => {
             try {
-                const result = await startChronicleAi(character.name, deck, ENCOUNTER_AI_DIFFICULTY[tileDifficulty], true, dungeonRunToken);
-                if (!result.ok || !result.matchId || !result.session) { setError(result.error ?? "Could not prepare the sealed showdown."); return; }
-                setMatchId(result.matchId);
+                const result = echoes?.resumeMatchId
+                    ? await chronicleAiAction(echoes.resumeMatchId, { action: "state" })
+                    : await startChronicleAi(
+                        character.name,
+                        deck,
+                        ENCOUNTER_AI_DIFFICULTY[tileDifficulty],
+                        !echoes,
+                        dungeonRunToken,
+                        echoes?.encounterId,
+                    );
+                if (!result.ok || !result.session) { setError(result.error ?? "Could not prepare the sealed showdown."); return; }
+                const liveMatchId = echoes?.resumeMatchId ?? result.matchId ?? result.session.matchId;
+                setMatchId(liveMatchId);
+                if (result.session.status !== "complete") onMatchStarted?.(liveMatchId);
                 let authoritative = result;
                 if (dungeonRunToken && result.session.status === "complete" && (!result.character || !result._saveVersion)) {
-                    authoritative = await chronicleAiAction(result.matchId, { action: "state" });
+                    authoritative = await chronicleAiAction(result.matchId!, { action: "state" });
                     if (!authoritative.ok || !authoritative.session) {
                         setError(authoritative.error ?? "The Dungeon Card proof could not be reconciled.");
                         return;
@@ -138,8 +179,10 @@ export function CardClashDuel({
     }
 
     function resolve() {
-        if (dungeonRunToken && !dungeonTerminalReady) {
-            setError("The Dungeon Card proof is still waiting for server confirmation.");
+        if ((dungeonRunToken || echoes) && !dungeonTerminalReady) {
+            setError(echoes
+                ? "The showdown result is still waiting for server confirmation."
+                : "The Dungeon Card proof is still waiting for server confirmation.");
             return;
         }
         if (duel && duel.winner === duel.viewerSide) onDungeonWin();
@@ -153,17 +196,42 @@ export function CardClashDuel({
     const sceneStyle = dungeonSceneImage ? { "--chronicle-scene": `url(${dungeonSceneImage})` } as CSSProperties : undefined;
     // Encounter hosts don't pass an avatar, so the Keeper resolves its own.
     const foeName = duel ? duel[duel.viewerSide === "p1" ? "p2" : "p1"].name : "";
+    const headerSmall = echoes
+        ? `Echoes of War · Floor ${echoes.floor} · ${echoes.opponentName}, ${echoes.opponentTitle}`
+        : tileDifficulty === "hard" ? "Sealed Encounter · Hard" : tileDifficulty === "easy" ? "Sealed Encounter · Easy" : "Sealed Encounter · Medium";
 
     return <main className={`chronicle-shell chronicle-encounter ${duel?.status === "active" ? "chronicle-shell--duel-active" : ""}`} style={sceneStyle}>
         <header className="chronicle-header">
             {/* Never disabled: this is the only exit, and the server owns the
                 match state — abandoning mid-request is always safe. */}
             <button onClick={onDungeonLeave}>Leave Showdown</button>
-            <h1>Shinobi Chronicle Showdown<small>{tileDifficulty === "hard" ? "Sealed Encounter · Hard" : tileDifficulty === "easy" ? "Sealed Encounter · Easy" : "Sealed Encounter · Medium"}</small></h1>
+            <h1>Shinobi Chronicle Showdown<small>{headerSmall}</small></h1>
         </header>
         {busy && !duel ? <section className="chronicle-panel"><h2>Preparing the table</h2><p>The server is validating the 40-card decks.</p></section> : null}
         {error && !duel ? <section className="chronicle-panel"><div className="chronicle-error" role="alert">{error}</div><button onClick={onDungeonLeave}>Leave encounter</button></section> : null}
-        {done ? <section className="chronicle-panel" style={{ marginBottom: 12, textAlign: "center" }}><h2>{won ? "Seal Claimed" : draw ? "Draw — Seal Holds" : "Seal Holds"}</h2><p>{won ? "You won the Chronicle Showdown." : draw ? "A draw is not enough to break the seal." : "The Chronicle Keeper won the showdown."}</p><button onClick={resolve}>Continue</button></section> : null}
+        {done && echoes ? (
+            <section className="chronicle-panel echoes-result-panel" style={{ marginBottom: 12, textAlign: "center" }}>
+                <h2>{won ? "Victory" : draw ? "Draw" : "Defeat"}</h2>
+                {won && echoesSummary ? (
+                    <div className="echoes-reward-lines">
+                        <p><strong>+{echoesSummary.basePoints} Chronicle Points</strong></p>
+                        {echoesSummary.firstClearBonus > 0 ? <p>First clear: <strong>+{echoesSummary.firstClearBonus} Chronicle Points</strong></p> : null}
+                        {echoesSummary.bossBonus > 0 ? <p>Chapter completed: <strong>+{echoesSummary.bossBonus} Chronicle Points</strong></p> : null}
+                        <p>Balance: <strong>{echoesSummary.balance}</strong> Chronicle Points</p>
+                        {echoesSummary.unlockedFloor ? <p>Floor {echoesSummary.unlockedFloor} is now open.</p> : null}
+                    </div>
+                ) : won ? (
+                    <p>The record is complete. No Chronicle Points this time — the win came too fast to enter the Chronicle.</p>
+                ) : draw ? (
+                    <p>A draw settles nothing. The record stays open.</p>
+                ) : (
+                    <p>No Chronicle Points are awarded for a loss. The memory will wait.</p>
+                )}
+                <button onClick={resolve}>Continue</button>
+            </section>
+        ) : done ? (
+            <section className="chronicle-panel" style={{ marginBottom: 12, textAlign: "center" }}><h2>{won ? "Seal Claimed" : draw ? "Draw — Seal Holds" : "Seal Holds"}</h2><p>{won ? "You won the Chronicle Showdown." : draw ? "A draw is not enough to break the seal." : "The Chronicle Keeper won the showdown."}</p><button onClick={resolve}>Continue</button></section>
+        ) : null}
         {duel ? <ChronicleDuelBoard key={matchId || "duel"} state={duel} cardsById={cardsById} playerAvatar={character.avatarImage} opponentAvatar={opponentAvatar ?? chronicleDuelistAvatar(foeName)} busy={busy} aiActing={aiActing} error={error} onExit={onDungeonLeave} exitLabel="Leave encounter" onAction={(intent) => void act(intent)} /> : null}
     </main>;
 }

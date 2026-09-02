@@ -6,19 +6,23 @@ import { canAppendPackableChronicleCards, CARD_COLLECTION_CAP } from './_collect
 export const CARD_PACK_TYPES = ['standard', 'epic', 'legendary'] as const;
 export type CardPackType = typeof CARD_PACK_TYPES[number];
 
+export type CardPackCurrency = 'ryo' | 'fateShards' | 'chroniclePoints';
+
 type PackDefinition = {
-    currency: 'ryo' | 'fateShards';
+    currency: CardPackCurrency;
     baseCost: number;
     count: number;
     rarities: string[];
     // Which storefront pool this pack draws from. 'shop' = the weaker half of
-    // the catalog (ryo); 'marketplace' = the best 50% (premium Fate Shards).
+    // the catalog; 'marketplace' = the best 50% (premium Fate Shards).
     pool: 'shop' | 'marketplace';
 };
 
 const PACKS: Record<CardPackType, PackDefinition> = {
-    // Shop (ryo): the standard pool — Commons and the weaker Rares.
-    standard: { currency: 'ryo', baseCost: 250, count: 5, rarities: ['common', 'rare'], pool: 'shop' },
+    // Basic Card Pack: Commons and the weaker Rares. Costs Chronicle Points,
+    // earned only through Echoes of War (Celestial Tower) victories — it has
+    // NO ryo price and must never regain one (owner handoff 2026-09-02).
+    standard: { currency: 'chroniclePoints', baseCost: 100, count: 5, rarities: ['common', 'rare'], pool: 'shop' },
     // Grand Marketplace (Fate Shards): the best 50%. The Elite pack covers the
     // top Rares + Epics; the Legendary pack is the guaranteed top tier.
     epic: { currency: 'fateShards', baseCost: 10, count: 1, rarities: ['rare', 'epic'], pool: 'marketplace' },
@@ -34,6 +38,9 @@ export function parseCardPackType(value: unknown): CardPackType | null {
 }
 
 export function cardPackDiscountPercent(character: PlayerCharacter, type: CardPackType): number {
+    // Chronicle Point packs have one fixed campaign price — no shop, clan or
+    // elder discount applies (the currency sits outside the ryo economy).
+    if (PACKS[type].currency === 'chroniclePoints') return 0;
     // Grand Marketplace packs use only the trade-focus discount in the client.
     if (type !== 'standard') return character.elderFocus === 'trade' ? 5 : 0;
     const village = character.villageUpgrades && typeof character.villageUpgrades === 'object'
@@ -56,7 +63,7 @@ export function cardPackCost(character: PlayerCharacter, type: CardPackType): nu
 }
 
 export type CardPackOpen =
-    | { ok: true; character: PlayerCharacter; cards: string[]; currency: 'ryo' | 'fateShards'; cost: number; balance: number }
+    | { ok: true; character: PlayerCharacter; cards: string[]; currency: CardPackCurrency; cost: number; balance: number }
     | { ok: false; status: number; error: string };
 
 export function applyCardPackOpen(
@@ -75,7 +82,10 @@ export function applyCardPackOpen(
     }
     const balance = Math.max(0, Math.floor(Number(character[def.currency]) || 0));
     const cost = cardPackCost(character, type);
-    if (balance < cost) return { ok: false, status: 409, error: `Not enough ${def.currency}.` };
+    const currencyLabel = def.currency === 'chroniclePoints'
+        ? 'Chronicle Points — win Showdowns in Echoes of War to earn more'
+        : def.currency === 'fateShards' ? 'Fate Shards' : 'ryo';
+    if (balance < cost) return { ok: false, status: 409, error: `Not enough ${currencyLabel}.` };
     const pool = Object.entries(BUILTIN_CLASH)
         .filter(([id, card]) =>
             def.rarities.includes(card.rarity) &&

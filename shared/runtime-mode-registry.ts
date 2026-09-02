@@ -854,6 +854,16 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         participantModel: 'solo', rewardPolicy: 'server-capped', replayKind: 'expiring-chronicle-projection', status: 'match',
     }),
     defineMode({
+        id: 'echoes-of-war', label: 'Echoes of War campaign', category: 'card', authorityEngine: E.CHRONICLE,
+        clientEntries: ['screens/EchoesOfWar.tsx', 'screens/CardClashDuel.tsx', 'lib/chronicle-duel.ts'],
+        routes: [
+            mountedRoute('/card-clash/ai-start', 'card-clash/ai-start', ['start']),
+            mountedRoute('/card-clash/ai-move', 'card-clash/ai-move', ['action', 'state', 'settlement']),
+        ],
+        participantModel: 'solo', rewardPolicy: 'server-settled', replayKind: 'expiring-chronicle-projection', status: 'match',
+        statusDetail: 'The Celestial Tower Chronicle Showdown story campaign. ai-start seals the encounter (fixed opponent deck + difficulty from api/card-clash/_echoes-catalog.ts) after a floor-unlock check; the ai-move settle mutation pays Chronicle Points from the sealed definition under the standard per-session replay receipt, so duplicate settles and client-supplied rewards are both inert.',
+    }),
+    defineMode({
         id: 'dungeon-card', label: 'Dungeon Card seal', category: 'card', authorityEngine: E.CHRONICLE,
         orchestrationOwner: O.DUNGEON,
         clientEntries: ['screens/Dungeon.tsx', 'screens/CardClashDuel.tsx', 'lib/chronicle-duel.ts', 'lib/dungeon-api.ts'],
