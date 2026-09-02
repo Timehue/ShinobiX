@@ -1,49 +1,97 @@
 /* Echoes of War — Celestial Tower memory ladder.
    Colocated lazy-chunk stylesheet (loads after the global manifest, so plain
-   selectors win without !important). Preserved-history mood: dust, worn stone,
-   weak gold light on the lower floors. */
+   selectors win without !important).
+
+   Art direction (handoff §26): the climb moves through four bands —
+     low  (floors 1-3):  dust, worn stone, weak gold light
+     mid  (floors 4-6):  lantern amber, sealed doors, flicker
+     high (floors 7-9):  pale distorted light, teal chakra leak
+     court (floor 10):   the council chamber, lamp against the dark
+   Band accent tokens drive node frames, spine glow, and detail framing.
+   Every animation is prefers-reduced-motion gated. */
 
 .echoes-shell {
-    max-width: 860px;
+    --echoes-gold: #d9c88a;
+    --echoes-low: #c9a55a;
+    --echoes-mid: #e0923f;
+    --echoes-high: #57c4b8;
+    --echoes-court: #d4634f;
+    max-width: 880px;
     margin: 0 auto;
     padding: 0.9rem 0.9rem 2.5rem;
     color: #e7e2d5;
 }
 
-.echoes-header {
+/* ── Hero ─────────────────────────────────────────────────────────────── */
+.echoes-hero {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(184, 160, 106, 0.35);
+    margin-bottom: 1rem;
+    min-height: 205px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    isolation: isolate;
+}
+.echoes-hero-art {
+    position: absolute;
+    inset: 0;
+    background-position: center 30%;
+    background-size: cover;
+    z-index: -2;
+}
+@media (prefers-reduced-motion: no-preference) {
+    .echoes-hero-art {
+        animation: echoes-hero-drift 46s ease-in-out infinite alternate;
+    }
+}
+@keyframes echoes-hero-drift {
+    from { background-position: center 24%; }
+    to { background-position: center 40%; }
+}
+.echoes-hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+        linear-gradient(to top, rgba(10, 9, 6, 0.94) 0%, rgba(10, 9, 6, 0.55) 42%, rgba(10, 9, 6, 0.18) 100%);
+}
+.echoes-hero-inner {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 0.7rem 1rem;
-    margin-bottom: 1rem;
+    align-items: flex-end;
+    gap: 0.6rem 1rem;
+    padding: 2.2rem 1.1rem 0.9rem;
 }
+.echoes-hero .back-btn { position: absolute; top: 0.7rem; left: 0.7rem; }
 
-.echoes-header .back-btn { flex: 0 0 auto; }
-
-.echoes-header-titles { flex: 1 1 260px; min-width: 0; }
-
+.echoes-header-titles { flex: 1 1 280px; min-width: 0; }
 .echoes-kicker {
     display: block;
     font-size: 0.72rem;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: #b8a06a;
+    color: #cbb271;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
-
 .echoes-header-titles h1 {
-    margin: 0.1rem 0 0;
-    font-size: 1.55rem;
-    line-height: 1.15;
-    color: #f2ead6;
+    margin: 0.15rem 0 0;
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem);
+    line-height: 1.05;
+    color: #f5eed9;
     border-bottom: none;
+    letter-spacing: 0.03em;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
 }
-
 .echoes-sub {
-    margin: 0.25rem 0 0;
-    color: #a89f8c;
-    font-size: 0.9rem;
+    margin: 0.35rem 0 0;
+    color: #c9bfa6;
+    font-size: 0.92rem;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
-
 .echoes-header-stats {
     flex: 1 1 100%;
     display: flex;
@@ -51,19 +99,51 @@
     gap: 0.4rem 0.9rem;
     align-items: center;
     font-size: 0.85rem;
-    color: #b7ae9b;
+    color: #cfc4a8;
 }
-
 .echoes-points-chip {
     display: inline-block;
-    padding: 0.28rem 0.6rem;
-    background: rgba(184, 160, 106, 0.1);
-    border: 1px solid rgba(184, 160, 106, 0.45);
+    padding: 0.3rem 0.65rem;
+    background: rgba(20, 17, 10, 0.72);
+    border: 1px solid rgba(217, 200, 138, 0.55);
     border-radius: 6px;
-    color: #e6d7ae;
+    color: #efe0b2;
     white-space: nowrap;
+    box-shadow: 0 0 14px rgba(217, 200, 138, 0.12);
+}
+.echoes-stat {
+    padding: 0.3rem 0.15rem;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
+/* Stories-completed progress bar. */
+.echoes-progress {
+    flex: 1 1 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #b6ab8d;
+}
+.echoes-progress-track {
+    flex: 1 1 auto;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(184, 160, 106, 0.25);
+    overflow: hidden;
+}
+.echoes-progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(to right, var(--echoes-low), var(--echoes-gold));
+    box-shadow: 0 0 8px rgba(217, 200, 138, 0.55);
+    transition: width 600ms ease;
+}
+
+/* ── Panels ───────────────────────────────────────────────────────────── */
 .echoes-panel {
     background: rgba(20, 18, 14, 0.82);
     border: 1px solid rgba(150, 135, 105, 0.28);
@@ -71,77 +151,123 @@
     padding: 0.9rem 1rem;
     margin-bottom: 0.9rem;
 }
-
 .echoes-resume-note {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.8rem;
     flex-wrap: wrap;
+    border-color: rgba(217, 200, 138, 0.45);
 }
 .echoes-resume-note p { margin: 0; color: #d9cfae; }
 
-/* ── Ladder ── */
+/* ── Ladder ───────────────────────────────────────────────────────────── */
 .echoes-ladder {
     list-style: none;
     margin: 0;
-    padding: 0 0 0 1.1rem;
+    padding: 0 0 0 1.2rem;
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: 0.65rem;
+    gap: 0.7rem;
 }
-/* The climb: a faint spine connecting the memory floors. */
+/* The climb: a spine that stays cold above your progress and burns gold
+   through the floors you have finished. --echoes-progress is set inline. */
 .echoes-ladder::before {
     content: "";
     position: absolute;
-    left: 0.35rem;
+    left: 0.38rem;
     top: 1rem;
     bottom: 1rem;
-    width: 2px;
-    background: linear-gradient(to top, rgba(150, 135, 105, 0.14), rgba(184, 160, 106, 0.5));
+    width: 3px;
+    border-radius: 2px;
+    background: linear-gradient(
+        to top,
+        var(--echoes-gold) 0%,
+        rgba(217, 200, 138, 0.85) calc(var(--echoes-progress, 10%) - 4%),
+        rgba(150, 135, 105, 0.16) calc(var(--echoes-progress, 10%) + 4%),
+        rgba(150, 135, 105, 0.14) 100%
+    );
+    box-shadow: 0 0 10px rgba(217, 200, 138, 0.2);
 }
 
 .echoes-node {
+    --band: var(--echoes-low);
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    background: rgba(24, 21, 16, 0.86);
+    gap: 0.8rem;
+    background:
+        linear-gradient(100deg, rgba(24, 21, 16, 0.94) 55%, rgba(24, 21, 16, 0.72)),
+        linear-gradient(rgba(24, 21, 16, 0.9), rgba(24, 21, 16, 0.9));
     border: 1px solid rgba(150, 135, 105, 0.26);
+    border-left: 3px solid color-mix(in srgb, var(--band) 55%, transparent);
     border-radius: 10px;
-    padding: 0.6rem 0.75rem;
+    padding: 0.65rem 0.8rem;
     position: relative;
+    transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
-.echoes-node--boss { border-color: rgba(196, 110, 74, 0.55); }
-.echoes-node--cleared { border-color: rgba(126, 166, 116, 0.45); }
+.echoes-node--band-mid { --band: var(--echoes-mid); }
+.echoes-node--band-high { --band: var(--echoes-high); }
+.echoes-node--band-court { --band: var(--echoes-court); }
+
+.echoes-node--available:hover,
+.echoes-node--cleared:hover {
+    transform: translateX(4px);
+    border-color: color-mix(in srgb, var(--band) 55%, rgba(150, 135, 105, 0.26));
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45), 0 0 14px color-mix(in srgb, var(--band) 22%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+    .echoes-node--available:hover,
+    .echoes-node--cleared:hover { transform: none; }
+}
+
+.echoes-node--boss {
+    border-color: rgba(212, 99, 79, 0.55);
+    background:
+        linear-gradient(100deg, rgba(31, 17, 14, 0.95) 55%, rgba(31, 17, 14, 0.75)),
+        linear-gradient(rgba(24, 21, 16, 0.9), rgba(24, 21, 16, 0.9));
+}
 .echoes-node--locked { opacity: 0.78; }
+
+/* "You are here": the highest open, uncleared memory breathes faintly. */
+.echoes-node--current { border-color: color-mix(in srgb, var(--band) 70%, transparent); }
+@media (prefers-reduced-motion: no-preference) {
+    .echoes-node--current {
+        animation: echoes-node-breathe 3.2s ease-in-out infinite;
+    }
+}
+@keyframes echoes-node-breathe {
+    0%, 100% { box-shadow: 0 0 0 rgba(0, 0, 0, 0); }
+    50% { box-shadow: 0 0 18px color-mix(in srgb, var(--band) 30%, transparent); }
+}
 
 .echoes-node-floor {
     flex: 0 0 auto;
-    width: 1.9rem;
-    height: 1.9rem;
+    width: 2rem;
+    height: 2rem;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
     background: rgba(184, 160, 106, 0.12);
-    border: 1px solid rgba(184, 160, 106, 0.4);
-    color: #d9c88a;
+    border: 1px solid color-mix(in srgb, var(--band) 60%, transparent);
+    color: var(--echoes-gold);
     font-weight: 700;
     font-size: 0.85rem;
 }
+.echoes-node--boss .echoes-node-floor { color: #f0a08c; }
 
 .echoes-node-portrait {
     flex: 0 0 auto;
-    width: 52px;
-    height: 52px;
+    width: 56px;
+    height: 56px;
     border-radius: 8px;
     object-fit: cover;
-    border: 1px solid rgba(150, 135, 105, 0.4);
+    border: 1px solid color-mix(in srgb, var(--band) 45%, rgba(150, 135, 105, 0.4));
     background: #0d0c09;
 }
 .echoes-node--locked .echoes-node-portrait {
-    filter: brightness(0.18) saturate(0.2);
+    filter: brightness(0.16) saturate(0.15);
 }
 
 .echoes-node-body {
@@ -149,16 +275,26 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.12rem;
+    gap: 0.14rem;
 }
-.echoes-node-name { font-size: 0.95rem; color: #efe6cd; }
+.echoes-node-name { font-size: 0.98rem; color: #efe6cd; }
 .echoes-node-meta { font-size: 0.78rem; color: #a89f8c; }
 .echoes-node-reward { font-size: 0.78rem; color: #cdb877; }
+.echoes-node-seal {
+    display: inline-block;
+    margin-left: 0.4rem;
+    font-size: 0.72rem;
+    color: #9fc292;
+    border: 1px solid rgba(126, 166, 116, 0.45);
+    border-radius: 4px;
+    padding: 0 0.35rem;
+    vertical-align: 1px;
+}
 
 .echoes-node-action {
     flex: 0 0 auto;
     min-height: 44px;
-    padding: 0.45rem 0.8rem;
+    padding: 0.45rem 0.85rem;
 }
 
 .echoes-primary {
@@ -167,6 +303,10 @@
     color: #f2e6bf;
     min-height: 44px;
 }
+.echoes-primary:hover {
+    background: rgba(184, 160, 106, 0.3);
+    box-shadow: 0 0 12px rgba(217, 200, 138, 0.25);
+}
 
 .echoes-footnote {
     margin-top: 1rem;
@@ -174,12 +314,40 @@
     color: #8f887a;
 }
 
-/* ── Detail ── */
+/* ── Detail ───────────────────────────────────────────────────────────── */
+.echoes-detail-stage {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--band, var(--echoes-low)) 45%, rgba(150, 135, 105, 0.3));
+    isolation: isolate;
+}
+.echoes-detail-stage.echoes-detail-stage--boss {
+    border-color: rgba(212, 99, 79, 0.6);
+    box-shadow: 0 0 26px rgba(212, 99, 79, 0.14);
+}
+.echoes-detail-backdrop {
+    position: absolute;
+    inset: 0;
+    background-position: center;
+    background-size: cover;
+    z-index: -2;
+}
+.echoes-detail-stage::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(100deg, rgba(12, 10, 7, 0.93) 30%, rgba(12, 10, 7, 0.72) 70%, rgba(12, 10, 7, 0.5));
+}
 .echoes-detail {
     display: flex;
     gap: 1rem;
     align-items: flex-start;
     flex-wrap: wrap;
+    background: none;
+    border: none;
+    margin-bottom: 0;
 }
 
 .echoes-detail-portrait-wrap {
@@ -187,51 +355,67 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.45rem;
 }
 .echoes-detail-portrait {
-    width: 148px;
-    height: 148px;
+    width: 156px;
+    height: 156px;
     max-width: 100%;
     border-radius: 10px;
     object-fit: cover;
-    border: 1px solid rgba(150, 135, 105, 0.45);
+    border: 2px solid color-mix(in srgb, var(--band, var(--echoes-low)) 55%, rgba(150, 135, 105, 0.45));
     background: #0d0c09;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
 }
 .echoes-cleared-mark {
     font-size: 0.75rem;
     color: #9fc292;
     border: 1px solid rgba(126, 166, 116, 0.45);
     border-radius: 5px;
-    padding: 0.12rem 0.45rem;
+    padding: 0.14rem 0.5rem;
+    background: rgba(12, 10, 7, 0.6);
+}
+.echoes-boss-mark {
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #f0a08c;
+    border: 1px solid rgba(212, 99, 79, 0.55);
+    border-radius: 5px;
+    padding: 0.14rem 0.5rem;
+    background: rgba(31, 17, 14, 0.7);
 }
 
-.echoes-detail-body { flex: 1 1 260px; min-width: 0; }
-.echoes-blurb { margin: 0 0 0.7rem; color: #cfc6b2; line-height: 1.5; }
+.echoes-detail-body { flex: 1 1 280px; min-width: 0; }
+.echoes-blurb { margin: 0 0 0.7rem; color: #d6cdb9; line-height: 1.55; }
 
 .echoes-facts { margin: 0 0 0.7rem; }
 .echoes-facts div {
     display: flex;
     gap: 0.6rem;
-    padding: 0.18rem 0;
+    padding: 0.2rem 0;
     border-bottom: 1px dashed rgba(150, 135, 105, 0.18);
 }
 .echoes-facts dt {
     flex: 0 0 6.2rem;
-    color: #b8a06a;
+    color: #cbb271;
     font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
-.echoes-facts dd { margin: 0; font-size: 0.88rem; color: #ddd4bf; }
+.echoes-facts dd { margin: 0; font-size: 0.88rem; color: #e2d9c4; }
 
 .echoes-chronicle-note {
     font-style: italic;
-    color: #b9ab84;
-    border-left: 3px solid rgba(184, 160, 106, 0.5);
+    color: #c5b78e;
+    border-left: 3px solid rgba(217, 200, 138, 0.55);
     padding-left: 0.6rem;
     margin: 0 0 0.7rem;
-    line-height: 1.5;
+    line-height: 1.55;
+    background: rgba(217, 200, 138, 0.05);
+    border-radius: 0 6px 6px 0;
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
 }
 
 .echoes-locked-note { color: #a89f8c; margin: 0 0 0.7rem; }
@@ -243,14 +427,161 @@
 }
 .echoes-detail-actions button { min-height: 44px; }
 
-/* Result panel additions rendered inside the shared chronicle shell. */
-.echoes-result-panel .echoes-reward-lines p { margin: 0.2rem 0; }
+/* ── "Entering the memory" veil ───────────────────────────────────────── */
+.echoes-veil {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+        radial-gradient(ellipse at center, color-mix(in srgb, var(--band, #d9c88a) 14%, transparent), transparent 55%),
+        rgba(8, 7, 5, 0.97);
+    pointer-events: all;
+}
+.echoes-veil-text {
+    color: #e8dcb5;
+    font-size: 1.05rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 0 1rem;
+}
+.echoes-veil-text small {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    color: #a89a76;
+}
+@media (prefers-reduced-motion: no-preference) {
+    .echoes-veil { animation: echoes-veil-in 700ms ease both; }
+    .echoes-veil-text { animation: echoes-veil-text 700ms ease both; }
+}
+@keyframes echoes-veil-in {
+    from { opacity: 0; }
+    30% { opacity: 1; }
+    to { opacity: 1; }
+}
+@keyframes echoes-veil-text {
+    from { opacity: 0; transform: translateY(8px); letter-spacing: 0.34em; }
+    to { opacity: 1; transform: translateY(0); letter-spacing: 0.22em; }
+}
 
-/* ── Small screens ── */
+/* ── Showdown result (rendered inside the chronicle shell) ────────────── */
+.echoes-result-panel {
+    border: 1px solid rgba(217, 200, 138, 0.4);
+    background:
+        radial-gradient(ellipse at 50% 0%, rgba(217, 200, 138, 0.1), transparent 60%),
+        rgba(16, 14, 10, 0.92);
+    overflow: hidden;
+}
+.echoes-result-panel.echoes-result--defeat {
+    border-color: rgba(150, 135, 105, 0.35);
+    background:
+        radial-gradient(ellipse at 50% 0%, rgba(120, 110, 100, 0.08), transparent 60%),
+        rgba(14, 13, 11, 0.92);
+}
+.echoes-result-title {
+    font-size: clamp(1.6rem, 4vw, 2.2rem);
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: #f2e6bf;
+    margin: 0.2rem 0 0.1rem;
+    text-shadow: 0 0 18px rgba(217, 200, 138, 0.35);
+}
+.echoes-result--defeat .echoes-result-title {
+    color: #cfc4ae;
+    text-shadow: none;
+}
+.echoes-result-sub {
+    margin: 0 0 0.75rem;
+    color: #b6ab8d;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+}
+.echoes-reward-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+.echoes-reward-row {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.55rem;
+    padding: 0.3rem 0.85rem;
+    border: 1px solid rgba(217, 200, 138, 0.35);
+    border-radius: 7px;
+    background: rgba(217, 200, 138, 0.07);
+    color: #e9ddb6;
+    font-size: 0.95rem;
+}
+.echoes-reward-row strong { color: #f5ebc8; font-size: 1.05rem; }
+.echoes-reward-row--first {
+    border-color: rgba(217, 200, 138, 0.7);
+    background: linear-gradient(100deg, rgba(217, 200, 138, 0.16), rgba(217, 200, 138, 0.06));
+    position: relative;
+    overflow: hidden;
+}
+.echoes-reward-row--chapter {
+    border-color: rgba(212, 99, 79, 0.65);
+    background: linear-gradient(100deg, rgba(212, 99, 79, 0.18), rgba(212, 99, 79, 0.06));
+    color: #f4c9bc;
+}
+.echoes-reward-row--balance {
+    border-style: dashed;
+    background: none;
+    color: #c5b98f;
+}
+.echoes-result-unlock {
+    margin: 0 0 0.6rem;
+    color: #9fc292;
+    font-size: 0.9rem;
+    letter-spacing: 0.06em;
+}
+@media (prefers-reduced-motion: no-preference) {
+    .echoes-result-title { animation: echoes-title-punch 480ms cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+    /* Staggered reveal. The keyframe floors at opacity 0.35 (not 0) on purpose:
+       a CSS timeline that never advances — the non-compositing preview pane,
+       or any browser that stalls animations while reporting no-preference —
+       leaves the reward numbers DIMMED BUT READABLE rather than invisible. In
+       a real browser they fade to full as intended. */
+    .echoes-reward-row { animation: echoes-row-in 420ms ease both; }
+    .echoes-reward-row:nth-child(1) { animation-delay: 200ms; }
+    .echoes-reward-row:nth-child(2) { animation-delay: 400ms; }
+    .echoes-reward-row:nth-child(3) { animation-delay: 600ms; }
+    .echoes-reward-row:nth-child(4) { animation-delay: 800ms; }
+    .echoes-result-unlock { animation: echoes-row-in 420ms ease 950ms both; }
+    .echoes-reward-row--first::after {
+        content: "";
+        position: absolute;
+        inset: -40% -60%;
+        background: linear-gradient(115deg, transparent 42%, rgba(255, 246, 214, 0.35) 50%, transparent 58%);
+        animation: echoes-shimmer 1.9s ease 900ms 2;
+    }
+}
+@keyframes echoes-title-punch {
+    from { opacity: 0.4; transform: scale(1.25); letter-spacing: 0.5em; }
+    to { opacity: 1; transform: scale(1); letter-spacing: 0.28em; }
+}
+@keyframes echoes-row-in {
+    from { opacity: 0.35; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes echoes-shimmer {
+    from { transform: translateX(-70%); }
+    to { transform: translateX(70%); }
+}
+
+/* ── Small screens ────────────────────────────────────────────────────── */
 @media (max-width: 560px) {
     .echoes-shell { padding: 0.6rem 0.6rem 2rem; }
+    .echoes-hero { min-height: 170px; }
+    .echoes-hero-inner { padding: 2rem 0.8rem 0.75rem; }
     .echoes-node { flex-wrap: wrap; }
     .echoes-node-action { flex-basis: 100%; }
-    .echoes-detail-portrait { width: 116px; height: 116px; }
-    .echoes-header-titles h1 { font-size: 1.3rem; }
+    .echoes-detail-portrait { width: 120px; height: 120px; }
 }

@@ -5,13 +5,16 @@
 // engine, server-authoritative). Progression and Chronicle Points live on
 // SERVER-OWNED character fields, so this screen renders purely from `character`
 // and never needs its own fetch on mount.
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import type { Character } from "../types/character";
 import type { TileCard } from "../data/tile-cards";
 import type { CreatorEvent } from "../types/vn";
 import {
     ECHOES_OPPONENTS,
     ECHOES_REWARD_DISPLAY,
+    ECHOES_TOWER_HERO,
+    echoesBandForFloor,
     echoesClientProgress,
     echoesFloorUnlockedClient,
     echoesHighestUnlockedFloorClient,
@@ -24,10 +27,20 @@ import {
 import { readEchoesContent, resetEchoesContent } from "../lib/echoes-content-loader";
 import { cardGameLockStatus } from "../lib/chronicle-lock";
 import type { EchoesSettleSummary } from "../lib/chronicle-duel";
+import { playEchoesSfx, startEchoesAmbience, stopEchoesAmbience } from "../lib/echoes-sfx";
 import { ContentLoadBoundary } from "../components/StoryContentBoundary";
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
 import { CardClashDuel } from "./CardClashDuel";
 import "./EchoesOfWar.css";
+
+/** Beat between "you chose to enter" and the board mounting: the veil. */
+const ENTER_MEMORY_VEIL_MS = 850;
+
+function prefersReducedMotion(): boolean {
+    try {
+        return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    } catch { return false; }
+}
 
 // Interrupted-showdown resume pointer (mirrors CardHall's chronicleAiMatch.v1).
 const ECHOES_RESUME_KEY = "echoesAiMatch.v1";
@@ -125,10 +138,24 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
     const [vnPage, setVnPage] = useState(0);
     const [vnLine, setVnLine] = useState(0);
     const [battle, setBattle] = useState<ActiveBattle | null>(null);
+    // The "entering the memory" veil shown between choosing a Showdown and the
+    // board mounting. Skipped entirely under prefers-reduced-motion.
+    const [veil, setVeil] = useState<ActiveBattle | null>(null);
+    const veilTimer = useRef<number | null>(null);
+    useEffect(() => () => { if (veilTimer.current) window.clearTimeout(veilTimer.current); }, []);
     const [resume, setResume] = useState<ResumePointer | null>(() => readResumePointer());
     // The settle summary arrives before the player clicks Continue; a ref
     // avoids reading a stale state snapshot from the win callback's closure.
     const summaryRef = useRef<EchoesSettleSummary | null>(null);
+
+    // Subdued tower ambience while browsing the memories (handoff art
+    // direction). It yields to the Showdown itself and stops on screen exit.
+    const inBattle = battle !== null;
+    useEffect(() => {
+        if (inBattle) return;
+        startEchoesAmbience();
+        return () => stopEchoesAmbience();
+    }, [inBattle]);
 
     const progress = echoesClientProgress(character.echoesOfWar);
     const storySeen = character.echoesStorySeen ?? {};
@@ -167,7 +194,18 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
 
     function beginBattle(opponent: EchoesOpponent, resumeMatchId?: string) {
         summaryRef.current = null;
-        setBattle({ opponent, resumeMatchId });
+        const next: ActiveBattle = { opponent, resumeMatchId };
+        if (prefersReducedMotion()) {
+            setBattle(next);
+            return;
+        }
+        playEchoesSfx("enter-memory");
+        setVeil(next);
+        if (veilTimer.current) window.clearTimeout(veilTimer.current);
+        veilTimer.current = window.setTimeout(() => {
+            setVeil(null);
+            setBattle(next);
+        }, ENTER_MEMORY_VEIL_MS);
     }
 
     function challenge(opponent: EchoesOpponent) {
@@ -245,17 +283,46 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
         />;
     }
 
+    // The pre-Showdown veil covers whichever browsing view is behind it.
+    const veilBand = veil ? echoesBandForFloor(veil.opponent.floor) : "low";
+    const veilOverlay = veil ? (
+        <div className="echoes-veil" style={{ "--band": `var(--echoes-${veilBand})` } as CSSProperties} role="status">
+            <div className="echoes-veil-text">
+                Floor {veil.opponent.floor} · {veil.opponent.name}, {veil.opponent.title}
+                <small>The tower opens the memory.</small>
+            </div>
+        </div>
+    ) : null;
+
+    const heroHeader = (subline: boolean, onBackClick: () => void, backLabel: string) => (
+        <header className="echoes-hero">
+            <div className="echoes-hero-art" style={{ backgroundImage: `url(${ECHOES_TOWER_HERO})` }} aria-hidden="true" />
+            <button className="back-btn" onClick={onBackClick}>{backLabel}</button>
+            <div className="echoes-hero-inner">
+                <div className="echoes-header-titles">
+                    <span className="echoes-kicker">Celestial Tower · Chapter One · The Sunken Court</span>
+                    <h1>Echoes of War</h1>
+                    {subline ? <p className="echoes-sub">The tower keeps the memories of the fallen, not their souls. Finish the Showdowns they never got, and the pattern of the Hollow Gate begins to surface across the centuries.</p> : null}
+                </div>
+                <div className="echoes-header-stats">
+                    <span className="echoes-points-chip" title="Chronicle Points buy the Basic Card Pack in the Card Shop.">🏛️ Chronicle Points: <strong>{chroniclePoints}</strong></span>
+                    <span className="echoes-stat">Highest memory: Floor {highestFloor}</span>
+                    <div className="echoes-progress" aria-label={`Stories completed: ${completed} of ${ECHOES_OPPONENTS.length}`}>
+                        <span>Stories {completed}/{ECHOES_OPPONENTS.length}</span>
+                        <div className="echoes-progress-track">
+                            <div className="echoes-progress-fill" style={{ width: `${(completed / ECHOES_OPPONENTS.length) * 100}%` }} />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+    );
+
     // ── Chronicle lock (pre-Scribe): same pacing gate as the Card Hall ──────
     if (lock.locked) {
         return (
             <div className="echoes-shell">
-                <header className="echoes-header">
-                    <button className="back-btn" onClick={onBack}>← Celestial Tower</button>
-                    <div className="echoes-header-titles">
-                        <span className="echoes-kicker">Celestial Tower</span>
-                        <h1>Echoes of War</h1>
-                    </div>
-                </header>
+                {heroHeader(true, onBack, "← Celestial Tower")}
                 <section className="echoes-panel">
                     <h2>The memories are sealed</h2>
                     <p>{lock.body}</p>
@@ -273,8 +340,10 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
         const firstClearTotal = ECHOES_REWARD_DISPLAY.repeatWin + ECHOES_REWARD_DISPLAY.firstClearBonus
             + (selected.isBoss ? ECHOES_REWARD_DISPLAY.bossFirstClearBonus : 0);
         const resumable = resume && resume.encounterId === selected.id ? resume : null;
+        const band = echoesBandForFloor(selected.floor);
         return (
-            <div className="echoes-shell">
+            <div className="echoes-shell" style={{ "--band": `var(--echoes-${band})` } as CSSProperties}>
+                {veilOverlay}
                 <header className="echoes-header">
                     <button className="back-btn" onClick={() => setSelectedId(null)}>← All floors</button>
                     <div className="echoes-header-titles">
@@ -283,9 +352,12 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                     </div>
                     <span className="echoes-points-chip" title="Chronicle Points buy the Basic Card Pack in the Card Shop.">🏛️ {chroniclePoints}</span>
                 </header>
-                <section className="echoes-panel echoes-detail">
+                <section className={`echoes-detail-stage ${selected.isBoss ? "echoes-detail-stage--boss" : ""}`}>
+                    <div className="echoes-detail-backdrop" style={{ backgroundImage: `url(${selected.sceneImage})` }} aria-hidden="true" />
+                    <div className="echoes-panel echoes-detail">
                     <div className="echoes-detail-portrait-wrap">
                         <img className="echoes-detail-portrait" src={selected.portrait} alt={`${selected.name}, ${selected.title}`} />
+                        {selected.isBoss ? <span className="echoes-boss-mark">Chapter Boss</span> : null}
                         {cleared ? <span className="echoes-cleared-mark">Story complete</span> : null}
                     </div>
                     <div className="echoes-detail-body">
@@ -316,6 +388,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                             ) : null}
                         </div>
                     </div>
+                    </div>
                 </section>
             </div>
         );
@@ -324,33 +397,33 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
     // ── The tower ladder ─────────────────────────────────────────────────────
     return (
         <div className="echoes-shell">
-            <header className="echoes-header">
-                <button className="back-btn" onClick={onBack}>← Celestial Tower</button>
-                <div className="echoes-header-titles">
-                    <span className="echoes-kicker">Celestial Tower</span>
-                    <h1>Echoes of War</h1>
-                    <p className="echoes-sub">Relive the unfinished Showdowns of a fallen civilization.</p>
-                </div>
-                <div className="echoes-header-stats">
-                    <span className="echoes-points-chip" title="Chronicle Points buy the Basic Card Pack in the Card Shop.">🏛️ Chronicle Points: <strong>{chroniclePoints}</strong></span>
-                    <span className="echoes-stat">Highest memory: Floor {highestFloor}</span>
-                    <span className="echoes-stat">Stories completed: {completed}/{ECHOES_OPPONENTS.length}</span>
-                </div>
-            </header>
+            {veilOverlay}
+            {heroHeader(true, onBack, "← Celestial Tower")}
             {resume ? (
                 <section className="echoes-panel echoes-resume-note">
                     <p>An interrupted Showdown is still on the table.</p>
                     <button className="echoes-primary" onClick={() => setSelectedId(resume.encounterId)}>Continue</button>
                 </section>
             ) : null}
-            <ol className="echoes-ladder">
+            <ol className="echoes-ladder" style={{ "--echoes-progress": `${Math.max(6, (completed / ECHOES_OPPONENTS.length) * 100)}%` } as CSSProperties}>
                 {[...ECHOES_OPPONENTS].reverse().map((opponent) => {
                     const entry = progress[opponent.id];
                     const cleared = (entry?.wins ?? 0) > 0;
                     const unlocked = echoesFloorUnlockedClient(progress, opponent.floor);
                     const state = cleared ? "cleared" : unlocked ? "available" : "locked";
+                    const current = !cleared && unlocked;
+                    const band = echoesBandForFloor(opponent.floor);
                     return (
-                        <li key={opponent.id} className={`echoes-node echoes-node--${state} ${opponent.isBoss ? "echoes-node--boss" : ""}`}>
+                        <li
+                            key={opponent.id}
+                            className={[
+                                "echoes-node",
+                                `echoes-node--${state}`,
+                                `echoes-node--band-${band}`,
+                                opponent.isBoss ? "echoes-node--boss" : "",
+                                current ? "echoes-node--current" : "",
+                            ].filter(Boolean).join(" ")}
+                        >
                             <span className="echoes-node-floor">{opponent.floor}</span>
                             <img
                                 className="echoes-node-portrait"
@@ -365,7 +438,10 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                                     </>
                                 ) : (
                                     <>
-                                        <strong className="echoes-node-name">{opponent.name}, {opponent.title}{opponent.isBoss ? " · Boss" : ""}</strong>
+                                        <strong className="echoes-node-name">
+                                            {opponent.name}, {opponent.title}{opponent.isBoss ? " · Boss" : ""}
+                                            {cleared ? <span className="echoes-node-seal">✓ Recorded</span> : null}
+                                        </strong>
                                         <span className="echoes-node-meta">{opponent.deckName} · {opponent.difficultyLabel}{cleared ? ` · ${entry?.wins ?? 0} ${(entry?.wins ?? 0) === 1 ? "win" : "wins"}` : ""}</span>
                                         <span className="echoes-node-reward">
                                             {cleared
