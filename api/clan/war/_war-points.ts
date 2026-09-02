@@ -144,6 +144,14 @@ function finalizedWarPointEvents(body: Record<string, unknown>): Map<string, War
     return events;
 }
 
+/** Exact per-player point totals produced by the same event set used for payout. */
+export function finalizedWarPointTotals(body: Record<string, unknown>): Record<string, number> {
+    return Object.fromEntries([...finalizedWarPointEvents(body)].map(([player, events]) => [
+        player,
+        events.reduce((total, event) => total + event.amount, 0),
+    ]));
+}
+
 export type WarPointSaveEcho = { character: Record<string, unknown>; _saveVersion: number };
 
 async function applyWarPointEvents(player: string, events: WarPointEvent[]): Promise<WarPointSaveEcho | undefined> {

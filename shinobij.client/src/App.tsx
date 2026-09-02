@@ -6843,6 +6843,17 @@ export default function App() {
                     const pvpOriginatingPlayerName = character.name;
                     const pvpOriginatingSessionEpoch = saveSessionEpochRef.current;
                     const pvpSettlementScopeKey = `${playerSlug(pvpOriginatingPlayerName)}:${pvpOriginatingSessionEpoch}:${pvpRole}:${pvpBattleId}`;
+                    const pvpReturnTarget: Screen = pvpBattleContext?.sectorAttack
+                        ? "worldMap"
+                        : pvpBattleContext?.mode?.startsWith("clanWar")
+                            ? "clan"
+                            : "battleArena";
+                    const pvpReturnSector = pvpBattleContext?.sector ?? currentSector;
+                    const pvpReturnLabel = pvpReturnTarget === "worldMap"
+                        ? `Return to Sector ${pvpReturnSector}`
+                        : pvpReturnTarget === "clan"
+                            ? "Return to Clan War"
+                            : "Return to Arena";
                     const pvpJutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, character);
                     const pvpAllItems = getAllItems(creatorItems);
                     const pvpItems = (["hand", "weapon", "thrown", "item1", "item2", "item3", "item", "potion"] as EquipmentSlot[])
@@ -7007,7 +7018,8 @@ export default function App() {
                             battleId={pvpBattleId}
                             role={pvpRole}
                             setScreen={navigate}
-                            onViewBattleRecord={(battleId) => { setViewedBattleId(battleId); navigate("battleLog"); }}
+                            returnTarget={pvpReturnTarget}
+                            returnLabel={pvpReturnLabel}
                             equippedJutsu={pvpJutsus}
                             equippedItems={pvpItems}
                             currentBiome={currentBiome}
