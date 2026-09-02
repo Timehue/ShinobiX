@@ -24,28 +24,37 @@ import {
 const CLIENT_PUBLIC = path.resolve(process.cwd(), 'shinobij.client', 'public');
 
 type ClientScenePage = { title: string; scene: string; speaker: string; dialogue: string[] };
+type ClientScenes = {
+    preShowdown: ClientScenePage[]; defeat: ClientScenePage[];
+    firstVictory: ClientScenePage[]; rematch: ClientScenePage[];
+};
 type ClientOpponent = {
     id: string; floor: number; name: string; title: string; deckName: string;
     deckTheme: string; difficultyLabel: string; isBoss?: true;
     shortDescription: string; lockedHint: string; portrait: string; sceneImage: string;
     chronicleNote: string;
-    preShowdown: ClientScenePage[]; defeat: ClientScenePage[];
-    firstVictory: ClientScenePage[]; rematch: ClientScenePage[];
 };
 
 async function loadClientData(): Promise<{
     ECHOES_OPPONENTS: readonly ClientOpponent[];
     ECHOES_REWARD_DISPLAY: Record<string, number>;
+    ECHOES_SCENES: Readonly<Record<string, ClientScenes>>;
 }> {
-    // Computed specifier on purpose: tsx resolves it at runtime, but tsc does
-    // NOT pull the client module into the cpanel compile (a literal import
-    // makes tsc emit a stray dist/shinobij.client/ subtree).
-    const specifier = '../../shinobij.client/src/data/echoes-of-war.js';
-    const mod = (await import(specifier)) as {
+    // Computed specifiers on purpose: tsx resolves them at runtime, but tsc does
+    // NOT pull the client modules into the cpanel compile (a literal import
+    // makes tsc emit a stray dist/shinobij.client/ subtree). The scene script
+    // lives in the build-time-only scenes module (shipped as on-demand JSON),
+    // while the shell keeps the display metadata this test mirrors.
+    const shellSpecifier = '../../shinobij.client/src/data/echoes-of-war.js';
+    const scenesSpecifier = '../../shinobij.client/src/data/echoes-of-war-scenes.js';
+    const shell = (await import(shellSpecifier)) as {
         ECHOES_OPPONENTS: readonly ClientOpponent[];
         ECHOES_REWARD_DISPLAY: Record<string, number>;
     };
-    return mod;
+    const scenes = (await import(scenesSpecifier)) as {
+        ECHOES_SCENES: Readonly<Record<string, ClientScenes>>;
+    };
+    return { ...shell, ECHOES_SCENES: scenes.ECHOES_SCENES };
 }
 
 test('the campaign has ten encounters on floors 1 through 10 with unique ids', () => {
@@ -169,12 +178,18 @@ test('client display data mirrors the server encounter table exactly', async () 
 
 test('every scene stays inside the handoff beat budget and every art asset exists', async () => {
     const client = await loadClientData();
+    assert.deepEqual(
+        Object.keys(client.ECHOES_SCENES),
+        client.ECHOES_OPPONENTS.map((opponent) => opponent.id),
+        'the authored scenes module covers exactly the shell opponents, in floor order',
+    );
     for (const opponent of client.ECHOES_OPPONENTS) {
+        const scenes = client.ECHOES_SCENES[opponent.id]!;
         const beats = (pages: ClientScenePage[]) => pages.reduce((total, page) => total + page.dialogue.length, 0);
-        const pre = beats(opponent.preShowdown);
-        const victory = beats(opponent.firstVictory);
-        const defeat = beats(opponent.defeat);
-        const rematch = beats(opponent.rematch);
+        const pre = beats(scenes.preShowdown);
+        const victory = beats(scenes.firstVictory);
+        const defeat = beats(scenes.defeat);
+        const rematch = beats(scenes.rematch);
         assert.ok(pre >= 8 && pre <= 18, `${opponent.id} pre-Showdown beats ${pre} in [8,18]`);
         assert.ok(victory >= 8 && victory <= 18, `${opponent.id} first-victory beats ${victory} in [8,18]`);
         assert.ok(defeat >= 2 && defeat <= 5, `${opponent.id} defeat beats ${defeat} in [2,5]`);

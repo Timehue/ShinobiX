@@ -3,14 +3,18 @@ import test from "node:test";
 import { readFileSync, readdirSync } from "node:fs";
 import { storylines } from "../data/storylines";
 import { storyInterludesByVillage } from "../data/story-interludes";
+import { ECHOES_SCENES } from "../data/echoes-of-war-scenes";
 import {
+    ECHOES_CONTENT_KEY,
+    ECHOES_CONTENT_SCHEMA_VERSION,
     STORY_CONTENT_SCHEMA_VERSION,
     STORY_CONTENT_VILLAGES,
     storyContentSlug,
+    type EchoesContentPayload,
     type StoryContentPayload,
     type StoryContentVillage,
 } from "./story-content-contract";
-import { createStoryContentLoader, createStoryContentResource, StoryContentLoadError, validateStoryContentPayload } from "./story-content-loader-core";
+import { createStoryContentLoader, createStoryContentResource, StoryContentLoadError, validateEchoesContentPayload, validateStoryContentPayload } from "./story-content-loader-core";
 
 function payload(village: StoryContentVillage = "Stormveil Village"): StoryContentPayload {
     return {
@@ -28,13 +32,47 @@ function jsonResponse(value: unknown, status = 200): Response {
 test("generated content-addressed payloads exactly mirror every authored village export", () => {
     const directory = new URL("../generated/story-content/", import.meta.url);
     const files = readdirSync(directory).filter((file) => file.endsWith(".json"));
-    assert.equal(files.length, STORY_CONTENT_VILLAGES.length);
+    assert.equal(files.length, STORY_CONTENT_VILLAGES.length + 1, "four villages plus the Echoes of War script");
     for (const village of STORY_CONTENT_VILLAGES) {
         const matches = files.filter((file) => file.startsWith(`${storyContentSlug(village)}-`));
         assert.equal(matches.length, 1, `${village} must have one content-addressed payload`);
         assert.match(matches[0], /^[a-z-]+-[a-f0-9]{12}\.json$/);
         const parsed = JSON.parse(readFileSync(new URL(matches[0], directory), "utf8"));
         assert.deepEqual(validateStoryContentPayload(parsed, village), JSON.parse(JSON.stringify(payload(village))));
+    }
+});
+
+test("the generated Echoes of War payload exactly mirrors the authored scenes module", () => {
+    const directory = new URL("../generated/story-content/", import.meta.url);
+    const matches = readdirSync(directory).filter((file) => file.startsWith(`${ECHOES_CONTENT_KEY}-`) && file.endsWith(".json"));
+    assert.equal(matches.length, 1, "the campaign must have one content-addressed payload");
+    assert.match(matches[0], /^echoes-of-war-[a-f0-9]{12}\.json$/);
+    const parsed = JSON.parse(readFileSync(new URL(matches[0], directory), "utf8"));
+    const authored: EchoesContentPayload = {
+        schemaVersion: ECHOES_CONTENT_SCHEMA_VERSION,
+        scope: ECHOES_CONTENT_KEY,
+        scenes: ECHOES_SCENES,
+    };
+    assert.deepEqual(validateEchoesContentPayload(parsed), JSON.parse(JSON.stringify(authored)));
+});
+
+test("a malformed Echoes of War payload fails closed", () => {
+    for (const invalid of [
+        { schemaVersion: 999, scope: ECHOES_CONTENT_KEY, scenes: ECHOES_SCENES },
+        { schemaVersion: ECHOES_CONTENT_SCHEMA_VERSION, scope: "village", scenes: ECHOES_SCENES },
+        { schemaVersion: ECHOES_CONTENT_SCHEMA_VERSION, scope: ECHOES_CONTENT_KEY, scenes: {} },
+        {
+            schemaVersion: ECHOES_CONTENT_SCHEMA_VERSION,
+            scope: ECHOES_CONTENT_KEY,
+            scenes: { "echoes-1-tovin": { preShowdown: [], defeat: [], firstVictory: [], rematch: [] } },
+        },
+        {
+            schemaVersion: ECHOES_CONTENT_SCHEMA_VERSION,
+            scope: ECHOES_CONTENT_KEY,
+            scenes: { "echoes-1-tovin": { preShowdown: [{ title: "T", scene: "S", speaker: "V", dialogue: ["ok"], extra: true }], defeat: [], firstVictory: [], rematch: [] } },
+        },
+    ]) {
+        assert.throws(() => validateEchoesContentPayload(invalid), StoryContentLoadError);
     }
 });
 
