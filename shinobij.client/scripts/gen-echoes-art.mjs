@@ -34,10 +34,21 @@ const PORTRAITS = [
 ];
 
 const SCENES = [
-    ['echoes-floor-low', 'Interior of a vast ancient stone tower landing, dust-grey worn stone, faded paper records and scrolls in wall niches, weak golden light falling through a high slit window, quiet preserved ruin, no people.'],
-    ['echoes-floor-mid', 'Interior of an ancient tower hall, damaged archive shelves and scattered ledgers, flickering lantern light, a heavy sealed door with official seals, visible structural cracks in the stone, no people.'],
-    ['echoes-floor-high', 'Upper floor of an ancient tower, pale distorted light, faint teal chakra-like energy leaking through cracks in the architecture, scorched and half-burned records drifting with ash, unsettling stillness, no people.'],
-    ['echoes-floor-court', 'A high council chamber at the top of an ancient tower, one long table with many empty chairs, a single burning lamp, tall dark windows overlooking a dead unlit stone city at night, solemn, no people.'],
+    // Per-opponent landing scenes (VN + battle backdrops), matching each
+    // floor's authored scene captions in data/echoes-of-war-scenes.ts. The
+    // original four shared band scenes (echoes-floor-low/mid/high/court) were
+    // retired when every floor gained its own set.
+    ['echoes-tovin', 'A dust-grey stone bell tower landing, a bronze bell in a wall alcove, a long rope hanging with its top cleanly cut, one warm golden shaft of light through a slit window, worn stone floor, quiet preserved ruin, no people.'],
+    ['echoes-vetta', 'An ancient stone storeroom landing stacked with grain sacks gone grey with dust, a small brass balance scale resting on a barrel, warm lamplight, flour dust hanging in the air, no people.'],
+    ['echoes-aya', 'A courier waystation landing in an ancient stone tower, a worn leather message satchel hanging on an iron hook, straps frayed to thread, a long stair vanishing upward, cool grey morning light, no people.'],
+    ['echoes-ansel', 'A records room landing walled with wooden pigeonhole shelves full of rolled documents, one thick ledger open on a reading stand, a single candle, precise orderly quiet, warm candlelight, no people.'],
+    ['echoes-sela', 'An old infirmary landing in an ancient stone tower, rows of empty cots behind faded linen clinic curtains gone stiff with age, folded bandages on a side table, pale cold daylight, no people.'],
+    ['echoes-korin', 'A sealed district gate inside an ancient stone tower, a massive iron-barred gate with heavy official wax seals, a guard post with a neat empty chair, cold blue-grey stone light, imposing, no people.'],
+    ['echoes-nima', 'A burned archive landing, scorched wooden shelving with even drifts of grey ash on every surface, a few preserved scrolls untouched by fire, thin grey light through smoke haze, melancholy stillness, no people.'],
+    ['echoes-eren', 'An ancient tribunal hall, ranked wooden benches, an empty witness table at the center, a high judicial bench, tall narrow windows with cool pale light, dust motes in the air, solemn, no people.'],
+    ['echoes-lyra', 'An engine chamber landing in an ancient tower, thick dead metal conduits crossing the walls and floor, one conduit still glowing faint eerie teal, a workbench with abandoned tools, dramatic side light, no people.'],
+    ['echoes-halden', 'A high council chamber at the top of an ancient tower, one long dark table with many empty chairs, a single burning oil lamp at the head seat, tall dark windows overlooking a dead unlit stone city, solemn and final, no people.'],
+    ['echoes-tower-hero', 'Looking up the hollow interior of a vast ancient stone tower from its base, ten ringed floors spiraling upward into pale golden mist and faint teal light at the top, hanging preserved paper records drifting like leaves, awe and melancholy, cinematic scale, no people.'],
 ];
 
 async function generate(prompt, size) {

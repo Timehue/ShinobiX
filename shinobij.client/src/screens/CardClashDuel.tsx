@@ -14,6 +14,7 @@ import {
     type EchoesSettleSummary,
 } from "../lib/chronicle-duel";
 import { chronicleDuelistAvatar } from "../lib/chronicle-duelist-art";
+import { playEchoesSfx } from "../lib/echoes-sfx";
 import { ChronicleDuelBoard } from "../components/ChronicleDuelBoard";
 import "../styles/chronicle-duel.css";
 
@@ -193,6 +194,21 @@ export function CardClashDuel({
     const done = duel?.status === "complete";
     const won = Boolean(done && duel && duel.winner === duel.viewerSide);
     const draw = done && duel.winner === "draw";
+
+    // One result cue per campaign duel, when the outcome panel first shows.
+    // Sound only — no state writes — so the effect stays lint-clean.
+    const resultCuePlayed = useRef(false);
+    useEffect(() => {
+        if (!done || !echoes || resultCuePlayed.current) return;
+        resultCuePlayed.current = true;
+        playEchoesSfx(!won
+            ? "memory-holds"
+            : echoesSummary?.bossBonus
+                ? "chapter-complete"
+                : echoesSummary?.firstClear
+                    ? "record-sealed"
+                    : "reward");
+    }, [done, echoes, won, echoesSummary]);
     const sceneStyle = dungeonSceneImage ? { "--chronicle-scene": `url(${dungeonSceneImage})` } as CSSProperties : undefined;
     // Encounter hosts don't pass an avatar, so the Keeper resolves its own.
     const foeName = duel ? duel[duel.viewerSide === "p1" ? "p2" : "p1"].name : "";
@@ -210,24 +226,35 @@ export function CardClashDuel({
         {busy && !duel ? <section className="chronicle-panel"><h2>Preparing the table</h2><p>The server is validating the 40-card decks.</p></section> : null}
         {error && !duel ? <section className="chronicle-panel"><div className="chronicle-error" role="alert">{error}</div><button onClick={onDungeonLeave}>Leave encounter</button></section> : null}
         {done && echoes ? (
-            <section className="chronicle-panel echoes-result-panel" style={{ marginBottom: 12, textAlign: "center" }}>
-                <h2>{won ? "Victory" : draw ? "Draw" : "Defeat"}</h2>
+            <section className={`chronicle-panel echoes-result-panel ${won ? "" : "echoes-result--defeat"}`} style={{ marginBottom: 12, textAlign: "center" }}>
+                <h2 className="echoes-result-title">{won ? "Victory" : draw ? "Draw" : "Defeat"}</h2>
+                <p className="echoes-result-sub">
+                    {won
+                        ? `The Showdown with ${echoes.opponentName} is entered in the Chronicle.`
+                        : draw
+                            ? "A draw settles nothing. The record stays open."
+                            : `${echoes.opponentName} holds the memory. It will wait.`}
+                </p>
                 {won && echoesSummary ? (
-                    <div className="echoes-reward-lines">
-                        <p><strong>+{echoesSummary.basePoints} Chronicle Points</strong></p>
-                        {echoesSummary.firstClearBonus > 0 ? <p>First clear: <strong>+{echoesSummary.firstClearBonus} Chronicle Points</strong></p> : null}
-                        {echoesSummary.bossBonus > 0 ? <p>Chapter completed: <strong>+{echoesSummary.bossBonus} Chronicle Points</strong></p> : null}
-                        <p>Balance: <strong>{echoesSummary.balance}</strong> Chronicle Points</p>
-                        {echoesSummary.unlockedFloor ? <p>Floor {echoesSummary.unlockedFloor} is now open.</p> : null}
-                    </div>
+                    <>
+                        <div className="echoes-reward-lines">
+                            <span className="echoes-reward-row">Victory <strong>+{echoesSummary.basePoints}</strong> Chronicle Points</span>
+                            {echoesSummary.firstClearBonus > 0 ? (
+                                <span className="echoes-reward-row echoes-reward-row--first">First clear <strong>+{echoesSummary.firstClearBonus}</strong> Chronicle Points</span>
+                            ) : null}
+                            {echoesSummary.bossBonus > 0 ? (
+                                <span className="echoes-reward-row echoes-reward-row--chapter">Chapter completed <strong>+{echoesSummary.bossBonus}</strong> Chronicle Points</span>
+                            ) : null}
+                            <span className="echoes-reward-row echoes-reward-row--balance">Balance <strong>{echoesSummary.balance}</strong> Chronicle Points</span>
+                        </div>
+                        {echoesSummary.unlockedFloor ? (
+                            <p className="echoes-result-unlock">Floor {echoesSummary.unlockedFloor} is now open.</p>
+                        ) : null}
+                    </>
                 ) : won ? (
                     <p>The record is complete. No Chronicle Points this time — the win came too fast to enter the Chronicle.</p>
-                ) : draw ? (
-                    <p>A draw settles nothing. The record stays open.</p>
-                ) : (
-                    <p>No Chronicle Points are awarded for a loss. The memory will wait.</p>
-                )}
-                <button onClick={resolve}>Continue</button>
+                ) : null}
+                <button className="echoes-primary" onClick={resolve}>Continue</button>
             </section>
         ) : done ? (
             <section className="chronicle-panel" style={{ marginBottom: 12, textAlign: "center" }}><h2>{won ? "Seal Claimed" : draw ? "Draw — Seal Holds" : "Seal Holds"}</h2><p>{won ? "You won the Chronicle Showdown." : draw ? "A draw is not enough to break the seal." : "The Chronicle Keeper won the showdown."}</p><button onClick={resolve}>Continue</button></section>
