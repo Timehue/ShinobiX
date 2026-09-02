@@ -39,8 +39,10 @@ export function tebexSubscriptionPackageId(env: NodeJS.ProcessEnv = process.env)
     return String(env.TEBEX_SUBSCRIPTION_PACKAGE_ID ?? '').trim();
 }
 
-/** Headless API host. The webstore's PUBLIC token goes in the path. */
-export const TEBEX_HEADLESS_BASE = 'https://headless.tebex.io/api/accounts';
+/** Headless API root. */
+export const TEBEX_HEADLESS_API = 'https://headless.tebex.io/api';
+/** Account-scoped routes: the webstore's PUBLIC token goes in the path. */
+export const TEBEX_HEADLESS_BASE = `${TEBEX_HEADLESS_API}/accounts`;
 
 /** Key inside the basket `custom` object holding the player slug. */
 export const BASKET_CUSTOM_PLAYER_KEY = 'playerName';
@@ -51,12 +53,6 @@ export const BASKET_CUSTOM_PLAYER_KEY = 'playerName';
  * shard purchase rather than being read as one with a missing name.
  */
 export const BASKET_CUSTOM_SOURCE = 'shinobi-journey';
-
-export interface CreatedBasket {
-    ident: string;
-    /** Only present while the basket is unpaid; that is exactly when we need it. */
-    checkoutUrl: string;
-}
 
 /** The `custom` blob attached to a basket, and echoed back to us on payment. */
 export function basketCustomForPlayer(playerName: string): Record<string, string> {
@@ -128,8 +124,6 @@ export function resolvePurchasable(
 
 export interface CreateBasketInput {
     playerName: string;
-    /** Buyer's address, forwarded for Tebex's own fraud checks. */
-    ipAddress?: string;
     env?: NodeJS.ProcessEnv;
 }
 
@@ -144,17 +138,27 @@ export interface CreateBasketInput {
  *
  * The URLs are still supplied: Tebex requires them, links them from the receipt,
  * and reuses them if payment is finished later from an emailed link.
+ *
+ * ⛔ NO `ip_address` FIELD. It was sent here to feed Tebex's fraud checks with
+ * the buyer's real address, and it rejected every basket with
+ * 422 "Basic auth credentials are required" — setting a buyer's IP is a
+ * privileged operation that needs the store's SECRET key, which this public
+ * token flow does not and should not carry. The result was a 502 from
+ * /api/tebex/basket on every single purchase attempt: the blank checkout tab
+ * opened and never went anywhere.
+ *
+ * Tebex therefore sees our server's address rather than the buyer's. That costs
+ * a fraud signal on their side and is the price of the public flow; it does not
+ * affect attribution, which rides in `custom`.
  */
 export function buildCreateBasketBody(input: CreateBasketInput): Record<string, unknown> {
     const origin = canonicalOrigin(input.env ?? process.env);
-    const body: Record<string, unknown> = {
+    return {
         complete_url: `${origin}/#/premiumShop?purchase=complete`,
         cancel_url: `${origin}/#/premiumShop?purchase=cancelled`,
         custom: basketCustomForPlayer(input.playerName),
         complete_auto_redirect: false,
     };
-    if (input.ipAddress) body.ip_address = input.ipAddress;
-    return body;
 }
 
 /** Body for POST {base}/{token}/{ident}/packages. */
@@ -162,24 +166,43 @@ export function buildAddPackageBody(tebexPackageId: string, quantity = 1): Recor
     return { package_id: tebexPackageId, quantity: Math.max(1, Math.floor(quantity) || 1), dynamic: false };
 }
 
-/**
- * Read a created basket out of Tebex's response.
- *
- * Their Headless responses wrap the payload in `data`, but tolerate a bare
- * object too so a future unwrapped response does not break checkout. A basket
- * without a checkout link is treated as a failure: it is unpayable, and
- * returning it would hand the client an ident that silently goes nowhere.
- */
-export function parseCreatedBasket(json: unknown): CreatedBasket | null {
+/** Unwrap Tebex's `{ data: … }` envelope, tolerating an already-bare object. */
+function unwrap(json: unknown): Record<string, unknown> | null {
     if (!json || typeof json !== 'object') return null;
     const root = json as Record<string, unknown>;
-    const data = (root.data && typeof root.data === 'object' ? root.data : root) as Record<string, unknown>;
-    const ident = typeof data.ident === 'string' ? data.ident.trim() : '';
-    if (!ident) return null;
-    const links = (data.links && typeof data.links === 'object' ? data.links : {}) as Record<string, unknown>;
-    const checkoutUrl = typeof links.checkout === 'string' ? links.checkout.trim() : '';
-    if (!checkoutUrl) return null;
-    return { ident, checkoutUrl };
+    const data = root.data && typeof root.data === 'object' ? root.data : root;
+    return data && typeof data === 'object' && !Array.isArray(data) ? data as Record<string, unknown> : null;
+}
+
+/**
+ * The basket ident from a create-basket response.
+ *
+ * ⛔ Deliberately does NOT require a checkout link. A freshly created basket is
+ * EMPTY, and Tebex returns `links` as an empty ARRAY (`[]`) until it holds a
+ * package — not an object with a `checkout` key. Requiring the link here meant
+ * every create parsed as a failure and the route answered 502 on every attempt.
+ * The link is read from the add-package response instead, once the basket is
+ * actually payable.
+ */
+export function parseBasketIdent(json: unknown): string | null {
+    const data = unwrap(json);
+    const ident = typeof data?.ident === 'string' ? data.ident.trim() : '';
+    return ident || null;
+}
+
+/**
+ * The hosted checkout URL, present once the basket has something in it.
+ *
+ * `links` is an object when populated and an empty array when not, so this
+ * checks the shape rather than assuming either.
+ */
+export function parseCheckoutLink(json: unknown): string | null {
+    const data = unwrap(json);
+    const links = data?.links;
+    if (!links || typeof links !== 'object' || Array.isArray(links)) return null;
+    const checkout = (links as Record<string, unknown>).checkout;
+    const url = typeof checkout === 'string' ? checkout.trim() : '';
+    return url || null;
 }
 
 /**
