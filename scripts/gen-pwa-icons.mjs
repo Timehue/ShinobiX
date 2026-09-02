@@ -1,6 +1,6 @@
 /*
  * Generate the PWA / TWA launcher icons from the single source of truth,
- * shinobij.client/public/favicon.svg.
+ * shinobij.client/public/shinobi-journey-mark-512-v3.png.
  *
  *   node scripts/gen-pwa-icons.mjs
  *
@@ -27,7 +27,7 @@ import { dirname, join } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(HERE, '..', 'shinobij.client', 'public');
-const SOURCE = join(PUBLIC_DIR, 'favicon.svg');
+const SOURCE = join(PUBLIC_DIR, 'shinobi-journey-mark-512-v3.png');
 
 /** Brand background — matches <meta name="theme-color"> and the boot splash. */
 const BACKGROUND = { r: 15, g: 23, b: 42, alpha: 1 }; // #0f172a
@@ -43,14 +43,13 @@ const TARGETS = [
     { file: 'apple-touch-icon.png', size: 180, scale: ANY_SCALE },
 ];
 
-const svg = readFileSync(SOURCE);
+const sourceMark = readFileSync(SOURCE);
 
 for (const { file, size, scale } of TARGETS) {
-    // Render the vector at the glyph size first so it stays crisp, then centre
-    // it on the solid canvas. `fit: 'contain'` preserves the source aspect
-    // ratio, which is 48x46 rather than square.
+    // Resize the transparent master at the glyph size, then centre it on the
+    // solid canvas. `fit: 'contain'` preserves its square composition.
     const glyphSize = Math.round(size * scale);
-    const glyph = await sharp(svg, { density: 512 })
+    const glyph = await sharp(sourceMark)
         .resize(glyphSize, glyphSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .png()
         .toBuffer();
