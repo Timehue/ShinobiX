@@ -1,0 +1,67 @@
+# Tebex storefront contract probe.
+#
+# Every other test in this repo checks our code against fixtures WE wrote. That
+# is exactly how three bugs reached production on 2026-09-01: the fixtures
+# encoded what Tebex's documentation implied, the documentation was wrong in
+# three places, and the tests stayed green while the storefront was completely
+# broken. A passing unit test against a third-party contract is evidence about
+# your own assumptions, not about their API.
+#
+# This runs the real calls — list packages, create a basket, add a package, read
+# it back — and fails if a shape we depend on has moved. It is an ALARM, not a
+# gate: it cannot block anything, and it deliberately does NOT run in CI,
+# because a Tebex outage must never redden an ordinary build.
+#
+# It also fails if a package is deleted, repriced, or flipped between one-time
+# and subscription in the dashboard — all of which are silent from our side and
+# all of which mis-charge or mis-credit real customers.
+#
+# When it fires: read the assertion, check the Tebex dashboard, and fix the
+# mapping in shared/shard-packages.ts or the flow in api/tebex/. See
+# docs/TEBEX_STOREFRONT_SETUP.md for the verified contract.
+name: Tebex contract
+
+permissions:
+  contents: read
+
+on:
+  schedule:
+    # Once a day, early UTC. Nothing here is time-sensitive; the point is to
+    # find drift before a customer does, not within minutes of it happening.
+    - cron: "17 5 * * *"
+  # For confirming a dashboard change, or after editing the package mapping.
+  workflow_dispatch:
+
+concurrency:
+  group: tebex-contract
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    # A third party being down should not look like a code failure. The step
+    # below reports that case distinctly rather than as a red build.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Probe the live storefront
+        env:
+          TEBEX_LIVE_CONTRACT: "1"
+          # Public storefront token — safe to expose by Tebex's own definition,
+          # but kept as a secret so it is configured in one place.
+          TEBEX_PUBLIC_TOKEN: ${{ secrets.TEBEX_PUBLIC_TOKEN }}
+          TEBEX_SUBSCRIPTION_PACKAGE_ID: ${{ secrets.TEBEX_SUBSCRIPTION_PACKAGE_ID }}
+        run: |
+          if [ -z "$TEBEX_PUBLIC_TOKEN" ]; then
+            echo "::warning::TEBEX_PUBLIC_TOKEN secret is not set — the contract probe cannot run."
+            exit 0
+          fi
+          npx tsx --test api/tebex/live-contract.test.ts
