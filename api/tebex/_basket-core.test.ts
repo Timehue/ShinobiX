@@ -5,7 +5,8 @@ import {
     basketCustomForPlayer,
     buildAddPackageBody,
     buildCreateBasketBody,
-    parseCreatedBasket,
+    parseBasketIdent,
+    parseCheckoutLink,
     readPlayerNameFromCustom,
     tebexPackageIdFor,
 } from './_basket-core.js';
@@ -67,17 +68,29 @@ describe('request bodies', () => {
     it('seals the player into custom and does not auto-redirect', () => {
         const body = buildCreateBasketBody({ playerName: 'kaito', env: {} as NodeJS.ProcessEnv });
         assert.deepEqual(body.custom, basketCustomForPlayer('kaito'));
-        // Checkout runs in an overlay over a live game session; a redirect would
-        // throw the player out of it.
+        // Checkout opens in a second tab; redirecting on completion would boot a
+        // whole extra copy of the SPA alongside the running one.
         assert.equal(body.complete_auto_redirect, false);
         assert.equal(typeof body.complete_url, 'string');
         assert.equal(typeof body.cancel_url, 'string');
-        assert.ok(!('ip_address' in body), 'ip_address omitted when unknown');
     });
 
-    it('forwards the buyer IP when known', () => {
-        const body = buildCreateBasketBody({ playerName: 'kaito', ipAddress: '203.0.113.7', env: {} as NodeJS.ProcessEnv });
-        assert.equal(body.ip_address, '203.0.113.7');
+    it('⛔ never sends ip_address — it needs Basic auth and 422s the basket', () => {
+        /*
+         * Setting a buyer's IP is privileged: Tebex answers
+         * 422 "Basic auth credentials are required" unless the request carries
+         * the store's SECRET key, which this public-token flow does not and
+         * should not hold. While this field was sent, EVERY purchase attempt
+         * failed — /api/tebex/basket returned 502 and the checkout tab opened
+         * blank and went nowhere.
+         */
+        const body = buildCreateBasketBody({ playerName: 'kaito', env: {} as NodeJS.ProcessEnv });
+        assert.ok(!('ip_address' in body), 'ip_address must never be sent on the public token');
+        // The whole body, so a future field addition is a deliberate act.
+        assert.deepEqual(
+            Object.keys(body).sort(),
+            ['cancel_url', 'complete_auto_redirect', 'complete_url', 'custom'],
+        );
     });
 
     it('never adds a package with a nonsense quantity', () => {
@@ -88,23 +101,34 @@ describe('request bodies', () => {
     });
 });
 
-describe('created basket parsing', () => {
-    const ok = { data: { ident: 'abc123', links: { checkout: 'https://checkout.tebex.io/abc123' } } };
+describe('basket response parsing', () => {
+    /*
+     * These shapes are taken from live responses, not from the docs. A freshly
+     * created basket is EMPTY and returns `links` as an empty ARRAY; the
+     * checkout URL only exists once a package has been added. Requiring the
+     * link at create time made every purchase attempt fail with a 502.
+     */
+    const CREATED = { data: { ident: 'drj5y1-fa22', links: [] } };
+    const WITH_PACKAGE = { data: { ident: 'drj5y1-fa22', links: { checkout: 'https://pay.tebex.io/drj5y1-fa22' } } };
 
-    it('reads the wrapped Headless response', () => {
-        assert.deepEqual(parseCreatedBasket(ok), { ident: 'abc123', checkoutUrl: 'https://checkout.tebex.io/abc123' });
+    it('reads the ident from a freshly created, linkless basket', () => {
+        assert.equal(parseBasketIdent(CREATED), 'drj5y1-fa22');
+        assert.equal(parseBasketIdent(CREATED.data), 'drj5y1-fa22', 'tolerates an unwrapped body');
     });
 
-    it('tolerates an unwrapped body', () => {
-        assert.deepEqual(parseCreatedBasket(ok.data), { ident: 'abc123', checkoutUrl: 'https://checkout.tebex.io/abc123' });
+    it('returns no checkout link until the basket holds something', () => {
+        // `links: []` — an array, not an object. Reading `.checkout` off it
+        // yields undefined rather than throwing, which is how this stayed
+        // invisible.
+        assert.equal(parseCheckoutLink(CREATED), null);
+        assert.equal(parseCheckoutLink(WITH_PACKAGE), 'https://pay.tebex.io/drj5y1-fa22');
     });
 
-    it('rejects a basket with no checkout link', () => {
-        // Already paid, or malformed. Either way the ident goes nowhere, and
-        // handing it to the client would look like success and do nothing.
-        assert.equal(parseCreatedBasket({ data: { ident: 'abc123', links: {} } }), null);
-        assert.equal(parseCreatedBasket({ data: { links: { checkout: 'https://x' } } }), null);
-        assert.equal(parseCreatedBasket(null), null);
-        assert.equal(parseCreatedBasket('nope'), null);
+    it('fails closed on anything malformed', () => {
+        for (const value of [null, 'nope', {}, { data: {} }, { data: { links: {} } }]) {
+            assert.equal(parseCheckoutLink(value), null, JSON.stringify(value));
+        }
+        assert.equal(parseBasketIdent({ data: { links: { checkout: 'https://x' } } }), null);
+        assert.equal(parseBasketIdent(null), null);
     });
 });

@@ -36,6 +36,35 @@ everything else.
    id in `TEBEX_SUBSCRIPTION_PACKAGE_ID`.
 6. Set `TEBEX_PUBLIC_TOKEN`.
 
+## The Headless API contract, as it actually behaves
+
+⚠ Verified against the live storefront 2026-09-01. **Tebex's published docs are
+wrong in one place and silent in two others**, and each discrepancy cost a
+debugging session.
+
+| Step | Call |
+|---|---|
+| 1. Create basket | `POST /api/accounts/{token}/baskets` |
+| 2. Add package | `POST /api/baskets/{ident}/packages` |
+| 3. Read basket | `GET /api/accounts/{token}/baskets/{ident}` |
+
+⛔ **Step 2 is NOT account-scoped.** The docs show
+`/api/accounts/{token}/{ident}/packages`; that path **404s**. So does
+`/api/accounts/{token}/baskets/{ident}/packages`. Only `/api/baskets/{ident}/packages`
+works.
+
+⛔ **A freshly created basket has no checkout link.** `links` comes back as an
+empty **array** (`[]`), not an object, and only becomes
+`{"checkout": "https://pay.tebex.io/…"}` once the basket holds a package. Code
+that requires the link at create time fails every purchase. The add-package
+response carries the populated link, so no third call is needed.
+
+⛔ **`ip_address` on the basket body requires Basic auth.** Sending it with the
+public token returns `422 "Basic auth credentials are required"` and the basket
+is never created. Setting a buyer's IP is privileged; the public flow cannot do
+it, so Tebex sees our server's address instead. Same family as the `ipAddress`
+trap under Prices below — do not reintroduce either.
+
 ## How a purchase is attributed
 
 ⛔ **Ours is a universal webstore, which collects no username.** Tebex's

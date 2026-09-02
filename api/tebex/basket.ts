@@ -1,13 +1,14 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors } from '../_utils.js';
 import { authedPlayer } from '../_auth.js';
-import { clientIp } from '../_client-ip.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import {
+    TEBEX_HEADLESS_API,
     TEBEX_HEADLESS_BASE,
     buildAddPackageBody,
     buildCreateBasketBody,
-    parseCreatedBasket,
+    parseBasketIdent,
+    parseCheckoutLink,
     resolvePurchasable,
 } from './_basket-core.js';
 
@@ -38,8 +39,8 @@ const TEBEX_TIMEOUT_MS = 10_000;
 
 const publicToken = (): string => String(process.env.TEBEX_PUBLIC_TOKEN ?? '').trim();
 
-async function tebexPost(path: string, body: unknown): Promise<{ ok: boolean; status: number; json: unknown }> {
-    const response = await fetch(`${TEBEX_HEADLESS_BASE}/${path}`, {
+async function tebexPost(url: string, body: unknown): Promise<{ ok: boolean; status: number; json: unknown }> {
+    const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(body),
@@ -75,29 +76,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!resolved) return res.status(400).json({ error: 'That package is not for sale.', packageId: requestedId });
 
     try {
-        const created = await tebexPost(
-            `${token}/baskets`,
-            buildCreateBasketBody({ playerName, ipAddress: clientIp(req as Parameters<typeof clientIp>[0]) ?? undefined }),
-        );
-        const basket = created.ok ? parseCreatedBasket(created.json) : null;
-        if (!basket) {
+        // 1. Create the basket. It comes back EMPTY, with `links` as an empty
+        //    array — the checkout URL does not exist until it holds a package.
+        const created = await tebexPost(`${TEBEX_HEADLESS_BASE}/${token}/baskets`, buildCreateBasketBody({ playerName }));
+        const ident = created.ok ? parseBasketIdent(created.json) : null;
+        if (!ident) {
             console.error('[tebex] basket create failed', created.status, JSON.stringify(created.json).slice(0, 400));
             return res.status(502).json({ error: 'Could not open checkout. Please try again.' });
         }
 
-        const added = await tebexPost(`${token}/${basket.ident}/packages`, buildAddPackageBody(resolved.tebexId));
-        if (!added.ok) {
-            // An empty basket cannot be paid, so this is a hard failure rather
-            // than a checkout the player would find broken on arrival.
-            console.error('[tebex] add package failed', basket.ident, added.status, JSON.stringify(added.json).slice(0, 400));
+        // 2. Add the package. ⛔ This route is NOT account-scoped: it is
+        //    /api/baskets/{ident}/packages, and the account-prefixed form that
+        //    Tebex's own docs show 404s. Its response carries the checkout link.
+        const added = await tebexPost(`${TEBEX_HEADLESS_API}/baskets/${ident}/packages`, buildAddPackageBody(resolved.tebexId));
+        const checkoutUrl = added.ok ? parseCheckoutLink(added.json) : null;
+        if (!checkoutUrl) {
+            // An empty or unlinked basket cannot be paid, so this is a hard
+            // failure rather than a checkout the player finds broken on arrival.
+            console.error('[tebex] add package failed', ident, added.status, JSON.stringify(added.json).slice(0, 400));
             return res.status(502).json({ error: 'Could not add that package. Please try again.' });
         }
 
-        console.log('[tebex] basket', basket.ident, playerName, requestedId, resolved.kind);
+        console.log('[tebex] basket', ident, playerName, requestedId, resolved.kind);
         return res.status(200).json({
             ok: true,
-            ident: basket.ident,
-            checkoutUrl: basket.checkoutUrl,
+            ident,
+            checkoutUrl,
             packageId: requestedId,
             // Echoed so the client can show what it is about to charge for
             // without re-deriving it. NOT authoritative for the grant — the
