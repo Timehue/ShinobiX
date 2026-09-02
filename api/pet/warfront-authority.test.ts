@@ -2,7 +2,7 @@ import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import { derivePetRole } from '../_pet-sim/pet-roles.js';
-import { runWarfrontMatch, WARFRONT_TPS } from '../_pet-sim/pet-warfront-sim.js';
+import { WARFRONT_DEFAULT_DEPLOYMENT, runWarfrontRite, type RitePlan } from '../_pet-sim/pet-warfront-rite.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -28,6 +28,19 @@ function warfrontPet(index: number) {
         bodyImage: `data:image/png;base64,body-${index}`,
         unlockedForPve: true,
         jutsus: [{ name: 'Strike', power: 50, cooldown: 1, currentCooldown: 0, kind: 'damage' }],
+    };
+}
+
+function winningWitnessPet(index: number) {
+    return {
+        ...warfrontPet(index),
+        // This one test needs a deterministic win to exercise the Living
+        // Witness reward path. A ranged one-shot avoids turning its authority
+        // contract into a matchup or pathfinding test.
+        hp: 100_000 + index,
+        attack: 1_000_000,
+        defense: 100_000,
+        jutsus: [{ name: 'Witness Bolt', power: 10_000, cooldown: 1, currentCooldown: 0, kind: 'burn' }],
     };
 }
 
@@ -154,7 +167,15 @@ test('a resume-only Warfront probe ignores an unrelated active battle without we
     }
 });
 
-test('Warfront start mints its own resumable seed and a battle-result-compatible reward seal', async () => {
+test('Warfront start mints its own resumable seed and a battle-result-compatible reward seal', async (t) => {
+    const originalSave = await kv.get<Record<string, unknown>>(`save:${PLAYER}`);
+    assert.ok(originalSave);
+    t.after(async () => { await kv.set(`save:${PLAYER}`, originalSave); });
+    const originalCharacter = originalSave.character as Record<string, unknown>;
+    await kv.set(`save:${PLAYER}`, {
+        ...originalSave,
+        character: { ...originalCharacter, pets: [1, 2, 3, 4].map(winningWitnessPet) },
+    });
     const startBody = {
         playerName: PLAYER,
         playerPetIds: [1, 2, 3, 4].map((index) => `warfront-pet-${index}`),
@@ -231,20 +252,12 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
     assert.ok(Number.isSafeInteger(rewardRyo) && rewardRyo >= 20 && rewardRyo <= 250);
     const settleAfter = Number(seal?.settleAfter);
     const playbackStartedAt = Number(seal?.playbackStartedAt);
-    const authoritySlots = (pets: Array<Record<string, unknown>>) => pets.map((pet) => ({
-        pet: pet as unknown as Pet,
-        role: ((pet as { role?: unknown }).role ?? derivePetRole(pet as unknown as Pet).role) as 'defender' | 'tracker' | 'assassin' | 'sage',
-    }));
-    const expectedBaseline = runWarfrontMatch(
-        authoritySlots(sealedBlue), authoritySlots(sealedRed), seed,
-        'balanced', 'balanced', 'forest',
-        { blue: 'balanced', red: 'balanced' },
-        { blue: 'none', red: 'vanguard' },
-        undefined,
-        { captureSnapshots: false },
+    const authorityBand = (pets: Array<Record<string, unknown>>) => pets as unknown as Pet[];
+    const expectedBaseline = runWarfrontRite(
+        authorityBand(sealedBlue), authorityBand(sealedRed), seed,
     );
     assert.equal(seal?.authoritativeOutcome, expectedBaseline.winner === 'blue' ? 'win' : expectedBaseline.winner === 'red' ? 'loss' : 'draw');
-    assert.equal(Number(seal?.matchDurationMs), Math.ceil(expectedBaseline.ticks / WARFRONT_TPS * 1_000), 'the sealed clock must come from the same themed baseline the player watches');
+    assert.equal(Number(seal?.matchDurationMs), Math.ceil(expectedBaseline.totalSeconds * 1_000), 'the sealed clock must come from the same duel chain the player watches');
     assert.ok(Number.isSafeInteger(settleAfter) && settleAfter > Date.now() + 50_000);
     assert.ok(Number.isSafeInteger(playbackStartedAt) && playbackStartedAt > 0 && playbackStartedAt < settleAfter);
 
@@ -304,27 +317,19 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
 
         Date.now = () => settleAfter + 1;
         const settled = response();
-        const submittedLanes = ['n', 'm', 's', 'm'] as const;
-        const expectedCommanded = runWarfrontMatch(
-            authoritySlots(sealedBlue), authoritySlots(sealedRed), seed,
-            'balanced', 'balanced', 'forest',
-            { blue: 'balanced', red: 'balanced' },
-            { blue: 'none', red: 'vanguard' },
-            { initialLanes: { blue: submittedLanes }, commands: [] },
-            { captureSnapshots: false },
+        const submittedPlan = { formation: [2, 0, 3, 1], reformAfterClash: null, reform: null };
+        const expectedCommanded = runWarfrontRite(
+            authorityBand(sealedBlue), authorityBand(sealedRed), seed, submittedPlan,
         );
         await resultHandler(request({
             playerName: PLAYER,
             outcome: 'loss', // deliberately forged; the server replay owns this value
             reportKey,
             battleToken: token,
-            warfrontPlan: {
-                initialLanes: submittedLanes,
-                commands: [],
-            },
+            warfrontPlan: submittedPlan,
         }), settled.res);
         assert.equal(settled.out.statusCode, 200);
-        assert.equal(settled.out.body?.outcome, expectedCommanded.winner === 'blue' ? 'win' : expectedCommanded.winner === 'red' ? 'loss' : 'draw', 'settlement must replay commands under the sealed hazard theme');
+        assert.equal(settled.out.body?.outcome, expectedCommanded.winner === 'blue' ? 'win' : expectedCommanded.winner === 'red' ? 'loss' : 'draw', 'settlement must replay the committed batting order');
         const sealedOutcome = String(seal?.authoritativeOutcome ?? 'draw');
         assert.equal(sealedOutcome, 'win', 'the authoritative fixture must reach its witness settlement path');
         assert.equal(Number(settled.out.body?.reward ?? 0) > 0, true, 'forged reported loss cannot override the authoritative three-lane replay');
@@ -349,7 +354,7 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
     assert.equal(await kv.get(`pet:battle-active:${PLAYER}`), null);
 });
 
-test('Warfront settlement follows a faster commanded replay instead of the slower automatic baseline', async () => {
+test('Warfront settlement follows the commanded formation replay and its authoritative clock floor', async () => {
     const roles = ['defender', 'tracker', 'assassin', 'sage'] as const;
     const bluePets = roles.map((role, index) => {
         const { image: _image, bodyImage: _bodyImage, ...pet } = warfrontPet(index + 1);
@@ -365,34 +370,38 @@ test('Warfront settlement follows a faster commanded replay instead of the slowe
             role,
         } as Pet & { role: typeof role };
     });
-    const slots = (pets: typeof bluePets) => pets.map((pet) => ({ pet, role: pet.role }));
-    const baseline = runWarfrontMatch(
-        slots(bluePets), slots(redPets), 1,
-        'balanced', 'balanced', undefined,
-        { blue: 'balanced', red: 'balanced' },
-        { blue: 'none', red: 'vanguard' },
-        undefined,
-        { captureSnapshots: false },
+    const replaySeed = 42;
+    const baseline = runWarfrontRite(bluePets, redPets, replaySeed);
+    // Select the slowest legal formation for this fixed roster. Kage Tactics
+    // makes all ten deployment cells role-agnostic, so authority must replay the
+    // exact committed cells rather than infer a default formation.
+    const candidates: RitePlan[] = [
+        [0, 1, 2, 3], [4, 5, 6, 7], [6, 7, 8, 9], [0, 3, 6, 9],
+    ].flatMap((deployment) => [[0, 1, 2, 3], [2, 0, 3, 1], [3, 2, 1, 0]].map((formation) => ({
+        formation, deployment, reformAfterClash: null, reform: null, reformDeployment: null,
+    })));
+    const [slowestPlan, commanded] = candidates
+        .map((plan) => [plan, runWarfrontRite(bluePets, redPets, replaySeed, plan)] as const)
+        .sort((a, b) => b[1].totalSeconds - a[1].totalSeconds)[0];
+    assert.notDeepEqual(
+        commanded.clashes.map((clash) => clash.result.events),
+        baseline.clashes.map((clash) => clash.result.events),
+        'fixture must expose a meaningfully different commanded formation replay',
     );
-    const commanded = runWarfrontMatch(
-        slots(bluePets), slots(redPets), 1,
-        'balanced', 'balanced', undefined,
-        { blue: 'balanced', red: 'balanced' },
-        { blue: 'none', red: 'vanguard' },
-        { initialLanes: { blue: ['n', 'm', 's', 'n'] }, commands: [] },
-        { captureSnapshots: false },
-    );
-    assert.ok(baseline.ticks - commanded.ticks > WARFRONT_TPS * 5, 'fixture must expose the former settlement-clock defect');
 
-    const playbackStartedAt = Date.now();
-    const baselineDurationMs = Math.ceil(baseline.ticks / WARFRONT_TPS * 1_000);
-    const commandedDurationMs = Math.ceil(commanded.ticks / WARFRONT_TPS * 1_000);
+    // This suite intentionally advances Date.now to settlement timestamps. Use
+    // a monotonic logical window so the shared in-memory rate limiter cannot see
+    // time move backwards when 4v4 fights finish inside the 60s settlement floor.
+    const playbackStartedAt = Date.now() + 120_000;
+    const baselineDurationMs = Math.ceil(baseline.totalSeconds * 1_000);
+    const commandedDurationMs = Math.ceil(commanded.totalSeconds * 1_000);
     const settleAfter = playbackStartedAt + Math.max(60_000, baselineDurationMs - 5_000);
-    const commandedSettleAfter = playbackStartedAt + Math.max(60_000, commandedDurationMs - 5_000);
-    assert.ok(commandedSettleAfter < settleAfter);
+    const commandedSettleAfter = playbackStartedAt + Math.max(60_000, baselineDurationMs - 5_000, commandedDurationMs - 5_000);
+    assert.ok(commandedSettleAfter >= settleAfter,
+        'a commanded replay must never shorten the authoritative settlement clock');
 
-    const token = 'fastercommandedwarfront';
-    const reportKey = '1:tactical-clock-regression';
+    const token = 'slowercommandedwarfront';
+    const reportKey = `${replaySeed}:tactical-clock-regression`;
     await kv.set(`pet:battle-token:${PLAYER}:${token}`, {
         playerName: PLAYER,
         reportKey,
@@ -401,7 +410,7 @@ test('Warfront settlement follows a faster commanded replay instead of the slowe
         playerPetIds: bluePets.map((pet) => pet.id),
         bluePets,
         redPets,
-        seed: 1,
+        seed: replaySeed,
         buyPolicy: 'balanced',
         opponentBuyPolicy: 'balanced',
         stance: 'balanced',
@@ -418,19 +427,115 @@ test('Warfront settlement follows a faster commanded replay instead of the slowe
     await kv.set(`pet:battle-active:${PLAYER}`, token);
 
     const realDateNow = Date.now;
-    Date.now = () => commandedSettleAfter + 1;
+    Date.now = () => playbackStartedAt + 30_000;
     try {
+        const early = response();
+        await resultHandler(request({
+            playerName: PLAYER,
+            outcome: 'win',
+            reportKey,
+            battleToken: token,
+            warfrontPlan: slowestPlan,
+        }), early.res);
+        assert.equal(early.out.statusCode, 425,
+            'a commanded route must not settle before the authoritative playback floor');
+        assert.ok(Number(early.out.body?.retryAfterMs) > 0,
+            'the early response must expose the remaining authoritative playback time');
+        assert.notEqual(await kv.get(`pet:battle-token:${PLAYER}:${token}`), null,
+            'an early tactical replay must remain retryable');
+
+        Date.now = () => commandedSettleAfter + 1;
         const settled = response();
         await resultHandler(request({
             playerName: PLAYER,
             outcome: 'win',
             reportKey,
             battleToken: token,
-            warfrontPlan: { initialLanes: ['n', 'm', 's', 'n'], commands: [] },
+            warfrontPlan: slowestPlan,
         }), settled.res);
-        assert.equal(settled.out.statusCode, 200, `the actual commanded replay should settle without waiting for the slower baseline: ${JSON.stringify(settled.out.body)}`);
+        assert.equal(settled.out.statusCode, 200, `the actual commanded replay should settle on its own clock: ${JSON.stringify(settled.out.body)}`);
         assert.equal(settled.out.body?.outcome, commanded.winner === 'blue' ? 'win' : commanded.winner === 'red' ? 'loss' : 'draw');
         assert.equal(await kv.get(`pet:battle-token:${PLAYER}:${token}`), null);
+    } finally {
+        Date.now = realDateNow;
+        await kv.delIfEqual(`pet:battle-active:${PLAYER}`, token);
+        await kv.del(`pet:battle-token:${PLAYER}:${token}`);
+    }
+});
+
+test('a mid-match re-form is settled from the server\u2019s own replay of that plan', async () => {
+    // The re-form is a SECOND path into reward authority: the client watches
+    // clash one, takes the player's decision, and posts a plan carrying it. The
+    // server must accept that plan, replay it, and pay from ITS winner — and a
+    // forged outcome alongside it must still be ignored.
+    const roles = ['defender', 'tracker', 'assassin', 'sage'] as const;
+    const bluePets = roles.map((role, index) => {
+        const { image: _image, bodyImage: _bodyImage, ...pet } = warfrontPet(index + 1);
+        return { ...pet, role } as Pet & { role: typeof role };
+    });
+    const redPets = roles.map((role, index) => {
+        const { image: _image, bodyImage: _bodyImage, ...pet } = warfrontPet(index + 1);
+        return {
+            ...pet, id: `reform-rival-${index + 1}`, name: `Reform Rival ${index + 1}`,
+            nickname: `Reform Rival ${index + 1}`, role,
+        } as Pet & { role: typeof role };
+    });
+
+    const seed = 4242;
+    const reformPlan = {
+        formation: [0, 1, 2, 3], deployment: [...WARFRONT_DEFAULT_DEPLOYMENT],
+        reformAfterClash: 0, reform: [0, 1, 2, 3], reformDeployment: [3, 7, 11, 4],
+    };
+    const baseline = runWarfrontRite(bluePets, redPets, seed);
+    const commanded = runWarfrontRite(bluePets, redPets, seed, reformPlan);
+
+    // The client shows clash one BEFORE the player re-forms, then recomputes the
+    // match around their answer. If a re-form could disturb that clash, the
+    // player would settle a different fight than the one they watched.
+    const opening = runWarfrontRite(bluePets, redPets, seed, {
+        formation: [0, 1, 2, 3], deployment: [...WARFRONT_DEFAULT_DEPLOYMENT],
+        reformAfterClash: null, reform: null, reformDeployment: null,
+    });
+    assert.equal(commanded.clashes[0].ticks, opening.clashes[0].ticks, 'the re-form disturbed the clash already played');
+    assert.equal(commanded.clashes[0].winner, opening.clashes[0].winner, 'the re-form changed the clash already played');
+
+    const playbackStartedAt = Date.now() + 240_000;
+    const baselineDurationMs = Math.ceil(baseline.totalSeconds * 1_000);
+    const settleAfter = playbackStartedAt + Math.max(60_000, baselineDurationMs - 5_000);
+    const commandedSettleAfter = playbackStartedAt + Math.max(60_000, Math.ceil(commanded.totalSeconds * 1_000) - 5_000);
+
+    const token = 'reformedwarfrontproof';
+    const reportKey = `${seed}:tactical-reform`;
+    await kv.set(`pet:battle-token:${PLAYER}:${token}`, {
+        playerName: PLAYER, reportKey, opponentLevel: 20, rewardRyo: 20,
+        playerPetIds: bluePets.map((pet) => pet.id), bluePets, redPets, seed,
+        buyPolicy: 'balanced', opponentBuyPolicy: 'balanced',
+        stance: 'balanced', opponentStance: 'balanced',
+        doctrine: 'none', opponentDoctrine: 'vanguard',
+        authoritativeOutcome: baseline.winner === 'blue' ? 'win' : baseline.winner === 'red' ? 'loss' : 'draw',
+        mode: 'warfront', settlementPolicy: 'warfront-reward',
+        matchDurationMs: baselineDurationMs, playbackStartedAt, settleAfter,
+    });
+    await kv.set(`pet:battle-active:${PLAYER}`, token);
+
+    const realDateNow = Date.now;
+    Date.now = () => Math.max(settleAfter, commandedSettleAfter) + 1;
+    try {
+        const settled = response();
+        await resultHandler(request({
+            playerName: PLAYER,
+            outcome: commanded.winner === 'blue' ? 'loss' : 'win',   // forged; the replay owns this
+            reportKey,
+            battleToken: token,
+            warfrontPlan: reformPlan,
+        }), settled.res);
+        assert.equal(settled.out.statusCode, 200, `re-formed settlement failed: ${JSON.stringify(settled.out.body)}`);
+        assert.equal(
+            settled.out.body?.outcome,
+            commanded.winner === 'blue' ? 'win' : commanded.winner === 'red' ? 'loss' : 'draw',
+            'settlement must replay the RE-FORMED plan, not the sealed baseline and not the reported outcome',
+        );
+        assert.equal(await kv.get(`pet:battle-token:${PLAYER}:${token}`), null, 'the single-use proof must be spent');
     } finally {
         Date.now = realDateNow;
         await kv.delIfEqual(`pet:battle-active:${PLAYER}`, token);

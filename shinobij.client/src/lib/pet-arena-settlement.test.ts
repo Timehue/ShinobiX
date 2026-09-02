@@ -195,18 +195,21 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
         "the queued rewarded replay must freeze the server seal's seed without local derivation or mutation");
     assert.match(arenaSource, /startArenaMatch\(selectedTacticalPets, \[\], [^\n]+true\)/);
     assert.match(arenaSource, /playerPetIds: bluePets\.map\(\(p\) => p\.id\),[\s\S]*stance: config\.stance/);
-    assert.match(arenaSource, /autoBuy=\{arenaMatch\.buyPolicy\}/);
-    assert.match(arenaSource, /opponentAutoBuy=\{arenaMatch\.opponentBuyPolicy\}/);
-    assert.match(arenaSource, /opponentStance=\{arenaMatch\.opponentStance\}/);
-    assert.match(arenaSource, /opponentDoctrine=\{arenaMatch\.opponentDoctrine\}/);
-    assert.match(arenaSource, /theme=\{arenaMatch\.theme\}/);
+    // The Rite is decided by the sealed bands + the sealed seed + the batting
+    // order the player commits. The renderer therefore takes the seed and the
+    // two bands and nothing else that could shift the outcome.
+    assert.match(arenaSource, /<PetWarfrontRite\b/);
+    assert.match(arenaSource, /blue=\{arenaMatch\.blue\} red=\{arenaMatch\.red\} seed=\{arenaMatch\.seed\}/);
     assert.match(arenaSource, /const matchConfig = sealedPlans[\s\S]*theme: "central" as WfTheme/,
         "shared PvP replays must not derive different gameplay hazards from each participant's village");
     assert.doesNotMatch(arenaSource, /allowReseed=/);
     assert.match(arenaSource, /seal\.seed !== m\.seed[\s\S]*seal\.theme !== m\.theme[\s\S]*seal\.reportKey !== reportKey[\s\S]*seal\.stance !== m\.stance[\s\S]*seal\.doctrine !== m\.doctrine[\s\S]*seal\.buyPolicy !== m\.buyPolicy[\s\S]*seal\.opponentBuyPolicy !== m\.opponentBuyPolicy[\s\S]*seal\.opponentStance !== m\.opponentStance/);
     assert.match(arenaSource, /seal\.redPets\.map\(\(pet\) => pet\.id\)[\s\S]*rivalPetIds/);
     assert.match(arenaSource, /battleToken: seal\.token/);
-    assert.match(arenaSource, /warfrontPlan: \{[\s\S]*initialLanes: result\.initialLanes\.blue,[\s\S]*commands: result\.commandLog/);
+    // The whole client-side transcript: the committed order plus the swap. The
+    // server re-runs the duel chain from it and pays from ITS OWN winner, so no
+    // outcome, reward or duel result may appear in this payload.
+    assert.match(arenaSource, /warfrontPlan: \{[\s\S]*formation: plan\.formation,[\s\S]*deployment: plan\.deployment,[\s\S]*reformAfterClash: plan\.reformAfterClash,[\s\S]*reformDeployment: plan\.reformDeployment/);
     assert.match(arenaSource, /if \(!r\.ok\)[\s\S]*payload\?\.error[\s\S]*Retry-After[\s\S]*warfrontSetupErrorRef\.current/);
     assert.match(arenaSource, /Retry to recover any existing battle seal safely/);
     assert.match(arenaSource, /resumeOnly: true/);
@@ -215,12 +218,46 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
     assert.match(arenaSource, /warfrontResumeProbeScopeRef[\s\S]*void resumeOwnedWarfront\(scope\)/);
     assert.match(arenaSource, />Warfront needs attention</);
 
+    // The lobby must describe the mode the player is about to play. Pin the
+    // Kage Tactics rules here so retired lane-war and sequential-duel copy cannot
+    // drift back onto the screen where the player commits their formation.
     const setupSource = arenaSource.slice(arenaSource.indexOf("BATTLE LAWS"), arenaSource.indexOf("Full-screen game-mode overlays"));
     assert.doesNotMatch(setupSource, /War Council|Auto-Attack|Auto-Guard|coin shop/);
-    assert.match(setupSource, /THREE LANES · TWO TOWERS TO WIN/);
-    assert.match(setupSource, /Every 2 minutes/);
-    assert.match(setupSource, /Earn Favor from combat and tower pressure/);
-    assert.match(setupSource, /Fixed rival plan: Balanced formation · Vanguard doctrine/);
+    assert.doesNotMatch(setupSource, /THREE LANES|Ward Tower|Gate Warden|Hollow Omen/i,
+        "the lobby must not advertise the retired three-lane mode");
+    assert.match(setupSource, /KAGE TACTICS · FORMATION COMBAT/);
+    // The laws shown must be the laws FOUGHT: four freely deployed pets, ten
+    // tactical cells, terrain-aware formation combat, and one optional re-form.
+    assert.match(setupSource, /Deploy all four/, "the lobby must explain that the full band is deployed");
+    assert.match(setupSource, /four of ten cells/, "the lobby must advertise the real deployment freedom");
+    assert.match(setupSource, /shoji, cover, smoke, range, and roles/i,
+        "the lobby must explain why this is tactical rather than a collision brawl");
+    assert.match(setupSource, /Best of three/, "the match is best-of-three clashes");
+    assert.match(setupSource, /RE-FORM/, "the one mid-match decision must be advertised");
+    assert.doesNotMatch(setupSource, /Winner stays in|SWAP TOKEN|batting order/i,
+        "that is the retired sequential design — the Rite fights all eight at once");
+    // Composition is the player's call (owner ruling 2026-09-01): the lobby must
+    // not advertise an element requirement that no longer exists.
+    assert.doesNotMatch(setupSource, /needs \d+ different elements|three or more elements/i,
+        "there is no element requirement — do not re-advertise one");
+});
+
+test("the retired lane war is unreachable from anything a player can open", () => {
+    // Hollow Warfront is the RITE now. The lane war it replaced survives only as
+    // the Pet Ladder's tactical engine and replay viewer, so no player-facing
+    // entry may launch it — otherwise "Hollow Warfront" means two different
+    // games depending on how you got there, which is exactly the confusion this
+    // rebuild set out to remove.
+    const coop = readFileSync(new URL("../components/ArenaCoopLobby.tsx", import.meta.url), "utf8");
+    for (const source of [arenaSource, coop]) {
+        assert.equal(source.includes("PetWarfrontMatch"), false,
+            "the lane-war renderer must not be reachable from the arena or co-op");
+    }
+    assert.match(arenaSource, /PetWarfrontRite/);
+    assert.match(coop, /PetWarfrontRite/);
+    // Co-op is a SHARED replay: it must take no per-client decisions, or the two
+    // machines render different matches from the same seed.
+    assert.match(coop, /<PetWarfrontRite[^>]*spectator/);
 });
 
 test("a Warfront challenge lets each participant command their own roster against the sealed rival defense", () => {
@@ -234,5 +271,6 @@ test("a Warfront challenge lets each participant command their own roster agains
     assert.match(arenaSource, /startArenaMatch\(pendingArenaMatch\.blue,[\s\S]*pendingArenaMatch\.plans\)/);
     assert.match(challenge, /plans: \{ blue: bluePlan, red: redPlan \}/);
     assert.match(worker, /redPolicy: args\.redPolicy/);
-    assert.match(arenaSource, /opponentAutoBuy=\{arenaMatch\.opponentBuyPolicy\}/);
+    assert.match(arenaSource, /<PetWarfrontRite[\s\S]*red=\{arenaMatch\.red\}/,
+        "each participant commands their own band against the sealed rival one");
 });

@@ -12,14 +12,16 @@ import { replayCasualPetDuel, parseDuelInputLog } from './_duel-replay.js';
 import type { SealedDuelParams } from './_duel-replay.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import {
-    parseWarfrontCommandPlan,
-    runWarfrontMatch,
-    WARFRONT_TPS,
     type WfBuyPolicy,
     type WfDoctrine,
     type WfStance,
 } from '../_pet-sim/pet-warfront-sim.js';
-import { derivePetRole } from '../_pet-sim/pet-roles.js';
+import {
+    RITE_BAND_SIZE,
+    isValidRitePlan,
+    runWarfrontRite,
+    type RitePlan,
+} from '../_pet-sim/pet-warfront-rite.js';
 import type { WfTheme } from '../_pet-sim/pet-warfront-map.js';
 import { writeSaveProjected } from '../save/_projected-write.js';
 import { bumpLegacyStats, legacyBootstrapBeforeCounterIncrement } from '../_legacy-track.js';
@@ -99,6 +101,40 @@ const RANKED_SAVE_RECEIPT_CAP = 256;
 // floor and small playback skew as the start route.
 const WARFRONT_MIN_SETTLE_MS = 60_000;
 const WARFRONT_SETTLE_CLOCK_SKEW_MS = 5_000;
+
+/**
+ * The Hollow Warfront Rite transcript, straight off an untrusted request body.
+ *
+ * The plan is the ONLY thing the client contributes to the replay — the bands,
+ * the seed and the AI's own order all come from the sealed token — so this has
+ * to reject anything that is not a genuine batting order. A rejected plan
+ * returns null, which falls the caller back to the sealed automatic baseline
+ * rather than paying out on a fabricated one.
+ */
+function parseWarfrontRitePlan(raw: unknown): RitePlan | null {
+    if (!raw || typeof raw !== 'object') return null;
+    const source = raw as {
+        formation?: unknown;
+        deployment?: unknown;
+        reformAfterClash?: unknown;
+        reform?: unknown;
+        reformDeployment?: unknown;
+    };
+    if (!Array.isArray(source.formation)) return null;
+    const formation = source.formation.map((value) => Number(value));
+    const deployment = Array.isArray(source.deployment) ? source.deployment.map((value) => Number(value)) : undefined;
+    const atRaw = source.reformAfterClash;
+    const reformAfterClash = atRaw === null || atRaw === undefined ? null : Number(atRaw);
+    if (reformAfterClash !== null && !Number.isInteger(reformAfterClash)) return null;
+    const reform = Array.isArray(source.reform) ? source.reform.map((value) => Number(value)) : null;
+    const reformDeployment = Array.isArray(source.reformDeployment)
+        ? source.reformDeployment.map((value) => Number(value))
+        : null;
+    const plan: RitePlan = { formation, deployment, reformAfterClash, reform, reformDeployment };
+    // The engine's own validator is the single source of truth for legality, so
+    // the client and the server can never disagree about what a legal plan is.
+    return isValidRitePlan(plan, RITE_BAND_SIZE) ? plan : null;
+}
 const WARFRONT_THEMES: readonly WfTheme[] = ['central', 'forest', 'snow', 'volcano', 'shadow'];
 
 type RankedPetSettlementReceipt = {
@@ -717,41 +753,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? tokenData.redPets.map((pet) => String(pet?.id ?? ''))
                     : [];
                 const rivalPets = parseSealedPetSnapshots(tokenData.redPets, rivalIds);
-                const plan = parseWarfrontCommandPlan((body as Record<string, unknown>).warfrontPlan);
+                const plan = parseWarfrontRitePlan((body as Record<string, unknown>).warfrontPlan);
                 const seed = Number(tokenData.seed);
-                const theme = WARFRONT_THEMES.includes(tokenData.theme as WfTheme)
-                    ? tokenData.theme as WfTheme
-                    : 'central';
                 let commandedSettleAfter = baselineSettleAfter;
-                if (plan && rivalPets?.length === 4 && casualPvePlayerPets.length === 4
+                if (plan && rivalPets?.length === RITE_BAND_SIZE && casualPvePlayerPets.length === RITE_BAND_SIZE
                     && Number.isSafeInteger(seed) && seed > 0) {
                     try {
-                        const autoRole = (pets: Pet[]) => pets.map((pet) => ({
-                            pet,
-                            role: (pet.role ?? derivePetRole(pet).role) as 'defender' | 'tracker' | 'assassin' | 'sage',
-                        }));
-                        const replay = runWarfrontMatch(
-                            autoRole(casualPvePlayerPets),
-                            autoRole(rivalPets),
-                            seed,
-                            tokenData.buyPolicy ?? 'balanced',
-                            tokenData.opponentBuyPolicy ?? 'balanced',
-                            theme,
-                            { blue: tokenData.stance, red: tokenData.opponentStance },
-                            { blue: tokenData.doctrine, red: tokenData.opponentDoctrine },
-                            plan,
-                            { captureSnapshots: false },
-                        );
+                        // Re-run the ENTIRE duel chain from the sealed bands, the
+                        // sealed seed and the order the player committed. The
+                        // outcome below is the server's own, never the client's.
+                        const replay = runWarfrontRite(casualPvePlayerPets, rivalPets, seed, plan);
                         outcome = replay.winner === 'blue' ? 'win' : replay.winner === 'red' ? 'loss' : 'draw';
-                        const commandedDurationMs = Math.ceil((replay.ticks / WARFRONT_TPS) * 1_000);
+                        const commandedDurationMs = Math.ceil(replay.totalSeconds * 1_000);
                         commandedSettleAfter = playbackStartedAt + Math.max(
                             WARFRONT_MIN_SETTLE_MS,
                             commandedDurationMs - WARFRONT_SETTLE_CLOCK_SKEW_MS,
                         );
                     } catch (replayError) {
-                        // A damaged input log never becomes client outcome authority.
+                        // A damaged plan never becomes client outcome authority.
                         // Preserve the sealed automatic baseline and permit an exact retry.
-                        console.error('[pet/battle-result] Warfront command replay failed', replayError);
+                        console.error('[pet/battle-result] Warfront Rite replay failed', replayError);
                     }
                 }
                 if (Date.now() < commandedSettleAfter) {

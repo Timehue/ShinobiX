@@ -447,7 +447,14 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // 8,033,836 B, leaving 16,164 B of local headroom. Startup did not regress: the
 // independently enforced initial graph is 1,439,335 B raw / 380,245 B gzip, and
 // the entry, per-chunk, per-CSS, and initial-graph gates remain unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 8_050_000;
+//
+// 2026-09-02 KAGE TACTICS: 8,050,000 -> 8,200,000 B. Hollow Warfront now ships
+// a deterministic 4v4 formation engine, ten-cell setup, terrain-aware routing,
+// eight-rig presentation, and an authoritative server mirror. The verified
+// production graph is 8,179,313 B raw / 2,480,907 B gzip. The authored arena
+// images are outside this JS/CSS gate, and the independently checked startup,
+// entry, per-chunk, and per-CSS limits remain unchanged.
+const TOTAL_JS_CSS_FAIL_BYTES = 8_200_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

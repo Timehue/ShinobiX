@@ -15,6 +15,7 @@ import { petFramePace, runPetArenaBattle, runPetArenaParty } from "./lib/pet-bat
 import { rawPetPool } from "./data/pet-pool";
 import { PetColiseum, PetColiseumDuel, PetArenaMatch } from "./components/PetColiseum";
 import { PetWarfrontMatch } from "./components/PetWarfrontMatch";
+import { PetWarfrontRite } from "./components/PetWarfrontRite";
 import { WF_THEMES, type WfTheme } from "./lib/pet-warfront-map";
 import type { WfBuyPolicy, WfStance } from "./lib/pet-warfront-sim";
 import { runPetDuelCinematic, runPetPartyDuelCinematic } from "./lib/pet-duel-cinematic";
@@ -167,10 +168,16 @@ function Harness() {
 
     // ?arena=1 (2v2) / ?arena4=1 (4v4) — the Tactical Arena game mode.
     const arenaMode = PARAMS.get("arena") === "1" || PARAMS.get("arena4") === "1";
-    // ?warfront=1 — the Hollow Warfront lane-war mode (always 4v4). Optional
+    // ?warfront=1 — the retired LANE WAR renderer. This is no longer a game
+    // mode: Hollow Warfront is the Rite (?rite=1 below). The lane sim survives
+    // only as the PET LADDER's tactical engine and replay viewer, and this
+    // harness is how that replay gets exercised. Optional
     // &theme=forest|snow|volcano|shadow|central and &autobuy=balanced|offense|defense.
     const warfrontMode = PARAMS.get("warfront") === "1";
-    const arena4 = PARAMS.get("arena4") === "1" || warfrontMode;
+    // ?rite=1 — Hollow Warfront's AUTOBATTLER: four pets in a committed order,
+    // one duel at a time, winner stays in wounded, last band standing wins.
+    const riteMode = PARAMS.get("rite") === "1";
+    const arena4 = PARAMS.get("arena4") === "1" || warfrontMode || riteMode;
     const aPet = (id: string, name: string, element: string, over: Record<string, number>) => ({ ...harnessPet(0, { element: element as Pet["element"] }), id, name, ...over });
     const [arenaBlue, arenaRed] = useMemo(() => {
         const blueAll: ArenaSlot[] = [
@@ -282,6 +289,37 @@ function Harness() {
     if (modelQaMode) return <PetModelQa />;
     if (gauntletMode) {
         return <div className="pet-arena-screen" style={{ maxWidth: 1000, margin: "16px auto", padding: 12 }}><PetGauntlet character={mockChar} updateCharacter={() => {}} /></div>;
+    }
+    if (riteMode) {
+        // Every pool pet has a GLB (roster models resolve through
+        // approvedRosterCombatModel), so field a real, element-diverse band and
+        // balance it exactly as the game does — a hand-picked stat block gives a
+        // ~51s duel where the shipped balance is ~18s.
+        const riteBand = (side: "blue" | "red"): ArenaSlot[] => {
+            const roles: ArenaRole[] = ["defender", "tracker", "assassin", "sage"];
+            const wanted = ["Fire", "Water", "Wind", "Earth"];
+            return wanted.map((element, index) => {
+                const template = rawPetPool.find((entry) => entry.element === element) ?? rawPetPool[index];
+                const balanced = balanceBuiltInPetTemplate(template as Pet);
+                return {
+                    pet: {
+                        ...balanced,
+                        id: `${side}-${balanced.id}`,
+                        templateId: balanced.id,
+                        name: `${side === "blue" ? "Azure" : "Crimson"} ${element}`,
+                    } as Pet,
+                    role: roles[index],
+                };
+            });
+        };
+        const requestedRate = Number(PARAMS.get("ritespeed")) || 0.78;
+        // The public visual harness is a presentation surface, not a fast-forward
+        // control. Keep accidental links such as ritespeed=3 readable; automated
+        // release checks opt into extreme scrubbing explicitly with riteqa=1.
+        const playbackRate = PARAMS.get("riteqa") === "1"
+            ? Math.max(0.1, Math.min(30, requestedRate))
+            : Math.max(0.55, Math.min(0.9, requestedRate));
+        return <PetWarfrontRite blue={riteBand("blue")} red={riteBand("red")} seed={seed} playbackRate={playbackRate} onExit={() => {}} />;
     }
     if (warfrontMode) {
         return (
