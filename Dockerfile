@@ -44,13 +44,13 @@ WORKDIR /app
 # `--include=dev` or the build dies at `tsc: not found`.
 COPY package.json package-lock.json ./
 RUN --mount=type=cache,id=shinobix-root-npm,target=/root/.npm \
-    npm ci --include=dev
+    npm ci --include=dev --prefer-offline --no-audit --no-fund
 
 # Install client dependencies (vite, typescript, sharp are devDependencies too —
 # same --include=dev requirement as above).
 COPY shinobij.client/package.json shinobij.client/package-lock.json ./shinobij.client/
 RUN --mount=type=cache,id=shinobix-client-npm,target=/root/.npm \
-    cd shinobij.client && npm ci --include=dev
+    cd shinobij.client && npm ci --include=dev --prefer-offline --no-audit --no-fund
 
 # Copy the rest of the source. node_modules and the committed dist/ are excluded
 # via .dockerignore, so the installs above are preserved and the build is fresh.
@@ -82,8 +82,12 @@ ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL \
 # Build the server bundle (tsc → dist/) and the React client (vite →
 # shinobij.client/dist), then run the post-build sanity check (verify:dist).
 # The extra heap headroom guards the client typecheck/bundle of the large
-# App.tsx against OOM on smaller builders.
-RUN NODE_OPTIONS=--max-old-space-size=4096 npm run build
+# App.tsx against OOM on smaller builders. Client dependencies were installed
+# from the committed lockfile immediately above; tell the wrapper not to repeat
+# that npm ci merely because Railway exposes CI=true.
+RUN SHINOBIX_CLIENT_DEPS_PREINSTALLED=1 \
+    NODE_OPTIONS=--max-old-space-size=4096 \
+    npm run build
 
 # The client dist is dominated by already-compressed WebP, GLB, and audio
 # assets. Keeping all ~363 MB in one Docker layer makes Railway's image-export
@@ -125,7 +129,7 @@ ENV NODE_ENV=production \
 # "dependencies" (not "devDependencies").
 COPY package.json package-lock.json ./
 RUN --mount=type=cache,id=shinobix-runtime-npm,target=/root/.npm \
-    npm ci --omit=dev
+    npm ci --omit=dev --prefer-offline --no-audit --no-fund
 
 # The built server + API (dist/) and the React SPA static bundle, which
 # express.static serves from join(__dirname,'..','shinobij.client','dist').

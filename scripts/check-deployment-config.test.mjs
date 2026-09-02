@@ -55,6 +55,7 @@ test('Docker build and runtime use the pinned Node 22 release toolchain', async 
 
 test('Railway exports the large client bundle as bounded linked layers', async () => {
   const dockerfile = await readFile('Dockerfile', 'utf8');
+  const clientBuild = await readFile('scripts/build-client.mjs', 'utf8');
   const clientLayers = [...dockerfile.matchAll(
     /^COPY --link --from=builder \/runtime-client\/(\d{2})\/ \.\/$/gm,
   )];
@@ -63,6 +64,26 @@ test('Railway exports the large client bundle as bounded linked layers', async (
   assert.deepEqual(clientLayers.map((match) => match[1]), ['01', '02', '03', '04', '05', '06']);
   assert.match(dockerfile, /^# syntax=docker\/dockerfile:1\.7$/m);
   assert.match(dockerfile, /--mount=type=cache,id=shinobix-runtime-npm,target=\/root\/\.npm/);
+  assert.match(dockerfile, /SHINOBIX_CLIENT_DEPS_PREINSTALLED=1/);
+  assert.match(clientBuild, /SHINOBIX_CLIENT_DEPS_PREINSTALLED === '1'/);
+  assert.match(clientBuild, /!dependenciesPreinstalled && \(process\.env\.CI/);
+});
+
+test('Railway excludes test and review evidence from the Docker build context', async () => {
+  const dockerignore = await readFile('.dockerignore', 'utf8');
+  for (const pattern of [
+    'docs',
+    'release-audit',
+    '**/*.test.*',
+    '**/*.spec.*',
+    'shinobij.client/e2e*',
+    'shinobij.client/art-references',
+  ]) {
+    assert.ok(
+      dockerignore.split(/\r?\n/).includes(pattern),
+      `.dockerignore must exclude ${pattern}`,
+    );
+  }
 });
 
 test('Railway Docker build can receive every client analytics gate', async () => {
