@@ -1220,8 +1220,14 @@ export default defineConfig({
         }
     },
     build: {
+        // 2026-09-02 Railway parity drain: production-length public build args
+        // exposed two repeated whole-environment objects and pushed the graph
+        // 1,183 B over its ceiling. Direct env reads plus two constant-inlining
+        // passes bring the equivalent graph to 8,123,588 B without raising any
+        // size gate or changing the supported-browser floor.
         // This 2023 evergreen floor matches the browsers supported by the live
-        // game and avoids emitting obsolete CSS compatibility expansions.
+        // game and avoids emitting obsolete JS/CSS compatibility expansions.
+        target: ['chrome120', 'firefox120', 'safari17'],
         cssTarget: ['chrome120', 'firefox120', 'safari17'],
         // Retained build metadata lets the size gate measure each lazy route's
         // real static closure instead of guessing from chunk filenames.
@@ -1237,7 +1243,13 @@ export default defineConfig({
         // raw + gzip budgets and proves it stays off the startup graph; keep Vite's
         // advisory ceiling aligned so a clean audited build is warning-free.
         chunkSizeWarningLimit: 1100,
-        rollupOptions: {
+        rolldownOptions: {
+            // Inline imported scalar constants across two passes. This removes
+            // their lookup scaffolding while preserving normal property names
+            // and public runtime contracts.
+            optimization: {
+                inlineConst: { mode: 'all', pass: 2 },
+            },
             // The app does not use discarded property reads as an effect.
             // Let Rolldown eliminate those reads inside lazy game/vendor code
             // instead of shipping them to every browser.
