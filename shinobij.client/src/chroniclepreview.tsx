@@ -6,9 +6,10 @@ import {
   CHRONICLE_CARD_CATALOG,
   CHRONICLE_FIXED_FALLBACK_DECK,
   createMatch,
+  displayCardsById,
   projectMatchForViewer,
-  type ChronicleDisplayCard,
 } from "./lib/chronicle-duel";
+import { getAllTileCards } from "./data/tile-cards";
 import type {
   ChronicleFieldMonster,
   ChronicleMagicTrapZone,
@@ -18,15 +19,11 @@ import { ChronicleDuelBoard } from "./components/ChronicleDuelBoard";
 import { chronicleDuelistAvatar } from "./lib/chronicle-duelist-art";
 import "./styles/chronicle-duel.css";
 
-const cardsById = Object.fromEntries(
-  CHRONICLE_CARD_CATALOG.map((card) => [
-    card.id,
-    {
-      ...card,
-      image: `/chronicle/cards/${card.id}-512.webp`,
-    },
-  ]),
-) as Record<string, ChronicleDisplayCard>;
+// Resolve card art exactly the way the live duel screen does
+// (native per-card images: bespoke /chronicle/cards art for monsters,
+// emblem/field/scene art for support) so visual reviews here match
+// what players actually see.
+const cardsById = displayCardsById(getAllTileCards([]));
 
 const monsters = CHRONICLE_CARD_CATALOG.filter(
   (card) => card.cardClass === "monster",
@@ -145,8 +142,8 @@ function Harness() {
       <ChronicleDuelBoard
         state={previewState}
         cardsById={cardsById}
-        playerAvatar={chronicleDuelistAvatar("Akari of Ember")}
-        opponentAvatar={chronicleDuelistAvatar("The Veiled Keeper")}
+        playerAvatar={chronicleDuelistAvatar("Akari of Ember") ?? "/portraits/aya.webp"}
+        opponentAvatar={chronicleDuelistAvatar("The Veiled Keeper") ?? "/chronicle/keeper.webp"}
         onAction={() => undefined}
         onExit={() => window.location.reload()}
         exitLabel="Reset preview"
