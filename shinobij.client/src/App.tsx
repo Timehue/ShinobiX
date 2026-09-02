@@ -572,28 +572,8 @@ import {
 // to ./data/sectors. villagePageImage lives in ./lib/village-page-image so the
 // panorama assets sit behind lazy village/world-map screens.
 
-const ARENA_ART_BY_BIOME: Record<Biome, readonly [string, string]> = {
-    forest: ["/arena-forest.webp", "/arena-forest-floor.webp"],
-    snow: ["/arena-snow.webp", "/arena-snow-floor.webp"],
-    volcano: ["/arena-volcano.webp", "/arena-volcano-floor.webp"],
-    shadow: ["/arena-shadow.webp", "/arena-shadow-floor.webp"],
-    central: ["/arena-central.webp", "/arena-central-floor.webp"],
-};
-const DEATHSGATE_ARENA_ART = ["/deathsgate-arena.webp", "/deathsgate-arena-floor.webp"] as const;
-const preloadedBattleArt = new Set<string>();
-
-function preloadBattleArtUrl(url: string) {
-    if (preloadedBattleArt.has(url)) return;
-    preloadedBattleArt.add(url);
-    const img = new Image();
-    img.decoding = "async";
-    img.src = url;
-}
-
-function preloadBattleEntryAssets(biome: Biome, sector: number) {
-    const urls = sector === 99 ? DEATHSGATE_ARENA_ART : ARENA_ART_BY_BIOME[biome];
-    urls.forEach(preloadBattleArtUrl);
-}
+// Battle-entry arena art warmup moved verbatim to ./lib/battle-art-preload.
+import { preloadBattleEntryAssets } from "./lib/battle-art-preload";
 // specialties + jutsuElements live in ./data/jutsu (imported above for internal
 // use; JutsuDropdownList imports them directly from ./data/jutsu).
 // adminIconOptions moved to ./data/admin-icons; re-exported for existing importers.
