@@ -505,7 +505,7 @@ export const ECHOES_ERA_INTROS: Readonly<Record<string, EchoesEraIntro>> = {
     "echoes-age-2": [
         pg("The Middle Floors", "Shiranui pads along a gallery above shuttered halls of records and offices", "Shiranui",
             "Climb, and the memories change. They stop being the blamed and start being the ones who did the blaming.",
-            "A clerk who moved the numbers. A healer who kept the last dose. A captain who sealed a gate on his own neighbors. An archivist who chose what would be remembered.",
+            "A clerk who moved the numbers. A healer who chose who the last medicine would save. A captain who sealed a gate on his own neighbors.",
             "Do not look for monsters here. These were people with ledgers, in a city that was quietly starving, and that is worse."),
         pg("The Ledgers That Learned to Lie", "A hall of pigeonhole shelves, one entry scraped clean", "Shiranui",
             "By now the Court understood, at the middle heights, that its own Gate was draining its own people. Understanding did not stop a single hand.",
@@ -519,8 +519,8 @@ export const ECHOES_ERA_INTROS: Readonly<Record<string, EchoesEraIntro>> = {
     "echoes-age-3": [
         pg("The Upper Floors", "Shiranui at a high parapet, the tribunal dome and a distant machine leaking faint teal light beyond", "Shiranui",
             "Near the top, the memories belong to the ones who could have stopped it. And to the machine itself.",
-            "An arbiter who fixed a public Showdown. The engineer who built the Gate and then spent her life trying to warn the city about it.",
-            "This is the age when the Hollow Gate finally had a name spoken aloud, and speaking it aloud became a crime."),
+            "An archivist who burned the evidence rather than let it be read. An arbiter who fixed a public Showdown. And the engineer who built the Gate, then spent the rest of her life trying to warn the city about it.",
+            "This is the age when the Hollow Gate finally had a name spoken aloud, and speaking it aloud became a crime. Each of these three found a way to keep it quiet."),
         pg("Whose Machine It Was", "A workbench of dead conduits, one still faintly lit", "Shiranui",
             "Hold onto whose machine it was. The Court sank the Gate under its own ridge, with its own engineers, to end its own winters. Nobody found it. They made it.",
             "When one of those engineers came back to say it was eating the people, the Court did not deny the Gate. It denied her.",
