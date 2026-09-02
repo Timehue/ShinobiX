@@ -1131,10 +1131,9 @@ export function ChronicleDuelBoard({
                         compact
                       />
                       <small>
-                        {monster.position === "attack" ? "ATK" : "DEF"}
                         {monster.faceUp && monster.attack !== undefined
-                          ? ` | ${monster.position === "attack" ? monster.attack : monster.defense}`
-                          : " | HIDDEN"}
+                          ? `${monster.position === "attack" ? "ATK" : "DEF"} ${monster.position === "attack" ? monster.attack : monster.defense}`
+                          : "HIDDEN"}
                       </small>
                       {attacker !== null && preview ? (
                         <span
@@ -1282,7 +1281,7 @@ export function ChronicleDuelBoard({
                       <small>
                         {monster.position === "attack"
                           ? `ATK ${monster.attack}`
-                          : `DEF ${monster.defense}${monster.faceUp ? "" : " | FACE-DOWN"}`}
+                          : `DEF ${monster.defense}${monster.faceUp ? "" : " · SET"}`}
                       </small>
                     </>
                   ) : (
