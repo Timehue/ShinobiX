@@ -163,6 +163,13 @@ async function main() {
     if (!/^\.playwright-dist-[a-z0-9_-]+$/i.test(requestedName)) {
         throw new Error(`Unsafe Playwright preview directory: ${requestedName}`);
     }
+    // Announce the start. This step copies AND hash-verifies the whole build
+    // (~370 MB), so it can sit silent for minutes — and because it runs inside
+    // Playwright's `webServer` command, exceeding that timeout surfaces as a bare
+    // "Timed out waiting ... from config.webServer" with no specs executed, which
+    // reads like a catastrophic browser failure rather than a slow copy. Naming
+    // the step means the log always shows what was actually in progress.
+    console.log(`[e2e] Preparing immutable preview snapshot ${requestedName} from ${requestedSourceName}/ (copy + hash verify of the full build; this can take a few minutes).`);
     const result = await prepareImmutableSnapshot({ sourceRoot, targetRoot });
     console.log(`[e2e] Isolated preview snapshot ready: ${requestedName} (${result.fileCount} files, ${result.totalBytes} bytes, manifest ${result.manifestSha256})`);
 }

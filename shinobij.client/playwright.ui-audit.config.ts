@@ -50,7 +50,15 @@ export default defineConfig({
         url: baseURL,
         env: { VITE_SKIP_HTTPS: "1" },
         reuseExistingServer: false,
-        timeout: 120_000,
+        // This command SNAPSHOTS the whole build (~370 MB / 4,589 files, copied
+        // then hash-verified) before vite preview binds, so the budget covers far
+        // more than server boot. Measured at ~14s warm on 2026-09-01; raised to
+        // 300s because the gate has twice died here with a bare
+        // "Timed out waiting ..." and no specs executed, which reads like a
+        // browser catastrophe rather than a slow step. A leftover
+        // .playwright-dist-* or an orphaned port both fail FAST with an explicit
+        // error instead, so neither explains that signature.
+        timeout: 300_000,
     },
     projects: [
         { name: "chromium-desktop", use: { viewport: { width: 1440, height: 900 } } },
