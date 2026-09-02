@@ -126,10 +126,34 @@ response body. The buyer's real localized amount is shown by Tebex at checkout.
 The tile artwork carries the shard count but deliberately **no price**, for the
 same reason — a baked-in "$5" is a wrong number for most of the world.
 
-## Known gap
+## Guarding the contract
+
+`api/tebex/live-contract.test.ts` makes the real calls — list packages, create a
+basket, add a package, read it back — and fails if a shape we depend on moves.
+
+It is **skipped by default, including in CI**, because it needs a token and a
+third party being up; a Tebex outage must never redden an ordinary build. Run it
+by hand with:
+
+```bash
+TEBEX_LIVE_CONTRACT=1 TEBEX_PUBLIC_TOKEN=… npx tsx --test api/tebex/live-contract.test.ts
+```
+
+`.github/workflows/tebex-contract.yml` runs it daily as an **alarm, not a gate**.
+It needs two repository secrets: `TEBEX_PUBLIC_TOKEN` and
+`TEBEX_SUBSCRIPTION_PACKAGE_ID`. Without them the job warns and exits green
+rather than failing.
+
+It also catches dashboard-side changes that are invisible from our code and that
+mis-charge real customers: a deleted package, a repriced tier, or a package
+flipped between one-time and subscription.
+
+## Resolved: the autosave-clobber risk
 
 `fateShards` is a server ledger where client saves may spend but never grant, so
-decreases pass. A tab holding a stale balance can autosave over freshly credited
-shards. `refreshPurchasedSave` re-reads the authoritative save when the player
-returns to the tab, which mitigates but does not prove this away — **verify with
-a real purchase** that a credit survives the next autosave.
+decreases pass, and a tab holding a stale balance could in principle autosave
+over freshly credited shards. `refreshPurchasedSave` re-reads the authoritative
+save when the player returns to the tab.
+
+✅ Verified 2026-09-02 with a real $5 purchase: credited, then still present
+after a minute of play and a reload. The mitigation is sufficient in practice.
