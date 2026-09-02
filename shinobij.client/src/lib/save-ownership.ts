@@ -31,7 +31,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'level', 'village', 'rank', 'specialty', 'storyProgress', 'maxHp', 'maxChakra', 'maxStamina',
     'customTitle', 'profession', 'professionRank', 'professionXp', 'professionRespecUsed',
     // Wallet & currencies
-    'bankRyo', 'lastBankInterestAt', 'honorSeals', 'fateShards', 'boneCharms',
+    'bankRyo', 'lastBankInterestAt', 'honorSeals', 'fateShards', 'chroniclePoints', 'boneCharms',
     'auraStones', 'auraDust', 'mythicSeals', 'hollowShards',
     // Stats & progression ledger
     'xp', 'experience', 'stats', 'unspentStats', 'totalStatsTrained', 'rankTitle',
@@ -104,7 +104,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'battleTowerBestFloor', 'battleTowerRating', 'battleTowerClearedFloors',
     'totalTournamentsCompleted', 'totalTilesExplored', 'hollowGateWardenKills',
     'rankedWins', 'rankedLosses', 'villageWarMissionsCompleted', 'totalMissionsCompleted',
-    'cardClashWins', 'cardClashLosses', 'cardClashDraws',
+    'cardClashWins', 'cardClashLosses', 'cardClashDraws', 'echoesOfWar',
     // Clan
     'clanPoints', 'weeklyClanPoints', 'weeklyClanPointsWeek', 'lifetimeClanPoints',
     'clanPointHistory', 'clanExchangePurchases',
