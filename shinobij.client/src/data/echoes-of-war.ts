@@ -51,6 +51,29 @@ export type EchoesOpponentScenes = {
     rematch: EchoesScenePage[];
 };
 
+/** An Age of the Sunken Court's fall: a contiguous run of floors the player
+ * uncovers as one movement, each with a bespoke opener-style intro VN that
+ * names the age's affliction and why its memories still linger. Structural
+ * metadata lives here (needed synchronously for the selection screen); the
+ * intro VN PROSE ships through the content-JSON pipeline as ECHOES_ERA_INTROS
+ * (data/echoes-of-war-scenes.ts), keyed by era id. */
+export type EchoesEra = {
+    id: string;
+    /** Roman-numeral age label, e.g. "Age I". */
+    ageLabel: string;
+    title: string;
+    /** One-line evocation shown under the title on the plate. */
+    tagline: string;
+    /** Contiguous, inclusive floor range this age covers. */
+    floors: readonly number[];
+    /** Wide establishing banner for the age plate. */
+    plateImage: string;
+    band: EchoesBand;
+};
+
+/** The intro VN pages for one age (mirrors EchoesScenePage). */
+export type EchoesEraIntro = EchoesScenePage[];
+
 /** Display mirror of the server reward table (api/card-clash/_echoes-catalog.ts).
  * The parity test fails the build if these drift. */
 export const ECHOES_REWARD_DISPLAY = {
@@ -61,6 +84,22 @@ export const ECHOES_REWARD_DISPLAY = {
 } as const;
 
 export const ECHOES_FLOOR_COUNT = 10;
+
+/** Player-facing landing copy for the mode. Held as DATA (not inline JSX) so it
+ * rides the same canon + tone gates as the scene text: these strings are folded
+ * into the tone `pages` scan and the Gate-origin `echoesPages` corpus. The
+ * "not their souls" line is the sentence that reconciles the whole mode with
+ * the no-preserved-soul rule (hollow-rifts.ts), so it must be guarded, and the
+ * two-age framing (the Sunken Court that BUILT the Gate, and the village age
+ * that still feeds it) must not drift into an origin reversal or an invented
+ * parade of civilizations canon cannot pay off. */
+export const ECHOES_HERO_COPY = {
+    eyebrow: "Celestial Tower · Chapter One · The Sunken Court",
+    /** Rendered as the landing subtitle. */
+    subtitle: "The tower keeps the memories of the fallen, not their souls. The Sunken Court built the Hollow Gate and fell to it. Finish the Showdowns the Court never held, and you will know the machine that is feeding on your villages now.",
+    /** Rendered as the landing footnote. */
+    footnote: "The Sunken Court was the first age the Gate consumed. The villages are the second. Each age holds the memories that never got their Showdown. Chronicle Points, earned here, buy the Basic Card Pack in the Card Shop.",
+} as const;
 
 /** The tower interior key art (ladder hero + lock/loading backdrops). */
 export const ECHOES_TOWER_HERO = "/scenes/story/echoes-tower-hero.webp";
@@ -192,6 +231,59 @@ export const ECHOES_OPPONENTS: readonly EchoesOpponent[] = [
 
 export function echoesOpponentById(id: string): EchoesOpponent | null {
     return ECHOES_OPPONENTS.find((opponent) => opponent.id === id) ?? null;
+}
+
+const eraScene = (slug: string) => `/scenes/story/echoes-${slug}.webp`;
+
+/** The four Ages of the Sunken Court's fall. The player uncovers them in order;
+ * each is a clickable plate that plays a bespoke intro VN (ECHOES_ERA_INTROS)
+ * the first time it is opened. Floor ranges are contiguous and cover 1..10 with
+ * no gaps or overlaps (asserted by the catalog test). The ten opponents are
+ * unchanged — the Ages are how the long fall is read, not who the echoes are. */
+export const ECHOES_ERAS: readonly EchoesEra[] = [
+    {
+        id: "echoes-age-1", ageLabel: "Age I", title: "The Unheard",
+        tagline: "The ones history blamed first.",
+        floors: [1, 2, 3], plateImage: eraScene("age-1"), band: "low",
+    },
+    {
+        id: "echoes-age-2", ageLabel: "Age II", title: "The Buried",
+        tagline: "When the ledgers learned to lie.",
+        floors: [4, 5, 6], plateImage: eraScene("age-2"), band: "mid",
+    },
+    {
+        id: "echoes-age-3", ageLabel: "Age III", title: "The Silenced",
+        tagline: "When the Gate had a name, and naming it was a crime.",
+        floors: [7, 8, 9], plateImage: eraScene("age-3"), band: "high",
+    },
+    {
+        id: "echoes-age-4", ageLabel: "Age IV", title: "The Last Day",
+        tagline: "One man, and one more day.",
+        floors: [10], plateImage: eraScene("age-4"), band: "court",
+    },
+];
+
+export function echoesEraById(id: string): EchoesEra | null {
+    return ECHOES_ERAS.find((era) => era.id === id) ?? null;
+}
+
+export function echoesEraForFloor(floor: number): EchoesEra | null {
+    return ECHOES_ERAS.find((era) => era.floors.includes(floor)) ?? null;
+}
+
+export function echoesEraOpponents(era: EchoesEra): EchoesOpponent[] {
+    return ECHOES_OPPONENTS.filter((opponent) => era.floors.includes(opponent.floor));
+}
+
+/** An Age is unlocked once its FIRST floor is reachable (i.e. the floor below
+ * the age is cleared). Age I is always open. */
+export function echoesEraUnlocked(progress: EchoesClientProgress, era: EchoesEra): boolean {
+    return echoesFloorUnlockedClient(progress, Math.min(...era.floors));
+}
+
+/** Cleared memories within an age (for the plate's progress readout). */
+export function echoesEraCleared(progress: EchoesClientProgress, era: EchoesEra): number {
+    return echoesEraOpponents(era).filter((opponent) => (progress[opponent.id]?.wins ?? 0) > 0).length;
 }
 
 export type EchoesClientProgress = Record<string, { wins: number; firstClearAt?: number }>;
