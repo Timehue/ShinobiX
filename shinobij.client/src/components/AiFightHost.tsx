@@ -178,6 +178,7 @@ export function AiFightHost({
     hooks,
     onSettled,
     onClose,
+    onFightOpenChange,
     onRecordBattle,
 }: {
     character: Character | null;
@@ -191,11 +192,21 @@ export function AiFightHost({
     hooks?: AiFightSettleHooks;
     onSettled: (result: AiFightSettleResult) => void;
     onClose?: (returnScreen?: string) => void;
+    /**
+     * Fires when a sealed fight is engaged and again when it lets go. Mirrors
+     * StoryBossFightHost: the fight is a body portal, so App's `screen` never
+     * changes and screen-keyed guards would otherwise read "not in a battle" for
+     * the whole fight — which is how an auto-triggered VN ends up painted over it.
+     */
+    onFightOpenChange?: (open: boolean) => void;
     /** Profile → Battles reflection log projected after server settlement. */
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
 }) {
     const [fight, setFight] = useState<ActiveFight | null>(null);
     const [startFailure, setStartFailure] = useState<StartFailure | null>(null);
+    // Render mirror of startingRef, so the host counts as engaged from the moment
+    // it ACCEPTS a request rather than once the sealed session has come back.
+    const [starting, setStarting] = useState(false);
     const startingRef = useRef(false);
     const startRequestIdRef = useRef(0);
     const mountedRef = useRef(false);
@@ -243,6 +254,7 @@ export function AiFightHost({
         activePlayerKeyRef.current = nextPlayerKey;
         startRequestIdRef.current += 1;
         startingRef.current = false;
+        setStarting(false);
         activeRef.current = false;
         settledRef.current = false;
         queuedWorldRequestRef.current = null;
@@ -397,6 +409,7 @@ export function AiFightHost({
             }
             if (startingRef.current) return false;
             startingRef.current = true;
+            setStarting(true);
             const requestId = ++startRequestIdRef.current;
             settledRef.current = false;
             setStartFailure(null);
@@ -461,7 +474,9 @@ export function AiFightHost({
                     });
                 })
                 .finally(() => {
-                    if (startRequestIdRef.current === requestId) startingRef.current = false;
+                    if (startRequestIdRef.current !== requestId) return;
+                    startingRef.current = false;
+                    setStarting(false);
                 });
             return true;
         });
@@ -475,6 +490,15 @@ export function AiFightHost({
         && aiFightPlayerKey(fight.originatingPlayerName) === aiFightPlayerKey(playerName)
         ? fight
         : null;
+
+    // Announced from an effect, with a cleanup so an unmount mid-fight still closes
+    // it out. The failure card counts too: it is a blocking overlay on the same
+    // portal, and nothing else should be allowed to open on top of it.
+    const open = starting || !!activeFight || !!activeStartFailure;
+    useEffect(() => {
+        onFightOpenChange?.(open);
+        return () => { if (open) onFightOpenChange?.(false); };
+    }, [open, onFightOpenChange]);
 
     if (activeStartFailure) {
         return (
