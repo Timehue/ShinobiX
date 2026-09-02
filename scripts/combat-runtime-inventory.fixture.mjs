@@ -128,6 +128,7 @@ export const EXPECTED_RUNTIME_MODE_CONTRACTS = deepFreeze([
   C('dungeon-pet-cinematic', [route('/pet/battle-start', 'start+state'), route('/pet/battle-result', 'settlement'), route('/dungeon/run', 'settlement')]),
   C('card-clash-freeplay', [route('/card-clash/queue', 'lifecycle+start'), route('/card-clash/match', 'action+settlement+state')]),
   C('card-clash-ai', [route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state')]),
+  C('echoes-of-war', [route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state')]),
   C('dungeon-card', [route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state'), route('/dungeon/run', 'settlement')]),
 ]);
 
@@ -202,6 +203,7 @@ export const EXPECTED_RUNTIME_MODE_FACTS = deepFreeze({
   'dungeon-pet-cinematic': F('pet-cinematic-duel', null, 'solo', 'parent-mode-settlement', 'match'),
   'card-clash-freeplay': F('chronicle', null, 'two-player', 'server-progression', 'match'),
   'card-clash-ai': F('chronicle', null, 'solo', 'server-capped', 'match'),
+  'echoes-of-war': F('chronicle', null, 'solo', 'server-settled', 'match'),
   'dungeon-card': F('chronicle', null, 'solo', 'parent-mode-settlement', 'match'),
 });
 
@@ -282,6 +284,7 @@ export const EXPECTED_RUNTIME_MODE_METADATA = deepFreeze({
   'dungeon-pet-cinematic': M('pet-legacy', 'server-replayed-cinematic-input-log-and-parent-run-receipt', 'dungeon'),
   'card-clash-freeplay': M('card', 'expiring-chronicle-projection'),
   'card-clash-ai': M('card', 'expiring-chronicle-projection'),
+  'echoes-of-war': M('card', 'expiring-chronicle-projection'),
   'dungeon-card': M('card', 'expiring-chronicle-projection-and-parent-run-proof-receipt', 'dungeon'),
 });
 

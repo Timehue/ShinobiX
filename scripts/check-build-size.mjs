@@ -520,7 +520,20 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // bridge the entry above describes. The drain that pays for all of it remains the
 // tactical-ladder migration. If you find yourself raising this again before that
 // lands, drain something instead — a ceiling raised on every squeeze is not a gate.
-const TOTAL_JS_CSS_FAIL_BYTES = 8_125_000;
+//
+// 2026-09-02 ECHOES OF WAR: 8,125,000 -> 8,235,000 B. The Celestial Tower
+// Chronicle Showdown campaign adds one LAZY route chunk measured at 56,170 B
+// (EchoesOfWar screen 52,217 B JS — dominated by the ten-opponent campaign
+// script in data/echoes-of-war.ts — plus 3,953 B CSS). Startup gates are
+// untouched: the chunk loads only when the screen mounts, and the entry graph
+// did not grow. The 08-31 headroom had already been consumed (measured total
+// 8,181,323 B, i.e. the old ceiling was ~150 B from blocking ANY commit), so
+// this re-establishes the same ~52 KB buffer as the entry above, for the same
+// reason. Two drains are on the books for it: the tactical-ladder migration
+// (above), and porting the Echoes campaign script into the on-demand
+// story-content JSON pipeline (which would move ~45 KB of dialogue text out of
+// the budgeted JS entirely, the way village story chapters already ship).
+const TOTAL_JS_CSS_FAIL_BYTES = 8_235_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

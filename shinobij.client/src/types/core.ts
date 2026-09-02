@@ -71,6 +71,7 @@ export type Screen =
     | "hollowGateTiles"
     | "endlessTower"
     | "battleTowers"
+    | "echoesOfWar"
     | "weeklyBoss"
     | "villageWar"
     | "villageWarMap"

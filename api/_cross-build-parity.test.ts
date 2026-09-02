@@ -279,15 +279,18 @@ describe('parity: card-pack odds disclosure (Shop.tsx ⇄ api/shop/_settlement.t
 
     it('each pack draws exactly the rarities the buttons claim', () => {
         assert.deepEqual(packRarities('standard'), ['common', 'rare']);
-        assert.deepEqual(packRarities('epic'), ['epic']);
+        // The Elite band mirrors the LIVE table in api/card-clash/_pack.ts:
+        // top-tier (marketplace) Rares plus Epics. The legacy epic:['epic']
+        // row was drift from the path players actually purchase through.
+        assert.deepEqual(packRarities('epic'), ['rare', 'epic']);
         assert.deepEqual(packRarities('legendary'), ['legendary']);
     });
 
-    it('the Elite Pack button does not understate its guaranteed rarity', () => {
-        // It always yields an Epic; claiming "Rare / Epic" is an inaccurate odds
-        // statement even though it errs in the player's favour.
-        assert.doesNotMatch(SHOP, /Elite Pack[^<]*Rare\s*\/\s*Epic/i);
-        assert.match(SHOP, /Elite Pack — 1 guaranteed Epic card/);
+    it('the Elite Pack button does not overstate its guaranteed rarity', () => {
+        // The pool is the best-50% Rares plus Epics, so "guaranteed Epic"
+        // would be a false pre-purchase odds statement.
+        assert.doesNotMatch(SHOP, /Elite Pack[^<]*guaranteed Epic/i);
+        assert.match(SHOP, /Elite Pack — 1 card \(top-tier Rare or Epic\)/);
     });
 
     it('the draw is uniform and unweighted, as the disclosure claims', () => {
