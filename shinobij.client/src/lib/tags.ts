@@ -172,6 +172,20 @@ export function groupTags(available: string[]): { label: string; tags: string[] 
     return other.length ? [...grouped, { label: "Other", tags: other }] : grouped;
 }
 
+/**
+ * AP-tempo tags, reserved AWAY from the built-in (non-bloodline) starter set.
+ *
+ * Manipulating what an action COSTS is a deliberate bloodline-exclusive lever
+ * (owner ruling 2026-05-28), so a starter may pair Increase Generals with any
+ * ordinary buff but never with these. This is a different rule from
+ * `bloodlineUniqueTags` below, which caps a tag at one copy per bloodline KIT
+ * and says nothing about starters — conflating the two is how three starters
+ * (Galewind Attunement, Thunderpulse Overdrive, Forgeheart Temper) shipped with
+ * Overclock until 2026-09-01. Pinned by data/starter-tag-taxonomy.test.ts.
+ */
+export const starterForbiddenTags = ["Lag", "Overclock"];
+
+/** Tags a single bloodline kit may spend on at most ONE of its techniques. */
 export const bloodlineUniqueTags = [
     "Stun",
     "Bloodline Seal",

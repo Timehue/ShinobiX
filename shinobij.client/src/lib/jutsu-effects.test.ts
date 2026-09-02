@@ -60,8 +60,18 @@ describe("player-facing jutsu tag contract", () => {
         assert.match(info("Buff Prevent").rule, /direct Heal, Shield/i);
         assert.match(info("Push").value, /up to range/i);
         assert.match(info("Pull").rule, /stops early/i);
-        assert.equal(info("Lag").value, "20–30%");
-        assert.match(info("Overclock").summary, /scaling with mastery/i);
+        // The tempo pair is a FLAT +/-10 AP per action, not a percentage, and the
+        // copy must say so in AP — "20-30%, scaling with mastery" told players
+        // nothing about what an action would actually cost.
+        assert.equal(info("Lag").value, "+10 AP per action");
+        assert.equal(info("Overclock").value, "−10 AP per action");
+        assert.match(info("Lag").summary, /costs 10 more AP/i);
+        assert.match(info("Overclock").summary, /costs 10 less AP/i);
+        assert.match(info("Overclock").rule, /does not scale with mastery/i);
+        for (const tempo of ["Lag", "Overclock"]) {
+            assert.doesNotMatch(info(tempo).summary, /%/, `${tempo} copy must not quote a percentage`);
+            assert.doesNotMatch(info(tempo).value, /%/, `${tempo} value must not quote a percentage`);
+        }
         assert.match(info("Elemental Seal").summary, /Fire, Water, Earth, Wind, and Lightning/i);
         assert.match(info("Elemental Seal").rule, /special\/custom elements remain usable/i);
     });

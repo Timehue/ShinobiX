@@ -415,9 +415,10 @@ type Action = { kind: 'jutsu'; jutsu: Jutsu } | { kind: 'cleanse' } | { kind: 'c
 
 function effectiveActionApCost(self: Fighter, baseCost: number, round: number): number {
     const statuses = activeStatuses(self, round);
+    // Flat ±TEMPO_AP_SWING: presence only, the stored percent is never read.
     return adjustedApCost(baseCost, {
-        lagPct: statuses.find(status => status.name === 'Lag')?.percent,
-        overclockPct: statuses.find(status => status.name === 'Overclock')?.percent,
+        lagged: statuses.some(status => status.name === 'Lag'),
+        overclocked: statuses.some(status => status.name === 'Overclock'),
     });
 }
 

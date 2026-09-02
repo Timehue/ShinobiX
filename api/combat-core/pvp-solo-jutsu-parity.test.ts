@@ -439,8 +439,10 @@ describe('authoritative PvP/Solo-PvE jutsu parity', () => {
             const result = await runParityCase(jutsu, index++, setup);
             assertParity(result, label);
         }
+        // Lag (+10) and Overclock (-10) are flat and cancel exactly, so a 40 AP
+        // cast still costs 40 — the stored 50/20 percents are never read.
         const adjusted = await runParityCase(cases[0][1], index++, cases[0][2]);
-        assert.equal(adjusted.pvp.apSpent, 48);
+        assert.equal(adjusted.pvp.apSpent, 40);
         assert.equal(adjusted.pvp.actionsAdded, 1);
     });
 

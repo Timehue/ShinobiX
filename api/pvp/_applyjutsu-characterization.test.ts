@@ -133,12 +133,14 @@ describe('applyJutsu characterization — amp / DR pools', () => {
     });
 
     it('Overload applies both IDG pulses at 21% mastery-8 and 30% max mastery', () => {
-        // Reproduce the stale live-content shape: only one authored IDG tag.
-        // The trusted server seal repairs it to Overload's canonical two pulses.
+        // The live authored shape: a 40 AP SELF utility whose TWO independent
+        // Increase Damage Given pulses are both written into the record, and
+        // which the trusted seal preserves rather than deduping to one.
         const rawOverload = jutsu([
             { name: 'Increase Damage Given', percent: 30 },
+            { name: 'Increase Damage Given', percent: 30 },
         ], {
-            id: 'starter-universal-blitz',
+            id: 'admin-99c8efb8-8fa2-4b28-98d1-b95ad81af554',
             name: 'Overload',
             ap: 40,
             effectPower: 0,
