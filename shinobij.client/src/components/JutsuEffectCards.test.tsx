@@ -9,8 +9,10 @@ import { jutsuEffectTargetLabel } from "../lib/jutsu-effect-card-model.js";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
+// Shaped like the live authored "Overload": a 40 AP SELF utility whose two
+// independent Increase Damage Given pulses are BOTH written into the record.
 const overload: Jutsu = {
-    id: "starter-universal-blitz",
+    id: "admin-99c8efb8-8fa2-4b28-98d1-b95ad81af554",
     name: "Overload",
     type: "Ninjutsu",
     element: "None",
@@ -31,10 +33,11 @@ const overload: Jutsu = {
     isUtility: true,
     tags: [
         { name: "Increase Damage Given", percent: 30 },
+        { name: "Increase Damage Given", percent: 30 },
     ],
 };
 
-it("repairs stale one-tag Overload content into one colored two-stack card with current and max values", () => {
+it("groups a repeated tag into one colored two-stack card with current and max values", () => {
     const html = renderToStaticMarkup(<JutsuEffectCards jutsu={overload} masteryLevel={8} />);
 
     assert.match(html, /role="list" aria-label="Jutsu effects"/);

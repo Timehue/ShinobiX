@@ -52,6 +52,7 @@ import {
 import { pveMeaningfulBuffCount } from '../_pve-ai-tactics.js';
 import { activeCombatStatuses, isCombatStatusActive } from '../combat-core/statuses.js';
 import { adjustedApCost } from '../combat-core/resources.js';
+import { resolveCastFlavor } from '../combat-core/cast-flavor.js';
 import { MAX_COMBAT_VFX_TILES, canonicalJutsuTagNames, semanticJutsuVfx } from '../combat-core/jutsu-vfx.js';
 import type { PvpFighter, PvpGroundEffect, PvpStatus } from '../pvp/session.js';
 import type { EnemyTemplate } from './_enemy-templates.js';
@@ -1543,7 +1544,16 @@ function resolveHit(
     const verb = jutsu.id === 'basic-attack' ? 'attacks'
         : jutsu.id === 'weapon' ? `strikes with ${jutsu.name ?? 'a weapon'}`
         : `uses ${jutsu.name ?? 'a jutsu'}`;
-    session.log.push(selfCast ? `${actor.name} ${verb}.` : `${actor.name} ${verb} → ${target.name}.`);
+    // Authored battle flavor, appended to the header the way PvP and solo PvE do
+    // it. Towers used to drop it entirely, so the same jutsu read as prose in an
+    // arena fight and as a bare "X uses Y." in a tower. Basic attacks and weapon
+    // swings carry no authored line and are skipped. resolveCastFlavor points
+    // %target at the CASTER for a SELF cast.
+    const castFlavor = jutsu.id === 'basic-attack' || jutsu.id === 'weapon'
+        ? ''
+        : resolveCastFlavor(jutsu, actor.name, target.name);
+    const castHeader = selfCast ? `${actor.name} ${verb}.` : `${actor.name} ${verb} → ${target.name}.`;
+    session.log.push(castFlavor ? `${castHeader} ${castFlavor}` : castHeader);
     // Multi-target casts resolve through the canonical planner/reducer below.
     // AOE / ground / Move jutsu also strike the other hostiles in the blast radius.
     const radius = selfCast ? 0 : jutsuAreaRadius(jutsu);
@@ -1733,18 +1743,18 @@ function applyFieldRuleAtRoundStart(session: TowerSession): void {
     }
     if (applied > 0) session.log.push(`Field rule: ${rule.tag}${percent > 0 ? ` ${percent}%` : ''}.`);
 }
-function actionStatusPercent(actor: TowerActor, name: string, round: number): number | null {
-    const matching = activeCombatStatuses(actor.statuses, round)
-        .filter(status => canonicalTagName(status.name) === name);
-    if (!matching.length) return null;
-    return matching.reduce((sum, status) => sum + Number(status.percent ?? 20), 0);
+// Lag / Overclock are flat ±TEMPO_AP_SWING (combat-core/resources.ts): only
+// PRESENCE matters, and a second stack cannot deepen the swing.
+function hasActionStatus(actor: TowerActor, name: string, round: number): boolean {
+    return activeCombatStatuses(actor.statuses, round)
+        .some(status => canonicalTagName(status.name) === name);
 }
 
 /** One AP authority for validation and commitment across every paid Tower action. */
 function towerAdjustedApCost(session: TowerSession, actor: TowerActor, base: number): number {
     return adjustedApCost(base, {
-        lagPct: actionStatusPercent(actor, 'Lag', session.round),
-        overclockPct: actionStatusPercent(actor, 'Overclock', session.round),
+        lagged: hasActionStatus(actor, 'Lag', session.round),
+        overclocked: hasActionStatus(actor, 'Overclock', session.round),
     });
 }
 function canAct(session: TowerSession, baseCost: number, actingActor?: TowerActor): boolean {

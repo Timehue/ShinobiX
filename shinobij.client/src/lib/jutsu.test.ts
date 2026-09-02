@@ -7,7 +7,7 @@
  */
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { normalizeJutsu, orderEquippedJutsus } from "./jutsu";
+import { mergeDisplayJutsu, normalizeJutsu, orderEquippedJutsus } from "./jutsu";
 
 const make = (effectPower: number, tagName: string, ap = 60) =>
     normalizeJutsu({ id: "j", name: "J", type: "Ninjutsu", ap, effectPower, tags: [{ name: tagName, percent: 0 }] });
@@ -61,13 +61,16 @@ describe("normalizeJutsu — bloodline draft authority", () => {
     });
 });
 
-describe("normalizeJutsu — Overload content repair", () => {
-    it("repairs a stale single IDG tag to exactly two matching pulses", () => {
+describe("normalizeJutsu — repeated tags and flavor defaults", () => {
+    // A technique that pulses one effect twice is a legitimate authoring choice
+    // (the live "Overload" is two independent Increase Damage Given stacks).
+    // normalizeJutsu must not collapse them, and must not invent extra ones.
+    it("preserves an authored repeated tag exactly as written", () => {
         const normalized = normalizeJutsu({
-            id: "starter-universal-blitz",
+            id: "admin-overload",
             name: "Overload",
             type: "Ninjutsu",
-            tags: [{ name: "Increase Damage Given", percent: 30 }],
+            tags: Array.from({ length: 2 }, () => ({ name: "Increase Damage Given", percent: 30 })),
         });
         assert.deepEqual(normalized.tags, [
             { name: "Increase Damage Given", percent: 30 },
@@ -75,21 +78,43 @@ describe("normalizeJutsu — Overload content repair", () => {
         ]);
     });
 
-    it("caps an over-authored Overload at two pulses without changing other jutsu", () => {
-        const overload = normalizeJutsu({
-            id: "starter-universal-blitz",
+    it("does not manufacture a second pulse for a single authored tag", () => {
+        const normalized = normalizeJutsu({
+            id: "admin-overload",
             name: "Overload",
-            type: "Ninjutsu",
-            tags: Array.from({ length: 3 }, () => ({ name: "Increase Damage Given", percent: 30 })),
-        });
-        const ordinary = normalizeJutsu({
-            id: "ordinary",
-            name: "Ordinary",
             type: "Ninjutsu",
             tags: [{ name: "Increase Damage Given", percent: 30 }],
         });
-        assert.equal(overload.tags.length, 2);
-        assert.equal(ordinary.tags.length, 1);
+        assert.equal(normalized.tags.length, 1);
+    });
+
+    // The fallback flavor branches on TARGET: a SELF cast that fell back to
+    // "<name> strikes %target" made the battle log name the OPPONENT for a pure
+    // self-buff, which is exactly how Overload read in live PvP.
+    it("gives a SELF cast a self-directed flavor default", () => {
+        const selfCast = normalizeJutsu({
+            id: "admin-overload", name: "Overload", type: "Ninjutsu", target: "SELF",
+            tags: [{ name: "Increase Damage Given", percent: 30 }],
+        });
+        assert.equal(selfCast.battleDescription, "Overload surges through %user.");
+        assert.doesNotMatch(selfCast.battleDescription, /%target/);
+    });
+
+    it("leaves the outward-facing default naming the target", () => {
+        const attack = normalizeJutsu({
+            id: "admin-strike", name: "Strike", type: "Ninjutsu", target: "OPPONENT",
+            tags: [{ name: "Damage", percent: 100 }],
+        });
+        assert.equal(attack.battleDescription, "Strike strikes %target");
+    });
+
+    it("never overrides authored flavor", () => {
+        const authored = normalizeJutsu({
+            id: "admin-overload", name: "Overload", type: "Ninjutsu", target: "SELF",
+            battleDescription: "%user forces their chakra gates wide.",
+            tags: [{ name: "Increase Damage Given", percent: 30 }],
+        });
+        assert.equal(authored.battleDescription, "%user forces their chakra gates wide.");
     });
 });
 
@@ -109,5 +134,44 @@ describe("orderEquippedJutsus - Profile loadout order reaches combat", () => {
         const ordered = orderEquippedJutsus(catalog, ["catalog-second", "missing", "catalog-second", "catalog-first"]);
         assert.deepEqual(ordered.map((jutsu) => jutsu.id), ["catalog-second", "catalog-first"]);
         assert.deepEqual(catalog.map((jutsu) => jutsu.id), ["catalog-first", "catalog-second", "custom-third"]);
+    });
+});
+
+describe("mergeDisplayJutsu — a built-in outranks an authored copy of itself", () => {
+    const builtIn = normalizeJutsu({
+        id: "starter-tai-earth-3", name: "Ironbody Stance", type: "Taijutsu",
+        tags: [{ name: "Absorb", percent: 30 }, { name: "Reflect", percent: 30 }],
+    });
+    // What save:admin1 actually held on 2026-09-01: a frozen hydrateImages
+    // snapshot from an older balance pass, carrying only artwork of real value.
+    const staleMirror = normalizeJutsu({
+        id: "starter-tai-earth-3", name: "Ironbody Stance", type: "Taijutsu",
+        tags: [{ name: "Stun", percent: 0 }], image: "/jutsu-ironbody.webp",
+    });
+    const ids: ReadonlySet<string> = new Set(["starter-tai-earth-3"]);
+
+    it("keeps the built-in's combat values and takes only the artwork", () => {
+        const merged = new Map([[builtIn.id, builtIn]]);
+        mergeDisplayJutsu(merged, staleMirror, ids);
+        const out = merged.get(builtIn.id)!;
+        assert.deepEqual(out.tags.map((tag) => tag.name), ["Absorb", "Reflect"]);
+        assert.equal(out.image, "/jutsu-ironbody.webp");
+    });
+
+    it("does not overwrite artwork the built-in already has", () => {
+        const withArt = { ...builtIn, image: "/authored.webp" };
+        const merged = new Map([[withArt.id, withArt]]);
+        mergeDisplayJutsu(merged, staleMirror, ids);
+        assert.equal(merged.get(withArt.id)!.image, "/authored.webp");
+    });
+
+    it("still lets a genuinely authored jutsu into the catalog", () => {
+        const authored = normalizeJutsu({
+            id: "admin-custom", name: "Custom", type: "Ninjutsu",
+            tags: [{ name: "Wound", percent: 30 }],
+        });
+        const merged = new Map<string, typeof authored>();
+        mergeDisplayJutsu(merged, authored, ids);
+        assert.equal(merged.get("admin-custom")?.name, "Custom");
     });
 });

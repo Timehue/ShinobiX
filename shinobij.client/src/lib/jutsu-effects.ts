@@ -14,9 +14,9 @@ import { tagMatchesName } from "./tags";
 import { loneDisciplineBonusFromPotency, loneGeneralBonusFromPotency } from "./stat-effect-potency";
 import { scaleJutsuByLevel, scaleJutsuTagsForDisplay } from "./jutsu-scaling";
 import { JUTSU_MAX_LEVEL, STUN_AP_PENALTY, COMBAT_RESOURCES_V2 } from "../constants/game";
+import { TEMPO_AP_SWING } from "./combat-action-display";
 import type { Jutsu, JutsuTag } from "../types/combat";
 import type { JutsuType } from "../types/core";
-import { canonicalizeOverloadTags } from "../../../shared/overload";
 
 export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: JutsuType) {
     const pct = tag.percent > 0 ? tag.percent : 30;
@@ -75,8 +75,8 @@ export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: Ju
     if (tag.name === "Pierce") return { summary: "True damage — up to 900, scaled by offense + mastery.", rule: "Ignores armor, shields, damage reduction, damage buffs, and damage debuffs. Pierce jutsus must be 60 AP, and you can equip at most one Pierce jutsu in a loadout. At max stats the cap of 900 is always reached.", duration: "Instant", value: "≤900" };
     if (tag.name === "Copy") return { summary: "Copies all of the enemy's currently active positive statuses except Absorb and Lifesteal.", rule: "Snapshots active enemy buffs when cast, then gives each eligible buff to the user for a fresh 2 rounds starting next combat round. Pending enemy buffs are not included, and an active Buff Prevent on the user blocks Copy.", duration: "Starts next round · fresh 2 rounds", value: "Always" };
     if (tag.name === "Mirror") return { summary: "Copies all of the user's currently active negative statuses onto the enemy.", rule: "Snapshots every active debuff on the user when cast, including Wound, Ignition, Poison, and Drain, then gives each one to the enemy for a fresh 2 rounds starting next combat round. The originals stay on the user, pending debuffs are not included, and an active Debuff Prevent on the enemy blocks Mirror.", duration: "Starts next round · fresh 2 rounds", value: "Always" };
-    if (tagMatchesName(tag.name, "Lag")) return { summary: "Increases enemy AP costs by 20–30% during the next combat round, scaling with mastery.", rule: "Queues a 1-round negative status unless Debuff Prevent blocks it. It changes each action's AP cost, not the target's base AP pool.", duration: nextRound(1), value: "20–30%" };
-    if (tagMatchesName(tag.name, "Overclock")) return { summary: "Reduces the user's AP costs by 20–30% during the next combat round, scaling with mastery.", rule: "Queues a 1-round positive status. Buff Prevent can block it; it cannot discount another action during the cast round.", duration: nextRound(1), value: "20–30%" };
+    if (tagMatchesName(tag.name, "Lag")) return { summary: `Every action the target takes next round costs ${TEMPO_AP_SWING} more AP.`, rule: "Queues a 1-round negative status unless Debuff Prevent blocks it. The amount is flat and does not scale with mastery. It raises each action's AP cost, not the target's base AP pool, and a second Lag does not stack.", duration: nextRound(1), value: `+${TEMPO_AP_SWING} AP per action` };
+    if (tagMatchesName(tag.name, "Overclock")) return { summary: `Every action the user takes next round costs ${TEMPO_AP_SWING} less AP.`, rule: "Queues a 1-round positive status. The amount is flat and does not scale with mastery. Buff Prevent can block it, it cannot discount another action during the cast round, no action drops below 1 AP, and a second Overclock does not stack.", duration: nextRound(1), value: `−${TEMPO_AP_SWING} AP per action` };
     if (tag.name === "Increase Heal") return { summary: `Increases future healing by ${pct}%.`, rule: "Queues a positive status that boosts later Heal, Lifesteal, and Siphon results. It cannot boost healing from the cast that applies it.", duration: nextRound(2), value: `${pct}%` };
     if (tag.name === "Increase Generals") {
         const flatBonus = loneGeneralBonusFromPotency(pct);
@@ -103,9 +103,8 @@ export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: Ju
 }
 
 export function jutsuDisplayAtLevel(jutsu: Jutsu, masteryLevel = JUTSU_MAX_LEVEL): Jutsu {
-    const canonicalJutsu = { ...jutsu, tags: canonicalizeOverloadTags(jutsu.id, jutsu.tags) };
-    const scaled = scaleJutsuByLevel(canonicalJutsu, masteryLevel);
-    return scaleJutsuTagsForDisplay({ ...canonicalJutsu, effectPower: scaled.scaledEffectPower }, masteryLevel);
+    const scaled = scaleJutsuByLevel(jutsu, masteryLevel);
+    return scaleJutsuTagsForDisplay({ ...jutsu, effectPower: scaled.scaledEffectPower }, masteryLevel);
 }
 
 export function describeJutsuEffects(jutsu: Jutsu, masteryLevel = JUTSU_MAX_LEVEL, lensDiscipline?: JutsuType) {

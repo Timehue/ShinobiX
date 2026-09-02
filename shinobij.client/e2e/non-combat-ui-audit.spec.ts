@@ -658,10 +658,17 @@ test("Mission Hall accepted Field cards keep their compact mobile action layout"
 test("user directory routes into a production-safe public profile", async ({ page }, testInfo) => {
     const runtime = await installUiAuditRuntime(page);
     await expectUiAuditBoot(page, runtime, "village");
-    let users = page.getByRole("button", { name: "Users", exact: true }).filter({ visible: true });
+    // The desktop rail offers Users directly; the mobile shell keeps it inside
+    // the Menu sheet. count() does not auto-wait, and the rail can mount up to
+    // ~1.9s after expectUiAuditBoot resolves, so sampling it straight away used
+    // to read zero on a slow boot and then wait out the test clicking a "Menu"
+    // trigger the desktop shell never renders. Wait for whichever shell booted
+    // before branching on it. Same fix as user-hub-social-lists.spec.ts.
+    const users = page.getByRole("button", { name: "Users", exact: true }).filter({ visible: true });
+    const menuTrigger = page.getByRole("button", { name: "Menu", exact: true }).filter({ visible: true });
+    await expect(users.or(menuTrigger).first()).toBeVisible();
     if (await users.count() === 0) {
-        await page.getByRole("button", { name: "Menu", exact: true }).click();
-        users = page.getByRole("button", { name: "Users", exact: true }).filter({ visible: true });
+        await menuTrigger.click();
     }
     await users.click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "userHub");

@@ -126,38 +126,44 @@ export function partitionCombatDisplayStatuses<TStatus extends CombatDisplayStat
     };
 }
 
-/** Mirrors the shared server resolver's Lag-then-Overclock AP adjustment. */
+/**
+ * Flat AP swing of the two tempo tags — KEEP IN SYNC with TEMPO_AP_SWING in
+ * api/combat-core/resources.ts, which is the server's authority. Duplicated
+ * rather than imported: this module is the presentation mirror and stays free
+ * of the api/ import chain.
+ */
+export const TEMPO_AP_SWING = 10;
+
+/**
+ * Mirrors the shared server resolver's Lag-then-Overclock AP adjustment.
+ *
+ * Both tags are a FLAT ±TEMPO_AP_SWING, so only PRESENCE matters — the stored
+ * percent is never read and a second stack cannot deepen the swing. That makes
+ * the old "sum every stack" and "use the first stack" mirrors identical, which
+ * is why adjustedPvpCombatApCost now just delegates here.
+ */
 export function adjustedCombatApCost(
     statuses: readonly CombatDisplayStatus[] | undefined,
     base: number,
     round?: number,
 ): number {
     const active = activeCombatDisplayStatuses(statuses, round);
-    const lagPct = active
-        .filter((status) => statusMatchesName(status, "Lag"))
-        .reduce((sum, status) => sum + Number(status.percent ?? 20), 0);
-    const overclockPct = active
-        .filter((status) => statusMatchesName(status, "Overclock"))
-        .reduce((sum, status) => sum + Number(status.percent ?? 20), 0);
     let cost = Math.max(0, Number(base) || 0);
-    if (lagPct > 0) cost = Math.ceil(cost * (1 + (lagPct / 100)));
-    if (overclockPct > 0) cost = Math.floor(cost * (1 - (overclockPct / 100)));
+    if (active.some((status) => statusMatchesName(status, "Lag"))) cost += TEMPO_AP_SWING;
+    if (active.some((status) => statusMatchesName(status, "Overclock"))) cost -= TEMPO_AP_SWING;
     return Math.max(1, cost);
 }
 
-/** Mirrors ordinary PvP authority, which uses the first active modifier of each kind. */
+/**
+ * Mirrors ordinary PvP authority. Kept as a distinct export because callers
+ * branch on runtime, but the flat swing makes it identical to the shared mirror.
+ */
 export function adjustedPvpCombatApCost(
     statuses: readonly CombatDisplayStatus[] | undefined,
     base: number,
     round?: number,
 ): number {
-    const active = activeCombatDisplayStatuses(statuses, round);
-    const lag = active.find((status) => statusMatchesName(status, "Lag"));
-    const overclock = active.find((status) => statusMatchesName(status, "Overclock"));
-    let cost = Math.max(0, Number(base) || 0);
-    if (lag) cost = Math.ceil(cost * (1 + (Number(lag.percent ?? 20) / 100)));
-    if (overclock) cost = Math.floor(cost * (1 - (Number(overclock.percent ?? 20) / 100)));
-    return Math.max(1, cost);
+    return adjustedCombatApCost(statuses, base, round);
 }
 
 /** Mirrors the canonical resolver's five basic elements and active-round seal gate. */

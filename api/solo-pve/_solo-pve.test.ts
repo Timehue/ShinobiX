@@ -154,12 +154,19 @@ describe('generic AI solo-PvE encounter seal', () => {
         assert.equal('actors' in session, false);
     });
 
-    it('carries stale authored Overload through the solo-PvE seal, cast, statuses, and log as two pulses', () => {
+    it('carries authored Overload through the solo-PvE seal, cast, statuses, and log as two pulses', () => {
+        // The live authored shape: a 40 AP SELF utility with TWO independent
+        // Increase Damage Given pulses written into the record, and self-directed
+        // flavor whose %target must resolve to the CASTER, not the enemy.
         const overload = {
-            id: 'starter-universal-blitz', name: 'Overload', type: 'Ninjutsu', element: 'None',
+            id: 'admin-99c8efb8-8fa2-4b28-98d1-b95ad81af554', name: 'Overload', type: 'Ninjutsu', element: 'None',
             ap: 40, range: 1, effectPower: 0, cooldown: 7, chakraCost: 0, staminaCost: 0,
             target: 'SELF', method: 'SINGLE', isUtility: true,
-            tags: [{ name: 'Increase Damage Given', percent: 30 }],
+            battleDescription: '%user forces their chakra gates wide, and %target takes the surge twice.',
+            tags: [
+                { name: 'Increase Damage Given', percent: 30 },
+                { name: 'Increase Damage Given', percent: 30 },
+            ],
         };
         const saveCharacter = {
             name: 'Alice', level: 30, specialty: 'Ninjutsu',
@@ -196,6 +203,14 @@ describe('generic AI solo-PvE encounter seal', () => {
                 '+21% Damage Given (stack 2/2): Alice for 2 turns.',
             ],
         );
+        // The cast header must name Alice for BOTH tokens. Resolving %target to
+        // the opponent is how the live log claimed a pure self-buff hit the enemy.
+        const header = cast.session.log.find((line) => line.includes('uses Overload'));
+        assert.equal(
+            header,
+            'Alice uses Overload: Alice forces their chakra gates wide, and Alice takes the surge twice.',
+        );
+        assert.equal(header?.includes('Exam Proctor'), false, 'a SELF cast never names the opponent');
     });
 
     it('ignores a forged host loadout byte-for-byte', () => {
@@ -635,15 +650,37 @@ describe('solo-PvE engine', () => {
     });
 
     it('uses status-adjusted AP costs when deciding whether the turn is dead', () => {
+        // Lag is a FLAT +10 per action (combat-core/resources.ts TEMPO_AP_SWING);
+        // the stored percent is not read. Start at 85 so the 40 AP basic attack
+        // bills 50, leaving 35 — one short of the 30 AP move's Lagged 40. The
+        // turn is therefore dead and the enemy takes over, which is the whole
+        // point: the check must price actions through the status, not raw.
         const session = makeSession();
+        session.ap.player = 85;
         session.player.statuses.push({ name: 'Lag', rounds: 2, percent: 50, kind: 'negative' });
 
         const result = applySoloPveAction(session, { type: 'basicAttack' });
 
         assert.equal(result.applied, true);
         assert.ok(!result.session.log.some((line) => line.includes('no legal actions remaining')),
-            '40 AP remains and Lag raises the cheapest move to 45, but that housekeeping stays silent');
-        assert.ok(result.session.events.some((event) => event.actor === 'enemy'));
+            'the dead-turn handover is housekeeping and stays out of the battle log');
+        assert.ok(result.session.events.some((event) => event.actor === 'enemy'),
+            '35 AP left cannot pay the Lagged 40 AP move, so the turn hands over');
+    });
+
+    it('does not end the turn early when the Lagged cost is still affordable', () => {
+        // The mirror case, which the old percentage math could not express: at
+        // 100 AP the same Lagged basic attack bills 50 and leaves 50, which still
+        // covers the Lagged 40 AP move — so the player keeps their turn.
+        const session = makeSession();
+        session.ap.player = 100;
+        session.player.statuses.push({ name: 'Lag', rounds: 2, percent: 50, kind: 'negative' });
+
+        const result = applySoloPveAction(session, { type: 'basicAttack' });
+
+        assert.equal(result.applied, true);
+        assert.equal(result.session.ap.player, 50, 'the flat +10 bills a 40 AP basic attack at 50');
+        assert.equal(result.session.events.some((event) => event.actor === 'enemy'), false);
     });
 
     it('uses deterministic band-aware clear, cleanse, and healing decisions', () => {

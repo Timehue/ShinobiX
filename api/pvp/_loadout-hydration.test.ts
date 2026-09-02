@@ -195,9 +195,13 @@ describe('admin-authored jutsu resolve from authored content, not the client', (
         assert.deepEqual(resolved.map((jutsu) => jutsu.id), [first.id]);
     });
 
-    it('repairs stale one-tag Overload content to two stacks only on the trusted authored definition', () => {
+    // A repeated tag is a legitimate authoring choice — the live "Overload" is
+    // two independent Increase Damage Given pulses — but ONLY when the definition
+    // came from the trusted admin catalog. A client-supplied payload keeps the
+    // one-tag-per-name defense, or anyone could ship ten copies of an amp tag.
+    it('keeps an authored repeated tag only on the trusted admin definition', () => {
         const overload = {
-            id: 'starter-universal-blitz',
+            id: 'admin-99c8efb8-8fa2-4b28-98d1-b95ad81af554',
             name: 'Overload',
             type: 'Ninjutsu',
             element: 'None',
@@ -209,6 +213,7 @@ describe('admin-authored jutsu resolve from authored content, not the client', (
             method: 'SINGLE',
             isUtility: true,
             tags: [
+                { name: 'Increase Damage Given', percent: 30 },
                 { name: 'Increase Damage Given', percent: 30 },
             ],
         };
