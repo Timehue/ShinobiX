@@ -12,6 +12,7 @@ import {
     splitPvpMoveResponse,
 } from "./pvp-session-runtime";
 import { bindPvpSessionCreateIntent, clearPvpSessionCreateIntent } from "./pvp-session-intent";
+import { pvpResultReturn } from "./pvp-session";
 
 function fighter(name: string, pos: number) {
     return {
@@ -46,6 +47,12 @@ function projection(stateRevision: number, patch: Partial<PvpSessionState> = {})
         ...patch,
     };
 }
+
+it("returns a finished PvP player to the exact battlefield origin", () => {
+    assert.deepEqual(pvpResultReturn({ sectorAttack: true, sector: 44 }, 1), { returnTarget: "worldMap", returnLabel: "Return to Sector 44" });
+    assert.deepEqual(pvpResultReturn({ mode: "clanWar1v1" }, 1), { returnTarget: "clan", returnLabel: "Return to Clan War" });
+    assert.deepEqual(pvpResultReturn({ mode: "standard" }, 1), { returnTarget: "battleArena", returnLabel: "Return to Arena" });
+});
 
 describe("PvP live-session projection authority", () => {
     it("accepts only a structurally valid, exactly bound, revisioned session", () => {
