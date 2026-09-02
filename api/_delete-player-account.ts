@@ -10,6 +10,14 @@
  * alone they are invisible to the player who left and a slow problem for
  * everyone still here.
  *
+ * NOTE ON THE BILLING SIDE: a live Tebex subscription belongs to the account,
+ * not to the save, and Tebex knows nothing about a deletion here. Left alone,
+ * someone who deletes their account keeps being charged monthly for a game they
+ * no longer have. deletePlayerAccount therefore cancels it BEFORE removing the
+ * save — the save holds the only copy of the reference. A cancellation that
+ * fails never blocks the deletion (that right is not negotiable), but it is
+ * parked in an operator list rather than lost with the record.
+ *
  * NOTE ON THE SESSION EPOCH: this deliberately rotates `auth-session:<slug>`
  * rather than deleting it. That key is the only revocation state for issued
  * tokens, and a missing key reads as epoch 0 — so deleting it would let a token
@@ -24,6 +32,7 @@ import { authKey, googleIdentityKey, type AuthRecord } from './player-auth.js';
 import { recoveryCodeKey } from './_recovery-code.js';
 import { REGISTRY_KEY } from './player/_public-index.js';
 import { clanSlugBare } from './clan/_kick-core.js';
+import { cancelSubscriptionForDeletedAccount } from './tebex/_cancel-subscription.js';
 
 export type DeletePlayerAccountResult = {
     name: string;
@@ -135,11 +144,24 @@ export async function detachPlayerReferences(rawName: string): Promise<DeletePla
     }
 
     let clanName = '';
+    let save: unknown = null;
     try {
-        const save = await kv.get<{ character?: { clan?: unknown } }>(`save:${slug}`);
-        clanName = String(save?.character?.clan ?? '');
+        save = await kv.get<{ character?: { clan?: unknown } }>(`save:${slug}`);
+        clanName = String((save as { character?: { clan?: unknown } } | null)?.character?.clan ?? '');
     } catch (err) {
         result.failures.push(`save:${slug} read: ${(err as Error).message}`);
+    }
+
+    // Cancel the billing relationship while the save still exists — it holds
+    // the only copy of the subscription reference, and every deletion path runs
+    // through here. A failure is parked for an operator, never fatal: the right
+    // to delete an account does not depend on a third party being reachable.
+    try {
+        const note = await cancelSubscriptionForDeletedAccount(slug, save);
+        // Silent for the overwhelming majority who never subscribed.
+        if (note) result.detached.push(note);
+    } catch (err) {
+        result.failures.push(`tebex subscription: ${(err as Error).message}`);
     }
 
     for (const socialKey of [`friends:${slug}`, `player-friends:${slug}`]) {
@@ -169,8 +191,9 @@ export async function deletePlayerAccount(rawName: string): Promise<DeletePlayer
     }
 
     const saveKey = `save:${slug}`;
-    // Detach FIRST: reading the save is how the clan is discovered, and this
-    // deletes that save a few lines below.
+    // Detach FIRST: reading the save is how the clan is discovered AND how the
+    // Tebex subscription is cancelled, and this deletes that save a few lines
+    // below.
     const detached = await detachPlayerReferences(slug);
     result.removed.push(...detached.removed);
     result.detached.push(...detached.detached);

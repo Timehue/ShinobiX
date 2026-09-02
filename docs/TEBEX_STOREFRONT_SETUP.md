@@ -16,6 +16,7 @@ routing players to an external payment page for digital goods.
 | `TEBEX_WEBHOOK_SECRET` | Signs every webhook. The **only** authentication on that endpoint. | Every webhook is rejected — the rail is fully inert. |
 | `TEBEX_PUBLIC_TOKEN` | Public webstore token (`spk3-…`), used server-side to create baskets. | `/api/tebex/basket` returns 503; the price list comes back empty. |
 | `TEBEX_SUBSCRIPTION_PACKAGE_ID` | Tebex product id of the Shinobi Supporter package. | Recurring webhooks are acknowledged and ignored; the supporter tile cannot be bought. |
+| `TEBEX_CHECKOUT_API_KEY` | **Privileged.** Tebex account API key, used to cancel a subscription when its account is deleted. | A deleted account's subscription keeps billing; the reference is parked in `tebex:orphaned-subscriptions` for manual cancellation. |
 
 Shard tier ids are **code**, not environment: fill `PROVIDER_PACKAGE_IDS.tebex`
 in `shared/shard-packages.ts`. A tier with no id refuses to sell rather than
@@ -125,6 +126,34 @@ response body. The buyer's real localized amount is shown by Tebex at checkout.
 
 The tile artwork carries the shard count but deliberately **no price**, for the
 same reason — a baked-in "$5" is a wrong number for most of the world.
+
+## Account deletion cancels the subscription
+
+A subscription belongs to the account, not the save, and Tebex knows nothing
+about a deletion here. Left alone, someone who deletes their account keeps being
+charged every month for a game they no longer have and has to discover the
+charge themselves.
+
+`detachPlayerReferences` in `api/_delete-player-account.ts` cancels it. That is
+the **shared** entry point — the player-facing delete in `api/save/[name].ts`
+calls it directly, and the guest sweep reaches it through
+`deletePlayerAccount` — so putting the cancellation anywhere else would cover
+only one of the two paths. ⚠ The player-facing path does NOT call
+`deletePlayerAccount`, which is the easy mistake here.
+
+It runs **before** the save is deleted, because `character.patreon.userId`
+holds the only copy of the `tbx-r-…` reference.
+
+`DELETE https://checkout.tebex.io/api/recurring-payments/{reference}`, HTTP
+Basic with the API key as the **username and a blank password**. 204 is success;
+404 is treated as success too, since already-gone is the state we wanted.
+
+⛔ **A failure never blocks the deletion** — the right to delete an account does
+not depend on a third party being reachable. But it is never swallowed either:
+the reference is written to the `tebex:orphaned-subscriptions` hash so it
+outlives the save, and an operator can cancel it in the dashboard and delete the
+key. Admin-comped subscriptions are skipped; they have no recurring payment
+behind them.
 
 ## Guarding the contract
 
