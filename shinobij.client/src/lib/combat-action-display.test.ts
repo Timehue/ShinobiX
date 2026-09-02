@@ -11,17 +11,29 @@ import {
     isElementallySealedForDisplay,
     partitionCombatDisplayStatuses,
     pvpCombatWardKey,
+    TEMPO_AP_SWING,
 } from "./combat-action-display.js";
+import { TEMPO_AP_SWING as SERVER_TEMPO_AP_SWING } from "../../../api/combat-core/resources.js";
 
 describe("combat action affordance parity", () => {
-    it("uses the canonical Lag-then-Overclock order and stacks active percentages", () => {
+    // This module is the presentation mirror of api/combat-core/resources.ts and
+    // deliberately re-declares the swing rather than importing across the api/
+    // boundary at runtime. A drift here would show players an AP cost the server
+    // then refuses, so pin the two together.
+    it("mirrors the server's flat tempo AP swing", () => {
+        assert.equal(TEMPO_AP_SWING, SERVER_TEMPO_AP_SWING);
+    });
+
+    it("applies one flat swing per tempo tag no matter how many stacks are active", () => {
         const statuses = [
             { name: "Lag", percent: 10 },
             { name: "Lag", percent: 20 },
             { name: "Overclock", percent: 25 },
         ];
-        // ceil(41 * 1.30) = 54, then floor(54 * 0.75) = 40.
-        assert.equal(adjustedCombatApCost(statuses, 41, 3), 40);
+        // Flat +10 for Lag and -10 for Overclock cancel; the stored percents and
+        // the duplicate Lag stack are all ignored.
+        assert.equal(adjustedCombatApCost(statuses, 41, 3), 41);
+        assert.equal(adjustedCombatApCost([{ name: "Lag", percent: 10 }, { name: "Lag", percent: 20 }], 41, 3), 51);
     });
 
     it("ignores effects whose active round has not begun", () => {
@@ -30,7 +42,13 @@ describe("combat action affordance parity", () => {
             { name: "Overclock", percent: 50, activeRound: 5 },
         ];
         assert.equal(adjustedCombatApCost(statuses, 40, 3), 40);
-        assert.equal(adjustedCombatApCost(statuses, 40, 4), 60);
+        assert.equal(adjustedCombatApCost(statuses, 40, 4), 50);
+    });
+
+    it("never lets Overclock make an action free", () => {
+        const overclocked = [{ name: "Overclock", percent: 30 }];
+        assert.equal(adjustedCombatApCost(overclocked, 10, 1), 1);
+        assert.equal(adjustedCombatApCost(overclocked, 5, 1), 1);
     });
 
     it("switches a refreshed status from its retiring copy to its pending replacement at the exact boundary", () => {
@@ -50,12 +68,13 @@ describe("combat action affordance parity", () => {
             pending: [],
             retired: [retiring],
         });
-        // Ordinary PvP must read the replacement, not the earlier retiring copy:
-        // ceil(40 × 1.10) = 44.
-        assert.equal(adjustedPvpCombatApCost(statuses, 40, 4), 44);
+        // Ordinary PvP must read the replacement, not the earlier retiring copy.
+        // Both carry the flat +10, so the assertion is that Lag is STILL seen at
+        // round 4 (the retiring copy alone would have expired).
+        assert.equal(adjustedPvpCombatApCost(statuses, 40, 4), 50);
     });
 
-    it("matches ordinary PvP's first-active modifier rule after round filtering", () => {
+    it("filters tempo tags by active round before applying the flat swing", () => {
         const statuses = [
             { name: "Lag", percent: 90, activeRound: 5 },
             { name: "Lag", percent: 50, activeRound: 2 },
@@ -63,10 +82,12 @@ describe("combat action affordance parity", () => {
             { name: "Overclock", percent: 20, activeRound: 2 },
             { name: "Overclock", percent: 80, activeRound: 1 },
         ];
-        assert.equal(adjustedPvpCombatApCost(statuses, 40, 1), 8);
-        // Round 2 filters out the future modifier, then uses the first active Lag
-        // and Overclock: ceil(40 * 1.50) = 60; floor(60 * 0.80) = 48.
-        assert.equal(adjustedPvpCombatApCost(statuses, 40, 2), 48);
+        // Round 1: one Lag and one Overclock are live, so they cancel.
+        assert.equal(adjustedPvpCombatApCost(statuses, 40, 1), 40);
+        // Round 2 admits a second copy of each; the swing stays one-per-tag.
+        assert.equal(adjustedPvpCombatApCost(statuses, 40, 2), 40);
+        // Round 5 admits the last Lag with no Overclock left to offset it.
+        assert.equal(adjustedPvpCombatApCost(statuses.filter((s) => s.name === "Lag"), 40, 5), 50);
     });
 
     it("gates paid actions on adjusted AP, resources, cooldown, seal, and action cap", () => {
@@ -79,7 +100,7 @@ describe("combat action affordance parity", () => {
             round: 2,
             apModifierMode: "first-active",
             baseAp: 40,
-            availableAp: 59,
+            availableAp: 49,
             chakraCost: 20,
             availableChakra: 19,
             staminaCost: 10,
@@ -90,7 +111,7 @@ describe("combat action affordance parity", () => {
             maxActions: 5,
         });
         assert.deepEqual(blocked, {
-            apCost: 60,
+            apCost: 50,
             chakraCost: 20,
             staminaCost: 10,
             sealed: true,
@@ -104,7 +125,7 @@ describe("combat action affordance parity", () => {
             round: 2,
             apModifierMode: "first-active",
             baseAp: 40,
-            availableAp: 60,
+            availableAp: 50,
             chakraCost: 20,
             availableChakra: 20,
             staminaCost: 10,

@@ -20,8 +20,8 @@ import type { Character } from "../types/character";
 import type { Jutsu, SavedBloodline } from "../types/combat";
 import type { Rank } from "../types/core";
 import { isDeletedJutsuEntry } from "../../../shared/admin-content-tombstone";
-import { starterJutsus, starterSavedBloodlines } from "../data/jutsu";
-import { normalizeJutsu, orderEquippedJutsus } from "./jutsu";
+import { builtInJutsuIds, starterJutsus, starterSavedBloodlines } from "../data/jutsu";
+import { mergeDisplayJutsu, normalizeJutsu, orderEquippedJutsus } from "./jutsu";
 import { isAdminAccountName } from "./admin-identity";
 
 export function allStarterBloodlineJutsus() {
@@ -51,9 +51,7 @@ export function getAllJutsus(savedBloodlines: SavedBloodline[], creatorJutsus: J
             // Do NOT rebalance here — admin-saved values must be preserved as-is.
             return starterBloodlineRank ? { ...normalizeJutsu(jutsu), bloodlineRank: starterBloodlineRank } : normalizeJutsu(jutsu);
         }),
-    ].map(normalizeJutsu).forEach((jutsu) => {
-        merged.set(jutsu.id, jutsu);
-    });
+    ].map(normalizeJutsu).forEach((jutsu) => mergeDisplayJutsu(merged, jutsu, builtInJutsuIds));
     return [...merged.values()];
 }
 

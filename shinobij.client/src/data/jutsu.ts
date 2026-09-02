@@ -105,13 +105,13 @@ const nonBloodlineTagTable: Record<string, string[]> = {
     // second self-buff, matching the 2-tag → 40-AP utility convention. Buff-Prevent
     // gated, Clear-able, Bloodline-Seal-suppressed (see api/pvp/move.ts generalsBonus).
     "starter-nin-earth-4": ["Increase Generals", "Decrease Damage Taken"],
-    "starter-nin-wind-4": ["Increase Generals", "Overclock"],
+    "starter-nin-wind-4": ["Increase Generals", "Reflect"],
     "starter-nin-lightning-4": ["Increase Generals", "Increase Damage Given"],
     "starter-nin-fire-4": ["Increase Generals", "Lifesteal"],
     "starter-nin-water-4": ["Increase Generals", "Increase Heal"],
     "starter-tai-earth-4": ["Increase Generals", "Shield"],
     "starter-tai-wind-4": ["Increase Generals", "Reflect"],
-    "starter-tai-lightning-4": ["Increase Generals", "Overclock"],
+    "starter-tai-lightning-4": ["Increase Generals", "Increase Damage Given"],
     "starter-tai-fire-4": ["Increase Generals", "Increase Damage Given"],
     "starter-tai-water-4": ["Increase Generals", "Absorb"],
     "starter-gen-earth-4": ["Increase Generals", "Absorb"],
@@ -122,7 +122,7 @@ const nonBloodlineTagTable: Record<string, string[]> = {
     "starter-buki-earth-4": ["Increase Generals", "Decrease Damage Taken"],
     "starter-buki-wind-4": ["Increase Generals", "Increase Damage Given"],
     "starter-buki-lightning-4": ["Increase Generals", "Lifesteal"],
-    "starter-buki-fire-4": ["Increase Generals", "Overclock"],
+    "starter-buki-fire-4": ["Increase Generals", "Decrease Damage Taken"],
     "starter-buki-water-4": ["Increase Generals", "Increase Heal"],
 };
 
@@ -170,7 +170,7 @@ const nonBloodlineFlavor: Record<string, { battle: string; desc: string }> = {
     "starter-gen-earth-2": { battle: "Phantom earth swallows the enemy's senses and buries their memory.", desc: "An illusion that entombs the mind and seals away the enemy's bloodline." },
     "starter-gen-earth-3": { battle: "Figures of dust rise and dance, poisoning the enemy's perception.", desc: "Illusory dust puppets that worm into the mind and sicken the target over time." },
     "starter-gen-wind-1": { battle: "A whispering wind carries doubt that leaves the enemy exposed.", desc: "Voices on the breeze unsettle the target, so every blow against them lands harder." },
-    "starter-gen-wind-2": { battle: "A cyclone of hollow voices spins around the user, quickening them.", desc: "A disorienting whirl of sound that sharpens the user's own tempo." },
+    "starter-gen-wind-2": { battle: "A cyclone of hollow voices tears through the enemy and feeds on their pain.", desc: "A disorienting whirl of sound that draws the harm it deals back to the user as healing." },
     "starter-gen-wind-3": { battle: "The user drifts aside like a feather, fading from the enemy's reach.", desc: "A weightless illusion-step that repositions the user and blunts incoming harm." },
     "starter-gen-lightning-1": { battle: "A blinding flash overloads the enemy's senses for an instant.", desc: "A burst of illusory light that sears straight into the mind." },
     "starter-gen-lightning-2": { battle: "The world freezes into a phantom stage and locks the enemy still.", desc: "An elaborate illusion that traps the target and steals their next action." },
@@ -200,13 +200,13 @@ const nonBloodlineFlavor: Record<string, { battle: string; desc: string }> = {
 
     // ── Increase Generals utility set flavor ──
     "starter-nin-earth-4": { battle: "The user roots their chakra deep into the earth, steeling every attribute.", desc: "A grounding rite that hardens the user's core stats and blunts the blows to come." },
-    "starter-nin-wind-4": { battle: "The user breathes with the wind, sharpening body and mind in one gust.", desc: "A soaring focus that lifts every attribute and quickens the user's actions." },
+    "starter-nin-wind-4": { battle: "The user breathes with the wind, sharpening body and mind in one gust.", desc: "A soaring focus that lifts every attribute and turns a share of incoming force back on the attacker." },
     "starter-nin-lightning-4": { battle: "Lightning courses through the user's coils, electrifying every attribute.", desc: "A charged focus that surges the user's core stats and sharpens their strikes." },
     "starter-nin-fire-4": { battle: "The user stokes an inner ember, warming strength, speed, wit and will.", desc: "A kindling rite that raises every attribute and draws life from the wounds it opens." },
     "starter-nin-water-4": { battle: "The user draws a cleansing tide inward, renewing every attribute.", desc: "A flowing rite that lifts the user's core stats and deepens their recovery." },
     "starter-tai-earth-4": { battle: "The user sets their stance like bedrock, tempering every attribute.", desc: "A hardening drill that raises the user's core stats and shields the body." },
     "starter-tai-wind-4": { battle: "The user exhales and rises light as wind, keen in every attribute.", desc: "An awakening step that lifts every attribute and turns blows back on the attacker." },
-    "starter-tai-lightning-4": { battle: "A thunderous pulse floods the user's muscles, spiking every attribute.", desc: "An overdrive surge that raises the user's core stats and quickens their actions." },
+    "starter-tai-lightning-4": { battle: "A thunderous pulse floods the user's muscles, spiking every attribute.", desc: "An overdrive surge that raises the user's core stats and drives harder into every strike." },
     "starter-tai-fire-4": { battle: "The user's spirit blazes up, firing strength, speed, wit and will.", desc: "A burning focus that lifts every attribute and sharpens the user's strikes." },
     "starter-tai-water-4": { battle: "The user settles into a flowing calm, balancing every attribute.", desc: "A harmonizing form that raises the user's core stats and turns damage into healing." },
     "starter-gen-earth-4": { battle: "The user sinks into a stone-still trance, fortifying every attribute.", desc: "A grounded meditation that raises the user's core stats and drinks in incoming harm." },
@@ -217,7 +217,7 @@ const nonBloodlineFlavor: Record<string, { battle: string; desc: string }> = {
     "starter-buki-earth-4": { battle: "The user plants an adamant stance, tempering every attribute.", desc: "A weapon drill that raises the user's core stats and blunts incoming blows." },
     "starter-buki-wind-4": { battle: "The user's blade sings on the wind, quickening every attribute.", desc: "A swift attunement that lifts every attribute and sharpens the user's strikes." },
     "starter-buki-lightning-4": { battle: "The user's grip crackles with charge, keying up every attribute.", desc: "A charged focus that raises the user's core stats and draws life on every hit." },
-    "starter-buki-fire-4": { battle: "The user tempers themselves in an inner forge, hardening every attribute.", desc: "A forge-hot rite that lifts every attribute and quickens the user's actions." },
+    "starter-buki-fire-4": { battle: "The user tempers themselves in an inner forge, hardening every attribute.", desc: "A forge-hot rite that lifts every attribute and leaves the body harder to hurt." },
     "starter-buki-water-4": { battle: "The user's edge ripples like water, refining every attribute.", desc: "A flowing ritual that raises the user's core stats and deepens their recovery." },
 };
 
@@ -290,7 +290,7 @@ export const starterJutsus: Jutsu[] = [
     makeJutsu("starter-gen-earth-2", "Buried Memory Field", "Genjutsu", 60, 4, 30, 3, 250, 250, [{ name: "Bloodline Seal", percent: 0 }], "Earth"),
     makeJutsu("starter-gen-earth-3", "Dust Puppet Vision", "Genjutsu", 40, 3, 24, 1, 125, 125, [{ name: "Poison", percent: 14 }], "Earth"),
     makeJutsu("starter-gen-wind-1", "Whispering Gale", "Genjutsu", 40, 5, 21, 1, 125, 125, [{ name: "Increase Damage Taken", percent: 16 }], "Wind"),
-    makeJutsu("starter-gen-wind-2", "Hollow Voice Cyclone", "Genjutsu", 60, 5, 30, 2, 250, 250, [{ name: "Overclock", percent: 0 }], "Wind"),
+    makeJutsu("starter-gen-wind-2", "Hollow Voice Cyclone", "Genjutsu", 60, 5, 30, 2, 250, 250, [{ name: "Siphon", percent: 30 }], "Wind"),
     makeJutsu("starter-gen-wind-3", "Feather Step Illusion", "Genjutsu", 40, 0, 0, 2, 125, 125, [{ name: "Move", percent: 0 }, { name: "Decrease Damage Taken", percent: 16 }], "Wind"),
     makeJutsu("starter-gen-lightning-1", "Neural Flash", "Genjutsu", 40, 4, 32, 1, 125, 125, [{ name: "Damage", percent: 100 }], "Lightning"),
     makeJutsu("starter-gen-lightning-2", "Paralysis Theater", "Genjutsu", 60, 4, 30, 3, 250, 250, [{ name: "Stun", percent: 0 }], "Lightning"),
@@ -458,6 +458,17 @@ export const starterSavedBloodlines: SavedBloodline[] = [
         totalPoints: 9,
     },
 ].map((bloodline) => ({ ...bloodline, totalPoints: bloodlinePoints(bloodline.jutsus, bloodline.rank) }));
+
+/**
+ * Every id the game itself defines: the starter catalog plus the four built-in
+ * bloodlines' techniques. Used to stop an ADMIN-authored copy of one of these
+ * ids from overriding the real definition in client-side lists — see
+ * `mergeDisplayJutsu` in lib/jutsu.ts for why that matters.
+ */
+export const builtInJutsuIds: ReadonlySet<string> = new Set([
+    ...starterJutsus.map((jutsu) => jutsu.id),
+    ...starterSavedBloodlines.flatMap((bloodline) => bloodline.jutsus.map((jutsu) => jutsu.id)),
+]);
 
 export const jutsuTargets: JutsuTarget[] = ["OPPONENT", "SELF", "OTHER_USER", "CHARACTER", "EMPTY_GROUND"];
 export const jutsuMethods: JutsuMethod[] = ["SINGLE", "ALL", "AOE_CIRCLE", "INSTANT_EFFECT", "AOE_SPIRAL", "AOE_BURST"];

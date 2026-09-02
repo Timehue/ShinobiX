@@ -41,16 +41,19 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
     // entered Towers / Clan Boss / PvE / Anbu / merc fights a jutsu short.
     it('seals an equipped admin-authored jutsu from the authored catalog', () => {
         const authored = {
-            id: 'starter-universal-blitz', name: 'Overload', type: 'Ninjutsu', element: 'None',
+            id: 'admin-99c8efb8-8fa2-4b28-98d1-b95ad81af554', name: 'Overload', type: 'Ninjutsu', element: 'None',
             ap: 40, range: 1, effectPower: 0, target: 'SELF', isUtility: true,
-            tags: [{ name: 'Increase Damage Given', percent: 30 }],
+            tags: [
+                { name: 'Increase Damage Given', percent: 30 },
+                { name: 'Increase Damage Given', percent: 30 },
+            ],
         };
         const saveChar = {
             stats: {},
-            equippedJutsuIds: ['starter-tai-fire-2', 'starter-universal-blitz'],
+            equippedJutsuIds: ['starter-tai-fire-2', authored.id],
             jutsuMastery: [
                 { jutsuId: 'starter-tai-fire-2', level: 0 },
-                { jutsuId: 'starter-universal-blitz', level: 0 },
+                { jutsuId: authored.id, level: 0 },
             ],
         };
 
@@ -60,13 +63,13 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
         const admin: AdminCombatContent = { jutsu: new Map([[authored.id, authored]]), items: new Map() };
         const withAuthored = sealTowerFighter(saveChar, { savedBloodlines: [], creatorJutsus: [] }, {}, admin);
         const ids = (withAuthored.jutsu as Array<{ id: string }>).map((j) => j.id);
-        assert.deepEqual(ids, ['starter-tai-fire-2', 'starter-universal-blitz']);
+        assert.deepEqual(ids, ['starter-tai-fire-2', authored.id]);
         const sealedOverload = (withAuthored.jutsu as Array<Record<string, unknown>>)[1];
         assert.equal(sealedOverload.effectPower, 0);
         assert.deepEqual(sealedOverload.tags, [
             { name: 'Increase Damage Given', percent: 30 },
             { name: 'Increase Damage Given', percent: 30 },
-        ], 'the Tower seal repairs stale authored Overload content to its two-pulse contract');
+        ], 'the Tower seal keeps both authored pulses instead of deduping them to one');
     });
 
     // Gear half of the same gap (the seal path gained the admin item catalog in

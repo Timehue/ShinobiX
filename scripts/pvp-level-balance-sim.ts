@@ -1334,8 +1334,9 @@ export function chooseAction(
 
     const weaponJutsu = synthWeapon(weapon, self);
     const weaponAp = adjustedApCost(Number(weaponJutsu.ap ?? 40), {
-        lagPct: activeStatuses(self, round).find((status) => canonicalTagName(status.name) === 'Lag')?.percent,
-        overclockPct: activeStatuses(self, round).find((status) => canonicalTagName(status.name) === 'Overclock')?.percent,
+        // Flat +/-TEMPO_AP_SWING: presence only, the stored percent is not read.
+        lagged: activeStatuses(self, round).some((status) => canonicalTagName(status.name) === 'Lag'),
+        overclocked: activeStatuses(self, round).some((status) => canonicalTagName(status.name) === 'Overclock'),
     });
     const weaponKey = weapon.id;
     if (ap >= weaponAp && (cooldowns[weaponKey] ?? 0) <= 0 && hexDistance(self.pos, opponent.pos) <= Number(weaponJutsu.range ?? 1)) {
@@ -1349,8 +1350,8 @@ export function chooseAction(
 
     const canPay = (base: number) => {
         const cost = adjustedApCost(base, {
-            lagPct: activeStatuses(self, round).find((status) => canonicalTagName(status.name) === 'Lag')?.percent,
-            overclockPct: activeStatuses(self, round).find((status) => canonicalTagName(status.name) === 'Overclock')?.percent,
+            lagged: activeStatuses(self, round).some((status) => canonicalTagName(status.name) === 'Lag'),
+            overclocked: activeStatuses(self, round).some((status) => canonicalTagName(status.name) === 'Overclock'),
         });
         return { ok: ap >= cost && actions < MAX_ACTIONS, cost };
     };

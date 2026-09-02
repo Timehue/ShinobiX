@@ -287,6 +287,11 @@ export function AdminPanel({
     const [tag4, setTag4] = useState("");
     const [tag4Percent, setTag4Percent] = useState(30);
     const [jutsuDescription, setJutsuDescription] = useState("");
+    // The battle-log line is authored SEPARATELY from the card description.
+    // One box used to feed both fields, so a jutsu could not read as prose on
+    // its card and as a sentence in the log the way the built-in starters do
+    // (data/jutsu.ts nonBloodlineFlavor pairs `battle` + `desc`).
+    const [jutsuBattleLine, setJutsuBattleLine] = useState("");
     const [jutsuImage, setJutsuImage] = useState("");
     // Holds the in-flight jutsu-image compression promise (resolves to the
     // finished image). Create/Save await this so a click made BEFORE the upload
@@ -2077,7 +2082,11 @@ export function AdminPanel({
             healthCostReducePerLvl: Number(healthCostReducePerLvl),
             chakraCostReducePerLvl: Number(chakraCostReducePerLvl),
             staminaCostReducePerLvl: Number(staminaCostReducePerLvl),
-            battleDescription: jutsuDescription || `${jutsuName} hits %target`,
+            // Blank means "no authored line": leave it undefined and let
+            // normalizeJutsu supply the target-aware default. It resolves the
+            // FINAL target (a Move tag forces EMPTY_GROUND regardless of the
+            // dropdown), so computing the fallback here would sometimes disagree.
+            battleDescription: jutsuBattleLine.trim() || undefined,
             tags: makeTags(),
         }) as Jutsu & {
             description?: string;
@@ -2114,6 +2123,10 @@ export function AdminPanel({
         setChakraCostReducePerLvl(normalized.chakraCostReducePerLvl);
         setStaminaCostReducePerLvl(normalized.staminaCostReducePerLvl);
         setJutsuDescription(normalized.description ?? "");
+        // A jutsu authored before the split has the two fields identical, or
+        // carries only the old generic default; either way the stored line is
+        // what the log prints, so show it verbatim rather than guessing.
+        setJutsuBattleLine(normalized.battleDescription ?? "");
         setJutsuImage(normalized.image ?? "");
         setTag1(normalized.tags[0]?.name ?? "");
         setTag1Percent(normalized.tags[0]?.percent ?? 30);
@@ -2811,13 +2824,26 @@ export function AdminPanel({
                         <section className="summary-box">
                             <h3>Full Jutsu Builder</h3>
                             <label>Name</label><input value={jutsuName} onChange={(e) => setJutsuName(e.target.value)} />
-                            <label>Description / Flavor Text</label>
+                            <label>Card Description / Flavor Text</label>
                             <textarea
                                 value={jutsuDescription}
                                 onChange={(e) => setJutsuDescription(e.target.value)}
-                                rows={4}
-                                placeholder="Describe what the jutsu does, how it looks, and its combat flavor."
+                                rows={3}
+                                placeholder="Shown on the jutsu card. Describe what the technique is and how it looks."
                             />
+                            <label>Battle-Log Line</label>
+                            <textarea
+                                value={jutsuBattleLine}
+                                onChange={(e) => setJutsuBattleLine(e.target.value)}
+                                rows={2}
+                                placeholder={`Printed in the log after "<caster> uses ${jutsuName || "this jutsu"}:". Use %user and %target.`}
+                                aria-describedby="admin-jutsu-battle-line-help"
+                            />
+                            <small id="admin-jutsu-battle-line-help">
+                                One sentence, present tense. %user is the caster; %target is the
+                                enemy, or the caster on a Self-target jutsu. Left blank, the log
+                                falls back to a generic line for this target type.
+                            </small>
 
                             <label>Jutsu Image</label>
                             <input

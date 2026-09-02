@@ -70,10 +70,11 @@ export type ResolveJutsuActionPlanInput = {
 
 const BASIC_ELEMENTS = new Set(['Earth', 'Wind', 'Water', 'Lightning', 'Fire']);
 
-function statusPercent(statuses: readonly CombatStatus[], name: string, round: number): number | null {
-    const matching = activeCombatStatuses(statuses, round).filter((status) => canonicalTagName(status.name) === name);
-    if (!matching.length) return null;
-    return matching.reduce((sum, status) => sum + Number(status.percent ?? 20), 0);
+// Lag / Overclock are flat ±TEMPO_AP_SWING (see combat-core/resources.ts), so
+// only PRESENCE matters — the stored percent is never read for either tag, and
+// a second stack cannot deepen the swing.
+function hasActiveStatus(statuses: readonly CombatStatus[], name: string, round: number): boolean {
+    return activeCombatStatuses(statuses, round).some((status) => canonicalTagName(status.name) === name);
 }
 
 export function canonicalGroundTags(tags: readonly CombatTag[] | undefined): CombatTag[] {
@@ -86,8 +87,8 @@ export function resolveJutsuActionPlan(input: ResolveJutsuActionPlanInput): Reso
     const { jutsu, board } = input;
     const apCost = Math.max(1, Number(jutsu.ap ?? 40));
     const effectiveApCost = adjustedApCost(apCost, {
-        lagPct: statusPercent(input.casterStatuses, 'Lag', input.round),
-        overclockPct: statusPercent(input.casterStatuses, 'Overclock', input.round),
+        lagged: hasActiveStatus(input.casterStatuses, 'Lag', input.round),
+        overclocked: hasActiveStatus(input.casterStatuses, 'Overclock', input.round),
     });
     if (input.availableAp < effectiveApCost || input.actionsThisTurn >= (input.maxActions ?? MAX_ACTIONS)) {
         return { accepted: false, rejection: 'cannot-act' };

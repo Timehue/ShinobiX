@@ -1504,7 +1504,7 @@ test('successful flee spends the adjusted Overclock cost without negative termin
             p1: fighter('alice', 0, {
                 statuses: [{ name: 'Overclock', rounds: 1, percent: 20, kind: 'positive', activeRound: 1 }],
             }),
-            ap: { p1: 80, p2: 100 },
+            ap: { p1: 90, p2: 100 },
         }));
 
         const out = await postMove('alice', {
@@ -1519,7 +1519,7 @@ test('successful flee spends the adjusted Overclock cost without negative termin
         assert.equal(after.status, 'done');
         assert.equal(after.winner, 'p2');
         assert.equal(after.fleedBy, 'p1');
-        assert.equal(after.ap.p1, 0, '80 AP with 20% Overclock must spend the adjusted 80 AP, not raw 100 AP');
+        assert.equal(after.ap.p1, 0, '90 AP with Overclock must spend the adjusted 90 AP, not the raw 100 AP');
         assert.equal(after.actionsThisTurn, 1);
         assert.equal(after.log.filter(line => /alice fled the battle/i.test(line)).length, 1);
     } finally {

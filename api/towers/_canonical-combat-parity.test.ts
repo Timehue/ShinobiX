@@ -313,15 +313,18 @@ function apMatrixSession(statuses: TowerActor['statuses']): TowerSession {
 
 describe('Tower AP modifier parity for every action family', () => {
     const modifierCases = [
+        // The stored `percent` is deliberately left at its legacy 20 — the flat
+        // TEMPO_AP_SWING form must ignore it, so a status that still carries the
+        // old value cannot change what an action costs.
         {
             name: 'Lag',
             statuses: [{ name: 'Lag', rounds: 2, percent: 20, kind: 'negative' as const }],
-            modifiers: { lagPct: 20 },
+            modifiers: { lagged: true },
         },
         {
             name: 'Overclock',
             statuses: [{ name: 'Overclock', rounds: 2, percent: 20, kind: 'positive' as const }],
-            modifiers: { overclockPct: 20 },
+            modifiers: { overclocked: true },
         },
         {
             name: 'Lag + Overclock',
@@ -329,7 +332,7 @@ describe('Tower AP modifier parity for every action family', () => {
                 { name: 'Lag', rounds: 2, percent: 20, kind: 'negative' as const },
                 { name: 'Overclock', rounds: 2, percent: 20, kind: 'positive' as const },
             ],
-            modifiers: { lagPct: 20, overclockPct: 20 },
+            modifiers: { lagged: true, overclocked: true },
         },
     ];
 
