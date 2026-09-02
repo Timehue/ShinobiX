@@ -160,12 +160,26 @@ describe("server settlement policy", () => {
         assertGuardBefore(appPvp, "acceptChallengeGlobal", "pvpSession", "setProcessingChallengeIds(");
         assert.match(appPvp, /onAcceptChallenge=\{\(challenge\) => \{ void acceptChallengeGlobal\(challenge\); \}\}/,
             "the Arena lobby must delegate PvP acceptance to the guarded App handler");
-        const sectorAttack = appPvp.indexOf("sectorAttackPlayer={async (opponent) => {");
-        const sectorGuard = appPvp.indexOf('requireServerSettlement("pvpSession")', sectorAttack);
+        // The 120-line inline handler moved to lib/sector-attack.ts. App must
+        // still route through it, and the gate must still precede session
+        // creation — now inside that module rather than inside the JSX prop.
+        assert.match(
+            appPvp,
+            /sectorAttackPlayer=\{\(opponent\) => \{ void attackSectorPlayer\(\{/,
+            "the world map must delegate sector attacks to the guarded helper",
+        );
+        const sectorSrc = source("./sector-attack.ts");
+        const sectorGuard = sectorSrc.indexOf('requireServerSettlement("pvpSession")');
         // Session creation goes through lib/pvp-session-create.ts now; the gate
         // must still precede it.
-        const sectorFetch = appPvp.indexOf("createPvpSessionWithRecovery(", sectorAttack);
-        assert.ok(sectorAttack >= 0 && sectorGuard > sectorAttack && sectorFetch > sectorGuard, "sector player attacks must gate before session creation");
+        const sectorFetch = sectorSrc.indexOf("createPvpSessionWithRecovery(");
+        assert.ok(sectorGuard >= 0 && sectorFetch > sectorGuard, "sector player attacks must gate before session creation");
+        // The gate is the FIRST statement, so no local mutation can precede it.
+        assert.match(
+            sectorSrc,
+            /\} = opts;\s*if \(!requireServerSettlement\("pvpSession"\)\) return;/,
+            "the settlement gate must remain the first statement of the sector attack",
+        );
 
         const worldMap = source("../screens/WorldMap.tsx");
         assertGuardBefore(worldMap, "startPvpRaid", "pvpSession", "setCurrentSector(");

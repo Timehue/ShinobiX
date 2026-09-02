@@ -6,9 +6,11 @@
  * inputs. Pure functions depending only on the extracted type / constant / util
  * modules and lib/tags.
  *
- * starterSavedBloodlines is imported back from "../App" (read lazily inside
- * getBloodlineMultiplier, never at module-init), following the existing
- * lib/bloodline pattern, pending extraction of the starter bloodline data.
+ * starterSavedBloodlines now comes straight from ../data/jutsu, which is where
+ * it is actually defined. It used to be imported back from "../App" — but App
+ * only imports and re-exports it, so that round-trip added nothing and dragged
+ * App's component/CSS graph into every consumer of this file, which is what made
+ * them unloadable under node:test.
  *
  * Extracted from App.tsx (Region A).
  */
@@ -16,7 +18,7 @@
 import { statusMatchesName } from "./tags";
 import { clampNumber } from "./utils";
 import { HP_CAP, MAX_STAT, JUTSU_MAX_LEVEL, MASTERY_MIN_DAMAGE_FRAC } from "../constants/game";
-import { starterSavedBloodlines } from "../App";
+import { starterSavedBloodlines } from "../data/jutsu";
 import type { Stats, Jutsu, JutsuTag, SavedBloodline } from "../types/combat";
 import type { JutsuType } from "../types/core";
 import type { Character } from "../types/character";

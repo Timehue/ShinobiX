@@ -275,10 +275,9 @@ describe("PvP reliability source wiring", () => {
             "an unavailable battle may expose destructive exit only after authenticated pending-session proof");
         assert.match(screen, /sessionExitCheck === "safe"[\s\S]*Return Safely/,
             "transient GET failure must keep the same-mount retry/recovery controller alive");
-        const sectorCreate = app.slice(
-            app.indexOf("sectorAttackPlayer={async"),
-            app.indexOf('{!activeTriggeredEvent && screen === "sunscarFestival"'),
-        );
+        // The sector-attack flow moved out of App's JSX into lib/sector-attack.ts,
+        // so the whole module IS the slice this used to carve out of App.
+        const sectorCreate = readFileSync(new URL("./sector-attack.ts", import.meta.url), "utf8");
         // The reconciliation moved into lib/pvp-session-create.ts: it derives the
         // stable battle id, probes the authenticated pending index when a create
         // is ambiguous, and only reports "created" when the pointer matches. App

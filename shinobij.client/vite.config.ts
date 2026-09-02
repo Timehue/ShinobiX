@@ -9,12 +9,12 @@ import child_process from 'child_process';
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import { env } from 'process';
 import type { IncomingMessage, ServerResponse } from 'http';
-import { playerPasswordPolicyError } from './src/lib/player-auth-policy';
-import { normalizeRecoveryCode, formatRecoveryCode } from './src/lib/recovery-code';
-import { sectorExitById } from '../shared/sector-links';
-import { SHRINE_DEFS } from '../shared/shrines';
-import { sectorContractFor, utcDayOf } from '../shared/sector-contracts';
-import { issueSignedDevSessionToken, verifySignedDevSessionToken } from './dev-session-auth';
+import { playerPasswordPolicyError } from './src/lib/player-auth-policy.ts';
+import { normalizeRecoveryCode, formatRecoveryCode } from './src/lib/recovery-code.ts';
+import { sectorExitById } from '../shared/sector-links.ts';
+import { SHRINE_DEFS } from '../shared/shrines.ts';
+import { sectorContractFor, utcDayOf } from '../shared/sector-contracts.ts';
+import { issueSignedDevSessionToken, verifySignedDevSessionToken } from './dev-session-auth.ts';
 
 // ── Cert setup (dev only — skipped on CI / Vercel / production builds) ────────
 const isBuildMode = process.argv.includes('build');
