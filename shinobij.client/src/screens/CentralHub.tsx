@@ -14,7 +14,7 @@ import "../styles/central-hub-forge.css";
 // Compact local location and material glyphs shared with the rest of the game.
 import {
     GiCrossedSwords, GiDragonHead, GiBookshelf,
-    GiCrystalBall, GiBlacksmith, GiDungeonGate, GiStoneTower,
+    GiCrystalBall, GiBlacksmith, GiDungeonGate, GiStoneTower, GiScrollUnfurled,
     GiTempleGate, GiSparkles, GiStoneStack, GiFlame, GiBreastplate, GiTrashCan,
     // Craft-material + recipe glyphs (forge tab).
     GiSwapBag, GiAnimalHide, GiFeather, GiFangs, GiHornInternal, GiMeat, GiSnowflake1,
@@ -206,7 +206,6 @@ export function CentralHub({
     publicPlayerBloodlines,
     triggeredEvents,
     setTriggeredEvents,
-    onStartEndlessBattle: _onStartEndlessBattle, // retained for backwards-compat with the prop site
     onStartDungeon,
     onOpenBloodlineMaker,
     onVersionedCharacter,
@@ -225,7 +224,6 @@ export function CentralHub({
     publicPlayerBloodlines: ReviewBloodline[];
     triggeredEvents: string[];
     setTriggeredEvents: React.Dispatch<React.SetStateAction<string[]>>;
-    onStartEndlessBattle: () => void;
     onStartDungeon: (event: CreatorEvent) => void;
     onOpenBloodlineMaker: (rank: Rank, element?: string) => void;
     onVersionedCharacter?: VersionedCharacterCommit;
@@ -1110,7 +1108,7 @@ export function CentralHub({
                 <Modal open={showCelestialPanel} onClose={() => setShowCelestialPanel(false)} bare ariaLabel="Celestial Tower" size="lg" className="central-dialog-shell">
                     <div className="celestial-panel">
                         <h2><GiStoneTower style={HDR_ICON} />Celestial Tower</h2>
-                        <p className="celestial-panel-sub">Two ways to climb: the endless gauntlet, or curated Battle Tower squad floors.</p>
+                        <p className="celestial-panel-sub">Three ways to climb: the endless gauntlet, curated Battle Tower squad floors, or the tower's preserved memories.</p>
                         <div style={{ background: "rgba(15,23,42,0.5)", border: "1px solid rgba(148,163,184,0.25)", borderRadius: 6, padding: "0.7rem 0.9rem", margin: "0.4rem 0 0.8rem", fontSize: "0.85rem", lineHeight: 1.5 }}>
                             <div><strong>How it works</strong></div>
                             <div>· Each wave drops a random AI scaled to your level + current wave. Every 10th wave is a boss.</div>
@@ -1133,6 +1131,11 @@ export function CentralHub({
                                 <span className="celestial-option-icon"><GiCrossedSwords /></span>
                                 <strong>Battle Towers</strong>
                                 <small>Curated squad floors — objectives, gimmicks, bosses. Free retries; first-clear rewards &amp; a leaderboard.</small>
+                            </button>
+                            <button className="celestial-option-btn" onClick={() => { setShowCelestialPanel(false); setScreen("echoesOfWar"); }}>
+                                <span className="celestial-option-icon"><GiScrollUnfurled /></span>
+                                <strong>Echoes of War</strong>
+                                <small>Relive the unfinished Showdowns of a fallen civilization. A Shinobi Chronicle Showdown story campaign; victories pay Chronicle Points.</small>
                             </button>
                         </div>
                         <button className="back-btn" style={{ marginTop: "1rem" }} onClick={() => setShowCelestialPanel(false)}>× Close</button>

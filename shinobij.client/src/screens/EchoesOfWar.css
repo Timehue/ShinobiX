@@ -1,0 +1,256 @@
+/* Echoes of War — Celestial Tower memory ladder.
+   Colocated lazy-chunk stylesheet (loads after the global manifest, so plain
+   selectors win without !important). Preserved-history mood: dust, worn stone,
+   weak gold light on the lower floors. */
+
+.echoes-shell {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0.9rem 0.9rem 2.5rem;
+    color: #e7e2d5;
+}
+
+.echoes-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.7rem 1rem;
+    margin-bottom: 1rem;
+}
+
+.echoes-header .back-btn { flex: 0 0 auto; }
+
+.echoes-header-titles { flex: 1 1 260px; min-width: 0; }
+
+.echoes-kicker {
+    display: block;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #b8a06a;
+}
+
+.echoes-header-titles h1 {
+    margin: 0.1rem 0 0;
+    font-size: 1.55rem;
+    line-height: 1.15;
+    color: #f2ead6;
+    border-bottom: none;
+}
+
+.echoes-sub {
+    margin: 0.25rem 0 0;
+    color: #a89f8c;
+    font-size: 0.9rem;
+}
+
+.echoes-header-stats {
+    flex: 1 1 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.9rem;
+    align-items: center;
+    font-size: 0.85rem;
+    color: #b7ae9b;
+}
+
+.echoes-points-chip {
+    display: inline-block;
+    padding: 0.28rem 0.6rem;
+    background: rgba(184, 160, 106, 0.1);
+    border: 1px solid rgba(184, 160, 106, 0.45);
+    border-radius: 6px;
+    color: #e6d7ae;
+    white-space: nowrap;
+}
+
+.echoes-panel {
+    background: rgba(20, 18, 14, 0.82);
+    border: 1px solid rgba(150, 135, 105, 0.28);
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+    margin-bottom: 0.9rem;
+}
+
+.echoes-resume-note {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+}
+.echoes-resume-note p { margin: 0; color: #d9cfae; }
+
+/* ── Ladder ── */
+.echoes-ladder {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 1.1rem;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+/* The climb: a faint spine connecting the memory floors. */
+.echoes-ladder::before {
+    content: "";
+    position: absolute;
+    left: 0.35rem;
+    top: 1rem;
+    bottom: 1rem;
+    width: 2px;
+    background: linear-gradient(to top, rgba(150, 135, 105, 0.14), rgba(184, 160, 106, 0.5));
+}
+
+.echoes-node {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: rgba(24, 21, 16, 0.86);
+    border: 1px solid rgba(150, 135, 105, 0.26);
+    border-radius: 10px;
+    padding: 0.6rem 0.75rem;
+    position: relative;
+}
+.echoes-node--boss { border-color: rgba(196, 110, 74, 0.55); }
+.echoes-node--cleared { border-color: rgba(126, 166, 116, 0.45); }
+.echoes-node--locked { opacity: 0.78; }
+
+.echoes-node-floor {
+    flex: 0 0 auto;
+    width: 1.9rem;
+    height: 1.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(184, 160, 106, 0.12);
+    border: 1px solid rgba(184, 160, 106, 0.4);
+    color: #d9c88a;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.echoes-node-portrait {
+    flex: 0 0 auto;
+    width: 52px;
+    height: 52px;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 1px solid rgba(150, 135, 105, 0.4);
+    background: #0d0c09;
+}
+.echoes-node--locked .echoes-node-portrait {
+    filter: brightness(0.18) saturate(0.2);
+}
+
+.echoes-node-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+}
+.echoes-node-name { font-size: 0.95rem; color: #efe6cd; }
+.echoes-node-meta { font-size: 0.78rem; color: #a89f8c; }
+.echoes-node-reward { font-size: 0.78rem; color: #cdb877; }
+
+.echoes-node-action {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 0.45rem 0.8rem;
+}
+
+.echoes-primary {
+    background: rgba(184, 160, 106, 0.18);
+    border-color: rgba(184, 160, 106, 0.6);
+    color: #f2e6bf;
+    min-height: 44px;
+}
+
+.echoes-footnote {
+    margin-top: 1rem;
+    font-size: 0.78rem;
+    color: #8f887a;
+}
+
+/* ── Detail ── */
+.echoes-detail {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.echoes-detail-portrait-wrap {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+}
+.echoes-detail-portrait {
+    width: 148px;
+    height: 148px;
+    max-width: 100%;
+    border-radius: 10px;
+    object-fit: cover;
+    border: 1px solid rgba(150, 135, 105, 0.45);
+    background: #0d0c09;
+}
+.echoes-cleared-mark {
+    font-size: 0.75rem;
+    color: #9fc292;
+    border: 1px solid rgba(126, 166, 116, 0.45);
+    border-radius: 5px;
+    padding: 0.12rem 0.45rem;
+}
+
+.echoes-detail-body { flex: 1 1 260px; min-width: 0; }
+.echoes-blurb { margin: 0 0 0.7rem; color: #cfc6b2; line-height: 1.5; }
+
+.echoes-facts { margin: 0 0 0.7rem; }
+.echoes-facts div {
+    display: flex;
+    gap: 0.6rem;
+    padding: 0.18rem 0;
+    border-bottom: 1px dashed rgba(150, 135, 105, 0.18);
+}
+.echoes-facts dt {
+    flex: 0 0 6.2rem;
+    color: #b8a06a;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.echoes-facts dd { margin: 0; font-size: 0.88rem; color: #ddd4bf; }
+
+.echoes-chronicle-note {
+    font-style: italic;
+    color: #b9ab84;
+    border-left: 3px solid rgba(184, 160, 106, 0.5);
+    padding-left: 0.6rem;
+    margin: 0 0 0.7rem;
+    line-height: 1.5;
+}
+
+.echoes-locked-note { color: #a89f8c; margin: 0 0 0.7rem; }
+
+.echoes-detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.echoes-detail-actions button { min-height: 44px; }
+
+/* Result panel additions rendered inside the shared chronicle shell. */
+.echoes-result-panel .echoes-reward-lines p { margin: 0.2rem 0; }
+
+/* ── Small screens ── */
+@media (max-width: 560px) {
+    .echoes-shell { padding: 0.6rem 0.6rem 2rem; }
+    .echoes-node { flex-wrap: wrap; }
+    .echoes-node-action { flex-basis: 100%; }
+    .echoes-detail-portrait { width: 116px; height: 116px; }
+    .echoes-header-titles h1 { font-size: 1.3rem; }
+}

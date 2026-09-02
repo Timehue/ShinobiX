@@ -35,6 +35,12 @@ export interface AiMatchSession {
    * Dungeon run. A generic external-stakes duel never receives this binding. */
   dungeonRunToken?: string;
   dungeonAuthorityVersion?: number;
+  /** Present only for an Echoes of War campaign duel: sealed at ai-start
+   * (after the floor-unlock check) and read by the settle path, so the client
+   * can never pick its encounter, opponent deck or reward after the fact. */
+  echoes?: { encounterId: string };
+  /** Display-only override for the AI deck's board name (campaign decks). */
+  opponentDeckName?: string;
 }
 
 export type AiMatchProjection = ChronicleProjection & {
@@ -137,6 +143,7 @@ export function createAiMatch(
   random: () => number = Math.random,
   settlementMode: "standard" | "external" = "standard",
   onAiStep?: AiStepListener,
+  opponent?: { name?: string; deck?: readonly string[]; deckName?: string },
 ): AiMatchSession {
   const session: AiMatchSession = {
     matchId,
@@ -147,13 +154,14 @@ export function createAiMatch(
     state: createMatch(
       playerName,
       playerDeck,
-      "Chronicle Keeper",
-      generateAiServerDeck(difficulty),
+      opponent?.name ?? "Chronicle Keeper",
+      opponent?.deck ? [...opponent.deck] : generateAiServerDeck(difficulty),
       random,
       now,
     ),
     status: "active",
     settlementMode,
+    ...(opponent?.deckName ? { opponentDeckName: opponent.deckName } : {}),
   };
   advanceAi(session, now, onAiStep);
   return session;
@@ -845,7 +853,9 @@ export function projectAiMatch(session: AiMatchSession): AiMatchProjection {
   return {
     matchId: session.matchId,
     aiDifficulty: session.difficulty,
-    aiDeckName: CHRONICLE_AI_DIFFICULTY_DETAILS[session.difficulty].deckName,
+    aiDeckName:
+      session.opponentDeckName ??
+      CHRONICLE_AI_DIFFICULTY_DETAILS[session.difficulty].deckName,
     ...projectMatchForViewer(session.state, "p1"),
     winnerResult: resultFor(session.state),
   };

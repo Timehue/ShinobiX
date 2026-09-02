@@ -148,7 +148,11 @@ describe('executable multi-engine runtime registry', () => {
     // reason on '/player/sleeper-kill' in the fixture.) This count is a
     // deliberate ratchet: raising it should be a conscious act, not a side
     // effect of a mode appearing.
-    assert.equal(ids.length, 62, 'The corrected inventory must retain the independently pinned 62-row model.');
+    // 63 as of 2026-09-02: 'echoes-of-war' entered — the Celestial Tower
+    // Chronicle Showdown story campaign, riding the existing card-clash AI
+    // routes with a sealed-encounter settlement (a conscious addition, built
+    // and registered together).
+    assert.equal(ids.length, 63, 'The corrected inventory must retain the independently pinned 63-row model.');
     assert.equal(new Set(ids).size, ids.length, 'Runtime mode ids must be unique.');
     assert.equal(new Set(labels).size, labels.length, 'Runtime mode labels must be unique.');
     assert.equal(new Set(expectedIds).size, expectedIds.length, 'Independent expected mode ids must be unique.');
