@@ -62,67 +62,23 @@
     <meta name="twitter:image" content="https://shinobijourney.com/landing-hero-village-v2.webp" />
     <meta name="twitter:image:alt" content="A hidden shinobi village built into misty mountains at sunset" />
 
-    <!-- Give search engines an intentional square brand mark instead of making
-         them crop the very wide landing-page wordmark into a thumbnail. -->
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@graph": [
-          {
-            "@type": "Organization",
-            "@id": "https://shinobijourney.com/#organization",
-            "name": "Shinobi Journey",
-            "url": "https://shinobijourney.com/",
-            "logo": {
-              "@type": "ImageObject",
-              "@id": "https://shinobijourney.com/#logo",
-              "url": "https://shinobijourney.com/shinobi-journey-mark-512-v3.png",
-              "contentUrl": "https://shinobijourney.com/shinobi-journey-mark-512-v3.png",
-              "width": 512,
-              "height": 512,
-              "caption": "Shinobi Journey"
-            }
-          },
-          {
-            "@type": "WebSite",
-            "@id": "https://shinobijourney.com/#website",
-            "url": "https://shinobijourney.com/",
-            "name": "Shinobi Journey",
-            "publisher": { "@id": "https://shinobijourney.com/#organization" }
-          },
-          {
-            "@type": "VideoGame",
-            "@id": "https://shinobijourney.com/#game",
-            "url": "https://shinobijourney.com/",
-            "name": "Shinobi Journey",
-            "description": "A free browser-based shinobi RPG with missions, story chapters, companions, dungeons, and PvP across four rival villages.",
-            "image": { "@id": "https://shinobijourney.com/#logo" },
-            "genre": "Role-playing game",
-            "gamePlatform": "Web browser",
-            "isAccessibleForFree": true,
-            "publisher": { "@id": "https://shinobijourney.com/#organization" }
-          },
-          {
-            "@type": "WebPage",
-            "@id": "https://shinobijourney.com/#webpage",
-            "url": "https://shinobijourney.com/",
-            "name": "Shinobi Journey — A Living Ninja MMO",
-            "isPartOf": { "@id": "https://shinobijourney.com/#website" },
-            "about": { "@id": "https://shinobijourney.com/#game" },
-            "primaryImageOfPage": { "@id": "https://shinobijourney.com/#logo" },
-            "thumbnailUrl": "https://shinobijourney.com/shinobi-journey-mark-512-v3.png"
-          }
-        ]
-      }
-    </script>
   </head>
   <body>
+    <!-- Script-free schema markup preserves the strict CSP while giving search
+         engines an intentional square mark instead of a cropped wordmark. -->
     <div id="root">
-      <!-- Boot splash: shown during the initial module fetch/parse so a cold
-           load isn't a blank page. React's first render replaces #root's
-           contents; the pre-module watchdog reveals recovery if it never can. -->
-      <div id="boot-splash" role="status" aria-live="polite" aria-busy="true" aria-label="Shinobi Journey is loading" style="position:fixed;inset:0;z-index:99999;display:flex;overflow:auto;padding:1.25rem;background:#0f172a;color:#94a3b8;font-family:system-ui,-apple-system,sans-serif;box-sizing:border-box;">
-        <div style="width:min(30rem,100%);margin:auto;text-align:center;">
+      <div itemscope itemtype="https://schema.org/WebPage" itemid="https://shinobijourney.com/#webpage">
+        <link itemprop="url" href="https://shinobijourney.com/" />
+        <link itemprop="primaryImageOfPage thumbnailUrl" href="https://shinobijourney.com/shinobi-journey-mark-512-v3.png" />
+        <!-- Boot splash: shown during the initial module fetch/parse so a cold
+             load isn't a blank page. React's first render replaces #root's
+             contents; the pre-module watchdog reveals recovery if it never can. -->
+        <div id="boot-splash" role="status" aria-live="polite" aria-busy="true" aria-label="Shinobi Journey is loading" itemprop="mainEntity" itemscope itemtype="https://schema.org/VideoGame" itemid="https://shinobijourney.com/#game" style="position:fixed;inset:0;z-index:99999;display:flex;overflow:auto;padding:1.25rem;background:#0f172a;color:#94a3b8;font-family:system-ui,-apple-system,sans-serif;box-sizing:border-box;">
+          <link itemprop="url" href="https://shinobijourney.com/" />
+          <meta itemprop="genre" content="Role-playing game" />
+          <meta itemprop="gamePlatform" content="Web browser" />
+          <meta itemprop="isAccessibleForFree" content="true" />
+          <div style="width:min(30rem,100%);margin:auto;text-align:center;">
           <!-- The name and purpose live here in STATIC markup, not only in the
                React tree, because this is all anything that does not execute
                JavaScript ever receives. Google's OAuth brand verification
@@ -135,9 +91,13 @@
                joined by a non-breaking space, which no text comparison would
                match. text-transform keeps the wordmark look while leaving the
                real name in the DOM. React's first render replaces all of this. -->
-          <img src="/shinobi-journey-mark-180-v3.png" alt="Shinobi Journey crest" width="64" height="64" style="display:block;width:4rem;height:4rem;margin:0 auto 0.75rem;" />
-          <h1 style="margin:0;font:inherit;font-size:1.05rem;letter-spacing:0.12em;color:#e2e8f0;text-transform:uppercase;white-space:nowrap;">Shinobi Journey</h1>
-          <p style="margin:0.5rem 0 0;font-size:0.82rem;line-height:1.5;color:#94a3b8;">Shinobi Journey is a free role-playing game you play in your browser. Create a shinobi, train their stats and jutsu, take on missions and story chapters, raise companions, and test your build against other players across four rival villages.</p>
+          <div itemprop="publisher" itemscope itemtype="https://schema.org/Organization" itemid="https://shinobijourney.com/#organization">
+            <link itemprop="url" href="https://shinobijourney.com/" />
+            <meta itemprop="name" content="Shinobi Journey" />
+            <img itemprop="logo" src="/shinobi-journey-mark-180-v3.png" alt="Shinobi Journey crest" width="64" height="64" style="display:block;width:4rem;height:4rem;margin:0 auto 0.75rem;" />
+          </div>
+          <h1 itemprop="name" style="margin:0;font:inherit;font-size:1.05rem;letter-spacing:0.12em;color:#e2e8f0;text-transform:uppercase;white-space:nowrap;">Shinobi Journey</h1>
+          <p itemprop="description" style="margin:0.5rem 0 0;font-size:0.82rem;line-height:1.5;color:#94a3b8;">Shinobi Journey is a free role-playing game you play in your browser. Create a shinobi, train their stats and jutsu, take on missions and story chapters, raise companions, and test your build against other players across four rival villages.</p>
           <div id="boot-loading-state" style="margin-top:0.6rem;font-size:0.8rem;opacity:0.7;">Loading&hellip;</div>
           <div id="boot-recovery" hidden style="margin-top:1.25rem;padding:1.1rem;border:1px solid #475569;border-radius:0.75rem;background:#111c30;color:#e2e8f0;box-shadow:0 1rem 3rem rgba(0,0,0,0.35);">
             <div id="boot-recovery-title" role="heading" aria-level="1" style="font-size:1rem;font-weight:700;">The journey could not finish loading</div>
@@ -148,6 +108,7 @@
           <noscript>
             <div role="alert" style="margin-top:1rem;color:#fef3c7;line-height:1.5;">Shinobi Journey needs JavaScript enabled. Enable it, then reload this page.</div>
           </noscript>
+          </div>
         </div>
       </div>
     </div>
