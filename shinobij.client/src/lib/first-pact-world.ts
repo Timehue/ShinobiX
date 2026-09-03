@@ -452,6 +452,32 @@ function buildWorld(): void {
     paintRect({ x: 34, y: 47, width: 5, height: 5 }, FirstPactTile.Garden);
     paintRect({ x: 46, y: 47, width: 5, height: 5 }, FirstPactTile.Garden);
     paintRect({ x: 32, y: 52, width: 25, height: 1 }, FirstPactTile.Road);
+
+    // SEAM FEATHERING.
+    //
+    // A dead-straight boundary between two ground materials is the pasted plate
+    // the brief forbids: real cities change surface along a kerb or a doorway,
+    // not along a ruler. A whole-city scan found the longest runs, and the worst
+    // of them was the cross street directly above -- 25 unbroken tiles. These
+    // notches interlock the two materials so the join reads as paving laid
+    // against paving. Every tile involved is walkable either way, so nothing
+    // about collision or routing changes.
+    // Bell Quarter and Kennel Ward are ACCEPTED gates. Feathering their joins
+    // broke two of their own contracts, which is the rule working: the brief
+    // says preserve accepted pieces exactly unless a blind seam proof demands a
+    // change, and no such proof exists. Their runs stay as authored.
+    for (const notch of [
+        // Arrival Court cross street against the gate forecourt.
+        { x: 35, y: 53, width: 2, height: 1, tile: FirstPactTile.Road },
+        { x: 44, y: 53, width: 2, height: 1, tile: FirstPactTile.Road },
+        { x: 52, y: 53, width: 2, height: 1, tile: FirstPactTile.Road },
+        { x: 38, y: 52, width: 2, height: 1, tile: FirstPactTile.Court },
+        { x: 48, y: 52, width: 2, height: 1, tile: FirstPactTile.Court },
+        // Gateworks maintenance street against the southern apron.
+        { x: 66, y: 52, width: 2, height: 1, tile: FirstPactTile.Road },
+        { x: 74, y: 52, width: 2, height: 1, tile: FirstPactTile.Road },
+        { x: 70, y: 51, width: 2, height: 1, tile: FirstPactTile.Stone },
+    ]) paintRect({ x: notch.x, y: notch.y, width: notch.width, height: notch.height }, notch.tile);
 }
 
 buildWorld();

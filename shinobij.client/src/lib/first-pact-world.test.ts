@@ -1433,3 +1433,53 @@ test("the whole city is one connected world: no stranded pockets, every district
         "these NPCs cannot be spoken to from any reachable tile",
     );
 });
+
+test("no ground material meets another along a ruler-straight run", () => {
+    // A long dead-straight boundary between two ground materials is the "pasted
+    // rectangular ground plate" the brief forbids: a real city changes surface
+    // along a kerb, a wall or a doorway, not along a ruler. A whole-city scan
+    // found ten runs of twelve tiles or more, the worst of them twenty-five, and
+    // the notches in the builder interlock those joins.
+    //
+    // Water, bridges, walls and roofs are exempt on purpose: a canal bank or a
+    // rampart SHOULD be straight, and so should a street. This measures ground
+    // PLATES meeting each other, which is the thing that reads as pasted.
+    const exempt = new Set<number>([
+        FirstPactTile.Water, FirstPactTile.Bridge, FirstPactTile.Wall,
+        FirstPactTile.Void, FirstPactTile.Roof,
+    ]);
+    const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < FIRST_PACT_WORLD_WIDTH && y < FIRST_PACT_WORLD_HEIGHT;
+    const kind = (x: number, y: number) => (inside(x, y) ? firstPactTileAt(x, y) : -1);
+
+    const offenders: string[] = [];
+    for (const dir of ["H", "V"] as const) {
+        const counted = new Set<string>();
+        for (let y = 0; y < FIRST_PACT_WORLD_HEIGHT; y++) {
+            for (let x = 0; x < FIRST_PACT_WORLD_WIDTH; x++) {
+                const a = kind(x, y);
+                const b = dir === "H" ? kind(x, y + 1) : kind(x + 1, y);
+                if (a < 0 || b < 0 || a === b) continue;
+                if (exempt.has(a) || exempt.has(b)) continue;
+                if (counted.has(`${x},${y}`)) continue;
+                let run = 0;
+                for (;;) {
+                    const px = dir === "H" ? x + run : x;
+                    const py = dir === "H" ? y : y + run;
+                    if (kind(px, py) !== a) break;
+                    if ((dir === "H" ? kind(px, py + 1) : kind(px + 1, py)) !== b) break;
+                    counted.add(`${px},${py}`);
+                    run++;
+                }
+                // Two runs predate this guard and sit inside ACCEPTED gates.
+                // Feathering them broke the Kennel Ward's own contracts, which
+                // is the preserve-accepted-pieces rule working as intended, so
+                // they are named here rather than the ceiling being raised to
+                // hide them. Any NEW run of sixteen still fails.
+                const known = `${run}@${x},${y}`;
+                if (known === "22@57,4" || known === "20@5,45") continue;
+                if (run >= 16) offenders.push(`${run} tiles ${dir} at (${x},${y})`);
+            }
+        }
+    }
+    assert.deepEqual(offenders, [], `ground materials meeting along a ruler:\n${offenders.join("\n")}`);
+});
