@@ -111,6 +111,9 @@ import gardensNorthBedLong from "../assets/first-pact/gardens-north-v2/bed-long.
 import gardensNorthBedCorner from "../assets/first-pact/gardens-north-v2/bed-corner.png";
 import marketArcadeV2 from "../assets/first-pact/market-v2/market-walkthrough-arcade-v2.png";
 import engineHallGw from "../assets/first-pact/gateworks-v2/engine-hall.png";
+import arrivalGateGw from "../assets/first-pact/gateworks-v2/arrival-gate.png";
+import boundaryLanternGw from "../assets/first-pact/gateworks-v2/boundary-lantern.png";
+import boundarySteleGw from "../assets/first-pact/gateworks-v2/boundary-stele.png";
 import pumpHouseGw from "../assets/first-pact/gateworks-v2/pump-house.png";
 import keeperRowhouseGw from "../assets/first-pact/gateworks-v2/keeper-rowhouse.png";
 import maintenanceShedGw from "../assets/first-pact/gateworks-v2/maintenance-shed.png";
@@ -170,6 +173,9 @@ type FirstPactWorldArt = {
     gardensNorthBedCorner?: HTMLImageElement | null;
     marketArcade?: HTMLImageElement | null;
     engineHall?: HTMLImageElement | null;
+    arrivalGate?: HTMLImageElement | null;
+    boundaryLantern?: HTMLImageElement | null;
+    boundaryStele?: HTMLImageElement | null;
     pumpHouse?: HTMLImageElement | null;
     keeperRowhouse?: HTMLImageElement | null;
     maintenanceShed?: HTMLImageElement | null;
@@ -2950,6 +2956,9 @@ function drawArchitecture(
     highCourtCouncilAnnex?: HTMLImageElement | null,
     marketArcade?: HTMLImageElement | null,
     engineHall?: HTMLImageElement | null,
+    arrivalGate?: HTMLImageElement | null,
+    boundaryLantern?: HTMLImageElement | null,
+    boundaryStele?: HTMLImageElement | null,
     pumpHouse?: HTMLImageElement | null,
     keeperRowhouse?: HTMLImageElement | null,
     maintenanceShed?: HTMLImageElement | null,
@@ -3076,6 +3085,20 @@ function drawArchitecture(
                     ? maintenanceShed
                 : placement.id === "gateworks-valve-house"
                     ? valveHouse
+                : placement.id === "arrival-gate"
+                    ? arrivalGate
+                : placement.id === "arrival-lantern-west"
+                    ? boundaryLantern
+                : placement.id === "arrival-lantern-east"
+                    ? boundaryLantern
+                : placement.id === "arrival-lantern-approach-west"
+                    ? boundaryLantern
+                : placement.id === "arrival-lantern-approach-east"
+                    ? boundaryLantern
+                : placement.id === "arrival-stele-west"
+                    ? boundaryStele
+                : placement.id === "arrival-stele-east"
+                    ? boundaryStele
                     : null);
         if (standalone?.complete && standalone.naturalWidth > 0) {
             const x = placement.bounds.x * FIRST_PACT_TILE_SIZE - camera.x;
@@ -3445,6 +3468,9 @@ function renderWorld(canvas: HTMLCanvasElement, camera: Camera, art: FirstPactWo
         art.highCourtCouncilAnnex,
         art.marketArcade,
         art.engineHall,
+        art.arrivalGate,
+        art.boundaryLantern,
+        art.boundaryStele,
         art.pumpHouse,
         art.keeperRowhouse,
         art.maintenanceShed,
@@ -3791,6 +3817,9 @@ export function FirstPact({
     const highCourtGardensRef = useRef<HTMLImageElement | null>(null);
     const marketArcadeRef = useRef<HTMLImageElement | null>(null);
     const engineHallRef = useRef<HTMLImageElement | null>(null);
+    const arrivalGateRef = useRef<HTMLImageElement | null>(null);
+    const boundaryLanternRef = useRef<HTMLImageElement | null>(null);
+    const boundarySteleRef = useRef<HTMLImageElement | null>(null);
     const pumpHouseRef = useRef<HTMLImageElement | null>(null);
     const keeperRowhouseRef = useRef<HTMLImageElement | null>(null);
     const maintenanceShedRef = useRef<HTMLImageElement | null>(null);
@@ -3853,6 +3882,9 @@ export function FirstPact({
     const [highCourtGardensReady, setHighCourtGardensReady] = useState(false);
     const [marketArcadeReady, setMarketArcadeReady] = useState(false);
     const [engineHallReady, setEngineHallReady] = useState(false);
+    const [arrivalGateReady, setArrivalGateReady] = useState(false);
+    const [boundaryLanternReady, setBoundaryLanternReady] = useState(false);
+    const [boundarySteleReady, setBoundarySteleReady] = useState(false);
     const [pumpHouseReady, setPumpHouseReady] = useState(false);
     const [keeperRowhouseReady, setKeeperRowhouseReady] = useState(false);
     const [maintenanceShedReady, setMaintenanceShedReady] = useState(false);
@@ -4041,6 +4073,9 @@ export function FirstPact({
         const highCourtGardens = new Image();
         const marketArcade = new Image();
         const engineHall = new Image();
+        const arrivalGate = new Image();
+        const boundaryLantern = new Image();
+        const boundaryStele = new Image();
         const pumpHouse = new Image();
         const keeperRowhouse = new Image();
         const maintenanceShed = new Image();
@@ -4077,6 +4112,9 @@ export function FirstPact({
         highCourtGardens.decoding = "async";
         marketArcade.decoding = "async";
         engineHall.decoding = "async";
+        arrivalGate.decoding = "async";
+        boundaryLantern.decoding = "async";
+        boundaryStele.decoding = "async";
         pumpHouse.decoding = "async";
         keeperRowhouse.decoding = "async";
         maintenanceShed.decoding = "async";
@@ -4140,6 +4178,9 @@ export function FirstPact({
         prepareImage(highCourtGardens, highCourtGardenStripV3, (image) => { highCourtGardensRef.current = image; setHighCourtGardensReady(true); });
         prepareImage(marketArcade, marketArcadeV2, (image) => { marketArcadeRef.current = image; setMarketArcadeReady(true); });
         prepareImage(engineHall, engineHallGw, (image) => { engineHallRef.current = image; setEngineHallReady(true); });
+        prepareImage(arrivalGate, arrivalGateGw, (image) => { arrivalGateRef.current = image; setArrivalGateReady(true); });
+        prepareImage(boundaryLantern, boundaryLanternGw, (image) => { boundaryLanternRef.current = image; setBoundaryLanternReady(true); });
+        prepareImage(boundaryStele, boundarySteleGw, (image) => { boundarySteleRef.current = image; setBoundarySteleReady(true); });
         prepareImage(pumpHouse, pumpHouseGw, (image) => { pumpHouseRef.current = image; setPumpHouseReady(true); });
         prepareImage(keeperRowhouse, keeperRowhouseGw, (image) => { keeperRowhouseRef.current = image; setKeeperRowhouseReady(true); });
         prepareImage(maintenanceShed, maintenanceShedGw, (image) => { maintenanceShedRef.current = image; setMaintenanceShedReady(true); });
@@ -4216,6 +4257,9 @@ export function FirstPact({
             highCourtGardens: highCourtGardensRef.current,
             marketArcade: marketArcadeRef.current,
             engineHall: engineHallRef.current,
+            arrivalGate: arrivalGateRef.current,
+            boundaryLantern: boundaryLanternRef.current,
+            boundaryStele: boundarySteleRef.current,
             pumpHouse: pumpHouseRef.current,
             keeperRowhouse: keeperRowhouseRef.current,
             maintenanceShed: maintenanceShedRef.current,
@@ -4256,6 +4300,9 @@ export function FirstPact({
             && highCourtGardensReady
             && marketArcadeReady
             && engineHallReady
+            && arrivalGateReady
+            && boundaryLanternReady
+            && boundarySteleReady
             && pumpHouseReady
             && keeperRowhouseReady
             && maintenanceShedReady
@@ -4401,7 +4448,8 @@ export function FirstPact({
         };
         canvas.dataset.fpRenderProof = JSON.stringify(proof);
         canvas.dataset.fpRenderReady = String(!loading && entered && allWorldArtReady && cameraSettled);
-    }, [architectureAtlasReady, bellQuarterAtlasReady, bondingCedarReady, camera, colosseumReady, entered, feedStoreReady, gardenCourtFountainReady, gardenCourtKaioTreeReady, gardenCourtListeningBenchReady, gardenCourtPavilionReady, gardenLodgeReady, gardensNorthBedCornerReady, gardensNorthBedLongReady, gardensNorthMapleAReady, gardensNorthMapleBReady, guardianHallReady, handlerLodgeReady, highCourtCouncilAnnexReady, highCourtGardensReady, highCourtMainArchiveReady, highCourtRecordHallReady, kennelHouseReady, kennelInfirmaryReady, kennelPavilionReady, loading, engineHallReady, keeperRowhouseReady, maintenanceShedReady, pumpHouseReady, valveHouseReady, marketArcadeReady, marketRowhouseReady, marketStallReady, marketWorkshopReady, player.x, player.y, propsAtlasReady, qaArchitectureScope, qaCameraFocus, stableTackAnnexReady, targetCamera.height, targetCamera.width, targetCamera.x, targetCamera.y, tileAtlasReady, valeStableReady, visualQaPreview]);
+    }, [architectureAtlasReady, bellQuarterAtlasReady, bondingCedarReady, camera, colosseumReady, entered, feedStoreReady, gardenCourtFountainReady, gardenCourtKaioTreeReady, gardenCourtListeningBenchReady, gardenCourtPavilionReady, gardenLodgeReady, gardensNorthBedCornerReady, gardensNorthBedLongReady, gardensNorthMapleAReady, gardensNorthMapleBReady, guardianHallReady, handlerLodgeReady, highCourtCouncilAnnexReady, highCourtGardensReady, highCourtMainArchiveReady, highCourtRecordHallReady, kennelHouseReady, kennelInfirmaryReady, kennelPavilionReady, loading, arrivalGateReady, boundaryLanternReady, boundarySteleReady, engineHallReady, keeperRowhouseReady,
+ maintenanceShedReady, pumpHouseReady, valveHouseReady, marketArcadeReady, marketRowhouseReady, marketStallReady, marketWorkshopReady, player.x, player.y, propsAtlasReady, qaArchitectureScope, qaCameraFocus, stableTackAnnexReady, targetCamera.height, targetCamera.width, targetCamera.x, targetCamera.y, tileAtlasReady, valeStableReady, visualQaPreview]);
 
     useEffect(() => {
         if (minimapRef.current) renderMinimap(minimapRef.current, player, npcs, mainQuestCopy(progress).target);

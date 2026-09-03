@@ -73,6 +73,9 @@ const marketStall = fileURLToPath(new URL("../assets/first-pact/market-v2/market
 const marketRowhouse = fileURLToPath(new URL("../assets/first-pact/market-v2/market-merchant-rowhouse-v2.png", import.meta.url));
 const marketWorkshop = fileURLToPath(new URL("../assets/first-pact/market-v2/market-waterside-workshop-v2.png", import.meta.url));
 const gwEngineHall = fileURLToPath(new URL("../assets/first-pact/gateworks-v2/engine-hall.png", import.meta.url));
+const arrivalGate = fileURLToPath(new URL("../assets/first-pact/gateworks-v2/arrival-gate.png", import.meta.url));
+const boundaryLantern = fileURLToPath(new URL("../assets/first-pact/gateworks-v2/boundary-lantern.png", import.meta.url));
+const boundaryStele = fileURLToPath(new URL("../assets/first-pact/gateworks-v2/boundary-stele.png", import.meta.url));
 const gwPumpHouse = fileURLToPath(new URL("../assets/first-pact/gateworks-v2/pump-house.png", import.meta.url));
 const gwKeeperRowhouse = fileURLToPath(new URL("../assets/first-pact/gateworks-v2/keeper-rowhouse.png", import.meta.url));
 const gwMaintenanceShed = fileURLToPath(new URL("../assets/first-pact/gateworks-v2/maintenance-shed.png", import.meta.url));
@@ -174,6 +177,20 @@ test("building collision masks follow visible art while preserving authored entr
                   ? sharp(gwMaintenanceShed)
               : placement.id === "gateworks-valve-house"
                   ? sharp(gwValveHouse)
+              : placement.id === "arrival-gate"
+                  ? sharp(arrivalGate)
+              : placement.id === "arrival-lantern-west"
+                  ? sharp(boundaryLantern)
+              : placement.id === "arrival-lantern-east"
+                  ? sharp(boundaryLantern)
+              : placement.id === "arrival-lantern-approach-west"
+                  ? sharp(boundaryLantern)
+              : placement.id === "arrival-lantern-approach-east"
+                  ? sharp(boundaryLantern)
+              : placement.id === "arrival-stele-west"
+                  ? sharp(boundaryStele)
+              : placement.id === "arrival-stele-east"
+                  ? sharp(boundaryStele)
                   : sharp(architectureAtlas).extract({
                       left: (placement.atlasCell % 4) * sourceWidth,
                       top: Math.floor(placement.atlasCell / 4) * sourceHeight,
@@ -201,7 +218,7 @@ test("building collision masks follow visible art while preserving authored entr
             }
             sampledRows.push(row);
         }
-        if (placement.gardenAsset != null || placement.highCourtAsset != null || placement.id === "vale-stable" || placement.id === "stable-tack-annex" || placement.id === "handler-lodge" || placement.id === "kennel-infirmary" || placement.id === "kennel-house" || placement.id === "feed-storehouse" || placement.id.startsWith("market-") || placement.id === "merchant-house" || placement.id === "waterside-workshop" || placement.id.startsWith("gateworks-")) {
+        if (placement.gardenAsset != null || placement.highCourtAsset != null || placement.id === "vale-stable" || placement.id === "stable-tack-annex" || placement.id === "handler-lodge" || placement.id === "kennel-infirmary" || placement.id === "kennel-house" || placement.id === "feed-storehouse" || placement.id.startsWith("market-") || placement.id === "merchant-house" || placement.id === "waterside-workshop" || placement.id.startsWith("gateworks-") || placement.id.startsWith("arrival-")) {
             for (let tileY = 0; tileY < placement.bounds.height; tileY += 1) {
                 for (let tileX = 0; tileX < placement.bounds.width; tileX += 1) {
                     if (placement.collisionMask[tileY][tileX] === "#") {

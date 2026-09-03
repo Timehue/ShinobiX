@@ -128,3 +128,65 @@ for (const hall of halls) {
         console.log(`  wrote ${hall.id}.png ${encoded.length} bytes`);
     }
 }
+
+// ---------------------------------------------------------------------------
+// Arrival Court threshold pieces.
+//
+// The gatehouse is authored alone: in the three-piece row the model pinned it to
+// the left edge and clipped its west pier every time. The lantern and the stele
+// come from that row, whose second and third silhouettes are clean.
+const ARRIVAL_FLOOR = 128;
+
+async function silhouettes(file, floor) {
+    const src = resolve(`src/assets/first-pact/gateworks-v2/${file}`);
+    const img = sharp(src);
+    const meta = await img.metadata();
+    const alpha = await img.clone().ensureAlpha().extractChannel(3).raw().toBuffer();
+    const on = (x, y) => alpha[y * meta.width + x] >= floor;
+    const bands = [];
+    let start = -1;
+    for (let x = 0; x < meta.width; x++) {
+        let hit = false;
+        for (let y = 0; y < meta.height; y++) if (on(x, y)) { hit = true; break; }
+        if (hit && start < 0) start = x;
+        if ((!hit || x === meta.width - 1) && start >= 0) {
+            const end = hit ? x : x - 1;
+            if (end - start >= 40) bands.push({ left: start, right: end });
+            start = -1;
+        }
+    }
+    return { src, meta, bands: bands.map((band) => {
+        let top = meta.height, bottom = -1;
+        for (let y = 0; y < meta.height; y++) {
+            for (let x = band.left; x <= band.right; x++) {
+                if (!on(x, y)) continue;
+                if (y < top) top = y;
+                if (y > bottom) bottom = y;
+                break;
+            }
+        }
+        return { left: band.left, top, width: band.right - band.left + 1, height: bottom - top + 1 };
+    }) };
+}
+
+async function emit(src, box, id, tiles, meta) {
+    if (box.left <= 1 || box.top <= 1 || box.left + box.width >= meta.width - 2 || box.top + box.height >= meta.height - 2) {
+        throw new Error(`${id} silhouette touches the frame edge; regenerate it rather than shipping a crop.`);
+    }
+    const encoded = await sharp(src)
+        .extract(box)
+        .resize({ width: tiles.w * 48, height: tiles.h * 48, fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .png({ compressionLevel: 9 })
+        .toBuffer();
+    await deliver(resolve(`src/assets/first-pact/gateworks-v2/${id}.png`), encoded, id);
+    if (report) console.log(`${id}: crop ${box.width}x${box.height} -> ${tiles.w * 48}x${tiles.h * 48} (${tiles.w}x${tiles.h} tiles), aspect ${(box.width / box.height).toFixed(2)} target ${(tiles.w / tiles.h).toFixed(2)}, ${encoded.length} bytes`);
+}
+
+const gate = await silhouettes("arrival-gate-source.png", ARRIVAL_FLOOR);
+if (gate.bands.length !== 1) throw new Error(`expected 1 gatehouse silhouette, found ${gate.bands.length}`);
+await emit(gate.src, gate.bands[0], "arrival-gate", { w: 9, h: 5 }, gate.meta);
+
+const boundary = await silhouettes("arrival-boundary-source.png", ARRIVAL_FLOOR);
+if (boundary.bands.length !== 3) throw new Error(`expected 3 boundary silhouettes, found ${boundary.bands.length}`);
+await emit(boundary.src, boundary.bands[1], "boundary-lantern", { w: 1, h: 2 }, boundary.meta);
+await emit(boundary.src, boundary.bands[2], "boundary-stele", { w: 1, h: 2 }, boundary.meta);

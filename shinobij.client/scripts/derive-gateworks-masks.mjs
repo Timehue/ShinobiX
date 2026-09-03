@@ -11,6 +11,9 @@ const buildings = [
     { id: "gateworks-keeper-rowhouse", file: "keeper-rowhouse.png", w: 3, h: 6 },
     { id: "gateworks-maintenance-shed", file: "maintenance-shed.png", w: 6, h: 4 },
     { id: "gateworks-valve-house", file: "valve-house.png", w: 4, h: 4 },
+    { id: "arrival-gate", file: "arrival-gate.png", w: 9, h: 5 },
+    { id: "boundary-lantern", file: "boundary-lantern.png", w: 1, h: 2 },
+    { id: "boundary-stele", file: "boundary-stele.png", w: 1, h: 2 },
 ];
 
 for (const b of buildings) {

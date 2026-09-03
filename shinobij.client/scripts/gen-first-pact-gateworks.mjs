@@ -132,10 +132,62 @@ const ONE = (subject) => [
 const ENGINE_HALL = ONE("The engine hall: a broad stone hall with a tall arched cart door dead centre, a row of small clerestory windows above it, and one narrow brass pipe stack rising from the roof.");
 const PUMP_HOUSE = ONE("The pump house: a square stone hall with a heavy timber double door dead centre, a large brass flywheel mounted flat on the wall beside the door, and a low tiled porch over the entrance.");
 
+
+// Arrival Court threshold. The south boundary is currently the last painted row
+// of the map, so the city ends at the edge of the canvas. These three pieces
+// build a constructed edge instead: a gatehouse the northbound spine passes
+// through, and the flanking civic detail that makes it read as a threshold.
+const ARRIVAL = [
+    "Three separate pieces of ancient shinobi city boundary architecture, in one row left to right, with wide empty",
+    "transparent space between them. Each is complete, self-contained, and never touches another.",
+    "",
+    VIEW,
+    "",
+    "Art language, matched exactly: deep indigo-blue ceramic tile roofs with warm brass ridge caps and gently curved",
+    "upturned eaves; dark weathered grey stone with heavy masonry courses; aged timber; warm amber lantern light.",
+    "Painted game asset, crisp clean edges, even lighting.",
+    "",
+    "Left, and much the largest: a city gatehouse seen head on. A wide stone rampart wall with a single tall arched",
+    "opening dead centre that a road passes through, a heavy timber gate leaf folded open against each pier, a tiled",
+    "roof along the top of the wall, and a lantern mounted on each pier beside the arch. The opening is a real hole:",
+    "through it you see only empty transparent space, not sky, not scenery, not a door.",
+    "Middle: a tall stone boundary lantern on a stepped plinth, one warm flame behind its panes.",
+    "Right: a narrow carved boundary stele, a standing stone slab with an incised seal near its top.",
+    "",
+    "No cyan or teal glow anywhere. No banners, no flags, no text, no writing.",
+    "",
+    CLEAN,
+].join("\n");
+
 const set = arg("set", "service");
+// The gatehouse alone. In the three-piece row the model composed it hard against
+// the left edge every time and clipped its west pier, which the queue rejects.
+const ARRIVAL_GATE = [
+    "A single ancient shinobi city gatehouse, alone on an empty transparent background.",
+    "",
+    VIEW,
+    "",
+    "A wide stone rampart wall seen head on, with ONE tall arched opening dead centre that a road passes through.",
+    "A heavy timber gate leaf stands folded open flat against each pier. A tiled roof runs along the top of the wall.",
+    "One lantern is mounted on each pier beside the arch.",
+    "",
+    "THE OPENING IS A REAL HOLE: through the arch you see only empty transparent background. No sky, no landscape,",
+    "no door filling it, no darkness painted into it.",
+    "",
+    "Art language, matched exactly: a deep indigo-blue ceramic tile roof with warm brass ridge caps and gently curved",
+    "upturned eaves; dark weathered grey stone with heavy masonry courses; warm amber lantern light. Painted game asset,",
+    "crisp clean edges, even lighting. No cyan or teal anywhere. No banners, no flags, no text, no writing.",
+    "",
+    "COMPOSITION: centre the gatehouse in the frame at about two thirds of the image width. Leave a wide empty",
+    "transparent margin on ALL FOUR sides. No eave, lantern or plinth may touch or run off any edge of the image.",
+    "A clipped gatehouse is unusable. No vignette, no glow halo, no backdrop, no ground plate, no cast shadow.",
+].join("\n");
+
 const SETS = {
     service: { prompt: SERVICE, file: "gateworks-service-source.png", size: "1536x1024" },
+    "arrival-gate": { prompt: ARRIVAL_GATE, file: "arrival-gate-source.png", size: "1536x1024" },
     halls: { prompt: HALLS, file: "gateworks-halls-source.png", size: "1536x1024" },
+    arrival: { prompt: ARRIVAL, file: "arrival-boundary-source.png", size: "1536x1024" },
     "engine-hall": { prompt: ENGINE_HALL, file: "engine-hall-source.png", size: "1024x1024" },
     "pump-house": { prompt: PUMP_HOUSE, file: "pump-house-source.png", size: "1024x1024" },
 };

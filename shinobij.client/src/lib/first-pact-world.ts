@@ -431,6 +431,18 @@ function buildWorld(): void {
     // The valve's masonry cradle. Painted after the lane so it reads as a plinth
     // set into the street's west end rather than a patch of different floor.
     paintRect({ x: 57, y: 48, width: 6, height: 4 }, FirstPactTile.Stone);
+
+    // ARRIVAL COURT. A real rampart closes the city's south edge either side of
+    // the gatehouse, so the boundary is built rather than simply where the map
+    // stops being painted. The spine keeps its opening under the arch.
+    // The court continues south past the old last-painted row, so the gate can
+    // sit at a real edge instead of on top of the player's landing.
+    paintRect({ x: 32, y: 53, width: 25, height: 3 }, FirstPactTile.Court);
+    paintRect({ x: 32, y: 55, width: 6, height: 1 }, FirstPactTile.Wall);
+    paintRect({ x: 47, y: 55, width: 10, height: 1 }, FirstPactTile.Wall);
+
+    // One stepped course reads as the threshold the plaza hands you to the gate.
+    paintRect({ x: 40, y: 50, width: 5, height: 1 }, FirstPactTile.Stairs);
 }
 
 buildWorld();
@@ -513,6 +525,20 @@ export const FIRST_PACT_ARCHITECTURE: readonly FirstPactArchitecturePlacement[] 
     { id: "gateworks-keeper-rowhouse", atlasCell: 13, bounds: { x: 75, y: 40, width: 3, height: 6 }, collisionMask: ["###", "###", "###", "###", "###", "..."] },
     { id: "gateworks-maintenance-shed", atlasCell: 13, bounds: { x: 66, y: 46, width: 6, height: 4 }, collisionMask: ["######", "######", "######", "......"] },
     { id: "gateworks-valve-house", atlasCell: 14, bounds: { x: 74, y: 46, width: 4, height: 4 }, collisionMask: [".##.", "###.", "####", "...."] },
+    // ARRIVAL COURT THRESHOLD. The city's south boundary was the last painted
+    // row of the map, so the world ended at the edge of the canvas. The gatehouse
+    // gives the northbound spine a built edge to pass through: its piers are
+    // solid, and the arch column is open at EVERY row so the player walks under
+    // the lintel rather than into it.
+    { id: "arrival-gate", atlasCell: 13, bounds: { x: 38, y: 51, width: 9, height: 5 }, collisionMask: ["..##.##..", ".###.###.", "####.####", "####.####", "........."] },
+    { id: "arrival-stele-west", atlasCell: 13, bounds: { x: 34, y: 53, width: 1, height: 2 }, collisionMask: ["#", "#"] },
+    { id: "arrival-lantern-west", atlasCell: 13, bounds: { x: 36, y: 53, width: 1, height: 2 }, collisionMask: ["#", "#"] },
+    { id: "arrival-lantern-east", atlasCell: 13, bounds: { x: 48, y: 53, width: 1, height: 2 }, collisionMask: ["#", "#"] },
+    { id: "arrival-stele-east", atlasCell: 13, bounds: { x: 50, y: 53, width: 1, height: 2 }, collisionMask: ["#", "#"] },
+    // A second pair closer to the spine, so the approach is lit the whole way
+    // down rather than only at the wall.
+    { id: "arrival-lantern-approach-west", atlasCell: 13, bounds: { x: 38, y: 47, width: 1, height: 2 }, collisionMask: ["#", "#"] },
+    { id: "arrival-lantern-approach-east", atlasCell: 13, bounds: { x: 46, y: 47, width: 1, height: 2 }, collisionMask: ["#", "#"] },
 ] as const;
 
 /**
