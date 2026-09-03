@@ -1,5 +1,9 @@
 import { safeName } from '../_utils.js';
-import { settleRaidProgressionWithDailyCap, type CappedRaidProgressionResult } from '../missions/_raid-progression.js';
+import {
+    MAX_RAID_REPORTS_PER_DAY,
+    settleRaidProgressionWithDailyCap,
+    type CappedRaidProgressionResult,
+} from '../missions/_raid-progression.js';
 import { settlePvpVillageWarContinuation } from '../world-state.js';
 import {
     pvpSessionMayGrantProgress,
@@ -30,12 +34,6 @@ import {
  * would fail the killing blow's own response and every retry of it — the
  * lockout shape that trapped winners on the victory screen in 2026-09.
  */
-
-/**
- * Shared 60/day raid policy. Defined once here and imported by claim-rewards:
- * two definitions could drift and silently give one caller a different cap.
- */
-export const MAX_RAID_REPORTS_PER_DAY = 60;
 
 export type TerminalWorldSettlement = {
     raid?: CappedRaidProgressionResult;
