@@ -183,8 +183,39 @@ const ARRIVAL_GATE = [
     "A clipped gatehouse is unusable. No vignette, no glow halo, no backdrop, no ground plate, no cast shadow.",
 ].join("\n");
 
+// The Grand Colosseum, seen straight down. The queue rejects the shipped bowl as
+// "softer and more ornate than the city" with the sand left as "an
+// undifferentiated disk", so this asks for the city's own blocky masonry density
+// and an arena floor that is actually a floor.
+const COLOSSEUM = [
+    "A single ancient shinobi amphitheatre seen from a HIGH THREE-QUARTER GAME CAMERA, tilted steeply down but not",
+    "flat: the seating tiers must show their STEP FACES and cast short shadows onto the row below, so the bowl reads",
+    "as a deep hollow you could fall into. This is a painted game asset, NOT a flat plan, NOT a diagram, NOT a seal or",
+    "medallion. Circular, symmetrical, centred, alone on an empty transparent background.",
+    "",
+    "STRUCTURE, from the outside inward:",
+    "1. An outer ring of deep indigo-blue ceramic tile roofing over the stands, with warm brass ridge caps.",
+    "2. Concentric tiers of dark grey stone seating, each course drawn as SEPARATE RECTANGULAR BLOCKS with visible",
+    "   joints, the same chunky masonry the rest of the city is built from.",
+    "3. Four stair aisles cutting the tiers radially at north, east, south and west, each ending in an ARCHED TUNNEL",
+    "   MOUTH in the kerb wall -- a dark opening you can see into, not a painted line.",
+    "3b. Hanging cloth banners in deep red and indigo on the outer ring between the gates, and small warm lantern",
+    "   flames spaced along the top of the stands.",
+    "4. A continuous stone kerb wall ringing the arena floor.",
+    "5. The arena floor: pale raked sand, with visible rake lines curving around the ring, a darker inlaid stone",
+    "   medallion at the exact centre, and scuffed patches. The sand must read as a worked surface, NOT a flat disk.",
+    "",
+    "DENSITY, and this matters most: draw the stonework crisp and blocky at the same scale as a city street wall.",
+    "Individual blocks must be clearly readable. Do NOT render it soft, painterly, gilded or filigreed. It is working",
+    "civic masonry, not a palace. Restrained warm lantern points around the ring are fine; no glow washes.",
+    "",
+    "Fully transparent background outside the circle: no ground, no plaza, no shadow, no vignette, no glow halo,",
+    "no text. Leave a clear empty margin on all four sides; the circle may not touch any edge.",
+].join("\n");
+
 const SETS = {
     service: { prompt: SERVICE, file: "gateworks-service-source.png", size: "1536x1024" },
+    colosseum: { prompt: COLOSSEUM, file: "colosseum-v2-source.png", size: "1024x1024" },
     "arrival-gate": { prompt: ARRIVAL_GATE, file: "arrival-gate-source.png", size: "1536x1024" },
     halls: { prompt: HALLS, file: "gateworks-halls-source.png", size: "1536x1024" },
     arrival: { prompt: ARRIVAL, file: "arrival-boundary-source.png", size: "1536x1024" },
