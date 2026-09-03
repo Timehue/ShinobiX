@@ -1334,3 +1334,66 @@ test("wandering AI chooses reachable destinations inside its authored region", (
         }
     }
 });
+
+test("the whole city is one connected world: no stranded pockets, every district and NPC reachable", () => {
+    // The tests above prove each building and district respects collision on its
+    // own. None of them prove the CITY holds together. A district can be locally
+    // perfect and still be sealed off by one re-tiled seam, and with five of the
+    // fifteen art gates still open that seam moves every time a district is
+    // rebuilt. This walks the world the way a player does.
+    const key = (x: number, y: number) => `${x},${y}`;
+    const reached = new Set<string>([key(FIRST_PACT_PLAYER_START.x, FIRST_PACT_PLAYER_START.y)]);
+    const frontier = [{ x: FIRST_PACT_PLAYER_START.x, y: FIRST_PACT_PLAYER_START.y }];
+    assert.equal(
+        isFirstPactWalkable(FIRST_PACT_PLAYER_START.x, FIRST_PACT_PLAYER_START.y),
+        true,
+        "the player spawns on a blocked tile",
+    );
+    while (frontier.length) {
+        const at = frontier.pop()!;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+            const x = at.x + dx, y = at.y + dy;
+            if (x < 0 || y < 0 || x >= FIRST_PACT_WORLD_WIDTH || y >= FIRST_PACT_WORLD_HEIGHT) continue;
+            if (!isFirstPactWalkable(x, y)) continue;
+            if (reached.has(key(x, y))) continue;
+            reached.add(key(x, y));
+            frontier.push({ x, y });
+        }
+    }
+
+    const stranded: string[] = [];
+    const byDistrict = new Map<string, { total: number; reached: number }>();
+    for (let y = 0; y < FIRST_PACT_WORLD_HEIGHT; y++) {
+        for (let x = 0; x < FIRST_PACT_WORLD_WIDTH; x++) {
+            if (!isFirstPactWalkable(x, y)) continue;
+            const district = String(firstPactDistrictAt({ x, y }));
+            const row = byDistrict.get(district) ?? { total: 0, reached: 0 };
+            row.total++;
+            if (reached.has(key(x, y))) row.reached++;
+            else if (stranded.length < 12) stranded.push(`(${x},${y}) in ${district}`);
+            byDistrict.set(district, row);
+        }
+    }
+    assert.deepEqual(stranded, [], `walkable tiles the player can never stand on:\n${stranded.join("\n")}`);
+
+    // Every authored district must exist AND be fully joined to the city, so a
+    // finished district cannot quietly become an island behind a rebuilt seam.
+    for (const [district, row] of byDistrict) {
+        assert.ok(row.total > 0, `${district} has no walkable tile`);
+        assert.equal(row.reached, row.total, `${district}: ${row.total - row.reached} of ${row.total} walkable tiles are cut off`);
+    }
+    assert.ok(byDistrict.size >= 9, `expected the nine authored districts, saw ${byDistrict.size}`);
+
+    // An NPC may stand on a blocked tile (a doorway, a stall), but the player has
+    // to be able to stand next to it or the quest it carries is unreachable.
+    const unreachable = (FIRST_PACT_NPCS as readonly FirstPactNpcDefinition[]).filter((npc) =>
+        ![[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => {
+            const x = npc.position.x + dx, y = npc.position.y + dy;
+            return isFirstPactWalkable(x, y) && reached.has(key(x, y));
+        }));
+    assert.deepEqual(
+        unreachable.map((npc) => `${npc.id} at (${npc.position.x},${npc.position.y})`),
+        [],
+        "these NPCs cannot be spoken to from any reachable tile",
+    );
+});
