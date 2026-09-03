@@ -95,10 +95,17 @@ function spawnLifeFloat(anchor: HTMLElement | null, delta: number): void {
 /* Desktop-stage gate for the cut-out creature figures: mobile keeps the
    flat card layout and must not fetch the figure assets at all. */
 function useDesktopStage(): boolean {
+  // matchMedia is feature-checked, not just window: node test shims
+  // provide a window without it, and the figure layer must simply
+  // stay off anywhere the media query cannot be asked.
   const [desktop, setDesktop] = useState(
-    () => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches,
+    () =>
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(min-width: 1024px)").matches,
   );
   useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
     const media = window.matchMedia("(min-width: 1024px)");
     const onChange = () => setDesktop(media.matches);
     media.addEventListener("change", onChange);
