@@ -106,7 +106,7 @@ function previewMatch() {
     monsters[9]!.id,
     "defense",
   );
-  state.p2.monsterZones[0] = fieldMonster("p2", 0, monsters[15]!.id);
+  state.p2.monsterZones[0] = fieldMonster("p2", 0, "tc-36");
   state.p2.monsterZones[2] = fieldMonster(
     "p2",
     2,
@@ -114,7 +114,7 @@ function previewMatch() {
     "defense",
     false,
   );
-  state.p2.monsterZones[4] = fieldMonster("p2", 4, monsters[24]!.id);
+  state.p2.monsterZones[4] = fieldMonster("p2", 4, "tc-42");
   state.p1.magicTrapZones[0] = supportZone("p1", 0, support[1]!.id, false);
   state.p1.magicTrapZones[4] = supportZone("p1", 4, support[4]!.id, true);
   state.p2.magicTrapZones[1] = supportZone("p2", 1, support[5]!.id, false);
