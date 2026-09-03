@@ -33,6 +33,13 @@ for (const encounter of ECHOES_ENCOUNTERS) {
     for (const id of encounter.deck) if (byId.get(id)?.cardClass === 'monster') ids.add(id);
 }
 for (const id of CHRONICLE_FIXED_FALLBACK_DECK) if (byId.get(id)?.cardClass === 'monster') ids.add(id);
+// The whole tc- trading set: every normal monster a player can run in a
+// deck gets a figure, so figured and unfigured summons never mix on a
+// board. (legacy-/story-/pet- monsters keep the card standee by design:
+// their art is emblems or portraits with no full-body creature to cut.)
+for (const card of CHRONICLE_CARD_CATALOG) {
+    if (card.cardClass === 'monster' && card.id.startsWith('tc-')) ids.add(card.id);
+}
 
 const PROMPT =
     'Isolate the single main creature or character from this card artwork onto a fully transparent background. ' +
