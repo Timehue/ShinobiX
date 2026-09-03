@@ -20,6 +20,12 @@ import { describe, it } from 'node:test';
 const root = resolve(import.meta.dirname, '..');
 
 const corpora = [
+    // The First Pact campaign: quest, vow and NPC dialogue that only its own
+    // narrative test reads, and that test checks lore anchors and the dash
+    // rule -- never the shinobi-world vocabulary rules.
+    'shinobij.client/src/screens/FirstPact.tsx',
+    'shared/first-pact-contract.ts',
+    'shinobij.client/src/lib/first-pact-api.ts',
     'shared/legacy-card-sources.ts',
     'shared/chronicle-duel.ts',
     'shinobij.client/src/data/starter-items.ts',
@@ -53,7 +59,13 @@ const voiceRules = [
 ];
 
 // Quoted strings long enough to be sentences rather than ids, keys or classes.
-const quoted = /"([^"\n]{20,})"|'([^'\n]{20,})'|`([^`]{20,})`/g;
+//
+// The backtick class MUST exclude newlines like the other two. Without it a
+// template literal swallows every line between two backticks and consumes the
+// real dialogue inside that span, so a file reads as "covered" while its copy
+// is never actually scanned: FirstPact.tsx yielded 22 fragments of code that
+// way, against 81 genuine lines once the newline is excluded.
+const quoted = /"([^"\n]{20,})"|'([^'\n]{20,})'|`([^`\n]{20,})`/g;
 const codeish = /\$\{|=>|::|https?:\/\/|\.(?:png|webp|css|tsx?)\b/;
 
 function playerFacingStrings(source) {
