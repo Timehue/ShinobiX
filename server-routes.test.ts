@@ -285,3 +285,34 @@ describe('release operations wiring', () => {
         assert.match(serverSrc, /enforceRateLimit\(req, res, ['"]deep-health['"]/, 'deep health should be rate limited');
     });
 });
+
+describe('android asset links', () => {
+    /*
+     * Android never reads /.well-known/assetlinks.json itself — it asks Google's
+     * Digital Asset Links service, which caches OUR response for exactly as long
+     * as the Cache-Control header allows, and which cannot be purged: no
+     * dashboard button, no API, no support request.
+     *
+     * That made a one-hour TTL genuinely expensive. Correcting a fingerprint
+     * looked like it had failed for an hour: the file was right, the app still
+     * showed a browser address bar, and reinstalling changed nothing because the
+     * stale answer lived upstream. The only fix was waiting without knowing
+     * whether waiting was the fix.
+     */
+    it('caches for minutes, not an hour — the upstream cache cannot be purged', () => {
+        const match = serverSrc.match(/assetlinks\.json[\s\S]{0,2000}?Cache-Control',\s*'public,\s*max-age=(\d+)'/);
+        assert.ok(match, 'the assetlinks route must set an explicit Cache-Control');
+        const seconds = Number(match[1]);
+        assert.ok(
+            seconds > 0 && seconds <= 600,
+            `assetlinks max-age is ${seconds}s; keep it <= 600 so a fingerprint change propagates in minutes`,
+        );
+    });
+
+    it('answers 404 rather than an empty statement list when unconfigured', () => {
+        // An empty `[]` is a VALID document meaning "this domain authorises no
+        // app" — a deliberate deny. A 404 says "not set up yet", which is true
+        // and leaves the door open.
+        assert.match(serverSrc, /assetlinks-not-configured/);
+    });
+});
