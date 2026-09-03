@@ -544,7 +544,36 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // generalization cost ~2.7 KB back), preserving the ~52 KB buffer the entry
 // above established. The tactical-ladder migration remains the drain on the
 // books for that buffer.
-const TOTAL_JS_CSS_FAIL_BYTES = 8_202_000;
+//
+// 2026-09-03 JUTSU-FX FLIPBOOK DRAIN: 8,202,000 -> 7,852,000 B. This one is
+// recorded in full because the gate did its job and the recovery is the pattern
+// to repeat.
+//
+// The phone action tray (dc5f98bfb + 20dd1e310) spent the last of the ~52 KB
+// buffer above and put the budget 7,498 B over. Every push to main from 20:08
+// onward failed the Production Image build, so Railway stopped deploying and
+// four merges' worth of finished work sat undeployed behind a red check suite.
+//
+// The drain was NOT the tray. It was 264 CC0 jutsu-FX frames under
+// src/assets/fx/<key>/NNN.png, each small enough to fall under Vite's 4 KB
+// assetsInlineLimit and therefore shipped as base64 data URIs inside
+// lib/jutsu-fx-assets: 415,636 B of that chunk's 432,004 B, paying a 33% base64
+// tax on pixel art that then had to be parsed as JavaScript before a single
+// frame could play. The larger frames in the SAME folders were already over the
+// threshold and shipped as ordinary files, so the fix was to make the folder
+// uniform — a targeted assetsInlineLimit callback in vite.config.ts, opting out
+// those frames and nothing else. The chunk fell 432,004 -> 22,704 B.
+//
+// Measured budgeted total 8,209,498 -> 7,800,198 B (-409,300). The ceiling drops
+// to 7,852,000 rather than keeping ~400 KB of slack: a gate with that much room
+// stops being a gate, which is the failure this file has warned about since the
+// 07-17 entry. That restores the same ~52 KB buffer every entry above settles on.
+//
+// The drains still on the books, unchanged: the tactical-ladder migration off
+// the lane sim, and — newly visible now that the FX noise is gone — the
+// Admin Visual Novels route, which is 1.03 MB of budgeted JS/CSS for an
+// admin-only tool that no player ever loads.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_852_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
