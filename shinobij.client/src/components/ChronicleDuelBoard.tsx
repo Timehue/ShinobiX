@@ -785,9 +785,14 @@ export function ChronicleDuelBoard({
       now.monsterZones.forEach((monster, index) => {
         const was = before.monsterZones[index];
         const el = zoneEls.current.get(`${prefix}-monster-${index}`);
-        if (monster && (!was || was.instanceId !== monster.instanceId))
+        if (monster && (!was || was.instanceId !== monster.instanceId)) {
           pulseFx(el, "fx-arrive", 540);
-        else if (monster && was && !was.faceUp && monster.faceUp)
+          // The longer pulse drives the creature figure's summon
+          // entrance (rise + light pillar + ring burst); it outlives
+          // the figure image fetch so the ceremony still plays when
+          // the art lands a beat after the projection.
+          pulseFx(el, "fx-summoned", 1400);
+        } else if (monster && was && !was.faceUp && monster.faceUp)
           pulseFx(el, "fx-flip", 500);
         else if (!monster && was) {
           const card = was.cardId
@@ -2001,6 +2006,14 @@ export function ChronicleDuelBoard({
       ) : null}
       {outcome ? (
         <div className={`chronicle-splash outcome ${outcome}`} role="status">
+          {(outcome === "victory" ? playerAvatar : outcome === "defeat" ? opponentAvatar : undefined) ? (
+            <img
+              className="chronicle-splash__face"
+              src={outcome === "victory" ? playerAvatar : opponentAvatar}
+              alt=""
+              draggable={false}
+            />
+          ) : null}
           <b>
             {outcome === "victory"
               ? "VICTORY"

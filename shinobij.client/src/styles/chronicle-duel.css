@@ -5606,3 +5606,211 @@ button.chronicle-card {
 .chronicle-figure--flip {
   transform: scaleX(-1);
 }
+
+/* ==============================================================
+   The summon entrance: a newly-arrived creature rises out of its
+   own elemental light — pillar flash, ring burst, then the breath
+   settles in. Keyed off the zone's fx-summoned pulse (instanceId
+   diff), so resumes and refreshes never replay it.
+   ============================================================== */
+@media (min-width: 1024px) {
+  .chronicle-playmat .chronicle-zone.fx-summoned .chronicle-figure-wrap.loaded {
+    animation:
+      chronicle-figure-entrance 720ms cubic-bezier(0.18, 1.08, 0.3, 1) backwards,
+      chronicle-standee-breathe 3.6s ease-in-out 720ms infinite;
+  }
+  .chronicle-playmat .chronicle-zone.fx-summoned .chronicle-figure-wrap.loaded::before {
+    animation: chronicle-figure-ring 780ms ease-out backwards;
+  }
+  .chronicle-playmat .chronicle-zone.fx-summoned .chronicle-figure-wrap.loaded::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    width: 46%;
+    height: 155%;
+    pointer-events: none;
+    background: linear-gradient(
+      to top,
+      color-mix(in srgb, var(--chronicle-element, #f0c463) 60%, rgba(255, 246, 220, 0.55)),
+      transparent 78%
+    );
+    -webkit-mask-image: radial-gradient(60% 100% at 50% 100%, #000, transparent 84%);
+    mask-image: radial-gradient(60% 100% at 50% 100%, #000, transparent 84%);
+    animation: chronicle-figure-pillar 640ms ease-out forwards;
+  }
+}
+@keyframes chronicle-figure-entrance {
+  0% {
+    opacity: 0;
+    transform: rotateX(-16deg) translateY(28px) scale(0.55);
+    filter: brightness(2.6) saturate(0.35);
+  }
+  55% {
+    opacity: 1;
+    transform: rotateX(-16deg) translateY(-7px) scale(1.07);
+    filter: brightness(1.6) saturate(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: rotateX(-16deg) translateY(0) scale(1);
+    filter: brightness(1) saturate(1);
+  }
+}
+@keyframes chronicle-figure-ring {
+  0% {
+    opacity: 0.95;
+    transform: scale(0.35);
+  }
+  60% {
+    opacity: 0.75;
+    transform: scale(1.22);
+  }
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+}
+@keyframes chronicle-figure-pillar {
+  0% {
+    opacity: 1;
+    transform: scaleY(1.25);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleY(0.9);
+  }
+}
+
+/* ==============================================================
+   The outcome slam: VICTORY carries the same forged-gold gradient
+   type as the VS mark with a ray burst behind it; DEFEAT goes cold
+   steel; DRAW stays stone. Pure paint on the existing splash.
+   ============================================================== */
+.chronicle-splash.outcome {
+  animation-duration: 3.2s;
+  overflow: hidden;
+}
+.chronicle-splash.outcome::before {
+  content: "";
+  position: absolute;
+  inset: -22%;
+  pointer-events: none;
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(240, 196, 99, 0.16) 0deg 6deg,
+    transparent 6deg 17deg
+  );
+  -webkit-mask-image: radial-gradient(44% 44% at 50% 47%, #000, transparent 72%);
+  mask-image: radial-gradient(44% 44% at 50% 47%, #000, transparent 72%);
+  animation: chronicle-outcome-rays 3.2s linear forwards;
+}
+.chronicle-splash.outcome.defeat::before {
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(122, 150, 186, 0.12) 0deg 6deg,
+    transparent 6deg 17deg
+  );
+}
+.chronicle-splash.outcome.draw::before {
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(150, 160, 172, 0.09) 0deg 6deg,
+    transparent 6deg 17deg
+  );
+}
+.chronicle-splash.outcome b {
+  position: relative;
+  font-size: clamp(3.2rem, 10vw, 7rem);
+  font-style: italic;
+  letter-spacing: 0.1em;
+  background: linear-gradient(
+    173deg,
+    #fdf2cd 12%,
+    #f0ca82 38%,
+    #a9791f 52%,
+    #f6dc9c 66%,
+    #caa14a 88%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter:
+    drop-shadow(0 3px 0 rgba(32, 22, 6, 0.95))
+    drop-shadow(0 10px 30px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 46px rgba(240, 196, 99, 0.55));
+}
+.chronicle-splash.outcome.defeat b {
+  background: linear-gradient(
+    173deg,
+    #e9eff6 10%,
+    #9fb3c8 40%,
+    #46586e 54%,
+    #c3d2e2 70%,
+    #677b93 90%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter:
+    drop-shadow(0 3px 0 rgba(10, 14, 20, 0.95))
+    drop-shadow(0 10px 30px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 40px rgba(120, 150, 190, 0.5));
+}
+.chronicle-splash.outcome.draw b {
+  background: linear-gradient(173deg, #e8e8e8 12%, #b9bec6 42%, #6d7480 56%, #d5dae0 72%, #8a929e 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter:
+    drop-shadow(0 3px 0 rgba(14, 16, 20, 0.95))
+    drop-shadow(0 8px 24px rgba(0, 0, 0, 0.85));
+}
+@keyframes chronicle-outcome-rays {
+  0% {
+    opacity: 0;
+    transform: rotate(0deg) scale(0.82);
+  }
+  12% {
+    opacity: 1;
+  }
+  78% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(13deg) scale(1.06);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chronicle-splash.outcome::before {
+    animation: none;
+    opacity: 0.5;
+  }
+  .chronicle-playmat .chronicle-zone.fx-summoned .chronicle-figure-wrap.loaded::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* The outcome owes the player a face: the winner's portrait rides the
+   slam — yours on VICTORY, the opponent's (in Echoes, the echo's
+   painted portrait) claiming a DEFEAT. */
+.chronicle-splash__face {
+  width: clamp(96px, 14vmin, 150px);
+  height: clamp(96px, 14vmin, 150px);
+  object-fit: cover;
+  object-position: center top;
+  clip-path: polygon(12% 0, 100% 0, 88% 100%, 0 100%);
+  filter:
+    drop-shadow(0 10px 24px rgba(0, 0, 0, 0.85))
+    drop-shadow(0 0 30px rgba(240, 196, 99, 0.5));
+  animation: chronicle-splash-slam 0.55s cubic-bezier(0.2, 1.6, 0.35, 1) 0.12s backwards;
+}
+.chronicle-splash.outcome.defeat .chronicle-splash__face {
+  filter:
+    drop-shadow(0 10px 24px rgba(0, 0, 0, 0.85))
+    drop-shadow(0 0 26px rgba(120, 150, 190, 0.5));
+}
