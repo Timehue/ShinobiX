@@ -2956,6 +2956,8 @@ function drawArchitecture(
     highCourtCouncilAnnex?: HTMLImageElement | null,
     marketArcade?: HTMLImageElement | null,
     engineHall?: HTMLImageElement | null,
+    arrivalMapleA?: HTMLImageElement | null,
+    arrivalMapleB?: HTMLImageElement | null,
     arrivalGate?: HTMLImageElement | null,
     boundaryLantern?: HTMLImageElement | null,
     boundaryStele?: HTMLImageElement | null,
@@ -3095,6 +3097,10 @@ function drawArchitecture(
                     ? boundaryLantern
                 : placement.id === "arrival-lantern-approach-east"
                     ? boundaryLantern
+                : placement.id === "arrival-maple-west"
+                    ? arrivalMapleA
+                : placement.id === "arrival-maple-east"
+                    ? arrivalMapleB
                 : placement.id === "arrival-stele-west"
                     ? boundaryStele
                 : placement.id === "arrival-stele-east"
@@ -3468,6 +3474,8 @@ function renderWorld(canvas: HTMLCanvasElement, camera: Camera, art: FirstPactWo
         art.highCourtCouncilAnnex,
         art.marketArcade,
         art.engineHall,
+        art.gardensNorthMapleA,
+        art.gardensNorthMapleB,
         art.arrivalGate,
         art.boundaryLantern,
         art.boundaryStele,

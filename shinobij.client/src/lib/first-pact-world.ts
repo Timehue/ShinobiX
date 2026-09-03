@@ -443,6 +443,15 @@ function buildWorld(): void {
 
     // One stepped course reads as the threshold the plaza hands you to the gate.
     paintRect({ x: 40, y: 50, width: 5, height: 1 }, FirstPactTile.Stairs);
+
+    // The plaza was one flat sheet of court paving, which is the queue's leading
+    // complaint. The accepted Market district reads because its ground alternates:
+    // light cobble streets against dark planted plots, with buildings set back
+    // inside them. Same structure here -- two planted setbacks flanking the civic
+    // spine, a cobble margin beside it, and a cross street along the gate wall.
+    paintRect({ x: 34, y: 47, width: 5, height: 5 }, FirstPactTile.Garden);
+    paintRect({ x: 46, y: 47, width: 5, height: 5 }, FirstPactTile.Garden);
+    paintRect({ x: 32, y: 52, width: 25, height: 1 }, FirstPactTile.Road);
 }
 
 buildWorld();
@@ -539,6 +548,11 @@ export const FIRST_PACT_ARCHITECTURE: readonly FirstPactArchitecturePlacement[] 
     // down rather than only at the wall.
     { id: "arrival-lantern-approach-west", atlasCell: 13, bounds: { x: 38, y: 47, width: 1, height: 2 }, collisionMask: ["#", "#"] },
     { id: "arrival-lantern-approach-east", atlasCell: 13, bounds: { x: 46, y: 47, width: 1, height: 2 }, collisionMask: ["#", "#"] },
+    // One maple stands in each planted setback so the plots carry mass instead of
+    // reading as pasted green rectangles. Canopies stay walk-under, the same
+    // contract the bonding cedar uses.
+    { id: "arrival-maple-west", atlasCell: 13, bounds: { x: 34, y: 48, width: 4, height: 4 }, collisionMask: ["....", "....", "..#.", "...."] },
+    { id: "arrival-maple-east", atlasCell: 13, bounds: { x: 47, y: 48, width: 4, height: 4 }, collisionMask: ["....", "....", ".#..", "...."] },
 ] as const;
 
 /**

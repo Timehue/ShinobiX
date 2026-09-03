@@ -187,6 +187,10 @@ test("building collision masks follow visible art while preserving authored entr
                   ? sharp(boundaryLantern)
               : placement.id === "arrival-lantern-approach-east"
                   ? sharp(boundaryLantern)
+              : placement.id === "arrival-maple-west"
+                  ? sharp(gardensNorthMapleA)
+              : placement.id === "arrival-maple-east"
+                  ? sharp(gardensNorthMapleB)
               : placement.id === "arrival-stele-west"
                   ? sharp(boundaryStele)
               : placement.id === "arrival-stele-east"
