@@ -143,7 +143,12 @@
     transition: width 600ms ease;
 }
 
-.echoes-hero--era { min-height: 190px; }
+.echoes-hero--era {
+    /* Tall enough that the bottom-justified header stack never rides
+       up under the absolute back button (the landing hero's fix,
+       applied to the shorter era variant too). */
+    min-height: 214px;
+}
 
 .echoes-ghost-btn {
     background: rgba(20, 17, 10, 0.6);
