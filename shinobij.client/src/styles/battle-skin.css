@@ -5379,11 +5379,16 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
         inset: auto !important;
         width: auto !important;
     }
-    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-main-area > .shinobi-command-bar {
+    /* Descendant, not child: the command bar and the loadout are wrapped in
+       `.combat-action-tray` (display: contents at this tier), so a `>` here
+       stops matching and the legacy `@media (max-width: 1023px)`
+       `has-action-notice` row pins take over — which drops the board to 0px.
+       Combinator choice does not change specificity, so cascade order holds. */
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-main-area .shinobi-command-bar {
         grid-area: commands !important;
     }
-    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-main-area > .combat-jutsu-bar,
-    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-main-area > .combat-text-log {
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-main-area .combat-jutsu-bar,
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-main-area .combat-text-log {
         grid-area: panel !important;
     }
 
@@ -6823,6 +6828,366 @@ html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help:is(:hover,
         height: 44px !important;
         min-height: 44px !important;
         aspect-ratio: auto !important;
+    }
+}
+}
+
+/* =========================================================================
+   PHONE ACTION TRAY — basic commands and the loadout share one scrollport
+   -------------------------------------------------------------------------
+   Reported from a live 412x680 phone: the Actions|Battle Log switch and the
+   seven basic commands together spent ~150px of chrome, leaving the jutsu /
+   weapon / item grid an 86px slot that showed one clipped row. The bands were
+   not too many, they were too separately framed.
+
+   `.combat-action-tray` (components/CombatHudLayout -> CombatActionTray) wraps
+   the command bar and the loadout in BOTH shell screens. It is
+   `display: contents` by default, so every other tier — desktop, compact
+   desktop, short landscape — keeps the exact grid placement it already had and
+   never sees an extra box. Only the phone-portrait container tier below
+   promotes it to a real element: one bordered panel whose commands sit at the
+   top of the same scrollport as the cards, so the whole loadout is one list.
+
+   MUST STAY LAST IN THIS FILE: it re-budgets the mobile grid rows declared by
+   the "MOBILE SHINOBI HUD RESTORE" block above, and battle-skin.css is a
+   per-screen chunk injected after index.css, so an index part can never
+   out-order it.
+   ========================================================================= */
+
+.combat-action-tray { display: contents; }
+
+@media (max-width: 979px) {
+@container shinobi-combat (max-width: 979px) and (min-height: 501px) {
+    /* The six-band mobile grid above (seven with the Solo notice) keeps its
+       track count — the combat-layout matrix pins it — and the tray simply
+       spans the commands track and the loadout track. The commands track is
+       `auto` with nothing else in it, so it resolves to nothing and the
+       loadout's 1fr track carries the tray. */
+    #combat .combat-action-tray {
+        grid-area: auto !important;
+        grid-column: 1 / -1 !important;
+        grid-row: 5 / span 2 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        /* THE scroll region of a phone fight. Both children hand their
+           overflow up to here so the commands scroll with the cards. */
+        overflow: hidden auto !important;
+        overscroll-behavior: contain;
+        border: 1px solid rgba(205, 153, 54, 0.5) !important;
+        border-radius: 8px !important;
+        background: rgba(2, 8, 16, 0.94) !important;
+    }
+
+    /* Solo keeps its reserved notice track (notice 2 / terrain 3 / board 4 /
+       tabs 5, all pinned above), so the merged tray spans 6-7. */
+    #combat .combat-layout.has-action-notice .combat-action-tray { grid-row: 6 / span 2 !important; }
+
+    /* The log owns the same single track when its tab is selected; an empty
+       bordered tray behind it would just paint a second frame. */
+    #combat .combat-main-area.bt-log .combat-action-tray {
+        display: none !important;
+    }
+
+    /* Commands: one compact strip instead of two 50px rows. The cost line
+       stays on-chip — affordability is the number a player reads mid-turn —
+       so the chip is icon over label over cost rather than a wide 2x2. */
+    #combat .combat-action-tray > .shinobi-command-bar {
+        grid-area: auto !important;
+        grid-row: auto !important;
+        flex: 0 0 auto !important;
+        grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+        gap: 4px !important;
+        margin: 0 !important;
+        padding: 4px !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    #combat.mission-arena-fight .combat-action-tray > .shinobi-command-bar {
+        grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
+    }
+
+    /* Every command stays a 44px target in BOTH axes (combat-layout matrix
+       gate). Seven 44px chips plus gaps and frames need a 354px-wide shell,
+       eight need 402px; narrower than that the strip wraps to two rows of
+       four (PvP 4+3, Solo 4+4) rather than thinning the chips. */
+    @container shinobi-combat (max-width: 359px) {
+        #combat .combat-action-tray > .shinobi-command-bar {
+            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        }
+
+        #combat .combat-action-tray > .shinobi-command-bar > button > span {
+            font-size: 8px !important;
+        }
+    }
+
+    @container shinobi-combat (max-width: 405px) {
+        #combat.mission-arena-fight .combat-action-tray > .shinobi-command-bar {
+            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        }
+
+        #combat.mission-arena-fight .combat-action-tray > .shinobi-command-bar > button > span {
+            font-size: 8px !important;
+        }
+    }
+
+    #combat .combat-action-tray > .shinobi-command-bar > button {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        grid-template-rows: 13px minmax(0, auto) minmax(0, auto) !important;
+        align-content: center !important;
+        justify-items: center !important;
+        row-gap: 1px !important;
+        column-gap: 0 !important;
+        min-width: 0 !important;
+        min-height: 44px !important;
+        height: 44px !important;
+        padding: 3px 1px !important;
+        overflow: hidden !important;
+    }
+
+    #combat .combat-action-tray > .shinobi-command-bar > button > .cmd-icon {
+        grid-column: 1 !important;
+        grid-row: 1 !important;
+        font-size: 13px !important;
+        line-height: 1 !important;
+    }
+
+    #combat .combat-action-tray > .shinobi-command-bar > button > span {
+        grid-column: 1 !important;
+        grid-row: 2 !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        /* Chip width is the container width divided by the command count, so
+           size the label off the container: 7 commands in PvP, 8 in Solo. At
+           320px that is a 39px / 33px chip and CLEANSE still has to fit. */
+        font-size: clamp(6px, 1.85cqw, 8px) !important;
+        line-height: 1.05 !important;
+        letter-spacing: 0.01em !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
+
+    #combat.mission-arena-fight .combat-action-tray > .shinobi-command-bar > button > span {
+        font-size: clamp(6px, 1.6cqw, 8px) !important;
+    }
+
+    #combat .combat-action-tray > .shinobi-command-bar > button > small {
+        grid-column: 1 !important;
+        grid-row: 3 !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+        font-size: 6.5px !important;
+        line-height: 1.1 !important;
+        letter-spacing: 0 !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
+
+    /* A 51px chip fits the AP number and nothing else, so the rest of the
+       cost line (range, secondary resource, cooldown) is clipped to the
+       accessible name rather than removed: screen readers and every wider
+       tier still read the complete cost. */
+    #combat .combat-action-tray > .shinobi-command-bar > button > small > .cmd-detail {
+        position: absolute !important;
+        width: 1px !important;
+        height: 1px !important;
+        margin: -1px !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        clip-path: inset(50%) !important;
+        white-space: nowrap !important;
+    }
+
+    /* Summon Pet is Solo's one two-word command, and the one whose cost line
+       is a pet name rather than a number — truncated to "Kotarou the" it says
+       less than nothing. Give the label both text rows (the wider Solo tiers
+       already wrap it) and clip the name to the accessible name; the button
+       title still carries the full summon copy. */
+    #combat .combat-action-tray > .shinobi-command-bar > button.summon-pet-command > span {
+        grid-row: 2 / span 2 !important;
+        align-self: center !important;
+        max-height: 18px !important;
+        line-height: 8.5px !important;
+        text-overflow: clip !important;
+        white-space: normal !important;
+    }
+
+    #combat .combat-action-tray > .shinobi-command-bar > button.summon-pet-command > small {
+        position: absolute !important;
+        width: 1px !important;
+        height: 1px !important;
+        margin: -1px !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        clip-path: inset(50%) !important;
+        white-space: nowrap !important;
+    }
+
+    /* Loadout: the panel chrome now belongs to the tray, and scrolling does
+       too, so the card grid simply flows to its natural height. */
+    #combat .combat-action-tray > .combat-jutsu-bar {
+        grid-area: auto !important;
+        grid-row: auto !important;
+        flex: 1 1 auto !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        margin: 0 !important;
+        /* Keep the framed loadout's 7px side padding: the card grid's
+           auto-fill column count is tuned to that width, and 14px more tips
+           375px phones into a fourth 81px column whose centre falls under
+           the 44px Details overhang (combat-layout matrix "centre hit"). */
+        padding: 0 7px !important;
+        overflow: visible !important;
+        border: 0 !important;
+        border-top: 1px solid rgba(205, 153, 54, 0.3) !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+    }
+
+    #combat .combat-action-tray .combat-equipped-jutsu-grid {
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    /* PvP's "consumables and thrown weapons are disabled" note is an unstyled
+       <p> dropped into the card grid; it used to sit below the 76px fold. In
+       the taller tray it is visible, so it spans the row as a caption instead
+       of wrapping one word per line inside an 87px cell. */
+    #combat .combat-action-tray .combat-equipped-jutsu-grid > .combat-action-hint {
+        grid-column: 1 / -1 !important;
+        margin: 0 !important;
+        padding: 3px 8px !important;
+        font: 600 10.5px/1.3 Inter, system-ui, sans-serif !important;
+        letter-spacing: 0.01em !important;
+        color: rgba(203, 213, 225, 0.72) !important;
+        text-align: center !important;
+    }
+
+    /* Details is a 44px badge anchored to the card's top-right corner with a
+       3px overhang, so it reaches 41px in from the right edge. The cast centre
+       must stay clear of it: an 81px card (390px phones packed four across)
+       put the centre 0.4px INSIDE the badge and only passed the combat-layout
+       matrix by pixel snapping. 86px (the phone card floor the mobile e2e spec
+       documents) keeps the centre >= 2.4px clear on every phone width while
+       still packing four across at 412px. Phones only: the 800-979px zoomed-
+       desktop tier below keeps its own >= 100px 4:3 landscape cards. */
+    @container shinobi-combat (max-width: 799px) {
+        #combat .combat-action-tray .combat-equipped-jutsu-grid {
+            grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)) !important;
+        }
+    }
+
+    /* The tray gives the grid a few more pixels of width than the old framed
+       loadout did, so a square card can now exceed the 92px cast cap that
+       index part 16 pins on `.combat-jutsu-button`; the cast surface would
+       then stop 3px short of its own card. Let the card size the cast. */
+    #combat .combat-action-tray .combat-jutsu-button {
+        max-height: none !important;
+    }
+
+    /* Tabs: a slim segmented switch. 44px was the touch target AND the frame,
+       so the row cost 66px with its margins. The 44px target is an
+       accessibility floor and stays; only the frame, the 8px/6px margins and
+       the 15px display type go. */
+    #combat .battle-tabbar {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 4px !important;
+        height: 44px !important;
+        min-height: 44px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: none !important;
+    }
+
+    /* The button keeps its 44px hit area, but the painted pill is 30px: the
+       frame lives on a ::before inset 7px top and bottom, so the switch reads
+       as a slim segmented control while a thumb still has the full row. */
+    #combat .battle-tab {
+        position: relative !important;
+        isolation: isolate !important;
+        min-height: 44px !important;
+        padding: 0 8px !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: none !important;
+        box-shadow: none !important;
+        font-size: 10px !important;
+        letter-spacing: 0.06em !important;
+    }
+
+    #combat .battle-tab::before {
+        content: "" !important;
+        position: absolute !important;
+        inset: 7px 0 !important;
+        z-index: -1 !important;
+        border: 1px solid rgba(196, 162, 90, 0.3) !important;
+        border-radius: 7px !important;
+        background: rgba(8, 12, 24, 0.55) !important;
+    }
+
+    #combat .battle-tab-active::before {
+        border-color: var(--bsv2-gold-soft, rgba(196, 162, 90, 0.7)) !important;
+        background: linear-gradient(180deg, #1a2238 0%, #0a1020 100%) !important;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 4px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    /* The slim switch has no padding left to hang a floating pip in, and a
+       negative offset put it over the board. Ride it inline after the label. */
+    #combat .battle-tab-badge {
+        position: static !important;
+        top: auto !important;
+        right: auto !important;
+        /* The absolute variant above centres itself with translateY(-50%);
+           inline, that same transform lifts the pip off the label. */
+        transform: none !important;
+        min-width: 16px !important;
+        height: 16px !important;
+        margin-left: 6px !important;
+        font-size: 9px !important;
+    }
+}
+
+/* A desktop window at 150% zoom (960x600) reserved a fixed 96px track for one
+   row of landscape cards. With the commands riding inside the same tray that
+   track would show the strip and clip the cards, so it grows to hold both:
+   52px of commands plus one 4:3 card row. Same six/seven tracks. */
+@container shinobi-combat (min-width: 800px) and (max-width: 979px) and (min-height: 501px) and (max-height: 740px) {
+    #combat .combat-layout {
+        grid-template-rows: minmax(126px, auto) auto minmax(90px, 1fr) 44px 0px 156px !important;
+    }
+
+    #combat .combat-layout.has-action-notice {
+        grid-template-rows: minmax(126px, auto) auto auto minmax(90px, 1fr) 44px 0px 156px !important;
+    }
+}
+
+/* The smallest phones had the board taking 1.7fr against the loadout's 0.4fr
+   because the commands were a separate `auto` band that pre-paid ~108px. Now
+   that they ride inside the tray, that same ratio would hand the board the
+   reclaimed height instead of the cards. Even the shares out — same six and
+   seven tracks, the commands track pinned to zero. */
+@container shinobi-combat (max-width: 360px) and (min-height: 501px) and (max-height: 600px) {
+    #combat .combat-layout {
+        grid-template-rows: minmax(96px, auto) 18px minmax(90px, 1.1fr) 44px 0px minmax(150px, 1fr) !important;
+    }
+
+    #combat .combat-layout.has-action-notice {
+        grid-template-rows: minmax(96px, auto) 18px 18px minmax(90px, 1.1fr) 44px 0px minmax(150px, 1fr) !important;
     }
 }
 }

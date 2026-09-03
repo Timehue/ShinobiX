@@ -65,6 +65,18 @@ export function CombatBoardStage({ children, className, ...props }: DivProps) {
     return <div className={classNames("combat-board-stage", className)} {...props}>{children}</div>;
 }
 
+/**
+ * Phone-only merge point for the two action surfaces. On desktop this is
+ * `display: contents`, so the command bar and the jutsu/weapon/item tray keep
+ * their own grid areas exactly as before. On a phone the wrapper becomes the
+ * single bordered, single-scrolling action panel: the basic commands ride at
+ * the top of the same scrollport as the loadout cards instead of spending a
+ * second fixed band of a viewport that has none to spare.
+ */
+export function CombatActionTray({ children, className, ...props }: DivProps) {
+    return <div className={classNames("combat-action-tray", className)} {...props}>{children}</div>;
+}
+
 /** Basic combat controls; mode-specific actions such as Pet or Flee remain caller-owned children. */
 export function CombatCommandBar({ children, className, ...props }: DivProps) {
     return <div className={classNames("basic-action-bar shinobi-command-bar", className)} {...props}>{children}</div>;
