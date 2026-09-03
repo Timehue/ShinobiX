@@ -46,6 +46,8 @@
     "check:first-pact-bell": "node scripts/process-first-pact-bell-quarter.mjs --check",
     "author:first-pact-high-court": "node scripts/process-first-pact-high-court.mjs",
     "check:first-pact-high-court": "node scripts/process-first-pact-high-court.mjs --check",
+    "author:first-pact-gateworks": "node scripts/gen-first-pact-gateworks.mjs --set service && node scripts/gen-first-pact-gateworks.mjs --set engine-hall && node scripts/gen-first-pact-gateworks.mjs --set pump-house && node scripts/process-first-pact-gateworks.mjs",
+    "check:first-pact-gateworks": "node scripts/process-first-pact-gateworks.mjs --check",
     "author:first-pact-gardens-north": "node scripts/process-first-pact-gardens-north.mjs",
     "check:first-pact-gardens-north": "node scripts/process-first-pact-gardens-north.mjs --check",
     "gen:card-variants": "node scripts/generate-card-variants.mjs",

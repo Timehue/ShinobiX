@@ -110,6 +110,11 @@ import gardensNorthMapleB from "../assets/first-pact/gardens-north-v2/autumn-map
 import gardensNorthBedLong from "../assets/first-pact/gardens-north-v2/bed-long.png";
 import gardensNorthBedCorner from "../assets/first-pact/gardens-north-v2/bed-corner.png";
 import marketArcadeV2 from "../assets/first-pact/market-v2/market-walkthrough-arcade-v2.png";
+import engineHallGw from "../assets/first-pact/gateworks-v2/engine-hall.png";
+import pumpHouseGw from "../assets/first-pact/gateworks-v2/pump-house.png";
+import keeperRowhouseGw from "../assets/first-pact/gateworks-v2/keeper-rowhouse.png";
+import maintenanceShedGw from "../assets/first-pact/gateworks-v2/maintenance-shed.png";
+import valveHouseGw from "../assets/first-pact/gateworks-v2/valve-house.png";
 import marketStallV2 from "../assets/first-pact/market-v2/market-stall-module-v2.png";
 import marketRowhouseV2 from "../assets/first-pact/market-v2/market-merchant-rowhouse-v2.png";
 import marketWorkshopV2 from "../assets/first-pact/market-v2/market-waterside-workshop-v2.png";
@@ -164,6 +169,11 @@ type FirstPactWorldArt = {
     gardensNorthBedLong?: HTMLImageElement | null;
     gardensNorthBedCorner?: HTMLImageElement | null;
     marketArcade?: HTMLImageElement | null;
+    engineHall?: HTMLImageElement | null;
+    pumpHouse?: HTMLImageElement | null;
+    keeperRowhouse?: HTMLImageElement | null;
+    maintenanceShed?: HTMLImageElement | null;
+    valveHouse?: HTMLImageElement | null;
     marketStall?: HTMLImageElement | null;
     marketRowhouse?: HTMLImageElement | null;
     marketWorkshop?: HTMLImageElement | null;
@@ -2939,6 +2949,11 @@ function drawArchitecture(
     highCourtRecordHall?: HTMLImageElement | null,
     highCourtCouncilAnnex?: HTMLImageElement | null,
     marketArcade?: HTMLImageElement | null,
+    engineHall?: HTMLImageElement | null,
+    pumpHouse?: HTMLImageElement | null,
+    keeperRowhouse?: HTMLImageElement | null,
+    maintenanceShed?: HTMLImageElement | null,
+    valveHouse?: HTMLImageElement | null,
     marketStall?: HTMLImageElement | null,
     marketRowhouse?: HTMLImageElement | null,
     marketWorkshop?: HTMLImageElement | null,
@@ -3051,6 +3066,16 @@ function drawArchitecture(
                     ? marketRowhouse
                 : placement.id === "waterside-workshop"
                     ? marketWorkshop
+                : placement.id === "gateworks-engine-hall"
+                    ? engineHall
+                : placement.id === "gateworks-pump-house"
+                    ? pumpHouse
+                : placement.id === "gateworks-keeper-rowhouse"
+                    ? keeperRowhouse
+                : placement.id === "gateworks-maintenance-shed"
+                    ? maintenanceShed
+                : placement.id === "gateworks-valve-house"
+                    ? valveHouse
                     : null);
         if (standalone?.complete && standalone.naturalWidth > 0) {
             const x = placement.bounds.x * FIRST_PACT_TILE_SIZE - camera.x;
@@ -3419,6 +3444,11 @@ function renderWorld(canvas: HTMLCanvasElement, camera: Camera, art: FirstPactWo
         art.highCourtRecordHall,
         art.highCourtCouncilAnnex,
         art.marketArcade,
+        art.engineHall,
+        art.pumpHouse,
+        art.keeperRowhouse,
+        art.maintenanceShed,
+        art.valveHouse,
         art.marketStall,
         art.marketRowhouse,
         art.marketWorkshop,
@@ -3760,6 +3790,11 @@ export function FirstPact({
     const highCourtCouncilAnnexRef = useRef<HTMLImageElement | null>(null);
     const highCourtGardensRef = useRef<HTMLImageElement | null>(null);
     const marketArcadeRef = useRef<HTMLImageElement | null>(null);
+    const engineHallRef = useRef<HTMLImageElement | null>(null);
+    const pumpHouseRef = useRef<HTMLImageElement | null>(null);
+    const keeperRowhouseRef = useRef<HTMLImageElement | null>(null);
+    const maintenanceShedRef = useRef<HTMLImageElement | null>(null);
+    const valveHouseRef = useRef<HTMLImageElement | null>(null);
     const marketStallRef = useRef<HTMLImageElement | null>(null);
     const marketRowhouseRef = useRef<HTMLImageElement | null>(null);
     const marketWorkshopRef = useRef<HTMLImageElement | null>(null);
@@ -3817,6 +3852,11 @@ export function FirstPact({
     const [highCourtCouncilAnnexReady, setHighCourtCouncilAnnexReady] = useState(false);
     const [highCourtGardensReady, setHighCourtGardensReady] = useState(false);
     const [marketArcadeReady, setMarketArcadeReady] = useState(false);
+    const [engineHallReady, setEngineHallReady] = useState(false);
+    const [pumpHouseReady, setPumpHouseReady] = useState(false);
+    const [keeperRowhouseReady, setKeeperRowhouseReady] = useState(false);
+    const [maintenanceShedReady, setMaintenanceShedReady] = useState(false);
+    const [valveHouseReady, setValveHouseReady] = useState(false);
     const [marketStallReady, setMarketStallReady] = useState(false);
     const [marketRowhouseReady, setMarketRowhouseReady] = useState(false);
     const [marketWorkshopReady, setMarketWorkshopReady] = useState(false);
@@ -4000,6 +4040,11 @@ export function FirstPact({
         const highCourtCouncilAnnex = new Image();
         const highCourtGardens = new Image();
         const marketArcade = new Image();
+        const engineHall = new Image();
+        const pumpHouse = new Image();
+        const keeperRowhouse = new Image();
+        const maintenanceShed = new Image();
+        const valveHouse = new Image();
         const marketStall = new Image();
         const marketRowhouse = new Image();
         const marketWorkshop = new Image();
@@ -4031,6 +4076,11 @@ export function FirstPact({
         highCourtCouncilAnnex.decoding = "async";
         highCourtGardens.decoding = "async";
         marketArcade.decoding = "async";
+        engineHall.decoding = "async";
+        pumpHouse.decoding = "async";
+        keeperRowhouse.decoding = "async";
+        maintenanceShed.decoding = "async";
+        valveHouse.decoding = "async";
         marketStall.decoding = "async";
         marketRowhouse.decoding = "async";
         marketWorkshop.decoding = "async";
@@ -4089,6 +4139,11 @@ export function FirstPact({
         prepareImage(highCourtCouncilAnnex, highCourtCouncilAnnexV3, (image) => { highCourtCouncilAnnexRef.current = image; setHighCourtCouncilAnnexReady(true); });
         prepareImage(highCourtGardens, highCourtGardenStripV3, (image) => { highCourtGardensRef.current = image; setHighCourtGardensReady(true); });
         prepareImage(marketArcade, marketArcadeV2, (image) => { marketArcadeRef.current = image; setMarketArcadeReady(true); });
+        prepareImage(engineHall, engineHallGw, (image) => { engineHallRef.current = image; setEngineHallReady(true); });
+        prepareImage(pumpHouse, pumpHouseGw, (image) => { pumpHouseRef.current = image; setPumpHouseReady(true); });
+        prepareImage(keeperRowhouse, keeperRowhouseGw, (image) => { keeperRowhouseRef.current = image; setKeeperRowhouseReady(true); });
+        prepareImage(maintenanceShed, maintenanceShedGw, (image) => { maintenanceShedRef.current = image; setMaintenanceShedReady(true); });
+        prepareImage(valveHouse, valveHouseGw, (image) => { valveHouseRef.current = image; setValveHouseReady(true); });
         prepareImage(marketStall, marketStallV2, (image) => { marketStallRef.current = image; setMarketStallReady(true); });
         prepareImage(marketRowhouse, marketRowhouseV2, (image) => { marketRowhouseRef.current = image; setMarketRowhouseReady(true); });
         prepareImage(marketWorkshop, marketWorkshopV2, (image) => { marketWorkshopRef.current = image; setMarketWorkshopReady(true); });
@@ -4160,6 +4215,11 @@ export function FirstPact({
             highCourtCouncilAnnex: highCourtCouncilAnnexRef.current,
             highCourtGardens: highCourtGardensRef.current,
             marketArcade: marketArcadeRef.current,
+            engineHall: engineHallRef.current,
+            pumpHouse: pumpHouseRef.current,
+            keeperRowhouse: keeperRowhouseRef.current,
+            maintenanceShed: maintenanceShedRef.current,
+            valveHouse: valveHouseRef.current,
             marketStall: marketStallRef.current,
             marketRowhouse: marketRowhouseRef.current,
             marketWorkshop: marketWorkshopRef.current,
@@ -4195,6 +4255,11 @@ export function FirstPact({
             && highCourtCouncilAnnexReady
             && highCourtGardensReady
             && marketArcadeReady
+            && engineHallReady
+            && pumpHouseReady
+            && keeperRowhouseReady
+            && maintenanceShedReady
+            && valveHouseReady
             && marketStallReady
             && marketRowhouseReady
             && marketWorkshopReady
@@ -4336,7 +4401,7 @@ export function FirstPact({
         };
         canvas.dataset.fpRenderProof = JSON.stringify(proof);
         canvas.dataset.fpRenderReady = String(!loading && entered && allWorldArtReady && cameraSettled);
-    }, [architectureAtlasReady, bellQuarterAtlasReady, bondingCedarReady, camera, colosseumReady, entered, feedStoreReady, gardenCourtFountainReady, gardenCourtKaioTreeReady, gardenCourtListeningBenchReady, gardenCourtPavilionReady, gardenLodgeReady, gardensNorthBedCornerReady, gardensNorthBedLongReady, gardensNorthMapleAReady, gardensNorthMapleBReady, guardianHallReady, handlerLodgeReady, highCourtCouncilAnnexReady, highCourtGardensReady, highCourtMainArchiveReady, highCourtRecordHallReady, kennelHouseReady, kennelInfirmaryReady, kennelPavilionReady, loading, marketArcadeReady, marketRowhouseReady, marketStallReady, marketWorkshopReady, player.x, player.y, propsAtlasReady, qaArchitectureScope, qaCameraFocus, stableTackAnnexReady, targetCamera.height, targetCamera.width, targetCamera.x, targetCamera.y, tileAtlasReady, valeStableReady, visualQaPreview]);
+    }, [architectureAtlasReady, bellQuarterAtlasReady, bondingCedarReady, camera, colosseumReady, entered, feedStoreReady, gardenCourtFountainReady, gardenCourtKaioTreeReady, gardenCourtListeningBenchReady, gardenCourtPavilionReady, gardenLodgeReady, gardensNorthBedCornerReady, gardensNorthBedLongReady, gardensNorthMapleAReady, gardensNorthMapleBReady, guardianHallReady, handlerLodgeReady, highCourtCouncilAnnexReady, highCourtGardensReady, highCourtMainArchiveReady, highCourtRecordHallReady, kennelHouseReady, kennelInfirmaryReady, kennelPavilionReady, loading, engineHallReady, keeperRowhouseReady, maintenanceShedReady, pumpHouseReady, valveHouseReady, marketArcadeReady, marketRowhouseReady, marketStallReady, marketWorkshopReady, player.x, player.y, propsAtlasReady, qaArchitectureScope, qaCameraFocus, stableTackAnnexReady, targetCamera.height, targetCamera.width, targetCamera.x, targetCamera.y, tileAtlasReady, valeStableReady, visualQaPreview]);
 
     useEffect(() => {
         if (minimapRef.current) renderMinimap(minimapRef.current, player, npcs, mainQuestCopy(progress).target);

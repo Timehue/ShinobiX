@@ -419,10 +419,14 @@ function buildWorld(): void {
     // instead of anonymous ground.
     paintRect({ x: 54, y: 50, width: 25, height: 2 }, FirstPactTile.Road);
 
-    // A north-south service spine in the gap between the halls, tying that lane
-    // up to the Market shelf. Without it the only way through the district read
-    // as walking across a field.
-    paintRect({ x: 67, y: 43, width: 2, height: 8 }, FirstPactTile.Road);
+    // A north-south service spine in the alley between the engine hall and the
+    // pump house, tying that lane up to the Market shelf. Without it the only
+    // way through the district read as walking across a field.
+    paintRect({ x: 64, y: 41, width: 2, height: 11 }, FirstPactTile.Road);
+
+    // The yard lane between the pump house and the maintenance store, so the
+    // service row is entered from a street rather than from open ground.
+    paintRect({ x: 73, y: 41, width: 2, height: 11 }, FirstPactTile.Road);
 
     // The valve's masonry cradle. Painted after the lane so it reads as a plinth
     // set into the street's west end rather than a patch of different floor.
@@ -493,8 +497,22 @@ export const FIRST_PACT_ARCHITECTURE: readonly FirstPactArchitecturePlacement[] 
     { id: "waterside-workshop", atlasCell: 11, bounds: { x: 67, y: 32, width: 9, height: 6 }, collisionMask: ["...#.....", "..#####..", ".#######.", ".#######.", ".#######.", ".##..###."] },
 
     // Gateworks
-    { id: "gateworks-engine-hall", atlasCell: 13, bounds: { x: 57, y: 40, width: 11, height: 11 }, collisionMask: ["...######..", "...#######.", "...#######.", "...#######.", "...#######.", "...#######.", "...#######.", "...#######.", "...######..", "...######..", "..........."] },
-    { id: "gateworks-pump-house", atlasCell: 14, bounds: { x: 68, y: 42, width: 10, height: 10 }, collisionMask: ["..####....", "..#####...", "..#####...", ".######..#", ".######..#", ".######..#", ".######..#", ".######..#", "..#####...", ".........."] },
+    // GATEWORKS. The shipped pair were 11x11 and 10x10 monuments that between
+    // them filled the district — a 23x12 shelf with 221 tiles of building on it,
+    // which left no plot anywhere for ordinary architecture and is why the halls
+    // read as oversized. Re-authored at working-building scale from front
+    // elevations that share one masonry course and roof-tile size with the
+    // service row below, so the district finally has a sense of scale.
+    // Each mask blocks the body and leaves its south row walkable as the
+    // threshold the maintenance street serves.
+    { id: "gateworks-engine-hall", atlasCell: 13, bounds: { x: 57, y: 40, width: 7, height: 8 }, collisionMask: ["...#...", ".#####.", ".#####.", "#######", ".#####.", ".#####.", ".#####.", "......."] },
+    { id: "gateworks-pump-house", atlasCell: 14, bounds: { x: 66, y: 40, width: 7, height: 6 }, collisionMask: [".#####.", ".######", "######.", ".#####.", ".#####.", "......."] },
+    // The ordinary working architecture the queue asks for: a keeper's rowhouse,
+    // a maintenance store and a valve house, all at house scale so the two halls
+    // finally have something to be larger THAN.
+    { id: "gateworks-keeper-rowhouse", atlasCell: 13, bounds: { x: 75, y: 40, width: 3, height: 6 }, collisionMask: ["###", "###", "###", "###", "###", "..."] },
+    { id: "gateworks-maintenance-shed", atlasCell: 13, bounds: { x: 66, y: 46, width: 6, height: 4 }, collisionMask: ["######", "######", "######", "......"] },
+    { id: "gateworks-valve-house", atlasCell: 14, bounds: { x: 74, y: 46, width: 4, height: 4 }, collisionMask: [".##.", "###.", "####", "...."] },
 ] as const;
 
 /**
@@ -711,7 +729,7 @@ export const FIRST_PACT_NPCS: readonly FirstPactNpcDefinition[] = [
     { id: "registrar-orin", name: "Registrar Orin", title: "Master of the Sand Ledger", position: { x: 42, y: 34 }, behavior: "static", facing: "south", palette: "amber", portrait: "registrar" },
     { id: "scribe-vey", name: "Scribe Vey", title: "Keeper of Unedited Names", position: { x: 42, y: 12 }, behavior: "static", facing: "south", palette: "cyan", portrait: "scribe" },
     { id: "bellwarden-isu", name: "Isu", title: "Bell Warden", position: { x: 68, y: 16 }, behavior: "static", facing: "west", palette: "jade", portrait: "citizen" },
-    { id: "engineer-tam", name: "Tam", title: "Gateworks Engineer", position: { x: 68, y: 46 }, behavior: "static", facing: "west", palette: "cyan", portrait: "engineer" },
+    { id: "engineer-tam", name: "Tam", title: "Gateworks Engineer", position: { x: 73, y: 46 }, behavior: "static", facing: "west", palette: "cyan", portrait: "engineer" },
     { id: "market-rho", name: "Rho", title: "Feed Merchant", position: { x: 67, y: 34 }, behavior: "static", facing: "east", palette: "amber", portrait: "merchant" },
     { id: "kennel-hand", name: "Pell", title: "Stable Hand", position: { x: 18, y: 40 }, behavior: "wander", wanderBounds: { x: 17, y: 39, width: 9, height: 4 }, facing: "east", palette: "jade", portrait: "citizen" },
     { id: "court-courier", name: "Nemi", title: "Court Courier", position: { x: 74, y: 17 }, behavior: "wander", wanderBounds: { x: 74, y: 13, width: 1, height: 10 }, facing: "south", palette: "rose", portrait: "citizen" },
