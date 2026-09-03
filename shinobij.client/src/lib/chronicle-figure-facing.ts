@@ -22,6 +22,25 @@ export const FIGURE_FACING: Readonly<Record<string, FigureFacing>> = {
     "tc-63": "L", "tc-67": "F", "tc-70": "L", "tc-72": "F", "tc-76": "F",
     "tc-77": "L", "tc-81": "F", "tc-86": "F", "tc-87": "L", "tc-96": "F",
     "tc-97": "L", "tc-99": "F",
+    // The rest of the tc- trading set (figures expanded to all 150 so
+    // figured and unfigured summons never mix in a player match).
+    "tc-10": "L", "tc-14": "L", "tc-18": "F", "tc-20": "L", "tc-22": "L",
+    "tc-24": "F", "tc-25": "F", "tc-28": "R", "tc-29": "F", "tc-34": "F",
+    "tc-35": "L", "tc-39": "L", "tc-40": "F", "tc-41": "L", "tc-46": "F",
+    "tc-48": "F", "tc-49": "F", "tc-53": "R", "tc-55": "F", "tc-59": "L",
+    "tc-60": "F", "tc-62": "L", "tc-64": "F", "tc-65": "L", "tc-66": "L",
+    "tc-68": "L", "tc-69": "F", "tc-71": "L", "tc-73": "L", "tc-74": "L",
+    "tc-75": "L", "tc-78": "F", "tc-79": "L", "tc-80": "F", "tc-82": "L",
+    "tc-83": "F", "tc-84": "L", "tc-85": "F", "tc-88": "F", "tc-89": "L",
+    "tc-90": "F", "tc-91": "F", "tc-92": "F", "tc-93": "L", "tc-94": "F",
+    "tc-95": "F", "tc-98": "L", "tc-100": "L", "tc-101": "L", "tc-102": "L",
+    "tc-105": "F", "tc-107": "F", "tc-109": "L", "tc-111": "F", "tc-112": "F",
+    "tc-113": "F", "tc-115": "F", "tc-116": "L", "tc-118": "R", "tc-122": "L",
+    "tc-123": "F", "tc-125": "F", "tc-127": "F", "tc-131": "L", "tc-132": "L",
+    "tc-133": "F", "tc-134": "L", "tc-136": "F", "tc-137": "F", "tc-138": "F",
+    "tc-139": "L", "tc-140": "F", "tc-141": "F", "tc-142": "F", "tc-143": "L",
+    "tc-144": "F", "tc-145": "F", "tc-146": "F", "tc-147": "F", "tc-148": "R",
+    "tc-149": "F", "tc-150": "L",
 };
 
 /** Mirror decision: zones left of center want the figure facing right,
