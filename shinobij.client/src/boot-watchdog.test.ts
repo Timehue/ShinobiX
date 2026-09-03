@@ -127,7 +127,14 @@ test('boot recovery is CSP-safe, accessible, and installed before the app module
     const appTag = '<script type="module" src="/src/main.tsx"></script>'
     assert.ok(indexSource.includes(watchdogTag))
     assert.ok(indexSource.indexOf(watchdogTag) < indexSource.indexOf(appTag))
-    assert.doesNotMatch(indexSource, /<script(?![^>]*\bsrc=)[^>]*>[\s\S]*?<\/script>/i)
+    // No inline EXECUTABLE script may precede the app module, so production's
+    // script-src 'self' stays strict. `application/ld+json` is exempt: browsers
+    // never execute it, CSP script-src does not gate it, and the SEO graph has
+    // to be inline in the document to be crawled.
+    assert.doesNotMatch(
+        indexSource,
+        /<script(?![^>]*\bsrc=)(?![^>]*\btype=["']application\/ld\+json["'])[^>]*>[\s\S]*?<\/script>/i,
+    )
     assert.match(indexSource, /id="boot-splash" role="status"[^>]*aria-live="polite"[^>]*aria-busy="true"/)
     assert.match(indexSource, /id="boot-splash"[^>]*overflow:auto/)
     assert.match(indexSource, /id="boot-recovery" hidden/)

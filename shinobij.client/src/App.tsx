@@ -208,6 +208,7 @@ const mutateDungeonRunServer = (playerName: string, action: "start" | "settle" |
     import("./lib/dungeon-api").then((api) => api.mutateDungeonRunServer(playerName, action, token));
 import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment } from "./lib/pvp-session";
 import { readPvpBrowserBreadcrumb, type PvpRecoveryContext } from "./lib/pvp-pending-session";
+import { pvpReturnDestination } from "./lib/pvp-return-destination";
 const loadPvpSessionCreate = () => import("./lib/pvp-session-create"), loadPvpPendingFetch = () => import("./lib/pvp-pending-fetch");
 import { usePvpSessionController } from "./lib/use-pvp-session-controller";
 import type { OwnSaveReadAnchor, OwnSaveReadResult } from "./lib/own-save-read"; const loadOwnSaveRead = () => import("./lib/own-save-read");
@@ -7257,17 +7258,7 @@ export default function App() {
                     const pvpOriginatingPlayerName = character.name;
                     const pvpOriginatingSessionEpoch = saveSessionEpochRef.current;
                     const pvpSettlementScopeKey = `${playerSlug(pvpOriginatingPlayerName)}:${pvpOriginatingSessionEpoch}:${pvpRole}:${pvpBattleId}`;
-                    const pvpReturnTarget: Screen = pvpBattleContext?.sectorAttack
-                        ? "worldMap"
-                        : pvpBattleContext?.mode?.startsWith("clanWar")
-                            ? "clan"
-                            : "battleArena";
-                    const pvpReturnSector = pvpBattleContext?.sector ?? currentSector;
-                    const pvpReturnLabel = pvpReturnTarget === "worldMap"
-                        ? `Return to Sector ${pvpReturnSector}`
-                        : pvpReturnTarget === "clan"
-                            ? "Return to Clan War"
-                            : "Return to Arena";
+                    const { target: pvpReturnTarget, label: pvpReturnLabel } = pvpReturnDestination(pvpBattleContext, currentSector);
                     const pvpJutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, character);
                     const pvpAllItems = getAllItems(creatorItems);
                     const pvpItems = (["hand", "weapon", "thrown", "item1", "item2", "item3", "item", "potion"] as EquipmentSlot[])

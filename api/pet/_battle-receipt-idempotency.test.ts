@@ -209,7 +209,10 @@ describe('both handlers wire the durable receipt in the safe order', () => {
             /if \(!replayed\) await kv\.set\(key, session, \{ ex: SESSION_TTL_SECONDS \}\)/,
             'only the turn that FINISHES the fight may stamp the retention lease',
         );
-        assert.match(showdownSrc, /return \{ session, events: \[\], replayed: true \}/, 're-posts must be flagged as replays');
+        // Matched without pinning the trailing fields: the turn result now also
+        // carries the `bindings` record, and will grow again. What must not
+        // drift is that a re-post returns NO new events and is flagged replayed.
+        assert.match(showdownSrc, /return \{ session, events: \[\], replayed: true\b/, 're-posts must be flagged as replays');
     });
 });
 

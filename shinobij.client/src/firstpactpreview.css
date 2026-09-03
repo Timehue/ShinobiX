@@ -9,9 +9,9 @@
     box-sizing: border-box;
 }
 
-html,
-body,
-#root {
+html.fp-preview,
+body.fp-preview,
+#root.fp-preview-root {
     width: 100%;
     min-width: 320px;
     height: 100%;
