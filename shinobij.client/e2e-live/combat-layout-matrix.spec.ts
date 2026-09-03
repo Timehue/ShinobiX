@@ -6,6 +6,30 @@ import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { v2JutsuResourceCost } from '../src/lib/jutsu-scaling';
 import { accountKey } from '../src/lib/player-accounts';
 
+// The loadout's scroll container. Phones wrap basic commands and the loadout in
+// one `.combat-action-tray` scrollport; elsewhere the tray is `display:
+// contents` (DOM-present, layout-absent) and `.combat-jutsu-bar` scrolls
+// itself. `.first()` on this selector is the tray when present (it precedes the
+// bar in DOM order) and the bar for Tower, which has no tray; the two evaluate
+// callbacks then step through a contents-tray to the bar that really scrolls.
+// They run inside page.evaluate (serialized by source), so each must stay
+// self-contained — no shared helper closure.
+const ACTION_PANEL_SELECTOR = '.combat-action-tray, .combat-jutsu-bar';
+const readTrayScrollTop = (panel: Element): number => {
+    const element = panel as HTMLElement;
+    const scroller = element.classList.contains('combat-action-tray') && getComputedStyle(element).display === 'contents'
+        ? element.querySelector<HTMLElement>('.combat-jutsu-bar') ?? element
+        : element;
+    return scroller.scrollTop;
+};
+const resetTrayScroll = (panel: Element): void => {
+    const element = panel as HTMLElement;
+    const scroller = element.classList.contains('combat-action-tray') && getComputedStyle(element).display === 'contents'
+        ? element.querySelector<HTMLElement>('.combat-jutsu-bar') ?? element
+        : element;
+    scroller.scrollTop = 0;
+};
+
 const PHASE = process.env.COMBAT_LAYOUT_CAPTURE_PHASE === 'before' ? 'before' : 'after';
 const STRICT = PHASE === 'after' && process.env.COMBAT_LAYOUT_STRICT !== '0';
 const SCREENSHOT_ROOT = process.env.COMBAT_LAYOUT_ARTIFACT_ROOT
@@ -830,7 +854,16 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
         const layoutNode = root?.querySelector('.combat-layout') ?? null;
         const mainNode = root?.querySelector('.combat-main-area') ?? null;
         const boardNode = root?.querySelector('.hex-battlefield') ?? null;
-        const actionNode = root?.querySelector('.combat-jutsu-bar') ?? null;
+        // The action panel is whichever element actually clips and scrolls the
+        // loadout: on phones that is the shared `.combat-action-tray` (basic
+        // commands + loadout in one scrollport), everywhere else the tray is
+        // `display: contents` and `.combat-jutsu-bar` scrolls itself. Measuring
+        // the bar on a phone would report its unclipped rect, which slides up
+        // under the board as soon as a card is scrolled into view.
+        const trayNode = root?.querySelector<HTMLElement>('.combat-action-tray') ?? null;
+        const actionNode = trayNode && getComputedStyle(trayNode).display !== 'contents'
+            ? trayNode
+            : root?.querySelector('.combat-jutsu-bar') ?? null;
         const tabNode = root?.querySelector('.battle-tabbar') ?? null;
         const logNode = root?.querySelector('.combat-text-log') ?? null;
         const terrainNode = root?.querySelector('.twp-strip') ?? null;
@@ -1165,7 +1198,10 @@ async function selectionGeometry(page: Page, rootSelector: string): Promise<Sele
             return { x: value.x, y: value.y, width: value.width, height: value.height, right: value.right, bottom: value.bottom };
         };
         const gridLayer = root?.querySelector('.hex-grid-layer') ?? null;
-        const actionTray = root?.querySelector<HTMLElement>('.combat-jutsu-bar') ?? null;
+        const trayCandidate = root?.querySelector<HTMLElement>('.combat-action-tray') ?? null;
+        const actionTray = trayCandidate && getComputedStyle(trayCandidate).display !== 'contents'
+            ? trayCandidate
+            : root?.querySelector<HTMLElement>('.combat-jutsu-bar') ?? null;
         // Tower draws several non-interactive overlays with the tile skin class.
         // Scope this inventory to the real board controls so the 120-tile
         // accessibility and hit-test contract cannot be satisfied by decoration.
@@ -1320,9 +1356,9 @@ async function assertJutsuSelectionGeometryStable(
         await page.setViewportSize(viewport);
         const root = page.locator(rootSelector);
         const firstJutsu = root.locator('.combat-jutsu-button:not(:disabled)').first();
-        const actionTray = root.locator('.combat-jutsu-bar');
+        const actionTray = root.locator(ACTION_PANEL_SELECTOR).first();
         await expect(firstJutsu).toBeVisible();
-        await actionTray.evaluate((panel) => { panel.scrollTop = 0; });
+        await actionTray.evaluate(resetTrayScroll);
         await page.mouse.move(0, 0);
         await settleLayout(page);
         const before = await selectionGeometry(page, rootSelector);
@@ -1459,7 +1495,7 @@ async function writeScreenshotWithRetry(page: Page, path: string): Promise<void>
 
 async function assertEdgeActionPopovers(page: Page, rootSelector: string): Promise<void> {
     const root = page.locator(rootSelector);
-    const actionTray = root.locator('.combat-jutsu-bar');
+    const actionTray = root.locator(ACTION_PANEL_SELECTOR).first();
     const helpButtons = root.locator('.combat-jutsu-help');
     await expect(helpButtons.first()).toBeVisible();
     const indices = await helpButtons.evaluateAll((buttons) => {
@@ -1471,7 +1507,7 @@ async function assertEdgeActionPopovers(page: Page, rootSelector: string): Promi
     for (const [position, index] of indices.entries()) {
         const trigger = helpButtons.nth(index);
         await trigger.scrollIntoViewIfNeeded();
-        const scrollBeforeOpen = await actionTray.evaluate((panel) => panel.scrollTop);
+        const scrollBeforeOpen = await actionTray.evaluate(readTrayScrollTop);
         const controlledId = await trigger.getAttribute('aria-controls');
         expect(controlledId, `edge action trigger ${index} must identify its portaled detail dialog`).toBeTruthy();
         await trigger.click();
@@ -1479,7 +1515,7 @@ async function assertEdgeActionPopovers(page: Page, rootSelector: string): Promi
         const popover = page.locator(`#${controlledId}`);
         await expect(popover).toBeVisible();
         await settleLayout(page);
-        expect(await actionTray.evaluate((panel) => panel.scrollTop), `opening edge action ${index} must not scroll its tray`).toBe(scrollBeforeOpen);
+        expect(await actionTray.evaluate(readTrayScrollTop), `opening edge action ${index} must not scroll its tray`).toBe(scrollBeforeOpen);
         await expect(popover).toHaveAttribute('role', 'dialog');
         await expect(popover).toHaveAttribute('aria-modal', 'true');
         const backdrop = popover.locator('..');
@@ -1501,19 +1537,19 @@ async function assertEdgeActionPopovers(page: Page, rootSelector: string): Promi
             await expect(popover).toBeHidden();
             await expect(trigger).toHaveAttribute('aria-expanded', 'false');
             await expect(trigger).toBeFocused();
-            expect(await actionTray.evaluate((panel) => panel.scrollTop), `closing edge action ${index} must not scroll its tray`).toBe(scrollBeforeOpen);
+            expect(await actionTray.evaluate(readTrayScrollTop), `closing edge action ${index} must not scroll its tray`).toBe(scrollBeforeOpen);
             continue;
         }
         await popover.locator('[data-combat-detail-close]').click();
         await expect(popover).toBeHidden();
         await expect(trigger).toBeFocused();
-        expect(await actionTray.evaluate((panel) => panel.scrollTop), `closing edge action ${index} must not scroll its tray`).toBe(scrollBeforeOpen);
+        expect(await actionTray.evaluate(readTrayScrollTop), `closing edge action ${index} must not scroll its tray`).toBe(scrollBeforeOpen);
     }
 
     const thrownTrigger = root.locator('#pvp-combat-detail-trigger-item-thrown-shuriken');
     await expect(thrownTrigger).toBeVisible();
     await thrownTrigger.scrollIntoViewIfNeeded();
-    const thrownScrollBeforeOpen = await actionTray.evaluate((panel) => panel.scrollTop);
+    const thrownScrollBeforeOpen = await actionTray.evaluate(readTrayScrollTop);
     await thrownTrigger.click();
     await expect(thrownTrigger).toHaveAttribute('aria-expanded', 'true');
     const thrownDialog = page.locator('#pvp-combat-detail-item-thrown-shuriken');
@@ -1524,12 +1560,12 @@ async function assertEdgeActionPopovers(page: Page, rootSelector: string): Promi
     await expect(thrownDialog).toBeHidden();
     await expect(thrownTrigger).toHaveAttribute('aria-expanded', 'false');
     await expect(thrownTrigger).toBeFocused();
-    expect(await actionTray.evaluate((panel) => panel.scrollTop), 'closing thrown-item details must not scroll its tray').toBe(thrownScrollBeforeOpen);
+    expect(await actionTray.evaluate(readTrayScrollTop), 'closing thrown-item details must not scroll its tray').toBe(thrownScrollBeforeOpen);
 
     // The edge-control checks intentionally scroll the contained action tray
     // to its final equipment row. Restore the matrix's top-of-tray baseline so
     // the subsequent first-jutsu hit test measures layout, not test residue.
-    await root.locator('.combat-jutsu-bar').evaluate((panel) => { panel.scrollTop = 0; });
+    await root.locator(ACTION_PANEL_SELECTOR).first().evaluate(resetTrayScroll);
 }
 
 async function assertBattlefieldActorPresentation(
