@@ -6,6 +6,7 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { consumeSingleUseToken } from '../_single-use-token.js';
 import { pvpSessionMayGrantProgress, sealedWorldRaidAttacker, type PvpSession } from '../pvp/session.js';
 import {
+    MAX_RAID_REPORTS_PER_DAY,
     raidProgressionSettlement,
     settleRaidProgressionWithDailyCap,
     type RaidProgressionSettlement,
@@ -13,7 +14,6 @@ import {
 import type { SealedRaidTerritoryEvidence } from './_raid-territory.js';
 
 const SESSION_REPLAY_WINDOW_MS = 24 * 60 * 60 * 1000;
-const MAX_RAID_REPORTS_PER_DAY = 60;
 
 function progressionBody(
     settlement: RaidProgressionSettlement,
