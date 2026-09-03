@@ -138,7 +138,7 @@ profile,customTitle,fateShards,10,per action,api/profile/_settlement.ts,
 profile,titleStyle,fateShards,40,per action,api/profile/_settlement.ts,
 profile,titleIcon,fateShards,25,per action,api/profile/_settlement.ts,
 festival,black-market-pull,ryo,75000,per pull,api/festival/_black-market.ts,
-festival,sunscar-fate-die,fateShards,250,per roll,api/festival/_sunscar.ts,
+festival,sunscar-fate-die,fateShards,0,per roll,api/festival/_sunscar.ts,
 craft,named-forge,ryo,1000,per forge,api/craft/_named.ts,
 kage,declare-challenge,ryo,250000,per challenge,api/village/_kage-challenge.ts,
 shrine,communal-offering,ryo,10-250000,per offering,shared/shrines.ts,Pure sink; no payout.
