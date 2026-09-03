@@ -1,17 +1,26 @@
-// Sunscar is a PERMANENT fixture, not a seasonal event, so both of its tables
-// are standing economy rather than event flavour and are priced that way.
+// Sunscar is a PERMANENT fixture, not a seasonal event, so its table is
+// standing economy rather than event flavour and is priced that way.
 //
-// The dice used to cost 25 ryo and pay an expected 35.1 — a net FAUCET — plus
-// ~1.48 stat points per roll. At the 5/day cap that was ~7.4 stat points a day,
-// roughly 16% of the authored daily growth budget (DAILY_PVE_GROWTH_TARGET = 45
-// in api/missions/_mission-catalog.ts), arriving from outside the invariant that
-// guards it, and it made progression purchasable with ryo. Both are now closed:
-// statPoints is always 0 (see rollFateDice) and the cost carries a real edge.
+// HISTORY — two wagers used to live here, and both are gone (owner decision
+// 2026-09-03, taken for the Play content rating: a staked outcome is
+// "gambling" on the IARC questionnaire no matter how it is dressed).
 //
-// At 250 ryo the expected return is ~163 ryo, so the dice are a ~-35% gamble —
-// about -434 ryo/day at the cap. Small enough to stay a friendly daily, large
-// enough that it is a choice. TUNABLE: this is the dial if it reads as stingy.
-export const FATE_DICE_COST = 250;
+//   1. The dice cost 250 ryo and returned ~163 on average — a ~-35% gamble
+//      with a losing branch. They are now a FREE daily draw that always pays.
+//   2. Miraa took an even-money bet (50/100/250/500 ryo) on a Card Clash
+//      match at a 40% server-rolled win chance — a 20% house edge. Removed
+//      outright; `resolveMiraaWager` and MIRAA_WIN_CHANCE no longer exist.
+//      MIRAA_ALLOWED_BETS survives ONLY to validate the sealed stake on an
+//      in-flight wager so `miraa-report` can refund it (see sunscar.ts).
+//
+// The dice are now a small, bounded ryo FAUCET rather than a sink: ~56 ryo per
+// draw at 5 draws/day is ~283 ryo/day. That is deliberate — a free daily that
+// always pays something is the point — but it is the dial to watch if ryo
+// inflates. `statPoints` stays 0 on every branch: the dice used to grant ~1.48
+// per roll, which put ~16% of the authored daily growth budget
+// (DAILY_PVE_GROWTH_TARGET = 45 in api/missions/_mission-catalog.ts) outside
+// the invariant that guards it. Progression is not for sale and not for luck.
+export const FATE_DICE_COST = 0;
 export const FATE_DICE_DAILY_CAP = 5;
 export const FATE_DICE_COUNT_TTL_SECONDS = 2 * 24 * 60 * 60;
 
@@ -22,10 +31,10 @@ export type FateDiceReward = {
     ryo: number;
     xp: number; // retired (character XP removed) — always 0, kept for old-client shape
     statPoints: number; // retired — ALWAYS 0; progression is not purchasable with ryo
-    stamina: number;
+    stamina: number; // retired with the wager rewrite — always 0, kept for old-client shape
     boneCharms: number;
     fateShards: number;
-    auraStones: number;
+    auraStones: number; // retired with the wager rewrite — always 0, kept for old-client shape
 };
 
 export type FateDiceRoll = {
@@ -34,24 +43,13 @@ export type FateDiceRoll = {
     message: string;
 };
 
+// Retained ONLY so an in-flight wager's sealed stake can be validated and
+// refunded. Nothing mints a new wager against this list any more.
 export const MIRAA_ALLOWED_BETS = [50, 100, 250, 500] as const;
-export type MiraaOutcome = 'win' | 'loss' | 'draw' | 'forfeit';
+export type MiraaOutcome = 'refund';
 
-// Server-rolled Miraa win chance. Owner-approved 2026-07-16. With an even-money
-// payout (win pays 2×stake back, loss keeps the stake) the expected value is
-// 0.40·(+bet) + 0.60·(−bet) = −0.20·bet — a ~20% house edge, so Miraa is a
-// deliberate ryo SINK, not a faucet. Do NOT change without fresh owner sign-off.
-export const MIRAA_WIN_CHANCE = 0.40;
-
-// Single-use wager token lifetime. Long enough to play out a full Shinobi Card
-// Clash match (6 turns × 3 lanes) before the escrowed stake's token expires.
+// Single-use token lifetime for a wager opened before the removal shipped.
 export const MIRAA_TOKEN_TTL_SECONDS = 15 * 60;
-
-// Daily cap on opened wagers per player (checklist: daily cap AND rate limit).
-// Generous — a legit player rarely plays 50 full card matches a day — but bounds
-// griefing/automation. Each opened wager escrows real ryo, so the sink itself
-// already discourages spam.
-export const MIRAA_DAILY_WAGER_CAP = 50;
 
 function randInt(rand: () => number, min: number, max: number): number {
     return min + Math.floor(rand() * (max - min + 1));
@@ -71,35 +69,35 @@ export function rollFateDice(rand: () => number = Math.random): FateDiceRoll {
     const same = roll[0] === roll[1] && roll[1] === roll[2];
     let message: string;
 
-    // Payout table for a 250-ryo pull. `statPoints` stays 0 on every branch:
-    // stat points are level progress, and level progress is not for sale.
-    // Fate Shards ride ONLY on the triple-eye jackpot (1/216) rather than every
-    // triple — a rare prize reads better than a drip, and it takes the dice's
-    // premium output from ~127 to ~25 shards a year at the daily cap.
+    // EVERY branch pays ryo — there is no losing face any more, which is what
+    // takes the draw out of "gambling" on the rating questionnaire. Bone charms
+    // ride on a triple (6/216 = 2.8%) and Fate Shards on the triple eye alone
+    // (1/216 = 0.46%), so the premium output is ~8.5 shards a year at the daily
+    // cap, down from ~25 when the dice were staked.
     if (same && roll[0] === 'eye') {
-        reward.boneCharms = 10;
-        reward.fateShards = 3;
-        reward.auraStones = 5;
+        reward.ryo = 100;
+        reward.boneCharms = 3;
+        reward.fateShards = 1;
         message = 'Three eyes. Kael stops smiling and counts the sealed prize tokens twice.';
     } else if (same) {
-        reward.boneCharms = randInt(rand, 2, 6);
+        reward.ryo = 80;
+        reward.boneCharms = randInt(rand, 1, 3);
         message = `Three ${roll[0]} faces. Kael slides a lacquered prize box across the table.`;
-    } else if (roll.includes('scorpion')) {
-        reward.ryo = 50;
-        message = 'The scorpion face shows its tail. Kael returns fifty ryo and keeps the lesson short.';
     } else if (roll.includes('coin')) {
-        reward.ryo = 400;
-        message = 'A coin lands upright between the other dice. Two attendants groan while Kael pays you.';
-    } else if (roll.includes('blade')) {
-        reward.stamina = 60;
-        message = 'No coin payout. Kael pushes over a red field tonic and tells you to spend the energy somewhere useful.';
+        reward.ryo = 70;
+        message = 'A coin lands upright between the other dice. Kael counts out the best share of the day.';
     } else if (roll.includes('moon')) {
-        reward.ryo = 300;
-        reward.boneCharms = 1;
-        message = 'The moon face earns a bone charm from the dealer\'s locked drawer and a modest stack of ryo.';
+        reward.ryo = 55;
+        message = 'The moon face turns up. Kael adds a modest stack of ryo and resets the dice.';
+    } else if (roll.includes('star')) {
+        reward.ryo = 45;
+        message = 'A star face catches the lamplight. Kael pays the standing rate without comment.';
+    } else if (roll.includes('blade')) {
+        reward.ryo = 40;
+        message = 'The blade face lands flat. Kael pays a little and tells you to spend it somewhere useful.';
     } else {
-        reward.ryo = 200;
-        message = 'No set. Kael pushes part of the stake back and gathers the dice for the next turn.';
+        reward.ryo = 30;
+        message = 'No set. Kael pays the floor rate and gathers the dice for the next turn.';
     }
 
     return { roll, reward, message };
@@ -111,34 +109,16 @@ export function cleanMiraaBet(raw: unknown): number {
 }
 
 /*
- * Server-authoritative Miraa settlement.
+ * Settlement for a wager that was already open when the removal shipped.
  *
- * Miraa plays server-authoritative Shinobi Chronicle Showdown, whose win/loss is produced entirely
- * on the (untrusted) client with no determinism contract — so the ryo result
- * CANNOT be read from a client-reported outcome without reopening a mint (a
- * hostile client would simply always report 'win'). Instead the wager resolves as
- * a server-rolled fate draw: `miraa-start` escrows the stake and seals `bet` into
- * a single-use token, and `miraa-report` calls this to roll the outcome here from
- * the sealed bet — never from the client body.
+ * The stake was debited by `miraa-start` before the outcome was known, so the
+ * only honest way to retire the feature mid-flight is to hand it back: this
+ * always refunds the sealed stake in full. There is no roll, no house edge and
+ * no losing branch — `MIRAA_WIN_CHANCE` and the 2x payout are gone.
  *
- * The stake was already debited at start, so this returns only the amount to
- * CREDIT back on top of the escrow:
- *   win     → 2×bet  (net +bet vs. the pre-wager balance — matches the "win 2×" UI)
- *   loss    → 0       (net −bet — the escrowed stake is kept by the house)
- *   forfeit → 0       (net −bet — bailing mid-match keeps the stake with Miraa)
- *
- * `forfeit` (the player left the match) is an automatic loss with no roll; a
- * played-out match rolls at MIRAA_WIN_CHANCE regardless of the client card result.
+ * Returns the amount to CREDIT on top of the escrow, i.e. the whole stake, so
+ * the player ends net zero against their pre-wager balance.
  */
-export function resolveMiraaWager(
-    bet: number,
-    forfeit = false,
-    rand: () => number = Math.random,
-): { outcome: MiraaOutcome; credit: number } {
-    const stake = cleanMiraaBet(bet);
-    if (!stake) return { outcome: 'loss', credit: 0 };
-    if (forfeit) return { outcome: 'forfeit', credit: 0 };
-    return rand() < MIRAA_WIN_CHANCE
-        ? { outcome: 'win', credit: stake * 2 }
-        : { outcome: 'loss', credit: 0 };
+export function resolveMiraaRefund(bet: number): { outcome: MiraaOutcome; credit: number } {
+    return { outcome: 'refund', credit: cleanMiraaBet(bet) };
 }
