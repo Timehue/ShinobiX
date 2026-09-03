@@ -28,7 +28,11 @@ import { settlePvpConsumablesDurably } from './_consumable-settlement.js';
 import { compactSettledPlayerRankedSession } from './_ranked-terminal-effects.js';
 import { boundExactPvpSession } from './_session-mutation.js';
 import { PVP_TERMINAL_REPLAY_TTL } from '../combat-core/constants.js';
-import { settleRaidProgressionWithDailyCap, type CappedRaidProgressionResult } from '../missions/_raid-progression.js';
+import {
+    MAX_RAID_REPORTS_PER_DAY,
+    settleRaidProgressionWithDailyCap,
+    type CappedRaidProgressionResult,
+} from '../missions/_raid-progression.js';
 import { replayCommittedPvpTerminalEffects } from './_committed-terminal-effects.js';
 import type { PlayerRankedJournal } from './_player-ranked-journal.js';
 import {
@@ -82,7 +86,6 @@ export { deductUsedItems } from './_consumable-settlement.js';
 // horizon as the recovery proof and authenticated pending-session pointer.
 
 const CLAIM_TTL_SECONDS = PVP_PENDING_SESSION_TTL_SECONDS;
-const MAX_RAID_REPORTS_PER_DAY = 60;
 
 function raidProgressionBody(result: CappedRaidProgressionResult | null) {
     if (!result) return undefined;

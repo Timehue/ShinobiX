@@ -130,9 +130,9 @@ import { biomeForWorldSector, sectorRegionName, villageForOutskirtsSector, villa
 import { biomeLabel, weatherEffects } from "../data/world";
 import { builtinHuntMissions } from "../data/missions";
 import { makeId, playerSlug, sameSector } from "../lib/utils";
-import { setSectorReopen, takeSectorReopen, consumeReloadIntoSector } from "../lib/sector-return";
+import { setSectorReopen, takeSectorReopen, peekSectorReopen, consumeReloadIntoSector } from "../lib/sector-return";
 import { isRecentlyStruckDown } from "../lib/sleeper-kill";
-import { useLiveSectorRoster, setLocalSectorTile } from "../lib/presence-store";
+import { useLiveSectorRoster, setLocalSectorTile, getLocalSectorTile } from "../lib/presence-store";
 import { updateRealtimeTile } from "../lib/use-presence-socket";
 import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
 import type { SectorPeer } from "../components/SectorPeers";
@@ -2470,7 +2470,16 @@ export function WorldMap({
         const t = setTimeout(() => setPetDecisionReady(true), 650);
         return () => clearTimeout(t);
     }, [activePetEncounter, petVnDone]);
-    const [sectorPlayerPos, setSectorPlayerPos] = useState(SECTOR_CENTRE_TILE);
+    // Reopening a sector after a fight restores the TILE too, not just the
+    // board: "return to the sector" has to mean the spot you attacked from, and
+    // this state is otherwise recreated at the centre on every remount (which
+    // then broadcasts that centre tile to presence via the effect below, so
+    // everyone else would see you teleport as well). presence-store keeps the
+    // last tile at module scope, so it survives WorldMap's unmount during the
+    // battle. Peek, never take — the mount effect above owns consuming the latch.
+    const [sectorPlayerPos, setSectorPlayerPos] = useState(
+        () => (peekSectorReopen() !== null ? getLocalSectorTile() : SECTOR_CENTRE_TILE),
+    );
     const travelRequestInFlight = useRef(false);
     // Bridge the local player's tile to the presence store so the heartbeat (which
     // lives in App) can broadcast it; other clients render us walking to this tile.
