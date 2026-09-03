@@ -1,6 +1,6 @@
 import { after, before, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { getDurableSettlement, listPendingDurableSettlements, updateDurableSettlement } from '../_durable-settlement.js';
+import { beginDurableSettlement, getDurableSettlement, listPendingDurableSettlements, settlementFingerprint, settlementTransactionId } from '../_durable-settlement.js';
 
 // In-memory KV + admin auth so we can drive the real handler (lock, mutate,
 // token consume) without a database. Admin auth bypasses the per-player name
@@ -71,27 +71,34 @@ async function ryo(): Promise<number> {
     return Number(rec?.character?.ryo ?? NaN);
 }
 
-async function setRollSeed(token: string, seed: number): Promise<void> {
-    const tokenRecord = await kv.get<{ transactionId?: string }>(`miraa-token:${PLAYER}:${token}`);
-    assert.ok(tokenRecord?.transactionId, 'test token should carry a start settlement id');
-    const start = await getDurableSettlement(tokenRecord.transactionId, { kv });
-    assert.ok(start);
-    await updateDurableSettlement(tokenRecord.transactionId, { meta: { ...(start.meta ?? {}), rollSeed: seed } }, { kv });
+/*
+ * Seed a wager that was ALREADY OPEN when the removal shipped: a durable
+ * miraa-start journal, the short-lived client token, and the ryo escrow the old
+ * start endpoint took. `miraa-start` itself is retired (410), so this is the
+ * only way such a wager can exist — and it is exactly the state a live player
+ * could have been in at deploy time.
+ */
+async function seedInFlightWager(bet: number, token = 'seededwagertoken'): Promise<string> {
+    const txId = settlementTransactionId('miraa-start', `${PLAYER}:${token}`);
+    const fp = settlementFingerprint({ operation: 'miraa-start', playerName: PLAYER, bet });
+    await beginDurableSettlement({
+        transactionId: txId,
+        idempotencyKey: token,
+        operationType: 'miraa-start',
+        fingerprint: fp,
+        actorIds: [PLAYER],
+        resource: 'ryo',
+        amount: bet,
+        meta: { playerName: PLAYER, bet, token },
+    }, { kv });
+    await kv.set(`miraa-token:${PLAYER}:${token}`, { playerName: PLAYER, bet, transactionId: txId, mintedAt: Date.now() }, { ex: 900 });
+    const rec = await kv.get<Record<string, unknown>>(SAVE_KEY);
+    const character = (rec?.character ?? {}) as Record<string, unknown>;
+    await kv.set(SAVE_KEY, { ...rec, character: { ...character, ryo: 1000 - bet } });
+    return token;
 }
 
-// Force resolveMiraaWager's server roll (which reads Math.random) to a fixed
-// value for the duration of one call, then restore it.
-async function withRoll<T>(value: number, fn: () => Promise<T>): Promise<T> {
-    const real = Math.random;
-    Math.random = () => value;
-    try {
-        return await fn();
-    } finally {
-        Math.random = real;
-    }
-}
-
-describe('sunscar Miraa handler — server-authoritative wager', () => {
+describe('sunscar Miraa handler — wager retired, in-flight stakes refunded', () => {
     it('retires the client-attested kind:"miraa" mint (no payout, ryo unchanged)', async () => {
         const before = await ryo();
         const out = await post({ kind: 'miraa', playerName: PLAYER, bet: 500, outcome: 'win' });
@@ -99,122 +106,73 @@ describe('sunscar Miraa handler — server-authoritative wager', () => {
         assert.equal(await ryo(), before, 'a claimed win mints nothing');
     });
 
-    it('miraa-start deducts (escrows) the stake and mints a single-use token', async () => {
+    it('REFUSES to open a new wager — miraa-start is retired', async () => {
+        const before = await ryo();
         const out = await post({ kind: 'miraa-start', playerName: PLAYER, bet: 500 });
+        assert.equal(out.statusCode, 410, 'no new wager may be opened');
+        assert.equal(await ryo(), before, 'nothing is escrowed');
+        assert.equal((await kv.keys('miraa-token:*')).length, 0, 'no token is minted');
+    });
+
+    it('refunds an in-flight stake IN FULL — player ends net zero', async () => {
+        const token = await seedInFlightWager(500);
+        assert.equal(await ryo(), 500, 'escrow was taken before the removal');
+
+        const out = await post({ kind: 'miraa-report', playerName: PLAYER, token });
         assert.equal(out.statusCode, 200);
-        assert.equal(typeof out.body?.token, 'string');
-        assert.equal(out.body?.balanceRyo, 500, 'stake debited immediately');
-        assert.equal(await ryo(), 500, 'escrow is written to the save');
-
-        // The sealed token carries the bet the report will pay from.
-        const token = out.body!.token as string;
-        const sealed = await kv.get<{ playerName?: string; bet?: number }>(`miraa-token:${PLAYER}:${token}`);
-        assert.equal(sealed?.bet, 500);
-        assert.equal(sealed?.playerName, PLAYER);
+        assert.equal(out.body?.outcome, 'refund');
+        assert.equal(out.body?.credit, 500);
+        assert.equal(await ryo(), 1000, 'the whole stake comes back');
     });
 
-    it('rejects an off-ladder wager and never escrows', async () => {
-        const out = await post({ kind: 'miraa-start', playerName: PLAYER, bet: 75 });
-        assert.equal(out.statusCode, 400);
-        assert.equal(await ryo(), 1000, 'balance untouched');
+    it('ignores a client-claimed outcome — a "win" cannot pay more than the stake', async () => {
+        const token = await seedInFlightWager(500);
+        const out = await post({ kind: 'miraa-report', playerName: PLAYER, token, outcome: 'win', forfeit: false });
+        assert.equal(out.statusCode, 200);
+        assert.equal(out.body?.outcome, 'refund');
+        assert.equal(await ryo(), 1000, 'never 2x — the wager is gone, this is a refund');
     });
 
-    it('refuses to escrow more than the player can afford', async () => {
-        await kv.set(SAVE_KEY, { character: { name: PLAYER, ryo: 100 }, _saveVersion: 1 });
-        const out = await post({ kind: 'miraa-start', playerName: PLAYER, bet: 500 });
-        assert.equal(out.statusCode, 400);
-        assert.equal(await ryo(), 100, 'balance untouched');
+    it('refunds a forfeited wager too — bailing no longer costs the stake', async () => {
+        const token = await seedInFlightWager(250);
+        const out = await post({ kind: 'miraa-report', playerName: PLAYER, token, forfeit: true });
+        assert.equal(out.statusCode, 200);
+        assert.equal(out.body?.credit, 250);
+        assert.equal(await ryo(), 1000);
     });
 
-    it('does not consume the daily quota when affordability fails', async () => {
-        const today = new Date().toISOString().slice(0, 10);
-        await kv.set(SAVE_KEY, {
-            character: { name: PLAYER, ryo: 100, miraaWagerDate: today, miraaWagerCount: 0 },
-            _saveVersion: 1,
-        });
-        const out = await post({ kind: 'miraa-start', playerName: PLAYER, bet: 500, requestId: 'miraa-underfunded-1' });
-        assert.equal(out.statusCode, 400);
-        const saved = await kv.get<{ character?: { miraaWagerDate?: string; miraaWagerCount?: number } }>(SAVE_KEY);
-        assert.equal(saved?.character?.miraaWagerDate, today);
-        assert.equal(saved?.character?.miraaWagerCount, 0);
-        assert.equal((await listPendingDurableSettlements({ kv })).length, 0, 'business rejection is cancelled, not left pending');
+    it('token is single-use — a replayed report cannot double-refund', async () => {
+        const token = await seedInFlightWager(500);
+        const first = await post({ kind: 'miraa-report', playerName: PLAYER, token });
+        assert.equal(first.statusCode, 200);
+        assert.equal(await ryo(), 1000);
+
+        const replay = await post({ kind: 'miraa-report', playerName: PLAYER, token });
+        assert.equal(replay.statusCode, 200, 'replay is idempotent, not an error');
+        assert.equal(replay.body?.credit, 500, 'replay echoes the sealed receipt');
+        assert.equal(await ryo(), 1000, 'balance is unchanged by the replay');
     });
 
-    it('pays a server-rolled WIN from the sealed bet (net +bet), ignoring client outcome', async () => {
-        const start = await post({ kind: 'miraa-start', playerName: PLAYER, bet: 500 });
-        const token = start.body!.token as string;
-        await setRollSeed(token, 0.1);
-        assert.equal(await ryo(), 500); // escrowed
+    it('recovers the sealed stake after the short-lived client token expires', async () => {
+        const token = await seedInFlightWager(500);
+        // The client token TTLs out; the durable start journal outlives it.
+        for (const key of await kv.keys('miraa-token:*')) await kv.del(key);
 
-        // Force a win (roll 0.1 < 0.40). A hostile body.outcome:'loss' must NOT
-        // suppress the legit win — the server ignores it entirely.
-        const rep = await withRoll(0.1, () => post({ kind: 'miraa-report', playerName: PLAYER, token, outcome: 'loss' }));
-        assert.equal(rep.statusCode, 200);
-        assert.equal(rep.body?.outcome, 'win');
-        assert.equal(rep.body?.credit, 1000, 'win credits 2×bet back');
-        assert.equal(rep.body?.balanceRyo, 1500);
-        assert.equal(await ryo(), 1500, 'net +500 over the pre-wager 1000');
-    });
-
-    it('keeps the stake on a server-rolled LOSS even when the client claims a win', async () => {
-        const start = await post({ kind: 'miraa-start', playerName: PLAYER, bet: 500 });
-        const token = start.body!.token as string;
-        await setRollSeed(token, 0.9);
-
-        // Force a loss (roll 0.9 >= 0.40). The client asserting outcome:'win'
-        // mints nothing — the escrowed stake stays with the house.
-        const rep = await withRoll(0.9, () => post({ kind: 'miraa-report', playerName: PLAYER, token, outcome: 'win' }));
-        assert.equal(rep.statusCode, 200);
-        assert.equal(rep.body?.outcome, 'loss');
-        assert.equal(rep.body?.credit, 0);
-        assert.equal(await ryo(), 500, 'net −500 (stake lost)');
-    });
-
-    it('forfeit (left mid-match) is an automatic loss with no roll', async () => {
-        const start = await post({ kind: 'miraa-start', playerName: PLAYER, bet: 250 });
-        const token = start.body!.token as string;
-        // Roll forced to a "win" value, but forfeit short-circuits before the roll.
-        const rep = await withRoll(0.0, () => post({ kind: 'miraa-report', playerName: PLAYER, token, forfeit: true }));
-        assert.equal(rep.body?.outcome, 'forfeit');
-        assert.equal(rep.body?.credit, 0);
-        assert.equal(await ryo(), 750, 'stake forfeited, net −250');
-    });
-
-    it('token is single-use — a replayed report cannot double-pay', async () => {
-        const start = await post({ kind: 'miraa-start', playerName: PLAYER, bet: 500 });
-        const token = start.body!.token as string;
-        await setRollSeed(token, 0.1);
-
-        const first = await withRoll(0.1, () => post({ kind: 'miraa-report', playerName: PLAYER, token }));
-        assert.equal(first.body?.outcome, 'win');
-        assert.equal(await ryo(), 1500);
-
-        // Replaying the same token returns the sealed result and must not roll
-        // or credit a second time. This is the retry contract after a response
-        // or token-write failure.
-        const replay = await withRoll(0.1, () => post({ kind: 'miraa-report', playerName: PLAYER, token }));
-        assert.equal(replay.statusCode, 200, 'a committed report is replayable');
-        assert.equal(replay.body?.outcome, 'win');
-        assert.equal(replay.body?.credit, 1000);
-        assert.equal(await ryo(), 1500, 'no second payout');
-    });
-
-    it('recovers a valid wager after the short-lived client token expires', async () => {
-        const start = await post({ kind: 'miraa-start', playerName: PLAYER, bet: 250, requestId: 'miraa-expiry-1' });
-        const token = start.body!.token as string;
-        await setRollSeed(token, 0.1);
-        await kv.del(`miraa-token:${PLAYER}:${token}`);
-        const rep = await post({ kind: 'miraa-report', playerName: PLAYER, token });
-        assert.equal(rep.statusCode, 200);
-        assert.equal(rep.body?.outcome, 'win');
-        assert.equal(rep.body?.credit, 500);
-        assert.equal(await ryo(), 1250);
+        const out = await post({ kind: 'miraa-report', playerName: PLAYER, token });
+        assert.equal(out.statusCode, 200, 'an expired token must not strand the refund');
+        assert.equal(out.body?.credit, 500);
+        assert.equal(await ryo(), 1000);
     });
 
     it('rejects a report with a missing / malformed token', async () => {
-        const bad = await post({ kind: 'miraa-report', playerName: PLAYER, token: 'not a real token!' });
-        assert.equal(bad.statusCode, 400);
-        const missing = await post({ kind: 'miraa-report', playerName: PLAYER });
-        assert.equal(missing.statusCode, 400);
+        assert.equal((await post({ kind: 'miraa-report', playerName: PLAYER })).statusCode, 400);
+        assert.equal((await post({ kind: 'miraa-report', playerName: PLAYER, token: '../etc' })).statusCode, 400);
+    });
+
+    it('leaves no pending settlement behind after a refund', async () => {
+        const token = await seedInFlightWager(500);
+        await post({ kind: 'miraa-report', playerName: PLAYER, token });
+        const pending = await listPendingDurableSettlements({ kv });
+        assert.equal(pending.filter((r) => r.operationType === 'miraa-report').length, 0);
     });
 });
