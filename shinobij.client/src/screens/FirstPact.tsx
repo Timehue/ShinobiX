@@ -3659,7 +3659,7 @@ function npcDialogue(npc: FirstPactNpcDefinition, progress: FirstPactProgress): 
         return { lines: ["The lower intake is drawing more than heat now. Orders say the numbers balance.", "The animals won't cross the blue grates. They know something the ledger doesn't."] };
     }
     if (npc.id === "market-rho") return { lines: ["Vale feed is paid through the week. Don't tell Sena; she'll try to pay me back.", "Win first. Pride can wait outside."] };
-    if (npc.id === "kennel-hand") return { lines: ["Take either alley around the old cedar. A frightened beast needs a choice of path—and someone waiting where the paths meet again."] };
+    if (npc.id === "kennel-hand") return { lines: ["Take either alley around the old cedar. A frightened beast needs a choice of path, and someone waiting where the paths meet again."] };
     if (npc.id === "court-courier") return { lines: ["Three closure orders before noon. Four cancellations after the nobles complained about the smell."] };
     if (npc.id === "garden-keeper") return progress.mainStep === "investigate-city-omens" && !progress.mainQuest.omens.includes("gardens") ? {
         lines: ["Every bird left the north wall together. No storm. No hawk. Just gone.", "The nests are warm and the eggs remain. Animals abandon neither without a danger they can already feel."],
