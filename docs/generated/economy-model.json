@@ -1890,7 +1890,7 @@
       "system": "festival",
       "id": "sunscar-fate-die",
       "currency": "fateShards",
-      "amount": 250,
+      "amount": 0,
       "cadence": "per roll",
       "authority": "api/festival/_sunscar.ts",
       "notes": ""
