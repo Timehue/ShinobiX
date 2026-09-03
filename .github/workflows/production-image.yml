@@ -1,0 +1,69 @@
+name: Production Image
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: production-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build_and_boot:
+    name: Production Image / build-and-boot
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the Railway production image
+        env:
+          DOCKER_BUILDKIT: "1"
+          # Public, deliberately invalid values with production-like lengths.
+          # Railway bakes the real equivalents into the client, so this image
+          # gate must exercise that larger graph instead of an empty-ARG build.
+          VITE_SUPABASE_URL: https://abcdefghijklmnopqrst.supabase.co
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFiY2RlZmdoaWprbG1ub3BxcnN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MjAxNTU3NjAwMH0.abcdefghijklmnopqrstuvwxyz1234567890
+          VITE_SENTRY_DSN: https://0123456789abcdef0123456789abcdef@o123456.ingest.us.sentry.io/1234567
+          VITE_SENTRY_RELEASE: production-${{ github.sha }}
+          VITE_BUILD_COMMIT: ${{ github.sha }}
+          VITE_PRODUCT_ANALYTICS_ENABLED: "true"
+          VITE_PRODUCT_ANALYTICS_PROVIDER: posthog
+          VITE_POSTHOG_KEY: phc_0123456789abcdefghijklmnopqrstuvwxyzABCDEFGH
+          VITE_POSTHOG_HOST: https://us.i.posthog.com
+        run: |
+          docker build \
+            --progress=plain \
+            --build-arg VITE_SUPABASE_URL \
+            --build-arg VITE_SUPABASE_ANON_KEY \
+            --build-arg VITE_SENTRY_DSN \
+            --build-arg VITE_SENTRY_RELEASE \
+            --build-arg VITE_BUILD_COMMIT \
+            --build-arg VITE_PRODUCT_ANALYTICS_ENABLED \
+            --build-arg VITE_PRODUCT_ANALYTICS_PROVIDER \
+            --build-arg VITE_POSTHOG_KEY \
+            --build-arg VITE_POSTHOG_HOST \
+            --tag shinobix-production:${GITHUB_SHA} \
+            .
+
+      - name: Boot the production image
+        run: docker run --detach --name shinobix-production --publish 3000:3000 shinobix-production:${GITHUB_SHA}
+
+      - name: Probe health and branded icon
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/health >/dev/null; then
+              curl --fail --silent --show-error http://127.0.0.1:3000/shinobi-journey-mark-48-v3.png >/dev/null
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+
+      - name: Retain container diagnostics
+        if: always()
+        run: docker logs shinobix-production 2>&1 || true
