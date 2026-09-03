@@ -194,7 +194,7 @@ BENCH badges; the Switch action with a bench-pick flow.
 
 **Element wheel 1.16/0.9 → 1.5/0.75** (swing 2.0), grounded in a dedicated
 research pass (WoW pet battles' proven 1.5/0.66 flat chart in a switch-centric
-format; the fan-Naruto ±25% standard; licensed Naruto games either skip the
+format; the genre's fan-consensus ±25% standard; licensed games in the genre either skip the
 wheel or use ~±25%; the classic monster battler/the reference model's 2x/0.5x only works with dual-type
 ambiguity/doubles damping). The switch-economics math: at 1.5/0.75 a
 half-flip switch pays back in ~2.7 rounds, a full flip in ~1.3 — switching is
@@ -202,7 +202,7 @@ now the central decision the bench was built for. Cycle symmetry keeps
 aggregates intact: post-change sim bands are the TIGHTEST yet (roles 45-55%,
 elements 43.5-55.1%, pace 8.2 rounds, judge 11%). The 93% advantaged-matchup
 rate in the benchless 1v1 sim is intended — live play answers it by switching.
-Canon note: the friendlier 0.75 floor (not WoW's 0.66) reflects Naruto's
+Canon note: the friendlier 0.75 floor (not WoW's 0.66) reflects the genre's
 "power can overcome nature" rule. Reserve option if telemetry shows switching
 underused: 1.5/0.66. Wu-Xing "generating cycle" ally-synergy noted as a
 future team-mode layer.
