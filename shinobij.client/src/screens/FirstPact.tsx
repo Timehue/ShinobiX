@@ -2847,6 +2847,13 @@ function drawCivicShelfEdge(context: CanvasRenderingContext2D, camera: Camera): 
     edge.lineTo(sx(55), sy(3));
     edge.lineTo(sx(81), sy(3));
     edge.lineTo(sx(81), sy(53));
+    // The Arrival Court now continues south of the old rim to carry its
+    // gatehouse, so the trace steps around that quarter instead of running a
+    // boundary line straight through the middle of it.
+    edge.lineTo(sx(57), sy(53));
+    edge.lineTo(sx(57), sy(56));
+    edge.lineTo(sx(32), sy(56));
+    edge.lineTo(sx(32), sy(53));
     edge.lineTo(sx(3), sy(53));
     edge.closePath();
     context.save();
@@ -3436,6 +3443,25 @@ function renderWorld(canvas: HTMLCanvasElement, camera: Camera, art: FirstPactWo
     context.fillStyle = abyssGlow;
     context.fillRect(0, 0, width, height);
 
+    // CLIP EVERY WORLD LAYER TO THE PAINTED CITY.
+    //
+    // Ground renderers draw rounded terminations, shelf edges and wear polygons
+    // that reach past the tile they belong to. At the map's rim that overhang
+    // has nowhere to land, so trails and path caps hung over the void below the
+    // south boundary and off the west edge. Clipping once here bounds every
+    // layer at the city's real extent instead of patching each renderer.
+    //
+    // The shape is the authored city (drawCivicShelfEdge traces the same rim)
+    // plus the Arrival Court's southern extension, so the gate quarter is not
+    // cut off by a rim that predates it.
+    const cityClip = new Path2D();
+    const clipX = (x: number) => x * FIRST_PACT_TILE_SIZE - camera.x;
+    const clipY = (y: number) => y * FIRST_PACT_TILE_SIZE - camera.y;
+    cityClip.rect(clipX(3), clipY(1), (81 - 3) * FIRST_PACT_TILE_SIZE, (53 - 1) * FIRST_PACT_TILE_SIZE);
+    cityClip.rect(clipX(32), clipY(53), (57 - 32) * FIRST_PACT_TILE_SIZE, (56 - 53) * FIRST_PACT_TILE_SIZE);
+    context.save();
+    context.clip(cityClip);
+
     const firstX = Math.max(0, Math.floor(camera.x / FIRST_PACT_TILE_SIZE) - 1);
     const lastX = Math.min(FIRST_PACT_WORLD_WIDTH - 1, Math.ceil((camera.x + width) / FIRST_PACT_TILE_SIZE) + 1);
     const firstY = Math.max(0, Math.floor(camera.y / FIRST_PACT_TILE_SIZE) - 1);
@@ -3503,6 +3529,9 @@ function renderWorld(canvas: HTMLCanvasElement, camera: Camera, art: FirstPactWo
         art.gardenCourtFountain,
         art.architectureScope,
     );
+
+    // Release the city clip before the vignette, which is a full-frame effect.
+    context.restore();
 
     const vignette = context.createRadialGradient(width / 2, height / 2, Math.min(width, height) * 0.2, width / 2, height / 2, Math.max(width, height) * 0.7);
     vignette.addColorStop(0, "rgba(0,0,0,0)");

@@ -1117,7 +1117,13 @@ test("Market and Scriptorium is a complete walkable district rather than an atla
 });
 
 test("sparse civic landmarks use their authored surface and join world collision", () => {
-    assert.equal(FIRST_PACT_CITY_PROPS.length, 10, "street dressing must remain a restrained landmark pass");
+    // Raised 10 -> 14 for Gateworks, which had no dressing at all while every
+    // other district had some. Four functional landmarks only: alley lanterns,
+    // a works notice board, store crates and a yard trough. A first pass added
+    // ten to that one district and this contract rejected it, correctly -- the
+    // brief forbids solving emptiness with clutter, so the ceiling moves by the
+    // number actually justified and not one prop more.
+    assert.equal(FIRST_PACT_CITY_PROPS.length, 14, "street dressing must remain a restrained landmark pass");
     const ids = new Set<string>();
     for (const placement of FIRST_PACT_CITY_PROPS) {
         assert.equal(ids.has(placement.id), false, `${placement.id} must be unique`);

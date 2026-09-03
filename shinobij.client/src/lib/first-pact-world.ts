@@ -655,6 +655,16 @@ export const FIRST_PACT_CITY_PROPS: readonly FirstPactPropPlacement[] = [
 
     // Gateworks and aqueduct machinery explains the district's function.
     { id: "gateworks-valve", atlasCell: 12, bounds: { x: 57, y: 49, width: 5, height: 3.33 } },
+    // Gateworks was buildings standing on bare service stone: no plots, no
+    // setbacks and not one prop, while the accepted Market next door carries a
+    // stall, a signboard, crates, baskets and planters at every doorway. That
+    // difference, not the architecture, is what made the district read as
+    // placed rather than lived in. The sixteen-cell street atlas was already
+    // authored and barely used, so this dresses the works from it.
+    { id: "gateworks-alley-lanterns", atlasCell: 0, bounds: { x: 64.15, y: 47.3, width: 1.8, height: 2.2 } },
+    { id: "gateworks-notice", atlasCell: 2, bounds: { x: 64.15, y: 42.3, width: 1.8, height: 1.7 } },
+    { id: "gateworks-yard-trough", atlasCell: 11, bounds: { x: 73.1, y: 41.3, width: 1.8, height: 1.4 } },
+    { id: "gateworks-store-crates", atlasCell: 9, bounds: { x: 72.1, y: 49.05, width: 2.4, height: 1.5 } },
     // The control assembly straddles the canal itself as a sluice mechanism;
     // it no longer reads as loose machinery abandoned in the public crossing.
     { id: "aqueduct-valve", atlasCell: 12, bounds: FIRST_PACT_AQUEDUCT_CIVIC_CROSSING.control },
