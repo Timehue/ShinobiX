@@ -2622,7 +2622,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/EchoesOfWar.css",
-            "line": 250
+            "line": 974
           },
           {
             "source": "shinobij.client/src/screens/PetLadder.css",
@@ -2993,6 +2993,10 @@
             "line": 112
           },
           {
+            "source": "shinobij.client/src/screens/EchoesOfWar.css",
+            "line": 817
+          },
+          {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
             "line": 1029
           },
@@ -3143,6 +3147,17 @@
           {
             "source": "shinobij.client/src/styles/relic-dungeons.css",
             "line": 136
+          }
+        ]
+      },
+      {
+        "direction": "min",
+        "axis": "width",
+        "valuePx": 760,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/screens/EchoesOfWar.css",
+            "line": 171
           }
         ]
       },
@@ -3862,6 +3877,54 @@
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
             "line": 3294
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 5142
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 5201
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 5232
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 5276
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 5375
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 5412
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 5442
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 5487
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 5524
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 5548
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 5616
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-duel.css",
+            "line": 5824
           },
           {
             "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
