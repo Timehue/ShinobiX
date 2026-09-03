@@ -103,7 +103,11 @@ async function settleLegacySide(
 
         // A pre-cutover shared-ring replay proves the deduction already landed.
         // Backfill only the durable PvP journal; never apply the item effect again.
-        if (inspection.fresh && !hasExactUsedItems(character, side.used)) {
+        // Consumable-authority v2 sealed the budget from the save at create and
+        // deducts what remains: a player who moved the item mid-fight forfeits
+        // at most that one charge, and their claim never wedges on it.
+        const forgiveShortfall = session.pvpConsumableAuthorityVersion === 2;
+        if (inspection.fresh && !forgiveShortfall && !hasExactUsedItems(character, side.used)) {
             // The sealed battle effect cannot become a free mint merely because
             // the client moved/sold the item before claiming. Leave the claim
             // pending; replenishing the exact item allows deterministic repair.
@@ -172,10 +176,13 @@ async function confirmDisabledV2Consumables(
 }
 
 /**
- * Legacy sessions retain their bounded-receipt drain behavior. Player-ranked
- * V2 has consumables disabled at creation and move validation; the journal
- * records and confirms the exact empty usage for both real participants before
- * Elo can settle, so no mutable post-use inventory can wedge season rollover.
+ * Legacy sessions retain their bounded-receipt drain behavior, and so do
+ * consumable-authority v2 casual sessions (real budgets sealed at create,
+ * shortfalls forgiven). Consumable-authority v1 real sides never spent, so any
+ * usage there is corruption. Player-ranked V2 has consumables disabled at
+ * creation and move validation; the journal records and confirms the exact
+ * empty usage for both real participants before Elo can settle, so no mutable
+ * post-use inventory can wedge season rollover.
  */
 export async function settlePvpConsumablesDurably(
     store: ConsumableStore,

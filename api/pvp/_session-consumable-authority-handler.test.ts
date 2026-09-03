@@ -97,11 +97,12 @@ test('new real-player casual sessions stamp v1 and expose zero consumable charge
     await handler(req, res);
     assert.equal(out.statusCode, 200);
     const session = out.body?.session;
-    assert.equal(session?.pvpConsumableAuthorityVersion, 1);
+    assert.equal(session?.pvpConsumableAuthorityVersion, 2);
     assert.equal(session?.vanguardRewardAuthorityVersion, 2);
     assert.deepEqual(session?.realFighters, { p1: true, p2: true });
-    assert.equal(session?.itemCharges?.p1?.['thrown-shuriken'], 0);
-    assert.equal(session?.itemCharges?.p2?.['thrown-shuriken'], 0);
+    // Casual PvP seals a real fighter's owned count (v2); v1 pinned it to 0.
+    assert.equal(session?.itemCharges?.p1?.['thrown-shuriken'], 2, 'p1 thrown budget is the owned count from the save');
+    assert.equal(session?.itemCharges?.p2?.['thrown-shuriken'], 2, 'p2 thrown budget is the owned count from the save');
     assert.deepEqual(session?.itemsUsed, { p1: {}, p2: {} });
 });
 
