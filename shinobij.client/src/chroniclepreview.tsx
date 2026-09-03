@@ -1,6 +1,7 @@
 // DEV-ONLY Chronicle Showdown harness. It renders the shipping board with a
 // dense deterministic match so visual reviews do not need an account, save, or
 // live duel. This HTML entry is intentionally absent from production inputs.
+import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   CHRONICLE_CARD_CATALOG,
@@ -137,10 +138,44 @@ function previewMatch() {
 const previewState = previewMatch();
 
 function Harness() {
+  // Demo controls for visual review of the transient moments (summon
+  // entrance, outcome slam) that a static projection can never show.
+  const [state, setState] = useState(previewState);
+  const demoSummon = () => {
+    const next = structuredClone(state);
+    next.p1.monsterZones[2] = {
+      ...fieldMonster("p1", 2, "tc-31"),
+      instanceId: `demo-${Date.now()}`,
+      attack: 1850,
+      defense: 1200,
+    } as (typeof next.p1.monsterZones)[number];
+    setState(next);
+  };
+  const demoEnd = (winner: "p1" | "p2") => {
+    const next = structuredClone(state);
+    next.status = "complete";
+    next.winner = winner;
+    setState(next);
+  };
   return (
     <main className="chronicle-shell chronicle-shell--duel-active">
+      <div
+        id="demo-controls"
+        style={{
+          position: "fixed",
+          top: 6,
+          right: 6,
+          zIndex: 5000,
+          display: "flex",
+          gap: 6,
+        }}
+      >
+        <button style={{ font: "11px system-ui", padding: "3px 8px" }} onClick={demoSummon}>Demo summon</button>
+        <button style={{ font: "11px system-ui", padding: "3px 8px" }} onClick={() => demoEnd("p1")}>Demo victory</button>
+        <button style={{ font: "11px system-ui", padding: "3px 8px" }} onClick={() => demoEnd("p2")}>Demo defeat</button>
+      </div>
       <ChronicleDuelBoard
-        state={previewState}
+        state={state}
         cardsById={cardsById}
         playerAvatar={chronicleDuelistAvatar("Akari of Ember") ?? "/portraits/aya.webp"}
         opponentAvatar={chronicleDuelistAvatar("The Veiled Keeper") ?? "/chronicle/keeper.webp"}
