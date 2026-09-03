@@ -266,6 +266,11 @@ export function PvpBattleScreen({
         return parsed.kind === "session" ? parsed.session : null;
     });
     const serverPlayerRanked = session?.playerRankedAuthorityVersion === 2 || session?.ranked === true;
+    // Items are live for real fighters in casual PvP (consumable authority v2:
+    // the server seals the budget from the save and deducts at settlement).
+    // They stay off for the two cases the server refuses the spend: a v1
+    // session still in flight from before the switch, and Ranked, where power
+    // is never bought.
     const realPvpItemsDisabled = (session?.pvpConsumableAuthorityVersion === 1
         && session.realFighters?.[role] === true)
         || session?.playerRankedAuthorityVersion === 2;
@@ -2399,7 +2404,7 @@ export function PvpBattleScreen({
                                             {/* ── Thrown weapon cards (green) ── */}
                                             {realPvpItemsDisabled
                                                 && (pvpEquippedThrown.length > 0 || pvpEquippedConsumables.length > 0)
-                                                && <p className="combat-action-hint">Consumables and thrown weapons are disabled for real fighters in server-authoritative PvP.</p>}
+                                                && <p className="combat-action-hint">{session?.playerRankedAuthorityVersion === 2 ? "Consumables and thrown weapons are disabled in Ranked." : "Consumables and thrown weapons are disabled for this fight."}</p>}
                                             {pvpEquippedThrown.map(item => {
                                                 const wRange = item.weaponRange ?? 4;
                                                 const isArmed = pendingWeaponId === item.id;
@@ -2418,7 +2423,7 @@ export function PvpBattleScreen({
                                                         <button
                                                             type="button"
                                                             className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
-                                                            title={realPvpItemsDisabled ? "Disabled for real fighters in PvP" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Range ${wRange} | Thrown`}
+                                                            title={realPvpItemsDisabled ? "Disabled for this fight" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Range ${wRange} | Thrown`}
                                                             onClick={() => { if (onCooldown || realPvpItemsDisabled) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
                                                             disabled={!isMyTurn || realPvpItemsDisabled || submitting || depleted || !availability.affordable}>
                                                             <span className="combat-jutsu-thumb combat-item-thumb">
@@ -2464,7 +2469,7 @@ export function PvpBattleScreen({
                                                         <button
                                                             type="button"
                                                             className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${onCooldown ? " jutsu-on-cooldown" : ""}`}
-                                                            title={realPvpItemsDisabled ? "Disabled for real fighters in PvP" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Use`}
+                                                            title={realPvpItemsDisabled ? "Disabled for this fight" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Use`}
                                                             onClick={() => { if (onCooldown || realPvpItemsDisabled) return; setInspectedJutsuId(""); clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
                                                             disabled={!isMyTurn || realPvpItemsDisabled || submitting || depleted || !availability.affordable}>
                                                             <span className="combat-jutsu-thumb combat-item-thumb">

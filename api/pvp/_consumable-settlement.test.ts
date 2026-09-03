@@ -38,6 +38,35 @@ describe('legacy PvP consumable durable settlement', () => {
         );
     });
 
+    it('deducts consumable-authority v2 usage from a real fighter\'s save', async () => {
+        const store = _makeMemoryKv();
+        await store.set('save:spender', {
+            _saveVersion: 1,
+            character: { itemStacks: [{ itemId: 'smoke', count: 2 }], inventory: [] },
+        });
+        const v2 = { ...session, pvpConsumableAuthorityVersion: 2 } as PvpSession;
+        await settlePvpConsumablesDurably(store, v2, lock, { now: 10 });
+        let record = (await store.get<Record<string, unknown>>('save:spender'))!;
+        assert.deepEqual((record.character as Record<string, unknown>).itemStacks, [{ itemId: 'smoke', count: 1 }]);
+        // Idempotent: a second claim never charges the same battle twice.
+        await settlePvpConsumablesDurably(store, v2, lock, { now: 20 });
+        record = (await store.get<Record<string, unknown>>('save:spender'))!;
+        assert.deepEqual((record.character as Record<string, unknown>).itemStacks, [{ itemId: 'smoke', count: 1 }]);
+    });
+
+    it('forgives a v2 shortfall (item moved mid-fight) instead of holding the claim hostage', async () => {
+        const store = _makeMemoryKv();
+        await store.set('save:spender', {
+            _saveVersion: 1,
+            character: { itemStacks: [], inventory: [] },
+        });
+        const v2 = { ...session, pvpConsumableAuthorityVersion: 2 } as PvpSession;
+        await settlePvpConsumablesDurably(store, v2, lock, { now: 10 });
+        const record = (await store.get<Record<string, unknown>>('save:spender'))!;
+        assert.deepEqual((record.character as Record<string, unknown>).itemStacks, []);
+        assert.deepEqual((record.character as Record<string, unknown>).inventory, []);
+    });
+
     it('fails closed when a sealed used item was moved before claim, then repairs after replenishment', async () => {
         const store = _makeMemoryKv();
         await store.set('save:spender', {
