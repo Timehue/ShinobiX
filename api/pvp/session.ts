@@ -251,11 +251,16 @@ export type PvpSession = {
     itemCharges?: { p1: Record<string, number>; p2: Record<string, number> };
     itemsUsed?: { p1: Record<string, number>; p2: Record<string, number> };
     /**
-     * V1 disables mutable-inventory consumables for every real fighter. NPCs
-     * retain their sealed combat behavior; missing-version in-flight sessions
-     * keep the legacy post-battle debit during rolling deployment.
+     * V1 disabled mutable-inventory consumables for every real fighter (the
+     * budget was pinned to zero at create and move refused the spend). V2
+     * seals a real fighter's charges from their save exactly like an NPC's,
+     * move spends against that budget, and settlement deducts what was used,
+     * forgiving any shortfall the player created by moving the item mid-fight
+     * rather than wedging their claim. Player-ranked V2 still overrides the
+     * budget to zero (see the ranked stamp below). Missing-version in-flight
+     * sessions keep the legacy post-battle debit during rolling deployment.
      */
-    pvpConsumableAuthorityVersion?: 1;
+    pvpConsumableAuthorityVersion?: 1 | 2;
     /** New sessions require the durable browser continuation/ACK protocol. */
     pvpCompletionAuthorityVersion?: 1;
     /** New sessions settle Vanguard rewards through the crash-recoverable save-marker saga. */
@@ -2672,20 +2677,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 biome: sealedBiome,
                 weatherPositiveElement: sealedWeatherPos,
                 weatherNegativeElement: sealedWeatherNeg,
-                // Real-player inventory is mutable outside the battle and cannot
-                // be atomically escrowed with this two-save session creation.
-                // V1 therefore pins every real-side consumable/throwable to zero;
-                // NPC behavior stays sealed as before.
-                itemCharges: {
-                    p1: realFighters.p1
-                        ? zeroPlayerRankedItemCharges(finalP1Character, p1SealedCharges)
-                        : p1SealedCharges,
-                    p2: realFighters.p2
-                        ? zeroPlayerRankedItemCharges(finalP2Character, p2SealedCharges)
-                        : p2SealedCharges,
-                },
+                // Casual PvP (v2): a real fighter's consumables and throwables
+                // are sealed from their save at create, the same as an NPC's,
+                // and deducted at settlement. Inventory is still mutable outside
+                // the battle, so settlement forgives a shortfall instead of
+                // holding the claim hostage — the worst case is one un-charged
+                // consumable, never a wedged victory. Player-ranked V2 below
+                // re-pins both budgets to zero.
+                itemCharges: { p1: p1SealedCharges, p2: p2SealedCharges },
                 itemsUsed: { p1: {}, p2: {} },
-                pvpConsumableAuthorityVersion: 1,
+                pvpConsumableAuthorityVersion: 2,
                 pvpCompletionAuthorityVersion: 1,
                 vanguardRewardAuthorityVersion: 2,
                 // Which sides are real players (see the type). Sealed here so

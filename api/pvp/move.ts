@@ -1800,6 +1800,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // itemCharges/itemsUsed for this role and is folded into the committed
         // session via commit's `extra`. A legacy session with no sealed budget
         // (or a melee weapon, never sealed) allows the action without tracking.
+        // Consumable-authority v1 (sessions created before real-fighter items
+        // were enabled) refuses every real-side spend; v2 seals a real budget
+        // and spends against it like any other fighter.
         function spendItemCharge(itemId: string): { ok: boolean; patch: Partial<PvpSession> } {
             const r = role as 'p1' | 'p2';
             if (session.pvpConsumableAuthorityVersion === 1 && session.realFighters?.[r] === true) {

@@ -1563,6 +1563,52 @@ test('consumable-authority v1 refuses a real casual fighter even if a stale work
     assert.equal(after.itemCharges?.p1['test-v1-smoke-bomb'], 3);
 });
 
+test('consumable-authority v2 lets a real casual fighter spend one sealed charge', async () => {
+    const smokeBomb = {
+        id: 'test-v2-smoke-bomb',
+        name: 'Smoke Bomb',
+        slot: 'item',
+        weaponCooldown: 0,
+        weaponEffect: 'Decrease Damage Given',
+        weaponEffectValue: 100,
+        weaponEffectTarget: 'both',
+        apCost: 20,
+    };
+    seed(session('smoke-v2-enabled', {
+        p1: withEquippedItem(fighter('alice', 0), smokeBomb, 'item1'),
+        pvpConsumableAuthorityVersion: 2,
+        realFighters: { p1: true, p2: true },
+        itemCharges: { p1: { 'test-v2-smoke-bomb': 3 }, p2: {} },
+        itemsUsed: { p1: {}, p2: {} },
+    }));
+
+    const out = await postMove('alice', {
+        battleId: 'smoke-v2-enabled',
+        role: 'p1',
+        action: 'item',
+        itemId: 'test-v2-smoke-bomb',
+        moveToken: 'smoke-v2-enabled-token',
+    });
+
+    assert.equal(out.statusCode, 200);
+    const after = storedSession('smoke-v2-enabled');
+    assert.doesNotMatch(after.log.at(-1) ?? '', /out of Smoke Bomb/i);
+    assert.equal(after.itemsUsed?.p1['test-v2-smoke-bomb'], 1, 'the spend is tallied for settlement');
+    assert.equal(after.itemCharges?.p1['test-v2-smoke-bomb'], 2, 'one charge leaves the sealed budget');
+
+    // The sealed budget is the whole supply: a fourth throw is refused at 0.
+    seed({ ...after, itemCharges: { p1: { 'test-v2-smoke-bomb': 0 }, p2: {} } });
+    const empty = await postMove('alice', {
+        battleId: 'smoke-v2-enabled',
+        role: 'p1',
+        action: 'item',
+        itemId: 'test-v2-smoke-bomb',
+        moveToken: 'smoke-v2-enabled-token-2',
+    });
+    assert.equal(empty.statusCode, 200);
+    assert.match(storedSession('smoke-v2-enabled').log.at(-1) ?? '', /out of Smoke Bomb/i);
+});
+
 test('terminal retry restores a missing battle receipt body with stable endedAt', async () => {
     const previous = process.env.DISABLE_COMBAT_RECEIPTS;
     process.env.DISABLE_COMBAT_RECEIPTS = '0';
