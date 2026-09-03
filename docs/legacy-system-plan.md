@@ -703,7 +703,7 @@ fails the build).
 ### 11.4 Custom-title moderation (filter-first + post-hoc review)
 
 - Extend `api/_text-moderation.ts` with `RESERVED_TITLE_TERMS` (admin, mod,
-  owner, dev, staff, official, support, GM, Kage/Hokage-authority terms,
+  owner, dev, staff, official, support, GM, Kage-authority terms,
   "server first", "hall of legends", "gate opener", every earned/server-first
   title string — generated from `data/titles.ts` so it can't drift) +
   `isAllowedCustomTitle()` = `isCleanText` ∧ no reserved term ∧ no
