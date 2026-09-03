@@ -8,7 +8,7 @@ import { type TileCard } from "../data/tile-cards";
 import { FestivalPortrait } from "../components/Pills";
 import { CardClashDuel } from "./CardClashDuel";
 import { pullBlackMarket, describeReward, BLACK_MARKET_COST, BLACK_MARKET_DAILY_CAP, type BlackMarketReward } from "../lib/black-market";
-import { FATE_DICE_COST, FATE_DICE_GLYPHS, rollFateDice, startMiraaWager, reportMiraaWager } from "../lib/sunscar-festival";
+import { FATE_DICE_GLYPHS, rollFateDice } from "../lib/sunscar-festival";
 import { BlackMarketCrate } from "../components/BlackMarketCrate";
 import festBg from "../assets/festival/fest-bg.webp";
 import kaelArt from "../assets/festival/fest-kael.webp";
@@ -26,39 +26,18 @@ export function SunscarFestival({
 }) {
     const [diceResult, setDiceResult] = useState<string[]>([]);
     const [festivalLog, setFestivalLog] = useState(
-        "Kael taps three dice against the table and waits for you to name a stake."
+        "Kael taps three dice against the table and nods at the empty stool."
     );
 
-    // -- Card Showdown state — Miraa plays Chronicle Showdown as the wager's theatre --
-    // The stake is escrowed server-side at "bet" (miraa-start → duelToken); the
-    // ryo outcome is server-rolled at settle (reportMiraaWager), never decided by
-    // the client card result. The match is the show; the fates decide the purse.
-    type DuelPhase = "idle" | "bet" | "playing";
+    // -- Card Showdown vs Miraa — UNSTAKED --
+    // Miraa used to take an even-money ryo wager here and settle it from a
+    // server-rolled die. The bet was removed 2026-09-03 for the Play content
+    // rating, so the match is free: nothing is escrowed, nothing is paid out,
+    // and leaving early costs nothing. There is no token and no settle call.
+    type DuelPhase = "idle" | "playing";
     const [duelPhase, setDuelPhase] = useState<DuelPhase>("idle");
-    const [duelBet, setDuelBet] = useState(0);
-    const [duelToken, setDuelToken] = useState<string | null>(null);
-    const miraaBusyRef = useRef(false);
     const kaelImage = kaelArt;
     const miraaImage = miraaArt;
-
-    // Open a wager: escrow the stake + mint a settle token before the match.
-    async function beginMiraaWager(amount: number) {
-        if (miraaBusyRef.current) return;
-        miraaBusyRef.current = true;
-        try {
-            const res = await startMiraaWager(character.name, amount);
-            if (!res.ok || !res.token || !res.character) {
-                setFestivalLog(`Miraa: ${res.error ?? "The wager won't hold. Try again."}`);
-                return;
-            }
-            if (!onVersionedCharacter(res.character, res._saveVersion)) return;
-            setDuelBet(amount);
-            setDuelToken(res.token);
-            setDuelPhase("playing");
-        } finally {
-            miraaBusyRef.current = false;
-        }
-    }
 
     // -- Black Market gamble (server-authoritative ryo sink) --
     const [bmBusy, setBmBusy] = useState(false);
@@ -123,52 +102,13 @@ export function SunscarFestival({
         }
     }
 
-    // -- Chronicle Showdown wager vs Miraa ---------------------------------------
-    if (duelPhase === "bet") {
-        return (
-            <div className="card" style={{ maxWidth: 480, margin: "0 auto" }}>
-                <div style={{ fontSize: "2rem", textAlign: "center", marginBottom: "0.4rem" }}>🔮</div>
-                <h2 style={{ textAlign: "center", marginBottom: "0.2rem" }}>Miraa the Card Seer</h2>
-                <p style={{ color: "#aaa", textAlign: "center", marginBottom: "0.6rem" }}>"The Showdown tells us who played better. My sealed die tells us who gets paid. If that bothers you, keep your ryo."</p>
-                <p style={{ color: "#7a6", textAlign: "center", fontSize: "0.85rem", marginBottom: "1rem" }}>Miraa takes the stake when you sit. Finish the match and she breaks the payout seal. A winning mark returns double; leaving early forfeits the stake.</p>
-                <p style={{ marginBottom: "0.8rem" }}>Your ryo: <strong>{character.ryo}</strong></p>
-                <div className="menu" style={{ flexDirection: "column", gap: "0.5rem" }}>
-                    {[50, 100, 250, 500].map((amount) => (
-                        <button key={amount}
-                            disabled={character.ryo < amount}
-                            onClick={() => void beginMiraaWager(amount)}>
-                            Bet {amount} ryo — win {amount * 2} ryo
-                        </button>
-                    ))}
-                </div>
-                <button style={{ marginTop: "1rem" }} onClick={() => setDuelPhase("idle")}>Leave</button>
-            </div>
-        );
-    }
-
+    // -- Chronicle Showdown vs Miraa (free play) ---------------------------------
     if (duelPhase === "playing") {
-        // Settle the escrowed wager. A played-out match (win/lose/draw on the
-        // board) rolls the fates server-side; leaving mid-match forfeits the stake.
-        // The board result never decides the ryo — only the server roll does.
-        const settle = async (forfeit: boolean) => {
-            const token = duelToken;
+        // No stake, no payout, no forfeit penalty — the board result is the whole
+        // result. Every exit path (win, lose, draw, leave) just returns to the
+        // festival with a line of flavour.
+        const finish = (log: string) => {
             setDuelPhase("idle");
-            setDuelToken(null);
-            if (!token) {
-                setFestivalLog("Miraa: that wager was already settled.");
-                return;
-            }
-            const res = await reportMiraaWager(character.name, token, forfeit);
-            if (!res.ok || !res.character) {
-                setFestivalLog(`Miraa: ${res.error ?? "The verdict slips into the sand. Refresh before retrying."}`);
-                return;
-            }
-            if (!onVersionedCharacter(res.character, res._saveVersion)) return;
-            const bet = res.bet ?? duelBet;
-            const log =
-                res.outcome === "win" ? `Miraa breaks the seal, sees the white mark, and pays ${bet * 2} ryo without smiling.`
-                : res.outcome === "forfeit" ? `"You left the table. I keep the stake." You forfeit ${bet} ryo.`
-                : `Miraa breaks the seal, shows you the black mark, and pockets the ${bet} ryo stake.`;
             setFestivalLog(`Miraa: ${log}`);
         };
         return (
@@ -176,10 +116,10 @@ export function SunscarFestival({
                 character={character}
                 creatorCards={creatorCards}
                 tileDifficulty="normal"
-                onDungeonWin={() => void settle(false)}
-                onDungeonLose={() => void settle(false)}
-                onDungeonDraw={() => void settle(false)}
-                onDungeonLeave={() => void settle(true)}
+                onDungeonWin={() => finish("“The white mark. Well played — this table remembers a clean hand.”")}
+                onDungeonLose={() => finish("“The black mark this time. Sit again whenever you like; it costs you nothing.”")}
+                onDungeonDraw={() => finish("“Even. The cards liked neither of us today.”")}
+                onDungeonLeave={() => finish("“Leaving early? No matter — there is no stake for me to keep.”")}
             />
         );
     }
@@ -198,7 +138,7 @@ export function SunscarFestival({
                 <h1><GiSun style={SF_ICON} />Sunscar Festival</h1>
                 <p>
                     Sector 35 hosts a caravan festival that never packed up: lanterns,
-                    sandstone courts, Chronicle tables, and three very expensive dice.
+                    sandstone courts, Chronicle tables, and three well-worn dice.
                 </p>
             </div>
 
@@ -209,7 +149,7 @@ export function SunscarFestival({
                     <p>
                         "Three dice. Five turns a day. Blame the table after that and it charges extra."
                     </p>
-                    <p><strong>Entry Cost:</strong> {FATE_DICE_COST.toLocaleString()} ryo per roll</p>
+                    <p><strong>Entry Cost:</strong> Free — five draws a day, and every draw pays</p>
                     <p><strong>Your Ryo:</strong> {character.ryo}</p>
                 </section>
 
@@ -233,10 +173,10 @@ export function SunscarFestival({
                     <FestivalPortrait image={miraaImage} icon="🃏" name="Miraa the Card Seer" />
                     <h2>Miraa the Card Seer</h2>
                     <p style={{ fontStyle: "italic", color: "#aaa", marginBottom: "0.5rem" }}>
-                        "The scribes record great battles. I use those records to keep your hands busy while the payout seal decides whether I owe you."
+                        "The scribes record great battles. I use those records to keep your hands busy. Sit down — I am not taking your ryo today."
                     </p>
-                    <p style={{ marginBottom: "0.5rem" }}>Sit for a <strong>Shinobi Chronicle Showdown</strong>, finish the match, and let Miraa break the sealed payout die. A winning mark doubles the stake.</p>
-                    <button onClick={() => setDuelPhase("bet")} style={{ marginTop: "0.5rem" }}>Challenge Miraa</button>
+                    <p style={{ marginBottom: "0.5rem" }}>Sit for a <strong>Shinobi Chronicle Showdown</strong>. The match is free: nothing is staked, nothing is owed, and you may leave whenever you like.</p>
+                    <button onClick={() => setDuelPhase("playing")} style={{ marginTop: "0.5rem" }}>Challenge Miraa</button>
                 </section>
 
                 <section className="sunscar-card npc-card">
