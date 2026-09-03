@@ -183,80 +183,8 @@ const ARRIVAL_GATE = [
     "A clipped gatehouse is unusable. No vignette, no glow halo, no backdrop, no ground plate, no cast shadow.",
 ].join("\n");
 
-// The Grand Colosseum, seen straight down. The queue rejects the shipped bowl as
-// "softer and more ornate than the city" with the sand left as "an
-// undifferentiated disk", so this asks for the city's own blocky masonry density
-// and an arena floor that is actually a floor.
-const COLOSSEUM = [
-    "A single ancient shinobi amphitheatre seen from a HIGH THREE-QUARTER GAME CAMERA, tilted steeply down but not",
-    "flat: the seating tiers must show their STEP FACES and cast short shadows onto the row below, so the bowl reads",
-    "as a deep hollow you could fall into. This is a painted game asset, NOT a flat plan, NOT a diagram, NOT a seal or",
-    "medallion. Circular, symmetrical, centred, alone on an empty transparent background.",
-    "",
-    "STRUCTURE, from the outside inward:",
-    "1. An outer ring of deep indigo-blue ceramic tile roofing over the stands, with warm brass ridge caps.",
-    "2. Concentric tiers of dark grey stone seating, each course drawn as SEPARATE RECTANGULAR BLOCKS with visible",
-    "   joints, the same chunky masonry the rest of the city is built from.",
-    "3. Four stair aisles cutting the tiers radially at north, east, south and west, each ending in an ARCHED TUNNEL",
-    "   MOUTH in the kerb wall -- a dark opening you can see into, not a painted line.",
-    "3b. Hanging cloth banners in deep red and indigo on the outer ring between the gates, and small warm lantern",
-    "   flames spaced along the top of the stands.",
-    "4. A continuous stone kerb wall ringing the arena floor.",
-    "5. The arena floor: pale raked sand, with visible rake lines curving around the ring, a darker inlaid stone",
-    "   medallion at the exact centre, and scuffed patches. The sand must read as a worked surface, NOT a flat disk.",
-    "",
-    "DENSITY, and this matters most: draw the stonework crisp and blocky at the same scale as a city street wall.",
-    "Individual blocks must be clearly readable. Do NOT render it soft, painterly, gilded or filigreed. It is working",
-    "civic masonry, not a palace. Restrained warm lantern points around the ring are fine; no glow washes.",
-    "",
-    "Fully transparent background outside the circle: no ground, no plaza, no shadow, no vignette, no glow halo,",
-    "no text. Leave a clear empty margin on all four sides; the circle may not touch any edge.",
-].join("\n");
-
-// THE QUARTER MODULE.
-//
-// The queue's own prescription for the bowl is "one repeated quarter-module
-// language". Two attempts at regenerating the whole Colosseum came back worse
-// than what ships, because a single giant painterly image is exactly the
-// problem. This authors ONE 90-degree quadrant instead, drawn to be rotated
-// four times.
-//
-// The seam is deliberate: the wedge carries HALF a gate aisle on each straight
-// edge, so four copies meet along the four gate openings the collision map
-// already has at north, east, south and west. The joins land where a stair and
-// tunnel mouth naturally interrupt the tiers, instead of across bare seating.
-const COLOSSEUM_QUARTER = [
-    "One QUARTER of an ancient shinobi amphitheatre: a 90 degree pie wedge, seen from directly above in a true overhead",
-    "plan view. The wedge's two straight edges meet at a sharp right angle in the BOTTOM-LEFT corner of the image, which",
-    "is the centre of the arena. The curved outer edge sweeps across the top-right.",
-    "",
-    "Along BOTH straight edges, running from the corner outward, lies HALF of a radial gate aisle: a flight of stone",
-    "steps flanked by a low wall, ending at the outer ring in half of an arched tunnel mouth. Drawn so that placing a",
-    "mirrored copy against that edge completes one whole stair and one whole arch.",
-    "",
-    "THE INNER CORNER IS OPEN SAND. Draw a clean quarter-disc of pale raked sand filling the corner, bounded by a",
-    "single smooth stone kerb ARC. Nothing crosses it: no wall, no step, no tier, no divider reaches the corner. Both",
-    "gate stairs STOP at the kerb arc and do not continue inward. Four copies of this wedge must form ONE round arena,",
-    "so anything drawn inside the arc becomes a spoke in a pinwheel and ruins it.",
-    "",
-    "Outside that kerb arc only, working outward: a quarter of pale raked sand with visible rake lines and",
-    "scuffing; then a continuous stone kerb wall; then four or five concentric tiers of dark grey stone seating, each",
-    "course drawn as SEPARATE RECTANGULAR BLOCKS with visible joints; then an outer ring of deep indigo-blue ceramic",
-    "roof tiles over the stands with a warm brass edge rail. Small warm lantern flames and one hanging red cloth banner",
-    "sit on the outer ring.",
-    "",
-    "DENSITY, and this matters most: crisp blocky civic masonry at the scale of a city street wall, individual blocks",
-    "clearly readable. NOT soft, NOT painterly, NOT gilded or filigreed. No people, no text, no logos.",
-    "",
-    "Fully transparent everywhere outside the wedge. No background, no ground, no shadow, no vignette, no glow halo.",
-    "The wedge must fill the frame corner to corner with no empty margin, because it will be tiled against copies of",
-    "itself: the right angle sits exactly in the bottom-left corner pixel and the curve reaches the top and right edges.",
-].join("\n");
-
 const SETS = {
     service: { prompt: SERVICE, file: "gateworks-service-source.png", size: "1536x1024" },
-    "colosseum-quarter": { prompt: COLOSSEUM_QUARTER, file: "colosseum-quarter-source.png", size: "1024x1024" },
-    colosseum: { prompt: COLOSSEUM, file: "colosseum-v2-source.png", size: "1024x1024" },
     "arrival-gate": { prompt: ARRIVAL_GATE, file: "arrival-gate-source.png", size: "1536x1024" },
     halls: { prompt: HALLS, file: "gateworks-halls-source.png", size: "1536x1024" },
     arrival: { prompt: ARRIVAL, file: "arrival-boundary-source.png", size: "1536x1024" },

@@ -121,7 +121,9 @@ import valveHouseGw from "../assets/first-pact/gateworks-v2/valve-house.png";
 import marketStallV2 from "../assets/first-pact/market-v2/market-stall-module-v2.png";
 import marketRowhouseV2 from "../assets/first-pact/market-v2/market-merchant-rowhouse-v2.png";
 import marketWorkshopV2 from "../assets/first-pact/market-v2/market-waterside-workshop-v2.png";
-import sunkenCourtColosseum from "../assets/first-pact/sunken-court-colosseum.webp";
+// The shipped bowl with its arena floor raked. Everything outside the sand is
+// byte-identical to sunken-court-colosseum.webp, which stays as the source.
+import sunkenCourtColosseum from "../assets/first-pact/gateworks-v2/colosseum-raked.webp";
 import sunkenCourtStreetProps from "../assets/first-pact/sunken-court-street-props.webp";
 import sunkenCourtTileAtlas from "../assets/first-pact/sunken-court-tile-atlas.webp";
 import senaPortrait from "../assets/first-pact/portraits/sena-vale.webp";
