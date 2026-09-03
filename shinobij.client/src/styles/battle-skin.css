@@ -7092,8 +7092,85 @@ html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help:is(:hover,
        still packing four across at 412px. Phones only: the 800-979px zoomed-
        desktop tier below keeps its own >= 100px 4:3 landscape cards. */
     @container shinobi-combat (max-width: 799px) {
+        /* Five across on a 412px phone: 68px squares. That only works because
+           Details is no longer a 44px badge floating over the card's right
+           half; it is a 24px-wide strip (WCAG 2.2 AA target) on the card's
+           right edge, so the cast surface keeps a full 44px column and its
+           centre. Owner's call, 2026-09-03: density over the 44px Details
+           floor on phones. */
         #combat .combat-action-tray .combat-equipped-jutsu-grid {
-            grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)) !important;
+            grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)) !important;
+            gap: 4px !important;
+            padding: 4px !important;
+        }
+
+        /* Square cards at every phone height: the short-phone 44px row made
+           sense when a 44px badge had to fit beside the name; a 68px square
+           holds art, a two-line name and the cost line. */
+        #combat .combat-action-tray .combat-jutsu-card-wrap,
+        #combat .combat-action-tray .combat-jutsu-card-wrap:has(> .combat-jutsu-help) {
+            display: block !important;
+            grid-template-columns: none !important;
+            grid-template-rows: none !important;
+            height: auto !important;
+            min-height: 44px !important;
+            aspect-ratio: 1 / 1 !important;
+        }
+
+        #combat .combat-action-tray .combat-jutsu-card-wrap:has(> .combat-jutsu-help) > .combat-jutsu-button {
+            position: absolute !important;
+            inset: 0 !important;
+            display: block !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-width: 0 !important;
+            min-height: 0 !important;
+        }
+
+        #combat .combat-action-tray .combat-jutsu-card-wrap > .combat-jutsu-help {
+            position: absolute !important;
+            inset: 0 0 auto auto !important;
+            z-index: 50 !important;
+            display: grid !important;
+            place-items: center !important;
+            grid-column: auto !important;
+            grid-row: auto !important;
+            width: 24px !important;
+            min-width: 24px !important;
+            height: 44px !important;
+            min-height: 44px !important;
+            padding: 0 !important;
+            border-radius: 0 8px 0 10px !important;
+        }
+
+        #combat .combat-action-tray .combat-jutsu-help > .combat-help-glyph {
+            width: 18px !important;
+            height: 18px !important;
+            font-size: 11px !important;
+        }
+
+        /* Text sized for a 68px card. The name clears the strip on the right;
+           the cost line runs the full width below it. */
+        #combat .combat-action-tray .combat-jutsu-name {
+            padding: 12px 22px 2px 3px !important;
+            font-size: 8.5px !important;
+            line-height: 1.1 !important;
+            letter-spacing: 0 !important;
+        }
+
+        /* "40 AP · R4 · CD 7" is the longest cost line; at 7px with tight
+           tracking it is 61px, inside a 68px card's 64px content box, so the
+           cooldown number survives instead of ellipsizing. */
+        #combat .combat-action-tray .combat-jutsu-info {
+            padding: 2px 1px !important;
+            font-size: 7px !important;
+            letter-spacing: -0.02em !important;
+            white-space: nowrap !important;
+        }
+
+        #combat .combat-action-tray .combat-cd-badge {
+            left: 2px !important;
+            top: 2px !important;
         }
     }
 

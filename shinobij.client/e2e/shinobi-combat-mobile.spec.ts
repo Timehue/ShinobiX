@@ -214,19 +214,21 @@ for (const mode of ["solo", "pvp"] as const) {
                 expect(Math.abs(castBox!.height - cardBox.height)).toBeLessThanOrEqual(2);
                 expect(Math.abs(artBox!.width - castBox!.width)).toBeLessThanOrEqual(2);
                 expect(Math.abs(artBox!.height - castBox!.height)).toBeLessThanOrEqual(2);
-                // Firefox can report an authored 44px box as 43.99997px after
+                // Phones pack five 68px cards across, so Details is a 24px-wide
+                // strip (the WCAG 2.2 AA target minimum — an owner's call over
+                // the 44px floor used elsewhere) on the card's right edge, 44px
+                // tall, flush with the card. The cast surface keeps a full 44px
+                // column, so its centre never lands on the strip.
+                // Firefox can report an authored 24px box as 23.99997px after
                 // device-pixel projection, so compare the rendered pixel size.
-                expect(Math.round(detailsBox!.width)).toBeGreaterThanOrEqual(44);
+                expect(Math.round(detailsBox!.width)).toBeGreaterThanOrEqual(24);
                 expect(Math.round(detailsBox!.height)).toBeGreaterThanOrEqual(44);
-                // Details keeps its 44px target pinned to the corner with the
-                // transparent edge overhanging into the inter-card gutter. The
-                // CSS reads `inset: 0 -3px auto auto`, but `right` resolves from
-                // the wrap's padding box and the wrap's own 1px border eats one
-                // of those pixels, so the overhang measured against the border
-                // box -- which is what boundingBox() returns -- is 2px, not 3.
-                // Measured 2.00 at 320, 375, 390 and 430 wide.
-                expect(Math.abs(detailsBox!.x + detailsBox!.width - (cardBox.x + cardBox.width + 2))).toBeLessThanOrEqual(1);
-                expect(Math.abs(detailsBox!.y - cardBox.y)).toBeLessThanOrEqual(1);
+                // `inset: 0 0 auto auto` resolves from the wrap's padding box,
+                // so the strip sits 1px (the wrap border) inside the border box
+                // that boundingBox() reports.
+                expect(Math.abs(detailsBox!.x + detailsBox!.width - (cardBox.x + cardBox.width))).toBeLessThanOrEqual(1.5);
+                expect(Math.abs(detailsBox!.y - cardBox.y)).toBeLessThanOrEqual(1.5);
+                expect(cardBox.width - detailsBox!.width).toBeGreaterThanOrEqual(43.9);
                 expect(glyphBox!.width).toBeLessThanOrEqual(24);
                 expect(glyphBox!.height).toBeLessThanOrEqual(24);
                 await expect(firstCard.locator(".combat-jutsu-thumb img")).toHaveCSS("object-fit", "cover");
