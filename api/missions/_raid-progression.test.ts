@@ -116,3 +116,47 @@ describe('settleRaidProgressionWithDailyCap — the claim-rewards entry point', 
         );
     });
 });
+
+/*
+ * The daily raid cap must have exactly ONE definition.
+ *
+ * Every caller passes it as `dailyLimit` into settleRaidProgressionWithDailyCap,
+ * and they all reserve against the SAME ledger key
+ * (`raid-report-count-v2:<player>:<day>`). So a second definition does not make a
+ * second cap — it makes two opinions about one counter, and the limit a raid is
+ * judged against silently depends on which endpoint reported it.
+ *
+ * It lived three times over (pvp/claim-rewards, missions/report-raid, and the
+ * PvP terminal barrier) and the duplication was only ever caught by reading. A
+ * grep is cheaper than the next audit.
+ */
+describe('daily raid cap', () => {
+    it('is defined in exactly one place across api/', async () => {
+        const { readdirSync, readFileSync } = await import('node:fs');
+        const { join, relative } = await import('node:path');
+        // Same resolution the sibling coverage ratchet uses
+        // (api/save/_version-echo-coverage.test.ts); an import.meta URL pathname
+        // arrives percent-encoded and breaks on a path with a space in it.
+        const API_DIR = join(process.cwd(), 'api');
+
+        const walk = (dir: string, out: string[] = []): string[] => {
+            for (const entry of readdirSync(dir, { withFileTypes: true })) {
+                const full = join(dir, entry.name);
+                if (entry.isDirectory()) walk(full, out);
+                else if (entry.name.endsWith('.ts') && !entry.name.includes('.test.')) out.push(full);
+            }
+            return out;
+        };
+
+        const definers = walk(API_DIR)
+            .filter((file) => /(?:const|let|var)\s+MAX_RAID_REPORTS_PER_DAY\s*=/.test(readFileSync(file, 'utf8')))
+            .map((file) => relative(API_DIR, file).replaceAll('\\', '/'))
+            .sort();
+
+        assert.deepEqual(
+            definers,
+            ['missions/_raid-progression.ts'],
+            'the daily raid cap must be defined once, beside the settler that enforces it — import it, do not redeclare it',
+        );
+    });
+});

@@ -19,6 +19,19 @@ const RANK_4_RAID_RYO = 250;
 const RANK_10_RAID_SEALS = 1;
 const RAID_CAP_TTL_SECONDS = 25 * 60 * 60;
 
+/**
+ * The shared 60-raids-per-day policy, owned here beside the settler that
+ * enforces it.
+ *
+ * Every caller passes this as `dailyLimit` and they all reserve against the SAME
+ * ledger (`raid-report-count-v2:<player>:<day>`), so a second definition does
+ * not create a second cap — it creates two different opinions about one counter,
+ * where the limit a raid is judged against depends on which endpoint reported
+ * it. It lived three times over (pvp/claim-rewards, missions/report-raid, and
+ * the PvP terminal barrier) until this became the single source.
+ */
+export const MAX_RAID_REPORTS_PER_DAY = 60;
+
 export type RaidProgressionSettlement = {
     version: 1;
     proofId: string;
