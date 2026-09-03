@@ -5,10 +5,13 @@ import {
 } from '../_settlement-receipts.js';
 import type { SettlementCard, SettlementItem } from './_catalog.js';
 import { canAppendPackableChronicleCards } from '../card-clash/_collection-cap.js';
+import { isMarketplaceCard } from '../clan/war/_card-catalog.js';
 import { effectiveItemLevelReq, meetsItemLevelReq } from '../../shared/item-level-gate.js';
 
 export type ShopPackId = 'standard' | 'epic' | 'legendary';
-export type ShopCurrency = 'ryo' | 'fateShards';
+// 'chroniclePoints' is valid for card packs only (the Basic Card Pack); shop
+// ITEMS still trade exclusively in ryo / Fate Shards via itemCurrency().
+export type ShopCurrency = 'ryo' | 'fateShards' | 'chroniclePoints';
 
 export type ShopSettlementValue =
     | { kind: 'item-purchase'; itemId: string; quantity: number; currency: ShopCurrency; totalCost: number }
@@ -18,10 +21,16 @@ export type ShopSettlementResult =
     | { ok: true; character: Record<string, unknown>; value: ShopSettlementValue; replayed: boolean }
     | { ok: false; status: 400 | 409; error: string };
 
-const PACKS: Record<ShopPackId, { count: number; rarities: SettlementCard['rarity'][]; cost: number; currency: ShopCurrency }> = {
-    standard: { count: 5, rarities: ['common', 'rare'], cost: 250, currency: 'ryo' },
-    epic: { count: 1, rarities: ['epic'], cost: 10, currency: 'fateShards' },
-    legendary: { count: 1, rarities: ['legendary'], cost: 30, currency: 'fateShards' },
+// Kept aligned with the LIVE pack table in api/card-clash/_pack.ts (the path
+// the shipped client actually buys through): same prices, currencies, rarity
+// bands, and storefront pool halves. api/_cross-build-parity.test.ts pins the
+// Shop's odds disclosure to this table, so drift here is a player-facing lie.
+const PACKS: Record<ShopPackId, { count: number; rarities: SettlementCard['rarity'][]; cost: number; currency: ShopCurrency; pool: 'shop' | 'marketplace' }> = {
+    // The Basic Card Pack costs Chronicle Points (Echoes of War), NOT ryo —
+    // this legacy settlement path must never re-grow a ryo price for it.
+    standard: { count: 5, rarities: ['common', 'rare'], cost: 100, currency: 'chroniclePoints', pool: 'shop' },
+    epic: { count: 1, rarities: ['rare', 'epic'], cost: 10, currency: 'fateShards', pool: 'marketplace' },
+    legendary: { count: 1, rarities: ['legendary'], cost: 30, currency: 'fateShards', pool: 'marketplace' },
 };
 const SHOP_SLOTS = new Set(['head', 'body', 'waist', 'legs', 'feet', 'hand', 'aura', 'weapon', 'thrown', 'item', 'potion', 'accessory']);
 const RYO_RARITIES = new Set(['common', 'uncommon', 'rare', 'epic']);
@@ -41,6 +50,8 @@ function boundedLevel(raw: unknown, max: number): number {
 }
 
 export function shopDiscountPercent(character: Record<string, unknown>, currency: ShopCurrency): number {
+    // Chronicle Points sit outside the ryo economy: no discount ever applies.
+    if (currency === 'chroniclePoints') return 0;
     if (currency === 'fateShards') return character.elderFocus === 'trade' ? 5 : 0;
     const village = character.villageUpgrades && typeof character.villageUpgrades === 'object'
         ? character.villageUpgrades as Record<string, unknown>
@@ -113,7 +124,7 @@ function replayValue(receipt: ServerSettlementReceipt): ShopSettlementValue | nu
     if (value.kind === 'card-pack'
         && (value.packId === 'standard' || value.packId === 'epic' || value.packId === 'legendary')
         && Array.isArray(value.drawn) && value.drawn.every((id) => typeof id === 'string')
-        && (value.currency === 'ryo' || value.currency === 'fateShards')
+        && (value.currency === 'ryo' || value.currency === 'fateShards' || value.currency === 'chroniclePoints')
         && whole(value.totalCost) !== null) return value as ShopSettlementValue;
     return null;
 }
@@ -222,7 +233,12 @@ export function applyCardPackPurchase(
     const fingerprint = `shop:pack:${packId}`;
     const prior = inspect(character, requestId, fingerprint);
     if (!prior.fresh) return prior.result;
-    const pool = [...cards.values()].filter((card) => pack.rarities.includes(card.rarity));
+    // Rarity band AND storefront half, mirroring api/card-clash/_pack.ts: the
+    // marketplace packs draw the best-50% pool, the Basic pack the rest.
+    // (Admin-authored custom cards are never in the marketplace set, so they
+    // stay reachable through the Basic pack only.)
+    const pool = [...cards.values()].filter((card) =>
+        pack.rarities.includes(card.rarity) && isMarketplaceCard(card.id) === (pack.pool === 'marketplace'));
     if (!pool.length) return { ok: false, status: 409, error: 'That card pack has no eligible cards. Contact support.' };
     if (!Array.isArray(character.tileCards ?? []) || !(character.tileCards as unknown[]).every((id) => typeof id === 'string')) {
         return { ok: false, status: 409, error: 'Stored card collection is invalid. Contact support.' };
@@ -232,7 +248,10 @@ export function applyCardPackPurchase(
     const balance = whole(character[pack.currency]);
     if (balance === null) return { ok: false, status: 409, error: 'Stored currency balance is invalid. Contact support.' };
     const totalCost = discountedShopCost(pack.cost, shopDiscountPercent(character, pack.currency));
-    if (balance < totalCost) return { ok: false, status: 400, error: `Not enough ${pack.currency === 'ryo' ? 'ryo' : 'Fate Shards'}.` };
+    const packCurrencyLabel = pack.currency === 'chroniclePoints'
+        ? 'Chronicle Points — win Showdowns in Echoes of War to earn more'
+        : pack.currency === 'ryo' ? 'ryo' : 'Fate Shards';
+    if (balance < totalCost) return { ok: false, status: 400, error: `Not enough ${packCurrencyLabel}.` };
 
     const drawn: string[] = [];
     for (let i = 0; i < pack.count; i += 1) {

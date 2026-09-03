@@ -1,0 +1,983 @@
+/* Echoes of War — Celestial Tower memory ladder.
+   Colocated lazy-chunk stylesheet (loads after the global manifest, so plain
+   selectors win without !important).
+
+   Art direction (handoff §26): the climb moves through four bands —
+     low  (floors 1-3):  dust, worn stone, weak gold light
+     mid  (floors 4-6):  lantern amber, sealed doors, flicker
+     high (floors 7-9):  pale distorted light, teal chakra leak
+     court (floor 10):   the council chamber, lamp against the dark
+   Band accent tokens drive node frames, spine glow, and detail framing.
+   Every animation is prefers-reduced-motion gated. */
+
+.echoes-shell {
+    --echoes-gold: #d9c88a;
+    --echoes-low: #c9a55a;
+    --echoes-mid: #e0923f;
+    --echoes-high: #57c4b8;
+    --echoes-court: #d4634f;
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 0.9rem 0.9rem 2.5rem;
+    color: #e7e2d5;
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────────── */
+.echoes-hero {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(184, 160, 106, 0.35);
+    margin-bottom: 1rem;
+    min-height: 205px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    isolation: isolate;
+}
+.echoes-hero-art {
+    position: absolute;
+    inset: 0;
+    background-position: center 30%;
+    background-size: cover;
+    z-index: -2;
+}
+@media (prefers-reduced-motion: no-preference) {
+    .echoes-hero-art {
+        animation: echoes-hero-drift 46s ease-in-out infinite alternate;
+    }
+}
+@keyframes echoes-hero-drift {
+    from { background-position: center 24%; }
+    to { background-position: center 40%; }
+}
+.echoes-hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+        linear-gradient(to top, rgba(10, 9, 6, 0.94) 0%, rgba(10, 9, 6, 0.55) 42%, rgba(10, 9, 6, 0.18) 100%);
+}
+.echoes-hero-inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.6rem 1rem;
+    padding: 3.3rem 1.1rem 0.9rem;
+}
+.echoes-hero .back-btn { position: absolute; top: 0.7rem; left: 0.7rem; }
+
+.echoes-header-titles { flex: 1 1 280px; min-width: 0; }
+.echoes-kicker {
+    display: block;
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #cbb271;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+.echoes-header-titles h1 {
+    margin: 0.15rem 0 0;
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem);
+    line-height: 1.05;
+    color: #f5eed9;
+    border-bottom: none;
+    letter-spacing: 0.03em;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
+}
+.echoes-sub {
+    margin: 0.35rem 0 0;
+    color: #c9bfa6;
+    font-size: 0.92rem;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+.echoes-header-stats {
+    flex: 1 1 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.9rem;
+    align-items: center;
+    font-size: 0.85rem;
+    color: #cfc4a8;
+}
+.echoes-points-chip {
+    display: inline-block;
+    padding: 0.3rem 0.65rem;
+    background: rgba(20, 17, 10, 0.72);
+    border: 1px solid rgba(217, 200, 138, 0.55);
+    border-radius: 6px;
+    color: #efe0b2;
+    white-space: nowrap;
+    box-shadow: 0 0 14px rgba(217, 200, 138, 0.12);
+}
+.echoes-stat {
+    padding: 0.3rem 0.15rem;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+/* Stories-completed progress bar. */
+.echoes-progress {
+    flex: 1 1 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #b6ab8d;
+}
+.echoes-progress-track {
+    flex: 1 1 auto;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(184, 160, 106, 0.25);
+    overflow: hidden;
+}
+.echoes-progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(to right, var(--echoes-low), var(--echoes-gold));
+    box-shadow: 0 0 8px rgba(217, 200, 138, 0.55);
+    transition: width 600ms ease;
+}
+
+.echoes-hero--era {
+    /* Tall enough that the bottom-justified header stack never rides
+       up under the absolute back button (the landing hero's fix,
+       applied to the shorter era variant too). */
+    min-height: 214px;
+}
+
+.echoes-ghost-btn {
+    background: rgba(20, 17, 10, 0.6);
+    border: 1px solid rgba(217, 200, 138, 0.4);
+    border-radius: 6px;
+    color: #e6d7ae;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.78rem;
+    min-height: 34px;
+}
+.echoes-ghost-btn:hover { background: rgba(217, 200, 138, 0.16); }
+
+/* ── The Ages (century plates) ────────────────────────────────────────── */
+.echoes-ages {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
+    gap: 0.9rem;
+    margin-bottom: 1rem;
+}
+@media (min-width: 760px) {
+    /* Two columns, always: four Ages read as a 2x2 chronicle spread,
+       never three-plus-an-orphan. */
+    .echoes-ages { grid-template-columns: 1fr 1fr; }
+}
+
+.echoes-age-plate {
+    --band: var(--echoes-low);
+    position: relative;
+    display: block;
+    text-align: left;
+    min-height: 196px;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--band) 45%, rgba(150, 135, 105, 0.32));
+    border-radius: 12px;
+    overflow: hidden;
+    background-size: cover;
+    background-position: center;
+    background-color: #14120d;
+    cursor: pointer;
+    isolation: isolate;
+    box-shadow:
+        inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(255, 240, 200, 0.1),
+        inset 0 0 34px rgba(0, 0, 0, 0.45),
+        0 6px 18px rgba(0, 0, 0, 0.42);
+    transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+}
+.echoes-age-plate::after {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    z-index: 0;
+    pointer-events: none;
+    border: 1px solid color-mix(in srgb, var(--band) 26%, transparent);
+    border-radius: 9px;
+}
+.echoes-age-plate--band-mid { --band: var(--echoes-mid); }
+.echoes-age-plate--band-high { --band: var(--echoes-high); }
+.echoes-age-plate--band-court { --band: var(--echoes-court); }
+
+.echoes-age-plate:not(:disabled):hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--band) 70%, transparent);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), 0 0 20px color-mix(in srgb, var(--band) 28%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+    .echoes-age-plate:not(:disabled):hover { transform: none; }
+}
+
+.echoes-age-plate-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    /* Art-forward: the banner art carries the right half; the text
+       rides a directional scrim on the left instead of a full dim. */
+    background:
+        linear-gradient(to top, rgba(10, 9, 6, 0.78) 0%, rgba(10, 9, 6, 0) 34%),
+        linear-gradient(100deg,
+            rgba(10, 9, 6, 0.88) 0%,
+            rgba(10, 9, 6, 0.5) 36%,
+            rgba(10, 9, 6, 0.06) 64%,
+            color-mix(in srgb, var(--band) 16%, rgba(10, 9, 6, 0)) 100%);
+}
+.echoes-age-plate--locked { cursor: not-allowed; }
+.echoes-age-plate--locked .echoes-age-plate-scrim {
+    background:
+        linear-gradient(100deg, rgba(8, 8, 9, 0.94) 0%, rgba(8, 8, 9, 0.86) 55%, rgba(10, 11, 14, 0.72) 100%);
+}
+.echoes-age-plate--locked .echoes-age-plate-title { color: #b8b2a4; }
+.echoes-age-plate--locked .echoes-age-plate-tagline { color: #a49e91; }
+.echoes-age-plate--complete { border-color: rgba(126, 166, 116, 0.5); }
+
+.echoes-age-plate-body {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    height: 100%;
+    padding: 0.9rem 1rem;
+}
+.echoes-age-plate-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--band) 60%, #d9c88a);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+.echoes-age-plate-title {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(1.7rem, 3.2vw, 2.2rem);
+    line-height: 1.06;
+    color: #f6eed8;
+    letter-spacing: 0.02em;
+    text-shadow:
+        0 2px 0 rgba(20, 15, 6, 0.85),
+        0 6px 18px rgba(0, 0, 0, 0.95);
+}
+.echoes-age-plate-tagline {
+    font-size: 0.86rem;
+    color: #cec4ab;
+    line-height: 1.45;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    max-width: 34ch;
+}
+.echoes-age-plate-progress {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding-top: 0.5rem;
+}
+.echoes-age-plate-track {
+    flex: 1 1 auto;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+}
+.echoes-age-plate-fill {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--band) 75%, #d9c88a);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--band) 60%, transparent);
+    transition: width 500ms ease;
+}
+.echoes-age-plate-count {
+    font-size: 0.76rem;
+    color: #d4c89e;
+    white-space: nowrap;
+}
+.echoes-age-plate-lock { margin-top: auto; font-size: 1.1rem; padding-top: 0.5rem; }
+
+.echoes-ladder--era::before { top: 0.6rem; bottom: 0.6rem; background: linear-gradient(to top, color-mix(in srgb, var(--band, #d9c88a) 55%, transparent), rgba(150, 135, 105, 0.14)); }
+
+/* ── Panels ───────────────────────────────────────────────────────────── */
+.echoes-panel {
+    background: rgba(20, 18, 14, 0.82);
+    border: 1px solid rgba(150, 135, 105, 0.28);
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+    margin-bottom: 0.9rem;
+}
+.echoes-resume-note {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    border-color: rgba(217, 200, 138, 0.45);
+}
+.echoes-resume-note p { margin: 0; color: #d9cfae; }
+
+/* ── Ladder ───────────────────────────────────────────────────────────── */
+.echoes-ladder {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 1.2rem;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+/* The climb: a spine that stays cold above your progress and burns gold
+   through the floors you have finished. --echoes-progress is set inline. */
+.echoes-ladder::before {
+    content: "";
+    position: absolute;
+    left: 0.38rem;
+    top: 1rem;
+    bottom: 1rem;
+    width: 3px;
+    border-radius: 2px;
+    background: linear-gradient(
+        to top,
+        var(--echoes-gold) 0%,
+        rgba(217, 200, 138, 0.85) calc(var(--echoes-progress, 10%) - 4%),
+        rgba(150, 135, 105, 0.16) calc(var(--echoes-progress, 10%) + 4%),
+        rgba(150, 135, 105, 0.14) 100%
+    );
+    box-shadow: 0 0 10px rgba(217, 200, 138, 0.2);
+}
+
+.echoes-node {
+    --band: var(--echoes-low);
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    background:
+        linear-gradient(100deg, rgba(24, 21, 16, 0.94) 55%, rgba(24, 21, 16, 0.72)),
+        linear-gradient(rgba(24, 21, 16, 0.9), rgba(24, 21, 16, 0.9));
+    border: 1px solid rgba(150, 135, 105, 0.26);
+    border-left: 3px solid color-mix(in srgb, var(--band) 55%, transparent);
+    border-radius: 10px;
+    padding: 0.65rem 0.8rem;
+    position: relative;
+    transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.echoes-node--band-mid { --band: var(--echoes-mid); }
+.echoes-node--band-high { --band: var(--echoes-high); }
+.echoes-node--band-court { --band: var(--echoes-court); }
+
+.echoes-node--available:hover,
+.echoes-node--cleared:hover {
+    transform: translateX(4px);
+    border-color: color-mix(in srgb, var(--band) 55%, rgba(150, 135, 105, 0.26));
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45), 0 0 14px color-mix(in srgb, var(--band) 22%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+    .echoes-node--available:hover,
+    .echoes-node--cleared:hover { transform: none; }
+}
+
+.echoes-node--boss {
+    border-color: rgba(212, 99, 79, 0.55);
+    background:
+        linear-gradient(100deg, rgba(31, 17, 14, 0.95) 55%, rgba(31, 17, 14, 0.75)),
+        linear-gradient(rgba(24, 21, 16, 0.9), rgba(24, 21, 16, 0.9));
+}
+.echoes-node--locked { opacity: 0.78; }
+
+/* "You are here": the highest open, uncleared memory breathes faintly. */
+.echoes-node--current { border-color: color-mix(in srgb, var(--band) 70%, transparent); }
+@media (prefers-reduced-motion: no-preference) {
+    .echoes-node--current {
+        animation: echoes-node-breathe 3.2s ease-in-out infinite;
+    }
+}
+@keyframes echoes-node-breathe {
+    0%, 100% { box-shadow: 0 0 0 rgba(0, 0, 0, 0); }
+    50% { box-shadow: 0 0 18px color-mix(in srgb, var(--band) 30%, transparent); }
+}
+
+.echoes-node-floor {
+    flex: 0 0 auto;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(184, 160, 106, 0.12);
+    border: 1px solid color-mix(in srgb, var(--band) 60%, transparent);
+    color: var(--echoes-gold);
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+.echoes-node--boss .echoes-node-floor { color: #f0a08c; }
+
+.echoes-node-portrait {
+    flex: 0 0 auto;
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 1px solid color-mix(in srgb, var(--band) 45%, rgba(150, 135, 105, 0.4));
+    background: #0d0c09;
+}
+.echoes-node--locked .echoes-node-portrait {
+    filter: brightness(0.16) saturate(0.15);
+}
+
+.echoes-node-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.14rem;
+}
+.echoes-node-name { font-size: 0.98rem; color: #efe6cd; }
+.echoes-node-meta { font-size: 0.78rem; color: #a89f8c; }
+.echoes-node-reward { font-size: 0.78rem; color: #cdb877; }
+.echoes-node-seal {
+    display: inline-block;
+    margin-left: 0.4rem;
+    font-size: 0.72rem;
+    color: #9fc292;
+    border: 1px solid rgba(126, 166, 116, 0.45);
+    border-radius: 4px;
+    padding: 0 0.35rem;
+    vertical-align: 1px;
+}
+
+.echoes-node-action {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 0.45rem 0.85rem;
+}
+
+.echoes-primary {
+    background: rgba(184, 160, 106, 0.18);
+    border-color: rgba(184, 160, 106, 0.6);
+    color: #f2e6bf;
+    min-height: 44px;
+}
+.echoes-primary:hover {
+    background: rgba(184, 160, 106, 0.3);
+    box-shadow: 0 0 12px rgba(217, 200, 138, 0.25);
+}
+
+.echoes-footnote {
+    margin-top: 1rem;
+    font-size: 0.78rem;
+    color: #8f887a;
+}
+
+/* ── Detail ───────────────────────────────────────────────────────────── */
+.echoes-detail-stage {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--band, var(--echoes-low)) 45%, rgba(150, 135, 105, 0.3));
+    isolation: isolate;
+}
+.echoes-detail-stage.echoes-detail-stage--boss {
+    border-color: rgba(212, 99, 79, 0.6);
+    box-shadow: 0 0 26px rgba(212, 99, 79, 0.14);
+}
+.echoes-detail-backdrop {
+    position: absolute;
+    inset: 0;
+    background-position: center;
+    background-size: cover;
+    z-index: -2;
+}
+.echoes-detail-stage::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(100deg, rgba(12, 10, 7, 0.93) 30%, rgba(12, 10, 7, 0.72) 70%, rgba(12, 10, 7, 0.5));
+}
+.echoes-detail {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    background: none;
+    border: none;
+    margin-bottom: 0;
+}
+
+.echoes-detail-portrait-wrap {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.45rem;
+}
+.echoes-detail-portrait {
+    width: 156px;
+    height: 156px;
+    max-width: 100%;
+    border-radius: 10px;
+    object-fit: cover;
+    border: 2px solid color-mix(in srgb, var(--band, var(--echoes-low)) 55%, rgba(150, 135, 105, 0.45));
+    background: #0d0c09;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
+}
+.echoes-cleared-mark {
+    font-size: 0.75rem;
+    color: #9fc292;
+    border: 1px solid rgba(126, 166, 116, 0.45);
+    border-radius: 5px;
+    padding: 0.14rem 0.5rem;
+    background: rgba(12, 10, 7, 0.6);
+}
+.echoes-boss-mark {
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #f0a08c;
+    border: 1px solid rgba(212, 99, 79, 0.55);
+    border-radius: 5px;
+    padding: 0.14rem 0.5rem;
+    background: rgba(31, 17, 14, 0.7);
+}
+
+.echoes-detail-body { flex: 1 1 280px; min-width: 0; }
+.echoes-blurb { margin: 0 0 0.7rem; color: #d6cdb9; line-height: 1.55; }
+
+.echoes-facts { margin: 0 0 0.7rem; }
+.echoes-facts div {
+    display: flex;
+    gap: 0.6rem;
+    padding: 0.2rem 0;
+    border-bottom: 1px dashed rgba(150, 135, 105, 0.18);
+}
+.echoes-facts dt {
+    flex: 0 0 6.2rem;
+    color: #cbb271;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.echoes-facts dd { margin: 0; font-size: 0.88rem; color: #e2d9c4; }
+
+.echoes-chronicle-note {
+    font-style: italic;
+    color: #c5b78e;
+    border-left: 3px solid rgba(217, 200, 138, 0.55);
+    padding-left: 0.6rem;
+    margin: 0 0 0.7rem;
+    line-height: 1.55;
+    background: rgba(217, 200, 138, 0.05);
+    border-radius: 0 6px 6px 0;
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+}
+
+.echoes-locked-note { color: #a89f8c; margin: 0 0 0.7rem; }
+
+.echoes-detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.echoes-detail-actions button { min-height: 44px; }
+
+/* ── "Entering the memory" veil ───────────────────────────────────────── */
+/* ── The matchup splash ─────────────────────────────────────────────────
+   The beat between choosing a Showdown and the board mounting. The floor's
+   own scene art backs it; the echo and the challenger slide in across a
+   slashed divide. Skipped entirely under prefers-reduced-motion (the
+   screen never mounts it), so the animations here only ever play for
+   motion-tolerant viewers. */
+.echoes-veil {
+    position: fixed;
+    inset: 0;
+    /* Above the app's side rails and menus (which live at z <= 1200)
+       but far below the critical-modal and re-auth bands: the splash
+       is a true fullscreen takeover for its 1.65s. */
+    z-index: 2500;
+    overflow: hidden;
+    background: rgba(8, 7, 5, 0.985);
+    pointer-events: all;
+}
+.echoes-veil::before {
+    content: "";
+    position: absolute;
+    inset: -3%;
+    background: var(--vs-scene) center / cover no-repeat;
+    filter: blur(3px) saturate(0.85) brightness(0.62);
+    opacity: 0.85;
+}
+.echoes-veil::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(ellipse at center, color-mix(in srgb, var(--band, #d9c88a) 16%, transparent), transparent 58%),
+        linear-gradient(rgba(5, 4, 3, 0.5), rgba(5, 4, 3, 0.72));
+}
+.echoes-vs-slash {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+}
+.echoes-vs-slash::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: min(46vmin, 460px);
+    height: min(46vmin, 460px);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    background: radial-gradient(
+        circle,
+        color-mix(in srgb, var(--band, #d9c88a) 26%, transparent) 0%,
+        color-mix(in srgb, var(--band, #d9c88a) 10%, transparent) 34%,
+        transparent 68%
+    );
+}
+.echoes-vs-slash::before {
+    content: "";
+    position: absolute;
+    top: -12%;
+    bottom: -12%;
+    left: 50%;
+    width: 3px;
+    transform: rotate(16deg);
+    background: linear-gradient(
+        transparent,
+        color-mix(in srgb, var(--band, #d9c88a) 85%, #fff) 30%,
+        color-mix(in srgb, var(--band, #d9c88a) 85%, #fff) 70%,
+        transparent
+    );
+    box-shadow: 0 0 28px 4px color-mix(in srgb, var(--band, #d9c88a) 45%, transparent);
+}
+.echoes-vs-slash b {
+    position: relative;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(4.4rem, 15vmin, 9.5rem);
+    font-style: italic;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+    background: linear-gradient(
+        173deg,
+        #fdf2cd 12%,
+        #f0ca82 38%,
+        #a9791f 52%,
+        #f6dc9c 66%,
+        #caa14a 88%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter:
+        drop-shadow(0 3px 0 rgba(32, 22, 6, 0.95))
+        drop-shadow(0 10px 26px rgba(0, 0, 0, 0.85))
+        drop-shadow(0 0 40px color-mix(in srgb, var(--band, #d9c88a) 55%, transparent));
+}
+/* The splash content lives on a centered stage sized to the play
+   column, so the app's persistent side rails never eat a panel. */
+.echoes-vs-stage {
+    position: absolute;
+    inset: 0;
+    max-width: 1180px;
+    margin-inline: auto;
+}
+.echoes-vs-panel {
+    position: absolute;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: clamp(0.8rem, 2.4vmin, 1.6rem);
+}
+.echoes-vs-panel--echo {
+    top: clamp(0.5rem, 6%, 3rem);
+    right: clamp(1rem, 13%, 10rem);
+    flex-direction: row-reverse;
+    text-align: right;
+}
+.echoes-vs-panel--challenger {
+    bottom: clamp(1.5rem, 9%, 4rem);
+    left: clamp(1rem, 13%, 10rem);
+    text-align: left;
+}
+.echoes-vs-portrait {
+    width: clamp(170px, 40vmin, 400px);
+    height: clamp(220px, 52vmin, 520px);
+    flex: none;
+    background-position: center top;
+    background-size: cover;
+    /* Soft-edged mask melts the figure into the scene instead of a
+       hard pasted rectangle; the slash keeps a diagonal bias. */
+    -webkit-mask-image:
+        linear-gradient(106deg, transparent 2%, #000 16%, #000 84%, transparent 98%),
+        linear-gradient(to bottom, #000 78%, transparent 99%);
+    mask-image:
+        linear-gradient(106deg, transparent 2%, #000 16%, #000 84%, transparent 98%),
+        linear-gradient(to bottom, #000 78%, transparent 99%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+    filter:
+        drop-shadow(0 18px 34px rgba(0, 0, 0, 0.8))
+        drop-shadow(0 0 30px color-mix(in srgb, var(--band, #d9c88a) 46%, transparent));
+}
+/* Kinetic streaks trailing each fighter along the slash axis. */
+.echoes-vs-panel::before {
+    content: "";
+    position: absolute;
+    inset: -18% -30%;
+    z-index: -1;
+    pointer-events: none;
+    transform: rotate(16deg);
+    background: repeating-linear-gradient(
+        90deg,
+        transparent 0 34px,
+        color-mix(in srgb, var(--band, #d9c88a) 26%, transparent) 34px 37px,
+        transparent 37px 92px,
+        color-mix(in srgb, var(--band, #d9c88a) 14%, transparent) 92px 94px
+    );
+    -webkit-mask-image: radial-gradient(75% 62% at 50% 50%, #000 22%, transparent 74%);
+    mask-image: radial-gradient(75% 62% at 50% 50%, #000 22%, transparent 74%);
+    opacity: 0.6;
+}
+.echoes-vs-portrait--mark {
+    display: grid;
+    place-items: center;
+    background:
+        radial-gradient(circle at 40% 28%, color-mix(in srgb, var(--band, #d9c88a) 30%, transparent), transparent 45%),
+        linear-gradient(150deg, #241d12, #0b0906);
+    color: #efdda6;
+    font-family: Georgia, serif;
+    font-size: clamp(2.6rem, 9vmin, 5rem);
+    font-weight: 900;
+}
+.echoes-vs-id {
+    display: grid;
+    gap: 0.3rem;
+    min-width: 0;
+}
+.echoes-vs-id small {
+    color: color-mix(in srgb, var(--band, #d9c88a) 78%, #fff);
+    font-size: clamp(0.62rem, 1.5vmin, 0.8rem);
+    font-weight: 800;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    text-shadow: 0 1px 3px #000;
+}
+.echoes-vs-id strong {
+    color: #f6ecc9;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(1.8rem, 6.6vmin, 4.2rem);
+    font-weight: 900;
+    line-height: 1.02;
+    letter-spacing: 0.03em;
+    text-shadow:
+        0 2px 0 rgba(24, 18, 8, 0.9),
+        0 8px 26px rgba(0, 0, 0, 0.85);
+}
+.echoes-vs-id em {
+    color: #cdbd93;
+    font-size: clamp(0.78rem, 2vmin, 1.02rem);
+    font-style: italic;
+    letter-spacing: 0.08em;
+    text-shadow: 0 1px 3px #000;
+}
+.echoes-vs-caption {
+    position: absolute;
+    right: 0;
+    bottom: clamp(0.4rem, 2.5vh, 1.3rem);
+    left: 0;
+    z-index: 2;
+}
+.echoes-veil-text {
+    color: #e8dcb5;
+    font-size: 1.05rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 0 1rem;
+}
+.echoes-veil-text small {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    color: #a89a76;
+}
+@media (max-width: 700px) {
+    .echoes-vs-panel--echo,
+    .echoes-vs-panel--challenger {
+        right: 0;
+        left: 0;
+        flex-direction: column;
+        justify-content: center;
+        text-align: center;
+    }
+    .echoes-vs-panel--echo { top: clamp(0.5rem, 4vh, 2rem); }
+    .echoes-vs-panel--challenger { bottom: clamp(1.6rem, 7vh, 3.4rem); }
+    .echoes-vs-portrait {
+        width: clamp(120px, 38vmin, 200px);
+        height: clamp(120px, 38vmin, 200px);
+        /* contain, not cover: the stacked mobile frame must never crop
+           a face — the soft mask absorbs any letterboxing. */
+        background-size: contain;
+        background-position: center bottom;
+    }
+}
+@media (prefers-reduced-motion: no-preference) {
+    .echoes-veil { animation: echoes-veil-in 600ms ease both; }
+    .echoes-vs-panel--echo { animation: echoes-vs-from-right 640ms cubic-bezier(0.16, 0.84, 0.3, 1) both; }
+    .echoes-vs-panel--challenger { animation: echoes-vs-from-left 640ms cubic-bezier(0.16, 0.84, 0.3, 1) both; }
+    .echoes-vs-slash b { animation: echoes-vs-stamp 460ms cubic-bezier(0.2, 1.2, 0.36, 1) 240ms both; }
+    .echoes-vs-caption { animation: echoes-veil-text 700ms ease 650ms both; }
+}
+@keyframes echoes-veil-in {
+    from { opacity: 0; }
+    30% { opacity: 1; }
+    to { opacity: 1; }
+}
+@keyframes echoes-veil-text {
+    from { opacity: 0; transform: translateY(8px); letter-spacing: 0.34em; }
+    to { opacity: 1; transform: translateY(0); letter-spacing: 0.22em; }
+}
+@keyframes echoes-vs-from-right {
+    from { opacity: 0; transform: translateX(64px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+@keyframes echoes-vs-from-left {
+    from { opacity: 0; transform: translateX(-64px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+@keyframes echoes-vs-stamp {
+    from { opacity: 0; transform: scale(2.1); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* ── Showdown result (rendered inside the chronicle shell) ────────────── */
+.echoes-result-panel {
+    border: 1px solid rgba(217, 200, 138, 0.4);
+    background:
+        radial-gradient(ellipse at 50% 0%, rgba(217, 200, 138, 0.1), transparent 60%),
+        rgba(16, 14, 10, 0.92);
+    overflow: hidden;
+}
+.echoes-result-panel.echoes-result--defeat {
+    border-color: rgba(150, 135, 105, 0.35);
+    background:
+        radial-gradient(ellipse at 50% 0%, rgba(120, 110, 100, 0.08), transparent 60%),
+        rgba(14, 13, 11, 0.92);
+}
+.echoes-result-title {
+    font-size: clamp(1.6rem, 4vw, 2.2rem);
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: #f2e6bf;
+    margin: 0.2rem 0 0.1rem;
+    text-shadow: 0 0 18px rgba(217, 200, 138, 0.35);
+}
+.echoes-result--defeat .echoes-result-title {
+    color: #cfc4ae;
+    text-shadow: none;
+}
+.echoes-result-sub {
+    margin: 0 0 0.75rem;
+    color: #b6ab8d;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+}
+.echoes-reward-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+.echoes-reward-row {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.55rem;
+    padding: 0.3rem 0.85rem;
+    border: 1px solid rgba(217, 200, 138, 0.35);
+    border-radius: 7px;
+    background: rgba(217, 200, 138, 0.07);
+    color: #e9ddb6;
+    font-size: 0.95rem;
+}
+.echoes-reward-row strong { color: #f5ebc8; font-size: 1.05rem; }
+.echoes-reward-row--first {
+    border-color: rgba(217, 200, 138, 0.7);
+    background: linear-gradient(100deg, rgba(217, 200, 138, 0.16), rgba(217, 200, 138, 0.06));
+    position: relative;
+    overflow: hidden;
+}
+.echoes-reward-row--chapter {
+    border-color: rgba(212, 99, 79, 0.65);
+    background: linear-gradient(100deg, rgba(212, 99, 79, 0.18), rgba(212, 99, 79, 0.06));
+    color: #f4c9bc;
+}
+.echoes-reward-row--balance {
+    border-style: dashed;
+    background: none;
+    color: #c5b98f;
+}
+.echoes-result-unlock {
+    margin: 0 0 0.6rem;
+    color: #9fc292;
+    font-size: 0.9rem;
+    letter-spacing: 0.06em;
+}
+@media (prefers-reduced-motion: no-preference) {
+    .echoes-result-title { animation: echoes-title-punch 480ms cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+    /* Staggered reveal. The keyframe floors at opacity 0.35 (not 0) on purpose:
+       a CSS timeline that never advances — the non-compositing preview pane,
+       or any browser that stalls animations while reporting no-preference —
+       leaves the reward numbers DIMMED BUT READABLE rather than invisible. In
+       a real browser they fade to full as intended. */
+    .echoes-reward-row { animation: echoes-row-in 420ms ease both; }
+    .echoes-reward-row:nth-child(1) { animation-delay: 200ms; }
+    .echoes-reward-row:nth-child(2) { animation-delay: 400ms; }
+    .echoes-reward-row:nth-child(3) { animation-delay: 600ms; }
+    .echoes-reward-row:nth-child(4) { animation-delay: 800ms; }
+    .echoes-result-unlock { animation: echoes-row-in 420ms ease 950ms both; }
+    .echoes-reward-row--first::after {
+        content: "";
+        position: absolute;
+        inset: -40% -60%;
+        background: linear-gradient(115deg, transparent 42%, rgba(255, 246, 214, 0.35) 50%, transparent 58%);
+        animation: echoes-shimmer 1.9s ease 900ms 2;
+    }
+}
+@keyframes echoes-title-punch {
+    from { opacity: 0.4; transform: scale(1.25); letter-spacing: 0.5em; }
+    to { opacity: 1; transform: scale(1); letter-spacing: 0.28em; }
+}
+@keyframes echoes-row-in {
+    from { opacity: 0.35; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes echoes-shimmer {
+    from { transform: translateX(-70%); }
+    to { transform: translateX(70%); }
+}
+
+/* ── Small screens ────────────────────────────────────────────────────── */
+@media (max-width: 560px) {
+    .echoes-shell { padding: 0.6rem 0.6rem 2rem; }
+    .echoes-hero { min-height: 170px; }
+    /* Clear the absolute back button (top 0.7rem + 44px touch target) so the
+       eyebrow never sits under it on a narrow hero. */
+    .echoes-hero-inner { padding: 3.9rem 0.8rem 0.75rem; }
+    .echoes-node { flex-wrap: wrap; }
+    .echoes-node-action { flex-basis: 100%; }
+    .echoes-detail-portrait { width: 120px; height: 120px; }
+}

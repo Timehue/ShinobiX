@@ -223,6 +223,7 @@ const ClanWarTileCardDuel = lazyWithRetry(() => import("./screens/ClanWarTileCar
 const ShinobiCouncilHall = lazyWithRetry(() => import("./screens/ShinobiCouncilHall").then(m => ({ default: m.ShinobiCouncilHall })));
 const CardClashDuel = lazyWithRetry(() => import("./screens/CardClashDuel").then(m => ({ default: m.CardClashDuel })));
 const CardHall = lazyWithRetry(() => import("./screens/CardHall").then(m => ({ default: m.CardHall })));
+const EchoesOfWar = lazyWithRetry(() => import("./screens/EchoesOfWar").then(m => ({ default: m.EchoesOfWar })));
 const GuidesLibrary = lazyWithRetry(() => import("./components/GuidesLibrary").then(m => ({ default: m.GuidesLibrary })));
 const DungeonEncounter = lazyWithRetry(() => import("./screens/Dungeon").then(m => ({ default: m.DungeonEncounter })));
 const DungeonPetBattle = lazyWithRetry(() => import("./screens/Dungeon").then(m => ({ default: m.DungeonPetBattle })));
@@ -571,28 +572,8 @@ import {
 // to ./data/sectors. villagePageImage lives in ./lib/village-page-image so the
 // panorama assets sit behind lazy village/world-map screens.
 
-const ARENA_ART_BY_BIOME: Record<Biome, readonly [string, string]> = {
-    forest: ["/arena-forest.webp", "/arena-forest-floor.webp"],
-    snow: ["/arena-snow.webp", "/arena-snow-floor.webp"],
-    volcano: ["/arena-volcano.webp", "/arena-volcano-floor.webp"],
-    shadow: ["/arena-shadow.webp", "/arena-shadow-floor.webp"],
-    central: ["/arena-central.webp", "/arena-central-floor.webp"],
-};
-const DEATHSGATE_ARENA_ART = ["/deathsgate-arena.webp", "/deathsgate-arena-floor.webp"] as const;
-const preloadedBattleArt = new Set<string>();
-
-function preloadBattleArtUrl(url: string) {
-    if (preloadedBattleArt.has(url)) return;
-    preloadedBattleArt.add(url);
-    const img = new Image();
-    img.decoding = "async";
-    img.src = url;
-}
-
-function preloadBattleEntryAssets(biome: Biome, sector: number) {
-    const urls = sector === 99 ? DEATHSGATE_ARENA_ART : ARENA_ART_BY_BIOME[biome];
-    urls.forEach(preloadBattleArtUrl);
-}
+// Battle-entry arena art warmup moved verbatim to ./lib/battle-art-preload.
+import { preloadBattleEntryAssets } from "./lib/battle-art-preload";
 // specialties + jutsuElements live in ./data/jutsu (imported above for internal
 // use; JutsuDropdownList imports them directly from ./data/jutsu).
 // adminIconOptions moved to ./data/admin-icons; re-exported for existing importers.
@@ -6585,7 +6566,6 @@ export default function App() {
                         publicPlayerBloodlines={publicPlayerBloodlines}
                         triggeredEvents={triggeredEvents}
                         setTriggeredEvents={setTriggeredEvents}
-                        onStartEndlessBattle={startEndlessBattle}
                         onStartDungeon={(event) => { void triggerDungeonEncounter("centralHub", event); }}
                         onVersionedCharacter={commitVersionedCharacter}
                         onServerVersion={(version) => { acceptExternalSaveVersion(version, character.name); }}
@@ -6639,9 +6619,9 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorItems={creatorItems} allServerPlayers={allServerPlayers} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} sharedImages={sharedImages} setScreen={setScreen} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} creatorItems={creatorItems} setScreen={setScreen} sharedImages={sharedImages} onRecordBattle={recordBattle} towerHostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} />}
                 {!activeTriggeredEvent && screen === "bank" && character && <Bank character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} />}
-                {!activeTriggeredEvent && screen === "shop" && character && <Shop character={character} creatorItems={creatorItems} creatorCards={creatorCards} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
+                {!activeTriggeredEvent && screen === "shop" && character && <Shop character={character} creatorItems={creatorItems} creatorCards={creatorCards} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} onOpenEchoesOfWar={() => setScreen("echoesOfWar")} />}
                 {!activeTriggeredEvent && screen === "premiumShop" && character && <PremiumShop character={character} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
-                {!activeTriggeredEvent && screen === "grandMarketplace" && character && <GrandMarketplace character={character} creatorItems={creatorItems} creatorCards={creatorCards} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
+                {!activeTriggeredEvent && screen === "grandMarketplace" && character && <GrandMarketplace character={character} creatorItems={creatorItems} creatorCards={creatorCards} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} onOpenEchoesOfWar={() => setScreen("echoesOfWar")} />}
                 {!activeTriggeredEvent && screen === "shinobiTiles" && character && <CardHall character={character} updateCharacter={setCharacter} creatorCards={creatorCards} onBack={goBack} autoStart={cardAutoStart} onAutoStartConsumed={() => setCardAutoStart(false)} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} onStartFreePlay={(matchId) => { try { sessionStorage.setItem("cardClashFreePlay.v1", JSON.stringify({ matchId })); } catch { /* ignore */ } setScreen("cardClashFreePlay"); }} />}
                 {!activeTriggeredEvent && screen === "guides" && <GuidesLibrary onExit={goBack} />}
                 {!activeTriggeredEvent && screen === "eventTiles" && character && pendingEventEncounter && <CardClashDuel character={character} creatorCards={creatorCards} tileDifficulty={pendingEventEncounter.battle?.tileDifficulty ?? "normal"} onDungeonWin={completeEventEncounter} onDungeonLeave={leaveEventEncounter} />}
@@ -6680,6 +6660,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={goBack} initialWith={viewingUserName} />}
                 {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={setScreen} playerRoster={playerRoster} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "worldCrisis" && character && <WorldCrisis character={character} setScreen={navigate} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} onRecordBattle={recordBattle} hostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} />}
+                {!activeTriggeredEvent && screen === "echoesOfWar" && character && <EchoesOfWar character={character} creatorCards={creatorCards} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "endlessTower" && character && (
                     <EndlessTowerLobby
                         character={character}

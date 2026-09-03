@@ -433,7 +433,11 @@ import { readFileSync } from "node:fs";
 // inline fetch threw on every non-2xx, which turned a decided refusal into a
 // permanent PvP settlement lockout; the extraction is what let that rule be
 // stated once and unit-tested. App.tsx is 7083, budget is count + 5.
-const MAX_LINES = 7_088;
+// 2026-09-02: the a82626ff7 merge union landed 1 over the zero-spare 7,088
+// (both parents were green alone), paid for by draining the battle-art
+// preloader to lib/battle-art-preload.ts (7,089 -> 7,069). Small buffer kept
+// so the next cross-branch merge doesn't red the gate on arithmetic alone.
+const MAX_LINES = 7_072;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

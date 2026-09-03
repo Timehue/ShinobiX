@@ -30,6 +30,11 @@ import {
   DUNGEON_CARD_AUTHORITY_VERSION,
   applyDungeonCardTerminal,
 } from "../dungeon/_encounter-proof.js";
+import {
+  applyEchoesVictory,
+  echoesEncounterById,
+  type EchoesVictorySummary,
+} from "./_echoes-catalog.js";
 
 const MATCH_ID_RE = /^[0-9a-fA-F-]{20,80}$/;
 const ACTIONS = new Set([
@@ -63,6 +68,9 @@ type SettledReward = {
   dailyBonus: boolean;
   /** A surrender is a terminal receipt, not a paid/completed match. */
   forfeited?: true;
+  /** Echoes of War campaign payout, recorded in the same replay receipt so a
+   * settle retry hands back the identical summary without paying twice. */
+  echoes?: EchoesVictorySummary;
 };
 type AiLegacyCredit = { receiptId: string; status: "pending" | "done" | "skipped" };
 type StoredSession = AiMatchSession & {
@@ -223,7 +231,7 @@ async function settle(
         dailyBonus: reward.dailyBonus,
         ...(forfeited ? { forfeited: true as const } : {}),
       };
-      const nextCharacter = {
+      let nextCharacter: Record<string, unknown> = {
         ...character,
         // No ledger write: the save's ryo is left exactly as it was.
         ...(reward.ryo > 0 ? { ryo: num(character.ryo) + reward.ryo } : {}),
@@ -236,12 +244,24 @@ async function settle(
         cardClashDailyWinDate: reward.dailyBonus
           ? today
           : character.cardClashDailyWinDate,
-        // Receipt rides the SAME write as the payout (atomic by construction).
-        redeemedCardClashAiSessions: [
-          ...redeemed.slice(-39),
-          { id: receiptId, reward: value },
-        ],
       };
+      // Echoes of War: the encounter was sealed into the session at ai-start
+      // (after the floor-unlock check), so the definition — never the client —
+      // decides the Chronicle Point payout. Forfeits and sub-minimum-duration
+      // wins pay and progress nothing, same posture as the ryo path above.
+      const echoesDef = session.echoes
+        ? echoesEncounterById(session.echoes.encounterId)
+        : null;
+      if (echoesDef && winner === "player" && !forfeited && !quickWin) {
+        const applied = applyEchoesVictory(nextCharacter, echoesDef, now);
+        nextCharacter = applied.character;
+        value.echoes = applied.summary;
+      }
+      // Receipt rides the SAME write as the payout (atomic by construction).
+      nextCharacter.redeemedCardClashAiSessions = [
+        ...redeemed.slice(-39),
+        { id: receiptId, reward: value },
+      ];
       return { ok: true as const, character: nextCharacter, value };
     },
   );

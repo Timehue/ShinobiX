@@ -27,6 +27,11 @@ import {
   dungeonCardMatchId,
   resolveDungeonCardAuthority,
 } from "../dungeon/_encounter-proof.js";
+import {
+  echoesEncounterById,
+  echoesFloorUnlocked,
+  echoesProgressOf,
+} from "./_echoes-catalog.js";
 
 function submittedIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -104,6 +109,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .status(400)
         .json({ error: "A valid nested Dungeon run token is required." });
     }
+    // Echoes of War campaign envelope: `{ echoes: { encounterId } }`. The
+    // encounter fixes the opponent deck, difficulty and reward server-side.
+    const hasEchoesEnvelope = Object.prototype.hasOwnProperty.call(
+      body,
+      "echoes",
+    );
+    const echoesEnvelope =
+      body.echoes && typeof body.echoes === "object" && !Array.isArray(body.echoes)
+        ? (body.echoes as Record<string, unknown>)
+        : null;
+    const echoesDef = echoesEncounterById(echoesEnvelope?.encounterId);
+    if (hasEchoesEnvelope && !echoesDef) {
+      return res
+        .status(400)
+        .json({ error: "Unknown Echoes of War encounter." });
+    }
+    if (echoesDef && hasDungeonEnvelope) {
+      return res
+        .status(400)
+        .json({ error: "An Echoes duel cannot carry a Dungeon seal." });
+    }
     const playerName = safeName(String(body.playerName ?? ""));
     if (!playerName)
       return res.status(400).json({ error: "Missing playerName." });
@@ -134,7 +160,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // pacing, and encounter duels already carry no hall reward token.
     if (
       !identity.admin &&
-      body.externalStakes !== true &&
+      (body.externalStakes !== true || hasEchoesEnvelope) &&
       !dungeonRunToken &&
       !(await chronicleUnlockedFor(playerName))
     ) {
@@ -356,6 +382,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         { failClosed: true },
       );
       return res.status(out.status).json(out.body);
+    }
+
+    if (echoesDef) {
+      // Campaign start: the floor-unlock check and the deck resolution ride
+      // one locked save mutation, then the encounter is sealed into the
+      // session so settle pays from the definition — never the client body.
+      const prepared = await mutatePlayerSave<{
+        deck: string[];
+        usedRequested: boolean;
+      }>(playerName, ({ character }) => {
+        if (
+          !identity.admin &&
+          !echoesFloorUnlocked(echoesProgressOf(character), echoesDef.floor)
+        ) {
+          return {
+            ok: false as const,
+            status: 409,
+            error: "That memory is still sealed. Finish the floor below it first.",
+          };
+        }
+        const deck = resolveChronicleDeckMutation(character, requested);
+        if (!deck.ok) return deck;
+        return { ok: true as const, character: deck.character, value: deck.value };
+      });
+      if (!prepared.ok)
+        return res.status(prepared.status).json({ error: prepared.error });
+      const matchId = randomUUID();
+      const aiSteps: ChronicleProjection[] = [];
+      const session = createAiMatch(
+        matchId,
+        playerName,
+        prepared.value.deck,
+        echoesDef.difficulty,
+        Date.now(),
+        Math.random,
+        "standard",
+        (state) => captureAiStep(aiSteps, state),
+        { name: echoesDef.name, deck: echoesDef.deck, deckName: echoesDef.deckName },
+      );
+      session.echoes = { encounterId: echoesDef.id };
+      await kv.set(cardClashAiTokenKey(matchId), session, {
+        ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS,
+      });
+      return res.status(200).json({
+        ok: true,
+        matchId,
+        session: projectAiMatch(session),
+        ...(aiSteps.length ? { aiSteps } : {}),
+        migratedDeck: prepared.value.usedRequested ? undefined : prepared.value.deck,
+        _saveVersion: prepared._saveVersion,
+      });
     }
 
     // AI and PvP share one locked server resolver: starter grants, ownership,
