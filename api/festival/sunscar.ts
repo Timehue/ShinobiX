@@ -11,11 +11,9 @@ import { beginDurableSettlement, cancelDurableSettlement, completeDurableSettlem
 import { recordEconomyTxn } from '../_economy.js';
 import {
     cleanMiraaBet,
-    FATE_DICE_COST,
     FATE_DICE_DAILY_CAP,
-    MIRAA_DAILY_WAGER_CAP,
     MIRAA_TOKEN_TTL_SECONDS,
-    resolveMiraaWager,
+    resolveMiraaRefund,
     rollFateDice,
     utcDateKey,
 } from './_sunscar.js';
@@ -67,13 +65,13 @@ function appendPlayerSettlementReceipt(
  *
  * Server-side Sunscar settlement. Every payout is decided here — the client is
  * never trusted for a ryo outcome:
- *   - `dice`  — fully rolled + paid server-side (fixed cost, daily cap).
- *   - `miraa` — a wager on server-authoritative Shinobi Chronicle Showdown whose outcome the
- *     client owns and cannot be verified cheaply. Settled via the mint-token
- *     escrow pattern: `miraa-start` debits the stake and seals `bet` into a
- *     durable token; `miraa-report` settles it idempotently and SERVER-ROLLS the
- *     result (see resolveMiraaWager), ignoring any client-reported outcome. The
- *     legacy client-attested `kind:'miraa'` path (a ryo mint) is retired below.
+ *   - `dice`  — a FREE daily draw, fully rolled + paid server-side under a daily
+ *     cap. Every face pays; there is no stake and no losing branch.
+ *   - `miraa-start` / `miraa` — RETIRED. Miraa used to take an even-money wager
+ *     on a Card Clash match at a server-rolled 40% win chance; the bet was
+ *     removed 2026-09-03 for the Play content rating. Both return 410.
+ *   - `miraa-report` — kept ONLY to settle a wager that was already open when the
+ *     removal shipped: it REFUNDS the sealed stake in full, idempotently.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -104,19 +102,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         error: `The dice grow cold. Your fate is spent for today (${FATE_DICE_DAILY_CAP}/${FATE_DICE_DAILY_CAP}).`,
                     };
                 }
-                if (num(character.ryo) < FATE_DICE_COST) {
-                    return { ok: false, status: 400, error: `Not enough ryo. A roll costs ${FATE_DICE_COST}.` };
-                }
-
                 const result = rollFateDice(Math.random);
-                // Character XP is retired: the dice grant tiny stat-pool points
-                // instead, then the rise-only derived-level recompute runs.
-                const paid = {
+                // The draw is FREE (FATE_DICE_COST = 0) and always pays, so there
+                // is no stake to debit and no affordability gate. Character XP is
+                // retired; the rise-only derived-level recompute still runs.
+                const drawn = {
                     ...character,
-                    ryo: num(character.ryo) - FATE_DICE_COST,
                     unspentStats: Math.max(0, Math.floor(num(character.unspentStats))) + Math.max(0, Math.floor(result.reward.statPoints)),
                 } as XpCharacter;
-                const leveled = applyDerivedLevel(paid) as unknown as Record<string, unknown>;
+                const leveled = applyDerivedLevel(drawn) as unknown as Record<string, unknown>;
                 const nextCharacter = {
                     ...character,
                     ...leveled,
@@ -128,13 +122,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     dailyFateSpins: used + 1,
                     lastDailyReset: today,
                 };
-                return { ok: true, character: nextCharacter, value: { ...result, dailyUsed: used + 1, dailyCap: FATE_DICE_DAILY_CAP, cost: FATE_DICE_COST } };
+                return { ok: true, character: nextCharacter, value: { ...result, dailyUsed: used + 1, dailyCap: FATE_DICE_DAILY_CAP, cost: 0 } };
             });
             if (!out.ok) return res.status(out.status).json({ error: out.error });
-            // Economy telemetry — the dice stake is a flat ryo sink. Fate Shards
-            // only appear on the triple-eye branch, so they are logged from the
-            // sealed result rather than assumed.
-            await recordEconomyTxn({ txnId: `fate-dice:${playerName}:${Date.now()}`, player: playerName, currency: 'ryo', delta: -FATE_DICE_COST, source: 'sunscar.dice' });
+            // Economy telemetry — the dice are now a small ryo FAUCET rather than
+            // a sink, so the delta is the amount PAID OUT, read from the sealed
+            // result. Fate Shards only appear on the triple-eye branch, so they
+            // are logged the same way rather than assumed.
+            const diceRyo = Number((out.value as { reward?: { ryo?: number } }).reward?.ryo ?? 0);
+            if (diceRyo > 0) {
+                await recordEconomyTxn({ txnId: `fate-dice:${playerName}:${Date.now()}`, player: playerName, currency: 'ryo', delta: diceRyo, source: 'sunscar.dice' });
+            }
             const diceShards = Number((out.value as { reward?: { fateShards?: number } }).reward?.fateShards ?? 0);
             if (diceShards > 0) {
                 await recordEconomyTxn({ txnId: `fate-dice-shards:${playerName}:${Date.now()}`, player: playerName, currency: 'fateShards', delta: diceShards, source: 'sunscar.dice' });
@@ -142,85 +140,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({ ok: true, ...out.value, character: out.character, _saveVersion: out._saveVersion });
         }
 
-        // Miraa wager — open (escrow the stake + mint a single-use token). The
-        // stake is committed here BEFORE the (server-rolled) result is known, so a
-        // client can't cherry-pick which wagers to settle.
+        // The Miraa WAGER WAS REMOVED 2026-09-03 (owner decision, taken for the
+        // Play content rating — a staked outcome reads as gambling however it is
+        // dressed). No new wager can be opened; the card table is free to play.
         if (kind === 'miraa-start') {
-            const bet = cleanMiraaBet(body.bet);
-            if (!bet) return res.status(400).json({ error: 'Invalid Miraa wager.' });
-            const fp = settlementFingerprint({ operation: 'miraa-start', playerName, bet });
-            const idempotencyKey = requestKey(body.requestId, `legacy-miraa-start-${playerName}-${Date.now()}-${randomUUID().replace(/-/g, '')}`);
-            const txId = settlementTransactionId('miraa-start', `${playerName}:${idempotencyKey}`);
-            const initial = await beginDurableSettlement({
-                transactionId: txId,
-                idempotencyKey,
-                operationType: 'miraa-start',
-                fingerprint: fp,
-                actorIds: [playerName],
-                resource: 'ryo',
-                amount: bet,
-                meta: { playerName, bet, rollSeed: secureRandomUnit() },
-            }, { kv });
-            if (initial.status === 'conflict') return res.status(409).json({ error: 'That Miraa request ID belongs to a different wager.' });
-            if (initial.record.state === 'completed' && initial.record.result) {
-                return res.status(200).json({ ok: true, ...initial.record.result });
-            }
-
-            const tokenId = String(initial.record.meta?.token ?? randomUUID().replace(/-/g, ''));
-            await updateDurableSettlement(txId, { meta: { ...initial.record.meta, playerName, bet, token: tokenId } }, { kv });
-            const out = await mutatePlayerSave(playerName, async ({ character }) => {
-                const existing = receiptValue(character, txId, fp);
-                if (existing) {
-                    return {
-                        ok: true,
-                        character,
-                        value: { token: String(existing.token ?? tokenId), bet, balanceRyo: num(character.ryo), character },
-                    };
-                }
-                if (num(character.ryo) < bet) return { ok: false, status: 400, error: 'Not enough ryo for that wager.' };
-                const today = utcDateKey();
-                const legacyCount = Number(await kv.get<number>(`miraa-wager-count:${playerName}:${today}`) ?? 0);
-                const used = String(character.miraaWagerDate ?? '') === today
-                    ? Math.max(0, Math.floor(Number(character.miraaWagerCount ?? 0)))
-                    : 0;
-                const startedToday = Math.max(used, Number.isFinite(legacyCount) ? Math.floor(legacyCount) : 0);
-                if (!identity.admin && startedToday >= MIRAA_DAILY_WAGER_CAP) {
-                    return { ok: false, status: 429, error: `Miraa waves you off — you've wagered enough for one day (${MIRAA_DAILY_WAGER_CAP}/${MIRAA_DAILY_WAGER_CAP}).` };
-                }
-                const nextCharacter = appendPlayerSettlementReceipt({
-                    ...character,
-                    ryo: num(character.ryo) - bet,
-                    miraaWagerDate: today,
-                    miraaWagerCount: startedToday + 1,
-                }, txId, fp, { kind: 'miraa-start', token: tokenId, bet });
-                const value = { token: tokenId, bet, balanceRyo: num(nextCharacter.ryo), character: nextCharacter };
-                return { ok: true, character: nextCharacter, value };
-            });
-            if (!out.ok) {
-                await cancelDurableSettlement(txId, { status: out.status, error: out.error }, { kv }).catch(() => undefined);
-                return res.status(out.status).json({ error: out.error });
-            }
-            const result = { token: tokenId, bet, balanceRyo: Number(out.value.balanceRyo), character: out.character, _saveVersion: out._saveVersion };
-            await kv.set(`miraa-token:${playerName}:${tokenId}`, { playerName, bet, transactionId: txId, mintedAt: Date.now() }, { ex: MIRAA_TOKEN_TTL_SECONDS });
-            await completeDurableSettlement(txId, result, { kv });
-            return res.status(200).json({ ok: true, ...result });
+            return res.status(410).json({ error: 'Miraa no longer takes wagers — the card table is free to play now.' });
         }
 
-        // Miraa wager — settle the durable token, then use the sealed server roll
-        // outcome from the sealed bet. The client's card result / any body.outcome
-        // is ignored; the stake was already escrowed at start, so we only credit
-        // winnings on a server-rolled win.
+        // A wager opened BEFORE the removal shipped had its stake debited at
+        // start, so the only honest way to retire the feature mid-flight is to
+        // refund the sealed stake in full. There is no roll, no house edge and no
+        // losing branch: the player ends net zero against their pre-wager
+        // balance. Kept idempotent through the same durable settlement + receipt
+        // path the wager used, so a retry cannot double-refund.
         if (kind === 'miraa-report') {
             const tokenRaw = typeof body.token === 'string' ? body.token.trim() : '';
             const token = /^[A-Za-z0-9]+$/.test(tokenRaw) ? tokenRaw : '';
             if (!token) return res.status(400).json({ error: 'Missing or invalid Miraa wager token.' });
-            const forfeit = body.forfeit === true;
 
             let tokenRecord = await kv.get<{ playerName?: string; bet?: number; transactionId?: string }>(`miraa-token:${playerName}:${token}`);
-            // A token may have expired after the player opened a valid wager.
-            // The durable start journal is retained longer than the client
-            // token, so recover the sealed bet and transaction identity instead
-            // of turning an in-flight wager into an unrecoverable loss.
+            // The durable start journal outlives the client token, so recover the
+            // sealed stake from it rather than stranding an in-flight refund.
             if (!tokenRecord) {
                 const startSettlement = (await listDurableSettlements({ kv }))
                     .find((record) => record.operationType === 'miraa-start'
@@ -239,9 +179,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const bet = cleanMiraaBet(tokenRecord?.bet);
             if (!bet) return res.status(400).json({ error: 'Corrupt Miraa wager.' });
-            const startSettlement = tokenRecord?.transactionId
-                ? await getDurableSettlement(tokenRecord.transactionId, { kv })
-                : null;
             const txId = settlementTransactionId('miraa-report', `${playerName}:${token}`);
             const fp = settlementFingerprint({ operation: 'miraa-report', playerName, token });
             const existingTx = await getDurableSettlement(txId, { kv });
@@ -254,12 +191,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     actorIds: [playerName],
                     resource: 'ryo',
                     amount: bet,
-                    meta: {
-                        playerName,
-                        bet,
-                        token,
-                        ...(Number.isFinite(Number(startSettlement?.meta?.rollSeed)) ? { rollSeed: Number(startSettlement?.meta?.rollSeed) } : {}),
-                    },
+                    meta: { playerName, bet, token },
                 }, { kv });
                 if (created.status === 'conflict') return res.status(409).json({ error: 'That Miraa report conflicts with an existing settlement.' });
             }
@@ -280,22 +212,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         },
                     };
                 }
-                let outcome = String(currentTx.meta?.outcome ?? '');
-                let credit = Number(currentTx.meta?.credit ?? NaN);
-                if (outcome !== 'win' && outcome !== 'loss' && outcome !== 'forfeit') {
-                    const rollSeed = Number(currentTx.meta?.rollSeed);
-                    const stableSeed = Number.isFinite(rollSeed) ? rollSeed : secureRandomUnit();
-                    // Seed legacy report records before applying the payout. If
-                    // this write fails, no player mutation occurs and retrying
-                    // uses the same seed rather than rerolling.
-                    const rolled = resolveMiraaWager(bet, forfeit, () => stableSeed);
-                    outcome = rolled.outcome;
-                    credit = rolled.credit;
-                    await updateDurableSettlement(txId, {
-                        state: 'reserved',
-                        meta: { ...(currentTx.meta ?? {}), playerName, bet, token, rollSeed: stableSeed, outcome, credit },
-                    }, { kv });
-                }
+                const { outcome, credit } = resolveMiraaRefund(bet);
+                await updateDurableSettlement(txId, {
+                    state: 'reserved',
+                    meta: { ...(currentTx.meta ?? {}), playerName, bet, token, outcome, credit },
+                }, { kv });
                 const nextCharacter = appendPlayerSettlementReceipt({
                     ...character,
                     ryo: num(character.ryo) + credit,
