@@ -204,7 +204,7 @@ const WorldCrisis = lazyWithRetry(() => import("./screens/WorldCrisis").then(m =
 const loadMissionCatalog = () => import("./data/missions");
 const mutateDungeonRunServer = (playerName: string, action: "start" | "settle" | "abandon", token = "") =>
     import("./lib/dungeon-api").then((api) => api.mutateDungeonRunServer(playerName, action, token));
-import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment, pvpResultReturn } from "./lib/pvp-session";
+import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment, pvpResultReturn, markPvpSectorReturn } from "./lib/pvp-session";
 import { readPvpBrowserBreadcrumb, type PvpRecoveryContext } from "./lib/pvp-pending-session";
 const loadPvpSessionCreate = () => import("./lib/pvp-session-create"), loadPvpPendingFetch = () => import("./lib/pvp-pending-fetch");
 import { usePvpSessionController } from "./lib/use-pvp-session-controller";
@@ -6988,7 +6988,7 @@ export default function App() {
                             battleId={pvpBattleId}
                             role={pvpRole}
                             setScreen={navigate}
-                            {...pvpResultReturn(pvpBattleContext, currentSector)}
+                            {...pvpResultReturn(pvpBattleContext, currentSector, !!character.hospitalized)}
                             equippedJutsu={pvpJutsus}
                             equippedItems={pvpItems}
                             currentBiome={currentBiome}
@@ -7005,7 +7005,7 @@ export default function App() {
                             onWin={handlePvpWin}
                             onRewardClaim={handlePvpRewardClaim}
                             onCompletionConfirmed={() => setPvpCompletionConfirmed(true)}
-                            onExit={(target) => { clearPvpBattleState(); setScreen(target); }}
+                            onExit={(target) => { markPvpSectorReturn(target, pvpBattleContext, currentSector); clearPvpBattleState(); setScreen(target); }}
                             onRecordBattle={recordBattle}
                             onLoss={async (_opponent, _serverRating, serverClaim, continuation) => {
                                 const activeContinuation = requirePvpContinuation(continuation);

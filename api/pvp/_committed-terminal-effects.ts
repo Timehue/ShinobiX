@@ -27,6 +27,7 @@ import {
 import type { PlayerRankedJournal } from './_player-ranked-journal.js';
 import { replayCommittedPvpActionReceipt } from './_action-receipt-replay.js';
 import { ensurePvpTerminalRecoveryPublication } from './_reward-recovery.js';
+import { settlePvpTerminalVitals } from './_vitals-settlement.js';
 import { settlePvpSectorWarContinuation } from './_sector-war-continuation.js';
 import type { SectorWarResolutionReceipt } from '../_sector-war-store.js';
 import { settlePvpClanWarContinuation } from '../clan/war/_pvp-settlement.js';
@@ -116,6 +117,16 @@ export async function replayCommittedPvpTerminalEffects(
     } catch (error) {
         console.error('[pvp/terminal] presence cleanup failed', error);
     }
+
+    // What the fight cost the two bodies. Settled HERE rather than in
+    // claim-rewards so a continuous engagement still charges its damage when
+    // the winner's browser never claims at all — the exact failure mode that
+    // trapped winners on the victory screen in 2026-09. Each fighter carries
+    // its own durable receipt, so this replays safely; a transient storage
+    // failure propagates and the next terminal reader retries it.
+    await settlePvpTerminalVitals(kv, session, {
+        lock: (saveKey, action) => withKvLock(saveKey, action, { failClosed: true }),
+    });
 
     // Receipt and history writers are battle-id idempotent. Indexing is retried
     // even when the receipt writer reports "already exists", which repairs a
