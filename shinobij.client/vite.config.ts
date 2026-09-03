@@ -1243,6 +1243,28 @@ export default defineConfig({
         // raw + gzip budgets and proves it stays off the startup graph; keep Vite's
         // advisory ceiling aligned so a clean audited build is warning-free.
         chunkSizeWarningLimit: 1100,
+        // 2026-09-03 JUTSU-FX FLIPBOOK DRAIN. The CC0 frame sequences under
+        // src/assets/fx/<key>/NNN.png are mostly a few hundred bytes each, so
+        // Vite's 4 KB default inlined 264 of them as base64 data URIs INSIDE
+        // lib/jutsu-fx-assets — 415,636 B of that chunk's 432,004 B. That is the
+        // worst of both worlds: base64 costs ~33% over the bytes it encodes, the
+        // whole payload has to be parsed as JavaScript before any frame can play,
+        // and every frame ships whether or not its element is ever cast.
+        //
+        // The larger frames in the SAME folders already exceed the threshold and
+        // ship as ordinary file URLs, and THREE.TextureLoader (the only consumer,
+        // via bundledJutsuFxFrames) has always loaded them that way — so opting
+        // the folder out of inlining removes an inconsistency rather than adding
+        // a new load path. Frames become cacheable files fetched per element on
+        // first cast instead of a parse-blocking blob, and ~415 KB of pixel art
+        // leaves the JS/CSS budget it never belonged in.
+        //
+        // Returning undefined keeps Vite's default limit for every other asset:
+        // this opts out the fx flipbooks and nothing else.
+        assetsInlineLimit: (filePath: string) =>
+            /\/src\/assets\/fx\/[^/]+\/[^/]+\.png$/.test(filePath.replace(/\\/g, '/'))
+                ? false
+                : undefined,
         rolldownOptions: {
             // Inline imported scalar constants across two passes. This removes
             // their lookup scaffolding while preserving normal property names
