@@ -16,14 +16,54 @@ import type { GameItem, Jutsu, SavedBloodline } from "../types/combat";
 import type { Screen } from "../types/core";
 import type { PvpRecoveryContext } from "./pvp-pending-session";
 import { bindPvpSessionCreateIntent } from "./pvp-session-intent";
+import { isWildSector } from "./screen-guards";
+import { setSectorReopen } from "./sector-return";
 
-export function pvpResultReturn(context: PvpRecoveryContext | null, currentSector: number): { returnTarget: Screen; returnLabel: string } {
+/*
+ * Where a finished PvP fight sends this player, and what the button promises.
+ *
+ * `hospitalized` is the settled server verdict (api/pvp/_vitals-settlement.ts),
+ * not a guess from the outcome — a fighter who FLED lost the battle and still
+ * walks back to their spot in the sector, while a knocked-out or forfeiting
+ * loser is admitted. shouldRedirectToHospital() would bounce an admitted player
+ * off any other screen anyway; routing here is what stops the button promising
+ * a sector return that the guard immediately overrides.
+ *
+ * Defaults to false so the pre-settlement render (and every non-continuous
+ * mode) keeps the original destination.
+ */
+export function pvpResultReturn(context: PvpRecoveryContext | null, currentSector: number, hospitalized = false): { returnTarget: Screen; returnLabel: string } {
+    if (hospitalized) return { returnTarget: "hospital", returnLabel: "Go to Hospital" };
     const returnTarget: Screen = context?.sectorAttack ? "worldMap" : context?.mode?.startsWith("clanWar") ? "clan" : "battleArena";
     return {
         returnTarget,
         returnLabel: returnTarget === "worldMap" ? `Return to Sector ${context?.sector ?? currentSector}`
             : returnTarget === "clan" ? "Return to Clan War" : "Return to Arena",
     };
+}
+
+/*
+ * The other half of "go back where I came from": reopen the sector BOARD, not
+ * the world overview.
+ *
+ * `worldMap` is one screen hosting two views — the overworld, and a sector's
+ * 12x12 board — selected by WorldMap's own `selectedSector`, which is ephemeral
+ * React state wiped by the trip through the battle screen. So "Return to Sector
+ * 44" landed on the overview and the winner had to walk back in, which is not
+ * "the spot you attacked from".
+ *
+ * This is the same one-shot marker the explore ambush sets before its fight
+ * (WorldMap consumes it on mount). The Hospital clears it on ITS mount, so an
+ * admitted loser never reopens the sector they fell in — which is exactly why
+ * this may be set for both fighters without special-casing the outcome.
+ *
+ * Village-outskirts raids run on a virtual sector shown by a different branch,
+ * so `isWildSector` correctly leaves those on today's behaviour.
+ */
+export function markPvpSectorReturn(target: Screen, context: PvpRecoveryContext | null, currentSector: number): void {
+    if (target !== "worldMap" || !context?.sectorAttack) return;
+    const sector = Number(context.sector ?? currentSector);
+    if (isWildSector(sector)) setSectorReopen(sector);
 }
 
 // PvP session environment selector. The server reads biome + weather elements

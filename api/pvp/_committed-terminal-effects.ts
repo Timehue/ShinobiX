@@ -27,6 +27,8 @@ import {
 import type { PlayerRankedJournal } from './_player-ranked-journal.js';
 import { replayCommittedPvpActionReceipt } from './_action-receipt-replay.js';
 import { ensurePvpTerminalRecoveryPublication } from './_reward-recovery.js';
+import { settlePvpTerminalVitals } from './_vitals-settlement.js';
+import { settleTerminalWorldRaid } from './_terminal-world-raid.js';
 import { settlePvpSectorWarContinuation } from './_sector-war-continuation.js';
 import type { SectorWarResolutionReceipt } from '../_sector-war-store.js';
 import { settlePvpClanWarContinuation } from '../clan/war/_pvp-settlement.js';
@@ -117,6 +119,16 @@ export async function replayCommittedPvpTerminalEffects(
         console.error('[pvp/terminal] presence cleanup failed', error);
     }
 
+    // What the fight cost the two bodies. Settled HERE rather than in
+    // claim-rewards so a continuous engagement still charges its damage when
+    // the winner's browser never claims at all — the exact failure mode that
+    // trapped winners on the victory screen in 2026-09. Each fighter carries
+    // its own durable receipt, so this replays safely; a transient storage
+    // failure propagates and the next terminal reader retries it.
+    await settlePvpTerminalVitals(kv, session, {
+        lock: (saveKey, action) => withKvLock(saveKey, action, { failClosed: true }),
+    });
+
     // Receipt and history writers are battle-id idempotent. Indexing is retried
     // even when the receipt writer reports "already exists", which repairs a
     // crash after the receipt but before one participant's history projection.
@@ -169,6 +181,14 @@ export async function replayCommittedPvpTerminalEffects(
     const clanWarSettlement = session.rewardAuthority === 'clan-war'
         ? await settlePvpClanWarContinuation(session) ?? undefined
         : undefined;
+
+    // World-raid progression and the village-war row, the last two settlements
+    // that still required a browser to claim. Settled together and in that
+    // order because the war row may only apply a sealed raid against the raid's
+    // own territory proof. This never throws: claim-rewards remains the
+    // authority and retries, and both settlers are proof-idempotent, so its
+    // call simply replays whatever landed here.
+    await settleTerminalWorldRaid(session);
 
     if (isPlayerRankedV2Session(session)) {
         const playerRankedJournal = await confirmPlayerRankedTerminalEffects(kv, session, {

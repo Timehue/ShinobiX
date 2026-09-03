@@ -12,7 +12,8 @@ import {
     splitPvpMoveResponse,
 } from "./pvp-session-runtime";
 import { bindPvpSessionCreateIntent, clearPvpSessionCreateIntent } from "./pvp-session-intent";
-import { pvpResultReturn } from "./pvp-session";
+import { markPvpSectorReturn, pvpResultReturn } from "./pvp-session";
+import { clearSectorReopen, peekSectorReopen, takeSectorReopen } from "./sector-return";
 
 function fighter(name: string, pos: number) {
     return {
@@ -52,6 +53,64 @@ it("returns a finished PvP player to the exact battlefield origin", () => {
     assert.deepEqual(pvpResultReturn({ sectorAttack: true, sector: 44 }, 1), { returnTarget: "worldMap", returnLabel: "Return to Sector 44" });
     assert.deepEqual(pvpResultReturn({ mode: "clanWar1v1" }, 1), { returnTarget: "clan", returnLabel: "Return to Clan War" });
     assert.deepEqual(pvpResultReturn({ mode: "standard" }, 1), { returnTarget: "battleArena", returnLabel: "Return to Arena" });
+});
+
+describe("returning from a sector raid", () => {
+    it("reopens the sector BOARD, not the world overview", () => {
+        clearSectorReopen();
+        markPvpSectorReturn("worldMap", { sectorAttack: true, sector: 44 }, 1);
+        assert.equal(takeSectorReopen(), 44, "the winner walks back to the spot they attacked from");
+    });
+
+    it("marks nothing for an admitted loser routed to the Hospital", () => {
+        // Belt to the Hospital's own braces: it clears the marker on mount, so
+        // a KO'd player can never be bounced back into the sector they fell in.
+        clearSectorReopen();
+        markPvpSectorReturn("hospital", { sectorAttack: true, sector: 44 }, 1);
+        assert.equal(takeSectorReopen(), null);
+    });
+
+    it("marks nothing for a spar or a clan-war duel", () => {
+        clearSectorReopen();
+        markPvpSectorReturn("battleArena", { mode: "standard" }, 7);
+        assert.equal(takeSectorReopen(), null);
+        markPvpSectorReturn("worldMap", { mode: "standard" }, 7);
+        assert.equal(takeSectorReopen(), null, "only a sector raid reopens a board");
+    });
+
+    it("marks nothing for a village or outskirts fight, which is a different view", () => {
+        clearSectorReopen();
+        markPvpSectorReturn("worldMap", { sectorAttack: true, sector: 0 }, 0);
+        assert.equal(takeSectorReopen(), null);
+    });
+
+    it("falls back to the player's current sector when the context carries none", () => {
+        clearSectorReopen();
+        markPvpSectorReturn("worldMap", { sectorAttack: true }, 12);
+        assert.equal(takeSectorReopen(), 12);
+    });
+
+    it("lets the tile decision peek without stealing the latch from the reopen", () => {
+        // WorldMap's sectorPlayerPos initializer runs during render and peeks to
+        // decide whether to restore the remembered tile; the mount effect then
+        // TAKES the latch to reopen the board. If the peek consumed it, the
+        // player would land on the world overview again.
+        clearSectorReopen();
+        markPvpSectorReturn("worldMap", { sectorAttack: true, sector: 31 }, 1);
+        assert.equal(peekSectorReopen(), 31);
+        assert.equal(peekSectorReopen(), 31, "peeking is repeatable");
+        assert.equal(takeSectorReopen(), 31, "and the reopen still gets its value");
+        assert.equal(peekSectorReopen(), null, "consumed exactly once");
+    });
+});
+
+it("sends an admitted loser to the Hospital instead of promising a sector return", () => {
+    // shouldRedirectToHospital() would bounce them there regardless; the point
+    // is that the button must not promise a destination the guard overrides.
+    assert.deepEqual(pvpResultReturn({ sectorAttack: true, sector: 44 }, 1, true), { returnTarget: "hospital", returnLabel: "Go to Hospital" });
+    assert.deepEqual(pvpResultReturn({ mode: "standard" }, 1, true), { returnTarget: "hospital", returnLabel: "Go to Hospital" });
+    // A fighter who FLED is not admitted, so they still walk back to their spot.
+    assert.deepEqual(pvpResultReturn({ sectorAttack: true, sector: 44 }, 1, false), { returnTarget: "worldMap", returnLabel: "Return to Sector 44" });
 });
 
 describe("PvP live-session projection authority", () => {
