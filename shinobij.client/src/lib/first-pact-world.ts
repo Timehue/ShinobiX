@@ -402,6 +402,31 @@ function buildWorld(): void {
     paintRect(FIRST_PACT_AQUEDUCT_CENTRAL_CROSSING.westLanding, FirstPactTile.Road);
     paintRect(FIRST_PACT_AQUEDUCT_CENTRAL_CROSSING.eastLanding, FirstPactTile.Road);
     paintRect(FIRST_PACT_AQUEDUCT_CIVIC_CROSSING.deck, FirstPactTile.Bridge);
+
+    // GATEWORKS SERVICE CIRCULATION.
+    //
+    // The district was one 22x11 sheet of service stone with both halls parked
+    // on it: no aisle reached either south entrance, and the valve stood on bare
+    // grate with nothing under it. Every tile below is walkable already, so this
+    // is a MATERIAL pass, not a collision one — the routes it draws were always
+    // walkable, they simply were not legible as routes.
+    //
+    // Painted last so no earlier district sheet can flood back over them, and
+    // kept east of x56 so the accepted Aqueduct crossings are untouched.
+
+    // The south maintenance street, running the full frontage of both halls so
+    // the engine hall and the pump house are served by one continuous lane
+    // instead of anonymous ground.
+    paintRect({ x: 54, y: 50, width: 25, height: 2 }, FirstPactTile.Road);
+
+    // A north-south service spine in the gap between the halls, tying that lane
+    // up to the Market shelf. Without it the only way through the district read
+    // as walking across a field.
+    paintRect({ x: 67, y: 43, width: 2, height: 8 }, FirstPactTile.Road);
+
+    // The valve's masonry cradle. Painted after the lane so it reads as a plinth
+    // set into the street's west end rather than a patch of different floor.
+    paintRect({ x: 57, y: 48, width: 6, height: 4 }, FirstPactTile.Stone);
 }
 
 buildWorld();
