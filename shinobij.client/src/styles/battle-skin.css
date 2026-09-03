@@ -6910,14 +6910,21 @@ html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help:is(:hover,
         box-shadow: none !important;
     }
 
+    /* Solo's eight chips get 3px gaps instead of 4: on a 412px phone the shell
+       is ~404px wide once the frame is paid for, and that 7px is the difference
+       between one row of 45px chips and a second row. */
     #combat.mission-arena-fight .combat-action-tray > .shinobi-command-bar {
         grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
+        gap: 3px !important;
+        padding: 3px !important;
     }
 
     /* Every command stays a 44px target in BOTH axes (combat-layout matrix
        gate). Seven 44px chips plus gaps and frames need a 354px-wide shell,
-       eight need 402px; narrower than that the strip wraps to two rows of
-       four (PvP 4+3, Solo 4+4) rather than thinning the chips. */
+       eight (with 3px gaps) need 393px; narrower than that the strip wraps to
+       two rows of four (PvP 4+3, Solo 4+4) rather than thinning the chips. The
+       Solo cut-off sits 3px above the arithmetic so the narrowest one-row chip
+       is 44.4px, clear of Firefox's 43.99997px rounding. */
     @container shinobi-combat (max-width: 359px) {
         #combat .combat-action-tray > .shinobi-command-bar {
             grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
@@ -6928,7 +6935,7 @@ html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help:is(:hover,
         }
     }
 
-    @container shinobi-combat (max-width: 405px) {
+    @container shinobi-combat (max-width: 395px) {
         #combat.mission-arena-fight .combat-action-tray > .shinobi-command-bar {
             grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
         }
