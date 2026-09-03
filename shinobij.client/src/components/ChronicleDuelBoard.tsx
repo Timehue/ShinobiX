@@ -23,6 +23,8 @@ import {
 import { chronicleLegalPlacements } from "../lib/chronicle-placements";
 import { isImageAvatar } from "../lib/avatar";
 import { ChronicleCardView } from "./ChronicleCardView";
+import { ELEMENT } from "../lib/chronicle-card-art";
+import { figureFlip } from "../lib/chronicle-figure-facing";
 import { ChronicleCardInspector } from "./ChronicleCardInspector";
 import { Modal } from "./ui/Modal";
 
@@ -90,6 +92,67 @@ function spawnLifeFloat(anchor: HTMLElement | null, delta: number): void {
 
 /** A destroyed card leaves a readable visual trail toward its owner's
  * Graveyard instead of disappearing between server projections. */
+/* Desktop-stage gate for the cut-out creature figures: mobile keeps the
+   flat card layout and must not fetch the figure assets at all. */
+function useDesktopStage(): boolean {
+  const [desktop, setDesktop] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches,
+  );
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => setDesktop(media.matches);
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
+  return desktop;
+}
+
+/* A summoned attacker's cut-out creature render (generated from its own
+   card art by scripts/gen-chronicle-figures.mjs). Progressive: the framed
+   card stays the base truth; once the figure loads, the zone's :has()
+   styling fades the card and the creature stands on the stage. A missing
+   figure (no asset for this card yet) simply never appears. */
+function ChronicleFigure({ cardId, elementColor, flip, back }: { cardId: string; elementColor?: string; flip?: boolean; back?: boolean }) {
+  // The player's own summons prefer the back-view render (they face
+  // up-field at the enemy, the stage convention); the front cut-out is
+  // the fallback, and a missing figure falls through to the card standee.
+  const sources = back
+    ? [`/chronicle/figures/${cardId}-back.webp`, `/chronicle/figures/${cardId}.webp`]
+    : [`/chronicle/figures/${cardId}.webp`];
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+  if (sourceIndex >= sources.length) return null;
+  const src = sources[sourceIndex];
+  // The facing mirror is recorded for the FRONT art only; back views
+  // already face away and are never mirrored.
+  const mirrored = Boolean(flip) && !src.endsWith("-back.webp");
+  return (
+    <span
+      className={`chronicle-figure-wrap${loaded ? " loaded" : ""}`}
+      style={elementColor ? ({ "--chronicle-element": elementColor } as CSSProperties) : undefined}
+      aria-hidden="true"
+    >
+      <img
+        className={`chronicle-figure${mirrored ? " chronicle-figure--flip" : ""}`}
+        src={src}
+        alt=""
+        draggable={false}
+        loading="lazy"
+        onLoad={() => setLoaded(true)}
+        onError={() => {
+          setLoaded(false);
+          setSourceIndex((index) => index + 1);
+        }}
+      />
+    </span>
+  );
+}
+
+function figureElementColor(card: ChronicleDisplayCard | undefined): string | undefined {
+  if (!card || card.cardClass !== "monster") return undefined;
+  return ELEMENT[(card as { element?: string }).element ?? ""]?.color;
+}
+
 function spawnCardGhost(
   zone: HTMLElement | null | undefined,
   image: string | undefined,
@@ -285,6 +348,7 @@ export function ChronicleDuelBoard({
   exitLabel?: string;
   onAction: (intent: ChronicleActionIntent) => void;
 }) {
+  const stageFigures = useDesktopStage();
   useEffect(() => {
     primeChronicleSfx();
   }, []);
@@ -1130,6 +1194,14 @@ export function ChronicleDuelBoard({
                         hidden={!monster.cardId}
                         compact
                       />
+                      {stageFigures && monster.faceUp && monster.position === "attack" && monster.cardId ? (
+                        <ChronicleFigure
+                          key={monster.cardId}
+                          cardId={monster.cardId}
+                          elementColor={figureElementColor(cardsById[monster.cardId] ?? getChronicleCard(monster.cardId))}
+                          flip={figureFlip(monster.cardId, index)}
+                        />
+                      ) : null}
                       <small>
                         {monster.faceUp && monster.attack !== undefined
                           ? `${monster.position === "attack" ? "ATK" : "DEF"} ${monster.position === "attack" ? monster.attack : monster.defense}`
@@ -1278,6 +1350,15 @@ export function ChronicleDuelBoard({
                         hidden={!monster.cardId}
                         compact
                       />
+                      {stageFigures && monster.faceUp && monster.position === "attack" && monster.cardId ? (
+                        <ChronicleFigure
+                          key={monster.cardId}
+                          cardId={monster.cardId}
+                          elementColor={figureElementColor(cardsById[monster.cardId] ?? getChronicleCard(monster.cardId))}
+                          flip={figureFlip(monster.cardId, index)}
+                          back
+                        />
+                      ) : null}
                       <small>
                         {monster.position === "attack"
                           ? `ATK ${monster.attack}`

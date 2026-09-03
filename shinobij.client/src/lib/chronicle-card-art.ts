@@ -64,3 +64,14 @@ export function chronicleCardArtSrcSet(image: string): string | undefined {
     const variant = image.replace(/\.webp$/, `-${CARD_ART_VARIANT_WIDTH}.webp`);
     return `${variant} ${CARD_ART_VARIANT_WIDTH}w, ${image} ${CARD_ART_INTRINSIC_WIDTH}w`;
 }
+
+/** Element presentation colors/marks for card gems and the cut-out
+ * figure auras (moved here from ChronicleCardView so component files
+ * export only components). */
+export const ELEMENT: Record<string, { color: string; mark: string }> = {
+    Fire: { color: "#f05b3c", mark: "F" },
+    Water: { color: "#3d9ee8", mark: "W" },
+    Earth: { color: "#9d8147", mark: "E" },
+    Wind: { color: "#63c79b", mark: "A" },
+    Lightning: { color: "#d8b83e", mark: "L" },
+};
