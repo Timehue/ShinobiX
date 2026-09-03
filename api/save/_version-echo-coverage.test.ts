@@ -146,6 +146,16 @@ const EXEMPT = new Set([
     // caller (player/sleeper-kill.ts), which echoes it. Exposing a version from
     // here would duplicate that responsibility, not discharge it.
     'pvp/_bounty-settle.ts',
+    // Post-battle vitals + hospital admission for a finished world PvP duel. A
+    // helper, not a route, and it writes BOTH fighters' saves in one call, so
+    // there is no single participant whose `_saveVersion` it could echo. It is
+    // reached from terminal settlement — including from the OPPONENT's request,
+    // or from a turn-deadline forfeit with no request at all — so no response of
+    // the affected player's is necessarily in flight to carry one. Exactly-once
+    // is enforced by a durable per-fighter receipt (`pvp:vitals:<battleId>:<slug>`),
+    // not by a version guard, and pvp/claim-rewards.ts re-reads the save after
+    // this runs and echoes the resulting version to whoever asked.
+    'pvp/_vitals-settlement.ts',
     // Clan War 2v2 consumable charge. It debits every fighter who spent an item
     // — up to four saves in one call — so there is no single participant whose
     // `_saveVersion` it could echo. It is also reached from settlement rather

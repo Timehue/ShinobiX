@@ -211,6 +211,15 @@ export type PvpSession = {
     clanWarChallengeId?: string;
     joined?: { p1: boolean; p2: boolean };
     fleedBy?: 'p1' | 'p2';
+    /**
+     * Sealed copy of the create-time `useCurrentVitals` decision. Both fighters
+     * were hydrated from their saves, so terminal settlement must write the
+     * vitals back (api/pvp/_vitals-settlement.ts). A spar/ranked/arena row is
+     * `false` and settles nothing, because it reset both fighters to full on
+     * entry. Absent on rows sealed before this field existed; readers fall back
+     * to `rewardAuthority === 'world'`.
+     */
+    continuousVitals?: boolean;
     createdAt: number;
     /** Immutable server time sealed by the CAS that first terminalizes combat. */
     endedAt?: number;
@@ -2653,6 +2662,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 log: [`⚔️ ${p1Name} vs ${p2Name} — Battle begins! 🪙 ${firstActorName} wins the coin flip and goes first.`],
                 status: 'active',
                 winner: null,
+                // The same decision makePvpFighter just used to hydrate both
+                // fighters, sealed so terminal settlement can write the vitals
+                // back without re-deriving it from a request that is long gone.
+                continuousVitals: useCurrentVitals === true,
                 ...(rewardAuthority ? { rewardAuthority } : {}),
                 ...(progressionAuthority ? { progressionAuthorityVersion: 1 as const } : {}),
                 ...(worldAttacker ? { worldAttacker } : {}),

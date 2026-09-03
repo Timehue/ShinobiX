@@ -31,13 +31,25 @@ import { newRegistrationsDisabled } from './_launch-controls.js';
 import { isCleanPlayerName, TEXT_LIMITS } from './_text-moderation.js';
 import crypto from 'crypto';
 
-// Usernames reserved for the protected admin account. New `register` requests
-// for these names are refused unless the caller passes the admin password via
-// the `x-admin-password` header. The first-time owner registers themselves by
-// supplying that header once; after that, the existing auth record blocks any
-// further registration anyway. Server reset also preserves their save + auth.
-// Keep in sync with PROTECTED_ADMIN_USERNAME in shinobij.client/src/constants/game.ts.
-export const RESERVED_USERNAMES = new Set<string>(['rill']);
+// Usernames reserved from the ordinary registration flow. New `register`
+// requests for these names are refused unless the caller passes the admin
+// password via the `x-admin-password` header. The first-time owner registers
+// themselves by supplying that header once; after that, the existing auth
+// record blocks any further registration anyway. Server reset also preserves
+// their save + auth.
+// Keep `rill` in sync with PROTECTED_ADMIN_USERNAME in
+// shinobij.client/src/constants/game.ts.
+//
+// ⛔ `shanks` is the GOOGLE PLAY REVIEW account — do not remove it.
+// Play Console holds its credentials under "Sign in details" and reuses them to
+// review EVERY submission, not just the first. A server reset wipes ordinary
+// accounts, so without this entry the reviewer's login would break on the next
+// wipe and updates would be rejected for inaccessible content — weeks later,
+// with a failure message that never mentions the reset. Being reserved also
+// preserves its progression, so the account stays levelled enough for a
+// reviewer to reach PvP, clans, pets and the shop without grinding, and stops
+// a player squatting the name.
+export const RESERVED_USERNAMES = new Set<string>(['rill', 'shanks']);
 export function isReservedUsername(name: string): boolean {
     return RESERVED_USERNAMES.has(safeName(name));
 }
