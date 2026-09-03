@@ -28,6 +28,7 @@ import type { PlayerRankedJournal } from './_player-ranked-journal.js';
 import { replayCommittedPvpActionReceipt } from './_action-receipt-replay.js';
 import { ensurePvpTerminalRecoveryPublication } from './_reward-recovery.js';
 import { settlePvpTerminalVitals } from './_vitals-settlement.js';
+import { settleTerminalWorldRaid } from './_terminal-world-raid.js';
 import { settlePvpSectorWarContinuation } from './_sector-war-continuation.js';
 import type { SectorWarResolutionReceipt } from '../_sector-war-store.js';
 import { settlePvpClanWarContinuation } from '../clan/war/_pvp-settlement.js';
@@ -180,6 +181,14 @@ export async function replayCommittedPvpTerminalEffects(
     const clanWarSettlement = session.rewardAuthority === 'clan-war'
         ? await settlePvpClanWarContinuation(session) ?? undefined
         : undefined;
+
+    // World-raid progression and the village-war row, the last two settlements
+    // that still required a browser to claim. Settled together and in that
+    // order because the war row may only apply a sealed raid against the raid's
+    // own territory proof. This never throws: claim-rewards remains the
+    // authority and retries, and both settlers are proof-idempotent, so its
+    // call simply replays whatever landed here.
+    await settleTerminalWorldRaid(session);
 
     if (isPlayerRankedV2Session(session)) {
         const playerRankedJournal = await confirmPlayerRankedTerminalEffects(kv, session, {

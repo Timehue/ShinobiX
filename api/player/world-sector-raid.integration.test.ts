@@ -303,3 +303,59 @@ test('a spar over the same handlers leaves both saves untouched', async () => {
     assert.equal(loser.hp, 500, 'a spar loss must not cost HP');
     assert.notEqual(loser.hospitalized, true, 'a spar loss must not hospitalize');
 });
+
+test('the raid settles browserless — a real KO records it with no claim at all', async () => {
+    // World-raid progression and the village-war row used to settle ONLY inside
+    // pvp/claim-rewards, so a duel neither tab claimed left the raid unrecorded.
+    // This drives a real KO through the real move handler and then asserts the
+    // daily-allowance ledger WITHOUT calling claim-rewards even once.
+    const raider = 'wsraider5';
+    const quarry = 'wsquarry5';
+    await seed(raider, quarry);
+    place(raider, SECTOR);
+    place(quarry, SECTOR);
+
+    assert.equal((await post(attackHandler, raider, { targetName: quarry, attacker: { name: raider } })).statusCode, 200);
+    const created = await post(sessionHandler, raider, worldRaidBody(nextBattleId(), raider, quarry));
+    assert.equal(created.statusCode, 200, JSON.stringify(created.body));
+    const battleId = String(created.body.battleId);
+    assert.equal((created.body.session as Record<string, any>).rewardAuthority, 'world');
+
+    for (const [actor, role] of [[raider, 'p1'], [quarry, 'p2']] as const) {
+        assert.equal((await post(moveHandler, actor, {
+            battleId, role, action: 'join', moveToken: `join-${battleId}-${role}`,
+        })).statusCode, 200);
+    }
+
+    const live = (await kv.get<Record<string, any>>(`pvp:${battleId}`))!;
+    await kv.set(`pvp:${battleId}`, {
+        ...live,
+        activePlayer: 'p1',
+        roundOpener: 'p1',
+        p1: { ...live.p1, pos: 62, hp: 300 },
+        p2: { ...live.p2, pos: 63, hp: 1 },
+    });
+
+    const killing = await post(moveHandler, raider, {
+        battleId, role: 'p1', action: 'basicAttack', moveToken: `ko-${battleId}`,
+    });
+    assert.equal(killing.body.status, 'done');
+    assert.equal(killing.body.winner, 'p1');
+
+    // The proof the terminal barrier settled it: the raider's daily raid
+    // allowance now carries THIS battle's proof id, and no claim was made.
+    const day = new Date(Number(killing.body.endedAt)).toISOString().slice(0, 10);
+    const ledger = await kv.get<{ count: number; proofIds: string[] }>(`raid-report-count-v2:${raider}:${day}`);
+    assert.ok(ledger, 'the raid daily-allowance ledger must exist without a claim');
+    assert.ok(
+        ledger!.proofIds.includes(`pvp-raid:${battleId}`),
+        `browserless raid settlement missing; ledger had ${JSON.stringify(ledger!.proofIds)}`,
+    );
+    assert.equal(ledger!.count, 1, 'exactly one raid consumed');
+
+    // And replaying the terminal barrier must not consume a second allowance.
+    const { replayCommittedPvpTerminalEffects } = await import('../pvp/_committed-terminal-effects.js');
+    await replayCommittedPvpTerminalEffects((await kv.get(`pvp:${battleId}`)) as never);
+    const after = await kv.get<{ count: number; proofIds: string[] }>(`raid-report-count-v2:${raider}:${day}`);
+    assert.equal(after!.count, 1, 'a terminal replay must not double-consume the daily raid cap');
+});
