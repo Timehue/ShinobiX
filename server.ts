@@ -1611,7 +1611,19 @@ app.get('/.well-known/assetlinks.json', (_req, res) => {
         return;
     }
     res.type('application/json');
-    res.setHeader('Cache-Control', 'public, max-age=3600');
+    // 5 minutes, not an hour.
+    //
+    // Android does not read this file directly — it asks Google's Digital Asset
+    // Links service, which caches OUR response for exactly as long as this
+    // header says. At max-age=3600 a fingerprint correction took an hour to take
+    // effect, and there is no way to purge that cache: no dashboard button, no
+    // API. During setup that reads as "the fix did not work", because
+    // reinstalling the app changes nothing while the upstream answer is stale.
+    //
+    // The file is a few hundred bytes and is fetched by Google's crawler rather
+    // than by players, so the shorter TTL costs a handful of requests an hour and
+    // buys back an hour of false debugging every time a key changes.
+    res.setHeader('Cache-Control', 'public, max-age=300');
     res.send(JSON.stringify(statements));
 });
 
