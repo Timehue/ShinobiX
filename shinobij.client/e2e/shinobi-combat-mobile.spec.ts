@@ -41,6 +41,23 @@ function sideHud(name: string, side: "player" | "enemy") {
         </aside>`;
 }
 
+// The seven basic commands as both screens render them: icon, label, and a
+// cost line whose AP figure is separable from the rest (`.cmd-detail`) so the
+// phone tray can show the number without the range/cooldown tail.
+function commandChips() {
+    return [
+        ["Attack", "40 AP", " | 10 SP | R1"],
+        ["Move", "30 AP", " / tile"],
+        ["Heal", "60 AP", " | 10 CP | CD 0"],
+        ["Clear", "60 AP", " | CD 0"],
+        ["Cleanse", "60 AP", " | CD 0"],
+        ["Flee", "100 AP", " | 50%"],
+        ["Wait", "End turn", ""],
+    ].map(([label, cost, detail]) => `
+        <button type="button"><i class="cmd-icon" aria-hidden="true">*</i><span>${label}</span><small>${cost}<span class="cmd-detail">${detail}</span></small></button>
+    `).join("");
+}
+
 function actionCards(count = 12) {
     return Array.from({ length: count }, (_, index) => `
         <div class="combat-jutsu-card-wrap">
@@ -73,9 +90,11 @@ async function mountCombatFixture(page: Page, mode: "solo" | "pvp", viewport: { 
                         <div><strong>Enemy AP</strong><div class="hud-bar enemy-ap-display-bar"><span style="width:60%"></span></div><small>60/100 | Waiting</small></div>
                     </div>
                     <div class="combat-board-stage"><div class="hex-battlefield hex-forest"><span>TACTICAL BOARD</span></div></div>
-                    <div class="battle-tabbar"><button class="battle-tab battle-tab-active">Actions</button><button class="battle-tab">Battle Log</button></div>
-                    <div class="basic-action-bar shinobi-command-bar"><button><span>Attack</span></button><button><span>Move</span></button><button><span>Wait</span></button></div>
-                    <div class="jutsu-layout-card combat-jutsu-bar"><div class="combat-equipped-jutsu-grid">${actionCards()}</div></div>
+                    <div class="battle-tabbar"><button class="battle-tab battle-tab-active">Actions</button><button class="battle-tab">Battle Log<span class="battle-tab-badge">7</span></button></div>
+                    <div class="combat-action-tray">
+                        <div class="basic-action-bar shinobi-command-bar">${commandChips()}</div>
+                        <div class="jutsu-layout-card combat-jutsu-bar"><div class="combat-equipped-jutsu-grid">${actionCards()}</div></div>
+                    </div>
                     <div class="combat-text-log"><div class="combat-log-header">Battle Log</div></div>
                 </main>
                 ${sideHud("Enemy Ninja", "enemy")}
@@ -145,6 +164,38 @@ for (const mode of ["solo", "pvp"] as const) {
             expect(command.height).toBeGreaterThanOrEqual(44);
             expect(tab.height).toBeGreaterThanOrEqual(44);
             expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+
+            // Basic commands and the loadout are one list on a phone: a single
+            // scrollport holds both, and the loadout no longer scrolls inside
+            // its own frame above them.
+            const tray = await page.locator(".combat-action-tray").evaluate((element) => {
+                const style = getComputedStyle(element);
+                const commandBar = element.querySelector<HTMLElement>(".shinobi-command-bar")!;
+                const loadout = element.querySelector<HTMLElement>(".combat-jutsu-bar")!;
+                return {
+                    display: style.display,
+                    overflowY: style.overflowY,
+                    clientHeight: element.clientHeight,
+                    scrollHeight: element.scrollHeight,
+                    loadoutOverflowY: getComputedStyle(loadout).overflowY,
+                    commandBottom: commandBar.getBoundingClientRect().bottom,
+                    loadoutTop: loadout.getBoundingClientRect().top,
+                };
+            });
+            expect(tray.display).toBe("flex");
+            expect(tray.overflowY).toBe("auto");
+            expect(tray.loadoutOverflowY).toBe("visible");
+            expect(tray.loadoutTop).toBeGreaterThanOrEqual(tray.commandBottom - 1);
+            // The reclaimed band is real: the merged tray is taller than the
+            // 86px slot the separately framed loadout used to get.
+            expect(tray.clientHeight).toBeGreaterThan(100);
+            expect(tray.scrollHeight).toBeGreaterThanOrEqual(tray.clientHeight);
+
+            // The chip shows the AP figure; range/cooldown stay in the name.
+            const chip = page.locator(".shinobi-command-bar > button").first();
+            await expect(chip.locator("small")).toContainText("40 AP");
+            await expect(chip.locator(".cmd-detail")).toHaveCSS("position", "absolute");
+            expect((await chip.locator(".cmd-detail").boundingBox())?.width).toBeLessThanOrEqual(2);
 
             if (viewport.width <= 430) {
                 const firstCard = page.locator(".combat-jutsu-card-wrap").first();

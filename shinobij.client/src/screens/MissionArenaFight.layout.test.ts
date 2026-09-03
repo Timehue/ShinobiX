@@ -37,8 +37,10 @@ test("mission fight reserves a row for its action notice instead of displacing t
     );
 
     // Every transient message lives inside one persistent fixed-height wrapper.
+    // The next band after it is the phone action tray, which owns the command
+    // bar; see the CombatActionTray coverage below.
     const wrapper = missionSource.match(
-        /<div className="combat-action-notice">([\s\S]*?)<\/div>\s*<CombatCommandBar>/,
+        /<div className="combat-action-notice">([\s\S]*?)<\/div>\s*\{\/\*[\s\S]*?\*\/\}\s*<CombatActionTray>/,
     );
     assert.ok(wrapper, "the notices must be wrapped in a single .combat-action-notice grid child");
     assert.match(wrapper![1], /className=\{`combat-targeting-hint/, "the targeting hint belongs in the wrapper");
@@ -591,5 +593,116 @@ test("all three combat stylesheets share one mobile/desktop boundary", () => {
         restoreMobileBound + 1,
         `the desktop combat block opens at min-width ${restoreDesktopBound}px but the mobile block ends at ` +
         `${restoreMobileBound}px — they must be adjacent`,
+    );
+});
+
+// The phone HUD used to frame the basic commands and the jutsu/weapon/item
+// loadout as two separate bands. On a 412x680 phone that spent ~150px of chrome
+// above an 86px loadout slot, which showed one clipped card row. Both surfaces
+// now live inside one `.combat-action-tray`, which is `display: contents`
+// everywhere except phone portrait — where it is the single bordered scrollport.
+test("both shell fights merge commands and loadout into one phone action tray", () => {
+    assert.match(
+        combatHudSource,
+        /export function CombatActionTray\([\s\S]*?classNames\("combat-action-tray", className\)/,
+        "the shared layout must own the tray element",
+    );
+
+    for (const [name, source] of [["solo", missionSource], ["PvP", pvpSource]] as const) {
+        const tray = source.match(/<CombatActionTray>([\s\S]*?)<\/CombatActionTray>/);
+        assert.ok(tray, `${name} combat must wrap its action surfaces in the shared tray`);
+        assert.match(tray![1], /<CombatCommandBar/, `${name} basic commands belong inside the tray`);
+        assert.match(
+            tray![1],
+            /className="jutsu-layout-card combat-jutsu-bar"/,
+            `${name} jutsu, weapons and items belong inside the same tray`,
+        );
+        // The log is a peer of the tray, not a child: the tab switch swaps the
+        // whole tray out for it, and nesting would make the log inherit the
+        // tray's scrollport.
+        assert.doesNotMatch(tray![1], /<PlainCombatBattleLog/, `${name} battle log must stay outside the tray`);
+        assert.equal(
+            (source.match(/<CombatActionTray>/g) ?? []).length,
+            1,
+            `${name} combat must render exactly one action tray`,
+        );
+    }
+});
+
+test("the action tray is inert outside phone portrait and the sole scrollport inside it", () => {
+    // Desktop, compact desktop and short landscape place every band with an
+    // explicit grid-area; an extra box with the default `order: 0` would sort
+    // ahead of all of them and take row 1. `display: contents` keeps the tray
+    // out of every layout it does not own.
+    assert.match(
+        battleSkinCss,
+        /\.combat-action-tray \{ display: contents; \}/,
+        "the tray must default to display: contents so non-phone tiers are untouched",
+    );
+
+    const phoneTray = battleSkinCss.match(
+        /#combat \.combat-action-tray \{([^}]*)\}/,
+    );
+    assert.ok(phoneTray, "phone portrait must promote the tray to a real element");
+    assert.match(phoneTray![1], /display: flex !important/);
+    assert.match(phoneTray![1], /grid-row: 5 \/ span 2 !important/,
+        "the tray spans the commands and loadout tracks so the six-track phone grid keeps its count");
+    assert.match(phoneTray![1], /overflow: hidden auto !important/,
+        "the tray owns the scroll so commands and cards scroll as one list");
+    assert.match(
+        battleSkinCss,
+        /#combat \.combat-action-tray > \.combat-jutsu-bar \{[^}]*overflow: visible !important;/s,
+        "the loadout must hand its overflow up to the tray instead of scrolling separately",
+    );
+    assert.match(
+        battleSkinCss,
+        /#combat \.combat-main-area\.bt-log \.combat-action-tray \{\s*display: none !important;/,
+        "the log tab replaces the tray rather than painting a second empty frame",
+    );
+
+    // `.combat-main-area > .shinobi-command-bar` stopped matching the moment the
+    // tray wrapped it, which handed placement to the legacy has-action-notice
+    // row pins and collapsed the short-landscape board to 0px.
+    assert.doesNotMatch(
+        battleSkinCss,
+        /\.combat-main-area > \.(?:shinobi-command-bar|combat-jutsu-bar)\b/,
+        "grid-area pins for the wrapped surfaces must use a descendant combinator",
+    );
+});
+
+test("the compact command chip keeps its cost readable and its full copy announced", () => {
+    for (const [name, source] of [["solo", missionSource], ["PvP", pvpSource]] as const) {
+        const bar = source.slice(source.indexOf("<CombatCommandBar"), source.indexOf("</CombatCommandBar>"));
+        assert.ok(bar.length > 0, `${name} must still render a command bar`);
+        assert.ok(
+            (bar.match(/<span className="cmd-detail">/g) ?? []).length >= 6,
+            `${name} command costs must split the AP figure from the rest so a 51px chip can show the number`,
+        );
+        assert.match(bar, /AP<span className="cmd-detail">/,
+            `${name} must keep the AP value outside the collapsible remainder`);
+    }
+
+    // Clipped, not display:none — the range, secondary resource and cooldown
+    // stay in the button's accessible name on a phone.
+    assert.match(
+        battleSkinCss,
+        /#combat \.combat-action-tray > \.shinobi-command-bar > button > small > \.cmd-detail \{[^}]*clip-path: inset\(50%\) !important;/s,
+        "the hidden half of the cost line must stay in the accessibility tree",
+    );
+    assert.doesNotMatch(
+        battleSkinCss,
+        /\.cmd-detail \{[^}]*display: none/s,
+        "removing the detail from the a11y tree would drop range and cooldown for screen readers",
+    );
+
+    // 44px stays the touch floor for both the chips and the tab switch; only
+    // the frames and the 15px display type were reclaimed.
+    assert.match(
+        battleSkinCss,
+        /#combat \.combat-action-tray > \.shinobi-command-bar > button \{[^}]*min-height: 44px !important;/s,
+    );
+    assert.match(
+        battleSkinCss,
+        /#combat \.battle-tab \{[^}]*min-height: 44px !important;/s,
     );
 });

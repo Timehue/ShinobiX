@@ -19,6 +19,7 @@ import { BattlefieldActor } from "../components/BattlefieldActor";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { BattleTabBar } from "../components/BattleTabBar";
 import {
+    CombatActionTray,
     CombatApPanel,
     CombatBoardStage,
     CombatCommandBar,
@@ -2229,314 +2230,321 @@ export function PvpBattleScreen({
                     {/* Action bar stays visible on the opponent's turn so the player
                         can review their kit and plan. Individual action controls use
                         the native disabled state; inspect/help controls remain usable. */}
-                    {!done && !amSpectator && (
-                        <CombatCommandBar style={isMyTurn ? undefined : { opacity: 0.55 }}>
-                            <button className={pendingBasicAttack ? "selected-action" : ""}
-                                onClick={() => { clearPendingPvpJutsu(); setPendingWeaponId(""); setSelectedActionId(undefined); setPendingBasicAttack(v => !v); }}
-                                disabled={!isMyTurn || submitting || !basicAttackAvailability.affordable}>
-                                <i className="cmd-icon" aria-hidden="true"><GiCrossedSwords /></i><span>Attack</span><small>{basicAttackAvailability.apCost} AP | 10 SP | R1</small>
-                            </button>
-                            <button className={selectedActionId === "move" ? "selected-action" : ""}
-                                onClick={() => { clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); setSelectedActionId(v => v === "move" ? undefined : "move"); }}
-                                disabled={!isMyTurn || submitting || !moveAvailability.affordable}>
-                                <i className="cmd-icon" aria-hidden="true"><GiBootPrints /></i><span>Move</span><small>{moveAvailability.apCost} AP / tile</small>
-                            </button>
-                            <button onClick={() => submitAction("basicHeal")}
-                                disabled={!isMyTurn || submitting || !healAvailability.affordable}>
-                                <i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{healAvailability.apCost} AP | 10 CP | CD {myCooldowns.basicHeal ?? 0}</small>
-                            </button>
-                            <button onClick={() => submitAction("clear")}
-                                disabled={!isMyTurn || submitting || !clearAvailability.affordable}>
-                                <i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{clearAvailability.apCost} AP | CD {myCooldowns.clear ?? 0}</small>
-                            </button>
-                            <button onClick={() => submitAction("cleanse")}
-                                disabled={!isMyTurn || submitting || !cleanseAvailability.affordable}>
-                                <i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{cleanseAvailability.apCost} AP | CD {myCooldowns.cleanse ?? 0}</small>
-                            </button>
-                            <button onClick={() => submitAction("flee")} disabled={!isMyTurn || submitting || !fleeAvailability.affordable}>
-                                <i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Flee</span><small>{fleeAvailability.apCost} AP | 50%</small>
-                            </button>
-                            <button onClick={() => submitAction("wait")} disabled={!isMyTurn || submitting}>
-                                <i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>End turn</small>
-                            </button>
-                        </CombatCommandBar>
-                    )}
-                    <div
-                        className="jutsu-layout-card combat-jutsu-bar"
-                        role="region"
-                        aria-label="Jutsu, weapons, and items"
-                    >
-                        {done ? null : amSpectator ? (
-                            <p style={{ textAlign: "center", color: "#a78bfa", padding: "0.75rem", fontSize: "0.85em", margin: 0 }}>
-                                👁 Spectating — {session.activePlayer === "p1" ? session.p1.name : session.p2.name}'s turn (Round {session.round})
-                            </p>
-                        ) : (
-                            <div style={isMyTurn ? { display: "contents" } : { opacity: 0.6 }}>
-                                {/* Cast/use controls are natively disabled while waiting, but
-                                     detail buttons stay interactive for planning. */}
-                                {sessionEquippedJutsu.length === 0 && pvpEquippedWeapons.length === 0 && pvpEquippedThrown.length === 0 && pvpEquippedConsumables.length === 0 ? (
-                                    <div className="summary-box">No equipped jutsus or items. Equip from Profile.</div>
-                                ) : (
-                                    <div className="combat-equipped-jutsu-grid">
-                                        {/* ── Jutsu cards ── */}
-                                        {sessionEquippedJutsu.map(j => {
-                                            const cooldownRemaining = myCooldowns[j.id] ?? 0;
-                                            const availability = pvpJutsuActionAvailability(j.ap ?? 40, {
-                                                chakraCost: j.chakraCost ?? 0,
-                                                staminaCost: j.staminaCost ?? 0,
-                                                cooldownRemaining,
-                                                element: j.element,
-                                            });
-                                            const onCooldown = availability.onCooldown;
-                                            const isArmed = pendingJutsuId === j.id;
-                                            const title = [
-                                                j.name,
-                                                `${availability.apCost} AP`,
-                                                `Range ${j.range}`,
-                                                availability.chakraCost > 0 ? `${availability.chakraCost} CP` : "",
-                                                availability.staminaCost > 0 ? `${availability.staminaCost} SP` : "",
-                                                availability.sealed ? "Elementally sealed" : "",
-                                                onCooldown ? `CD ${cooldownRemaining}` : "",
-                                            ].filter(Boolean).join(" | ");
-                                            return (
-                                                <div key={j.id} className={`combat-jutsu-card-wrap${isArmed ? " selected-action" : ""}`}>
-                                                    {onCooldown && <span className="combat-cd-badge" title={`${cooldownRemaining} turn(s) until ready`}>{cooldownRemaining}</span>}
-                                                    <button
-                                                        type="button"
-                                                        className={`combat-jutsu-button${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
-                                                        title={title}
-                                                        onClick={() => !onCooldown && selectJutsu(j)}
-                                                        disabled={!isMyTurn || submitting || !availability.affordable}
-                                                    >
-                                                        <span className="combat-jutsu-thumb">
-                                                            <strong className="combat-jutsu-fallback-icon" aria-hidden="true">{fallbackIcon(j)}</strong>
-                                                            {j.image && <img src={j.image} alt="" draggable={false} />}
-                                                        </span>
-                                                        <span className="combat-jutsu-name">{j.name}</span>
-                                                        {/* "CD 0" is noise on every card; an ACTIVE cooldown already
-                                                            shows as the corner pip. Dropping it keeps the cost line
-                                                            inside the card without truncating. */}
-                                                        <CombatJutsuMeta
-                                                            character={character}
-                                                            jutsu={j}
-                                                            statuses={me.statuses}
-                                                            round={session.round}
-                                                            activeCooldown={cooldownRemaining}
-                                                            sealedResourceCosts={{
-                                                                chakraCost: j.chakraCost ?? 0,
-                                                                staminaCost: j.staminaCost ?? 0,
-                                                            }}
-                                                        />
-                                                    </button>
-                                                    <button type="button" className="combat-jutsu-help"
-                                                        id={`pvp-combat-detail-trigger-jutsu-${j.id}`}
-                                                        aria-haspopup="dialog"
-                                                        aria-controls={`pvp-combat-detail-jutsu-${j.id}`}
-                                                        aria-expanded={inspectedJutsuId === j.id}
-                                                        aria-label={`View ${j.name} jutsu details`}
-                                                        onClick={() => {
-                                                            setInspectedWeaponId("");
-                                                            setInspectedJutsuId(inspectedJutsuId === j.id ? "" : j.id);
-                                                        }}
-                                                        title={`View ${j.name} details`}>
-                                                        <span className="combat-help-glyph" aria-hidden="true">?</span>
-                                                    </button>
-                                                </div>
-                                            );
-                                        })}
-
-                                        {/* ── Weapon cards (green) ── */}
-                                        {pvpEquippedWeapons.map(item => {
-                                            const slot = normalizeEquipmentSlot(item.slot);
-                                            const wRange = item.weaponRange ?? (slot === "thrown" ? 4 : 1);
-                                            const isArmed = pendingWeaponId === item.id;
-                                            // Named (hand) weapons honour their CD server-side — grey
-                                            // out + show the remaining turns, matching the jutsu cards.
-                                            const wCd = myCooldowns[item.id] ?? 0;
-                                            const availability = pvpActionAvailability(item.apCost ?? 40, { cooldownRemaining: wCd });
-                                            const apCost = availability.apCost;
-                                            const onCooldown = availability.onCooldown;
-                                            return (
-                                                <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`} key={item.id}>
-                                                    {onCooldown && <span className="combat-cd-badge" title={`${wCd} turn(s) until ready`}>{wCd}</span>}
-                                                    <button
-                                                        type="button"
-                                                        className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
-                                                        title={onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Range ${wRange}`}
-                                                        onClick={() => { if (onCooldown) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
-                                                        disabled={!isMyTurn || submitting || !availability.affordable}>
-                                                        <span className="combat-jutsu-thumb combat-item-thumb">
-                                                            <strong className="combat-jutsu-fallback-icon" aria-hidden="true">🗡</strong>
-                                                            {item.image && <img src={item.image} alt="" draggable={false} />}
-                                                        </span>
-                                                        <span className="combat-jutsu-name">{item.name}</span>
-                                                        <span className="combat-jutsu-info">{apCost} AP | R{wRange}{onCooldown ? ` | CD ${wCd}` : ""}</span>
-                                                    </button>
-                                                    <button type="button" className="combat-jutsu-help"
-                                                        id={`pvp-combat-detail-trigger-item-${item.id}`}
-                                                        aria-haspopup="dialog"
-                                                        aria-controls={`pvp-combat-detail-item-${item.id}`}
-                                                        aria-expanded={inspectedWeaponId === item.id}
-                                                        aria-label={`View ${item.name} weapon details`}
-                                                        onClick={() => {
-                                                            setInspectedJutsuId("");
-                                                            setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id);
-                                                        }}
-                                                        title={`View ${item.name} details`}>
-                                                        <span className="combat-help-glyph" aria-hidden="true">i</span>
-                                                    </button>
-                                                </div>
-                                            );
-                                        })}
-
-                                        {/* ── Thrown weapon cards (green) ── */}
-                                        {realPvpItemsDisabled
-                                            && (pvpEquippedThrown.length > 0 || pvpEquippedConsumables.length > 0)
-                                            && <p className="combat-action-hint">Consumables and thrown weapons are disabled for real fighters in server-authoritative PvP.</p>}
-                                        {pvpEquippedThrown.map(item => {
-                                            const wRange = item.weaponRange ?? 4;
-                                            const isArmed = pendingWeaponId === item.id;
-                                            const chargesLeft = pvpItemChargesLeft(item.id);
-                                            const depleted = chargesLeft != null && chargesLeft <= 0;
-                                            const countSuffix = chargesLeft != null ? ` ×${chargesLeft}` : "";
-                                            // Thrown weapons also honour their CD server-side — grey
-                                            // out + show the remaining turns like the jutsu cards.
-                                            const wCd = myCooldowns[item.id] ?? 0;
-                                            const availability = pvpActionAvailability(item.apCost ?? 40, { cooldownRemaining: wCd });
-                                            const apCost = availability.apCost;
-                                            const onCooldown = availability.onCooldown;
-                                            return (
-                                                <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`} key={item.id}>
-                                                    {onCooldown && <span className="combat-cd-badge" title={`${wCd} turn(s) until ready`}>{wCd}</span>}
-                                                    <button
-                                                        type="button"
-                                                        className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
-                                                        title={realPvpItemsDisabled ? "Disabled for real fighters in PvP" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Range ${wRange} | Thrown`}
-                                                        onClick={() => { if (onCooldown || realPvpItemsDisabled) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
-                                                        disabled={!isMyTurn || realPvpItemsDisabled || submitting || depleted || !availability.affordable}>
-                                                        <span className="combat-jutsu-thumb combat-item-thumb">
-                                                            <strong className="combat-jutsu-fallback-icon" aria-hidden="true">🎯</strong>
-                                                            {item.image && <img src={item.image} alt="" draggable={false} />}
-                                                        </span>
-                                                        <span className="combat-jutsu-name">{item.name}</span>
-                                                        <span className="combat-jutsu-info">Thrown · {apCost} AP | R{wRange}{countSuffix}{onCooldown ? ` | CD ${wCd}` : ""}</span>
-                                                    </button>
-                                                    <button type="button" className="combat-jutsu-help"
-                                                        id={`pvp-combat-detail-trigger-item-${item.id}`}
-                                                        aria-haspopup="dialog"
-                                                        aria-controls={`pvp-combat-detail-item-${item.id}`}
-                                                        aria-expanded={inspectedWeaponId === item.id}
-                                                        aria-label={`View ${item.name} weapon details`}
-                                                        onClick={() => {
-                                                            setInspectedJutsuId("");
-                                                            setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id);
-                                                        }}
-                                                        title={`View ${item.name} details`}>
-                                                        <span className="combat-help-glyph" aria-hidden="true">i</span>
-                                                    </button>
-                                                </div>
-                                            );
-                                        })}
-
-                                        {/* ── Consumable cards (red) ── */}
-                                        {pvpEquippedConsumables.map(item => {
-                                            const chargesLeft = pvpItemChargesLeft(item.id);
-                                            const depleted = chargesLeft != null && chargesLeft <= 0;
-                                            const countSuffix = chargesLeft != null ? ` ×${chargesLeft}` : "";
-                                            // Combat items (pills / smoke bomb) honour their CD
-                                            // server-side — grey out + show the remaining turns like
-                                            // the weapon cards. Restore-only potions carry no CD, so
-                                            // wCd stays 0 and they never grey for this reason.
-                                            const wCd = myCooldowns[item.id] ?? 0;
-                                            const availability = pvpActionAvailability(item.apCost ?? 35, { cooldownRemaining: wCd });
-                                            const apCost = availability.apCost;
-                                            const onCooldown = availability.onCooldown;
-                                            return (
-                                                <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-consumable-card${onCooldown ? " jutsu-on-cooldown" : ""}`} key={item.id}>
-                                                    {onCooldown && <span className="combat-cd-badge" title={`${wCd} turn(s) until ready`}>{wCd}</span>}
-                                                    <button
-                                                        type="button"
-                                                        className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${onCooldown ? " jutsu-on-cooldown" : ""}`}
-                                                        title={realPvpItemsDisabled ? "Disabled for real fighters in PvP" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Use`}
-                                                        onClick={() => { if (onCooldown || realPvpItemsDisabled) return; setInspectedJutsuId(""); clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
-                                                        disabled={!isMyTurn || realPvpItemsDisabled || submitting || depleted || !availability.affordable}>
-                                                        <span className="combat-jutsu-thumb combat-item-thumb">
-                                                            <strong className="combat-jutsu-fallback-icon" aria-hidden="true">🧪</strong>
-                                                            {item.image && <img src={item.image} alt="" draggable={false} />}
-                                                        </span>
-                                                        <span className="combat-jutsu-name">{item.name}</span>
-                                                        <span className="combat-jutsu-info">{apCost} AP | Use{countSuffix}{onCooldown ? ` | CD ${wCd}` : ""}</span>
-                                                    </button>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                                {inspectedWeaponId && (() => {
-                                    const w = [...pvpEquippedWeapons, ...pvpEquippedThrown]
-                                        .find(x => x.id === inspectedWeaponId);
-                                    if (!w) return null;
-                                    const slot = normalizeEquipmentSlot(w.slot);
-                                    const wRange = w.weaponRange ?? (slot === "thrown" ? 4 : 1);
-                                    return (
-                                        <CombatDetailPortal
-                                            id={`pvp-combat-detail-item-${w.id}`}
-                                            labelId={`pvp-combat-detail-label-item-${w.id}`}
-                                            triggerId={`pvp-combat-detail-trigger-item-${w.id}`}
-                                            onClose={() => setInspectedWeaponId("")}
-                                        >
-                                            <div className="combat-jutsu-detail-header">
-                                                <div><strong id={`pvp-combat-detail-label-item-${w.id}`}>{w.name}</strong><small>{slot === "thrown" ? "Thrown" : "Melee"}</small></div>
-                                                <button type="button" data-combat-detail-close aria-label="Close combat details" onClick={() => setInspectedWeaponId("")}>x</button>
-                                            </div>
-                                            <div className="combat-jutsu-detail-grid">
-                                                <span><strong>Type:</strong> Bukijutsu</span>
-                                                <span><strong>Rarity:</strong> {w.rarity}</span>
-                                                <span><strong>AP Cost:</strong> {pvpAdjustedApCost(w.apCost ?? 40)}</span>
-                                                <span><strong>Range:</strong> {wRange}</span>
-                                                <span><strong>Effect Power:</strong> {w.weaponEp ?? 15}</span>
-                                                {w.weaponCooldown != null && w.weaponCooldown > 0 && <span><strong>Cooldown:</strong> {w.weaponCooldown} round(s)</span>}
-                                                {w.weaponEffect && <span><strong>Effect:</strong> {w.weaponEffect}</span>}
-                                            </div>
-                                            {w.description && <p className="combat-jutsu-detail-desc">{w.description}</p>}
-                                        </CombatDetailPortal>
-                                    );
-                                })()}
-                                {inspectedJutsu && (() => {
-                                    const mastery = getJutsuMastery(character, inspectedJutsu.id);
-                                    const scaled = scaleJutsuByLevel(inspectedJutsu, mastery.level);
-                                    return (
-                                        <CombatDetailPortal
-                                            id={`pvp-combat-detail-jutsu-${inspectedJutsu.id}`}
-                                            labelId={`pvp-combat-detail-label-jutsu-${inspectedJutsu.id}`}
-                                            triggerId={`pvp-combat-detail-trigger-jutsu-${inspectedJutsu.id}`}
-                                            onClose={() => setInspectedJutsuId("")}
-                                        >
-                                            <div className="combat-jutsu-detail-header">
-                                                <div><strong id={`pvp-combat-detail-label-jutsu-${inspectedJutsu.id}`}>{inspectedJutsu.name}</strong><small>Level {mastery.level} / {JUTSU_MAX_LEVEL}</small></div>
-                                                <button type="button" data-combat-detail-close aria-label="Close combat details" onClick={() => setInspectedJutsuId("")}>x</button>
-                                            </div>
-                                            <div className="combat-jutsu-detail-grid">
-                                                <span><strong>Type:</strong> {inspectedJutsu.type}</span>
-                                                <span><strong>Element:</strong> {inspectedJutsu.element}</span>
-                                                <span><strong>AP:</strong> {pvpAdjustedJutsuApCost(inspectedJutsu.ap ?? 40)}</span>
-                                                <span><strong>Range:</strong> {inspectedJutsu.range}</span>
-                                                <span><strong>Effect Power:</strong> {scaled.scaledEffectPower}</span>
-                                                <span><strong>Cooldown:</strong> {inspectedJutsu.cooldown}</span>
-                                                <span><strong>Chakra Cost:</strong> {Math.max(0, Number(inspectedJutsu.chakraCost) || 0)}</span>
-                                                <span><strong>Stamina Cost:</strong> {Math.max(0, Number(inspectedJutsu.staminaCost) || 0)}</span>
-                                            </div>
-                                            {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return <p className="combat-jutsu-detail-desc"><strong style={{ color: "var(--purple-400)" }}>🎯 {t.short}:</strong> {t.detail}</p>; })()}
-                                            {inspectedJutsu.description && <p className="combat-jutsu-detail-desc">{inspectedJutsu.description}</p>}
-                                            <div className="combat-jutsu-effects-list">
-                                                <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={playerLensDiscipline(character)} />
-                                            </div>
-                                        </CombatDetailPortal>
-                                    );
-                                })()}
-                            </div>
+                    {/* Basic commands and the jutsu/weapon/item loadout share a
+                        single phone panel. `.combat-action-tray` is the one
+                        bordered scrollport for both on a phone, and stays
+                        `display: contents` everywhere else so each surface keeps
+                        the grid area it already had. */}
+                    <CombatActionTray>
+                        {!done && !amSpectator && (
+                            <CombatCommandBar style={isMyTurn ? undefined : { opacity: 0.55 }}>
+                                <button className={pendingBasicAttack ? "selected-action" : ""}
+                                    onClick={() => { clearPendingPvpJutsu(); setPendingWeaponId(""); setSelectedActionId(undefined); setPendingBasicAttack(v => !v); }}
+                                    disabled={!isMyTurn || submitting || !basicAttackAvailability.affordable}>
+                                    <i className="cmd-icon" aria-hidden="true"><GiCrossedSwords /></i><span>Attack</span><small>{basicAttackAvailability.apCost} AP<span className="cmd-detail"> | 10 SP | R1</span></small>
+                                </button>
+                                <button className={selectedActionId === "move" ? "selected-action" : ""}
+                                    onClick={() => { clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); setSelectedActionId(v => v === "move" ? undefined : "move"); }}
+                                    disabled={!isMyTurn || submitting || !moveAvailability.affordable}>
+                                    <i className="cmd-icon" aria-hidden="true"><GiBootPrints /></i><span>Move</span><small>{moveAvailability.apCost} AP<span className="cmd-detail"> / tile</span></small>
+                                </button>
+                                <button onClick={() => submitAction("basicHeal")}
+                                    disabled={!isMyTurn || submitting || !healAvailability.affordable}>
+                                    <i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{healAvailability.apCost} AP<span className="cmd-detail"> | 10 CP | CD {myCooldowns.basicHeal ?? 0}</span></small>
+                                </button>
+                                <button onClick={() => submitAction("clear")}
+                                    disabled={!isMyTurn || submitting || !clearAvailability.affordable}>
+                                    <i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{clearAvailability.apCost} AP<span className="cmd-detail"> | CD {myCooldowns.clear ?? 0}</span></small>
+                                </button>
+                                <button onClick={() => submitAction("cleanse")}
+                                    disabled={!isMyTurn || submitting || !cleanseAvailability.affordable}>
+                                    <i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{cleanseAvailability.apCost} AP<span className="cmd-detail"> | CD {myCooldowns.cleanse ?? 0}</span></small>
+                                </button>
+                                <button onClick={() => submitAction("flee")} disabled={!isMyTurn || submitting || !fleeAvailability.affordable}>
+                                    <i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Flee</span><small>{fleeAvailability.apCost} AP<span className="cmd-detail"> | 50%</span></small>
+                                </button>
+                                <button onClick={() => submitAction("wait")} disabled={!isMyTurn || submitting}>
+                                    <i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>End turn</small>
+                                </button>
+                            </CombatCommandBar>
                         )}
-                    </div>
+                        <div
+                            className="jutsu-layout-card combat-jutsu-bar"
+                            role="region"
+                            aria-label="Jutsu, weapons, and items"
+                        >
+                            {done ? null : amSpectator ? (
+                                <p style={{ textAlign: "center", color: "#a78bfa", padding: "0.75rem", fontSize: "0.85em", margin: 0 }}>
+                                    👁 Spectating — {session.activePlayer === "p1" ? session.p1.name : session.p2.name}'s turn (Round {session.round})
+                                </p>
+                            ) : (
+                                <div style={isMyTurn ? { display: "contents" } : { opacity: 0.6 }}>
+                                    {/* Cast/use controls are natively disabled while waiting, but
+                                         detail buttons stay interactive for planning. */}
+                                    {sessionEquippedJutsu.length === 0 && pvpEquippedWeapons.length === 0 && pvpEquippedThrown.length === 0 && pvpEquippedConsumables.length === 0 ? (
+                                        <div className="summary-box">No equipped jutsus or items. Equip from Profile.</div>
+                                    ) : (
+                                        <div className="combat-equipped-jutsu-grid">
+                                            {/* ── Jutsu cards ── */}
+                                            {sessionEquippedJutsu.map(j => {
+                                                const cooldownRemaining = myCooldowns[j.id] ?? 0;
+                                                const availability = pvpJutsuActionAvailability(j.ap ?? 40, {
+                                                    chakraCost: j.chakraCost ?? 0,
+                                                    staminaCost: j.staminaCost ?? 0,
+                                                    cooldownRemaining,
+                                                    element: j.element,
+                                                });
+                                                const onCooldown = availability.onCooldown;
+                                                const isArmed = pendingJutsuId === j.id;
+                                                const title = [
+                                                    j.name,
+                                                    `${availability.apCost} AP`,
+                                                    `Range ${j.range}`,
+                                                    availability.chakraCost > 0 ? `${availability.chakraCost} CP` : "",
+                                                    availability.staminaCost > 0 ? `${availability.staminaCost} SP` : "",
+                                                    availability.sealed ? "Elementally sealed" : "",
+                                                    onCooldown ? `CD ${cooldownRemaining}` : "",
+                                                ].filter(Boolean).join(" | ");
+                                                return (
+                                                    <div key={j.id} className={`combat-jutsu-card-wrap${isArmed ? " selected-action" : ""}`}>
+                                                        {onCooldown && <span className="combat-cd-badge" title={`${cooldownRemaining} turn(s) until ready`}>{cooldownRemaining}</span>}
+                                                        <button
+                                                            type="button"
+                                                            className={`combat-jutsu-button${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
+                                                            title={title}
+                                                            onClick={() => !onCooldown && selectJutsu(j)}
+                                                            disabled={!isMyTurn || submitting || !availability.affordable}
+                                                        >
+                                                            <span className="combat-jutsu-thumb">
+                                                                <strong className="combat-jutsu-fallback-icon" aria-hidden="true">{fallbackIcon(j)}</strong>
+                                                                {j.image && <img src={j.image} alt="" draggable={false} />}
+                                                            </span>
+                                                            <span className="combat-jutsu-name">{j.name}</span>
+                                                            {/* "CD 0" is noise on every card; an ACTIVE cooldown already
+                                                                shows as the corner pip. Dropping it keeps the cost line
+                                                                inside the card without truncating. */}
+                                                            <CombatJutsuMeta
+                                                                character={character}
+                                                                jutsu={j}
+                                                                statuses={me.statuses}
+                                                                round={session.round}
+                                                                activeCooldown={cooldownRemaining}
+                                                                sealedResourceCosts={{
+                                                                    chakraCost: j.chakraCost ?? 0,
+                                                                    staminaCost: j.staminaCost ?? 0,
+                                                                }}
+                                                            />
+                                                        </button>
+                                                        <button type="button" className="combat-jutsu-help"
+                                                            id={`pvp-combat-detail-trigger-jutsu-${j.id}`}
+                                                            aria-haspopup="dialog"
+                                                            aria-controls={`pvp-combat-detail-jutsu-${j.id}`}
+                                                            aria-expanded={inspectedJutsuId === j.id}
+                                                            aria-label={`View ${j.name} jutsu details`}
+                                                            onClick={() => {
+                                                                setInspectedWeaponId("");
+                                                                setInspectedJutsuId(inspectedJutsuId === j.id ? "" : j.id);
+                                                            }}
+                                                            title={`View ${j.name} details`}>
+                                                            <span className="combat-help-glyph" aria-hidden="true">?</span>
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+
+                                            {/* ── Weapon cards (green) ── */}
+                                            {pvpEquippedWeapons.map(item => {
+                                                const slot = normalizeEquipmentSlot(item.slot);
+                                                const wRange = item.weaponRange ?? (slot === "thrown" ? 4 : 1);
+                                                const isArmed = pendingWeaponId === item.id;
+                                                // Named (hand) weapons honour their CD server-side — grey
+                                                // out + show the remaining turns, matching the jutsu cards.
+                                                const wCd = myCooldowns[item.id] ?? 0;
+                                                const availability = pvpActionAvailability(item.apCost ?? 40, { cooldownRemaining: wCd });
+                                                const apCost = availability.apCost;
+                                                const onCooldown = availability.onCooldown;
+                                                return (
+                                                    <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`} key={item.id}>
+                                                        {onCooldown && <span className="combat-cd-badge" title={`${wCd} turn(s) until ready`}>{wCd}</span>}
+                                                        <button
+                                                            type="button"
+                                                            className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
+                                                            title={onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Range ${wRange}`}
+                                                            onClick={() => { if (onCooldown) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
+                                                            disabled={!isMyTurn || submitting || !availability.affordable}>
+                                                            <span className="combat-jutsu-thumb combat-item-thumb">
+                                                                <strong className="combat-jutsu-fallback-icon" aria-hidden="true">🗡</strong>
+                                                                {item.image && <img src={item.image} alt="" draggable={false} />}
+                                                            </span>
+                                                            <span className="combat-jutsu-name">{item.name}</span>
+                                                            <span className="combat-jutsu-info">{apCost} AP | R{wRange}{onCooldown ? ` | CD ${wCd}` : ""}</span>
+                                                        </button>
+                                                        <button type="button" className="combat-jutsu-help"
+                                                            id={`pvp-combat-detail-trigger-item-${item.id}`}
+                                                            aria-haspopup="dialog"
+                                                            aria-controls={`pvp-combat-detail-item-${item.id}`}
+                                                            aria-expanded={inspectedWeaponId === item.id}
+                                                            aria-label={`View ${item.name} weapon details`}
+                                                            onClick={() => {
+                                                                setInspectedJutsuId("");
+                                                                setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id);
+                                                            }}
+                                                            title={`View ${item.name} details`}>
+                                                            <span className="combat-help-glyph" aria-hidden="true">i</span>
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+
+                                            {/* ── Thrown weapon cards (green) ── */}
+                                            {realPvpItemsDisabled
+                                                && (pvpEquippedThrown.length > 0 || pvpEquippedConsumables.length > 0)
+                                                && <p className="combat-action-hint">Consumables and thrown weapons are disabled for real fighters in server-authoritative PvP.</p>}
+                                            {pvpEquippedThrown.map(item => {
+                                                const wRange = item.weaponRange ?? 4;
+                                                const isArmed = pendingWeaponId === item.id;
+                                                const chargesLeft = pvpItemChargesLeft(item.id);
+                                                const depleted = chargesLeft != null && chargesLeft <= 0;
+                                                const countSuffix = chargesLeft != null ? ` ×${chargesLeft}` : "";
+                                                // Thrown weapons also honour their CD server-side — grey
+                                                // out + show the remaining turns like the jutsu cards.
+                                                const wCd = myCooldowns[item.id] ?? 0;
+                                                const availability = pvpActionAvailability(item.apCost ?? 40, { cooldownRemaining: wCd });
+                                                const apCost = availability.apCost;
+                                                const onCooldown = availability.onCooldown;
+                                                return (
+                                                    <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`} key={item.id}>
+                                                        {onCooldown && <span className="combat-cd-badge" title={`${wCd} turn(s) until ready`}>{wCd}</span>}
+                                                        <button
+                                                            type="button"
+                                                            className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
+                                                            title={realPvpItemsDisabled ? "Disabled for real fighters in PvP" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Range ${wRange} | Thrown`}
+                                                            onClick={() => { if (onCooldown || realPvpItemsDisabled) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
+                                                            disabled={!isMyTurn || realPvpItemsDisabled || submitting || depleted || !availability.affordable}>
+                                                            <span className="combat-jutsu-thumb combat-item-thumb">
+                                                                <strong className="combat-jutsu-fallback-icon" aria-hidden="true">🎯</strong>
+                                                                {item.image && <img src={item.image} alt="" draggable={false} />}
+                                                            </span>
+                                                            <span className="combat-jutsu-name">{item.name}</span>
+                                                            <span className="combat-jutsu-info">Thrown · {apCost} AP | R{wRange}{countSuffix}{onCooldown ? ` | CD ${wCd}` : ""}</span>
+                                                        </button>
+                                                        <button type="button" className="combat-jutsu-help"
+                                                            id={`pvp-combat-detail-trigger-item-${item.id}`}
+                                                            aria-haspopup="dialog"
+                                                            aria-controls={`pvp-combat-detail-item-${item.id}`}
+                                                            aria-expanded={inspectedWeaponId === item.id}
+                                                            aria-label={`View ${item.name} weapon details`}
+                                                            onClick={() => {
+                                                                setInspectedJutsuId("");
+                                                                setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id);
+                                                            }}
+                                                            title={`View ${item.name} details`}>
+                                                            <span className="combat-help-glyph" aria-hidden="true">i</span>
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+
+                                            {/* ── Consumable cards (red) ── */}
+                                            {pvpEquippedConsumables.map(item => {
+                                                const chargesLeft = pvpItemChargesLeft(item.id);
+                                                const depleted = chargesLeft != null && chargesLeft <= 0;
+                                                const countSuffix = chargesLeft != null ? ` ×${chargesLeft}` : "";
+                                                // Combat items (pills / smoke bomb) honour their CD
+                                                // server-side — grey out + show the remaining turns like
+                                                // the weapon cards. Restore-only potions carry no CD, so
+                                                // wCd stays 0 and they never grey for this reason.
+                                                const wCd = myCooldowns[item.id] ?? 0;
+                                                const availability = pvpActionAvailability(item.apCost ?? 35, { cooldownRemaining: wCd });
+                                                const apCost = availability.apCost;
+                                                const onCooldown = availability.onCooldown;
+                                                return (
+                                                    <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-consumable-card${onCooldown ? " jutsu-on-cooldown" : ""}`} key={item.id}>
+                                                        {onCooldown && <span className="combat-cd-badge" title={`${wCd} turn(s) until ready`}>{wCd}</span>}
+                                                        <button
+                                                            type="button"
+                                                            className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${onCooldown ? " jutsu-on-cooldown" : ""}`}
+                                                            title={realPvpItemsDisabled ? "Disabled for real fighters in PvP" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Use`}
+                                                            onClick={() => { if (onCooldown || realPvpItemsDisabled) return; setInspectedJutsuId(""); clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
+                                                            disabled={!isMyTurn || realPvpItemsDisabled || submitting || depleted || !availability.affordable}>
+                                                            <span className="combat-jutsu-thumb combat-item-thumb">
+                                                                <strong className="combat-jutsu-fallback-icon" aria-hidden="true">🧪</strong>
+                                                                {item.image && <img src={item.image} alt="" draggable={false} />}
+                                                            </span>
+                                                            <span className="combat-jutsu-name">{item.name}</span>
+                                                            <span className="combat-jutsu-info">{apCost} AP | Use{countSuffix}{onCooldown ? ` | CD ${wCd}` : ""}</span>
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                    {inspectedWeaponId && (() => {
+                                        const w = [...pvpEquippedWeapons, ...pvpEquippedThrown]
+                                            .find(x => x.id === inspectedWeaponId);
+                                        if (!w) return null;
+                                        const slot = normalizeEquipmentSlot(w.slot);
+                                        const wRange = w.weaponRange ?? (slot === "thrown" ? 4 : 1);
+                                        return (
+                                            <CombatDetailPortal
+                                                id={`pvp-combat-detail-item-${w.id}`}
+                                                labelId={`pvp-combat-detail-label-item-${w.id}`}
+                                                triggerId={`pvp-combat-detail-trigger-item-${w.id}`}
+                                                onClose={() => setInspectedWeaponId("")}
+                                            >
+                                                <div className="combat-jutsu-detail-header">
+                                                    <div><strong id={`pvp-combat-detail-label-item-${w.id}`}>{w.name}</strong><small>{slot === "thrown" ? "Thrown" : "Melee"}</small></div>
+                                                    <button type="button" data-combat-detail-close aria-label="Close combat details" onClick={() => setInspectedWeaponId("")}>x</button>
+                                                </div>
+                                                <div className="combat-jutsu-detail-grid">
+                                                    <span><strong>Type:</strong> Bukijutsu</span>
+                                                    <span><strong>Rarity:</strong> {w.rarity}</span>
+                                                    <span><strong>AP Cost:</strong> {pvpAdjustedApCost(w.apCost ?? 40)}</span>
+                                                    <span><strong>Range:</strong> {wRange}</span>
+                                                    <span><strong>Effect Power:</strong> {w.weaponEp ?? 15}</span>
+                                                    {w.weaponCooldown != null && w.weaponCooldown > 0 && <span><strong>Cooldown:</strong> {w.weaponCooldown} round(s)</span>}
+                                                    {w.weaponEffect && <span><strong>Effect:</strong> {w.weaponEffect}</span>}
+                                                </div>
+                                                {w.description && <p className="combat-jutsu-detail-desc">{w.description}</p>}
+                                            </CombatDetailPortal>
+                                        );
+                                    })()}
+                                    {inspectedJutsu && (() => {
+                                        const mastery = getJutsuMastery(character, inspectedJutsu.id);
+                                        const scaled = scaleJutsuByLevel(inspectedJutsu, mastery.level);
+                                        return (
+                                            <CombatDetailPortal
+                                                id={`pvp-combat-detail-jutsu-${inspectedJutsu.id}`}
+                                                labelId={`pvp-combat-detail-label-jutsu-${inspectedJutsu.id}`}
+                                                triggerId={`pvp-combat-detail-trigger-jutsu-${inspectedJutsu.id}`}
+                                                onClose={() => setInspectedJutsuId("")}
+                                            >
+                                                <div className="combat-jutsu-detail-header">
+                                                    <div><strong id={`pvp-combat-detail-label-jutsu-${inspectedJutsu.id}`}>{inspectedJutsu.name}</strong><small>Level {mastery.level} / {JUTSU_MAX_LEVEL}</small></div>
+                                                    <button type="button" data-combat-detail-close aria-label="Close combat details" onClick={() => setInspectedJutsuId("")}>x</button>
+                                                </div>
+                                                <div className="combat-jutsu-detail-grid">
+                                                    <span><strong>Type:</strong> {inspectedJutsu.type}</span>
+                                                    <span><strong>Element:</strong> {inspectedJutsu.element}</span>
+                                                    <span><strong>AP:</strong> {pvpAdjustedJutsuApCost(inspectedJutsu.ap ?? 40)}</span>
+                                                    <span><strong>Range:</strong> {inspectedJutsu.range}</span>
+                                                    <span><strong>Effect Power:</strong> {scaled.scaledEffectPower}</span>
+                                                    <span><strong>Cooldown:</strong> {inspectedJutsu.cooldown}</span>
+                                                    <span><strong>Chakra Cost:</strong> {Math.max(0, Number(inspectedJutsu.chakraCost) || 0)}</span>
+                                                    <span><strong>Stamina Cost:</strong> {Math.max(0, Number(inspectedJutsu.staminaCost) || 0)}</span>
+                                                </div>
+                                                {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return <p className="combat-jutsu-detail-desc"><strong style={{ color: "var(--purple-400)" }}>🎯 {t.short}:</strong> {t.detail}</p>; })()}
+                                                {inspectedJutsu.description && <p className="combat-jutsu-detail-desc">{inspectedJutsu.description}</p>}
+                                                <div className="combat-jutsu-effects-list">
+                                                    <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={playerLensDiscipline(character)} />
+                                                </div>
+                                            </CombatDetailPortal>
+                                        );
+                                    })()}
+                                </div>
+                            )}
+                        </div>
+                    </CombatActionTray>
 
                     <PlainCombatBattleLog
                         lines={battleLogLines}

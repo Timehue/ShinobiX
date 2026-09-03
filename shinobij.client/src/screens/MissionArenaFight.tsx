@@ -32,6 +32,7 @@ import { CombatSideHud, type CombatHudStatus } from "../components/CombatSideHud
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { BattleTabBar } from "../components/BattleTabBar";
 import {
+    CombatActionTray,
     CombatApPanel,
     CombatCommandBar,
     CombatEnvironmentStrip,
@@ -1206,208 +1207,215 @@ export function MissionArenaFight({
                         </div>
                     </div>
 
-                    <CombatCommandBar>
-                        <button onClick={() => { if (enemyInMelee) void send({ type: "attack", targetId: enemy!.id }); else { setMode("attack"); setSelJutsu(null); setSelWeaponId(""); } }}
-                            disabled={busy || !myTurn || outOfActions || myAp < attackAp || myStamina < 10 || !enemy || enemy.hp <= 0}
-                            title={!enemyInMelee ? `Move next to ${enemyName} first` : undefined}
-                            className={mode === "attack" ? "selected-action" : ""}><i className="cmd-icon" aria-hidden="true"><GiCrossedSwords /></i><span>Attack</span><small>{attackAp} AP | 10 SP | R1</small></button>
-                        <button className={mode === "move" ? "selected-action" : ""}
-                            disabled={busy || !myTurn || outOfActions || myAp < moveAp}
-                            onClick={() => { setSelJutsu(null); setSelWeaponId(""); setMode(m => m === "move" ? "idle" : "move"); }}><i className="cmd-icon" aria-hidden="true"><GiBootPrints /></i><span>Move</span><small>{moveAp} AP / tile</small></button>
-                        <button onClick={() => { resetTargeting(); void send({ type: "heal" }); }}
-                            disabled={busy || !myTurn || outOfActions || healCd > 0 || myChakra < 10 || myAp < utilityAp}><i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{utilityAp} AP | 10 CP | CD {healCd}</small></button>
-                        <button onClick={() => { resetTargeting(); if (enemy) void send({ type: "clear", targetId: enemy.id }); }}
-                            disabled={busy || !myTurn || outOfActions || clearCd > 0 || myAp < utilityAp || !enemy || enemy.hp <= 0}><i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{utilityAp} AP | CD {clearCd}</small></button>
-                        <button onClick={() => { resetTargeting(); void send({ type: "cleanse" }); }}
-                            disabled={busy || !myTurn || outOfActions || cleanseCd > 0 || myAp < utilityAp}><i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{utilityAp} AP | CD {cleanseCd}</small></button>
-                        <button
-                            className="summon-pet-command"
-                            onClick={() => { resetTargeting(); void send({ type: "summon" }); }}
-                            disabled={busy || !myTurn || !session.pendingCompanion || !!companion || session.companionUsed}
-                            title={companion
-                                ? `${companion.name} is already on the field`
-                                : session.pendingCompanion
-                                    ? `Summon ${session.pendingCompanion.name}`
-                                    : session.companionUsed
-                                        ? "Your pet summon was already used in this fight"
-                                        : unavailableCompanionCopy.title}
-                        >
-                            <i className="cmd-icon" aria-hidden="true"><GiPawPrint /></i>
-                            <span>Summon Pet</span>
-                            <small>{companion
-                                ? `${companion.name} · ${companionRoundsLeft}⟳`
-                                : session.pendingCompanion
-                                    ? session.pendingCompanion.name
-                                    : session.companionUsed
-                                        ? "Already used"
-                                        : unavailableCompanionCopy.short}</small>
-                        </button>
-                        <button
-                            disabled={busy || !myTurn || outOfActions || myAp < fleeAp || retreatSealed}
-                            title={retreatSealed ? "Berserker's Gamble seals retreat." : `Attempt to escape for ${fleeAp} AP and 10% max HP. Failure continues the fight.`}
-                            onClick={() => { resetTargeting(); void send({ type: "flee" }); }}
-                        ><i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Flee</span><small>{retreatSealed ? "Retreat sealed" : `${fleeAp} AP · escape roll`}</small></button>
-                        <button onClick={() => { resetTargeting(); void send({ type: "wait" }); }} disabled={busy || !myTurn}><i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>End turn</small></button>
-                    </CombatCommandBar>
+                    {/* Basic commands and the jutsu/weapon/item loadout share a
+                        single phone panel. `.combat-action-tray` is the one
+                        bordered scrollport for both on a phone, and stays
+                        `display: contents` everywhere else so each surface keeps
+                        the grid area it already had. */}
+                    <CombatActionTray>
+                        <CombatCommandBar>
+                            <button onClick={() => { if (enemyInMelee) void send({ type: "attack", targetId: enemy!.id }); else { setMode("attack"); setSelJutsu(null); setSelWeaponId(""); } }}
+                                disabled={busy || !myTurn || outOfActions || myAp < attackAp || myStamina < 10 || !enemy || enemy.hp <= 0}
+                                title={!enemyInMelee ? `Move next to ${enemyName} first` : undefined}
+                                className={mode === "attack" ? "selected-action" : ""}><i className="cmd-icon" aria-hidden="true"><GiCrossedSwords /></i><span>Attack</span><small>{attackAp} AP<span className="cmd-detail"> | 10 SP | R1</span></small></button>
+                            <button className={mode === "move" ? "selected-action" : ""}
+                                disabled={busy || !myTurn || outOfActions || myAp < moveAp}
+                                onClick={() => { setSelJutsu(null); setSelWeaponId(""); setMode(m => m === "move" ? "idle" : "move"); }}><i className="cmd-icon" aria-hidden="true"><GiBootPrints /></i><span>Move</span><small>{moveAp} AP<span className="cmd-detail"> / tile</span></small></button>
+                            <button onClick={() => { resetTargeting(); void send({ type: "heal" }); }}
+                                disabled={busy || !myTurn || outOfActions || healCd > 0 || myChakra < 10 || myAp < utilityAp}><i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{utilityAp} AP<span className="cmd-detail"> | 10 CP | CD {healCd}</span></small></button>
+                            <button onClick={() => { resetTargeting(); if (enemy) void send({ type: "clear", targetId: enemy.id }); }}
+                                disabled={busy || !myTurn || outOfActions || clearCd > 0 || myAp < utilityAp || !enemy || enemy.hp <= 0}><i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{utilityAp} AP<span className="cmd-detail"> | CD {clearCd}</span></small></button>
+                            <button onClick={() => { resetTargeting(); void send({ type: "cleanse" }); }}
+                                disabled={busy || !myTurn || outOfActions || cleanseCd > 0 || myAp < utilityAp}><i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{utilityAp} AP<span className="cmd-detail"> | CD {cleanseCd}</span></small></button>
+                            <button
+                                className="summon-pet-command"
+                                onClick={() => { resetTargeting(); void send({ type: "summon" }); }}
+                                disabled={busy || !myTurn || !session.pendingCompanion || !!companion || session.companionUsed}
+                                title={companion
+                                    ? `${companion.name} is already on the field`
+                                    : session.pendingCompanion
+                                        ? `Summon ${session.pendingCompanion.name}`
+                                        : session.companionUsed
+                                            ? "Your pet summon was already used in this fight"
+                                            : unavailableCompanionCopy.title}
+                            >
+                                <i className="cmd-icon" aria-hidden="true"><GiPawPrint /></i>
+                                <span>Summon Pet</span>
+                                <small>{companion
+                                    ? `${companion.name} · ${companionRoundsLeft}⟳`
+                                    : session.pendingCompanion
+                                        ? session.pendingCompanion.name
+                                        : session.companionUsed
+                                            ? "Already used"
+                                            : unavailableCompanionCopy.short}</small>
+                            </button>
+                            <button
+                                disabled={busy || !myTurn || outOfActions || myAp < fleeAp || retreatSealed}
+                                title={retreatSealed ? "Berserker's Gamble seals retreat." : `Attempt to escape for ${fleeAp} AP and 10% max HP. Failure continues the fight.`}
+                                onClick={() => { resetTargeting(); void send({ type: "flee" }); }}
+                            ><i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Flee</span><small>{retreatSealed ? "Retreat sealed" : <>{fleeAp} AP<span className="cmd-detail"> · escape roll</span></>}</small></button>
+                            <button onClick={() => { resetTargeting(); void send({ type: "wait" }); }} disabled={busy || !myTurn}><i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>End turn</small></button>
+                        </CombatCommandBar>
 
-                    <div
-                        className="jutsu-layout-card combat-jutsu-bar"
-                        role="region"
-                        aria-label="Jutsu, weapons, and items"
-                    >
-                        {myJutsu.length === 0 && myWeapons.length === 0 && myConsumables.length === 0 ? (
-                            <div className="summary-box">No equipped jutsu or combat items.</div>
-                        ) : (
-                            <div className="combat-equipped-jutsu-grid">
-                                {myJutsu.map((j) => {
-                                    const cd = Number(myActor?.cooldowns?.[j.id ?? ""] ?? 0);
-                                    const onCd = cd > 0;
-                                    const armed = selJutsu?.id === j.id;
-                                    const ap = adjustedActionAp(Number(j.ap ?? 0));
-                                    const chakra = Number(j.chakraCost ?? 0);
-                                    const stamina = Number(j.staminaCost ?? 0);
-                                    const sealed = isElementallySealedForDisplay(myActor?.statuses, j.element, session.round);
-                                    const affordable = myAp >= ap && myChakra >= chakra && myStamina >= stamina && !onCd && !sealed;
-                                    const Icon = jutsuIcon(j.type);
-                                    const art = jutsuArt(j);
-                                    return (
-                                        <div key={j.id} className={`combat-jutsu-card-wrap ${armed ? "selected-action" : ""}`}>
-                                            {onCd && <span className="combat-cd-badge" title={`${cd} round(s) until ready`}>{cd}</span>}
-                                            <button
-                                                type="button"
-                                                className={`combat-jutsu-button ${armed ? "selected-action" : ""} ${onCd ? "jutsu-on-cooldown" : ""}`}
-                                                disabled={busy || !myTurn || outOfActions || !affordable}
-                                                title={`${j.name} | ${ap} AP | Range ${j.range}${chakra ? ` | ${chakra} CP` : ""}${stamina ? ` | ${stamina} SP` : ""}${sealed ? " | Elementally sealed" : ""}${onCd ? ` | CD ${cd}` : ""}`}
-                                                onClick={() => armJutsu(j)}
-                                            >
-                                                <span className="combat-jutsu-thumb">
-                                                    <strong className="combat-jutsu-fallback-icon"><Icon size={22} aria-hidden="true" /></strong>
-                                                    {art && <img src={art} alt={j.name} draggable={false} />}
-                                                </span>
-                                                <span className="combat-jutsu-name">{j.name}</span>
-                                                {/* "CD 0" is noise on every card; an ACTIVE cooldown already
-                                                    shows as the corner pip. */}
-                                                <CombatJutsuMeta character={character} jutsu={j} statuses={myActor?.statuses} round={session.round} activeCooldown={cd} />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="combat-jutsu-help"
-                                                id={`mission-combat-detail-trigger-jutsu-${j.id}`}
-                                                aria-haspopup="dialog"
-                                                aria-controls={`mission-combat-detail-jutsu-${j.id}`}
-                                                aria-expanded={inspectedJutsuId === j.id}
-                                                aria-label={`View ${j.name} jutsu details`}
-                                                title={`View ${j.name} details`}
-                                                onClick={() => setInspectedJutsuId(inspectedJutsuId === j.id ? "" : String(j.id ?? ""))}
-                                            >
-                                                <span className="combat-help-glyph" aria-hidden="true">?</span>
-                                            </button>
+                        <div
+                            className="jutsu-layout-card combat-jutsu-bar"
+                            role="region"
+                            aria-label="Jutsu, weapons, and items"
+                        >
+                            {myJutsu.length === 0 && myWeapons.length === 0 && myConsumables.length === 0 ? (
+                                <div className="summary-box">No equipped jutsu or combat items.</div>
+                            ) : (
+                                <div className="combat-equipped-jutsu-grid">
+                                    {myJutsu.map((j) => {
+                                        const cd = Number(myActor?.cooldowns?.[j.id ?? ""] ?? 0);
+                                        const onCd = cd > 0;
+                                        const armed = selJutsu?.id === j.id;
+                                        const ap = adjustedActionAp(Number(j.ap ?? 0));
+                                        const chakra = Number(j.chakraCost ?? 0);
+                                        const stamina = Number(j.staminaCost ?? 0);
+                                        const sealed = isElementallySealedForDisplay(myActor?.statuses, j.element, session.round);
+                                        const affordable = myAp >= ap && myChakra >= chakra && myStamina >= stamina && !onCd && !sealed;
+                                        const Icon = jutsuIcon(j.type);
+                                        const art = jutsuArt(j);
+                                        return (
+                                            <div key={j.id} className={`combat-jutsu-card-wrap ${armed ? "selected-action" : ""}`}>
+                                                {onCd && <span className="combat-cd-badge" title={`${cd} round(s) until ready`}>{cd}</span>}
+                                                <button
+                                                    type="button"
+                                                    className={`combat-jutsu-button ${armed ? "selected-action" : ""} ${onCd ? "jutsu-on-cooldown" : ""}`}
+                                                    disabled={busy || !myTurn || outOfActions || !affordable}
+                                                    title={`${j.name} | ${ap} AP | Range ${j.range}${chakra ? ` | ${chakra} CP` : ""}${stamina ? ` | ${stamina} SP` : ""}${sealed ? " | Elementally sealed" : ""}${onCd ? ` | CD ${cd}` : ""}`}
+                                                    onClick={() => armJutsu(j)}
+                                                >
+                                                    <span className="combat-jutsu-thumb">
+                                                        <strong className="combat-jutsu-fallback-icon"><Icon size={22} aria-hidden="true" /></strong>
+                                                        {art && <img src={art} alt={j.name} draggable={false} />}
+                                                    </span>
+                                                    <span className="combat-jutsu-name">{j.name}</span>
+                                                    {/* "CD 0" is noise on every card; an ACTIVE cooldown already
+                                                        shows as the corner pip. */}
+                                                    <CombatJutsuMeta character={character} jutsu={j} statuses={myActor?.statuses} round={session.round} activeCooldown={cd} />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="combat-jutsu-help"
+                                                    id={`mission-combat-detail-trigger-jutsu-${j.id}`}
+                                                    aria-haspopup="dialog"
+                                                    aria-controls={`mission-combat-detail-jutsu-${j.id}`}
+                                                    aria-expanded={inspectedJutsuId === j.id}
+                                                    aria-label={`View ${j.name} jutsu details`}
+                                                    title={`View ${j.name} details`}
+                                                    onClick={() => setInspectedJutsuId(inspectedJutsuId === j.id ? "" : String(j.id ?? ""))}
+                                                >
+                                                    <span className="combat-help-glyph" aria-hidden="true">?</span>
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                    {myWeapons.map(({ item, thrown, range, left, cd }) => {
+                                        const onCd = cd > 0;
+                                        const armed = selWeaponId === item.id && mode === "weapon";
+                                        const out = thrown && left <= 0;
+                                        const ap = adjustedActionAp(Number(item.apCost ?? ATTACK_AP));
+                                        const Icon = thrown ? GiTargeted : GiCrossedSwords;
+                                        const art = itemArt(item);
+                                        return (
+                                            <div key={item.id} className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${onCd ? " jutsu-on-cooldown" : ""}`}>
+                                                {onCd && <span className="combat-cd-badge">{cd}</span>}
+                                                <button
+                                                    type="button"
+                                                    className={`combat-jutsu-button combat-item-button rarity-${item.rarity ?? "common"}${armed ? " jutsu-armed" : ""}${onCd ? " jutsu-on-cooldown" : ""}`}
+                                                    disabled={busy || !myTurn || outOfActions || onCd || out || myAp < ap}
+                                                    title={out ? `${item.name} — none left` : `${item.name} | ${ap} AP | R${range}`}
+                                                    onClick={() => armWeapon(item.id ?? "")}
+                                                >
+                                                    <span className="combat-jutsu-thumb combat-item-thumb">
+                                                        <strong className="combat-jutsu-fallback-icon"><Icon size={22} aria-hidden="true" /></strong>
+                                                        {art && <img src={art} alt={item.name} draggable={false} />}
+                                                    </span>
+                                                    <span className="combat-jutsu-name">{item.name}</span>
+                                                    <span className="combat-jutsu-info">{ap} AP | R{range}{thrown ? ` | ×${left === Infinity ? "∞" : left}` : ""}</span>
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                    {myConsumables.map(({ item, left, cd }) => {
+                                        const onCd = cd > 0;
+                                        const out = left <= 0;
+                                        const ap = adjustedActionAp(Number(item.apCost ?? 35));
+                                        const art = itemArt(item);
+                                        const Icon = String(item.slot ?? "").includes("potion") ? GiHealthPotion : GiBriefcase;
+                                        return (
+                                            <div key={item.id} className={`combat-jutsu-card-wrap combat-item-card-wrap combat-consumable-card${onCd ? " jutsu-on-cooldown" : ""}`}>
+                                                {onCd && <span className="combat-cd-badge">{cd}</span>}
+                                                <button
+                                                    type="button"
+                                                    className={`combat-jutsu-button combat-item-button rarity-${item.rarity ?? "common"}${onCd ? " jutsu-on-cooldown" : ""}`}
+                                                    disabled={busy || !myTurn || outOfActions || onCd || out || myAp < ap}
+                                                    title={out ? `${item.name} — none left` : `${item.name} | ${ap} AP | Use`}
+                                                    onClick={() => { resetTargeting(); if (item.id) void send({ type: "item", itemId: item.id }); }}
+                                                >
+                                                    <span className="combat-jutsu-thumb combat-item-thumb">
+                                                        <strong className="combat-jutsu-fallback-icon"><Icon size={22} aria-hidden="true" /></strong>
+                                                        {art && <img src={art} alt={item.name} draggable={false} />}
+                                                    </span>
+                                                    <span className="combat-jutsu-name">{item.name}</span>
+                                                    <span className="combat-jutsu-info">{ap} AP | Use | ×{left}</span>
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            {inspectedJutsu && (() => {
+                                // Prefer the server-sealed combat values/tags while filling
+                                // descriptive fields from the player's authored catalog.
+                                const detailJutsu = {
+                                    ...(jutsuCatalogById[String(inspectedJutsu.id ?? "")] ?? {}),
+                                    ...inspectedJutsu,
+                                } as Jutsu;
+                                const mastery = getJutsuMastery(character, detailJutsu.id);
+                                const scaled = scaleJutsuByLevel(detailJutsu, mastery.level);
+                                const targeting = jutsuTargetingLabel(detailJutsu);
+                                return (
+                                    <CombatDetailPortal
+                                        id={`mission-combat-detail-jutsu-${detailJutsu.id}`}
+                                        labelId={`mission-combat-detail-label-jutsu-${detailJutsu.id}`}
+                                        triggerId={`mission-combat-detail-trigger-jutsu-${detailJutsu.id}`}
+                                        onClose={() => setInspectedJutsuId("")}
+                                    >
+                                        <div className="combat-jutsu-detail-header">
+                                            <div>
+                                                <strong id={`mission-combat-detail-label-jutsu-${detailJutsu.id}`}>{detailJutsu.name}</strong>
+                                                <small>Level {mastery.level} / {JUTSU_MAX_LEVEL}</small>
+                                            </div>
+                                            <button type="button" data-combat-detail-close aria-label="Close combat details" onClick={() => setInspectedJutsuId("")}>x</button>
                                         </div>
-                                    );
-                                })}
-                                {myWeapons.map(({ item, thrown, range, left, cd }) => {
-                                    const onCd = cd > 0;
-                                    const armed = selWeaponId === item.id && mode === "weapon";
-                                    const out = thrown && left <= 0;
-                                    const ap = adjustedActionAp(Number(item.apCost ?? ATTACK_AP));
-                                    const Icon = thrown ? GiTargeted : GiCrossedSwords;
-                                    const art = itemArt(item);
-                                    return (
-                                        <div key={item.id} className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${onCd ? " jutsu-on-cooldown" : ""}`}>
-                                            {onCd && <span className="combat-cd-badge">{cd}</span>}
-                                            <button
-                                                type="button"
-                                                className={`combat-jutsu-button combat-item-button rarity-${item.rarity ?? "common"}${armed ? " jutsu-armed" : ""}${onCd ? " jutsu-on-cooldown" : ""}`}
-                                                disabled={busy || !myTurn || outOfActions || onCd || out || myAp < ap}
-                                                title={out ? `${item.name} — none left` : `${item.name} | ${ap} AP | R${range}`}
-                                                onClick={() => armWeapon(item.id ?? "")}
-                                            >
-                                                <span className="combat-jutsu-thumb combat-item-thumb">
-                                                    <strong className="combat-jutsu-fallback-icon"><Icon size={22} aria-hidden="true" /></strong>
-                                                    {art && <img src={art} alt={item.name} draggable={false} />}
-                                                </span>
-                                                <span className="combat-jutsu-name">{item.name}</span>
-                                                <span className="combat-jutsu-info">{ap} AP | R{range}{thrown ? ` | ×${left === Infinity ? "∞" : left}` : ""}</span>
-                                            </button>
+                                        <div className="combat-jutsu-detail-grid">
+                                            <span><strong>Type:</strong> {detailJutsu.type}</span>
+                                            <span><strong>Element:</strong> {detailJutsu.element}</span>
+                                            <span><strong>AP:</strong> {adjustedActionAp(Number(detailJutsu.ap ?? 40))}</span>
+                                            <span><strong>Range:</strong> {detailJutsu.range}</span>
+                                            <span><strong>Effect Power:</strong> {scaled.scaledEffectPower}</span>
+                                            <span><strong>Cooldown:</strong> {detailJutsu.cooldown}</span>
+                                            <span><strong>Chakra Cost:</strong> {Math.max(0, Number(detailJutsu.chakraCost) || 0)}</span>
+                                            <span><strong>Stamina Cost:</strong> {Math.max(0, Number(detailJutsu.staminaCost) || 0)}</span>
                                         </div>
-                                    );
-                                })}
-                                {myConsumables.map(({ item, left, cd }) => {
-                                    const onCd = cd > 0;
-                                    const out = left <= 0;
-                                    const ap = adjustedActionAp(Number(item.apCost ?? 35));
-                                    const art = itemArt(item);
-                                    const Icon = String(item.slot ?? "").includes("potion") ? GiHealthPotion : GiBriefcase;
-                                    return (
-                                        <div key={item.id} className={`combat-jutsu-card-wrap combat-item-card-wrap combat-consumable-card${onCd ? " jutsu-on-cooldown" : ""}`}>
-                                            {onCd && <span className="combat-cd-badge">{cd}</span>}
-                                            <button
-                                                type="button"
-                                                className={`combat-jutsu-button combat-item-button rarity-${item.rarity ?? "common"}${onCd ? " jutsu-on-cooldown" : ""}`}
-                                                disabled={busy || !myTurn || outOfActions || onCd || out || myAp < ap}
-                                                title={out ? `${item.name} — none left` : `${item.name} | ${ap} AP | Use`}
-                                                onClick={() => { resetTargeting(); if (item.id) void send({ type: "item", itemId: item.id }); }}
-                                            >
-                                                <span className="combat-jutsu-thumb combat-item-thumb">
-                                                    <strong className="combat-jutsu-fallback-icon"><Icon size={22} aria-hidden="true" /></strong>
-                                                    {art && <img src={art} alt={item.name} draggable={false} />}
-                                                </span>
-                                                <span className="combat-jutsu-name">{item.name}</span>
-                                                <span className="combat-jutsu-info">{ap} AP | Use | ×{left}</span>
-                                            </button>
+                                        <p className="combat-jutsu-detail-desc"><strong style={{ color: "var(--purple-400)" }}>Target — {targeting.short}:</strong> {targeting.detail}</p>
+                                        {detailJutsu.description && <p className="combat-jutsu-detail-desc">{detailJutsu.description}</p>}
+                                        <div className="combat-jutsu-effects-list">
+                                            <JutsuEffectCards
+                                                jutsu={detailJutsu}
+                                                scaledEffectPower={scaled.scaledEffectPower}
+                                                masteryLevel={mastery.level}
+                                                lensDiscipline={playerLensDiscipline(character)}
+                                            />
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                        {inspectedJutsu && (() => {
-                            // Prefer the server-sealed combat values/tags while filling
-                            // descriptive fields from the player's authored catalog.
-                            const detailJutsu = {
-                                ...(jutsuCatalogById[String(inspectedJutsu.id ?? "")] ?? {}),
-                                ...inspectedJutsu,
-                            } as Jutsu;
-                            const mastery = getJutsuMastery(character, detailJutsu.id);
-                            const scaled = scaleJutsuByLevel(detailJutsu, mastery.level);
-                            const targeting = jutsuTargetingLabel(detailJutsu);
-                            return (
-                                <CombatDetailPortal
-                                    id={`mission-combat-detail-jutsu-${detailJutsu.id}`}
-                                    labelId={`mission-combat-detail-label-jutsu-${detailJutsu.id}`}
-                                    triggerId={`mission-combat-detail-trigger-jutsu-${detailJutsu.id}`}
-                                    onClose={() => setInspectedJutsuId("")}
-                                >
-                                    <div className="combat-jutsu-detail-header">
-                                        <div>
-                                            <strong id={`mission-combat-detail-label-jutsu-${detailJutsu.id}`}>{detailJutsu.name}</strong>
-                                            <small>Level {mastery.level} / {JUTSU_MAX_LEVEL}</small>
-                                        </div>
-                                        <button type="button" data-combat-detail-close aria-label="Close combat details" onClick={() => setInspectedJutsuId("")}>x</button>
-                                    </div>
-                                    <div className="combat-jutsu-detail-grid">
-                                        <span><strong>Type:</strong> {detailJutsu.type}</span>
-                                        <span><strong>Element:</strong> {detailJutsu.element}</span>
-                                        <span><strong>AP:</strong> {adjustedActionAp(Number(detailJutsu.ap ?? 40))}</span>
-                                        <span><strong>Range:</strong> {detailJutsu.range}</span>
-                                        <span><strong>Effect Power:</strong> {scaled.scaledEffectPower}</span>
-                                        <span><strong>Cooldown:</strong> {detailJutsu.cooldown}</span>
-                                        <span><strong>Chakra Cost:</strong> {Math.max(0, Number(detailJutsu.chakraCost) || 0)}</span>
-                                        <span><strong>Stamina Cost:</strong> {Math.max(0, Number(detailJutsu.staminaCost) || 0)}</span>
-                                    </div>
-                                    <p className="combat-jutsu-detail-desc"><strong style={{ color: "var(--purple-400)" }}>Target — {targeting.short}:</strong> {targeting.detail}</p>
-                                    {detailJutsu.description && <p className="combat-jutsu-detail-desc">{detailJutsu.description}</p>}
-                                    <div className="combat-jutsu-effects-list">
-                                        <JutsuEffectCards
-                                            jutsu={detailJutsu}
-                                            scaledEffectPower={scaled.scaledEffectPower}
-                                            masteryLevel={mastery.level}
-                                            lensDiscipline={playerLensDiscipline(character)}
-                                        />
-                                    </div>
-                                </CombatDetailPortal>
-                            );
-                        })()}
-                    </div>
+                                    </CombatDetailPortal>
+                                );
+                            })()}
+                        </div>
+                    </CombatActionTray>
 
                     <PlainCombatBattleLog
                         lines={session.log ?? []}
