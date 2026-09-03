@@ -157,10 +157,11 @@ function spawnCardGhost(
   zone: HTMLElement | null | undefined,
   image: string | undefined,
   side: "me" | "foe",
+  figure = false,
 ): void {
   if (!zone || !image) return;
   const ghost = document.createElement("span");
-  ghost.className = `chronicle-card-ghost ${side}`;
+  ghost.className = `chronicle-card-ghost ${side}${figure ? " figure" : ""}`;
   ghost.style.backgroundImage = `url(${JSON.stringify(image)})`;
   ghost.setAttribute("aria-hidden", "true");
   zone.appendChild(ghost);
@@ -798,7 +799,15 @@ export function ChronicleDuelBoard({
           const card = was.cardId
             ? (cardsById[was.cardId] ?? getChronicleCard(was.cardId))
             : undefined;
-          spawnCardGhost(el, card?.image, prefix);
+          // A slain face-up attacker dies as its creature, not its card:
+          // the ghost carries the figure art the player was looking at
+          // (guaranteed for the whole tc- set; other pools fall back to
+          // the card image the standee showed).
+          const figureGhost =
+            was.faceUp && was.position === "attack" && was.cardId?.startsWith("tc-")
+              ? `/chronicle/figures/${was.cardId}${prefix === "me" ? "-back" : ""}.webp`
+              : undefined;
+          spawnCardGhost(el, figureGhost ?? card?.image, prefix, Boolean(figureGhost));
           pulseFx(el, "fx-destroyed", 580);
         }
       });
@@ -1176,6 +1185,11 @@ export function ChronicleDuelBoard({
                         zoneEls.current.get(`me-monster-${attacker!}`),
                         "fx-strike-up",
                         420,
+                      );
+                      // The blow lands a beat after the lunge starts.
+                      window.setTimeout(
+                        () => pulseFx(zoneEls.current.get(zoneKey), "fx-struck", 460),
+                        190,
                       );
                       act({
                         action: "attack",
