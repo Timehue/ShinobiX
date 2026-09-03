@@ -55,6 +55,8 @@ export type BattleLock = {
 // retired Arena snapshot; unsupported markers are cleared by boot migration,
 // while sealed combat sessions own their independent server-side lifetimes.
 const LOCK_TTL_SECONDS = 60 * 60;
+/** The stay every defeat path applies (player/heal.ts, pvp/_vitals-settlement.ts). */
+const HOSPITAL_DURATION_MS = 60_000;
 const BATTLE_ID_RE = /^[A-Za-z0-9_-]{1,80}$/;
 const KIND_RE = /^[A-Za-z0-9:_-]{1,40}$/;
 const SCREEN_RE = /^[A-Za-z0-9_]{1,40}$/;
@@ -177,9 +179,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             const fresh = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                             const freshChar = fresh?.character as Record<string, unknown> | undefined;
                             if (freshChar) {
+                                // Admission carries its discharge clock. Without
+                                // hospitalizedAt/Until this wrote a timer-less
+                                // stay: the Hospital UI had no countdown to run
+                                // down, so the only way out was paying to skip.
+                                // 60s matches every other defeat path
+                                // (player/heal.ts, missions/_ai-fight-outcome.ts,
+                                // pvp/_vitals-settlement.ts).
+                                const admittedAt = Date.now();
                                 const updated = {
                                     ...fresh,
-                                    character: { ...freshChar, hp: 0, hospitalized: true },
+                                    character: {
+                                        ...freshChar,
+                                        hp: 0,
+                                        hospitalized: true,
+                                        hospitalizedAt: admittedAt,
+                                        hospitalizedUntil: admittedAt + HOSPITAL_DURATION_MS,
+                                    },
                                 };
                                 const versioned = bumpSaveVersion<Record<string, unknown>>(updated);
                                 const nextVersion = Number(versioned._saveVersion);
