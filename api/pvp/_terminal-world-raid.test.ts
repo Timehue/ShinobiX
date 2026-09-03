@@ -9,7 +9,8 @@
  */
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { settleTerminalWorldRaid, MAX_RAID_REPORTS_PER_DAY } from './_terminal-world-raid.js';
+import { settleTerminalWorldRaid } from './_terminal-world-raid.js';
+import { MAX_RAID_REPORTS_PER_DAY } from '../missions/_raid-progression.js';
 import type { PvpFighter, PvpSession } from './session.js';
 
 const CREATED = 1_700_000_000_000;
