@@ -53,7 +53,12 @@ const voiceRules = [
 ];
 
 // Quoted strings long enough to be sentences rather than ids, keys or classes.
-const quoted = /"([^"\n]{20,})"|'([^'\n]{20,})'|`([^`]{20,})`/g;
+//
+// The backtick class MUST exclude newlines like the other two. Without it a
+// template literal swallows every line between two backticks and consumes the
+// real dialogue inside that span, so a file reads as "covered" while its copy
+// is never actually scanned. Every corpus containing a backtick was affected.
+const quoted = /"([^"\n]{20,})"|'([^'\n]{20,})'|`([^`\n]{20,})`/g;
 const codeish = /\$\{|=>|::|https?:\/\/|\.(?:png|webp|css|tsx?)\b/;
 
 function playerFacingStrings(source) {
