@@ -2403,11 +2403,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 5922
+            "line": 5927
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 6751
+            "line": 6756
           }
         ]
       },
@@ -2975,7 +2975,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 6071
+            "line": 6076
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
@@ -3348,7 +3348,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 5951
+            "line": 5956
           }
         ]
       },
@@ -3590,11 +3590,15 @@
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 5618
+            "line": 5623
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 5951
+            "line": 5956
+          },
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 6859
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
@@ -3791,6 +3795,10 @@
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
             "line": 3906
+          },
+          {
+            "source": "shinobij.client/src/styles/battle-skin.css",
+            "line": 5384
           },
           {
             "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
@@ -4094,7 +4102,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 6071
+            "line": 6076
           },
           {
             "source": "shinobij.client/src/styles/index/15-territory-panels.css",
