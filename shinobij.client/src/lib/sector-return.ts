@@ -30,6 +30,18 @@ export function clearSectorReopen() {
 }
 
 /*
+ * Non-consuming read, for deciding WHERE in the sector to put the player.
+ *
+ * WorldMap's `sectorPlayerPos` is a useState initializer, which runs during the
+ * first render — before the mount effect that calls takeSectorReopen(). So the
+ * tile decision cannot use the read-and-clear without stealing the latch from
+ * the effect that reopens the sector. Peek there, take here.
+ */
+export function peekSectorReopen(): number | null {
+    return pendingSectorReopen;
+}
+
+/*
  * One-shot "did the page reload straight into a sector" signal.
  *
  * The World Map's open-sector state (selectedSector) is ephemeral React state, so
