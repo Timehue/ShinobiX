@@ -103,9 +103,9 @@ export type ClaimResult = { ok: false; reason: string } | { ok: true; board: Bou
 
 /**
  * Remove the target's bounty from the board and return the pool to pay the
- * claimer. The endpoint verifies (against the PvpSession) that `claimerName`
- * really beat `targetName`, and that they don't share an IP/device, BEFORE
- * calling this — this just does the board math + payout amount.
+ * claimer. The endpoint verifies the authoritative PvpSession before calling
+ * this, then uses the returned candidate payout only after the shared-device
+ * gate passes. This helper itself only does the board math + payout amount.
  */
 export function claimBounty(board: BountyBoard, targetName: string): ClaimResult {
     const existing = findBounty(board, targetName);

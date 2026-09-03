@@ -967,6 +967,660 @@
     letter-spacing: 0.22em;
 }
 
+/* =========================================================================
+   PVP BATTLE RESULT — a full end-of-duel moment inside the battlefield
+   ========================================================================= */
+
+.arena-fullscreen .combat-board-stage:has(> .pvp-result-overlay) {
+    position: relative !important;
+    isolation: isolate;
+}
+
+.pvp-result-overlay {
+    --pvp-result-accent: #d9bd70;
+    --pvp-result-accent-bright: #fff0b5;
+    --pvp-result-accent-rgb: 217, 189, 112;
+    position: absolute;
+    inset: 0;
+    z-index: 80;
+    box-sizing: border-box;
+    display: grid;
+    place-items: center;
+    padding: clamp(8px, 2.5cqh, 18px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    background:
+        radial-gradient(circle at 50% 28%, rgba(var(--pvp-result-accent-rgb), 0.2), transparent 34%),
+        linear-gradient(120deg, rgba(1, 6, 12, 0.91), rgba(4, 10, 19, 0.78) 52%, rgba(1, 6, 12, 0.93));
+    backdrop-filter: blur(5px) saturate(0.72);
+    animation: pvpResultBackdropIn 420ms ease-out both;
+}
+
+.pvp-result-overlay::before,
+.pvp-result-overlay::after {
+    content: "";
+    position: absolute;
+    width: 42%;
+    height: 1px;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgba(var(--pvp-result-accent-rgb), 0.58), transparent);
+    box-shadow: 0 0 18px rgba(var(--pvp-result-accent-rgb), 0.28);
+}
+
+.pvp-result-overlay::before { top: 9%; left: -4%; transform: rotate(-13deg); }
+.pvp-result-overlay::after { right: -4%; bottom: 10%; transform: rotate(-13deg); }
+
+.pvp-result-victory {
+    --pvp-result-accent: #65d884;
+    --pvp-result-accent-bright: #caffd4;
+    --pvp-result-accent-rgb: 101, 216, 132;
+    background:
+        radial-gradient(circle at 50% 34%, rgba(32, 112, 86, 0.12), rgba(1, 7, 12, 0.32) 38%, rgba(1, 6, 11, 0.82) 100%),
+        linear-gradient(120deg, rgba(1, 6, 12, 0.75), rgba(4, 10, 19, 0.48) 52%, rgba(1, 6, 12, 0.78)),
+        url("/combat/results/pvp-victory-backdrop.webp") center / cover no-repeat;
+}
+
+.pvp-result-defeat {
+    --pvp-result-accent: #e45f5f;
+    --pvp-result-accent-bright: #ffc4bb;
+    --pvp-result-accent-rgb: 228, 95, 95;
+    background:
+        radial-gradient(circle at 50% 32%, rgba(82, 21, 27, 0.09), rgba(3, 6, 12, 0.38) 40%, rgba(2, 4, 9, 0.84) 100%),
+        linear-gradient(120deg, rgba(5, 5, 10, 0.72), rgba(7, 9, 16, 0.5) 52%, rgba(4, 4, 9, 0.8)),
+        url("/combat/results/pvp-defeat-backdrop.webp") center / cover no-repeat;
+}
+
+.pvp-result-escaped {
+    --pvp-result-accent: #bf9be8;
+    --pvp-result-accent-bright: #ead6ff;
+    --pvp-result-accent-rgb: 191, 155, 232;
+}
+
+.pvp-result-card {
+    position: relative;
+    isolation: isolate;
+    box-sizing: border-box;
+    width: min(700px, 100%);
+    max-height: 100%;
+    padding: clamp(14px, 2.8cqh, 24px) clamp(14px, 3cqw, 28px) clamp(14px, 2.5cqh, 22px);
+    overflow: auto;
+    color: #edf3f8;
+    border: 1px solid rgba(var(--pvp-result-accent-rgb), 0.62);
+    border-radius: 12px;
+    background:
+        linear-gradient(135deg, rgba(var(--pvp-result-accent-rgb), 0.1), transparent 34%),
+        radial-gradient(circle at 50% -15%, rgba(var(--pvp-result-accent-rgb), 0.2), transparent 45%),
+        linear-gradient(180deg, rgba(10, 18, 30, 0.98), rgba(3, 8, 16, 0.99));
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.035) inset,
+        0 20px 60px rgba(0, 0, 0, 0.78),
+        0 0 42px rgba(var(--pvp-result-accent-rgb), 0.17);
+    animation: pvpResultCardIn 520ms cubic-bezier(0.2, 0.85, 0.24, 1) both;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(var(--pvp-result-accent-rgb), 0.5) transparent;
+}
+
+.pvp-result-card::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 5px;
+    pointer-events: none;
+    border: 1px solid rgba(var(--pvp-result-accent-rgb), 0.13);
+    border-radius: 8px;
+}
+
+.pvp-result-card::after {
+    content: "忍";
+    position: absolute;
+    z-index: -1;
+    top: 46%;
+    left: 50%;
+    color: rgba(var(--pvp-result-accent-rgb), 0.035);
+    font: 900 clamp(120px, 24cqh, 220px)/1 serif;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.pvp-result-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.pvp-result-round {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(229, 211, 159, 0.74);
+    font: 700 9px/1 var(--font-display);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.pvp-result-round i {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--pvp-result-accent);
+    box-shadow: 0 0 8px var(--pvp-result-accent);
+}
+
+.pvp-result-crest {
+    display: grid;
+    place-items: center;
+    width: clamp(42px, 8cqh, 62px);
+    height: clamp(42px, 8cqh, 62px);
+    margin: clamp(7px, 1.6cqh, 12px) 0 5px;
+    color: var(--pvp-result-accent-bright);
+    border: 1px solid rgba(var(--pvp-result-accent-rgb), 0.65);
+    border-radius: 50%;
+    background:
+        radial-gradient(circle, rgba(var(--pvp-result-accent-rgb), 0.2), rgba(2, 8, 16, 0.88) 68%);
+    box-shadow:
+        0 0 0 5px rgba(var(--pvp-result-accent-rgb), 0.06),
+        0 0 24px rgba(var(--pvp-result-accent-rgb), 0.3);
+    font-size: clamp(22px, 4.5cqh, 34px);
+}
+
+.pvp-result-header > p {
+    margin: 0;
+    color: var(--pvp-result-accent);
+    font: 800 9px/1 var(--font-display);
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+}
+
+.pvp-result-header h2 {
+    margin: 3px 0 0 !important;
+    color: var(--pvp-result-accent-bright) !important;
+    font: 800 clamp(32px, 7cqh, 54px)/0.95 var(--font-display) !important;
+    letter-spacing: 0.16em !important;
+    text-indent: 0.16em;
+    text-transform: uppercase;
+    text-shadow:
+        0 0 22px rgba(var(--pvp-result-accent-rgb), 0.38),
+        0 3px 8px rgba(0, 0, 0, 0.85) !important;
+}
+
+.pvp-result-rule {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: min(260px, 55%);
+    height: 7px;
+    margin: clamp(5px, 1.2cqh, 10px) 0 2px;
+    border-top: 1px solid rgba(var(--pvp-result-accent-rgb), 0.48);
+}
+
+.pvp-result-rule span {
+    width: 7px;
+    height: 7px;
+    border: 1px solid var(--pvp-result-accent);
+    background: #07101b;
+    transform: translateY(-4px) rotate(45deg);
+}
+
+.pvp-result-summary {
+    color: rgba(228, 235, 243, 0.86);
+    font: 600 clamp(11px, 1.7cqh, 13px)/1.3 Inter, sans-serif;
+}
+
+.pvp-result-matchup {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 48px minmax(0, 1fr);
+    align-items: stretch;
+    gap: 8px;
+    margin: clamp(9px, 1.8cqh, 14px) 0;
+}
+
+.pvp-result-fighter {
+    display: grid;
+    grid-template-columns: clamp(48px, 8cqh, 64px) minmax(0, 1fr);
+    align-items: center;
+    gap: 11px;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid rgba(162, 184, 209, 0.18);
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(18, 31, 47, 0.86), rgba(5, 12, 22, 0.8));
+}
+
+.pvp-result-fighter.is-winner {
+    border-color: rgba(var(--pvp-result-accent-rgb), 0.55);
+    background:
+        linear-gradient(135deg, rgba(var(--pvp-result-accent-rgb), 0.17), rgba(5, 12, 22, 0.82) 62%);
+    box-shadow: 0 0 18px rgba(var(--pvp-result-accent-rgb), 0.09) inset;
+}
+
+.pvp-result-victory .pvp-result-fighter.is-defeated,
+.pvp-result-defeat .pvp-result-fighter.is-defeated {
+    opacity: 0.7;
+    filter: saturate(0.58);
+}
+
+.pvp-result-avatar {
+    position: relative;
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    overflow: hidden;
+    color: #d9e3ed;
+    border: 1px solid rgba(185, 204, 224, 0.42);
+    border-radius: 50%;
+    background: radial-gradient(circle at 42% 32%, #263a51, #09111d 72%);
+    font: 800 15px/1 var(--font-display);
+}
+
+.pvp-result-fighter.is-winner .pvp-result-avatar {
+    border-color: var(--pvp-result-accent);
+    box-shadow: 0 0 14px rgba(var(--pvp-result-accent-rgb), 0.3);
+}
+
+.pvp-result-avatar img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.pvp-result-fighter-copy {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    text-align: left;
+}
+
+.pvp-result-fighter-label {
+    color: rgba(167, 183, 202, 0.8);
+    font: 700 8px/1 var(--font-display);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.pvp-result-fighter.is-winner .pvp-result-fighter-label { color: var(--pvp-result-accent); }
+
+.pvp-result-fighter-copy > strong {
+    overflow: hidden;
+    margin-top: 4px;
+    color: #f4f7fa;
+    font: 800 clamp(12px, 2.3cqh, 16px)/1 var(--font-display);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pvp-result-hp-line {
+    display: grid;
+    gap: 3px;
+    margin-top: 7px;
+}
+
+.pvp-result-hp-line > span {
+    height: 4px;
+    overflow: hidden;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.pvp-result-hp-line i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #368654, #70db8a);
+    box-shadow: 0 0 5px rgba(112, 219, 138, 0.38);
+}
+
+.pvp-result-hp-line small {
+    color: rgba(175, 189, 205, 0.72);
+    font: 600 8px/1 Inter, sans-serif;
+}
+
+.pvp-result-versus {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: rgba(225, 194, 116, 0.76);
+    font: 800 16px/1 var(--font-display);
+    letter-spacing: 0.08em;
+}
+
+.pvp-result-versus::before,
+.pvp-result-versus::after {
+    content: "";
+    width: 1px;
+    height: 13px;
+    margin: 4px;
+    background: linear-gradient(transparent, rgba(205, 166, 73, 0.5));
+}
+
+.pvp-result-versus::after { background: linear-gradient(rgba(205, 166, 73, 0.5), transparent); }
+
+.pvp-result-versus small {
+    margin-bottom: 3px;
+    color: rgba(171, 186, 202, 0.58);
+    font: 700 7px/1 var(--font-display);
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+}
+
+.pvp-result-rewards {
+    margin-bottom: clamp(8px, 1.5cqh, 12px);
+    padding: 9px 10px 10px;
+    border: 1px solid rgba(var(--pvp-result-accent-rgb), 0.24);
+    border-radius: 8px;
+    background:
+        linear-gradient(100deg, rgba(var(--pvp-result-accent-rgb), 0.07), transparent 42%),
+        rgba(3, 9, 17, 0.78);
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.2) inset;
+}
+
+.pvp-result-rewards-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 7px;
+}
+
+.pvp-result-rewards-heading strong {
+    color: #e9d9a8;
+    font: 800 9px/1 var(--font-display);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.pvp-result-rewards-heading small {
+    color: rgba(142, 215, 166, 0.7);
+    font: 700 7px/1 Inter, sans-serif;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.pvp-result-reward-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+    gap: 6px;
+}
+
+.pvp-result-reward {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    min-width: 0;
+    min-height: 42px;
+    padding: 5px 7px;
+    border: 1px solid rgba(182, 201, 221, 0.14);
+    border-radius: 6px;
+    background: linear-gradient(135deg, rgba(26, 40, 55, 0.76), rgba(6, 13, 22, 0.82));
+}
+
+.pvp-result-reward > span {
+    grid-row: 1 / 3;
+    display: grid;
+    place-items: center;
+    width: 23px;
+    height: 23px;
+    color: var(--pvp-result-accent-bright);
+    border: 1px solid rgba(var(--pvp-result-accent-rgb), 0.32);
+    border-radius: 50%;
+    background: rgba(var(--pvp-result-accent-rgb), 0.08);
+    font-size: 12px;
+}
+
+.pvp-result-reward small {
+    min-width: 0;
+    overflow: hidden;
+    color: rgba(166, 184, 202, 0.7);
+    font: 700 7px/1 Inter, sans-serif;
+    letter-spacing: 0.06em;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.pvp-result-reward strong {
+    grid-column: 2 / 4;
+    color: #f3e4ae;
+    font: 800 13px/1.1 var(--font-display);
+    letter-spacing: 0.04em;
+}
+
+.pvp-result-reward.is-negative strong { color: #ff9b8f; }
+
+.pvp-result-no-rewards,
+.pvp-result-rewards-pending {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 34px;
+    margin: 0;
+    color: rgba(179, 194, 210, 0.74);
+    font: 600 9px/1.3 Inter, sans-serif;
+    text-align: center;
+}
+
+.pvp-result-rewards-pending .pvp-result-spinner {
+    width: 18px;
+    height: 18px;
+}
+
+.pvp-result-settlement {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    padding: 7px 10px;
+    border: 1px solid rgba(155, 176, 199, 0.18);
+    border-radius: 7px;
+    background: rgba(5, 12, 22, 0.7);
+    text-align: left;
+}
+
+.pvp-result-settlement.is-confirmed { border-color: rgba(95, 195, 125, 0.32); }
+.pvp-result-settlement.is-failed { border-color: rgba(238, 116, 88, 0.52); background: rgba(77, 23, 20, 0.36); }
+
+.pvp-result-settlement-mark,
+.pvp-result-spinner {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    box-sizing: border-box;
+    color: #82e5a0;
+    border: 1px solid rgba(101, 216, 132, 0.44);
+    border-radius: 50%;
+    background: rgba(70, 160, 96, 0.12);
+    font: 800 13px/1 Inter, sans-serif;
+}
+
+.is-failed .pvp-result-settlement-mark {
+    color: #ffb29d;
+    border-color: rgba(238, 116, 88, 0.55);
+    background: rgba(238, 116, 88, 0.12);
+}
+
+.pvp-result-spinner {
+    border-color: rgba(217, 189, 112, 0.22);
+    border-top-color: #e4c977;
+    background: transparent;
+    animation: pvpResultSpin 800ms linear infinite;
+}
+
+.pvp-result-settlement strong {
+    display: block;
+    color: #dce7f0;
+    font: 800 9px/1.2 var(--font-display);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.pvp-result-settlement p {
+    margin: 3px 0 0;
+    color: rgba(180, 195, 211, 0.78);
+    font: 500 9px/1.25 Inter, sans-serif;
+}
+
+.arena-fullscreen .pvp-result-settlement > button {
+    min-height: 30px !important;
+    padding: 5px 10px !important;
+    color: #ffd6c8 !important;
+    border: 1px solid rgba(238, 116, 88, 0.64) !important;
+    border-radius: 5px !important;
+    background: rgba(105, 33, 27, 0.65) !important;
+    font: 800 8px/1 var(--font-display) !important;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.pvp-result-actions {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 8px;
+    margin-top: clamp(9px, 1.7cqh, 14px);
+}
+
+.arena-fullscreen .pvp-result-actions > button {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-width: 0;
+    min-height: 40px !important;
+    margin: 0 !important;
+    padding: 8px 10px !important;
+    color: #dbe5ee !important;
+    border: 1px solid rgba(166, 186, 207, 0.31) !important;
+    border-radius: 6px !important;
+    background: linear-gradient(180deg, rgba(27, 42, 58, 0.95), rgba(9, 18, 29, 0.96)) !important;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset !important;
+    font: 800 9px/1 var(--font-display) !important;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.arena-fullscreen .pvp-result-actions > button svg { flex: 0 0 auto; font-size: 15px; }
+
+.arena-fullscreen .pvp-result-actions > .pvp-result-primary {
+    color: #07110c !important;
+    border-color: var(--pvp-result-accent-bright) !important;
+    background: linear-gradient(180deg, var(--pvp-result-accent-bright), var(--pvp-result-accent)) !important;
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.38) inset,
+        0 0 18px rgba(var(--pvp-result-accent-rgb), 0.2) !important;
+}
+
+.arena-fullscreen .pvp-result-actions > button:not(:disabled):hover {
+    border-color: var(--pvp-result-accent) !important;
+    filter: brightness(1.12);
+    transform: translateY(-1px);
+}
+
+.arena-fullscreen .pvp-result-actions > button:focus-visible,
+.arena-fullscreen .pvp-result-settlement > button:focus-visible {
+    outline: 2px solid var(--pvp-result-accent-bright) !important;
+    outline-offset: 2px;
+}
+
+.arena-fullscreen .pvp-result-actions > button:disabled {
+    opacity: 0.42 !important;
+    filter: grayscale(0.65);
+    cursor: wait !important;
+}
+
+.pvp-result-review-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 42px;
+    padding: 7px 11px;
+    color: rgba(210, 220, 232, 0.78);
+    border: 1px solid rgba(196, 162, 90, 0.25);
+    border-radius: 7px;
+    background: linear-gradient(90deg, rgba(12, 22, 35, 0.96), rgba(5, 11, 20, 0.96));
+    font: 700 9px/1.2 var(--font-display);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.arena-fullscreen .pvp-result-review-bar > button {
+    min-height: 30px !important;
+    margin: 0 !important;
+    padding: 6px 11px !important;
+    color: #f1dfa6 !important;
+    border: 1px solid rgba(220, 188, 102, 0.44) !important;
+    border-radius: 5px !important;
+    background: rgba(42, 32, 13, 0.7) !important;
+    font: 800 8px/1 var(--font-display) !important;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+@keyframes pvpResultBackdropIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes pvpResultCardIn {
+    from { opacity: 0; transform: translateY(18px) scale(0.965); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes pvpResultSpin { to { transform: rotate(360deg); } }
+
+@container combat-board-stage (max-height: 530px) {
+    .pvp-result-card { padding-top: 12px; padding-bottom: 12px; }
+    .pvp-result-crest { width: 42px; height: 42px; margin-top: 6px; font-size: 22px; }
+    .pvp-result-header h2 { font-size: 34px !important; }
+    .pvp-result-matchup { margin: 8px 0; }
+    .pvp-result-rewards { margin-bottom: 7px; padding-block: 7px; }
+    .pvp-result-reward { min-height: 38px; }
+    .pvp-result-fighter { grid-template-columns: 48px minmax(0, 1fr); padding-block: 6px; }
+    .pvp-result-avatar { width: 48px; }
+    .pvp-result-actions { margin-top: 8px; }
+}
+
+@media (max-width: 700px) {
+    .pvp-result-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 260;
+        padding:
+            max(10px, env(safe-area-inset-top, 0px))
+            max(10px, env(safe-area-inset-right, 0px))
+            max(10px, env(safe-area-inset-bottom, 0px))
+            max(10px, env(safe-area-inset-left, 0px));
+    }
+
+    .pvp-result-card { width: min(100%, 520px); padding: 16px 13px; }
+    .pvp-result-header h2 { font-size: clamp(34px, 12vw, 48px) !important; }
+    .pvp-result-matchup { grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr); gap: 5px; }
+    .pvp-result-fighter { grid-template-columns: 1fr; justify-items: center; gap: 5px; padding: 8px 5px; }
+    .pvp-result-avatar { width: 52px; }
+    .pvp-result-fighter-copy { width: 100%; text-align: center; }
+    .pvp-result-hp-line { width: 100%; }
+    .pvp-result-versus::before,
+    .pvp-result-versus::after { height: 8px; }
+    .pvp-result-actions { grid-template-columns: 1fr; }
+    .arena-fullscreen .pvp-result-actions > button { min-height: 42px !important; }
+    .pvp-result-reward-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .pvp-result-review-bar { margin-inline: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pvp-result-overlay,
+    .pvp-result-card { animation: none; }
+    .pvp-result-spinner { animation-duration: 1.6s; }
+    .arena-fullscreen .pvp-result-actions > button { transition: none; }
+}
+
 .arena-fullscreen .combat-jutsu-detail-popover,
 .arena-fullscreen .combat-item-detail-popover,
 body > .combat-detail-backdrop > .combat-jutsu-detail-popover,

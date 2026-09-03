@@ -237,8 +237,20 @@
     height: auto;
 }
 
+.landing-logo--footer {
+    /* The wide wordmark's painted pixels sit very close to the WebP bounds.
+       Keep a small clear edge around the footer treatment so the sword/smoke
+       details do not read as cropped against the surrounding copy. */
+    max-width: 100%;
+    overflow: visible;
+    padding: 4px 6px;
+}
+
 .landing-logo--footer .landing-logo-art {
-    height: 42px;
+    width: clamp(142px, 14vw, 168px);
+    max-width: calc(100vw - 68px);
+    height: auto;
+    object-position: center;
 }
 
 .landing-topnav {

@@ -61,9 +61,11 @@ import {
     completePvpRewardCompletion,
     postPvpRewardCompletionAck,
     postPvpRewardClaim,
+    pvpBattleRewardSummary,
     pvpRewardSettlementNotice,
     shouldRunPvpRewardCompletion,
     type PvpRewardClaimConfirmed,
+    type PvpBattleRewardSummary,
     type PvpRewardCompletionStorage,
     type PvpRewardContinuationContext,
 } from "../lib/pvp-reward-claim";
@@ -80,6 +82,7 @@ import {
 import { fetchPendingPvpRecovery } from "../lib/pvp-pending-fetch";
 import { earnedStatPoints } from "../lib/stats";
 import { useSocialLock } from "../lib/account-status";
+import { PvpBattleResultPanel, type PvpBattleOutcome } from "../components/PvpBattleResultPanel";
 
 // Avatar travel animation. A fighter's marker steps through each hex on the line
 // between its old and new cell (PATH_STEP_MS apart) and CSS-glides each hop, so
@@ -210,7 +213,8 @@ export function PvpBattleScreen({
     onLoss,
     onCompletionConfirmed,
     onExit,
-    onViewBattleRecord,
+    returnTarget = "battleArena",
+    returnLabel = "Return to Arena",
     onRecordBattle,
     onRewardClaim,
 }: {
@@ -243,8 +247,9 @@ export function PvpBattleScreen({
     /** Fires only after durable App continuations and the server ACK confirm. */
     onCompletionConfirmed?: () => void;
     onExit?: (target: Screen) => void;
-    /** Opens the durable read-only record for a finished battle. */
-    onViewBattleRecord?: (battleId: string) => void;
+    /** Exact origin to restore after the settled result is acknowledged. */
+    returnTarget?: Screen;
+    returnLabel?: string;
     onRecordBattle?: (entry: BattleHistoryEntry, continuation: PvpRewardContinuationContext) => Promise<void>;
 }) {
     // Grid constants (gridWidth/gridHeight/HEX_*/X_STEP/Y_STEP/ORB/GRID_LAYER_*)
@@ -334,6 +339,8 @@ export function PvpBattleScreen({
     const [pvpRewardClaimState, setPvpRewardClaimState] = useState<"idle" | "claiming" | "failed" | "confirmed">("idle");
     const [pvpRewardClaimError, setPvpRewardClaimError] = useState("");
     const [pvpRewardNotice, setPvpRewardNotice] = useState("");
+    const [pvpBattleRewards, setPvpBattleRewards] = useState<PvpBattleRewardSummary | null>(null);
+    const [showResultPanel, setShowResultPanel] = useState(true);
     const [sessionLoadFailure, setSessionLoadFailure] = useState("");
     const [sessionRetryKey, setSessionRetryKey] = useState(0);
     const [sessionExitCheck, setSessionExitCheck] = useState<"unchecked" | "checking" | "safe">("unchecked");
@@ -959,6 +966,23 @@ export function PvpBattleScreen({
             draw: isDrawNow,
             spar: effectiveIsSpar,
         }));
+        const confirmedRewards = pvpBattleRewardSummary(result);
+        setPvpBattleRewards(current => current ? {
+            ryo: Math.max(current.ryo, confirmedRewards.ryo),
+            combatGrowth: Math.max(current.combatGrowth, confirmedRewards.combatGrowth),
+            professionXp: Math.max(current.professionXp, confirmedRewards.professionXp),
+            auraDust: Math.max(current.auraDust, confirmedRewards.auraDust),
+            fateShards: Math.max(current.fateShards, confirmedRewards.fateShards),
+            honorSeals: Math.max(current.honorSeals, confirmedRewards.honorSeals),
+            territoryScrolls: Math.max(current.territoryScrolls, confirmedRewards.territoryScrolls),
+            warPoints: Math.max(current.warPoints, confirmedRewards.warPoints),
+            ...(confirmedRewards.warPointKind || current.warPointKind
+                ? { warPointKind: confirmedRewards.warPointKind ?? current.warPointKind }
+                : {}),
+            ...(confirmedRewards.ratingDelta !== undefined || current.ratingDelta !== undefined
+                ? { ratingDelta: confirmedRewards.ratingDelta ?? current.ratingDelta }
+                : {}),
+        } : confirmedRewards);
         const runCompletion = shouldRunPvpRewardCompletion(
             completionStorage,
             claimRequest,
@@ -1451,7 +1475,7 @@ export function PvpBattleScreen({
                                 setSessionRetryKey(value => value + 1);
                             }}>Retry Connection</button>
                             {sessionExitCheck === "safe" ? (
-                                <button type="button" onClick={() => exitBattle(currentSector > 0 ? "worldMap" : "village")}>Return Safely</button>
+                                <button type="button" onClick={() => exitBattle(returnTarget)}>Return Safely</button>
                             ) : (
                                 <button type="button" disabled={sessionExitCheck === "checking"} onClick={() => void verifyPendingSessionBeforeExit()}>
                                     {sessionExitCheck === "checking" ? "Checking Battle Status..." : "Verify Exit Safety"}
@@ -1481,6 +1505,15 @@ export function PvpBattleScreen({
     const done = session.status === "done";
     const iWon = (session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2");
     const isDraw = session.winner === "draw";
+    const battleOutcome: PvpBattleOutcome = isDraw
+        ? "draw"
+        : amSpectator
+            ? "spectator"
+            : iWon
+                ? "victory"
+                : session.fleedBy === role
+                    ? "escaped"
+                    : "defeat";
     // Environment comes from the SEALED session (what the server actually used
     // for terrain/weather math), not the live world props — so the displayed
     // terrain/weather always matches server-resolved damage. Ranked seals
@@ -2177,9 +2210,47 @@ export function PvpBattleScreen({
                             </div>
                         </div>
                     </div>
+                    {done && showResultPanel ? (
+                        <PvpBattleResultPanel
+                            outcome={battleOutcome}
+                            round={session.round}
+                            leftFighter={{
+                                name: me.name,
+                                avatar: myAvatar,
+                                hp: me.hp,
+                                maxHp: me.maxHp,
+                                isWinner: session.winner === role,
+                            }}
+                            rightFighter={{
+                                name: opp.name,
+                                avatar: oppAvatar,
+                                hp: opp.hp,
+                                maxHp: opp.maxHp,
+                                isWinner: session.winner === (role === "p1" ? "p2" : "p1"),
+                            }}
+                            isSpectator={amSpectator}
+                            settlementState={pvpRewardClaimState}
+                            settlementNotice={pvpRewardNotice}
+                            settlementError={pvpRewardClaimError}
+                            rewards={pvpBattleRewards}
+                            onRetrySettlement={() => { void claimResolvedPvpReward(); }}
+                            onViewBattleLog={() => {
+                                battleTabs.setTab("log");
+                                setShowResultPanel(false);
+                            }}
+                            returnLabel={returnLabel}
+                            onReturnToBattlefield={() => exitBattle(returnTarget)}
+                        />
+                    ) : null}
                     </CombatBoardStage>
 
                     <BattleTabBar tab={battleTabs.tab} setTab={battleTabs.setTab} unread={battleTabs.unread} />
+                    {done && !showResultPanel ? (
+                        <div className="pvp-result-review-bar">
+                            <span>Reviewing the final battle log</span>
+                            <button type="button" onClick={() => setShowResultPanel(true)}>View Battle Result</button>
+                        </div>
+                    ) : null}
 
                     {/* Action bar stays visible on the opponent's turn so the player
                         can review their kit and plan. Individual action controls use
@@ -2221,55 +2292,7 @@ export function PvpBattleScreen({
                         role="region"
                         aria-label="Jutsu, weapons, and items"
                     >
-                        {done ? (
-                            <div className="battle-ended-overlay" style={{ position: "relative", inset: "unset", background: "none" }}>
-                                <div className="card battle-ended-card">
-                                    <h2 className={isDraw ? "" : amSpectator ? "" : iWon ? "battle-result-win" : session.fleedBy === role ? "battle-result-fled" : "battle-result-loss"}>
-                                        {isDraw ? "Draw" : amSpectator ? "Battle Over" : iWon ? "Victory" : session.fleedBy === role ? "Escaped" : "💥 Defeated"}
-                                    </h2>
-                                    <p style={{ color: "var(--text-dim)", fontSize: "0.9rem", margin: "0.4rem 0 0.8rem" }}>
-                                        {isDraw ? "The duel ended with equal honor."
-                                            : amSpectator ? `${session.winner === "p1" ? session.p1.name : session.winner === "p2" ? session.p2.name : "Nobody"} wins the duel!`
-                                            : iWon ? `${me.name} wins the duel!`
-                                            : session.fleedBy === role ? `${me.name} fled the battle.`
-                                            : `${opp.name} wins the duel.`}
-                                    </p>
-                                    {!amSpectator && pvpRewardClaimState === "claiming" && (
-                                        <p role="status" style={{ color: "#fcd34d", fontSize: "0.82rem", margin: "0 0 0.8rem" }}>
-                                            Verifying battle settlement with the server…
-                                        </p>
-                                    )}
-                                    {!amSpectator && pvpRewardClaimState === "failed" && (
-                                        <div role="alert" style={{ margin: "0 0 0.8rem", padding: "0.65rem", border: "1px solid #f97316", borderRadius: 8, background: "rgba(124,45,18,0.25)" }}>
-                                            <p style={{ color: "#fed7aa", fontSize: "0.82rem", margin: "0 0 0.55rem" }}>
-                                                Battle settlement is still pending. {pvpRewardClaimError}
-                                            </p>
-                                            <button type="button" onClick={() => { void claimResolvedPvpReward(); }}>
-                                                Retry Battle Settlement
-                                            </button>
-                                        </div>
-                                    )}
-                                    {!amSpectator && pvpRewardClaimState === "confirmed" && pvpRewardNotice && (
-                                        <p style={{ color: "#ffd700", fontSize: "0.85rem", margin: "0 0 0.8rem" }}>
-                                            {pvpRewardNotice}
-                                        </p>
-                                    )}
-                                    <div className="menu">
-                                        {/* Handoff to the DURABLE record. The live log above stays the
-                                            low-latency source during the fight; this reads the server
-                                            receipts once, on demand — we never poll them per move. */}
-                                        {onViewBattleRecord && !amSpectator && (
-                                            <button
-                                                onClick={() => onViewBattleRecord(session.battleId)}
-                                                disabled={pvpRewardClaimState !== "confirmed"}
-                                            >View Full Battle Record</button>
-                                        )}
-                                        <button onClick={() => exitBattle("village")} disabled={!amSpectator && pvpRewardClaimState !== "confirmed"}>Return to Village</button>
-                                        <button onClick={() => exitBattle("worldMap")} disabled={!amSpectator && pvpRewardClaimState !== "confirmed"}>World Map</button>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : amSpectator ? (
+                        {done ? null : amSpectator ? (
                             <p style={{ textAlign: "center", color: "#a78bfa", padding: "0.75rem", fontSize: "0.85em", margin: 0 }}>
                                 👁 Spectating — {session.activePlayer === "p1" ? session.p1.name : session.p2.name}'s turn (Round {session.round})
                             </p>

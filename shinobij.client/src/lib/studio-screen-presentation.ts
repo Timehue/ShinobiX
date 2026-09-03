@@ -3,6 +3,7 @@ import civicDistrict from "../assets/studio/civic-district.webp";
 import combatCitadel from "../assets/studio/combat-citadel.webp";
 import companionSanctuary from "../assets/studio/companion-sanctuary.webp";
 import frontierOutpost from "../assets/studio/frontier-outpost.webp";
+import firstPactArt from "../assets/first-pact/sunken-court-key-art.webp";
 import { FACILITY_PRESENTATION, type FacilityId, type FacilityPresentation } from "./facility-presentation";
 import type { Screen } from "../types/core";
 
@@ -114,6 +115,7 @@ export const STUDIO_SCREEN_PRESENTATION: Record<Screen, StudioScreenPresentation
   hollowGateTiles: frontier,
   endlessTower: combat,
   battleTowers: combat,
+  firstPact: { family: "companion", artwork: firstPactArt },
   weeklyBoss: frontier,
   villageWar: frontier,
   villageWarMap: frontier,

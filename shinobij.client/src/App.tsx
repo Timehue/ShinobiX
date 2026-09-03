@@ -214,6 +214,7 @@ import type { OwnSaveReadAnchor, OwnSaveReadResult } from "./lib/own-save-read";
 import { playerRankedAuthorityFromChallenge } from "./lib/player-ranked-authority";
 const CentralHub = lazyWithRetry(() => import("./screens/CentralHub").then(m => ({ default: m.CentralHub })));
 const BattleTowers = lazyWithRetry(() => import("./screens/BattleTowers").then(m => ({ default: m.BattleTowers })));
+const FirstPact = lazyWithRetry(() => import("./screens/FirstPact").then(m => ({ default: m.FirstPact })));
 const SunscarFestival = lazyWithRetry(() => import("./screens/SunscarFestival").then(m => ({ default: m.SunscarFestival })));
 const PetArena = lazyWithRetry(() => import("./screens/PetArena").then(m => ({ default: m.PetArena })));
 const PetShowdown = lazyWithRetry(() => import("./screens/PetShowdown").then(m => ({ default: m.PetShowdown })));
@@ -1286,7 +1287,7 @@ export default function App() {
     // out. Screen doesn't change mid-battle, so this never cuts music during a
     // fight; "Fight Again" restarts it with a fresh track.
     useEffect(() => {
-        if (screen !== "petArena" && screen !== "petShowdown" && screen !== "petColiseum") stopBattleMusic();
+        if (screen !== "petArena" && screen !== "petShowdown" && screen !== "petColiseum" && screen !== "firstPact") stopBattleMusic();
     }, [screen]);
     const [worldMapKey, setWorldMapKey] = useState(0);
     const [character, setCharacter] = useState<Character | null>(null);
@@ -7025,6 +7026,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "petShowdown" && character && <PetShowdown character={character} updateCharacter={setCharacter} setScreen={setScreen} sharedImages={sharedImages} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}
                 {/* The Coliseum proper: the same arena, opened as a PAID bout. */}
                 {!activeTriggeredEvent && screen === "petColiseum" && character && <PetShowdown bout="arena" character={character} updateCharacter={setCharacter} setScreen={setScreen} sharedImages={sharedImages} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}
+                {!activeTriggeredEvent && screen === "firstPact" && character && <FirstPact character={character} sharedImages={sharedImages} onExit={() => setScreen("centralHub")} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}
                 {!activeTriggeredEvent && screen === "petLadder" && character && <PetLadder character={character} setScreen={setScreen} sharedImages={sharedImages} />}
                 {/* An authored VN pet battle. The opponent is no longer scaled here:
                     the server reads the same authored row out of its own copy of the
@@ -7255,6 +7257,17 @@ export default function App() {
                     const pvpOriginatingPlayerName = character.name;
                     const pvpOriginatingSessionEpoch = saveSessionEpochRef.current;
                     const pvpSettlementScopeKey = `${playerSlug(pvpOriginatingPlayerName)}:${pvpOriginatingSessionEpoch}:${pvpRole}:${pvpBattleId}`;
+                    const pvpReturnTarget: Screen = pvpBattleContext?.sectorAttack
+                        ? "worldMap"
+                        : pvpBattleContext?.mode?.startsWith("clanWar")
+                            ? "clan"
+                            : "battleArena";
+                    const pvpReturnSector = pvpBattleContext?.sector ?? currentSector;
+                    const pvpReturnLabel = pvpReturnTarget === "worldMap"
+                        ? `Return to Sector ${pvpReturnSector}`
+                        : pvpReturnTarget === "clan"
+                            ? "Return to Clan War"
+                            : "Return to Arena";
                     const pvpJutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, character);
                     const pvpAllItems = getAllItems(creatorItems);
                     const pvpItems = (["hand", "weapon", "thrown", "item1", "item2", "item3", "item", "potion"] as EquipmentSlot[])
@@ -7426,7 +7439,8 @@ export default function App() {
                             battleId={pvpBattleId}
                             role={pvpRole}
                             setScreen={navigate}
-                            onViewBattleRecord={(battleId) => { setViewedBattleId(battleId); navigate("battleLog"); }}
+                            returnTarget={pvpReturnTarget}
+                            returnLabel={pvpReturnLabel}
                             equippedJutsu={pvpJutsus}
                             equippedItems={pvpItems}
                             currentBiome={currentBiome}

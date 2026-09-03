@@ -61,6 +61,21 @@ import {
     type WorldCrisis80Village,
 } from '../../shared/world-crisis-80.js';
 import {
+    FIRST_PACT_MIN_LEVEL,
+    FIRST_PACT_TEAM_SIZE,
+    expectedFirstPactMainEncounter,
+    expectedFirstPactTournamentEncounter,
+    firstPactEncounter,
+    firstPactMainEncounter,
+    type FirstPactEncounterId,
+    type FirstPactTournamentEncounterId,
+} from '../../shared/first-pact-contract.js';
+import {
+    readFirstPactProgress,
+    settleFirstPactMainBattle,
+    settleFirstPactTournamentBattle,
+} from '../first-pact/_state.js';
+import {
     activeWorldCrisis80Encounter,
     recordWorldCrisis80Defense,
 } from '../world-crisis-80/_state.js';
@@ -203,10 +218,10 @@ function parseCommands(raw: unknown, maxCount: number): ShowdownCommand[] {
     return out;
 }
 
-/** A Showdown session bound to a Hollow Gate encounter, stored BESIDE the
- *  session rather than inside it: the session type is the shared client
- *  contract, and a run binding is server-only bookkeeping the client must never
- *  see. Keyed by session id, so the session IS the receipt handle. */
+/** Parent details stay BESIDE the session as server-only bookkeeping the client
+ *  must never see. The session carries only a non-public binding kind so the
+ *  endpoint can renew the right sidecar. Keyed by session id, the session is
+ *  still the receipt handle. */
 interface ShowdownHollowGateBinding { runId: string; petIds: string[] }
 const showdownHollowGateKey = (playerName: string, sessionId: string) => `sd-hg:${playerName}:${sessionId}`;
 
@@ -217,6 +232,49 @@ interface ShowdownWorldCrisis80Binding {
     petIds: string[];
 }
 const showdownWorldCrisis80Key = (playerName: string, sessionId: string) => `sd-wcr80:${playerName}:${sessionId}`;
+
+interface ShowdownFirstPactBinding {
+    encounterId: FirstPactEncounterId;
+}
+const showdownFirstPactKey = (playerName: string, sessionId: string) => `sd-fp:${playerName}:${sessionId}`;
+
+/** Keep parent sidecars on the same sliding lease as their Showdown session.
+ * Without this, an actively played 45+ minute bound fight could outlive the
+ * record that says which campaign result its terminal proof must settle. */
+async function refreshShowdownBindings(playerName: string, session: ShowdownSession) {
+    const hollowGateKey = showdownHollowGateKey(playerName, session.sessionId);
+    const worldCrisis80Key = showdownWorldCrisis80Key(playerName, session.sessionId);
+    const firstPactKey = showdownFirstPactKey(playerName, session.sessionId);
+    let hollowGate: ShowdownHollowGateBinding | null = null;
+    let worldCrisis80: ShowdownWorldCrisis80Binding | null = null;
+    let firstPact: ShowdownFirstPactBinding | null = null;
+    if (session.bindingKind === 'hollow-gate') hollowGate = await kv.get<ShowdownHollowGateBinding>(hollowGateKey);
+    else if (session.bindingKind === 'world-crisis-80') worldCrisis80 = await kv.get<ShowdownWorldCrisis80Binding>(worldCrisis80Key);
+    else if (session.bindingKind === 'first-pact') firstPact = await kv.get<ShowdownFirstPactBinding>(firstPactKey);
+    else if (session.finished) {
+        // Compatibility for sessions created before bindingKind shipped.
+        [hollowGate, worldCrisis80, firstPact] = await Promise.all([
+            kv.get<ShowdownHollowGateBinding>(hollowGateKey),
+            kv.get<ShowdownWorldCrisis80Binding>(worldCrisis80Key),
+            kv.get<ShowdownFirstPactBinding>(firstPactKey),
+        ]);
+    }
+    await Promise.all([
+        hollowGate ? kv.set(hollowGateKey, hollowGate, { ex: SESSION_TTL_SECONDS }) : Promise.resolve(),
+        worldCrisis80 ? kv.set(worldCrisis80Key, worldCrisis80, { ex: SESSION_TTL_SECONDS }) : Promise.resolve(),
+        firstPact ? kv.set(firstPactKey, firstPact, { ex: SESSION_TTL_SECONDS }) : Promise.resolve(),
+    ]);
+    return { hollowGate, worldCrisis80, firstPact };
+}
+
+function isShowdownBindingMissing(
+    session: ShowdownSession,
+    bindings: Awaited<ReturnType<typeof refreshShowdownBindings>>,
+): boolean {
+    return (session.bindingKind === 'hollow-gate' && !bindings.hollowGate)
+        || (session.bindingKind === 'world-crisis-80' && !bindings.worldCrisis80)
+        || (session.bindingKind === 'first-pact' && !bindings.firstPact);
+}
 
 /** Mint the exact versioned receipt Hollow Gate's settlement endpoint consumes.
  *  The writer accepts it only when the parent had already selected this
@@ -437,10 +495,80 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 sourceId: encounter.petSourceId,
                 petIds: chosen.map((pet) => String(pet.id)),
             };
+            session.bindingKind = 'world-crisis-80';
             armTurnDeadline(session);
             await kv.set(sessionKey(playerName, sessionId), session, { ex: SESSION_TTL_SECONDS });
             await kv.set(showdownWorldCrisis80Key(playerName, sessionId), binding, { ex: SESSION_TTL_SECONDS });
             return res.status(200).json({ ok: true, state: viewOf(session), worldCrisis80: { village: binding.village } });
+        }
+
+        if (action === 'first-pact') {
+            if (!identity.admin && !(await enforceRateLimitKv(req, res, 'first-pact-showdown', 20, 60_000, identity.name))) return;
+            const encounter = firstPactEncounter(body.encounterId);
+            if (!encounter) return res.status(400).json({ error: 'Unknown First Pact encounter.' });
+
+            const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+            const myChar = mySave?.character as Record<string, unknown> | undefined;
+            if (!myChar) return res.status(404).json({ error: 'No save found.' });
+            if (Math.floor(Number(myChar.level) || 0) < FIRST_PACT_MIN_LEVEL) {
+                return res.status(403).json({ error: `The First Pact unlocks at level ${FIRST_PACT_MIN_LEVEL}.` });
+            }
+            const progress = await readFirstPactProgress(playerName);
+            const mainEncounter = firstPactMainEncounter(encounter.id);
+            const expected = mainEncounter
+                ? expectedFirstPactMainEncounter(progress)
+                : expectedFirstPactTournamentEncounter(progress);
+            if (!expected || expected.id !== encounter.id) {
+                return res.status(409).json({
+                    error: mainEncounter
+                        ? 'That Court confrontation is not open in the current chapter.'
+                        : progress.stableQuest.status === 'not-started'
+                        ? 'Speak with Sena Vale before entering her stable in the tournament.'
+                        : progress.stableQuest.status === 'complete'
+                            ? 'Vale Stable already holds its place in the Court.'
+                            : 'That tournament round is not open yet.',
+                });
+            }
+
+            const petIds: string[] = Array.isArray(body.petIds)
+                ? body.petIds.map((value: unknown) => String(value).slice(0, 96)).slice(0, FIRST_PACT_TEAM_SIZE)
+                : [];
+            if (petIds.length !== FIRST_PACT_TEAM_SIZE || new Set(petIds).size !== FIRST_PACT_TEAM_SIZE) {
+                return res.status(400).json({ error: 'The First Pact requires exactly four distinct pets: two active and two in reserve.' });
+            }
+            const myPets = activeCarriedPets<Record<string, unknown>>(myChar);
+            const chosen = petIds
+                .map((id) => myPets.find((pet) => String(pet?.id ?? '') === id))
+                .filter(Boolean) as unknown as Pet[];
+            if (chosen.length !== FIRST_PACT_TEAM_SIZE) {
+                return res.status(409).json({ error: 'Every chosen pet must be in your carried roster.' });
+            }
+            const busyIssue = showdownBusyIssue(myChar, chosen);
+            if (busyIssue) return res.status(409).json({ error: busyIssue });
+
+            const seed = randomInt(1, 0x7fffffff);
+            const built = buildShowdownAiTeam(chosen, FIRST_PACT_TEAM_SIZE, encounter.tier, seed, { mirrorLevels: true });
+            if (built.pets.length !== FIRST_PACT_TEAM_SIZE) {
+                return res.status(500).json({ error: 'The Court could not assemble the opposing stable.' });
+            }
+            const sessionId = randomUUID().replace(/-/g, '');
+            const session = createShowdownSession({
+                sessionId,
+                playerName,
+                format: '2v2',
+                tier: encounter.tier,
+                seed,
+                playerPets: chosen,
+                enemyPets: built.pets,
+                enemyTeamName: encounter.opponent,
+                rewardEligible: false,
+            });
+            session.bindingKind = 'first-pact';
+            const binding: ShowdownFirstPactBinding = { encounterId: encounter.id };
+            armTurnDeadline(session);
+            await kv.set(sessionKey(playerName, sessionId), session, { ex: SESSION_TTL_SECONDS });
+            await kv.set(showdownFirstPactKey(playerName, sessionId), binding, { ex: SESSION_TTL_SECONDS });
+            return res.status(200).json({ ok: true, state: viewOf(session), firstPact: { encounterId: encounter.id, progress } });
         }
 
         if (action === 'start') {
@@ -634,6 +762,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // the run's own settlement, and paying twice would be a faucet.
                 rewardEligible: !hollowGate,
             });
+            if (hollowGate) session.bindingKind = 'hollow-gate';
             armTurnDeadline(session);
             await kv.set(sessionKey(playerName, sessionId), session, { ex: SESSION_TTL_SECONDS });
             if (hollowGate) {
@@ -769,42 +898,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const conceded = await withKvLock(key, async () => {
                 const session = await kv.get<ShowdownSession>(key);
                 if (!session || session.playerName !== playerName) return null;
+                const bindings = await refreshShowdownBindings(playerName, session);
+                if (isShowdownBindingMissing(session, bindings)) return { bindingMissing: true as const };
                 if (!session.finished) {
                     session.finished = true;
                     session.outcome = 'loss';
                     session.turnDeadlineAt = undefined;
                     await kv.set(key, session, { ex: SESSION_TTL_SECONDS });
                 }
-                return session;
+                return { session, bindings };
             }, { failClosed: true });
             if (!conceded) return res.status(200).json({ ok: true });
-            const hgBinding = await kv.get<ShowdownHollowGateBinding>(showdownHollowGateKey(playerName, conceded.sessionId));
+            if ('bindingMissing' in conceded) {
+                return res.status(503).json({ error: 'This bound Showdown is safe, but its campaign record is unavailable. Retry before conceding.' });
+            }
+            const { session: concededSession, bindings } = conceded;
+            const hgBinding = bindings.hollowGate;
             if (hgBinding) {
                 // `nx`, so a concession cannot overwrite an outcome the fight
                 // already reached — and a re-posted forfeit is a no-op.
-                await mintHollowGatePetReceipt(playerName, conceded.sessionId, hgBinding, conceded.outcome ?? 'loss');
+                await mintHollowGatePetReceipt(playerName, concededSession.sessionId, hgBinding, concededSession.outcome ?? 'loss');
                 return res.status(200).json({
                     ok: true,
                     conceded: true,
-                    state: viewOf(conceded),
-                    hollowGate: { runId: hgBinding.runId, petReceipt: conceded.sessionId },
+                    state: viewOf(concededSession),
+                    hollowGate: { runId: hgBinding.runId, petReceipt: concededSession.sessionId },
                 });
             }
-            const crisisBinding = await kv.get<ShowdownWorldCrisis80Binding>(showdownWorldCrisis80Key(playerName, conceded.sessionId));
+            const crisisBinding = bindings.worldCrisis80;
             if (crisisBinding?.crisisId === WORLD_CRISIS_80_ID) {
                 const crisis = await recordWorldCrisis80Defense({
                     playerName,
                     village: crisisBinding.village,
                     sourceId: crisisBinding.sourceId,
-                    proofId: `showdown:${conceded.sessionId}`,
+                    proofId: `showdown:${concededSession.sessionId}`,
                     path: 'companion',
                     outcome: 'loss',
                 });
                 return res.status(200).json({
                     ok: true,
                     conceded: true,
-                    state: viewOf(conceded),
+                    state: viewOf(concededSession),
                     worldCrisis80: { crisis, contributed: false, village: crisisBinding.village },
+                });
+            }
+            const firstPactBinding = bindings.firstPact;
+            if (firstPactBinding) {
+                const progress = await readFirstPactProgress(playerName);
+                return res.status(200).json({
+                    ok: true,
+                    conceded: true,
+                    state: viewOf(concededSession),
+                    firstPact: { encounterId: firstPactBinding.encounterId, progress, advanced: false },
                 });
             }
             // Unbound bout: nothing is waiting on it, so the session goes away
@@ -820,11 +965,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const turnResult = await withKvLock(key, async () => {
                 const session = await kv.get<ShowdownSession>(key);
                 if (!session || session.playerName !== playerName) return { error: 404 as const };
+                const bindings = await refreshShowdownBindings(playerName, session);
+                if (isShowdownBindingMissing(session, bindings)) return { error: 503 as const };
                 if (session.finished) {
                     // Already resolved (e.g. payout retry after a 503): no new
                     // events; fall through to settlement below. Flagged so the
                     // settle path can tell a genuine finish from a re-post.
-                    return { session, events: [], replayed: true };
+                    return { session, events: [], replayed: true, bindings };
                 }
                 const playerIds = new Set(session.player.map((p) => p.id));
                 const commands = parseCommands(body.commands, session.player.length)
@@ -833,11 +980,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const events = resolveShowdownRound(session, commands, aiCommands);
                 armTurnDeadline(session);
                 await kv.set(key, session, { ex: SESSION_TTL_SECONDS });
-                return { session, events, replayed: false };
+                return { session, events, replayed: false, bindings };
             }, { failClosed: true });
 
-            if ('error' in turnResult) return res.status(404).json({ error: 'No active showdown.' });
-            const { session, events, replayed } = turnResult;
+            if ('error' in turnResult) {
+                return turnResult.error === 404
+                    ? res.status(404).json({ error: 'No active showdown.' })
+                    : res.status(503).json({ error: 'This bound Showdown is safe, but its campaign record is unavailable. Retry this turn.' });
+            }
+            const { session, events, replayed, bindings } = turnResult;
 
             if (!session.finished) {
                 return res.status(200).json({ ok: true, events, state: viewOf(session) });
@@ -858,10 +1009,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // A retained pre-cutover Hollow Gate win must never receive paid
             // arena ryo, counters, witness cards, or Legacy progress while its
             // (possibly ambiguous) parent proof is being rejected below.
-            const hgBinding = await kv.get<ShowdownHollowGateBinding>(showdownHollowGateKey(playerName, session.sessionId));
-            const crisisBinding = await kv.get<ShowdownWorldCrisis80Binding>(showdownWorldCrisis80Key(playerName, session.sessionId));
+            const hgBinding = bindings.hollowGate;
+            const crisisBinding = bindings.worldCrisis80;
+            const firstPactBinding = bindings.firstPact;
             let settlement: Record<string, unknown> = { reward: 0 };
-            if (!hgBinding && !crisisBinding && session.outcome === 'win') {
+            if (!hgBinding && !crisisBinding && !firstPactBinding && session.outcome === 'win') {
                 settlement = await settleShowdownWin(playerName, session);
                 if (settlement.progressionEligible === true) {
                     const legacyApplied = await bumpLegacyStats(
@@ -934,6 +1086,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         contributed: session.outcome === 'win',
                         village: crisisBinding.village,
                     },
+                };
+            }
+            if (firstPactBinding && session.outcome) {
+                const mainEncounter = firstPactMainEncounter(firstPactBinding.encounterId);
+                const firstPact = mainEncounter
+                    ? await settleFirstPactMainBattle(playerName, mainEncounter.id, session.outcome, `showdown:${session.sessionId}`)
+                    : await settleFirstPactTournamentBattle(playerName, firstPactBinding.encounterId as FirstPactTournamentEncounterId, session.outcome, `showdown:${session.sessionId}`);
+                settlement = {
+                    ...settlement,
+                    firstPact: { encounterId: firstPactBinding.encounterId, ...firstPact },
                 };
             }
             return res.status(200).json({ ok: true, events, state: viewOf(session), ...settlement });

@@ -139,10 +139,10 @@ describe('executable multi-engine runtime registry', () => {
     const expectedIds = EXPECTED_RUNTIME_MODE_CONTRACTS.map((contract) => contract.id);
     const expectedFactIds = Object.keys(EXPECTED_RUNTIME_MODE_FACTS);
     const expectedMetadataIds = Object.keys(EXPECTED_RUNTIME_MODE_METADATA);
-    // 61 since the level-80 crisis added its Tower 1v3 and Showdown 3v3 modes. This count is a
+    // 62 since The First Pact added its level-100 connected-world Showdown campaign. This count is a
     // deliberate ratchet: raising it should be a conscious act, not a side
     // effect of a mode appearing.
-    assert.equal(ids.length, 61, 'The corrected inventory must retain the independently pinned 61-row model.');
+    assert.equal(ids.length, 62, 'The corrected inventory must retain the independently pinned 62-row model.');
     assert.equal(new Set(ids).size, ids.length, 'Runtime mode ids must be unique.');
     assert.equal(new Set(labels).size, labels.length, 'Runtime mode labels must be unique.');
     assert.equal(new Set(expectedIds).size, expectedIds.length, 'Independent expected mode ids must be unique.');

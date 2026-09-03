@@ -320,6 +320,7 @@ import applyElementalCoreHandler from './api/weapon/apply-elemental-core.js';
 import forgeElementalCoreHandler from './api/weapon/forge-elemental-core.js';
 import petGauntletHandler from './api/pet/gauntlet.js';
 import petShowdownHandler from './api/pet/showdown.js';
+import firstPactStateHandler from './api/first-pact/state.js';
 import arenaLobbyHandler from './api/arena/lobby.js';
 import petLadderHandler from './api/pet-ladder/ladder.js';
 // Jutsu
@@ -1446,6 +1447,7 @@ route('/weapon/apply-elemental-core', applyElementalCoreHandler);
 route('/weapon/forge-elemental-core', forgeElementalCoreHandler);
 route('/pet/gauntlet',      petGauntletHandler);
 route('/pet/showdown',      petShowdownHandler);
+route('/first-pact/state',  firstPactStateHandler);
 
 // ─── Co-op Tactical Pet Arena lobby ─────────────────────────────────────────────
 route('/arena/lobby', arenaLobbyHandler);

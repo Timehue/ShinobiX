@@ -275,6 +275,8 @@ describe("PvP reliability source wiring", () => {
             "an unavailable battle may expose destructive exit only after authenticated pending-session proof");
         assert.match(screen, /sessionExitCheck === "safe"[\s\S]*Return Safely/,
             "transient GET failure must keep the same-mount retry/recovery controller alive");
+        assert.match(screen, /sessionExitCheck === "safe"[\s\S]*exitBattle\(returnTarget\)[\s\S]*Return Safely/,
+            "a proven-safe recovery exit must restore the sealed battle origin, never infer Village or World Map from live sector state");
         const sectorCreate = app.slice(
             app.indexOf("sectorAttackPlayer={async"),
             app.indexOf('{!activeTriggeredEvent && screen === "sunscarFestival"'),

@@ -218,10 +218,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(403).json({ error: 'Only the winner of that battle can claim its bounty.' });
             }
 
-            // Void if the two fighters share an IP/device — same ladder-integrity
-            // rule as ranked rating. Bounty pool stays for a legitimate hunter.
-            try { if (await hasRecentIpOrFpOverlap(winnerName, loserName)) return res.status(403).json({ error: 'Bounty not paid: you and that player share a connection.' }); } catch { /* fail open */ }
-
             const out = await withKvLock<{ status: number; body: unknown; paid?: number }>(BOUNTY_KEY, async () => {
                 // Per-battle idempotency — a single duel pays a bounty at most
                 // once. Reserved INSIDE the failClosed lock (mirrors
@@ -233,6 +229,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const board = normalizeBoard(await kv.get<BountyBoard>(BOUNTY_KEY));
                 const result = claimBounty(board, loserName);
                 if (!result.ok) return { status: 200, body: { ok: true, amount: 0 } }; // no bounty on the loser — harmless no-op
+                // A shared connection voids only the optional bounty payout; it
+                // does not invalidate the already-authoritative battle result.
+                // Return a successful no-payout settlement so the winner's PvP
+                // completion callback can ACK and clear its pending-session
+                // pointer. The board is deliberately left unchanged for a
+                // legitimate hunter, while the battle receipt prevents a later
+                // retry from collecting a bounty posted after this duel.
+                try {
+                    if (await hasRecentIpOrFpOverlap(winnerName, loserName)) {
+                        return {
+                            status: 200,
+                            body: { ok: true, amount: 0, voided: 'shared-connection' },
+                        };
+                    }
+                } catch { /* fail open */ }
                 const credit = await withKvLock<{ ok: boolean; balance?: number; saveVersion?: number }>(`save:${playerName}`, async () => {
                     const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                     const char = (rec?.character ?? null) as Record<string, unknown> | null;
