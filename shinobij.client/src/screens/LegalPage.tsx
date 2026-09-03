@@ -25,8 +25,14 @@ type LegalDocument = {
 // support@shinobijourney.com (Cloudflare Email Routing on the game's own
 // domain). Same human behind it; the address players are told to write to is
 // what changed, which is exactly what these version fields exist to record.
-const LAST_UPDATED = "August 31, 2026";
-const VERSION = "1.7";
+// 1.8: the real-money storefront went live (Tebex). Until this version the
+// purchases page stated the game "does not currently present a player-facing
+// real-money checkout" and described payments as a future possibility — which
+// became FALSE the moment the shop shipped, while money was actually changing
+// hands. The privacy policy also listed every processor except the one handling
+// payments. Both are corrected here.
+const LAST_UPDATED = "September 2, 2026";
+const VERSION = "1.8";
 
 const documents: Record<LegalPageSlug, LegalDocument> = {
     terms: {
@@ -138,7 +144,21 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                     <p>Hosting and database providers process game data to run the service. Error reporting may be sent to Sentry when that feature is configured. When optional AI image generation is enabled and used, the submitted prompt is sent to OpenAI to generate the requested image.</p>
                     <p>If you choose to sign in with Google, that sign-in happens on Google's own pages and is governed by Google's privacy policy. We receive only your email address and a Google account identifier, and we send Google nothing about your character or play. Choosing another sign-in method means no data is exchanged with Google at all.</p>
                     <p>These providers process information for their service roles. Shinobi Journey does not sell personal information and does not share it for behavioral advertising.</p>
+                    <p>Payments are handled by <strong>Tebex</strong>, who act as the merchant of record for the store. Card and billing details are entered on Tebex's own checkout and go to Tebex and their payment processors — they are never sent to, seen by, or stored by Shinobi Journey.</p>
                 </>,
+            },
+            {
+                id: "payments",
+                title: "Purchases and subscriptions",
+                content: (
+                    <>
+                        <p>Buying Fate Shards or a Shinobi Supporter subscription sends you to a checkout hosted by Tebex, the merchant of record. You enter your payment details there, not here. Shinobi Journey never receives your card number, and no payment instrument is stored on your account.</p>
+                        <p><strong>What is sent to Tebex.</strong> When you start a purchase the game creates a basket identified by your player name, so the items can be credited to the right character. That name is set by the server from your signed-in session — you are never asked to type it at checkout, which is what stops a purchase landing on someone else's account. Tebex separately collects whatever their checkout requires to take the payment and meet their tax obligations, under their own privacy policy.</p>
+                        <p><strong>What is kept here.</strong> A completed purchase records the provider's transaction reference on your account, so the same payment can never be credited twice. A subscription additionally stores its recurring-payment reference, which is what lets the subscription be cancelled if the account is deleted. Neither is shown to other players.</p>
+                        <p><strong>Deleting your account cancels the subscription.</strong> Account deletion asks Tebex to end any active recurring payment before the account records are removed, so a deleted account does not keep being billed. If that request cannot be completed at the time, the reference is kept for staff to cancel manually — the alternative would be losing the only record of which subscription to stop.</p>
+                        <p>Refunds, chargebacks, and billing questions are covered in <a href="/purchases-and-refunds">Virtual Items, Purchases, and Refunds</a>.</p>
+                    </>
+                ),
             },
             {
                 id: "storage-retention",
@@ -207,12 +227,27 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
     "purchases-and-refunds": {
         shortTitle: "Purchases",
         title: "Virtual Items, Purchases, and Refunds",
-        summary: "How virtual currencies and failed deliveries are handled during the current beta.",
+        summary: "What you can buy, who takes the payment, how it is delivered, and how refunds and cancellations work.",
         sections: [
             {
-                id: "current-beta",
-                title: "Current beta",
-                content: <p>The current public beta includes virtual currencies, items, rewards, redemption-style actions, and in-game exchanges. It does not currently present a player-facing real-money checkout. If paid products are introduced, the price, provider, delivery terms, and applicable refund process must be shown before payment.</p>,
+                id: "what-is-sold",
+                title: "What is sold",
+                content: (
+                    <>
+                        <p>The Premium Shop sells <strong>Fate Shards</strong>, a virtual currency spent in game, and <strong>Shinobi Supporter</strong>, a monthly subscription. Prices are shown before you pay, and the exact amount in your own currency — including any tax — is confirmed by the checkout before the payment is taken.</p>
+                        <p>Everything Fate Shards buy can also be earned by playing. Shinobi Supporter grants convenience and cosmetic benefits — a larger jutsu loadout, an extra pet and bloodline slot, and a custom avatar — and grants no combat advantage.</p>
+                    </>
+                ),
+            },
+            {
+                id: "who-you-pay",
+                title: "Who takes the payment",
+                content: <p>Payments are processed by <strong>Tebex</strong>, who act as the merchant of record. Your card and billing details are entered on Tebex's checkout and are handled by Tebex and their payment processors; Shinobi Journey never receives or stores them. Your purchase contract for the payment itself is with Tebex, and their terms and privacy policy apply to it alongside these terms.</p>,
+            },
+            {
+                id: "delivery",
+                title: "Delivery",
+                content: <p>Purchases are credited automatically to the account you were signed in as when you started checkout, usually within a few seconds of the payment clearing. There is no code to redeem and no account name to type — the account is identified from your session, so a purchase cannot be delivered to the wrong player by mistyping. If a purchase has not appeared after a few minutes, return to the Premium Shop and use the balance check there before buying again.</p>,
             },
             {
                 id: "virtual-property",
@@ -230,9 +265,25 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 content: <p>If an in-game transaction fails, is duplicated, or delivers the wrong result, stop retrying and contact staff privately with your player name, approximate time, action taken, and any safe screenshot. Verified game-record errors may be corrected; outcomes depend on the available records and circumstances.</p>,
             },
             {
-                id: "future-payments",
-                title: "Future real-money payments",
-                content: <p>No blanket “no refunds” rule is stated here. Any future real-money refund request will be handled under the terms shown at purchase, the payment provider's process, and applicable law. Fraud, chargebacks, reversed payments, and delivery disputes may lead to a temporary restriction while records are reviewed.</p>,
+                id: "refunds",
+                title: "Refunds",
+                content: (
+                    <>
+                        <p>No blanket “no refunds” rule is stated here. Because Tebex is the merchant of record, refund requests go to Tebex under their process, and are handled together with the terms shown at purchase and whatever your local law requires — including any statutory right to cancel a digital purchase, which these terms do not override.</p>
+                        <p>If a payment succeeded but the items never arrived, that is a delivery failure rather than a refund question: contact staff with your player name and the approximate time, and the purchase can be credited from the payment record.</p>
+                        <p>Fraud, chargebacks, reversed payments, and delivery disputes may lead to a temporary restriction while records are reviewed. Shards already spent are not clawed back automatically.</p>
+                    </>
+                ),
+            },
+            {
+                id: "subscription",
+                title: "Subscription terms",
+                content: (
+                    <>
+                        <p>Shinobi Supporter renews monthly until cancelled. You can cancel at any time through Tebex, using the receipt they email you; cancelling stops future renewals and the benefits continue until the end of the period you have already paid for.</p>
+                        <p><strong>Deleting your account cancels the subscription.</strong> Account deletion asks Tebex to end the recurring payment before your records are removed, so a deleted account is not left being billed. If that request fails at the time, the reference is kept so staff can cancel it manually — tell staff if you are ever charged after deleting.</p>
+                    </>
+                ),
             },
         ],
     },
