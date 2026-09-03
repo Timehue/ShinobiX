@@ -17,6 +17,19 @@ import {
 } from "../../../shared/chronicle-duel";
 
 export type ChronicleDisplayCard = ChronicleCard & { image?: string };
+/** Server-computed Echoes of War payout, attached to the settle reward. */
+export type EchoesSettleSummary = {
+    encounterId: string;
+    floor: number;
+    points: number;
+    basePoints: number;
+    firstClear: boolean;
+    firstClearBonus: number;
+    bossBonus: number;
+    wins: number;
+    balance: number;
+    unlockedFloor: number | null;
+};
 export type ChronicleAiResult = {
     ok: boolean;
     error?: string;
@@ -32,7 +45,7 @@ export type ChronicleAiResult = {
     /** Board snapshots after each individual AI action; the client replays
      *  these with pacing beats so the Keeper's turn reads move by move. */
     aiSteps?: ChronicleProjection[];
-    reward?: { result: "player" | "opponent" | "draw"; ryo: number; dailyBonus: boolean };
+    reward?: { result: "player" | "opponent" | "draw"; ryo: number; dailyBonus: boolean; echoes?: EchoesSettleSummary };
     character?: Character;
     migratedDeck?: string[];
 };
@@ -76,6 +89,7 @@ export async function startChronicleAi(
     difficulty: ChronicleAiDifficulty = "medium",
     externalStakes = false,
     dungeonRunToken?: string,
+    echoesEncounterId?: string,
 ): Promise<ChronicleAiResult> {
     try {
         const response = await fetch("/api/card-clash/ai-start", {
@@ -89,6 +103,9 @@ export async function startChronicleAi(
                 // A generic external-stakes duel stays economically neutral but
                 // cannot impersonate the run-bound Card seal.
                 ...(dungeonRunToken ? { dungeon: { token: dungeonRunToken } } : {}),
+                // Echoes of War campaign seal: the server fixes the opponent
+                // deck, difficulty and Chronicle Point reward from this id.
+                ...(echoesEncounterId ? { echoes: { encounterId: echoesEncounterId } } : {}),
             }),
         });
         const body = await response.json().catch(() => ({})) as ChronicleAiResult;

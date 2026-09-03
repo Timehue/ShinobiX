@@ -33,9 +33,9 @@ const record = (over: { version?: number; balances?: Record<string, unknown> } =
 });
 
 describe('tracked field set', () => {
-    it('derives from the ownership manifest — the nine balances, no stamps or logs', () => {
+    it('derives from the ownership manifest — the ten balances, no stamps or logs', () => {
         assert.deepEqual([...CURRENCY_LEDGER_FIELDS], [
-            'ryo', 'bankRyo', 'honorSeals', 'fateShards', 'boneCharms',
+            'ryo', 'bankRyo', 'honorSeals', 'fateShards', 'chroniclePoints', 'boneCharms',
             'auraStones', 'auraDust', 'mythicSeals', 'hollowShards',
         ]);
         assert.ok(!CURRENCY_LEDGER_FIELDS.includes('lastBankInterestAt'), 'claim stamps are not balances');

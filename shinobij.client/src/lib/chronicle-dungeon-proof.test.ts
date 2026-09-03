@@ -55,11 +55,14 @@ test("Dungeon Card host waits for a versioned authoritative terminal before adva
     const source = readFileSync(new URL("../screens/CardClashDuel.tsx", import.meta.url), "utf8");
     assert.match(source, /dungeonRunToken\?: string/);
     assert.match(source, /onVersionedCharacter\?: \(character: Character, saveVersion: number\)/);
-    assert.match(source, /startChronicleAi\([\s\S]{0,220}true, dungeonRunToken\)/);
+    // Dungeon hosts still run external stakes (an Echoes binding — which can
+    // never coexist with a Dungeon token — is the only standard-settlement
+    // path through this host), and the token still rides the nested envelope.
+    assert.match(source, /startChronicleAi\([\s\S]{0,260}!echoes,\s*dungeonRunToken/);
     assert.match(source, /result\.session\.status === "complete"[\s\S]{0,220}action: "state"/,
         "a completed deterministic start must reconcile a lost terminal response");
     assert.match(source, /!result\.character \|\| !Number\.isSafeInteger\(version\)/);
     assert.match(source, /onVersionedCharacter\?\.\(result\.character, version\)/);
-    assert.match(source, /dungeonRunToken && !dungeonTerminalReady/);
+    assert.match(source, /\(dungeonRunToken \|\| echoes\) && !dungeonTerminalReady/);
     assert.match(source, /The Dungeon Card proof is still waiting for server confirmation/);
 });
