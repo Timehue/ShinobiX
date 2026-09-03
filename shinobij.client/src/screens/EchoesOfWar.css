@@ -825,7 +825,14 @@
     }
     .echoes-vs-panel--echo { top: clamp(0.5rem, 4vh, 2rem); }
     .echoes-vs-panel--challenger { bottom: clamp(1.6rem, 7vh, 3.4rem); }
-    .echoes-vs-portrait { width: clamp(96px, 34vmin, 180px); height: clamp(96px, 34vmin, 180px); }
+    .echoes-vs-portrait {
+        width: clamp(120px, 38vmin, 200px);
+        height: clamp(120px, 38vmin, 200px);
+        /* contain, not cover: the stacked mobile frame must never crop
+           a face — the soft mask absorbs any letterboxing. */
+        background-size: contain;
+        background-position: center bottom;
+    }
 }
 @media (prefers-reduced-motion: no-preference) {
     .echoes-veil { animation: echoes-veil-in 600ms ease both; }
