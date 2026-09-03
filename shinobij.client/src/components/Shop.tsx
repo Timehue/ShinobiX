@@ -489,12 +489,25 @@ function ShopBase({
 }
 
 // Base (undiscounted) pack prices — must match the storefront buttons below
-// and stay in sync with api/card-clash/_pack.ts.
-const PACK_BASE_COST: Record<CardPackType, number> = { standard: 250, epic: 10, legendary: 30 };
+// and stay in sync with api/card-clash/_pack.ts. The Basic (standard) pack
+// costs Chronicle Points from Echoes of War, never ryo.
+const PACK_BASE_COST: Record<CardPackType, number> = { standard: 100, epic: 10, legendary: 30 };
+// Which wallet each pack spends. Mirrors the server table in _pack.ts.
+const PACK_CURRENCY: Record<CardPackType, "chroniclePoints" | "fateShards"> = {
+    standard: "chroniclePoints", epic: "fateShards", legendary: "fateShards",
+};
+const PACK_CURRENCY_LABEL: Record<"chroniclePoints" | "fateShards", string> = {
+    chroniclePoints: "Chronicle Points", fateShards: "Fate Shards",
+};
 
-function CardPackSection({ character, currency, creatorCards, onVersionedCharacter }: { character: Character; currency: "ryo" | "fateShards"; creatorCards: TileCard[]; onVersionedCharacter: VersionedCharacterCommit }) {
-    const shopDiscountPercent = currency === "ryo" ? getShopDiscountPercent(character) : (character.elderFocus === "trade" ? 5 : 0);
-    const packCost = (cost: number) => discountCost(cost, shopDiscountPercent);
+function CardPackSection({ character, currency, creatorCards, onVersionedCharacter, onOpenEchoesOfWar }: { character: Character; currency: "ryo" | "fateShards"; creatorCards: TileCard[]; onVersionedCharacter: VersionedCharacterCommit; onOpenEchoesOfWar?: () => void }) {
+    // Chronicle Point packs have a fixed campaign price; only the Fate Shard
+    // packs keep the elder trade discount (mirrors cardPackDiscountPercent).
+    const shopDiscountPercent = character.elderFocus === "trade" ? 5 : 0;
+    const packCost = (packType: CardPackType, cost: number) =>
+        PACK_CURRENCY[packType] === "chroniclePoints" ? cost : discountCost(cost, shopDiscountPercent);
+    const packWalletOf = (packType: CardPackType) =>
+        PACK_CURRENCY[packType] === "chroniclePoints" ? (character.chroniclePoints ?? 0) : character.fateShards;
     const [packBusy, setPackBusy] = useState(false);
     const packBusyRef = useRef(false);
     // A settled pack waiting to be ripped open in the cinematic. The save
@@ -513,10 +526,10 @@ function CardPackSection({ character, currency, creatorCards, onVersionedCharact
 
     async function openPack(packType: CardPackType, cost: number) {
         if (!requireServerSettlement("shopCardPack")) return;
-        const wallet = currency === "fateShards" ? character.fateShards : character.ryo;
-        const label = currency === "fateShards" ? "Fate Shards" : "ryo";
-        const finalCost = packCost(cost);
-        if (wallet < finalCost) return alert(`Not enough ${label}.`);
+        const wallet = packWalletOf(packType);
+        const label = PACK_CURRENCY_LABEL[PACK_CURRENCY[packType]];
+        const finalCost = packCost(packType, cost);
+        if (wallet < finalCost) return alert(`Not enough ${label}.${PACK_CURRENCY[packType] === "chroniclePoints" ? " Win Showdowns in Echoes of War (Celestial Tower) to earn more." : ""}`);
         if (packBusyRef.current) return;
         packBusyRef.current = true;
         setPackBusy(true);
@@ -532,9 +545,9 @@ function CardPackSection({ character, currency, creatorCards, onVersionedCharact
         }
     }
 
-    const againCost = packReveal ? packCost(PACK_BASE_COST[packReveal.packType]) : 0;
-    const packWallet = currency === "fateShards" ? character.fateShards : character.ryo;
-    const packCurrencyLabel = currency === "fateShards" ? "Fate Shards" : "ryo";
+    const againCost = packReveal ? packCost(packReveal.packType, PACK_BASE_COST[packReveal.packType]) : 0;
+    const packWallet = packReveal ? packWalletOf(packReveal.packType) : 0;
+    const packCurrencyLabel = packReveal ? PACK_CURRENCY_LABEL[PACK_CURRENCY[packReveal.packType]] : "";
 
     // Sealed until the Chronicle Scribe event hands over the traveler's codex
     // (the server enforces the same lock on both pack-purchase endpoints).
@@ -552,30 +565,46 @@ function CardPackSection({ character, currency, creatorCards, onVersionedCharact
         <div className="card" style={{ marginTop: "1rem" }}>
             <h2>🃏 Card Packs</h2>
             <p style={{ color: "#aaa", marginBottom: "0.4rem" }}>Collect cards for Shinobi Chronicle Showdown at the Card Hall.</p>
-            <p style={{ marginBottom: "0.8rem" }}>Collection: <strong>{character.tileCards.length}</strong> cards</p>
+            <p style={{ marginBottom: "0.4rem" }}>Collection: <strong>{character.tileCards.length}</strong> cards</p>
+            {/* Chronicle Point balance stays visible wherever card packs are
+                sold — it is the Basic Card Pack's only currency. */}
+            <p
+                className="chronicle-points-balance"
+                title="Chronicle Points are earned by winning Showdowns in Echoes of War, inside the Celestial Tower. They buy the Basic Card Pack."
+                style={{ marginBottom: "0.8rem", padding: "0.3rem 0.55rem", display: "inline-block", background: "rgba(56, 189, 248, 0.08)", border: "1px solid rgba(56, 189, 248, 0.35)", borderRadius: 6 }}
+            >
+                🏛️ Chronicle Points: <strong>{character.chroniclePoints ?? 0}</strong>
+                <span style={{ color: "#8b98a8", marginLeft: 8, fontSize: "0.8rem" }}>Earn them by winning Showdowns in Echoes of War.</span>
+                {onOpenEchoesOfWar ? (
+                    <button onClick={onOpenEchoesOfWar} style={{ marginLeft: 8, fontSize: "0.78rem", padding: "0.1rem 0.5rem" }}>Go to Echoes of War</button>
+                ) : null}
+            </p>
             {currency === "ryo" && (
-                <button onClick={() => void openPack("standard", 250)} disabled={packBusy || character.ryo < packCost(250)}>
-                    Standard Pack — 5 cards (Common / Rare) — {packCost(250)} ryo{shopDiscountPercent > 0 ? " discounted" : ""}
-                </button>
+                <>
+                    <button onClick={() => void openPack("standard", PACK_BASE_COST.standard)} disabled={packBusy || (character.chroniclePoints ?? 0) < PACK_BASE_COST.standard}>
+                        🏛️ Basic Card Pack — 5 cards (Common / Rare) — {PACK_BASE_COST.standard} Chronicle Points
+                    </button>
+                    {(character.chroniclePoints ?? 0) < PACK_BASE_COST.standard ? (
+                        <p style={{ color: "#8b98a8", fontSize: "0.8rem", margin: "0.35rem 0 0" }}>
+                            You need {PACK_BASE_COST.standard - (character.chroniclePoints ?? 0)} more Chronicle Points. Win Showdowns in Echoes of War to earn them.
+                        </p>
+                    ) : null}
+                </>
             )}
             {currency === "fateShards" && (
                 <>
-                    <button onClick={() => void openPack("epic", 10)} disabled={packBusy || character.fateShards < packCost(10)} style={{ color: "#ce93d8" }}>
-                        {/* Label corrected 2026-08-28: this said "(Rare / Epic)",
-                            but the server pool is rarities:['epic'] only
-                            (api/shop/_settlement.ts PACKS), so the pack always
-                            yields an Epic. Understating it was harmless while
-                            packs cost earned currency; it is not once Fate
-                            Shards are purchasable and this text becomes a
-                            pre-purchase odds statement. */}
-                        <GameIcon name="crystal" size={13} style={{ display: "inline-block", verticalAlign: "-2px", color: "#ce93d8" }} /> Elite Pack — 1 guaranteed Epic card — 10 Fate Shards
+                    <button onClick={() => void openPack("epic", 10)} disabled={packBusy || character.fateShards < packCost("epic", 10)} style={{ color: "#ce93d8" }}>
+                        {/* Label matches the LIVE pool in api/card-clash/_pack.ts:
+                            rarities ['rare','epic'] over the Marketplace half —
+                            a top-tier Rare or an Epic, never "always Epic". */}
+                        <GameIcon name="crystal" size={13} style={{ display: "inline-block", verticalAlign: "-2px", color: "#ce93d8" }} /> Elite Pack — 1 card (top-tier Rare or Epic) — 10 Fate Shards
                     </button>
                     {/* Legendary pack — sits right next to the Elite pack, costs
                         3× as much for the corresponding tier jump. Same draw
                         mechanic, just filtered to legendary rarity. */}
                     <button
                         onClick={() => void openPack("legendary", 30)}
-                        disabled={packBusy || character.fateShards < packCost(30)}
+                        disabled={packBusy || character.fateShards < packCost("legendary", 30)}
                         style={{ color: "#facc15", marginLeft: 8, borderColor: "rgba(250, 204, 21, 0.5)" }}
                     >
                         👑 Legendary Pack — 1 guaranteed Legendary card — 30 Fate Shards
@@ -588,15 +617,16 @@ function CardPackSection({ character, currency, creatorCards, onVersionedCharact
                 Shards become buyable with real money. Disclosing now means the
                 requirement is already met rather than becoming a release
                 blocker — and players are entitled to it regardless.
-                Every claim here is the live behaviour of applyCardPackPurchase
-                in api/shop/_settlement.ts: the pool is every card of the
-                eligible rarity, each draw is an independent uniform pick, and
-                nothing is weighted. Duplicates follow from drawing with
-                replacement. KEEP THIS IN SYNC with the PACKS table. */}
+                Every claim here is the live behaviour of applyCardPackOpen in
+                api/card-clash/_pack.ts: the pool is every card of the eligible
+                rarity within the pack's storefront half, each draw is an
+                independent uniform pick, and nothing is weighted. Duplicates
+                follow from drawing with replacement, though a copy already at
+                its deck limit is never charged for. KEEP IN SYNC with PACKS. */}
             <p className="pack-odds" style={{ color: "#8b98a8", fontSize: "0.78rem", lineHeight: 1.5, marginTop: "0.9rem", marginBottom: 0 }}>
-                <strong style={{ color: "#aab4c2" }}>Pack odds:</strong> every pack guarantees the rarity shown on its
-                button — Standard draws Common or Rare, Elite is always Epic, Legendary is always Legendary.
-                Within the eligible rarity, <strong style={{ color: "#aab4c2" }}>every card is equally likely</strong>;
+                <strong style={{ color: "#aab4c2" }}>Pack odds:</strong> every pack guarantees the rarities shown on its
+                button — Basic draws Common or Rare, Elite draws a top-tier Rare or an Epic, Legendary is always Legendary.
+                Within the eligible pool, <strong style={{ color: "#aab4c2" }}>every card is equally likely</strong>;
                 there are no weighted tiers, no pity timer, and no hidden jackpot.
                 Each card is drawn independently, so a multi-card pack can repeat a card you already own.
             </p>
@@ -617,7 +647,7 @@ function CardPackSection({ character, currency, creatorCards, onVersionedCharact
     );
 }
 
-export function Shop({ character, creatorItems, creatorCards, onBack, onVersionedCharacter }: { character: Character; creatorItems: GameItem[]; creatorCards: TileCard[]; onBack: () => void; onVersionedCharacter: VersionedCharacterCommit }) {
+export function Shop({ character, creatorItems, creatorCards, onBack, onVersionedCharacter, onOpenEchoesOfWar }: { character: Character; creatorItems: GameItem[]; creatorCards: TileCard[]; onBack: () => void; onVersionedCharacter: VersionedCharacterCommit; onOpenEchoesOfWar?: () => void }) {
     return (
         <>
             <ShopBase
@@ -631,13 +661,15 @@ export function Shop({ character, creatorItems, creatorCards, onBack, onVersione
                 onVersionedCharacter={onVersionedCharacter}
             />
             {/* ⛔ Fate Shard PURCHASING does not belong here — this screen trades
-                in ryo. Real money lives on screens/PremiumShop.tsx. */}
-            <CardPackSection character={character} currency="ryo" creatorCards={creatorCards} onVersionedCharacter={onVersionedCharacter} />
+                in ryo. (The Basic Card Pack inside costs Chronicle Points from
+                Echoes of War — deliberately not ryo.) Real money lives on
+                screens/PremiumShop.tsx. */}
+            <CardPackSection character={character} currency="ryo" creatorCards={creatorCards} onVersionedCharacter={onVersionedCharacter} onOpenEchoesOfWar={onOpenEchoesOfWar} />
         </>
     );
 }
 
-export function GrandMarketplace({ character, creatorItems, creatorCards, onBack, onVersionedCharacter }: { character: Character; creatorItems: GameItem[]; creatorCards: TileCard[]; onBack: () => void; onVersionedCharacter: VersionedCharacterCommit }) {
+export function GrandMarketplace({ character, creatorItems, creatorCards, onBack, onVersionedCharacter, onOpenEchoesOfWar }: { character: Character; creatorItems: GameItem[]; creatorCards: TileCard[]; onBack: () => void; onVersionedCharacter: VersionedCharacterCommit; onOpenEchoesOfWar?: () => void }) {
     return (
         <>
             <ShopBase
@@ -651,7 +683,7 @@ export function GrandMarketplace({ character, creatorItems, creatorCards, onBack
                 backLabel="← Central Hub"
                 onVersionedCharacter={onVersionedCharacter}
             />
-            <CardPackSection character={character} currency="fateShards" creatorCards={creatorCards} onVersionedCharacter={onVersionedCharacter} />
+            <CardPackSection character={character} currency="fateShards" creatorCards={creatorCards} onVersionedCharacter={onVersionedCharacter} onOpenEchoesOfWar={onOpenEchoesOfWar} />
         </>
     );
 }

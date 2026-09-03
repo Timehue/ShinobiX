@@ -4,6 +4,7 @@ import stormveilUrl from "./stormveil-f9d5ba657e99.json?url";
 import ashen_leafUrl from "./ashen-leaf-cdd7057beba0.json?url";
 import frostfangUrl from "./frostfang-edaa1e7f8075.json?url";
 import moonshadowUrl from "./moonshadow-72f545a72568.json?url";
+import echoes_of_warUrl from "./echoes-of-war-f92df3aaf57a.json?url";
 
 export const STORY_CONTENT_URLS: Record<StoryContentVillage, string> = {
     "Stormveil Village": stormveilUrl,
@@ -11,3 +12,6 @@ export const STORY_CONTENT_URLS: Record<StoryContentVillage, string> = {
     "Frostfang Village": frostfangUrl,
     "Moonshadow Village": moonshadowUrl,
 };
+
+/** The Echoes of War campaign script (fetched by lib/echoes-content-loader.ts). */
+export const ECHOES_CONTENT_URL: string = echoes_of_warUrl;

@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactElement } from "react";
 import type { ChronicleDisplayCard } from "../lib/chronicle-duel";
-import { chronicleCardArtSrcSet, CARD_ART_SIZES_DEFAULT } from "../lib/chronicle-card-art";
+import { chronicleCardArtSrcSet, CARD_ART_SIZES_DEFAULT, ELEMENT } from "../lib/chronicle-card-art";
 
 
 // Crisp per-element glyphs for the corner badge — reads far more premium than a
@@ -62,13 +62,6 @@ const RARITY: Record<string, string> = {
   epic: "#d68cff",
   legendary: "#f0c463",
   mythic: "#ff875f",
-};
-const ELEMENT: Record<string, { color: string; mark: string }> = {
-  Fire: { color: "#f05b3c", mark: "F" },
-  Water: { color: "#3d9ee8", mark: "W" },
-  Earth: { color: "#9d8147", mark: "E" },
-  Wind: { color: "#63c79b", mark: "A" },
-  Lightning: { color: "#d8b83e", mark: "L" },
 };
 
 export function ChronicleCardView({

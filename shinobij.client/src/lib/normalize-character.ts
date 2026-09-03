@@ -62,6 +62,7 @@ export function normalizeCharacter(parsed: Character): Character {
         auraDust: parsed.auraDust ?? 0,
         auraSphereLevel: Math.max(1, Math.floor(parsed.auraSphereLevel ?? 1)),
         fateShards: parsed.fateShards ?? 0,
+        chroniclePoints: parsed.chroniclePoints ?? 0,
         tileCards: parsed.tileCards ?? [],
         savedTileDeck: parsed.savedTileDeck ?? undefined,
         elements: getCharacterElements(parsed),

@@ -6,6 +6,8 @@ import { storyInterludesByVillage } from "./story-interludes";
 import { storyEpiloguesByVillage } from "./story-epilogues";
 import { storyReckonings } from "./story-reckonings";
 import { hollowRifts } from "./hollow-rifts";
+import { ECHOES_ERA_INTROS, ECHOES_SCENES } from "./echoes-of-war-scenes";
+import { ECHOES_ERAS, ECHOES_HERO_COPY } from "./echoes-of-war";
 import { awakeningLv2VnEvent, auraSphereLv9VnEvent, craftDungeonEvents, hiddenDungeonVnEvent } from "./vn-events";
 import { defaultAncientChestVn, defaultPetEncounterVn } from "./default-vn-events";
 import { hidePlayerPortraitDuringNarration, splitDialogueLine } from "../lib/vn";
@@ -51,6 +53,23 @@ const pages: PageLike[] = [
     ...Object.values(storyEpiloguesByVillage).flatMap((events) => events.flatMap((event) => event.pages)),
     ...storyReckonings.flatMap((event) => [...event.intro, ...event.payoff]),
     ...hollowRifts.flatMap((rift) => [...rift.intro, ...rift.descent]),
+    ...Object.values(ECHOES_SCENES).flatMap((scenes) => [
+        ...scenes.preShowdown, ...scenes.defeat, ...scenes.firstVictory, ...scenes.rematch,
+    ]),
+    // The Age intro VNs are authored content too and MUST ride every tone gate
+    // (zero-dash, shinobi-language, AI-mysticism, portrait-suppression). They
+    // are also the highest-risk spot for Hollow-Gate origin drift, so the canon
+    // guard in story-content.test.ts scans them as well.
+    ...Object.values(ECHOES_ERA_INTROS).flat(),
+    // The mode's landing copy is authored player-facing text too (held as data
+    // in ECHOES_HERO_COPY so it can be scanned). The "not their souls" subtitle
+    // does the heaviest canon work in the feature, so it must be gated here and
+    // in the Gate-origin corpus.
+    { speaker: "Narrator", dialogue: [ECHOES_HERO_COPY.eyebrow, ECHOES_HERO_COPY.subtitle, ECHOES_HERO_COPY.footnote] },
+    // The Age plates' display strings are player-facing authored text as
+    // well (titles, taglines, sealed teases) — scan every field so a new
+    // era string can never ship ungated.
+    { speaker: "Narrator", dialogue: ECHOES_ERAS.flatMap((era) => [era.ageLabel, era.title, era.tagline, era.sealedTease]) },
     ...[
         awakeningLv2VnEvent,
         auraSphereLv9VnEvent,

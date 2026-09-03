@@ -1,14 +1,16 @@
 // DEV-ONLY Chronicle Showdown harness. It renders the shipping board with a
 // dense deterministic match so visual reviews do not need an account, save, or
 // live duel. This HTML entry is intentionally absent from production inputs.
+import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   CHRONICLE_CARD_CATALOG,
   CHRONICLE_FIXED_FALLBACK_DECK,
   createMatch,
+  displayCardsById,
   projectMatchForViewer,
-  type ChronicleDisplayCard,
 } from "./lib/chronicle-duel";
+import { getAllTileCards } from "./data/tile-cards";
 import type {
   ChronicleFieldMonster,
   ChronicleMagicTrapZone,
@@ -18,15 +20,11 @@ import { ChronicleDuelBoard } from "./components/ChronicleDuelBoard";
 import { chronicleDuelistAvatar } from "./lib/chronicle-duelist-art";
 import "./styles/chronicle-duel.css";
 
-const cardsById = Object.fromEntries(
-  CHRONICLE_CARD_CATALOG.map((card) => [
-    card.id,
-    {
-      ...card,
-      image: `/chronicle/cards/${card.id}-512.webp`,
-    },
-  ]),
-) as Record<string, ChronicleDisplayCard>;
+// Resolve card art exactly the way the live duel screen does
+// (native per-card images: bespoke /chronicle/cards art for monsters,
+// emblem/field/scene art for support) so visual reviews here match
+// what players actually see.
+const cardsById = displayCardsById(getAllTileCards([]));
 
 const monsters = CHRONICLE_CARD_CATALOG.filter(
   (card) => card.cardClass === "monster",
@@ -109,7 +107,7 @@ function previewMatch() {
     monsters[9]!.id,
     "defense",
   );
-  state.p2.monsterZones[0] = fieldMonster("p2", 0, monsters[15]!.id);
+  state.p2.monsterZones[0] = fieldMonster("p2", 0, "tc-36");
   state.p2.monsterZones[2] = fieldMonster(
     "p2",
     2,
@@ -117,7 +115,7 @@ function previewMatch() {
     "defense",
     false,
   );
-  state.p2.monsterZones[4] = fieldMonster("p2", 4, monsters[24]!.id);
+  state.p2.monsterZones[4] = fieldMonster("p2", 4, "tc-42");
   state.p1.magicTrapZones[0] = supportZone("p1", 0, support[1]!.id, false);
   state.p1.magicTrapZones[4] = supportZone("p1", 4, support[4]!.id, true);
   state.p2.magicTrapZones[1] = supportZone("p2", 1, support[5]!.id, false);
@@ -140,13 +138,47 @@ function previewMatch() {
 const previewState = previewMatch();
 
 function Harness() {
+  // Demo controls for visual review of the transient moments (summon
+  // entrance, outcome slam) that a static projection can never show.
+  const [state, setState] = useState(previewState);
+  const demoSummon = () => {
+    const next = structuredClone(state);
+    next.p1.monsterZones[2] = {
+      ...fieldMonster("p1", 2, "tc-31"),
+      instanceId: `demo-${Date.now()}`,
+      attack: 1850,
+      defense: 1200,
+    } as (typeof next.p1.monsterZones)[number];
+    setState(next);
+  };
+  const demoEnd = (winner: "p1" | "p2") => {
+    const next = structuredClone(state);
+    next.status = "complete";
+    next.winner = winner;
+    setState(next);
+  };
   return (
     <main className="chronicle-shell chronicle-shell--duel-active">
+      <div
+        id="demo-controls"
+        style={{
+          position: "fixed",
+          top: 6,
+          right: 6,
+          zIndex: 5000,
+          display: "flex",
+          gap: 6,
+        }}
+      >
+        <button style={{ font: "11px system-ui", padding: "3px 8px" }} onClick={demoSummon}>Demo summon</button>
+        <button style={{ font: "11px system-ui", padding: "3px 8px" }} onClick={() => demoEnd("p1")}>Demo victory</button>
+        <button style={{ font: "11px system-ui", padding: "3px 8px" }} onClick={() => demoEnd("p2")}>Demo defeat</button>
+      </div>
       <ChronicleDuelBoard
-        state={previewState}
+        state={state}
         cardsById={cardsById}
-        playerAvatar={chronicleDuelistAvatar("Akari of Ember")}
-        opponentAvatar={chronicleDuelistAvatar("The Veiled Keeper")}
+        playerAvatar={chronicleDuelistAvatar("Akari of Ember") ?? "/portraits/aya.webp"}
+        opponentAvatar={chronicleDuelistAvatar("The Veiled Keeper") ?? "/chronicle/keeper.webp"}
         onAction={() => undefined}
         onExit={() => window.location.reload()}
         exitLabel="Reset preview"
