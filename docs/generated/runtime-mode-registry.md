@@ -79,6 +79,7 @@ Legacy `migrationStatus` and `compatibility` metadata support the retired migrat
 | <code>card-clash-ai</code><br>Card Clash AI | <code>card</code> | <code>chronicle</code> | — | <code>solo</code> | <code>server-capped</code> | <code>expiring-chronicle-projection</code> | — | — | <code>match</code> |
 | <code>echoes-of-war</code><br>Echoes of War campaign | <code>card</code> | <code>chronicle</code> | — | <code>solo</code> | <code>server-settled</code> | <code>expiring-chronicle-projection</code> | — | — | <code>match</code> |
 | <code>dungeon-card</code><br>Dungeon Card seal | <code>card</code> | <code>chronicle</code> | — | <code>solo</code> | <code>parent-mode-settlement</code> | <code>expiring-chronicle-projection-and-parent-run-proof-receipt</code> | <code>dungeon</code> | — | <code>match</code> |
+| <code>celestial-first-pact</code><br>Celestial Tower: The First Pact | <code>pet-showdown</code> | <code>pet-showdown</code> | — | <code>solo</code> | <code>server-progression</code> | <code>durable-campaign-plus-expiring-showdown-turn-script</code> | — | — | <code>match</code> |
 
 ## Routes, transports, and client entries
 
@@ -149,6 +150,7 @@ HTTP route roles, paths, handlers, and non-HTTP gameplay transports are reproduc
 | <code>card-clash-ai</code> | <code>start</code> <code>/card-clash/ai-start</code> → <code>card-clash/ai-start</code> (client caller required)<br><code>action, state, settlement</code> <code>/card-clash/ai-move</code> → <code>card-clash/ai-move</code> (client caller required) | — | <code>screens/CardClashDuel.tsx</code><br><code>lib/chronicle-duel.ts</code> |
 | <code>echoes-of-war</code> | <code>start</code> <code>/card-clash/ai-start</code> → <code>card-clash/ai-start</code> (client caller required)<br><code>action, state, settlement</code> <code>/card-clash/ai-move</code> → <code>card-clash/ai-move</code> (client caller required) | — | <code>screens/EchoesOfWar.tsx</code><br><code>screens/CardClashDuel.tsx</code><br><code>lib/chronicle-duel.ts</code> |
 | <code>dungeon-card</code> | <code>start</code> <code>/card-clash/ai-start</code> → <code>card-clash/ai-start</code> (client caller required)<br><code>action, state, settlement</code> <code>/card-clash/ai-move</code> → <code>card-clash/ai-move</code> (client caller required)<br><code>settlement</code> <code>/dungeon/run</code> → <code>dungeon/run</code> (client caller required) | — | <code>screens/Dungeon.tsx</code><br><code>screens/CardClashDuel.tsx</code><br><code>lib/chronicle-duel.ts</code><br><code>lib/dungeon-api.ts</code> |
+| <code>celestial-first-pact</code> | <code>state, lifecycle, settlement</code> <code>/first-pact/state</code> → <code>first-pact/state</code> (client caller required)<br><code>start, action, state, settlement</code> <code>/pet/showdown</code> → <code>pet/showdown</code> (client caller required) | — | <code>screens/FirstPact.tsx</code><br><code>lib/first-pact-api.ts</code><br><code>lib/first-pact-world.ts</code><br><code>lib/pet-showdown-api.ts</code> |
 
 ## Intentional engine separations
 

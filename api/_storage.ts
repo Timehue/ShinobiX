@@ -67,7 +67,7 @@ const _noCachePrefixes = [
     // sidecar state participate in the same cross-worker single-authority
     // handshake. A process-local null or pre-claim binding can admit a second
     // child engine even while the distributed lock is working correctly.
-    'hg-run:', 'hg-combat-binding:', 'hg-combat-paid:', 'hg-pet-result:', 'sd-hg:',
+    'hg-run:', 'hg-combat-binding:', 'hg-combat-paid:', 'hg-pet-result:', 'sd-hg:', 'sd-wcr80:', 'sd-fp:', 'first-pact:',
     'petgauntlet:', 'petladder:', 'clan-war-pet:',
     'pet-sanctuary:', 'pet-breeding-result:', 'pet-encounter:', 'pet-encounter-attempt:',
     'pet-encounter-active:', 'pet-encounter-request:', 'pet-encounter-declined:',

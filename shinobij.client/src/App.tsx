@@ -215,6 +215,7 @@ const BattleTowers = lazyWithRetry(() => import("./screens/BattleTowers").then(m
 const SunscarFestival = lazyWithRetry(() => import("./screens/SunscarFestival").then(m => ({ default: m.SunscarFestival })));
 const PetArena = lazyWithRetry(() => import("./screens/PetArena").then(m => ({ default: m.PetArena })));
 const PetShowdown = lazyWithRetry(() => import("./screens/PetShowdown").then(m => ({ default: m.PetShowdown })));
+const FirstPact = lazyWithRetry(() => import("./screens/FirstPact").then(m => ({ default: m.FirstPact })));
 const PetLadder = lazyWithRetry(() => import("./screens/PetLadder").then(m => ({ default: m.PetLadder })));
 import { type PetArenaOpponent } from "./data/pet-arena-opponents";
 const PetYard = lazyWithRetry(() => import("./screens/PetYard").then(m => ({ default: m.PetYard })));
@@ -987,7 +988,7 @@ export default function App() {
     // out. Screen doesn't change mid-battle, so this never cuts music during a
     // fight; "Fight Again" restarts it with a fresh track.
     useEffect(() => {
-        if (screen !== "petArena" && screen !== "petShowdown" && screen !== "petColiseum") stopBattleMusic();
+        if (screen !== "petArena" && screen !== "petShowdown" && screen !== "petColiseum" && screen !== "firstPact") stopBattleMusic();
     }, [screen]);
     const [worldMapKey, setWorldMapKey] = useState(0);
     const [character, setCharacter] = useState<Character | null>(null);
@@ -6590,6 +6591,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "pets" && character && <PetYard key={character.name.trim().toLowerCase()} character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} setScreen={navigate} onBack={leavePetHome} backLabel={petHomeReturnLabel(petHomeReturnScreen)} sharedImages={sharedImages} onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} />}
                 {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} allServerPlayers={allServerPlayers} setScreen={setScreen} returnScreen={petHomeReturnScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => { if (pendingArenaResponse) void clearChallengeOnServer(pendingArenaResponse); setPendingArenaResponse(null); }} onClanWarBattleEnd={autoReportClanWarBattleResult} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} onServerVersion={acceptExternalSaveVersion} onVersionedCharacter={(next, version, origin) => saveConflictAccountKey(next.name) === saveConflictAccountKey(origin) ? (commitVersionedCharacter(next, version) ? "accepted" : "stale") : "foreign"} />}
                 {!activeTriggeredEvent && screen === "petShowdown" && character && <PetShowdown character={character} updateCharacter={setCharacter} setScreen={setScreen} sharedImages={sharedImages} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}
+                {!activeTriggeredEvent && screen === "firstPact" && character && <FirstPact character={character} sharedImages={sharedImages} onExit={() => setScreen("centralHub")} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}
                 {/* The Coliseum proper: the same arena, opened as a PAID bout. */}
                 {!activeTriggeredEvent && screen === "petColiseum" && character && <PetShowdown bout="arena" character={character} updateCharacter={setCharacter} setScreen={setScreen} sharedImages={sharedImages} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}
                 {!activeTriggeredEvent && screen === "petLadder" && character && <PetLadder character={character} setScreen={setScreen} sharedImages={sharedImages} />}
