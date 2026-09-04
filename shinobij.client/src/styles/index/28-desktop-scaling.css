@@ -318,10 +318,10 @@
 /* Idle bob only — the walking animation lives on a more specific selector and
    keeps playing (no !important here, so it wins on specificity). */
 .lite-fx .sector-avatar-body { animation: none; }
-/* Live-peer idle bob is continuous per marker — drop it on weak devices where a
-   crowded sector would otherwise run dozens of forever-animations. The glide
-   transition + grounded shadow stay, so peers still read as alive. */
-.lite-fx .sector-peer-figure { animation: none; }
+/* Peers bob on .sector-avatar-body too (they share the player's marker markup —
+   see lib/sector-marker), so the rule above already drops the idle bob for every
+   marker on a crowded sector. The glide transition + grounded shadow stay, so
+   peers still read as alive. */
 /* Prismatic collar = a continuous hue-rotate filter (one of the costliest things
    to run forever on a mobile GPU). Drop the cycle; the white collar border stays. */
 .lite-fx .avatar-orb.pet-collar-prismatic,

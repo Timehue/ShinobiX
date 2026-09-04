@@ -1133,55 +1133,46 @@
     z-index: 6;
 }
 
+/* A peer marker IS a .sector-avatar-figure (same box, same pin, same size — see
+   lib/sector-marker); this class adds only what is peer-specific: the glide
+   between tiles when they walk, and the fact that they are never clickable.
+   Its width/height/transform are set inline by <SectorPeers>, exactly as
+   <SectorAvatar> sets its own. */
 .sector-peer {
-    position: absolute;
-    left: 0;
-    top: 0;
     /* transform (tile centre) set inline; glide between tiles when a peer moves. */
     transition: transform 0.9s linear;
-    will-change: transform;
     pointer-events: none;
 }
 
+/* Wraps the whole figure so the arrival/departure fade can scale it without
+   fighting the tile-centre transform on .sector-peer. inset:0 so the shared
+   percentage-based marker parts resolve against the figure box. */
 .sector-peer-body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1px;
-}
-
-/* 2C grounded peer look: sized box holds a static contact shadow + a gently
-   bobbing figure, so peers read as planted and alive rather than flat dots. */
-.sector-peer-avatar {
-    position: relative;
-}
-
-.sector-peer-shadow {
-    position: absolute;
-    left: 50%;
-    bottom: -7%;
-    width: 62%;
-    height: 16%;
-    transform: translateX(-50%);
-    border-radius: 50%;
-    background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0) 70%);
-    pointer-events: none;
-    z-index: 0;
-}
-
-.sector-peer-figure {
     position: absolute;
     inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1;
-    animation: peer-idle-bob 2.4s ease-in-out infinite;
 }
 
-@keyframes peer-idle-bob {
-    0%, 100% { transform: translateY(0); }
-    50%      { transform: translateY(-7%); }
+/* Peer name, hung BELOW the pin tip. Wanderer name pills sit above their figures
+   in three lanes, so keeping peers underneath means the two label systems cannot
+   collide even when a peer and a wanderer share a tile. */
+.sector-peer-label {
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    transform: translateX(-50%);
+    max-width: 200%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.55rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: #fff;
+    background: rgba(20, 16, 28, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    padding: 1px 5px;
+    border-radius: 999px;
+    pointer-events: none;
 }
 
 .sector-peer-body.is-entering { animation: peer-map-in 260ms ease-out; }
@@ -1194,7 +1185,6 @@
 
 @media (prefers-reduced-motion: reduce) {
     .sector-peer { transition: none; }
-    .sector-peer-figure { animation: none; }
     .sector-peer-body.is-entering,
     .sector-peer-body.is-leaving { animation: none; }
 }
@@ -1248,13 +1238,18 @@
     animation: sectorAvatarIdle 3.4s ease-in-out infinite;
 }
 
+/* The ring says WHAT this figure is. Every figure on a sector board is now drawn
+   at one size (lib/sector-marker), so bulk can no longer tell you who is who —
+   colour does it instead, and unlike the red outline + glow peers used to carry
+   it costs no extra painted pixels. Gold = you, sky = another player, white = AI
+   (which adds its own coloured tell ring on top). */
 .sector-avatar-body img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     object-position: center 22%;
     border-radius: 50%;
-    border: 2px solid rgba(255,255,255,.9);
+    border: 2px solid var(--marker-ring, rgba(255,255,255,.9));
     box-shadow: 0 3px 7px rgba(0,0,0,.55);
     display: block;
 }
@@ -1282,7 +1277,7 @@
     height: 100%;
     border-radius: 50%;
     background: rgba(15,23,42,.78);
-    border: 2px solid rgba(255,255,255,.9);
+    border: 2px solid var(--marker-ring, rgba(255,255,255,.9));
     box-shadow: 0 3px 7px rgba(0,0,0,.55);
     color: #fef3c7;
     font-weight: 900;

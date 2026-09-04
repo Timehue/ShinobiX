@@ -21,6 +21,7 @@
  */
 import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Biome } from "../types/core";
+import { SECTOR_MARKER_ANCHOR, SECTOR_RING_SELF, sectorMarkerBox } from "../lib/sector-marker";
 
 // .pixel-map is a 12×12 grid. Its padding + gap differ by breakpoint (8px/1px on
 // desktop, 4px on mobile), so the real values are read from getComputedStyle at
@@ -36,9 +37,11 @@ const WALK_TILES_PER_SEC = 6.5; // glide speed across the grid
 // anchored on the tile centre, so the marker reads as planted in the biome, and a
 // small planted shadow at the tip pulses while the marker gently bobs. The figure
 // box is narrower than a tile (the circle) and tall enough to hold circle + pin.
-const FIGURE_W = 0.58;      // box width  (× tile) — the circle's diameter
-const FIGURE_H = 0.76;      // box height (× tile) — circle + short pointer
-const BASE_ANCHOR = 100;    // % down the box that lands on the tile centre (the pin tip)
+//
+// The box size is NOT a local constant any more: every figure on a sector board
+// (you, other players, wandering AI, the boss) sizes itself from lib/sector-marker
+// so they cannot drift apart again. See that module for why.
+const BASE_ANCHOR = SECTOR_MARKER_ANCHOR;
 
 // Soft glow tint per biome — same palette family as <SceneAmbience>.
 const AURA: Record<Biome, string> = {
@@ -136,9 +139,9 @@ export function SectorAvatar({
             };
             const fig = figRef.current;
             if (fig) {
-                const t = Math.max(0, tileSizePx());
-                fig.style.width = `${t * FIGURE_W}px`;
-                fig.style.height = `${t * FIGURE_H}px`;
+                const box = sectorMarkerBox(tileSizePx());
+                fig.style.width = `${box.w}px`;
+                fig.style.height = `${box.h}px`;
             }
             paint();
         });
@@ -222,7 +225,7 @@ export function SectorAvatar({
             {puffs.map(pf => (
                 <span key={pf.id} className="sector-avatar-dust" style={{ left: `${pf.x}px`, top: `${pf.y}px` }} />
             ))}
-            <div className="sector-avatar-figure" ref={figRef}>
+            <div className="sector-avatar-figure" ref={figRef} style={{ ["--marker-ring"]: SECTOR_RING_SELF } as CSSProperties}>
                 <span className="sector-avatar-shadow" />
                 <span className="sector-avatar-aura" style={{ ["--aura"]: AURA[biome] } as CSSProperties} />
                 <span className="sector-avatar-sprite" ref={spriteRef}>
