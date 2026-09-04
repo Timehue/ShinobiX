@@ -209,7 +209,11 @@ describe('both handlers wire the durable receipt in the safe order', () => {
             /if \(!replayed\) await kv\.set\(key, session, \{ ex: SESSION_TTL_SECONDS \}\)/,
             'only the turn that FINISHES the fight may stamp the retention lease',
         );
-        assert.match(showdownSrc, /return \{ session, events: \[\], replayed: true \}/, 're-posts must be flagged as replays');
+        // The early return now carries a parent-binding sidecar as well, so the
+        // flag is pinned by name rather than by the exact shape of the object
+        // literal. What is under test is that a re-post is FLAGGED as a replay,
+        // not how many fields ride along beside the flag.
+        assert.match(showdownSrc, /return \{ session, events: \[\], replayed: true[,}]/, 're-posts must be flagged as replays');
     });
 });
 
