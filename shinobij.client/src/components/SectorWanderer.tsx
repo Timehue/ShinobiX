@@ -18,14 +18,17 @@ import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from
 import type { Biome } from "../types/core";
 import type { Wanderer } from "../lib/wanderers";
 import { wandererAvatar } from "../lib/wanderer-art";
+import { SECTOR_MARKER_ANCHOR, SECTOR_RING_AI, sectorMarkerBox } from "../lib/sector-marker";
 
 const GRID_W = 12;
 const GRID_H = 12;
 const PAD = 8;
 const GAP = 1;
-const FIGURE_W = 0.52;          // a touch smaller than the player's pin
-const FIGURE_H = 0.70;
-const BASE_ANCHOR = 100;        // pin tip lands on the tile centre
+// A wanderer is another shinobi standing on the same ground you are, so it is
+// drawn at exactly your size — see lib/sector-marker. It used to be 0.52 tiles
+// against your 0.58 ("a touch smaller than the player's pin"), which on a phone
+// was a 1.5px difference nobody could read as intent, only as inconsistency.
+const BASE_ANCHOR = SECTOR_MARKER_ANCHOR;
 const WALK_TILES_PER_SEC = 5.0; // ambles a little slower than the player (6.5)
 const NOTICE_TILES = 3.6;       // how close before it turns toward you
 const ENGAGE_TILES = 0.8;       // "we've met" distance
@@ -159,9 +162,9 @@ export function SectorWanderer({
             };
             const fig = figRef.current;
             if (fig) {
-                const t = Math.max(0, tileSizePx());
-                fig.style.width = `${t * FIGURE_W}px`;
-                fig.style.height = `${t * FIGURE_H}px`;
+                const box = sectorMarkerBox(tileSizePx());
+                fig.style.width = `${box.w}px`;
+                fig.style.height = `${box.h}px`;
             }
             paint();
         });
@@ -280,6 +283,7 @@ export function SectorWanderer({
                 tabIndex={-1}
                 title={`${wanderer.name} · Lv ${wanderer.level} · Wandering shinobi`}
                 onClick={handleClick}
+                style={{ ["--marker-ring"]: SECTOR_RING_AI } as CSSProperties}
             >
                 {bubble && <span className="sector-wanderer-bubble">{bubble}</span>}
                 <span className="sector-avatar-shadow" />
