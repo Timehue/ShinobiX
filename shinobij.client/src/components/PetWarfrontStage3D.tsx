@@ -686,7 +686,7 @@ export function PetWarfrontStage3D(props: PetWarfrontStage3DProps) {
     const [sceneReady, setSceneReady] = useState(false);
     const markSceneReady = useCallback(() => setSceneReady(true), []);
     return (
-        <div className="wf3-stage-3d" data-theme={props.theme} data-scene-ready={sceneReady ? "true" : "false"} role="img" aria-label="Three-dimensional Hollow Warfront battlefield">
+        <div className="wf3-stage-3d" data-theme={props.theme} data-scene-ready={sceneReady ? "true" : "false"} role="img" aria-label="Three-dimensional Beastbound Warfront battlefield">
             <Canvas
                 orthographic
                 shadows={props.quality.modelShadows ? "percentage" : false}

@@ -1,9 +1,9 @@
 /*
- * Hollow Warfront — the Rite.
+ * Beastbound Warfront — the Rite.
  *
- * FOUR PETS A SIDE, ALL FIGHTING AT ONCE, best of three clashes. You set the
- * FORMATION — which pets hold the front line and which stay back — and the
- * clash resolves on the shipped cinematic engine with every fighter live.
+ * FOUR PETS PER BAND, all active, best of three formation clashes. You assign
+ * ten open cells on your half; every pet can use every cell. Combat is resolved
+ * on a deterministic grid with hard occupancy, cover and line of sight.
  *
  * Kills are the scoreboard: pets standing decides the clash, clashes decide the
  * match. That is the one thing the two lane-war versions never were, and the
@@ -18,31 +18,49 @@
  *   - Playback speed EASES. The old director snapped world speed by 2.3x on
  *     every kill with no easing, which reads as a bug rather than a flourish.
  */
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type PointerEvent as ReactPointerEvent,
+    type ReactNode,
+    type TransitionEvent as ReactTransitionEvent,
+} from "react";
 import type { Pet } from "../types/pet";
 import type { ArenaSlot } from "../lib/pet-arena-sim";
 import { DUEL_TPS } from "../lib/pet-duel-sim";
 import {
     RITE_BAND_SIZE,
     RITE_CLASHES_TO_WIN,
-    RITE_FRONT_SLOTS,
     RITE_MAX_CLASHES,
+    RITE_SCOUTED_JOBS,
+    WARFRONT_DEFAULT_DEPLOYMENT,
+    WARFRONT_DEPLOYMENT_NODES,
     aiRitePlan,
+    deterministicRiteCounterMove,
     riteBandProblem,
     runWarfrontRite,
+    tryMoveRitePet,
     type RiteClash,
     type RiteCombatant,
     type RitePlan,
     type RiteResult,
 } from "../lib/pet-warfront-rite";
-import { petBattleSprite } from "../lib/pet-battle-anim";
-import { petVisualQuality } from "../lib/pet-visual-quality";
+import { petBattleSprite, petCardImage } from "../lib/pet-battle-anim";
+import { PET_VISUAL_QUALITY_PRESETS, petVisualQuality } from "../lib/pet-visual-quality";
 import { playPetSfx, primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic, stopBattleMusic } from "../lib/pet-music";
-import type { StageFighter } from "./PetWarfrontRiteStage3D";
+import { buildWarfrontAudioPlan } from "../lib/pet-warfront-spectacle";
+import {
+    advanceRitePlaybackTick,
+    boundedRitePlaybackDelta,
+    startRitePlaybackPulses,
+} from "../lib/pet-rite-playback";
+import { createActorPoseSample, RITE_REVEAL_FIGHTER_COUNT, riteTacticalReport, sampleActorInto } from "../lib/pet-warfront-rite-presentation";
+import { PetWarfrontRiteStage, preloadRitePetModels, type StageFighter } from "./PetWarfrontRiteStage";
 import "../styles/pet-warfront-rite.css";
-
-const PetWarfrontRiteStage3D = lazy(() => import("./PetWarfrontRiteStage3D").then((m) => ({ default: m.PetWarfrontRiteStage3D })));
 
 const ELEMENT_COLOR: Readonly<Record<string, string>> = {
     Fire: "#ff7a45", Water: "#4cc2ff", Wind: "#6ff0c8",
@@ -52,7 +70,7 @@ const elColor = (element: string | null | undefined) => ELEMENT_COLOR[String(ele
 
 /** The handoff between clashes, beat by beat. A budget, not a guideline: three
  *  slack transitions turn a 2.5-minute match into loading screens. */
-const OPENING_CARD_MS = 2200;
+const FORMATION_HOLD_MS = 1350;
 const INTERLUDE_MS = 4200;
 
 type Phase = "deploy" | "clash" | "interlude" | "result";
@@ -60,8 +78,11 @@ type Phase = "deploy" | "clash" | "interlude" | "result";
 /** The line a band takes when nobody chose one — roster order. */
 const defaultRitePlan = (): RitePlan => ({
     formation: Array.from({ length: RITE_BAND_SIZE }, (_, i) => i),
+    deployment: [...WARFRONT_DEFAULT_DEPLOYMENT],
     reformAfterClash: null,
     reform: null,
+    reformDeployment: null,
+    reforms: [],
 });
 
 export type PetWarfrontRiteProps = {
@@ -76,7 +97,7 @@ export type PetWarfrontRiteProps = {
     settlementPending?: boolean;
     /**
      * SHARED REPLAY (co-op). Every client must render the identical match, so a
-     * spectator takes no decisions at all: no formation panel, no re-form, and
+     * spectator takes no decisions at all: no deployment panel, no re-form, and
      * no settlement. The Rite becomes a pure function of {blue, red, seed} —
      * the same determinism contract the retired co-op renderer relied on.
      */
@@ -91,12 +112,28 @@ export type PetWarfrontRiteProps = {
 
 // ── Small presentational pieces ─────────────────────────────────────────────
 
-function PetPortrait({ pet, sharedImages, size = 56 }: { pet: Pet; sharedImages: Record<string, string>; size?: number }) {
-    const sprite = useMemo(() => petBattleSprite(pet, sharedImages), [pet, sharedImages]);
+function PetPortrait({ pet, sharedImages, size = 56, placementArt = false }: {
+    pet: Pet;
+    sharedImages: Record<string, string>;
+    size?: number;
+    placementArt?: boolean;
+}) {
+    const source = useMemo(
+        () => placementArt ? petCardImage(pet, sharedImages) : petBattleSprite(pet, sharedImages).src,
+        [pet, placementArt, sharedImages],
+    );
+    const [failedSource, setFailedSource] = useState<string | null>(null);
+    const visibleSource = source && source !== failedSource ? source : "";
+    const needsContrastRim = pet.element === "Wind" || pet.element === "Earth";
     return (
-        <span className="wfr-portrait" style={{ width: size, height: size, borderColor: `${elColor(pet.element)}88` }}>
-            {sprite.src
-                ? <img src={sprite.src} alt="" aria-hidden="true" loading="lazy" />
+        <span
+            className={`wfr-portrait${placementArt ? " is-placement-art" : ""}${needsContrastRim ? " has-neutral-rim" : ""}`}
+            data-wfr-portrait-kind={visibleSource ? "image" : "fallback"}
+            data-wfr-pet-id={pet.id}
+            style={{ width: size, height: size, borderColor: `${elColor(pet.element)}88` }}
+        >
+            {visibleSource
+                ? <img src={visibleSource} alt="" aria-hidden="true" draggable={false} loading={placementArt ? "eager" : "lazy"} decoding="async" onError={() => setFailedSource(visibleSource)} />
                 : <span className="wfr-portrait-glyph" style={{ color: elColor(pet.element) }}>{pet.name.slice(0, 1)}</span>}
         </span>
     );
@@ -116,78 +153,298 @@ function EntryPip({ hp }: { hp: number }) {
 
 // ── Deploy ──────────────────────────────────────────────────────────────────
 
-function DeployPanel({ band, enemyBand, enemyFormation, sharedImages, onBegin, onExit }: {
+const DEPLOYMENT_DISPLAY_ORDER = Object.freeze([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+const deploymentLabel = (nodeId: number): string => {
+    const node = WARFRONT_DEPLOYMENT_NODES[nodeId];
+    if (!node) return "Unplaced";
+    const file = node[1] <= -5 ? "North edge" : node[1] < -1 ? "North" : node[1] > 5 ? "South edge" : node[1] > 1 ? "South" : "Center";
+    const depth = node[0] > 8 ? "rear" : "forward";
+    return `${file} ${depth}`;
+};
+
+function PlacementBoard({ band, deployment, onChange, sharedImages, healthBySlot }: {
+    band: Pet[];
+    deployment: number[];
+    onChange: (next: number[]) => void;
+    sharedImages: Record<string, string>;
+    healthBySlot?: Map<number, number>;
+}) {
+    const [selectedSlot, setSelectedSlot] = useState(0);
+    const [draggingSlot, setDraggingSlot] = useState<number | null>(null);
+    const [dragOverNode, setDragOverNode] = useState<number | null>(null);
+    const [announcement, setAnnouncement] = useState("");
+    const shellRef = useRef<HTMLDivElement>(null);
+    const dragRef = useRef<{
+        pointerId: number;
+        slot: number;
+        startX: number;
+        startY: number;
+        lastX: number;
+        lastY: number;
+        active: boolean;
+    } | null>(null);
+    const suppressClickRef = useRef(false);
+    const occupied = useMemo(
+        () => new Map(deployment.map((node, slot) => [node, slot] as const)),
+        [deployment],
+    );
+    const move = useCallback((slot: number, nodeId: number) => {
+        if (occupied.has(nodeId)) return false;
+        const next = tryMoveRitePet(deployment, slot, nodeId, band.length);
+        if (!next) return false;
+        onChange(next);
+        setSelectedSlot(slot);
+        setAnnouncement(`${band[slot]?.name ?? "Pet"} moved to ${deploymentLabel(nodeId)}.`);
+        return true;
+    }, [band, deployment, occupied, onChange]);
+    const place = (nodeId: number) => {
+        const otherSlot = occupied.get(nodeId);
+        // Occupied cells select their owner; only a clearly open cell performs
+        // a move. This keeps one tap equal to one pet move and prevents a second
+        // pet being silently displaced.
+        if (otherSlot !== undefined) { setSelectedSlot(otherSlot); return; }
+        move(selectedSlot, nodeId);
+    };
+    const openNodeAt = useCallback((clientX: number, clientY: number): number | null => {
+        const hit = document.elementFromPoint(clientX, clientY);
+        const cell = hit?.closest<HTMLElement>("[data-wfr-node-id]");
+        if (!cell || !shellRef.current?.contains(cell)) return null;
+        const nodeId = Number(cell.dataset.wfrNodeId);
+        return Number.isInteger(nodeId) && !occupied.has(nodeId) ? nodeId : null;
+    }, [occupied]);
+    const beginDrag = (event: ReactPointerEvent<HTMLButtonElement>, slot: number) => {
+        if (event.pointerType === "mouse" && event.button !== 0) return;
+        setSelectedSlot(slot);
+        dragRef.current = {
+            pointerId: event.pointerId,
+            slot,
+            startX: event.clientX,
+            startY: event.clientY,
+            lastX: event.clientX,
+            lastY: event.clientY,
+            active: false,
+        };
+        event.currentTarget.setPointerCapture(event.pointerId);
+    };
+    const updateDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+        const drag = dragRef.current;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        drag.lastX = event.clientX;
+        drag.lastY = event.clientY;
+        if (!drag.active && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) >= 8) {
+            drag.active = true;
+            setDraggingSlot(drag.slot);
+        }
+        if (!drag.active) return;
+        event.preventDefault();
+        setDragOverNode(openNodeAt(event.clientX, event.clientY));
+    };
+    const finishDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+        const drag = dragRef.current;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        if (drag.active) {
+            event.preventDefault();
+            // Chromium reports (0, 0) for a synthetic touchEnd because that
+            // event has no active touch point. The last touchMove is the true
+            // drop coordinate for both device and release-harness gestures.
+            const nodeId = openNodeAt(drag.lastX, drag.lastY);
+            if (nodeId !== null) move(drag.slot, nodeId);
+            suppressClickRef.current = true;
+            window.setTimeout(() => { suppressClickRef.current = false; }, 0);
+        }
+        dragRef.current = null;
+        setDraggingSlot(null);
+        setDragOverNode(null);
+    };
+    const cancelDrag = () => {
+        const drag = dragRef.current;
+        // Mobile Chromium may end a captured touch stream with pointercancel
+        // (for example after a compositor handoff). If the last sampled point
+        // is still a legal highlighted cell, honour the player's clear drop
+        // instead of creating a touch-only dead zone.
+        if (drag?.active) {
+            const nodeId = openNodeAt(drag.lastX, drag.lastY);
+            if (nodeId !== null) move(drag.slot, nodeId);
+        }
+        dragRef.current = null;
+        setDraggingSlot(null);
+        setDragOverNode(null);
+    };
+
+    return (
+        <div
+            ref={shellRef}
+            className={`wfr-placement-shell${draggingSlot !== null ? " is-dragging" : ""}`}
+            onPointerMove={updateDrag}
+            onPointerUp={finishDrag}
+            onPointerCancel={cancelDrag}
+        >
+            <div className="wfr-pet-picker" aria-label="Choose a pet to place">
+                {band.map((pet, slot) => (
+                    <button
+                        key={pet.id}
+                        type="button"
+                        className={`${slot === selectedSlot ? "is-selected" : ""} ${slot === draggingSlot ? "is-dragging" : ""}`.trim() || undefined}
+                        aria-pressed={slot === selectedSlot}
+                        data-wfr-drag-slot={slot}
+                        draggable={false}
+                        onPointerDown={(event) => beginDrag(event, slot)}
+                        onClick={(event) => {
+                            if (suppressClickRef.current) { event.preventDefault(); return; }
+                            setSelectedSlot(slot);
+                        }}
+                    >
+                        <PetPortrait pet={pet} sharedImages={sharedImages} size={42} placementArt />
+                        <span><strong>{pet.name}</strong><small>{deploymentLabel(deployment[slot])}</small></span>
+                        {healthBySlot ? <EntryPip hp={healthBySlot.get(slot) ?? 0} /> : null}
+                    </button>
+                ))}
+            </div>
+
+            <div className="wfr-placement-board" aria-label="Your deployment grid">
+                <div className="wfr-depth-labels" aria-hidden="true">
+                    <span>Rear guard</span><span>Forward line</span>
+                </div>
+                <div className="wfr-placement-grid">
+                    {DEPLOYMENT_DISPLAY_ORDER.map((nodeId) => {
+                        const slot = occupied.get(nodeId);
+                        const pet = slot === undefined ? null : band[slot];
+                        const selected = slot === selectedSlot;
+                        return (
+                            <button
+                                key={nodeId}
+                                type="button"
+                                className={`${pet ? "is-occupied" : ""} ${selected ? "is-selected" : ""} ${dragOverNode === nodeId ? "is-drag-over" : ""}`.trim()}
+                                aria-label={pet
+                                    ? `${deploymentLabel(nodeId)} occupied by ${pet.name}${selected ? ", selected" : ", tap to select"}`
+                                    : `Place ${band[selectedSlot]?.name ?? "selected pet"} at ${deploymentLabel(nodeId)}`}
+                                data-wfr-node-id={nodeId}
+                                data-wfr-legal-drop={pet ? "false" : "true"}
+                                draggable={false}
+                                onPointerDown={pet && slot !== undefined ? (event) => beginDrag(event, slot) : undefined}
+                                onClick={(event) => {
+                                    if (suppressClickRef.current) { event.preventDefault(); return; }
+                                    place(nodeId);
+                                }}
+                            >
+                                {pet ? <PetPortrait pet={pet} sharedImages={sharedImages} size={38} placementArt /> : <span className="wfr-empty-node" />}
+                            </button>
+                        );
+                    })}
+                </div>
+                <div className="wfr-route-labels" aria-hidden="true"><span>North edge</span><span>North</span><span>Center</span><span>South</span><span>South edge</span></div>
+            </div>
+            <output className="wfr-placement-status" aria-live="polite">{announcement}</output>
+        </div>
+    );
+}
+
+function DeployPanel({ band, enemyBand, enemyPlan, sharedImages, onBegin, onExit }: {
     band: Pet[];
     enemyBand: Pet[];
-    enemyFormation: number[];
+    enemyPlan: RitePlan;
     sharedImages: Record<string, string>;
     onBegin: (plan: RitePlan) => void;
     onExit: () => void;
 }) {
-    const [formation, setFormation] = useState<number[]>(() => band.map((_, i) => i));
+    const [deployment, setDeployment] = useState<number[]>(() => [...WARFRONT_DEFAULT_DEPLOYMENT]);
+    const [formation, setFormation] = useState<number[]>(() => Array.from({ length: RITE_BAND_SIZE }, (_, index) => index));
+    const [landscapeInspectAcknowledged, setLandscapeInspectAcknowledged] = useState(false);
+    const [landscapeDrawer, setLandscapeDrawer] = useState<"guide" | "scout" | null>(null);
     const problem = useMemo(() => riteBandProblem(band), [band]);
-
-    const move = (from: number, delta: number) => {
-        const to = from + delta;
-        if (to < 0 || to >= formation.length) return;
-        setFormation((current) => {
-            const next = [...current];
-            [next[from], next[to]] = [next[to], next[from]];
-            return next;
-        });
+    const toggleLandscapeDrawer = (drawer: "guide" | "scout") => {
+        setLandscapeDrawer((current) => current === drawer ? null : drawer);
     };
 
-    const enemyFront = enemyFormation.slice(0, RITE_FRONT_SLOTS).map((slot) => enemyBand[slot]).filter(Boolean);
-
     return (
-        <div className="wfr-deploy">
-            <header className="wfr-deploy-head">
-                <p className="wfr-eyebrow">Hollow Warfront</p>
-                <h2>Set your formation</h2>
-                <p className="wfr-deploy-copy">
-                    All four pets fight at once. <strong>Your front line meets them first</strong> and takes the
-                    opening. Best of {RITE_MAX_CLASHES} clashes — first to {RITE_CLASHES_TO_WIN} takes the Rite.
-                </p>
-            </header>
+        <div
+            className={`wfr-deploy${landscapeInspectAcknowledged ? " is-landscape-compact" : ""}`}
+            data-landscape-inspect-state={landscapeInspectAcknowledged ? "acknowledged" : "pending"}
+            data-landscape-open-drawer={landscapeDrawer ?? "none"}
+        >
+            <button
+                type="button"
+                className="wfr-landscape-drawer-trigger is-guide"
+                aria-label={`${landscapeDrawer === "guide" ? "Close" : "Open"} deployment guide`}
+                aria-controls="wfr-deploy-guide"
+                aria-expanded={landscapeDrawer === "guide"}
+                onClick={() => toggleLandscapeDrawer("guide")}
+            >
+                <span aria-hidden="true">?</span>
+                <span>Guide</span>
+            </button>
 
-            <section className="wfr-scout" aria-label="Enemy front line">
-                <h3>They hold the front with</h3>
+            <div
+                id="wfr-deploy-guide"
+                className={`wfr-guide-drawer${landscapeDrawer === "guide" ? " is-open" : ""}`}
+                aria-hidden={landscapeInspectAcknowledged ? landscapeDrawer !== "guide" : undefined}
+            >
+                <header className="wfr-deploy-head">
+                    <p className="wfr-eyebrow">Beastbound Warfront</p>
+                    <h2>Set your formation</h2>
+                    <p className="wfr-deploy-copy">
+                        <strong>Starting cells decide first contact.</strong> Forward brings pressure sooner; rear protects range and support; split files blunt area hits. Every open cell is legal. First to {RITE_CLASHES_TO_WIN} clashes wins.
+                    </p>
+                </header>
+
+                <ol className="wfr-onboarding" aria-label="Deployment steps">
+                    <li><span>1</span><span><strong>Inspect matchup</strong><small>Read their two revealed starts.</small></span></li>
+                    <li className="is-current"><span>2</span><span><strong>Drag or tap any pet</strong><small>Drop it on any glowing open cell.</small></span></li>
+                    <li><span>3</span><span><strong>Lock formation</strong><small>The clash proves your read.</small></span></li>
+                </ol>
+            </div>
+
+            <section
+                id="wfr-deploy-scout"
+                className={`wfr-scout${landscapeDrawer === "scout" ? " is-open" : ""}`}
+                aria-label="Enemy revealed deployment"
+                aria-hidden={landscapeInspectAcknowledged ? landscapeDrawer !== "scout" : undefined}
+            >
+                <h3>Inspect matchup <span>2 starts revealed</span></h3>
                 <div className="wfr-scout-body">
-                    {enemyFront.map((pet) => (
-                        <span key={pet.id} className="wfr-scout-pet">
-                            <PetPortrait pet={pet} sharedImages={sharedImages} size={54} />
-                            <span className="wfr-el" style={{ color: elColor(pet.element) }}>{pet.element ?? "None"}</span>
-                        </span>
-                    ))}
+                    {enemyPlan.formation.slice(0, RITE_SCOUTED_JOBS).map((slot) => {
+                        const pet = enemyBand[slot];
+                        if (!pet) return null;
+                        return (
+                            <span key={pet.id} className="wfr-scout-pet">
+                                <PetPortrait pet={pet} sharedImages={sharedImages} size={42} placementArt />
+                                <span className="wfr-scout-meta">
+                                    <strong>{pet.name}</strong>
+                                    <small className="wfr-scout-job">{deploymentLabel(enemyPlan.deployment?.[slot] ?? -1)}</small>
+                                    <small className="wfr-el" style={{ color: elColor(pet.element) }}>{pet.element ?? "None"}</small>
+                                </span>
+                            </span>
+                        );
+                    })}
                 </div>
-                <p className="wfr-scout-note">Their back line is sealed. Answer the front, or go around it.</p>
+                <p className="wfr-scout-note">Two starts are public; two stay sealed until combat.</p>
+                <button
+                    type="button"
+                    className="wfr-inspect-ack"
+                    aria-label="Acknowledge matchup and position your band"
+                    onClick={() => {
+                        setLandscapeInspectAcknowledged(true);
+                        setLandscapeDrawer(null);
+                    }}
+                >
+                    <span>Matchup read</span>
+                    <strong>Position band</strong>
+                </button>
             </section>
 
-            <ol className="wfr-order" aria-label="Your formation">
-                {formation.map((petIndex, lane) => {
-                    const pet = band[petIndex];
-                    const front = lane < RITE_FRONT_SLOTS;
-                    return (
-                        <li key={pet.id} className={front ? "is-lead" : undefined}>
-                            <span className="wfr-slot-no">{front ? "FRONT" : "BACK"}</span>
-                            <PetPortrait pet={pet} sharedImages={sharedImages} />
-                            <div className="wfr-order-id">
-                                <strong>{pet.name}</strong>
-                                <span className="wfr-el" style={{ color: elColor(pet.element) }}>{pet.element ?? "None"}</span>
-                            </div>
-                            <span className="wfr-order-moves">
-                                <button type="button" onClick={() => move(lane, -1)} disabled={lane === 0} aria-label={`Move ${pet.name} forward`}>▲</button>
-                                <button type="button" onClick={() => move(lane, 1)} disabled={lane === formation.length - 1} aria-label={`Move ${pet.name} back`}>▼</button>
-                            </span>
-                        </li>
-                    );
-                })}
-            </ol>
+            <button
+                type="button"
+                className="wfr-landscape-drawer-trigger is-scout"
+                aria-label={`${landscapeDrawer === "scout" ? "Close" : "Open"} matchup scout`}
+                aria-controls="wfr-deploy-scout"
+                aria-expanded={landscapeDrawer === "scout"}
+                onClick={() => toggleLandscapeDrawer("scout")}
+            >
+                <span aria-hidden="true">◎</span>
+                <span>Scout</span>
+            </button>
 
-            <p className="wfr-formation-hint">
-                The front line absorbs the opening and draws focus. A Defender there holds; a Sage there dies —
-                but a Sage that survives the front is a Sage the enemy never reached.
-            </p>
+            <PlacementBoard band={band} deployment={deployment} onChange={setDeployment} sharedImages={sharedImages} />
 
             {problem ? <p className="wfr-problem" role="alert">{problem}</p> : null}
 
@@ -197,9 +454,16 @@ function DeployPanel({ band, enemyBand, enemyFormation, sharedImages, onBegin, o
                     type="button"
                     className="wfr-btn-primary"
                     disabled={Boolean(problem)}
-                    onClick={() => onBegin({ formation, reformAfterClash: null, reform: null })}
+                    onClick={() => onBegin({
+                        formation,
+                        deployment,
+                        reformAfterClash: null,
+                        reform: null,
+                        reformDeployment: null,
+                        reforms: [],
+                    })}
                 >
-                    Begin the Rite
+                    Lock formation
                 </button>
             </div>
         </div>
@@ -209,33 +473,37 @@ function DeployPanel({ band, enemyBand, enemyFormation, sharedImages, onBegin, o
 // ── Live HUD ────────────────────────────────────────────────────────────────
 
 /**
- * Eight health bars and the clock, driven by ONE rAF that writes straight to the
+ * Eight active health bars and the clock, driven by ONE rAF that writes straight to the
  * DOM. Putting these in React state would re-render the whole match tree 30+
  * times a second, which is the mistake that cost the lane war its frame pacing.
  */
-function ClashHud({ clash, blueBand, redBand, clockRef, sharedImages, rounds }: {
+function ClashHud({ clash, blueBand, redBand, clockRef, sharedImages, rounds, audioArmed, audioDispatches, onArmAudio }: {
     clash: RiteClash;
     blueBand: Pet[];
     redBand: Pet[];
     clockRef: { current: number };
     sharedImages: Record<string, string>;
     rounds: { blue: number; red: number };
+    audioArmed: boolean;
+    audioDispatches: { current: number };
+    onArmAudio: () => void;
 }) {
     const bars = useRef<Record<string, HTMLSpanElement | null>>({});
     const clockOut = useRef<HTMLOutputElement>(null);
+    const audioProbe = useRef<HTMLButtonElement>(null);
+    const poseSlots = useMemo(() => Array.from({ length: 8 }, createActorPoseSample), []);
 
     useEffect(() => {
         let raf = 0;
         const snaps = clash.result.snapshots;
         const paint = () => {
             const t = Math.max(0, Math.min(snaps.length - 1, clockRef.current));
-            const snap = snaps[Math.floor(t)];
-            if (snap) {
-                for (const actor of snap.actors) {
-                    const side = actor.team === "player" ? clash.blue : clash.red;
-                    const entry = side[actor.slot]?.entryHp ?? 1;
-                    const frac = Math.max(0, actor.maxHp > 0 ? actor.hp / actor.maxHp : 0) * entry;
-                    const bar = bars.current[`${actor.team}-${actor.slot}`];
+            let poseIndex = 0;
+            for (const [team, side] of [["player", clash.blue], ["enemy", clash.red]] as const) {
+                for (const combatant of side) {
+                    const actor = sampleActorInto(clash.result, team, combatant.lane, t, poseSlots[poseIndex++]);
+                    const frac = Math.max(0, actor.maxHp > 0 ? actor.hp / actor.maxHp : 0) * combatant.entryHp;
+                    const bar = bars.current[`${team}-${combatant.lane}`];
                     if (bar) {
                         bar.style.width = `${(frac * 100).toFixed(1)}%`;
                         bar.style.background = frac > 0.5 ? "" : frac > 0.2 ? "#ffd166" : "#ff5470";
@@ -246,19 +514,22 @@ function ClashHud({ clash, blueBand, redBand, clockRef, sharedImages, rounds }: 
             // clearest symptom of the mode breaking, and it is otherwise
             // invisible because everything it drives is painted imperatively.
             if (clockOut.current) clockOut.current.dataset.tick = t.toFixed(2);
+            if (audioProbe.current) audioProbe.current.dataset.riteAudioEvents = String(audioDispatches.current);
             raf = requestAnimationFrame(paint);
         };
         raf = requestAnimationFrame(paint);
         return () => cancelAnimationFrame(raf);
-    }, [clash, clockRef]);
+    }, [audioDispatches, clash, clockRef, poseSlots]);
 
     const row = (side: RiteCombatant[], band: Pet[], team: "player" | "enemy", label: string) => (
         <ul className={`wfr-roster is-${team === "player" ? "blue" : "red"}`} aria-label={label}>
             {side.map((c) => {
                 const pet = band[c.slot];
                 if (!pet) return null;
+                const position = deploymentLabel(c.node);
                 return (
-                    <li key={`${team}-${c.lane}`} className={c.lane < RITE_FRONT_SLOTS ? "is-front" : undefined}>
+                    <li key={`${team}-${c.lane}`} title={`Deployed ${position}`}>
+                        <span className="wfr-roster-job" aria-label={position}>{position.slice(0, 1)}</span>
                         <PetPortrait pet={pet} sharedImages={sharedImages} size={34} />
                         <span className="wfr-roster-meta">
                             <strong>{pet.name}</strong>
@@ -277,16 +548,30 @@ function ClashHud({ clash, blueBand, redBand, clockRef, sharedImages, rounds }: 
     );
 
     return (
-        <div className="wfr-hud">
+        <div className="wfr-hud" data-testid="wfr-premium-hud" data-audio-armed={audioArmed ? "true" : "false"}>
             <output ref={clockOut} data-testid="wfr-clock" data-tick="0" hidden />
             {row(clash.blue, blueBand, "player", "Your band")}
             <div className="wfr-hud-center">
-                <span className="wfr-duel-no">CLASH {clash.index + 1}</span>
+                <span className="wfr-duel-no">BEASTBOUND · CLASH {clash.index + 1}</span>
                 <span className="wfr-rounds" aria-label="Clashes won">
                     <b>{rounds.blue}</b><i>—</i><b>{rounds.red}</b>
                 </span>
+                <span className="wfr-rule-state" aria-label="Formation combat rules">
+                    <strong>FORMATION LIVE · 28s VERDICT</strong>
+                </span>
             </div>
             {row(clash.red, redBand, "enemy", "Their band")}
+            <button
+                ref={audioProbe}
+                type="button"
+                className={`wfr-sound-gate${audioArmed ? " is-armed" : ""}`}
+                data-testid="wfr-audio-gate"
+                data-rite-audio-events="0"
+                data-rite-audio-overlap-cap="1"
+                onClick={onArmAudio}
+                aria-label={audioArmed ? "Combat sound armed" : "Enable combat sound"}
+                title={audioArmed ? "Combat sound armed" : "Tap to enable combat sound"}
+            >{audioArmed ? "SOUND ON" : "TAP FOR SOUND"}</button>
         </div>
     );
 }
@@ -303,25 +588,33 @@ function Interlude({ clash, blueBand, redBand, sharedImages }: {
         ...clash.blue.filter((c) => c.exitHp <= 0).map((c) => blueBand[c.slot]),
         ...clash.red.filter((c) => c.exitHp <= 0).map((c) => redBand[c.slot]),
     ].filter(Boolean);
-    // What the player takes into the next clash — the number that decides
-    // whether their formation needs changing.
+    // Final-clash survivors and their exact exit health.
     const survivors = clash.blue
         .filter((c) => c.exitHp > 0)
         .map((c) => ({ pet: blueBand[c.slot], hp: c.exitHp }))
         .filter((entry) => Boolean(entry.pet));
     const won = clash.winner === "blue";
+    const report = riteTacticalReport(clash);
+    const firstKo = report.firstKo
+        ? (report.firstKo.team === "player" ? blueBand : redBand)[report.firstKo.slot]
+        : null;
     return (
         <div className="wfr-interlude">
             <div className="wfr-interlude-victor">
                 <p className="wfr-eyebrow">Clash {clash.index + 1}</p>
                 <h3 className={won ? "is-win" : clash.winner === "red" ? "is-loss" : undefined}>
-                    {clash.winner === null ? "The clash is drawn" : won ? "The ring is yours" : "They hold the ring"}
+                    {clash.winner === null ? "The formation holds" : won ? "Their formation broke" : "Your formation broke"}
                 </h3>
-                <p>{clash.blueStanding} standing &middot; {clash.redStanding} of theirs</p>
+                <p>{clash.blueStanding} standing · {clash.redStanding} of theirs</p>
+                <div className="wfr-interlude-edge">
+                    <span>Authoritative result</span>
+                    <strong>{won ? "Your band won the final clash" : clash.winner === "red" ? "Their band won the final clash" : "The final clash was drawn"}</strong>
+                    <p>{firstKo ? `First KO: ${firstKo.name} at tick ${report.firstKo?.tick}` : "No knockout was recorded before the verdict."}</p>
+                </div>
             </div>
             {fallen.length ? (
                 <div className="wfr-interlude-ko">
-                    <span className="wfr-next-label">Fallen — they return wounded</span>
+                    <span className="wfr-next-label">Fallen in final clash</span>
                     <div className="wfr-next-pair">
                         {fallen.slice(0, 6).map((pet, i) => (
                             <span key={`${pet.id}-${i}`}><PetPortrait pet={pet} sharedImages={sharedImages} size={44} /></span>
@@ -331,7 +624,7 @@ function Interlude({ clash, blueBand, redBand, sharedImages }: {
             ) : null}
             {survivors.length ? (
                 <div className="wfr-interlude-next">
-                    <span className="wfr-next-label">Your band regroups</span>
+                    <span className="wfr-next-label">Your band · final health</span>
                     {survivors.map((entry) => (
                         <span key={entry.pet.id} className="wfr-survivor">
                             <PetPortrait pet={entry.pet} sharedImages={sharedImages} size={34} />
@@ -344,128 +637,228 @@ function Interlude({ clash, blueBand, redBand, sharedImages }: {
     );
 }
 
-/**
- * The one MID-MATCH decision: after the opening clash you may re-form once.
- *
- * This is interactive rather than pre-committed, and it is safe to recompute the
- * match around it because the engine applies a reform only to clashes AFTER the
- * one it is attached to. Re-running `runWarfrontRite` with the same bands, the
- * same seed and the same opening formation reproduces clash one byte for byte —
- * pinned by a test — so the player sees exactly the fight they already watched,
- * and only what follows changes.
- */
-function ReformPanel({ clash, band, formation, sharedImages, onCommit }: {
+/** The evidence → re-form → explicit rematch decision after every non-terminal
+ * clash. Facts come straight from the clash transcript and the panel makes no
+ * forecast; the next authoritative clash is still the only outcome authority. */
+function ReformPanel({ clash, band, enemyBand, formation, deployment, sharedImages, automatic = false, onCommit }: {
     clash: RiteClash;
     band: Pet[];
+    enemyBand: Pet[];
     formation: number[];
+    deployment: number[];
     sharedImages: Record<string, string>;
-    onCommit: (next: number[] | null) => void;
+    automatic?: boolean;
+    onCommit: (next: { formation: number[]; deployment: number[] }) => void;
 }) {
-    const [next, setNext] = useState<number[]>(() => [...formation]);
+    const [next, setNext] = useState<number[]>(() => [...deployment]);
+    const [reportAcknowledged, setReportAcknowledged] = useState(false);
+    const [reportOpen, setReportOpen] = useState(true);
     const panelRef = useRef<HTMLDivElement>(null);
-    // This dialog HALTS the match until it is answered, so it has to behave like
-    // one: it takes focus on open (a keyboard user would otherwise be stranded
-    // tabbing a dimmed HUD behind it), and Escape holds the line rather than
-    // trapping anyone who does not want to change anything.
+    const reportTriggerRef = useRef<HTMLButtonElement>(null);
     useEffect(() => {
-        panelRef.current?.focus();
-    }, []);
-    const move = (from: number, delta: number) => {
-        const to = from + delta;
-        if (to < 0 || to >= next.length) return;
-        setNext((current) => {
-            const copy = [...current];
-            [copy[from], copy[to]] = [copy[to], copy[from]];
-            return copy;
-        });
+        if (!automatic) panelRef.current?.focus();
+    }, [automatic]);
+    const changed = next.some((node, i) => node !== deployment[i]);
+    const changes = band.flatMap((pet, slot) => next[slot] === deployment[slot] ? [] : [{
+        pet,
+        from: deploymentLabel(deployment[slot]),
+        to: deploymentLabel(next[slot]),
+    }]);
+    const healthBySlot = useMemo(
+        () => new Map(band.map((_, slot) => [slot, clash.blue.find((c) => c.slot === slot)?.exitHp ?? (slot === clash.blueReserveSlot ? 1 : 0)])),
+        [band, clash.blue, clash.blueReserveSlot],
+    );
+    const report = useMemo(() => riteTacticalReport(clash), [clash]);
+    const firstKoPet = report.firstKo
+        ? (report.firstKo.team === "player" ? band : enemyBand)[report.firstKo.slot]
+        : null;
+    const threatPet = report.highestDamageThreat ? enemyBand[report.highestDamageThreat.slot] : null;
+    const winnerLabel = report.winner === "player" ? "Your band" : report.winner === "enemy" ? "Their band" : "Draw";
+    const reportId = `wfr-reform-report-${clash.index}`;
+    const closeInitialReport = () => {
+        setReportAcknowledged(true);
+        setReportOpen(false);
+        window.requestAnimationFrame(() => reportTriggerRef.current?.focus());
     };
-    const changed = next.some((slot, i) => slot !== formation[i]);
-    const healthOf = (slot: number) => clash.blue.find((c) => c.slot === slot)?.exitHp ?? 0;
 
     return (
         <div
             ref={panelRef}
-            className="wfr-reform"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Re-form your band"
+            className={`wfr-reform${reportAcknowledged ? " is-report-acknowledged" : ""}`}
+            role={automatic ? "status" : "dialog"}
+            aria-modal={automatic ? undefined : "true"}
+            aria-label="Tactical report and re-form"
+            data-mobile-report-state={reportAcknowledged ? (reportOpen ? "open" : "available") : "required"}
             tabIndex={-1}
-            onKeyDown={(event) => { if (event.key === "Escape") onCommit(null); }}
+            onKeyDown={(event) => { if (event.key === "Escape" && changed) setNext([...deployment]); }}
         >
-            <p className="wfr-eyebrow">One re-form per Rite</p>
-            <h3>Change your line?</h3>
-            <p className="wfr-reform-copy">
-                Your band regroups before the next clash. Move a pet forward or back — or hold the line you
-                already committed.
-            </p>
-            <ol className="wfr-order" aria-label="Re-formed line">
-                {next.map((slot, lane) => {
-                    const pet = band[slot];
-                    if (!pet) return null;
-                    const front = lane < RITE_FRONT_SLOTS;
-                    const hp = healthOf(slot);
-                    return (
-                        <li key={pet.id} className={front ? "is-lead" : undefined}>
-                            <span className="wfr-slot-no">{front ? "FRONT" : "BACK"}</span>
-                            <PetPortrait pet={pet} sharedImages={sharedImages} size={40} />
-                            <div className="wfr-order-id">
-                                <strong>{pet.name}</strong>
-                                <EntryPip hp={hp} />
-                            </div>
-                            <span className="wfr-order-moves">
-                                <button type="button" onClick={() => move(lane, -1)} disabled={lane === 0} aria-label={`Move ${pet.name} forward`}>▲</button>
-                                <button type="button" onClick={() => move(lane, 1)} disabled={lane === next.length - 1} aria-label={`Move ${pet.name} back`}>▼</button>
-                            </span>
-                        </li>
-                    );
-                })}
-            </ol>
-            <div className="wfr-deploy-actions">
-                <button type="button" className="wfr-btn-ghost" onClick={() => onCommit(null)}>Hold the line</button>
-                <button type="button" className="wfr-btn-primary" disabled={!changed} onClick={() => onCommit(next)}>
-                    Re-form
-                </button>
-            </div>
+            <section
+                id={reportId}
+                className={`wfr-reform-evidence${reportOpen ? " is-open" : ""}`}
+                aria-label={`Clash ${clash.index + 1} tactical report`}
+                aria-hidden={!automatic && reportAcknowledged ? !reportOpen : undefined}
+            >
+                <p className="wfr-eyebrow">Tactical report · Clash {clash.index + 1}</p>
+                <h3>Read. Re-form. Rematch.</h3>
+                <div className="wfr-report-facts" aria-label="Authoritative clash facts">
+                    <span><small>Winner</small><strong>{winnerLabel}</strong></span>
+                    <span><small>First KO</small><strong>{firstKoPet?.name ?? "None"}</strong></span>
+                    <span><small>Highest damage threat</small><strong>{threatPet ? `${threatPet.name} · ${Math.round(report.highestDamageThreat?.damage ?? 0)}` : "None"}</strong></span>
+                </div>
+                <section className="wfr-fought-formation" aria-label="Opponent formation just fought">
+                    <span className="wfr-next-label">Opponent formation just fought</span>
+                    <ul>
+                        {report.opponentFormation.map((entry) => {
+                            const pet = enemyBand[entry.slot];
+                            return pet ? (
+                                <li key={entry.petId}>
+                                    <PetPortrait pet={pet} sharedImages={sharedImages} size={30} placementArt />
+                                    <span><strong>{pet.name}</strong><small>{deploymentLabel(entry.node)}</small></span>
+                                </li>
+                            ) : null;
+                        })}
+                    </ul>
+                </section>
+                <p className="wfr-reform-copy">Move any pet to any open cell, or hold this formation. Occupied cells select that pet; they never move a second pet for you.</p>
+                <p className="wfr-no-prediction">No outcome prediction. Locking seals your formation; the authoritative rematch decides the result.</p>
+                {!automatic ? (
+                    <button type="button" className="wfr-report-ack" aria-label="Report read, re-form band" onClick={closeInitialReport}>
+                        <span>Report read</span>
+                        <strong>Re-form band</strong>
+                    </button>
+                ) : null}
+            </section>
+            {automatic ? (
+                <p className="wfr-auto-reform">AUTO RE-FORM · locking a deterministic response from this public clash…</p>
+            ) : (
+                <>
+                    <button
+                        ref={reportTriggerRef}
+                        type="button"
+                        className="wfr-reform-drawer-trigger"
+                        aria-label={`${reportOpen ? "Close" : "Open"} tactical report`}
+                        aria-controls={reportId}
+                        aria-expanded={reportOpen}
+                        onClick={() => setReportOpen((current) => !current)}
+                    >
+                        <span aria-hidden="true">≡</span>
+                        <span>Report</span>
+                    </button>
+                    <PlacementBoard
+                        band={band}
+                        deployment={next}
+                        onChange={setNext}
+                        sharedImages={sharedImages}
+                        healthBySlot={healthBySlot}
+                    />
+                    <div className="wfr-reform-footer">
+                        <output className="wfr-formation-diff" aria-live="polite">
+                            <span>Changes vs previous formation</span>
+                            {changes.length ? changes.map((entry) => <strong key={entry.pet.id}>{entry.pet.name}: {entry.from} → {entry.to}</strong>) : <strong>No changes — holding the line</strong>}
+                        </output>
+                        <div className="wfr-deploy-actions">
+                            <button type="button" className="wfr-btn-ghost" disabled={!changed} onClick={() => setNext([...deployment])}>Reset changes</button>
+                            <button type="button" className="wfr-btn-primary" onClick={() => onCommit({ formation: [...formation], deployment: next })}>
+                                Lock &amp; rematch
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
         </div>
     );
 }
 
 // ── Match ───────────────────────────────────────────────────────────────────
 
+function useReducedMotionPreference(): boolean {
+    const [reduced, setReduced] = useState(
+        () => typeof window !== "undefined" && Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches),
+    );
+    useEffect(() => {
+        if (typeof window === "undefined" || !window.matchMedia) return;
+        const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+        const sync = () => setReduced(media.matches);
+        sync();
+        media.addEventListener?.("change", sync);
+        return () => media.removeEventListener?.("change", sync);
+    }, []);
+    return reduced;
+}
+
 export function PetWarfrontRite({
     blue, red, seed, sharedImages = {}, onResult, onExit,
     resultSupplement, resultActionsLocked = false, settlementPending = false,
-    spectator = false, playbackRate = 1,
+    spectator = false, playbackRate = 0.78,
 }: PetWarfrontRiteProps) {
     const blueBand = useMemo(() => blue.slice(0, RITE_BAND_SIZE).map((slot) => slot.pet), [blue]);
     const redBand = useMemo(() => red.slice(0, RITE_BAND_SIZE).map((slot) => slot.pet), [red]);
-    const quality = useMemo(() => petVisualQuality(), []);
-    const reducedMotion = useMemo(
-        () => typeof window !== "undefined" && Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches),
-        [],
-    );
+    useEffect(() => {
+        void preloadRitePetModels([...blueBand, ...redBand]).catch(() => undefined);
+    }, [blueBand, redBand]);
+    const quality = useMemo(() => {
+        const requested = petVisualQuality();
+        if (typeof window === "undefined") return requested;
+        const compactTouch = window.innerWidth <= 720 && Boolean(window.matchMedia?.("(pointer: coarse)").matches);
+        const params = new URLSearchParams(window.location.search);
+        const explicitQaOverride = params.has("petQuality") && params.get("riteqa") === "1";
+        // Six animated rigs plus postprocessing are a different workload from
+        // a Coliseum duel. Phone Warfront defaults to the low scene profile even
+        // if the global pet setting—or a shared desktop preview URL—says High.
+        // Only the release harness's explicit riteqa=1 flag may override this.
+        if (compactTouch && !explicitQaOverride && requested.id !== "low") return PET_VISUAL_QUALITY_PRESETS.low;
+        return requested;
+    }, []);
+    const reducedMotion = useReducedMotionPreference();
+    const effectivePlaybackRate = useMemo(() => {
+        const requested = Math.max(0.1, Math.min(30, playbackRate));
+        if (typeof window === "undefined") return Math.min(1, requested);
+        // Production and normal visual previews never exceed real-time. The old
+        // `ritespeed=3` share URL compressed dashes into apparent teleports and
+        // made the VFX live for only a few frames. Fast scrub remains available
+        // only to the explicit release-test harness.
+        const qaScrub = new URLSearchParams(window.location.search).get("riteqa") === "1";
+        return qaScrub ? requested : Math.min(1, requested);
+    }, [playbackRate]);
 
-    // Their FRONT LINE is public; the back line is not. That reveal is what
-    // turns the opening formation from a guess into a read.
-    const enemyFormation = useMemo(() => aiRitePlan(redBand, seed).formation, [redBand, seed]);
+    // Two enemy positions are public while the remaining placements stay sealed.
+    const enemyPlan = useMemo(() => aiRitePlan(redBand, seed), [redBand, seed]);
+    const automaticPlan = useMemo(() => aiRitePlan(blueBand, seed), [blueBand, seed]);
 
-    // A spectator starts mid-match on the default formation — there is no
+    // A spectator starts mid-match on the default deployment — there is no
     // deploy step to take, and both clients must derive the same one.
     const [phase, setPhase] = useState<Phase>(spectator ? "clash" : "deploy");
     const [result, setResult] = useState<RiteResult | null>(
-        () => (spectator ? runWarfrontRite(blue.slice(0, RITE_BAND_SIZE).map((s) => s.pet), red.slice(0, RITE_BAND_SIZE).map((s) => s.pet), seed, defaultRitePlan()) : null),
+        () => (spectator ? runWarfrontRite(blue.slice(0, RITE_BAND_SIZE).map((s) => s.pet), red.slice(0, RITE_BAND_SIZE).map((s) => s.pet), seed, automaticPlan) : null),
     );
-    const [plan, setPlan] = useState<RitePlan | null>(() => (spectator ? defaultRitePlan() : null));
+    const [plan, setPlan] = useState<RitePlan | null>(() => (spectator ? automaticPlan : null));
     const [clashIndex, setClashIndex] = useState(0);
-    const [openingCard, setOpeningCard] = useState(spectator);
-    const [reformSpent, setReformSpent] = useState(false);
+    const [formationHold, setFormationHold] = useState(spectator);
+    const [stageReady, setStageReady] = useState(false);
+    const [formationRevealed, setFormationRevealed] = useState(false);
+    const [modelsReady, setModelsReady] = useState(0);
+    const [rendererAvailable, setRendererAvailable] = useState(true);
 
     const clockRef = useRef(0);
     const rateRef = useRef(1);
     const winnerRefs = useRef({ player: false, enemy: false });
     const reportedRef = useRef(false);
+    const audioCursorRef = useRef(0);
+    const audioDispatchesRef = useRef(0);
+    const [audioArmed, setAudioArmed] = useState(false);
 
     const clash: RiteClash | null = result && phase !== "deploy" ? result.clashes[clashIndex] ?? null : null;
+    const audioPlan = useMemo(() => buildWarfrontAudioPlan(clash?.result.events ?? []), [clash]);
+
+    const armAudio = useCallback(() => {
+        primePetSfx();
+        setAudioArmed(true);
+    }, []);
+
+    useEffect(() => {
+        audioCursorRef.current = 0;
+        audioDispatchesRef.current = 0;
+    }, [clash]);
 
     const fighters: StageFighter[] = useMemo(() => {
         if (!clash) return [];
@@ -474,6 +867,14 @@ export function PetWarfrontRite({
             ...clash.red.map((c) => ({ team: "enemy" as const, lane: c.lane, pet: redBand[c.slot], entryHp: c.entryHp })),
         ].filter((f) => Boolean(f.pet));
     }, [clash, blueBand, redBand]);
+    const currentFormation = useMemo(() => clash
+        ? [...clash.blue].sort((a, b) => a.lane - b.lane).map((combatant) => combatant.slot)
+        : [...(plan?.formation ?? defaultRitePlan().formation)], [clash, plan]);
+    const currentDeployment = useMemo(() => Array.from({ length: RITE_BAND_SIZE }, (_, slot) =>
+        clash?.blue.find((combatant) => combatant.slot === slot)?.node
+            ?? plan?.deployment?.[slot]
+            ?? WARFRONT_DEFAULT_DEPLOYMENT[slot],
+    ), [clash, plan]);
 
     const rounds = useMemo(() => {
         if (!result) return { blue: 0, red: 0 };
@@ -487,70 +888,122 @@ export function PetWarfrontRite({
     }, [result, clashIndex, phase]);
 
     const begin = useCallback((chosen: RitePlan) => {
-        primePetSfx();
+        armAudio();
         const outcome = runWarfrontRite(blueBand, redBand, seed, chosen);
         setPlan(chosen);
         setResult(outcome);
         setClashIndex(0);
-        setReformSpent(false);
         clockRef.current = 0;
         winnerRefs.current.player = false;
         winnerRefs.current.enemy = false;
-        setOpeningCard(true);
+        setStageReady(false);
+        setFormationRevealed(false);
+        setModelsReady(0);
+        setFormationHold(true);
         setPhase("clash");
         startBattleMusic?.();
-    }, [blueBand, redBand, seed]);
+    }, [armAudio, blueBand, redBand, seed]);
 
-    /**
-     * Commit (or decline) the re-form, then continue into the next clash.
-     *
-     * Recomputing the whole match here is safe and deliberate: the engine
-     * applies a reform only to clashes AFTER the one it is attached to, so
-     * clash one is reproduced byte for byte from the same bands, seed and
-     * opening formation. The player never sees the fight they just watched
-     * change underneath them.
-     */
-    const commitReform = useCallback((next: number[] | null) => {
-        setReformSpent(true);
-        if (!next || !plan) {
-            setClashIndex((i) => i + 1);
-            clockRef.current = 0;
-            rateRef.current = 1;
-            winnerRefs.current.player = false;
-            winnerRefs.current.enemy = false;
-            setPhase("clash");
-            return;
+    /** Lock the current decision, then and only then start the rematch. A changed
+     * layout is appended to the replay transcript; a hold needs no combat
+     * command but still passes through this explicit lock boundary. */
+    const commitReform = useCallback((nextChoice: { formation: number[]; deployment: number[] }) => {
+        if (!plan || !clash) return;
+        const previousDeployment = Array.from({ length: blueBand.length }, (_, slot) =>
+            clash.blue.find((combatant) => combatant.slot === slot)?.node ?? (plan.deployment?.[slot] ?? WARFRONT_DEFAULT_DEPLOYMENT[slot]),
+        );
+        const changed = nextChoice.deployment.some((node, slot) => node !== previousDeployment[slot]);
+        let nextPlan = plan;
+        let nextResult = result;
+        if (changed) {
+            const nextReform = {
+                afterClash: clashIndex,
+                formation: [...nextChoice.formation],
+                deployment: [...nextChoice.deployment],
+            };
+            const reforms = [...(plan.reforms ?? [])]
+                .filter((entry) => entry.afterClash !== clashIndex)
+                .concat(nextReform)
+                .sort((a, b) => a.afterClash - b.afterClash);
+            const hasLegacyReform = plan.reformAfterClash !== null && plan.reformAfterClash !== undefined;
+            nextPlan = {
+                ...plan,
+                reforms,
+                reformAfterClash: hasLegacyReform ? plan.reformAfterClash : clashIndex,
+                reform: hasLegacyReform ? plan.reform : [...nextChoice.formation],
+                reformDeployment: hasLegacyReform ? plan.reformDeployment : [...nextChoice.deployment],
+            };
+            nextResult = runWarfrontRite(blueBand, redBand, seed, nextPlan);
+            setPlan(nextPlan);
+            setResult(nextResult);
         }
-        const nextPlan: RitePlan = { ...plan, reformAfterClash: 0, reform: next };
-        setPlan(nextPlan);
-        setResult(runWarfrontRite(blueBand, redBand, seed, nextPlan));
-        setClashIndex((i) => i + 1);
+        if (!nextResult || clashIndex >= nextResult.clashes.length - 1) { setPhase("result"); return; }
+        setClashIndex(clashIndex + 1);
         clockRef.current = 0;
         rateRef.current = 1;
         winnerRefs.current.player = false;
         winnerRefs.current.enemy = false;
+        setStageReady(false);
+        setFormationRevealed(false);
+        setModelsReady(0);
+        setFormationHold(true);
         setPhase("clash");
-    }, [plan, blueBand, redBand, seed]);
+    }, [plan, clash, blueBand, redBand, seed, result, clashIndex]);
+
+    const handleStageReady = useCallback(() => {
+        setStageReady(true);
+        if (reducedMotion) setFormationRevealed(true);
+    }, [reducedMotion]);
+    const handleModelProgress = useCallback((readyCount: number) => setModelsReady(readyCount), []);
+    const handleRouteTransition = useCallback(() => {
+        // Pause at the current authoritative tick and put the opaque formation
+        // veil back before Stage swaps all eight presentation actors. The clock
+        // resumes from this same tick once the replacement family has painted.
+        setStageReady(false);
+        setFormationRevealed(false);
+    }, []);
+    const handleRendererAvailability = useCallback((available: boolean) => setRendererAvailable(available), []);
+    const handleCurtainTransitionEnd = useCallback((event: ReactTransitionEvent<HTMLDivElement>) => {
+        if (event.target === event.currentTarget && event.propertyName === "opacity" && stageReady) {
+            setFormationRevealed(true);
+        }
+    }, [stageReady]);
+
+    // CSS transition events can be coalesced while a software WebGL renderer is
+    // monopolising the main thread. Stage readiness still means all eight rigs
+    // painted atomically, so this bounded fallback completes that same reveal.
+    useEffect(() => {
+        if (!stageReady || formationRevealed) return;
+        const id = window.setTimeout(() => setFormationRevealed(true), reducedMotion ? 0 : 360);
+        return () => window.clearTimeout(id);
+    }, [stageReady, formationRevealed, reducedMotion]);
 
     useEffect(() => {
-        if (!openingCard) return;
-        const id = window.setTimeout(() => setOpeningCard(false), OPENING_CARD_MS);
+        // The tableau is part of the match contract, not a loading screen. Hold
+        // tick zero for a full beat AFTER the atomic reveal, then let the player
+        // read the cells they committed before any route begins.
+        if (!formationHold || !formationRevealed) return;
+        const id = window.setTimeout(() => setFormationHold(false), reducedMotion ? 500 : FORMATION_HOLD_MS);
         return () => window.clearTimeout(id);
-    }, [openingCard]);
+    }, [formationHold, formationRevealed, reducedMotion]);
 
     // ── Playback clock ──────────────────────────────────────────────────────
     // Fractional ticks in a ref. Nothing here calls setState per frame.
     useEffect(() => {
-        if (phase !== "clash" || !clash || openingCard) return;
+        if (phase !== "clash" || !clash || formationHold || !formationRevealed || !rendererAvailable) return;
         const total = clash.result.ticks;
         let koTick: number | null = null;
         for (let i = clash.result.events.length - 1; i >= 0; i--) {
             if (clash.result.events[i].type === "ko") { koTick = clash.result.events[i].t; break; }
         }
-        let raf = 0;
-        let last = 0;
+        let last = performance.now();
+        let stopPulses = () => {};
         const step = (now: number) => {
-            const delta = last ? Math.min(0.05, (now - last) / 1000) : 0;
+            if (document.visibilityState !== "visible") {
+                last = now;
+                return;
+            }
+            const delta = boundedRitePlaybackDelta(now - last);
             last = now;
             // Savour the final knockout, and EASE into it — never a step change.
             const nearLethal = koTick !== null
@@ -558,42 +1011,73 @@ export function PetWarfrontRite({
                 && clockRef.current < koTick + DUEL_TPS * 1.1;
             const target = reducedMotion ? 1 : nearLethal ? 0.45 : 1;
             rateRef.current += (target - rateRef.current) * (1 - Math.pow(0.02, delta));
-            const scrub = Math.max(0.1, Math.min(30, playbackRate));
-            clockRef.current = Math.min(total, clockRef.current + delta * DUEL_TPS * rateRef.current * scrub);
+            const scrub = effectivePlaybackRate;
+            clockRef.current = advanceRitePlaybackTick(
+                clockRef.current,
+                total,
+                delta,
+                DUEL_TPS,
+                rateRef.current,
+                scrub,
+            );
+            while (audioCursorRef.current < audioPlan.length
+                && audioPlan[audioCursorRef.current].tick <= clockRef.current) {
+                const cue = audioPlan[audioCursorRef.current++];
+                if (audioArmed) {
+                    playPetSfx(cue.sfx, {
+                        gain: cue.gain,
+                        playbackRate: cue.playbackRate,
+                        pan: cue.pan,
+                        channel: "warfront-combat",
+                        priority: cue.priority,
+                    });
+                    audioDispatchesRef.current++;
+                }
+            }
             if (clockRef.current >= total) {
                 winnerRefs.current.player = clash.winner === "blue";
                 winnerRefs.current.enemy = clash.winner === "red";
                 playPetSfx(clash.winner === "blue" ? "victory" : "hit");
                 setPhase("interlude");
-                return;
+                stopPulses();
             }
-            raf = requestAnimationFrame(step);
         };
-        raf = requestAnimationFrame(step);
-        return () => cancelAnimationFrame(raf);
-    }, [phase, clash, openingCard, reducedMotion, playbackRate]);
+        const resetBaseline = () => { last = performance.now(); };
+        document.addEventListener("visibilitychange", resetBaseline);
+        stopPulses = startRitePlaybackPulses({
+            now: () => performance.now(),
+            requestFrame: (callback) => requestAnimationFrame(callback),
+            cancelFrame: (handle) => cancelAnimationFrame(handle),
+            setTimer: (callback, delayMs) => window.setTimeout(callback, delayMs),
+            clearTimer: (handle) => window.clearTimeout(handle),
+        }, step);
+        return () => {
+            stopPulses();
+            document.removeEventListener("visibilitychange", resetBaseline);
+        };
+    }, [phase, clash, formationHold, formationRevealed, rendererAvailable, reducedMotion, effectivePlaybackRate, audioArmed, audioPlan]);
 
-    // ── The handoff between clashes ─────────────────────────────────────────
-    // Offered once, after the opening clash, and only while the match is still
-    // live — there is nothing to re-form for if this clash ended it.
-    const reformOpen = !spectator
-        && phase === "interlude"
-        && !reformSpent
-        && clashIndex === 0
+    // Every non-terminal clash enters the same decision state. Interactive play
+    // has no timeout; spectator/autostart traverses it through the deterministic
+    // short auto-lock effect below.
+    const reformOpen = phase === "interlude"
         && Boolean(result)
-        && result!.clashes.length > 1;
+        && clashIndex < result!.clashes.length - 1;
+
+    useEffect(() => {
+        if (!spectator || !reformOpen || !clash) return;
+        const counter = deterministicRiteCounterMove(clash, "blue");
+        const choice = counter
+            ? { formation: counter.formation, deployment: counter.deployment }
+            : { formation: currentFormation, deployment: currentDeployment };
+        const id = window.setTimeout(() => commitReform(choice), reducedMotion ? 350 : 900);
+        return () => window.clearTimeout(id);
+    }, [spectator, reformOpen, clash, currentFormation, currentDeployment, commitReform, reducedMotion]);
 
     useEffect(() => {
         if (phase !== "interlude" || !result || reformOpen) return;
-        const isLast = clashIndex >= result.clashes.length - 1;
         const id = window.setTimeout(() => {
-            if (isLast) { setPhase("result"); return; }
-            clockRef.current = 0;
-            rateRef.current = 1;
-            winnerRefs.current.player = false;
-            winnerRefs.current.enemy = false;
-            setClashIndex((i) => i + 1);
-            setPhase("clash");
+            setPhase("result");
         }, reducedMotion ? 900 : INTERLUDE_MS);
         return () => window.clearTimeout(id);
     }, [phase, clashIndex, result, reducedMotion, reformOpen]);
@@ -617,7 +1101,7 @@ export function PetWarfrontRite({
                 <DeployPanel
                     band={blueBand}
                     enemyBand={redBand}
-                    enemyFormation={enemyFormation}
+                    enemyPlan={enemyPlan}
                     sharedImages={sharedImages}
                     onBegin={begin}
                     onExit={onExit}
@@ -632,7 +1116,7 @@ export function PetWarfrontRite({
         return (
             <div className="wfr-root">
                 <div className="wfr-result">
-                    <p className="wfr-eyebrow">Hollow Warfront</p>
+                    <p className="wfr-eyebrow">Beastbound Warfront</p>
                     <h2 className={won ? "is-win" : "is-loss"}>{won ? "The Rite is yours" : "The Rite is lost"}</h2>
                     <p className="wfr-result-line">
                         Clashes {result.blueRounds}&ndash;{result.redRounds} &middot; {result.clashes.length} fought &middot; {Math.round(result.totalSeconds)}s
@@ -676,17 +1160,19 @@ export function PetWarfrontRite({
     return (
         <div className="wfr-root">
             <div className="wfr-stage">
-                <Suspense fallback={<div className="wfr-loading">Entering the ring…</div>}>
-                    <PetWarfrontRiteStage3D
-                        key={clash.index}
-                        result={clash.result}
-                        fighters={fighters}
-                        clockRef={clockRef}
-                        quality={quality}
-                        winnerRef={winnerRefs}
-                        reducedMotion={reducedMotion}
-                    />
-                </Suspense>
+                <PetWarfrontRiteStage
+                    sceneKey={clash.index}
+                    result={clash.result}
+                    fighters={fighters}
+                    clockRef={clockRef}
+                    quality={quality}
+                    winnerRef={winnerRefs}
+                    reducedMotion={reducedMotion}
+                    onReady={handleStageReady}
+                    onLoadProgress={handleModelProgress}
+                    onRouteTransition={handleRouteTransition}
+                    onRendererAvailability={handleRendererAvailability}
+                />
             </div>
 
             <ClashHud
@@ -697,26 +1183,31 @@ export function PetWarfrontRite({
                 clockRef={clockRef}
                 sharedImages={sharedImages}
                 rounds={rounds}
+                audioArmed={audioArmed}
+                audioDispatches={audioDispatchesRef}
+                onArmAudio={armAudio}
             />
 
-            {openingCard ? (
-                <div className="wfr-vs-card" role="status">
-                    <div className="wfr-vs-side">
-                        {clash.blue.slice(0, RITE_FRONT_SLOTS).map((c) => blueBand[c.slot]).filter(Boolean).map((pet) => (
-                            <PetPortrait key={pet.id} pet={pet} sharedImages={sharedImages} size={72} />
-                        ))}
-                        <strong>Your front</strong>
-                    </div>
-                    <div className="wfr-vs-mid">
-                        <span className="wfr-vs-word">CLASH {clash.index + 1}</span>
-                        <span className="wfr-matchup">{clash.blue.length} v {clash.red.length}</span>
-                    </div>
-                    <div className="wfr-vs-side">
-                        {clash.red.slice(0, RITE_FRONT_SLOTS).map((c) => redBand[c.slot]).filter(Boolean).map((pet) => (
-                            <PetPortrait key={pet.id} pet={pet} sharedImages={sharedImages} size={72} />
-                        ))}
-                        <strong>Their front</strong>
-                    </div>
+            <div
+                className={`wfr-stage-curtain${stageReady ? " is-open" : ""}`}
+                role="status"
+                data-testid="wfr-stage-curtain"
+                data-models-ready={modelsReady}
+                data-stage-ready={stageReady ? "true" : "false"}
+                aria-hidden={stageReady ? "true" : undefined}
+                onTransitionEnd={handleCurtainTransitionEnd}
+                onTransitionCancel={handleCurtainTransitionEnd}
+            >
+                <div>
+                    <strong>PREPARING BOTH FORMATIONS</strong>
+                    <span>{modelsReady}/{RITE_REVEAL_FIGHTER_COUNT} combatants ready</span>
+                </div>
+            </div>
+
+            {formationHold && formationRevealed ? (
+                <div className="wfr-formation-hold" role="status" data-stage-ready="true">
+                    <strong>CLASH {clash.index + 1} · FORMATIONS LOCKED</strong>
+                    <span>Eight committed cells · routes begin here</span>
                 </div>
             ) : null}
 
@@ -724,10 +1215,14 @@ export function PetWarfrontRite({
                 reformOpen && plan ? (
                     <div className="wfr-interlude">
                         <ReformPanel
+                            key={`reform-${clash.index}`}
                             clash={clash}
                             band={blueBand}
-                            formation={plan.formation}
+                            enemyBand={redBand}
+                            formation={currentFormation}
+                            deployment={currentDeployment}
                             sharedImages={sharedImages}
+                            automatic={spectator}
                             onCommit={commitReform}
                         />
                     </div>

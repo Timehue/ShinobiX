@@ -30,6 +30,23 @@ const normalize = (x: number, z: number): [number, number] => {
 };
 const wrappedAngle = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle));
 
+/** Advance a visible body yaw without ever taking the long way around or
+ * rotating farther than one readable frame allows. `maxFrameStep` is a hard
+ * safety rail (independent of a dropped-frame delta); `turnRate` keeps ordinary
+ * high-refresh motion smooth below that rail. */
+export function advanceCombatBodyYaw(
+    currentYaw: number,
+    wantedYaw: number,
+    deltaSeconds: number,
+    turnRate: number,
+    maxFrameStep = Math.PI / 3,
+): number {
+    if (!Number.isFinite(currentYaw) || !Number.isFinite(wantedYaw)) return Number.isFinite(currentYaw) ? currentYaw : 0;
+    const frameBudget = Math.max(0, Math.min(Math.abs(maxFrameStep), Math.max(0, deltaSeconds) * Math.max(0, turnRate)));
+    const error = wrappedAngle(wantedYaw - currentYaw);
+    return currentYaw + clamp(error, -frameBudget, frameBudget);
+}
+
 /** Exact world-space heading from one combatant to another. Keep this as the
  * single target-facing source; PetModel3D already owns the visual turn easing,
  * so smoothing the vector before it reaches the model can leave a planted pet

@@ -43,5 +43,14 @@ export default defineConfig({
         { name: "desktop-retina", use: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 } },
         { name: "tablet", use: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 1.25, hasTouch: true } },
         { name: "phone", use: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, hasTouch: true, isMobile: true } },
+        // Galaxy S25+ renders its 1440px-wide panel at roughly 412 CSS pixels
+        // with the default density. Keep the real tall aspect and high DPR in
+        // the release suite; this is the device that exposed the Rite layout.
+        { name: "galaxy-s25-plus", use: { viewport: { width: 412, height: 915 }, deviceScaleFactor: 3.5, hasTouch: true, isMobile: true } },
+        // Exact QHD artifact dimensions used by the post-clash report gate.
+        // These projects run only the explicitly device-scoped checks below;
+        // 480×1040 and 1040×480 at 3× capture 1440×3120 / 3120×1440.
+        { name: "galaxy-s25-plus-qhd-portrait", use: { viewport: { width: 480, height: 1040 }, deviceScaleFactor: 3, hasTouch: true, isMobile: true } },
+        { name: "galaxy-s25-plus-qhd-landscape", use: { viewport: { width: 1040, height: 480 }, deviceScaleFactor: 3, hasTouch: true, isMobile: true } },
     ],
 });

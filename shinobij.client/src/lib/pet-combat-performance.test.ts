@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { attackClipWindow, motionOwnsLocomotion, petDeathChoreography, resolveCombatBodyFacing, resolveCombatBodyYaw, resolveOpponentFacing } from "./pet-combat-performance";
+import { advanceCombatBodyYaw, attackClipWindow, motionOwnsLocomotion, petDeathChoreography, resolveCombatBodyFacing, resolveCombatBodyYaw, resolveOpponentFacing } from "./pet-combat-performance";
 
 const rotateLocalForward = (x: number, z: number, yaw: number): [number, number] => [
     x * Math.cos(yaw) + z * Math.sin(yaw),
@@ -71,6 +71,17 @@ test("locked duel locomotion preserves the opponent heading instead of the trave
         allowTravelFacing: false,
     });
     assert.ok(body[0] * opponent[0] + body[1] * opponent[1] > 0.999999);
+});
+
+test("bounded combat yaw takes the short arc and can never exceed one readable frame", () => {
+    const cap = 55 * Math.PI / 180;
+    const acrossWrap = advanceCombatBodyYaw(179 * Math.PI / 180, -179 * Math.PI / 180, 1 / 60, 50, cap);
+    const wrapStep = Math.atan2(Math.sin(acrossWrap - 179 * Math.PI / 180), Math.cos(acrossWrap - 179 * Math.PI / 180));
+    assert.ok(Math.abs(wrapStep - 2 * Math.PI / 180) < 1e-9, "the body should take the two-degree path across the wrap");
+
+    const reversal = advanceCombatBodyYaw(0, Math.PI, 0.25, 100, cap);
+    assert.ok(Math.abs(reversal) <= cap + 1e-9, "a dropped frame must not turn into a 180-degree flip");
+    assert.equal(advanceCombatBodyYaw(reversal, Math.PI, 0, 100, cap), reversal, "a zero-time frame must be inert");
 });
 
 test("death choreography recoils, falls once, impacts, and settles", () => {

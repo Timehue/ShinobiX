@@ -8,11 +8,12 @@ import { petVisualQuality, type PetVisualQualityConfig } from "../lib/pet-visual
 import { PetIdentityEffects3D } from "./PetIdentityEffects3D";
 import { bindPetAtlasTexture, copyPetAtlasSampling, lockPetAtlas } from "../lib/pet-atlas-material";
 import { readPetGlbAtlas } from "../lib/pet-glb-atlas";
-import { attackClipWindow, motionOwnsLocomotion, petDeathChoreography, resolveCombatBodyFacing, resolveCombatBodyYaw } from "../lib/pet-combat-performance";
+import { advanceCombatBodyYaw, attackClipWindow, motionOwnsLocomotion, petDeathChoreography, resolveCombatBodyFacing, resolveCombatBodyYaw } from "../lib/pet-combat-performance";
 import { petHeroBodyPose, type PetHeroMoveStyle } from "../lib/pet-hero-moves";
 import { stablePetModelPresentationBounds } from "../lib/pet-model-bounds";
 import type { PetModelSurfaceTreatment } from "../lib/pet-model-surface";
 import type { PetSignaturePerformance } from "../lib/pet-signature-performance";
+import { createPetAnimationEpoch, retirePetAnimationMixer, synchronizePetAnimationEpoch } from "../lib/pet-animation-lifecycle";
 
 export type PetModelMotion =
     | "idle"
@@ -39,6 +40,13 @@ export type PetModelFrame = {
      * locomotion is active. Duel fighters use this to circle without turning
      * their backs on one another; open-arena actors may still face travel. */
     lockTargetFacing?: boolean;
+    /** Freeze the actual rendered yaw during KO/stagger. This is stronger than
+     * holding the desired vector: it also stops a turn already in flight. */
+    freezeFacing?: boolean;
+    /** Optional presentation-owned angular policy. Beastbound Warfront supplies both
+     * values so an rAF hitch cannot become a one-frame 180-degree flip. */
+    turnRate?: number;
+    maxTurnPerFrame?: number;
     hit: number;
     /** Damage-aware reaction weight. Coliseum supplies roughly 0.48–1.25;
      * other callers may omit it and receive the restrained default. */
@@ -80,6 +88,9 @@ export const DEFAULT_PET_MODEL_FRAME: PetModelFrame = {
     faceX: 1,
     faceZ: 0,
     lockTargetFacing: false,
+    freezeFacing: false,
+    turnRate: undefined,
+    maxTurnPerFrame: undefined,
     hit: 0,
     impactPower: 0.55,
     casting: false,
@@ -109,7 +120,11 @@ type DeformUniforms = {
     floorCut: { value: number };
     floorOutline: { value: number };
     swim: { value: number };
+    silhouetteInk: { value: number };
+    impactGlow: { value: number };
 };
+
+export type PetModelSilhouette = "inverted-hull" | "surface-ink";
 
 type PreparedModel = {
     surface: THREE.Group;
@@ -119,6 +134,8 @@ type PreparedModel = {
     materials: THREE.Material[];
     uniforms: DeformUniforms[];
     clips: readonly THREE.AnimationClip[];
+    clipsByName: ReadonlyMap<string, THREE.AnimationClip>;
+    authoredCombatRig: boolean;
 };
 
 const ELEMENT_LIGHT: Record<string, string> = {
@@ -180,16 +197,47 @@ function cloneAsCombatToon(source: THREE.Material): THREE.Material {
     return toon;
 }
 
+/** One-texture, one-pass Warfront surface.  It keeps the authored atlas and
+ * full skinned geometry, but replaces the multi-light PBR fragment path with a
+ * fixed view-space anime key.  Team rings and event VFX still own combat color,
+ * so this surface remains deterministic across crowded eight-rig frames. */
+function cloneAsWarfrontSurface(source: THREE.Material): THREE.Material {
+    const lit = source as THREE.MeshStandardMaterial & { isMeshToonMaterial?: boolean };
+    if (!lit.isMeshStandardMaterial && !lit.isMeshToonMaterial) return source.clone();
+    const basic = new THREE.MeshBasicMaterial({
+        name: source.name,
+        color: lit.color?.clone?.() ?? new THREE.Color("#ffffff"),
+        map: lit.map,
+        alphaMap: lit.alphaMap,
+        aoMap: lit.aoMap,
+        aoMapIntensity: lit.aoMapIntensity,
+        lightMap: lit.lightMap,
+        lightMapIntensity: lit.lightMapIntensity,
+        transparent: lit.transparent,
+        opacity: lit.opacity,
+        alphaTest: lit.alphaTest,
+        side: lit.side,
+        vertexColors: lit.vertexColors,
+        depthTest: lit.depthTest,
+        depthWrite: lit.depthWrite,
+        fog: true,
+        toneMapped: true,
+    });
+    basic.name = source.name;
+    return basic;
+}
+
 function smoothAngle(from: number, to: number, amount: number): number {
     let delta = (to - from + Math.PI) % (Math.PI * 2) - Math.PI;
     if (delta < -Math.PI) delta += Math.PI * 2;
     return from + delta * amount;
 }
 
-function patchDeformation(material: THREE.Material, minY: number, height: number, uniforms: DeformUniforms[], clipLow = 0, floorCut = 0, floorOutline = false) {
+function patchDeformation(material: THREE.Material, minY: number, height: number, uniforms: DeformUniforms[], clipLow = 0, floorCut = 0, floorOutline = false, silhouetteInk = 1) {
     const pbrSurface = (material as THREE.MeshStandardMaterial).isMeshStandardMaterial === true;
     const toonSurface = (material as THREE.MeshToonMaterial).isMeshToonMaterial === true;
-    const animeSurface = pbrSurface || toonSurface;
+    const basicSurface = (material as THREE.MeshBasicMaterial).isMeshBasicMaterial === true;
+    const animeSurface = pbrSurface || toonSurface || basicSurface;
     const bank: DeformUniforms = {
         lean: { value: 0 },
         stride: { value: 0 },
@@ -205,6 +253,8 @@ function patchDeformation(material: THREE.Material, minY: number, height: number
         floorCut: { value: floorCut },
         floorOutline: { value: floorOutline ? 1 : 0 },
         swim: { value: 0 },
+        silhouetteInk: { value: silhouetteInk },
+        impactGlow: { value: 0 },
     };
     uniforms.push(bank);
     material.onBeforeCompile = (shader) => {
@@ -222,23 +272,29 @@ function patchDeformation(material: THREE.Material, minY: number, height: number
         shader.uniforms.uPetFloorCut = bank.floorCut;
         shader.uniforms.uPetFloorOutline = bank.floorOutline;
         shader.uniforms.uPetSwim = bank.swim;
+        shader.uniforms.uPetSilhouetteInk = bank.silhouetteInk;
+        shader.uniforms.uPetImpactGlow = bank.impactGlow;
         shader.vertexShader = shader.vertexShader
             .replace(
                 "#include <common>",
-                "uniform float uPetLean,uPetStride,uPetTwist,uPetSwim,uPetTime,uPetMinY,uPetInvH;\nvarying float vPetHeight;\n#include <common>",
+                "uniform float uPetLean,uPetStride,uPetTwist,uPetSwim,uPetTime,uPetMinY,uPetInvH;\nvarying float vPetHeight;\nvarying vec3 vPetSurfaceNormal;\n#include <common>",
+            )
+            .replace(
+                "#include <defaultnormal_vertex>",
+                "#include <defaultnormal_vertex>\nvPetSurfaceNormal=normalize(transformedNormal);",
             )
             .replace(
                 "#include <begin_vertex>",
-                "#include <begin_vertex>\nfloat petH=clamp((position.y-uPetMinY)*uPetInvH,0.0,1.0);\nvPetHeight=petH;\ntransformed.z += uPetLean*petH*petH;\ntransformed.x += sin(petH*4.5-uPetTime*7.0)*uPetTwist*petH;\nfloat petTail=smoothstep(0.14,0.88,-position.y);\ntransformed.x += sin(uPetTime*6.2+position.y*7.2)*uPetSwim*petTail;\ntransformed.z += sin(uPetTime*5.1+position.y*5.6)*uPetSwim*petTail*0.22;\ntransformed.y += sin(position.x*2.2+uPetTime*10.0)*uPetStride*(1.0-petH)*0.35;",
+                "#include <begin_vertex>\n#if !defined(USE_SKINNING)\nvPetSurfaceNormal=normalize(normalMatrix*normal);\n#endif\nfloat petH=clamp((position.y-uPetMinY)*uPetInvH,0.0,1.0);\nvPetHeight=petH;\ntransformed.z += uPetLean*petH*petH;\ntransformed.x += sin(petH*4.5-uPetTime*7.0)*uPetTwist*petH;\nfloat petTail=smoothstep(0.14,0.88,-position.y);\ntransformed.x += sin(uPetTime*6.2+position.y*7.2)*uPetSwim*petTail;\ntransformed.z += sin(uPetTime*5.1+position.y*5.6)*uPetSwim*petTail*0.22;\ntransformed.y += sin(position.x*2.2+uPetTime*10.0)*uPetStride*(1.0-petH)*0.35;",
             );
         shader.fragmentShader = shader.fragmentShader
             .replace(
                 "#include <common>",
-                "uniform vec3 uPetLowTint,uPetHighTint;\nuniform float uPetTintStrength,uPetTintBlend,uPetClipLow,uPetFloorCut,uPetFloorOutline;\nvarying float vPetHeight;\n#include <common>",
+                "uniform vec3 uPetLowTint,uPetHighTint;\nuniform float uPetTintStrength,uPetTintBlend,uPetClipLow,uPetFloorCut,uPetFloorOutline,uPetSilhouetteInk,uPetImpactGlow;\nvarying float vPetHeight;\nvarying vec3 vPetSurfaceNormal;\n#include <common>",
             )
             .replace(
                 "#include <color_fragment>",
-                "#include <color_fragment>\nif(vPetHeight<uPetClipLow) discard;\nif(uPetFloorCut>0.0&&vPetHeight<uPetFloorCut&&(uPetFloorOutline>0.5||min(min(diffuseColor.r,diffuseColor.g),diffuseColor.b)>0.58)) discard;\nvec3 petSurfaceTint=mix(uPetLowTint,uPetHighTint,smoothstep(0.08,0.92,vPetHeight));\nvec3 petMultiplied=diffuseColor.rgb*petSurfaceTint;\nfloat petBaseLuma=max(0.08,dot(diffuseColor.rgb,vec3(0.2126,0.7152,0.0722)));\nvec3 petRecolored=petSurfaceTint*petBaseLuma;\nvec3 petTreated=mix(petMultiplied,petRecolored,uPetTintBlend);\ndiffuseColor.rgb=mix(diffuseColor.rgb,petTreated,uPetTintStrength);",
+                "#include <color_fragment>\nif(vPetHeight<uPetClipLow) discard;\nif(uPetFloorCut>0.0&&vPetHeight<uPetFloorCut&&(uPetFloorOutline>0.5||min(min(diffuseColor.r,diffuseColor.g),diffuseColor.b)>0.58)) discard;\nvec3 petSurfaceTint=mix(uPetLowTint,uPetHighTint,smoothstep(0.08,0.92,vPetHeight));\nvec3 petMultiplied=diffuseColor.rgb*petSurfaceTint;\nfloat petBaseLuma=max(0.08,dot(diffuseColor.rgb,vec3(0.2126,0.7152,0.0722)));\nvec3 petRecolored=petSurfaceTint*petBaseLuma;\nvec3 petTreated=mix(petMultiplied,petRecolored,uPetTintBlend);\ndiffuseColor.rgb=mix(diffuseColor.rgb,petTreated,uPetTintStrength);\ndiffuseColor.rgb+=petSurfaceTint*uPetImpactGlow*0.18;",
             );
         if (pbrSurface) {
             shader.fragmentShader = shader.fragmentShader.replace(
@@ -254,7 +310,7 @@ function patchDeformation(material: THREE.Material, minY: number, height: number
                     "outgoingLight=mix(vec3(petGrey),outgoingLight,1.18);",
                     "outgoingLight+=diffuseColor.rgb*0.055;",
                     "float petInk=smoothstep(0.58,0.92,1.0-saturate(dot(geometryNormal,geometryViewDir)));",
-                    "outgoingLight*=mix(1.0,0.72,petInk*0.42);",
+                    "outgoingLight*=mix(1.0,0.72,min(1.0,petInk*0.42*uPetSilhouetteInk));",
                     "float petRim=pow(1.0-saturate(dot(geometryNormal,geometryViewDir)),3.0);",
                     "outgoingLight+=diffuseColor.rgb*petRim*0.15;",
                     "#include <opaque_fragment>",
@@ -270,15 +326,31 @@ function patchDeformation(material: THREE.Material, minY: number, height: number
                     "outgoingLight=mix(vec3(petGrey),outgoingLight,1.22);",
                     "outgoingLight+=diffuseColor.rgb*0.045;",
                     "float petInk=smoothstep(0.62,0.94,1.0-saturate(dot(geometryNormal,geometryViewDir)));",
-                    "outgoingLight*=mix(1.0,0.78,petInk*0.34);",
+                    "outgoingLight*=mix(1.0,0.78,min(1.0,petInk*0.34*uPetSilhouetteInk));",
                     "float petRim=pow(1.0-saturate(dot(geometryNormal,geometryViewDir)),3.2);",
                     "outgoingLight+=diffuseColor.rgb*petRim*0.12;",
                     "#include <opaque_fragment>",
                 ].join("\n"),
             );
+        } else if (basicSurface) {
+            shader.fragmentShader = shader.fragmentShader.replace(
+                "#include <opaque_fragment>",
+                [
+                    "// Fixed anime key: atlas detail and skinned normals remain,",
+                    "// but no scene-light loop is multiplied across eight bodies.",
+                    "vec3 petN=normalize(vPetSurfaceNormal);",
+                    "float petKey=dot(petN,normalize(vec3(0.34,0.72,0.6)))*0.5+0.5;",
+                    "float petBand=petKey<0.3?0.62:(petKey<0.62?0.82:1.04);",
+                    "outgoingLight*=petBand;",
+                    "float petInk=smoothstep(0.46,0.9,1.0-abs(petN.z));",
+                    "outgoingLight*=mix(1.0,0.54,min(1.0,petInk*0.5*uPetSilhouetteInk));",
+                    "outgoingLight+=diffuseColor.rgb*pow(1.0-abs(petN.z),3.0)*0.1;",
+                    "#include <opaque_fragment>",
+                ].join("\n"),
+            );
         }
     };
-    material.customProgramCacheKey = () => toonSurface ? "pet-combat-toon-v3" : animeSurface ? "pet-combat-anime-v7" : "pet-combat-deform-v5";
+    material.customProgramCacheKey = () => basicSurface ? "pet-warfront-basic-v1" : toonSurface ? "pet-combat-toon-v3" : animeSurface ? "pet-combat-anime-v7" : "pet-combat-deform-v5";
     material.needsUpdate = true;
 }
 
@@ -305,6 +377,21 @@ function stylizeApprovedRig(root: THREE.Group, config: PetCombatModelConfig) {
     scaleNode("Tail1", 1.31, 1.09, 1.31);
 }
 
+const presentationBoundsByAsset = new WeakMap<THREE.Object3D, Map<string, ReturnType<typeof stablePetModelPresentationBounds>>>();
+
+function cachedPresentationBounds(source: THREE.Group, surface: THREE.Group, visualId: string) {
+    let byVisual = presentationBoundsByAsset.get(source);
+    if (!byVisual) {
+        byVisual = new Map();
+        presentationBoundsByAsset.set(source, byVisual);
+    }
+    const cached = byVisual.get(visualId);
+    if (cached) return cached;
+    const measured = stablePetModelPresentationBounds(surface);
+    byVisual.set(visualId, measured);
+    return measured;
+}
+
 function prepareModel(
     source: THREE.Group,
     config: PetCombatModelConfig,
@@ -313,12 +400,16 @@ function prepareModel(
     element?: string,
     persistentAtlas?: THREE.Texture | null,
     surfaceTreatment?: PetModelSurfaceTreatment,
+    silhouette: PetModelSilhouette = "inverted-hull",
 ): PreparedModel {
     // SkeletonUtils is required for independent SkinnedMesh bone trees. Object3D.clone
     // shares skeleton bindings and causes one fighter's animation to corrupt the other.
     const surface = cloneSkeleton(source) as THREE.Group;
     stylizeApprovedRig(surface, config);
-    const presentationBounds = stablePetModelPresentationBounds(surface);
+    // Blue/red commonly field the same four source assets. Bounds are invariant
+    // for a visualId, so CPU-skin/sort each cached GLTF once rather than eight
+    // times on every StrictMode mount and reload.
+    const presentationBounds = cachedPresentationBounds(source, surface, config.visualId);
     const box = presentationBounds.fit;
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
@@ -371,7 +462,9 @@ function prepareModel(
             // Approved roster reconstructions ship with authored smooth normals
             // and baked colour atlases. Their softer anime-PBR shader preserves
             // those gradients; a hard four-step ramp overstates UV seam facets.
-            const material = ROSTER_VISUAL_ID.test(config.visualId)
+            const material = silhouette === "surface-ink"
+                ? cloneAsWarfrontSurface(sourceMaterial)
+                : ROSTER_VISUAL_ID.test(config.visualId)
                 ? sourceMaterial.clone()
                 : cloneAsCombatToon(sourceMaterial);
             const pbr = material as THREE.MeshStandardMaterial & { isMeshToonMaterial?: boolean };
@@ -425,7 +518,10 @@ function prepareModel(
                     else pbr.color.lerp(tint, tintAmount);
                 } else pbr.color.lerp(tint, tintAmount);
             }
-            patchDeformation(material, box.min.y, size.y, uniforms);
+            // The eight-rig Warfront uses the same animated surface for its ink
+            // silhouette.  A stronger Fresnel terminator preserves the readable
+            // action contour without cloning the full skeleton and mixer.
+            patchDeformation(material, box.min.y, size.y, uniforms, 0, 0, false, silhouette === "surface-ink" ? 1.85 : 1);
             const uniform = uniforms[uniforms.length - 1];
             uniform.lowTint.value.set(surfaceTreatment?.lowTint ?? surfaceTint?.low ?? "#ffffff");
             uniform.highTint.value.set(surfaceTreatment?.highTint ?? surfaceTint?.high ?? "#ffffff");
@@ -438,7 +534,7 @@ function prepareModel(
         node.material = Array.isArray(node.material) ? cloned : cloned[0];
     });
 
-    const outline = quality.outline && config.outlineScale > 1.001
+    const outline = silhouette === "inverted-hull" && quality.outline && config.outlineScale > 1.001
         ? cloneSkeleton(surface) as THREE.Group
         : null;
     if (outline) {
@@ -462,7 +558,11 @@ function prepareModel(
         });
     }
 
-    return { surface, outline, offset, scale, materials, uniforms, clips };
+    const clipsByName = new Map(clips.map((clip) => [normalizedClipName(clip), clip]));
+    return {
+        surface, outline, offset, scale, materials, uniforms, clips, clipsByName,
+        authoredCombatRig: isAuthoredCombatRig(config.visualId, clipsByName),
+    };
 }
 
 const normalizedClipName = (clip: THREE.AnimationClip) => clip.name.split("|").at(-1)?.toLowerCase() ?? clip.name.toLowerCase();
@@ -470,21 +570,20 @@ const ROSTER_VISUAL_ID = /^(?:standard|rare|legendary|mythic)-\d+(?:-|$)/;
 const RIGGED_STARTER_VISUAL_ID = /^starter-(?:fire|water|wind|lightning|earth)(?:-[rl])?$/;
 const AUTHORED_COMBAT_CLIPS = ["idle", "walk", "gallop", "gallop_jump", "attack", "idle_hitreact1", "idle_2", "death"] as const;
 
-function isAuthoredCombatRig(visualId: string, clips: readonly THREE.AnimationClip[]): boolean {
+function isAuthoredCombatRig(visualId: string, clips: ReadonlyMap<string, THREE.AnimationClip>): boolean {
     if (!ROSTER_VISUAL_ID.test(visualId) && !RIGGED_STARTER_VISUAL_ID.test(visualId)) return false;
-    const names = new Set(clips.map(normalizedClipName));
-    return AUTHORED_COMBAT_CLIPS.every((name) => names.has(name));
+    return AUTHORED_COMBAT_CLIPS.every((name) => clips.has(name));
 }
 
-function findClip(clips: readonly THREE.AnimationClip[], candidates: readonly string[]): THREE.AnimationClip | null {
+function findClip(clips: ReadonlyMap<string, THREE.AnimationClip>, candidates: readonly string[]): THREE.AnimationClip | null {
     for (const candidate of candidates) {
-        const exact = clips.find((clip) => normalizedClipName(clip) === candidate);
+        const exact = clips.get(candidate);
         if (exact) return exact;
     }
     return null;
 }
 
-function combatClip(clips: readonly THREE.AnimationClip[], frame: PetModelFrame, profile: PetCombatModelConfig["profile"]): THREE.AnimationClip | null {
+function combatClip(clips: ReadonlyMap<string, THREE.AnimationClip>, frame: PetModelFrame, profile: PetCombatModelConfig["profile"]): THREE.AnimationClip | null {
     if (frame.motion === "dead") return findClip(clips, ["death"]);
     if (frame.victorious) return findClip(clips, ["victory", "idle", "walk"]);
     if (frame.entranceProgress !== undefined && frame.entranceProgress < 1) {
@@ -703,7 +802,7 @@ export function LegacyAnimePetAccents({ config }: { config: PetCombatModelConfig
     return null;
 }
 
-function LoadedPetModel3D({ config, frame, element, showIdentity = true, surfaceTreatment, signature, quality: qualityOverride }: {
+function LoadedPetModel3D({ config, frame, element, showIdentity = true, surfaceTreatment, signature, quality: qualityOverride, silhouette = "inverted-hull" }: {
     config: PetCombatModelConfig;
     frame: MutableRefObject<PetModelFrame>;
     element?: string;
@@ -711,21 +810,23 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
     surfaceTreatment?: PetModelSurfaceTreatment;
     signature?: PetSignaturePerformance;
     quality?: PetVisualQualityConfig;
+    silhouette?: PetModelSilhouette;
 }) {
     const gltf = useGLTF(config.url) as { scene: THREE.Group; animations: THREE.AnimationClip[] };
     const persistentAtlas = ROSTER_VISUAL_ID.test(config.visualId) ? readPetGlbAtlas(config.url) : null;
     const fallbackQuality = useMemo(() => petVisualQuality(), []);
     const quality = qualityOverride ?? fallbackQuality;
     const prepared = useMemo(
-        () => prepareModel(gltf.scene, config, gltf.animations ?? [], quality, element, persistentAtlas, surfaceTreatment),
-        [gltf.scene, gltf.animations, config, quality, element, persistentAtlas, surfaceTreatment],
+        () => prepareModel(gltf.scene, config, gltf.animations ?? [], quality, element, persistentAtlas, surfaceTreatment, silhouette),
+        [gltf.scene, gltf.animations, config, quality, element, persistentAtlas, surfaceTreatment, silhouette],
     );
     const mixer = useMemo(() => prepared.clips.length ? new THREE.AnimationMixer(prepared.surface) : null, [prepared]);
     const outlineMixer = useMemo(() => prepared.clips.length && prepared.outline ? new THREE.AnimationMixer(prepared.outline) : null, [prepared]);
-    const activeClip = useRef<THREE.AnimationClip | null>(null);
-    const activeFamily = useRef<CombatAnimationFamily>("idle");
-    const activeAction = useRef<THREE.AnimationAction | null>(null);
-    const activeOutlineAction = useRef<THREE.AnimationAction | null>(null);
+    const cleanupGeneration = useRef(0);
+    const liveMixer = useRef(mixer);
+    const liveOutlineMixer = useRef(outlineMixer);
+    const livePrepared = useRef(prepared);
+    const animationEpoch = useMemo(() => createPetAnimationEpoch<CombatAnimationFamily>("idle"), []);
     const root = useRef<THREE.Group>(null);
     const body = useRef<THREE.Group>(null);
     const aura = useRef<THREE.PointLight>(null);
@@ -761,19 +862,31 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         return bones;
     }, [prepared.surface, prepared.outline]);
 
-    useEffect(() => () => {
-        if (mixer) {
-            mixer.stopAllAction();
-            mixer.uncacheRoot(prepared.surface);
-        }
-        if (outlineMixer && prepared.outline) {
-            outlineMixer.stopAllAction();
-            outlineMixer.uncacheRoot(prepared.outline);
-        }
-        // The materials are cloned per fighter, so this does not dispose the GLTF cache.
-        if (prepared.materials.length) {
-            for (const material of prepared.materials) material.dispose();
-        }
+    useEffect(() => {
+        const generation = ++cleanupGeneration.current;
+        liveMixer.current = mixer;
+        liveOutlineMixer.current = outlineMixer;
+        livePrepared.current = prepared;
+        return () => {
+            // React Strict Mode immediately cleanup/remounts effects while
+            // retaining useMemo values. Uncaching the retained action here left
+            // its bindings invalid, so the next windup/strike `.play()` threw in
+            // live eight-rig combat. Defer disposal one task and cancel only when
+            // that exact resource set was reactivated.
+            const staleMixer = mixer;
+            const staleOutlineMixer = outlineMixer;
+            const stalePrepared = prepared;
+            setTimeout(() => {
+                const reactivated = cleanupGeneration.current !== generation
+                    && liveMixer.current === staleMixer
+                    && liveOutlineMixer.current === staleOutlineMixer
+                    && livePrepared.current === stalePrepared;
+                if (reactivated) return;
+                retirePetAnimationMixer(staleMixer);
+                retirePetAnimationMixer(staleOutlineMixer);
+                for (const material of stalePrepared.materials) material.dispose();
+            }, 0);
+        };
     }, [mixer, outlineMixer, prepared]);
 
     /* eslint-disable react-hooks/immutability -- Three.js uniforms and Object3D transforms are mutable render-loop state; mutating them inside useFrame is the R3F animation contract. */
@@ -782,13 +895,15 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         const b = body.current;
         if (!r || !b) return;
         const f = frame.current;
+        const animation = animationEpoch;
+        synchronizePetAnimationEpoch(animation, mixer, outlineMixer, "idle");
         const signatureDirection = f.signature ?? signature;
         const signatureCadence = signatureDirection?.cadence ?? 1;
         const signatureAgility = signatureDirection?.agility ?? 1;
         const signatureWeight = signatureDirection?.weight ?? 1;
         const signatureStrike = signatureDirection?.strikeDrive ?? 1;
         const signatureRecoil = signatureDirection?.recoil ?? 1;
-        const authoredCombatRig = isAuthoredCombatRig(config.visualId, prepared.clips);
+        const authoredCombatRig = prepared.authoredCombatRig;
         const groundedAuthoredQuadruped = authoredCombatRig && config.profile === "quadruped";
         const aquaticSeal = config.visualId === "starter-water" || config.visualId === "starter-water-r";
         const t = state.clock.elapsedTime;
@@ -806,10 +921,10 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         const presentationDelta = f.timeline === undefined ? delta : animationDelta;
         lastTimeline.current = timeline;
         if (timelineReset) {
-            activeClip.current = null;
-            activeFamily.current = "idle";
-            activeAction.current = null;
-            activeOutlineAction.current = null;
+            animation.activeClip = null;
+            animation.activeFamily = "idle";
+            animation.activeAction = null;
+            animation.activeOutlineAction = null;
             mixer?.stopAllAction();
             outlineMixer?.stopAllAction();
             lastVictorious.current = false;
@@ -853,7 +968,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         // planted launch, airborne read, and landing; seals stay lower than paws.
         const dodgeHeight = dodgeArc * config.targetHeight * (aquaticSeal ? 0.075 : config.profile === "heavy" ? 0.085 : 0.13) * (signatureDirection?.dodgeLift ?? 1);
         if (mixer) {
-            const clip = combatClip(prepared.clips, f, config.profile);
+            const clip = combatClip(prepared.clipsByName, f, config.profile);
             const family = combatAnimationFamily(f);
             // NO idle_2 QUIRK. Round 38 broke the idle loop every ~9s with the
             // rig's second idle take to keep pets alive between beats; owner
@@ -865,23 +980,23 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             // personality players actually read comes from the procedural
             // hero-pose layer, which is rig-safe; this take is left alone.
             const oneShot = family === "death" || family === "entrance" || family === "dodge" || family === "hit" || family === "attack" || family === "victory";
-            const enteringOneShot = oneShot && activeFamily.current !== family;
+            const enteringOneShot = oneShot && animation.activeFamily !== family;
             const phaseWindow = attackClipWindow(f.motion);
             const enteringAttackPhase = !!phaseWindow && motionChanged;
-            const reusingAttackTake = !!clip && activeClip.current === clip && !!activeAction.current && enteringAttackPhase;
+            const reusingAttackTake = !!clip && animation.activeClip === clip && !!animation.activeAction && enteringAttackPhase;
             if (reusingAttackTake && clip && phaseWindow) {
                 // Windup, contact, and recovery share one generated take, but each
                 // phase owns a distinct time window. Re-cueing that window keeps
                 // anticipation from reaching the raised-paw final frame early.
-                const next = activeAction.current!;
+                const next = animation.activeAction!;
                 next.reset();
                 next.enabled = true;
                 next.clampWhenFinished = true;
                 next.setLoop(THREE.LoopOnce, 1);
                 next.time = clip.duration * phaseWindow.start;
                 next.play();
-                if (outlineMixer && activeOutlineAction.current) {
-                    const outline = activeOutlineAction.current;
+                if (outlineMixer && animation.activeOutlineAction) {
+                    const outline = animation.activeOutlineAction;
                     outline.reset();
                     outline.enabled = true;
                     outline.clampWhenFinished = true;
@@ -889,8 +1004,8 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
                     outline.time = clip.duration * phaseWindow.start;
                     outline.play();
                 }
-            } else if (clip && (activeClip.current !== clip || enteringOneShot)) {
-                const previous = activeAction.current;
+            } else if (clip && (animation.activeClip !== clip || enteringOneShot)) {
+                const previous = animation.activeAction;
                 const next = mixer.clipAction(clip);
                 next.reset();
                 next.enabled = true;
@@ -900,7 +1015,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
                 next.fadeIn(transition).play();
                 previous?.fadeOut(transition * 0.85);
                 if (outlineMixer) {
-                    const previousOutline = activeOutlineAction.current;
+                    const previousOutline = animation.activeOutlineAction;
                     const nextOutline = outlineMixer.clipAction(clip);
                     nextOutline.reset();
                     nextOutline.enabled = true;
@@ -908,13 +1023,13 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
                     nextOutline.setLoop(oneShot ? THREE.LoopOnce : THREE.LoopRepeat, oneShot ? 1 : Infinity);
                     nextOutline.fadeIn(transition).play();
                     previousOutline?.fadeOut(transition * 0.85);
-                    activeOutlineAction.current = nextOutline;
+                    animation.activeOutlineAction = nextOutline;
                 }
-                activeClip.current = clip;
-                activeFamily.current = family;
-                activeAction.current = next;
+                animation.activeClip = clip;
+                animation.activeFamily = family;
+                animation.activeAction = next;
             }
-            activeFamily.current = family;
+            animation.activeFamily = family;
             // Cadence follows measured world velocity. The previous fixed rate was
             // acceptable at the old arena speed but became obvious foot sliding
             // after movement skills and reposition sprints were accelerated.
@@ -951,20 +1066,20 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
                             ? THREE.MathUtils.clamp(0.72 + f.speed * 0.44, 1.05, 2.7)
                             : 1;
             const rateBlend = Math.min(1, presentationDelta * 8);
-            if (activeAction.current) activeAction.current.timeScale = THREE.MathUtils.lerp(activeAction.current.timeScale, locomotionRate, rateBlend);
-            if (activeOutlineAction.current) activeOutlineAction.current.timeScale = THREE.MathUtils.lerp(activeOutlineAction.current.timeScale, locomotionRate, rateBlend);
+            if (animation.activeAction) animation.activeAction.timeScale = THREE.MathUtils.lerp(animation.activeAction.timeScale, locomotionRate, rateBlend);
+            if (animation.activeOutlineAction) animation.activeOutlineAction.timeScale = THREE.MathUtils.lerp(animation.activeOutlineAction.timeScale, locomotionRate, rateBlend);
             mixer.update(presentationDelta);
             outlineMixer?.update(presentationDelta);
-            if (phaseWindow && activeClip.current && activeAction.current) {
-                const phaseEnd = activeClip.current.duration * phaseWindow.end;
-                if (activeAction.current.time >= phaseEnd) {
-                    activeAction.current.time = phaseEnd;
-                    activeAction.current.paused = true;
+            if (phaseWindow && animation.activeClip && animation.activeAction) {
+                const phaseEnd = animation.activeClip.duration * phaseWindow.end;
+                if (animation.activeAction.time >= phaseEnd) {
+                    animation.activeAction.time = phaseEnd;
+                    animation.activeAction.paused = true;
                     mixer.update(0);
                 }
-                if (activeOutlineAction.current && outlineMixer && activeOutlineAction.current.time >= phaseEnd) {
-                    activeOutlineAction.current.time = phaseEnd;
-                    activeOutlineAction.current.paused = true;
+                if (animation.activeOutlineAction && outlineMixer && animation.activeOutlineAction.time >= phaseEnd) {
+                    animation.activeOutlineAction.time = phaseEnd;
+                    animation.activeOutlineAction.paused = true;
                     outlineMixer.update(0);
                 }
             }
@@ -1115,7 +1230,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         });
         const faceLength = Math.hypot(lookX, lookZ);
         let turnBank = 0;
-        if (faceLength > 0.01) {
+        if (faceLength > 0.01 && !f.freezeFacing) {
             const wantedYaw = resolveCombatBodyYaw(lookX, lookZ, config.yawOffset);
             const yawError = Math.atan2(Math.sin(wantedYaw - r.rotation.y), Math.cos(wantedYaw - r.rotation.y));
             turnBank = authoredCombatRig && running ? THREE.MathUtils.clamp(-yawError * 0.1, -0.075, 0.075) : 0;
@@ -1130,6 +1245,14 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
                 // visible frames, especially in the four-pet Coliseum layout.
                 r.rotation.y = wantedYaw;
                 facingInitialized.current = true;
+            } else if (f.turnRate !== undefined && f.maxTurnPerFrame !== undefined) {
+                r.rotation.y = advanceCombatBodyYaw(
+                    r.rotation.y,
+                    wantedYaw,
+                    presentationDelta,
+                    f.turnRate,
+                    f.maxTurnPerFrame,
+                );
             } else if (committedFacing && Math.abs(yawError) > Math.PI * 0.56) r.rotation.y = wantedYaw;
             else {
                 const turnRate = committedFacing ? 24 : authoredCombatRig ? (faceTravel ? 11 : 13) : (faceTravel ? 15 : 12);
@@ -1137,7 +1260,12 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             }
         }
         const utilityLift = restBreath * config.targetHeight * (config.profile === "heavy" ? 0.018 : 0.032);
-        const rootHeight = bob + dodgeHeight + avianDiveArc + victoryArc + heroPose.lift + utilityLift + entryLift + (dead ? deathPose.lift - deathPose.sink : 0);
+        // Idle personality may breathe, listen, coil, or sway inside the body
+        // group, but its world root stays planted. In particular the hopper
+        // package used to lift the whole actor every loop, which read as constant
+        // hopping and made the contact shadow slide despite a stationary sim.
+        const actionLift = idle ? 0 : heroPose.lift;
+        const rootHeight = bob + dodgeHeight + avianDiveArc + victoryArc + actionLift + utilityLift + entryLift + (dead ? deathPose.lift - deathPose.sink : 0);
         r.position.y = THREE.MathUtils.lerp(r.position.y, dead ? rootHeight : Math.max(0, rootHeight), Math.min(1, presentationDelta * (avianDive || dodge || dead ? 18 : 12)));
         // The generated roster takes provide leg/head motion but their attack clip
         // has almost no centre-of-mass commitment. Layer one smooth, restrained
@@ -1260,6 +1388,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         // response. Keep mesh emission restrained so a hit never erases the model's
         // colours and surface planes with a full-body white flash.
         const glow = Math.max(hit * 0.12, f.casting ? 0.012 + Math.abs(Math.sin(timeline * 6)) * 0.02 : 0, statusPulse, desperation);
+        for (const uniform of prepared.uniforms) uniform.impactGlow.value = glow;
         for (const material of prepared.materials) {
             const pbr = material as THREE.MeshStandardMaterial & { isMeshToonMaterial?: boolean };
             if (!pbr.isMeshStandardMaterial && !pbr.isMeshToonMaterial) continue;
@@ -1314,7 +1443,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
 /** Approved textured GLBs are the production combat bodies. Their dense surface
  * detail reads far more cleanly than the earlier primitive-built prototypes; the
  * shared deformation rig supplies combat motion until authored skeletal clips land. */
-export function PetModel3D({ config, frame, element, showIdentity = true, surfaceTreatment, signature, quality }: {
+export function PetModel3D({ config, frame, element, showIdentity = true, surfaceTreatment, signature, quality, silhouette = "inverted-hull" }: {
     config: PetCombatModelConfig;
     frame: MutableRefObject<PetModelFrame>;
     element?: string;
@@ -1322,6 +1451,9 @@ export function PetModel3D({ config, frame, element, showIdentity = true, surfac
     surfaceTreatment?: PetModelSurfaceTreatment;
     signature?: PetSignaturePerformance;
     quality?: PetVisualQualityConfig;
+    /** Warfront keeps one animated rig and draws its action contour in the
+     * surface shader; two-fighter stages retain the larger inverted hull. */
+    silhouette?: PetModelSilhouette;
 }) {
     return (
         <LoadedPetModel3D
@@ -1332,6 +1464,7 @@ export function PetModel3D({ config, frame, element, showIdentity = true, surfac
             surfaceTreatment={surfaceTreatment}
             signature={signature}
             quality={quality}
+            silhouette={silhouette}
         />
     );
 }

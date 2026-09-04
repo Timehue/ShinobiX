@@ -299,7 +299,7 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
         minLevel: 30,
         minPets: 4,
         eyebrow: "Chunin command",
-        title: "Command the Hollow Warfront",
+        title: "Command Beastbound Warfront",
         shortTitle: "Warfront",
         summary: "Field four pets at once, choose who holds the front line, and take two clashes out of three.",
         practiceLabel: "Open Warfront command",

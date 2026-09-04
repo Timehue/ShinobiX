@@ -337,12 +337,34 @@ interface Projectile {
 export interface DuelActorSnap {
     id: string; team: "player" | "enemy"; slot: number;
     x: number; y: number; faceX: number; faceY: number;
+    /** Current combat assignment. Public because replay presentation needs to
+     * show focus/peel causality even when developer AI traces are disabled. */
+    targetId?: string | null;
     hp: number; maxHp: number; stamina: number; state: DuelState; statuses: string[];
     /** Present only when a developer explicitly requests an AI trace. */
     ai?: DuelAiDebug;
 }
 export interface DuelProjSnap { id: number; x: number; y: number; team: "player" | "enemy"; kind: PetJutsu["kind"]; element?: string | null; }
-export interface DuelSnapshot { t: number; actors: DuelActorSnap[]; projectiles: DuelProjSnap[]; }
+export type DuelObjectiveId = "forbidden-scroll" | "seal-veil" | "seal-tide" | "seal-cinder" | "player-extraction" | "enemy-extraction";
+export interface DuelObjectiveSnap {
+    id: DuelObjectiveId;
+    kind: "scroll" | "seal" | "extraction";
+    owner: "player" | "enemy" | null;
+    x: number; y: number;
+    homeX: number; homeY: number;
+    carrierId: string | null;
+    state: "sealed" | "neutral" | "contested" | "captured" | "available" | "carried" | "dropped" | "inactive" | "active";
+    /** Signed control meter for seals: +1 player, -1 enemy. */
+    progress: number;
+    active: boolean;
+}
+export interface DuelSnapshot {
+    t: number;
+    actors: DuelActorSnap[];
+    projectiles: DuelProjSnap[];
+    /** Present only for objective modes such as Beastbound Warfront. */
+    objectives?: DuelObjectiveSnap[];
+}
 
 export type DuelAiState = "engage" | "attack" | "kite" | "flank" | "retreat" | "regroup" | "burst" | "hold position" | "reposition" | "prepare combo" | "execute combo" | "escape danger" | "eliminated";
 export interface DuelAiDebug {
@@ -356,7 +378,8 @@ export interface DuelAiDebug {
     elementalSetup?: string;
 }
 
-export type DuelEventType = "dash" | "maneuver" | "dodge" | "windup" | "cast" | "hit" | "whiff" | "stagger" | "heal" | "shield" | "buff" | "ultimate" | "ko";
+export type DuelEventType = "dash" | "maneuver" | "dodge" | "windup" | "cast" | "hit" | "whiff" | "stagger" | "heal" | "shield" | "buff" | "ultimate" | "ko"
+    | "seal_capture" | "vault_open" | "relic_pickup" | "relic_drop" | "relic_return" | "capture";
 export type DuelPerfectRole = "punish" | "counter" | "rally" | "shift";
 export interface DuelEvent { t: number; type: DuelEventType; side: "player" | "enemy"; actorId: string; targetId?: string; dmg?: number; crit?: boolean; element?: string | null; kind?: PetJutsu["kind"]; ranged?: boolean; move?: string; signature?: boolean; combo?: string; perfect?: DuelPerfectRole; verdict?: string; }
 

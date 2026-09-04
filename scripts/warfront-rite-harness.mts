@@ -58,7 +58,7 @@ const q = (xs: number[], p: number) => {
     return s[Math.min(s.length - 1, Math.max(0, Math.ceil(s.length * p) - 1))] ?? 0;
 };
 
-console.log(`\nHollow Warfront · Rite harness — ${MATCHES} matches, 4v4, hp scale ${RITE_SQUAD_HP_SCALE}, pool ${POOL.length}\n`);
+console.log(`\nBeastbound Warfront harness — ${MATCHES} matches, 4v4 formation combat, hp scale ${RITE_SQUAD_HP_SCALE}, pool ${POOL.length}\n`);
 
 // ── 1. Mirror fairness, pacing and participation ────────────────────────────
 const matchLens: number[] = [];

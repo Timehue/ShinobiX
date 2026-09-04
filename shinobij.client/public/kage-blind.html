@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Combat Comparison</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background:#020609; color:#edf7fa; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:radial-gradient(circle at 50% 0,#10222a,#020609 58%); }
+    header { height:58px; display:flex; align-items:center; justify-content:space-between; gap:18px; padding:8px max(16px,3vw); border-bottom:1px solid #29434b; background:#061015e8; }
+    header strong { font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:#d7b76e; }
+    nav { display:flex; gap:8px; }
+    button { min-width:52px; min-height:40px; border:1px solid #4d6972; border-radius:8px; background:#0b1b22; color:#dff6fb; font-weight:900; cursor:pointer; }
+    button[aria-pressed="true"] { border-color:#8de7f3; background:#123843; box-shadow:0 0 22px #58d2e533; }
+    main { width:min(1280px,100vw); margin:auto; }
+    .frame { position:relative; aspect-ratio:16/9; overflow:hidden; background:#000; box-shadow:0 24px 80px #000c; }
+    iframe { position:absolute; inset:0; width:100%; height:100%; border:0; background:#000; }
+    iframe[hidden] { display:none; }
+    .prompt { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; padding:12px max(14px,2vw) 18px; color:#9bb0b7; font-size:12px; }
+    .prompt span { padding:9px 11px; border:1px solid #20363e; border-radius:7px; background:#071117c7; }
+    @media(max-width:700px){ header { height:50px; } .prompt { grid-template-columns:1fr 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <strong id="title">Blind combat read · eight seconds · muted</strong>
+    <nav aria-label="Candidate clip"><button id="a" aria-pressed="true">A</button><button id="b" aria-pressed="false">B</button></nav>
+  </header>
+  <main>
+    <div class="frame" id="frame"></div>
+    <div class="prompt" aria-label="Review questions">
+      <span>Which team owns the first attacker?</span><span>What is its target?</span><span>What causes the first knockout?</span><span>Which clip is clearer and more impactful?</span>
+    </div>
+  </main>
+  <script>
+    const piece = new URLSearchParams(location.search).get("piece") ?? "combat";
+    const ours = "/petvfx.html?rite=1&petQuality=high&ritespeed=0.78&autostart=1";
+    const bar = piece === "counterplay"
+      ? "https://www.youtube-nocookie.com/embed/szx3gn7Z7zQ?autoplay=1&mute=1&controls=0&loop=1&playlist=szx3gn7Z7zQ&playsinline=1&start=112&end=145&modestbranding=1"
+      : "https://www.youtube-nocookie.com/embed/9-xi14T_1H0?autoplay=1&mute=1&controls=0&loop=1&playlist=9-xi14T_1H0&playsinline=1&start=0&end=8&modestbranding=1";
+    if (piece === "counterplay") {
+      document.getElementById("title").textContent = "Blind round-loop read · combat to next decision · muted";
+      document.querySelector(".prompt").innerHTML = "<span>Can you name why the round ended?</span><span>What evidence informs the next move?</span><span>Is the next decision explicit?</span><span>Which loop creates the stronger counterplay?</span>";
+    }
+    const order = crypto.getRandomValues(new Uint8Array(1))[0] % 2 ? [ours, bar] : [bar, ours];
+    const frameHost = document.getElementById("frame");
+    let activeFrame = null;
+    let activeIndex = -1;
+    function show(index) {
+      if (index === activeIndex) return;
+      // A CSS-hidden iframe remains a live page. Keeping both candidates
+      // mounted therefore kept an invisible R3F render loop and WebGL context
+      // alive beside the visible candidate. Fully navigate away and detach the
+      // old candidate before the replacement may allocate its context.
+      if (activeFrame) {
+        activeFrame.src = "about:blank";
+        activeFrame.remove();
+      }
+      const node = document.createElement("iframe");
+      node.title = `Combat candidate ${index ? "B" : "A"}`;
+      node.src = order[index];
+      node.allow = "autoplay; encrypted-media";
+      frameHost.append(node);
+      activeFrame = node;
+      activeIndex = index;
+      document.getElementById("a").setAttribute("aria-pressed", String(index === 0));
+      document.getElementById("b").setAttribute("aria-pressed", String(index === 1));
+    }
+    document.getElementById("a").onclick = () => show(0);
+    document.getElementById("b").onclick = () => show(1);
+    show(0);
+  </script>
+</body>
+</html>

@@ -2,24 +2,140 @@
  * Hollow Warfront — the Rite.
  *
  * A full-screen mode overlay. The 3D stage owns the frame; every HUD element
- * sits at an edge so the two fighters are never covered. Panels are translucent
+ * sits at an edge so the eight fighters are never covered. Panels are translucent
  * over the void rather than opaque cards, so the arena light reads through them.
  */
 
 .wfr-root {
     position: fixed;
     inset: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 100svh;
     z-index: 1000;
     display: flex;
     flex-direction: column;
-    background: radial-gradient(120% 90% at 50% 40%, #0d1a24 0%, #05090e 70%, #03060a 100%);
+    background: #030609;
     color: #e6f1f6;
     font-family: inherit;
     overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: manipulation;
+    isolation: isolate;
+}
+.wfr-root, .wfr-root * { box-sizing: border-box; }
+.wfr-root::before,
+.wfr-root::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.wfr-root::before {
+    z-index: 0;
+    background: url("/assets/warfront/kage-tactics-temple-court-v3-landscape.webp") center 50% / cover no-repeat;
+    transform: scale(1.006);
+    transform-origin: 50% 50%;
+}
+.wfr-root[data-wfr-canvas-camera="true"]::before {
+    transform:
+        translate3d(var(--wfr-camera-shift-x, 0px), var(--wfr-camera-shift-y, 0px), 0)
+        scale(var(--wfr-camera-zoom, 1));
+    will-change: transform;
+}
+.wfr-root::after {
+    z-index: 0;
+    background:
+        radial-gradient(ellipse at 50% 50%, rgba(1, 7, 11, 0.02) 0 42%, rgba(1, 5, 9, 0.36) 88%),
+        linear-gradient(90deg, rgba(4, 35, 47, 0.12), transparent 36% 64%, rgba(52, 10, 12, 0.12));
+    box-shadow: inset 0 0 96px rgba(0, 0, 0, 0.48);
 }
 
-.wfr-stage { position: absolute; inset: 0; }
-.wfr-canvas { display: block; width: 100%; height: 100%; }
+.wfr-stage { position: absolute; inset: 0; z-index: 1; }
+.wfr-canvas { position: relative; display: block; width: 100%; height: 100%; background: transparent; }
+.wfr-canvas-static,
+.wfr-canvas-surface { position: absolute; inset: 0; display: block; width: 100%; height: 100%; background: transparent; }
+.wfr-canvas-static { z-index: 0; }
+.wfr-canvas-surface { z-index: 1; }
+
+@media (orientation: portrait) {
+    .wfr-root::before {
+        background-image: url("/assets/warfront/kage-tactics-temple-court-v3-portrait.webp");
+        background-position: center 50%;
+    }
+    .wfr-root::after {
+        background:
+            radial-gradient(ellipse at 50% 49%, rgba(1, 7, 11, 0.01) 0 46%, rgba(1, 5, 9, 0.38) 92%),
+            linear-gradient(90deg, rgba(4, 35, 47, 0.1), transparent 35% 65%, rgba(52, 10, 12, 0.1));
+        box-shadow: inset 0 0 72px rgba(0, 0, 0, 0.42);
+    }
+}
+.wfr-render-recovery {
+    position: absolute;
+    inset: 0;
+    z-index: 9;
+    display: grid;
+    place-content: center;
+    gap: 8px;
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 46%, rgba(28, 70, 82, 0.36), rgba(2, 5, 7, 0.96) 60%);
+    color: #d7e8ed;
+    text-align: center;
+    letter-spacing: 0.08em;
+}
+.wfr-render-recovery strong { color: #e7d09e; font-family: "Marcellus", Georgia, serif; letter-spacing: 0.16em; }
+.wfr-render-recovery span { color: #8fb6c6; font-size: 0.72rem; }
+
+/* The cold stage hydrates behind an opaque, explicitly non-gameplay curtain.
+   It opens once, only after all eight GLTF rigs have painted at tick zero. */
+.wfr-stage-curtain {
+    position: absolute;
+    inset: 0;
+    z-index: 8;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+    opacity: 1;
+    visibility: visible;
+    background:
+        radial-gradient(circle at 50% 46%, rgba(31, 58, 67, 0.24), transparent 32%),
+        linear-gradient(160deg, #071016, #020507 72%);
+    color: #cbdde4;
+}
+.wfr-stage-curtain.is-open {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 280ms ease, visibility 0s linear 280ms;
+}
+.wfr-stage-curtain > div { display: flex; flex-direction: column; align-items: center; gap: 7px; }
+.wfr-stage-curtain strong {
+    color: #e7d09e;
+    font-family: "Marcellus", Georgia, serif;
+    font-size: clamp(0.78rem, 2vw, 0.96rem);
+    font-weight: 400;
+    letter-spacing: 0.16em;
+}
+.wfr-stage-curtain span { color: #8fb6c6; font-size: 0.65rem; letter-spacing: 0.08em; }
+
+.wfr-canvas-fallback {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 14px;
+    padding: 18vh max(18px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+    background: radial-gradient(circle at 50% 62%, rgba(40, 93, 111, 0.5), rgba(4, 9, 14, 0.96) 58%);
+    color: #eaf9ff;
+    text-align: center;
+}
+.wfr-canvas-fallback > strong { color: #ffe37a; letter-spacing: 0.18em; }
+.wfr-canvas-fallback > small { grid-column: 1 / -1; color: #8fb6c6; }
+.wfr-fallback-band { display: grid; grid-template-columns: repeat(2, 42px); justify-content: center; gap: 12px; }
+.wfr-fallback-band span { width: 42px; height: 42px; display: grid; place-items: center; border: 2px solid currentColor; border-radius: 50%; background: rgba(4, 12, 18, 0.82); font-weight: 900; }
+.wfr-fallback-band.is-blue { color: #4cc9f0; }
+.wfr-fallback-band.is-red { color: #ff5470; }
 
 .wfr-loading {
     position: absolute;
@@ -37,7 +153,8 @@
     font-size: 0.68rem;
     letter-spacing: 0.22em;
     text-transform: uppercase;
-    color: #6fd7ef;
+    color: #9fd8e4;
+    text-shadow: 0 0 16px rgba(65, 185, 220, 0.38);
 }
 
 .wfr-el {
@@ -59,6 +176,16 @@
     flex: 0 0 auto;
 }
 .wfr-portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wfr-portrait.is-placement-art img {
+    object-fit: contain;
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.62));
+}
+.wfr-portrait.is-placement-art.has-neutral-rim img {
+    filter:
+        drop-shadow(0 0 1px rgba(225, 235, 232, 0.72))
+        drop-shadow(0 0 4px rgba(201, 218, 214, 0.2))
+        drop-shadow(0 2px 2px rgba(0, 0, 0, 0.62));
+}
 .wfr-portrait-glyph { font-weight: 800; font-size: 1.1rem; }
 
 /* ── Deploy ────────────────────────────────────────────────────────────── */
@@ -67,39 +194,186 @@
     position: relative;
     z-index: 2;
     margin: auto;
-    width: min(560px, 94vw);
-    max-height: 94vh;
+    width: min(780px, calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 24px));
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px);
     overflow-y: auto;
     padding: 22px 24px 24px;
     display: flex;
     flex-direction: column;
     gap: 16px;
-    background: rgba(9, 18, 26, 0.92);
-    border: 1px solid rgba(111, 215, 239, 0.24);
-    border-radius: 14px;
-    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+    background:
+        linear-gradient(135deg, rgba(209, 167, 88, 0.08), transparent 20% 80%, rgba(116, 173, 189, 0.08)),
+        linear-gradient(180deg, rgba(14, 24, 30, 0.94), rgba(5, 11, 16, 0.97));
+    border: 1px solid rgba(216, 182, 111, 0.48);
+    border-radius: 4px 18px 4px 18px;
+    box-shadow:
+        0 34px 100px rgba(0, 0, 0, 0.78),
+        0 0 0 1px rgba(95, 207, 232, 0.12),
+        inset 0 1px 0 rgba(255, 237, 193, 0.08),
+        inset 0 0 80px rgba(0, 0, 0, 0.34);
+    backdrop-filter: blur(14px) saturate(1.12);
 }
+.wfr-deploy > * { flex-shrink: 0; }
+.wfr-guide-drawer { display: contents; }
+.wfr-landscape-drawer-trigger,
+.wfr-inspect-ack { display: none; }
 
-.wfr-deploy-head h2 { margin: 6px 0 8px; font-size: 1.5rem; letter-spacing: -0.01em; }
+.wfr-deploy-head { position: relative; min-height: 68px; padding-right: 82px; border-bottom: 1px solid rgba(209, 167, 88, 0.32); }
+.wfr-deploy-head::after {
+    content: "";
+    position: absolute;
+    top: -8px;
+    right: 4px;
+    width: 72px;
+    height: 72px;
+    border: 1px solid rgba(200, 170, 107, 0.62);
+    border-radius: 50%;
+    background:
+        radial-gradient(circle, transparent 0 22%, rgba(181, 140, 81, 0.7) 23% 25%, transparent 26% 42%, rgba(50, 146, 167, 0.65) 43% 46%, transparent 47%),
+        conic-gradient(from 22.5deg, transparent 0 8%, rgba(49, 156, 181, 0.58) 9% 15%, transparent 16% 33%, rgba(138, 48, 42, 0.62) 34% 42%, transparent 43% 58%, rgba(49, 156, 181, 0.58) 59% 66%, transparent 67% 84%, rgba(138, 48, 42, 0.62) 85% 92%, transparent 93%);
+    filter: drop-shadow(0 0 18px rgba(78, 201, 228, 0.24));
+    opacity: 0.84;
+}
+.wfr-deploy-head h2 {
+    margin: 6px 0 8px;
+    color: #f1d9a5;
+    font-family: "Marcellus", Georgia, serif;
+    font-size: clamp(1.55rem, 3vw, 2.05rem);
+    font-weight: 400;
+    letter-spacing: 0.025em;
+    text-shadow: 0 2px 18px rgba(0, 0, 0, 0.8);
+}
 .wfr-deploy-copy { margin: 0; font-size: 0.9rem; line-height: 1.5; color: #a9c4d1; }
 .wfr-deploy-copy strong { color: #e6f1f6; }
 
 .wfr-scout {
-    border: 1px solid rgba(255, 84, 112, 0.34);
-    background: rgba(48, 12, 20, 0.42);
-    border-radius: 10px;
+    position: relative;
+    border: 1px solid rgba(196, 82, 73, 0.52);
+    background:
+        linear-gradient(90deg, rgba(98, 20, 24, 0.48), rgba(31, 12, 17, 0.62) 46%, rgba(10, 15, 20, 0.8)),
+        url("/assets/warfront/kage-tactics-temple-court-v3-landscape.webp") right 44% / 100% auto no-repeat;
+    border-radius: 3px 12px 3px 12px;
     padding: 12px 14px;
+    box-shadow: inset 3px 0 0 rgba(210, 74, 69, 0.72), inset 0 1px rgba(255, 190, 160, 0.08);
 }
 .wfr-scout h3 {
     margin: 0 0 8px;
     font-size: 0.66rem;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: #ff8fa3;
+    color: #f0a28d;
 }
 .wfr-scout-body { display: flex; align-items: center; gap: 12px; }
 .wfr-scout-body strong { display: block; font-size: 1rem; }
 .wfr-scout-note { margin: 10px 0 0; font-size: 0.78rem; color: #9fb6c2; }
+
+.wfr-placement-shell {
+    display: grid;
+    grid-template-columns: minmax(190px, 0.72fr) minmax(330px, 1.28fr);
+    gap: 14px;
+    align-items: stretch;
+}
+.wfr-pet-picker { display: grid; gap: 7px; align-content: start; }
+.wfr-pet-picker > button {
+    min-width: 0;
+    min-height: 58px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 9px;
+    padding: 7px 9px;
+    border: 1px solid rgba(154, 170, 172, 0.28);
+    border-radius: 3px 10px 3px 10px;
+    background:
+        linear-gradient(100deg, rgba(29, 48, 56, 0.9), rgba(8, 17, 23, 0.92)),
+        radial-gradient(circle at 10% 50%, rgba(105, 210, 230, 0.14), transparent 38%);
+    color: #dcecf3;
+    text-align: left;
+    cursor: pointer;
+}
+.wfr-pet-picker > button.is-selected {
+    border-color: #8fd4df;
+    background: linear-gradient(100deg, rgba(23, 91, 107, 0.82), rgba(8, 25, 33, 0.94));
+    box-shadow: inset 3px 0 0 #72cfdf, 0 0 22px rgba(70, 183, 207, 0.13);
+}
+.wfr-pet-picker > button > span:not(.wfr-portrait):not(.wfr-pip) { min-width: 0; display: grid; gap: 2px; }
+.wfr-pet-picker strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.82rem; }
+.wfr-pet-picker small { color: #91aeba; font-size: 0.66rem; text-transform: capitalize; }
+.wfr-pet-picker .wfr-pip { grid-column: 1 / -1; width: 100%; }
+
+.wfr-placement-board {
+    position: relative;
+    min-height: 330px;
+    padding: 28px 10px 10px 54px;
+    border-radius: 3px 12px 3px 12px;
+    border: 1px solid rgba(209, 167, 88, 0.4);
+    background:
+        linear-gradient(rgba(3, 8, 12, 0.28), rgba(3, 8, 12, 0.46)),
+        url("/assets/warfront/kage-tactics-temple-court-v3-landscape.webp") center 58% / cover no-repeat;
+    overflow: hidden;
+    box-shadow: inset 0 0 34px rgba(0, 0, 0, 0.66), 0 10px 28px rgba(0, 0, 0, 0.25);
+}
+.wfr-placement-board::after {
+    content: "ENEMY LINE";
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%) rotate(90deg);
+    transform-origin: center;
+    color: rgba(255, 143, 163, 0.66);
+    font-size: 0.58rem;
+    letter-spacing: 0.16em;
+}
+.wfr-depth-labels {
+    position: absolute;
+    top: 7px;
+    left: 54px;
+    right: 25px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    text-align: center;
+    color: #7395a4;
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.wfr-placement-grid {
+    height: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(62px, 1fr));
+    grid-template-rows: repeat(5, minmax(48px, 1fr));
+    gap: 8px;
+}
+.wfr-placement-grid > button {
+    min-width: 0;
+    min-height: 58px;
+    display: grid;
+    place-items: center;
+    padding: 4px;
+    border-radius: 50% 50% 42% 42%;
+    border: 1px solid rgba(151, 181, 187, 0.3);
+    background: radial-gradient(circle, rgba(7, 20, 26, 0.68) 0 47%, rgba(2, 7, 10, 0.28) 49% 100%);
+    color: #dcecf3;
+    cursor: pointer;
+}
+.wfr-placement-grid > button:hover { background: radial-gradient(circle, rgba(29, 107, 123, 0.68), rgba(4, 16, 21, 0.5)); border-color: #8fd4df; }
+.wfr-placement-grid > button.is-occupied { border-color: rgba(135, 212, 223, 0.72); background: radial-gradient(circle, rgba(20, 66, 75, 0.86), rgba(4, 16, 21, 0.54)); }
+.wfr-placement-grid > button.is-selected { box-shadow: 0 0 0 2px #d5b26c, 0 0 24px rgba(104, 215, 234, 0.48), inset 0 0 16px rgba(104, 215, 234, 0.2); }
+.wfr-placement-grid > button:disabled { cursor: not-allowed; opacity: 0.48; }
+.wfr-empty-node { width: 20px; height: 20px; border-radius: 50%; border: 2px solid rgba(111, 215, 239, 0.44); box-shadow: 0 0 12px rgba(111, 215, 239, 0.18); }
+.wfr-route-labels {
+    position: absolute;
+    left: 8px;
+    top: 31px;
+    bottom: 11px;
+    display: grid;
+    grid-template-rows: repeat(5, 1fr);
+    align-items: center;
+    color: #87a8b6;
+    font-size: 0.58rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
 
 .wfr-order { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .wfr-order li {
@@ -111,7 +385,10 @@
     background: rgba(16, 30, 40, 0.8);
     border: 1px solid rgba(120, 190, 215, 0.16);
 }
-.wfr-order li.is-lead { border-color: rgba(111, 215, 239, 0.55); background: rgba(16, 44, 56, 0.85); }
+.wfr-order li.is-vanguard { border-color: rgba(111, 215, 239, 0.55); background: rgba(16, 44, 56, 0.85); }
+.wfr-order li.is-warden { border-color: rgba(230, 179, 93, 0.42); }
+.wfr-order li.is-flanker { border-color: rgba(170, 140, 255, 0.46); }
+.wfr-order li.is-anchor { border-color: rgba(95, 220, 147, 0.42); background: rgba(14, 39, 35, 0.76); }
 .wfr-slot-no {
     width: 22px;
     font-weight: 800;
@@ -120,6 +397,7 @@
 }
 .wfr-order-id { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .wfr-order-id strong { font-size: 0.94rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wfr-job-brief { font-size: 0.68rem; color: #91aeba; line-height: 1.25; }
 .wfr-order-moves { display: flex; flex-direction: column; gap: 3px; }
 .wfr-order-moves button {
     width: 30px;
@@ -183,27 +461,40 @@
     font-size: 0.82rem;
 }
 
-.wfr-deploy-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.wfr-deploy-actions {
+    position: sticky;
+    z-index: 3;
+    bottom: 0;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    padding-top: 10px;
+    background: linear-gradient(to bottom, transparent, rgba(9, 18, 26, 0.99) 28%);
+}
 .wfr-btn-primary, .wfr-btn-ghost {
     padding: 10px 18px;
-    border-radius: 9px;
+    border-radius: 2px 9px 2px 9px;
     font-weight: 700;
     font-size: 0.88rem;
     cursor: pointer;
     min-height: 44px;
     border: 1px solid transparent;
 }
-.wfr-btn-primary { background: #17627a; border-color: #6fd7ef; color: #eaf9ff; }
+.wfr-btn-primary {
+    background: linear-gradient(135deg, #2c8598, #145468 64%, #0d3643);
+    border-color: #bcdfe3;
+    color: #f8f3e8;
+    box-shadow: inset 0 1px rgba(255,255,255,0.18), 0 6px 24px rgba(23, 119, 142, 0.26);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
 .wfr-btn-primary:disabled { opacity: 0.45; cursor: default; }
-.wfr-btn-primary:not(:disabled):hover { background: #1d7d99; }
-.wfr-btn-ghost { background: transparent; border-color: rgba(120, 190, 215, 0.32); color: #a9c4d1; }
+.wfr-btn-primary:not(:disabled):hover { background: linear-gradient(135deg, #3b9bae, #17657a 64%, #10404f); transform: translateY(-1px); }
+.wfr-btn-ghost { background: linear-gradient(180deg, rgba(26, 36, 42, 0.7), rgba(6, 12, 16, 0.8)); border-color: rgba(209, 167, 88, 0.38); color: #c5c5b8; }
 .wfr-btn-ghost:hover { background: rgba(120, 190, 215, 0.1); }
 
 /* ── Clash HUD ─────────────────────────────────────────────────────────── */
 
-/* Eight fighters means eight bars, so each side gets a compact roster column
-   pinned to its own edge. The centre carries the clash number and the running
-   best-of-three score — the only two numbers that decide the match. */
+/* Eight health rails stay readable, but the court remains the hero. */
 .wfr-hud {
     position: absolute;
     top: 0;
@@ -213,10 +504,10 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 10px;
-    padding: 12px 14px;
+    gap: 12px;
+    padding: 9px 12px 22px;
     pointer-events: none;
-    background: linear-gradient(to bottom, rgba(3, 8, 13, 0.82), rgba(3, 8, 13, 0));
+    background: linear-gradient(to bottom, rgba(2, 6, 10, 0.84), rgba(3, 8, 13, 0.12) 72%, transparent);
 }
 
 .wfr-roster {
@@ -225,30 +516,46 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 5px;
-    flex: 0 1 250px;
+    gap: 2px;
+    flex: 0 1 218px;
     min-width: 0;
 }
 .wfr-roster li {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 3px 6px;
-    border-radius: 8px;
-    border-left: 3px solid transparent;
+    gap: 5px;
+    min-height: 23px;
+    padding: 1px 3px;
+    border-radius: 2px;
+    border-left: 1px solid transparent;
+    background: linear-gradient(90deg, rgba(5, 15, 20, 0.62), transparent 92%);
+    box-shadow: none;
 }
-/* The front line is the formation decision, so it stays marked during the
-   fight — otherwise the player cannot see whether their read paid off. */
-.wfr-roster.is-blue li.is-front { border-left-color: #4cc9f0; background: rgba(76, 201, 240, 0.09); }
-.wfr-roster.is-red li.is-front { border-left-color: #ff5470; background: rgba(255, 84, 112, 0.09); }
+.wfr-roster.is-blue li { border-left-color: rgba(76, 201, 240, 0.5); }
+.wfr-roster.is-red li { border-right-color: rgba(255, 84, 112, 0.5); }
+.wfr-roster li.is-vanguard, .wfr-roster li.is-warden,
+.wfr-roster li.is-flanker, .wfr-roster li.is-anchor { background-color: transparent; }
+.wfr-roster li .wfr-portrait { display: none; }
 .wfr-roster.is-red { flex-direction: column; align-items: flex-end; }
-.wfr-roster.is-red li { flex-direction: row-reverse; border-left: 0; border-right: 3px solid transparent; }
-.wfr-roster.is-red li.is-front { border-right-color: #ff5470; }
+.wfr-roster.is-red li { flex-direction: row-reverse; border-left: 0; border-right: 1px solid transparent; background: linear-gradient(270deg, rgba(25, 9, 13, 0.62), transparent 92%); }
+.wfr-roster.is-red li { border-right-color: rgba(255, 84, 112, 0.5); }
+.wfr-roster-job {
+    width: 15px;
+    height: 15px;
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+    border: 1px solid rgba(183, 224, 238, 0.35);
+    border-radius: 50%;
+    color: #cbe9f3;
+    font-size: 0.5rem;
+    font-weight: 900;
+}
 
 .wfr-roster-meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 auto; }
 .wfr-roster.is-red .wfr-roster-meta { align-items: flex-end; }
 .wfr-roster-meta strong {
-    font-size: 0.74rem;
+    font-size: 0.75rem;
     font-weight: 600;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -260,19 +567,34 @@
     display: block;
     width: 100%;
     min-width: 96px;
-    height: 7px;
+    height: 4px;
     border-radius: 999px;
     background: rgba(6, 14, 20, 0.85);
-    border: 1px solid rgba(120, 190, 215, 0.28);
+    border: 1px solid rgba(211, 179, 111, 0.22);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.84);
     overflow: hidden;
 }
 .wfr-bar-fill { display: block; height: 100%; border-radius: 999px; transition: background 220ms linear; }
-.wfr-bar-fill.is-blue { background: #4cc9f0; }
-.wfr-bar-fill.is-red { background: #ff5470; }
+.wfr-bar-fill.is-blue { background: linear-gradient(90deg, #237c93, #78e5ef); box-shadow: 0 0 8px rgba(76, 201, 240, 0.48); }
+.wfr-bar-fill.is-red { background: linear-gradient(90deg, #912e3f, #ff6d78); box-shadow: 0 0 8px rgba(255, 84, 112, 0.48); }
 
-.wfr-hud-center { flex: 0 0 auto; text-align: center; display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.wfr-hud-center { position: relative; flex: 0 0 auto; min-width: 108px; text-align: center; display: flex; flex-direction: column; gap: 1px; align-items: center; }
+.wfr-hud-center::before {
+    content: "";
+    position: absolute;
+    width: 62px;
+    height: 62px;
+    top: -16px;
+    z-index: -1;
+    border-radius: 50%;
+    background:
+        repeating-conic-gradient(from 0deg, rgba(177, 142, 80, 0.36) 0 2deg, transparent 2deg 30deg),
+        radial-gradient(circle, transparent 0 29%, rgba(81, 170, 187, 0.26) 30% 33%, transparent 34% 52%, rgba(177, 142, 80, 0.2) 53% 55%, transparent 56%);
+    opacity: 0.18;
+    filter: grayscale(0.35) drop-shadow(0 0 16px rgba(88, 199, 220, 0.28));
+}
 .wfr-duel-no {
-    font-size: 0.66rem;
+    font-size: 0.75rem;
     letter-spacing: 0.2em;
     text-transform: uppercase;
     color: #8fb6c6;
@@ -284,12 +606,35 @@
     font-variant-numeric: tabular-nums;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
-.wfr-rounds b { font-size: 1.5rem; font-weight: 800; }
+.wfr-rounds b { font-size: 1.2rem; font-weight: 700; }
 .wfr-rounds i { font-style: normal; color: #8fb6c6; }
+.wfr-rule-state { display: flex; align-items: center; gap: 5px; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.08em; white-space: nowrap; }
+.wfr-rule-state > span { display: inline-flex; align-items: center; gap: 3px; padding: 2px 5px; border: 1px solid currentColor; border-radius: 999px; background: rgba(4, 11, 16, 0.82); box-shadow: 0 0 10px color-mix(in srgb, currentColor 22%, transparent); }
+.wfr-rule-state > strong { min-width: 0; padding: 2px 6px; color: #cdb8e3; border: 1px solid rgba(184, 134, 255, 0.28); border-radius: 999px; background: rgba(12, 10, 20, 0.66); box-shadow: 0 0 10px rgba(157, 92, 224, 0.14); }
+.wfr-rule-state .is-blue { color: #55dff3; }
+.wfr-rule-state .is-red { color: #ff7380; }
+.wfr-sound-gate {
+    position: fixed;
+    left: max(10px, env(safe-area-inset-left));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    z-index: 7;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 12px;
+    pointer-events: auto;
+    border: 1px solid rgba(211, 179, 111, 0.34);
+    border-radius: 999px;
+    background: rgba(3, 10, 14, 0.72);
+    color: #d8c89e;
+    font: 700 0.75rem/1 system-ui, sans-serif;
+    letter-spacing: 0.12em;
+    backdrop-filter: blur(5px);
+}
+.wfr-sound-gate.is-armed { color: #8ec5cf; border-color: rgba(90, 178, 193, 0.24); opacity: 0.56; }
 
-/* ── VS card + interlude ───────────────────────────────────────────────── */
+/* ── Formation handoff + interlude ─────────────────────────────────────── */
 
-.wfr-vs-card, .wfr-interlude {
+.wfr-interlude {
     position: absolute;
     inset: 0;
     z-index: 4;
@@ -298,26 +643,112 @@
     justify-content: center;
     gap: clamp(16px, 6vw, 64px);
     pointer-events: none;
-    background: radial-gradient(60% 50% at 50% 50%, rgba(3, 8, 13, 0.72), rgba(3, 8, 13, 0.94));
+    background:
+        radial-gradient(ellipse at 50% 50%, rgba(6, 15, 21, 0.64), rgba(3, 8, 13, 0.92) 70%),
+        linear-gradient(90deg, rgba(0, 61, 76, 0.13), transparent 38% 62%, rgba(91, 17, 22, 0.14)),
+        url("/assets/warfront/kage-tactics-temple-court-v3-landscape.webp") center / cover no-repeat;
+    box-shadow: inset 0 0 160px rgba(0, 0, 0, 0.82);
     animation: wfr-fade 260ms ease both;
 }
-.wfr-vs-side, .wfr-interlude-ko, .wfr-interlude-victor, .wfr-interlude-next {
+.wfr-formation-hold {
+    position: absolute;
+    left: 50%;
+    bottom: max(7vh, 58px);
+    z-index: 4;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    width: max-content;
+    max-width: calc(100vw - 32px);
+    padding: 8px 16px;
+    pointer-events: none;
+    text-align: center;
+    border: 1px solid rgba(223, 196, 133, 0.5);
+    border-radius: 999px;
+    background: rgba(4, 13, 18, 0.72);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.38), inset 0 1px rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(5px);
+    animation: wfr-fade 180ms ease both;
+}
+.wfr-formation-hold strong {
+    color: #e7d09e;
+    font-family: "Marcellus", Georgia, serif;
+    font-size: 0.78rem;
+    font-weight: 400;
+    letter-spacing: 0.11em;
+}
+.wfr-formation-hold span { color: #b8d1da; font-size: 0.63rem; letter-spacing: 0.045em; }
+.wfr-interlude-ko, .wfr-interlude-victor, .wfr-interlude-next {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 8px;
     text-align: center;
 }
-.wfr-vs-side strong, .wfr-interlude p strong { font-size: 1.05rem; }
-.wfr-vs-mid { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.wfr-vs-word {
-    font-size: clamp(1.8rem, 6vw, 3rem);
-    font-weight: 900;
-    letter-spacing: 0.06em;
-    color: #6fd7ef;
-    text-shadow: 0 0 26px rgba(111, 215, 239, 0.6);
-}
+.wfr-interlude p strong { font-size: 1.05rem; }
 .wfr-interlude p { margin: 0; font-size: 0.94rem; }
+.wfr-interlude-edge {
+    width: min(330px, 78vw);
+    margin-top: 8px;
+    padding: 10px 13px;
+    border: 1px solid rgba(223, 196, 133, 0.28);
+    border-radius: 4px 12px 4px 12px;
+    background: linear-gradient(145deg, rgba(8, 21, 28, 0.84), rgba(6, 12, 17, 0.9));
+    box-shadow: inset 0 1px rgba(255,255,255,0.04), 0 12px 30px rgba(0,0,0,0.32);
+}
+.wfr-interlude-edge > span {
+    display: block;
+    margin-bottom: 4px;
+    color: #dfc485;
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+.wfr-interlude-edge strong { display: block; color: #e8f4f7; font-size: 0.88rem; }
+.wfr-interlude-edge p { margin-top: 4px; color: #9fb9c5; font-size: 0.72rem; line-height: 1.35; }
+.wfr-reform-readout {
+    margin: -2px 0 2px;
+    padding: 9px 11px;
+    border-left: 3px solid #dfc485;
+    background: rgba(8, 24, 31, 0.7);
+}
+.wfr-reform-readout > span { display: block; color: #dfc485; font-size: 0.57rem; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; }
+.wfr-reform-readout > strong { display: block; margin-top: 3px; color: #e8f4f7; font-size: 0.82rem; }
+.wfr-reform-readout > p { margin: 2px 0 0; color: #9fb9c5; font-size: 0.7rem; line-height: 1.35; }
+.wfr-report-facts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+}
+.wfr-report-facts > span {
+    min-width: 0;
+    padding: 8px 9px;
+    border: 1px solid rgba(223, 196, 133, 0.24);
+    border-radius: 4px 9px 4px 9px;
+    background: rgba(5, 16, 22, 0.76);
+}
+.wfr-report-facts small, .wfr-formation-diff > span {
+    display: block;
+    color: #8fb6c6;
+    font-size: 0.54rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+.wfr-report-facts strong { display: block; margin-top: 3px; overflow-wrap: anywhere; color: #e8f4f7; font-size: 0.7rem; }
+.wfr-fought-formation { padding: 8px 10px; border-left: 3px solid #ff7380; background: rgba(39, 12, 18, 0.42); }
+.wfr-fought-formation ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 10px; }
+.wfr-fought-formation li { min-width: 0; display: flex; align-items: center; gap: 7px; }
+.wfr-fought-formation li > span:last-child { min-width: 0; display: flex; flex-direction: column; }
+.wfr-fought-formation li strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f2d9de; font-size: 0.7rem; }
+.wfr-fought-formation li small { color: #b9909a; font-size: 0.58rem; }
+.wfr-formation-diff { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border-left: 3px solid #6fd7ef; background: rgba(8, 24, 31, 0.7); }
+.wfr-formation-diff strong { color: #dcecf3; font-size: 0.68rem; font-weight: 650; }
+.wfr-no-prediction { color: #8fb6c6 !important; font-size: 0.68rem !important; line-height: 1.35; }
+.wfr-auto-reform { padding: 10px 12px; border: 1px solid rgba(111, 215, 239, 0.36); color: #bfeaf2 !important; font-size: 0.72rem !important; letter-spacing: 0.08em; text-align: center; }
 .wfr-interlude-ko { opacity: 0.55; filter: grayscale(0.8); }
 .wfr-interlude-hp { font-size: 0.76rem; color: #9fb6c2; }
 .wfr-next-label {
@@ -328,7 +759,7 @@
 }
 .wfr-next-pair { display: flex; align-items: center; gap: 14px; }
 .wfr-next-pair span { display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 0.82rem; }
-.wfr-vs { font-weight: 800; color: #6fd7ef; }
+.wfr-vs { font-family: "Marcellus", Georgia, serif; font-weight: 400; color: #dfc485; text-shadow: 0 0 16px rgba(111, 215, 239, 0.38); }
 
 .wfr-pip {
     display: block;
@@ -349,19 +780,20 @@
     position: relative;
     z-index: 2;
     margin: auto;
-    width: min(560px, 94vw);
-    max-height: 94vh;
+    width: min(560px, calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 24px));
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px);
     overflow-y: auto;
     padding: 24px;
     display: flex;
     flex-direction: column;
     gap: 14px;
-    background: rgba(9, 18, 26, 0.94);
-    border: 1px solid rgba(111, 215, 239, 0.24);
-    border-radius: 14px;
-    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+    background: linear-gradient(160deg, rgba(17, 30, 36, 0.96), rgba(4, 10, 14, 0.98));
+    border: 1px solid rgba(209, 167, 88, 0.46);
+    border-radius: 4px 18px 4px 18px;
+    box-shadow: 0 34px 100px rgba(0, 0, 0, 0.78), inset 0 1px rgba(255,255,255,0.06);
+    backdrop-filter: blur(14px);
 }
-.wfr-result h2 { margin: 4px 0 0; font-size: 1.7rem; }
+.wfr-result h2 { margin: 4px 0 0; font-family: "Marcellus", Georgia, serif; font-weight: 400; font-size: 1.7rem; letter-spacing: 0.02em; }
 .wfr-result h2.is-win { color: #6fe8b0; }
 .wfr-result h2.is-loss { color: #ff8fa3; }
 .wfr-result-line { margin: 0; font-size: 0.86rem; color: #a9c4d1; }
@@ -396,9 +828,11 @@
 
 .wfr-exit {
     position: absolute;
-    top: 12px;
-    right: 12px;
-    z-index: 5;
+    top: max(12px, env(safe-area-inset-top));
+    right: max(12px, env(safe-area-inset-right));
+    /* Remains available if a model CDN failure correctly keeps the atomic
+       reveal curtain closed instead of exposing a partial formation. */
+    z-index: 9;
     width: 40px;
     height: 40px;
     border-radius: 50%;
@@ -414,21 +848,54 @@
 
 /* ── Mobile ────────────────────────────────────────────────────────────── */
 
-@media (max-width: 680px) {
-    .wfr-hud { padding: 10px 10px 14px; gap: 6px; }
-    .wfr-hud-meta { flex-basis: 120px; }
-    .wfr-bar { min-width: 76px; height: 8px; }
-    .wfr-hud-pct { font-size: 0.9rem; }
-    .wfr-bench { gap: 6px; }
-    .wfr-bench.is-blue { left: 4px; }
-    .wfr-bench.is-red { right: 4px; }
-    .wfr-bench .wfr-portrait { width: 32px !important; height: 32px !important; }
-    .wfr-vs-card, .wfr-interlude { gap: 14px; padding: 0 12px; }
-    .wfr-deploy, .wfr-result { padding: 16px 14px; border-radius: 12px; }
+@media (max-width: 720px) {
+    .wfr-hud {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-areas: "score score" "blue red";
+        align-items: start;
+        gap: 2px 7px;
+        padding: max(4px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) 15px max(6px, env(safe-area-inset-left));
+    }
+    .wfr-hud-center { grid-area: score; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 3px 10px; }
+    .wfr-rule-state { flex-basis: 100%; justify-content: center; }
+    .wfr-roster { flex-basis: auto; width: 100%; gap: 1px; }
+    .wfr-roster.is-blue { grid-area: blue; }
+    .wfr-roster.is-red { grid-area: red; }
+    .wfr-roster li { width: 100%; min-width: 0; min-height: 17px; gap: 3px; padding: 0 2px; }
+    .wfr-roster-meta { gap: 1px; }
+    .wfr-roster-meta strong { max-width: min(31vw, 112px); font-size: 0.68rem; line-height: 1; }
+    .wfr-roster li .wfr-portrait { display: none; }
+    .wfr-roster-job { width: 11px; height: 11px; font-size: 0.4rem; }
+    .wfr-bar { min-width: 0; height: 3px; }
+    .wfr-rounds b { font-size: 0.98rem; }
+    .wfr-duel-no { font-size: 0.75rem; }
+    .wfr-rule-state { font-size: 0.75rem; }
+    .wfr-interlude { gap: 14px; padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+    .wfr-formation-hold { bottom: max(11vh, 64px); padding: 7px 12px; }
+    .wfr-deploy, .wfr-result { padding: 16px 14px; border-radius: 3px 14px 3px 14px; }
+    .wfr-deploy-head { min-height: 58px; padding-right: 62px; }
+    .wfr-deploy-head::after { width: 56px; height: 56px; top: -4px; right: 0; }
+    .wfr-placement-shell { grid-template-columns: 1fr; gap: 10px; }
+    .wfr-pet-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .wfr-pet-picker > button { min-height: 52px; padding: 5px 7px; }
+    .wfr-placement-board { min-height: 300px; padding-left: 48px; }
+    .wfr-depth-labels { left: 48px; }
+    .wfr-placement-grid { gap: 5px; grid-template-columns: repeat(2, minmax(64px, 1fr)); grid-template-rows: repeat(5, minmax(44px, 1fr)); }
+    .wfr-placement-grid > button { min-height: 44px; }
+    .wfr-order li { gap: 8px; padding: 7px 8px; }
+    .wfr-order-moves { flex-direction: row; gap: 5px; }
+    .wfr-order-moves button { width: 44px; height: 44px; }
+    .wfr-swap-picks button { min-height: 44px; }
+    .wfr-deploy-actions { position: sticky; bottom: 0; padding-top: 8px; background: linear-gradient(to bottom, transparent, rgba(9, 18, 26, 0.99) 24%); }
+    .wfr-deploy-actions > button { flex: 1 1 0; }
+    .wfr-exit { top: auto; bottom: max(12px, env(safe-area-inset-bottom)); }
+    .wfr-canvas-fallback { padding-top: 22vh; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .wfr-vs-card, .wfr-interlude { animation: none; }
+    .wfr-stage-curtain.is-open { transition: none; }
+    .wfr-formation-hold, .wfr-interlude { animation: none; }
     .wfr-bench li { transition: none; }
 }
 
@@ -436,13 +903,15 @@
 /* ── Formation ─────────────────────────────────────────────────────────── */
 
 .wfr-slot-no {
-    width: 44px;
+    width: 78px;
     font-size: 0.58rem;
     font-weight: 800;
     letter-spacing: 0.1em;
     color: #6fd7ef;
 }
-.wfr-order li:not(.is-lead) .wfr-slot-no { color: #6d8796; }
+.wfr-order li.is-warden .wfr-slot-no { color: #e6b35d; }
+.wfr-order li.is-flanker .wfr-slot-no { color: #b9a1ff; }
+.wfr-order li.is-anchor .wfr-slot-no { color: #6fe8b0; }
 
 .wfr-formation-hint {
     margin: 0;
@@ -455,6 +924,8 @@
 
 .wfr-scout-body { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .wfr-scout-pet { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.wfr-scout-pet strong { max-width: 132px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.78rem; }
+.wfr-scout-job { color: #ff9aab; font-size: 0.58rem; font-weight: 900; letter-spacing: 0.12em; }
 
 .wfr-interlude-victor h3 { margin: 0; font-size: 1.35rem; }
 .wfr-interlude-victor h3.is-win { color: #6fe8b0; }
@@ -462,7 +933,7 @@
 
 @media (max-width: 860px) {
     .wfr-roster { flex-basis: 150px; }
-    .wfr-roster-meta strong { max-width: 84px; font-size: 0.66rem; }
+    .wfr-roster-meta strong { max-width: 84px; font-size: 0.75rem; }
     .wfr-bar { min-width: 62px; }
     .wfr-roster li .wfr-portrait { width: 26px !important; height: 26px !important; }
     .wfr-rounds b { font-size: 1.15rem; }
@@ -475,26 +946,802 @@
 
 /* ── Mid-match re-form ─────────────────────────────────────────────────── */
 
-/* The one decision taken DURING a match, so it gets a real panel rather than a
-   corner prompt — the handoff pauses until the player answers it. */
+/* Each between-clash decision gets a real panel rather than a corner prompt —
+   the handoff pauses until the player answers it. */
 .wfr-reform {
     pointer-events: auto;
-    width: min(460px, 94vw);
-    max-height: 88vh;
+    width: min(620px, calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 24px));
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px);
     overflow-y: auto;
     padding: 20px 22px;
     display: flex;
     flex-direction: column;
     gap: 12px;
-    background: rgba(9, 18, 26, 0.96);
-    border: 1px solid rgba(111, 215, 239, 0.34);
-    border-radius: 14px;
-    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.7);
+    background:
+        linear-gradient(135deg, rgba(209, 167, 88, 0.08), transparent 32%),
+        linear-gradient(180deg, rgba(15, 26, 32, 0.97), rgba(5, 11, 16, 0.98));
+    border: 1px solid rgba(209, 167, 88, 0.48);
+    border-radius: 3px 16px 3px 16px;
+    box-shadow: 0 28px 86px rgba(0, 0, 0, 0.8), inset 0 1px rgba(255, 239, 199, 0.06);
+    backdrop-filter: blur(14px);
 }
-.wfr-reform h3 { margin: 0; font-size: 1.3rem; }
+.wfr-reform-evidence,
+.wfr-reform-footer { display: contents; }
+.wfr-reform-drawer-trigger,
+.wfr-report-ack { display: none; }
+.wfr-report-ack { order: 9; }
+.wfr-reform-evidence > .wfr-eyebrow { order: 1; }
+.wfr-reform-evidence > h3 { order: 2; }
+.wfr-reform-evidence > .wfr-report-facts { order: 3; }
+.wfr-reform-evidence > .wfr-fought-formation { order: 4; }
+.wfr-reform-evidence > .wfr-reform-copy { order: 5; }
+.wfr-reform > .wfr-placement-shell { order: 6; }
+.wfr-reform-footer > .wfr-formation-diff { order: 7; }
+.wfr-reform-evidence > .wfr-no-prediction { order: 8; }
+.wfr-reform-footer > .wfr-deploy-actions,
+.wfr-auto-reform { order: 9; }
+.wfr-reform h3 { margin: 0; color: #ead3a0; font-family: "Marcellus", Georgia, serif; font-weight: 400; font-size: 1.3rem; letter-spacing: 0.025em; }
 .wfr-reform-copy { margin: 0; font-size: 0.86rem; line-height: 1.5; color: #a9c4d1; }
 .wfr-reform .wfr-order li { padding: 7px 10px; }
 .wfr-reform .wfr-pip { width: 70px; }
+.wfr-reform .wfr-placement-shell { grid-template-columns: 1fr; }
+.wfr-reform .wfr-pet-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.wfr-reform .wfr-placement-board { min-height: 300px; }
 
 /* The interlude normally ignores pointer events; the re-form panel needs them. */
 .wfr-interlude:has(.wfr-reform) { pointer-events: auto; }
+
+/* Combat text is rendered by drei's Html bridge and updated from the pooled
+   frame loop. Keep it sharp, short and non-interactive on every DPR. */
+.wfr-fx-label {
+    min-width: 74px;
+    pointer-events: none;
+    white-space: nowrap;
+    text-align: center;
+    font-size: 0.84rem;
+    font-weight: 950;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    text-shadow: 0 2px 4px #020508, 0 0 12px currentColor;
+    will-change: opacity, transform;
+}
+
+.wfr-squad-order {
+    min-width: 92px;
+    padding: 4px 10px 3px;
+    border: 1px solid color-mix(in srgb, currentColor 62%, transparent);
+    border-radius: 999px;
+    background: rgba(4, 9, 14, 0.82);
+    box-shadow: 0 0 18px color-mix(in srgb, currentColor 34%, transparent), inset 0 0 12px rgba(255,255,255,0.04);
+    color: #4cc9f0;
+    font: 800 0.68rem/1.2 var(--font-display, system-ui, sans-serif);
+    letter-spacing: 0.13em;
+    text-align: center;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.wfr-squad-order.is-enemy { color: #ff5470; }
+
+@media (max-width: 720px) {
+    .wfr-reform { padding: 15px 13px; }
+    .wfr-report-facts { gap: 4px; }
+    .wfr-report-facts > span { padding: 6px 5px; }
+    .wfr-fought-formation { padding-inline: 8px; }
+    .wfr-reform .wfr-order-moves button { width: 44px; height: 44px; }
+    .wfr-fx-label { font-size: 0.68rem; }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+    .wfr-hud { padding-top: max(5px, env(safe-area-inset-top)); }
+    .wfr-roster { gap: 1px; }
+    .wfr-roster li { padding-block: 1px; }
+    .wfr-roster li .wfr-portrait { width: 24px !important; height: 24px !important; }
+    .wfr-deploy, .wfr-result, .wfr-reform { max-height: calc(100dvh - 12px); }
+    .wfr-placement-shell { grid-template-columns: minmax(180px, 0.7fr) minmax(320px, 1.3fr); }
+    .wfr-pet-picker { grid-template-columns: 1fr; }
+    .wfr-placement-board { min-height: 230px; }
+    .wfr-placement-grid { grid-template-rows: repeat(5, minmax(34px, 1fr)); }
+}
+
+/* ── Mobile formation contract ───────────────────────────────────────────
+   Shipped phone autobattlers keep the board dominant and teach one decision
+   at a time. This rail stays fixed-height so selection never shifts the board. */
+
+.wfr-onboarding {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+}
+.wfr-onboarding li {
+    min-width: 0;
+    min-height: 58px;
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr);
+    align-items: center;
+    gap: 7px;
+    padding: 7px 8px;
+    border: 1px solid rgba(143, 190, 201, 0.22);
+    border-radius: 3px 9px 3px 9px;
+    background: rgba(5, 15, 21, 0.7);
+}
+.wfr-onboarding li.is-current {
+    border-color: rgba(111, 215, 239, 0.58);
+    background: linear-gradient(105deg, rgba(16, 63, 75, 0.88), rgba(5, 18, 25, 0.78));
+}
+.wfr-onboarding li > span:first-child {
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(223, 196, 133, 0.55);
+    border-radius: 50%;
+    color: #ead3a0;
+    font-size: 0.68rem;
+    font-weight: 850;
+}
+.wfr-onboarding li > span:last-child { min-width: 0; display: grid; gap: 2px; }
+.wfr-onboarding strong { color: #e5f1f4; font-size: 0.72rem; line-height: 1.15; }
+.wfr-onboarding small { color: #8faeba; font-size: 0.6rem; line-height: 1.2; }
+
+.wfr-scout h3 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.wfr-scout h3 > span { color: #b9909a; font-size: 0.56rem; letter-spacing: 0.08em; white-space: nowrap; }
+.wfr-scout-pet { min-width: 0; flex: 1 1 0; flex-direction: row; align-items: center; text-align: left; }
+.wfr-scout-meta { min-width: 0; display: grid; gap: 1px; }
+.wfr-scout-meta strong { max-width: 100%; }
+.wfr-scout-meta .wfr-scout-job { line-height: 1.2; }
+.wfr-scout-meta .wfr-el { font-size: 0.58rem; }
+
+.wfr-placement-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+.wfr-pet-picker > button,
+.wfr-placement-grid > button {
+    touch-action: none;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+.wfr-pet-picker img,
+.wfr-placement-grid img { pointer-events: none; -webkit-user-drag: none; }
+.wfr-placement-shell.is-dragging { cursor: grabbing; }
+.wfr-placement-shell.is-dragging .wfr-placement-grid > button[data-wfr-legal-drop="true"] {
+    border-color: rgba(111, 215, 239, 0.72);
+    background: radial-gradient(circle, rgba(25, 83, 96, 0.72), rgba(4, 16, 21, 0.46));
+}
+.wfr-pet-picker > button.is-dragging { opacity: 0.68; transform: scale(0.98); }
+.wfr-placement-grid > button.is-drag-over {
+    border-color: #f1d9a5 !important;
+    background: radial-gradient(circle, rgba(42, 127, 143, 0.9), rgba(7, 28, 36, 0.7)) !important;
+    box-shadow: 0 0 0 3px rgba(241, 217, 165, 0.7), 0 0 28px rgba(111, 215, 239, 0.56);
+    transform: scale(1.04);
+}
+.wfr-pet-picker > button:focus-visible,
+.wfr-placement-grid > button:focus-visible,
+.wfr-btn-primary:focus-visible,
+.wfr-btn-ghost:focus-visible,
+.wfr-landscape-drawer-trigger:focus-visible,
+.wfr-inspect-ack:focus-visible,
+.wfr-reform-drawer-trigger:focus-visible,
+.wfr-report-ack:focus-visible,
+.wfr-sound-gate:focus-visible,
+.wfr-exit:focus-visible {
+    outline: 3px solid #f1d9a5;
+    outline-offset: 2px;
+}
+.wfr-exit { width: 44px; height: 44px; }
+
+/* Galaxy S25+ portrait (roughly 412 × 915 CSS px at default density).
+   All decision surfaces fit in one stable frame; shorter phones may scroll the
+   panel, but the action row remains after—not over—the board. */
+@media (max-width: 560px) and (orientation: portrait) {
+    .wfr-root:has(.wfr-reform) > .wfr-exit { display: none; }
+    .wfr-deploy {
+        width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 12px);
+        height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 12px);
+        max-height: none;
+        margin: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+        padding: 10px 10px 8px;
+        gap: 8px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+    }
+    .wfr-deploy-head { min-height: 0; padding: 0 50px 7px 0; }
+    .wfr-deploy-head::after { width: 44px; height: 44px; top: 0; right: 0; }
+    .wfr-deploy-head h2 { margin: 2px 0 4px; font-size: 1.35rem; line-height: 1.05; }
+    .wfr-deploy-copy { font-size: 0.72rem; line-height: 1.34; }
+    .wfr-eyebrow { font-size: 0.58rem; }
+
+    .wfr-onboarding { gap: 4px; }
+    .wfr-onboarding li {
+        min-height: 62px;
+        grid-template-columns: 21px minmax(0, 1fr);
+        gap: 4px;
+        padding: 5px 4px;
+    }
+    .wfr-onboarding li > span:first-child { width: 21px; height: 21px; font-size: 0.58rem; }
+    .wfr-onboarding strong { font-size: 0.62rem; }
+    .wfr-onboarding small { font-size: 0.52rem; }
+
+    .wfr-scout { padding: 7px 8px; }
+    .wfr-scout h3 { margin-bottom: 5px; font-size: 0.58rem; }
+    .wfr-scout-body { flex-wrap: nowrap; gap: 6px; }
+    .wfr-scout-pet { gap: 5px; }
+    .wfr-scout-pet .wfr-portrait { width: 32px !important; height: 32px !important; border-width: 1px; }
+    .wfr-scout-pet strong { font-size: 0.64rem; }
+    .wfr-scout-meta .wfr-scout-job, .wfr-scout-meta .wfr-el { font-size: 0.5rem; letter-spacing: 0.05em; }
+    .wfr-scout-note { margin-top: 5px; font-size: 0.6rem; }
+
+    .wfr-deploy > .wfr-placement-shell {
+        flex: 1 1 auto;
+        min-height: 0;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(286px, 1fr);
+        gap: 6px;
+    }
+    .wfr-pet-picker { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+    .wfr-pet-picker > button {
+        min-height: 56px;
+        grid-template-columns: 40px minmax(0, 1fr);
+        gap: 4px;
+        padding: 4px;
+        border-radius: 3px 7px 3px 7px;
+    }
+    .wfr-pet-picker > button .wfr-portrait { width: 40px !important; height: 40px !important; border-width: 1px; }
+    .wfr-pet-picker strong { font-size: 0.62rem; }
+    .wfr-pet-picker small { font-size: 0.49rem; line-height: 1.05; }
+    .wfr-pet-picker .wfr-pip { height: 5px; }
+
+    .wfr-placement-board {
+        height: 100%;
+        min-height: clamp(286px, 38dvh, 340px);
+        padding: 22px 7px 6px 42px;
+    }
+    .wfr-depth-labels { top: 5px; left: 42px; right: 20px; font-size: 0.5rem; }
+    .wfr-route-labels { left: 5px; top: 23px; bottom: 7px; font-size: 0.48rem; letter-spacing: 0.04em; }
+    .wfr-placement-grid { gap: 4px; grid-template-rows: repeat(5, minmax(44px, 1fr)); }
+    .wfr-placement-grid > button { min-height: 44px; }
+    .wfr-placement-grid > button .wfr-portrait { width: 54px !important; height: 54px !important; }
+    .wfr-placement-board::after { right: 2px; font-size: 0.48rem; }
+
+    .wfr-deploy-actions { position: static; padding: 0; background: none; }
+    .wfr-deploy-actions > button { min-height: 44px; }
+
+    .wfr-interlude:has(.wfr-reform) { align-items: stretch; justify-content: stretch; }
+    .wfr-reform {
+        width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 12px);
+        height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 12px);
+        max-height: none;
+        margin: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+        padding: 8px;
+        gap: 7px 8px;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: 60px minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) auto;
+    }
+    .wfr-reform-evidence {
+        position: absolute;
+        inset: 8px;
+        z-index: 8;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 14px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        border: 1px solid rgba(223, 196, 133, 0.62);
+        border-radius: 3px 14px 3px 14px;
+        background: linear-gradient(160deg, rgba(16, 31, 38, 0.99), rgba(4, 10, 15, 0.995));
+        box-shadow: 12px 0 36px rgba(0, 0, 0, 0.62), inset 3px 0 rgba(111, 215, 239, 0.56);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateX(-12px);
+        transition: transform 160ms ease, opacity 130ms ease, visibility 0s linear 160ms;
+    }
+    .wfr-reform.is-report-acknowledged .wfr-reform-evidence { left: 68px; }
+    .wfr-reform-evidence.is-open {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translateX(0);
+        transition: transform 160ms ease, opacity 130ms ease;
+    }
+    .wfr-reform-evidence > .wfr-eyebrow { font-size: 14px; letter-spacing: 0.1em; }
+    .wfr-reform-evidence > h3 { margin: 0; font-size: 21px; line-height: 1.1; }
+    .wfr-reform-evidence > .wfr-report-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .wfr-reform-evidence > .wfr-report-facts > span { min-height: 68px; padding: 7px; }
+    .wfr-reform-evidence .wfr-report-facts small,
+    .wfr-reform-evidence .wfr-report-facts strong,
+    .wfr-reform-evidence .wfr-next-label,
+    .wfr-reform-evidence .wfr-fought-formation li strong,
+    .wfr-reform-evidence .wfr-fought-formation li small,
+    .wfr-reform-evidence > .wfr-reform-copy,
+    .wfr-reform-evidence > .wfr-no-prediction { font-size: 14px !important; }
+    .wfr-reform-evidence .wfr-report-facts small { letter-spacing: 0.04em; line-height: 1.15; }
+    .wfr-reform-evidence .wfr-report-facts strong { line-height: 1.2; }
+    .wfr-reform-evidence > .wfr-fought-formation { padding: 8px 10px; }
+    .wfr-reform-evidence .wfr-fought-formation ul { margin-top: 6px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; }
+    .wfr-reform-evidence .wfr-fought-formation li { gap: 7px; }
+    .wfr-reform-evidence .wfr-fought-formation li .wfr-portrait { width: 40px !important; height: 40px !important; }
+    .wfr-reform-evidence .wfr-fought-formation li strong,
+    .wfr-reform-evidence .wfr-fought-formation li small {
+        max-width: 100%;
+        overflow: visible;
+        text-overflow: clip;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+    .wfr-reform-evidence > .wfr-reform-copy,
+    .wfr-reform-evidence > .wfr-no-prediction { margin: 0 !important; line-height: 1.4; }
+    .wfr-report-ack {
+        width: 100%;
+        min-height: 48px;
+        margin-top: auto;
+        padding: 7px 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        border: 1px solid rgba(241, 217, 165, 0.7);
+        border-radius: 3px 9px 3px 9px;
+        background: linear-gradient(135deg, rgba(39, 126, 143, 0.96), rgba(14, 68, 82, 0.98));
+        color: #f8f3e8;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .wfr-report-ack span { color: #a9dce6; }
+    .wfr-report-ack strong { color: #f7dda8; white-space: nowrap; }
+    .wfr-reform.is-report-acknowledged > .wfr-reform-drawer-trigger {
+        grid-column: 1;
+        grid-row: 1;
+        z-index: 9;
+        width: 60px;
+        min-width: 60px;
+        min-height: 56px;
+        align-self: start;
+        display: grid;
+        place-items: center;
+        gap: 2px;
+        padding: 5px 3px;
+        border: 1px solid rgba(143, 190, 201, 0.55);
+        border-radius: 3px 9px 3px 9px;
+        background: linear-gradient(145deg, rgba(13, 42, 52, 0.98), rgba(5, 15, 21, 0.99));
+        color: #d9eef3;
+        cursor: pointer;
+    }
+    .wfr-reform-drawer-trigger > span:first-child { font: 800 18px/1 system-ui, sans-serif; }
+    .wfr-reform-drawer-trigger > span:last-child { font: 800 14px/1 system-ui, sans-serif; letter-spacing: 0; }
+    .wfr-reform-drawer-trigger[aria-expanded="true"] { border-color: #f1d9a5; color: #f1d9a5; box-shadow: 0 0 0 2px rgba(241, 217, 165, 0.32); }
+
+    .wfr-reform > .wfr-placement-shell {
+        grid-column: 2;
+        grid-row: 1;
+        min-width: 0;
+        min-height: 0;
+        height: 100%;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(0, 1fr);
+        gap: 6px;
+    }
+    .wfr-reform .wfr-pet-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, 68px); gap: 5px; }
+    .wfr-reform .wfr-pet-picker > button { min-height: 68px; grid-template-columns: 44px minmax(0, 1fr); gap: 6px; padding: 5px; }
+    .wfr-reform .wfr-pet-picker .wfr-portrait { width: 44px !important; height: 44px !important; border-width: 1px; }
+    .wfr-reform .wfr-pet-picker strong,
+    .wfr-reform .wfr-pet-picker small { font-size: 14px; line-height: 1.15; }
+    .wfr-reform .wfr-pip { height: 5px; }
+    .wfr-reform .wfr-placement-board { height: 100%; min-height: 0; padding: 28px 7px 6px 76px; }
+    .wfr-reform .wfr-depth-labels { top: 5px; left: 76px; right: 20px; font-size: 14px; letter-spacing: 0.02em; }
+    .wfr-reform .wfr-route-labels { left: 5px; top: 29px; bottom: 7px; font-size: 14px; letter-spacing: 0; }
+    .wfr-reform .wfr-placement-grid { gap: 4px; grid-template-rows: repeat(5, minmax(44px, 1fr)); }
+    .wfr-reform .wfr-placement-grid > button { min-height: 44px; }
+    .wfr-reform .wfr-placement-grid .wfr-portrait { width: 50px !important; height: 50px !important; }
+    .wfr-reform .wfr-placement-board::after { right: 2px; font-size: 14px; letter-spacing: 0.04em; }
+
+    .wfr-reform > .wfr-reform-footer {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        min-width: 0;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+    .wfr-reform-footer > .wfr-formation-diff {
+        height: 114px;
+        padding: 6px 9px;
+        overflow: hidden;
+    }
+    .wfr-reform-footer > .wfr-formation-diff > span,
+    .wfr-reform-footer > .wfr-formation-diff strong { font-size: 14px; line-height: 1.25; }
+    .wfr-reform-footer > .wfr-deploy-actions { position: static; padding: 0; background: none; display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 6px; }
+    .wfr-reform-footer > .wfr-deploy-actions > button { min-width: 0; min-height: 48px; padding: 7px; font-size: 14px; line-height: 1.15; white-space: normal; }
+}
+
+/* The acknowledged drawer gives 68px to its persistent trigger. At the
+   narrowest supported portrait width, keep the four opponent identities on
+   full-width rows so neither the pet name nor its exact start is abbreviated. */
+@media (max-width: 412px) and (orientation: portrait) {
+    .wfr-reform.is-report-acknowledged .wfr-reform-evidence .wfr-fought-formation ul {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* Galaxy S25+ landscape (roughly 915 × 412 CSS px). The previous stacked
+   dialog placed the board below the fold; these named areas keep the causal
+   lesson, board, matchup, and lock boundary simultaneously visible. */
+@media (orientation: landscape) and (max-height: 560px) {
+    .wfr-root:has(.wfr-reform) > .wfr-exit { display: none; }
+    .wfr-deploy {
+        width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 12px);
+        height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 12px);
+        max-height: none;
+        margin: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+        padding: 8px 10px;
+        gap: 7px 8px;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: minmax(158px, 0.68fr) minmax(0, 2fr) minmax(158px, 0.68fr);
+        grid-template-rows: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "head placement scout"
+            "steps placement actions";
+    }
+    .wfr-deploy-head { grid-area: head; align-self: start; min-height: 0; padding: 0 0 7px; }
+    .wfr-deploy-head::after { display: none; }
+    .wfr-deploy-head h2 { margin: 2px 0 5px; font-size: 1.2rem; line-height: 1.05; }
+    .wfr-deploy-copy { font-size: 0.71rem; line-height: 1.3; }
+    .wfr-eyebrow { font-size: 0.55rem; }
+
+    .wfr-onboarding { grid-area: steps; grid-template-columns: 1fr; gap: 4px; align-self: end; }
+    .wfr-onboarding li {
+        min-height: 44px;
+        grid-template-columns: 21px minmax(0, 1fr);
+        gap: 5px;
+        padding: 4px 5px;
+    }
+    .wfr-onboarding li > span:first-child { width: 21px; height: 21px; font-size: 0.56rem; }
+    .wfr-onboarding strong { font-size: 0.69rem; }
+    .wfr-onboarding small { display: none; }
+
+    .wfr-scout { grid-area: scout; align-self: stretch; min-height: 0; padding: 7px; display: flex; flex-direction: column; }
+    .wfr-scout h3 { margin-bottom: 5px; font-size: 0.57rem; }
+    .wfr-scout h3 > span { font-size: 0.48rem; }
+    .wfr-scout-body { display: grid; grid-template-columns: 1fr; gap: 5px; }
+    .wfr-scout-pet { min-height: 46px; gap: 5px; padding: 3px; border: 1px solid rgba(255, 115, 128, 0.2); background: rgba(30, 9, 14, 0.46); }
+    .wfr-scout-pet .wfr-portrait { width: 32px !important; height: 32px !important; border-width: 1px; }
+    .wfr-scout-pet strong { font-size: 0.66rem; }
+    .wfr-scout-meta .wfr-scout-job, .wfr-scout-meta .wfr-el { font-size: 0.48rem; letter-spacing: 0.04em; }
+    .wfr-scout-note { margin-top: 5px; font-size: 0.6rem; line-height: 1.25; }
+    .wfr-inspect-ack {
+        width: 100%;
+        min-height: 44px;
+        margin-top: auto;
+        padding: 5px 8px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        border: 1px solid rgba(241, 217, 165, 0.68);
+        border-radius: 3px 8px 3px 8px;
+        background: linear-gradient(135deg, rgba(125, 79, 46, 0.94), rgba(70, 35, 33, 0.96));
+        color: #f8f3e8;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 0.58rem;
+        font-weight: 700;
+        line-height: 1.1;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+    .wfr-inspect-ack span { color: #e9a69a; }
+    .wfr-inspect-ack strong { color: #f7dda8; white-space: nowrap; }
+    .wfr-deploy:not(.is-landscape-compact) .wfr-inspect-ack { display: flex; }
+
+    .wfr-deploy > .wfr-placement-shell {
+        grid-area: placement;
+        min-width: 0;
+        min-height: 0;
+        height: 100%;
+        grid-template-columns: minmax(100px, 0.34fr) minmax(0, 1fr);
+        gap: 6px;
+    }
+    .wfr-deploy .wfr-pet-picker { grid-template-columns: 1fr; grid-template-rows: repeat(4, minmax(44px, 1fr)); gap: 4px; min-height: 0; }
+    .wfr-deploy .wfr-pet-picker > button {
+        min-height: 44px;
+        grid-template-columns: 40px minmax(0, 1fr);
+        gap: 4px;
+        padding: 3px 4px;
+    }
+    .wfr-deploy .wfr-pet-picker > button .wfr-portrait { width: 40px !important; height: 40px !important; border-width: 1px; }
+    .wfr-deploy .wfr-pet-picker strong { font-size: 0.68rem; }
+    .wfr-deploy .wfr-pet-picker small { font-size: 0.48rem; line-height: 1.05; }
+    .wfr-deploy .wfr-placement-board {
+        height: 100%;
+        min-height: 0;
+        padding: 20px 6px 5px 39px;
+    }
+    .wfr-deploy .wfr-depth-labels { top: 4px; left: 39px; right: 18px; font-size: 0.48rem; }
+    .wfr-deploy .wfr-route-labels { left: 4px; top: 21px; bottom: 6px; font-size: 0.46rem; letter-spacing: 0.03em; }
+    .wfr-deploy .wfr-placement-grid { gap: 4px; grid-template-rows: repeat(5, minmax(44px, 1fr)); }
+    .wfr-deploy .wfr-placement-grid > button { min-height: 44px; }
+    .wfr-deploy .wfr-placement-grid > button .wfr-portrait { width: 54px !important; height: 54px !important; }
+    .wfr-deploy .wfr-placement-board::after { right: 1px; font-size: 0.45rem; }
+
+    .wfr-deploy-actions { grid-area: actions; position: static; align-self: end; padding: 0; background: none; display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 4px; }
+    .wfr-deploy-actions > button { min-width: 0; min-height: 44px; padding: 5px; font-size: 0.64rem; line-height: 1.1; white-space: normal; }
+    .wfr-deploy > .wfr-problem { grid-area: scout; align-self: end; }
+
+    /* Once the player has explicitly read the two public starts, secondary
+       explanation becomes two square edge drawers and the battlefield owns the
+       frame. Opening either drawer overlays the board without changing any
+       placement geometry, so tap/drag targets never jump under a finger. */
+    .wfr-deploy.is-landscape-compact {
+        grid-template-columns: 44px minmax(0, 1fr) 44px;
+        grid-template-rows: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "guide-trigger placement scout-trigger"
+            ". actions .";
+        gap: 7px 8px;
+    }
+    .wfr-deploy.is-landscape-compact .wfr-landscape-drawer-trigger {
+        z-index: 7;
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        min-height: 44px;
+        display: grid;
+        place-items: center;
+        align-self: start;
+        gap: 1px;
+        padding: 3px 1px;
+        border: 1px solid rgba(143, 190, 201, 0.5);
+        border-radius: 3px 9px 3px 9px;
+        background: linear-gradient(145deg, rgba(13, 42, 52, 0.96), rgba(5, 15, 21, 0.98));
+        color: #d9eef3;
+        cursor: pointer;
+        box-shadow: inset 0 1px rgba(255, 255, 255, 0.06), 0 8px 22px rgba(0, 0, 0, 0.28);
+    }
+    .wfr-deploy.is-landscape-compact .wfr-landscape-drawer-trigger.is-guide { grid-area: guide-trigger; }
+    .wfr-deploy.is-landscape-compact .wfr-landscape-drawer-trigger.is-scout {
+        grid-area: scout-trigger;
+        border-color: rgba(222, 103, 105, 0.48);
+        background: linear-gradient(145deg, rgba(58, 20, 25, 0.96), rgba(18, 10, 15, 0.98));
+    }
+    .wfr-landscape-drawer-trigger > span:first-child { font: 800 0.88rem/1 system-ui, sans-serif; }
+    .wfr-landscape-drawer-trigger > span:last-child { font: 800 0.44rem/1 system-ui, sans-serif; letter-spacing: 0.04em; text-transform: uppercase; }
+    .wfr-deploy.is-landscape-compact .wfr-landscape-drawer-trigger[aria-expanded="true"] {
+        border-color: #f1d9a5;
+        color: #f1d9a5;
+        box-shadow: 0 0 0 2px rgba(241, 217, 165, 0.32), 0 10px 26px rgba(0, 0, 0, 0.38);
+    }
+
+    .wfr-deploy.is-landscape-compact > .wfr-placement-shell {
+        grid-area: placement;
+        grid-template-columns: clamp(112px, 14vw, 156px) minmax(0, 1fr);
+    }
+    .wfr-deploy.is-landscape-compact > .wfr-deploy-actions { grid-area: actions; }
+    .wfr-deploy.is-landscape-compact > .wfr-problem {
+        position: absolute;
+        z-index: 8;
+        right: 60px;
+        bottom: 59px;
+        max-width: min(340px, 46vw);
+    }
+
+    .wfr-deploy.is-landscape-compact .wfr-guide-drawer,
+    .wfr-deploy.is-landscape-compact > .wfr-scout {
+        position: absolute;
+        top: 8px;
+        bottom: 8px;
+        z-index: 6;
+        width: min(310px, calc(100% - 120px));
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 10px;
+        overflow: auto;
+        overscroll-behavior: contain;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: transform 160ms ease, opacity 130ms ease, visibility 0s linear 160ms;
+    }
+    .wfr-deploy.is-landscape-compact .wfr-guide-drawer {
+        left: 54px;
+        border: 1px solid rgba(143, 190, 201, 0.5);
+        border-radius: 3px 12px 3px 12px;
+        background: linear-gradient(160deg, rgba(12, 31, 39, 0.985), rgba(4, 11, 16, 0.99));
+        box-shadow: 12px 0 32px rgba(0, 0, 0, 0.5), inset 3px 0 rgba(111, 215, 239, 0.56);
+        transform: translateX(-12px);
+    }
+    .wfr-deploy.is-landscape-compact > .wfr-scout {
+        right: 54px;
+        align-self: auto;
+        transform: translateX(12px);
+        box-shadow: -12px 0 32px rgba(0, 0, 0, 0.5), inset 3px 0 rgba(210, 74, 69, 0.72);
+    }
+    .wfr-deploy.is-landscape-compact .wfr-guide-drawer.is-open,
+    .wfr-deploy.is-landscape-compact > .wfr-scout.is-open {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translateX(0);
+        transition: transform 160ms ease, opacity 130ms ease;
+    }
+    .wfr-deploy.is-landscape-compact .wfr-guide-drawer .wfr-deploy-head {
+        min-height: 0;
+        padding: 0 0 8px;
+    }
+    .wfr-deploy.is-landscape-compact .wfr-guide-drawer .wfr-deploy-head h2 { font-size: 1.08rem; }
+    .wfr-deploy.is-landscape-compact .wfr-guide-drawer .wfr-deploy-copy { font-size: 0.7rem; line-height: 1.34; }
+    .wfr-deploy.is-landscape-compact .wfr-guide-drawer .wfr-onboarding {
+        grid-template-columns: 1fr;
+        gap: 4px;
+        margin-top: auto;
+    }
+    .wfr-deploy.is-landscape-compact > .wfr-scout .wfr-scout-body { grid-template-columns: 1fr 1fr; }
+    .wfr-deploy.is-landscape-compact > .wfr-scout .wfr-scout-note { margin-bottom: auto; }
+    .wfr-deploy.is-landscape-compact .wfr-inspect-ack { display: none; }
+
+    .wfr-reform {
+        width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 12px);
+        height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 12px);
+        max-height: none;
+        margin: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+        padding: 8px;
+        gap: 7px 8px;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: 64px minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) auto;
+    }
+    .wfr-reform-evidence {
+        position: absolute;
+        top: 8px;
+        bottom: 8px;
+        left: 8px;
+        z-index: 8;
+        width: min(520px, calc(100% - 16px));
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        padding: 10px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        border: 1px solid rgba(223, 196, 133, 0.62);
+        border-radius: 3px 14px 3px 14px;
+        background: linear-gradient(160deg, rgba(16, 31, 38, 0.99), rgba(4, 10, 15, 0.995));
+        box-shadow: 12px 0 36px rgba(0, 0, 0, 0.62), inset 3px 0 rgba(111, 215, 239, 0.56);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateX(-12px);
+        transition: transform 160ms ease, opacity 130ms ease, visibility 0s linear 160ms;
+    }
+    .wfr-reform.is-report-acknowledged .wfr-reform-evidence { left: 72px; width: min(480px, calc(100% - 80px)); }
+    .wfr-reform-evidence.is-open {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translateX(0);
+        transition: transform 160ms ease, opacity 130ms ease;
+    }
+    .wfr-reform-evidence > .wfr-eyebrow { font-size: 14px; letter-spacing: 0.08em; }
+    .wfr-reform-evidence > h3 { margin: 0; font-size: 19px; line-height: 1.05; }
+    .wfr-reform-evidence > .wfr-report-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+    .wfr-reform-evidence > .wfr-report-facts > span { min-height: 62px; padding: 5px 6px; }
+    .wfr-reform-evidence .wfr-report-facts small,
+    .wfr-reform-evidence .wfr-report-facts strong,
+    .wfr-reform-evidence .wfr-next-label,
+    .wfr-reform-evidence .wfr-fought-formation li strong,
+    .wfr-reform-evidence .wfr-fought-formation li small,
+    .wfr-reform-evidence > .wfr-reform-copy,
+    .wfr-reform-evidence > .wfr-no-prediction { font-size: 14px !important; }
+    .wfr-reform-evidence .wfr-report-facts small { letter-spacing: 0.03em; line-height: 1.1; }
+    .wfr-reform-evidence .wfr-report-facts strong { line-height: 1.15; }
+    .wfr-reform-evidence > .wfr-fought-formation { padding: 6px 8px; }
+    .wfr-reform-evidence .wfr-fought-formation ul { margin-top: 4px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 8px; }
+    .wfr-reform-evidence .wfr-fought-formation li { gap: 5px; }
+    .wfr-reform-evidence .wfr-fought-formation li .wfr-portrait { display: none; }
+    .wfr-reform-evidence > .wfr-reform-copy,
+    .wfr-reform-evidence > .wfr-no-prediction { margin: 0 !important; line-height: 1.28; }
+    .wfr-report-ack {
+        width: 100%;
+        min-height: 48px;
+        margin-top: auto;
+        padding: 6px 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        border: 1px solid rgba(241, 217, 165, 0.7);
+        border-radius: 3px 9px 3px 9px;
+        background: linear-gradient(135deg, rgba(39, 126, 143, 0.96), rgba(14, 68, 82, 0.98));
+        color: #f8f3e8;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 1.15;
+    }
+    .wfr-report-ack span { color: #a9dce6; }
+    .wfr-report-ack strong { color: #f7dda8; white-space: nowrap; }
+    .wfr-reform.is-report-acknowledged > .wfr-reform-drawer-trigger {
+        grid-column: 1;
+        grid-row: 1;
+        z-index: 9;
+        width: 64px;
+        min-width: 64px;
+        min-height: 56px;
+        align-self: start;
+        display: grid;
+        place-items: center;
+        gap: 2px;
+        padding: 5px 3px;
+        border: 1px solid rgba(143, 190, 201, 0.55);
+        border-radius: 3px 9px 3px 9px;
+        background: linear-gradient(145deg, rgba(13, 42, 52, 0.98), rgba(5, 15, 21, 0.99));
+        color: #d9eef3;
+        cursor: pointer;
+    }
+    .wfr-reform-drawer-trigger > span:first-child { font: 800 18px/1 system-ui, sans-serif; }
+    .wfr-reform-drawer-trigger > span:last-child { font: 800 14px/1 system-ui, sans-serif; letter-spacing: 0; }
+    .wfr-reform-drawer-trigger[aria-expanded="true"] { border-color: #f1d9a5; color: #f1d9a5; box-shadow: 0 0 0 2px rgba(241, 217, 165, 0.32); }
+    .wfr-reform > .wfr-placement-shell {
+        grid-column: 2;
+        grid-row: 1;
+        min-width: 0;
+        min-height: 0;
+        height: 100%;
+        grid-template-columns: minmax(152px, 0.28fr) minmax(0, 1fr);
+        gap: 6px;
+    }
+    .wfr-reform .wfr-pet-picker { grid-template-columns: 1fr; grid-template-rows: repeat(4, minmax(64px, 1fr)); gap: 4px; }
+    .wfr-reform .wfr-pet-picker > button { min-height: 64px; grid-template-columns: 44px minmax(0, 1fr); gap: 6px; padding: 4px 5px; }
+    .wfr-reform .wfr-pet-picker .wfr-portrait { width: 44px !important; height: 44px !important; border-width: 1px; }
+    .wfr-reform .wfr-pet-picker strong,
+    .wfr-reform .wfr-pet-picker small { font-size: 14px; line-height: 1.12; }
+    .wfr-reform .wfr-pip { height: 5px; }
+    .wfr-reform .wfr-placement-board { height: 100%; min-height: 0; padding: 28px 6px 5px 76px; }
+    .wfr-reform .wfr-depth-labels { top: 5px; left: 76px; right: 20px; font-size: 14px; letter-spacing: 0.02em; }
+    .wfr-reform .wfr-route-labels { left: 5px; top: 29px; bottom: 6px; font-size: 14px; letter-spacing: 0; }
+    .wfr-reform .wfr-placement-grid { gap: 4px; grid-template-rows: repeat(5, minmax(44px, 1fr)); }
+    .wfr-reform .wfr-placement-grid > button { min-height: 44px; }
+    .wfr-reform .wfr-placement-grid .wfr-portrait { width: 50px !important; height: 50px !important; }
+    .wfr-reform .wfr-placement-board::after { right: 1px; font-size: 14px; letter-spacing: 0.04em; }
+    .wfr-reform > .wfr-reform-footer {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        min-width: 0;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(300px, 0.78fr);
+        gap: 7px;
+    }
+    .wfr-reform-footer > .wfr-formation-diff {
+        height: 106px;
+        padding: 5px 8px;
+        overflow: hidden;
+    }
+    .wfr-reform-footer > .wfr-formation-diff > span,
+    .wfr-reform-footer > .wfr-formation-diff strong { font-size: 14px; line-height: 1.18; }
+    .wfr-reform-footer > .wfr-deploy-actions { grid-area: auto; position: static; padding: 0; background: none; display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 5px; }
+    .wfr-reform-footer > .wfr-deploy-actions > button { min-width: 0; min-height: 48px; padding: 5px; font-size: 14px; line-height: 1.1; white-space: normal; }
+
+    .wfr-hud { padding-top: max(6px, env(safe-area-inset-top)); padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right)); }
+    .wfr-exit { top: auto; right: max(10px, env(safe-area-inset-right)); bottom: max(10px, env(safe-area-inset-bottom)); }
+}
