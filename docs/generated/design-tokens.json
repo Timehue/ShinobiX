@@ -2449,11 +2449,11 @@
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 750
+            "line": 799
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 2730
+            "line": 2779
           },
           {
             "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
@@ -2727,7 +2727,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 1381
+            "line": 1430
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
@@ -2801,7 +2801,7 @@
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 819
+            "line": 868
           },
           {
             "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
@@ -3086,11 +3086,11 @@
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 1821
+            "line": 1870
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 2694
+            "line": 2743
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
@@ -3178,6 +3178,17 @@
       },
       {
         "direction": "max",
+        "axis": "width",
+        "valuePx": 768,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/central-skin.css",
+            "line": 92
+          }
+        ]
+      },
+      {
+        "direction": "max",
         "axis": "height",
         "valuePx": 780,
         "occurrences": [
@@ -3237,11 +3248,11 @@
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 710
+            "line": 759
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
-            "line": 288
+            "line": 287
           },
           {
             "source": "shinobij.client/src/styles/index/06-combat-core.css",
@@ -3490,7 +3501,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
-            "line": 687
+            "line": 713
           },
           {
             "source": "shinobij.client/src/styles/index/10-layout-lock-herald.css",
@@ -3705,7 +3716,7 @@
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 691
+            "line": 740
           },
           {
             "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",

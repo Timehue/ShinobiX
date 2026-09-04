@@ -284,8 +284,13 @@
    viewports), the painted map FITS the screen and the player pinch / drag-zooms
    it — replacing the legacy fixed-1100 horizontal-scroll mobile map that piled
    the markers into an overlapping blob and clipped the map at the screen edges.
-   Higher specificity + the inline `--wm-tf` transform var override the
-   @media(max-width:800px) rules, so the fallback path needs no markup change. */
+   Higher specificity overrides the @media(max-width:800px) rules, so the
+   fallback path needs no markup change. The camera transform is NOT declared
+   here: useWorldMapZoom writes `transform` straight onto the element. Do not
+   reintroduce a `transform` declaration on this selector — an `!important` one
+   would silently beat the inline style and freeze the map, and routing the
+   camera back through a CSS variable costs ~140x per pan frame (custom
+   properties inherit, so writing one invalidates every descendant's style). */
 html.wm-zoom .world-map-scroll {
     position: relative;
     width: 100% !important;
@@ -323,7 +328,6 @@ html.wm-zoom .world-map-scroll .generated-world-map {
     border-radius: 0 !important;
     box-shadow: none !important;
     transform-origin: 0 0;
-    transform: var(--wm-tf, none) !important;
     will-change: transform;
     touch-action: none;
 }
@@ -406,6 +410,28 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     html.wm-zoom .world-map-scroll .generated-world-map {
         transition: none !important;
     }
+}
+
+/* ── Mobile idle budget: freeze the decorative loops, keep the decoration ─────
+   Every one of these sits INSIDE the map layer, which zoom mode paints at a ~3x
+   cover scale. A keyframe on any of them therefore repaints a multi-megapixel
+   full-bleed surface forever, whether or not the player is touching anything —
+   measured at 390x844 on a 4x-throttled CPU, the animations alone held the idle
+   map at 38 fps and stopping them returned 47.
+
+   Only the ANIMATION stops. The glows, the hearth light and the blend modes all
+   still paint, at the midpoint of what they used to pulse between, so the map
+   looks the same standing still — it just stops costing a frame budget to do it.
+   Desktop is untouched (no .wm-zoom), as is the separate `lite-fx` weak-device
+   downgrade in 28-desktop-scaling.css, which this deliberately mirrors. */
+html.wm-zoom .world-map-scroll .world-biome-glow,
+html.wm-zoom .world-map-scroll .world-poi-glow {
+    animation: none !important;
+    opacity: 0.5;
+}
+html.wm-zoom .world-map-scroll .world-poi-smoke {
+    animation: none !important;
+    opacity: 0;
 }
 
 /* Zoom controls live in the top bar (beside "← Village"); the region chips sit
