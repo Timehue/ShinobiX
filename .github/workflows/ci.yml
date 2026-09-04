@@ -153,7 +153,10 @@ jobs:
   server_build_security:
     name: CI / server-build-security
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 15 was enough until the audit step learned to retry (see below). A single
+    # failing audit attempt cost 5m of npm's own internal retrying, so three of
+    # them plus install, backup tests and the server build no longer fit.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -170,7 +173,40 @@ jobs:
       - name: Backup and restore safety
         run: npm run test:backup 2>&1 | tee .ci-evidence/server-build-security/backup-tests.log
       - name: Root dependency audit
-        run: npm audit --audit-level=high 2>&1 | tee .ci-evidence/server-build-security/root-audit.log
+        # The gate is unchanged: one high-severity advisory still fails the job,
+        # on the first attempt, with no retry. What is new is the handling of npm
+        # answering with no verdict at all. On 2026-09-04 the audit endpoint
+        # returned `400 Bad Request - Invalid package tree` for the very lockfile
+        # it had accepted 100 minutes earlier on the #118 merge; the step failed,
+        # and because every e2e suite, concurrency-smoke, release-artifact and
+        # release-certification hang off this job, the whole suite went red and
+        # Railway skipped the deploy of a commit whose code was fine. Re-running
+        # the identical commit passed all 19 jobs. A registry blip should not
+        # cost a production deploy, and retrying costs nothing when npm is well.
+        run: |
+          log=.ci-evidence/server-build-security/root-audit.log
+          attempt_out="$(mktemp)"
+          : > "$log"
+          for attempt in 1 2 3; do
+            printf '=== attempt %s of 3 ===\n' "$attempt" | tee -a "$log"
+            if npm audit --audit-level=high > "$attempt_out" 2>&1; then
+              tee -a "$log" < "$attempt_out"
+              exit 0
+            fi
+            tee -a "$log" < "$attempt_out"
+            # A real advisory is a verdict. Fail on it now rather than burning
+            # 10 more minutes to be told the same thing twice.
+            if ! grep -qE 'audit endpoint returned an error|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ERR_SOCKET_TIMEOUT' "$attempt_out"; then
+              echo "::error::npm audit reported a high-severity advisory."
+              exit 1
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "::warning::npm audit endpoint errored on attempt $attempt/3; retrying in 30s."
+              sleep 30
+            fi
+          done
+          echo "::error::npm audit endpoint returned no verdict in 3 attempts."
+          exit 1
       - name: Build server once
         run: npm run build:server 2>&1 | tee .ci-evidence/server-build-security/server-build.log
       - name: Package immutable server artifact
@@ -202,7 +238,9 @@ jobs:
   client_quality:
     name: CI / client-quality
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Raised with the audit retry below, on the same reasoning as
+    # server-build-security: three failing audit attempts are ~15m on their own.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -238,7 +276,33 @@ jobs:
       - name: Visual-baseline size gate
         run: npm run test:e2e:visual:size --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/visual-size.log
       - name: Client dependency audit
-        run: npm audit --prefix shinobij.client --audit-level=high 2>&1 | tee .ci-evidence/client-quality/client-audit.log
+        # Same contract as the root audit in server-build-security: a real
+        # advisory fails immediately, npm failing to answer is retried. This one
+        # happened to pass on 2026-09-04 while the root audit did not, which is
+        # the clearest evidence available that the failure was the registry's
+        # and not the lockfile's.
+        run: |
+          log=.ci-evidence/client-quality/client-audit.log
+          attempt_out="$(mktemp)"
+          : > "$log"
+          for attempt in 1 2 3; do
+            printf '=== attempt %s of 3 ===\n' "$attempt" | tee -a "$log"
+            if npm audit --prefix shinobij.client --audit-level=high > "$attempt_out" 2>&1; then
+              tee -a "$log" < "$attempt_out"
+              exit 0
+            fi
+            tee -a "$log" < "$attempt_out"
+            if ! grep -qE 'audit endpoint returned an error|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ERR_SOCKET_TIMEOUT' "$attempt_out"; then
+              echo "::error::npm audit reported a high-severity advisory."
+              exit 1
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "::warning::npm audit endpoint errored on attempt $attempt/3; retrying in 30s."
+              sleep 30
+            fi
+          done
+          echo "::error::npm audit endpoint returned no verdict in 3 attempts."
+          exit 1
       - name: Package immutable client artifact
         run: |
           mkdir -p .ci-artifacts/client
