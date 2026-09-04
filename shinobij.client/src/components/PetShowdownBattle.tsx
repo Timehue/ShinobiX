@@ -2238,7 +2238,7 @@ const SR_ONLY: React.CSSProperties = {
     border: 0,
 };
 
-export function PetShowdownBattle({ initialState, playerPets, sharedImages, submitTurn, onForfeit, onFinished, onExit, onRematch, spectator = false }: {
+export function PetShowdownBattle({ initialState, playerPets, sharedImages, submitTurn, onForfeit, onFinished, onExit, onRematch, resultNote, spectator = false }: {
     initialState: ShowdownStateView;
     /** The player's real roster Pets (for 3D model + art resolution). */
     playerPets: Pet[];
@@ -2255,6 +2255,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     onFinished: (outcome: "win" | "loss", settlement: ShowdownTurnResponse | null) => void;
     onExit: () => void;
     onRematch: () => void;
+    /** One line of story for the result panel, chosen by the caller from the
+     *  outcome. A campaign fight is not a ladder fight: losing the Balancing
+     *  should be answered by the Court rather than by silence and a rematch
+     *  button. Modes that have nothing to say pass nothing and are unchanged. */
+    resultNote?: (outcome: "win" | "loss") => string | null | undefined;
 }) {
     const [qualityId, setQualityId] = useState<PetVisualQuality>(() => petVisualQuality().id);
     const renderQuality = PET_VISUAL_QUALITY_PRESETS[qualityId];
@@ -3880,6 +3885,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         </div>
                         {outcome === "win" && (settlement?.reward ?? 0) > 0 && (
                             <div className="showdown-result-reward">+{settlement?.reward} ryo</div>
+                        )}
+                        {outcome && resultNote?.(outcome) && (
+                            <p className="showdown-result-note">{resultNote(outcome)}</p>
                         )}
                         {/* Say it outright. A win that pays nothing and SAYS
                             nothing reads as a bug or a robbery — the player

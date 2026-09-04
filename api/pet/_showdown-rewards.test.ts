@@ -81,9 +81,13 @@ describe('showdown.ts wires practice as unpaid', () => {
         // The comment this test used to carry said "until a live entry point
         // exists". That entry point now exists, so the assertion moves from
         // "nothing pays" to "exactly one thing pays, and it is the right one".
-        // Exactly FOUR seal sites exist, and each is pinned to its entry:
+        // Exactly FIVE seal sites exist, and each is pinned to its entry:
         //   crisis    → the literal false. The level-80 companion front pays
         //               only through the shared village witness ledger.
+        //   first-pact → the literal false. The First Pact campaign is a
+        //               single-player story mode; its 2v2 bouts advance the
+        //               campaign, and its rewards belong to that progression,
+        //               not to the pet economy's daily faucet.
         //   practice  → the literal false
         //   arena     → `!hollowGate`, i.e. it pays UNLESS the bout is bound to a
         //               Hollow Gate run, which pays through the run's own
@@ -93,9 +97,10 @@ describe('showdown.ts wires practice as unpaid', () => {
         //               OUTCOME; its rewards belong to the dungeon run's own
         //               settlement and the event's completion.
         const seals = [...src.matchAll(/rewardEligible: ([^,\n]+)/g)].map((m) => m[1].trim());
-        assert.deepEqual(seals, ['false', 'false', '!hollowGate', 'false'], 'only these four seal forms may exist, in this order');
+        assert.deepEqual(seals, ['false', 'false', 'false', '!hollowGate', 'false'], 'only these five seal forms may exist, in this order');
 
         const crisisAt = indexOfOrFail("action === 'world-crisis-80'");
+        const firstPactAt = indexOfOrFail("action === 'first-pact'");
         const practiceAt = indexOfOrFail("action === 'start'");
         // The paid branch is matched on its FULL opening line, not on a bare
         // `action === 'arena'`: the Hollow Gate admission guard below tests the
@@ -107,9 +112,11 @@ describe('showdown.ts wires practice as unpaid', () => {
         const hollowGateRetirement = indexOfOrFail("action === 'arena' && body.hollowGate != null");
         const paidSeal = src.indexOf('rewardEligible: !hollowGate');
         const crisisSeal = src.indexOf('rewardEligible: false', crisisAt);
+        const firstPactSeal = src.indexOf('rewardEligible: false', firstPactAt);
         const practiceSeal = src.indexOf('rewardEligible: false', practiceAt);
         const encounterSeal = src.indexOf('rewardEligible: false', arenaAt);
-        assert.ok(crisisSeal > crisisAt && crisisSeal < practiceAt, 'the world-crisis entry seals itself unpaid');
+        assert.ok(crisisSeal > crisisAt && crisisSeal < firstPactAt, 'the world-crisis entry seals itself unpaid');
+        assert.ok(firstPactSeal > firstPactAt && firstPactSeal < practiceAt, 'the First Pact campaign entry seals itself unpaid');
         assert.ok(paidSeal > arenaAt && paidSeal < encounterAt, 'the paying seal belongs to the arena entry');
         assert.ok(practiceSeal > practiceAt && practiceSeal < arenaAt, 'the practice entry seals itself unpaid');
         assert.ok(hollowGateRetirement < arenaAt, 'new Hollow Gate Showdown admission must fail before the paid arena branch');
@@ -224,15 +231,25 @@ describe('showdown.ts wires practice as unpaid', () => {
     });
 
     it('suppresses ordinary settlement before validating a retained bound terminal', () => {
+        // The sidecars are now read from the single `bindings` record that
+        // refreshShowdownBindings() loads and re-leases for the session, rather
+        // than with three inline kv.get calls. The invariant is unchanged and
+        // the needles follow the code: every server-only parent binding must be
+        // in hand BEFORE ordinary settlement, and ordinary settlement must be
+        // suppressed when ANY of them is present.
         const terminalAt = indexOfOrFail("if (action === 'turn')");
-        const sidecarAt = src.indexOf('const hgBinding = await kv.get<ShowdownHollowGateBinding>', terminalAt);
-        const crisisSidecarAt = src.indexOf('const crisisBinding = await kv.get<ShowdownWorldCrisis80Binding>', terminalAt);
-        const paidAt = src.indexOf("if (!hgBinding && !crisisBinding && session.outcome === 'win')", terminalAt);
+        const sidecarAt = src.indexOf('const hgBinding = bindings.hollowGate', terminalAt);
+        const crisisSidecarAt = src.indexOf('const crisisBinding = bindings.worldCrisis80', terminalAt);
+        const firstPactSidecarAt = src.indexOf('const firstPactBinding = bindings.firstPact', terminalAt);
+        const paidAt = src.indexOf("if (!hgBinding && !crisisBinding && !firstPactBinding && session.outcome === 'win')", terminalAt);
         const exactParentAt = src.indexOf("hollowGatePetAuthorityMatches(parent, 'showdown', session.sessionId)", terminalAt);
+        assert.ok(paidAt > terminalAt, 'ordinary settlement must be gated on every server-only parent binding');
         assert.ok(sidecarAt > terminalAt && sidecarAt < paidAt,
             'the server-only HG sidecar must load before ordinary Showdown settlement');
         assert.ok(crisisSidecarAt > terminalAt && crisisSidecarAt < paidAt,
             'the server-only crisis sidecar must also load before ordinary Showdown settlement');
+        assert.ok(firstPactSidecarAt > terminalAt && firstPactSidecarAt < paidAt,
+            'the server-only First Pact sidecar must also load before ordinary Showdown settlement');
         assert.ok(exactParentAt > paidAt,
             'retained HG recovery validates its exact parent only after paid settlement has been suppressed');
     });

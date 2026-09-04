@@ -1,0 +1,9 @@
+Use case: stylized-concept
+Asset type: production transparent environment sprite for a top-down 2D fantasy RPG
+Reference: sunken-court-key-art.webp is the authoritative architectural style reference.
+
+Create a monumental circular Grand Colosseum exterior for the living Sunken Court before its fall. Show a complete overhead view of a civic pet-battle arena with three concentric midnight-blue roof and ashlar seating rings, aged bronze parapets, four clearly readable open gates at north, east, south, and west, burgundy banners, warm amber lanterns, restrained cyan conduit accents, and a completely open ochre sand battle floor in the center.
+
+AAA hand-painted dark fantasy realism. Perfectly overhead orthographic camera. Complete circular silhouette, centered with transparent padding and a symmetrical four-gate plan. Evening lantern light with crisp architectural depth and compact contained shadows.
+
+Constraints: genuine alpha transparency; exterior arena only; central sand floor fully visible and empty; no people; no animals; no ground beyond the circular structure; no perspective tilt; no text; no UI; no logo; no watermark.

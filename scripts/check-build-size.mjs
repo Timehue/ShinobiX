@@ -581,7 +581,19 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // live-main tree, leaving 56,077 B of deliberate feature headroom. The authored
 // arena images are outside this JS/CSS gate, and the independently checked
 // startup, entry, per-chunk, and per-CSS limits remain unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 8_000_000;
+// 2026-09-04 CELESTIAL TOWER: THE FIRST PACT: 8,000,000 -> 8,200,000 B. The
+// campaign ships a connected tile world with six interiors, its own procedural
+// renderer, NPC pathing and dialogue, and a durable server-authoritative
+// progression record. It measures 8,140,010 B raw on the reconciled tree,
+// against a 7,943,923 B main, so the feature is 196,087 B and the new ceiling
+// leaves 59,990 B of headroom — the same ~56 KB buffer every entry above
+// settles on. Checked for the usual cause before raising: the FirstPact chunk
+// inlines no `data:*;base64` assets, and its 115 authored images are ordinary
+// files outside this JS/CSS gate. The screen is lazy-mounted and level-100
+// gated, so the INITIAL graph a player downloads is unchanged at 1.37 MB raw /
+// 371.5 KB gzip, and the independently checked startup, entry, per-chunk and
+// per-CSS limits all still pass untouched.
+const TOTAL_JS_CSS_FAIL_BYTES = 8_200_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

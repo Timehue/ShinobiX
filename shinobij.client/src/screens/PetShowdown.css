@@ -1473,6 +1473,20 @@
     text-shadow: 0 1px 3px #000;
 }
 
+/* Campaign aftermath. A story fight answers the player in prose, so this reads
+   as a passage rather than a status chip: measured width, quiet colour, no
+   pill. Modes that pass no note render nothing here at all. */
+.showdown-result-note {
+    max-width: 46ch;
+    margin: 0;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    text-align: center;
+    text-wrap: pretty;
+    color: var(--ink-dim);
+    text-shadow: 0 1px 3px #000;
+}
+
 .showdown-result-buttons { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
 
 /* ── Narrow compression (the 560-979 tier) ──────────────────────────────────

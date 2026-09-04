@@ -874,6 +874,16 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         ],
         participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'expiring-chronicle-projection-and-parent-run-proof-receipt', status: 'match',
     }),
+    defineMode({
+        id: 'celestial-first-pact', label: 'Celestial Tower: The First Pact', category: 'pet-showdown', authorityEngine: E.PET_SHOWDOWN,
+        clientEntries: ['screens/FirstPact.tsx', 'lib/first-pact-api.ts', 'lib/first-pact-world.ts', 'lib/pet-showdown-api.ts'],
+        routes: [
+            mountedRoute('/first-pact/state', 'first-pact/state', ['state', 'lifecycle', 'settlement']),
+            mountedRoute('/pet/showdown', 'pet/showdown', ['start', 'action', 'state', 'settlement']),
+        ],
+        participantModel: 'solo', rewardPolicy: 'server-progression', replayKind: 'durable-campaign-plus-expiring-showdown-turn-script', status: 'match',
+        statusDetail: 'Level-100 single-player RPG in one connected tile world. Exploration and NPC movement are presentation; ordered Chronicle beats, Court Standing, the optional Vale Stable tournament, the district writs, the Balancing, the Standing Court rerun, and all 2v2-plus-two-reserve battle results are server-authoritative and exact-once.',
+    }),
 ]);
 
 export function runtimeModeById(id: string): RuntimeMode | undefined {
