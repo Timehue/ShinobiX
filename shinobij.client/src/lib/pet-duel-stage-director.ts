@@ -38,6 +38,12 @@ type Track = {
     markIndex: number;
 };
 
+// A setup cast is the one beat with a hard spatial contract: buffs, heals,
+// hastes and barriers have to read as "broke away, then powered up". It
+// therefore outranks an evade (60) so a dodge cannot swallow the retreat, but
+// still yields to a stagger (72), which is the opponent's beat, not the
+// caster's own choice.
+const SETUP_DISENGAGE_PRIORITY = 62;
 const MOVE_TICKS = Math.round(DUEL_TPS * 0.52);
 const EXIT_TICKS = Math.round(DUEL_TPS * 0.58);
 const RECOIL_TICKS = Math.round(DUEL_TPS * 0.34);
@@ -230,12 +236,41 @@ function nextMark(track: Track, salt = 0): Point {
     return copyPoint(marks[track.markIndex]);
 }
 
-function breakawayMark(track: Track, from: Point, threat: Point): Point {
+/**
+ * Earliest tick from which a move of `priority` can run to `end` without
+ * colliding with a route that outranks it. Contact and evade routes own their
+ * windows, so a retreat that wants to start before the last of them is dropped
+ * outright rather than shortened -- see addMove.
+ */
+function earliestFreeLaunch(track: Track, end: number, priority: number): number {
+    let launch = 0;
+    for (const segment of track.segments) {
+        if (segment.priority > priority && segment.end > launch && segment.start < end) {
+            launch = segment.end;
+        }
+    }
+    return Math.min(launch, Math.max(0, end - 1));
+}
+
+/** Travel a route may cover in `ticks` and still respect MAX_STAGE_STEP. */
+function travelBudgetFor(ticks: number): number {
+    // Smoothstep peaks at 1.5x its average velocity; 1.6 is the same allowance
+    // addMove uses when it decides how early a long traversal has to launch.
+    return Math.max(1, ticks) * MAX_STAGE_STEP / 1.6;
+}
+
+function breakawayMark(track: Track, from: Point, threat: Point, travelBudget = Infinity): Point {
     const marks = track.team === "player" ? PLAYER_MARKS : ENEMY_MARKS;
-    let selectedIndex = track.markIndex;
+    let selectedIndex = -1;
     let selectedScore = -Infinity;
     for (let index = 0; index < marks.length; index++) {
         const mark = marks[index];
+        // Reachability comes first. A mark the retreat cannot cover inside the
+        // ticks it actually owns makes addMove pull the launch earlier, into the
+        // contact route holding those ticks, and the disengage is then discarded
+        // entirely -- which is how a caster ended up powering up nose-to-nose.
+        // A nearer mark that gets authored beats a farther one that never runs.
+        if (distance(from, mark) > travelBudget) continue;
         // Distance from the opponent is the dominant read; a smaller travel term
         // favors a decisive retreat over a tiny local shuffle. Avoid selecting the
         // current mark again even when it happens to be the geometric maximum.
@@ -245,6 +280,13 @@ function breakawayMark(track: Track, from: Point, threat: Point): Point {
             selectedScore = score;
             selectedIndex = index;
         }
+    }
+    if (selectedIndex < 0) {
+        // Every mark is out of reach: give up the choreographed spot and simply
+        // back off the threat as far as the window allows. The arena clamp keeps
+        // the retreat on the floor.
+        const away = norm(from.x - threat.x, from.y - threat.y);
+        return keepOnFloor({ x: from.x + away.x * travelBudget, y: from.y + away.y * travelBudget });
     }
     track.markIndex = selectedIndex;
     return copyPoint(marks[selectedIndex]);
@@ -337,8 +379,14 @@ function buildTracks(result: DuelResult, ids: { player: string; enemy: string })
         if (event.type === "cast" && (event.kind === "buff" || event.kind === "haste" || event.kind === "heal" || event.kind === "barrier")) {
             // Setup is a distance break: sprint out, turn, then power up.  The
             // rival explicitly does not follow the retreating caster.
-            const disengage = breakawayMark(actor, actorAt, foeAt);
-            addMove(actor, event.t - MOVE_TICKS, event.t - 3, disengage, "dash", 38);
+            const settle = event.t - 3;
+            // Size the retreat to the ticks it can actually have, measured from
+            // where the fighter will be when it launches -- addMove judges travel
+            // from the launch tick, not from where the caster stands at the cast.
+            const launch = earliestFreeLaunch(actor, settle, SETUP_DISENGAGE_PRIORITY);
+            const budget = travelBudgetFor(settle - launch);
+            const disengage = breakawayMark(actor, trackPosition(actor, launch), foeAt, budget);
+            addMove(actor, event.t - MOVE_TICKS, settle, disengage, "dash", SETUP_DISENGAGE_PRIORITY);
             addState(actor, event.t - 3, event.t + Math.round(DUEL_TPS * 0.55), "windup", 48);
             addState(foe, event.t - MOVE_TICKS, event.t + Math.round(DUEL_TPS * 0.45), "idle", 28);
             return;

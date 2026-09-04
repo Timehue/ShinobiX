@@ -520,6 +520,9 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
     useEffect(() => {
         let active = true;
         readyReported.current = false;
+        // Clearing the previous scene before its replacement loads is the point of
+        // this effect; without it the old impostors stay on screen through the load.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setImages(null);
         setHeroImpactSprite(null);
         onRendererAvailability?.(true);
@@ -599,7 +602,6 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
         const heroHpBeforePose = createActorPoseSample();
         const heroHpAfterPose = createActorPoseSample();
         const heroPhase = createWarfrontSpectaclePhase();
-        const cameraPhase = createWarfrontSpectaclePhase();
         const focusPhase = createWarfrontSpectaclePhase();
         const cameraOrigin = createActorPoseSample();
         const cameraTarget = createActorPoseSample();
@@ -795,8 +797,8 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
                 owner: null,
             };
             let objectiveFloorDecalDraws = 0;
-            let objectiveFloorDecalMaxAlpha = 0;
-            let objectiveFloorDecalMaxRadiusPx = 0;
+            let objectiveFloorDecalMaxAlpha: number;
+            let objectiveFloorDecalMaxRadiusPx: number;
             let scrollPropDraws = 0;
             {
                 const [objectiveX, objectiveY] = project(scroll.x, scroll.y);
@@ -848,7 +850,6 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
                 context.restore();
             }
 
-            let activeCues = 0;
             let contacts = 0;
             let longestDistance = 0;
             let longestEndpoints = "";
@@ -899,7 +900,7 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
                 }
             }
             const particlesPerCue = warfrontSpectacleParticleBudget(Math.min(cssWidth, cssHeight), activeSpectacleCues.length);
-            activeCues = activeSpectacleCues.length;
+            const activeCues = activeSpectacleCues.length;
             for (let cueIndex = 0; cueIndex < activeSpectacleCues.length; cueIndex++) {
                 const cue = activeSpectacleCues[cueIndex];
                 const phase = warfrontSpectaclePhaseInto(cue, tick, spectaclePhases[cueIndex]);

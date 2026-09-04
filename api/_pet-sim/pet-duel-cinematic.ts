@@ -1501,7 +1501,7 @@ function reservedEngagementGoal(f: Fighter, e: Fighter, fighters: Fighter[], rSt
     const base = order[ordinal % order.length];
     const probes = [0, 1, -1, 2, -2, 3, -3] as const;
     const initial = containWarfrontSocket(f, e, e.x + SLOT_X[base] * radius, e.y + SLOT_Y[base] * radius);
-    let fallback: [number, number] = snapPos(initial[0], initial[1]);
+    const fallback: [number, number] = snapPos(initial[0], initial[1]);
     for (const probe of probes) {
         const dir = (base + probe + N) % N;
         const rawX = e.x + SLOT_X[dir] * radius;
@@ -4516,7 +4516,7 @@ function kageFormationSim(
             if (fighter.statuses.stunLeft > 0) { fighter.state = "stagger"; continue; }
             if (!target || target.fighter.hp <= 0) continue;
             const openingAnchor = tick < KAGE_OPENING_SHAPE_TICKS ? byId(unit.openingTargetId) : null;
-            let holdsOpeningSocket = Boolean(openingAnchor?.fighter.hp) && unit.openingJob !== "wing";
+            const holdsOpeningSocket = Boolean(openingAnchor?.fighter.hp) && unit.openingJob !== "wing";
             const atOpeningSocket = unit.col === unit.openingCol && unit.row === unit.openingRow;
             const openingReach = unit.role === "ranger" || unit.role === "support" ? 3 : 1;
             const openingContactLegal = Boolean(openingAnchor
@@ -4538,7 +4538,6 @@ function kageFormationSim(
                 unit.targetLockLeft = 0;
                 fighter.targetId = null;
                 unit.blockedTicks = 0;
-                holdsOpeningSocket = false;
                 setIntent(fighter, "reposition", openingReach,
                     "pursue the displaced formation target", "the opposing firing socket has moved");
                 continue;
