@@ -1259,12 +1259,15 @@ export default defineConfig({
         // first cast instead of a parse-blocking blob, and ~415 KB of pixel art
         // leaves the JS/CSS budget it never belonged in.
         //
-        // Returning undefined keeps Vite's default limit for every other asset:
-        // this opts out the fx flipbooks and nothing else.
-        assetsInlineLimit: (filePath: string) =>
-            /\/src\/assets\/fx\/[^/]+\/[^/]+\.png$/.test(filePath.replace(/\\/g, '/'))
-                ? false
-                : undefined,
+        // Keep the FX flipbooks fully external, and also stop medium assets from
+        // paying base64's one-third expansion inside lazy JavaScript. Returning
+        // undefined below 2,560 B preserves Vite's built-in Git LFS safeguard.
+        assetsInlineLimit: (filePath: string, content: Buffer) => {
+            if (/\/src\/assets\/fx\/[^/]+\/[^/]+\.png$/.test(filePath.replace(/\\/g, '/'))) {
+                return false;
+            }
+            return content.length >= 2_560 ? false : undefined;
+        },
         rolldownOptions: {
             // Inline imported scalar constants across two passes. This removes
             // their lookup scaffolding while preserving normal property names
