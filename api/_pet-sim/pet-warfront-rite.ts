@@ -4,30 +4,21 @@
 /*
  * pet-warfront-rite.ts — Hollow Warfront, the AUTOBATTLER.
  *
- * FOUR PETS A SIDE, ALL FIGHTING AT ONCE, best of three clashes.
+ * FOUR PETS PER BAND: all four active, best of three formation clashes.
  *
- * Warfront shipped twice as a lane war, and the capture-scroll Tactical Arena
- * before it. All three failed the same way: the thing on screen was not the
- * thing that won. `wfVerdictScore` counted downed towers and nothing else, so
- * every takedown a player watched was worth exactly zero. Here the clash IS the
- * scoreboard — pets standing decides the round, rounds decide the match.
+ * Each Beastbound Warfront clash keeps pets on discrete cells with cover and line
+ * of sight, and use role-specific ranges and priorities. Placement creates the
+ * plan without class locks; the engine never resolves movement with body pushing.
  *
- * The combat is not reimplemented. A clash runs on the shipped, harness-
- * validated cinematic engine via `runPetSquadDuelCinematic`, which is an
- * ADDITIVE entry point on that engine: `simulate` always took a fighter array,
- * `_partyMode` switches itself on above two fighters, and ally separation
- * already loops over every teammate. The two-per-side cap was an entry-point
- * limit, not an engine one. Every Coliseum path is byte-identical.
+ * A clash runs through the additive `runPetSquadDuelCinematic` entry point. That
+ * path now owns a Warfront-only grid simulation; the existing Coliseum duel
+ * paths remain byte-identical and share only the shipped pet data/model layer.
  *
- * MEASURED (scripts/warfront-rite-harness.mts, real 130-pet pool, 90 matches):
- *   - blue-seat win rate 53.3% — fair, inside the 42-58% band
- *   - 0% IDLE fighters: every one of the eight engages, so the cinematic AI
- *     genuinely holds at squad scale, not only at one or two a side
- *   - clash median 30.9s, match median 75.5s, 0.9% hit the engine's 75s cap
- *   - 20% of matches are won by the side that LOST the opening clash, against a
- *     25% ceiling for perfectly independent clashes — the best-of-three is live
- *   - formation changes the winner in 54.4% of matches: which two pets hold the
- *     front line is the real decision, and it is not a solved one
+ * RELEASE RATCHETS (pet-warfront-rite.test.ts): hard cell ownership, correct
+ * facing, sight/cover, role actions, meaningful free deployment, pacing and
+ * deterministic server parity.
+ * Re-run the statistical harness before publishing new balance claims whenever
+ * the maze, objective travel, targeting priorities, or pet damage changes.
  *
  * Determinism: no Date, no Math.random, no localStorage. `accuracyEnabled` and
  * `applyItems` are passed EXPLICITLY, because the engine's defaults read client
@@ -37,33 +28,40 @@
 import type { Pet } from "./pet-types.js";
 import { derivePetRole, type PetRole } from "./pet-roles";
 import { DUEL_TPS, type DuelResult } from "./pet-duel-sim.js";
-import { runPetSquadDuelCinematic, SQUAD_FRONT_SLOTS } from "./pet-duel-cinematic.js";
+import {
+    WARFRONT_DEFAULT_DEPLOYMENT,
+    WARFRONT_DEPLOYMENT_NODES,
+    runPetSquadDuelCinematic,
+} from "./pet-duel-cinematic.js";
+export { WARFRONT_DEFAULT_DEPLOYMENT, WARFRONT_DEPLOYMENT_NODES } from "./pet-duel-cinematic.js";
 
 /** Pets per band. Matches the sealed team size in api/pet/warfront-start.ts. */
 export const RITE_BAND_SIZE = 4;
+/** Every band member fights. Formation depth changes behaviour, never eligibility. */
+export const RITE_ACTIVE_SIZE = 4;
 
-/** Lane slots that spawn on the FRONT line and meet the enemy first. */
-export const RITE_FRONT_SLOTS = SQUAD_FRONT_SLOTS;
+/** Legacy strategy vocabulary retained for old recaps and saved replays. Free
+ *  deployment no longer requires one pet in each job. */
+export const RITE_JOBS = Object.freeze([
+    Object.freeze({ id: "vanguard", label: "VANGUARD", brief: "Contests the center" }),
+    Object.freeze({ id: "warden", label: "WARDEN", brief: "Intercepts their Flanker" }),
+    Object.freeze({ id: "flanker", label: "FLANKER", brief: "Hunts their Anchor" }),
+    Object.freeze({ id: "anchor", label: "ANCHOR", brief: "Holds the home post" }),
+] as const);
+/** Only two of the opponent's deployed positions are revealed. */
+export const RITE_SCOUTED_JOBS = 2;
+/** Compatibility alias for old callers; these are scouted jobs, not a front line. */
+export const RITE_FRONT_SLOTS = RITE_SCOUTED_JOBS;
 
 /**
  * Clash-length scale applied to every pet's `hp` before the engine builds it.
  *
- * Eight fighters pool four times the health of a duel, so inherited Coliseum
- * pacing produces a 70-second slog that times out with half the board alive
- * (measured: 45.8% hit the cap at scale 1.0, only 3.3 of 8 knocked out). TUNED
- * over the real pool, 40 matches per point:
- *
- *   scale   clash median   hit the 75s cap   KOs of 8
- *   1.00        70.0s           45.8%           3.3
- *   0.45        49.9s            8.3%           4.1
- *   0.22        37.3s            5.0%           4.6
- *   0.18        32.1s            2.5%           4.7   <- shipped
- *   0.15        28.3s            0.0%           4.7
- *
- * 0.18 gives a ~32s clash: three of them plus planning is a ~2.5 minute match,
- * and the losing side is genuinely wiped rather than surviving on the timer.
+ * Formation clashes need enough durability for opening movement, a first
+ * technique cycle and a visible signature beat without becoming attrition.
+ * Re-run `scripts/warfront-rite-harness.mts` whenever squad size or engine
+ * damage changes; pacing is certified against the real pet pool, not fixtures.
  */
-export const RITE_SQUAD_HP_SCALE = 0.18;
+export const RITE_SQUAD_HP_SCALE = 0.58;
 
 /** Clashes in a match. First to two wins; a 2-0 ends it early. */
 export const RITE_CLASHES_TO_WIN = 2;
@@ -72,8 +70,8 @@ export const RITE_MAX_CLASHES = 3;
 /**
  * Health a pet that FELL in the previous clash returns with.
  *
- * Falling has to hurt without ending the match: with permadeath the second
- * clash is 4-v-1 and the result is settled before it starts, which is the
+ * Falling has to hurt without ending the match: with permadeath the next clash
+ * becomes a lopsided cleanup and the result is settled before it starts, which is the
  * "foregone conclusion" problem a previous Warfront pass spent a whole commit
  * failing to fix. A wounded return keeps a best-of-three genuinely live while
  * still making the first clash matter.
@@ -106,10 +104,9 @@ export type RiteSide = "blue" | "red";
 /**
  * BOND — what a band's composition grants each of its members.
  *
- * Four pets that merely stand near each other are still four individuals. Bonds
- * are what make a BAND: every pet contributes by role to its whole squad, and
- * contributes half again when it shares the recipient's element. Role spread
- * decides what you get; element spread decides how much.
+ * Four pets that merely stand near each other are still four individuals.
+ * Bonds are what make an active squad: every fielded pet contributes by role to
+ * its allies, and contributes half again when it shares the recipient's element.
  *
  * Applied caller-side by scaling `hp`/`attack` before the engine builds a
  * fighter — the same lever as RITE_SQUAD_HP_SCALE — so the shared Coliseum
@@ -183,8 +180,8 @@ export function riteBandElements(band: readonly Pet[]): string[] {
  * levelling, or simply to take a bad matchup knowingly.
  *
  * The ruling is that players decide what is best for them. A band that can be
- * fielded is a band that may enter; the enemy front line is already scouted on
- * the deploy screen, so the matchup is visible before anyone commits.
+ * fielded is a band that may enter; the enemy Vanguard and Warden are scouted
+ * on the deploy screen, so the opening orders are visible before anyone commits.
  */
 
 /** Whether a band may ENTER. Deliberately allows duplicate pet ids: the
@@ -205,28 +202,46 @@ export function riteBandProblem(band: readonly Pet[], bandSize = RITE_BAND_SIZE)
     return null;
 }
 
-/**
- * A side's plan: the FORMATION (which roster slot stands in which lane) and one
- * optional re-formation between clashes.
- *
- * Lane 0-1 are the front line and meet the enemy first; 2-3 are the back line.
- */
-export interface RitePlan {
-    /** Permutation of roster indices. Position in this array IS the lane. */
+/** A side's sealed deployment transcript. Formation remains for legacy replay
+ * compatibility; deployment is roster-indexed and names one of the ten free
+ * marks for every pet. */
+export interface RiteReform {
+    /** The completed clash whose public evidence prompted this adjustment. */
+    afterClash: number;
+    /** Stable roster playback order adopted for the following clash. */
     formation: number[];
+    /** Roster-indexed legal deployment adopted for the following clash. */
+    deployment: number[];
+}
+
+export interface RitePlan {
+    /** Stable roster playback order. New clients leave this as roster order. */
+    formation: number[];
+    /** Roster-indexed deployment node ids. Omitted only by legacy replays. */
+    deployment?: number[];
     /** Re-form after this clash index resolves. One per match; null = unused. */
     reformAfterClash: number | null;
-    /** The re-formation to adopt. Ignored unless reformAfterClash is set. */
+    /** Legacy roster-order adjustment. */
     reform?: number[] | null;
+    /** Roster-indexed deployment adopted after the chosen clash. */
+    reformDeployment?: number[] | null;
+    /**
+     * Ordered decision transcript for the current best-of-three. A player may
+     * lock one re-form after every non-terminal clash; the legacy singular
+     * fields above remain readable for old receipts and replays.
+     */
+    reforms?: RiteReform[];
 }
 
 export interface RiteCombatant {
     slot: number;
     petId: string;
     lane: number;
+    /** Free-deployment node occupied when the clash began. */
+    node: number;
     /** 0..1 health this pet walked into the clash with. */
     entryHp: number;
-    /** 0..1 health it walked out with. Zero means it fell. */
+    /** 0..1 cumulative base-roster health it walked out with. Zero means it fell. */
     exitHp: number;
     bond: RiteBond;
 }
@@ -236,13 +251,35 @@ export interface RiteClash {
     seed: number;
     blue: RiteCombatant[];
     red: RiteCombatant[];
-    /** Pets left standing when the clash ended. This decides the round. */
+    /** Compatibility sentinels; Beastbound Warfront stores -1 because all fight. */
+    blueReserveSlot: number;
+    redReserveSlot: number;
+    /** Pets left standing when the clash ended. */
     blueStanding: number;
     redStanding: number;
+    /** A wipe or the health verdict at the tactical clock. */
+    finish: "wipe" | "survival";
+    /** Compatibility field for older result consumers; always null. */
+    captureCarrierSlot: number | null;
     winner: RiteSide | null;
     ticks: number;
     seconds: number;
     result: DuelResult;
+}
+
+export interface RiteCounterMove {
+    side: RiteSide;
+    afterClash: number;
+    slot: number;
+    petId: string;
+    fromNode: number;
+    toNode: number;
+    observedOpponentSlot: number | null;
+    observedOpponentPetId: string | null;
+    evidence: "first-fall" | "lowest-health";
+    threatEvidence: "last-hit" | "highest-damage" | "formation-fallback";
+    formation: number[];
+    deployment: number[];
 }
 
 export interface RiteResult {
@@ -279,12 +316,59 @@ const isPermutation = (order: unknown, size: number): order is number[] => {
     return true;
 };
 
+const isDeployment = (nodes: unknown, size: number): nodes is number[] => {
+    if (!Array.isArray(nodes) || nodes.length !== size) return false;
+    const seen = new Set<number>();
+    for (const node of nodes) {
+        if (!Number.isInteger(node) || node < 0 || node >= WARFRONT_DEPLOYMENT_NODES.length || seen.has(node)) return false;
+        seen.add(node);
+    }
+    return true;
+};
+
+const defaultDeployment = (size: number): number[] =>
+    Array.from({ length: size }, (_, index) => WARFRONT_DEFAULT_DEPLOYMENT[index] ?? index);
+
+/** One legal placement action. Occupied cells are deliberately rejected: with
+ * six open marks on a four-pet half, every permutation remains possible without
+ * silently moving a second pet the player did not choose. */
+export function tryMoveRitePet(
+    deployment: readonly number[],
+    slot: number,
+    node: number,
+    bandSize = RITE_BAND_SIZE,
+): number[] | null {
+    if (!isDeployment(deployment, bandSize)
+        || !Number.isInteger(slot) || slot < 0 || slot >= bandSize
+        || !Number.isInteger(node) || node < 0 || node >= WARFRONT_DEPLOYMENT_NODES.length
+        || deployment.includes(node)) return null;
+    const next = [...deployment];
+    next[slot] = node;
+    return next;
+}
+
 export function isValidRitePlan(plan: RitePlan | null | undefined, bandSize = RITE_BAND_SIZE): boolean {
     if (!plan || !isPermutation(plan.formation, bandSize)) return false;
+    if (plan.deployment !== undefined && plan.deployment !== null && !isDeployment(plan.deployment, bandSize)) return false;
     const at = plan.reformAfterClash;
     if (at !== null && at !== undefined) {
         if (!Number.isInteger(at) || at < 0 || at >= RITE_MAX_CLASHES) return false;
         if (plan.reform !== null && plan.reform !== undefined && !isPermutation(plan.reform, bandSize)) return false;
+        if (plan.reformDeployment !== null && plan.reformDeployment !== undefined && !isDeployment(plan.reformDeployment, bandSize)) return false;
+    } else if (plan.reformDeployment !== null && plan.reformDeployment !== undefined) {
+        return false;
+    }
+    if (plan.reforms !== null && plan.reforms !== undefined) {
+        if (!Array.isArray(plan.reforms) || plan.reforms.length > RITE_MAX_CLASHES - 1) return false;
+        let previous = -1;
+        for (const reform of plan.reforms) {
+            if (!reform || !Number.isInteger(reform.afterClash)
+                || reform.afterClash < 0 || reform.afterClash >= RITE_MAX_CLASHES - 1
+                || reform.afterClash <= previous
+                || !isPermutation(reform.formation, bandSize)
+                || !isDeployment(reform.deployment, bandSize)) return false;
+            previous = reform.afterClash;
+        }
     }
     return true;
 }
@@ -296,33 +380,54 @@ export function sanitizeRitePlan(plan: RitePlan | null | undefined, bandSize = R
     if (isValidRitePlan(plan, bandSize)) {
         return {
             formation: [...plan!.formation],
+            deployment: plan!.deployment ? [...plan!.deployment] : defaultDeployment(bandSize),
             reformAfterClash: plan!.reformAfterClash ?? null,
             reform: plan!.reform ? [...plan!.reform] : null,
+            reformDeployment: plan!.reformDeployment ? [...plan!.reformDeployment] : null,
+            reforms: plan!.reforms?.map((entry) => ({
+                afterClash: entry.afterClash,
+                formation: [...entry.formation],
+                deployment: [...entry.deployment],
+            })),
         };
     }
-    return { formation: Array.from({ length: bandSize }, (_, i) => i), reformAfterClash: null, reform: null };
+    return {
+        formation: Array.from({ length: bandSize }, (_, i) => i),
+        deployment: defaultDeployment(bandSize),
+        reformAfterClash: null,
+        reform: null,
+        reformDeployment: null,
+        reforms: [],
+    };
 }
 
 /**
  * The AI's sealed plan, deterministic from the seed alone so the server mirror
  * reproduces it and it cannot read the player's hidden formation.
  *
- * It leads with its durable pets, which is the INTUITIVE formation rather than
- * the optimal one — the harness shows squishies-forward actually scores better.
- * Leaving the AI on the readable line keeps a thinking player ahead of it.
+ * It assigns pets by readable role fit. The plan is sealed and deterministic;
+ * it cannot inspect or counter-pick the player's hidden jobs.
  */
 export function aiRitePlan(band: readonly Pet[], seed: number): RitePlan {
-    const durability = band.map((pet, index) => ({
-        index,
-        score: (pet?.hp ?? 1) + (pet?.defense ?? 0) * 4 + (roleOf(pet) === "defender" ? 900 : 0),
-    }));
-    durability.sort((a, b) => (b.score === a.score ? a.index - b.index : b.score - a.score));
-    const order = durability.map((entry) => entry.index);
-    // Rotate the BACK line by the seed so the AI is not perfectly predictable.
-    const front = order.slice(0, RITE_FRONT_SLOTS);
-    const back = order.slice(RITE_FRONT_SLOTS);
-    const rotate = back.length ? seed % back.length : 0;
-    return { formation: [...front, ...back.slice(rotate), ...back.slice(0, rotate)], reformAfterClash: null, reform: null };
+    const remaining = band.map((_, index) => index);
+    const takeBest = (score: (pet: Pet) => number): number => {
+        let bestAt = 0;
+        let bestScore = -Infinity;
+        remaining.forEach((index, at) => {
+            const tie = ((seed + index * 17) % 997) / 1_000_000;
+            const value = score(band[index]) + tie;
+            if (value > bestScore) { bestScore = value; bestAt = at; }
+        });
+        return remaining.splice(bestAt, 1)[0];
+    };
+    const vanguard = takeBest((pet) => (pet.hp ?? 1) + (pet.defense ?? 0) * 4 + (roleOf(pet) === "defender" ? 900 : 0));
+    const anchor = takeBest((pet) => (pet.hp ?? 1) * 0.5 + (pet.defense ?? 0) * 3 + (roleOf(pet) === "sage" ? 1100 : 0));
+    const flanker = takeBest((pet) => (pet.attack ?? 0) * 5 + (pet.speed ?? 0) * 4 + (roleOf(pet) === "assassin" ? 900 : roleOf(pet) === "tracker" ? 450 : 0));
+    const warden = remaining[0];
+    const formation = [vanguard, warden, flanker, anchor];
+    const deployment = defaultDeployment(band.length);
+    formation.forEach((slot, fieldIndex) => { deployment[slot] = WARFRONT_DEFAULT_DEPLOYMENT[fieldIndex]; });
+    return { formation, deployment, reformAfterClash: null, reform: null, reformDeployment: null, reforms: [] };
 }
 
 /** A pet as it enters a clash: base stats scaled for pacing, by the health it
@@ -346,8 +451,105 @@ function exitFractions(result: DuelResult, team: "player" | "enemy"): Map<number
     return out;
 }
 
+/** Resolve a modern per-clash decision first, then the singular legacy command.
+ * Keeping this seam centralized makes old settlement receipts replay exactly
+ * while new matches can record both possible best-of-three handoffs. */
+function riteReformAfter(plan: RitePlan, clashIndex: number): RiteReform | null {
+    const modern = plan.reforms?.find((entry) => entry.afterClash === clashIndex);
+    if (modern) return modern;
+    if (plan.reformAfterClash !== clashIndex) return null;
+    return {
+        afterClash: clashIndex,
+        formation: plan.reform ? [...plan.reform] : [...plan.formation],
+        deployment: plan.reformDeployment
+            ? [...plan.reformDeployment]
+            : [...(plan.deployment ?? defaultDeployment(plan.formation.length))],
+    };
+}
+
 /**
- * Run a full Rite: up to three simultaneous 4v4 clashes, first to two.
+ * One public-evidence counter for the losing side between clashes.
+ *
+ * The first fallen pet retreats to an unoccupied rear mark farthest from the
+ * rival that last hit it. If no knockout occurred, the lowest-health pet and
+ * highest-damage rival provide deterministic fallbacks. Crucially this reads
+ * only the completed clash object: a player's still-unsealed next formation is
+ * not an argument and therefore cannot affect the move.
+ */
+export function deterministicRiteCounterMove(clash: RiteClash, side: RiteSide): RiteCounterMove | null {
+    // A winner holds its proven line; a draw supplies no losing side. Keeping
+    // this gate inside the pure helper makes live, spectator, replay and server
+    // callers share the exact same counter policy.
+    if (clash.winner === null || clash.winner === side) return null;
+    const ownTeam = side === "blue" ? "player" : "enemy";
+    const foeTeam = ownTeam === "player" ? "enemy" : "player";
+    const own = side === "blue" ? clash.blue : clash.red;
+    const foe = side === "blue" ? clash.red : clash.blue;
+    const actorId = (team: "player" | "enemy", lane: number) => `${team}-${lane}`;
+    const ownByActor = new Map(own.map((combatant) => [actorId(ownTeam, combatant.lane), combatant]));
+    const foeByActor = new Map(foe.map((combatant) => [actorId(foeTeam, combatant.lane), combatant]));
+
+    const firstFallEvent = clash.result.events.find((event) => event.type === "ko" && event.side === ownTeam);
+    const firstFall = firstFallEvent ? ownByActor.get(firstFallEvent.actorId) ?? null : null;
+    const mover = firstFall ?? [...own].sort((a, b) => a.exitHp - b.exitHp || a.slot - b.slot)[0] ?? null;
+    if (!mover) return null;
+
+    const moverActorId = actorId(ownTeam, mover.lane);
+    let observedAttacker = null as RiteCombatant | null;
+    let threatEvidence: RiteCounterMove["threatEvidence"] = "formation-fallback";
+    for (const event of clash.result.events) {
+        if (event.type !== "hit" || event.side !== foeTeam || event.targetId !== moverActorId) continue;
+        observedAttacker = foeByActor.get(event.actorId) ?? observedAttacker;
+        if (observedAttacker) threatEvidence = "last-hit";
+    }
+    if (!observedAttacker) {
+        const damageByActor = new Map<string, number>();
+        for (const event of clash.result.events) {
+            if (event.type !== "hit" || event.side !== foeTeam || !event.dmg || event.dmg <= 0) continue;
+            damageByActor.set(event.actorId, (damageByActor.get(event.actorId) ?? 0) + event.dmg);
+        }
+        const highestDamageActor = [...damageByActor.entries()]
+            .sort((a, b) => b[1] - a[1] || (a[0] === b[0] ? 0 : a[0] < b[0] ? -1 : 1))[0]?.[0];
+        observedAttacker = highestDamageActor ? foeByActor.get(highestDamageActor) ?? null : null;
+        if (observedAttacker) threatEvidence = "highest-damage";
+    }
+
+    const occupied = new Set(own.map((combatant) => combatant.node));
+    // A zero-data clash still gets a deterministic legal response, but it does
+    // not invent an observed attacker. Centre line is the neutral public-board
+    // fallback and the nullable metadata makes that distinction inspectable.
+    const attackerY = observedAttacker
+        ? WARFRONT_DEPLOYMENT_NODES[observedAttacker.node]?.[1] ?? 0
+        : 0;
+    const toNode = WARFRONT_DEPLOYMENT_NODES
+        .map((node, index) => ({ index, node }))
+        .filter(({ index }) => index % 2 === 0 && !occupied.has(index))
+        .sort((a, b) => Math.abs(b.node[1] - attackerY) - Math.abs(a.node[1] - attackerY) || a.index - b.index)[0]?.index;
+    if (toNode === undefined) return null;
+
+    const formation = [...own].sort((a, b) => a.lane - b.lane).map((combatant) => combatant.slot);
+    const deployment = Array.from({ length: own.length }, (_, slot) => own.find((combatant) => combatant.slot === slot)?.node ?? defaultDeployment(own.length)[slot]);
+    deployment[mover.slot] = toNode;
+    return {
+        side,
+        afterClash: clash.index,
+        slot: mover.slot,
+        petId: mover.petId,
+        fromNode: mover.node,
+        toNode,
+        observedOpponentSlot: observedAttacker?.slot ?? null,
+        observedOpponentPetId: observedAttacker?.petId ?? null,
+        evidence: firstFall ? "first-fall" : "lowest-health",
+        threatEvidence,
+        formation,
+        deployment,
+    };
+}
+
+/**
+ * Run a full Rite: up to three simultaneous 4v4 formation clashes, first to two.
+ * A re-form changes every pet's starting cell without changing who is allowed
+ * to participate.
  * Pure and deterministic given (bands, seed, plans).
  */
 export function runWarfrontRite(
@@ -358,7 +560,12 @@ export function runWarfrontRite(
     redPlanInput?: RitePlan | null,
 ): RiteResult {
     const bandSize = Math.min(blueBand.length, redBand.length);
-    const bluePlan = sanitizeRitePlan(bluePlanInput, bandSize);
+    // Headless replays give both seats the same sealed AI planner. The live UI
+    // always supplies the player's chosen plan, but symmetric fallback here is
+    // essential for fair balance certification and server-side probes.
+    const blueUsesAiPlan = !bluePlanInput;
+    const bluePlan = bluePlanInput ? sanitizeRitePlan(bluePlanInput, bandSize) : aiRitePlan(blueBand, seed);
+    const redUsesAiPlan = !redPlanInput;
     const redPlan = redPlanInput ? sanitizeRitePlan(redPlanInput, bandSize) : aiRitePlan(redBand, seed);
 
     // Health each roster slot carries between clashes. Everyone starts whole.
@@ -366,6 +573,8 @@ export function runWarfrontRite(
     const redHp = new Map<number, number>(redBand.map((_, slot) => [slot, 1]));
     let blueFormation = [...bluePlan.formation];
     let redFormation = [...redPlan.formation];
+    let blueDeployment = [...(bluePlan.deployment ?? defaultDeployment(bandSize))];
+    let redDeployment = [...(redPlan.deployment ?? defaultDeployment(bandSize))];
 
     let blueRounds = 0;
     let redRounds = 0;
@@ -374,20 +583,21 @@ export function runWarfrontRite(
     const blueKos = new Map<number, number>();
 
     for (let index = 0; index < RITE_MAX_CLASHES; index++) {
-        // Everyone fights every clash. A pet that fell last time returns
-        // wounded rather than dead, so a best-of-three stays live.
+        // All four formation entries fight; no pet is hidden on a bench.
         const entryOf = (hp: Map<number, number>, slot: number) =>
             Math.max(RITE_MIN_ENTRY_HP, hp.get(slot) || RITE_DOWNED_RETURN_HP);
 
 
-        const buildSide = (band: readonly Pet[], formation: number[], hp: Map<number, number>) => {
-            const standing = formation.map((slot) => ({ pet: band[slot], slot })).filter((e) => Boolean(e.pet));
-            return formation.map((slot, lane) => {
+        const buildSide = (band: readonly Pet[], formation: number[], deployment: number[], hp: Map<number, number>) => {
+            const active = formation.slice(0, Math.min(RITE_ACTIVE_SIZE, formation.length));
+            const standing = active.map((slot) => ({ pet: band[slot], slot })).filter((e) => Boolean(e.pet));
+            return active.map((slot, lane) => {
                 const pet = band[slot];
                 const allies = standing.filter((e) => e.slot !== slot);
                 return {
                     slot,
                     lane,
+                    node: deployment[slot] ?? defaultDeployment(bandSize)[slot],
                     pet,
                     entryHp: entryOf(hp, slot),
                     bond: riteBond(pet, allies),
@@ -395,8 +605,8 @@ export function runWarfrontRite(
             }).filter((e) => Boolean(e.pet));
         };
 
-        const blueSide = buildSide(blueBand, blueFormation, blueHp);
-        const redSide = buildSide(redBand, redFormation, redHp);
+        const blueSide = buildSide(blueBand, blueFormation, blueDeployment, blueHp);
+        const redSide = buildSide(redBand, redFormation, redDeployment, redHp);
         if (!blueSide.length || !redSide.length) break;
 
         const thisSeed = clashSeed(seed, index);
@@ -406,10 +616,13 @@ export function runWarfrontRite(
             thisSeed,
             /* applyItems */ false,
             /* accuracyEnabled */ true,
+            /* debugTrace */ false,
+            blueSide.map((entry) => entry.node),
+            redSide.map((entry) => entry.node),
         );
 
         // The engine indexes fighters by their position in the squad array,
-        // which IS the lane — map back to roster slots through the formation.
+        // which IS the tactical job — map back to roster slots through formation.
         const blueExit = exitFractions(result, "player");
         const redExit = exitFractions(result, "enemy");
 
@@ -418,12 +631,19 @@ export function runWarfrontRite(
             exits: Map<number, number>,
             hp: Map<number, number>,
         ): RiteCombatant[] => side.map((entry, lane) => {
-            const exitHp = exits.get(lane) ?? 0;
+            const localExitRatio = exits.get(lane) ?? 0;
+            // The duel actor's maxHp was already scaled by entryHp, so its
+            // exit ratio is local to this clash. Convert it exactly once back
+            // to roster-base health before any carry, report, or verdict reads
+            // it. The survivor floor belongs only to its next entry; exitHp
+            // remains the exact health shown by the final HUD and verdict.
+            const exitHp = entry.entryHp * localExitRatio;
             hp.set(entry.slot, exitHp > 0 ? Math.max(RITE_MIN_ENTRY_HP, exitHp) : 0);
             return {
                 slot: entry.slot,
                 petId: String(entry.pet.id),
                 lane,
+                node: entry.node,
                 entryHp: entry.entryHp,
                 exitHp,
                 bond: entry.bond,
@@ -435,15 +655,15 @@ export function runWarfrontRite(
         const blueStanding = blue.filter((c) => c.exitHp > 0).length;
         const redStanding = red.filter((c) => c.exitHp > 0).length;
 
-        // More pets standing takes the round; equal counts fall to total health,
-        // and a genuine tie is a drawn round that advances neither side.
+        // Formation combat is settled by bodies standing, then remaining health.
         const blueHealth = blue.reduce((sum, c) => sum + c.exitHp, 0);
         const redHealth = red.reduce((sum, c) => sum + c.exitHp, 0);
         const winner: RiteSide | null = blueStanding !== redStanding
-            ? (blueStanding > redStanding ? "blue" : "red")
-            : Math.abs(blueHealth - redHealth) > 1e-9
-                ? (blueHealth > redHealth ? "blue" : "red")
-                : null;
+                ? (blueStanding > redStanding ? "blue" : "red")
+                : Math.abs(blueHealth - redHealth) > 1e-9
+                    ? (blueHealth > redHealth ? "blue" : "red")
+                    : null;
+        const finishKind: RiteClash["finish"] = blueStanding === 0 || redStanding === 0 ? "wipe" : "survival";
 
         if (winner === "blue") blueRounds++;
         else if (winner === "red") redRounds++;
@@ -471,7 +691,11 @@ export function runWarfrontRite(
         totalTicks += result.ticks;
         clashes.push({
             index, seed: thisSeed, blue, red,
-            blueStanding, redStanding, winner,
+            blueReserveSlot: blueFormation.length > RITE_ACTIVE_SIZE ? blueFormation[RITE_ACTIVE_SIZE] : -1,
+            redReserveSlot: redFormation.length > RITE_ACTIVE_SIZE ? redFormation[RITE_ACTIVE_SIZE] : -1,
+            blueStanding, redStanding, finish: finishKind,
+            captureCarrierSlot: null,
+            winner,
             ticks: result.ticks, seconds: result.ticks / DUEL_TPS, result,
         });
 
@@ -498,16 +722,32 @@ export function runWarfrontRite(
         regroup(blueHp, "blue");
         regroup(redHp, "red");
 
-        // Re-form between clashes, if the plan spent its one adjustment here.
-        if (bluePlan.reformAfterClash === index && bluePlan.reform && isPermutation(bluePlan.reform, bandSize)) {
-            blueFormation = [...bluePlan.reform];
+        // Freeze both AI answers from the public clash BEFORE either side's
+        // next sealed layout is applied. The counter helper cannot receive an
+        // unsealed formation, and computing these together makes that fairness
+        // boundary explicit rather than an incidental call order.
+        const blueAiCounter = blueUsesAiPlan ? deterministicRiteCounterMove(clashes[index], "blue") : null;
+        const redAiCounter = redUsesAiPlan ? deterministicRiteCounterMove(clashes[index], "red") : null;
+
+        // Re-form between clashes from the ordered decision transcript. Both
+        // seats use the same path so a PvP/shared replay cannot gain a side-only
+        // simulation rule. Legacy one-reform receipts resolve through the same
+        // helper and remain byte-identical.
+        const blueReform = riteReformAfter(bluePlan, index);
+        if (blueReform) {
+            blueFormation = [...blueReform.formation];
+            blueDeployment = [...blueReform.deployment];
+        } else if (blueAiCounter) {
+            blueFormation = [...blueAiCounter.formation];
+            blueDeployment = [...blueAiCounter.deployment];
         }
-        // The AI re-forms once, and only if it LOST the opening clash: it puts
-        // its healthiest pets on the front line and drops its most wounded to
-        // the back. Reactive rather than pre-committed, and still deterministic
-        // because it reads nothing but battle state.
-        if (index === 0 && winner === "blue") {
-            redFormation = [...redFormation].sort((a, b) => (redHp.get(b) ?? 0) - (redHp.get(a) ?? 0));
+        const redReform = riteReformAfter(redPlan, index);
+        if (redReform) {
+            redFormation = [...redReform.formation];
+            redDeployment = [...redReform.deployment];
+        } else if (redAiCounter) {
+            redFormation = [...redAiCounter.formation];
+            redDeployment = [...redAiCounter.deployment];
         }
     }
 

@@ -2572,7 +2572,7 @@ export default function App() {
         if (accepted.arenaMatch) { // Tactical Arena PvP — challenger side
             const match = buildAcceptedArenaMatch(accepted);
             if (match) setPendingArenaMatch(match);
-            else alert(`${accepted.fromName} accepted your Hollow Warfront challenge. Open Pet Arena if it doesn't start.`);
+            else alert(`${accepted.fromName} accepted your Beastbound Warfront challenge. Open Pet Arena if it doesn't start.`);
             setScreen("petArena");
             return;
         }

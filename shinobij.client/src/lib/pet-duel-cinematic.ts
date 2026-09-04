@@ -48,7 +48,7 @@ import {
 } from "../data/pet-config";
 import {
     DUEL_TPS, ARENA_X, ARENA_Y, elementMult, terrainPetMult, KIND_ACCURACY,
-    type DuelResult, type DuelSnapshot, type DuelActorSnap, type DuelProjSnap,
+    type DuelResult, type DuelSnapshot, type DuelActorSnap, type DuelProjSnap, type DuelObjectiveSnap,
     type DuelEvent, type DuelState, type DuelAiState, type DuelPerfectRole,
 } from "./pet-duel-sim";
 
@@ -88,6 +88,10 @@ const CRIT_CHANCE = 0.12;
 const DMG_SCALE = 1.5;
 const TARGET_LOCK_TICKS = Math.round(DUEL_TPS * 1.4);
 const PARTY_TARGET_LOCK_TICKS = Math.round(DUEL_TPS * 6);
+/** A Warfront order is a squad decision, not a per-frame nearest-enemy query.
+ * Five seconds is long enough for the audience to understand an assignment;
+ * death/taunt still invalidate it immediately. */
+const WARFRONT_ORDER_LOCK_TICKS = Math.round(DUEL_TPS * 5.2);
 const BASIC_REACH = 1.2;                     // melee contact distance (basic attack)
 // Creature bodies are substantially wider than a hit point. Keep their simulation
 // centres far enough apart that a melee contact reads as a collision, not two meshes
@@ -102,6 +106,66 @@ const PARTY_REPOSITION_RANGE = 4.1;
 const PARTY_ALLY_SEPARATION = 4.4;
 const DUEL_ROUTE_CADENCE = 3;
 const PARTY_ROUTE_CADENCE = 2;
+// The labyrinth makes exits meaningful cover choices. One reset every two
+// exchanges keeps the action travelling without turning the match into jogging.
+const WARFRONT_ROUTE_CADENCE = 2;
+/** Beastbound Warfront is a compact formation board. Movement is cell-authoritative:
+ * these dimensions are presentation bounds, never a free-physics play space. */
+export const WARFRONT_ARENA_X = 11.4;
+export const WARFRONT_ARENA_Y = 7.2;
+export const WARFRONT_GRID_COLS = 7;
+export const WARFRONT_GRID_ROWS = 5;
+export const WARFRONT_CELL_X = 3.2;
+export const WARFRONT_CELL_Y = 3.0;
+export const WARFRONT_SIGIL_RADIUS = 2.75;
+/** Legacy replay constants retained so older non-Kage transcripts still load. */
+export const WARFRONT_RELIC_HOME_X = 26;
+export const WARFRONT_RELIC_HOME_Y = 0;
+export const WARFRONT_RELIC_PICKUP_RADIUS = 2.15;
+export const WARFRONT_RELIC_CAPTURE_RADIUS = 2.35;
+export const WARFRONT_RELIC_TAG_RADIUS = 3.35;
+const WARFRONT_RELIC_TAG_GRACE_TICKS = Math.round(DUEL_TPS * 1.65);
+const WARFRONT_SEAL_CAPTURE_TICKS = Math.round(DUEL_TPS * 2.4);
+/** Legacy objective coordinates retained for old replay deserialization only. */
+export const WARFRONT_OBJECTIVE_Y = Object.freeze([-10.5, 0, 10.5] as const);
+/** Legacy objective coordinates retained for old replay deserialization only. */
+export const WARFRONT_SEAL_POSITIONS = Object.freeze([
+    { id: "seal-veil", x: 0, y: -10.5 },
+    { id: "seal-tide", x: -11, y: 0 },
+    { id: "seal-cinder", x: 11, y: 0 },
+] as const);
+/** Player-side fallback posts for pre-formation saved replays. */
+export const WARFRONT_POSTS = Object.freeze([
+    [9.6, 0], [6.4, -3], [6.4, 3], [9.6, 6],
+] as const);
+/** Ten legal formation cells on each side: two ranks by five files. Any pet can
+ * take any cell; the kit it brings, not a placement restriction, determines how
+ * that choice plays. */
+export const WARFRONT_DEPLOYMENT_NODES = Object.freeze([
+    [9.6, -6], [6.4, -6],
+    [9.6, -3], [6.4, -3],
+    [9.6, 0], [6.4, 0],
+    [9.6, 3], [6.4, 3],
+    [9.6, 6], [6.4, 6],
+] as const);
+/** Roster-indexed fallback used by legacy replays which pre-date free deploy. */
+export const WARFRONT_DEFAULT_DEPLOYMENT = Object.freeze([3, 4, 7, 8] as const);
+export const WARFRONT_ANCHOR_SLOT = 3;
+/** Beastbound Warfront has no invisible collision. These shoji cells are shared by the
+ * simulation, renderer and deployment legend. */
+export const WARFRONT_WARD_Y = Object.freeze([] as const);
+export type WarfrontMazeWall = Readonly<{ x: number; y: number; halfX: number; halfY: number; variant: number }>;
+export const WARFRONT_MAZE_WALLS: readonly WarfrontMazeWall[] = Object.freeze([
+    Object.freeze({ x: 0, y: -3, halfX: 1.18, halfY: 0.38, variant: 0 }),
+    Object.freeze({ x: 0, y: 3, halfX: 1.18, halfY: 0.38, variant: 1 }),
+]);
+const WARFRONT_COVER_NODES = Object.freeze(WARFRONT_MAZE_WALLS.map((wall) => Object.freeze({
+    x: wall.x,
+    y: wall.y,
+    // Route destinations sit off the nearest long edge. Collision and
+    // projectile tests still use the authoritative rectangle above.
+    radius: Math.max(wall.halfX, wall.halfY),
+})));
 // Ranged range is DELIBERATELY WIDE so kiters hold a gap the camera can SEE — the
 // renderer squishes field→world ~0.44×, so a 4-unit gap reads as sprites touching;
 // an ~8-unit kite gap renders as a real, readable separation (≈1.5 sprite-widths).
@@ -228,18 +292,23 @@ const DANGER_BUBBLE = 0.45;  // don't drift into melee during neutral (ranged)
 // ── Walkability grid (own copy of the pet-duel-sim helpers; position-based so they
 //    work with this engine's own fighter struct). Symmetrized L↔R for fairness. ──
 const GCOLS = WALK_COLS, GROWS = WALK_ROWS;
-const CELL_X = (ARENA_X * 2) / GCOLS;
-const CELL_Y = (ARENA_Y * 2) / GROWS;
-const cellCol = (x: number) => clamp(Math.floor((x + ARENA_X) / CELL_X), 0, GCOLS - 1);
-const cellRow = (y: number) => clamp(Math.floor((y + ARENA_Y) / CELL_Y), 0, GROWS - 1);
-const cellCenter = (c: number, r: number): [number, number] => [(c + 0.5) * CELL_X - ARENA_X, (r + 0.5) * CELL_Y - ARENA_Y];
+const DUEL_CELL_X = (ARENA_X * 2) / GCOLS;
+const DUEL_CELL_Y = (ARENA_Y * 2) / GROWS;
+const activeArenaX = () => _warfrontMode ? WARFRONT_ARENA_X : ARENA_X;
+const activeArenaY = () => _warfrontMode ? WARFRONT_ARENA_Y : ARENA_Y;
+const activeCellX = () => (activeArenaX() * 2) / GCOLS;
+const activeCellY = () => (activeArenaY() * 2) / GROWS;
+const cellCol = (x: number) => clamp(Math.floor((x + activeArenaX()) / activeCellX()), 0, GCOLS - 1);
+const cellRow = (y: number) => clamp(Math.floor((y + activeArenaY()) / activeCellY()), 0, GROWS - 1);
+const cellCenter = (c: number, r: number): [number, number] => [(c + 0.5) * activeCellX() - activeArenaX(), (r + 0.5) * activeCellY() - activeArenaY()];
 // Cinematic battles happen on the visible OPEN coliseum floor. The old tactics-
 // diorama mask created invisible corridors that did not match this arena and
 // could be sealed by a visible prop. Keep only a soft octagonal boundary here.
 const arenaFloorCell = (c: number, r: number): boolean => {
     if (c < 0 || r < 0 || c >= GCOLS || r >= GROWS) return false;
     const [x, y] = cellCenter(c, r), ax = Math.abs(x), ay = Math.abs(y);
-    return ax <= ARENA_X - 0.35 && ay <= ARENA_Y - 0.35 && !(ax > ARENA_X - 2.1 && ay > ARENA_Y - 1.65);
+    const halfX = activeArenaX(), halfY = activeArenaY();
+    return ax <= halfX - 0.35 && ay <= halfY - 0.35 && !(ax > halfX - 2.1 && ay > halfY - 1.65);
 };
 /** The cinematic 1v1 floor stays physically open. Earlier permanent pylons
  * became things pets stood on rather than readable tactical choices. Temporary
@@ -248,7 +317,9 @@ export const DUEL_COVER_NODES: readonly Readonly<{ x: number; y: number; radius:
 const DUEL_COVER_MASK = (() => {
     const blocked = new Uint8Array(GCOLS * GROWS);
     for (let r = 0; r < GROWS; r++) for (let c = 0; c < GCOLS; c++) {
-        const cx = (c + 0.5) * CELL_X - ARENA_X, cy = (r + 0.5) * CELL_Y - ARENA_Y;
+        // This mask belongs to the unchanged duel floor and is constructed at
+        // module load, before any simulation profile is active.
+        const cx = (c + 0.5) * DUEL_CELL_X - ARENA_X, cy = (r + 0.5) * DUEL_CELL_Y - ARENA_Y;
         for (const cover of DUEL_COVER_NODES) {
             const dx = cx - cover.x, dy = cy - cover.y;
             if (dx * dx + dy * dy < cover.radius * cover.radius) { blocked[r * GCOLS + c] = 1; break; }
@@ -263,6 +334,13 @@ const ROUTE_ANCHORS: readonly (readonly [number, number])[] = [
     [-10.8, -4.9], [-10.4, 4.9], [-5.4, 6.0], [2.8, 6.0],
     [10.5, 4.8], [10.8, -4.8], [5.5, -5.9], [-3.8, -5.9],
 ];
+/** Three persistent Warfront routes, each with its own left/right reset marks. */
+const WARFRONT_ROUTE_ANCHORS: readonly (readonly [number, number])[] = [
+    [-16, 7], [-8, 7], [8, 7], [16, 7],
+    [-16, 0], [-8, 0], [8, 0], [16, 0],
+    [-16, -7], [-8, -7], [8, -7], [16, -7],
+];
+const activeRouteAnchors = () => _warfrontMode ? WARFRONT_ROUTE_ANCHORS : ROUTE_ANCHORS;
 // BARRIER EARTH WALLS — temporary solid obstacles a barrier cast raises between the two
 // fighters. Blocks movement AND line-of-sight (hasLineOfSight samples walkableAt), so
 // neither can attack through it for a beat — they buff/heal or path around. Module-level
@@ -272,6 +350,17 @@ let SIM_WALLS: { x: number; y: number; r: number; expiry: number; ownerId: strin
 let _stallPressure = 0;    // 0 in every fight where damage lands; ramps only in a true no-damage stand-off
 let _forcedEngage = false; // latched once a stand-off is confirmed → a decisive brawl to the finish
 let _partyMode = false;
+// A 2v2 still uses the compact party profile. Only a true squad clash (normally
+// four a side) receives the larger Warfront topology and reservation layer.
+let _warfrontMode = false;
+let _warfrontAssignments = new Map<string, string>();
+type WarfrontRelicState = DuelObjectiveSnap;
+let _warfrontRelics: WarfrontRelicState[] = [];
+/** Warfront routing asks for the same next grid step for many consecutive
+ * simulation ticks. Cache those static-grid answers; Earth walls invalidate the
+ * cache through their cell signature, so correctness remains unchanged. */
+const _warfrontPathCache = new Map<number, [number, number] | null>();
+let _warfrontPathWallSignature = "";
 // Live-coliseum CLASH scratch. Mirrored to/from CinematicDuelState every tick like
 // the wall/stall globals, so a paused duel can never be corrupted by another one
 // simulating in between (a preview harness, the server replay).
@@ -284,29 +373,58 @@ let _clashOn = true;
 // locomotion. This turns a continuous mutual chase into authored-looking beats:
 // pressure → evade/impact → exit → counter-pressure.
 let _cinematicInitiativeTeam: "player" | "enemy" = "player";
-let _laneInitiativeTeam: ["player" | "enemy", "player" | "enemy"] = ["player", "enemy"];
+type LaneInitiative = [
+    "player" | "enemy", "player" | "enemy",
+    "player" | "enemy", "player" | "enemy",
+];
+let _laneInitiativeTeam: LaneInitiative = ["player", "enemy", "enemy", "player"];
+const laneIndex = (slot: number) => clamp(Math.round(slot), 0, 3);
 const WALL_TICKS = Math.round(DUEL_TPS * 0.85);   // how long a wall BLOCKS (short → a beat, not a big defensive advantage)
 const WALL_PENALTY_TICKS = Math.round(DUEL_TPS * 3.0);   // caster's damage halved this long after raising a wall (the wall's cost)
 const cellBlockedByWall = (c: number, r: number): boolean => {
     if (SIM_WALLS.length === 0) return false;
-    const cx = (c + 0.5) * CELL_X - ARENA_X, cy = (r + 0.5) * CELL_Y - ARENA_Y;
+    const [cx, cy] = cellCenter(c, r);
     for (const w of SIM_WALLS) { const dx = cx - w.x, dy = cy - w.y; if (dx * dx + dy * dy < w.r * w.r) return true; }
     return false;
 };
 const cellBlockedByArenaCover = (c: number, r: number): boolean => DUEL_COVER_MASK[r * GCOLS + c] === 1;
+const warfrontMazeAt = (x: number, y: number, padding = 0): boolean => {
+    if (!_warfrontMode) return false;
+    for (const wall of WARFRONT_MAZE_WALLS) {
+        if (Math.abs(x - wall.x) <= wall.halfX + padding
+            && Math.abs(y - wall.y) <= wall.halfY + padding) return true;
+    }
+    return false;
+};
+const cellBlockedByWarfrontMaze = (c: number, r: number, padding = 0.65): boolean => {
+    const [x, y] = cellCenter(c, r);
+    return warfrontMazeAt(x, y, padding);
+};
+const cellBlockedByWarfrontSigil = (c: number, r: number): boolean => {
+    if (!_warfrontMode) return false;
+    const [x, y] = cellCenter(c, r);
+    for (const wardY of WARFRONT_WARD_Y) {
+        const dy = y - wardY;
+        if (x * x + dy * dy < WARFRONT_SIGIL_RADIUS * WARFRONT_SIGIL_RADIUS) return true;
+    }
+    return false;
+};
 const cellWalkable = (c: number, r: number) =>
     arenaFloorCell(c, r)
-    && !cellBlockedByArenaCover(c, r) && !cellBlockedByWall(c, r);
+    && !cellBlockedByArenaCover(c, r) && !cellBlockedByWall(c, r)
+    && !cellBlockedByWarfrontMaze(c, r) && !cellBlockedByWarfrontSigil(c, r);
 function walkableAt(x: number, y: number): boolean {
-    if (x < -ARENA_X || x > ARENA_X || y < -ARENA_Y || y > ARENA_Y) return false;
+    const halfX = activeArenaX(), halfY = activeArenaY();
+    if (x < -halfX || x > halfX || y < -halfY || y > halfY) return false;
     return cellWalkable(cellCol(x), cellRow(y));
 }
 function sightWalkableAt(x: number, y: number): boolean {
-    if (x < -ARENA_X || x > ARENA_X || y < -ARENA_Y || y > ARENA_Y) return false;
+    const halfX = activeArenaX(), halfY = activeArenaY();
+    if (x < -halfX || x > halfX || y < -halfY || y > halfY) return false;
     const c = cellCol(x), r = cellRow(y);
-    // Arena props are real cover: a pet must peek around an edge before committing
-    // a shot or pounce. Authored terrain and temporary Earth barriers block too.
-    return cellWalkable(c, r);
+    // Warfront ruins and centre seals are waist-high movement islands. Shots arc
+    // over them; only tall duel cover and temporary Earth walls break sight.
+    return arenaFloorCell(c, r) && !cellBlockedByArenaCover(c, r) && !cellBlockedByWall(c, r);
 }
 function arenaCoverAt(x: number, y: number, padding = 0): boolean {
     for (const cover of DUEL_COVER_NODES) {
@@ -329,20 +447,127 @@ function snapPos(x: number, y: number): [number, number] {
 function hasLineOfSight(ax: number, ay: number, bx: number, by: number): boolean {
     const dx = bx - ax, dy = by - ay;
     const d = Math.sqrt(dx * dx + dy * dy);
-    const steps = Math.ceil(d / (CELL_X * 0.6));
+    const steps = Math.ceil(d / (activeCellX() * 0.6));
     for (let i = 1; i < steps; i++) {
         const tt = i / steps;
         if (!sightWalkableAt(ax + dx * tt, ay + dy * tt)) return false;
     }
     return true;
 }
+function hasWalkableRoute(ax: number, ay: number, bx: number, by: number): boolean {
+    const dx = bx - ax, dy = by - ay;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    const steps = Math.max(1, Math.ceil(d / (Math.max(activeCellX(), activeCellY()) * 1.35)));
+    for (let i = 1; i <= steps; i++) {
+        const tt = i / steps;
+        if (!walkableAt(ax + dx * tt, ay + dy * tt)) return false;
+    }
+    return true;
+}
+function segmentCrossesMazeWall(
+    ax: number, ay: number, bx: number, by: number,
+    wall: (typeof WARFRONT_MAZE_WALLS)[number],
+): boolean {
+    const dx = bx - ax, dy = by - ay;
+    // Match cellWalkable's body-centre clearance. Testing only the visible stone
+    // rectangle misses a pet whose centre line skims the cap while its collision
+    // radius is still blocked, so no corner route is ever issued.
+    const bodyClearance = 0.7;
+    let lo = 0, hi = 1;
+    const axes: readonly (readonly [number, number, number, number])[] = [
+        [ax, dx, wall.x - wall.halfX - bodyClearance, wall.x + wall.halfX + bodyClearance],
+        [ay, dy, wall.y - wall.halfY - bodyClearance, wall.y + wall.halfY + bodyClearance],
+    ];
+    for (const [origin, delta, min, max] of axes) {
+        if (Math.abs(delta) < 1e-6) {
+            if (origin < min || origin > max) return false;
+            continue;
+        }
+        let enter = (min - origin) / delta;
+        let exit = (max - origin) / delta;
+        if (enter > exit) [enter, exit] = [exit, enter];
+        lo = Math.max(lo, enter);
+        hi = Math.min(hi, exit);
+        if (lo > hi) return false;
+    }
+    return hi >= 0 && lo <= 1;
+}
+
+/** Route to a visible outer corner of the first ruin blocking this sightline.
+ * A committed corner is a better maze move than recomputing adjacent grid cells
+ * every tick: it clears the whole silhouette pad, reads as a deliberate flank,
+ * and hands ordinary steering a clean line on the other side. */
+function warfrontMazeDetour(f: Fighter, e: Fighter): [number, number] | null {
+    if (!_warfrontMode) return null;
+    const ax = f.x, ay = f.y, bx = e.x, by = e.y;
+    const preferredY = warfrontCellAnchor(f, e)[1];
+    let best: [number, number] | null = null;
+    let bestScore = Infinity;
+    let bestCanonicalTie = Infinity;
+    for (const wall of WARFRONT_MAZE_WALLS) {
+        if (!segmentCrossesMazeWall(ax, ay, bx, by, wall)) continue;
+        const clearX = wall.halfX + 1.05;
+        const clearY = wall.halfY + 1.05;
+        const corners: readonly (readonly [number, number])[] = [
+            [wall.x - clearX, wall.y - clearY],
+            [wall.x - clearX, wall.y + clearY],
+            [wall.x + clearX, wall.y - clearY],
+            [wall.x + clearX, wall.y + clearY],
+        ];
+        for (const corner of corners) {
+            const candidate = snapPos(corner[0], corner[1]);
+            if (!hasWalkableRoute(ax, ay, candidate[0], candidate[1])) continue;
+            const first = Math.hypot(candidate[0] - ax, candidate[1] - ay);
+            if (first < 0.55) continue;
+            const second = Math.hypot(bx - candidate[0], by - candidate[1]);
+            const clearsTargetSide = hasWalkableRoute(candidate[0], candidate[1], bx, by);
+            // Detours remain inside this assignment's authored battle cell. Two
+            // pressure partners may share an edge; the screen's other skirmish
+            // does not choose the same globally-shortest corner and create a knot.
+            const score = first + second + Math.abs(candidate[1] - preferredY) * 0.82
+                + (clearsTargetSide ? 0 : 6);
+            // Resolve equal corners in team space, not world space. Negating both
+            // enemy axes makes a mirrored red state select the 180-degree mirror
+            // of blue instead of giving one seat the globally first array entry.
+            const teamSign = f.team === "player" ? 1 : -1;
+            const canonicalTie = (candidate[0] * teamSign + WARFRONT_ARENA_X) * 100
+                + candidate[1] * teamSign + WARFRONT_ARENA_Y;
+            if (score < bestScore - 1e-8 || (Math.abs(score - bestScore) <= 1e-8 && canonicalTie < bestCanonicalTie)) {
+                bestScore = score;
+                bestCanonicalTie = canonicalTie;
+                best = candidate;
+            }
+        }
+    }
+    return best;
+}
 // BFS pathfinding (copied from pet-duel-sim) — context steering handles LOCAL
 // avoidance but can't route around a large solid; when line-of-sight to the foe
 // is blocked, we seek the BFS next-cell waypoint instead (global route), then let
 // the steering take over once the two can see each other.
 const BFS_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
-function bfsNextStep(fc: number, fr: number, tc: number, tr: number): [number, number] | null {
-    if (fc === tc && fr === tr) return null;
+const BFS_DIRS_MIRRORED = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]];
+const BFS_CELL_COUNT = GCOLS * GROWS;
+const BFS_QUEUE = new Int32Array(BFS_CELL_COUNT);
+const BFS_CAME = new Int32Array(BFS_CELL_COUNT);
+const BFS_VISIT = new Uint32Array(BFS_CELL_COUNT);
+const BFS_DEPTH = new Uint16Array(BFS_CELL_COUNT);
+let BFS_GENERATION = 0;
+const bfsPriority = (node: number, tc: number, tr: number): number => {
+    const nc = node % GCOLS, nr = (node - nc) / GCOLS;
+    const dx = Math.abs(tc - nc), dy = Math.abs(tr - nr);
+    return Math.max(dx, dy) + Math.min(dx, dy) * 0.4142 + BFS_DEPTH[node] * 0.08;
+};
+const bfsCanonicalId = (node: number, mirrored: boolean): number => {
+    if (!mirrored) return node;
+    const c = node % GCOLS, r = (node - c) / GCOLS;
+    return (GROWS - 1 - r) * GCOLS + (GCOLS - 1 - c);
+};
+const bfsHeapLess = (a: number, b: number, tc: number, tr: number, mirrored: boolean): boolean => {
+    const ap = bfsPriority(a, tc, tr), bp = bfsPriority(b, tc, tr);
+    return ap < bp || (ap === bp && bfsCanonicalId(a, mirrored) < bfsCanonicalId(b, mirrored));
+};
+function legacyBfsNextStep(fc: number, fr: number, tc: number, tr: number): [number, number] | null {
     const came = new Map<number, number>();
     const start = tr * GCOLS + tc;
     came.set(start, -1);
@@ -350,7 +575,10 @@ function bfsNextStep(fc: number, fr: number, tc: number, tr: number): [number, n
     while (head < queue.length) {
         const cur = queue[head++];
         const cc = cur % GCOLS, cr = (cur - cc) / GCOLS;
-        if (cc === fc && cr === fr) { const nxt = came.get(cur); return nxt === undefined || nxt < 0 ? null : [nxt % GCOLS, (nxt - (nxt % GCOLS)) / GCOLS]; }
+        if (cc === fc && cr === fr) {
+            const next = came.get(cur);
+            return next === undefined || next < 0 ? null : [next % GCOLS, (next - (next % GCOLS)) / GCOLS];
+        }
         for (const [dc, dr] of BFS_DIRS) {
             const nc = cc + dc, nr = cr + dr;
             if (!cellWalkable(nc, nr)) continue;
@@ -359,6 +587,90 @@ function bfsNextStep(fc: number, fr: number, tc: number, tr: number): [number, n
             if (!came.has(ni)) { came.set(ni, cur); queue.push(ni); }
         }
     }
+    return null;
+}
+function bfsNextStep(fc: number, fr: number, tc: number, tr: number, team?: Fighter["team"]): [number, number] | null {
+    if (fc === tc && fr === tr) return null;
+    // Ranked duels and the live Coliseum retain their byte-identical route
+    // search. Only a true 4v4 Warfront clash uses the mobile-oriented planner.
+    if (!_warfrontMode) return legacyBfsNextStep(fc, fr, tc, tr);
+    const wallSignature = SIM_WALLS
+        .map((wall) => `${Math.round(wall.x * Q)},${Math.round(wall.y * Q)},${Math.round(wall.r * Q)}`)
+        .sort()
+        .join("|");
+    if (wallSignature !== _warfrontPathWallSignature) {
+        _warfrontPathWallSignature = wallSignature;
+        _warfrontPathCache.clear();
+    }
+    const mirrored = team === "enemy";
+    const cacheKey = ((fr * GCOLS + fc) * BFS_CELL_COUNT + (tr * GCOLS + tc)) * 2 + (mirrored ? 1 : 0);
+    if (_warfrontPathCache.has(cacheKey)) return _warfrontPathCache.get(cacheKey) ?? null;
+    const start = fr * GCOLS + fc;
+    const goal = tr * GCOLS + tc;
+    // This used to allocate a Map plus thousands of boxed entries for every
+    // breadth-first request, and the wave explored most of the arena even though
+    // Warfront routes are broad and mostly open. A generation-stamped,
+    // heuristic frontier stays aimed at the destination and allocates nothing.
+    BFS_GENERATION = (BFS_GENERATION + 1) >>> 0;
+    if (BFS_GENERATION === 0) { BFS_VISIT.fill(0); BFS_GENERATION = 1; }
+    const generation = BFS_GENERATION;
+    BFS_VISIT[start] = generation;
+    BFS_CAME[start] = -1;
+    BFS_DEPTH[start] = 0;
+    BFS_QUEUE[0] = start;
+    let frontier = 1;
+    while (frontier > 0) {
+        // Real maze walls make the frontier wide. The former linear best-node
+        // scan became O(n²) and turned route planning into visible frame stalls.
+        // This typed-array binary heap keeps the same deterministic priority and
+        // tie-break without allocating objects or scanning the whole frontier.
+        const cur = BFS_QUEUE[0];
+        const last = BFS_QUEUE[--frontier];
+        if (frontier > 0) {
+            let at = 0;
+            while (true) {
+                const left = at * 2 + 1;
+                if (left >= frontier) break;
+                const right = left + 1;
+                let child = left;
+                if (right < frontier && bfsHeapLess(BFS_QUEUE[right], BFS_QUEUE[left], tc, tr, mirrored)) child = right;
+                if (!bfsHeapLess(BFS_QUEUE[child], last, tc, tr, mirrored)) break;
+                BFS_QUEUE[at] = BFS_QUEUE[child];
+                at = child;
+            }
+            BFS_QUEUE[at] = last;
+        }
+        const cc = cur % GCOLS, cr = (cur - cc) / GCOLS;
+        if (cur === goal) {
+            let next = cur;
+            while (BFS_CAME[next] >= 0 && BFS_CAME[next] !== start) next = BFS_CAME[next];
+            const answer: [number, number] | null = next === start ? null : [next % GCOLS, (next - (next % GCOLS)) / GCOLS];
+            _warfrontPathCache.set(cacheKey, answer);
+            return answer;
+        }
+        const directions = mirrored ? BFS_DIRS_MIRRORED : BFS_DIRS;
+        for (const [dc, dr] of directions) {
+            const nc = cc + dc, nr = cr + dr;
+            if (!cellWalkable(nc, nr)) continue;
+            if (dc !== 0 && dr !== 0 && (!cellWalkable(cc + dc, cr) || !cellWalkable(cc, cr + dr))) continue;
+            const ni = nr * GCOLS + nc;
+            if (BFS_VISIT[ni] !== generation) {
+                BFS_VISIT[ni] = generation;
+                BFS_CAME[ni] = cur;
+                BFS_DEPTH[ni] = BFS_DEPTH[cur] + 1;
+                let at = frontier++;
+                while (at > 0) {
+                    const parent = (at - 1) >> 1;
+                    const parentNode = BFS_QUEUE[parent];
+                    if (!bfsHeapLess(ni, parentNode, tc, tr, mirrored)) break;
+                    BFS_QUEUE[at] = parentNode;
+                    at = parent;
+                }
+                BFS_QUEUE[at] = ni;
+            }
+        }
+    }
+    _warfrontPathCache.set(cacheKey, null);
     return null;
 }
 
@@ -513,7 +825,7 @@ type RouteIntent = "cover" | "flank" | "retreat" | "cross";
 interface Fighter {
     id: string; team: "player" | "enemy"; slot: number; pet: Pet; element?: string | null;
     x: number; y: number; vx: number; vy: number; faceX: number; faceY: number;
-    homeY: number;                              // stable 2v2 lane centre; unused by 1v1
+    homeX: number; homeY: number;               // stable tactical post; unused by 1v1
     hp: number; maxHp: number; reviveLeft: number;
     atk: number; def: number; spd: number;
     maxSpeed: number; maxForce: number;
@@ -539,6 +851,7 @@ interface Fighter {
     spacingBeat: number;                    // cycles through close/mid/wide destinations instead of one permanent radius
     spacingOffset: number;
     routeX: number; routeY: number; routeActive: boolean; // independent post-exchange arena destination
+    routeStuck: number;                      // blocked route ticks; Warfront aborts instead of freezing against maze clearance
     routeIntent: RouteIntent;                 // why this lane was chosen; drives cover-side vs flank-side routing
     exchangesSinceRoute: number;              // full-floor resets are punctuation, not every attack
     supportResetDone: boolean;                 // one showcase exit per fighter; later support beats stay compact
@@ -710,7 +1023,7 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
     return {
         id: `${team}-${slot}`, team, slot, pet: gp, element: gp.element,
         x, y, vx: 0, vy: 0, faceX: team === "player" ? 1 : -1, faceY: 0,
-        homeY: y,
+        homeX: x, homeY: y,
         hp: maxHp, maxHp, reviveLeft: reviveOnce ? 1 : 0,
         atk: Math.max(0, (gp.attack || 0) * atkMult), def: Math.max(0, gp.defense || 0), spd: speed,
         maxSpeed: moveSpeed, maxForce: moveSpeed * 0.34 * style.turnMult,   // agile vs lumbering
@@ -726,7 +1039,7 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
         orbitDir: (slot & 1) === 0 ? 1 : -1, reposManeuverUsed: false,
         maneuverLeft: 0, maneuverTotal: 0, maneuverGoalX: x, maneuverGoalY: y, guardLeft: 0,
         spacingBeat: team === "player" ? 0 : 2, spacingOffset: 0,
-        routeX: x, routeY: y, routeActive: false, routeIntent: "cross", postDodgeSupport: false,
+        routeX: x, routeY: y, routeActive: false, routeStuck: 0, routeIntent: "cross", postDodgeSupport: false,
         exchangesSinceRoute: 0,
         supportResetDone: false,
         supportCastLocked: false,
@@ -749,6 +1062,92 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
 interface Projectile { id: number; ownerId: string; team: "player" | "enemy"; targetId: string; abilityIdx: number; x: number; y: number; speed: number; ttl: number; element?: string | null; kind: PetJutsu["kind"]; perfectRole?: DuelPerfectRole; }
 
 // ── Targeting ────────────────────────────────────────────────────────────────────
+type WarfrontRole = "raider" | "escort" | "guardian";
+/** Placement, not species, assigns the job. The closest post to midfield raids;
+ * the deepest living post guards; everyone between escorts. */
+function warfrontRoleMap(fighters: Fighter[], team: Fighter["team"]): Map<string, WarfrontRole> {
+    const ordered = fighters.filter((fighter) => fighter.team === team && fighter.hp > 0).sort((a, b) => (
+        Math.abs(a.homeX) - Math.abs(b.homeX)
+        || a.slot - b.slot
+        || a.id.localeCompare(b.id)
+    ));
+    const roles = new Map<string, WarfrontRole>();
+    ordered.forEach((fighter, index) => roles.set(
+        fighter.id,
+        index === 0 ? "raider" : index === ordered.length - 1 ? "guardian" : "escort",
+    ));
+    return roles;
+}
+
+const nearestFighter = (origin: Fighter, candidates: Fighter[]): Fighter | null => [...candidates].sort((a, b) => (
+    Math.hypot(a.x - origin.x, a.y - origin.y) - Math.hypot(b.x - origin.x, b.y - origin.y)
+    || a.slot - b.slot
+    || a.id.localeCompare(b.id)
+))[0] ?? null;
+
+const warfrontSeals = () => _warfrontRelics.filter((objective) => objective.kind === "seal");
+const warfrontScroll = () => _warfrontRelics.find((objective) => objective.kind === "scroll") ?? null;
+
+/** Placement chooses a route, while the formation depth chooses who travels
+ * together. Raider + Escort overload the Raider's court; Guardian opens the
+ * opposite court and then rotates. That yields 2v2 pressure and rotations, not
+ * three permanently paired 1v1 lanes. */
+function preferredWarfrontSeal(f: Fighter, fighters: Fighter[]): WarfrontRelicState | null {
+    const open = warfrontSeals().filter((seal) => seal.owner !== f.team);
+    if (!open.length) return null;
+    const allies = fighters.filter((ally) => ally.team === f.team && ally.hp > 0);
+    const roles = warfrontRoleMap(fighters, f.team);
+    const raider = allies.find((ally) => roles.get(ally.id) === "raider") ?? allies[0] ?? f;
+    const homeId = f.team === "player" ? "seal-tide" : "seal-cinder";
+    const preferredId = roles.get(f.id) === "guardian" || raider.homeY < -4
+        ? "seal-veil"
+        : homeId;
+    return [...open].sort((a, b) => (
+        (a.id === preferredId ? -1 : 0) - (b.id === preferredId ? -1 : 0)
+        || Math.hypot(a.x - f.x, a.y - f.y) - Math.hypot(b.x - f.x, b.y - f.y)
+        || a.id.localeCompare(b.id)
+    ))[0] ?? null;
+}
+
+/** Combat assignments now support the relay: screen a friendly carrier or tag
+ * the opposing one. Before the vault opens, only rivals contesting the same
+ * seal become targets, so pets do not cross the board merely to find a fight. */
+function buildWarfrontAssignments(fighters: Fighter[]): Map<string, string> {
+    const assignments = new Map<string, string>();
+    const blue = fighters.filter((fighter) => fighter.team === "player" && fighter.hp > 0);
+    const red = fighters.filter((fighter) => fighter.team === "enemy" && fighter.hp > 0);
+    if (!blue.length || !red.length) return assignments;
+    const scroll = warfrontScroll();
+    const carrier = scroll?.carrierId ? fighters.find((fighter) => fighter.id === scroll.carrierId) ?? null : null;
+    const assignTeam = (allies: Fighter[], enemies: Fighter[]) => {
+        const reservations = new Map<string, number>();
+        for (const fighter of allies) {
+            let candidates = enemies;
+            if (carrier) {
+                candidates = carrier.team !== fighter.team
+                    ? [carrier]
+                    : enemies.filter((enemy) => Math.hypot(enemy.x - carrier.x, enemy.y - carrier.y) <= 9.5);
+            } else if (scroll?.state === "sealed") {
+                const seal = preferredWarfrontSeal(fighter, fighters);
+                candidates = seal
+                    ? enemies.filter((enemy) => Math.hypot(enemy.x - seal.x, enemy.y - seal.y) <= WARFRONT_SIGIL_RADIUS + 3.5)
+                    : enemies;
+            }
+            let target = nearestFighter(fighter, candidates.length ? candidates : enemies);
+            if (target && (reservations.get(target.id) ?? 0) >= 2) {
+                target = nearestFighter(fighter, enemies.filter((enemy) => (reservations.get(enemy.id) ?? 0) < 2));
+            }
+            if (target) {
+                assignments.set(fighter.id, target.id);
+                reservations.set(target.id, (reservations.get(target.id) ?? 0) + 1);
+            }
+        }
+    };
+    assignTeam(blue, red);
+    assignTeam(red, blue);
+    return assignments;
+}
+
 function pickTarget(f: Fighter, fighters: Fighter[]): Fighter | null {
     if (f.statuses.tauntById) {
         const t = fighters.find((g) => g.id === f.statuses.tauntById && g.hp > 0);
@@ -758,12 +1157,29 @@ function pickTarget(f: Fighter, fighters: Fighter[]): Fighter | null {
     // whichever transient recover/stagger score happens to be lowest this tick.
     // Hold the opposite slot until it is eliminated; only then collapse into the
     // remaining lane. Taunts above remain the explicit authored override.
-    if (_partyMode) {
+    if (_partyMode && !_warfrontMode) {
         const laneTarget = fighters.find((g) => g.team !== f.team && g.slot === f.slot && g.hp > 0);
         if (laneTarget) {
             f.targetId = laneTarget.id;
             f.targetLockLeft = PARTY_TARGET_LOCK_TICKS;
             return laneTarget;
+        }
+    }
+    if (_warfrontMode) {
+        let assigned = fighters.find((candidate) => candidate.id === _warfrontAssignments.get(f.id) && candidate.hp > 0) ?? null;
+        // A knockout may occur midway through the alternating fighter step. The
+        // next actor should collapse immediately rather than spending one tick on
+        // the now-dead order computed at the start of this frame.
+        if (!assigned) {
+            _warfrontAssignments = buildWarfrontAssignments(fighters);
+            assigned = fighters.find((candidate) => candidate.id === _warfrontAssignments.get(f.id) && candidate.hp > 0) ?? null;
+        }
+        if (assigned) {
+            if (assigned.id !== f.targetId) {
+                f.targetId = assigned.id;
+                f.targetLockLeft = WARFRONT_ORDER_LOCK_TICKS;
+            }
+            return assigned;
         }
     }
     const locked = f.targetId ? fighters.find((g) => g.id === f.targetId && g.team !== f.team && g.hp > 0) : null;
@@ -1021,16 +1437,87 @@ function routeTravelSq(f: Fighter, goal: readonly [number, number]): number {
 const routeMinTravel = () => _partyMode ? 3.8 : 4.6;
 const minRepositionRange = () => _partyMode ? PARTY_REPOSITION_RANGE : DUEL_REPOSITION_RANGE;
 function belongsToPartyLane(f: Fighter, goal: readonly [number, number]): boolean {
-    return !_partyMode || Math.sign(goal[1] || f.homeY) === Math.sign(f.homeY);
+    if (!_partyMode) return true;
+    // Warfront has four persistent world-space quadrants, not the old binary
+    // top/bottom split. Reset routes stay in the fighter's own row until a
+    // target change deliberately asks it to rotate.
+    if (_warfrontMode) return Math.abs(goal[1] - f.homeY) <= 0.8;
+    return Math.sign(goal[1] || f.homeY) === Math.sign(f.homeY);
+}
+
+const WARFRONT_CELL_RADIUS = 5.1;
+
+function warfrontCellAnchor(f: Fighter, e: Fighter): [number, number] {
+    const midpointY = (f.homeY + e.homeY) * 0.5;
+    let routeY: number = WARFRONT_OBJECTIVE_Y[0] ?? 0;
+    let routeDelta = Math.abs(routeY - midpointY);
+    for (let index = 1; index < WARFRONT_OBJECTIVE_Y.length; index += 1) {
+        const candidate = WARFRONT_OBJECTIVE_Y[index] ?? 0;
+        const candidateDelta = Math.abs(candidate - midpointY);
+        const ownsMidpointSide = Math.sign(candidate) === Math.sign(midpointY) && Math.sign(routeY) !== Math.sign(midpointY);
+        if (candidateDelta < routeDelta || (candidateDelta === routeDelta && ownsMidpointSide)) {
+            routeY = candidate;
+            routeDelta = candidateDelta;
+        }
+    }
+    return [clamp((f.homeX + e.homeX) * 0.5, -4.5, 4.5), routeY];
+}
+
+function containWarfrontSocket(f: Fighter, e: Fighter, x: number, y: number): [number, number] {
+    const [anchorX, anchorY] = warfrontCellAnchor(f, e);
+    const dx = x - anchorX, dy = y - anchorY;
+    const distance = Math.hypot(dx, dy);
+    if (distance <= WARFRONT_CELL_RADIUS) return [x, y];
+    return [
+        anchorX + (dx / Math.max(1e-4, distance)) * WARFRONT_CELL_RADIUS,
+        anchorY + (dy / Math.max(1e-4, distance)) * WARFRONT_CELL_RADIUS,
+    ];
+}
+
+/** A target-relative Smart-Object-style reservation. No mutable reservation
+ *  registry is required: target id + stable fighter order deterministically
+ *  derive one unique socket every tick, which also makes replay/rewind free.
+ *  The preferred side starts toward the attacker's own half of the floor; extra
+ *  claimants alternate flanks instead of seeking the target centre. */
+function reservedEngagementGoal(f: Fighter, e: Fighter, fighters: Fighter[], rStar: number): [number, number] {
+    const claimants = fighters
+        .filter((ally) => ally.team === f.team && ally.hp > 0 && (ally === f || ally.targetId === e.id))
+        .sort((a, b) => a.slot - b.slot || a.id.localeCompare(b.id));
+    const ordinal = Math.max(0, claimants.indexOf(f));
+    // The pressure partner arrives from a full 90-degree flank—not the old
+    // 45-degree wedge that was narrower than two rendered silhouettes. The
+    // screen owns the other skirmish, so no third ally can join this target
+    // before the opposing formation actually loses a fighter.
+    const playerOrder = [8, 4, 12, 0] as const;
+    const enemyOrder = [0, 12, 4, 8] as const;
+    const order = f.team === "player" ? playerOrder : enemyOrder;
+    const radius = f.style.rangedPref || f.style.arche === "support"
+        ? clamp(rStar, 6.2, 8.4)
+        : clamp(rStar, MIN_SEP + 1.05, MIN_SEP + 1.15);
+
+    const base = order[ordinal % order.length];
+    const probes = [0, 1, -1, 2, -2, 3, -3] as const;
+    const initial = containWarfrontSocket(f, e, e.x + SLOT_X[base] * radius, e.y + SLOT_Y[base] * radius);
+    let fallback: [number, number] = snapPos(initial[0], initial[1]);
+    for (const probe of probes) {
+        const dir = (base + probe + N) % N;
+        const rawX = e.x + SLOT_X[dir] * radius;
+        const rawY = e.y + SLOT_Y[dir] * radius;
+        const contained = containWarfrontSocket(f, e, rawX, rawY);
+        if (!walkableAt(contained[0], contained[1])) continue;
+        return contained;
+    }
+    return fallback;
 }
 function outerArenaDestination(f: Fighter, e: Fighter | null, retreat: boolean): [number, number] {
     const lead = f.team === "player" ? 0 : 4;
     let fallback = snapPos(-f.x * 0.72, _partyMode ? f.homeY : -f.y * 0.72);
     let fallbackScore = -1e9;
     const minTravel = routeMinTravel();
-    for (let attempt = 0; attempt < ROUTE_ANCHORS.length; attempt++) {
-        const idx = (f.spacingBeat + lead + f.slot * 2 + attempt) % ROUTE_ANCHORS.length;
-        const raw = ROUTE_ANCHORS[idx];
+    const anchors = activeRouteAnchors();
+    for (let attempt = 0; attempt < anchors.length; attempt++) {
+        const idx = (f.spacingBeat + lead + f.slot * 2 + attempt) % anchors.length;
+        const raw = anchors[idx];
         if (!belongsToPartyLane(f, raw)) continue;
         const candidate = snapPos(raw[0], raw[1]);
         const travelSq = routeTravelSq(f, candidate);
@@ -1044,11 +1531,21 @@ function outerArenaDestination(f: Fighter, e: Fighter | null, retreat: boolean):
     return fallback;
 }
 function coverArenaDestination(f: Fighter, e: Fighter, flank: boolean): [number, number] {
-    const lead = f.team === "player" ? 0 : 1;
+    const lead = _warfrontMode ? 0 : f.team === "player" ? 0 : 1;
     let best = outerArenaDestination(f, e, false);
     let bestScore = -1e9;
-    for (let attempt = 0; attempt < DUEL_COVER_NODES.length; attempt++) {
-        const cover = DUEL_COVER_NODES[(f.spacingBeat + lead + attempt) % DUEL_COVER_NODES.length];
+    const battleY = _warfrontMode ? warfrontCellAnchor(f, e)[1] : 0;
+    const covers: readonly Readonly<{ x: number; y: number; radius: number }>[] = _warfrontMode
+        ? WARFRONT_COVER_NODES
+        : DUEL_COVER_NODES;
+    for (let attempt = 0; attempt < covers.length; attempt++) {
+        const baseIndex = (f.spacingBeat + lead + attempt) % covers.length;
+        // WARFRONT_MAZE_WALLS stores rotational pairs adjacently (0↔1, 2↔3).
+        // Enemy lookup flips the low bit so equal mirrored states consume the
+        // mirrored ruin while retaining the same attempt/tie penalty.
+        const coverIndex = _warfrontMode && f.team === "enemy" ? baseIndex ^ 1 : baseIndex;
+        const cover = covers[coverIndex];
+        if (_warfrontMode && Math.abs(cover.y - battleY) > 5.2) continue;
         let nx = cover.x - e.x, ny = cover.y - e.y;
         const nl = Math.sqrt(nx * nx + ny * ny);
         if (nl > 1e-4) { nx /= nl; ny /= nl; }
@@ -1099,7 +1596,7 @@ function assignArenaDestination(f: Fighter, e: Fighter | null) {
     f.spacingOffset = spacingPhrase[f.spacingBeat % spacingPhrase.length];
 }
 function waypointToward(f: Fighter, goalX: number, goalY: number): [number, number] {
-    const next = bfsNextStep(cellCol(f.x), cellRow(f.y), cellCol(goalX), cellRow(goalY));
+    const next = bfsNextStep(cellCol(f.x), cellRow(f.y), cellCol(goalX), cellRow(goalY), f.team);
     return next ? cellCenter(next[0], next[1]) : [goalX, goalY];
 }
 function routeWaypoint(f: Fighter): [number, number] {
@@ -1268,13 +1765,14 @@ function effMoveSpeed(f: Fighter): number {
     return s;
 }
 function followRouteWaypoint(f: Fighter, e: Fighter, goal: readonly [number, number], sprint = false) {
+    const startX = f.x, startY = f.y;
     const gx = goal[0] - f.x, gy = goal[1] - f.y;
     const gd = Math.max(1e-4, Math.sqrt(gx * gx + gy * gy));
     const tx = gx / gd, ty = gy / gd;
     // Authored routes are action beats, so a sprint receives a real burst cap.
     // Ordinary steering remains readable and controlled between those beats.
     const sprintMult = sprint ? 1.24 : 1;
-    const speed = effMoveSpeed(f) * sprintMult * (sprint ? 1 : clamp(gd / Math.max(CELL_X, CELL_Y), 0.35, 1));
+    const speed = effMoveSpeed(f) * sprintMult * (sprint ? 1 : clamp(gd / Math.max(activeCellX(), activeCellY()), 0.35, 1));
     const desiredX = tx * speed, desiredY = ty * speed;
     let sx = desiredX - f.vx, sy = desiredY - f.vy;
     const sl = Math.sqrt(sx * sx + sy * sy);
@@ -1287,6 +1785,18 @@ function followRouteWaypoint(f: Fighter, e: Fighter, goal: readonly [number, num
     if (vl > cap && vl > 1e-6) { f.vx = (f.vx / vl) * cap; f.vy = (f.vy / vl) * cap; }
     const [nx, ny] = tryStep(f.x + f.vx, f.y + f.vy, f.x, f.y);
     f.x = nx; f.y = ny;
+    const routeProgress = Math.hypot(f.x - startX, f.y - startY);
+    if (_warfrontMode && f.routeActive && vl > 0.02 && routeProgress < 0.012) {
+        f.routeStuck++;
+        if (f.routeStuck >= 5) {
+            // A padded maze cell can leave a knocked-back body just outside the
+            // planner's next cell. Abandon this optional exit after five blocked
+            // frames so the next decision chooses a fresh corner or attacks;
+            // never leave a pet jogging in place for the rest of the beat.
+            f.routeActive = false; f.reposLeft = 0; f.routeStuck = 0;
+            f.vx = 0; f.vy = 0;
+        }
+    } else f.routeStuck = 0;
     // A sprint reads as a real run only when the body commits to its travel lane.
     // Facing the opponent throughout a long route made quadrupeds backpedal,
     // rotate continuously and look as if they were sliding. At the destination
@@ -1348,9 +1858,9 @@ function steer(f: Fighter, e: Fighter, fighters: Fighter[], rStar: number, route
         return;
     }
     const settledInBand = !routeGoal && !repositioning && Math.abs(d - rStar) <= BAND_H;
-    // Once range is established, hold it. Attacks, telegraph dodges and authored
-    // reposition routes create the footwork; neutral cooldown time is a readable
-    // stare-down, not another small circle around the same radius.
+    // Once range is established, hold it. Warfront breaks this pose after every
+    // exchange via WARFRONT_ROUTE_CADENCE: its neutral reads happen behind real
+    // maze cover rather than as a long dead pause in an empty firing pocket.
     const holdNeutral = settledInBand && !_forcedEngage && _stallPressure <= 0;
     if (holdNeutral) {
         f.vx *= 0.56; f.vy *= 0.56;
@@ -1409,11 +1919,14 @@ function steer(f: Fighter, e: Fighter, fighters: Fighter[], rStar: number, route
     // Only recover inward when actually grazing the boundary; otherwise pets own
     // the whole floor and may hold an outside lane or use cover there.
     const cl = Math.sqrt(f.x * f.x + f.y * f.y);
-    const edge = Math.max(Math.abs(f.x) / ARENA_X, Math.abs(f.y) / ARENA_Y);
+    const edge = Math.max(Math.abs(f.x) / activeArenaX(), Math.abs(f.y) / activeArenaY());
     if (cl > 1e-3 && edge > 0.84) writeMap(_interest, -f.x / cl, -f.y / cl, EDGE_RETURN_BIAS * clamp((edge - 0.84) / 0.16, 0, 1), false);
     if (_partyMode) {
-        const laneDelta = f.homeY - f.y;
-        if (Math.abs(laneDelta) > 1.1) writeMap(_interest, 0, Math.sign(laneDelta), 0.38 * clamp(Math.abs(laneDelta) / 4.5, 0.25, 1), false);
+        const laneY = _warfrontMode ? e.homeY : f.homeY;
+        const laneDelta = laneY - f.y;
+        const threshold = _warfrontMode ? 0.7 : 1.1;
+        const strength = _warfrontMode ? 0.72 : 0.38;
+        if (Math.abs(laneDelta) > threshold) writeMap(_interest, 0, Math.sign(laneDelta), strength * clamp(Math.abs(laneDelta) / 5.2, 0.25, 1), false);
     }
     // DANGER — enemy threat bubble, telegraph, walls, personal space.
     const reach = e.state === "windup" ? 3.0 : 1.8;
@@ -1426,7 +1939,7 @@ function steer(f: Fighter, e: Fighter, fighters: Fighter[], rStar: number, route
     if (f.style.rangedPref && d < rStar - BAND_H) writeMap(_danger, tx, ty, DANGER_BUBBLE, false);
     // Arena-edge / wall danger: sample the 4 cardinal steps; if a step leaves the
     // walkable band, mark that heading dangerous so pets don't corner themselves.
-    const probe = Math.max(CELL_X, CELL_Y) * 1.2;
+    const probe = Math.max(activeCellX(), activeCellY()) * 1.2;
     if (!walkableAt(f.x + probe, f.y)) writeMap(_danger, 1, 0, DANGER_WALL, false);
     if (!walkableAt(f.x - probe, f.y)) writeMap(_danger, -1, 0, DANGER_WALL, false);
     if (!walkableAt(f.x, f.y + probe)) writeMap(_danger, 0, 1, DANGER_WALL, false);
@@ -1643,6 +2156,241 @@ function readySupport(f: Fighter, fighters: Fighter[]): number {
     }
     return -1;
 }
+
+type WarfrontTravelOrder = {
+    goal: readonly [number, number];
+    plan: string;
+    reason: string;
+    arrive: number;
+};
+
+/** Decide whether this tick is about the scrolls rather than trading damage.
+ * Combat still interrupts travel when a defender physically contests the route;
+ * otherwise the squad advances, escorts, or guards instead of seeking contact. */
+function legacyWarfrontTravelOrder(f: Fighter, fighters: Fighter[]): WarfrontTravelOrder | null {
+    if (!_warfrontMode || _warfrontRelics.length !== 2) return null;
+    const allies = fighters.filter((ally) => ally.team === f.team && ally.hp > 0);
+    const enemies = fighters.filter((enemy) => enemy.team !== f.team && enemy.hp > 0);
+    const roles = warfrontRoleMap(fighters, f.team);
+    const role = roles.get(f.id) ?? "escort";
+    const ownScroll = _warfrontRelics.find((scroll) => scroll.owner === f.team);
+    const enemyScroll = _warfrontRelics.find((scroll) => scroll.owner !== f.team);
+    if (!ownScroll || !enemyScroll) return null;
+
+    const carriedScroll = _warfrontRelics.find((scroll) => scroll.carrierId === f.id);
+    if (carriedScroll) {
+        const homeDx = ownScroll.homeX - f.x, homeDy = ownScroll.homeY - f.y;
+        const homeDistance = Math.max(1e-4, Math.hypot(homeDx, homeDy));
+        const travelX = homeDx / homeDistance, travelY = homeDy / homeDistance;
+        const blocker = nearestFighter(f, enemies.filter((enemy) => {
+            const bx = enemy.x - f.x, by = enemy.y - f.y;
+            const gap = Math.hypot(bx, by);
+            return gap < 5.4 && bx * travelX + by * travelY > 0.45;
+        }));
+        if (blocker) {
+            // Both carriers (or a carrier and Guardian) can meet head-on in a
+            // one-cell corridor. Always take the same local right-hand juke;
+            // opposite travel directions make the world-space lanes mirror.
+            const passX = f.x + travelX * 3.2 + travelY * 4.4;
+            const passY = f.y + travelY * 3.2 - travelX * 4.4;
+            return {
+                goal: snapPos(passX, passY),
+                plan: "juke past the interception line",
+                reason: "a defender blocks the carrier's return corridor",
+                arrive: 1.1,
+            };
+        }
+        if ((ownScroll.state as string) !== "home") {
+            // Classic CTF cannot score while the team's own scroll is missing.
+            // Parking the carrier on the altar created a static 1v1 on each end
+            // after simultaneous steals. Run a two-point extraction loop instead:
+            // the carrier stays readable on its own half, while Guardian + Escort
+            // get a moving interception problem that must resolve the deadlock.
+            const homeSign = Math.sign(ownScroll.homeX) || (f.team === "player" ? -1 : 1);
+            const loopX = ownScroll.homeX - homeSign * 5.8;
+            const priorLoopY = Math.abs(f.routeY) >= 4.8 ? f.routeY : 0;
+            const loopY = f.routeActive && priorLoopY
+                ? priorLoopY
+                : priorLoopY
+                    ? -priorLoopY
+                    : (f.slot % 2 === 0 ? 1 : -1) * 6.8;
+            return {
+                goal: snapPos(loopX, loopY),
+                plan: "evade with the stolen scroll",
+                reason: "our missing scroll must be recovered before capture",
+                arrive: 1.35,
+            };
+        }
+        return {
+            goal: [ownScroll.homeX, ownScroll.homeY],
+            plan: "extract the stolen scroll",
+            reason: "returning the enemy scroll wins the clash",
+            arrive: WARFRONT_RELIC_CAPTURE_RADIUS * 0.72,
+        };
+    }
+
+    const teamCarrier = enemyScroll.carrierId
+        ? allies.find((ally) => ally.id === enemyScroll.carrierId) ?? null
+        : null;
+    const enemyCarrier = ownScroll.carrierId
+        ? enemies.find((enemy) => enemy.id === ownScroll.carrierId) ?? null
+        : null;
+    const raider = allies.find((ally) => roles.get(ally.id) === "raider") ?? allies[0];
+
+    if (role === "guardian") {
+        if (enemyCarrier) {
+            if (Math.hypot(enemyCarrier.x - f.x, enemyCarrier.y - f.y) <= 5.2) return null;
+            return { goal: [enemyCarrier.x, enemyCarrier.y], plan: "hunt our scroll carrier", reason: "recover the stolen clan scroll", arrive: 3.6 };
+        }
+        if (ownScroll.state === "dropped") {
+            return { goal: [ownScroll.x, ownScroll.y], plan: "recover our fallen scroll", reason: "a clan touch returns it to the altar", arrive: WARFRONT_RELIC_PICKUP_RADIUS * 0.65 };
+        }
+        const shrineThreat = enemies.some((enemy) => Math.hypot(enemy.x - ownScroll.homeX, enemy.y - ownScroll.homeY) <= 7.6);
+        if (shrineThreat) return null;
+        return {
+            goal: [ownScroll.homeX - Math.sign(ownScroll.homeX) * 6.2, ownScroll.homeY],
+            plan: "patrol the scroll gate",
+            reason: "the rear post protects the clan scroll",
+            arrive: 2.4,
+        };
+    }
+
+    const protectedRunner = teamCarrier ?? raider;
+    if (role === "escort" && protectedRunner && protectedRunner.id !== f.id) {
+        if (enemyCarrier) {
+            if (Math.hypot(enemyCarrier.x - f.x, enemyCarrier.y - f.y) <= 4.8) return null;
+            return { goal: [enemyCarrier.x, enemyCarrier.y], plan: "collapse on the scroll thief", reason: "two interceptors break a double-steal deadlock", arrive: 3.2 };
+        }
+        const personalThreat = enemies.some((enemy) => Math.hypot(enemy.x - f.x, enemy.y - f.y) <= 3.8);
+        if (personalThreat) return null;
+        // Slot offsets live in team space. Red's world-space Y must rotate with
+        // its X or matching formations stop being 180-degree mirrors and one
+        // clan inherits the cleaner escort lane.
+        const teamMirror = f.team === "player" ? 1 : -1;
+        const side = (f.slot % 2 === 0 ? 1 : -1) * teamMirror;
+        const teamSign = f.team === "player" ? -1 : 1;
+        const escortX = protectedRunner.x + teamSign * 3.8;
+        const escortY = protectedRunner.y + side * 3.4;
+        return { goal: snapPos(escortX, escortY), plan: teamCarrier ? "screen the stolen scroll" : "escort the infiltrator", reason: "hold a separate flanking pocket", arrive: 1.55 };
+    }
+
+    // If a teammate already has the scroll, the forward post becomes a second
+    // escort instead of running to an empty shrine.
+    if (teamCarrier) {
+        const threat = enemies.some((enemy) => Math.hypot(enemy.x - teamCarrier.x, enemy.y - teamCarrier.y) <= 5.8);
+        if (threat) return null;
+        return { goal: [teamCarrier.x, teamCarrier.y], plan: "clear the scroll carrier's return route", reason: "the enemy scroll is in friendly hands", arrive: 2.8 };
+    }
+
+    const nearestThreat = nearestFighter(f, enemies);
+    const threatDistance = nearestThreat ? Math.hypot(nearestThreat.x - f.x, nearestThreat.y - f.y) : Infinity;
+    // A lone survivor must keep playing the objective. Otherwise two last pets
+    // can stare each other down at midfield until the 75-second cap.
+    if (allies.length === 1 && nearestThreat && threatDistance < 5.4) {
+        const relicDx = enemyScroll.x - f.x, relicDy = enemyScroll.y - f.y;
+        const relicDistance = Math.max(1e-4, Math.hypot(relicDx, relicDy));
+        const travelX = relicDx / relicDistance, travelY = relicDy / relicDistance;
+        const blockX = nearestThreat.x - f.x, blockY = nearestThreat.y - f.y;
+        if (blockX * travelX + blockY * travelY > 0.45) {
+            return {
+                goal: snapPos(f.x + travelX * 3.2 + travelY * 4.4, f.y + travelY * 3.2 - travelX * 4.4),
+                plan: "slip the last defender",
+                reason: "the lone survivor must keep infiltrating",
+                arrive: 1.1,
+            };
+        }
+    }
+    // Raiders do not abandon the heist merely because a defender is nearby.
+    // That proximity fallback was the archive-deathmatch bug: both Raiders
+    // stopped on first contact and traded until somebody died. Escorts own the
+    // screen fight; the Raider keeps pathing to the scroll and then runs it home.
+    return {
+        goal: [enemyScroll.x, enemyScroll.y],
+        plan: enemyScroll.state === "dropped" ? "secure the fallen enemy scroll" : "infiltrate the enemy archive",
+        reason: "the Raider must breach the opposing shrine",
+        arrive: WARFRONT_RELIC_PICKUP_RADIUS * 0.68,
+    };
+}
+
+/** Shadow Relay has three distinct acts: split to cipher seals, breach the
+ * neutral vault, then screen or intercept one visible carrier. Damage is a tool
+ * for disrupting those jobs; it is never the neutral destination. */
+function warfrontTravelOrder(f: Fighter, fighters: Fighter[]): WarfrontTravelOrder | null {
+    if (!_warfrontMode) return null;
+    // Saved legacy replays may still contain the retired pair of clan scrolls.
+    if (_warfrontRelics.length === 2) return legacyWarfrontTravelOrder(f, fighters);
+    const scroll = warfrontScroll();
+    if (!scroll) return null;
+    const allies = fighters.filter((ally) => ally.team === f.team && ally.hp > 0);
+    const enemies = fighters.filter((enemy) => enemy.team !== f.team && enemy.hp > 0);
+    const roles = warfrontRoleMap(fighters, f.team);
+    const role = roles.get(f.id) ?? "escort";
+    const carrier = scroll.carrierId ? fighters.find((fighter) => fighter.id === scroll.carrierId) ?? null : null;
+
+    if (carrier) {
+        const gateX = carrier.team === "player" ? -WARFRONT_RELIC_HOME_X : WARFRONT_RELIC_HOME_X;
+        const travelSign = Math.sign(gateX - carrier.x) || (carrier.team === "player" ? -1 : 1);
+        if (carrier.id === f.id) {
+            const blocker = nearestFighter(f, enemies.filter((enemy) => {
+                const ahead = (enemy.x - f.x) * travelSign;
+                return ahead > -0.5 && ahead < 7 && Math.abs(enemy.y - f.y) < 5.2;
+            }));
+            if (blocker) {
+                const passY = clamp(f.y + (f.slot % 2 === 0 ? 1 : -1) * 5.4, -WARFRONT_ARENA_Y + 2, WARFRONT_ARENA_Y - 2);
+                return { goal: snapPos(f.x + travelSign * 4.2, passY), plan: "shadow-step around the interception", reason: "a hunter blocks the extraction line", arrive: 1.15 };
+            }
+            return { goal: [gateX, 0], plan: "extract the Forbidden Scroll", reason: "cross the revealed clan gate to score", arrive: WARFRONT_RELIC_CAPTURE_RADIUS * 0.72 };
+        }
+
+        if (carrier.team === f.team) {
+            const personalThreat = nearestFighter(f, enemies.filter((enemy) => Math.hypot(enemy.x - f.x, enemy.y - f.y) <= 4.4));
+            if (personalThreat) return null;
+            const side = (f.slot % 2 === 0 ? 1 : -1) * 4.2;
+            return {
+                goal: snapPos(carrier.x - travelSign * 3.8, clamp(carrier.y + side, -WARFRONT_ARENA_Y + 2, WARFRONT_ARENA_Y - 2)),
+                plan: role === "guardian" ? "seal the rear pursuit" : "screen the scroll runner",
+                reason: "the carrier needs a moving protection triangle",
+                arrive: 1.7,
+            };
+        }
+
+        const interceptX = clamp(carrier.x + travelSign * (role === "guardian" ? 7.5 : 5.2), -WARFRONT_ARENA_X + 2, WARFRONT_ARENA_X - 2);
+        const interceptY = clamp(carrier.y + (f.slot % 2 === 0 ? 1 : -1) * (role === "escort" ? 3.6 : 1.8), -WARFRONT_ARENA_Y + 2, WARFRONT_ARENA_Y - 2);
+        if (Math.hypot(carrier.x - f.x, carrier.y - f.y) <= 5.3) return null;
+        return { goal: snapPos(interceptX, interceptY), plan: "cut off the scroll carrier", reason: "one clean tag forces a scroll drop", arrive: 2.2 };
+    }
+
+    if (scroll.state === "available" || scroll.state === "dropped") {
+        const raider = allies.find((ally) => roles.get(ally.id) === "raider") ?? allies[0];
+        if (f.id === raider?.id) {
+            return { goal: [scroll.x, scroll.y], plan: scroll.state === "dropped" ? "reclaim the dropped scroll" : "breach the opened vault", reason: "the forward post becomes the runner", arrive: WARFRONT_RELIC_PICKUP_RADIUS * 0.68 };
+        }
+        const closeThreat = nearestFighter(f, enemies.filter((enemy) => Math.hypot(enemy.x - f.x, enemy.y - f.y) <= 4.2));
+        if (closeThreat) return null;
+        const teamSign = f.team === "player" ? -1 : 1;
+        const screenY = (f.slot % 2 === 0 ? 1 : -1) * 5.6;
+        return { goal: snapPos(scroll.x + teamSign * 5.4, scroll.y + screenY), plan: "hold the vault screen", reason: "deny the rival runner a clean approach", arrive: 1.8 };
+    }
+
+    const seal = preferredWarfrontSeal(f, fighters);
+    if (!seal) return { goal: [0, f.homeY * 0.35], plan: "rotate toward the sealed archive", reason: "our cipher pair is complete", arrive: 2.1 };
+    const blocker = nearestFighter(f, enemies.filter((enemy) => (
+        Math.hypot(enemy.x - seal.x, enemy.y - seal.y) <= WARFRONT_SIGIL_RADIUS + 2.2
+        && Math.hypot(enemy.x - f.x, enemy.y - f.y) <= 4.8
+    )));
+    if (blocker && Math.hypot(f.x - seal.x, f.y - seal.y) <= WARFRONT_SIGIL_RADIUS + 1.8) return null;
+    const approachX = seal.x + (f.team === "player" ? -1 : 1) * 0.9;
+    // Alternating channel notches keep the pressure pair readable without
+    // changing the capture race's mirror-fair timing.
+    const approachY = seal.y + (f.slot % 2 === 0 ? 0.8 : -0.8);
+    return {
+        goal: snapPos(approachX, approachY),
+        plan: seal.state === "contested" ? "reinforce the contested cipher" : `channel ${seal.id.replace("seal-", "")} cipher`,
+        reason: "two claimed seals open the Forbidden Scroll vault",
+        arrive: WARFRONT_SIGIL_RADIUS * 0.55,
+    };
+}
+
 function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng: () => number, t: number, events: DuelEvent[]) {
     const e = pickTarget(f, fighters);
     f.targetId = e ? e.id : null;
@@ -1753,12 +2501,24 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
         if (postSup < 0) f.postDodgeSupport = false;
         else {
             const remaining = Math.hypot(f.routeX - f.x, f.routeY - f.y);
-            if (f.routeActive && remaining > 1.15) {
+            const routeDx = f.routeX - f.x, routeDy = f.routeY - f.y;
+            const targetBlocksRoute = d < SUPPORT_CAST_CLEARANCE - 0.35
+                && routeDx * dx + routeDy * dy > 0;
+            if (f.routeActive && remaining > 1.15 && !targetBlocksRoute) {
                 f.reposLeft = Math.max(1, f.reposLeft);
                 setIntent(f, "retreat", Math.max(SUPPORT_CAST_CLEARANCE, d + 1), "open a safe casting pocket", "successful dodge created a buff window");
                 followRouteWaypoint(f, e, routeWaypoint(f), true);
                 return;
             }
+            if (targetBlocksRoute) {
+                // The pursuer owns the destination side. Continuing toward the
+                // same point makes separation push both pets down one lane at a
+                // near-zero crawl forever. Give up the luxury buff and fight.
+                f.postDodgeSupport = false;
+                f.reposLeft = 0; f.routeActive = false;
+                f.vx = 0; f.vy = 0;
+                setIntent(f, "engage", d, "abort the cut-off support lane", "opponent reached the escape destination first");
+            } else {
             // Re-read the live gap at the destination. A pursuer may have cut the
             // retreat lane while we were travelling; casting here would turn the
             // earned dodge/buff phrase back into a point-blank power-up. Extend the
@@ -1776,7 +2536,42 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
             setIntent(f, "prepare combo", SUPPORT_CAST_CLEARANCE, f.abilities[postSup]?.name ?? "self buff", "safe after dodge and disengage");
             beginCast(f, postSup, f.id, t, events);
             return;
+            }
         }
+    }
+
+    // SCROLL RUN owns neutral travel. A pet only falls through to the combat
+    // brain when an opponent contests its job at readable engagement distance.
+    // This is the mode change: crossing the board is now progress, not downtime.
+    const objectiveOrder = warfrontTravelOrder(f, fighters);
+    if (objectiveOrder) {
+        const gx = objectiveOrder.goal[0] - f.x, gy = objectiveOrder.goal[1] - f.y;
+        const remaining = Math.hypot(gx, gy);
+        f.routeX = objectiveOrder.goal[0]; f.routeY = objectiveOrder.goal[1];
+        f.reposLeft = 0;
+        if (remaining <= objectiveOrder.arrive) {
+            f.routeActive = false; f.routeStuck = 0;
+            f.vx *= 0.36; f.vy *= 0.36;
+            if (Math.hypot(f.vx, f.vy) < 0.012) { f.vx = 0; f.vy = 0; }
+            f.faceX = dx / d; f.faceY = dy / d;
+            setIntent(f, "hold position", objectiveOrder.arrive, objectiveOrder.plan, objectiveOrder.reason);
+            return;
+        }
+        f.routeActive = true;
+        f.routeIntent = "cross";
+        setIntent(f, f.id === _warfrontRelics.find((relic) => relic.carrierId === f.id)?.carrierId ? "retreat" : "flank", objectiveOrder.arrive, objectiveOrder.plan, objectiveOrder.reason);
+        const routeGoal = hasWalkableRoute(f.x, f.y, objectiveOrder.goal[0], objectiveOrder.goal[1])
+            ? objectiveOrder.goal
+            : waypointToward(f, objectiveOrder.goal[0], objectiveOrder.goal[1]);
+        followRouteWaypoint(f, e, routeGoal, true);
+        if (_warfrontRelics.some((relic) => relic.carrierId === f.id)) {
+            // The scroll is a readable burden: a runner needs an escort and an
+            // interception has time to develop instead of becoming a teleporting
+            // seven-second sprint from centre to shrine.
+            f.vx *= 0.7;
+            f.vy *= 0.7;
+        }
+        return;
     }
 
     // CINEMATIC INITIATIVE — only one side drives neutral movement. The rival is
@@ -1786,9 +2581,11 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     // A live ORDER also claims the beat. Without this the initiative hold would
     // swallow the player's command until the AI happened to hand the beat over,
     // which reads as an unresponsive button.
-    const ownsBeat = (_partyMode
-        ? f.team === _laneInitiativeTeam[Math.min(1, f.slot)]
-        : f.team === _cinematicInitiativeTeam) || _forcedEngage || hasOrder(f);
+    const ownsBeat = (_warfrontMode
+        ? true
+        : _partyMode
+            ? f.team === _laneInitiativeTeam[laneIndex(f.slot)]
+            : f.team === _cinematicInitiativeTeam) || _forcedEngage || hasOrder(f);
     const counterWindow = e.state === "recover" || e.state === "stagger" || e.state === "strike";
     const finishingExit = f.reposLeft > 0 && f.routeActive;
     if (!ownsBeat && !counterWindow && !finishingExit) {
@@ -1826,7 +2623,22 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
         // stop making room and just cast where you stand, breaking the limit cycle.
         if (!desperate && !_forcedEngage && d < SUPPORT_CAST_CLEARANCE) {
             setIntent(f, "retreat", SUPPORT_CAST_CLEARANCE, `make room for ${supportAbility?.name ?? "support"}`, "enemy is inside support cast clearance");
-            beginReposition(f, Math.round(DUEL_TPS * 0.9), e);
+            if (!f.routeActive) beginReposition(f, Math.round(DUEL_TPS * 0.9), e);
+            else if (f.reposLeft > 0) f.reposLeft--;
+            const remaining = Math.hypot(f.routeX - f.x, f.routeY - f.y);
+            const routeDx = f.routeX - f.x, routeDy = f.routeY - f.y;
+            const targetBlocksRoute = d < SUPPORT_CAST_CLEARANCE - 0.35
+                && routeDx * dx + routeDy * dy > 0;
+            // This setup is a short escape beat, not a permanent route. The old
+            // branch returned before the shared reposition timer could decrement,
+            // leaving a blocked support planted at its destination for 16 seconds.
+            if (remaining <= 1.15 || f.reposLeft <= 0 || targetBlocksRoute) {
+                f.routeActive = false; f.reposLeft = 0;
+                f.vx = 0; f.vy = 0;
+                setIntent(f, "prepare combo", SUPPORT_CAST_CLEARANCE, supportAbility?.name ?? "support action", "the casting pocket is ready");
+                beginCast(f, sup, f.id, t, events);
+                return;
+            }
             const supportShift = readyMobility(f);
             if (supportShift >= 0 && f.routeActive && f.statuses.rootLeft <= 0) {
                 beginManeuver(f, e, supportShift, t, events);
@@ -1908,7 +2720,10 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     // melee tell may therefore start from the visible body-edge pocket, then its
     // post-windup pounce bridges the remaining centre distance.
     const commitRange = offAb == null ? 0 : meleeOff ? Math.max(offAb.range + 0.25, MIN_SEP + 1.15) : offAb.range;
-    const losForCommit = d <= MELEE_RANGE + 0.6 ? true : hasLineOfSight(f.x, f.y, e.x, e.y);
+    const meleeRouteOpen = !_warfrontMode || hasWalkableRoute(f.x, f.y, e.x, e.y);
+    const losForCommit = d <= MELEE_RANGE + 0.6
+        ? meleeRouteOpen
+        : hasLineOfSight(f.x, f.y, e.x, e.y);
     const canFire = !holdRepos && offAb != null && d <= commitRange && losForCommit && (f.faceX * dx + f.faceY * dy) > -0.2;
     if (canFire) {
         setIntent(f, offAb.signature || killShot || desperate ? "burst" : "execute combo", rStar, offAb.name, killShot ? "enemy is vulnerable" : desperate ? "last-stand opening" : "ability is ready, in range, and line of sight is clear");
@@ -1929,12 +2744,42 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
         }
     }
 
+    // A pet placed on either rear column becomes a HOME GUARD because of where
+    // the player put it, not because a job label was assigned. It holds while a
+    // living teammate is deployed materially closer to centre, then joins once
+    // that screen has collapsed. Players may field zero, one, or several guards.
+    const rearDeployed = Math.abs(f.homeX) >= 14.5;
+    if (_warfrontMode && rearDeployed && !holdRepos && !_forcedEngage) {
+        const screenAlive = fighters.some((ally) => ally.team === f.team && ally.hp > 0
+            && Math.abs(ally.homeX) < Math.abs(f.homeX) - 2);
+        const threatRange = Math.max(
+            commitRange,
+            f.basicRanged ? RANGED_RANGE * 0.85 : Math.max(f.reach + 0.35, MIN_SEP + 1.15),
+        );
+        if (screenAlive && d > threatRange) {
+            const homeDx = f.homeX - f.x, homeDy = f.homeY - f.y;
+            const homeDistance = Math.hypot(homeDx, homeDy);
+            f.routeActive = false; f.reposLeft = 0;
+            if (homeDistance > 0.7) {
+                setIntent(f, "regroup", threatRange, "return to the Anchor post", "the protection screen still holds");
+                followRouteWaypoint(f, e, [f.homeX, f.homeY]);
+            } else {
+                f.vx = 0; f.vy = 0;
+                f.faceX = dx / d; f.faceY = dy / d;
+                setIntent(f, "hold position", threatRange, "guard the home post", "Vanguard and Warden still protect the line");
+            }
+            return;
+        }
+    }
+
     // Only one side owns the ingress burst for an exchange. It dashes to an
     // offset firing pocket (never into the opponent's body); the other side may
     // hold, dodge, or answer after the shared pressure role flips next beat.
-    const pressureTeam: Fighter["team"] = _partyMode
-        ? _laneInitiativeTeam[Math.min(1, f.slot)]
-        : _cinematicInitiativeTeam;
+    const pressureTeam: Fighter["team"] = _warfrontMode
+        ? f.team
+        : _partyMode
+            ? _laneInitiativeTeam[laneIndex(f.slot)]
+            : _cinematicInitiativeTeam;
     if (!holdRepos && mobilityIdx >= 0 && f.team === pressureTeam && f.commit >= Math.round(DUEL_TPS * 0.55)
         && d > rStar + BAND_H + 1.8 && f.statuses.rootLeft <= 0 && e.state !== "windup") {
         setIntent(f, "flank", rStar, `burst to an offset ${useRanged ? "firing" : "attack"} lane`, "owns this exchange's ingress");
@@ -1965,11 +2810,15 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     else if (d > rStar + BAND_H) setIntent(f, "engage", rStar, "claim preferred attack range", "target is outside effective range");
     else setIntent(f, "hold position", rStar, "read cooldowns and preserve the firing pocket", "already inside preferred range band");
     // Central duel-stage arbitration: only one fighter may own a full exit route at
-    // a time. If both attempt to reset, the newer route wins (stable player-side
-    // tiebreak); the other fighter plants and watches the lane rather than becoming
-    // a second runner.
+    // a time. If both attempt to reset, the newer route wins; an exact tie follows
+    // the lane's current initiative in Warfront instead of permanently favoring
+    // the blue/player seat. The other fighter plants and watches the lane rather
+    // than becoming a second runner.
+    const sharedExitTieOwner: Fighter["team"] = _warfrontMode
+        ? _laneInitiativeTeam[laneIndex(f.slot)]
+        : "player";
     const rivalOwnsSharedExit = holdRepos && e.reposLeft > 0 && e.routeActive
-        && (e.reposLeft > f.reposLeft || (e.reposLeft === f.reposLeft && e.team === "player"));
+        && (e.reposLeft > f.reposLeft || (e.reposLeft === f.reposLeft && e.team === sharedExitTieOwner));
     if (rivalOwnsSharedExit) {
         setIntent(f, "hold position", rStar, "plant and cover the opponent's exit lane", "opponent owns the shared reset route");
         f.routeActive = false; f.reposLeft = 0;
@@ -1985,6 +2834,11 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
         if (gx * gx + gy * gy <= 1.2 * 1.2) {
             f.vx *= 0.42; f.vy *= 0.42;
             if (Math.hypot(f.vx, f.vy) < 0.012) { f.vx = 0; f.vy = 0; }
+            // A 1v1 cinematic can afford a long planted stare after reaching its
+            // mark. In a six-pet Warfront that reads as a frozen actor, especially
+            // when two other cells remain active. Keep only a quick arrival beat,
+            // then let this pet re-evaluate and use the lane it just earned.
+            if (_warfrontMode) f.reposLeft = Math.min(f.reposLeft, Math.round(DUEL_TPS * 0.28));
             f.faceX = dx / d; f.faceY = dy / d;
             return;
         }
@@ -2004,15 +2858,54 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     // above: if I plant here while the enemy is "making room", neither of us closes.
     // A confirmed stand-off (forcedEngage) overrides the counter-wait and makes me
     // pursue, so a mutual spacing standoff resolves into a brawl.
-    if (!holdRepos && !_forcedEngage && e.reposLeft > 0 && e.routeActive) {
+    if (!_warfrontMode && !holdRepos && !_forcedEngage && e.reposLeft > 0 && e.routeActive) {
         setIntent(f, "hold position", rStar, "track the disengage and prepare a counter", "opponent owns the exit beat");
         f.vx = 0; f.vy = 0;
         f.faceX = dx / d; f.faceY = dy / d;
         return;
     }
+    // Warfront navigation has an authored destination layer above local
+    // avoidance. Pressure partners claim opposite target-relative sockets while
+    // the screen intercepts the other team's pressure cell. Ordinary steering
+    // owns only the final attack band inside that squad plan.
+    if (_warfrontMode && !holdRepos && !_forcedEngage) {
+        const engagement = reservedEngagementGoal(f, e, fighters, rStar);
+        const gx = engagement[0] - f.x, gy = engagement[1] - f.y;
+        if (gx * gx + gy * gy > 0.72 * 0.72) {
+            // Most claims are straight runs inside one broad lane. Preserve the
+            // original BFS cadence for duel routes, but only invoke it here when
+            // the Warfront seal or a temporary wall actually blocks this socket.
+            const direct = hasWalkableRoute(f.x, f.y, engagement[0], engagement[1]);
+            const mazeDetour = direct ? null : warfrontMazeDetour(f, e);
+            const waypoint = direct
+                ? engagement
+                : mazeDetour ?? waypointToward(f, engagement[0], engagement[1]);
+            followRouteWaypoint(f, e, waypoint, Boolean(mazeDetour));
+            return;
+        }
+    }
+    // Low ruins do not stop projectiles, but they do stop a body. Melee always
+    // clears the corner; a ranged pet does the same when it is too far away to
+    // shoot. Otherwise a support can see over the wall while its direct movement
+    // repeatedly strikes the collision rectangle, producing a frozen face-off.
+    if (_warfrontMode && (!useRanged || d > rStar + BAND_H)
+        && !hasWalkableRoute(f.x, f.y, e.x, e.y)) {
+        const mazeDetour = warfrontMazeDetour(f, e);
+        if (mazeDetour) {
+            setIntent(f, "flank", rStar, "clear a low labyrinth wall", "contact range is not physically reachable");
+            followRouteWaypoint(f, e, mazeDetour, true);
+            return;
+        }
+    }
     // Route around terrain (BFS waypoint) when the direct line to the foe is blocked.
     let routeGoal: [number, number] | undefined;
     if (!hasLineOfSight(f.x, f.y, e.x, e.y)) {
+        const mazeDetour = warfrontMazeDetour(f, e);
+        if (mazeDetour) {
+            setIntent(f, "flank", rStar, "commit past a labyrinth corner", "a ruin blocks line of sight");
+            followRouteWaypoint(f, e, mazeDetour, true);
+            return;
+        }
         // Close cover stand-off: both fighters take opposite world-space edges
         // (their target vectors are reversed), so they do not meet nose-to-nose
         // at the same shortest-path cell. The first pet to clear an edge can fire;
@@ -2023,7 +2916,7 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
             targetY = f.y + (dx / d) * 3.1;
             [targetX, targetY] = snapPos(targetX, targetY);
         }
-        const nxt = bfsNextStep(cellCol(f.x), cellRow(f.y), cellCol(targetX), cellRow(targetY));
+        const nxt = bfsNextStep(cellCol(f.x), cellRow(f.y), cellCol(targetX), cellRow(targetY), f.team);
         if (nxt) {
             routeGoal = cellCenter(nxt[0], nxt[1]);
             setIntent(f, "flank", rStar, "path around blocked line of sight", "terrain or a temporary wall blocks the direct angle");
@@ -2110,11 +3003,15 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
         // is right during the stun and the stale lunge can't resume aimed at a ghost.
         if (f.state === "dash" && f.lungeAbIdx > -2) { f.state = "stagger"; f.stateLeft = f.staggerT; clearLunge(f); }
         f.maneuverLeft = 0; f.guardLeft = 0;
-        f.vx = 0; f.vy = 0; f.x = clamp(f.x, -ARENA_X, ARENA_X); f.y = clamp(f.y, -ARENA_Y, ARENA_Y); return;
+        f.vx = 0; f.vy = 0;
+        f.x = clamp(f.x, -activeArenaX(), activeArenaX());
+        f.y = clamp(f.y, -activeArenaY(), activeArenaY());
+        return;
     }
     if (f.maneuverLeft > 0) {
         stepManeuver(f, fighters);
-        f.x = clamp(f.x, -ARENA_X, ARENA_X); f.y = clamp(f.y, -ARENA_Y, ARENA_Y);
+        f.x = clamp(f.x, -activeArenaX(), activeArenaX());
+        f.y = clamp(f.y, -activeArenaY(), activeArenaY());
         return;
     }
     if (f.guardLeft > 0 && f.state === "idle") {
@@ -2313,7 +3210,7 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
             f.state = "idle";
             const target = pickTarget(f, fighters);
             if (target) {
-                if (_partyMode) _laneInitiativeTeam[Math.min(1, f.slot)] = target.team;
+                if (_partyMode) _laneInitiativeTeam[laneIndex(f.slot)] = target.team;
                 else _cinematicInitiativeTeam = target.team;
             }
             // The completed action hands pressure to the opponent while this pet
@@ -2324,7 +3221,9 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
             f.exchangesSinceRoute++;
             const justUsed = f.pendingIdx >= 0 ? f.abilities[f.pendingIdx] : null;
             const wounded = f.hp / f.maxHp < f.style.retreatHp;
-            let cadence = _partyMode ? PARTY_ROUTE_CADENCE : DUEL_ROUTE_CADENCE;
+            let cadence = _warfrontMode
+                ? WARFRONT_ROUTE_CADENCE
+                : _partyMode ? PARTY_ROUTE_CADENCE : DUEL_ROUTE_CADENCE;
             // Controlled-stance: Press trades several more exchanges before breaking
             // off (stays in your face); Guard resets sooner (patient spacing). No-op
             // for Balance / any uncontrolled fighter, so the authoritative path holds.
@@ -2333,8 +3232,14 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
             // its caster across the floor too only doubles the dead air.
             const supportSetup = justUsed?.cls === "support"
                 && justUsed.kind !== "barrier" && !f.supportResetDone;
-            const fullReset = !!justUsed?.signature || supportSetup
-                || wounded || f.exchangesSinceRoute >= cadence;
+            // Once the no-damage breaker has latched, "fight to a result" must
+            // actually cancel optional cross-field exits. Previously the flag
+            // collapsed attack range and dodging, but recover still launched a
+            // brand-new route every other exchange. Support-heavy mirror teams
+            // could therefore run for the full 75-second cap while their melee
+            // casts whiffed against another moving target.
+            const fullReset = !_forcedEngage && (!!justUsed?.signature || supportSetup
+                || wounded || f.exchangesSinceRoute >= cadence);
             // If the rival is already disengaging from a dodge/reset, do not launch
             // a second route in parallel.
             if (target?.routeActive && target.reposLeft > 0) {
@@ -2365,7 +3270,8 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
             f.guardLeft = Math.round(DUEL_TPS * 0.2);
         } break;
     }
-    f.x = clamp(f.x, -ARENA_X, ARENA_X); f.y = clamp(f.y, -ARENA_Y, ARENA_Y);
+    f.x = clamp(f.x, -activeArenaX(), activeArenaX());
+    f.y = clamp(f.y, -activeArenaY(), activeArenaY());
 }
 function tryStep(nx: number, ny: number, ox: number, oy: number): [number, number] {
     if (walkableAt(nx, ny)) return [nx, ny];
@@ -2384,20 +3290,30 @@ function separateAll(fighters: Fighter[]) {
         // null on every authoritative path, so this is byte-identical there.
         if (_clash && ((_clash.aId === a.id && _clash.bId === b.id) || (_clash.aId === b.id && _clash.bId === a.id))) continue;
         const dx = b.x - a.x, dy = b.y - a.y, d = Math.sqrt(dx * dx + dy * dy);
-        // Contact spacing belongs to a committed attack. If both pets are merely
-        // reading/repositioning, open a visible pocket immediately instead of
-        // letting them idle nose-to-nose until the next cooldown.
-        const calmFaceoff = a.state === "idle" && b.state === "idle";
-        // Keep an idle face-off wide enough that two full 3D silhouettes never read
-        // as body-blocking each other. Committed casts and dodges still own closer
-        // combat pockets before their next reset.
-        const separation = _partyMode && a.team === b.team
-            ? PARTY_ALLY_SEPARATION
-            : calmFaceoff ? MIN_SEP + 1.0 : MIN_SEP;
+        // A state-dependent contact radius fought the steering system every time
+        // an attack entered or left windup: the pair was pushed out in idle, pulled
+        // in during the strike, then pushed out again. Use one stable combat pocket
+        // and let authored lunge/reposition states create the visible cadence.
+        const directWarfrontEngagement = a.targetId === b.id || b.targetId === a.id;
+        const separation = _warfrontMode
+            ? a.team === b.team
+                ? PARTY_ALLY_SEPARATION
+                : directWarfrontEngagement
+                    ? MIN_SEP + 0.8
+                    : PARTY_ALLY_SEPARATION + 0.2
+            : _partyMode && a.team === b.team
+                ? PARTY_ALLY_SEPARATION
+                : a.state === "idle" && b.state === "idle" ? MIN_SEP + 1.0 : MIN_SEP;
         if (d >= separation) continue;
         const push = (separation - d) / 2;
         if (d > 1e-6) { const ux = dx / d, uy = dy / d; const [ax, ay] = snapPos(a.x - ux * push, a.y - uy * push); a.x = ax; a.y = ay; const [bx, by] = snapPos(b.x + ux * push, b.y + uy * push); b.x = bx; b.y = by; }
         else { a.x -= push; b.x += push; }
+        if (_warfrontMode && directWarfrontEngagement && a.state === "idle" && b.state === "idle") {
+            // Cancel the residual closing velocity at the resolved pocket. Without
+            // this, steering re-entered the overlap on the next tick and separation
+            // corrected it again—the small back-and-forth the user saw as jitter.
+            a.vx = 0; a.vy = 0; b.vx = 0; b.vy = 0;
+        }
     }
 }
 function quantizeFighter(f: Fighter) {
@@ -2406,12 +3322,13 @@ function quantizeFighter(f: Fighter) {
     f.statuses.shieldHp = quant(f.statuses.shieldHp);
 }
 
-function snap(t: number, fighters: Fighter[], projectiles: Projectile[], debugTrace: boolean): DuelSnapshot {
+function snap(t: number, fighters: Fighter[], projectiles: Projectile[], debugTrace: boolean, objectives: WarfrontRelicState[] = []): DuelSnapshot {
     return {
         t,
         actors: fighters.map((f): DuelActorSnap => ({
             id: f.id, team: f.team, slot: f.slot,
             x: f.x, y: f.y, faceX: f.faceX, faceY: f.faceY,
+            targetId: f.targetId,
             hp: Math.max(0, f.hp), maxHp: f.maxHp, stamina: f.stamina,
             state: f.state, statuses: statusFlags(f.statuses),
             ...(debugTrace ? { ai: {
@@ -2440,7 +3357,156 @@ function snap(t: number, fighters: Fighter[], projectiles: Projectile[], debugTr
             } } : {}),
         })),
         projectiles: projectiles.map((p): DuelProjSnap => ({ id: p.id, x: p.x, y: p.y, team: p.team, kind: p.kind, element: p.element })),
+        ...(objectives.length ? { objectives: objectives.map((objective) => ({ ...objective })) } : {}),
     };
+}
+
+const createWarfrontRelics = (): WarfrontRelicState[] => ([
+    {
+        id: "forbidden-scroll", kind: "scroll", owner: null,
+        x: 0, y: 0, homeX: 0, homeY: 0,
+        carrierId: null, state: "sealed", progress: 0, active: false,
+    },
+    ...WARFRONT_SEAL_POSITIONS.map((position): WarfrontRelicState => ({
+        id: position.id,
+        kind: "seal",
+        owner: null,
+        x: position.x,
+        y: position.y,
+        homeX: position.x,
+        homeY: position.y,
+        carrierId: null,
+        state: "neutral",
+        progress: 0,
+        active: true,
+    })),
+    {
+        id: "player-extraction", kind: "extraction", owner: "player",
+        x: -WARFRONT_RELIC_HOME_X, y: 0, homeX: -WARFRONT_RELIC_HOME_X, homeY: 0,
+        carrierId: null, state: "inactive", progress: 0, active: false,
+    },
+    {
+        id: "enemy-extraction", kind: "extraction", owner: "enemy",
+        x: WARFRONT_RELIC_HOME_X, y: 0, homeX: WARFRONT_RELIC_HOME_X, homeY: 0,
+        carrierId: null, state: "inactive", progress: 0, active: false,
+    },
+]);
+
+/** Advance Shadow Relay after movement. Teams first claim two of three cipher
+ * seals. That opens one neutral scroll; one clean hit or body tag drops it, and
+ * either team can recover it before a carrier reaches their extraction gate. */
+function updateWarfrontRelics(
+    fighters: Fighter[],
+    objectives: WarfrontRelicState[],
+    t: number,
+    events: DuelEvent[],
+): Fighter["team"] | null {
+    const scroll = objectives.find((objective) => objective.kind === "scroll");
+    const seals = objectives.filter((objective) => objective.kind === "seal");
+    const gates = objectives.filter((objective) => objective.kind === "extraction");
+    if (!scroll) return null;
+    const living = fighters.filter((fighter) => fighter.hp > 0 && fighter.state !== "dead").sort((a, b) => (
+        (a.team === b.team ? 0 : a.team === "player" ? -1 : 1)
+        || a.slot - b.slot
+        || a.id.localeCompare(b.id)
+    ));
+
+    if (scroll.carrierId) {
+        const carrier = fighters.find((fighter) => fighter.id === scroll.carrierId);
+        if (!carrier || carrier.hp <= 0 || carrier.state === "dead") {
+            if (carrier) { scroll.x = carrier.x; scroll.y = carrier.y; }
+            const fallenId = scroll.carrierId;
+            scroll.carrierId = null; scroll.state = "dropped";
+            const fallenTeam = carrier?.team ?? (fallenId.startsWith("player-") ? "player" : "enemy");
+            gates.forEach((gate) => { gate.active = false; gate.state = "inactive"; });
+            events.push({ t, type: "relic_drop", side: fallenTeam, actorId: fallenId, targetId: scroll.id, move: "Forbidden Scroll dropped" });
+        } else {
+            let hitInterceptor: DuelEvent | undefined;
+            for (let eventIndex = events.length - 1; eventIndex >= 0; eventIndex--) {
+                const event = events[eventIndex];
+                if (event.t < t) break;
+                if (event.type === "hit" && event.side !== carrier.team
+                    && event.targetId === carrier.id && (event.dmg ?? 0) > 0) {
+                    hitInterceptor = event;
+                    break;
+                }
+            }
+            let pickup: DuelEvent | undefined;
+            for (let eventIndex = events.length - 1; eventIndex >= 0; eventIndex--) {
+                const event = events[eventIndex];
+                if (event.type === "relic_pickup" && event.targetId === scroll.id && event.actorId === carrier.id) {
+                    pickup = event;
+                    break;
+                }
+            }
+            const contactInterceptor = pickup && t - pickup.t >= WARFRONT_RELIC_TAG_GRACE_TICKS
+                ? nearestFighter(carrier, living.filter((fighter) => (
+                    fighter.team !== carrier.team
+                    && Math.hypot(fighter.x - carrier.x, fighter.y - carrier.y) <= WARFRONT_RELIC_TAG_RADIUS
+                )))
+                : null;
+            const interceptorId = hitInterceptor?.actorId ?? contactInterceptor?.id;
+            if (interceptorId) {
+                scroll.carrierId = null;
+                scroll.x = carrier.x; scroll.y = carrier.y; scroll.state = "dropped";
+                gates.forEach((gate) => { gate.active = false; gate.state = "inactive"; });
+                events.push({ t, type: "relic_drop", side: carrier.team, actorId: carrier.id, targetId: scroll.id, move: "Substitution tag — scroll dropped" });
+                events.push({ t, type: "relic_return", side: carrier.team === "player" ? "enemy" : "player", actorId: interceptorId, targetId: scroll.id, move: "Scroll intercepted" });
+            } else {
+                scroll.x = carrier.x; scroll.y = carrier.y;
+                const gate = gates.find((candidate) => candidate.owner === carrier.team);
+                if (gate && Math.hypot(carrier.x - gate.x, carrier.y - gate.y) <= WARFRONT_RELIC_CAPTURE_RADIUS) {
+                    events.push({ t, type: "capture", side: carrier.team, actorId: carrier.id, targetId: scroll.id, move: "Forbidden Scroll extracted" });
+                    return carrier.team;
+                }
+            }
+        }
+    }
+
+    if (scroll.state === "sealed") {
+        for (const seal of seals) {
+            if (seal.state === "captured") continue;
+            const playerPresence = living.filter((fighter) => fighter.team === "player" && Math.hypot(fighter.x - seal.x, fighter.y - seal.y) <= WARFRONT_SIGIL_RADIUS).length;
+            const enemyPresence = living.filter((fighter) => fighter.team === "enemy" && Math.hypot(fighter.x - seal.x, fighter.y - seal.y) <= WARFRONT_SIGIL_RADIUS).length;
+            const pressure = playerPresence - enemyPresence;
+            if (pressure !== 0) seal.progress = clamp(seal.progress + pressure / WARFRONT_SEAL_CAPTURE_TICKS, -1, 1);
+            else if (playerPresence === 0 && enemyPresence === 0) seal.progress *= 0.992;
+            seal.progress = Math.round(seal.progress * 4096) / 4096;
+            seal.state = playerPresence > 0 && enemyPresence > 0 ? "contested" : Math.abs(seal.progress) > 0.02 ? "contested" : "neutral";
+            if (Math.abs(seal.progress) >= 1) {
+                const owner: Fighter["team"] = seal.progress > 0 ? "player" : "enemy";
+                seal.owner = owner; seal.state = "captured"; seal.active = true;
+                const channeler = [...living.filter((fighter) => fighter.team === owner)].sort((a, b) => (
+                    Math.hypot(a.x - seal.x, a.y - seal.y) - Math.hypot(b.x - seal.x, b.y - seal.y)
+                    || a.slot - b.slot
+                ))[0];
+                events.push({ t, type: "seal_capture", side: owner, actorId: channeler?.id ?? `${owner}-0`, targetId: seal.id, move: `${seal.id.replace("seal-", "")} cipher claimed` });
+            }
+        }
+        const playerSeals = seals.filter((seal) => seal.owner === "player").length;
+        const enemySeals = seals.filter((seal) => seal.owner === "enemy").length;
+        const vaultTeam: Fighter["team"] | null = playerSeals >= 2 ? "player" : enemySeals >= 2 ? "enemy" : null;
+        if (vaultTeam) {
+            scroll.owner = vaultTeam;
+            scroll.state = "available";
+            scroll.active = true;
+            const opener = [...living.filter((fighter) => fighter.team === vaultTeam)].sort((a, b) => Math.hypot(a.x, a.y) - Math.hypot(b.x, b.y))[0];
+            events.push({ t, type: "vault_open", side: vaultTeam, actorId: opener?.id ?? `${vaultTeam}-0`, targetId: scroll.id, move: "Forbidden Vault opened" });
+        }
+    }
+
+    if (!scroll.carrierId && (scroll.state === "available" || scroll.state === "dropped")) {
+        const touching = living.filter((fighter) => Math.hypot(fighter.x - scroll.x, fighter.y - scroll.y) <= WARFRONT_RELIC_PICKUP_RADIUS);
+        const carrier = touching.find((fighter) => fighter.team === scroll.owner) ?? touching[0];
+        if (carrier) {
+            scroll.carrierId = carrier.id; scroll.state = "carried";
+            scroll.x = carrier.x; scroll.y = carrier.y;
+            carrier.routeActive = false; carrier.reposLeft = 0;
+            gates.forEach((gate) => { const on = gate.owner === carrier.team; gate.active = on; gate.state = on ? "active" : "inactive"; });
+            events.push({ t, type: "relic_pickup", side: carrier.team, actorId: carrier.id, targetId: scroll.id, move: "Forbidden Scroll claimed" });
+        }
+    }
+    return null;
 }
 
 // ── Core loop ──────────────────────────────────────────────────────────────────
@@ -2476,11 +3542,12 @@ export interface CinematicDuelState {
     forcedEngage: boolean;
     partyMode: boolean;
     initiativeTeam: "player" | "enemy";
-    laneInitiative: ["player" | "enemy", "player" | "enemy"];
+    laneInitiative: LaneInitiative;
     clash: ClashBind | null;
     clashCount: number;
     lastClashTick: number;
     clashEnabled: boolean;
+    warfrontRelics: WarfrontRelicState[];
 }
 
 function createDuelState(fighters: Fighter[], seed: number, accuracyEnabled: boolean, debugTrace: boolean): CinematicDuelState {
@@ -2494,6 +3561,11 @@ function createDuelState(fighters: Fighter[], seed: number, accuracyEnabled: boo
     _stallPressure = 0; _forcedEngage = false;
     _clash = null; _clashCount = 0; _lastClashTick = -CLASH_COOLDOWN; _clashOn = true;
     _partyMode = fighters.length > 2;
+    _warfrontMode = fighters.length >= 6;
+    _warfrontRelics = _warfrontMode ? createWarfrontRelics() : [];
+    _warfrontAssignments = _warfrontMode ? buildWarfrontAssignments(fighters) : new Map();
+    _warfrontPathCache.clear();
+    _warfrontPathWallSignature = "";
     for (const f of fighters) { const [sx, sy] = snapPos(f.x, f.y); f.x = sx; f.y = sy; }
     const initiativeTeam: "player" | "enemy" = (seed & 1) === 0 ? "player" : "enemy";
     return {
@@ -2501,10 +3573,17 @@ function createDuelState(fighters: Fighter[], seed: number, accuracyEnabled: boo
         rngState, rng: makeRngFrom(rngState), accuracyEnabled, debugTrace,
         t: 0, ticks: 0, winner: null, done: false,
         lastDmgTick: 0, prevTotalHp,
-        walls: [], stallPressure: 0, forcedEngage: false, partyMode: fighters.length > 2,
+        walls: [], stallPressure: 0, forcedEngage: false,
+        partyMode: fighters.length > 2,
         initiativeTeam,
-        laneInitiative: [initiativeTeam, initiativeTeam === "player" ? "enemy" : "player"],
+        laneInitiative: [
+            initiativeTeam,
+            initiativeTeam === "player" ? "enemy" : "player",
+            initiativeTeam === "player" ? "enemy" : "player",
+            initiativeTeam,
+        ],
         clash: null, clashCount: 0, lastClashTick: -CLASH_COOLDOWN, clashEnabled: true,
+        warfrontRelics: _warfrontRelics.map((relic) => ({ ...relic })),
     };
 }
 
@@ -2564,6 +3643,9 @@ function stepDuelState(sim: CinematicDuelState): boolean {
     SIM_WALLS = sim.walls;
     _stallPressure = sim.stallPressure; _forcedEngage = sim.forcedEngage;
     _partyMode = sim.partyMode;
+    _warfrontMode = sim.fighters.length >= 6;
+    _warfrontRelics = sim.warfrontRelics;
+    _warfrontAssignments = _warfrontMode ? buildWarfrontAssignments(fighters) : new Map();
     _cinematicInitiativeTeam = sim.initiativeTeam;
     _laneInitiativeTeam = sim.laneInitiative;
     _clash = sim.clash; _clashCount = sim.clashCount; _lastClashTick = sim.lastClashTick;
@@ -2650,6 +3732,7 @@ function stepDuelState(sim: CinematicDuelState): boolean {
         }
         SIM_WALLS = SIM_WALLS.filter((wall) => !newlyDefeated.has(wall.ownerId));
     }
+    const captureWinner = _warfrontMode ? updateWarfrontRelics(fighters, _warfrontRelics, t, events) : null;
     // A landed EXCHANGE resets the stall timer → pressure only builds in a genuine
     // no-damage stand-off. Passive DoT chip (dotDmg) is deliberately excluded: a
     // lingering burn kept resetting the timer every 0.4 s, which pinned stallPressure
@@ -2658,7 +3741,7 @@ function stepDuelState(sim: CinematicDuelState): boolean {
     // still resets it (byte-identical to the old rule in any DoT-free tick) while a
     // DoT-only tick no longer counts as combat.
     { let totalHp = 0; for (const f of fighters) totalHp += Math.max(0, f.hp); if (sim.prevTotalHp - totalHp > dotDmg + 0.5) sim.lastDmgTick = t; sim.prevTotalHp = totalHp; }
-    snapshots.push(snap(t, fighters, projectiles, sim.debugTrace));
+    snapshots.push(snap(t, fighters, projectiles, sim.debugTrace, _warfrontRelics));
 
     // Store the scratch state back before anything else can run a duel. The
     // initiative team is load-bearing here: a landed exchange HANDS THE BEAT OVER
@@ -2669,8 +3752,10 @@ function stepDuelState(sim: CinematicDuelState): boolean {
     sim.initiativeTeam = _cinematicInitiativeTeam;
     sim.laneInitiative = _laneInitiativeTeam;
     sim.clash = _clash; sim.clashCount = _clashCount; sim.lastClashTick = _lastClashTick;
+    sim.warfrontRelics = _warfrontRelics;
     sim.t = t + 1;
 
+    if (captureWinner) { sim.winner = captureWinner; sim.done = true; return false; }
     const pA = teamAlive(fighters, "player"), eA = teamAlive(fighters, "enemy");
     if (!pA || !eA) { sim.winner = pA && !eA ? "player" : eA && !pA ? "enemy" : null; sim.done = true; return false; }
     if (sim.t >= CAP_TICKS) sim.done = true;
@@ -2738,34 +3823,867 @@ export function runPetPartyDuelCinematic(
  * teammates rather than assuming one — so the AI already spaces an arbitrary
  * team. The caps were an entry-point limitation, not an engine one.
  *
- * Spawn lanes are a real FORMATION, not just spacing: slots 0-1 are the FRONT
- * line (closer to the enemy, so they meet first and absorb the opening) and
- * slots 2-3 are the BACK line. Which pet a caller puts in which slot is the
- * mode's tactical decision — a Sage in the front line dies, a Defender there
- * holds. The x separation is what makes that real; the y separation is what
- * keeps four bodies from rendering as one mass.
+ * Formation positions are battlefield JOBS, not four mirrored duels:
+ * Vanguard contests centre, Warden intercepts the opposing Flanker, Flanker
+ * hunts the Anchor, and Anchor holds its home post behind the protection screen.
+ * Enemy Y is mirrored so both intercept routes are symmetric.
  */
 export const SQUAD_FRONT_SLOTS = 2;
-const SQUAD_LANES: readonly (readonly [number, number])[] = Object.freeze([
-    [4.4, 1.9], [4.4, -1.9],   // front line
-    [6.8, 4.6], [6.8, -4.6],   // back line
-]);
+
+// ── BEASTBOUND WARFRONT: deterministic formation-board combat ───────────────
+// Warfront deliberately does not use the continuous steering engine above. A
+// formation autobattler needs stable squares, readable threat ranges and hard
+// occupancy; feeding eight large creatures into free steering is what produced
+// the old scrum, pushing and wrong-way jitter.
+type KageRole = "vanguard" | "striker" | "ranger" | "support" | "shadow";
+type KageOpeningJob = "front" | "cover" | "flank" | "wing";
+interface KageUnit {
+    fighter: Fighter;
+    role: KageRole;
+    col: number; row: number;
+    /** The committed cell is tactical information. Keep it after movement so
+     * target selection can distinguish a screen, a firing rank and a wing. */
+    homeCol: number; homeRow: number;
+    fromCol: number; fromRow: number;
+    moveLeft: number; moveTotal: number;
+    windLeft: number; recoverLeft: number;
+    pendingIdx: number; pendingTargetId: string | null;
+    targetLockLeft: number; blockedTicks: number;
+    /** Targets recently abandoned by a live order. Prevents the squad from
+     * publishing an A-B-A-B-A-B indecision loop while both contacts live. */
+    targetReturnLocks: Record<string, number>;
+    targetHistory: string[];
+    openingJob: KageOpeningJob;
+    openingCol: number; openingRow: number; openingTargetId: string | null;
+    openingContactEstablished: boolean; openingWaitTicks: number;
+    chakra: number; shadowStepReady: boolean; koSent: boolean; quietTicks: number;
+}
+interface KageProjectile extends Projectile { born: number }
+
+const KAGE_BLOCKED = new Set(["3,1", "3,3"]);
+const KAGE_SMOKE = new Set(["2,2", "4,2"]);
+const KAGE_COVER = new Set(["2,0", "4,4"]);
+const KAGE_VERDICT_TICK = DUEL_TPS * 28;
+const KAGE_CAP_TICKS = DUEL_TPS * 38;
+/** Orders persist long enough to read, then the squad takes a fresh battlefield
+ * picture. A dead target or blocked route breaks the order immediately. */
+const KAGE_ORDER_LOCK_TICKS = Math.round(DUEL_TPS * 2.2);
+const KAGE_TARGET_RETURN_LOCK_TICKS = DUEL_TPS * 6;
+const KAGE_OPENING_SHAPE_TICKS = DUEL_TPS * 6;
+const KAGE_OPENING_BLOCKED_RELEASE_TICKS = Math.round(DUEL_TPS * 0.5);
+const KAGE_BLOCKED_RETARGET_TICKS = 5;
+const kageKey = (col: number, row: number) => `${col},${row}`;
+const kageInside = (col: number, row: number) => col >= 0 && col < WARFRONT_GRID_COLS && row >= 0 && row < WARFRONT_GRID_ROWS;
+const kageWalkable = (col: number, row: number) => kageInside(col, row) && !KAGE_BLOCKED.has(kageKey(col, row));
+const kagePoint = (col: number, row: number): [number, number] => [
+    quant((col - (WARFRONT_GRID_COLS - 1) / 2) * WARFRONT_CELL_X),
+    quant((row - (WARFRONT_GRID_ROWS - 1) / 2) * WARFRONT_CELL_Y),
+];
+const kageCell = (x: number, y: number): [number, number] => [
+    clamp(Math.round(x / WARFRONT_CELL_X + (WARFRONT_GRID_COLS - 1) / 2), 0, WARFRONT_GRID_COLS - 1),
+    clamp(Math.round(y / WARFRONT_CELL_Y + (WARFRONT_GRID_ROWS - 1) / 2), 0, WARFRONT_GRID_ROWS - 1),
+];
+const kageRange = (a: KageUnit, b: KageUnit) => Math.max(Math.abs(a.col - b.col), Math.abs(a.row - b.row));
+const kageRole = (fighter: Fighter): KageRole => {
+    if (fighter.pet.role === "assassin" || fighter.pet.subRole === "assassin") return "shadow";
+    if (fighter.pet.role === "sage" || fighter.pet.subRole === "support") return "support";
+    if (fighter.pet.role === "defender" || fighter.pet.subRole === "tank") return "vanguard";
+    if (fighter.pet.subRole === "kite") return "ranger";
+    switch (fighter.style.arche) {
+        case "defender": return "vanguard";
+        case "rusher": return "shadow";
+        case "kiter": return "ranger";
+        case "support": return "support";
+        default: return fighter.basicRanged ? "ranger" : "striker";
+    }
+};
+const kagePreferredRange = (unit: KageUnit) => unit.role === "ranger" ? 3 : unit.role === "support" ? 3 : unit.role === "vanguard" ? 1 : 1;
+const kageBlockedLine = (a: KageUnit, b: KageUnit): boolean => {
+    const steps = Math.max(Math.abs(a.col - b.col), Math.abs(a.row - b.row));
+    for (let step = 1; step < steps; step++) {
+        const t = step / steps;
+        const col = Math.round(a.col + (b.col - a.col) * t);
+        const row = Math.round(a.row + (b.row - a.row) * t);
+        if (KAGE_BLOCKED.has(kageKey(col, row))) return true;
+    }
+    return false;
+};
+const kageSmokeLine = (a: KageUnit, b: KageUnit): boolean => {
+    const steps = Math.max(Math.abs(a.col - b.col), Math.abs(a.row - b.row));
+    for (let step = 1; step < steps; step++) {
+        const t = step / steps;
+        if (KAGE_SMOKE.has(kageKey(Math.round(a.col + (b.col - a.col) * t), Math.round(a.row + (b.row - a.row) * t)))) return true;
+    }
+    return false;
+};
+
+/** One deterministic breadth-first route step toward a legal attack cell. The
+ * old one-step gradient could bounce on opposite sides of a shoji forever; this
+ * searches the whole 35-cell board once, then publishes only the first step. */
+const kageRouteStep = (
+    unit: KageUnit,
+    target: KageUnit,
+    occupied: ReadonlySet<string>,
+    nearby: readonly KageUnit[],
+    avoidFirstKey?: string,
+    forbidPile = false,
+): [number, number] | null => {
+    const startKey = kageKey(unit.col, unit.row);
+    const createsVisualPile = (candidateCol: number, candidateRow: number) => {
+        const bodies = [{ col: candidateCol, row: candidateRow }, ...nearby
+            .filter((other) => other !== unit && other.fighter.hp > 0)
+            .map((other) => ({ col: other.col, row: other.row }))];
+        const connected = new Set<number>([0]);
+        const pending = [0];
+        while (pending.length) {
+            const current = pending.pop()!;
+            for (let index = 1; index < bodies.length; index++) {
+                if (connected.has(index)) continue;
+                const distance = Math.hypot(
+                    (bodies[current].col - bodies[index].col) * WARFRONT_CELL_X,
+                    (bodies[current].row - bodies[index].row) * WARFRONT_CELL_Y,
+                );
+                // 2 × 1.105 rendered radius / 0.7 world scale.
+                if (distance <= 3.158) { connected.add(index); pending.push(index); }
+            }
+        }
+        return connected.size >= 3;
+    };
+    const queue: Array<[number, number]> = [[unit.col, unit.row]];
+    const parent = new Map<string, string | null>([[startKey, null]]);
+    const distance = new Map<string, number>([[startKey, 0]]);
+    const dirs: ReadonlyArray<readonly [number, number]> = unit.fighter.team === "player"
+        ? [[1, 0], [0, -1], [0, 1], [-1, 0]]
+        : [[-1, 0], [0, 1], [0, -1], [1, 0]];
+    for (let cursor = 0; cursor < queue.length; cursor++) {
+        const [col, row] = queue[cursor];
+        const key = kageKey(col, row);
+        for (const [dc, dr] of dirs) {
+            const nextCol = col + dc, nextRow = row + dr, nextKey = kageKey(nextCol, nextRow);
+            if (key === startKey && avoidFirstKey === nextKey) continue;
+            if (!kageWalkable(nextCol, nextRow) || occupied.has(nextKey) || parent.has(nextKey)) continue;
+            if (forbidPile && createsVisualPile(nextCol, nextRow)) continue;
+            parent.set(nextKey, key);
+            distance.set(nextKey, (distance.get(key) ?? 0) + 1);
+            queue.push([nextCol, nextRow]);
+        }
+    }
+    const desired = kagePreferredRange(unit);
+    const ranged = unit.role === "ranger" || unit.role === "support";
+    // Keep the approach in the deployed lane until the last two files. Shadows
+    // take an outside corridor; everybody else preserves the row the player
+    // deliberately bought with placement. This is the formation's route plan,
+    // rather than eight independent shortest paths to the centre cell.
+    const horizontalGap = Math.abs(unit.col - target.col);
+    const flankRow = unit.homeRow < 2 ? 0 : unit.homeRow > 2 ? WARFRONT_GRID_ROWS - 1 : (unit.fighter.slot % 2 ? WARFRONT_GRID_ROWS - 1 : 0);
+    const approachRow = unit.role === "shadow" ? flankRow : horizontalGap > 2 ? unit.homeRow : target.row;
+    const destinations = queue.map(([col, row]) => {
+        const phantom = { ...unit, col, row };
+        const range = kageRange(phantom, target);
+        const blockedLine = ranged && kageBlockedLine(phantom, target);
+        const legalBand = ranged ? range >= 2 && range <= 3 && !blockedLine : range <= 1;
+        const neighbors = nearby.filter((other) => other !== unit && other !== target && other.fighter.hp > 0
+            && Math.max(Math.abs(other.col - col), Math.abs(other.row - row)) <= 1);
+        const touchesTarget = Math.max(Math.abs(target.col - col), Math.abs(target.row - row)) <= 1;
+        const bridgesThroughTarget = touchesTarget && nearby.some((other) => other !== unit && other !== target
+            && other.fighter.hp > 0
+            && Math.max(Math.abs(other.col - target.col), Math.abs(other.row - target.row)) <= 1);
+        const alliedNeighbors = neighbors.filter((other) => other.fighter.team === unit.fighter.team).length;
+        const crowd = neighbors.length;
+        const pileRisk = crowd >= 2 || (touchesTarget && crowd > 0) || bridgesThroughTarget;
+        const tactical = Math.abs(range - desired) * 7
+            + (blockedLine ? 42 : 0)
+            + (ranged && range < 2 ? 18 : 0)
+            + (legalBand ? -18 : 0)
+            + (KAGE_COVER.has(kageKey(col, row)) && ranged ? -5 : 0)
+            + (KAGE_SMOKE.has(kageKey(col, row)) && unit.role === "shadow" ? -3 : 0)
+            + Math.abs(row - approachRow) * (unit.role === "shadow" ? 3.4 : 2.2)
+            // One screen plus one cross-cover attacker is readable. A fourth
+            // body joining that contact is a scrum, so seek another socket.
+            + crowd * 8 + alliedNeighbors * 4
+            + (distance.get(kageKey(col, row)) ?? 99) * 0.7
+            + row * 0.001 + col * 0.0001;
+        return { col, row, tactical, legalBand, crowd, pileRisk };
+    }).sort((a, b) => {
+        const progressA = unit.fighter.team === "player" ? a.col : WARFRONT_GRID_COLS - 1 - a.col;
+        const progressB = unit.fighter.team === "player" ? b.col : WARFRONT_GRID_COLS - 1 - b.col;
+        return a.tactical - b.tactical || progressB - progressA || a.row - b.row;
+    });
+    // If a legal firing/contact socket exists, standing still outside range is
+    // never a valid route answer. Prefer sockets which cannot form a four-body
+    // knot; relax that crowd rule only when the board offers no open contact.
+    const legal = destinations.filter((destination) => destination.legalBand);
+    const safeLegal = legal.find((candidate) => !candidate.pileRisk);
+    const destination = safeLegal
+        ?? (forbidPile ? undefined : legal.find((candidate) => candidate.crowd < 2) ?? legal[0])
+        ?? (forbidPile ? destinations.find((candidate) => !candidate.pileRisk) : destinations[0]);
+    if (!destination || (destination.col === unit.col && destination.row === unit.row)) return null;
+    let stepKey = kageKey(destination.col, destination.row);
+    let prior = parent.get(stepKey);
+    while (prior && prior !== startKey) {
+        stepKey = prior;
+        prior = parent.get(stepKey);
+    }
+    const [col, row] = stepKey.split(",").map(Number);
+    return Number.isInteger(col) && Number.isInteger(row) ? [col, row] : null;
+};
+
+/** Route to a reserved opening socket rather than another body. Resolving the
+ * file first makes fronts, diagonal cover and perimeter flanks separate into
+ * readable lanes before they advance; hard occupancy still owns every step. */
+const kageOpeningStep = (
+    unit: KageUnit,
+    occupied: ReadonlySet<string>,
+    avoidFirstKey?: string,
+): [number, number] | null => {
+    if (unit.col === unit.openingCol && unit.row === unit.openingRow) return null;
+    const startKey = kageKey(unit.col, unit.row);
+    const goalKey = kageKey(unit.openingCol, unit.openingRow);
+    const rowDirection = Math.sign(unit.openingRow - unit.row);
+    const colDirection = Math.sign(unit.openingCol - unit.col);
+    const candidates: Array<[number, number]> = unit.openingJob === "flank"
+        ? [[0, rowDirection], [colDirection, 0], [0, -rowDirection], [-colDirection, 0]]
+        : [[0, rowDirection], [colDirection, 0], [-colDirection, 0], [0, -rowDirection]];
+    const dirs = candidates.filter(([dc, dr], index) => (dc !== 0 || dr !== 0)
+        && candidates.findIndex(([otherDc, otherDr]) => otherDc === dc && otherDr === dr) === index);
+    for (const fallback of [[1, 0], [0, -1], [0, 1], [-1, 0]] as const) {
+        if (!dirs.some(([dc, dr]) => dc === fallback[0] && dr === fallback[1])) dirs.push([...fallback]);
+    }
+    const queue: Array<[number, number]> = [[unit.col, unit.row]];
+    const parent = new Map<string, string | null>([[startKey, null]]);
+    for (let cursor = 0; cursor < queue.length && !parent.has(goalKey); cursor++) {
+        const [col, row] = queue[cursor];
+        const key = kageKey(col, row);
+        for (const [dc, dr] of dirs) {
+            const nextCol = col + dc, nextRow = row + dr, nextKey = kageKey(nextCol, nextRow);
+            if (key === startKey && nextKey === avoidFirstKey) continue;
+            if (!kageWalkable(nextCol, nextRow) || occupied.has(nextKey) || parent.has(nextKey)) continue;
+            parent.set(nextKey, key);
+            queue.push([nextCol, nextRow]);
+        }
+    }
+    if (!parent.has(goalKey)) return null;
+    let stepKey = goalKey;
+    let prior = parent.get(stepKey);
+    while (prior && prior !== startKey) { stepKey = prior; prior = parent.get(stepKey); }
+    const [col, row] = stepKey.split(",").map(Number);
+    return Number.isInteger(col) && Number.isInteger(row) ? [col, row] : null;
+};
+
+function kageFormationSim(
+    fighters: Fighter[], seed: number, accuracyEnabled: boolean, debugTrace: boolean,
+): DuelResult {
+    const rng = makeRngFrom(newRngState(seed));
+    const events: DuelEvent[] = [];
+    const snapshots: DuelSnapshot[] = [];
+    let nextProjectile = 1;
+    let projectiles: KageProjectile[] = [];
+    const units: KageUnit[] = fighters.map((fighter) => {
+        const [col, row] = kageCell(fighter.x, fighter.y);
+        const [x, y] = kagePoint(col, row);
+        fighter.x = x; fighter.y = y; fighter.homeX = x; fighter.homeY = y;
+        fighter.state = "idle"; fighter.stateLeft = 0; fighter.targetId = null;
+        fighter.statuses = emptyStatuses(); fighter.stamina = 18;
+        fighter.abilities.forEach((ability, index) => { ability.cdLeft = index === 0 ? 12 : Math.min(ability.cdLeft, 45); });
+        return {
+            fighter, role: kageRole(fighter), col, row, fromCol: col, fromRow: row,
+            homeCol: col, homeRow: row,
+            moveLeft: 0, moveTotal: 0, windLeft: 0, recoverLeft: 0,
+            pendingIdx: -2, pendingTargetId: null, chakra: 10 + fighter.slot * 5,
+            targetLockLeft: 0, blockedTicks: 0,
+            targetReturnLocks: {}, targetHistory: [],
+            openingJob: "wing", openingCol: col, openingRow: row, openingTargetId: null,
+            openingContactEstablished: false, openingWaitTicks: 0,
+            shadowStepReady: kageRole(fighter) === "shadow", koSent: false, quietTicks: 0,
+        };
+    });
+    const byId = (id: string | null) => id ? units.find((unit) => unit.fighter.id === id) ?? null : null;
+    const alive = (team?: Fighter["team"]) => units.filter((unit) => unit.fighter.hp > 0 && (!team || unit.fighter.team === team));
+    const occupied = (except?: KageUnit) => {
+        const cells = new Set<string>();
+        for (const unit of alive()) {
+            if (unit === except) continue;
+            cells.add(kageKey(unit.col, unit.row));
+            // `col,row` reserves the destination at dash start. The departing
+            // body is still visibly crossing its old cell for eight ticks, so
+            // reserve that cell too; otherwise a following pet walks through it
+            // and several legal one-cell moves render as one central knot.
+            if (unit.moveLeft > 0) cells.add(kageKey(unit.fromCol, unit.fromRow));
+        }
+        return cells;
+    };
+
+    // The opening is one coordinated team plan, not eight independent shortest
+    // paths.  Preserve the information in deployment long enough to read it:
+    // one screen receives the clash, the firing rank keeps two diagonal lanes,
+    // and the shadow travels the outside file to the opposing firing rank.
+    // Sockets are unique across both teams and are derived only from committed
+    // cells + seed, so replay/server lockstep stays exact.
+    const openingTeams = (["player", "enemy"] as const).map((team) => {
+        const members = units.filter((unit) => unit.fighter.team === team)
+            .sort((a, b) => a.fighter.slot - b.fighter.slot);
+        const front = members.find((unit) => unit.role === "vanguard")
+            ?? members.find((unit) => unit.role === "striker")
+            ?? members.find((unit) => unit.role !== "ranger" && unit.role !== "support")
+            ?? members[0];
+        const flank = members.find((unit) => unit !== front && unit.role === "shadow")
+            ?? members.find((unit) => unit !== front && unit.role === "striker");
+        const cover = members.filter((unit) => unit !== front && unit !== flank)
+            .sort((a, b) => {
+                const aBack = a.role === "ranger" || a.role === "support" ? 0 : 1;
+                const bBack = b.role === "ranger" || b.role === "support" ? 0 : 1;
+                return aBack - bBack || a.fighter.slot - b.fighter.slot;
+            });
+        return { team, members, front, flank, cover };
+    });
+    const playerOpening = openingTeams.find((entry) => entry.team === "player")!;
+    const enemyOpening = openingTeams.find((entry) => entry.team === "enemy")!;
+    const frontHomes = [playerOpening.front, enemyOpening.front].filter(Boolean) as KageUnit[];
+    const averageFrontRow = frontHomes.reduce((sum, unit) => sum + unit.homeRow, 0) / Math.max(1, frontHomes.length);
+    // Even files are uninterrupted through the two centre shoji.  This keeps
+    // the shared front visible instead of letting a wall arbitrarily pick one
+    // of four private contacts.
+    const openingFrontRow = [0, 2, 4]
+        .sort((a, b) => Math.abs(a - averageFrontRow) - Math.abs(b - averageFrontRow)
+            || (((a + seed) & 1) - ((b + seed) & 1)) || a - b)[0];
+    const playerFrontCol = (seed & 1) === 0 ? 2 : 3;
+    const enemyFrontCol = playerFrontCol + 1;
+    if (playerOpening.front) {
+        Object.assign(playerOpening.front, { openingJob: "front" as const, openingCol: playerFrontCol, openingRow: openingFrontRow });
+    }
+    if (enemyOpening.front) {
+        Object.assign(enemyOpening.front, { openingJob: "front" as const, openingCol: enemyFrontCol, openingRow: openingFrontRow });
+    }
+    const coverRowsFor = (team: Fighter["team"]): number[] => {
+        if (openingFrontRow === 0) return [1, 3, 2];
+        if (openingFrontRow === 4) return [3, 1, 2];
+        // Opposite diagonals leave a clear sightline through the screen and put
+        // each enemy shadow next to—not on top of—one firing-rank actor.
+        return team === "player" ? [3, 1, 4] : [1, 3, 0];
+    };
+    const playerFlankRow = playerOpening.flank?.homeRow != null
+        ? (playerOpening.flank.homeRow <= 2 ? 0 : 4) : 0;
+    // Keep the committed outer lane. If both shadows chose the same boundary,
+    // give red the opposite perimeter so their routes never collide head-on
+    // and each formation retains a separately readable flank.
+    const enemyFlankRow = 4 - playerFlankRow;
+    for (const opening of openingTeams) {
+        const playerSide = opening.team === "player";
+        const coverCol = playerSide ? playerFrontCol - 2 : enemyFrontCol + 2;
+        const coverRows = coverRowsFor(opening.team);
+        opening.cover.forEach((unit, index) => {
+            unit.openingJob = unit.role === "ranger" || unit.role === "support" ? "cover" : "wing";
+            unit.openingCol = coverCol;
+            unit.openingRow = coverRows[index] ?? (playerSide ? 4 : 0);
+        });
+        if (opening.flank) {
+            opening.flank.openingJob = "flank";
+            opening.flank.openingCol = playerSide ? enemyFrontCol + 2 : playerFrontCol - 2;
+            opening.flank.openingRow = playerSide ? playerFlankRow : enemyFlankRow;
+        }
+    }
+    if (playerOpening.front && enemyOpening.front) {
+        playerOpening.front.openingTargetId = enemyOpening.front.fighter.id;
+        enemyOpening.front.openingTargetId = playerOpening.front.fighter.id;
+        for (const unit of playerOpening.cover) {
+            unit.openingTargetId = unit.openingJob === "cover" ? enemyOpening.front.fighter.id : null;
+        }
+        for (const unit of enemyOpening.cover) {
+            unit.openingTargetId = unit.openingJob === "cover" ? playerOpening.front.fighter.id : null;
+        }
+    }
+    const nearestBackline = (attacker: KageUnit | undefined, opening: typeof playerOpening) => attacker
+        ? opening.cover.reduce<KageUnit | undefined>((best, unit) => !best
+            || Math.abs(unit.openingRow - attacker.openingRow) < Math.abs(best.openingRow - attacker.openingRow)
+            || (Math.abs(unit.openingRow - attacker.openingRow) === Math.abs(best.openingRow - attacker.openingRow)
+                && unit.fighter.slot < best.fighter.slot) ? unit : best, undefined)
+        : undefined;
+    if (playerOpening.flank) {
+        playerOpening.flank.openingTargetId = (nearestBackline(playerOpening.flank, enemyOpening)
+            ?? enemyOpening.front)?.fighter.id ?? null;
+    }
+    if (enemyOpening.flank) {
+        enemyOpening.flank.openingTargetId = (nearestBackline(enemyOpening.flank, playerOpening)
+            ?? playerOpening.front)?.fighter.id ?? null;
+    }
+
+    const homeAdvance = (unit: KageUnit) => unit.fighter.team === "player"
+        ? unit.homeCol
+        : WARFRONT_GRID_COLS - 1 - unit.homeCol;
+    const roleOrder = (unit: KageUnit) => {
+        switch (unit.role) {
+            case "vanguard": return 0;
+            case "striker": return 1;
+            case "shadow": return 2;
+            case "ranger": return 3;
+            case "support": return 4;
+        }
+    };
+    const chooseTargets = () => {
+        // A killed assignment is cancelled before another frame is published.
+        // In particular, a wind-up never spends the next third-second aiming at
+        // a corpse while the public target arrow points somewhere else.
+        for (const unit of alive()) {
+            if (unit.targetLockLeft > 0) unit.targetLockLeft--;
+            for (const targetId of Object.keys(unit.targetReturnLocks)) {
+                const remaining = unit.targetReturnLocks[targetId] - 1;
+                if (remaining > 0) unit.targetReturnLocks[targetId] = remaining;
+                else delete unit.targetReturnLocks[targetId];
+            }
+            const pending = byId(unit.pendingTargetId);
+            const pendingAbility = unit.pendingIdx >= 0 ? unit.fighter.abilities[unit.pendingIdx] : null;
+            if (unit.pendingTargetId && (!pending || pending.fighter.hp <= 0) && pendingAbility?.cls !== "support") {
+                unit.pendingIdx = -2; unit.pendingTargetId = null; unit.windLeft = 0;
+                unit.fighter.state = "idle"; unit.fighter.stateLeft = 0;
+            }
+            const current = byId(unit.fighter.targetId);
+            if (!current || current.fighter.hp <= 0) {
+                unit.fighter.targetId = null; unit.targetLockLeft = 0;
+            }
+        }
+
+        for (const team of ["player", "enemy"] as const) {
+            const claimed = new Map<string, number>();
+            const allies = alive(team).sort((a, b) => roleOrder(a) - roleOrder(b) || a.fighter.slot - b.fighter.slot);
+            const foes = alive(team === "player" ? "enemy" : "player");
+            for (const unit of allies) {
+                const openingTarget = tick < KAGE_OPENING_SHAPE_TICKS ? byId(unit.openingTargetId) : null;
+                if (openingTarget?.fighter.hp) {
+                    const previousTargetId = unit.fighter.targetId;
+                    unit.fighter.targetId = openingTarget.fighter.id;
+                    unit.targetLockLeft = KAGE_ORDER_LOCK_TICKS;
+                    if (previousTargetId && previousTargetId !== openingTarget.fighter.id) {
+                        unit.targetReturnLocks[previousTargetId] = KAGE_TARGET_RETURN_LOCK_TICKS;
+                    }
+                    if (unit.targetHistory.at(-1) !== openingTarget.fighter.id) {
+                        unit.targetHistory.push(openingTarget.fighter.id);
+                        if (unit.targetHistory.length > 8) unit.targetHistory.shift();
+                    }
+                    claimed.set(openingTarget.fighter.id, (claimed.get(openingTarget.fighter.id) ?? 0) + 1);
+                    const aiState: DuelAiState = unit.openingJob === "flank" ? "flank"
+                        : unit.openingJob === "front" ? "hold position" : "prepare combo";
+                    const plan = unit.openingJob === "flank" ? "take the outside lane and threaten the firing rank"
+                        : unit.openingJob === "front" ? "receive pressure at the shared front"
+                            : "hold a diagonal firing lane behind the screen";
+                    setIntent(unit.fighter, aiState, kagePreferredRange(unit), plan,
+                        `${openingTarget.fighter.id} is the opening formation's shared contact`);
+                    continue;
+                }
+                const current = byId(unit.fighter.targetId);
+                if (current && current.fighter.hp > 0 && unit.targetLockLeft > 0) {
+                    claimed.set(current.fighter.id, (claimed.get(current.fighter.id) ?? 0) + 1);
+                    continue;
+                }
+                // If an order was just abandoned, the next readable plan uses
+                // another living contact. Only relax this when every remaining
+                // foe is return-locked, so a shrinking endgame cannot stall.
+                const wouldResumeAlternation = (foe: KageUnit) => {
+                    const history = unit.targetHistory;
+                    if (history.length < 4) return false;
+                    const [a, b, c, d] = history.slice(-4);
+                    return a === c && b === d && a !== b && foe.fighter.id === a
+                        && Boolean(byId(a)?.fighter.hp) && Boolean(byId(b)?.fighter.hp);
+                };
+                const unlockedFoes = foes.filter((foe) => !unit.targetReturnLocks[foe.fighter.id]);
+                const unlockedWithoutLoop = unlockedFoes.filter((foe) => !wouldResumeAlternation(foe));
+                const anyWithoutLoop = foes.filter((foe) => !wouldResumeAlternation(foe));
+                const candidates = unlockedWithoutLoop.length > 0 ? unlockedWithoutLoop
+                    : anyWithoutLoop.length > 0 ? anyWithoutLoop
+                        : unlockedFoes.length > 0 ? unlockedFoes : foes;
+                let best: KageUnit | null = null, bestScore = Infinity, bestLoad = 0, bestScreened = false;
+                for (const foe of candidates) {
+                    const range = kageRange(unit, foe);
+                    const rowGap = Math.abs(unit.homeRow - foe.homeRow);
+                    const load = claimed.get(foe.fighter.id) ?? 0;
+                    const hp = foe.fighter.hp / foe.fighter.maxHp;
+                    const backline = (foe.fighter.team === "enemy" ? foe.homeCol : WARFRONT_GRID_COLS - 1 - foe.homeCol);
+                    const foeCrowd = alive().filter((other) => other !== unit && other !== foe && kageRange(other, foe) <= 1).length;
+                    const screened = foes.some((screen) => screen !== foe
+                        && homeAdvance(screen) > homeAdvance(foe)
+                        && Math.abs(screen.homeRow - foe.homeRow) <= 1);
+                    // The first front actor establishes contact. A ranged or
+                    // support actor deliberately becomes its cross-cover; a
+                    // third claim is forbidden unless there is no living choice.
+                    const loadCost = load >= 2 ? 80 + load * 20
+                        : load === 1 ? (unit.role === "ranger" || unit.role === "support" ? -9 : 7)
+                            : 0;
+                    let score = range * 4 + rowGap * 3.2 + loadCost + hp * 1.5 + foeCrowd * 3.5 + foe.fighter.slot * 0.01;
+                    if (screened && unit.role !== "shadow") score += 15;
+                    if (unit.role === "shadow") {
+                        score += hp * 5 - backline * 1.5
+                            - (foe.role === "support" || foe.role === "ranger" ? 8 : 0)
+                            + load * 12;
+                    }
+                    if (unit.role === "vanguard") score += foe.role === "shadow" ? -7 : 0;
+                    if (unit.role === "ranger" || unit.role === "support") score += kageBlockedLine(unit, foe) ? 10 : 0;
+                    if (score < bestScore) { bestScore = score; best = foe; bestLoad = load; bestScreened = screened; }
+                }
+                const previousTargetId = unit.fighter.targetId;
+                unit.fighter.targetId = best?.fighter.id ?? null;
+                if (previousTargetId && best && previousTargetId !== best.fighter.id) {
+                    unit.targetReturnLocks[previousTargetId] = KAGE_TARGET_RETURN_LOCK_TICKS;
+                }
+                if (best && unit.targetHistory.at(-1) !== best.fighter.id) {
+                    unit.targetHistory.push(best.fighter.id);
+                    if (unit.targetHistory.length > 8) unit.targetHistory.shift();
+                }
+                unit.targetLockLeft = best ? KAGE_ORDER_LOCK_TICKS : 0;
+                if (best) {
+                    claimed.set(best.fighter.id, bestLoad + 1);
+                    const crossCover = bestLoad === 1 && (unit.role === "ranger" || unit.role === "support");
+                    const aiState: DuelAiState = unit.role === "shadow" ? "flank"
+                        : unit.role === "vanguard" ? "hold position"
+                            : crossCover ? "prepare combo" : "engage";
+                    const plan = unit.role === "shadow" ? "take the outside lane and pressure the firing rank"
+                        : unit.role === "vanguard" ? "screen the formation and intercept the nearest breach"
+                            : crossCover ? "cross-cover the front contact"
+                                : "hold the deployed lane and contest its threat";
+                    const reason = crossCover ? `${best.fighter.id} is the screen's visible focus`
+                        : bestScreened && unit.role === "shadow" ? `${best.fighter.id} is exposed behind its screen`
+                            : `${best.fighter.id} is the best threat in this lane`;
+                    setIntent(unit.fighter, aiState, kagePreferredRange(unit), plan, reason);
+                }
+            }
+        }
+    };
+
+    const moveUnit = (unit: KageUnit, col: number, row: number, duration = 8, name?: string) => {
+        unit.fromCol = unit.col; unit.fromRow = unit.row;
+        unit.col = col; unit.row = row; unit.moveTotal = duration; unit.moveLeft = duration;
+        unit.quietTicks = 0; unit.blockedTicks = 0;
+        unit.fighter.state = "dash"; unit.fighter.routeX = kagePoint(col, row)[0]; unit.fighter.routeY = kagePoint(col, row)[1]; unit.fighter.routeActive = true;
+        events.push({ t: tick, type: name ? "maneuver" : "dash", side: unit.fighter.team, actorId: unit.fighter.id, move: name });
+    };
+
+    const startAttack = (unit: KageUnit, target: KageUnit) => {
+        const ready = unit.fighter.abilities
+            .map((ability, index) => ({ ability, index }))
+            .filter(({ ability }) => !ability.isMove && ability.cdLeft <= 0);
+        let selected = unit.chakra >= 95 ? ready.find(({ ability }) => {
+            if (!ability.signature) return false;
+            if (ability.cls === "support") return alive(unit.fighter.team).length > 1;
+            if (ability.cls === "ranged") return kageRange(unit, target) <= 3 && !kageBlockedLine(unit, target);
+            return kageRange(unit, target) <= 1;
+        }) : undefined;
+        if (!selected && unit.role === "support") {
+            const supportMove = ready.find(({ ability }) => ability.cls === "support");
+            const teamUnits = alive(unit.fighter.team);
+            const needsHelp = supportMove && teamUnits.length > 1 && teamUnits.some((ally) => {
+                const hp = ally.fighter.hp / ally.fighter.maxHp;
+                if (supportMove.ability.kind === "heal") return hp < 0.74;
+                if (supportMove.ability.kind === "barrier") return hp < 0.94 && ally.fighter.statuses.shieldHp <= 0;
+                return hp < 0.82;
+            });
+            if (needsHelp) selected = supportMove;
+        }
+        if (!selected) selected = ready.find(({ ability }) => ability.cls !== "support" && (ability.cls === "ranged" || kageRange(unit, target) <= 1));
+        const idx = selected?.index ?? -1;
+        const ability = idx >= 0 ? unit.fighter.abilities[idx] : null;
+        const supporting = ability?.cls === "support";
+        const ranged = ability ? ability.cls === "ranged" : unit.role === "ranger" || unit.role === "support";
+        if (!supporting && ranged && (kageRange(unit, target) > 3 || kageBlockedLine(unit, target))) return false;
+        if (!supporting && !ranged && kageRange(unit, target) > 1) return false;
+        if (idx < 0 && unit.fighter.basicCdLeft > 0) return false;
+        unit.pendingIdx = idx; unit.pendingTargetId = target.fighter.id;
+        unit.quietTicks = 0;
+        unit.windLeft = ability?.signature ? 15 : ranged ? 10 : 8;
+        unit.fighter.state = "windup"; unit.fighter.stateLeft = unit.windLeft;
+        if (ability?.signature) {
+            unit.chakra = 0;
+            events.push({ t: tick, type: "ultimate", side: unit.fighter.team, actorId: unit.fighter.id, targetId: target.fighter.id, kind: ability.kind, move: ability.name, signature: true });
+        } else {
+            events.push({ t: tick, type: ability?.cls === "support" ? "cast" : "windup", side: unit.fighter.team, actorId: unit.fighter.id, targetId: target.fighter.id, kind: ability?.kind ?? "damage", move: ability?.name });
+        }
+        return true;
+    };
+
+    const resolveAttack = (unit: KageUnit) => {
+        const fighter = unit.fighter;
+        const target = byId(unit.pendingTargetId);
+        const ability = unit.pendingIdx >= 0 ? fighter.abilities[unit.pendingIdx] : null;
+        unit.pendingIdx = -2; unit.pendingTargetId = null; unit.blockedTicks = 0;
+        fighter.state = "strike";
+        if (ability?.cls === "support") {
+            const ally = [...alive(fighter.team)].sort((a, b) => {
+                if (ability.kind === "barrier") {
+                    const shieldOrder = a.fighter.statuses.shieldHp - b.fighter.statuses.shieldHp;
+                    if (shieldOrder) return shieldOrder;
+                }
+                return a.fighter.hp / a.fighter.maxHp - b.fighter.hp / b.fighter.maxHp || a.fighter.slot - b.fighter.slot;
+            })[0] ?? unit;
+            if (ability.kind === "heal") {
+                const verdict = clamp((tick - KAGE_VERDICT_TICK) / Math.max(1, KAGE_CAP_TICKS - KAGE_VERDICT_TICK), 0, 1);
+                const heal = Math.max(1, Math.round(ally.fighter.maxHp * (ability.signature ? 0.24 : 0.15) * (1 - verdict * 0.55)));
+                const before = ally.fighter.hp;
+                ally.fighter.hp = Math.min(ally.fighter.maxHp, ally.fighter.hp + heal);
+                events.push({ t: tick, type: "heal", side: fighter.team, actorId: fighter.id, targetId: ally.fighter.id, dmg: Math.max(0, ally.fighter.hp - before), kind: ability.kind, move: ability.name, signature: ability.signature });
+            } else {
+                const shield = Math.round(ally.fighter.maxHp * (ability.signature ? 0.26 : 0.16));
+                ally.fighter.statuses.shieldHp = Math.max(ally.fighter.statuses.shieldHp, shield);
+                events.push({ t: tick, type: "shield", side: fighter.team, actorId: fighter.id, targetId: ally.fighter.id, dmg: shield, kind: ability.kind, move: ability.name, signature: ability.signature });
+            }
+            ability.cdLeft = ability.cdTicks; unit.recoverLeft = 12; return;
+        }
+        if (!target || target.fighter.hp <= 0) { events.push({ t: tick, type: "whiff", side: fighter.team, actorId: fighter.id }); unit.recoverLeft = 7; return; }
+        const ranged = ability ? ability.cls === "ranged" : unit.role === "ranger" || unit.role === "support";
+        if ((ranged && (kageRange(unit, target) > 3 || kageBlockedLine(unit, target))) || (!ranged && kageRange(unit, target) > 1)) {
+            events.push({ t: tick, type: "whiff", side: fighter.team, actorId: fighter.id, targetId: target.fighter.id, move: ability?.name });
+            unit.recoverLeft = 7; return;
+        }
+        const smokePenalty = ranged && kageSmokeLine(unit, target) ? 0.22 : 0;
+        if (accuracyEnabled && ability && rng() >= Math.max(0.52, ability.accuracy / 100 - smokePenalty)) {
+            events.push({ t: tick, type: "whiff", side: fighter.team, actorId: fighter.id, targetId: target.fighter.id, move: ability.name });
+        } else {
+            const oldPositions = units.map((entry) => [entry.fighter.x, entry.fighter.y] as const);
+            const hpBefore = target.fighter.hp;
+            applyDamage(fighter, target.fighter, ability, rng, tick, events, ranged);
+            if (ranged && KAGE_COVER.has(kageKey(target.col, target.row))) {
+                const dealt = Math.max(0, hpBefore - target.fighter.hp);
+                const restore = Math.round(dealt * 0.28);
+                target.fighter.hp = Math.min(hpBefore, target.fighter.hp + restore);
+                const hit = [...events].reverse().find((event) => event.t === tick && event.type === "hit" && event.actorId === fighter.id && event.targetId === target.fighter.id);
+                if (hit?.dmg) hit.dmg = Math.max(0, hit.dmg - restore);
+            }
+            const verdict = clamp((tick - KAGE_VERDICT_TICK) / Math.max(1, KAGE_CAP_TICKS - KAGE_VERDICT_TICK), 0, 1);
+            const dealtAfterCover = Math.max(0, hpBefore - target.fighter.hp);
+            if (verdict > 0 && dealtAfterCover > 0 && target.fighter.hp > 0) {
+                const verdictDamage = Math.max(1, Math.round(dealtAfterCover * (0.35 + verdict)));
+                target.fighter.hp = Math.max(0, target.fighter.hp - verdictDamage);
+                const hit = [...events].reverse().find((event) => event.t === tick && event.type === "hit" && event.actorId === fighter.id && event.targetId === target.fighter.id);
+                if (hit) {
+                    hit.dmg = Math.max(1, Math.round((hit.dmg ?? dealtAfterCover) + verdictDamage));
+                    hit.combo = "KAGE VERDICT";
+                }
+            }
+            units.forEach((entry, index) => { entry.fighter.x = oldPositions[index][0]; entry.fighter.y = oldPositions[index][1]; });
+            unit.chakra = quant(Math.min(100, unit.chakra + 19)); fighter.stamina = unit.chakra;
+            target.chakra = Math.min(100, target.chakra + 12);
+            if (ranged) projectiles.push({ id: nextProjectile++, ownerId: fighter.id, team: fighter.team, targetId: target.fighter.id, abilityIdx: ability ? fighter.abilities.indexOf(ability) : -1, x: fighter.x, y: fighter.y, speed: 0.72, ttl: 24, element: fighter.element, kind: ability?.kind ?? "damage", born: tick });
+            if (ability?.aoe) for (const splash of alive(target.fighter.team)) {
+                if (splash === target || Math.max(Math.abs(splash.col - target.col), Math.abs(splash.row - target.row)) > 1) continue;
+                const splashDmg = Math.max(1, Math.round(Math.max(0, hpBefore - target.fighter.hp) * 0.45));
+                splash.fighter.hp -= splashDmg;
+                events.push({ t: tick, type: "hit", side: fighter.team, actorId: fighter.id, targetId: splash.fighter.id, dmg: splashDmg, element: fighter.element, kind: ability.kind, ranged: true, move: ability.name, signature: ability.signature, combo: "FORMATION BREAK" });
+            }
+        }
+        if (ability) ability.cdLeft = ability.cdTicks; else fighter.basicCdLeft = fighter.basicCdT + 10;
+        unit.recoverLeft = ability?.signature ? 18 : 11;
+    };
+
+    let tick = 0;
+    const cap = KAGE_CAP_TICKS;
+    for (; tick <= cap; tick++) {
+        chooseTargets();
+        // Resolve initiative in deterministic alternating side order. With
+        // destination cells reserved at move start, always processing blue
+        // first let red wind up against blue's future contact cell. Alternating
+        // with a seeded opening bit removes that seat-order advantage while
+        // preserving lockstep replay parity.
+        const playerFirst = ((tick + (seed & 1)) & 1) === 0;
+        const actionOrder = playerFirst
+            ? [...units.filter((unit) => unit.fighter.team === "player"), ...units.filter((unit) => unit.fighter.team === "enemy")]
+            : [...units.filter((unit) => unit.fighter.team === "enemy"), ...units.filter((unit) => unit.fighter.team === "player")];
+        for (const unit of actionOrder) {
+            const fighter = unit.fighter;
+            if (fighter.hp <= 0) {
+                fighter.hp = 0; fighter.state = "dead"; fighter.targetId = null;
+                if (!unit.koSent) { unit.koSent = true; events.push({ t: tick, type: "ko", side: fighter.team, actorId: fighter.id }); }
+                continue;
+            }
+            tickStatuses(fighter);
+            unit.quietTicks++;
+            fighter.abilities.forEach((ability) => { if (ability.cdLeft > 0) ability.cdLeft--; });
+            if (fighter.basicCdLeft > 0) fighter.basicCdLeft--;
+            unit.chakra = quant(Math.min(100, unit.chakra + 0.16)); fighter.stamina = unit.chakra;
+            const target = byId(fighter.targetId);
+            if (target && target.fighter.hp > 0) {
+                const dx = target.fighter.x - fighter.x, dy = target.fighter.y - fighter.y, length = Math.max(0.001, Math.sqrt(dx * dx + dy * dy));
+                fighter.faceX = quant(dx / length); fighter.faceY = quant(dy / length);
+            }
+            if (unit.moveLeft > 0) {
+                unit.moveLeft--;
+                const progress = 1 - unit.moveLeft / Math.max(1, unit.moveTotal);
+                const [fx, fy] = kagePoint(unit.fromCol, unit.fromRow), [tx, ty] = kagePoint(unit.col, unit.row);
+                fighter.x = quant(fx + (tx - fx) * progress); fighter.y = quant(fy + (ty - fy) * progress);
+                if (unit.moveLeft <= 0) { fighter.x = tx; fighter.y = ty; fighter.state = "idle"; fighter.routeActive = false; }
+                continue;
+            }
+            if (unit.windLeft > 0) { if (--unit.windLeft <= 0) resolveAttack(unit); continue; }
+            if (unit.recoverLeft > 0) { fighter.state = "recover"; if (--unit.recoverLeft <= 0) fighter.state = "idle"; continue; }
+            if (fighter.statuses.stunLeft > 0) { fighter.state = "stagger"; continue; }
+            if (!target || target.fighter.hp <= 0) continue;
+            const openingAnchor = tick < KAGE_OPENING_SHAPE_TICKS ? byId(unit.openingTargetId) : null;
+            let holdsOpeningSocket = Boolean(openingAnchor?.fighter.hp) && unit.openingJob !== "wing";
+            const atOpeningSocket = unit.col === unit.openingCol && unit.row === unit.openingRow;
+            const openingReach = unit.role === "ranger" || unit.role === "support" ? 3 : 1;
+            const openingContactLegal = Boolean(openingAnchor
+                && kageRange(unit, openingAnchor) <= openingReach
+                && (openingReach <= 1 || !kageBlockedLine(unit, openingAnchor)));
+            if (holdsOpeningSocket && atOpeningSocket && openingContactLegal) {
+                unit.openingContactEstablished = true;
+                unit.openingWaitTicks = 0;
+            }
+            if (holdsOpeningSocket && atOpeningSocket && openingAnchor
+                && !openingContactLegal
+                && (unit.openingContactEstablished || ++unit.openingWaitTicks >= KAGE_OPENING_BLOCKED_RELEASE_TICKS)) {
+                // The opposing job can be released early when its own contact
+                // falls. Do not pin this actor to an empty square while that
+                // still-living target fights elsewhere; resume ordinary route
+                // selection immediately from the readable opening position.
+                unit.openingTargetId = null;
+                unit.openingJob = "wing";
+                unit.targetLockLeft = 0;
+                fighter.targetId = null;
+                unit.blockedTicks = 0;
+                holdsOpeningSocket = false;
+                setIntent(fighter, "reposition", openingReach,
+                    "pursue the displaced formation target", "the opposing firing socket has moved");
+                continue;
+            }
+            if (holdsOpeningSocket && (unit.col !== unit.openingCol || unit.row !== unit.openingRow)) {
+                const occupiedCells = occupied(unit);
+                const previousKey = unit.fromCol !== unit.col || unit.fromRow !== unit.row
+                    ? kageKey(unit.fromCol, unit.fromRow)
+                    : undefined;
+                const step = kageOpeningStep(unit, occupiedCells, previousKey)
+                    ?? kageOpeningStep(unit, occupiedCells);
+                // The committed cell also owns approach cadence. Adjacent
+                // deployment swaps therefore change contact timing as well as
+                // the drawn route instead of converging into an identical
+                // scripted opener after frame zero.
+                const routeTicks = 7 + ((unit.homeRow * 2 + unit.homeCol) % 3);
+                if (step) moveUnit(unit, step[0], step[1], routeTicks);
+                else if (++unit.blockedTicks >= KAGE_OPENING_BLOCKED_RELEASE_TICKS) {
+                    // A reservation must never become a six-second stare-down.
+                    // Release only this failed job; the other three readable
+                    // lanes remain intact while normal target/path selection
+                    // finds the actor a legal contribution.
+                    unit.openingTargetId = null;
+                    unit.openingJob = "wing";
+                    unit.targetLockLeft = 0;
+                    fighter.targetId = null;
+                    unit.blockedTicks = 0;
+                    setIntent(fighter, "reposition", kagePreferredRange(unit),
+                        "join the nearest open engagement", "the reserved opening socket is temporarily sealed");
+                }
+                continue;
+            }
+            if (unit.role === "shadow" && unit.shadowStepReady && tick > KAGE_OPENING_SHAPE_TICKS) {
+                const behind = target.fighter.team === "enemy" ? 1 : -1;
+                const preferred = [
+                    [target.col + behind, target.row], [target.col + behind, target.row - 1], [target.col + behind, target.row + 1],
+                    [target.col, target.row - 1], [target.col, target.row + 1], [target.col - behind, target.row],
+                ];
+                const fallback = Array.from({ length: WARFRONT_GRID_COLS * WARFRONT_GRID_ROWS }, (_, index) => [index % WARFRONT_GRID_COLS, Math.floor(index / WARFRONT_GRID_COLS)])
+                    .sort((a, b) => Math.max(Math.abs(a[0] - target.col), Math.abs(a[1] - target.row)) - Math.max(Math.abs(b[0] - target.col), Math.abs(b[1] - target.row)));
+                const landing = [...preferred, ...fallback]
+                    .filter(([col, row]) => kageWalkable(col, row) && !occupied(unit).has(kageKey(col, row)))
+                    .map(([col, row]) => {
+                        const distance = Math.max(Math.abs(col - target.col), Math.abs(row - target.row));
+                        const crowd = alive().filter((other) => other !== unit && other !== target
+                            && Math.max(Math.abs(other.col - col), Math.abs(other.row - row)) <= 1).length;
+                        const flankRow = unit.homeRow < 2 ? 0 : unit.homeRow > 2 ? WARFRONT_GRID_ROWS - 1 : (unit.fighter.slot % 2 ? WARFRONT_GRID_ROWS - 1 : 0);
+                        return { col, row, score: distance * 20 + crowd * 9 + Math.abs(row - flankRow) * 2 };
+                    })
+                    .sort((a, b) => a.score - b.score || a.col - b.col || a.row - b.row)[0];
+                if (landing) {
+                    unit.shadowStepReady = false; moveUnit(unit, landing.col, landing.row, 11, "SHADOW STEP"); continue;
+                }
+            }
+            // A malformed imported pet cooldown or an exotic support-only kit
+            // must never create a permanent stare-down. Two seconds without a
+            // move/cast opens a basic attack window; ordinary kits never touch
+            // this guard because their real cooldown is only 25 ticks.
+            if (unit.quietTicks > DUEL_TPS * 2) fighter.basicCdLeft = 0;
+            if (startAttack(unit, target)) continue;
+            // A unit which has reached its reserved opening socket fights from
+            // that socket.  Ranged pets do not erase their own firing lane by
+            // walking into the screen, and flankers do not immediately fold
+            // back into the front after reaching the outside rank.
+            if (holdsOpeningSocket) { unit.blockedTicks = 0; continue; }
+
+            const want = kagePreferredRange(unit);
+            const tooClose = (unit.role === "ranger" || unit.role === "support") && kageRange(unit, target) < 2;
+            const ranged = unit.role === "ranger" || unit.role === "support";
+            const needsPosition = tooClose || kageRange(unit, target) > want || (ranged && kageBlockedLine(unit, target));
+            if (!needsPosition) { unit.blockedTicks = 0; continue; }
+            const occupiedCells = occupied(unit);
+            const previousKey = unit.fromCol !== unit.col || unit.fromRow !== unit.row
+                ? kageKey(unit.fromCol, unit.fromRow)
+                : undefined;
+            // An immediate A→B→A reversal is not a plan. Seek any other legal
+            // first step before allowing the previous cell as a last resort.
+            const openingSpacing = tick < KAGE_OPENING_SHAPE_TICKS;
+            const step = kageRouteStep(unit, target, occupiedCells, alive(), previousKey, openingSpacing)
+                ?? kageRouteStep(unit, target, occupiedCells, alive(), undefined, openingSpacing);
+            if (step) moveUnit(unit, step[0], step[1], 8);
+            else if (++unit.blockedTicks >= KAGE_BLOCKED_RETARGET_TICKS) {
+                // The route reservation, not an invisible force, rejected this
+                // order. Take a new assignment within 167 ms instead of staring
+                // at the blocked contact or oscillating around it.
+                if (fighter.targetId) unit.targetReturnLocks[fighter.targetId] = KAGE_TARGET_RETURN_LOCK_TICKS;
+                unit.blockedTicks = 0; unit.targetLockLeft = 0; fighter.targetId = null;
+                setIntent(fighter, "reposition", want, "take a free firing lane", "the assigned contact has no legal socket");
+            }
+        }
+
+        for (const projectile of projectiles) {
+            const target = byId(projectile.targetId);
+            if (!target || target.fighter.hp <= 0) { projectile.ttl = 0; continue; }
+            const dx = target.fighter.x - projectile.x, dy = target.fighter.y - projectile.y, length = Math.max(0.001, Math.sqrt(dx * dx + dy * dy));
+            projectile.x = quant(projectile.x + dx / length * projectile.speed); projectile.y = quant(projectile.y + dy / length * projectile.speed); projectile.ttl--;
+            if (length < projectile.speed * 1.25) projectile.ttl = 0;
+        }
+        projectiles = projectiles.filter((projectile) => projectile.ttl > 0);
+        // Reconcile facing after every actor has moved. Sequential simulation
+        // order must never leave an early actor looking at yesterday's target
+        // position in the published snapshot.
+        for (const unit of alive()) {
+            const target = byId(unit.fighter.targetId);
+            if (!target || target.fighter.hp <= 0) continue;
+            const dx = target.fighter.x - unit.fighter.x, dy = target.fighter.y - unit.fighter.y;
+            const length = Math.max(0.001, Math.sqrt(dx * dx + dy * dy));
+            unit.fighter.faceX = quant(dx / length); unit.fighter.faceY = quant(dy / length);
+        }
+        snapshots.push(snap(tick, fighters, projectiles, debugTrace));
+        const blueAlive = alive("player").length, redAlive = alive("enemy").length;
+        if (!blueAlive || !redAlive) break;
+    }
+    const blueAlive = alive("player"), redAlive = alive("enemy");
+    const blueScore = blueAlive.reduce((sum, unit) => sum + unit.fighter.hp / unit.fighter.maxHp, 0);
+    const redScore = redAlive.reduce((sum, unit) => sum + unit.fighter.hp / unit.fighter.maxHp, 0);
+    const winner: DuelResult["winner"] = blueAlive.length !== redAlive.length
+        ? (blueAlive.length > redAlive.length ? "player" : "enemy")
+        : Math.abs(blueScore - redScore) > 1e-6 ? (blueScore > redScore ? "player" : "enemy") : null;
+    return { result: winner === "player" ? "win" : winner === "enemy" ? "loss" : "draw", winner, ticks: tick, snapshots, events };
+}
 
 export function runPetSquadDuelCinematic(
     playerSquad: readonly Pet[], enemySquad: readonly Pet[], seed: number,
     applyItems = true, accuracyEnabled = petAccuracyEnabled(), debugTrace = false,
+    playerDeployment?: readonly number[], enemyDeployment?: readonly number[],
 ): DuelResult {
     const fighters: Fighter[] = [];
     const leadElement = (squad: readonly Pet[]) => squad[0]?.element ?? null;
+    const postFor = (deployment: readonly number[] | undefined, slot: number): readonly [number, number] => {
+        const nodeId = deployment?.[slot];
+        if (Number.isInteger(nodeId) && Number(nodeId) >= 0 && Number(nodeId) < WARFRONT_DEPLOYMENT_NODES.length) {
+            return WARFRONT_DEPLOYMENT_NODES[Number(nodeId)];
+        }
+        return WARFRONT_POSTS[Math.min(slot, WARFRONT_POSTS.length - 1)];
+    };
     playerSquad.forEach((pet, slot) => {
-        const [x, y] = SQUAD_LANES[Math.min(slot, SQUAD_LANES.length - 1)];
+        const [x, y] = postFor(playerDeployment, slot);
         fighters.push(buildFighter(pet, "player", slot, -x, y, enemySquad[slot]?.element ?? leadElement(enemySquad), 1, 1, false, applyItems));
     });
     enemySquad.forEach((pet, slot) => {
-        const [x, y] = SQUAD_LANES[Math.min(slot, SQUAD_LANES.length - 1)];
+        const [x, y] = postFor(enemyDeployment, slot);
+        // Beastbound Warfront bands face each other across the vertical centre line.
+        // Mirror X only so North remains North and both seats have identical
+        // access to shoji, smoke and cover.
         fighters.push(buildFighter(pet, "enemy", slot, x, y, playerSquad[slot]?.element ?? leadElement(playerSquad), 1, 1, false, applyItems));
     });
-    return simulate(fighters, seed, accuracyEnabled, debugTrace);
+    return kageFormationSim(fighters, seed, accuracyEnabled, debugTrace);
 }
 
 /** The fighting archetype the engine assigns a pet — exported for the balance harness
@@ -3057,9 +4975,10 @@ export interface CinematicDuelCheckpoint {
     walls: { x: number; y: number; r: number; expiry: number; ownerId: string }[];
     stallPressure: number; forcedEngage: boolean;
     initiativeTeam: "player" | "enemy";
-    laneInitiative: ["player" | "enemy", "player" | "enemy"];
+    laneInitiative: LaneInitiative;
     clash: ClashBind | null;
     clashCount: number; lastClashTick: number; clashEnabled: boolean;
+    warfrontRelics: WarfrontRelicState[];
 }
 
 export function checkpointCinematicDuel(sim: CinematicDuelState): CinematicDuelCheckpoint {
@@ -3075,14 +4994,18 @@ export function checkpointCinematicDuel(sim: CinematicDuelState): CinematicDuelC
         walls: sim.walls.map((w) => ({ ...w })),
         stallPressure: sim.stallPressure, forcedEngage: sim.forcedEngage,
         initiativeTeam: sim.initiativeTeam,
-        // Copied, not aliased: the lane array is mutated in place when a 2v2 lane
+        // Copied, not aliased: the lane array is mutated in place when a squad lane
         // hands its beat over, which would otherwise write through the checkpoint.
-        laneInitiative: [sim.laneInitiative[0], sim.laneInitiative[1]],
+        laneInitiative: [
+            sim.laneInitiative[0], sim.laneInitiative[1],
+            sim.laneInitiative[2], sim.laneInitiative[3],
+        ],
         // Same reasoning for the bind: `picks` is written into as calls arrive, so a
         // shared reference would let a post-checkpoint call leak backwards through a
         // rewind and desynchronise the server replay.
         clash: sim.clash ? { ...sim.clash, picks: { ...sim.clash.picks } } : null,
         clashCount: sim.clashCount, lastClashTick: sim.lastClashTick, clashEnabled: sim.clashEnabled,
+        warfrontRelics: sim.warfrontRelics.map((relic) => ({ ...relic })),
     };
 }
 
@@ -3102,7 +5025,11 @@ export function restoreCinematicDuel(sim: CinematicDuelState, cp: CinematicDuelC
     sim.walls = cp.walls.map((w) => ({ ...w }));
     sim.stallPressure = cp.stallPressure; sim.forcedEngage = cp.forcedEngage;
     sim.initiativeTeam = cp.initiativeTeam;
-    sim.laneInitiative = [cp.laneInitiative[0], cp.laneInitiative[1]];
+    sim.laneInitiative = [
+        cp.laneInitiative[0], cp.laneInitiative[1],
+        cp.laneInitiative[2], cp.laneInitiative[3],
+    ];
     sim.clash = cp.clash ? { ...cp.clash, picks: { ...cp.clash.picks } } : null;
     sim.clashCount = cp.clashCount; sim.lastClashTick = cp.lastClashTick; sim.clashEnabled = cp.clashEnabled;
+    sim.warfrontRelics = cp.warfrontRelics.map((relic) => ({ ...relic }));
 }

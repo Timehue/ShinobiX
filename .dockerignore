@@ -55,6 +55,21 @@ shinobij.client/public/pet-models/*
 # only, inside the r3f Suspense boundary, taking the whole screen down.
 !shinobij.client/public/pet-models/showdown-v2/
 !shinobij.client/public/pet-models/showdown-v2/*.glb
+# Certified eight-rig LODs and software-only model-derived impostors.
+!shinobij.client/public/pet-models/warfront-lod/
+!shinobij.client/public/pet-models/warfront-lod/*.glb
+!shinobij.client/public/pet-models/warfront-lod/manifest.json
+!shinobij.client/public/pet-models/warfront-lod/roster/
+!shinobij.client/public/pet-models/warfront-lod/roster/*.glb
+!shinobij.client/public/pet-models/warfront-lod/showdown-v2/
+!shinobij.client/public/pet-models/warfront-lod/showdown-v2/*.glb
+!shinobij.client/public/pet-models/warfront-impostors/
+!shinobij.client/public/pet-models/warfront-impostors/*.webp
+!shinobij.client/public/pet-models/warfront-impostors/manifest.json
+!shinobij.client/public/pet-models/warfront-impostors/roster/
+!shinobij.client/public/pet-models/warfront-impostors/roster/*.webp
+!shinobij.client/public/pet-models/warfront-impostors/showdown-v2/
+!shinobij.client/public/pet-models/warfront-impostors/showdown-v2/*.webp
 # Stage-0 starters. These are the model EVERY new player fights with until they
 # evolve, so leaving them out 404s the Coliseum for exactly the accounts that
 # have never seen it. Ship them alongside their -r/-l evolutions.
