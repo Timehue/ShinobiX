@@ -137,7 +137,7 @@ test("the production 3D renderer loads every battlefield asset and preserves DPR
     await openWarfront(page, `${warfrontUrl}&petQuality=high&wfperf=geometry&wfspeed=4`);
     await deploy(page);
 
-    const stage = page.getByRole("img", { name: "Three-dimensional Hollow Warfront battlefield" });
+    const stage = page.getByRole("img", { name: "Three-dimensional Beastbound Warfront battlefield" });
     const canvas = stage.locator("canvas");
     await expect(stage).toHaveAttribute("data-theme", "central");
     await expect(canvas).toBeVisible({ timeout: 30_000 });

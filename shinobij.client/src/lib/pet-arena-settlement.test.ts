@@ -206,10 +206,10 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
     assert.match(arenaSource, /seal\.seed !== m\.seed[\s\S]*seal\.theme !== m\.theme[\s\S]*seal\.reportKey !== reportKey[\s\S]*seal\.stance !== m\.stance[\s\S]*seal\.doctrine !== m\.doctrine[\s\S]*seal\.buyPolicy !== m\.buyPolicy[\s\S]*seal\.opponentBuyPolicy !== m\.opponentBuyPolicy[\s\S]*seal\.opponentStance !== m\.opponentStance/);
     assert.match(arenaSource, /seal\.redPets\.map\(\(pet\) => pet\.id\)[\s\S]*rivalPetIds/);
     assert.match(arenaSource, /battleToken: seal\.token/);
-    // The whole client-side transcript: the committed order plus the swap. The
+    // The whole client-side transcript: the deployment plus all re-form locks. The
     // server re-runs the duel chain from it and pays from ITS OWN winner, so no
     // outcome, reward or duel result may appear in this payload.
-    assert.match(arenaSource, /warfrontPlan: \{[\s\S]*formation: plan\.formation,[\s\S]*reformAfterClash: plan\.reformAfterClash/);
+    assert.match(arenaSource, /warfrontPlan: \{[\s\S]*formation: plan\.formation,[\s\S]*deployment: plan\.deployment,[\s\S]*reformAfterClash: plan\.reformAfterClash,[\s\S]*reformDeployment: plan\.reformDeployment \?\? null,[\s\S]*reforms: plan\.reforms \?\? \[\]/);
     assert.match(arenaSource, /if \(!r\.ok\)[\s\S]*payload\?\.error[\s\S]*Retry-After[\s\S]*warfrontSetupErrorRef\.current/);
     assert.match(arenaSource, /Retry to recover any existing battle seal safely/);
     assert.match(arenaSource, /resumeOnly: true/);
@@ -218,21 +218,20 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
     assert.match(arenaSource, /warfrontResumeProbeScopeRef[\s\S]*void resumeOwnedWarfront\(scope\)/);
     assert.match(arenaSource, />Warfront needs attention</);
 
-    // The lobby must describe the mode the player is about to play. The lane war
-    // shipped twice with copy nobody revisited, so pin the rules that actually
-    // decide a Rite: one ring, winner stays wounded, kills are the scoreboard.
+    // The lobby must describe the mode the player is about to play. Pin the
+    // Beastbound Warfront rules here so retired lane-war and sequential-duel copy cannot
+    // drift back onto the screen where the player commits their formation.
     const setupSource = arenaSource.slice(arenaSource.indexOf("BATTLE LAWS"), arenaSource.indexOf("Full-screen game-mode overlays"));
     assert.doesNotMatch(setupSource, /War Council|Auto-Attack|Auto-Guard|coin shop/);
     assert.doesNotMatch(setupSource, /THREE LANES|Ward Tower|Gate Warden|Hollow Omen/i,
         "the lobby must not advertise the retired three-lane mode");
-    assert.match(setupSource, /ONE RING · LAST BAND STANDING/);
-    // The laws shown must be the laws FOUGHT. This block previously pinned the
-    // copy of an earlier SEQUENTIAL design — "Winner stays in", a per-duel swap
-    // token, kills as the only scoreboard — which survived the rebuild to 4v4
-    // simultaneous and kept telling players the wrong rules on the very screen
-    // where they commit. Assert the real ones, and guard the retired wording so
-    // it cannot drift back in.
-    assert.match(setupSource, /All eight at once/, "the clash is simultaneous, not a sequence of duels");
+    assert.match(setupSource, /BEASTBOUND WARFRONT · FORMATION COMBAT/);
+    // The laws shown must be the laws FOUGHT: four freely deployed pets, ten
+    // tactical cells, terrain-aware formation combat, and ordered re-form locks.
+    assert.match(setupSource, /Deploy all four/, "the lobby must explain that the full band is deployed");
+    assert.match(setupSource, /four of ten cells/, "the lobby must advertise the real deployment freedom");
+    assert.match(setupSource, /shoji, cover, smoke, range, and roles/i,
+        "the lobby must explain why this is tactical rather than a collision brawl");
     assert.match(setupSource, /Best of three/, "the match is best-of-three clashes");
     assert.match(setupSource, /RE-FORM/, "the one mid-match decision must be advertised");
     assert.doesNotMatch(setupSource, /Winner stays in|SWAP TOKEN|batting order/i,

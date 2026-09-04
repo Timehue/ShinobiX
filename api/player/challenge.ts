@@ -380,11 +380,11 @@ async function buildNewChallenge(
     if (raw.arenaSize === 2 || raw.arenaSize === 4) safe.arenaSize = raw.arenaSize;
     if (raw.arenaMatch === true) {
         if (raw.arenaSize !== 4) {
-            return { ok: false, status: 400, error: 'Hollow Warfront challenges require exactly four pets per side.' };
+            return { ok: false, status: 400, error: 'Beastbound Warfront challenges require exactly four pets per side.' };
         }
         const challengerWarfrontPlan = safeWarfrontChallengePlan(raw.challengerWarfrontPlan);
         if (!challengerWarfrontPlan) {
-            return { ok: false, status: 400, error: 'Hollow Warfront challenges require a complete sealed challenger battle plan.' };
+            return { ok: false, status: 400, error: 'Beastbound Warfront challenges require a complete sealed challenger battle plan.' };
         }
         safe.challengerWarfrontPlan = challengerWarfrontPlan;
     }

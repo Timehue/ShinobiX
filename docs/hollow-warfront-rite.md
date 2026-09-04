@@ -1,236 +1,135 @@
-# Hollow Warfront — the Rite
+# Beastbound Warfront
 
-Status: **live specification.** Supersedes `hollow-warfront-three-lane-rebuild.md`,
-which describes the retired lane war.
+Status: **live specification.** This replaces the retired lane-war, capture-scroll,
+relic-run, and relay versions of the former Hollow Warfront.
 
-Mode fantasy: **four pets a side, all fighting at once, best of three clashes.**
+Mode fantasy: **deploy four bonded pets onto a shinobi formation board, then watch
+their roles, range, terrain reads, and target choices decide a best-of-three Rite.**
 
-## Why this replaced the lane war
+## Why this version exists
 
-Warfront shipped twice as a lane war, and the capture-scroll Tactical Arena
-before it. All three failed the same way, and the diagnosis was already written
-down after the first one:
+Earlier Warfront versions repeatedly collapsed into the same failure: every pet
+ran at one objective or opponent, producing an unreadable melee pile whose
+positioning barely mattered. Adding more map decoration or another objective noun
+did not fix that behavior.
 
-> Root disease: capture-only scoring divorces the watched thing (combat, ~90% of
-> screen-time) from the winning thing.
+Beastbound Warfront changes the combat grammar instead:
 
-Warfront inherited that structure with different nouns. `wfVerdictScore` counted
-downed towers and **nothing else** — a player could win every fight on screen and
-lose the match. The response each time was to add a system (stances, doctrines,
-omens, mutators, hazards, Warden Favor), none of which was visible from an
-orthographic camera fitted to a 70 × 39 plate, where a pet is ~2% of screen
-height.
+- space is discrete and owned, so pets cannot push or occupy the same resting cell;
+- ranged pets preserve distance and fire real travelling projectiles;
+- shoji screens block movement and line of sight;
+- roof cover reduces ranged damage and smoke disrupts clean aim;
+- defenders, strikers, rangers, supports, and shadows use distinct priorities;
+- target pressure is distributed so four pets do not automatically dogpile one body;
+- the camera stays fixed so the player can read the formation rather than chase it.
 
-The Rite removes the divorce. **Pets standing decides the clash; clashes decide
-the match.** Every second on screen moves the result.
+## Match rules
 
-## Rules
+- Both sides field **four active pets simultaneously**. There is no reserve.
+- Combat uses a deterministic **7 × 5 board** with 35 owned cells.
+- Before clash one, the player may place any of their four pets into any four of
+  ten legal deployment cells. Roles are never position-locked.
+- Two enemy placements are scouted; the other two remain sealed until the clash.
+- A clash ends on a wipe or the survival verdict. More bodies standing wins;
+  equal body counts fall to total health remaining.
+- The first side to win **two clashes** wins the Rite.
+- After every non-terminal clash, playback pauses on the public result and the
+  player may move any pet to any open deployment cell before explicitly locking
+  the rematch. The prior clash loser makes one deterministic public-evidence
+  counter; it cannot inspect the player's still-unsealed layout.
+- At 28 seconds, **Kage Verdict** increases damage and suppresses healing so a
+  defensive formation cannot stall indefinitely. A 38-second fail-safe guarantees
+  resolution.
 
-- Both sides field **four pets simultaneously** in a **formation**: lanes 0–1 are
-  the FRONT line and meet the enemy first; lanes 2–3 are the back line.
-- A clash runs until one side is wiped or the engine's cap. **More pets standing
-  takes the clash**; equal counts fall to total health remaining.
-- **Best of three.** First to two clashes wins.
-- **Wounds carry, then both sides regroup**, and the side that lost regroups
-  harder (`RITE_REGROUP` / `RITE_LOSER_REGROUP`). Regrouping restores health
-  only — never power — so it cannot turn a weaker band into a stronger one.
-- **The fallen return wounded, not dead** (`RITE_DOWNED_RETURN_HP`), and they
-  regroup too. Permadeath makes clash two a 4-v-1 formality — the exact
-  "foregone conclusion" a previous Warfront pass burned a commit failing to fix.
+## Combat model
 
-  Be precise about what this means in practice: **a clash starts near-fresh.**
-  The regroup compresses everyone back toward full, so the wound a band carries
-  is a real edge rather than a sentence. That compression is not a side effect —
-  it IS the mechanism that keeps a best-of-three live, and the numbers below show
-  what happens without it.
-- **One re-form per Rite.** After the opening clash the match PAUSES and you may
-  move a pet forward or back, seeing each survivor's health as you decide. This
-  is a genuine mid-match decision, not a pre-commitment: the panel gates the
-  handoff, so nothing advances until you answer.
-- **There is no composition requirement.** Any four pets you own may enter,
-  including a single-element band. Type advantage is real and a narrow band folds
-  against its counter — that is a matchup to read, not a rule to enforce, and the
-  enemy front line is scouted before you commit. (Owner ruling 2026-09-01; the
-  former `RITE_MIN_ELEMENTS = 3` gate was removed. It rested on a measurement
-  that ran level-1 pets on both sides, so it only ever showed the ±15% chart
-  working as designed, while blocking players from answering a matchup by
-  levelling — the axis they actually invest in. The generated RIVAL band still
-  holds a diversity floor, because that one is nobody's choice.)
+`runPetSquadDuelCinematic` is the Warfront-only entry into the deterministic
+formation simulation in `pet-duel-cinematic.ts`. Existing 1v1 and 2v2 Coliseum
+entry points remain unchanged.
 
-### How the re-form stays honest
+Each actor has one stable target at a time. Target selection weighs range,
+role priorities, remaining health, line of sight, and how many allies already
+pressure the same enemy. Movement uses deterministic breadth-first search over
+the board and eight-tick cell interpolation; facing is reconciled after movement
+so pets look at the target they are actually fighting.
 
-The UI shows you clash one, takes your decision, then **recomputes the whole
-match** around the new plan. That is safe because the engine applies a reform
-only to clashes *after* the one it is attached to, so re-running
-`runWarfrontRite` with the same bands, seed and opening formation reproduces
-clash one byte for byte. A test pins it — otherwise the fight you just watched
-could silently change underneath you.
+Signatures require valid range and line of sight. Supports heal or shield real
+allies, shadows can open with Shadow Step, and area attacks splash nearby cells.
+The event stream records movement, casts, projectiles, impacts, protection,
+critical hits, signatures, and knockouts for presentation.
 
-### Bonds
+## Authority and settlement
 
-Four pets standing near each other are still four individuals. Every pet
-contributes to its whole band by **role** — Defender and Sage give health,
-Tracker and Assassin give attack — and contributes **half again** when it shares
-the recipient's element. Role spread decides what you get; element spread decides
-how much. Bonds are capped so a lucky band cannot make a clash a formality.
+Rewarded AI matches remain server-authoritative:
 
-## The engine was already squad-capable
+1. `api/pet/warfront-start.ts` validates the four available pet IDs, snapshots
+   both bands, mints the seed, seals the default authoritative replay, and returns
+   a one-use battle token.
+2. The client renders the sealed bands and seed, then submits only its `RitePlan`:
+   order, ten-cell deployment, and ordered between-clash re-form locks.
+3. `api/pet/battle-result.ts` validates that plan and re-runs the complete Rite
+   from the sealed snapshots. Rewards use the server's winner, never a client
+   outcome claim.
+4. The generated server mirrors under `api/_pet-sim/` stay byte-identical to the
+   client simulation; parity tests enforce that boundary.
 
-A clash runs on the shipped, harness-validated cinematic engine through
-`runPetSquadDuelCinematic` — an **additive** entry point added to
-`pet-duel-cinematic.ts`. Nothing existing was modified, so every Pet Coliseum
-path stays byte-identical.
-
-The engine only *looked* capped at two a side. In fact:
-
-- `simulate()` always took a **fighter array**, not a pair.
-- `_partyMode` switches itself on at `fighters.length > 2`.
-- The ally-separation rule loops over **every** teammate, despite its "(2v2)"
-  comment — it was never pair-specific.
-
-The two-per-side limit lived entirely in the public entry points, because that
-was all the Coliseum needed.
-
-## Measured balance
-
-`scripts/warfront-rite-harness.mts`, real 130-pet pool, 90 matches:
-
-| Metric | Result | Target |
-|---|---|---|
-| Blue-seat win rate | **53.3%** | 42–58% |
-| Idle fighters | **0.0%** | ~0% |
-| Clash median | **30.9s** | — |
-| Match median | **75.5s** | — |
-| Clashes hitting the 75s cap | **0.9%** | low |
-| Drawn matches | **0.0%** | low |
-| First-clash loser still wins | **20.0%** | >15% (25% is the ceiling) |
-| Formation changes the winner | **54.4%** | ≫0% |
-| Stronger band wins | **87.8%** | 70–95% |
-
-**0% idle fighters** is the one that mattered most: it proves the cinematic AI —
-tuned for one or two fighters a side — genuinely holds at squad scale rather than
-leaving half the board standing around.
-
-### Pacing was tuned, not guessed
-
-Eight fighters pool four times a duel's health, so inherited Coliseum pacing
-produced a 70-second slog that timed out with half the board alive:
-
-| `RITE_SQUAD_HP_SCALE` | clash median | hit the cap | KOs of 8 |
-|---|---|---|---|
-| 1.00 | 70.0s | 45.8% | 3.3 |
-| 0.45 | 49.9s | 8.3% | 4.1 |
-| 0.22 | 37.3s | 5.0% | 4.6 |
-| **0.18** | **32.1s** | **2.5%** | **4.7** |
-| 0.15 | 28.3s | 0.0% | 4.7 |
-
-### The comeback problem, and the fix
-
-Carrying wounds without a regroup made the mode a best-of-three in name only:
-**77.5% 2-0 sweeps, and only 10% of matches won by the side that lost clash one.**
-The loser simply walked into clash two wounded and lost again. Regrouping — with
-the beaten side recovering more — moved that to **~50% sweeps and 20% comebacks**,
-against a **25% theoretical ceiling** for perfectly independent clashes.
-
-Excluding the FALLEN from the regroup was then tried, on the intuition that
-healing a downed pet back to ~90% makes going down meaningless. The harness
-rejected it outright: sweeps jumped to **88.3%** and comebacks fell to **8.3%**,
-because a side that lost two or three pets walked into the next clash with them
-stranded at 45% against a near-whole opponent. Intuition said the fallen should
-stay hurt; measurement said the mode dies if they do.
-
-## Authority
-
-Unchanged in shape from the lane war, which is why it survived the rewrite:
-
-- `api/pet/warfront-start.ts` seals both bands, the server seed, and an
-  **automatic baseline** (the Rite at the default formation) into a single-use
-  `pet:battle-token`. The baseline sets the settlement clock.
-- The client posts only `warfrontPlan: { formation, reformAfterClash, reform }`.
-  No outcome, no reward, no clash result.
-- `api/pet/battle-result.ts` re-runs `runWarfrontRite` from the sealed bands, the
-  sealed seed and that plan, and pays from **its own** winner. A malformed or
-  tampered plan is rejected by `isValidRitePlan` and falls back to the sealed
-  baseline — never to a client-asserted result.
-- ⛔ `battle-result.ts` may **not** import `pet-duel-sim.js`; a guard test
-  (`_ranked-duel.test.ts`) forbids it. Use `RiteResult.totalSeconds`.
-- `api/_pet-sim/pet-warfront-rite.ts` is the generated server mirror.
+The existing exact-once receipt, retry, active-battle lease, and account-scope
+guards still wrap settlement. PvP and co-op reuse the same `PetWarfrontRite`
+presentation; shared spectator replays use the deterministic default plan.
 
 ## Presentation
 
-- **Eight rigs on screen**, so the models, the toon shader and the VFX are
-  finally above the resolution of the shot.
-- **The camera tracks the living cloud** and tightens as pets fall, so the end of
-  a clash becomes a close two-body shot without a scripted cut. Framing uses
-  `fitDistance` from `lib/showdown-camera` — a hand-tuned distance put the lens
-  inside the near fighter.
-- **The camera orbits perpendicular to the battle line.** On a fixed axis, the
-  moment the two lines interleave along the view direction they read as one mass.
-- **Team identity is the hardest read** with eight interleaved bodies, so each pet
-  stands on a filled team-coloured pool with a bright rim and takes a team rim
-  light from below. Element colour moved to a dimmer overhead light so it
-  flavours the body without competing with whose side it is on.
-- **Four-light rig** — ambient, warm key, cool fill, back rim — or a dark-furred
-  pet reads as a black blob against the void.
-- **The front line stays marked in the HUD** during the fight, so the player can
-  see whether their formation read paid off.
+- The playable arena is real 3D geometry: 35 stone/lacquer cells, shoji blockers,
+  cover platforms, smoke volumes, clan inlays, lanterns, rails, and torii.
+- The distant moonlit fortress is background art only; no gameplay floor is baked
+  into it.
+- The tactical camera is fixed. It does not orbit, cut, or follow targets.
+- Fractional snapshot sampling interpolates position, facing, health, and
+  projectiles without low-pass camera or actor smoothing.
+- The render loop reads one clock ref, so React does not re-render the full match
+  every animation frame.
+- Desktop and Galaxy S25+ layouts keep the board, both four-pet rosters, score,
+  exit control, and deployment action inside the viewport.
 
-### Two rendering rules carried from the post-mortem
+## Measured balance
 
-1. **Never hand the renderer an integer tick.** The lane war floored its clock,
-   took the *floor* snapshot, then ran an exponential low-pass filter to chase
-   the resulting 30 Hz staircase — which alternates fast and slow frames at 60fps
-   and lags 2–3 frames behind truth. That was the "jittery". The Rite passes a
-   **fractional** tick through a ref and interpolates between the two bracketing
-   snapshots (`sampleActor`), with no smoothing anywhere.
-2. **React never re-renders during a clash.** The clock is a ref; the HUD mutates
-   the DOM from one rAF loop; the stage reads the same ref inside `useFrame`. The
-   lane war re-rendered a 1,109-line component 30× a second.
+The current 100-match harness reports:
+
+| Metric | Result |
+|---|---:|
+| Blue-seat decisive win rate | 42% |
+| Drawn matches | 0% |
+| Idle fighters | 0% |
+| Clashes with projectiles | 100% |
+| Split-target openings | 100% |
+| Clashes reaching the fail-safe | 0.7% |
+| Median clash | 15.7s |
+| Median match | 44.8s |
+| Same-seed outcomes changed by deployment | 48% |
+
+These are release ratchets, not permanent tuning targets. Re-run
+`scripts/warfront-rite-harness.mts` whenever movement, targeting, stats, board
+topology, or squad size changes.
 
 ## Files
 
 | Piece | Path |
 |---|---|
-| Engine (clashes, formation, bonds, regroup) | `shinobij.client/src/lib/pet-warfront-rite.ts` |
-| Squad entry point (additive) | `pet-duel-cinematic.ts` → `runPetSquadDuelCinematic` |
-| Server mirror | `api/_pet-sim/pet-warfront-rite.ts` (generated) |
-| Interpolation, event bucketing, action focus | `shinobij.client/src/lib/pet-warfront-rite-presentation.ts` |
-| Match screen | `shinobij.client/src/components/PetWarfrontRite.tsx` |
-| 3D stage | `shinobij.client/src/components/PetWarfrontRiteStage3D.tsx` |
-| Styles | `shinobij.client/src/styles/pet-warfront-rite.css` |
-| Balance harness | `scripts/warfront-rite-harness.mts` |
-| Mode art + generator | `src/assets/warfront-rite/`, `scripts/gen-warfront-rite-art.mjs` |
-| e2e | `shinobij.client/e2e-warfront/rite.spec.ts` |
-| Dev preview | `/petvfx.html?rite=1` |
+| Formation simulation | `shinobij.client/src/lib/pet-duel-cinematic.ts` |
+| Best-of-three match authority | `shinobij.client/src/lib/pet-warfront-rite.ts` |
+| Server mirrors | `api/_pet-sim/pet-duel-cinematic.ts`, `api/_pet-sim/pet-warfront-rite.ts` |
+| Interpolation and explanations | `shinobij.client/src/lib/pet-warfront-rite-presentation.ts` |
+| Deployment, HUD, and results | `shinobij.client/src/components/PetWarfrontRite.tsx` |
+| 3D arena and effects | `shinobij.client/src/components/PetWarfrontRiteStage3D.tsx` |
+| Responsive styling | `shinobij.client/src/styles/pet-warfront-rite.css` |
+| Statistical harness | `scripts/warfront-rite-harness.mts` |
+| Browser release suite | `shinobij.client/e2e-warfront/rite.spec.ts` |
+| Development preview | `/petvfx.html?rite=1` |
 
-## The lane war is retired as a MODE
+## Retired lane engine
 
-Nothing a player can open launches the three-lane war any more:
-
-- the arena lobby launches the Rite;
-- **co-op** launches the Rite as a `spectator` — no formation panel and no
-  re-form, because a shared replay cannot take one client's decisions and still
-  be identical on every machine;
-- its mode card, its orphaned art and its design doc are deleted.
-
-A contract test (`pet-arena-settlement.test.ts`) asserts that neither the arena
-screen nor the co-op lobby can reach `PetWarfrontMatch`, so this cannot quietly
-regress.
-
-### Why the lane sim still exists
-
-**The Pet Ladder's tactical ladder runs on it.** `api/pet-ladder/_core.ts` calls
-`runWarfrontMatch` to resolve ranked ladder matches, and `screens/PetLadder.tsx`
-renders `PetWarfrontMatch` as the replay viewer. That is server-authoritative
-ranked play with existing standings, so the engine cannot simply be swapped —
-doing so would invalidate every result already on the ladder.
-
-So the lane war survives as **the tactical ladder's engine**, not as a mode.
-`pet-warfront-sim.ts`, `PetWarfrontMatch.tsx` and `PetWarfrontStage3D.tsx` each
-carry a header saying exactly that, the ladder no longer calls itself "the
-warfront" in player-facing copy, and `/petvfx.html?warfront=1` is retained as the
-QA harness for that replay.
-
-Migrating the tactical ladder onto the Rite is the remaining cleanup, and it is
-what would pay back the build-size ceiling raised in
-`scripts/check-build-size.mjs`.
+`pet-warfront-sim.ts`, `PetWarfrontMatch.tsx`, and `PetWarfrontStage3D.tsx`
+remain only because the Pet Ladder still uses that server-authoritative replay
+format. Nothing in the Pet Coliseum launches them as Hollow Warfront. Contract
+tests pin the Coliseum and co-op entry points to `PetWarfrontRite` so the retired
+mode cannot quietly return.

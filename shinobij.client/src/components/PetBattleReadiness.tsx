@@ -128,7 +128,7 @@ export function PetBattleReadiness({
                 <article className="pet-circuit-card" data-circuit="warfront">
                     <div className="pet-circuit-card-heading">
                         <span className="pet-circuit-icon"><GameIcon name="shield" size={22} /></span>
-                        <span><small>Squad-command combat · 4v4</small><strong>Hollow Warfront</strong></span>
+                        <span><small>Squad-command combat · 4v4</small><strong>Beastbound Warfront</strong></span>
                     </div>
                     <PetCircuitStatus ready={selectedTacticalReady && tacticalUnlocked}>
                         {selectedWarfrontBlocker

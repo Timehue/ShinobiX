@@ -573,7 +573,15 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // the lane sim, and — newly visible now that the FX noise is gone — the
 // Admin Visual Novels route, which is 1.03 MB of budgeted JS/CSS for an
 // admin-only tool that no player ever loads.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_852_000;
+// 2026-09-04 BEASTBOUND WARFRONT LIVE-MAIN INTEGRATION: 7,852,000 -> 8,000,000 B.
+// The mode now ships
+// a deterministic 4v4 formation engine, ten-cell setup, terrain-aware routing,
+// eight-rig presentation, and an authoritative server mirror. The verified
+// production graph is 7,943,923 B raw / 2,224,944 B gzip on the reconciled
+// live-main tree, leaving 56,077 B of deliberate feature headroom. The authored
+// arena images are outside this JS/CSS gate, and the independently checked
+// startup, entry, per-chunk, and per-CSS limits remain unchanged.
+const TOTAL_JS_CSS_FAIL_BYTES = 8_000_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

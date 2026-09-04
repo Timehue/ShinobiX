@@ -226,8 +226,9 @@ const PetShowdownReplay = lazyWithRetry(() => import("../components/PetShowdownR
 const loadPetMentorGuide = () => import("../components/PetMentorGuide");
 const preloadPetMentorGuide = () => { void loadPetMentorGuide().catch(() => undefined); };
 const PetMentorGuide = lazyWithRetry(() => loadPetMentorGuide().then((module) => ({ default: module.PetMentorGuide })));
-// Hollow Warfront — the Rite: four pets a side fighting at once, best of three
-// clashes, with the front line as the decision (docs/hollow-warfront-rite.md).
+// Beastbound Warfront: four pets a side fighting at once on a
+// deterministic 7×5 formation board, best of three clashes
+// (docs/hollow-warfront-rite.md).
 // Own lazy chunk so its simulation and eight rigs do not tax the Colosseum route.
 const PetWarfrontRite = lazyWithRetry(() => import("../components/PetWarfrontRite").then((m) => ({ default: m.PetWarfrontRite })));
 // Pet Gauntlet — the roguelike run mode (3rd tab). Self-contained (owns its run
@@ -435,9 +436,9 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     // Default the 2v2 reserve to the saved "2v2 Partner" set in the Pet Yard
     // (character.activePetId2v2). Still overridable per battle via the dropdown.
     const [reservePetId, setReservePetId] = useState<string>(character.activePetId2v2 ?? "");
-    // Hollow Warfront — the Rite: a full-screen 4v4 clash where both bands fight
-    // at once, best of three. Teams are built and frozen on launch; the player
-    // then commits a FORMATION (which two hold the front line).
+    // Beastbound Warfront: a full-screen 4v4 clash where both bands
+    // fight at once on owned cells, best of three. Teams are built and frozen on
+    // launch; the player then commits every pet to a free deployment cell.
     const [arenaMatch, setArenaMatch] = useState<WarfrontMatch | null>(null);
     // Server-authoritative Warfront seed + reward proof. This exact promise is
     // retained through rendering and retries so the battle cannot be re-seeded.
@@ -571,7 +572,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         const data = await response.json().catch(() => null) as PetBattleSettlementResponse | null;
         const retryAfterMs = Number(data?.retryAfterMs);
         if (response.status === 425 && Number.isFinite(retryAfterMs) && retryAfterMs > 0) {
-            throw new PetSettlementRetryError(data?.error || "The Hollow Warfront is still in progress.", retryAfterMs);
+            throw new PetSettlementRetryError(data?.error || "Beastbound Warfront is still in progress.", retryAfterMs);
         }
         if (!response.ok) throw new Error(data?.error || "The arena could not record this pet battle.");
         if (!data) throw new Error("The arena returned an unreadable pet battle receipt.");
@@ -838,8 +839,8 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
 
     // Hollow Warfront vs-AI is SERVER-AUTHORITATIVE. Kickoff seals the stored
     // roster, AI team, seed, plan modifiers, and an automatic fallback outcome.
-    // Settlement replays the validated opening lanes + compact command log on
-    // those same inputs, so the client reports decisions but never its verdict.
+    // Settlement replays the validated deployment + ordered re-form locks on
+    // those inputs, so the client reports decisions but never its verdict.
     function mintWarfrontToken(
         bluePets: Pet[],
         scope: PetArenaPlayerScope,
@@ -958,7 +959,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         beginPetSettlement({
             id: `tactical:${reportKey}`,
             kind: "tactical",
-            label: "Hollow Warfront result",
+            label: "Beastbound Warfront result",
             scope: m.scope,
             run: async () => {
                 const seal = await (sealRequest ?? Promise.resolve(null));
@@ -980,15 +981,18 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 const data = await postPetBattleSettlement({
                     ...bodyBase,
                     battleToken: seal.token,
-                    // The Rite's whole command transcript: the FORMATION the
-                    // player committed (which pets hold the front line) plus an
-                    // optional mid-match re-form. The server re-runs the clashes
-                    // from the sealed bands + seed and this plan, and pays from
-                    // ITS winner — no outcome or reward is asserted here.
+                    // Beastbound Warfront's whole command transcript: the pet order,
+                    // ten-cell deployment, and ordered between-clash re-forms. The
+                    // server re-runs the clashes from the sealed bands + seed and
+                    // this plan, and pays from ITS winner — no outcome or reward
+                    // is asserted here.
                     warfrontPlan: {
                         formation: plan.formation,
+                        deployment: plan.deployment,
                         reformAfterClash: plan.reformAfterClash,
                         reform: plan.reform ?? null,
+                        reformDeployment: plan.reformDeployment ?? null,
+                        reforms: plan.reforms ?? [],
                     },
                 });
                 if (!playerScopeIsActive(m.scope)) return false;
@@ -1790,7 +1794,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     const arenaHeroTitle = isHollowGate
         ? "Hollow Hound Duel"
         : arenaView === "tactical"
-            ? "Hollow Warfront"
+            ? "Beastbound Warfront"
             : arenaView === "gauntlet"
                 ? "Pet Gauntlet"
                 : "Pet Colosseum";
@@ -1922,7 +1926,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                             onClick={() => setArenaView("tactical")}
                         >
                             <span className="pet-arena-activity-icon"><img src={warfrontCardArt} alt="" loading="lazy" /></span>
-                            <span><strong>Hollow Warfront</strong><small>{tacticalArenaUnlocked ? "3 sealed lanes · first to 2 towers" : `Locked · ${availableArenaPetCount}/${TACTICAL_ARENA_PET_REQUIREMENT} pets`}</small></span>
+                            <span><strong>Beastbound Warfront</strong><small>{tacticalArenaUnlocked ? "4v4 formation combat · first to 2 clashes" : `Locked · ${availableArenaPetCount}/${TACTICAL_ARENA_PET_REQUIREMENT} pets`}</small></span>
                         </button>
                         <button type="button" className={arenaView === "gauntlet" ? "active" : ""} aria-current={arenaView === "gauntlet" ? "page" : undefined} onClick={() => setArenaView("gauntlet")}>
                             <span className="pet-arena-activity-icon"><img src={arenaModeGauntlet} alt="" loading="lazy" /></span>
@@ -2272,17 +2276,17 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                             <div style={{ display: "grid", gap: "0.7rem" }}>
                                 <div className="pet-arena-tactical-top">
                                     <div style={{ display: "grid", gap: "0.7rem", alignContent: "start" }}>
-                                        <div className="wf-pregame-readout" aria-label="Hollow Warfront battle laws">
+                                        <div className="wf-pregame-readout" aria-label="Beastbound Warfront battle laws">
                                             <div className="wf-pregame-readout-title">
                                                 <span>BATTLE LAWS</span>
-                                                <strong>ONE RING · LAST BAND STANDING</strong>
+                                                <strong>BEASTBOUND WARFRONT · FORMATION COMBAT</strong>
                                             </div>
                                             <div className="wf-pregame-readout-grid">
-                                                <div><span>OPENING</span><strong>Commit your formation</strong><small>Four pets, two on the front line. You see their front before you lock yours.</small></div>
-                                                <div><span>THE CLASH</span><strong>All eight at once</strong><small>Both bands fight simultaneously. More pets standing takes the clash.</small></div>
-                                                <div><span>VICTORY</span><strong>Best of three</strong><small>First to two clashes. The fallen return wounded, so it is never over early.</small></div>
+                                                <div><span>OPENING</span><strong>Deploy all four</strong><small>Choose any four of ten cells. Two rival positions are scouted before you lock yours.</small></div>
+                                                <div><span>THE CLASH</span><strong>Control sight and space</strong><small>Owned cells prevent shoving; shoji, cover, smoke, range, and roles shape every route.</small></div>
+                                                <div><span>VICTORY</span><strong>Best of three</strong><small>First to two clashes. Bodies standing, then remaining health, decides each clash.</small></div>
                                             </div>
-                                            <p><span>♜ RE-FORM</span>Once per Rite, after the opening clash, you may move a pet forward or back before the next one.</p>
+                                            <p><span>♜ RE-FORM</span>Once per Rite, after the opening clash, you may move any pet to any open deployment cell.</p>
                                             <p><span>◐ ELEMENTS</span>Type advantage matters, but the band is yours to build — bring whatever you think wins.</p>
                                         </div>
 
