@@ -487,14 +487,21 @@ const boundaryMatrix = [
 
 const requiredVisualMatrix = [
     { width: 320, height: 568 },
+    { width: 360, height: 640 },
+    { width: 360, height: 740 },
     { width: 360, height: 800 },
     { width: 375, height: 667 },
+    { width: 384, height: 832 },
     { width: 390, height: 844 },
+    { width: 393, height: 873 },
     { width: 412, height: 915 },
     { width: 430, height: 932 },
+    { width: 640, height: 360 },
     { width: 667, height: 375 },
+    { width: 740, height: 360 },
     { width: 800, height: 360 },
     { width: 844, height: 390 },
+    { width: 915, height: 412 },
     { width: 932, height: 430 },
     { width: 768, height: 1024 },
     { width: 820, height: 1180 },
@@ -669,11 +676,15 @@ test("representative empty, loading, validation, long-content, and entitlement s
 
     let releaseClanList: (() => void) | undefined;
     const clanListGate = new Promise<void>((resolveGate) => { releaseClanList = resolveGate; });
-    let clanListRequest = 0;
+    let clanListReleased = false;
     const longClanName = "The Unreasonably Long Fellowship of the Moonlit Storm Harbor Sentinels";
+    await page.goto("/#/village", { waitUntil: "networkidle" });
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "village");
+    // Install this route only after Village has settled. Registering it before
+    // page.goto allowed an aborted request from the previous screen to consume
+    // the one-shot loading gate, making the Clan Hall response race the UI.
     await page.route("**/api/clans/list", async (route) => {
-        clanListRequest += 1;
-        if (clanListRequest === 1) {
+        if (!clanListReleased) {
             await clanListGate;
             return json(route, []);
         }
@@ -688,11 +699,10 @@ test("representative empty, loading, validation, long-content, and entitlement s
             recruitment: "A maximum-length recruitment message that remains readable without widening the document or hiding the join action.",
         }]);
     });
-    await page.goto("/#/village", { waitUntil: "networkidle" });
-    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "village");
     await page.getByRole("button", { name: "Enter Clan Hall" }).click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "clan");
     await expect(page.getByText("Loading clans...")).toBeVisible();
+    clanListReleased = true;
     releaseClanList?.();
     await expect(page.getByText("No clans from your village exist yet.")).toBeVisible();
     await page.getByRole("button", { name: "Refresh" }).click();

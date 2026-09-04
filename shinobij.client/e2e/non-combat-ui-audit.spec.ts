@@ -407,6 +407,32 @@ test("mobile shell uses five anchors and a compact keyboard-safe destination cat
     await expect(menuTrigger).toBeFocused();
 });
 
+test("the Play app hardware-back stack returns across eligible routes", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "chromium-mobile", "mobile history integration is exercised once");
+    await page.addInitScript(() => {
+        window.sessionStorage.setItem("shinobix:surface.v1", "play-app");
+    });
+    const runtimeErrors = collectRuntimeErrors(page);
+    const runtime = await installUiAuditRuntime(page);
+    await expectUiAuditBoot(page, runtime, "village");
+
+    const nav = page.getByRole("navigation", { name: "Primary game navigation" });
+    await nav.getByRole("button", { name: "Travel", exact: true }).click();
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap");
+    await expect.poll(() => page.evaluate(() => window.location.hash)).toBe("#/worldMap");
+
+    await page.goBack();
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "village");
+    await expect.poll(() => page.evaluate(() => window.location.hash)).toBe("#/village");
+
+    await page.goForward();
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap");
+    await page.getByRole("button", { name: "Go back" }).click();
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "village");
+    await expect.poll(() => page.evaluate(() => window.location.hash)).toBe("#/village");
+    expect(runtimeErrors, "eligible Play app history emitted runtime errors").toEqual([]);
+});
+
 test("Inventory and Jutsu tabs keep selection, focus, and panels in sync", async ({ page }) => {
     const initialSave = uiAuditSave();
     initialSave.character = {

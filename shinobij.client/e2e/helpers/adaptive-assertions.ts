@@ -113,8 +113,17 @@ export async function viewportSafetySnapshot(
             })
             .filter((element) => !allowedOverlays.some((selector) => element.matches(selector) || element.closest(selector)))
             .filter((element) => {
+                const position = getComputedStyle(element).position;
                 const rect = element.getBoundingClientRect();
-                return rect.left < -1 || rect.right > width + 1 || rect.top < -1 || rect.bottom > height + 1;
+                const outsideInlineViewport = rect.left < -1 || rect.right > width + 1;
+                if (position === "fixed") {
+                    return outsideInlineViewport || rect.top < -1 || rect.bottom > height + 1;
+                }
+                // Sticky elements remain in normal document flow until their
+                // threshold is crossed. A tab rail below the fold is therefore
+                // expected and scrollable, not escaped fixed chrome. Its inline
+                // geometry and an impossible viewport-tall rail still fail.
+                return outsideInlineViewport || rect.height > height + 1;
             })
             .map((element) => {
                 const rect = element.getBoundingClientRect();

@@ -252,6 +252,15 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
         acknowledgedVersion: () => acknowledgedVersion,
         lastCommit: () => lastCommit,
         persistedStateMatchesLastPost: () => Boolean(lastCommit && JSON.stringify(save) === lastCommit.postedState),
+        /** Mirror a successful server-owned character mutation into the fake
+         * persistence authority. Without this, a later autosave correctly uses
+         * the returned version while the stub still expects the old version,
+         * manufacturing a 409 that production would never return. */
+        commitServerCharacter: (character: Record<string, unknown>, version: number) => {
+            save = { ...save, character: structuredClone(character) };
+            saveVersion = version;
+            acknowledgedVersion = version;
+        },
     };
 }
 
