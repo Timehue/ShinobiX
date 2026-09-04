@@ -34,7 +34,6 @@ import { DUEL_TPS } from "../lib/pet-duel-sim";
 import {
     RITE_BAND_SIZE,
     RITE_CLASHES_TO_WIN,
-    RITE_MAX_CLASHES,
     RITE_SCOUTED_JOBS,
     WARFRONT_DEFAULT_DEPLOYMENT,
     WARFRONT_DEPLOYMENT_NODES,
@@ -348,7 +347,7 @@ function DeployPanel({ band, enemyBand, enemyPlan, sharedImages, onBegin, onExit
     onExit: () => void;
 }) {
     const [deployment, setDeployment] = useState<number[]>(() => [...WARFRONT_DEFAULT_DEPLOYMENT]);
-    const [formation, setFormation] = useState<number[]>(() => Array.from({ length: RITE_BAND_SIZE }, (_, index) => index));
+    const [formation] = useState<number[]>(() => Array.from({ length: RITE_BAND_SIZE }, (_, index) => index));
     const [landscapeInspectAcknowledged, setLandscapeInspectAcknowledged] = useState(false);
     const [landscapeDrawer, setLandscapeDrawer] = useState<"guide" | "scout" | null>(null);
     const problem = useMemo(() => riteBandProblem(band), [band]);
@@ -913,7 +912,6 @@ export function PetWarfrontRite({
             clash.blue.find((combatant) => combatant.slot === slot)?.node ?? (plan.deployment?.[slot] ?? WARFRONT_DEFAULT_DEPLOYMENT[slot]),
         );
         const changed = nextChoice.deployment.some((node, slot) => node !== previousDeployment[slot]);
-        let nextPlan = plan;
         let nextResult = result;
         if (changed) {
             const nextReform = {
@@ -926,7 +924,7 @@ export function PetWarfrontRite({
                 .concat(nextReform)
                 .sort((a, b) => a.afterClash - b.afterClash);
             const hasLegacyReform = plan.reformAfterClash !== null && plan.reformAfterClash !== undefined;
-            nextPlan = {
+            const nextPlan = {
                 ...plan,
                 reforms,
                 reformAfterClash: hasLegacyReform ? plan.reformAfterClash : clashIndex,
