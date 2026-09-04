@@ -597,9 +597,9 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // 2026-09-04 CELESTIAL TOWER: THE FIRST PACT: 8,000,000 -> 8,200,000 B. The
 // campaign ships a connected tile world with six interiors, its own procedural
 // renderer, NPC pathing and dialogue, and a durable server-authoritative
-// progression record. On the tree merged with the drain above it measures
-// 8,131,244 B raw / 2,277,509 B gzip in a credential-free build, against that
-// drain's 7,943,506 B, so the feature is 187,738 B of the ceiling.
+// progression record. On the tree merged with live main it measures
+// 8,131,579 B raw / 2,277,656 B gzip in a credential-free build, against that
+// main's 7,935,075 B, so the campaign is 196,504 B of the ceiling.
 //
 // The drain above is the reason this is a raise and not a much bigger one: it
 // had already reclaimed the FirstPact sprite tax and the Supabase client delta
@@ -614,7 +614,7 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 //
 // NOTE the drain's own warning: a credential-free build understates the real
 // figure, and the Production Image job is the authority. 8,200,000 leaves
-// 68,756 B over the local measurement to absorb that delta. If Production
+// 68,421 B over the local measurement to absorb that delta. If Production
 // Image reports over this, take ITS number rather than re-measuring here.
 const TOTAL_JS_CSS_FAIL_BYTES = 8_200_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
