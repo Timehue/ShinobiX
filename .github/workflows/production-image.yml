@@ -3,8 +3,21 @@ name: Production Image
 permissions:
   contents: read
 
+# This is the ONLY gate that measures the bundle Railway actually ships: it
+# builds the image with production-length VITE_* build args baked in, the way a
+# deploy does. CI's own `client-quality` sizecheck builds the client with NO
+# VITE_* env at all, so it measures a smaller graph and can pass while this one
+# fails on the very same budget.
+#
+# That made `push: [main]` alone the wrong trigger. A budget regression could not
+# be seen until it was already ON main, at which point Railway simply stops
+# deploying and every later merge inherits the red — which is exactly how the
+# 2026-09-03 jutsu-FX overrun blocked four consecutive production deploys.
+# Running on pull_request too puts the authoritative measurement BEFORE the merge,
+# where it costs ~2.5 minutes instead of a blocked release train.
 on:
   workflow_dispatch:
+  pull_request:
   push:
     branches: [main]
 
