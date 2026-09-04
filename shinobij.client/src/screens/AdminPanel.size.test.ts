@@ -11,7 +11,10 @@ function sourceLineCount(fileName: string): number {
 
 describe("AdminPanel source budgets", () => {
     it("keeps the parent under its post-extraction growth and hard limits", () => {
-        const measuredPostExtractionLines = 6734;
+        // Ratcheted 6734 → 6666 when the full-server-reset flow (dry-run
+        // preview, confirmation copy, local cache clearing) moved out to
+        // screens/admin-server-reset.ts.
+        const measuredPostExtractionLines = 6666;
         const maximumLines = Math.min(measuredPostExtractionLines + 5, 6745);
         assert.ok(sourceLineCount("AdminPanel.tsx") <= maximumLines, `AdminPanel.tsx exceeds ${maximumLines} lines`);
     });
