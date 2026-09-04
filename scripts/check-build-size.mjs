@@ -581,6 +581,18 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // live-main tree, leaving 56,077 B of deliberate feature headroom. The authored
 // arena images are outside this JS/CSS gate, and the independently checked
 // startup, entry, per-chunk, and per-CSS limits remain unchanged.
+//
+// 2026-09-04 PRODUCTION-PAYLOAD DRAIN: ceiling unchanged. The initial First Pact
+// graph measured 8,386,940 B; keeping jutsu FX external and moving other assets
+// at or above 2,560 B out of base64 JavaScript reclaimed its medium sprite tax.
+// The authoritative Production Image then exposed a separate 208 KB delta hidden
+// by credential-free builds: only production retained the complete Supabase Auth,
+// Storage, Functions, and PostgREST clients, although the browser calls Realtime
+// alone. Depending on Supabase's standalone Realtime package preserves the same
+// channel/filter/JWT/heartbeat/fallback behavior without emitting those unused
+// clients. The exact production-env build is 7,993,329 B raw / 2,234,045 B gzip,
+// leaving 6,671 B under this stricter live-main ceiling. No combat or pet-battle
+// source changed.
 const TOTAL_JS_CSS_FAIL_BYTES = 8_000_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
