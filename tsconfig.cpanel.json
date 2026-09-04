@@ -23,6 +23,7 @@
         "scripts",
         "node_modules",
         ".vs",
+        "api/_text-moderation-titles.test.ts",
         "api/clan/war/_card-catalog.test.ts",
         "api/_pet-sim/_gauntlet-pool.test.ts",
         "api/_pet-sim/gauntlet-sim.test.ts",

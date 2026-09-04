@@ -35,15 +35,15 @@
 // To add a new realtime-subscribed prefix: update supabase-schema.sql's
 // SELECT policy AND this comment, then re-run the schema file.
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { RealtimeClient } from '@supabase/realtime-js';
 
 const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY || '';
 
-let _client: SupabaseClient | null = null;
+let _client: RealtimeClient | null = null;
 let _initialized = false;
 
-function init(): SupabaseClient | null {
+function init(): RealtimeClient | null {
     if (_initialized) return _client;
     _initialized = true;
     const url = SUPABASE_URL;
@@ -53,15 +53,19 @@ function init(): SupabaseClient | null {
         return null;
     }
     try {
-        _client = createClient(url, key, {
-            // Don't try to maintain auth session — we use the anon key
-            // for read-only Realtime subscriptions, no user auth here.
-            auth: { persistSession: false, autoRefreshToken: false },
-            realtime: {
-                // Cap the heartbeat at 30s — Supabase default is fine
-                // but explicit is safer in case defaults change.
-                heartbeatIntervalMs: 30_000,
-            },
+        const realtimeUrl = new URL('realtime/v1', `${url.replace(/\/+$/, '')}/`);
+        realtimeUrl.protocol = realtimeUrl.protocol.replace(/^http/, 'ws');
+        _client = new RealtimeClient(realtimeUrl.href, {
+            // This adapter uses only read-only Realtime. Depending on the
+            // standalone client avoids shipping Auth, Storage, Functions, and
+            // PostgREST clients that are never called in the browser.
+            params: { apikey: key },
+            // Mirror SupabaseClient's anonymous access-token callback so
+            // Realtime RLS receives the same JWT in each channel join payload.
+            accessToken: async () => key,
+            // Cap the heartbeat at 30s — Supabase default is fine but explicit
+            // is safer in case defaults change.
+            heartbeatIntervalMs: 30_000,
         });
         return _client;
     } catch {
@@ -122,6 +126,6 @@ export function subscribeKvKey<T = unknown>(
         });
 
     return () => {
-        try { client.removeChannel(channel); } catch { /* ignore */ }
+        try { void client.removeChannel(channel).catch(() => undefined); } catch { /* ignore */ }
     };
 }
