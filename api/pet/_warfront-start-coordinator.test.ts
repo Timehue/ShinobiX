@@ -39,12 +39,12 @@ describe('Warfront start coordination', () => {
 
     it('fails closed when the lease cannot be acquired or stored', async () => {
         const store = _makeMemoryKv();
-        await store.set(warfrontInitializingKey('Sasuke'), 'other-owner', { ex: 120 });
+        await store.set(warfrontInitializingKey('Raiko'), 'other-owner', { ex: 120 });
         let simulations = 0;
         let publicationReads = 0;
         const busy = await coordinateWarfrontStart(
             store,
-            'Sasuke',
+            'Raiko',
             async () => { publicationReads += 1; return null; },
             async () => { simulations += 1; return { token: 'must-not-exist' }; },
             { leaseTtlSeconds: 120, waitForPublishedMs: 70, pollIntervalMs: 5, maxPollIntervalMs: 20 },
