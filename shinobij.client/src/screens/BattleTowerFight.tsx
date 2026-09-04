@@ -681,6 +681,45 @@ export function BattleTowerFight({
     const boardDragRef = useRef<{ pointerId: number; startX: number; startY: number; pan: TowerPan; moved: boolean } | null>(null);
     const suppressBoardClickRef = useRef(false);
     const suppressBoardClickTimerRef = useRef<number | null>(null);
+    // ── Panning is written to the DOM, not pushed through React ──────────────
+    // A drag fires a pointermove every frame. Routing each one through
+    // setBoardPan re-rendered this whole screen (~120 hex tiles plus every actor,
+    // hazard and overlay) per frame, and the pan fed `left`/`top`, so the browser
+    // ran a full LAYOUT of the board each time instead of a compositor-only move.
+    // The live pan now lives in a ref and is applied as a `transform` in a
+    // rAF-coalesced write; React state is updated once, when the finger lifts, so
+    // reset / zoom-clamp / the "Fit / reset" disabled check keep working off it.
+    const boardPanElRef = useRef<HTMLDivElement | null>(null);
+    const boardPanRef = useRef<TowerPan>({ x: 0, y: 0 });
+    const boardPanFrameRef = useRef(0);
+    const applyBoardPan = useCallback(() => {
+        const el = boardPanElRef.current;
+        if (!el) return;
+        const { x, y } = boardPanRef.current;
+        el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    }, []);
+    // Callback ref, not a plain one: a remount would otherwise leave the board
+    // without its transform until the next pan change.
+    const boardPanCallbackRef = useCallback((el: HTMLDivElement | null) => {
+        boardPanElRef.current = el;
+        if (el) applyBoardPan();
+    }, [applyBoardPan]);
+    const scheduleBoardPan = useCallback(() => {
+        if (boardPanFrameRef.current) return;
+        boardPanFrameRef.current = requestAnimationFrame(() => {
+            boardPanFrameRef.current = 0;
+            applyBoardPan();
+        });
+    }, [applyBoardPan]);
+    // Keep the DOM in step with any pan that came from React (reset, zoom clamp,
+    // the drag's own commit on pointer-up) rather than from the finger.
+    useEffect(() => {
+        boardPanRef.current = boardPan;
+        applyBoardPan();
+    }, [boardPan, applyBoardPan]);
+    useEffect(() => () => {
+        if (boardPanFrameRef.current) cancelAnimationFrame(boardPanFrameRef.current);
+    }, []);
 
     const activeId = session.turnQueue[session.activeIndex];
     const activeActor = session.actors.find(a => a.id === activeId);
@@ -728,11 +767,12 @@ export function BattleTowerFight({
             pointerId: event.pointerId,
             startX: event.clientX,
             startY: event.clientY,
-            pan: boardPan,
+            // The ref, not the state: mid-gesture the state is one commit behind.
+            pan: boardPanRef.current,
             moved: false,
         };
         event.currentTarget.setPointerCapture(event.pointerId);
-    }, [boardPan, boardZoom]);
+    }, [boardZoom]);
     const onBoardPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
         const drag = boardDragRef.current;
         if (!drag || drag.pointerId !== event.pointerId) return;
@@ -741,8 +781,9 @@ export function BattleTowerFight({
         if (!drag.moved && Math.hypot(dx, dy) < 5) return;
         drag.moved = true;
         event.preventDefault();
-        setBoardPan(clampPanToBoard({ x: drag.pan.x + dx, y: drag.pan.y + dy }));
-    }, [clampPanToBoard]);
+        boardPanRef.current = clampPanToBoard({ x: drag.pan.x + dx, y: drag.pan.y + dy });
+        scheduleBoardPan();
+    }, [clampPanToBoard, scheduleBoardPan]);
     const endBoardPointer = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
         const drag = boardDragRef.current;
         if (!drag || drag.pointerId !== event.pointerId) return;
@@ -756,6 +797,9 @@ export function BattleTowerFight({
         }
         if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
         boardDragRef.current = null;
+        // One commit per gesture, not one per frame. React state stays the
+        // authority for reset / zoom-clamp between drags.
+        if (drag.moved) setBoardPan(boardPanRef.current);
     }, []);
     useEffect(() => () => {
         if (suppressBoardClickTimerRef.current != null) window.clearTimeout(suppressBoardClickTimerRef.current);
@@ -1669,11 +1713,16 @@ export function BattleTowerFight({
                         aria-describedby={(fightSyncState === "reconnecting" || actionFeedback.phase !== "idle" || armedActionName || (!myTurn && session.status === "active")) ? "tower-action-guidance" : undefined}
                         onPointerDown={onBoardPointerDown} onPointerMove={onBoardPointerMove} onPointerUp={endBoardPointer} onPointerCancel={endBoardPointer}
                         style={{ flex: 1, position: "relative", overflow: "hidden", borderRadius: 10, border: "2px solid #1f2937", background: `radial-gradient(ellipse at center, rgba(5,12,8,0.05), rgba(4,9,6,0.4)), url(${biomeFloor}) center/cover no-repeat` }}>
-                        <div style={{
+                        {/* left/top carry only the CENTERING offset, which changes on
+                            resize or zoom. The pan itself rides `transform`, written
+                            by applyBoardPan — a compositor move rather than a relayout
+                            of the whole board on every frame of a drag. */}
+                        <div ref={boardPanCallbackRef} style={{
                             position: "absolute",
-                            left: `${(boardContainerSize.w - renderedBoardSize.width) / 2 + boardPan.x}px`,
-                            top: `${(boardContainerSize.h - renderedBoardSize.height) / 2 + boardPan.y}px`,
+                            left: `${(boardContainerSize.w - renderedBoardSize.width) / 2}px`,
+                            top: `${(boardContainerSize.h - renderedBoardSize.height) / 2}px`,
                             width: `${renderedBoardSize.width}px`, height: `${renderedBoardSize.height}px`,
+                            willChange: boardZoom > TOWER_ZOOM_MIN ? "transform" : undefined,
                         }}>
                             <div className="hex-grid-layer" style={{ position: "absolute", left: 0, top: 0, width: layer.width, height: layer.height, transform: `scale(${renderedScale})`, transformOrigin: "top left" }}>
                                 {/* hex tiles */}

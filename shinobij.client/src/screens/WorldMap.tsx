@@ -5046,16 +5046,26 @@ export function WorldMap({
             >
             <div
                 className="anime-world-map atlas-world-map generated-world-map"
+                ref={wmZoom.contentRef}
                 style={{ backgroundImage: `url(${worldMapBg})`, ...wmZoom.contentStyle }}
             >
                 {/* Gentle magical-dust + light-sweep over the whole world (sits
                     behind the z-10 sector/village markers). Keeps the overworld
-                    feeling alive without obscuring the painted map. */}
-                <SceneAmbience biome="central" intensity={0.5} />
+                    feeling alive without obscuring the painted map.
+
+                    Both particle canvases are DESKTOP-ONLY. In mobile zoom mode the
+                    map rides a ~3x cover scale, so each canvas is magnified far past
+                    its backing store into indistinct mush — while its rAF loop keeps
+                    repainting the full-bleed layer. Measured at 390x844 on a 4x-
+                    throttled CPU, dropping these two took the idle map from 47 to 61
+                    fps: a third of the phone's frame budget, spent on smears nobody
+                    can resolve. The time-of-day wash below is a static two-div tint
+                    on a 60s timer, so it stays on every device. */}
+                {!wmZoom.active && <SceneAmbience biome="central" intensity={0.5} />}
                 {/* Real-clock time-of-day wash + a high, sparse bird flock drifting
                     over the atlas. Both sit below the z-10 markers. */}
                 <DayNightSky className="amb-under" intensity={0.8} />
-                <SceneCritters biome="central" mode="world" className="amb-under" />
+                {!wmZoom.active && <SceneCritters biome="central" mode="world" className="amb-under" />}
                 {/* Per-nation biome atmosphere — a soft elemental glow over each
                     homeland so the four regions read at a glance. */}
                 {[

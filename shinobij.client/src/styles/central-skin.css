@@ -49,6 +49,55 @@
 .central-hub > .day-night-sky,
 .central-hub > .scene-critters { z-index: 0 !important; }
 
+/* ── Bound the particle layers to the VIEWPORT, not the whole page ───────────
+   SceneAmbience and SceneCritters size their <canvas> from their own wrapper,
+   and these two wrappers are `position: absolute; inset: 0` inside `.central-hub`
+   — which is the entire scrollable hub. On a 390x844 phone that made each canvas
+   366x2714 CSS px: a 3.97 MEGAPIXEL backing store, 3.22x taller than the screen,
+   whose rAF loop simulated and painted a particle field roughly two thirds of
+   which can never be on screen. Measured at 390x844 on a 4x-throttled CPU, that
+   cost the hub more than half its frame budget: idle 31 -> 58 fps and scrolling
+   28 -> 49 fps once the layers were bounded, with long tasks going 4 -> 0.
+
+   `fixed` (rather than a shorter `absolute`) keeps the atmosphere over the whole
+   page — the motes now ride the viewport as you scroll instead of scrolling away,
+   so nothing is lost below the fold. `.central-hub` is plain `position: relative`
+   with `isolation: isolate` and no transform/filter, so these resolve against the
+   viewport while still painting inside the hub's stacking context, under the
+   z-index:1 content above.
+
+   NOT changed on purpose: `.central-hub`'s `background-attachment: fixed`. It
+   looks like the classic mobile scroll killer, but it is measurably NOT one here
+   — forcing it to `scroll` made both idle and scroll fps WORSE (50/43 vs 58/49),
+   because the fixed background gets its own composited layer. Leave it.
+
+   `.day-night-sky` is deliberately excluded: it is two static gradient divs with
+   no rAF, it never showed up in the measurements, and viewport-anchoring its
+   vignette would visibly tighten the wash.
+
+   PHONE/SMALL-TABLET ONLY, and the exact breakpoint is load-bearing rather than
+   caution. A `fixed` layer is sized by the VIEWPORT, so it only sits over the hub
+   card while the card is full-bleed. The card caps at 728px, so measured spill
+   past its edges runs: 360px -> 10px, 390px -> 11px, 768px -> 20px (all just the
+   shell's own padding, over the same dark ground), but 979px -> 126px and 1366px
+   -> 207px left / 266px right, where it would paint motes across the player rail
+   and the menu rail. 768px is therefore the last width where the card is still
+   full-bleed, and it is the breakpoint. Above it — and on desktop, where the
+   scroller is an inner element rather than the document, so a fixed layer would
+   also stop scrolling with the content it decorates — the original absolute layer
+   is kept untouched. Those widths were never the slow case anyway.
+
+   ⚠ If the shell's card cap ever changes, re-measure: this number tracks the card,
+   not the device. */
+@media (max-width: 768px) {
+    .central-hub > .scene-ambience,
+    .central-hub > .scene-critters {
+        position: fixed;
+        inset: 0;
+        height: 100dvh;
+    }
+}
+
 .central-hub .central-hero {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;

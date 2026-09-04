@@ -104,10 +104,11 @@ export interface WorldMapZoomApi {
     /** True when zoom mode is active (narrow/touch + flag). When false the map
      *  renders exactly as the legacy path — this hook adds nothing. */
     active: boolean;
-    /** Current zoom (1 = whole map visible). */
-    zoom: number;
     /** Attach to the `.world-map-scroll` viewport element. */
     viewportRef: (el: HTMLDivElement | null) => void;
+    /** Attach to the map div itself. The pan/zoom transform is written straight
+     *  onto this node (see `applyView`), never through React or a CSS variable. */
+    contentRef: (el: HTMLDivElement | null) => void;
     /** Pointer handlers for the viewport (no-ops when inactive). Wheel zoom is
      *  installed natively by viewportRef so it can be explicitly non-passive. */
     viewportHandlers: {
@@ -117,7 +118,8 @@ export interface WorldMapZoomApi {
         onPointerCancel: (e: React.PointerEvent) => void;
         onLostPointerCapture: (e: React.PointerEvent) => void;
     };
-    /** Inline style for the map div (sets the `--wm-tf` transform var). */
+    /** Static inline style for the map div — the displayed aspect only. The
+     *  transform deliberately does NOT live here: see `applyView`. */
     contentStyle: React.CSSProperties;
     zoomIn: () => void;
     zoomOut: () => void;
@@ -151,21 +153,110 @@ export function useAcademyWorldMapFocus({ character, sectorPoints, zoomActive, f
 
 export function useWorldMapZoom(): WorldMapZoomApi {
     const [active, setActive] = useState<boolean>(() => isWorldMapZoomEnabled());
-    const [view, setView] = useState({ zoom: MIN_ZOOM, tx: 0, ty: 0 });
-    const [dragging, setDragging] = useState(false);
 
     // Live refs so pointer handlers never read stale closure state.
     const elRef = useRef<HTMLDivElement | null>(null);
+    const contentElRef = useRef<HTMLDivElement | null>(null);
     const resizeCleanupRef = useRef<(() => void) | null>(null);
     const wheelCleanupRef = useRef<(() => void) | null>(null);
     const wheelHandlerRef = useRef<(event: WheelEvent) => void>(() => undefined);
     const sizeRef = useRef({ w: 0, h: 0 });
-    // Mirror live state into refs (in effects, not during render) so the pointer
-    // handlers never read stale closure values.
-    const viewRef = useRef(view);
+    // ── The camera lives in a ref, NOT in React state ────────────────────────
+    // A finger drag produces a pointermove every frame, and this hook is called
+    // from WorldMap — a 5k-line owner rendering 67 sector markers, 95 road paths
+    // and the ownership overlay. Routing the camera through setState re-rendered
+    // that whole tree per move (measured: ~16ms of reconciliation per frame on a
+    // mid-range phone, before the browser had painted anything). Nothing outside
+    // this hook reads the live camera, so it is a ref and the transform is
+    // written straight to the DOM in `applyView`.
+    const viewRef = useRef<MapView>({ zoom: MIN_ZOOM, tx: 0, ty: 0 });
     const activeRef = useRef(active);
-    useEffect(() => { viewRef.current = view; }, [view]);
-    useEffect(() => { activeRef.current = active; }, [active]);
+    // Last `--wm-marker-scale` actually written. See applyView for why this is
+    // tracked separately from the zoom.
+    const appliedMarkerScaleRef = useRef(Number.NaN);
+    const applyFrameRef = useRef(0);
+
+    // ── Writing the camera to the DOM ────────────────────────────────────────
+    // `transform` is set DIRECTLY on the element and never through a CSS custom
+    // property. Custom properties inherit, so writing one on this container
+    // invalidates the computed style of every descendant: measured on the real
+    // build at 390x844 with a 4x CPU throttle, one pan update cost 0.50ms as a
+    // plain `transform` write and 70ms as a `--wm-tf` variable write — 140x, for
+    // an identical visual result. (The variable indirection originally existed
+    // to out-specify a legacy `transform: none !important` mobile rule; that rule
+    // is gone, so the inline style now wins on its own.)
+    //
+    // `--wm-marker-scale` genuinely must be a variable — the pinned markers read
+    // it (see `.atlas-* { scale(var(--wm-marker-scale)) }`) — so it pays that
+    // same subtree-invalidation cost. It is therefore written ONLY when the zoom
+    // has moved enough to change it visibly, which keeps it off the pan path
+    // entirely: panning never changes zoom.
+    //
+    // What that variable is for: the markers ride the map's own `scale(zoom)`, so
+    // unaided they inflate at exactly the rate the spacing does and a clustered
+    // village stays clustered no matter how far you zoom (the "it's just a
+    // magnified picture" problem). Dividing their scale by zoom^0.7 grows each pin
+    // only ~zoom^0.3, so it holds a near-constant tappable size while the gaps
+    // between pins open at full zoom — zooming actually SPREADS the sectors.
+    const applyView = useCallback((animate: boolean) => {
+        const el = contentElRef.current;
+        if (!el) return;
+        if (!activeRef.current) {
+            el.style.transform = "";
+            el.style.transition = "";
+            el.style.removeProperty("--wm-marker-scale");
+            appliedMarkerScaleRef.current = Number.NaN;
+            return;
+        }
+        const v = viewRef.current;
+        el.style.transition = animate ? "transform 140ms ease-out" : "none";
+        el.style.transform = `translate(${v.tx}px, ${v.ty}px) scale(${v.zoom})`;
+        const markerScale = clamp(Math.pow(v.zoom, -0.7), 0.34, 1);
+        const applied = appliedMarkerScaleRef.current;
+        // Number.isNaN(applied) is the "never written yet" case, so it must write.
+        if (Number.isNaN(applied) || Math.abs(markerScale - applied) >= 0.005) {
+            appliedMarkerScaleRef.current = markerScale;
+            el.style.setProperty("--wm-marker-scale", markerScale.toFixed(3));
+        }
+    }, []);
+
+    /** Move the camera. Gesture updates coalesce into one write per frame — a
+     *  120Hz phone otherwise asks for two transforms per displayed frame. */
+    const commitView = useCallback((
+        next: MapView | ((current: MapView) => MapView),
+        animate = false,
+    ) => {
+        viewRef.current = typeof next === "function" ? next(viewRef.current) : next;
+        if (animate) {
+            if (applyFrameRef.current) { cancelAnimationFrame(applyFrameRef.current); applyFrameRef.current = 0; }
+            applyView(true);
+            return;
+        }
+        if (applyFrameRef.current) return;
+        applyFrameRef.current = requestAnimationFrame(() => {
+            applyFrameRef.current = 0;
+            applyView(false);
+        });
+    }, [applyView]);
+
+    useEffect(() => () => {
+        if (applyFrameRef.current) cancelAnimationFrame(applyFrameRef.current);
+    }, []);
+
+    // Attach point for the map div. Re-applies the current camera on (re)mount so
+    // a React remount never leaves the node without its transform.
+    const contentRef = useCallback((el: HTMLDivElement | null) => {
+        contentElRef.current = el;
+        appliedMarkerScaleRef.current = Number.NaN;
+        if (el) applyView(false);
+    }, [applyView]);
+
+    // Entering zoom mode paints the camera; leaving it strips the inline transform
+    // so the legacy/desktop path renders exactly as it did before this hook.
+    useEffect(() => {
+        activeRef.current = active;
+        applyView(false);
+    }, [active, applyView]);
 
     const pointers = useRef<Map<number, Pt>>(new Map());
     const pinch = useRef<{ dist: number; mid: Pt } | null>(null);
@@ -179,9 +270,9 @@ export function useWorldMapZoom(): WorldMapZoomApi {
             const next = isWorldMapZoomEnabled();
             setActive(next);
             // Leaving zoom mode (resized to desktop): drop back to the fit view so
-            // a later re-entry doesn't start mid-zoom. Done in the listener (not an
-            // effect body) to avoid a cascading-render setState.
-            if (!next) setView({ zoom: MIN_ZOOM, tx: 0, ty: 0 });
+            // a later re-entry doesn't start mid-zoom. The `active` effect below
+            // clears the inline transform once React has caught up.
+            if (!next) viewRef.current = { zoom: MIN_ZOOM, tx: 0, ty: 0 };
         };
         let mq: MediaQueryList | null = null;
         try { mq = window.matchMedia(MOBILE_SHELL_QUERY); } catch { mq = null; }
@@ -222,7 +313,7 @@ export function useWorldMapZoom(): WorldMapZoomApi {
 
             cancelAnimationFrame(animationFrame);
             animationFrame = requestAnimationFrame(() => {
-                setView((current) => {
+                commitView((current) => {
                     const previousFloor = coverZoomForSize(previousSize);
                     if (!previousSize.w || current.zoom <= previousFloor + 0.05) {
                         const next = coverViewForSize(nextSize);
@@ -254,7 +345,7 @@ export function useWorldMapZoom(): WorldMapZoomApi {
             ro?.disconnect();
             cancelAnimationFrame(animationFrame);
         };
-    }, []);
+    }, [commitView]);
 
     useEffect(() => () => {
         resizeCleanupRef.current?.();
@@ -290,22 +381,24 @@ export function useWorldMapZoom(): WorldMapZoomApi {
     // the setState out of the effect body).
     useEffect(() => {
         if (!active) return;
-        const id = requestAnimationFrame(() => setView(coverView()));
+        const id = requestAnimationFrame(() => commitView(coverView()));
         return () => cancelAnimationFrame(id);
-    }, [active, coverView]);
+    }, [active, coverView, commitView]);
 
     // Zoom to `nextZoom` while holding the map point under (fx,fy) — viewport-
     // relative pixels — fixed on screen.
-    const zoomAt = useCallback((nextZoom: number, fx: number, fy: number) => {
+    // `animate` marks a discrete camera move (button, wheel, double-tap) so it
+    // eases; a continuous gesture passes false and lands on the finger.
+    const zoomAt = useCallback((nextZoom: number, fx: number, fy: number, animate = true) => {
         const minZ = coverZoom();
-        setView((v) => {
+        commitView((v) => {
             const z1 = clamp(nextZoom, minZ, MAX_ZOOM);
             const tx = fx - (fx - v.tx) / v.zoom * z1;
             const ty = fy - (fy - v.ty) / v.zoom * z1;
             const p = clampPan(z1, tx, ty);
             return { zoom: z1, tx: p.tx, ty: p.ty };
-        });
-    }, [clampPan, coverZoom]);
+        }, animate);
+    }, [clampPan, coverZoom, commitView]);
 
     const centerZoom = useCallback((nextZoom: number) => {
         const { w, h } = sizeRef.current;
@@ -332,7 +425,6 @@ export function useWorldMapZoom(): WorldMapZoomApi {
                 mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
             };
         }
-        setDragging(true);
     }, []);
 
     const onPointerMove = useCallback((e: React.PointerEvent) => {
@@ -350,7 +442,7 @@ export function useWorldMapZoom(): WorldMapZoomApi {
             const dMidX = mid.x - pinch.current.mid.x;
             const dMidY = mid.y - pinch.current.mid.y;
             const minZ = coverZoom();
-            setView((v) => {
+            commitView((v) => {
                 const z1 = clamp(v.zoom * ratio, minZ, MAX_ZOOM);
                 const tx = mid.x - (mid.x - v.tx) / v.zoom * z1 + dMidX;
                 const ty = mid.y - (mid.y - v.ty) / v.zoom * z1 + dMidY;
@@ -366,11 +458,11 @@ export function useWorldMapZoom(): WorldMapZoomApi {
         const dx = p.x - prev.x;
         const dy = p.y - prev.y;
         moved.current += Math.abs(dx) + Math.abs(dy);
-        setView((v) => {
+        commitView((v) => {
             const c = clampPan(v.zoom, v.tx + dx, v.ty + dy);
             return { zoom: v.zoom, tx: c.tx, ty: c.ty };
         });
-    }, [clampPan, coverZoom]);
+    }, [clampPan, coverZoom, commitView]);
 
     const endPointer = useCallback((e: React.PointerEvent) => {
         if (!activeRef.current) return;
@@ -378,7 +470,6 @@ export function useWorldMapZoom(): WorldMapZoomApi {
         const p = localPt(e);
         pointers.current.delete(e.pointerId);
         if (pointers.current.size < 2) pinch.current = null;
-        if (pointers.current.size === 0) setDragging(false);
 
         // Double-tap toggle (only a clean tap — little finger travel).
         if (moved.current <= TAP_SLOP_PX) {
@@ -389,18 +480,17 @@ export function useWorldMapZoom(): WorldMapZoomApi {
                 // Toggle: at the full-bleed floor → zoom in on the tap; otherwise
                 // zoom back out to the full-bleed cover view (never past it).
                 if (viewRef.current.zoom <= coverZoom() + 0.05) zoomAt(DOUBLE_TAP_ZOOM, p.x, p.y);
-                else setView(coverView());
+                else commitView(coverView(), true);
                 lastTap.current = null;
                 return;
             }
             lastTap.current = { t: now, x: p.x, y: p.y };
         }
-    }, [zoomAt, coverZoom, coverView]);
+    }, [zoomAt, coverZoom, coverView, commitView]);
 
     const cancelPointer = useCallback((e: React.PointerEvent) => {
         pointers.current.delete(e.pointerId);
         if (pointers.current.size < 2) pinch.current = null;
-        if (pointers.current.size === 0) setDragging(false);
     }, []);
 
     useEffect(() => {
@@ -424,39 +514,22 @@ export function useWorldMapZoom(): WorldMapZoomApi {
         const cx = (xPct / 100) * w;
         const cy = (yPct / 100) * bh;
         const p = clampPan(z, w / 2 - cx * z, h / 2 - cy * z);
-        setView({ zoom: z, tx: p.tx, ty: p.ty });
-    }, [clampPan, coverZoom]);
+        commitView({ zoom: z, tx: p.tx, ty: p.ty }, true);
+    }, [clampPan, coverZoom, commitView]);
 
-    const contentStyle = useMemo<React.CSSProperties>(() => {
-        const aspectStyle = {
-            ["--wm-map-ar" as string]: String(WORLD_MAP_ASPECT_RATIO),
-        };
-        if (!active) return aspectStyle as React.CSSProperties;
-        // Counter-scale for the pinned markers. They ride the map's `scale(zoom)`,
-        // so on their own they inflate at the SAME rate as the spacing — clustered
-        // sectors would stay overlapping no matter how far you zoom (the "it's just
-        // a magnified picture" problem). Grow them only ~zoom^0.3 (divide their
-        // scale by zoom^0.7) so each pin holds a near-constant, tappable on-screen
-        // size while the gaps between them open up — zooming actually SPREADS the
-        // sectors apart. Consumed by the `.atlas-* { scale(var(--wm-marker-scale)) }`
-        // rules below.
-        const markerScale = clamp(Math.pow(view.zoom, -0.7), 0.34, 1);
-        return {
-            // Consumed by the `.wm-zoom … { transform: var(--wm-tf) }` rule so it
-            // overrides the legacy `transform: none !important` mobile rule.
-            ["--wm-tf" as string]: `translate(${view.tx}px, ${view.ty}px) scale(${view.zoom})`,
-            ["--wm-marker-scale" as string]: markerScale.toFixed(3),
-            // Drives the map box's displayed aspect (background-size:100% 100% then
-            // stretches the art to it). Single source of truth = MAP_AR.
-            ...aspectStyle,
-            transition: dragging ? "none" : "transform 140ms ease-out",
-        } as React.CSSProperties;
-    }, [active, view, dragging]);
+    // Deliberately camera-INDEPENDENT, so a re-render from anywhere else in
+    // WorldMap (a presence poll, a timer) can never write a stale transform over
+    // a gesture in flight. The camera is owned end-to-end by `applyView`; this
+    // only drives the map box's displayed aspect (`background-size: 100% 100%`
+    // then stretches the art to it). Single source of truth = MAP_AR.
+    const contentStyle = useMemo<React.CSSProperties>(() => ({
+        ["--wm-map-ar" as string]: String(WORLD_MAP_ASPECT_RATIO),
+    } as React.CSSProperties), []);
 
     return {
         active,
-        zoom: view.zoom,
         viewportRef,
+        contentRef,
         viewportHandlers: {
             onPointerDown,
             onPointerMove,
@@ -467,7 +540,7 @@ export function useWorldMapZoom(): WorldMapZoomApi {
         contentStyle,
         zoomIn: () => centerZoom(viewRef.current.zoom * 1.4),
         zoomOut: () => centerZoom(viewRef.current.zoom / 1.4),
-        reset: () => setView(coverView()),
+        reset: () => commitView(coverView(), true),
         focusPoint,
     };
 }
