@@ -27,7 +27,16 @@ test('split CI exposes stable required check names with bounded jobs', () => {
     assert.match(workflow, /name: CI \/ e2e-combat \/ \$\{\{ matrix\.shard \}\}/);
     const timeouts = [...workflow.matchAll(/timeout-minutes:\s*(\d+)/g)].map((match) => Number(match[1]));
     assert.ok(timeouts.length >= requiredNames.length, 'every job must declare a timeout');
-    assert.ok(timeouts.every((minutes) => minutes > 0 && minutes < 30), `ordinary CI timeout escaped the sub-30-minute policy: ${timeouts.join(', ')}`);
+    // The ceiling exists to stop a runaway job holding a runner for an hour, not
+    // to pin a specific number. It was 30 until 366afc50f gave both npm audit
+    // steps a three-attempt retry: a single failing attempt costs ~5m of npm's
+    // own internal retrying, so server-build-security needed 30 and
+    // client-quality 35 to fit three of them. That commit raised the timeouts
+    // with its reasoning written into ci.yml and left this bound at 30, which
+    // reddened main on a contract test rather than on any product code — the
+    // audit-flake fix tripping a guard that predated it. 36 clears the retry
+    // budget and still fails a job that has genuinely run away.
+    assert.ok(timeouts.every((minutes) => minutes > 0 && minutes < 36), `ordinary CI timeout escaped the sub-36-minute policy: ${timeouts.join(', ')}`);
 });
 
 test('split CI preserves every release gate and builds each artifact once', () => {
