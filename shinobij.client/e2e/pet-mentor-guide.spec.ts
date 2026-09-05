@@ -3,6 +3,39 @@ import AxeBuilder from "@axe-core/playwright";
 import { PUBLIC_CAPABILITY_IDS } from "../../shared/public-capabilities";
 import { PET_TUTORIAL_LESSON_IDS } from "../../shared/pet-tutorial";
 
+// Mirrored from shared/wanderer-roster.ts rather than imported: that module
+// reaches sideways to `./sector-geo.js`, an extension the Playwright runner's
+// TypeScript resolution refuses, so importing it fails collection outright.
+// shared/wanderer-roster.test.ts pins both values on the source side.
+const WANDERER_BUCKET_MS = 6 * 60 * 60 * 1000;
+const WANDERER_MAX_INDEX = 1;
+
+/**
+ * Keep the road empty for the sector this fixture drops the player into.
+ *
+ * The bandit archetype WALKS AT YOU and opens a blocking Fight/Flee encounter
+ * whose scrim then eats every click on the sector floor -- including Tomoe's
+ * road prompt, which is what this file is here to certify. The cast is
+ * deterministic per (sector, 6h bucket), so this is not flake that retries
+ * away: it lands on whole runs whose bucket happened to roll a bandit.
+ *
+ * The supported way to keep an NPC off the road is its own anti-farm cooldown,
+ * which is real character state the sector floor already honours. Neighbouring
+ * buckets are seeded too because the page reads the bucket off `serverNow()`,
+ * not this process's clock. Mirrors the same helper in adaptive-shell.spec.ts.
+ */
+function quietRoadCooldowns(sector: number, now = Date.now()): Record<string, number> {
+    const expiry = now + 30 * 24 * 60 * 60 * 1000;
+    const cooldowns: Record<string, number> = {};
+    for (const offset of [-1, 0, 1]) {
+        const bucket = Math.floor(now / WANDERER_BUCKET_MS) + offset;
+        for (let index = 0; index <= WANDERER_MAX_INDEX; index++) {
+            cooldowns[`w-${sector}-${bucket}-${index}`] = expiry;
+        }
+    }
+    return cooldowns;
+}
+
 function json(route: Route, body: unknown, status = 200) {
     return route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 }
@@ -95,7 +128,7 @@ function character(completedLessonIds: string[] = []) {
 
 async function installApi(page: Page, currentSector = 0, completedLessonIds: string[] = []) {
     let saveVersion = 1;
-    const savedCharacter = character(completedLessonIds);
+    const savedCharacter = { ...character(completedLessonIds), wandererCooldowns: quietRoadCooldowns(currentSector) };
 
     await page.addInitScript(() => {
         // WebKit rejects this large intercepted autosave before page.route can
@@ -290,7 +323,7 @@ test("Tomoe provides a complete, responsive seven-chapter pet battle course", as
     await expect(guide.getByText("The bell between lessons")).toBeVisible();
 
     await guide.getByRole("button", { name: /Warfront/ }).click();
-    const warfrontHeading = guide.getByRole("heading", { name: "Command the Hollow Warfront" });
+    const warfrontHeading = guide.getByRole("heading", { name: "Command Beastbound Warfront" });
     await expect(warfrontHeading).toBeVisible();
     await expect(warfrontHeading).toBeInViewport();
     expect(await guide.locator(".pet-mentor-lesson").evaluate((lesson) => lesson.scrollTop)).toBeLessThanOrEqual(1);
