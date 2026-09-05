@@ -303,7 +303,11 @@ test("playback advances and the fighters actually take damage", async ({ page },
     test.setTimeout(300_000);
     await openRite(page);
     await page.getByRole("button", { name: "Lock formation" }).click();
-    await expect(page.locator(".wfr-canvas canvas")).toBeVisible({ timeout: 30_000 });
+    // The rite stage mounts TWO canvases once the formation locks: the live
+    // .wfr-canvas-surface and an aria-hidden .wfr-canvas-static backdrop. ".wfr-canvas
+    // canvas" matched one before the static layer existed and is now a strict-mode
+    // collision, so name the surface the rest of this file already targets.
+    await expect(page.locator(".wfr-canvas-surface")).toBeVisible({ timeout: 30_000 });
 
     const clock = page.getByTestId("wfr-clock");
     const tick = async () => Number((await clock.getAttribute("data-tick")) ?? "0");
