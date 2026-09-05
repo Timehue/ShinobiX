@@ -437,7 +437,18 @@ import { readFileSync } from "node:fs";
 // (both parents were green alone), paid for by draining the battle-art
 // preloader to lib/battle-art-preload.ts (7,089 -> 7,069). Small buffer kept
 // so the next cross-branch merge doesn't red the gate on arithmetic alone.
-const MAX_LINES = 7_072;
+// 2026-09-05: that 3-line buffer was not enough — the fe8fa2875 merge union
+// landed App.tsx at 7,073 against the 7,072 budget, so a clean checkout of main
+// was red and every branch cut from it inherited a failure with nothing to do
+// with its own change. Paid for by draining the character factory
+// (createCharacter + createAdminCharacter, 119 lines) verbatim to
+// lib/create-character.ts, alongside normalizeCharacter — its save-hydration
+// counterpart, which the same reasoning moved earlier. Four imports App no
+// longer had a use for (baseStats, currentMonthKey, defaultVillageUpgrades,
+// STARTING_STAT_POINTS) went with them. App.tsx is 6,955; budget is count + 5.
+// createAdminCharacter gained `export` (it was App-private); both bodies are
+// otherwise byte-identical, verified by diff before the originals were deleted.
+const MAX_LINES = 6_960;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
