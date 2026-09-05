@@ -8,7 +8,7 @@ import type { AiAction, AiCondition, AiLoadoutId, AiRecentAction, AiResource, Ai
 import type { CreatorMission, CreatorRaid } from "../types/missions";
 import type { Pet, PetJutsu, PetRarity } from "../types/pet";
 import type { MissionRank } from "../constants/hunter";
-import { DUNGEON_LEGENDARY_FRAGMENT_ID, HOLLOW_GATE_KEY_ID, MAX_LEVEL, PLAYER_ACCOUNTS_STORAGE, STORAGE, VEIL_OF_THE_HOLLOW_ID, COMBAT_RESOURCES_V2 } from "../constants/game";
+import { DUNGEON_LEGENDARY_FRAGMENT_ID, HOLLOW_GATE_KEY_ID, MAX_LEVEL, VEIL_OF_THE_HOLLOW_ID, COMBAT_RESOURCES_V2 } from "../constants/game";
 import { v2JutsuResourceCost } from "../lib/jutsu-scaling";
 import { AdminPasswordReset, AdminClearAuthLock } from "./AdminLogin";
 import { ModerationPanel } from "./ModerationPanel";
@@ -16,6 +16,7 @@ import { AdminLegacyPanel } from "./AdminLegacyPanel";
 import { AdminDiagnosticsPanel } from "./AdminDiagnosticsPanel";
 import { AdminVillageLeadersPanel } from "./AdminVillageLeadersPanel";
 import { makeAdminJutsuActions } from "./admin-jutsu-actions";
+import { runServerReset } from "./admin-server-reset";
 import { AiImagePrompt } from "../components/AiImagePrompt";
 import { gameConfirm } from "../components/GameAlert";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
@@ -130,6 +131,7 @@ type EditableVnPage = {
 const EVO_TEMPLATE_IDS: ReadonlySet<string> = new Set(STARTER_EVOLUTIONS.map((p) => p.id));
 const evoTemplateArt = (id: string): string => (EVO_TEMPLATE_IDS.has(id) ? `/pet-evos/${id}.webp` : "");
 const VILLAGE_ELDER_ROLE_LABELS = ["War Elder", "Trade Elder", "Training Elder"];
+
 
 export function AdminPanel({
     character,
@@ -1620,55 +1622,12 @@ export function AdminPanel({
     }
 
     async function serverReset() {
-        if (!(await gameConfirm(
-            "⚠️ FULL SERVER RESET ⚠️\n\nThis will:\n• Delete ALL player saves — everyone starts fresh at Level 1 and chooses their village again\n• Reset Kage seats and village war history for every village\n• Clear all clans, village chats, presence, PvP sessions, and challenge data\n• Wipe player passwords (players set a new one on next login)\n\nThis will NOT delete:\n• Admin-created content (jutsus, missions, AIs, events, pets, cards, visual novels)\n• Any uploaded images (kage portraits, elder portraits, pets, weapons, avatars)\n• Village Leaders tab configuration (names and images)\n\nThis CANNOT be undone. Are you absolutely sure?",
-            { danger: true, confirmLabel: "Reset server" }
-        ))) return;
-        setServerResetMsg("⏳ Wiping server…");
-        try {
-            const res = await fetch('/api/admin/server-reset', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
-                body: JSON.stringify({}),
-            });
-            const data = await res.json() as { ok?: boolean; deletedCount?: number; error?: string };
-            if (data.ok) {
-                // Clear client-side village/war/territory state so the local cache
-                // matches the fresh server. Preserve leadership images and admin session.
-                const preserve = new Set([
-                    STORAGE,
-                ]);
-                const toRemove: string[] = [];
-                for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
-                    if (!key || preserve.has(key)) continue;
-                    if (
-                        key.startsWith("village-state-") ||
-                        key.startsWith("shinobij-village-war-") ||
-                        key.startsWith("shinobij-sector-territory-") ||
-                        key === PLAYER_ACCOUNTS_STORAGE
-                    ) {
-                        toRemove.push(key);
-                    }
-                }
-                toRemove.forEach(k => localStorage.removeItem(k));
-                // Drop sessionStorage image-category caches so portraits re-fetch
-                // fresh from the server's re-seeded shared:imgfields:misc bucket.
-                try {
-                    for (let i = sessionStorage.length - 1; i >= 0; i--) {
-                        const key = sessionStorage.key(i);
-                        if (!key) continue;
-                        if (key.startsWith("imgcat:")) sessionStorage.removeItem(key);
-                    }
-                } catch { /* ignore */ }
-                setAllKnownPlayers([]);
-                setServerResetMsg(`✅ Server reset complete — ${data.deletedCount ?? 0} keys wiped. All images and admin content preserved. Players start fresh on next login.`);
-            } else {
-                setServerResetMsg(`❌ Reset failed: ${data.error ?? 'Unknown error'}`);
-            }
-        } catch {
-            setServerResetMsg("❌ Network error during reset.");
-        }
+        await runServerReset({
+            adminPw,
+            setMessage: setServerResetMsg,
+            onPlayersCleared: () => setAllKnownPlayers([]),
+            confirm: gameConfirm,
+        });
     }
 
     async function pmApproveItem(id: string) {
@@ -5622,8 +5581,9 @@ export function AdminPanel({
                         {/* -- Full Server Reset -- */}
                         <section className="summary-box" style={{ borderColor: "#450a0a", background: "#1c0606" }}>
                             <h4 style={{ color: "#fca5a5" }}>💀 Full Server Reset</h4>
-                            <p className="hint">Wipes <strong>every player account</strong> back to Level 1. Everyone chooses their village fresh. Resets Kage seats, village wars, clans, village chats, presence, PvP sessions, and player passwords.</p>
-                            <p className="hint" style={{ color: "#4ade80" }}>✅ Preserved: All uploaded images (kage portraits, elder portraits, pets, weapons, avatars) and all admin-created game content (jutsus, missions, AIs, events, pets, cards, visual novels). Village Leaders tab configuration is kept.</p>
+                            <p className="hint">Wipes <strong>every player account</strong> back to Level 1. Everyone chooses their village fresh. Resets Kage seats, village wars, clans, ladders and tower clears, legacy progress, currency ledgers, world and economy tallies, village chats, presence, PvP sessions, and player passwords.</p>
+                            <p className="hint" style={{ color: "#4ade80" }}>✅ Preserved: All uploaded images (kage portraits, elder portraits, pets, weapons, avatars), all admin-created game content (jutsus, missions, AIs, events, pets, cards, visual novels), save snapshots, moderation records and audit logs. Village Leaders tab configuration is kept.</p>
+                            <p className="hint">Pressing the button runs a <strong>preview first</strong> — you confirm against the real record counts before anything is deleted.</p>
                             {!adminPw && (
                                 <p className="hint" style={{ color: "#f87171", marginBottom: 6 }}>⚠️ Session restored without password. Please log out and log back in to enable server actions.</p>
                             )}
