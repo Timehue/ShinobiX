@@ -494,17 +494,23 @@ process.once('SIGINT', () => gracefulShutdown(0, 'SIGINT'));
 // an emergency kill switch cannot disagree with process-start mutation.
 
 // Legacy is the one live system with a REQUIRED opt-in: api/_legacy-track.ts
-// gates on ENABLE_LEGACY==='1' and every /legacy/* route 404s without it — while
-// the client keeps rendering the Legacy tab, so the failure is invisible to
-// operators and merely broken for players. It is deliberately NOT force-set
-// here (that would be a balance decision, not a config fix); say so loudly at
-// startup instead, so a missing var shows up in the deploy log rather than in
-// a player report.
+// gates on ENABLE_LEGACY==='1' and every /legacy/* route 404s without it. The
+// client no longer renders into that hole — api/player/_public-capabilities.ts
+// reports `legacy: configuration-unavailable`, and every Legacy surface
+// (HallOfLegends, LegacyPanel, Profile, UserView, VillageTavern, WorldMap,
+// DailyBriefingModal) gates on useLegacyAvailability(); all but LegacyPanel
+// are pinned by src/lib/mixed-feature-capability-gates.test.ts. So the flag
+// being unset is not BROKEN UI any more; it is a whole system silently
+// ABSENT, which an operator still wants to see. It is deliberately NOT
+// force-set here (that would be a balance decision, not a config fix); say
+// so loudly at startup instead, so a missing var shows up in the deploy log
+// rather than in a player report.
 if (process.env.ENABLE_LEGACY !== '1') {
     console.warn(
         '[startup] ENABLE_LEGACY is not set — the Legacy system (Sage/Trial, Hall of Legends, era titles) '
-        + 'is OFF and every /legacy/* route will 404, but the client still shows its UI. '
-        + 'Set ENABLE_LEGACY=1 to enable it, or ignore this if Legacy is intentionally disabled.',
+        + 'is OFF: every /legacy/* route will 404 and the client hides its Legacy surfaces, so players '
+        + 'see no trace of the feature. Set ENABLE_LEGACY=1 to enable it, or ignore this if Legacy is '
+        + 'intentionally disabled.',
     );
 }
 
