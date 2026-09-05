@@ -13,6 +13,7 @@ import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from '../_real
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { offlineNoticesKey, parseOfflineNotices, OFFLINE_NOTICES_TTL_SEC, type OfflineNotice } from './_offline-notices.js';
 import { kageStakeRefundKey, parsePendingStakeRefunds, drainKageStakeRefunds } from '../village/_kage-inactivity.js';
+import { towerPartyInviteKey } from '../towers/_party.js';
 
 // Presence now lives in the in-memory online store (api/_realtime/online-store.ts)
 // instead of `presence:<name>` DB keys — no per-second DB read/write. The live
@@ -119,14 +120,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // api/village/_kage-inactivity.ts; drained here on the next beat.
         const stakeRefundKey = kageStakeRefundKey(name);
 
+        // Battle Towers party invitations. This is the per-player index
+        // (tower-party-invites:<slug>) that api/towers/_party.ts reconciles under
+        // a lock on every party mutation, so it is a cheap, current "someone is
+        // waiting on you" flag — NOT the validated projection. It rides the mget
+        // below, so it costs no extra round trip. The client treats a new id as a
+        // trigger to fetch the real invitation once; an id whose party has since
+        // expired simply validates away and never becomes a toast.
+        const towerInviteKey = towerPartyInviteKey(safeName(name));
+
         // Presence (own record, for the sector fallback) comes from memory now.
         // Challenges + reset-signal stay DB-backed (polled until the WS push layer).
-        // The three per-beat signal reads ride ONE mget (they all live on the base
+        // The per-beat signal reads all ride ONE mget (they live on the base
         // store, so the routed mget is a single round trip) — this endpoint fires
         // every second per online player, so each read saved here is ~1 op/s/player.
         const existing = onlineStore.get(name);
         const [signals, savedLocation, persistedTravel] = await Promise.all([
-            kv.mget(challengeKey, resetSignalKey, healSignalKey, noticesKey, stakeRefundKey),
+            kv.mget(challengeKey, resetSignalKey, healSignalKey, noticesKey, stakeRefundKey, towerInviteKey),
             existing ? Promise.resolve(null) : kv.get<{ currentSector?: number }>(`save:${safeName(name)}`),
             existing ? Promise.resolve(null) : getTravelLease(name),
         ]);
@@ -136,6 +146,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const rawNotices = signals[3];
         const pendingNotices = parseOfflineNotices(rawNotices);
         const owedStakeRefunds = parsePendingStakeRefunds(signals[4]);
+        const rawTowerInvites = signals[5];
+        const towerPartyInvites = Array.isArray(rawTowerInvites)
+            ? rawTowerInvites.filter((id): id is string => typeof id === 'string' && !!id).slice(0, 8)
+            : [];
 
         if (resetSignal) {
             return res.status(200).json({ forceReload: true });
@@ -240,6 +254,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Omitted when there is nothing to deliver — this frame ships once a
             // second per online player and an empty array is pure payload.
             ...(pendingNotices.length > 0 ? { pendingNotices } : {}),
+            // Same rule as pendingNotices: omitted when empty, because this frame
+            // ships once a second per online player.
+            ...(towerPartyInvites.length > 0 ? { towerPartyInvites } : {}),
             // This clock mints every deadline the client renders (training endsAt,
             // travelingUntil, war pendingUntil) and re-checks them on claim. The
             // beat is the client's reference for it — a player whose own clock

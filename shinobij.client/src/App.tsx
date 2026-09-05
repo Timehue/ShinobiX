@@ -251,6 +251,7 @@ import { useWarRewardClaims } from "./lib/use-war-reward-claims";
 import { useVillageTax } from "./lib/use-village-tax";
 import { requireServerSettlement } from "./lib/server-settlement-gate";
 import { scheduleHeartbeat } from "./lib/heartbeat-cadence";
+import { noteTowerPartyInvites } from "./lib/tower-party-invite-toast";
 import { attackSectorPlayer } from "./lib/sector-attack";
 const StartScreen = lazyWithRetry(() => import("./screens/StartScreen").then(m => ({ default: m.StartScreen })));
 const OnboardingCoach = lazyWithRetry(() => import("./components/OnboardingCoach").then(m => ({ default: m.OnboardingCoach })));
@@ -2144,7 +2145,7 @@ export default function App() {
                     signal: AbortSignal.timeout(12000),
                 });
                 if (!res.ok) return;
-                const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; pendingHeal?: { by?: string } | null; pendingNotices?: unknown; forceReload?: boolean; serverNow?: number; sector?: number; traveling?: boolean } = await res.json();
+                const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; pendingHeal?: { by?: string } | null; pendingNotices?: unknown; towerPartyInvites?: string[]; forceReload?: boolean; serverNow?: number; sector?: number; traveling?: boolean } = await res.json();
                 if (!heartbeatIsCurrent()) return;
                 noteServerTime(data.serverNow); // the beat is our reference for the clock that mints every deadline
                 // Admin reset this account — wipe local state and reload from server
@@ -2224,6 +2225,7 @@ export default function App() {
                         return [...merged, ...incoming];
                     });
                 }
+                void noteTowerPartyInvites(data.towerPartyInvites, char.name);
                 if (data.pendingAttacker && !isTraveling) {
                     // Heartbeat says someone is attacking us, but we haven't received the
                     // DuelChallenge with the server battleId yet (it arrives a beat
