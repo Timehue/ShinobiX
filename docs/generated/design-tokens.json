@@ -2323,6 +2323,17 @@
       {
         "direction": "max",
         "axis": "width",
+        "valuePx": 412,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/pet-warfront-rite.css",
+            "line": 1377
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
         "valuePx": 420,
         "occurrences": [
           {
@@ -2506,6 +2517,10 @@
             "line": 446
           },
           {
+            "source": "shinobij.client/src/styles/pet-warfront-rite.css",
+            "line": 1034
+          },
+          {
             "source": "shinobij.client/src/styles/tower-tactical.css",
             "line": 790
           }
@@ -2612,6 +2627,10 @@
           {
             "source": "shinobij.client/src/components/PetBoardArena.css",
             "line": 453
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-warfront-rite.css",
+            "line": 1386
           }
         ]
       },
@@ -2679,6 +2698,10 @@
           {
             "source": "shinobij.client/src/styles/pet-chronicle-ceremony.css",
             "line": 114
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-warfront-rite.css",
+            "line": 1146
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
@@ -2932,10 +2955,6 @@
             "line": 72
           },
           {
-            "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 417
-          },
-          {
             "source": "shinobij.client/src/styles/profile-skin.css",
             "line": 3223
           },
@@ -3038,6 +3057,14 @@
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
             "line": 647
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-warfront-rite.css",
+            "line": 851
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-warfront-rite.css",
+            "line": 1025
           }
         ]
       },
@@ -3459,7 +3486,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 463
+            "line": 934
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
