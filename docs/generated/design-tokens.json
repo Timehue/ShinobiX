@@ -2429,7 +2429,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1737
+            "line": 1751
           }
         ]
       },
@@ -2591,7 +2591,7 @@
           },
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1521
+            "line": 1535
           },
           {
             "source": "shinobij.client/src/styles/index/36-clan-boss-operation.css",
@@ -2979,7 +2979,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1602
+            "line": 1616
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
@@ -3106,6 +3106,10 @@
           {
             "source": "shinobij.client/src/components/academy-story-moments.css",
             "line": 1
+          },
+          {
+            "source": "shinobij.client/src/screens/FirstPact.css",
+            "line": 219
           },
           {
             "source": "shinobij.client/src/styles/card-clash-tutorial.css",
@@ -3616,7 +3620,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1489
+            "line": 1503
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
