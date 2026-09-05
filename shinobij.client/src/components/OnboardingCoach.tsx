@@ -328,8 +328,22 @@ export function OnboardingCoach({
             )).find((candidate) => candidate.offsetParent !== null);
             if (!target) return false;
             const rect = target.getBoundingClientRect();
+            // Measure the banner rather than assume it. Its height follows the
+            // length of the current coaching line — 148px to 218px at 390x844 —
+            // and on a phone it floats ~80px above the viewport bottom, so it
+            // owns 228-298px of screen. The flat 180px reserve this used to
+            // subtract could therefore call a target "comfortably visible"
+            // while the speech bubble was sitting directly on top of it: the
+            // same failure as the bubble covering the Inventory popup's Equip
+            // button, arrived at by scroll position instead of by z-index.
+            const bannerTop = document
+                .querySelector<HTMLElement>(".onboarding-coach-banner")
+                ?.getBoundingClientRect().top ?? window.innerHeight - 180;
+            // Clamped so a banner taller than the viewport (or one not mounted
+            // yet) degrades to "scroll it to the middle", never to a dead zone.
+            const clearOfBanner = Math.max(120, Math.min(window.innerHeight - 16, bannerTop - 12));
             const comfortablyVisible = rect.top >= 16
-                && rect.bottom <= window.innerHeight - 180
+                && rect.bottom <= clearOfBanner
                 && rect.left >= 16
                 && rect.right <= window.innerWidth - 16;
             if (!comfortablyVisible) {
