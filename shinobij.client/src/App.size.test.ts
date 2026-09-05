@@ -437,7 +437,15 @@ import { readFileSync } from "node:fs";
 // (both parents were green alone), paid for by draining the battle-art
 // preloader to lib/battle-art-preload.ts (7,089 -> 7,069). Small buffer kept
 // so the next cross-branch merge doesn't red the gate on arithmetic alone.
-const MAX_LINES = 7_072;
+// → 2026-09-05: three spare was not a small buffer, it was one lazy-screen
+// mount. First Pact (#122) spent exactly that — a lazyWithRetry line plus its
+// render line — and landed main on 7,073 against this 7,072, reddening
+// server-contracts on its own merge and again on the next one. Paid for by
+// draining normalizeAdminCharacter to lib/admin-character.ts (7,073 -> 7,062);
+// it needed nothing from App, so the move costs no lib -> App import. Buffer
+// restored to 6, the width this comment has twice called "enough for a
+// lazy-screen mount, not a feature" — three was not.
+const MAX_LINES = 7_068;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
