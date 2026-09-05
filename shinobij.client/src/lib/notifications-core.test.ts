@@ -114,5 +114,9 @@ test("battle chrome hides on fight boards but stays on mixed-screen lobbies", ()
     // Pet Showdown: same mixed lobby/fight contract as petArena.
     assert.equal(shouldHideBattleChrome({ screen: "petShowdown", arenaBattleActive: false, petBattleActive: false }), false);
     assert.equal(shouldHideBattleChrome({ screen: "petShowdown", arenaBattleActive: false, petBattleActive: true }), true);
+    // The First Pact city is full-viewport from its first frame — no rails,
+    // regardless of whether its embedded battle has raised the signals yet.
+    assert.equal(shouldHideBattleChrome({ screen: "firstPact", arenaBattleActive: false, petBattleActive: false }), true);
+    assert.equal(shouldHideBattleChrome({ screen: "firstPact", arenaBattleActive: false, petBattleActive: true }), true);
     assert.equal(shouldHideBattleChrome({ screen: "village", arenaBattleActive: true, petBattleActive: true }), false);
 });
