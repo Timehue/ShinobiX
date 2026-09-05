@@ -172,6 +172,28 @@
   .ui-modal-card { animation: none; }
 }
 
+/* While a dialog owns the screen, the fixed coaching banners portaled to <body>
+   stand down. They are anchored bottom-centre at z-index 9000 — far above
+   --z-modal (1100) — so they painted straight over the dialog card: on a phone
+   the Academy companion's own speech bubble covered the Inventory popup's
+   "Equip to <slot>" button during the beat that asks the player to equip their
+   starter gear, and the Jutsu Hall's mobile "Unlock level 1 · free" button one
+   beat earlier. The same happened to the mobile Shinobi Menu (z 2000) and to
+   ScreenHint's own tip dialog.
+
+   `ui-scroll-locked` is the existing ref-counted signal from useBodyScrollLock,
+   which every screen-owning overlay already sets (Modal, the mobile menu, the
+   profile sheet, GameAlert, the cinematics), so this covers all of them at once
+   and releases the moment the last one closes. No wayfinding is lost: the
+   highlighted control inside the dialog carries its own gold
+   `academy-click-target` ring. Kept on visibility rather than display so the
+   companion's live 3D canvas keeps its size instead of remounting. */
+body.ui-scroll-locked .onboarding-coach-banner {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* ----------------------------------------------------------------- Tabs ---- */
 .ui-tabs {
   display: flex;
