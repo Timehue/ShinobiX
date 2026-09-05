@@ -152,7 +152,11 @@ describe('executable multi-engine runtime registry', () => {
     // Chronicle Showdown story campaign, riding the existing card-clash AI
     // routes with a sealed-encounter settlement (a conscious addition, built
     // and registered together).
-    assert.equal(ids.length, 63, 'The corrected inventory must retain the independently pinned 63-row model.');
+    // 64 as of 2026-09-04: 'celestial-first-pact' entered — the level-100
+    // Sunken Court campaign, riding the existing Showdown routes with its own
+    // durable progression record (a conscious addition, built and registered
+    // together).
+    assert.equal(ids.length, 64, 'The corrected inventory must retain the independently pinned 64-row model.');
     assert.equal(new Set(ids).size, ids.length, 'Runtime mode ids must be unique.');
     assert.equal(new Set(labels).size, labels.length, 'Runtime mode labels must be unique.');
     assert.equal(new Set(expectedIds).size, expectedIds.length, 'Independent expected mode ids must be unique.');

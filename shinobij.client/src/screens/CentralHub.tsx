@@ -35,6 +35,7 @@ import crafterForgeArt from "../assets/central/crafter-forge-v1.webp";
 import petColosseumArt from "../assets/coliseum/pet-arena-command-v2.webp";
 import relicDungeonArt from "../assets/towers/chamber.webp";
 import celestialTowerArt from "../assets/towers/battle-towers-key-art-v1.webp";
+import firstPactArt from "../assets/first-pact/sunken-court-key-art.webp";
 import weeklyAshenDragonArt from "../assets/combat-actors/creatures/apex-ai-ember-drake-idle.webp";
 import weeklyStormveilBeastArt from "../assets/combat-actors/creatures/apex-ai-ancient-chakra-beast-idle.webp";
 import weeklyDeathsgateArt from "../assets/combat-actors/bosses/tower-spectral-boss-idle.webp";
@@ -1108,7 +1109,7 @@ export function CentralHub({
                 <Modal open={showCelestialPanel} onClose={() => setShowCelestialPanel(false)} bare ariaLabel="Celestial Tower" size="lg" className="central-dialog-shell">
                     <div className="celestial-panel">
                         <h2><GiStoneTower style={HDR_ICON} />Celestial Tower</h2>
-                        <p className="celestial-panel-sub">Three ways to climb: the endless gauntlet, curated Battle Tower squad floors, or the tower's preserved memories.</p>
+                        <p className="celestial-panel-sub">Four ways to climb: the endless gauntlet, curated Battle Tower squad floors, the tower's preserved memories, or a crossing into the living past.</p>
                         <div style={{ background: "rgba(15,23,42,0.5)", border: "1px solid rgba(148,163,184,0.25)", borderRadius: 6, padding: "0.7rem 0.9rem", margin: "0.4rem 0 0.8rem", fontSize: "0.85rem", lineHeight: 1.5 }}>
                             <div><strong>How it works</strong></div>
                             <div>· Each wave drops a random AI scaled to your level + current wave. Every 10th wave is a boss.</div>
@@ -1122,6 +1123,16 @@ export function CentralHub({
                             <div style={{ marginTop: 6 }}><strong>Rest stops:</strong> every 10th kill automatically restores 33% HP and 50% chakra &amp; stamina.</div>
                         </div>
                         <div className="celestial-panel-options">
+                            <button
+                                className="celestial-option-btn celestial-story-btn"
+                                style={{ "--celestial-story-art": `url(${firstPactArt})` } as CSSProperties}
+                                disabled={character.level < 100}
+                                onClick={() => { setShowCelestialPanel(false); setScreen("firstPact"); }}
+                            >
+                                <span className="celestial-option-icon"><GiTempleGate /></span>
+                                <strong>The First Pact</strong>
+                                <small>{character.level < 100 ? "Sealed until level 100." : "Enter the Sunken Court before its fall. Explore a connected RPG world and fight with two active pets plus two reserves."}</small>
+                            </button>
                             <button className="celestial-option-btn celestial-endless-btn" onClick={() => { setShowCelestialPanel(false); setScreen("endlessTower"); }}>
                                 <span className="celestial-option-icon"><GiStoneTower /></span>
                                 <strong>Enter Celestial Tower</strong>
