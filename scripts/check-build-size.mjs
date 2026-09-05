@@ -581,6 +581,7 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // live-main tree, leaving 56,077 B of deliberate feature headroom. The authored
 // arena images are outside this JS/CSS gate, and the independently checked
 // startup, entry, per-chunk, and per-CSS limits remain unchanged.
+
 //
 // 2026-09-04 PRODUCTION-PAYLOAD DRAIN: ceiling unchanged. The initial First Pact
 // graph measured 8,386,940 B; keeping jutsu FX external and moving other assets
@@ -593,7 +594,29 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // clients. The exact production-env build is 7,993,329 B raw / 2,234,045 B gzip,
 // leaving 6,671 B under this stricter live-main ceiling. No combat or pet-battle
 // source changed.
-const TOTAL_JS_CSS_FAIL_BYTES = 8_000_000;
+// 2026-09-04 CELESTIAL TOWER: THE FIRST PACT: 8,000,000 -> 8,200,000 B. The
+// campaign ships a connected tile world with six interiors, its own procedural
+// renderer, NPC pathing and dialogue, and a durable server-authoritative
+// progression record. On the tree merged with live main it measures
+// 8,131,579 B raw / 2,277,656 B gzip in a credential-free build, against that
+// main's 7,935,075 B, so the campaign is 196,504 B of the ceiling.
+//
+// The drain above is the reason this is a raise and not a much bigger one: it
+// had already reclaimed the FirstPact sprite tax and the Supabase client delta
+// out of the 8,386,940 B graph it measured. What is left is the screen itself.
+//
+// Checked for the usual cause before raising: the FirstPact chunk (172.5 KB JS
+// + 22.0 KB CSS) inlines no `data:*;base64` assets, and its 115 authored images
+// are ordinary files outside this JS/CSS gate. The screen is lazy-mounted and
+// level-100 gated, so the INITIAL graph a player downloads is unchanged, and
+// the independently checked startup, entry, per-chunk and per-CSS limits all
+// still pass untouched.
+//
+// NOTE the drain's own warning: a credential-free build understates the real
+// figure, and the Production Image job is the authority. 8,200,000 leaves
+// 68,421 B over the local measurement to absorb that delta. If Production
+// Image reports over this, take ITS number rather than re-measuring here.
+const TOTAL_JS_CSS_FAIL_BYTES = 8_200_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

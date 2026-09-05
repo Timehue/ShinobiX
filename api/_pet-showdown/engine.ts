@@ -215,6 +215,9 @@ export interface ShowdownSession {
     /** Whether a win here may pay at all. Sealed at start; see
      *  createShowdownSession. False for the hand-picked-AI practice entry. */
     rewardEligible: boolean;
+    /** Server-only parent marker. The public state projection never exposes it;
+     * it lets the endpoint renew only the sidecar this session actually owns. */
+    bindingKind?: 'hollow-gate' | 'world-crisis-80' | 'first-pact';
     /** Sealed at start: a live player-vs-player session. Turns the endpoint's
      *  45s command timer on (SHOWDOWN_PVP_TURN_SECONDS) — the engine itself
      *  never reads a clock, so the deadline bookkeeping lives endpoint-side
