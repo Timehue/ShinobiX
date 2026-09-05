@@ -19,6 +19,7 @@ import type {
     ShowdownTier,
     ShowdownTurnResponse,
 } from "../../../shared/pet-showdown-contract";
+import type { FirstPactEncounterId, FirstPactProgress } from "../../../shared/first-pact-contract";
 
 export {
     SHOWDOWN_BENCH_SIZE,
@@ -74,6 +75,24 @@ export async function startShowdown(
     const data = await r.json().catch(() => null) as { state?: ShowdownStateView; error?: string } | null;
     if (!r.ok || !data?.state) return { error: data?.error ?? "The Showdown gate is closed right now." };
     return { state: data.state };
+}
+
+export async function startFirstPactShowdown(
+    playerName: string,
+    encounterId: FirstPactEncounterId,
+    petIds: string[],
+): Promise<{ state: ShowdownStateView; progress: FirstPactProgress } | { error: string }> {
+    const r = await post({ action: "first-pact", playerName, encounterId, petIds });
+    if (!r) return { error: "The Celestial crossing could not reach the Colosseum." };
+    const data = await r.json().catch(() => null) as {
+        state?: ShowdownStateView;
+        error?: string;
+        firstPact?: { progress?: FirstPactProgress };
+    } | null;
+    if (!r.ok || !data?.state || !data.firstPact?.progress) {
+        return { error: data?.error ?? "The tournament gate is closed right now." };
+    }
+    return { state: data.state, progress: data.firstPact.progress };
 }
 
 /**

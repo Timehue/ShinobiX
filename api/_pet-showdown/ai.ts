@@ -95,12 +95,25 @@ export const SHOWDOWN_TEAM_NAMES: Record<ShowdownTier, string[]> = {
  *  levelled slot-for-slot instead: your Lv 9 leads against a Lv 9, your Lv 1
  *  reserve against a Lv 1. Averaging would hand a lopsided roster a fight its
  *  low pets cannot practise in and its high pets cannot learn from. */
+export type ShowdownRosterSpec = {
+    /** Required role per slot, in play order. A role decides the pet's derived
+     *  utility technique, so asking for `sage` is how a fight is guaranteed to
+     *  bring weather, and `defender` is how it is guaranteed to bring protect. */
+    roles?: readonly string[];
+    /** Required element per slot. */
+    elements?: readonly string[];
+    /** Added to the tier's share of the per-level stat budget, for this team
+     *  only. The one difficulty lever that still moves at level 100, where
+     *  every level is already clamped. */
+    growthShareBonus?: number;
+};
+
 export function buildShowdownAiTeam(
     playerPets: Pet[],
     size: number,
     tier: ShowdownTier,
     seed: number,
-    opts?: { mirrorLevels?: boolean },
+    opts?: { mirrorLevels?: boolean; roster?: ShowdownRosterSpec },
 ): { pets: Pet[]; teamName: string } {
     const rand = makeRand(seed);
     const clampLevel = (n: number): number => Math.max(1, Math.min(100, Math.round(n)));
@@ -118,7 +131,8 @@ export function buildShowdownAiTeam(
     const pool = Object.values(PET_CATALOG).filter((tpl) =>
         rarities.has(String(tpl.rarity)) && tpl.wildSpawnable !== false && Array.isArray(tpl.jutsus));
 
-    const growthAt = (level: number): number => 1 + (level - 1) * 0.04 * TIER_GROWTH_SHARE[tier];
+    const growthShare = TIER_GROWTH_SHARE[tier] + Math.max(0, Math.min(.35, Number(opts?.roster?.growthShareBonus) || 0));
+    const growthAt = (level: number): number => 1 + (level - 1) * 0.04 * growthShare;
     const picked: Pet[] = [];
     const usedElements = new Set<string>();
     /*
@@ -153,6 +167,53 @@ export function buildShowdownAiTeam(
                 : {}),
         };
     };
+    /*
+     * An authored roster fills its slots first, and only from the same tier
+     * pool the random pass draws from, so a spec shapes the opposition without
+     * smuggling in rarities the tier does not allow. Each slot asks for its
+     * exact role and element, then relaxes to role alone: the catalog carries
+     * every role in every element, but a filter can still come up empty once
+     * earlier slots have taken their picks, and a spec must never hand back a
+     * short team. Whatever it cannot place drops through to the original random
+     * passes below.
+     *
+     * This runs inside its own branch and draws from its own copy on purpose.
+     * The seeded sampler is the engine's only randomness and a persisted
+     * session has to replay exactly, so a caller that passes no roster must
+     * consume the rand() stream in precisely the order it always did. Shuffling
+     * unconditionally -- which the first cut of this did -- silently re-rolled
+     * every opponent in every other mode.
+     */
+    const spec = opts?.roster;
+    const taken = new Set<string>();
+    if (spec?.roles || spec?.elements) {
+        const authored = [...pool];
+        for (let i = authored.length - 1; i > 0; i--) {
+            const j = Math.floor(rand() * (i + 1));
+            [authored[i], authored[j]] = [authored[j], authored[i]];
+        }
+        for (let slot = 0; slot < size; slot += 1) {
+            const wantRole = spec.roles?.[slot];
+            const wantElement = spec.elements?.[slot];
+            const free = (tpl: Record<string, unknown>) => !taken.has(String(tpl.id));
+            const exact = authored.find((tpl) => free(tpl)
+                && (!wantRole || String(tpl.role ?? '') === wantRole)
+                && (!wantElement || String(tpl.element ?? '') === wantElement));
+            const chosen = exact ?? authored.find((tpl) => free(tpl)
+                && (!wantRole || String(tpl.role ?? '') === wantRole));
+            if (!chosen) continue;
+            taken.add(String(chosen.id));
+            usedElements.add(String(chosen.element ?? 'None'));
+            picked.push(outfit(chosen, picked.length));
+        }
+        for (const tpl of authored) {
+            if (picked.length >= size) break;
+            if (taken.has(String(tpl.id))) continue;
+            taken.add(String(tpl.id));
+            picked.push(outfit(tpl, picked.length));
+        }
+    }
+
     // Fisher–Yates with the seeded sampler — a rand() sort comparator is not a
     // deterministic shuffle across engines.
     const shuffled = [...pool];
@@ -162,6 +223,7 @@ export function buildShowdownAiTeam(
     }
     for (const tpl of shuffled) {
         if (picked.length >= size) break;
+        if (taken.has(String(tpl.id))) continue;
         const element = String(tpl.element ?? 'None');
         // Prefer element diversity so 2v2/3v3 teams pose varied matchups.
         if (usedElements.has(element) && shuffled.length > size * 3 && rand() < 0.8) continue;

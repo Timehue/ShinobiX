@@ -55,7 +55,7 @@ export const RESTORABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     // from a sessionStorage stash that survives a reload and is handled when
     // missing). Before these were listed, a refresh on any of them fell through
     // to the village — i.e. teleported the player home out of the world.
-    "weeklyBoss", "villageWar", "endlessTower", "petArena", "petColiseum",
+    "weeklyBoss", "villageWar", "endlessTower", "petArena", "petColiseum", "firstPact",
     "cardClashFreePlay", "clanWarPet", "tilecardsDuel",
     "sectorCard", "sectorPet", "sectorGarrison", "storyBoss",
     // Clan War 2v2 reads the same sessionStorage handoff as clanWarPet and
@@ -148,7 +148,7 @@ export const BATTLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     "pvpBattle", "petArena", "petShowdown", "arena", "storyBoss", "weeklyBoss", "villageWar",
     "hollowGateShrine", "hollowGateTiles", "endlessTower", "dungeon", "eventTiles",
     "eventPetBattle", "tilecardsDuel", "sectorCard", "cardClashFreePlay", "battleTowers",
-    "clanWar2v2",
+    "clanWar2v2", "firstPact",
 ]);
 
 // Battle Towers has no server BattleLockKeeper — the run lives in tower:<runId>
@@ -260,6 +260,10 @@ export function isUnresolvedBattle(s: BattleGuardSignals): boolean {
         case "petShowdown":
             // Showdown lifts the same signal PetArena does: true only while a
             // server session is unresolved (the lobby stays freely navigable).
+            return s.petBattleActive;
+        case "firstPact":
+            // The overworld is freely explorable; only its embedded, sealed
+            // four-pet tournament battle commits the player to the arena.
             return s.petBattleActive;
         case "endlessTower":
             return s.endlessBattleActive;

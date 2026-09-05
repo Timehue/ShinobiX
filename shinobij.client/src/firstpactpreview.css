@@ -1,0 +1,32 @@
+:root {
+    color-scheme: dark;
+    background: #030711;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html.fp-preview,
+body.fp-preview,
+#root.fp-preview-root {
+    width: 100%;
+    min-width: 320px;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+}
+
+button:focus-visible {
+    outline: 2px solid #85f4f2;
+    outline-offset: 3px;
+}

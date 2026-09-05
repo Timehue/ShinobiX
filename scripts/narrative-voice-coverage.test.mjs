@@ -20,14 +20,12 @@ import { describe, it } from 'node:test';
 const root = resolve(import.meta.dirname, '..');
 
 const corpora = [
-    // PENDING: when Celestial Tower: The First Pact lands, add its three prose
-    // corpora here — 'shinobij.client/src/screens/FirstPact.tsx',
-    // 'shared/first-pact-contract.ts' and
-    // 'shinobij.client/src/lib/first-pact-api.ts'. Its own narrative test
-    // checks lore anchors and the dash rule but never the shinobi-world
-    // vocabulary rules below, so it needs this gate the same as the rest.
-    // They are not listed yet because a named corpus that does not exist fails
-    // this file, and that campaign is a separate pull request.
+    // The First Pact campaign: quest, vow and NPC dialogue that only its own
+    // narrative test reads, and that test checks lore anchors and the dash
+    // rule -- never the shinobi-world vocabulary rules below.
+    'shinobij.client/src/screens/FirstPact.tsx',
+    'shared/first-pact-contract.ts',
+    'shinobij.client/src/lib/first-pact-api.ts',
     'shared/legacy-card-sources.ts',
     'shared/chronicle-duel.ts',
     'shinobij.client/src/data/starter-items.ts',
