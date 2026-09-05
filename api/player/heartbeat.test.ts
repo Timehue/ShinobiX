@@ -72,3 +72,35 @@ test('two notices that differ only by amount are distinguished (no over-deletion
     assert.equal(left.length, 1);
     assert.equal(left[0].amount, 900);
 });
+
+// ── Battle Towers invite signal ──────────────────────────────────────────────
+// A targeted party invitation used to reach the player through exactly one
+// poller, on a screen three levels deep, so an invited player was never told.
+// The heartbeat now carries the per-player invite index. Two properties make
+// that affordable on a frame that ships once a second per online player, and
+// both are easy to undo by accident:
+//   1. the read rides the mget that was already being made — NOT a new kv.get
+//   2. the field is omitted entirely when there is nothing to deliver
+test('the tower invite index rides the existing mget and is omitted when empty', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    // resolve() from cwd, not import.meta.url — this file also builds into the
+    // CommonJS server output, where import.meta is a compile error (TS1470).
+    const source = readFileSync(resolve(process.cwd(), 'api/player/heartbeat.ts'), 'utf8');
+
+    assert.match(
+        source,
+        /kv\.mget\(challengeKey, resetSignalKey, healSignalKey, noticesKey, stakeRefundKey, towerInviteKey\)/,
+        'the invite index must be batched into the existing mget, not read separately',
+    );
+    assert.doesNotMatch(
+        source,
+        /kv\.get[^\n]*towerInviteKey/,
+        'a standalone read would add ~1 op/s per online player',
+    );
+    assert.match(
+        source,
+        /\.\.\.\(towerPartyInvites\.length > 0 \? \{ towerPartyInvites \} : \{\}\)/,
+        'an empty array on this frame is pure payload — omit the field',
+    );
+});
