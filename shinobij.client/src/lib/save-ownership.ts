@@ -123,6 +123,9 @@ export const SERVER_OWNED_TOPLEVEL_FIELDS: ReadonlySet<string> = new Set([
     'creatorJutsus', 'creatorAis', 'creatorMissions', 'creatorEvents', 'creatorCards',
     'creatorRaids', 'editablePets', 'petEncounterVn', 'ancientChestVn',
     'hollowGateEventConfig', 'pendingBloodlineForges', 'worldGeoV', '_saveVersion', '_saveAt',
+    // Regeneration cursor and the travel-settled arrival tile: server-written,
+    // never sent by a generic save (api/_elapsed-state.ts, _realtime/travel-lease.ts).
+    '_regenAt', 'currentTile',
 ]);
 
 /**

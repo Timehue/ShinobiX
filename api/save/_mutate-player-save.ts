@@ -140,15 +140,14 @@ export async function mutatePlayerSave<T>(
         // action the player's own screen showed as ready, or the mutation's
         // version bump discarded the recovery earned since that GET. Real
         // activity excludes it: a battle lock, an open Hollow Gate run, an
-        // admission. One mget, under the lock the write already holds.
+        // admission. One get, under the lock the write already holds.
         const now = Date.now();
-        const [{ battleLockFlagsForPlayers, settleVitalsRegen }, { migrateCharacterOwnedPets }, { settlePetBreedingSession }] = await Promise.all([
+        const [{ battleLockedFor, settleVitalsRegen }, { migrateCharacterOwnedPets }, { settlePetBreedingSession }] = await Promise.all([
             import('../_elapsed-state.js'),
             import('../pet/_owned-pet.js'),
             import('../pet/_breeding-requirements.js'),
         ]);
-        const lockFlags = await battleLockFlagsForPlayers([playerName]);
-        const regen = settleVitalsRegen(record, { now, battleLocked: lockFlags.get(playerName) === true });
+        const regen = settleVitalsRegen(record, { now, battleLocked: await battleLockedFor(playerName) });
         const settledCharacter = (regen.record.character ?? storedCharacter) as PlayerCharacter;
 
         // Every authoritative mutation sees the same idempotent owned-pet
