@@ -7,6 +7,7 @@ import { ECHOES_ERA_INTROS, ECHOES_SCENES, ECHOES_WITNESS_CONTENT } from "../dat
 import { storyEpiloguesByVillage } from "../data/story-epilogues";
 import { storyFieldScenes } from "../data/story-field-scenes";
 import { storyReckonings } from "../data/story-reckonings";
+import { storyRoadEvents } from "../data/story-road-events";
 import {
     ECHOES_CONTENT_KEY,
     ECHOES_CONTENT_SCHEMA_VERSION,
@@ -20,6 +21,8 @@ import {
 import { createStoryContentLoader, createStoryContentResource, StoryContentLoadError, validateEchoesContentPayload, validateStoryContentPayload } from "./story-content-loader-core";
 import { STORY_FIELD_CONTENT_SCHEMA_VERSION } from "./story-field-content-contract";
 import { validateStoryFieldContent } from "./story-field-content-loader-core";
+import { STORY_ROAD_CONTENT_SCHEMA_VERSION } from "./story-road-content-contract";
+import { validateStoryRoadContent } from "./story-road-content-loader-core";
 
 function payload(village: StoryContentVillage = "Stormveil Village"): StoryContentPayload {
     return {
@@ -34,17 +37,19 @@ function jsonResponse(value: unknown, status = 200): Response {
     return new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
 }
 
-test("generated content-addressed payloads exactly mirror every authored village export", () => {
+test("generated content-addressed payloads exactly mirror every authored story export", () => {
     const directory = new URL("../generated/story-content/", import.meta.url);
     const files = readdirSync(directory).filter((file) => file.endsWith(".json"));
-    const storyFiles = files.filter((file) => !file.startsWith("epilogues-") && !file.startsWith("field-scenes-") && !file.startsWith(`${ECHOES_CONTENT_KEY}-`));
+    const storyFiles = files.filter((file) => !file.startsWith("epilogues-") && !file.startsWith("field-scenes-") && !file.startsWith("road-events-") && !file.startsWith(`${ECHOES_CONTENT_KEY}-`));
     const epilogueFiles = files.filter((file) => file.startsWith("epilogues-"));
     const fieldFiles = files.filter((file) => file.startsWith("field-scenes-"));
     const echoesFiles = files.filter((file) => file.startsWith(`${ECHOES_CONTENT_KEY}-`));
+    const roadFiles = files.filter((file) => file.startsWith("road-events-"));
     assert.equal(storyFiles.length, STORY_CONTENT_VILLAGES.length);
     assert.equal(epilogueFiles.length, STORY_CONTENT_VILLAGES.length);
     assert.equal(fieldFiles.length, 1);
     assert.equal(echoesFiles.length, 1);
+    assert.equal(roadFiles.length, 1);
     for (const village of STORY_CONTENT_VILLAGES) {
         const slug = storyContentSlug(village);
         const matches = storyFiles.filter((file) => file.startsWith(`${slug}-`));
@@ -63,6 +68,12 @@ test("generated content-addressed payloads exactly mirror every authored village
         schemaVersion: STORY_FIELD_CONTENT_SCHEMA_VERSION,
         scenes: storyFieldScenes,
         reckonings: storyReckonings,
+    })));
+    assert.match(roadFiles[0], /^road-events-[a-f0-9]{12}\.json$/);
+    const roadPayload = JSON.parse(readFileSync(new URL(roadFiles[0], directory), "utf8"));
+    assert.deepEqual(validateStoryRoadContent(roadPayload), JSON.parse(JSON.stringify({
+        schemaVersion: STORY_ROAD_CONTENT_SCHEMA_VERSION,
+        events: storyRoadEvents,
     })));
 });
 
