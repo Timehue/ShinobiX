@@ -10,6 +10,7 @@ import frostfangEpiloguesUrl from "./epilogues-frostfang-659233c662fa.json?url";
 import moonshadowEpiloguesUrl from "./epilogues-moonshadow-8e28874ea94a.json?url";
 import echoes_of_warUrl from "./echoes-of-war-f50a0d09ec69.json?url";
 import storyFieldContentUrl from "./field-scenes-fb758c7e1cc5.json?url";
+import storyRoadContentUrl from "./road-events-b19d7a0e2ad8.json?url";
 
 export const STORY_CONTENT_URLS: Record<StoryContentVillage, string> = {
     "Stormveil Village": stormveilUrl,
@@ -29,3 +30,6 @@ export const STORY_FIELD_CONTENT_URL = storyFieldContentUrl;
 
 /** The Echoes of War campaign script (fetched by lib/echoes-content-loader.ts). */
 export const ECHOES_CONTENT_URL: string = echoes_of_warUrl;
+
+/** Road-event scripts fetched before World Map eligibility is evaluated. */
+export const STORY_ROAD_CONTENT_URL: string = storyRoadContentUrl;
