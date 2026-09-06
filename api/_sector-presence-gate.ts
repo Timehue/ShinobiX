@@ -66,3 +66,27 @@ export function sectorPresenceBlock(playerName: string, claimedSector: unknown):
     }
     return null;
 }
+
+/**
+ * The OTHER door of the same trade (see api/_realtime/presence-gating.ts):
+ * `inBattle` is asserted by the client's own heartbeat and confers attack
+ * immunity, so a tampered client can claim to be mid-battle forever while it
+ * farms the field — full PvE income, total PvP immunity. Nothing server-side
+ * can prove the claim false across every combat host, so immunity is not
+ * stripped; instead the claim is held to its own consequence: a player who is
+ * in a battle cannot also be working the field. For an honest client this is
+ * a no-op — every fight is a modal overlay, and no field request leaves the
+ * world map while one is open.
+ *
+ * `DISABLE_INBATTLE_FIELD_GATE=1` switches the gate off without a deploy.
+ */
+export function fieldActionBlockedByClaimedBattle(playerName: string): SectorPresenceBlock | null {
+    if (process.env.DISABLE_INBATTLE_FIELD_GATE === '1') return null;
+    const presence = onlineStore.get(playerName);
+    if (!presence?.inBattle) return null;
+    return {
+        status: 409,
+        error: 'Finish or resume your active battle before working the field.',
+        reason: 'battle-active',
+    };
+}

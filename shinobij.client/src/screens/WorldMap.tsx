@@ -151,7 +151,7 @@ import { biomeForWorldSector, sectorRegionName, villageForOutskirtsSector, villa
 import { biomeLabel, weatherEffects } from "../data/world";
 import { builtinHuntMissions } from "../data/missions";
 import { makeId, playerSlug, sameSector } from "../lib/utils";
-import { setSectorReopen, takeSectorReopen, peekSectorReopen, consumeReloadIntoSector } from "../lib/sector-return";
+import { setSectorReopen, takeSectorReopen, peekSectorReopen, consumeReloadIntoSector, peekReloadIntoSector } from "../lib/sector-return";
 import { isRecentlyStruckDown } from "../lib/sleeper-kill";
 import { useLiveSectorRoster, setLocalSectorTile, getLocalSectorTile } from "../lib/presence-store";
 import { updateRealtimeTile } from "../lib/use-presence-socket";
@@ -2529,7 +2529,11 @@ function WorldMapContent({
     // last tile at module scope, so it survives WorldMap's unmount during the
     // battle. Peek, never take — the mount effect above owns consuming the latch.
     const [sectorPlayerPos, setSectorPlayerPos] = useState(
-        () => (peekSectorReopen() !== null ? getLocalSectorTile() : SECTOR_CENTRE_TILE),
+        // A return from combat keeps the tile the player stood on; a browser
+        // reload resumes on the tile the server persisted for the last settled
+        // arrival (hydrated into presence-store at boot). Anything else opens
+        // on the grid centre, as before.
+        () => (peekSectorReopen() !== null || peekReloadIntoSector() ? getLocalSectorTile() : SECTOR_CENTRE_TILE),
     );
     const travelRequestInFlight = useRef(false);
     // Bridge the local player's tile to the presence store so the heartbeat (which
@@ -2967,6 +2971,14 @@ function WorldMapContent({
             if (settled.retryable === false) {
                 completeWorldRewardOperation(character.name, operation.id);
             }
+            // An ambush rolled earlier (this device or another) is still owed:
+            // the server refused a fresh roll and named it. Resume that exact
+            // sealed encounter through the same launcher a fresh roll uses.
+            if (settled.pendingBattle) {
+                if (launchResolvedExploreBattle(settled.pendingBattle.sector, settled.pendingBattle.requestId)) return null;
+                alert("The combat host is unavailable. Reopen the map to resume your pending encounter.");
+                return null;
+            }
             if (settled.error === "sector-depleted") { gameToast(SECTOR_DEPLETED_MESSAGE, { kind: "info" }); return null; }
             alert(settled.error === "daily-limit"
                 ? "Daily tile exploration limit reached (150/150). Resets at midnight UTC."
@@ -3179,6 +3191,18 @@ function WorldMapContent({
                             recovered = true;
                             break;
                         }
+                    }
+                    if (result.pendingBattle) {
+                        // This parked operation never committed (the server refused
+                        // it in favour of the owed ambush); retire it and resume the
+                        // ambush itself.
+                        completeWorldRewardOperation(character.name, operation.id);
+                        if (launchResolvedExploreBattle(result.pendingBattle.sector, result.pendingBattle.requestId)) {
+                            recovered = true;
+                            break;
+                        }
+                        blocked = true;
+                        continue;
                     }
                     if (result.retryable === false) {
                         completeWorldRewardOperation(character.name, operation.id);

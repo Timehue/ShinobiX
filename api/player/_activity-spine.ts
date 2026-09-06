@@ -172,12 +172,11 @@ function focusRecommendations(input: ActivitySpineInput, focus: Focus, facts: Fo
         // gates on isBelowAttackableFloor, level 10). This used to say 15 — the
         // Academy threshold that governs guard duty and being CHALLENGED — so
         // levels 10–14 were told Ranked was blocked while the queue would have
-        // taken them. The eligibility fact now comes from the shared constant.
-        // The authored blocker text below still names level 15; rewriting
-        // player-facing copy is outside the behavior-only scope, so it is left
-        // as-is and recorded as a deferred UI dependency.
+        // taken them. The eligibility fact AND the blocker text come from the
+        // shared constant, so guidance can never again name a threshold the
+        // queue does not enforce (the queue's own refusal uses the same number).
         const blocked = input.level < ATTACKABLE_MIN_LEVEL;
-        const blocker = blocked ? 'Reach level 15 and finish your Academy foundation first.' : undefined;
+        const blocker = blocked ? `Reach level ${ATTACKABLE_MIN_LEVEL} before entering ranked battles.` : undefined;
         const nextRating = Math.max(1200, Math.ceil((facts.ranked.rating + 1) / 200) * 200);
         const prestige = optionalPrestigeLongTerm(facts);
         return [
