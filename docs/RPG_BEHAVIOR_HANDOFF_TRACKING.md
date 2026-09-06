@@ -18,25 +18,25 @@ no defect found / preserved), `design-only` (behavior preserved, decision record
 
 | ID | Recheck disposition (handoff) | Actual handlers / helpers | Regression test | Status |
 |---|---|---|---|---|
-| F01 battle availability | Fix: client-asserted `inBattle` grants immunity | `api/_realtime/presence-gating.ts`, `api/player/attack.ts`, `api/player/heartbeat.ts` | — | deferred (design: needs a battle-state source every fight-start path writes; see "Activity authority" below) |
-| F02 action compatibility | Implement explicit compatibility for prohibited overlaps | per-handler | — | deferred (policy questions not answered by the handoff; current rules preserved) |
-| F03 complete aftermath | Preserve; close location/presence connections | `api/_realtime/travel-lease.ts` (arrival tile now persisted), `api/player/heartbeat.ts` (cold start adopts it) | `api/player/travel.test.ts` | partial — server side done; the client board still seeds its own default tile on reload (see deferred) |
+| F01 battle availability | Fix: client-asserted `inBattle` grants immunity | `api/_sector-presence-gate.ts` (`fieldActionBlockedByClaimedBattle`), `api/world/explore.ts` | `api/world/explore-obligations.test.ts` | fixed (income door): a player claiming to be mid-battle cannot work the field; immunity itself is not stripped (no server source proves the claim false across every combat host); kill switch `DISABLE_INBATTLE_FIELD_GATE=1` |
+| F02 action compatibility | Implement explicit compatibility for prohibited overlaps | `api/world/explore.ts`, `api/missions/ai-fight-start.ts` | `api/world/explore-obligations.test.ts` | fixed (the clear case): a hospitalized character cannot explore or start a new AI fight; other policy questions left as-is |
+| F03 complete aftermath | Preserve; close location/presence connections | `api/_realtime/travel-lease.ts` (arrival tile persisted), `api/player/heartbeat.ts` (cold start adopts it), client `lib/sector-return.ts`, `screens/WorldMap.tsx` initializer, `App.tsx` boot hydration | `api/player/travel.test.ts`, `shinobij.client/src/lib/sector-return.test.ts` | fixed: a reload resumes on the persisted arrival tile instead of the grid centre |
 | F04 persistent chakra/stamina | Do NOT implement | `api/solo-pve/_ai-encounter.ts` (V2 starts full) | existing | design-only (preserved) |
 | F05 all non-wins alike | Preserve mode distinctions; fix premature settlement (N03) | see N03 | see N03 | fixed via N03 |
 | F06 wrong participant | Fix exact actor + legacy receipt collision | `api/missions/_ai-fight-outcome.ts`, `api/pve/_fight-outcome-settlement.ts` | `api/pve/_fight-outcome-participant.test.ts` | fixed |
-| F07 ambush continuity | Commit durable pending encounter at discovery | `api/world/explore.ts`, `api/missions/_generic-ai-fight-authority.ts` | — | deferred (needs a client resume path for a new 409 reason; recorded below) |
+| F07 ambush continuity | Commit durable pending encounter at discovery | `api/world/_pending-battle.ts`, `api/world/explore.ts`, client `lib/world-reward-api.ts`, `screens/WorldMap.tsx` (resume via the existing launcher) | `api/world/_pending-battle.test.ts`, `api/world/explore-obligations.test.ts` | fixed |
 | F08 expiry | Test each mode's expiry; evidence-based conclusion | stores | — | deferred |
 | F09 PvP consequence receipt | Atomic effect+receipt per participant | `api/pvp/_vitals-settlement.ts` | `api/pvp/_vitals-settlement.test.ts` | fixed |
-| F10 safety from navigation | Server-authorize town entry | `api/_realtime/online-store.ts`, `api/player/heartbeat.ts` | — | deferred (see "Activity authority") |
+| F10 safety from navigation | Server-authorize town entry | `api/_realtime/world-duel-engagement.ts`, `api/player/heartbeat.ts`, `api/_realtime/socket.ts` | `api/player/heartbeat-town-escape.test.ts` | fixed: a safe-zone exit is refused while a queued attacker or an active vitals-carrying PvP session engages the player; unengaged town entry stays instant |
 | F11 road origin | Validate real origin | `api/player/travel.ts` | `api/player/travel.test.ts` | fixed (sector authoritative; tile tolerance documented) |
 | F12 tile-distance rules | Design-only | — | — | design-only (sector-wide targeting preserved) |
 | F13 regeneration clock | Dedicated regen cursor + exclusions | `api/_elapsed-state.ts`, `api/save/_save-version.ts`, `api/save/_mutate-player-save.ts`, `api/save/[name].ts` | `api/_elapsed-state-regen-cursor.test.ts` (+ existing elapsed/save suites) | fixed |
 | F14 healer full refill | Preserve; obey battle authority | `api/player/heal.ts` | existing | design-only (preserved) |
 | F15 duplicate direct transfer | Guarded claim under lock, fingerprint, retained id | `api/player/trade.ts`, client `lib/player-trade.ts` | `api/player/trade.test.ts` | fixed |
 | F16 duplicate bank movement | Stable operation id / receipt | `api/bank/transfer.ts`, client `screens/Bank.tsx` (fetch body only) | `api/bank/transfer.test.ts` | fixed (+ restored the broken `direction` field) |
-| F17 lost world progress | Durable side-effect delivery for intel/contracts | `api/world/explore.ts` | — | deferred (outbox design; N05 removes the wrong compensation) |
+| F17 lost world progress | Durable side-effect delivery for intel/contracts | `api/world/_effects-outbox.ts`, `api/world/explore.ts`, `api/_sector-contracts.ts` | `api/world/explore-obligations.test.ts`, `api/world/_effects-outbox.test.ts` | fixed (at-least-once outbox drained on the next exploration) |
 | F18 offline notices | Owner-scoped ack/dedupe | `api/player/heartbeat.ts`, client `lib/notice-ack.ts` | `api/player/heartbeat-notice-ack.test.ts` | fixed |
-| F19 ranked guidance | Align eligibility predicate; copy deferred | `api/player/_activity-spine.ts` | `api/player/_activity-spine-ranked-floor.test.ts` | fixed (wording deferred) |
+| F19 ranked guidance | Align eligibility predicate | `api/player/_activity-spine.ts` | `api/player/_activity-spine-ranked-floor.test.ts` | fixed, including the blocker text (now names the level-10 floor the queue enforces) |
 | F20 sector-ID reward formula | Preserve | — | — | design-only |
 | F21 pet availability | Reuse rules; fix N01 | `api/pet/_pet-busy.ts`, `api/pet/progress.ts` | `api/pet/progress-equip.test.ts` | fixed via N01 |
 | F22 household transfer restrictions | Preserve | `api/player/trade.ts` | existing | design-only (preserved) |
@@ -177,28 +177,30 @@ threshold; changing it is a copy edit outside the authorized scope.
 
 ## Deferred items (recorded, not implemented)
 
-- **Activity authority (F01, F02, F10):** there is no single server battle-state source
-  that every fight-start path writes (`presence-gating.ts` documents this). Honest
-  sources today: `pvp:pending-session:<slug>`, `ai-fight-active:<slug>`, tower battle
-  leases, `hollowGateRun` on the save, `battle-lock:<slug>` (legacy). A corroborated
-  `inBattle` and a server-authorized town entry both need an adapter over those
-  sources; that is a design change the handoff itself scopes as Phase B and it was
-  not attempted here.
-- **F07:** blocking further exploration on an unstarted ambush requires the client to
-  resume the ambush from a new 409 reason (`pending-battle-discovery`); the resume
-  path is nonvisual but touches `WorldMap.tsx` flow logic and was not built in this
-  pass. Server evidence already exists (in-save receipt with `outcome.kind:'battle'`,
-  30-day authority, single-use marker).
-- **F08:** per-mode expiry terminalization.
-- **F17:** durable outbox for intel / contracts / world-threshold observers.
-- **F03 (client half):** the server now persists and resumes the arrival tile, but
-  the World Map still seeds its own board position from the client's module-local
-  default on reload (`lib/presence-store.ts` `localTile`). Adopting the server tile
-  is a nonvisual change to the map's mount flow that was not made in this pass.
+- **F08:** per-mode expiry terminalization (evidence-based settlement of expired
+  active sessions before storage cleanup). Needs a sweeper over each mode's session
+  store and a per-mode ruling on what an expired run costs; not attempted.
+- **F01, the immunity itself:** `inBattle` still confers attack immunity while
+  asserted. Stripping it needs a battle-state source every fight-start path writes;
+  the income door is closed instead (see the table). Recorded sources today:
+  `pvp:pending-session:<slug>` (+ `pvp:<battleId>`), `ai-fight-active:<slug>`,
+  `mission-combat-active:<slug>:<mission>`, `battle-lock:<slug>` (towers/legacy),
+  `hollowGateRun` on the save, pet-duel sessions in memory.
 - **F15 legacy clients:** a request without a nonce still runs with no replay
   identity. The shipped client always sends one; making it mandatory is a rollout
   decision once no versionless bodies are observed.
-- **F19 copy:** the "Reach level 15 …" blocker string (levels 1–9) is authored copy.
+- **F03, mid-sector position:** only the arrival tile is persisted (at travel
+  settle); walking within a sector is not written to the save, so a reload resumes
+  on the road the player arrived by, not the tile they last stood on.
+
+## Follow-up items and behavior changes to confirm
+
+- Abandoning an active Solo-PvE fight through `/api/pve/fight-outcome` now charges
+  the engine's designed 10% max-HP abandon cost (the endpoint had bypassed it).
+- Bank `direction`/`action`: every deposit and withdrawal from the Bank screen had
+  been answered 400 since 2026-07; restored server-side (both names accepted).
+- Ranked blocker copy changed from "Reach level 15 and finish your Academy
+  foundation first." to "Reach level 10 before entering ranked battles."
 
 ## Verification (commands, exit codes, results)
 
@@ -222,6 +224,28 @@ exit code, not the presence or absence of failure text.
 | E2E smoke (7 browser projects, per-worktree port 15042) | `shinobij.client: npm run test:e2e` | 292 passed, 208 skipped, **2 failed**, exit 1, in 11.6 min (a normal run is ~2 min — the machine was loaded). Both failures were chromium-desktop only: `adaptive-shell.spec.ts:520` (context teardown exceeded 120s) and `arena-authenticated.spec.ts:417` (`page.reload` waiting for `networkidle` while the village page was already fully rendered — the known networkidle flake class). |
 | Re-run of the two failed smoke specs, isolated | `npx playwright test e2e/adaptive-shell.spec.ts:520 e2e/arena-authenticated.spec.ts:417 --project=chromium-desktop` | 2 passed in 33s, exit 0 — load flakes, not regressions |
 | Combat-layout matrix (strict, after-capture, webkit included) | `COMBAT_LAYOUT_CAPTURE_PHASE=after COMBAT_LAYOUT_STRICT=1 npm run test:e2e:combat-layout` | 20 passed, 10 skipped, 0 failed, exit 0 (14.7 min, port 16052) |
+
+### Second wave (F07, F10, F01 income door, F02, F17, F19 copy, F03 client) — `f225a5f7c`, `c18890243`
+
+| Step | Command | Result |
+|---|---|---|
+| Server typecheck · client typecheck · lint on touched client files | `npx tsc -p tsconfig.cpanel.json --noEmit` · `npx tsc -p tsconfig.app.json --noEmit` · `npx eslint <5 files>` | all exit 0; App.tsx 6,946 / 6,949 |
+| New + neighboring suites | `node --import tsx --test <16 files: _pending-battle, explore-obligations, _effects-outbox, heartbeat-town-escape, ranked-floor, explore-pool-commit, sector-presence-gate, activity-spine, heartbeat, heartbeat-notice-ack, game-state, travel, online-store, presence-gating, client sector-return + world-reward-api>` | 122 pass, exit 0 |
+| Intel / contract / AI-fight suites | `node --import tsx --test api/_sector-contracts.test.ts api/_village-intel.test.ts api/missions/*ai-fight*.test.ts` | 118 pass, exit 0 |
+| Full suite, first run | `npm test` | 9,333 tests, **3 fail**, exit 1 — all three were the F07 rule working: fixtures that explore repeatedly never started the ambush the random roll produced. Fixed in `c18890243` by having the request helpers claim the fight-start marker exactly as ai-fight-start does. |
+| Explore suites, six consecutive runs (random rolls) | `node --import tsx --test api/world/_sector-pool.test.ts api/world/explore-obligations.test.ts api/world/explore-pool-commit.test.ts` ×6 | 22 pass each, exit 0 ×6 |
+| Full suite, second run (after `c18890243`) | `npm test` | 9,333 tests, 9,333 pass, 0 fail, exit 0 |
+| Root build (server + client + verify:dist + sizecheck) | `npm run build` | exit 0: verify:dist OK, sizecheck PASS — 7.77 MB (8,143,295 B) budgeted JS/CSS raw, +639 B over the first wave |
+| E2E smoke (7 projects) | `shinobij.client: npm run test:e2e` | 290 passed, 208 skipped, **4 failed**, exit 1, 13.0 min (loaded machine). All four teardown/timing: `adaptive-shell.spec.ts:520` (context teardown > 120s, chromium), `chronicle-duel-ux.spec.ts:108` (context teardown > 45s on chromium; on firefox the boot was still on the start screen after 10s — the harness's early-boot race), `shinobi-combat-mobile.spec.ts:365` (firefox teardown with `RenderCompositorSWGL` graphics errors in the browser's own log). |
+| Re-run of the four failed smoke specs, isolated | `npx playwright test e2e/adaptive-shell.spec.ts:520 e2e/chronicle-duel-ux.spec.ts:108 e2e/shinobi-combat-mobile.spec.ts:365 --project=chromium-desktop --project=firefox-desktop` | 5 passed, 1 skipped (project ignore), exit 0 in 45s — load flakes, not regressions |
+| Combat-layout matrix (strict, after-capture, webkit included) | `COMBAT_LAYOUT_CAPTURE_PHASE=after COMBAT_LAYOUT_STRICT=1 npm run test:e2e:combat-layout` | 20 passed, 10 skipped, 0 failed, exit 0 (15.1 min) |
+
+Client files touched in this wave, each nonvisual: `App.tsx` (+1 line hydrating the
+persisted arrival tile at boot; an existing import widened), `screens/WorldMap.tsx`
+(the board-position initializer reads the persisted tile on a reload; the two explore
+result paths resume a named pending ambush through the existing launcher),
+`lib/sector-return.ts` (a non-consuming reload peek), `lib/world-reward-api.ts` (the
+pending-battle payload). No markup, styles, or assets.
 
 ### No-UI-change diff review (starting commit → HEAD)
 
