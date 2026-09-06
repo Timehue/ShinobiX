@@ -36,7 +36,7 @@ import { requestAiFight } from "./lib/ai-fight-request";
 import { creatorEventPracticeOpponent } from "./lib/creator-event-practice";
 import type { FieldExploreProgress } from "./lib/world-reward-api";
 import { useEndlessTowerActions } from "./lib/use-endless-tower-actions";
-import { readSavePreview, writeSavePreview } from "./lib/save-preview";
+import { clearSavePreview, readSavePreview, writeSavePreview } from "./lib/save-preview";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
 import { lazyWithRetry } from "./lib/lazyWithRetry";
 import { runSingleFlight } from "./lib/single-flight";
@@ -4738,6 +4738,9 @@ export default function App() {
                 delete accs[lsKey];
                 savePlayerAccounts(accs);
             }
+            // …and the cached snapshot, or the next boot paints the deleted
+            // shinobi from localStorage before the server reconcile clears it.
+            clearSavePreview(name);
             // Best-effort auth clear — if it fails they'll need admin help, but try.
             // The session token authorises this too, so it works for an account
             // that has no password to send (Google sign-in, guest).
