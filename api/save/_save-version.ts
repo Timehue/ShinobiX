@@ -93,10 +93,21 @@ export function isVersionlessPlayerSave(
  * Do NOT call for clan/pool records (those use the field-delta validator, not a
  * version stamp) or for admin-save writes (the handler already bumps those).
  */
-export function bumpSaveVersion<T extends Record<string, unknown>>(record: T): T & { _saveVersion: number; _saveAt: number } {
-    const r = record as T & { _saveVersion: number; _saveAt: number };
+export function bumpSaveVersion<T extends Record<string, unknown>>(
+    record: T,
+    opts: { regenAt?: number } = {},
+): T & { _saveVersion: number; _saveAt: number; _regenAt: number } {
+    const r = record as T & { _saveVersion: number; _saveAt: number; _regenAt: number };
     r._saveVersion = nextSaveVersion(r._saveVersion);
     r._saveAt = Date.now();
+    // The regeneration cursor (api/_elapsed-state.ts settleVitalsRegen). A
+    // server write fences it to the write instant — combat, hospital and any
+    // other server-written vitals change must never be counted as idle
+    // recovery afterwards — unless the caller settled elapsed recovery first
+    // and passes the cursor it computed (mutatePlayerSave does), which keeps
+    // the sub-second remainder instead of discarding it on every mutation.
+    const regenAt = Number(opts.regenAt);
+    r._regenAt = Number.isFinite(regenAt) && regenAt > 0 ? Math.floor(regenAt) : r._saveAt;
     return r;
 }
 

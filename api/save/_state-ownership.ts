@@ -458,12 +458,14 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('acceptedMissionIds', 'top', 'client-state', 'missions', ['combat-strip-toplevel'], 'client-owned by design; payouts guarded server-side'),
     f('missionProgress', 'top', 'client-state', 'missions', ['combat-strip-toplevel']),
     f('currentSector', 'top', 'client-state', 'world', ['combat-strip-toplevel'], 'travel lease is the authority in flight'),
+    f('currentTile', 'top', 'server-owned', 'world', [], 'arrival tile persisted by the travel-lease settle (_realtime/travel-lease.ts); the client never sends it, the heartbeat cold start reads it'),
     f('currentBiome', 'top', 'client-state', 'world', ['combat-strip-toplevel']),
     f('triggeredEvents', 'top', 'client-state', 'events', ['combat-strip-toplevel']),
     f('pendingAiProfileId', 'top', 'client-state', 'combat', ['combat-strip-toplevel']),
     f('worldGeoV', 'top', 'server-owned', 'world', [], 'world-geo migration stamp; stored wins, new saves stamped current'),
     f('_saveVersion', 'top', 'server-owned', 'save-meta', [], 'optimistic-concurrency stamp (_save-version.ts); never client-writable'),
     f('_saveAt', 'top', 'server-owned', 'save-meta', [], 'write timestamp'),
+    f('_regenAt', 'top', 'server-owned', 'save-meta', [], 'regeneration cursor (api/_elapsed-state.ts settleVitalsRegen); fenced by every write, advanced by whole ticks on settle'),
 
     // ── Per-pet identity/progression (character.pets[] entries) ─────────────
     f('id', 'pet', 'server-owned', 'pets', ['pet-identity']),
