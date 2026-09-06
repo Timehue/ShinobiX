@@ -44,7 +44,7 @@ Several merge-boundary defects were corrected:
 - First Pact desktop/mobile RPG journeys after merging `31b72d8b`: **PASS**, 4/4, including sealed companions, optional aftermath reload, and authoritative grant repair. Interior click-to-walk is covered by contract/pathfinder tests; these four browser cases exercise the exterior RPG flow.
 - Final mobile field journey and notice placement: **PASS**, including screenshot review and separation from both the Tip button and bottom navigation
 - Desktop/mobile narrative journeys: **PASS** across all 24 cases. The affected Field and Echoes specs passed their final 10-case rerun after the display corrections; First Pact and the other 14 cases passed the preceding run.
-- Full browser matrix: the local responsive run was stopped during WebKit under measured 100% CPU contention. The strict local matrix finished with 18 passes, 10 intentional skips, and 2 WebKit timing failures. Full responsive and strict-matrix results are supplied by the release commit's CI checks on isolated runners.
+- Full browser matrix: the local responsive run was stopped during WebKit under measured 100% CPU contention. The strict local matrix finished with 18 passes, 10 intentional skips, and 2 WebKit timing failures. The complete isolated CI run for `86bd3741` subsequently passed every gate, including responsive and strict combat matrices: https://github.com/Timehue/ShinobiX/actions/runs/34016410046.
 
 
 ## Final display corrections
@@ -54,3 +54,9 @@ Opening or advancing a field replay now resets the reader's owned scroll positio
 The Echoes browser helper now accepts a reader that closes on its 24th and final permitted action. Its action cap and all story assertions remain intact.
 
 These isolated reader/notice corrections followed the full unit run and were verified with scoped lint, a fresh production client build, and the affected desktop/mobile browser journeys. The server artifact and narrative payloads are unchanged by them. Production publication and exact-revision health results are recorded separately from this local validation record.
+
+## Production configuration and road content
+
+The production-image check for `86bd3741` exposed a configuration difference that the ordinary CI build did not exercise: nonempty Supabase client settings retain the PvP realtime transport, adding about 55 KB and taking product JavaScript/CSS 11,135 B over its cap. The transport remains intact. The fifteen authored road stories now load as a content-addressed JSON asset through the map's existing content boundary. All prose, NPC eligibility, choice traits, and server authority are preserved; failed content stays closed until retry, and a retired address offers a reload.
+
+The production-configuration client build passes at **8,168,506 B** product JavaScript/CSS against the unchanged **8,200,000 B** cap, with **384,747 B** initial gzip against **385,000 B**. The road asset is **52,864 B raw / 19,597 B gzip**, counted separately and in the combined product total, with its own 64,000/24,000 B caps. Existing narrative assets remain byte-identical. Targeted content, server parity, eligibility, loader recovery, and map-authority checks passed **53/53**; scoped lint and tooling drift checks passed. The final production-build desktop/mobile field journeys passed **8/8**, including a road-content outage that keeps choices closed through three failed attempts and opens only after explicit retry succeeds.

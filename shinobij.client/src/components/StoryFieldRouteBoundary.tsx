@@ -1,9 +1,12 @@
 import { Suspense, type ReactNode } from "react";
 import { readStoryFieldContent } from "../lib/story-field-content-loader";
+import { preloadStoryRoadContent, readStoryRoadContent } from "../lib/story-road-content-loader";
 import { StoryFieldContentBoundary } from "./StoryFieldContentBoundary";
 
 function StoryFieldContentGate({ children }: { children: ReactNode }) {
+    preloadStoryRoadContent();
     readStoryFieldContent();
+    readStoryRoadContent();
     return children;
 }
 
