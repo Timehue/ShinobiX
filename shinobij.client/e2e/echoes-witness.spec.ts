@@ -203,12 +203,17 @@ async function visualNovelState(page: Page): Promise<string> {
 }
 
 async function finishVisualNovel(page: Page) {
-  // The reactive victory has nine lines across four pages. A slow reader needs
-  // one reveal and one advance per line, then one reveal and one Continue for
-  // the completion panel: 20 authored actions. Four slots cover entering this
-  // helper before the two setup clicks have both committed. No slot can hide a
-  // no-op because every action below must change reader state.
-  for (let step = 0; step < 24; step += 1) {
+  // The action count is NOT a page count. The cinematic reader auto-advances a
+  // line once its typing completes and ignores a second advance for 240ms after
+  // a reveal, so how many reveal taps a run needs is a race between the reader's
+  // typing and this loop's polling: a fast machine finishes lines before the
+  // poll sees the hint, a loaded CI runner needs a reveal for nearly every line
+  // plus the Continue for the completion panel. The old cap of 24 sat one or two
+  // actions under what chromium-mobile on CI actually needed (main, 2026-09-06,
+  // twice), so the same tree failed and passed on alternate runs. The cap is a
+  // runaway guard only: no slot can hide a no-op, because every action below
+  // asserts that reader state changed before the next step is allowed.
+  for (let step = 0; step < 60; step += 1) {
     await expect.poll(async () => {
       if (await visualNovelState(page) === "closed") return true;
       return await page.locator(".cvn-tap-hint").isVisible().catch(() => false)
