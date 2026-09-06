@@ -3158,22 +3158,52 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
         color: var(--hud3-gold-soft);
     }
 
-    .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > span {
+    /* The data-vp variants are as load-bearing here as on the column track
+       above. index part 26 sizes this label and cost line off the VIEWPORT for
+       lg/xl — `clamp(13px, 0.85vw, 17px)` and `clamp(10px, 0.65vw, 13px)` — with
+       an attribute selector, which outranks a plain class chain. At 1760px wide
+       that resolved to 14.96px / 11.44px inside a button the desktop command
+       centre pins to 48px, so "40 AP | 10 SP | R1" wrapped to THREE lines and
+       the whole stack overflowed the button box in both directions (the label
+       clipped at the top, the cooldown at the bottom). */
+    .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > span,
+    html[data-vp="xxl"] .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > span,
+    html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > span,
+    html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > span {
         grid-column: 2;
         grid-row: 1;
+        min-width: 0 !important;
         font: 800 12px/1 var(--font-display) !important;
         letter-spacing: 0.11em !important;
         text-transform: uppercase;
         color: #f4f7fc !important;
     }
 
-    .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > small {
+    .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > small,
+    html[data-vp="xxl"] .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > small,
+    html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > small,
+    html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > small {
         grid-column: 1 / span 2;
         grid-row: 2;
+        min-width: 0 !important;
+        max-width: 100% !important;
         margin: 0 !important;
         font: 600 9.5px/1.2 Inter, sans-serif !important;
         letter-spacing: 0.01em !important;
         color: rgba(203, 213, 225, 0.62) !important;
+    }
+
+    /* `.cmd-detail` is a <span> inside the cost line, so the deck's older
+       `... button span { font-size: 12px }` rule catches it too and renders
+       half of every cost at label size. That inflated the second row's line
+       box from 11.4px to 17.9px and made the longest costs ("60 AP | 10 CP |
+       CD 0") overrun the button. It should simply be the cost line. */
+    .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > small > .cmd-detail,
+    html[data-vp="xxl"] .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > small > .cmd-detail,
+    html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > small > .cmd-detail,
+    html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > small > .cmd-detail {
+        font: inherit !important;
+        letter-spacing: inherit !important;
     }
 
     .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button:not(:disabled):hover {
@@ -3327,12 +3357,20 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
         font-size: 14px;
     }
 
-    .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > span {
+    /* data-vp variants for the same reason the deck's base typography carries
+       them: without them the lg-tier rules that beat index part 26 would also
+       beat this narrow-desktop step-down, and the 76px tracks here are far too
+       tight for full-size type. */
+    .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > span,
+    html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > span,
+    html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > span {
         font-size: 10.5px !important;
         letter-spacing: 0.06em !important;
     }
 
-    .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > small {
+    .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > small,
+    html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > small,
+    html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button > small {
         font-size: 8.5px !important;
     }
 
@@ -6342,6 +6380,49 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
         min-height: 48px !important;
         height: 48px !important;
         padding: 3px 4px !important;
+    }
+
+    /* The commands track is a fixed 60px at every height tier here, so the
+       button is pinned to exactly 48px and a second line of COST text has
+       nowhere to go: the button centres its overflowing content and the deck's
+       `overflow: hidden` then cuts the label off at the top and the cooldown at
+       the bottom. Hold the cost to one line. Ellipsis rather than removal — the
+       full string stays in the DOM, so the accessible name still reads the whole
+       cost, and the only button that truncates at any desktop width (Summon
+       Pet, whose cost line is the sentence "Unlocks at pet Lv 50 ...") carries
+       the same copy in its `title`.
+
+       The LABEL is deliberately left alone. "Summon Pet" is the deck's one
+       two-word command and its second line still fits (two 12px lines plus the
+       cost is 38px of the 42px content box). Clamping it to one line cost the
+       narrow tier the word "Pet", and letting it break mid-word cost three
+       lines and squeezed the cost row to 1px. */
+    #combat .shinobi-command-bar > button > small {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
+
+    /* Summon Pet is the deck's only two-word command, and its label wraps to two
+       lines at every width below ~1900px (the button is 95-142px there against a
+       ~86-98px single-line label). That makes its stack ~11px taller than the
+       seven single-line buttons inside the SAME fixed 48px box, so the centred
+       content ends up with 1.8px of clearance where its neighbours have 5.3px —
+       close enough to the border that the cost line's descenders read as clipped.
+       Widening its track is not available: Heal and Flee have only 4.9px of
+       spare width at 1280, and this cost line ("Unlocks at pet Lv 50 - currently
+       Lv N") needs 149px in an 86.9px box, so it truncates regardless.
+       The label is uppercase, so it carries no descenders and a sub-1.0 line
+       height costs it nothing; that plus a tighter row gap brings this button
+       back in line with the rest of the deck without dropping a word of copy. */
+    #combat .shinobi-command-bar > button.summon-pet-command {
+        row-gap: 1px !important;
+    }
+
+    #combat .shinobi-command-bar > button.summon-pet-command > span {
+        line-height: 0.86 !important;
     }
 
     #combat.mission-arena-fight .shinobi-command-bar {
