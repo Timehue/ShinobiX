@@ -14,6 +14,8 @@ function session(actors: TowerActor[], over: Partial<TowerSession> = {}): TowerS
     return { runId: 'shared-run', towerId: 'story-tower', status: 'done', winner: 'enemy', actors, ...over } as unknown as TowerSession;
 }
 
+const idOf = (combatant: unknown): string | undefined => (combatant as { id?: string } | undefined)?.id;
+
 describe('aiFightParticipantActor — the body an outcome may be written to', () => {
     const rill = actor({ id: 'sq-0', ownerSlug: 'rill', hp: 40 });
     const dopey = actor({ id: 'sq-1', ownerSlug: 'Dopey', hp: 0 });
@@ -21,16 +23,16 @@ describe('aiFightParticipantActor — the body an outcome may be written to', ()
 
     it('chooses by canonical owner slug, never the first squad actor', () => {
         const s = session([rill, dopey, companion]);
-        assert.equal(aiFightParticipantActor(s, 'dopey')?.id, 'sq-1', 'case-insensitive owner match');
-        assert.equal(aiFightParticipantActor(s, 'rill')?.id, 'sq-0');
+        assert.equal(idOf(aiFightParticipantActor(s, 'dopey')), 'sq-1', 'case-insensitive owner match');
+        assert.equal(idOf(aiFightParticipantActor(s, 'rill')), 'sq-0');
         // The old helper answered the host for everyone — the F06 defect.
-        assert.equal(aiFightPlayerActor(s)?.id, 'sq-0');
+        assert.equal(idOf(aiFightPlayerActor(s)), 'sq-0');
     });
 
     it('prefers the live human over an AFK-flagged one, and never a companion', () => {
         const afk = actor({ id: 'sq-afk', ownerSlug: 'rill', ai: true, hp: 7 });
-        assert.equal(aiFightParticipantActor(session([afk, rill]), 'rill')?.id, 'sq-0');
-        assert.equal(aiFightParticipantActor(session([afk]), 'rill')?.id, 'sq-afk', 'an AFK human still owns their body');
+        assert.equal(idOf(aiFightParticipantActor(session([afk, rill]), 'rill')), 'sq-0');
+        assert.equal(idOf(aiFightParticipantActor(session([afk]), 'rill')), 'sq-afk', 'an AFK human still owns their body');
         assert.equal(aiFightParticipantActor(session([companion]), 'rill'), undefined);
         assert.equal(aiFightParticipantActor(null, 'rill'), undefined);
     });

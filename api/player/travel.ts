@@ -5,9 +5,10 @@ import { cors, parseJsonBody } from '../_utils.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { getIo } from '../_realtime/socket.js';
 import { toPlayerRecord } from '../_realtime/presence-input.js';
-import { sectorExitById, travelArrivalTile, type SectorExit } from '../../shared/sector-links.js';
+import { randomUUID } from 'node:crypto';
+import { sectorExitById, travelArrivalTile, SECTOR_TILE_COUNT, type SectorExit } from '../../shared/sector-links.js';
 import { isWildSector } from '../../shared/sector-geo.js';
-import { clearTravelLease, setTravelLease } from '../_realtime/travel-lease.js';
+import { clearTravelLeaseIfSame, setTravelLease, TravelLeaseHeldError, type TravelLease } from '../_realtime/travel-lease.js';
 
 // Intentional UX contract: travel is a short loading mask, not a distance tax.
 // The server mints the timer so clients cannot claim an arbitrary destination
@@ -56,6 +57,29 @@ export function edgeTravelExit(
     return exit;
 }
 
+/**
+ * How far the server's last-known tile may sit from a road exit the client
+ * says it is standing on. Tile movement reaches the server on a separate,
+ * throttled channel (socket `presence:move`, ~80ms; heartbeat, 1s), so the
+ * server tile can trail an honest player by a step or two — but a client on
+ * the far side of the 12x12 board is not "on the exit". Three tiles tolerates
+ * the lag without opening the board.
+ */
+export const EDGE_ORIGIN_TILE_TOLERANCE = 3;
+const SECTOR_GRID_WIDTH = Math.round(Math.sqrt(SECTOR_TILE_COUNT));
+
+export function tileDistance(a: number, b: number): number {
+    const ax = a % SECTOR_GRID_WIDTH, ay = Math.floor(a / SECTOR_GRID_WIDTH);
+    const bx = b % SECTOR_GRID_WIDTH, by = Math.floor(b / SECTOR_GRID_WIDTH);
+    return Math.max(Math.abs(ax - bx), Math.abs(ay - by));
+}
+
+/** Whether the server's last-known tile (if any) is close enough to the exit. */
+export function edgeOriginTileAllowed(serverTile: number | undefined, exitTile: number): boolean {
+    if (serverTile === undefined || !Number.isFinite(serverTile)) return true;
+    return tileDistance(serverTile, exitTile) <= EDGE_ORIGIN_TILE_TOLERANCE;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -79,13 +103,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let arrivalTile: number | undefined;
     let edgeOriginSector: number | undefined;
     if (mode === 'edge') {
+        // The origin is the SERVER's sector — lease-gated presence, never the
+        // request body. The body used to be the only source, so a client in
+        // sector 5 could name any road "from 30 to 31" and be leased across the
+        // map. A body originSector is accepted only as a consistency claim.
+        const claimedOrigin = Number(body.originSector);
+        if (Number.isFinite(claimedOrigin) && claimedOrigin !== player.sector) {
+            return res.status(409).json({ error: 'You are not in that sector.' });
+        }
         const exit = edgeTravelExit({
-            originSector: Number(body.originSector),
+            originSector: player.sector,
             originTile: Number(body.originTile),
             destinationSector,
             exitId: String(body.exitId ?? ''),
         });
-        if (!exit) {
+        if (!exit || !edgeOriginTileAllowed(player.tile, exit.tile)) {
             return res.status(409).json({ error: 'Move onto that road exit before crossing sectors.' });
         }
         arrivalTile = exit.destinationTile;
@@ -108,7 +140,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const travelMs = mode === 'edge' ? WORLD_TRAVEL_EDGE_MS : WORLD_TRAVEL_MS;
-    const arrivalAt = Date.now() + travelMs;
+    const now = Date.now();
+    const arrivalAt = now + travelMs;
     // Capture the origin BEFORE starting travel. An instant edge crossing has
     // arrivalAt === now, so startTravel's own settle fires inside that call and
     // moves the (mutated in place) player to the DESTINATION — reading
@@ -117,20 +150,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Harmless while arrivalAt is already past (every reader takes the
     // destination branch), but the field should mean what its name says.
     const originSector = edgeOriginSector ?? player.sector;
-    const started = onlineStore.startTravel(identity.name, destinationSector, arrivalAt, edgeOriginSector, arrivalTile);
-    if (!started) return res.status(409).json({ error: 'You cannot travel while moving or fighting.' });
+    // The same admission startTravel applies, checked BEFORE the durable write
+    // so a player who cannot travel is refused without touching storage.
+    if (player.inBattle || (player.travelingUntil !== undefined && player.travelingUntil > now)) {
+        return res.status(409).json({ error: 'You cannot travel while moving or fighting.' });
+    }
+    const lease: TravelLease = {
+        originSector,
+        destinationSector,
+        arrivalAt,
+        ...(arrivalTile === undefined ? {} : { arrivalTile }),
+        moveId: randomUUID().replace(/-/g, ''),
+    };
+    // Secure the durable lease FIRST, then publish the move to live memory.
+    // The old order mutated memory first and rolled back on a failed lease
+    // write — but an instant edge crossing matures inside startTravel and
+    // clears `travelingUntil` on the spot, so cancelTravel (which keys off that
+    // timestamp) could not undo it: the handler answered 503 while the player
+    // had already moved in memory, unrecorded. Now a failed write moves nothing.
     try {
-        await setTravelLease(identity.name, {
-            originSector,
-            destinationSector,
-            arrivalAt,
-            ...(arrivalTile === undefined ? {} : { arrivalTile }),
-        });
+        await setTravelLease(identity.name, lease, now);
     } catch (err) {
-        onlineStore.cancelTravel(identity.name, arrivalAt);
-        await clearTravelLease(identity.name).catch(() => undefined);
+        if (err instanceof TravelLeaseHeldError) {
+            return res.status(409).json({ error: 'You cannot travel while moving or fighting.' });
+        }
         console.error('[player-travel] could not persist travel lease:', (err as Error).message);
         return res.status(503).json({ error: 'Travel could not be secured. Please try again.' });
+    }
+    const started = onlineStore.startTravel(identity.name, destinationSector, arrivalAt, edgeOriginSector, arrivalTile);
+    if (!started) {
+        // Lost a race with another admission between the check and the start.
+        // Compare-and-delete: only THIS journey's lease is removed, never the
+        // one the winner secured.
+        await clearTravelLeaseIfSame(identity.name, lease).catch(() => undefined);
+        return res.status(409).json({ error: 'You cannot travel while moving or fighting.' });
     }
     getIo()?.to(`sector:${started.sector}`).emit('presence:update', {
         sector: started.sector,
