@@ -5,6 +5,7 @@ import { isFullAdmin, rotatePlayerSessionEpoch } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { RESERVED_USERNAMES } from '../player-auth.js';
 import { bumpImageVersion } from '../_image-version.js';
+import { deletePlayerFirstPactState } from '../_delete-player-account.js';
 
 // Usernames whose save, auth, and registry entries survive a full server
 // reset. Sourced from the same RESERVED_USERNAMES set that gates registration,
@@ -16,10 +17,12 @@ const PROTECTED_AUTH_KEYS = new Set(PROTECTED_NAMES.map((n) => `auth:${n}`));
 // server story record must survive too — wiping one but not the other would
 // desync the pair (empty lane tally under a character with recorded choices).
 const PROTECTED_STORY_KEYS = new Set(PROTECTED_NAMES.map((n) => `story:${n}`));
+const PROTECTED_FIRST_PACT_KEYS = new Set(PROTECTED_NAMES.map((n) => `first-pact:${n}`));
 
 export function isProtectedKey(key: string): boolean {
     const lower = key.toLowerCase();
-    return PROTECTED_SAVE_KEYS.has(lower) || PROTECTED_AUTH_KEYS.has(lower) || PROTECTED_STORY_KEYS.has(lower);
+    return PROTECTED_SAVE_KEYS.has(lower) || PROTECTED_AUTH_KEYS.has(lower)
+        || PROTECTED_STORY_KEYS.has(lower) || PROTECTED_FIRST_PACT_KEYS.has(lower);
 }
 
 export function authNamesRequiringRevocation(authKeys: readonly string[]): string[] {
@@ -27,6 +30,31 @@ export function authNamesRequiringRevocation(authKeys: readonly string[]): strin
         .filter((key) => key.toLowerCase().startsWith('auth:') && !isProtectedKey(key))
         .map((key) => key.slice('auth:'.length))
         .filter(Boolean);
+}
+
+export async function deleteResetTargets(
+    pattern: string,
+    targets: readonly string[],
+    deleteFirstPact: (name: string) => Promise<string | null> = deletePlayerFirstPactState,
+): Promise<void> {
+    if (pattern === 'first-pact:*') {
+        await Promise.all(targets.map((key) => deleteFirstPact(key.slice('first-pact:'.length))));
+        return;
+    }
+    await Promise.all(targets.map((key) => kv.del(key)));
+}
+
+/** Clear standalone First Pact state before its corresponding character saves.
+ * A contended story lock therefore aborts the reset while every save is still
+ * available, allowing the same reset request to retry without a split account. */
+export async function deleteFirstPactBeforePlayerSaves(
+    firstPactTargets: readonly string[],
+    playerSaveTargets: readonly string[],
+    deleteFirstPact: (name: string) => Promise<string | null> = deletePlayerFirstPactState,
+    deleteSave: (key: string) => Promise<unknown> = (key) => kv.del(key),
+): Promise<void> {
+    await deleteResetTargets('first-pact:*', firstPactTargets, deleteFirstPact);
+    await Promise.all(playerSaveTargets.map((key) => deleteSave(key)));
 }
 
 // Patterns wiped on full reset. Anything matching these is deleted.
@@ -107,6 +135,7 @@ export const WIPE_PATTERNS = [
     // otherwise the new world's first liberator seats silently, or the Hall
     // shows two "firsts" from different eras.
     'story:*',                      // server story records (interlude/road choices + lane tally)
+    'first-pact:*',                 // standalone First Pact progress must not survive name reuse
     'game:announcements',           // world announcement feed + Hall entries
     'game:announcements-seq',
     'hall:nx:*',                    // first-only celebration dedup (re-arms for the new era)
@@ -156,27 +185,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // 1. Wipe all player saves — admin saves are preserved so admin-created
         //    content (jutsus, AIs, missions, events, pets, cards, VNs) survives.
         //    Reserved usernames (PROTECTED_NAMES, e.g. Rill) are also preserved.
-        const saveKeys = await kv.keys('save:*');
+        const [saveKeys, firstPactKeys] = await Promise.all([
+            kv.keys('save:*'),
+            kv.keys('first-pact:*'),
+        ]);
         const playerSaveKeys = saveKeys.filter((k) => {
             const lower = k.toLowerCase();
             if (lower.startsWith('save:admin')) return false;
             if (isProtectedKey(k)) return false;
             return true;
         });
-        if (playerSaveKeys.length > 0) {
-            await Promise.all(playerSaveKeys.map(k => kv.del(k)));
-            deleted.push(...playerSaveKeys);
-        }
+        const firstPactTargets = firstPactKeys.filter((key) => !isProtectedKey(key));
+        await deleteFirstPactBeforePlayerSaves(firstPactTargets, playerSaveKeys);
+        deleted.push(...firstPactTargets, ...playerSaveKeys);
 
         // 2. Wipe all other reset patterns in parallel.
         //    Protected auth records (auth:rill, etc.) skip the auth:* wipe so
         //    the protected accounts don't have to re-register after a reset.
         await Promise.all(
-            WIPE_PATTERNS.map(async (pattern) => {
+            WIPE_PATTERNS.filter((pattern) => pattern !== 'first-pact:*').map(async (pattern) => {
                 const keys = await kv.keys(pattern);
                 const targets = keys.filter((k) => !isProtectedKey(k));
                 if (targets.length > 0) {
-                    await Promise.all(targets.map(k => kv.del(k)));
+                    await deleteResetTargets(pattern, targets);
                     deleted.push(...targets);
                 }
             })

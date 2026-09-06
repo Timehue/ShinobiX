@@ -49,8 +49,18 @@ describe('The Hollow Gate Reckoning authority', () => {
         const projection = await stateApi.readWorldCrisis80Projection();
         assert.equal(projection.status, 'active');
         assert.equal(projection.awakenedBy, 'First Witness');
-        const announcements = await kv.get<Array<{ type?: string }>>('game:announcements');
+        const announcements = await kv.get<Array<{ type?: string; message?: string }>>('game:announcements');
         assert.equal(announcements?.filter((item) => item.type === 'world_crisis_80_awakened').length, 1);
+        const awakening = announcements?.find((item) => item.type === 'world_crisis_80_awakened')?.message ?? '';
+        assert.match(awakening, /triggered the public alarm/i);
+        assert.match(awakening, /record keepers opened four regional reports already filed by Kite Harrow/i);
+        assert.doesNotMatch(awakening, /field record reconciled|reconciled Harrow's four/i);
+
+        await stateApi.applyWorldCrisis80AdminAction({ action: 'resolve', now: 9_000 });
+        const resolvedAnnouncements = await kv.get<Array<{ type?: string; message?: string }>>('game:announcements');
+        const resolution = resolvedAnnouncements?.find((item) => item.type === 'world_crisis_80_resolved')?.message ?? '';
+        assert.match(resolution, /Defenders held the outskirts/i);
+        assert.doesNotMatch(resolution, /Shinobi broke.*while companion packs/i);
     });
 
     it('keeps existing and credential-less saves out of server-first history', { concurrency: false }, async () => {

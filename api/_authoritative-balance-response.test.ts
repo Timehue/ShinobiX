@@ -139,7 +139,13 @@ describe('authoritative balance response migration', () => {
         assert.match(client, /fetch\('\/api\/story\/settle'/);
         assert.match(client, /body: JSON\.stringify\(\{ \.\.\.params, kind: 'storyBoss' \}\)/);
         assert.match(host, /onSettled\(settled\)/);
-        assert.match(app, /function handleServerStoryBossSettled\(result: StoryBossSettleResult\)[\s\S]{0,260}?commitVersionedCharacter\(result\.character, result\._saveVersion\)/);
+        const settleHandler = app.slice(
+            app.indexOf('function handleServerStoryBossSettled'),
+            app.indexOf('function startTriggeredEventArenaBattle'),
+        );
+        assert.match(settleHandler, /const settledCharacter = prepareStorySettlement\(/);
+        assert.ok(settleHandler.indexOf('prepareStorySettlement(') < settleHandler.indexOf('commitVersionedCharacter(settledCharacter, result._saveVersion)'),
+            'story settlement must merge its durable narrative receipt before adopting the committed character');
         assert.match(app, /function commitVersionedCharacter[\s\S]{0,420}?acceptVersionedSnapshot\(latestSaveVersionRef\.current, incomingVersion\)/);
     });
 

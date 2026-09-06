@@ -23,7 +23,7 @@ import { HollowGateAvatar } from "./HollowGateAvatar";
 import { HollowGateBossCinematic } from "./HollowGateBossCinematic";
 import { HollowGateShardBar } from "../../components/HollowGateShardBar";
 import { HOLLOW_GATE_ICON_KEY, HOLLOW_GATE_ICON_ROLES } from "../../data/hollow-gate-atlas";
-import { hollowGateIntroPages, hollowGateTileIconForKind } from "../../data/hollow-gate-flavor";
+import { hollowGateIntroPagesFor, hollowGateTileIconForKind } from "../../data/hollow-gate-flavor";
 import { computeHollowGateVisible } from "../../lib/hollow-gate-visibility";
 import { hollowGateBossDisplayName, hollowGateRunMaxFloor } from "../../lib/hollow-gate-variant";
 import { hollowGateClawBackPreview } from "../../lib/hollow-gate-run";
@@ -135,6 +135,7 @@ export function HollowGateShrineView({
         ? `linear-gradient(180deg, rgba(15,9,28,0.78), rgba(8,4,18,0.88)), url(${shrineBg}) center/cover no-repeat`
         : "linear-gradient(180deg, rgba(15,9,28,0.92), rgba(8,4,18,0.95))";
     const maxFloor = hollowGateRunMaxFloor(run);
+    const introPages = hollowGateIntroPagesFor(run.variant);
     const floorProfile = hollowGateFloorProfile(run.floor);
     const bossName = hollowGateBossDisplayName(run);
     const isFinalFloor = run.floor >= maxFloor;
@@ -205,9 +206,9 @@ export function HollowGateShrineView({
                             )}
                             {/* First-entry Intro VN overlay — blocks interaction until dismissed. */}
                             {hollowGateIntroPage !== null && (() => {
-                                const page = hollowGateIntroPages[hollowGateIntroPage] ?? hollowGateIntroPages[0];
+                                const page = introPages[hollowGateIntroPage] ?? introPages[0];
                                 const introImage = sharedImages[page.imageKey];
-                                const isLast = hollowGateIntroPage >= hollowGateIntroPages.length - 1;
+                                const isLast = hollowGateIntroPage >= introPages.length - 1;
                                 return (
                                     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.86)", overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1100, padding: "16px 12px max(16px, env(safe-area-inset-bottom, 16px))" }}>
                                         <div role="dialog" aria-modal="true" aria-labelledby="hg-intro-title" style={{ background: "linear-gradient(180deg, rgba(15,9,28,0.97), rgba(8,4,18,0.99))", border: "2px solid rgba(168,85,247,0.6)", borderRadius: 12, padding: 24, maxWidth: 640, width: "92%", color: "#e9d5ff", boxShadow: "0 0 70px rgba(168,85,247,0.4)" }}>
@@ -222,7 +223,7 @@ export function HollowGateShrineView({
                                                 ))}
                                             </div>
                                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                                <small style={{ color: "#a78bfa" }}>Page {hollowGateIntroPage + 1} / {hollowGateIntroPages.length}</small>
+                                                <small style={{ color: "#a78bfa" }}>Page {hollowGateIntroPage + 1} / {introPages.length}</small>
                                                 <div style={{ display: "flex", gap: 8 }}>
                                                     {hollowGateIntroPage > 0 && (
                                                         <button onClick={() => setHollowGateIntroPage(hollowGateIntroPage - 1)}>Back</button>

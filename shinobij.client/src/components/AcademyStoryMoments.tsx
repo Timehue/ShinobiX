@@ -82,8 +82,8 @@ export function AcademySparOmen(props: SharedProps) {
 export function AcademyFieldTrace(props: SharedProps & { currentSector: number }) {
     useBodyScrollLock(true);
     const vow = academyVowDefinition(props.character.academyVow);
-    return <StoryMoment art={hollowTraceArt} alt="Blue foxfire tracks leading to a Hollow Gate scar on a forest road marker" variant="trace" beats={[
-        { kicker: `First Field Assignment · Sector ${props.currentSector}`, title: "The foxfire stops at an old road marker.", body: "Blue-white tracks end beneath a cut of magenta light. Wet leaves hang above it, pulled upward against the wind." },
+    return <StoryMoment art={hollowTraceArt} alt="Blue foxfire tracks leading to a Hollow Gate scar on a weathered road marker" variant="trace" beats={[
+        { kicker: `First Field Assignment · Sector ${props.currentSector}`, title: "The foxfire stops at an old road marker.", body: "Blue-white tracks end beneath a cut of magenta light. A frayed route ribbon hangs above it, pulled upward against the wind." },
         { kicker: "Hollow Gate Trace", title: "The mark is measuring the road.", speaker: props.guidePet?.name ?? "Your companion", body: `The rings moved when you said, “${vow.quote}” I saw it. Remember the shape. We're taking this back together.` },
     ]} doneLabel="Return with the evidence" onDone={() => persistMilestone(props, "trace", props.currentSector)} onSkip={props.onSkip} pet={<PetWitness pet={props.guidePet} images={props.sharedImages} />} />;
 }
@@ -125,6 +125,7 @@ export function AcademyReturnCeremony(props: SharedProps & {
                     <p className="asm-kicker">{rite.rite}</p>
                     <h2 id="ceremony-title">{pathsOpen ? "Your next step is yours." : "Shiranui's Field Seal"}</h2>
                     {!pathsOpen ? <>
+                        <p className="asm-body">{rite.fieldReport}</p>
                         <strong className="asm-speaker">{rite.witness}</strong>
                         <p className="asm-body">{rite.opening} {rite.villagePromise}</p>
                         <blockquote>“{vow.quote}”</blockquote>

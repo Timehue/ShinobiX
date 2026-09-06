@@ -10,6 +10,7 @@
  * not reached. See docs/auth-and-anti-cheat-patterns.md.
  */
 import type { ChronicleAiDifficulty } from '../../shared/chronicle-duel.js';
+import { normalizeEchoesBattleBeat, type EchoesBattleBeat } from '../../shared/echoes-witness.js';
 
 export interface EchoesEncounterDef {
     id: string;
@@ -172,6 +173,9 @@ export function echoesEncounterById(id: unknown): EchoesEncounterDef | null {
 export interface EchoesProgressEntry {
     wins: number;
     firstClearAt?: number;
+    /** Server-derived callback from the sealed first-clear match. Optional for
+     * every save written before witness reactions shipped. */
+    firstClearBattleBeat?: EchoesBattleBeat;
 }
 export type EchoesProgress = Record<string, EchoesProgressEntry>;
 
@@ -184,7 +188,12 @@ export function echoesProgressOf(character: Record<string, unknown>): EchoesProg
         if (!BY_ID.has(id) || !entry || typeof entry !== 'object') continue;
         const wins = Math.max(0, Math.floor(Number((entry as { wins?: unknown }).wins) || 0));
         const at = Number((entry as { firstClearAt?: unknown }).firstClearAt);
-        out[id] = { wins, ...(Number.isFinite(at) && at > 0 ? { firstClearAt: at } : {}) };
+        const rawBeat = (entry as { firstClearBattleBeat?: unknown }).firstClearBattleBeat;
+        out[id] = {
+            wins,
+            ...(Number.isFinite(at) && at > 0 ? { firstClearAt: at } : {}),
+            ...(rawBeat == null ? {} : { firstClearBattleBeat: normalizeEchoesBattleBeat(rawBeat) }),
+        };
     }
     return out;
 }
@@ -219,6 +228,8 @@ export interface EchoesVictorySummary {
     wins: number;
     balance: number;
     unlockedFloor: number | null;
+    /** Bounded, non-reward observation derived from the sealed match. */
+    battleBeat: EchoesBattleBeat;
 }
 
 /**
@@ -230,6 +241,7 @@ export function applyEchoesVictory(
     character: Record<string, unknown>,
     def: EchoesEncounterDef,
     now: number,
+    battleBeat: EchoesBattleBeat = "unrecorded",
 ): { character: Record<string, unknown>; summary: EchoesVictorySummary } {
     const progress = echoesProgressOf(character);
     const prior = progress[def.id] ?? { wins: 0 };
@@ -241,7 +253,13 @@ export function applyEchoesVictory(
     const wins = prior.wins + 1;
     const nextProgress: EchoesProgress = {
         ...progress,
-        [def.id]: { wins, firstClearAt: prior.firstClearAt ?? now },
+        [def.id]: {
+            wins,
+            firstClearAt: prior.firstClearAt ?? now,
+            ...(firstClear
+                ? { firstClearBattleBeat: normalizeEchoesBattleBeat(battleBeat) }
+                : prior.firstClearBattleBeat ? { firstClearBattleBeat: prior.firstClearBattleBeat } : {}),
+        },
     };
     const balance = Math.max(0, Math.floor(Number(character.chroniclePoints) || 0)) + points;
     const nextFloor = def.floor + 1;
@@ -251,6 +269,7 @@ export function applyEchoesVictory(
         summary: {
             encounterId: def.id, floor: def.floor, points, basePoints, firstClear,
             firstClearBonus, bossBonus, wins, balance, unlockedFloor,
+            battleBeat: normalizeEchoesBattleBeat(battleBeat),
         },
     };
 }

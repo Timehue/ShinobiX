@@ -58,7 +58,7 @@ const VILLAGE_BOSSES: Record<string, { icon: string; names: readonly string[] }>
             "Storm Engine Warden",
             "Jonin Rank Trial: Twin Tempest Duelists",
             "Tempest Execution Squad",
-            "Mira Volt, False Betrayer",
+            "Mira Volt, Estate Bout Rigger",
             "Hollow Tempest General",
             "Kage Raiko Veyr, Hollow Storm Tyrant",
         ],

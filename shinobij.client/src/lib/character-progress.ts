@@ -14,6 +14,8 @@ import { rankFromLevel, earnedForLevel, earnedStatPoints } from "./stats";
 import { DAILY_MISSION_LIMIT, DAILY_HUNT_LIMIT, MAX_LEVEL, EXAM_LEVEL_GATES } from "../constants/game";
 import { deriveStoryTraits, DERIVED_TRAIT_LEVELS } from "./story-derive";
 import type { Character } from "../types/character";
+import type { StoryChoiceReceipt } from "../types/character";
+import { recordStoryChoice, sanitizeStoryChoices, storyDecisionKey } from "./story-history";
 
 const levelOnlyRankTitles = new Set([
     "Academy Student",
@@ -53,8 +55,21 @@ export { deriveStoryTraits, DERIVED_TRAIT_LEVELS };
 export function applyStoryChoice(character: Character, trait: string): Character {
     const withTrait = addStoryTrait(character, trait);
     const before = withTrait.storyTraits ?? [];
-    const derived = deriveStoryTraits(before);
-    return derived.length === before.length ? withTrait : { ...withTrait, storyTraits: derived };
+    const derived = deriveStoryTraits(before, withTrait.storyChoices);
+    const unchanged = derived.length === before.length && derived.every((trait) => before.includes(trait));
+    return unchanged ? withTrait : { ...withTrait, storyTraits: derived };
+}
+
+/** Atomically preserve exact choice identity and its compatibility trait projection. */
+export function applyStoryChoiceReceipt(character: Character, receipt: StoryChoiceReceipt): Character {
+    const priorDecision = sanitizeStoryChoices(character.storyChoices).find((row) => storyDecisionKey(row) === storyDecisionKey(receipt));
+    const recorded = recordStoryChoice(character, receipt);
+    const accepted = priorDecision ?? receipt;
+    const withTrait = accepted.choiceId === receipt.choiceId && accepted.trait ? addStoryTrait(recorded, accepted.trait) : recorded;
+    const before = withTrait.storyTraits ?? [];
+    const derived = deriveStoryTraits(before, withTrait.storyChoices);
+    const unchanged = derived.length === before.length && derived.every((trait) => before.includes(trait));
+    return unchanged ? withTrait : { ...withTrait, storyTraits: derived };
 }
 
 export function hasDailyMissionSlot(character: Character) {

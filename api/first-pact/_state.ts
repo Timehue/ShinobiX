@@ -2,6 +2,8 @@ import { kv } from "../_storage.js";
 import { withKvLock } from "../_lock.js";
 import {
     acceptStableQuest,
+    recordFirstPactLatticeCompanions,
+    recordFirstPactCompanionNames,
     enterFirstPactFinding,
     settleFirstPactStandingCourtRound,
     advanceFirstPactMainBeat,
@@ -10,6 +12,8 @@ import {
     settleFirstPactTournamentEncounter,
     settleFirstPactMainEncounter,
     settleFirstPactWritEncounter,
+    visitFirstPactAftermath,
+    type FirstPactAftermathId,
     type FirstPactMainBeat,
     type FirstPactMainEncounterId,
     type FirstPactProgress,
@@ -55,13 +59,16 @@ export function enterFirstPact(playerName: string, now = Date.now()): Promise<Fi
 export async function advanceFirstPactMain(
     playerName: string,
     beat: FirstPactMainBeat,
+    pets: readonly { id?: unknown; name?: unknown; nickname?: unknown }[] = [],
     now = Date.now(),
 ): Promise<{ progress: FirstPactProgress; advanced: boolean }> {
     let advanced = false;
     const progress = await updateFirstPactProgress(playerName, (current) => {
         const result = advanceFirstPactMainBeat(current, beat, now);
         advanced = result.advanced;
-        return result.progress;
+        return result.advanced && beat.startsWith("forge-first-pact-")
+            ? recordFirstPactCompanionNames(result.progress, pets)
+            : result.progress;
     }, now);
     return { progress, advanced };
 }
@@ -99,6 +106,22 @@ export async function enterFirstPactFindingForPlayer(
         return next;
     }, now);
     return { progress, entered };
+}
+
+export async function visitFirstPactAftermathForPlayer(
+    playerName: string,
+    aftermathId: FirstPactAftermathId,
+    now = Date.now(),
+): Promise<{ progress: FirstPactProgress; visited: boolean; replayed: boolean }> {
+    let visited = false;
+    let replayed = false;
+    const progress = await updateFirstPactProgress(playerName, (current) => {
+        const result = visitFirstPactAftermath(current, aftermathId, now);
+        visited = result.visited;
+        replayed = result.replayed;
+        return result.progress;
+    }, now);
+    return { progress, visited, replayed };
 }
 
 /**
@@ -178,13 +201,16 @@ export async function settleFirstPactMainBattle(
     encounterId: FirstPactMainEncounterId,
     outcome: "win" | "loss",
     proofId: string,
+    companionIds: readonly string[] = [],
     now = Date.now(),
 ): Promise<{ progress: FirstPactProgress; advanced: boolean }> {
     let advanced = false;
     const progress = await updateFirstPactProgress(playerName, (current) => {
         const settled = settleFirstPactMainEncounter(current, encounterId, outcome, proofId, now);
         advanced = settled.advanced;
-        return settled.progress;
+        return settled.advanced && encounterId === "lattice-guardian"
+            ? recordFirstPactLatticeCompanions(settled.progress, companionIds)
+            : settled.progress;
     }, now);
     return { progress, advanced };
 }

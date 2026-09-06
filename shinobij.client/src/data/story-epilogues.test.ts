@@ -12,7 +12,8 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { storylines } from "./storylines";
 import { storyEpiloguesByVillage } from "./story-epilogues";
-import { selectStoryEpilogue, selectStoryEpilogueEvent } from "../lib/story-epilogue";
+import { selectStoryEpilogueEvent } from "../lib/story-epilogue";
+import { selectStoryEpilogue } from "../lib/story-epilogue-select";
 import { deriveStoryTraits } from "../lib/story-derive";
 import { splitDialogueLine } from "../lib/vn";
 import type { Character } from "../types/character";
@@ -34,9 +35,10 @@ test("every epilogue follows a real finale lane, gated variants precede their ba
         const seenBase = new Set<string>();
         for (const def of defs) {
             assert.ok(lanes.has(def.lane), `${village}: epilogue lane ${def.lane} is not a finale lane (${[...lanes].join(", ")})`);
-            if (def.requireTrait) {
+            const gateTraits = [def.requireTrait, ...(def.requireAnyTrait ?? [])].filter((trait): trait is string => Boolean(trait));
+            if (gateTraits.length > 0) {
                 assert.ok(!seenBase.has(def.lane), `${village}/${def.lane}: gated variant "${def.title}" comes AFTER the base entry — selection would never reach it`);
-                assert.match(def.requireTrait, /^(sv|al|ff|ms|rd)\d+-/, `${village}/${def.lane}: requireTrait ${def.requireTrait} off-scheme`);
+                for (const trait of gateTraits) assert.match(trait, /^(sv|al|ff|ms|rd)\d+-/, `${village}/${def.lane}: gate trait ${trait} off-scheme`);
             } else {
                 seenBase.add(def.lane);
             }
@@ -100,26 +102,26 @@ test("every epilogue speaker has portrait art and every backdrop exists on disk"
 
 test("selection precedence: gate trait picks the variant, otherwise base, unknown lane picks nothing", () => {
     const V = "Ashen Leaf Village";
-    const ready = selectStoryEpilogue(V, "honorable", ["al88-better-winter-ready"]);
-    assert.ok(ready?.requireTrait === "al88-better-winter-ready", "ready trait should select the gated honorable variant");
+    const ready = selectStoryEpilogue(V, "honorable", ["al100-proof-presented-carried"]);
+    assert.ok(ready?.requireAnyTrait?.includes("al100-proof-presented-carried"), "presented proof should select the gated honorable variant");
     const base = selectStoryEpilogue(V, "honorable", []);
     assert.ok(base && !base.requireTrait, "no traits should fall back to the base honorable epilogue");
     assert.notEqual(ready?.title, base?.title);
-    assert.equal(selectStoryEpilogue(V, "suspicious", ["al88-better-winter-ready"]), null, "non-finale lane selects nothing");
+    assert.equal(selectStoryEpilogue(V, "suspicious", ["al100-proof-presented-carried"]), null, "non-finale lane selects nothing");
     assert.equal(selectStoryEpilogue(V, null, []), null);
     assert.equal(selectStoryEpilogue("Nowhere Village", "honorable", []), null);
 });
 
-test("selectStoryEpilogueEvent builds a zero-reward story-epilogue VN with the finale backdrop", () => {
+test("selectStoryEpilogueEvent builds a zero-reward story-epilogue VN with the finale backdrop", async () => {
     const character = {
         name: "Tester",
         village: "Ashen Leaf Village",
         storyVillage: "Ashen Leaf Village",
         // A player who carried the proof themselves — the state real play derives
         // from these atomic choices (see lib/story-derive.ts).
-        storyTraits: deriveStoryTraits(["al65-saved-the-screw", "al88-ninety-mouths", "al88-held-the-proof", "al88-reed-proof-ready"]),
+        storyTraits: deriveStoryTraits(["al65-saved-the-screw", "al88-ninety-mouths", "al88-held-the-proof", "al88-reed-proof-ready", "al100-proof-presented-carried"]),
     } as unknown as Character;
-    const event = selectStoryEpilogueEvent(character, "ambitious");
+    const event = await selectStoryEpilogueEvent(character, "ambitious", undefined, storyEpiloguesByVillage["Ashen Leaf Village"]);
     assert.ok(event, "expected an epilogue event");
     assert.equal(event!.id, "story-epilogue-ashen-leaf-village-ambitious");
     assert.equal(event!.eventKind, "visualNovel");
@@ -133,5 +135,5 @@ test("selectStoryEpilogueEvent builds a zero-reward story-epilogue VN with the f
     }
     // The devastated-Toma variant is the ready-gated one for the taken shears.
     assert.ok(event!.vnPages!.some((page) => page.dialogue.some((line) => line.includes("sat down in her chair"))));
-    assert.equal(selectStoryEpilogueEvent(character, null), null, "no captured lane, no epilogue");
+    assert.equal(await selectStoryEpilogueEvent(character, null), null, "no captured lane, no epilogue");
 });

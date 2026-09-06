@@ -63,6 +63,8 @@ describe("Tamer Tomoe curriculum", () => {
 
         const [firstVisit] = petMentorWandererFor(character(2, 1), 12);
         assert.match(firstVisit.greeting, /second tail/i);
+        assert.match(firstVisit.greeting, /his own Bondwake/i);
+        assert.doesNotMatch(firstVisit.greeting, /bond worth studying|mature partnership/i);
     });
 
     it("offers the next usable unfinished lesson without blocking on a missing roster prerequisite", () => {

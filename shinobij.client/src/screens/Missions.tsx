@@ -551,6 +551,7 @@ export function Missions({
                                 <div className="mh-combat-body">
                                     <strong className="mh-combat-name">{mission.name}</strong>
                                     <span className="mh-combat-enemy">{ai?.name ?? "Unknown Enemy"}</span>
+                                    {mission.brief && <small className="mh-combat-purpose">{claimable ? mission.closure : mission.brief}</small>}
                                     <div className="mh-combat-tags">
                                         {claimable
                                             ? <span className="mh-tag mh-tag-ready">Reward ready</span>

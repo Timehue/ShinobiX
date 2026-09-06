@@ -189,7 +189,7 @@ async function loadWorldCrisis80State(): Promise<WorldCrisis80State> {
 
 function awakeningMessage(state: WorldCrisis80State): string {
     const player = state.awakenedBy ?? 'An unnamed shinobi';
-    return `${player} reached level 80, and four copies of Harrow's evidence reconciled into one witness record. People serving Hollow Gate's old claims answered by sending Collection Cells and pursuit packs toward every village ledger. Every shinobi and companion handler is called to the outskirts.`;
+    return `${player} reached level 80 and triggered the public alarm. Village record keepers opened four regional reports already filed by Kite Harrow and found the same quartered claim in each. People serving Hollow Gate's old claims answered by sending Collection Cells and pursuit packs toward every village ledger. Every shinobi and companion handler is called to the outskirts.`;
 }
 
 async function ensureWorldCrisis80Outbox(state: WorldCrisis80State): Promise<void> {
@@ -212,8 +212,8 @@ async function ensureWorldCrisis80Outbox(state: WorldCrisis80State): Promise<voi
         if (state.awakenedBy) {
             await addHallEntry({
                 entryType: 'server_first',
-                title: 'The First Witness',
-                description: `${state.awakenedBy} was the first shinobi whose level-80 field record reconciled Harrow's four Hollow Gate reports. The villages chose to keep the evidence together.`,
+                title: 'The First Alarm',
+                description: `${state.awakenedBy}'s level-80 field record triggered the mobilization while village record keepers compared Kite Harrow's four regional reports.`,
                 player: state.awakenedBy,
                 ...(state.awakenedVillage ? { village: state.awakenedVillage } : {}),
                 meta: { worldCrisisId: state.crisisId, runId: state.runId },
@@ -238,7 +238,7 @@ async function ensureWorldCrisis80Outbox(state: WorldCrisis80State): Promise<voi
             type: 'world_crisis_80_resolved',
             importance: 'mythic',
             title: 'The Claims Are Broken',
-            message: 'Every witness ledger remains in village hands. Shinobi broke the Collection Cells while companion packs found and severed the lower pursuit routes. Hollow Gate has lost its claim on the four reports.',
+            message: 'Every witness ledger remains in village hands. Defenders held the outskirts and cut the converging attack off from its lower routes. Hollow Gate has lost its claim on the four reports.',
             meta: { crisisId: state.crisisId, runId: state.runId, action: 'open-world-crisis-80' },
         }, { receiptId: `${state.runId}:resolved` });
         if (posted) {

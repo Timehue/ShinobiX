@@ -32,11 +32,12 @@ function ArchiveIcon({ icon }: { icon: string }) {
     return glyph ? <GameIcon name={glyph} size={18} /> : <>{icon}</>;
 }
 
-export function StoryJourney({ character, onReturnToVillage }: { character: Character; onReturnToVillage?: () => void }) {
+export function StoryJourney({ character, onReturnToVillage, onResumeStory }: { character: Character; onReturnToVillage?: () => void; onResumeStory?: () => void }) {
     const village = character.storyVillage || character.village;
     if (!isStoryContentVillage(village)) throw new Error(`No story content is published for ${village || "this village"}.`);
     const content = readStoryContent(village);
     const [openId, setOpenId] = useState<string | null>(null);
+    const reportConflicts = (character.pendingStoryReports ?? []).filter((report) => report.status === "conflict").length;
     const [replayEntry, setReplayEntry] = useState<CompletedStoryArchiveEntry | null>(null);
     const [replayPage, setReplayPage] = useState(0);
     const [replayLine, setReplayLine] = useState(0);
@@ -85,8 +86,13 @@ export function StoryJourney({ character, onReturnToVillage }: { character: Char
                     </p>
                 )}
             </div>
+            {reportConflicts > 0 ? (
+                <p className="story-archive-history-note">{reportConflicts} remembered {reportConflicts === 1 ? "choice differs" : "choices differ"} from the permanent Chronicle record. Later choices will keep syncing while the conflicting record remains flagged.</p>
+            ) : null}
             {guidance.actionLabel && onReturnToVillage ? (
-                <button type="button" onClick={onReturnToVillage}>{guidance.actionLabel}</button>
+                <button type="button" onClick={guidance.state === "ready" && onResumeStory ? onResumeStory : onReturnToVillage}>
+                    {guidance.state === "ready" && onResumeStory ? "Resume current chapter" : guidance.actionLabel}
+                </button>
             ) : null}
         </aside>
     );
@@ -190,6 +196,11 @@ export function StoryJourney({ character, onReturnToVillage }: { character: Char
                                                 ))}
                                             </div>
                                         </div>
+                                    )}
+                                    {!entry.historyComplete && (
+                                        <p className="story-archive-guidance__recovery" role="note">
+                                            This chapter predates the Chronicle's decision receipts. The shared road is preserved; the missing branch remains unclaimed.
+                                        </p>
                                     )}
                                 </div>
                             )}

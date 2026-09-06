@@ -15,6 +15,10 @@ import {
     expectedFirstPactMainEncounter,
     expectedFirstPactTournamentEncounter,
     normalizeFirstPactProgress,
+    recordFirstPactLatticeCompanions,
+    recordFirstPactCompanionNames,
+    firstPactAvailableAftermath,
+    visitFirstPactAftermath,
     firstPactBalancingOwed,
     FIRST_PACT_STANDING_COURT_LENGTH,
     FIRST_PACT_STANDING_COURT_ROUNDS,
@@ -612,4 +616,98 @@ test("a stored run is clamped to a sitting that exists", () => {
     // A save written before the rerun existed simply has no run.
     const legacy = normalizeFirstPactProgress({ version: 6, mainStep: "complete" });
     assert.deepEqual(legacy.standingCourt, { round: 0, best: 0, clears: 0, battleProofs: [] });
+});
+
+test("the sealed Lattice candidate survives normalization and cannot be replaced", () => {
+    const ids = ["pet-a", "pet-b", "pet-c", "pet-d"];
+    const ready = normalizeFirstPactProgress({
+        ...createFirstPactProgress(1),
+        chapter: 3,
+        mainStep: "make-first-pact",
+        flags: ["defeated-lattice-guardian"],
+    }, 2);
+    const recorded = recordFirstPactLatticeCompanions(ready, ids);
+    assert.deepEqual(recorded.mainQuest.latticeCompanionIds, ids);
+    assert.deepEqual(normalizeFirstPactProgress(recorded, 3).mainQuest.latticeCompanionIds, ids);
+    assert.deepEqual(recordFirstPactLatticeCompanions(recorded, ["x", "y", "z", "q"]).mainQuest.latticeCompanionIds, ids);
+    assert.equal(recordFirstPactLatticeCompanions(ready, ["pet-a", "pet-a", "pet-c", "pet-d"]), ready);
+    const beforeVow = createFirstPactProgress(1);
+    assert.equal(recordFirstPactLatticeCompanions(beforeVow, ids), beforeVow);
+});
+
+test("the accepted vow binds only the preceding sealed Lattice candidate", () => {
+    const ids = ["pet-a", "pet-b", "pet-c", "pet-d"];
+    const ready = normalizeFirstPactProgress({
+        ...createFirstPactProgress(1),
+        chapter: 3,
+        mainStep: "make-first-pact",
+        flags: ["defeated-lattice-guardian"],
+        mainQuest: { omens: [], battleProofs: [], latticeCompanionIds: ids },
+    }, 2);
+    const vowed = advanceFirstPactMainBeat(ready, "forge-first-pact-open-road", 3).progress;
+    assert.deepEqual(vowed.mainQuest.pactCompanionIds, ids);
+
+    const oldPastVow = normalizeFirstPactProgress({
+        version: 7,
+        chapter: 4,
+        mainStep: "challenge-court-echo",
+        mainQuest: { pactVow: "open-road", omens: [], battleProofs: [] },
+    }, 4);
+    assert.equal(oldPastVow.mainQuest.pactCompanionIds, undefined,
+        "a later formation must not be assigned retroactively to an old pact");
+});
+
+test("vow companion names are bounded, aligned to sealed ids, and immutable", () => {
+    const ids = ["pet-a", "pet-b", "pet-c", "pet-d"];
+    const ready = {
+        ...createFirstPactProgress(10),
+        mainStep: "make-first-pact" as const,
+        mainQuest: { omens: [], battleProofs: [], latticeCompanionIds: ids },
+    };
+    const vowed = advanceFirstPactMainBeat(ready, "forge-first-pact-open-road", 11).progress;
+    const sealed = recordFirstPactCompanionNames(vowed, [
+        { id: "pet-d", name: "Fourth" },
+        { id: "pet-a", name: "Species", nickname: "  First  " },
+        { id: "pet-b", name: "B".repeat(80) },
+    ]);
+    assert.deepEqual(sealed.mainQuest.pactCompanionNames, ["First", "B".repeat(48), null, "Fourth"]);
+    assert.strictEqual(recordFirstPactCompanionNames(sealed, [{ id: "pet-a", name: "Replacement" }]), sealed);
+});
+
+test("old pact records keep aligned unknown name slots instead of borrowing current names", () => {
+    const restored = normalizeFirstPactProgress({
+        ...createFirstPactProgress(10),
+        mainStep: "complete",
+        mainQuest: {
+            omens: [], battleProofs: [], pactVow: "shared-reason",
+            pactCompanionIds: ["pet-a", "pet-b", "pet-c", "pet-d"],
+        },
+    });
+    assert.deepEqual(restored.mainQuest.pactCompanionNames, [null, null, null, null]);
+});
+
+test("old saves stay anonymous and optional aftermath is derived from proven outcomes", () => {
+    const restored = normalizeFirstPactProgress({
+        version: 7,
+        mainStep: "return-to-threshold",
+        writs: ["writ-audit", "writ-pruning"],
+        findings: ["writ-audit"],
+        aftermathVisits: ["writ-pruning", "made-up-visit"],
+        stableQuest: { status: "complete", tournamentWins: 3, battleProofs: [] },
+    }, 10);
+    assert.equal(restored.mainQuest.pactCompanionIds, undefined);
+    assert.deepEqual(restored.aftermathVisits, []);
+    assert.deepEqual(firstPactAvailableAftermath(restored), ["writ-audit", "vale-stable"]);
+    const visited = visitFirstPactAftermath(restored, "writ-audit", 11);
+    assert.equal(visited.visited, true);
+    assert.equal(visited.replayed, false);
+    assert.deepEqual(visited.progress.aftermathVisits, ["writ-audit"]);
+    assert.deepEqual(visitFirstPactAftermath(visited.progress, "writ-audit", 12), {
+        progress: visited.progress,
+        visited: false,
+        replayed: true,
+    });
+    assert.equal(visitFirstPactAftermath(restored, "writ-pruning", 12).replayed, false);
+    assert.equal(advanceFirstPactMainBeat(restored, "complete-crossing", 13).advanced, true,
+        "unvisited aftermath must never gate completion");
 });

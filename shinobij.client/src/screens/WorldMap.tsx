@@ -65,9 +65,14 @@ import type { WorldAiFightContext, WorldAiFightKind, WorldAiFightRequest } from 
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
-import { ROAD_WANDERER_PREFIX, nextRoadEvent, synthRoadWanderer, roadEventBySynthId, roadEventToCreatorEvent, reportStoryRoadEvent } from "../lib/story-road-events";
+import { ROAD_WANDERER_PREFIX, nextRoadEvent, synthRoadWanderer, roadEventBySynthId, roadEventToCreatorEvent, reportStoryRoadEvent, applyRoadEventChoice } from "../lib/story-road-events";
 import { STORY_RECKONING_ACCEPT_TRAIT, visibleStoryReckonings, isStoryReckoningId, isStoryReckoningReturnEventId, storyReckoningForEventId, storyReckoningIntroEvent, storyReckoningPayoffEvent, acceptStoryReckoning, reportStoryReckoning, turnInStoryReckoning, abandonStoryReckoning } from "../lib/story-reckonings";
 import type { StoryReckoning } from "../data/story-reckonings";
+import { FIELD_STORY_PREFIX, storyFieldAftermathEvent, storyFieldObjective } from "../lib/story-field-work";
+import { readStoryFieldContent } from "../lib/story-field-content-loader";
+import { StoryFieldScene } from "../components/StoryFieldScene";
+import { StoryFieldJournal } from "../components/StoryFieldJournal";
+import { StoryFieldContentBoundary } from "../components/StoryFieldContentBoundary";
 import { RIFT_GIVER_PREFIX, RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_ABANDON_MARKER, nextRift, synthRiftGiver, riftBySynthId, riftIntroEvent, riftDescentEvent, riftByDescentEventId, isRiftDescentEventId, riftTargetSector, acceptRift, abandonRift } from "../lib/hollow-rifts";
 import { hollowRiftById, type HollowRift } from "../data/hollow-rifts";
 import { SCRIBE_WANDERER_ID, SCRIBE_ACCEPT_MARKER, CODEX_FLIP_LIMIT, scribeWandererFor, scribeIntroEvent, claimTravelersCodex, codexRevealCards } from "../lib/chronicle-scribe";
@@ -90,6 +95,22 @@ import { createPortal } from "react-dom";
 import { travelMaskMs } from "../lib/travel-mask";
 import { serverNow } from "../lib/server-clock";
 import { peerIsTraveling } from "../lib/presence-character";
+
+function storyReckoningActionFailure(reason: string | undefined, arc: StoryReckoning, action: "accept" | "turn-in"): string {
+    const place = arc.crossVillage ? "an outskirts post" : `${arc.village} outskirts`;
+    if (reason === "presence" || reason === "offline") return `Reconnect to the world, then speak with ${arc.npcName} at ${place}.`;
+    if (reason === "wrong-place") return `Return to ${place} and speak with ${arc.npcName}.`;
+    if (reason === "traveling") return `Finish traveling, then speak with ${arc.npcName} at ${place}.`;
+    if (reason === "in-battle") return `Finish the battle, then speak with ${arc.npcName} at ${place}.`;
+    if (action === "accept" && reason === "busy") return "Finish the story burden you already carry first.";
+    if (action === "accept" && reason === "ineligible") return "This reckoning is not available now.";
+    if (reason === "incomplete") return `Finish the field route or battle, then return to ${arc.npcName}.`;
+    if (reason === "no-item") return `Recover ${arc.task.targetName}, then return to ${arc.npcName}.`;
+    if (reason === "daily-cap") return "You have settled enough reckonings today. Return tomorrow.";
+    if (reason === "none") return `This reckoning is no longer active. Speak with ${arc.npcName} at ${place} if it remains unsettled.`;
+    return action === "accept" ? "The reckoning could not be sealed. Reconnect and try again."
+        : "The reckoning could not be turned in. Reconnect and try again.";
+}
 
 // Anbu Vault Infiltration (anbuInfiltration.v1) — lazy so the raid (which pulls
 // in the whole BattleTowerFight screen) never weighs down the WorldMap chunk.
@@ -203,7 +224,7 @@ import { homeVillageForSector } from "../data/war-map-sectors";
 import { isLegacyServerLive, useLegacyAvailability, useLegacyMutationAvailability, fetchSageState, fetchLegacyStatus, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
 import { rollEmissarySpawn, EMISSARY_BY_SLUG, type EmissarySlug, type EmissaryQuestDef } from "../lib/legacy-emissaries";
 import { EmissaryTrialPanel } from "../components/EmissaryTrialPanel";
-import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rumorForCategory } from "../lib/legacy-rumors";
+import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rememberedRumorCategory, rumorForCategory } from "../lib/legacy-rumors";
 import { SageWhisper } from "../components/SageWhisper";
 import { buildSageVnEvent } from "../lib/legacy-sage-vn";
 import { SageOfferModal } from "../components/SageOfferModal";
@@ -363,7 +384,7 @@ const WORLD_FIGHT_KIND_BY_MODE: Readonly<Record<string, WorldAiFightKind>> = {
     storyReckoning: "story-reckoning",
 };
 
-export function WorldMap({
+function WorldMapContent({
     setCurrentBiome,
     setScreen,
     character,
@@ -489,6 +510,9 @@ export function WorldMap({
     // crowd in motion doesn't re-render this whole screen.
     const liveSectorPlayers = useLiveSectorRoster();
     const [selectedSector, setSelectedSector] = useState<number | null>(null);
+    const [fieldScene, setFieldScene] = useState<{ questId: string; pointId: string; review?: boolean } | null>(null);
+    const [storyReckoningAbandonBusy, setStoryReckoningAbandonBusy] = useState(false);
+    const fieldObjective = storyFieldObjective(character);
     const sectorIntelPlate = useSectorIntelPlate(selectedSector, character.village); // pure projection; the refresh is its effect, never a render
     // Only the ~6 posted sectors ever reach the network (the board itself is a
     // pure local computation over the same shared module the server uses).
@@ -1053,8 +1077,8 @@ export function WorldMap({
     // Fires for the highest unseen milestone at level >= it, so leveling past
     // one offline doesn't eat the beat; heard rumors accumulate in the panel log.
     useEffect(() => {
-        if (!legacyAvailable || character.level >= 50) return;
-        const milestone = nextUnseenRumorMilestone(character.level);
+        if (!legacyAvailable) return;
+        const milestone = nextUnseenRumorMilestone(character.level, character.name);
         if (milestone == null) return;
         let alive = true;
         void fetchLegacyStatus(character.name).then(s => {
@@ -1063,15 +1087,20 @@ export function WorldMap({
             // don't whisper about a system that isn't live, and don't burn the
             // one-time seen marker so the rumor still fires once it's on.
             if (!s) return;
+            if (s.legacy) {
+                markLevelRumorSeen(character.name, milestone);
+                return;
+            }
             // Pass the player name + this path's server-bucketed tier so the
             // deterministic variant pick is per-player (two players / a replay
             // never hear the identical sequence) and tier-aware.
-            const text = rumorForCategory(s.strongest?.[0]?.category, milestone, {
+            const category = rememberedRumorCategory(character.name, s.strongest?.[0]?.category);
+            const text = rumorForCategory(category, milestone, {
                 playerName: character.name,
                 tier: s.strongest?.[0]?.tier,
             });
-            markLevelRumorSeen(milestone);
-            recordRumorHeard(milestone, text);
+            markLevelRumorSeen(character.name, milestone);
+            recordRumorHeard(character.name, milestone, text);
             setWhisper({ text });
         });
         return () => { alive = false; };
@@ -1861,7 +1890,7 @@ export function WorldMap({
             if (roadEvent && selectedSector != null) {
                 setCreatorEventPage(0);
                 setCreatorEventLine(0);
-                setSelectedCreatorEvent(roadEventToCreatorEvent(roadEvent, biomeForWorldSector(selectedSector)));
+                setSelectedCreatorEvent(roadEventToCreatorEvent(roadEvent, biomeForWorldSector(selectedSector), character));
             }
             return;
         }
@@ -1874,11 +1903,22 @@ export function WorldMap({
             const biome = biomeForWorldSector(selectedSector);
             setCreatorEventPage(0);
             setCreatorEventLine(0);
+            const aftermath = storyFieldAftermathEvent(arc.id, character, biome);
+            if (aftermath) { setSelectedCreatorEvent(aftermath); return; }
             if (active?.id === arc.id && active.stage === "return") {
-                setSelectedCreatorEvent(storyReckoningPayoffEvent(arc, biome));
+                setSelectedCreatorEvent(storyReckoningPayoffEvent(arc, biome, character));
                 return;
             }
             if (active?.id === arc.id && active.stage === "task") {
+                if (active.fieldWork) {
+                    const objective = storyFieldObjective(character);
+                    if (objective?.pointId && objective.sector === currentSector) {
+                        setFieldScene({ questId: arc.id, pointId: objective.pointId });
+                    } else if (objective?.pointId) {
+                        setWandererDialog({ w, msg: `${objective.objective} ${objective.name} · Sector ${objective.sector}.` });
+                    } else void handleStoryReckoningReport(arc, true);
+                    return;
+                }
                 if (arc.task.kind === "collect") {
                     const got = Math.max(0, ((character[arc.task.metric] as number | undefined) ?? 0) - active.baseline);
                     if (got >= active.target) {
@@ -1904,7 +1944,12 @@ export function WorldMap({
                 const targetSector = riftTargetSector(character.name, rift.id);
                 setCreatorEventPage(0);
                 setCreatorEventLine(0);
-                setSelectedCreatorEvent(riftIntroEvent(rift, targetSector, biomeForWorldSector(selectedSector)));
+                setSelectedCreatorEvent(riftIntroEvent(
+                    rift,
+                    targetSector,
+                    biomeForWorldSector(selectedSector),
+                    character.riftFirstClears ?? {},
+                ));
             }
             return;
         }
@@ -2357,16 +2402,17 @@ export function WorldMap({
         setSelectedCreatorEvent(null);
         const resp = await acceptStoryReckoning(character.name, arc.id);
         if (!resp.ok) {
-            const msg = resp.reason === "busy" ? "Finish the story burden you already carry first."
-                : resp.reason === "ineligible" ? "You are not far enough into this story yet."
-                : "The reckoning could not be sealed. Try again in a moment.";
-            setTimeout(() => alert(msg), 40);
+            if (resp.character && !onVersionedCharacter(resp.character, resp._saveVersion)) return;
+            setTimeout(() => alert(storyReckoningActionFailure(resp.reason, arc, "accept")), 40);
             return;
         }
         if (resp.character) { if (!onVersionedCharacter(resp.character, resp._saveVersion)) return; }
         else if (onServerVersion?.(resp._saveVersion) !== false) updateCharacter(prev => prev && prev.name === character.name ? ({ ...prev, activeStoryReckoning: resp.activeStoryReckoning ?? prev.activeStoryReckoning }) : prev);
         if (arc.task.kind === "hunt") {
             launchStoryReckoningFight(arc);
+        } else if (resp.character?.activeStoryReckoning?.fieldWork) {
+            const objective = storyFieldObjective(resp.character);
+            if (objective?.pointId && objective.sector === currentSector) setFieldScene({ questId: arc.id, pointId: objective.pointId });
         } else {
             setTimeout(() => alert(`Reckoning accepted: search the outskirts until you find ${arc.task.targetName}.`), 40);
         }
@@ -2388,7 +2434,7 @@ export function WorldMap({
         if (openPayoff && selectedSector != null) {
             setCreatorEventPage(0);
             setCreatorEventLine(0);
-            setSelectedCreatorEvent(storyReckoningPayoffEvent(arc, biomeForWorldSector(selectedSector)));
+            setSelectedCreatorEvent(storyReckoningPayoffEvent(arc, biomeForWorldSector(selectedSector), resp.character ?? character));
         } else {
             setTimeout(() => alert(`${recovering ? "Recovered reckoning ledger — " : ""}You recovered ${arc.task.targetName}. Return to ${arc.npcName} at the outskirts.`), 40);
         }
@@ -2398,10 +2444,7 @@ export function WorldMap({
         const resp = await turnInStoryReckoning(character.name, arc.id);
         if (!resp.ok) {
             if (resp.character && !onVersionedCharacter(resp.character, resp._saveVersion)) return;
-            const msg = resp.reason === "no-item" ? "You do not have the keepsake yet."
-                : resp.reason === "daily-cap" ? "You have settled enough reckonings today. Return tomorrow."
-                : "The reckoning could not be turned in. Try again in a moment.";
-            setTimeout(() => alert(msg), 40);
+            setTimeout(() => alert(storyReckoningActionFailure(resp.reason, arc, "turn-in")), 40);
             return;
         }
         if (resp.character) { if (!onVersionedCharacter(resp.character, resp._saveVersion)) return; }
@@ -2425,17 +2468,25 @@ export function WorldMap({
         if (resp.title) bits.push(`the title "${resp.title}"`);
         setTimeout(() => alert(`Reckoning complete: ${bits.join(", ")}.`), 40);
     }
-    async function handleStoryReckoningAbandon(w: Wanderer) {
+    async function handleStoryReckoningAbandon(w?: Wanderer) {
+        if (storyReckoningAbandonBusy) return;
         if (!(await gameConfirm("Abandon this reckoning? Your progress and recovered keepsake will remain, but the active task will be cleared.", { danger: true, confirmLabel: "Abandon" }))) return;
-        setWandererDialog({ w, busy: true });
-        const resp = await abandonStoryReckoning(character.name);
-        if (!resp.ok) {
-            setWandererDialog({ w, msg: "The reckoning could not be abandoned. Try again." });
-            return;
+        setStoryReckoningAbandonBusy(true);
+        if (w) setWandererDialog({ w, busy: true });
+        try {
+            const resp = await abandonStoryReckoning(character.name);
+            if (!resp.ok) {
+                if (w) setWandererDialog({ w, msg: "The reckoning could not be abandoned. Try again." });
+                else setTimeout(() => alert("The reckoning could not be abandoned. Try again."), 40);
+                return;
+            }
+            if (resp.character) { if (!onVersionedCharacter(resp.character, resp._saveVersion)) return; }
+            else if (onServerVersion?.(resp._saveVersion) !== false) updateCharacter(prev => prev && prev.name === character.name ? ({ ...prev, activeStoryReckoning: null }) : prev);
+            setFieldScene(null);
+            if (w) setWandererDialog({ w, msg: "The reckoning is released." });
+        } finally {
+            setStoryReckoningAbandonBusy(false);
         }
-        if (resp.character) { if (!onVersionedCharacter(resp.character, resp._saveVersion)) return; }
-        else if (onServerVersion?.(resp._saveVersion) !== false) updateCharacter(prev => prev && prev.name === character.name ? ({ ...prev, activeStoryReckoning: null }) : prev);
-        setWandererDialog({ w, msg: "The reckoning is released." });
     }
     // Tick once a second while a TIMED epic's journal is open so the countdown is live.
     const [, setEpicTick] = useState(0);
@@ -3776,6 +3827,7 @@ export function WorldMap({
         alert(event.icon + " " + event.name + "\n\n" + event.dialogue.join("\n") + "\n\n" + rewardSummary(event.ryoReward, event.staminaReward, event.currencyRewards, character));
     }
     function completeCreatorEvent(event: CreatorEvent) {
+        if (event.id.startsWith(FIELD_STORY_PREFIX)) { setSelectedCreatorEvent(null); return; }
         // A roaming giver's scene can end here as well as through onCancel (a
         // decline choice plays its goodbye and then completes), so both close paths
         // run the accept check. No-op for every other event id.
@@ -3970,6 +4022,11 @@ export function WorldMap({
         // sheet (SageOfferModal) where the permanent choice actually happens.
         return <TriggeredVisualNovel event={sageVnEvent} character={character} pageIndex={sageVnPage} lineIndex={sageVnLine} setPageIndex={setSageVnPage} setLineIndex={setSageVnLine} onCancel={() => setSageVnEvent(null)} onComplete={() => { setSageVnEvent(null); setSageChoiceOpen(true); }} onBattle={() => { /* the Sage never fights */ }} sharedImages={sharedImages} />;
     }
+    if (fieldScene) {
+        return <StoryFieldScene key={`${fieldScene.questId}:${fieldScene.pointId}:${fieldScene.review ? 'review' : 'play'}`}
+            {...fieldScene} character={character} biome={biomeForWorldSector(selectedSector ?? currentSector)}
+            sharedImages={sharedImages} onCharacter={onVersionedCharacter} onClose={() => setFieldScene(null)} />;
+    }
     if (selectedCreatorEvent) {
         return (
             <TriggeredVisualNovel
@@ -3982,7 +4039,7 @@ export function WorldMap({
                 onCancel={() => { noteGiverVnClosed(selectedCreatorEvent.id); if (selectedCreatorEvent.id === SCRIBE_WANDERER_ID) closeCodexScene(); setSelectedCreatorEvent(null); }}
                 onComplete={() => completeCreatorEvent(selectedCreatorEvent)}
                 onBattle={launchCreatorEventFight}
-                onChoice={(c) => {
+                onChoice={(c, receipt) => {
                     const ev = selectedCreatorEvent;
                     if (!ev) return;
                     if (c.trait === STORY_RECKONING_ACCEPT_TRAIT) {
@@ -4079,7 +4136,11 @@ export function WorldMap({
                         // on — so it must not also read as "turned down" when the
                         // conclusion finishes and the scene completes.
                         giverAcceptedRef.current = ev.id;
-                        updateCharacter(prev => prev ? addStoryTrait(prev, t) : prev);
+                        updateCharacter(prev => {
+                            if (!prev) return prev;
+                            if (!ev.id.startsWith(ROAD_WANDERER_PREFIX)) return addStoryTrait(prev, t);
+                            return applyRoadEventChoice(prev, ev.id, t, receipt);
+                        });
                         if (ev.id.startsWith(ROAD_WANDERER_PREFIX)) void reportStoryRoadEvent(character.name, ev.id, t);
                     }
                 }}
@@ -4408,6 +4469,10 @@ export function WorldMap({
         return (
             <div className="map-instance">
                 {petMentor.guide}
+                <StoryFieldJournal character={character} currentSector={currentSector} onLocate={setSelectedSector}
+                    onOpen={(questId, pointId) => setFieldScene({ questId, pointId })}
+                    onReview={(questId, pointId) => setFieldScene({ questId, pointId, review: true })}
+                    abandonBusy={storyReckoningAbandonBusy} onAbandon={() => void handleStoryReckoningAbandon()} />
                 <div className="instance-frame sector-instance-frame">
                     <WorldSectorCanvas
                         sector={selectedSector}
@@ -4447,6 +4512,10 @@ export function WorldMap({
                                 traceSigns={sectorTraces?.signs ?? []}
                                 shrine={sectorOverlayShrine}
                                 boss={sectorOverlayBoss}
+                                fieldStory={sectorIsCurrent && fieldObjective?.pointId && fieldObjective.sector === selectedSector ? {
+                                    title: fieldObjective.name, tile: fieldObjective.tile,
+                                    onOpen: () => setFieldScene({ questId: fieldObjective.questId, pointId: fieldObjective.pointId! }),
+                                } : null}
                                 onEngageWanderer={handleWandererEngage}
                                 onOpenTrace={(signId) => setTracesModal({ view: "signs", focusSignId: signId })}
                                 onOpenShrine={() => setTracesModal({ view: "shrine" })}
@@ -5000,6 +5069,10 @@ export function WorldMap({
 
     return (
         <div className="card">
+            <StoryFieldJournal character={character} currentSector={currentSector} onLocate={setSelectedSector}
+                onOpen={(questId, pointId) => setFieldScene({ questId, pointId })}
+                onReview={(questId, pointId) => setFieldScene({ questId, pointId, review: true })}
+                abandonBusy={storyReckoningAbandonBusy} onAbandon={() => void handleStoryReckoningAbandon()} />
             {wmZoom.active ? (
                 <div className="wm-topbar">
                     <BackToVillageButton
@@ -5272,4 +5345,19 @@ export function WorldMap({
             {codexRevealOverlay}
         </div>
     );
+}
+
+type WorldMapProps = Parameters<typeof WorldMapContent>[0];
+
+function StoryFieldContentGate({ children }: { children: ReactNode }) {
+    readStoryFieldContent();
+    return children;
+}
+
+export function WorldMap(props: WorldMapProps) {
+    return <StoryFieldContentBoundary onReturn={() => props.setScreen("village")}>
+        <Suspense fallback={<div className="loading-screen" role="status">Opening personal journey…</div>}>
+            <StoryFieldContentGate><WorldMapContent {...props} /></StoryFieldContentGate>
+        </Suspense>
+    </StoryFieldContentBoundary>;
 }

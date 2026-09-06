@@ -245,7 +245,7 @@ describe("save-persistence wiring in App.tsx", () => {
         );
         assert.match(versionedCommit, /acceptVersionedSnapshot\(latestSaveVersionRef\.current, incomingVersion\)/);
         assert.ok(versionedCommit.indexOf("if (!decision.accepted) return false") < versionedCommit.indexOf("latestSaveVersionRef.current = decision.latestVersion"));
-        assert.ok(versionedCommit.indexOf("installAuthoritativeSaveRef") < versionedCommit.indexOf("setCharacter(nextCharacter)"),
+        assert.ok(versionedCommit.indexOf("installAuthoritativeSaveRef") < versionedCommit.indexOf("setCharacter(mergedCharacter)"),
             "the synchronous save payload ref must be updated before React paints the authoritative character");
         assert.match(appSource, /commitVersionedCharacter\(reconcileOwnedStarter\(current, result\.character, granted\.id\), result\._saveVersion\)/,
             "starter entitlement replies must not split version adoption from their reconciled character");

@@ -6,7 +6,7 @@ import { storyInterludesByVillage } from "./story-interludes";
 import { storyEpiloguesByVillage } from "./story-epilogues";
 import { storyReckonings } from "./story-reckonings";
 import { hollowRifts } from "./hollow-rifts";
-import { ECHOES_ERA_INTROS, ECHOES_SCENES } from "./echoes-of-war-scenes";
+import { ECHOES_ERA_INTROS, ECHOES_SCENES, ECHOES_WITNESS_CONTENT } from "./echoes-of-war-scenes";
 import { ECHOES_ERAS, ECHOES_HERO_COPY } from "./echoes-of-war";
 import { awakeningLv2VnEvent, auraSphereLv9VnEvent, craftDungeonEvents, hiddenDungeonVnEvent } from "./vn-events";
 import { defaultAncientChestVn, defaultPetEncounterVn } from "./default-vn-events";
@@ -61,6 +61,13 @@ const pages: PageLike[] = [
     // are also the highest-risk spot for Hollow-Gate origin drift, so the canon
     // guard in story-content.test.ts scans them as well.
     ...Object.values(ECHOES_ERA_INTROS).flat(),
+    ...Object.values(ECHOES_WITNESS_CONTENT).flatMap((witness) => [
+        witness.prompt,
+        ...Object.values(witness.battleCallbacks),
+        ...Object.values(witness.nextEraAcknowledgements),
+        { speaker: "Narrator", dialogue: witness.choices.flatMap((choice) => [choice.label, choice.record]) },
+        { speaker: "Halden", dialogue: Object.values(witness.haldenAcknowledgements) },
+    ]),
     // The mode's landing copy is authored player-facing text too (held as data
     // in ECHOES_HERO_COPY so it can be scanned). The "not their souls" subtitle
     // does the heaviest canon work in the feature, so it must be gated here and
@@ -80,6 +87,40 @@ const pages: PageLike[] = [
         scribeIntroEvent("central"),
     ].flatMap((event) => event.vnPages ?? []),
 ];
+
+test("craft dungeon first pages retain their own biome scenes", () => {
+    for (const event of craftDungeonEvents) {
+        assert.equal(event.vnPages?.[0]?.scene, event.vnScene, event.id);
+    }
+    const wardenLines = hiddenDungeonVnEvent.vnPages?.[0]?.dialogue.join(" ") ?? "";
+    assert.match(wardenLines, /rescue rope/i);
+});
+
+test("early system events stay valid away from a village meeting", () => {
+    const awakening = awakeningLv2VnEvent.vnPages?.flatMap((page) => [page.scene, ...page.dialogue]).join(" ") ?? "";
+    assert.match(awakening, /recorded summons/i);
+    assert.match(awakening, /marks Central on your route sheet/i);
+    assert.doesNotMatch(awakening, /elder waits|felt it from the gatehouse|gate towers are visible/i);
+
+    const aura = auraSphereLv9VnEvent.vnPages?.flatMap((page) => [page.scene, ...page.dialogue]).join(" ") ?? "";
+    assert.match(aura, /seal sewn into your field kit opens/i);
+    assert.match(aura, /If a sphere is already fitted, use that one/i);
+    assert.doesNotMatch(aura, /training since dawn|elder waits beside/i);
+
+    const chest = defaultAncientChestVn.vnPages?.flatMap((page) => [page.scene, ...page.dialogue]).join(" ") ?? "";
+    assert.match(chest, /release marks are still readable|hinge inscription/i);
+    assert.match(chest, /I don't know that patrol mark/i);
+    assert.doesNotMatch(chest, /older than the present village borders|They never did/i);
+});
+
+test("public cultural lore identifies the record making each claim", () => {
+    for (const entry of Object.values(clanLore)) {
+        assert.match(entry.lore, /histories|rolls|rules posted|margin|graft books|duty line|house ledgers|agreement/i);
+    }
+    const ancientShrine = SHRINE_DEFS.find((shrine) => shrine.id === "ancients");
+    assert.match(ancientShrine?.lore ?? "", /weathered dedication/i);
+    assert.match(ancientShrine?.lore ?? "", /later brass plaque interprets/i);
+});
 
 function visiblePageText(page: PageLike): string[] {
     return [

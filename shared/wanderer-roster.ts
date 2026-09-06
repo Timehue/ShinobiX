@@ -85,7 +85,7 @@ export const WANDERER_ARCHETYPES: Record<WandererArchetypeId, WandererArchetypeM
         verb: "attack",
         weight: 0.24,
         tellTint: "#ff6b5a",
-        names: ["Kazan the Ashbound", "Goro Two-Blades", "Saito the Cinder", "Renga of the Waste", "Hibiki the Restless"],
+        names: ["Kano Two-Blades", "Genta Red-Sash", "Saito the Cinder", "Renga of the Waste", "Hibiki the Restless"],
         greetings: [
             "This stretch of road is mine. Pay the toll or bleed.",
             "Hand over your ryo, road-rat. Choose quick.",

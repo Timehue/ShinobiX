@@ -338,8 +338,8 @@ test("Level-80 World News opens the global 1v3 and 3v3 Hollow Gate Reckoning", a
     const cinematicArt = page.locator(".crisis-cinematic__reckoning-art");
     await expect(cinematicArt).toBeVisible();
     await expect.poll(() => cinematicArt.evaluate((image: HTMLImageElement) => image.naturalWidth > 1500)).toBe(true);
-    await page.getByRole("button", { name: "Scene 2: Hollow Gate is not a creature" }).click();
-    await expect(page.getByText("The Gate is the Court's civic lattice", { exact: false })).toBeVisible();
+    await page.getByRole("button", { name: "Scene 2: The contracts describe machinery" }).click();
+    await expect(page.getByText("Harrow's payment diagrams identify the Gate as Court-built civic machinery", { exact: false })).toBeVisible();
     await page.getByRole("button", { name: "Scene 4: Every player can answer" }).click();
     await expect(page.getByText("Either server-verified victory advances your village's witness ledger.")).toBeVisible();
     await page.getByRole("button", { name: "Choose a defense front →" }).click();

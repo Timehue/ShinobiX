@@ -44,6 +44,18 @@ export type DeletePlayerAccountResult = {
     failures: string[];
 };
 
+/** Remove First Pact progress that belongs to one canonical player slug.
+ *
+ * First Pact lives outside `save:<slug>`, so every path that destroys the
+ * character must compose this cleanup explicitly. The exact key prevents an
+ * account deletion from touching another player's crossing. */
+export async function deletePlayerFirstPactState(rawName: string): Promise<string | null> {
+    const slug = safeName(rawName);
+    if (!slug) return null;
+    const key = `first-pact:${slug}`;
+    return withKvLock(key, async () => await kv.del(key) ? key : null, { failClosed: true });
+}
+
 type ClanRecord = {
     members?: Array<Record<string, unknown>>;
     roleOverrides?: Record<string, string>;
@@ -219,7 +231,13 @@ export async function deletePlayerAccount(rawName: string): Promise<DeletePlayer
     }
 
     try {
-        if (await kv.del(saveKey)) result.removed.push(saveKey);
+        // Acquire the standalone story lock before removing the save. If the
+        // lock is contended, fail closed while the character and registry still
+        // exist so a later sweep can retry the whole deletion coherently.
+        const firstPactRemoved = await deletePlayerFirstPactState(slug);
+        const saveRemoved = await kv.del(saveKey);
+        if (saveRemoved) result.removed.push(saveKey);
+        if (firstPactRemoved) result.removed.push(firstPactRemoved);
         await kv.hdel(REGISTRY_KEY, slug);
         result.detached.push(`${REGISTRY_KEY}[${slug}]`);
     } catch (err) {

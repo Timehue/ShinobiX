@@ -70,9 +70,9 @@ const ELDER_FOCUS_OPTIONS: ReadonlyArray<{
     bonus: string;
     brief: string;
 }> = [
-    { key: "war", role: "War Elder", bonus: "−1% wartime damage", brief: "Steel the village for open conflict." },
-    { key: "trade", role: "Trade Elder", bonus: "−5% shop prices", brief: "Turn every ryo into more supplies." },
-    { key: "training", role: "Training Elder", bonus: "+10% XP and jutsu speed", brief: "Accelerate the next generation." },
+    { key: "war", role: "Defense doctrine", bonus: "−1% wartime damage", brief: "Steel the village for open conflict." },
+    { key: "trade", role: "Trade doctrine", bonus: "−5% shop prices", brief: "Turn every ryo into more supplies." },
+    { key: "training", role: "Training doctrine", bonus: "+10% XP and jutsu speed", brief: "Accelerate the next generation." },
 ];
 
 // Server-authoritative Kage succession (mirrors api/village/_kage-challenge.ts —
@@ -118,7 +118,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     const villageWarAvailability = useCapabilityViewAvailability("villageWar");
     const sectorMapOpen = capabilityAdmissionAllowed(villageWarAvailability);
     const sectorMapStatus = sectorMapAdmissionMessage(villageWarAvailability);
-    const leadership = villageLeadership[character.village] ?? { kage: "Acting Kage Council", elders: ["First Elder", "Second Elder", "Third Elder"], atWar: false, pastWars: ["No recorded wars yet."] };
+    const leadership = villageLeadership[character.village] ?? { kage: "Acting Kage Council", elders: ["Defense contact", "Trade contact", "Training contact"], roles: ["Defense contact", "Trade contact", "Training contact"], atWar: false, pastWars: ["No recorded wars yet."] };
     const leadershipImages = loadVillageLeadershipImages()[character.village] ?? { kage: "", elders: ["", "", ""] };
 
     // Helper to get leader image: shows real player avatar if seated, falls back to admin image.
@@ -659,11 +659,11 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     const isAnbu = isVillageAnbu(character);
     const canPostVillageOrder = isSeatedKage || isAnbu || Boolean(character.elderFocus);
     function postVillageNotice() {
-        if (!canPostVillageOrder) return alert("Only the Kage, ANBU, or a selected Elder focus can post village orders.");
+        if (!canPostVillageOrder) return alert("Only the Kage, ANBU, or a shinobi with a selected village focus can post village orders.");
         const title = villageNoticeTitle.trim();
         const body = villageNoticeBody.trim();
         if (!title || !body) return alert("Add a title and message for the village order.");
-        const role = isSeatedKage ? "Kage" : isAnbu ? "ANBU" : `${character.elderFocus} Elder`;
+        const role = isSeatedKage ? "Kage" : isAnbu ? "ANBU" : `${character.elderFocus} focus representative`;
         const sector = villageNoticeSector ? clampNumber(Math.floor(Number(villageNoticeSector)), 1, MAX_WILD_SECTOR) : undefined;
         const notice = makeNoticePost(villageNoticeType, title, body, character.name, role, villageNoticeType === "order", sector);
         updateVillageState({ ...state, noticePosts: normalizeNoticePosts([notice, ...state.noticePosts]) });
@@ -730,8 +730,8 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
             const data = await response.json().catch(() => null) as { character?: Character; error?: string; _saveVersion?: number } | null;
             if (!response.ok || !data?.character) return alert(data?.error || 'Could not select that focus.');
             if (!onVersionedCharacter(data.character, data._saveVersion)) return;
-            updateVillageState(addNotice(`${character.name} selected the ${focus} elder focus.`, { ...state, contributionPoints: state.contributionPoints + 10 }));
-            gameToast(`${focus} appointed — ${ELDER_FOCUS_OPTIONS.find(option => option.key === elderFocusKey)?.bonus ?? "focus active"}.`, { kind: "success" });
+            updateVillageState(addNotice(`${character.name} selected the ${focus}.`, { ...state, contributionPoints: state.contributionPoints + 10 }));
+            gameToast(`${focus} selected — ${ELDER_FOCUS_OPTIONS.find(option => option.key === elderFocusKey)?.bonus ?? "focus active"}.`, { kind: "success" });
         } catch { alert('Could not reach the server. Try again.'); }
         finally {
             elderFocusBusyRef.current = false;
@@ -766,7 +766,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     const activeWarEnemyVillage = primaryVillageWar?.villages.find(village => village !== character.village);
     const villageStrength = totalUpgradeLevel * 25 + state.contributionPoints + guardList.length * 75;
     const population = 1000 + villageLevel * 90 + state.contributionPoints * 2;
-    const contributionRankings = [{ name: character.name, role: "Candidate", points: state.contributionPoints + totalUpgradeLevel * 12 }, { name: leadership.elders[0] ?? "War Elder", role: "War Elder", points: totalUpgradeLevel * 8 + 120 }, { name: leadership.elders[1] ?? "Trade Elder", role: "Trade Elder", points: totalUpgradeLevel * 7 + 95 }, { name: leadership.elders[2] ?? "Training Elder", role: "Training Elder", points: totalUpgradeLevel * 6 + 80 }].sort((a, b) => b.points - a.points);
+    const contributionRankings = [{ name: character.name, role: "Candidate", points: state.contributionPoints + totalUpgradeLevel * 12 }, { name: leadership.elders[0] ?? "Defense contact", role: leadership.roles[0] ?? "Defense contact", points: totalUpgradeLevel * 8 + 120 }, { name: leadership.elders[1] ?? "Trade contact", role: leadership.roles[1] ?? "Trade contact", points: totalUpgradeLevel * 7 + 95 }, { name: leadership.elders[2] ?? "Training contact", role: leadership.roles[2] ?? "Training contact", points: totalUpgradeLevel * 6 + 80 }].sort((a, b) => b.points - a.points);
     const currentAnbuMonth = currentMonthKey();
     const anbuCandidateCharacters = [
         character,
@@ -995,7 +995,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         {tab === "politics" && <>
             <section className="summary-box town-council-panel">
                 <div className="town-council-heading">
-                    <div><p className="act-label">Council chamber</p><h3>Village Council</h3><p className="hint">Choose one elder doctrine. Changing focus replaces your current personal bonus immediately.</p></div>
+                    <div><p className="act-label">Council chamber</p><h3>Village Civic Contacts</h3><p className="hint">Choose one village doctrine. These contacts advise the focus; selecting it does not appoint them to an elder seat. Changing focus replaces your current personal bonus immediately.</p></div>
                     <span className="town-focus-summary" data-active={Boolean(character.elderFocus)}>{character.elderFocus ? `${character.elderFocus[0].toUpperCase()}${character.elderFocus.slice(1)} focus` : "No focus selected"}</span>
                 </div>
                 <div className="town-leader-row town-kage-card"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={displayedKage} fallback="?" /><p><small>Presiding seat</small><strong>{displayedKage}</strong>{kageActivity && <><br /><small>{kageActivity.lastActive}</small></>}{kageActivity?.warning && <><br /><small className="town-kage-warning">⚠️ {kageActivity.warning}</small></>}</p></div>
@@ -1004,16 +1004,17 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
                     const active = character.elderFocus === option.key;
                     const busy = elderFocusBusy === option.key;
                     const elderName = leadership.elders[index] ?? option.role;
+                    const civicRole = leadership.roles[index] ?? "Civic contact";
                     return <article key={option.key} className={`elder-card${active ? " elder-card-active" : ""}`} data-focus={option.key} data-active={active}>
-                        <span className="town-elder-state">{active ? "Appointed focus" : "Available doctrine"}</span>
+                        <span className="town-elder-state">{active ? "Selected focus" : "Available doctrine"}</span>
                         <div className="town-elder-portrait"><LeaderPortrait image={leadershipImages.elders?.[index]} name={elderName} fallback="?" /></div>
-                        <span className="town-elder-role">{option.role}</span>
+                        <span className="town-elder-role">{civicRole} · {option.role}</span>
                         <strong className="town-elder-name">{elderName}</strong>
                         <p className="town-elder-brief">{option.brief}</p>
                         <small className="town-elder-bonus">{option.bonus}</small>
                         {active
                             ? <div className="town-elder-selected" role="status"><GiCrown aria-hidden="true" /> Current focus</div>
-                            : <button type="button" disabled={elderFocusBusy !== null} onClick={() => supportVillageFocus(option.role, option.key)}>{busy ? "Appointing…" : "Select focus"}</button>}
+                            : <button type="button" disabled={elderFocusBusy !== null} onClick={() => supportVillageFocus(option.role, option.key)}>{busy ? "Selecting…" : "Select focus"}</button>}
                     </article>;
                 })}</div>
             </section>

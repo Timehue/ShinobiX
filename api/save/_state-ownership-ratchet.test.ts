@@ -198,9 +198,14 @@ const COPY_WINS_FIELDS = dedupeByField([
     ...SERVER_MIRRORED_CHARACTER_FIELDS.map((field) => (field in LIFETIME_COUNTERS
         ? { field, stored: 777, tampered: 999_999 }
         : { field, stored: `stored-${field}`, tampered: `tampered-${field}` })),
-    ...PROGRESSION_ENTITLEMENT_CHARACTER_FIELDS.map((field) => ({
-        field, stored: `stored-${field}`, tampered: `tampered-${field}`,
-    })),
+    ...PROGRESSION_ENTITLEMENT_CHARACTER_FIELDS.map((field) => field === 'storyFieldRecords'
+        // This field is schema-normalized after the copy. Probe with valid,
+        // opposing route records so normalization cannot erase the sentinel.
+        ? { field,
+            stored: { 'story-reckoning-mira-marker': { version: 1, visits: [{ pointId: 'sv-ridge-gate', choiceId: 'sv-take-high-line' }] } },
+            tampered: { 'story-reckoning-mira-marker': { version: 1, visits: [{ pointId: 'sv-ridge-gate', choiceId: 'sv-follow-picker-road' }] } },
+        }
+        : { field, stored: `stored-${field}`, tampered: `tampered-${field}` }),
     ...SERVER_ARRAY_LEDGER_CHARACTER_FIELDS.map((field) => ({
         field, stored: [`stored-${field}`], tampered: [`tampered-${field}`],
     })),

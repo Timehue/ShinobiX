@@ -65,7 +65,7 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
                     { key: "raw",     label: "Wrap it and run",   blurb: "Reach the temple sooner, but face the Bell-Wraith at full strength. Yuki adds a fate shard for the risk.", bossStatBonus: 4, bonusFateShards: 1, standing: "bell-raw" },
                     { key: "cleanse", label: "Quiet the seals first", blurb: "Spend time breaking the alarm sequence. The guardian will wake weaker.", standing: "bell-cleansed" },
                 ] } },
-            { key: "carry",  text: "Carry the wrapped clapper across 4 sectors before it completes the old alarm.", metric: "totalTilesExplored", count: 4,
+            { key: "carry",  text: "Carry the wrapped clapper across 4 tiles before it completes the old alarm.", metric: "totalTilesExplored", count: 4,
                 timer: { durationMs: 30 * 60 * 1000, failResetToStage: 2 } },
             { key: "wraith", text: "Return the clapper, then stop the temple guardian that answers the broken alarm.", metric: "totalAiKills", count: 1, bossId: "bell-wraith" },
         ],
@@ -74,7 +74,7 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
         id: "qb-caravan", title: "The Hollow Caravan", giver: "Caravan-master Doteki",
         bandMin: 12, bandMax: 35, weight: 7, fateShards: 0, award: "Caravan's Shield",
         stages: [
-            { key: "trail",   text: "Track Doteki's missing caravan across 3 sectors. Count the wheel ruts, abandoned loads, and blood.", metric: "totalTilesExplored", count: 3 },
+            { key: "trail",   text: "Track Doteki's missing caravan across 3 tiles. Count the wheel ruts, abandoned loads, and blood.", metric: "totalTilesExplored", count: 3 },
             { key: "ambush",  text: "At the wreck, survive 3 bandit waves and disarm their captain, Goro.", metric: "totalAiKills", count: 3, bossId: "bandit-captain-goro" },
             { key: "judgment", text: "Goro drops his blade. Genjutsu marks behind his ears explain the empty look in his eyes. What now?", metric: "totalAiKills", count: 0,
                 choice: { prompt: "Goro was forced to lead the attack, but caravan guards still died. Decide what happens to him.", options: [
@@ -88,19 +88,19 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
         id: "qb-defector", title: "The Frostfang Defector", giver: "The Defector",
         bandMin: 40, bandMax: 65, weight: 9, fateShards: 1, award: "Frostfang Survivor", requiresWar: true,
         stages: [
-            { key: "offer", text: "A Frostfang signaler offers patrol routes and roll-call codes in exchange for safe passage. What do you do?", metric: "totalAiKills", count: 0,
-                choice: { prompt: "“Get me across the border and I will give your Kage every route I copied. Decide now. My hunters are close.”", options: [
-                    { key: "trust",  label: "Trust the defector", blurb: "Escort them out. Their intel feeds your village's war effort. Earns the title Border-Walker.", title: "Border-Walker", standing: "defector-trusted" },
-                    { key: "turnin", label: "Turn them in",      blurb: "Hand them to your Kage's intelligence office for a larger bounty and the title Kage's Blade.", title: "Kage's Blade", bonusRyoPct: 40, standing: "defector-turned" },
+            { key: "offer", text: "A Frostfang signaler offers copied routes and testimony in exchange for protection from the unit hunting them. What do you do?", metric: "totalAiKills", count: 0,
+                choice: { prompt: "“I copied the altered roll calls and the order behind them. Protect my testimony or arrest me, but decide now. The erasure team is close.”", options: [
+                    { key: "trust",  label: "Protect the witness", blurb: "Escort them to an independent waystation, where a neutral courier can carry their testimony without returning them to Frostfang custody. Earns the title Border-Walker.", title: "Border-Walker", standing: "defector-trusted" },
+                    { key: "turnin", label: "Make the arrest",      blurb: "Deliver the prisoner and route copies to your village's intelligence office for interrogation and a larger bounty. Earns the title Kage's Blade.", title: "Kage's Blade", bonusRyoPct: 40, standing: "defector-turned" },
                 ] } },
-            { key: "silencer", text: "Frostfang Hunter-nin Shirakawa catches the trail and moves to kill the defector, then you. Stop them.", metric: "totalAiKills", count: 1, bossId: "hunter-shirakawa" },
+            { key: "silencer", text: "Frostfang Hunter-nin Shirakawa catches the trail and moves to erase the signaler before the testimony arrives. Stop them.", metric: "totalAiKills", count: 1, bossId: "hunter-shirakawa" },
         ],
     },
     "qb-gauntlet": {
         id: "qb-gauntlet", title: "The Colosseum Gauntlet", giver: "Tamer Tomoe",
         bandMin: 1, bandMax: 100, weight: 9, fateShards: 1, award: "Beast-Crowned",
         stages: [
-            { key: "gauntlet",   text: "Win three colosseum pet duels against Tomoe's wandering beasts.", metric: "totalPetWins", count: 3 },
+            { key: "gauntlet",   text: "Win three pet duels to prepare your companion for Tomoe's gauntlet.", metric: "totalPetWins", count: 3 },
             { key: "stormhound", text: "Face Tomoe's final companion, Raijū the Storm-Hound, and win the pet duel.", metric: "totalPetWins", count: 1, bossId: "raiju-storm-hound" },
         ],
     },
@@ -183,10 +183,22 @@ export function metricLabel(metric: QuestMetric): string {
     switch (metric) {
         case "totalPetWins": return "pet duels won";
         case "cardClashWins": return "card rounds won";
-        case "totalTilesExplored": return "sectors scouted";
+        case "totalTilesExplored": return "tiles explored";
         case "relicSurveyCount": return "countries walked";
         default: return "foes defeated";
     }
+}
+
+/** Choice-aware copy for the shared pursuit fight after the defector decision. */
+export function questbookStageText(stage: QuestStage, choices?: Record<string, string> | null): string {
+    if (stage.key !== "silencer") return stage.text;
+    if (choices?.offer === "trust") {
+        return "Shirakawa follows the protected witness toward the independent waystation. Stop the erasure team before the testimony reaches the courier.";
+    }
+    if (choices?.offer === "turnin") {
+        return "Shirakawa moves to erase the arrested signaler before your intelligence office can receive the prisoner and route copies. Stop the erasure team.";
+    }
+    return stage.text;
 }
 
 /** A branch stage — the player must pick an option to advance. */

@@ -80,6 +80,21 @@ test("derivation is idempotent", () => {
     assert.deepEqual([...once].sort(), [...twice].sort());
 });
 
+test("changing Nyx custody retracts stale holder state and chamber awakening waits for its receipt", () => {
+    const stale = deriveStoryTraits(["ms65-saved-the-file", "ms88-player-still-holds-nyx-file", "ms88-nyx-proof-deferred", "ms100-first-reflection-awake"]);
+    assert.equal(stale.includes("ms88-player-still-holds-nyx-file"), false);
+    assert.equal(stale.includes("ms100-first-reflection-awake"), false);
+    assert.equal(deriveStoryTraits(["ms88-better-truth-ready"]).includes("ms100-first-reflection-awake"), false);
+    assert.equal(deriveStoryTraits(["ms88-better-truth-ready"], [{ eventId: "story-moonshadow-village-100-8", trait: "ms100-proof-presented-carried", battle: true }]).includes("ms100-first-reflection-awake"), false);
+    const chamber = deriveStoryTraits(["ms88-better-truth-ready"], [{ eventId: "story-moonshadow-village-100-8", trait: "honorable", battle: true }]);
+    assert.equal(chamber.includes("ms100-first-reflection-awake"), true);
+});
+
+test("explicit unfinished-answer choices remain atomic during recomputation", () => {
+    const traits = deriveStoryTraits(["ms88-unfinished-answer", "ms88-nyx-proof-deferred"]);
+    assert.equal(traits.includes("ms88-unfinished-answer"), true);
+});
+
 test("every derived trait is registered with an earnable level", () => {
     for (const trait of ["al88-water-proven", "al88-better-winter-ready", "al88-better-winter-carried", "al88-better-winter-deferred", "al88-reed-proof-any", "al88-unfinished-answer"]) {
         assert.equal(DERIVED_TRAIT_LEVELS[trait], 88, trait);

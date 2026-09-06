@@ -2451,6 +2451,10 @@
             "line": 88
           },
           {
+            "source": "shinobij.client/src/components/StoryFieldWork.css",
+            "line": 45
+          },
+          {
             "source": "shinobij.client/src/screens/WorldCrisis.css",
             "line": 73
           },
@@ -2641,7 +2645,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/EchoesOfWar.css",
-            "line": 974
+            "line": 1017
           },
           {
             "source": "shinobij.client/src/screens/PetLadder.css",
@@ -3013,7 +3017,7 @@
           },
           {
             "source": "shinobij.client/src/screens/EchoesOfWar.css",
-            "line": 817
+            "line": 860
           },
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
@@ -3109,7 +3113,7 @@
           },
           {
             "source": "shinobij.client/src/screens/FirstPact.css",
-            "line": 226
+            "line": 237
           },
           {
             "source": "shinobij.client/src/styles/card-clash-tutorial.css",
@@ -3618,6 +3622,10 @@
         "axis": "width",
         "valuePx": 979,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/screens/FirstPact.css",
+            "line": 226
+          },
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
             "line": 1503

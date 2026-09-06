@@ -343,6 +343,7 @@ export const COMBAT_ROUTE_CENSUS = deepFreeze({
     '/card-clash/open-pack': 'Card inventory acquisition, outside Chronicle match authority.',
     '/card-clash/claim-starter': 'One-time card inventory grant, outside Chronicle match authority.',
     '/card-clash/sync-progression': 'Progression synchronization, outside Chronicle match authority.',
+    '/card-clash/echoes-witness': 'Server-owned narrative record after an authoritative Echoes clear; it neither starts nor settles a Chronicle match and grants no reward.',
     '/pet/evolve': 'Pet progression mutation, outside pet combat authority.',
     '/pet/befriend': 'Pet acquisition settlement, outside pet combat authority.',
     '/pet/encounter-decline': 'Pet acquisition lifecycle, outside pet combat authority.',

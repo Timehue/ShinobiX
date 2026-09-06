@@ -37,6 +37,7 @@ export type WorldSectorOverlayLayerProps = Readonly<{
     traceSigns: TrailSignView[];
     shrine: WorldSectorShrineMarker | null;
     boss: WorldSectorBossMarker | null;
+    fieldStory?: { title: string; tile: number; onOpen: () => void } | null;
     onEngageWanderer: (wanderer: Wanderer) => void;
     onOpenTrace: (signId: string) => void;
     onOpenShrine: () => void;
@@ -58,12 +59,18 @@ export function WorldSectorOverlayLayer({
     traceSigns,
     shrine,
     boss,
+    fieldStory,
     onEngageWanderer,
     onOpenTrace,
     onOpenShrine,
 }: WorldSectorOverlayLayerProps) {
     return (
         <>
+            {fieldStory && <button className="atlas-landmark sector-story-field-marker"
+                style={{ left: `${((fieldStory.tile % 12) + .5) / 12 * 100}%`, top: `${(Math.floor(fieldStory.tile / 12) + .5) / 12 * 100}%` }}
+                onClick={fieldStory.onOpen} title={fieldStory.title} aria-label={`Explore ${fieldStory.title}`}>
+                <strong aria-hidden="true">◇</strong><span>{fieldStory.title}</span>
+            </button>}
             {wanderers.map((wanderer) => (
                 <SectorWanderer
                     key={wanderer.id}

@@ -226,7 +226,7 @@ test("every main-story page resolves to a shipped stage background", () => {
     for (const interludes of Object.values(storyInterludesByVillage)) {
         interludes.forEach((interlude) => inspectEvent(interludeToCreatorEvent(interlude)));
     }
-    assert.equal(pageCount, 473);
+    assert.equal(pageCount, 485);
 });
 
 test("premium pilot asset package is complete", () => {

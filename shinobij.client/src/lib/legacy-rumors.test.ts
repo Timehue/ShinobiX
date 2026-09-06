@@ -11,6 +11,8 @@ import { strict as assert } from "node:assert";
 import {
     RUMOR_MILESTONE_LEVELS, RUMOR_CATEGORIES, rumorArc, rumorForCategory,
     tavernGossipLine, TAVERN_GOSSIP, TAVERN_GOSSIP_COUNT,
+    nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rumorLog,
+    rememberedRumorCategory,
 } from "./legacy-rumors";
 
 // Must match the legacy categories in api/_legacy-defs.ts (LegacyCategory).
@@ -101,5 +103,38 @@ describe("tavern gossip", () => {
         const copy = TAVERN_GOSSIP.join(" ");
         assert.match(copy, /send the Sage away, but he comes back/i);
         assert.doesNotMatch(copy, /doesn't ask twice/i);
+    });
+});
+
+describe("character-scoped rumor memory", () => {
+    it("does not migrate device-global memories and skips stale popup backlogs", () => {
+        const values = new Map<string, string>([
+            ["legacyRumors.seen.v1", JSON.stringify([10, 20, 30, 40, 45])],
+            ["legacyRumors.log.v1", JSON.stringify([{ milestone: 45, text: "someone else's rumor", ts: 1 }])],
+        ]);
+        const priorWindow = globalThis.window;
+        Object.defineProperty(globalThis, "window", {
+            configurable: true,
+            value: { localStorage: {
+                getItem: (key: string) => values.get(key) ?? null,
+                setItem: (key: string, value: string) => { values.set(key, value); },
+            } },
+        });
+        try {
+            assert.equal(nextUnseenRumorMilestone(45, "Aki"), 45, "old global seen list is ignored");
+            markLevelRumorSeen("Aki", 45);
+            assert.equal(nextUnseenRumorMilestone(45, "Aki"), null, "one current beat retires missed lower beats");
+            assert.equal(nextUnseenRumorMilestone(45, "Ren"), 45, "second character remains independent");
+            recordRumorHeard("Aki", 45, "Aki's road talk");
+            assert.deepEqual(rumorLog("Aki").map((entry) => entry.text), ["Aki's road talk"]);
+            assert.deepEqual(rumorLog("Ren"), []);
+            assert.equal(rememberedRumorCategory("Aki", "ninjutsu"), "ninjutsu");
+            assert.equal(rememberedRumorCategory("Aki", "taijutsu"), "ninjutsu", "arc category stays fixed");
+            assert.equal(rememberedRumorCategory("Ren"), undefined, "an empty first visit records no invented category");
+            assert.equal(rememberedRumorCategory("Ren", "genjutsu"), "genjutsu", "the first real category replaces the fallback");
+            assert.equal(rememberedRumorCategory("Ren", "pve"), "genjutsu", "the recovered category stays fixed");
+        } finally {
+            Object.defineProperty(globalThis, "window", { configurable: true, value: priorWindow });
+        }
     });
 });

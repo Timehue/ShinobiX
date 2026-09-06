@@ -3,8 +3,8 @@
  * hints that the player's actions are shaping which paths will open. Fired at
  * level milestones from the world map; the strongest-category tier comes from
  * GET /api/legacy/stats (bucketed server-side, never raw formulas — the
- * mystery rule). Seen-markers live in localStorage: rumors are pure flavor,
- * so per-device dedupe is enough.
+ * mystery rule). Seen-markers and logs are namespaced by character so one
+ * account on a shared browser never inherits another shinobi's memories.
  *
  * Depth: each (category, milestone) has TWO authored variants in the same voice
  * and at the same point in the arc; the shown line is picked deterministically
@@ -20,6 +20,11 @@ export const RUMOR_MILESTONE_LEVELS: readonly number[] = [10, 20, 30, 40, 45];
 
 const SEEN_KEY = "legacyRumors.seen.v1";
 const LOG_KEY = "legacyRumors.log.v1";
+const CATEGORY_KEY = "legacyRumors.category.v1";
+
+function characterKey(base: string, characterId: string): string {
+    return `${base}:${encodeURIComponent(characterId.trim().toLowerCase())}`;
+}
 
 // FNV-1a → mulberry32, the same determinism pattern as legacy-emissaries.ts /
 // wanderers.ts. The mulberry32 step is load-bearing: FNV-1a's LOW bits barely
@@ -40,48 +45,63 @@ function seededUnit(key: string): number {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
 
-function seenSet(): Set<number> {
+function seenSet(characterId: string): Set<number> {
     try {
-        const raw = window.localStorage?.getItem(SEEN_KEY);
+        const raw = window.localStorage?.getItem(characterKey(SEEN_KEY, characterId));
         return new Set(raw ? (JSON.parse(raw) as number[]) : []);
     } catch { return new Set(); }
 }
 
-/** The next unheard milestone the player has reached, or null. Lowest first,
- *  so a player who leveled past several milestones hears the arc IN ORDER
- *  (one whisper per map visit) instead of the climax before the opening. */
-export function nextUnseenRumorMilestone(level: number): number | null {
-    const seen = seenSet();
+/** The most current unheard milestone reached. Earlier missed beats are marked
+ * historical when this one is recorded rather than forced as a popup backlog. */
+export function nextUnseenRumorMilestone(level: number, characterId: string): number | null {
+    const seen = seenSet(characterId);
     const due = RUMOR_MILESTONE_LEVELS.filter((m) => level >= m && !seen.has(m));
-    return due.length ? due[0] : null;
+    return due.length ? due[due.length - 1] : null;
 }
 
-export function markLevelRumorSeen(milestone: number): void {
+export function markLevelRumorSeen(characterId: string, milestone: number): void {
     try {
-        const seen = seenSet();
-        seen.add(milestone);
-        window.localStorage?.setItem(SEEN_KEY, JSON.stringify([...seen]));
+        const seen = seenSet(characterId);
+        for (const level of RUMOR_MILESTONE_LEVELS) if (level <= milestone) seen.add(level);
+        window.localStorage?.setItem(characterKey(SEEN_KEY, characterId), JSON.stringify([...seen]));
     } catch { /* private browsing — the rumor may repeat, harmless */ }
 }
 
 export type HeardRumor = { milestone: number; text: string; ts: number };
 
 /** Rumors already heard on this device, oldest first (the panel's log). */
-export function rumorLog(): HeardRumor[] {
+export function rumorLog(characterId: string): HeardRumor[] {
     try {
-        const raw = window.localStorage?.getItem(LOG_KEY);
+        const raw = window.localStorage?.getItem(characterKey(LOG_KEY, characterId));
         const arr = raw ? (JSON.parse(raw) as HeardRumor[]) : [];
         return Array.isArray(arr) ? arr : [];
     } catch { return []; }
 }
 
-export function recordRumorHeard(milestone: number, text: string): void {
+export function recordRumorHeard(characterId: string, milestone: number, text: string): void {
     try {
-        const log = rumorLog().filter((r) => r.milestone !== milestone);
+        const log = rumorLog(characterId).filter((r) => r.milestone !== milestone);
         log.push({ milestone, text, ts: Date.now() });
         log.sort((a, b) => a.milestone - b.milestone);
-        window.localStorage?.setItem(LOG_KEY, JSON.stringify(log.slice(-10)));
+        window.localStorage?.setItem(characterKey(LOG_KEY, characterId), JSON.stringify(log.slice(-10)));
     } catch { /* best-effort */ }
+}
+
+/** Lock one character's rumor arc to the first observed dominant category. */
+export function rememberedRumorCategory(characterId: string, current?: string): string | undefined {
+    const key = characterKey(CATEGORY_KEY, characterId);
+    try {
+        const stored = window.localStorage?.getItem(key);
+        if (stored && stored !== "__fallback") return stored;
+        if (stored === "__fallback" && current) {
+            window.localStorage?.setItem(key, current);
+            return current;
+        }
+        if (stored === "__fallback") return undefined;
+        window.localStorage?.setItem(key, current || "__fallback");
+    } catch { /* deterministic fallback still works when storage is unavailable */ }
+    return current;
 }
 
 // ── The rumor arcs ───────────────────────────────────────────────────────────

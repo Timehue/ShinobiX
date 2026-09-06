@@ -588,6 +588,49 @@
 }
 .echoes-detail-actions button { min-height: 44px; }
 
+/* ── Witness record ──────────────────────────────────────────────────── */
+.echoes-witness-shell { min-height: 100%; }
+.echoes-witness-panel {
+    max-width: 760px;
+    margin: clamp(1rem, 4vh, 2.5rem) auto;
+    border-color: color-mix(in srgb, var(--band, var(--echoes-low)) 55%, rgba(217, 200, 138, 0.25));
+}
+.echoes-witness-panel > p { color: #d6cdb9; line-height: 1.6; }
+.echoes-witness-scene {
+    margin: 0 0 0.65rem;
+    color: #9f967f !important;
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+}
+.echoes-witness-speaker {
+    display: block;
+    color: #f0e2b8;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+.echoes-witness-choices { display: grid; gap: 0.7rem; margin-top: 1.25rem; }
+.echoes-witness-choices button {
+    min-height: 56px;
+    padding: 0.75rem 0.9rem;
+    text-align: left;
+}
+.echoes-witness-choices button strong,
+.echoes-witness-choices button span { display: block; }
+.echoes-witness-choices button span { margin-top: 0.25rem; color: #c7bea8; line-height: 1.45; }
+.echoes-witness-choices .echoes-ghost-btn { text-align: center; }
+.echoes-witness-sealed {
+    margin-top: 1.25rem;
+    padding: 1rem;
+    border: 1px solid rgba(217, 200, 138, 0.4);
+    border-radius: 9px;
+    background: rgba(217, 200, 138, 0.07);
+}
+.echoes-witness-sealed span { color: #e8d9aa; font-weight: 800; }
+.echoes-witness-sealed p { color: #ded5bf; line-height: 1.55; }
+.echoes-witness-sealed small { color: #9f967f; }
+.echoes-witness-status { color: #b9d3af !important; }
+.echoes-witness-error { color: #efad9f !important; }
+
 /* ── "Entering the memory" veil ───────────────────────────────────────── */
 /* ── The matchup splash ─────────────────────────────────────────────────
    The beat between choosing a Showdown and the board mounting. The floor's
@@ -973,6 +1016,9 @@
 /* ── Small screens ────────────────────────────────────────────────────── */
 @media (max-width: 560px) {
     .echoes-shell { padding: 0.6rem 0.6rem 2rem; }
+    .echoes-witness-shell {
+        padding-top: calc(0.6rem + var(--mobile-aaa-hud-height, 56px));
+    }
     .echoes-hero { min-height: 170px; }
     /* Clear the absolute back button (top 0.7rem + 44px touch target) so the
        eyebrow never sits under it on a narrow hero. */

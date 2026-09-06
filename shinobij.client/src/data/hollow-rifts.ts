@@ -174,9 +174,9 @@ export const hollowRifts: HollowRift[] = [
                 scene: "Vessa keeps her eyes on the seam while she speaks, plain and level, the way she would name a rockslide or a bad ford.",
                 speaker: "Scout Vessa",
                 dialogue: [
-                    "Here is the short version. The Sunken Court built the Gate as civic machinery. The city died. The machinery kept running under Central and the four villages.",
-                    "Its village anchors take reasons, futures, exits, and surrendered trust. The local systems keep a share. Hidden pipes carry the rest down.",
-                    "That seam is a split pipe. What the Gate took has pooled on the surface and built itself legs. I saw where those legs went.",
+                    "Here is the short version I can prove: the seam widens when the creature pulls, and the grass beside it lies toward the break instead of the wind.",
+                    "The quartered mark under its forelegs resembles old Court survey marks. That may make the Gate our problem. It does not make me an engineer.",
+                    "Something pooled on the surface and built itself legs. I saw where those legs went.",
                 ],
             },
             {
@@ -186,11 +186,11 @@ export const hollowRifts: HollowRift[] = [
                 dialogue: [
                     "The seam is in %sector. The dead grass around it widened by six strides while I watched.",
                     "My order says mark anomalies and return. It says nothing about crawling into one, and I am choosing to respect the wording.",
-                    "You have survived Gate pressure before. Go inside, find the creature, and close the seam before I need a second sheet of map.",
+                    "If you can hold your footing in there, find the creature and close the seam before I need a second sheet of map.",
                 ],
                 choices: [
                     { text: "Mark the seam. I will close it.", accept: true },
-                    { text: "Not yet. Give me the route and your leg count.", conclusion: "Vessa draws the ridge approach and writes LEGS: ENOUGH beside the seam. That is the most honest field note she has left." },
+                    { text: "Not yet. Give me the route and your leg count.", conclusion: "Vessa draws the ridge approach and writes LEGS: ENOUGH beside the seam. 'If you need a better number, come back with it.'" },
                 ],
             },
         ],
@@ -200,13 +200,13 @@ export const hollowRifts: HollowRift[] = [
                 scene: "A rift mouth torn into the hillside, humming bruise-violet",
                 speaker: "Narrator",
                 dialogue: [
-                    "The air here is wrong before you see the tear. Your teeth ache. The grass leans away from it.",
-                    "The seam hangs open like a wound that will not close, and past its edge is the same broken-torii dark as the Hollow Gate itself, only smaller, hungrier, newer.",
+                    "You feel the tear before you see it. Your teeth ache. The grass lies flat toward the opening, exactly as Vessa marked it.",
+                    "Past the edge stand the same broken torii seen inside the Hollow Gate, crowded into a passage barely wide enough for one person.",
                     "Whatever went back inside is still down there. You can hear it moving.",
                 ],
                 choices: [
                     { text: "Descend into the rift.", descend: true },
-                    { text: "Step back. Come back when I am ready.", conclusion: "You back off the lip of the seam. It does not follow. It waits, the way patient things wait, and you feel it decide to." },
+                    { text: "Step back. Come back when I am ready.", conclusion: "You back off the loose stone. The movement below stops until your footsteps fade, then starts again." },
                     { text: "Leave this rift behind. It is not mine to close.", abandon: true, conclusion: "You turn from the seam and walk it off your list. Somewhere a scout crosses a line through a bruise-colored circle, and the hunt is off." },
                 ],
             },
@@ -270,7 +270,8 @@ export const hollowRifts: HollowRift[] = [
                 dialogue: [
                     "Hot animal breath rolls out of the rift. Old collars hang from the roots, sorted from largest to smallest.",
                     "One throat calls from below. A dozen animals answer on the same note.",
-                    "Nara waits at the center of the warren. Her old collar is still buckled, but more than one shape moves under her hide.",
+                    "Nara lies breathing at the center of the warren. Her old collar is still buckled, while a larger outline pulls itself around her like a second shadow.",
+                    "The shadow tightens when she tries to rise and loosens when she goes still. Strike the controlling shape when it separates; Nara is alive inside its hold.",
                 ],
                 choices: [
                     { text: "Descend into the warren.", descend: true },
@@ -300,7 +301,7 @@ export const hollowRifts: HollowRift[] = [
                 scene: "A storm-country waystation, a clerk hunched over a book that keeps writing itself",
                 speaker: "Recorder Sann",
                 dialogue: [
-                    "My hands do not shake when I copy casualty rolls. They are shaking now. Sann, routing recorder, formerly of Stormveil's arena office.",
+                    "Sann. I used to route records for Stormveil's arena office. I copied casualty rolls without shaking. This book is proving harder.",
                     "I copied the manifests that sent fighters' stolen reasons down to the Hollow Gate. Every one carried a circle cut into four quarters.",
                     "A rift opened over that drain. Reasons are coming back up together, and the mass has learned to stand.",
                 ],
@@ -312,7 +313,7 @@ export const hollowRifts: HollowRift[] = [
                 dialogue: [
                     "Stormveil built its arena over this intake. At the height of a bout, the Engine pulled out the reason a fighter cared enough to bleed.",
                     "The crowd kept the score. The fighter kept the bruises. The lower drain carried the cause away under a quartered-circle seal.",
-                    "I entered each result as settled and fair. I can show you the columns. I cannot make that wording honest.",
+                    "I entered each result as settled and fair. The ink is mine. The wording came from the office. Both are still on the page.",
                 ],
             },
             {
@@ -322,7 +323,7 @@ export const hollowRifts: HollowRift[] = [
                 dialogue: [
                     "The break is in %sector, directly above the drain-line. A fresh quartered circle is burned into the stone beside it.",
                     "I call the thing inside the Engine-Echo. It is built from closure bouts, estate fights, and every cause the arena declared settled after extracting it.",
-                    "I copied the names that made it. You know how to survive Gate pressure. Close the break before the Echo reaches the arena and finds more names.",
+                    "I copied the names that made it. Close the break before the Echo reaches the arena and finds more names; the manifest tells you where its footing will fail.",
                 ],
                 choices: [
                     { text: "Go silence the Engine-Echo.", accept: true },
@@ -342,7 +343,7 @@ export const hollowRifts: HollowRift[] = [
                 ],
                 choices: [
                     { text: "Descend to the Engine-Echo.", descend: true },
-                    { text: "Step back. Come back when I am ready.", conclusion: "You step off the scorched circle. The storm-hum does not change. It has been patient for a village's worth of years. It can wait for you." },
+                    { text: "Step back. Come back when I am ready.", conclusion: "You step off the scorched circle. The storm-hum settles back to the pitch of an arena bell heard from several streets away." },
                     { text: "Leave this rift behind. It is not mine to close.", abandon: true, conclusion: "You walk it off your list. Somewhere Sann closes a book that will not stay closed, and starts copying the next column." },
                 ],
             },
@@ -394,7 +395,7 @@ export const hollowRifts: HollowRift[] = [
                 ],
                 choices: [
                     { text: "Go lay the Hollowed Name to rest.", accept: true },
-                    { text: "Not yet. Tell me whose name it was.", conclusion: "Oru turns the slate over and reads the name once. Then he reads the revocation beneath it, just as clearly. You asked for the whole entry, he says. Keep both parts." },
+                    { text: "Not yet. Tell me whose name it was.", conclusion: "Oru keeps the slate face-down. Not to an unverified stranger, he says. The name stays protected; the condemnation does not. He turns the lower edge just far enough for you to read the deed and the Hall's revocation." },
                 ],
             },
         ],
@@ -405,12 +406,12 @@ export const hollowRifts: HollowRift[] = [
                 speaker: "Narrator",
                 dialogue: [
                     "No sound comes from the seam. Even your sandals land quietly after you cross it.",
-                    "Banners from the revoked era hang in strips. Beneath them, a figure repeats one combat form without tiring or correcting a single foot placement.",
+                    "Banners from the era of the condemned entry hang in strips. Beneath them, a figure repeats one combat form without tiring or correcting a single foot placement.",
                     "The Hollowed Name sees you and returns to its opening stance. Technique survived. Judgment did not.",
                 ],
                 choices: [
                     { text: "Descend to the Hollowed Name.", descend: true },
-                    { text: "Step back. Come back when I am ready.", conclusion: "You leave the reverent dark. The figure does not stop its form. It has practiced through longer absences than yours." },
+                    { text: "Step back. Come back when I am ready.", conclusion: "You return to the shrine step. Below, the figure completes the form, resets its feet, and begins at the same angle." },
                     { text: "Leave this rift behind. It is not mine to close.", abandon: true, conclusion: "You turn away. Somewhere Oru lights the shrine lamp anyway, for a name that will not accept it is out of era." },
                 ],
             },
@@ -458,7 +459,7 @@ export const hollowRifts: HollowRift[] = [
                 dialogue: [
                     "The shard is holding in %sector. It changes faces whenever a witness recognizes the last one.",
                     "I sold some of those people. I cannot promise I would strike when it borrows the right mouth. That is the honest limit of my service.",
-                    "You have faced Gate copies without mistaking them for the people they record. Break the shard and bring back every name etched on its rim.",
+                    "The rim carries the copied names plainly enough to test what it is. Break the shard and bring every one of them back.",
                 ],
                 choices: [
                     { text: "Go break the Mirror-Shard Warden.", accept: true },
@@ -478,7 +479,7 @@ export const hollowRifts: HollowRift[] = [
                 ],
                 choices: [
                     { text: "Descend to the shard.", descend: true },
-                    { text: "Step back. Come back when I am ready.", conclusion: "You step back from the glass. Your reflection stays a half-beat, watching you go, before it agrees to leave too." },
+                    { text: "Step back. Come back when I am ready.", conclusion: "You step back from the glass. Your reflection stays behind for half a beat, then snaps into place with its hand raised where yours is not." },
                     { text: "Leave this rift behind. It is not mine to close.", abandon: true, conclusion: "You walk it off your list. Somewhere Nemo picks his sealed files up off the floor, and does not check whether they are still his." },
                 ],
             },
@@ -505,13 +506,13 @@ export const hollowRifts: HollowRift[] = [
                 speaker: "Kite Harrow",
                 dialogue: [
                     "You look tired. Good. I distrust people who reach the end of a long road looking refreshed.",
-                    "I kept a list of the rifts you closed: the stalker, Nara's warren, the Engine-Echo, the stolen faces. You have made the Hollow Gate expensive to ignore.",
+                    "%riftRecord",
                     "This last break is not a leak. All four village drains backed up together. The overflow built one body large enough to carry everything at once.",
                 ],
             },
             {
                 title: "What the Rifts Were Really About",
-                scene: "The tailboard. Harrow taps a folded ledger against her knee and lets out a dry breath, done with riddles, ready to say the plain thing out loud.",
+                scene: "The tailboard. Harrow taps a folded ledger against her knee until the paper's edge begins to buckle.",
                 speaker: "Kite Harrow",
                 dialogue: [
                     "Short version. Stormveil drains the reason behind a fight. Ashen Leaf burns the future someone was becoming.",
@@ -547,7 +548,7 @@ export const hollowRifts: HollowRift[] = [
                 ],
                 choices: [
                     { text: "Descend to the Hollow Gate Heir.", descend: true },
-                    { text: "Step back. Come back when I am ready.", conclusion: "You step off the four-fold lip. The dark does not lunge. It has four villages' worth of patience, and it counts you as already owed." },
+                    { text: "Step back. Come back when I am ready.", conclusion: "You step off the four-fold lip. Behind you, each colored seam dims in turn, but the quartered plate keeps turning in the chamber." },
                     { text: "Leave this rift behind. It is not mine to close.", abandon: true, conclusion: "You turn from the throat of it. Somewhere Harrow draws a single clean line through an entry in her ledger, and writes a smaller word beside it: later." },
                 ],
             },

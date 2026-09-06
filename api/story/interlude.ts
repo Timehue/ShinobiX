@@ -71,7 +71,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (num(char.storyProgress) < def.minProgress) return { status: 200, body: { ok: false, reason: 'progress' } };
 
                 const record = (await kv.get<StoryRecord>(storyKey)) ?? emptyStoryRecord(village);
-                if (record.interludes?.[interludeId]) return { status: 200, body: { ok: false, reason: 'done' } };
+                const existing = record.interludes?.[interludeId];
+                if (existing) return existing.trait === trait
+                    ? { status: 200, body: { ok: true, trait, lane: existing.lane, lanes: record.lanes, replayed: true } }
+                    : { status: 200, body: { ok: false, reason: 'conflict', recordedTrait: existing.trait } };
                 const lanes = bumpLanes(record.lanes, lane);
                 // Spread the record so road-event entries survive this write.
                 const updated: StoryRecord = {
@@ -82,7 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
                 // No TTL — the story record is permanent character history.
                 await kv.set(storyKey, updated);
-                return { status: 200, body: { ok: true, lane, lanes } };
+                return { status: 200, body: { ok: true, trait, lane, lanes } };
             }, { failClosed: true });
 
             return res.status(out.status).json(out.body);

@@ -340,7 +340,7 @@ export function synthSageWanderer(sector: number): Wanderer {
         waypoints: [home, home + 1, home - 1],
         // Deliberately NOT the VN's opening line — the player reads the
         // billboard first and the VN seconds later (polish-audit finding).
-        greeting: "An old man checks your name against three field notes, circles it, and rubs at a blister from the road.",
+        greeting: "An old man checks your name against a bundle of field notes, circles it, and rubs at a blister from the road.",
         tellTint: "#c084fc",
         avatarKey: "wanderingSage",
     };

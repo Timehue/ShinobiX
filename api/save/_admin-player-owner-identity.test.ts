@@ -16,6 +16,9 @@ const SAVE_B_KEY = `save:${PLAYER_B}`;
 const ADMIN_LOCK_B_KEY = `admin-lock:${PLAYER_B}`;
 const RESET_SIGNAL_B_KEY = `reset-signal:${PLAYER_B}`;
 const DELETE_FENCE_B_KEY = `save-delete-version:${PLAYER_B}`;
+const FIRST_PACT_B_KEY = `first-pact:${PLAYER_B}`;
+const FIRST_PACT_A_KEY = `first-pact:${PLAYER_A}`;
+const FIRST_PACT_LOCK_B_KEY = `lock:${FIRST_PACT_B_KEY}`;
 const REGISTRY_KEY = 'player:registry';
 const SAVE_LOCK_B_KEY = `lock:save:${PLAYER_B}`;
 
@@ -131,12 +134,12 @@ before(async () => {
 });
 
 beforeEach(async () => {
-    await kv.del(SAVE_B_KEY, ADMIN_LOCK_B_KEY, RESET_SIGNAL_B_KEY, DELETE_FENCE_B_KEY);
+    await kv.del(SAVE_B_KEY, ADMIN_LOCK_B_KEY, RESET_SIGNAL_B_KEY, DELETE_FENCE_B_KEY, FIRST_PACT_B_KEY, FIRST_PACT_A_KEY, FIRST_PACT_LOCK_B_KEY);
     await kv.hdel(REGISTRY_KEY, PLAYER_B);
 });
 
 after(async () => {
-    await kv.del(SAVE_B_KEY, ADMIN_LOCK_B_KEY, RESET_SIGNAL_B_KEY, DELETE_FENCE_B_KEY);
+    await kv.del(SAVE_B_KEY, ADMIN_LOCK_B_KEY, RESET_SIGNAL_B_KEY, DELETE_FENCE_B_KEY, FIRST_PACT_B_KEY, FIRST_PACT_A_KEY, FIRST_PACT_LOCK_B_KEY);
     await kv.hdel(REGISTRY_KEY, PLAYER_B);
     delete process.env.SHINOBIX_QA_MEMORY_KV;
     delete process.env.ADMIN_PASSWORD;
@@ -208,6 +211,8 @@ test('content admin cannot delete a player save; full admin can', async () => {
     const original = playerBSave();
     const registryEntry = { name: PLAYER_B, level: 12, village: 'Leaf' };
     await kv.set(SAVE_B_KEY, original);
+    await kv.set(FIRST_PACT_B_KEY, { mainStep: 'complete' });
+    await kv.set(FIRST_PACT_A_KEY, { mainStep: 'return-to-threshold' });
     await kv.hset(REGISTRY_KEY, { [PLAYER_B]: registryEntry });
 
     const contentAttempt = await deleteAdminSave(PLAYER_B, process.env.ADMIN_CONTENT_PASSWORD!);
@@ -218,11 +223,31 @@ test('content admin cannot delete a player save; full admin can', async () => {
     assert.equal(await kv.get(DELETE_FENCE_B_KEY), null);
     assert.equal(await kv.get(ADMIN_LOCK_B_KEY), null);
     assert.equal(await kv.get(RESET_SIGNAL_B_KEY), null);
+    assert.deepEqual(await kv.get(FIRST_PACT_B_KEY), { mainStep: 'complete' }, 'rejected deletion cannot strip story state');
 
     const fullAttempt = await deleteAdminSave(PLAYER_B);
     assert.equal(fullAttempt.statusCode, 200);
     assert.equal(await kv.get(SAVE_B_KEY), null);
+    assert.equal(await kv.get(FIRST_PACT_B_KEY), null, 'deleting the character must delete its standalone First Pact');
+    assert.deepEqual(await kv.get(FIRST_PACT_A_KEY), { mainStep: 'return-to-threshold' }, 'another player remains intact');
     assert.equal(await kv.get(DELETE_FENCE_B_KEY), 8);
+});
+
+test('First Pact lock contention leaves the interactive-delete save and registry intact', { timeout: 3_000 }, async () => {
+    const original = playerBSave();
+    const registryEntry = { name: PLAYER_B, level: 12, village: 'Leaf' };
+    const firstPact = { mainStep: 'complete' };
+    await kv.set(SAVE_B_KEY, original);
+    await kv.set(FIRST_PACT_B_KEY, firstPact);
+    await kv.set(FIRST_PACT_LOCK_B_KEY, 'another-owner', { ex: 5 });
+    await kv.hset(REGISTRY_KEY, { [PLAYER_B]: registryEntry });
+
+    const attempt = await deleteAdminSave(PLAYER_B);
+
+    assert.equal(attempt.statusCode, 429);
+    assert.deepEqual(await kv.get(SAVE_B_KEY), original, 'save deletion must wait for standalone story cleanup');
+    assert.deepEqual(await kv.get(FIRST_PACT_B_KEY), firstPact);
+    assert.deepEqual((await kv.hgetall<Json>(REGISTRY_KEY))?.[PLAYER_B], registryEntry, 'registry removal must wait too');
 });
 
 test('POST that enters the save lock before DELETE leaves the player deleted', { timeout: 5_000 }, async () => {

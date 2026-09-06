@@ -1,7 +1,10 @@
+import { parseStoryFieldProgress, type StoryFieldProgress } from '../../shared/story-field-work.js';
+import { OUTSKIRTS_SECTORS, VILLAGE_OUTSKIRTS } from '../../shared/sector-geo.js';
+
 export const STORY_RECKONING_DAILY_CAP = 3;
 
 export type StoryReckoningMetric = "totalAiKills" | "totalTilesExplored";
-export type StoryReckoningSeal = { id: string; stage: "task" | "return"; baseline: number; at: number };
+export type StoryReckoningSeal = { id: string; stage: "task" | "return"; baseline: number; at: number; fieldWork?: StoryFieldProgress };
 
 export interface StoryReckoningDef {
     id: string;
@@ -155,7 +158,10 @@ export function parseStoryReckoningSeal(raw: unknown): StoryReckoningSeal | null
     const baseline = Number(value.baseline);
     const at = Number(value.at ?? 0);
     if (!isStoryReckoningId(id) || !stage || !Number.isFinite(baseline) || !Number.isSafeInteger(at) || at < 0) return null;
-    return { id, stage, baseline, at };
+    const fieldWork = value.fieldWork === undefined ? undefined : parseStoryFieldProgress(id, value.fieldWork);
+    // A malformed new route cannot silently fall back to the old tile counter.
+    if (fieldWork === null) return null;
+    return { id, stage, baseline, at, ...(fieldWork ? { fieldWork } : {}) };
 }
 
 export function storyReckoningRyo(level: unknown, weight: number): number {
@@ -167,15 +173,46 @@ export function storyReckoningTaskComplete(baseline: unknown, current: unknown, 
 }
 
 export function storyReckoningEligible(
-    char: { level?: unknown; storyVillage?: unknown; storyProgress?: unknown; storyTraits?: unknown },
+    char: { level?: unknown; storyVillage?: unknown; storyProgress?: unknown; storyTraits?: unknown; redeemedStoryReckonings?: unknown },
     def: StoryReckoningDef,
 ): boolean {
     const traits = Array.isArray(char.storyTraits) ? (char.storyTraits as unknown[]).map(String) : [];
     if (traits.includes(def.completionTrait)) return false;
+    if (storyReckoningRedemption(char, def.id)) return false;
     if ((Number(char.level) || 0) < def.levelReq) return false;
     if ((Number(char.storyProgress) || 0) < def.ownProgress) return false;
     // Cross-village figures ignore storyVillage; own-village arcs require the match.
     return def.crossVillage === true || char.storyVillage === def.village;
+}
+
+export function storyReckoningRedemption(
+    char: { redeemedStoryReckonings?: unknown },
+    questId: string,
+): Record<string, unknown> | null {
+    if (!Array.isArray(char.redeemedStoryReckonings)) return null;
+    for (const value of char.redeemedStoryReckonings) {
+        if (value && typeof value === 'object' && !Array.isArray(value)
+            && (value as Record<string, unknown>).questId === questId) return value as Record<string, unknown>;
+    }
+    return null;
+}
+
+export type StoryReckoningPresenceReason = 'presence' | 'wrong-place' | 'traveling' | 'in-battle';
+
+/** The named giver is physically available only at their village outskirts.
+ * Harrow is the sole cross-village giver and can transact at any outskirts. */
+export function storyReckoningPresenceReason(
+    def: StoryReckoningDef,
+    presence: { sector: number; travelingUntil?: number; inBattle?: boolean } | null,
+    now: number,
+): StoryReckoningPresenceReason | null {
+    if (!presence) return 'presence';
+    if ((presence.travelingUntil ?? 0) > now) return 'traveling';
+    if (presence.inBattle) return 'in-battle';
+    const validSector = def.crossVillage === true
+        ? OUTSKIRTS_SECTORS.includes(presence.sector)
+        : presence.sector === VILLAGE_OUTSKIRTS[def.village];
+    return validSector ? null : 'wrong-place';
 }
 
 export function ownedItemCount(char: { inventory?: unknown; itemStacks?: unknown }, itemId: string): number {

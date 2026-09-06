@@ -50,6 +50,7 @@ function fakeRes() {
 type Handler = (req: never, res: never) => Promise<unknown>;
 let aiStart: Handler;
 let aiMove: Handler;
+let echoesWitness: Handler;
 
 before(async () => {
   const kv = (await import("../_storage.js")).kv as unknown as Record<string, unknown>;
@@ -74,6 +75,7 @@ before(async () => {
   };
   aiStart = (await import("./ai-start.js")).default as unknown as Handler;
   aiMove = (await import("./ai-move.js")).default as unknown as Handler;
+  echoesWitness = (await import("./echoes-witness.js")).default as unknown as Handler;
 });
 
 async function call(handler: Handler, body: unknown) {
@@ -103,7 +105,7 @@ type StoredSession = {
   echoes?: { encounterId: string };
   status: string;
   winner?: string;
-  state: { status: string; winner?: string; p2: { name: string }; rulesVersion: number };
+  state: { status: string; winner?: string; p2: { name: string }; rulesVersion: number; events?: Array<Record<string, unknown>> };
 };
 
 async function startEchoes(playerName: string, encounterId: string): Promise<{ matchId: string; session: StoredSession }> {
@@ -159,11 +161,14 @@ test("a first-clear win pays 50 Chronicle Points, records the clear, and never p
   store.clear();
   seedPlayer("echo");
   const { matchId } = await startEchoes("echo", "echoes-1-tovin");
+  const session = store.get(`cc-ai:${matchId}`) as StoredSession;
+  session.state.events = [{ id: "observed", kind: "trap-activated", turnNumber: 2, at: 1, actor: "p1", cardId: "chronicle-smoke-bomb" }];
+  store.set(`cc-ai:${matchId}`, session);
   forceTerminal(matchId, "p1");
   const settled = await call(aiMove, { matchId, action: "state" });
   assert.equal(settled.statusCode, 200);
   const body = settled.body as {
-    reward: { echoes?: { points: number; firstClear: boolean; balance: number; unlockedFloor: number | null } };
+    reward: { echoes?: { points: number; firstClear: boolean; balance: number; unlockedFloor: number | null; battleBeat: string } };
     character: Record<string, unknown>;
     _saveVersion: number;
   };
@@ -171,17 +176,35 @@ test("a first-clear win pays 50 Chronicle Points, records the clear, and never p
   assert.equal(body.reward.echoes?.firstClear, true);
   assert.equal(body.reward.echoes?.balance, 50);
   assert.equal(body.reward.echoes?.unlockedFloor, 2);
+  assert.equal(body.reward.echoes?.battleBeat, "denied-attack");
   assert.equal(character("echo").chroniclePoints, 50);
-  const record = character("echo").echoesOfWar as Record<string, { wins: number }>;
+  const record = character("echo").echoesOfWar as Record<string, { wins: number; firstClearBattleBeat?: string }>;
   assert.equal(record["echoes-1-tovin"].wins, 1);
+  assert.equal(record["echoes-1-tovin"].firstClearBattleBeat, "denied-attack");
 
   // A duplicate settle request replays the recorded receipt without paying.
   const replay = await call(aiMove, { matchId, action: "state" });
   assert.equal(replay.statusCode, 200);
-  const replayBody = replay.body as { reward: { echoes?: { points: number } } };
+  const replayBody = replay.body as { reward: { echoes?: { points: number; battleBeat: string } } };
   assert.equal(replayBody.reward.echoes?.points, 50);
+  assert.equal(replayBody.reward.echoes?.battleBeat, "denied-attack", "lost responses replay the sealed callback receipt");
   assert.equal(character("echo").chroniclePoints, 50, "no double pay");
   assert.equal((character("echo").echoesOfWar as Record<string, { wins: number }>)["echoes-1-tovin"].wins, 1);
+});
+
+test("the witness API seals an eligible answer and conflicting retries return the first", async () => {
+  store.clear();
+  seedPlayer("echo", { echoesOfWar: { "echoes-3-aya": { wins: 1, firstClearAt: 10 } } });
+  const first = await call(echoesWitness, { playerName: "echo", eraId: "echoes-age-1", choiceId: "warnings-first" });
+  assert.equal(first.statusCode, 200);
+  assert.equal((first.body as { choiceId: string }).choiceId, "warnings-first");
+  assert.deepEqual(character("echo").echoesWitnessChoices, { "echoes-age-1": "warnings-first" });
+
+  const retry = await call(echoesWitness, { playerName: "echo", eraId: "echoes-age-1", choiceId: "names-first" });
+  assert.equal(retry.statusCode, 200);
+  assert.equal((retry.body as { choiceId: string; alreadySealed: boolean }).choiceId, "warnings-first");
+  assert.equal((retry.body as { alreadySealed: boolean }).alreadySealed, true);
+  assert.deepEqual(character("echo").echoesWitnessChoices, { "echoes-age-1": "warnings-first" });
 });
 
 test("a repeat win pays 15 and the boss first clear pays 100", async () => {

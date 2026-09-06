@@ -86,14 +86,14 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'redeemedAuraFeeds', 'battleTowerAscension', 'rankedSeasonsWon', 'weeklyBossKills',
     'defeatedAiIds', 'hunterRank', 'redeemedHunterRanks', 'apexWeekClaimed', 'element',
     'elements', 'claimedAwakenings', 'redeemedAwakeningActions', 'elderFocus',
-    'activeDungeonRun', 'redeemedDungeonRuns', 'redeemedHollowGateRuns',
+    'activeDungeonRun', 'redeemedDungeonRuns', 'redeemedHollowGateRuns', 'riftFirstClears', 'riftQuestBossReceipt',
     'redeemedPetBattleTokens', 'redeemedPetExpeditionTokens', 'claimedServerMissions',
     'redeemedPetGauntletRuns', 'petGauntletRewardDate', 'petGauntletRewardCount',
     'petGauntletPremiumDate', 'petGauntletFateClaimed', 'petGauntletBoneClaimed',
     'petGauntletEntryDate', 'petGauntletEntryCount', 'redeemedWandererQuests',
     'redeemedWandererAmbushes', 'wandererAmbushRewardDate', 'wandererAmbushRewardCount',
     'redeemedQuestbookRuns', 'storyReckoningRewardDate', 'storyReckoningRewardCount',
-    'redeemedStoryReckonings',
+    'redeemedStoryReckonings', 'storyFieldRecords', 'activeStoryReckoning',
     // `villageUpgrades` left this list on 2026-08-17: it became `server-clamped`
     // (a cross-validated mirror of the shared village record) rather than
     // `server-owned`, and server-clamped fields are deliberately NOT mirrored
@@ -104,7 +104,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'battleTowerBestFloor', 'battleTowerRating', 'battleTowerClearedFloors',
     'totalTournamentsCompleted', 'totalTilesExplored', 'hollowGateWardenKills',
     'rankedWins', 'rankedLosses', 'villageWarMissionsCompleted', 'totalMissionsCompleted',
-    'cardClashWins', 'cardClashLosses', 'cardClashDraws', 'echoesOfWar',
+    'cardClashWins', 'cardClashLosses', 'cardClashDraws', 'echoesOfWar', 'echoesWitnessChoices',
     // Clan
     'clanPoints', 'weeklyClanPoints', 'weeklyClanPointsWeek', 'lifetimeClanPoints',
     'clanPointHistory', 'clanExchangePurchases',
@@ -169,7 +169,9 @@ export const CONFLICT_AREA_PATHS: ReadonlyArray<{ label: string; paths: Readonly
         label: "Story & Legacy",
         paths: [
             ["character", "storyProgress"], ["character", "storyChoices"],
-            ["character", "storyTraits"], ["character", "onboardingStep"],
+            ["character", "storyTraits"], ["character", "storyChoices"],
+            ["character", "storyScene"], ["character", "pendingStoryReports"],
+            ["character", "storyEpilogues"], ["character", "onboardingStep"],
             ["character", "legacy"], ["character", "titles"],
         ],
     },

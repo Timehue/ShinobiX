@@ -35,7 +35,9 @@ import {
     firstPactStandingReserve,
     firstPactStandingSpendable,
     firstPactVow,
+    firstPactAvailableAftermath,
     type FirstPactEncounterId,
+    type FirstPactAftermathId,
     type FirstPactMainBeat,
     type FirstPactProgress,
     type FirstPactTournamentEncounterId,
@@ -104,7 +106,18 @@ import {
     checkpointFirstPact,
     enterFirstPact,
     fetchFirstPactProgress,
+    visitFirstPactAftermath,
+    type FirstPactGrant,
 } from "../lib/first-pact-api";
+import {
+    firstPactAftermathForNpc,
+    firstPactAftermathScene,
+    firstPactCompanionCourtLines,
+    firstPactCompanionEverydayLines,
+    firstPactEpilogueCompanionCopy,
+    resolveFirstPactCompanions,
+    type FirstPactCompanionView,
+} from "../lib/first-pact-aftermath";
 import {
     forfeitShowdown,
     fetchShowdownState,
@@ -248,7 +261,8 @@ type DialogueAction =
  *  the story on, or it spends Court Standing on a finding. */
 type FirstPactDialogueChoice =
     | { label: string; beat: FirstPactMainBeat }
-    | { label: string; writId: string };
+    | { label: string; writId: string }
+    | { label: string; aftermathId: FirstPactAftermathId };
 
 /** Indoor conversations reuse the street dialogue frame without its quest verbs. */
 type InteriorSpeech = {
@@ -4303,10 +4317,10 @@ function releaseFirstPactSharedScratch(): void {
     worldFrameShading = null;
 }
 
-function firstPactEpilogue(progress: FirstPactProgress) {
+function firstPactEpilogue(progress: FirstPactProgress, companions: readonly FirstPactCompanionView[]) {
     const vow = firstPactVow(progress.mainQuest.pactVow);
     const stableRecord = progress.stableQuest.status === "complete"
-        ? " Vale Stable's public victory keeps its banner and every beast's chosen name in Vey's surviving copy."
+        ? " Vey's surviving copy names Vale Stable as the winner and keeps every beast's chosen name beside it."
         : "";
     // Standing spent at the Arbiter buys permanence, so permanence is what the
     // epilogue has to show. An entered finding survives the correction that
@@ -4315,23 +4329,29 @@ function firstPactEpilogue(progress: FirstPactProgress) {
         .map((id): string | undefined => firstPactWritEncounter(id)?.title)
         .filter((title): title is string => typeof title === "string");
     const enteredRecord = entered.length
-        ? ` ${entered.length === 1 ? "One finding stands" : `${entered.length} findings stand`} entered in the Court's own hand and beyond a later clerk's reach: ${entered.join(", ")}.`
+        ? ` The Court entered ${entered.length === 1 ? "one finding" : `${entered.length} findings`} that a later clerk cannot reopen: ${entered.join(", ")}.`
         : "";
+    const humanRecord = [
+        progress.findings.includes("writ-silencing") ? " Isu leaves one rejected muzzle beside the bell rope." : "",
+        progress.findings.includes("writ-audit") ? " Rho keeps the beasts' names in a separate stock column." : "",
+        progress.findings.includes("writ-pruning") ? " Kaio leaves one living branch across the old pruning diagram." : "",
+        progress.findings.includes("writ-impound") ? " Pell leaves both kennel alleys open." : "",
+    ].join("");
     return [
         {
             kicker: "The Last Bell",
-            title: "The city does not become a refuge.",
-            copy: "The Court begins its final correction exactly as the Chronicle records it. Bells lose their reasons for ringing. Gates close around futures their owners can no longer imagine.",
+            title: "The last correction begins.",
+            copy: "The bell rings without Isu's hand. Tam's blue grates pull hard enough to sing. People hurry home while the Court replaces their warnings with harmless explanations.",
         },
         {
             kicker: "What Changed",
-            title: "History keeps its shape. The proof survives.",
-            copy: `You cannot prevent the Sunken Court from falling. You preserve Vey's unedited record and the truth that the first bonded beasts stood as witnesses, never property.${stableRecord}${enteredRecord}`,
+            title: "The fall remains. The evidence leaves.",
+            copy: `You cannot prevent the Sunken Court from falling. Vey's unedited record survives with the first handlers' pact: the bonded beasts stood as witnesses, never property.${stableRecord}${enteredRecord}${humanRecord}`,
         },
         {
             kicker: "The First Pact",
             title: "Four witnesses cross home with you.",
-            copy: `The Celestial light takes your party back to the present. The ruins are unchanged. ${vow?.returnCopy ?? "Your companions remember a city alive and a choice its machine could not reduce to arithmetic."}`,
+            copy: `The Celestial light takes your party back to the present. The ruins are unchanged. ${firstPactEpilogueCompanionCopy(companions)} ${vow?.returnCopy ?? "They remember the living city and the choice they made inside it."} On another crossing, the threshold returns you to the same hours before the final correction. Your vow, findings, and Vale's result remain part of that visit.`,
         },
     ] as const;
 }
@@ -4369,9 +4389,9 @@ function npcDialogue(npc: FirstPactNpcDefinition, progress: FirstPactProgress): 
     if (npc.id === "keeper-sena") {
         if (progress.mainStep === "make-first-pact") return {
             lines: [
-                "The Court's wardens call your companions instruments. Useful things. Owned things.",
-                "They crossed time because they chose your side. Name that choice now. Not command. Not contract. Witness.",
-                "The first handlers left three promises in the margin. Choose the one you are willing to let the Court test.",
+                "The Court calls your companions equipment. I need your answer before Orin opens the sand.",
+                "They crossed with you because they chose to. Say what you owe them for that choice.",
+                "The first handlers left three promises. Pick the one you can keep when the Court presses it.",
             ],
             choices: FIRST_PACT_VOWS.map((vow) => ({
                 label: vow.choice,
@@ -4380,22 +4400,22 @@ function npcDialogue(npc: FirstPactNpcDefinition, progress: FirstPactProgress): 
         };
         if (progress.stableQuest.status === "not-started") return {
             lines: [
-                "Keep your voice down. The assessors hear panic and call it proof.",
-                "At final bell, an assessor will transfer every named beast here to the Court Menagerie unless Vale wins a public entry. My lead is hurt.",
-                "Your four are watching you like they already chose. Two on the sand, two held back. Win under our banner and the order fails in front of witnesses.",
+                "My lead cannot put weight on her foreleg, and the assessor is due at final bell.",
+                "If Vale does not make a public entry, every beast here goes to the Court Menagerie.",
+                "Lend me your four. Two on the sand, two in reserve. Win under our banner and the assessor has to tear up the transfer in front of the crowd.",
             ],
             action: { kind: "stable-accept" },
         };
         if (progress.stableQuest.status === "complete") return {
             lines: [
-                "Listen. No chains moving. No assessor at the door.",
-                "You kept the Vale name on the door and every beast under the name it answers to. Vey entered the victory before an official could soften it.",
+                "Hear that? Feed buckets. Hooves. No chains at the door.",
+                "Vale stays on the sign, and every beast keeps the name it answers to. Vey copied the result before the assessor left the rail.",
             ],
         };
         return {
             lines: progress.stableQuest.tournamentWins === 0
-                ? ["Orin has the entry slate. Put our name on it before the patron changes the rules again."]
-                : [`${progress.stableQuest.tournamentWins} bell${progress.stableQuest.tournamentWins === 1 ? "" : "s"} won. Go back. Finish what we started.`],
+                ? ["Orin has the entry slate. Get Vale onto it before the assessor reaches this yard."]
+                : [`${progress.stableQuest.tournamentWins} bell${progress.stableQuest.tournamentWins === 1 ? "" : "s"} won. The beasts can hear the next crowd. Go finish it.`],
         };
     }
     // A citizen with a writ served on their quarter speaks about that before
@@ -4405,19 +4425,26 @@ function npcDialogue(npc: FirstPactNpcDefinition, progress: FirstPactProgress): 
         lines: [writ.summons, writ.lesson],
         action: { kind: "main-battle", encounterId: writ.id, label: `Answer: ${writ.title}` },
     };
-    if (writ && progress.findings.includes(writ.id)) return {
-        lines: [
-            "It is entered. Not withdrawn, not rescheduled, not filed under a word that means we will come back on a quieter day. Entered.",
-            "You paid standing for that and I know roughly what standing costs to earn. So does everyone on this street, which is why they have stopped lowering their voices.",
-        ],
-    };
-    if (writ && progress.writs.includes(writ.id)) return {
-        lines: [
-            "The detail withdrew and filed the loss as a scheduling error. Nobody here believes that and nobody here is arguing.",
-            "Vey has the real version. Whatever the Court says happened in this quarter, ours is written down too.",
-            "It is still marked inconclusive on the Court's own copy. The Arbiter keeps that copy, in the square below the council annex, and will trade you for it.",
-        ],
-    };
+    const writReaction = writ ? ({
+        "writ-silencing": {
+            answered: ["They left the muzzles. I hung one by the rope where every relief warden will see it.", "Vey has the time of the bell and the rookbeasts' warning. The Arbiter still has to enter it as a finding."],
+            entered: ["The finding names the bell, the warm nests, and every muzzle. I ring once now. If the birds stay quiet, I do too."],
+        },
+        "writ-audit": {
+            answered: ["The auditor left her sheet. I crossed my haulers out of STOCK and wrote their names large enough to ruin the column.", "Vey has the working copy. The Arbiter can make the separation permanent."],
+            entered: ["There. The finding, the separate count, and every chosen name. Let the next auditor try to add them as cargo."],
+        },
+        "writ-pruning": {
+            answered: ["They withdrew. I am still washing their chalk off the old tree; victory does not clean bark.", "Vey marked every branch they meant to cut. The Arbiter can enter that finding."],
+            entered: ["I pinned the finding over their four-hundred-year plan. This year's new branch grows across the signature."],
+        },
+        "writ-impound": {
+            answered: ["I can stop holding the gate with my shoulder. I am keeping the bar close.", "Vey copied all four names from the impound order. The Arbiter can enter the finding."],
+            entered: ["I say each chosen name before I lift the latch. Both cedar alleys stay open. They pick the way out."],
+        },
+    } as const)[writ.id] : undefined;
+    if (writ && progress.findings.includes(writ.id)) return { lines: [...(writReaction?.entered ?? ["The finding is entered in the Court's own hand."])] };
+    if (writ && progress.writs.includes(writ.id)) return { lines: [...(writReaction?.answered ?? ["Vey recorded the detail's withdrawal."])] };
 
     /*
      * The Court, in the first person.
@@ -4443,44 +4470,43 @@ function npcDialogue(npc: FirstPactNpcDefinition, progress: FirstPactProgress): 
             // Once the Court has lost to this claimant twice, it stops
             // explaining itself and starts keeping count.
             lines.push(
-                `${progress.standingCourt.clears} full docket${progress.standingCourt.clears === 1 ? "" : "s"} answered. I have stopped writing the findings down separately. There is one line now and it has your name on it.`,
-                "I will keep sitting. Not because the Court expects to win it back. Because a thing that only happened once is an anecdote, and a thing that keeps happening is a precedent, and I would rather be beaten by a precedent.",
+                `${progress.standingCourt.clears} full docket${progress.standingCourt.clears === 1 ? "" : "s"} answered. Your name now appears on every sitting.`,
+                "I will sit again. One victory can be dismissed as an exception. Repeated victories force the Court to change its rule.",
             );
         } else if (progress.standingCourt.round > 0) {
             lines.push(
-                `${progress.standingCourt.round} of ${FIRST_PACT_STANDING_COURT_LENGTH} sittings standing. Finish the docket or lose one, and either way we begin again at the top. The Court does not hold your place.`,
+                `${progress.standingCourt.round} of ${FIRST_PACT_STANDING_COURT_LENGTH} sittings stand. Finish all five in this run. Lose one and Orin returns the docket to its first sitting.`,
             );
         } else if (progress.mainStep === "complete" || progress.mainStep === "return-to-threshold") {
             lines.push(
-                "You beat this Court in its own square and this Court entered it, correctly, in the record. That is not mercy. That is what a record is for.",
-                "I had a name before the office. It is filed. I gave it up because a Court that argues from a person is only that person, and I believed that. I still do, most days.",
-                "Vey keeps the ones who refused. Your name went into that file this morning. Mine did not, and that was mine to decide, which is the whole of the thing you came here to prove.",
+                "You beat the Court in its own square. I entered the result. If this office removes every loss, its rulings prove nothing.",
+                "Vey asked for the name I had before this office. I told her the office had no use for it. The truth is that I chose to file it away.",
+                "A court ruled by one person is only that person's will. I still believe that. I am less certain what that belief entitled me to erase.",
             );
             if (standingRound) {
                 lines.push(
-                    "And now the difficult part, which is that the record does not close an argument, it only records who was standing at the end of it.",
-                    "So the docket reopens. The same four sittings, weighed properly this time, and then me. Not the Echo. Not the finding. The person, which I spent my whole office insisting a Court should never argue from, and which I am about to do because you left me nothing else.",
+                    "The docket is open again: four sittings, then me. This time I must defend the Court in person.",
                 );
             }
         } else if (progress.finalTrial.wins > 0) {
             lines.push(
-                `${progress.finalTrial.wins} sitting${progress.finalTrial.wins === 1 ? "" : "s"} answered. The Court is not losing. The Court is watching what you do while you are winning, which is the only measurement worth taking.`,
-                "Ask the four still on the sand what they were before we assessed them. They will not know how to answer. That is not cruelty. Nobody ever asked them, and now nobody can.",
+                `${progress.finalTrial.wins} sitting${progress.finalTrial.wins === 1 ? "" : "s"} answered. The Court records each formation separately; it does not yet accept them as one argument.`,
+                "My office judges the formation. It does not ask what each companion wanted before entering it. That rule remains in force until your hearing overturns it.",
             );
         } else if (progress.mainStep === "challenge-court-echo" && owed > 0) {
             lines.push(
-                `You are short, and you know by how much, because Orin tells everyone. He thinks the number is an obstacle.`,
-                "It is a filter. Anyone who reaches it has spent years becoming reasonable, and reasonable claimants are cheap to answer. Come to me tired and I will still have the easier afternoon.",
+                `Orin told you the deficit: ${owed.toLocaleString()} standing. Until you close it, I can refuse your hearing.`,
+                "Your claim has witnesses, but it has not met the Court's standing rule. Answer district writs until refusing you would violate that rule.",
             );
         } else if (progress.chapter >= 2) {
             lines.push(
-                "You have begun collecting losses that belong to me. Every detail you turn back in the quarters is entered as a scheduling error. There is a column for that. I signed off on the column.",
-                "Standing is not respect. It is the figure at which ignoring you costs the Court more than hearing you. You are welcome to call that cynical. I would call it the only promise this building keeps.",
+                "Defeating a district detail suspends its order. It does not, by itself, rewrite the finding that authorized it. That distinction keeps one public bout from becoming standing law.",
+                "Earn enough public standing and the distinction stops protecting this office. At that point I must put your claim before the Court.",
             );
         } else {
             lines.push(
-                "You are on no docket. Nobody arrives in this city unfiled, so somebody has already decided you are too small to file, and that is the kindest ruling this Court has handed down all year.",
-                "Vey will tell you the record can hold two versions of a thing. It can. One of them is the version people are made to live inside.",
+                "Your seal appears on no threshold plan this office recognizes. I cannot schedule a claimant the record cannot identify.",
+                "Bring me a claim with named witnesses and a chain of evidence I can examine. Vey knows which rejected records still carry signatures.",
             );
         }
         if (standingRound) {
@@ -4497,8 +4523,8 @@ function npcDialogue(npc: FirstPactNpcDefinition, progress: FirstPactProgress): 
         }
         if (open.length && spendable >= FIRST_PACT_FINDING_COST) {
             lines.push(
-                "Now. The quarters you answered are sitting in my hand marked inconclusive, which is not a finding. It is a place to keep a thing until keeping it is convenient.",
-                `I will enter one properly for ${FIRST_PACT_FINDING_COST.toLocaleString()} of your standing. Entered, it cannot be reopened later by a quieter clerk in a smaller room with a fresher pen.`,
+                "Your answered writs are still marked inconclusive. That status lets another clerk reopen them.",
+                `Spend ${FIRST_PACT_FINDING_COST.toLocaleString()} standing and I will enter one as a permanent finding. Choose which district gets certainty first.`,
             );
             return {
                 lines,
@@ -4525,9 +4551,9 @@ function npcDialogue(npc: FirstPactNpcDefinition, progress: FirstPactProgress): 
         const owed = firstPactBalancingOwed(progress);
         if (!mainEncounter && progress.mainStep === "challenge-court-echo" && owed > 0) return {
             lines: [
-                "The Court will not sit for a claimant it can afford to ignore, and at present it can afford to ignore you.",
-                `Standing is the only argument the docket reads. You are ${owed.toLocaleString()} short of the ${FIRST_PACT_BALANCING_STANDING.toLocaleString()} it will not refuse.`,
-                "Its details are out in the quarters right now, and every one of them that loses is a line the clerks cannot unwrite. Go and be expensive to ignore.",
+                "The Arbiter refused your hearing. You need enough public standing to force it onto the schedule.",
+                `You are ${owed.toLocaleString()} short of the required ${FIRST_PACT_BALANCING_STANDING.toLocaleString()}.`,
+                "Four Court details are active in the quarters. Defeat enough of them, then report back here.",
             ],
         };
         if (mainEncounter && trial) {
@@ -4535,16 +4561,16 @@ function npcDialogue(npc: FirstPactNpcDefinition, progress: FirstPactProgress): 
             // the Court's finding is read out once, before the first of them.
             const opening = trial.round === 1
                 ? [
-                    "The champion's gate opened by itself. The Court has issued a finding for your companions, and it will hear it in four sittings.",
-                    "Four wills create four ways to suffer. Surrender the right to refuse, it says, and all four bodies can be kept safe.",
+                    "The champion's gate is open. The Court has issued a finding on your companions and scheduled four sittings.",
+                    "Its claim is simple: four independent wills create four risks. Give up refusal, and the Court promises to keep all four bodies safe.",
                     firstPactVow(progress.mainQuest.pactVow)?.consequence ?? "It expects one command to be easier to preserve than four living choices.",
                 ]
                 : trial.round === trial.of
                     ? [
-                        "Three of its arguments are on the floor behind you. What is left does not argue.",
-                        "It has been listening the whole time. Whatever you did to win the last three, it has already written down.",
+                        "You answered three sittings. The Echo is the fourth and final opponent.",
+                        "It fields a defender, sage, assassin, and tracker. Use all four companions; one repeated answer will not cover every role.",
                     ]
-                    : [`Sitting ${trial.round} of ${trial.of}. The Court revises between rounds; whatever answered the last one will not answer this.`];
+                    : [`Sitting ${trial.round} of ${trial.of}. The Court changed its formation. Change yours before the gate opens.`];
             return {
                 lines: [...opening, mainEncounter.lesson],
                 action: {
@@ -4556,13 +4582,13 @@ function npcDialogue(npc: FirstPactNpcDefinition, progress: FirstPactProgress): 
         }
         if (mainEncounter && mainEncounter.id === "court-menagerie") return {
             lines: [
-                "Vey filed an unedited claim. The Court answered with animals trained not to remember wanting anything else.",
+                "Vey filed the three omens without correction. The Court answered by sending its Menagerie.",
                 mainEncounter.lesson,
             ],
             action: { kind: "main-battle", encounterId: mainEncounter.id, label: `Enter: ${mainEncounter.title}` },
         };
-        if (progress.stableQuest.status === "not-started") return { lines: ["A stable enters under its keeper's word. Sena Vale hasn't given you hers."] };
-        if (progress.stableQuest.status === "complete") return { lines: ["Vale Stable remains on the ledger. There are officials who will pretend they always supported it."] };
+        if (progress.stableQuest.status === "not-started") return { lines: ["I cannot enter Vale Stable without Sena's word. Speak to her in the Kennel Ward."] };
+        if (progress.stableQuest.status === "complete") return { lines: ["Vale Stable won its public entry. The assessor has withdrawn the transfer order."] };
         const encounter = expectedFirstPactTournamentEncounter(progress);
         return {
             lines: [
@@ -4574,72 +4600,107 @@ function npcDialogue(npc: FirstPactNpcDefinition, progress: FirstPactProgress): 
     }
     if (npc.id === "scribe-vey") {
         if (progress.mainStep === "meet-scribe-vey") return {
-            lines: ["You came through a door the Court has not built yet. Good. It cannot have edited your reason for arriving.", "Walk the city. Listen where its animals refuse to go. Bring me three facts before an official teaches them how to become harmless."],
-            action: { kind: "main-beat", beat: "meet-scribe", label: "Open the unedited chronicle" },
+            lines: ["Your seal is absent from the current threshold plan. I can verify the mismatch; I cannot verify you. Tell me only what the crossing established."],
+            choicesLabel: "Tell Vey only what this crossing established",
+            choices: [{ label: "I crossed the Celestial Tower threshold from another age.", beat: "meet-scribe" }],
         };
         if (progress.mainStep === "return-to-vey") return {
-            lines: ["A bell afraid of its own ringing. Water drawing something other than heat. A sky emptied without a predator.", "Separately, superstition. Together, evidence. I will enter it before the Court can improve the wording."],
+            lines: ["Isu heard the bell after the rookbeasts flattened. Tam measured current toward demand that does not exist. Kaio found warm nests under an empty sky.", "Three witnesses, three districts, one morning. Read my copy and confirm I have not made it neater than what you saw."],
             action: { kind: "main-beat", beat: "report-omens", label: "Enter all three omens unaltered" },
         };
         if (progress.mainStep === "recover-withheld-record") return {
             lines: [
-                "The Menagerie kept this under its obedience slate. The first handlers did not tame their bonded beasts. They asked to be witnessed by them.",
-                "Those handlers later refused the Court's demand to surrender that choice. Your age remembers them among the Withheld.",
-                "Take the original to Tam at the Gateworks. The intake recognizes choices older than ownership.",
+                "The Menagerie's obedience slate covered this original. It says the first handlers asked their bonded beasts to witness the pact. It does not say they owned them.",
+                "A later margin names them the withheld handlers: people who refused the Court's demand to surrender that choice.",
+                "Take the page to Tam. The fiber and seal match the oldest Gateworks plates; she can test that much without trusting my reading.",
             ],
             action: { kind: "main-beat", beat: "recover-record", label: "Take the Withheld record" },
         };
-        return { lines: ["The Court keeps revising yesterday. I keep the copies it throws away.", progress.mainStep === "investigate-city-omens" ? `You have ${progress.mainQuest.omens.length} of the three facts. Do not bring me rumor.` : "Your companions react before the machinery does. That belongs in the record."] };
+        return { lines: ["My table holds rejected originals. If a clerk asks, you mistook me for a copyist.", progress.mainStep === "investigate-city-omens" ? `You have ${progress.mainQuest.omens.length} of three observations. Bring me names, places, and what happened first.` : "Tell me what your companions notice before the people do. I can compare it with the local reports."] };
     }
     if (npc.id === "bellwarden-isu") return progress.mainStep === "investigate-city-omens" && !progress.mainQuest.omens.includes("bell") ? {
-        lines: ["The east bell rang by itself at dawn. The engineers called it settling metal.", "My rookbeasts flattened themselves before the sound arrived. Metal doesn't frighten an animal before it moves."],
+        lines: ["The east bell rang at dawn. My hand was on the rope and the rope never moved.", "The rookbeasts flattened first. Write that order down. The engineers keep leaving it out."],
         action: { kind: "main-beat", beat: "omen-bell", label: "Record the frightened bell" },
-    } : { lines: ["The east bell rang by itself at dawn. The engineers called it settling metal.", "Metal doesn't sound frightened."] };
+    } : { lines: ["The east bell rang without the rope moving. My rookbeasts knew a breath before I did.", "I need the next watch to believe the birds, not the repair notice."] };
     if (npc.id === "engineer-tam") {
         if (progress.mainStep === "investigate-city-omens" && !progress.mainQuest.omens.includes("aqueduct")) return {
-            lines: ["The lower intake is drawing more than heat now. Orders say the numbers balance.", "The animals won't cross the blue grates. Watch the water: it flows toward a demand that has not happened yet."],
+            lines: ["The lower intake is pulling above recorded demand. There is no open valve that can account for it.", "The animals stop at the blue grates. Watch the weed: the current bends toward a draw that has not begun."],
             action: { kind: "main-beat", beat: "omen-aqueduct", label: "Record the impossible current" },
         };
         if (progress.mainStep === "meet-engineer-tam") return {
             lines: [
-                "Vey's original matches the oldest intake seal. It pairs two witnesses who consent to remember each other.",
-                "This is the civic lattice your age calls Hollow Gate. The four village anchors do not exist yet, but their intake rules begin here.",
-                "I can open the Gateworks once. What waits below will try to reduce your four choices to one.",
+                "Vey reports that you crossed the Celestial Tower threshold from another age with this seal. I cannot test the crossing. I can test the seal.",
+                "Its cut and alloy match the oldest intake plate. That plate pairs two witnesses who consent to remember each other.",
+                "I can bypass the lower lock once before the pressure trips it. Two assassins hold the inner route. When either strikes, it can withdraw behind the healthiest reserve.",
             ],
             action: { kind: "main-beat", beat: "meet-engineer", label: "Open the old Gateworks route" },
         };
         const mainEncounter = expectedFirstPactMainEncounter(progress);
         if (mainEncounter?.id === "lattice-guardian") return {
-            lines: ["The route is open. The wardens have already learned your footsteps, but they have not learned four independent wills.", mainEncounter.lesson],
+            lines: ["The bypass is open and the pressure is climbing. Each assassin can strike, then put a fresh reserve in front of your answer.", mainEncounter.lesson],
             action: { kind: "main-battle", encounterId: mainEncounter.id, label: `Descend: ${mainEncounter.title}` },
         };
-        return { lines: ["The lower intake is drawing more than heat now. Orders say the numbers balance.", "The animals won't cross the blue grates. They know something the ledger doesn't."] };
+        return { lines: ["The lower intake is still above recorded demand with every listed valve shut.", "The animals refuse the blue grates. I have stopped calling that a maintenance problem."] };
     }
-    if (npc.id === "market-rho") return { lines: ["Vale feed is paid through the week. Don't tell Sena; she'll try to pay me back.", "Win first. Pride can wait outside."] };
-    if (npc.id === "kennel-hand") return { lines: ["Take either alley around the old cedar. A frightened beast needs a choice of path, and someone waiting where the paths meet again."] };
-    if (npc.id === "court-courier") return { lines: ["Three closure orders before noon. Four cancellations after the nobles complained about the smell."] };
+    if (npc.id === "market-rho") return progress.stableQuest.status === "complete"
+        ? { lines: [
+            "Vale feed is paid through the week. Sena tried to return half after the win, so I moved it onto the next stable's account.",
+            progress.findings.includes("writ-audit")
+                ? "The entered audit keeps the hauling beasts out of the stock count. I still check every shipment."
+                : "The public win stopped Vale's transfer. The auditor still comes tomorrow, so I am checking every shipment.",
+        ] }
+        : { lines: ["I paid Vale's feed through the week. Do not tell Sena until after the final; she will waste time arguing with me.", "Win first. She can repay me when the assessor is gone."] };
+    if (npc.id === "kennel-hand") return { lines: ["Leave both alleys open around the cedar. A frightened beast picks a path faster when nobody crowds its hind legs. I will wait where they meet."] };
+    if (npc.id === "court-courier") return { lines: ["I delivered three closure orders before noon and carried back four cancellations after the nobles smelled the kennels.", "If you change another order, find me before the afternoon route. I am not walking this district twice."] };
     if (npc.id === "garden-keeper") return progress.mainStep === "investigate-city-omens" && !progress.mainQuest.omens.includes("gardens") ? {
-        lines: ["Every bird left the north wall together. No storm. No hawk. Just gone.", "The nests are warm and the eggs remain. Animals abandon neither without a danger they can already feel."],
+        lines: ["Every bird left the north wall at once. No storm, no hawk. I still had seed in my hand.", "The nests are warm and the eggs remain. Help me record that before someone calls it migration."],
         action: { kind: "main-beat", beat: "omen-gardens", label: "Record the empty sky" },
-    } : { lines: ["Every bird left the north wall together. No storm. No hawk. Just gone."] };
-    return { lines: ["The market is taking bets on Vale Stable. I put mine where the odds looked foolish."] };
+    } : { lines: ["The birds left warm nests and unbroken eggs. I am keeping the ladders up in case they return."] };
+    return { lines: ["I am carrying bets to the Colosseum before the next bell. Mine is on Vale; the odds were insulting."] };
+}
+
+function firstPactReactiveDialogue(
+    npc: FirstPactNpcDefinition,
+    progress: FirstPactProgress,
+    companions: readonly FirstPactCompanionView[],
+): FirstPactDialogue {
+    const base = npcDialogue(npc, progress);
+    const courtLines = npc.id === "registrar-orin" && progress.mainStep === "challenge-court-echo"
+        ? firstPactCompanionCourtLines(progress, companions)
+        : [];
+    const everydayLines = firstPactCompanionEverydayLines(npc.id, progress, companions);
+    const reactiveLines = [...courtLines, ...everydayLines];
+    if (progress.mainStep !== "return-to-threshold" && progress.mainStep !== "complete") {
+        return reactiveLines.length ? { ...base, lines: [...base.lines, ...reactiveLines] } : base;
+    }
+    const aftermath = firstPactAftermathForNpc(npc.id, progress, companions);
+    if (!aftermath) return base;
+    if (progress.aftermathVisits.includes(aftermath.id)) {
+        return { ...base, lines: [...base.lines, ...aftermath.lines] };
+    }
+    return {
+        ...base,
+        lines: [...base.lines, "There is time to look at what changed here before you return to the threshold."],
+        choicesLabel: "Choose whether to examine this part of the surviving record",
+        choices: [...(base.choices ?? []), { label: aftermath.label, aftermathId: aftermath.id }],
+    };
 }
 
 function mainQuestCopy(progress: FirstPactProgress): { kicker: string; title: string; detail: string; target?: FirstPactPoint } {
     switch (progress.mainStep) {
-        case "meet-scribe-vey": return { kicker: "Chapter I · Unedited", title: "A City Still Breathing", detail: "Find Scribe Vey outside the High Court archive.", target: { x: 42, y: 12 } };
+        case "meet-scribe-vey": return { kicker: "Chapter I · Unedited", title: "A City Still Breathing", detail: "Ask Scribe Vey outside the High Court archive to identify your threshold seal.", target: { x: 42, y: 12 } };
         case "investigate-city-omens": {
             const missing = ["bell", "aqueduct", "gardens"].filter((omen) => !progress.mainQuest.omens.includes(omen as "bell" | "aqueduct" | "gardens"));
             const next = missing[0];
             const targets: Record<string, FirstPactPoint> = { bell: { x: 68, y: 16 }, aqueduct: { x: 68, y: 46 }, gardens: { x: 18, y: 16 } };
-            return { kicker: `Chapter I · Omens ${progress.mainQuest.omens.length}/3`, title: "What the Animals Know", detail: `Record the city's three impossible warnings. Missing: ${missing.join(", ")}.`, target: targets[next] };
+            return { kicker: `Chapter I · Omens ${progress.mainQuest.omens.length}/3`, title: "What the Animals Know", detail: `Collect three named observations for Vey. Still needed: ${missing.join(", ")}.`, target: targets[next] };
         }
         case "return-to-vey": return { kicker: "Chapter I · Evidence", title: "Before the Wording Changes", detail: "Bring the three unedited observations to Vey.", target: { x: 42, y: 12 } };
-        case "challenge-court-menagerie": return { kicker: "Chapter II · The Ledger", title: "The Courtesy of Teeth", detail: "Answer the Court Menagerie at the southern Colosseum gate.", target: { x: 42, y: 34 } };
+        case "challenge-court-menagerie": return { kicker: "Chapter II · The Court", title: "The Courtesy of Teeth", detail: "Meet Registrar Orin at the southern Colosseum gate and answer the Court Menagerie.", target: { x: 42, y: 34 } };
         case "recover-withheld-record": return { kicker: "Chapter II · Withheld", title: "A Record Without an Owner", detail: "Return to Vey and recover the handlers' original pact.", target: { x: 42, y: 12 } };
         case "meet-engineer-tam": return { kicker: "Chapter III · Intake", title: "What the Gate Keeps", detail: "Carry the original record to Tam at the Gateworks.", target: { x: 68, y: 46 } };
         case "challenge-lattice-guardian": return { kicker: "Chapter III · Intake", title: "The Lattice Wardens", detail: "Descend through the route Tam opened.", target: { x: 68, y: 46 } };
-        case "make-first-pact": return { kicker: "Chapter III · Choice", title: "No Companion Is Property", detail: "Ask Sena how the first handlers named their bond.", target: { x: 24, y: 40 } };
+        case "make-first-pact": return { kicker: "Chapter III · Choice", title: "No Companion Is Property", detail: "Bring the recovered pact to Sena and choose what you owe your companions.", target: { x: 24, y: 40 } };
         case "challenge-court-echo": {
             // While the Court can still afford to ignore the claim, the
             // objective is the districts, not the Colosseum. Pointing the guide
@@ -4650,20 +4711,33 @@ function mainQuestCopy(progress: FirstPactProgress): { kicker: string; title: st
                 const giver = nextWrit ? FIRST_PACT_NPCS.find((npc) => npc.id === nextWrit.giver) : undefined;
                 return {
                     kicker: "Chapter IV · The Docket",
-                    title: "Be Expensive to Ignore",
+                    title: "Force a Hearing",
                     detail: nextWrit
-                        ? `The Court will not sit while it can afford to. Answer its writs in the quarters: ${owed.toLocaleString()} standing short.`
-                        : `The Court will not sit yet. Win back what standing you can: ${owed.toLocaleString()} short.`,
+                        ? `Answer active Court writs in the quarters. You need ${owed.toLocaleString()} more standing to force the hearing.`
+                        : `The Court will not sit yet. Earn ${owed.toLocaleString()} more standing, then return to Orin.`,
                     target: giver?.position ?? { x: 42, y: 34 },
                 };
             }
-            return { kicker: "Chapter IV · The First Pact", title: "Four Wills, One Answer", detail: "The Court will hear the claim. Answer its Balancing at the southern Colosseum gate.", target: { x: 42, y: 34 } };
+            return { kicker: "Chapter IV · The First Pact", title: "Four Wills, One Answer", detail: "Your hearing is open. Report to Orin and complete all four Court sittings.", target: { x: 42, y: 34 } };
         }
-        case "return-to-threshold": return { kicker: "Epilogue · The Last Bell", title: "Carry What Survives", detail: "Return to the Arrival Court. The city's fall cannot be unwritten.", target: FIRST_PACT_PLAYER_START };
+        case "return-to-threshold": {
+            const available = firstPactAvailableAftermath(progress);
+            const remaining = available.filter((id) => !progress.aftermathVisits.includes(id));
+            return {
+                kicker: "Epilogue · The Last Bell",
+                title: "Carry What Survives",
+                detail: remaining.length
+                    ? `The threshold is open. Cross now, or walk back through ${remaining.length} changed place${remaining.length === 1 ? "" : "s"} before the last correction.`
+                    : available.length
+                        ? "You have walked back through every surviving change. Return to the Arrival Court before the last correction."
+                        : "The threshold is open. Return to the Arrival Court when you are ready to carry the record home.",
+                target: FIRST_PACT_PLAYER_START,
+            };
+        }
         case "complete": {
             // A finished crossing used to point at nothing. The Court sits again.
             const sitting = expectedFirstPactStandingCourtRound(progress);
-            if (!sitting) return { kicker: "Chronicle preserved", title: "The First Pact", detail: "The fixed crossing remains open. Vey and Vale Stable remember your last visit." };
+            if (!sitting) return { kicker: "Chronicle preserved", title: "The First Pact", detail: "The threshold returns you to the same hours before the final correction. Vey retains your vow and findings; Vale retains its recorded result." };
             return {
                 kicker: progress.standingCourt.clears > 0
                     ? `The Standing Court · ${progress.standingCourt.clears} answered`
@@ -4704,6 +4778,7 @@ export function FirstPact({
     onExit,
     onBattleActiveChange,
     onFullscreenActiveChange,
+    onVersionedCharacter,
     qaCameraFocus,
     qaArchitectureScope,
 }: {
@@ -4712,6 +4787,7 @@ export function FirstPact({
     onExit: () => void;
     onBattleActiveChange?: (active: boolean) => void;
     onFullscreenActiveChange?: (active: boolean) => void;
+    onVersionedCharacter?: (character: Character, saveVersion: number) => boolean;
     /** Preview-only camera focus used by deterministic critic captures. */
     qaCameraFocus?: FirstPactPoint;
     /** Preview-only architecture cull for a complete, edge-safe district crop. */
@@ -4774,6 +4850,9 @@ export function FirstPact({
     const playerRef = useRef<FirstPactPoint>(FIRST_PACT_PLAYER_START);
     const npcRef = useRef<Record<string, RuntimeNpc>>(initializeNpcs());
     const resumeAttemptedRef = useRef(false);
+    const mountedRef = useRef(false);
+    const accountNameRef = useRef(character.name);
+    const onVersionedCharacterRef = useRef(onVersionedCharacter);
     const forfeitInFlightRef = useRef(false);
     const movementLockedRef = useRef(false);
     const progressRef = useRef<FirstPactProgress>(createFirstPactProgress());
@@ -4862,6 +4941,10 @@ export function FirstPact({
     const battlePets = useMemo(() => selectedPets
         .map((id) => character.pets.find((pet) => pet.id === id))
         .filter(Boolean) as Pet[], [character.pets, selectedPets]);
+    const pactCompanions = useMemo(
+        () => resolveFirstPactCompanions(progress, character.pets ?? [], new Set(availablePets.map((pet) => pet.id))),
+        [availablePets, character.pets, progress],
+    );
 
     const worldPixels = { width: FIRST_PACT_WORLD_WIDTH * FIRST_PACT_TILE_SIZE, height: FIRST_PACT_WORLD_HEIGHT * FIRST_PACT_TILE_SIZE };
     const targetCamera = useMemo<Camera>(() => {
@@ -4974,6 +5057,16 @@ export function FirstPact({
     useEffect(() => { playerRef.current = player; }, [player]);
     useEffect(() => { progressRef.current = progress; }, [progress]);
     useEffect(() => { npcRef.current = npcs; }, [npcs]);
+    useEffect(() => { accountNameRef.current = character.name; }, [character.name]);
+    useEffect(() => { onVersionedCharacterRef.current = onVersionedCharacter; }, [onVersionedCharacter]);
+
+    const applyGrantCharacter = useCallback((result: FirstPactGrant, requestAccount: string): "accepted" | "rejected" | "ignored" => {
+        if (!result.character || !Number.isSafeInteger(result._saveVersion)) return "accepted";
+        const accountKey = (value: string) => value.trim().toLowerCase();
+        if (!mountedRef.current || accountKey(accountNameRef.current) !== accountKey(requestAccount)
+            || accountKey(result.character.name) !== accountKey(requestAccount)) return "ignored";
+        return onVersionedCharacterRef.current?.(result.character, result._saveVersion!) === false ? "rejected" : "accepted";
+    }, []);
 
     useEffect(() => {
         const start = { ...cameraRef.current };
@@ -5002,8 +5095,10 @@ export function FirstPact({
     }, [drawWorldFrame, targetCamera.height, targetCamera.width, targetCamera.x, targetCamera.y]);
 
     useEffect(() => {
+        mountedRef.current = true;
         onFullscreenActiveChange?.(true);
         return () => {
+            mountedRef.current = false;
             onFullscreenActiveChange?.(false);
             onBattleActiveChange?.(false);
         };
@@ -5011,11 +5106,19 @@ export function FirstPact({
 
     useEffect(() => {
         if (character.level < FIRST_PACT_MIN_LEVEL) return;
+        const requestAccount = character.name;
         let alive = true;
-        void fetchFirstPactProgress(character.name).then((result) => {
+        void fetchFirstPactProgress(requestAccount).then((result) => {
             if (!alive) return;
             if ("error" in result) {
                 setError(result.error);
+                setLoading(false);
+                return;
+            }
+            const adoption = applyGrantCharacter(result, requestAccount);
+            if (adoption === "ignored") return;
+            if (adoption === "rejected") {
+                setError("A newer save is already active. Reload the crossing to recover its completion reward.");
                 setLoading(false);
                 return;
             }
@@ -5041,7 +5144,7 @@ export function FirstPact({
             }
         });
         return () => { alive = false; };
-    }, [character.level, character.name, loadRevision]);
+    }, [applyGrantCharacter, character.level, character.name, loadRevision]);
 
     // A First Pact battle is a sealed Showdown session, so a refresh must
     // re-enter it instead of silently leaving four companions in a live fight.
@@ -5816,18 +5919,50 @@ export function FirstPact({
         }
     };
 
+    const visitAftermath = async (aftermathId: FirstPactAftermathId): Promise<boolean> => {
+        if (storyActionPending) return false;
+        setStoryActionPending(true);
+        setError(null);
+        try {
+            const result = await visitFirstPactAftermath(character.name, aftermathId);
+            if ("error" in result) {
+                if (result.progress) setProgress(result.progress);
+                setError(result.error);
+                return false;
+            }
+            const scene = firstPactAftermathScene(aftermathId, result.progress, pactCompanions);
+            const speaker = FIRST_PACT_NPCS.find((npc) => npc.id === scene.npcId);
+            setProgress(result.progress);
+            setDialogNpc(null);
+            setInteriorSpeech({
+                name: scene.title,
+                title: speaker?.name ?? "The surviving record",
+                palette: speaker?.palette ?? "cyan",
+                portraitLetter: (speaker?.name ?? scene.title).slice(0, 1),
+                lines: scene.lines,
+            });
+            setDialogLine(0);
+            playGameSfx("paper", { gain: 0.62 });
+            return true;
+        } finally {
+            setStoryActionPending(false);
+        }
+    };
+
     const advanceMain = async (beat: FirstPactMainBeat): Promise<boolean> => {
         if (storyActionPending) return false;
         setStoryActionPending(true);
         setError(null);
         try {
             const chapterBefore = progress.chapter;
-            const result = await advanceFirstPactMain(character.name, beat);
+            const requestAccount = character.name;
+            const result = await advanceFirstPactMain(requestAccount, beat);
             if ("error" in result) {
                 if (result.progress) setProgress(result.progress);
                 setError(result.error);
                 return false;
             }
+            if (applyGrantCharacter(result, requestAccount) !== "accepted") return false;
             setProgress(result.progress);
             if (beat.startsWith("omen-")) playGameSfx("omen", { gain: 0.62 });
             else if (beat.startsWith("forge-first-pact-")) playGameSfx("decision", { gain: 0.72 });
@@ -5950,11 +6085,16 @@ export function FirstPact({
         onExit();
     };
 
-    const dialog = dialogNpc ? npcDialogue(dialogNpc, progress) : null;
+    const dialog = dialogNpc ? firstPactReactiveDialogue(dialogNpc, progress, pactCompanions) : null;
     const mainQuest = mainQuestCopy(progress);
     const sideQuest = questCopy(progress);
-    const epiloguePages = firstPactEpilogue(progress);
+    const epiloguePages = firstPactEpilogue(progress, pactCompanions);
     const recordedVow = firstPactVow(progress.mainQuest.pactVow);
+    const nextAftermathId = progress.mainStep === "return-to-threshold"
+        ? firstPactAvailableAftermath(progress).find((id) => !progress.aftermathVisits.includes(id))
+        : undefined;
+    const nextAftermath = nextAftermathId ? firstPactAftermathScene(nextAftermathId, progress, pactCompanions) : null;
+    const nextAftermathNpc = nextAftermath ? FIRST_PACT_NPCS.find((npc) => npc.id === nextAftermath.npcId) : null;
     const district = firstPactDistrictAt(player);
     const pendingEncounter = pendingEncounterId ? firstPactEncounter(pendingEncounterId) : null;
 
@@ -6119,10 +6259,14 @@ export function FirstPact({
                     <div><span>Connected court</span><strong>{DISTRICT_LABELS[district]}</strong></div>
                 </aside>}
 
-                {entered && !criticCapture && <div className="fp-world-actions">
+                {entered && !criticCapture && <div className="fp-world-actions" onPointerDown={(event) => event.stopPropagation()}>
                     <button type="button" onClick={(event) => { event.stopPropagation(); void leave(); }}>Leave crossing</button>
                     <button type="button" onClick={(event) => { event.stopPropagation(); setPlayerPath(findFirstPactPath(playerRef.current, { x: 42, y: 34 })); }}>Colosseum</button>
                     <button type="button" onClick={(event) => { event.stopPropagation(); setJournalOpen(true); }}>Chronicle</button>
+                    {nextAftermath && nextAftermathNpc && <button type="button" onClick={(event) => {
+                        event.stopPropagation();
+                        setPlayerPath(findFirstPactPath(playerRef.current, nextAftermathNpc.position));
+                    }}>Walk back: {nextAftermath.title}</button>}
                     {progress.mainStep === "return-to-threshold" && district === "arrival-court" && <button type="button" className="fp-complete-crossing" onClick={(event) => { event.stopPropagation(); setEpiloguePage(0); }}>Complete the crossing</button>}
                 </div>}
 
@@ -6141,7 +6285,7 @@ export function FirstPact({
                     <div className="fp-crossing-copy">
                         <span className="fp-eyebrow">Celestial Tower · Complete temporal crossing</span>
                         <h1>The First Pact</h1>
-                        <p>The light opens one fixed road into the Sunken Court's last age. This is the past, not a reconstructed refuge. Its fall is fixed, but the records carried out of it are not.</p>
+                        <p>The threshold opens on the Sunken Court during its last living hours. This is the past, not a reconstructed refuge. Its fall is fixed. You can still decide which testimony leaves with you.</p>
                         <div className="fp-party-rule"><strong>Premier format</strong><span>2 active pets · 2 reserves · single-player RPG</span></div>
                         <button type="button" onClick={() => void crossThreshold()}>Cross into the Sunken Court</button>
                         <button type="button" className="fp-quiet-button" onClick={onExit}>Step away</button>
@@ -6198,9 +6342,13 @@ export function FirstPact({
                                             {dialog.choices.map((choice) => (
                                                 <button
                                                     type="button"
-                                                    key={"beat" in choice ? choice.beat : choice.writId}
+                                                    key={"beat" in choice ? choice.beat : "writId" in choice ? choice.writId : choice.aftermathId}
                                                     disabled={storyActionPending}
-                                                    onClick={() => void ("beat" in choice ? advanceMain(choice.beat) : enterFinding(choice.writId))}
+                                                    onClick={() => void ("beat" in choice
+                                                        ? advanceMain(choice.beat)
+                                                        : "writId" in choice
+                                                            ? enterFinding(choice.writId)
+                                                            : visitAftermath(choice.aftermathId))}
                                                 >{choice.label}</button>
                                             ))}
                                         </div>
@@ -6268,15 +6416,17 @@ export function FirstPact({
                         <header><div><span className="fp-eyebrow">Scribe Vey's unedited copy</span><h2>The First Pact Chronicle</h2></div><button type="button" className="fp-quiet-button" onClick={() => setJournalOpen(false)}>Close</button></header>
                         <div className="fp-journal-grid">
                             {[
-                                [1, "A City Still Breathing", "Follow the animals' warnings through the Bell Quarter, Guardian Gardens and Aqueduct."],
-                                [2, "The Courtesy of Teeth", "Challenge the Court's doctrine of kind ownership and recover the Withheld record."],
-                                [3, "What the Gate Keeps", "Carry the original pact into the Gateworks and survive the learning lattice."],
-                                [4, "Four Wills, One Answer", "Name every companion as a witness and answer the Balanced Court together."],
+                                [1, "A City Still Breathing", "Bring Vey three named observations from the Bell Quarter, Guardian Gardens, and Aqueduct."],
+                                [2, "The Courtesy of Teeth", "Defeat the Court Menagerie and recover the first handlers' original pact."],
+                                [3, "What the Gate Keeps", "Let Tam verify the seal, then cross the learning lattice without repeating your formation."],
+                                [4, "Four Wills, One Answer", "Choose what you owe your companions, force a hearing, and answer all four Court sittings."],
                             ].map(([chapter, title, copy]) => <article key={String(chapter)} className={progress.chapter > Number(chapter) || progress.mainStep === "complete" ? "complete" : progress.chapter === Number(chapter) ? "active" : "locked"}>
                                 <span>Chapter {chapter}</span><strong>{title}</strong><p>{copy}</p>
                             </article>)}
                         </div>
                         {recordedVow && <div className="fp-journal-vow"><span>Pact preserved</span><strong>“{recordedVow.choice}”</strong></div>}
+                        {pactCompanions.length > 0 && <div className="fp-journal-vow"><span>The four who answered</span><strong>{pactCompanions.map((pet) =>
+                            pet.historicalName ?? "name unavailable in surviving copy").join(" · ")}</strong></div>}
                         <footer>
                             <div><span>Court standing</span><strong>{progress.courtStanding.toLocaleString()}</strong></div>
                             <div><span>Omens preserved</span><strong>{progress.mainQuest.omens.length} / 3</strong></div>
@@ -6285,6 +6435,7 @@ export function FirstPact({
                                 journal has to show where it went. Without this
                                 the number just quietly drops by 600. */}
                             <div><span>Findings entered</span><strong>{progress.findings.length} / {FIRST_PACT_DISTRICT_WRITS.length}</strong></div>
+                            {firstPactAvailableAftermath(progress).length > 0 && <div><span>Return visits</span><strong>{progress.aftermathVisits.length} / {firstPactAvailableAftermath(progress).length}</strong></div>}
                             <div><span>The Balancing</span><strong>{progress.mainStep === "complete" ? "Answered" : `${progress.finalTrial.wins} / ${FIRST_PACT_TRIAL_ROUNDS} rounds`}</strong></div>
                             {firstPactStandingCourtOpen(progress) && (
                                 <div><span>The Standing Court</span><strong>{progress.standingCourt.clears > 0
@@ -6318,11 +6469,11 @@ export function FirstPact({
                 <div className="fp-epilogue" role="dialog" aria-modal="true" aria-label="What the crossing left you">
                     <div className="fp-epilogue-shade" />
                     <section>
-                        <span className="fp-eyebrow">The Court's ledger</span>
+                        <span className="fp-eyebrow">Crossing complete</span>
                         <h2>What the crossing left you</h2>
                         <p>
-                            The city fell on the day it was always going to fall. The record did not, and your name is
-                            on the part of it the Court never managed to revise.
+                            The city fell on the day it was always going to fall. Vey's original left with you, with
+                            your name beside the testimony and findings the Court failed to replace.
                         </p>
                         {/* first-pact:reward-copy */}
                         {crossingGrant.auraStones > 0 && (
