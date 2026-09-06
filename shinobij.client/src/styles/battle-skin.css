@@ -5495,6 +5495,14 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
 
     /* Keep cast and details as distinct 44px targets. Absolute help buttons
        used by square cards would otherwise cover the short card's cast area. */
+    /* Details is a column of its own here, not a badge over the card's
+       top-left corner, so the cooldown pip keeps the left corner instead of
+       taking the right one and landing underneath Details. */
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-cd-badge {
+        right: auto !important;
+        left: 3px !important;
+    }
+
     html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help {
         position: static !important;
         inset: auto !important;
@@ -5633,11 +5641,20 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
     }
 
     /* The 48px action tray cannot contain the generic portrait card's stacked
-       cast/help rows. At the 320px floor, keep them as adjacent 44px targets so
-       both centers remain inside the tray and independently operable. */
+       cast/help rows. At the 320px floor, keep them as adjacent targets so both
+       centers remain inside the tray and independently operable.
+
+       Details takes a 24px strip, not a 44px column. A 320px phone renders an
+       88.7px card whose 86.7px content box cannot hold two 44px columns: the
+       pair totals 88px, the Details column overflows the card, and the card's
+       own centre point then resolves to Details instead of Cast - so a thumb
+       aimed at the middle of the card opened the details dialog mid-fight.
+       24px is the same WCAG 2.2 AA strip the phone action tray already ships
+       (owner's call, 2026-09-03), and it leaves the cast surface 62px wide
+       with its centre ~19px clear of Details. */
     html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-card-wrap:has(> .combat-jutsu-help) {
         display: grid !important;
-        grid-template-columns: minmax(44px, 1fr) 44px !important;
+        grid-template-columns: minmax(44px, 1fr) 24px !important;
         grid-template-rows: 44px !important;
         height: 44px !important;
         min-height: 44px !important;
@@ -5656,9 +5673,40 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
         grid-row: 1 !important;
         place-items: center !important;
         padding: 0 !important;
-        width: 44px !important;
+        width: 24px !important;
+        min-width: 24px !important;
         height: 44px !important;
-        border-radius: 8px !important;
+        min-height: 44px !important;
+        border-radius: 0 8px 8px 0 !important;
+    }
+
+    /* Details owns the right-hand strip here, so the cooldown pip cannot use
+       the right corner it takes elsewhere - but the card is a 44px ROW, and a
+       full-size pip in the left corner lands squarely on the name's first
+       line. Give this tier a compact pip tucked against the Details strip and
+       reserve that much room in the nameplate below. */
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-cd-badge {
+        left: auto !important;
+        right: 27px !important;
+        top: 2px !important;
+        min-width: 14px !important;
+        height: 14px !important;
+        padding: 0 3px !important;
+        font-size: 9px !important;
+    }
+
+    /* The shared nameplate is sized for a square card: at this tier it resolved
+       to a 36.8px box on a 44px row, starting 9.8px ABOVE the card and laying
+       out three line boxes, so the third was sliced across the cost strip.
+       Cap it at two lines (the clip must exclude bottom padding, which
+       otherwise leaves exactly enough slack to paint a sliced third line) and
+       keep the text clear of the cooldown pip. */
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-card-wrap:has(> .combat-jutsu-help) > .combat-jutsu-button > .combat-jutsu-name {
+        padding: 2px 17px 0 4px !important;
+        max-height: calc(2px + 2 * 1.1em) !important;
+        overflow: hidden !important;
+        font-size: 8px !important;
+        line-height: 1.1 !important;
     }
 }
 
@@ -7253,9 +7301,19 @@ html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help:is(:hover,
         }
 
         /* Text sized for a 68px card. The name clears the strip on the left;
-           the cost line runs the full width below it. */
+           the cost line runs the full width below it.
+
+           The two-line clamp lays out a THIRD line box for a name like
+           "Rooted Guard Break", and `overflow` clips at the PADDING box, not
+           the content box - so the 2px bottom padding was exactly the slack
+           that let ~3px of that third line paint as a row of sliced glyph
+           tops above the cost strip. Cap the box at the top padding plus two
+           line boxes (line-height 1.1) and drop the bottom padding, so the
+           clip lands on the baseline of line two. */
         #combat .combat-action-tray .combat-jutsu-name {
-            padding: 12px 3px 2px 22px !important;
+            padding: 12px 3px 0 22px !important;
+            max-height: calc(12px + 2 * 1.1em) !important;
+            overflow: hidden !important;
             font-size: 8.5px !important;
             line-height: 1.1 !important;
             letter-spacing: 0 !important;
