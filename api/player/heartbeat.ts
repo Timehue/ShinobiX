@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, parseJsonBody, safeName } from '../_utils.js';
@@ -56,6 +57,56 @@ export async function consumeDeliveredNotices(key: string, delivered: readonly O
     }
 }
 
+/**
+ * Stable, owner-scoped id for one inbox entry — derived from the entry's
+ * identity stamp, so the same notice gets the same id on every beat it is
+ * (re)delivered on, and a client can dedupe and acknowledge it exactly.
+ */
+export function noticeId(n: OfflineNotice): string {
+    return createHash('sha1').update(noticeStamp(n)).digest('base64url').slice(0, 12);
+}
+
+export type DeliveredOfflineNotice = OfflineNotice & { id: string };
+
+export function withNoticeIds(list: readonly OfflineNotice[]): DeliveredOfflineNotice[] {
+    return list.map((n) => ({ ...n, id: noticeId(n) }));
+}
+
+const NOTICE_ACK_ID = /^[A-Za-z0-9_-]{4,32}$/;
+const NOTICE_ACK_LIMIT = 32;
+
+export function parseNoticeAcks(raw: unknown): string[] {
+    return Array.isArray(raw)
+        ? raw.filter((id): id is string => typeof id === 'string' && NOTICE_ACK_ID.test(id)).slice(0, NOTICE_ACK_LIMIT)
+        : [];
+}
+
+/**
+ * Remove EXACTLY the notices the client acknowledged, under the inbox lock.
+ *
+ * This is the acknowledgement half of the notice protocol (F18). A client that
+ * declares `noticeAck: true` on its beat is delivered the inbox WITHOUT it
+ * being consumed — the old delivery-then-clear could destroy a notice whose
+ * response never reached the player — and clears entries only by naming their
+ * ids on a later beat. A notice pushed concurrently never matches an acked id
+ * and always survives. Best-effort under contention, like the legacy clear.
+ */
+export async function consumeAcknowledgedNotices(key: string, ids: readonly string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const acked = new Set(ids);
+    try {
+        await withKvLock(key, async () => {
+            const current = parseOfflineNotices(await kv.get(key));
+            const remaining = current.filter((n) => !acked.has(noticeId(n)));
+            if (remaining.length === current.length) return;
+            if (remaining.length === 0) await kv.del(key);
+            else await kv.set(key, remaining, { ex: OFFLINE_NOTICES_TTL_SEC });
+        }, { failClosed: true });
+    } catch (err) {
+        if (!(err instanceof LockContendedError)) throw err;
+    }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -77,15 +128,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const body = bodyPeek; // reuse the rate-limit peek's parse — avoids a 2nd JSON.parse on the hottest endpoint
-        const { name, sector, character, travelingUntil, inBattle, tile } = body as {
+        const { name, sector, character, travelingUntil, inBattle, tile, noticeAck, ackNotices, ackHeal } = body as {
             name?: string;
             sector?: number;
             character?: unknown;
             travelingUntil?: number;
             inBattle?: boolean;
             tile?: number;
+            /** Declares the acknowledgement protocol: deliver without consuming. */
+            noticeAck?: boolean;
+            /** Ids (from an earlier beat's `pendingNotices[].id`) the client has shown. */
+            ackNotices?: unknown;
+            /** The `pendingHeal.id` the client has shown. */
+            ackHeal?: unknown;
         };
         if (!name) return res.status(400).json({ error: 'Missing name.' });
+        // Legacy bodies (no `noticeAck`) keep the consume-on-delivery behavior,
+        // so an old client is never spammed with a notice it cannot acknowledge.
+        const ackProtocol = noticeAck === true;
+        const ackedNoticeIds = ackProtocol ? parseNoticeAcks(ackNotices) : [];
+        const ackedHealAt = ackProtocol ? Math.max(0, Math.floor(Number(ackHeal)) || 0) : 0;
 
         // Require that the heartbeat is from the named player (or admin).
         // Stops attackers from spoofing presence: setting inBattle=true to be
@@ -137,14 +199,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const existing = onlineStore.get(name);
         const [signals, savedLocation, persistedTravel] = await Promise.all([
             kv.mget(challengeKey, resetSignalKey, healSignalKey, noticesKey, stakeRefundKey, towerInviteKey),
-            existing ? Promise.resolve(null) : kv.get<{ currentSector?: number }>(`save:${safeName(name)}`),
+            existing ? Promise.resolve(null) : kv.get<{ currentSector?: number; currentTile?: number }>(`save:${safeName(name)}`),
             existing ? Promise.resolve(null) : getTravelLease(name),
         ]);
         const pendingChallenges = signals[0] as unknown[] | null;
         const resetSignal = signals[1];
         const healSignal = signals[2] as { by?: string; at?: number } | null;
         const rawNotices = signals[3];
-        const pendingNotices = parseOfflineNotices(rawNotices);
+        const inboxNotices = parseOfflineNotices(rawNotices);
+        // Under the ack protocol the inbox is delivered WITH ids, minus what
+        // this very beat acknowledges (those are removed below, in parallel).
+        const ackedSet = new Set(ackedNoticeIds);
+        const pendingNotices = ackProtocol
+            ? withNoticeIds(inboxNotices).filter((n) => !ackedSet.has(n.id))
+            : inboxNotices;
+        const healSignalAt = Math.floor(Number(healSignal?.at)) || 0;
+        // A signal with no usable stamp cannot be acknowledged by id, so it
+        // falls back to consume-on-delivery rather than repeating forever.
+        const healConsumeOnDelivery = !ackProtocol || healSignalAt === 0;
+        const healAcknowledged = !healConsumeOnDelivery && !!healSignal && ackedHealAt > 0 && ackedHealAt === healSignalAt;
         const owedStakeRefunds = parsePendingStakeRefunds(signals[4]);
         const rawTowerInvites = signals[5];
         const towerPartyInvites = Array.isArray(rawTowerInvites)
@@ -187,7 +260,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             character: slimChar as Record<string, unknown> | null,
             travelingUntil: safeTravelUntil,
             inBattle: inBattle === true ? true : undefined,
-            tile: normalizeTile(tile, existing?.tile),
+            // A fresh session that reports no tile resumes on the tile its last
+            // settled arrival persisted (travel-lease.ts), not on nothing.
+            tile: normalizeTile(tile, existing?.tile ?? normalizeTile(savedLocation?.currentTile)),
         });
         if (!existing && persistedTravel && now < persistedTravel.arrivalAt) {
             stored = onlineStore.restoreTravel(
@@ -213,9 +288,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // the new invite forever. Delivery is now acknowledgment-safe: heartbeat
         // may repeat pending records, the client de-dupes by id, and the explicit
         // challenge DELETE/accept/decline path removes exactly one stored id.
+        // Under the ack protocol nothing is consumed on delivery: the heal
+        // signal is deleted only once its id comes back, and notices only by
+        // id (consumeAcknowledgedNotices). The legacy consume-on-delivery
+        // branch is unchanged for bodies that do not declare the protocol.
         await Promise.all([
-            healSignal ? kv.del(healSignalKey) : Promise.resolve(),
-            consumeDeliveredNotices(noticesKey, pendingNotices),
+            healSignal && (healConsumeOnDelivery || healAcknowledged) ? kv.del(healSignalKey) : Promise.resolve(),
+            ackProtocol ? consumeAcknowledgedNotices(noticesKey, ackedNoticeIds) : consumeDeliveredNotices(noticesKey, pendingNotices),
             stampPlayerIp(req, name),
         ]);
 
@@ -250,7 +329,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             traveling: (stored.travelingUntil ?? 0) > now,
             pendingAttacker,
             pendingChallenges: pendingChallenges ?? [],
-            pendingHeal: healSignal ? { by: typeof healSignal.by === 'string' ? healSignal.by : '' } : null,
+            pendingHeal: healSignal && !healAcknowledged
+                ? {
+                    by: typeof healSignal.by === 'string' ? healSignal.by : '',
+                    // The id the client echoes as `ackHeal`; legacy bodies keep the exact old shape.
+                    ...(healConsumeOnDelivery ? {} : { id: String(healSignalAt) }),
+                }
+                : null,
             // Omitted when there is nothing to deliver — this frame ships once a
             // second per online player and an empty array is pure payload.
             ...(pendingNotices.length > 0 ? { pendingNotices } : {}),

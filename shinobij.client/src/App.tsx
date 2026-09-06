@@ -80,6 +80,7 @@ import {
 } from "./lib/live-capability-admission";
 import { useCapabilityGuardedAutosave } from "./lib/use-capability-guarded-autosave";
 import { pushLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLiveSectorContext } from "./lib/presence-store";
+import { heartbeatNoticeAckFields, noteHeartbeatDelivery } from "./lib/notice-ack";
 import { worldSectorReconcileTarget } from "./lib/sector-reconcile";
 import { mergeServerPendingWorldRewards } from "./lib/world-reward-recovery";
 import { presenceCharacter } from "./lib/presence-character";
@@ -1989,7 +1990,7 @@ export default function App() {
                 character: presenceCharacter(char),
                 travelingUntil: isTraveling ? travelingUntil : 0,
                 inBattle: inBattleNow,
-                tile: getLocalSectorTile(),
+                tile: getLocalSectorTile(), ...heartbeatNoticeAckFields(),
             };
             // Mirror the same frame onto the Socket.IO presence channel (no-op when
             // the socket isn't connected). Because a sector change re-runs this
@@ -2013,7 +2014,7 @@ export default function App() {
                     signal: AbortSignal.timeout(12000),
                 });
                 if (!res.ok) return;
-                const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; pendingHeal?: { by?: string } | null; pendingNotices?: unknown; towerPartyInvites?: string[]; forceReload?: boolean; serverNow?: number; sector?: number; traveling?: boolean } = await res.json();
+                const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; pendingHeal?: { by?: string; id?: string } | null; pendingNotices?: unknown; towerPartyInvites?: string[]; forceReload?: boolean; serverNow?: number; sector?: number; traveling?: boolean } = await res.json();
                 if (!heartbeatIsCurrent()) return;
                 noteServerTime(data.serverNow); // the beat is our reference for the clock that mints every deadline
                 // Admin reset this account — wipe local state and reload from server
@@ -2110,6 +2111,7 @@ export default function App() {
                 // A Healer discharged us from the hospital — sync local state, toast
                 // who healed us, and leave the admitted screen (we're hard-locked there
                 // otherwise). Server already cleared hospitalized; mirror it locally.
+                noteHeartbeatDelivery(data); // the next beat acknowledges exactly this delivery (lib/notice-ack)
                 if (data.pendingHeal && characterRef.current?.hospitalized) {
                     const by = data.pendingHeal.by || "a Healer";
                     setCharacter(c => c ? { ...c, hp: c.maxHp, chakra: c.maxChakra, stamina: c.maxStamina, hospitalized: false, hospitalizedUntil: 0, hospitalizedAt: 0 } : c);
