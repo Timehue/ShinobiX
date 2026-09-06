@@ -14,6 +14,10 @@
 .fp-world { position: absolute; inset: 0; overflow: hidden; isolation: isolate; touch-action: none; user-select: none; }
 .fp-world::after { content: ""; position: absolute; z-index: 20; inset: 0; pointer-events: none; box-shadow: inset 0 0 120px 22px rgba(0,0,0,.74), inset 0 -90px 120px rgba(0,7,14,.2); }
 .fp-world-canvas { position: absolute; z-index: 1; inset: 0; display: block; image-rendering: auto; }
+/* Every actor lives in world coordinates inside this one plane; the camera
+   pans it as a single composited transform, so a camera frame costs no
+   layout, no paint, and no React render. */
+.fp-plane { position: absolute; z-index: 8; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; will-change: transform; }
 
 .fp-actor {
     position: absolute;
@@ -72,7 +76,10 @@ button.fp-npc { appearance: none; border: 0; padding: 0; background: transparent
 .fp-npc-name { position: absolute; left: 50%; top: -17px; transform: translateX(-50%); max-width: 100px; white-space: nowrap; padding: 2px 6px; border-radius: 999px; color: #f5ead4; background: rgba(3,8,15,.82); border: 1px solid rgba(231,189,114,.2); font-size: 9px; font-weight: 700; opacity: .82; }
 .fp-interact { position: absolute; right: -6px; top: -5px; display: grid; place-items: center; width: 19px; height: 19px; border-radius: 50%; color: #101016; background: var(--fp-gold); border: 2px solid #fff0cb; font-size: 10px; font-weight: 900; box-shadow: 0 2px 8px rgba(0,0,0,.6); animation: fp-breathe 1.4s ease-in-out infinite; }
 
-.fp-hud { position: absolute; z-index: 30; border: 1px solid rgba(231,189,114,.28); background: linear-gradient(145deg, rgba(8,14,25,.93), rgba(13,24,35,.78)); box-shadow: 0 14px 40px rgba(0,0,0,.48), inset 0 1px rgba(255,255,255,.04); backdrop-filter: blur(12px); }
+/* No backdrop-filter on the always-visible HUD: over an animating canvas it
+   re-filters every frame on the GPU, which weak devices pay for in whole
+   frames. Near-opaque backgrounds read the same against the night city. */
+.fp-hud { position: absolute; z-index: 30; border: 1px solid rgba(231,189,114,.28); background: linear-gradient(145deg, rgba(8,14,25,.97), rgba(13,24,35,.93)); box-shadow: 0 14px 40px rgba(0,0,0,.48), inset 0 1px rgba(255,255,255,.04); }
 .fp-hud-left { left: max(16px, env(safe-area-inset-left)); top: max(16px, env(safe-area-inset-top)); width: min(310px, calc(100vw - 32px)); padding: 14px 16px; border-radius: 3px 18px 3px 18px; }
 .fp-eyebrow { display: block; color: var(--fp-gold); font-size: 10px; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
 .fp-hud h1 { margin: 3px 0 0; font-family: Georgia, serif; font-size: clamp(24px, 3vw, 38px); font-weight: 500; letter-spacing: -.04em; }
@@ -91,14 +98,14 @@ button.fp-npc { appearance: none; border: 0; padding: 0; background: transparent
 .fp-side-objective > strong { margin-top: 2px; color: #dce4e8; font: 500 13px Georgia, serif; }
 .fp-side-objective > small { margin-top: 2px; color: #8999a5; font-size: 9px; line-height: 1.35; }
 
-.fp-minimap { position: absolute; z-index: 30; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); overflow: hidden; width: 210px; border: 1px solid rgba(231,189,114,.28); border-radius: 13px 3px 13px 3px; background: rgba(3,8,16,.9); box-shadow: 0 14px 38px rgba(0,0,0,.55); backdrop-filter: blur(10px); }
+.fp-minimap { position: absolute; z-index: 30; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); overflow: hidden; width: 210px; border: 1px solid rgba(231,189,114,.28); border-radius: 13px 3px 13px 3px; background: rgba(3,8,16,.96); box-shadow: 0 14px 38px rgba(0,0,0,.55); }
 .fp-minimap canvas { display: block; width: 210px; height: 140px; opacity: .88; }
 .fp-minimap div { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 9px; border-top: 1px solid rgba(255,255,255,.07); }
 .fp-minimap span { color: #788a98; font-size: 8px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .fp-minimap strong { overflow: hidden; color: #dfc58f; font: 500 11px Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
 
 .fp-world-actions { position: absolute; z-index: 31; left: max(16px, env(safe-area-inset-left)); bottom: max(16px, env(safe-area-inset-bottom)); display: flex; gap: 8px; }
-.fp-world-actions button, .fp-quiet-button { border: 1px solid rgba(231,189,114,.28); border-radius: 8px; padding: 9px 12px; color: #dfe7ec; background: rgba(5,11,20,.84); font-size: 11px; font-weight: 700; backdrop-filter: blur(10px); cursor: pointer; }
+.fp-world-actions button, .fp-quiet-button { border: 1px solid rgba(231,189,114,.28); border-radius: 8px; padding: 9px 12px; color: #dfe7ec; background: rgba(5,11,20,.93); font-size: 11px; font-weight: 700; cursor: pointer; }
 .fp-world-actions button:hover, .fp-quiet-button:hover { border-color: rgba(231,189,114,.65); color: #fff3d6; }
 .fp-world-actions .fp-complete-crossing { color: #140f08; border-color: #f0d294; background: linear-gradient(145deg, #f0d294, #bd8445); box-shadow: 0 0 22px rgba(231,189,114,.24); }
 .fp-district-toast { position: absolute; z-index: 35; left: 50%; top: 19%; transform: translateX(-50%); padding: 10px 22px; color: #f7e6c2; border-top: 1px solid rgba(231,189,114,.58); border-bottom: 1px solid rgba(231,189,114,.58); background: linear-gradient(90deg, transparent, rgba(3,9,18,.84) 18%, rgba(3,9,18,.84) 82%, transparent); font-family: Georgia, serif; font-size: clamp(17px, 2vw, 26px); letter-spacing: .08em; animation: fp-district 2.2s ease both; }
@@ -223,7 +230,7 @@ button.fp-npc { appearance: none; border: 0; padding: 0; background: transparent
     .fp-minimap { display: none; }
     .fp-world-actions { top: 10px; right: 10px; left: auto; bottom: auto; flex-direction: column; }
     .fp-dpad { position: absolute; z-index: 35; left: 14px; bottom: 14px; display: grid; grid-template-columns: repeat(3, 43px); grid-template-rows: repeat(3, 43px); gap: 4px; }
-    .fp-dpad button { border: 1px solid rgba(231,189,114,.35); border-radius: 50%; color: #f5e7c9; background: rgba(4,10,18,.82); backdrop-filter: blur(8px); font-size: 15px; }
+    .fp-dpad button { border: 1px solid rgba(231,189,114,.35); border-radius: 50%; color: #f5e7c9; background: rgba(4,10,18,.9); font-size: 15px; }
     .fp-dpad button:nth-child(1) { grid-column: 2; }
     .fp-dpad button:nth-child(2) { grid-column: 1; grid-row: 2; }
     .fp-dpad button:nth-child(3) { grid-column: 2; grid-row: 2; color: var(--fp-cyan); }

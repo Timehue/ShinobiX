@@ -1019,6 +1019,57 @@
     box-shadow: 0 16px 34px rgba(0, 0, 0, 0.32), 0 0 24px rgba(78, 220, 149, 0.08) !important;
 }
 
+/* ---- "Reward waiting" state ----------------------------------------------
+   A combat win pays nothing on the spot: it queues a claim the player settles
+   back in the Hall. Missions.tsx has always put .mh-fetch-complete on the
+   cleared card, but the only rules for that class matched .mh-fetch-card and
+   .mh-field-card — so on a COMBAT card it painted nothing, and under 700px
+   (where .mh-combat-btn-label is sr-only) a cleared mission was pixel-identical
+   to an untouched one. Three redundant signals, none of which move the grid:
+   the card border, the tag, and the glyph in the 44px button column.
+
+   The Weekly Board's cleared card (.mh-fetch-card) had the same problem by a
+   different route: 12-village-screen.css does colour it green, but this skin's
+   `.mission-hall .mh-fetch-card { border: ... !important }` outranks a bare
+   `border-color`, so that highlight never survived into the Hall either. */
+.mission-hall .mh-combat-card.mh-fetch-complete,
+.mission-hall .mh-fetch-card.mh-fetch-complete {
+    border-color: rgba(78, 220, 149, 0.56) !important;
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28), 0 0 24px rgba(78, 220, 149, 0.1) !important;
+}
+
+.mission-hall .mh-tag-ready {
+    border: 1px solid rgba(98, 210, 157, 0.45) !important;
+    color: #8fecbd !important;
+    background: rgba(25, 109, 70, 0.22) !important;
+}
+
+/* Every claim button in the Hall (combat, field, weekly) shared the same gold as
+   "Begin Mission" / "Accept Mission", so the only thing marking a reward as
+   collectable was the word on the button. Green is the payout colour. */
+.mission-hall .mh-claim-btn,
+.mission-hall .mh-combat-card.mh-fetch-complete .mh-combat-btn {
+    background: linear-gradient(180deg, #5fdca0 0%, #2c9d68 100%) !important;
+    border-color: #7ee9b6 !important;
+    color: #07200f !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 10px rgba(78, 220, 149, 0.28) !important;
+}
+
+.mission-hall .mh-claim-btn:hover:not(:disabled) {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32), 0 0 16px rgba(78, 220, 149, 0.42) !important;
+}
+
+.mission-hall .mh-claim-banner {
+    margin: 0 0 12px !important;
+    padding: 8px 12px;
+    border: 1px solid rgba(98, 210, 157, 0.42);
+    border-radius: 6px;
+    color: #a6f0cd !important;
+    background: rgba(25, 109, 70, 0.16);
+    font: 600 11px/1.45 Inter, sans-serif !important;
+    text-align: center;
+}
+
 .mission-hall .mh-field-locked { opacity: 0.64; }
 .mission-hall .mh-field-locked .mh-field-art img { filter: grayscale(0.45) brightness(0.62); }
 
@@ -1182,6 +1233,17 @@
         color: #d8a84e;
         font: 400 38px/1 Georgia, serif;
         transform: translateY(-2px);
+    }
+    /* The rule above collapses the button to a bare gold chevron and the label
+       to sr-only text, so a cleared mission needs the column itself to change.
+       These re-assert the ready state after the generic mobile button reset. */
+    .mission-hall .mh-combat-card.mh-fetch-complete .mh-combat-btn {
+        background: rgba(25, 109, 70, 0.34) !important;
+        border-left-color: rgba(98, 210, 157, 0.5) !important;
+    }
+    .mission-hall .mh-combat-card.mh-fetch-complete .mh-combat-btn-arrow {
+        color: #6fe6ab;
+        font-size: 28px;
     }
     .mission-hall .mh-recommended-badge {
         position: absolute;
@@ -1366,6 +1428,14 @@
         color: #d8a84e;
         font: 400 38px/1 Georgia, serif;
         transform: translateY(-2px);
+    }
+    .mission-hall .mh-field-card .mh-fetch-actions .mh-claim-btn.mh-field-primary-action {
+        background: rgba(25, 109, 70, 0.34) !important;
+        border-left-color: rgba(98, 210, 157, 0.5) !important;
+    }
+    .mission-hall .mh-claim-btn .mh-field-primary-arrow {
+        color: #6fe6ab;
+        font-size: 28px;
     }
     .mission-hall .mh-field-card .mh-fetch-actions .mh-field-secondary-action {
         width: auto;

@@ -72,7 +72,11 @@ export function shouldHideBattleChrome(inputs: BattleChromeInputs): boolean {
         || (inputs.screen === "petArena" && inputs.petBattleActive)
         // Pet Showdown is a mixed lobby/fight screen like petArena; its battle
         // overlay lifts the same fullscreen/battle signals.
-        || (inputs.screen === "petShowdown" && inputs.petBattleActive);
+        || (inputs.screen === "petShowdown" && inputs.petBattleActive)
+        // The First Pact is a fixed full-viewport city surface from its very
+        // first frame (its level gate included), with its own HUD and exit —
+        // the side rails would only float above it and clip its panels.
+        || inputs.screen === "firstPact";
 }
 
 export interface NotifInputs {
