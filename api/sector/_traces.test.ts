@@ -98,8 +98,9 @@ describe('sector shrines', () => {
     it('the hundred-glyph shrine states the Ancient and Legacy canon', () => {
         const ancient = shrineById('ancients');
         assert.ok(ancient);
+        assert.match(ancient.lore, /weathered dedication dates the shrine/i);
         assert.match(ancient.lore, /Sunken Court.+hundred worn glyphs/i);
-        assert.match(ancient.lore, /action-pattern Legacy/i);
+        assert.match(ancient.lore, /later brass plaque interprets them as action-pattern Legac(?:y|ies)/i);
         assert.match(ancient.lore, /Ancients who refused cession.+Withheld/i);
         assert.match(ancient.blessing, /freely chosen.+witnessed/i);
         assert.doesNotMatch(`${ancient.lore} ${ancient.blessing}`, /find their path in you|bloodline|soul|reincarn/i);

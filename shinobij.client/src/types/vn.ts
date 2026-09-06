@@ -66,6 +66,8 @@ export type CreatorEvent = {
     liberatorTitle?: string;
     cinematic?: VnCinematicDirection;
     vnPages?: {
+        /** Stable authoring identity. Runtime falls back to the versioned page index. */
+        id?: string;
         title: string;
         scene: string;
         speaker: string;
@@ -83,6 +85,8 @@ export type CreatorEvent = {
         rightName?: string;
         rightImage?: string;
         choices?: {
+            /** Stable authoring identity. Runtime falls back to the versioned choice index. */
+            id?: string;
             text: string;
             nextPage: number;
             conclusion?: string;

@@ -484,9 +484,10 @@ describe("save-conflict App and accessibility contracts", () => {
     it("never paints an older story or combat character response", () => {
         const commit = appSource.slice(appSource.indexOf("function commitVersionedCharacter"), appSource.indexOf("const {", appSource.indexOf("function commitVersionedCharacter")));
         assert.match(commit, /acceptVersionedSnapshot\(latestSaveVersionRef\.current, incomingVersion\)/);
-        assert.ok(commit.indexOf("if (!decision.accepted) return false") < commit.indexOf("setCharacter(nextCharacter)"));
+        assert.ok(commit.indexOf("if (!decision.accepted) return false") < commit.indexOf("setCharacter(mergedCharacter)"));
+        assert.ok(commit.indexOf("preserveNarrativeState(nextCharacter, characterRef.current)") < commit.indexOf("setCharacter(mergedCharacter)"));
         assert.match(appSource, /onOutcome=\{commitVersionedCharacter\}/);
-        assert.match(appSource, /const accepted = commitVersionedCharacter\(result\.character, result\._saveVersion\)/);
+        assert.match(appSource, /const accepted = commitVersionedCharacter\(settledCharacter, result\._saveVersion\)/);
         assert.doesNotMatch(appSource, /onOutcome=\{\(character, version\) => \{ latestSaveVersionRef\.current = adoptSaveVersion/);
     });
 

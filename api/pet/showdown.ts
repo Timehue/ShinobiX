@@ -1143,7 +1143,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     : writEncounter
                     ? await settleFirstPactWritBattle(playerName, writEncounter.id, session.outcome, `showdown:${session.sessionId}`)
                     : mainEncounter
-                    ? await settleFirstPactMainBattle(playerName, mainEncounter.id, session.outcome, `showdown:${session.sessionId}`)
+                    ? await settleFirstPactMainBattle(
+                        playerName,
+                        mainEncounter.id,
+                        session.outcome,
+                        `showdown:${session.sessionId}`,
+                        session.player.map((pet) => pet.id),
+                    )
                     : await settleFirstPactTournamentBattle(playerName, firstPactBinding.encounterId as FirstPactTournamentEncounterId, session.outcome, `showdown:${session.sessionId}`);
                 settlement = {
                     ...settlement,

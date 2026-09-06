@@ -3,7 +3,10 @@ import test from "node:test";
 import { readFileSync, readdirSync } from "node:fs";
 import { storylines } from "../data/storylines";
 import { storyInterludesByVillage } from "../data/story-interludes";
-import { ECHOES_ERA_INTROS, ECHOES_SCENES } from "../data/echoes-of-war-scenes";
+import { ECHOES_ERA_INTROS, ECHOES_SCENES, ECHOES_WITNESS_CONTENT } from "../data/echoes-of-war-scenes";
+import { storyEpiloguesByVillage } from "../data/story-epilogues";
+import { storyFieldScenes } from "../data/story-field-scenes";
+import { storyReckonings } from "../data/story-reckonings";
 import {
     ECHOES_CONTENT_KEY,
     ECHOES_CONTENT_SCHEMA_VERSION,
@@ -15,6 +18,8 @@ import {
     type StoryContentVillage,
 } from "./story-content-contract";
 import { createStoryContentLoader, createStoryContentResource, StoryContentLoadError, validateEchoesContentPayload, validateStoryContentPayload } from "./story-content-loader-core";
+import { STORY_FIELD_CONTENT_SCHEMA_VERSION } from "./story-field-content-contract";
+import { validateStoryFieldContent } from "./story-field-content-loader-core";
 
 function payload(village: StoryContentVillage = "Stormveil Village"): StoryContentPayload {
     return {
@@ -32,14 +37,33 @@ function jsonResponse(value: unknown, status = 200): Response {
 test("generated content-addressed payloads exactly mirror every authored village export", () => {
     const directory = new URL("../generated/story-content/", import.meta.url);
     const files = readdirSync(directory).filter((file) => file.endsWith(".json"));
-    assert.equal(files.length, STORY_CONTENT_VILLAGES.length + 1, "four villages plus the Echoes of War script");
+    const storyFiles = files.filter((file) => !file.startsWith("epilogues-") && !file.startsWith("field-scenes-") && !file.startsWith(`${ECHOES_CONTENT_KEY}-`));
+    const epilogueFiles = files.filter((file) => file.startsWith("epilogues-"));
+    const fieldFiles = files.filter((file) => file.startsWith("field-scenes-"));
+    const echoesFiles = files.filter((file) => file.startsWith(`${ECHOES_CONTENT_KEY}-`));
+    assert.equal(storyFiles.length, STORY_CONTENT_VILLAGES.length);
+    assert.equal(epilogueFiles.length, STORY_CONTENT_VILLAGES.length);
+    assert.equal(fieldFiles.length, 1);
+    assert.equal(echoesFiles.length, 1);
     for (const village of STORY_CONTENT_VILLAGES) {
-        const matches = files.filter((file) => file.startsWith(`${storyContentSlug(village)}-`));
+        const slug = storyContentSlug(village);
+        const matches = storyFiles.filter((file) => file.startsWith(`${slug}-`));
         assert.equal(matches.length, 1, `${village} must have one content-addressed payload`);
         assert.match(matches[0], /^[a-z-]+-[a-f0-9]{12}\.json$/);
         const parsed = JSON.parse(readFileSync(new URL(matches[0], directory), "utf8"));
         assert.deepEqual(validateStoryContentPayload(parsed, village), JSON.parse(JSON.stringify(payload(village))));
+        const epilogueMatches = epilogueFiles.filter((file) => file.startsWith(`epilogues-${slug}-`));
+        assert.equal(epilogueMatches.length, 1, `${village} must have one content-addressed epilogue payload`);
+        assert.match(epilogueMatches[0], /^epilogues-[a-z-]+-[a-f0-9]{12}\.json$/);
+        assert.deepEqual(JSON.parse(readFileSync(new URL(epilogueMatches[0], directory), "utf8")), storyEpiloguesByVillage[village]);
     }
+    assert.match(fieldFiles[0], /^field-scenes-[a-f0-9]{12}\.json$/);
+    const fieldPayload = JSON.parse(readFileSync(new URL(fieldFiles[0], directory), "utf8"));
+    assert.deepEqual(validateStoryFieldContent(fieldPayload), JSON.parse(JSON.stringify({
+        schemaVersion: STORY_FIELD_CONTENT_SCHEMA_VERSION,
+        scenes: storyFieldScenes,
+        reckonings: storyReckonings,
+    })));
 });
 
 test("the generated Echoes of War payload exactly mirrors the authored scenes module", () => {
@@ -53,6 +77,7 @@ test("the generated Echoes of War payload exactly mirrors the authored scenes mo
         scope: ECHOES_CONTENT_KEY,
         scenes: ECHOES_SCENES,
         eras: ECHOES_ERA_INTROS,
+        witness: ECHOES_WITNESS_CONTENT,
     };
     assert.deepEqual(validateEchoesContentPayload(parsed), JSON.parse(JSON.stringify(authored)));
 });
@@ -80,6 +105,23 @@ test("a malformed Echoes of War payload fails closed", () => {
     ]) {
         assert.throws(() => validateEchoesContentPayload(invalid), StoryContentLoadError);
     }
+});
+
+test("the authored Echoes witness payload validates as an exact bounded contract", () => {
+    const authored: EchoesContentPayload = {
+        schemaVersion: ECHOES_CONTENT_SCHEMA_VERSION,
+        scope: ECHOES_CONTENT_KEY,
+        scenes: ECHOES_SCENES,
+        eras: ECHOES_ERA_INTROS,
+        witness: ECHOES_WITNESS_CONTENT,
+    };
+    assert.deepEqual(validateEchoesContentPayload(authored), authored);
+
+    const malformed = structuredClone(authored) as unknown as {
+        witness: Record<string, { choices: Array<{ id: string }> }>;
+    };
+    malformed.witness["echoes-age-1"].choices[0].id = "who-paid";
+    assert.throws(() => validateEchoesContentPayload(malformed), StoryContentLoadError);
 });
 
 test("loader fetches one village with immutable-cache semantics and deduplicates callers", async () => {

@@ -17,6 +17,8 @@ const clone = <T>(v: T): T => (v === undefined || v === null ? v : JSON.parse(JS
 
 let detachPlayerReferences: typeof import('./_delete-player-account.js').detachPlayerReferences;
 let deletePlayerAccount: typeof import('./_delete-player-account.js').deletePlayerAccount;
+let deletePlayerFirstPactState: typeof import('./_delete-player-account.js').deletePlayerFirstPactState;
+let withKvLock: typeof import('./_lock.js').withKvLock;
 
 before(async () => {
     const { kv } = await import('./_storage.js');
@@ -27,6 +29,11 @@ before(async () => {
         return 'OK' as const;
     };
     kv.del = async (...keys: string[]) => keys.reduce((n, k) => n + (store.delete(k) ? 1 : 0), 0);
+    kv.delIfEqual = async (key: string, expected: string) => {
+        if (store.get(key) !== expected) return false;
+        store.delete(key);
+        return true;
+    };
     kv.incr = async (key: string) => { const n = (Number(store.get(key)) || 0) + 1; store.set(key, n); return n; };
     kv.hdel = async (key: string, ...fields: string[]) => {
         const h = hashes.get(key);
@@ -37,6 +44,8 @@ before(async () => {
     const mod = await import('./_delete-player-account.js');
     detachPlayerReferences = mod.detachPlayerReferences;
     deletePlayerAccount = mod.deletePlayerAccount;
+    deletePlayerFirstPactState = mod.deletePlayerFirstPactState;
+    ({ withKvLock } = await import('./_lock.js'));
 });
 
 beforeEach(() => {
@@ -45,6 +54,8 @@ beforeEach(() => {
     hashes.set('player:registry', { wanderer: { lastSeen: 1 }, kaze: { lastSeen: 2 } });
     store.set('auth:wanderer', { hash: 'scrypt:x', salt: 's', sessionEpoch: 0 });
     store.set('save:wanderer', { character: { name: 'wanderer', clan: 'Storm Petals' } });
+    store.set('first-pact:wanderer', { mainStep: 'complete' });
+    store.set('first-pact:kaze', { mainStep: 'meet-scribe-vey' });
     store.set('friends:wanderer', ['kaze']);
     store.set('player-friends:wanderer', ['kaze']);
     store.set('save:clan-stormpetals', {
@@ -71,6 +82,7 @@ describe('player deletion', () => {
         // The half this function must NOT do.
         assert.equal(store.has('auth:wanderer'), true, 'the credential is not this function\'s business');
         assert.equal(store.has('save:wanderer'), true, 'nor is the save');
+        assert.equal(store.has('first-pact:wanderer'), true, 'credential-only cleanup must preserve owned story state too');
         assert.deepEqual(result.failures, []);
     });
 
@@ -89,10 +101,12 @@ describe('player deletion', () => {
 
     it('full deletion removes the account AND every reference, in that safe order', async () => {
         store.set('auth-session:wanderer', 0);
-        await deletePlayerAccount('wanderer');
+        const result = await deletePlayerAccount('wanderer');
 
         assert.equal(store.has('auth:wanderer'), false);
         assert.equal(store.has('save:wanderer'), false);
+        assert.equal(store.has('first-pact:wanderer'), false, 'a freed name must not inherit the prior First Pact');
+        assert.equal(store.has('first-pact:kaze'), true, 'another player\'s First Pact must remain untouched');
         assert.equal(store.has('friends:wanderer'), false);
         assert.equal(store.has('player-friends:wanderer'), false);
         assert.equal((hashes.get('player:registry') ?? {}).wanderer, undefined);
@@ -104,5 +118,43 @@ describe('player deletion', () => {
         // Revocation state outlives the account so the freed name cannot be
         // inherited by an old token.
         assert.equal(Number(store.get('auth-session:wanderer')), 1);
+        assert.ok(result.removed.includes('first-pact:wanderer'));
+        assert.ok(result.removed.every((key) => key !== 'first-pact:kaze'));
+    });
+
+    it('waits for an already-held First Pact mutation and removes its final write', async () => {
+        let releaseMutation!: () => void;
+        let mutationEntered!: () => void;
+        const entered = new Promise<void>((resolve) => { mutationEntered = resolve; });
+        const release = new Promise<void>((resolve) => { releaseMutation = resolve; });
+
+        const mutation = withKvLock('first-pact:wanderer', async () => {
+            mutationEntered();
+            await release;
+            store.set('first-pact:wanderer', { mainStep: 'complete', writtenByMutation: true });
+        }, { failClosed: true });
+        await entered;
+
+        let cleanupSettled = false;
+        const cleanup = deletePlayerFirstPactState('wanderer').finally(() => { cleanupSettled = true; });
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        assert.equal(cleanupSettled, false, 'cleanup must wait while the pact mutation owns its lock');
+
+        releaseMutation();
+        await mutation;
+        assert.equal(await cleanup, 'first-pact:wanderer');
+        assert.equal(store.has('first-pact:wanderer'), false, 'cleanup runs after and removes the mutation\'s final state');
+        assert.equal(store.has('first-pact:kaze'), true, 'the serialized cleanup remains scoped to one account');
+    });
+
+    it('keeps the save and registry when First Pact cleanup cannot acquire its lock', { timeout: 3_000 }, async () => {
+        store.set('lock:first-pact:wanderer', 'another-owner');
+
+        const result = await deletePlayerAccount('wanderer');
+
+        assert.ok(result.failures.some((failure) => failure.includes('Could not acquire lock')));
+        assert.equal(store.has('save:wanderer'), true, 'lock failure must happen before save deletion');
+        assert.equal(store.has('first-pact:wanderer'), true, 'the contended story record remains available for retry');
+        assert.deepEqual((hashes.get('player:registry') ?? {}).wanderer, { lastSeen: 1 }, 'registry removal must wait too');
     });
 });

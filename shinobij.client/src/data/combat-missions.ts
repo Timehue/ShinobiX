@@ -33,6 +33,10 @@ export type CombatMission = {
     icon: string;
     /** Builtin AI fought for this mission. */
     aiProfileId: string;
+    /** Repeatable contract circumstance shown before the fight. */
+    brief?: string;
+    /** Truthful obstacle-cleared acknowledgment shown before reward claim. */
+    closure?: string;
 };
 
 // Mission level requirements form an onboarding ladder: a brand-new level-1
@@ -41,11 +45,11 @@ export type CombatMission = {
 // PLAYER (floored at `min`), so a higher-level player still faces a real fight.
 export const COMBAT_MISSIONS: CombatMission[] = [
     { key: "combat-e-drill", name: "E-Rank Drill", rank: "E", min: 1, xp: 15, ryo: 10, territoryScrolls: 0, icon: "E", aiProfileId: "builtin-ai-academy-sparring" },
-    { key: "combat-d-errand", name: "D-Rank Errand", rank: "D", min: 5, xp: 25, ryo: 20, territoryScrolls: 0, icon: "D", aiProfileId: "builtin-ai-mist-sentinel" },
-    { key: "combat-c-patrol", name: "C-Rank Patrol", rank: "C", min: 15, xp: 75, ryo: 60, territoryScrolls: 0, icon: "C", aiProfileId: "builtin-ai-ember-duelist" },
-    { key: "combat-b-escort", name: "B-Rank Escort", rank: "B", min: 30, xp: 150, ryo: 125, territoryScrolls: 0, icon: "B", aiProfileId: "builtin-ai-frost-sealer" },
-    { key: "combat-a-hunt", name: "A-Rank Hunt", rank: "A", min: 50, xp: 300, ryo: 250, territoryScrolls: 0, icon: "A", aiProfileId: "builtin-ai-shadow-weaver" },
-    { key: "combat-s-crisis", name: "S-Rank Crisis", rank: "S", min: 70, xp: 700, ryo: 600, territoryScrolls: 0, icon: "S", aiProfileId: "builtin-ai-central-champion" },
+    { key: "combat-d-errand", name: "D-Rank Errand", rank: "D", min: 5, xp: 25, ryo: 20, territoryScrolls: 0, icon: "D", aiProfileId: "builtin-ai-mist-sentinel", brief: "A supply runner needs the east footpath reopened. A mist sentinel has claimed the culvert and turns every pack back.", closure: "The culvert is open again. The runner can move the next supply pack." },
+    { key: "combat-c-patrol", name: "C-Rank Patrol", rank: "C", min: 15, xp: 75, ryo: 60, territoryScrolls: 0, icon: "C", aiProfileId: "builtin-ai-ember-duelist", brief: "The relief watch cannot pass a marker held by an ember duelist. Break the blockade and reopen the patrol turn.", closure: "The marker is clear. The relief watch can finish its patrol turn." },
+    { key: "combat-b-escort", name: "B-Rank Escort", rank: "B", min: 30, xp: 150, ryo: 125, territoryScrolls: 0, icon: "B", aiProfileId: "builtin-ai-frost-sealer", brief: "A courier train is waiting at a rope bridge iced shut by a frost sealer. Clear the crossing before the weather closes it.", closure: "The bridge is passable. The courier train can cross before the weather turns." },
+    { key: "combat-a-hunt", name: "A-Rank Hunt", rank: "A", min: 50, xp: 300, ryo: 250, territoryScrolls: 0, icon: "A", aiProfileId: "builtin-ai-shadow-weaver", brief: "A shadow weaver is nesting in abandoned signal posts and blinding the watch. Track it before another signal goes dark.", closure: "This signal line is visible again. The watch can relight the abandoned posts." },
+    { key: "combat-s-crisis", name: "S-Rank Crisis", rank: "S", min: 70, xp: 700, ryo: 600, territoryScrolls: 0, icon: "S", aiProfileId: "builtin-ai-central-champion", brief: "A Central response crew is evacuating workers from a damaged approach. Hold its champion at the breach until the route clears.", closure: "The approach is clear. The response crew has moved the workers beyond the breach." },
 ];
 
 /** Map a fought AI back to its combat mission (undefined if it isn't one). */

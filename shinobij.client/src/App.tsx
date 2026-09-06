@@ -6,7 +6,6 @@ import { installAuthFetch, isTokenExpired, setActivePlayer, setActiveToken, setA
 import { isReleaseSafeClientEvent } from "./lib/release-safe-content";
 import { GameAlertHost, GameConfirmHost, GamePasswordPromptHost, gameConfirm } from "./components/GameAlert";
 import { GameToastHost, gameToast } from "./components/GameToast";
-import { IncomingChallengeModal } from "./components/IncomingChallengeModal";
 import { AdaptiveGameShell } from "./components/layout/AdaptiveGameShell";
 import { MaintenanceOperatorBoundary } from "./components/MaintenanceOperatorBoundary";
 // (No save-conflict banner import: that component is deleted — it warned about
@@ -30,10 +29,7 @@ import {
     requireRaidReportAcknowledgement,
     type RaidReportDrainResult,
 } from "./lib/raid-report-outbox";
-import { strikeDownSleeper } from "./lib/sleeper-kill";
-import { claimBuiltinEventReward } from "./lib/event-claim-api";
 import { requestAiFight } from "./lib/ai-fight-request";
-import { creatorEventPracticeOpponent } from "./lib/creator-event-practice";
 import type { FieldExploreProgress } from "./lib/world-reward-api";
 import { useEndlessTowerActions } from "./lib/use-endless-tower-actions";
 import { readSavePreview, writeSavePreview } from "./lib/save-preview";
@@ -65,7 +61,6 @@ import { finishGoogleRedirect, forgetGoogleNonce, readGoogleRedirect } from "./l
 import { clearGuestSessionFor, rememberGuestSession, resumeGuestFor, signupRequestBody, type SignupCredential } from "./lib/guest-play";
 import { preloadScreen } from "./lib/screen-preload";
 import { imageCategoriesForScreen } from "./lib/screen-image-categories";
-import { resolveDungeonWardenPortrait } from "./lib/ai-fight-art";
 import { STUDIO_SCREEN_PRESENTATION } from "./lib/studio-screen-presentation";
 import { updateRealtimePresence, usePresenceSocket } from "./lib/use-presence-socket";
 import { useViewportContract } from "./lib/use-viewport-contract";
@@ -147,8 +142,12 @@ import {
     dailyMissionsCompleted,
     dailyHuntsCompleted,
     rankTitleForLevel,
-    applyStoryChoice,
 } from "./lib/character-progress";
+import {
+    nextNarrativeDelivery,
+    prepareStorySettlement,
+    preserveNarrativeState,
+} from "./lib/story-history";
 import { isIdleVitalsOnlyChange, regenerateIdleVitals } from "./lib/loaded-vitals";
 import { acceptVersionedSnapshot } from "./lib/versioned-snapshot";
 export { dailyMissionsCompleted, dailyHuntsCompleted };
@@ -251,6 +250,7 @@ import { requireServerSettlement } from "./lib/server-settlement-gate";
 import { scheduleHeartbeat } from "./lib/heartbeat-cadence";
 import { noteTowerPartyInvites } from "./lib/tower-party-invite-toast";
 import { attackSectorPlayer } from "./lib/sector-attack";
+import { strikeDownSleeper } from "./lib/sleeper-kill";
 const StartScreen = lazyWithRetry(() => import("./screens/StartScreen").then(m => ({ default: m.StartScreen })));
 const OnboardingCoach = lazyWithRetry(() => import("./components/OnboardingCoach").then(m => ({ default: m.OnboardingCoach })));
 const ScreenHint = lazyWithRetry(() => import("./components/ScreenHint").then(m => ({ default: m.ScreenHint })));
@@ -397,7 +397,9 @@ const ScreenTopChrome = lazyWithRetry(() => import("./components/ScreenTopChrome
 const HollowGateShrineView = lazyWithRetry(() => import("./features/hollowGate/HollowGateShrineView").then(m => ({ default: m.HollowGateShrineView })));
 const LeftProfileCard = lazyWithRetry(() => import("./components/LeftProfileCard").then(m => ({ default: m.LeftProfileCard })));
 const SectorBanner = lazyWithRetry(() => import("./components/SectorBanner").then(m => ({ default: m.SectorBanner })));
-const TriggeredVisualNovel = lazyWithRetry(() => import("./components/TriggeredVisualNovel").then(m => ({ default: m.TriggeredVisualNovel })));
+const IncomingChallengeModal = lazyWithRetry(() => import("./components/IncomingChallengeModal").then(m => ({ default: m.IncomingChallengeModal })));
+const ActiveStoryVisualNovel = lazyWithRetry(() => import("./components/ActiveStoryVisualNovel").then(m => ({ default: m.ActiveStoryVisualNovel })));
+const StoryDeliveryHost = lazyWithRetry(() => import("./lib/use-story-delivery").then(m => ({ default: m.StoryDeliveryHost })));
 const Training = lazyWithRetry(() => import("./screens/Training").then(m => ({ default: m.Training })));
 const JutsuTrainingHall = lazyWithRetry(() => import("./screens/Training").then(m => ({ default: m.JutsuTrainingHall })));
 const Shop = lazyWithRetry(() => import("./components/Shop").then(m => ({ default: m.Shop })));
@@ -524,9 +526,10 @@ import {
 } from "./lib/hollow-gate-pve";
 import { useHollowGateAppFlow } from "./lib/hollow-gate-app-flow";
 import type { StoryBossSettleResult } from "./lib/story-combat-api";
-import { extractMentorLines, extractStoryFightScript, requestStoryBossFight } from "./lib/story-fight-theme";
+import { requestStoryBossFight } from "./lib/story-fight-theme";
 import { useSealedFightPresence } from "./lib/use-sealed-fight-presence";
 import { dismissStorySceneForSession } from "./lib/vn-session-dismissal";
+import { launchTriggeredEventBattle, type EventEncounterBattle, type PendingEventEncounter } from "./lib/triggered-event-battle";
 import { StoryBossFightHost } from "./components/StoryBossFightHost";
 import { AiFightHost } from "./components/AiFightHost";
 import { wingEntryEffect } from "./lib/hollow-gate-wings";
@@ -536,11 +539,7 @@ import { hollowGateRunMaxFloor, hollowGateBossDisplayName, variantFromEventConfi
 import { riftEventConfig, completeRiftRun } from "./lib/rift-run";
 import type { HollowRift } from "./data/hollow-rifts";
 import { attunementDailyBonus } from "./lib/hollow-gate-attunement";
-export type EventEncounterBattle = NonNullable<NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]>;
-type PendingEventEncounter = {
-    event: CreatorEvent;
-    battle?: EventEncounterBattle;
-};
+export type { EventEncounterBattle } from "./lib/triggered-event-battle";
 
 // MAX_LEVEL / MAX_STAT moved to ./constants/game.
 
@@ -593,7 +592,7 @@ import {
 } from "./lib/pet-balance";
 import { chooseStarterPetServer, reconcileOwnedStarter } from "./lib/pet-acquisition-api";
 import { mergeMissingBuiltInPets, normalizePet, petPool } from "./lib/pet-roster";
-import { normalizeCharacter } from "./lib/normalize-character";
+import { normalizeNarrativeCharacter as normalizeCharacter } from "./lib/normalize-narrative-character";
 import { createAdminCharacter, createCharacter } from "./lib/create-character";
 export { createCharacter };
 import { getAllJutsus, getPvpJutsuLoadout } from "./lib/jutsu-loadout";
@@ -769,12 +768,9 @@ export { normalizeJutsu };
 // ./lib/presence-character — drained out of App.tsx to keep it under the size
 // ratchet. Imported at the top of this file.
 
-// Save hydration (normalizeCharacter) drained to ./lib/normalize-character.
-// Imported back near the top of this file and re-exported here for the three
-// screens that still take it from "../App" (PvpBattleScreen, TownHall,
-// WorldMap). lib/pvp-session.ts now imports the module DIRECTLY — that edge is
-// what made every module downstream of it unloadable under node:test, because
-// reaching back into App drags App's .webp and component CSS along with it.
+// Save hydration remains in the drained module. App adds the narrative projection
+// at its account boundary so stored choice/report/epilogue receipts are normalized
+// without pulling the story delivery graph into combat-only consumers.
 export { normalizeCharacter };
 
 
@@ -1820,7 +1816,7 @@ export default function App() {
     const [activeTriggerReturnScreen, setActiveTriggerReturnScreen] = useState<Screen>("village");
     const [pendingArenaStoryBattle, setPendingArenaStoryBattle] = useState<PendingArenaStoryBattle | null>(null);
     // Finale-lane capture + queued ending epilogue (lib/story-epilogue.ts). Lane is set when a kageFinale VN battle choice is picked; the queued VN pops when the player leaves the arena after the win.
-    const storyEpilogueRef = useRef<{ lane: string | null; queued: CreatorEvent | null }>({ lane: null, queued: null });
+    const storyEpilogueRef = useRef<{ accountKey: string; lane: string | null }>({ accountKey: "", lane: null });
     const [triggerPage, setTriggerPage] = useState(0);
     const [triggerLine, setTriggerLine] = useState(0);
     const [activeDungeonEvent, setActiveDungeonEvent] = useState<CreatorEvent | null>(null);
@@ -1940,6 +1936,7 @@ export default function App() {
     }, [isTraveling, travelingUntil]);
 
     function isPresenceBattleActive(screenSnapshot: Screen = screenRef.current): boolean {
+        if (storyFightOpen) return true;
         return isUnresolvedBattle({
             screen: screenSnapshot,
             raidBattleKind,
@@ -3460,8 +3457,10 @@ export default function App() {
         if (screenResetsSector(screen)) setCurrentSector(0);
     }, [screen]);
 
+    const hasPendingNarrativeDelivery = !!character && !!nextNarrativeDelivery(character, triggeredEvents);
     useEffect(() => {
-        if (!character || activeTriggeredEvent) return;
+        if (!character || activeTriggeredEvent || storyFightOpen) return;
+        if (hasPendingNarrativeDelivery) return;
         if (isBattleFlowScreen(screen, sealedFightOpen)) return;
         if (character.level < 9 || triggeredEvents.includes(AURA_SPHERE_VN_ID)) return;
         const alreadyHasAuraSphere = character.inventory.includes(AURA_SPHERE_ITEM_ID) || Object.values(character.equipment).includes(AURA_SPHERE_ITEM_ID);
@@ -3474,8 +3473,7 @@ export default function App() {
         setActiveTriggerReturnScreen(screen);
         setTriggerPage(0);
         setTriggerLine(0);
-    }, [activeTriggeredEvent, character, screen, sealedFightOpen, triggeredEvents]);
-
+    }, [activeTriggeredEvent, character, hasPendingNarrativeDelivery, screen, sealedFightOpen, storyFightOpen, triggeredEvents]);
     // Auto-trigger level-gated creator VN events (eventKind === "visualNovel", no special trigger)
     // The two VN auto-trigger effects below run in the same commit and would
     // both fire on the same stale null activeTriggeredEvent (last writer wins,
@@ -3483,12 +3481,13 @@ export default function App() {
     // it clears when the active VN closes.
     const vnTriggerClaimRef = useRef(false);
     useEffect(() => { if (!activeTriggeredEvent) vnTriggerClaimRef.current = false; }, [activeTriggeredEvent]);
-    // Interlude scenes dismissed THIS SESSION (skipped / closed without a
-    // choice). Deliberately not persisted: a refresh re-offers the beat instead
-    // of permanently losing it and its finale reckoning gate.
-    const dismissedStoryScenesRef = useRef<Set<string>>(new Set());
+    const dismissedStoryScenesRef = useRef<Set<string>>(new Set()); const forcedStoryChapterRef = useRef<string | null>(null); const storySceneAccountRef = useRef("");
     useEffect(() => {
-        if (!character || activeTriggeredEvent) return;
+        const accountKey = saveConflictAccountKey(character?.name ?? ""); if (storySceneAccountRef.current === accountKey) return; storySceneAccountRef.current = accountKey; dismissedStoryScenesRef.current.clear(); forcedStoryChapterRef.current = null;
+    }, [character?.name]);
+    useEffect(() => {
+        if (!character || activeTriggeredEvent || storyFightOpen) return;
+        if (hasPendingNarrativeDelivery) return;
         if (isBattleFlowScreen(screen, sealedFightOpen)) return;
         if (normalizeOnboardingStep(character.onboardingStep) !== "done") return; // never consume a VN beneath the cinematic/tutorial
         const candidate = creatorEvents.find(
@@ -3506,13 +3505,13 @@ export default function App() {
         setActiveTriggerReturnScreen(screen);
         setTriggerPage(0);
         setTriggerLine(0);
-    }, [activeTriggeredEvent, character, creatorEvents, screen, sealedFightOpen, triggeredEvents]);
-
+    }, [activeTriggeredEvent, character, creatorEvents, hasPendingNarrativeDelivery, screen, sealedFightOpen, storyFightOpen, triggeredEvents]);
     // Auto-trigger the next story beat — a milestone chapter VN (boss) or a
     // VN-only interlude (road scene) — when the player qualifies. Selection and
     // Ordering/reward rules live in lib/story-trigger; opening a scene pays nothing.
     useEffect(() => {
-        if (!character || activeTriggeredEvent) return;
+        if (!character || activeTriggeredEvent || storyFightOpen) return;
+        if (hasPendingNarrativeDelivery) return;
         // Don't interrupt battle flows — let the VN fire after the player returns.
         if (isBattleFlowScreen(screen, sealedFightOpen)) return;
         // Gate the village story behind tutorial completion (skip sets "done").
@@ -3524,10 +3523,12 @@ export default function App() {
         // the idle prefetch makes this resolve in a microtask in practice. The
         // stale guard drops a resolution whose effect deps have already changed.
         let stale = false;
-        void loadStoryTrigger().then(async ({ nextStoryTrigger, overlayVnImages }) => {
-            const resolved = await resolveStoryContinuation(() => nextStoryTrigger(character, triggeredEvents, [...dismissedStoryScenesRef.current]), character.name, () => currentAccountNameRef.current || characterRef.current?.name || "", () => stale);
+        void loadStoryTrigger().then(async ({ currentStoryChapterTrigger, nextStoryTrigger, overlayVnImages }) => {
+            const forcedId = forcedStoryChapterRef.current;
+            const resolved = await resolveStoryContinuation(() => forcedId ? currentStoryChapterTrigger(character) : nextStoryTrigger(character, triggeredEvents, [...dismissedStoryScenesRef.current]), character.name, () => currentAccountNameRef.current || characterRef.current?.name || "", () => stale);
             const next = resolved.current ? resolved.value : null;
             if (!next || vnTriggerClaimRef.current || sealedFightEngagedRef.current) return;
+            if (forcedId === next.eventId) forcedStoryChapterRef.current = null;
             vnTriggerClaimRef.current = true;
             // Prefer the admin-edited version from creatorEvents (uploaded images,
             // custom dialogue, etc.), then overlay any KV-stored images.
@@ -3538,12 +3539,27 @@ export default function App() {
             // choice. A close is session-only and a refresh offers the beat again.
             setActiveTriggeredEvent(vnEvent);
             setActiveTriggerReturnScreen(next.returnScreen === "storyHall" ? "storyHall" : screen);
-            setTriggerPage(0);
-            setTriggerLine(0);
+            const resume = character.storyScene?.eventId === vnEvent.id ? character.storyScene : null;
+            setTriggerPage(resume?.pageIndex ?? 0);
+            setTriggerLine(resume?.lineIndex ?? 0);
         }).catch(() => undefined);
         return () => { stale = true; };
-    }, [activeTriggeredEvent, character, creatorEvents, screen, sealedFightOpen, sharedImages, triggeredEvents]);
+    }, [activeTriggeredEvent, character, creatorEvents, hasPendingNarrativeDelivery, screen, sealedFightOpen, sharedImages, storyFightOpen, triggeredEvents]);
 
+    const storyDeliveryProps = {
+        character,
+        activeEvent: activeTriggeredEvent,
+        blocked: storyFightOpen || isBattleFlowScreen(screen) || screen === "hollowGateShrine" || screen === "echoesOfWar",
+        triggeredEvents,
+        accountIsCurrent: (name: string) => saveConflictAccountKey(name) === activeSaveAccountKey(),
+        setCharacter,
+        openEpilogue: (event: CreatorEvent) => {
+            if (vnTriggerClaimRef.current) return;
+            vnTriggerClaimRef.current = true;
+            setActiveTriggerReturnScreen(event.id.startsWith("story-epilogue-") ? "storyHall" : screen);
+            setTriggerPage(0); setTriggerLine(0); setActiveTriggeredEvent(event);
+        },
+    };
     // When sharedImages updates while any VN is open (images loaded after trigger fired),
     // patch the live activeTriggeredEvent so images appear without re-triggering the whole flow.
     useEffect(() => {
@@ -4068,9 +4084,10 @@ export default function App() {
         if (!decision.accepted) return false; latestSaveVersionRef.current = decision.latestVersion;
         savePersistenceRef.current?.invalidateAuthority();
         savePayloadRevisionRef.current = nextSavePayloadRevision(savePayloadRevisionRef.current);
+        const mergedCharacter = preserveNarrativeState(nextCharacter, characterRef.current);
         const current = latestSaveRef.current;
-        if (current && saveConflictAccountKey(current.name) === accountKey) installAuthoritativeSaveRef({ ...current, revision: savePayloadRevisionRef.current, payload: { ...current.payload, character: nextCharacter } });
-        setCharacter(nextCharacter); return true;
+        if (current && saveConflictAccountKey(current.name) === accountKey) installAuthoritativeSaveRef({ ...current, revision: savePayloadRevisionRef.current, payload: { ...current.payload, character: mergedCharacter } });
+        setCharacter(mergedCharacter); return true;
     }
     const {
         endlessFight,
@@ -5024,24 +5041,21 @@ export default function App() {
             // to the server story record; closing without choosing only dismisses
             // it for this session so a refresh re-offers the scene.
             if (event.id.startsWith("story-interlude-")) {
-                void loadStoryTrigger().then(async ({ interludeChosenTrait, reportStoryInterlude }) => {
-                    const resolved = await resolveStoryContinuation(() => interludeChosenTrait(character, event.id), character.name, () => currentAccountNameRef.current || characterRef.current?.name || "");
-                    if (!resolved.current) return;
-                    if (resolved.value) {
-                        void reportStoryInterlude(character, event.id);
-                        setTriggeredEvents(ids => ids.includes(event.id) ? ids : [...ids, event.id]);
-                    } else {
-                        dismissedStoryScenesRef.current.add(event.id);
-                    }
-                }).catch(() => undefined);
+                if (character.storyChoices?.some((receipt) => receipt.eventId === event.id)) {
+                    setTriggeredEvents(ids => ids.includes(event.id) ? ids : [...ids, event.id]);
+                } else dismissedStoryScenesRef.current.add(event.id);
             }
             if (event.id === AURA_SPHERE_VN_ID) {
+                const { claimBuiltinEventReward } = await import("./lib/event-claim-api"); if (characterRef.current?.name !== character.name) return;
                 const claimed = await claimBuiltinEventReward(character.name, event.id);
                 if (!claimed.character) {
                     alert(claimed.error || "The Aura Sphere could not be claimed. Try again in a moment.");
                     return;
                 }
                 commitVersionedCharacter(claimed.character, claimed._saveVersion);
+            }
+            if (event.id.startsWith("rift-first-clear-")) {
+                setTriggeredEvents((ids) => ids.includes(event.id) ? ids : [...ids, event.id]);
             }
             // No kageFinale handling here: closing the finale VN without fighting
             // must NOT unlock the Kage system or grant the title. Only sealed
@@ -5051,11 +5065,24 @@ export default function App() {
         setActiveTriggeredEvent(null);
         setScreen(activeTriggerReturnScreen);
     }
-
+    async function resumeStoryFromHall() {
+        const current = characterRef.current;
+        if (!current) return;
+        const account = saveConflictAccountKey(current.name);
+        try {
+            const { currentStoryChapterTrigger } = await loadStoryTrigger();
+            if (account !== activeSaveAccountKey()) return;
+            const next = await currentStoryChapterTrigger(current);
+            if (account !== activeSaveAccountKey()) return;
+            if (next) { dismissedStoryScenesRef.current.delete(next.eventId); forcedStoryChapterRef.current = next.eventId; }
+            setScreen("village");
+        } catch {
+            alert("The Chronicle could not reopen yet. Stay in the Story Hall and try Resume again.");
+        }
+    }
     function dungeonEventTemplate() {
         return creatorEvents.find((event) => event.id === DUNGEON_VN_ID) ?? hiddenDungeonVnEvent;
     }
-
     async function triggerDungeonEncounter(returnScreen: Screen = "worldMap", dungeonOverride?: CreatorEvent, freeRunToken = "") {
         if (!character || dungeonActionRef.current) return;
         const event = dungeonOverride ?? dungeonEventTemplate();
@@ -5085,12 +5112,15 @@ export default function App() {
         setScreen("dungeon");
     }
 
-    function startDungeonAiFight() {
+    async function startDungeonAiFight() {
         if (!character || !activeDungeonEvent) return;
+        const owner = character.name, event = activeDungeonEvent;
         const runToken = activeDungeonRunToken ?? character.activeDungeonRun?.token;
         if (!runToken) return alert("The Dungeon run seal is missing. Reopen this dungeon from its authoritative entrypoint.");
-        setCurrentBiome(activeDungeonEvent.biome);
-        setCurrentWeather(weatherForBiome(activeDungeonEvent.biome));
+        const { resolveDungeonWardenPortrait } = await import("./lib/ai-fight-art");
+        if (characterRef.current?.name !== owner) return;
+        setCurrentBiome(event.biome);
+        setCurrentWeather(weatherForBiome(event.biome));
         if (!requestAiFight({
             // Presentation placeholder only. The start endpoint ignores it and
             // reconstructs the exact 50/75/100 Warden from the active run.
@@ -5098,7 +5128,7 @@ export default function App() {
             opponentLevel: character.level,
             battleKind: "dungeon",
             dungeonRunToken: runToken,
-            enemyAvatar: resolveDungeonWardenPortrait(activeDungeonEvent, sharedImages),
+            enemyAvatar: resolveDungeonWardenPortrait(event, sharedImages),
             returnScreen: "dungeon",
             onResolved: (result) => {
                 if (result.outcome === "win" && result.character?.activeDungeonRun?.wardenDefeated) {
@@ -5107,7 +5137,6 @@ export default function App() {
             },
         })) alert("The sealed Dungeon arena is unavailable. The run remains reserved.");
     }
-
     // Onboarding "guaranteed first win" — a scripted spar against a deliberately
     // weak Lv-1 training dummy (lib/academy-spar), which the player beats in a
     // few hits. The win advances onboardingStep -> "cafeteria"; a loss returns to
@@ -5181,67 +5210,26 @@ export default function App() {
     // as a sealed Tower session): adopt the server character + App-scope finale wiring.
     function handleServerStoryBossSettled(result: StoryBossSettleResult) {
         if (!result.character) return;
-        const accepted = commitVersionedCharacter(result.character, result._saveVersion);
+        const fallbackLane = storyEpilogueRef.current.accountKey === saveConflictAccountKey(result.character.name) ? storyEpilogueRef.current.lane : null;
+        const settledCharacter = prepareStorySettlement(
+            result.character, characterRef.current, !!result.finale, !!result.replayed, fallbackLane,
+        );
+        storyEpilogueRef.current = { accountKey: "", lane: null };
+        const accepted = commitVersionedCharacter(settledCharacter, result._saveVersion);
         if (result.finale && !result.replayed) {
-            const finaleCharacter = accepted ? result.character : characterRef.current;
+            const finaleCharacter = accepted ? settledCharacter : characterRef.current;
             if (!finaleCharacter
                 || saveConflictAccountKey(finaleCharacter.name) !== saveConflictAccountKey(result.character.name)) return;
             unlockVillageKageSystem(finaleCharacter.storyVillage || finaleCharacter.village, finaleCharacter.name);
-            void loadStoryTrigger().then((m) => { storyEpilogueRef.current.queued = m.selectStoryEpilogueEvent(finaleCharacter, storyEpilogueRef.current.lane); }).catch(() => undefined);
         }
     }
-
-    function startTriggeredEventArenaBattle(
-        event: CreatorEvent,
-        battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"],
-        // Explicit return target for same-tick callers (WorldMap road events):
-        // reading activeTriggerReturnScreen here would see the stale pre-set value.
-        returnScreen?: Screen,
-    ) {
-        if (battle?.encounterType === "pet") {
-            setPendingEventEncounter({ event, battle });
-            setActiveTriggeredEvent(null);
-            setScreen("eventPetBattle");
-            return;
-        }
-        if (battle?.encounterType === "tiles") {
-            setPendingEventEncounter({ event, battle });
-            setActiveTriggeredEvent(null);
-            setScreen("eventTiles");
-            return;
-        }
-        // Story CHAPTER battles (not interludes/roads) = the Story Hall milestone → the
-        // SEALED server session via the shared host (the only path persisting
-        // storyProgress). Replayed past chapters keep the flavor Arena.
-        const chapterIdx = /^story-(?!interlude-|road-)[a-z0-9-]+?-(\d+)$/.exec(event.id)?.[1];
-        if (battle && chapterIdx !== undefined && Number(chapterIdx) === (character?.storyProgress ?? -1)) {
-            const started = requestStoryBossFight({
-                bossName: battle.bossName || event.name,
-                chapterLabel: `Chapter ${Number(chapterIdx) + 1} — ${event.vnTitle ?? event.name}`,
-                backdropImage: sharedImages[`event:${event.id}:bg`] || sharedImages[`vn:${event.id}:page:0`] || undefined,
-                bossPortrait: sharedImages[`event:${event.id}:avatar`] || sharedImages[`vn:${event.id}:page:0:right`] || undefined,
-                ...extractStoryFightScript(event.vnPages, battle.bossName || ""),
-                ally: extractMentorLines(event.vnPages, battle.bossName || "", character?.name ?? ""), village: event.village || character?.village,
-            });
-            // Declined (a fight is already engaged) keeps the scene open — falling
-            // through would hand the current chapter a flavor practice bout instead.
-            if (started) setActiveTriggeredEvent(null);
-            return;
-        }
+    // The explicit return target keeps same-tick WorldMap road events from reading stale state.
+    function startTriggeredEventArenaBattle(event: CreatorEvent, battle?: EventEncounterBattle, returnScreen?: Screen) {
         const returnTarget = returnScreen ?? activeTriggerReturnScreen;
-        const opponent = creatorEventPracticeOpponent(event.aiProfileId, battle?.aiProfileId, character?.level ?? event.levelReq);
-        const launched = requestAiFight({
-            opponentId: opponent.id,
-            opponentLevel: Math.max(1, character?.level ?? event.levelReq),
-            battleKind: "practice",
-            returnScreen: returnTarget,
-        });
-        if (!launched) return alert("The sealed practice arena is unavailable. Your event remains open.");
-        setActiveTriggeredEvent(null);
-        setCurrentBiome(event.biome);
-        setCurrentWeather(weatherForBiome(event.biome));
+        launchTriggeredEventBattle({ event, battle, character, returnScreen: returnTarget, sharedImages,
+            setPendingEncounter: setPendingEventEncounter, setActiveEvent: setActiveTriggeredEvent,
+            setScreen, setBiome: setCurrentBiome, setWeather: setCurrentWeather });
     }
-
     // (completePendingArenaStoryBattle / continuePendingArenaStoryBattle lived
     // here. They existed only to settle a story fight hosted by the browser-side
     // Arena reducer, which is deleted — story fights run on StoryBossFightHost
@@ -5386,12 +5374,12 @@ export default function App() {
         setHollowGateEvent(null);
         setHollowGateHiddenChamber(null);
         // First-time entry shows the intro VN (3 pages) before the grid is interactable.
-        const isFirstEntry = !character.hollowGateIntroSeen;
+        const isFirstEntry = !!variant || !character.hollowGateIntroSeen;
         setHollowGateIntroPage(isFirstEntry ? 0 : null);
         setCharacter({
             ...afterKey,
             hollowGateRun: run,
-            hollowGateIntroSeen: true,
+            ...(!variant ? { hollowGateIntroSeen: true } : {}),
             dailyHollowGateRuns: runsToday + 1,
             lastDailyReset: todayKey,
         });
@@ -5931,7 +5919,7 @@ export default function App() {
 
             {/* Global incoming challenge popup — centered, clickable, visible from
                 any screen. Portals to <body> so the fixed side rails don't cover it. */}
-            {character && (
+            {character && <Suspense fallback={null}>
                 <IncomingChallengeModal
                     challenges={duelChallenges}
                     selfName={character.name}
@@ -5942,10 +5930,10 @@ export default function App() {
                     }}
                     onDecline={(c) => declineChallengeGlobal(c)}
                 />
-            )}
+            </Suspense>}
 
             <StoryBossFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} onSettled={handleServerStoryBossSettled} onOutcome={commitVersionedCharacter} onFightOpenChange={setStoryFightOpen} />
-
+            {character && <Suspense fallback={null}><StoryDeliveryHost {...storyDeliveryProps} /></Suspense>}
             {/* Sealed AI fights (hunts, guards, ambushes, raids, field missions). The host fails closed unless it receives a canonical solo-PvE session; there is no rewarding local-Arena fallback. Hooks only mirror the remaining non-world UI side effects. Both hosts are code-split (fallback null — they render nothing until a fight is requested); their chunks are fetched from App's FIRST render, i.e. before any lazy launch screen is even requested, so the request-bus listener is live long before a launch site can exist. */}
             <AiFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} hooks={{ onMissionRaidComplete: (sector, missionIds) => recordMissionRaid(sector, undefined, missionIds, character?.name ?? "") }} onSettled={(result) => {
                 if (result.character && !commitVersionedCharacter(result.character, result._saveVersion)) return;
@@ -6155,17 +6143,25 @@ export default function App() {
                 )}
 
                 {activeTriggeredEvent && character && (
-                    <TriggeredVisualNovel
+                    <ActiveStoryVisualNovel
                         event={activeTriggeredEvent}
                         character={character}
                         pageIndex={triggerPage}
                         lineIndex={triggerLine}
                         setPageIndex={setTriggerPage}
                         setLineIndex={setTriggerLine}
-                        onCancel={() => { dismissStorySceneForSession(activeTriggeredEvent.id, dismissedStoryScenesRef.current); setActiveTriggeredEvent(null); }}
+                        onCancel={() => {
+                            if (activeTriggeredEvent.id.startsWith("rift-first-clear-")) {
+                                setTriggeredEvents((ids) => ids.includes(activeTriggeredEvent.id) ? ids : [...ids, activeTriggeredEvent.id]);
+                            }
+                            dismissStorySceneForSession(activeTriggeredEvent.id, dismissedStoryScenesRef.current);
+                            setActiveTriggeredEvent(null);
+                        }}
                         onComplete={() => { void completeTriggeredEvent(activeTriggeredEvent); }}
                         onBattle={startTriggeredEventArenaBattle}
-                        onChoice={(c) => { const t = c.trait; if (t) setCharacter(prev => prev ? applyStoryChoice(prev, t) : prev); if (t && c.battle && activeTriggeredEvent.kageFinale) storyEpilogueRef.current.lane = t; }}
+                        setCharacter={setCharacter}
+                        onFinaleLane={(lane) => { storyEpilogueRef.current = { accountKey: saveConflictAccountKey(character.name), lane }; }}
+                        onEpilogueExit={() => { setActiveTriggeredEvent(null); setScreen("storyHall"); }}
                         sharedImages={sharedImages}
                     />
                 )}
@@ -6421,6 +6417,7 @@ export default function App() {
                         capturePvpCreateScope={capturePvpCreateScope}
                         onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} attackSleeper={(opponent) => { void strikeDownSleeper({ opponent, attackerName: character.name, isTraveling, setCharacter, setPlayerRoster, onServerVersion: (version) => acceptExternalSaveVersion(version, character.name) === "accepted" }); }}
                         sectorAttackPlayer={(opponent) => { void attackSectorPlayer({ opponent, character, isTraveling, creatorItems, creatorJutsus, savedBloodlines, currentSector, currentBiome, currentWeather, capturePvpCreateScope, installPvpRecovery, setPvpBattleId, setPvpRole, setPvpBattleContext, setPvpSeedSession, setRaidBattleKind, setScreen }); }}
+
                     />
                 )}
                 {!activeTriggeredEvent && screen === "sunscarFestival" && character && (
@@ -6455,6 +6452,7 @@ export default function App() {
                     <StoryHall
                         character={character}
                         setScreen={setScreen}
+                        onResumeStory={() => { void resumeStoryFromHall(); }}
                     />
                 )}
                 {!activeTriggeredEvent && screen === "storyBoss" && character && <StoryBoss character={character} updateCharacter={setCharacter} setScreen={setScreen} />}
@@ -6463,9 +6461,10 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "pets" && character && <PetYard key={character.name.trim().toLowerCase()} character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} setScreen={navigate} onBack={leavePetHome} backLabel={petHomeReturnLabel(petHomeReturnScreen)} sharedImages={sharedImages} onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} />}
                 {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} allServerPlayers={allServerPlayers} setScreen={setScreen} returnScreen={petHomeReturnScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => { if (pendingArenaResponse) void clearChallengeOnServer(pendingArenaResponse); setPendingArenaResponse(null); }} onClanWarBattleEnd={autoReportClanWarBattleResult} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} onServerVersion={acceptExternalSaveVersion} onVersionedCharacter={(next, version, origin) => saveConflictAccountKey(next.name) === saveConflictAccountKey(origin) ? (commitVersionedCharacter(next, version) ? "accepted" : "stale") : "foreign"} />}
                 {!activeTriggeredEvent && screen === "petShowdown" && character && <PetShowdown character={character} updateCharacter={setCharacter} setScreen={setScreen} sharedImages={sharedImages} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}
-                {!activeTriggeredEvent && screen === "firstPact" && character && <FirstPact character={character} sharedImages={sharedImages} onExit={() => setScreen("centralHub")} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}
+                {!activeTriggeredEvent && screen === "firstPact" && character && <FirstPact character={character} sharedImages={sharedImages} onExit={() => setScreen("centralHub")} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} onVersionedCharacter={commitVersionedCharacter} />}
                 {/* The Coliseum proper: the same arena, opened as a PAID bout. */}
                 {!activeTriggeredEvent && screen === "petColiseum" && character && <PetShowdown bout="arena" character={character} updateCharacter={setCharacter} setScreen={setScreen} sharedImages={sharedImages} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}
+
                 {!activeTriggeredEvent && screen === "petLadder" && character && <PetLadder character={character} setScreen={setScreen} sharedImages={sharedImages} />}
                 {/* An authored VN pet battle. The opponent is no longer scaled here:
                     the server reads the same authored row out of its own copy of the

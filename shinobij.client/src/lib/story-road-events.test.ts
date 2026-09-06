@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Character } from "../types/character";
-import { nextRoadEvent, synthRoadWanderer, roadEventToCreatorEvent, roadEventBySynthId, roadEventChoiceTraits, ROAD_WANDERER_PREFIX } from "./story-road-events";
+import { applyRoadEventChoice, nextRoadEvent, synthRoadWanderer, roadEventToCreatorEvent, roadEventBySynthId, roadEventChoiceTraits, ROAD_WANDERER_PREFIX } from "./story-road-events";
 import { storyRoadEvents } from "../data/story-road-events";
 
 function char(level: number, storyProgress: number, storyTraits: string[] = []): Character {
@@ -58,6 +58,8 @@ test("CreatorEvent conversion: zero rewards, battles only where authored", () =>
         assert.equal(vn.xpReward, 0);
         assert.equal(vn.ryoReward, 0);
         assert.equal(vn.eventKind, "visualNovel");
+        assert.deepEqual(vn.dialogue, [], "page dialogue must not be duplicated in the top-level fallback");
+        assert.deepEqual(vn.vnPages?.flatMap((page) => page.dialogue), event.pages.flatMap((page) => page.dialogue));
         const lastPage = vn.vnPages![vn.vnPages!.length - 1];
         for (const choice of lastPage.choices ?? []) {
             assert.ok(choice.trait, `${event.id}: choice without trait`);
@@ -69,6 +71,24 @@ test("CreatorEvent conversion: zero rewards, battles only where authored", () =>
         }
     }
     assert.ok(battles > 0, "at least some road events end in a fight");
+});
+
+test("a road choice records exact branch identity and a retryable report atomically", () => {
+    const receipt = {
+        version: 1 as const,
+        eventId: "story-road-border-smoke",
+        pageId: "v1:p2",
+        choiceId: "v1:c0",
+        pageIndex: 2,
+        choiceIndex: 0,
+        nextPage: 3,
+        trait: "rd22-marked-the-cache",
+    };
+    const updated = applyRoadEventChoice(char(22, 0), receipt.eventId, receipt.trait, receipt);
+    assert.deepEqual(updated.storyChoices, [receipt]);
+    assert.deepEqual(updated.pendingStoryReports, [{
+        version: 1, kind: "road", eventId: receipt.eventId, trait: receipt.trait,
+    }]);
 });
 
 test("the shared-shrine road story uses shinobi-world civilian language", () => {

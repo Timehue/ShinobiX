@@ -430,7 +430,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                     {(() => {
                         // The rumor arc, accumulated — the whispers heard at level
                         // milestones stay readable instead of evaporating.
-                        const log = rumorLog();
+                        const log = rumorLog(character.name);
                         return log.length > 0 ? (
                             <details style={{ marginTop: 8 }}>
                                 <summary style={{ cursor: "pointer", fontSize: ".74rem", color: "#c4b5fd" }}>

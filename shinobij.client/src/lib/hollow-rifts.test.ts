@@ -6,10 +6,12 @@ import { dirname, join } from "node:path";
 import type { Character } from "../types/character";
 import {
     RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_GIVER_PREFIX,
-    nextRift, synthRiftGiver, riftTargetSector, riftEventConfig,
+    nextRift, synthRiftGiver, riftTargetSector, riftEventConfig, completeRiftRun,
     riftIntroEvent, riftDescentEvent, riftBySynthId, riftByDescentEventId, isRiftDescentEventId,
     riftGiverPortrait, riftBossPortrait,
+    riftFirstClearEvent,
 } from "./hollow-rifts";
+import { hollowGateIntroPages, hollowGateIntroPagesFor } from "../data/hollow-gate-flavor";
 import { hollowRifts } from "../data/hollow-rifts";
 import { builtinAis } from "./combat-ai";
 import { CASTLE_SECTORS, OUTSKIRTS_SECTORS, MAX_WILD_SECTOR } from "../../../shared/sector-geo";
@@ -128,6 +130,59 @@ test("riftEventConfig is a free-entry, short, themed event gate", () => {
     assert.equal(cfg.bossName, rift.bossName);
     assert.equal(cfg.keyCost, 0);            // quest-granted, free
     assert.equal(cfg.requiresUnlock, false); // the quest is the gate
+});
+
+test("rift first-entry orientation matches the free short variant and preserves the normal intro", () => {
+    const rift = hollowRifts[0];
+    const pages = hollowGateIntroPagesFor(riftEventConfig(rift));
+    const text = pages.flatMap((page) => page.lines).join(" ");
+    assert.match(text, /without consuming a Hollow Gate Key/);
+    assert.match(text, new RegExp(`${rift.floors} floor`));
+    assert.match(text, new RegExp(rift.bossName));
+    assert.doesNotMatch(text, /five-floor|Hollow Hound Alpha/);
+    assert.equal(hollowGateIntroPagesFor(), hollowGateIntroPages);
+});
+
+test("each exact rift has a reward-free first-clear reaction", () => {
+    for (const rift of hollowRifts) {
+        const event = riftFirstClearEvent(rift.id, "shadow");
+        assert.ok(event, rift.id);
+        assert.equal(event!.id, `rift-first-clear-${rift.slug}`);
+        assert.equal(event!.xpReward, 0);
+        assert.equal(event!.ryoReward, 0);
+        assert.ok((event!.vnPages ?? []).flatMap((page) => page.dialogue).join(" ").length > 30);
+    }
+});
+
+test("a delayed rift completion response cannot mutate a different signed-in character", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => new Response(JSON.stringify({
+        ok: true,
+        ryo: 500,
+        firstClear: true,
+        firstClearAt: 1234,
+        completedRiftId: "rift-legacy-echo",
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+    try {
+        let current: Character | null = mkChar({ name: "Ren", ryo: 10 });
+        const logs: string[] = [];
+        await completeRiftRun("Aki", "rift-legacy-echo", (updater) => { current = updater(current); }, (line) => logs.push(line));
+        assert.equal(current?.name, "Ren");
+        assert.equal(current?.ryo, 10);
+        assert.equal(current?.riftFirstClears, undefined);
+        assert.equal(logs.length, 1, "the settled account may still receive its ordinary activity log");
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test("repeat rift reports preserve resolved unique consequences", () => {
+    const warren = hollowRifts.find((rift) => rift.id === "rift-beast-warren")!;
+    const repeat = riftIntroEvent(warren, 47, "shadow", { [warren.id]: { at: 1 } });
+    const text = repeat.vnPages!.flatMap((page) => page.dialogue).join(" ");
+    assert.match(text, /Nara is home and healing/);
+    assert.match(text, /renewed echo/);
+    assert.doesNotMatch(text, /find Nara|abduction.*Nara/i);
 });
 
 test("synthRiftGiver is a non-hostile roaming quest NPC", () => {

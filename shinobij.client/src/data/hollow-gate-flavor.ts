@@ -10,7 +10,7 @@
  * Pure data + two pure helpers. Extracted from App.tsx.
  */
 
-import type { HollowGateTileKind } from "../types/character";
+import type { HollowGateTileKind, HollowGateVariant } from "../types/character";
 
 export const hollowGateFlavorPool: Record<HollowGateTileKind, string[]> = {
     empty: [
@@ -120,6 +120,32 @@ export const hollowGateIntroPages: Array<{ title: string; imageKey: string; line
         ],
     },
 ];
+
+/** Run-specific first-entry copy. Rift variants are free, short assignments and
+ * never inherit the keyed five-floor shrine or Alpha biography. */
+export function hollowGateIntroPagesFor(variant?: HollowGateVariant): typeof hollowGateIntroPages {
+    if (!variant?.id.startsWith("rift-")) return hollowGateIntroPages;
+    const depth = Math.max(1, Math.floor(variant.maxFloor ?? 1));
+    const boss = variant.bossName || "the rift's controlling form";
+    return [
+        {
+            title: "The Assigned Breach",
+            imageKey: "shrine:intro-1",
+            lines: [
+                `The giver's seal opens this rift without consuming a Hollow Gate Key. The assignment runs ${depth} floor${depth === 1 ? "" : "s"}.`,
+                "This opening bypasses the village's ordinary thirty-day access seal. It remains bound to the accepted rift and its marked target.",
+            ],
+        },
+        {
+            title: `Find ${boss}`,
+            imageKey: "shrine:intro-2",
+            lines: [
+                `This rift's final seal belongs to ${boss}. Follow the marked stairs until floor ${depth}.`,
+                "Your Torch of Reiki burns while you walk. A marked exit or Emergency Forfeit can still return you to the surface, and resuming this same run spends no key.",
+            ],
+        },
+    ];
+}
 
 /**
  * Pick a random flavor line for the given tile kind. Stateless — each

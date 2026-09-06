@@ -736,6 +736,12 @@ const STORY_CONTENT_PER_ASSET_RAW_FAIL_BYTES = 160_000;
 const STORY_CONTENT_PER_ASSET_GZIP_FAIL_BYTES = 45_000;
 const STORY_CONTENT_TOTAL_RAW_FAIL_BYTES = 640_000;
 const STORY_CONTENT_TOTAL_GZIP_FAIL_BYTES = 176_000;
+const STORY_EPILOGUE_RE = /^assets\/epilogues-(stormveil|ashen-leaf|frostfang|moonshadow)-[a-f0-9]{12}-[A-Za-z0-9_-]{8}\.json$/;
+const STORY_EPILOGUE_TOTAL_RAW_FAIL_BYTES = 50_000;
+const STORY_EPILOGUE_TOTAL_GZIP_FAIL_BYTES = 20_000;
+const STORY_FIELD_CONTENT_RE = /^assets\/field-scenes-[a-f0-9]{12}-[A-Za-z0-9_-]{8}\.json$/;
+const STORY_FIELD_CONTENT_RAW_FAIL_BYTES = 100_000;
+const STORY_FIELD_CONTENT_GZIP_FAIL_BYTES = 30_000;
 
 function walk(dir) {
     const out = [];
@@ -795,6 +801,15 @@ const storyContentVillages = storyContentAssets.map((file) => file.rel.match(STO
 const storyContentGzip = [...storyContentAssets, ...echoesContentAssets].map((file) => ({ ...file, gzip: gzipSync(readFileSync(file.path), { level: 9 }).length }));
 const storyContentRawTotal = storyContentGzip.reduce((sum, file) => sum + file.size, 0);
 const storyContentGzipTotal = storyContentGzip.reduce((sum, file) => sum + file.gzip, 0);
+const storyEpilogueAssets = withRel.filter((file) => STORY_EPILOGUE_RE.test(file.rel));
+const storyEpilogueVillages = storyEpilogueAssets.map((file) => file.rel.match(STORY_EPILOGUE_RE)?.[1]).filter(Boolean);
+const storyEpilogueGzip = storyEpilogueAssets.map((file) => ({ ...file, gzip: gzipSync(readFileSync(file.path), { level: 9 }).length }));
+const storyEpilogueRawTotal = storyEpilogueGzip.reduce((sum, file) => sum + file.size, 0);
+const storyEpilogueGzipTotal = storyEpilogueGzip.reduce((sum, file) => sum + file.gzip, 0);
+const storyFieldContentAssets = withRel.filter((file) => STORY_FIELD_CONTENT_RE.test(file.rel));
+const storyFieldContentGzip = storyFieldContentAssets.map((file) => ({ ...file, gzip: gzipSync(readFileSync(file.path), { level: 9 }).length }));
+const storyFieldContentRawTotal = storyFieldContentGzip.reduce((sum, file) => sum + file.size, 0);
+const storyFieldContentGzipTotal = storyFieldContentGzip.reduce((sum, file) => sum + file.gzip, 0);
 
 if (storyContentAssets.length !== STORY_CONTENT_VILLAGES.size) failures.push(`expected exactly four content-addressed story JSON assets; found ${storyContentAssets.length}`);
 if (new Set(storyContentVillages).size !== STORY_CONTENT_VILLAGES.size || storyContentVillages.some((village) => !STORY_CONTENT_VILLAGES.has(village))) {
@@ -809,6 +824,18 @@ if (storyContentRawTotal > STORY_CONTENT_TOTAL_RAW_FAIL_BYTES) failures.push(`st
 if (storyContentGzipTotal > STORY_CONTENT_TOTAL_GZIP_FAIL_BYTES) failures.push(`story JSON total is ${fmt(storyContentGzipTotal)} gzip; threshold is ${fmt(STORY_CONTENT_TOTAL_GZIP_FAIL_BYTES)}`);
 console.log(`[sizecheck] On-demand story JSON: ${exact(storyContentRawTotal)} raw / ${exact(storyContentGzipTotal)} gzip across ${storyContentAssets.length} village routes + the Echoes of War script.`);
 for (const file of [...storyContentGzip].sort((a, b) => b.gzip - a.gzip)) console.log(`  ${file.rel}: ${fmt(file.size)} raw / ${fmt(file.gzip)} gzip`);
+if (storyEpilogueAssets.length !== STORY_CONTENT_VILLAGES.size
+    || new Set(storyEpilogueVillages).size !== STORY_CONTENT_VILLAGES.size
+    || storyEpilogueVillages.some((village) => !STORY_CONTENT_VILLAGES.has(village))) {
+    failures.push(`epilogue JSON assets must contain one hashed payload for each village; found ${storyEpilogueVillages.join(', ') || 'none'}`);
+}
+if (storyEpilogueRawTotal > STORY_EPILOGUE_TOTAL_RAW_FAIL_BYTES) failures.push(`epilogue JSON total is ${fmt(storyEpilogueRawTotal)}; threshold is ${fmt(STORY_EPILOGUE_TOTAL_RAW_FAIL_BYTES)}`);
+if (storyEpilogueGzipTotal > STORY_EPILOGUE_TOTAL_GZIP_FAIL_BYTES) failures.push(`epilogue JSON total is ${fmt(storyEpilogueGzipTotal)} gzip; threshold is ${fmt(STORY_EPILOGUE_TOTAL_GZIP_FAIL_BYTES)}`);
+console.log(`[sizecheck] Post-finale epilogue JSON: ${exact(storyEpilogueRawTotal)} raw / ${exact(storyEpilogueGzipTotal)} gzip across ${storyEpilogueAssets.length} village routes.`);
+if (storyFieldContentAssets.length !== 1) failures.push(`expected exactly one content-addressed field journey JSON asset; found ${storyFieldContentAssets.length}`);
+if (storyFieldContentRawTotal > STORY_FIELD_CONTENT_RAW_FAIL_BYTES) failures.push(`field journey JSON is ${fmt(storyFieldContentRawTotal)}; threshold is ${fmt(STORY_FIELD_CONTENT_RAW_FAIL_BYTES)}`);
+if (storyFieldContentGzipTotal > STORY_FIELD_CONTENT_GZIP_FAIL_BYTES) failures.push(`field journey JSON is ${fmt(storyFieldContentGzipTotal)} gzip; threshold is ${fmt(STORY_FIELD_CONTENT_GZIP_FAIL_BYTES)}`);
+console.log(`[sizecheck] On-demand field journey JSON: ${exact(storyFieldContentRawTotal)} raw / ${exact(storyFieldContentGzipTotal)} gzip across ${storyFieldContentAssets.length} payload.`);
 
 // Sentry is observability, not product code. Allow one tightly capped chunk only
 // when it stays off the initial graph; do not weaken the product-code budget.
@@ -935,4 +962,4 @@ if (failures.length) {
 
 const sentryNote = sentryChunks.length ? `; lazy Sentry: ${fmt(sentryChunks[0].size)}` : '';
 const threeNote = threeChunks.length ? `; lazy Three.js: ${fmt(threeChunks[0].size)}` : '';
-console.log(`[sizecheck] PASS. Budgeted product JS/CSS: ${exact(budgetedJsCssTotal)} raw / ${exact(budgetedJsCssGzipTotal)} gzip; story JSON: ${exact(storyContentRawTotal)} raw / ${exact(storyContentGzipTotal)} gzip; combined tracked product: ${exact(budgetedJsCssTotal + storyContentRawTotal)} raw / ${exact(budgetedJsCssGzipTotal + storyContentGzipTotal)} gzip; all emitted JS/CSS: ${exact(jsCssTotal)} raw / ${exact(jsCssGzipTotal)} gzip${sentryNote}${threeNote}.`);
+console.log(`[sizecheck] PASS. Budgeted product JS/CSS: ${exact(budgetedJsCssTotal)} raw / ${exact(budgetedJsCssGzipTotal)} gzip; story JSON: ${exact(storyContentRawTotal)} raw / ${exact(storyContentGzipTotal)} gzip; epilogue JSON: ${exact(storyEpilogueRawTotal)} raw / ${exact(storyEpilogueGzipTotal)} gzip; field journey JSON: ${exact(storyFieldContentRawTotal)} raw / ${exact(storyFieldContentGzipTotal)} gzip; combined tracked product: ${exact(budgetedJsCssTotal + storyContentRawTotal + storyEpilogueRawTotal + storyFieldContentRawTotal)} raw / ${exact(budgetedJsCssGzipTotal + storyContentGzipTotal + storyEpilogueGzipTotal + storyFieldContentGzipTotal)} gzip; all emitted JS/CSS: ${exact(jsCssTotal)} raw / ${exact(jsCssGzipTotal)} gzip${sentryNote}${threeNote}.`);

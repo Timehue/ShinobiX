@@ -147,6 +147,7 @@ test("outer-village guard raids bind the exact virtual sector", () => {
 test("creator VN battles use canonical non-paying practice until an event receipt exists", () => {
     const worldMap = readFileSync(new URL("../screens/WorldMap.tsx", import.meta.url), "utf8");
     const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+    const triggeredBattle = readFileSync(new URL("./triggered-event-battle.ts", import.meta.url), "utf8");
     const launch = worldMap.slice(worldMap.indexOf("function launchCreatorEventFight"), worldMap.indexOf("if (activePetEncounter"));
     const triggeredStart = app.indexOf("function startTriggeredEventArenaBattle");
     assert.ok(triggeredStart > 0, "startTriggeredEventArenaBattle is gone — this contract needs re-pointing");
@@ -162,13 +163,15 @@ test("creator VN battles use canonical non-paying practice until an event receip
         "an accepted launch must dismiss the VN covering the fight, while a missing host leaves it open for retry");
     assert.doesNotMatch(launch, /battleKind: "world"|setScreen\("arena"\)/);
     assert.doesNotMatch(worldMap, /onStartEventEncounter/);
-    assert.match(triggered, /requestAiFight\(/);
-    assert.match(triggered, /battleKind: "practice"/);
-    assert.match(triggered, /const launched = requestAiFight\([\s\S]{0,700}if \(!launched\) return alert\("The sealed practice arena is unavailable\. Your event remains open\."\);\s*setActiveTriggeredEvent\(null\);/,
+    assert.match(triggered, /launchTriggeredEventBattle\(\{/,
+        "App must route the global triggered-event path through the extracted sealed launcher");
+    assert.match(triggeredBattle, /requestAiFight\(/);
+    assert.match(triggeredBattle, /battleKind: "practice"/);
+    assert.match(triggeredBattle, /if \(!requestAiFight\(\{[\s\S]{0,700}\}\)\) return void window\.alert\("The sealed practice arena is unavailable\. Your event remains open\."\);\s*setActiveEvent\(null\);/,
         "the global triggered-event path must also dismiss its VN as soon as the combat host accepts the launch");
-    assert.doesNotMatch(triggered, /onResolved:/,
+    assert.doesNotMatch(triggeredBattle, /onResolved:/,
         "the VN must not remain mounted over combat until a later settlement callback");
-    assert.doesNotMatch(triggered, /temp-vn-ai|setPendingAiProfileId|setScreen\("arena"\)|setPendingArenaStoryBattle/);
+    assert.doesNotMatch(triggeredBattle, /temp-vn-ai|setPendingAiProfileId|setScreen\("arena"\)|setPendingArenaStoryBattle/);
 });
 
 test("legacy creator choices without an AI id use a real level-near published practice profile", () => {

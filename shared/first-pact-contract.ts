@@ -11,7 +11,7 @@ export const FIRST_PACT_MIN_LEVEL = 100;
 export const FIRST_PACT_FIELD_SIZE = 2;
 export const FIRST_PACT_RESERVE_SIZE = 2;
 export const FIRST_PACT_TEAM_SIZE = FIRST_PACT_FIELD_SIZE + FIRST_PACT_RESERVE_SIZE;
-export const FIRST_PACT_PROGRESS_VERSION = 7;
+export const FIRST_PACT_PROGRESS_VERSION = 8;
 export const FIRST_PACT_WORLD_WIDTH = 84;
 export const FIRST_PACT_WORLD_HEIGHT = 56;
 
@@ -100,8 +100,8 @@ export const FIRST_PACT_TOURNAMENT = [
         opponent: "Copper Jackals",
         tier: "warrior",
         requiredWins: 0,
-        lesson: "Protect both field positions and rotate a reserve before stamina breaks.",
-        defeat: "The Jackals' handler collects his purse and tells Sena the yard was always going to close. She writes the result in the book herself, in ink, because the Court will read it either way.",
+        lesson: "Keep both active positions covered. Rotate a reserve before either active pet runs out of stamina.",
+        defeat: "The Jackals' handler pockets his purse and tells Sena to clear the yard before final bell. Sena writes down the loss herself and asks whether your reserves can run again.",
         roster: {
             roles: ["defender", "tracker", "defender", "assassin"],
             elements: ["Earth", "Earth", "Water", "Wind"],
@@ -114,8 +114,8 @@ export const FIRST_PACT_TOURNAMENT = [
         tier: "champion",
         requiredWins: 1,
         // Two sages, so the weather the lesson names is guaranteed to arrive.
-        lesson: "Read the arena weather and preserve the reserve that can reverse the element wheel.",
-        defeat: "Rain keeps falling on an empty sand. Sena says nothing about the weather and a great deal about the reserve you left standing.",
+        lesson: "Watch the arena weather. Keep a reserve whose element can reverse the matchup when it changes.",
+        defeat: "Rain keeps falling after the sand empties. Sena checks all four harnesses at the rail and tells the assessor Vale is taking the next bell.",
         roster: {
             roles: ["sage", "sage", "tracker", "assassin"],
             elements: ["Water", "Wind", "Lightning", "Water"],
@@ -129,8 +129,8 @@ export const FIRST_PACT_TOURNAMENT = [
         tier: "champion",
         requiredWins: 2,
         // Two defenders, so there is a protection pattern to break.
-        lesson: "Break the champion's protection pattern before its signature turn arrives.",
-        defeat: "The Fang's owner is congratulated on a yard he does not own yet. Sena is still at the rail when the crowd goes. She has not asked you to stop.",
+        lesson: "Break the champion's guard pattern before its signature turn arrives.",
+        defeat: "Officials congratulate the Fang's owner on taking Vale's yard before the order is signed. Sena stays at the rail and tells Orin to keep the entry open.",
         roster: {
             roles: ["defender", "defender", "assassin", "sage"],
             elements: ["Fire", "Earth", "Fire", "Lightning"],
@@ -178,22 +178,22 @@ export const FIRST_PACT_VOWS = [
         id: "open-road",
         choice: "They may leave me. Their place beside me stays open.",
         anchors: ["exit"] as const,
-        consequence: "The Court leaves the west gate open and waits for one witness to take the exit you promised.",
-        returnCopy: "One companion pauses at the threshold and looks back. It crosses only after choosing your road again. You kept the exit open.",
+        consequence: "The Court opens the west gate and tries to split your formation by offering one companion the exit you promised.",
+        returnCopy: "One companion pauses at the threshold, looks back, and then crosses after you. The road remained open, and the choice remained theirs.",
     },
     {
         id: "shared-reason",
         choice: "I tell them why I fight. Trust is theirs to give.",
         anchors: ["reason", "trust"] as const,
-        consequence: "The Court heard your reason and shaped its opening exchange around the command it expects you to give.",
-        returnCopy: "The Court learned your reason and still could not make that reason theirs. Your companions cross because their trust remained a choice.",
+        consequence: "The Court repeats your reason as an order and shapes its opening exchange around the response it expects.",
+        returnCopy: "At the threshold, the Court repeats your reason in its command voice. One companion waits until the order ends, then crosses beside you for the reason you shared.",
     },
     {
         id: "kept-future",
         choice: "Record where they disagreed with me. Their future is not mine to edit.",
         anchors: ["future"] as const,
-        consequence: "The Court repeats every disagreement Vey preserved and expects four possible futures to split your formation.",
-        returnCopy: "Vey's copy keeps every disagreement beside your vow. Four futures leave the city together, with none edited into your command.",
+        consequence: "The Court repeats every disagreement Vey recorded and uses each one to pull your four companions toward a different position.",
+        returnCopy: "Vey leaves every disagreement uncrossed beside your vow. Your four reach the threshold at different paces, wait until all are ready, and cross together.",
     },
 ] as const satisfies readonly {
     id: string;
@@ -231,8 +231,8 @@ export const FIRST_PACT_MAIN_ENCOUNTERS = [
         chapterOnWin: 2,
         standing: 250,
         // A defender pair, so the restraint the lesson names is really there.
-        lesson: "The Court calls obedience kindness. Rotate through its restraint pattern and keep both field positions free.",
-        defeat: "The Menagerie is led out unhurried, the way a thing is led that was never in danger. A clerk asks whether you would like the finding read aloud. Vey answers for you.",
+        lesson: "The Menagerie locks one active position at a time. Rotate before the restraint lands and keep both positions available.",
+        defeat: "The handlers lead the Menagerie out at an easy pace. A clerk offers to read the Court's ownership finding. Vey tells her to save her breath.",
         roster: {
             roles: ["defender", "defender", "tracker", "sage"],
             elements: ["Earth", "Water", "Wind", "Fire"],
@@ -249,8 +249,8 @@ export const FIRST_PACT_MAIN_ENCOUNTERS = [
         chapterOnWin: 3,
         standing: 350,
         // Assassins pivot, so the lattice really does move out from under you.
-        lesson: "The intake punishes repetition. Change targets, elements, and field roles before the lattice learns your rhythm.",
-        defeat: "The intake closes on its own schedule and the wardens step back inside it. Tam swears once, quietly, at a gate she helped build.",
+        lesson: "Both assassins can strike and withdraw behind the healthiest reserve. Keep a counter ready for the pet that pivots in.",
+        defeat: "The intake lock closes and the wardens step back behind it. Tam checks the pressure dial, swears once, and starts resetting the bypass.",
         roster: {
             roles: ["assassin", "assassin", "tracker", "defender"],
             elements: ["Lightning", "Fire", "Lightning", "Earth"],
@@ -278,8 +278,8 @@ export const FIRST_PACT_MAIN_ENCOUNTERS = [
         victoryStep: "challenge-court-echo",
         chapterOnWin: 4,
         standing: 200,
-        lesson: "The Court measures before it strikes. Every mark it lands is a note taken; break the marked pet's rhythm before the note is used.",
-        defeat: "The Assessors do not celebrate. They finish their notes, and one of them writes a word beside your name that you are not shown.",
+        lesson: "The Assessors mark a pet before striking it. Rotate or change that pet's action before they use the mark.",
+        defeat: "The Assessors finish their notes without looking up. One writes a word beside your name, covers it with a thumb, and hands the page to Orin.",
         roster: {
             roles: ["tracker", "tracker", "assassin", "defender"],
             elements: ["Lightning", "Wind", "Lightning", "Earth"],
@@ -296,8 +296,8 @@ export const FIRST_PACT_MAIN_ENCOUNTERS = [
         victoryStep: "challenge-court-echo",
         chapterOnWin: 4,
         standing: 250,
-        lesson: "They will not fight you; they will change the room until the room fights you. Hold a reserve that answers the standing weather.",
-        defeat: "The weather they raised stays up over an empty ring after the bout, because nobody has ordered it down.",
+        lesson: "The Chorus changes the arena weather instead of attacking directly. Keep a reserve whose element answers the current weather.",
+        defeat: "The Chorus leaves the summoned weather hanging over the empty ring. Orin waits for an order to clear it; none comes.",
         roster: {
             roles: ["sage", "sage", "sage", "tracker"],
             elements: ["Water", "Fire", "Wind", "Water"],
@@ -314,8 +314,8 @@ export const FIRST_PACT_MAIN_ENCOUNTERS = [
         victoryStep: "challenge-court-echo",
         chapterOnWin: 4,
         standing: 300,
-        lesson: "Nothing here dies while the pattern holds, and the pattern is obedience. Force a turn it was never ordered to take.",
-        defeat: "The Wall is standing where it was told to stand. It is not breathing hard. Nothing here was ever asked to.",
+        lesson: "The Wall recovers while its guard order remains unbroken. Force it to change roles before you spend your strongest turn.",
+        defeat: "The Wall returns to its starting marks without waiting for praise. Its handlers check the spacing and never address the animals by name.",
         roster: {
             roles: ["defender", "defender", "defender", "sage"],
             elements: ["Earth", "Water", "Fire", "Earth"],
@@ -334,8 +334,8 @@ export const FIRST_PACT_MAIN_ENCOUNTERS = [
         standing: 700,
         // One of each role: the Echo answers every argument the first three
         // rounds made separately, which is the whole point of it going last.
-        lesson: "No companion is property. Win by trusting all four positions, including the reserves the Court dismisses as excess.",
-        defeat: "The Echo returns your companions to you one at a time, correctly, and waits to see whether you will thank it. The Court will hear the claim again. It is in no hurry.",
+        lesson: "Use all four companions and let the reserves answer openings the Court considers expendable.",
+        defeat: "The Echo returns your companions one at a time and waits for your response. Orin keeps the hearing open for another attempt.",
         roster: {
             roles: ["defender", "sage", "assassin", "tracker"],
             elements: ["Fire", "Water", "Wind", "Lightning"],
@@ -394,9 +394,9 @@ export const FIRST_PACT_DISTRICT_WRITS = [
         giver: "bellwarden-isu",
         tier: "champion",
         standing: 175,
-        summons: "They came at dawn with muzzles sized for animals that have not been measured. The bell rang before they reached the roost, and nobody pulled it.",
-        lesson: "They will silence the loudest of yours first. Lead with the one they expect to hear, and answer from the reserve they did not.",
-        defeat: "The detail files the bout as inconclusive and stays camped below the roost. Isu keeps the bell rope in her hand and does not go home.",
+        summons: "They brought muzzles before dawn, though nobody measured my rookbeasts. The bell rang while the detail was still on the stairs. I need them away from the roost before the next ringing.",
+        lesson: "The detail targets the loudest active pet first. Draw that restraint, then answer with the reserve they ignored.",
+        defeat: "The detail calls the bout inconclusive and camps below the roost. Isu keeps one hand on the bell rope and sends her relief warden home.",
         roster: {
             roles: ["tracker", "tracker", "defender", "sage"],
             elements: ["Wind", "Lightning", "Wind", "Earth"],
@@ -411,9 +411,9 @@ export const FIRST_PACT_DISTRICT_WRITS = [
         giver: "market-rho",
         tier: "champion",
         standing: 175,
-        summons: "An auditor counted my stock this morning, then counted the beasts hauling it and used the same column for both. I asked her to use a different column. She asked me to move.",
-        lesson: "An auditor spends the fight proving your reserves are surplus. Use all four and the argument writes itself.",
-        defeat: "The auditor rules that her count stands and schedules a second visit. Rho starts moving stock she has no intention of surrendering.",
+        summons: "The auditor put my haulers in the STOCK column beside the feed sacks. I asked for a separate count. She ordered me off my own counter. Help me clear it before she returns.",
+        lesson: "The auditors treat reserves as surplus. Rotate all four companions so their count cannot erase either reserve.",
+        defeat: "The auditor keeps her count and schedules another visit. Rho moves the feed sacks indoors and leaves the haulers in the yard with their name boards.",
         roster: {
             roles: ["sage", "tracker", "assassin", "defender"],
             elements: ["Fire", "Water", "Fire", "Water"],
@@ -428,9 +428,9 @@ export const FIRST_PACT_DISTRICT_WRITS = [
         giver: "garden-keeper",
         tier: "champion",
         standing: 175,
-        summons: "An order came to cut back everything that grew in a direction the plan did not allow. The plan is four hundred years old. So is the tree.",
-        lesson: "They cut what reaches. Keep reaching, and make the second rank the thing that finishes the turn.",
-        defeat: "The Order marks the tree and leaves the marks up. Old Kaio spends the evening washing chalk off bark that is older than the plan.",
+        summons: "The order says every branch outside the old plan must go. This tree and that plan are both four hundred years old, but only one is still growing. Keep their saws off it.",
+        lesson: "The Order strikes whatever reaches from the front. Let the second active position finish the turn while the first draws the cut.",
+        defeat: "The Order leaves its cut marks on the trunk. Kaio brings a brush and water, then starts washing the chalk off before the detail has cleared the path.",
         roster: {
             roles: ["defender", "sage", "sage", "assassin"],
             elements: ["Earth", "Earth", "Water", "Wind"],
@@ -445,9 +445,9 @@ export const FIRST_PACT_DISTRICT_WRITS = [
         giver: "kennel-hand",
         tier: "champion",
         standing: 175,
-        summons: "They have paper for four of ours. Sena is at the Colosseum and the paper is dated today, which is how they like to do it. I can hold the gate. I cannot hold the gate alone.",
-        lesson: "An impound is patient and it does not tire. Break something before its fourth turn or it takes the yard by arithmetic.",
-        defeat: "The detail withdraws to the ward gate with the paper still in hand. Pell holds the gate. He will be holding it when you come back.",
+        summons: "The detail has an order for four beasts, signed today while Sena is at the Colosseum. I can keep this gate shut for a minute. I need you to make that minute enough.",
+        lesson: "The impound completes its claim on the fourth turn. Break its formation before then.",
+        defeat: "The detail falls back to the ward gate with the order still valid. Pell resets the bar, braces it with his shoulder, and tells you to hurry back.",
         roster: {
             roles: ["defender", "defender", "tracker", "assassin"],
             elements: ["Lightning", "Fire", "Earth", "Lightning"],
@@ -505,6 +505,15 @@ export type FirstPactWorldPosition = {
     district: FirstPactDistrict;
 };
 
+export const FIRST_PACT_AFTERMATH_IDS = [
+    "writ-silencing",
+    "writ-audit",
+    "writ-pruning",
+    "writ-impound",
+    "vale-stable",
+] as const;
+export type FirstPactAftermathId = typeof FIRST_PACT_AFTERMATH_IDS[number];
+
 export type FirstPactProgress = {
     version: typeof FIRST_PACT_PROGRESS_VERSION;
     enteredAt: number;
@@ -518,6 +527,14 @@ export type FirstPactProgress = {
         omens: FirstPactOmen[];
         battleProofs: string[];
         pactVow?: FirstPactVowId;
+        /** The sealed Lattice formation that arrived at the vow. */
+        latticeCompanionIds?: string[];
+        /** The four companions whose sealed Lattice victory preceded the vow. */
+        pactCompanionIds?: string[];
+        /** Their server-owned names at the moment the vow was accepted, aligned
+         *  with `pactCompanionIds`. A null slot means the surviving record could
+         *  not recover that historical name. */
+        pactCompanionNames?: Array<string | null>;
         completedAt?: number;
     };
     stableQuest: {
@@ -539,6 +556,9 @@ export type FirstPactProgress = {
     /** Answered writs whose finding the player has since paid to have entered
      *  into the permanent record. Always a subset of `writs`. */
     findings: string[];
+    /** Optional return visits made after the Balancing. These change no reward
+     * or completion gate; they only remember which surviving details were seen. */
+    aftermathVisits: FirstPactAftermathId[];
     /** The rerun. `round` is the current sitting of a live run, `best` the
      *  furthest ever reached, `clears` the number of full gauntlets answered.
      *  Kept entirely apart from `finalTrial`, so re-fighting the Balancing can
@@ -579,6 +599,7 @@ export function createFirstPactProgress(now = Date.now()): FirstPactProgress {
         writs: [],
         writProofs: [],
         findings: [],
+        aftermathVisits: [],
         standingCourt: { round: 0, best: 0, clears: 0, battleProofs: [] },
     };
 }
@@ -635,9 +656,30 @@ export function normalizeFirstPactProgress(value: unknown, now = Date.now()): Fi
     const pactVow = VOW_SET.has(String(mainSource.pactVow ?? ""))
         ? String(mainSource.pactVow) as FirstPactVowId
         : undefined;
+    const sealedCompanionIds = (value: unknown) => {
+        const ids = [...new Set((Array.isArray(value) ? value : [])
+            .filter((entry): entry is string => typeof entry === "string")
+            .map((entry) => entry.trim().slice(0, 96))
+            .filter(Boolean))];
+        return ids.length === FIRST_PACT_TEAM_SIZE ? ids : undefined;
+    };
+    const latticeCompanionIds = sealedCompanionIds(mainSource.latticeCompanionIds);
+    const pactCompanionIds = pactVow ? sealedCompanionIds(mainSource.pactCompanionIds) : undefined;
+    const pactCompanionNames = pactCompanionIds
+        ? (Array.isArray(mainSource.pactCompanionNames) && mainSource.pactCompanionNames.length === FIRST_PACT_TEAM_SIZE
+            ? mainSource.pactCompanionNames.map((entry) => {
+                if (typeof entry !== "string") return null;
+                const name = entry.trim().slice(0, 48);
+                return name || null;
+            })
+            : pactCompanionIds.map(() => null))
+        : undefined;
     const answered = [...new Set((Array.isArray(source.writs) ? source.writs : [])
         .filter((entry): entry is string => typeof entry === "string")
         .filter((entry) => WRIT_SET.has(entry)))];
+    const findings = [...new Set((Array.isArray(source.findings) ? source.findings : [])
+        .filter((entry): entry is string => typeof entry === "string")
+        .filter((entry) => WRIT_SET.has(entry) && answered.includes(entry)))];
     const standingSource = source.standingCourt && typeof source.standingCourt === "object" && !Array.isArray(source.standingCourt)
         ? source.standingCourt as Record<string, unknown>
         : {};
@@ -662,6 +704,9 @@ export function normalizeFirstPactProgress(value: unknown, now = Date.now()): Fi
             omens,
             battleProofs: mainProofs,
             ...(pactVow ? { pactVow } : {}),
+            ...(latticeCompanionIds ? { latticeCompanionIds } : {}),
+            ...(pactCompanionIds ? { pactCompanionIds } : {}),
+            ...(pactCompanionNames ? { pactCompanionNames } : {}),
             ...(mainSource.completedAt == null ? {} : { completedAt: finiteInt(mainSource.completedAt, now, 0, Number.MAX_SAFE_INTEGER) }),
         },
         stableQuest: {
@@ -679,9 +724,10 @@ export function normalizeFirstPactProgress(value: unknown, now = Date.now()): Fi
             .filter(Boolean))].slice(-8),
         // A finding cannot exist for a writ this character never answered, so
         // the answered list is the filter rather than the id set alone.
-        findings: [...new Set((Array.isArray(source.findings) ? source.findings : [])
-            .filter((entry): entry is string => typeof entry === "string")
-            .filter((entry) => WRIT_SET.has(entry) && answered.includes(entry)))],
+        findings,
+        aftermathVisits: [...new Set((Array.isArray(source.aftermathVisits) ? source.aftermathVisits : [])
+            .filter((entry): entry is FirstPactAftermathId => typeof entry === "string"
+                && (entry === "vale-stable" ? status === "complete" : findings.includes(entry))))],
         standingCourt: {
             // A run in progress is clamped to a real sitting: a stored round at
             // or past the end of the gauntlet is a finished run, which starts
@@ -864,6 +910,77 @@ export function enterFirstPactFinding(
     return { progress: next, advanced: true };
 }
 
+/** Keep the four companions from the server-settled Lattice victory that leads
+ * directly to the vow. The caller supplies the sealed battle formation. */
+export function recordFirstPactLatticeCompanions(
+    progress: FirstPactProgress,
+    companionIds: readonly string[],
+): FirstPactProgress {
+    if (progress.mainQuest.latticeCompanionIds || progress.mainStep !== "make-first-pact"
+        || !progress.flags.includes("defeated-lattice-guardian")) return progress;
+    const ids = [...new Set(companionIds
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim().slice(0, 96))
+        .filter(Boolean))];
+    if (ids.length !== FIRST_PACT_TEAM_SIZE) return progress;
+    return { ...progress, mainQuest: { ...progress.mainQuest, latticeCompanionIds: ids } };
+}
+
+/** Seal the names that the server currently has for the already-bound pact
+ * companions. The ids choose the order; a pet list can fill a name, never
+ * choose a companion or replace an existing snapshot. */
+export function recordFirstPactCompanionNames(
+    progress: FirstPactProgress,
+    pets: readonly { id?: unknown; name?: unknown; nickname?: unknown }[],
+): FirstPactProgress {
+    const ids = progress.mainQuest.pactCompanionIds;
+    if (!progress.mainQuest.pactVow || !ids || progress.mainQuest.pactCompanionNames) return progress;
+    const byId = new Map(pets
+        .map((pet) => [String(pet.id ?? "").trim().slice(0, 96), pet] as const)
+        .filter(([id]) => id));
+    const names = ids.map((id) => {
+        const pet = byId.get(id);
+        const nickname = typeof pet?.nickname === "string" ? pet.nickname.trim().slice(0, 48) : "";
+        const name = typeof pet?.name === "string" ? pet.name.trim().slice(0, 48) : "";
+        return nickname || name || null;
+    });
+    return { ...progress, mainQuest: { ...progress.mainQuest, pactCompanionNames: names } };
+}
+
+export function firstPactAvailableAftermath(progress: FirstPactProgress): FirstPactAftermathId[] {
+    const unlocked = progress.findings.filter((id): id is FirstPactAftermathId =>
+        (FIRST_PACT_AFTERMATH_IDS as readonly string[]).includes(id));
+    return progress.stableQuest.status === "complete" ? [...unlocked, "vale-stable"] : unlocked;
+}
+
+/** Optional return visits are available only after the Balancing. They grant
+ * nothing and never gate `complete-crossing`. */
+export function visitFirstPactAftermath(
+    progress: FirstPactProgress,
+    id: unknown,
+    now = Date.now(),
+): { progress: FirstPactProgress; visited: boolean; replayed: boolean } {
+    if (progress.mainStep !== "return-to-threshold" && progress.mainStep !== "complete") {
+        return { progress, visited: false, replayed: false };
+    }
+    const safe = String(id) as FirstPactAftermathId;
+    if (!firstPactAvailableAftermath(progress).includes(safe)) {
+        return { progress, visited: false, replayed: false };
+    }
+    if (progress.aftermathVisits.includes(safe)) {
+        return { progress, visited: false, replayed: true };
+    }
+    return {
+        progress: {
+            ...progress,
+            lastVisitedAt: now,
+            aftermathVisits: [...progress.aftermathVisits, safe],
+        },
+        visited: true,
+        replayed: false,
+    };
+}
+
 /**
  * The Standing Court.
  *
@@ -944,8 +1061,8 @@ export const FIRST_PACT_STANDING_COURT_ROUNDS: readonly FirstPactStandingCourtRo
          * it lost. The rerun is not a difficulty setting; it is the consequence
          * of having won.
          */
-        lesson: "The Court has stopped arguing and started answering. It brought your own four positions to do it, so there is nothing on that sand you did not choose yourself.",
-        defeat: "The Arbiter files the result without comment and steps down off the sand, and the four that beat you are led away in the order you would have led them. Nothing is taken. The docket opens again at the top.",
+        lesson: "The Arbiter mirrors the roles and elements of the four you brought. Change active positions and target order before the reflection settles into your formation.",
+        defeat: "The Arbiter files the result and steps off the sand. The mirrored four leave in your usual order. Nothing is taken, and the docket returns to its first sitting.",
         roster: { mirrorsPlayer: true, growthShareBonus: .35 },
     },
 ];
@@ -1129,7 +1246,13 @@ export function advanceFirstPactMainBeat(
             chapter: 4,
             mainStep: "challenge-court-echo",
             courtStanding: progress.courtStanding + 150,
-            mainQuest: { ...progress.mainQuest, pactVow: vow.id },
+            mainQuest: {
+                ...progress.mainQuest,
+                pactVow: vow.id,
+                ...(progress.mainQuest.latticeCompanionIds
+                    ? { pactCompanionIds: progress.mainQuest.latticeCompanionIds }
+                    : {}),
+            },
         };
     } else if (beat === "complete-crossing" && progress.mainStep === "return-to-threshold") {
         next = {

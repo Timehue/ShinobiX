@@ -24,7 +24,7 @@ import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { useSharedNow } from "../lib/use-shared-now";
 import { claimDailyLogin, type DailyLoginResult } from "../lib/daily-login-api";
 import { fetchAnnouncements, fetchEras, fetchLegacyStatus, useLegacyAvailability, type AnnouncementView, type EraView } from "../lib/legacy";
-import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rumorForCategory } from "../lib/legacy-rumors";
+import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rememberedRumorCategory, rumorForCategory } from "../lib/legacy-rumors";
 import { worldReport } from "../lib/daily-briefing";
 import { dailyLoginRyo, STREAK_SHARD_INTERVAL, STREAK_SHARD_REWARD } from "../lib/daily-login-preview";
 import briefingBg from "../assets/daily-briefing.webp";
@@ -93,17 +93,19 @@ export function DailyBriefingModal({
     const [rumor, setRumor] = useState<{ milestone: number; text: string } | null>(null);
     useEffect(() => {
         if (!shouldShow || !legacyAvailable) return;
-        if (character.level >= 50 || character.legacy) return;
-        const milestone = nextUnseenRumorMilestone(character.level);
+        if (character.legacy) return;
+        const milestone = nextUnseenRumorMilestone(character.level, character.name);
         if (milestone == null) return;
         let alive = true;
         void fetchLegacyStatus(character.name).then((s) => {
             if (!alive) return;
-            const top = s?.strongest?.[0];
-            const text = rumorForCategory(top?.category, milestone, { playerName: character.name, tier: top?.tier });
+            if (!s || s.legacy) return;
+            const top = s.strongest?.[0];
+            const category = rememberedRumorCategory(character.name, top?.category);
+            const text = rumorForCategory(category, milestone, { playerName: character.name, tier: top?.tier });
             setRumor({ milestone, text });
-            markLevelRumorSeen(milestone);
-            recordRumorHeard(milestone, text);
+            markLevelRumorSeen(character.name, milestone);
+            recordRumorHeard(character.name, milestone, text);
         });
         return () => { alive = false; };
     }, [shouldShow, legacyAvailable, character.level, character.name, character.legacy]);

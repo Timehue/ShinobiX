@@ -934,6 +934,7 @@ describe('current flat runtime-mode audit projection', () => {
 
   it('retains Dungeon Warden and creator-event sealed Solo-PvE semantics', () => {
     const app = clientSource('App.tsx');
+    const triggeredBattle = clientSource('lib/triggered-event-battle.ts');
     const aiFightStart = readFileSync(join(ROOT, 'api', 'missions', 'ai-fight-start.ts'), 'utf8');
     const genericAuthority = readFileSync(join(ROOT, 'api', 'missions', '_generic-ai-fight-authority.ts'), 'utf8');
     const aiFightOutcome = readFileSync(join(ROOT, 'api', 'missions', '_ai-fight-outcome.ts'), 'utf8');
@@ -960,7 +961,8 @@ describe('current flat runtime-mode audit projection', () => {
 
     assert.equal(creator.battleKind, 'practice');
     assert.equal(creator.rewardPolicy, 'none');
-    assert.match(app, /battleKind:\s*["']practice["']/);
+    assert.match(app, /launchTriggeredEventBattle\(\{/);
+    assert.match(triggeredBattle, /requestAiFight\(\{[\s\S]*?battleKind:\s*["']practice["']/);
     assert.match(genericAuthority, /battleKind\s*===\s*['"]practice['"]/);
     assert.match(aiFightOutcome, /battleKind\s*!==\s*['"]practice['"]\s*&&\s*battleKind\s*!==\s*['"]dungeon['"]/);
     assert.match(reportAiFight, /aiFightPaysReward\(outcome,\s*sealedBattleKind\)/);

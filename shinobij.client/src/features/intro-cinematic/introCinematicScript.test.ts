@@ -41,14 +41,17 @@ test("pre-gift script is non-empty and hands off to the companion choice", () =>
     assert.ok(PRE_GIFT_LINES.some((l) => l.vision));
 });
 
-test("intro names the Gate as a human-built optimizer and the player as unclassifiable", () => {
+test("intro limits Shiranui to the machine and rescue he directly witnessed", () => {
     const copy = [...PRE_GIFT_LINES, ...buildPostGiftLines(villages[0])].map((line) => line.text).join(" ");
-    assert.match(copy, /People of the Sunken Court built it/i);
-    assert.match(copy, /It does not hunger\. It measures\./i);
+    assert.match(copy, /Sunken Court mason marks cover its housing/i);
+    assert.match(copy, /shrine lintel calls it the Hollow Gate/i);
+    assert.match(copy, /I do not know why the Court built it/i);
+    assert.match(copy, /I know it measures people because I have watched the marks change/i);
     assert.match(copy, /machine beneath the road tried to identify you and pull you in/i);
     assert.match(copy, /brought you here before it could succeed/i);
-    assert.match(copy, /Gate could not decide where you belong/i);
-    assert.match(copy, /That is not destiny/i);
+    assert.match(copy, /slate kept clearing instead of naming a place for you/i);
+    assert.match(copy, /failed record, not a destiny/i);
+    assert.doesNotMatch(copy, /Four intakes beneath the villages|takes a human choice and turns it into something useful/i);
     assert.doesNotMatch(copy, /before your kind first drew breath|it hungers|held the seal/i);
     assert.doesNotMatch(copy, /\bchosen\b/i);
 });

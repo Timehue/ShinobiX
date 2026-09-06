@@ -84,7 +84,7 @@ export const SHRINE_DEFS: readonly ShrineDef[] = [
     {
         id: 'ancients', sector: 44, name: 'Shrine of the Ancients', theme: 'ancients',
         region: 'the Watchruin Ridge',
-        lore: 'Raised in the Sunken Court’s age. A hundred worn glyphs circle its base, one for each action-pattern Legacy traced to the Ancients who refused cession, the people later called the Withheld.',
+        lore: 'A weathered dedication dates the shrine to the Sunken Court’s age. A hundred worn glyphs circle its base. A later brass plaque interprets them as action-pattern Legacies and attributes them to the Ancients who refused cession, the people later called the Withheld.',
         blessing: 'May your next deed be freely chosen and faithfully witnessed.',
         left: 48, top: 45,
     },

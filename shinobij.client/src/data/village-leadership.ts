@@ -1,28 +1,32 @@
-type VillageLeadershipProfile = { kage: string; elders: string[]; atWar: boolean; pastWars: string[] };
+type VillageLeadershipProfile = { kage: string; elders: string[]; roles: string[]; atWar: boolean; pastWars: string[] };
 export type VillageLeadershipImages = Record<string, { kage?: string; elders?: string[] }>;
 
 export const villageLeadership: Record<string, VillageLeadershipProfile> = {
     "Stormveil Village": {
         kage: "Kage Raiko Veyr",
         elders: ["Elder Vanta", "Mira Volt", "Tempest Guard Captain"],
+        roles: ["Bookmaker and record witness", "Arena cable rigger", "Tempest Guard captain"],
         atWar: false,
         pastWars: ["Won the Tempest Border War vs Moonshadow", "Lost the Crimson Dock Raid vs Ashen Leaf", "Draw at the Broken Thunder Pass"],
     },
     "Ashen Leaf Village": {
         kage: "Kage Hoshina Enju",
         elders: ["Elder Mori", "Toma Reed", "Registry Duty Clerk"],
+        roles: ["Register record keeper", "Carpenter and family witness", "Registry duty clerk"],
         atWar: false,
         pastWars: ["Won the Crimson Dock Raid vs Stormveil", "Won the Ember Road Defense vs Frostfang", "Lost the Old Grove Skirmish vs Moonshadow"],
     },
     "Frostfang Village": {
         kage: "Kage Kael Whitefang",
         elders: ["Elder Sova", "Captain Yura", "Seal-Keeper Vess"],
+        roles: ["Count record keeper", "Wall and rescue captain", "Seal keeper"],
         atWar: false,
         pastWars: ["Won the White Ridge Siege vs Moonshadow", "Lost the Ember Road Assault vs Ashen Leaf", "Draw at the Frozen Gate"],
     },
     "Moonshadow Village": {
         kage: "Kage Sable Nocturne",
         elders: ["Shade Master Iro", "Nyx", "Veiled Hand Grandmaster"],
+        roles: ["Archive custodian", "Information broker", "Veiled Hand officer"],
         atWar: false,
         pastWars: ["Won the Old Grove Skirmish vs Ashen Leaf", "Lost the White Ridge Siege vs Frostfang", "Lost the Tempest Border War vs Stormveil"],
     },

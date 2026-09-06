@@ -20,6 +20,11 @@ test("The First Pact is lazy-mounted from the Celestial Tower and level-gated at
     assert.match(app, /screen === "firstPact"[\s\S]{0,500}<FirstPact/);
     assert.match(app, /<FirstPact[\s\S]{0,500}onExit=\{\(\) => setScreen\("centralHub"\)\}/);
     assert.match(app, /<FirstPact[\s\S]{0,500}onBattleActiveChange=\{setPetBattleActive\}/);
+    assert.match(app, /<FirstPact[\s\S]{0,500}onVersionedCharacter=\{commitVersionedCharacter\}/,
+        "completion must adopt its authoritative reward character and version together");
+    assert.match(firstPact, /applyGrantCharacter\(result, requestAccount\)/);
+    assert.match(firstPact, /!mountedRef\.current[\s\S]{0,240}accountNameRef\.current[\s\S]{0,240}result\.character\.name/,
+        "late or foreign completion responses must not cross an account boundary");
     assert.match(hub, /disabled=\{character\.level < 100\}/);
     assert.match(hub, /setScreen\("firstPact"\)/);
     assert.match(hub, /two active pets plus two reserves/i);

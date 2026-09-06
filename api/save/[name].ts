@@ -4,6 +4,7 @@ import { recordBetaFunnelStep } from '../_beta-funnel.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { WORLD_GEO_VERSION } from '../../shared/sector-geo.js';
+import { parseStoryFieldRecords, storyFieldTraits } from '../../shared/story-field-work.js';
 import { WORLD_CRISIS_TRIGGER_LEVEL } from '../../shared/world-crisis.js';
 import { WORLD_CRISIS_80_TRIGGER_LEVEL } from '../../shared/world-crisis-80.js';
 import { petStatCeil } from '../_pet-stat-ceil.js';
@@ -60,7 +61,7 @@ import {
     CHRONICLE_PROGRESSION_CARD_IDS,
     isChronicleProgressionCardId,
 } from '../card-clash/_progression-cards.js';
-import { detachPlayerReferences } from '../_delete-player-account.js';
+import { deletePlayerFirstPactState, detachPlayerReferences } from '../_delete-player-account.js';
 import { ClanDissolutionForbiddenError, dissolveClanUnderLock } from '../clan/_dissolve.js';
 import { awardWarEndClanXp } from '../clan/war/_war-xp.js';
 import { REGISTRY_KEY, buildPublicPlayerIndexEntry } from '../player/_public-index.js';
@@ -876,6 +877,83 @@ function grantOwnedBloodlineJutsuMastery(char: Record<string, unknown>, savedBlo
     }
 }
 
+const narrativeId = (value: unknown, max = 160) => typeof value === 'string' ? value.trim().slice(0, max) : '';
+const narrativeIndex = (value: unknown, max: number) => Math.max(0, Math.min(max, Math.floor(Number(value) || 0)));
+
+function sanitizeNarrativeChoices(...sources: unknown[]): Record<string, unknown>[] {
+    const out: Record<string, unknown>[] = [], seen = new Set<string>();
+    for (const source of sources) for (const raw of Array.isArray(source) ? source : []) {
+        if (!raw || typeof raw !== 'object') continue;
+        const row = raw as Record<string, unknown>;
+        const eventId = narrativeId(row.eventId), pageId = narrativeId(row.pageId), choiceId = narrativeId(row.choiceId);
+        if (!eventId || !pageId || !choiceId) continue;
+        const suffix = row.battle === true ? '\u0000terminal' : row.revisitable === true ? `\u0000${choiceId}` : '';
+        const key = `${eventId}\u0000${pageId}${suffix}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const trait = narrativeId(row.trait);
+        out.push({
+            version: 1, eventId, pageId, choiceId,
+            pageIndex: narrativeIndex(row.pageIndex, 999),
+            choiceIndex: narrativeIndex(row.choiceIndex, 99),
+            nextPage: narrativeIndex(row.nextPage, 999),
+            ...(trait ? { trait } : {}),
+            ...(row.battle === true ? { battle: true } : {}),
+            ...(row.revisitable === true ? { revisitable: true } : {}),
+        });
+        if (out.length >= 512) return out;
+    }
+    return out;
+}
+
+function sanitizeNarrativeReports(value: unknown): Record<string, unknown>[] {
+    const out: Record<string, unknown>[] = [], seen = new Set<string>();
+    for (const raw of Array.isArray(value) ? value : []) {
+        if (!raw || typeof raw !== 'object') continue;
+        const row = raw as Record<string, unknown>;
+        const kind = row.kind === 'interlude' || row.kind === 'road' ? row.kind : null;
+        const eventId = narrativeId(row.eventId), trait = narrativeId(row.trait);
+        if (!kind || !eventId || !trait || seen.has(`${kind}:${eventId}`)) continue;
+        seen.add(`${kind}:${eventId}`);
+        const recordedTrait = narrativeId(row.recordedTrait);
+        out.push({ version: 1, kind, eventId, trait,
+            ...(row.status === 'conflict' ? { status: 'conflict' } : {}),
+            ...(row.status === 'conflict' && recordedTrait ? { recordedTrait } : {}) });
+        if (out.length >= 64) break;
+    }
+    return out;
+}
+
+function sanitizeNarrativeEpilogues(stored: unknown, incoming: unknown): Record<string, unknown>[] {
+    const byChapter = new Map<string, Record<string, unknown>>();
+    for (const source of [stored, incoming]) for (const raw of Array.isArray(source) ? source : []) {
+        if (!raw || typeof raw !== 'object') continue;
+        const row = raw as Record<string, unknown>;
+        const chapterEventId = narrativeId(row.chapterEventId), lane = narrativeId(row.lane);
+        if (!chapterEventId || !lane) continue;
+        const prior = byChapter.get(chapterEventId);
+        const status = row.status === 'seen' || prior?.status === 'seen' ? 'seen' : 'pending';
+        const presentationTraits = Array.isArray(row.presentationTraits)
+            ? [...new Set(row.presentationTraits.map((trait) => narrativeId(trait)).filter(Boolean))].slice(0, 96)
+            : (prior?.presentationTraits ?? []);
+        byChapter.set(chapterEventId, { version: 1, chapterEventId, lane: narrativeId(prior?.lane) || lane, status, presentationTraits });
+        if (byChapter.size >= 8) break;
+    }
+    return [...byChapter.values()].slice(0, 8);
+}
+
+function sanitizeNarrativeScene(value: unknown): Record<string, unknown> | undefined {
+    if (!value || typeof value !== 'object') return undefined;
+    const row = value as Record<string, unknown>, eventId = narrativeId(row.eventId);
+    if (!eventId) return undefined;
+    const history = (Array.isArray(row.history) ? row.history : []).flatMap((raw) => {
+        if (!raw || typeof raw !== 'object') return [];
+        const cursor = raw as Record<string, unknown>;
+        return [{ pageIndex: narrativeIndex(cursor.pageIndex, 999), lineIndex: narrativeIndex(cursor.lineIndex, 999) }];
+    }).slice(-256);
+    return { version: 1, eventId, pageIndex: narrativeIndex(row.pageIndex, 999), lineIndex: narrativeIndex(row.lineIndex, 999), history };
+}
+
 export function sanitizeCharacterSave(
     incoming: Record<string, unknown>,
     existing: Record<string, unknown> | null,
@@ -896,6 +974,28 @@ export function sanitizeCharacterSave(
     if (!exChar || typeof exChar !== 'object') return incoming;
 
     const char: Record<string, unknown> = { ...inChar };
+    if (isFirstSave) delete char.activeStoryReckoning;
+    // Field-route callbacks may only describe a completed server-recorded
+    // journey. Client narrative receipts cannot manufacture another route.
+    const fieldTraits = storyFieldTraits(exChar.storyFieldRecords);
+    if (Array.isArray(char.storyTraits) || fieldTraits.length) {
+        char.storyTraits = [...(Array.isArray(char.storyTraits) ? char.storyTraits : [])
+            .filter((trait): trait is string => typeof trait === 'string' && !trait.startsWith('sf-')), ...fieldTraits];
+    }
+    // Narrative receipts carry no rewards or progression authority. Preserve
+    // immutable decisions across stale authoritative responses, bound every
+    // untrusted field, and let the ordinary save-version fence arbitrate
+    // mutable pending-report/cursor state.
+    char.storyChoices = sanitizeNarrativeChoices(exChar.storyChoices, char.storyChoices);
+    char.pendingStoryReports = sanitizeNarrativeReports(
+        Object.prototype.hasOwnProperty.call(inChar, 'pendingStoryReports') ? char.pendingStoryReports : exChar.pendingStoryReports,
+    );
+    char.storyEpilogues = sanitizeNarrativeEpilogues(exChar.storyEpilogues, char.storyEpilogues);
+    const narrativeScene = sanitizeNarrativeScene(
+        Object.prototype.hasOwnProperty.call(inChar, 'storyScene') ? char.storyScene : exChar.storyScene,
+    );
+    if (narrativeScene) char.storyScene = narrativeScene;
+    else char.storyScene = null;
 
     // A combat specialty is a permanent character-creation identity. Legacy
     // style proof is attributed to this field, so allowing an ordinary client
@@ -1300,6 +1400,8 @@ export function sanitizeCharacterSave(
             else delete char[field];
         }
     }
+    if (!isFirstSave && exChar.storyFieldRecords !== undefined) char.storyFieldRecords = parseStoryFieldRecords(exChar.storyFieldRecords);
+    else delete char.storyFieldRecords;
     // Jutsu mastery is advanced only by server training endpoints. The retired
     // client per-cast XP path is not trusted by generic saves. Character creation
     // may seed level-one rows, but cannot bootstrap trained levels or stored XP.
@@ -3437,6 +3539,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 } catch (err) {
                     console.error('[save DELETE detach]', safeLogValue(err));
                 }
+                // Fail closed on the standalone story lock before deleting the
+                // character or registry row. A retry can then complete the same
+                // fenced deletion without leaving reusable story state behind.
+                await deletePlayerFirstPactState(name);
                 await Promise.all([
                     kv.del(key),
                     kv.hdel(REGISTRY_KEY, name),
