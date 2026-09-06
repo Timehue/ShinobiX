@@ -61,6 +61,11 @@ async function explore(requestId = nextId()) {
         headers: { 'content-type': 'application/json', 'x-player-name': PLAYER, 'x-player-token': token, 'x-forwarded-for': ip },
         socket: { remoteAddress: ip },
     } as never, res);
+    // A rolled battle is an obligation; claim its marker as a started fight
+    // would, so a test that explores twice is not refused by its own first roll.
+    if ((out.body?.outcome as Json | undefined)?.kind === 'battle') {
+        await kv.set(exploreBattleMarkerKey(PLAYER, requestId), { playerName: PLAYER, token: 'fixture', sessionId: 'fixture', at: Date.now() });
+    }
     return { ...out, requestId };
 }
 
