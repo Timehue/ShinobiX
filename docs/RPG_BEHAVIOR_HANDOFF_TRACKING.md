@@ -249,6 +249,8 @@ exit code, not the presence or absence of failure text.
 | Root build + all quick CI gates | `npm run build`, `check:*`, `test:*` scripts | exit 0 |
 | Push | `git push origin HEAD:main` | fast-forward `678006d9c..57e98308a` |
 | Production Image workflow on `57e98308a` | GitHub Actions run 34044782153 | **failed** on the size gate: initial JS/CSS graph 385,010 B gzip vs 385,000. Main had drifted to 384,709 B (291 B under) on run 34017996176; the static `lib/notice-ack` import added 301 B. Per the gate's own history ("the margin is the point"), the helper was trimmed and the gate re-baselined to the 2026-08-23 value, 389,000 B; production-equivalent local build after the trim: 384,974 B gzip. Fix pushed as a follow-up commit. |
+| Size-gate fix `550962243` | GitHub Actions on `main` | Production Image green. CI red on one e2e flake (`echoes-witness.spec.ts:298`, chromium-mobile only; passes on the other four projects and twice locally); `gh run rerun --failed` green. Railway had already cancelled the rollout on the failed check (`in_progress` 16:25Z → `inactive` 16:50Z) and a check rerun does not revive a cancelled Railway deployment. |
+| Empty retrigger `b7e5a1c19` | `git commit --allow-empty` + push | CI, Production Image and CodeQL green. Railway registered **no** GitHub deployment for it in 23 minutes, unlike the three earlier empty retriggers (`349003714`, `5168aaa2b`, `a39ccb8ad`), each registered within seconds of its push. Retriggered again with this doc commit. |
 
 Client files touched in this wave, each nonvisual: `App.tsx` (+1 line hydrating the
 persisted arrival tile at boot; an existing import widened), `screens/WorldMap.tsx`
