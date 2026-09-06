@@ -101,6 +101,39 @@ test("a road-story content outage keeps choices closed until an explicit retry s
     expect(runtime.fieldAttempts()).toBe(0);
 });
 
+// Mirrored from shared/wanderer-roster.ts rather than imported (see the same
+// note in adaptive-shell.spec.ts: that module reaches sideways to
+// `./sector-geo.js`, which the Playwright runner's TypeScript resolution
+// refuses). shared/wanderer-roster.test.ts pins both values on the source side.
+const WANDERER_BUCKET_MS = 6 * 60 * 60 * 1000;
+const WANDERER_MAX_INDEX = 1;
+
+/**
+ * Keep the road empty for a field-work run.
+ *
+ * The sector's natural cast is shared world state rolled per (sector, 6h
+ * bucket), and its bandit archetype HUNTS: it paths to the player and opens a
+ * blocking Fight/Flee encounter by itself (SectorWanderer -> onEngage), no click
+ * needed. A run that is slow enough after the reload -- a loaded CI runner --
+ * then finds that aria-modal scrim over the journal and every click on it
+ * fails with "intercepts pointer events", on whichever step the bandit arrives
+ * (seen on main CI 2026-09-06: "Genta Red-Sash -- encounter"). The supported
+ * way to keep an NPC off the road is its own anti-farm cooldown, which the
+ * sector floor honours as real character state; seeding the whole roster for
+ * the neighbouring buckets too covers a run that straddles a boundary.
+ */
+function quietRoadCooldowns(sector: number, now = Date.now()): Record<string, number> {
+    const expiry = now + 30 * 24 * 60 * 60 * 1000;
+    const cooldowns: Record<string, number> = {};
+    for (const offset of [-1, 0, 1]) {
+        const bucket = Math.floor(now / WANDERER_BUCKET_MS) + offset;
+        for (let index = 0; index <= WANDERER_MAX_INDEX; index++) {
+            cooldowns[`w-${sector}-${bucket}-${index}`] = expiry;
+        }
+    }
+    return cooldowns;
+}
+
 async function installFieldRuntime(page: Page, firstFieldResult: "temporary-error" | "stale-success" = "temporary-error") {
     const initial = uiAuditSave();
     const emptyProgress: FieldProgress = { version: 1, visits: [] };
@@ -124,6 +157,12 @@ async function installFieldRuntime(page: Page, firstFieldResult: "temporary-erro
             fieldWork: emptyProgress,
         },
         storyFieldRecords: { [QUEST_ID]: emptyProgress },
+        // The road NPCs are shared world state, not a per-device toggle; their
+        // own cooldown is what keeps a bandit from walking up and parking a
+        // modal over the journal mid-test. See quietRoadCooldowns. The run stays
+        // in sector 1; sector 2 is the next objective, seeded in case a future
+        // step travels there.
+        wandererCooldowns: { ...quietRoadCooldowns(1), ...quietRoadCooldowns(2) },
     };
 
     await installUiAuditRuntime(page, initial);
