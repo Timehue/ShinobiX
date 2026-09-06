@@ -3942,6 +3942,15 @@ class FirstPactWorldCache {
         return this.pending.size > 0;
     }
 
+    /**
+     * The backing resolution the cache actually holds. The screen canvas
+     * matches it: pixels beyond what the cache carries are pure upscale
+     * cost, and on a capped phone that is 2.6x the fill work for nothing.
+     */
+    renderScale(): number {
+        return this.canvas ? this.scale : 0;
+    }
+
     /** Queue the whole world for repaint: new art arrived. */
     markDirty(): void {
         if (!this.canvas) return;
@@ -4034,12 +4043,34 @@ class FirstPactWorldCache {
     }
 }
 
+/** Frame shading gradients depend only on the viewport size; reuse them. */
+let worldFrameShadingKey = "";
+let worldFrameShading: { night: CanvasGradient; abyssGlow: CanvasGradient; vignette: CanvasGradient } | null = null;
+
+function worldFrameShadingFor(context: CanvasRenderingContext2D, width: number, height: number) {
+    if (worldFrameShading && worldFrameShadingKey === `${width}x${height}`) return worldFrameShading;
+    const night = context.createLinearGradient(0, 0, 0, height);
+    night.addColorStop(0, "#07111f");
+    night.addColorStop(1, "#02060d");
+    const abyssGlow = context.createRadialGradient(width * .55, height * 1.05, 12, width * .55, height * 1.05, Math.max(width, height) * .7);
+    abyssGlow.addColorStop(0, "rgba(21, 112, 127, .22)");
+    abyssGlow.addColorStop(.45, "rgba(8, 43, 58, .08)");
+    abyssGlow.addColorStop(1, "rgba(1, 4, 9, 0)");
+    const vignette = context.createRadialGradient(width / 2, height / 2, Math.min(width, height) * 0.2, width / 2, height / 2, Math.max(width, height) * 0.7);
+    vignette.addColorStop(0, "rgba(0,0,0,0)");
+    vignette.addColorStop(1, "rgba(0,5,13,.52)");
+    worldFrameShadingKey = `${width}x${height}`;
+    worldFrameShading = { night, abyssGlow, vignette };
+    return worldFrameShading;
+}
+
 function renderWorld(canvas: HTMLCanvasElement, camera: Camera, art: FirstPactWorldArt = {}, cache?: FirstPactWorldCache | null): void {
     // Stepping back into the street must retract the interior's render proof;
     // otherwise the canvas keeps reporting a room the player already left, and
     // every QA pass reading that attribute is reading a stale answer.
     canvas.removeAttribute("data-fp-interior-proof");
-    const ratio = Math.min(2, window.devicePixelRatio || 1);
+    const cacheScale = cache?.renderScale() ?? 0;
+    const ratio = Math.min(cacheScale > 0 ? cacheScale : 2, Math.min(2, window.devicePixelRatio || 1));
     const width = Math.max(1, Math.floor(camera.width));
     const height = Math.max(1, Math.floor(camera.height));
     if (canvas.width !== Math.floor(width * ratio) || canvas.height !== Math.floor(height * ratio)) {
@@ -4051,16 +4082,10 @@ function renderWorld(canvas: HTMLCanvasElement, camera: Camera, art: FirstPactWo
     const context = canvas.getContext("2d");
     if (!context) return;
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    const night = context.createLinearGradient(0, 0, 0, height);
-    night.addColorStop(0, "#07111f");
-    night.addColorStop(1, "#02060d");
-    context.fillStyle = night;
+    const shading = worldFrameShadingFor(context, width, height);
+    context.fillStyle = shading.night;
     context.fillRect(0, 0, width, height);
-    const abyssGlow = context.createRadialGradient(width * .55, height * 1.05, 12, width * .55, height * 1.05, Math.max(width, height) * .7);
-    abyssGlow.addColorStop(0, "rgba(21, 112, 127, .22)");
-    abyssGlow.addColorStop(.45, "rgba(8, 43, 58, .08)");
-    abyssGlow.addColorStop(1, "rgba(1, 4, 9, 0)");
-    context.fillStyle = abyssGlow;
+    context.fillStyle = shading.abyssGlow;
     context.fillRect(0, 0, width, height);
 
     // The static city arrives as one cache blit whenever the offscreen canvas
@@ -4068,10 +4093,7 @@ function renderWorld(canvas: HTMLCanvasElement, camera: Camera, art: FirstPactWo
     // that refused it.
     if (!cache?.draw(context, camera, art)) paintWorldRegion(context, camera, art);
 
-    const vignette = context.createRadialGradient(width / 2, height / 2, Math.min(width, height) * 0.2, width / 2, height / 2, Math.max(width, height) * 0.7);
-    vignette.addColorStop(0, "rgba(0,0,0,0)");
-    vignette.addColorStop(1, "rgba(0,5,13,.52)");
-    context.fillStyle = vignette;
+    context.fillStyle = shading.vignette;
     context.fillRect(0, 0, width, height);
 }
 
@@ -4185,31 +4207,26 @@ function renderMinimap(
     const width = 210;
     const height = 140;
     const ratio = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = width * ratio;
-    canvas.height = height * ratio;
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
+    // Resizing a canvas reallocates and clears its backing store, so only
+    // touch the dimensions when they actually changed; this runs on every
+    // wander tick, not only on player steps.
+    if (canvas.width !== width * ratio || canvas.height !== height * ratio) {
+        canvas.width = width * ratio;
+        canvas.height = height * ratio;
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+    }
     const context = canvas.getContext("2d");
     if (!context) return;
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    context.fillStyle = "#030811";
-    context.fillRect(0, 0, width, height);
     const scaleX = width / FIRST_PACT_WORLD_WIDTH;
     const scaleY = height / FIRST_PACT_WORLD_HEIGHT;
-    for (let y = 0; y < FIRST_PACT_WORLD_HEIGHT; y += 1) {
-        for (let x = 0; x < FIRST_PACT_WORLD_WIDTH; x += 1) {
-            const tile = firstPactTileAt(x, y);
-            context.fillStyle = tile === FirstPactTile.Water
-                ? TILE_PALETTE[FirstPactTile.Water].base
-                : !isFirstPactWalkable(x, y)
-                    ? "#101923"
-                : isFirstPactGardensPrimaryRoute(x, y)
-                    ? "#68645d"
-                    : isFirstPactGardensSecondaryRoute(x, y)
-                        ? "#5e605b"
-                        : TILE_PALETTE[tile].base;
-            context.fillRect(x * scaleX, y * scaleY, Math.ceil(scaleX), Math.ceil(scaleY));
-        }
+    const base = minimapBase(width, height, ratio);
+    if (base) {
+        context.drawImage(base, 0, 0, width, height);
+    } else {
+        context.fillStyle = "#030811";
+        context.fillRect(0, 0, width, height);
     }
     for (const state of Object.values(runtime)) {
         context.fillStyle = "rgba(231,189,114,.68)";
@@ -4231,6 +4248,59 @@ function renderMinimap(
     context.shadowBlur = 0;
     context.strokeStyle = "rgba(231,189,114,.35)";
     context.strokeRect(.5, .5, width - 1, height - 1);
+}
+
+/**
+ * The minimap's tile base never changes, but renderMinimap runs on every
+ * wander tick. Painting the 84x56 grid once here turns each refresh into a
+ * single blit plus a handful of actor dots.
+ */
+let minimapBaseCanvas: HTMLCanvasElement | null = null;
+let minimapBaseRatio = 0;
+
+function minimapBase(width: number, height: number, ratio: number): HTMLCanvasElement | null {
+    if (minimapBaseCanvas && minimapBaseRatio === ratio) return minimapBaseCanvas;
+    const canvas = document.createElement("canvas");
+    canvas.width = width * ratio;
+    canvas.height = height * ratio;
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    context.fillStyle = "#030811";
+    context.fillRect(0, 0, width, height);
+    const scaleX = width / FIRST_PACT_WORLD_WIDTH;
+    const scaleY = height / FIRST_PACT_WORLD_HEIGHT;
+    for (let y = 0; y < FIRST_PACT_WORLD_HEIGHT; y += 1) {
+        for (let x = 0; x < FIRST_PACT_WORLD_WIDTH; x += 1) {
+            const tile = firstPactTileAt(x, y);
+            context.fillStyle = tile === FirstPactTile.Water
+                ? TILE_PALETTE[FirstPactTile.Water].base
+                : !isFirstPactWalkable(x, y)
+                    ? "#101923"
+                : isFirstPactGardensPrimaryRoute(x, y)
+                    ? "#68645d"
+                    : isFirstPactGardensSecondaryRoute(x, y)
+                        ? "#5e605b"
+                        : TILE_PALETTE[tile].base;
+            context.fillRect(x * scaleX, y * scaleY, Math.ceil(scaleX), Math.ceil(scaleY));
+        }
+    }
+    minimapBaseCanvas = canvas;
+    minimapBaseRatio = ratio;
+    return canvas;
+}
+
+/**
+ * Module-level scratch canvases outlive the component by design so a visit
+ * can reuse them; leaving the city hands their memory back instead. The next
+ * visit simply repaints them.
+ */
+function releaseFirstPactSharedScratch(): void {
+    kennelBoulevardLayerCanvas = null;
+    minimapBaseCanvas = null;
+    minimapBaseRatio = 0;
+    worldFrameShadingKey = "";
+    worldFrameShading = null;
 }
 
 function firstPactEpilogue(progress: FirstPactProgress) {
@@ -4894,6 +4964,7 @@ export function FirstPact({
         window.cancelAnimationFrame(worldCachePumpRef.current);
         // 40-170MB of offscreen canvas leaves with the screen, not the session.
         worldCacheRef.current = null;
+        releaseFirstPactSharedScratch();
     }, []);
 
     const movementLocked = loading || !entered || !!dialogNpc || squadOpen || journalOpen || epiloguePage != null || !!battle || !!interior;
@@ -5164,37 +5235,30 @@ export function FirstPact({
         prepareImage(propsAtlas, sunkenCourtStreetProps, (image) => { propsAtlasRef.current = image; setPropsAtlasReady(true); });
         return () => {
             alive = false;
-            tileAtlas.onload = null;
-            architectureAtlas.onload = null;
-            bellQuarterAtlas.onload = null;
-            valeStable.onload = null;
-            stableTackAnnex.onload = null;
-            handlerLodge.onload = null;
-            kennelInfirmary.onload = null;
-            kennelHouse.onload = null;
-            feedStore.onload = null;
-            kennelPavilion.onload = null;
-            bondingCedar.onload = null;
-            gardenLodge.onload = null;
-            guardianHall.onload = null;
-            gardenCourtPavilion.onload = null;
-            gardenCourtFountain.onload = null;
-            gardenCourtKaioTree.onload = null;
-            gardenCourtListeningBench.onload = null;
-            gardenMapleA.onload = null;
-            gardenMapleB.onload = null;
-            gardenBedLong.onload = null;
-            gardenBedCorner.onload = null;
-            highCourtMainArchive.onload = null;
-            highCourtRecordHall.onload = null;
-            highCourtCouncilAnnex.onload = null;
-            highCourtGardens.onload = null;
-            marketArcade.onload = null;
-            marketStall.onload = null;
-            marketRowhouse.onload = null;
-            marketWorkshop.onload = null;
-            colosseum.onload = null;
-            propsAtlas.onload = null;
+            // Leaving the city must stop it loading: nulling onload alone
+            // left every in-flight fetch streaming megabytes of art behind
+            // whatever screen the player went to next (and the eight
+            // Gateworks images were missing from this list entirely).
+            // Clearing src aborts the request; a return visit re-fetches
+            // from the HTTP cache.
+            const worldImages = [
+                tileAtlas, architectureAtlas, bellQuarterAtlas, valeStable,
+                stableTackAnnex, handlerLodge, kennelInfirmary, kennelHouse,
+                feedStore, kennelPavilion, bondingCedar, gardenLodge,
+                guardianHall, gardenCourtPavilion, gardenCourtFountain,
+                gardenCourtKaioTree, gardenCourtListeningBench, gardenMapleA,
+                gardenMapleB, gardenBedLong, gardenBedCorner,
+                highCourtMainArchive, highCourtRecordHall,
+                highCourtCouncilAnnex, highCourtGardens, marketArcade,
+                engineHall, arrivalGate, boundaryLantern, boundaryStele,
+                pumpHouse, keeperRowhouse, cisternHead, valveHouse,
+                marketStall, marketRowhouse, marketWorkshop, colosseum,
+                propsAtlas,
+            ];
+            for (const image of worldImages) {
+                image.onload = null;
+                image.src = "";
+            }
         };
     }, []);
 
