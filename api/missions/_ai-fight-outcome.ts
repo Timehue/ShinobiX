@@ -45,6 +45,33 @@ export function aiFightPlayerActor(session: AiFightSession | null | undefined): 
     return session?.actors?.find((actor) => actor.side === 'squad' && actor.ai === false);
 }
 
+/**
+ * The fighter that IS `playerName` in this session — the body a physical
+ * outcome may be written to.
+ *
+ * `aiFightPlayerActor` answers "the human in a SOLO session", which is right for
+ * the sealed-token path (one owner, one human). It is the wrong question for a
+ * shared Tower session: with two humans in the squad it returned the FIRST one
+ * for every caller, so a teammate's settlement carried the host's HP onto the
+ * teammate's save. This resolves by canonical owner slug (case-insensitive),
+ * preferring the live human actor over an AFK-flagged one (an AFK human is
+ * marked `ai: true` but keeps its `ownerSlug`), and never a companion
+ * (`ownerSlug: null`). `undefined` means this player has no body in the run
+ * and settlement must refuse rather than guess.
+ */
+export function aiFightParticipantActor(
+    session: AiFightSession | null | undefined,
+    playerName: string,
+): AiFightPlayerCombatant | undefined {
+    if (!session || !playerName) return undefined;
+    const slug = playerName.toLowerCase();
+    if (isSoloPveSession(session)) {
+        return session.ownerSlug.toLowerCase() === slug ? session.player : undefined;
+    }
+    const owned = session.actors.filter((actor) => actor.side === 'squad' && (actor.ownerSlug ?? '').toLowerCase() === slug);
+    return owned.find((actor) => actor.ai === false) ?? owned[0];
+}
+
 /** Consumables spent by the authoritative human fighter. Settlement applies
  * this inside the same save mutation as the outcome and reward receipt. */
 export function aiFightPlayerItemsUsed(session: AiFightSession | null | undefined): Record<string, number> {

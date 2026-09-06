@@ -10,7 +10,7 @@ import {
     type PlayerSaveMutationResult,
 } from '../save/_mutate-player-save.js';
 import {
-    aiFightPlayerActor,
+    aiFightParticipantActor,
     applyAiFightOutcomeToCharacter,
     isPveFightMember,
     resolveAiFightOutcome,
@@ -67,13 +67,27 @@ export function pveOutcomeReceiptKey(runId: string): string {
     return `pve-outcome:${runId}`;
 }
 
+/**
+ * Whether the legacy `pve-outcome:<runId>` marker proves THIS player was
+ * settled. The marker is one key per run, shared by every participant, and it
+ * used to be read as a boolean — so the first teammate to settle a shared Tower
+ * run wrote a marker that made every other teammate's settlement "replay"
+ * without ever applying their consequence. Only a marker naming this player
+ * counts; anything else is treated as evidence about someone else.
+ */
+export function legacyReceiptSettledPlayer(raw: unknown, playerName: string): boolean {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false;
+    const name = (raw as { playerName?: unknown }).playerName;
+    return typeof name === 'string' && name.toLowerCase() === playerName.toLowerCase();
+}
+
 export function pveOutcomeReceiptIdentity(
     session: AiFightSession,
     playerName: string,
     outcome = resolveAiFightOutcome(session),
 ): { requestId: string; fingerprint: string } {
     const runId = sessionId(session);
-    const actor = aiFightPlayerActor(session);
+    const actor = aiFightParticipantActor(session, playerName);
     const encounter = isSoloPveSession(session)
         ? { kind: session.encounter.kind, id: session.encounter.id, bindingId: session.encounter.bindingId ?? '' }
         : { kind: 'tower', id: session.towerId, bindingId: session.runId };
@@ -118,6 +132,14 @@ export function applyPveOutcomeWithReceipt(params: {
     }
 
     const legacyReplay = params.legacyReceiptExists === true;
+    const participant = aiFightParticipantActor(params.session, params.playerName);
+    // A member with no body of their own in this run (a companion-only or
+    // malformed roster) has nothing a physical outcome could be written to.
+    // Refuse WITHOUT a receipt: stamping "done" over an unapplied consequence is
+    // the exact failure this module exists to prevent.
+    if (!legacyReplay && !participant && params.outcome !== 'unknown') {
+        return { ok: false, status: 409, error: 'No fighter of yours was found in that run.' };
+    }
     const usageSettledCharacter = !legacyReplay
         && isSoloPveSession(params.session)
         && params.session.encounter.kind === 'mission'
@@ -128,7 +150,7 @@ export function applyPveOutcomeWithReceipt(params: {
         : applyAiFightOutcomeToCharacter(
             usageSettledCharacter,
             params.outcome,
-            aiFightPlayerActor(params.session),
+            participant,
             params.now,
         );
     const value: OutcomeMutationValue = {
@@ -158,6 +180,16 @@ export async function settlePveFightOutcome(
     if (!isPveFightMember(session, playerName)) {
         return { ok: false, status: 403, error: 'That fight belongs to another player.' };
     }
+    // Only an IMMUTABLE terminal result may write the body. An active session
+    // used to resolve here as a "forfeit" taken from its live HP, which stamped
+    // a physical receipt while the owning store still held a playable fight —
+    // the fight could go on, and its real terminal result then conflicted with
+    // the receipt. An intentional abandon is a terminal transition in the owning
+    // store (api/solo-pve/_abandon.ts) that the caller performs FIRST; this
+    // settlement only ever reads what that store has already sealed.
+    if (session.status !== 'done') {
+        return { ok: false, status: 409, error: 'That fight has not reached a terminal result yet.' };
+    }
     const outcome = resolveAiFightOutcome(session);
     if (outcome === 'unknown') {
         // A finished fight whose winner cannot be derived is precisely the
@@ -179,11 +211,18 @@ export async function settlePveFightOutcome(
     const runId = sessionId(session);
     const readLegacyReceipt = deps.readLegacyReceipt ?? ((key) => kv.get(key));
     const writeLegacyReceipt = deps.writeLegacyReceipt ?? (async (key, value, ttlSeconds) => {
-        await kv.set(key, value, { ex: ttlSeconds });
+        // NX: the marker is one key per run. Overwriting it with a later
+        // participant's name would strip the legacy-replay protection of the
+        // player it originally named (a save settled before in-save receipts
+        // existed has nothing else to prove it). The first writer keeps it;
+        // every current-generation settle is proven by its in-save receipt.
+        await kv.set(key, value, { ex: ttlSeconds, nx: true });
     });
     const mutateSave = deps.mutateSave ?? mutatePlayerSave;
     const now = deps.now?.() ?? Date.now();
-    const legacyReceiptExists = !!(await readLegacyReceipt(pveOutcomeReceiptKey(runId)));
+    // Inspect the legacy marker's CONTENTS: it is one key per run, so a marker
+    // written for a teammate proves nothing about this player.
+    const legacyReceiptExists = legacyReceiptSettledPlayer(await readLegacyReceipt(pveOutcomeReceiptKey(runId)), playerName);
 
     const mutation: PlayerSaveMutationResult<OutcomeMutationValue> = await mutateSave(playerName, ({ character }) => {
         const applied = applyPveOutcomeWithReceipt({

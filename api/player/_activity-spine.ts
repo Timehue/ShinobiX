@@ -10,6 +10,7 @@ import {
     runtimeModeCapabilityAvailability,
     type RuntimeModeCapabilityRequirement,
 } from '../../shared/runtime-mode-capabilities.js';
+import { ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
 
 type Focus = Exclude<MasteryFocus, 'auto'>;
 type FocusFacts = {
@@ -167,7 +168,15 @@ function focusRecommendations(input: ActivitySpineInput, focus: Focus, facts: Fo
     }
 
     if (focus === 'ranked-pvp') {
-        const blocked = input.level < 15;
+        // The ranked queue admits at the attackable floor (api/pvp/ranked-queue.ts
+        // gates on isBelowAttackableFloor, level 10). This used to say 15 — the
+        // Academy threshold that governs guard duty and being CHALLENGED — so
+        // levels 10–14 were told Ranked was blocked while the queue would have
+        // taken them. The eligibility fact now comes from the shared constant.
+        // The authored blocker text below still names level 15; rewriting
+        // player-facing copy is outside the behavior-only scope, so it is left
+        // as-is and recorded as a deferred UI dependency.
+        const blocked = input.level < ATTACKABLE_MIN_LEVEL;
         const blocker = blocked ? 'Reach level 15 and finish your Academy foundation first.' : undefined;
         const nextRating = Math.max(1200, Math.ceil((facts.ranked.rating + 1) / 200) * 200);
         const prestige = optionalPrestigeLongTerm(facts);
