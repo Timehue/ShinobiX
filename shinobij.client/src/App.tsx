@@ -103,7 +103,6 @@ import {
     getActiveAuraSphereBonuses,
 } from "./lib/aura-sphere";
 import {
-    defaultVillageUpgrades,
     discountCost,
     getBankInterestPercent,
     getHospitalDiscountPercent,
@@ -137,8 +136,6 @@ import {
 } from "./lib/endless-tower";
 export { endlessScaleFactor, endlessWaveReward, endlessTowerMilestoneReward };
 import {
-    baseStats,
-    maxedStats,
     maxHpForLevel,
     maxChakraForLevel,
     maxStaminaForLevel,
@@ -323,7 +320,6 @@ import {
     WORLD_STATE_API,
     GAME_STATE_API,
     MAX_LEVEL,
-    STARTING_STAT_POINTS,
     JUTSU_MAX_LEVEL,
     STORAGE,
     AWAKENING_VN_ID,
@@ -383,7 +379,6 @@ import {
 export { armorReductionForQuality, consolidateItemBonuses };
 
 import {
-    currentMonthKey,
     currentDateKey,
     playerSlug,
 } from "./lib/utils";
@@ -599,8 +594,11 @@ import {
 import { chooseStarterPetServer, reconcileOwnedStarter } from "./lib/pet-acquisition-api";
 import { mergeMissingBuiltInPets, normalizePet, petPool } from "./lib/pet-roster";
 import { normalizeCharacter } from "./lib/normalize-character";
+import { createAdminCharacter, createCharacter } from "./lib/create-character";
+export { createCharacter };
 import { getAllJutsus, getPvpJutsuLoadout } from "./lib/jutsu-loadout";
 import { isAdminAccountName, isFullAdminAccountName } from "./lib/admin-identity";
+import { normalizeAdminCharacter } from "./lib/admin-character";
 export { gainPetXp, collectPetTraining };
 // Pet element/special jutsu tables + balance/training/XP helpers all
 // moved to ./lib/pet-balance — imported above. See that file for the
@@ -673,18 +671,6 @@ export function setHollowGateKeyFateShardCost(v: number) { HOLLOW_GATE_KEY_FATE_
 // (this file carried a duplicate of the latter). Imported back above and
 // re-exported for any "../App" caller.
 export { isAdminAccountName, isFullAdminAccountName };
-
-function normalizeAdminCharacter(character: Character): Character {
-    const normalized = normalizeCharacter(character);
-    if (!isAdminAccountName(normalized.name)) return normalized;
-    return {
-        ...normalized,
-        stats: maxedStats(),
-        unspentStats: 0,
-        // Admins are name-gated out of every tutorial surface — never a live step.
-        onboardingStep: "done",
-    };
-}
 
 function examLevelCap(character: Character): number { return EXAM_LEVEL_GATES.find((gate) => !(character.examsPassed ?? []).includes(gate.exam))?.level ?? MAX_LEVEL; }
 
@@ -828,125 +814,9 @@ export { scaleJutsuTagsForDisplay };
 
 // biomeLabel moved to ./data/world (imported back near the top).
 
-export function createCharacter(name: string, village: string, specialty: JutsuType, bloodline: string): Character {
-    // New shinobi auto-learn their chosen bloodline's jutsu (mastery level 1) so
-    // they spawn combat-ready instead of with an empty loadout. The universal
-    // "Flicker" is intentionally NOT seeded here — the guided first-session
-    // sequence has the player free-unlock it (the "first jutsu is free" beat).
-    const starterBloodlineName = bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : bloodline;
-    const starterBloodline = starterSavedBloodlines.find((b) => b.name === starterBloodlineName);
-    const bloodlineJutsuIds = starterBloodline ? starterBloodline.jutsus.map((j) => j.id) : [];
-    return {
-        name,
-        village,
-        specialty,
-        bloodline,
-        avatarImage: "",
-        storyProgress: 0,
-        storyVillage: village,
-        storyTraits: [],
-        level: 1,
-        xp: 0,
-        ryo: 100,
-        bankRyo: 0,
-        honorSeals: 0,
-        auraDust: 0,
-        auraSphereLevel: 1,
-        fateShards: 0,
-        tileCards: [],
-        elements: [],
-        hp: maxHpForLevel(1),
-        maxHp: maxHpForLevel(1),
-        chakra: maxChakraForLevel(1),
-        maxChakra: maxChakraForLevel(1),
-        stamina: maxStaminaForLevel(1),
-        maxStamina: maxStaminaForLevel(1),
-        rankTitle: "Academy Student",
-        // Begin onboarding inside the intro cinematic (the spirit-fox summons +
-        // companion gift); completing it advances straight to "training".
-        onboardingStep: "academyIntro",
-        stats: baseStats(),
-        unspentStats: STARTING_STAT_POINTS,
-        equippedJutsuIds: bloodlineJutsuIds.slice(0, 3),
-        inventory: ["rustfang-kunai", "shinobi-vest"],
-        equipment: {},
-        jutsuMastery: bloodlineJutsuIds.map((id) => ({ jutsuId: id, level: 1, xp: 0 })),
-        pets: [],
-        activePetId: undefined,
-        activePetId2v2: undefined,
-        boneCharms: 0,
-        auraStones: 0,
-        mythicSeals: 0,
-        clanPoints: 0,
-        weeklyClanPoints: 0,
-        lifetimeClanPoints: 0,
-        clanPointHistory: [],
-        clanExchangePurchases: { weekly: {}, monthly: {}, oneTime: {} },
-        clanBattleContrib: 0,
-        clanEventContrib: 0,
-        clanMissionContrib: 0,
-        totalStatsTrained: 0,
-        totalMissionsCompleted: 0,
-        totalAiKills: 0,
-        totalPvpKills: 0,
-        monthlyPvpKills: 0,
-        pvpKillMonth: currentMonthKey(),
-        totalVillageRaids: 0,
-        villageWarMissionDate: currentDateKey(),
-        villageWarRaidProgress: 0,
-        villageWarMissionsCompleted: 0,
-        totalTilesExplored: 0,
-        totalTournamentsCompleted: 0,
-        totalEndlessTowerWins: 0,
-        endlessTowerBestWave: 0,
-        endlessTowerRun: null,
-        battleTowerBestFloor: 0,
-        battleTowerRating: 0,
-        battleTowerClearedFloors: [],
-        battleTowerClaimedRewards: [],
-        battleTowerAssistRewardsClaimed: [],
-        totalPetWins: 0,
-        dailyAiKills: 0,
-        dailyPetWins: 0,
-        defeatedAiIds: [],
-        aiKills: {},
-        rankedRating: 1000,
-        rankedWins: 0,
-        rankedLosses: 0,
-        petRankedRating: 1000,
-        petRankedWins: 0,
-        petRankedLosses: 0,
-        villageUpgrades: defaultVillageUpgrades(),
-        lastBankInterestAt: 0,
-        createdAt: Date.now(),
-    };
-}
-
-function createAdminCharacter(adminName: AdminAccount = "Admin 1"): Character {
-    return {
-        ...createCharacter(adminName, "Stormveil Village", "Ninjutsu", "Admin Core"),
-        onboardingStep: "done", // admins skip the cinematic + Academy Path
-        level: 100,
-        xp: 0,
-        ryo: 999999,
-        honorSeals: 9999,
-        auraDust: 99999,
-        auraSphereLevel: 300,
-        fateShards: 9999,
-        hp: maxHpForLevel(100),
-        maxHp: maxHpForLevel(100),
-        chakra: maxChakraForLevel(100),
-        maxChakra: maxChakraForLevel(100),
-        stamina: maxStaminaForLevel(100),
-        maxStamina: maxStaminaForLevel(100),
-        rankTitle: "Admin",
-        stats: maxedStats(),
-        unspentStats: 0,
-        boneCharms: 9999,
-        auraStones: 9999,
-        mythicSeals: 9999,
-    };
-}
+// createCharacter + createAdminCharacter moved verbatim to ./lib/create-character
+// (next to normalizeCharacter, its save-hydration counterpart). Imported back near
+// the top of this file; createCharacter is re-exported for the "../App" callers.
 
 // Jutsu loadout resolution (allStarterBloodlineJutsus / starterBloodlineJutsuRank
 // / getAllJutsus / getPvpJutsuLoadout) moved to ./lib/jutsu-loadout. It was the

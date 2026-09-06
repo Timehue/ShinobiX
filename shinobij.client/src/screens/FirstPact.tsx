@@ -3897,12 +3897,180 @@ function drawWorksLantern(
     }
 }
 
-function renderWorld(canvas: HTMLCanvasElement, camera: Camera, art: FirstPactWorldArt = {}): void {
+/**
+ * Full-world offscreen render cache.
+ *
+ * Every ground and architecture painter in this file is deterministic in
+ * world space (nothing samples time, randomness, or the viewport), so the
+ * whole 84x56-tile city can be painted once into a single offscreen canvas.
+ * A camera frame then costs one drawImage blit instead of re-running the
+ * complete procedural paint, which is what made held-key movement and the
+ * eased camera drop whole frames.
+ *
+ * Art images arrive one by one over the first seconds, so the cache repaints
+ * in horizontal slabs: slabs under the camera repaint synchronously inside
+ * draw() (the visible frame is never stale), and the rest drain a few
+ * milliseconds at a time on idle animation frames via pump(). Re-marking a
+ * slab that is already queued is free, so a burst of image loads costs one
+ * extra pass over the world, not one pass per image.
+ */
+const WORLD_CACHE_SLAB_TILE_ROWS = 8;
+
+class FirstPactWorldCache {
+    private canvas: HTMLCanvasElement | null = null;
+    private context: CanvasRenderingContext2D | null = null;
+    private scale = 1;
+    private readonly slabRowPixels = WORLD_CACHE_SLAB_TILE_ROWS * FIRST_PACT_TILE_SIZE;
+    private readonly slabCount = Math.ceil(FIRST_PACT_WORLD_HEIGHT / WORLD_CACHE_SLAB_TILE_ROWS);
+    private readonly pending = new Set<number>();
+
+    constructor() {
+        // Phones report DPR 3 but cap at 1.25: full scale there would be a
+        // ~170MB canvas, and a phone screen's density hides the difference.
+        // Desktops keep native crispness up to 2x. Each step down is retried
+        // when a browser refuses the allocation outright.
+        const coarsePointer = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+        const ceiling = Math.max(1, Math.min(window.devicePixelRatio || 1, coarsePointer ? 1.25 : 2));
+        for (const scale of [2, 1.5, 1.25, 1]) {
+            if (scale <= ceiling && this.allocate(scale)) break;
+        }
+        if (this.canvas) this.markDirty();
+    }
+
+    /** True while any slab still needs painting (drives the idle pump). */
+    hasWork(): boolean {
+        return this.pending.size > 0;
+    }
+
+    /**
+     * The backing resolution the cache actually holds. The screen canvas
+     * matches it: pixels beyond what the cache carries are pure upscale
+     * cost, and on a capped phone that is 2.6x the fill work for nothing.
+     */
+    renderScale(): number {
+        return this.canvas ? this.scale : 0;
+    }
+
+    /** Queue the whole world for repaint: new art arrived. */
+    markDirty(): void {
+        if (!this.canvas) return;
+        for (let slab = 0; slab < this.slabCount; slab += 1) this.pending.add(slab);
+    }
+
+    /**
+     * Blit the region under `camera` into `target` (in CSS pixels), painting
+     * any still-pending slab the camera can see first so the visible frame is
+     * never stale. Returns false when no backing store could be allocated and
+     * the caller must paint the region directly instead.
+     */
+    draw(target: CanvasRenderingContext2D, camera: Camera, art: FirstPactWorldArt): boolean {
+        if (!this.canvas || !this.context) return false;
+        const firstSlab = Math.max(0, Math.floor(camera.y / this.slabRowPixels));
+        const lastSlab = Math.min(this.slabCount - 1, Math.floor((camera.y + camera.height) / this.slabRowPixels));
+        for (let slab = firstSlab; slab <= lastSlab; slab += 1) {
+            if (this.pending.has(slab)) this.paintSlab(slab, art);
+        }
+        target.drawImage(
+            this.canvas,
+            camera.x * this.scale,
+            camera.y * this.scale,
+            camera.width * this.scale,
+            camera.height * this.scale,
+            0,
+            0,
+            camera.width,
+            camera.height,
+        );
+        return true;
+    }
+
+    /** Paint queued slabs for up to `budgetMs`; true while more remain. */
+    pump(art: FirstPactWorldArt, budgetMs: number): boolean {
+        const startedAt = performance.now();
+        for (const slab of this.pending) {
+            this.paintSlab(slab, art);
+            if (performance.now() - startedAt >= budgetMs) break;
+        }
+        return this.hasWork();
+    }
+
+    private paintSlab(slab: number, art: FirstPactWorldArt): void {
+        const context = this.context;
+        if (!context) return;
+        this.pending.delete(slab);
+        const region: Camera = {
+            x: 0,
+            y: slab * this.slabRowPixels,
+            width: FIRST_PACT_WORLD_WIDTH * FIRST_PACT_TILE_SIZE,
+            height: Math.min(this.slabRowPixels, FIRST_PACT_WORLD_HEIGHT * FIRST_PACT_TILE_SIZE - slab * this.slabRowPixels),
+        };
+        // Slab-local painting: the painters see `region` as their camera, and
+        // the transform lands their output at the slab's world position. The
+        // clip keeps a neighboring slab's overhanging strokes from
+        // double-compositing translucent paint across the shared boundary.
+        context.setTransform(this.scale, 0, 0, this.scale, 0, region.y * this.scale);
+        context.save();
+        context.beginPath();
+        context.rect(0, 0, region.width, region.height);
+        context.clip();
+        context.clearRect(0, 0, region.width, region.height);
+        paintWorldRegion(context, region, art);
+        context.restore();
+        context.setTransform(1, 0, 0, 1, 0, 0);
+    }
+
+    private allocate(scale: number): boolean {
+        try {
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.ceil(FIRST_PACT_WORLD_WIDTH * FIRST_PACT_TILE_SIZE * scale);
+            canvas.height = Math.ceil(FIRST_PACT_WORLD_HEIGHT * FIRST_PACT_TILE_SIZE * scale);
+            const context = canvas.getContext("2d");
+            if (!context) return false;
+            // Browsers refuse oversized canvases silently; a 1px readback is
+            // the only reliable probe.
+            context.fillStyle = "#000";
+            context.fillRect(0, 0, 1, 1);
+            const usable = context.getImageData(0, 0, 1, 1).data[3] === 255;
+            context.clearRect(0, 0, 1, 1);
+            if (!usable) return false;
+            this.canvas = canvas;
+            this.context = context;
+            this.scale = scale;
+            return true;
+        } catch {
+            return false;
+        }
+    }
+}
+
+/** Frame shading gradients depend only on the viewport size; reuse them. */
+let worldFrameShadingKey = "";
+let worldFrameShading: { night: CanvasGradient; abyssGlow: CanvasGradient; vignette: CanvasGradient } | null = null;
+
+function worldFrameShadingFor(context: CanvasRenderingContext2D, width: number, height: number) {
+    if (worldFrameShading && worldFrameShadingKey === `${width}x${height}`) return worldFrameShading;
+    const night = context.createLinearGradient(0, 0, 0, height);
+    night.addColorStop(0, "#07111f");
+    night.addColorStop(1, "#02060d");
+    const abyssGlow = context.createRadialGradient(width * .55, height * 1.05, 12, width * .55, height * 1.05, Math.max(width, height) * .7);
+    abyssGlow.addColorStop(0, "rgba(21, 112, 127, .22)");
+    abyssGlow.addColorStop(.45, "rgba(8, 43, 58, .08)");
+    abyssGlow.addColorStop(1, "rgba(1, 4, 9, 0)");
+    const vignette = context.createRadialGradient(width / 2, height / 2, Math.min(width, height) * 0.2, width / 2, height / 2, Math.max(width, height) * 0.7);
+    vignette.addColorStop(0, "rgba(0,0,0,0)");
+    vignette.addColorStop(1, "rgba(0,5,13,.52)");
+    worldFrameShadingKey = `${width}x${height}`;
+    worldFrameShading = { night, abyssGlow, vignette };
+    return worldFrameShading;
+}
+
+function renderWorld(canvas: HTMLCanvasElement, camera: Camera, art: FirstPactWorldArt = {}, cache?: FirstPactWorldCache | null): void {
     // Stepping back into the street must retract the interior's render proof;
     // otherwise the canvas keeps reporting a room the player already left, and
     // every QA pass reading that attribute is reading a stale answer.
     canvas.removeAttribute("data-fp-interior-proof");
-    const ratio = Math.min(2, window.devicePixelRatio || 1);
+    const cacheScale = cache?.renderScale() ?? 0;
+    const ratio = Math.min(cacheScale > 0 ? cacheScale : 2, Math.min(2, window.devicePixelRatio || 1));
     const width = Math.max(1, Math.floor(camera.width));
     const height = Math.max(1, Math.floor(camera.height));
     if (canvas.width !== Math.floor(width * ratio) || canvas.height !== Math.floor(height * ratio)) {
@@ -3914,17 +4082,25 @@ function renderWorld(canvas: HTMLCanvasElement, camera: Camera, art: FirstPactWo
     const context = canvas.getContext("2d");
     if (!context) return;
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    const night = context.createLinearGradient(0, 0, 0, height);
-    night.addColorStop(0, "#07111f");
-    night.addColorStop(1, "#02060d");
-    context.fillStyle = night;
+    const shading = worldFrameShadingFor(context, width, height);
+    context.fillStyle = shading.night;
     context.fillRect(0, 0, width, height);
-    const abyssGlow = context.createRadialGradient(width * .55, height * 1.05, 12, width * .55, height * 1.05, Math.max(width, height) * .7);
-    abyssGlow.addColorStop(0, "rgba(21, 112, 127, .22)");
-    abyssGlow.addColorStop(.45, "rgba(8, 43, 58, .08)");
-    abyssGlow.addColorStop(1, "rgba(1, 4, 9, 0)");
-    context.fillStyle = abyssGlow;
+    context.fillStyle = shading.abyssGlow;
     context.fillRect(0, 0, width, height);
+
+    // The static city arrives as one cache blit whenever the offscreen canvas
+    // could be allocated; direct painting stays as the fallback for devices
+    // that refused it.
+    if (!cache?.draw(context, camera, art)) paintWorldRegion(context, camera, art);
+
+    context.fillStyle = shading.vignette;
+    context.fillRect(0, 0, width, height);
+}
+
+/** Every static world layer for one region, in paint order. */
+function paintWorldRegion(context: CanvasRenderingContext2D, camera: Camera, art: FirstPactWorldArt): void {
+    const width = Math.max(1, Math.floor(camera.width));
+    const height = Math.max(1, Math.floor(camera.height));
 
     // CLIP EVERY WORLD LAYER TO THE PAINTED CITY.
     //
@@ -4017,14 +4193,9 @@ function renderWorld(canvas: HTMLCanvasElement, camera: Camera, art: FirstPactWo
     drawGateworksFrontages(context, camera);
     drawPublicDoorways(context, camera);
 
-    // Release the city clip before the vignette, which is a full-frame effect.
+    // Release the city clip; the vignette in renderWorld is a full-frame
+    // viewport effect and must not live in world space.
     context.restore();
-
-    const vignette = context.createRadialGradient(width / 2, height / 2, Math.min(width, height) * 0.2, width / 2, height / 2, Math.max(width, height) * 0.7);
-    vignette.addColorStop(0, "rgba(0,0,0,0)");
-    vignette.addColorStop(1, "rgba(0,5,13,.52)");
-    context.fillStyle = vignette;
-    context.fillRect(0, 0, width, height);
 }
 
 function renderMinimap(
@@ -4036,31 +4207,26 @@ function renderMinimap(
     const width = 210;
     const height = 140;
     const ratio = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = width * ratio;
-    canvas.height = height * ratio;
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
+    // Resizing a canvas reallocates and clears its backing store, so only
+    // touch the dimensions when they actually changed; this runs on every
+    // wander tick, not only on player steps.
+    if (canvas.width !== width * ratio || canvas.height !== height * ratio) {
+        canvas.width = width * ratio;
+        canvas.height = height * ratio;
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+    }
     const context = canvas.getContext("2d");
     if (!context) return;
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    context.fillStyle = "#030811";
-    context.fillRect(0, 0, width, height);
     const scaleX = width / FIRST_PACT_WORLD_WIDTH;
     const scaleY = height / FIRST_PACT_WORLD_HEIGHT;
-    for (let y = 0; y < FIRST_PACT_WORLD_HEIGHT; y += 1) {
-        for (let x = 0; x < FIRST_PACT_WORLD_WIDTH; x += 1) {
-            const tile = firstPactTileAt(x, y);
-            context.fillStyle = tile === FirstPactTile.Water
-                ? TILE_PALETTE[FirstPactTile.Water].base
-                : !isFirstPactWalkable(x, y)
-                    ? "#101923"
-                : isFirstPactGardensPrimaryRoute(x, y)
-                    ? "#68645d"
-                    : isFirstPactGardensSecondaryRoute(x, y)
-                        ? "#5e605b"
-                        : TILE_PALETTE[tile].base;
-            context.fillRect(x * scaleX, y * scaleY, Math.ceil(scaleX), Math.ceil(scaleY));
-        }
+    const base = minimapBase(width, height, ratio);
+    if (base) {
+        context.drawImage(base, 0, 0, width, height);
+    } else {
+        context.fillStyle = "#030811";
+        context.fillRect(0, 0, width, height);
     }
     for (const state of Object.values(runtime)) {
         context.fillStyle = "rgba(231,189,114,.68)";
@@ -4082,6 +4248,59 @@ function renderMinimap(
     context.shadowBlur = 0;
     context.strokeStyle = "rgba(231,189,114,.35)";
     context.strokeRect(.5, .5, width - 1, height - 1);
+}
+
+/**
+ * The minimap's tile base never changes, but renderMinimap runs on every
+ * wander tick. Painting the 84x56 grid once here turns each refresh into a
+ * single blit plus a handful of actor dots.
+ */
+let minimapBaseCanvas: HTMLCanvasElement | null = null;
+let minimapBaseRatio = 0;
+
+function minimapBase(width: number, height: number, ratio: number): HTMLCanvasElement | null {
+    if (minimapBaseCanvas && minimapBaseRatio === ratio) return minimapBaseCanvas;
+    const canvas = document.createElement("canvas");
+    canvas.width = width * ratio;
+    canvas.height = height * ratio;
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    context.fillStyle = "#030811";
+    context.fillRect(0, 0, width, height);
+    const scaleX = width / FIRST_PACT_WORLD_WIDTH;
+    const scaleY = height / FIRST_PACT_WORLD_HEIGHT;
+    for (let y = 0; y < FIRST_PACT_WORLD_HEIGHT; y += 1) {
+        for (let x = 0; x < FIRST_PACT_WORLD_WIDTH; x += 1) {
+            const tile = firstPactTileAt(x, y);
+            context.fillStyle = tile === FirstPactTile.Water
+                ? TILE_PALETTE[FirstPactTile.Water].base
+                : !isFirstPactWalkable(x, y)
+                    ? "#101923"
+                : isFirstPactGardensPrimaryRoute(x, y)
+                    ? "#68645d"
+                    : isFirstPactGardensSecondaryRoute(x, y)
+                        ? "#5e605b"
+                        : TILE_PALETTE[tile].base;
+            context.fillRect(x * scaleX, y * scaleY, Math.ceil(scaleX), Math.ceil(scaleY));
+        }
+    }
+    minimapBaseCanvas = canvas;
+    minimapBaseRatio = ratio;
+    return canvas;
+}
+
+/**
+ * Module-level scratch canvases outlive the component by design so a visit
+ * can reuse them; leaving the city hands their memory back instead. The next
+ * visit simply repaints them.
+ */
+function releaseFirstPactSharedScratch(): void {
+    kennelBoulevardLayerCanvas = null;
+    minimapBaseCanvas = null;
+    minimapBaseRatio = 0;
+    worldFrameShadingKey = "";
+    worldFrameShading = null;
 }
 
 function firstPactEpilogue(progress: FirstPactProgress) {
@@ -4504,6 +4723,14 @@ export function FirstPact({
     const viewportRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const minimapRef = useRef<HTMLCanvasElement>(null);
+    /** The actor layer; the camera moves it as ONE transform, never React. */
+    const planeRef = useRef<HTMLDivElement>(null);
+    /** Which space the plane last framed; a space change snaps, a step glides. */
+    const planeSpaceRef = useRef("world");
+    const worldCacheRef = useRef<FirstPactWorldCache | null>(null);
+    const worldCachePumpRef = useRef(0);
+    /** QA-preview proof writer, re-invoked when the eased camera settles. */
+    const publishWorldFrameRef = useRef<(() => void) | null>(null);
     const tileAtlasRef = useRef<HTMLImageElement | null>(null);
     const architectureAtlasRef = useRef<HTMLImageElement | null>(null);
     const bellQuarterAtlasRef = useRef<HTMLImageElement | null>(null);
@@ -4654,8 +4881,91 @@ export function FirstPact({
             y: Math.max(0, Math.min(worldPixels.height - viewport.height, focus.y * FIRST_PACT_TILE_SIZE + FIRST_PACT_TILE_SIZE / 2 - viewport.height / 2 + kennelLookAhead)),
         };
     }, [player, qaCameraFocus, viewport.height, viewport.width, visualQaPreview, worldPixels.height, worldPixels.width]);
-    const [camera, setCamera] = useState<Camera>(targetCamera);
     const cameraRef = useRef<Camera>(targetCamera);
+
+    /** The complete art bundle, straight from the refs (no render needed). */
+    const worldArt = useCallback((): FirstPactWorldArt => ({
+        tileAtlas: tileAtlasRef.current,
+        architectureAtlas: architectureAtlasRef.current,
+        bellQuarterAtlas: bellQuarterAtlasRef.current,
+        valeStable: valeStableRef.current,
+        stableTackAnnex: stableTackAnnexRef.current,
+        handlerLodge: handlerLodgeRef.current,
+        kennelInfirmary: kennelInfirmaryRef.current,
+        kennelHouse: kennelHouseRef.current,
+        feedStore: feedStoreRef.current,
+        kennelPavilion: kennelPavilionRef.current,
+        bondingCedar: bondingCedarRef.current,
+        gardenLodge: gardenLodgeRef.current,
+        guardianHall: guardianHallRef.current,
+        gardenCourtPavilion: gardenCourtPavilionRef.current,
+        gardenCourtFountain: gardenCourtFountainRef.current,
+        gardenCourtKaioTree: gardenCourtKaioTreeRef.current,
+        gardenCourtListeningBench: gardenCourtListeningBenchRef.current,
+        gardensNorthMapleA: gardensNorthMapleARef.current,
+        gardensNorthMapleB: gardensNorthMapleBRef.current,
+        gardensNorthBedLong: gardensNorthBedLongRef.current,
+        gardensNorthBedCorner: gardensNorthBedCornerRef.current,
+        highCourtMainArchive: highCourtMainArchiveRef.current,
+        highCourtRecordHall: highCourtRecordHallRef.current,
+        highCourtCouncilAnnex: highCourtCouncilAnnexRef.current,
+        highCourtGardens: highCourtGardensRef.current,
+        marketArcade: marketArcadeRef.current,
+        engineHall: engineHallRef.current,
+        arrivalGate: arrivalGateRef.current,
+        boundaryLantern: boundaryLanternRef.current,
+        boundaryStele: boundarySteleRef.current,
+        pumpHouse: pumpHouseRef.current,
+        keeperRowhouse: keeperRowhouseRef.current,
+        cisternHead: cisternHeadRef.current,
+        valveHouse: valveHouseRef.current,
+        marketStall: marketStallRef.current,
+        marketRowhouse: marketRowhouseRef.current,
+        marketWorkshop: marketWorkshopRef.current,
+        colosseum: colosseumRef.current,
+        propsAtlas: propsAtlasRef.current,
+        architectureScope: qaArchitectureScope,
+    }), [qaArchitectureScope]);
+
+    /** Drain still-unpainted world-cache slabs on idle animation frames. */
+    const pumpWorldCache = useCallback(() => {
+        if (worldCachePumpRef.current) return;
+        const step = () => {
+            worldCachePumpRef.current = 0;
+            const cache = worldCacheRef.current;
+            const canvas = canvasRef.current;
+            if (!cache || !canvas || !cache.hasWork()) return;
+            cache.pump(worldArt(), 6);
+            // An off-screen slab may have just repainted with newer art, so
+            // refresh the visible blit to keep the screen matching the cache.
+            if (!interiorRef.current) renderWorld(canvas, cameraRef.current, worldArt(), cache);
+            if (cache.hasWork()) worldCachePumpRef.current = window.requestAnimationFrame(step);
+        };
+        worldCachePumpRef.current = window.requestAnimationFrame(step);
+    }, [worldArt]);
+
+    /** One exterior frame: a cache blit plus one transform on the plane. */
+    const drawWorldFrame = useCallback(() => {
+        const canvas = canvasRef.current;
+        if (!canvas || interiorRef.current) return;
+        worldCacheRef.current ??= new FirstPactWorldCache();
+        const cache = worldCacheRef.current;
+        renderWorld(canvas, cameraRef.current, worldArt(), cache);
+        const plane = planeRef.current;
+        if (plane) {
+            plane.style.transition = "none";
+            plane.style.transform = `translate3d(${-cameraRef.current.x}px, ${-cameraRef.current.y}px, 0)`;
+        }
+        planeSpaceRef.current = "world";
+        if (cache.hasWork()) pumpWorldCache();
+    }, [pumpWorldCache, worldArt]);
+
+    useEffect(() => () => {
+        window.cancelAnimationFrame(worldCachePumpRef.current);
+        // 40-170MB of offscreen canvas leaves with the screen, not the session.
+        worldCacheRef.current = null;
+        releaseFirstPactSharedScratch();
+    }, []);
 
     const movementLocked = loading || !entered || !!dialogNpc || squadOpen || journalOpen || epiloguePage != null || !!battle || !!interior;
     useEffect(() => { interiorRef.current = interior; }, [interior]);
@@ -4666,7 +4976,7 @@ export function FirstPact({
     useEffect(() => { npcRef.current = npcs; }, [npcs]);
 
     useEffect(() => {
-        const start = cameraRef.current;
+        const start = { ...cameraRef.current };
         const distance = Math.hypot(targetCamera.x - start.x, targetCamera.y - start.y);
         const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         const duration = reduceMotion || distance > FIRST_PACT_TILE_SIZE * 4 ? 1 : 155;
@@ -4675,19 +4985,21 @@ export function FirstPact({
         const animate = (now: number) => {
             const elapsed = Math.min(1, (now - startedAt) / duration);
             const eased = 1 - ((1 - elapsed) ** 3);
-            const next = {
+            cameraRef.current = {
                 width: start.width + (targetCamera.width - start.width) * eased,
                 height: start.height + (targetCamera.height - start.height) * eased,
                 x: start.x + (targetCamera.x - start.x) * eased,
                 y: start.y + (targetCamera.y - start.y) * eased,
             };
-            cameraRef.current = next;
-            setCamera(next);
+            // Camera motion never touches React state: each eased frame is
+            // one cache blit and one transform, not a 5,000-line re-render.
+            drawWorldFrame();
             if (elapsed < 1) frame = window.requestAnimationFrame(animate);
+            else publishWorldFrameRef.current?.();
         };
         frame = window.requestAnimationFrame(animate);
         return () => window.cancelAnimationFrame(frame);
-    }, [targetCamera.height, targetCamera.width, targetCamera.x, targetCamera.y]);
+    }, [drawWorldFrame, targetCamera.height, targetCamera.width, targetCamera.x, targetCamera.y]);
 
     useEffect(() => {
         onFullscreenActiveChange?.(true);
@@ -4868,6 +5180,9 @@ export function FirstPact({
                 if (!alive || committed || !image.complete || image.naturalWidth <= 0) return;
                 committed = true;
                 commitImage(image);
+                // Fresh art must reach the world cache, not only the next
+                // direct paint; queued slabs coalesce, so this stays cheap.
+                worldCacheRef.current?.markDirty();
             };
             const load = () => {
                 if (!alive || committed || decoding) return;
@@ -4920,37 +5235,30 @@ export function FirstPact({
         prepareImage(propsAtlas, sunkenCourtStreetProps, (image) => { propsAtlasRef.current = image; setPropsAtlasReady(true); });
         return () => {
             alive = false;
-            tileAtlas.onload = null;
-            architectureAtlas.onload = null;
-            bellQuarterAtlas.onload = null;
-            valeStable.onload = null;
-            stableTackAnnex.onload = null;
-            handlerLodge.onload = null;
-            kennelInfirmary.onload = null;
-            kennelHouse.onload = null;
-            feedStore.onload = null;
-            kennelPavilion.onload = null;
-            bondingCedar.onload = null;
-            gardenLodge.onload = null;
-            guardianHall.onload = null;
-            gardenCourtPavilion.onload = null;
-            gardenCourtFountain.onload = null;
-            gardenCourtKaioTree.onload = null;
-            gardenCourtListeningBench.onload = null;
-            gardenMapleA.onload = null;
-            gardenMapleB.onload = null;
-            gardenBedLong.onload = null;
-            gardenBedCorner.onload = null;
-            highCourtMainArchive.onload = null;
-            highCourtRecordHall.onload = null;
-            highCourtCouncilAnnex.onload = null;
-            highCourtGardens.onload = null;
-            marketArcade.onload = null;
-            marketStall.onload = null;
-            marketRowhouse.onload = null;
-            marketWorkshop.onload = null;
-            colosseum.onload = null;
-            propsAtlas.onload = null;
+            // Leaving the city must stop it loading: nulling onload alone
+            // left every in-flight fetch streaming megabytes of art behind
+            // whatever screen the player went to next (and the eight
+            // Gateworks images were missing from this list entirely).
+            // Clearing src aborts the request; a return visit re-fetches
+            // from the HTTP cache.
+            const worldImages = [
+                tileAtlas, architectureAtlas, bellQuarterAtlas, valeStable,
+                stableTackAnnex, handlerLodge, kennelInfirmary, kennelHouse,
+                feedStore, kennelPavilion, bondingCedar, gardenLodge,
+                guardianHall, gardenCourtPavilion, gardenCourtFountain,
+                gardenCourtKaioTree, gardenCourtListeningBench, gardenMapleA,
+                gardenMapleB, gardenBedLong, gardenBedCorner,
+                highCourtMainArchive, highCourtRecordHall,
+                highCourtCouncilAnnex, highCourtGardens, marketArcade,
+                engineHall, arrivalGate, boundaryLantern, boundaryStele,
+                pumpHouse, keeperRowhouse, cisternHead, valveHouse,
+                marketStall, marketRowhouse, marketWorkshop, colosseum,
+                propsAtlas,
+            ];
+            for (const image of worldImages) {
+                image.onload = null;
+                image.src = "";
+            }
         };
     }, []);
 
@@ -4964,54 +5272,43 @@ export function FirstPact({
     useLayoutEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
+        const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         if (interior && interiorCamera) {
             renderFirstPactInterior(canvas, interior, interiorCamera, { focusLit: interiorFocusLit });
+            const plane = planeRef.current;
+            if (plane) {
+                // Indoors the camera follows in discrete steps; gliding the
+                // plane on the same 105ms curve the actors use keeps the room
+                // from snapping underneath them. Crossing the threshold snaps
+                // instead: the plane must not fly in from the street's offset.
+                const space = `interior:${interior.id}`;
+                plane.style.transition = !reduceMotion && planeSpaceRef.current === space ? "transform 105ms linear" : "none";
+                plane.style.transform = `translate3d(${-interiorCamera.x}px, ${-interiorCamera.y}px, 0)`;
+                planeSpaceRef.current = space;
+            }
+            publishWorldFrameRef.current = null;
             return;
         }
-        renderWorld(canvas, camera, {
-            tileAtlas: tileAtlasRef.current,
-            architectureAtlas: architectureAtlasRef.current,
-            bellQuarterAtlas: bellQuarterAtlasRef.current,
-            valeStable: valeStableRef.current,
-            stableTackAnnex: stableTackAnnexRef.current,
-            handlerLodge: handlerLodgeRef.current,
-            kennelInfirmary: kennelInfirmaryRef.current,
-            kennelHouse: kennelHouseRef.current,
-            feedStore: feedStoreRef.current,
-            kennelPavilion: kennelPavilionRef.current,
-            bondingCedar: bondingCedarRef.current,
-            gardenLodge: gardenLodgeRef.current,
-            guardianHall: guardianHallRef.current,
-            gardenCourtPavilion: gardenCourtPavilionRef.current,
-            gardenCourtFountain: gardenCourtFountainRef.current,
-            gardenCourtKaioTree: gardenCourtKaioTreeRef.current,
-            gardenCourtListeningBench: gardenCourtListeningBenchRef.current,
-            gardensNorthMapleA: gardensNorthMapleARef.current,
-            gardensNorthMapleB: gardensNorthMapleBRef.current,
-            gardensNorthBedLong: gardensNorthBedLongRef.current,
-            gardensNorthBedCorner: gardensNorthBedCornerRef.current,
-            highCourtMainArchive: highCourtMainArchiveRef.current,
-            highCourtRecordHall: highCourtRecordHallRef.current,
-            highCourtCouncilAnnex: highCourtCouncilAnnexRef.current,
-            highCourtGardens: highCourtGardensRef.current,
-            marketArcade: marketArcadeRef.current,
-            engineHall: engineHallRef.current,
-            arrivalGate: arrivalGateRef.current,
-            boundaryLantern: boundaryLanternRef.current,
-            boundaryStele: boundarySteleRef.current,
-            pumpHouse: pumpHouseRef.current,
-            keeperRowhouse: keeperRowhouseRef.current,
-            cisternHead: cisternHeadRef.current,
-            valveHouse: valveHouseRef.current,
-            marketStall: marketStallRef.current,
-            marketRowhouse: marketRowhouseRef.current,
-            marketWorkshop: marketWorkshopRef.current,
-            colosseum: colosseumRef.current,
-            propsAtlas: propsAtlasRef.current,
-            architectureScope: qaArchitectureScope,
-        });
+        const camera = cameraRef.current;
+        worldCacheRef.current ??= new FirstPactWorldCache();
+        renderWorld(canvas, camera, worldArt(), worldCacheRef.current);
+        const plane = planeRef.current;
+        if (plane) {
+            plane.style.transition = "none";
+            plane.style.transform = `translate3d(${-camera.x}px, ${-camera.y}px, 0)`;
+        }
+        planeSpaceRef.current = "world";
+        if (worldCacheRef.current.hasWork()) pumpWorldCache();
 
-        if (!visualQaPreview) return;
+        if (!visualQaPreview) {
+            publishWorldFrameRef.current = null;
+            return;
+        }
+        // The proof must describe a settled camera, which the eased rAF loop
+        // reaches after this effect ran, so the writer is re-invoked from the
+        // final animation frame through publishWorldFrameRef.
+        const publishRenderProof = () => {
+        const camera = cameraRef.current;
         const allWorldArtReady = tileAtlasReady
             && architectureAtlasReady
             && bellQuarterAtlasReady
@@ -5187,8 +5484,11 @@ export function FirstPact({
         };
         canvas.dataset.fpRenderProof = JSON.stringify(proof);
         canvas.dataset.fpRenderReady = String(!loading && entered && allWorldArtReady && cameraSettled);
-    }, [interior, interiorCamera, interiorFocusLit, architectureAtlasReady, bellQuarterAtlasReady, bondingCedarReady, camera, colosseumReady, entered, feedStoreReady, gardenCourtFountainReady, gardenCourtKaioTreeReady, gardenCourtListeningBenchReady, gardenCourtPavilionReady, gardenLodgeReady, gardensNorthBedCornerReady, gardensNorthBedLongReady, gardensNorthMapleAReady, gardensNorthMapleBReady, guardianHallReady, handlerLodgeReady, highCourtCouncilAnnexReady, highCourtGardensReady, highCourtMainArchiveReady, highCourtRecordHallReady, kennelHouseReady, kennelInfirmaryReady, kennelPavilionReady, loading, arrivalGateReady, boundaryLanternReady, boundarySteleReady, engineHallReady, keeperRowhouseReady,
- cisternHeadReady, pumpHouseReady, valveHouseReady, marketArcadeReady, marketRowhouseReady, marketStallReady, marketWorkshopReady, player.x, player.y, propsAtlasReady, qaArchitectureScope, qaCameraFocus, stableTackAnnexReady, targetCamera.height, targetCamera.width, targetCamera.x, targetCamera.y, tileAtlasReady, valeStableReady, visualQaPreview]);
+        };
+        publishWorldFrameRef.current = publishRenderProof;
+        publishRenderProof();
+    }, [interior, interiorCamera, interiorFocusLit, architectureAtlasReady, bellQuarterAtlasReady, bondingCedarReady, colosseumReady, entered, feedStoreReady, gardenCourtFountainReady, gardenCourtKaioTreeReady, gardenCourtListeningBenchReady, gardenCourtPavilionReady, gardenLodgeReady, gardensNorthBedCornerReady, gardensNorthBedLongReady, gardensNorthMapleAReady, gardensNorthMapleBReady, guardianHallReady, handlerLodgeReady, highCourtCouncilAnnexReady, highCourtGardensReady, highCourtMainArchiveReady, highCourtRecordHallReady, kennelHouseReady, kennelInfirmaryReady, kennelPavilionReady, loading, arrivalGateReady, boundaryLanternReady, boundarySteleReady, engineHallReady, keeperRowhouseReady,
+ cisternHeadReady, pumpHouseReady, pumpWorldCache, valveHouseReady, marketArcadeReady, marketRowhouseReady, marketStallReady, marketWorkshopReady, player.x, player.y, propsAtlasReady, qaArchitectureScope, qaCameraFocus, stableTackAnnexReady, targetCamera.height, targetCamera.width, targetCamera.x, targetCamera.y, tileAtlasReady, valeStableReady, visualQaPreview, worldArt]);
 
     useEffect(() => {
         if (minimapRef.current) renderMinimap(minimapRef.current, player, npcs, mainQuestCopy(progress).target);
@@ -5426,6 +5726,7 @@ export function FirstPact({
     const handleWorldPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
         if (movementLocked) return;
         const rect = event.currentTarget.getBoundingClientRect();
+        const camera = cameraRef.current;
         const goal = {
             x: Math.floor((event.clientX - rect.left + camera.x) / FIRST_PACT_TILE_SIZE),
             y: Math.floor((event.clientY - rect.top + camera.y) / FIRST_PACT_TILE_SIZE),
@@ -5676,10 +5977,13 @@ export function FirstPact({
             <div className="fp-world" ref={viewportRef} onPointerDown={handleWorldPointer}>
                 <canvas ref={canvasRef} className="fp-world-canvas" role="img" aria-label="Connected tile-based exterior city of the living Sunken Court" />
 
+                {/* Actors live in WORLD coordinates; the camera pans this one
+                    plane imperatively, so a camera frame re-renders nothing. */}
+                <div className="fp-plane" ref={planeRef}>
                 {entered && !interior && activePet && (
                     <div
                         className="fp-actor fp-companion"
-                        style={{ transform: `translate3d(${companion.x * FIRST_PACT_TILE_SIZE + 24 - camera.x}px, ${companion.y * FIRST_PACT_TILE_SIZE + 22 - camera.y}px, 0)` }}
+                        style={{ transform: `translate3d(${companion.x * FIRST_PACT_TILE_SIZE + 24}px, ${companion.y * FIRST_PACT_TILE_SIZE + 22}px, 0)` }}
                         role="img"
                         aria-label={`${activePet.name}, your following companion`}
                     >
@@ -5698,7 +6002,7 @@ export function FirstPact({
                             type="button"
                             key={npc.id}
                             className={`fp-actor fp-npc fp-palette-${npc.palette}${near ? " is-near" : ""}`}
-                            style={{ transform: `translate3d(${state.position.x * FIRST_PACT_TILE_SIZE + 24 - camera.x}px, ${state.position.y * FIRST_PACT_TILE_SIZE + 24 - camera.y}px, 0)` }}
+                            style={{ transform: `translate3d(${state.position.x * FIRST_PACT_TILE_SIZE + 24}px, ${state.position.y * FIRST_PACT_TILE_SIZE + 24}px, 0)` }}
                             onPointerDown={(event) => event.stopPropagation()}
                             tabIndex={near ? 0 : -1}
                             onClick={() => {
@@ -5725,7 +6029,7 @@ export function FirstPact({
                 {entered && !interior && (
                     <div
                         className={`fp-actor fp-player faces-${facing}`}
-                        style={{ transform: `translate3d(${player.x * FIRST_PACT_TILE_SIZE + 24 - camera.x}px, ${player.y * FIRST_PACT_TILE_SIZE + 24 - camera.y}px, 0)` }}
+                        style={{ transform: `translate3d(${player.x * FIRST_PACT_TILE_SIZE + 24}px, ${player.y * FIRST_PACT_TILE_SIZE + 24}px, 0)` }}
                         role="img"
                         aria-label={character.name}
                     >
@@ -5746,7 +6050,7 @@ export function FirstPact({
                             type="button"
                             key={npc.id}
                             className={`fp-actor fp-npc fp-palette-${npc.palette}${near ? " is-near" : ""}`}
-                            style={{ transform: `translate3d(${npc.position.x * FIRST_PACT_TILE_SIZE + 24 - interiorCamera.x}px, ${npc.position.y * FIRST_PACT_TILE_SIZE + 24 - interiorCamera.y}px, 0)` }}
+                            style={{ transform: `translate3d(${npc.position.x * FIRST_PACT_TILE_SIZE + 24}px, ${npc.position.y * FIRST_PACT_TILE_SIZE + 24}px, 0)` }}
                             onPointerDown={(event) => event.stopPropagation()}
                             tabIndex={near ? 0 : -1}
                             onClick={() => { if (near) interactInterior(); }}
@@ -5765,7 +6069,7 @@ export function FirstPact({
                     <button
                         type="button"
                         className="fp-actor is-near"
-                        style={{ transform: `translate3d(${interior.focus.position.x * FIRST_PACT_TILE_SIZE + 24 - interiorCamera.x}px, ${interior.focus.position.y * FIRST_PACT_TILE_SIZE + 24 - interiorCamera.y}px, 0)` }}
+                        style={{ transform: `translate3d(${interior.focus.position.x * FIRST_PACT_TILE_SIZE + 24}px, ${interior.focus.position.y * FIRST_PACT_TILE_SIZE + 24}px, 0)` }}
                         onPointerDown={(event) => event.stopPropagation()}
                         onClick={() => interactInterior()}
                         aria-label={interior.focus.label}
@@ -5777,7 +6081,7 @@ export function FirstPact({
                 {interior && interiorCamera && (
                     <div
                         className={`fp-actor fp-player faces-${interiorFacing}`}
-                        style={{ transform: `translate3d(${interiorSpot.x * FIRST_PACT_TILE_SIZE + 24 - interiorCamera.x}px, ${interiorSpot.y * FIRST_PACT_TILE_SIZE + 24 - interiorCamera.y}px, 0)` }}
+                        style={{ transform: `translate3d(${interiorSpot.x * FIRST_PACT_TILE_SIZE + 24}px, ${interiorSpot.y * FIRST_PACT_TILE_SIZE + 24}px, 0)` }}
                         role="img"
                         aria-label={character.name}
                     >
@@ -5790,6 +6094,7 @@ export function FirstPact({
                         <span className="fp-actor-pin" />
                     </div>
                 )}
+                </div>
 
                 {interior && !criticCapture && <div className="fp-district-toast" role="status" title={`${interior.subtitle}. Press Escape to step back into the street.`}>{interior.name}</div>}
                 {districtToast && entered && !interior && !criticCapture && <div className="fp-district-toast" role="status">{districtToast}</div>}
