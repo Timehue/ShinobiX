@@ -2,12 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type SetSt
 import type { Character } from "../types/character";
 import type { CreatorEvent } from "../types/vn";
 import { loadStoryTrigger } from "./story-trigger-loader";
-import {
-    acknowledgeStoryReport,
-    nextNarrativeDelivery,
-    nextPendingStoryReport,
-    recordStoryReportConflict,
-} from "./story-history";
+import { nextNarrativeDelivery } from "./story-history";
+import { acknowledgeStoryReport, nextPendingStoryReport, recordStoryReportConflict } from "./story-history-mutations";
 
 /** Retry narrative bookkeeping and recover a pending zero-reward aftermath. */
 export function useStoryDelivery({

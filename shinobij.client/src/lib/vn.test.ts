@@ -10,7 +10,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { applyVnTextVars, vnTextVarsFor, hidePlayerPortraitDuringNarration, isChoiceAvailable, analyzeVnFlow, parseDialogueString, resolveVnActorBaseImage, resolveVnAuthoredActorImage, serializeDialogueLines, splitDialogueLine, type VnFlowPage } from "./vn";
-import { addStoryTrait } from "./character-progress";
+import { addStoryTrait } from "./story-choice-mutations";
 import type { Character } from "../types/character";
 
 test("isChoiceAvailable: a choice with no conditions is always available", () => {

@@ -14,6 +14,7 @@ const commandPanelTypes = readFileSync(new URL("../components/WorldSectorCommand
 const commandPanelSource = commandPanelBody + "\n" + commandPanelTypes;
 const overlaySource = readFileSync(new URL("../components/WorldSectorOverlayLayer.tsx", import.meta.url), "utf8");
 const dialogSource = readFileSync(new URL("../components/WorldWandererDialog.tsx", import.meta.url), "utf8");
+const storyFieldRouteBoundarySource = readFileSync(new URL("../components/StoryFieldRouteBoundary.tsx", import.meta.url), "utf8");
 
 function lineCount(source: string): number {
     return source.trimEnd().split(/\r?\n/u).length;
@@ -105,6 +106,17 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         lineCount(dialogSource) <= 375,
         `WorldWandererDialog.tsx grew past 375 lines; workflows and authority must remain in WorldMap.`,
     );
+    assert.ok(
+        lineCount(storyFieldRouteBoundarySource) <= 20,
+        `StoryFieldRouteBoundary.tsx grew past 20 lines; it owns only lazy content readiness and fallback presentation.`,
+    );
+});
+
+test("field content readiness stays in its route boundary", () => {
+    assert.match(worldMapSource, /<StoryFieldRouteBoundary onReturn=/u);
+    assert.match(storyFieldRouteBoundarySource, /readStoryFieldContent\(\)/u);
+    assert.match(storyFieldRouteBoundarySource, /<StoryFieldContentBoundary onReturn=\{onReturn\}>[\s\S]*<Suspense/u);
+    assert.doesNotMatch(storyFieldRouteBoundarySource, /\bfetch\s*\(|\b(?:localStorage|sessionStorage)\b/u);
 });
 
 test("WorldMap keeps one exhaustive early chest flow and no unreachable overview fallback", () => {

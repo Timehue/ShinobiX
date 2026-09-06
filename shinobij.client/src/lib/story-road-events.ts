@@ -18,8 +18,8 @@ import type { Biome } from "../types/core";
 import type { CreatorEvent } from "../types/vn";
 import type { Wanderer, WandererArchetypeId } from "./wanderers";
 import { storyRoadEvents, type StoryRoadEvent, type StoryRoadNpcArchetype } from "../data/story-road-events";
-import { applyStoryChoiceReceipt } from "./character-progress";
-import { queueStoryReport } from "./story-history";
+import { applyStoryChoiceReceipt } from "./story-choice-mutations";
+import { queueStoryReport } from "./story-history-mutations";
 
 export const ROAD_WANDERER_PREFIX = "story-road-";
 
