@@ -105,8 +105,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             chest: SectorPoolReservation | null;
             village: string | undefined;
             frame: SectorPoolFrame | null;
-        } = { reservation: null, chest: null, village: undefined, frame: null };
+            /** Latched once the save mutation carrying this request's reward and
+             *  discovery has COMMITTED. From then on the reservation is owed:
+             *  the player holds an exploration (and possibly a chest) that the
+             *  shared counters must keep counting, and the same-id retry replays
+             *  the committed receipt without reserving again. Releasing after
+             *  this point refunded a slot nobody gave back. */
+            committed: boolean;
+        } = { reservation: null, chest: null, village: undefined, frame: null, committed: false };
         const releasePool = async () => {
+            if (pool.committed) return;
             for (const slot of ['reservation', 'chest'] as const) {
                 const held = pool[slot];
                 if (!held?.ok) continue;
@@ -381,6 +389,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 },
             };
             });
+            // The primary operation is durable from here: nothing after this line
+            // may hand the shared-sector debit back (see `pool.committed`).
+            if (mutation.ok) pool.committed = true;
             if (mutation.ok && 'petMissRequestId' in mutation.value && mutation.value.petMissRequestId) {
                 const active = cleanPetEncounterPointer(await kv.get(activePetKey));
                 if (active?.outcome === 'miss' && active.requestId === mutation.value.petMissRequestId) {
@@ -482,11 +493,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         : await readSectorPool(authority.sector, pool.village, Date.now(), pool.frame?.owner).catch(() => undefined);
             return res.status(200).json({ ok: true, ...result.value, fieldProgress, sectorPool, character: result.character, _saveVersion: result._saveVersion });
         } catch (sideEffectError) {
-            // Settlement did not complete, so hand the slots back — this is the
-            // "any failure AFTER the reservation" case the pool block above
-            // promises. The same-id retry replays off the save/durable receipt
-            // and takes no new slot, so without this release the slots would be
-            // held for the rest of the UTC day with nobody paid for them.
+            // The save mutation above has COMMITTED the reward/discovery and its
+            // receipt; only the secondary work (durable receipt, field progress,
+            // pending-chest mirror) is still owed. The slots stay debited: the
+            // player holds the exploration those slots paid for, and the same-id
+            // retry replays the committed receipt without reserving again — so a
+            // release here refunded a slot that was genuinely consumed (and a
+            // chest receipt could still say `poolReserved: true` over a counter
+            // that no longer counted it). `releasePool` is a no-op once
+            // `pool.committed` is latched; it is kept here so the pre-commit
+            // contract reads the same in both places.
             await releasePool();
             console.error('[world/explore] durable settlement pending', safeLogValue(sideEffectError));
             return res.status(503).json({ error: 'Exploration settlement is still finalizing.', retryable: true, requestId });
