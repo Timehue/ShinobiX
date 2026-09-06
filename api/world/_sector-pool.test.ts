@@ -191,6 +191,15 @@ async function post(handler: Handler, playerName: string, body: Record<string, u
         headers: { 'content-type': 'application/json', 'x-player-token': issuePlayerToken(playerName) ?? '' },
         socket: { remoteAddress: `127.3.0.${playerName.length}` },
     } as never, output.res);
+    // An exploration that rolls a BATTLE is an obligation (api/world/_pending-battle.ts):
+    // the next exploration is refused until the fight is started. The client starts it
+    // through ai-fight-start, which claims the one-use marker; these tests only measure
+    // the pool, so claim the marker here exactly as a started fight would.
+    const outcome = output.out.body?.outcome as Record<string, unknown> | undefined;
+    if (outcome?.kind === 'battle' && typeof body.requestId === 'string') {
+        const { exploreBattleMarkerKey } = await import('../missions/_generic-ai-fight-authority.js');
+        await kv.set(exploreBattleMarkerKey(playerName, body.requestId), { playerName, token: 'fixture', sessionId: 'fixture', at: Date.now() });
+    }
     return output.out;
 }
 
