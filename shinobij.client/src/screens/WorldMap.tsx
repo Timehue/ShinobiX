@@ -66,6 +66,7 @@ import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOS
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
 import { ROAD_WANDERER_PREFIX, nextRoadEvent, synthRoadWanderer, roadEventBySynthId, roadEventToCreatorEvent, reportStoryRoadEvent, applyRoadEventChoice } from "../lib/story-road-events";
+import { readStoryRoadContent } from "../lib/story-road-content-loader";
 import { STORY_RECKONING_ACCEPT_TRAIT, visibleStoryReckonings, isStoryReckoningId, isStoryReckoningReturnEventId, storyReckoningForEventId, storyReckoningIntroEvent, storyReckoningPayoffEvent, acceptStoryReckoning, reportStoryReckoning, turnInStoryReckoning, abandonStoryReckoning } from "../lib/story-reckonings";
 import type { StoryReckoning } from "../data/story-reckonings";
 import { FIELD_STORY_PREFIX, storyFieldAftermathEvent, storyFieldObjective } from "../lib/story-field-work";
@@ -1146,7 +1147,7 @@ function WorldMapContent({
     // Completion is trait-presence, so the memo re-evaluates when traits change.
     const roadWanderers = useMemo(() => {
         if (!isWanderersEnabled() || selectedSector == null) return [];
-        const event = nextRoadEvent(character);
+        const event = nextRoadEvent(character, readStoryRoadContent());
         if (!event) return [];
         // Balance: the road finds them — but not in EVERY sector. The NPC walks
         // QUEST_GIVER_PRESENCE.road of sectors per 6h window (deterministic,
@@ -1885,7 +1886,7 @@ function WorldMapContent({
         // A story road event opens its VN directly (no verb dialog) — same
         // pattern as the Sage. The event stays available until a choice is made.
         if (w.id.startsWith(ROAD_WANDERER_PREFIX)) {
-            const roadEvent = roadEventBySynthId(w.id);
+            const roadEvent = roadEventBySynthId(w.id, readStoryRoadContent());
             if (roadEvent && selectedSector != null) {
                 setCreatorEventPage(0);
                 setCreatorEventLine(0);
@@ -5347,7 +5348,6 @@ function WorldMapContent({
 }
 
 type WorldMapProps = Parameters<typeof WorldMapContent>[0];
-
 export function WorldMap(props: WorldMapProps) {
     return <StoryFieldRouteBoundary onReturn={() => props.setScreen("village")}>
         <WorldMapContent {...props} />

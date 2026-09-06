@@ -76,6 +76,31 @@ async function expectHeadingInView(page: Page, heading: Locator) {
     expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
 }
 
+test("a road-story content outage keeps choices closed until an explicit retry succeeds", async ({ page }, testInfo) => {
+    test.skip(!["chromium-desktop", "chromium-mobile"].includes(testInfo.project.name), "desktop and phone certify story content recovery");
+    await configureReader(page);
+    const runtime = await installFieldRuntime(page);
+    let unavailable = true;
+    let attempts = 0;
+    await page.route("**/assets/road-events-*.json*", async (route) => {
+        attempts += 1;
+        if (unavailable) await route.fulfill({ status: 503, body: "Temporary content outage" });
+        else await route.continue();
+    });
+    await page.goto("/#/worldMap", { waitUntil: "domcontentloaded" });
+    const retry = page.getByRole("button", { name: "Retry Journey Load", exact: true });
+    await expect(retry).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("complementary", { name: "Personal quest" })).toHaveCount(0);
+    expect(attempts).toBe(3);
+    expect(runtime.fieldAttempts()).toBe(0);
+    unavailable = false;
+    await retry.click();
+    await expect(page.getByRole("complementary", { name: "Personal quest" })).toContainText("Kesa's Marker");
+    await expect(retry).toHaveCount(0);
+    expect(attempts).toBe(4);
+    expect(runtime.fieldAttempts()).toBe(0);
+});
+
 async function installFieldRuntime(page: Page, firstFieldResult: "temporary-error" | "stale-success" = "temporary-error") {
     const initial = uiAuditSave();
     const emptyProgress: FieldProgress = { version: 1, visits: [] };

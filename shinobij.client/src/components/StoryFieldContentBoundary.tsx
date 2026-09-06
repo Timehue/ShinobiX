@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { resetStoryFieldContent } from "../lib/story-field-content-loader";
+import { resetStoryRoadContent } from "../lib/story-road-content-loader";
 import { StoryFieldContentLoadError } from "../lib/story-field-content-loader-core";
 import { reportError } from "../lib/sentry";
 
@@ -21,6 +22,7 @@ export class StoryFieldContentBoundary extends Component<Props, State> {
 
     private retry = (): void => {
         resetStoryFieldContent();
+        resetStoryRoadContent();
         this.setState({ error: null });
     };
 

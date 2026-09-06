@@ -742,6 +742,9 @@ const STORY_EPILOGUE_TOTAL_GZIP_FAIL_BYTES = 20_000;
 const STORY_FIELD_CONTENT_RE = /^assets\/field-scenes-[a-f0-9]{12}-[A-Za-z0-9_-]{8}\.json$/;
 const STORY_FIELD_CONTENT_RAW_FAIL_BYTES = 100_000;
 const STORY_FIELD_CONTENT_GZIP_FAIL_BYTES = 30_000;
+const STORY_ROAD_CONTENT_RE = /^assets\/road-events-[a-f0-9]{12}-[A-Za-z0-9_-]{8}\.json$/;
+const STORY_ROAD_CONTENT_RAW_FAIL_BYTES = 64_000;
+const STORY_ROAD_CONTENT_GZIP_FAIL_BYTES = 24_000;
 
 function walk(dir) {
     const out = [];
@@ -810,6 +813,10 @@ const storyFieldContentAssets = withRel.filter((file) => STORY_FIELD_CONTENT_RE.
 const storyFieldContentGzip = storyFieldContentAssets.map((file) => ({ ...file, gzip: gzipSync(readFileSync(file.path), { level: 9 }).length }));
 const storyFieldContentRawTotal = storyFieldContentGzip.reduce((sum, file) => sum + file.size, 0);
 const storyFieldContentGzipTotal = storyFieldContentGzip.reduce((sum, file) => sum + file.gzip, 0);
+const storyRoadContentAssets = withRel.filter((file) => STORY_ROAD_CONTENT_RE.test(file.rel));
+const storyRoadContentGzip = storyRoadContentAssets.map((file) => ({ ...file, gzip: gzipSync(readFileSync(file.path), { level: 9 }).length }));
+const storyRoadContentRawTotal = storyRoadContentGzip.reduce((sum, file) => sum + file.size, 0);
+const storyRoadContentGzipTotal = storyRoadContentGzip.reduce((sum, file) => sum + file.gzip, 0);
 
 if (storyContentAssets.length !== STORY_CONTENT_VILLAGES.size) failures.push(`expected exactly four content-addressed story JSON assets; found ${storyContentAssets.length}`);
 if (new Set(storyContentVillages).size !== STORY_CONTENT_VILLAGES.size || storyContentVillages.some((village) => !STORY_CONTENT_VILLAGES.has(village))) {
@@ -836,6 +843,22 @@ if (storyFieldContentAssets.length !== 1) failures.push(`expected exactly one co
 if (storyFieldContentRawTotal > STORY_FIELD_CONTENT_RAW_FAIL_BYTES) failures.push(`field journey JSON is ${fmt(storyFieldContentRawTotal)}; threshold is ${fmt(STORY_FIELD_CONTENT_RAW_FAIL_BYTES)}`);
 if (storyFieldContentGzipTotal > STORY_FIELD_CONTENT_GZIP_FAIL_BYTES) failures.push(`field journey JSON is ${fmt(storyFieldContentGzipTotal)} gzip; threshold is ${fmt(STORY_FIELD_CONTENT_GZIP_FAIL_BYTES)}`);
 console.log(`[sizecheck] On-demand field journey JSON: ${exact(storyFieldContentRawTotal)} raw / ${exact(storyFieldContentGzipTotal)} gzip across ${storyFieldContentAssets.length} payload.`);
+if (storyRoadContentAssets.length !== 1) failures.push(`expected exactly one content-addressed road-event JSON asset; found ${storyRoadContentAssets.length}`);
+if (storyRoadContentRawTotal > STORY_ROAD_CONTENT_RAW_FAIL_BYTES) failures.push(`road-event JSON is ${fmt(storyRoadContentRawTotal)}; threshold is ${fmt(STORY_ROAD_CONTENT_RAW_FAIL_BYTES)}`);
+if (storyRoadContentGzipTotal > STORY_ROAD_CONTENT_GZIP_FAIL_BYTES) failures.push(`road-event JSON is ${fmt(storyRoadContentGzipTotal)} gzip; threshold is ${fmt(STORY_ROAD_CONTENT_GZIP_FAIL_BYTES)}`);
+console.log(`[sizecheck] On-demand road-event JSON: ${exact(storyRoadContentRawTotal)} raw / ${exact(storyRoadContentGzipTotal)} gzip across ${storyRoadContentAssets.length} payload.`);
+if (storyRoadContentAssets.length === 1) {
+    try {
+        const payload = JSON.parse(readFileSync(storyRoadContentAssets[0].path, 'utf8'));
+        const proseMarker = payload?.events?.[0]?.pages?.[0]?.dialogue?.[0];
+        if (typeof proseMarker === 'string' && proseMarker.length >= 24
+            && js.some((file) => readFileSync(file.path, 'utf8').includes(proseMarker))) {
+            failures.push('road-event authored prose is still embedded in emitted JavaScript instead of loading only from its JSON asset');
+        }
+    } catch (err) {
+        failures.push(`could not inspect road-event JSON for duplicate authored prose: ${err.message}`);
+    }
+}
 
 // Sentry is observability, not product code. Allow one tightly capped chunk only
 // when it stays off the initial graph; do not weaken the product-code budget.
@@ -962,4 +985,4 @@ if (failures.length) {
 
 const sentryNote = sentryChunks.length ? `; lazy Sentry: ${fmt(sentryChunks[0].size)}` : '';
 const threeNote = threeChunks.length ? `; lazy Three.js: ${fmt(threeChunks[0].size)}` : '';
-console.log(`[sizecheck] PASS. Budgeted product JS/CSS: ${exact(budgetedJsCssTotal)} raw / ${exact(budgetedJsCssGzipTotal)} gzip; story JSON: ${exact(storyContentRawTotal)} raw / ${exact(storyContentGzipTotal)} gzip; epilogue JSON: ${exact(storyEpilogueRawTotal)} raw / ${exact(storyEpilogueGzipTotal)} gzip; field journey JSON: ${exact(storyFieldContentRawTotal)} raw / ${exact(storyFieldContentGzipTotal)} gzip; combined tracked product: ${exact(budgetedJsCssTotal + storyContentRawTotal + storyEpilogueRawTotal + storyFieldContentRawTotal)} raw / ${exact(budgetedJsCssGzipTotal + storyContentGzipTotal + storyEpilogueGzipTotal + storyFieldContentGzipTotal)} gzip; all emitted JS/CSS: ${exact(jsCssTotal)} raw / ${exact(jsCssGzipTotal)} gzip${sentryNote}${threeNote}.`);
+console.log(`[sizecheck] PASS. Budgeted product JS/CSS: ${exact(budgetedJsCssTotal)} raw / ${exact(budgetedJsCssGzipTotal)} gzip; story JSON: ${exact(storyContentRawTotal)} raw / ${exact(storyContentGzipTotal)} gzip; epilogue JSON: ${exact(storyEpilogueRawTotal)} raw / ${exact(storyEpilogueGzipTotal)} gzip; field journey JSON: ${exact(storyFieldContentRawTotal)} raw / ${exact(storyFieldContentGzipTotal)} gzip; road-event JSON: ${exact(storyRoadContentRawTotal)} raw / ${exact(storyRoadContentGzipTotal)} gzip; combined tracked product: ${exact(budgetedJsCssTotal + storyContentRawTotal + storyEpilogueRawTotal + storyFieldContentRawTotal + storyRoadContentRawTotal)} raw / ${exact(budgetedJsCssGzipTotal + storyContentGzipTotal + storyEpilogueGzipTotal + storyFieldContentGzipTotal + storyRoadContentGzipTotal)} gzip; all emitted JS/CSS: ${exact(jsCssTotal)} raw / ${exact(jsCssGzipTotal)} gzip${sentryNote}${threeNote}.`);

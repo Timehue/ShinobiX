@@ -17,7 +17,7 @@ import type { Character, StoryChoiceReceipt } from "../types/character";
 import type { Biome } from "../types/core";
 import type { CreatorEvent } from "../types/vn";
 import type { Wanderer, WandererArchetypeId } from "./wanderers";
-import { storyRoadEvents, type StoryRoadEvent, type StoryRoadNpcArchetype } from "../data/story-road-events";
+import type { StoryRoadEvent, StoryRoadNpcArchetype } from "../data/story-road-events";
 import { applyStoryChoiceReceipt } from "./story-choice-mutations";
 import { queueStoryReport } from "./story-history-mutations";
 
@@ -46,9 +46,9 @@ export function roadEventCompleted(event: StoryRoadEvent, storyTraits: string[])
 }
 
 /** The next road event that should find this player, or null. */
-export function nextRoadEvent(character: Character): StoryRoadEvent | null {
+export function nextRoadEvent(character: Character, events: readonly StoryRoadEvent[]): StoryRoadEvent | null {
     const traits = character.storyTraits ?? [];
-    for (const event of storyRoadEvents) {
+    for (const event of events) {
         if (character.level < event.levelReq) continue;
         if ((character.storyProgress ?? 0) < event.minProgress) continue;
         if (roadEventCompleted(event, traits)) continue;
@@ -57,8 +57,8 @@ export function nextRoadEvent(character: Character): StoryRoadEvent | null {
     return null;
 }
 
-export function roadEventBySynthId(id: string): StoryRoadEvent | null {
-    return storyRoadEvents.find((event) => event.id === id) ?? null;
+export function roadEventBySynthId(id: string, events: readonly StoryRoadEvent[]): StoryRoadEvent | null {
+    return events.find((event) => event.id === id) ?? null;
 }
 
 /** The event's NPC as a sector wanderer — never hostile, never cooled, placed
