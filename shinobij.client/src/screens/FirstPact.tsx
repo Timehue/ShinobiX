@@ -79,10 +79,13 @@ import {
     type FirstPactRect,
 } from "../lib/first-pact-world";
 import {
+    findFirstPactInteriorPath,
+    firstPactInteriorApproaches,
     firstPactInteriorAtDoor,
     firstPactInteriorEntry,
     firstPactInteriorExit,
     firstPactInteriorNpcLines,
+    firstPactInteriorOccupied,
     isFirstPactInteriorWalkable,
     type FirstPactInterior,
     type FirstPactInteriorNpc,
@@ -188,6 +191,16 @@ import rhoPortrait from "../assets/first-pact/portraits/feed-merchant-rho.webp";
 import pellPortrait from "../assets/first-pact/portraits/stable-hand-pell.webp";
 import nemiPortrait from "../assets/first-pact/portraits/court-courier-nemi.webp";
 import yoriPortrait from "../assets/first-pact/portraits/market-runner-yori.webp";
+/* The six people who stand INSIDE the enterable buildings. They shipped as
+   letter tiles next to painted street faces, which read as an unfinished room
+   the moment you walked into one. Same atlas pipeline as the street cast:
+   scripts/gen-first-pact-interior-cast.mjs → process-first-pact-interior-cast.mjs. */
+import ashiPortrait from "../assets/first-pact/portraits/archive-warden-ashi.webp";
+import munPortrait from "../assets/first-pact/portraits/ledger-keeper-mun.webp";
+import seroPortrait from "../assets/first-pact/portraits/annex-attendant-sero.webp";
+import belPortrait from "../assets/first-pact/portraits/oathkeeper-bel.webp";
+import niaPortrait from "../assets/first-pact/portraits/lodge-steward-nia.webp";
+import junoPortrait from "../assets/first-pact/portraits/tea-apprentice-juno.webp";
 
 type RuntimeNpc = {
     position: FirstPactPoint;
@@ -269,6 +282,8 @@ type InteriorSpeech = {
     name: string;
     title: string;
     palette: FirstPactNpcDefinition["palette"];
+    /** A painted face when a person is speaking; a furnishing keeps the letter. */
+    portrait?: string;
     portraitLetter: string;
     lines: readonly string[];
 };
@@ -359,6 +374,14 @@ const NPC_PORTRAITS: Readonly<Record<string, string>> = {
     "kennel-hand": pellPortrait,
     "court-courier": nemiPortrait,
     "market-runner": yoriPortrait,
+    // Interior cast. Keyed by the same npc id, so one lookup serves the street
+    // token, the room token and both dialogue frames.
+    "archive-warden-ashi": ashiPortrait,
+    "ledger-keeper-mun": munPortrait,
+    "annex-attendant-sero": seroPortrait,
+    "oathkeeper-bel": belPortrait,
+    "lodge-steward-nia": niaPortrait,
+    "tea-apprentice-juno": junoPortrait,
 };
 
 const TILE_PALETTE: Record<FirstPactTile, { base: string; edge: string; detail: string }> = {
@@ -4876,6 +4899,8 @@ export function FirstPact({
     const [interior, setInterior] = useState<FirstPactInterior | null>(null);
     const [interiorSpot, setInteriorSpot] = useState<FirstPactPoint>({ x: 0, y: 0 });
     const [interiorFacing, setInteriorFacing] = useState<FirstPactDirection>("north");
+    /** The room's click-to-walk queue, the indoor twin of `playerPath`. */
+    const [interiorPath, setInteriorPath] = useState<FirstPactPoint[]>([]);
     const [interiorSpeech, setInteriorSpeech] = useState<InteriorSpeech | null>(null);
     const [squadOpen, setSquadOpen] = useState(false);
     const [pendingEncounterId, setPendingEncounterId] = useState<FirstPactEncounterId | null>(null);
@@ -5051,6 +5076,11 @@ export function FirstPact({
     }, []);
 
     const movementLocked = loading || !entered || !!dialogNpc || squadOpen || journalOpen || epiloguePage != null || !!battle || !!interior;
+    /* Indoors the street lock is total by design, because `interior` is one of
+       its terms, so a room needs a lock of its own: without one, clicking a
+       floor tile is refused by the fact that you are standing in a room. Same
+       terms, minus the room, plus the room's own dialogue frame. */
+    const interiorMovementLocked = loading || !entered || squadOpen || journalOpen || epiloguePage != null || !!battle || !!interiorSpeech;
     useEffect(() => { interiorRef.current = interior; }, [interior]);
     useEffect(() => { interiorSpotRef.current = interiorSpot; }, [interiorSpot]);
     useEffect(() => { movementLockedRef.current = movementLocked; }, [movementLocked]);
@@ -5614,6 +5644,7 @@ export function FirstPact({
             setInteriorSpot(entry);
             setInteriorFacing("north");
             setInteriorSpeech(null);
+            setInteriorPath([]);
             setPlayerPath([]);
         }
         return true;
@@ -5625,28 +5656,43 @@ export function FirstPact({
         const door = firstPactInteriorExit(room);
         reenterGuardRef.current = firstPactPointKey(door);
         setInteriorSpeech(null);
+        setInteriorPath([]);
         setInterior(null);
         setFacing("south");
         setPlayer(door);
         setCompanion(door);
     }, []);
 
-    const moveInterior = useCallback((next: FirstPactPoint) => {
+    /** One step inside a room. Reports whether it landed, so a queued walk
+     *  abandons its path instead of stepping the rest of it from a stale cell. */
+    const moveInterior = useCallback((next: FirstPactPoint): boolean => {
         const room = interiorRef.current;
-        if (!room) return;
-        if (!isFirstPactInteriorWalkable(room, next.x, next.y)) return;
-        if (room.npcs.some((npc) => npc.position.x === next.x && npc.position.y === next.y)) return;
+        if (!room) return false;
+        if (!isFirstPactInteriorWalkable(room, next.x, next.y)) return false;
+        if (room.npcs.some((npc) => npc.position.x === next.x && npc.position.y === next.y)) return false;
         setInteriorFacing(directionForStep(interiorSpotRef.current, next));
         setInteriorSpot(next);
         // The door is the way out; stepping onto it leaves rather than trapping.
         if (room.rows[next.y]?.[next.x] === "D") leaveInterior();
+        return true;
     }, [leaveInterior]);
+
+    /** Queue a walk to a room cell, the indoor twin of the street's click-to-walk.
+     *  The room's own inhabitants block, so a path never ends inside a keeper. */
+    const walkInteriorTo = useCallback((goal: FirstPactPoint) => {
+        const room = interiorRef.current;
+        if (!room) return;
+        const path = findFirstPactInteriorPath(room, interiorSpotRef.current, goal, firstPactInteriorOccupied(room));
+        // The pathfinder returns the standing cell first; walking it is a wasted tick.
+        setInteriorPath(path.slice(1));
+    }, []);
 
     /** One step, in whichever space the player is standing in. */
     const stepBy = useCallback((dx: number, dy: number) => {
         const room = interiorRef.current;
         if (room) {
             const here = interiorSpotRef.current;
+            setInteriorPath([]);
             moveInterior({ x: here.x + dx, y: here.y + dy });
             return;
         }
@@ -5658,6 +5704,8 @@ export function FirstPact({
     const interactInterior = useCallback(() => {
         const room = interiorRef.current;
         if (!room) return;
+        // A conversation ends the walk that reached it, as it does on the street.
+        setInteriorPath([]);
         const here = interiorSpotRef.current;
         const touching = (point: FirstPactPoint) => Math.max(Math.abs(point.x - here.x), Math.abs(point.y - here.y)) <= 1;
         const npc = room.npcs.find((entry) => touching(entry.position));
@@ -5666,6 +5714,7 @@ export function FirstPact({
                 name: npc.name,
                 title: npc.title,
                 palette: npc.palette,
+                portrait: NPC_PORTRAITS[npc.id],
                 portraitLetter: npc.name.slice(0, 1),
                 lines: firstPactInteriorNpcLines(npc, progressRef.current.mainStep),
             });
@@ -5735,7 +5784,7 @@ export function FirstPact({
             else if (keys.has("arrowdown") || keys.has("s")) next = { x: here.x, y: here.y + 1 };
             else if (keys.has("arrowleft") || keys.has("a")) next = { x: here.x - 1, y: here.y };
             else if (keys.has("arrowright") || keys.has("d")) next = { x: here.x + 1, y: here.y };
-            if (next) moveInterior(next);
+            if (next) { setInteriorPath([]); moveInterior(next); }
         }, 115);
         return () => window.clearInterval(timer);
     }, [interior, interiorSpeech, moveInterior]);
@@ -5762,6 +5811,20 @@ export function FirstPact({
         }, 105);
         return () => window.clearTimeout(timer);
     }, [movementLocked, movePlayer, playerPath]);
+
+    // The same walk, one room in. A refused step drops the rest of the path
+    // rather than teleporting the remainder from a cell nobody is standing on.
+    useEffect(() => {
+        if (!interior || !interiorPath.length || interiorMovementLocked) return;
+        const timer = window.setTimeout(() => {
+            setInteriorPath((current) => {
+                const next = current[0];
+                if (!next || !moveInterior(next)) return [];
+                return current.slice(1);
+            });
+        }, 105);
+        return () => window.clearTimeout(timer);
+    }, [interior, interiorMovementLocked, interiorPath, moveInterior]);
 
     // Nearby wandering simulation only; static citizens never move. Each NPC
     // chooses a reachable target inside its painted region, pauses at arrival,
@@ -5827,8 +5890,18 @@ export function FirstPact({
     }, [character.name, entered, player]);
 
     const handleWorldPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
-        if (movementLocked) return;
         const rect = event.currentTarget.getBoundingClientRect();
+        // A room is walked the same way the street is. Its camera is the room's,
+        // not the city's, so the tile under the tap is read through that one.
+        if (interior && interiorCamera) {
+            if (interiorMovementLocked) return;
+            walkInteriorTo({
+                x: Math.floor((event.clientX - rect.left + interiorCamera.x) / FIRST_PACT_TILE_SIZE),
+                y: Math.floor((event.clientY - rect.top + interiorCamera.y) / FIRST_PACT_TILE_SIZE),
+            });
+            return;
+        }
+        if (movementLocked) return;
         const camera = cameraRef.current;
         const goal = {
             x: Math.floor((event.clientX - rect.left + camera.x) / FIRST_PACT_TILE_SIZE),
@@ -6192,12 +6265,29 @@ export function FirstPact({
                             className={`fp-actor fp-npc fp-palette-${npc.palette}${near ? " is-near" : ""}`}
                             style={{ transform: `translate3d(${npc.position.x * FIRST_PACT_TILE_SIZE + 24}px, ${npc.position.y * FIRST_PACT_TILE_SIZE + 24}px, 0)` }}
                             onPointerDown={(event) => event.stopPropagation()}
-                            tabIndex={near ? 0 : -1}
-                            onClick={() => { if (near) interactInterior(); }}
-                            aria-label={`${npc.name}, ${npc.title}${near ? ". Interact" : ""}`}
+                            tabIndex={0}
+                            onClick={() => {
+                                if (near) { interactInterior(); return; }
+                                // The token covers the floor under it, so a far
+                                // keeper would be a dead spot in a room you can
+                                // otherwise click across. Walk to their aisle,
+                                // on the side the player is already standing on.
+                                if (interiorMovementLocked) return;
+                                const taken = firstPactInteriorOccupied(interior);
+                                const [approach] = firstPactInteriorApproaches(interior, npc.position)
+                                    .filter((cell) => !taken.has(`${cell.x},${cell.y}`))
+                                    .sort((a, b) => (Math.abs(a.x - interiorSpot.x) + Math.abs(a.y - interiorSpot.y))
+                                        - (Math.abs(b.x - interiorSpot.x) + Math.abs(b.y - interiorSpot.y)));
+                                if (approach) walkInteriorTo(approach);
+                            }}
+                            aria-label={`${npc.name}, ${npc.title}${near ? ". Interact" : ". Walk over"}`}
                         >
                             <span className="fp-actor-shadow" />
-                            <span className="fp-npc-body"><i>{npc.name.slice(0, 1)}</i></span>
+                            <span className="fp-npc-body">
+                                {NPC_PORTRAITS[npc.id]
+                                    ? <img src={NPC_PORTRAITS[npc.id]} alt="" />
+                                    : <i>{npc.name.slice(0, 1)}</i>}
+                            </span>
                             <span className="fp-actor-pin" />
                             <span className="fp-npc-name">{npc.name}</span>
                             {near && !criticCapture && <span className="fp-interact">E</span>}
@@ -6305,7 +6395,9 @@ export function FirstPact({
                 <div className="fp-overlay" role="presentation" onPointerDown={(event) => event.stopPropagation()}>
                     <section className="fp-dialogue" role="dialog" aria-modal="true" aria-label={`Reading ${interiorSpeech.name}`}>
                         <div className={`fp-dialogue-portrait fp-palette-${interiorSpeech.palette}`}>
-                            <span>{interiorSpeech.portraitLetter}</span>
+                            {interiorSpeech.portrait
+                                ? <img src={interiorSpeech.portrait} alt={`${interiorSpeech.name} portrait`} />
+                                : <span>{interiorSpeech.portraitLetter}</span>}
                         </div>
                         <div className="fp-dialogue-copy">
                             <span className="fp-eyebrow">{interiorSpeech.title}</span>
