@@ -74,8 +74,17 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // exhaustive chest flow, no unreachable overview fallback, live charting
         // before sector markers, and the wanderer dialog still extracted. Exact
         // achieved count, no buffer, per the convention above.
-        lineCount(worldMapSource) <= 5_355,
-        `WorldMap.tsx grew past 5,355 lines; retired overview layers must stay retired.`,
+        // 5,365 (+10): an ambush the player rolled and never fought is now an
+        // OBLIGATION the server names on the next exploration
+        // (`pending-battle-discovery`, api/world/_pending-battle.ts), and both
+        // explore result paths resume that exact sealed encounter through the
+        // existing launchResolvedExploreBattle — plus the board initializer
+        // reading the server-persisted arrival tile on a reload. Behavior wiring
+        // on the existing flows, not a retired drawing layer coming back; the
+        // structural assertions below hold unchanged. Exact achieved count, no
+        // buffer, per the convention above.
+        lineCount(worldMapSource) <= 5_365,
+        `WorldMap.tsx grew past 5,365 lines; retired overview layers must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,

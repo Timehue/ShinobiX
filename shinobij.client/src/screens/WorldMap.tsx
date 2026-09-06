@@ -2529,11 +2529,7 @@ function WorldMapContent({
     // last tile at module scope, so it survives WorldMap's unmount during the
     // battle. Peek, never take — the mount effect above owns consuming the latch.
     const [sectorPlayerPos, setSectorPlayerPos] = useState(
-        // A return from combat keeps the tile the player stood on; a browser
-        // reload resumes on the tile the server persisted for the last settled
-        // arrival (hydrated into presence-store at boot). Anything else opens
-        // on the grid centre, as before.
-        () => (peekSectorReopen() !== null || peekReloadIntoSector() ? getLocalSectorTile() : SECTOR_CENTRE_TILE),
+        () => (peekSectorReopen() !== null || peekReloadIntoSector() ? getLocalSectorTile() : SECTOR_CENTRE_TILE), // a reload resumes on the server-persisted arrival tile (hydrated at boot)
     );
     const travelRequestInFlight = useRef(false);
     // Bridge the local player's tile to the presence store so the heartbeat (which
@@ -2971,12 +2967,8 @@ function WorldMapContent({
             if (settled.retryable === false) {
                 completeWorldRewardOperation(character.name, operation.id);
             }
-            // An ambush rolled earlier (this device or another) is still owed:
-            // the server refused a fresh roll and named it. Resume that exact
-            // sealed encounter through the same launcher a fresh roll uses.
-            if (settled.pendingBattle) {
-                if (launchResolvedExploreBattle(settled.pendingBattle.sector, settled.pendingBattle.requestId)) return null;
-                alert("The combat host is unavailable. Reopen the map to resume your pending encounter.");
+            if (settled.pendingBattle) { // an ambush rolled earlier is still owed: resume that exact sealed encounter
+                if (!launchResolvedExploreBattle(settled.pendingBattle.sector, settled.pendingBattle.requestId)) alert("The combat host is unavailable. Reopen the map to resume your pending encounter.");
                 return null;
             }
             if (settled.error === "sector-depleted") { gameToast(SECTOR_DEPLETED_MESSAGE, { kind: "info" }); return null; }
@@ -3192,15 +3184,9 @@ function WorldMapContent({
                             break;
                         }
                     }
-                    if (result.pendingBattle) {
-                        // This parked operation never committed (the server refused
-                        // it in favour of the owed ambush); retire it and resume the
-                        // ambush itself.
+                    if (result.pendingBattle) { // this parked operation never committed; retire it and resume the owed ambush
                         completeWorldRewardOperation(character.name, operation.id);
-                        if (launchResolvedExploreBattle(result.pendingBattle.sector, result.pendingBattle.requestId)) {
-                            recovered = true;
-                            break;
-                        }
+                        if (launchResolvedExploreBattle(result.pendingBattle.sector, result.pendingBattle.requestId)) { recovered = true; break; }
                         blocked = true;
                         continue;
                     }
