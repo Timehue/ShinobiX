@@ -317,7 +317,7 @@
 /* Cooldown countdown badge — rounds remaining until the jutsu / weapon / item is
    ready again. Lives in the card wrap as a SIBLING of the greyed button, so the
    button's grayscale filter never touches it and the number stays bright + bold.
-   Sits top-right (the ℹ️ help button owns bottom-left). */
+   Sits top-right (the ℹ️ help button owns the left corner). */
 .combat-cd-badge {
     position: absolute !important;
     top: 3px !important;

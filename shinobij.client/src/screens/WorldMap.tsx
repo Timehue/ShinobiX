@@ -27,7 +27,7 @@ import type { Pet, PetTrait } from "../types/pet";
 import { TERRITORY_HP_MAX, TERRITORY_REBUILD_COOLDOWN_MS } from "../constants/game";
 import { getAllTileCards } from "../data/tile-cards";
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
-import { addStoryTrait } from "../lib/character-progress";
+import { addStoryTrait } from "../lib/story-choice-mutations";
 import { SceneAmbience } from "../components/SceneAmbience";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { WorldSectorCanvas } from "../components/WorldSectorCanvas";
@@ -69,10 +69,9 @@ import { ROAD_WANDERER_PREFIX, nextRoadEvent, synthRoadWanderer, roadEventBySynt
 import { STORY_RECKONING_ACCEPT_TRAIT, visibleStoryReckonings, isStoryReckoningId, isStoryReckoningReturnEventId, storyReckoningForEventId, storyReckoningIntroEvent, storyReckoningPayoffEvent, acceptStoryReckoning, reportStoryReckoning, turnInStoryReckoning, abandonStoryReckoning } from "../lib/story-reckonings";
 import type { StoryReckoning } from "../data/story-reckonings";
 import { FIELD_STORY_PREFIX, storyFieldAftermathEvent, storyFieldObjective } from "../lib/story-field-work";
-import { readStoryFieldContent } from "../lib/story-field-content-loader";
 import { StoryFieldScene } from "../components/StoryFieldScene";
 import { StoryFieldJournal } from "../components/StoryFieldJournal";
-import { StoryFieldContentBoundary } from "../components/StoryFieldContentBoundary";
+import { StoryFieldRouteBoundary } from "../components/StoryFieldRouteBoundary";
 import { RIFT_GIVER_PREFIX, RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_ABANDON_MARKER, nextRift, synthRiftGiver, riftBySynthId, riftIntroEvent, riftDescentEvent, riftByDescentEventId, isRiftDescentEventId, riftTargetSector, acceptRift, abandonRift } from "../lib/hollow-rifts";
 import { hollowRiftById, type HollowRift } from "../data/hollow-rifts";
 import { SCRIBE_WANDERER_ID, SCRIBE_ACCEPT_MARKER, CODEX_FLIP_LIMIT, scribeWandererFor, scribeIntroEvent, claimTravelersCodex, codexRevealCards } from "../lib/chronicle-scribe";
@@ -5349,15 +5348,8 @@ function WorldMapContent({
 
 type WorldMapProps = Parameters<typeof WorldMapContent>[0];
 
-function StoryFieldContentGate({ children }: { children: ReactNode }) {
-    readStoryFieldContent();
-    return children;
-}
-
 export function WorldMap(props: WorldMapProps) {
-    return <StoryFieldContentBoundary onReturn={() => props.setScreen("village")}>
-        <Suspense fallback={<div className="loading-screen" role="status">Opening personal journey…</div>}>
-            <StoryFieldContentGate><WorldMapContent {...props} /></StoryFieldContentGate>
-        </Suspense>
-    </StoryFieldContentBoundary>;
+    return <StoryFieldRouteBoundary onReturn={() => props.setScreen("village")}>
+        <WorldMapContent {...props} />
+    </StoryFieldRouteBoundary>;
 }

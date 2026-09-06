@@ -3,23 +3,25 @@ import assert from "node:assert/strict";
 import type { Character } from "../types/character";
 import type { CreatorEvent } from "../types/vn";
 import {
-    acknowledgeStoryReport,
     clearStoryScene,
-    markStoryEpilogueSeen,
     nextNarrativeDelivery,
-    nextPendingStoryReport,
     pendingStoryEpilogue,
     prepareStorySettlement,
     preserveNarrativeState,
-    queueStoryReport,
     recordPendingStoryEpilogue,
-    recordStoryReportConflict,
-    recordStoryChoice,
-    recordStoryScene,
     sanitizeStoryScene,
 } from "./story-history";
+import {
+    acknowledgeStoryReport,
+    markStoryEpilogueSeen,
+    nextPendingStoryReport,
+    queueStoryReport,
+    recordStoryChoice,
+    recordStoryReportConflict,
+    recordStoryScene,
+} from "./story-history-mutations";
 import { makeStoryChoiceReceipt } from "./story-choice-history";
-import { applyStoryChoiceReceipt } from "./character-progress";
+import { applyStoryChoiceReceipt } from "./story-choice-mutations";
 
 const event: CreatorEvent = {
     id: "story-stormveil-village-4-0", name: "A Storm Without Thunder", biome: "coast", icon: "x",

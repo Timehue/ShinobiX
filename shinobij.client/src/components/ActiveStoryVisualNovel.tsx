@@ -1,8 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { Character } from "../types/character";
 import type { CreatorEvent } from "../types/vn";
-import { applyStoryChoiceReceipt } from "../lib/character-progress";
-import { clearStoryScene, markStoryEpilogueSeen, pendingStoryEpilogue, queueStoryReport, recordStoryScene } from "../lib/story-history";
+import { applyStoryChoiceReceipt } from "../lib/story-choice-mutations";
+import { clearStoryScene, pendingStoryEpilogue } from "../lib/story-history";
+import { markStoryEpilogueSeen, queueStoryReport, recordStoryScene } from "../lib/story-history-mutations";
 import { TriggeredVisualNovel } from "./TriggeredVisualNovel";
 
 export function ActiveStoryVisualNovel({

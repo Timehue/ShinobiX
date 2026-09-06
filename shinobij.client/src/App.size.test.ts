@@ -466,7 +466,10 @@ import { readFileSync } from "node:fs";
 // .test.ts, 11 cases pinning the starting grant that api/save/
 // _first-save-baseline.ts mirrors): App imports a .webp, so node:test could
 // never load this code where it was. Buffer stays at 6, per the entry above.
-const MAX_LINES = 6_949;
+// → 6,942 after the story integration kept delivery, narrative normalization,
+// and triggered battle routing in lib modules. App only wires those boundaries.
+// The six-line merge buffer remains unchanged.
+const MAX_LINES = 6_948;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
