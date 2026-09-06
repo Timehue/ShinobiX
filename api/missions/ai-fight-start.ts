@@ -522,6 +522,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const character = (save?.character ?? null) as Record<string, unknown> | null;
             if (!save || !character) return { status: 404, body: { error: 'Player save not found.' } };
+            // A hospitalized character starts no NEW fight (a resume above is
+            // untouched). The Hospital screen holds honest clients; this is the
+            // server's own answer to a tampered one.
+            if (character.hospitalized === true) {
+                return { status: 409, body: { error: 'You are in the hospital. Recover before starting a fight.', reason: 'hospitalized' } };
+            }
             let genericAuthority;
             try {
                 genericAuthority = await resolveGenericAiFightAuthority({

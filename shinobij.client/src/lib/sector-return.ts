@@ -55,13 +55,28 @@ export function peekSectorReopen(): number | null {
  * never reopens anything.
  */
 let reloadReopenConsumed = false;
-export function consumeReloadIntoSector(): boolean {
-    if (reloadReopenConsumed) return false;
-    reloadReopenConsumed = true;
+function navigationWasReload(): boolean {
     try {
         const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
         return !!nav && (nav.type === "reload" || nav.type === "back_forward");
     } catch {
         return false;
     }
+}
+export function consumeReloadIntoSector(): boolean {
+    if (reloadReopenConsumed) return false;
+    reloadReopenConsumed = true;
+    return navigationWasReload();
+}
+
+/*
+ * Non-consuming read of the same signal, for deciding WHERE in the sector to
+ * put the player on that first mount — WorldMap's `sectorPlayerPos` initializer
+ * runs before the mount effect that consumes the reload. The board position is
+ * then the tile the server persisted for the last settled arrival
+ * (`currentTile`, hydrated into presence-store at boot) rather than the grid
+ * centre. True only until the reload has been consumed.
+ */
+export function peekReloadIntoSector(): boolean {
+    return !reloadReopenConsumed && navigationWasReload();
 }

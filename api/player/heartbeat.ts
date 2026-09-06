@@ -11,6 +11,7 @@ import { stampPresenceBeat } from '../_realtime/_presence-beat.js';
 import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from '../_realtime/presence-input.js';
 import { clearSleeperCamp } from '../_realtime/sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from '../_realtime/travel-lease.js';
+import { presenceSectorForWrite } from '../_realtime/world-duel-engagement.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { offlineNoticesKey, parseOfflineNotices, OFFLINE_NOTICES_TTL_SEC, type OfflineNotice } from './_offline-notices.js';
 import { kageStakeRefundKey, parsePendingStakeRefunds, drainKageStakeRefunds } from '../village/_kage-inactivity.js';
@@ -238,6 +239,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ? travelLeaseSectorAt(persistedTravel, now)
                 : normalizeSector(savedLocation?.currentSector, normalizeSector(sector, 40));
 
+        // Town entry is client navigation and stays instant — EXCEPT for a
+        // player who is engaged in a world duel (a queued attacker, or an
+        // active vitals-carrying PvP session): opening a town panel never
+        // moves an engaged character out of the sector the fight is in
+        // (_realtime/world-duel-engagement.ts). Costs a read only on the
+        // wild→town transition of an engaged player.
+        const presenceSector = await presenceSectorForWrite(kv, name, existing, entrySector, now);
+
         // Cap client-supplied travelingUntil so an exploit can't make a player
         // permanently untouchable (capTravelingUntil returns undefined unless
         // it's still in the future).
@@ -256,7 +265,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // 7-day TTL, idempotent).
         let stored = onlineStore.upsert({
             name,
-            sector: entrySector,
+            sector: presenceSector,
             character: slimChar as Record<string, unknown> | null,
             travelingUntil: safeTravelUntil,
             inBattle: inBattle === true ? true : undefined,

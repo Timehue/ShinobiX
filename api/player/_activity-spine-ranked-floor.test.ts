@@ -53,9 +53,11 @@ describe('ranked guidance eligibility matches the ranked queue floor', () => {
         assert.equal(rankedEligibility(15), 'eligible');
     });
 
-    it('a blocked level still carries its (unchanged, authored) blocker text', () => {
+    it('a blocked level names the threshold the queue actually enforces', () => {
         const spine = buildActivitySpine(input(9));
         const week = spine.horizons['this-week'].find((item) => item.id === 'focus-ranked-week');
         assert.ok(week?.blocker, 'blocked guidance keeps a blocker');
+        assert.match(week.blocker, new RegExp(`level ${ATTACKABLE_MIN_LEVEL}\\b`));
+        assert.doesNotMatch(week.blocker, /level 15/, 'the old Academy number must not survive');
     });
 });
