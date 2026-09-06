@@ -136,7 +136,6 @@ import {
 } from "./lib/endless-tower";
 export { endlessScaleFactor, endlessWaveReward, endlessTowerMilestoneReward };
 import {
-    maxedStats,
     maxHpForLevel,
     maxChakraForLevel,
     maxStaminaForLevel,
@@ -599,6 +598,7 @@ import { createAdminCharacter, createCharacter } from "./lib/create-character";
 export { createCharacter };
 import { getAllJutsus, getPvpJutsuLoadout } from "./lib/jutsu-loadout";
 import { isAdminAccountName, isFullAdminAccountName } from "./lib/admin-identity";
+import { normalizeAdminCharacter } from "./lib/admin-character";
 export { gainPetXp, collectPetTraining };
 // Pet element/special jutsu tables + balance/training/XP helpers all
 // moved to ./lib/pet-balance — imported above. See that file for the
@@ -671,18 +671,6 @@ export function setHollowGateKeyFateShardCost(v: number) { HOLLOW_GATE_KEY_FATE_
 // (this file carried a duplicate of the latter). Imported back above and
 // re-exported for any "../App" caller.
 export { isAdminAccountName, isFullAdminAccountName };
-
-function normalizeAdminCharacter(character: Character): Character {
-    const normalized = normalizeCharacter(character);
-    if (!isAdminAccountName(normalized.name)) return normalized;
-    return {
-        ...normalized,
-        stats: maxedStats(),
-        unspentStats: 0,
-        // Admins are name-gated out of every tutorial surface — never a live step.
-        onboardingStep: "done",
-    };
-}
 
 function examLevelCap(character: Character): number { return EXAM_LEVEL_GATES.find((gate) => !(character.examsPassed ?? []).includes(gate.exam))?.level ?? MAX_LEVEL; }
 
