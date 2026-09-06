@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import test from "node:test";
 import { BATTLE_SCREENS, RESTORABLE_SCREENS, isUnresolvedBattle } from "./screen-guards";
 import { FIRST_PACT_NPCS, isFirstPactWalkable } from "./first-pact-world.js";
@@ -222,6 +222,52 @@ test("the Court has a face, a portrait, and a square of its own to stand in", ()
     assert.match(firstPact, /if \(npc\.id === "court-arbiter"\) \{/);
     // Orin explains the threshold. The Arbiter must not repeat him.
     assert.doesNotMatch(firstPact, /Go and be expensive[\s\S]{0,4000}Go and be expensive/);
+});
+
+test("everyone indoors has a painted face, on the room token and in the dialogue frame", () => {
+    // The six interiors shipped with letter tiles while every street face beside
+    // them was painted, so walking through a door downgraded the art. Art is
+    // keyed on the npc id, which is what makes one map serve both surfaces.
+    for (const interior of FIRST_PACT_INTERIORS) {
+        for (const npc of interior.npcs) {
+            assert.match(
+                firstPact,
+                new RegExp(`"${npc.id}": \\w+Portrait,`),
+                `${npc.id} stands in ${interior.id} with no portrait in NPC_PORTRAITS`,
+            );
+            const art = new URL(`../assets/first-pact/portraits/${npc.id}.webp`, import.meta.url);
+            assert.ok(statSync(art).size > 4096, `${npc.id}.webp is missing or too small to be a portrait`);
+        }
+    }
+    // Both interior surfaces must READ that map. The letter stays as the fallback
+    // for a furnishing — a shelf is not a person — and for an unpainted newcomer.
+    assert.match(firstPact, /portrait: NPC_PORTRAITS\[npc\.id\],/);
+    assert.match(firstPact, /\{interiorSpeech\.portrait\s*\r?\n?\s*\? <img src=\{interiorSpeech\.portrait\}/);
+    assert.match(firstPact, /<span className="fp-npc-body">\s*\r?\n?\s*\{NPC_PORTRAITS\[npc\.id\]/);
+    assert.doesNotMatch(firstPact, /<span className="fp-npc-body"><i>\{npc\.name\.slice\(0, 1\)\}<\/i><\/span>/);
+});
+
+test("a room is walked by clicking it, the same way the street is", () => {
+    // Indoors the screen was keyboard-only: the street's pointer handler bails on
+    // movementLocked, and `interior` is one of that lock's terms, so every tap on
+    // a floor tile was refused by the fact that you were standing in a room.
+    assert.match(firstPact, /const interiorMovementLocked = /);
+    const lock = firstPact.match(/const interiorMovementLocked = [^;]+;/)?.[0] ?? "";
+    assert.ok(lock.includes("interiorSpeech"), "a room's dialogue frame must still stop the walk");
+    assert.doesNotMatch(lock, /!!interior\b/, "the room lock must not be tripped by being in the room");
+    // The tap is read through the room's camera, not the city's.
+    assert.match(firstPact, /if \(interior && interiorCamera\) \{[\s\S]{0,400}walkInteriorTo\(\{/);
+    assert.match(firstPact, /interiorCamera\.x\) \/ FIRST_PACT_TILE_SIZE/);
+    // A queue and a stepper, and a refused step drops the rest of the path.
+    assert.match(firstPact, /const \[interiorPath, setInteriorPath\] = useState<FirstPactPoint\[\]>\(\[\]\);/);
+    assert.match(firstPact, /if \(!next \|\| !moveInterior\(next\)\) return \[\];/);
+    assert.match(firstPact, /const moveInterior = useCallback\(\(next: FirstPactPoint\): boolean =>/);
+    assert.match(firstPact, /findFirstPactInteriorPath\(room, interiorSpotRef\.current, goal, firstPactInteriorOccupied\(room\)\)/);
+    // Leaving, entering, keying and talking all end a queued walk.
+    for (const site of ["setInteriorSpeech(null);\r\n            setInteriorPath([]);", "setInteriorPath([]);\r\n            setPlayerPath([]);"]) {
+        assert.ok(firstPact.includes(site) || firstPact.includes(site.replace(/\r\n/g, "\n")), `a queued indoor walk outlives ${site.split("\n")[0]}`);
+    }
+    assert.match(firstPact, /if \(next\) \{ setInteriorPath\(\[\]\); moveInterior\(next\); \}/);
 });
 
 test("standing is spent through the server, and the screen only reports the result", () => {

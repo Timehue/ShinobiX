@@ -1,6 +1,6 @@
 # Story and RPG integration
 
-This document records the integrated changes and local validation performed against latest-main base `d5d596b5`.
+This document records the integrated changes and local validation performed against main base `d5d596b5`, followed by the concurrent First Pact update `31b72d8b`.
 
 ## Player-facing changes
 
@@ -30,16 +30,19 @@ Several merge-boundary defects were corrected:
 
 ## Local validation
 
-- Latest-main base `d5d596b5`: **CLEAN** at integration start
+- Main integration: **CLEAN** merges of `d5d596b5` and the subsequent First Pact interior portraits/click-to-walk update `31b72d8b`
 - Handoff parity: **PASS**, clean
 - Root and client dependency audits: **PASS**, 0 high or critical npm advisories
-- CI-environment production build: **PASS**; initial graph 384,662 B gzip / 385,000 B cap; product JS/CSS 8,153,659 B / 8,200,000 B cap
+- CI-environment production build after merging `31b72d8b`: **PASS**; initial graph 384,682 B gzip / 385,000 B cap; product JS/CSS 8,155,511 B / 8,200,000 B cap
 - Whole-client lint: **PASS**, 0 errors and 10 pre-existing warnings
 - Local fresh-account journeys: **PASS**, 90/90
 - Local 24-player soak: **PASS**, 176 calls and 0 errors
 - Generated-content parity and drift check: **PASS**
 - Focused narrative, ownership, retry, and lifecycle tests: **PASS**
 - Full unit suite at the integration freeze: **PASS**, 9,385/9,385 tests; 0 failures or skips
+- First Pact integration, interior-path, and aftermath checks after merging `31b72d8b`: **PASS**, 35/35; scoped lint clean
+- First Pact desktop/mobile RPG journeys after merging `31b72d8b`: **PASS**, 4/4, including sealed companions, optional aftermath reload, and authoritative grant repair. Interior click-to-walk is covered by contract/pathfinder tests; these four browser cases exercise the exterior RPG flow.
+- Final mobile field journey and notice placement: **PASS**, including screenshot review and separation from both the Tip button and bottom navigation
 - Desktop/mobile narrative journeys: **PASS** across all 24 cases. The affected Field and Echoes specs passed their final 10-case rerun after the display corrections; First Pact and the other 14 cases passed the preceding run.
 - Full browser matrix: the local responsive run was stopped during WebKit under measured 100% CPU contention. The strict local matrix finished with 18 passes, 10 intentional skips, and 2 WebKit timing failures. Full responsive and strict-matrix results are supplied by the release commit's CI checks on isolated runners.
 
