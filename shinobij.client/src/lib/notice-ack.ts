@@ -11,43 +11,29 @@
  * never shows the same report twice.
  *
  * Deliberately tiny and copy-free: App.tsx imports it statically on the hot
- * heartbeat path, while the notice wording stays lazily loaded in
- * lib/offline-notices.
+ * heartbeat path (it is part of the initial graph the size gate measures),
+ * while the notice wording stays lazily loaded in lib/offline-notices.
  */
-
-const NOTICE_ACK_LIMIT = 32;
 
 /** Ids shown to the player this session (display dedupe). */
 const shown = new Set<string>();
 /** Ids the LATEST heartbeat response delivered — acknowledged on the next beat. */
 let deliveredIds: string[] = [];
-/** The heal signal id the latest response delivered, if any. */
-let healId: string | null = null;
+/** The heal signal id the latest response delivered, as a number, or 0. */
+let healId = 0;
 
-function idOf(entry: unknown): string | null {
-    if (!entry || typeof entry !== 'object') return null;
-    const id = (entry as { id?: unknown }).id;
-    return typeof id === 'string' && id.length > 0 ? id : null;
+function idOf(entry: unknown): string {
+    const id = entry && typeof entry === 'object' ? (entry as { id?: unknown }).id : undefined;
+    return typeof id === 'string' ? id : '';
 }
 
 export function noticeIdsOf(notices: unknown): string[] {
-    if (!Array.isArray(notices)) return [];
-    const ids: string[] = [];
-    for (const entry of notices) {
-        const id = idOf(entry);
-        if (id && !ids.includes(id)) ids.push(id);
-    }
-    return ids;
+    return Array.isArray(notices) ? [...new Set(notices.map(idOf).filter(Boolean))] : [];
 }
 
 /** The fields every heartbeat body carries to declare and perform acknowledgement. */
 export function heartbeatNoticeAckFields(): { noticeAck: true; ackNotices: string[]; ackHeal?: number } {
-    const ackHeal = healId ? Number(healId) : 0;
-    return {
-        noticeAck: true,
-        ackNotices: deliveredIds.slice(0, NOTICE_ACK_LIMIT),
-        ...(Number.isFinite(ackHeal) && ackHeal > 0 ? { ackHeal } : {}),
-    };
+    return { noticeAck: true, ackNotices: deliveredIds.slice(0, 32), ...(healId > 0 ? { ackHeal: healId } : {}) };
 }
 
 /**
@@ -56,8 +42,7 @@ export function heartbeatNoticeAckFields(): { noticeAck: true; ackNotices: strin
  * delivery — and nothing more once the server stops re-sending it.
  */
 export function noteHeartbeatDelivery(data: { pendingHeal?: { id?: unknown } | null; pendingNotices?: unknown } | null | undefined): void {
-    const heal = data?.pendingHeal;
-    healId = heal && typeof heal === 'object' && typeof heal.id === 'string' && heal.id ? heal.id : null;
+    healId = Number(idOf(data?.pendingHeal)) || 0;
     deliveredIds = noticeIdsOf(data?.pendingNotices);
 }
 
@@ -67,21 +52,18 @@ export function noteHeartbeatDelivery(data: { pendingHeal?: { id?: unknown } | n
  * server consumed it on delivery, so it can only ever arrive once anyway.
  */
 export function takeUnseenNotices<T>(notices: readonly T[]): T[] {
-    const fresh: T[] = [];
-    for (const entry of notices) {
+    return notices.filter((entry) => {
         const id = idOf(entry);
-        if (id) {
-            if (shown.has(id)) continue;
-            shown.add(id);
-        }
-        fresh.push(entry);
-    }
-    return fresh;
+        if (!id) return true;
+        if (shown.has(id)) return false;
+        shown.add(id);
+        return true;
+    });
 }
 
 /** Test hook: forget everything (a new session). */
 export function resetNoticeAckState(): void {
     shown.clear();
     deliveredIds = [];
-    healId = null;
+    healId = 0;
 }
