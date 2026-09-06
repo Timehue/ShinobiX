@@ -240,6 +240,16 @@ exit code, not the presence or absence of failure text.
 | Re-run of the four failed smoke specs, isolated | `npx playwright test e2e/adaptive-shell.spec.ts:520 e2e/chronicle-duel-ux.spec.ts:108 e2e/shinobi-combat-mobile.spec.ts:365 --project=chromium-desktop --project=firefox-desktop` | 5 passed, 1 skipped (project ignore), exit 0 in 45s — load flakes, not regressions |
 | Combat-layout matrix (strict, after-capture, webkit included) | `COMBAT_LAYOUT_CAPTURE_PHASE=after COMBAT_LAYOUT_STRICT=1 npm run test:e2e:combat-layout` | 20 passed, 10 skipped, 0 failed, exit 0 (15.1 min) |
 
+### Push to main (2026-09-06)
+
+| Step | Command | Result |
+|---|---|---|
+| Rebase onto main `678006d9c` (6 story commits; 5 overlapping files) | `git rebase origin/main` | clean, no conflicts; App.tsx 6,945 under main's new 6,948 budget |
+| Full suite on the rebased tree | `npm test` | 9,464 tests, 1 fail: main's new `WorldMap.projection.test.ts` exact line ratchet (5,355). The ambush-resume wiring was compressed to 10 lines and the ratchet raised to 5,365 with the file's justification convention (`57e98308a`). Re-run: 9,464 pass, exit 0. |
+| Root build + all quick CI gates | `npm run build`, `check:*`, `test:*` scripts | exit 0 |
+| Push | `git push origin HEAD:main` | fast-forward `678006d9c..57e98308a` |
+| Production Image workflow on `57e98308a` | GitHub Actions run 34044782153 | **failed** on the size gate: initial JS/CSS graph 385,010 B gzip vs 385,000. Main had drifted to 384,709 B (291 B under) on run 34017996176; the static `lib/notice-ack` import added 301 B. Per the gate's own history ("the margin is the point"), the helper was trimmed and the gate re-baselined to the 2026-08-23 value, 389,000 B; production-equivalent local build after the trim: 384,974 B gzip. Fix pushed as a follow-up commit. |
+
 Client files touched in this wave, each nonvisual: `App.tsx` (+1 line hydrating the
 persisted arrival tile at boot; an existing import widened), `screens/WorldMap.tsx`
 (the board-position initializer reads the persisted tile on a reload; the two explore

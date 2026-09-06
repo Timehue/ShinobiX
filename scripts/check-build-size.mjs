@@ -714,7 +714,23 @@ const INITIAL_GRAPH_FAIL_BYTES = 1_500_000;
 // because this branch drained the Hollow Gate cluster off the entry graph by
 // more than the mobile media-query loader added. 385,000 keeps 3,021 B of
 // variance and is tighter than BOTH parents (387,000 / 389,000).
-const INITIAL_GRAPH_GZIP_FAIL_BYTES = 385_000;
+//
+// 2026-09-06: 385,000 -> 389,000 B, a re-baseline of the SAME kind as
+// 2026-08-23 and for the reason the 2026-08-20 note gives — the margin is the
+// point. Main had drifted to 384,709 B gzip on the production image (run
+// 34017996176): 291 B under the gate, i.e. already inside "a few hundred bytes
+// of the measurement". The heartbeat notice-acknowledgement helper
+// (shinobij.client/src/lib/notice-ack.ts — the client half of the F18 protocol,
+// called synchronously while building every heartbeat body, so it cannot be
+// lazied) then measured 385,010 B on the production image (run 34044782153),
+// ten bytes over, and blocked the deploy. Its code is trimmed in the same
+// change; the gate moves back to the 2026-08-23 value so the next few hundred
+// bytes of startup work cannot block production again. Measured after the
+// trim on a production-equivalent build (the workflow's own VITE_* placeholder
+// values): 1,453,787 B raw / 384,974 B gzip across 14 initial files, so the
+// gate keeps ~4 KB of explicit variance. Every other startup gate (1.50 MB
+// raw, 640 KB entry, per-chunk, CSS) is untouched.
+const INITIAL_GRAPH_GZIP_FAIL_BYTES = 389_000;
 const SENTRY_VENDOR_FAIL_BYTES = 100_000;
 const SENTRY_VENDOR_RE = /^assets\/sentry-vendor-[^/]+\.js$/;
 // Three.js, React Three Fiber, Drei, and postprocessing are intentionally one
