@@ -14,7 +14,21 @@ export type TravelLease = {
     destinationSector: number;
     arrivalAt: number;
     arrivalTile?: number;
+    /** Identity of the exact movement that minted this lease. Cleanup compares
+     *  it, so an older attempt's failure path can never delete a newer journey's
+     *  lease (leases minted before the field existed simply have none). */
+    moveId?: string;
 };
+
+/** Thrown by setTravelLease when a DIFFERENT journey's lease is still in flight. */
+export class TravelLeaseHeldError extends Error {
+    constructor(public readonly lease: TravelLease) {
+        super('A travel lease is already in flight for this player.');
+        this.name = 'TravelLeaseHeldError';
+    }
+}
+
+const MOVE_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 
 // Read the sector bound from shared/sector-geo (isWildSector) — never hardcode
 // it. This validator kept its own `<= 60` through the 61-66 expansion, so
@@ -43,7 +57,14 @@ export function parseTravelLease(value: unknown): TravelLease | null {
     // drift class as the sector bound above.
     const rawTile = Math.floor(Number(input.arrivalTile));
     const arrivalTile = Number.isFinite(rawTile) && rawTile >= 0 && rawTile < SECTOR_TILE_COUNT ? rawTile : undefined;
-    return { originSector, destinationSector, arrivalAt, ...(arrivalTile === undefined ? {} : { arrivalTile }) };
+    const moveId = typeof input.moveId === 'string' && MOVE_ID_PATTERN.test(input.moveId) ? input.moveId : undefined;
+    return {
+        originSector,
+        destinationSector,
+        arrivalAt,
+        ...(arrivalTile === undefined ? {} : { arrivalTile }),
+        ...(moveId === undefined ? {} : { moveId }),
+    };
 }
 
 export function travelLeaseKey(name: string): string {
@@ -100,11 +121,26 @@ export async function getTravelLease(name: string): Promise<TravelLease | null> 
 const TRAVEL_LEASE_CLAIM_ATTEMPTS = 8;
 const TRAVEL_ACTION_SETTLE_ATTEMPTS = 8;
 
-export async function setTravelLease(name: string, lease: TravelLease): Promise<void> {
+/**
+ * Persist a journey's lease. This is the DURABLE admission of the move — the
+ * player-travel handler secures it BEFORE it publishes the move to live memory,
+ * so a persistence failure leaves nothing moved.
+ *
+ * Refuses (TravelLeaseHeldError) while a DIFFERENT journey's lease is still in
+ * flight: two requests from two tabs used to both overwrite the key, and the
+ * loser's cleanup then deleted the winner's lease. A matured lease is not held
+ * — its arrival is already subsumed by the new lease's originSector, and the
+ * settler that reads it back finds the newer journey instead.
+ */
+export async function setTravelLease(name: string, lease: TravelLease, now: number = Date.now()): Promise<void> {
     const normalized = parseTravelLease(lease);
     const key = travelLeaseKey(name);
     if (!safeName(name) || !normalized) throw new Error('Invalid travel lease.');
     await withKvLock(key, async () => {
+        const current = parseTravelLease(await kv.get(key));
+        if (current && now < current.arrivalAt && !sameLease(current, normalized)) {
+            throw new TravelLeaseHeldError(current);
+        }
         await kv.set(key, normalized, { ex: TRAVEL_LEASE_TTL_SEC });
     }, { failClosed: true, maxAttempts: TRAVEL_LEASE_CLAIM_ATTEMPTS });
 }
@@ -113,7 +149,19 @@ function sameLease(a: TravelLease, b: TravelLease): boolean {
     return a.originSector === b.originSector
         && a.destinationSector === b.destinationSector
         && a.arrivalAt === b.arrivalAt
-        && a.arrivalTile === b.arrivalTile;
+        && a.arrivalTile === b.arrivalTile
+        && (a.moveId ?? '') === (b.moveId ?? '');
+}
+
+/**
+ * Delete EXACTLY this lease — an atomic compare-and-delete on the stored value.
+ * Returns false (and deletes nothing) when the key now holds a different
+ * journey, so a stale failure path cannot erase a newer move.
+ */
+export async function clearTravelLeaseIfSame(name: string, lease: TravelLease): Promise<boolean> {
+    const normalized = parseTravelLease(lease);
+    if (!safeName(name) || !normalized) return false;
+    return kv.delIfEqual(travelLeaseKey(name), normalized);
 }
 
 /** Commit a matured destination to the versioned save before deleting its lease. */
@@ -128,11 +176,18 @@ export async function settleTravelLease(
     return await withKvLock(key, async () => {
         const lease = parseTravelLease(await kv.get(key));
         if (!lease || now < lease.arrivalAt || (expectedLease && !sameLease(lease, expectedLease))) return false;
+        // The arrival TILE is persisted with the sector: a reconnect that finds
+        // no live presence used to know only the sector, so the player came
+        // back on the board's default tile instead of the road they arrived by.
         const result = await mutatePlayerSave(name, ({ character }) => ({
             ok: true,
             character,
             value: true,
-            recordPatch: { currentSector: lease.destinationSector, pendingTravel: null },
+            recordPatch: {
+                currentSector: lease.destinationSector,
+                pendingTravel: null,
+                ...(lease.arrivalTile === undefined ? {} : { currentTile: lease.arrivalTile }),
+            },
         }));
         if (!result.ok) return false;
         await kv.del(key);

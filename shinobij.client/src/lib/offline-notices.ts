@@ -16,6 +16,7 @@
 // lib/village-stores rather than re-implemented.
 
 import { relativeAgo } from './village-stores';
+import { takeUnseenNotices } from './notice-ack';
 
 export type OfflineNoticeKind = 'sleeper-kill' | 'merc-raid' | 'bounty-placed' | 'bounty-claimed' | 'kage-seat-lost' | 'kage-challenge-refunded' | 'village-unfed';
 
@@ -195,7 +196,10 @@ export function offlineNoticeDigestText(digest: OfflineNoticeDigest): string {
  * host stay off the entry graph, exactly as before.
  */
 export function applyOfflineNotices(notices: unknown, show?: (message: string) => void): number {
-    const digest = buildOfflineNoticeDigest(notices);
+    // Under the acknowledgement protocol the server re-delivers a notice until
+    // its id is acknowledged, so a lost response or a reconnect can carry the
+    // same report again. Show each id once per session (lib/notice-ack).
+    const digest = buildOfflineNoticeDigest(takeUnseenNotices(parseOfflineNotices(notices)));
     if (digest.entries.length === 0) return 0;
     if (show) show(offlineNoticeDigestText(digest));
     else void import('../components/OfflineNoticeDigestHost').then((m) => m.showOfflineNoticeDigest(digest));

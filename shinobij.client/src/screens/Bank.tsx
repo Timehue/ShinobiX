@@ -85,7 +85,10 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
             const response = await fetch("/api/bank/transfer", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ playerName: character.name, direction, amount: value }),
+                // `action` is what the server reads (it now also accepts `direction`);
+                // `requestId` is this operation's replay identity — one per intent, so a
+                // retried request returns the previous move instead of moving twice.
+                body: JSON.stringify({ playerName: character.name, direction, action: direction, amount: value, requestId: crypto.randomUUID() }),
             });
             const data = await response.json().catch(() => null) as { error?: string; character?: Character; _saveVersion?: number } | null;
             if (!response.ok || !data?.character) throw new Error(data?.error || "Bank transfer failed.");

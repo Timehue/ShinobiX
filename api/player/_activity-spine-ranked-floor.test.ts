@@ -18,7 +18,7 @@ function input(level: number): ActivitySpineInput {
     return {
         capabilities,
         now: Date.UTC(2026, 8, 6), level, hospitalized: false, onboardingStep: 'done', unspentStats: 0,
-        trainingIdle: true, jutsuTrainingIdle: true, hasJutsu: true, hasProfession: true, profession: 'healer', clanName: null, lastLoginRewardDate: '2026-09-05',
+        trainingIdle: true, jutsuTrainingIdle: true, hasJutsu: true, hasProfession: true, profession: 'healer', clanName: '', lastLoginRewardDate: '2026-09-05',
         focus: 'ranked-pvp',
         facts: {
             story: { completed: 1, total: 9, nextLevel: 20, nextEligible: false },
@@ -31,7 +31,7 @@ function input(level: number): ActivitySpineInput {
             prestige: { level, specialJoninPassed: false, pvpKills: 0 },
         },
         clanBoss: null,
-    } as ActivitySpineInput;
+    } as unknown as ActivitySpineInput;
 }
 
 function rankedEligibility(level: number): string | undefined {
