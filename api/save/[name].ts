@@ -3241,10 +3241,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // it doesn't accumulate in the stored save record.
                     const mergedRecord = mergedPayload as Record<string, unknown>;
                     delete mergedRecord._baseSaveVersion;
+                    // `_regenAt` (the regeneration cursor, api/_elapsed-state.ts) is
+                    // fenced by every autosave exactly as `_saveAt` always was: the
+                    // client applies its own 1/s idle regen locally, so the server's
+                    // clock restarts at the write or the same interval would be
+                    // credited twice.
                     const payload = isClanSave ? mergedRecord : {
                         ...mergedRecord,
                         _saveVersion: nextVersion,
                         _saveAt: Date.now(),
+                        _regenAt: Date.now(),
                     };
 
                     // Build the registry entry from the SANITIZED payload, not
@@ -3397,6 +3403,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         ...(adminMerged as Record<string, unknown>),
                         _saveVersion: nextSaveVersion(adminStoredVersion),
                         _saveAt: Date.now(),
+                        _regenAt: Date.now(),
                     };
                     // This path skips sanitizeCharacterSave entirely, so apply the
                     // admin-slot rule here too: personal forged gear is never shared

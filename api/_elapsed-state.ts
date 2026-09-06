@@ -9,7 +9,7 @@ import { settlePetBreedingSession } from './pet/_breeding-requirements.js';
 import { settleCharacterPetHappiness } from './pet/_happiness.js';
 
 const AURA_SPHERE_ITEM_ID = 'aura-sphere';
-const VITAL_REGEN_MS = 1000;
+export const VITAL_REGEN_MS = 1000;
 const BATTLE_LOCK_PREFIX = 'battle-lock:';
 
 export type SaveRecord = Record<string, unknown>;
@@ -170,6 +170,81 @@ function regenVital(character: Record<string, unknown>, key: 'hp' | 'chakra' | '
     return Math.min(max, current + amount);
 }
 
+/**
+ * The regeneration cursor: the instant up to which idle recovery has been
+ * credited. `_regenAt` is server-owned and carries the sub-second remainder
+ * (`cursor + ticks * VITAL_REGEN_MS`, never `now`); a record that predates it
+ * falls back to `_saveAt`, exactly the clock regen used before — so migration
+ * grants nothing.
+ */
+export function regenCursorOf(record: SaveRecord): number {
+    return floorEpoch(record._regenAt) || floorEpoch(record._saveAt);
+}
+
+export type VitalsRegenSettlement<T extends SaveRecord = SaveRecord> = {
+    record: T;
+    changed: boolean;
+    /** Recovery was not eligible (battle lock, Hollow Gate run, hospital). */
+    excluded: boolean;
+    /** The cursor a follow-up write should carry to keep the remainder; 0 when the record has no clock yet. */
+    cursor: number;
+};
+
+/**
+ * Credit the idle recovery that elapsed since the cursor. Pure.
+ *
+ * Why a cursor and not `_saveAt` (F13): `_saveAt` is the general mutation
+ * timestamp — every server write and every autosave moves it — so a mutation
+ * that landed without an owner read first silently discarded all the recovery
+ * earned since the last settle, and each settle floored the elapsed seconds
+ * and then reset the clock to `now`, dropping up to a second every time. The
+ * cursor advances by whole ticks only, so equal elapsed time yields the same
+ * recovery whether it is settled in one read or many.
+ *
+ * Exclusions read real state: a battle lock, an open Hollow Gate run, or an
+ * admission. Recovery after a stay counts from `hospitalizedUntil`, never from
+ * the admission.
+ */
+export function settleVitalsRegen<T extends SaveRecord>(
+    record: T,
+    opts: { now: number; battleLocked: boolean },
+): VitalsRegenSettlement<T> {
+    const now = Math.max(0, Math.floor(opts.now));
+    const char = record.character && typeof record.character === 'object'
+        ? record.character as Record<string, unknown>
+        : null;
+    const stored = regenCursorOf(record);
+    if (!char) return { record, changed: false, excluded: false, cursor: stored };
+    if (!canRegenVitals(char, Boolean(opts.battleLocked), now)) return { record, changed: false, excluded: true, cursor: stored };
+    if (!stored) return { record, changed: false, excluded: false, cursor: 0 };
+    const hospitalizedUntil = floorEpoch(char.hospitalizedUntil);
+    const cursor = hospitalizedUntil > stored ? hospitalizedUntil : stored;
+    const ticks = Math.floor(Math.max(0, now - cursor) / VITAL_REGEN_MS);
+    if (ticks <= 0) return { record, changed: false, excluded: false, cursor };
+    const nextCursor = cursor + ticks * VITAL_REGEN_MS;
+    const amount = ticks * (1 + auraRegenBonus(char));
+    const hp = regenVital(char, 'hp', 'maxHp', amount);
+    const chakra = regenVital(char, 'chakra', 'maxChakra', amount);
+    const stamina = regenVital(char, 'stamina', 'maxStamina', amount);
+    if (hp === num(char.hp, hp) && chakra === num(char.chakra, chakra) && stamina === num(char.stamina, stamina)) {
+        // Already full: nothing to write, but the cursor a caller carries forward
+        // still advances — recovery is never banked while capped.
+        return { record, changed: false, excluded: false, cursor: nextCursor };
+    }
+    const next = cloneRecord(record);
+    const nextChar = cloneCharacter(char);
+    nextChar.hp = hp;
+    nextChar.chakra = chakra;
+    nextChar.stamina = stamina;
+    const writable = next as Record<string, unknown>;
+    writable.character = nextChar;
+    // `_saveAt` stays the write timestamp the autosave gain-cap anchors on;
+    // `_regenAt` keeps the remainder.
+    writable._saveAt = now;
+    writable._regenAt = nextCursor;
+    return { record: next, changed: true, excluded: false, cursor: nextCursor };
+}
+
 export function settleSaveRecord<T extends SaveRecord>(
     record: T,
     opts: { now?: number; battleLocked?: boolean; hollowGateRunExpired?: boolean } = {},
@@ -231,27 +306,14 @@ export function settleSaveRecord<T extends SaveRecord>(
         travelChanged = true;
     }
 
-    if (char && canRegenVitals(char, battleLocked, now)) {
-        const saveAt = floorEpoch(base._saveAt);
-        const elapsedMs = saveAt ? Math.max(0, now - saveAt) : 0;
-        const ticks = Math.floor(elapsedMs / VITAL_REGEN_MS);
-        if (ticks > 0) {
-            const amount = ticks * (1 + auraRegenBonus(char));
-            const hp = regenVital(char, 'hp', 'maxHp', amount);
-            const chakra = regenVital(char, 'chakra', 'maxChakra', amount);
-            const stamina = regenVital(char, 'stamina', 'maxStamina', amount);
-            if (hp !== num(char.hp, hp) || chakra !== num(char.chakra, chakra) || stamina !== num(char.stamina, stamina)) {
-                next = changed ? next : cloneRecord(record);
-                const nextChar = cloneCharacter(char);
-                nextChar.hp = hp;
-                nextChar.chakra = chakra;
-                nextChar.stamina = stamina;
-                const writable = next as Record<string, unknown>;
-                writable.character = nextChar;
-                writable._saveAt = now;
-                changed = true;
-                vitalsChanged = true;
-            }
+    if (char) {
+        // `next.character` is `char` on every path above (a cleared run assigns
+        // its clone; otherwise next === base and char === base.character).
+        const regen = settleVitalsRegen(next, { now, battleLocked });
+        if (regen.changed) {
+            next = regen.record;
+            changed = true;
+            vitalsChanged = true;
         }
     }
 
@@ -372,7 +434,11 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
         // A projection-only settle already carries `_saveAt = now` (set by the
         // vitals branch of settleSaveRecord), so the next read still measures
         // elapsed time from this write even though the version stands still.
-        const settled = durable ? bumpSaveVersion(next.record) : unversionedSettledRecord(next.record);
+        // A durable settle touches no vital, so it carries the regen cursor the
+        // settle computed (or the stored one) instead of fencing it to now.
+        const settled = durable
+            ? bumpSaveVersion(next.record, { regenAt: regenCursorOf(next.record) || undefined })
+            : unversionedSettledRecord(next.record);
         await kv.set(saveKey, mergePreservingImages(settled, fresh));
         return { ...next, record: settled };
     });

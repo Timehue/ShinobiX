@@ -22,8 +22,19 @@ export type PlayerSaveMutationResult<T> =
     | { ok: true; value: T; record: PlayerSaveRecord; character: PlayerCharacter; _saveVersion: number }
     | { ok: false; status: number; error: string };
 
-export function versionedPlayerRecord(currentRecord: PlayerSaveRecord, nextCharacter: PlayerCharacter, recordPatch: PlayerSaveRecord = {}): { record: PlayerSaveRecord; _saveVersion: number } {
-    const record: PlayerSaveRecord = bumpSaveVersion<PlayerSaveRecord>({ ...currentRecord, ...recordPatch, character: nextCharacter });
+/** Write options shared by the versioned writers. */
+export type VersionedWriteOptions = {
+    /** The regeneration cursor to carry (see bumpSaveVersion); omitted = fence to now. */
+    regenAt?: number;
+};
+
+export function versionedPlayerRecord(
+    currentRecord: PlayerSaveRecord,
+    nextCharacter: PlayerCharacter,
+    recordPatch: PlayerSaveRecord = {},
+    opts: VersionedWriteOptions = {},
+): { record: PlayerSaveRecord; _saveVersion: number } {
+    const record: PlayerSaveRecord = bumpSaveVersion<PlayerSaveRecord>({ ...currentRecord, ...recordPatch, character: nextCharacter }, opts);
     return { record, _saveVersion: Number(record._saveVersion ?? 0) };
 }
 
@@ -34,9 +45,10 @@ export async function writeVersionedPlayerSaveWithStore(
     currentRecord: PlayerSaveRecord,
     nextCharacter: PlayerCharacter,
     recordPatch: PlayerSaveRecord = {},
+    opts: VersionedWriteOptions = {},
 ): Promise<{ record: PlayerSaveRecord; _saveVersion: number }> {
     const { mergePreservingImages } = await import('../_utils.js');
-    const out = versionedPlayerRecord(currentRecord, nextCharacter, recordPatch);
+    const out = versionedPlayerRecord(currentRecord, nextCharacter, recordPatch, opts);
     const intended = mergePreservingImages(out.record, currentRecord) as PlayerSaveRecord;
     try {
         const committed = await store.compareSet(saveKey, currentRecord, intended);
@@ -54,9 +66,10 @@ export async function writeVersionedPlayerSave(
     currentRecord: PlayerSaveRecord,
     nextCharacter: PlayerCharacter,
     recordPatch: PlayerSaveRecord = {},
+    opts: VersionedWriteOptions = {},
 ): Promise<{ record: PlayerSaveRecord; _saveVersion: number }> {
     const { kv } = await import('../_storage.js');
-    const out = await writeVersionedPlayerSaveWithStore(kv, saveKey, currentRecord, nextCharacter, recordPatch);
+    const out = await writeVersionedPlayerSaveWithStore(kv, saveKey, currentRecord, nextCharacter, recordPatch, opts);
     // Project the currency slice into its side-car ledger (P0-5). The blob
     // above is and stays authoritative; this only builds the evidence a future
     // read cutover needs. It costs nothing when the write did not move
@@ -120,20 +133,34 @@ export async function mutatePlayerSave<T>(
         const storedCharacter = (record?.character ?? null) as PlayerCharacter | null;
         if (!record || !storedCharacter) return { ok: false as const, status: 404, error: 'Player save not found.' };
 
+        // Settle the idle recovery that elapsed since the regen cursor BEFORE
+        // the mutation reads a vital (F13). A consumer that validates or spends
+        // HP/chakra/stamina — training, a fight start, an item — used to see
+        // whatever the last owner GET had persisted, so it could refuse an
+        // action the player's own screen showed as ready, or the mutation's
+        // version bump discarded the recovery earned since that GET. Real
+        // activity excludes it: a battle lock, an open Hollow Gate run, an
+        // admission. One mget, under the lock the write already holds.
+        const now = Date.now();
+        const [{ battleLockFlagsForPlayers, settleVitalsRegen }, { migrateCharacterOwnedPets }, { settlePetBreedingSession }] = await Promise.all([
+            import('../_elapsed-state.js'),
+            import('../pet/_owned-pet.js'),
+            import('../pet/_breeding-requirements.js'),
+        ]);
+        const lockFlags = await battleLockFlagsForPlayers([playerName]);
+        const regen = settleVitalsRegen(record, { now, battleLocked: lockFlags.get(playerName) === true });
+        const settledCharacter = (regen.record.character ?? storedCharacter) as PlayerCharacter;
+
         // Every authoritative mutation sees the same idempotent owned-pet
         // migration and time-based barn settlement before it validates an
         // action. That makes parents available at readyAt even when Home was
         // never opened, and prevents one endpoint from operating on a legacy
         // pet shape while another sees the migrated schema.
-        const [{ migrateCharacterOwnedPets }, { settlePetBreedingSession }] = await Promise.all([
-            import('../pet/_owned-pet.js'),
-            import('../pet/_breeding-requirements.js'),
-        ]);
-        const migrated = migrateCharacterOwnedPets(playerName, storedCharacter);
+        const migrated = migrateCharacterOwnedPets(playerName, settledCharacter);
         const settled = settlePetBreedingSession(migrated.character);
         const character = settled.character;
 
-        const decision = await mutate({ playerName, saveKey, record, character });
+        const decision = await mutate({ playerName, saveKey, record: regen.record, character });
         if (!decision.ok) return decision;
 
         // Read/replay paths can return the authoritative snapshot without
@@ -150,7 +177,18 @@ export async function mutatePlayerSave<T>(
 
         // Bump _saveVersion on server-side player mutations so stale client
         // autosaves refetch instead of overwriting the credited/debited save.
-        const out = await writeVersionedPlayerSave(saveKey, record, decision.character, decision.recordPatch);
+        //
+        // The regen cursor: a mutation that itself changed a vital (a fight
+        // settlement, a heal, a stamina spend) fences it to now — its time is
+        // not idle recovery. Anything else carries the settled cursor forward,
+        // so the sub-second remainder survives the write. Excluded state (a
+        // battle lock, an admission) and a record with no clock also fence.
+        const vitalsTouched = (['hp', 'chakra', 'stamina'] as const)
+            .some((key) => Number(decision.character[key] ?? NaN) !== Number(character[key] ?? NaN));
+        // `undefined` lets bumpSaveVersion fence the cursor to the exact write
+        // instant (`_saveAt`), so the two stamps agree on a fence.
+        const regenAt = vitalsTouched || regen.excluded || !regen.cursor ? undefined : regen.cursor;
+        const out = await writeVersionedPlayerSave(saveKey, record, decision.character, decision.recordPatch, { regenAt });
         return {
             ok: true as const,
             value: decision.value,
