@@ -437,18 +437,36 @@ import { readFileSync } from "node:fs";
 // (both parents were green alone), paid for by draining the battle-art
 // preloader to lib/battle-art-preload.ts (7,089 -> 7,069). Small buffer kept
 // so the next cross-branch merge doesn't red the gate on arithmetic alone.
-// 2026-09-05: that 3-line buffer was not enough — the fe8fa2875 merge union
-// landed App.tsx at 7,073 against the 7,072 budget, so a clean checkout of main
-// was red and every branch cut from it inherited a failure with nothing to do
-// with its own change. Paid for by draining the character factory
-// (createCharacter + createAdminCharacter, 119 lines) verbatim to
-// lib/create-character.ts, alongside normalizeCharacter — its save-hydration
-// counterpart, which the same reasoning moved earlier. Four imports App no
-// longer had a use for (baseStats, currentMonthKey, defaultVillageUpgrades,
-// STARTING_STAT_POINTS) went with them. App.tsx is 6,955; budget is count + 5.
-// createAdminCharacter gained `export` (it was App-private); both bodies are
-// otherwise byte-identical, verified by diff before the originals were deleted.
-const MAX_LINES = 6_960;
+// → 2026-09-05: three spare was not a small buffer, it was one lazy-screen
+// mount. First Pact (#122) spent exactly that — a lazyWithRetry line plus its
+// render line — and landed main on 7,073 against this 7,072, reddening
+// server-contracts on its own merge and again on the next one. Paid for by
+// draining normalizeAdminCharacter to lib/admin-character.ts (7,073 -> 7,062);
+// it needed nothing from App, so the move costs no lib -> App import. Buffer
+// restored to 6, the width this comment has twice called "enough for a
+// lazy-screen mount, not a feature" — three was not.
+// → 6,943 (−119) after draining the character factory: createCharacter +
+// createAdminCharacter moved verbatim to lib/create-character.ts, next to
+// normalizeCharacter and the admin-character drain above — the same reasoning,
+// one more layer of the same onion. Both bodies are byte-identical to the
+// originals (diffed before deleting them); the only edit is the `export`
+// createAdminCharacter needed, having been App-private. createCharacter stays
+// on the "../App" surface via re-export, so AdminPanel and the character-creator
+// flow are untouched.
+//
+// Five imports went with it — baseStats, currentMonthKey, defaultVillageUpgrades
+// and STARTING_STAT_POINTS had no other caller here, and maxedStats lost its
+// last one to the MERGE rather than to either side: main moved
+// normalizeAdminCharacter out while this branch moved createAdminCharacter out,
+// and neither alone would have left it dead. Worth remembering the next time two
+// drains touch the same neighbourhood — the union can strand an import that both
+// sides individually still justify.
+//
+// The move is also what makes the factory testable at all (lib/create-character
+// .test.ts, 11 cases pinning the starting grant that api/save/
+// _first-save-baseline.ts mirrors): App imports a .webp, so node:test could
+// never load this code where it was. Buffer stays at 6, per the entry above.
+const MAX_LINES = 6_949;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
