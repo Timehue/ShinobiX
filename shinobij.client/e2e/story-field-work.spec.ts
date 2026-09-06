@@ -17,7 +17,36 @@ async function configureReader(page: Page) {
         localStorage.setItem("vnReaderMode.v1", "classic");
         localStorage.setItem("vnTextSpeed.v1", "instant");
         localStorage.setItem("vnAutoRead.v1", "0");
+        if (!sessionStorage.getItem("fieldWork.whisperPrimed.v1")) {
+            localStorage.removeItem("legacyRumors.seen.v1:auditninja");
+            sessionStorage.setItem("fieldWork.whisperPrimed.v1", "1");
+        }
     });
+}
+
+async function expectMobileWhisperAboveNavigation(page: Page) {
+    const whisper = page.getByRole("status").filter({ hasText: /whisper on the road/i });
+    const navigation = page.locator(".mobile-bottom-nav");
+    await expect(whisper).toBeVisible();
+    await expect(whisper).toHaveCSS("opacity", "1");
+    await expect(navigation).toBeVisible();
+    const [whisperBox, navigationBox, viewport] = await Promise.all([
+        whisper.boundingBox(),
+        navigation.boundingBox(),
+        Promise.resolve(page.viewportSize()),
+    ]);
+    expect(whisperBox).not.toBeNull();
+    expect(navigationBox).not.toBeNull();
+    expect(viewport).not.toBeNull();
+    expect(whisperBox!.y + whisperBox!.height).toBeLessThanOrEqual(navigationBox!.y);
+    expect(whisperBox!.x).toBeGreaterThanOrEqual(0);
+    expect(whisperBox!.x + whisperBox!.width).toBeLessThanOrEqual(viewport!.width);
+    expect(whisperBox!.width).toBeGreaterThanOrEqual(viewport!.width - 30);
+    const tip = page.locator('.screen-hint-battle-trigger');
+    await expect(tip).toBeVisible();
+    const tipBox = await tip.boundingBox();
+    expect(tipBox).not.toBeNull();
+    expect(whisperBox!.y + whisperBox!.height).toBeLessThanOrEqual(tipBox!.y);
 }
 
 async function advanceUntil(novel: Locator, target: Locator) {
@@ -25,6 +54,26 @@ async function advanceUntil(novel: Locator, target: Locator) {
         await novel.getByRole("button", { name: "Next", exact: true }).click();
     }
     await expect(target).toBeVisible();
+}
+
+async function expectHeadingInView(page: Page, heading: Locator) {
+    await expect(heading).toBeVisible();
+    const [box, viewport, visibleInsets] = await Promise.all([
+        heading.boundingBox(),
+        Promise.resolve(page.viewportSize()),
+        page.evaluate(() => {
+            const hud = document.querySelector<HTMLElement>('.mobile-top-hud');
+            const content = document.querySelector<HTMLElement>('main.center-game');
+            return {
+                contentTop: content?.getBoundingClientRect().top ?? 0,
+                hudBottom: hud && getComputedStyle(hud).display !== 'none' ? hud.getBoundingClientRect().bottom : 0,
+            };
+        }),
+    ]);
+    expect(box).not.toBeNull();
+    expect(viewport).not.toBeNull();
+    expect(box!.y).toBeGreaterThanOrEqual(Math.max(0, visibleInsets.contentTop, visibleInsets.hudBottom));
+    expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
 }
 
 async function installFieldRuntime(page: Page, firstFieldResult: "temporary-error" | "stale-success" = "temporary-error") {
@@ -165,6 +214,11 @@ test("field work saves a route choice, resumes its next objective, and replays h
     const runtime = await installFieldRuntime(page);
     await page.goto("/#/worldMap", { waitUntil: "networkidle" });
 
+    if ((page.viewportSize()?.width ?? 1000) <= 480) {
+        await expectMobileWhisperAboveNavigation(page);
+        await page.screenshot({ path: testInfo.outputPath('field-whisper.png') });
+    }
+
     const journal = page.getByRole("complementary", { name: "Personal quest" });
     await expect(journal).toBeVisible();
     await expect(journal).toContainText("Kesa's Marker");
@@ -172,7 +226,8 @@ test("field work saves a route choice, resumes its next objective, and replays h
     await journal.getByRole("button", { name: "Explore Ridge Gate" }).click();
 
     const novel = page.locator(".visual-novel.admin-vn-play");
-    await expect(novel.getByRole("heading", { level: 2 })).toHaveText("Two Ways Up");
+    const openingHeading = novel.getByRole("heading", { level: 2, name: "Two Ways Up" });
+    await expectHeadingInView(page, openingHeading);
     const highLine = novel.getByRole("button", { name: /Take the high line/ });
     await advanceUntil(novel, highLine);
     await expect(highLine).toBeEnabled();
@@ -218,7 +273,7 @@ test("field work saves a route choice, resumes its next objective, and replays h
     await restoredJournal.getByText("Your route so far", { exact: true }).click();
     await restoredJournal.getByRole("button", { name: "Ridge Gate", exact: true }).click();
 
-    await expect(novel.getByRole("heading", { level: 2 })).toHaveText("Two Ways Up");
+    await expectHeadingInView(page, novel.getByRole("heading", { level: 2, name: "Two Ways Up" }));
     await expect(novel.getByRole("button", { name: /Take the high line/ })).toHaveCount(0);
     await expect(novel.getByRole("button", { name: /^Battle in/ })).toHaveCount(0);
     await expect(novel.getByRole("button", { name: /Claim Reward/ })).toHaveCount(0);
@@ -237,6 +292,7 @@ test("field work saves a route choice, resumes its next objective, and replays h
         }
     }
     await advanceUntil(novel, novel.getByText(`Your choice: Take the high line. Trust the cable and reach the signal cairn before the rain.`, { exact: true }));
+    await expectHeadingInView(page, novel.getByRole("heading", { level: 2, name: "Your Recorded Choice" }));
     await expect(novel.getByText("Your choice: Take the picker road. Reset the public storm rail and ask where the pieces went.", { exact: true })).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath('field-history.png') });
     expect(runtime.fieldAttempts()).toBe(2);

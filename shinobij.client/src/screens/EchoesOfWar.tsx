@@ -5,7 +5,7 @@
 // engine, server-authoritative). Progression and Chronicle Points live on
 // SERVER-OWNED character fields, so this screen renders purely from `character`
 // and never needs its own fetch on mount.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { Character } from "../types/character";
 import type { TileCard } from "../data/tile-cards";
@@ -194,6 +194,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
     const [witnessPending, setWitnessPending] = useState<EchoesWitnessChoiceId | null>(null);
     const [witnessError, setWitnessError] = useState("");
     const witnessRequest = useRef(0);
+    const witnessShellRef = useRef<HTMLDivElement>(null);
     const characterNameRef = useRef(character.name);
     useEffect(() => {
         characterNameRef.current = character.name;
@@ -229,6 +230,17 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
     const progress = echoesClientProgress(character.echoesOfWar);
     const storySeen = character.echoesStorySeen ?? {};
     const witnessChoices = normalizeEchoesWitnessChoices(character.echoesWitnessChoices);
+    const effectiveWitnessChoiceId = witnessEraId
+        ? witnessReceipt?.playerName === character.name && witnessReceipt.eraId === witnessEraId
+            ? witnessReceipt.choiceId
+            : witnessChoices[witnessEraId]
+        : undefined;
+    useLayoutEffect(() => {
+        if (!witnessEraId) return;
+        const content = witnessShellRef.current?.closest<HTMLElement>("main.center-game");
+        if (content) content.scrollTop = 0;
+        if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+    }, [witnessEraId, effectiveWitnessChoiceId]);
     const chroniclePoints = character.chroniclePoints ?? 0;
     const highestFloor = echoesHighestUnlockedFloorClient(progress);
     const completed = echoesStoriesCompleted(progress);
@@ -418,10 +430,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
     if (witnessEraId) {
         const era = ECHOES_ERAS.find(({ id }) => id === witnessEraId);
         const content = echoesWitness[witnessEraId];
-        const sealedChoiceId = witnessReceipt?.playerName === character.name && witnessReceipt.eraId === witnessEraId
-            ? witnessReceipt.choiceId
-            : witnessChoices[witnessEraId];
-        const sealedChoice = content?.choices.find(({ id }) => id === sealedChoiceId);
+        const sealedChoice = content?.choices.find(({ id }) => id === effectiveWitnessChoiceId);
         if (era && content) {
             const submit = async (choiceId: EchoesWitnessChoiceId) => {
                 const playerName = character.name;
@@ -444,7 +453,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                 }
             };
             return (
-                <div className="echoes-shell echoes-witness-shell" style={{ "--band": `var(--echoes-${era.band})` } as CSSProperties}>
+                <div ref={witnessShellRef} className="echoes-shell echoes-witness-shell" style={{ "--band": `var(--echoes-${era.band})` } as CSSProperties}>
                     <header className="echoes-header">
                         <button className="back-btn" onClick={() => { witnessRequest.current += 1; setWitnessView(null); setWitnessError(""); }}>← {era.ageLabel}</button>
                         <div className="echoes-header-titles">

@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, test, type Locator, type Page, type Route } from "@playwright/test";
 import { expectViewportSafe } from "./helpers/adaptive-assertions";
 import {
   expectUiAuditBoot,
@@ -158,6 +158,26 @@ async function openAgeOne(page: Page) {
   await expect(page.getByRole("heading", { name: "The Unheard" })).toBeVisible();
 }
 
+async function expectHeadingInView(page: Page, heading: Locator) {
+  await expect(heading).toBeVisible();
+  const [box, viewport, visibleInsets] = await Promise.all([
+    heading.boundingBox(),
+    Promise.resolve(page.viewportSize()),
+    page.evaluate(() => {
+      const hud = document.querySelector<HTMLElement>(".mobile-top-hud");
+      const content = document.querySelector<HTMLElement>("main.center-game");
+      return {
+        contentTop: content?.getBoundingClientRect().top ?? 0,
+        hudBottom: hud && getComputedStyle(hud).display !== "none" ? hud.getBoundingClientRect().bottom : 0,
+      };
+    }),
+  ]);
+  expect(box).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(box!.y).toBeGreaterThanOrEqual(Math.max(0, visibleInsets.contentTop, visibleInsets.hudBottom));
+  expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
+}
+
 async function visualNovelState(page: Page): Promise<string> {
   const cinematic = page.locator(".cvn-root");
   if (await cinematic.count()) {
@@ -221,6 +241,7 @@ async function finishVisualNovel(page: Page) {
     }
     throw new Error("Echoes conclusion had no forward visual-novel control.");
   }
+  if (await visualNovelState(page) === "closed") return;
   throw new Error("Echoes conclusion did not finish within its authored page budget.");
 }
 
@@ -238,7 +259,7 @@ test("a failed witness response retries to the first server-sealed answer and su
   await openAgeOne(page);
 
   await page.getByRole("button", { name: "Record This Age", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "The First Record" })).toBeVisible();
+  await expectHeadingInView(page, page.getByRole("heading", { name: "The First Record" }));
   await expectViewportSafe(page);
 
   await page.getByRole("button", { name: /Record the warnings/ }).click();
@@ -248,7 +269,7 @@ test("a failed witness response retries to the first server-sealed answer and su
   // The player may reasonably try another answer after an uncertain response.
   // The server must return the first sealed answer instead of replacing it.
   await page.getByRole("button", { name: /Keep their names first/ }).click();
-  await expect(page.getByRole("heading", { name: "Record sealed" })).toBeVisible();
+  await expectHeadingInView(page, page.getByRole("heading", { name: "Record sealed" }));
   await expect(page.getByText("Sealed entry · Record the warnings", { exact: true })).toBeVisible();
   await expect(page.getByText(/The record begins with the cut rope/)).toBeVisible();
   await expect(page.getByRole("button", { name: /Keep their names first/ })).toHaveCount(0);

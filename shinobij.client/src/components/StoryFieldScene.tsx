@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Character, VersionedCharacterCommit } from '../types/character';
 import type { Biome } from '../types/core';
 import { reportStoryFieldChoice, storyFieldPointEvent } from '../lib/story-field-work';
@@ -15,7 +15,13 @@ export function StoryFieldScene({ questId, pointId, character, biome, review = f
     const [status, setStatus] = useState<'ready' | 'saving' | 'saved' | 'error'>('ready');
     const [error, setError] = useState('');
     const choiceRef = useRef<string | null>(null), busyRef = useRef(false), closeWhenSaved = useRef(false);
-    const mountedRef = useRef(true), requestRef = useRef(0);
+    const mountedRef = useRef(true), requestRef = useRef(0), sceneRef = useRef<HTMLDivElement>(null);
+
+    useLayoutEffect(() => {
+        const contentScroller = sceneRef.current?.closest<HTMLElement>('main.center-game');
+        if (contentScroller) contentScroller.scrollTop = 0;
+        if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+    }, [page]);
 
     useEffect(() => {
         mountedRef.current = true;
@@ -65,8 +71,8 @@ export function StoryFieldScene({ questId, pointId, character, biome, review = f
         if (status === 'ready' && choiceRef.current) void commit(choiceRef.current);
     }
 
-    if (!event) return <div className="story-field-status" role="status"><span>This scene is no longer available.</span><button onClick={close}>Return to the road</button></div>;
-    return <div className="story-field-scene">
+    if (!event) return <div ref={sceneRef} className="story-field-status" role="status"><span>This scene is no longer available.</span><button onClick={close}>Return to the road</button></div>;
+    return <div ref={sceneRef} className="story-field-scene">
         <TriggeredVisualNovel event={event} character={character} pageIndex={page} lineIndex={line}
             setPageIndex={setPage} setLineIndex={setLine} sharedImages={sharedImages} readOnlyReplay={review}
             onCancel={close} onComplete={finish} onBattle={() => {}}

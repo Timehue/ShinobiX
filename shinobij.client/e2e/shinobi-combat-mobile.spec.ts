@@ -216,21 +216,25 @@ for (const mode of ["solo", "pvp"] as const) {
                 expect(Math.abs(artBox!.height - castBox!.height)).toBeLessThanOrEqual(2);
                 // Phones pack five 68px cards across, so Details is a 24px-wide
                 // strip (the WCAG 2.2 AA target minimum — an owner's call over
-                // the 44px floor used elsewhere) on the card's right edge, 44px
+                // the 44px floor used elsewhere) on the card's LEFT edge, 44px
                 // tall, flush with the card. The cast surface keeps a full 44px
                 // column, so its centre never lands on the strip.
                 // Firefox can report an authored 24px box as 23.99997px after
                 // device-pixel projection, so compare the rendered pixel size.
                 expect(Math.round(detailsBox!.width)).toBeGreaterThanOrEqual(24);
                 expect(Math.round(detailsBox!.height)).toBeGreaterThanOrEqual(44);
-                // `inset: 0 0 auto auto` resolves from the wrap's padding box,
+                // `inset: 0 auto auto 0` resolves from the wrap's padding box,
                 // so the strip sits 1px (the wrap border) inside the border box
                 // that boundingBox() reports.
-                expect(Math.abs(detailsBox!.x + detailsBox!.width - (cardBox.x + cardBox.width))).toBeLessThanOrEqual(1.5);
+                expect(Math.abs(detailsBox!.x - cardBox.x)).toBeLessThanOrEqual(1.5);
                 expect(Math.abs(detailsBox!.y - cardBox.y)).toBeLessThanOrEqual(1.5);
                 expect(cardBox.width - detailsBox!.width).toBeGreaterThanOrEqual(43.9);
                 expect(glyphBox!.width).toBeLessThanOrEqual(24);
                 expect(glyphBox!.height).toBeLessThanOrEqual(24);
+                // The painted glyph hugs the corner rather than sitting halfway
+                // down the strip, which is what made players reaching for Cast
+                // hit Details instead.
+                expect(glyphBox!.y - cardBox.y).toBeLessThanOrEqual(8);
                 await expect(firstCard.locator(".combat-jutsu-thumb img")).toHaveCSS("object-fit", "cover");
             }
 
