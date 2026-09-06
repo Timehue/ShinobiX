@@ -320,6 +320,19 @@ export function settleSaveRecord<T extends SaveRecord>(
     return { record: next, changed, vitalsChanged, travelChanged, hollowGateRunCleared, geoChanged: geo.changed };
 }
 
+/**
+ * Whether ONE player holds the legacy battle lock. A single `get` rather than
+ * the roster `mget` above: the authoritative mutation path
+ * (save/_mutate-player-save.ts) settles regeneration for exactly one save at
+ * a time, and a plain get is the primitive every storage adapter and test
+ * harness provides.
+ */
+export async function battleLockedFor(name: string): Promise<boolean> {
+    const slug = safeName(name);
+    if (!slug) return false;
+    return Boolean(await kv.get(`${BATTLE_LOCK_PREFIX}${slug}`));
+}
+
 export async function battleLockFlagsForPlayers(names: string[]): Promise<Map<string, boolean>> {
     const slugs = [...new Set(names.map((name) => safeName(name)).filter(Boolean))];
     const flags = new Map<string, boolean>();
