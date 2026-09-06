@@ -299,6 +299,54 @@ describe('settlePvpTerminalVitals', () => {
         assert.equal(((await store.get<Record<string, never>>('save:rill'))!.character as Record<string, unknown>).hp, 11);
     });
 
+    it('writes the consequence and its proof in ONE save write — a crash after it cannot re-apply', async () => {
+        // The old shape claimed a KV receipt BEFORE the save write; a process
+        // death between the two left a standing claim over an unapplied
+        // consequence. Now the receipt rides in the save itself.
+        const store = _makeMemoryKv();
+        await store.set('save:dopey', save({ name: 'Dopey', hp: 100 }));
+        const s = session({ p1: fighter('Rill'), p2: fighter('Dopey', { hp: 0 }), winner: 'p1' });
+
+        await settlePvpTerminalVitals(store, s, deps());
+        const row = (await store.get<Record<string, never>>('save:dopey'))!;
+        const character = row.character as Record<string, unknown>;
+        const receipts = character.serverSettlementReceipts as Array<{ value: Record<string, unknown> }>;
+        assert.equal(character.hospitalized, true);
+        assert.equal(receipts?.[0]?.value?.kind, 'pvp-vitals', 'the proof lives in the same character snapshot');
+        assert.equal(receipts?.[0]?.value?.battleId, s.battleId);
+
+        // Simulate "process died after the save write, before the compat
+        // marker": drop the marker, discharge the player, replay.
+        await store.del(pvpVitalsReceiptKey(s.battleId, 'dopey'));
+        await store.set('save:dopey', { ...row, character: { ...character, hp: 100, hospitalized: false } });
+        await settlePvpTerminalVitals(store, s, deps(NOW + 3_600_000));
+        const healed = (await store.get<Record<string, never>>('save:dopey'))!.character as Record<string, unknown>;
+        assert.equal(healed.hp, 100, 'the in-save receipt alone stops the replay');
+        assert.equal(healed.hospitalized, false);
+    });
+
+    it('a failed save write leaves no receipt ANYWHERE, so the retry applies for real', async () => {
+        const store = _makeMemoryKv();
+        await store.set('save:rill', save({ name: 'Rill', hp: 100 }));
+        const s = session({ p1: fighter('Rill', { hp: 11 }), p2: fighter('Ghost'), winner: 'p1' });
+        let failNext = true;
+        const flaky = {
+            ...store,
+            get: store.get.bind(store),
+            compareSet: store.compareSet.bind(store),
+            del: store.del.bind(store),
+            set: async (key: string, value: unknown, opts?: unknown) => {
+                if (failNext && key === 'save:rill') { failNext = false; throw new Error('storage-down'); }
+                return (store.set as (k: string, v: unknown, o?: unknown) => Promise<unknown>)(key, value, opts);
+            },
+        } as unknown as Parameters<typeof settlePvpTerminalVitals>[0];
+
+        await assert.rejects(() => settlePvpTerminalVitals(flaky, s, deps()), /storage-down/);
+        const untouched = (await store.get<Record<string, never>>('save:rill'))!.character as Record<string, unknown>;
+        assert.equal(untouched.serverSettlementReceipts, undefined, 'no in-save receipt without the write');
+        assert.equal(await store.get(pvpVitalsReceiptKey(s.battleId, 'rill')), null, 'no compat marker without the write');
+    });
+
     it('skips a fighter with no save row, such as an NPC guard', async () => {
         const store = _makeMemoryKv();
         await store.set('save:rill', save({ name: 'Rill', hp: 100 }));
