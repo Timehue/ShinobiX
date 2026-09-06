@@ -46,6 +46,7 @@ test("the story-fight bus reports the host's verdict, not merely that one is mou
 const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const storyHost = readFileSync(new URL("../components/StoryBossFightHost.tsx", import.meta.url), "utf8");
 const aiHost = readFileSync(new URL("../components/AiFightHost.tsx", import.meta.url), "utf8");
+const triggeredBattle = readFileSync(new URL("./triggered-event-battle.ts", import.meta.url), "utf8");
 
 test("both sealed hosts announce themselves engaged from acceptance, not from the opened session", () => {
     // The sealed start is a network round-trip and the caller dismisses its launch
@@ -82,10 +83,9 @@ test("App tracks both hosts and the VN auto-triggers consult them", () => {
 });
 
 test("a declined chapter launch keeps the scene open instead of falling through to a practice bout", () => {
-    const launch = app.slice(app.indexOf("function startTriggeredEventArenaBattle"), app.indexOf("function startTriggeredEventArenaBattle") + 2600);
-    const chapter = launch.slice(launch.indexOf("const chapterIdx"), launch.indexOf("const returnTarget"));
+    const chapter = triggeredBattle.slice(triggeredBattle.indexOf("const chapterIndex"), triggeredBattle.indexOf("const opponent"));
     // `\s+`, not `\s*\n\s*` — `\s` matches newlines, so that spelling was ambiguous too.
-    assert.match(chapter, /if \(started\) setActiveTriggeredEvent\(null\);\s+return;/,
+    assert.match(chapter, /if \(started\) setActiveEvent\(null\);[\s\S]*?return;/,
         "the current chapter's boss is the sealed fight or nothing — never the flavor arena");
     assert.doesNotMatch(chapter, /requestAiFight/, "the chapter branch must not reach the practice launcher");
 });

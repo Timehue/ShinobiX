@@ -13,11 +13,13 @@
  * eligible level first.
  */
 
-import type { Character } from "../types/character";
+import type { Character, StoryChoiceReceipt } from "../types/character";
 import type { Biome } from "../types/core";
 import type { CreatorEvent } from "../types/vn";
 import type { Wanderer, WandererArchetypeId } from "./wanderers";
 import { storyRoadEvents, type StoryRoadEvent, type StoryRoadNpcArchetype } from "../data/story-road-events";
+import { applyStoryChoiceReceipt } from "./character-progress";
+import { queueStoryReport } from "./story-history";
 
 export const ROAD_WANDERER_PREFIX = "story-road-";
 
@@ -79,8 +81,27 @@ export function synthRoadWanderer(event: StoryRoadEvent, sector: number): Wander
     };
 }
 
-export function roadEventToCreatorEvent(event: StoryRoadEvent, biome: Biome): CreatorEvent {
-    const pages: NonNullable<CreatorEvent["vnPages"]> = event.pages.map((page) => ({
+function callbackForRoad(event: StoryRoadEvent, pageTitle: string, traits: readonly string[]): string | null {
+    if (event.id === "story-road-four-seals-one-gate" && pageTitle === "One Lattice") {
+        if (traits.includes("rd66-dropped-the-shaft")) return "I found blasting dust in the map fold. Dropping Corvo's shaft kept the route from becoming a toll road; it did not erase what the gallery proved.";
+        if (traits.includes("rd66-carried-the-map")) return "I set your gallery map beside the four rubbings. Its sleeping-face columns match the older network, while its route remains a separate piece of evidence.";
+        if (traits.includes("rd66-priced-the-routes")) return "I have seen the priced route copies bearing your seal. I used one to align the sockets; the question of their buyers stays with you.";
+    }
+    if (event.id === "story-road-last-road" && pageTitle === "The Last Mile") {
+        if (traits.includes("rd74-broke-the-anchor-keys")) return "No anchor key travels with the column. The broken pieces remain at the crossroads, and the road ahead must stand without that shortcut.";
+        if (traits.includes("rd74-bound-the-lattice")) return "A courier's receipt says the Sage still carries the bound seal. Corvel notes its independent custody in the contract margin.";
+        if (traits.includes("rd74-palmed-a-key")) return "The fourth key shifts in your pack as the horses change. Nobody on the road claims to know it is there.";
+    }
+    return null;
+}
+
+export function roadEventToCreatorEvent(event: StoryRoadEvent, biome: Biome, character?: Pick<Character, "storyTraits">): CreatorEvent {
+    const traits = character?.storyTraits ?? [];
+    const sourcePages = event.pages.map((page) => {
+        const callback = callbackForRoad(event, page.title, traits);
+        return callback ? { ...page, dialogue: [...page.dialogue, callback] } : page;
+    });
+    const pages: NonNullable<CreatorEvent["vnPages"]> = sourcePages.map((page) => ({
         title: page.title,
         scene: page.scene,
         speaker: page.speaker,
@@ -110,22 +131,36 @@ export function roadEventToCreatorEvent(event: StoryRoadEvent, biome: Biome): Cr
         xpReward: 0,
         ryoReward: 0,
         staminaReward: 0,
-        dialogue: event.pages.flatMap((page) => page.dialogue),
+        // The complete script already lives in vnPages. Keeping a flattened
+        // second copy materially inflated the emitted road-event chunk.
+        dialogue: [],
     };
+}
+
+/** Persist the exact road choice and its retryable report as one local update. */
+export function applyRoadEventChoice(
+    character: Character,
+    eventId: string,
+    trait: string,
+    receipt: StoryChoiceReceipt,
+): Character {
+    return queueStoryReport(applyStoryChoiceReceipt(character, receipt), { kind: "road", eventId, trait });
 }
 
 /** Report the recorded choice to the server story record. Fire-and-forget:
  *  road events pay no rewards, so a lost report costs bookkeeping, never loot.
  *  authFetch's global interceptor attaches the auth headers. */
-export async function reportStoryRoadEvent(playerName: string, eventId: string, trait: string): Promise<void> {
+export async function reportStoryRoadEvent(playerName: string, eventId: string, trait: string): Promise<{ ok: boolean; trait?: string; reason?: string; recordedTrait?: string }> {
     try {
-        await fetch("/api/story/road-event", {
+        const response = await fetch("/api/story/road-event", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "complete", playerName, eventId, trait }),
         });
+        const body = await response.json().catch(() => null) as { ok?: boolean; trait?: string; reason?: string; recordedTrait?: string } | null;
+        if (response.ok && body?.ok === true) return { ok: true, trait: body.trait ?? trait };
+        return { ok: false, reason: body?.reason ?? `http-${response.status}`, recordedTrait: body?.recordedTrait };
     } catch {
-        // Offline: the trait mirror stays on the save; the record misses this
-        // beat until a future reconcile pass.
+        return { ok: false, reason: "network" };
     }
 }

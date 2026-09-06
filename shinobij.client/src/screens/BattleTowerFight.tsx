@@ -20,6 +20,7 @@ import {
     TOWER_ZOOM_MAX, TOWER_ZOOM_MIN, TOWER_ZOOM_STEP, type TowerPan,
 } from "../lib/tower-tactical-ui";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
+import { towerStoryFieldReport } from "../lib/tower-story-catalog";
 import { playStoryChapterSting, playStoryFinalPhaseSting, playStoryVictorySting, primeStorySfx } from "../lib/story-sfx";
 import { pvpAffectsOpponent, tagMatchesName } from "../lib/tags";
 import {
@@ -1500,6 +1501,7 @@ export function BattleTowerFight({
         mode === "jutsu" && selJutsu ? `Click an enemy in range to cast ${selJutsu.name ?? "it"}.` : "";
     const newlyRecordedTowerMilestones = (settlement.response?.character?.battleTowerMilestones ?? [])
         .filter(milestone => !initialTowerMilestonesRef.current.has(milestone));
+    const storyFieldReport = towerStoryFieldReport(session.floor, newlyRecordedTowerMilestones);
     const mySettlementResult = settlement.response?.results[meSlug];
 
     return (
@@ -2217,6 +2219,7 @@ export function BattleTowerFight({
                         {newlyRecordedTowerMilestones.map(milestone => (
                             <p key={milestone} className="tower-result-milestone-receipt">{buildTowerMilestoneReceipt(milestone)}</p>
                         ))}
+                        {storyFieldReport && <p className="tower-result-milestone-receipt">{storyFieldReport}</p>}
                         <SettlementStatusNotice state={settlement} required={shouldSettle} onRetry={() => void performSettlement()} primaryRef={!resultCanExit ? resultPrimaryRef : undefined} />
                         <button ref={resultCanExit ? resultPrimaryRef : undefined} style={{ marginTop: 12, padding: "0.7rem 1.4rem" }} onClick={exitResult}
                             aria-disabled={!resultCanExit} disabled={!resultCanExit}

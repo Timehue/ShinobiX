@@ -7,6 +7,11 @@ import type { Biome } from "../types/core.js";
 import { storyReckoningById, storyReckonings } from "../data/story-reckonings.js";
 import { storyReckoningEligible, visibleStoryReckonings, storyReckoningIntroEvent, storyReckoningForEventId } from "./story-reckonings.js";
 import { defaultVnPortrait } from "./vn.js";
+import { storyFieldScenes } from "../data/story-field-scenes.js";
+import { STORY_FIELD_CONTENT_SCHEMA_VERSION } from "./story-field-content-contract.js";
+import { seedStoryFieldContentForTests } from "./story-field-content-loader.js";
+
+seedStoryFieldContentForTests({ schemaVersion: STORY_FIELD_CONTENT_SCHEMA_VERSION, scenes: storyFieldScenes, reckonings: storyReckonings });
 
 const PUBLIC_DIR = path.resolve(process.cwd(), "shinobij.client/public");
 
@@ -43,6 +48,9 @@ test("story reckoning eligibility retires completed arcs", () => {
     assert.ok(quest);
     assert.equal(storyReckoningEligible({ level: 25, storyVillage: "Stormveil Village", storyProgress: 3, storyTraits: [] } as Character, quest), true);
     assert.equal(storyReckoningEligible({ level: 25, storyVillage: "Stormveil Village", storyProgress: 3, storyTraits: [quest.completionTrait] } as Character, quest), false);
+    assert.equal(storyReckoningEligible({ level: 25, storyVillage: "Stormveil Village", storyProgress: 3, storyTraits: [], redeemedStoryReckonings: [{ questId: quest.id }] } as Character, quest), false);
+    const receiptOnly = { level: 25, storyVillage: "Stormveil Village", storyProgress: 3, storyTraits: [], redeemedStoryReckonings: [{ questId: quest.id }] } as Character;
+    assert.ok(visibleStoryReckonings(receiptOnly, 1).some((wanderer) => wanderer.id === quest.id), "receipt-only field completions keep their aftermath giver visible");
 });
 
 test("story reckoning VN accept uses the sentinel and return ids map back to the arc", () => {
@@ -88,4 +96,29 @@ test("cross-village Kite Harrow stands at any outskirts once own arc is done, an
     // Gated: one progress short.
     const notYet = { level: 65, storyVillage: "Frostfang Village", storyProgress: 8, storyTraits: [] } as Character;
     assert.ok(!visibleStoryReckonings(notYet, 26).some((w) => w.name === "Kite Harrow"), "Harrow should be hidden below the progress gate");
+});
+
+test("conditional reckoning callbacks keep each source choice on the player", () => {
+    const cases = [
+        ["story-reckoning-mori-working-copy", "al58-refused-the-cut", /I refused the cut/],
+        ["story-reckoning-sova-true-roll", "ff42-held-the-doubt", /I held my doubt/],
+        ["story-reckoning-yura-exemption", "ff58-took-the-exemption", /I took the exemption/],
+        ["story-reckoning-iro-sealed-shelf", "ms58-took-the-shelf", /I took the shelf/],
+    ] as const;
+    for (const [id, trait, expected] of cases) {
+        const quest = storyReckoningById(id);
+        assert.ok(quest, id);
+        const choice = quest.payoff.flatMap(page => page.choices ?? []).find(candidate => candidate.requireTrait === trait);
+        assert.ok(choice, trait);
+        assert.match(choice.text, expected, trait);
+    }
+});
+
+test("reckoning speakers do not introduce themselves with third-person staging", () => {
+    for (const quest of storyReckonings) {
+        for (const page of [...quest.intro, ...quest.payoff]) {
+            const surname = page.speaker.split(/\s+/).at(-1)!;
+            assert.ok(!page.dialogue[0]?.startsWith(`${surname} `), `${quest.id}/${page.title} stages ${surname} under their own portrait`);
+        }
+    }
 });

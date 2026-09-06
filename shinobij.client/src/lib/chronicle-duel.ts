@@ -1,4 +1,5 @@
 import type { Character } from "../types/character";
+import type { EchoesBattleBeat } from "../../../shared/echoes-witness";
 import type { TileCard } from "../data/tile-cards";
 import {
     CHRONICLE_CARD_CATALOG,
@@ -29,6 +30,7 @@ export type EchoesSettleSummary = {
     wins: number;
     balance: number;
     unlockedFloor: number | null;
+    battleBeat?: EchoesBattleBeat;
 };
 export type ChronicleAiResult = {
     ok: boolean;

@@ -40,9 +40,14 @@ test("the bus never invokes client combat when no host is mounted", () => {
 test("the host reports a sealed-start failure without local combat", () => {
     const subscribe = host.indexOf("return onStoryBossFightRequest((theme)");
     assert.notEqual(subscribe, -1, "the host must still subscribe to the fight bus");
-    const start = host.slice(subscribe, subscribe + 1800);
+    const activeFight = host.indexOf("const activeFight =", subscribe);
+    assert.ok(activeFight > subscribe, "could not bound the sealed-start subscription");
+    const start = host.slice(subscribe, activeFight);
     assert.match(start, /startAcademySparCombat\(/, "the spar must start its own sealed endpoint");
-    const failure = start.slice(start.indexOf(".catch((error) =>"), start.indexOf(".finally(() =>"));
+    const catchStart = start.indexOf(".catch((error) =>");
+    const finallyStart = start.indexOf(".finally(() =>", catchStart);
+    assert.ok(catchStart >= 0 && finallyStart > catchStart, "could not isolate the sealed-start failure path");
+    const failure = start.slice(catchStart, finallyStart);
     assert.match(failure, /mountedRef\.current/);
     assert.match(failure, /startRequestIdRef\.current === requestId/);
     assert.match(failure, /activePlayerKeyRef\.current === originatingPlayerKey/);

@@ -27,6 +27,7 @@ import type {
     PetExpeditionType,
 } from "./pet";
 import type { MasteryFocus } from "../../../shared/activity-spine";
+import type { StoryFieldProgress, StoryFieldRecords } from "../../../shared/story-field-work";
 
 // ── Hollow Gate Shrine run state ──────────────────────────────────────────
 
@@ -273,6 +274,48 @@ export type BattleHistoryEntry = {
     actions: BattleHistoryAction[];
 };
 
+// Narrative receipts are presentation/history state only. They never prove a
+// reward or combat outcome; those remain owned by the sealed story endpoints.
+export type StoryChoiceReceipt = {
+    version: 1;
+    eventId: string;
+    pageId: string;
+    choiceId: string;
+    pageIndex: number;
+    choiceIndex: number;
+    nextPage: number;
+    trait?: string;
+    battle?: boolean;
+    /** Reusable callback hub: distinct choices on this page may each occur once. */
+    revisitable?: boolean;
+};
+
+export type StoryCursor = { pageIndex: number; lineIndex: number };
+
+export type StorySceneResume = StoryCursor & {
+    version: 1;
+    eventId: string;
+    history: StoryCursor[];
+};
+
+export type PendingStoryReport = {
+    version: 1;
+    kind: "interlude" | "road";
+    eventId: string;
+    trait: string;
+    status?: "conflict";
+    recordedTrait?: string;
+};
+
+export type StoryEpilogueReceipt = {
+    version: 1;
+    chapterEventId: string;
+    lane: string;
+    status: "pending" | "seen";
+    /** Snapshot taken at the verified first clear so later traits cannot rewrite the ending. */
+    presentationTraits: string[];
+};
+
 // ── Character ─────────────────────────────────────────────────────────────
 
 export type Character = {
@@ -319,6 +362,14 @@ export type Character = {
     // server allowlists it in api/save. Absent/"" = plain card.
     nindoBg?: string;
     storyTraits?: string[];
+    /** Immutable per-decision narrative history. Bounded/sanitized by the save API. */
+    storyChoices?: StoryChoiceReceipt[];
+    /** Last witnessed cursor for an unfinished auto-triggered story scene. */
+    storyScene?: StorySceneResume | null;
+    /** Choice-time reports waiting for matching server acknowledgement. */
+    pendingStoryReports?: PendingStoryReport[];
+    /** One pending/seen aftermath receipt per village finale chapter. */
+    storyEpilogues?: StoryEpilogueReceipt[];
     storyProgress: number;
     storyVillage: string;
     /** Optional recommendation preference; it never changes rewards or access. */
@@ -386,7 +437,9 @@ export type Character = {
     chroniclePoints?: number;
     // SERVER-OWNED per-encounter campaign record (wins + first-clear stamp).
     // Written only by the ai-move echoes settle; a generic save mirrors it.
-    echoesOfWar?: Record<string, { wins: number; firstClearAt?: number }>;
+    echoesOfWar?: Record<string, { wins: number; firstClearAt?: number; firstClearBattleBeat?: import("../../../shared/echoes-witness").EchoesBattleBeat }>;
+    /** Server-sealed first witness answer for each completed Echoes age. */
+    echoesWitnessChoices?: import("../../../shared/echoes-witness").EchoesWitnessChoices;
     // Client-owned story-seen display flags (which scenes have been watched).
     echoesStorySeen?: Record<string, { pre?: boolean; post?: boolean }>;
     element?: string;
@@ -583,9 +636,15 @@ export type Character = {
     // mirror only. `stage`: "travel" until the player reaches the rift structure,
     // "descend" once they are there. Additive/optional. See lib/hollow-rifts.
     activeRiftQuest?: { id: string; targetSector: number; stage: "travel" | "descend"; baseline: number; bossName: string } | null;
+    /** Server-owned proof that a rift's authored aftermath became eligible. */
+    riftFirstClears?: Record<string, { at: number; runToken?: string; combatRunId?: string }>;
+    /** Server-owned bridge from the exact rift boss settlement to rift completion. */
+    riftQuestBossReceipt?: { riftId: string; runToken: string; combatRunId: string; acceptedAt: number; clearedAt: number } | null;
     // Active one-shot story reckoning from a named village character. Display
     // mirror only; api/sector/story-reckoning.ts seals the true baseline/reward.
-    activeStoryReckoning?: { id: string; stage: "task" | "return"; metric: "totalAiKills" | "totalTilesExplored"; baseline: number; target: number; dropItemId: string } | null;
+    activeStoryReckoning?: { id: string; stage: "task" | "return"; metric: "totalAiKills" | "totalTilesExplored"; baseline: number; target: number; dropItemId: string; fieldWork?: StoryFieldProgress } | null;
+    /** Exact field decisions, recorded by the reckoning endpoint. */
+    storyFieldRecords?: StoryFieldRecords;
     // Epoch ms until which the roaming rift-giver stays quiet after a clear.
     riftCooldownUntil?: number;
     // One-time Chronicle Scribe "traveler's codex" latch — set server-side by

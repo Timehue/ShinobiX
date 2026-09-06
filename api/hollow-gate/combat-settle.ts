@@ -30,6 +30,7 @@ import {
     retireHollowGatePetChildLease,
 } from './_pet-authority.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
+import { parseRiftQuestSeal, reconcileRiftRunBinding } from '../sector/_rift-quest.js';
 import {
     creditHollowGateLedger,
     HOLLOW_GATE_LEDGER_ITEM_IDS,
@@ -259,6 +260,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 let next = binding!.combatMode === 'solo-pve' && session
                     ? applySoloPveUsageCosts({ ...char } as Record<string, unknown>, session)
                     : { ...char } as Record<string, unknown>;
+                const savedGateRunToken = char.hollowGateRun && typeof char.hollowGateRun === 'object'
+                    ? (char.hollowGateRun as Record<string, unknown>).runToken
+                    : null;
+                const activeRiftSeal = typeof run.variantId === 'string' && run.variantId.startsWith('rift-')
+                    ? parseRiftQuestSeal(record.activeRiftQuestSeal)
+                        ?? parseRiftQuestSeal(await kv.get(`rift-quest:${playerName}`))
+                    : null;
+                const exactRiftBinding = binding!.kind === 'boss' && activeRiftSeal
+                    ? reconcileRiftRunBinding(activeRiftSeal, {
+                        variantId: run.variantId,
+                        runToken: token,
+                        mintedAt: run.mintedAt,
+                        riftQuestAcceptedAt: run.riftQuestAcceptedAt,
+                    }, savedGateRunToken)
+                    : null;
                 if (binding!.combatMode === 'pet' && petIds.length) {
                     const pets = Array.isArray(next.pets) ? next.pets as Array<Record<string, unknown>> : [];
                     next.pets = pets.map((pet) => petIds.includes(String(pet?.id ?? '')) && pet.loadout && typeof pet.loadout === 'object'
@@ -280,6 +296,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     next.itemStacks = addCountedItem(next.itemStacks, VEIL_OF_THE_HOLLOW_ID, reward.veils);
                     next.itemStacks = addCountedItem(next.itemStacks, ELEMENTAL_SHARD_ID, elementalShards);
                     if (binding!.kind === 'boss') next.hollowGateWardenKills = num(next.hollowGateWardenKills) + 1;
+                    if (exactRiftBinding) {
+                        next.riftQuestBossReceipt = {
+                            riftId: exactRiftBinding.seal.id,
+                            runToken: token,
+                            combatRunId: binding!.runId,
+                            acceptedAt: exactRiftBinding.acceptedAt,
+                            clearedAt: receipt.settledAt,
+                        };
+                    }
                     if (next.hollowGateRun && typeof next.hollowGateRun === 'object') {
                         const nextRun = { ...(next.hollowGateRun as Record<string, unknown>) };
                         delete nextRun.activeCombat;
@@ -359,7 +384,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 next.settledHollowGateCombatIds = [...settledIds.filter((id) => id !== runId).slice(-199), runId];
 
                 try {
-                    const updated: Record<string, unknown> = bumpSaveVersion({ ...record, character: next });
+                    const updated: Record<string, unknown> = bumpSaveVersion({
+                        ...record,
+                        ...(exactRiftBinding ? { activeRiftQuestSeal: exactRiftBinding.seal } : {}),
+                        character: next,
+                    });
                     await kv.set(saveKey, mergePreservingImages(updated, record));
                     return { receipt, character: next, saveVersion: Number(updated._saveVersion ?? 0) };
                 } catch (error) {

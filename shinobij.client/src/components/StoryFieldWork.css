@@ -1,0 +1,51 @@
+.story-field-journal {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 20px;
+    align-items: center;
+    padding: 14px 16px;
+    margin: 12px 0;
+    border: 1px solid #766144;
+    border-radius: 10px;
+    background: #181d26;
+    color: #eee6d9;
+    text-align: left;
+}
+.story-field-journal > div:first-child { flex: 1 1 250px; min-width: 0; }
+.story-field-journal p { margin: 5px 0; line-height: 1.5; }
+.story-field-journal span { color: #c7b99e; font-size: .88rem; }
+.story-field-journal-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.story-field-journal details { flex-basis: 100%; }
+.story-field-journal summary { cursor: pointer; padding: 5px 0; }
+.story-field-journal li { margin: 6px 0; }
+.story-field-journal button { min-height: 44px; white-space: normal; overflow-wrap: anywhere; }
+.story-field-status {
+    position: fixed;
+    z-index: 100010;
+    top: max(12px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(560px, calc(100vw - 24px));
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border: 1px solid #b19662;
+    border-radius: 10px;
+    background: #181d26;
+    color: #eee6d9;
+    box-sizing: border-box;
+}
+.story-field-status span { flex: 1 1 220px; }
+.story-field-status button { min-height: 44px; }
+.sector-story-field-marker { min-height: 44px; max-width: 150px; }
+.sector-story-field-marker span { white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+    /* Override the shared reader's important padding to clear the map hint. */
+    .story-field-scene .visual-novel .vn-controls { padding-inline-end: 64px !important; }
+    .story-field-journal { padding: 12px; gap: 10px; }
+    .story-field-journal-actions { width: 100%; }
+    .story-field-journal-actions button { flex: 1 1 140px; }
+}

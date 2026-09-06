@@ -802,9 +802,9 @@ const FIRST_PACT_MARKET_SERVICE_EDGE_COLLISION = new Set([
 export const FIRST_PACT_PLAYER_START: FirstPactPoint = { x: 42, y: 50 };
 
 export const FIRST_PACT_NPCS: readonly FirstPactNpcDefinition[] = [
-    { id: "keeper-sena", name: "Sena Vale", title: "Last Keeper of Vale Stable", position: { x: 24, y: 40 }, behavior: "static", facing: "west", palette: "rose", portrait: "keeper" },
-    { id: "registrar-orin", name: "Registrar Orin", title: "Master of the Sand Ledger", position: { x: 42, y: 34 }, behavior: "static", facing: "south", palette: "amber", portrait: "registrar" },
-    { id: "scribe-vey", name: "Scribe Vey", title: "Keeper of Unedited Names", position: { x: 42, y: 12 }, behavior: "static", facing: "south", palette: "cyan", portrait: "scribe" },
+    { id: "keeper-sena", name: "Sena Vale", title: "Keeper of Vale Stable", position: { x: 24, y: 40 }, behavior: "static", facing: "west", palette: "rose", portrait: "keeper" },
+    { id: "registrar-orin", name: "Registrar Orin", title: "Colosseum Registrar", position: { x: 42, y: 34 }, behavior: "static", facing: "south", palette: "amber", portrait: "registrar" },
+    { id: "scribe-vey", name: "Scribe Vey", title: "Scribe of Rejected Records", position: { x: 42, y: 12 }, behavior: "static", facing: "south", palette: "cyan", portrait: "scribe" },
     /*
      * The Court, standing in its own square.
      *

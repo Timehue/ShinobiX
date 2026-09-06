@@ -388,7 +388,7 @@ test("the completed course reveals Tomoe and Kuro's illustrated farewell", async
     await expect(guide.getByText("The bell at dawn")).toBeVisible();
     const finaleArt = guide.getByRole("img", { name: /Tomoe and Kuro departing at dawn/i });
     await expectDecodedArtAtLeast(finaleArt, 1200, "the finale chronicle art");
-    await expect(guide.getByText(/next lesson is no longer theirs to give/i)).toBeVisible();
+    await expect(guide.getByText(/Tomoe leaves the field journal in your keeping/i)).toBeVisible();
     await page.screenshot({
         path: testInfo.outputPath("tomoe-field-guide-epilogue.png"),
         fullPage: true,

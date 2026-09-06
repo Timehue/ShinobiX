@@ -8,8 +8,9 @@ import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import {
     RIFT_QUESTS, RIFT_DAILY_CAP, RIFT_COOLDOWN_MS,
-    isRiftQuestId, riftQuestRyo, riftBossKilled, riftTargetSector,
-    parseRiftQuestSeal, type RiftQuestSeal,
+    isRiftQuestId, riftQuestRyo, riftTargetSector,
+    parseRiftQuestSeal, parseRiftQuestBossReceipt, riftBossReceiptMatches,
+    type RiftQuestSeal,
 } from './_rift-quest.js';
 import { WORLD_GEO_VERSION } from '../../shared/sector-geo.js';
 
@@ -17,14 +18,11 @@ import { WORLD_GEO_VERSION } from '../../shared/sector-geo.js';
  * /api/sector/rift-quest — POST { action: 'accept' | 'complete' | 'abandon', playerName, riftId? }
  *
  * Server-authoritative wandering-AI RIFT quest (a scaled event Hollow Gate). The
- * Hollow-Gate-boss-kill baseline (character.hollowGateWardenKills — the counter the
- * shrine boss bumps on defeat, NOT totalAiKills, which the Hollow Gate combat path
- * never touches) + target sector are sealed in KV at accept; at complete the server
- * verifies that counter advanced (the boss fell) and pays a recomputed reward,
- * single-use, daily-capped, under the fail-closed save lock. The client flushes the
- * bumped save to the server BEFORE calling complete, so the read is not racy. The
- * character.activeRiftQuest field is a DISPLAY mirror only. No Hollow Gate code is
- * touched — the reward is gated on the boss-kill counter, not the run itself.
+ * target sector and acceptance identity are sealed at accept. Hollow Gate start
+ * binds the seal to one exact variant run; boss settlement stamps an exact combat
+ * receipt. Complete pays only when all three identities agree, single-use and
+ * daily-capped under the fail-closed save lock. activeRiftQuest remains a display
+ * mirror; aggregate Warden kills are never completion proof.
  */
 
 const QUEST_TTL_SECONDS = 7 * 24 * 60 * 60;
@@ -75,7 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const sealed: Sealed = { id: def.id, targetSector, baseline, at: Date.now(), geoV: WORLD_GEO_VERSION };
                 await kv.set(questKey, sealed, { ex: QUEST_TTL_SECONDS });
                 const activeRiftQuest = { id: def.id, targetSector, stage: 'travel' as const, baseline, bossName: def.bossName };
-                const updated = { ...char, activeRiftQuest };
+                const updated = { ...char, activeRiftQuest, riftQuestBossReceipt: null };
                 // Durable seal on the save record (server-owned; SERVER_LEDGER_TOPLEVEL_FIELDS)
                 // so an in-flight rift survives the KV TTL and the Postgres cutover.
                 const nextRecord = bumpSaveVersion({ ...rec, activeRiftQuestSeal: sealed, character: updated });
@@ -105,16 +103,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // can offer a fresh rift.
                     await kv.del(questKey).catch(() => undefined);
                     if (char.activeRiftQuest || rec.activeRiftQuestSeal !== undefined) {
-                        const updated = { ...char, activeRiftQuest: null };
+                        const updated = { ...char, activeRiftQuest: null, riftQuestBossReceipt: null };
                         const nextRecord = bumpSaveVersion({ ...rec, activeRiftQuestSeal: null, character: updated });
                         await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
                         return { status: 200, body: { ok: false, reason: 'none', activeRiftQuest: null, character: updated, _saveVersion: Number(nextRecord._saveVersion ?? 0) } };
                     }
                     return { status: 200, body: { ok: false, reason: 'none' } };
                 }
-                if (sealed.id !== def.id) return { status: 200, body: { ok: false, reason: 'none' } };
+                if (sealed.id !== def.id) return { status: 200, body: { ok: false, reason: 'wrong-rift' } };
 
-                if (!riftBossKilled(num(sealed.baseline), num(char.hollowGateWardenKills))) {
+                const bossReceipt = parseRiftQuestBossReceipt(char.riftQuestBossReceipt);
+                if (!riftBossReceiptMatches(sealed, bossReceipt)) {
                     // Migrate a KV-only legacy seal onto the durable save so it survives
                     // the TTL / a future cutover if the boss is cleared later.
                     let saveVersion: number | undefined;
@@ -123,7 +122,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
                         saveVersion = Number(nextRecord._saveVersion ?? 0);
                     }
-                    return { status: 200, body: { ok: false, reason: 'incomplete', ...(saveVersion !== undefined ? { _saveVersion: saveVersion } : {}) } };
+                    const reason = !sealed.runToken ? 'proof-missing-retry' : 'incomplete';
+                    return { status: 200, body: { ok: false, reason, ...(saveVersion !== undefined ? { _saveVersion: saveVersion } : {}) } };
                 }
                 const countKey = `rift-quest-count:${playerName}:${today}`;
                 if (num(await kv.get<number>(countKey)) >= RIFT_DAILY_CAP) {
@@ -144,9 +144,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const totalBoneCharms = num(char.boneCharms) + def.boneCharms;
                 const cooldownUntil = Date.now() + RIFT_COOLDOWN_MS;
 
+                const priorFirstClears = char.riftFirstClears && typeof char.riftFirstClears === 'object' && !Array.isArray(char.riftFirstClears)
+                    ? char.riftFirstClears as Record<string, unknown>
+                    : {};
+                const firstClear = !Object.prototype.hasOwnProperty.call(priorFirstClears, def.id);
+                const firstClearAt = firstClear ? bossReceipt!.clearedAt : num((priorFirstClears[def.id] as Record<string, unknown> | undefined)?.at);
+                const riftFirstClears = firstClear
+                    ? {
+                        ...priorFirstClears,
+                        [def.id]: {
+                            at: firstClearAt,
+                            runToken: bossReceipt!.runToken,
+                            combatRunId: bossReceipt!.combatRunId,
+                        },
+                    }
+                    : priorFirstClears;
+
                 const updated = {
                     ...char, ryo: totalRyo, fateShards: totalFateShards, boneCharms: totalBoneCharms,
                     activeRiftQuest: null, riftCooldownUntil: cooldownUntil,
+                    riftQuestBossReceipt: null,
+                    riftFirstClears,
                 };
                 const nextRecord = bumpSaveVersion({ ...rec, activeRiftQuestSeal: null, character: updated });
                 await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
@@ -157,6 +175,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         fateShards: def.fateShards, totalFateShards,
                         boneCharms: def.boneCharms, totalBoneCharms,
                         cooldownUntil,
+                        firstClear,
+                        firstClearAt,
+                        completedRiftId: def.id,
                         _saveVersion: Number(nextRecord._saveVersion ?? 0),
                     },
                 };
@@ -171,7 +192,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (rec && char) {
-                    const updated = { ...char, activeRiftQuest: null };
+                    const updated = { ...char, activeRiftQuest: null, riftQuestBossReceipt: null };
                     if (!char.activeRiftQuest && rec.activeRiftQuestSeal == null) {
                         return { status: 200, body: { ok: true, _saveVersion: Number(rec._saveVersion ?? 0) } };
                     }

@@ -64,7 +64,7 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
         lore: [
             "People call genjutsu cruel. I think it can be mercy, but anyone who says that too quickly should not be trusted with it.",
             "A canal blade took my left cheek. The porcelain repair fogs in cold weather and makes children stare. I stare back.",
-            "I heard your name twice before we met. Once from a drunk, once from a dying man. The stories didn't match. I liked that.",
+            "Two reports used the same traveler's name this morning. One called them cautious, one reckless. I trust the mismatch more than either verdict.",
         ],
         trialLine: "I put a moth-mark on the first post this morning. You walked past it. This time, look twice.",
         quests: [
@@ -81,7 +81,7 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
             "The east-post road wore through three pairs of sandals. My training partner rode a cart and called it footwork. We still argue.",
             "A young man once asked me to bless his fists. I blessed his neighbors instead. He understood, eventually.",
         ],
-        trialLine: "Your trial is counted in bruises the record keeper never sees. I see them. Go on.",
+        trialLine: "Your trial is counted in bruises the record keeper may miss. Bring the tally back; I will inspect what the page leaves out.",
         quests: [
             { id: "eq-iron-tally", label: "Defeat 10 foes and return Daigo's full tally", metric: "totalAiKills", target: 10 },
             { id: "eq-iron-road", label: "Walk 20 tiles of the lantern road", metric: "totalTilesExplored", target: 20 },
@@ -98,14 +98,14 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
         ],
         trialLine: "I read your trial order. The form is sound and the route is ugly. Check your edge, then go.",
         quests: [
-            { id: "eq-blade-rites", label: "Fell 8 foes with the clean form Hana taught you", metric: "totalAiKills", target: 8 },
+            { id: "eq-blade-rites", label: "Fell 8 foes with a clean form Hana can inspect", metric: "totalAiKills", target: 8 },
             { id: "eq-blade-vigil", label: "Stand a vigil of 6 victories", metric: "totalAiKills", target: 6 },
         ],
     },
     {
         slug: "duel-broker-kesshi", name: "Duel-Broker Kesshi", categories: ["pvp", "cards", "war"],
         tellTint: "#f87171",
-        greeting: "Everything's a wager, friend. Most people just haven't read the terms yet.",
+        greeting: "The red column gained three names since dawn. If you're here to wager, read who pays when you lose.",
         lore: [
             "This ledger is chained to me. Or I am chained to it. The interest compounds either way.",
             "I brokered a duel between two Kage once. The village that watched still owes me.",
@@ -123,7 +123,7 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
         greeting: "The lower vents carry voices up here. Speak softly unless you want an answer.",
         lore: [
             "This mask was cut from animal bone before I took this post. The scratches came later.",
-            "I was here when the Gate rebuilt a dead Kage from an intake record. We had no word for the result then. Now we call it a Hollow.",
+            "I was here when the Gate rebuilt a Kage dead for generations from an old intake record. We had no word for the result then. Now we call it a Hollow.",
             "The Hollow below does not hate you. It repeats whatever the old intake taught it. Learn the pattern before you step close.",
         ],
         trialLine: "Your trial reaches an old intake floor. I will watch the boundary and pull you out if it breaks.",

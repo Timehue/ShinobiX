@@ -3,8 +3,8 @@
  * the engine itself (not the creator panel):
  *
  *   • awakeningLv2VnEvent   — opens when the level-2 player first leaves
- *                             the village; introduces the Awakening Stone.
- *   • auraSphereLv9VnEvent  — opens at level 9 from the village elder;
+ *                             the village; delivers the Awakening Stone summons.
+ *   • auraSphereLv9VnEvent  — opens a timed level-9 issue seal;
  *                             grants the Aura Sphere.
  *   • hiddenDungeonVnEvent  — the 3-seal hidden dungeon intro shown when
  *                             a Hidden Dungeon Gate tile is uncovered.
@@ -34,16 +34,16 @@ export const awakeningLv2VnEvent: CreatorEvent = {
     vnPages: [
         {
             title: "The Pull Toward Central",
-            scene: "Just beyond the village gate, a hard tug of chakra numbs your fingers.",
+            scene: "A summons seal opens across your field record as a hard tug of chakra numbs your fingers.",
             speaker: "Narrator",
             dialogue: [
                 "Narrator: The pull comes from Central. Every time you turn away, the feeling tightens along your palm.",
-                "Village Elder: Stop a moment. Open your hand. Yes, I felt it from the gatehouse.",
+                "Village Elder: This is a recorded summons. Stop a moment and open your hand. If the numbness eases when you face Central, the Stone is calling your field record.",
                 "Village Elder: The Awakening Stone is under Central Hub. It reads which of the five chakra natures answers you most easily: Water, Wind, Earth, Lightning, or Fire.",
                 "Village Elder: It does not choose your future. It gives you a place to begin training.",
-                "Village Elder: Your first reading is due now, at the Second Rank. The keepers grant another at the Twentieth without charge.",
+                "Village Elder: Your first reading is due at the Second Rank. The keepers grant another at the Twentieth without charge.",
                 "Village Elder: Take the central road and show the keeper your field record. Keep that hand loose until the pulling stops.",
-                "Narrator: Central's gate towers are visible beyond the last ridge. You have your next destination.",
+                "Narrator: The seal marks Central on your route sheet. You have your next destination.",
             ],
         },
     ],
@@ -63,21 +63,21 @@ export const auraSphereLv9VnEvent: CreatorEvent = {
     dialogue: [],
     vnPages: [
         {
-            title: "A Quiet Summons",
-            scene: "An elder waits beside a low lantern, holding a small sphere that drinks in the light around it.",
+            title: "A Timed Issue Seal",
+            scene: "A seal sewn into your field kit opens at Ninth Rank, revealing an aura fitting and a recorded message.",
             speaker: "Village Elder",
             dialogue: [
-                "Village Elder: Ninth Rank. Good. Sit down before you fall down; you have been training since dawn.",
+                "Village Elder: If this message opened, your field record reached Ninth Rank. Put the kit on something steady before you work the clasp.",
                 "Village Elder: This is an Aura Sphere. It stores the dust left when your chakra is tested hard and holds the shape you teach it.",
                 "Village Elder: It will not make you stronger by itself. You still have to do the work.",
             ],
         },
         {
             title: "The Sphere Awakens",
-            scene: "The sphere rises from the elder's palm and turns slowly, mist curling around its surface.",
+            scene: "Mist turns slowly over the opened aura fitting while the issue seal finishes its message.",
             speaker: "Village Elder",
             dialogue: [
-                "Village Elder: Set it in the aura fitting of your field kit. If it stays buried in your pack, it cannot learn you.",
+                "Village Elder: If a sphere is already fitted, use that one. Otherwise, set the issue sphere in the aura fitting of your field kit.",
                 "Village Elder: The fitting holds one sphere. One is enough trouble to keep polished.",
                 "Village Elder: Bring it Aura Dust from real service: battles, raids, village war, dangerous hunts, and old field caches.",
                 "Village Elder: Check its surface after each feeding. When the pattern changes, come back and tell me what you see.",
@@ -113,6 +113,8 @@ export const hiddenDungeonVnEvent: CreatorEvent = {
             dialogue: [
                 "Dungeon Warden: Field record. Let me see it. Fiftieth Rank or better, or I turn you around here.",
                 "Dungeon Warden: The first seal is mine. Defeat the guardian and I open the inner hall. Lose, and I drag you back to these steps once.",
+                "Player: Once?",
+                "Dungeon Warden: One rescue rope, one pair of shoulders, and a whole night before the next shift. Show me you can stop when the floor turns bad.",
             ],
             leftName: "Player",
             rightName: "Dungeon Warden",
@@ -142,10 +144,23 @@ export const hiddenDungeonVnEvent: CreatorEvent = {
     ],
 };
 
+function craftDungeonEvent(
+    patch: Pick<CreatorEvent, "id" | "name" | "biome" | "icon" | "vnTitle" | "vnScene">,
+): CreatorEvent {
+    const firstPage = hiddenDungeonVnEvent.vnPages?.[0];
+    return {
+        ...hiddenDungeonVnEvent,
+        ...patch,
+        vnPages: hiddenDungeonVnEvent.vnPages?.map((page, index) => index === 0 && firstPage
+            ? { ...page, scene: patch.vnScene ?? page.scene }
+            : { ...page }),
+    };
+}
+
 export const craftDungeonEvents: CreatorEvent[] = [
-    { ...hiddenDungeonVnEvent, id: "craft-dungeon-forest", name: "Forest Relic Dungeon", biome: "forest", icon: "FD", vnTitle: "Forest Relic Dungeon", vnScene: "Roots have buckled the forge gate, and Ashen Leaf repair marks cover its hinges." },
-    { ...hiddenDungeonVnEvent, id: "craft-dungeon-snow", name: "Snow Relic Dungeon", biome: "snow", icon: "SD", vnTitle: "Snow Relic Dungeon", vnScene: "A stair cut into the glacier descends toward a frozen armory." },
-    { ...hiddenDungeonVnEvent, id: "craft-dungeon-volcano", name: "Volcano Relic Dungeon", biome: "volcano", icon: "VD", vnTitle: "Volcano Relic Dungeon", vnScene: "Heat leaks around a stone door stamped with an old weapons seal." },
-    { ...hiddenDungeonVnEvent, id: "craft-dungeon-shadow", name: "Shadow Relic Dungeon", biome: "shadow", icon: "XD", vnTitle: "Shadow Relic Dungeon", vnScene: "A black-painted shrine door opens over a narrow descending stair." },
-    { ...hiddenDungeonVnEvent, id: "craft-dungeon-central", name: "Central Relic Dungeon", biome: "central", icon: "CD", vnTitle: "Central Relic Dungeon", vnScene: "An old inspection gate beneath Central stands open for the first time in years." },
+    craftDungeonEvent({ id: "craft-dungeon-forest", name: "Forest Relic Dungeon", biome: "forest", icon: "FD", vnTitle: "Forest Relic Dungeon", vnScene: "Roots have buckled the forge gate, and Ashen Leaf repair marks cover its hinges." }),
+    craftDungeonEvent({ id: "craft-dungeon-snow", name: "Snow Relic Dungeon", biome: "snow", icon: "SD", vnTitle: "Snow Relic Dungeon", vnScene: "A stair cut into the glacier descends toward a frozen armory." }),
+    craftDungeonEvent({ id: "craft-dungeon-volcano", name: "Volcano Relic Dungeon", biome: "volcano", icon: "VD", vnTitle: "Volcano Relic Dungeon", vnScene: "Heat leaks around a stone door stamped with an old weapons seal." }),
+    craftDungeonEvent({ id: "craft-dungeon-shadow", name: "Shadow Relic Dungeon", biome: "shadow", icon: "XD", vnTitle: "Shadow Relic Dungeon", vnScene: "A black-painted shrine door opens over a narrow descending stair." }),
+    craftDungeonEvent({ id: "craft-dungeon-central", name: "Central Relic Dungeon", biome: "central", icon: "CD", vnTitle: "Central Relic Dungeon", vnScene: "An old inspection gate beneath Central stands open for the first time in years." }),
 ];

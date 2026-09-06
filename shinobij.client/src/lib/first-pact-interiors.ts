@@ -120,29 +120,29 @@ export const FIRST_PACT_INTERIORS: readonly FirstPactInterior[] = [
                 palette: "cyan",
                 portrait: "scribe",
                 lines: [
-                    "The Court does not burn what it disagrees with. It reissues it, and the old wording stops being anywhere.",
-                    "Vey leaves the discarded originals on the north shelf. I am paid to notice them and I have never once managed it.",
+                    "Revised pages go into the public stacks. The pages they replace come to me for pulping.",
+                    "Vey uses the north shelf before I count them. I need you to keep looking away while I continue failing to notice.",
                 ],
                 stepLines: [
                     {
                         step: "meet-scribe-vey",
                         lines: [
-                            "You want the scribe, and the scribe is not in here. He works on the steps outside, where the Court cannot claim he was consulted.",
-                            "Ask him what the city looked like before the last revision. He is the only official left who will answer that honestly.",
+                            "Vey is on the steps outside. She works there so the council cannot list her as attending its revisions.",
+                            "Show her your seal. If it resembles an older threshold mark, she will say what she can prove and stop there.",
                         ],
                     },
                     {
                         step: "investigate-city-omens",
                         lines: [
-                            "Three requests came down this week to reissue the weather record, the bell log and the water tallies.",
-                            "Whatever you are noticing out there, someone in this building is already writing the version that makes it ordinary.",
+                            "I have three rush revisions today: the bell log, the intake totals, and the north-wall bird count.",
+                            "Get the witnesses' words to Vey before I am ordered to shelve the replacements.",
                         ],
                     },
                     {
                         step: "recover-withheld-record",
                         lines: [
-                            "The Menagerie pulled its obedience slate from these stacks, and the original underneath it never came back.",
-                            "If Vey has found it, take it out of this district before an official offers to hold it for safekeeping.",
+                            "The Menagerie borrowed an obedience slate. The older page beneath it was never returned.",
+                            "If Vey recovered that page, take it to Tam now. I cannot misplace the same original twice.",
                         ],
                     },
                 ],
@@ -153,8 +153,8 @@ export const FIRST_PACT_INTERIORS: readonly FirstPactInterior[] = [
             label: "Read the discard shelf",
             position: { x: 7, y: 1 },
             lines: [
-                "Nine copies of one census, each kinder than the last. The earliest counts the bonded beasts as witnesses. The newest counts them as equipment.",
-                "Nothing was destroyed. A city can lose its own memory while every page is still on the shelf.",
+                "Nine versions of one census. The first counts bonded beasts as witnesses. The latest lists them as equipment.",
+                "Every version remains legible. Only the latest is indexed for readers.",
             ],
         },
     },
@@ -184,22 +184,22 @@ export const FIRST_PACT_INTERIORS: readonly FirstPactInterior[] = [
                 palette: "amber",
                 portrait: "registrar",
                 lines: [
-                    "Every pact the Court has ever signed is in this room, and every one of them is still being signed.",
-                    "A pact that can be revised after the fact is not a pact. It is a schedule. Tell the Registrar I said so.",
+                    "I maintain signed pacts. Lately the council sends me amendments dated earlier than the signatures.",
+                    "That is falsification with a ribbon on it. Tell Orin I said exactly that.",
                 ],
                 stepLines: [
                     {
                         step: "investigate-city-omens",
                         lines: [
-                            "The east bell has a ringing log going back four hundred years, and every entry names the warden who pulled it.",
-                            "Last week the entry names nobody. It was written anyway, in an official hand, the same morning it happened.",
+                            "Four hundred years of east-bell entries name the hand on the rope. Last week's entry has no name.",
+                            "The ink is official and the time is precise. Ask Isu why the hand is missing.",
                         ],
                     },
                     {
                         step: "return-to-vey",
                         lines: [
-                            "Three corrections were filed against your three facts before you had finished collecting them.",
-                            "That is not the Court being quick. That is the Court knowing what you were going to find.",
+                            "Corrections for the bell, intake, and bird count reached my desk before your report reached Vey.",
+                            "I logged the receipt times. Take them to her; she will know what the sequence proves.",
                         ],
                     },
                 ],
@@ -210,8 +210,8 @@ export const FIRST_PACT_INTERIORS: readonly FirstPactInterior[] = [
             label: "Read the standing ledger",
             position: { x: 6, y: 1 },
             lines: [
-                "The oldest entry is four words long, and it is the only one nobody has amended: they came when called.",
-                "Beneath it, in a later hand, someone has written the correction the Court prefers: they were brought.",
+                "The oldest entry reads: they came when called.",
+                "A later hand added: they were brought. The addition has no witness signature.",
             ],
         },
     },
@@ -241,22 +241,22 @@ export const FIRST_PACT_INTERIORS: readonly FirstPactInterior[] = [
                 palette: "slate",
                 portrait: "registrar",
                 lines: [
-                    "The council sits above us and votes on wording. What they decide here becomes what happened.",
-                    "You are the first visitor this season who arrived without an appointment. Do not let them give you one.",
+                    "The council is revising three incident reports upstairs, and I am expected to produce witnesses who agree.",
+                    "You arrived without an appointment. Keep it that way or they will hold you here until their wording is ready.",
                 ],
                 stepLines: [
                     {
                         step: "return-to-vey",
                         lines: [
-                            "The council has moved to hear an item called the harmless explanation of recent weather, and it sits tomorrow.",
-                            "Whatever you are carrying to the scribe, carry it tonight. After tomorrow it is merely a disagreement with the record.",
+                            "Tomorrow's first item is titled Harmless Explanations for Recent Weather. The bell and intake are both attached.",
+                            "Get your three witness statements to Vey tonight. Tomorrow the council will call them late objections.",
                         ],
                     },
                     {
                         step: "make-first-pact",
                         lines: [
-                            "The wording of your pact will be argued in this room long after you have left the city.",
-                            "So choose a sentence that survives being repeated by people who wish you had said something else.",
+                            "A council clerk has already requested the wording of your pact.",
+                            "Keep it short. Every extra clause gives them somewhere to hide an amendment.",
                         ],
                     },
                 ],
@@ -267,8 +267,8 @@ export const FIRST_PACT_INTERIORS: readonly FirstPactInterior[] = [
             label: "Read the sealed docket",
             position: { x: 5, y: 1 },
             lines: [
-                "A single motion, tabled and never heard: that the bonded be asked before they are counted.",
-                "The seal is unbroken. It has been tabled for two hundred years, which is one way to answer a question.",
+                "One unopened motion asks that bonded beasts be consulted before a census assigns them.",
+                "The seal dates back two hundred years. No hearing date was ever added.",
             ],
         },
     },
@@ -299,22 +299,22 @@ export const FIRST_PACT_INTERIORS: readonly FirstPactInterior[] = [
                 palette: "jade",
                 portrait: "keeper",
                 lines: [
-                    "Every guardian who stood in this hall swore the same sentence, and not one of them was asked to swear it twice.",
-                    "The Court wants the oath renewed each season now. An oath you can be made to repeat is a leash with better manners.",
+                    "A guardian swears once in this hall. The oath binds the speaker for life.",
+                    "Now the Court orders seasonal renewals. I want the old rule restored before my novices are made to swear on command.",
                 ],
                 stepLines: [
                     {
                         step: "challenge-court-menagerie",
                         lines: [
-                            "The Menagerie will meet you with four that were never asked. They fight well, and they fight because they were told to.",
-                            "Yours will fight badly the moment they stop choosing it. Give them the reason before the gate opens, not after.",
+                            "The Menagerie four were trained here. No keeper recorded what they chose.",
+                            "Tell your four why you are entering before the gate opens. If one refuses, change the team.",
                         ],
                     },
                     {
                         step: "make-first-pact",
                         lines: [
-                            "Every guardian who swore in this hall learned the same thing on the same day: the oath binds the one who speaks it.",
-                            "If your pact binds only the four standing behind you, then the Court has already written it for you.",
+                            "Remember the oath stone: the speaker is the one who becomes bound.",
+                            "Promise what you will do. Do not turn your companions into the terms of your promise.",
                         ],
                     },
                 ],
@@ -325,8 +325,8 @@ export const FIRST_PACT_INTERIORS: readonly FirstPactInterior[] = [
             label: "Read the oath stone",
             position: { x: 7, y: 1 },
             lines: [
-                "The stone carries one line, cut deep enough to outlast the hall: we are answerable to what we bound.",
-                "Someone has begun a second line beneath it and stopped. The chisel marks are fresh, and they are shaking.",
+                "One line is cut deep into the stone: we are answerable to what we bound.",
+                "A fresh second line stops after three letters. The last chisel mark skids sideways.",
             ],
         },
     },
@@ -357,22 +357,22 @@ export const FIRST_PACT_INTERIORS: readonly FirstPactInterior[] = [
                 palette: "rose",
                 portrait: "keeper",
                 lines: [
-                    "The lodge keeps the bonding roster. Names on the left, and on the right the name each one answered to first.",
-                    "Half the right-hand column is blank now. The Court says the omission tidies the record. I say a name is not clutter.",
+                    "I keep the bonding roster: handler on the left, the name their companion first answered to on the right.",
+                    "The Court blanked half the right column. I am copying those names onto cloth tags before it takes the book.",
                 ],
                 stepLines: [
                     {
                         step: "challenge-court-menagerie",
                         lines: [
-                            "The Menagerie four came through this lodge as yearlings, and every right-hand column on their line is blank.",
-                            "They were never asked. Remember that when one of them will not stop, and you are deciding what it is.",
+                            "The Menagerie four came through here as yearlings. Their chosen-name spaces were blank from the start.",
+                            "They were never asked. If one keeps fighting after the handler falls, remember what training without an answer can do.",
                         ],
                     },
                     {
                         step: "recover-withheld-record",
                         lines: [
-                            "The handlers the Court calls the Withheld kept this roster in the old ink. That is the whole of their crime.",
-                            "Whatever original you are carrying will read like this book. Do not let anyone tell you it is sentimental.",
+                            "The handlers called Withheld used the old two-name form. That refusal is what the Court charged them for.",
+                            "Compare your original with this roster. Matching ink and spacing will support Vey's reading.",
                         ],
                     },
                 ],
@@ -383,8 +383,8 @@ export const FIRST_PACT_INTERIORS: readonly FirstPactInterior[] = [
             label: "Read the bonding roster",
             position: { x: 6, y: 1 },
             lines: [
-                "The roster is kept in two inks. The old hand records which of the pair chose the other, and it is not always the handler.",
-                "The new hand records only ownership, and it is faster to write. That is the entire argument the Court has ever made.",
+                "The older ink records which partner chose first. It is not always the handler.",
+                "The newer ink has one ownership field. It leaves no place for an animal's answer.",
             ],
         },
     },
@@ -414,22 +414,22 @@ export const FIRST_PACT_INTERIORS: readonly FirstPactInterior[] = [
                 palette: "jade",
                 portrait: "citizen",
                 lines: [
-                    "Old Kaio takes his tea outside now. He says the room has started agreeing with him too quickly.",
-                    "I write down what the visitors say before they leave. By evening the official version has usually improved it.",
+                    "Kaio takes his tea outside because I kept finishing his complaints for him. He was right to be annoyed.",
+                    "Now I write each visitor's exact words before I pour. Help me keep the kettle notes away from the council runners.",
                 ],
                 stepLines: [
                     {
                         step: "investigate-city-omens",
                         lines: [
-                            "No animal in this quarter will drink from the north basin, and that water is cleaner than what we pour in this room.",
-                            "Follow the pipe down to the Gateworks and ask Tam what the intake is pulling toward. He has stopped writing the answer down.",
+                            "Nothing in the garden will drink from the north basin, though I scrubbed it twice and changed the leaves.",
+                            "The pipe runs to Tam's lower intake. Ask her what is pulling the water; she no longer puts the answer on Court forms.",
                         ],
                     },
                     {
                         step: "meet-engineer-tam",
                         lines: [
-                            "Tam came here after his last shift and drank nothing. He asked whether the kettle notes are sent to the Court.",
-                            "They are not. I told him so, and he talked for an hour. Most of it is in the case behind you now.",
+                            "Tam came after her last shift, refused the basin water, and asked whether I send these notes to the Court.",
+                            "I do not. Once she believed me, she gave me an hour of pressure readings. They are in the case behind you.",
                         ],
                     },
                 ],
@@ -440,8 +440,8 @@ export const FIRST_PACT_INTERIORS: readonly FirstPactInterior[] = [
             label: "Read the kettle notes",
             position: { x: 6, y: 1 },
             lines: [
-                "Two hundred years of small talk, kept because nobody thought it worth editing. It is the most honest archive in the city.",
-                "The last three seasons share one complaint in every hand: the animals have stopped drinking from the north basin.",
+                "Two hundred years of orders, gossip, and complaints, recorded beside the tea served that day.",
+                "Across the last three seasons, different hands repeat one complaint: animals will not drink from the north basin.",
             ],
         },
     },

@@ -142,6 +142,37 @@ test("a bound First Pact victory advances once and can be safely reclaimed", asy
     assert.equal(second.progress?.mainQuest.battleProofs.length, 1);
 });
 
+test("the advancing Lattice win records the four server-verified companions for the vow", async () => {
+    await kv.set(`first-pact:${PLAYER}`, {
+        ...createFirstPactProgress(10),
+        chapter: 3,
+        mainStep: "challenge-lattice-guardian",
+        flags: ["crossed-celestial-threshold", "withheld-record-recovered", "gateworks-route-open"],
+    });
+    const requestedOrder = [PET_IDS[2], PET_IDS[0], PET_IDS[3], PET_IDS[1]];
+    const started = await post({ action: "first-pact", encounterId: "lattice-guardian", petIds: requestedOrder });
+    assert.equal(started.statusCode, 200);
+    const sessionId = String((started.body?.state as { sessionId?: unknown }).sessionId ?? "");
+    const key = `pet:showdown:${PLAYER}:${sessionId}`;
+    const session = await kv.get<ShowdownSession>(key);
+    assert.ok(session);
+    session!.finished = true;
+    session!.outcome = "win";
+    await kv.set(key, session);
+
+    const settled = await post({ action: "turn", sessionId, commands: [] });
+    assert.equal(settled.statusCode, 200);
+    const progress = (settled.body?.firstPact as { progress?: FirstPactProgress })?.progress;
+    assert.deepEqual(progress?.mainQuest.latticeCompanionIds, requestedOrder);
+    assert.equal(progress?.mainQuest.pactCompanionIds, undefined);
+
+    const replayed = await post({ action: "turn", sessionId, commands: [] });
+    assert.deepEqual(
+        ((replayed.body?.firstPact as { progress?: FirstPactProgress })?.progress?.mainQuest.latticeCompanionIds),
+        requestedOrder,
+    );
+});
+
 test("an active First Pact fight refreshes its campaign binding with the session lease", async () => {
     const started = await post({ action: "first-pact", encounterId: "court-menagerie", petIds: PET_IDS });
     assert.equal(started.statusCode, 200);

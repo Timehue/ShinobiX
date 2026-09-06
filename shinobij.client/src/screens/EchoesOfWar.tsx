@@ -11,6 +11,13 @@ import type { Character } from "../types/character";
 import type { TileCard } from "../data/tile-cards";
 import type { CreatorEvent } from "../types/vn";
 import {
+    echoesWitnessEraForCloseEncounter,
+    normalizeEchoesWitnessChoices,
+    type EchoesBattleBeat,
+    type EchoesWitnessChoiceId,
+    type EchoesWitnessEraId,
+} from "../../../shared/echoes-witness";
+import {
     ECHOES_ERAS,
     ECHOES_HERO_COPY,
     ECHOES_OPPONENTS,
@@ -36,6 +43,8 @@ import { readEchoesContent, resetEchoesContent } from "../lib/echoes-content-loa
 import { cardGameLockStatus } from "../lib/chronicle-lock";
 import type { EchoesSettleSummary } from "../lib/chronicle-duel";
 import { playEchoesSfx, startEchoesAmbience, stopEchoesAmbience } from "../lib/echoes-sfx";
+import { echoesConclusionPending, recordEchoesWitness } from "../lib/echoes-witness";
+import { echoesReactiveEraIntro, echoesReactiveVictory } from "../lib/echoes-witness-scenes";
 import { ContentLoadBoundary } from "../components/StoryContentBoundary";
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
 import { CardClashDuel } from "./CardClashDuel";
@@ -77,11 +86,11 @@ type SceneKind = "pre" | "defeat" | "victory" | "rematch";
 
 /** Wrap a scene as a zero-reward VN event for the shared reader. The scripts
  * arrive via the on-demand story-content payload, not the route chunk. */
-function sceneEvent(opponent: EchoesOpponent, scenes: EchoesOpponentScenes, kind: SceneKind): CreatorEvent {
-    const pages: EchoesScenePage[] = kind === "pre" ? scenes.preShowdown
+function sceneEvent(opponent: EchoesOpponent, scenes: EchoesOpponentScenes, kind: SceneKind, overridePages?: EchoesScenePage[]): CreatorEvent {
+    const pages: EchoesScenePage[] = overridePages ?? (kind === "pre" ? scenes.preShowdown
         : kind === "defeat" ? scenes.defeat
         : kind === "victory" ? scenes.firstVictory
-        : scenes.rematch;
+        : scenes.rematch);
     return {
         id: `${opponent.id}-${kind}`,
         name: `${opponent.name}, ${opponent.title}`,
@@ -138,6 +147,7 @@ type VnAfter = {
     battleEncounterId?: string;
     markEraSeen?: string;
     openEra?: string;
+    openWitnessEra?: EchoesWitnessEraId;
 };
 type ActiveVn = { event: CreatorEvent; after: VnAfter };
 type ActiveBattle = { opponent: EchoesOpponent; resumeMatchId?: string };
@@ -172,13 +182,31 @@ export function EchoesOfWar(props: EchoesOfWarProps) {
 function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersionedCharacter, onBack }: EchoesOfWarProps) {
     // Suspends to App's lazy-screen fallback on the first visit; the payload is
     // content-addressed and immutable-cached, so every later mount is sync.
-    const { scenes: echoesScenes, eras: echoesEraIntros } = readEchoesContent();
+    const { scenes: echoesScenes, eras: echoesEraIntros, witness: echoesWitness } = readEchoesContent();
     const [selectedEraId, setSelectedEraId] = useState<string | null>(null);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [vn, setVn] = useState<ActiveVn | null>(null);
     const [vnPage, setVnPage] = useState(0);
     const [vnLine, setVnLine] = useState(0);
     const [battle, setBattle] = useState<ActiveBattle | null>(null);
+    const [witnessView, setWitnessView] = useState<{ playerName: string; eraId: EchoesWitnessEraId } | null>(null);
+    const [witnessReceipt, setWitnessReceipt] = useState<{ playerName: string; eraId: EchoesWitnessEraId; choiceId: EchoesWitnessChoiceId } | null>(null);
+    const [witnessPending, setWitnessPending] = useState<EchoesWitnessChoiceId | null>(null);
+    const [witnessError, setWitnessError] = useState("");
+    const witnessRequest = useRef(0);
+    const characterNameRef = useRef(character.name);
+    useEffect(() => {
+        characterNameRef.current = character.name;
+        witnessRequest.current += 1;
+    }, [character.name]);
+    const witnessEraId = witnessView?.playerName === character.name ? witnessView.eraId : null;
+    const openWitness = (eraId: EchoesWitnessEraId) => {
+        witnessRequest.current += 1;
+        setWitnessView({ playerName: character.name, eraId });
+        setWitnessReceipt(null);
+        setWitnessPending(null);
+        setWitnessError("");
+    };
     // The "entering the memory" veil shown between choosing a Showdown and the
     // board mounting. Skipped entirely under prefers-reduced-motion.
     const [veil, setVeil] = useState<ActiveBattle | null>(null);
@@ -200,6 +228,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
 
     const progress = echoesClientProgress(character.echoesOfWar);
     const storySeen = character.echoesStorySeen ?? {};
+    const witnessChoices = normalizeEchoesWitnessChoices(character.echoesWitnessChoices);
     const chroniclePoints = character.chroniclePoints ?? 0;
     const highestFloor = echoesHighestUnlockedFloorClient(progress);
     const completed = echoesStoriesCompleted(progress);
@@ -228,7 +257,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
     }
 
     function playEraIntro(era: EchoesEra, after: VnAfter) {
-        const pages = echoesEraIntros[era.id];
+        const pages = echoesReactiveEraIntro(era.id, echoesEraIntros[era.id], witnessChoices, echoesWitness);
         if (!pages) {
             // Missing intro must never trap the player: apply the outcome.
             if (after.markEraSeen) markEraSeen(after.markEraSeen);
@@ -250,22 +279,27 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
         setSelectedEraId(era.id);
     }
 
-    function playScene(opponent: EchoesOpponent, kind: SceneKind, after: VnAfter) {
+    function playScene(opponent: EchoesOpponent, kind: SceneKind, after: VnAfter, battleBeat?: EchoesBattleBeat) {
         const scenes = echoesScenes[opponent.id];
         if (!scenes) {
             // The generator guarantees scene parity with the shell, so this is
             // unreachable in a healthy build — but never trap a player behind a
             // missing script: apply the scene's outcome directly.
             if (after.markSeen) markStorySeen(after.markSeen.id, after.markSeen.kind);
+            if (after.openWitnessEra) openWitness(after.openWitnessEra);
             if (after.battleEncounterId) {
                 const target = echoesOpponentById(after.battleEncounterId);
                 if (target) beginBattle(target);
             }
             return;
         }
+        let pages: EchoesScenePage[] | undefined;
+        if (kind === "victory") {
+            pages = echoesReactiveVictory(opponent.id, scenes.firstVictory, battleBeat, witnessChoices, echoesWitness);
+        }
         setVnPage(0);
         setVnLine(0);
-        setVn({ event: sceneEvent(opponent, scenes, kind), after });
+        setVn({ event: sceneEvent(opponent, scenes, kind, pages), after });
     }
 
     function beginBattle(opponent: EchoesOpponent, resumeMatchId?: string) {
@@ -291,6 +325,14 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
             return;
         }
         if (cleared) {
+            if (echoesConclusionPending(progress[opponent.id]?.wins, storySeen[opponent.id]?.post)) {
+                const witnessEra = echoesWitnessEraForCloseEncounter(opponent.id);
+                playScene(opponent, "victory", {
+                    markSeen: { id: opponent.id, kind: "post" },
+                    ...(witnessEra && !witnessChoices[witnessEra.id] ? { openWitnessEra: witnessEra.id } : {}),
+                }, progress[opponent.id]?.firstClearBattleBeat);
+                return;
+            }
             // The echo has moved on: rematches are the tower replaying the
             // preserved match, framed by the short rematch scene each time.
             playScene(opponent, "rematch", { battleEncounterId: opponent.id });
@@ -305,7 +347,11 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
         writeResumePointer(null);
         setResume(null);
         if (outcome === "win" && summaryRef.current?.firstClear) {
-            playScene(opponent, "victory", { markSeen: { id: opponent.id, kind: "post" } });
+            const witnessEra = echoesWitnessEraForCloseEncounter(opponent.id);
+            playScene(opponent, "victory", {
+                markSeen: { id: opponent.id, kind: "post" },
+                ...(witnessEra && !witnessChoices[witnessEra.id] ? { openWitnessEra: witnessEra.id } : {}),
+            }, summaryRef.current.battleBeat);
             return;
         }
         if (outcome === "loss") playScene(opponent, "defeat", {});
@@ -359,6 +405,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                 if (after.markSeen) markStorySeen(after.markSeen.id, after.markSeen.kind);
                 if (after.markEraSeen) markEraSeen(after.markEraSeen);
                 if (after.openEra) setSelectedEraId(after.openEra);
+                if (after.openWitnessEra) openWitness(after.openWitnessEra);
                 if (after.battleEncounterId) {
                     const opponent = echoesOpponentById(after.battleEncounterId);
                     if (opponent) beginBattle(opponent);
@@ -366,6 +413,72 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
             }}
             onBattle={() => { /* Echoes scenes never launch battles directly */ }}
         />;
+    }
+
+    if (witnessEraId) {
+        const era = ECHOES_ERAS.find(({ id }) => id === witnessEraId);
+        const content = echoesWitness[witnessEraId];
+        const sealedChoiceId = witnessReceipt?.playerName === character.name && witnessReceipt.eraId === witnessEraId
+            ? witnessReceipt.choiceId
+            : witnessChoices[witnessEraId];
+        const sealedChoice = content?.choices.find(({ id }) => id === sealedChoiceId);
+        if (era && content) {
+            const submit = async (choiceId: EchoesWitnessChoiceId) => {
+                const playerName = character.name;
+                const requestId = ++witnessRequest.current;
+                setWitnessPending(choiceId);
+                setWitnessError("");
+                try {
+                    const response = await recordEchoesWitness(playerName, witnessEraId, choiceId);
+                    if (requestId !== witnessRequest.current || characterNameRef.current !== playerName) return;
+                    if (!onVersionedCharacter(response.character, response.saveVersion)) {
+                        setWitnessError("A newer save arrived first. Review the record and try again.");
+                        return;
+                    }
+                    setWitnessReceipt({ playerName, eraId: response.eraId, choiceId: response.choiceId });
+                } catch (error) {
+                    if (requestId !== witnessRequest.current || characterNameRef.current !== playerName) return;
+                    setWitnessError(error instanceof Error ? error.message : "Could not seal the witness record.");
+                } finally {
+                    if (requestId === witnessRequest.current && characterNameRef.current === playerName) setWitnessPending(null);
+                }
+            };
+            return (
+                <div className="echoes-shell echoes-witness-shell" style={{ "--band": `var(--echoes-${era.band})` } as CSSProperties}>
+                    <header className="echoes-header">
+                        <button className="back-btn" onClick={() => { witnessRequest.current += 1; setWitnessView(null); setWitnessError(""); }}>← {era.ageLabel}</button>
+                        <div className="echoes-header-titles">
+                            <span className="echoes-kicker">{era.ageLabel} · Witness Record</span>
+                            <h1>{sealedChoice ? "Record sealed" : content.prompt.title}</h1>
+                        </div>
+                    </header>
+                    <section className="echoes-panel echoes-witness-panel">
+                        <p className="echoes-witness-scene">{content.prompt.scene}</p>
+                        <strong className="echoes-witness-speaker">{content.prompt.speaker}</strong>
+                        {content.prompt.dialogue.map((line) => <p key={line}>{line}</p>)}
+                        {sealedChoice ? (
+                            <div className="echoes-witness-sealed">
+                                <span>Sealed entry · {sealedChoice.label}</span>
+                                <p>{sealedChoice.record}</p>
+                                <small>The first answer remains part of this character's record.</small>
+                            </div>
+                        ) : (
+                            <div className="echoes-witness-choices">
+                                {content.choices.map((choice) => (
+                                    <button key={choice.id} disabled={witnessPending !== null} onClick={() => void submit(choice.id)}>
+                                        <strong>{choice.label}</strong>
+                                        <span>{choice.record}</span>
+                                    </button>
+                                ))}
+                                <button className="echoes-ghost-btn" disabled={witnessPending !== null} onClick={() => setWitnessView(null)}>Leave the page open</button>
+                            </div>
+                        )}
+                        {witnessPending ? <p className="echoes-witness-status" role="status">Sealing the entry…</p> : null}
+                        {witnessError ? <p className="echoes-witness-error" role="alert">{witnessError}</p> : null}
+                    </section>
+                </div>
+            );
+        }
     }
 
     // The pre-Showdown veil covers whichever browsing view is behind it: a
@@ -505,7 +618,12 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                                 <button onClick={() => playScene(selected, "pre", { markSeen: { id: selected.id, kind: "pre" } })}>Replay Intro</button>
                             ) : null}
                             {cleared && seen?.post ? (
-                                <button onClick={() => playScene(selected, "victory", {})}>Replay Conclusion</button>
+                                <button onClick={() => playScene(selected, "victory", {}, entry?.firstClearBattleBeat)}>Replay Conclusion</button>
+                            ) : null}
+                            {cleared && echoesWitnessEraForCloseEncounter(selected.id) ? (
+                                <button onClick={() => openWitness(echoesWitnessEraForCloseEncounter(selected.id)!.id)}>
+                                    {witnessChoices[echoesWitnessEraForCloseEncounter(selected.id)!.id] ? "Review Witness Record" : "Record This Age"}
+                                </button>
                             ) : null}
                         </div>
                     </div>
@@ -591,6 +709,11 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                             <span className="echoes-points-chip">🏛️ {chroniclePoints}</span>
                             <span className="echoes-stat">{eraCleared}/{eraOpponents.length} memories finished</span>
                             <button className="echoes-ghost-btn" onClick={() => playEraIntro(selectedEra, {})}>Replay Age Intro</button>
+                            {eraCleared >= eraOpponents.length ? (
+                                <button className="echoes-ghost-btn" onClick={() => openWitness(selectedEra.id as EchoesWitnessEraId)}>
+                                    {witnessChoices[selectedEra.id as EchoesWitnessEraId] ? "Review Witness Record" : "Record This Age"}
+                                </button>
+                            ) : null}
                         </div>
                     </div>
                 </header>

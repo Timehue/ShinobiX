@@ -255,8 +255,9 @@ export function StoryBossFightHost({
             startRequestIdRef.current += 1;
             startingRef.current = false;
             activeFightRef.current = false;
+            onFightOpenChange?.(false);
         };
-    }, []);
+    }, [onFightOpenChange]);
 
     useLayoutEffect(() => {
         const nextPlayerKey = storyFightPlayerKey(playerName);
@@ -266,12 +267,13 @@ export function StoryBossFightHost({
         startingRef.current = false;
         setStarting(false);
         activeFightRef.current = false;
+        onFightOpenChange?.(false);
         returnFocusRef.current = null;
         setFight((current) => current
             && storyFightPlayerKey(current.originatingPlayerName) !== nextPlayerKey
             ? null
             : current);
-    }, [playerName]);
+    }, [onFightOpenChange, playerName]);
 
     useEffect(() => {
         const originatingPlayerName = playerName;
@@ -283,6 +285,10 @@ export function StoryBossFightHost({
                 || activeFightRef.current) return false;
             startingRef.current = true;
             setStarting(true);
+            // Claim the whole lifecycle synchronously. Waiting for the portal
+            // fight state left one render where App could reopen the same VN
+            // beneath a slow /boss-start request.
+            onFightOpenChange?.(true);
             const requestId = ++startRequestIdRef.current;
             returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
             // Warm the code-split combat chunk alongside the start-combat network
@@ -310,6 +316,7 @@ export function StoryBossFightHost({
                         && startRequestIdRef.current === requestId
                         && activePlayerKeyRef.current === originatingPlayerKey) {
                         alert(error instanceof Error ? error.message : "The story battle could not start.");
+                        onFightOpenChange?.(false);
                     }
                 })
                 .finally(() => {
@@ -319,7 +326,7 @@ export function StoryBossFightHost({
                 });
             return true;
         });
-    }, [playerName]);
+    }, [onFightOpenChange, playerName]);
 
     const activeFight = fight
         && storyFightPlayerKey(fight.originatingPlayerName) === storyFightPlayerKey(playerName)
@@ -381,6 +388,7 @@ export function StoryBossFightHost({
         const returnFocus = returnFocusRef.current;
         returnFocusRef.current = null;
         activeFightRef.current = false;
+        onFightOpenChange?.(false);
         setFight((current) => current?.requestId === currentFight.requestId ? null : current);
         window.requestAnimationFrame(() => {
             if (activePlayerKeyRef.current === originatingPlayerKey && returnFocus?.isConnected) returnFocus.focus();

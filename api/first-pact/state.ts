@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from "../_ratelimit.js";
 import {
     FIRST_PACT_MIN_LEVEL,
     FIRST_PACT_MAIN_BEATS,
+    FIRST_PACT_AFTERMATH_IDS,
     FIRST_PACT_WORLD_HEIGHT,
     FIRST_PACT_WORLD_WIDTH,
     firstPactAuraStoneReward,
@@ -13,6 +14,7 @@ import {
     firstPactEarnedTitleKeys,
     firstPactWritEncounter,
     type FirstPactMainBeat,
+    type FirstPactAftermathId,
     type FirstPactProgress,
 } from "../../shared/first-pact-contract.js";
 import { FIRST_PACT_TITLES } from "../_titles-registry.js";
@@ -23,6 +25,7 @@ import {
     checkpointFirstPact,
     enterFirstPact,
     enterFirstPactFindingForPlayer,
+    visitFirstPactAftermathForPlayer,
     readFirstPactProgress,
 } from "./_state.js";
 
@@ -40,13 +43,13 @@ const MAIN_BEATS = new Set<string>(FIRST_PACT_MAIN_BEATS);
  * The player is not made to wear one. Which title is worn is theirs to choose
  * from the profile, the same as every other earned title.
  *
- * Best-effort by design, exactly like the liberator grant it mirrors: a failure
- * here must never fail the story beat that earned it, and the write is
- * idempotent, so the next completion call re-grants anything that was missed.
+ * The story beat commits before this separate save mutation. A failed mutation
+ * therefore returns a retryable response, and an exact completion replay calls
+ * this idempotent grant again without reopening any other story transition.
  *
- * The committed `_saveVersion` comes back with it. A route that writes the save
- * and does not say so leaves the client believing it holds the newer copy, and
- * its next autosave overwrites the vault this just credited.
+ * The committed character and `_saveVersion` come back together. The client
+ * adopts that pair atomically, so a version observation can never move ahead
+ * of the title and currency snapshot it describes.
  *
  * Aura Stones ride in the SAME mutation, and are paid only in the pass that
  * first credits `Pactbound`. That title is the idempotency key: the save
@@ -57,13 +60,16 @@ const MAIN_BEATS = new Set<string>(FIRST_PACT_MAIN_BEATS);
 async function grantFirstPactCompletion(
     playerName: string,
     progress: FirstPactProgress,
-): Promise<{ titles: string[]; auraStones: number; saveVersion?: number }> {
+): Promise<
+    | { ok: true; titles: string[]; auraStones: number; character: Record<string, unknown>; saveVersion: number }
+    | { ok: false }
+> {
     const earned = firstPactEarnedTitleKeys(progress)
         .map((key) => FIRST_PACT_TITLES[key])
         .filter((title): title is string => typeof title === "string" && title.length > 0);
     const crossingTitle = FIRST_PACT_TITLES.complete;
     const stones = Math.max(0, Math.floor(firstPactAuraStoneReward(progress)));
-    if (!earned.length || !playerName) return { titles: [], auraStones: 0 };
+    if (!earned.length || !playerName) return { ok: false };
     try {
         const mutation = await mutatePlayerSave<{ titles: string[]; auraStones: number }>(playerName, ({ character }) => {
             const vault = Array.isArray(character.serverTitles)
@@ -88,10 +94,16 @@ async function grantFirstPactCompletion(
             };
         });
         return mutation.ok
-            ? { titles: mutation.value.titles, auraStones: mutation.value.auraStones, saveVersion: mutation._saveVersion }
-            : { titles: [], auraStones: 0 };
+            ? {
+                ok: true,
+                titles: mutation.value.titles,
+                auraStones: mutation.value.auraStones,
+                character: mutation.character,
+                saveVersion: mutation._saveVersion,
+            }
+            : { ok: false };
     } catch {
-        return { titles: [], auraStones: 0 };
+        return { ok: false };
     }
 }
 
@@ -133,8 +145,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let grantedTitles: string[] = [];
         let grantedAuraStones = 0;
         let grantedSaveVersion: number | undefined;
+        let grantedCharacter: Record<string, unknown> | undefined;
+        let aftermathReplayed: boolean | undefined;
+        let mainReplayed: boolean | undefined;
+        let repairCompletionGrant = false;
         if (action === "state") {
             progress = await readFirstPactProgress(playerName);
+            repairCompletionGrant = progress.mainStep === "complete";
         } else if (action === "enter") {
             progress = await enterFirstPact(playerName);
         } else if (action === "accept-stable-quest") {
@@ -151,18 +168,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } else if (action === "advance-main") {
             const beat = String(body.beat ?? "");
             if (!MAIN_BEATS.has(beat)) return res.status(400).json({ error: "Unknown First Pact story beat." });
-            const result = await advanceFirstPactMain(playerName, beat as FirstPactMainBeat);
-            if (!result.advanced) {
+            const pets = Array.isArray(character.pets)
+                ? character.pets.filter((pet): pet is Record<string, unknown> => !!pet && typeof pet === "object" && !Array.isArray(pet))
+                : [];
+            const result = await advanceFirstPactMain(playerName, beat as FirstPactMainBeat, pets);
+            const completionReplay = beat === "complete-crossing" && result.progress.mainStep === "complete";
+            if (!result.advanced && !completionReplay) {
                 return res.status(409).json({ error: "That moment is not available in the current chapter.", progress: result.progress });
             }
             progress = result.progress;
+            mainReplayed = !result.advanced;
             // Closing the crossing is the one beat that pays outward.
-            if (progress.mainStep === "complete") {
-                const granted = await grantFirstPactCompletion(playerName, progress);
-                grantedTitles = granted.titles;
-                grantedAuraStones = granted.auraStones;
-                grantedSaveVersion = granted.saveVersion;
-            }
+            // Its exact replay also runs the idempotent grant. This closes the
+            // progress -> save -> response gap if the first grant or response
+            // was interrupted after the story state had already committed.
+            repairCompletionGrant = beat === "complete-crossing" && progress.mainStep === "complete";
         } else if (action === "enter-finding") {
             const writId = String(body.writId ?? "");
             if (!firstPactWritEncounter(writId)) {
@@ -175,6 +195,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     progress: result.progress,
                 });
             }
+            progress = result.progress;
+        } else if (action === "visit-aftermath") {
+            const aftermathId = String(body.aftermathId ?? "");
+            if (!(FIRST_PACT_AFTERMATH_IDS as readonly string[]).includes(aftermathId)) {
+                return res.status(400).json({ error: "Unknown return visit." });
+            }
+            const result = await visitFirstPactAftermathForPlayer(playerName, aftermathId as FirstPactAftermathId);
+            if (!result.visited && !result.replayed) {
+                return res.status(409).json({
+                    error: "That part of the city has no unfinished return visit in this crossing.",
+                    progress: result.progress,
+                });
+            }
+            aftermathReplayed = result.replayed;
             progress = result.progress;
         } else if (action === "checkpoint") {
             const position = body.position && typeof body.position === "object" && !Array.isArray(body.position)
@@ -194,12 +228,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(400).json({ error: "Unknown First Pact action." });
         }
 
+        if (repairCompletionGrant) {
+            const granted = await grantFirstPactCompletion(playerName, progress);
+            if (!granted.ok) {
+                return res.status(503).json({
+                    error: "The crossing is preserved, but its reward could not be recorded. Try again.",
+                    progress,
+                });
+            }
+            grantedTitles = granted.titles;
+            grantedAuraStones = granted.auraStones;
+            grantedCharacter = granted.character;
+            grantedSaveVersion = granted.saveVersion;
+        }
+
         res.setHeader("Cache-Control", "private, no-store");
         return res.status(200).json({
             ok: true,
             progress,
+            ...(mainReplayed === undefined && aftermathReplayed === undefined
+                ? {}
+                : { replayed: mainReplayed ?? aftermathReplayed }),
             ...(grantedTitles.length ? { grantedTitles } : {}),
             ...(grantedAuraStones ? { grantedAuraStones } : {}),
+            ...(grantedCharacter ? { character: grantedCharacter } : {}),
             ...(grantedSaveVersion === undefined ? {} : { _saveVersion: grantedSaveVersion }),
         });
     } catch (error) {

@@ -10,19 +10,21 @@ import {
 
 const screen = readFileSync(new URL("../screens/FirstPact.tsx", import.meta.url), "utf8");
 const apiCopy = readFileSync(new URL("./first-pact-api.ts", import.meta.url), "utf8");
+const aftermath = readFileSync(new URL("./first-pact-aftermath.ts", import.meta.url), "utf8");
 const productionSpec = readFileSync(new URL("../../../docs/first-pact-production-spec.md", import.meta.url), "utf8");
 
 test("First Pact copy uses the main story's plain, zero-dash voice", () => {
-    assert.doesNotMatch(`${screen}\n${apiCopy}`, /[\u2013\u2014]/u);
+    assert.doesNotMatch(`${screen}\n${apiCopy}\n${aftermath}`, /[\u2013\u2014]/u);
     assert.doesNotMatch(screen, /historical echo|living echo/i);
     assert.match(screen, /This is the past, not a reconstructed refuge\./);
 });
 
 test("First Pact states the Sunken Court chronology without rewriting the main story", () => {
-    assert.match(screen, /civic lattice your age calls Hollow Gate/i);
-    assert.match(screen, /four village anchors do not exist yet/i);
-    assert.match(screen, /later refused the Court's demand to surrender that choice/i);
-    assert.match(screen, /Your age remembers them among the Withheld/i);
+    assert.match(screen, /crossed the Celestial Tower threshold from another age/i);
+    assert.match(screen, /I cannot test the crossing\. I can test the seal/i);
+    assert.match(screen, /cut and alloy match the oldest intake plate/i);
+    assert.doesNotMatch(screen, /four village anchors do not exist yet/i);
+    assert.match(screen, /withheld handlers: people who refused the Court's demand to surrender that choice/i);
     assert.match(screen, /cannot prevent the Sunken Court from falling/i);
     assert.match(screen, /The ruins are unchanged/i);
 
@@ -61,7 +63,7 @@ test("the remembered pact gives three costly answers spanning all four anchor qu
         assert.ok(vow.consequence.length > 40);
         assert.ok(vow.returnCopy.length > 40);
     }
-    assert.match(screen, /The Court has issued a finding for your companions/);
+    assert.match(screen, /The Court has issued a finding on your companions/);
 });
 
 test("the production spec and runtime tournament use the same names", () => {
@@ -69,4 +71,14 @@ test("the production spec and runtime tournament use the same names", () => {
         assert.match(productionSpec, new RegExp(encounter.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
         assert.match(productionSpec, new RegExp(encounter.opponent.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     }
+});
+
+test("the return walk renders every proven result and remains optional", () => {
+    for (const detail of ["writ-silencing", "writ-audit", "writ-pruning", "writ-impound", "vale-stable"]) {
+        assert.match(aftermath, new RegExp(`"${detail}"`));
+    }
+    assert.match(screen, /Walk back: \{nextAftermath\.title\}/);
+    assert.match(screen, /Complete the crossing/);
+    assert.match(screen, /visitFirstPactAftermath\(character\.name, aftermathId\)/);
+    assert.match(screen, /The four who answered/);
 });

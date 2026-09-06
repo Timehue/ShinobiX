@@ -13,13 +13,15 @@ import path from "node:path";
 import { storylines } from "./storylines";
 import { storyInterludesByVillage } from "./story-interludes";
 import { storyEpiloguesByVillage } from "./story-epilogues";
+import { storyFieldScenes } from "./story-field-scenes";
 import { storyReckonings } from "./story-reckonings";
 import { storyRoadEvents } from "./story-road-events";
 import { hollowRifts } from "./hollow-rifts";
-import { ECHOES_ERA_INTROS, ECHOES_SCENES } from "./echoes-of-war-scenes";
+import { ECHOES_ERA_INTROS, ECHOES_SCENES, ECHOES_WITNESS_CONTENT } from "./echoes-of-war-scenes";
 import { ECHOES_ERAS, ECHOES_HERO_COPY } from "./echoes-of-war";
 import { defaultVnPortrait, resolveVnActorBaseImage, splitDialogueLine } from "../lib/vn";
 import { DERIVED_TRAIT_LEVELS } from "../lib/story-derive";
+import { STORY_FIELD_JOURNEYS } from "../../../shared/story-field-work";
 
 const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "public");
 
@@ -72,6 +74,28 @@ function allStorySpeakerPages(): SpeakerPage[] {
             ...scenes.preShowdown, ...scenes.defeat, ...scenes.firstVictory, ...scenes.rematch,
         ]),
         ...Object.values(ECHOES_ERA_INTROS).flat(),
+        ...Object.values(ECHOES_WITNESS_CONTENT).flatMap((witness) => [
+            witness.prompt,
+            ...Object.values(witness.battleCallbacks),
+            ...Object.values(witness.nextEraAcknowledgements),
+            {
+                title: "Witness choices",
+                scene: "The Chronicle",
+                speaker: "Narrator",
+                dialogue: witness.choices.flatMap((choice) => [choice.label, choice.record]),
+            },
+            {
+                title: "Halden acknowledgements",
+                scene: "The council chamber",
+                speaker: "Halden",
+                dialogue: Object.values(witness.haldenAcknowledgements),
+            },
+        ]),
+        ...Object.values(storyFieldScenes).flatMap((journey) => [
+            ...Object.values(journey.points).flatMap((point) => point.pages),
+            ...journey.aftermath,
+            ...(journey.legacyAftermath ?? []),
+        ]),
     ];
 }
 
@@ -137,6 +161,23 @@ test("the Hollow Gate remains human-built infrastructure across every campaign",
         // ("an ancient power older than the Court"), so they must be in this
         // corpus, not just the tone scan.
         ...Object.values(ECHOES_ERA_INTROS).flat(),
+        ...Object.values(ECHOES_WITNESS_CONTENT).flatMap((witness) => [
+            witness.prompt,
+            ...Object.values(witness.battleCallbacks),
+            ...Object.values(witness.nextEraAcknowledgements),
+            {
+                title: "Witness choices",
+                scene: "The Chronicle",
+                speaker: "Narrator",
+                dialogue: witness.choices.flatMap((choice) => [choice.label, choice.record]),
+            },
+            {
+                title: "Halden acknowledgements",
+                scene: "The council chamber",
+                speaker: "Halden",
+                dialogue: Object.values(witness.haldenAcknowledgements),
+            },
+        ]),
         // The landing copy carries the "not their souls" reconciliation and the
         // two-age framing; it must be scanned for origin reversal too.
         { title: "", scene: "", speaker: "Narrator", dialogue: [ECHOES_HERO_COPY.eyebrow, ECHOES_HERO_COPY.subtitle, ECHOES_HERO_COPY.footnote] },
@@ -166,26 +207,26 @@ test("the Hollow Gate remains human-built infrastructure across every campaign",
 });
 
 test("each level-88 alternative carries into the finale and its specific epilogue", () => {
-    const alternatives: Record<string, { proof: RegExp; finaleTraits: string[]; epilogueTrait: string }> = {
+    const alternatives: Record<string, { proof: RegExp; finaleTraits: string[]; epilogueTraits: string[] }> = {
         "Stormveil Village": {
             proof: /anchors can stop a major storm without taking anyone's reason/i,
             finaleTraits: ["sv88-better-storm-carried", "sv88-better-storm-deferred"],
-            epilogueTrait: "sv88-better-storm-ready",
+            epilogueTraits: ["sv100-proof-presented-carried", "sv100-proof-presented-deferred"],
         },
         "Ashen Leaf Village": {
             proof: /ninety mouths.*without burning a single future/i,
             finaleTraits: ["al88-better-winter-carried", "al88-better-winter-deferred"],
-            epilogueTrait: "al88-better-winter-ready",
+            epilogueTraits: ["al100-proof-presented-carried", "al100-proof-presented-deferred"],
         },
         "Frostfang Village": {
             proof: /vault is not the only way to bring someone home/i,
             finaleTraits: ["ff88-better-roll-carried", "ff88-better-roll-deferred"],
-            epilogueTrait: "ff88-better-roll-ready",
+            epilogueTraits: ["ff100-proof-presented-carried", "ff100-proof-presented-deferred"],
         },
         "Moonshadow Village": {
             proof: /Trust doesn't need an owner\. It needs a witness/i,
             finaleTraits: ["ms88-better-truth-ready", "ms88-better-truth-deferred"],
-            epilogueTrait: "ms88-better-truth-ready",
+            epilogueTraits: ["ms100-proof-presented-carried", "ms100-proof-presented-deferred"],
         },
     };
 
@@ -199,7 +240,7 @@ test("each level-88 alternative carries into the finale and its specific epilogu
         const finaleGates = new Set((finale.pages ?? []).flatMap((page) => (page.choices ?? []).map((choice) => choice.requireTrait).filter(Boolean)));
         for (const trait of expected.finaleTraits) assert.ok(finaleGates.has(trait), `${village}: finale does not pay off ${trait}`);
 
-        assert.ok(storyEpiloguesByVillage[village].some((epilogue) => epilogue.requireTrait === expected.epilogueTrait), `${village}: alternative has no tailored epilogue`);
+        assert.ok(storyEpiloguesByVillage[village].some((epilogue) => expected.epilogueTraits.every((trait) => epilogue.requireAnyTrait?.includes(trait))), `${village}: presented alternative has no tailored epilogue`);
     }
 });
 
@@ -283,14 +324,14 @@ test("every story line binds the displayed character to that character's portrai
 test("canonical story copy keeps Hoshina Enju, Elder Sova, and the Pale Pack Runner female", () => {
     const ashenCopy = (storylines["Ashen Leaf Village"].flatMap((step) => step.pages ?? []) as AnyPage[])
         .flatMap((page) => page.dialogue).join(" ");
+    const frostfangCopy = (storylines["Frostfang Village"].flatMap((step) => step.pages ?? []) as AnyPage[])
+        .flatMap((page) => page.dialogue).join(" ");
     const palePackCopy = storyInterludesByVillage["Frostfang Village"]
         .flatMap((entry) => entry.pages).flatMap((page) => [page.scene, ...page.dialogue]).join(" ");
-    const sovaCopy = storyReckonings.find((reckoning) => reckoning.slug === "sova-true-roll")
-        ?.intro.flatMap((page) => page.dialogue).join(" ") ?? "";
 
     assert.match(ashenCopy, /Hoshina kept this village alive.*since she became Kage/i);
     assert.match(palePackCopy, /Pale Pack Runner with frost in her hood/i);
-    assert.match(sovaCopy, /Sova stands.*with her coat open to the cold/i);
+    assert.match(frostfangCopy, /Sova keeps the book\. She'll explain the Count/i);
 });
 
 test("every stamped scene backdrop and finale hollow-form image exists on disk", () => {
@@ -407,9 +448,9 @@ test("Legacy canon is witnessed action, never heredity, reincarnation, or a pres
     assert.match(copy, /Ancients, people from the Sunken Court's age/i);
     assert.match(copy, /\bWithheld\b/i);
     assert.match(copy, /refused cession/i);
-    assert.match(copy, /hundred recognizable action patterns/i);
-    assert.match(copy, /Bloodline has nothing to do with it/i);
-    assert.match(copy, /lattice cannot classify you/i);
+    assert.match(copy, /What survived was the shape of the choice/i);
+    assert.match(copy, /Legacy is not an ancestor coming back.*not something sleeping in a Bloodline/i);
+    assert.match(copy, /A Legacy returns when someone freely repeats one under witness/i);
     assert.match(copy, /under witness/i);
     assert.doesNotMatch(copy, /pass through a family|LEGACY-BEARING|dormant Legacy|passing from parent to child|preserve one part of a person/i);
 
@@ -460,6 +501,16 @@ test("every trait gate references a trait this player can actually earn by then"
             for (const page of (step.pages ?? []) as AnyPage[]) {
                 for (const choice of page.choices ?? []) {
                     if (choice.trait && /^(sv|al|ff|ms)\d+-/.test(choice.trait)) villageTraitLevels.set(choice.trait, step.levelReq);
+                }
+            }
+        }
+        for (const [questId, journey] of Object.entries(STORY_FIELD_JOURNEYS)) {
+            if (journey.village !== village) continue;
+            const level = storyReckonings.find((reckoning) => reckoning.id === questId)?.levelReq;
+            assert.ok(level !== undefined, `${questId} has a reckoning level`);
+            for (const point of Object.values(journey.points)) {
+                for (const fieldChoice of Object.values(point.choices)) {
+                    if (fieldChoice.trait) villageTraitLevels.set(fieldChoice.trait, level);
                 }
             }
         }

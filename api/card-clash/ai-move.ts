@@ -35,6 +35,7 @@ import {
   echoesEncounterById,
   type EchoesVictorySummary,
 } from "./_echoes-catalog.js";
+import { echoesBattleBeatForMatch } from "./_echoes-battle-beat.js";
 
 const MATCH_ID_RE = /^[0-9a-fA-F-]{20,80}$/;
 const ACTIONS = new Set([
@@ -253,7 +254,12 @@ async function settle(
         ? echoesEncounterById(session.echoes.encounterId)
         : null;
       if (echoesDef && winner === "player" && !forfeited && !quickWin) {
-        const applied = applyEchoesVictory(nextCharacter, echoesDef, now);
+        const applied = applyEchoesVictory(
+          nextCharacter,
+          echoesDef,
+          now,
+          echoesBattleBeatForMatch(session.state),
+        );
         nextCharacter = applied.character;
         value.echoes = applied.summary;
       }

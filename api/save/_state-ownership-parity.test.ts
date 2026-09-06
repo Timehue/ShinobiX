@@ -54,7 +54,7 @@ const FROZEN = {
     COMBAT_STRIP_CHAR_FIELDS: [
         'inventory', 'itemStacks', 'tileCards', 'savedTileDeck',
         'missions', 'missionLog', 'completedMissions', 'activeMissions', 'questLog', 'bankLog',
-        'storyTraits', 'storyTitle',
+        'storyTraits', 'storyChoices', 'storyScene', 'pendingStoryReports', 'storyEpilogues', 'storyTitle', 'storyFieldRecords', 'activeStoryReckoning',
         // Academy identity and first-session records are private narrative state,
         // not fighter inputs. This is an intentional, reviewed extension of the
         // pre-manifest combat projection as the authored onboarding arc expands.
@@ -65,6 +65,7 @@ const FROZEN = {
         'unlockedAchievements', 'achievementUnlockedAt',
         'battleHistory',
         'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen', 'hollowGateAttunement', 'lastHollowGateStart',
+        'riftFirstClears', 'riftQuestBossReceipt',
         'endlessTowerRun', 'endlessTowerBestWave',
         'battleTowerBestFloor', 'battleTowerRating', 'battleTowerClearedFloors',
         'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed', 'battleTowerMilestones',
@@ -93,7 +94,7 @@ const FROZEN = {
         'petBreedingHatchReceipts', 'petBreedingProgressReceipts',
         'ryo', 'honorSeals', 'fateShards', 'chroniclePoints', 'boneCharms', 'auraStones', 'mythicSeals', 'auraDust', 'hollowShards',
         // Echoes of War campaign record — non-combat bookkeeping.
-        'echoesOfWar',
+        'echoesOfWar', 'echoesWitnessChoices',
         'rankedWins', 'rankedLosses', 'rankedSeasonSettlementReceipts', 'pvpRewardSettlementReceipts',
         'petRankedSettlementStamp', 'playerRankedSettlementStamp', 'vanguardRewardSettlementStamp', 'warDeclarationFundingReceipts', 'warMercenaryHireReceipts',
         'aiFightRewardSettlements', 'combatMissionClaimSettlements',
@@ -193,7 +194,8 @@ const FROZEN = {
         // Village Stores daily cook/donate counters (api/village-stores/*).
         'rationsCookedDate', 'rationsCookedToday', 'storesDonatedDate', 'rationsDonatedToday', 'craftPointsDonatedToday',
         // Echoes of War campaign record (card-clash/ai-move echoes settle).
-        'echoesOfWar',
+        'echoesOfWar', 'echoesWitnessChoices',
+        'riftFirstClears', 'riftQuestBossReceipt',
     ],
     PROGRESSION_ENTITLEMENT_CHARACTER_FIELDS: [
         'auraSphereLevel', 'redeemedAuraFeeds', 'battleTowerAscension', 'rankedSeasonsWon',
@@ -206,7 +208,7 @@ const FROZEN = {
         'petGauntletBoneClaimed', 'petGauntletEntryDate', 'petGauntletEntryCount',
         'redeemedWandererQuests', 'redeemedWandererAmbushes',
         'wandererAmbushRewardDate', 'wandererAmbushRewardCount', 'redeemedQuestbookRuns',
-        'storyReckoningRewardDate', 'storyReckoningRewardCount', 'redeemedStoryReckonings',
+        'storyReckoningRewardDate', 'storyReckoningRewardCount', 'redeemedStoryReckonings', 'storyFieldRecords', 'activeStoryReckoning',
         // `villageUpgrades` LEFT this list on 2026-08-17 (owner ruling): village
         // upgrades became SHARED village infrastructure bought from the treasury
         // seal pool, so the character field is now a cross-validated mirror of
