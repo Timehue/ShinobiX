@@ -445,7 +445,28 @@ import { readFileSync } from "node:fs";
 // it needed nothing from App, so the move costs no lib -> App import. Buffer
 // restored to 6, the width this comment has twice called "enough for a
 // lazy-screen mount, not a feature" — three was not.
-const MAX_LINES = 7_068;
+// → 6,943 (−119) after draining the character factory: createCharacter +
+// createAdminCharacter moved verbatim to lib/create-character.ts, next to
+// normalizeCharacter and the admin-character drain above — the same reasoning,
+// one more layer of the same onion. Both bodies are byte-identical to the
+// originals (diffed before deleting them); the only edit is the `export`
+// createAdminCharacter needed, having been App-private. createCharacter stays
+// on the "../App" surface via re-export, so AdminPanel and the character-creator
+// flow are untouched.
+//
+// Five imports went with it — baseStats, currentMonthKey, defaultVillageUpgrades
+// and STARTING_STAT_POINTS had no other caller here, and maxedStats lost its
+// last one to the MERGE rather than to either side: main moved
+// normalizeAdminCharacter out while this branch moved createAdminCharacter out,
+// and neither alone would have left it dead. Worth remembering the next time two
+// drains touch the same neighbourhood — the union can strand an import that both
+// sides individually still justify.
+//
+// The move is also what makes the factory testable at all (lib/create-character
+// .test.ts, 11 cases pinning the starting grant that api/save/
+// _first-save-baseline.ts mirrors): App imports a .webp, so node:test could
+// never load this code where it was. Buffer stays at 6, per the entry above.
+const MAX_LINES = 6_949;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
