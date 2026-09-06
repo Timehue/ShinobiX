@@ -835,6 +835,8 @@ type LayoutMeasurement = {
     actionScroll: { scrollTop: number; clientHeight: number; scrollHeight: number } | null;
     tileCenterBounds: Rect | null;
     minCommandTouchTarget: number | null;
+    /** Command-deck text spilling out of its own button, `label:part+Npx`. */
+    commandTextOverflows: string[];
     boardActionOverlap: boolean;
     boardDossierOverlap: boolean;
     terrainNoticeOverlap: boolean;
@@ -924,6 +926,33 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
         const tileCentersHitTheirTile = tileCenterHitCount === tiles.length;
         const commandButtons = [...(root?.querySelectorAll<HTMLElement>('.shinobi-command-bar button, .battle-tab') ?? [])]
             .map(rect).filter((value): value is Rect => value !== null);
+        /*
+         * A command button lays its icon+label and its cost line out as a
+         * centred grid, so content taller than the button spills out BOTH ends
+         * rather than pushing the box open — and the deck's `overflow: hidden`
+         * then cuts the label in half at the top and the cooldown at the bottom.
+         * The desktop command centre is where this bites: its commands row is a
+         * fixed 60px track, so the button is pinned to exactly 48px and a second
+         * line of cost text has nowhere to go. Nothing else here catches it:
+         * the button keeps its size and its touch target, and the text stays
+         * hit-testable while being visually sliced.
+         *
+         * 1px of tolerance, deliberately: sub-pixel line-box rounding differs
+         * per engine (Firefox reports 43.99997 where Chromium reports 44), and
+         * a zero-tolerance geometry assertion here would be flaky, not strict.
+         */
+        const commandTextOverflows = [...(root?.querySelectorAll<HTMLElement>('.shinobi-command-bar button') ?? [])]
+            .flatMap((button) => {
+                const box = button.getBoundingClientRect();
+                if (box.width === 0 || box.height === 0) return [];
+                const label = button.querySelector('span')?.textContent?.trim() ?? '?';
+                return [...button.querySelectorAll<HTMLElement>(':scope > span, :scope > small, :scope > .cmd-icon')]
+                    .flatMap((part) => {
+                        const value = part.getBoundingClientRect();
+                        const spill = Math.max(box.top - value.top, value.bottom - box.bottom);
+                        return spill > 1 ? [`${label}:${part.tagName.toLowerCase()}+${spill.toFixed(1)}px`] : [];
+                    });
+            });
         /*
          * Geometry probe: prefer an ENABLED jutsu, but fall back to any jutsu.
          *
@@ -1036,6 +1065,7 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
             } : null,
             tileCenterBounds,
             minCommandTouchTarget: commandButtons.length ? Math.min(...commandButtons.map((value) => Math.min(value.width, value.height))) : null,
+            commandTextOverflows,
             boardActionOverlap: overlap(boardRect, actionRect),
             boardDossierOverlap: dossiers.some((value) => overlap(boardRect, value)),
             terrainNoticeOverlap: overlap(rect(terrainNode), rect(noticeNode)),
@@ -1625,6 +1655,7 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         expect(current.terrainNoticeOverlap, `${label} terrain/action-notice overlap`).toBe(false);
         expect(current.dualApTextOverlap, `${label} AP/timer labels overlap`).toBe(false);
         expect(current.minCommandTouchTarget ?? 0, `${label} touch target`).toBeGreaterThanOrEqual(44);
+        expect(current.commandTextOverflows, `${label} command text clipped by its button: ${current.commandTextOverflows.join(', ')}`).toEqual([]);
         expect(current.actions?.height ?? 0, `${label} selected action panel height`).toBeGreaterThanOrEqual(44);
         expect(
             current.firstJutsuCenterVisibleAndHit,
