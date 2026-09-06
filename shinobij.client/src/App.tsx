@@ -79,7 +79,7 @@ import {
     villageWarScreenMountAllowed,
 } from "./lib/live-capability-admission";
 import { useCapabilityGuardedAutosave } from "./lib/use-capability-guarded-autosave";
-import { pushLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLiveSectorContext } from "./lib/presence-store";
+import { pushLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLocalSectorTile, setLiveSectorContext } from "./lib/presence-store";
 import { heartbeatNoticeAckFields, noteHeartbeatDelivery } from "./lib/notice-ack";
 import { worldSectorReconcileTarget } from "./lib/sector-reconcile";
 import { mergeServerPendingWorldRewards } from "./lib/world-reward-recovery";
@@ -2971,6 +2971,7 @@ export default function App() {
                     const persisted = (DEEP_LINKABLE_SCREENS.has(hashRaw as Screen) ? (hashRaw as Screen) : null) ?? (localStorage.getItem(LAST_SCREEN_KEY) as Screen | null);
                     const inHollowGateRun = Boolean(normalized.hollowGateRun && !normalized.hollowGateRun.completed);
                     const inDungeonRun = Boolean(normalized.activeDungeonRun?.token);
+                    if (Number.isFinite(Number((snap as { currentTile?: unknown }).currentTile))) setLocalSectorTile(Number((snap as { currentTile?: unknown }).currentTile)); // the server-persisted arrival tile (travel-lease settle); the map resumes on it after a reload
                     target = restoreScreenForSave(persisted, inHollowGateRun, normalized.hospitalized, inDungeonRun, isWildSector(Number(snap.currentSector ?? 0)));
                     if (inHollowGateRun) {
                         try {

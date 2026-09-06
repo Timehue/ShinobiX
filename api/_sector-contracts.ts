@@ -92,6 +92,7 @@ export async function creditSectorContractProgress(
     playerName: string,
     sector: number,
     now: number = Date.now(),
+    opts: { failLoudly?: boolean } = {},
 ): Promise<SectorContractStatus | null> {
     if (!sectorContractsEnabled()) return null;
     const id = Math.floor(Number(sector));
@@ -110,7 +111,11 @@ export async function creditSectorContractProgress(
         const progress = await kv.incr(contractProgressKey(name, id, day), { ex: CONTRACT_TTL_SECONDS });
         const claimedAt = await kv.get<number>(contractClaimKey(name, id, day));
         return sectorContractStatus(contract, progress, claimedAt, now);
-    } catch {
+    } catch (error) {
+        // The explore outbox (api/world/_effects-outbox.ts) needs to SEE a
+        // failed tick so it can park and retry it; every other caller keeps the
+        // quiet null.
+        if (opts.failLoudly) throw error;
         return null;
     }
 }

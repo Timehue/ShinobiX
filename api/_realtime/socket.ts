@@ -43,6 +43,7 @@ import { wirePetDuel, notifyPeerGone, notifyInviteExpired } from './pet-duel-soc
 import { setRealtimeEmitter } from './notify.js';
 import { clearSleeperCamp } from './sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt, type TravelLease } from './travel-lease.js';
+import { presenceSectorForWrite } from './world-duel-engagement.js';
 // CORS origin predicate — single source of truth in api/_utils.ts, shared with
 // cors() and the Express middleware. Even when production serves the SPA and the
 // socket from the SAME origin (Railway), the browser still sends an Origin
@@ -233,7 +234,7 @@ function wireRealtime(io: IOServer): void {
             return stored && safeName(stored) === name ? stored : name;
         };
 
-        const applyPresence = (payload: unknown): void => {
+        const applyPresence = async (payload: unknown): Promise<void> => {
             const p = (payload ?? {}) as {
                 sector?: unknown; character?: unknown; travelingUntil?: number;
                 inBattle?: boolean; displayName?: unknown; tile?: unknown;
@@ -241,9 +242,17 @@ function wireRealtime(io: IOServer): void {
             const now = Date.now();
             const prevSector: number = socket.data.sector;
             const previous = onlineStore.get(name);
-            const requestedSector = previous
-                ? normalizeSector(p.sector, previous.sector)
-                : normalizeSector(socket.data.initialSector, normalizeSector(p.sector, 40));
+            // Same rule as the HTTP heartbeat: town entry stays instant unless a
+            // world duel is engaging the player (world-duel-engagement.ts).
+            const requestedSector = await presenceSectorForWrite(
+                kv,
+                name,
+                previous,
+                previous
+                    ? normalizeSector(p.sector, previous.sector)
+                    : normalizeSector(socket.data.initialSector, normalizeSector(p.sector, 40)),
+                now,
+            );
             const slim = slimPresenceCharacter(p.character) ?? previous?.character ?? null;
             const displayName = displayNameFor(
                 p.displayName ?? (slim && typeof (slim as Record<string, unknown>).name === 'string'
@@ -320,7 +329,7 @@ function wireRealtime(io: IOServer): void {
             const elapsed = now - (socket.data.lastPresenceAt ?? 0);
             if (elapsed >= PRESENCE_MIN_INTERVAL_MS) {
                 socket.data.lastPresenceAt = now;
-                applyPresence(payload);
+                void applyPresence(payload);
                 return;
             }
             // Inside the window: keep only the latest payload and schedule a
@@ -332,7 +341,7 @@ function wireRealtime(io: IOServer): void {
                     socket.data.lastPresenceAt = Date.now();
                     const pending = socket.data.pendingPresence;
                     socket.data.pendingPresence = undefined;
-                    applyPresence(pending);
+                    void applyPresence(pending);
                 }, PRESENCE_MIN_INTERVAL_MS - elapsed);
             }
         };
@@ -342,7 +351,7 @@ function wireRealtime(io: IOServer): void {
         const initialPresence = (socket.handshake.auth as HandshakeAuth)?.presence;
         if (initialPresence) {
             socket.data.lastPresenceAt = Date.now();
-            applyPresence(initialPresence);
+            void applyPresence(initialPresence);
         }
 
         socket.on('presence', onPresence);
