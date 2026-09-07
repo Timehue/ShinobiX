@@ -19,9 +19,8 @@
  *
  * Eight pets fight on a deterministic formation board: hard cell ownership,
  * sight-blocking shoji, roof cover, smoke, range and role-driven abilities. The
- * camera uses an actor-first broadcast crop while preserving one trustworthy
- * screen direction: blue stays left and red stays right. Its centre and
- * distance ease toward live action instead of snapping between duels.
+ * camera fits the full formation below the HUD while preserving one
+ * trustworthy screen direction: blue stays left and red stays right.
  *
  * Two rules this file exists to hold:
  *
@@ -49,11 +48,10 @@ import {
 } from "../lib/pet-duel-cinematic";
 import { petCombatModel } from "../lib/pet-3d-models";
 import { petHeroMoveAt, petHeroMoveStyle, petHeroMoveWindows, type PetHeroMoveStyle } from "../lib/pet-hero-moves";
-import { fitDistance } from "../lib/showdown-camera";
+import { warfrontCameraFrame } from "../lib/pet-warfront-camera";
 import {
     RITE_TEAM_COLOR as TEAM_COLOR,
     RITE_WORLD_SCALE as WORLD_SCALE,
-    actionFocus,
     allRiteFighterModelsReady,
     bucketEvents,
     createActorPoseSample,
@@ -204,6 +202,7 @@ export type WarfrontSkinnedModelComponent = ComponentType<{
     frame: MutableRefObject<WarfrontRigFrame>;
     quality: PetVisualQualityConfig;
     onReady: () => void;
+    onFail: () => void;
 }>;
 
 export type WarfrontSkinnedMetrics = Readonly<{
@@ -227,10 +226,8 @@ const EMPTY_SKINNED_METRICS: WarfrontSkinnedMetrics = Object.freeze({
     selectedTriangles: 0,
 });
 
-/** Only the explicit two-flag canary may warm rigs before Stage routing. The
- * default path must not even request the rig chunk, regardless of cache state. */
+/** The lightweight Stage calls this only after selecting the hardware route. */
 export async function preloadRitePetModels(pets: readonly Pet[]): Promise<void> {
-    if (!warfront3dQaCanaryRequested(typeof window === "undefined" ? "" : window.location.search)) return;
     const module = await import("./PetWarfrontSkinnedModel3D");
     await module.preloadWarfrontSkinnedPetModels(pets);
 }
@@ -596,7 +593,7 @@ function RendererContextGuard({ onLost, onRestored }: { onLost: () => void; onRe
     return null;
 }
 
-function RiteFighter3D({ result, fighter, clockRef, victorious, quality, contactBeats, performanceProbeRef, SkinnedModel, onModelReady }: {
+function RiteFighter3D({ result, fighter, clockRef, victorious, quality, contactBeats, performanceProbeRef, SkinnedModel, onModelReady, onModelFail }: {
     result: DuelResult;
     fighter: StageFighter;
     clockRef: MutableRefObject<number>;
@@ -605,6 +602,7 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, contact
     contactBeats: readonly FighterContactBeat[];
     performanceProbeRef: MutableRefObject<boolean>;
     SkinnedModel: WarfrontSkinnedModelComponent;
+    onModelFail: () => void;
     onModelReady: (fighterId: string) => void;
 }) {
     const { team, lane, pet, entryHp } = fighter;
@@ -658,7 +656,7 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, contact
     );
     // Four active pets need a little negative space between adjacent cells. Keep
     // the shipped rigs heroic, but never let long tails erase formation reads.
-    const scale = sourceConfig ? Math.min(1.08, 1.7 / Math.max(0.1, sourceConfig.targetHeight)) : 0.94;
+    const scale = sourceConfig ? Math.min(1.08, 1.95 / Math.max(0.1, sourceConfig.targetHeight)) : 0.94;
     const height = sourceConfig ? sourceConfig.targetHeight * scale : 1.25;
     // Give React Three Fiber the authoritative committed pose immediately.
     // `useFrame` continues from this same tick-zero point, so even the first
@@ -897,7 +895,7 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, contact
             <group ref={body}>
                 {sourceConfig ? (
                     <group scale={scale}>
-                        <SkinnedModel pet={pet} frame={frame} quality={quality} onReady={reportModelReady} />
+                        <SkinnedModel pet={pet} frame={frame} quality={quality} onReady={reportModelReady} onFail={onModelFail} />
                     </group>
                 ) : null}
             </group>
@@ -2812,48 +2810,23 @@ function ProjectileLayer({ result, clockRef, quality }: {
 
 // ── Camera ──────────────────────────────────────────────────────────────────
 
-/** Side-on broadcast camera. Its orientation never rotates, but its centre and
- * distance ease toward the living action so pets remain the subject after KOs. */
-function ClashCamera({ result, clockRef }: Readonly<{ result: DuelResult; clockRef: MutableRefObject<number> }>) {
+/** Fit the complete board below the HUD, preserving blue-left/red-right. */
+function ClashCamera() {
     const camera = useThree((state) => state.camera);
     const viewport = useThree((state) => state.size);
-    const lookRef = useRef(new THREE.Vector3(0, 0.08, 0));
-    const distanceRef = useRef(0);
-    const desiredPosition = useMemo(() => new THREE.Vector3(), []);
-    const desiredLook = useMemo(() => new THREE.Vector3(), []);
-
-    useFrame((_, delta) => {
-        const portrait = viewport.height > viewport.width;
-        const desiredFov = portrait ? 43 : 39;
-        const focus = actionFocus(result, clockRef.current);
-        desiredLook.set(focus.x * WORLD_SCALE, 0.08, focus.z * WORLD_SCALE);
-        const focusRadius = Math.max(portrait ? 3.25 : 4.1, Math.min(10.5, focus.radius * WORLD_SCALE + (portrait ? 1.6 : 2.1)));
-        const aspect = Math.max(0.35, viewport.width / Math.max(1, viewport.height));
-        const desiredDistance = fitDistance(focusRadius, focusRadius * 0.72 + 2.1, desiredFov, aspect);
-        const elapsed = Math.min(0.05, Math.max(0.001, delta));
-        const centreAlpha = 1 - Math.exp(-elapsed * 3.2);
-        const distanceAlpha = 1 - Math.exp(-elapsed * 2.4);
-        lookRef.current.lerp(desiredLook, centreAlpha);
-        distanceRef.current = distanceRef.current > 0
-            ? THREE.MathUtils.lerp(distanceRef.current, desiredDistance, distanceAlpha)
-            : desiredDistance;
-        // Always look across +Z—even in portrait—so blue remains screen-left,
-        // red remains screen-right, and target-facing silhouettes are readable.
-        const elevation = portrait ? 0.98 : 0.84;
-        const groundDistance = distanceRef.current / Math.sqrt(1 + elevation * elevation);
-        desiredPosition.set(
-            lookRef.current.x,
-            lookRef.current.y + groundDistance * elevation,
-            lookRef.current.z + groundDistance,
-        );
+    const frame = useMemo(() => warfrontCameraFrame(
+        viewport.width, viewport.height,
+        WARFRONT_ARENA_X * WORLD_SCALE + 1.2,
+        WARFRONT_ARENA_Y * WORLD_SCALE + 1.2,
+    ), [viewport.width, viewport.height]);
+    useLayoutEffect(() => {
         const perspective = camera as THREE.PerspectiveCamera;
-        if (perspective.fov !== desiredFov) {
-            perspective.fov = desiredFov;
-            perspective.updateProjectionMatrix();
-        }
-        camera.position.copy(desiredPosition);
-        camera.lookAt(lookRef.current);
-    });
+        perspective.fov = frame.fov;
+        perspective.far = frame.far;
+        perspective.position.set(...frame.position);
+        perspective.lookAt(...frame.target);
+        perspective.updateProjectionMatrix();
+    }, [camera, frame]);
     return null;
 }
 
@@ -3697,7 +3670,7 @@ function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, 
             <pointLight position={[-15, 3, 0]} color={TEAM_COLOR.player} intensity={batchedBattle ? 4.5 : 10} distance={22} decay={2} />
             <pointLight position={[15, 3, 0]} color={TEAM_COLOR.enemy} intensity={batchedBattle ? 4.5 : 10} distance={22} decay={2} />
 
-            <ClashCamera result={result} clockRef={routedClockRef} />
+            <ClashCamera />
             <SceneHydrationSequencer phase={hydrationPhase} finalPhase={5} onAdvance={advanceHydration} />
             {hydrationPhase >= 1 ? (
                 <>
@@ -3759,6 +3732,7 @@ function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, 
                     contactBeats={contactBeatsByActor.get(`${fighter.team}-${fighter.lane}`) ?? NO_CONTACT_BEATS}
                     performanceProbeRef={preflightStressRef}
                     SkinnedModel={SkinnedModel}
+                    onModelFail={() => setRigChunkStatus("failed")}
                     onModelReady={reportModelReady}
                 />
             ) : null) : null}
@@ -3863,7 +3837,7 @@ export function PetWarfrontRiteStage3D(props: PetWarfrontRiteStage3DProps) {
                     dpr={renderQuality.dpr}
                     shadows={renderQuality.modelShadows ? "percentage" : false}
                     camera={{ fov: 44, position: [0, 9, 13], near: 0.1, far: 100 }}
-                    gl={{ antialias: renderQuality.bloomIntensity > 0, alpha: true, powerPreference: "high-performance" }}
+                    gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
                     onCreated={({ gl }) => {
                         const canvas = gl.domElement;
                         canvas.dataset.riteRequestedQuality = quality.id;

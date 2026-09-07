@@ -9,6 +9,7 @@ import {
     warfrontPetModelConfig,
 } from "../lib/pet-warfront-model-lod";
 import { petModelVariantSurface } from "../lib/pet-visual-variant";
+import { PetModelBoundary } from "./PetModelBoundary";
 import { PetModel3D, type PetModelFrame } from "./PetModel3D";
 import type {
     WarfrontSkinnedMetrics,
@@ -31,21 +32,23 @@ function ModelReadySignal({ onReady }: { onReady: () => void }) {
     return null;
 }
 
-export const PetWarfrontSkinnedModel3D: WarfrontSkinnedModelComponent = ({ pet, frame, quality, onReady }) => {
+export const PetWarfrontSkinnedModel3D: WarfrontSkinnedModelComponent = ({ pet, frame, quality, onReady, onFail }) => {
     const config = useMemo(() => warfrontPetModelConfig(petCombatModel(pet)), [pet]);
     if (!config) return null;
     return (
-        <Suspense fallback={null}>
-            <PetModel3D
-                config={config}
-                frame={frame as MutableRefObject<PetModelFrame>}
-                element={pet.element}
-                surfaceTreatment={petModelVariantSurface(pet)}
-                quality={quality}
-                silhouette="surface-ink"
-            />
-            <ModelReadySignal onReady={onReady} />
-        </Suspense>
+        <PetModelBoundary key={config.url} onFail={onFail}>
+            <Suspense fallback={null}>
+                <PetModel3D
+                    config={config}
+                    frame={frame as MutableRefObject<PetModelFrame>}
+                    element={pet.element}
+                    surfaceTreatment={petModelVariantSurface(pet)}
+                    quality={quality}
+                    silhouette="surface-ink"
+                />
+                <ModelReadySignal onReady={onReady} />
+            </Suspense>
+        </PetModelBoundary>
     );
 };
 

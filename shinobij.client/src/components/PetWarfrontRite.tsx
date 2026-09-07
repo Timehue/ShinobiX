@@ -21,6 +21,7 @@
 import {
     useCallback,
     useEffect,
+    useLayoutEffect,
     useMemo,
     useRef,
     useState,
@@ -28,6 +29,8 @@ import {
     type ReactNode,
     type TransitionEvent as ReactTransitionEvent,
 } from "react";
+import { createPortal } from "react-dom";
+import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import type { Pet } from "../types/pet";
 import type { ArenaSlot } from "../lib/pet-arena-sim";
 import { DUEL_TPS } from "../lib/pet-duel-sim";
@@ -94,6 +97,8 @@ export type PetWarfrontRiteProps = {
     resultSupplement?: ReactNode;
     resultActionsLocked?: boolean;
     settlementPending?: boolean;
+    settlementDetail?: string;
+    onRetrySettlement?: () => void;
     /**
      * SHARED REPLAY (co-op). Every client must render the identical match, so a
      * spectator takes no decisions at all: no deployment panel, no re-form, and
@@ -490,6 +495,17 @@ function ClashHud({ clash, blueBand, redBand, clockRef, sharedImages, rounds, au
     const bars = useRef<Record<string, HTMLSpanElement | null>>({});
     const clockOut = useRef<HTMLOutputElement>(null);
     const audioProbe = useRef<HTMLButtonElement>(null);
+    const hud = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => {
+        const element = hud.current;
+        const root = element?.parentElement;
+        if (!element || !root) return;
+        const measure = () => root.style.setProperty("--wfr-hud-height", `${Math.ceil(element.getBoundingClientRect().height)}px`);
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(element);
+        return () => { observer.disconnect(); root.style.removeProperty("--wfr-hud-height"); };
+    }, []);
     const poseSlots = useMemo(() => Array.from({ length: 8 }, createActorPoseSample), []);
 
     useEffect(() => {
@@ -547,7 +563,7 @@ function ClashHud({ clash, blueBand, redBand, clockRef, sharedImages, rounds, au
     );
 
     return (
-        <div className="wfr-hud" data-testid="wfr-premium-hud" data-audio-armed={audioArmed ? "true" : "false"}>
+        <div className="wfr-hud" ref={hud} data-testid="wfr-premium-hud" data-audio-armed={audioArmed ? "true" : "false"}>
             <output ref={clockOut} data-testid="wfr-clock" data-tick="0" hidden />
             {row(clash.blue, blueBand, "player", "Your band")}
             <div className="wfr-hud-center">
@@ -785,9 +801,16 @@ function useReducedMotionPreference(): boolean {
     return reduced;
 }
 
-export function PetWarfrontRite({
+export function PetWarfrontRite(props: PetWarfrontRiteProps) {
+    useBodyScrollLock(true);
+    // Escape the lobby's relative-positioned children and clipping ancestors.
+    return typeof document === "undefined" ? null : createPortal(<WarfrontRiteMatch {...props} />, document.body);
+}
+
+function WarfrontRiteMatch({
     blue, red, seed, sharedImages = {}, onResult, onExit,
     resultSupplement, resultActionsLocked = false, settlementPending = false,
+    settlementDetail, onRetrySettlement,
     spectator = false, playbackRate = 0.78,
 }: PetWarfrontRiteProps) {
     const blueBand = useMemo(() => blue.slice(0, RITE_BAND_SIZE).map((slot) => slot.pet), [blue]);
@@ -1142,7 +1165,12 @@ export function PetWarfrontRite({
                         ))}
                     </ol>
                     {resultSupplement}
-                    {settlementPending ? <p className="wfr-settling">Sealing the result…</p> : null}
+                    {settlementPending ? (
+                        <div className="wfr-settling" role={onRetrySettlement ? "alert" : "status"}>
+                            <p>{settlementDetail || "Recording the result…"}</p>
+                            {onRetrySettlement ? <button type="button" className="wfr-btn-ghost" onClick={onRetrySettlement}>Retry Settlement</button> : null}
+                        </div>
+                    ) : null}
                     <div className="wfr-deploy-actions">
                         <button type="button" className="wfr-btn-primary" onClick={onExit} disabled={resultActionsLocked}>
                             Leave the Warfront

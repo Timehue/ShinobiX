@@ -81,20 +81,27 @@ export function initialWarfrontRuntimeRoute(options: {
     if (isSoftwareWebGLRenderer(options.renderer)) {
         return { mode: "model-impostor", status: "locked", reason: "software-renderer", persisted: false, sample: null };
     }
-    if (options.persisted?.mode === "model-impostor") {
+    if (options.persisted?.mode === "model-impostor" && options.persisted.proof === "slow-observed") {
         return { mode: "model-impostor", status: "locked", reason: "persisted-slow", persisted: true, sample: options.persisted.sample };
     }
     if (options.persisted?.mode === "skinned-3d") {
         return { mode: "skinned-3d", status: "locked", reason: "persisted-fast", persisted: true, sample: options.persisted.sample };
     }
-    // An opaque-overlay microbenchmark cannot prove Chromium's visible canvas
-    // compositor cost. Unknown hardware therefore starts safe; only a prior
-    // full visible canary may opt this exact renderer/version into eight rigs.
-    return { mode: "model-impostor", status: "locked", reason: "safe-default", persisted: false, sample: null };
+    // Try the authored rigs on hardware, then keep them only when both the
+    // hidden preflight and visible playback pass the existing frame budget.
+    // An old safe-default record contains no evidence that this device is slow.
+    return { mode: "skinned-3d", status: "probing", reason: "pending-preflight", persisted: false, sample: null };
 }
 
-/** Both explicit QA flags are required before a clean browser may request the
- * heavyweight rig chunk. One flag alone must remain on the shippable cold path. */
+/** Deployment preload and mounted rendering must make the same decision. */
+export function warfrontShouldAttempt3d(renderer: string | null, stored: string | null, force = false): boolean {
+    if (force) return true;
+    if (!renderer || isSoftwareWebGLRenderer(renderer)) return false;
+    const persisted = parseWarfrontPersistedRoute(stored, renderer);
+    return persisted?.mode !== "model-impostor" || persisted.proof !== "slow-observed";
+}
+
+/** Both QA flags are required to bypass the normal hardware/fallback decision. */
 export function warfront3dQaCanaryRequested(search: string): boolean {
     const params = new URLSearchParams(search);
     return params.get("ritemotionqa") === "1" && params.get("riteforce3d") === "1";
