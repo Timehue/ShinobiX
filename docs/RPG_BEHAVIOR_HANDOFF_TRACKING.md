@@ -18,7 +18,7 @@ no defect found / preserved), `design-only` (behavior preserved, decision record
 
 | ID | Recheck disposition (handoff) | Actual handlers / helpers | Regression test | Status |
 |---|---|---|---|---|
-| F01 battle availability | Fix: client-asserted `inBattle` grants immunity | `api/_realtime/battle-projection.ts`, `api/_realtime/battle-authority.ts`, `api/_realtime/online-store.ts` (upsert ignores the claim), `api/player/heartbeat.ts` (derives the flag on its existing mget), `api/_realtime/socket.ts`, start/terminal hooks in `api/solo-pve/_store.ts`, `api/pvp/_pending-session.ts`, `api/pvp/_committed-terminal-effects.ts`, `api/towers/_battle-lease.ts`; income door `api/_sector-presence-gate.ts` | `api/_realtime/battle-authority.test.ts`, `api/player/heartbeat-battle-authority.test.ts`, `api/_realtime/online-store.test.ts`, `api/world/explore-obligations.test.ts` | **fixed (immunity stripped, 2026-09-06 second pass):** `inBattle` is server-owned. Presence ignores the client claim in both directions; the heartbeat proves the flag from a Tower lease, the `battle-state:<slug>` projection every Solo-PvE host writes at creation (verified against a live, unexpired session), a fresh PvP reservation or an active PvP session, the generic AI-fight pointer, a running pet duel, and (third pass, 2026-09-07) a Hollow Gate dive via its run key, a pet showdown via its unfinished session, and a legacy pet battle via its active token pointer, cached per player for 10 s keyed by the exact evidence. Fight hosts set/clear presence at start/terminal so immunity begins and ends with the fight. The field-income door keeps its kill switch. |
+| F01 battle availability | Fix: client-asserted `inBattle` grants immunity | `api/_realtime/battle-projection.ts`, `api/_realtime/battle-authority.ts`, `api/_realtime/online-store.ts` (upsert ignores the claim), `api/player/heartbeat.ts` (derives the flag on its existing mget), `api/_realtime/socket.ts`, start/terminal hooks in `api/solo-pve/_store.ts`, `api/pvp/_pending-session.ts`, `api/pvp/_committed-terminal-effects.ts`, `api/towers/_battle-lease.ts`; income door `api/_sector-presence-gate.ts` | `api/_realtime/battle-authority.test.ts`, `api/player/heartbeat-battle-authority.test.ts`, `api/_realtime/online-store.test.ts`, `api/world/explore-obligations.test.ts` | **fixed (immunity stripped, 2026-09-06 second pass):** `inBattle` is server-owned. Presence ignores the client claim in both directions; the heartbeat proves the flag from a Tower lease, the `battle-state:<slug>` projection every Solo-PvE host writes at creation (verified against a live, unexpired session), a fresh PvP reservation or an active PvP session, the generic AI-fight pointer, a pet duel that is running or pending with this side committed (fourth pass), and (third pass, 2026-09-07) a Hollow Gate dive via its run key, a pet showdown via its unfinished session, and a legacy pet battle via its active token pointer, cached per player for 10 s keyed by the exact evidence. Fight hosts set/clear presence at start/terminal so immunity begins and ends with the fight. The field-income door keeps its kill switch. |
 | F02 action compatibility | Implement explicit compatibility for prohibited overlaps | `api/world/explore.ts`, `api/missions/ai-fight-start.ts` | `api/world/explore-obligations.test.ts` | fixed (the clear case): a hospitalized character cannot explore or start a new AI fight; other policy questions left as-is |
 | F03 complete aftermath | Preserve; close location/presence connections | `api/_realtime/travel-lease.ts` (arrival tile persisted), `api/player/heartbeat.ts` (cold start adopts it), client `lib/sector-return.ts`, `screens/WorldMap.tsx` initializer, `App.tsx` boot hydration | `api/player/travel.test.ts`, `shinobij.client/src/lib/sector-return.test.ts` | fixed: a reload resumes on the persisted arrival tile instead of the grid centre |
 | F04 persistent chakra/stamina | Do NOT implement | `api/solo-pve/_ai-encounter.ts` (V2 starts full) | existing | design-only (preserved) |
@@ -217,8 +217,10 @@ Second pass (F01 immunity + F08 lapse, 2026-09-06):
   request): a Hollow Gate dive is proven for its whole duration by its run key
   (the tile game and dungeon events included), a pet showdown against the AI
   by its unfinished session, and a legacy pet battle by its active token
-  pointer. The one client state that still confers nothing is a pet challenge
-  waiting to be accepted, which is not a fight.
+  pointer. Fourth pass (2026-09-07): a pending pet duel engages the side that
+  has committed to it (the challenger from the invite, the target from
+  acceptance), from the in-process duel registry; an unanswered target stays
+  attackable. Every state the client used to assert is now proven server-side.
 - A Solo-PvE fight left unattended for its session TTL now costs the engine's
   abandon rule (10% max HP from the HP last stood at, a loss, no rewards) even
   if the client never reports it. Before, closing the tab and waiting cost
@@ -333,6 +335,21 @@ creation, retired on forfeit and on the finishing turn via `api/pet/_showdown-pr
 plus the existing `pet:battle-active:<slug>` pointer, verified against its sealed token.
 A projection whose dive or showdown is over is reported lapsed and retired; no body
 consequence is ever invented for these modes. Server-only change.
+
+### Fourth pass — pending pet duel presence (2026-09-07)
+
+| Step | Command | Result |
+|---|---|---|
+| Type check | `npx tsc -p tsconfig.cpanel.json --noEmit` | exit 0 |
+| Resolver + heartbeat suites | `node --import tsx --test …` | 41/41 (resolver, heartbeat battle-authority, heartbeat pins, pet-duel registry) |
+| Full suite | `npm test` | 9,535/9,535, exit 0 |
+| Root build + release certification | `npm run build`; `npm run certify:release` | build exit 0, sizecheck PASS; certification 90/90 |
+
+Resolver rule only (`petDuelEngages` in `api/_realtime/battle-authority.ts`): the
+pet-duel registry already holds a `pending` session for both players from the invite
+and marks each side `ready` when it commits; the resolver now honours a pending duel for
+a committed side. No new record, no lapse handling (an unanswered invite is swept from
+the registry within 30 s and presence follows on the next beat). Server-only change.
 
 ### No-UI-change diff review (starting commit → HEAD)
 
