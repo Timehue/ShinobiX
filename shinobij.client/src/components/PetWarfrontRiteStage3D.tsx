@@ -357,9 +357,13 @@ function RuntimePerformancePreflight({ enabled, probeClockRef, probeStressRef, p
     const timerRef = useRef<number | null>(null);
     const completed = useRef(false);
     const finishRef = useRef<(() => void) | null>(null);
+    const renderStartedAt = useRef<number | null>(null);
+    const renderFrameMax = useRef(0);
     useEffect(() => {
         if (!enabled) return;
         completed.current = false;
+        renderFrameMax.current = 0;
+        renderStartedAt.current = null;
         probeStressRef.current = true;
         const startedAt = performance.now();
         const sampleWindow: PreflightWindow = {
@@ -377,14 +381,16 @@ function RuntimePerformancePreflight({ enabled, probeClockRef, probeStressRef, p
         // An opaque DOM curtain can let Chromium occlusion-cull presentation
         // work even though R3F still issues frames. Force the actual WebGL
         // command stream to finish after every hidden probe render so this
-        // predicts the cost of the same canvas once it becomes visible.
+        // predicts the cost of the same canvas once it becomes visible. Measure
+        // the complete render, not the gaps between callbacks: Chromium can
+        // schedule an occluded canvas once per second even on a fast GPU.
         const removeAfterEffect = addAfterEffect(() => {
             if (completed.current || !windowRef.current) return;
-            const began = performance.now();
+            const began = renderStartedAt.current ?? performance.now();
             context.finish();
             const elapsed = performance.now() - began;
             if (performance.now() >= sampleWindow.warmupEnds) {
-                sampleWindow.frameGapMax = Math.max(sampleWindow.frameGapMax, elapsed);
+                renderFrameMax.current = Math.max(renderFrameMax.current, elapsed);
             }
         });
         const recordLongTasks = (entries: PerformanceEntryList) => {
@@ -421,6 +427,7 @@ function RuntimePerformancePreflight({ enabled, probeClockRef, probeStressRef, p
                 frameGapMaxMs: sampleWindow.frameGapMax,
                 longTasksOver100ms: sampleWindow.longTasks,
                 longTaskMaxMs: sampleWindow.longTaskMax,
+                renderFrameMaxMs: renderFrameMax.current,
             });
         };
         finishRef.current = finish;
@@ -441,6 +448,7 @@ function RuntimePerformancePreflight({ enabled, probeClockRef, probeStressRef, p
         const sampleWindow = windowRef.current;
         if (!enabled || !sampleWindow || completed.current) return;
         const now = performance.now();
+        renderStartedAt.current = now;
         // Exercise the real first authored action family while the formation is
         // still behind the curtain. The parent-owned simulation clock stays at
         // zero; only this scene-local presentation ref advances, then resets
@@ -457,7 +465,7 @@ function RuntimePerformancePreflight({ enabled, probeClockRef, probeStressRef, p
             }
         }
         if (now >= sampleWindow.sampleEnds) finishRef.current?.();
-    });
+    }, -1000);
     return null;
 }
 
@@ -3524,6 +3532,7 @@ function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, 
         canvas.dataset.ritePreflightThresholdMs = String(WARFRONT_PREFLIGHT_THRESHOLD_MS);
         canvas.dataset.ritePreflightFrameGaps = String(hiddenPreflightSample?.frameGapsOver100ms ?? 0);
         canvas.dataset.ritePreflightFrameGapMaxMs = (hiddenPreflightSample?.frameGapMaxMs ?? 0).toFixed(2);
+        canvas.dataset.ritePreflightRenderFrameMaxMs = (hiddenPreflightSample?.renderFrameMaxMs ?? 0).toFixed(2);
         canvas.dataset.ritePreflightLongTasks = String(hiddenPreflightSample?.longTasksOver100ms ?? 0);
         canvas.dataset.ritePreflightLongTaskMaxMs = (hiddenPreflightSample?.longTaskMaxMs ?? 0).toFixed(2);
         canvas.dataset.riteRouteValidationFrameGaps = String(visibleValidationSample?.frameGapsOver100ms ?? 0);

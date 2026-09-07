@@ -2,7 +2,8 @@ import type { PetVisualQualityConfig } from "./pet-visual-quality";
 
 export type WarfrontCapabilityTier = "standard" | "eight-rig" | "constrained";
 
-export const WARFRONT_ROUTE_STORAGE_KEY = "kage:warfront-render-route:v2";
+// Recalibrate verdicts recorded before curtain scheduling was separated from rendering cost.
+export const WARFRONT_ROUTE_STORAGE_KEY = "kage:warfront-render-route:v3";
 export const WARFRONT_PREFLIGHT_THRESHOLD_MS = 100;
 export const WARFRONT_PREFLIGHT_WARMUP_MS = 250;
 // The problematic hardware/browser path stalls on a roughly three-second
@@ -16,6 +17,8 @@ export type WarfrontPerformanceSample = Readonly<{
     frameGapMaxMs: number;
     longTasksOver100ms: number;
     longTaskMaxMs: number;
+    /** Complete renderer work, excluding browser scheduling/occlusion gaps. */
+    renderFrameMaxMs?: number;
 }>;
 
 export type WarfrontRuntimeRoute = Readonly<{
@@ -29,7 +32,7 @@ export type WarfrontRuntimeRoute = Readonly<{
 }>;
 
 export type WarfrontPersistedRoute = Readonly<{
-    version: 2;
+    version: 3;
     renderer: string;
     mode: "skinned-3d" | "model-impostor";
     proof: "fast-visible-canary" | "slow-observed" | "safe-default";
@@ -40,12 +43,13 @@ export function parseWarfrontPersistedRoute(raw: string | null, renderer: string
     if (!raw) return null;
     try {
         const value = JSON.parse(raw) as Partial<WarfrontPersistedRoute>;
-        if (value.version !== 2 || value.renderer !== renderer) return null;
+        if (value.version !== 3 || value.renderer !== renderer) return null;
         if (value.mode !== "skinned-3d" && value.mode !== "model-impostor") return null;
         const sample = value.sample;
         if (sample && (!Number.isFinite(sample.durationMs) || !Number.isFinite(sample.frameGapMaxMs)
             || !Number.isFinite(sample.frameGapsOver100ms) || !Number.isFinite(sample.longTaskMaxMs)
             || !Number.isFinite(sample.longTasksOver100ms))) return null;
+        if (sample?.renderFrameMaxMs !== undefined && !Number.isFinite(sample.renderFrameMaxMs)) return null;
         if (value.mode === "skinned-3d" && (value.proof !== "fast-visible-canary" || !sample
             || sample.frameGapMaxMs > WARFRONT_PREFLIGHT_THRESHOLD_MS
             || sample.longTaskMaxMs > WARFRONT_PREFLIGHT_THRESHOLD_MS)) return null;
@@ -62,7 +66,7 @@ export function serializeWarfrontPersistedRoute(renderer: string, route: Warfron
     const proof: WarfrontPersistedRoute["proof"] = route.mode === "skinned-3d"
         ? "fast-visible-canary"
         : route.reason === "safe-default" ? "safe-default" : "slow-observed";
-    return JSON.stringify({ version: 2, renderer, mode: route.mode, proof, sample: route.sample } satisfies WarfrontPersistedRoute);
+    return JSON.stringify({ version: 3, renderer, mode: route.mode, proof, sample: route.sample } satisfies WarfrontPersistedRoute);
 }
 
 export function initialWarfrontRuntimeRoute(options: {
@@ -131,7 +135,7 @@ export function resolveWarfrontRuntimeRoute(
     sample: WarfrontPerformanceSample,
 ): WarfrontRuntimeRoute {
     if (current.status === "locked") return current;
-    const slow = sample.frameGapMaxMs > WARFRONT_PREFLIGHT_THRESHOLD_MS
+    const slow = (sample.renderFrameMaxMs ?? sample.frameGapMaxMs) > WARFRONT_PREFLIGHT_THRESHOLD_MS
         || sample.longTaskMaxMs > WARFRONT_PREFLIGHT_THRESHOLD_MS;
     return slow
         ? { mode: "model-impostor", status: "locked", reason: "preflight-slow", persisted: false, sample }
