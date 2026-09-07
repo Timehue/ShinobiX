@@ -37,7 +37,7 @@ describe("guest social lock — client wiring", () => {
         assert.equal((messages.match(/\{sendLocked \? \(/g) ?? []).length, 2);
         assert.equal((messages.match(/<GuestSocialLock compact what=/g) ?? []).length, 2);
         // Reading is untouched — the inbox and thread fetches carry no guard.
-        assert.match(messages, /const r = await fetch\(`\/api\/messages\?with=\$\{encodeURIComponent\(withName\)\}`\);/);
+        assert.match(messages, /const r = await fetch\(`\/api\/messages\?with=\$\{encodeURIComponent\(withName\)\}`, \{ signal \}\);/);
     });
 
     it("keeps clan chat readable but removes the composer", () => {

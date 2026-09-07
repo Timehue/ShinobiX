@@ -59,10 +59,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     kv.get<string>(WEEKLY_BOSS_OVERRIDE_KEY),
                 ]);
 
+                // Both collections are independent indexed reads. One batch
+                // avoids a second round trip and a serial wait on cache misses.
+                const stateKeys = [...villageStateKeys, ...clanPetBattleKeys];
+                const stateValues = stateKeys.length ? await kv.mget<unknown[]>(...stateKeys) : [];
                 const villageStates: Record<string, unknown> = {};
                 if (villageStateKeys.length > 0) {
-                    // mget fetches all values in one round-trip instead of N individual gets.
-                    const stateValues = await kv.mget<unknown[]>(...villageStateKeys);
                     villageStateKeys.forEach((k, i) => {
                         if (stateValues[i] != null) {
                             const name = k.slice(VILLAGE_STATE_PREFIX.length);
@@ -73,12 +75,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 const clanPetBattles: Record<string, unknown> = {};
                 if (clanPetBattleKeys.length > 0) {
-                    // mget fetches all values in one round-trip instead of N individual gets.
-                    const battleValues = await kv.mget<unknown[]>(...clanPetBattleKeys);
                     clanPetBattleKeys.forEach((k, i) => {
-                        if (battleValues[i] != null) {
+                        const value = stateValues[villageStateKeys.length + i];
+                        if (value != null) {
                             const name = k.slice(CLAN_PET_BATTLE_PREFIX.length);
-                            setSafeRecordValue(clanPetBattles, name, battleValues[i]);
+                            setSafeRecordValue(clanPetBattles, name, value);
                         }
                     });
                 }

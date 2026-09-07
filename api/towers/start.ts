@@ -211,10 +211,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const storyMembers: { member: string; character: Record<string, unknown> }[] = [];
         let hostAscensionUnlocked = 0;
         let availableMemberCount = 0;
+        const preflightRecords = await kv.mget<Record<string, unknown>[]>(...memberSlugs.map(slug => `save:${slug}`));
         for (let index = 0; index < memberSlugs.length; index++) {
             const slug = memberSlugs[index]!;
             const record = await augmentSaveWithForgedDefs(
-                await kv.get<Record<string, unknown>>(`save:${slug}`),
+                preflightRecords[index] ?? null,
             );
             const character = record?.character as Record<string, unknown> | undefined;
             if (!character || typeof character !== 'object') {
@@ -465,12 +466,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Seal combat snapshots only after every live account is leased. Direct
         // starts have exactly one human; AI teammates exist only in Story parties.
-        const admin = await loadAdminCombatContent();
+        const [admin, sealedRecords] = await Promise.all([
+            loadAdminCombatContent(),
+            kv.mget<Record<string, unknown>[]>(...memberSlugs.map(slug => `save:${slug}`)),
+        ]);
         const squad: SquadMemberInput[] = [];
         const unavailableAfterClaim: string[] = [];
         for (let index = 0; index < memberSlugs.length; index++) {
             const slug = memberSlugs[index]!;
-            const record = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${slug}`));
+            const record = await augmentSaveWithForgedDefs(sealedRecords[index] ?? null);
             const character = record?.character as Record<string, unknown> | undefined;
             if (!character || typeof character !== 'object') {
                 if (authoritativeParty || slug === hostName) unavailableAfterClaim.push(slug);

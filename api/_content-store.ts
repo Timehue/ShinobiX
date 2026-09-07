@@ -27,7 +27,7 @@ import type { KvLike } from './_storage.js';
 import { safeLogValue } from './_safe-log.js';
 import { SHARED_ADMIN_CONTENT_FIELDS } from './save/_state-ownership.js';
 
-type ContentKv = Pick<KvLike, 'get' | 'set'>;
+type ContentKv = Pick<KvLike, 'get' | 'set'> & Partial<Pick<KvLike, 'mget'>>;
 
 async function getDefaultKv(): Promise<ContentKv> {
     return (await import('./_storage.js')).kv;
@@ -153,9 +153,15 @@ export async function loadPublishedContent(opts: { kv?: ContentKv; force?: boole
     const run = (async () => {
         try {
             const store = opts.kv ?? await getDefaultKv();
-            const records = await Promise.all(
+            // The production store supports indexed batches. Keep the original
+            // per-field recovery for legacy adapters or a failed batch, so one
+            // unavailable field still cannot suppress every other definition.
+            const readIndividually = () => Promise.all(
                 CONTENT_FIELDS.map((field) => store.get<ContentRecord>(contentKey(field)).catch(() => null)),
             );
+            const records = store.mget
+                ? await store.mget<ContentRecord[]>(...CONTENT_FIELDS.map(contentKey)).catch(readIndividually)
+                : await readIndividually();
             const value: Record<string, unknown> = {};
             for (const record of records) {
                 if (record && typeof record === 'object' && isContentField(String(record.field)) && record.value != null) {

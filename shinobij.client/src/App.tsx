@@ -1,5 +1,5 @@
 import { retireStalePetDuel } from "./lib/pet-duel-legacy-challenge";
-import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import type * as React from "react";
 import { installAuthFetch, isTokenExpired, setActivePlayer, setActiveToken, setAdminSession, SESSION_EXPIRED_EVENT, SAVE_VERSION_EVENT, type SaveVersionEventDetail } from "./authFetch";
@@ -239,7 +239,7 @@ import { visiblePoll } from "./lib/poll";
 import { useBattleNavigationGuard } from "./lib/use-battle-navigation-guard";
 import { isBattleViewScreen, shouldHideBattleChrome } from "./lib/notifications-core";
 import { isPetHomeScreen, petHomeReturnLabel } from "./lib/pet-home-navigation";
-import { mergePlayerRoster } from "./lib/roster-merge";
+import { mergePlayerRoster, mergeRosterSnapshot } from "./lib/roster-merge";
 import { setOwnAvatarFallback } from "./lib/own-avatar";
 import { activeCarriedPets, isPresetAvatar } from "./lib/entitlements";
 const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
@@ -278,7 +278,6 @@ import {
     type ArmorQuality,
     type GameItem,
     type SavedBloodline,
-    type ReviewBloodline,
     type ActiveTraining,
     type ActiveJutsuTraining,
 } from "./types/combat";
@@ -1147,7 +1146,6 @@ export default function App() {
 
     const [sharedImages, setSharedImages] = useState<Record<string, string>>({});
     const [savedBloodlines, setSavedBloodlines] = useState<SavedBloodline[]>([]);
-    const [publicPlayerBloodlines, setPublicPlayerBloodlines] = useState<ReviewBloodline[]>([]);
     const [worldStateVersion, setWorldStateVersion] = useState(0);
     useEffect(() => subscribeSharedWorldStateLateChanges(() => setWorldStateVersion((version) => version + 1)), []); // lazily hydrated Village Intel lands after the poll returned
     const refreshWorldStateSnapshot = useCallback(async (continuation?: PvpRewardContinuationContext) => {
@@ -2333,75 +2331,51 @@ export default function App() {
 
     // Fetch full server player list (includes offline players from registry)
     useEffect(() => {
-        if (!gameplayViewOpen || !character?.name) return;
+        if (!gameplayViewOpen || !character?.name || restoringSession) return;
+        const controller = new AbortController();
+        const rosterAccountName = character.name;
         async function fetchRoster() {
             try {
-                const res = await fetch('/api/player/roster');
+                const res = await fetch('/api/player/roster', {
+                    signal: AbortSignal.any([controller.signal, AbortSignal.timeout(12_000)]),
+                });
                 if (!res.ok) return;
                 const data = await res.json() as { players?: ServerPlayerSummary[] };
+                if (controller.signal.aborted) return;
                 if (data.players?.length) {
-                    const serverPlayers = data.players.filter(p => p.name.toLowerCase() !== character!.name.toLowerCase());
+                    const serverPlayers = data.players.filter(p => p.name.toLowerCase() !== rosterAccountName.toLowerCase());
                     setAllServerPlayers(serverPlayers);
-                    setPlayerRoster((prev) => {
-                        const merged = [...prev];
-                        for (const incoming of serverPlayers) {
-                            if (!incoming.character) continue;
-                            const normalized = normalizeCharacter(incoming.character);
-                            const eligiblePets = Array.isArray(incoming.eligiblePets)
-                                ? incoming.eligiblePets.map(normalizePet)
-                                : [];
-                            const record: PlayerRecord = {
-                                name: incoming.name || normalized.name,
-                                level: incoming.level ?? normalized.level,
-                                village: incoming.village || normalized.village,
-                                specialty: (incoming.specialty as JutsuType | undefined) ?? normalized.specialty,
-                                character: normalized,
-                                eligiblePets,
-                                currentSector: incoming.currentSector ?? 40,
-                                lastSeenAt: incoming.lastSeenAt ?? Date.now(),
-                                sleeping: incoming.sleeping === true,
-                            };
-                            const idx = merged.findIndex(p => p.name.toLowerCase() === record.name.toLowerCase());
-                            if (idx >= 0) merged[idx] = { ...merged[idx], ...record };
-                            else merged.push(record);
-                        }
-                        return merged;
-                    });
+                    const records: PlayerRecord[] = [];
+                    for (const incoming of serverPlayers) {
+                        if (!incoming.character) continue;
+                        const normalized = normalizeCharacter(incoming.character);
+                        const eligiblePets = Array.isArray(incoming.eligiblePets)
+                            ? incoming.eligiblePets.map(normalizePet)
+                            : [];
+                        records.push({
+                            name: incoming.name || normalized.name,
+                            level: incoming.level ?? normalized.level,
+                            village: incoming.village || normalized.village,
+                            specialty: (incoming.specialty as JutsuType | undefined) ?? normalized.specialty,
+                            character: normalized,
+                            eligiblePets,
+                            currentSector: incoming.currentSector ?? 40,
+                            lastSeenAt: incoming.lastSeenAt ?? Date.now(),
+                            sleeping: incoming.sleeping === true,
+                        });
+                    }
+                    setPlayerRoster(prev => mergeRosterSnapshot(prev, records));
                 }
             } catch { /* silently skip */ }
         }
-        fetchRoster();
         // Poll every 60s to keep the search's 🟢/⚫ online dot fresh. Do NOT add a
         // cache-buster: this used to send `?fresh=<Date.now()>` outside the village,
         // forcing every poll past the CDN to the origin — the most amplified request in
         // the game, re-serialising EVERY player's save each time. The response is already
         // ≤60s stale by design (the server's process cache bakes the online flags in).
-        const stop = visiblePoll(fetchRoster, 60000);
-        return () => stop();
-    }, [character?.name, currentSector, gameplayViewOpen]);
-
-    useEffect(() => {
-        // /api/bloodlines/list is auth-gated (it scans every save), so it 401s
-        // for anonymous visitors. The public-bloodline gallery only shows inside
-        // the logged-in codex anyway, so skip the fetch until a character is
-        // active — this drops a wasted 401 on every cold landing.
-        if (!gameplayViewOpen || !character?.name) return;
-        async function fetchPublicBloodlines() {
-            try {
-                const res = await fetch('/api/bloodlines/list');
-                if (!res.ok) return;
-                const data = await res.json() as { bloodlines?: ReviewBloodline[] };
-                setPublicPlayerBloodlines((data.bloodlines ?? []).map((bloodline) => ({
-                    ...bloodline,
-                    rank: bloodline.rank as Rank,
-                    jutsus: (bloodline.jutsus ?? []).map(normalizeJutsu),
-                })));
-            } catch { /* silently skip */ }
-        }
-        fetchPublicBloodlines();
-        const stop = visiblePoll(fetchPublicBloodlines, 300000); // mgets every save — worth pausing while hidden
-        return () => stop();
-    }, [character?.name, gameplayViewOpen]);
+        const stop = visiblePoll(fetchRoster, 60000, 0.1, { immediate: true });
+        return () => { controller.abort(); stop(); };
+    }, [character?.name, gameplayViewOpen, restoringSession]);
 
     // Sector-attack auto-routing: if a sectorAttack challenge arrives, route defender to
     // the shared PvP battle (battleId present) or legacy arena as fallback.
@@ -5790,11 +5764,11 @@ export default function App() {
         setScreen(activeTriggerReturnScreen);
     }
 
-    const playableAis = [
+    const playableAis = useMemo(() => [
         ...builtinAis.map((builtin) => { const o = creatorAis.find((ai) => ai.id === builtin.id); return withAcademySparringPortrait(o ? { ...builtin, image: o.image ?? builtin.image } : builtin); }), // built-in/story AIs source-authoritative; same-id override = image only (see AdminPanel allAdminAis)
         ...creatorAis.filter((ai) => !builtinAis.some((builtin) => builtin.id === ai.id)),
         ...(temporaryStoryAi ? [temporaryStoryAi] : []),
-    ];
+    ], [creatorAis, temporaryStoryAi]);
     async function searchHollowGateHiddenChamber() {
         if (!hollowGateHiddenChamber || !character || !hollowGateRun?.runToken) return;
         const result = await resolveHollowGateServerEvent({
@@ -6436,7 +6410,6 @@ export default function App() {
                         updateCharacter={setCharacter}
                         setScreen={setScreen}
                         savedBloodlines={savedBloodlines}
-                        publicPlayerBloodlines={publicPlayerBloodlines}
                         triggeredEvents={triggeredEvents}
                         setTriggeredEvents={setTriggeredEvents}
                         onStartDungeon={(event) => { void triggerDungeonEncounter("centralHub", event); }}

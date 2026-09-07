@@ -111,8 +111,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
         const check = () => fetchMyRun(character.name)
             .then((run) => { if (alive) setPendingRun(run?.runId.startsWith("cboss-") ? run : null); })
             .catch(() => undefined);
-        void check();
-        const stop = visiblePoll(check, 4_000);
+        const stop = visiblePoll(check, 4_000, 0.1, { immediate: true });
         return () => { alive = false; stop(); };
     }, [character.name, clanBossAvailable, fight]);
 

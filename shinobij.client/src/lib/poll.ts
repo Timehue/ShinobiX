@@ -10,20 +10,23 @@
 //
 // Mirrors the visibility discipline already used by the App-level polls and
 // lib/mail-unread.ts. It deliberately does NOT call `fn` on start (callers keep
-// their own mount-fetch) and does NOT touch the caller's fetch fn / alive
-// guards, so migrating a poll is a one-line change with no behavioural risk
-// beyond "no longer polls while hidden".
+// their own mount-fetch). Set immediate to let this helper own the mount-fetch
+// as well. Async callbacks must return their promise: the next poll waits for
+// it to settle, including after a visibility change. Callers still own response
+// cancellation/alive guards and must not return before their request finishes.
 //
 // Returns a cleanup function — use it as the effect's return value:
-//   useEffect(() => { void refresh(); return visiblePoll(refresh, 15000); }, [deps]);
+//   useEffect(() => visiblePoll(refresh, 15000, 0.1, { immediate: true }), [refresh]);
 
 export function visiblePoll(
-    fn: () => void,
+    fn: () => void | Promise<unknown>,
     intervalMs: number,
     jitterPct = 0.1,
+    options: { immediate?: boolean } = {},
 ): () => void {
     let timer: ReturnType<typeof setTimeout> | null = null;
     let stopped = false;
+    let inFlight = false;
 
     const nextDelay = () => {
         if (jitterPct <= 0) return intervalMs;
@@ -32,25 +35,41 @@ export function visiblePoll(
         return intervalMs - spread + Math.random() * spread * 2;
     };
 
-    const loop = () => {
-        timer = setTimeout(() => {
-            if (stopped) return;
-            // Skip the network tick while hidden; keep the loop alive so it
-            // resumes on its own once the tab is foregrounded again.
-            if (!document.hidden) fn();
-            loop();
-        }, nextDelay());
+    const clearTimer = () => {
+        if (timer !== null) clearTimeout(timer);
+        timer = null;
     };
-    loop();
+    const schedule = () => {
+        clearTimer();
+        if (!stopped && !document.hidden && !inFlight) timer = setTimeout(run, nextDelay());
+    };
+    const run = async () => {
+        clearTimer();
+        if (stopped || document.hidden || inFlight) return;
+        inFlight = true;
+        try {
+            await fn();
+        } catch (error) {
+            // Keep the poll recoverable without an unhandled rejection or a
+            // tight retry loop. Screen callbacks normally handle their errors.
+            console.error('[visiblePoll]', error);
+        } finally {
+            inFlight = false;
+            schedule();
+        }
+    };
 
     const onVisible = () => {
-        if (!document.hidden && !stopped) fn(); // catch up immediately on return
+        clearTimer();
+        if (!document.hidden && !stopped) void run();
     };
     document.addEventListener('visibilitychange', onVisible);
+    if (options.immediate) void run();
+    else schedule();
 
     return () => {
         stopped = true;
-        if (timer) clearTimeout(timer);
+        clearTimer();
         document.removeEventListener('visibilitychange', onVisible);
     };
 }

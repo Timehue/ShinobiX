@@ -19,6 +19,7 @@ import { gameConfirm } from "../components/GameAlert";
 
 type DmMessage = { from: string; text: string; ts: number };
 type InboxEntry = { with: string; lastTs: number; lastText: string; unread: number };
+const EMPTY_THREAD: readonly DmMessage[] = [];
 
 function timeAgo(ts: number): string {
     const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
@@ -36,7 +37,8 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
     const me = character.name.toLowerCase();
     const [inbox, setInbox] = useState<InboxEntry[]>([]);
     const [active, setActive] = useState<string | null>(initialWith ? initialWith.toLowerCase() : null);
-    const [thread, setThread] = useState<DmMessage[]>([]);
+    const [loadedThread, setLoadedThread] = useState<{ withName: string; messages: DmMessage[] } | null>(null);
+    const thread = loadedThread && loadedThread.withName === active?.toLowerCase() ? loadedThread.messages : EMPTY_THREAD;
     const [draft, setDraft] = useState("");
     const [composeTo, setComposeTo] = useState(initialWith ?? "");
     const [busy, setBusy] = useState(false);
@@ -49,23 +51,29 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
     const composeDisabled = sendLocked || lockLoading;
     const threadRef = useRef<HTMLDivElement>(null);
 
-    const loadInbox = useCallback(async () => {
-        try { const r = await fetch("/api/messages"); if (r.ok) { const j = await r.json(); setInbox(Array.isArray(j) ? j : []); } } catch { /* offline */ }
-    }, []);
-    const loadBlocks = useCallback(async () => {
+    const loadInbox = useCallback(async (signal: AbortSignal) => {
         try {
-            const r = await fetch("/api/player/blocks");
+            const r = await fetch("/api/messages", { signal });
             if (!r.ok) return;
-            const j = await r.json() as { blocked?: unknown };
-            setBlocked(new Set(Array.isArray(j.blocked) ? j.blocked.map(String) : []));
+            const j = await r.json();
+            if (!signal.aborted) setInbox(Array.isArray(j) ? j : []);
         } catch { /* offline */ }
     }, []);
-    const loadThread = useCallback(async (withName: string) => {
+    const loadBlocks = useCallback(async (signal: AbortSignal) => {
         try {
-            const r = await fetch(`/api/messages?with=${encodeURIComponent(withName)}`);
+            const r = await fetch("/api/player/blocks", { signal });
+            if (!r.ok) return;
+            const j = await r.json() as { blocked?: unknown };
+            if (!signal.aborted) setBlocked(new Set(Array.isArray(j.blocked) ? j.blocked.map(String) : []));
+        } catch { /* offline */ }
+    }, []);
+    const loadThread = useCallback(async (withName: string, signal: AbortSignal) => {
+        try {
+            const r = await fetch(`/api/messages?with=${encodeURIComponent(withName)}`, { signal });
             if (r.ok) {
                 const j = await r.json();
-                setThread(Array.isArray(j) ? j : []);
+                if (signal.aborted) return;
+                setLoadedThread({ withName: withName.toLowerCase(), messages: Array.isArray(j) ? j : [] });
                 // Opening a conversation marks it read server-side — nudge the
                 // shared unread store so the nav badge clears without waiting a
                 // full poll interval.
@@ -74,12 +82,23 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
         } catch { /* offline */ }
     }, []);
 
-    useEffect(() => { void loadInbox(); void loadBlocks(); }, [loadBlocks, loadInbox]);
-    useEffect(() => { if (active) void loadThread(active); }, [active, loadThread]);
-    // Poll inbox + the open thread while the screen is mounted.
     useEffect(() => {
-        return visiblePoll(() => { void loadInbox(); if (active) void loadThread(active); }, 8000);
-    }, [active, loadInbox, loadThread]);
+        const controller = new AbortController();
+        void loadBlocks(controller.signal);
+        return () => controller.abort();
+    }, [loadBlocks, me]);
+    // Own the initial read and subsequent polls together. Switching conversations
+    // or starting a mutation retires both reads before they can replace newer UI.
+    useEffect(() => {
+        if (busy || deleting) return;
+        const controller = new AbortController();
+        const refresh = () => {
+            const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(12_000)]);
+            return Promise.all([loadInbox(signal), active ? loadThread(active, signal) : undefined]);
+        };
+        const stop = visiblePoll(refresh, 8000, 0.1, { immediate: true });
+        return () => { controller.abort(); stop(); };
+    }, [active, busy, deleting, loadInbox, loadThread, me]);
     useEffect(() => { if (threadRef.current) threadRef.current.scrollTop = threadRef.current.scrollHeight; }, [thread]);
 
     const send = useCallback(async (to: string, text: string) => {
@@ -94,10 +113,9 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                 body: JSON.stringify({ to: target, text: body }),
             });
             if (r.ok) {
-                setThread(await r.json());
+                setLoadedThread({ withName: target.toLowerCase(), messages: await r.json() });
                 setDraft("");
                 setActive(target.toLowerCase());
-                void loadInbox();
             } else {
                 const e = await r.json().catch(() => ({}));
                 setError(typeof e.error === "string" ? e.error : "Could not send message.");
@@ -107,7 +125,7 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
         } finally {
             setBusy(false);
         }
-    }, [busy, loadInbox]);
+    }, [busy]);
 
     const setPlayerBlocked = useCallback(async (target: string, value: boolean) => {
         if (busy) return;
@@ -121,13 +139,12 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
             const data = await r.json().catch(() => ({})) as { error?: string; blocked?: unknown };
             if (!r.ok) throw new Error(data.error || "Could not update this player.");
             setBlocked(new Set(Array.isArray(data.blocked) ? data.blocked.map(String) : []));
-            void loadInbox();
         } catch (cause) {
             setError(cause instanceof Error ? cause.message : "Could not update this player.");
         } finally {
             setBusy(false);
         }
-    }, [busy, loadInbox]);
+    }, [busy]);
 
     const deleteConversation = useCallback(async (target: string) => {
         const partner = target.toLowerCase();
@@ -147,7 +164,7 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
             setInbox((current) => current.filter((entry) => entry.with.toLowerCase() !== partner));
             if (active?.toLowerCase() === partner) {
                 setActive(null);
-                setThread([]);
+                setLoadedThread(null);
             }
             refreshUnreadMail();
         } catch (cause) {
@@ -185,7 +202,7 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                                 {blocked.has(active) ? "Unblock" : "Block"}
                             </button>
                         </span>
-                        <button onClick={() => { setActive(null); setError(""); void loadInbox(); }}>← Inbox</button>
+                        <button onClick={() => { setActive(null); setError(""); }}>← Inbox</button>
                     </div>
                     <div ref={threadRef} style={{ maxHeight: "50vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, padding: "4px 0" }}>
                         {thread.length === 0 ? (

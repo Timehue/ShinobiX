@@ -54,11 +54,10 @@ export function HealerInjuredList({
                 const res = await fetch(`/api/player/injured-villagers?healerName=${encodeURIComponent(character.name)}`);
                 if (!res.ok || cancelled) return;
                 const data = await res.json();
-                if (Array.isArray(data.injured)) setWorldwideInjured(data.injured);
+                if (!cancelled && Array.isArray(data.injured)) setWorldwideInjured(data.injured);
             } catch { /* ignore */ }
         }
-        void fetchInjured();
-        const stop = visiblePoll(fetchInjured, 20_000);
+        const stop = visiblePoll(fetchInjured, 20_000, 0.1, { immediate: true });
         return () => { cancelled = true; stop(); };
     }, [hasWorldwideVision, character.name]);
 

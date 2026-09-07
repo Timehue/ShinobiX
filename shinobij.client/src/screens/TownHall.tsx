@@ -368,8 +368,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
                 }
             })
             .catch(() => {});
-        fetchKage();
-        const stop = visiblePoll(fetchKage, 12_000);
+        const stop = visiblePoll(fetchKage, 12_000, 0.1, { immediate: true });
         return () => { alive = false; stop(); };
     }, [character.village]);
     // Challenger drives the overlap "accept obligation" clock: while their
@@ -395,8 +394,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
                 }
             })
             .catch(() => {});
-        press();
-        const stop = visiblePoll(press, 25_000);
+        const stop = visiblePoll(press, 25_000, 0.1, { immediate: true });
         return () => { alive = false; stop(); };
         // Interval keyed on the challenge IDENTITY (status + challenger), not the
         // whole challenge object — which mutates every poll (obligationRemainingMs)
