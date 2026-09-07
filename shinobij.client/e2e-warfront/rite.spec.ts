@@ -125,7 +125,12 @@ async function expectFormationDiffRows(
         const visibleClip = { left: Math.max(0, diffBox.x), top: Math.max(0, diffBox.y), right: Math.min(innerWidth, diffBox.right), bottom: Math.min(innerHeight, diffBox.bottom) };
         for (let ancestor = diff.parentElement; ancestor; ancestor = ancestor.parentElement) {
             const style = getComputedStyle(ancestor);
-            const box = ancestor.getBoundingClientRect();
+            // Body scroll locking propagates to the viewport. A body whose
+            // children are fixed portals can have a zero-height layout box;
+            // that box does not clip the visible fullscreen battle.
+            const box = ancestor === document.body || ancestor === document.documentElement
+                ? { left: 0, top: 0, right: innerWidth, bottom: innerHeight }
+                : ancestor.getBoundingClientRect();
             if (clips(style.overflowX)) {
                 visibleClip.left = Math.max(visibleClip.left, box.left);
                 visibleClip.right = Math.min(visibleClip.right, box.right);
