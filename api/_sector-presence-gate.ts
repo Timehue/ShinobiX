@@ -69,14 +69,12 @@ export function sectorPresenceBlock(playerName: string, claimedSector: unknown):
 
 /**
  * The OTHER door of the same trade (see api/_realtime/presence-gating.ts):
- * `inBattle` is asserted by the client's own heartbeat and confers attack
- * immunity, so a tampered client can claim to be mid-battle forever while it
- * farms the field — full PvE income, total PvP immunity. Nothing server-side
- * can prove the claim false across every combat host, so immunity is not
- * stripped; instead the claim is held to its own consequence: a player who is
- * in a battle cannot also be working the field. For an honest client this is
- * a no-op — every fight is a modal overlay, and no field request leaves the
- * world map while one is open.
+ * a player who is in a battle cannot also be working the field. Since F01 the
+ * presence flag is server-owned — set from the combat stores by the heartbeat
+ * and by fight hosts at start/terminal, never from the client's beat — so this
+ * gate now holds a PROVEN fight to its consequence rather than a claim. For an
+ * honest client this is a no-op — every fight is a modal overlay, and no field
+ * request leaves the world map while one is open.
  *
  * `DISABLE_INBATTLE_FIELD_GATE=1` switches the gate off without a deploy.
  */

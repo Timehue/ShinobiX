@@ -1,7 +1,7 @@
 import { isDeepStrictEqual } from 'node:util';
 import type { KvLike } from '../_storage.js';
 import { safeName } from '../_utils.js';
-import { PVP_TERMINAL_REPLAY_TTL, SESSION_TTL } from '../combat-core/constants.js';
+import { PVP_LAPSED_RETENTION_SECONDS, PVP_TERMINAL_REPLAY_TTL, SESSION_TTL } from '../combat-core/constants.js';
 import {
     makePlayerRankedSessionCloseFence,
     makePlayerRankedSessionCloseTombstone,
@@ -83,9 +83,11 @@ export async function commitPvpSessionMutation(
 ): Promise<PvpSessionMutationResult> {
     const next = persistedSession(expected, desired, options.moveToken);
     const requestedTtl = Math.max(1, Math.floor(options.ttlSeconds ?? SESSION_TTL));
+    // An ACTIVE row is retained past the fight's gameplay expiry (F08): the
+    // requested TTL is when the duel lapses, not when its evidence may vanish.
     const ttlSeconds = next.status === 'done'
         ? Math.max(requestedTtl, PVP_TERMINAL_REPLAY_TTL)
-        : requestedTtl;
+        : requestedTtl + PVP_LAPSED_RETENTION_SECONDS;
     const durableTerminal = isDurablePlayerRankedTerminal(next);
     const casOptions = durableTerminal ? undefined : { ex: ttlSeconds };
 

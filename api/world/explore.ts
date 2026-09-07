@@ -255,7 +255,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (presenceBlock && !identity.admin) {
                         return { ok: false as const, status: presenceBlock.status, error: presenceBlock.error };
                     }
-                    // The client-asserted `inBattle` immunity is held to its own
+                    // The server-proven `inBattle` state (F01) is held to its own
                     // consequence: mid-battle players do not work the field.
                     const battleBlock = fieldActionBlockedByClaimedBattle(playerName);
                     if (battleBlock && !identity.admin) {

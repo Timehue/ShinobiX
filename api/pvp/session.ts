@@ -37,6 +37,9 @@ import {
 } from './_session-publication-tombstone.js';
 import { releaseChallengePvpReservation, reserveChallengeForPvpSession } from './_challenge-authorization.js';
 import { enforcePvpTurnDeadline } from './_turn-deadline.js';
+import { isPvpSessionLapsed } from './_lapse-rules.js';
+import { terminalizeLapsedPvpSession } from './_lapse.js';
+import { PVP_ACTIVE_ROW_TTL } from '../combat-core/constants.js';
 import {
     releaseClanWarPvpReservation,
     requireClanWarPvpReservation,
@@ -223,6 +226,8 @@ export type PvpSession = {
     createdAt: number;
     /** Immutable server time sealed by the CAS that first terminalizes combat. */
     endedAt?: number;
+    /** Set only when the duel was terminalized because it LAPSED (F08): the expiry it lapsed at. */
+    lapsedAt?: number;
     // Stamped every time a successful move commits. Used as a crashed-tab
     // fallback by the 'claim-afk-win' action — if the active player hasn't
     // moved in 90s the inactive player can claim the win even if the
@@ -1793,6 +1798,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return res.status(409).json({ error: 'This ranked match ended as a no-contest.' });
                 }
                 let session = liveRaw as PvpSession | null;
+                if (session && isPvpSessionLapsed(session)) {
+                    try {
+                        const lapsed = await terminalizeLapsedPvpSession(pointer.battleId);
+                        if (lapsed.ok && lapsed.session) session = lapsed.session;
+                    } catch (error) {
+                        console.error('[pvp/session] lapse terminalization failed', error);
+                    }
+                }
                 if (!session) session = await loadPvpRewardRecoverySnapshot(kv, pointer.battleId);
                 if (!session && pvpPendingReservationIsFresh(pointer)) {
                     return res.status(503).json({ error: 'PvP session publication is still finalizing.' });
@@ -1878,6 +1891,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(409).json({ error: 'This ranked match ended as a no-contest.' });
         }
         let session = sessionRaw as PvpSession;
+        // F08: a duel nobody touched for a whole session TTL is a double
+        // walk-out. It is recorded as a draw from the row's own evidence and
+        // its terminal effects replayed before anyone is shown a live fight.
+        if (isPvpSessionLapsed(session)) {
+            try {
+                const lapsed = await terminalizeLapsedPvpSession(battleId);
+                if (lapsed.ok && lapsed.session) session = lapsed.session;
+            } catch (error) {
+                console.error('[pvp/session] lapse terminalization failed', error);
+            }
+        }
         if (session.status === 'active') {
             // Server-authoritative turn expiry: a poll by EITHER player (or a
             // spectator) auto-waits a lapsed turn so a closed tab can never
@@ -2857,7 +2881,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await requireClanWarPvpReservation(clanWarReservation);
                 }
                 if (rankedStamp.rankedKind === 'player' && rankedStamp.rankedMatchId) {
-                    const placed = await kv.set(sessionKey, session, { nx: true, ex: SESSION_TTL } as never);
+                    const placed = await kv.set(sessionKey, session, { nx: true, ex: PVP_ACTIVE_ROW_TTL } as never);
                     if (!placed) {
                         const rawExisting = await kv.get<unknown>(sessionKey);
                         const admission = await getPlayerRankedAdmission(kv, rankedStamp.rankedMatchId);
@@ -2871,7 +2895,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         publishedSession = existing;
                     }
                 } else {
-                    let placed = await kv.set(sessionKey, session, { nx: true, ex: SESSION_TTL } as never);
+                    let placed = await kv.set(sessionKey, session, { nx: true, ex: PVP_ACTIVE_ROW_TTL } as never);
                     if (!placed) {
                         let existing = await kv.get<unknown>(sessionKey);
                         // A fence left by an earlier rollback of THIS exact
@@ -2882,7 +2906,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         if (publicationCapability
                             && pvpSessionPublicationTombstoneMatchesCapability(existing, publicationCapability)) {
                             placed = await kv.compareSet(sessionKey, existing, session, {
-                                ex: SESSION_TTL,
+                                ex: PVP_ACTIVE_ROW_TTL,
                             }) ? 'OK' : null;
                             if (!placed) existing = await kv.get<unknown>(sessionKey);
                         }

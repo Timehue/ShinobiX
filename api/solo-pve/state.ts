@@ -4,6 +4,8 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { cors, safeName } from '../_utils.js';
 import { readSoloPveSession } from './_store.js';
 import { reconcileTerminalSoloPveOutcome } from '../pve/_fight-outcome-settlement.js';
+import { isSoloPveSessionLapsed } from './_session.js';
+import { reconcileLapsedBattle } from '../_battle-lapse.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -20,13 +22,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only read your own encounter.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'solo-pve-state', 180, 60_000, identity.name))) return;
 
-        const session = await readSoloPveSession(sessionId);
+        let session = await readSoloPveSession(sessionId);
         if (!session) return res.status(404).json({ error: 'Solo-PvE session not found.' });
         if (!identity.admin && session.ownerSlug.toLowerCase() !== identity.name.toLowerCase()) {
             return res.status(403).json({ error: 'This solo-PvE session belongs to another player.' });
         }
+        // A reconnect repairs an interrupted physical settlement FIRST (a no-op
+        // on an active row), so a still-readable expired terminal session never
+        // answers 410 with its outcome unsettled.
         const outcome = await reconcileTerminalSoloPveOutcome(session, playerName);
         if (outcome && !outcome.ok) return res.status(outcome.status).json({ error: outcome.error });
+        // F08: an ACTIVE session past its gameplay expiry is terminalized from
+        // its own evidence (the abandon rule at the HP it lapsed with) and its
+        // physical consequence settled BEFORE the client learns it expired.
+        if (isSoloPveSessionLapsed(session)) {
+            await reconcileLapsedBattle({ kind: 'solo-pve', sessionId: session.sessionId }, session.ownerSlug);
+            const terminal = await readSoloPveSession(sessionId);
+            if (terminal) session = terminal;
+            return res.status(410).json({ error: 'Solo-PvE session expired.', lapsed: true, session });
+        }
+        // A terminal row past its own retention is readable evidence, not a live fight.
         if (session.expiresAt <= Date.now()) return res.status(410).json({ error: 'Solo-PvE session expired.', session });
         return res.status(200).json({ ok: true, session });
     } catch (error) {

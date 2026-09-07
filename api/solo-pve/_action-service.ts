@@ -18,6 +18,7 @@ import {
 } from './_store.js';
 import { recordSoloPveLifecycle, type SoloPveTelemetryDeps } from './_telemetry.js';
 import { recordBetaFunnelStep } from '../_beta-funnel.js';
+import { reconcileLapsedBattle } from '../_battle-lapse.js';
 
 export type SoloPveLock = <T>(
     target: string,
@@ -42,6 +43,8 @@ export type SoloPveActionServiceResult = {
         error?: string;
         event?: SoloPveCombatEvent | SoloPveRejectionEvent;
         session?: SoloPveSession;
+        /** F08: the session lapsed and was terminalized before this answer. */
+        lapsed?: boolean;
     };
 };
 
@@ -52,6 +55,8 @@ export type SoloPveActionServiceDeps = {
     now?: () => number;
     engineOptions?: SoloPveEngineOptions;
     telemetry?: SoloPveTelemetryDeps;
+    /** F08: terminalize a lapsed session (defaults to the real reconciler). */
+    reconcileLapsed?: (sessionId: string, ownerSlug: string) => Promise<unknown>;
 };
 
 export function isValidSoloPveMoveToken(value: string): boolean {
@@ -79,14 +84,14 @@ export async function executeSoloPveAction(
         escapeSucceeds: () => randomInt(2) === 0,
     };
 
-    return lock(soloPveSessionKey(command.sessionId), async () => {
+    const result: SoloPveActionServiceResult = await lock(soloPveSessionKey(command.sessionId), async () => {
         const session = await read(command.sessionId);
         if (!session) return { status: 404, body: { error: 'Solo-PvE session not found.' } };
         if (session.ownerSlug.toLowerCase() !== command.ownerSlug.toLowerCase()) {
             return { status: 403, body: { error: 'This solo-PvE session belongs to another player.' } };
         }
         if (session.expiresAt <= now()) {
-            return { status: 410, body: { error: 'Solo-PvE session expired.', session } };
+            return { status: 410, body: { error: 'Solo-PvE session expired.', lapsed: true, session } };
         }
         if (session.recentMoveTokens.includes(command.moveToken)) {
             return { status: 200, body: { applied: false, duplicate: true, reason: 'duplicate-move-token', session } };
@@ -144,4 +149,17 @@ export async function executeSoloPveAction(
         }
         return { status: 200, body: { applied: true, event: resolved.event, session: next } };
     }, { failClosed: true, ttlSec: 10 });
+    // F08: a lapsed session is a terminal event with the engine's own abandon
+    // cost, recorded from the row's evidence and settled before the client is
+    // told the fight is over. The reconciler takes the session lock itself,
+    // so it runs once ours above has been released.
+    if (result.status === 410 && result.body.lapsed && result.body.session) {
+        const lapsedSession = result.body.session;
+        const reconcile = deps.reconcileLapsed
+            ?? ((sessionId: string, ownerSlug: string) => reconcileLapsedBattle({ kind: 'solo-pve', sessionId }, ownerSlug));
+        await reconcile(lapsedSession.sessionId, lapsedSession.ownerSlug);
+        const terminal = await read(lapsedSession.sessionId);
+        if (terminal) result.body.session = terminal;
+    }
+    return result;
 }

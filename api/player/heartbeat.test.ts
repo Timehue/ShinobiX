@@ -90,7 +90,8 @@ test('the tower invite index rides the existing mget and is omitted when empty',
 
     assert.match(
         source,
-        /kv\.mget\(challengeKey, resetSignalKey, healSignalKey, noticesKey, stakeRefundKey, towerInviteKey\)/,
+        // F01: the four battle-authority keys ride the same mget (see battleAuthorityKeys).
+        /kv\.mget\(challengeKey, resetSignalKey, healSignalKey, noticesKey, stakeRefundKey, towerInviteKey, \.\.\.battleKeys\)/,
         'the invite index must be batched into the existing mget, not read separately',
     );
     assert.doesNotMatch(

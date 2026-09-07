@@ -2,7 +2,8 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { readSession } from './_tower-store.js';
+import { readSession, isTowerRunLapsed} from './_tower-store.js';
+import { reconcileLapsedBattle } from '../_battle-lapse.js';
 
 /*
  * POST /api/towers/join — a squad member (esp. a borrowed/invited ally) confirms membership
@@ -34,6 +35,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // is immutable mid-run, so no session lock or write is needed here.
         const session = await readSession(runId);
         if (!session) return res.status(404).json({ error: 'Run not found.' });
+        // F08: a lapsed run cannot be joined; it is recorded as a forfeit.
+        if (isTowerRunLapsed(session)) {
+            await reconcileLapsedBattle({ kind: 'tower', sessionId: runId }, playerName);
+            return res.status(410).json({ error: 'This run lapsed unattended and is over.', errorCode: 'run-lapsed' });
+        }
 
         // Only the caller's own LIVE squad actor (membership = ownership).
         const myActor = session.actors.find(a => a.side === 'squad'

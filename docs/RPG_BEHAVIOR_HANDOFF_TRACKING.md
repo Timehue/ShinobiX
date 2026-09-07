@@ -18,14 +18,14 @@ no defect found / preserved), `design-only` (behavior preserved, decision record
 
 | ID | Recheck disposition (handoff) | Actual handlers / helpers | Regression test | Status |
 |---|---|---|---|---|
-| F01 battle availability | Fix: client-asserted `inBattle` grants immunity | `api/_sector-presence-gate.ts` (`fieldActionBlockedByClaimedBattle`), `api/world/explore.ts` | `api/world/explore-obligations.test.ts` | fixed (income door): a player claiming to be mid-battle cannot work the field; immunity itself is not stripped (no server source proves the claim false across every combat host); kill switch `DISABLE_INBATTLE_FIELD_GATE=1` |
+| F01 battle availability | Fix: client-asserted `inBattle` grants immunity | `api/_realtime/battle-projection.ts`, `api/_realtime/battle-authority.ts`, `api/_realtime/online-store.ts` (upsert ignores the claim), `api/player/heartbeat.ts` (derives the flag on its existing mget), `api/_realtime/socket.ts`, start/terminal hooks in `api/solo-pve/_store.ts`, `api/pvp/_pending-session.ts`, `api/pvp/_committed-terminal-effects.ts`, `api/towers/_battle-lease.ts`; income door `api/_sector-presence-gate.ts` | `api/_realtime/battle-authority.test.ts`, `api/player/heartbeat-battle-authority.test.ts`, `api/_realtime/online-store.test.ts`, `api/world/explore-obligations.test.ts` | **fixed (immunity stripped, 2026-09-06 second pass):** `inBattle` is server-owned. Presence ignores the client claim in both directions; the heartbeat proves the flag from a Tower lease, the `battle-state:<slug>` projection every Solo-PvE host writes at creation (verified against a live, unexpired session), a fresh PvP reservation or an active PvP session, the generic AI-fight pointer, or a running pet duel, cached per player for 10 s keyed by the exact evidence. Fight hosts set/clear presence at start/terminal so immunity begins and ends with the fight. The field-income door keeps its kill switch. |
 | F02 action compatibility | Implement explicit compatibility for prohibited overlaps | `api/world/explore.ts`, `api/missions/ai-fight-start.ts` | `api/world/explore-obligations.test.ts` | fixed (the clear case): a hospitalized character cannot explore or start a new AI fight; other policy questions left as-is |
 | F03 complete aftermath | Preserve; close location/presence connections | `api/_realtime/travel-lease.ts` (arrival tile persisted), `api/player/heartbeat.ts` (cold start adopts it), client `lib/sector-return.ts`, `screens/WorldMap.tsx` initializer, `App.tsx` boot hydration | `api/player/travel.test.ts`, `shinobij.client/src/lib/sector-return.test.ts` | fixed: a reload resumes on the persisted arrival tile instead of the grid centre |
 | F04 persistent chakra/stamina | Do NOT implement | `api/solo-pve/_ai-encounter.ts` (V2 starts full) | existing | design-only (preserved) |
 | F05 all non-wins alike | Preserve mode distinctions; fix premature settlement (N03) | see N03 | see N03 | fixed via N03 |
 | F06 wrong participant | Fix exact actor + legacy receipt collision | `api/missions/_ai-fight-outcome.ts`, `api/pve/_fight-outcome-settlement.ts` | `api/pve/_fight-outcome-participant.test.ts` | fixed |
 | F07 ambush continuity | Commit durable pending encounter at discovery | `api/world/_pending-battle.ts`, `api/world/explore.ts`, client `lib/world-reward-api.ts`, `screens/WorldMap.tsx` (resume via the existing launcher) | `api/world/_pending-battle.test.ts`, `api/world/explore-obligations.test.ts` | fixed |
-| F08 expiry | Test each mode's expiry; evidence-based conclusion | stores | — | deferred |
+| F08 expiry | Test each mode's expiry; evidence-based conclusion | `api/_battle-lapse.ts` (dispatcher), `api/solo-pve/_session.ts`/`_store.ts`/`_abandon.ts`/`state.ts`/`_action-service.ts`, `api/missions/ai-fight-start.ts` (recover), `api/towers/_tower-store.ts`/`_tower-session.ts`/`_lapse.ts`/`my-run.ts`/`state.ts`/`action.ts`/`settle.ts`/`join.ts`, `api/pvp/_lapse-rules.ts`/`_lapse.ts`/`_session-mutation.ts`/`session.ts`/`move.ts`, `api/_realtime/world-duel-engagement.ts`, `api/cron/_battle-lapse-sweep.ts` + `_scheduler.ts` | `api/solo-pve/_lapse.test.ts`, `api/towers/_lapse.test.ts`, `api/pvp/_lapse.test.ts`, `api/cron/_battle-lapse-sweep.test.ts`, `api/player/heartbeat-battle-authority.test.ts` (F08 case), `api/player/heartbeat-town-escape.test.ts` (lapsed duel) | **fixed (2026-09-06 second pass):** gameplay expiry and storage cleanup are separate clocks in every mode. Active rows are retained 24 h past their gameplay expiry, and a lapse is terminalized from the row's own evidence by the owner's next beat, by any read of the session, or by a leased 10-minute sweep over the battle projections. Rulings: Solo-PvE = the engine's abandon rule stamped at the lapse (10% max-HP cost from the HP last stood at, loss, no rewards, physical settlement onto the save; never a knockout); Towers = forfeit (enemy win, nothing paid, entry spent, leases released, party closed, each human actor's HP settled as left); PvP = a duel untouched by anyone for a session TTL is a draw (no admission, no rewards, ordinary terminal replay incl. carried vitals; ranked V2 and admin bouts excluded). A lapsed Tower run is never "confirmed missing", so it no longer refunds its entry. |
 | F09 PvP consequence receipt | Atomic effect+receipt per participant | `api/pvp/_vitals-settlement.ts` | `api/pvp/_vitals-settlement.test.ts` | fixed |
 | F10 safety from navigation | Server-authorize town entry | `api/_realtime/world-duel-engagement.ts`, `api/player/heartbeat.ts`, `api/_realtime/socket.ts` | `api/player/heartbeat-town-escape.test.ts` | fixed: a safe-zone exit is refused while a queued attacker or an active vitals-carrying PvP session engages the player; unengaged town entry stays instant |
 | F11 road origin | Validate real origin | `api/player/travel.ts` | `api/player/travel.test.ts` | fixed (sector authoritative; tile tolerance documented) |
@@ -61,6 +61,15 @@ writes the body.
 | Hollow Gate | `hollow-gate/*` | run on the save + `hollow-gate:run:<slug>:<token>` | body | run death forfeits the entry | expired token self-heals on read (`_elapsed-state.ts`) | existing |
 | Clan boss / war | `clan-boss/*`, war handlers | own stores | shared progression | own | own | existing (S37) |
 | Pet / card hosts | `pet/*`, chronicle handlers | own stores | companion / card, never the body | own | **never** a human hospitalization | existing |
+
+Lapse policy (F08, 2026-09-06): every active row lists a gameplay expiry
+(`expiresAt` on Solo-PvE and Tower rows; last touch + 15 min on PvP rows) and is
+retained in storage 24 h beyond it. "Expired" is a terminal event, reconciled by
+`api/_battle-lapse.ts` from the row's own evidence: Solo-PvE → the engine's abandon
+rule at the lapse; Towers → forfeit, leases released, entry spent, evidenced HP
+settled; PvP → draw with the ordinary terminal replay. Never a knockout that the
+evidence does not show. The `battle-state:<slug>` projection every host writes at
+start is both the presence proof (F01) and the sweep's index.
 
 Regeneration policy (F13): 1 vital/s (+ Aura Sphere bonus) while not battle-locked,
 not in a Hollow Gate run, and not hospitalized; combat-only chakra/stamina refill on
@@ -177,15 +186,13 @@ threshold; changing it is a copy edit outside the authorized scope.
 
 ## Deferred items (recorded, not implemented)
 
-- **F08:** per-mode expiry terminalization (evidence-based settlement of expired
-  active sessions before storage cleanup). Needs a sweeper over each mode's session
-  store and a per-mode ruling on what an expired run costs; not attempted.
-- **F01, the immunity itself:** `inBattle` still confers attack immunity while
-  asserted. Stripping it needs a battle-state source every fight-start path writes;
-  the income door is closed instead (see the table). Recorded sources today:
-  `pvp:pending-session:<slug>` (+ `pvp:<battleId>`), `ai-fight-active:<slug>`,
-  `mission-combat-active:<slug>:<mission>`, `battle-lock:<slug>` (towers/legacy),
-  `hollowGateRun` on the save, pet-duel sessions in memory.
+- ~~**F08**~~ and ~~**F01, the immunity itself**~~: both implemented in the
+  2026-09-06 second pass (see the table). What remains deliberately untouched:
+  Hollow Gate dives already self-heal an expired run token on read (no change);
+  pet and card duels never involve the body (no lapse consequence); a session
+  that has ALREADY left storage (a legacy row that expired before this pass)
+  still settles nothing — there is no evidence to settle from, and inventing a
+  cost would be exactly what the handoff forbids.
 - **F15 legacy clients:** a request without a nonce still runs with no replay
   identity. The shipped client always sends one; making it mandatory is a rollout
   decision once no versionless bodies are observed.
@@ -201,6 +208,27 @@ threshold; changing it is a copy edit outside the authorized scope.
   been answered 400 since 2026-07; restored server-side (both names accepted).
 - Ranked blocker copy changed from "Reach level 15 and finish your Academy
   foundation first." to "Reach level 10 before entering ranked battles."
+
+Second pass (F01 immunity + F08 lapse, 2026-09-06):
+
+- Attack immunity is now proven by the server, never claimed. Client states
+  that used to confer it but have no server-recorded fight no longer do: the
+  Hollow Gate tile game between fights, a pet challenge still waiting to be
+  accepted, and a pet showdown against an AI (pet fights never involve the
+  body). Every body fight — Solo-PvE in all its hosts, PvP, Towers, running
+  two-player pet duels — is covered from its own store.
+- A Solo-PvE fight left unattended for its session TTL now costs the engine's
+  abandon rule (10% max HP from the HP last stood at, a loss, no rewards) even
+  if the client never reports it. Before, closing the tab and waiting cost
+  nothing at all.
+- A Tower run left unattended is a forfeit: entry fee spent, nothing paid,
+  leases released. Before, the vanished run was treated as never published and
+  the entry fee was refunded.
+- A PvP duel that nobody touches for a whole session TTL ends as a draw with
+  the ordinary terminal replay (carried vitals settle). One absent fighter is
+  unchanged: the present one's polls lapse the turns and the forfeit is theirs.
+- Storage: active combat rows (Solo-PvE, Tower, PvP) live 24 h longer than
+  before. Terminal rows are unchanged.
 
 ## Verification (commands, exit codes, results)
 

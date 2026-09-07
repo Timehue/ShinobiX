@@ -2,7 +2,8 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { readSession, getTowerInvite, clearTowerInvite } from './_tower-store.js';
+import { readSession, getTowerInvite, clearTowerInvite, isTowerRunLapsed } from './_tower-store.js';
+import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import type { TowerSession } from './_tower-session.js';
 import { isMpvpLeaseMode } from '../_tower-battle-guard.js';
 import {
@@ -76,7 +77,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // A thrown storage read reaches the outer 500 and preserves the lease.
         // Only an authoritative null enters confirmed-missing recovery.
-        const session = await readSession(runId);
+        let session = await readSession(runId);
+        // F08: a run that lapsed is a forfeit, recorded from its own evidence
+        // (leases released, nothing paid, the entry spent) — never a
+        // "confirmed missing" run that refunds its entry below.
+        if (session && isTowerRunLapsed(session)) {
+            await reconcileLapsedBattle({ kind: 'tower', sessionId: runId }, slug);
+            session = await readSession(runId) ?? session;
+        }
         if (!isDiscoverableTowerRun(session, slug)) {
             if (!session && battleLease?.battleId === runId && battleLease.meta.partyId) {
                 await repairStaleTowerPartyLifecycle(battleLease.meta.partyId);
