@@ -49,7 +49,7 @@ function projection(sessionId: string, over: Partial<BattleStateProjection> = {}
 }
 
 function evidence(over: Partial<BattleEvidence> = {}): BattleEvidence {
-    return { battleState: null, battleLock: null, pvpPointer: null, aiFightPointer: null, ...over };
+    return { battleState: null, battleLock: null, pvpPointer: null, aiFightPointer: null, petBattleActive: null, ...over };
 }
 
 function pointer(battleId: string, over: Record<string, unknown> = {}): string {
@@ -71,12 +71,12 @@ describe('battle authority — presence immunity is proven, never claimed', () =
         resetBattleAuthorityCacheForTests();
     });
 
-    it('names the four keys the heartbeat rides on its existing mget', () => {
+    it('names the five keys the heartbeat rides on its existing mget', () => {
         assert.deepEqual(battleAuthorityKeys('Rill'), [
-            'battle-state:rill', 'battle-lock:rill', 'pvp:pending-session:rill', 'ai-fight-active:rill',
+            'battle-state:rill', 'battle-lock:rill', 'pvp:pending-session:rill', 'ai-fight-active:rill', 'pet:battle-active:rill',
         ]);
-        const ev = battleEvidenceFrom([{ a: 1 }, undefined, 'p', null]);
-        assert.deepEqual(ev, { battleState: { a: 1 }, battleLock: null, pvpPointer: 'p', aiFightPointer: null });
+        const ev = battleEvidenceFrom([{ a: 1 }, undefined, 'p', null, 'tok']);
+        assert.deepEqual(ev, { battleState: { a: 1 }, battleLock: null, pvpPointer: 'p', aiFightPointer: null, petBattleActive: 'tok' });
     });
 
     it('no evidence → not in battle, and nothing is read', async () => {
@@ -163,6 +163,50 @@ describe('battle authority — presence immunity is proven, never claimed', () =
         assert.deepEqual(verdict, { inBattle: true, source: 'pet-duel' });
         const pending = await resolveBattleAuthority(SLUG, evidence(), { ...deps(), petDuelFor: () => ({ status: 'pending' }) });
         assert.equal(pending.inBattle, false, 'an unanswered invite is not a fight');
+    });
+
+    it('a Hollow Gate dive is proven by its run key for as long as the key exists, whatever the projection clock says', async () => {
+        await kv.set('hg-run:rill:tok-1', { mintedAt: NOW });
+        const live = await resolveBattleAuthority(SLUG, evidence({ battleState: projection('tok-1', { kind: 'hollow-gate' }) }), deps());
+        assert.deepEqual(live, { inBattle: true, source: 'hollow-gate' });
+        assert.deepEqual(reads, ['hg-run:rill:tok-1']);
+
+        invalidateBattleAuthority(SLUG);
+        const stale = await resolveBattleAuthority(SLUG, evidence({ battleState: projection('tok-1', { kind: 'hollow-gate', expiresAt: NOW - 1 }) }), deps());
+        assert.equal(stale.inBattle, true, 'the hint expiring does not end a dive that is still live');
+
+        invalidateBattleAuthority(SLUG);
+        await kv.del('hg-run:rill:tok-1'); // settled or died
+        const over = await resolveBattleAuthority(SLUG, evidence({ battleState: projection('tok-1', { kind: 'hollow-gate' }) }), deps());
+        assert.equal(over.inBattle, false);
+        assert.deepEqual(over.lapsed, { kind: 'hollow-gate', sessionId: 'tok-1' }, 'the stale projection is reported so it can be retired');
+    });
+
+    it('a pet showdown is proven by its unfinished session; a finished one grants nothing', async () => {
+        await kv.set('pet:showdown:rill:sd-1', { sessionId: 'sd-1', playerName: SLUG, finished: false });
+        const live = await resolveBattleAuthority(SLUG, evidence({ battleState: projection('sd-1', { kind: 'pet-showdown' }) }), deps());
+        assert.deepEqual(live, { inBattle: true, source: 'pet-showdown' });
+
+        invalidateBattleAuthority(SLUG);
+        await kv.set('pet:showdown:rill:sd-1', { sessionId: 'sd-1', playerName: SLUG, finished: true, outcome: 'win' });
+        const done = await resolveBattleAuthority(SLUG, evidence({ battleState: projection('sd-1', { kind: 'pet-showdown' }) }), deps());
+        assert.equal(done.inBattle, false);
+        assert.deepEqual(done.lapsed, { kind: 'pet-showdown', sessionId: 'sd-1' });
+    });
+
+    it('a legacy pet battle is proven by its active pointer AND the sealed token it names', async () => {
+        const dangling = await resolveBattleAuthority(SLUG, evidence({ petBattleActive: 'tok-9' }), deps());
+        assert.equal(dangling.inBattle, false, 'a pointer whose token is gone proves nothing');
+
+        invalidateBattleAuthority(SLUG);
+        await kv.set('pet:battle-token:rill:tok-9', { playerName: SLUG, seed: 7 });
+        const live = await resolveBattleAuthority(SLUG, evidence({ petBattleActive: 'tok-9' }), deps());
+        assert.deepEqual(live, { inBattle: true, source: 'pet-battle' });
+
+        invalidateBattleAuthority(SLUG);
+        await kv.set('pet:battle-token:rill:tok-9', { playerName: SLUG, seed: 7, settledAt: NOW });
+        const settled = await resolveBattleAuthority(SLUG, evidence({ petBattleActive: 'tok-9' }), deps());
+        assert.equal(settled.inBattle, false, 'a tombstoned token is a finished fight');
     });
 
     it('caches a verdict per player for the same evidence, and re-reads on new evidence or invalidation', async () => {

@@ -2,6 +2,7 @@ import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
+import { publishHollowGatePresence } from './_presence.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { randomUUID } from 'node:crypto';
@@ -254,6 +255,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     .filter((offer): offer is NonNullable<typeof offer> => Boolean(offer));
                 replayed = true;
                 issued = { token: priorStart.token, runToken: priorRun, offers: priorOffers };
+                await publishHollowGatePresence(kv, playerName, priorStart.token);
                 return {
                     ok: true as const,
                     character,
@@ -348,6 +350,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // A crash can leave an unguessable orphan, but never a paid save with
             // a missing run token. The request marker makes a lost response safe.
             await kv.set(hollowGateRunKey(playerName, token), runToken);
+            // F01: the dive is provable presence from this moment (api/hollow-gate/_presence.ts).
+            await publishHollowGatePresence(kv, playerName, token);
             const augmentOffers = offers.map(augmentDisplay);
             const boundRiftSeal = currentRiftSeal ? { ...currentRiftSeal, runToken: token } : null;
             return {
