@@ -47,6 +47,7 @@ import { companionStepMeta } from "../lib/journey-guide";
 import { academyStoryMomentFor, academyVowDefinition } from "../lib/academy-narrative";
 import { commitAcademyNarrativeAction, type AcademyNarrativeAction } from "../lib/academy-narrative-api";
 import { petPoseImage } from "../lib/pet-battle-anim";
+import { requestAcademyTrailFocus } from "../lib/academy-trail-focus";
 import { isLowEndMobile, prefersReducedMotion } from "../lib/device-tier";
 import type { Pet } from "../types/pet";
 import type { Character, Screen } from "../App";
@@ -124,6 +125,14 @@ const guideWrapStyle: React.CSSProperties = {
     maxWidth: 620,
     width: "calc(100% - 24px)",
     zIndex: 9000,
+};
+
+// The World Map chip shares the banner's anchor but sizes to its content, so a
+// narrow phone wraps its buttons onto a second row instead of clipping them.
+const trailChipWrapStyle: React.CSSProperties = {
+    ...guideWrapStyle,
+    width: "max-content",
+    maxWidth: "calc(100% - 16px)",
 };
 
 const skipStyle: React.CSSProperties = {
@@ -558,6 +567,32 @@ export function OnboardingCoach({
         document.body,
     );
 
+    // The World Map beat is the one screen where the bubble has nothing to say
+    // that the map is not already saying: the target sector wears the pulsing
+    // "Next · travel here" badge and the camera opens on it. On a phone the
+    // 148-218px bubble sat over the bottom ~40% of the map viewport and hid the
+    // region chips under it entirely, so here the banner collapses to a one-line
+    // chip. "Find the trail" re-aims the camera for a player who panned away; it
+    // never travels them (menus never move you). Same .onboarding-coach-banner
+    // class, so the bottom-nav clearance, the dialog stand-down and the coach's
+    // own reveal measurement all keep working unchanged.
+    const renderTrailChip = () => createPortal(
+        <div className="onboarding-coach-banner coach-trail-chip" style={trailChipWrapStyle} role="group" aria-label={guideProgressLabel}>
+            <div className="coach-trail-chip-pill">
+                {guideArt && guidePet && (
+                    <img className="coach-trail-chip-pet" src={guideArt} alt="" />
+                )}
+                <p className="coach-trail-chip-line" aria-hidden="true">
+                    <i /><span>Follow the foxfire to any numbered sector.</span>
+                </p>
+                <span className="coach-guide-sr" aria-live="polite">{bannerText}</span>
+                <button type="button" className="coach-trail-chip-find" onClick={requestAcademyTrailFocus}>Find the trail</button>
+                <button type="button" className="coach-skip-link" onClick={requestSkip}>Skip</button>
+            </div>
+        </div>,
+        document.body,
+    );
+
     if (step === "training") {
         return renderGuideBanner(screen !== "training" && (
             <button className="start-primary-btn" onClick={() => setScreen("training")}>Go to Training Grounds</button>
@@ -664,9 +699,10 @@ export function OnboardingCoach({
     }
 
     if (step === "sectorReturn") {
+        if (!visitedSector && screen === "worldMap") return renderTrailChip();
         return renderGuideBanner(
             <>
-                {!visitedSector && screen !== "worldMap" && (
+                {!visitedSector && (
                     <button className="start-primary-btn" onClick={() => setScreen("worldMap")}>Open World Map</button>
                 )}
                 {visitedSector && (
