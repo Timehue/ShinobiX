@@ -266,6 +266,9 @@ function wireRealtime(io: IOServer): void {
                 sector: requestedSector,
                 character: slim as Record<string, unknown> | null,
                 travelingUntil: capTravelingUntil(p.travelingUntil, now),
+                // Client hint only — upsert ignores it (F01). The flag is
+                // server-owned: the HTTP heartbeat derives it from the combat
+                // stores every beat, and fight hosts set it at start/terminal.
                 inBattle: p.inBattle === true ? true : undefined,
                 tile: normalizeTile(p.tile, previous?.tile),
             });

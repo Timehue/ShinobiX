@@ -64,6 +64,14 @@ export const SPIRE_LB_MAX = 1000;
 export type SpireBoardEntry = { slug: string; name: string; village?: string; level?: number; tier: number; at: number };
 
 export const TOWER_SESSION_TTL = 30 * 60;      // 30 min (refreshed on every action)
+/**
+ * How long an ACTIVE row stays in storage PAST its gameplay expiry (F08). The
+ * run lapses at `expiresAt`; the row outlives that so the lapse is recorded
+ * as a forfeit from the run's own evidence — leases released, nothing paid,
+ * the entry fee spent, each human actor's HP as they left it — instead of
+ * vanishing into a "confirmed missing" run that refunds its entry.
+ */
+export const TOWER_LAPSED_RETENTION_SECONDS = 24 * 60 * 60;
 export const RUN_TOKEN_TTL = 60 * 60;          // 1 h
 export const PAID_RECEIPT_TTL = 24 * 60 * 60;  // 24 h (per-run replay guard)
 export const SPIRE_REWARD_TTL = 8 * 24 * 60 * 60; // 8 days (spans a full reset-week + slack)
@@ -135,12 +143,28 @@ export async function readSession(runId: string, deps: StoreDeps = {}): Promise<
 }
 export async function writeSession(session: TowerSession, deps: StoreDeps = {}): Promise<void> {
     const kv = deps.kv ?? realKv;
+    const now = deps.now ?? Date.now;
     // Terminal evidence must outlive the live-fight window so a client that
     // loses its settlement response can reconnect and retry against the same
-    // authoritative session for the full receipt window.
-    const ttl = session.status === 'done' ? PAID_RECEIPT_TTL : TOWER_SESSION_TTL;
+    // authoritative session for the full receipt window. An ACTIVE row carries
+    // its gameplay expiry and is retained past it (F08): expiry is a terminal
+    // event the lapse reconciler records, not a storage disappearance.
+    if (session.status === 'active') session.expiresAt = now() + TOWER_SESSION_TTL * 1000;
+    const ttl = session.status === 'done' ? PAID_RECEIPT_TTL : TOWER_SESSION_TTL + TOWER_LAPSED_RETENTION_SECONDS;
     const written = await kv.set(sessionKey(session.runId), session, { ex: ttl });
     if (written === null) throw new Error('Tower session publication was not committed.');
+}
+
+/** When an active run lapses. Rows sealed before `expiresAt` existed lapse at lastActionAt + TTL. */
+export function towerRunExpiresAt(session: Pick<TowerSession, 'expiresAt' | 'lastActionAt'>): number {
+    const stamped = Number(session.expiresAt);
+    if (Number.isFinite(stamped) && stamped > 0) return stamped;
+    return (Number(session.lastActionAt) || 0) + TOWER_SESSION_TTL * 1000;
+}
+
+/** An ACTIVE run whose gameplay expiry has passed: lapsed, not finished. */
+export function isTowerRunLapsed(session: Pick<TowerSession, 'status' | 'expiresAt' | 'lastActionAt'>, now: number = Date.now()): boolean {
+    return session.status === 'active' && towerRunExpiresAt(session) <= now;
 }
 
 // ─── Co-op invites — point an invited ally at the host's runId so they can join ──

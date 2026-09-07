@@ -189,7 +189,11 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
             travelingUntil,
             travelDestinationSector,
             travelDestinationTile,
-            inBattle: entry.inBattle === true ? true : undefined,
+            // SERVER-OWNED (F01): a beat cannot set or clear it. The heartbeat
+            // derives it from the combat stores (battle-authority.ts) and fight
+            // hosts set it at start/terminal via setInBattle; `entry.inBattle`
+            // is a client claim and is ignored, exactly like `travelingUntil`.
+            inBattle: prev?.inBattle,
             // Within-sector tile for live peer rendering; keep the last known tile
             // if this beat didn't carry one (older client / non-sector screen).
             tile: entry.tile ?? prev?.tile,

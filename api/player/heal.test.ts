@@ -138,7 +138,8 @@ test('active-battle rejection does not reserve the target heal cooldown', { conc
             hospitalizedUntil: Date.now() + 60_000,
         },
     });
-    onlineStore.upsert({ name: TARGET, sector: 1, inBattle: true } as never);
+    onlineStore.upsert({ name: TARGET, sector: 1 } as never);
+    onlineStore.setInBattle(TARGET, true); // server-owned (F01): what a fight host sets at start
     const req = {
         method: 'POST',
         body: { healerName: HEALER, targetName: TARGET, requestId: 'heal_active_battle_0001' },

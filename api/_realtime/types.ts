@@ -34,7 +34,12 @@ export type OnlinePlayer = {
     travelDestinationTile?: number;
     /** Sector whose room saw this player before a stale, matured travel sweep. */
     departureSector?: number;
-    /** true while a PvP session is active (blocks double-battle). */
+    /**
+     * true while the SERVER can prove a fight (F01): set from the combat
+     * stores by the heartbeat (battle-authority.ts) and by fight hosts at
+     * start/terminal. Blocks double-battle, travel, external heals; confers
+     * attack immunity. Never taken from a client beat.
+     */
     inBattle?: boolean;
     /** Within-sector tile (0..143) for live peer rendering. Display-only — no
      * gameplay path reads it (attack/heal/challenge use sector/inBattle/travel). */
@@ -49,6 +54,7 @@ export type PresenceUpsert = {
     sector: number;
     character: Record<string, unknown> | null;
     travelingUntil?: number;
+    /** Client hint only — ignored by upsert (F01). Kept for wire compatibility. */
     inBattle?: boolean;
     tile?: number;
 };
@@ -72,7 +78,7 @@ export interface OnlineStateStore {
     setPendingAttacker(name: string, attacker: unknown): boolean;
     /** Clear a player's queued attacker. */
     clearPendingAttacker(name: string): void;
-    /** Set/clear the inBattle flag (PvP session start/end). */
+    /** Set/clear the server-owned inBattle flag (fight start/terminal, heartbeat corroboration). */
     setInBattle(name: string, inBattle: boolean): void;
     /** Start a server-owned travel lease. Returns null if the player cannot travel. */
     startTravel(name: string, destinationSector: number, arrivalAt: number, originSector?: number, arrivalTile?: number): OnlinePlayer | null;

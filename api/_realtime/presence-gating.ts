@@ -18,34 +18,20 @@ import { safeName } from '../_utils.js';
 export type Block = { status: 403 | 404 | 409; error: string };
 
 /*
- * ⚠ KNOWN GAP — `target.inBattle` is asserted by the client and nothing corroborates it.
+ * `target.inBattle` is SERVER-OWNED (F01, 2026-09-06). It used to be whatever
+ * the target's own heartbeat asserted, and nothing corroborated it, so a
+ * tampered client could claim it forever: visible in the wild, farming the
+ * field, un-attackable, never converting to a sleeper camp. Presence now
+ * ignores the client's claim (online-store.ts upsert) and the heartbeat sets
+ * the flag from what the combat stores can prove — a Tower lease, a live
+ * Solo-PvE session via the `battle-state:<slug>` projection, a PvP pointer
+ * whose session is still active, a running pet duel
+ * (api/_realtime/battle-authority.ts). Fight hosts also set/clear it at
+ * start and terminal so immunity begins and ends with the fight itself.
  *
- * Every "is in a battle" 409 below reads a flag the target's own heartbeat set
- * (api/player/heartbeat.ts passes `inBattle` straight into onlineStore.upsert).
- * The identity check there stops you setting it on SOMEONE ELSE, but nothing
- * stops a tampered client asserting it about ITSELF forever: they stay visible
- * in their sector, keep full wild-field income (sectorPresenceBlock only checks
- * the sector), and are un-attackable — and, being online, they never convert to
- * a sleeper camp either. That is the same "PvE income, PvP immunity" trade
- * _sector-presence-gate.ts was written to close via `sector: 0`; this is the
- * other door.
- *
- * It is deliberately NOT patched here, because there is no honest corroboration
- * source yet:
- *   • `battle:lock:<slug>` (api/battle/lock.ts) does NOT cover current fights —
- *     "Current Solo PvE, PvP, and Tower hosts instead recover their sealed
- *     sessions from their own server stores". Gating on it would strip immunity
- *     from players genuinely mid-fight and pull them into a second battle.
- *   • the PvP pending-session pointer is authoritative but PvP-only, so it would
- *     do the same to anyone in a Solo PvE / Tower / dungeon / pet fight.
- * Closing this needs a server-side battle-state source that every fight-start
- * path writes — a design change, not a predicate tweak.
- *
- * Sibling fields, for contrast: `travelingUntil` looks equally client-supplied
- * and is NOT — upsert ignores `entry.travelingUntil` entirely and only a minted
- * travel lease can set it (pinned in online-store.test.ts). And an actor
- * blocking THEMSELVES with `inBattle` is harmless; only the target-side reads
- * below confer immunity.
+ * These predicates stay pure and keep reading the flag; what changed is who
+ * may write it. `travelingUntil` follows the same rule: upsert ignores the
+ * client value and only a minted travel lease can set it.
  */
 
 // "Academy protection". ⚠ This is NOT the attackability floor — per the owner's

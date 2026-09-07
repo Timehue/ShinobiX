@@ -2,9 +2,16 @@ import { randomUUID } from 'node:crypto';
 import { kv as realKv } from '../_storage.js';
 import { withKvLock as realWithKvLock } from '../_lock.js';
 import { safeName } from '../_utils.js';
-import { sessionKey, TOWER_SESSION_TTL, type TowerKv, type TowerLock } from './_tower-store.js';
+import { sessionKey, TOWER_LAPSED_RETENTION_SECONDS, TOWER_SESSION_TTL, type TowerKv, type TowerLock } from './_tower-store.js';
 import type { TowerSession } from './_tower-session.js';
 import {
+    noteBattleEnded,
+    noteBattleStarted,
+    publishBattleProjection,
+    retireBattleProjection,
+} from '../_realtime/battle-projection.js';
+import {
+    isMpvpLeaseMode,
     isTowerBattleLock,
     TOWER_BATTLE_LOCK_KIND,
     TOWER_BATTLE_LOCK_SCREEN,
@@ -176,6 +183,22 @@ export async function claimTowerBattleLeases(input: {
             }
             throw error;
         }
+        // F01/F08: the lease IS this account's liveness in the run, so presence
+        // follows it, and the projection lets the lapse sweep find the run by
+        // player. Story/Spire only: an MPvP lease names a match-store row with
+        // its own lifecycle, never a `tower:<runId>` session.
+        const mode = input.mode ?? rows.map(row => matchingTowerLease(row.value, input.runId) ? row.value.meta.mode : undefined).find(Boolean);
+        for (const member of members) {
+            noteBattleStarted(member);
+            if (!isMpvpLeaseMode(mode)) {
+                await publishBattleProjection(kv, member, {
+                    kind: 'tower',
+                    sessionId: input.runId,
+                    startedAt: now(),
+                    expiresAt: now() + TOWER_BATTLE_LOCK_TTL * 1000,
+                }, TOWER_BATTLE_LOCK_TTL + TOWER_LAPSED_RETENTION_SECONDS).catch(() => undefined);
+            }
+        }
         return { ok: true, members, replayed };
     });
 }
@@ -340,6 +363,12 @@ export async function ensureTowerBattleLeases(input: {
     return claimTowerBattleLeases({ ...input, refreshExisting: false }, deps);
 }
 
+/** A released lease ends this account's fight for presence and retires its projection. */
+async function retireTowerPresence(kv: TowerKv, member: string, runId: string): Promise<void> {
+    noteBattleEnded(member);
+    await retireBattleProjection(kv, member, runId).catch(() => false);
+}
+
 /** Read a well-formed Tower-owned lease for one account. */
 export async function towerBattleLeaseForMember(
     memberInput: string,
@@ -382,6 +411,7 @@ export async function recoverConfirmedMissingTowerBattleLease(
         }
         await deps.beforeConfirmedMissingRelease?.(observed);
         const released = await deleteExactLease(kv, battleLockKey(member), observed);
+        if (released) await retireTowerPresence(kv, member, runId);
         return { released, pending: false };
     }, { failClosed: true });
 }
@@ -407,7 +437,7 @@ export async function releaseTowerBattleLeases(
         for (const member of members) {
             const observed = await kv.get<unknown>(battleLockKey(member));
             if (matchingTowerLease(observed, runId)) {
-                await deleteExactLease(kv, battleLockKey(member), observed);
+                if (await deleteExactLease(kv, battleLockKey(member), observed)) await retireTowerPresence(kv, member, runId);
             }
         }
     });

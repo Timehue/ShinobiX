@@ -12,8 +12,9 @@ import {
     isSpireRun,
     isPublicTowerRun,
     type SettleResult,
-    type ConsumedItemsResult,
+    type ConsumedItemsResult, isTowerRunLapsed
 } from './_tower-store.js';
+import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import { closeTowerPartyRun, towerPartyHumanMembers, type StoredTowerParty } from './_party.js';
 import type { TowerSession } from './_tower-session.js';
 import { recordTowerRunSettled } from './_telemetry.js';
@@ -52,8 +53,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
 
-        const session = await readSession(runId);
+        let session = await readSession(runId);
         if (!session) return res.status(404).json({ error: 'Run not found.' });
+        // F08: a lapsed run settles as the forfeit it is (nothing to pay).
+        if (isTowerRunLapsed(session)) {
+            await reconcileLapsedBattle({ kind: 'tower', sessionId: runId }, identity.admin ? undefined : identity.name);
+            session = await readSession(runId) ?? session;
+        }
 
         const callerSlug = identity.admin ? null : identity.name;
         const isMember = identity.admin || session.actors.some(a => a.side === 'squad'

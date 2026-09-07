@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
  *        `pending-battle-discovery` naming that exact receipt; once the fight
  *        was started (its marker exists) exploring resumes.
  *   F02  a hospitalized character cannot work the field.
- *   F01  a client asserting `inBattle` cannot work the field either — the
+ *   F01  a player the server proves to be mid-battle cannot work the field — the
  *        immunity that flag buys is held to its own consequence.
  *   F17  a side effect that fails is parked and delivered on the next
  *        exploration, exactly once.
@@ -84,7 +84,11 @@ async function seed(character: Json = {}) {
 
 function present(inBattle = false) {
     onlineStore.remove(PLAYER);
+    // The flag is server-owned (F01): a beat cannot set it, a fight host does.
+    // A client claim on the upsert is ignored, so the fixture sets it the way
+    // the combat stores do.
     onlineStore.upsert({ name: PLAYER, sector: SECTOR, character: { level: 12 }, tile: 5, ...(inBattle ? { inBattle: true } : {}) });
+    onlineStore.setInBattle(PLAYER, inBattle);
 }
 
 before(async () => {
@@ -160,7 +164,7 @@ describe('world/explore — obligations and admissions', { concurrency: false },
         assert.equal(out.body?.reason, 'hospitalized');
     });
 
-    it('F01: a client asserting inBattle cannot work the field; the same client without the claim can', async () => {
+    it('F01: a player the server proves to be in a battle cannot work the field; the same player once it ends can', async () => {
         present(true);
         const refused = await explore();
         assert.equal(refused.statusCode, 409, JSON.stringify(refused.body));
