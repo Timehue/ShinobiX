@@ -2,7 +2,15 @@ import { expect, test } from '@playwright/test';
 import { expectUiAuditBoot, installUiAuditRuntime } from './helpers/ui-audit-runtime';
 
 test('the bloodline gallery loads on demand and stops polling after the archive closes', async ({ page }) => {
-    await page.clock.install();
+    // Shorten only the five-minute poll (including its 10% jitter). Keep native
+    // animation frames and input timing: a global fake clock can stall WebKit's
+    // pointer-action stability checks and React's post-paint effect scheduling.
+    await page.addInitScript(() => {
+        const nativeSetTimeout = window.setTimeout.bind(window);
+        window.setTimeout = (handler: TimerHandler, delay?: number, ...args: unknown[]) =>
+            nativeSetTimeout(handler, delay !== undefined && delay >= 270_000 && delay <= 330_000
+                ? delay / 1_000 : delay, ...args);
+    });
     const runtime = await installUiAuditRuntime(page);
     let galleryRequests = 0;
     const errors: string[] = [];
@@ -15,18 +23,21 @@ test('the bloodline gallery loads on demand and stops polling after the archive 
         }] } });
     });
     await expectUiAuditBoot(page, runtime, 'centralHub');
+    const archiveButton = page.locator('.central-card').filter({ hasText: 'Ancient Archives' });
     expect(galleryRequests).toBe(0);
-    await page.locator('.central-card').filter({ hasText: 'Ancient Archives' }).click();
+    await archiveButton.click();
     const archive = page.getByRole('dialog', { name: 'Ancient Archives' });
     await expect(archive.getByText('Measured Bloodline', { exact: true })).toBeVisible();
-    expect(galleryRequests).toBe(1);
+    // Prove the shortened recurring poll runs before testing its cleanup.
+    await expect.poll(() => galleryRequests).toBeGreaterThanOrEqual(2);
     await archive.getByRole('button', { name: /close/i }).first().click();
     await expect(archive).toBeHidden();
-    // Fast-forward installed browser timers instead of sleeping five minutes.
-    await page.clock.fastForward(301_000);
-    expect(galleryRequests).toBe(1);
-    await page.locator('.central-card').filter({ hasText: 'Ancient Archives' }).click();
-    await expect.poll(() => galleryRequests).toBe(2);
+    const requestsWhenClosed = galleryRequests;
+    // Observe more than three maximum poll intervals with the archive closed.
+    await page.waitForTimeout(1_000);
+    expect(galleryRequests).toBe(requestsWhenClosed);
+    await archiveButton.click();
+    await expect.poll(() => galleryRequests).toBeGreaterThan(requestsWhenClosed);
     await expect(archive.getByText('Measured Bloodline', { exact: true })).toBeVisible();
     expect(errors).toEqual([]);
 });

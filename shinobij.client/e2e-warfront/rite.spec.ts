@@ -524,7 +524,11 @@ test("the exact Galaxy S25+ QHD report re-forms every pet and only Lock starts c
     await touchTap(page, page.getByRole("button", { name: "Close tactical report" }));
     await expect(panel).toHaveAttribute("data-mobile-report-state", "available");
     await expect(report).toBeHidden();
-    await page.waitForTimeout(200);
+    // The role locator disappears as soon as aria-hidden flips, before the
+    // drawer's closing transition finishes on a busy renderer. Measure the
+    // controls only once the actual layer is hidden, using a stable locator.
+    await expect(panel.locator(".wfr-reform-evidence")).toHaveCSS("visibility", "hidden");
+    await expect(panel.locator(".wfr-reform-evidence")).toHaveCSS("opacity", "0");
 
     const compactGate = await panel.evaluate((root) => {
         const rect = (node: Element | null) => {
