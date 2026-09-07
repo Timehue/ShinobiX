@@ -134,3 +134,46 @@ test("the Academy banner stands down for the mobile Shinobi Menu", async ({ page
     await expect(destinations.first()).toBeVisible();
     await expectUnobstructed(destinations.last(), "the last Shinobi Menu destination");
 });
+
+test("the Academy banner collapses to a chip on the World Map beat and can re-aim at the trail", async ({ page }, testInfo) => {
+    test.skip(!MEASURED_PROJECTS.has(testInfo.project.name), "layering is measured on one phone and one desktop viewport");
+
+    // In the village (sector 0): the map beat is "go find the trail", and the
+    // authored field-trace overlay only fires once the player stands in a
+    // numbered sector.
+    const runtime = await installUiAuditRuntime(page, { ...academySave("sectorReturn"), currentSector: 0 });
+    await expectUiAuditBoot(page, runtime, "worldMap");
+
+    // The map beat has nothing to say that the map isn't already saying (the
+    // target pin wears the pulsing badge), so the banner must be a one-line
+    // chip here: the full bubble covered the bottom ~40% of a phone's map.
+    const banner = page.locator(COACH_BANNER);
+    await expect(banner).toBeVisible();
+    await expect(banner).toHaveClass(/coach-trail-chip/);
+    expect(await banner.evaluate((node) => node.getBoundingClientRect().height)).toBeLessThanOrEqual(100);
+
+    const pin = page.locator(".atlas-sector.academy-click-target");
+    const pinState = () => pin.evaluate((marker) => {
+        const stage = marker.closest<HTMLElement>(".world-map-scroll")?.getBoundingClientRect();
+        const chip = document.querySelector<HTMLElement>(".onboarding-coach-banner")?.getBoundingClientRect();
+        const box = marker.getBoundingClientRect();
+        const cx = box.left + box.width / 2;
+        const cy = box.top + box.height / 2;
+        return {
+            inCamera: Boolean(stage) && cx >= stage!.left && cx <= stage!.right && cy >= stage!.top && cy <= stage!.bottom,
+            onScreen: cy >= 0 && cy <= window.innerHeight,
+            underBanner: Boolean(chip) && box.left < chip!.right && chip!.left < box.right && box.top < chip!.bottom && chip!.top < box.bottom,
+        };
+    });
+    const inView = { inCamera: true, onScreen: true, underBanner: false };
+    await expect.poll(pinState, { message: "the target pin must open in view and clear of the chip", timeout: 10_000 }).toEqual(inView);
+
+    if (PHONE_PROJECTS.has(testInfo.project.name)) {
+        // Wander off to another region, as an exploring player would.
+        await page.getByRole("button", { name: "Frostfang", exact: true }).click();
+        await expect.poll(async () => (await pinState()).inCamera, { timeout: 10_000 }).toBe(false);
+    }
+
+    await page.getByRole("button", { name: "Find the trail" }).click();
+    await expect.poll(pinState, { message: "Find the trail must bring the target pin back into view", timeout: 10_000 }).toEqual(inView);
+});

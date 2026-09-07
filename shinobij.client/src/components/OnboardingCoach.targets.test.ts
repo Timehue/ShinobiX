@@ -77,3 +77,24 @@ test("every clickable Academy path screen marks its real next action", () => {
     assert.match(worldMap, /academy-map-target-label/);
     assert.match(css, /atlas-sector\.academy-click-target::after[\s\S]*?display: none !important/);
 });
+
+test("the World Map beat collapses the banner to a chip that can re-aim the camera", () => {
+    // On a phone the 148-218px bubble sat over the bottom ~40% of the map
+    // viewport it was pointing at (and hid the region chips under it), while
+    // saying nothing the pulsing target pin does not. So on the map, with the
+    // trail not yet found, the coach renders a one-line chip instead — same
+    // banner class, so the nav clearance, the dialog stand-down and the reveal
+    // measurement all still apply — and "Find the trail" re-aims the camera
+    // through the window event the map's focus hook listens for.
+    assert.match(coach, /if \(!visitedSector && screen === "worldMap"\) return renderTrailChip\(\);/);
+    assert.match(coach, /className="onboarding-coach-banner coach-trail-chip"/);
+    assert.match(coach, /className="coach-trail-chip-find" onClick=\{requestAcademyTrailFocus\}/);
+    assert.match(coach, /import \{ requestAcademyTrailFocus \} from "\.\.\/lib\/academy-trail-focus";/);
+    // The chip keeps the full coaching line for screen readers.
+    assert.match(coach, /coach-trail-chip[\s\S]*?className="coach-guide-sr" aria-live="polite">\{bannerText\}/);
+    assert.match(css, /\.coach-trail-chip \{\s*pointer-events: none;/);
+    assert.match(css, /\.coach-trail-chip-pill \{[^}]*pointer-events: auto;/);
+    assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.coach-trail-chip-pill[\s\S]*?animation: none/);
+    const worldMapZoom = readFileSync(new URL("../lib/use-world-map-zoom.ts", import.meta.url), "utf8");
+    assert.match(worldMapZoom, /addEventListener\(ACADEMY_TRAIL_FOCUS_EVENT, onFindTrail\)/);
+});
