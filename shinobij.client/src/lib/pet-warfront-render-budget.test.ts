@@ -164,17 +164,33 @@ test("hardware tries authored rigs and an old default record cannot suppress the
         reason: "pending-preflight",
     });
     assert.equal(serializeWarfrontPersistedRoute(renderer, route), null, "unmeasured hardware is not saved as proven fast");
-    const encoded = JSON.stringify({ version: 2, renderer, mode: "model-impostor", proof: "safe-default", sample: null });
+    const encoded = JSON.stringify({ version: 3, renderer, mode: "model-impostor", proof: "safe-default", sample: null });
     const restored = parseWarfrontPersistedRoute(encoded, renderer);
     assert.equal(restored?.proof, "safe-default");
     assert.equal(initialWarfrontRuntimeRoute({ actorCount: 8, renderer, impostorAssetsAvailable: true, persisted: restored }).reason, "pending-preflight");
     assert.equal(warfrontShouldAttempt3d(renderer, encoded), true);
 });
 
+test("curtain scheduling gaps cannot disqualify fast renderer work", () => {
+    const initial = initialWarfrontRuntimeRoute({ actorCount: 8, renderer: "RTX", impostorAssetsAvailable: true, persisted: null });
+    const occluded = sample({ frameGapsOver100ms: 3, frameGapMaxMs: 1001, renderFrameMaxMs: 12 });
+    const provisional = resolveWarfrontRuntimeRoute(initial, occluded);
+    assert.equal(provisional.status, "validating");
+    assert.equal(resolveWarfrontRuntimeRoute(initial, { ...occluded, renderFrameMaxMs: 141 }).reason, "preflight-slow");
+    assert.equal(resolveWarfrontRuntimeRoute(initial, { ...occluded, longTaskMaxMs: 141 }).reason, "preflight-slow");
+    assert.equal(resolveWarfrontVisibleRoute(provisional, occluded).reason, "visible-slow", "visible combat still checks actual frame pacing");
+});
+
+test("old curtain-based persisted verdicts require a new calibration", () => {
+    const encoded = JSON.stringify({ version: 2, renderer: "RTX", mode: "model-impostor", proof: "slow-observed", sample: sample({ frameGapMaxMs: 1001 }) });
+    assert.equal(parseWarfrontPersistedRoute(encoded, "RTX"), null);
+    assert.equal(warfrontShouldAttempt3d("RTX", encoded), true);
+});
+
 test("an unproven or over-budget 3D storage record cannot opt hardware into rigs", () => {
     const renderer = "ANGLE (NVIDIA GeForce RTX 3080)";
-    const unproven = JSON.stringify({ version: 2, renderer, mode: "skinned-3d", proof: "safe-default", sample: sample() });
-    const slow = JSON.stringify({ version: 2, renderer, mode: "skinned-3d", proof: "fast-visible-canary", sample: sample({ frameGapMaxMs: 101 }) });
+    const unproven = JSON.stringify({ version: 3, renderer, mode: "skinned-3d", proof: "safe-default", sample: sample() });
+    const slow = JSON.stringify({ version: 3, renderer, mode: "skinned-3d", proof: "fast-visible-canary", sample: sample({ frameGapMaxMs: 101 }) });
     assert.equal(parseWarfrontPersistedRoute(unproven, renderer), null);
     assert.equal(parseWarfrontPersistedRoute(slow, renderer), null);
 });

@@ -231,7 +231,7 @@ async function seedSharedOrdinaryPvpOpponent(request: APIRequestContext) {
     // Re-registering a throwaway opponent in every project pushed this single
     // no-retry matrix over the real household registration budget (25/15m).
     // Verify-first avoids spending a registration attempt on an existing name;
-    // the admin reseed below restores a deterministic, lease-free combat save.
+    // afterEach finishes and settles the prior match before this account is reused.
     const name = 'layout-pvp-opponent';
     const password = 'LayoutMatrix!1234';
     let authenticated = await request.post('/api/player-auth', {
@@ -262,10 +262,8 @@ async function seedSharedOrdinaryPvpOpponent(request: APIRequestContext) {
         data: { playerName: name, eventId: AURA_SPHERE_VN_ID },
     });
     expect(claimed.status(), JSON.stringify(await claimed.json())).toBe(200);
-    // This shared account may have won the previous project's PvP coin flip.
-    // Closing that browser leaves its short-lived in-memory presence marked in
-    // battle; after the admin reset + authenticated save acknowledgement, publish
-    // the same ordinary out-of-battle heartbeat a returned client would send.
+    // A save reset and a client heartbeat cannot clear an authoritative PvP
+    // session. The previous test's teardown must have settled the real duel.
     await fetchAuthoritativeSave(request, { name, token });
     const clearedPresence = await request.post('/api/player/heartbeat', {
         headers,
@@ -285,6 +283,46 @@ async function seedSharedOrdinaryPvpOpponent(request: APIRequestContext) {
     ).toMatchObject({ sector: presence.sector, inBattle: false });
     return { name, token };
 }
+
+let ordinaryLayoutDuel: {
+    battleId: string;
+    p1: { name: string; token: string };
+    p2: { name: string; token: string };
+} | null = null;
+
+test.afterEach(async ({ page, request }) => {
+    const duel = ordinaryLayoutDuel;
+    ordinaryLayoutDuel = null;
+    if (!duel) return;
+    await page.goto('about:blank');
+    type Projection = { status: string; activePlayer: 'p1' | 'p2'; winner: 'p1' | 'p2' | 'draw'; rejected?: unknown };
+    const headers = (role: 'p1' | 'p2') => ({ 'x-player-name': duel[role].name, 'x-player-token': duel[role].token });
+    const move = async (role: 'p1' | 'p2', action: 'join' | 'wait') => {
+        const response = await request.post('/api/pvp/move', {
+            headers: headers(role), data: { battleId: duel.battleId, role, action },
+        });
+        const projection = await response.json() as Projection;
+        expect(response.status(), JSON.stringify(projection)).toBe(200);
+        expect(projection.rejected, 'layout cleanup must apply its authoritative move').toBeUndefined();
+        return projection;
+    };
+    await move('p1', 'join');
+    let session = await move('p2', 'join');
+    // Normal waits reach the server's round limit deterministically. Do not
+    // depend on a random Flee roll or overwrite the server's battle pointer.
+    for (let turn = 0; session.status !== 'done' && turn < 60; turn++) session = await move(session.activePlayer, 'wait');
+    expect(session.status, 'layout duel must terminalize before reusing its opponent').toBe('done');
+    for (const role of ['p1', 'p2'] as const) {
+        const body = {
+            battleId: duel.battleId, playerName: duel[role].name,
+            outcome: session.winner === 'draw' ? 'draw' : session.winner === role ? 'win' : 'loss', completionVersion: 1,
+        };
+        for (const data of [body, { ...body, completionAck: true }]) {
+            const receipt = await request.post('/api/pvp/claim-rewards', { headers: headers(role), data });
+            expect(receipt.status(), JSON.stringify(await receipt.json())).toBe(200);
+        }
+    }
+});
 
 async function seedActiveTowerPvpMatch(request: APIRequestContext, testInfo: TestInfo) {
     const accounts: Array<{ name: string; token: string }> = [];
@@ -1889,6 +1927,7 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     expect(created.status(), JSON.stringify(creation)).toBe(200);
     const battleId = String(creation.battleId ?? '');
     expect(battleId.length).toBeGreaterThan(10);
+    ordinaryLayoutDuel = { battleId, p1, p2 };
     const activeRole = creation.session?.activePlayer;
     expect(activeRole, 'PvP session must declare the coin-flip winner').toMatch(/^p[12]$/);
     const activeAccount = activeRole === 'p2' ? p2 : p1;
