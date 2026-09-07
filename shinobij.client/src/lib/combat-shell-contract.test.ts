@@ -14,7 +14,7 @@ const detailPortal = readFileSync(new URL("../components/CombatDetailPortal.tsx"
 const shellCss = css.slice(css.indexOf("SHINOBI COMBAT SHELL"));
 const desktopCommandCenter = css.slice(css.indexOf("Desktop-only command center"));
 
-test("combat modes share the authoritative shell and HUD primitives while mission PvE retains its desktop battlefield composition", () => {
+test("combat modes share the authoritative shell and HUD primitives while retaining their board projections", () => {
     assert.match(pvp, /<ShinobiCombatShell/);
     assert.match(pvp, /<CombatHudLayout/);
     assert.match(pvp, /<CombatHudMain/);
@@ -27,7 +27,10 @@ test("combat modes share the authoritative shell and HUD primitives while missio
     assert.match(solo, /<CombatCommandBar/);
     assert.match(solo, /<PlainCombatBattleLog/);
     assert.match(pvp, /<PlainCombatBattleLog/);
-    for (const source of [solo, pvp]) {
+    assert.match(tacticalPve, /<ShinobiCombatShell[\s\S]*?mode="tactical"/);
+    assert.match(tacticalPve, /<CombatCommandBar/);
+    assert.match(tacticalPve, /<PlainCombatBattleLog/);
+    for (const source of [solo, pvp, tacticalPve]) {
         assert.match(source, /<CombatJutsuMeta/);
     }
     assert.match(combatHud, /classNames\("combat-board-stage", className\)/);
@@ -51,7 +54,7 @@ test("mode-only chat and pet controls stay owned by their battle screens", () =>
     );
     assert.match(
         tacticalPve,
-        /className="basic-action-bar shinobi-command-bar"[\s\S]*?type: "summon"[\s\S]*?Summon Pet/,
+        /<CombatCommandBar[\s\S]*?type: "summon"[\s\S]*?Summon Pet[\s\S]*?<\/CombatCommandBar>/,
         "tactical PvE must expose the server-owned pet summon when a companion is sealed",
     );
     assert.match(solo, /<span>Summon Pet<\/span>/, "authoritative PvE must label the summon explicitly");
@@ -98,11 +101,11 @@ test("wide desktop shares one command center and gives unused mode space to the 
         /@container shinobi-combat \(min-width: 1180px\) and \(min-height: 1100px\)[\s\S]*?clamp\(320px, 28cqh, 400px\) !important/,
         "very tall monitors must preserve a panoramic board by returning depth to the lower command deck",
     );
-    assert.doesNotMatch(
-        tacticalPve,
-        /id="combat"|<ShinobiCombatShell/,
-        "Battle Tower owns a separate zoomable board and must not enter the projected duel shell",
-    );
+    assert.match(tacticalPve, /<ShinobiCombatShell[\s\S]*?mode="tactical"/,
+        "Battle Tower must share the authoritative combat skin and viewport boundary");
+    assert.match(tacticalPve, /className="tower-board-stage"/);
+    assert.doesNotMatch(tacticalPve, /<CombatHudLayout|<CombatBoardStage/,
+        "Battle Tower must retain its undistorted N-actor zoomable board instead of the duel projection");
     assert.match(desktopCommandCenter, /grid-template-columns: repeat\(auto-fill, minmax\(142px, 160px\)\) !important/);
     assert.match(desktopCommandCenter, /#combat \.combat-jutsu-card-wrap,[\s\S]*?max-width: none !important/,
         "jutsu, weapon, and item wrappers must all fill the same desktop grid track");

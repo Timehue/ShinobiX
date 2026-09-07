@@ -64,7 +64,7 @@ test("direct Story starts send a host-only contract with no borrowed allies fiel
     try {
         const result = await startTowerRun("Hero", 4);
         assert.equal(result.runId, "tower-solo");
-        assert.deepEqual(requestBody, { hostName: "Hero", floor: 4 });
+        assert.deepEqual(requestBody, { hostName: "Hero", floor: 4, routeChoice: "rest-shrine" });
         assert.equal("allies" in (requestBody ?? {}), false);
     } finally {
         globalThis.fetch = originalFetch;

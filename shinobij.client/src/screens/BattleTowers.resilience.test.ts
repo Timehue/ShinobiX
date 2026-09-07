@@ -79,20 +79,19 @@ test("Tower tactical controls remain available and accessible off turn", () => {
     assert.match(tacticalCss, /@media \(max-width: 1023px\)/);
 });
 
-test("short desktop Tower fights reserve a usable board and scroll the action dock", () => {
+test("short desktop Tower fights reserve a usable board and contain the shared loadout tray", () => {
     assert.match(fight, /className="tower-action-dock"/);
     const shortDesktopStart = tacticalCss.indexOf("@media (min-width: 1024px) and (max-height: 900px)");
     const mobileStart = tacticalCss.indexOf("@media (max-width: 1023px)", shortDesktopStart);
     assert.ok(shortDesktopStart >= 0 && mobileStart > shortDesktopStart, "the short-desktop contract must precede the mobile layout");
     const shortDesktop = tacticalCss.slice(shortDesktopStart, mobileStart);
     assert.match(shortDesktop, /\.tower-board-area[\s\S]*?min-height:\s*clamp\(250px, 37dvh, 333px\)\s*!important/);
-    assert.match(shortDesktop, /\.tower-action-dock[\s\S]*?flex:\s*0 0 240px;[\s\S]*?min-height:\s*240px;[\s\S]*?max-height:\s*240px;/,
-        "the short-desktop dock must reserve the full command and first-technique tap surface");
-    assert.match(shortDesktop, /overflow:\s*hidden auto/, "short-desktop actions must remain reachable without collapsing the board");
-    assert.match(shortDesktop, /\.basic-action-bar[\s\S]*?grid-auto-flow:\s*column/, "desktop commands must stay on one compact row");
-    assert.match(shortDesktop, /\.combat-equipped-jutsu-grid[\s\S]*?grid-auto-flow:\s*column/);
-    assert.match(shortDesktop, /\.jutsu-layout-card[\s\S]*?height:\s*94px !important;[\s\S]*?overflow:\s*auto hidden !important/,
-        "the fixed one-row loadout must remain horizontally reachable inside its owning hit-test surface");
+    assert.match(tacticalCss, /\.tower-action-dock\s*\{[\s\S]*?flex:\s*0 0 164px;[\s\S]*?min-height:\s*164px;[\s\S]*?max-height:\s*164px;/,
+        "the desktop dock must reserve the complete command and shared card surfaces");
+    assert.match(shortDesktop, /\.basic-action-bar[\s\S]*?grid-template-columns:\s*repeat\(auto-fit, minmax\(64px, 1fr\)\)[\s\S]*?overflow:\s*hidden !important/,
+        "desktop commands must remain contained on one compact row");
+    assert.match(tacticalCss, /@media \(min-width: 980px\)[\s\S]*?\.combat-jutsu-bar[\s\S]*?height:\s*112px !important;[\s\S]*?\.combat-equipped-jutsu-grid[\s\S]*?grid-auto-flow:\s*column !important;[\s\S]*?overflow-x:\s*auto !important;[\s\S]*?\.combat-jutsu-card-wrap[\s\S]*?height:\s*92px !important;/,
+        "the PvP/PvE-sized one-row loadout must remain horizontally reachable inside its tray");
 });
 
 test("active co-op reconciliation is push-led, bounded, and revision-safe", () => {
@@ -149,7 +148,7 @@ test("Tower AI teammates use one authenticated novice-recruit Ready Room path", 
     assert.doesNotMatch(lobby, /Practice with AI Assists|borrowed shinobi|Borrow an AI assist/);
     assert.match(lobby, /Enter Floor \$\{selFloor\.id\} solo/);
     assert.match(api, /Start a host-only Story run/);
-    assert.match(api, /postJson\('\/api\/towers\/start', \{ hostName, floor, hostLoadout \}\)/);
+    assert.match(api, /postJson\('\/api\/towers\/start', \{ hostName, floor, hostLoadout, routeChoice \}\)/);
     assert.match(readyRoom, /Live squad · optional novice recruits/);
     assert.match(readyRoom, /reward-ineligible AI recruits/);
     assert.match(readyRoom, /action: "add-ai"/);
@@ -226,7 +225,8 @@ test("Tower identity, board semantics, and countdown updates remain bounded", ()
     assert.match(fight, /function TowerTurnCountdown/);
     assert.doesNotMatch(fight, /const \[nowTick/);
     assert.match(fight, /tabIndex=\{tileActionable \? 0 : -1\}/);
-    assert.match(fight, /tabIndex=\{!busy && \(targetable \|\| selfTargetable\) \? 0 : -1\}/);
+    assert.match(fight, /const actorActionable = targetable \|\| selfTargetable \|\| inspectable;/);
+    assert.match(fight, /tabIndex=\{!busy && actorActionable \? 0 : -1\}/);
     assert.match(fight, /src=\{OBJECT_SPRITE\[o\.kind\]\} alt="" aria-hidden="true"/);
     assert.match(fight, /<TowerBattleDebrief session=\{session\}/);
     assert.match(tacticalCss, /\[role="dialog"\][\s\S]*?max-height:\s*calc\(100dvh - 24px\)/);
