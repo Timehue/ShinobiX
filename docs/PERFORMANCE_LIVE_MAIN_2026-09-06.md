@@ -32,3 +32,12 @@ The [gauntlet](PERFORMANCE_GAUNTLET_2026-09-06.md) and [follow-up](PERFORMANCE_F
 - `git diff --check HEAD`: passed. Release scope was reviewed independently from the original dirty development checkout.
 
 These are pre-push verification results. The remote commit and deployed health revision must be checked after publishing; a local build alone does not establish that production has changed.
+
+## Browser-gate follow-up
+
+The first pushed commit, `47d1129ea7a6179faf88d8cb70bf62852453b551`, passed GitHub's server contracts, client quality, production image, release certification, concurrency smoke, Village Stores, and all combat-layout gates. Two browser timing failures required a test-only follow-up:
+
+- The existing QHD Warfront gate treated an `aria-hidden` role as a fully closed report, then relied on a 200ms sleep. Its trace showed the drawer still transitioning when control reachability was measured. The test now waits for the actual layer's hidden visibility and zero opacity before measuring. All accessibility, formation, reachability, and rematch assertions remain. **Six repeated exact-QHD cases passed**: three portrait and three landscape runs.
+- The new archive lifecycle test's global fake clock stalled WebKit pointer stability checks. It now shortens only five-minute timers, preserving native rendering and pointer interactions. The test first proves recurring requests occur while open, verifies no requests across more than three poll intervals after closing, and confirms fetching resumes on reopen. **Fourteen cases passed**: two runs in each of the seven CI browser/device configurations, including Firefox and WebKit.
+
+Both corrected specs pass lint. No production source, renderer, style, dependency, test threshold, or build budget changes accompany this follow-up. GitHub must rerun the release gates on the follow-up commit before production is considered verified.
