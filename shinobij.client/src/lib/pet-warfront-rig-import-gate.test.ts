@@ -13,7 +13,7 @@ const entrySource = readFileSync(resolve(here, "../petvfx.tsx"), "utf8");
 const staticImports = [...stageSource.matchAll(/^import[\s\S]*?from\s+["']([^"']+)["'];/gm)].map((match) => match[1]);
 const shellStaticImports = [...shellSource.matchAll(/^import[\s\S]*?from\s+["']([^"']+)["'];/gm)].map((match) => match[1]);
 
-test("the default exact-model Canvas2D route has no static Three/R3F/rig edge", () => {
+test("the fallback-capable stage has no static Three/R3F/rig edge", () => {
     assert.equal(shellStaticImports.some((edge) => /three|@react-three|PetWarfrontRiteStage3D|PetModel3D|pet-model-preload|pet-warfront-model-lod/iu.test(edge)), false);
     assert.match(shellSource, /import\("\.\/PetWarfrontRiteStage3D"\)/);
     assert.match(riteSource, /from "\.\/PetWarfrontRiteStage"/);
@@ -37,7 +37,10 @@ test("rig code is reachable only through an explicit dynamic boundary", () => {
     assert.ok(dynamicEdges.length >= 2, "preload and mounted-route paths share the same async chunk");
     assert.match(rigSource, /from "\.\/PetModel3D"/);
     assert.match(rigSource, /from "\.\.\/lib\/pet-warfront-model-lod"/);
-    const gate = stageSource.indexOf("if (!warfront3dQaCanaryRequested");
-    const preloadImport = stageSource.indexOf('import("./PetWarfrontSkinnedModel3D")');
-    assert.ok(gate >= 0 && gate < preloadImport, "the deployment preloader checks both QA flags before import()");
+    const gate = shellSource.indexOf("if (!route.useWebGl && atlasComplete)");
+    const preloadImport = shellSource.indexOf('import("./PetWarfrontRiteStage3D")');
+    assert.ok(gate >= 0 && gate < preloadImport, "deployment preload must honor the hardware/fallback decision");
+    assert.match(shellSource, /warfrontShouldAttempt3d\(renderer, stored\)/);
+    assert.match(rigSource, /PetModelBoundary key=\{config.url\} onFail=\{onFail\}/,
+        "failed model loads must reach the existing route-recovery boundary");
 });

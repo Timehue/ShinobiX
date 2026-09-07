@@ -13,6 +13,7 @@ import {
     warfront3dQaCanaryRequested,
     warfrontCapabilityTier,
     warfrontRenderBudget,
+    warfrontShouldAttempt3d,
     type WarfrontPerformanceSample,
 } from "./pet-warfront-render-budget";
 
@@ -154,18 +155,20 @@ test("the device verdict survives reload but never crosses renderer contexts", (
     assert.equal(parseWarfrontPersistedRoute(encoded, "ANGLE (Qualcomm Adreno 830)"), null);
 });
 
-test("unknown hardware defaults to pre-reveal impostors and persists the safe choice", () => {
+test("hardware tries authored rigs and an old default record cannot suppress them", () => {
     const renderer = "ANGLE (NVIDIA GeForce RTX 3080)";
     const route = initialWarfrontRuntimeRoute({ actorCount: 8, renderer, impostorAssetsAvailable: true, persisted: null });
     assert.deepEqual({ mode: route.mode, status: route.status, reason: route.reason }, {
-        mode: "model-impostor",
-        status: "locked",
-        reason: "safe-default",
+        mode: "skinned-3d",
+        status: "probing",
+        reason: "pending-preflight",
     });
-    const encoded = serializeWarfrontPersistedRoute(renderer, route);
+    assert.equal(serializeWarfrontPersistedRoute(renderer, route), null, "unmeasured hardware is not saved as proven fast");
+    const encoded = JSON.stringify({ version: 2, renderer, mode: "model-impostor", proof: "safe-default", sample: null });
     const restored = parseWarfrontPersistedRoute(encoded, renderer);
     assert.equal(restored?.proof, "safe-default");
-    assert.equal(initialWarfrontRuntimeRoute({ actorCount: 8, renderer, impostorAssetsAvailable: true, persisted: restored }).reason, "persisted-slow");
+    assert.equal(initialWarfrontRuntimeRoute({ actorCount: 8, renderer, impostorAssetsAvailable: true, persisted: restored }).reason, "pending-preflight");
+    assert.equal(warfrontShouldAttempt3d(renderer, encoded), true);
 });
 
 test("an unproven or over-budget 3D storage record cannot opt hardware into rigs", () => {
@@ -193,7 +196,7 @@ test("the rig import gate requires both explicit QA canary flags", () => {
     assert.equal(warfront3dQaCanaryRequested("?riteforce3d=1&ritemotionqa=1"), true);
 });
 
-test("a validated persisted-fast route is the only non-QA route into rigs", () => {
+test("a validated persisted-fast route retains rigs without another preflight", () => {
     const renderer = "ANGLE (NVIDIA GeForce RTX 3080)";
     const visibleFast = resolveWarfrontVisibleRoute(
         resolveWarfrontRuntimeRoute(initialWarfrontRuntimeRoute({
@@ -212,6 +215,16 @@ test("a validated persisted-fast route is the only non-QA route into rigs", () =
         reason: "persisted-fast",
         persisted: true,
     });
+});
+
+test("deployment warming keeps software and measured-slow devices on the fallback", () => {
+    const renderer = "ANGLE (NVIDIA GeForce RTX 3080)";
+    const slow = resolveWarfrontRuntimeRoute(initialWarfrontRuntimeRoute({ actorCount: 8, renderer, impostorAssetsAvailable: true, persisted: null }), sample({ frameGapMaxMs: 180 }));
+    assert.equal(warfrontShouldAttempt3d(renderer, null), true);
+    assert.equal(warfrontShouldAttempt3d("SwiftShader", null), false);
+    assert.equal(warfrontShouldAttempt3d(null, null), false);
+    assert.equal(warfrontShouldAttempt3d(renderer, serializeWarfrontPersistedRoute(renderer, slow)), false);
+    assert.equal(warfrontShouldAttempt3d("Adreno 830", serializeWarfrontPersistedRoute(renderer, slow)), true);
 });
 
 test("a failed lazy rig import downgrades once when exact impostors exist", () => {

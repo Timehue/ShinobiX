@@ -4,6 +4,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { PET_COMBAT_MODEL_IDS } from "../shinobij.client/src/lib/pet-3d-models";
+import { WARFRONT_PET_LOD_MANIFEST } from "../shinobij.client/src/generated/pet-warfront-lod-manifest";
 import { APPROVED_ROSTER_MODEL_IDS, approvedRosterCombatModel } from "../shinobij.client/src/lib/pet-3d-roster";
 import { HOLLOW_HOUND_MODEL_SOURCE_ID } from "../shared/hollow-gate-contract";
 import { PET_SHOWDOWN_ANIMATION_MODEL_IDS, petShowdownAnimationModelUrl } from "../shinobij.client/src/lib/pet-showdown-animation-assets";
@@ -45,6 +46,21 @@ function allowedPaths(ignoreFile: string): Set<string> {
 
 /** Every top-level runtime model URL petCombatModel() can produce, as a repo path. */
 const starterModelPaths = PET_COMBAT_MODEL_IDS.map((id) => `shinobij.client/public/pet-models/${id}.glb`);
+
+test("every authored Warfront battle rig is shipped with its model manifest", () => {
+    const entries = Object.values(WARFRONT_PET_LOD_MANIFEST);
+    assert.ok(entries.length >= 145, "the battle rig manifest must cover the approved roster");
+    for (const entry of entries) {
+        const model = entry.lodUrl.split("?")[0];
+        assert.ok(existsSync(join(repoRoot, "shinobij.client/public", model)), `missing Warfront battle rig: ${model}`);
+    }
+    for (const ignoreFile of [".gitignore", ".dockerignore"]) {
+        const allowed = allowedPaths(ignoreFile);
+        for (const suffix of ["/", "/*.glb", "/roster/", "/roster/*.glb", "/showdown-v2/", "/showdown-v2/*.glb"]) {
+            assert.ok(allowed.has(`shinobij.client/public/pet-models/warfront-lod${suffix}`), `${ignoreFile} excludes battle rigs: ${suffix}`);
+        }
+    }
+});
 
 test("every starter combat model exists on disk", () => {
     // 15 = 5 elements x (base, -r, -l). A renamed/missing file would otherwise

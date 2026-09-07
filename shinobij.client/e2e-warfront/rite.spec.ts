@@ -745,7 +745,7 @@ test("combat broadcast keeps the live action readable without camera jitter", as
         const canvas = page.locator(".wfr-canvas-surface");
         await expect(canvas, `${viewport.label}: battle stage`).toBeVisible({ timeout: 30_000 });
         await expect(canvas, `${viewport.label}: complete formation`).toHaveAttribute("data-rite-initial-actors-expected", "8");
-        await expect(canvas, `${viewport.label}: actor-first direction`).toHaveAttribute("data-rite-camera-mode", "actor-first-broadcast");
+        await expect(canvas, `${viewport.label}: actor-first direction`).toHaveAttribute("data-rite-camera-mode", "full-formation");
 
         const clock = page.getByTestId("wfr-clock");
         const tick = async () => Number((await clock.getAttribute("data-tick")) ?? "0");
@@ -780,7 +780,7 @@ test("Galaxy S25+ broadcast remains stable through approach impact and recovery"
     });
     const canvas = page.locator(".wfr-canvas-surface");
     await expect(canvas).toBeVisible({ timeout: 30_000 });
-    await expect(canvas).toHaveAttribute("data-rite-camera-mode", "actor-first-broadcast");
+    await expect(canvas).toHaveAttribute("data-rite-camera-mode", "full-formation");
     await page.waitForFunction(() => Number(document.querySelector<HTMLElement>("[data-testid='wfr-clock']")?.dataset.tick ?? "0") > 5, undefined, {
         timeout: 30_000,
         polling: "raf",
@@ -902,4 +902,57 @@ test("Galaxy S25+ broadcast remains stable through approach impact and recovery"
     expect(trace.sawCausalLabel, "the contact lacks a source-to-target sentence").toBe(true);
     expect(trace.unsafeImpactSamples, "the active pair leaves the HUD-safe viewport").toBe(0);
     expect(errors).toEqual([]);
+});
+
+test("the fullscreen battle escapes the lobby's positioning and clipping", async ({ page }, testInfo) => {
+    await openRite(page);
+    // Reproduce the real app's scrolled, filtered lobby and its direct-child
+    // rule. The old isolated harness never put Warfront under this CSS.
+    await page.locator("#root").evaluate((root) => root.classList.add("pet-arena-lobby"));
+    await page.addStyleTag({ content: `
+        #root { position: relative; margin: 180px 78px; width: 65vw; height: 500px;
+            overflow: clip; filter: brightness(1); }
+        .pet-arena-lobby > * { position: relative; z-index: 1; }
+    ` });
+    const root = page.locator(".wfr-root");
+    const assertFullscreen = async () => {
+        const bounds = await root.boundingBox();
+        const viewport = page.viewportSize()!;
+        expect(bounds!.x).toBe(0);
+        expect(bounds!.y).toBe(0);
+        expect(bounds!.width).toBe(viewport.width);
+        expect(bounds!.height).toBe(viewport.height);
+    };
+    await assertFullscreen();
+    await expect(page.getByRole("button", { name: "Withdraw", exact: true })).toBeInViewport();
+    await expect(page.getByRole("button", { name: "Lock formation" })).toBeInViewport();
+    await page.screenshot({ path: testInfo.outputPath("formation-uncropped.png") });
+    await page.getByRole("button", { name: "Lock formation" }).click();
+    await expect(page.locator(".wfr-canvas canvas").last()).toBeVisible();
+    await assertFullscreen();
+    await expect(page.getByRole("button", { name: "Leave the Warfront" })).toBeInViewport();
+    const stage = await page.locator(".wfr-stage").boundingBox();
+    const hud = await page.locator(".wfr-hud").boundingBox();
+    expect(stage!.y).toBeGreaterThanOrEqual(hud!.y + hud!.height - 24);
+    await expect(page.getByTestId("wfr-stage-curtain")).toHaveAttribute("data-stage-ready", "true");
+    await expect.poll(async () => Number(await page.getByTestId("wfr-clock").getAttribute("data-tick"))).toBeGreaterThan(3);
+    await page.screenshot({ path: testInfo.outputPath("battle-uncropped.png") });
+});
+
+test("a failed authored rig recovers behind the formation veil", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "asset recovery runs once");
+    test.setTimeout(180_000);
+    let failedModel = "";
+    await page.route("**/*.glb*", route => {
+        failedModel ||= route.request().url();
+        return route.request().url() === failedModel
+            ? route.fulfill({ status: 404, body: "Missing model" })
+            : route.continue();
+    });
+    await openRite(page, riteUrl + "&ritemotionqa=1&riteforce3d=1");
+    await page.getByRole("button", { name: "Lock formation" }).click();
+    await expect.poll(() => failedModel).not.toBe("");
+    await expect(page.getByTestId("wfr-stage-curtain")).toHaveAttribute("data-stage-ready", "true", { timeout: 120_000 });
+    await expect.poll(async () => Number(await page.getByTestId("wfr-clock").getAttribute("data-tick")), { timeout: 30_000 }).toBeGreaterThan(5);
+    await expect(page.getByRole("button", { name: "Leave the Warfront" })).toBeInViewport();
 });

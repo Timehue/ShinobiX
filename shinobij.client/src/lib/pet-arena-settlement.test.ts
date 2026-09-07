@@ -142,7 +142,8 @@ test("every authoritative Pet Arena result exposes an idempotent retry receipt",
     }
     assert.doesNotMatch(arenaSource, /unrewarded:\$\{/);
     assert.match(arenaSource, /const canLeaveCurrentPetBattle = \(blocksExit = petSettlementBlocksExit\)[\s\S]*if \(blocksExit\)/);
-    assert.match(arenaSource, /response\.status === 425[\s\S]*PetSettlementRetryError/,
+    const receiptSource = readFileSync(new URL("./pet-battle-receipt.ts", import.meta.url), "utf8");
+    assert.match(receiptSource, /response\.status === 425[\s\S]*PetSettlementRetryError/,
         "a legitimate early Warfront settlement must preserve the server retry interval");
     assert.match(arenaSource, /window\.setTimeout\(\(\) => \{[\s\S]*runPetSettlementAttempt\(attempt\)/,
         "the pending authoritative receipt must retry automatically instead of stranding the result screen");
@@ -156,6 +157,8 @@ test("rewarded Warfront exit is blocked from its first result frame through sett
     assert.equal(petBattleSettlementBlocksExit("settled", true), false);
     assert.match(arenaSource, /settlementPending=\{warfrontSettlementBlocksExit\}/);
     assert.match(arenaSource, /canLeaveCurrentPetBattle\(warfrontSettlementBlocksExit\)/);
+    const exitGuard = arenaSource.slice(arenaSource.indexOf("const warfrontSettlementBlocksExit"), arenaSource.indexOf("const warfrontResultActionsLocked"));
+    assert.doesNotMatch(exitGuard, /vsAi/, "deployment and unfinished playback must not require a nonexistent result receipt");
 });
 
 test("a rewarded Warfront keeps authoritative Witness progress and its final Chronicle ceremony on the result screen", () => {

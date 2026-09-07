@@ -12,8 +12,8 @@
     width: 100vw;
     height: 100vh;
     height: 100dvh;
-    min-height: 100svh;
-    z-index: 1000;
+    min-height: 0;
+    z-index: var(--z-combat, 2000);
     display: flex;
     flex-direction: column;
     background: #030609;
@@ -52,7 +52,7 @@
     box-shadow: inset 0 0 96px rgba(0, 0, 0, 0.48);
 }
 
-.wfr-stage { position: absolute; inset: 0; z-index: 1; }
+.wfr-stage { position: absolute; inset: calc(var(--wfr-hud-height, 184px) + 8px) 12px 54px; z-index: 1; }
 .wfr-canvas { position: relative; display: block; width: 100%; height: 100%; background: transparent; }
 .wfr-canvas-static,
 .wfr-canvas-surface { position: absolute; inset: 0; display: block; width: 100%; height: 100%; background: transparent; }
@@ -825,10 +825,11 @@
 .wfr-recap-pair em { color: #8fb6c6; font-style: normal; }
 .wfr-recap-out { color: #9fb6c2; font-size: 0.76rem; white-space: nowrap; }
 .wfr-settling { margin: 0; font-size: 0.8rem; color: #ffd166; }
+.wfr-settling p { margin: 0 0 10px; line-height: 1.5; }
 
 .wfr-exit {
     position: absolute;
-    top: max(12px, env(safe-area-inset-top));
+    bottom: max(12px, env(safe-area-inset-bottom));
     right: max(12px, env(safe-area-inset-right));
     /* Remains available if a model CDN failure correctly keeps the atomic
        reveal curtain closed instead of exposing a partial formation. */
@@ -849,6 +850,7 @@
 /* ── Mobile ────────────────────────────────────────────────────────────── */
 
 @media (max-width: 720px) {
+    .wfr-stage { left: 6px; right: 6px; bottom: 58px; }
     .wfr-hud {
         display: grid;
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -1032,6 +1034,7 @@
 }
 
 @media (max-height: 500px) and (orientation: landscape) {
+    .wfr-stage { left: 6px; right: 6px; bottom: 48px; }
     .wfr-hud { padding-top: max(5px, env(safe-area-inset-top)); }
     .wfr-roster { gap: 1px; }
     .wfr-roster li { padding-block: 1px; }

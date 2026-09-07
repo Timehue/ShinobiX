@@ -29,6 +29,7 @@
 import { SHOWDOWN_DAILY_WIN_CAP } from "../../../shared/pet-showdown-contract";
 import { useState, useEffect, useMemo, useRef, Suspense, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { PetSettlementRetryError, postPetBattleReceipt } from "../lib/pet-battle-receipt";
 import "../styles/pet-skin.css";
 import type { Character, ServerPlayerSummary } from "../types/character";
 import type { Pet } from "../types/pet";
@@ -260,16 +261,6 @@ type PetBattleSettlementResponse = PetChronicleSettlementPayload & {
     retryAfterMs?: number;
 };
 
-class PetSettlementRetryError extends Error {
-    readonly retryAfterMs: number;
-
-    constructor(message: string, retryAfterMs: number) {
-        super(message);
-        this.name = "PetSettlementRetryError";
-        this.retryAfterMs = retryAfterMs;
-    }
-}
-
 /*
  * What /api/pet/battle-start hands back. One shape now, because every fight this
  * screen starts is resolved by the server:
@@ -355,6 +346,9 @@ function newWarfrontChallengeStamp(): { createdAt: number } {
 }
 
 function settlementErrorMessage(error: unknown): string {
+    if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+        return "The arena took too long to respond. Retry Settlement to recover this same battle receipt.";
+    }
     return error instanceof Error && error.message.trim()
         ? error.message.trim()
         : "The arena could not record this result. Your battle seal is safe to retry.";
@@ -563,20 +557,8 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         return true;
     };
 
-    async function postPetBattleSettlement(body: Record<string, unknown>): Promise<PetBattleSettlementResponse> {
-        const response = await fetch("/api/pet/battle-result", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-        });
-        const data = await response.json().catch(() => null) as PetBattleSettlementResponse | null;
-        const retryAfterMs = Number(data?.retryAfterMs);
-        if (response.status === 425 && Number.isFinite(retryAfterMs) && retryAfterMs > 0) {
-            throw new PetSettlementRetryError(data?.error || "Beastbound Warfront is still in progress.", retryAfterMs);
-        }
-        if (!response.ok) throw new Error(data?.error || "The arena could not record this pet battle.");
-        if (!data) throw new Error("The arena returned an unreadable pet battle receipt.");
-        return data;
+    function postPetBattleSettlement(body: Record<string, unknown>): Promise<PetBattleSettlementResponse> {
+        return postPetBattleReceipt<PetBattleSettlementResponse>(body);
     }
 
     async function runPetSettlementAttempt(attempt: PetSettlementAttempt): Promise<void> {
@@ -592,9 +574,9 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         });
         try {
             const completed = await attempt.run();
-            if (!completed
-                || settlementAttemptRef.current !== attempt
+            if (settlementAttemptRef.current !== attempt
                 || !playerScopeIsActive(attempt.scope)) return;
+            if (!completed) throw new Error("The arena receipt could not be applied. Retry Settlement to recover this result.");
             attempt.status = "settled";
             setSettlementPresentation({
                 id: attempt.id,
@@ -1687,13 +1669,12 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         : null;
     const activeSettlementStatus = activeSettlementAttempt?.status ?? null;
     const petSettlementBlocksExit = petBattleSettlementBlocksExit(activeSettlementStatus);
-    const warfrontSettlementBlocksExit = petBattleSettlementBlocksExit(
-        activeSettlementStatus,
-        Boolean(arenaMatch?.vsAi),
-    );
+    const warfrontSettlementBlocksExit = petBattleSettlementBlocksExit(activeSettlementStatus);
     const warfrontResultActionsLocked = Boolean(
         chronicleCeremony
-        || warfrontSettlementBlocksExit,
+        // Only a terminal result requires a receipt before the attempt exists.
+        // Deployment and live playback must remain withdrawable.
+        || petBattleSettlementBlocksExit(activeSettlementStatus, Boolean(arenaMatch?.vsAi)),
     );
     const activeBattleSetupIssue = battleSetupIssue && playerScopeIsActive(battleSetupIssue.scope)
         ? battleSetupIssue
@@ -1832,7 +1813,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     />
                 </Suspense>
             ) : null}
-            {activeSettlementPresentation && typeof document !== "undefined" && createPortal(
+            {activeSettlementPresentation && !arenaMatch && typeof document !== "undefined" && createPortal(
                 <aside
                     className="pet-settlement-notice"
                     data-status={activeSettlementPresentation.status}
@@ -1844,7 +1825,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     <strong>{activeSettlementPresentation.label}</strong>
                     <p>
                         {activeSettlementPresentation.status === "pending"
-                            ? "Recording the sealed result. Keep this battle open."
+                            ? activeSettlementPresentation.detail || "Recording the sealed result. Keep this battle open."
                             : activeSettlementPresentation.detail}
                     </p>
                     {activeSettlementPresentation.status === "error" ? (
@@ -2377,6 +2358,8 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                         onResult={(result, plan) => reportTacticalArenaResult(arenaMatch, result, plan)}
                         resultActionsLocked={warfrontResultActionsLocked}
                         settlementPending={warfrontSettlementBlocksExit}
+                        settlementDetail={activeSettlementPresentation?.detail}
+                        onRetrySettlement={activeSettlementPresentation?.status === "error" ? retryPetSettlement : undefined}
                         resultSupplement={chronicleProgress || chronicleCeremony ? (
                             <>
                                 {chronicleProgress ? <PetChronicleProgress receipt={chronicleProgress} /> : null}
