@@ -21,7 +21,6 @@ import {
 import { warfrontImpostorAtlasUrl } from "../lib/pet-warfront-impostor-url";
 import {
     RITE_TEAM_COLOR,
-    actionFocus,
     createActorPoseSample,
     riteCanvasGroundingAoDepthScale,
     riteCanvasLivingWaterFootAnchorY,
@@ -31,7 +30,8 @@ import {
     sampleActorInto,
     type ActorPose,
 } from "../lib/pet-warfront-rite-presentation";
-import { WARFRONT_PREFLIGHT_THRESHOLD_MS, WARFRONT_ROUTE_STORAGE_KEY, warfront3dQaCanaryRequested } from "../lib/pet-warfront-render-budget";
+import { WARFRONT_PREFLIGHT_THRESHOLD_MS, WARFRONT_ROUTE_STORAGE_KEY, warfront3dQaCanaryRequested, warfrontShouldAttempt3d } from "../lib/pet-warfront-render-budget";
+import { warfrontCanvasFrame } from "../lib/pet-warfront-camera";
 import type { PetVisualQualityConfig } from "../lib/pet-visual-quality";
 import {
     WARFRONT_HERO_AXIS_TAIL_PX,
@@ -107,7 +107,7 @@ type WebGlStageModule = Readonly<{
     preloadRitePetModels: (pets: readonly Pet[]) => Promise<void>;
 }>;
 
-type StageRoute = Readonly<{ useWebGl: boolean; reason: "qa-canary" | "persisted-fast" | "safe-default" }>;
+type StageRoute = Readonly<{ useWebGl: boolean; reason: "qa-canary" | "hardware-3d" | "safe-default" }>;
 let cachedRoute: StageRoute | null = null;
 
 function rawRendererName(): string | null {
@@ -128,25 +128,12 @@ function stageRoute(): StageRoute {
     if (warfront3dQaCanaryRequested(window.location.search)) {
         return cachedRoute = { useWebGl: true, reason: "qa-canary" };
     }
-    try {
-        const raw = window.localStorage.getItem(WARFRONT_ROUTE_STORAGE_KEY);
-        if (raw) {
-            const record = JSON.parse(raw) as { version?: number; renderer?: string; mode?: string; proof?: string; sample?: { frameGapMaxMs?: number; longTaskMaxMs?: number } };
-            const provenFast = record.version === 2
-                && record.mode === "skinned-3d"
-                && record.proof === "fast-visible-canary"
-                && Number(record.sample?.frameGapMaxMs) <= WARFRONT_PREFLIGHT_THRESHOLD_MS
-                && Number(record.sample?.longTaskMaxMs) <= WARFRONT_PREFLIGHT_THRESHOLD_MS;
-            // Raw WebGL is opened only for an already proven-fast candidate.
-            // Clean/default sessions do not initialize a GPU context at all.
-            if (provenFast && record.renderer === rawRendererName()) {
-                return cachedRoute = { useWebGl: true, reason: "persisted-fast" };
-            }
-        }
-    } catch {
-        // Denied or malformed storage simply retains the exact-model safe path.
-    }
-    return cachedRoute = { useWebGl: false, reason: "safe-default" };
+    let stored: string | null = null;
+    try { stored = window.localStorage.getItem(WARFRONT_ROUTE_STORAGE_KEY); } catch { /* storage is optional */ }
+    let renderer: string | null = null;
+    try { renderer = rawRendererName(); } catch { /* retain Canvas when WebGL is unavailable */ }
+    const useWebGl = warfrontShouldAttempt3d(renderer, stored);
+    return cachedRoute = { useWebGl, reason: useWebGl ? "hardware-3d" : "safe-default" };
 }
 
 function impostorUrl(pet: Pet): string | null {
@@ -234,10 +221,8 @@ function sampleBody(beats: readonly CanvasBeat[], tick: number, phase: WarfrontB
 }
 
 function framingFractions(width: number, height: number): { x: number; y: number } {
-    const aspect = width / Math.max(1, height);
-    if (aspect < 0.75) return { x: 0.95, y: 0.74 };
-    if (aspect > 1.8) return { x: 0.79, y: 0.76 };
-    return { x: 0.87, y: 0.68 };
+    const frame = warfrontCanvasFrame(width, height, WARFRONT_ARENA_X, WARFRONT_ARENA_Y);
+    return { x: frame.xScale * WARFRONT_ARENA_X * 2 / Math.max(1, width), y: frame.zScale * WARFRONT_ARENA_Y * 2 / Math.max(1, height) };
 }
 
 type CanvasBroadcastCamera = {
@@ -264,12 +249,6 @@ function createCanvasBroadcastCamera(): CanvasBroadcastCamera {
         maxPanPerFrame: 0,
         maxZoomPerFrame: 0,
     };
-}
-
-function approach(current: number, target: number, maxDelta: number): number {
-    const delta = target - current;
-    if (Math.abs(delta) <= maxDelta) return target;
-    return current + Math.sign(delta) * maxDelta;
 }
 
 type CanvasActorHealthRail = Readonly<{
@@ -644,15 +623,12 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
             const ordered = actorsRef.current;
             for (const actor of ordered) sampleActorInto(result, actor.fighter.team, actor.fighter.lane, tick, actor.pose);
 
-            // Actor-first broadcast direction. Establish the whole formation,
-            // then frame the current attack pair plus nearby support instead of
-            // leaving the camera fixed on an empty courtyard after every KO.
+            // Select an attack pair for emphasis while the camera keeps every
+            // formation cell in view, including fighters near the edges.
             const cameraState = broadcastCameraRef.current;
             const cueKey = (cue: WarfrontAttackCue) => `${cue.actorId}>${cue.targetId}@${cue.contactTick}`;
-            // Direct one readable shot at a time. Without this hold, several
-            // simultaneous duels could win priority on adjacent frames and
-            // make the phone camera chase the entire board. Once selected, a
-            // pair owns the lens from anticipation through contact.
+            // Hold one pair's emphasis through contact so simultaneous duels
+            // cannot make the highlight flicker between fighters.
             let focusCue = cues.find((cue) => cueKey(cue) === cameraState.shotCueKey
                 && tick >= cue.contactTick - 84
                 && tick <= cue.contactTick + 3) ?? null;
@@ -664,108 +640,27 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
                     const actorPose = sampleActorByIdInto(result, cue.actorId, tick, cameraOrigin);
                     const targetPose = sampleActorByIdInto(result, cue.targetId, tick, cameraTarget);
                     if (untilContact > 0 && (actorPose.hp <= 0 || targetPose.hp <= 0)) continue;
-                    const midpointX = (actorPose.x + targetPose.x) * 0.5;
-                    const midpointZ = (actorPose.z + targetPose.z) * 0.5;
-                    const travelDistance = cameraState.initialized
-                        ? Math.hypot(midpointX - cameraState.x, midpointZ - cameraState.z)
-                        : 0;
-                    // Never accept a shot the bounded two-unit/second camera
-                    // cannot establish before contact. Skipping an off-camera
-                    // exchange is preferable to showing a clipped pet or
-                    // snapping the lens across the arena.
-                    const requiredLeadTicks = Math.max(0, travelDistance - 1.2) / 2 * DUEL_TPS;
-                    if (cameraState.initialized && (untilContact <= 0 ? travelDistance > 1.2 : untilContact < requiredLeadTicks)) continue;
-                    const travelCost = travelDistance * 6;
-                    const score = Math.max(0, untilContact) + travelCost - (cue.lethal ? 1 : 0);
+                    const score = Math.max(0, untilContact) - (cue.lethal ? 1 : 0);
                     if (score < bestScore) { focusCue = cue; bestScore = score; }
                 }
                 cameraState.shotCueKey = focusCue ? cueKey(focusCue) : "";
             }
-            const fallbackFocus = actionFocus(result, tick);
             const focusVisualPhase = focusCue ? warfrontSpectaclePhaseInto(focusCue, tick, focusPhase) : null;
             const focusVisualStrength = focusVisualPhase
                 ? Math.max(focusVisualPhase.tell * 0.42, focusVisualPhase.travel, focusVisualPhase.contact, focusVisualPhase.result * 0.82)
                 : 0;
-            const focusPoints: ActorPose[] = [];
-            if (focusCue) {
-                focusPoints.push(
-                    sampleActorByIdInto(result, focusCue.actorId, tick, cameraOrigin),
-                    sampleActorByIdInto(result, focusCue.targetId, tick, cameraTarget),
-                );
-                const focusMidX = (focusPoints[0].x + focusPoints[1].x) * 0.5;
-                const focusMidZ = (focusPoints[0].z + focusPoints[1].z) * 0.5;
-                for (const team of ["player", "enemy"] as const) {
-                    let support: CanvasActor | null = null;
-                    let supportDistance = Number.POSITIVE_INFINITY;
-                    for (const actor of ordered) {
-                        const actorId = `${actor.fighter.team}-${actor.fighter.lane}`;
-                        if (actor.fighter.team !== team || actor.pose.hp <= 0 || actorId === focusCue.actorId || actorId === focusCue.targetId) continue;
-                        const distance = Math.hypot(actor.pose.x - focusMidX, actor.pose.z - focusMidZ);
-                        if (distance < supportDistance) { support = actor; supportDistance = distance; }
-                    }
-                    const supportLimit = cssHeight > cssWidth ? 3.25 : 4.2;
-                    if (support && supportDistance <= supportLimit) focusPoints.push(support.pose);
-                }
-            }
-
-            let targetX = fallbackFocus.x;
-            let targetZ = fallbackFocus.z;
-            let spanX = Math.max(4.5, fallbackFocus.radius * 1.7);
-            let spanZ = Math.max(3.7, fallbackFocus.radius * 1.35);
-            let focusId = "living-cloud";
-            if (focusPoints.length >= 2 && tick > DUEL_TPS * 0.55) {
-                targetX = focusPoints.reduce((sum, pose) => sum + pose.x, 0) / focusPoints.length;
-                targetZ = focusPoints.reduce((sum, pose) => sum + pose.z, 0) / focusPoints.length;
-                spanX = Math.max(4.8, ...focusPoints.map((pose) => Math.abs(pose.x - targetX) * 2 + 2.8));
-                spanZ = Math.max(3.8, ...focusPoints.map((pose) => Math.abs(pose.z - targetZ) * 2 + 2.4));
-                focusId = `${focusCue?.actorId ?? "action"}>${focusCue?.targetId ?? "target"}`;
-            }
-
+            // The HUD owns its own area; fit every deployment cell in the remaining stage.
             const portrait = cssHeight > cssWidth;
             const root = canvas.closest(".wfr-root") as HTMLElement | null;
-            const hudBottom = (root?.querySelector(".wfr-hud") as HTMLElement | null)?.getBoundingClientRect().bottom ?? 0;
-            const topSafe = portrait
-                ? Math.min(152, Math.max(104, hudBottom + 10))
-                : Math.min(92, Math.max(64, hudBottom + 8));
-            const bottomSafe = portrait ? Math.max(28, cssHeight * 0.045) : Math.max(20, cssHeight * 0.035);
-            const viewCenterX = cssWidth * 0.5;
-            const viewCenterY = topSafe + (cssHeight - topSafe - bottomSafe) * 0.5;
-            const fraction = framingFractions(cssWidth, cssHeight);
-            const baseXScale = (cssWidth * 0.5 * fraction.x) / WARFRONT_ARENA_X;
-            const baseZScale = ((cssHeight - topSafe - bottomSafe) * 0.5 * (portrait ? 0.82 : 0.9)) / WARFRONT_ARENA_Y;
-            const desiredZoom = Math.max(1, Math.min(portrait ? 2.05 : 1.8,
-                (cssWidth * (portrait ? 0.82 : 0.76)) / Math.max(1, spanX * baseXScale),
-                ((cssHeight - topSafe - bottomSafe) * 0.78) / Math.max(1, spanZ * baseZScale),
-            ));
-            const elapsedSeconds = cameraState.lastFrameAt > 0 ? Math.min(0.05, Math.max(0.001, (now - cameraState.lastFrameAt) / 1000)) : 1 / 60;
-            cameraState.lastFrameAt = now;
-            if (!cameraState.initialized) {
-                cameraState.x = targetX;
-                cameraState.z = targetZ;
-                cameraState.zoom = desiredZoom;
-                cameraState.initialized = true;
-            } else {
-                const deadZone = focusId === cameraState.focusId ? 0.28 : 0.08;
-                const desiredX = Math.abs(targetX - cameraState.x) < deadZone ? cameraState.x : targetX;
-                const desiredZ = Math.abs(targetZ - cameraState.z) < deadZone ? cameraState.z : targetZ;
-                const oldX = cameraState.x;
-                const oldZ = cameraState.z;
-                const oldZoom = cameraState.zoom;
-                const panX = desiredX - cameraState.x;
-                const panZ = desiredZ - cameraState.z;
-                const panDistance = Math.hypot(panX, panZ);
-                const panStep = Math.min(panDistance, elapsedSeconds * 2);
-                if (panDistance > 0.0001) {
-                    cameraState.x += panX / panDistance * panStep;
-                    cameraState.z += panZ / panDistance * panStep;
-                }
-                cameraState.zoom = approach(cameraState.zoom, desiredZoom, elapsedSeconds * 0.5);
-                cameraState.maxPanPerFrame = Math.max(cameraState.maxPanPerFrame, Math.hypot(cameraState.x - oldX, cameraState.z - oldZ));
-                cameraState.maxZoomPerFrame = Math.max(cameraState.maxZoomPerFrame, Math.abs(cameraState.zoom - oldZoom));
-            }
-            cameraState.focusId = focusId;
-            const xScale = baseXScale * cameraState.zoom;
-            const zScale = baseZScale * cameraState.zoom;
+            const topSafe = 0, bottomSafe = 0;
+            const boardFrame = warfrontCanvasFrame(cssWidth, cssHeight, WARFRONT_ARENA_X, WARFRONT_ARENA_Y);
+            const viewCenterX = boardFrame.centerX, viewCenterY = boardFrame.centerY;
+            const xScale = boardFrame.xScale, zScale = boardFrame.zScale;
+            cameraState.x = 0;
+            cameraState.z = 0;
+            cameraState.zoom = 1;
+            cameraState.initialized = true;
+            cameraState.focusId = focusCue ? cueKey(focusCue) : "formation";
             const project = (x: number, z: number) => [
                 viewCenterX + (x - cameraState.x) * xScale,
                 viewCenterY + (z - cameraState.z) * zScale,
@@ -1542,7 +1437,7 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
             canvas.dataset.riteActorsPresent = String(actorsPresent);
             canvas.dataset.riteActorsInSafeViewport = String(actorsInSafeViewport);
             canvas.dataset.riteMinLivingActorPx = Number.isFinite(minLivingActorPx) ? minLivingActorPx.toFixed(1) : "0";
-            canvas.dataset.riteCameraMode = "actor-first-broadcast";
+            canvas.dataset.riteCameraMode = "full-formation";
             canvas.dataset.riteCameraFocus = cameraState.focusId;
             canvas.dataset.riteCameraFocusActorSafe = String(Boolean(focusCue && actorIsSafe(renderedActors.get(focusCue.actorId))));
             canvas.dataset.riteCameraFocusTargetSafe = String(Boolean(focusCue && actorIsSafe(renderedActors.get(focusCue.targetId))));

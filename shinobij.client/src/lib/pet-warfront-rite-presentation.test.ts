@@ -292,14 +292,10 @@ test("Beastbound Warfront has one position owner, actor-first framing, and targe
         "the live stage must retain coordinate-true tactical floor inlays");
     assert.match(source, /args=\{\[undefined, undefined, 35\]\}/,
         "the 7x5 simulation grid must have matching authored floor cells");
-    assert.match(source, /const focus = actionFocus\(result, clockRef\.current\)/,
-        "the 3D camera must frame authoritative living action rather than an empty board centre");
-    assert.match(source, /lookRef\.current\.lerp\(desiredLook, centreAlpha\)/,
-        "the actor-first camera must ease its centre instead of snapping between duels");
-    assert.match(source, /camera\.position\.copy\(desiredPosition\)/,
-        "the camera position must consume the smoothed actor-first shot");
-    assert.match(source, /camera\.lookAt\(lookRef\.current\)/,
-        "the camera must keep its view anchored to the smoothed live-action centre");
+    assert.match(source, /warfrontCameraFrame\(/,
+        "the 3D camera must fit all deployment cells and standing pet models");
+    assert.match(source, /perspective\.lookAt\(\.\.\.frame\.target\)/,
+        "camera framing must remain anchored to the whole board");
     assert.doesNotMatch(source, /frame[ZX] = .*0\.78/,
         "portrait must frame the complete board rather than a moving 78% crop");
     assert.match(source, /quality=\{quality\}/,
