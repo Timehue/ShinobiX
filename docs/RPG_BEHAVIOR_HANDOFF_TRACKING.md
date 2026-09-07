@@ -290,6 +290,29 @@ result paths resume a named pending ambush through the existing launcher),
 `lib/sector-return.ts` (a non-consuming reload peek), `lib/world-reward-api.ts` (the
 pending-battle payload). No markup, styles, or assets.
 
+### Second pass — F01 immunity + F08 lapse (2026-09-06, commit `3102dbfe5` on `3bbae6d28`)
+
+| Step | Command | Result |
+|---|---|---|
+| Type check (server build config, tests compile in) | `npx tsc -p tsconfig.cpanel.json --noEmit` | exit 0, before and after the rebase |
+| Targeted suites (presence, heartbeat, Solo-PvE, PvE outcome, towers, PvP, cron, missions, Hollow Gate, story, endless, route parity) | `node --import tsx --test …` | 1,928 tests; two source-contract pins moved with the code (the heartbeat mget argument list now ends `…, towerInviteKey, ...battleKeys`; my-run's session read is `let`), then green |
+| Full suite, first pass | `npm test` | 9,492/9,499: six jutsu-parity cases (fixture duel frozen in 2023 read as lapsed; fixed by a live clock, and the terminalizer now defers a failed replay instead of throwing) and one client wiring pin (`state.ts` must repair a terminal outcome before any 410; the handler was reordered) |
+| Full suite, fixed tree | `npm test` | 9,499/9,499, exit 0 |
+| Full suite, rebased onto main `47d1129ea` (no overlapping files) | `npm test` | **9,518/9,518, exit 0** |
+| Root build + dist verify + size gate | `npm run build` | exit 0; sizecheck PASS (no client source change in this pass) |
+| Quick server-contract gates | `check:deployment`, `check:rollback-readiness`, `check:runtime-mode-docs` | exit 0 each |
+| Fresh-account release certification (boots the real server; Solo-PvE and two-account PvP lifecycles) | `npm run certify:release` | 90/90 checks passed |
+| Concurrency smoke (24 players, 8 s, real server) | `npm run soak:smoke` | PASS: 168 calls, 0 errors, health p95 34 ms |
+
+New handler- and store-driven tests: `api/_realtime/battle-authority.test.ts` (11),
+`api/player/heartbeat-battle-authority.test.ts` (4, incl. the F08 lapse settling onto
+the save with no knockout), `api/solo-pve/_lapse.test.ts` (5), `api/towers/_lapse.test.ts`
+(6), `api/pvp/_lapse.test.ts` (5), `api/cron/_battle-lapse-sweep.test.ts` (3), plus the
+online-store claim-ignored case and the lapsed-duel case in the F10 town-escape suite.
+
+Server-only change: no client source, markup, styles, or assets were touched. The
+client keeps sending its `inBattle` hint; the server now ignores it.
+
 ### No-UI-change diff review (starting commit → HEAD)
 
 Client files touched, each strictly nonvisual:
