@@ -236,6 +236,85 @@
     display: none !important;
 }
 
+/* World Map beat: the banner collapses to a one-line chip so the map it points
+   at stays visible — the full bubble covered the bottom ~40% of a phone's map
+   viewport and the region chips under it. The wrapper stays click-through like
+   the bubble; only the pill takes taps. Width comes from the content (see
+   trailChipWrapStyle), so a narrow phone wraps the buttons onto a second row. */
+.coach-trail-chip {
+    pointer-events: none;
+}
+
+.coach-trail-chip-pill {
+    pointer-events: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px 8px;
+    min-height: 48px;
+    padding: 6px 10px 6px 8px;
+    border: 1px solid rgba(250, 204, 21, 0.6);
+    border-radius: 26px;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.97), rgba(7, 12, 23, 0.98));
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(250, 204, 21, 0.08);
+    animation: coach-bubble-in 300ms ease-out both;
+}
+
+.coach-trail-chip-pet {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.55));
+}
+
+.coach-trail-chip-line {
+    flex: 1 1 150px;
+    min-width: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #f1f5f9;
+    font-size: 12.5px;
+    line-height: 1.3;
+}
+
+/* The same gold ring the bubble's "Follow the gold pulse" key uses. */
+.coach-trail-chip-line i {
+    flex-shrink: 0;
+    width: 9px;
+    height: 9px;
+    border: 2px solid #fde047;
+    border-radius: 50%;
+    box-shadow: 0 0 8px rgba(250, 204, 21, 0.85);
+}
+
+.coach-trail-chip-find {
+    flex-shrink: 0;
+    min-height: 36px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(250, 204, 21, 0.7);
+    background: linear-gradient(180deg, rgba(250, 204, 21, 0.28), rgba(120, 80, 20, 0.28)), rgba(10, 13, 20, 0.92);
+    color: #fde68a;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+}
+
+.coach-trail-chip-find:hover,
+.coach-trail-chip-find:focus-visible {
+    background-color: rgba(250, 204, 21, 0.22);
+}
+
+.coach-trail-chip .coach-skip-link {
+    margin: 0;
+    padding: 6px;
+}
+
 html.wm-zoom .world-map-scroll .atlas-sector.academy-click-target {
     width: 44px !important;
     height: 44px !important;
@@ -296,7 +375,8 @@ html.wm-zoom .world-map-scroll .atlas-sector.academy-click-target {
 @media (prefers-reduced-motion: reduce) {
     .coach-guide-pet,
     .coach-guide-pet.is-talking,
-    .coach-guide-bubble {
+    .coach-guide-bubble,
+    .coach-trail-chip-pill {
         animation: none;
     }
     .coach-guide-progress i {

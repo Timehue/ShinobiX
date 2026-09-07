@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { VIEWPORT_BREAKPOINTS } from "./viewport-contract";
 import { normalizeOnboardingStep } from "./onboarding-step";
+import { ACADEMY_TRAIL_FOCUS_EVENT } from "./academy-trail-focus";
 import { villageOutskirtsSectorNumber } from "../data/sectors";
 import type { Character } from "../types/character";
 
@@ -148,6 +149,21 @@ export function useAcademyWorldMapFocus({ character, sectorPoints, zoomActive, f
         const frame = window.requestAnimationFrame(() => focusPoint(target.x, target.y, DOUBLE_TAP_ZOOM));
         return () => window.cancelAnimationFrame(frame);
     }, [focusPoint, sectorPoints, targetId, zoomActive]);
+    // "Find the trail" on the coach's chip: re-aim for a player who panned away.
+    // The legacy scroll map has no camera, so scroll the real pin into view
+    // instead — the same move the coach's own reveal makes.
+    useEffect(() => {
+        if (targetId == null) return;
+        const onFindTrail = () => {
+            const target = sectorPoints.find((sector) => sector.id === targetId);
+            if (!target) return;
+            if (zoomActive) { focusPoint(target.x, target.y, DOUBLE_TAP_ZOOM); return; }
+            document.querySelector<HTMLElement>(".atlas-sector.academy-click-target")
+                ?.scrollIntoView({ block: "center", inline: "center" });
+        };
+        window.addEventListener(ACADEMY_TRAIL_FOCUS_EVENT, onFindTrail);
+        return () => window.removeEventListener(ACADEMY_TRAIL_FOCUS_EVENT, onFindTrail);
+    }, [focusPoint, sectorPoints, targetId, zoomActive]);
     return targetId;
 }
 
@@ -161,6 +177,9 @@ export function useWorldMapZoom(): WorldMapZoomApi {
     const wheelCleanupRef = useRef<(() => void) | null>(null);
     const wheelHandlerRef = useRef<(event: WheelEvent) => void>(() => undefined);
     const sizeRef = useRef({ w: 0, h: 0 });
+    // The viewport measurer, so the activation effect can re-measure the moment
+    // the `wm-zoom` class lands (see that effect for why the order matters).
+    const measureRef = useRef<() => void>(() => undefined);
     // ── The camera lives in a ref, NOT in React state ────────────────────────
     // A finger drag produces a pointermove every frame, and this hook is called
     // from WorldMap — a 5k-line owner rendering 67 sector markers, 95 road paths
@@ -289,6 +308,18 @@ export function useWorldMapZoom(): WorldMapZoomApi {
         const root = document.documentElement;
         if (active) root.classList.add("wm-zoom");
         else root.classList.remove("wm-zoom");
+        // Re-measure NOW, in the same task as the class change. The ref callback
+        // measured the viewport during commit, before this effect added the
+        // class — i.e. in the LEGACY layout, whose tall fixed canvas puts the
+        // cover-zoom floor at ~3.6. Every frame scheduled off that size (the
+        // home view, the Academy trail focus) then computed against the wrong
+        // box, and when the ResizeObserver reported the real zoom-mode size the
+        // "still at the floor" branch below snapped the camera back to the home
+        // view: the Academy target opened OFF camera on every phone. Reading
+        // the size here forces layout with the class applied, so sizeRef is
+        // right before any of those frames run, and the observer's report of
+        // the same size is a no-op.
+        measureRef.current();
         return () => root.classList.remove("wm-zoom");
     }, [active]);
 
@@ -314,8 +345,19 @@ export function useWorldMapZoom(): WorldMapZoomApi {
             cancelAnimationFrame(animationFrame);
             animationFrame = requestAnimationFrame(() => {
                 commitView((current) => {
-                    const previousFloor = coverZoomForSize(previousSize);
-                    if (!previousSize.w || current.zoom <= previousFloor + 0.05) {
+                    // "At home" means the camera IS the home view — at the
+                    // floor zoom AND at the cover pan — not merely at the floor
+                    // zoom. A trail focus or a player's pan can sit at the floor
+                    // too (focusPoint clamps its zoom up to the floor on tall
+                    // phones), and snapping those back to centre on every
+                    // address-bar resize threw the Academy target off camera.
+                    const previousCover = coverViewForSize(previousSize);
+                    const atHome = !previousSize.w || (
+                        current.zoom <= previousCover.zoom + 0.05
+                        && Math.abs(current.tx - previousCover.tx) <= 1
+                        && Math.abs(current.ty - previousCover.ty) <= 1
+                    );
+                    if (atHome) {
                         const next = coverViewForSize(nextSize);
                         return sameView(current, next) ? current : next;
                     }
@@ -338,6 +380,7 @@ export function useWorldMapZoom(): WorldMapZoomApi {
                 });
             });
         };
+        measureRef.current = measure;
         measure();
         const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
         ro?.observe(el);
