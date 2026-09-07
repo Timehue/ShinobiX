@@ -1,3 +1,4 @@
+import { fetchVillageGuards } from "../lib/village-guard-api";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense, type ReactNode, type CSSProperties } from "react";
 import "../styles/atlas-skin.css";
@@ -685,23 +686,22 @@ function WorldMapContent({
 
     useEffect(() => {
         if (!selectedVillageTerritory) { setTerritoryGuards([]); return; }
-        fetch("/api/village-guard/list", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ village: selectedVillageTerritory.name }),
-        }).then(r => r.ok ? r.json() : []).then(setTerritoryGuards).catch(() => setTerritoryGuards([]));
+        const controller = new AbortController();
+        fetchVillageGuards(selectedVillageTerritory.name, controller.signal)
+            .then(guards => { if (!controller.signal.aborted) setTerritoryGuards(guards); })
+            .catch(() => { if (!controller.signal.aborted) setTerritoryGuards([]); });
+        return () => controller.abort();
     }, [selectedVillageTerritory]);
-
     useEffect(() => {
         if (!villageWarAdmissionOpen || !selectedSector) { setSectorEnemyGuards([]); return; }
         const war = activeVillageWarsFor(character.village).find(w => w.warGroundSector === selectedSector);
         const enemyVillage = war?.villages.find(v => v !== character.village);
         if (!enemyVillage) { setSectorEnemyGuards([]); return; }
-        fetch("/api/village-guard/list", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ village: enemyVillage }),
-        }).then(r => r.ok ? r.json() : []).then(setSectorEnemyGuards).catch(() => setSectorEnemyGuards([]));
+        const controller = new AbortController();
+        fetchVillageGuards(enemyVillage, controller.signal)
+            .then(guards => { if (!controller.signal.aborted) setSectorEnemyGuards(guards); })
+            .catch(() => { if (!controller.signal.aborted) setSectorEnemyGuards([]); });
+        return () => controller.abort();
     }, [selectedSector, character.village, villageWarAdmissionOpen]);
 
     async function fetchSavedPlayerCharacter(name: string): Promise<Character | null> {

@@ -303,8 +303,7 @@ export function BattleTowersLobby({
             setPendingRun(isTowerRun && status?.runId && status.session ? { runId: status.runId, session: status.session } : null);
             setRunRecoveryPending(Boolean(isTowerRun && !status?.session && status?.recoveryPending));
         }).catch(() => {});
-        check();
-        const stop = visiblePoll(check, 4000);
+        const stop = visiblePoll(check, 4000, 0.1, { immediate: true });
         return () => { alive = false; stop(); };
     }, [me]);
 

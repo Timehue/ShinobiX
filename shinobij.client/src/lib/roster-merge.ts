@@ -1,5 +1,22 @@
 import type { Character, PlayerRecord } from "../types/character";
 
+/** Full public snapshots replace profile fields while preserving roster order. */
+export function mergeRosterSnapshot(prev: PlayerRecord[], incoming: PlayerRecord[]): PlayerRecord[] {
+    const merged = [...prev];
+    const indices = new Map<string, number>();
+    for (let i = 0; i < merged.length; i++) {
+        const key = merged[i].name.toLowerCase();
+        if (!indices.has(key)) indices.set(key, i);
+    }
+    for (const record of incoming) {
+        const key = record.name.toLowerCase();
+        const index = indices.get(key);
+        if (index !== undefined) merged[index] = { ...merged[index], ...record };
+        else { indices.set(key, merged.length); merged.push(record); }
+    }
+    return merged;
+}
+
 /**
  * Merge server-reported active players into the local cross-device roster.
  *

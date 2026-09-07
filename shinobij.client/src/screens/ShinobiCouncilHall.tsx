@@ -56,8 +56,7 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
                 if (alive) setWarLoadError("Live village-war data is temporarily unavailable.");
             }
         }
-        void refreshVillageWars();
-        const stop = visiblePoll(refreshVillageWars, 15_000);
+        const stop = visiblePoll(refreshVillageWars, 15_000, 0.1, { immediate: true });
         return () => { alive = false; stop(); };
     }, []);
 
@@ -90,8 +89,7 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
                 if (alive) setClanWarsLoading(false);
             }
         }
-        void refreshClanWars();
-        const stop = visiblePoll(refreshClanWars, 15_000);
+        const stop = visiblePoll(refreshClanWars, 15_000, 0.1, { immediate: true });
         return () => { alive = false; stop(); };
     }, []);
 

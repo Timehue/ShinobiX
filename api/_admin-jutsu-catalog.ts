@@ -20,12 +20,9 @@
  * two keys. Load it BEFORE taking a save lock — the lock should not be held
  * across the admin reads.
  */
-import { kv } from './_storage.js';
+import { loadAdminContentRecords } from './_admin-content-records.js';
 import { safeLogValue } from './_safe-log.js';
 import { isDeletedJutsuEntry } from '../shared/admin-content-tombstone.js';
-import { loadPublishedContent } from './_content-store.js';
-
-const ADMIN_SAVE_KEYS = ['save:admin1', 'save:admin2'] as const;
 const CACHE_TTL_MS = 60_000;
 const MAX_ID_LENGTH = 120;
 
@@ -102,11 +99,7 @@ export async function loadAdminJutsuObjects(): Promise<ReadonlyMap<string, Admin
             // /api/admin/content-publish, so this is a no-op until then — and
             // once it is populated both publish paths keep it and the slots in
             // step, so the two agree anyway.
-            const [slots, published] = await Promise.all([
-                Promise.all(ADMIN_SAVE_KEYS.map((key) => kv.get<AdminContentRecord>(key))),
-                loadPublishedContent().catch(() => ({}) as Record<string, unknown>),
-            ]);
-            const records = [...slots, published as AdminContentRecord];
+            const records = await loadAdminContentRecords();
             const value = buildAdminJutsuCatalog(records);
             cache = { at: Date.now(), value };
             return value;
