@@ -1,6 +1,7 @@
 import type { KvLike } from '../_storage.js';
 import { loadPvpPendingSessionPointer } from '../pvp/_pending-session.js';
 import { pvpSessionCarriesVitals } from '../pvp/_vitals-settlement.js';
+import { isPvpSessionLapsed } from '../pvp/_lapse-rules.js';
 import type { PvpSession } from '../pvp/session.js';
 import type { OnlinePlayer } from './types.js';
 
@@ -48,7 +49,7 @@ export async function engagedInWorldDuel(
     if (pointer.phase === 'reserving') return Number(pointer.reservedUntil) > now;
     const session = await store.get<PvpSession>(`pvp:${pointer.battleId}`).catch(() => null);
     if (!session || session.status !== 'done' && session.status !== 'active') return false;
-    return session.status === 'active' && pvpSessionCarriesVitals(session);
+    return session.status === 'active' && !isPvpSessionLapsed(session, now) && pvpSessionCarriesVitals(session);
 }
 
 /**

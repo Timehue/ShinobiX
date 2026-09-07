@@ -4,6 +4,7 @@ import { applySoloPveAction } from './_engine.js';
 import {
     SOLO_PVE_MOVE_TOKEN_HISTORY,
     SOLO_PVE_TERMINAL_TTL_SECONDS,
+    isSoloPveSessionLapsed,
     type SoloPveSession,
 } from './_session.js';
 import { compareWriteSoloPveSession, readSoloPveSession, soloPveSessionKey } from './_store.js';
@@ -11,7 +12,7 @@ import { recordSoloPveLifecycle, type SoloPveTelemetryDeps } from './_telemetry.
 
 /*
  * Authorized terminal transition for an ACTIVE Solo-PvE session that its owner
- * is walking out on.
+ * is walking out on — or has already walked out on (F08).
  *
  * Before this, /api/pve/fight-outcome read a still-`active` session, called it
  * a "forfeit" and wrote the LIVE HP onto the character. That stamped a physical
@@ -22,6 +23,16 @@ import { recordSoloPveLifecycle, type SoloPveTelemetryDeps } from './_telemetry.
  * same 10% max-HP cost as an escape attempt); this module applies THAT
  * transition, in the owning store, under the session lock, fenced on the exact
  * version it read — and only then does settlement read the terminal evidence.
+ *
+ * A LAPSED session (active, but past its gameplay expiry) is the same walk-out
+ * observed late. It used to expire out of storage untouched, which made
+ * "close the tab and wait half an hour" the one exit that cost nothing — no
+ * abandon cost, no receipt, and the fight was gone before anyone could prove
+ * it happened. The row is now retained past expiry (_store.ts) and the lapse
+ * is terminalized with the SAME abandon rule, from the HP the player last
+ * stood at, stamped at the moment it lapsed rather than the moment it was
+ * noticed. That is the session's own evidence; nothing is invented — in
+ * particular a lapse never becomes a knockout the player did not take.
  *
  * The move token is DETERMINISTIC per (session, version), so a duplicate or
  * concurrent request collapses onto the same transition instead of racing it.
@@ -39,9 +50,9 @@ export type AbandonSoloPveResult =
     | { ok: true; session: SoloPveSession; transitioned: boolean }
     | { ok: false; status: number; error: string; retryable?: boolean };
 
-export function abandonMoveToken(session: Pick<SoloPveSession, 'sessionId' | 'version'>): string {
+export function abandonMoveToken(session: Pick<SoloPveSession, 'sessionId' | 'version'>, lapsed = false): string {
     const digest = createHash('sha256').update(session.sessionId).digest('hex').slice(0, 24);
-    return `abandon-v${Math.max(1, Math.floor(session.version))}-${digest}`;
+    return `${lapsed ? 'lapsed' : 'abandon'}-v${Math.max(1, Math.floor(session.version))}-${digest}`;
 }
 
 /** The same terminal-evidence shape `executeSoloPveAction` seals on a done edge. */
@@ -50,6 +61,7 @@ export function finalizeAbandonedSession(
     resolved: SoloPveSession,
     moveToken: string,
     actionAt: number,
+    lapsed = false,
 ): SoloPveSession {
     const nextVersion = session.version + 1;
     return {
@@ -60,6 +72,7 @@ export function finalizeAbandonedSession(
         expiresAt: actionAt + SOLO_PVE_TERMINAL_TTL_SECONDS * 1000,
         terminalEvidence: {
             finishedAt: actionAt,
+            ...(lapsed ? { lapsedAt: actionAt } : {}),
             finalMoveToken: moveToken,
             finalVersion: nextVersion,
             finalEventSeq: resolved.eventSeq,
@@ -70,6 +83,18 @@ export function finalizeAbandonedSession(
             settlementState: resolved.settlementState,
         },
     };
+}
+
+function transitionAbandon(session: SoloPveSession, at: number, lapsed: boolean): SoloPveSession | null {
+    const moveToken = abandonMoveToken(session, lapsed);
+    // No escape roll is consulted by `abandon`; the option only exists so a
+    // flee can never be resolved here by accident.
+    const resolved = applySoloPveAction(session, { type: 'abandon' }, { escapeSucceeds: () => false });
+    if (!resolved.applied || resolved.session.status !== 'done') return null;
+    if (lapsed) {
+        resolved.session.log.push('The encounter lapsed unattended and counts as abandoned.');
+    }
+    return finalizeAbandonedSession(session, resolved.session, moveToken, at, lapsed);
 }
 
 export async function abandonSoloPveSession(
@@ -92,19 +117,52 @@ export async function abandonSoloPveSession(
         // Already terminal — nothing to transition; the caller settles from it.
         if (session.status === 'done') return { ok: true as const, session, transitioned: false };
 
-        const moveToken = abandonMoveToken(session);
-        // No escape roll is consulted by `abandon`; the option only exists so a
-        // flee can never be resolved here by accident.
-        const resolved = applySoloPveAction(session, { type: 'abandon' }, { escapeSucceeds: () => false });
-        if (!resolved.applied || resolved.session.status !== 'done') {
-            return { ok: false as const, status: 409, error: 'The encounter could not be abandoned.' };
-        }
-        const next = finalizeAbandonedSession(session, resolved.session, moveToken, now());
+        // A session that already lapsed is abandoned AS OF its expiry, not as
+        // of this late request: the same evidence the sweep would have used.
+        const at = now();
+        const lapsed = isSoloPveSessionLapsed(session, at);
+        const next = transitionAbandon(session, lapsed ? session.expiresAt : at, lapsed);
+        if (!next) return { ok: false as const, status: 409, error: 'The encounter could not be abandoned.' };
         const committed = await compareWrite(session, next);
         if (!committed) {
             // A move landed between our read and the write. The caller re-reads
             // and either settles the (now terminal) session or retries once.
             return { ok: false as const, status: 409, error: 'The encounter changed while it was being abandoned. Please retry.', retryable: true };
+        }
+        void recordSoloPveLifecycle('combat.session_completed', next, deps.telemetry);
+        return { ok: true as const, session: next, transitioned: true };
+    }, { failClosed: true, ttlSec: 10 });
+}
+
+export type LapsedSoloPveResult =
+    | { ok: true; session: SoloPveSession | null; transitioned: boolean }
+    | { ok: false; status: number; error: string; retryable?: boolean };
+
+/**
+ * Terminalize a session ONLY if it is active and past its gameplay expiry.
+ * Anything else — terminal already, still live, gone from storage — is left
+ * exactly as found. Owner-agnostic on purpose: the sweep and the heartbeat
+ * reconcile on the store's behalf, never on a caller's claim.
+ */
+export async function terminalizeLapsedSoloPveSession(
+    sessionId: string,
+    deps: AbandonSoloPveDeps = {},
+): Promise<LapsedSoloPveResult> {
+    const read = deps.read ?? readSoloPveSession;
+    const compareWrite = deps.compareWrite ?? compareWriteSoloPveSession;
+    const lock = deps.lock ?? withKvLock;
+    const now = deps.now ?? Date.now;
+    if (!sessionId) return { ok: false, status: 400, error: 'Missing solo-PvE session identity.' };
+
+    return lock(soloPveSessionKey(sessionId), async () => {
+        const session = await read(sessionId);
+        if (!session) return { ok: true as const, session: null, transitioned: false };
+        if (!isSoloPveSessionLapsed(session, now())) return { ok: true as const, session, transitioned: false };
+        const next = transitionAbandon(session, session.expiresAt, true);
+        if (!next) return { ok: false as const, status: 409, error: 'The lapsed encounter could not be terminalized.' };
+        const committed = await compareWrite(session, next);
+        if (!committed) {
+            return { ok: false as const, status: 409, error: 'The encounter changed while its lapse was being recorded.', retryable: true };
         }
         void recordSoloPveLifecycle('combat.session_completed', next, deps.telemetry);
         return { ok: true as const, session: next, transitioned: true };

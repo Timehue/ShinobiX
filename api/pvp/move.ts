@@ -7,6 +7,8 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import type { PvpFighter, PvpGroundEffect, PvpSession, PvpStatus, HitFxTarget, CombatVfxTarget, CombatVfxKey } from './session.js';
 import { COMBAT_RESOURCES_V2, v2ResourceRegen, v2PoisonOnSpend } from '../_combat-resources.js';
 import { GRID_H, GRID_W, MAX_ACTIONS, MAX_ROUNDS, SESSION_TTL } from '../combat-core/constants.js';
+import { isPvpSessionLapsed } from './_lapse-rules.js';
+import { terminalizeLapsedPvpSession } from './_lapse.js';
 import { hexDistance as distance, hexNeighbors, nextStepToward } from '../combat-core/grid.js';
 import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
 import { adjustedApCost, TEMPO_AP_SWING } from '../combat-core/resources.js';
@@ -1368,6 +1370,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // freshest session and reassign, so the read-modify-write resolves
         // against the latest committed state (audit #5).
         let session: PvpSession = sessionMaybe;
+        // F08: a duel nobody touched for a whole session TTL is a double
+        // walk-out, recorded as a draw from the row's own evidence before any
+        // move is judged against it; the terminal branch below then answers.
+        if (isPvpSessionLapsed(session)) {
+            try {
+                const lapsed = await terminalizeLapsedPvpSession(battleId);
+                if (lapsed.ok && lapsed.session) session = lapsed.session;
+            } catch (error) {
+                console.error('[pvp/move] lapse terminalization failed', error);
+            }
+        }
 
         // Verify the requester actually owns the role they're moving as.
         // Without this, anyone could submit moves on another player's behalf.

@@ -12,6 +12,8 @@ import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUnti
 import { clearSleeperCamp } from '../_realtime/sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from '../_realtime/travel-lease.js';
 import { presenceSectorForWrite } from '../_realtime/world-duel-engagement.js';
+import { battleAuthorityKeys, battleEvidenceFrom, resolveBattleAuthority } from '../_realtime/battle-authority.js';
+import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { offlineNoticesKey, parseOfflineNotices, OFFLINE_NOTICES_TTL_SEC, type OfflineNotice } from './_offline-notices.js';
 import { kageStakeRefundKey, parsePendingStakeRefunds, drainKageStakeRefunds } from '../village/_kage-inactivity.js';
@@ -198,8 +200,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // store, so the routed mget is a single round trip) — this endpoint fires
         // every second per online player, so each read saved here is ~1 op/s/player.
         const existing = onlineStore.get(name);
+        // F01: the four keys that corroborate a fight ride the same mget, so
+        // deriving `inBattle` server-side costs no extra round trip here.
+        const battleKeys = battleAuthorityKeys(name);
         const [signals, savedLocation, persistedTravel] = await Promise.all([
-            kv.mget(challengeKey, resetSignalKey, healSignalKey, noticesKey, stakeRefundKey, towerInviteKey),
+            kv.mget(challengeKey, resetSignalKey, healSignalKey, noticesKey, stakeRefundKey, towerInviteKey, ...battleKeys),
             existing ? Promise.resolve(null) : kv.get<{ currentSector?: number; currentTile?: number }>(`save:${safeName(name)}`),
             existing ? Promise.resolve(null) : getTravelLease(name),
         ]);
@@ -268,11 +273,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             sector: presenceSector,
             character: slimChar as Record<string, unknown> | null,
             travelingUntil: safeTravelUntil,
+            // A client claim only (ignored by upsert, F01). The flag is set from
+            // the combat stores just below.
             inBattle: inBattle === true ? true : undefined,
             // A fresh session that reports no tile resumes on the tile its last
             // settled arrival persisted (travel-lease.ts), not on nothing.
             tile: normalizeTile(tile, existing?.tile ?? normalizeTile(savedLocation?.currentTile)),
         });
+        // F01: `inBattle` is what the combat stores can PROVE, never what the
+        // beat asserts — a Tower lease, a live Solo-PvE session, a PvP pointer
+        // whose session is active, a running pet duel. A storage failure while
+        // verifying is not evidence either way, so the flag is left as it was.
+        try {
+            const battle = await resolveBattleAuthority(name, battleEvidenceFrom(signals.slice(6, 10)), { now: () => now });
+            onlineStore.setInBattle(name, battle.inBattle);
+            // F08: an ACTIVE session past its gameplay expiry grants no immunity
+            // and is terminalized with its own evidence, off the hot path.
+            if (battle.lapsed) void reconcileLapsedBattle(battle.lapsed, name).catch(() => undefined);
+        } catch (err) {
+            console.warn('[heartbeat] battle authority unavailable; presence flag kept', (err as Error)?.message);
+        }
         if (!existing && persistedTravel && now < persistedTravel.arrivalAt) {
             stored = onlineStore.restoreTravel(
                 name,

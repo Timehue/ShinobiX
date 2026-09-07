@@ -1,0 +1,176 @@
+/*
+ * Battle authority (F01): is this player PROVABLY in a fight right now?
+ *
+ * Presence used to take `inBattle` from the player's own heartbeat, and the
+ * target-side reads of that flag grant attack immunity. Nothing corroborated
+ * the claim, so a tampered client could assert it forever: visible in the
+ * wild, farming the field, un-attackable, never converting to a sleeper camp.
+ * The flag is now derived here from what the combat stores can prove, and the
+ * client's claim is ignored (online-store.ts).
+ *
+ * Evidence, in the order it is consulted (cheapest first):
+ *   - a running pet duel: in-process registry, free;
+ *   - `battle-lock:<slug>`: a Tower lease (refreshed per action, released at
+ *     terminal) or the legacy marker the regeneration exclusion already honours;
+ *   - `battle-state:<slug>`: the projection every Solo-PvE host writes at
+ *     session creation (battle-projection.ts), verified against the session it
+ *     names: active AND not past its gameplay expiry;
+ *   - `pvp:pending-session:<slug>`: a fresh reservation, or an active pointer
+ *     whose session is still `active` (a pointer that already carries its
+ *     terminal recovery deadline is a finished duel: no read needed);
+ *   - `ai-fight-active:<slug>`: the generic AI-fight pointer, for a session
+ *     that started before the projection existed.
+ *
+ * The four KV keys are read by the heartbeat on the mget it already performs,
+ * so corroboration costs no extra round trip in the common case; only a
+ * pointer that needs its session verified costs one read, and that verdict is
+ * cached per player for BATTLE_AUTHORITY_CACHE_MS (keyed by the exact
+ * evidence, so a changed pointer is never served stale).
+ *
+ * A session that is still `active` but past its gameplay expiry grants NO
+ * immunity and is reported as `lapsed`, so the caller can terminalize it with
+ * its own evidence (F08, api/_battle-lapse.ts). Storage errors while verifying
+ * are not evidence either way: the resolver throws, and the heartbeat keeps
+ * the presence flag as it was.
+ */
+import { kv as realKv, type KvLike } from '../_storage.js';
+import { safeName } from '../_utils.js';
+import { isTowerBattleLock } from '../_tower-battle-guard.js';
+import { isSoloPveSession, type SoloPveSession } from '../solo-pve/_session.js';
+import { soloPveSessionKey } from '../solo-pve/_store.js';
+import { parsePvpPendingSessionPointer, pvpPendingSessionKey } from '../pvp/_pending-session.js';
+import type { PvpSession } from '../pvp/session.js';
+import { isPvpSessionLapsed } from '../pvp/_lapse-rules.js';
+import { sessionForPlayer as petDuelSessionForPlayer } from './pet-duel-session.js';
+import {
+    battleStateKey,
+    cachedBattleAuthority,
+    isBattleStateProjection,
+    rememberBattleAuthority,
+    type BattleAuthority,
+    type LapsedBattle,
+} from './battle-projection.js';
+
+export type { BattleAuthority, LapsedBattle } from './battle-projection.js';
+
+export const AI_FIGHT_ACTIVE_PREFIX = 'ai-fight-active:';
+export const BATTLE_LOCK_PREFIX = 'battle-lock:';
+
+/** The raw values of `battleAuthorityKeys(slug)`, in that order. */
+export type BattleEvidence = {
+    battleState: unknown;
+    battleLock: unknown;
+    pvpPointer: unknown;
+    aiFightPointer: unknown;
+};
+
+export type BattleAuthorityDeps = {
+    kv?: Pick<KvLike, 'get'>;
+    now?: () => number;
+    petDuelFor?: (slug: string) => { status: string } | null;
+};
+
+/** The KV keys whose values corroborate a fight, for the heartbeat's mget. */
+export function battleAuthorityKeys(playerName: string): [string, string, string, string] {
+    const slug = safeName(playerName);
+    return [battleStateKey(slug), `${BATTLE_LOCK_PREFIX}${slug}`, pvpPendingSessionKey(slug), `${AI_FIGHT_ACTIVE_PREFIX}${slug}`];
+}
+
+export function battleEvidenceFrom(values: readonly unknown[]): BattleEvidence {
+    return {
+        battleState: values[0] ?? null,
+        battleLock: values[1] ?? null,
+        pvpPointer: values[2] ?? null,
+        aiFightPointer: values[3] ?? null,
+    };
+}
+
+function evidenceFingerprint(evidence: BattleEvidence): string {
+    return JSON.stringify([evidence.battleState ?? null, evidence.battleLock ?? null, evidence.pvpPointer ?? null, evidence.aiFightPointer ?? null]);
+}
+
+async function soloPveVerdict(
+    store: Pick<KvLike, 'get'>,
+    sessionId: string,
+    now: number,
+): Promise<'live' | 'lapsed' | 'none'> {
+    const session = await store.get<SoloPveSession>(soloPveSessionKey(sessionId));
+    if (!isSoloPveSession(session) || session.status !== 'active') return 'none';
+    return session.expiresAt > now ? 'live' : 'lapsed';
+}
+
+export async function resolveBattleAuthority(
+    playerName: string,
+    evidence: BattleEvidence,
+    deps: BattleAuthorityDeps = {},
+): Promise<BattleAuthority> {
+    const slug = safeName(playerName);
+    const now = deps.now?.() ?? Date.now();
+    const store = deps.kv ?? realKv;
+    if (!slug) return { inBattle: false, source: null };
+
+    // A running pet duel is server state in this very process.
+    const duel = (deps.petDuelFor ?? petDuelSessionForPlayer)(slug);
+    if (duel && duel.status === 'running') return { inBattle: true, source: 'pet-duel' };
+
+    const fingerprint = evidenceFingerprint(evidence);
+    const cached = cachedBattleAuthority(slug, fingerprint, now);
+    if (cached) return cached;
+
+    const verdict = await resolveUncached(slug, evidence, store, now);
+    rememberBattleAuthority(slug, fingerprint, verdict, now);
+    return verdict;
+}
+
+async function resolveUncached(
+    slug: string,
+    evidence: BattleEvidence,
+    store: Pick<KvLike, 'get'>,
+    now: number,
+): Promise<BattleAuthority> {
+    // A Tower lease is refreshed on every action and released at terminal, so
+    // its presence IS the run's liveness for this account. Anything else under
+    // the key is the legacy marker the regen exclusion already honours.
+    if (evidence.battleLock) {
+        return { inBattle: true, source: isTowerBattleLock(evidence.battleLock) ? 'tower' : 'legacy-lock' };
+    }
+
+    let lapsed: LapsedBattle | undefined;
+    const projection = isBattleStateProjection(evidence.battleState) ? evidence.battleState : null;
+    if (projection) {
+        if (projection.expiresAt <= now) {
+            // Past its gameplay expiry by the projection's own clock; the
+            // owning store decides whether it is truly lapsed (the sweep and
+            // the terminalizer re-read it under the session lock).
+            lapsed = { kind: projection.kind, sessionId: projection.sessionId };
+        } else if (projection.kind === 'solo-pve') {
+            const verdict = await soloPveVerdict(store, projection.sessionId, now);
+            if (verdict === 'live') return { inBattle: true, source: 'solo-pve' };
+            if (verdict === 'lapsed') lapsed = { kind: 'solo-pve', sessionId: projection.sessionId };
+        }
+        // 'tower' is proven by the lease above; 'pvp' by the pointer below.
+    }
+
+    const pointer = parsePvpPendingSessionPointer(evidence.pvpPointer, slug);
+    if (pointer) {
+        if (pointer.phase === 'reserving') {
+            if (Number(pointer.reservedUntil) > now) return { inBattle: true, source: 'pvp', ...(lapsed ? { lapsed } : {}) };
+        } else if (pointer.recoveryExpiresAt === undefined) {
+            const session = await store.get<PvpSession>(`pvp:${pointer.battleId}`);
+            if (session && session.status === 'active') {
+                if (!isPvpSessionLapsed(session, now)) return { inBattle: true, source: 'pvp', ...(lapsed ? { lapsed } : {}) };
+                lapsed = lapsed ?? { kind: 'pvp', sessionId: pointer.battleId };
+            }
+        }
+    }
+
+    const ai = evidence.aiFightPointer as { sessionId?: unknown } | null;
+    const aiSessionId = ai && typeof ai === 'object' && typeof ai.sessionId === 'string' ? ai.sessionId : '';
+    if (aiSessionId && aiSessionId !== projection?.sessionId) {
+        const verdict = await soloPveVerdict(store, aiSessionId, now);
+        if (verdict === 'live') return { inBattle: true, source: 'solo-pve', ...(lapsed ? { lapsed } : {}) };
+        if (verdict === 'lapsed' && !lapsed) lapsed = { kind: 'solo-pve', sessionId: aiSessionId };
+    }
+
+    return { inBattle: false, source: null, ...(lapsed ? { lapsed } : {}) };
+}

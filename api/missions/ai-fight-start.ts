@@ -10,6 +10,8 @@ import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { loadAiFightProfile } from './_ai-fight-encounter.js';
 import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
 import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../solo-pve/_store.js';
+import { isSoloPveSessionLapsed } from '../solo-pve/_session.js';
+import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import type { SoloPveSession } from '../solo-pve/_session.js';
 import { resolveAiFightScaling } from './_ai-fight-scaling.js';
 import {
@@ -121,6 +123,14 @@ async function recoverAiFight(playerName: string): Promise<{ pointer: AiFightAct
         readSoloPveSession(pointer.sessionId),
     ]);
     if (!token || !session || token.sessionId !== pointer.sessionId) {
+        await kv.del(key).catch(() => undefined);
+        return null;
+    }
+    // F08: a session that lapsed is over, not resumable. Terminalize it with
+    // its own evidence (abandon rule at the HP it lapsed with, settled) and
+    // let the caller start afresh; the pointer no longer names a live fight.
+    if (isSoloPveSessionLapsed(session)) {
+        await reconcileLapsedBattle({ kind: 'solo-pve', sessionId: session.sessionId }, playerName);
         await kv.del(key).catch(() => undefined);
         return null;
     }

@@ -61,7 +61,9 @@ function pointer(battleId: string, phase: 'active' | 'reserving' = 'active'): st
 }
 
 function session(status: 'active' | 'done', over: Json = {}): Json {
-    return { battleId: 'duel-1', status, winner: status === 'done' ? 'p2' : null, continuousVitals: true, rewardAuthority: 'world', p1: { name: PLAYER, hp: 50 }, p2: { name: 'raider', hp: 50 }, ...over };
+    // A live raid has a recent move: a session nobody has touched for a whole
+    // session TTL is LAPSED (F08) and engages no one (see the case below).
+    return { battleId: 'duel-1', status, winner: status === 'done' ? 'p2' : null, continuousVitals: true, rewardAuthority: 'world', createdAt: Date.now() - 5_000, lastMoveAt: Date.now() - 1_000, p1: { name: PLAYER, hp: 50 }, p2: { name: 'raider', hp: 50 }, ...over };
 }
 
 before(async () => {
@@ -115,6 +117,13 @@ describe('heartbeat — an engaged player cannot walk into town', { concurrency:
         onlineStore.upsert({ name: PLAYER, sector: WILD, character: { level: 20 }, tile: 5 });
         await kv.set('pvp:duel-1', session('active', { continuousVitals: false, rewardAuthority: 'challenge' }));
         assert.equal((await beat(0)).body?.sector, 0, 'a spar resets both fighters and cannot be escaped into town in any way that matters');
+
+        onlineStore.remove(PLAYER);
+        onlineStore.upsert({ name: PLAYER, sector: WILD, character: { level: 20 }, tile: 5 });
+        // F08: a raid untouched by ANYONE for a whole session TTL is a double
+        // walk-out, not an engagement; the beat may enter town.
+        await kv.set('pvp:duel-1', session('active', { createdAt: Date.now() - 60 * 60_000, lastMoveAt: Date.now() - 20 * 60_000 }));
+        assert.equal((await beat(0)).body?.sector, 0, 'a lapsed duel engages nobody');
     });
 
     it('engagement evidence is server-written only', async () => {

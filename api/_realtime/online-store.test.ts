@@ -182,6 +182,23 @@ test('clearPendingAttacker and setInBattle mutate in place', () => {
     assert.equal(store.get('rill')!.inBattle, undefined, 'false clears the flag');
 });
 
+test('a client-claimed inBattle confers NO immunity — the flag is server-owned (F01)', () => {
+    // The target-side reads of `inBattle` grant attack immunity. A beat used to
+    // set it, so a tampered client could stand in the wild un-attackable
+    // forever. upsert now ignores the claim in both directions: it cannot set
+    // the flag, and it cannot clear one a fight host set.
+    const { store } = makeStore();
+    store.upsert({ name: 'rill', sector: 1, character: null, inBattle: true });
+    assert.equal(store.get('rill')!.inBattle, undefined, 'a claim sets nothing');
+    store.setInBattle('rill', true);
+    store.upsert({ name: 'rill', sector: 1, character: null, inBattle: false });
+    assert.equal(store.get('rill')!.inBattle, true, 'a claim clears nothing a fight host set');
+    store.upsert({ name: 'rill', sector: 1, character: null });
+    assert.equal(store.get('rill')!.inBattle, true, 'and it survives an ordinary beat');
+    store.setInBattle('rill', false);
+    assert.equal(store.get('rill')!.inBattle, undefined);
+});
+
 test('a client-claimed travelingUntil confers NO immunity — only a minted lease does', () => {
     // "Target is traveling" is a hard 409 in attackBlock / sessionOpponentBlock /
     // challengeBlock, so if presence honoured a self-reported travelingUntil a
