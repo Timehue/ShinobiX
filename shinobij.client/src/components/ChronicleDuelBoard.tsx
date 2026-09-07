@@ -25,6 +25,7 @@ import { isImageAvatar } from "../lib/avatar";
 import { ChronicleCardView } from "./ChronicleCardView";
 import { ELEMENT } from "../lib/chronicle-card-art";
 import { figureFlip } from "../lib/chronicle-figure-facing";
+import { prefersLiteCombatFx } from "../lib/device-tier";
 import { ChronicleCardInspector } from "./ChronicleCardInspector";
 import { Modal } from "./ui/Modal";
 
@@ -92,26 +93,25 @@ function spawnLifeFloat(anchor: HTMLElement | null, delta: number): void {
 
 /** A destroyed card leaves a readable visual trail toward its owner's
  * Graveyard instead of disappearing between server projections. */
-/* Desktop-stage gate for the cut-out creature figures: mobile keeps the
-   flat card layout and must not fetch the figure assets at all. */
-function useDesktopStage(): boolean {
-  // matchMedia is feature-checked, not just window: node test shims
-  // provide a window without it, and the figure layer must simply
-  // stay off anywhere the media query cannot be asked.
-  const [desktop, setDesktop] = useState(
+/* Stage gate for the cut-out creature figures. This was a `min-width: 1024px`
+   check because the layer looked expensive; measuring it on 2026-09-07 showed
+   the cost was one keyframe animating `filter` (fixed in chronicle-duel.css),
+   not the sprites — with that gone a full board holds 60fps on a 6x-throttled
+   phone CPU. So phones get the figures too, and the only stand-down left is
+   the hardware one the rest of the heavy combat VFX already share, which also
+   keeps the ~90KB-per-creature assets from being fetched at all there. */
+function useStageFigures(): boolean {
+  // matchMedia is feature-checked, not just window: node test shims provide a
+  // window without it, and the figure layer must simply stay off anywhere the
+  // device tier cannot be asked. The tier itself is cached for the session, so
+  // this needs no subscription.
+  const [enabled] = useState(
     () =>
       typeof window !== "undefined" &&
       typeof window.matchMedia === "function" &&
-      window.matchMedia("(min-width: 1024px)").matches,
+      !prefersLiteCombatFx(),
   );
-  useEffect(() => {
-    if (typeof window.matchMedia !== "function") return;
-    const media = window.matchMedia("(min-width: 1024px)");
-    const onChange = () => setDesktop(media.matches);
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
-  }, []);
-  return desktop;
+  return enabled;
 }
 
 /* A summoned attacker's cut-out creature render (generated from its own
@@ -356,7 +356,7 @@ export function ChronicleDuelBoard({
   exitLabel?: string;
   onAction: (intent: ChronicleActionIntent) => void;
 }) {
-  const stageFigures = useDesktopStage();
+  const stageFigures = useStageFigures();
   useEffect(() => {
     primeChronicleSfx();
   }, []);
