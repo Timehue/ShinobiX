@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/purity */
 import { useState, useEffect, useMemo } from "react";
+import { usePublicBloodlines } from "../lib/use-public-bloodlines";
 import { serverNow } from "../lib/server-clock";
 import { NAMED_ITEM_LEVEL_REQ } from "../../../shared/item-level-gate";
 import {
@@ -204,7 +205,6 @@ export function CentralHub({
     updateCharacter,
     setScreen,
     savedBloodlines,
-    publicPlayerBloodlines,
     triggeredEvents,
     setTriggeredEvents,
     onStartDungeon,
@@ -222,7 +222,6 @@ export function CentralHub({
     updateCharacter: (character: Character) => void;
     setScreen: (screen: Screen) => void;
     savedBloodlines: SavedBloodline[];
-    publicPlayerBloodlines: ReviewBloodline[];
     triggeredEvents: string[];
     setTriggeredEvents: React.Dispatch<React.SetStateAction<string[]>>;
     onStartDungeon: (event: CreatorEvent) => void;
@@ -246,6 +245,7 @@ export function CentralHub({
         "Welcome to Central — the neutral heart of the shinobi world."
     );
     const [showArchives, setShowArchives] = useState(false);
+    const publicPlayerBloodlines = usePublicBloodlines(showArchives, character.name);
     const [showAwakening, setShowAwakening] = useState(openAwakeningOnMount);
     const [awakeningMsg, setAwakeningMsg] = useState("");
     useEffect(() => {
@@ -312,12 +312,11 @@ export function CentralHub({
                 setActiveWarBanner(mine ?? null);
             } catch { /* silent */ }
         }
-        void fetchWar();
         // 15s matches the war screen's poll cadence so the banner doesn't
         // lag the actual state by up to a minute (previously 60s, which
         // meant winners could sit on a stale "at war" banner for a full
         // poll cycle after victory).
-        const stop = visiblePoll(fetchWar, 15_000);
+        const stop = visiblePoll(fetchWar, 15_000, 0.1, { immediate: true });
         return () => { alive = false; stop(); };
     }, [character.village]);
 

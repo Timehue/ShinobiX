@@ -99,11 +99,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Admin-authored item definitions, loaded ONCE for the whole squad (the
         // read is memoized anyway). Without it an admin-authored equipped item
         // resolves to nothing and is silently dropped — see api/_admin-item-catalog.ts.
-        const admin = await loadAdminCombatContent();
+        const allySlugs = partySlugs.filter(slug => slug !== hostName);
+        const [admin, allyRecords] = await Promise.all([
+            loadAdminCombatContent(),
+            allySlugs.length ? kv.mget<Record<string, unknown>[]>(...allySlugs.map(slug => `save:${slug}`)) : [],
+        ]);
+        const recordsBySlug = new Map(allySlugs.map((slug, index) => [slug, allyRecords[index] ?? null]));
         const squad: SquadMemberInput[] = [];
         for (let i = 0; i < partySlugs.length; i++) {
             const slug = partySlugs[i]!;
-            const rec = await augmentSaveWithForgedDefs(slug === hostName ? hostRec : await kv.get<Record<string, unknown>>(`save:${slug}`));
+            const rec = await augmentSaveWithForgedDefs(slug === hostName ? hostRec : recordsBySlug.get(slug) ?? null);
             const char = rec?.character as Record<string, unknown> | undefined;
             if (!char) { if (slug === hostName) return res.status(400).json({ error: 'Your save was not found.' }); continue; }
             squad.push({

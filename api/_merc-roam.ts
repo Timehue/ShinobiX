@@ -57,6 +57,13 @@ export async function isMercTargetOnCooldown(targetPlayer: string, now: number):
     return typeof until === 'number' && until > now;
 }
 
+/** Advisory target selection only; deployments still recheck under the save lock. */
+export async function mercTargetsOnCooldown(targetPlayers: readonly string[], now: number): Promise<Set<string>> {
+    if (!targetPlayers.length) return new Set();
+    const values = await kv.mget<number[]>(...targetPlayers.map(mercTargetCdKey));
+    return new Set(targetPlayers.filter((_, index) => typeof values[index] === 'number' && values[index]! > now));
+}
+
 /** Put a player off-limits to mercs until now + MERC_TARGET_COOLDOWN_MS. */
 export async function setMercTargetCooldown(targetPlayer: string, now: number): Promise<void> {
     await kv.set(mercTargetCdKey(targetPlayer), now + MERC_TARGET_COOLDOWN_MS);

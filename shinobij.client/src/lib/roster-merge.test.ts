@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mergePlayerRoster } from "./roster-merge";
+import { mergePlayerRoster, mergeRosterSnapshot } from "./roster-merge";
 import type { Character, PlayerRecord } from "../types/character";
 
 // Minimal PlayerRecord factory — mergePlayerRoster only touches `name` + `character`.
@@ -8,6 +8,32 @@ const rec = (name: string, level = 1): PlayerRecord =>
   ({ name, character: { name, level } as unknown as Character }) as unknown as PlayerRecord;
 const lvl = (p: PlayerRecord) => (p.character as unknown as { level: number }).level;
 const idNorm = (c: Character) => c;
+
+test('full snapshot merge matches the old case-insensitive scan for duplicates and preserves input', () => {
+  const prev = [rec('Alice', 1), rec('Bob', 2), rec('alice', 3)];
+  const incoming = [rec('ALICE', 4), rec('Cara', 5), rec('cara', 6), rec('BOB', 7)];
+  const expected = [...prev];
+  for (const record of incoming) {
+    const i = expected.findIndex(p => p.name.toLowerCase() === record.name.toLowerCase());
+    if (i >= 0) expected[i] = { ...expected[i], ...record };
+    else expected.push(record);
+  }
+  assert.deepEqual(mergeRosterSnapshot(prev, incoming), expected);
+  assert.deepEqual(prev.map(lvl), [1, 2, 3]);
+});
+
+test('large public snapshots keep every player and replace rich profiles without quadratic name scans', () => {
+  let nameReads = 0;
+  const prev = Array.from({ length: 2000 }, (_, i) => {
+    const row = rec(`P${i}`);
+    Object.defineProperty(row, 'name', { enumerable: true, get() { nameReads++; return `P${i}`; } });
+    return row;
+  });
+  const next = mergeRosterSnapshot(prev, Array.from({ length: 2000 }, (_, i) => rec(`p${i}`, 9)));
+  assert.equal(next.length, 2000);
+  assert.ok(next.every(row => lvl(row) === 9));
+  assert.ok(nameReads <= 4000, `linear name accesses: ${nameReads}`);
+});
 
 // These lock in the behavior-equivalence with the old inline findIndex+slice merge
 // that the heartbeat used before it was extracted + throttled. The sector-liveness

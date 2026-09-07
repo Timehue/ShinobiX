@@ -96,14 +96,17 @@ describe('published content participates with each catalog’s existing rule', (
 });
 
 describe('every shared-content reader dual-reads', () => {
-    it('the four server readers consult the canonical store', () => {
-        for (const rel of ['_admin-jutsu-catalog.ts', '_admin-item-catalog.ts', '_admin-ai-catalog.ts', 'shop/_catalog.ts', 'hollow-gate/start.ts']) {
+    it('the server readers consult the canonical store, including through the shared combat reader', () => {
+        for (const rel of ['_admin-jutsu-catalog.ts', '_admin-item-catalog.ts', '_admin-ai-catalog.ts']) {
+            assert.match(read(rel), /loadAdminContentRecords\(/, `${rel} must use the shared dual-read`);
+        }
+        for (const rel of ['_admin-content-records.ts', 'shop/_catalog.ts', 'hollow-gate/start.ts']) {
             assert.match(read(rel), /loadPublishedContent\(/, `${rel} must dual-read the canonical content store`);
         }
     });
 
     it('a storage failure in the content store degrades to slots-only', () => {
-        for (const rel of ['_admin-jutsu-catalog.ts', '_admin-item-catalog.ts', '_admin-ai-catalog.ts', 'shop/_catalog.ts', 'hollow-gate/start.ts']) {
+        for (const rel of ['_admin-content-records.ts', 'shop/_catalog.ts', 'hollow-gate/start.ts']) {
             assert.match(read(rel), /loadPublishedContent\(\)\.catch\(/, `${rel} must not fail when the content store is unavailable`);
         }
     });

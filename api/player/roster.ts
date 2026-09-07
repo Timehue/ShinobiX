@@ -10,6 +10,7 @@ import { parseTravelLease, settleTravelLeases, sleeperSectorForTravelLease, trav
 import { cachedFor } from '../_proc-cache.js';
 import { earnedStatPoints } from '../_xp-engine.js';
 import { activeCarriedPets } from '../_entitlements.js';
+import { readKvProjection } from '../_storage-projection.js';
 
 const FULL_ROSTER_CACHE_KEY = 'player:roster:full';
 const FULL_ROSTER_CACHE_TTL_MS = 60_000;
@@ -215,7 +216,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const travelLeaseKeys = registryKeys.map(travelLeaseKey);
         const [saves, battleLocks, rawTravelLeases] = saveKeys.length > 0
             ? await Promise.all([
-                kv.mget<Record<string, unknown>[]>(...saveKeys),
+                // Keep all character fields for the existing settlement/public
+                // projection. Creator catalogs and other top-level save data
+                // never enter this read model, and it is never written as a save.
+                readKvProjection(kv, saveKeys, {
+                    character: ['character'], currentSector: ['currentSector'],
+                    currentBiome: ['currentBiome'], pendingTravel: ['pendingTravel'],
+                    worldGeoV: ['worldGeoV'], _saveAt: ['_saveAt'], _regenAt: ['_regenAt'],
+                }),
                 battleLockFlagsForPlayers(registryKeys),
                 kv.mget<unknown[]>(...travelLeaseKeys),
             ])

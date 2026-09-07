@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity */
+/* eslint-disable react-hooks/purity */
 import { useState, useEffect, useCallback } from "react";
 import { serverNow } from "../lib/server-clock";
 // Compact local chrome glyphs shared with the rest of the game.
@@ -60,7 +60,7 @@ export function VillageWarScreen({
         }
     }, []);
 
-    useEffect(() => { void refresh(); return visiblePoll(refresh, 15000); }, [refresh]);
+    useEffect(() => visiblePoll(refresh, 15000, 0.1, { immediate: true }), [refresh]);
 
     const myVillage = (character.village ?? "").trim();
     const activeWar = wars.find(w => !w.endedAt && Array.isArray(w.villages) && w.villages.includes(myVillage));

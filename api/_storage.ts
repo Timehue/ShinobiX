@@ -29,6 +29,8 @@
 // On Vercel (stateless) instances are short-lived so this is a best-effort
 // bonus; CDN Cache-Control headers are the primary caching layer there.
 
+import type { KvProjection } from './_storage-projection.js';
+
 interface CacheEntry { value: unknown; expiresAt: number; }
 const _readCache = new Map<string, CacheEntry>();
 
@@ -410,6 +412,27 @@ const pgKv = {
             }
         }
         return result;
+    },
+
+    async mgetProjected(keys: string[], projection: KvProjection): Promise<Array<Record<string, unknown> | null>> {
+        if (!keys.length) return [];
+        const params: unknown[] = [keys];
+        const fragments = Object.entries(projection).map(([field, path]) => {
+            params.push(field, path);
+            const fieldParam = `$${params.length - 1}::text`;
+            const pathParam = `$${params.length}::text[]`;
+            return `CASE WHEN value #> ${pathParam} IS NULL THEN '{}'::jsonb ELSE jsonb_build_object(${fieldParam}, value #> ${pathParam}) END`;
+        });
+        const expression = fragments.length ? fragments.join(' || ') : "'{}'::jsonb";
+        // Read the current row directly. A projection must never seed the cache
+        // consumed by get/mget or become authority for a subsequent save write.
+        const { rows } = await getPool().query<{ key: string; value: Record<string, unknown> | null }>(
+            `SELECT key, CASE WHEN jsonb_typeof(value) = 'object' THEN ${expression} ELSE NULL END AS value
+             FROM public.kv_store WHERE key = ANY($1::text[]) AND (expires_at IS NULL OR expires_at > now())`,
+            params,
+        );
+        const byKey = new Map(rows.map(row => [row.key, row.value]));
+        return keys.map(key => byKey.get(key) ?? null);
     },
 
     async hgetall<T = Record<string, unknown>>(key: string): Promise<T | null> {
@@ -984,6 +1007,8 @@ export interface KvLike {
     incr(key: string, options?: { ex?: number }): Promise<number>;
     keys(pattern: string): Promise<string[]>;
     mget<T extends unknown[] = unknown[]>(...keys: string[]): Promise<(T[number] | null)[]>;
+    /** Optional database-side projection for read-only views, never save authority. */
+    mgetProjected?(keys: string[], projection: KvProjection): Promise<Array<Record<string, unknown> | null>>;
     hgetall<T = Record<string, unknown>>(key: string): Promise<T | null>;
     /**
      * KEYS-ONLY read of an object-valued key (hash field names, or the keys of

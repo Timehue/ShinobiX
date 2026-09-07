@@ -162,7 +162,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
         } catch { /* mercs are best-effort (feature gated off / not a war village) */ }
     }, [character.name, myVillage]);
 
-    useEffect(() => { void refresh(); void loadMercs(); return visiblePoll(refresh, 15000); }, [refresh, loadMercs]);
+    useEffect(() => { void loadMercs(); return visiblePoll(refresh, 15000, 0.1, { immediate: true }); }, [refresh, loadMercs]);
 
     const myView = useMemo(() => data?.villages.find((v) => v.village === myVillage) ?? null, [data, myVillage]);
     const contestBySector = useMemo(() => {
