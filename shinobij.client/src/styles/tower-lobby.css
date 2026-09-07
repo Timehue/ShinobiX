@@ -20,6 +20,106 @@
     isolation: isolate;
 }
 
+/* One encounter-long branch choice for solo Story floors. */
+.tower-route-picker {
+    margin: 14px 0;
+    padding: 14px;
+    border: 1px solid rgba(125, 211, 252, 0.2);
+    border-radius: 14px;
+    background: linear-gradient(145deg, rgba(8, 20, 36, 0.96), rgba(9, 14, 28, 0.96));
+    box-shadow: 0 12px 30px rgba(2, 6, 23, 0.28);
+}
+
+.tower-route-picker-heading > span {
+    color: #7dd3fc;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.tower-route-picker-heading h2 {
+    margin: 3px 0 2px;
+    color: #f8fafc;
+    font-size: 1.06rem;
+}
+
+.tower-route-picker-heading p {
+    margin: 0 0 11px;
+    color: #94a3b8;
+    font-size: 0.78rem;
+}
+
+.tower-route-options {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.tower-route-option {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    align-items: center;
+    gap: 2px 8px;
+    min-width: 0;
+    min-height: 76px;
+    padding: 9px 10px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.72);
+    color: #e2e8f0;
+    text-align: left;
+}
+
+.tower-route-option:hover,
+.tower-route-option:focus-visible {
+    border-color: rgba(125, 211, 252, 0.7);
+    background: rgba(14, 116, 144, 0.18);
+}
+
+.tower-route-option.is-selected {
+    border-color: #22d3ee;
+    background: linear-gradient(145deg, rgba(8, 145, 178, 0.24), rgba(15, 23, 42, 0.88));
+    box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.22), 0 0 16px rgba(34, 211, 238, 0.1);
+}
+
+.tower-route-option.is-elite.is-selected {
+    border-color: #f59e0b;
+    background: linear-gradient(145deg, rgba(180, 83, 9, 0.25), rgba(15, 23, 42, 0.88));
+}
+
+.tower-route-option-icon {
+    grid-row: 1 / span 2;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.9);
+    color: #67e8f9;
+    font-size: 1rem;
+}
+
+.tower-route-option strong {
+    overflow: hidden;
+    color: #f8fafc;
+    font-size: 0.82rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tower-route-option small {
+    color: #a8b4c6;
+    font-size: 0.7rem;
+    line-height: 1.35;
+}
+
+@media (max-width: 680px) {
+    .tower-route-options {
+        grid-template-columns: 1fr;
+    }
+}
+
 .tower-lobby-hero::after {
     position: absolute;
     inset: auto 0 0;

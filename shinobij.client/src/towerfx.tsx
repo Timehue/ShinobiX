@@ -54,6 +54,7 @@ const STRIKE_TILES = zone(at(3, 5));
 
 const session: TowerSession = {
     towerId: "celestial", runId: "preview", floor: 6, seed: 1, partySize: 2,
+    sealedCatalogFloor: { id: 6, name: "Warden's Crossfire", objective: "defeat-all", roundBudget: 8 },
     map: {
         width: W, height: H, biome: "forest",
         // Scattered terrain pillars (non-adjacent, like the server's scatterTerrain).
@@ -138,6 +139,12 @@ const session: TowerSession = {
     ],
     // The primed volley (violet tiles + the danger banner this round).
     bossStrike: { tiles: STRIKE_TILES, round: 3, pct: 8, kind: "volley", label: "Spire Warden's barrage" },
+    routeChoice: {
+        id: "elite-shortcut",
+        label: "Elite Shortcut",
+        summary: "Enemies gain 18% health and 10% damage; a clear earns 25% more score.",
+        scoreMultiplier: 1.25,
+    },
     log: [
         "The fight begins.",
         "A Spire Warden anchors the enemy formation.",

@@ -44,14 +44,15 @@ test("combat hierarchy remains legible and reachable on narrow touch screens", (
 
 test("targeting guidance is truthful and hides inert board controls from assistive tech", () => {
     assert.match(fight, /No enemy is in melee range\. Move, Dash, or choose a ranged technique\./);
-    assert.match(fight, /targetingBlocked \? `\$\{armedActionName \?\? "Action"\} has no legal target`/);
+    assert.match(fight, /targetingBlocked \? `\$\{armedActionName \?\? "Action"\} has no legal target\. \$\{targetingHint\}`/);
     assert.match(fight, /id="tower-action-guidance"/);
     assert.match(fight, /aria-describedby=\{\(fightSyncState === "reconnecting"/);
     assert.equal(fight.match(/aria-hidden=\{!tileActionable\}/g)?.length, 1);
-    assert.equal(fight.match(/aria-hidden=\{busy \|\| \(!targetable && !selfTargetable\)\}/g)?.length, 1);
+    assert.equal(fight.match(/aria-hidden=\{busy \|\| !actorActionable\}/g)?.length, 1);
     assert.equal(fight.match(/inert=\{!tileActionable \? true : undefined\}/g)?.length, 1);
-    assert.equal(fight.match(/inert=\{busy \|\| \(!targetable && !selfTargetable\) \? true : undefined\}/g)?.length, 1);
-    assert.match(tacticalCss, /\.tower-action-state--blocked\s*\{/);
+    assert.equal(fight.match(/inert=\{busy \|\| !actorActionable \? true : undefined\}/g)?.length, 1);
+    assert.match(fight, /id="tower-action-guidance" className="tower-sr-only"/);
+    assert.doesNotMatch(fight, /tower-action-state--blocked/);
     assert.match(tacticalCss, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.tower-phase-banner/);
     assert.match(tacticalCss, /@media \(forced-colors: active\)/);
 });

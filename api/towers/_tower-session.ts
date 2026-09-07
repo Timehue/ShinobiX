@@ -171,6 +171,14 @@ export type TowerSession = {
     recentMoveReceipts?: Array<{ token: string; fingerprint: string }>;
     rewardSettlementState: 'pending' | 'settled';
     log: string[];
+    /** Solo Story route sealed at entry. It can affect encounter stats and the
+     * final score, but is never accepted again from an action request. */
+    routeChoice?: {
+        id: 'rest-shrine' | 'focused-assault' | 'elite-shortcut';
+        label: string;
+        summary: string;
+        scoreMultiplier: number;
+    };
     /**
      * Cosmetic combat VFX for the plates the client draws. Authored by the
      * engine alongside each resolved action / DoT tick and REPLACED wholesale
