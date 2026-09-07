@@ -25,12 +25,12 @@ import { safeName } from '../_utils.js';
 
 export const BATTLE_STATE_PREFIX = 'battle-state:';
 
-export type BattleProjectionKind = 'solo-pve' | 'tower' | 'pvp';
+export type BattleProjectionKind = 'solo-pve' | 'tower' | 'pvp' | 'hollow-gate' | 'pet-showdown';
 
 export type BattleStateProjection = {
     version: 1;
     kind: BattleProjectionKind;
-    /** The owning store's record id: a Solo-PvE sessionId, a Tower runId, a PvP battleId. */
+    /** The owning store's record id: a Solo-PvE sessionId, a Tower runId, a PvP battleId, a Hollow Gate run token, a showdown sessionId. */
     sessionId: string;
     startedAt: number;
     /** Gameplay expiry (ms epoch). The row itself is retained past this. */
@@ -51,7 +51,7 @@ export function isBattleStateProjection(value: unknown): value is BattleStatePro
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
     const p = value as Partial<BattleStateProjection>;
     return p.version === 1
-        && (p.kind === 'solo-pve' || p.kind === 'tower' || p.kind === 'pvp')
+        && (p.kind === 'solo-pve' || p.kind === 'tower' || p.kind === 'pvp' || p.kind === 'hollow-gate' || p.kind === 'pet-showdown')
         && typeof p.sessionId === 'string'
         && p.sessionId.length > 0
         && Number.isFinite(p.startedAt)
@@ -120,7 +120,7 @@ export function noteBattleEnded(playerName: string): void {
 
 export const BATTLE_AUTHORITY_CACHE_MS = 10_000;
 
-export type BattleAuthoritySource = 'pet-duel' | 'solo-pve' | 'tower' | 'pvp' | 'legacy-lock';
+export type BattleAuthoritySource = 'pet-duel' | 'solo-pve' | 'tower' | 'pvp' | 'legacy-lock' | 'hollow-gate' | 'pet-showdown' | 'pet-battle';
 
 export type LapsedBattle = { kind: BattleProjectionKind; sessionId: string };
 

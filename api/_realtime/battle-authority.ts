@@ -12,32 +12,39 @@
  *   - a running pet duel: in-process registry, free;
  *   - `battle-lock:<slug>`: a Tower lease (refreshed per action, released at
  *     terminal) or the legacy marker the regeneration exclusion already honours;
- *   - `battle-state:<slug>`: the projection every Solo-PvE host writes at
- *     session creation (battle-projection.ts), verified against the session it
- *     names: active AND not past its gameplay expiry;
+ *   - `battle-state:<slug>`: the projection a fight host writes at start
+ *     (battle-projection.ts), verified against the record it names:
+ *       solo-pve     an active session not past its gameplay expiry;
+ *       hollow-gate  the dive's run key (`hg-run:<slug>:<token>`), which exists
+ *                    exactly while the dive is live — settled or died, it is gone;
+ *       pet-showdown a showdown session that is not yet `finished`;
  *   - `pvp:pending-session:<slug>`: a fresh reservation, or an active pointer
  *     whose session is still `active` (a pointer that already carries its
  *     terminal recovery deadline is a finished duel: no read needed);
  *   - `ai-fight-active:<slug>`: the generic AI-fight pointer, for a session
- *     that started before the projection existed.
+ *     that started before the projection existed;
+ *   - `pet:battle-active:<slug>`: the legacy pet-battle pointer, verified
+ *     against the sealed token it names.
  *
- * The four KV keys are read by the heartbeat on the mget it already performs,
+ * The five KV keys are read by the heartbeat on the mget it already performs,
  * so corroboration costs no extra round trip in the common case; only a
- * pointer that needs its session verified costs one read, and that verdict is
+ * pointer that needs its record verified costs one read, and that verdict is
  * cached per player for BATTLE_AUTHORITY_CACHE_MS (keyed by the exact
  * evidence, so a changed pointer is never served stale).
  *
  * A session that is still `active` but past its gameplay expiry grants NO
  * immunity and is reported as `lapsed`, so the caller can terminalize it with
- * its own evidence (F08, api/_battle-lapse.ts). Storage errors while verifying
- * are not evidence either way: the resolver throws, and the heartbeat keeps
- * the presence flag as it was.
+ * its own evidence (F08, api/_battle-lapse.ts). A projection whose record is
+ * gone or finished is reported the same way, so it is retired. Storage errors
+ * while verifying are not evidence either way: the resolver throws, and the
+ * heartbeat keeps the presence flag as it was.
  */
 import { kv as realKv, type KvLike } from '../_storage.js';
 import { safeName } from '../_utils.js';
 import { isTowerBattleLock } from '../_tower-battle-guard.js';
 import { isSoloPveSession, type SoloPveSession } from '../solo-pve/_session.js';
 import { soloPveSessionKey } from '../solo-pve/_store.js';
+import { hollowGateRunKey } from '../hollow-gate/_run-token.js';
 import { parsePvpPendingSessionPointer, pvpPendingSessionKey } from '../pvp/_pending-session.js';
 import type { PvpSession } from '../pvp/session.js';
 import { isPvpSessionLapsed } from '../pvp/_lapse-rules.js';
@@ -55,6 +62,17 @@ export type { BattleAuthority, LapsedBattle } from './battle-projection.js';
 
 export const AI_FIGHT_ACTIVE_PREFIX = 'ai-fight-active:';
 export const BATTLE_LOCK_PREFIX = 'battle-lock:';
+export const PET_BATTLE_ACTIVE_PREFIX = 'pet:battle-active:';
+
+/** The sealed record a legacy pet-battle pointer names (api/pet/battle-start.ts). */
+export function petBattleTokenKey(slug: string, token: string): string {
+    return `pet:battle-token:${slug}:${token}`;
+}
+
+/** A showdown session row (api/pet/showdown.ts); `finished` is the terminal mark. */
+export function petShowdownSessionKey(slug: string, sessionId: string): string {
+    return `pet:showdown:${slug}:${sessionId}`;
+}
 
 /** The raw values of `battleAuthorityKeys(slug)`, in that order. */
 export type BattleEvidence = {
@@ -62,6 +80,7 @@ export type BattleEvidence = {
     battleLock: unknown;
     pvpPointer: unknown;
     aiFightPointer: unknown;
+    petBattleActive: unknown;
 };
 
 export type BattleAuthorityDeps = {
@@ -71,9 +90,15 @@ export type BattleAuthorityDeps = {
 };
 
 /** The KV keys whose values corroborate a fight, for the heartbeat's mget. */
-export function battleAuthorityKeys(playerName: string): [string, string, string, string] {
+export function battleAuthorityKeys(playerName: string): [string, string, string, string, string] {
     const slug = safeName(playerName);
-    return [battleStateKey(slug), `${BATTLE_LOCK_PREFIX}${slug}`, pvpPendingSessionKey(slug), `${AI_FIGHT_ACTIVE_PREFIX}${slug}`];
+    return [
+        battleStateKey(slug),
+        `${BATTLE_LOCK_PREFIX}${slug}`,
+        pvpPendingSessionKey(slug),
+        `${AI_FIGHT_ACTIVE_PREFIX}${slug}`,
+        `${PET_BATTLE_ACTIVE_PREFIX}${slug}`,
+    ];
 }
 
 export function battleEvidenceFrom(values: readonly unknown[]): BattleEvidence {
@@ -82,11 +107,18 @@ export function battleEvidenceFrom(values: readonly unknown[]): BattleEvidence {
         battleLock: values[1] ?? null,
         pvpPointer: values[2] ?? null,
         aiFightPointer: values[3] ?? null,
+        petBattleActive: values[4] ?? null,
     };
 }
 
 function evidenceFingerprint(evidence: BattleEvidence): string {
-    return JSON.stringify([evidence.battleState ?? null, evidence.battleLock ?? null, evidence.pvpPointer ?? null, evidence.aiFightPointer ?? null]);
+    return JSON.stringify([
+        evidence.battleState ?? null,
+        evidence.battleLock ?? null,
+        evidence.pvpPointer ?? null,
+        evidence.aiFightPointer ?? null,
+        evidence.petBattleActive ?? null,
+    ]);
 }
 
 async function soloPveVerdict(
@@ -138,7 +170,17 @@ async function resolveUncached(
     let lapsed: LapsedBattle | undefined;
     const projection = isBattleStateProjection(evidence.battleState) ? evidence.battleState : null;
     if (projection) {
-        if (projection.expiresAt <= now) {
+        if (projection.kind === 'hollow-gate') {
+            // A dive is live exactly while its run key exists; the projection's
+            // expiry is only a hint for the sweep, never the verdict.
+            const run = await store.get<unknown>(hollowGateRunKey(slug, projection.sessionId));
+            if (run) return { inBattle: true, source: 'hollow-gate' };
+            lapsed = { kind: 'hollow-gate', sessionId: projection.sessionId };
+        } else if (projection.kind === 'pet-showdown') {
+            const session = await store.get<{ finished?: boolean } | null>(petShowdownSessionKey(slug, projection.sessionId));
+            if (session && !session.finished) return { inBattle: true, source: 'pet-showdown' };
+            lapsed = { kind: 'pet-showdown', sessionId: projection.sessionId };
+        } else if (projection.expiresAt <= now) {
             // Past its gameplay expiry by the projection's own clock; the
             // owning store decides whether it is truly lapsed (the sweep and
             // the terminalizer re-read it under the session lock).
@@ -170,6 +212,15 @@ async function resolveUncached(
         const verdict = await soloPveVerdict(store, aiSessionId, now);
         if (verdict === 'live') return { inBattle: true, source: 'solo-pve', ...(lapsed ? { lapsed } : {}) };
         if (verdict === 'lapsed' && !lapsed) lapsed = { kind: 'solo-pve', sessionId: aiSessionId };
+    }
+
+    // The legacy pet battle keeps one outstanding sealed token per player; the
+    // pointer names it and battle-result clears the pointer on settlement. A
+    // token already tombstoned (`settledAt`) is a finished fight.
+    const petToken = typeof evidence.petBattleActive === 'string' ? evidence.petBattleActive : '';
+    if (petToken) {
+        const sealed = await store.get<{ settledAt?: unknown } | null>(petBattleTokenKey(slug, petToken));
+        if (sealed && !sealed.settledAt) return { inBattle: true, source: 'pet-battle', ...(lapsed ? { lapsed } : {}) };
     }
 
     return { inBattle: false, source: null, ...(lapsed ? { lapsed } : {}) };

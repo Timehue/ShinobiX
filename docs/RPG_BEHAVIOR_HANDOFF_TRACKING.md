@@ -18,7 +18,7 @@ no defect found / preserved), `design-only` (behavior preserved, decision record
 
 | ID | Recheck disposition (handoff) | Actual handlers / helpers | Regression test | Status |
 |---|---|---|---|---|
-| F01 battle availability | Fix: client-asserted `inBattle` grants immunity | `api/_realtime/battle-projection.ts`, `api/_realtime/battle-authority.ts`, `api/_realtime/online-store.ts` (upsert ignores the claim), `api/player/heartbeat.ts` (derives the flag on its existing mget), `api/_realtime/socket.ts`, start/terminal hooks in `api/solo-pve/_store.ts`, `api/pvp/_pending-session.ts`, `api/pvp/_committed-terminal-effects.ts`, `api/towers/_battle-lease.ts`; income door `api/_sector-presence-gate.ts` | `api/_realtime/battle-authority.test.ts`, `api/player/heartbeat-battle-authority.test.ts`, `api/_realtime/online-store.test.ts`, `api/world/explore-obligations.test.ts` | **fixed (immunity stripped, 2026-09-06 second pass):** `inBattle` is server-owned. Presence ignores the client claim in both directions; the heartbeat proves the flag from a Tower lease, the `battle-state:<slug>` projection every Solo-PvE host writes at creation (verified against a live, unexpired session), a fresh PvP reservation or an active PvP session, the generic AI-fight pointer, or a running pet duel, cached per player for 10 s keyed by the exact evidence. Fight hosts set/clear presence at start/terminal so immunity begins and ends with the fight. The field-income door keeps its kill switch. |
+| F01 battle availability | Fix: client-asserted `inBattle` grants immunity | `api/_realtime/battle-projection.ts`, `api/_realtime/battle-authority.ts`, `api/_realtime/online-store.ts` (upsert ignores the claim), `api/player/heartbeat.ts` (derives the flag on its existing mget), `api/_realtime/socket.ts`, start/terminal hooks in `api/solo-pve/_store.ts`, `api/pvp/_pending-session.ts`, `api/pvp/_committed-terminal-effects.ts`, `api/towers/_battle-lease.ts`; income door `api/_sector-presence-gate.ts` | `api/_realtime/battle-authority.test.ts`, `api/player/heartbeat-battle-authority.test.ts`, `api/_realtime/online-store.test.ts`, `api/world/explore-obligations.test.ts` | **fixed (immunity stripped, 2026-09-06 second pass):** `inBattle` is server-owned. Presence ignores the client claim in both directions; the heartbeat proves the flag from a Tower lease, the `battle-state:<slug>` projection every Solo-PvE host writes at creation (verified against a live, unexpired session), a fresh PvP reservation or an active PvP session, the generic AI-fight pointer, a running pet duel, and (third pass, 2026-09-07) a Hollow Gate dive via its run key, a pet showdown via its unfinished session, and a legacy pet battle via its active token pointer, cached per player for 10 s keyed by the exact evidence. Fight hosts set/clear presence at start/terminal so immunity begins and ends with the fight. The field-income door keeps its kill switch. |
 | F02 action compatibility | Implement explicit compatibility for prohibited overlaps | `api/world/explore.ts`, `api/missions/ai-fight-start.ts` | `api/world/explore-obligations.test.ts` | fixed (the clear case): a hospitalized character cannot explore or start a new AI fight; other policy questions left as-is |
 | F03 complete aftermath | Preserve; close location/presence connections | `api/_realtime/travel-lease.ts` (arrival tile persisted), `api/player/heartbeat.ts` (cold start adopts it), client `lib/sector-return.ts`, `screens/WorldMap.tsx` initializer, `App.tsx` boot hydration | `api/player/travel.test.ts`, `shinobij.client/src/lib/sector-return.test.ts` | fixed: a reload resumes on the persisted arrival tile instead of the grid centre |
 | F04 persistent chakra/stamina | Do NOT implement | `api/solo-pve/_ai-encounter.ts` (V2 starts full) | existing | design-only (preserved) |
@@ -211,12 +211,14 @@ threshold; changing it is a copy edit outside the authorized scope.
 
 Second pass (F01 immunity + F08 lapse, 2026-09-06):
 
-- Attack immunity is now proven by the server, never claimed. Client states
-  that used to confer it but have no server-recorded fight no longer do: the
-  Hollow Gate tile game between fights, a pet challenge still waiting to be
-  accepted, and a pet showdown against an AI (pet fights never involve the
-  body). Every body fight — Solo-PvE in all its hosts, PvP, Towers, running
-  two-player pet duels — is covered from its own store.
+- Attack immunity is now proven by the server, never claimed. Every body
+  fight — Solo-PvE in all its hosts, PvP, Towers, running two-player pet
+  duels — is covered from its own store. Third pass (2026-09-07, owner
+  request): a Hollow Gate dive is proven for its whole duration by its run key
+  (the tile game and dungeon events included), a pet showdown against the AI
+  by its unfinished session, and a legacy pet battle by its active token
+  pointer. The one client state that still confers nothing is a pet challenge
+  waiting to be accepted, which is not a fight.
 - A Solo-PvE fight left unattended for its session TTL now costs the engine's
   abandon rule (10% max HP from the HP last stood at, a loss, no rewards) even
   if the client never reports it. Before, closing the tab and waiting cost
@@ -312,6 +314,25 @@ online-store claim-ignored case and the lapsed-duel case in the F10 town-escape 
 
 Server-only change: no client source, markup, styles, or assets were touched. The
 client keeps sending its `inBattle` hint; the server now ignores it.
+
+### Third pass — Hollow Gate and pet showdown presence (2026-09-07)
+
+| Step | Command | Result |
+|---|---|---|
+| Type check | `npx tsc -p tsconfig.cpanel.json --noEmit` | exit 0 |
+| Resolver, dispatcher, heartbeat, sweep, showdown, Hollow Gate suites | `node --import tsx --test …` | 121/121 |
+| Showdown handler: projection at start, retired on forfeit, presence follows | `api/pet/showdown.first-pact.test.ts` | 6/6 |
+| Hollow Gate start handler: projection names the run token, retired with the key | `api/hollow-gate/start-rollback.test.ts` | 5/5 |
+| Full suite | `npm test` | 9,526/9,526, exit 0 |
+| Root build + size gate; release certification | `npm run build`; `npm run certify:release` | build exit 0, sizecheck PASS; certification 90/90 (rebased onto `22a352f73`) |
+
+Sources added to the battle authority: `battle-state` projection kinds `hollow-gate`
+(written by `api/hollow-gate/start.ts`, retired on settle, death, and event death via
+`api/hollow-gate/_presence.ts`) and `pet-showdown` (written at every showdown session
+creation, retired on forfeit and on the finishing turn via `api/pet/_showdown-presence.ts`);
+plus the existing `pet:battle-active:<slug>` pointer, verified against its sealed token.
+A projection whose dive or showdown is over is reported lapsed and retired; no body
+consequence is ever invented for these modes. Server-only change.
 
 ### No-UI-change diff review (starting commit → HEAD)
 

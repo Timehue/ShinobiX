@@ -2,6 +2,7 @@ import { randomInt } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, mergePreservingImages, safeName } from '../_utils.js';
+import { retireHollowGatePresenceByRunKey } from './_presence.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
@@ -126,8 +127,10 @@ async function persistRunCombatSettlement(
         rewardLedger: ledgerResult.ledger,
         serverCreditedCurrencies: ledgerResult.ledger.currencies,
     };
-    if (!receipt.won && !receipt.revived && !receipt.escaped && !receipt.petDefeat) await kv.del(runKey);
-    else await kv.set(runKey, nextRun);
+    if (!receipt.won && !receipt.revived && !receipt.escaped && !receipt.petDefeat) {
+        await kv.del(runKey);
+        await retireHollowGatePresenceByRunKey(kv, runKey);
+    } else await kv.set(runKey, nextRun);
     await kv.set(hollowGateCombatBindingKey(binding.runId), settleHollowGateCombatBinding(binding, receipt.won, receipt.settledAt), { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });
 }
 

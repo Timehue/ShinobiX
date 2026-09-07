@@ -200,7 +200,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // store, so the routed mget is a single round trip) — this endpoint fires
         // every second per online player, so each read saved here is ~1 op/s/player.
         const existing = onlineStore.get(name);
-        // F01: the four keys that corroborate a fight ride the same mget, so
+        // F01: the five keys that corroborate a fight ride the same mget, so
         // deriving `inBattle` server-side costs no extra round trip here.
         const battleKeys = battleAuthorityKeys(name);
         const [signals, savedLocation, persistedTravel] = await Promise.all([
@@ -285,7 +285,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // whose session is active, a running pet duel. A storage failure while
         // verifying is not evidence either way, so the flag is left as it was.
         try {
-            const battle = await resolveBattleAuthority(name, battleEvidenceFrom(signals.slice(6, 10)), { now: () => now });
+            const battle = await resolveBattleAuthority(name, battleEvidenceFrom(signals.slice(6, 11)), { now: () => now });
             onlineStore.setInBattle(name, battle.inBattle);
             // F08: an ACTIVE session past its gameplay expiry grants no immunity
             // and is terminalized with its own evidence, off the hot path.
