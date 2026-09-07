@@ -2,6 +2,7 @@ import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { retireHollowGatePresenceByRunKey } from './_presence.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
@@ -262,6 +263,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             settledAt: Date.now(),
         }, { ex: 24 * 60 * 60 }).catch(() => undefined);
         await kv.del(runKey).catch(() => undefined);
+        await retireHollowGatePresenceByRunKey(kv, runKey);
         if (result.alreadyReported) {
             await recordBetaMetric({
                 event: 'hollow_gate.run_settle_replayed',

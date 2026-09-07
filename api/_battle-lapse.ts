@@ -21,6 +21,11 @@
  *   • PvP       — a duel nobody has touched for its whole session TTL is a
  *                 double walk-out: a draw (no admission, no rewards) whose
  *                 vitals settle exactly as any other terminal duel's do.
+ *   • Hollow Gate dives and pet showdowns — never the body, and each owns its
+ *                 own ending (a dive's run key is deleted when it settles or
+ *                 the diver dies; a showdown marks itself `finished`). Nothing
+ *                 is terminalized here; a projection that names a dive or
+ *                 showdown that is over is simply retired.
  *
  * Three callers reach this: the owner's own heartbeat (battle-authority.ts
  * reports the lapse it found), any read of the session by its mode, and the
@@ -68,11 +73,13 @@ export function resetLapseReconciliationForTests(): void {
 }
 
 /** A projection naming a fight that is over (or gone) is stale: retire it. */
-async function retireStaleProjection(playerName: string | undefined, sessionId: string): Promise<void> {
-    if (!playerName) return;
+async function retireStaleProjection(playerName: string | undefined, sessionId: string): Promise<boolean> {
+    if (!playerName) return false;
     const { retireBattleProjection, noteBattleEnded } = await import('./_realtime/battle-projection.js');
     const { kv } = await import('./_storage.js');
-    if (await retireBattleProjection(kv, playerName, sessionId).catch(() => false)) noteBattleEnded(playerName);
+    const retired = await retireBattleProjection(kv, playerName, sessionId).catch(() => false);
+    if (retired) noteBattleEnded(playerName);
+    return retired;
 }
 
 export async function reconcileLapsedBattle(
@@ -86,9 +93,13 @@ export async function reconcileLapsedBattle(
         return { ...base, transitioned: false, settled: false, error: 'in-flight' };
     }
     try {
-        if (lapsed.kind === 'solo-pve') return { ...base, ...(await reconcileSoloPve(lapsed.sessionId, playerName)) };
-        if (lapsed.kind === 'tower') return { ...base, ...(await reconcileTower(lapsed.sessionId, playerName)) };
-        return { ...base, ...(await reconcilePvp(lapsed.sessionId, playerName)) };
+        switch (lapsed.kind) {
+            case 'solo-pve': return { ...base, ...(await reconcileSoloPve(lapsed.sessionId, playerName)) };
+            case 'tower': return { ...base, ...(await reconcileTower(lapsed.sessionId, playerName)) };
+            case 'pvp': return { ...base, ...(await reconcilePvp(lapsed.sessionId, playerName)) };
+            case 'hollow-gate': return { ...base, ...(await reconcileHollowGate(lapsed.sessionId, playerName)) };
+            case 'pet-showdown': return { ...base, ...(await reconcilePetShowdown(lapsed.sessionId, playerName)) };
+        }
     } catch (err) {
         return { ...base, transitioned: false, settled: false, error: (err as Error)?.message ?? String(err) };
     } finally {
@@ -134,4 +145,24 @@ async function reconcilePvp(battleId: string, playerName?: string): Promise<Outc
         if (!result.transitioned) await retireStaleProjection(playerName, battleId);
     }
     return { transitioned: result.transitioned, settled: result.settled };
+}
+
+/** A dive is live exactly while its run key exists; a projection outliving it is stale. */
+async function reconcileHollowGate(token: string, playerName?: string): Promise<Outcome> {
+    if (!playerName) return { transitioned: false, settled: false };
+    const { hollowGateRunKey } = await import('./hollow-gate/_run-token.js');
+    const { kv } = await import('./_storage.js');
+    const run = await kv.get<unknown>(hollowGateRunKey(safeName(playerName), token));
+    if (!run) await retireStaleProjection(playerName, token);
+    return { transitioned: false, settled: false };
+}
+
+/** A showdown marks itself `finished`; a projection outliving the session, or naming a finished one, is stale. */
+async function reconcilePetShowdown(sessionId: string, playerName?: string): Promise<Outcome> {
+    if (!playerName) return { transitioned: false, settled: false };
+    const { petShowdownSessionKey } = await import('./_realtime/battle-authority.js');
+    const { kv } = await import('./_storage.js');
+    const session = await kv.get<{ finished?: boolean } | null>(petShowdownSessionKey(safeName(playerName), sessionId));
+    if (!session || session.finished) await retireStaleProjection(playerName, sessionId);
+    return { transitioned: false, settled: false };
 }

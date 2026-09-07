@@ -3,6 +3,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
+import { publishShowdownPresence, retireShowdownPresence } from './_showdown-presence.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
@@ -506,6 +507,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             session.bindingKind = 'world-crisis-80';
             armTurnDeadline(session);
             await kv.set(sessionKey(playerName, sessionId), session, { ex: SESSION_TTL_SECONDS });
+            await publishShowdownPresence(kv, playerName, sessionId); // F01: a live showdown is provable presence
             await kv.set(showdownWorldCrisis80Key(playerName, sessionId), binding, { ex: SESSION_TTL_SECONDS });
             return res.status(200).json({ ok: true, state: viewOf(session), worldCrisis80: { village: binding.village } });
         }
@@ -609,6 +611,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const binding: ShowdownFirstPactBinding = { encounterId: encounter.id };
             armTurnDeadline(session);
             await kv.set(sessionKey(playerName, sessionId), session, { ex: SESSION_TTL_SECONDS });
+            await publishShowdownPresence(kv, playerName, sessionId); // F01: a live showdown is provable presence
             await kv.set(showdownFirstPactKey(playerName, sessionId), binding, { ex: SESSION_TTL_SECONDS });
             return res.status(200).json({ ok: true, state: viewOf(session), firstPact: { encounterId: encounter.id, progress } });
         }
@@ -680,6 +683,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
             armTurnDeadline(session);
             await kv.set(sessionKey(playerName, sessionId), session, { ex: SESSION_TTL_SECONDS });
+            await publishShowdownPresence(kv, playerName, sessionId); // F01: a live showdown is provable presence
             return res.status(200).json({ ok: true, state: viewOf(session) });
         }
 
@@ -807,6 +811,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (hollowGate) session.bindingKind = 'hollow-gate';
             armTurnDeadline(session);
             await kv.set(sessionKey(playerName, sessionId), session, { ex: SESSION_TTL_SECONDS });
+            await publishShowdownPresence(kv, playerName, sessionId); // F01: a live showdown is provable presence
             if (hollowGate) {
                 // Server-only bookkeeping, stored beside the session and never
                 // surfaced to the client.
@@ -900,6 +905,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
             armTurnDeadline(session);
             await kv.set(sessionKey(playerName, sessionId), session, { ex: SESSION_TTL_SECONDS });
+            await publishShowdownPresence(kv, playerName, sessionId); // F01: a live showdown is provable presence
             return res.status(200).json({ ok: true, state: viewOf(session) });
         }
 
@@ -947,6 +953,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     session.outcome = 'loss';
                     session.turnDeadlineAt = undefined;
                     await kv.set(key, session, { ex: SESSION_TTL_SECONDS });
+                    await retireShowdownPresence(kv, playerName, session.sessionId);
                 }
                 return { session, bindings };
             }, { failClosed: true });
@@ -1022,6 +1029,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const events = resolveShowdownRound(session, commands, aiCommands);
                 armTurnDeadline(session);
                 await kv.set(key, session, { ex: SESSION_TTL_SECONDS });
+                if (session.finished) await retireShowdownPresence(kv, playerName, session.sessionId);
                 return { session, events, replayed: false, bindings };
             }, { failClosed: true });
 

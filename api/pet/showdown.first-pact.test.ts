@@ -113,6 +113,29 @@ test("First Pact admission seals the chapter and exactly two active pets plus tw
     assert.equal((started.body?.firstPact as { encounterId?: string })?.encounterId, "court-menagerie");
 });
 
+test("a live showdown is provable presence (F01): the projection appears at start and retires on forfeit", async () => {
+    const { battleStateKey, isBattleStateProjection } = await import("../_realtime/battle-projection.js");
+    const { onlineStore } = await import("../_realtime/online-store.js");
+    onlineStore.remove(PLAYER);
+    onlineStore.upsert({ name: PLAYER, sector: 5, character: null });
+
+    const started = await post({ action: "first-pact", encounterId: "court-menagerie", petIds: PET_IDS });
+    assert.equal(started.statusCode, 200);
+    const sessionId = String((started.body?.state as { sessionId?: unknown }).sessionId ?? "");
+    const projection = await kv.get(battleStateKey(PLAYER));
+    assert.ok(isBattleStateProjection(projection), "start publishes the player's battle projection");
+    assert.equal(projection.kind, "pet-showdown");
+    assert.equal(projection.sessionId, sessionId);
+    assert.equal(onlineStore.get(PLAYER)?.inBattle, true, "presence follows the fight from its start");
+
+    const conceded = await post({ action: "forfeit", sessionId });
+    assert.equal(conceded.statusCode, 200);
+    assert.equal((await kv.get<ShowdownSession>(`pet:showdown:${PLAYER}:${sessionId}`))?.finished, true);
+    assert.equal(await kv.get(battleStateKey(PLAYER)), null, "a finished showdown retires its projection");
+    assert.equal(onlineStore.get(PLAYER)?.inBattle, undefined, "and presence ends with it");
+    onlineStore.remove(PLAYER);
+});
+
 test("a bound First Pact victory advances once and can be safely reclaimed", async () => {
     const started = await post({ action: "first-pact", encounterId: "court-menagerie", petIds: PET_IDS });
     assert.equal(started.statusCode, 200);
