@@ -27,6 +27,7 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import { applyDerivedLevel, type XpCharacter } from '../_xp-engine.js';
 import { deductUsedItems } from '../pvp/claim-rewards.js';
 import { computeFloorReward, computeAssistReward, computeFloorClearScore, clearMetrics } from './_tower-rewards.js';
+import { towerRouteScoreMultiplier } from './_route-choice.js';
 import { getFloor, isPublicFloor } from './_floor-catalog.js';
 import { floorForSession, sealedSpireFloorForSession, sealedStoryFloorForSession } from './_session-floor.js';
 import { isValidSpireTier } from './_spire-catalog.js';
@@ -383,7 +384,9 @@ export async function settleFloorForMember(
     if (!isPublicTowerRun(session)) return { paid: false, reason: 'not-a-catalog-floor' };
 
     const reward = computeFloorReward(floor);                            // sealed catalog reward
-    const score = computeFloorClearScore(clearMetrics(session), floor);  // server-computed
+    const score = Math.round(
+        computeFloorClearScore(clearMetrics(session), floor) * towerRouteScoreMultiplier(session),
+    ); // server-computed, including the sealed elite-route risk bonus
 
     let result: SettleResult = { paid: false, reason: 'unknown' };
     try {

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import { GameIcon } from "../components/icons/GameIcon";
 import type { Character } from "../types/character";
-import { fetchTowerFloors, startTowerRun, fetchMyRunStatus, fetchSpireLeaderboard, towerPlayerSlug, SPIRE_MAX_TIER, type TowerFloorMeta, type TowerSession, type TowerHostLoadout, type TowerPartyView, type SpireLeaderboardRow, type SpireWeeklyAffix } from "../lib/towers-api";
+import { fetchTowerFloors, startTowerRun, fetchMyRunStatus, fetchSpireLeaderboard, towerPlayerSlug, SPIRE_MAX_TIER, TOWER_ROUTE_CHOICES, type TowerFloorMeta, type TowerSession, type TowerHostLoadout, type TowerPartyView, type SpireLeaderboardRow, type SpireWeeklyAffix, type TowerRouteChoiceId } from "../lib/towers-api";
 import {
     allSpireFloors, spireFloorMeta, keystonesUpTo, SPIRE_KEYSTONE_COLOR,
     SPIRE_SHARDS_PER_TIER,
@@ -215,6 +215,7 @@ export function BattleTowersLobby({
     const [pendingRun, setPendingRun] = useState<{ runId: string; session: TowerSession } | null>(null);
     const [runRecoveryPending, setRunRecoveryPending] = useState(false);
     const [activeReadyRoom, setActiveReadyRoom] = useState<TowerPartyView | null>(null);
+    const [routeChoice, setRouteChoice] = useState<TowerRouteChoiceId>("rest-shrine");
     // Endless Spire (dedicated ascension boss gauntlet). You may enter up to one tier above
     // your highest cleared; the default selection is the next unlocked floor.
     const spireUnlocked = character.battleTowerAscension ?? 0;
@@ -331,7 +332,7 @@ export function BattleTowersLobby({
         setStarting(true);
         setError(null);
         try {
-            const { runId, session, character: authoritativeCharacter } = await startTowerRun(me, selected, hostLoadout);
+            const { runId, session, character: authoritativeCharacter } = await startTowerRun(me, selected, hostLoadout, routeChoice);
             if (authoritativeCharacter) updateCharacter(authoritativeCharacter);
             onEnter(runId, session);
         } catch (e) {
@@ -563,6 +564,34 @@ export function BattleTowersLobby({
                             ? <small>Cleared replay · no entry fee · this one-time package is not paid again.</small>
                             : <small>{selectedEntryFee > 0 ? `Entry preview: ${selectedEntryFee.toLocaleString()} ryo` : "Entry preview: daily free entry available"}</small>}
                         {selectedLockReason ? <small>{selectedLockReason}</small> : null}
+                    </div>
+                </section>
+            )}
+
+            {selFloor && selectedFloorActionable && !soloStartBlocked && (
+                <section className="tower-route-picker" aria-labelledby="tower-route-picker-title">
+                    <div className="tower-route-picker-heading">
+                        <span>Between-floor decision</span>
+                        <h2 id="tower-route-picker-title">Choose your approach</h2>
+                        <p>The server seals one route when this solo Story floor begins. It lasts for this encounter only.</p>
+                    </div>
+                    <div className="tower-route-options" role="radiogroup" aria-label="Tower route choice">
+                        {TOWER_ROUTE_CHOICES.map(choice => (
+                            <button
+                                key={choice.id}
+                                type="button"
+                                role="radio"
+                                aria-checked={routeChoice === choice.id}
+                                className={`tower-route-option${routeChoice === choice.id ? " is-selected" : ""}${choice.id === "elite-shortcut" ? " is-elite" : ""}`}
+                                onClick={() => setRouteChoice(choice.id)}
+                            >
+                                <span className="tower-route-option-icon" aria-hidden="true">
+                                    {choice.id === "rest-shrine" ? "✚" : choice.id === "focused-assault" ? "⚔" : "♛"}
+                                </span>
+                                <strong>{choice.label}</strong>
+                                <small>{choice.summary}</small>
+                            </button>
+                        ))}
                     </div>
                 </section>
             )}

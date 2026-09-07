@@ -44,6 +44,7 @@ import { battleLockKey, claimTowerBattleLeases, releaseTowerBattleLeases, towerB
 import { isTowerBattleLock } from '../_tower-battle-guard.js';
 import { activeClanBossConflictMembers } from './_clan-boss-conflict.js';
 import { buildGenericTowerAiCharacter, GENERIC_TOWER_AI_PROFILE } from './_generic-party-ai.js';
+import { applyTowerRouteChoice } from './_route-choice.js';
 import { kickTowerPlayers } from '../_realtime/notify.js';
 import {
     TOWER_PARTY_ID,
@@ -518,6 +519,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const now = Date.now();
         const session = buildTowerEncounter({ floor, squad, runId, seed, partySize: squad.length, now, ascension, spireBossId });
+        if (mode === 'story' && !authoritativeParty) applyTowerRouteChoice(session, body.routeChoice);
         if (authoritativeParty) {
             const bound = session as PartyBoundSession;
             bound.towerPartyId = authoritativeParty.id;

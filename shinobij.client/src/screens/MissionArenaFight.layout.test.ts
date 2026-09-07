@@ -391,14 +391,13 @@ test("Solo and Tower submit highlighted movement-jutsu tiles through the jutsu p
     }
 });
 
-test("Tower keeps target guidance geometry stable and disables off-turn actions semantically", () => {
-    assert.match(towerSource, /id="tower-action-guidance" className=\{`tower-action-state/, "Tower must render one persistent guidance row");
-    assert.match(towerSource, /: "Choose an action"/, "the idle guidance row must remain mounted");
-    assert.match(
-        towerTacticalCss,
-        /\.tower-action-state\s*\{[^}]*height:\s*58px;[^}]*min-height:\s*58px;[^}]*max-height:\s*58px;/,
-        "Tower guidance must reserve one fixed track so arming cannot resize the board",
-    );
+test("Tower keeps target guidance non-visual and disables off-turn actions semantically", () => {
+    assert.match(towerSource, /id="tower-action-guidance" className="tower-sr-only"/, "Tower must announce target guidance without reserving a visible row");
+    assert.match(towerSource, /: "Choose an action\."/, "the idle guidance announcement must remain mounted");
+    assert.doesNotMatch(towerTacticalCss, /\.tower-action-state\s*\{/,
+        "the removed guidance panel must not retain layout geometry");
+    assert.ok(towerSource.indexOf('className="tower-resource-rail tower-header-resource-rail"') < towerSource.indexOf('className="tower-action-dock"'),
+        "the compact combat-resource rail must be in the fight header");
     assert.match(towerSource, /function armJutsuCard[\s\S]*?if \(busy \|\| !myTurn\) return;/,
         "Tower's handler must reject keyboard/programmatic off-turn arming");
     assert.ok((towerSource.match(/disabled=\{!myTurn \|\|/g) ?? []).length >= 9,
@@ -514,7 +513,7 @@ test("every live shinobi fight uses the shared viewport-level combat instance", 
         "the shared PvP/Solo presentation shell must retain the viewport-level combat boundary",
     );
 
-    assert.match(towerSource, /<CombatInstance(?:\s|>)/, "tower PvE/PvP must render through CombatInstance");
+    assert.match(towerSource, /<ShinobiCombatShell(?:\s|>)/, "tower PvE/PvP must render through the shared shell");
     assert.match(missionSource, /<ShinobiCombatShell(?:\s|>)/, "mission PvE must render through the shared solo shell");
     assert.match(pvpSource, /<ShinobiCombatShell(?:\s|>)/, "session PvP must render through ShinobiCombatShell");
 

@@ -1,3 +1,55 @@
+.tower-tactical-combat {
+    --tower-rail-ally: #58a9f5;
+    --tower-rail-foe: #e8564a;
+    --tower-hud-gold: #e3c77e;
+    padding: 0 !important;
+}
+
+.tower-tactical-combat .tower-fight-grid {
+    width: min(100%, 1920px);
+    margin: 0 auto;
+}
+
+/* The header already carries round/turn state and the side dossier/log carries
+   encounter detail. Keep the central column focused on the battlefield. */
+#combat.tower-tactical-combat .tower-turn-queue,
+#combat.tower-tactical-combat .tower-threat-summary,
+#combat.tower-tactical-combat .tower-mechanic-strip {
+    display: none !important;
+}
+
+.tower-roster-rail {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 8px;
+    border: 1px solid rgba(196, 162, 90, 0.24);
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(8, 14, 24, 0.94), rgba(3, 7, 14, 0.96));
+    box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.24);
+}
+
+.tower-squad-rail {
+    background:
+        radial-gradient(120% 55% at 50% 0%, rgba(88, 169, 245, 0.1), transparent 65%),
+        linear-gradient(180deg, rgba(8, 14, 24, 0.94), rgba(3, 7, 14, 0.96));
+}
+
+.tower-enemy-rail {
+    background:
+        radial-gradient(120% 55% at 50% 0%, rgba(232, 86, 74, 0.11), transparent 65%),
+        linear-gradient(180deg, rgba(8, 14, 24, 0.94), rgba(3, 7, 14, 0.96));
+}
+
+.tower-roster-list {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden auto;
+    overscroll-behavior: contain;
+    scrollbar-color: rgba(148, 163, 184, 0.52) rgba(2, 6, 23, 0.45);
+    scrollbar-width: thin;
+}
+
 .tower-turn-queue {
     display: flex;
     flex: 0 0 auto;
@@ -88,16 +140,25 @@
 }
 
 .tower-board-toolbar {
+    position: absolute;
+    z-index: 24;
+    top: 8px;
+    right: 8px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 5px;
+    gap: 0;
+    margin: 0;
+    padding: 2px;
+    border: 1px solid rgba(196, 162, 90, 0.34);
+    border-radius: 9px;
+    background: rgba(3, 8, 16, 0.9);
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.38);
+    backdrop-filter: blur(8px);
 }
 
 .tower-board-help {
-    color: var(--text-dim);
-    font-size: 0.68rem;
+    display: none;
 }
 
 .tower-board-controls {
@@ -130,6 +191,11 @@
 }
 
 .tower-board-area {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0 !important;
     touch-action: pan-y;
     user-select: none;
     overscroll-behavior: contain;
@@ -137,6 +203,176 @@
 
 .tower-board-area.is-pannable { cursor: grab; touch-action: none; }
 .tower-board-area.is-pannable:active { cursor: grabbing; }
+
+.tower-board-stage {
+    position: relative;
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Tactical feedback stays inside the battlefield chrome so the map remains the
+   dominant surface. Both plates are deliberately compact and transient. */
+.tower-last-action {
+    position: absolute;
+    z-index: 25;
+    top: 8px;
+    left: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: min(280px, calc(100% - 380px));
+    padding: 4px 5px 4px 9px;
+    border: 1px solid rgba(125, 211, 252, 0.38);
+    border-radius: 9px;
+    background: rgba(3, 8, 16, 0.9);
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.38);
+    backdrop-filter: blur(8px);
+}
+
+.tower-last-action > span {
+    display: grid;
+    min-width: 0;
+}
+
+.tower-last-action small,
+.tower-action-forecast small {
+    color: #7dd3fc;
+    font-size: 0.52rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    line-height: 1.1;
+    text-transform: uppercase;
+}
+
+.tower-last-action strong {
+    overflow: hidden;
+    color: #f8fafc;
+    font-size: 0.7rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tower-last-action button {
+    flex: 0 0 auto;
+    min-height: 34px;
+    padding: 4px 8px;
+    border-color: rgba(125, 211, 252, 0.42);
+    color: #e0f2fe;
+    font-size: 0.66rem;
+}
+
+.tower-action-forecast {
+    position: absolute;
+    z-index: 25;
+    bottom: 8px;
+    left: 8px;
+    width: min(410px, calc(100% - 16px));
+    padding: 7px 9px;
+    pointer-events: none;
+    border: 1px solid rgba(34, 211, 238, 0.65);
+    border-radius: 9px;
+    background: linear-gradient(135deg, rgba(4, 18, 32, 0.94), rgba(8, 47, 73, 0.9));
+    box-shadow: 0 7px 24px rgba(2, 6, 23, 0.5), inset 0 1px rgba(165, 243, 252, 0.08);
+    color: #dbeafe;
+    backdrop-filter: blur(8px);
+}
+
+.tower-action-forecast-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.tower-action-forecast-heading > span {
+    display: grid;
+    min-width: 0;
+}
+
+.tower-action-forecast-heading strong {
+    color: #f8fafc;
+    font-size: 0.78rem;
+}
+
+.tower-action-forecast-heading > b {
+    min-width: 0;
+    overflow: hidden;
+    color: #a5f3fc;
+    font-size: 0.68rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tower-action-forecast-metrics {
+    display: flex;
+    gap: 4px;
+    margin-top: 5px;
+    overflow: hidden;
+}
+
+.tower-action-forecast-metrics > span {
+    flex: 0 0 auto;
+    padding: 1px 5px;
+    border: 1px solid rgba(103, 232, 249, 0.3);
+    border-radius: 20px;
+    background: rgba(8, 145, 178, 0.16);
+    color: #cffafe;
+    font-size: 0.58rem;
+    font-weight: 850;
+}
+
+.tower-action-forecast p {
+    margin: 4px 0 0;
+    overflow: hidden;
+    color: #b6c7db;
+    font-size: 0.62rem;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tower-action-focus-ring {
+    z-index: 19 !important;
+    pointer-events: none;
+    background: rgba(34, 211, 238, 0.12) !important;
+    filter: drop-shadow(0 0 5px #67e8f9) drop-shadow(0 0 12px #0891b2);
+    outline: 2px solid #a5f3fc;
+    outline-offset: -4px;
+    animation: towerActionFocus 850ms ease-out both;
+}
+
+.tower-impact-floater {
+    position: absolute;
+    z-index: 30;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 950;
+    line-height: 1;
+    text-shadow: 0 1px 2px #000, 0 0 5px #000;
+    animation: towerImpactFloat 1200ms ease-out both;
+}
+
+.tower-impact-floater--damage { color: #fecaca; }
+.tower-impact-floater--heal { color: #bbf7d0; }
+.tower-impact-floater--shield { color: #bae6fd; }
+.tower-impact-floater--status { color: #e9d5ff; }
+
+@keyframes towerActionFocus {
+    0% { opacity: 0; transform: scale(0.72); }
+    28% { opacity: 1; transform: scale(1.08); }
+    100% { opacity: 0; transform: scale(1); }
+}
+
+@keyframes towerImpactFloat {
+    0% { opacity: 0; transform: translate(-50%, -15%) scale(0.76); }
+    18% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+    100% { opacity: 0; transform: translate(-50%, -150%) scale(0.94); }
+}
 
 .tower-fight-title {
     min-width: 0;
@@ -168,6 +404,29 @@
 }
 
 .tower-fight-statusbar > button { min-height: 44px; }
+
+.tower-fight-statusbar > .tower-header-resource-rail {
+    flex: 0 1 auto;
+    max-width: 100%;
+}
+
+.tower-header-action-error {
+    max-width: 180px;
+    overflow: hidden;
+    color: #fecaca;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tower-header-cancel {
+    flex: 0 0 auto;
+    padding: 4px 9px;
+    border-color: #7dd3fc;
+    color: #e0f2fe;
+    font-size: 0.72rem;
+}
 
 .tower-objective-progress {
     color: var(--gold-400);
@@ -229,7 +488,238 @@
 }
 
 .tower-action-dock {
-    margin-top: 8px;
+    flex: 0 0 164px;
+    min-height: 164px;
+    max-height: 164px;
+    margin-top: 6px;
+    overflow: hidden;
+}
+
+.tower-resource-rail {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    min-height: 44px;
+    padding: 4px 10px;
+    overflow: hidden;
+    border: 1px solid rgba(196, 162, 90, 0.38);
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(9, 18, 33, 0.98), rgba(3, 8, 16, 0.98));
+    white-space: nowrap;
+}
+
+#combat.tower-tactical-combat .tower-battle-tabs,
+#combat.tower-tactical-combat .tower-mobile-battle-log {
+    display: none !important;
+}
+
+.tower-rail-battle-log {
+    flex: 1 1 180px;
+    height: auto !important;
+    min-height: 150px !important;
+    max-height: none !important;
+    margin-top: 8px !important;
+}
+
+/* The enemy rail bottoms out at 214px, so its embedded log cannot carry the
+   full desktop header chrome. Round/turn state already lives in the battle
+   header; keep the rail log title readable and retain the expand action as a
+   labelled icon button. The expanded reader keeps the complete header. */
+#combat.tower-tactical-combat .tower-rail-battle-log:not(.is-expanded) > .combat-log-header {
+    gap: 6px;
+    overflow: hidden;
+    padding: 5px 7px 5px 9px !important;
+}
+
+#combat.tower-tactical-combat .tower-rail-battle-log:not(.is-expanded) .combat-log-title {
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    overflow: hidden;
+}
+
+#combat.tower-tactical-combat .tower-rail-battle-log:not(.is-expanded) .combat-log-title strong {
+    white-space: nowrap;
+}
+
+#combat.tower-tactical-combat .tower-rail-battle-log:not(.is-expanded) .combat-log-header-actions {
+    flex: 0 0 36px;
+    gap: 0;
+}
+
+#combat.tower-tactical-combat .tower-rail-battle-log:not(.is-expanded) .combat-log-turn,
+#combat.tower-tactical-combat .tower-rail-battle-log:not(.is-expanded) .combat-log-expand-label {
+    display: none;
+}
+
+#combat.tower-tactical-combat .tower-rail-battle-log:not(.is-expanded) .combat-log-expand {
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0;
+}
+
+@media (min-width: 1024px) {
+    #combat.tower-tactical-combat .tower-fight-grid {
+        grid-template-columns: clamp(190px, 13vw, 244px) minmax(0, 1fr) clamp(214px, 14vw, 266px);
+        gap: clamp(8px, 0.7vw, 12px);
+        padding: clamp(8px, 0.65vw, 12px);
+    }
+
+    #combat.tower-tactical-combat .tower-action-dock > .shinobi-command-bar {
+        grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)) !important;
+        height: 52px !important;
+        overflow: hidden !important;
+    }
+
+    #combat.tower-tactical-combat .tower-action-dock > .shinobi-command-bar > button {
+        width: auto !important;
+        min-width: 0 !important;
+    }
+
+    #combat.tower-tactical-combat .tower-action-dock > .shinobi-command-bar > button > :is(span, small) {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    #combat.tower-tactical-combat .tower-board-toolbar {
+        top: 6px;
+        right: 6px;
+    }
+
+    #combat.tower-tactical-combat .tower-board-controls {
+        gap: 3px;
+        height: 36px;
+    }
+
+    #combat.tower-tactical-combat .tower-board-controls button {
+        width: 36px;
+        min-width: 36px;
+        height: 36px;
+        min-height: 36px;
+        padding: 2px;
+    }
+
+    #combat.tower-tactical-combat .tower-board-controls button:last-child {
+        width: auto;
+        min-width: 68px;
+        padding-inline: 7px;
+    }
+
+    #combat.tower-tactical-combat .tower-board-controls input[type="range"] {
+        width: 80px;
+        height: 36px;
+        min-height: 36px;
+        box-sizing: border-box;
+        padding: 0;
+    }
+
+    #combat.tower-tactical-combat .tower-board-controls output {
+        min-width: 34px;
+    }
+
+}
+
+/* Match the shared combat shell's 979/980 compact-to-desktop handoff. The
+   Tower harness does not install App's data-vp marker, so repeat the exact
+   PvP/PvE compact desktop tray contract here as a harness-safe fallback. */
+@media (min-width: 980px) {
+    #combat.tower-tactical-combat .tower-action-dock > .combat-jutsu-bar {
+        display: block !important;
+        width: 100% !important;
+        height: 112px !important;
+        min-height: 112px !important;
+        max-height: 112px !important;
+        margin: 0 !important;
+    }
+
+    #combat.tower-tactical-combat .tower-action-dock > .combat-jutsu-bar::before {
+        content: none !important;
+        display: none !important;
+    }
+
+    #combat.tower-tactical-combat .tower-action-dock .combat-equipped-jutsu-grid {
+        display: grid !important;
+        grid-row: auto !important;
+        grid-template-columns: none !important;
+        grid-template-rows: minmax(0, 1fr) !important;
+        grid-auto-flow: column !important;
+        grid-auto-columns: clamp(124px, 10cqw, 132px) !important;
+        justify-content: start !important;
+        gap: 7px !important;
+        width: 100% !important;
+        height: 100% !important;
+        padding: clamp(5px, 0.7cqw, 9px) !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        scrollbar-width: thin;
+    }
+
+    #combat.tower-tactical-combat .tower-action-dock .combat-jutsu-card-wrap {
+        width: 100% !important;
+        height: min(92px, 100%) !important;
+        min-height: 0 !important;
+        max-height: 92px !important;
+        aspect-ratio: auto !important;
+    }
+
+    /* towerfx.html intentionally mounts the production fight without App's
+       html[data-vp] marker. Repeat the shared combat card's painted layers so
+       the harness cannot fall back to the legacy stacked 120px thumbnail and
+       clip the nameplate out of this 92px tray. */
+    #combat.tower-tactical-combat .tower-action-dock .combat-jutsu-thumb {
+        position: absolute !important;
+        inset: 0 !important;
+        z-index: 0 !important;
+        display: grid !important;
+        place-items: center !important;
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        aspect-ratio: auto !important;
+        border-radius: inherit !important;
+    }
+
+    #combat.tower-tactical-combat .tower-action-dock .combat-jutsu-name {
+        position: absolute !important;
+        inset: auto 0 17px !important;
+        z-index: 2 !important;
+        display: -webkit-box !important;
+        -webkit-box-orient: vertical !important;
+        -webkit-line-clamp: 2 !important;
+        line-clamp: 2 !important;
+        padding: 14px 5px 3px !important;
+        overflow: hidden !important;
+        font-size: clamp(9px, 0.82cqw, 11px) !important;
+        font-weight: 800 !important;
+        line-height: 1.1 !important;
+        letter-spacing: 0.015em !important;
+        text-align: center !important;
+        white-space: normal !important;
+        background: linear-gradient(180deg, transparent, rgba(3, 6, 12, 0.9) 58%) !important;
+        overflow-wrap: anywhere !important;
+    }
+}
+
+/* Seven commands become roughly 80px wide in the three-rail desktop tier.
+   Give the title the full row there; the same icon treatment returns as soon
+   as the map column is wide enough to support it without internal wrapping. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+    #combat.tower-tactical-combat .tower-action-dock > .shinobi-command-bar > button .cmd-icon {
+        display: none !important;
+    }
+
+    #combat.tower-tactical-combat .tower-action-dock > .shinobi-command-bar > button > span {
+        grid-column: 1 / span 2 !important;
+        font-size: 10px !important;
+        letter-spacing: 0.06em !important;
+    }
 }
 
 .tower-hex-tile:focus-visible,
@@ -384,63 +874,96 @@
 .tower-legend-swatch--font { background: #14b8a6; }
 .screen-battleTowerFight :is(.tower-legend-swatch--shrine, .tower-legend-swatch--objective) { background: #eab308; }
 
-.tower-action-state {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    height: 58px;
-    min-height: 58px;
-    max-height: 58px;
-    margin: 0 0 7px;
-    padding: 6px 9px;
-    border: 1px solid rgba(56, 189, 248, 0.55);
-    border-radius: 8px;
-    background: rgba(8, 47, 73, 0.55);
-    color: #e0f2fe;
-    overflow: hidden;
+.tower-score-dossier {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #334155;
 }
 
-.tower-action-state > div {
+.tower-score-projection {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.tower-score-projection > span:last-child {
     display: grid;
-    gap: 2px;
     min-width: 0;
 }
 
-.tower-action-state strong,
-.tower-action-state span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.tower-action-state strong { font-size: 0.78rem; }
-.tower-action-state span { color: #bae6fd; font-size: 0.72rem; }
-
-.tower-action-state--submitting {
-    border-color: rgba(250, 204, 21, 0.7);
-    background: rgba(113, 63, 18, 0.45);
+.tower-score-projection small {
+    color: #94a3b8;
+    font-size: 0.48rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
-.tower-action-state--error {
-    border-color: rgba(248, 113, 113, 0.8);
-    background: rgba(127, 29, 29, 0.42);
+.tower-score-projection strong {
+    color: #f8fafc;
+    font-size: 0.7rem;
 }
 
-.tower-action-state--blocked {
-    border-color: rgba(251, 191, 36, 0.76);
-    background: rgba(69, 42, 8, 0.72);
-    color: #fef3c7;
+.tower-score-grade {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    border: 1px solid currentColor;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.86);
+    font-size: 1rem;
+    font-weight: 950;
+    line-height: 1;
+    box-shadow: inset 0 0 10px currentColor;
 }
 
-.tower-action-state--blocked span { color: #fde68a; }
+.tower-score-grade--s { color: #fbbf24; }
+.tower-score-grade--a { color: #67e8f9; }
+.tower-score-grade--b { color: #86efac; }
+.tower-score-grade--c { color: #fca5a5; }
 
-.tower-action-state button {
-    flex: 0 0 auto;
-    min-height: 36px;
-    padding: 5px 10px;
-    border-color: #7dd3fc;
-    color: #e0f2fe;
+.tower-score-dossier > p {
+    margin: 5px 0 0;
+    color: #b6c7db;
+    font-size: 0.52rem;
+    line-height: 1.25;
 }
+
+.tower-route-live {
+    padding: 4px 5px;
+    border: 1px solid rgba(251, 191, 36, 0.28);
+    border-radius: 5px;
+    background: rgba(120, 53, 15, 0.22);
+    color: #fde68a !important;
+}
+
+.tower-roster-actor-button {
+    appearance: none;
+    font: inherit;
+    cursor: pointer;
+}
+
+.tower-roster-actor-button:hover,
+.tower-roster-actor-button:focus-visible {
+    border-color: #a78bfa !important;
+    outline: 2px solid rgba(167, 139, 250, 0.4);
+    outline-offset: 1px;
+}
+
+.tower-roster-intel {
+    display: grid;
+    gap: 2px;
+    margin-top: 5px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(167, 139, 250, 0.3);
+    color: #c4b5fd;
+    font-size: 0.54rem;
+    line-height: 1.25;
+}
+
+.tower-roster-intel b { color: #f5f3ff; }
 
 .tower-dialog-primary {
     min-width: 150px;
@@ -565,8 +1088,7 @@
 
 /* A short desktop keeps the three-rail composition, but the loadout's intrinsic
    height must not consume the battlefield. Reserve a real tactical canvas and
-   give the action dock its own contained scroll; its AP and command bar remain
-   first in reading/tab order, with loadout cards directly below. */
+   spend the fixed lower deck on commands and the sealed loadout. */
 @media (min-width: 1024px) and (max-height: 900px) {
     .tower-fight-grid > main {
         overflow: hidden;
@@ -577,36 +1099,20 @@
         min-height: clamp(250px, 37dvh, 333px) !important;
     }
 
-    .tower-action-dock {
-        flex: 0 0 240px;
-        min-height: 240px;
-        max-height: 240px;
-        padding-right: 4px;
-        overflow: hidden auto;
-        overscroll-behavior: contain;
-        scrollbar-width: thin;
-    }
-
-    .tower-action-state {
-        box-sizing: border-box;
-        height: 44px;
-        min-height: 44px;
-        max-height: 44px;
-        padding: 3px 6px;
-    }
-
-    .tower-action-dock .basic-action-bar {
-        grid-template-columns: none !important;
-        grid-auto-flow: column;
-        grid-auto-columns: minmax(78px, 1fr);
+    #combat.tower-tactical-combat .tower-action-dock .basic-action-bar {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)) !important;
+        grid-auto-flow: row !important;
+        grid-auto-columns: auto !important;
         gap: 4px !important;
         margin-top: 0;
         padding: 4px !important;
-        overflow-x: auto;
-        scrollbar-width: thin;
+        overflow: hidden !important;
     }
 
-    html body > .combat-instance.screen-battleTowerFight .tower-action-dock .basic-action-bar button {
+    #combat.tower-tactical-combat .tower-action-dock .basic-action-bar button {
+        width: auto !important;
+        min-width: 0 !important;
         height: 44px !important;
         min-height: 44px !important;
         max-height: 44px !important;
@@ -614,50 +1120,6 @@
         overflow: hidden;
     }
 
-    .tower-action-dock .jutsu-layout-card {
-        height: 94px !important;
-        min-height: 94px !important;
-        max-height: 94px !important;
-        padding: 4px !important;
-        overflow: auto hidden !important;
-    }
-
-    .tower-action-dock .combat-equipped-jutsu-grid {
-        grid-template-columns: none !important;
-        grid-auto-flow: column;
-        grid-auto-columns: 100px;
-        gap: 5px !important;
-        height: 82px;
-        padding-bottom: 4px;
-        overflow: visible;
-        scroll-snap-type: x proximity;
-        scrollbar-width: thin;
-    }
-
-    .tower-action-dock .combat-jutsu-card-wrap,
-    .tower-action-dock .combat-jutsu-button {
-        height: 82px !important;
-        min-height: 82px !important;
-        max-height: 82px !important;
-        scroll-snap-align: start;
-    }
-
-    .tower-action-dock .combat-jutsu-thumb {
-        height: 44px !important;
-        aspect-ratio: auto !important;
-    }
-
-    .tower-action-dock .combat-jutsu-name {
-        overflow: hidden;
-        font-size: 10px !important;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .tower-action-dock .combat-jutsu-info {
-        font-size: 8px !important;
-        white-space: nowrap;
-    }
 }
 
 @media (max-width: 1023px) {
@@ -704,14 +1166,67 @@
 /* BattleTowerFight's current action markup keeps its live command and loadout
    bands horizontal at the same compact tiers as the containment contract. */
 @media (max-width: 979px) {
+    #combat.tower-tactical-combat .tower-squad-rail {
+        grid-column: 1;
+        grid-row: 2;
+    }
+
+    #combat.tower-tactical-combat .tower-enemy-rail {
+        grid-column: 2;
+        grid-row: 2;
+    }
+
     .tower-action-dock {
-        flex: 0 0 auto;
+        flex: 0 0 144px;
         min-width: 0;
+        min-height: 144px;
+        max-height: 144px;
         margin-top: 4px;
         overflow: hidden;
     }
 
-    .tower-action-dock > .shinobi-command-bar {
+    #combat.tower-tactical-combat .tower-battle-tabs {
+        display: block !important;
+        flex: 0 0 44px;
+        min-height: 44px;
+        margin-top: 4px;
+    }
+
+    #combat.tower-tactical-combat .tower-battle-tabs .battle-tabbar {
+        display: grid !important;
+        height: 84px !important;
+        margin: 0 !important;
+    }
+
+    .tower-fight-main.tower-battle-log .tower-action-dock {
+        display: none;
+    }
+
+    #combat.tower-tactical-combat .tower-fight-main.tower-battle-log .tower-mobile-battle-log {
+        display: flex !important;
+        flex: 0 0 192px;
+        height: 192px !important;
+        min-height: 192px !important;
+        max-height: 192px !important;
+        margin-top: 4px !important;
+    }
+
+    .tower-rail-battle-log {
+        display: none !important;
+    }
+
+    .tower-roster-list {
+        display: flex;
+        gap: 5px;
+        overflow: auto hidden;
+    }
+
+    .tower-roster-list > * {
+        flex: 0 0 min(210px, 76vw) !important;
+        margin-bottom: 0 !important;
+    }
+
+    #combat.tower-tactical-combat .tower-action-dock > .shinobi-command-bar {
         display: flex !important;
         flex-wrap: nowrap !important;
         align-items: center;
@@ -725,7 +1240,7 @@
         scrollbar-width: thin;
     }
 
-    .tower-action-dock > .shinobi-command-bar > button {
+    #combat.tower-tactical-combat .tower-action-dock > .shinobi-command-bar > button {
         flex: 0 0 78px;
         width: 78px;
         min-width: 78px !important;
@@ -734,56 +1249,86 @@
         padding: 3px 4px !important;
     }
 
-    .tower-action-dock > .combat-jutsu-bar {
+    #combat.tower-tactical-combat .tower-action-dock > .combat-jutsu-bar {
         width: 100%;
-        height: 94px !important;
-        min-height: 94px !important;
-        max-height: 94px !important;
+        height: 96px !important;
+        min-height: 96px !important;
+        max-height: 96px !important;
         margin: 0 !important;
-        padding: 2px !important;
-        overflow: auto hidden !important;
+    }
+
+    #combat.tower-tactical-combat .tower-action-dock .combat-equipped-jutsu-grid {
+        display: grid !important;
+        grid-template-columns: none !important;
+        grid-template-rows: minmax(0, 1fr) !important;
+        grid-auto-flow: column !important;
+        grid-auto-columns: clamp(100px, 18vw, 132px) !important;
+        align-items: stretch !important;
+        justify-content: start !important;
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
         scrollbar-width: thin;
     }
 
-    .tower-action-dock .combat-equipped-jutsu-grid {
-        display: flex !important;
-        flex-wrap: nowrap !important;
-        align-items: stretch !important;
-        gap: 4px !important;
-        width: max-content !important;
-        min-width: 100%;
-        height: 86px;
-        padding: 0 !important;
-        overflow: visible !important;
-    }
-
-    .tower-action-dock .combat-jutsu-card-wrap,
-    .tower-action-dock .combat-jutsu-button {
-        flex: 0 0 82px;
-        width: 82px !important;
-        min-width: 82px !important;
-        height: 82px !important;
-        min-height: 82px !important;
-        max-height: 82px !important;
+    #combat.tower-tactical-combat .tower-action-dock .combat-jutsu-card-wrap {
+        width: 100% !important;
+        height: min(86px, 100%) !important;
+        min-height: 0 !important;
+        max-height: 86px !important;
+        aspect-ratio: auto !important;
     }
 }
 
 /* At the 150%-zoom tablet tier the header already carries the authoritative
-   current-turn state. Remove the duplicate queue and compact guidance so the
-   first sealed technique stays entirely inside the main grid row; the squad,
-   enemy, mechanic, and real-threat surfaces remain visible. */
+   current-turn state. Remove the duplicate queue so the squad, enemy,
+   mechanic, and real-threat surfaces remain visible. */
 @media (max-width: 979px) and (max-height: 740px) {
     .tower-turn-queue {
         display: none;
     }
+}
 
-    .tower-action-state {
-        box-sizing: border-box;
-        height: 44px;
-        min-height: 44px;
-        max-height: 44px;
-        margin-bottom: 4px;
-        padding: 3px 6px;
+@media (max-width: 979px) and (max-height: 640px) {
+    /* The immediate-threat banner carries the actionable warning at this
+       height; collapsing the explanatory chips preserves a usable board. */
+    .tower-mechanic-strip {
+        display: none;
+    }
+
+    #combat.tower-tactical-combat .tower-fight-grid {
+        grid-template-rows: minmax(0, 1fr) !important;
+    }
+
+    #combat.tower-tactical-combat .tower-fight-grid > aside {
+        display: none !important;
+    }
+
+    #combat.tower-tactical-combat .tower-fight-main {
+        grid-row: 1;
+        height: 100%;
+    }
+}
+
+/* Short laptop windows and browser-zoomed tablets should remain battlefields,
+   not dashboards. The live threat stays on the map edge while secondary queue
+   and mechanic explanations yield their rows to the tactical canvas. */
+@media (min-width: 641px) and (max-height: 700px) {
+    #combat.tower-tactical-combat .tower-turn-queue,
+    #combat.tower-tactical-combat .tower-mechanic-strip {
+        display: none;
+    }
+
+    #combat.tower-tactical-combat .tower-threat-summary {
+        position: absolute;
+        z-index: 23;
+        top: 58px;
+        right: min(520px, 55%);
+        left: 0;
+        margin: 0;
+        pointer-events: none;
     }
 }
 
@@ -805,14 +1350,6 @@
         white-space: nowrap;
     }
 
-    .tower-action-state {
-        box-sizing: border-box;
-        height: 44px;
-        min-height: 44px;
-        max-height: 44px;
-        margin-bottom: 4px;
-        padding: 3px 6px;
-    }
 }
 
 @media (max-width: 640px) {
@@ -828,6 +1365,16 @@
 
     .tower-board-help { display: none; }
     .tower-board-toolbar { justify-content: flex-end; }
+    .tower-last-action {
+        top: 60px;
+        max-width: min(220px, calc(100% - 16px));
+    }
+    .tower-action-forecast {
+        width: calc(100% - 16px);
+        padding: 6px 7px;
+    }
+    .tower-action-forecast-heading > b { max-width: 48%; }
+    .tower-action-forecast p { font-size: 0.58rem; }
     .tower-board-controls { width: 100%; justify-content: flex-end; }
     .tower-board-controls input[type="range"] { flex: 1 1 80px; min-width: 70px; }
     .tower-board-controls button:last-child { min-width: 78px; }
@@ -851,14 +1398,17 @@
         flex-basis: clamp(280px, 38dvh, 340px);
         min-height: clamp(280px, 38dvh, 340px) !important;
     }
-    .tower-action-state { align-items: stretch; }
-    .tower-action-state button { min-height: 44px; }
+    .tower-resource-rail {
+        max-width: 48vw;
+        gap: 4px;
+        padding-inline: 6px;
+    }
+    .tower-resource-rail span[title="Health"] { display: none; }
     .tower-result-debrief { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* The smallest portrait tier cannot spend a full row saying that no threat is
-   present and still keep the first sealed technique directly tappable. Real
-   telegraphs remain visible; only the empty-state filler collapses. */
+/* The smallest portrait tier reserves enough room for the board and one full
+   technique target without reintroducing the desktop roster rails. */
 @media (max-width: 360px) and (max-height: 600px) {
     .tower-fight-grid > aside {
         display: none !important;
@@ -878,6 +1428,10 @@
         display: none;
     }
 
+    .tower-mechanic-strip {
+        display: none;
+    }
+
     .tower-threat-summary:not(.has-threats) {
         display: none;
     }
@@ -892,7 +1446,6 @@
 @media (prefers-reduced-motion: reduce) {
     .tower-hex-tile,
     .tower-threat-summary,
-    .tower-action-state,
     .tower-phase-banner,
     .tower-board-actor,
     .tower-boss-barrier,
@@ -901,6 +1454,11 @@
     .tower-mechanic-chip {
         animation: none !important;
         transition: none !important;
+    }
+
+    .tower-action-focus-ring,
+    .tower-impact-floater {
+        animation: none !important;
     }
 }
 
@@ -922,7 +1480,7 @@
 
     .tower-fight-turn-pill,
     .tower-threat-summary,
-    .tower-action-state,
+    .tower-resource-rail,
     .tower-combat-intel,
     .tower-intel-progress,
     .tower-mechanic-chip {
