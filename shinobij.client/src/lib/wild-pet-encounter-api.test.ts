@@ -157,7 +157,7 @@ describe("world-map wild-pet encounters", () => {
     });
 
     test("both endpoints the client depends on exist and are routed", () => {
-        const routes = source("../../../server.ts");
+        const routes = source("../../../server-api-routes.ts");
         for (const path of ["/pet/encounter-start", "/pet/befriend", "/pet/encounter-decline"]) {
             assert.ok(routes.includes(`route('${path}'`), `${path} must be registered in server.ts`);
         }
