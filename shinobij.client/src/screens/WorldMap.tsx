@@ -216,7 +216,8 @@ import { confirmSectorBattleRegistration, isVillageWarMapEnabled, villageAccent 
 import { useAcademyWorldMapFocus, useWorldMapZoom } from "../lib/use-world-map-zoom";
 import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
 import { isMercAiId } from "../lib/merc-ai";
-import { fetchMercRoster, engageMerc, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
+import { fetchSectorRoster, engageMerc, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
+import { sectorEngagementFor, sectorContestEntryFor, sectorContestGarrisonReady, viewerSectorContest, beginSectorContest, type SectorWarContestView } from "../lib/sector-war-engagement";
 import { fetchBountyBoard, startBountyHunter, type BountyEntry } from "../lib/pvp-bounty";
 import { contractHunterLevel } from "../../../shared/contract-hunter";
 import { contractHunterWanderers } from "../lib/contract-hunter-wanderers";
@@ -931,17 +932,21 @@ function WorldMapContent({
     // hostile, wanderer-shaped NPCs. The roster is SERVER-sourced (which bands roam
     // here keys off live wars + leases); the fight is server-resolved. villageWarMap.v1 only.
     const MERC_CLIENT_HIDE_MS = 15 * 60 * 1000;
-    const [mercRoster, setMercRoster] = useState<{ sector: number; mercs: RoamingMercView[] }>({ sector: -1, mercs: [] });
+    const [mercRoster, setMercRoster] = useState<{ sector: number; mercs: RoamingMercView[]; contest: SectorWarContestView | null }>({ sector: -1, mercs: [], contest: null });
     useEffect(() => {
         const village = (character.village ?? "").trim();
         const sec = selectedSector;
         if (!villageWarViewOpen || !isVillageWarMapEnabled() || sec == null || !village) return;
         let alive = true;
-        const load = () => { void fetchMercRoster(character.name, village, sec).then(m => { if (alive) setMercRoster({ sector: sec, mercs: m }); }).catch(() => { /* roster is best-effort */ }); };
+        const load = () => { void fetchSectorRoster(character.name, village, sec).then(r => { if (alive) setMercRoster({ sector: sec, mercs: r.mercs, contest: r.contest }); }).catch(() => { /* roster is best-effort */ }); };
         load();
         const stop = visiblePoll(load, 20000);
         return () => { alive = false; stop(); };
     }, [selectedSector, character.name, character.village, villageWarViewOpen]);
+    // Only trust the contest when it was polled FOR the sector on screen (the
+    // roster lags a sector change by one poll), and narrow it to a war this
+    // player is actually IN — a bystander village keeps plain world PvP.
+    const sectorWarContest = viewerSectorContest(mercRoster.sector === selectedSector ? mercRoster.contest : null, selectedSector ?? -1, character.village, Date.now());
 
     // Roaming weekly boss (weeklyBossRoam.v1, default ON — opt out per-device
     // with `weeklyBossRoam.v1 = "off"`). Poll the boss state
@@ -2006,7 +2011,7 @@ function WorldMapContent({
                 : r.winner === "merc" ? (r.context === "village" ? "The mercenary overwhelmed you — your village bleeds for it." : "The mercenary overwhelmed you — your hold on the sector slips.")
                 : "You traded blows; the mercenary broke off.";
             setWandererDialog({ w, msg });
-            if (village) void fetchMercRoster(character.name, village, sec).then(m => setMercRoster({ sector: sec, mercs: m })).catch(() => { /* best-effort refresh */ });
+            if (village) void fetchSectorRoster(character.name, village, sec).then(r => setMercRoster({ sector: sec, mercs: r.mercs, contest: r.contest })).catch(() => { /* best-effort refresh */ });
         } catch {
             setWandererDialog({ w, msg: "You couldn't reach the contract board." });
         }
@@ -3748,10 +3753,28 @@ function WorldMapContent({
             alert(`${player.name} is already in a battle.`);
             return;
         }
+        // §17.2: the sector's win-condition decides WHICH game an attack opens.
+        // Card/Pet route to that sector's contest table; everything else falls
+        // through to the shinobi fight this button has always launched.
+        const contestScreen = beginSectorContest(sectorEngagementFor({
+            contest: sectorWarContest, sector: environment.sector,
+            myVillage: character.village, targetVillage: player.village, now: Date.now(),
+        }), "worldMap");
+        if (contestScreen) return void setScreen(contestScreen);
         focusSectorCombat(environment.sector, environment.biome, environment.weather);
         // sectorAttackPlayer owns routing and only navigates after its sealed PvP
         // session request succeeds.
         sectorAttackPlayer(player);
+    }
+
+    // A Card/Pet contest never needed a co-located opponent — the attacker opens
+    // the table and the defender answers it. This is the sector's own way in, so
+    // the war is reachable from the ground it is fought over and not only from
+    // the War Map menu.
+    function handleOpenSectorContest(garrison = false) {
+        if (selectedSector == null) return;
+        const screen = beginSectorContest(sectorContestEntryFor(sectorWarContest, selectedSector, character.village, Date.now()), "worldMap", { garrison });
+        if (screen) setScreen(screen);
     }
 
     function handleSelectedSectorSleeperAttack(player: PlayerRecord) {
@@ -4395,6 +4418,10 @@ function WorldMapContent({
                 status,
                 sleeping,
                 actionDisabled: traveling || fighting,
+                // Name the game the button will actually open, but only for a
+                // target who is really on the other side of this war — a
+                // bystander village still gets a plain shinobi Attack.
+                attackLabel: sectorEngagementFor({ contest: sectorWarContest, sector: selectedSector, myVillage: character.village, targetVillage: player.village, now: Date.now() }),
             };
         });
         const commandHunt: WorldSectorCommandHunt | null = activeHuntMissionForSector && activeHuntTrailForSector ? {
@@ -4811,7 +4838,8 @@ function WorldMapContent({
                         gathering={isWildSector(selectedSector) ? sectorPoolViewFor(selectedSector, territory.ownerVillage, character.village) : null} intel={sectorIntelPlate}
                         villageWarAdmissionOpen={villageWarAdmissionOpen}
                         traces={sectorTraces}
-                        hasLivePlayers={livePlayersHere.length > 0}
+                        hasLivePlayers={livePlayersHere.length > 0} sectorContest={sectorWarContest} onOpenSectorContest={() => handleOpenSectorContest(false)}
+                        sectorGarrisonReady={sectorContestGarrisonReady(sectorWarContest, Date.now())} onFightSectorGarrison={() => handleOpenSectorContest(true)}
                         players={commandPlayers}
                         hunt={commandHunt}
                         onRaidEnemyVillage={handleSelectedSectorVillageWarRaid}
