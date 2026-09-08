@@ -27,6 +27,23 @@ import type { PvpFighter, PvpSession } from './session.js';
 /** The stay every other defeat path applies (player/heal.ts, _ai-fight-outcome.ts). */
 export const PVP_HOSPITAL_DURATION_MS = 60_000;
 
+/**
+ * "Field Recovery" — how long after a human-PvP defeat (or a sleeper KO) a
+ * player cannot be raided again. 120 s = the 60 s hospital stay plus 60 s to
+ * actually leave the sector once discharged.
+ *
+ * Deliberately SHORT. On a 100-200 player server, opponent availability is
+ * already the binding constraint on Honor Seals (see the tuning note in
+ * api/pvp/_vanguard-rewards.ts), so a long immunity would starve legitimate
+ * sector PvP to stop a grief the reward caps already make unprofitable. This is
+ * a regrouping window, not a punishment for winning.
+ *
+ * Server-owned: written only by settlement code here and in sleeper-kill, and
+ * preserved verbatim by the save sanitizer. A client-writable version would be
+ * permanent self-immunity — exactly the F01 `inBattle` bug.
+ */
+export const PVP_RAID_SHIELD_MS = 120_000;
+
 function num(value: unknown): number {
     return Math.max(0, Math.floor(Number(value) || 0));
 }
@@ -107,6 +124,12 @@ export function applyPvpVitalsToCharacter(
             hospitalized: true,
             hospitalizedAt: now,
             hospitalizedUntil: now + PVP_HOSPITAL_DURATION_MS,
+            // Field Recovery: the 60 s admission plus 60 s to get clear of the
+            // sector that just beat you. Without it a defeated player popped back
+            // to full HP in the same wild sector and was immediately re-raidable
+            // — the attacker's own rate limit (6/min) was the only brake, and
+            // rewards are capped where attacks are not. See PVP_RAID_SHIELD_MS.
+            pvpShieldUntil: now + PVP_RAID_SHIELD_MS,
         };
     }
     return { ...character, ...spent, hp: Math.max(1, clampVital(fighter.hp, character.maxHp)) };

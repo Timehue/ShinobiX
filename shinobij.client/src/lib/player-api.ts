@@ -196,6 +196,40 @@ export async function postClanExchangePurchase(
 // cross-save write the client can't do, which is why a blob-only "kick" doesn't
 // stick). Leadership-only, enforced server-side. Returns the updated member
 // list on success, or null on failure (alerts the actor).
+/**
+ * Server-authoritative "leave clan". Replaces a two-write client flow whose
+ * roster removal was best-effort (`.catch(() => {})`), so a failed write left a
+ * ghost member on the roster. It also promotes a successor when the FOUNDER
+ * leaves — otherwise the clan kept a founder who was no longer in it, and
+ * dissolution, doctrine and seal-pool distribution became unreachable for
+ * everyone still there.
+ */
+export async function postClanLeave(
+    playerName: string,
+    clan: string,
+): Promise<{ members: Array<Record<string, unknown>>; newFounder: string | null } | null> {
+    try {
+        const res = await fetch("/api/clan/leave", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ playerName, clan }),
+        });
+        const data = await res.json().catch(() => ({})) as {
+            ok?: boolean; error?: string;
+            members?: Array<Record<string, unknown>>;
+            newFounder?: string | null;
+        };
+        if (!res.ok || !data.ok || !data.members) {
+            alert(data.error || "Couldn't leave the clan. Please try again.");
+            return null;
+        }
+        return { members: data.members, newFounder: data.newFounder ?? null };
+    } catch {
+        alert("Couldn't leave the clan. Please try again.");
+        return null;
+    }
+}
+
 export async function postClanKick(
     playerName: string,
     clan: string,

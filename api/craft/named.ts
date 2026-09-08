@@ -7,6 +7,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { sanitizeUserText } from '../_text-moderation.js';
+import { getActiveSilence } from '../admin/moderation.js';
 import { buildNamedItem, debitNamedForge, makeNamedForgeReceipt, NAMED_FORGE_COST, resolveNamedForgeReplay, rollNamedForge, type NamedRoll } from './_named.js';
 import { recordForgedItem } from '../_forged-item-registry.js';
 import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
@@ -44,6 +45,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const token = randomUUID().replace(/-/g, '');
             await kv.set(`named-forge:${playerName}:${token}`, { playerName, roll }, { ex: 20 * 60 });
             return res.status(200).json({ ok: true, token, roll });
+        }
+        // `forge` is the branch that accepts a player-authored weapon name and
+        // flavour text, and a named weapon's name is echoed into the PUBLIC PvP
+        // battle log — so it is a broadcast surface and takes the same silence
+        // gate as chat. `roll` above is refused nothing: it carries no text, and
+        // a silenced player keeps their forge rolls (and their token, which stays
+        // valid for 20 minutes) so the silence costs them speech, not progress.
+        if (!identity.admin) {
+            const sil = await getActiveSilence(identity.name);
+            if (sil) return res.status(403).json({ error: 'You are silenced.', silence: { until: sil.until, reason: sil.reason } });
         }
         const token = cleanToken(body.token); if (!token) return res.status(400).json({ error: 'Invalid forge token.' });
         const result = await mutatePlayerSave<{ replayed: boolean; item: Record<string, unknown> | null }>(playerName, async ({ character, record }) => {

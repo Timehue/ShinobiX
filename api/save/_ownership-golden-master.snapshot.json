@@ -177,7 +177,8 @@
       "cardClashDraws": 0,
       "clanBattleContrib": 0,
       "clanEventContrib": 0,
-      "clanMissionContrib": 0
+      "clanMissionContrib": 0,
+      "pvpShieldUntil": null
     },
     "acceptedMissionIds": [
       "m-1"
@@ -392,7 +393,8 @@
       "cardClashDraws": 0,
       "clanBattleContrib": 0,
       "clanEventContrib": 0,
-      "clanMissionContrib": 0
+      "clanMissionContrib": 0,
+      "pvpShieldUntil": null
     },
     "acceptedMissionIds": [
       "m-1"
@@ -524,6 +526,7 @@
       "itemStacks": [],
       "examsPassed": [],
       "tileCards": [],
+      "pvpShieldUntil": null,
       "auraSphereLevel": 1,
       "defeatedAiIds": [],
       "weeklyBossKills": {},
@@ -654,6 +657,7 @@
       "itemStacks": [],
       "examsPassed": [],
       "tileCards": [],
+      "pvpShieldUntil": null,
       "auraSphereLevel": 1,
       "defeatedAiIds": [],
       "weeklyBossKills": {},
@@ -867,7 +871,8 @@
       "cardClashDraws": 0,
       "clanBattleContrib": 0,
       "clanEventContrib": 0,
-      "clanMissionContrib": 0
+      "clanMissionContrib": 0,
+      "pvpShieldUntil": null
     },
     "acceptedMissionIds": [
       "m-1"
