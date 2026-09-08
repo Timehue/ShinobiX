@@ -49,6 +49,8 @@ import { startBattleMusic, stopBattleMusic, setBattleMusicIntensity, isAudioMute
 import { playPetSfx, primePetSfx, petHaptic } from "../lib/pet-sfx";
 import { appendCapped, petDuelImpactStrength } from "../lib/pet-duel-presentation";
 import { promptablePets } from "../lib/showdown-turn";
+import { showdownMatchupElement } from "../lib/showdown-hud";
+import { showdownContactEffectKind } from "../lib/showdown-contact-vfx";
 import { prefersReducedMotion } from "../lib/device-tier";
 import {
     ShowdownVfxLayer,
@@ -77,11 +79,20 @@ import {
     showdownDodgeOffset,
     showdownMeleeContact,
     showdownMeleeDrive,
+    showdownMeleeRoute,
+    showdownRoutePoint,
+    type ShowdownMeleeRoute,
+    type ShowdownTravelRoute,
+    showdownReserveRoute,
+    showdownTravelProgress,
+    SHOWDOWN_SWITCH_TIMING,
     showdownPerformanceVariant,
     showdownReactionAge,
     showdownReactionRecoil,
+    showdownReactionPosition,
     showdownRarityScale,
 } from "../lib/pet-showdown-choreography";
+import { showdownBeatProgress, showdownImpactClock, type ShowdownImpactClock } from "../lib/showdown-playback";
 import { petSignaturePerformance, type PetSignaturePerformance } from "../lib/pet-signature-performance";
 import {
     PET_VISUAL_QUALITY_PRESETS,
@@ -284,7 +295,7 @@ function statusTitle(s: { kind: string; rounds: number; magnitude: number }): st
 }
 
 // Moves that never point at an enemy (mirror of the server's routing).
-const SELF_MOVE_KINDS = new Set(["buff", "haste", "move", "shield", "barrier", "absorb", "taunt"]);
+const SELF_MOVE_KINDS = new Set(["buff", "haste", "move", "shield", "barrier", "absorb", "taunt", "protect", "weather"]);
 const ALLY_MOVE_KINDS = new Set(["heal"]);
 
 type ActionEvent = Extract<ShowdownEvent, { t: "action" }>;
@@ -363,6 +374,9 @@ interface SceneBeat {
     event: ShowdownEvent | null;
     startedAt: number;
     durationMs: number;
+    impact?: ShowdownImpactClock;
+    meleeRoute?: ShowdownMeleeRoute;
+    switches?: ReadonlyMap<string, { route: ShowdownTravelRoute; start: number; end: number }>;
     /** Queue position — the shot-variant seed. Deliberately NOT startedAt,
      *  which is a wall clock and would pick different framings on replay. */
     index: number;
@@ -1138,13 +1152,11 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     const selRing = useRef<THREE.Mesh>(null);
     /** Where this fighter currently stands — walks toward its assigned home. */
     const standing = useRef<[number, number, number] | null>(null);
+    const switchLanding = useRef<ShowdownTravelRoute | null>(null);
     /** Hit-stop-aware presentation clock fed to the skeletal mixer. */
     const timeline = useRef(0);
     /** Opening pet entrance begins once the VS card clears. */
     const entranceAt = useRef<number | null>(null);
-    /** Per-beat clock for root travel. Wall-clock dash progress used to keep
-     *  advancing while the skeleton froze, sliding pets inside each other. */
-    const beatClock = useRef({ index: -1, elapsedMs: 0 });
     /** When this pet went down (0 = standing) and the beat it fell on, which
      *  together decide when the body withdraws from the field. */
     const koAt = useRef(0);
@@ -1207,8 +1219,25 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         const home = posRef.current.get(info.view.id) ?? standing.current ?? info.basePos;
         if (!standing.current) standing.current = [home[0], home[1], home[2]];
         const stand = standing.current;
-        let walkX = 0, walkZ = 0, walking = false;
-        if (!ko) {
+        let walkX = 0, walkZ = 0, walking = false, walkSpeed = 7.2;
+        const switchMotion = beat.switches?.get(info.view.id);
+        let waitingForEntry = false;
+        if (!switchMotion && switchLanding.current) {
+            const landing = showdownRoutePoint(switchLanding.current, 1);
+            stand[0] = landing.x; stand[2] = landing.z;
+            switchLanding.current = null;
+        }
+        if (!ko && switchMotion) {
+            switchLanding.current = switchMotion.route;
+            const fraction = showdownBeatProgress(beat, now);
+            const progress = showdownTravelProgress((fraction - switchMotion.start) / (switchMotion.end - switchMotion.start));
+            const point = showdownRoutePoint(switchMotion.route, progress);
+            walkSpeed = Math.hypot(point.x - stand[0], point.z - stand[2]) / Math.max(0.001, delta);
+            stand[0] = point.x; stand[2] = point.z;
+            walkX = point.dx; walkZ = point.dz;
+            walking = fraction >= switchMotion.start && fraction < switchMotion.end;
+            waitingForEntry = fraction < switchMotion.start;
+        } else if (!ko) {
             const dx = home[0] - stand[0];
             const dz = home[2] - stand[2];
             const dist = Math.hypot(dx, dz);
@@ -1272,7 +1301,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         // happens exactly when a switch hands the reserve a field slot and the
         // chase starts, and the pop-out when a pulled pet reaches the tunnel.
         if (group.current) {
-            group.current.visible = !(benchedRef.current.has(info.view.id) && !walking && !ko) && !withdrawn;
+            group.current.visible = !(benchedRef.current.has(info.view.id) && !walking && !ko) && !withdrawn && !waitingForEntry;
         }
 
         // Hit-stop-aware presentation clock: skeletal time crawls during the
@@ -1289,13 +1318,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
             entranceAt.current = null;
             f.entranceProgress = undefined;
         }
-        if (beatClock.current.index !== beat.index) {
-            beatClock.current.index = beat.index;
-            beatClock.current.elapsedMs = Math.max(0, now - beat.startedAt);
-        } else {
-            beatClock.current.elapsedMs += delta * 1000 * presentationScale;
-        }
-        const beatFraction = Math.min(1, beatClock.current.elapsedMs / Math.max(1, beat.durationMs));
+        const beatFraction = showdownBeatProgress(beat, now);
 
         const lastHit = fx.hitAt.get(info.view.id) ?? 0;
         const wallSinceHit = now - lastHit;
@@ -1360,6 +1383,21 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                         const drive = showdownMeleeDrive(frac, rhythm);
                         px = stand[0] + faceX * contact.travel * drive;
                         pz = stand[2] + faceZ * contact.travel * drive;
+                        if (beat.meleeRoute) {
+                            const point = showdownRoutePoint(beat.meleeRoute, drive);
+                            // Preserve a reserve's in-progress entrance at the
+                            // start, then converge on the shared contact route.
+                            px = point.x + (stand[0] - beat.meleeRoute.points[0].x) * (1 - drive);
+                            pz = point.z + (stand[2] - beat.meleeRoute.points[0].z) * (1 - drive);
+                            if (beat.meleeRoute.detoured && frac >= rhythm.dashStart && frac < rhythm.contact) {
+                                faceX = point.dx;
+                                faceZ = point.dz;
+                            } else if (beat.meleeRoute.detoured && frac >= rhythm.contact) {
+                                const targetDistance = Math.hypot(targetPos[0] - px, targetPos[2] - pz) || 1;
+                                faceX = (targetPos[0] - px) / targetDistance;
+                                faceZ = (targetPos[2] - pz) / targetDistance;
+                            }
+                        }
                         f.motion = frac < rhythm.windupStart ? "idle"
                             : frac < rhythm.dashStart ? "windup"
                             : frac < rhythm.contact ? "dash"
@@ -1400,7 +1438,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         } else if (walking) {
             f.motion = "run";
             f.moving = true;
-            f.speed = 7.2;
+            f.speed = walkSpeed;
             f.moveX = walkX; f.moveZ = walkZ;
             faceX = walkX; faceZ = walkZ;
             f.moveStyle = baseStyle;
@@ -1418,6 +1456,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         }
         // The skeleton folds on impact; the group travels away from its source.
         // The separation remains visible through hit-stop and eases home after.
+        const reactionStartX = px, reactionStartZ = pz;
         const hitDirection = fx.hitDirection.get(info.view.id);
         if (!ko && hitDirection && lastHit > 0) {
             const recoil = showdownReactionRecoil(
@@ -1433,6 +1472,16 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                 * THREE.MathUtils.clamp(signature.agility, 0.86, 1.18);
             px += -faceZ * offset;
             pz += faceX * offset;
+        }
+        if (px !== reactionStartX || pz !== reactionStartZ) {
+            const neighbours = [...posRef.current]
+                .filter(([id]) => id !== info.view.id && !benchedRef.current.has(id))
+                .map(([id, pos]) => ({ x: pos[0], z: pos[2], radius: radii.get(id) ?? 0.82 }));
+            const safe = showdownReactionPosition(
+                { x: reactionStartX, z: reactionStartZ }, { x: px, z: pz },
+                radii.get(info.view.id) ?? 0.82, neighbours,
+            );
+            px = safe.x; pz = safe.z;
         }
         f.faceX = faceX;
         f.faceZ = faceZ;
@@ -1681,10 +1730,15 @@ function StatusPlate({ pet, d, side, benched, clickable, onPick, commanding, hin
                     </span>
                     <Num cur={d.stamina} max={pet.maxStamina} pct={side === "enemy"} />
                 </span>
-                <span className={`showdown-plate-meter ${d.meter >= 100 ? "full" : ""}`}>
+                <span className={`showdown-plate-meter ${d.meter >= 100 ? "full" : ""}`}
+                    role="meter" aria-label={`${pet.name} signature charge`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.max(0, Math.min(100, d.meter))}>
                     <span style={{ width: `${Math.max(0, Math.min(100, d.meter))}%` }} />
                 </span>
                 <span className="showdown-plate-tags">
+                    {!d.ko && !benched && <span className={`showdown-charge-tag ${d.meter >= 100 ? "full" : ""}`} title="Signature charge — fill the meter to unlock your finisher">
+                        <ShowdownIcon name="signature" size={11} />{d.meter >= 100 ? "SIG FULL" : `SIG ${Math.round(d.meter)}%`}
+                    </span>}
+                    {d.guarding && !d.ko && <span className="showdown-guard-tag"><ShowdownIcon name="brace" size={11} />GUARD</span>}
                     {/* The matchup readout is gated on the ELEMENT being known,
                         never on the plate being a click target — it used to
                         require multi-target mode, so in 1v1 (the format whose
@@ -1716,8 +1770,9 @@ function StatusPlate({ pet, d, side, benched, clickable, onPick, commanding, hin
                         publishing it once spent, so no client bookkeeping. */}
                     {side === "player" && pet.consumableName && <span className="showdown-kit-chip consum" title="Battle item — one use">{pet.consumableName}</span>}
                     {d.statuses.map((s) => (
-                        <span key={s.kind} className={`showdown-status-pip fam-${KIND_FAMILY[s.kind] ?? "ctl"}`} title={statusTitle(s)}>
+                        <span key={s.kind} className={`showdown-status-pip fam-${KIND_FAMILY[s.kind] ?? "ctl"}`} title={statusTitle(s)} aria-label={statusTitle(s)}>
                             <ShowdownIcon name={STATUS_GLYPH[s.kind] ?? "mark"} size={12} />
+                            <span className="showdown-status-label">{(STATUS_TITLE[s.kind] ?? s.kind).split(" — ")[0]}</span>
                             <b>{s.rounds}</b>
                         </span>
                     ))}
@@ -2045,11 +2100,14 @@ function useReclaimFocus(container: React.RefObject<HTMLElement | null>, index =
     }, [container]);
 }
 
-function ActionMenu({ rows, focus, onFocusRow, onSelect }: {
+function ActionMenu({ rows, focus, onFocusRow, onSelect, commanderName, orderNumber, orderCount }: {
     rows: MenuRowSpec[];
     focus: number;
     onFocusRow: (index: number) => void;
     onSelect: (action: MenuAction) => void;
+    commanderName: string;
+    orderNumber: number;
+    orderCount: number;
 }) {
     const rowsRef = useRef<HTMLDivElement>(null);
     useReclaimFocus(rowsRef, focus);
@@ -2107,6 +2165,10 @@ function ActionMenu({ rows, focus, onFocusRow, onSelect }: {
     );
     return (
         <div className="showdown-menu" ref={rowsRef} onKeyDown={onKeyDown}>
+            <div className="showdown-command-heading">
+                <span><small>COMMANDING</small><strong>{commanderName}</strong></span>
+                <span className="showdown-command-step">ORDER <b>{orderNumber}/{orderCount}</b></span>
+            </div>
             <div className="showdown-tech-grid">
                 {rows.map((row, i) => (row.chip ? null : renderRow(row, i)))}
             </div>
@@ -2175,12 +2237,13 @@ function TargetingPanel({ title, sub, onBack }: { title: string; sub: string; on
 }
 
 function MoveInspector({ spec, targetName }: { spec: InspectorSpec | null; targetName?: string | null }) {
+    const [detailsOpen, setDetailsOpen] = useState(false);
     if (!spec) return null;
     const element = spec.element ?? "None";
     const tint = ELEMENT_TINT[element] ?? ELEMENT_TINT.None;
     return (
         <div
-            className="showdown-inspector"
+            className={`showdown-inspector ${detailsOpen ? "details-open" : ""}`}
             style={{
                 "--insp-tint": tint,
                 // The painted crest earns its 5-9 KB here and nowhere else: one
@@ -2197,6 +2260,8 @@ function MoveInspector({ spec, targetName }: { spec: InspectorSpec | null; targe
                 )}
                 <span className="showdown-inspector-title">{spec.title}</span>
                 <span className="showdown-inspector-cat">{spec.category}</span>
+                <button type="button" className="showdown-inspector-toggle" aria-expanded={detailsOpen}
+                    onClick={() => setDetailsOpen((open) => !open)}>{detailsOpen ? "Less" : "Details"}</button>
             </div>
             <p className="showdown-inspector-desc">{spec.description}</p>
             {targetName && <p className="showdown-inspector-target">→ {targetName}</p>}
@@ -2670,8 +2735,45 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             return clearTimers;
         }
         const event = queue[queueIndex];
-        const durationMs = beatDurationMs(event, speed);
-        beatRef.current = { event, startedAt: performance.now(), durationMs, index: queueIndex };
+        let durationMs = beatDurationMs(event, speed);
+        let switches: SceneBeat["switches"];
+        if (event.t === "switch") {
+            const next = computeArrangement(lineupAfterSwitch(lineup, event.side, event.outId, event.inId, event.reinforcement));
+            const neighbours = [...posRef.current]
+                .filter(([id]) => id !== event.inId && id !== event.outId && !benchedRef.current.has(id) && !display[id]?.ko)
+                .map(([id, position]) => ({ x: position[0], z: position[2], radius: fighterRadii.get(id) ?? 0.82 }));
+            const motions = new Map<string, { route: ShowdownTravelRoute; start: number; end: number }>();
+            for (const id of [event.outId, event.inId]) {
+                if (id === event.outId && event.reinforcement && id !== event.inId) continue;
+                const from = posRef.current.get(id), to = next.get(id);
+                if (!from || !to) continue;
+                const entering = id === event.inId;
+                const route = showdownReserveRoute({ x: from[0], z: from[2] }, { x: to[0], z: to[2] }, fighterRadii.get(id) ?? 0.82, neighbours, event.side);
+                const start = entering ? (event.reinforcement ? SHOWDOWN_SWITCH_TIMING.reinforcementStart : SHOWDOWN_SWITCH_TIMING.entryStart) : 0;
+                const end = entering ? SHOWDOWN_SWITCH_TIMING.entryEnd : SHOWDOWN_SWITCH_TIMING.exitEnd;
+                motions.set(id, { route, start, end });
+                // Match the exchange to its travel distance; a far reserve must
+                // be planted before an attack beat starts, even at 2x playback.
+                durationMs = Math.max(durationMs, 2200 / speed, route.length / (end - start) / 10 * 1000 / speed);
+            }
+            switches = motions;
+        }
+        beatRef.current = { event, startedAt: performance.now(), durationMs, index: queueIndex, switches };
+        if (event.t === "action" && event.delivery === "melee" && event.targets[0]?.id !== event.actorId) {
+            const targetId = event.targets[0]?.id;
+            const from = posRef.current.get(event.actorId);
+            const to = targetId ? posRef.current.get(targetId) : undefined;
+            if (from && to && targetId) {
+                const obstacles = [...posRef.current]
+                    .filter(([id]) => id !== event.actorId && id !== targetId && !benchedRef.current.has(id) && !display[id]?.ko)
+                    .map(([id, pos]) => ({ x: pos[0], z: pos[2], radius: fighterRadii.get(id) ?? 0.82 }));
+                beatRef.current.meleeRoute = showdownMeleeRoute(
+                    { x: from[0], z: from[2] }, { x: to[0], z: to[2] },
+                    fighterRadii.get(event.actorId) ?? 0.82, fighterRadii.get(targetId) ?? 0.82,
+                    obstacles, fighterSignatures.get(event.actorId)?.strikeDrive ?? 1,
+                );
+            }
+        }
 
         // Speak the beat as it lands. The damage figures live in popups that
         // fade in 1.25s and the verdicts live in banners — neither reaches a
@@ -2731,7 +2833,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             // Entry theater: the gallop covers most of the beat — a dust pop
             // greets the ARRIVAL, so planting on the line reads as a landing
             // instead of a walk coming to a stop.
-            later(() => spawnFlipbook(event.inId, "impact", 1.5, 380, 0.18, 1, "#d9ccb8"), durationMs * 0.86);
+            later(() => spawnFlipbook(event.inId, "impact", 1.5, 380 / speed, 0.18, 1, "#d9ccb8"), durationMs * SHOWDOWN_SWITCH_TIMING.entryEnd);
         } else if (event.t === "dot") {
             later(() => {
                 addPopup(event.targetId, `-${event.damage}`, "dot");
@@ -2830,6 +2932,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 let anySynergy = false;
                 let bestEffect: "super" | "weak" | null = null;
                 for (const target of event.targets) {
+                    const contactKind = showdownContactEffectKind(event.moveKind, target);
                     // A hit the shield ate entirely arrives as damage 0, and the
                     // whole impact block used to be gated on damage > 0 — so the
                     // attacker lunged, and the victim reacted in no way at all.
@@ -3001,8 +3104,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         // A chained Protect attempt arrives as `failed`: its
                         // windup may begin, but no successful shield should
                         // materialize at contact.
-                        if (target.applied !== "failed") {
-                            spawnFlipbook(target.id, impactFlipbookKey(event.element, event.moveKind, false), 1.9, 620);
+                        if (contactKind) {
+                            spawnFlipbook(target.id, impactFlipbookKey(event.element, contactKind, false), 1.9, 620 / speed, 1.0, 1, contactKind === "protect" ? "#8ecdf7" : undefined);
+                            if (target.guarded && target.applied === "protect") playPetSfx("shield");
                         }
                         if (event.moveKind === "weather" && target.applied === "weather") {
                             setWeatherPreview({ element: event.element });
@@ -3013,7 +3117,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     // accent on damage meant the Swords Dance shaft cage could
                     // never fire for an actual stat-up. Accents fire for any
                     // landed effect; streaks and debris stay damage-gated.
-                    if (!reducedMotion && !target.splash && (target.damage > 0 || target.heal > 0 || (target.applied && target.applied !== "failed"))) {
+                    if (!reducedMotion && !target.splash && contactKind && (target.damage > 0 || target.heal > 0 || (target.applied && target.applied !== "failed"))) {
                         const at = posRef.current.get(target.id);
                         const from = posRef.current.get(event.actorId);
                         if (at) {
@@ -3021,11 +3125,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             const len = from ? Math.hypot(kx - from[0], kz - from[2]) || 1 : 1;
                             const dirX = from ? (kx - from[0]) / len : 0;
                             const dirZ = from ? (kz - from[2]) / len : 1;
-                            if (kindAccentFamily(event.moveKind)) {
+                            if (kindAccentFamily(contactKind)) {
                                 const kKey = popupKey.current++;
                                 setKindFx((list) => appendCapped(list, {
                                     key: kKey,
-                                    kind: event.moveKind,
+                                    kind: contactKind,
                                     moveName: event.moveName,
                                     element: event.element,
                                     weight: event.weight,
@@ -3093,9 +3197,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     if (kill || event.super) later(() => playPetSfx("crowd"), kill ? 420 : 260);
                     // Damage-scaled hit-stop (fighting-game contact freeze),
                     // heavier for Lightning per the electric-hitlag convention.
-                    fxRef.current.hitStopUntil = impactNow + cinematic.hitStopMs;
-                    fxRef.current.slowScale = cinematic.slowScale;
-                    fxRef.current.slowUntil = fxRef.current.hitStopUntil + cinematic.slowMotionMs;
+                    const impactClock = showdownImpactClock(beatRef.current, impactNow, actionRhythm(event).contact, cinematic);
+                    beatRef.current.impact = impactClock;
+                    fxRef.current.hitStopUntil = impactClock.hitStopUntil;
+                    fxRef.current.slowScale = impactClock.slowScale;
+                    fxRef.current.slowUntil = impactClock.slowUntil;
                     fxRef.current.lensStartedAt = impactNow;
                     fxRef.current.lensUntil = impactNow + (kill ? 780 : event.super ? 620 : 380);
                     fxRef.current.lensAmp = reducedMotion ? 0 : cinematic.lensDegrees;
@@ -3503,6 +3609,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const pendingMoveView = commander && pendingMove
         ? (pendingMove.super ? commanderSignature : commander.moves[pendingMove.moveIndex]) ?? null
         : null;
+    const focusedAction = menuRows[focusIndex]?.action;
+    const inspectedMove = pendingMoveView ?? (!pickingSwitch && focusedAction?.t === "move" && commander
+        ? focusedAction.super ? commanderSignature : commander.moves[focusedAction.moveIndex]
+        : null);
+    const matchupElement = phase === "command" ? showdownMatchupElement(inspectedMove, commanderElement) : undefined;
     const inspectorSpec: InspectorSpec | null = pendingMoveView && commander
         ? moveInspector(pendingMoveView, commanderElement, staminaNow, commander.readiness)
         : pickingSwitch
@@ -3723,7 +3834,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         display={display}
                         targeting={!!pendingMove && !targetingAllies}
                         onPickTarget={pickTarget}
-                        hintElement={commander?.element}
+                        hintElement={matchupElement}
                         art={panelArt}
                         benchedIds={enemyBenchedIds}
                         hoveredId={activeHover}
@@ -3856,6 +3967,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             ) : (
                                 <ActionMenu
                                     key={commander.id}
+                                    commanderName={commander.name}
+                                    orderNumber={draft.length + 1}
+                                    orderCount={promptable.length}
                                     rows={menuRows}
                                     focus={focusIndex}
                                     onFocusRow={setFocusRow}

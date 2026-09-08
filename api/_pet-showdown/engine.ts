@@ -525,6 +525,21 @@ const CROSS_TIER_BLEND = 0.3;
  * gear still scale normally on top. Keep this table small and backed by the
  * full-roster analyzer rather than globally flattening species identity. */
 const SHOWDOWN_SPECIES_TUNING: Readonly<Record<string, number>> = Object.freeze({
+    // September audit: 35,160 duel matches, plus 17,625 in each team format.
+    // Small residual corrections keep each kit and its role intact; validate
+    // with held-out seeds and level 1/100, not just the fitting sample.
+    'standard-0': 1.06, // Red Fox: 33.2% in duels, 40.8% in doubles
+    'standard-11': 0.94, // Sand Snake: 73.5% in duels
+    'standard-28': 1.08, // Scorch Skink: 28.6% in duels
+    'rare-2': 1.05,     // Night Panther: 34.7% / 38.1% / 39.8%
+    'rare-3': 1.10,     // Sky Falcon: 31.3% / 30.6% / 41.2%
+    'rare-4': 1.06,     // Tide Otter: 35.7% in duels and doubles
+    'rare-45': 0.96,   // Granite Wombat: 69.9% in duels, 62.2% in triples
+    'legendary-0': 1.10, // Glacier Wolf: 29.6% / 32.2% / 37.9%
+    'legendary-4': 0.95, // Ironfang Tiger: 71.8% / 66.7% / 61.5%
+    'legendary-18': 1.06, // Tidelord Leviathan: 32.5% in duels
+    'legendary-28': 1.04, // Granite Gargoyle: 22.4% at level 1 before this pass
+    'mythic-3': 0.94,   // Solar Stag: strong across formats and level bands
     'standard-7': 0.98,  // Ashen Crow: 75.5% at level 50 in the real bench format
     'standard-19': 0.98, // Mud Toad: 75.5% after kit surgery
     'standard-23': 0.92, // Rock Badger: 83.7% after sustain-kit surgery

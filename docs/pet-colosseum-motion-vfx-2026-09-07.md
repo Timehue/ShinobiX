@@ -1,0 +1,50 @@
+# Pet Colosseum: VFX, contact and animation review
+
+Local review of the production `PetShowdownBattle` renderer using the development battle harness. Camera constants, framing, angles and the camera director were preserved.
+
+## Corrections
+
+- **Attack clips:** changing from the melee dash's locomotion clip back to the attack clip now enters its strike window. Previously this transition restarted the attack at its windup. The model and outline passes use the same entry time.
+- **Playback timing:** fighter travel and moving VFX now sample one presentation clock. The wake also uses the body's acceleration curve. Hit-stop holds contact, and the remaining beat includes enough time to recover, including fast playback and finishers.
+- **Melee clearance:** action routes check the swept body footprint against other fielded pets. Clear attacks keep their existing route and contact distance. Obstructed diagonals use rounded corners in the center aisle, with every swept segment checked again after rounding. A short final approach lets the attacker face its target before the strike; its wake follows the same route.
+- **Reserve exchanges:** outgoing and incoming pets take turns using a clear route behind the formation. Travel accelerates and settles smoothly, animation speed follows actual travel, and the switch beat scales with route length. The incoming pet lands before the next action at either playback speed. The arrival dust now fires at landing. A frame-gap safeguard completes the landing before the next beat.
+- **Reaction clearance:** dodge and recoil displacement stop short of a neighboring pet's footprint rather than crossing into its lane.
+- **Contact spark:** the old large white disc, thick ring and rectangular rays obscured both pets in a captured strike. The replacement uses a small core, thin ring and tapered rays. It remains at contact height while expanding, and respects depth so it cannot paint over a nearer pet.
+- **Contact feedback:** guarded hits use a softer blue shield ring without sharp damage rays. Fully absorbed hits also use shield feedback; the server reports dodges by omitting the target. Failed effects and dodges do not show a damaging spark. Impact flipbooks and mechanic accents now follow the same verdict, so a protected burn cannot also paint a successful burn effect. Projectiles release and arrive outside the pets' body footprints; close endpoints compress their offsets without reversing travel.
+- **Self-directed controls:** Protect/Bulwark and weather moves submit directly for their caster instead of asking the player to pick an enemy.
+- **Repeatable visual review:** `showdownpreview.html?frames&capture` adds a development-only gallery of canvas frames captured 80, 320 and 900 ms after attack announcements, with longer captures for switches. It retains the latest 24 frames. This does not run in the shipping game.
+
+## Verification
+
+- Animation asset audit: **160 models and 6,240 sampled poses**, covering eight rig categories and fifteen motion families. All completed. The headless loader's texture warnings reflect its lack of a browser image decoder; models and textures were also checked in the browser samples.
+- **72 regression tests passed**, covering choreography, reserve routes, playback, projectile endpoints, contact outcomes, animation asset banks, clip entry wiring, identities, VFX mapping, stance, HUD, postprocessing, warmup and camera behavior.
+- The collision sweep checks all nine attacker/target lane combinations in both directions, across all five presentation profiles: **90 formation cases**, with large neighboring footprints. It checks entire route segments and 121 sampled outbound/return positions per case.
+- Reserve coverage checks **108 entrance/exit paths** across both sides, three field slots, three bench positions and three pet radii. These checks verify every swept segment, rounded-turn continuity, target-facing at melee contact, and reserve landing before the following beat at normal/fast speeds.
+- Full client TypeScript checking, ESLint for changed files and the Colosseum preview build passed. The preview retains its existing large-bundle warning.
+- Browser review used Performance, Balanced and Cinematic quality. Captured contact and recovery frames verified the smaller spark and sampled quadruped, biped, avian and serpentine interactions, plus Water and Wind signature set pieces. A heavy Crystal Bear battle also completed. Fast 3v3 playback completed a round with cross-lane attacks and a guarding bystander; all transient effect counts returned to zero. Intentional floor scars remained after signature attacks. No browser rendering errors were logged in these checks; the existing Three.js Clock deprecation warning appeared with postprocessing.
+- The follow-up browser pass recorded River Otter exiting around Red Fox and Meadow Deer entering the far slot at normal speed, then the reverse exchange at fast speed. Captured frames show the incoming pet settled before the following action. Protect contacts show a blue shield ring, and clicking Bulwark now advances directly to the next pet's orders. The Water ranged attack also completed successfully after the exchange.
+
+## Integration recheck
+
+- Traced `App`'s practice and Colosseum routes through `PetShowdown`, the live `/api/pet/showdown` endpoint and the authoritative engine. Replays, including ranked/ladder and war records, mount the same `PetShowdownBattle`. The renderer imports its own stylesheet, so direct replay entry does not depend on visiting the live lobby first.
+- Confirmed that the queue supplies the shared contact clock, melee routes and reserve routes to the fighter and VFX consumers. Both model passes enter the authored strike window. Model warmup covers both teams and reserves; quality settings reach the renderer and model layer.
+- Found and fixed a verdict mismatch: Protect's zero-damage target could still spawn the attacking move's impact flipbook and mechanic accent. Those consumers now use the resolved contact kind. Shield absorption also uses a block contact, while an omitted dodge target produces no contact spark. Added an integration test using actual engine events for all three cases.
+- **188 tests passed** in the expanded engine, AI, headless/replay, balance, command, accessibility and presentation suite. Full client TypeScript and changed-file ESLint checks passed. Camera constants and the director match the original section exactly.
+- The real **production Vite build passed**. Its manifest confirms that live and replay entry points share the battle JavaScript and stylesheet and exclude the development frame-gallery harness. All **159 distinct resolved production model URLs** exist in the build, are valid GLBs, and contain idle, attack, cast, guard, rest and victory clips. This count deduplicates model fallbacks; it is separate from the earlier 160-file authoring audit.
+- A fresh browser round verified direct Bulwark submission, blue shield feedback on both enemy contacts, unchanged protected HP and no console errors.
+- **Initial workspace release check:** the whole app's build-size gate failed at **8,224,668 bytes** of budgeted product JavaScript/CSS against **8,200,000 bytes**, an excess of **24,668 bytes**. See the main-based release verification below for the resolved result.
+
+## Main-based release verification
+
+- Applied the Colosseum changes to an isolated checkout of remote main `7a6e1539ebd83ada40038d88e2c9450b06c6dc3e`. Preserved main's shared additive material props and animation-state refactor. Unrelated local work is excluded.
+- **186 tests passed** against this main-based version, including the engine/replay integration and presentation coverage. The full **35,160-duel** level-50 balance audit with seed offset 104729 passes all configured bands. Camera constants and the director match main exactly.
+- A fresh Balanced-quality 3v3 browser round verified direct Bulwark submission, the River Otter's cross-lane attack on Leaf Monkey, and three protected contacts against Red Fox. Protected HP remained **365/365**. Captured contact frames show the models and feedback resolving at their targets. Browser logs contain no errors; the existing Three.js Clock deprecation warning remains.
+- Main's existing Production Image build also exceeded the unchanged 8.2 MB product limit. Compact build-generated chunk and media URLs remove repeated descriptive filename text while retaining eight-character content hashes, the service worker/server cache patterns, vendor names used by size gates, and source mappings in the build manifest. No dependency or minifier changes are needed.
+- The **complete production build passed**, including server compilation, client TypeScript, Vite, legal-page generation, artifact verification and every size gate, using the Production Image workflow's production-length public build settings. Budgeted product JS/CSS: **8,182,810 bytes**, leaving **17,190 bytes** below the unchanged limit. All **2,299 file references** across **1,236 manifest entries** resolve, and the development harness is excluded. All **1,167 compact hashed filenames** retain the existing immutable-cache pattern.
+- Regenerated the design-token handoff, which was already stale on main; `check:tooling-handoffs` passes. Existing main CI failures in unrelated Tower combat-layout browser tests are outside this Colosseum release.
+
+## Scope
+
+These are presentation fixes: authoritative damage, accuracy, status rules and pet balance are unchanged by this pass. Long reserve exchanges may take a little more presentation time so both pets can travel and settle. Footprints provide deterministic visual clearance, not per-triangle physics for every animated wing, tail or limb. The 160-model pose audit is automated; the browser review is a representative sample, not a human review of every clip on every pet.
+
+For further art review, use the frame gallery with `rosterpet` / `enemypet`, `format=3v3`, `meter`, `heavy`, and `petQuality=low|medium|high`. `slowfx` stretches set-piece lifetime only; it is not a playback-speed control.

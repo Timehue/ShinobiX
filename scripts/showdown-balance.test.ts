@@ -4,8 +4,8 @@
  * ELEMENT_DAMAGE/TAKEN_MULT, the species budget normalization) and the wheel
  * constants in shared/pet-showdown-contract.ts.
  *
- * IT FIGHTS THE SHAPE THE MODE IS ACTUALLY PLAYED IN: one fighter per side
- * plus SHOWDOWN_BENCH_SIZE reserves. This used to run a bare 1v1 with no
+ * It checks 1v1, 2v2 and 3v3 with SHOWDOWN_BENCH_SIZE reserves. Shared field
+ * allies rotate across seeds. This used to run a bare 1v1 with no
  * bench, which is not a format the game offers, and the difference was not
  * cosmetic — with reserves in play, matches ran 23.7 rounds instead of 7.9 and
  * MORE THAN HALF were decided by the round-cap judge instead of a knockout,
@@ -27,7 +27,7 @@ import assert from 'node:assert/strict';
 import { PET_CATALOG } from '../api/pet/_catalog.js';
 import { createShowdownSession, resolveShowdownRound } from '../api/_pet-showdown/engine.js';
 import { chooseShowdownAiCommands } from '../api/_pet-showdown/ai.js';
-import { SHOWDOWN_BENCH_SIZE, SHOWDOWN_TURN_CAP } from '../shared/pet-showdown-contract.js';
+import { SHOWDOWN_BENCH_SIZE, SHOWDOWN_FORMAT_SIZE, type ShowdownFormat } from '../shared/pet-showdown-contract.js';
 // Sim-only backstop. The engine judges at SHOWDOWN_TURN_CAP, so this can only
 // fire if the judge stopped firing — a bug tripwire, not the round limit.
 const HARD_STOP = 400;
@@ -62,33 +62,40 @@ function commandsFor(session: ShowdownSession, side: 'player' | 'enemy') {
 /** A fixed neutral reserve, identical on both sides so it cancels out. */
 let benchFiller: Record<string, unknown> | undefined;
 
-function teamFor(tpl: Record<string, unknown>, slot: string): Pet[] {
+function teamFor(tpl: Record<string, unknown>, slot: string, companions: Record<string, unknown>[]): Pet[] {
     const team = [scaled(tpl, slot)];
+    companions.forEach((mate, i) => team.push(scaled(mate, `${slot}field${i}`)));
     for (let i = 0; i < SHOWDOWN_BENCH_SIZE; i++) team.push(scaled(benchFiller!, `${slot}b${i}`));
     return team;
 }
 
-function fight(tplA: Record<string, unknown>, tplB: Record<string, unknown>, seed: number) {
+function fight(tplA: Record<string, unknown>, tplB: Record<string, unknown>, seed: number, format: ShowdownFormat) {
+    const pool = Object.values(PET_CATALOG).filter((tpl) => tpl.wildSpawnable !== false
+        && Array.isArray(tpl.jutsus) && tpl.rarity === tplA.rarity && tpl.id !== tplA.id && tpl.id !== tplB.id);
+    const companions = Array.from({ length: SHOWDOWN_FORMAT_SIZE[format] - 1 }, (_, i) => pool[(Math.abs(seed) + i * 13) % pool.length]);
     const session = createShowdownSession({
-        sessionId: 'ratchet', playerName: 'A', format: '1v1', tier: 'warrior', seed,
-        playerPets: teamFor(tplA, 'a'), enemyPets: teamFor(tplB, 'b'), enemyTeamName: 'B',
+        sessionId: 'ratchet', playerName: 'A', format, tier: 'warrior', seed,
+        playerPets: teamFor(tplA, 'a', companions), enemyPets: teamFor(tplB, 'b', companions), enemyTeamName: 'B',
     });
     let guard = 0;
+    let judged = false;
     while (!session.finished && guard < HARD_STOP + 1) {
         guard += 1;
         const playerCommands = commandsFor(session, 'player');
         const enemyCommands = commandsFor(session, 'enemy');
-        resolveShowdownRound(session, playerCommands, enemyCommands);
+        const events = resolveShowdownRound(session, playerCommands, enemyCommands);
+        judged ||= events.some((event) => event.t === 'end' && event.byJudge);
     }
+    assert.ok(session.finished && session.outcome, `${format}: ${tplA.id} vs ${tplB.id} must resolve`);
     return {
         won: session.outcome === 'win',
         rounds: session.round,
         // Decided on a tiebreak rather than by a knockout.
-        judged: session.round >= SHOWDOWN_TURN_CAP,
+        judged,
     };
 }
 
-test('showdown balance bands hold across EVERY rarity, chase tiers included', () => {
+for (const format of ['1v1', '2v2', '3v3'] as const) test(`showdown ${format} balance bands hold across EVERY rarity, chase tiers included`, () => {
     const byRarity = new Map<string, Record<string, unknown>[]>();
     for (const tpl of Object.values(PET_CATALOG)) {
         const rarity = String(tpl.rarity);
@@ -127,7 +134,7 @@ test('showdown balance bands hold across EVERY rarity, chase tiers included', ()
               for (let sd = 0; sd < seedsHere; sd++) {
                 const seed = 1_000_003 * (i * 251 + j) + 17 + sd * 7919;
                 const [A, B] = (i + j + sd) % 2 === 0 ? [list[i], list[j]] : [list[j], list[i]];
-                const { won, rounds, judged } = fight(A, B, seed);
+                const { won, rounds, judged } = fight(A, B, seed, format);
                 totalGames += 1; totalRounds += rounds;
                 unresolvedGames += rounds >= HARD_STOP ? 1 : 0;
                 judgedGames += judged ? 1 : 0;
@@ -154,7 +161,8 @@ test('showdown balance bands hold across EVERY rarity, chase tiers included', ()
     // fighter with no reserves; three pets a side legitimately take about three
     // times as long, which is where VGC-style team battles sit.
     const avgRounds = totalRounds / totalGames;
-    if (avgRounds < 13 || avgRounds > 26) failures.push(`avg rounds ${avgRounds.toFixed(1)} outside 13-26`);
+    const paceLo = format === '1v1' ? 13 : 5;
+    if (avgRounds < paceLo || avgRounds > 26) failures.push(`avg rounds ${avgRounds.toFixed(1)} outside ${paceLo}-26`);
     // THE ONE THAT MATTERS MOST: a match should be won, not awarded. At the old
     // damage pacing (tuned for a one-pet fight) 51.9% of three-pet matches ran
     // out the clock and were settled by the judge.
