@@ -11,7 +11,7 @@ import { stampPresenceBeat } from '../_realtime/_presence-beat.js';
 import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from '../_realtime/presence-input.js';
 import { clearSleeperCamp } from '../_realtime/sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from '../_realtime/travel-lease.js';
-import { presenceSectorForWrite } from '../_realtime/world-duel-engagement.js';
+import { durablePresenceSectorForWrite } from '../_realtime/world-duel-engagement.js';
 import { battleAuthorityKeys, battleEvidenceFrom, resolveBattleAuthority } from '../_realtime/battle-authority.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
@@ -199,11 +199,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // The per-beat signal reads all ride ONE mget (they live on the base
         // store, so the routed mget is a single round trip) — this endpoint fires
         // every second per online player, so each read saved here is ~1 op/s/player.
-        const existing = onlineStore.get(name);
+        let existing = onlineStore.get(name);
         // F01: the five keys that corroborate a fight ride the same mget, so
         // deriving `inBattle` server-side costs no extra round trip here.
         const battleKeys = battleAuthorityKeys(name);
-        const [signals, savedLocation, persistedTravel] = await Promise.all([
+        let [signals, savedLocation, persistedTravel] = await Promise.all([
             kv.mget(challengeKey, resetSignalKey, healSignalKey, noticesKey, stakeRefundKey, towerInviteKey, ...battleKeys),
             existing ? Promise.resolve(null) : kv.get<{ currentSector?: number; currentTile?: number }>(`save:${safeName(name)}`),
             existing ? Promise.resolve(null) : getTravelLease(name),
@@ -242,7 +242,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? normalizeSector(sector, existing.sector)
             : persistedTravel
                 ? travelLeaseSectorAt(persistedTravel, now)
-                : normalizeSector(savedLocation?.currentSector, normalizeSector(sector, 40));
+                : normalizeSector(savedLocation?.currentSector, 40);
 
         // Town entry is client navigation and stays instant — EXCEPT for a
         // player who is engaged in a world duel (a queued attacker, or an
@@ -250,7 +250,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // moves an engaged character out of the sector the fight is in
         // (_realtime/world-duel-engagement.ts). Costs a read only on the
         // wild→town transition of an engaged player.
-        const presenceSector = await presenceSectorForWrite(kv, name, existing, entrySector, now);
+        const presenceSector = await durablePresenceSectorForWrite(kv, name, existing, entrySector, now,
+            typeof body.enterTown === 'boolean' ? body.enterTown : undefined);
+        // HTTP and socket hydration may overlap. A presence published while
+        // these reads were pending wins over this request's older snapshot.
+        const latest = onlineStore.get(name);
+        const superseded = !!latest && latest !== existing;
+        if (superseded) {
+            existing = latest;
+            persistedTravel = null;
+        }
 
         // Cap client-supplied travelingUntil so an exploit can't make a player
         // permanently untouchable (capTravelingUntil returns undefined unless
@@ -270,7 +279,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // 7-day TTL, idempotent).
         let stored = onlineStore.upsert({
             name,
-            sector: presenceSector,
+            sector: superseded ? existing!.sector : presenceSector,
             character: slimChar as Record<string, unknown> | null,
             travelingUntil: safeTravelUntil,
             // A client claim only (ignored by upsert, F01). The flag is set from
@@ -278,8 +287,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             inBattle: inBattle === true ? true : undefined,
             // A fresh session that reports no tile resumes on the tile its last
             // settled arrival persisted (travel-lease.ts), not on nothing.
-            tile: normalizeTile(tile, existing?.tile ?? normalizeTile(savedLocation?.currentTile)),
+            tile: superseded ? existing!.tile : existing ? normalizeTile(tile, existing.tile)
+                : normalizeTile(persistedTravel && now >= persistedTravel.arrivalAt
+                    ? persistedTravel.arrivalTile : savedLocation?.currentTile),
+            tileSector: existing && !superseded ? normalizeSector(sector, existing.sector) : presenceSector,
         });
+        // Restore before the next await: no newer live journey may be replaced
+        // by a delayed cold-session lease after combat evidence resolves.
+        if (!existing && persistedTravel && now < persistedTravel.arrivalAt) {
+            stored = onlineStore.restoreTravel(
+                name, persistedTravel.destinationSector, persistedTravel.arrivalAt,
+                persistedTravel.originSector, persistedTravel.arrivalTile,
+            ) ?? stored;
+        }
         // F01: `inBattle` is what the combat stores can PROVE, never what the
         // beat asserts — a Tower lease, a live Solo-PvE session, a PvP pointer
         // whose session is active, a running pet duel. A storage failure while
@@ -293,17 +313,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } catch (err) {
             console.warn('[heartbeat] battle authority unavailable; presence flag kept', (err as Error)?.message);
         }
-        if (!existing && persistedTravel && now < persistedTravel.arrivalAt) {
-            stored = onlineStore.restoreTravel(
-                name,
-                persistedTravel.destinationSector,
-                persistedTravel.arrivalAt,
-                persistedTravel.originSector,
-                persistedTravel.arrivalTile,
-            ) ?? stored;
-        }
         if ((persistedTravel && now >= persistedTravel.arrivalAt) || onlineStore.consumeSettledTravel(name)) {
-            void settleTravelLease(name, persistedTravel ?? undefined, now).catch(() => undefined);
+            void settleTravelLease(name, persistedTravel ?? undefined, now).catch(() => onlineStore.retryTravelSettlement(name));
         }
         const pendingAttacker = stored.pendingAttacker ?? null;
         onlineStore.clearPendingAttacker(name);
@@ -355,6 +366,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // players never go invisible. `traveling` makes the client hold during
             // the arrival-settle window so a real trip is never bounced.
             sector: stored.sector,
+            tile: stored.tile,
             traveling: (stored.travelingUntil ?? 0) > now,
             pendingAttacker,
             pendingChallenges: pendingChallenges ?? [],

@@ -30,6 +30,7 @@ export function normalizeSector(value: unknown, fallback = 40): number {
 // viewer falls back to a deterministic per-name tile). Display-only: no gameplay
 // path reads tile, so a bogus value can only mis-place a cosmetic marker.
 export function normalizeTile(value: unknown, fallback?: number): number | undefined {
+    if (value === null || value === undefined || value === '') return fallback;
     const tile = Number(value);
     if (!Number.isFinite(tile)) return fallback;
     return Math.max(0, Math.min(143, Math.floor(tile)));

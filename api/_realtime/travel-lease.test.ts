@@ -32,7 +32,9 @@ test('travel lease never exposes an active traveler as a sleeper', () => {
 
 test('travel lease parsing rejects invalid sectors and clamps optional tile shape', () => {
     assert.deepEqual(travel.parseTravelLease(JSON.stringify(lease)), lease);
-    assert.equal(travel.parseTravelLease({ ...lease, destinationSector: 0 }), null);
+    assert.equal(travel.parseTravelLease({ ...lease, destinationSector: 0 })?.destinationSector, 0, 'server-issued town entry is durable too');
+    assert.equal(travel.parseTravelLease({ ...lease, arrivalTile: null })?.arrivalTile, undefined, 'no tile is not tile zero');
+    assert.equal(travel.parseTravelLease({ ...lease, destinationSector: null }), null, 'malformed destination is not town');
     assert.deepEqual(travel.parseTravelLease({ ...lease, arrivalTile: 900 }), {
         originSector: 12,
         destinationSector: 13,
@@ -67,7 +69,7 @@ test('travel lease accepts every real sector id, and only those', () => {
     assert.ok(travel.parseTravelLease({ ...base, destinationSector: 99 }), "Death's Gate is travelable");
     assert.ok(travel.parseTravelLease({ originSector: 0, destinationSector: 1, arrivalAt: 5_000 }), 'village origin');
     assert.equal(travel.parseTravelLease({ ...base, destinationSector: MAX_WILD_SECTOR + 1 }), null);
-    assert.equal(travel.parseTravelLease({ ...base, destinationSector: 0 }), null);
+    assert.equal(travel.parseTravelLease({ ...base, destinationSector: 0 })?.destinationSector, 0);
 });
 
 test('travel lease bounds the arrival tile by the board, not a literal 143', () => {

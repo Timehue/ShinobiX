@@ -262,9 +262,9 @@ describe("save-conflict drafts", () => {
     });
 
     it("names only the restorable half of a mixed divergence", () => {
-        const local = { character: { level: 40, rank: "jonin", nindo: "walk softly" }, currentSector: 12 };
-        const server = { character: { level: 38, rank: "chunin", nindo: "" }, currentSector: 9 };
-        // level and rank are server-owned; the sector is not.
+        const local = { character: { level: 40, rank: "jonin", nindo: "walk softly" }, currentBiome: "forest" };
+        const server = { character: { level: 38, rank: "chunin", nindo: "" }, currentBiome: "desert" };
+        // level, rank and position are server-owned; the biome presentation is not.
         assert.deepEqual(detectSaveConflictAreas(local, server), ["Travel & world position"]);
     });
 
@@ -294,14 +294,14 @@ describe("save-conflict drafts", () => {
             reportStorageFailure: (error) => failures.push(error),
         });
 
-        const captured = store.capture("Kaya", { character: { name: "Kaya", level: 12 }, currentSector: 20 });
+        const captured = store.capture("Kaya", { character: { name: "Kaya", level: 12 }, currentBiome: "forest" });
         assert.equal(captured.revisions.length, 1);
         assert.equal(failures.length, 1, "the storage failure remains observable");
         assert.equal(storage.length, 0);
         assert.deepEqual(store.load("Kaya")?.revisions.map((revision) => revision.id), [captured.revisions[0].id]);
         // Capture is silent by contract, so prove recoverability through the path
         // the player actually reaches it by: classification against authority.
-        await store.rehydrate("Kaya", { character: { name: "Kaya", level: 12 }, currentSector: 9 });
+        await store.rehydrate("Kaya", { character: { name: "Kaya", level: 12 }, currentBiome: "desert" });
         assert.deepEqual(visible.at(-1), [captured.revisions[0].id], "the active account can still restore from memory");
     });
 
@@ -319,13 +319,13 @@ describe("save-conflict drafts", () => {
             reportStorageFailure: assert.fail,
         });
 
-        const captured = store.capture("Kaya", { character: { name: "Kaya", level: 12 }, currentSector: 20 });
+        const captured = store.capture("Kaya", { character: { name: "Kaya", level: 12 }, currentBiome: "forest" });
         assert.equal(captured.revisions.length, 1, "the draft is still protected");
         assert.equal(storage.length, 1, "and still written to storage");
         assert.deepEqual(visible, [], "but nothing is shown to the player yet");
 
         // A divergence that survives classification DOES surface.
-        await store.rehydrate("Kaya", { character: { name: "Kaya", level: 12 }, currentSector: 9 });
+        await store.rehydrate("Kaya", { character: { name: "Kaya", level: 12 }, currentBiome: "desert" });
         assert.deepEqual(visible, [1], "a real, still-unresolved divergence is announced");
     });
 

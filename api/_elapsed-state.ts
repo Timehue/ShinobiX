@@ -290,16 +290,10 @@ export function settleSaveRecord<T extends SaveRecord>(
         hollowGateRunCleared = true;
     }
 
-    const travel = pendingTravelFrom(base.pendingTravel);
-    if (travel && now >= travel.arrivalAt) {
-        next = changed ? next : cloneRecord(base);
-        const writable = next as Record<string, unknown>;
-        writable.currentSector = travel.destinationSector;
-        writable.currentBiome = biomeForSettledSector(travel.destinationSector);
-        writable.pendingTravel = null;
-        changed = true;
-        travelChanged = true;
-    } else if (!travel && base.pendingTravel != null) {
+    // Old saves carried a client-authored loading mask here. It is not proof
+    // of a journey, even after its deadline. Only travel-lease.ts can commit
+    // an arrival; owner reads project its durable lease for the loading UI.
+    if (base.pendingTravel != null) {
         next = changed ? next : cloneRecord(base);
         (next as Record<string, unknown>).pendingTravel = null;
         changed = true;

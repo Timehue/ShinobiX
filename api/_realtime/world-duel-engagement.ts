@@ -4,6 +4,8 @@ import { pvpSessionCarriesVitals } from '../pvp/_vitals-settlement.js';
 import { isPvpSessionLapsed } from '../pvp/_lapse-rules.js';
 import type { PvpSession } from '../pvp/session.js';
 import type { OnlinePlayer } from './types.js';
+import { onlineStore } from './online-store.js';
+import { persistSafeZoneEntry } from './travel-lease.js';
 
 /*
  * F10 — is this player engaged in a WORLD duel right now?
@@ -38,16 +40,18 @@ export async function engagedInWorldDuel(
     now: number = Date.now(),
 ): Promise<boolean> {
     if (presence?.pendingAttacker) return true;
+    // A storage error is uncertainty, not proof that it is safe to leave the
+    // field. Preserve the legacy handling of malformed pointer data only.
     let pointer;
     try {
-        pointer = await loadPvpPendingSessionPointer(store as Parameters<typeof loadPvpPendingSessionPointer>[0], playerName);
-    } catch {
-        // A malformed pointer is not evidence of a fight.
-        return false;
+        pointer = await loadPvpPendingSessionPointer(store, playerName);
+    } catch (error) {
+        if (error instanceof Error && error.message === 'pvp-pending-session-pointer-invalid') return false;
+        throw error;
     }
     if (!pointer) return false;
     if (pointer.phase === 'reserving') return Number(pointer.reservedUntil) > now;
-    const session = await store.get<PvpSession>(`pvp:${pointer.battleId}`).catch(() => null);
+    const session = await store.get<PvpSession>(`pvp:${pointer.battleId}`);
     if (!session || session.status !== 'done' && session.status !== 'active') return false;
     return session.status === 'active' && !isPvpSessionLapsed(session, now) && pvpSessionCarriesVitals(session);
 }
@@ -66,4 +70,41 @@ export async function presenceSectorForWrite(
     const safeZoneExit = !!existing && existing.sector !== 0 && requestedSector === 0;
     if (!safeZoneExit) return requestedSector;
     return (await engagedInWorldDuel(store, playerName, existing, now)) ? existing.sector : requestedSector;
+}
+
+/** HTTP and sockets share the durable town transition. Ordinary beats stay
+ * memory-only; only crossing into town needs a save write. */
+export async function durablePresenceSectorForWrite(
+    store: EngagementStore,
+    playerName: string,
+    existing: Pick<OnlinePlayer, 'sector' | 'pendingAttacker'> | null | undefined,
+    requestedSector: number,
+    now: number = Date.now(),
+    enterTown?: boolean,
+): Promise<number> {
+    // Current clients distinguish navigation from a position report. A world
+    // map still reporting its departure sector (0) is never a town command.
+    if (existing && requestedSector === 0 && enterTown === false) return existing.sector;
+    const allowed = await presenceSectorForWrite(store, playerName, existing, requestedSector, now);
+    if (!existing || existing.sector === 0 || allowed !== 0) return allowed;
+    // A read may just have matured an outbound journey before this beat sees
+    // it. Its still-stale origin-0 claim is not a new request to go home.
+    if (onlineStore.hasSettledTravel(playerName)) return existing.sector;
+    let entered: boolean;
+    try {
+        entered = await persistSafeZoneEntry(playerName, existing.sector, async () => {
+            const live = onlineStore.get(playerName);
+            return !!live && live.sector === existing.sector
+                && !(live.travelingUntil !== undefined && live.travelingUntil > Date.now())
+                && !(await engagedInWorldDuel(store, playerName, live));
+        }, now);
+    } catch (error) {
+        // Admission may have committed before a lost acknowledgement or save
+        // failure. Force the next ingress to read the lease instead of treating
+        // the old live sector as proof of where this player remains.
+        const live = onlineStore.get(playerName);
+        if (live) live.locationUnverified = true;
+        throw error;
+    }
+    return entered ? 0 : (onlineStore.get(playerName)?.sector ?? existing.sector);
 }

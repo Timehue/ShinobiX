@@ -49,7 +49,7 @@ test('roster projection preserves settled vitals, travel, public profile and pet
     assert.equal(publicChar.nindo, 'Stay true.');
     assert.ok(Number(publicChar.hp) >= 15);
     assert.ok(!('ryo' in publicChar) && !('inventory' in publicChar));
-    assert.equal(player.currentSector, 40);
+    assert.equal(player.currentSector, 39, 'a legacy client mask is not travel authority');
     assert.equal(player.sleeping, true);
     assert.deepEqual(player.eligiblePets, []);
     assert.deepEqual(await kv.get('save:projectionninja'), save, 'read projection must not replace the save');

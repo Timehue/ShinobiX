@@ -12,17 +12,22 @@ import type { Biome } from "../types/core";
 import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
 import { PLAYER_ACCOUNTS_STORAGE } from "../constants/game";
 import { isTokenExpired } from "../authFetch";
+import { travelMaskMs } from './travel-mask';
 
 export type PendingTravelSave = { destinationSector: number; arrivalAt: number };
 
 /** Read a snapshot's `pendingTravel` back, dropping anything malformed or
- *  already-arrived. Drained verbatim out of App.tsx; behaviour unchanged. */
-export function normalizePendingTravel(value: unknown): PendingTravelSave | null {
+ *  already-arrived. Server projections include a duration so reconnects do not
+ *  compare the browser clock to the server clock. Local cached masks retain
+ *  their original local deadline. */
+export function normalizePendingTravel(value: unknown, now: number = Date.now()): PendingTravelSave | null {
     if (!value || typeof value !== "object") return null;
     const raw = value as Record<string, unknown>;
     const destinationSector = Math.floor(Number(raw.destinationSector ?? raw.sector));
-    const arrivalAt = Math.floor(Number(raw.arrivalAt));
-    if (!Number.isFinite(destinationSector) || destinationSector < 0 || !Number.isFinite(arrivalAt) || arrivalAt <= Date.now()) return null;
+    const arrivalAt = raw.remainingMs === undefined
+        ? Math.floor(Number(raw.arrivalAt))
+        : now + travelMaskMs(raw.remainingMs);
+    if (!Number.isFinite(destinationSector) || destinationSector < 0 || !Number.isFinite(arrivalAt) || arrivalAt <= now) return null;
     return { destinationSector, arrivalAt };
 }
 

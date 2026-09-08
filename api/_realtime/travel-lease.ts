@@ -3,11 +3,13 @@ import { safeName } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { footfallKey, FOOTFALL_TTL_SEC } from '../sector/_traces.js';
-import { isWildSector } from '../../shared/sector-geo.js';
+import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
 import { SECTOR_TILE_COUNT } from '../../shared/sector-links.js';
+import { randomUUID } from 'node:crypto';
 
 const TRAVEL_LEASE_PREFIX = 'world:travel-lease:';
-const TRAVEL_LEASE_TTL_SEC = 7 * 24 * 60 * 60;
+// An admitted journey is an obligation, not expiring presence. Keep it until
+// its arrival commits (including when the player is away for weeks).
 
 export type TravelLease = {
     originSector: number;
@@ -37,6 +39,7 @@ const MOVE_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 // the six sectors were unreachable, and any hunt trail, rift quest or roaming
 // boss that routed a player through them dead-ended on the same toast.
 function sector(value: unknown, allowSafeZone: boolean): number | null {
+    if (typeof value !== 'number' && typeof value !== 'string' || typeof value === 'string' && !value.trim()) return null;
     const parsed = Math.floor(Number(value));
     if (!Number.isFinite(parsed)) return null;
     if (allowSafeZone && parsed === 0) return 0;
@@ -50,12 +53,12 @@ export function parseTravelLease(value: unknown): TravelLease | null {
     if (!raw || typeof raw !== 'object') return null;
     const input = raw as Partial<TravelLease>;
     const originSector = sector(input.originSector, true);
-    const destinationSector = sector(input.destinationSector, false);
+    const destinationSector = sector(input.destinationSector, true);
     const arrivalAt = Math.floor(Number(input.arrivalAt));
     if (originSector === null || destinationSector === null || !Number.isFinite(arrivalAt) || arrivalAt <= 0) return null;
     // Bound tiles by the board (SECTOR_TILE_COUNT), not a hardcoded 143 — same
     // drift class as the sector bound above.
-    const rawTile = Math.floor(Number(input.arrivalTile));
+    const rawTile = typeof input.arrivalTile === 'number' ? Math.floor(input.arrivalTile) : NaN;
     const arrivalTile = Number.isFinite(rawTile) && rawTile >= 0 && rawTile < SECTOR_TILE_COUNT ? rawTile : undefined;
     const moveId = typeof input.moveId === 'string' && MOVE_ID_PATTERN.test(input.moveId) ? input.moveId : undefined;
     return {
@@ -78,7 +81,11 @@ export function travelLeaseSectorAt(lease: TravelLease, now: number): number {
 
 /** A traveling disconnect is hidden; after arrival it may sleep at the destination. */
 export function sleeperSectorForTravelLease(lease: TravelLease, now: number): number | null {
-    return now < lease.arrivalAt ? null : lease.destinationSector;
+    return now < lease.arrivalAt || lease.destinationSector === 0 ? null : lease.destinationSector;
+}
+
+export function travelLeaseReceipt(lease: TravelLease): string {
+    return JSON.stringify([lease.moveId ?? '', lease.originSector, lease.destinationSector, lease.arrivalAt, lease.arrivalTile ?? null]);
 }
 
 export async function getTravelLease(name: string): Promise<TravelLease | null> {
@@ -141,7 +148,7 @@ export async function setTravelLease(name: string, lease: TravelLease, now: numb
         if (current && now < current.arrivalAt && !sameLease(current, normalized)) {
             throw new TravelLeaseHeldError(current);
         }
-        await kv.set(key, normalized, { ex: TRAVEL_LEASE_TTL_SEC });
+        await kv.set(key, normalized);
     }, { failClosed: true, maxAttempts: TRAVEL_LEASE_CLAIM_ATTEMPTS });
 }
 
@@ -161,7 +168,13 @@ function sameLease(a: TravelLease, b: TravelLease): boolean {
 export async function clearTravelLeaseIfSame(name: string, lease: TravelLease): Promise<boolean> {
     const normalized = parseTravelLease(lease);
     if (!safeName(name) || !normalized) return false;
-    return kv.delIfEqual(travelLeaseKey(name), normalized);
+    const key = travelLeaseKey(name);
+    const raw = await kv.get(key);
+    const current = parseTravelLease(raw);
+    if (!current || !sameLease(current, normalized)) return false;
+    // Legacy rows can be JSON strings or carry extra metadata. Compare the
+    // exact stored value atomically; normalized objects would never delete them.
+    return kv.delIfEqual(key, raw);
 }
 
 /** Commit a matured destination to the versioned save before deleting its lease. */
@@ -179,23 +192,53 @@ export async function settleTravelLease(
         // The arrival TILE is persisted with the sector: a reconnect that finds
         // no live presence used to know only the sector, so the player came
         // back on the board's default tile instead of the road they arrived by.
-        const result = await mutatePlayerSave(name, ({ character }) => ({
+        const receipt = travelLeaseReceipt(lease);
+        const result = await mutatePlayerSave(name, ({ character, record }) => record.worldTravelReceipt === receipt ? {
+            ok: true, character, value: false, write: false,
+        } : ({
             ok: true,
             character,
             value: true,
             recordPatch: {
                 currentSector: lease.destinationSector,
+                currentBiome: sectorBiomeOf(lease.destinationSector),
                 pendingTravel: null,
-                ...(lease.arrivalTile === undefined ? {} : { currentTile: lease.arrivalTile }),
+                currentTile: lease.arrivalTile ?? null,
+                worldTravelReceipt: receipt,
             },
         }));
         if (!result.ok) return false;
-        await kv.del(key);
-        // Footfall trace ("N shinobi passed through today") — fire-and-forget so a
-        // counter hiccup can never fail an arrival. Exactly once per settled lease.
-        void kv.incr(footfallKey(lease.destinationSector, now), { ex: FOOTFALL_TTL_SEC }).catch(() => undefined);
+        await clearTravelLeaseIfSame(name, lease);
+        // Footfall is cosmetic and best-effort: recovery of an arrival never counts
+        // again. It is deliberately not gameplay progression evidence.
+        if (result.value && isWildSector(lease.destinationSector)) {
+            void kv.incr(footfallKey(lease.destinationSector, now), { ex: FOOTFALL_TTL_SEC }).catch(() => undefined);
+        }
         return true;
     }, { failClosed: true, ...(maxAttempts === undefined ? {} : { maxAttempts }) });
+}
+
+/** Persist instant town entry through the same admission boundary as travel.
+ * The callback rechecks live position and world-duel engagement under the lease
+ * lock. An active journey cannot be cancelled by opening a town panel. */
+export async function persistSafeZoneEntry(
+    name: string,
+    originSector: number,
+    canEnter: () => Promise<boolean>,
+    now: number = Date.now(),
+): Promise<boolean> {
+    const lease: TravelLease = { originSector, destinationSector: 0, arrivalAt: now, moveId: randomUUID() };
+    const admitted = await withKvLock(travelLeaseKey(name), async () => {
+        const current = await getTravelLease(name);
+        if (current && current.arrivalAt > now) return false;
+        if (!(await canEnter())) return false;
+        await kv.set(travelLeaseKey(name), lease);
+        return true;
+    }, { failClosed: true, maxAttempts: TRAVEL_LEASE_CLAIM_ATTEMPTS });
+    if (!admitted) return false;
+    // Publication waits for the save as well. If settlement fails, the durable
+    // lease recovers on the next ingress/read; no client claim is needed.
+    return settleTravelLease(name, lease, now, TRAVEL_ACTION_SETTLE_ATTEMPTS);
 }
 
 /**

@@ -64,6 +64,28 @@ export function getLocalSectorTile(): number {
     return localTile;
 }
 
+const localTileCorrections = new Set<(tile: number, sector?: number) => void>();
+let pendingLocalCorrection: { tile: number; sector?: number } | null = null;
+export function getPendingLocalSectorCorrection() { return pendingLocalCorrection; }
+/** Server recovery corrects the mounted map as well as the outgoing presence
+ * frame. Normal walking uses setLocalSectorTile and never feeds back here. */
+export function correctLocalSectorTile(tile: unknown, sector?: number): void {
+    const validTile = typeof tile === 'number' && Number.isInteger(tile) && tile >= 0 && tile < 144;
+    if (!validTile && sector === undefined) return;
+    setLocalSectorTile(validTile ? tile : 78);
+    pendingLocalCorrection = localTileCorrections.size === 0 ? { tile: localTile, sector } : null;
+    localTileCorrections.forEach((listener) => listener(localTile, sector));
+}
+export function subscribeLocalSectorTileCorrections(listener: (tile: number, sector?: number) => void): () => void {
+    localTileCorrections.add(listener);
+    if (pendingLocalCorrection) {
+        const pending = pendingLocalCorrection;
+        pendingLocalCorrection = null;
+        listener(pending.tile, pending.sector);
+    }
+    return () => { localTileCorrections.delete(listener); };
+}
+
 function normalizedSector(value: unknown): number | null {
     const sector = Number(value);
     if (!Number.isFinite(sector)) return null;
@@ -96,6 +118,7 @@ function clearLiveSectorPlayers(notifySubscribers: boolean): void {
  */
 export function setLiveSectorContext(sector: number | null): void {
     const nextSector = normalizedSector(sector);
+    if (pendingLocalCorrection?.sector !== undefined && pendingLocalCorrection.sector !== nextSector) pendingLocalCorrection = null;
     if (nextSector === liveSector) return;
     liveSector = nextSector;
     clearLiveSectorPlayers(true);
@@ -244,6 +267,7 @@ export function removeLiveSectorPlayers(names: string[]): void {
 
 /** Clear everything (logout / account switch) so no roster bleeds across sessions. */
 export function resetLiveSectorPlayers(): void {
+    pendingLocalCorrection = null;
     if (!liveArr.length && !lingerUntil.size && liveSector == null) return;
     liveSector = null;
     clearLiveSectorPlayers(true);

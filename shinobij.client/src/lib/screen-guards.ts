@@ -106,6 +106,7 @@ export function restoreScreenForSave(
     hospitalized = false,
     inDungeonRun = false,
     inWildSector = false,
+    inWorldTravel = false,
 ): Screen {
     // Hospital admission is stronger than a bookmarked/last-visited hub and
     // than a stale dungeon breadcrumb. Admitted HP intentionally does not
@@ -113,6 +114,8 @@ export function restoreScreenForSave(
     if (hospitalized) return "hospital";
     if (inHollowGateRun) return "hollowGateShrine";
     if (inDungeonRun) return "dungeon";
+    // A resumed journey stays on its map, even from town or a village bookmark.
+    if (inWorldTravel) return "worldMap";
     if (persisted && RESTORABLE_SCREENS.has(persisted)) return persisted;
     const parent = persisted ? TRANSIENT_SCREEN_PARENT[persisted] : undefined;
     if (parent) return parent;
