@@ -4,6 +4,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { TOWER_PVP_REQUEST_ID } from '../../shared/tower-pvp.js';
 import { ATTACKABLE_MIN_LEVEL, isBelowAttackableFloor } from '../_realtime/presence-gating.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import { towerModeDisabled } from './_mode-control.js';
 import {
     joinTowerPvpQueue,
@@ -74,6 +75,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     error: `You must reach level ${ATTACKABLE_MIN_LEVEL} before entering Team Arena.`,
                     errorCode: 'pvp-level-locked',
                     requiredLevel: ATTACKABLE_MIN_LEVEL,
+                });
+            }
+            // An admitted fighter does not queue. Team Arena seals a fresh-vitals
+            // fighter, so without this a knocked-out player queued and fought at
+            // FULL strength — the hospital stay simply did not exist for anyone
+            // who played Team Arena. Same authoritative save the level gate above
+            // reads, so it cannot be spoofed from the body.
+            if (!identity.admin && isIncapacitated(fighter.character)) {
+                return res.status(409).json({
+                    error: 'You are in the hospital. Recover before entering Team Arena.',
+                    errorCode: 'hospitalized',
                 });
             }
             try {

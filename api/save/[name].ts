@@ -69,7 +69,8 @@ import { withKvLock, LockContendedError } from '../_lock.js';
 import { mirrorSlotContent } from '../_content-store.js';
 import { syncCurrencyLedger } from '../_currency-ledger.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
-import { auraRegenBonus, settleSaveRecordForRead } from '../_elapsed-state.js';
+import { auraRegenBonus, settleSaveRecordForRead, vitalRegenPerTick } from '../_elapsed-state.js';
+import { pooledVitalRegenEnabled } from '../_release-flags.js';
 import { readWalkedTile, resumeTileFor } from '../_realtime/walked-tile.js';
 import { applyCanonicalFirstSave } from './_first-save-baseline.js';
 import { preserveStatPointEntitlement } from './_stat-entitlement.js';
@@ -1483,8 +1484,17 @@ export function sanitizeCharacterSave(
         const levelRose = Math.floor(Number(char.level) || 1) > Math.floor(Number(exChar.level) || 1);
         if (!isFirstSave && storedAt > 0 && !levelRose) {
             const now = Math.max(storedAt, Math.floor(Number(opts.now ?? Date.now())));
-            const perSecond = 1 + auraRegenBonus(exChar);
-            const regenAllowance = Math.ceil(((now - storedAt) / 1000 + VITALS_GAIN_GRACE_SEC) * perSecond);
+            const elapsedWithGrace = (now - storedAt) / 1000 + VITALS_GAIN_GRACE_SEC;
+            // MIRROR of settleVitalsRegen (api/_elapsed-state.ts). The allowance is
+            // now PER VITAL, because recovery is a share of each pool rather than a
+            // flat shared point. Reading the rate from vitalRegenPerTick keeps the
+            // two from drifting: if this ceiling stayed at the old flat 1/sec, a
+            // high-level player's legitimately regenerated chakra would be clamped
+            // back down here and their bars would visibly FALL on every autosave.
+            const aura = auraRegenBonus(exChar);
+            const pooledRegen = pooledVitalRegenEnabled();
+            const allowanceFor = (maxKey: 'maxHp' | 'maxChakra' | 'maxStamina'): number =>
+                Math.ceil(elapsedWithGrace * vitalRegenPerTick(exChar[maxKey], aura, pooledRegen));
             const credits: Record<VitalKey, number> = { hp: 0, chakra: 0, stamina: 0 };
             for (const [itemId, credit] of Object.entries(CLIENT_CONSUMABLE_VITAL_CREDITS)) {
                 const consumed = countOwnedItem(exChar, itemId) - countOwnedItem(char, itemId);
@@ -1494,7 +1504,7 @@ export function sanitizeCharacterSave(
                 const stored = Number(exChar[key]);
                 const incoming = Number(char[key]);
                 if (!Number.isFinite(stored) || !Number.isFinite(incoming)) continue;
-                const ceiling = Math.max(0, Math.floor(stored)) + regenAllowance + credits[key];
+                const ceiling = Math.max(0, Math.floor(stored)) + allowanceFor(maxKey) + credits[key];
                 if (incoming > ceiling) {
                     const max = Number(char[maxKey]);
                     char[key] = Number.isFinite(max) ? Math.min(ceiling, Math.max(0, Math.floor(max))) : ceiling;
@@ -1690,7 +1700,17 @@ export function sanitizeCharacterSave(
     // submit thousands of items, both bloating KV and inflating foreign-read
     // payloads. 500 is well above any realistic veteran's working inventory
     // and matches what the client UI can scroll through cleanly.
-    const INVENTORY_CAP = 500;
+    //
+    // NON-DESTRUCTIVE, exactly like PET_CAP above: the ceiling never falls below
+    // what the server already stores, so persistence can only stop the inventory
+    // GROWING past the cap — it can never delete items a player already holds.
+    // Before this, a player at the cap who claimed a war crate, forged a weapon
+    // or finished an event simply lost the reward here, silently: only the shop
+    // (api/shop/_settlement.ts, same 500) refuses at acquisition time, and the
+    // ~15 other grant paths append without checking. Truncating their overflow
+    // away made the save layer the thing that ate the item.
+    const existingInventoryCount = Array.isArray(exChar.inventory) ? (exChar.inventory as unknown[]).length : 0;
+    const INVENTORY_CAP = Math.max(500, existingInventoryCount);
     if (Array.isArray(char.inventory) && (char.inventory as unknown[]).length > INVENTORY_CAP) {
         char.inventory = (char.inventory as unknown[]).slice(0, INVENTORY_CAP);
     }
@@ -2322,6 +2342,14 @@ export function sanitizeCharacterSave(
     // path, off the daily cap). Latch it: once the server-stored save has it
     // claimed, a forged save can't flip it back to false to re-claim. (audit #1)
     if (exChar.academyTrialClaimed === true) char.academyTrialClaimed = true;
+
+    // Field Recovery shield (api/pvp/_vitals-settlement.ts PVP_RAID_SHIELD_MS) is
+    // SERVER-OWNED, exactly like the hospital stamps below and for the same
+    // reason `inBattle` had to become server-owned in 2026-09: a client that can
+    // write its own immunity writes it forever. Only PvP settlement and the
+    // sleeper KO set it, so the stored value always wins — a save cannot extend
+    // its shield, and cannot clear one it is still serving either.
+    char.pvpShieldUntil = exChar.pvpShieldUntil ?? null;
 
     // Hospital timer enforcement.
     //   - If save flips hospitalized false → true, server stamps both

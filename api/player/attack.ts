@@ -5,6 +5,8 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { attackBlock, worldInteractionBlock } from '../_realtime/presence-gating.js';
 import { kickPlayer } from '../_realtime/notify.js';
+import { kv } from '../_storage.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -54,6 +56,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         const block = attackBlock(targetPresence);
         if (block) return res.status(block.status).json({ error: block.error });
+
+        // Post-defeat protection, read from the target's AUTHORITATIVE save.
+        //
+        // It is deliberately not read from presence: the presence character is
+        // whatever the target's own client sent, so a `hospitalized` or shield
+        // field there would be self-declared permanent immunity — the exact bug
+        // server-owned `inBattle` was introduced to close. `hospitalized` /
+        // `hospitalizedUntil` / `pvpShieldUntil` are all enforced server-side in
+        // the save validator, so the save is the only trustworthy source.
+        //
+        // Why this matters beyond the fight itself: stamping `pendingAttacker` on
+        // a downed player makes `engagedInWorldDuel` refuse their safe-zone exit
+        // (api/_realtime/world-duel-engagement.ts). The heartbeat clears the
+        // stamp each cycle, so at 6 attacks/minute a single attacker could pin a
+        // recovering player out of town indefinitely — and unlike the rewards,
+        // which are capped at 3 per target per day, nothing capped the attacks.
+        // The offline path already refused this ("Target has already been
+        // defeated.", api/player/sleeper-kill.ts); the online path now agrees.
+        if (!identity.admin) {
+            const targetSave = await kv.get<{ character?: Record<string, unknown> }>(`save:${safeName(targetName)}`);
+            const targetChar = targetSave?.character;
+            if (targetChar) {
+                const now = Date.now();
+                if (isIncapacitated(targetChar, now)) {
+                    return res.status(409).json({ error: 'Target has already been defeated.' });
+                }
+                const shieldedUntil = Math.floor(Number(targetChar.pvpShieldUntil ?? 0)) || 0;
+                if (shieldedUntil > now) {
+                    return res.status(409).json({
+                        error: 'Target is recovering from a recent defeat.',
+                        retryAfterMs: shieldedUntil - now,
+                    });
+                }
+            }
+        }
         onlineStore.setPendingAttacker(targetName, attacker ?? null);
         // Instant delivery: nudge the target to run an immediate heartbeat (which
         // is the authoritative path that reads + clears pendingAttacker). No-op if

@@ -41,6 +41,10 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'weaponElements', 'petBreeding', 'petBreedingMigrationVersion', 'petBreedingReceipts',
     'petBreedingHatchReceipts', 'petBreedingProgressReceipts', 'miraaWagerDate',
     'miraaWagerCount', 'levelLedgerMigrated', 'createdAt',
+    // Post-defeat raid shield: written only by PvP settlement and the sleeper
+    // KO (api/pvp/_vitals-settlement.ts PVP_RAID_SHIELD_MS). A device copy must
+    // never be restorable — a client-writable shield is permanent immunity.
+    'pvpShieldUntil',
     // Claim stamps & payout latches
     'lastLoginRewardDate', 'loginStreak', 'academyChecklistClaimed', 'academyTrialClaimed',
     'cardClashDailyWinDate', 'claimedWarCrateIds', 'claimedVillageAgendaDate',

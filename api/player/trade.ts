@@ -9,6 +9,7 @@ import { withKvLock } from '../_lock.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { planTrade, isTradeCurrency } from './_trade-core.js';
+import { chargeOutboundBudget, checkOutboundBudget, senderTrustTier } from './_transfer-budget.js';
 import { recordEconomyTxn } from '../_economy.js';
 import { makeEconomyTxId, reserveEconomyTx, markEconomyTx, completeEconomyTx, failEconomyTx } from '../_economy-tx.js';
 
@@ -168,6 +169,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const plan = planTrade(currency, amount, num(senderChar[currency]));
                 if (!plan.ok) return { status: 400, body: { error: plan.reason } };
 
+                // Rolling 24h SEND-side ceiling, checked under the same locks the
+                // debit runs under so two concurrent transfers cannot both pass a
+                // pre-lock check and jointly exceed it. The per-transfer cap alone
+                // left the real ceiling at 20 calls/min x 200,000 = 4,000,000 ryo a
+                // minute. Nothing is added to RECEIVING: RuneScape ran that
+                // experiment in 2008 and removed it in 2011 for breaking ordinary
+                // play. (MMORPG behavior audit F8.)
+                if (!identity.admin) {
+                    const tier = await senderTrustTier(playerName, senderChar);
+                    const budget = await checkOutboundBudget(playerName, currency, plan.debit, tier);
+                    if (!budget.ok) {
+                        return { status: 429, body: { error: budget.error, reason: 'transfer-budget', remaining: budget.remaining, limit: budget.limit } };
+                    }
+                }
+
                 // The nonce is re-checked HERE, under the serialization
                 // boundary. Two attempts of the same nonce that both passed the
                 // pre-lock check are now serialized by the save locks: the
@@ -254,6 +270,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // wrote no nonce) runs for real.
             if (nonceKey) {
                 await kv.set(nonceKey, { ts: now, receipt: out.body, fp: fingerprint }, { ex: NONCE_TTL_SECONDS }).catch(() => undefined);
+            }
+            // Charge the window only on a COMMITTED transfer, so a refused or
+            // replayed attempt never eats budget the player did not spend.
+            if (!identity.admin) {
+                await chargeOutboundBudget(playerName, currency, Number(out.body.debit) || 0, now);
             }
             await kv.set(`${AUDIT_PREFIX}${now}`, { ts: now, from: playerName, to: toSlug, currency, debit: out.body.debit, credit: out.body.credit, burned: out.body.burned }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
             // Economy telemetry — the 10% trade burn is a real "currency destroyed"

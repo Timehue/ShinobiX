@@ -18,6 +18,7 @@ import {
     vanguardXpForLevel,
     rankFromXp,
 } from '../pvp/_vanguard-rewards.js';
+import { PVP_RAID_SHIELD_MS } from '../pvp/_vitals-settlement.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
@@ -192,6 +193,10 @@ export async function settleSleeperKoLocked(
         hospitalized: true,
         hospitalizedUntil: now + HOSPITAL_DURATION_MS,
         hospitalizedAt: now,
+        // Field Recovery, same as a live PvP defeat: sector 0 already drops them
+        // from the sleeper pool, but this also covers them for the first moments
+        // after they log back in and travel out again.
+        pvpShieldUntil: now + PVP_RAID_SHIELD_MS,
     };
     const targetKoRecord = bumpSaveVersion({ ...tRec, currentSector: 0, currentTile: null, pendingTravel: null, character: koChar });
     await kv.set(`save:${targetSlug}`, mergePreservingImages(targetKoRecord, tRec));
