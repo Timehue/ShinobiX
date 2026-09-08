@@ -205,7 +205,12 @@ test("retired pending AI ids cannot revive the local Arena reducer", () => {
     // Ends at the next function, so this stays the payload BUILDER and nothing
     // else. (It used to end at saveAccountProgress, which has since been deleted —
     // a missing marker silently widens the slice to the rest of the file.)
-    const payload = app.slice(app.indexOf("function buildPlayerSavePayload"), app.indexOf("async function pushSaveToServer"));
+    const saveState = readFileSync(new URL("./use-player-save-state.ts", import.meta.url), "utf8");
+    assert.match(app, /return playerSaveState\.buildPlayerSavePayload\(characterToSave, overrides\)/);
+    const payloadStart = saveState.indexOf("function buildPlayerSavePayload");
+    const payloadEnd = saveState.indexOf("function applyProgressSnapshot", payloadStart);
+    assert.ok(payloadStart >= 0 && payloadEnd > payloadStart);
+    const payload = saveState.slice(payloadStart, payloadEnd);
     assert.doesNotMatch(payload, /pendingAiProfileId/,
         "new saves must stop reproducing the retired browser authority");
     assert.doesNotMatch(arena, /pendingAiProfileId|startPrefight|setEnemyHp|setBattleStarted|ArenaBattlePersister/);
@@ -213,7 +218,7 @@ test("retired pending AI ids cannot revive the local Arena reducer", () => {
         "the retired browser snapshot writer must not remain importable");
     assert.match(battleSave, /lock\.kind === "arena"\) return false/,
         "legacy Arena snapshots must fail closed at the resume boundary");
-    assert.match(app, /bootLock\.kind === "arena"[\s\S]{0,700}localStorage\.removeItem\(`arena\.battle\.v3\.\$\{normalized\.name\}`\)/,
+    assert.match(app, /recovery === "arena"[\s\S]{0,700}localStorage\.removeItem\(`arena\.battle\.v3\.\$\{normalized\.name\}`\)/,
         "a server-visible legacy Arena lock must be retired without resuming local HP");
     // The reducer that produced these snapshots is deleted, so there is nothing
     // left to replay one INTO, and ArenaBattlePersister — their only writer — is
@@ -234,8 +239,13 @@ test("rolling upgrades retire every pre-cutover local Arena story breadcrumb", (
     assert.match(battleSave, /lock\.kind === "arenaStory"\) return false/,
         "every Arena story breadcrumb, including unknown old variants, must be rejected by local resume");
     const bootStart = app.indexOf("if (bootLock && bootLock.screen)");
-    const boot = app.slice(bootStart, app.indexOf("battleResumeStateExists(bootLock", bootStart));
-    assert.match(boot, /\["triggeredEvent", "academySparring"\]/);
+    const bootEnd = app.indexOf('else if (recovery === "resume")', bootStart);
+    assert.ok(bootStart >= 0 && bootEnd > bootStart);
+    const boot = app.slice(bootStart, bootEnd);
+    const decisions = readFileSync(new URL("./boot-battle-recovery.ts", import.meta.url), "utf8");
+    assert.match(app, /const recovery = decideBootBattleRecovery\(\{/);
+    assert.match(boot, /recovery === "story-event"/);
+    assert.match(decisions, /\["triggeredEvent", "academySparring"\]/);
     assert.match(boot, /localStorage\.removeItem\(arenaStoryCtxKey\(normalized\.name\)\)/);
     // The local story-settlement entry points are GONE, not merely stubbed. They
     // existed only to settle a story fight hosted by the deleted browser reducer;
