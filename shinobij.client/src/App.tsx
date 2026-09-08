@@ -1,3 +1,7 @@
+export { gainXp } from './lib/character-level-projection';
+export { playerLensDiscipline } from './lib/player-lens-discipline';
+export { stringifyServerSavePayload } from './lib/server-save-payload';
+export { HOLLOW_GATE_KEY_DUNGEON_KEY_COST, HOLLOW_GATE_KEY_FATE_SHARD_COST, setHollowGateKeyDungeonKeyCost, setHollowGateKeyFateShardCost, HOLLOW_GATE_UNLOCK_COST, setHollowGateUnlockCost } from './lib/hollow-gate-prices';
 import { usePlayerSaveLifecycle, usePlayerSaveVersionEvents, usePlayerSaveConflictExpiry, usePlayerSaveUnload } from "./lib/use-player-save-lifecycle";
 import { usePlayerSaveCoordinator } from "./lib/use-player-save-coordinator";
 import { decideBootBattleRecovery } from "./lib/boot-battle-recovery";
@@ -127,19 +131,8 @@ import {
     endlessTowerMilestoneReward,
 } from "./lib/endless-tower";
 export { endlessScaleFactor, endlessWaveReward, endlessTowerMilestoneReward };
-import {
-    maxHpForLevel,
-    maxChakraForLevel,
-    maxStaminaForLevel,
-    levelForEarned,
-    earnedStatPoints,
-    reconcileCharacterStatBudget,
-} from "./lib/stats";
-import {
-    dailyMissionsCompleted,
-    dailyHuntsCompleted,
-    rankTitleForLevel,
-} from "./lib/character-progress";
+
+import { dailyMissionsCompleted, dailyHuntsCompleted } from "./lib/character-progress";
 import { nextNarrativeDelivery, prepareStorySettlement } from "./lib/story-history";
 import { regenerateIdleVitals } from "./lib/loaded-vitals";
 import { acceptVersionedSnapshot } from "./lib/versioned-snapshot";
@@ -310,7 +303,6 @@ export type {
 import {
     WORLD_STATE_API,
     GAME_STATE_API,
-    MAX_LEVEL,
     JUTSU_MAX_LEVEL,
     STORAGE,
     AWAKENING_VN_ID,
@@ -636,14 +628,7 @@ export { defaultAncientChestVn, defaultPetEncounterVn };
 // Inventory screen's "../App" import site.
 export { getAllItems, getItemById };
 // Item ID constants moved to ./constants/game.
-// HOLLOW_GATE_KEY_DUNGEON_KEY_COST / FATE_SHARD_COST / TRAP_DMG_PCT /
-// BOSS_FLOOR_REWARD_MULT are MUTABLE (admin-tunable via let) so they stay
-// in App.tsx — moving them to a constants file would break the admin
-// panel's runtime mutation.
-export let HOLLOW_GATE_KEY_DUNGEON_KEY_COST = 5;
-export let HOLLOW_GATE_KEY_FATE_SHARD_COST = 10;
-export function setHollowGateKeyDungeonKeyCost(v: number) { HOLLOW_GATE_KEY_DUNGEON_KEY_COST = v; }
-export function setHollowGateKeyFateShardCost(v: number) { HOLLOW_GATE_KEY_FATE_SHARD_COST = v; }
+// Mutable price displays live in lib/hollow-gate-prices with one shared module lifetime.
 
 /**
  * Check both clan war history and the village war cache for unclaimed war crates.
@@ -663,36 +648,6 @@ export function setHollowGateKeyFateShardCost(v: number) { HOLLOW_GATE_KEY_FATE_
 // (this file carried a duplicate of the latter). Imported back above and
 // re-exported for any "../App" caller.
 export { isAdminAccountName, isFullAdminAccountName };
-
-function examLevelCap(character: Character): number { return EXAM_LEVEL_GATES.find((gate) => !(character.examsPassed ?? []).includes(gate.exam))?.level ?? MAX_LEVEL; }
-
-// gainXp — RETIRED XP driver, kept as a derived-level compatibility shim.
-// Character XP is removed (docs/leveling-without-xp-map.md): level derives from
-// the earned-points ledger (lib/stats levelForEarned/earnedStatPoints), so the
-// amount is ignored and this collapses to the RISE-ONLY recompute the server
-// runs (api/_xp-engine.ts applyDerivedLevel). Rise-only matters here too: a
-// pre-migration save (old XP-era level above its earned-derived level) must
-// never de-level locally — the server's one-time migration tops the pool up on
-// its next save write. The frozen `xp` field is never touched.
-export function gainXp(character: Character, _amount: number): Character {
-    const updated: Character = reconcileCharacterStatBudget(character);
-    const target = Math.max(1, Math.min(examLevelCap(updated), levelForEarned(earnedStatPoints(updated))));
-    if (target <= updated.level) return updated;
-    const nextMaxHp = maxHpForLevel(target);
-    const nextMaxChakra = maxChakraForLevel(target);
-    const nextMaxStamina = maxStaminaForLevel(target);
-    return {
-        ...updated,
-        level: target,
-        rankTitle: rankTitleForLevel(updated, target),
-        maxHp: nextMaxHp,
-        maxChakra: nextMaxChakra,
-        maxStamina: nextMaxStamina,
-        hp: nextMaxHp,
-        chakra: nextMaxChakra,
-        stamina: nextMaxStamina,
-    };
-}
 
 // The Honor Seal grant helpers (vanguardOnlyHonorSeals, bonusBoneCharmsForHonor,
 // bonusFateShardsForHonor and their nonVanguard* aliases) were REMOVED here on
@@ -728,11 +683,6 @@ export {
 // Reward-currency helpers (normalize/apply/format + rewardSummary) extracted to
 // ./lib/currency. The symbols still referenced here are imported back near the
 // top of this file. None were part of the public "../App" surface.
-
-// Hollow Gate tunables — declared as `let` so the admin panel can override
-// them at runtime without rebuilding. Defaults are baked-in canonical values.
-export let HOLLOW_GATE_UNLOCK_COST = 10_000;
-export function setHollowGateUnlockCost(v: number) { HOLLOW_GATE_UNLOCK_COST = v; }
 
 // Village-leadership portrait cache + load/save drained to
 // ./lib/village-leadership-images; villageLeadership data stays in
@@ -774,15 +724,6 @@ export { normalizeCharacter };
 // back near the top of this file. None were part of the public "../App" surface,
 // so no re-exports are needed.
 
-// The discipline used to label a player's own damage effects across the jutsu
-// screens (Profile lens default + overview, Training Hall, combat inspect).
-// Derives from the chosen bloodline, then specialty; "Any"/missing → Ninjutsu.
-export function playerLensDiscipline(character: Character): JutsuType {
-    const fromBloodline = starterBloodlineOffense[character.bloodline];
-    if (fromBloodline && fromBloodline !== "Any") return fromBloodline;
-    return character.specialty && character.specialty !== "Any" ? character.specialty : "Ninjutsu";
-}
-
 // Jutsu effect descriptions + level-aware display live in
 // ./lib/jutsu-effects. Consumers import that leaf module directly so the
 // detailed combat tooltip catalog stays outside App's startup graph.
@@ -812,10 +753,6 @@ export { scaleJutsuTagsForDisplay };
 // (Arena, TownHall, WorldMap, Profile, Training, AdminPanel) that still
 // import them from "../App".
 export { getAllJutsus, getPvpJutsuLoadout };
-
-export function stringifyServerSavePayload(payload: unknown) {
-    return JSON.stringify(payload, (_key, value) => typeof value === "string" && value.startsWith("data:image") ? "" : value);
-}
 
 export default function App() {
     const [screen, setScreen] = useState<Screen>("start");
@@ -6634,4 +6571,3 @@ export default function App() {
    only. Desktop already has the left profile card for this information.
    ──────────────────────────────────────────────────────────────────── */
 export type { LbTab, TavernMessage, PvpGroundEffectState, PvpSessionState } from "./types/pvp-ui";
-import { EXAM_LEVEL_GATES } from "./constants/game";

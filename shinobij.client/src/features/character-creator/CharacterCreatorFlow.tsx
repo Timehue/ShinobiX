@@ -1,10 +1,8 @@
+import { createCharacter } from "../../lib/create-character";
+import { starterBloodlineOffense, starterBloodlines, starterSavedBloodlines } from "../../data/jutsu";
 import { useMemo, useState } from "react";
 import {
-    type Character,
-    createCharacter,
-    starterBloodlineOffense,
-    starterBloodlines,
-    starterSavedBloodlines,
+    type Character
 } from "../../App";
 import { villages } from "../../data/sectors";
 import { BLOODLINE_PRESENTATION, CREATOR_STEPS, STARTER_AVATARS, getVillageTheme } from "./characterCreatorCopy";

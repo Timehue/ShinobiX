@@ -1,3 +1,5 @@
+import { playerLensDiscipline } from "../lib/player-lens-discipline";
+import { getAllJutsus } from "../lib/jutsu-loadout";
 /**
  * Training screens — stat training (Training), jutsu seal/paid training
  * (JutsuSealPanel, JutsuTrainingHall) and the previewSealCost helper.
@@ -38,7 +40,7 @@ import { mutateJutsuRyoTraining } from "../lib/jutsu-ryo-api";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { JUTSU_TRAINING_CAP } from "../constants/game";
-import { getAllJutsus, playerLensDiscipline } from "../App";
+
 import { TRAINING_TIERS, trainingStatGain, rookieStatMultiplier } from "../lib/training-config";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { Jutsu, JutsuMastery, Stats, SavedBloodline, ActiveTraining, ActiveJutsuTraining } from "../types/combat";

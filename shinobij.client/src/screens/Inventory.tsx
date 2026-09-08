@@ -1,3 +1,7 @@
+import { LEGENDARY_WAR_CRATE_ID } from "../constants/game";
+import { armorReductionForQuality, consolidateItemBonuses } from "../lib/equipment";
+import { getAllItems, getItemById } from "../lib/items";
+import { petFeedXpForItem } from "../data/pet-config";
 import { useEffect, useRef, useState } from "react";
 import { FiGrid, FiPackage } from "../components/icons/LightweightGameIcons";
 import "../styles/profile-skin.css";
@@ -11,13 +15,7 @@ import { effectiveItemLevelReq, meetsItemLevelReq } from "../../../shared/item-l
 import {
     type Character,
     type EquipmentSlot,
-    type GameItem,
-    LEGENDARY_WAR_CRATE_ID,
-    armorReductionForQuality,
-    consolidateItemBonuses,
-    getAllItems,
-    getItemById,
-    petFeedXpForItem,
+    type GameItem
 } from "../App";
 import {
     COMBAT_ITEM_SLOTS,

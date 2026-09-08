@@ -1,3 +1,5 @@
+import { playerLensDiscipline } from "../lib/player-lens-discipline";
+import { normalizeNarrativeCharacter as normalizeCharacter } from "../lib/normalize-narrative-character";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 // Compact local command-deck glyphs — one per basic action.
@@ -51,10 +53,8 @@ import { prefersLiteCombatFx } from "../lib/device-tier";
 import { safeCombatVfxSpec, combatVfxAnchorKey, dedupeCombatVfx, type CombatVfxSpec } from "../lib/combat-vfx";
 import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
 import {
-    normalizeCharacter,
-    playerLensDiscipline,
     type PvpGroundEffectState,
-    type PvpSessionState,
+    type PvpSessionState
 } from "../App";
 import { loadArenaActiveFights, saveArenaActiveFights, unregisterLocalFight, type ArenaSpectatorFight } from "../lib/world-state";
 import type { PvpWinBaseSummary } from "../lib/progression";
