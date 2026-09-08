@@ -253,7 +253,7 @@ describe("save-persistence wiring through the App coordinator", () => {
         assert.ok(versionedCommit.indexOf("if (!decision.accepted) return false") < versionedCommit.indexOf("latestSaveVersionRef.current = decision.latestVersion"));
         assert.ok(versionedCommit.indexOf("installAuthoritativeSaveRef") < versionedCommit.indexOf("setCharacter(mergedCharacter)"),
             "the synchronous save payload ref must be updated before React paints the authoritative character");
-        assert.match(appSource, /commitVersionedCharacter\(reconcileOwnedStarter\(current, result\.character, granted\.id\), result\._saveVersion\)/,
+        assert.match(appSource, /completeStarterPetCommit\(current, result, granted\.id, \{ commitCharacter: commitVersionedCharacter, activeAccountKey: activeSaveAccountKey\(\), latestVersion: latestSaveVersionRef\.current \}\)/,
             "starter entitlement replies must not split version adoption from their reconciled character");
 
         // No mutation reply may assign the ref directly. The remaining direct

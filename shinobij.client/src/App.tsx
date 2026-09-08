@@ -582,7 +582,8 @@ import {
     collectPetTraining,
     gainPetXp,
 } from "./lib/pet-balance";
-import { chooseStarterPetServer, reconcileOwnedStarter } from "./lib/pet-acquisition-api";
+import { chooseStarterPetServer } from "./lib/pet-acquisition-api";
+import { completeStarterPetCommit } from "./lib/starter-pet-commit";
 import { mergeMissingBuiltInPets, normalizePet, petPool } from "./lib/pet-roster";
 import { normalizeNarrativeCharacter as normalizeCharacter } from "./lib/normalize-narrative-character";
 import { createAdminCharacter, createCharacter } from "./lib/create-character";
@@ -5959,7 +5960,7 @@ export default function App() {
                                                 }
                                                 const current = characterRef.current;
                                                 if (!current || saveConflictAccountKey(current.name) !== saveConflictAccountKey(updated.name)) return false;
-                                                return commitVersionedCharacter(reconcileOwnedStarter(current, result.character, granted.id), result._saveVersion);
+                                                return completeStarterPetCommit(current, result, granted.id, { commitCharacter: commitVersionedCharacter, activeAccountKey: activeSaveAccountKey(), latestVersion: latestSaveVersionRef.current });
                                             })
                                             .catch(() => {
                                                 setCharacter((current) => {
