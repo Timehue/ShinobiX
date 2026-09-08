@@ -1,5 +1,7 @@
 # Refactor pass — 2026-09-08
 
+This records the first isolated pass. The subsequent [integration and Tower repair report](refactor-integration-report-2026-09-08.md) tracks resolution of the original conflicts and the browser failure described below.
+
 The first pass separates pet presentation resources and variants, and extracts App's boot request sequence and save-session scope. Gameplay rules, API routes, save fields, and settlement policies are unchanged.
 
 Work is isolated on `codex/refactor-pass-20260908`, based on local main `eda936ed1`, in `.codex-worktrees/refactor-pass-20260908`. The original checkout's 35 unresolved stash-application conflicts were not resolved or overwritten. Resolving those conflicts would require integrating older story work and unrelated security changes; it is separate from this refactor.
