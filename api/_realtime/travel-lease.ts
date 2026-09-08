@@ -2,6 +2,7 @@ import { kv } from '../_storage.js';
 import { safeName } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { recordArrivalTile } from './walked-tile.js';
 import { footfallKey, FOOTFALL_TTL_SEC } from '../sector/_traces.js';
 import { isWildSector } from '../../shared/sector-geo.js';
 import { SECTOR_TILE_COUNT } from '../../shared/sector-links.js';
@@ -191,6 +192,10 @@ export async function settleTravelLease(
         }));
         if (!result.ok) return false;
         await kv.del(key);
+        // F03: the arrival is the newest thing known about where the player
+        // stands; a later visit to this sector must never resume on an older
+        // walk. Best-effort — the arrival tile is already durable on the save.
+        await recordArrivalTile(kv, name, lease.destinationSector, lease.arrivalTile, now).catch(() => undefined);
         // Footfall trace ("N shinobi passed through today") — fire-and-forget so a
         // counter hiccup can never fail an arrival. Exactly once per settled lease.
         void kv.incr(footfallKey(lease.destinationSector, now), { ex: FOOTFALL_TTL_SEC }).catch(() => undefined);
