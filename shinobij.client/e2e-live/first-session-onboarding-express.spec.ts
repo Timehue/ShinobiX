@@ -78,10 +78,12 @@ async function browserApi(page: Page, path: string, body: Record<string, unknown
 }
 
 async function readSave(page: Page, playerName: string): Promise<{ status: number; body: SaveRecord }> {
-    return page.evaluate(async (name) => {
-        const response = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`);
-        return { status: response.status, body: await response.json().catch(() => ({})) as SaveRecord };
-    }, playerName);
+    // Observe persistence without advancing the player's save-version stream.
+    // Owner GETs can settle elapsed state and make the app's pending retry stale.
+    const response = await page.request.get(`/api/save/${encodeURIComponent(playerName.toLowerCase())}`, {
+        headers: { 'x-admin-password': 'live-express-e2e-admin' },
+    });
+    return { status: response.status(), body: await response.json().catch(() => ({})) as SaveRecord };
 }
 
 async function waitForPersisted(
@@ -163,8 +165,18 @@ async function createCharacter(page: Page, playerName: string, password: string)
     await expect(page.locator('.icx-root')).toBeVisible();
 }
 
-test('a new player completes the full persisted Academy first session against built Express', async ({ page }, testInfo) => {
+for (const grantDelayMs of [0, 500]) {
+test(`a new player completes the full persisted Academy first session against built Express (starter response delay ${grantDelayMs}ms)`, async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium-desktop-live', 'one desktop run covers the full first-session authority journey');
+    if (grantDelayMs) {
+        // Let achievement sync supersede an already committed starter grant.
+        // Its older response must not cancel the cinematic's persistence handoff.
+        await page.route('**/api/pet/choose-starter', async (route) => {
+            const response = await route.fetch();
+            await new Promise((resolve) => setTimeout(resolve, grantDelayMs));
+            await route.fulfill({ response });
+        });
+    }
 
     const playerName = `Journey${Date.now().toString(36).slice(-7)}`;
     const password = 'Journey!Pass1234';
@@ -445,3 +457,4 @@ test('a new player completes the full persisted Academy first session against bu
     expect(runtimeErrors).toEqual([]);
     expect(serverFailures).toEqual([]);
 });
+}
