@@ -433,9 +433,12 @@ describe("save-conflict App and accessibility contracts", () => {
         assert.match(appSource, /currentSessionEpoch: \(\) => saveSessionEpochRef\.current/);
         assert.match(appSource, /latestVersion: latestSaveVersionRef/);
         assert.match(appSource, /latestPayloadRevision: savePayloadRevisionRef/);
+        const authoritySource = readFileSync(new URL("./save-authority-scope.ts", import.meta.url), "utf8");
         const externalVersion = appSource.slice(appSource.indexOf("function acceptExternalSaveVersion"), appSource.indexOf("function commitVersionedCharacter"));
-        assert.match(externalVersion, /accountKey !== saveAuthorityAccountKeyRef\.current/);
-        assert.match(externalVersion, /activeSaveAccountKey\(\) !== accountKey/);
+        assert.match(externalVersion, /saveAuthority\.acceptExternalVersion\(incomingVersion, originatingAccount\)/);
+        assert.match(appSource, /createSaveAuthorityScope\(\{[\s\S]*?accountKey: saveAuthorityAccountKeyRef,[\s\S]*?sessionEpoch: saveSessionEpochRef,[\s\S]*?activeAccountKey: activeSaveAccountKey/);
+        assert.match(authoritySource, /candidateAccountKey !== accountKey\.current/);
+        assert.match(authoritySource, /activeAccountKey\(\) !== candidateAccountKey/);
         assert.match(appSource, /detail\.source !== "full-save"[\s\S]*acceptExternalSaveVersion\(version, detail\.accountName\)/);
         assert.match(persistenceSource, /isCurrentSavePayloadRevision\(snapshot\.revision, params\.latestPayloadRevision\.current\)/);
         assert.match(persistenceSource, /isCurrentSavePayloadRevision\(save\.revision, params\.latestPayloadRevision\.current\)/);
@@ -444,8 +447,10 @@ describe("save-conflict App and accessibility contracts", () => {
         assert.match(persistenceSource, /runRequired\(async \(\) =>/);
         assert.match(persistenceSource, /runAutosave\(async \(\) =>/);
         const reset = appSource.slice(appSource.indexOf("function resetSaveAuthorityScope"), appSource.indexOf("function isCurrentSaveSession"));
-        assert.match(reset, /latestSaveVersionRef\.current = 0/);
-        assert.match(reset, /saveSessionEpochRef\.current \+= 1/);
+        assert.match(reset, /saveAuthority\.reset\(\)/);
+        assert.match(authoritySource, /function reset\(\): void \{ resetTo\(""\); \}/);
+        assert.match(authoritySource, /latestVersion\.current = 0/);
+        assert.match(authoritySource, /sessionEpoch\.current \+= 1/);
     });
 
     it("does not finish logout before a required save and conflict recovery settle", () => {

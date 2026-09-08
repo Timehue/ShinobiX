@@ -5,6 +5,7 @@ import { AURA_SPHERE_ITEM_ID, AURA_SPHERE_VN_ID } from '../src/constants/game';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { v2JutsuResourceCost } from '../src/lib/jutsu-scaling';
 import { accountKey } from '../src/lib/player-accounts';
+import { TOWER_TURN_AFK_MS } from '../src/lib/towers-api';
 
 // The loadout's scroll container. Phones wrap basic commands and the loadout in
 // one `.combat-action-tray` scrollport; elsewhere the tray is `display:
@@ -2045,6 +2046,44 @@ test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, 
         `tower-${testInfo.project.name}`,
         true,
     );
+});
+
+test('Tower countdown digits keep the header and battlefield geometry stable', async ({ page, request }, testInfo) => {
+    const { name, token } = await seedAccount(request, testInfo, 'tower');
+    const savePreview = await fetchAuthoritativeSave(request, { name, token });
+    await installSession(page, name, token, { acknowledgeEstablishedNotices: true, savePreview });
+    await page.addInitScript(() => localStorage.setItem('lastScreen.v1', 'battleTowers'));
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await dismissNotices(page);
+    await resolveSaveConflict(page);
+    await page.locator('button[aria-describedby="tower-story-floor-1-details"]').click();
+    const started = page.waitForResponse(response => response.url().includes('/api/towers/start') && response.request().method() === 'POST');
+    await page.getByRole('button', { name: /Enter Floor 1/ }).click();
+    const launch = await (await started).json() as { session: { turnStartedAt: number } };
+    const deadline = launch.session.turnStartedAt + TOWER_TURN_AFK_MS;
+    const root = page.locator('.screen-battleTowerFight');
+    const timer = root.getByRole('timer');
+    await expect(timer).toBeVisible();
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.clock.setFixedTime(deadline - 22_000 + 50);
+    await expect(timer).toHaveAttribute('aria-label', '22 seconds remaining');
+    await settleLayout(page);
+    const before = await selectionGeometry(page, '.screen-battleTowerFight');
+    const headerBefore = await root.locator('.tower-fight-header').boundingBox();
+    const timerBefore = await timer.boundingBox();
+    expectCombatBoardUsable(before, 'Tower countdown baseline', true);
+    // Proportional 22/21/20/19 digits used to add/remove an entire header row.
+    // The single-digit transition must keep that same reserved width as well.
+    for (const remaining of [21, 20, 19, 11, 10, 9, 1, 0]) {
+        await page.clock.setFixedTime(deadline - remaining * 1_000 + 50);
+        await expect(timer).toHaveAttribute('aria-label', `${remaining} seconds remaining`);
+        await settleLayout(page);
+        const header = await root.locator('.tower-fight-header').boundingBox();
+        const timerBox = await timer.boundingBox();
+        expect(Math.abs(header!.height - headerBefore!.height), `header height at ${remaining}s`).toBeLessThanOrEqual(1);
+        expect(Math.abs(timerBox!.width - timerBefore!.width), `countdown width at ${remaining}s`).toBeLessThanOrEqual(1);
+        expectGeometryNear(await selectionGeometry(page, '.screen-battleTowerFight'), before, `Tower countdown at ${remaining}s`);
+    }
 });
 
 test('Tower party-MPvE authoritative variant keeps jutsu selection geometry stable', async ({ page, request }, testInfo) => {
