@@ -20,6 +20,12 @@
 // fixture: anything you can see here, the real client would render too.
 import { createRoot } from "react-dom/client";
 import "./index.css";
+import "./styles/late-normalize.css";
+import "./styles/veiled-steel.css";
+import "./styles/layout/adaptive-shell.css";
+import "./styles/layout/adaptive-stages.css";
+import "./styles/layout/adaptive-tools.css";
+import "./styles/lite-fx-compositing.css";
 import { BattleTowerFight } from "./screens/BattleTowerFight";
 import type {
     TowerSession,
@@ -163,6 +169,7 @@ const session: TowerSession = {
 // Deliberately NOT a combat simulator — it exists to make the real screen
 // advance through real state transitions, not to reproduce server damage.
 const live = new URLSearchParams(window.location.search).has("live");
+const variant = new URLSearchParams(window.location.search).has("team") ? "team-pvp" : undefined;
 
 // The static board is an ART showcase: it parks the squad in its own read-safe
 // formation. Live mode starts the player adjacent to the front grunt so Attack,
@@ -280,6 +287,7 @@ const harnessStateFn = async (): Promise<TowerSession> => current;
 createRoot(document.getElementById("root")!).render(
     live
         ? <BattleTowerFight
+            variant={variant}
             character={{ name: "Rill" } as never}
             runId="preview"
             initialSession={liveSession}
@@ -287,5 +295,5 @@ createRoot(document.getElementById("root")!).render(
             actionFn={harnessActionFn}
             stateFn={harnessStateFn}
         />
-        : <BattleTowerFight character={{ name: "Rill" } as never} runId="preview" initialSession={session} onExit={() => {}} />,
+        : <BattleTowerFight variant={variant} character={{ name: "Rill" } as never} runId="preview" initialSession={session} onExit={() => {}} />,
 );

@@ -44,6 +44,7 @@ import { setRealtimeEmitter } from './notify.js';
 import { clearSleeperCamp } from './sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from './travel-lease.js';
 import { durablePresenceSectorForWrite } from './world-duel-engagement.js';
+import { readWalkedTile, resumeTileFor } from './walked-tile.js';
 // CORS origin predicate — single source of truth in api/_utils.ts, shared with
 // cors() and the Express middleware. Even when production serves the SPA and the
 // socket from the SAME origin (Railway), the browser still sends an Origin
@@ -230,9 +231,10 @@ function wireRealtime(io: IOServer): void {
             };
             const prevSector: number = socket.data.sector;
             let previous = onlineStore.get(name);
-            let [saved, persistedTravel] = previous ? [null, null] : await Promise.all([
+            let [saved, persistedTravel, walkedTile] = previous ? [null, null, null] : await Promise.all([
                 kv.get<{ currentSector?: number; currentTile?: number }>(`save:${name}`),
                 getTravelLease(name),
+                readWalkedTile(kv, name).catch(() => null),
             ]);
             const now = Date.now();
             // Same rule as the HTTP heartbeat: town entry stays instant unless a
@@ -273,7 +275,7 @@ function wireRealtime(io: IOServer): void {
                 inBattle: p.inBattle === true ? true : undefined,
                 tile: superseded ? previous!.tile : previous ? normalizeTile(p.tile, previous.tile)
                     : normalizeTile(persistedTravel && now >= persistedTravel.arrivalAt
-                        ? persistedTravel.arrivalTile : saved?.currentTile),
+                        ? persistedTravel.arrivalTile : resumeTileFor(walkedTile, requestedSector, saved?.currentTile)),
                 tileSector: previous && !superseded ? normalizeSector(p.sector, previous.sector) : requestedSector,
             });
             if (!previous && persistedTravel) {

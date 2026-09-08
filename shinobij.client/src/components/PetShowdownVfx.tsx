@@ -22,7 +22,9 @@ import { Billboard } from "@react-three/drei";
 import * as THREE from "three";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { projectileVisual } from "../lib/pet-projectile-vfx";
-import { showdownAttackRhythm, showdownMeleeContact } from "../lib/pet-showdown-choreography";
+import { showdownAttackRhythm, showdownMeleeContact, showdownMeleeDrive, showdownRoutePoint, type ShowdownMeleeRoute } from "../lib/pet-showdown-choreography";
+import { showdownBeatProgress, type ShowdownImpactClock } from "../lib/showdown-playback";
+import { showdownContactOutcome, showdownProjectilePath, type ShowdownContactOutcome } from "../lib/showdown-contact-vfx";
 import type { PetVisualQualityConfig } from "../lib/pet-visual-quality";
 import type { PetSignaturePerformance } from "../lib/pet-signature-performance";
 import { VolumetricSetPiece } from "./PetShowdownVfx3d";
@@ -41,6 +43,8 @@ export interface VfxBeat {
     event: ShowdownEvent | null;
     startedAt: number;
     durationMs: number;
+    impact?: ShowdownImpactClock;
+    meleeRoute?: ShowdownMeleeRoute;
 }
 /** petId → current world position map maintained by the battle component. */
 export type VfxPositions = ReadonlyMap<string, readonly [number, number, number]>;
@@ -591,7 +595,7 @@ export function BeatDrivenVfx({ beatRef, posRef, radii, signatures }: {
     signatures?: ReadonlyMap<string, PetSignaturePerformance>;
 }) {
     const projectileDrive = useRef<ProjectileDrive>({ active: false, x: 0, y: 0, z: 0, element: "None", kind: "damage", charged: false, progress: 0, fan: 1, dirX: 0, dirZ: 1, signature: null });
-    const meleeDrive = useRef<MeleeStreakDrive>({ active: false, fromX: 0, fromZ: 0, toX: 0, toZ: 0, contactX: 0, contactZ: 0, element: "None", progress: 0, impactProgress: -1, heavy: false, signature: null });
+    const meleeDrive = useRef<MeleeStreakDrive>({ active: false, fromX: 0, fromZ: 0, toX: 0, toZ: 0, contactX: 0, contactZ: 0, element: "None", progress: 0, impactProgress: -1, heavy: false, signature: null, outcome: "hit" });
 
     useFrame(() => {
         const beat = beatRef.current;
@@ -605,7 +609,7 @@ export function BeatDrivenVfx({ beatRef, posRef, radii, signatures }: {
         const target = posRef.current.get(ev.targets[0].id);
         if (!actor || !target || ev.targets[0].id === ev.actorId) return;
         const signature = signatures?.get(ev.actorId) ?? null;
-        const frac = (performance.now() - beat.startedAt) / beat.durationMs;
+        const frac = showdownBeatProgress(beat, performance.now());
         const rhythm = showdownAttackRhythm({
             weight: ev.weight,
             superMove: ev.super,
@@ -619,8 +623,9 @@ export function BeatDrivenVfx({ beatRef, posRef, radii, signatures }: {
             const t1 = rhythm.contact;
             if (!travel.instant && frac >= t0 && frac <= t1) {
                 const p = (frac - t0) / (t1 - t0);
-                const ax = actor[0], az = actor[2];
-                const bx = target[0], bz = target[2];
+                const path = showdownProjectilePath(actor[0], actor[2], target[0], target[2], radii.get(ev.actorId) ?? 0.82, radii.get(ev.targets[0].id) ?? 0.82);
+                const ax = path.fromX, az = path.fromZ;
+                const bx = path.toX, bz = path.toZ;
                 proj.active = true;
                 proj.x = ax + (bx - ax) * p;
                 proj.y = 1.2 + Math.sin(p * Math.PI) * travel.arc;
@@ -651,10 +656,12 @@ export function BeatDrivenVfx({ beatRef, posRef, radii, signatures }: {
                 melee.fromZ = actor[2];
                 melee.toX = contact.x;
                 melee.toZ = contact.z;
-                melee.contactX = contact.impactX;
-                melee.contactZ = contact.impactZ;
+                melee.route = beat.meleeRoute;
+                melee.contactX = beat.meleeRoute?.impactX ?? contact.impactX;
+                melee.contactZ = beat.meleeRoute?.impactZ ?? contact.impactZ;
                 melee.element = ev.element;
-                melee.progress = Math.min(1, Math.max(0, (frac - rhythm.dashStart) / Math.max(0.01, rhythm.contact - rhythm.dashStart)));
+                melee.outcome = showdownContactOutcome(ev.targets[0]);
+                melee.progress = showdownMeleeDrive(frac, rhythm);
                 melee.impactProgress = frac < rhythm.contact ? -1 : Math.min(1, (frac - rhythm.contact) / Math.max(0.01, rhythm.contactEnd - rhythm.contact));
                 melee.heavy = ev.super || ev.weight === "heavy";
                 melee.signature = signature;
@@ -807,6 +814,8 @@ export function PaintedProjectile({ drive }: { drive: React.MutableRefObject<Pro
 
 export interface MeleeStreakDrive {
     active: boolean;
+    outcome: ShowdownContactOutcome;
+    route?: ShowdownMeleeRoute;
     /** Streak line from → to (the dash path), tinted by element. */
     fromX: number; fromZ: number;
     toX: number; toZ: number;
@@ -854,14 +863,15 @@ export function MeleeStreaks({ drive }: { drive: React.MutableRefObject<MeleeStr
             const p = Math.max(0, d.progress - lag);
             if (p <= 0) { m.visible = false; return; }
             m.visible = true;
-            const x = d.fromX + (d.toX - d.fromX) * p;
-            const z = d.fromZ + (d.toZ - d.fromZ) * p;
-            const pathX = d.toX - d.fromX;
-            const pathZ = d.toZ - d.fromZ;
+            const point = d.route ? showdownRoutePoint(d.route, p) : null;
+            const x = point?.x ?? d.fromX + (d.toX - d.fromX) * p;
+            const z = point?.z ?? d.fromZ + (d.toZ - d.fromZ) * p;
+            const pathX = point?.dx ?? d.toX - d.fromX;
+            const pathZ = point?.dz ?? d.toZ - d.fromZ;
             const pathLength = Math.hypot(pathX, pathZ) || 1;
             const lane = (i - (laneCount - 1) / 2) * 0.075 * (d.signature?.trailSpread ?? 1) * Math.sin(p * Math.PI);
             m.position.set(x - pathZ / pathLength * lane, 0.72 + (i % 3) * 0.16, z + pathX / pathLength * lane);
-            const angle = Math.atan2(d.toX - d.fromX, d.toZ - d.fromZ);
+            const angle = Math.atan2(pathX, pathZ);
             m.rotation.y = angle;
             m.rotation.z = (d.signature?.impactTwist ?? 0) * (0.35 + i * 0.08);
             const fade = (1 - lag * 1.6) * (d.progress < 0.9 ? 1 : (1 - d.progress) / 0.1);
@@ -892,35 +902,50 @@ export function MeleeStreaks({ drive }: { drive: React.MutableRefObject<MeleeStr
  * exact collision frame impossible to lose inside a large target silhouette. */
 export function MeleeContactBurst({ drive }: { drive: React.MutableRefObject<MeleeStreakDrive> }) {
     const root = useRef<THREE.Group>(null);
+    const burst = useRef<THREE.Group>(null);
+    const ground = useRef<THREE.Mesh>(null);
     const coreMat = useRef<THREE.MeshBasicMaterial>(null);
     const groundMat = useRef<THREE.MeshBasicMaterial>(null);
     const shellMat = useRef<THREE.MeshBasicMaterial>(null);
     const rayMats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
     const rayRefs = useRef<Array<THREE.Mesh | null>>([]);
     const rayRoot = useRef<THREE.Group>(null);
+    const rayGeometry = useMemo(() => {
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.Float32BufferAttribute([
+            0.12, 0, 0, 0.28, 0.035, 0, 0.92, 0, 0, 0.28, -0.035, 0,
+        ], 3));
+        geometry.setIndex([0, 1, 2, 0, 2, 3]);
+        return geometry;
+    }, []);
+    useEffect(() => () => rayGeometry.dispose(), [rayGeometry]);
 
     useFrame(() => {
         const d = drive.current;
         const p = d.impactProgress;
-        const active = d.active && p >= 0 && p < 1;
+        const active = d.active && d.outcome !== "miss" && p >= 0 && p < 1;
         if (!root.current) return;
         root.current.visible = active;
         if (!active) return;
 
-        const tint = { Fire: "#ff9a4d", Water: "#67d7ff", Wind: "#8df5d3", Lightning: "#fff27a", Earth: "#e0b477" }[d.element] ?? "#dbeafe";
+        const blocked = d.outcome === "block";
+        const tint = blocked ? "#7dd3fc" : { Fire: "#ff9a4d", Water: "#67d7ff", Wind: "#8df5d3", Lightning: "#fff27a", Earth: "#e0b477" }[d.element] ?? "#dbeafe";
         const open = 1 - Math.pow(1 - p, 3);
         const fade = (1 - p) * (1 - p);
-        const weight = (d.heavy ? 1.3 : 1) * (d.signature?.impactScale ?? 1);
+        const weight = (d.heavy ? 1.15 : 0.9) * Math.min(1.25, d.signature?.impactScale ?? 1);
         root.current.position.set(d.contactX, 0.06, d.contactZ);
-        root.current.scale.setScalar((0.5 + open * 1.75) * weight);
+        // Grow the spark around a fixed contact height. Scaling the whole root
+        // lifted and enlarged the billboard until it covered both fighters.
+        burst.current?.scale.setScalar((blocked ? 0.85 + open * 0.48 : 0.48 + open * 0.62) * weight);
+        ground.current?.scale.setScalar((0.5 + open * 1.35) * weight);
         if (rayRoot.current) rayRoot.current.rotation.z = (d.signature?.impactTwist ?? 0) + open * 0.22 * (d.signature?.asymmetry ?? 1);
         if (coreMat.current) {
-            coreMat.current.color.set("#ffffff");
-            coreMat.current.opacity = 0.98 * fade;
+            coreMat.current.color.set(blocked ? tint : "#ffffff");
+            coreMat.current.opacity = (blocked ? 0.24 : 0.86) * fade;
         }
         if (shellMat.current) {
             shellMat.current.color.set(tint);
-            shellMat.current.opacity = 0.68 * fade;
+            shellMat.current.opacity = (blocked ? 0.8 : 0.4) * fade;
         }
         if (groundMat.current) {
             groundMat.current.color.set(tint);
@@ -929,11 +954,11 @@ export function MeleeContactBurst({ drive }: { drive: React.MutableRefObject<Mel
         rayMats.current.forEach((material, index) => {
             if (!material) return;
             material.color.set(index % 2 ? d.signature?.accent ?? tint : "#ffffff");
-            material.opacity = (index % 2 ? 0.68 : 0.92) * fade;
+            material.opacity = (index % 2 ? 0.5 : 0.76) * fade;
         });
         rayRefs.current.forEach((ray, index) => {
             if (!ray) return;
-            ray.visible = index < (d.signature?.impactRays ?? 6);
+            ray.visible = !blocked && index < (d.signature?.impactRays ?? 6);
             ray.scale.x = (d.signature?.trailSpread ?? 1) * (1 + open * 0.15);
         });
     });
@@ -941,24 +966,25 @@ export function MeleeContactBurst({ drive }: { drive: React.MutableRefObject<Mel
     return (
         <group ref={root} visible={false}>
             <Billboard position={[0, 1.05, 0]}>
-                <mesh>
-                    <circleGeometry args={[0.42, 28]} />
-                    <meshBasicMaterial ref={coreMat} {...ADDITIVE_MATERIAL_PROPS} depthTest={false} />
-                </mesh>
-                <mesh scale={1.7}>
-                    <ringGeometry args={[0.34, 0.5, 32]} />
-                    <meshBasicMaterial ref={shellMat} {...ADDITIVE_MATERIAL_PROPS} depthTest={false} side={THREE.DoubleSide} />
-                </mesh>
-                <group ref={rayRoot}>
-                    {Array.from({ length: 9 }, (_, index) => (
-                        <mesh ref={(mesh) => { rayRefs.current[index] = mesh; }} key={index} rotation={[0, 0, index * Math.PI * 2 / 9]}>
-                            <planeGeometry args={[1.7 + (index % 2) * 0.45, 0.065]} />
-                            <meshBasicMaterial ref={(material) => { rayMats.current[index] = material; }} {...ADDITIVE_MATERIAL_PROPS} depthTest={false} side={THREE.DoubleSide} />
-                        </mesh>
-                    ))}
+                <group ref={burst}>
+                    <mesh>
+                        <circleGeometry args={[0.18, 28]} />
+                        <meshBasicMaterial ref={coreMat} {...ADDITIVE_MATERIAL_PROPS} />
+                    </mesh>
+                    <mesh>
+                        <ringGeometry args={[0.38, 0.42, 32]} />
+                        <meshBasicMaterial ref={shellMat} {...ADDITIVE_MATERIAL_PROPS} side={THREE.DoubleSide} />
+                    </mesh>
+                    <group ref={rayRoot}>
+                        {Array.from({ length: 9 }, (_, index) => (
+                            <mesh geometry={rayGeometry} ref={(mesh) => { rayRefs.current[index] = mesh; }} key={index} rotation={[0, 0, index * Math.PI * 2 / 9]}>
+                                <meshBasicMaterial ref={(material) => { rayMats.current[index] = material; }} {...ADDITIVE_MATERIAL_PROPS} side={THREE.DoubleSide} />
+                            </mesh>
+                        ))}
+                    </group>
                 </group>
             </Billboard>
-            <mesh rotation={[-Math.PI / 2, 0, 0]}>
+            <mesh ref={ground} rotation={[-Math.PI / 2, 0, 0]}>
                 <ringGeometry args={[0.44, 0.58, 40]} />
                 <meshBasicMaterial ref={groundMat} {...ADDITIVE_MATERIAL_PROPS} side={THREE.DoubleSide} />
             </mesh>

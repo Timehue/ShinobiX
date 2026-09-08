@@ -133,9 +133,22 @@ describe('player trade — exactly-once under a shared nonce', { concurrency: fa
         assert.deepEqual(await balances(), { sender: 45_000, recipient: 4_500 });
     });
 
-    it('a legacy request without a nonce still transfers (no replay identity)', async () => {
+    it('F15: a request without a nonce is refused with a reload hint and moves nothing', async () => {
         const out = await send({});
-        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
-        assert.deepEqual(await balances(), { sender: 45_000, recipient: 4_500 });
+        assert.equal(out.statusCode, 400, JSON.stringify(out.body));
+        assert.equal(out.body?.reason, 'nonce-required');
+        assert.deepEqual(await balances(), { sender: 50_000, recipient: 0 });
+        assert.deepEqual(await kv.keys('trade:nonce:*'), [], 'no replay identity was minted for it either');
+    });
+
+    it('F15: the legacy kill switch re-admits a nonce-less body (no replay identity)', async () => {
+        process.env.ALLOW_NONCELESS_TRANSFERS = '1';
+        try {
+            const out = await send({});
+            assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+            assert.deepEqual(await balances(), { sender: 45_000, recipient: 4_500 });
+        } finally {
+            delete process.env.ALLOW_NONCELESS_TRANSFERS;
+        }
     });
 });
