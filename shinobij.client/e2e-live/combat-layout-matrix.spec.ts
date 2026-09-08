@@ -2060,7 +2060,13 @@ async function assertTowerCountdownGeometryStable(page: Page, testInfo: TestInfo
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.clock.setFixedTime(deadline - 22_000 + 50);
     await expect(timer).toHaveAttribute('aria-label', '22 seconds remaining');
-    await settleLayout(page);
+    // A freshly mounted board can still carry its old scale after the viewport
+    // resize. Wait for the fit before recording the baseline; countdown-driven
+    // geometry changes below retain their immediate one-pixel assertions.
+    await expect(async () => {
+        await settleLayout(page);
+        expectCombatBoardUsable(await selectionGeometry(page, '.screen-battleTowerFight'), 'Tower countdown baseline', true);
+    }).toPass({ timeout: 5_000 });
     const before = await selectionGeometry(page, '.screen-battleTowerFight');
     const headerBefore = await root.locator('.tower-fight-header').boundingBox();
     const timerBefore = await timer.boundingBox();
