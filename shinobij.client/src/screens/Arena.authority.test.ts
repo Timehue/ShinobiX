@@ -90,7 +90,7 @@ test("retired Arena snapshots are rejected and have no writer", () => {
     assert.equal(existsSync(new URL("../components/ArenaBattlePersister.tsx", import.meta.url)), false);
     assert.match(battleSave, /if \(lock\.kind === "arena"\) return false/);
     assert.match(battleSave, /if \(lock\.kind === "arenaStory"\) return false/);
-    assert.match(app, /bootLock\.kind === "arena"[\s\S]{0,700}localStorage\.removeItem\(`arena\.battle\.v3\.\$\{normalized\.name\}`\)/);
+    assert.match(app, /recovery === "arena"[\s\S]{0,700}localStorage\.removeItem\(`arena\.battle\.v3\.\$\{normalized\.name\}`\)/);
     assert.doesNotMatch(app, /localStorage\.setItem\(`arena\.battle\.v3/);
     assert.doesNotMatch(arena, /arena\.battle\.v3|arenaStory\.context/);
 });
