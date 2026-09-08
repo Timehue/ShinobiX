@@ -74,6 +74,29 @@ test("the entire 3D fighter performance follows the hit-stop-aware presentation 
     assert.doesNotMatch(source, /now - entranceAt\.current/);
 });
 
+test("entering the attack bank after a dash cues the strike window on both model passes", () => {
+    const changingClip = modelSource.slice(modelSource.indexOf("} else if (clip && (animation.activeClip !== clip || enteringOneShot))"), modelSource.indexOf("// Cadence follows measured world velocity."));
+    assert.match(changingClip, /if \(phaseWindow\) next\.time = clip\.duration \* phaseWindow\.start/);
+    assert.match(changingClip, /if \(phaseWindow\) nextOutline\.time = clip\.duration \* phaseWindow\.start/);
+});
+
+test("body travel and melee wakes consume the same beat clock, route, and acceleration", () => {
+    const vfx = readFileSync(join(here, "PetShowdownVfx.tsx"), "utf8");
+    assert.match(source, /showdownBeatProgress\(beat, now\)/);
+    assert.match(vfx, /showdownBeatProgress\(beat, performance\.now\(\)\)/);
+    assert.match(source, /showdownRoutePoint\(beat\.meleeRoute, drive\)/);
+    assert.match(vfx, /melee\.route = beat\.meleeRoute/);
+    assert.match(vfx, /melee\.progress = showdownMeleeDrive\(frac, rhythm\)/);
+});
+
+test("contact sparks, impact paint and mechanic accents all consume the server verdict", () => {
+    const vfx = readFileSync(join(here, "PetShowdownVfx.tsx"), "utf8");
+    assert.match(vfx, /melee\.outcome = showdownContactOutcome\(ev\.targets\[0\]\)/);
+    assert.match(source, /const contactKind = showdownContactEffectKind\(event\.moveKind, target\)/);
+    assert.match(source, /impactFlipbookKey\(event\.element, contactKind, false\)/);
+    assert.match(source, /kind: contactKind/);
+});
+
 test("identity-authored presentation clips are routed through every Colosseum performance state", () => {
     assert.match(modelSource, /findClip\(clips, \["victory", "idle", "walk"\]\)/);
     assert.match(modelSource, /findClip\(clips, \["entrance", "gallop_jump", "idle"\]\)/);

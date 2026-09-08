@@ -1011,6 +1011,9 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
                 next.enabled = true;
                 next.clampWhenFinished = oneShot;
                 next.setLoop(oneShot ? THREE.LoopOnce : THREE.LoopRepeat, oneShot ? 1 : Infinity);
+                // A melee dash swaps to the locomotion bank. Re-entering the
+                // attack take at contact must skip the already-played windup.
+                if (phaseWindow) next.time = clip.duration * phaseWindow.start;
                 const transition = oneShot ? 0.1 : 0.22;
                 next.fadeIn(transition).play();
                 previous?.fadeOut(transition * 0.85);
@@ -1021,6 +1024,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
                     nextOutline.enabled = true;
                     nextOutline.clampWhenFinished = oneShot;
                     nextOutline.setLoop(oneShot ? THREE.LoopOnce : THREE.LoopRepeat, oneShot ? 1 : Infinity);
+                    if (phaseWindow) nextOutline.time = clip.duration * phaseWindow.start;
                     nextOutline.fadeIn(transition).play();
                     previousOutline?.fadeOut(transition * 0.85);
                     animation.activeOutlineAction = nextOutline;
