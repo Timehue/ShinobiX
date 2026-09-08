@@ -14,7 +14,7 @@ const preview = readFileSync(new URL("../firstpactpreview.tsx", import.meta.url)
 const criticCapture = readFileSync(new URL("../../scripts/capture-first-pact-critic.mjs", import.meta.url), "utf8");
 const highCourtReliability = readFileSync(new URL("../../scripts/capture-first-pact-high-court-reliability.mjs", import.meta.url), "utf8");
 const visualVerification = readFileSync(new URL("../../scripts/verify-first-pact-visual.mjs", import.meta.url), "utf8");
-const server = readFileSync(new URL("../../../server.ts", import.meta.url), "utf8");
+const server = readFileSync(new URL("../../../server-api-routes.ts", import.meta.url), "utf8");
 
 test("The First Pact is lazy-mounted from the Celestial Tower and level-gated at 100", () => {
     assert.match(app, /const FirstPact = lazyWithRetry\(\(\) => import\("\.\/screens\/FirstPact"\)/);
