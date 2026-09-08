@@ -2286,7 +2286,7 @@
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
-            "line": 1412
+            "line": 1418
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
@@ -2526,7 +2526,7 @@
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
-            "line": 1335
+            "line": 1341
           }
         ]
       },
@@ -2751,7 +2751,7 @@
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
-            "line": 1412
+            "line": 1418
           }
         ]
       },
@@ -2883,7 +2883,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
-            "line": 1294
+            "line": 1300
           }
         ]
       },
@@ -2918,7 +2918,7 @@
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
-            "line": 1355
+            "line": 1361
           },
           {
             "source": "shinobij.client/src/styles/town-hall-aaa.css",
@@ -2933,7 +2933,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
-            "line": 1318
+            "line": 1324
           }
         ]
       },
@@ -3025,7 +3025,7 @@
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
-            "line": 1318
+            "line": 1324
           }
         ]
       },
@@ -3125,7 +3125,7 @@
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
-            "line": 1288
+            "line": 1294
           }
         ]
       },
@@ -3562,7 +3562,7 @@
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
-            "line": 1092
+            "line": 1098
           }
         ]
       },
@@ -3765,11 +3765,7 @@
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
-            "line": 1168
-          },
-          {
-            "source": "shinobij.client/src/styles/tower-tactical.css",
-            "line": 1288
+            "line": 1174
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -3777,7 +3773,11 @@
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
-            "line": 1335
+            "line": 1300
+          },
+          {
+            "source": "shinobij.client/src/styles/tower-tactical.css",
+            "line": 1341
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
@@ -3835,7 +3835,7 @@
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
-            "line": 631
+            "line": 637
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
@@ -3937,7 +3937,7 @@
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
-            "line": 1125
+            "line": 1131
           }
         ]
       },
@@ -4059,15 +4059,15 @@
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
-            "line": 565
+            "line": 576
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
-            "line": 713
+            "line": 719
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
-            "line": 1092
+            "line": 1098
           }
         ]
       },
@@ -4210,7 +4210,7 @@
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
-            "line": 713
+            "line": 719
           }
         ]
       },

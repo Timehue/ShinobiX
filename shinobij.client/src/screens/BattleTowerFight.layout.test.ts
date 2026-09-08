@@ -129,7 +129,8 @@ describe("Tower narrow combat composition", () => {
         assert.match(source, /const targetable = enemiesInRange\.has\(a\.id\)[\s\S]*?!isSelfCastJutsu\(selJutsu\)[\s\S]*?!isMoveJutsu\(selJutsu\)[\s\S]*?selJutsu\.target !== "EMPTY_GROUND"/,
             "movement and empty-ground jutsu must not expose occupied actors as selectable targets");
         assert.match(source, /<button key=\{a\.id\} type="button" className="tower-board-actor" onClick=\{\(\) => onTileClick\(a\.pos\)\}/);
-        assert.match(source, /const inspectable = a\.side === "enemy";/);
+        assert.match(source, /const inspectable = a\.side === "enemy" && mode === "idle";/,
+            "inspection must yield to movement and ground-target aiming");
         assert.match(source, /const actorActionable = targetable \|\| selfTargetable \|\| inspectable;/);
         assert.match(source, /tabIndex=\{!busy && actorActionable \? 0 : -1\}/);
         assert.match(source, /aria-hidden=\{busy \|\| !actorActionable\}/);
