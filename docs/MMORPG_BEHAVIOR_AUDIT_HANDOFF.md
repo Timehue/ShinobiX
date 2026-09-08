@@ -6,26 +6,34 @@ is in, what a next session must know, and — importantly — **what this pass d
 reach**, so nobody mistakes the audit's scope for the whole game.
 
 Branch: `claude/mmorpg-behavior-audit-783026`. Base: `9a13ff264`.
-Status: **plan only. No product code was changed and nothing was pushed.**
+Status: **all eight findings implemented and tested on this branch. Not pushed.**
+Rulings and their reasoning: `docs/MMORPG_BEHAVIOR_RULINGS.md`.
 
 ## Disposition table
 
-Status legend matches `docs/RPG_BEHAVIOR_HANDOFF_TRACKING.md`: `open` (recorded, not
-implemented), `ruling-blocked` (cannot start until the owner decides).
+**All eight are now SHIPPED on this branch.** The four rulings the audit deferred were
+researched against genre precedent and decided; the reasoning is in
+`docs/MMORPG_BEHAVIOR_RULINGS.md`.
 
-| ID | Finding | Severity | Files the fix touches | Status |
-|---|---|---|---|---|
-| F1 | Death is a free full heal; Healer discharge makes it instant | High | `api/player/heal.ts:242-249` | **ruling-blocked** — 3 options offered, partial-vitals recommended |
-| F2 | `hospitalized` enforced at 4 of ~15 entry points | Medium | new `isIncapacitated()` in `api/_elapsed-state.ts`; callers per the table in the audit | open |
-| F3 | Dive entry consumed while hospitalized, then unfightable | Medium | `api/hollow-gate/start.ts` (before the `ord` reservation) | open |
-| F4 | Silence bypassable via 4 public text surfaces | Medium | `api/clan/chat/send.ts`, `api/sector/trail-sign.ts`, `api/player/profile-title.ts`, `api/craft/named.ts` | open |
-| F5 | No post-defeat protection online; no per-pair attack cooldown | Medium | `api/_realtime/presence-gating.ts` | open (checks) + **ruling-blocked** (cooldown) |
-| F6 | No clan founder succession; client-side best-effort leave | Medium | new `api/clan/leave.ts` modelled on `api/clan/kick.ts`; `api/_clan-save-validate.ts` for succession | open (leave endpoint) + **ruling-blocked** (succession shape) |
-| F7 | Inventory overflow silently destroys items | Medium | `api/save/[name].ts:1693` (step 1); ~15 grant paths (step 2) | open |
-| F8 | Transfers capped per call, not in aggregate | Low | `api/player/trade.ts`, `api/player/_trade-core.ts` | **ruling-blocked** — amounts |
+| ID | Finding | Ruling / fix | Status |
+|---|---|---|---|
+| F1 | Death is a free full heal | Discharge restores HP only; idle regen becomes a share of each pool (full bar in 30 min, floored at the old rate); Healer self top-up gets the existing rank-scaled cooldown | **shipped** — 2 kill switches |
+| F2 | `hospitalized` enforced at 4 of ~15 entry points | Shared `isIncapacitated()` in `api/_elapsed-state.ts`, applied to every fight-committing entry point | **shipped** |
+| F3 | Dive entry spent while hospitalized | Gate in `hollow-gate/start.ts` before the `ord` reservation; the replay path still resolves an already-paid run | **shipped** |
+| F4 | Silence bypassable on 4 surfaces | `getActiveSilence()` on clan chat, trail signs, custom titles, named forging | **shipped** |
+| F5 | No post-defeat protection online | 120 s server-owned `pvpShieldUntil`; `/api/player/attack` refuses admitted or shielded targets from the authoritative save | **shipped** |
+| F6 | No clan founder succession | `POST /api/clan/leave` with computed succession (`api/clan/_succession.ts`); client wired | **shipped** — inactivity cron deferred |
+| F7 | Inventory overflow destroys items | Cap is non-destructive like `PET_CAP` — never truncates below what is stored | **shipped** — step 2 (at-acquisition checks) still open |
+| F8 | Transfers capped per call, not in aggregate | Rolling 24 h send-side budget with a trust tier; receiving untouched | **shipped** |
 
-Four rulings gate the work: F1's option, F6's succession shape, whether F5's per-pair
-cooldown is wanted, and F8's amounts. Everything marked plain `open` can start now.
+Two follow-ups were deliberately NOT taken and are the honest remainder:
+
+- **F6's 30-day founder-inactivity cron.** The right long-term shape, but a server reset
+  is pending, so already-orphaned clans get wiped rather than repaired. What mattered was
+  stopping new ones. Worth adding before launch.
+- **F7 step 2 — at-acquisition capacity checks on ~15 grant paths.** The save layer no
+  longer eats items, which stops the bleeding; telling the player "inventory full" at the
+  moment it happens is the real fix and touches 15 files.
 
 ## Coverage — what this pass actually examined
 
@@ -75,10 +83,14 @@ hospital screen pin, the clan leave flow).
 
 - **Every fix is additive or a refusal.** None changes an existing successful flow, so
   none can corrupt a live save. That property is worth preserving as they land.
-- **F2 and F3 share a helper.** Do F3 first: it is two lines and it establishes the
-  `isIncapacitated()` shape that F2 then applies broadly.
-- **F7 step 1 before step 2.** Making the truncation non-destructive is the safety net
-  and stops the bleeding; the at-acquisition checks are the real fix but touch 15 files.
+- **F1's regen change has three mirrors that must move together**: `settleVitalsRegen`
+  (api/_elapsed-state.ts), the autosave gain ceiling (api/save/[name].ts), and the
+  client's idle clock (shinobij.client/src/lib/loaded-vitals.ts). If they drift, a
+  high-level player's bars visibly FALL on save — worse than the bug being fixed.
+  `api/_pooled-vital-regen.test.ts` pins the server/ceiling pair.
+- **Per-pool regen is no longer a UNIFORM rise**, so `isIdleVitalsOnlyChange` had to stop
+  requiring one. Getting that wrong autosaves on every tick, which is the 409 exchange
+  that function exists to prevent.
 - **Source-contract tests pin some of these files.** F2 and F5 touch handlers whose
   exact source text is asserted by `api/pvp/_pvp-contract.test.ts` and
   `api/player/heartbeat.test.ts`. Run the full root suite, not the touched files.
@@ -87,9 +99,10 @@ hospital screen pin, the clan leave flow).
 - **Handler-test recipe** is in `docs/auth-and-anti-cheat-patterns.md`:
   `SHINOBIX_QA_MEMORY_KV=1` + `NODE_ENV=test`, player identity via `SESSION_SECRET` +
   `issuePlayerToken(name)`.
-- **These are API-only changes**, so the two e2e suites CI gates on are not implicated
-  unless a fix reaches a screen or component. F6's leave endpoint will touch
-  `ClanHall.tsx`, and that one does need the e2e suites.
+- **F6 touched `ClanHall.tsx`**, so both CI-gated e2e suites were required and were run.
+- **The ownership golden-master snapshot was regenerated** for the one new server-owned
+  field (`pvpShieldUntil`); the diff shows only that field, which is the review signal
+  that test is designed to produce.
 - **Do not re-flag the verified-correct list** in the audit doc — the UTC day-key
   duplication, the fresh-start vs. continuous vitals split, and the two-tier newcomer
   protection are all deliberate and were confirmed as such.

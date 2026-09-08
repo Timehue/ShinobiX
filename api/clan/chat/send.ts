@@ -8,6 +8,7 @@ import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
 import { clanChatKey, appendChatMessage, cleanChatText, CLAN_CHAT_TTL_SEC, type ClanChatMessage } from './_storage.js';
 import { rejectUnclaimedGuest } from '../../_guest-gate.js';
+import { getActiveSilence } from '../../admin/moderation.js';
 
 /*
  * /api/clan/chat/send — POST only. Appends one text message to the clan's capped
@@ -40,6 +41,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // other three chat handlers rate-limit at the top of the branch. Putting
         // it first would let a rejected caller spend storage reads for free.
         if (await rejectUnclaimedGuest(res, identity)) return;
+        // A silence is a silence on every surface that reaches another player.
+        // Village chat, PvP chat and DMs already refuse here; clan chat did not,
+        // so a silenced player kept a working broadcast channel. Same 403 shape
+        // as api/messages.ts so the client's existing handling applies.
+        if (!identity.admin) {
+            const sil = await getActiveSilence(identity.name);
+            if (sil) return res.status(403).json({ error: 'You are silenced.', silence: { until: sil.until, reason: sil.reason } });
+        }
 
         const slug = clanBareSlug(clan);
         if (!slug) return res.status(400).json({ error: 'Invalid clan name.' });

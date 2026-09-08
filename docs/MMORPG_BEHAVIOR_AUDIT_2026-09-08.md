@@ -187,7 +187,10 @@ visible to other players do **not**:
   everyone who walks through. Authenticates and rate-limits (line 56), never checks.
 - `api/player/profile-title.ts` — a public custom title. `api/_text-moderation.ts:240`
   confirms this is treated as an identity surface (it bans impersonation terms), yet
-  the handler has neither a silence check nor a rate limit.
+  the handler never checks silence. (Correction, 2026-09-08: an earlier draft of this
+  finding also claimed it had no rate limit. It does — `enforceRateLimitKv('profile-title',
+  20, 60_000)` at line 17. The original grep was case-sensitive and missed
+  `enforceRateLimitKv`; only the silence check was genuinely absent.)
 - `api/craft/named.ts` — named-weapon names, which `api/save/[name].ts` notes are
   echoed into the public PvP battle log.
 
@@ -198,7 +201,7 @@ another player.
 
 **Fix.** Call `getActiveSilence()` in those four handlers and return the same 403 shape
 `api/messages.ts:164` already returns, so the client's existing "You are silenced"
-handling works unchanged. Add a rate limit to `profile-title.ts` while there. Low risk,
+handling works unchanged. Low risk,
 four small diffs, one test each.
 
 ---
@@ -214,9 +217,18 @@ victim in sector 0 on a successful kill so they leave the sleeper pool entirely
 The online path has no equivalent. `attackBlock` (`api/_realtime/presence-gating.ts:109-124`)
 refuses an offline, sub-level-10, traveling, engaged or in-battle target — but never a
 hospitalized or 0-HP one. `worldInteractionBlock` (line 127) likewise never checks the
-*attacker's* condition. And sector attacks use `useCurrentVitals=true`
-(`api/pvp/session.ts:1642-1657`), so a target at 0 HP enters the fight at 0 HP: a
-guaranteed loss, repeatable, each one re-stamping `hospitalizedUntil` 60 s further out.
+*attacker's* condition.
+
+**Correction (2026-09-08).** An earlier draft of this finding claimed a 0-HP target
+"enters the fight at 0 HP: a guaranteed loss". That is **wrong**, and the check that
+makes it wrong is `api/pvp/session.ts:2202-2211`, which already refuses to create a
+continuous-vitals session with an unconscious fighter ("… is unconscious and cannot
+enter this fight"). Verified directly against the source. The real defect is narrower
+but nastier: the attack still stamps `pendingAttacker` on the downed player, and
+`engagedInWorldDuel` (`api/_realtime/world-duel-engagement.ts`) then refuses their
+safe-zone exit. The heartbeat clears the stamp each cycle, so at 6 attacks/minute one
+attacker could pin a recovering player out of town indefinitely — a trap rather than a
+kill, and one no reward cap touches, because the caps limit rewards and not attacks.
 
 A repo-wide search for `protectionUntil|immuneUntil|pvpCooldown|attackCooldown|recentlyAttacked|lastAttackedBy|revenge`
 returns **nothing** — there is no per-pair attack cooldown of any kind.

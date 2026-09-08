@@ -126,6 +126,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('hospitalizedUntil', 'character', 'server-clamped', 'vitals', ['public-char'], 'timer window validated against stored'),
     f('hospitalizedAt', 'character', 'server-clamped', 'vitals', [], 'hospital timer bookkeeping, window-validated'),
     f('lastDischargeAt', 'character', 'server-clamped', 'vitals', [], 'discharge grace-window stamp'),
+    f('pvpShieldUntil', 'character', 'server-owned', 'vitals', [], 'post-defeat raid shield; only PvP settlement and the sleeper KO write it, incoming value always ignored'),
     f('profession', 'character', 'server-owned', 'profession', ['public-char'], 'locked to stored; only /api/profession/choose sets it'),
     f('professionRank', 'character', 'derived', 'profession', ['public-char', 'strict-ledger-char', 'always-ledger-char'], 'recomputed from capped professionXp'),
     f('professionXp', 'character', 'server-ledger', 'profession', ['public-char', 'strict-ledger-char', 'always-ledger-char'], 'gains rejected; only server endpoints raise it'),
