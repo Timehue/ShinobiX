@@ -456,6 +456,15 @@
 }
 
 .tower-fight-turn-pill { min-width: 0; }
+.tower-fight-turn-pill > [role="timer"] {
+    /* Reserve the two-digit countdown, including its separator and unit. A
+       changing digit must not rewrap the header and resize the battlefield. */
+    flex: 0 0 5ch;
+    width: 5ch;
+    min-width: 5ch;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
 .tower-fight-turn-label {
     min-width: 0;
     overflow: hidden;
