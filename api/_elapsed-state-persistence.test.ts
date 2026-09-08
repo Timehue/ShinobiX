@@ -113,8 +113,9 @@ test('a DURABLE settle still publishes a version the client must adopt', async (
         });
         const durable = await kv.get<Record<string, unknown>>(key);
 
-        assert.equal(settled.travelChanged, true, 'the arrival settled');
-        assert.equal(durable?.currentSector, 42, 'and is durable');
+        assert.equal(settled.travelChanged, true, 'the legacy loading mask was removed');
+        assert.equal(durable?.currentSector, 12, 'a client loading mask cannot authorize an arrival');
+        assert.equal(durable?.pendingTravel, null);
         assert.equal(durable?._saveVersion, 8, 'novel state MUST publish a version');
         assert.equal(settled.record._saveVersion, 8, 'and the owner response carries it for adoption');
     } finally {

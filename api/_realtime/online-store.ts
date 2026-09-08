@@ -130,7 +130,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         let travelingUntil = prev?.travelingUntil;
         let travelDestinationSector = prev?.travelDestinationSector;
         let travelDestinationTile = prev?.travelDestinationTile;
-        if (prev) {
+        if (prev && !prev.locationUnverified && this.isFresh(prev, now)) {
             // Presence is no longer allowed to teleport a live session. A sector
             // change must either be a safe-zone exit (sector 0) or the matured
             // destination of a lease minted by /player/travel.
@@ -196,7 +196,8 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
             inBattle: prev?.inBattle,
             // Within-sector tile for live peer rendering; keep the last known tile
             // if this beat didn't carry one (older client / non-sector screen).
-            tile: entry.tile ?? prev?.tile,
+            tile: (entry.tileSector ?? entry.sector) === sector && !(travelingUntil !== undefined && travelingUntil > now)
+                ? entry.tile ?? prev?.tile : prev?.tile,
             movementSeq: prev?.movementSeq ?? 0,
         };
         if (prev && prev.sector !== next.sector) this.removeFromSector(key, prev.sector);
@@ -209,7 +210,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         const key = canon(name);
         const p = this.players.get(key);
         const now = this.now();
-        if (!this.isFresh(p, now)) return null;
+        if (!this.isFresh(p, now) || p.locationUnverified) return null;
         this.settleMaturedTravel(key, p, now);
         return p;
     }
@@ -264,13 +265,10 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
                 displayName: String(row.displayName || row.name || key),
                 sector,
                 character: null,
+                locationUnverified: true,
                 lastSeenAt,
                 connectedAt: Number(row.connectedAt) || lastSeenAt,
                 pendingAttacker: null,
-                travelUntil: null,
-                travelFrom: null,
-                travelTo: null,
-                travelTile: null,
                 inBattle: false,
             } as OnlinePlayer);
             this.addToSector(key, sector);
@@ -347,6 +345,14 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         return true;
     }
 
+    hasSettledTravel(name: string): boolean {
+        return this.settledTravelKeys.has(canon(name));
+    }
+
+    retryTravelSettlement(name: string): void {
+        if (this.players.has(canon(name))) this.settledTravelKeys.add(canon(name));
+    }
+
     moveToTile(name: string, tile: number): OnlinePlayer | null {
         const p = this.get(name);
         if (!p || p.inBattle || (p.travelingUntil !== undefined && p.travelingUntil > this.now())) return null;
@@ -366,6 +372,8 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
                 this.players.delete(k);
                 this.removeFromSector(k, p.sector);
                 this.settledTravelKeys.delete(k);
+                // Include boot rows in departure notifications. Camp creation
+                // revalidates their location separately from the display row.
                 removed.push(departureSector === p.sector ? p : { ...p, departureSector });
             }
         }

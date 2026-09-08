@@ -954,6 +954,25 @@ function sanitizeNarrativeScene(value: unknown): Record<string, unknown> | undef
     return { version: 1, eventId, pageIndex: narrativeIndex(row.pageIndex, 999), lineIndex: narrativeIndex(row.lineIndex, 999), history };
 }
 
+/** Top-level authority applies even to partial saves with no character blob. */
+function preserveServerTopLevelFields(
+    out: Record<string, unknown>,
+    existing: Record<string, unknown> | null,
+    adminContentSlot = false,
+): void {
+    for (const field of SERVER_LEDGER_TOPLEVEL_FIELDS) {
+        if (adminContentSlot && SHARED_ADMIN_CONTENT_FIELDS.includes(field)) continue;
+        if (existing && Object.prototype.hasOwnProperty.call(existing, field)) out[field] = existing[field];
+        else delete out[field];
+    }
+    if (out.currentSector === undefined) out.currentSector = 40;
+    // Protect the migration stamp on partial saves too: rewinding it would
+    // remap a protected sector on the next owner read.
+    out.worldGeoV = existing && Object.prototype.hasOwnProperty.call(existing, 'worldGeoV')
+        ? existing.worldGeoV
+        : WORLD_GEO_VERSION;
+}
+
 export function sanitizeCharacterSave(
     incoming: Record<string, unknown>,
     existing: Record<string, unknown> | null,
@@ -970,8 +989,11 @@ export function sanitizeCharacterSave(
     // new account can't submit absurd starting values.
     const exChar = (existing?.character as Record<string, unknown> | undefined)
         ?? applyCanonicalFirstSave(FIRST_SAVE_BASELINE_CHARACTER);
-    if (!inChar || typeof inChar !== 'object') return incoming;
-    if (!exChar || typeof exChar !== 'object') return incoming;
+    if (!inChar || typeof inChar !== 'object' || !exChar || typeof exChar !== 'object') {
+        const partial = { ...incoming };
+        preserveServerTopLevelFields(partial, existing, opts.adminContentSlot);
+        return partial;
+    }
 
     const char: Record<string, unknown> = { ...inChar };
     if (isFirstSave) delete char.activeStoryReckoning;
@@ -2517,11 +2539,7 @@ export function sanitizeCharacterSave(
     else if (isFirstSave) out.creatorItems = [];
     else if (strictLedger) out.creatorItems = Array.isArray(existing?.creatorItems) ? existing.creatorItems : [];
     else if (sanitizedCreatorItems !== undefined) out.creatorItems = preserveForgedItems(sanitizedCreatorItems, existing?.creatorItems, CREATOR_ITEM_CAP);
-    for (const field of SERVER_LEDGER_TOPLEVEL_FIELDS) {
-        if (opts.adminContentSlot && SHARED_ADMIN_CONTENT_FIELDS.includes(field)) continue;
-        if (existing && Object.prototype.hasOwnProperty.call(existing, field)) out[field] = existing[field];
-        else delete out[field];
-    }
+    preserveServerTopLevelFields(out, existing, opts.adminContentSlot);
     if (!opts.adminContentSlot) {
         delete out.creatorMissions;
         delete out.creatorRaids;
@@ -2532,9 +2550,7 @@ export function sanitizeCharacterSave(
     // post-reorg). A pre-reorg record is only ever POSTed after a GET migrated
     // it (api/_elapsed-state.ts settleSaveRecord), so an unstamped `existing`
     // means "new world" here, never "needs remap".
-    out.worldGeoV = existing && Object.prototype.hasOwnProperty.call(existing, 'worldGeoV')
-        ? existing.worldGeoV
-        : WORLD_GEO_VERSION;
+    // Applied by preserveServerTopLevelFields above, including partial saves.
     return out;
 }
 
@@ -2751,6 +2767,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Sensitive economy fields (ryo, inventory, etc.) are stripped for non-owners.
         const identity = await authedPlayerOrAdmin(req, name);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        // Only owner reads advance the version stream. A client loading-mask
+        // descriptor is never consulted for arrival; the durable lease is.
+        const ownerTravel = !isClanSave && !identity.admin && identity.name === name
+            ? await (await import('../_realtime/travel-lease.js')).getTravelLease(name)
+            : null;
+        if (ownerTravel && Date.now() >= ownerTravel.arrivalAt) {
+            try {
+                await (await import('../_realtime/travel-lease.js')).settleTravelLease(name, ownerTravel);
+            } catch {
+                return res.status(503).json({ error: 'Your arrival is still settling. Please retry.' });
+            }
+        }
         const stored = await kv.get<Record<string, unknown>>(key);
         if (stored === null) return res.status(404).end();
 
@@ -2776,9 +2804,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // `persist: false` still RETURNS the settled projection, so a foreign reader
         // sees correct regen — only the durable write is skipped, and the owner's own
         // next read or save persists it.
-        const data = isClanSave
+        let data = isClanSave
             ? stored
             : (await settleSaveRecordForRead(name, stored, { persist: isPlayerSelfRead })).record;
+
+        // A trip can mature while the save/elapsed-state reads are in flight.
+        // Do not return an old town origin with neither arrival nor travel mask.
+        const positionNow = Date.now();
+        if (ownerTravel && positionNow >= ownerTravel.arrivalAt) {
+            const travel = await import('../_realtime/travel-lease.js');
+            if (data.worldTravelReceipt !== travel.travelLeaseReceipt(ownerTravel)) {
+                try {
+                    await travel.settleTravelLease(name, ownerTravel, positionNow);
+                    const arrived = await kv.get<Record<string, unknown>>(key);
+                    if (arrived) data = arrived;
+                } catch {
+                    return res.status(503).json({ error: 'Your arrival is still settling. Please retry.' });
+                }
+            }
+        }
 
         // Project the save by reader.
         // - Owners + authorized admins + clan saves: full save (combatOnly just
@@ -2802,6 +2846,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let payload: Record<string, unknown>;
         if (canReadFullSave) {
             payload = combatOnly ? combatProjection(data) : data;
+            if (isPlayerSelfRead && !combatOnly && ownerTravel && positionNow < ownerTravel.arrivalAt) {
+                payload = { ...payload, currentSector: ownerTravel.originSector,
+                    pendingTravel: { destinationSector: ownerTravel.destinationSector, arrivalAt: ownerTravel.arrivalAt,
+                        remainingMs: ownerTravel.arrivalAt - positionNow } };
+            }
         } else {
             // Admin content slots additionally expose the shared authored-content
             // root fields, which every client needs to hydrate custom jutsu /

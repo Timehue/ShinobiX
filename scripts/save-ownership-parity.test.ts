@@ -89,10 +89,16 @@ test('every per-pet field is covered by the blanket on character.pets', () => {
 test('client-owned state stays restorable', () => {
     // The fields the recovery banner exists to protect. If one of these ever
     // classifies as server-owned, the banner would silently stop offering it.
-    for (const path of [['currentSector'], ['currentBiome'], ['acceptedMissionIds'], ['missionProgress'], ['triggeredEvents']]) {
+    for (const path of [['currentBiome'], ['acceptedMissionIds'], ['missionProgress'], ['triggeredEvents']]) {
         assert.equal(isServerOwnedSavePath(path), false, `${path.join('.')} must remain restorable`);
     }
     for (const field of ['inventory', 'equipment', 'ryo', 'nindo', 'battleHistory', 'equippedJutsuIds']) {
         assert.equal(isServerOwnedSavePath(['character', field]), false, `character.${field} must remain restorable`);
+    }
+});
+
+test('world position and loading masks cannot be restored through a generic autosave', () => {
+    for (const field of ['currentSector', 'currentTile', 'pendingTravel', 'worldTravelReceipt']) {
+        assert.equal(isServerOwnedSavePath([field]), true);
     }
 });

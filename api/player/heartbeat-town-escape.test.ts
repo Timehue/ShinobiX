@@ -76,6 +76,7 @@ before(async () => {
 
 beforeEach(async () => {
     for (const key of await kv.keys('*')) await kv.del(key);
+    await kv.set(`save:${PLAYER}`, { character: { name: PLAYER, level: 20 }, currentSector: WILD, currentTile: 5, _saveVersion: 1 });
     onlineStore.remove(PLAYER);
     onlineStore.upsert({ name: PLAYER, sector: WILD, character: { level: 20 }, tile: 5 });
 });
