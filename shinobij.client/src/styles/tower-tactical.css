@@ -140,10 +140,11 @@
 }
 
 .tower-board-toolbar {
-    position: absolute;
+    position: relative;
     z-index: 24;
-    top: 8px;
-    right: 8px;
+    flex: 0 0 auto;
+    align-self: flex-end;
+    max-width: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -207,10 +208,19 @@
 .tower-board-stage {
     position: relative;
     display: flex;
+    flex-direction: column;
     flex: 1 1 auto;
     min-width: 0;
-    min-height: 0;
+    min-height: 90px;
     overflow: hidden;
+}
+
+/* The stage owns the available height. Legacy direct-board minimums must not
+   make its measured viewport extend underneath the action controls. */
+#combat.tower-tactical-combat .tower-board-stage > .tower-board-area {
+    flex: 1 1 0 !important;
+    height: 0;
+    min-height: 0 !important;
 }
 
 /* Tactical feedback stays inside the battlefield chrome so the map remains the
@@ -422,6 +432,8 @@
 
 .tower-header-cancel {
     flex: 0 0 auto;
+    min-width: 100px;
+    min-height: 44px;
     padding: 4px 9px;
     border-color: #7dd3fc;
     color: #e0f2fe;
@@ -466,6 +478,7 @@
 }
 
 .tower-arena-loadout-note {
+    flex: 0 0 auto;
     margin: 8px 0 0;
     padding: 7px 9px;
     border: 1px solid rgba(167, 139, 250, 0.5);
@@ -585,11 +598,6 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-    }
-
-    #combat.tower-tactical-combat .tower-board-toolbar {
-        top: 6px;
-        right: 6px;
     }
 
     #combat.tower-tactical-combat .tower-board-controls {
@@ -1166,6 +1174,20 @@
 /* BattleTowerFight's current action markup keeps its live command and loadout
    bands horizontal at the same compact tiers as the containment contract. */
 @media (max-width: 979px) {
+    #combat.tower-tactical-combat .tower-fight-header {
+        padding-right: 116px;
+    }
+
+    #combat.tower-tactical-combat .tower-header-cancel {
+        right: 68px;
+        width: 44px;
+        min-width: 44px;
+        padding: 0;
+    }
+
+    #combat.tower-tactical-combat .tower-header-cancel > span { display: none; }
+    #combat.tower-tactical-combat .tower-header-cancel::after { content: "×"; font-size: 20px; }
+
     #combat.tower-tactical-combat .tower-squad-rail {
         grid-column: 1;
         grid-row: 2;
@@ -1194,7 +1216,7 @@
 
     #combat.tower-tactical-combat .tower-battle-tabs .battle-tabbar {
         display: grid !important;
-        height: 84px !important;
+        height: 44px !important;
         margin: 0 !important;
     }
 

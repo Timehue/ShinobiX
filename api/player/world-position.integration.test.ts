@@ -36,6 +36,7 @@ before(async () => {
 
 beforeEach(async () => {
     for (const key of await kv.keys('*')) await kv.del(key);
+    (await import('../_realtime/walked-tile.js')).resetWalkedTileThrottleForTests();
     presence.onlineStore.remove(PLAYER);
     const { PET_BREEDING_MIGRATION_VERSION } = await import('../pet/_owned-pet.js');
     await kv.set(SAVE, {
@@ -169,9 +170,24 @@ test('a cleanup failure retries without another save version or arrival effect',
     const committed = (await kv.get<Json>(SAVE))!;
     assert.equal(committed.currentSector, 13);
     assert.ok(committed.worldTravelReceipt);
+    const walked = await import('../_realtime/walked-tile.js');
+    assert.equal((await walked.readWalkedTile(kv, PLAYER))?.tile, 44);
+    walked.resetWalkedTileThrottleForTests();
+    await walked.noteWalkedTile(kv, PLAYER, 13, 77);
     assert.equal(await travel.settleTravelLease(PLAYER), true);
     assert.equal((await kv.get<Json>(SAVE))?._saveVersion, committed._saveVersion);
     assert.equal(await travel.getTravelLease(PLAYER), null);
+    assert.equal((await request(saveHandler, 'GET')).body?.currentTile, 77,
+        'retrying arrival cleanup must not erase walking after the committed arrival');
+});
+
+test('cold HTTP recovery preserves main walked-tile recovery while rejecting a stale client tile', async () => {
+    const walked = await import('../_realtime/walked-tile.js');
+    await walked.noteWalkedTile(kv, PLAYER, 12, 77);
+    const out = await request(heartbeat, 'POST', { name: PLAYER, sector: 55, tile: 1 });
+    assert.equal(out.status, 200);
+    assert.equal(out.body?.sector, 12);
+    assert.equal(out.body?.tile, 77);
 });
 
 test('legacy string leases with metadata settle and clear by exact stored value', async () => {
@@ -360,6 +376,13 @@ test('a real socket reconnect discards delayed hydration superseded by HTTP pres
         auth: { 'x-player-name': PLAYER, 'x-player-token': token } });
     t.after(() => client.close());
     await new Promise<void>((resolve, reject) => { client.once('connect', resolve); client.once('connect_error', reject); client.connect(); });
+    const walked = await import('../_realtime/walked-tile.js');
+    await walked.noteWalkedTile(kv, PLAYER, 12, 77);
+    const coldPublished = new Promise<Json>((resolve) => client.once('presence:sector', resolve));
+    client.emit('presence', { sector: 55, tile: 1, enterTown: false });
+    assert.equal((await coldPublished).sector, 12);
+    assert.equal(presence.onlineStore.get(PLAYER)?.tile, 77, 'socket-first hydration also restores the durable walk');
+    presence.onlineStore.remove(PLAYER);
     const original = kv.get.bind(kv);
     let release!: () => void;
     let captured!: () => void;

@@ -81,6 +81,162 @@ export function showdownMeleeContact(
     };
 }
 
+export interface ShowdownPathPoint { x: number; z: number }
+export interface ShowdownTravelRoute {
+    points: readonly ShowdownPathPoint[];
+    length: number;
+}
+export interface ShowdownMeleeRoute extends ShowdownTravelRoute {
+    impactX: number;
+    impactZ: number;
+    detoured: boolean;
+}
+
+type ShowdownObstacle = ShowdownPathPoint & { radius: number };
+
+function clearRoute(points: readonly ShowdownPathPoint[], radius: number, obstacles: readonly ShowdownObstacle[]): boolean {
+    return points.slice(1).every((b, i) => obstacles.every(obstacle =>
+        showdownSegmentClearance(points[i], b, obstacle) >= radius + obstacle.radius + 0.08 - 1e-9));
+}
+
+/** Round a corner only when every resulting swept segment remains clear. */
+function travelRoute(points: readonly ShowdownPathPoint[], radius: number, obstacles: readonly ShowdownObstacle[]): ShowdownTravelRoute {
+    const distinct = points.filter((point, i) => !i || Math.hypot(point.x - points[i - 1].x, point.z - points[i - 1].z) > 1e-6);
+    let rounded = distinct;
+    for (const trim of [1.1, 0.55, 0.275]) {
+        const candidate = [distinct[0]];
+        for (let i = 1; i < distinct.length - 1; i++) {
+            const a = distinct[i - 1], corner = distinct[i], b = distinct[i + 1];
+            const incoming = Math.hypot(corner.x - a.x, corner.z - a.z);
+            const outgoing = Math.hypot(b.x - corner.x, b.z - corner.z);
+            const cut = Math.min(trim, incoming * 0.45, outgoing * 0.45);
+            const entry = { x: corner.x + (a.x - corner.x) * cut / incoming, z: corner.z + (a.z - corner.z) * cut / incoming };
+            const exit = { x: corner.x + (b.x - corner.x) * cut / outgoing, z: corner.z + (b.z - corner.z) * cut / outgoing };
+            candidate.push(entry);
+            for (let sample = 1; sample <= 16; sample++) {
+                const t = sample / 16, s = 1 - t;
+                candidate.push({ x: s * s * entry.x + 2 * s * t * corner.x + t * t * exit.x, z: s * s * entry.z + 2 * s * t * corner.z + t * t * exit.z });
+            }
+        }
+        if (distinct.length > 1) candidate.push(distinct[distinct.length - 1]);
+        if (clearRoute(candidate, radius, obstacles)) { rounded = candidate; break; }
+    }
+    return { points: rounded, length: rounded.slice(1).reduce((sum, b, i) => sum + Math.hypot(b.x - rounded[i].x, b.z - rounded[i].z), 0) };
+}
+
+/** Reserves use the clear space behind their team instead of cutting through
+ * the other field slots. The exchange is staged so incoming/outgoing paths
+ * are never occupied at the same time. */
+export function showdownReserveRoute(from: ShowdownPathPoint, to: ShowdownPathPoint, radius: number, obstacles: readonly ShowdownObstacle[], side: "player" | "enemy"): ShowdownTravelRoute {
+    if (clearRoute([from, to], radius, obstacles)) return travelRoute([from, to], radius, obstacles);
+    const sign = side === "player" ? 1 : -1;
+    const back = sign * Math.max(sign * from.z, sign * to.z, ...obstacles.map(o => sign * o.z + radius + o.radius + 0.3));
+    const corridor = [from, { x: from.x, z: back }, { x: to.x, z: back }, to];
+    return travelRoute(clearRoute(corridor, radius, obstacles) ? corridor : [from], radius, obstacles);
+}
+
+/** A short acceleration/deceleration ramp leaves a steady gallop between. */
+export function showdownTravelProgress(progress: number): number {
+    const p = clamp(progress, 0, 1), ramp = 0.16, rate = 1 / (1 - ramp);
+    if (p < ramp) return rate * p * p / (2 * ramp);
+    if (p > 1 - ramp) return 1 - rate * (1 - p) * (1 - p) / (2 * ramp);
+    return rate * (p - ramp / 2);
+}
+
+export const SHOWDOWN_SWITCH_TIMING = Object.freeze({ exitEnd: 0.44, entryStart: 0.5, entryEnd: 0.92, reinforcementStart: 0.14 });
+
+/** Swept-disc clearance, not just endpoint spacing: diagonal attacks can
+ * otherwise pass through a large team-mate while stopping short of the foe. */
+export function showdownSegmentClearance(a: ShowdownPathPoint, b: ShowdownPathPoint, obstacle: ShowdownPathPoint): number {
+    const dx = b.x - a.x, dz = b.z - a.z;
+    const lengthSq = dx * dx + dz * dz;
+    const t = lengthSq ? clamp(((obstacle.x - a.x) * dx + (obstacle.z - a.z) * dz) / lengthSq, 0, 1) : 0;
+    return Math.hypot(obstacle.x - a.x - dx * t, obstacle.z - a.z - dz * t);
+}
+
+/** Short recoil and dodge offsets stop at the first neighbour's footprint. */
+export function showdownReactionPosition(
+    from: ShowdownPathPoint,
+    to: ShowdownPathPoint,
+    radius: number,
+    obstacles: readonly (ShowdownPathPoint & { radius: number })[],
+): ShowdownPathPoint {
+    const dx = to.x - from.x, dz = to.z - from.z;
+    const lengthSq = dx * dx + dz * dz;
+    if (lengthSq < 1e-10) return from;
+    let limit = 1;
+    for (const obstacle of obstacles) {
+        const ox = from.x - obstacle.x, oz = from.z - obstacle.z;
+        const clearance = radius + obstacle.radius + 0.08;
+        const c = ox * ox + oz * oz - clearance * clearance;
+        const b = ox * dx + oz * dz;
+        if (b >= 0) continue; // Moving away from this neighbour.
+        if (c <= 0) { limit = 0; continue; }
+        const discriminant = b * b - lengthSq * c;
+        if (discriminant < 0) continue;
+        limit = Math.min(limit, Math.max(0, (-b - Math.sqrt(discriminant)) / lengthSq));
+    }
+    return { x: from.x + dx * limit, z: from.z + dz * limit };
+}
+
+/** Keep clear lanes straight. If another body obstructs that lane, approach
+ * through the empty centre aisle and strike the target from the front.
+ * Calculated once per action and shared by the root motion and its wake. */
+export function showdownMeleeRoute(
+    from: ShowdownPathPoint,
+    to: ShowdownPathPoint,
+    attackerRadius: number,
+    defenderRadius: number,
+    obstacles: readonly (ShowdownPathPoint & { radius: number })[],
+    strikeDrive = 1,
+): ShowdownMeleeRoute {
+    const direct = showdownMeleeContact(from.x, from.z, to.x, to.z, attackerRadius, defenderRadius, strikeDrive);
+    const clear = (points: readonly ShowdownPathPoint[]) => clearRoute(points, attackerRadius, obstacles);
+    let points: ShowdownPathPoint[] = [from, { x: direct.x, z: direct.z }];
+    let impact = direct;
+    let detoured = false;
+    if (!clear(points)) {
+        const frontal = showdownMeleeContact(to.x, from.z, to.x, to.z, attackerRadius, defenderRadius, strikeDrive);
+        // Leave a short final approach even when the largest contact gap
+        // reaches the arena centre, so the pet faces its foe before striking.
+        const middleZ = (from.z + to.z) / 2 + Math.sign(from.z - to.z) * 0.4;
+        const aisle = [from, { x: from.x, z: middleZ }, { x: to.x, z: middleZ }, { x: frontal.x, z: frontal.z }];
+        if (clear(aisle)) {
+            points = aisle;
+            impact = frontal;
+            detoured = true;
+        } else {
+            // Custom formations may leave no corridor. Hold the root rather
+            // than clip through a bystander; the authored attack/VFX still play.
+            points = [from];
+            detoured = true;
+        }
+    }
+    return {
+        ...travelRoute(points, attackerRadius, obstacles), detoured,
+        impactX: impact.impactX, impactZ: impact.impactZ,
+    };
+}
+
+/** Arc-length sampling makes different corridors take the same attack beat.
+ * Tangents are supplied so a detour turns its body along the actual dash. */
+export function showdownRoutePoint(route: ShowdownTravelRoute, progress: number): ShowdownPathPoint & { dx: number; dz: number } {
+    let remaining = route.length * clamp(progress, 0, 1);
+    let tangent = { dx: 0, dz: 1 };
+    for (let i = 1; i < route.points.length; i++) {
+        const a = route.points[i - 1], b = route.points[i];
+        const length = Math.hypot(b.x - a.x, b.z - a.z);
+        if (length < 0.00001) continue;
+        tangent = { dx: (b.x - a.x) / length, dz: (b.z - a.z) / length };
+        if (remaining <= length || i === route.points.length - 1) {
+            const t = Math.min(1, remaining / length);
+            return { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, dx: (b.x - a.x) / length, dz: (b.z - a.z) / length };
+        }
+        remaining -= length;
+    }
+    return { ...route.points[route.points.length - 1], ...tangent };
+}
+
 export interface ShowdownAttackRhythm {
     /** First authored anticipation frame; earlier time remains the living idle. */
     windupStart: number;

@@ -1282,6 +1282,13 @@ export default defineConfig({
                 propertyReadSideEffects: false,
             },
             output: {
+                // Repeated long import URLs add bytes to every dependent chunk.
+                // Keep content hashes and the service worker's name-hash shape;
+                // the manifest still maps source modules to their emitted files.
+                // Vendor names remain visible to the independent size gates.
+                chunkFileNames: (chunk) => chunk.name.endsWith('-vendor')
+                    ? 'assets/[name]-[hash].js'
+                    : 'assets/c-[hash].js',
                 // Pull React + ReactDOM into their own vendor chunk so they
                 // can be cached independently of app code. The app bundle
                 // changes constantly; React itself rarely does, so users

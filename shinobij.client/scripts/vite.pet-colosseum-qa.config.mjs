@@ -13,7 +13,9 @@ const projectRoot = fileURLToPath(new URL("..", import.meta.url));
  */
 export default defineConfig({
     root: projectRoot,
-    publicDir: false,
+    // Serve the real portraits and rigs in dev too. Production still uses the
+    // curated assets already in dist (copyPublicDir stays false below).
+    publicDir: "public",
     plugins: [react()],
     build: {
         outDir: resolve(projectRoot, "dist"),

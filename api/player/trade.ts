@@ -21,14 +21,18 @@ import { makeEconomyTxId, reserveEconomyTx, markEconomyTx, completeEconomyTx, fa
  * both failClosed → currency safety), the split is recomputed from _trade-core,
  * and neither side's amount comes from the client body.
  *
- *   POST { playerName, toPlayer, currency, amount, nonce? }
+ *   POST { playerName, toPlayer, currency, amount, nonce }
  *     → { ok, currency, debit, credit, burned, toPlayer }
  *
  * Money safety:
  *   - only ryo / fateShards / boneCharms / auraStones are tradeable (honor seals
  *     are Vanguard-locked, mythic seals are top-rarity — both excluded).
  *   - VOID when sender + recipient share an IP/device (no funnelling to an alt).
- *   - optional client `nonce` makes a retried request idempotent (NX receipt).
+ *   - the client `nonce` is REQUIRED (F15, 2026-09-07): it is what makes a
+ *     retried request idempotent (NX receipt). A body without one has no replay
+ *     identity, so a lost response would turn the client's own retry into a
+ *     second, unrelated transfer; it is answered 400 with a reload hint instead.
+ *     `ALLOW_NONCELESS_TRANSFERS=1` re-admits legacy bodies without a deploy.
  */
 
 const AUDIT_PREFIX = 'audit:player-trade:';
@@ -116,13 +120,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         //   • no prior           → first attempt (or a pre-debit failure that
         //     rolled its pending marker back); run for real.
         const nonce = typeof body.nonce === 'string' ? body.nonce.slice(0, 64).replace(/[^a-zA-Z0-9_-]/g, '') : '';
+        // F15: no nonce, no transfer. The shipped client always sends one and
+        // keeps it across retries (lib/player-trade.ts), so this only reaches a
+        // tab that predates the nonce; it is told to reload rather than run a
+        // transfer that cannot be made exactly-once.
+        if (!nonce && process.env.ALLOW_NONCELESS_TRANSFERS !== '1') {
+            return res.status(400).json({ error: 'This transfer needs a fresh session. Reload the game and try again.', reason: 'nonce-required' });
+        }
         const nonceKey = nonce ? `trade:nonce:${playerName}:${nonce}` : '';
         const fingerprint = tradeNonceFingerprint(toSlug, currency, amount);
         // Fast path only. The authoritative check is repeated UNDER both save
         // locks below: this one runs before the locks, so two concurrent
-        // attempts of the same nonce could both pass it. A legacy client that
-        // sends no nonce keeps working, with no replay identity (its own retry
-        // path is a fresh transfer — the client wrapper now keeps the nonce).
+        // attempts of the same nonce could both pass it. (`nonceKey` is empty
+        // only under the legacy kill switch above.)
         if (nonceKey) {
             const prior = await kv.get<NonceRecord>(nonceKey);
             if (typeof prior?.fp === 'string' && prior.fp !== fingerprint) {

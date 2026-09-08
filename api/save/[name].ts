@@ -70,6 +70,7 @@ import { mirrorSlotContent } from '../_content-store.js';
 import { syncCurrencyLedger } from '../_currency-ledger.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
 import { auraRegenBonus, settleSaveRecordForRead } from '../_elapsed-state.js';
+import { readWalkedTile, resumeTileFor } from '../_realtime/walked-tile.js';
 import { applyCanonicalFirstSave } from './_first-save-baseline.js';
 import { preserveStatPointEntitlement } from './_stat-entitlement.js';
 import { meetsItemLevelReq } from '../../shared/item-level-gate.js';
@@ -2856,6 +2857,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // root fields, which every client needs to hydrate custom jutsu /
             // items / events / cards. See SHARED_ADMIN_CONTENT_FIELDS.
             payload = buildPublicSaveDTO(data, { combat: combatOnly, sharedContent: isAdminContentSlot(name) });
+        }
+        // F03: the owner's restore pull resumes on the tile the player last
+        // stood on, not the road they arrived by. `currentTile` is server-owned
+        // (the client never sends it back), so this is a read-only projection
+        // of walked-tile.ts over the arrival tile the travel settle persisted.
+        if (canReadFullSave && !combatOnly && !isClanSave) {
+            const walked = await readWalkedTile(kv, name).catch(() => null);
+            const resume = resumeTileFor(walked, Number(payload.currentSector), payload.currentTile);
+            if (resume !== undefined) payload = { ...payload, currentTile: resume };
         }
         // Owner reads (the login / restore pull) also carry the account-side
         // mirror of un-settled World explore/chest request ids, so a new device
