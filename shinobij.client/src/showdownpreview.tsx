@@ -601,7 +601,7 @@ function ReviewFrames() {
         observer.observe(document.body, { subtree: true, childList: true, characterData: true });
         return () => { observer.disconnect(); timers.forEach(window.clearTimeout); };
     }, []);
-    return <details style={{ position: "fixed", top: 4, left: "20%", width: "60%", zIndex: 2147483647, color: "white", background: "#111e", padding: 8 }}>
+    return <details style={{ position: "fixed", top: 4, left: "20%", width: "60%", zIndex: "var(--z-combat-hud)", color: "white", background: "#111e", padding: 8 }}>
         <summary>Review frames ({frames.length})</summary>
         <div style={{ maxHeight: "85vh", overflow: "auto" }}>
             {frames.map((frame, index) => <figure key={`${index}:${frame.label}`} style={{ margin: "8px 0" }}>
