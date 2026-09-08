@@ -195,26 +195,31 @@ describe("full save-payload revision", () => {
     });
 });
 
-describe("save-persistence wiring in App.tsx", () => {
+describe("save-persistence wiring through the App coordinator", () => {
+    const coordinatorSource = readFileSync(new URL("./player-save-coordinator.ts", import.meta.url), "utf8");
+    const lifecycleSource = readFileSync(new URL("./use-player-save-lifecycle.ts", import.meta.url), "utf8");
     const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
     const autosaveSource = readFileSync(new URL("./use-capability-guarded-autosave.ts", import.meta.url), "utf8");
 
     it("connects extracted autosaves and in-App required saves to one coordinator", () => {
-        const initialization = appSource.slice(
-            appSource.indexOf("if (!savePersistenceRef.current)"),
-            appSource.indexOf("async function downloadLocalConflictDraft"),
-        );
+        const start = coordinatorSource.indexOf("if (!savePersistenceRef.current)");
+        const end = coordinatorSource.indexOf("const persistSave =", start);
+        assert.ok(start >= 0 && end > start);
+        const initialization = coordinatorSource.slice(start, end);
+        assert.match(appSource, /const saveCoordinator = usePlayerSaveCoordinator\(\{/);
+        assert.match(appSource, /return saveCoordinator\.pushSaveToServer\(characterToSave, name, overrides, opts\)/);
+        assert.match(appSource, /usePlayerSaveLifecycle\(\{[\s\S]*?coordinator: saveCoordinator/);
         assert.match(initialization, /createSavePersistence\(\{/);
         assert.match(initialization, /flight: saveFlightRef\.current/);
         assert.match(initialization, /dirty: charDirtyRef/);
         assert.match(initialization, /failureCount: saveFailCountRef/);
-        assert.match(appSource, /const persistSave = savePersistenceRef\.current\.persistAutosave/);
-        assert.match(appSource, /useCapabilityGuardedAutosave\(\{[\s\S]*?persistSave,[\s\S]*?\}\)/,
+        assert.match(coordinatorSource, /const persistSave = savePersistenceRef\.current\.persistAutosave/);
+        assert.match(lifecycleSource, /useCapabilityGuardedAutosave\(\{[\s\S]*?persistSave,[\s\S]*?\}\)/,
             "App must delegate every delayed autosave clock to the guarded hook");
         assert.equal((autosaveSource.match(/void persistSave\(snapshot\)/g) ?? []).length, 2,
             "both guarded dirty/flush paths must use the extracted persistence coordinator");
         assert.match(
-            appSource,
+            coordinatorSource,
             /return savePersistenceRef\.current!\.persistRequired\(\(\) => \{/,
             "immediate saves must queue and be awaited rather than bypassing the coordinator",
         );
@@ -224,7 +229,7 @@ describe("save-persistence wiring in App.tsx", () => {
         // A version that can go BACKWARDS guarantees a spurious 409 on the next
         // autosave, and the 409 path applies the server snapshot wholesale.
         assert.match(
-            appSource,
+            lifecycleSource,
             /detail\.source !== "full-save"[\s\S]{0,140}acceptExternalSaveVersion\(version, detail\.accountName\)/,
             "version-only mutation events must use the account-scoped monotonic adopter",
         );
@@ -239,10 +244,11 @@ describe("save-persistence wiring in App.tsx", () => {
             /params\.latestVersion\.current = adoptSaveVersion\(params\.latestVersion\.current, acknowledgement\?\._saveVersion\)/,
             "autosave and immediate save acknowledgements must use the shared monotonic adopter",
         );
-        const versionedCommit = appSource.slice(
-            appSource.indexOf("function commitVersionedCharacter"),
-            appSource.indexOf("const {", appSource.indexOf("function commitVersionedCharacter")),
-        );
+        assert.match(appSource, /return saveCoordinator\.commitVersionedCharacter\(nextCharacter, incomingVersion\)/);
+        const commitStart = coordinatorSource.indexOf("function commitVersionedCharacter");
+        const commitEnd = coordinatorSource.indexOf("function pushSaveToServer", commitStart);
+        assert.ok(commitStart >= 0 && commitEnd > commitStart);
+        const versionedCommit = coordinatorSource.slice(commitStart, commitEnd);
         assert.match(versionedCommit, /acceptVersionedSnapshot\(latestSaveVersionRef\.current, incomingVersion\)/);
         assert.ok(versionedCommit.indexOf("if (!decision.accepted) return false") < versionedCommit.indexOf("latestSaveVersionRef.current = decision.latestVersion"));
         assert.ok(versionedCommit.indexOf("installAuthoritativeSaveRef") < versionedCommit.indexOf("setCharacter(mergedCharacter)"),
