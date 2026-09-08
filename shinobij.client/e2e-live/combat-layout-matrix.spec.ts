@@ -154,8 +154,8 @@ async function seedSave(
     expect(seeded.status()).toBe(200);
 }
 
-async function seedAccount(request: APIRequestContext, testInfo: TestInfo, mode: 'solo' | 'pvp' | 'tower') {
-    const name = `${mode}${safeProject(testInfo)}champ`.slice(0, 20);
+async function seedAccount(request: APIRequestContext, testInfo: TestInfo, mode: 'solo' | 'pvp' | 'tower', fixture = 'champ') {
+    const name = `${mode}${safeProject(testInfo)}${fixture}`.slice(0, 20);
     const password = 'LayoutMatrix!1234';
     const registered = await request.post('/api/player-auth', { data: { action: 'register', name, password } });
     expect(registered.status()).toBe(200);
@@ -2049,7 +2049,7 @@ test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, 
 });
 
 test('Tower countdown digits keep the header and battlefield geometry stable', async ({ page, request }, testInfo) => {
-    const { name, token } = await seedAccount(request, testInfo, 'tower');
+    const { name, token } = await seedAccount(request, testInfo, 'tower', 'clock');
     const savePreview = await fetchAuthoritativeSave(request, { name, token });
     await installSession(page, name, token, { acknowledgeEstablishedNotices: true, savePreview });
     await page.addInitScript(() => localStorage.setItem('lastScreen.v1', 'battleTowers'));
@@ -2084,6 +2084,7 @@ test('Tower countdown digits keep the header and battlefield geometry stable', a
         expect(Math.abs(timerBox!.width - timerBefore!.width), `countdown width at ${remaining}s`).toBeLessThanOrEqual(1);
         expectGeometryNear(await selectionGeometry(page, '.screen-battleTowerFight'), before, `Tower countdown at ${remaining}s`);
     }
+    await page.screenshot({ path: testInfo.outputPath('tower-countdown-1024x768.png'), animations: 'disabled' });
 });
 
 test('Tower party-MPvE authoritative variant keeps jutsu selection geometry stable', async ({ page, request }, testInfo) => {
