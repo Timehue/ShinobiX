@@ -2,7 +2,7 @@
 
 Goal: make the main application and pet presentation code easier to change and test while preserving gameplay, player saves, API behavior, and visual output. Use incremental extractions with compatible entry points.
 
-This records the initial planning assessment. A bounded first pass was subsequently implemented from clean main in an isolated worktree, preserving the original checkout's unresolved integration. See [the implementation report](refactor-pass-report-2026-09-08.md) for the actual scope, measurements, test results, and remaining WebKit baseline failure. The phases below remain a roadmap, not a claim that every extraction was completed.
+This records the initial planning assessment. A bounded first pass was subsequently implemented from clean main in an isolated worktree. See [the implementation report](refactor-pass-report-2026-09-08.md) for its scope and measurements, and [the integration report](refactor-integration-report-2026-09-08.md) for the subsequent conflict resolution, Tower layout repair, and integrated validation. The phases below remain a roadmap, not a claim that every extraction was completed.
 
 **Current evidence**
 
