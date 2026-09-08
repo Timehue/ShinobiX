@@ -2263,7 +2263,9 @@ export function BattleTowerFight({
                                         || mode === "heal"
                                         || mode === "cleanse"
                                     );
-                                    const inspectable = a.side === "enemy";
+                                    // While aiming, only actual actor targets may intercept
+                                    // the field; inspection must not cover a ground destination.
+                                    const inspectable = a.side === "enemy" && mode === "idle";
                                     const actorActionable = targetable || selfTargetable || inspectable;
                                     const inspected = a.id === inspectedEnemyId;
                                     const isActive = a.id === activeId;
@@ -2335,6 +2337,13 @@ export function BattleTowerFight({
                         <BattleTabBar tab={battleTabs.tab} setTab={battleTabs.setTab} unread={battleTabs.unread} />
                     </div>
 
+                    {/* Keep the rules note outside the fixed-height command/card dock. */}
+                    {arenaSuppressedGear && (
+                        <p className="tower-arena-loadout-note" role="note">
+                            Team Arena disables consumables and thrown ammunition. Reusable hand weapons remain available.
+                        </p>
+                    )}
+
                     {/* Action bar — command bar + painted jutsu/weapon/item cards (the main combat UI) */}
                     <div className="tower-action-dock">
                         <div id="tower-action-guidance" className="tower-sr-only" role={actionFeedback.phase === "error" ? "alert" : "status"} aria-live="polite" aria-atomic="true" aria-busy={busy}>
@@ -2397,11 +2406,6 @@ export function BattleTowerFight({
                         </CombatCommandBar>
 
                         {/* Jutsu / weapon / consumable cards */}
-                        {arenaSuppressedGear && (
-                            <p className="tower-arena-loadout-note" role="note">
-                                Team Arena disables consumables and thrown ammunition. Reusable hand weapons remain available.
-                            </p>
-                        )}
                         {(myJutsu.length > 0 || actionWeapons.length > 0 || actionConsumables.length > 0) && (
                             <div className="jutsu-layout-card combat-jutsu-bar" role="region" aria-label="Jutsu, weapons, and items">
                                 <div className="combat-equipped-jutsu-grid" style={myTurn ? undefined : { opacity: 0.65 }}>
