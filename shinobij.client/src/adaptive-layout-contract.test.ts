@@ -176,6 +176,8 @@ test('world-map resize, pointer loss, and observers have bounded cleanup', () =>
 test('all full-screen pet modes use the shared takeover contract', () => {
     const petFiles = [
         join(srcDir, 'components', 'PetColiseum.tsx'),
+        join(srcDir, 'components', 'pet-coliseum', 'frame-battle.tsx'),
+        join(srcDir, 'components', 'pet-coliseum', 'arena-match.tsx'),
         join(srcDir, 'components', 'PetWarfrontMatch.tsx'),
         join(srcDir, 'components', 'PetBoardArena.tsx'),
     ].map((file) => readFileSync(file, 'utf8')).join('\n');
