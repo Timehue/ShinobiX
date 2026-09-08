@@ -37,6 +37,7 @@ import { sanitizeCharacterSave } from './[name].js';
  */
 
 const handlerSource = readFileSync(join(process.cwd(), 'api', 'save', '[name].ts'), 'utf8');
+const projectionSource = readFileSync(join(process.cwd(), 'api', 'save', '_projections.ts'), 'utf8');
 
 // ── (a) Unclassified-field ratchet ──────────────────────────────────────────
 // Every character-scope field the sanitizer/handler touches by name must have
@@ -279,7 +280,7 @@ describe('no shadow ownership lists in the save handler', () => {
         ];
         for (const name of extractedNames) {
             assert.doesNotMatch(
-                handlerSource,
+                handlerSource + projectionSource,
                 new RegExp(`const ${name}\\s*[:=]`),
                 `${name} must stay derived from _state-ownership.ts, not re-declared in the handler`,
             );
@@ -289,5 +290,7 @@ describe('no shadow ownership lists in the save handler', () => {
             /from '\.\/_state-ownership\.js'/,
             'the handler must import its boundaries from the ownership manifest',
         );
+        assert.match(projectionSource, /from '\.\/_state-ownership\.js'/,
+            'projections must import their boundaries from the same ownership manifest');
     });
 });
