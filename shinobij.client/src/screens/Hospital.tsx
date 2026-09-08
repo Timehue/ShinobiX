@@ -79,7 +79,10 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
         // Confirm a paid discharge (chargedRyo > 0). Free checkouts and Healer
         // self-discharges (chargedRyo === 0) leave silently as before.
         if (chargedRyo > 0) {
-            gameToast(`💰 You paid ${chargedRyo.toLocaleString()} ryo and were released — fully healed and discharged.`);
+            // The hospital treats INJURY: discharge restores HP, not chakra or stamina
+            // (api/player/heal.ts). Say that, rather than promising a full refill the
+            // server no longer performs.
+            gameToast(`💰 You paid ${chargedRyo.toLocaleString()} ryo and were released — wounds treated. Chakra and stamina return with rest, or instantly at the Cafeteria.`);
         }
         return true;
     }

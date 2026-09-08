@@ -181,6 +181,6 @@ per-transfer caps, the 1,000 floor, the 10% burn and the 20/60s rate limit are u
 
 Full backend suite 9,753/9,753; root build + sizecheck PASS (initial graph 383,014 B
 gzip against the 389,000 ceiling); client lint 0 errors; `npm run test:e2e` 386 passed;
-combat-layout matrix run with `COMBAT_LAYOUT_CAPTURE_PHASE=after COMBAT_LAYOUT_STRICT=1`.
+combat-layout matrix 20 passed with `COMBAT_LAYOUT_CAPTURE_PHASE=after COMBAT_LAYOUT_STRICT=1`.
 The ownership golden-master snapshot was regenerated deliberately for the one new
 server-owned field, and the diff shows only that field.
