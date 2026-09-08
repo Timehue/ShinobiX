@@ -27,7 +27,7 @@ import {
 import { renderRuntimeModeDocs } from './generate-runtime-mode-docs.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const server = readFileSync(join(ROOT, 'server.ts'), 'utf8');
+const server = readFileSync(join(ROOT, 'server-api-routes.ts'), 'utf8');
 const sharedWorldAiFight = readFileSync(join(ROOT, 'shared', 'world-ai-fight.ts'), 'utf8');
 const clientCache = new Map();
 

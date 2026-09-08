@@ -18,8 +18,9 @@ shape.)
   `_auth.ts`, `_utils.ts` (CORS, etc.), `_storage.ts`, `_ratelimit.ts`,
   `_lock.ts`, `_text-moderation.ts`, `_player-ips.ts`, and the `_*-validate.ts`
   validators. Import from these; don't add a route file starting with `_`.
-- **`server.ts`** (repo root) — the Express server (Railway). It imports
-  the `api/**` handlers unchanged and registers each on **both** the bare path and
+- **`server.ts`** (repo root) — the Express server (Railway). Its
+  `server-api-routes.ts` registration module imports the `api/**` handlers unchanged;
+  the server's route adapter registers each on **both** the bare path and
   the `/api`-prefixed path (a dormant holdover from Passenger, which may or may not
   have stripped `/api`; harmless on Railway). It also serves
   the React SPA static build and provides `/health` and `/restart`. Compiles to
@@ -81,7 +82,8 @@ retired Vercel project starts reporting GitHub statuses again, disconnect or
 delete that project outside the repo instead.)
 
 Note: there is **no folder-convention auto-routing** anymore — every `api/**`
-handler must be imported and `route()`-registered in `server.ts` or it is
+handler must be imported and `route()`-registered in `server-api-routes.ts`,
+which `server.ts` invokes through its existing dual-path adapter, or it is
 unreachable. `server-routes.test.ts` enforces this both ways
 (client call ↔ registration, and handler file ↔ wiring).
 

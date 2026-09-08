@@ -30,7 +30,11 @@ const CLIENT_SRC = join(HERE, 'shinobij.client', 'src');
 
 // ─── Server side: what cPanel actually registers ───────────────────────────────
 
-const serverSrc = readFileSync(SERVER_TS, 'utf8');
+const serverEntrySrc = readFileSync(SERVER_TS, 'utf8');
+const routeSource = readFileSync(join(HERE, 'server-api-routes.ts'), 'utf8');
+// Inspect the registration at its actual middleware position while retaining
+// every existing route, handler-inventory, health and fallback assertion.
+const serverSrc = serverEntrySrc.replace('registerApiRoutes(route);', routeSource);
 
 // Every `route('/x/y', handler)` call. route() mounts BOTH '/x/y' and
 // '/api/x/y', so the client-facing path is '/api' + the bare path.
@@ -142,6 +146,14 @@ function clientApiPaths(): Map<string, string> {
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
 describe('Express route parity (Railway + cPanel)', () => {
+    it('registers the explicit handler list once, after restart and before static serving', () => {
+        assert.match(serverEntrySrc, /import \{ registerApiRoutes,[^\n]+from '\.\/server-api-routes\.js'/);
+        assert.equal(serverEntrySrc.match(/registerApiRoutes\(route\);/g)?.length, 1);
+        const registration = serverEntrySrc.indexOf('registerApiRoutes(route);');
+        assert.ok(serverEntrySrc.indexOf("gracefulShutdown(0, 'operator restart')") < registration);
+        assert.ok(registration < serverEntrySrc.indexOf("app.get('/robots.txt'"));
+        assert.match(serverEntrySrc, /import '\.\/api\/_force-ipv4\.js';[\s\S]*import \{ registerApiRoutes,/);
+    });
     it('registers every /api endpoint the client calls', () => {
         const client = clientApiPaths();
         const missing: string[] = [];
