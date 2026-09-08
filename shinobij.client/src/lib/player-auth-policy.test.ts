@@ -178,7 +178,7 @@ describe("display-name policy", () => {
         // as the backstop against a tampered client.
         const auth = readFileSync(new URL("../../../api/player-auth.ts", import.meta.url), "utf8");
         assert.match(auth, /name\.trim\(\)\.length > TEXT_LIMITS\.playerName/);
-        const save = readFileSync(new URL("../../../api/save/[name].ts", import.meta.url), "utf8");
+        const save = readFileSync(new URL("../../../api/save/_sanitize-narrative.ts", import.meta.url), "utf8");
         assert.match(save, /char\.name = char\.name\.slice\(0, TEXT_LIMITS\.playerName\)/);
     });
 

@@ -9,7 +9,7 @@ const editor = read("shinobij.client/src/components/NindoEditor.tsx");
 const profile = read("shinobij.client/src/screens/Profile.tsx");
 const app = read("shinobij.client/src/App.tsx");
 const backgrounds = read("shinobij.client/src/lib/nindo-backgrounds.ts");
-const saveHandler = read("api/save/[name].ts");
+const saveHandler = read("api/save/_sanitize-narrative.ts");
 const roster = read("api/player/roster.ts");
 const userView = read("shinobij.client/src/screens/UserView.tsx");
 
