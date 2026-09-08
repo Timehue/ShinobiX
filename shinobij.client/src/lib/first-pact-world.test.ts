@@ -30,7 +30,9 @@ import {
     FirstPactTile,
     chooseFirstPactWanderDestination,
     findFirstPactPath,
+    firstPactApproaches,
     firstPactDistrictAt,
+    firstPactPointKey,
     firstPactTileAt,
     isFirstPactBellPlanting,
     isFirstPactBellRoute,
@@ -1356,6 +1358,35 @@ test("interaction reach respects the same obstruction graph as movement", () => 
         false,
         "a market stall cannot be spoken through even when the actor is only four Manhattan tiles away",
     );
+});
+
+test("every face in the city can be walked up to and stood beside", () => {
+    // Clicking a person is only an interaction if there is somewhere to arrive.
+    // A face with no free cardinal neighbour would be a token you can click and
+    // never reach, which is worse than a token that does nothing at all.
+    const crowd = new Set(FIRST_PACT_NPCS.map((npc) => firstPactPointKey(npc.position)));
+    for (const npc of FIRST_PACT_NPCS) {
+        const approaches = firstPactApproaches(npc.position, FIRST_PACT_PLAYER_START, crowd);
+        assert.ok(approaches.length > 0, `${npc.name} must have a free tile to be addressed from`);
+        for (const cell of approaches) {
+            assert.equal(isFirstPactWalkable(cell.x, cell.y), true, `${npc.name} approach ${cell.x},${cell.y} must be walkable`);
+            assert.equal(isFirstPactWithinReach(cell, npc.position, 1), true, `${npc.name} must be addressable from ${cell.x},${cell.y}`);
+        }
+        assert.ok(approaches.some((cell) => findFirstPactPath(FIRST_PACT_PLAYER_START, cell, crowd).length > 0),
+            `${npc.name} must be walkable to from the arrival gate with the whole cast in place`);
+    }
+});
+
+test("approach tiles are ordered by the side the walker is already coming from", () => {
+    // The player should not round a person to arrive on their far side.
+    const orin = FIRST_PACT_NPCS.find((npc) => npc.id === "registrar-orin")!;
+    const fromSouth = firstPactApproaches(orin.position, { x: orin.position.x, y: orin.position.y + 6 })[0];
+    assert.ok(fromSouth.y >= orin.position.y, "a walker coming up from the south stops south of the registrar");
+    const fromNorth = firstPactApproaches(orin.position, { x: orin.position.x, y: orin.position.y - 6 })[0];
+    assert.ok(fromNorth.y <= orin.position.y, "a walker coming down from the north stops north of the registrar");
+    // A cell someone else is standing on is not an arrival.
+    const blocked = new Set(firstPactApproaches(orin.position).map((cell) => firstPactPointKey(cell)));
+    assert.equal(firstPactApproaches(orin.position, FIRST_PACT_PLAYER_START, blocked).length, 0);
 });
 
 test("district projection names the physical place beneath the avatar", () => {
