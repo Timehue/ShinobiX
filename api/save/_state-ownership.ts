@@ -458,7 +458,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('acceptedMissionIds', 'top', 'client-state', 'missions', ['combat-strip-toplevel'], 'client-owned by design; payouts guarded server-side'),
     f('missionProgress', 'top', 'client-state', 'missions', ['combat-strip-toplevel']),
     f('currentSector', 'top', 'client-state', 'world', ['combat-strip-toplevel'], 'travel lease is the authority in flight'),
-    f('currentTile', 'top', 'server-owned', 'world', [], 'arrival tile persisted by the travel-lease settle (_realtime/travel-lease.ts); the client never sends it, the heartbeat cold start reads it'),
+    f('currentTile', 'top', 'server-owned', 'world', [], 'arrival tile persisted by the travel-lease settle (_realtime/travel-lease.ts); the owner read and the heartbeat cold start project the walked tile (_realtime/walked-tile.ts) over it; the client never sends it'),
     f('currentBiome', 'top', 'client-state', 'world', ['combat-strip-toplevel']),
     f('triggeredEvents', 'top', 'client-state', 'events', ['combat-strip-toplevel']),
     f('pendingAiProfileId', 'top', 'client-state', 'combat', ['combat-strip-toplevel']),

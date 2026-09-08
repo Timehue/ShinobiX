@@ -12,6 +12,7 @@ import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUnti
 import { clearSleeperCamp } from '../_realtime/sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from '../_realtime/travel-lease.js';
 import { presenceSectorForWrite } from '../_realtime/world-duel-engagement.js';
+import { noteWalkedTile, readWalkedTile, resumeTileFor } from '../_realtime/walked-tile.js';
 import { battleAuthorityKeys, battleEvidenceFrom, resolveBattleAuthority } from '../_realtime/battle-authority.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
@@ -203,10 +204,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // F01: the five keys that corroborate a fight ride the same mget, so
         // deriving `inBattle` server-side costs no extra round trip here.
         const battleKeys = battleAuthorityKeys(name);
-        const [signals, savedLocation, persistedTravel] = await Promise.all([
+        const [signals, savedLocation, persistedTravel, walkedTile] = await Promise.all([
             kv.mget(challengeKey, resetSignalKey, healSignalKey, noticesKey, stakeRefundKey, towerInviteKey, ...battleKeys),
             existing ? Promise.resolve(null) : kv.get<{ currentSector?: number; currentTile?: number }>(`save:${safeName(name)}`),
             existing ? Promise.resolve(null) : getTravelLease(name),
+            // F03: the tile the player last stood on, cold start only.
+            existing ? Promise.resolve(null) : readWalkedTile(kv, name).catch(() => null),
         ]);
         const pendingChallenges = signals[0] as unknown[] | null;
         const resetSignal = signals[1];
@@ -276,9 +279,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // A client claim only (ignored by upsert, F01). The flag is set from
             // the combat stores just below.
             inBattle: inBattle === true ? true : undefined,
-            // A fresh session that reports no tile resumes on the tile its last
-            // settled arrival persisted (travel-lease.ts), not on nothing.
-            tile: normalizeTile(tile, existing?.tile ?? normalizeTile(savedLocation?.currentTile)),
+            // A fresh session that reports no tile resumes on the tile the player
+            // last stood on (walked-tile.ts) or, failing that, on the tile its
+            // last settled arrival persisted (travel-lease.ts) — not on nothing.
+            tile: normalizeTile(tile, existing?.tile ?? normalizeTile(resumeTileFor(walkedTile, entrySector, savedLocation?.currentTile))),
         });
         // F01: `inBattle` is what the combat stores can PROVE, never what the
         // beat asserts — a Tower lease, a live Solo-PvE session, a PvP pointer
@@ -305,6 +309,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if ((persistedTravel && now >= persistedTravel.arrivalAt) || onlineStore.consumeSettledTravel(name)) {
             void settleTravelLease(name, persistedTravel ?? undefined, now).catch(() => undefined);
         }
+        // F03: remember the spot the player is standing on, durably and cheaply
+        // (throttled per player, fire-and-forget; walked-tile.ts). A reload
+        // resumes here rather than on the road they arrived by.
+        void noteWalkedTile(kv, name, stored.sector, stored.tile, now);
         const pendingAttacker = stored.pendingAttacker ?? null;
         onlineStore.clearPendingAttacker(name);
         // Throttled cross-worker presence beat (fallback for consumers like the
