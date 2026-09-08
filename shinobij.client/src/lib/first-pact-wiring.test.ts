@@ -270,6 +270,45 @@ test("a room is walked by clicking it, the same way the street is", () => {
     assert.match(firstPact, /if \(next\) \{ setInteriorPath\(\[\]\); moveInterior\(next\); \}/);
 });
 
+test("a face is spoken to by clicking it, from anywhere in the city", () => {
+    // Every NPC tile is blocked to the pathfinder and the token covers the
+    // ground under it, so a distant face used to swallow the click and do
+    // nothing: the city was clickable everywhere except on its people.
+    assert.match(firstPact, /const approachNpc = useCallback\(\(npc: FirstPactNpcDefinition\) => \{/);
+    assert.match(firstPact, /for \(const cell of firstPactApproaches\(spot, here, blocked\)\) \{/);
+    assert.match(firstPact, /const path = findFirstPactPath\(here, cell, blocked\);/);
+    // The button now answers a click at any distance, and is reachable by tab.
+    const token = firstPact.match(/className=\{`fp-actor fp-npc fp-palette-\$\{npc\.palette\}\$\{near \? " is-near" : ""\}`\}[\s\S]{0,1400}?aria-label=/)?.[0] ?? "";
+    assert.ok(token, "the street token must still be the button this test is reading");
+    assert.ok(token.includes("approachNpc(npc)"), "a distant face must walk the player over rather than ignore the click");
+    assert.ok(token.includes("if (near) { speakTo(npc); return; }"), "a face within reach still just talks");
+    assert.doesNotMatch(token, /tabIndex=\{near \? 0 : -1\}/, "a face you can walk to must be reachable by keyboard too");
+    // A click nobody can be reached through stops the walk instead of leaving
+    // the player crossing the square to whoever they asked for before it.
+    assert.match(firstPact, /cancelApproach\(\);\s*\r?\n\s*setPlayerPath\(\[\]\);\s*\r?\n\s*\}, \[cancelApproach, speakTo\]\);/);
+    // Arriving beside them opens the conversation the click asked for.
+    assert.match(firstPact, /if \(!approachNpcId \|\| playerPath\.length \|\| movementLocked\) return;/);
+    assert.match(firstPact, /if \(isFirstPactWithinReach\(here, spot, 2\)\) \{ speakTo\(npc\); return; \}/);
+    // A wanderer holds still while it is being approached, and the errand is
+    // bounded, so a click can never turn into a chase across the district.
+    assert.match(firstPact, /if \(definition\.id === approachRef\.current\) continue;/);
+    assert.match(firstPact, /if \(approachTriesRef\.current >= FIRST_PACT_APPROACH_RETRIES\)/);
+    // Steering by hand, or a tap on open ground, drops the errand.
+    assert.match(firstPact, /if \(next\) \{ cancelApproach\(\); setPlayerPath\(\[\]\); movePlayer\(next\); \}/);
+    assert.match(firstPact, /const walkTo = useCallback\(\(goal: FirstPactPoint\) => \{\s*\r?\n\s*if \(movementLockedRef\.current\) return;\s*\r?\n\s*cancelApproach\(\);/);
+    // Every street walk goes through it, so a route drawn onto somebody's tile
+    // ends beside them instead of stalling wherever the stepper refused a step.
+    assert.match(firstPact, /walkTo\(\{\s*\r?\n\s*x: Math\.floor\(\(event\.clientX - rect\.left \+ camera\.x\)/);
+    assert.match(firstPact, /onClick=\{\(\) => walkTo\(mainQuest\.target!\)\}>Guide me<\/button>/);
+    assert.match(firstPact, /walkTo\(\{ x: 42, y: 34 \}\); \}\}>Colosseum<\/button>/);
+    assert.match(firstPact, /approachNpc\(nextAftermathNpc\);/);
+    assert.doesNotMatch(firstPact, /setPlayerPath\(findFirstPactPath\(playerRef\.current, [^)]*\)\)/,
+        "a street walk that skips the blockers the stepper enforces is a walk that stops halfway");
+    // Indoors the same click carries the same promise through to the frame.
+    assert.match(firstPact, /setInteriorApproachId\(npc\.id\);\s*\r?\n\s*walkInteriorTo\(approach\);/);
+    assert.match(firstPact, /if \(npc && adjacent\) speakToInteriorNpc\(npc\);/);
+});
+
 test("standing is spent through the server, and the screen only reports the result", () => {
     assert.match(firstPact, /const enterFinding = async \(writId: string\): Promise<boolean> => \{/);
     assert.match(firstPact, /await enterFirstPactFinding\(character\.name, writId\)/);

@@ -3162,7 +3162,7 @@
           },
           {
             "source": "shinobij.client/src/screens/FirstPact.css",
-            "line": 237
+            "line": 239
           },
           {
             "source": "shinobij.client/src/styles/card-clash-tutorial.css",
@@ -3677,7 +3677,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/FirstPact.css",
-            "line": 226
+            "line": 228
           },
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
