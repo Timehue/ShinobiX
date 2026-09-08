@@ -237,6 +237,29 @@ Second pass (F01 immunity + F08 lapse, 2026-09-06):
 - Storage: active combat rows (Solo-PvE, Tower, PvP) live 24 h longer than
   before. Terminal rows are unchanged.
 
+Seventh pass (review: "double check everything is tied in properly", 2026-09-08):
+
+- A fight that lapses INSIDE a Hollow Gate dive is voided, never abandoned. The
+  dive's own settle treats any terminal that is not a win or a flight as death
+  (hospital, run wiped), and a lapse is not a loss; deleting the lapsed row is
+  exactly what expiry always did for dives, so the encounter restarts from the
+  dive's own recovery. Ordinary Solo-PvE lapses still cost the abandon rule.
+- Chronicle card duels (free-play, clan-war tile cards, sector-war card battle)
+  are now provable battle presence for both duelists while the match is live. An
+  open seat is NOT a fight: the seat lives for the session's two hours, and an
+  open challenge must never double as a roaming shield.
+- A long Solo-PvE fight keeps its immunity. The resolver judges a Solo-PvE
+  projection by its session, never by the projection's creation-time expiry
+  hint; a fight refreshes its own expiry on every action, so after thirty
+  minutes the hint alone would have stripped immunity mid-fight and reconciled
+  the projection on every beat.
+- The bell is covered. A beat whose store reads predate a host's start record
+  no longer clears the flag the host just set: within 15 s of a start hook the
+  heartbeat keeps the flag unless a store positively reports the fight over.
+- The sector board opens on the tile the player last stood on for a fresh login
+  as well, not only after a reload or a return from a fight. This is the
+  board's position seed (client state logic; nothing drawn differently).
+
 ## Verification (commands, exit codes, results)
 
 All runs on this branch in the `shinobix-rpg-behavior-370386` worktree, Node 22,
@@ -388,6 +411,32 @@ pull projects the walked tile over `currentTile` (server-owned; never written ba
 and the heartbeat's cold start prefers it, both only for the same sector. Client
 unchanged: it already hydrates the board from the restore pull. Server-only change.
 
+### Seventh pass — review of the wiring (2026-09-08)
+
+| Step | Command | Result |
+|---|---|---|
+| Type check | `npx tsc -p tsconfig.cpanel.json --noEmit` | exit 0 |
+| Resolver, card presence, solo/tower/PvP lapse, dispatcher, sweep, heartbeat (authority, town escape, mget pin), online store, dive start, showdown suites | `node --import tsx --test …` | 90/90 |
+| Client lint + type check + projection pins | `npx eslint src/screens/WorldMap.tsx`; `npx tsc -p tsconfig.app.json --noEmit`; pin suites | clean; 186/186 |
+| Full suite | `npm test` | 9,626/9,633 (7 skipped), exit 0 on the final rebased tree; an earlier run of the same tree marked `api/player/world-position.integration.test.ts` failed at file level with all 23 subtests green (runner-level subprocess flake: 3/3 isolated re-runs and the clean full re-run green) |
+| Root build + release certification | `npm run build`; `npm run certify:release` | build exit 0, sizecheck PASS (8,140,015 B budgeted); certification 90/90; soak PASS (24 players, 0 errors); deployment, rollback-readiness and mode-doc checks exit 0 |
+| Browser gates (screen touched) | `npm run test:e2e`; `COMBAT_LAYOUT_CAPTURE_PHASE=after COMBAT_LAYOUT_STRICT=1 npm run test:e2e:combat-layout` | smoke 380 passed / 6 failed / 256 skipped, all six environmental (`ERR_NETWORK_CHANGED` adapter blip mid-run, one context-teardown timeout) and green on isolated re-run (102 passed, then 6 passed); combat-layout 19 passed / 1 failed (Tower webkit geometry, already red at base on 2026-09-07), green on an isolated strict re-run |
+
+Findings and fixes: (1) `api/solo-pve/_abandon.ts` `isHollowGateFightSession` — a
+lapsed `hgcombat-*` / `encounter.kind === 'hollow-gate'` session is deleted under
+its lock (`voided: true`) instead of abandoned; the dispatcher retires the
+projection and charges nothing. (2) `api/card-clash/_presence.ts` — a
+`card-clash` projection whose `sessionId` is the duel's own KV key, synced after
+every session write in `card-clash/match.ts`, `clan/war/tilecards.ts` and
+`village/sector-card.ts`; the resolver reads the row and honours a duelist of an
+`active` match; the dispatcher treats the kind as record-only. (3)
+`api/_realtime/battle-authority.ts` — a `solo-pve` projection is always verified
+against its session; only `tower`/`pvp` keep the expiry-hint shortcut. (4)
+`api/_realtime/battle-projection.ts` `battleStartedWithin` + the heartbeat guard
+(`BATTLE_START_GRACE_MS = 15 s`). (5) `screens/WorldMap.tsx` — the board's
+position seed is the presence store's tile unconditionally (hydrated at boot
+from the owner's save read, set on arrival, kept across a fight).
+
 ### No-UI-change diff review (starting commit → HEAD)
 
 Client files touched, each strictly nonvisual:
@@ -395,6 +444,9 @@ Client files touched, each strictly nonvisual:
   heartbeat body, one `noteHeartbeatDelivery(data)` call, one type annotation widened
   (`pendingHeal.id`). No JSX, no styles. Line budget 6,945 / 6,949.
 - `shinobij.client/src/screens/Bank.tsx` — the fetch body only (`action`, `requestId`).
+- `shinobij.client/src/screens/WorldMap.tsx` (seventh pass) — the sector board's position
+  seed only: one initializer argument (`() => getLocalSectorTile()`) and the matching import
+  line. No JSX, no styles; line count unchanged (5,365).
 - `shinobij.client/src/lib/notice-ack.ts` (new), `lib/offline-notices.ts` (dedupe by id),
   `lib/player-trade.ts` (nonce retention), `lib/save-ownership.ts` (two field names).
 - No `.css`, no assets, no `dist/`, no markup lines in any hunk
