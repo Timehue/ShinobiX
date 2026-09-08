@@ -45,10 +45,23 @@ const ANBU_AVATAR_BY_VILLAGE: Record<string, string> = {
     'Frostfang Village': 'frostfang',
 };
 
+/**
+ * Bump whenever the art in public/anbu/ is REPLACED IN PLACE. These portraits
+ * are unhashed static files: the server serves them
+ * `max-age=604800, stale-while-revalidate=86400` and the service worker paints
+ * images from its last-known-good cache before refreshing. On a stable URL that
+ * stacks, so a returning player would keep seeing the OLD art for up to a week
+ * after the deploy — which is exactly how long the cropped-head portraits would
+ * have outlived their fix. Same `?v=` trick as ROSTER_MODEL_ASSET_REVISION.
+ *
+ * 2 = 2026-09-07, the un-cropped redraw (scripts/fix-anbu-framing.mjs).
+ */
+export const ANBU_AVATAR_ASSET_REVISION = 2;
+
 /** The masked-Anbu standee/portrait for a village (null if not a known war village). */
 export function anbuAvatarForVillage(village: string): string | null {
     const slug = ANBU_AVATAR_BY_VILLAGE[village];
-    return slug ? `/anbu/${slug}.webp` : null;
+    return slug ? `/anbu/${slug}.webp?v=${ANBU_AVATAR_ASSET_REVISION}` : null;
 }
 
 /** The masked display name for the defender — "The Frostfang Anbu" (anonymity). */
