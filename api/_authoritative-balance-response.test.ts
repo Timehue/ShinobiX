@@ -146,7 +146,8 @@ describe('authoritative balance response migration', () => {
         assert.match(settleHandler, /const settledCharacter = prepareStorySettlement\(/);
         assert.ok(settleHandler.indexOf('prepareStorySettlement(') < settleHandler.indexOf('commitVersionedCharacter(settledCharacter, result._saveVersion)'),
             'story settlement must merge its durable narrative receipt before adopting the committed character');
-        assert.match(app, /function commitVersionedCharacter[\s\S]{0,420}?acceptVersionedSnapshot\(latestSaveVersionRef\.current, incomingVersion\)/);
+        assert.match(app, /return saveCoordinator\.commitVersionedCharacter\(nextCharacter, incomingVersion\)/);
+        assert.match(readFileSync('shinobij.client/src/lib/player-save-coordinator.ts', 'utf8'), /function commitVersionedCharacter[\s\S]{0,420}?acceptVersionedSnapshot\(latestSaveVersionRef\.current, incomingVersion\)/);
     });
 
     it('war crates are consumed and rewarded by one server save mutation', () => {
