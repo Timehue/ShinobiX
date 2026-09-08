@@ -2033,6 +2033,8 @@ test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, 
     await page.getByRole('button', { name: /Enter Floor 1/ }).click();
     const launch = await (await started).json() as { session: { turnStartedAt: number } };
     await expect(page.locator('.screen-battleTowerFight')).toBeVisible();
+    // Check the launch turn before the long viewport sweep can advance it.
+    await assertTowerCountdownGeometryStable(page, testInfo, launch.session.turnStartedAt);
     await assertBattlefieldActorPresentation(page, '.screen-battleTowerFight', {
         playerMarkers: 1,
         enemyMarkers: 0,
@@ -2048,7 +2050,6 @@ test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, 
         `tower-${testInfo.project.name}`,
         true,
     );
-    await assertTowerCountdownGeometryStable(page, testInfo, launch.session.turnStartedAt);
 });
 
 async function assertTowerCountdownGeometryStable(page: Page, testInfo: TestInfo, turnStartedAt: number): Promise<void> {
@@ -2077,6 +2078,7 @@ async function assertTowerCountdownGeometryStable(page: Page, testInfo: TestInfo
         expectGeometryNear(await selectionGeometry(page, '.screen-battleTowerFight'), before, `Tower countdown at ${remaining}s`);
     }
     await page.screenshot({ path: testInfo.outputPath('tower-countdown-1024x768.png'), animations: 'disabled' });
+    await page.clock.setSystemTime(Date.now());
 }
 
 test('Tower party-MPvE authoritative variant keeps jutsu selection geometry stable', async ({ page, request }, testInfo) => {
