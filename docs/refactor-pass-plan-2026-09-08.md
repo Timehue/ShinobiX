@@ -4,7 +4,14 @@ Goal: make the main application and pet presentation code easier to change and t
 
 This records the initial planning assessment. A bounded first pass was subsequently implemented from clean main in an isolated worktree. See [the implementation report](refactor-pass-report-2026-09-08.md) for its scope and measurements, and [the integration report](refactor-integration-report-2026-09-08.md) for the subsequent conflict resolution, Tower layout repair, and integrated validation. The phases below remain a roadmap, not a claim that every extraction was completed.
 
-**Current evidence**
+**Implementation progress**
+
+- Baseline recovery: complete; the original conflicts are resolved and integrated.
+- Pet presentation: resources, variants, cinematic actors, effects, and playback now have separate module owners. See the [cinematic extraction report](refactor-cinematic-pass-2026-09-08.md) for the latest implementation and validation.
+- App: the boot request sequence and save-account scope are extracted. Snapshot preparation and application are the next bounded step.
+- Save-handler, feature-screen, and server extractions remain later work.
+
+**Initial evidence, before integration**
 
 Inspected local `main` at `eda936ed1`. The checkout has **35 unmerged files**, plus staged and untracked work. Conflicts include App, WorldMap, FirstPact, save ownership, pet presentation, story generation, and build-size checks. Establish the intended combined baseline before starting extractions; selecting one conflict side wholesale could discard unrelated work.
 
