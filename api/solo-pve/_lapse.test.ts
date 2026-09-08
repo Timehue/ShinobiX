@@ -10,7 +10,7 @@ import {
     isSoloPveSessionLapsed,
     type SoloPveSession,
 } from './_session.js';
-import { abandonMoveToken, abandonSoloPveSession, terminalizeLapsedSoloPveSession } from './_abandon.js';
+import { abandonMoveToken, abandonSoloPveSession, isHollowGateFightSession, terminalizeLapsedSoloPveSession } from './_abandon.js';
 import { readSoloPveSession, soloPveRowTtlSeconds, writeSoloPveSession, type SoloPveKv } from './_store.js';
 import { battleStateKey, isBattleStateProjection } from '../_realtime/battle-projection.js';
 
@@ -105,6 +105,22 @@ describe('solo-pve lapse — gameplay expiry is a terminal event, not a storage 
 
         const goneResult = await terminalizeLapsedSoloPveSession('lapse-run-1', deps(null, NOW).deps);
         assert.deepEqual(goneResult, { ok: true, session: null, transitioned: false });
+    });
+
+    it('a lapsed fight inside a Hollow Gate dive is voided — the row deleted, nothing transitioned or charged', async () => {
+        const dive = activeSession({ sessionId: 'hgcombat-1', encounter: { kind: 'hollow-gate', id: 'floor-2:sentinel', bindingId: 'hgcombat-1' } });
+        assert.equal(isHollowGateFightSession(dive), true);
+        assert.equal(isHollowGateFightSession(activeSession()), false);
+        const removed: string[] = [];
+        const run = deps(dive, dive.expiresAt + 1);
+        const result = await terminalizeLapsedSoloPveSession('hgcombat-1', { ...run.deps, remove: async (id) => { removed.push(id); } });
+        assert.deepEqual(result, { ok: true, session: null, transitioned: true, voided: true });
+        assert.deepEqual(removed, ['hgcombat-1']);
+        assert.equal(run.writes.length, 0, 'never abandoned: the dive treats any non-won terminal as death, and a lapse is not a loss');
+
+        const stillLive = deps(dive, dive.expiresAt - 1);
+        await terminalizeLapsedSoloPveSession('hgcombat-1', { ...stillLive.deps, remove: async (id) => { removed.push(id); } });
+        assert.deepEqual(removed, ['hgcombat-1'], 'a live dive fight is left exactly as found');
     });
 
     it('an explicit abandon of a session that already lapsed is the same transition, stamped at the lapse', async () => {

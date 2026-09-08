@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "../_vercel.js";
 import { kv } from "../_storage.js";
 import { cors, safeName } from "../_utils.js";
+import { syncCardDuelPresence } from "./_presence.js";
 import { authedPlayerOrAdmin } from "../_auth.js";
 import { enforceRateLimitKv } from "../_ratelimit.js";
 import { withKvLock } from "../_lock.js";
@@ -75,6 +76,7 @@ function optionalIndex(value: unknown): number | undefined {
 }
 async function saveSession(session: FreePlaySession) {
   await kv.set(sessionKey(session.matchId), session, { ex: SESSION_TTL_SEC });
+  await syncCardDuelPresence(kv, sessionKey(session.matchId), session, SESSION_TTL_SEC); // F01: a live duel is provable presence
 }
 
 async function serverDeck(
