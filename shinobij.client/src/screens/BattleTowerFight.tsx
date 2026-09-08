@@ -1641,6 +1641,7 @@ export function BattleTowerFight({
         : mode === "move" ? "Move"
         : mode === "dash" ? "Dash"
         : null;
+    const canCancelAction = Boolean(armedActionName || actionFeedback.phase === "error");
     const inspectedEnemy = enemies.find(enemy => enemy.id === inspectedEnemyId && enemy.hp > 0) ?? null;
     const hoveredEnemy = hoverEnemyPos == null
         ? null
@@ -1936,11 +1937,12 @@ export function BattleTowerFight({
                         {actionFeedback.phase === "error" && (
                             <span className="tower-header-action-error" aria-hidden="true" title={reject ?? undefined}>{actionFeedback.label} failed</span>
                         )}
-                        {(armedActionName || actionFeedback.phase === "error") && (
-                            <button type="button" className="tower-header-cancel" onClick={cancelAction} disabled={busy}>
-                                {actionFeedback.phase === "error" ? "Dismiss" : "Cancel action"}
-                            </button>
-                        )}
+                        <button type="button" className="tower-header-cancel" onClick={cancelAction}
+                            disabled={busy || !canCancelAction} aria-hidden={!canCancelAction}
+                            aria-label={actionFeedback.phase === "error" ? "Dismiss action error" : "Cancel action"}
+                            style={{ visibility: canCancelAction ? "visible" : "hidden" }}>
+                            <span>{actionFeedback.phase === "error" ? "Dismiss" : "Cancel action"}</span>
+                        </button>
                         {session.status === "active" && (
                             <button
                                 type="button"

@@ -432,6 +432,8 @@
 
 .tower-header-cancel {
     flex: 0 0 auto;
+    min-width: 100px;
+    min-height: 44px;
     padding: 4px 9px;
     border-color: #7dd3fc;
     color: #e0f2fe;
@@ -1172,6 +1174,20 @@
 /* BattleTowerFight's current action markup keeps its live command and loadout
    bands horizontal at the same compact tiers as the containment contract. */
 @media (max-width: 979px) {
+    #combat.tower-tactical-combat .tower-fight-header {
+        padding-right: 116px;
+    }
+
+    #combat.tower-tactical-combat .tower-header-cancel {
+        right: 68px;
+        width: 44px;
+        min-width: 44px;
+        padding: 0;
+    }
+
+    #combat.tower-tactical-combat .tower-header-cancel > span { display: none; }
+    #combat.tower-tactical-combat .tower-header-cancel::after { content: "×"; font-size: 20px; }
+
     #combat.tower-tactical-combat .tower-squad-rail {
         grid-column: 1;
         grid-row: 2;
@@ -1200,7 +1216,7 @@
 
     #combat.tower-tactical-combat .tower-battle-tabs .battle-tabbar {
         display: grid !important;
-        height: 84px !important;
+        height: 44px !important;
         margin: 0 !important;
     }
 
