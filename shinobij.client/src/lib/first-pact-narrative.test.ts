@@ -8,7 +8,8 @@ import {
     FIRST_PACT_VOWS,
 } from "../../../shared/first-pact-contract.js";
 
-const screen = readFileSync(new URL("../screens/FirstPact.tsx", import.meta.url), "utf8");
+const screen = ["../screens/FirstPact.tsx", "../screens/first-pact/narrative.ts", "../screens/first-pact/FirstPactCrossingPanel.tsx"]
+    .map((path) => readFileSync(new URL(path, import.meta.url), "utf8")).join("\n");
 const apiCopy = readFileSync(new URL("./first-pact-api.ts", import.meta.url), "utf8");
 const aftermath = readFileSync(new URL("./first-pact-aftermath.ts", import.meta.url), "utf8");
 const productionSpec = readFileSync(new URL("../../../docs/first-pact-production-spec.md", import.meta.url), "utf8");

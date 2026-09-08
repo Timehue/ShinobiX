@@ -24,6 +24,7 @@ const corpora = [
     // narrative test reads, and that test checks lore anchors and the dash
     // rule -- never the shinobi-world vocabulary rules below.
     'shinobij.client/src/screens/FirstPact.tsx',
+    'shinobij.client/src/screens/first-pact/narrative.ts',
     'shared/first-pact-contract.ts',
     'shinobij.client/src/lib/first-pact-api.ts',
     'shared/legacy-card-sources.ts',
