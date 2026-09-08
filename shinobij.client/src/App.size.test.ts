@@ -469,7 +469,8 @@ import { readFileSync } from "node:fs";
 // → 6,942 after the story integration kept delivery, narrative normalization,
 // and triggered battle routing in lib modules. App only wires those boundaries.
 // The six-line merge buffer remains unchanged.
-const MAX_LINES = 6_948;
+// Boot request orchestration and save-session scoping now have focused owners.
+const MAX_LINES = 6_895;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
