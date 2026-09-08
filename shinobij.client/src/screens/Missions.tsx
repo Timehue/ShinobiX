@@ -1,3 +1,4 @@
+import { gainXp } from "../lib/character-level-projection";
 import { useCallback, useEffect, useRef, useState } from "react";
 import "../styles/hub-screens-skin.css";
 import type React from "react";
@@ -20,7 +21,7 @@ import { dailyMissionsCompleted, hasDailyMissionSlot } from "../lib/character-pr
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { builtinFetchMissions, mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement, sortFieldMissions } from "../data/missions";
 import { COMBAT_MISSIONS, type CombatMission } from "../data/combat-missions";
-import { gainXp } from "../App";
+
 import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
 import { commitAuthoritativeMissionClaim } from "../lib/versioned-mission-claim";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";

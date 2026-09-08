@@ -1,3 +1,5 @@
+import { useSharedNow } from "../lib/use-shared-now";
+import { petTrainingOptions } from "../data/pet-config";
 /*
  * Mobile banner timer widget.
  *
@@ -12,7 +14,7 @@
  * Extracted from App.tsx.
  */
 
-import { useSharedNow, petTrainingOptions } from "../App";
+
 import { serverNow } from "../lib/server-clock";
 import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
 import type { Pet } from "../types/pet";

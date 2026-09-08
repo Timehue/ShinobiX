@@ -1,3 +1,4 @@
+import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity */
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { visiblePoll } from "../lib/poll";
@@ -36,8 +37,7 @@ import {
     type ArenaTournament,
 } from "../lib/world-state";
 import {
-    getPvpJutsuLoadout,
-    type DuelChallenge,
+    type DuelChallenge
 } from "../App";
 import { isFullAdminAccountName } from "../lib/admin-identity";
 
