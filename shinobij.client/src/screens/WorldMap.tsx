@@ -1,4 +1,5 @@
 import { fetchVillageGuards } from "../lib/village-guard-api";
+import { useWorldTravelPresentation } from "../lib/use-world-travel-presentation";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense, type ReactNode, type CSSProperties } from "react";
 import "../styles/atlas-skin.css";
@@ -154,8 +155,7 @@ import { builtinHuntMissions } from "../data/missions";
 import { makeId, playerSlug, sameSector } from "../lib/utils";
 import { setSectorReopen, takeSectorReopen, peekSectorReopen, consumeReloadIntoSector, peekReloadIntoSector } from "../lib/sector-return";
 import { isRecentlyStruckDown } from "../lib/sleeper-kill";
-import { useLiveSectorRoster, setLocalSectorTile, getLocalSectorTile } from "../lib/presence-store";
-import { updateRealtimeTile } from "../lib/use-presence-socket";
+import { useLiveSectorRoster, getLocalSectorTile } from "../lib/presence-store";
 import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
 import type { SectorPeer } from "../components/SectorPeers";
 import { isWeeklyBossRoamEnabled, weeklyBossRoamState, weeklyBossRoamCooldownId, WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS, type RoamingBoss } from "../lib/weekly-boss-roam";
@@ -2528,16 +2528,13 @@ function WorldMapContent({
     // everyone else would see you teleport as well). presence-store keeps the
     // last tile at module scope, so it survives WorldMap's unmount during the
     // battle. Peek, never take — the mount effect above owns consuming the latch.
-    const [sectorPlayerPos, setSectorPlayerPos] = useState(
+    const { sectorPlayerPos, setSectorPlayerPos, travelRequestInFlight, travelPresentation } = useWorldTravelPresentation(character.name,
         () => (peekSectorReopen() !== null || peekReloadIntoSector() ? getLocalSectorTile() : SECTOR_CENTRE_TILE), // a reload resumes on the server-persisted arrival tile (hydrated at boot)
-    );
-    const travelRequestInFlight = useRef(false);
-    // Bridge the local player's tile to the presence store so the heartbeat (which
-    // lives in App) can broadcast it; other clients render us walking to this tile.
-    useEffect(() => {
-        setLocalSectorTile(sectorPlayerPos);
-        updateRealtimeTile(sectorPlayerPos);
-    }, [sectorPlayerPos]);
+        (sector) => {
+            setSelectedSector(isWildSector(sector) ? sector : null);
+            setSelectedVillageTerritory(null);
+            setRouteHoverSector(null);
+        });
     const [selectedCreatorEvent, setSelectedCreatorEvent] = useState<CreatorEvent | null>(null);
     // Anbu Vault Infiltration (anbuInfiltration.v1): the walk-up prompt on the
     // sector's vault structure, and the live raid screen (portaled full-screen).
@@ -2724,6 +2721,7 @@ function WorldMapContent({
         }
         prefetchTravelDestination(sector); // warm the destination during the 3s window
         travelRequestInFlight.current = true;
+        const presentation = travelPresentation.current;
         void (async () => {
             try {
                 const response = await fetch('/api/player/travel', {
@@ -2733,6 +2731,7 @@ function WorldMapContent({
                     signal: AbortSignal.timeout(12_000),
                 });
                 const data = await response.json().catch(() => null) as { arrivalAt?: number; travelMs?: number; arrivalTile?: number; error?: string } | null;
+                if (!presentation.isCurrent()) return;
                 if (!response.ok || !data?.arrivalAt) {
                     setTravelToast({
                         id: Date.now(),
@@ -2761,20 +2760,21 @@ function WorldMapContent({
                 setRouteHoverSector(sector);
                 setSelectedSector(null);
                 setSelectedVillageTerritory(null);
-                window.setTimeout(() => {
+                presentation.scheduleArrival(() => {
                     arrive(data.arrivalTile);
                     setPendingTravel(null);
                     setTravelingUntil(0);
                     setRouteHoverSector(null);
                 }, travelMs);
             } catch {
+                if (!presentation.isCurrent()) return;
                 setTravelToast({
                     id: Date.now(),
                     kicker: 'Travel unavailable',
                     text: 'Could not reach the travel server. Please try again.',
                 });
             } finally {
-                travelRequestInFlight.current = false;
+                if (presentation.isCurrent()) travelRequestInFlight.current = false;
             }
         })();
     }

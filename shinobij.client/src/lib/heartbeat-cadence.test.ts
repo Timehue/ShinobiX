@@ -9,6 +9,7 @@ import {
     HIDDEN_TAB_MS,
     SOCKET_RECONCILE_MS,
     VILLAGE_MS,
+    createHeartbeatGate,
     heartbeatIntervalMs,
     jitterHeartbeatMs,
     scheduleHeartbeat,
@@ -22,6 +23,39 @@ const VISIBLE_IDLE: HeartbeatCadenceInput = {
     guardQueued: false,
     sector: 12,
 };
+
+describe("overlapping heartbeat recovery", () => {
+    it("coalesces blocked transitions into one beat using the latest callback", () => {
+        const pending: Array<() => void> = [];
+        const calls: string[] = [];
+        let current = () => { calls.push("retired"); };
+        const gate = createHeartbeatGate(() => current(), (run) => { pending.push(run); });
+        assert.equal(gate.tryBegin(), true);
+        assert.equal(gate.tryBegin(), false);
+        assert.equal(gate.tryBegin(), false);
+        gate.finish();
+        assert.equal(pending.length, 1);
+        current = () => { calls.push("arrival"); };
+        pending.shift()!();
+        assert.deepEqual(calls, ["arrival"]);
+        assert.equal(gate.tryBegin(), true);
+        gate.finish();
+        assert.equal(pending.length, 0, "an uncontended beat must not create a retry loop");
+    });
+
+    it("a queued kick respects teardown of the current session", () => {
+        const pending: Array<() => void> = [];
+        let calls = 0;
+        let current = () => { calls++; };
+        const gate = createHeartbeatGate(() => current(), (run) => { pending.push(run); });
+        gate.tryBegin();
+        gate.tryBegin();
+        gate.finish();
+        current = () => {};
+        pending.shift()!();
+        assert.equal(calls, 0);
+    });
+});
 
 describe("heartbeat cadence", () => {
     it("keeps a hidden tab beating, whatever else is true of it", () => {

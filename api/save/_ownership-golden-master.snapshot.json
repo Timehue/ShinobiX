@@ -185,7 +185,7 @@
     "missionProgress": {
       "m-1": 1
     },
-    "currentSector": "s13",
+    "currentSector": "s12",
     "triggeredEvents": [
       "intro"
     ],
@@ -400,7 +400,7 @@
     "missionProgress": {
       "m-1": 1
     },
-    "currentSector": "s13",
+    "currentSector": "s12",
     "triggeredEvents": [
       "intro"
     ],
@@ -557,6 +557,7 @@
     "creatorItems": [],
     "someUnknownTopLevel": "kept",
     "pendingBloodlineForges": [],
+    "currentSector": 40,
     "worldGeoV": 2
   },
   "first-save.strict": {
@@ -686,6 +687,7 @@
     "creatorItems": [],
     "someUnknownTopLevel": "kept",
     "pendingBloodlineForges": [],
+    "currentSector": 40,
     "worldGeoV": 2
   },
   "admin-content-slot-save.nonstrict": {

@@ -106,7 +106,7 @@ const FROZEN = {
     COMBAT_STRIP_TOPLEVEL_FIELDS: [
         'currentBiome', 'activeTraining', 'activeJutsuTraining',
         'acceptedMissionIds', 'missionProgress',
-        'triggeredEvents', 'pendingAiProfileId', 'currentSector',
+        'triggeredEvents', 'pendingAiProfileId', 'currentSector', 'worldTravelReceipt',
         'creatorAis', 'creatorEvents', 'creatorMissions', 'creatorRaids', 'creatorCards',
         'petEncounterVn', 'ancientChestVn', 'editablePets',
     ],
@@ -156,6 +156,7 @@ const FROZEN = {
         'dailyBattleFloors', 'dailyBattleDate', 'lastTaxDate',
     ],
     SERVER_LEDGER_TOPLEVEL_FIELDS: [
+        'currentSector', 'currentTile', 'worldTravelReceipt', 'pendingTravel',
         '_trainingReceipts', 'activeTraining',
         'activeWandererQuestSeal', 'activeStoryReckoningSeal',
         'activeRiftQuestSeal', 'activeQuestbookSeal',

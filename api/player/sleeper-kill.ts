@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { onlineStore } from '../_realtime/online-store.js';
+import { getTravelLease, travelLeaseReceipt } from '../_realtime/travel-lease.js';
 import { computePvpWinGains, creditPvpWinBase } from '../_xp-engine.js';
 import { recordPairWinAndDecay } from '../pvp/_reward-farm.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
@@ -170,6 +171,15 @@ export async function settleSleeperKoLocked(
     if (reBlock) return reBlock;
     if (onlineStore.get(targetSlug)) return { status: 409, error: 'Target came online — use a normal attack.' };
     if (!tRec || !tChar) return { status: 404, error: 'Target not found.' };
+    // A roster recovery may have exposed the destination before its save
+    // committed. Never KO that camp while an unsettled arrival could later
+    // relocate the hospitalized player back into the field. Read only here:
+    // this caller already holds the save lock (travel settlement takes it too).
+    const travel = await getTravelLease(targetSlug);
+    if (travel && (travel.arrivalAt > now || travel.destinationSector !== lockedCamp.sector
+        || tRec.worldTravelReceipt !== travelLeaseReceipt(travel))) {
+        return { status: 409, error: 'Target arrival is still settling. Please retry.' };
+    }
 
     // KO the victim: HP 0 + hospitalized for the standard duration, and
     // relocate to the village (sector 0). The save validator in
@@ -183,7 +193,7 @@ export async function settleSleeperKoLocked(
         hospitalizedUntil: now + HOSPITAL_DURATION_MS,
         hospitalizedAt: now,
     };
-    const targetKoRecord = bumpSaveVersion({ ...tRec, currentSector: 0, character: koChar });
+    const targetKoRecord = bumpSaveVersion({ ...tRec, currentSector: 0, currentTile: null, pendingTravel: null, character: koChar });
     await kv.set(`save:${targetSlug}`, mergePreservingImages(targetKoRecord, tRec));
     await clearSleeperCamp(targetSlug);
     return { status: 200, record: tRec, character: tChar, sector: lockedCamp.sector };

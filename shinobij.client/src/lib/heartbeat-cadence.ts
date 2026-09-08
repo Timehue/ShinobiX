@@ -50,6 +50,27 @@ export const VILLAGE_MS = 15_000;
 /** Socket down, out in the wild: a raid is less urgent than an active fight. */
 export const FIELD_MS = 3_000;
 
+/** Coalesce overlapping beats without losing a countdown/session transition.
+ * The callback must read the latest active heartbeat, including its session guards.
+ */
+export function createHeartbeatGate(beatLatest: () => void, enqueue: (run: () => void) => void = queueMicrotask) {
+    let inFlight = false;
+    let queued = false;
+    return {
+        tryBegin(): boolean {
+            if (inFlight) { queued = true; return false; }
+            inFlight = true;
+            return true;
+        },
+        finish(): void {
+            inFlight = false;
+            if (!queued) return;
+            queued = false;
+            enqueue(beatLatest);
+        },
+    };
+}
+
 export type HeartbeatCadenceInput = {
     /** document.visibilityState === "visible". */
     tabVisible: boolean;

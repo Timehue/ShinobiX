@@ -79,7 +79,7 @@ import {
     villageWarScreenMountAllowed,
 } from "./lib/live-capability-admission";
 import { useCapabilityGuardedAutosave } from "./lib/use-capability-guarded-autosave";
-import { pushLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLocalSectorTile, setLiveSectorContext } from "./lib/presence-store";
+import { pushLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLocalSectorTile, setLiveSectorContext, correctLocalSectorTile } from "./lib/presence-store";
 import { heartbeatNoticeAckFields, noteHeartbeatDelivery } from "./lib/notice-ack";
 import { worldSectorReconcileTarget } from "./lib/sector-reconcile";
 import { mergeServerPendingWorldRewards } from "./lib/world-reward-recovery";
@@ -244,11 +244,11 @@ import { setOwnAvatarFallback } from "./lib/own-avatar";
 import { activeCarriedPets, isPresetAvatar } from "./lib/entitlements";
 const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
 import { builtinAis, balanceExistingAiProfiles } from "./lib/combat-ai";
-import { extendHollowGateUnlock, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, saveVillageState, setSharedGameStateOwnerName, subscribeSharedWorldStateLateChanges, unlockVillageKageSystem } from "./lib/world-state";
+import { extendHollowGateUnlock, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, saveVillageState, setSharedGameStateOwnerName, subscribeSharedWorldStateLateChanges, unlockVillageKageSystem, weatherForSector } from "./lib/world-state";
 import { useWarRewardClaims } from "./lib/use-war-reward-claims";
 import { useVillageTax } from "./lib/use-village-tax";
 import { requireServerSettlement } from "./lib/server-settlement-gate";
-import { scheduleHeartbeat } from "./lib/heartbeat-cadence";
+import { createHeartbeatGate, scheduleHeartbeat } from "./lib/heartbeat-cadence";
 import { noteTowerPartyInvites } from "./lib/tower-party-invite-toast";
 import { attackSectorPlayer } from "./lib/sector-attack";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
@@ -427,6 +427,7 @@ export { petTrainingOptions, petFeedXpForItem };
 
 import {
     weatherForBiome,
+    biomeForWorldSector,
 } from "./data/sectors";
 
 export type { DuelChallenge };
@@ -1858,7 +1859,7 @@ export default function App() {
     // Lets the socket "kick" handler trigger an off-cycle heartbeat without the
     // heartbeat being in scope (it's redefined each effect run).
     const heartbeatRef = useRef<() => void>(() => {});
-    const heartbeatInFlightRef = useRef(false);
+    const [heartbeatGate] = useState(() => createHeartbeatGate(() => heartbeatRef.current()));
     const lastSocketConnectedRef = useRef(false);
     // Throttles the per-beat roster ingest (see heartbeat) so the cross-device
     // player list isn't re-normalized + re-set on the hot 1s combat/explore beat.
@@ -1934,6 +1935,15 @@ export default function App() {
         return () => window.clearTimeout(id);
     }, [isTraveling, travelingUntil]);
 
+    // A restored journey has no WorldMap callback. Release its local mask at
+    // the deadline so the next heartbeat can reconcile the server's arrival.
+    useEffect(() => {
+        if (pendingTravel && pendingTravel.arrivalAt <= travelNow) {
+            setPendingTravel(null);
+            setTravelingUntil(0);
+        }
+    }, [pendingTravel, travelNow]);
+
     function isPresenceBattleActive(screenSnapshot: Screen = screenRef.current): boolean {
         if (storyFightOpen) return true;
         return isUnresolvedBattle({
@@ -1985,6 +1995,7 @@ export default function App() {
             const presenceBody = {
                 name: char.name,
                 sector: currentSector,
+                enterTown: screenResetsSector(screenRef.current),
                 character: presenceCharacter(char),
                 travelingUntil: isTraveling ? travelingUntil : 0,
                 inBattle: inBattleNow,
@@ -1996,14 +2007,14 @@ export default function App() {
             // sector-mates instantly; the 20s+ keepalive ping rides along too.
             updateRealtimePresence({
                 sector: currentSector,
+                enterTown: presenceBody.enterTown,
                 character: presenceBody.character,
                 travelingUntil: presenceBody.travelingUntil,
                 inBattle: inBattleNow,
                 displayName: char.name,
                 tile: presenceBody.tile,
             });
-            if (heartbeatInFlightRef.current) return;
-            heartbeatInFlightRef.current = true;
+            if (!heartbeatGate.tryBegin()) return;
             try {
                 const res = await fetch('/api/player/heartbeat', {
                     method: 'POST',
@@ -2012,7 +2023,7 @@ export default function App() {
                     signal: AbortSignal.timeout(12000),
                 });
                 if (!res.ok) return;
-                const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; pendingHeal?: { by?: string; id?: string } | null; pendingNotices?: unknown; towerPartyInvites?: string[]; forceReload?: boolean; serverNow?: number; sector?: number; traveling?: boolean } = await res.json();
+                const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; pendingHeal?: { by?: string; id?: string } | null; pendingNotices?: unknown; towerPartyInvites?: string[]; forceReload?: boolean; serverNow?: number; sector?: number; tile?: number; traveling?: boolean } = await res.json();
                 if (!heartbeatIsCurrent()) return;
                 noteServerTime(data.serverNow); // the beat is our reference for the clock that mints every deadline
                 // Admin reset this account — wipe local state and reload from server
@@ -2057,7 +2068,7 @@ export default function App() {
                 }
                 // Live sector-mates → the presence store (external store) so the ~1s
                 // heartbeat updates only the sector view, not all of App (Phase 1A).
-                if (data.sectorMates && currentSectorRef.current === presenceBody.sector) {
+                if (data.sectorMates && currentSectorRef.current === presenceBody.sector && (data.sector === undefined || data.sector === presenceBody.sector)) {
                     pushLiveSectorPlayers(data.sectorMates, presenceBody.sector);
                 }
                 // Self-heal any drift between our currentSector and the server's
@@ -2071,7 +2082,15 @@ export default function App() {
                 const reconcileSector = screenRef.current === "worldMap"
                     ? worldSectorReconcileTarget({ serverSector: data.sector, serverTraveling: data.traveling, sentSector: presenceBody.sector, currentSector: currentSectorRef.current, clientTraveling: isTraveling || !!pendingTravel })
                     : null;
-                if (reconcileSector != null) setCurrentSector(reconcileSector);
+                if (reconcileSector != null) {
+                    const biome = biomeForWorldSector(reconcileSector);
+                    correctLocalSectorTile(data.tile, reconcileSector);
+                    setCurrentBiome(biome);
+                    setCurrentWeather(weatherForSector(reconcileSector, biome));
+                    setLiveSectorContext(reconcileSector);
+                    if (data.sectorMates) pushLiveSectorPlayers(data.sectorMates, reconcileSector);
+                    setCurrentSector(reconcileSector);
+                }
                 // Roster feeds non-urgent social screens (search/spar/pet arena), never
                 // combat (which re-hydrates from save:<name>). Throttle the ingest — the
                 // per-beat path normalizes up to 100 characters + re-renders all of App,
@@ -2124,7 +2143,7 @@ export default function App() {
             } catch {
                 // Server unavailable — silently skip
             } finally {
-                heartbeatInFlightRef.current = false;
+                heartbeatGate.finish();
             }
         }
 
@@ -2148,7 +2167,7 @@ export default function App() {
         }, { lastSocketConnected: lastSocketConnectedRef });
         return () => { retireHeartbeat(); stopHeartbeat(); };
     }, [
-        gameplayMutationsOpen, character?.name, character?.guardQueued, currentSector, isTraveling, travelingUntil, screen, tabVisible, socketConnected,
+        gameplayMutationsOpen, character?.name, character?.guardQueued, currentSector, isTraveling, travelingUntil, pendingTravel, screen, tabVisible, socketConnected,
         raidBattleKind, pvpBattleId, pvpCompletionConfirmed, endlessBattleActive, pendingArenaStoryBattle,
         pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent,
         petBattleActive,
@@ -2945,8 +2964,9 @@ export default function App() {
                     const persisted = (DEEP_LINKABLE_SCREENS.has(hashRaw as Screen) ? (hashRaw as Screen) : null) ?? (localStorage.getItem(LAST_SCREEN_KEY) as Screen | null);
                     const inHollowGateRun = Boolean(normalized.hollowGateRun && !normalized.hollowGateRun.completed);
                     const inDungeonRun = Boolean(normalized.activeDungeonRun?.token);
-                    if (Number.isFinite(Number((snap as { currentTile?: unknown }).currentTile))) setLocalSectorTile(Number((snap as { currentTile?: unknown }).currentTile)); // the server-persisted arrival tile (travel-lease settle); the map resumes on it after a reload
-                    target = restoreScreenForSave(persisted, inHollowGateRun, normalized.hospitalized, inDungeonRun, isWildSector(Number(snap.currentSector ?? 0)));
+                    const arrivalTile = (snap as { currentTile?: unknown }).currentTile;
+                    if (typeof arrivalTile === 'number' && Number.isFinite(arrivalTile)) setLocalSectorTile(arrivalTile); // null means no server-issued tile, not tile zero
+                    target = restoreScreenForSave(persisted, inHollowGateRun, normalized.hospitalized, inDungeonRun, isWildSector(Number(snap.currentSector ?? 0)), normalizePendingTravel(snap.pendingTravel) !== null);
                     if (inHollowGateRun) {
                         try {
                             localStorage.removeItem("shinobix:towerRunId");
