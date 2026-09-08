@@ -1,3 +1,5 @@
+import { decideBootBattleRecovery } from "./lib/boot-battle-recovery";
+import { usePlayerSaveState, isContentAdminName as snapshotContentAdminName, savedJutsuPool as restoredJutsuPool } from './lib/use-player-save-state';
 import { retireStalePetDuel } from "./lib/pet-duel-legacy-challenge";
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
@@ -38,7 +40,6 @@ import { lazyWithRetry } from "./lib/lazyWithRetry";
 import { runSingleFlight } from "./lib/single-flight";
 import { adoptSaveVersion } from "./lib/save-version";
 import { accountKey, forgetAccountToken, loadPlayerAccounts, normalizePendingTravel, rememberAccountToken, savePlayerAccounts } from "./lib/player-accounts";
-import type { PendingTravelSave } from "./lib/player-accounts";
 import { requestAccountDeletion } from "./lib/account-deletion-flow";
 // Types only — the tile resolver itself is loaded on demand (see
 // ./lib/hollow-gate-generator-loader); its one call site already awaits the
@@ -110,7 +111,7 @@ import {
     getItemById,
     addInventoryItems,
 } from "./lib/items";
-import { countItem, ownsItem, normalizeInventory } from "./lib/inventory";
+import { countItem, ownsItem } from "./lib/inventory";
 import type { TileCard } from "./data/tile-cards";
 import {
     scaleJutsuTagsForDisplay,
@@ -121,7 +122,6 @@ import { normalizeJutsu } from "./lib/jutsu";
 import { normalizeOnboardingStep } from "./lib/onboarding-step";
 import {
     starterBloodlineOffense,
-    rebalanceNonBloodlineJutsu,
     starterJutsus,
     starterSavedBloodlines,
 } from "./data/jutsu";
@@ -264,7 +264,6 @@ import {
     type Profession,
     type Screen,
     type Rank,
-    type Biome,
     type JutsuType,
     type JutsuTarget,
     type WeatherType,
@@ -776,9 +775,6 @@ export { normalizeJutsu };
 // without pulling the story delivery graph into combat-only consumers.
 export { normalizeCharacter };
 
-
-
-
 // Save-preview cache (instant login paint) lives in lib/save-preview.ts.
 
 // Combat damage math (getOffenseStat/getDefenseStat, multiplier + status
@@ -1148,7 +1144,31 @@ export default function App() {
     }, [screen]);
 
     const [sharedImages, setSharedImages] = useState<Record<string, string>>({});
-    const [savedBloodlines, setSavedBloodlines] = useState<SavedBloodline[]>([]);
+    const playerSaveState = usePlayerSaveState();
+    const {
+        savedBloodlines, setSavedBloodlines,
+        currentBiome, setCurrentBiome,
+        activeTraining, setActiveTraining,
+        creatorJutsus, setCreatorJutsus,
+        creatorEvents, setCreatorEvents,
+        creatorItems, setCreatorItems,
+        creatorAis, setCreatorAis,
+        creatorMissions, setCreatorMissions,
+        creatorRaids, setCreatorRaids,
+        creatorCards, setCreatorCards,
+        petEncounterVn, setPetEncounterVn,
+        ancientChestVn, setAncientChestVn,
+        editablePets, setEditablePets,
+        acceptedMissionIds, setAcceptedMissionIds,
+        missionProgress, setMissionProgress,
+        activeJutsuTraining, setActiveJutsuTraining,
+        hollowGateEventConfig, setHollowGateEventConfig,
+        currentSector, setCurrentSector,
+        travelingUntil, setTravelingUntil,
+        pendingTravel, setPendingTravel,
+        triggeredEvents, setTriggeredEvents,
+        lastSnapshotMissionSigRef, applyProgressSnapshot, applyContentSnapshot,
+    } = playerSaveState;
     const [worldStateVersion, setWorldStateVersion] = useState(0);
     useEffect(() => subscribeSharedWorldStateLateChanges(() => setWorldStateVersion((version) => version + 1)), []); // lazily hydrated Village Intel lands after the poll returned
     const refreshWorldStateSnapshot = useCallback(async (continuation?: PvpRewardContinuationContext) => {
@@ -1219,10 +1239,10 @@ export default function App() {
     }, [gameplayViewOpen, tabVisible, character?.name, character?.clan]);
 
     const [, setSharedGameStateVersion] = useState(0);
-    const [currentBiome, setCurrentBiome] = useState<Biome>("central");
+
     const [currentWeather, setCurrentWeather] =
         useState<WeatherType>("clear");
-    const [activeTraining, setActiveTraining] = useState<ActiveTraining | null>(null);
+
     const [adminLoggedIn, setAdminLoggedIn] = useState(false);
     const [adminAccount, setAdminAccount] = useState<AdminAccount | "">("");
     const [adminPw, setAdminPw] = useState(() => sessionStorage.getItem("admin:pw") ?? "");
@@ -1232,16 +1252,7 @@ export default function App() {
     const [adminRole, setAdminRole] = useState<AdminRole>(() =>
         (sessionStorage.getItem("admin:role") as AdminRole | null) ?? "full"
     );
-    const [creatorJutsus, setCreatorJutsus] = useState<Jutsu[]>([]);
-    const [creatorEvents, setCreatorEvents] = useState<CreatorEvent[]>([]);
-    const [creatorItems, setCreatorItems] = useState<GameItem[]>([]);
-    const [creatorAis, setCreatorAis] = useState<CreatorAi[]>([]);
-    const [creatorMissions, setCreatorMissions] = useState<CreatorMission[]>([]);
-    const [creatorRaids, setCreatorRaids] = useState<CreatorRaid[]>([]);
-    const [creatorCards, setCreatorCards] = useState<TileCard[]>([]);
-    const [petEncounterVn, setPetEncounterVn] = useState<CreatorEvent>(defaultPetEncounterVn);
-    const [ancientChestVn, setAncientChestVn] = useState<CreatorEvent>(defaultAncientChestVn);
-    const [editablePets, setEditablePets] = useState<Pet[]>(petPool);
+
     const [selectedPetId, setSelectedPetId] = useState(petPool[0]?.id ?? "");
     // Admin pet-editor edits are AUTHORITATIVE in-session: when the admin changes a
     // pet template (fresh updatedAt), publish it + re-normalize owned pets so the Pet
@@ -1345,11 +1356,10 @@ export default function App() {
             return mergedPets;
         });
     }, []);
-    const [acceptedMissionIds, setAcceptedMissionIds] = useState<string[]>([]);
-    const [missionProgress, setMissionProgress] = useState<Record<string, number>>({});
+
     const saveSessionEpochRef = useRef(0);
     const pvpCreateScopeAbortRef = useRef(new AbortController());
-    const [activeJutsuTraining, setActiveJutsuTraining] = useState<ActiveJutsuTraining | null>(null);
+
     const [, setPendingAiProfileId] = useState("");
     const { pvpBattleId, setPvpBattleId, pvpRole, setPvpRole,
         pvpBattleContext, setPvpBattleContext, pvpSeedSession, setPvpSeedSession,
@@ -1389,7 +1399,7 @@ export default function App() {
     const [hollowGateIntroPage, setHollowGateIntroPage] = useState<number | null>(null);
     // Shared event-gate config (admin-authored, distributed via the admin-save
     // content channel like creator content; lib/hollow-gate-variant normalizes).
-    const [hollowGateEventConfig, setHollowGateEventConfig] = useState<HollowGateEventConfig | null>(null);
+
     // Move side-effect queue. moveHollowGatePlayer's step effects (tile fire /
     // logs / ambush) MUST NOT be read from a local `let` right after
     // setHollowGateRun — React only runs the state updater eagerly when its
@@ -1470,13 +1480,7 @@ export default function App() {
         return () => { cancelled = true; };
     }, [screen, character?.name, hollowGateRun?.runToken, hollowGateRun?.activeCombat?.runId, hollowGatePveFight, hollowGatePetFight]);
 
-    function savedJutsuPool(source: Partial<ReturnType<typeof buildPlayerSavePayload>>) {
-        return [
-            ...starterJutsus,
-            ...(((source.creatorJutsus ?? []) as Jutsu[]).map(normalizeJutsu).map(rebalanceNonBloodlineJutsu)),
-        ];
-    }
-    const [currentSector, setCurrentSector] = useState(40);
+    function savedJutsuPool(source: Partial<ReturnType<typeof buildPlayerSavePayload>>) { return restoredJutsuPool(source); }
 
     useEffect(() => {
         if (!character?.name && !restoringSession) return;
@@ -1489,8 +1493,6 @@ export default function App() {
         return () => window.clearTimeout(timer);
     }, [character?.name, restoringSession, currentBiome, currentSector, pvpSeedSession?.biome, screen]);
 
-    const [travelingUntil, setTravelingUntil] = useState(0);
-    const [pendingTravel, setPendingTravel] = useState<PendingTravelSave | null>(null);
     const [travelNow, setTravelNow] = useState(Date.now());
     const [playerRoster, setPlayerRoster] = useState<PlayerRecord[]>([]);
     const [allServerPlayers, setAllServerPlayers] = useState<ServerPlayerSummary[]>([]);
@@ -1809,7 +1811,7 @@ export default function App() {
     // App-level battle-lock keeper for the hollow-gate tile seal so a refresh
     // can't flee the seal back to the shrine.
     const [hollowGateTileGameActive, setHollowGateTileGameActive] = useState(false);
-    const [triggeredEvents, setTriggeredEvents] = useState<string[]>([]);
+
     // liveSectorPlayers now lives in lib/presence-store (external store) so the
     // ~1s heartbeat updates only the sector view, not the whole App tree. Read it
     // with useLiveSectorPlayers(); write it with pushLiveSectorPlayers()/etc.
@@ -2701,32 +2703,8 @@ export default function App() {
             currentAccountNameRef.current = snap.character.name;
             setCurrentAccountName(snap.character.name);
             void rehydrateSaveConflictDraft(snap.character.name, snap);
-            setCurrentBiome(snap.currentBiome ?? "central");
-            setActiveTraining(snap.activeTraining ?? null);
-            setActiveJutsuTraining(snap.activeJutsuTraining ?? null);
-            setAcceptedMissionIds(snap.acceptedMissionIds ?? []);
-            setMissionProgress(snap.missionProgress ?? {});
-            setTriggeredEvents(snap.triggeredEvents ?? []);
-            // Pre-cutover local Arena opponent ids are presentation authority,
-            // not resumable combat proof. Never hydrate them into the reducer.
-            setPendingAiProfileId("");
-            const snapPendingTravel = normalizePendingTravel((snap as Record<string, unknown>).pendingTravel);
-            setPendingTravel(snapPendingTravel);
-            setTravelingUntil(snapPendingTravel?.arrivalAt ?? 0);
-            lastSnapshotMissionSigRef.current = JSON.stringify([snap.acceptedMissionIds ?? [], snap.missionProgress ?? {}, snap.triggeredEvents ?? [], snap.currentBiome ?? "central", snapPendingTravel]);
-            applySnapshotSectorWithGuard(snap.currentSector ?? 40);
-            if (snap.savedBloodlines) setSavedBloodlines(snap.savedBloodlines.map((bloodline: SavedBloodline) => ({ ...bloodline, jutsus: bloodline.jutsus.map(normalizeJutsu) })));
-            if (snap.creatorJutsus) setCreatorJutsus(snap.creatorJutsus.map(normalizeJutsu));
-            if (snap.creatorAis) setCreatorAis(balanceExistingAiProfiles(snap.creatorAis, savedJutsuPool(snap)));
-            const contentAdmin = isContentAdminName(snap.character.name);
-            if (snap.creatorEvents) setCreatorEvents(contentAdmin ? snap.creatorEvents : snap.creatorEvents.filter(isReleaseSafeClientEvent));
-            setCreatorMissions(contentAdmin ? (snap.creatorMissions ?? []) : []);
-            setCreatorRaids(contentAdmin ? (snap.creatorRaids ?? []) : []);
-            if (snap.creatorCards) setCreatorCards(snap.creatorCards);
-            if (snap.creatorItems) setCreatorItems(snap.creatorItems);
-            if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn);
-            if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn);
-            if (snap.editablePets) setEditablePets(mergeMissingBuiltInPets(snap.editablePets));
+            applyProgressSnapshot(snap, { clearPendingAi: () => setPendingAiProfileId(""), applySector: applySnapshotSectorWithGuard });
+            applyContentSnapshot(snap);
             // Route browser breadcrumbs immediately; the authenticated pointer
             // repairs private-mode and terminal-completion reloads.
             let restoredPvpBattleId: string | null = null;
@@ -2779,23 +2757,29 @@ export default function App() {
 
             (() => {
                 let target: Screen = "village";
+                const recovery = decideBootBattleRecovery({
+                    pvpSessionAliveOnServer, restoredPvpBattleId, hasPendingPetPvp: Boolean(restoredPendingPetPvp), bootLock,
+                    readRecentlyResolved: () => { try { return localStorage.getItem(BATTLE_LOCK_RESOLVED_KEY) ?? ""; } catch { return ""; } },
+                    readStoryKind: () => (readArenaStoryContext(normalized.name)?.battle as { kind?: string } | undefined)?.kind,
+                    hasResumeState: () => Boolean(bootLock && battleResumeStateExists(bootLock, normalized.name, normalized)),
+                });
                 // FORCE re-entry into a live PvP battle — overrides whatever
                 // the persisted screen was. Players cannot refresh-flee.
-                if (pvpSessionAliveOnServer && restoredPvpBattleId) {
+                if (recovery === "pvp") {
                     setScreen("pvpBattle");
                     return;
                 }
                 // FORCE re-entry into pet PvP if we restored a fresh
                 // pending battle. Same fairness rule as duel — refreshing
                 // shouldn't let you skip the fight.
-                if (restoredPendingPetPvp) {
+                if (recovery === "pet-pvp") {
                     setScreen("petArena");
                     return;
                 }
                 // Server battle lock: an unresolved PvE fight cannot be fled by a
                 // refresh, even one that wiped localStorage.
                 if (bootLock && bootLock.screen) {
-                    if (bootLock.kind === "battleTowers") {
+                    if (recovery === "towers") {
                         // Tower leases are fully server-owned. Recreate the local
                         // breadcrumb and route into authoritative recovery; never
                         // turn a missing browser key into a fabricated loss.
@@ -2809,22 +2793,20 @@ export default function App() {
                         setScreen(arena2v2 ? "battleArena" : "battleTowers");
                         return;
                     }
-                    let recentlyResolved = "";
-                    try { recentlyResolved = localStorage.getItem(BATTLE_LOCK_RESOLVED_KEY) ?? ""; } catch { /* ignore */ }
-                    if (recentlyResolved && recentlyResolved === bootLock.battleId) {
+                    if (recovery === "resolved") {
                         // The fight already ended on this client; the server
                         // resolve just didn't land (network). Retry the clear and
                         // do NOT re-punish — fall through to normal restore routing.
                         try { localStorage.removeItem(BATTLE_LOCK_RESOLVED_KEY); } catch { /* ignore */ }
                         void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId });
-                    } else if (bootLock.kind === "endless") {
+                    } else if (recovery === "endless") {
                         // Endless combat now resumes from the server-owned solo
                         // session when the player re-enters the lobby. Retire any
                         // stale local-Arena lock without inventing a loss.
                         void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId });
                         setScreen("endlessTower");
                         return;
-                    } else if (bootLock.kind === "arena") {
+                    } else if (recovery === "arena") {
                         // Generic catalog AI and human PvP now have server-owned
                         // hosts. Retire a pre-cutover local reducer snapshot
                         // without inventing a loss or reviving its opponent id.
@@ -2834,14 +2816,14 @@ export default function App() {
                         gameToast("Legacy local Arena combat was safely retired. Start a sealed spar when you're ready.");
                         setScreen("battleArena");
                         return;
-                    } else if (bootLock.kind === "arenaStory" && (readArenaStoryContext(normalized.name)?.battle as { kind?: string } | undefined)?.kind === "hollowGateShrine") {
+                    } else if (recovery === "shrine") {
                         // Retire the pre-cutover local Arena lock. The save's run-bound
                         // pointer below resumes the server-owned Solo PvE session.
                         void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId });
                         if (normalized.hollowGateRun) setHollowGateRun(normalized.hollowGateRun);
                         setScreen("hollowGateShrine");
                         return;
-                    } else if (bootLock.kind === "arenaStory" && (readArenaStoryContext(normalized.name)?.battle as { kind?: string } | undefined)?.kind === "dungeonAi") {
+                    } else if (recovery === "dungeon") {
                         // A pre-cutover Warden snapshot must never revive the local
                         // combat reducer. Retire only that browser lock and preserve
                         // the active server run; Seal One can immediately relaunch
@@ -2866,7 +2848,7 @@ export default function App() {
                             setScreen("worldMap");
                         }
                         return;
-                    } else if (bootLock.kind === "arenaStory" && ["triggeredEvent", "academySparring"].includes(String((readArenaStoryContext(normalized.name)?.battle as { kind?: string } | undefined)?.kind))) {
+                    } else if (recovery === "story-event") {
                         // Creator-event flavor fights and Academy sparring now use
                         // sealed hosts. Never revive their pre-cutover local Arena
                         // reducer or its client-authored reward settlement.
@@ -2877,7 +2859,7 @@ export default function App() {
                         gameToast("Legacy local story combat was safely retired. Re-enter the sealed encounter to continue.");
                         setScreen(legacyKind === "academySparring" ? "village" : "worldMap");
                         return;
-                    } else if (bootLock.kind === "arenaStory") {
+                    } else if (recovery === "story-fallback") {
                         // Unknown/older story breadcrumbs are never permission to
                         // revive a browser-owned opponent. Preserve all server
                         // run pointers and return to the sealed Story Hall entry.
@@ -2886,7 +2868,7 @@ export default function App() {
                         setPendingArenaStoryBattle(null); setTemporaryStoryAi(null); setPendingAiProfileId("");
                         setScreen("storyHall");
                         return;
-                    } else if (battleResumeStateExists(bootLock, normalized.name, normalized)) {
+                    } else if (recovery === "resume") {
                         // Resume state intact → drop back into the same fight; the
                         // screen's persister rehydrates it at the same HP/turn.
                         if (bootLock.kind === "hollowGateTiles") {
@@ -3197,31 +3179,7 @@ export default function App() {
     function buildPlayerSavePayload(characterToSave: Character, overrides: Partial<{
         savedBloodlines: SavedBloodline[];
     }> = {}) {
-        return {
-            // Compact stackables into itemStacks before the server cap (save-side migration).
-            character: normalizeInventory(characterToSave),
-            currentBiome,
-            activeTraining,
-            activeJutsuTraining,
-            acceptedMissionIds,
-            missionProgress,
-            triggeredEvents,
-            currentSector,
-            pendingTravel,
-            savedBloodlines,
-            creatorJutsus,
-            creatorAis,
-            creatorEvents,
-            creatorMissions,
-            creatorRaids,
-            creatorCards,
-            creatorItems,
-            petEncounterVn,
-            ancientChestVn,
-            editablePets,
-            hollowGateEventConfig,
-            ...overrides,
-        };
+        return playerSaveState.buildPlayerSavePayload(characterToSave, overrides);
     }
 
     async function pushSaveToServer(
@@ -3342,10 +3300,7 @@ export default function App() {
         return Array.from(merged.values());
     }
 
-    function isContentAdminName(raw: unknown): boolean {
-        const name = String(raw ?? "").trim().toLowerCase();
-        return name === "admin 1" || name === "admin 2" || name === "admin1" || name === "admin2";
-    }
+    function isContentAdminName(raw: unknown): boolean { return snapshotContentAdminName(raw); }
 
     // Recency-aware variant of mergeById for the shared-admin-content pull. When
     // the SAME jutsu id lives in more than one admin save (both admins pull each
@@ -3784,7 +3739,6 @@ export default function App() {
             });
     }
 
-
     function loadCategory(cat: string): Promise<void> {
         const loadedAt = loadedCatsRef.current.get(cat);
         if (loadedAt !== undefined && Date.now() - loadedAt < IMG_CACHE_TTL) return Promise.resolve();
@@ -4137,7 +4091,7 @@ export default function App() {
     // we seed prevCharRef so the load itself isn't counted as a local change.
     // Signature of the last snapshot-applied mission/biome state — lets the
     // standalone-state dirty effect tell a local change from a snapshot reapply.
-    const lastSnapshotMissionSigRef = useRef<string | null>(null);
+
     // Set by the training screens (via the *Now setters below) to request an
     // immediate save on the next commit rather than waiting for the 3s/15s
     // autosave. Players reported starting a training on one device and not
@@ -4421,30 +4375,8 @@ export default function App() {
         setCurrentAccountName(snap.character.name);
         setCharacter(normalized);
         if (opts.authoritative !== false) void rehydrateSaveConflictDraft(snap.character.name, snap);
-        setCurrentBiome(snap.currentBiome ?? "central");
-        setActiveTraining(snap.activeTraining ?? null);
-        setActiveJutsuTraining(snap.activeJutsuTraining ?? null);
-        setAcceptedMissionIds(snap.acceptedMissionIds ?? []);
-        setMissionProgress(snap.missionProgress ?? {});
-        setTriggeredEvents(snap.triggeredEvents ?? []);
-        setPendingAiProfileId("");
-        const snapPendingTravel = normalizePendingTravel((snap as Record<string, unknown>).pendingTravel);
-        setPendingTravel(snapPendingTravel);
-        setTravelingUntil(snapPendingTravel?.arrivalAt ?? 0);
-        lastSnapshotMissionSigRef.current = JSON.stringify([snap.acceptedMissionIds ?? [], snap.missionProgress ?? {}, snap.triggeredEvents ?? [], snap.currentBiome ?? "central", snapPendingTravel]);
-        applySnapshotSectorWithGuard(snap.currentSector ?? 40);
-        if (snap.savedBloodlines) setSavedBloodlines(snap.savedBloodlines.map((bloodline: SavedBloodline) => ({ ...bloodline, jutsus: bloodline.jutsus.map(normalizeJutsu) })));
-        if (snap.creatorJutsus) setCreatorJutsus(snap.creatorJutsus.map(normalizeJutsu));
-        if (snap.creatorAis) setCreatorAis(balanceExistingAiProfiles(snap.creatorAis, savedJutsuPool(snap)));
-        const contentAdmin = isContentAdminName(snap.character.name);
-        if (snap.creatorEvents) setCreatorEvents(contentAdmin ? snap.creatorEvents : snap.creatorEvents.filter(isReleaseSafeClientEvent));
-        setCreatorMissions(contentAdmin ? (snap.creatorMissions ?? []) : []);
-        setCreatorRaids(contentAdmin ? (snap.creatorRaids ?? []) : []);
-        if (snap.creatorCards) setCreatorCards(snap.creatorCards);
-        if (snap.creatorItems) setCreatorItems(snap.creatorItems);
-        if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn);
-        if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn);
-        if (snap.editablePets) setEditablePets(mergeMissingBuiltInPets(snap.editablePets));
+        applyProgressSnapshot(snap, { clearPendingAi: () => setPendingAiProfileId(""), applySector: applySnapshotSectorWithGuard });
+        applyContentSnapshot(snap);
         // Preserve the current screen across in-session snapshot reapplies
         // (409 save-conflict refetch + admin forceReload heartbeat) so a
         // stale base-version or a deploy-time chunk reload doesn't yank the
