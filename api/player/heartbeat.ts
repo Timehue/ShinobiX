@@ -12,6 +12,7 @@ import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUnti
 import { clearSleeperCamp } from '../_realtime/sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from '../_realtime/travel-lease.js';
 import { durablePresenceSectorForWrite } from '../_realtime/world-duel-engagement.js';
+import { noteWalkedTile, readWalkedTile, resumeTileFor } from '../_realtime/walked-tile.js';
 import { battleAuthorityKeys, battleEvidenceFrom, resolveBattleAuthority } from '../_realtime/battle-authority.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
@@ -203,10 +204,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // F01: the five keys that corroborate a fight ride the same mget, so
         // deriving `inBattle` server-side costs no extra round trip here.
         const battleKeys = battleAuthorityKeys(name);
-        let [signals, savedLocation, persistedTravel] = await Promise.all([
+        let [signals, savedLocation, persistedTravel, walkedTile] = await Promise.all([
             kv.mget(challengeKey, resetSignalKey, healSignalKey, noticesKey, stakeRefundKey, towerInviteKey, ...battleKeys),
             existing ? Promise.resolve(null) : kv.get<{ currentSector?: number; currentTile?: number }>(`save:${safeName(name)}`),
             existing ? Promise.resolve(null) : getTravelLease(name),
+            // F03: the tile the player last stood on, cold start only.
+            existing ? Promise.resolve(null) : readWalkedTile(kv, name).catch(() => null),
         ]);
         const pendingChallenges = signals[0] as unknown[] | null;
         const resetSignal = signals[1];
@@ -285,11 +288,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // A client claim only (ignored by upsert, F01). The flag is set from
             // the combat stores just below.
             inBattle: inBattle === true ? true : undefined,
-            // A fresh session that reports no tile resumes on the tile its last
-            // settled arrival persisted (travel-lease.ts), not on nothing.
+            // Cold restore uses the durable walk, except when a newly matured
+            // journey supersedes it. A concurrent live update always wins.
             tile: superseded ? existing!.tile : existing ? normalizeTile(tile, existing.tile)
                 : normalizeTile(persistedTravel && now >= persistedTravel.arrivalAt
-                    ? persistedTravel.arrivalTile : savedLocation?.currentTile),
+                    ? persistedTravel.arrivalTile : resumeTileFor(walkedTile, entrySector, savedLocation?.currentTile)),
             tileSector: existing && !superseded ? normalizeSector(sector, existing.sector) : presenceSector,
         });
         // Restore before the next await: no newer live journey may be replaced
@@ -316,6 +319,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if ((persistedTravel && now >= persistedTravel.arrivalAt) || onlineStore.consumeSettledTravel(name)) {
             void settleTravelLease(name, persistedTravel ?? undefined, now).catch(() => onlineStore.retryTravelSettlement(name));
         }
+        // F03: remember the spot the player is standing on, durably and cheaply
+        // (throttled per player, fire-and-forget; walked-tile.ts). A reload
+        // resumes here rather than on the road they arrived by.
+        void noteWalkedTile(kv, name, stored.sector, stored.tile, now);
         const pendingAttacker = stored.pendingAttacker ?? null;
         onlineStore.clearPendingAttacker(name);
         // Throttled cross-worker presence beat (fallback for consumers like the

@@ -38,6 +38,12 @@ Heartbeat refreshes that overlap an in-flight request coalesce into one latest
 callback when it finishes, so retiring a countdown-era response does not delay
 arrival recovery until the next village polling interval.
 
+Main's walked-tile checkpoint is preserved: owner reads and both HTTP/socket
+cold reconnects resume at the last recorded step within the saved sector. A new
+arrival refreshes that checkpoint; retrying its cleanup never overwrites walking
+after the arrival committed. Walking remains client-reported and throttled, with
+the existing 24-hour checkpoint lifetime and durable arrival tile as fallback.
+
 Expired boot rows still emit departures. Camp creation reloads their durable
 position and combat evidence; town arrivals cannot create attackable camps.
 Sleeper KO checks the arrival receipt under the save lock, preventing an
@@ -90,6 +96,11 @@ Final local verification on 2026-09-07: the complete regression suite passed
 9,584 tests with seven skipped and no failures or cancellations. The production
 client build and server TypeScript check passed. All four Chromium desktop/mobile
 travel and recovery browser checks passed against the final built client.
+
+Release integration with main at `652ff05a4` also passed: 9,615 tests, seven
+skipped, no failures or cancellations; the complete root release build including
+distribution and size checks; 90/90 isolated fresh-account release-certification
+checks; and all four desktop/mobile travel browser checks on the merged build.
 
 This slice does not implement authoritative per-tile walking, atomic admission
 across every combat mode, horizontal runtime scaling, parties, item escrow, a

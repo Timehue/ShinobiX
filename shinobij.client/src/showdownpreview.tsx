@@ -6,6 +6,7 @@
 // production build inputs. The mock mimics the /api/pet/showdown turn contract;
 // the real numbers always come from the server engine.
 import { createRoot } from "react-dom/client";
+import { useEffect, useState } from "react";
 import "./index.css";
 import "./styles/layout/adaptive-stages.css";
 import "./screens/PetShowdown.css";
@@ -75,6 +76,8 @@ function mockCost(power: number, kind: string): number {
 const MOCK_MAX_STAMINA = Math.round(SHOWDOWN_STAMINA_REFERENCE * SHOWDOWN_STAMINA_POOL_SCALE);
 
 const PREVIEW_PARAMS = new URLSearchParams(window.location.search);
+// Static status fixture for checking compact plates and touch-readable labels.
+const HUD_QA = PREVIEW_PARAMS.has("hudqa");
 const ROSTER_PET_ID = PREVIEW_PARAMS.get("rosterpet")?.trim() || null;
 const ENEMY_PET_ID = PREVIEW_PARAMS.get("enemypet")?.trim() || null;
 const ROSTER_QA = ROSTER_PET_ID !== null;
@@ -278,7 +281,7 @@ function petView(pet: Pet): ShowdownPetView {
         maxStamina: MOCK_MAX_STAMINA,
         meter: world.meter.get(pet.id) ?? 0,
         ko: hp <= 0,
-        guarding: false,
+        guarding: HUD_QA && pet.id === playerPets[0]?.id,
         benched: world.benched.has(pet.id),
         speed: pet.speed ?? 30,
         // A winded pet loses its next action and may not rotate out — the pair
@@ -289,7 +292,10 @@ function petView(pet: Pet): ShowdownPetView {
         // ?meter also satisfies HOLDS: the flag means "the signature is
         // castable NOW", and the hold would otherwise gate it two rounds.
         readiness: new URLSearchParams(window.location.search).has("meter") ? 99 : world.round,
-        statuses: [],
+        statuses: HUD_QA ? [
+            { kind: "burn", rounds: 2, magnitude: 12 },
+            { kind: "shield", rounds: 3, magnitude: 40 },
+        ] : [],
         moves: mockKit(pet),
     };
 }
@@ -570,8 +576,45 @@ async function mockSubmitTurn(commands: ShowdownCommand[]): Promise<ShowdownTurn
     return { ok: true, events, state: stateView() };
 }
 
+/** ?frames&capture keeps contact/recovery frames available after a fast beat.
+ * This gallery belongs only to the dev harness, never the shipping battle. */
+function ReviewFrames() {
+    const [frames, setFrames] = useState<Array<{ label: string; image: string }>>([]);
+    useEffect(() => {
+        let lastAnnouncement = "";
+        const timers = new Set<number>();
+        const observer = new MutationObserver(() => {
+            const message = document.querySelector('[data-testid="pet-showdown-root"] [aria-live]')?.textContent ?? "";
+            const switching = message.includes(" takes the field.") || message.startsWith("The enemy sends in ");
+            if (message === lastAnnouncement || (!message.includes(" used ") && !switching)) return;
+            lastAnnouncement = message;
+            for (const delay of switching ? [80, 900, 1800, 2700] : [80, 320, 900]) {
+                const timer = window.setTimeout(() => {
+                    timers.delete(timer);
+                    const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="pet-showdown-root"] canvas');
+                    if (!canvas) return;
+                    setFrames(current => [...current, { label: `${message} (+${delay} ms)`, image: canvas.toDataURL("image/jpeg", 0.88) }].slice(-24));
+                }, delay);
+                timers.add(timer);
+            }
+        });
+        observer.observe(document.body, { subtree: true, childList: true, characterData: true });
+        return () => { observer.disconnect(); timers.forEach(window.clearTimeout); };
+    }, []);
+    return <details style={{ position: "fixed", top: 4, left: "20%", width: "60%", zIndex: "var(--z-combat-hud)", color: "white", background: "#111e", padding: 8 }}>
+        <summary>Review frames ({frames.length})</summary>
+        <div style={{ maxHeight: "85vh", overflow: "auto" }}>
+            {frames.map((frame, index) => <figure key={`${index}:${frame.label}`} style={{ margin: "8px 0" }}>
+                <figcaption style={{ fontSize: 12 }}>{frame.label}</figcaption>
+                <img src={frame.image} alt={frame.label} style={{ display: "block", width: "100%" }} />
+            </figure>)}
+        </div>
+    </details>;
+}
+
 function Harness() {
     return (
+        <>
         <PetShowdownBattle
             initialState={stateView()}
             playerPets={playerPets}
@@ -582,6 +625,8 @@ function Harness() {
             onExit={() => window.location.reload()}
             onRematch={() => window.location.reload()}
         />
+        {PREVIEW_PARAMS.has("frames") && PREVIEW_PARAMS.has("capture") && <ReviewFrames />}
+        </>
     );
 }
 

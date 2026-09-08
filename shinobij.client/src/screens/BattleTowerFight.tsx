@@ -1641,6 +1641,7 @@ export function BattleTowerFight({
         : mode === "move" ? "Move"
         : mode === "dash" ? "Dash"
         : null;
+    const canCancelAction = Boolean(armedActionName || actionFeedback.phase === "error");
     const inspectedEnemy = enemies.find(enemy => enemy.id === inspectedEnemyId && enemy.hp > 0) ?? null;
     const hoveredEnemy = hoverEnemyPos == null
         ? null
@@ -1936,11 +1937,12 @@ export function BattleTowerFight({
                         {actionFeedback.phase === "error" && (
                             <span className="tower-header-action-error" aria-hidden="true" title={reject ?? undefined}>{actionFeedback.label} failed</span>
                         )}
-                        {(armedActionName || actionFeedback.phase === "error") && (
-                            <button type="button" className="tower-header-cancel" onClick={cancelAction} disabled={busy}>
-                                {actionFeedback.phase === "error" ? "Dismiss" : "Cancel action"}
-                            </button>
-                        )}
+                        <button type="button" className="tower-header-cancel" onClick={cancelAction}
+                            disabled={busy || !canCancelAction} aria-hidden={!canCancelAction}
+                            aria-label={actionFeedback.phase === "error" ? "Dismiss action error" : "Cancel action"}
+                            style={{ visibility: canCancelAction ? "visible" : "hidden" }}>
+                            <span>{actionFeedback.phase === "error" ? "Dismiss" : "Cancel action"}</span>
+                        </button>
                         {session.status === "active" && (
                             <button
                                 type="button"
@@ -2263,7 +2265,9 @@ export function BattleTowerFight({
                                         || mode === "heal"
                                         || mode === "cleanse"
                                     );
-                                    const inspectable = a.side === "enemy";
+                                    // While aiming, only actual actor targets may intercept
+                                    // the field; inspection must not cover a ground destination.
+                                    const inspectable = a.side === "enemy" && mode === "idle";
                                     const actorActionable = targetable || selfTargetable || inspectable;
                                     const inspected = a.id === inspectedEnemyId;
                                     const isActive = a.id === activeId;
@@ -2335,6 +2339,13 @@ export function BattleTowerFight({
                         <BattleTabBar tab={battleTabs.tab} setTab={battleTabs.setTab} unread={battleTabs.unread} />
                     </div>
 
+                    {/* Keep the rules note outside the fixed-height command/card dock. */}
+                    {arenaSuppressedGear && (
+                        <p className="tower-arena-loadout-note" role="note">
+                            Team Arena disables consumables and thrown ammunition. Reusable hand weapons remain available.
+                        </p>
+                    )}
+
                     {/* Action bar — command bar + painted jutsu/weapon/item cards (the main combat UI) */}
                     <div className="tower-action-dock">
                         <div id="tower-action-guidance" className="tower-sr-only" role={actionFeedback.phase === "error" ? "alert" : "status"} aria-live="polite" aria-atomic="true" aria-busy={busy}>
@@ -2397,11 +2408,6 @@ export function BattleTowerFight({
                         </CombatCommandBar>
 
                         {/* Jutsu / weapon / consumable cards */}
-                        {arenaSuppressedGear && (
-                            <p className="tower-arena-loadout-note" role="note">
-                                Team Arena disables consumables and thrown ammunition. Reusable hand weapons remain available.
-                            </p>
-                        )}
                         {(myJutsu.length > 0 || actionWeapons.length > 0 || actionConsumables.length > 0) && (
                             <div className="jutsu-layout-card combat-jutsu-bar" role="region" aria-label="Jutsu, weapons, and items">
                                 <div className="combat-equipped-jutsu-grid" style={myTurn ? undefined : { opacity: 0.65 }}>

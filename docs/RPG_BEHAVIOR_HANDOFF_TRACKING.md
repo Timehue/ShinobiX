@@ -20,7 +20,7 @@ no defect found / preserved), `design-only` (behavior preserved, decision record
 |---|---|---|---|---|
 | F01 battle availability | Fix: client-asserted `inBattle` grants immunity | `api/_realtime/battle-projection.ts`, `api/_realtime/battle-authority.ts`, `api/_realtime/online-store.ts` (upsert ignores the claim), `api/player/heartbeat.ts` (derives the flag on its existing mget), `api/_realtime/socket.ts`, start/terminal hooks in `api/solo-pve/_store.ts`, `api/pvp/_pending-session.ts`, `api/pvp/_committed-terminal-effects.ts`, `api/towers/_battle-lease.ts`; income door `api/_sector-presence-gate.ts` | `api/_realtime/battle-authority.test.ts`, `api/player/heartbeat-battle-authority.test.ts`, `api/_realtime/online-store.test.ts`, `api/world/explore-obligations.test.ts` | **fixed (immunity stripped, 2026-09-06 second pass):** `inBattle` is server-owned. Presence ignores the client claim in both directions; the heartbeat proves the flag from a Tower lease, the `battle-state:<slug>` projection every Solo-PvE host writes at creation (verified against a live, unexpired session), a fresh PvP reservation or an active PvP session, the generic AI-fight pointer, a pet duel that is running or pending with this side committed (fourth pass), and (third pass, 2026-09-07) a Hollow Gate dive via its run key, a pet showdown via its unfinished session, and a legacy pet battle via its active token pointer, cached per player for 10 s keyed by the exact evidence. Fight hosts set/clear presence at start/terminal so immunity begins and ends with the fight. The field-income door keeps its kill switch. |
 | F02 action compatibility | Implement explicit compatibility for prohibited overlaps | `api/world/explore.ts`, `api/missions/ai-fight-start.ts` | `api/world/explore-obligations.test.ts` | fixed (the clear case): a hospitalized character cannot explore or start a new AI fight; other policy questions left as-is |
-| F03 complete aftermath | Preserve; close location/presence connections | `api/_realtime/travel-lease.ts` (arrival tile persisted), `api/player/heartbeat.ts` (cold start adopts it), client `lib/sector-return.ts`, `screens/WorldMap.tsx` initializer, `App.tsx` boot hydration | `api/player/travel.test.ts`, `shinobij.client/src/lib/sector-return.test.ts` | fixed: a reload resumes on the persisted arrival tile instead of the grid centre |
+| F03 complete aftermath | Preserve; close location/presence connections | `api/_realtime/travel-lease.ts` (arrival tile persisted; arrival recorded to the walked tile), `api/_realtime/walked-tile.ts` (the tile last stood on), `api/player/heartbeat.ts` (notes the tile; cold start resumes on it), `api/save/[name].ts` (owner read projects it), client `lib/sector-return.ts`, `screens/WorldMap.tsx` initializer, `App.tsx` boot hydration | `api/player/travel.test.ts` (walk → fresh session resumes on the spot), `api/_realtime/walked-tile.test.ts`, `api/save/_owner-read-walked-tile.test.ts`, `shinobij.client/src/lib/sector-return.test.ts` | fixed: a reload resumes on the exact tile the player last stood on (sixth pass, 2026-09-08); before that, on the arrival tile |
 | F04 persistent chakra/stamina | Do NOT implement | `api/solo-pve/_ai-encounter.ts` (V2 starts full) | existing | design-only (preserved) |
 | F05 all non-wins alike | Preserve mode distinctions; fix premature settlement (N03) | see N03 | see N03 | fixed via N03 |
 | F06 wrong participant | Fix exact actor + legacy receipt collision | `api/missions/_ai-fight-outcome.ts`, `api/pve/_fight-outcome-settlement.ts` | `api/pve/_fight-outcome-participant.test.ts` | fixed |
@@ -32,7 +32,7 @@ no defect found / preserved), `design-only` (behavior preserved, decision record
 | F12 tile-distance rules | Design-only | — | — | design-only (sector-wide targeting preserved) |
 | F13 regeneration clock | Dedicated regen cursor + exclusions | `api/_elapsed-state.ts`, `api/save/_save-version.ts`, `api/save/_mutate-player-save.ts`, `api/save/[name].ts` | `api/_elapsed-state-regen-cursor.test.ts` (+ existing elapsed/save suites) | fixed |
 | F14 healer full refill | Preserve; obey battle authority | `api/player/heal.ts` | existing | design-only (preserved) |
-| F15 duplicate direct transfer | Guarded claim under lock, fingerprint, retained id | `api/player/trade.ts`, client `lib/player-trade.ts` | `api/player/trade.test.ts` | fixed |
+| F15 duplicate direct transfer | Guarded claim under lock, fingerprint, retained id | `api/player/trade.ts`, client `lib/player-trade.ts` | `api/player/trade.test.ts` | fixed; nonce made mandatory 2026-09-07 (400 `nonce-required` for a body without one; kill switch `ALLOW_NONCELESS_TRANSFERS=1`) |
 | F16 duplicate bank movement | Stable operation id / receipt | `api/bank/transfer.ts`, client `screens/Bank.tsx` (fetch body only) | `api/bank/transfer.test.ts` | fixed (+ restored the broken `direction` field) |
 | F17 lost world progress | Durable side-effect delivery for intel/contracts | `api/world/_effects-outbox.ts`, `api/world/explore.ts`, `api/_sector-contracts.ts` | `api/world/explore-obligations.test.ts`, `api/world/_effects-outbox.test.ts` | fixed (at-least-once outbox drained on the next exploration) |
 | F18 offline notices | Owner-scoped ack/dedupe | `api/player/heartbeat.ts`, client `lib/notice-ack.ts` | `api/player/heartbeat-notice-ack.test.ts` | fixed |
@@ -193,12 +193,15 @@ threshold; changing it is a copy edit outside the authorized scope.
   that has ALREADY left storage (a legacy row that expired before this pass)
   still settles nothing — there is no evidence to settle from, and inventing a
   cost would be exactly what the handoff forbids.
-- **F15 legacy clients:** a request without a nonce still runs with no replay
-  identity. The shipped client always sends one; making it mandatory is a rollout
-  decision once no versionless bodies are observed.
-- **F03, mid-sector position:** only the arrival tile is persisted (at travel
-  settle); walking within a sector is not written to the save, so a reload resumes
-  on the road the player arrived by, not the tile they last stood on.
+- ~~**F15 legacy clients**~~: done 2026-09-07 (fifth pass). A transfer body without
+  a nonce is refused 400 `nonce-required` with a reload hint and mints no replay
+  identity; `ALLOW_NONCELESS_TRANSFERS=1` re-admits legacy bodies without a deploy.
+- ~~**F03, mid-sector position**~~: done 2026-09-08 (sixth pass, owner request). The
+  tile the player last stood on is durable in a small dedicated key
+  (`walked-tile:<slug>`, `api/_realtime/walked-tile.ts`) written by the heartbeat
+  only on change and at most every 5 s per player, superseded by every settled
+  arrival; the owner's save read and the heartbeat cold start resume on it. No save
+  write per step, no client change.
 
 ## Follow-up items and behavior changes to confirm
 
@@ -350,6 +353,40 @@ pet-duel registry already holds a `pending` session for both players from the in
 and marks each side `ready` when it commits; the resolver now honours a pending duel for
 a committed side. No new record, no lapse handling (an unanswered invite is swept from
 the registry within 30 s and presence follows on the next beat). Server-only change.
+
+### Fifth pass — F15 nonce made mandatory (2026-09-07)
+
+| Step | Command | Result |
+|---|---|---|
+| Type check | `npx tsc -p tsconfig.cpanel.json --noEmit` | exit 0 |
+| Transfer handler suite | `api/player/trade.test.ts` | 6/6 (incl. refusal without a nonce; kill switch re-admits) |
+| Full suite | `npm test` | 9,546/9,553 (7 skipped), exit 0 — one earlier run lost `_route-request-shape.test.ts` to a runner-level flake with no assertion; it passes alone and in the re-run |
+| Root build + release certification | `npm run build`; `npm run certify:release` | build exit 0, sizecheck PASS; certification 90/90 |
+
+Behavior change to confirm: a tab that predates the 2026-09-06 client (which always
+sends and retains the nonce) now gets "This transfer needs a fresh session. Reload the
+game and try again." on a direct transfer instead of a transfer with no replay
+identity. Server-only change.
+
+### Sixth pass — F03 the tile the player last stood on (2026-09-08)
+
+| Step | Command | Result |
+|---|---|---|
+| Type check | `npx tsc -p tsconfig.cpanel.json --noEmit` | exit 0 |
+| Walked-tile unit, travel (walk → resume), owner save read, heartbeat, travel-lease, ownership suites | `node --import tsx --test …` | 57/57 |
+| Full suite | `npm test` | 9,575/9,582 (7 skipped), exit 0 |
+| Root build + release certification | `npm run build`; `npm run certify:release` | build exit 0, sizecheck PASS; certification 90/90 |
+
+Design: the save is the wrong place for a step every few hundred milliseconds (a
+versioned, lock-fenced document that settles regeneration on every write), so the
+spot is a dedicated key with a day's TTL. The HTTP heartbeat writes it only when the
+tile changed and at most once per 5 s per player, carrying a change inside the window
+to the next beat, so the spot a player stops on is durable within a beat or two. The
+socket path never writes it. A settled arrival records itself there unthrottled, so a
+later visit to the same sector never resumes on an older walk. The owner's restore
+pull projects the walked tile over `currentTile` (server-owned; never written back)
+and the heartbeat's cold start prefers it, both only for the same sector. Client
+unchanged: it already hydrates the board from the restore pull. Server-only change.
 
 ### No-UI-change diff review (starting commit → HEAD)
 
