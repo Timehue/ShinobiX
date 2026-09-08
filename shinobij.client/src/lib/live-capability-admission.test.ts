@@ -220,7 +220,9 @@ test("global maintenance pauses player restore and polling while preserving oper
 test("App rechecks live mutation admission inside delayed save callbacks", () => {
     const app = readFileSync("shinobij.client/src/App.tsx", "utf8");
     const autosave = readFileSync("shinobij.client/src/lib/use-capability-guarded-autosave.ts", "utf8");
-    assert.match(app, /useCapabilityGuardedAutosave\(\{/);
+    assert.match(app, /usePlayerSaveLifecycle\(\{[\s\S]*?mutationAvailability/);
+    const lifecycle = readFileSync("shinobij.client/src/lib/use-player-save-lifecycle.ts", "utf8");
+    assert.match(lifecycle, /useCapabilityGuardedAutosave\(\{/);
     assert.match(autosave, /const persistDirtySnapshot = useEffectEvent\([\s\S]*capabilityAdmissionAllowed\(mutationAvailability\(\)\)[\s\S]*void persistSave\(snapshot\)/);
     assert.match(autosave, /setTimeout\(\(\) => \{[\s\S]*persistDirtySnapshot\(\)[\s\S]*\}, 3000\)/);
     assert.match(autosave, /setInterval\(persistDirtySnapshot, 15_000\)/);

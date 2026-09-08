@@ -471,7 +471,8 @@ import { readFileSync } from "node:fs";
 // The six-line merge buffer remains unchanged.
 // Boot request orchestration and save-session scoping now have focused owners.
 // Shared saved fields and ordered boot recovery decisions have dedicated owners.
-const MAX_LINES = 6832;
+// Save authority, dirty tracking and subscriptions now share an explicit coordinator.
+const MAX_LINES = 6642;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
