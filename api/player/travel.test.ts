@@ -203,5 +203,21 @@ describe('player travel — authoritative origin and durable-first admission', {
         assert.equal(beat.statusCode, 200, JSON.stringify(beat.body));
         assert.equal(beat.body?.sector, exit.destinationSector);
         assert.equal(onlineStore.get(PLAYER)?.tile, exit.destinationTile);
+
+        // Then the player WALKS. The spot they stop on is durable (walked-tile.ts),
+        // so the next fresh session resumes there, not on the road they arrived by.
+        const { readWalkedTile, resetWalkedTileThrottleForTests } = await import('../_realtime/walked-tile.js');
+        for (const tile of [exit.destinationTile + 1, exit.destinationTile + 2, 77]) {
+            resetWalkedTileThrottleForTests(); // each beat lands as if the throttle window had passed
+            const step = await post(heartbeatHandler, { name: PLAYER, character: { level: 20 }, tile });
+            assert.equal(step.statusCode, 200, JSON.stringify(step.body));
+        }
+        await new Promise((resolve) => setImmediate(resolve)); // the write is fire-and-forget
+        assert.deepEqual((({ sector, tile }) => ({ sector, tile }))((await readWalkedTile(kv, PLAYER))!), { sector: exit.destinationSector, tile: 77 });
+        onlineStore.remove(PLAYER);
+        const resumed = await post(heartbeatHandler, { name: PLAYER, character: { level: 20 } });
+        assert.equal(resumed.statusCode, 200, JSON.stringify(resumed.body));
+        assert.equal(onlineStore.get(PLAYER)?.tile, 77, 'a fresh session resumes on the spot the player last stood on');
+        assert.equal((await kv.get<Json>(`save:${PLAYER}`))?.currentTile, exit.destinationTile, 'without a single save write for the walk');
     });
 });
