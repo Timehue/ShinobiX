@@ -25,7 +25,7 @@ import { safeName } from '../_utils.js';
 
 export const BATTLE_STATE_PREFIX = 'battle-state:';
 
-export type BattleProjectionKind = 'solo-pve' | 'tower' | 'pvp' | 'hollow-gate' | 'pet-showdown';
+export type BattleProjectionKind = 'solo-pve' | 'tower' | 'pvp' | 'hollow-gate' | 'pet-showdown' | 'card-clash';
 
 export type BattleStateProjection = {
     version: 1;
@@ -51,7 +51,7 @@ export function isBattleStateProjection(value: unknown): value is BattleStatePro
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
     const p = value as Partial<BattleStateProjection>;
     return p.version === 1
-        && (p.kind === 'solo-pve' || p.kind === 'tower' || p.kind === 'pvp' || p.kind === 'hollow-gate' || p.kind === 'pet-showdown')
+        && (p.kind === 'solo-pve' || p.kind === 'tower' || p.kind === 'pvp' || p.kind === 'hollow-gate' || p.kind === 'pet-showdown' || p.kind === 'card-clash')
         && typeof p.sessionId === 'string'
         && p.sessionId.length > 0
         && Number.isFinite(p.startedAt)
@@ -97,10 +97,20 @@ export async function retireBattleProjection(
 // re-derives the flag from the stores on every beat, so a missed hook is
 // corrected within a beat, never left standing.
 
-export function noteBattleStarted(playerName: string): void {
+// A host's start hook and the heartbeat's own derivation can race: a beat whose
+// mget ran just before the host wrote its record would otherwise clear the
+// flag the hook set, leaving the player attackable for a beat or two at the
+// very start of a fight. The heartbeat therefore never clears a flag within
+// BATTLE_START_GRACE_MS of a host start unless the stores positively prove the
+// fight is over (a terminal or voided record reports itself as lapsed).
+export const BATTLE_START_GRACE_MS = 15_000;
+const recentStarts = new Map<string, number>();
+
+export function noteBattleStarted(playerName: string, now: number = Date.now()): void {
     const slug = safeName(playerName);
     if (!slug) return;
     invalidateBattleAuthority(slug);
+    recentStarts.set(slug, now);
     onlineStore.setInBattle(slug, true);
 }
 
@@ -108,7 +118,18 @@ export function noteBattleEnded(playerName: string): void {
     const slug = safeName(playerName);
     if (!slug) return;
     invalidateBattleAuthority(slug);
+    recentStarts.delete(slug);
     onlineStore.setInBattle(slug, false);
+}
+
+/** True while a host started a fight for this player less than `windowMs` ago. */
+export function battleStartedWithin(playerName: string, now: number = Date.now(), windowMs: number = BATTLE_START_GRACE_MS): boolean {
+    const at = recentStarts.get(safeName(playerName));
+    return at !== undefined && now - at < windowMs;
+}
+
+export function resetRecentBattleStartsForTests(): void {
+    recentStarts.clear();
 }
 
 // ── Resolver cache ──────────────────────────────────────────────────────────
@@ -120,7 +141,7 @@ export function noteBattleEnded(playerName: string): void {
 
 export const BATTLE_AUTHORITY_CACHE_MS = 10_000;
 
-export type BattleAuthoritySource = 'pet-duel' | 'solo-pve' | 'tower' | 'pvp' | 'legacy-lock' | 'hollow-gate' | 'pet-showdown' | 'pet-battle';
+export type BattleAuthoritySource = 'pet-duel' | 'solo-pve' | 'tower' | 'pvp' | 'legacy-lock' | 'hollow-gate' | 'pet-showdown' | 'pet-battle' | 'card-clash';
 
 export type LapsedBattle = { kind: BattleProjectionKind; sessionId: string };
 
@@ -158,4 +179,5 @@ export function invalidateBattleAuthority(slug: string): void {
 
 export function resetBattleAuthorityCacheForTests(): void {
     cache.clear();
+    recentStarts.clear();
 }

@@ -28,6 +28,8 @@ let writeSoloPveSession: typeof import('../solo-pve/_store.js').writeSoloPveSess
 let readSoloPveSession: typeof import('../solo-pve/_store.js').readSoloPveSession;
 let battleStateKey: typeof import('../_realtime/battle-projection.js').battleStateKey;
 let resetBattleAuthorityCacheForTests: typeof import('../_realtime/battle-projection.js').resetBattleAuthorityCacheForTests;
+let noteBattleStarted: typeof import('../_realtime/battle-projection.js').noteBattleStarted;
+let resetRecentBattleStartsForTests: typeof import('../_realtime/battle-projection.js').resetRecentBattleStartsForTests;
 let resetLapseReconciliationForTests: typeof import('../_battle-lapse.js').resetLapseReconciliationForTests;
 let PET_BREEDING_MIGRATION_VERSION: number;
 let handler: Handler;
@@ -102,7 +104,7 @@ before(async () => {
     ({ attackBlock } = await import('../_realtime/presence-gating.js'));
     ({ createSoloPveSession } = await import('../solo-pve/_session.js'));
     ({ writeSoloPveSession, readSoloPveSession } = await import('../solo-pve/_store.js'));
-    ({ battleStateKey, resetBattleAuthorityCacheForTests } = await import('../_realtime/battle-projection.js'));
+    ({ battleStateKey, resetBattleAuthorityCacheForTests, noteBattleStarted, resetRecentBattleStartsForTests } = await import('../_realtime/battle-projection.js'));
     ({ resetLapseReconciliationForTests } = await import('../_battle-lapse.js'));
     ({ PET_BREEDING_MIGRATION_VERSION } = await import('../pet/_owned-pet.js'));
     handler = (await import('./heartbeat.js')).default as unknown as Handler;
@@ -145,6 +147,21 @@ describe('heartbeat — battle status is proven by the server, never claimed (F0
         const after = await beat({ inBattle: true });
         assert.equal(after.statusCode, 200);
         assert.equal(onlineStore.get(PLAYER)?.inBattle, undefined, 'and a claim cannot keep it alive');
+    });
+
+    it('a beat inside a host\'s start grace keeps the flag the host set; after the window the stores decide', async () => {
+        await beat({});
+        assert.equal(onlineStore.get(PLAYER)?.inBattle, undefined);
+        noteBattleStarted(PLAYER); // a host hook fired between this beat's reads and its write; its record is not visible yet
+        assert.equal(onlineStore.get(PLAYER)?.inBattle, true);
+        await beat({ inBattle: false });
+        assert.equal(onlineStore.get(PLAYER)?.inBattle, true, 'no store proves the fight yet, and the recent start is honoured');
+        assert.equal(attackBlock(onlineStore.get(PLAYER))?.status, 409, 'so the player cannot be jumped at the bell');
+
+        resetRecentBattleStartsForTests(); // the grace window has passed
+        resetBattleAuthorityCacheForTests();
+        await beat({});
+        assert.equal(onlineStore.get(PLAYER)?.inBattle, undefined, 'and then only proof counts');
     });
 
     it('a Tower lease proves a fight without a session read', async () => {

@@ -18,6 +18,7 @@
  *       hollow-gate  the dive's run key (`hg-run:<slug>:<token>`), which exists
  *                    exactly while the dive is live — settled or died, it is gone;
  *       pet-showdown a showdown session that is not yet `finished`;
+ *       card-clash   a Chronicle duel session (free-play, clan-war, sector-war) not `done`;
  *   - `pvp:pending-session:<slug>`: a fresh reservation, or an active pointer
  *     whose session is still `active` (a pointer that already carries its
  *     terminal recovery deadline is a finished duel: no read needed);
@@ -49,6 +50,7 @@ import { parsePvpPendingSessionPointer, pvpPendingSessionKey } from '../pvp/_pen
 import type { PvpSession } from '../pvp/session.js';
 import { isPvpSessionLapsed } from '../pvp/_lapse-rules.js';
 import { sessionForPlayer as petDuelSessionForPlayer } from './pet-duel-session.js';
+import { cardDuelEngages, type CardDuelSessionShape } from '../card-clash/_presence.js';
 import {
     battleStateKey,
     cachedBattleAuthority,
@@ -195,7 +197,19 @@ async function resolveUncached(
     let lapsed: LapsedBattle | undefined;
     const projection = isBattleStateProjection(evidence.battleState) ? evidence.battleState : null;
     if (projection) {
-        if (projection.kind === 'hollow-gate') {
+        if (projection.kind === 'solo-pve') {
+            // Always the session, never the hint: a long fight refreshes its own
+            // expiry on every action while the projection keeps the creation-time
+            // one, so trusting the hint would strip immunity mid-fight. A row
+            // that is gone or terminal reports as lapsed so the projection retires.
+            const verdict = await soloPveVerdict(store, projection.sessionId, now);
+            if (verdict === 'live') return { inBattle: true, source: 'solo-pve' };
+            lapsed = { kind: 'solo-pve', sessionId: projection.sessionId };
+        } else if (projection.kind === 'card-clash') {
+            const session = await store.get<CardDuelSessionShape | null>(projection.sessionId);
+            if (cardDuelEngages(session, slug)) return { inBattle: true, source: 'card-clash' };
+            lapsed = { kind: 'card-clash', sessionId: projection.sessionId };
+        } else if (projection.kind === 'hollow-gate') {
             // A dive is live exactly while its run key exists; the projection's
             // expiry is only a hint for the sweep, never the verdict.
             const run = await store.get<unknown>(hollowGateRunKey(slug, projection.sessionId));
@@ -206,16 +220,12 @@ async function resolveUncached(
             if (session && !session.finished) return { inBattle: true, source: 'pet-showdown' };
             lapsed = { kind: 'pet-showdown', sessionId: projection.sessionId };
         } else if (projection.expiresAt <= now) {
-            // Past its gameplay expiry by the projection's own clock; the
-            // owning store decides whether it is truly lapsed (the sweep and
-            // the terminalizer re-read it under the session lock).
+            // Tower and PvP hints past their own clock: the owning store decides
+            // whether the fight truly lapsed (the sweep and the terminalizer
+            // re-read it under the session lock). 'tower' is proven by the
+            // lease above and 'pvp' by the pointer below either way.
             lapsed = { kind: projection.kind, sessionId: projection.sessionId };
-        } else if (projection.kind === 'solo-pve') {
-            const verdict = await soloPveVerdict(store, projection.sessionId, now);
-            if (verdict === 'live') return { inBattle: true, source: 'solo-pve' };
-            if (verdict === 'lapsed') lapsed = { kind: 'solo-pve', sessionId: projection.sessionId };
         }
-        // 'tower' is proven by the lease above; 'pvp' by the pointer below.
     }
 
     const pointer = parsePvpPendingSessionPointer(evidence.pvpPointer, slug);

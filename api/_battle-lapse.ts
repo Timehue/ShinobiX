@@ -21,11 +21,15 @@
  *   • PvP       — a duel nobody has touched for its whole session TTL is a
  *                 double walk-out: a draw (no admission, no rewards) whose
  *                 vitals settle exactly as any other terminal duel's do.
- *   • Hollow Gate dives and pet showdowns — never the body, and each owns its
- *                 own ending (a dive's run key is deleted when it settles or
- *                 the diver dies; a showdown marks itself `finished`). Nothing
- *                 is terminalized here; a projection that names a dive or
- *                 showdown that is over is simply retired.
+ *   • Hollow Gate dives, pet showdowns and card duels — never the body, and
+ *                 each owns its own ending (a dive's run key is deleted when it
+ *                 settles or the diver dies; a showdown marks itself `finished`;
+ *                 a card duel goes `done`). Nothing is terminalized here; a
+ *                 projection naming one that is over is simply retired.
+ *   • A Solo-PvE fight INSIDE a dive is voided rather than abandoned: the dive
+ *                 owns the consequence of a lost fight (death and hospital), and
+ *                 a lapse is not a loss. Deleting the lapsed row restores what
+ *                 expiry always did for dives — the encounter restarts.
  *
  * Three callers reach this: the owner's own heartbeat (battle-authority.ts
  * reports the lapse it found), any read of the session by its mode, and the
@@ -99,6 +103,7 @@ export async function reconcileLapsedBattle(
             case 'pvp': return { ...base, ...(await reconcilePvp(lapsed.sessionId, playerName)) };
             case 'hollow-gate': return { ...base, ...(await reconcileHollowGate(lapsed.sessionId, playerName)) };
             case 'pet-showdown': return { ...base, ...(await reconcilePetShowdown(lapsed.sessionId, playerName)) };
+            case 'card-clash': return { ...base, ...(await reconcileCardDuel(lapsed.sessionId, playerName)) };
         }
     } catch (err) {
         return { ...base, transitioned: false, settled: false, error: (err as Error)?.message ?? String(err) };
@@ -114,9 +119,10 @@ async function reconcileSoloPve(sessionId: string, playerName?: string): Promise
     if (!result.ok) return { transitioned: false, settled: false, error: result.error };
     const session = result.session;
     if (!session) {
-        // Gone from storage: nothing to prove, nothing to charge.
+        // Gone from storage (or a Hollow Gate fight voided so the dive's own
+        // recovery restarts the encounter): nothing to prove, nothing to charge.
         await retireStaleProjection(playerName, sessionId);
-        return { transitioned: false, settled: false };
+        return { transitioned: result.transitioned, settled: false };
     }
     if (session.status !== 'done') return { transitioned: false, settled: false };
     if (!result.transitioned) await retireStaleProjection(playerName, sessionId);
@@ -154,6 +160,16 @@ async function reconcileHollowGate(token: string, playerName?: string): Promise<
     const { kv } = await import('./_storage.js');
     const run = await kv.get<unknown>(hollowGateRunKey(safeName(playerName), token));
     if (!run) await retireStaleProjection(playerName, token);
+    return { transitioned: false, settled: false };
+}
+
+/** A card duel's session key is the projection's sessionId; gone or `done` means the projection is stale. */
+async function reconcileCardDuel(sessionKey: string, playerName?: string): Promise<Outcome> {
+    if (!playerName) return { transitioned: false, settled: false };
+    const { cardDuelEngages } = await import('./card-clash/_presence.js');
+    const { kv } = await import('./_storage.js');
+    const session = await kv.get<{ p1Name?: string; p2Name?: string; status: string } | null>(sessionKey);
+    if (!cardDuelEngages(session, safeName(playerName))) await retireStaleProjection(playerName, sessionKey);
     return { transitioned: false, settled: false };
 }
 

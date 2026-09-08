@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { withKvLock, type LockOptions } from '../_lock.js';
+import { kv as realKv } from '../_storage.js';
 import { applySoloPveAction } from './_engine.js';
 import {
     SOLO_PVE_MOVE_TOKEN_HISTORY,
@@ -41,6 +42,8 @@ import { recordSoloPveLifecycle, type SoloPveTelemetryDeps } from './_telemetry.
 export type AbandonSoloPveDeps = {
     read?: (sessionId: string) => Promise<SoloPveSession | null>;
     compareWrite?: (expected: SoloPveSession, next: SoloPveSession) => Promise<boolean>;
+    /** Deletes a lapsed row outright (the dive policy). Defaults to the real store. */
+    remove?: (sessionId: string) => Promise<void>;
     lock?: <T>(target: string, fn: () => Promise<T>, options?: LockOptions) => Promise<T>;
     now?: () => number;
     telemetry?: SoloPveTelemetryDeps;
@@ -135,8 +138,19 @@ export async function abandonSoloPveSession(
 }
 
 export type LapsedSoloPveResult =
-    | { ok: true; session: SoloPveSession | null; transitioned: boolean }
+    | { ok: true; session: SoloPveSession | null; transitioned: boolean; voided?: boolean }
     | { ok: false; status: number; error: string; retryable?: boolean };
+
+/**
+ * A fight sealed by a Hollow Gate dive (its session id is the dive's combat
+ * binding). The dive owns the consequence of a LOST fight — death, hospital,
+ * the run wiped — and a lapse is not a loss, so a lapsed dive fight is voided
+ * (the row deleted) rather than abandoned: exactly what expiry always did for
+ * dives, and the dive's own recovery restarts the encounter.
+ */
+export function isHollowGateFightSession(session: Pick<SoloPveSession, 'sessionId' | 'encounter'>): boolean {
+    return session.sessionId.startsWith('hgcombat-') || session.encounter?.kind === 'hollow-gate';
+}
 
 /**
  * Terminalize a session ONLY if it is active and past its gameplay expiry.
@@ -154,10 +168,15 @@ export async function terminalizeLapsedSoloPveSession(
     const now = deps.now ?? Date.now;
     if (!sessionId) return { ok: false, status: 400, error: 'Missing solo-PvE session identity.' };
 
+    const remove = deps.remove ?? (async (id: string) => { await realKv.del(soloPveSessionKey(id)); });
     return lock(soloPveSessionKey(sessionId), async () => {
         const session = await read(sessionId);
         if (!session) return { ok: true as const, session: null, transitioned: false };
         if (!isSoloPveSessionLapsed(session, now())) return { ok: true as const, session, transitioned: false };
+        if (isHollowGateFightSession(session)) {
+            await remove(sessionId);
+            return { ok: true as const, session: null, transitioned: true, voided: true };
+        }
         const next = transitionAbandon(session, session.expiresAt, true);
         if (!next) return { ok: false as const, status: 409, error: 'The lapsed encounter could not be terminalized.' };
         const committed = await compareWrite(session, next);

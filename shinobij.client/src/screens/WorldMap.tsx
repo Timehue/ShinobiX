@@ -153,7 +153,7 @@ import { biomeForWorldSector, sectorRegionName, villageForOutskirtsSector, villa
 import { biomeLabel, weatherEffects } from "../data/world";
 import { builtinHuntMissions } from "../data/missions";
 import { makeId, playerSlug, sameSector } from "../lib/utils";
-import { setSectorReopen, takeSectorReopen, peekSectorReopen, consumeReloadIntoSector, peekReloadIntoSector } from "../lib/sector-return";
+import { setSectorReopen, takeSectorReopen, consumeReloadIntoSector } from "../lib/sector-return";
 import { isRecentlyStruckDown } from "../lib/sleeper-kill";
 import { useLiveSectorRoster, getLocalSectorTile } from "../lib/presence-store";
 import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
@@ -2529,7 +2529,7 @@ function WorldMapContent({
     // last tile at module scope, so it survives WorldMap's unmount during the
     // battle. Peek, never take — the mount effect above owns consuming the latch.
     const { sectorPlayerPos, setSectorPlayerPos, travelRequestInFlight, travelPresentation } = useWorldTravelPresentation(character.name,
-        () => (peekSectorReopen() !== null || peekReloadIntoSector() ? getLocalSectorTile() : SECTOR_CENTRE_TILE), // a reload resumes on the server-persisted arrival tile (hydrated at boot)
+        () => getLocalSectorTile(), // the spot the player last stood on: hydrated at boot from the owner's save read (walked tile, else the arrival tile), set on arrival, kept across a fight; the store's own default is the centre
         (sector) => {
             setSelectedSector(isWildSector(sector) ? sector : null);
             setSelectedVillageTerritory(null);

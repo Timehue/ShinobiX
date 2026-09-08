@@ -14,6 +14,7 @@ import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from '../_real
 import { durablePresenceSectorForWrite } from '../_realtime/world-duel-engagement.js';
 import { noteWalkedTile, readWalkedTile, resumeTileFor } from '../_realtime/walked-tile.js';
 import { battleAuthorityKeys, battleEvidenceFrom, resolveBattleAuthority } from '../_realtime/battle-authority.js';
+import { battleStartedWithin } from '../_realtime/battle-projection.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { offlineNoticesKey, parseOfflineNotices, OFFLINE_NOTICES_TTL_SEC, type OfflineNotice } from './_offline-notices.js';
@@ -309,7 +310,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // verifying is not evidence either way, so the flag is left as it was.
         try {
             const battle = await resolveBattleAuthority(name, battleEvidenceFrom(signals.slice(6, 11)), { now: () => now });
-            onlineStore.setInBattle(name, battle.inBattle);
+            // A host that started a fight moments ago set the flag itself; this
+            // beat's reads may predate its record. Keep it for the grace window
+            // unless a store positively reported the fight over (lapsed).
+            if (battle.inBattle || battle.lapsed || !battleStartedWithin(name, now)) onlineStore.setInBattle(name, battle.inBattle);
             // F08: an ACTIVE session past its gameplay expiry grants no immunity
             // and is terminalized with its own evidence, off the hot path.
             if (battle.lapsed) void reconcileLapsedBattle(battle.lapsed, name).catch(() => undefined);
