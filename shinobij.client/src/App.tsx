@@ -51,6 +51,8 @@ import {
 import { createSavePersistence } from "./lib/save-persistence";
 import { protectSaveOnUnload } from "./lib/save-unload";
 import { beginSessionLoad, sessionLoadFetch } from "./lib/session-load-authority";
+import { restoreAccountFromServer } from "./lib/boot-restore";
+import { createSaveAuthorityScope } from "./lib/save-authority-scope";
 import {
     createSaveConflictDraftStore,
     saveConflictAccountKey,
@@ -3090,46 +3092,24 @@ export default function App() {
                 if (didOptimisticPaint) { unwindToLoginForm(); setOptimisticRestore(false); }
             };
 
-            // Safety backstop: pullSaveFromServer has no request timeout, so a
-            // connection that hangs with no response would pin the "restoring"
-            // gate forever. After 12s, drop to the login fallback.
-            const restoreTimer = window.setTimeout(() => {
-                if (!restoreLoad.isCurrent()) return;
-                revertRestoreToLogin();
-                setRestoringSession(false);
-            }, 12000);
-            // Pull the save AND the server battle-lock together so the restore
-            // routing can force re-entry into an unresolved PvE fight (a refresh
-            // must not let a player flee a battle). The lock fetch never rejects.
-            Promise.all([
-                pullSaveFromServer(localAccountName),
-                fetchBattleLockStatus(localAccountName),
-            ]).then(async ([snap, lock]) => {
-                if (!restoreLoad.isCurrent()) return;
-                if (snap && saveConflictAccountKey(snap.character.name) === restoreLoad.accountKey) { applySnapshot(snap, lock); return; }
-                // A guest has no password to fall back on, so an expired token
-                // would otherwise strand them on a login form they can never
-                // satisfy. Their resume credential is exactly for this moment.
-                const guest = await resumeGuestFor(localAccountName, (a, b) => accountKey(a) === accountKey(b));
-                if (!restoreLoad.isCurrent()) return;
-                if (guest) {
+            void restoreAccountFromServer({
+                accountName: localAccountName,
+                scope: restoreLoad,
+                pullSave: pullSaveFromServer,
+                fetchBattleLock: fetchBattleLockStatus,
+                resumeGuest: async () => {
+                    // Credentials stay bound to this restore generation.
+                    const guest = await resumeGuestFor(localAccountName, (a, b) => accountKey(a) === accountKey(b));
+                    if (!restoreLoad.isCurrent() || !guest) return null;
                     if (guest.token) setActiveToken(guest.token);
                     setActivePlayer(guest.name);
-                    const retry = await pullSaveFromServer(guest.name);
-                    if (!restoreLoad.isCurrent()) return;
-                    if (retry && saveConflictAccountKey(retry.character.name) === restoreLoad.accountKey) return applySnapshot(retry, lock);
-                }
-                // Stored account but the pull failed (expired token / 4xx /
-                // network after retries) — surface the pre-filled login instead
-                // of silently sitting on the start screen (or on a stale
-                // optimistic paint).
-                revertRestoreToLogin();
-            }).finally(() => {
-                restoreCompleted = true;
-                window.clearTimeout(restoreTimer);
-                if (!restoreLoad.isCurrent()) return;
-                setRestoringSession(false);
-                void pullSharedAdminContent();
+                    return guest.name;
+                },
+                applySnapshot,
+                onFailure: revertRestoreToLogin,
+                onTimeout: () => setRestoringSession(false),
+                onSettled: () => { restoreCompleted = true; },
+                onComplete: () => { setRestoringSession(false); void pullSharedAdminContent(); },
             });
         } else {
             // No stored account → brand-new / anonymous visitor: show the login
@@ -4010,18 +3990,7 @@ export default function App() {
     const saveAuthorityAccountKeyRef = useRef("");
 
     function scopeSaveAuthorityToAccount(accountName: string): number {
-        const accountKey = saveConflictAccountKey(accountName);
-        if (saveAuthorityAccountKeyRef.current !== accountKey) {
-            pvpCreateScopeAbortRef.current.abort();
-            pvpCreateScopeAbortRef.current = new AbortController();
-            saveAuthorityAccountKeyRef.current = accountKey;
-            latestSaveVersionRef.current = 0;
-            savePayloadRevisionRef.current = 0;
-            savePayloadIdentityRef.current = null;
-            saveFailCountRef.current = 0; setSaveBlocked(false);
-            saveSessionEpochRef.current += 1;
-        }
-        return saveSessionEpochRef.current;
+        return saveAuthority.scopeToAccount(accountName);
     }
     /** Drop a half-entered session and put the login form back in front. */
     function unwindToLoginForm(): void {
@@ -4034,37 +4003,16 @@ export default function App() {
     }
 
     function resetSaveAuthorityScope(): void {
-        pvpCreateScopeAbortRef.current.abort();
-        pvpCreateScopeAbortRef.current = new AbortController();
-        saveAuthorityAccountKeyRef.current = "";
-        latestSaveVersionRef.current = 0;
-        savePayloadRevisionRef.current = 0;
-        savePayloadIdentityRef.current = null;
-        saveFailCountRef.current = 0; setSaveBlocked(false);
-        saveSessionEpochRef.current += 1;
+        saveAuthority.reset();
     }
     function isCurrentSaveSession(accountKey: string, sessionEpoch: number): boolean {
-        return saveAuthorityAccountKeyRef.current === accountKey
-            && saveSessionEpochRef.current === sessionEpoch
-            && activeSaveAccountKey() === accountKey;
+        return saveAuthority.isCurrent(accountKey, sessionEpoch);
     }
     function acceptExternalSaveVersion(incomingVersion: unknown, originatingAccount: string): "accepted" | "stale" | "foreign" {
-        const accountKey = saveConflictAccountKey(originatingAccount);
-        if (!accountKey || accountKey !== saveAuthorityAccountKeyRef.current || activeSaveAccountKey() !== accountKey) return "foreign";
-        const previousVersion = latestSaveVersionRef.current, decision = acceptVersionedSnapshot(previousVersion, incomingVersion);
-        if (!decision.accepted) return "stale"; if (decision.latestVersion > previousVersion) savePersistenceRef.current?.invalidateAuthority();
-        latestSaveVersionRef.current = decision.latestVersion; return "accepted";
+        return saveAuthority.acceptExternalVersion(incomingVersion, originatingAccount);
     }
     function capturePvpCreateScope(accountName: string): { signal: AbortSignal; isCurrent: () => boolean } {
-        const accountKey = saveConflictAccountKey(accountName);
-        const sessionEpoch = saveSessionEpochRef.current;
-        const controller = pvpCreateScopeAbortRef.current;
-        return {
-            signal: controller.signal,
-            isCurrent: () => controller === pvpCreateScopeAbortRef.current
-                && !controller.signal.aborted
-                && isCurrentSaveSession(accountKey, sessionEpoch),
-        };
+        return saveAuthority.captureCreateScope(accountName);
     }
     async function adoptOwnSaveRead(anchor: OwnSaveReadAnchor, settledCharacter: Character | null | undefined, settledVersion: unknown): Promise<OwnSaveReadResult> {
         if (settledCharacter && saveConflictAccountKey(settledCharacter.name) !== anchor.accountKey) return "foreign";
@@ -4118,6 +4066,14 @@ export default function App() {
     const saveFailCountRef = useRef(0);
     const [saveBlocked, setSaveBlocked] = useState(false);
     const savePersistenceRef = useRef<ReturnType<typeof createSavePersistence<ReturnType<typeof buildPlayerSavePayload>>> | null>(null);
+    const saveAuthority = createSaveAuthorityScope({
+        accountKey: saveAuthorityAccountKeyRef, latestVersion: latestSaveVersionRef,
+        payloadRevision: savePayloadRevisionRef, payloadIdentity: savePayloadIdentityRef,
+        failureCount: saveFailCountRef, sessionEpoch: saveSessionEpochRef,
+        createAbort: pvpCreateScopeAbortRef, activeAccountKey: activeSaveAccountKey,
+        setBlocked: setSaveBlocked,
+        invalidateAuthority: () => savePersistenceRef.current?.invalidateAuthority(),
+    });
 
     function activeSaveAccountKey(): string {
         return saveConflictAccountKey(currentAccountNameRef.current || characterRef.current?.name || "");
