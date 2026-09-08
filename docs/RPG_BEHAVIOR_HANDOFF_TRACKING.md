@@ -32,7 +32,7 @@ no defect found / preserved), `design-only` (behavior preserved, decision record
 | F12 tile-distance rules | Design-only | — | — | design-only (sector-wide targeting preserved) |
 | F13 regeneration clock | Dedicated regen cursor + exclusions | `api/_elapsed-state.ts`, `api/save/_save-version.ts`, `api/save/_mutate-player-save.ts`, `api/save/[name].ts` | `api/_elapsed-state-regen-cursor.test.ts` (+ existing elapsed/save suites) | fixed |
 | F14 healer full refill | Preserve; obey battle authority | `api/player/heal.ts` | existing | design-only (preserved) |
-| F15 duplicate direct transfer | Guarded claim under lock, fingerprint, retained id | `api/player/trade.ts`, client `lib/player-trade.ts` | `api/player/trade.test.ts` | fixed |
+| F15 duplicate direct transfer | Guarded claim under lock, fingerprint, retained id | `api/player/trade.ts`, client `lib/player-trade.ts` | `api/player/trade.test.ts` | fixed; nonce made mandatory 2026-09-07 (400 `nonce-required` for a body without one; kill switch `ALLOW_NONCELESS_TRANSFERS=1`) |
 | F16 duplicate bank movement | Stable operation id / receipt | `api/bank/transfer.ts`, client `screens/Bank.tsx` (fetch body only) | `api/bank/transfer.test.ts` | fixed (+ restored the broken `direction` field) |
 | F17 lost world progress | Durable side-effect delivery for intel/contracts | `api/world/_effects-outbox.ts`, `api/world/explore.ts`, `api/_sector-contracts.ts` | `api/world/explore-obligations.test.ts`, `api/world/_effects-outbox.test.ts` | fixed (at-least-once outbox drained on the next exploration) |
 | F18 offline notices | Owner-scoped ack/dedupe | `api/player/heartbeat.ts`, client `lib/notice-ack.ts` | `api/player/heartbeat-notice-ack.test.ts` | fixed |
@@ -193,9 +193,9 @@ threshold; changing it is a copy edit outside the authorized scope.
   that has ALREADY left storage (a legacy row that expired before this pass)
   still settles nothing — there is no evidence to settle from, and inventing a
   cost would be exactly what the handoff forbids.
-- **F15 legacy clients:** a request without a nonce still runs with no replay
-  identity. The shipped client always sends one; making it mandatory is a rollout
-  decision once no versionless bodies are observed.
+- ~~**F15 legacy clients**~~: done 2026-09-07 (fifth pass). A transfer body without
+  a nonce is refused 400 `nonce-required` with a reload hint and mints no replay
+  identity; `ALLOW_NONCELESS_TRANSFERS=1` re-admits legacy bodies without a deploy.
 - **F03, mid-sector position:** only the arrival tile is persisted (at travel
   settle); walking within a sector is not written to the save, so a reload resumes
   on the road the player arrived by, not the tile they last stood on.
@@ -350,6 +350,20 @@ pet-duel registry already holds a `pending` session for both players from the in
 and marks each side `ready` when it commits; the resolver now honours a pending duel for
 a committed side. No new record, no lapse handling (an unanswered invite is swept from
 the registry within 30 s and presence follows on the next beat). Server-only change.
+
+### Fifth pass — F15 nonce made mandatory (2026-09-07)
+
+| Step | Command | Result |
+|---|---|---|
+| Type check | `npx tsc -p tsconfig.cpanel.json --noEmit` | exit 0 |
+| Transfer handler suite | `api/player/trade.test.ts` | 6/6 (incl. refusal without a nonce; kill switch re-admits) |
+| Full suite | `npm test` | 9,546/9,553 (7 skipped), exit 0 — one earlier run lost `_route-request-shape.test.ts` to a runner-level flake with no assertion; it passes alone and in the re-run |
+| Root build + release certification | `npm run build`; `npm run certify:release` | build exit 0, sizecheck PASS; certification 90/90 |
+
+Behavior change to confirm: a tab that predates the 2026-09-06 client (which always
+sends and retains the nonce) now gets "This transfer needs a fresh session. Reload the
+game and try again." on a direct transfer instead of a transfer with no replay
+identity. Server-only change.
 
 ### No-UI-change diff review (starting commit → HEAD)
 
