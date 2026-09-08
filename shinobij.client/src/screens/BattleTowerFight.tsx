@@ -243,7 +243,8 @@ function TowerTurnCountdown({ turnStartedAt }: { turnStartedAt: number }) {
         const id = window.setInterval(() => setRemaining(towerTurnRemaining(turnStartedAt)), 1_000);
         return () => window.clearInterval(id);
     }, [turnStartedAt]);
-    return <span role="timer" aria-label={`${remaining} seconds remaining`}> · {remaining}s</span>;
+    // The digits sit in a fixed tabular box: at ~1024px the header title row is within a pixel of its wrap threshold, and proportional digits ("58s" vs "57s") flipped the turn pill between rows every tick — a 48px board jump.
+    return <span role="timer" aria-label={`${remaining} seconds remaining`}> · <span style={{ display: "inline-block", minWidth: "2ch", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{remaining}</span>s</span>;
 }
 
 type TowerRoundPresentation = {
