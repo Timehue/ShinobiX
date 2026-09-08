@@ -4,7 +4,8 @@ import type { Screen } from "../types/core";
 import type { Pet } from "../types/pet";
 import { PetDuelReplayScreen } from "../components/PetDuelReplayScreen";
 import type { ShowdownReplayScript } from "../../../shared/pet-showdown-contract";
-import { joinSectorPet, sectorPetState, sectorPetWatch } from "../lib/village-war-map";
+import { garrisonSectorPet, joinSectorPet, sectorPetState, sectorPetWatch } from "../lib/village-war-map";
+import { stashedContestBackScreen, stashedContestIsGarrison } from "../lib/sector-war-engagement";
 import { activeCarriedPets } from "../lib/entitlements";
 
 /*
@@ -37,7 +38,13 @@ export function SectorWarPetBattle({ character, setScreen }: { character: Charac
     const sectorWarId = (() => {
         try { return String((JSON.parse(sessionStorage.getItem("sectorWarPet.v1") ?? "{}") as { sectorWarId?: string }).sectorWarId ?? ""); } catch { return ""; }
     })();
-    const back = useCallback(() => setScreen("villageWarMap"), [setScreen]);
+    // A duel opened from the world map returns to the world map; the War Map's
+    // own launch records no return target and keeps the historical default.
+    const backScreen = stashedContestBackScreen("sectorWarPet.v1", "villageWarMap");
+    // Garrison mode: no defender ever answered, so the defending village's
+    // sealed team holds the sector instead. Resolves in the same one call.
+    const garrison = stashedContestIsGarrison("sectorWarPet.v1");
+    const back = useCallback(() => setScreen(backScreen), [setScreen, backScreen]);
     const me = character.name.toLowerCase();
 
     return (
@@ -52,14 +59,16 @@ export function SectorWarPetBattle({ character, setScreen }: { character: Charac
                 ready: !!sectorWarId,
                 submitLabel: "Send into battle",
                 submitErrorText: "Could not start the pet duel.",
-                fetchState: async () => ((await sectorPetState(character.name, sectorWarId)) as { session?: PetSession }).session ?? null,
-                submit: (petId) => joinSectorPet(character.name, sectorWarId, petId) as Promise<{ session?: PetSession; error?: string }>,
+                fetchState: async () => ((await sectorPetState(character.name, sectorWarId, garrison)) as { session?: PetSession }).session ?? null,
+                submit: (petId) => (garrison
+                    ? garrisonSectorPet(character.name, sectorWarId, petId)
+                    : joinSectorPet(character.name, sectorWarId, petId)) as Promise<{ session?: PetSession; error?: string }>,
                 // The server re-derives the decided fight into a script; this
                 // screen only plays it. The sector's terrain arrives as the
                 // arena's standing weather, so the home ground is on screen.
                 resolved: (s) => s.status === "done" && !!s.p2 && s.seed != null,
                 watch: async () => {
-                    const r = await sectorPetWatch(character.name, sectorWarId) as { script?: ShowdownReplayScript };
+                    const r = await sectorPetWatch(character.name, sectorWarId, garrison) as { script?: ShowdownReplayScript };
                     return r.script ?? null;
                 },
                 banner: (s) => {
