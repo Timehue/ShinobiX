@@ -1,3 +1,5 @@
+import { FORGED_ITEM_ID, stripForgedItems as projectedStripForgedItems, preserveForgedItems as projectedPreserveForgedItems } from './_forged-items.js';
+import { isReleaseSafeCreatorEvent as projectedIsReleaseSafeCreatorEvent, buildPublicSaveDTO as projectedBuildPublicSaveDTO, combatProjection as projectedCombatProjection } from './_projections.js';
 import { safeLogValue } from '../_safe-log.js';
 import { observeOnboardingFunnel } from './_onboarding-funnel.js';
 import { recordBetaFunnelStep } from '../_beta-funnel.js';
@@ -32,12 +34,7 @@ import {
 } from './_entitlement-guard.js';
 import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave, matchesStoredSaveVersion, nextSaveVersion, storedSaveVersion } from './_save-version.js';
 import {
-    PUBLIC_CHAR_FIELDS,
-    PUBLIC_TOPLEVEL_FIELDS,
-    PUBLIC_COMBAT_TOPLEVEL_FIELDS,
     SHARED_ADMIN_CONTENT_FIELDS,
-    COMBAT_STRIP_CHAR_FIELDS,
-    COMBAT_STRIP_TOPLEVEL_FIELDS,
     STRICT_SERVER_LEDGER_CHARACTER_FIELDS,
     ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS,
     SERVER_PAYOUT_CHARACTER_FIELDS,
@@ -142,21 +139,7 @@ export function isAdminContentSlot(name: string): boolean {
 }
 
 export function isReleaseSafeCreatorEvent(raw: unknown): boolean {
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false;
-    const event = raw as Record<string, unknown>;
-    if (event.eventKind !== 'visualNovel' || event.kageFinale === true) return false;
-    for (const field of ['xpReward', 'ryoReward', 'staminaReward']) {
-        if (Number(event[field] ?? 0) !== 0) return false;
-    }
-    if (event.currencyRewards && typeof event.currencyRewards === 'object') {
-        if (Object.values(event.currencyRewards as Record<string, unknown>).some((value) => Number(value ?? 0) !== 0)) return false;
-    }
-    if (Array.isArray(event.vnPages)) {
-        for (const page of event.vnPages as Array<Record<string, unknown>>) {
-            if (Array.isArray(page?.choices) && (page.choices as Array<Record<string, unknown>>).some((choice) => choice?.battle)) return false;
-        }
-    }
-    return true;
+    return projectedIsReleaseSafeCreatorEvent(raw);
 }
 
 // Build the non-owner response: an explicit allowlist DTO. Nothing from the
@@ -164,45 +147,7 @@ export function isReleaseSafeCreatorEvent(raw: unknown): boolean {
 // spread, no internal metadata (_saveVersion / _saveAt), and future fields are
 // private until deliberately added.
 export function buildPublicSaveDTO(data: Record<string, unknown>, opts: { combat: boolean; sharedContent?: boolean }): Record<string, unknown> {
-    const char = data.character as Record<string, unknown> | undefined;
-    const projectedChar: Record<string, unknown> = {};
-    if (char && typeof char === 'object') {
-        for (const k of PUBLIC_CHAR_FIELDS) {
-            if (k in char) projectedChar[k] = char[k];
-        }
-    }
-    const out: Record<string, unknown> = { character: projectedChar };
-    for (const k of PUBLIC_TOPLEVEL_FIELDS) {
-        if (k in data) out[k] = data[k];
-    }
-    if (opts.combat) {
-        for (const k of PUBLIC_COMBAT_TOPLEVEL_FIELDS) {
-            if (k in data) out[k] = data[k];
-        }
-    }
-    // Admin content slots only — see SHARED_ADMIN_CONTENT_FIELDS.
-    if (opts.sharedContent) {
-        for (const k of SHARED_ADMIN_CONTENT_FIELDS) {
-            // Creator missions and raids currently have no authoritative
-            // published-catalog settlement. Do not advertise claim/start
-            // buttons that the server must reject or whose authored rewards it
-            // ignores. Keep them editable on the owning admin slot.
-            if (k === 'creatorMissions' || k === 'creatorRaids') continue;
-            if (k in data) out[k] = data[k];
-        }
-        // Narrative-only events remain publishable. Any rewardful or
-        // battle-bearing creator event stays admin-preview-only until it has a
-        // receipt-backed settlement path.
-        if (Array.isArray(out.creatorEvents)) out.creatorEvents = out.creatorEvents.filter(isReleaseSafeCreatorEvent);
-        // A player-forged item is NEVER shared game content. One that reaches an
-        // admin slot (see stripForgedItems) would otherwise be handed to every
-        // client, which merges shared content into its own `creatorItems` and
-        // persists it — that is exactly how one forged weapon ended up mirrored
-        // into 88 unrelated saves. Filtering on the way OUT also neutralizes any
-        // copy already stored on a slot, with no data migration.
-        if (Array.isArray(out.creatorItems)) out.creatorItems = stripForgedItems(out.creatorItems);
-    }
-    return out;
+    return projectedBuildPublicSaveDTO(data, opts);
 }
 
 /** Content admin is limited to the two explicit admin content save records. */
@@ -255,15 +200,7 @@ export function playerSaveDeletionFenceKey(targetName: string, isClanSave: boole
 // Exported for the ownership golden-master characterization tests only —
 // the handler remains the sole runtime caller.
 export function combatProjection(data: Record<string, unknown>): Record<string, unknown> {
-    const out: Record<string, unknown> = { ...data };
-    for (const f of COMBAT_STRIP_TOPLEVEL_FIELDS) delete out[f];
-    const char = out.character as Record<string, unknown> | undefined;
-    if (char && typeof char === 'object') {
-        const trimmed = { ...char };
-        for (const f of COMBAT_STRIP_CHAR_FIELDS) delete trimmed[f];
-        out.character = trimmed;
-    }
-    return out;
+    return projectedCombatProjection(data);
 }
 
 // How long the cached player:registry `lastSeen` may drift before a save
@@ -474,7 +411,7 @@ function strictRawSaveLedgerEnabled(): boolean {
 // (`randomUUID().replace(/-/g, '')`), but every forged item currently in the
 // database predates that and carries the dashed form — matching only the
 // stripped shape would protect none of the live gear.
-export const FORGED_ITEM_ID = /^named-(weapon|armor)-[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
+export { FORGED_ITEM_ID };
 
 /**
  * Drop every server-forged item from a `creatorItems` array.
@@ -488,11 +425,7 @@ export const FORGED_ITEM_ID = /^named-(weapon|armor)-[0-9a-f]{8}-?[0-9a-f]{4}-?[
  * gear must therefore never mix.
  */
 export function stripForgedItems(list: unknown): unknown[] {
-    if (!Array.isArray(list)) return [];
-    return list.filter((item) => {
-        if (!item || typeof item !== 'object') return true;
-        return !FORGED_ITEM_ID.test(String((item as Record<string, unknown>).id ?? ''));
-    });
+    return projectedStripForgedItems(list);
 }
 
 /**
@@ -513,20 +446,7 @@ export function stripForgedItems(list: unknown): unknown[] {
  * array cannot grow without bound.
  */
 export function preserveForgedItems(sanitized: unknown, stored: unknown, cap: number): unknown {
-    if (!Array.isArray(sanitized) || !Array.isArray(stored)) return sanitized;
-    const present = new Set(
-        (sanitized as Array<Record<string, unknown>>)
-            .map((item) => (item && typeof item === 'object' ? String(item.id ?? '') : ''))
-            .filter(Boolean),
-    );
-    const missingForged = (stored as Array<Record<string, unknown>>).filter((item) => {
-        if (!item || typeof item !== 'object') return false;
-        const id = String(item.id ?? '');
-        return FORGED_ITEM_ID.test(id) && !present.has(id);
-    });
-    if (missingForged.length === 0) return sanitized;
-    // Forged pieces go first so the cap can never be what drops them.
-    return [...missingForged, ...(sanitized as unknown[])].slice(0, cap);
+    return projectedPreserveForgedItems(sanitized, stored, cap);
 }
 
 function starterJutsuIdsForBloodline(raw: unknown): readonly string[] {
