@@ -154,8 +154,8 @@ async function seedSave(
     expect(seeded.status()).toBe(200);
 }
 
-async function seedAccount(request: APIRequestContext, testInfo: TestInfo, mode: 'solo' | 'pvp' | 'tower', fixture = 'champ') {
-    const name = `${mode}${safeProject(testInfo)}${fixture}`.slice(0, 20);
+async function seedAccount(request: APIRequestContext, testInfo: TestInfo, mode: 'solo' | 'pvp' | 'tower') {
+    const name = `${mode}${safeProject(testInfo)}champ`.slice(0, 20);
     const password = 'LayoutMatrix!1234';
     const registered = await request.post('/api/player-auth', { data: { action: 'register', name, password } });
     expect(registered.status()).toBe(200);
@@ -2029,7 +2029,9 @@ test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, 
     const firstFloor = page.locator('button[aria-describedby="tower-story-floor-1-details"]');
     await expect(firstFloor).toBeVisible();
     await firstFloor.click();
+    const started = page.waitForResponse(response => response.url().includes('/api/towers/start') && response.request().method() === 'POST');
     await page.getByRole('button', { name: /Enter Floor 1/ }).click();
+    const launch = await (await started).json() as { session: { turnStartedAt: number } };
     await expect(page.locator('.screen-battleTowerFight')).toBeVisible();
     await assertBattlefieldActorPresentation(page, '.screen-battleTowerFight', {
         playerMarkers: 1,
@@ -2046,21 +2048,11 @@ test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, 
         `tower-${testInfo.project.name}`,
         true,
     );
+    await assertTowerCountdownGeometryStable(page, testInfo, launch.session.turnStartedAt);
 });
 
-test('Tower countdown digits keep the header and battlefield geometry stable', async ({ page, request }, testInfo) => {
-    const { name, token } = await seedAccount(request, testInfo, 'tower', 'clock');
-    const savePreview = await fetchAuthoritativeSave(request, { name, token });
-    await installSession(page, name, token, { acknowledgeEstablishedNotices: true, savePreview });
-    await page.addInitScript(() => localStorage.setItem('lastScreen.v1', 'battleTowers'));
-    await page.goto('/', { waitUntil: 'networkidle' });
-    await dismissNotices(page);
-    await resolveSaveConflict(page);
-    await page.locator('button[aria-describedby="tower-story-floor-1-details"]').click();
-    const started = page.waitForResponse(response => response.url().includes('/api/towers/start') && response.request().method() === 'POST');
-    await page.getByRole('button', { name: /Enter Floor 1/ }).click();
-    const launch = await (await started).json() as { session: { turnStartedAt: number } };
-    const deadline = launch.session.turnStartedAt + TOWER_TURN_AFK_MS;
+async function assertTowerCountdownGeometryStable(page: Page, testInfo: TestInfo, turnStartedAt: number): Promise<void> {
+    const deadline = turnStartedAt + TOWER_TURN_AFK_MS;
     const root = page.locator('.screen-battleTowerFight');
     const timer = root.getByRole('timer');
     await expect(timer).toBeVisible();
@@ -2085,7 +2077,7 @@ test('Tower countdown digits keep the header and battlefield geometry stable', a
         expectGeometryNear(await selectionGeometry(page, '.screen-battleTowerFight'), before, `Tower countdown at ${remaining}s`);
     }
     await page.screenshot({ path: testInfo.outputPath('tower-countdown-1024x768.png'), animations: 'disabled' });
-});
+}
 
 test('Tower party-MPvE authoritative variant keeps jutsu selection geometry stable', async ({ page, request }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium-layout',
