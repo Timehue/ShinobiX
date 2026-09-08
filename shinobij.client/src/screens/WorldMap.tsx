@@ -1,3 +1,6 @@
+import { gainXp } from "../lib/character-level-projection";
+import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
+import { normalizeNarrativeCharacter as normalizeCharacter } from "../lib/normalize-narrative-character";
 import { HollowGateEntryMenu } from './world-map/HollowGateEntryMenu';
 import { sectorBackgroundImage, sectorDepthImage, sectorMapUrl, ambienceBiomeForSector } from './world-map/sector-art';
 import { fetchVillageGuards } from "../lib/village-guard-api";
@@ -198,14 +201,11 @@ import moonshadowLandmarkArt from "../assets/map-landmarks/moonshadow.webp";
 import centralLandmarkArt from "../assets/map-landmarks/central.webp";
 import hollowGateLandmarkArt from "../assets/map-landmarks/hollow-gate.webp";
 import {
-    gainXp,
-    getPvpJutsuLoadout,
-    normalizeCharacter,
     type CreatorEvent,
     type DuelChallenge,
     type EventEncounterBattle,
     type PvpSessionState,
-    type SharedPvpBattleContext,
+    type SharedPvpBattleContext
 } from "../App";
 
 import { villageOuterTerritoryMapUrl } from "../lib/village-outer-territory-map";

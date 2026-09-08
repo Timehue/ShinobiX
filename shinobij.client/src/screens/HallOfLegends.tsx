@@ -1,3 +1,5 @@
+import { PROFESSION_MAX_RANK } from "../constants/profession";
+import { professionThresholds } from "../lib/profession-bonuses";
 // Relative-time display reads Date.now() in render by design; verbatim-moved from App.tsx (rule disabled file-wide there).
 /* eslint-disable react-hooks/purity */
 import { useEffect, useState, type ReactNode } from "react";
@@ -13,9 +15,7 @@ import {
     type LbTab,
     type PlayerRecord,
     type Profession,
-    type Screen,
-    PROFESSION_MAX_RANK,
-    professionThresholds,
+    type Screen
 } from "../App";
 import { loadArenaTournament, loadWarStandings, type WarStandingRecord } from "../lib/world-state";
 import { WORLD_STATE_API } from "../constants/game";

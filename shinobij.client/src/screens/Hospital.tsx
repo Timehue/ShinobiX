@@ -1,3 +1,4 @@
+import { discountCost, getHospitalDiscountPercent } from "../lib/village-upgrades";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import type { VersionedCharacterCommit } from "../types/character";
@@ -6,9 +7,7 @@ import { clearSectorReopen } from "../lib/sector-return";
 import {
     type Character,
     type PlayerRecord,
-    type Screen,
-    discountCost,
-    getHospitalDiscountPercent,
+    type Screen
 } from "../App";
 import { gameToast } from "../components/GameToast";
 import { adoptHospitalDischarge, type HospitalDischargeResponse } from "../lib/hospital-discharge";
