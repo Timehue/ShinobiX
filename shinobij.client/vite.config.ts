@@ -1289,9 +1289,6 @@ export default defineConfig({
                 chunkFileNames: (chunk) => chunk.name.endsWith('-vendor')
                     ? 'assets/[name]-[hash].js'
                     : 'assets/c-[hash].js',
-                assetFileNames: (asset) => asset.names.some((name) => /\.(?:png|jpe?g|webp|avif|svg|woff2?|ttf|ogg|mp3|m4a|wav)$/i.test(name))
-                    ? 'assets/a-[hash][extname]'
-                    : 'assets/[name]-[hash][extname]',
                 // Pull React + ReactDOM into their own vendor chunk so they
                 // can be cached independently of app code. The app bundle
                 // changes constantly; React itself rarely does, so users
