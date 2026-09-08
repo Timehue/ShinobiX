@@ -14,7 +14,7 @@ import { join } from 'node:path';
  */
 
 const src = readFileSync(join(process.cwd(), 'api', 'admin', 'content-publish.ts'), 'utf8');
-const serverSrc = readFileSync(join(process.cwd(), 'server.ts'), 'utf8');
+const serverSrc = readFileSync(join(process.cwd(), 'server-api-routes.ts'), 'utf8');
 
 describe('content-publish endpoint contract', () => {
     it('is registered (an unregistered handler is unreachable)', () => {

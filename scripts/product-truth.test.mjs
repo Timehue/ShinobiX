@@ -53,7 +53,7 @@ test('rollout-era wording survives only with a prominent historical marker', () 
 });
 
 test('the public capability route is wired and its contract excludes raw environment payloads', () => {
-    const server = read('server.ts');
+    const server = read('server-api-routes.ts');
     const handler = read('api/player/capabilities.ts');
     assert.match(server, /route\('\/player\/capabilities', playerCapabilitiesHandler\)/);
     assert.match(handler, /publicCapabilities\(\)/);

@@ -93,7 +93,7 @@ test('all Hollow Gate node consumers use the immutable run manifest', () => {
         assert.match(text, /floorManifests/, `${file} must read the sealed manifest`);
         assert.equal(text.includes('savedRun?.tiles'), false, `${file} must not trust saved browser tiles`);
     }
-    const server = source('server.ts');
+    const server = source('server-api-routes.ts');
     const client = source('shinobij.client', 'src', 'lib', 'hollow-gate-event-api.ts');
     assert.match(server, /route\('\/hollow-gate\/floor-seal'/);
     assert.match(client, /\/api\/hollow-gate\/floor-seal/);
