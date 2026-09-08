@@ -113,11 +113,51 @@ describe('battle authority — presence immunity is proven, never claimed', () =
         assert.deepEqual(lapsed.lapsed, { kind: 'solo-pve', sessionId: 'run-1' }, 'and is reported for terminalization (F08)');
     });
 
-    it('a projection past its own expiry is reported lapsed without reading the session', async () => {
-        const verdict = await resolveBattleAuthority(SLUG, evidence({ battleState: projection('run-2', { expiresAt: NOW - 1 }) }), deps());
+    it('a Tower or PvP hint past its own clock is reported lapsed without a read; a Solo-PvE fight is judged by its session', async () => {
+        const verdict = await resolveBattleAuthority(SLUG, evidence({ battleState: projection('tower-2', { kind: 'tower', expiresAt: NOW - 1 }) }), deps());
         assert.equal(verdict.inBattle, false);
-        assert.deepEqual(verdict.lapsed, { kind: 'solo-pve', sessionId: 'run-2' });
+        assert.deepEqual(verdict.lapsed, { kind: 'tower', sessionId: 'tower-2' });
         assert.deepEqual(reads, []);
+
+        // A long fight refreshes its own expiry on every action while the hint
+        // keeps the creation-time one: the session is the verdict, never the hint.
+        invalidateBattleAuthority(SLUG);
+        await kv.set('solo-pve:run-2', soloSession('run-2', { expiresAt: NOW + 60_000 }));
+        const long = await resolveBattleAuthority(SLUG, evidence({ battleState: projection('run-2', { expiresAt: NOW - 1 }) }), deps());
+        assert.deepEqual(long, { inBattle: true, source: 'solo-pve' }, 'still immune an hour into the fight');
+        assert.deepEqual(reads, ['solo-pve:run-2']);
+
+        // A projection whose session is gone is stale: reported so that it retires.
+        invalidateBattleAuthority(SLUG);
+        await kv.del('solo-pve:run-2');
+        const gone = await resolveBattleAuthority(SLUG, evidence({ battleState: projection('run-2') }), deps());
+        assert.equal(gone.inBattle, false);
+        assert.deepEqual(gone.lapsed, { kind: 'solo-pve', sessionId: 'run-2' });
+    });
+
+    it('a Chronicle card duel is proven by its session row for each duelist while the match is live', async () => {
+        const duel = (over: Record<string, unknown> = {}) => ({ p1Name: 'Rill', p2Name: 'Kaede', status: 'active', ...over });
+        const cardProjection = () => projection('cc-freeplay:m1', { kind: 'card-clash' });
+        await kv.set('cc-freeplay:m1', duel());
+        const live = await resolveBattleAuthority(SLUG, evidence({ battleState: cardProjection() }), deps());
+        assert.deepEqual(live, { inBattle: true, source: 'card-clash' });
+        assert.deepEqual(reads, ['cc-freeplay:m1']);
+
+        invalidateBattleAuthority(SLUG);
+        await kv.set('cc-freeplay:m1', { p1Name: 'Rill', status: 'awaiting-opponent' });
+        const waiting = await resolveBattleAuthority(SLUG, evidence({ battleState: cardProjection() }), deps());
+        assert.equal(waiting.inBattle, false, 'an open seat is not a fight — a challenge is never a roaming shield');
+
+        invalidateBattleAuthority(SLUG);
+        await kv.set('cc-freeplay:m1', duel({ status: 'done' }));
+        const done = await resolveBattleAuthority(SLUG, evidence({ battleState: cardProjection() }), deps());
+        assert.equal(done.inBattle, false);
+        assert.deepEqual(done.lapsed, { kind: 'card-clash', sessionId: 'cc-freeplay:m1' }, 'a finished duel only retires its projection');
+
+        invalidateBattleAuthority(SLUG);
+        await kv.set('cc-freeplay:m1', duel({ p1Name: 'Kaede', p2Name: 'Sora' }));
+        const stranger = await resolveBattleAuthority(SLUG, evidence({ battleState: cardProjection() }), deps());
+        assert.equal(stranger.inBattle, false, 'a duel between others proves nothing for this player');
     });
 
     it('a PvP reservation proves a fight while fresh; an active pointer needs its session active', async () => {
