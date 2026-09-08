@@ -83,8 +83,9 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // on the existing flows, not a retired drawing layer coming back; the
         // structural assertions below hold unchanged. Exact achieved count, no
         // buffer, per the convention above.
-        lineCount(worldMapSource) <= 5_365,
-        `WorldMap.tsx grew past 5,365 lines; retired overview layers must stay retired.`,
+        // Sector art/ambience and the gate menu now have presentation owners.
+        lineCount(worldMapSource) <= 5_251,
+        `WorldMap.tsx grew past 5,251 lines; retired overview layers must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,
