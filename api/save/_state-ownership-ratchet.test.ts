@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
     SAVE_FIELD_CONTRACT,
@@ -38,6 +38,10 @@ import { sanitizeCharacterSave } from './[name].js';
 
 const handlerSource = readFileSync(join(process.cwd(), 'api', 'save', '[name].ts'), 'utf8');
 const projectionSource = readFileSync(join(process.cwd(), 'api', 'save', '_projections.ts'), 'utf8');
+const sanitizerSources = readdirSync(join(process.cwd(), 'api', 'save'))
+    .filter((name) => name.startsWith('_sanitize-') && name.endsWith('.ts') && !name.endsWith('.test.ts'))
+    .map((name) => readFileSync(join(process.cwd(), 'api', 'save', name), 'utf8'));
+const saveDomainSource = [handlerSource, projectionSource, ...sanitizerSources].join('\n');
 
 // ── (a) Unclassified-field ratchet ──────────────────────────────────────────
 // Every character-scope field the sanitizer/handler touches by name must have
@@ -56,14 +60,14 @@ describe('unclassified-field ratchet', () => {
         const classified = classifiedFieldSet('character');
         const touched = new Set<string>();
         const accessPattern = /\b(?:char|exChar|inChar|finalChar|fc)\.([A-Za-z_][A-Za-z0-9_]*)\b/g;
-        for (const match of handlerSource.matchAll(accessPattern)) touched.add(match[1]);
+        for (const match of saveDomainSource.matchAll(accessPattern)) touched.add(match[1]);
         const unclassified = [...touched]
             .filter((field) => !classified.has(field) && !NON_FIELD_ACCESS_ALLOWLIST.has(field))
             .sort();
         assert.deepEqual(
             unclassified,
             [],
-            'these character fields are handled in api/save/[name].ts but have no entry in the ownership manifest '
+            'these character fields are handled in the save endpoint or its domain stages but have no entry in the ownership manifest '
             + '(api/save/_state-ownership.ts) — classify each one (see docs/architecture/state-ownership-contract.md)',
         );
     });
@@ -280,15 +284,15 @@ describe('no shadow ownership lists in the save handler', () => {
         ];
         for (const name of extractedNames) {
             assert.doesNotMatch(
-                handlerSource + projectionSource,
+                saveDomainSource,
                 new RegExp(`const ${name}\\s*[:=]`),
                 `${name} must stay derived from _state-ownership.ts, not re-declared in the handler`,
             );
         }
         assert.match(
-            handlerSource,
+            readFileSync(join(process.cwd(), 'api', 'save', '_sanitize-ledger.ts'), 'utf8'),
             /from '\.\/_state-ownership\.js'/,
-            'the handler must import its boundaries from the ownership manifest',
+            'the shared ledger stage must import its boundaries from the ownership manifest',
         );
         assert.match(projectionSource, /from '\.\/_state-ownership\.js'/,
             'projections must import their boundaries from the same ownership manifest');
