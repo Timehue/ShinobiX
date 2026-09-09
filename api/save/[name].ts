@@ -71,6 +71,7 @@ import { syncCurrencyLedger } from '../_currency-ledger.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
 import { auraRegenBonus, settleSaveRecordForRead, vitalRegenPerTick } from '../_elapsed-state.js';
 import { pooledVitalRegenEnabled } from '../_release-flags.js';
+import { INVENTORY_CAP as BASE_INVENTORY_CAP } from '../_inventory-capacity.js';
 import { readWalkedTile, resumeTileFor } from '../_realtime/walked-tile.js';
 import { applyCanonicalFirstSave } from './_first-save-baseline.js';
 import { preserveStatPointEntitlement } from './_stat-entitlement.js';
@@ -1718,7 +1719,7 @@ export function sanitizeCharacterSave(
     // ~15 other grant paths append without checking. Truncating their overflow
     // away made the save layer the thing that ate the item.
     const existingInventoryCount = Array.isArray(exChar.inventory) ? (exChar.inventory as unknown[]).length : 0;
-    const INVENTORY_CAP = Math.max(500, existingInventoryCount);
+    const INVENTORY_CAP = Math.max(BASE_INVENTORY_CAP, existingInventoryCount);
     if (Array.isArray(char.inventory) && (char.inventory as unknown[]).length > INVENTORY_CAP) {
         char.inventory = (char.inventory as unknown[]).slice(0, INVENTORY_CAP);
     }
