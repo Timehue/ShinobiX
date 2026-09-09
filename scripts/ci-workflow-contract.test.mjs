@@ -90,6 +90,19 @@ test('artifact consumers verify immutable provenance and failure evidence stays 
     assert.ok(!workflow.includes('shinobij.client/.playwright-mcp/aaa-adaptive/'));
 });
 
+test('live Express CI includes persistence and route integration regressions', () => {
+    const command = workflow.match(/run: (npm run test:e2e:live[^\n]+)/)?.[1];
+    assert.ok(command, 'live Express CI command must exist');
+    for (const spec of [
+        'village-stores-express.spec.ts',
+        'first-session-onboarding-express.spec.ts',
+        'server-route-smoke-express.spec.ts',
+    ]) {
+        assert.ok(command.split(/\s+/).includes(spec), `${spec} must run against the joined release artifact in CI`);
+    }
+    assert.ok(command.includes('--project=chromium-desktop-live'), 'the full Academy cases require the desktop live project');
+});
+
 test('Warfront interaction coverage uses the deterministic low-cost fixture', () => {
     assert.match(warfrontSpec, /const warfrontUrl = "[^"]*";/);
     assert.match(warfrontSpec, /const lowWarfrontUrl = `\$\{warfrontUrl\}&petQuality=low`;/);
