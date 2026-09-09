@@ -42,7 +42,9 @@ export function ModelLifecyclePreview() {
             {(["low", "medium", "high"] as const).map(value => <button key={value} onClick={() => setQuality(value)}>{value}</button>)}
             <output data-testid="model-resource-state">{label}</output>
         </div>
-        <div style={{ height: 460 }}>
+        {/* Resource ownership depends on the eight real rigs, not pixel count.
+            Bound fill work so software GPU runners complete all six cycles. */}
+        <div style={{ width: 320, maxWidth: "100%", height: 180 }}>
             <Canvas dpr={1} camera={{ position: [0, 6, 12], fov: 45 }}>
                 <ambientLight intensity={2} />
                 <directionalLight position={[3, 6, 4]} intensity={3} />
