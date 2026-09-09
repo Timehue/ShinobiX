@@ -333,6 +333,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const tChar = ko.character;
 
             let updatedAttacker = aChar;
+            // F5: Field Recovery is a shield, not a licence — raiding is the
+            // aggressive act that ends it. Computed before any credit so the
+            // clear also lands on the anti-alt branch, which pays nothing.
+            const attackerShielded = (Math.floor(Number(aChar.pvpShieldUntil ?? 0)) || 0) > Date.now();
+            if (attackerShielded) updatedAttacker = { ...updatedAttacker, pvpShieldUntil: 0 };
             // Stays null when the KO pays nothing (anti-alt): no save write, so no
             // version moved and the caller has nothing to adopt.
             let attackerSaveVersion: number | null = null;
@@ -381,6 +386,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                 }
 
+            }
+
+            // Persist when the KO PAID, or when this raid spent the attacker's
+            // own Field Recovery shield. The anti-alt branch pays nothing and so
+            // wrote nothing at all, which left the shield intact: lose on
+            // purpose, discharge, then farm offline sleeper camps for the
+            // remaining ~120 s while staying un-raidable yourself. attack.ts
+            // already closes that on the online raid door; this is the other one.
+            if (rewardEligible || attackerShielded) {
                 const attackerRecord = bumpSaveVersion({ ...aRec, character: updatedAttacker });
                 // Hand the bumped version back so the caller can ADOPT it. Without
                 // it the open tab keeps its pre-KO version, and the recovery is the
