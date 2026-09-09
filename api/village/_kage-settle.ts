@@ -18,9 +18,6 @@ import {
     resolveDuelDecision,
     applySeatTransfer,
     applyDefense,
-    applyExpiry,
-    isChallengeExpired,
-    KAGE_CHALLENGE_EXPIRY_MS,
     type KagePvpDuelSettlementReceipt,
     type KageStateLike,
 } from './_kage-challenge.js';
@@ -182,6 +179,8 @@ export async function ensureKageDuelAdmission(session: PvpSession): Promise<void
     }
     const fighterNames = new Set([safeName(session.p1?.name), safeName(session.p2?.name)]);
     if (fighterNames.size !== 2 || fighterNames.has('')) throw new Error('kage-duel-admission-fighters-invalid');
+    const { advanceKageChallengeClock } = await import('./_kage-clock.js');
+    await advanceKageChallengeClock(village);
     const key = kageKey(village);
     await withKvLock(key, async () => {
         const raw = await kv.get<KageStateLike>(key);
@@ -194,9 +193,13 @@ export async function ensureKageDuelAdmission(session: PvpSession): Promise<void
             || !seat
             || !challenger
             || !fighterNames.has(seat)
-            || !fighterNames.has(challenger)
-            || isChallengeExpired(challenge, session.createdAt)) {
+            || !fighterNames.has(challenger)) {
             throw new Error('kage-duel-admission-authority-conflict');
+        }
+        if (challenge.status !== 'accepted' && (challenge.kageAcceptedAt === undefined
+            || session.createdAt < challenge.kageAcceptedAt
+            || safeName(session.p1.name) !== seat || safeName(session.p2.name) !== challenger)) {
+            throw new Error('kage-duel-requires-kage-invitation-and-challenger-acceptance');
         }
         if (challenge.status === 'accepted' && challenge.battleId !== session.battleId) {
             throw new Error('kage-duel-admission-battle-conflict');
@@ -205,7 +208,7 @@ export async function ensureKageDuelAdmission(session: PvpSession): Promise<void
         if (challenge.status === 'accepted') return;
         const candidate = canonical({
             ...raw,
-            challenge: { ...challenge, status: 'accepted' as const, battleId: session.battleId },
+            challenge: { ...challenge, status: 'accepted' as const, battleId: session.battleId, clockRunning: false, lastPressAt: undefined },
         });
         try {
             if (await kv.compareSet(key, raw, candidate)) return;
@@ -390,7 +393,7 @@ async function settleFromOutcome(
     let settledReceipt: KagePvpDuelSettlementReceipt | null = null;
     const result = await withKvLock<SettleResult>(key, async () => {
         const raw = await kv.get<KageStateLike>(key);
-        let state = raw ?? { kageSystemUnlocked: false };
+        const state = raw ?? { kageSystemUnlocked: false };
         const challengeId = opts.expectChallengeId ?? outcome.challengeId ?? state.challenge?.challengeId ?? '';
         if (!challengeId) return { ok: false, status: 409, error: 'The official challenge proof is missing.' };
 
@@ -403,25 +406,8 @@ async function settleFromOutcome(
         const matchingAcceptedChallenge = state.challenge?.status === 'accepted'
             && state.challenge.battleId === outcome.battleId
             && state.challenge.challengeId === challengeId;
-        const terminalWithinChallenge = !!state.challenge
-            && outcome.endedAt <= state.challenge.createdAt + KAGE_CHALLENGE_EXPIRY_MS;
-        if (state.challenge && !(matchingAcceptedChallenge && terminalWithinChallenge)) {
-            // Eligibility is fixed at the immutable combat terminal time. The
-            // recovery wall clock only bounds how long the proof is retained;
-            // it must not expire a duel that finished within its challenge.
-            const expiredAtTerminal = isChallengeExpired(state.challenge, outcome.endedAt);
-            if (!expiredAtTerminal) {
-                return { ok: false, status: 409, error: 'That duel does not match the active Kage challenge.' };
-            }
-            const expired = applyExpiry(state, now);
-            try {
-                const committed = await kv.compareSet(key, raw, expired);
-                if (!committed) throw new Error('kage-expiry-conflict');
-            } catch (error) {
-                const recovered = await kv.get<KageStateLike>(key).catch(() => null);
-                if (!sameJson(recovered, expired)) throw error;
-            }
-            return { ok: false, status: 409, error: 'That Kage challenge expired before settlement.' };
+        if (!matchingAcceptedChallenge) {
+            return { ok: false, status: 409, error: 'That duel does not match the active Kage challenge.' };
         }
 
         const isDraw = outcome.winnerName === 'draw' && outcome.loserName === 'draw';

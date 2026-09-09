@@ -44,7 +44,8 @@ export function IncomingChallengeModal({
 
     const c = pending[0];
     const busy = processingIds.includes(c.id);
-    const label = challengeLabel(c.mode);
+    const officialKage = !!c.kageChallengeId && !!c.kageVillage;
+    const label = officialKage ? "duel for the Kage seat" : challengeLabel(c.mode);
     const avatar =
         typeof c.challenger?.avatarImage === "string" && c.challenger.avatarImage.trim()
             ? c.challenger.avatarImage
@@ -55,7 +56,7 @@ export function IncomingChallengeModal({
         <div className="ic-backdrop" role="presentation">
             <div className="ic-card" role="alertdialog" aria-modal="true" aria-label="Incoming challenge">
                 <div className="ic-glyph" aria-hidden="true">⚔️</div>
-                <div className="ic-kicker">Challenge</div>
+                <div className="ic-kicker">{officialKage ? "Official Kage challenge" : "Challenge"}</div>
 
                 <div className="ic-body">
                     <div className="ic-avatar" aria-hidden="true">
@@ -71,10 +72,11 @@ export function IncomingChallengeModal({
                         {busy ? "Opening…" : "Accept"}
                     </button>
                     <button type="button" className="ic-decline" disabled={busy} onClick={() => onDecline(c)}>
-                        Decline
+                        {officialKage ? "Later" : "Decline"}
                     </button>
                 </div>
 
+                {officialKage && <p className="ic-more">Accept to fight for the seat. Choosing Later keeps your response clock active under the Town Hall rules; you can reopen this invitation there.</p>}
                 {extra > 0 && (
                     <div className="ic-more">
                         +{extra} more challenge{extra === 1 ? "" : "s"} waiting

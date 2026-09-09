@@ -1,3 +1,4 @@
+import { runKageChallengeClocks } from '../village/_kage-clock.js';
 import { runElderElections } from '../village/_elder-council.js';
 /**
  * In-process daily scheduler for the save-snapshot backup.
@@ -35,6 +36,7 @@ import { clanBossWeekId } from '../clan-boss/_storage.js';
 import { runTerritoryLifecycleSweep } from '../_territory-lifecycle-store.js';
 import { runBattleLapseSweep } from './_battle-lapse-sweep.js';
 
+const KAGE_CLOCK_TICK_MS = 15_000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MERC_TICK_MS = 10 * 60_000; // village-war mercenary auto-snipe cadence
 const SETTLEMENT_RECONCILIATION_TICK_MS = 5 * 60_000;
@@ -64,6 +66,8 @@ const LEASE_TTL = {
 } as const;
 
 let _timeout: ReturnType<typeof setTimeout> | null = null;
+let _kageClockInterval: ReturnType<typeof setInterval> | null = null;
+let _kageClockRunning = false;
 let _interval: ReturnType<typeof setInterval> | null = null;
 let _mercInterval: ReturnType<typeof setInterval> | null = null;
 let _settlementInterval: ReturnType<typeof setInterval> | null = null;
@@ -300,6 +304,18 @@ export function startSnapshotCron(): void {
         console.log('[cron-scheduler] all scheduled jobs disabled via DISABLE_SCHEDULED_JOBS=1');
         return;
     }
+    if (!_kageClockInterval) {
+        const tick = async () => {
+            if (_kageClockRunning) return;
+            _kageClockRunning = true;
+            try { await runKageChallengeClocks(); }
+            catch (error) { console.warn('[cron-scheduler] Kage clocks:', String(error)); }
+            finally { _kageClockRunning = false; }
+        };
+        _kageClockInterval = setInterval(() => void tick(), KAGE_CLOCK_TICK_MS);
+        _kageClockInterval.unref?.();
+        void tick();
+    }
     if (!_settlementInterval) {
         if (process.env.DISABLE_SETTLEMENT_RECONCILIATION !== '1') {
             _settlementInterval = setInterval(() => void fireSettlementReconciliation(), SETTLEMENT_RECONCILIATION_TICK_MS);
@@ -363,6 +379,7 @@ export function startSnapshotCron(): void {
 
 /** Stop the scheduler (tests / graceful shutdown). */
 export function stopSnapshotCron(): void {
+    if (_kageClockInterval) { clearInterval(_kageClockInterval); _kageClockInterval = null; }
     if (_timeout) { clearTimeout(_timeout); _timeout = null; }
     if (_interval) { clearInterval(_interval); _interval = null; }
     if (_mercInterval) { clearInterval(_mercInterval); _mercInterval = null; }

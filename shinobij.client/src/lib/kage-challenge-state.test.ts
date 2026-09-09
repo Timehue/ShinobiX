@@ -7,6 +7,8 @@ import {
     KAGE_CHALLENGE_MIN_MERIT,
     KAGE_MIN_ACCOUNT_AGE_MS,
     kageActivityLines,
+    deriveKageChallengeState,
+    formatObligation,
 } from './kage-challenge-state';
 import type { Character } from '../types/character';
 
@@ -136,5 +138,31 @@ describe('kageEligibility ids (vacant-seat claim filter)', () => {
         // "250 Village Merit (4/250)" — label + detail, both present.
         const merit = rows.find((r) => r.id === 'merit')!;
         assert.equal(`${merit.label} (${merit.detail})`, `${KAGE_CHALLENGE_MIN_MERIT} Village Merit (4/${KAGE_CHALLENGE_MIN_MERIT})`);
+    });
+});
+
+
+describe('Kage response clocks and acceptance phases', () => {
+    const challenge = { challengeId: 'term-one', challenger: 'Sora', status: 'pending' as const,
+        createdAt: NOW - 7 * 86400000, obligationRemainingMs: 86400000, challengerRemainingMs: 86400000 };
+    const server = { kageSystemUnlocked: true, seatedKage: 'Raiko', challenge };
+    it('keeps an old unanswered challenge waiting for the Kage without calendar expiry', () => {
+        const board = deriveKageChallengeState(server, eligible, NOW);
+        assert.equal(board.kind, 'PENDING_CHALLENGE');
+        assert.ok('role' in board && board.role === 'challenger');
+    });
+    it('shows the second response phase after the Kage accepts', () => {
+        assert.equal(deriveKageChallengeState({ ...server, challenge: { ...challenge, kageAcceptedAt: NOW } },
+            eligible, NOW).kind, 'AWAITING_CHALLENGER');
+    });
+    it('only shows an accepted duel when the server seals it', () => {
+        assert.equal(deriveKageChallengeState({ ...server, challenge: { ...challenge, status: 'accepted', battleId: 'official' } },
+            eligible, NOW).kind, 'ACCEPTED_DUEL');
+    });
+    it('formats the full daily allowance and remaining seconds without wrapping at an hour', () => {
+        assert.equal(formatObligation(86400000), '24:00:00');
+        assert.equal(formatObligation(3661000), '1:01:01');
+        assert.equal(formatObligation(59000), '0:00:59');
+        assert.equal(formatObligation(-1), '0:00:00');
     });
 });
