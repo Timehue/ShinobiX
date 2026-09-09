@@ -220,8 +220,11 @@ per-transfer caps, the 1,000 floor, the 10% burn and the 20/60s rate limit are u
 
 Final tree (`0d34013ae`, after the verification pass):
 
-- Full backend suite **9,757/9,757**.
-- Root build + sizecheck **PASS** (initial graph 383,014 B gzip against the 389,000 ceiling).
+- Full backend suite **9,758/9,758** and `tsc -p tsconfig.cpanel.json` clean, both
+  re-run on the final committed tree. (An earlier 9,757 figure predated the last test
+  added to `_post-defeat-shield.test.ts`; the suite was re-run so the number matches
+  what is actually committed rather than what was committed minus one file.)
+- Root build + sizecheck **PASS** (initial graph 383,040 B gzip against the 389,000 ceiling).
 - Client lint **0 errors**.
 - `npm run test:e2e` — **385 passed, 2 failed**, both `firefox-desktop`, in specs this work
   does not touch. Re-run in isolation on firefox: **1 passed, 4 skipped, 0 failed**. One of
