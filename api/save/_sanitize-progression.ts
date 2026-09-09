@@ -11,7 +11,8 @@ import { STAT_CAP_FIELDS } from '../combat-core/formulas.js';
 import { preserveStatPointEntitlement } from './_stat-entitlement.js';
 import { earnedStatPoints, earnedForLevel, applyDerivedLevel } from '../_xp-engine.js';
 import { parseStoryFieldRecords } from '../../shared/story-field-work.js';
-import { auraRegenBonus } from '../_elapsed-state.js';
+import { auraRegenBonus, vitalRegenPerTick } from '../_elapsed-state.js';
+import { pooledVitalRegenEnabled } from '../_release-flags.js';
 import {
     strictRawSaveLedgerEnabled,
     rankFromXp,
@@ -314,8 +315,25 @@ export function sanitizeProgression(
         const levelRose = Math.floor(Number(char.level) || 1) > Math.floor(Number(exChar.level) || 1);
         if (!isFirstSave && storedAt > 0 && !levelRose) {
             const now = Math.max(storedAt, Math.floor(Number(opts.now ?? Date.now())));
-            const perSecond = 1 + auraRegenBonus(exChar);
-            const regenAllowance = Math.ceil(((now - storedAt) / 1000 + VITALS_GAIN_GRACE_SEC) * perSecond);
+            const elapsedSec = (now - storedAt) / 1000;
+            // MIRROR of settleVitalsRegen (api/_elapsed-state.ts). The allowance is
+            // PER VITAL, because recovery is a share of each pool rather than a flat
+            // shared point. Reading the rate from vitalRegenPerTick keeps the two
+            // from drifting: if this ceiling stayed at the old flat 1/sec, a
+            // high-level player's legitimately regenerated chakra would be clamped
+            // back down here and their bars would visibly FALL on every autosave.
+            //
+            // ⚠ The grace stays FLAT and is added after the rate, never multiplied
+            // by it. It exists for clock slack and the small client-only stamina
+            // grants, so it must not scale with the pool — folding it into the
+            // elapsed seconds turned a 60-point cushion into 360 per vital per save
+            // at level 100, which widens the anti-cheat window rather than
+            // mirroring anything.
+            const aura = auraRegenBonus(exChar);
+            const pooledRegen = pooledVitalRegenEnabled();
+            const allowanceFor = (maxKey: 'maxHp' | 'maxChakra' | 'maxStamina'): number =>
+                Math.ceil(elapsedSec * vitalRegenPerTick(exChar[maxKey], aura, pooledRegen))
+                + VITALS_GAIN_GRACE_SEC * (1 + aura);
             const credits: Record<VitalKey, number> = { hp: 0, chakra: 0, stamina: 0 };
             for (const [itemId, credit] of Object.entries(CLIENT_CONSUMABLE_VITAL_CREDITS)) {
                 const consumed = countOwnedItem(exChar, itemId) - countOwnedItem(char, itemId);
@@ -325,7 +343,7 @@ export function sanitizeProgression(
                 const stored = Number(exChar[key]);
                 const incoming = Number(char[key]);
                 if (!Number.isFinite(stored) || !Number.isFinite(incoming)) continue;
-                const ceiling = Math.max(0, Math.floor(stored)) + regenAllowance + credits[key];
+                const ceiling = Math.max(0, Math.floor(stored)) + allowanceFor(maxKey) + credits[key];
                 if (incoming > ceiling) {
                     const max = Number(char[maxKey]);
                     char[key] = Number.isFinite(max) ? Math.min(ceiling, Math.max(0, Math.floor(max))) : ceiling;

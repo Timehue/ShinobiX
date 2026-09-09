@@ -2208,6 +2208,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (p2Hp <= 0) {
                     return res.status(400).json({ error: `${p2Name} is unconscious and cannot enter this fight.` });
                 }
+                // F5 Field Recovery, enforced HERE for the same reason the
+                // presence gate is: this endpoint is the real gate. The client
+                // creates the session BEFORE /api/player/challenge or
+                // /api/player/attack, so a shield read only in attack.ts is
+                // bypassed by pre-creating the session, and the protection
+                // evaporates against exactly the client it was written for.
+                //
+                // Only the DEFENDER (the fighter who is not the creator) is
+                // protected — the same asymmetry attack.ts uses, where a shield
+                // stops you being raided but never stops you raiding. Same 409
+                // and retryAfterMs shape so the client renders it identically.
+                if (!identity.admin) {
+                    const nowMs = Date.now();
+                    const defending: 'p1' | 'p2' | null =
+                        identity.name === p1Norm ? 'p2' : identity.name === p2Norm ? 'p1' : null;
+                    if (defending) {
+                        const defender = defending === 'p1' ? finalP1Character : finalP2Character;
+                        const defenderName = defending === 'p1' ? p1Name : p2Name;
+                        const shieldedUntil = Math.floor(Number(defender.pvpShieldUntil ?? 0)) || 0;
+                        if (shieldedUntil > nowMs) {
+                            return res.status(409).json({
+                                error: `${defenderName} is recovering from a recent defeat.`,
+                                retryAfterMs: shieldedUntil - nowMs,
+                            });
+                        }
+                    }
+                }
             }
 
             // ── Seal the defending guard's Town Defense bonus ────────────────

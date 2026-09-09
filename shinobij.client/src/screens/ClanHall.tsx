@@ -44,7 +44,7 @@ import { ClanUpgradeIcon } from "../components/ClanUpgradeIcon";
 import { fetchMentorView, assignStudent, claimMentor, releaseStudent, MENTOR_MILESTONE_LABEL, type MentorView } from "../lib/clan-mentor";
 import { canManageClan, clanContribTotal, clanHallTier, clanRoleOf, clanXpMemberScale, clanXpNeeded, clanXpScaleTiers, cleanClanTreasury, enhanceClanData } from "../lib/clan-math";
 import { clanLore } from "../data/clan-lore";
-import { postClanTreasuryDonation, postClanUpgradePurchase, postClanKick, fetchClaimedClanMissions, postClanMissionClaim, postClanTerritoryAssignment } from "../lib/player-api";
+import { postClanTreasuryDonation, postClanUpgradePurchase, postClanKick, postClanLeave, fetchClaimedClanMissions, postClanMissionClaim, postClanTerritoryAssignment } from "../lib/player-api";
 import { clampNumber } from "../lib/utils";
 import { clanSlug, fetchClanData, fetchClanDataDetailed, postGuardQueue, writeClanData } from "../lib/clan-api";
 import { cleanTreasuryItems, getAllItems, inventoryItemStacks, itemDisplayName, removeTreasuryItem } from "../lib/items";
@@ -417,16 +417,31 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         // Guard against the one-click mis-tap. Founders especially can't undo
         // this — leaving clears clanFounder, and reclaim requires going
         // through the founder-bootstrap path again.
-        const founderWarning = character.clanFounder ? "\n\nYou're the founder — leaving doesn't transfer ownership. You can recreate the clan but anyone else can claim the name first." : "";
+        // Ownership DOES transfer now: /api/clan/leave promotes the highest-ranked,
+        // longest-tenured remaining member, so a founder leaving no longer strands
+        // the clan without anyone who can dissolve it or set its doctrine.
+        const others = (clanData?.members ?? []).filter(m => m.name !== character.name);
+        const founderWarning = character.clanFounder
+            ? (others.length
+                ? "\n\nYou're the founder — leadership passes to your highest-ranked, longest-serving clanmate."
+                : "\n\nYou're the founder and the last member — the clan will be left empty.")
+            : "";
         if (!(await gameConfirm(`Leave "${character.clan}"?${founderWarning}\n\nThis can't be undone with one click — you'd need to re-request to join, or be re-invited.`, { danger: true, confirmLabel: "Leave" }))) {
             return;
         }
-        const data = await fetchClanData(character.clan);
-        if (data) {
-            // Best-effort roster removal — the player is leaving locally
-            // regardless; the member list re-syncs on the next clan load.
-            await writeClanData(enhanceClanData({ ...data, members: data.members.filter(m => m.name !== character.name) }))
-                .catch(() => { /* non-fatal */ });
+        // Server-authoritative: the roster removal, the clan pointer on this save
+        // and any founder succession all land in one step. The old flow did the
+        // roster write best-effort AFTER clearing local state, so a failed write
+        // left a ghost member behind.
+        const left = await postClanLeave(character.name, character.clan);
+        if (!left) return;
+        // Adopt the version the server just wrote. Skipping it leaves the next
+        // autosave echoing a stale base version, which takes the save-conflict
+        // 409 and discards local progress — a self-inflicted conflict for
+        // pressing Leave.
+        if (left.character && !onVersionedCharacter(left.character as unknown as Character, left._saveVersion)) return;
+        if (left.newFounder) {
+            alert(`You've left ${character.clan}. ${left.newFounder} now leads the clan.`);
         }
         // Functional updater: lands after the fetchClanData/writeClanData awaits,
         // so a concurrent regen/heartbeat setState could otherwise be clobbered.

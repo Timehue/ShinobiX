@@ -1,3 +1,4 @@
+import { hasInventoryRoom } from '../_inventory-capacity.js';
 export const AURA_SPHERE_EVENT_ID = 'builtin-aura-sphere-lv9';
 export const AURA_SPHERE_ITEM_ID = 'aura-sphere';
 
@@ -18,6 +19,13 @@ export function claimBuiltinEvent(character: Record<string, unknown>, eventIdRaw
     const alreadyOwned = inventory.includes(AURA_SPHERE_ITEM_ID) || equipped;
     if (claimed.includes(eventId) || alreadyOwned) {
         return { ok: true as const, alreadyClaimed: true, character: { ...character, claimedCreatorEvents: claimed.includes(eventId) ? claimed : [...claimed, eventId] } };
+    }
+    // Refuse BEFORE latching claimedCreatorEvents: the claim is one-time, so
+    // burning the latch on a full bag would destroy the reward outright rather
+    // than delaying it (MMORPG behavior audit F7). The player can claim it again
+    // once they have room.
+    if (!hasInventoryRoom(character)) {
+        return { ok: false as const, reason: 'inventory-full' as const };
     }
     return {
         ok: true as const,

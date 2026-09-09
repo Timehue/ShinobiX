@@ -1,3 +1,4 @@
+import { hasInventoryRoom } from '../../_inventory-capacity.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
 import { cors, safeName } from '../../_utils.js';
@@ -40,6 +41,8 @@ import { recordEconomyTxn } from '../../_economy.js';
 
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
 const KAGE_KEY_PREFIX = 'village:kage:';
+import { chargeOutboundBudget, checkOutboundBudget, senderTrustTier } from '../../player/_transfer-budget.js';
+import { isTradeCurrency } from '../../player/_trade-core.js';
 const AUDIT_LOG_PREFIX = 'audit:village-treasury:';
 
 type TransferCurrency =
@@ -159,6 +162,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (amount > cap) {
                 return res.status(400).json({ error: `amount exceeds per-call cap of ${cap}.` });
             }
+            // Shares the sender's rolling 24h transfer budget with
+            // /api/player/trade and the clan treasury (MMORPG behavior audit F8):
+            // this is the same outcome — currency landing in one named player's
+            // save — so capping only the direct-trade door would leave the wider
+            // one open. Charged to the seated Kage authorising it. `honorSeals`
+            // is outside TRADE_CURRENCIES and stays uncapped here, exactly as it
+            // is untradeable there.
+            if (!isAdmin && isTradeCurrency(currency)) {
+                const actorRec = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
+                const actorChar = (actorRec?.character ?? null) as Record<string, unknown> | null;
+                const tier = await senderTrustTier(identity.name, actorChar);
+                const budget = await checkOutboundBudget(identity.name, currency, amount, tier);
+                if (!budget.ok) {
+                    return res.status(429).json({ error: budget.error, reason: 'transfer-budget', remaining: budget.remaining, limit: budget.limit });
+                }
+            }
         }
 
         // ── Authorization: caller must be the seated Kage of `village` ─
@@ -228,6 +247,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             },
             validateRecipient: async ({ character }) => {
                 if (!isAdmin && String(character.village ?? '').trim() !== village.trim()) throw new SettlementValidationError(403, 'Recipient is not a member of this village.');
+                // Capacity belongs HERE and nowhere else in this saga. The saga
+                // runs validateRecipient (api/_cross-key-settlement.ts:105) one
+                // line before debitSource and its saveSource write, so a throw
+                // here still cancels cleanly and the item stays in the treasury.
+                // creditRecipient runs AFTER that write commits and sets
+                // `mutationObserved`, where a throw is unrecoverable: the catch
+                // marks the journal `reconciliation-required` and never rolls the
+                // debit back, so the item is destroyed rather than delayed.
+                //
+                // ⛔ Do NOT also copy this into creditRecipient as a belt-and-braces
+                // check. A crash-resume skips this whole `sourceState === 'fresh'`
+                // block and goes straight to the credit, so the copy would strand
+                // an already-debited item — the exact failure this prevents.
+                //
+                // Named after the RECIPIENT, and from their own stored save name
+                // rather than the request body: 'Your inventory is full.' would
+                // send a Kage with an empty bag to check their own.
+                if (!isCurrency && !hasInventoryRoom(character)) {
+                    const who = String(character.name ?? '').trim() || recipientName;
+                    throw new SettlementValidationError(409, `${who}'s inventory is full, so the gift stayed in the treasury.`);
+                }
                 if (!isAdmin) {
                     // Shared-connection guard, matching /api/player/trade. Fails
                     // OPEN on error (ruling 8: player experience first) — a broken
@@ -252,12 +292,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const split = planTreasuryGift(key, amount);
                     return { character: { ...character, [key]: Math.max(0, Number(character[key] ?? 0)) + split.credit }, result: { currency: key, amount: split.credit, burned: split.burned } };
                 }
+                // Capacity was settled in validateRecipient, before the debit.
+                // Nothing may throw from here on: the treasury write has already
+                // committed by the time this runs.
                 const inventory = Array.isArray(character.inventory) ? [...character.inventory] : [];
                 inventory.push(itemId!);
                 return { character: { ...character, inventory }, result: { itemId } };
             },
             saveRecipient: async (record, character) => (await writeVersionedPlayerSave(recipientSaveKey, record, character)).record,
         });
+        // Charge only once the transfer has ACTUALLY moved something. A replay
+        // returns the stored result without touching either row, so charging it
+        // would bill the officer's 24h budget for a gift that sent nothing — and
+        // with no requestId from the client the idempotency key is a content
+        // fingerprint, so a repeat gift of the same amount to the same villager
+        // inside the 90-day journal TTL lands here.
+        if (!isAdmin && isCurrency && isTradeCurrency(currency) && !transfer.replayed) {
+            await chargeOutboundBudget(identity.name, currency, amount, Date.now());
+        }
         await kv.set(`${AUDIT_LOG_PREFIX}${village.toLowerCase()}:${Date.now()}`, {
             ts: Date.now(),
             actor: actorName ?? 'admin',

@@ -1,3 +1,4 @@
+import { inventoryGrowthBlock } from '../_inventory-capacity.js';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
@@ -23,6 +24,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (receipts.includes(id)) return { ok: true as const, character, value: { replayed: true } };
             const next = applyForge(character, kind, recipeId, body.quantity);
             if (!next) return { ok: false as const, status: 409, error: 'invalid-or-unaffordable-recipe' };
+            // Judge the RESULT, not the starting bag. A weapon craft is hugely
+            // net-negative on slots — it burns 150-800 craft points' worth of
+            // `hunt-*` materials, none of which stack, to add one item — and a bag
+            // full of hunt materials is precisely how a bag reaches the cap. A
+            // naive "is the bag full?" check would refuse the very action that
+            // frees the space (MMORPG behavior audit F7 step 2).
+            //
+            // `applyForge` is pure and `next` is discarded on refusal, so nothing
+            // is spent either way: the "refuse before the spend" property holds.
+            const grew = inventoryGrowthBlock(character, next);
+            if (grew) return { ok: false as const, status: grew.status, error: grew.error };
             return { ok: true as const, character: { ...next, redeemedCrafts: [...receipts.slice(-99), id] }, value: { replayed: false } };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });

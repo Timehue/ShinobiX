@@ -166,6 +166,80 @@ describe('atomic PvE physical-outcome receipts', () => {
     });
 });
 
+describe('the settlement boundary honours the sealed continuous-vitals flag', () => {
+    /*
+     * This is the SEAM, and it is the half that was missing. The pure helper was
+     * always correct and pinned by _open-world-continuous-vitals.test.ts, but
+     * every field-mission fight settles through HERE — and this boundary called
+     * applyAiFightOutcomeToCharacter with four arguments, so the fifth defaulted
+     * to `false`. api/missions/combat-start.ts seeds the fighter from the
+     * player's REAL chakra and stamina, so the fight was fought on the bar they
+     * actually had and then cost them nothing: HP was charged, chakra and
+     * stamina were silently refunded to their entry values.
+     *
+     * The same boundary serves /api/pve/fight-outcome and the automatic lapse
+     * reconciler in api/_battle-lapse.ts, so quitting a losing open-world fight
+     * was cheaper in the scarce resource than finishing it.
+     */
+    const survivor = (): PvpFighter => ({
+        ...fighter('Alice', 40),
+        maxHp: 100,
+        chakra: 15, maxChakra: 100,
+        stamina: 25, maxStamina: 100,
+    });
+
+    const stored = () => ({ name: 'Alice', hp: 100, maxHp: 100, chakra: 90, maxChakra: 100, stamina: 80, maxStamina: 100 });
+
+    function settleWith(continuous: boolean) {
+        const base = terminalSession({ status: 'done', winner: 'player', outcome: 'win' });
+        const session: SoloPveSession = {
+            ...base,
+            player: survivor(),
+            encounter: continuous
+                ? { ...base.encounter, metadata: { ...(base.encounter.metadata ?? {}), continuousVitals: true } }
+                : base.encounter,
+        };
+        return applyPveOutcomeWithReceipt({ character: stored(), session, playerName: 'Alice', outcome: 'win', now: NOW });
+    }
+
+    it('charges the chakra and stamina an open-world fight actually cost', () => {
+        const out = settleWith(true);
+        assert.equal(out.ok, true);
+        if (!out.ok) return;
+        assert.equal(out.character.hp, 40, 'HP was always carried');
+        assert.equal(out.character.chakra, 15, 'chakra must be charged, not refunded');
+        assert.equal(out.character.stamina, 25, 'stamina must be charged, not refunded');
+    });
+
+    it('leaves chakra and stamina alone for a fresh-start encounter', () => {
+        // The faucet guard. A fresh-start fight seeds the actor at the FULL
+        // pool, so its leftovers are what remains of a free bar — writing them
+        // back would let a player enter drained and bank a full one.
+        const out = settleWith(false);
+        assert.equal(out.ok, true);
+        if (!out.ok) return;
+        assert.equal(out.character.hp, 40);
+        assert.equal(out.character.chakra, 90, 'untouched');
+        assert.equal(out.character.stamina, 80, 'untouched');
+    });
+
+    it('still charges the fight cost when the player is knocked out', () => {
+        const base = terminalSession();
+        const session: SoloPveSession = {
+            ...base,
+            player: { ...survivor(), hp: 0 },
+            encounter: { ...base.encounter, metadata: { ...(base.encounter.metadata ?? {}), continuousVitals: true } },
+        };
+        const out = applyPveOutcomeWithReceipt({ character: stored(), session, playerName: 'Alice', outcome: 'loss', now: NOW });
+        assert.equal(out.ok, true);
+        if (!out.ok) return;
+        assert.equal(out.character.hp, 0);
+        assert.equal(out.character.hospitalized, true);
+        assert.equal(out.character.chakra, 15, 'a knockout is still a fight that spent chakra');
+        assert.equal(out.character.stamina, 25);
+    });
+});
+
 describe('automatic terminal reconciliation scope', () => {
     it('covers every mission result and only non-winning story/Academy results', () => {
         assert.equal(soloPveNeedsAutomaticOutcome(terminalSession()), true);

@@ -80,4 +80,31 @@ describe('cross-key durable settlement orchestration', { concurrency: false }, (
         assert.equal(f.getRecipient().balance, 5);
         assert.ok(results.every((result) => result.transaction.state === 'completed'));
     });
+
+    it('reports which call actually moved value and which merely replayed', async () => {
+        // Callers need this to decide whether to run side effects that live
+        // OUTSIDE the saga. Both treasury doors charge the sender's rolling 24h
+        // transfer budget after this returns, and neither client sends a
+        // requestId — so the idempotency key is a content fingerprint and a
+        // repeat gift of the same amount to the same player resolves as a
+        // replay. Billing that would charge an officer for a gift that moved
+        // nothing, and five repeats would exhaust a day's ceiling having sent
+        // money once.
+        const f = fixture();
+        const first = await settleCrossKeyTransfer(f.options);
+        assert.equal(first.replayed, false, 'the call that moved value is not a replay');
+
+        const again = await settleCrossKeyTransfer(f.options);
+        assert.equal(again.replayed, true);
+        assert.deepEqual(again.result, first.result, 'and it returns the stored result unchanged');
+        assert.equal(f.getSource().balance, 5, 'nothing moved the second time');
+        assert.equal(f.getRecipient().balance, 5);
+    });
+
+    it('marks every duplicate in a concurrent burst as a replay', async () => {
+        const f = fixture();
+        const results = await Promise.all(Array.from({ length: 6 }, () => settleCrossKeyTransfer(f.options)));
+        const moved = results.filter((r) => !r.replayed);
+        assert.equal(moved.length, 1, 'exactly one call may report that it moved value');
+    });
 });

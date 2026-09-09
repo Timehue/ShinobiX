@@ -1,3 +1,4 @@
+import { inventoryGrowthBlock } from '../_inventory-capacity.js';
 import { safeLogValue } from '../_safe-log.js';
 import { randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
@@ -7,6 +8,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { sanitizeUserText } from '../_text-moderation.js';
+import { getActiveSilence } from '../admin/moderation.js';
 import { buildNamedItem, debitNamedForge, makeNamedForgeReceipt, NAMED_FORGE_COST, resolveNamedForgeReplay, rollNamedForge, type NamedRoll } from './_named.js';
 import { recordForgedItem } from '../_forged-item-registry.js';
 import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
@@ -45,6 +47,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(`named-forge:${playerName}:${token}`, { playerName, roll }, { ex: 20 * 60 });
             return res.status(200).json({ ok: true, token, roll });
         }
+        // A named weapon's NAME is echoed into the public PvP battle log, so it is
+        // a broadcast surface and a silence has to reach it. But the item itself
+        // is stat gear, not a message: refusing the forge outright would take the
+        // player's progression, and their roll token expires in 20 minutes while
+        // a silence lasts hours or days — so a refusal here destroys a paid roll
+        // rather than muting anything. Instead the forge proceeds and the AUTHORED
+        // TEXT is dropped; buildNamedItem falls back to "Named Weapon" / a
+        // generated description. Silence costs speech, which is the point.
+        const silenced = identity.admin ? null : await getActiveSilence(identity.name);
         const token = cleanToken(body.token); if (!token) return res.status(400).json({ error: 'Invalid forge token.' });
         const result = await mutatePlayerSave<{ replayed: boolean; item: Record<string, unknown> | null }>(playerName, async ({ character, record }) => {
             const receipts = Array.isArray(character.redeemedNamedForges)
@@ -64,9 +75,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     : `Whole materials cannot make the exact ${NAMED_FORGE_COST}-point forge payment.`;
                 return { ok: false as const, status: 409, error };
             }
-            const item = buildNamedItem(sealed.roll, sanitizeUserText(body.name, 60), sanitizeUserText(body.flavorText, 300));
+            const item = buildNamedItem(
+                sealed.roll,
+                silenced ? '' : sanitizeUserText(body.name, 60),
+                silenced ? '' : sanitizeUserText(body.flavorText, 300),
+            );
             const inventory = Array.isArray(paid.inventory) ? paid.inventory as string[] : [];
-            return { ok: true as const, character: { ...paid, inventory: [...inventory, item.id], redeemedNamedForges: [...receipts.slice(-49), makeNamedForgeReceipt(token, item.id)] }, recordPatch: { creatorItems: [...creatorItems.slice(-199), item] }, value: { replayed: false, item } };
+            const forgedCharacter = { ...paid, inventory: [...inventory, item.id], redeemedNamedForges: [...receipts.slice(-49), makeNamedForgeReceipt(token, item.id)] };
+            // Refused before anything commits: `paid` and the receipt are local
+            // until this returns, so the forge cost and the single-use roll token
+            // both survive a refusal and the player can retry with room.
+            const grew = inventoryGrowthBlock(character, forgedCharacter);
+            if (grew) return { ok: false as const, status: grew.status, error: grew.error };
+            return { ok: true as const, character: forgedCharacter, recordPatch: { creatorItems: [...creatorItems.slice(-199), item] }, value: { replayed: false, item } };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
         // P0-3: durable definition registry — the in-save creatorItems copy is a
