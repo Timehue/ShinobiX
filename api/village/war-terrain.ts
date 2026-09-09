@@ -1,3 +1,4 @@
+import { readVillageElders } from './_elders.js';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -11,6 +12,7 @@ import {
     villageWarKey,
     villageWarSlug,
     canSetTerrain,
+    reconcileTerrainLeadership,
     TERRAINS,
     type TerrainRole,
     type Terrain,
@@ -21,7 +23,7 @@ import { villageWarMapEnabled } from '../_release-flags.js';
  * /api/village/war-terrain — POST only
  *
  * Set a home sector's terrain (the +10% jutsu-school defender buff, §17.3). The
- * seated Kage may set 3 sectors, each ANBU elder 1 (quota in canSetTerrain).
+ * seated Kage may set 3 sectors, each current Elder 1 (quota in canSetTerrain).
  * Admin acts as Kage. Server-gated by the default-on Sector Map campaign switch.
  * Body: { playerName, village, sector, terrain }.
  */
@@ -55,43 +57,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'village-war-terrain', 30, 60_000, identity.name))) return;
 
-        // Determine the actor's terrain-setting role (Kage 3 / elder 1; admin = Kage).
-        let role: TerrainRole = 'none';
-        if (identity.admin) {
-            role = 'kage';
-        } else {
-            const [kageState, vs] = await Promise.all([
+        return await withKvLock(kageKey(village), () => withKvLock(`${VILLAGE_STATE_PREFIX}${villageWarSlug(village)}`, async () => {
+            const [kageState, elderSeats, save] = await Promise.all([
                 kv.get<{ seatedKage?: string }>(kageKey(village)),
-                kv.get<{ anbuAppointees?: unknown }>(`${VILLAGE_STATE_PREFIX}${villageWarSlug(village)}`),
+                readVillageElders(village),
+                kv.get<{ character?: { village?: string } }>(`save:${playerName}`),
             ]);
-            const anbu = Array.isArray(vs?.anbuAppointees) ? vs!.anbuAppointees.map((n) => safeName(String(n))) : [];
-            if (safeName(kageState?.seatedKage ?? '') === playerName) role = 'kage';
-            else if (anbu.includes(playerName)) role = 'elder';
-        }
-        if (role === 'none') {
-            return res.status(403).json({ error: 'Only the seated Kage or an elder (ANBU) can set sector terrain.' });
-        }
+            if (!identity.admin && save?.character?.village !== village) return res.status(403).json({ error: 'You must belong to this village.' });
+            const seatedKage = safeName(kageState?.seatedKage ?? '');
+            const elders = elderSeats.map(safeName).filter(Boolean);
+            const role: TerrainRole = identity.admin || seatedKage === playerName ? 'kage'
+                : elders.includes(playerName) ? 'elder' : 'none';
+            if (role === 'none') {
+                return res.status(403).json({ error: 'Only the seated Kage or a current Elder can set sector terrain.' });
+            }
 
-        const warKey = villageWarKey(village);
-        const result = await withKvLock(warKey, async () => {
-            const record = normalizeVillageWarRecord(village, (await kv.get<Record<string, unknown>>(warKey)) ?? undefined);
-            const gate = canSetTerrain(record, sector, playerName, role);
-            if (!gate.ok) return { ok: false as const, error: gate.error };
-            record.sectors[String(sector)].terrain = terrain;
-            record.terrainSetBy[String(sector)] = playerName;
-            await kv.set(warKey, record);
-            return { ok: true as const, sector, terrain, role };
-        }, { failClosed: true });
+            const warKey = villageWarKey(village);
+            const result = await withKvLock(warKey, async () => {
+                const record = normalizeVillageWarRecord(village, (await kv.get<Record<string, unknown>>(warKey)) ?? undefined);
+                reconcileTerrainLeadership(record, seatedKage, elders);
+                const gate = canSetTerrain(record, sector, playerName, role);
+                if (!gate.ok) return { ok: false as const, error: gate.error };
+                record.sectors[String(sector)].terrain = terrain;
+                record.terrainSetBy[String(sector)] = playerName;
+                await kv.set(warKey, record);
+                return { ok: true as const, sector, terrain, role };
+            }, { failClosed: true });
 
-        if (!result.ok) {
-            const msg = result.error === 'quota-reached'
-                ? (role === 'kage' ? 'You have already set terrain on 3 sectors.' : 'Elders may set terrain on 1 sector.')
-                : result.error === 'set-by-another'
-                    ? 'Another leader already set this sector\'s terrain.'
-                    : 'Cannot set terrain on that sector.';
-            return res.status(409).json({ error: msg });
-        }
-        return res.status(200).json(result);
+            if (!result.ok) {
+                const msg = result.error === 'quota-reached'
+                    ? (role === 'kage' ? 'You have already set terrain on 3 sectors.' : 'Elders may set terrain on 1 sector.')
+                    : result.error === 'set-by-another'
+                        ? 'Another leader already set this sector\'s terrain.'
+                        : 'Cannot set terrain on that sector.';
+                return res.status(409).json({ error: msg });
+            }
+            return res.status(200).json(result);
+        }, { failClosed: true }), { failClosed: true });
     } catch (err) {
         console.error('[village/war-terrain]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });

@@ -143,6 +143,8 @@ import storyBossStartHandler from './api/story/boss-start.js';
 import storySparStartHandler from './api/story/spar-start.js';
 import trainingJutsuRyoHandler from './api/training/jutsu-ryo.js';
 import villageElderFocusHandler from './api/village/elder-focus.js';
+import villageOrdersHandler from './api/village/orders.js';
+import villageAnbuHandler from './api/village/anbu.js';
 import villageHollowGateUnlockHandler from './api/village/hollow-gate-unlock.js';
 import villageOpenWarCrateHandler from './api/village/open-war-crate.js';
 import villageUpgradeHandler from './api/village/upgrade.js';
@@ -824,6 +826,8 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/story/spar-start', storySparStartHandler);
     route('/training/jutsu-ryo', trainingJutsuRyoHandler);
     route('/village/elder-focus', villageElderFocusHandler);
+    route('/village/orders', villageOrdersHandler);
+    route('/village/anbu', villageAnbuHandler);
     route('/village/hollow-gate-unlock', villageHollowGateUnlockHandler);
     route('/village/open-war-crate', villageOpenWarCrateHandler);
     route('/village/upgrade', villageUpgradeHandler);

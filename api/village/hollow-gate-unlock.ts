@@ -31,13 +31,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const existingChar = existing?.character as Record<string, unknown> | undefined;
         if (!existing || !existingChar) return res.status(404).json({ error: 'Player save not found.' });
         const stateKey = `game:village-state:${slug(existingChar.village)}`;
+        const kageKey = `village:kage:${String(existingChar.village ?? '').toLowerCase().replace(/\s+/g, '-')}`;
 
-        const out = await withKvLock(stateKey, async () => withKvLock(saveKey, async () => {
+        const out = await withKvLock(kageKey, () => withKvLock(stateKey, async () => withKvLock(saveKey, async () => {
             const save = await kv.get<Record<string, unknown>>(saveKey);
             const character = save?.character as Record<string, unknown> | undefined;
             const state = await kv.get<Record<string, unknown>>(stateKey) ?? {};
             if (!save || !character) return { ok: false as const, status: 404, error: 'Player save not found.' };
-            if (!identity.admin && safeName(String(state.seatedKage ?? '')) !== playerName) {
+            const kage = await kv.get<{ seatedKage?: string }>(kageKey);
+            if (slug(character.village) !== slug(existingChar.village)) return { ok: false as const, status: 409, error: 'Your village changed. Refresh Town Hall.' };
+            if (!identity.admin && safeName(String(kage?.seatedKage ?? '')) !== playerName) {
                 return { ok: false as const, status: 403, error: 'Only the seated Kage can open the Hollow Gate.' };
             }
             const seals = Math.max(0, Math.floor(Number(character.honorSeals) || 0));
@@ -67,7 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             await completeEconomyTx(txId).catch(() => undefined);
             return { ok: true as const, character: nextSave.character as Record<string, unknown>, _saveVersion: Number(nextSave._saveVersion ?? 0), until };
-        }, { failClosed: true }), { failClosed: true });
+        }, { failClosed: true }), { failClosed: true }), { failClosed: true });
 
         if (!out.ok) return res.status(out.status).json({ error: out.error });
         return res.status(200).json({ ok: true, character: out.character, _saveVersion: out._saveVersion, hollowGateUnlockedUntil: out.until, cost: COST });

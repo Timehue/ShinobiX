@@ -19,6 +19,8 @@ test('roster projection preserves settled vitals, travel, public profile and pet
         hp: 5, maxHp: 100, chakra: 4, maxChakra: 100, stamina: 3, maxStamina: 100,
         ryo: 999, stats: {}, inventory: ['private-item'], pets: [],
         nindo: 'Stay true.', nindoBg: 'moon',
+        elderWinDays: [{ day: '2026-09-09', village: 'stormveilvillage', pvp: 1, pve: 2 }],
+        elderRankedWinReceipts: [{ id: 'private-match', at: now }],
     };
     const save = {
         character, worldGeoV: WORLD_GEO_VERSION, currentSector: 39,
@@ -49,6 +51,7 @@ test('roster projection preserves settled vitals, travel, public profile and pet
     assert.equal(publicChar.nindo, 'Stay true.');
     assert.ok(Number(publicChar.hp) >= 15);
     assert.ok(!('ryo' in publicChar) && !('inventory' in publicChar));
+    assert.ok(!('elderWinDays' in publicChar) && !('elderRankedWinReceipts' in publicChar));
     assert.equal(player.currentSector, 39, 'a legacy client mask is not travel authority');
     assert.equal(player.sleeping, true);
     assert.deepEqual(player.eligiblePets, []);

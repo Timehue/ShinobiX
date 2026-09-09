@@ -1,3 +1,4 @@
+import { activeElderFocus } from "./village-elder-focus";
 /*
  * Village upgrade system — definitions, per-character upgrade levels/bonuses,
  * costs, and the derived bonus helpers (training XP, jutsu speed, shop/hospital
@@ -98,9 +99,9 @@ function clanBonus(character: Character, key: "trainingGrounds" | "petDen" | "me
     return clanUpgradeEffectPercent(key, character.clanUpgradeLevels?.[key] ?? 0);
 }
 function activeClanDoctrine(character: Character) { return character.clan ? (character.clanDoctrine ?? "none") : "none"; }
-export function getTrainingXpBonus(character: Character) { return villageUpgradeBonus(character, "training") + (character.elderFocus === "training" ? 10 : 0) + clanBonus(character, "trainingGrounds") + doctrineXpBonus(activeClanDoctrine(character)); }
-export function getJutsuTrainingSpeedBonus(character: Character) { return villageUpgradeBonus(character, "jutsuTraining") + (character.elderFocus === "training" ? 10 : 0); }
-export function getShopDiscountPercent(character: Character) { return villageUpgradeBonus(character, "shop") + (character.elderFocus === "trade" ? 5 : 0) + clanBonus(character, "blacksmith") + doctrineShopDiscount(activeClanDoctrine(character)); }
+export function getTrainingXpBonus(character: Character) { return villageUpgradeBonus(character, "training") + (activeElderFocus(character) === "training" ? 10 : 0) + clanBonus(character, "trainingGrounds") + doctrineXpBonus(activeClanDoctrine(character)); }
+export function getJutsuTrainingSpeedBonus(character: Character) { return villageUpgradeBonus(character, "jutsuTraining") + (activeElderFocus(character) === "training" ? 10 : 0); }
+export function getShopDiscountPercent(character: Character) { return villageUpgradeBonus(character, "shop") + (activeElderFocus(character) === "trade" ? 5 : 0) + clanBonus(character, "blacksmith") + doctrineShopDiscount(activeClanDoctrine(character)); }
 export function getTownDefenseGuardBonus(character: Character) { return villageUpgradeBonus(character, "townDefense"); }
 export function getPetXpBonus(character: Character) { return villageUpgradeBonus(character, "petYard") + clanBonus(character, "petDen"); }
 export function getBankInterestPercent(character: Character) { return villageUpgradeBonus(character, "bank"); }

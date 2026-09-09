@@ -1,3 +1,4 @@
+import { activeElderFocus } from "./village-elder-focus";
 /*
  * Character progression helpers — XP-gain formulas and ranked-rating
  * Elo math. Pure functions; the larger `gainXp` driver that calls these
@@ -15,12 +16,12 @@ import { CHARACTER_XP_GAIN_MULTIPLIER } from "../constants/game";
 // global testing-phase multiplier and the +10% Elder training-focus
 // bonus when the character's village elder is set to "training".
 export function effectiveCharacterXpGain(
-    character: Pick<Character, "elderFocus">,
+    character: Pick<Character, "elderFocus"> & Partial<Pick<Character, "village">>,
     amount: number,
 ): number {
     const baseAmount = Math.max(0, Math.floor(amount));
     const testingBoostedAmount = Math.floor(baseAmount * CHARACTER_XP_GAIN_MULTIPLIER);
-    const trainingFocusBonus = character.elderFocus === "training"
+    const trainingFocusBonus = activeElderFocus(character) === "training"
         ? Math.floor(testingBoostedAmount * 0.1)
         : 0;
     return testingBoostedAmount + trainingFocusBonus;
@@ -31,7 +32,7 @@ export function effectiveCharacterXpGain(
 // "Reward: X XP" displays that may or may not have a character in scope.
 export function displayCharacterXpGain(
     amount: number,
-    character?: Pick<Character, "elderFocus">,
+    character?: Pick<Character, "elderFocus"> & Partial<Pick<Character, "village">>,
 ): number {
     return character
         ? effectiveCharacterXpGain(character, amount)

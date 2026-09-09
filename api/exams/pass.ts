@@ -2,11 +2,11 @@ import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { passRankExam } from './_pass.js';
-const villageSlug = (value: unknown) => String(value ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+import { loadAuthoritativeKage } from '../_village-state-validate.js';
+import { readVillageElders } from '../village/_elders.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -21,9 +21,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your rank exam.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'rank-exam-pass', 10, 60_000, identity.name))) return;
         const result = await mutatePlayerSave(playerName, async ({ character }) => {
-            const state = await kv.get<{ seatedKage?: string; anbuAppointees?: unknown }>(`game:village-state:${villageSlug(character.village)}`);
-            const appointees = Array.isArray(state?.anbuAppointees) ? state!.anbuAppointees.map((name) => safeName(String(name))) : [];
-            const passed = passRankExam(character, body.examKey, { isKage: safeName(state?.seatedKage ?? '') === playerName, isElder: appointees.includes(playerName) });
+            const [state, kage] = await Promise.all([
+                readVillageElders(character.village),
+                loadAuthoritativeKage(String(character.village ?? '')),
+            ]);
+            const appointees = state.map(name => safeName(name));
+            const passed = passRankExam(character, body.examKey, { isKage: safeName(kage?.seatedKage ?? '') === playerName, isElder: appointees.includes(playerName) });
             if (!passed.ok) return { ok: false as const, status: 409, error: passed.reason };
             return { ok: true as const, character: passed.character, value: { alreadyPassed: passed.alreadyPassed } };
         });

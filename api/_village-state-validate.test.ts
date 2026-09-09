@@ -103,39 +103,39 @@ describe('validateVillageStateWrite — Hollow Gate 30-day timed unlock', () => 
     const kage = { seatedKage: 'rin' };               // matches `villager.callerName`
     const notKage = { callerName: 'jin', isAdmin: false, village: 'Leaf' };
 
-    it('lets the seated Kage open the gate (~30 days, clamped)', async () => {
+    it('requires the paid endpoint even for the seated Kage', async () => {
         const want = Date.now() + 30 * DAY;
         const { next, suppressed } = await validateVillageStateWrite({}, { hollowGateUnlockedUntil: want }, villager, kage);
         const until = next.hollowGateUnlockedUntil as number;
-        assert.ok(until >= Date.now() + 29 * DAY && until <= Date.now() + 31 * DAY, `until=${until}`);
-        assert.equal(suppressed.some((s) => s.includes('hollowGateUnlockedUntil')), false);
+        assert.equal(until, 0);
+        assert.equal(suppressed.some((s) => s.includes('paid unlock endpoint')), true);
     });
 
-    it('clamps a tampered far-future expiry to ~31 days', async () => {
+    it('rejects a tampered far-future expiry', async () => {
         const want = Date.now() + 3650 * DAY; // ~10 years
         const { next } = await validateVillageStateWrite({}, { hollowGateUnlockedUntil: want }, villager, kage);
-        assert.ok((next.hollowGateUnlockedUntil as number) <= Date.now() + 32 * DAY);
+        assert.equal(next.hollowGateUnlockedUntil, 0);
     });
 
-    it('stacks another 30 days onto an already-active window (extend across writes)', async () => {
+    it('does not extend an active window through a generic write', async () => {
         const prevUntil = Date.now() + 10 * DAY;
         const prev = { hollowGateUnlockedUntil: prevUntil };
         const { next } = await validateVillageStateWrite(prev, { hollowGateUnlockedUntil: prevUntil + 30 * DAY }, villager, kage);
         const until = next.hollowGateUnlockedUntil as number;
-        assert.ok(until >= prevUntil + 29 * DAY && until <= prevUntil + 31 * DAY, `until=${until}`);
+        assert.equal(until, prevUntil);
     });
 
     it('blocks a non-Kage from extending (pins to prev)', async () => {
         const { next, suppressed } = await validateVillageStateWrite({}, { hollowGateUnlockedUntil: Date.now() + 30 * DAY }, notKage, kage);
         assert.equal(next.hollowGateUnlockedUntil, 0);
-        assert.equal(suppressed.some((s) => s.includes('only seatedKage may unlock')), true);
+        assert.equal(suppressed.some((s) => s.includes('paid unlock endpoint')), true);
     });
 
     it('pins an active unlock when a non-admin write tries to lower it (immune to stale clobber)', async () => {
         const prevUntil = Date.now() + 20 * DAY;
         const { next, suppressed } = await validateVillageStateWrite({ hollowGateUnlockedUntil: prevUntil }, { hollowGateUnlockedUntil: 0 }, villager, kage);
         assert.equal(next.hollowGateUnlockedUntil, prevUntil);
-        assert.equal(suppressed.some((s) => s.includes('decrease (admin only)')), true);
+        assert.equal(suppressed.some((s) => s.includes('paid unlock endpoint')), true);
     });
 
     it('lets an admin re-lock early (lower the expiry)', async () => {
@@ -158,9 +158,10 @@ describe('validateVillageStateWrite — Hollow Gate 30-day timed unlock', () => 
         assert.equal(posts2.filter((p) => String(p.id).startsWith('hg-reseal-')).length, 1);
     });
 
-    it('does not post a re-seal notice when the Kage re-opens on the same write', async () => {
+    it('does not post a re-seal notice after a paid reopening', async () => {
         const expired = Date.now() - 1000;
-        const { next } = await validateVillageStateWrite({ hollowGateUnlockedUntil: expired }, { hollowGateUnlockedUntil: Date.now() + 30 * DAY }, villager, kage);
+        const paidUntil = Date.now() + 30 * DAY;
+        const { next } = await validateVillageStateWrite({ hollowGateUnlockedUntil: paidUntil }, { hollowGateUnlockedUntil: expired }, villager, kage);
         const posts = (next.noticePosts ?? []) as Array<Record<string, unknown>>;
         assert.equal(posts.filter((p) => String(p.id).startsWith('hg-reseal-')).length, 0);
     });

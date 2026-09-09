@@ -53,6 +53,7 @@ const ROSTER_STRIP_CHAR_FIELDS = new Set<string>([
     // Story-only persistence
     'storyTraits', 'storyTitle', 'storyProgress',
     'defeatedAiIds', 'elderFocus', 'examsPassed',
+    'elderWinDays', 'elderRankedWinReceipts',
     'triggeredEvents',
     // Run-state for solo modes
     'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen',

@@ -65,7 +65,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (!identity.admin) {
             const kageState = await kv.get<{ seatedKage?: string }>(kageKey(village));
-            if (safeName(kageState?.seatedKage ?? '') !== playerName) {
+            const actor = await kv.get<{ character?: { village?: string } }>(`save:${playerName}`);
+            if (actor?.character?.village !== village || safeName(kageState?.seatedKage ?? '') !== playerName) {
                 return res.status(403).json({ error: 'Only the seated Kage can set sector win-conditions.' });
             }
         }

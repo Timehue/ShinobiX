@@ -30,6 +30,7 @@
  * is unit-testable with a fake in-memory store.
  */
 import { isDeepStrictEqual } from 'node:util';
+import { readVillageAnbu } from './village/_anbu.js';
 import { kv as realKv, type KvLike } from './_storage.js';
 import { withKvLock as realWithKvLock, type LockOptions } from './_lock.js';
 import { mergePreservingImages, safeName, setSafeRecordValue } from './_utils.js';
@@ -184,17 +185,10 @@ export async function reserveInfilStartAttempt(
 }
 
 // ─── Anbu roster / defender selection / daily seal ───────────────────────────
-/** The village's appointed Anbu as safeName slugs (deduped, order-preserving). */
+/** The verified appointed + monthly earned ANBU roster as safeName slugs. */
 export async function loadAnbuAppointees(village: string, deps: StoreDeps = {}): Promise<string[]> {
     const { kv } = resolve(deps);
-    const vs = await kv.get<{ anbuAppointees?: unknown[] }>(villageStateKey(village));
-    const raw = Array.isArray(vs?.anbuAppointees) ? vs!.anbuAppointees! : [];
-    const out: string[] = [];
-    for (const a of raw) {
-        const slug = safeName(String(a ?? ''));
-        if (slug && !out.includes(slug)) out.push(slug);
-    }
-    return out;
+    return (await readVillageAnbu(village, undefined, kv)).members.map(safeName);
 }
 
 /** Least-recently-defended rotation over the appointee list (missing timestamp =

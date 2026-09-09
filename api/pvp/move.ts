@@ -870,6 +870,7 @@ function resolveDamageNumber(self: PvpFighter, opponent: PvpFighter, jutsu: Juts
         effectiveDR,
         ampMultiplier: ampMultiplierFor(self, opponent, round),
         guardDefensePct: opponent.character.guardDefensePct,
+        elderWarDefensePct: opponent.character.elderWarDefensePct,
     });
 }
 

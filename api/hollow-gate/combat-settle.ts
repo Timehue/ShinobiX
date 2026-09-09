@@ -1,3 +1,4 @@
+import { creditElderWins } from '../../shared/elder-elections.js';
 import { randomInt } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -285,6 +286,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         : pet);
                 }
                 if (won) {
+                    if (binding!.combatMode === 'solo-pve') next = creditElderWins(next, 0, 1);
                     next = gainXp(next, reward.xp) as Record<string, unknown>;
                     next.hp = binding!.combatMode === 'pet'
                         ? Math.max(1, Math.min(Math.floor(num(next.maxHp) || 1), Math.floor(num(next.hp) || 1)))

@@ -1,3 +1,4 @@
+import { seatedKageOf as seatedKage } from '../_sector-war-garrison-defender.js';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { randomUUID } from 'node:crypto';
@@ -160,19 +161,8 @@ const WIRED_WIN_CONDITIONS: readonly WinCondition[] = ['combat', 'card', 'pet'];
 type Identity = NonNullable<Awaited<ReturnType<typeof authedPlayerOrAdmin>>>;
 type ReadBattle = PvpSession;
 
-function kageKey(village: string): string {
-    return `village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`;
-}
 async function isSeatedKage(village: string, playerName: string): Promise<boolean> {
-    const st = await kv.get<{ seatedKage?: string }>(kageKey(village));
-    return safeName(st?.seatedKage ?? '') === playerName;
-}
-/** The seated Kage of a village (a real appointed leader) — the garrison
- *  defender fallback when a village hasn't appointed ANBU yet. Mirrors
- *  api/village/anbu-infiltration.ts's own seatedKageOf. */
-async function seatedKage(village: string): Promise<string> {
-    const st = await kv.get<{ seatedKage?: string }>(kageKey(village));
-    return safeName(st?.seatedKage ?? '');
+    return (await seatedKage(village)) === playerName;
 }
 async function villageOf(playerName: string): Promise<string> {
     const save = await kv.get<{ character?: { village?: string } }>(`save:${playerName}`);

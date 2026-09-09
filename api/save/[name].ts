@@ -1,3 +1,4 @@
+import { reconcileElderFocus } from '../village/_elders.js';
 import { sanitizeNarrativeIdentity } from './_sanitize-narrative.js';
 import { sanitizeProgression } from './_sanitize-progression.js';
 import { sanitizePetRoster } from './_sanitize-pets.js';
@@ -575,7 +576,7 @@ async function validateClanAndVillageIdentity(
         }
     }
 
-    return { ...safeIncoming, character: out };
+    return { ...safeIncoming, character: await reconcileElderFocus(out) };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

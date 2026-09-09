@@ -71,7 +71,7 @@ describe('village upgrade route — shared-state safety', () => {
 
     it('stays seated-Kage only', () => {
         assert.match(route, /Only the seated Kage can upgrade village structures/);
-        assert.match(route, /safeName\(String\(state\.seatedKage \?\? ''\)\) !== playerName/);
+        assert.match(route, /safeName\(String\(kage\?\.seatedKage \?\? ''\)\) !== playerName/);
     });
 
     it('writes the levels to the VILLAGE record, not to a save', () => {

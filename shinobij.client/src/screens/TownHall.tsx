@@ -1,6 +1,9 @@
+import type { ElderCouncil } from '../../../shared/elder-elections';
 import { HOLLOW_GATE_UNLOCK_COST } from "../lib/hollow-gate-prices";
+import { elderFocusForSeats, elderSeatsForTerm, normalizeElderAppointees } from "../../../shared/village-elders";
+import { cacheVillageElders } from "../lib/village-elder-focus";
+import { adoptVillageAnbu, adoptVillageOrders } from "../lib/world-state";
 import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
-import { normalizeNarrativeCharacter as normalizeCharacter } from "../lib/normalize-narrative-character";
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef } from "react";
 import "../styles/town-hall-aaa.css";
@@ -29,7 +32,7 @@ import { gameConfirm } from "../components/GameAlert";
 import { gameToast } from "../components/GameToast";
 import { useCapabilityViewAvailability } from "../lib/live-capabilities-context";
 import { capabilityAdmissionAllowed, sectorMapAdmissionMessage } from "../lib/live-capability-admission";
-import { clampNumber, currentDateKey, currentMonthKey, makeId } from "../lib/utils";
+import { clampNumber, currentDateKey, makeId } from "../lib/utils";
 import { cleanTreasuryItems, getAllItems, inventoryItemStacks, itemDisplayName, removeTreasuryItem } from "../lib/items";
 import { ownsItem } from "../lib/inventory";
 import { dailyMissionsCompleted } from "../lib/character-progress";
@@ -70,9 +73,9 @@ const ELDER_FOCUS_OPTIONS: ReadonlyArray<{
     bonus: string;
     brief: string;
 }> = [
-    { key: "war", role: "Defense doctrine", bonus: "−1% wartime damage", brief: "Steel the village for open conflict." },
+    { key: "war", role: "Defense doctrine", bonus: "−1% damage from enemy villagers in wartime", brief: "Steel the village for open conflict." },
     { key: "trade", role: "Trade doctrine", bonus: "−5% shop prices", brief: "Turn every ryo into more supplies." },
-    { key: "training", role: "Training doctrine", bonus: "+10% XP and jutsu speed", brief: "Accelerate the next generation." },
+    { key: "training", role: "Training doctrine", bonus: "+10% training gains and jutsu speed", brief: "Accelerate the next generation." },
 ];
 
 // Server-authoritative Kage succession (mirrors api/village/_kage-challenge.ts —
@@ -146,6 +149,16 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     const [mercBusy, setMercBusy] = useState<string | null>(null);
     const [elderFocusBusy, setElderFocusBusy] = useState<ElderFocusKey | null>(null);
     const elderFocusBusyRef = useRef(false);
+    const [elderSeatSnapshot, setElderSeats] = useState<[string, string, string]>(['', '', '']);
+    const [elderTerm, setElderTerm] = useState<ElderCouncil | null>(null);
+    const elderSeats = elderSeatsForTerm(elderSeatSnapshot, elderTerm?.nextSelectionAt);
+    const [elderProgress, setElderProgress] = useState({ pvp: 0, pve: 0 });
+    const [elderSeatsReady, setElderSeatsReady] = useState(false);
+    const [elderAppointmentInputs, setElderAppointmentInputs] = useState(['', '', '']);
+    const [elderAppointmentBusy, setElderAppointmentBusy] = useState<ElderFocusKey | null>(null);
+    const elderAppointmentBusyRef = useRef(false);
+    const elderSeatsRequestRef = useRef(0);
+    const selectedElderFocus = elderFocusForSeats(character.elderFocus, elderSeats);
     const [state, setState] = useState<VillageState>(() => loadVillageState(character.village));
     // MIRRORS api/_treasury-gift-tax.ts and the donate caps in
     // api/village/treasury/donate.ts — shown up front so the server's limits are
@@ -175,6 +188,9 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     const [villageSendPlayer, setVillageSendPlayer] = useState("");
     const [villageSendCurrency, setVillageSendCurrency] = useState<VillageTreasuryCurrencyKey>("ryo");
     const [villageSendAmount, setVillageSendAmount] = useState(1);
+    const [anbuBusy, setAnbuBusy] = useState(false);
+    const anbuBusyRef = useRef(false);
+    const anbuRequestRef = useRef(0);
     const [anbuAppointmentInputs, setAnbuAppointmentInputs] = useState<string[]>(() => normalizeAnbuAppointees(loadVillageState(character.village).anbuAppointees));
     // Authoritative Kage state (seat + active challenge) polled from the server.
     const [serverKage, setServerKage] = useState<ServerKageState | null>(null);
@@ -184,6 +200,8 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     // 1-hour pending window + single-war rule. Players click "Open
     // Village War Hall →" below to reach it.)
     const [villageNoticeType, setVillageNoticeType] = useState<NoticePostType>("order");
+    const [villageOrderBusy, setVillageOrderBusy] = useState(false);
+    const villageOrderBusyRef = useRef(false);
     const [villageNoticeTitle, setVillageNoticeTitle] = useState("");
     const [villageNoticeBody, setVillageNoticeBody] = useState("");
     const [villageNoticeSector, setVillageNoticeSector] = useState("");
@@ -229,6 +247,43 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
             .map(player => player.name),
     ].filter((name, index, names) => Boolean(name) && names.indexOf(name) === index).sort((a, b) => a.localeCompare(b));
     useEffect(() => {
+        if (!elderTerm || !Number.isFinite(elderTerm.nextSelectionAt)) return;
+        let timer: ReturnType<typeof setTimeout>;
+        const expire = () => {
+            const remaining = elderTerm.nextSelectionAt - Date.now();
+            if (remaining <= 0) { setElderSeatsReady(false); return; }
+            timer = setTimeout(expire, Math.min(remaining, 2_147_483_647));
+        };
+        expire();
+        return () => clearTimeout(timer);
+    }, [elderTerm]);
+    useEffect(() => {
+        let alive = true;
+        setElderSeats(['', '', '']);
+        setElderTerm(null);
+        setElderProgress({ pvp: 0, pve: 0 });
+        setElderSeatsReady(false);
+        setElderAppointmentInputs(['', '', '']);
+        const refresh = async () => {
+            const request = ++elderSeatsRequestRef.current;
+            try {
+                const response = await fetch(`/api/village/elder-focus?playerName=${encodeURIComponent(character.name)}`);
+                if (!response.ok) return;
+                const data = await response.json();
+                if (!alive || request !== elderSeatsRequestRef.current) return;
+                const seats = normalizeElderAppointees(data.elderAppointees);
+                cacheVillageElders(character.village, seats, data.elderTerm?.nextSelectionAt);
+                setElderSeats(seats);
+                setElderSeatsReady(true);
+                setElderTerm(data.elderTerm ?? null);
+                setElderProgress(data.elderProgress ?? { pvp: 0, pve: 0 });
+            } catch { /* Keep the last verified seats; the server rechecks every selection. */ }
+        };
+        void refresh();
+        const stop = visiblePoll(refresh, 10000);
+        return () => { alive = false; stop(); };
+    }, [character.name, character.village]);
+    useEffect(() => {
         const next = loadVillageState(character.village);
         setState(next);
         setAnbuAppointmentInputs(normalizeAnbuAppointees(next.anbuAppointees));
@@ -239,14 +294,29 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
             setState(current => {
                 const normalized = normalizeVillageState(character.village, next);
                 if (JSON.stringify(current) === JSON.stringify(normalized)) return current;
-                setAnbuAppointmentInputs(normalizeAnbuAppointees(normalized.anbuAppointees));
                 return normalized;
             });
         };
         refreshVillageState();
         return visiblePoll(refreshVillageState, 10000);
     }, [character.village]);
-    useEffect(() => saveVillageState(character.village, state), [character.village, state]);
+    useEffect(() => {
+        let alive = true;
+        const refreshAnbu = async () => {
+            if (anbuBusyRef.current) return;
+            const request = ++anbuRequestRef.current;
+            try {
+                const response = await fetch(`/api/village/anbu?playerName=${encodeURIComponent(character.name)}`);
+                if (!response.ok) return;
+                const data = await response.json();
+                if (!alive || request !== anbuRequestRef.current) return;
+                adoptVillageAnbu(character.village, data);
+                setState(loadVillageState(character.village));
+            } catch { /* Actions always recheck the current server roster. */ }
+        };
+        const stop = visiblePoll(refreshAnbu, 10000, 0.1, { immediate: true });
+        return () => { alive = false; stop(); };
+    }, [character.name, character.village]);
     // Permanent war structures surfaced in the Upgrades tab: fetch the village's
     // war-record levels when the tab is open (best-effort; only a war village returns one).
     useEffect(() => {
@@ -353,17 +423,18 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     // one-shot fetch; the seat still mirrors into `state` for the displays.
     useEffect(() => {
         let alive = true;
+        setServerKage(null);
         const fetchKage = () => fetch(`/api/village/kage?village=${encodeURIComponent(character.village)}`)
             .then(r => r.ok ? r.json() : null)
             .then((serverState: ServerKageState | null) => {
                 if (!alive || !serverState) return;
                 setServerKage(serverState);
-                if (serverState.kageSystemUnlocked) {
+                {
                     setState(prev => normalizeVillageState(character.village, {
                         ...prev,
-                        kageSystemUnlocked: true,
-                        seatedKage: serverState.seatedKage ?? prev.seatedKage,
-                        firstLiberator: serverState.firstLiberator ?? prev.firstLiberator,
+                        kageSystemUnlocked: Boolean(serverState.kageSystemUnlocked),
+                        seatedKage: serverState.seatedKage,
+                        firstLiberator: serverState.firstLiberator,
                     }));
                 }
             })
@@ -651,29 +722,55 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
             setGuardBusy(false);
         }
     }
-    const isSeatedKage = (state.seatedKage ?? "").toLowerCase() === character.name.toLowerCase();
+    const isSeatedKage = serverKage?.seatedKage?.toLowerCase() === character.name.toLowerCase();
     const hollowGateOpen = isHollowGateUnlocked(state);
     const hollowGateUntil = state.hollowGateUnlockedUntil ?? 0;
     const isAnbu = isVillageAnbu(character);
-    const canPostVillageOrder = isSeatedKage || isAnbu || Boolean(character.elderFocus);
-    function postVillageNotice() {
-        if (!canPostVillageOrder) return alert("Only the Kage, ANBU, or a shinobi with a selected village focus can post village orders.");
+    const isSeatedElder = elderSeats.some(name => name.toLowerCase() === character.name.toLowerCase());
+    const villageOrderRole = serverKage?.seatedKage?.toLowerCase() === character.name.toLowerCase()
+        ? "Kage" : isSeatedElder ? "Village Elder" : isAnbu ? "ANBU" : null;
+    const canPostVillageOrder = villageOrderRole !== null;
+    function canManageVillageNotice(author: string) {
+        return canPostVillageOrder && (villageOrderRole === "Kage" || author.toLowerCase() === character.name.toLowerCase());
+    }
+    async function submitVillageOrder(action: "post" | "pin" | "delete", order: { id: string; [key: string]: unknown }): Promise<boolean> {
+        if (villageOrderBusyRef.current) return false;
+        villageOrderBusyRef.current = true;
+        setVillageOrderBusy(true);
+        try {
+            const response = await fetch('/api/village/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playerName: character.name, action, ...order }) });
+            const data = await response.json();
+            if (!response.ok || !Array.isArray(data.noticePosts)) { alert(data.error || 'Could not update village orders.'); return false; }
+            const noticePosts = normalizeNoticePosts(data.noticePosts, [], 60);
+            adoptVillageOrders(character.village, noticePosts);
+            setState(current => ({ ...current, noticePosts }));
+            return true;
+        } catch { alert('Could not reach the server. Your order was not confirmed.'); return false; }
+        finally { villageOrderBusyRef.current = false; setVillageOrderBusy(false); }
+    }
+    async function postVillageNotice() {
+        if (!canPostVillageOrder) return alert("Only the Kage, ANBU, or an appointed village elder can post village orders.");
         const title = villageNoticeTitle.trim();
         const body = villageNoticeBody.trim();
         if (!title || !body) return alert("Add a title and message for the village order.");
-        const role = isSeatedKage ? "Kage" : isAnbu ? "ANBU" : `${character.elderFocus} focus representative`;
+        const role = villageOrderRole!;
         const sector = villageNoticeSector ? clampNumber(Math.floor(Number(villageNoticeSector)), 1, MAX_WILD_SECTOR) : undefined;
         const notice = makeNoticePost(villageNoticeType, title, body, character.name, role, villageNoticeType === "order", sector);
-        updateVillageState({ ...state, noticePosts: normalizeNoticePosts([notice, ...state.noticePosts]) });
+        if (!await submitVillageOrder("post", notice)) return;
         setVillageNoticeTitle("");
         setVillageNoticeBody("");
         setVillageNoticeSector("");
     }
     function removeVillageNotice(id: string) {
-        updateVillageState({ ...state, noticePosts: state.noticePosts.filter(notice => notice.id !== id) });
+        const notice = state.noticePosts.find(post => post.id === id);
+        if (!notice || !canManageVillageNotice(notice.author)) return;
+        void submitVillageOrder("delete", { id });
     }
     function toggleVillageNoticePin(id: string) {
-        updateVillageState({ ...state, noticePosts: normalizeNoticePosts(state.noticePosts.map(notice => notice.id === id ? { ...notice, pinned: !notice.pinned } : notice)) });
+        const notice = state.noticePosts.find(post => post.id === id);
+        if (!notice || !canManageVillageNotice(notice.author)) return;
+        void submitVillageOrder("pin", { id, pinned: !notice.pinned });
     }
     async function declareChallenge() {
         if (!serverKage?.kageSystemUnlocked) return alert("The Kage system is still sealed for this village.");
@@ -720,14 +817,15 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         // The selected appointment is a state, not a repeatable action. This
         // guard also closes the small pre-render window in which a rapid second
         // click could post twice and award the same civic contribution twice.
-        if (character.elderFocus === elderFocusKey || elderFocusBusyRef.current) return;
+        if (!elderSeatsReady || !elderFocusForSeats(elderFocusKey, elderSeats) || selectedElderFocus === elderFocusKey || elderFocusBusyRef.current || elderAppointmentBusyRef.current) return;
         elderFocusBusyRef.current = true;
         setElderFocusBusy(elderFocusKey);
         try {
             const response = await fetch('/api/village/elder-focus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, focus: elderFocusKey }) });
-            const data = await response.json().catch(() => null) as { character?: Character; error?: string; _saveVersion?: number } | null;
+            const data = await response.json().catch(() => null) as { character?: Character; error?: string; _saveVersion?: number; unchanged?: boolean } | null;
             if (!response.ok || !data?.character) return alert(data?.error || 'Could not select that focus.');
             if (!onVersionedCharacter(data.character, data._saveVersion)) return;
+            if (data.unchanged) return;
             updateVillageState(addNotice(`${character.name} selected the ${focus}.`, { ...state, contributionPoints: state.contributionPoints + 10 }));
             gameToast(`${focus} selected — ${ELDER_FOCUS_OPTIONS.find(option => option.key === elderFocusKey)?.bonus ?? "focus active"}.`, { kind: "success" });
         } catch { alert('Could not reach the server. Try again.'); }
@@ -736,26 +834,52 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
             setElderFocusBusy(null);
         }
     }
+    async function manageElderSeat(focus: ElderFocusKey, action: "appoint" | "clear", index: number) {
+        if (index !== 0 || !isSeatedKage || elderAppointmentBusyRef.current || elderFocusBusyRef.current) return;
+        elderAppointmentBusyRef.current = true;
+        setElderAppointmentBusy(focus);
+        ++elderSeatsRequestRef.current;
+        try {
+            const response = await fetch('/api/village/elder-focus', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playerName: character.name, focus, action, appointee: elderAppointmentInputs[index] }),
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok || !data) return alert(data?.error || 'Could not update that elder seat.');
+            ++elderSeatsRequestRef.current;
+            const seats = normalizeElderAppointees(data.elderAppointees);
+            cacheVillageElders(character.village, seats, data.elderTerm?.nextSelectionAt);
+            setElderSeats(seats);
+            setElderSeatsReady(true);
+            setElderTerm(data.elderTerm ?? null);
+            setState(current => normalizeVillageState(character.village, { ...current, elderAppointees: seats, elderTerm: data.elderTerm }));
+            setElderAppointmentInputs(inputs => inputs.map((value, seat) => seat === index ? '' : value));
+            gameToast(action === 'clear' ? 'Elder seat cleared. This AI elder grants no focus.' : `${seats[index]} appointed as village elder.`, { kind: 'success' });
+        } catch { alert('Could not reach the server. Try again.'); }
+        finally {
+            elderAppointmentBusyRef.current = false;
+            setElderAppointmentBusy(null);
+        }
+    }
     function updateAnbuAppointmentInput(index: number, value: string) {
         setAnbuAppointmentInputs(inputs => inputs.map((input, inputIndex) => inputIndex === index ? value : input));
     }
-    function appointAnbu(index: number) {
-        if (!isSeatedKage) return alert("Only the seated Kage can appoint ANBU seats.");
-        const requestedName = anbuAppointmentInputs[index]?.trim();
-        if (!requestedName) return alert("Choose or type a village player name.");
-        const matchedName = villagePlayers.find(name => name.toLowerCase() === requestedName.toLowerCase());
-        if (!matchedName) return alert("That player is not in your village.");
-        const nextAppointees = normalizeAnbuAppointees(state.anbuAppointees).map((name, seatIndex) => seatIndex === index ? matchedName : name);
-        const duplicateSeat = nextAppointees.findIndex((name, seatIndex) => seatIndex !== index && name.toLowerCase() === matchedName.toLowerCase());
-        if (duplicateSeat >= 0) nextAppointees[duplicateSeat] = "";
-        setAnbuAppointmentInputs(nextAppointees);
-        updateVillageState(addNotice(`${character.name} appointed ${matchedName} to ANBU seat ${index + 1}.`, { ...state, anbuAppointees: nextAppointees }));
-    }
-    function clearAnbuAppointment(index: number) {
-        if (!isSeatedKage) return alert("Only the seated Kage can clear ANBU appointments.");
-        const nextAppointees = normalizeAnbuAppointees(state.anbuAppointees).map((name, seatIndex) => seatIndex === index ? "" : name);
-        setAnbuAppointmentInputs(nextAppointees);
-        updateVillageState(addNotice(`${character.name} cleared ANBU seat ${index + 1}.`, { ...state, anbuAppointees: nextAppointees }));
+    async function manageAnbuSeat(index: number, action: 'appoint' | 'clear') {
+        if (!isSeatedKage || anbuBusyRef.current) return;
+        anbuBusyRef.current = true;
+        setAnbuBusy(true);
+        ++anbuRequestRef.current;
+        try {
+            const response = await fetch('/api/village/anbu', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, seat: index, action, appointee: anbuAppointmentInputs[index] }) });
+            const data = await response.json().catch(() => null);
+            if (!response.ok || !data) return alert(data?.error || 'Could not update that ANBU seat.');
+            ++anbuRequestRef.current;
+            adoptVillageAnbu(character.village, data);
+            setState(loadVillageState(character.village));
+            setAnbuAppointmentInputs(data.appointed);
+            gameToast(action === 'clear' ? 'ANBU appointment cleared. Monthly PvP standings still apply.' : `${data.appointed[index]} appointed to ANBU.`, { kind: 'success' });
+        } catch { alert('Could not reach the server. Try again.'); }
+        finally { anbuBusyRef.current = false; setAnbuBusy(false); }
     }
     const villageLevel = Math.max(1, Math.floor(totalUpgradeLevel / 8) + 1);
     const activeVillageWars = activeVillageWarsFor(character.village);
@@ -765,28 +889,8 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     const villageStrength = totalUpgradeLevel * 25 + state.contributionPoints + guardList.length * 75;
     const population = 1000 + villageLevel * 90 + state.contributionPoints * 2;
     const contributionRankings = [{ name: character.name, role: "Candidate", points: state.contributionPoints + totalUpgradeLevel * 12 }, { name: leadership.elders[0] ?? "Defense contact", role: leadership.roles[0] ?? "Defense contact", points: totalUpgradeLevel * 8 + 120 }, { name: leadership.elders[1] ?? "Trade contact", role: leadership.roles[1] ?? "Trade contact", points: totalUpgradeLevel * 7 + 95 }, { name: leadership.elders[2] ?? "Training contact", role: leadership.roles[2] ?? "Training contact", points: totalUpgradeLevel * 6 + 80 }].sort((a, b) => b.points - a.points);
-    const currentAnbuMonth = currentMonthKey();
-    const anbuCandidateCharacters = [
-        character,
-        ...allServerPlayers
-            .filter(player => player.character)
-            .map(player => normalizeCharacter(player.character as Character)),
-    ]
-        .filter((player, index, players) => player.village === character.village && players.findIndex(candidate => candidate.name === player.name) === index);
-    const anbuCandidates = anbuCandidateCharacters.map(player => ({
-        name: player.name,
-        level: player.level,
-        rankTitle: player.rankTitle,
-        monthlyKills: player.pvpKillMonth === currentAnbuMonth ? player.monthlyPvpKills ?? 0 : 0,
-        totalKills: player.totalPvpKills ?? 0,
-    }));
-    const appointedAnbuSlots = normalizeAnbuAppointees(state.anbuAppointees).map(name => anbuCandidates.find(candidate => candidate.name.toLowerCase() === name.toLowerCase()) ?? null);
-    const appointedNames = new Set(appointedAnbuSlots.flatMap(slot => slot ? [slot.name.toLowerCase()] : []));
-    const earnedAnbuSlots = anbuCandidates
-        .filter(candidate => !appointedNames.has(candidate.name.toLowerCase()))
-        .sort((a, b) => b.monthlyKills - a.monthlyKills || b.totalKills - a.totalKills || b.level - a.level || a.name.localeCompare(b.name))
-        .slice(0, 7);
-    const anbuSlots = [...appointedAnbuSlots, ...Array.from({ length: 7 }, (_, index) => earnedAnbuSlots[index] ?? null)];
+    const currentAnbuMonth = new Date().toISOString().slice(0, 7);
+    const anbuSlots = [...normalizeAnbuAppointees(state.anbuAppointees), ...Array.from({ length: 7 }, (_, index) => state.anbuEarned?.[index] ?? '')];
     const kageChallenge = serverKage?.challenge ?? null;
     const kageActivity = kageActivityLines(serverKage, kageNow);
     const isKageChallenger = !!kageChallenge && kageChallenge.challenger.toLowerCase() === character.name.toLowerCase();
@@ -988,35 +1092,54 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         </section>}
         {tab === "treasury" && <section className="summary-box"><h3><GiMoneyStack aria-hidden="true" /> Village Treasury</h3><p className="hint">Honor Seals are the village war and boost reserve for Kage spending.</p><div className="treasury-grid"><p><strong>Ryo:</strong> {state.treasury.ryo.toLocaleString()}</p><p><strong>Honor Seals:</strong> {state.treasury.honorSeals.toLocaleString()}</p><p><strong>Fate Shards:</strong> {state.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {state.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {state.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {state.treasury.mythicSeals}</p>{storesOpen && <><p className="town-store-row"><strong>Provisions:</strong> {storesLoaded ? `${storesView.provisions.toLocaleString()} rations` : "—"}</p><p className="town-store-row"><strong>Materials:</strong> {storesLoaded ? `${storesView.materialPoints.toLocaleString()} materials` : "—"}</p></>}<p><strong>Your Contribution:</strong> {state.contributionPoints} points</p></div>{storesOpen && <>{!storesLoaded && <p className="hint" role="status">{storesFetch === "error" ? "The stores could not be read. Try again in a moment." : "Fetching the stores…"}</p>}{storesAuthorityLine && <p className="hint town-store-authority">{storesAuthorityLine}</p>}<p className="hint">Provisions feed sector wars, mercenary bands and fed garrisons, and 5% of them spoil nightly. Materials become War Resources at the Supply Depot ({DEPOT_CONVERSION_POINTS_PER_WR} materials = 1 War Resource) and pay for level 6+ structures.</p><p className="hint">🍚 Donated <b>ration packs</b> stock Provisions and <b>hunt materials / relics</b> stock Materials (up to {DAILY_RATION_DONATION_CAP} rations and {DAILY_CRAFT_POINT_DONATION_CAP.toLocaleString()} materials per player per day). Cook rations at the Cafeteria.</p><p className="hint">{villageDonateCapLine} Resets at midnight UTC.</p></>}<label>Donate Ryo <small>(max {TREASURY_DONATE_MAX_RYO.toLocaleString()} per donation)</small></label><input type="number" min={1} max={TREASURY_DONATE_MAX_RYO} value={donation} onChange={(e) => setDonation(Math.min(TREASURY_DONATE_MAX_RYO, Math.max(0, Number(e.target.value))))} /><div className="menu"><button onClick={donateVillageRyo}>Donate Ryo</button><button onClick={() => donateVillageSpecial("honorSeals")}>Donate 1 Honor Seal</button><button onClick={() => donateVillageSpecial("fateShards")}>Donate 1 Fate Shard</button><button onClick={() => donateVillageSpecial("boneCharms")}>Donate 1 Bone Charm</button><button onClick={() => donateVillageSpecial("auraStones")}>Donate 1 Aura Stone</button><button onClick={() => donateVillageSpecial("mythicSeals")}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={villageDonateItemId} onChange={(e) => setVillageDonateItemId(e.target.value)}><option value="">Choose item</option>{villageInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select>{!villageDonateGate.ok && <p className="hint town-donate-reason" id="village-donate-reason" role="status">{villageDonateGate.reason}. The cap resets at midnight UTC.</p>}<button type="button" onClick={donateVillageItem} disabled={!villageDonateItemId || !villageDonateGate.ok} aria-describedby={villageDonateGate.ok ? undefined : "village-donate-reason"}>{villageDonateLabel}</button>{storesOpen && <><h4>Supply log</h4><p className="hint">{storesLedgerScopeLine(character.village)}</p>{storesFetch === "error" ? <p className="hint" role="status">The stores ledger could not be read. Try again in a moment.</p> : storesFetch === "loading" ? <p className="hint" role="status">Reading the supply log…</p> : storesLedgerView.length === 0 ? <p className="hint town-stores-log-empty">{storesLedgerEmptyLine(storesView)}</p> : <ul className="town-stores-log">{storesLedgerView.map((row) => <li key={row.key} data-kind={row.kind}><span className="town-stores-log-icon" aria-hidden="true">{row.icon}</span><span>{row.text}</span></li>)}</ul>}</>}<h4>Treasury Items</h4>{villageTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{villageTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allVillageItems)}:</strong> x{stack.count}</p>)}</div>}{isSeatedKage && <section className="summary-box"><h3>Kage Gift Village Treasury</h3><p className="hint">The seated Kage can gift donated resources or items to village players. A {TREASURY_GIFT_TAX_LABEL} transit levy is burned on everything except Honor Seals, which move in full.</p><label>Recipient</label><select value={villageSendPlayer} onChange={(e) => setVillageSendPlayer(e.target.value)}><option value="">Choose village player</option>{villagePlayers.map(name => <option key={name} value={name}>{name}</option>)}</select><label>Resource</label><select value={villageSendCurrency} onChange={(e) => setVillageSendCurrency(e.target.value as VillageTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="honorSeals">Honor Seals</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={villageSendAmount} onChange={(e) => setVillageSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendVillageCurrency}>Gift Resource</button></div><label>Item</label><select value={villageSendItemId} onChange={(e) => setVillageSendItemId(e.target.value)}><option value="">Choose treasury item</option>{villageTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allVillageItems)} x{stack.count}</option>)}</select><button onClick={sendVillageItem} disabled={!villageSendItemId}>Gift Donated Item</button></section>}</section>}
         {tab === "guard" && <section className="summary-box"><h3>Village Guard Queue</h3><p className="hint">Queue to apply your Town Defense bonus against all combat styles.</p><p>Defense bonus <strong>+{getTownDefenseGuardBonus(character).toFixed(2)}%</strong></p><button className={character.guardQueued ? "danger-button" : ""} onClick={toggleTownGuard} disabled={guardBusy}>{guardBusy ? "Updating…" : character.guardQueued ? "Leave Guard Queue" : "Queue as Village Guard"}</button><h4>Active Defenders</h4>{guardList.length === 0 ? <p className="hint">No active guards.</p> : <div className="clan-guard-list">{guardList.map(g => <div key={g.name} className="clan-guard-row"><span><GiShield aria-hidden="true" /> <strong>{g.name}</strong></span><span className="clan-guard-lvl">Lv. {g.level}{g.defenseBonusPercent ? ` · DEF +${g.defenseBonusPercent.toFixed(1)}%` : ""}</span></div>)}</div>}</section>}
-        {tab === "notices" && <section className="summary-box town-notice-board"><h3>Village Orders</h3><p className="hint">Kage, ANBU, and Elders can post and pin orders for {character.village}.</p>{canPostVillageOrder && <div className="summary-box"><div className="treasury-grid"><div><label>Type</label><select value={villageNoticeType} onChange={(event) => setVillageNoticeType(event.target.value as NoticePostType)}><option value="order">Leadership Order</option><option value="raid">Raid Target</option><option value="guard">Guard Request</option><option value="medic">Medic Request</option><option value="trade">Trade / Supply</option><option value="general">General</option></select></div><div><label>Sector</label><input type="number" min={1} max={MAX_WILD_SECTOR} value={villageNoticeSector} onChange={(event) => setVillageNoticeSector(event.target.value)} placeholder="Optional" /></div></div><label>Title</label><input value={villageNoticeTitle} maxLength={70} onChange={(event) => setVillageNoticeTitle(event.target.value)} placeholder="Defend Sector 18" /><label>Message</label><textarea value={villageNoticeBody} maxLength={500} onChange={(event) => setVillageNoticeBody(event.target.value)} placeholder="Issue the order…" /><button onClick={postVillageNotice} disabled={!villageNoticeTitle.trim() || !villageNoticeBody.trim()}>Post Order</button></div>}<div className="notice-board-list">{state.noticePosts.length === 0 ? <p className="hint">No active orders.</p> : state.noticePosts.map(notice => { const canEditNotice = isSeatedKage || notice.author === character.name; return <div key={notice.id} className={`notice-post ${notice.pinned ? "pinned" : ""}`}><div className="notice-post-head"><span>{notice.pinned ? "Pinned " : ""}{noticeTypeLabel(notice.type)}</span><small>{new Date(notice.createdAt).toLocaleString()} · {notice.author} · {notice.authorRole}</small></div><strong>{notice.title}</strong><p>{notice.body}</p>{notice.sector && <small>Sector {notice.sector}</small>}{canEditNotice && <div className="menu"><button onClick={() => toggleVillageNoticePin(notice.id)}>{notice.pinned ? "Unpin" : "Pin"}</button><button className="danger-button" onClick={() => removeVillageNotice(notice.id)}>Delete</button></div>}</div>; })}</div></section>}
+        {tab === "notices" && <section className="summary-box town-notice-board"><h3>Village Orders</h3><p className="hint">Kage, ANBU, and Elders can post and pin orders for {character.village}.</p>{!canPostVillageOrder && <p className="hint town-orders-locked" role="status">Orders are read-only. Only the seated Kage, ANBU, and current village Elders can post.</p>}{canPostVillageOrder && <div className="summary-box"><div className="treasury-grid"><div><label>Type</label><select value={villageNoticeType} onChange={(event) => setVillageNoticeType(event.target.value as NoticePostType)}><option value="order">Leadership Order</option><option value="raid">Raid Target</option><option value="guard">Guard Request</option><option value="medic">Medic Request</option><option value="trade">Trade / Supply</option><option value="general">General</option></select></div><div><label>Sector</label><input type="number" min={1} max={MAX_WILD_SECTOR} value={villageNoticeSector} onChange={(event) => setVillageNoticeSector(event.target.value)} placeholder="Optional" /></div></div><label>Title</label><input value={villageNoticeTitle} maxLength={70} onChange={(event) => setVillageNoticeTitle(event.target.value)} placeholder="Defend Sector 18" /><label>Message</label><textarea value={villageNoticeBody} maxLength={500} onChange={(event) => setVillageNoticeBody(event.target.value)} placeholder="Issue the order…" /><button onClick={postVillageNotice} disabled={villageOrderBusy || !villageNoticeTitle.trim() || !villageNoticeBody.trim()}>{villageOrderBusy ? "Saving…" : "Post Order"}</button></div>}<div className="notice-board-list">{state.noticePosts.length === 0 ? <p className="hint">No active orders.</p> : state.noticePosts.map(notice => { const canEditNotice = canManageVillageNotice(notice.author); return <div key={notice.id} className={`notice-post ${notice.pinned ? "pinned" : ""}`}><div className="notice-post-head"><span>{notice.pinned ? "Pinned " : ""}{noticeTypeLabel(notice.type)}</span><small>{new Date(notice.createdAt).toLocaleString()} · {notice.author} · {notice.authorRole}</small></div><strong>{notice.title}</strong><p>{notice.body}</p>{notice.sector && <small>Sector {notice.sector}</small>}{canEditNotice && <div className="menu"><button disabled={villageOrderBusy} onClick={() => toggleVillageNoticePin(notice.id)}>{notice.pinned ? "Unpin" : "Pin"}</button><button disabled={villageOrderBusy} className="danger-button" onClick={() => removeVillageNotice(notice.id)}>Delete</button></div>}</div>; })}</div></section>}
         {tab === "mercenaries" && <section className="summary-box"><h3><GiCrossedSwords aria-hidden="true" /> War Mercenaries</h3>{!primaryVillageWar ? <p className="hint">Mercenaries become available during an active village war.</p> : <><p className="hint">Hire each band once per war to strike {activeWarEnemyVillage}. Mercenaries cannot land the final blow.</p><p className="hint"><strong>{(character.honorSeals ?? 0).toLocaleString()}</strong> seals · {hiredMercTiers.length}/{MERCENARY_TIERS.length} bands hired</p><div className="town-upgrade-grid">{MERCENARY_TIERS.map(tier => { const hired = hiredMercTiers.includes(tier.id); const afford = (character.honorSeals ?? 0) >= tier.costSeals; const busy = mercBusy === tier.id; return <div key={tier.id} className="town-upgrade-card" data-state={hired ? "done" : afford ? "ready" : "locked"} style={{ order: hired ? 2 : afford ? 0 : 1 }}><div className="town-upgrade-topline"><span className="town-upgrade-icon town-merc-icon">{mercPortrait(tier.id) ? <img src={mercPortrait(tier.id)} alt={tier.name} /> : <GiBroadsword aria-hidden="true" />}</span><div><strong>{tier.name}</strong><p>Level {tier.level}</p></div></div><p className="town-upgrade-desc">{tier.blurb}</p><p className="town-upgrade-bonus"><strong>{tier.warDamage.toLocaleString()}</strong> war damage · <strong>{tier.costSeals.toLocaleString()}</strong> seals</p><button disabled={hired || !afford || busy} onClick={() => hireMercenary(tier.id)}>{hired ? "Hired" : busy ? "Hiring…" : afford ? `Hire · ${tier.costSeals.toLocaleString()} seals` : `Need ${tier.costSeals.toLocaleString()} seals`}</button></div>; })}</div></>}</section>}
         {tab === "politics" && <>
             <section className="summary-box town-council-panel">
                 <div className="town-council-heading">
-                    <div><p className="act-label">Council chamber</p><h3>Village Civic Contacts</h3><p className="hint">Choose one village doctrine. These contacts advise the focus; selecting it does not appoint them to an elder seat. Changing focus replaces your current personal bonus immediately.</p></div>
-                    <span className="town-focus-summary" data-active={Boolean(character.elderFocus)}>{character.elderFocus ? `${character.elderFocus[0].toUpperCase()}${character.elderFocus.slice(1)} focus` : "No focus selected"}</span>
+                    <div><p className="act-label">Council chamber</p><h3>Village Elder Council</h3><p className="hint">First Elder: appointed by the Kage. Second Elder: most PvP wins. Third Elder: most PvE wins. All seats reset every 30 days; earned seats use wins from the completed term. Each player holds one Elder seat. Wins count when their rewards are confirmed by the server. AI elders grant no focus or bonus.</p></div>
+                    <span className="town-focus-summary" data-active={Boolean(selectedElderFocus)}>{selectedElderFocus ? `${selectedElderFocus[0].toUpperCase()}${selectedElderFocus.slice(1)} focus` : "No focus selected"}</span>
                 </div>
+                {elderTerm && <p className="hint town-elder-term">Next reselection: <strong>{new Date(elderTerm.nextSelectionAt).toLocaleString()}</strong>. The Kage must reappoint the First Elder. Your current term: {elderProgress.pvp.toLocaleString()} PvP wins · {elderProgress.pve.toLocaleString()} PvE wins. Ties use player name; if one player leads both, the next eligible PvE player takes the Third Elder seat.</p>}
                 <div className="town-leader-row town-kage-card"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={displayedKage} fallback="?" /><p><small>Presiding seat</small><strong>{displayedKage}</strong>{kageActivity && <><br /><small>{kageActivity.lastActive}</small></>}{kageActivity?.warning && <><br /><small className="town-kage-warning">⚠️ {kageActivity.warning}</small></>}</p></div>
                 {kageSeatVacant && <p className="hint town-seat-vacant">The seat stands empty — claim it at the Shinobi Council Hall. <button type="button" className="town-seat-claim" onClick={() => setScreen("shinobiCouncil")}>Open the Council Hall</button></p>}
                 <div className="elder-seat-grid">{ELDER_FOCUS_OPTIONS.map((option, index) => {
-                    const active = character.elderFocus === option.key;
+                    const appointee = elderSeats[index];
+                    const available = elderSeatsReady && Boolean(appointee);
+                    const active = available && selectedElderFocus === option.key;
                     const busy = elderFocusBusy === option.key;
-                    const elderName = leadership.elders[index] ?? option.role;
-                    const civicRole = leadership.roles[index] ?? "Civic contact";
+                    const elderName = appointee || leadership.elders[index] || option.role;
+                    const selectionRule = ["First Elder · Kage-appointed", "Second Elder · PvP wins", "Third Elder · PvE wins"][index];
+                    const civicRole = appointee ? (index === 0 ? "Appointed Elder" : "Elected Elder") : "AI Elder";
                     return <article key={option.key} className={`elder-card${active ? " elder-card-active" : ""}`} data-focus={option.key} data-active={active}>
-                        <span className="town-elder-state">{active ? "Selected focus" : "Available doctrine"}</span>
-                        <div className="town-elder-portrait"><LeaderPortrait image={leadershipImages.elders?.[index]} name={elderName} fallback="?" /></div>
+                        <span className="town-elder-state">{!elderSeatsReady ? "Checking seat…" : !available ? "AI elder · No focus" : active ? "Selected focus" : "Player elder · Focus available"}</span>
+                        <div className="town-elder-portrait"><LeaderPortrait image={appointee ? getLeaderImage(appointee, "") : leadershipImages.elders?.[index]} name={elderName} fallback="?" /></div>
+                        <small>{selectionRule}</small>
+                        {index > 0 && <small>{appointee ? `${elderTerm?.winningScores[index - 1] ?? 0} wins last term` : "Awaiting the next 30-day election"}</small>}
                         <span className="town-elder-role">{civicRole} · {option.role}</span>
                         <strong className="town-elder-name">{elderName}</strong>
                         <p className="town-elder-brief">{option.brief}</p>
-                        <small className="town-elder-bonus">{option.bonus}</small>
-                        {active
+                        <small className="town-elder-bonus">{available ? option.bonus : "0 bonus · No focus"}</small>
+                        {!available
+                            ? <div className="town-elder-locked" role="status">{elderSeatsReady ? "Requires a player elder" : "Checking appointments…"}</div>
+                            : active
                             ? <div className="town-elder-selected" role="status"><GiCrown aria-hidden="true" /> Current focus</div>
-                            : <button type="button" disabled={elderFocusBusy !== null} onClick={() => supportVillageFocus(option.role, option.key)}>{busy ? "Selecting…" : "Select focus"}</button>}
+                            : <button type="button" disabled={elderFocusBusy !== null || elderAppointmentBusy !== null} onClick={() => supportVillageFocus(option.role, option.key)}>{busy ? "Selecting…" : "Select focus"}</button>}
+                        {isSeatedKage && index === 0 && <div className="town-elder-appointment">
+                            <label htmlFor={`elder-appointee-${option.key}`}>Appoint {option.role.replace("doctrine", "elder")}</label>
+                            <select id={`elder-appointee-${option.key}`} value={elderAppointmentInputs[index]} disabled={!elderSeatsReady || elderAppointmentBusy !== null} onChange={event => setElderAppointmentInputs(inputs => inputs.map((value, seat) => seat === index ? event.target.value : value))}>
+                                <option value="">Choose village player</option>
+                                {villagePlayers.filter(name => !elderSeats.some((held, seat) => seat !== index && held.toLowerCase() === name.toLowerCase())).map(name => <option key={name} value={name}>{name}</option>)}
+                            </select>
+                            <div className="menu">
+                                <button type="button" disabled={!elderSeatsReady || !elderAppointmentInputs[index] || elderAppointmentBusy !== null || elderFocusBusy !== null} onClick={() => void manageElderSeat(option.key, "appoint", index)}>{elderAppointmentBusy === option.key ? "Updating…" : "Appoint"}</button>
+                                <button type="button" disabled={!available || elderAppointmentBusy !== null || elderFocusBusy !== null} onClick={() => void manageElderSeat(option.key, "clear", index)}>Clear seat</button>
+                            </div>
+                        </div>}
                     </article>;
                 })}</div>
             </section>
-            <section className="summary-box"><h3>ANBU Black Ops</h3><p className="hint">Seats 1–3 are Kage-appointed; 4–10 rank by monthly PvP kills ({currentAnbuMonth}).</p><datalist id="anbu-player-options">{villagePlayers.map(name => <option key={name} value={name} />)}</datalist>{isSeatedKage && <div className="treasury-grid">{[0, 1, 2].map(index => <div key={index}><label>Seat {index + 1}</label><input list="anbu-player-options" value={anbuAppointmentInputs[index] ?? ""} onChange={(event) => updateAnbuAppointmentInput(index, event.target.value)} placeholder="Choose player" /><div className="menu"><button onClick={() => appointAnbu(index)}>Appoint</button><button className="danger-button" onClick={() => clearAnbuAppointment(index)}>Clear</button></div></div>)}</div>}<div className="contrib-rank-grid">{anbuSlots.map((slot, idx) => <div key={`anbu-${idx}-${slot?.name ?? "empty"}`} className="clan-guard-row"><span>#{idx + 1} <strong>{slot?.name ?? "Open seat"}</strong>{slot && ` · ${slot.rankTitle}`}</span><span>{slot ? `${idx < 3 ? "Appointed" : "Earned"} · ${slot.monthlyKills.toLocaleString()} kills` : "Vacant"}</span></div>)}</div><h4>Field authority</h4><div className="contrib-rank-grid"><div className="clan-guard-row"><span>Recon sectors</span><span>Reveal defenses</span></div><div className="clan-guard-row"><span>Guard sectors</span><span>Village-wide access</span></div><div className="clan-guard-row"><span>Support raids</span><span>Clan pressure</span></div></div></section>
+            <section className="summary-box"><h3>ANBU Black Ops</h3><p className="hint">Seats 1–3 are Kage-appointed; 4–10 rank by monthly PvP kills ({currentAnbuMonth}), with at least 1 kill required. All occupied seats grant ANBU field authority.</p><datalist id="anbu-player-options">{villagePlayers.map(name => <option key={name} value={name} />)}</datalist>{isSeatedKage && <div className="treasury-grid">{[0, 1, 2].map(index => <div key={index}><label>Seat {index + 1}</label><input list="anbu-player-options" value={anbuAppointmentInputs[index] ?? ""} onChange={(event) => updateAnbuAppointmentInput(index, event.target.value)} placeholder="Choose player" /><div className="menu"><button disabled={anbuBusy} onClick={() => void manageAnbuSeat(index, "appoint")}>Appoint</button><button className="danger-button" disabled={anbuBusy} onClick={() => void manageAnbuSeat(index, "clear")}>Clear</button></div></div>)}</div>}<div className="contrib-rank-grid">{anbuSlots.map((slot, idx) => <div key={`anbu-${idx}-${slot || "empty"}`} className="clan-guard-row"><span>#{idx + 1} <strong>{slot || "Open seat"}</strong></span><span>{slot ? `${idx < 3 ? "Appointed" : "Earned"} · ${idx < 3 ? "Kage selection" : "Monthly PvP"}` : "Vacant"}</span></div>)}</div><h4>Field authority</h4><div className="contrib-rank-grid"><div className="clan-guard-row"><span>Recon sectors</span><span>Reveal defenses</span></div><div className="clan-guard-row"><span>Guard sectors</span><span>Village-wide access</span></div><div className="clan-guard-row"><span>Support raids</span><span>Clan pressure</span></div></div></section>
             <section className="summary-box"><h3>Kage Challenge</h3><p className="hint">Win the duel or exhaust the Kage’s accept clock. The seat gate is <strong>Village Merit</strong> — a personal record, not the village contribution ranking below.</p><div className="contrib-rank-grid">{kageEligibility(character, kageNow).map(req => <div key={req.label} className="clan-guard-row"><span>{req.ok ? "✅" : "⬜"} {req.label}</span><span>{req.detail ?? ""}</span></div>)}</div><div className="contrib-rank-grid">{contributionRankings.map((row, idx) => <div key={row.name} className="clan-guard-row"><span>#{idx + 1} <strong>{row.name}</strong> · {row.role}</span><span>{row.points.toLocaleString()} points</span></div>)}</div>{kageChallenge ? <div className={`notice-post ${kageChallenge.status === "accepted" ? "pinned" : ""}`}><div className="notice-post-head"><span>{kageChallenge.status.toUpperCase()}</span><small>{new Date(kageChallenge.createdAt).toLocaleString()}</small></div><strong>{kageChallenge.challenger} vs {serverKage?.seatedKage}</strong><p>Accept clock <strong>{formatObligation(kageChallenge.obligationRemainingMs)}</strong></p>{isKageChallenger && <button onClick={() => void sendKageDuel()}>Send Official Duel</button>}{isSeatedKage && <p className="hint">Accept the duel before the clock expires.</p>}</div> : <><button onClick={() => void declareChallenge()} disabled={!serverKage?.kageSystemUnlocked || isSeatedKage}>Declare Challenge · {KAGE_CHALLENGE_RYO_COST.toLocaleString()} ryo</button><p className="hint">{isSeatedKage ? "You hold the Kage seat." : "No active challenge."}</p></>}</section>
         </>}
     </div>;
