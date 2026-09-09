@@ -123,3 +123,23 @@ export function hospitalDischargeRestoresHpOnly(env: NodeJS.ProcessEnv = process
 export function pooledVitalRegenEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
     return env.DISABLE_POOLED_VITAL_REGEN !== '1';
 }
+
+/**
+ * Open-world combat is CONTINUOUS: the fighter brings the HP, chakra and stamina
+ * they actually have, and is put back in their spot with whatever is left (owner
+ * ruling, 2026-09-08). Default ON.
+ *
+ * Applies to explore ambushes, world AI fights, field missions, village defense
+ * and raid AI. Instanced and consensual content — dives, Spire waves, story
+ * bosses, the Academy spar, the weekly boss, Tower runs — keeps its fresh pool,
+ * as does a practice spar. Sector PvP was already continuous
+ * (`useCurrentVitals`, api/pvp/session.ts) and is unchanged.
+ *
+ * Gates the SEED only, which is the correct rollback shape: throwing this makes
+ * NEW open-world fights fresh-start, while a session already seeded from real
+ * vitals still settles the way it was seeded. Flipping the settle instead would
+ * strand in-flight fights on a rule they did not start under.
+ */
+export function openWorldContinuousVitalsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return env.DISABLE_OPEN_WORLD_CONTINUOUS_VITALS !== '1';
+}

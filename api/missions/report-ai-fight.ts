@@ -29,6 +29,7 @@ import {
     aiFightPlayerActor,
     aiFightPlayerItemsUsed,
     applyAiFightOutcomeToCharacter,
+    sessionUsesContinuousVitals,
     resolveAiFightOutcome,
     type AiFightOutcome,
     type AiFightSession,
@@ -166,6 +167,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const sealedSession: AiFightSession | null = await readSoloPveSession(sealedSessionId).catch(() => null);
         const outcome: AiFightOutcome = resolveAiFightOutcome(sealedSession);
         const playerActor = aiFightPlayerActor(sealedSession);
+        // Read the continuity off the SEALED session, not the request: an
+        // open-world encounter was seeded from the player's real vitals, so its
+        // leftovers are a genuine cost. A fresh-start session's are not.
+        const continuousVitals = sessionUsesContinuousVitals(sealedSession);
         const playerItemsUsed = aiFightPlayerItemsUsed(sealedSession);
         // A vanished session neither pays nor punishes — see _ai-fight-outcome.
         // 409 so the client's settle retry can pick it up if it was a slow read.
@@ -270,7 +275,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // consequence, but pays nothing and never touches the daily counter —
             // the counter is a REWARD counter, and a defeat earned no reward.
             if (!paysReward) {
-                const settled = applyAiFightOutcomeToCharacter(companionCharacter, outcome, playerActor, Date.now());
+                const settled = applyAiFightOutcomeToCharacter(companionCharacter, outcome, playerActor, Date.now(), continuousVitals);
                 const dungeonSettled = sealedBattleKind === 'dungeon'
                     ? applyDungeonWardenSettlement({
                         character: settled,
@@ -313,7 +318,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // can never bank the reward while losing the damage it cost (or the
             // other way round). The player actor comes only from the mandatory
             // sealed Solo-PvE session.
-            const physicallySettled = applyAiFightOutcomeToCharacter(rewarded, outcome, playerActor, Date.now());
+            const physicallySettled = applyAiFightOutcomeToCharacter(rewarded, outcome, playerActor, Date.now(), continuousVitals);
             const nextCharacter = sealedWorldContext
                 ? applyWorldAiFightSettlement(physicallySettled, sealedWorldContext, outcome, aiFightToken)
                 : physicallySettled;

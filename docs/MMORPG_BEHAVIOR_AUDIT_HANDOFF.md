@@ -90,15 +90,44 @@ nothing" has been corrected.
    `wanderer-use:<player>:<wanderer>` — per player per wanderer, so one medic cannot be
    farmed, though several different wanderers can each be used inside the 3 h window.
 
-2. **PvE chakra — SETTLED, and it was a real refund.** Proven, not argued: a test drove
-   `applyAiFightOutcomeToCharacter` with an actor left at 120 chakra and the character
-   came back with the full pre-fight 2,000. The helper wrote HP alone, its input is the
-   STORED character, and the client ADOPTS whatever it returns
-   (`lib/ai-fight-settle.ts`) — so a mission fight refunded everything it cost, making
-   "exhaustion is rested off" a PvP-only rule by accident. Fixed: settlement now carries
-   chakra and stamina back from the sealed actor, clamped to the save's own maxima,
-   exactly as it already did for HP and as PvP does in `_vitals-settlement.ts`.
-   Pinned by `api/missions/_ai-fight-vitals-carryback.test.ts`.
+2. **PvE chakra — superseded by an owner ruling: OPEN-WORLD COMBAT IS CONTINUOUS.**
+   "After all combat you should not be restored to the state, you should be placed back
+   into your spot with the amount of hp chakra and stamina you had after your fight, pve
+   and pvp, when you are in the open world" (2026-09-08).
+
+   The route here matters, because two wrong answers came first. I diagnosed a chakra
+   *refund* and fixed the settle — which was a **faucet**, because PvE seeds the actor at
+   the FULL pool (`chakra: COMBAT_RESOURCES_V2 ? maxChakra : currentChakra`,
+   `api/solo-pve/_ai-encounter.ts`), so its leftovers are what remains of a free bar:
+   enter at 10%, finish at 60%, bank 60%. I reverted that. The ruling then fixed the real
+   problem — the SEED — which makes the carry-back correct rather than a faucet.
+
+   **Both halves ship together, and neither is safe alone.** A continuous encounter seeds
+   the fighter from `currentChakra`/`currentStamina`, and settlement carries them back
+   only for such an encounter. Continuity is stamped on the ENCOUNTER at creation
+   (`metadata.continuousVitals`) so a settle reads it off the sealed session rather than
+   trusting a request field, and `sessionUsesContinuousVitals()` is the one reader.
+   The carry is additionally clamped **decrease-only**, so even a mislabelled encounter
+   can only ever cost a player vitals, never mint them.
+
+   **Scope — open world:** `explore`, `world`, `mission`, `defense`, `raidAi`
+   (`OPEN_WORLD_BATTLE_KINDS`). **Fresh-start, unchanged:** practice spars, dungeon runs,
+   Spire waves, Hollow Gate dives, story bosses, the Academy spar, the weekly boss and
+   Tower runs — each hands the fighter a fresh pool, so carrying leftovers out would
+   reopen the faucet. Sector PvP was already continuous (`useCurrentVitals`,
+   `api/pvp/session.ts`; the spend is written by `_vitals-settlement.ts`), so the PvP half
+   of the ruling needed no change.
+
+   ⚠ **The boundary is a judgement call worth confirming.** Dungeon runs, Spire waves and
+   Tower runs are arguably "in the world" too; I read them as instanced content and left
+   them fresh-start. Widening the set is a one-line change to `OPEN_WORLD_BATTLE_KINDS`
+   plus the equivalent flag on those builders.
+
+   Kill switch `DISABLE_OPEN_WORLD_CONTINUOUS_VITALS=1`, default ON. It gates the SEED
+   only — throwing it makes new fights fresh-start while a session already seeded from
+   real vitals still settles the way it started, which is the correct rollback shape.
+   Pinned by `api/missions/_open-world-continuous-vitals.test.ts`, including the faucet
+   case and the decrease-only clamp.
 
 3. **Inventory — HARD REFUSE, scoped.** Owner call. One authority now
    (`api/_inventory-capacity.ts`) replaces the two duplicate 500s that used to live in
