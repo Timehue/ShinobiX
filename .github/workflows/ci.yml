@@ -731,7 +731,11 @@ jobs:
     needs: release_artifact
     if: ${{ always() }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # This is a seven-project browser matrix that also renders eight real skinned
+    # rigs, so it belongs on the same 29-minute budget as the other two browser
+    # matrices rather than the 20 it was given: observed green runs already take
+    # 14-17 minutes, which left the job less headroom than one slow runner uses.
+    timeout-minutes: 29
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
