@@ -7,6 +7,28 @@ export const AI_FIGHT_TOKEN_TTL_SECONDS = 30 * 60;
 
 export type AiFightBattleKind = 'practice' | 'mission' | 'raidAi' | 'defense' | 'explore' | 'endless' | 'world' | 'dungeon';
 
+
+/**
+ * Battle kinds that happen IN THE OPEN WORLD, where combat is continuous: the
+ * fighter brings the HP, chakra and stamina they actually have, and keeps
+ * whatever is left when it ends (owner ruling, 2026-09-08).
+ *
+ * Excluded on purpose, because each hands the fighter a FRESH pool and would
+ * otherwise turn its leftovers into a faucet:
+ *   • 'practice' — a consensual spar, which also pays nothing.
+ *   • 'dungeon'  — an instanced run with its own settlement.
+ *   • 'endless'  — a Spire wave, likewise instanced.
+ * The Hollow Gate, story bosses, the Academy spar, the weekly boss and Tower
+ * runs build their sessions elsewhere and are untouched by this.
+ */
+export const OPEN_WORLD_BATTLE_KINDS: ReadonlySet<AiFightBattleKind> = new Set<AiFightBattleKind>([
+    'explore', 'world', 'mission', 'defense', 'raidAi',
+]);
+
+export function isOpenWorldBattleKind(kind: unknown): boolean {
+    return typeof kind === 'string' && OPEN_WORLD_BATTLE_KINDS.has(kind as AiFightBattleKind);
+}
+
 export type AiFightToken = {
     playerName: string;
     tokenId: string;

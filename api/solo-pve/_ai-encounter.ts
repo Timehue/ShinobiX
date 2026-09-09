@@ -71,7 +71,7 @@ function fallbackEnemyJutsu(profileId: unknown, level: number, specialty: string
     };
 }
 
-function fighterFromHydratedCharacter(character: Record<string, unknown>, pos: number): PvpFighter {
+function fighterFromHydratedCharacter(character: Record<string, unknown>, pos: number, continuousVitals = false): PvpFighter {
     const maxHp = Math.max(1, finite(character.maxHp, 100));
     const maxChakra = Math.max(0, finite(character.maxChakra, 50));
     const maxStamina = Math.max(0, finite(character.maxStamina, 50));
@@ -82,9 +82,19 @@ function fighterFromHydratedCharacter(character: Record<string, unknown>, pos: n
         name: typeof character.name === 'string' ? character.name : 'Shinobi',
         hp: currentHp,
         maxHp,
-        chakra: COMBAT_RESOURCES_V2 ? maxChakra : currentChakra,
+        // OPEN-WORLD encounters are CONTINUOUS: you bring the chakra and stamina
+        // you actually have, and you leave with what is left (owner ruling,
+        // 2026-09-08). Instanced and consensual content — a dive, a Spire wave, a
+        // story boss, an Academy spar, the weekly boss — stays FRESH-START, which
+        // is what `COMBAT_RESOURCES_V2` introduced and what ranked PvP does.
+        //
+        // ⚠ This seeding is HALF of a pair. `applyAiFightOutcomeToCharacter` only
+        // carries chakra/stamina back for a continuous encounter, because carrying
+        // them back out of a fresh-start pool is a FAUCET, not a cost: you would
+        // enter at 10%, fight on a free full bar and bank the remainder.
+        chakra: continuousVitals ? currentChakra : (COMBAT_RESOURCES_V2 ? maxChakra : currentChakra),
         maxChakra,
-        stamina: COMBAT_RESOURCES_V2 ? maxStamina : currentStamina,
+        stamina: continuousVitals ? currentStamina : (COMBAT_RESOURCES_V2 ? maxStamina : currentStamina),
         maxStamina,
         shield: Math.max(0, Math.min(5_000, finite(character.itemShield, 0))),
         statuses: [],
@@ -173,6 +183,8 @@ export function buildSoloPveAiEncounter(params: {
     difficultyMode?: PveBandMode | false;
     weeklyBossRoundBudget?: number;
     activeTtlSeconds?: number;
+    /** Open-world encounter: seed from current vitals and settle them back. */
+    continuousVitals?: boolean;
     encounter?: SoloPveEncounter;
     environment?: Partial<SoloPveEnvironment>;
     env?: NodeJS.ProcessEnv;
@@ -201,19 +213,23 @@ export function buildSoloPveAiEncounter(params: {
         params.admin,
     );
     const enemy = buildEnemy(profile, params.admin, banded);
+    const continuous = params.continuousVitals === true;
     return createSoloPveSession({
         sessionId: params.sessionId,
         ownerSlug: params.playerName,
-        encounter: params.encounter ? {
-            ...params.encounter,
-            level: Number(enemy.character.level) || params.encounter.level,
-        } : {
-            kind: 'generic-ai',
-            id: profile.id,
-            sourceId: params.profile.id,
-            level: Number(enemy.character.level) || 1,
-        },
-        player: fighterFromHydratedCharacter(hydrated, 62),
+        // The continuity flag rides on the ENCOUNTER, so settlement can read it
+        // back out of a stored session without a schema change or a second
+        // source of truth. `kind` alone cannot carry it: ai-fight-start stamps
+        // 'generic-ai' for an explore ambush, a hunt, a practice spar AND a
+        // dungeon fight, which do not all share the rule.
+        encounter: continuous
+            ? (params.encounter
+                ? { ...params.encounter, level: Number(enemy.character.level) || params.encounter.level, metadata: { ...(params.encounter.metadata ?? {}), continuousVitals: true } }
+                : { kind: 'generic-ai', id: profile.id, sourceId: params.profile.id, level: Number(enemy.character.level) || 1, metadata: { continuousVitals: true } })
+            : (params.encounter
+                ? { ...params.encounter, level: Number(enemy.character.level) || params.encounter.level }
+                : { kind: 'generic-ai', id: profile.id, sourceId: params.profile.id, level: Number(enemy.character.level) || 1 }),
+        player: fighterFromHydratedCharacter(hydrated, 62, continuous),
         enemy,
         now: params.now,
         environment: params.environment ?? { biome: 'central' },
