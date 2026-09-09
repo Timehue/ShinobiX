@@ -3,6 +3,7 @@ import type { Character } from "../types/character";
 import type { PlayerSaveOverrides, PlayerSavePayload } from "./player-save-types";
 import { normalizeAdminCharacter } from "./admin-character";
 import { preserveNarrativeState } from "./story-history";
+import { preserveAcademyCinematicState } from "./academy-cinematic-state";
 import { createSaveFlightCoordinator, nextSavePayloadRevision } from "./save-flight";
 import { createSavePersistence } from "./save-persistence";
 import { createSaveAuthorityScope } from "./save-authority-scope";
@@ -79,7 +80,7 @@ export function createPlayerSaveCoordinator({
         if (!decision.accepted) return false; latestSaveVersionRef.current = decision.latestVersion;
         savePersistenceRef.current?.invalidateAuthority();
         savePayloadRevisionRef.current = nextSavePayloadRevision(savePayloadRevisionRef.current);
-        const mergedCharacter = preserveNarrativeState(nextCharacter, characterRef.current);
+        const mergedCharacter = preserveAcademyCinematicState(preserveNarrativeState(nextCharacter, characterRef.current), characterRef.current);
         const current = latestSaveRef.current;
         if (current && saveConflictAccountKey(current.name) === accountKey) installAuthoritativeSaveRef({ ...current, revision: savePayloadRevisionRef.current, payload: { ...current.payload, character: mergedCharacter } });
         setCharacter(mergedCharacter); return true;
