@@ -80,5 +80,3 @@ Fresh verification:
 - Distribution and size gates pass again. Startup remains 1,451,845 B raw / 382,769 B gzip across nine files, with Three.js outside the initial graph. Production source is unchanged by this follow-up; the prior build, lint and complete browser-matrix evidence remains applicable.
 
 Evidence: `.tmp/refactor-final/integration-{graph,boundaries}.json`, `integration-{unit,live,dist,size}.log`, and the live browser output under `integration-live/`. The import and compiled-dependency audits are static; the four Express cases separately exercise the built runtime. These are local branch checks; the updated workflow will run on the next push. No deployment or migration step is required for the extracted modules beyond the normal source build.
-
-

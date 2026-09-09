@@ -322,13 +322,13 @@ export { seedHomeSectorOwnership, villageWarMapEnabled, googleRedirectUriProblem
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyHandler = (...args: any[]) => any;
 
-export function registerApiRoutes(route: (path: string, handler: AnyHandler) => void): void {    
-    
+export function registerApiRoutes(route: (path: string, handler: AnyHandler) => void): void {
+
     // ─── API routes ───────────────────────────────────────────────────────────────
-    
+
     // Save — dynamic :name param merged into req.query.name for the handler.
     route('/save/:name', saveHandler);
-    
+
     // Player
     route('/player/heartbeat',    heartbeatHandler);
     route('/player/travel',       travelHandler);
@@ -355,11 +355,11 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/player/daily-login',  dailyLoginHandler);
     route('/festival/black-market', blackMarketHandler);
     route('/festival/sunscar', sunscarFestivalHandler);
-    
+
     // PvP
     route('/pvp/session', pvpSessionHandler);
     route('/pvp/move',    pvpMoveHandler);
-    
+
     // Images
     route('/images', imagesHandler);
     // Phase 2: per-image binary serving (one file per image). Cold load no longer
@@ -367,18 +367,18 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // images, each CDN/browser-cached. ADD '/api/img' to the Cloudflare cache rule
     // before the client switches to it (see api/img.ts).
     route('/img', imgHandler);
-    
+
     // Auth
     route('/player-auth', playerAuthHandler);
     route('/admin-auth',  adminAuthHandler);
-    
+
     // Google sign-in (server-side authorization-code flow — see api/_google-auth.ts).
     // The callback path is what Google itself redirects to, so it must stay exactly
     // in step with the registered GOOGLE_REDIRECT_URI.
     route('/auth/google/start',    googleAuthStartHandler);
     route('/auth/google/callback', googleAuthCallbackHandler);
     route('/auth/google/claim',    googleAuthClaimHandler);
-    
+
     // Admin
     route('/admin/players',      adminPlayersHandler);
     route('/admin/grant-subscription', adminGrantSubscriptionHandler);
@@ -388,58 +388,58 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/admin/server-reset', serverResetHandler);
     route('/admin/ranked-season', adminRankedSeasonHandler);
     route('/admin/content-publish', adminContentPublishHandler);
-    
+
     // Clans
     route('/clans/list', clansListHandler);
-    
+
     // Village
     route('/village/chat', chatHandler);
-    
+
     // Village guard
     route('/village-guard/queue',     guardQueueHandler);
     route('/village-guard/dequeue',   guardDequeueHandler);
     route('/village-guard/list',      guardListHandler);
     route('/village-guard/challenge', guardChallengeHandler);
-    
+
     // AI image generation
     route('/generate-image', generateImageHandler);
-    
+
     // Game / world state
     route('/game-state',  gameStateHandler);
     route('/world-state', worldStateHandler);
     route('/messages',    messagesHandler);
     route('/report',      reportHandler);
-    
+
     // Phase 0 load/refresh telemetry — anonymous, zero-storage beacon sink. Logs a
     // single `[perf]` line per page load to stdout (see api/perf-beacon.ts).
     route('/perf-beacon', perfBeaconHandler);
-    
+
     // Village
     route('/village/kage', kageHandler);
     // Village — server-authoritative Kage succession (declare/press/accept/resolve).
     route('/village/kage-challenge', kageChallengeHandler);
     // Village — losing-village "demoralized" training debuff lookup (read-only).
     route('/village/war-debuff', villageWarDebuffHandler);
-    
+
     // Bloodlines
     route('/bloodlines/list', bloodlinesListHandler);
-    
+
     // Admin review queues
     route('/admin/bloodline-review', bloodlineReviewHandler);
     route('/admin/item-review',      itemReviewHandler);
-    
+
     // Internal KV proxy — a remote server (e.g. Railway) forwards disk-routed keys
     // to the cPanel disk overlay here. Mounted with a trailing :op param so
     // /api/kv/get etc. all hit one handler.
     route('/kv/:op', kvProxyHandler);
-    
+
     // Admin: migrate disk-routed keys from Supabase → disk overlay.
     route('/admin/migrate-kv', migrateKvHandler);
     // Admin: REVERSE copy disk overlay → Supabase base, to retire the overlay/cPanel
     // (Option B, docs/RETIRE_CPANEL_RUNBOOK.md). Copy-only — never deletes the overlay.
     route('/admin/migrate-to-base', migrateToBaseHandler);
     route('/admin/migrate-images-to-r2', migrateImagesToR2Handler);
-    
+
     // Missions — AI raid token mint (PvP raids cross-validate via PvpSession;
     // AI raids use this short-lived single-use token instead).
     route('/missions/raid-start', raidStartHandler);
@@ -469,7 +469,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // stat's gain; complete time-gates + consumes it and returns the sealed amount.
     route('/training/start', trainingStartHandler);
     route('/training/complete', trainingCompleteHandler);
-    
+
     // Village treasury — atomic Kage-gift endpoint that replaces the broken
     // 2-write client flow (deduct treasury + patch recipient).
     route('/village/treasury/transfer', villageTreasuryTransferHandler);
@@ -549,19 +549,19 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/inventory/open-war-crate', inventoryOpenWarCrateHandler);
     route('/shop/settle', shopSettleHandler);
     route('/inventory/sell', inventorySellHandler);
-    
+
     // Admin: snapshot / list / restore a player save (90-day TTL). Survives
     // server-reset because the `save-snapshot:` prefix isn't matched by the
     // reset's `save:*` glob.
     route('/admin/save-snapshot', saveSnapshotHandler);
-    
+
     // ─── Cron: manual save-snapshot trigger ────────────────────────────────────────
     // The nightly run happens in-process (startSnapshotCron, below). This HTTP
     // endpoint matches the documented GET /api/cron/snapshot-saves so ops/admin can
     // force a run manually; auth is CRON_SECRET bearer or full-admin password (the
     // handler enforces it). Read-only — it only writes save-snapshot: copies.
     route('/cron/snapshot-saves', snapshotSavesHandler);
-    
+
     // ─── Clan: wars ────────────────────────────────────────────────────────────────
     // Council Hall "Clan Battles" tab + the village-war flow (which reuses the
     // clan-war engine with the village name as the clan key).
@@ -577,44 +577,44 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // the deterministic duel and finalizes the challenge. /clan/war/report refuses
     // client-reported pet results.
     route('/clan/war/pet', clanWarPetHandler);
-    
+
     // ─── Card Clash: free-play PvP ─────────────────────────────────────────────────
     route('/card-clash/queue', cardClashQueueHandler);
     route('/card-clash/match', cardClashMatchHandler);
     route('/card-clash/ai-start', cardClashAiStartHandler);
     route('/card-clash/ai-move', cardClashAiMoveHandler);
     route('/card-clash/echoes-witness', cardClashEchoesWitnessHandler);
-    
+
     // ─── Clan: seal pool ───────────────────────────────────────────────────────────
     route('/clan/seal-pool/get',        clanSealPoolGetHandler);
     route('/clan/seal-pool/donate',     clanSealPoolDonateHandler);
     route('/clan/seal-pool/distribute', clanSealPoolDistributeHandler);
-    
+
     // ─── Clan: treasury donate ─────────────────────────────────────────────────────
     // Atomic player donation (debit donor save + credit clan treasury).
     route('/clan/treasury/donate',      clanTreasuryDonateHandler);
     route('/clan/treasury/transfer',    clanTreasuryTransferHandler);
-    
+
     // ─── Clan: collect territory war supply (server-authoritative) ──────────────────
     // Scans owned world:territory:* sectors, accrues + zeroes them, credits treasury.
     route('/clan/territory/collect-supply', clanCollectSupplyHandler);
     // Debits the shared clan treasury and advances/captures one sector in the same
     // replay-safe command. Generic world-state writes cannot mint this progress.
     route('/clan/territory/assign-scrolls', clanAssignTerritoryScrollsHandler);
-    
+
     // ─── Clan: upgrade tree purchase (server-authoritative spend) ───────────────────
     // Locks the clan row, debits treasury ryo + warSupply, increments the building.
     route('/clan/upgrade/purchase', clanUpgradePurchaseHandler);
-    
+
     // ─── Clan: claim a completed clan-mission reward (server-authoritative) ─────────
     // GET lists claimed missions; POST recomputes progress + credits treasury/clan XP.
     route('/clan/mission/claim', clanMissionClaimHandler);
     route('/clan/exchange/purchase', clanExchangePurchaseHandler);
-    
+
     // ─── Clan chat: membership-gated text chat (GET since-cursor, POST send) ────────
     route('/clan/chat/get',  clanChatGetHandler);
     route('/clan/chat/send', clanChatSendHandler);
-    
+
     // ─── Clan Boss Gauntlet: default-on weekly server-wide co-op competition ──────
     // get returns the week's boss + clan pool + standings; assault-start mints a co-op
     // tower session on the clan-boss floor; assault-settle banks the finished fight's
@@ -623,7 +623,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/clan-boss/party',          clanBossPartyHandler);
     route('/clan-boss/assault-start',  clanBossAssaultStartHandler);
     route('/clan-boss/assault-settle', clanBossAssaultSettleHandler);
-    
+
     // ─── Hollow Gate: server-authoritative run token + augments ─────────────────────
     // start mints a sealed token (entry snapshot + depth + augment offers) under a
     // server daily-run cap; choose-augment re-seals the pick; settle credits
@@ -639,19 +639,19 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/hollow-gate/step', hollowGateStepHandler);
     route('/hollow-gate/floor-seal', hollowGateFloorSealHandler);
     route('/hollow-gate/attune', hollowGateAttuneHandler);
-    
+
     // ─── Clan: kick a member (server-authoritative) ─────────────────────────────────
     // Leadership-only. Removes the member from the clan row AND clears their
     // character.clan on their own save (the cross-save write a client can't do).
     route('/clan/kick', clanKickHandler);
     // Clan — Sensei->Student mentorship (assign / claim milestone rewards / release).
     route('/clan/mentor', clanMentorHandler);
-    
+
     // ─── Clan: pet escort ──────────────────────────────────────────────────────────
     route('/clan/pet-escort/list',   clanPetEscortListHandler);
     route('/clan/pet-escort/offer',  clanPetEscortOfferHandler);
     route('/clan/pet-escort/cancel', clanPetEscortCancelHandler);
-    
+
     // ─── Missions: daily + reporting ───────────────────────────────────────────────
     route('/missions/daily',            missionsDailyHandler);
     route('/missions/weekly-board',     missionsWeeklyBoardHandler);
@@ -696,11 +696,11 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/sector/trail-sign',         sectorTrailSignHandler);
     route('/sector/shrine-offer',       sectorShrineOfferHandler);
     route('/sector/contract',           sectorContractHandler);
-    
+
     // ─── Story (server-authoritative interlude + road-event record) ────────────────
     route('/story/interlude',           storyInterludeHandler);
     route('/story/road-event',          storyRoadEventHandler);
-    
+
     // ─── Legacy system (ENABLE_LEGACY) ─────────────────────────────────────────────
     // Earned identity paths: definitions codex, per-player stats/eligibility, the
     // Wandering Sage offer flow (permanent one-legacy-forever choice), trials,
@@ -718,7 +718,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/world-crisis-80/combat-settle', worldCrisis80CombatSettleHandler);
     route('/hall-of-legends',           hallOfLegendsHandler);
     route('/admin/legacy',              adminLegacyHandler);
-    
+
     // ─── PvP: realtime, rewards, ranked queues ─────────────────────────────────────
     // stream/spectate hold the connection open (SSE / long-poll); the generic
     // route() wrapper passes res straight through so the handlers stream normally.
@@ -734,7 +734,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // Ranked 2v2: duo pairing, duo-vs-duo matchmaking and ladder settlement. The
     // fight reuses /towers/pvp-action + /towers/pvp-state.
     route('/pvp/ranked-2v2',       pvpRanked2v2Handler);
-    
+
     // ─── Pet battle result ─────────────────────────────────────────────────────────
     route('/pet/battle-start',  petBattleStartHandler);
     route('/pet/battle-result', petBattleResultHandler);
@@ -747,33 +747,33 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/pet/gauntlet',      petGauntletHandler);
     route('/pet/showdown',      petShowdownHandler);
     route('/first-pact/state',  firstPactStateHandler);
-    
+
     // ─── Co-op Tactical Pet Arena lobby ─────────────────────────────────────────────
     route('/arena/lobby', arenaLobbyHandler);
-    
+
     // ─── Global Pet Ladders (Coliseum 1v1 + Tactical 4v4, offline defense) ───────────
     route('/pet-ladder', petLadderHandler);
-    
+
     // ─── Jutsu training ────────────────────────────────────────────────────────────
     route('/jutsu/speedup',         jutsuSpeedupHandler);
     route('/jutsu/train-with-seals', jutsuTrainWithSealsHandler);
-    
+
     // ─── Profession ────────────────────────────────────────────────────────────────
     route('/profession/choose', professionChooseHandler);
-    
+
     // ─── Player: injured villagers (Hospital screen) ───────────────────────────────
     route('/player/injured-villagers', injuredVillagersHandler);
-    
+
     // ─── Weekly boss (Hall of Legends) ─────────────────────────────────────────────
     route('/weekly-boss', weeklyBossHandler);
     route('/ranked-season', rankedSeasonHandler);
-    
+
     // ─── Admin: moderation (bans / silences / IP linkage) ──────────────────────────
     route('/admin/moderation', moderationHandler);
-    
+
     // ─── Admin: durable battle-receipt lookup (support / reward-dispute triage) ─────
     route('/admin/battle-receipts', adminBattleReceiptsHandler);
-    
+
     // ─── Admin: asset-registry report + per-domain audit-log reader ─────────────────
     route('/admin/asset-report', adminAssetReportHandler);
     route('/admin/audit-log', adminAuditLogHandler);
@@ -782,7 +782,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/admin/economy-settlements', adminEconomySettlementsHandler);
     route('/admin/beta-metrics', adminBetaMetricsHandler);
     route('/admin/clan-boss-operations', adminClanBossOperationsHandler);
-    
+
     // Release-handoff endpoints. Express has no folder-convention routing, so every
     // handler added during the feature and settlement work must be mounted here.
     route('/achievements/sync', achievementsSyncHandler);
