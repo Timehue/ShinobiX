@@ -218,8 +218,23 @@ per-transfer caps, the 1,000 floor, the 10% burn and the 20/60s rate limit are u
 
 ## Gates run
 
-Full backend suite 9,753/9,753; root build + sizecheck PASS (initial graph 383,014 B
-gzip against the 389,000 ceiling); client lint 0 errors; `npm run test:e2e` 386 passed;
-combat-layout matrix 20 passed with `COMBAT_LAYOUT_CAPTURE_PHASE=after COMBAT_LAYOUT_STRICT=1`.
+Final tree (`0d34013ae`, after the verification pass):
+
+- Full backend suite **9,757/9,757**.
+- Root build + sizecheck **PASS** (initial graph 383,014 B gzip against the 389,000 ceiling).
+- Client lint **0 errors**.
+- `npm run test:e2e` — **385 passed, 2 failed**, both `firefox-desktop`, in specs this work
+  does not touch. Re-run in isolation on firefox: **1 passed, 4 skipped, 0 failed**. One of
+  the two (`first-pact-rpg.spec.ts:192`) *declares* a firefox skip, so it could only have
+  failed during fixture setup, before reaching its own skip line; both also stub
+  `**/api/**` wholesale, so no server change here can reach them. Read as a worker dying
+  under load, not a regression — but it is recorded rather than rounded to "green".
+- `npm run test:e2e:combat-layout` with `COMBAT_LAYOUT_CAPTURE_PHASE=after
+  COMBAT_LAYOUT_STRICT=1` — **20 passed, 10 skipped, 0 failed**.
+
 The ownership golden-master snapshot was regenerated deliberately for the one new
 server-owned field, and the diff shows only that field.
+
+⛔ **Gate on the suite's own exit code, not the shell's.** Both e2e commands here end in
+an `echo`, so the wrapper exits 0 even when Playwright failed; the first e2e result in
+this session was misread for exactly that reason. `${PIPESTATUS[0]}` is the truth.
