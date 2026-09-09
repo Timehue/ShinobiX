@@ -2,14 +2,16 @@
 
 Goal: make the main application and pet presentation code easier to change and test while preserving gameplay, player saves, API behavior, and visual output. Use incremental extractions with compatible entry points.
 
-This records the initial planning assessment. A bounded first pass was subsequently implemented from clean main in an isolated worktree. See [the implementation report](refactor-pass-report-2026-09-08.md) for its scope and measurements, and [the integration report](refactor-integration-report-2026-09-08.md) for the subsequent conflict resolution, Tower layout repair, and integrated validation. The phases below remain a roadmap, not a claim that every extraction was completed.
+This preserves the initial planning assessment and scope. The work subsequently continued through all six phases. See the [completion audit](refactor-roadmap-completion-audit.md) for requirement-by-requirement evidence and final gate status, the [first-pass report](refactor-pass-report-2026-09-08.md) for original measurements, and the [integration report](refactor-integration-report-2026-09-08.md) for conflict resolution and Tower layout repair.
 
 **Implementation progress**
 
 - Baseline recovery: complete; the original conflicts are resolved and integrated.
 - Pet presentation: resources, variants, cinematic actors, effects, and playback now have separate module owners. See the [cinematic extraction report](refactor-cinematic-pass-2026-09-08.md) for the latest implementation and validation.
-- App: the boot request sequence and save-account scope are extracted. Snapshot preparation and application are the next bounded step.
-- Save-handler, feature-screen, and server extractions remain later work.
+- App: boot requests, snapshot application, ordered recovery, save coordination and lifecycle ownership are extracted. Shared values have canonical owners and direct consumers. See the [App report](refactor-app-ownership-2026-09-08.md).
+- Save handler: public/combat projections and ordered sanitization stages are extracted, retaining endpoint authority and unchanged ownership golden masters. See the [save report](refactor-save-pass-2026-09-08.md).
+- Feature screens: WorldMap, FirstPact, AdminPanel, Showdown and Pet Ladder stage boundaries are extracted and compared against their baselines. See the [screen report](refactor-feature-screens-2026-09-08.md).
+- Infrastructure: explicit server route registration is extracted; lifecycle and compatibility adapters remain where the inventory supports them. See the [server report](refactor-server-pass-2026-09-08.md).
 
 **Initial evidence, before integration**
 
