@@ -25,7 +25,7 @@ import type { BoardMods } from "./pet-board-sim";
 import { rawPetPool } from "../data/pet-pool";
 import { balanceBuiltInPetTemplate } from "./pet-balance";
 import { derivePetRole, type PetRole } from "./pet-roles";
-import { petStripVariant } from "./pet-battle-anim";
+import { petStripVariant } from "./pet-presentation-keys";
 
 // ── Tunables ─────────────────────────────────────────────────────────────────
 // The in-run shop currency is VALOR — a run-local resource you earn by winning

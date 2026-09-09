@@ -1,3 +1,7 @@
+import { useSharedNow } from "../lib/use-shared-now";
+import { petTrainingOptions } from "../data/pet-config";
+import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
+import { dailyMissionsCompleted, dailyHuntsCompleted } from "../lib/character-progress";
 /*
  * Desktop left-rail profile card — avatar + name/rank + HP/Chakra/Stamina
  * + currency bar + daily caps + XP bar + in-flight timers.
@@ -22,13 +26,7 @@
 import { memo, type ReactNode } from "react";
 import { serverNow } from "../lib/server-clock";
 import { formatCompact, formatExact, formatRatio } from "../lib/format-number";
-import {
-    useSharedNow,
-    petTrainingOptions,
-    getActiveAuraSphereBonuses,
-    dailyMissionsCompleted,
-    dailyHuntsCompleted,
-} from "../App";
+
 import { levelProgress } from "../lib/character-progress";
 import { useOwnAvatar } from "../lib/own-avatar";
 import type { Character } from "../types/character";

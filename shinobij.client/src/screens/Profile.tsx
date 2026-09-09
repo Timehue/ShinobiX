@@ -1,3 +1,5 @@
+import { playerLensDiscipline } from "../lib/player-lens-discipline";
+import { getAllJutsus } from "../lib/jutsu-loadout";
 import { useState, useEffect, useMemo, useRef, type ChangeEvent, type ReactNode } from "react";
 import "../styles/profile-skin.css";
 import "../styles/training-skin.css";
@@ -30,7 +32,7 @@ import { compressDataUrl, isAnimatedImageFile, publishSharedImage } from "../lib
 import { getAllItems, getItemById } from "../lib/items";
 import { getCharacterElements } from "../lib/elements";
 import { getJutsuMastery } from "../lib/jutsu-scaling";
-import { getAllJutsus, playerLensDiscipline } from "../App";
+
 import { settleProfileAction, type ProfileSettlementAction } from "../lib/profile-settlement";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";

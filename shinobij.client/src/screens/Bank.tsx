@@ -1,5 +1,6 @@
+import { getBankInterestPercent } from "../lib/village-upgrades";
 import { useRef, useState } from "react";
-import { type Character, getBankInterestPercent } from "../App";
+import { type Character } from "../App";
 import { sendCurrency, previewCredit, TRADE_CURRENCIES, TRADE_CURRENCY_LABELS, TRADE_MINS, TRADE_CAPS, TRADE_TAX_PCT, type TradeCurrency } from "../lib/player-trade";
 import { gameConfirm } from "../components/GameAlert";
 import { requireServerSettlement } from "../lib/server-settlement-gate";

@@ -78,10 +78,15 @@ async function browserApi(page: Page, path: string, body: Record<string, unknown
 }
 
 async function readSave(page: Page, playerName: string): Promise<{ status: number; body: SaveRecord }> {
-    return page.evaluate(async (name) => {
-        const response = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`);
-        return { status: response.status, body: await response.json().catch(() => ({})) as SaveRecord };
-    }, playerName);
+    // Observe persistence without advancing the player's save-version stream.
+    // Owner GETs can settle elapsed state and make the app's pending retry stale.
+    const response = await page.request.get(`/api/save/${encodeURIComponent(playerName.toLowerCase())}`, {
+        headers: { 'x-admin-password': 'live-express-e2e-admin' },
+        // A keep-alive socket may close between persistence polls. Retry only
+        // that transport reset; HTTP failures and the durable predicate still fail.
+        maxRetries: 2,
+    });
+    return { status: response.status(), body: await response.json().catch(() => ({})) as SaveRecord };
 }
 
 async function waitForPersisted(
@@ -163,13 +168,37 @@ async function createCharacter(page: Page, playerName: string, password: string)
     await expect(page.locator('.icx-root')).toBeVisible();
 }
 
-test('a new player completes the full persisted Academy first session against built Express', async ({ page }, testInfo) => {
+for (const grantDelayMs of [0, 500]) {
+test(`a new player completes the full persisted Academy first session against built Express (starter response delay ${grantDelayMs}ms)`, async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium-desktop-live', 'one desktop run covers the full first-session authority journey');
+    if (grantDelayMs) {
+        // Let achievement sync supersede an already committed starter grant.
+        // Its older response must not cancel the cinematic's persistence handoff.
+        await page.route('**/api/pet/choose-starter', async (route) => {
+            const response = await route.fetch();
+            await new Promise((resolve) => setTimeout(resolve, grantDelayMs));
+            await route.fulfill({ response });
+        });
+    }
 
     const playerName = `Journey${Date.now().toString(36).slice(-7)}`;
     const password = 'Journey!Pass1234';
     const runtimeErrors: string[] = [];
     const serverFailures: string[] = [];
+    const decorativeListeners: string[] = [];
+    await page.exposeFunction('__reportDecorativeListener', (type: string) => decorativeListeners.push(type));
+    await page.addInitScript(() => {
+        const addListener = EventTarget.prototype.addEventListener;
+        const pointerEvents = new Set(['click', 'contextmenu', 'dblclick', 'wheel', 'pointerdown', 'pointerup', 'pointermove', 'pointerleave', 'pointercancel', 'lostpointercapture']);
+        EventTarget.prototype.addEventListener = function (type, listener, options) {
+            if (pointerEvents.has(type) && this instanceof HTMLElement
+                && this.closest('.sector-scene-3d, .scene-ambience-3d')) {
+                void (window as unknown as { __reportDecorativeListener: (type: string) => Promise<void> })
+                    .__reportDecorativeListener(type);
+            }
+            return addListener.call(this, type, listener, options);
+        };
+    });
     let navigationInProgress = false;
     page.on('pageerror', (error) => {
         if (navigationInProgress && error.message === 'Failed to fetch') return;
@@ -416,6 +445,9 @@ test('a new player completes the full persisted Academy first session against bu
 
     // A second session must recover through the real auth path, not merely from
     // React state or a warm browser refresh.
+    // The final autosave and logout share the real 3-second save-burst bucket.
+    // Let that window close after this test's immediate reload/navigation.
+    await page.waitForTimeout(3_100);
     await page.locator('.mobile-bottom-nav').getByRole('button', { name: 'Menu', exact: true }).click();
     const mobileMenu = page.getByRole('dialog', { name: 'Shinobi menu' });
     await expect(mobileMenu).toBeVisible();
@@ -442,6 +474,8 @@ test('a new player completes the full persisted Academy first session against bu
         && save.character.academyTrialClaimed === true
         && Boolean(save.activeTraining?.token)
     ), 'a real logout/login must restore the completed Academy session');
+    expect(decorativeListeners, 'world backdrop canvases must never bind pointer listeners, including during return-to-village teardown').toEqual([]);
     expect(runtimeErrors).toEqual([]);
     expect(serverFailures).toEqual([]);
 });
+}

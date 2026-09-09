@@ -4418,6 +4418,8 @@ html body > .arena-fullscreen.shinobi-combat-shell .twp-strip {
 
 html body > .arena-fullscreen.shinobi-combat-shell .combat-board-stage {
     grid-area: board !important;
+    /* Grid gaps own spacing; the legacy stack margin overlaps tab hit areas. */
+    margin: 0 !important;
     container: combat-board-stage / size;
     display: grid;
     place-items: center;

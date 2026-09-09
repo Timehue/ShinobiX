@@ -1,3 +1,4 @@
+import { gainXp } from "../lib/character-level-projection";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "../styles/hub-screens-skin.css";
@@ -19,8 +20,7 @@ import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "
 import { commitAuthoritativeMissionClaim } from "../lib/versioned-mission-claim";
 import { weatherForBiome } from "../data/sectors";
 import {
-    gainXp,
-    type CreatorEvent,
+    type CreatorEvent
 } from "../App";
 import { activeVillageWarsFor, applyVillageWarMissionDamage, loadVillageState, weatherForSector, VILLAGE_WAR_DAILY_MISSIONS, VILLAGE_WAR_MISSION_DAMAGE, VILLAGE_WAR_RAIDS_PER_MISSION } from "../lib/world-state";
 import { requestAiFight } from "../lib/ai-fight-request";

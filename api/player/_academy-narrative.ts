@@ -52,12 +52,16 @@ export function applyAcademyNarrativeAction(
         if (character.academySectorVisited === true) return { ok: true, character, changed: false };
         const sector = Math.floor(Number(rawSector));
         const storedSector = Math.floor(Number(record.currentSector));
-        if (step !== "sectorReturn" || !Number.isSafeInteger(sector) || sector < 1 || sector !== storedSector) {
+        // Opening the Logbook advances a client-owned step. A throttled autosave
+        // can trail the real travel arrival; acknowledge both together only when
+        // the server already holds the Academy Trial reward and field location.
+        const pendingFieldHandoff = step === "logbook" && character.academyTrialClaimed === true;
+        if ((step !== "sectorReturn" && !pendingFieldHandoff) || !Number.isSafeInteger(sector) || sector < 1 || sector !== storedSector) {
             return { ok: false, status: 409, error: "Travel to the marked field sector before recording its trace." };
         }
         return {
             ok: true,
-            character: { ...character, academySectorVisited: true, academyTraceSector: sector },
+            character: { ...character, onboardingStep: "sectorReturn", academySectorVisited: true, academyTraceSector: sector },
             changed: true,
         };
     }

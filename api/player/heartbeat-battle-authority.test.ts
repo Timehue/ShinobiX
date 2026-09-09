@@ -93,9 +93,17 @@ async function character(): Promise<Json> {
     return (await kv.get<Json>(`save:${PLAYER}`))?.character as Json;
 }
 
-async function settleQueue() {
-    // The lapse reconciliation is fire-and-forget off the hot path.
-    for (let i = 0; i < 20; i += 1) await new Promise((resolve) => setImmediate(resolve));
+async function waitForLapseSettlement(sessionId: string) {
+    // Reconciliation includes lazy imports and durable writes. A fixed number
+    // of event-loop turns can expire before those imports finish on Node 22.
+    const deadline = performance.now() + 5_000;
+    while (performance.now() < deadline) {
+        const terminal = await readSoloPveSession(sessionId);
+        if (terminal?.status === 'done' && (await character()).hp === terminal.player.hp
+            && await kv.get(battleStateKey(PLAYER)) === null) return;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.fail('The heartbeat did not finish its background lapse settlement within 5 seconds');
 }
 
 before(async () => {
@@ -189,7 +197,7 @@ describe('heartbeat — a lapsed Solo-PvE session is terminalized from its own e
         const out = await beat({ inBattle: true });
         assert.equal(out.statusCode, 200, JSON.stringify(out.body));
         assert.equal(onlineStore.get(PLAYER)?.inBattle, undefined, 'a lapsed fight grants no immunity');
-        await settleQueue();
+        await waitForLapseSettlement(session.sessionId);
 
         const terminal = await readSoloPveSession(session.sessionId);
         assert.equal(terminal?.status, 'done');
