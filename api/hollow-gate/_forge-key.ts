@@ -1,4 +1,3 @@
-import { hasInventoryRoom } from '../_inventory-capacity.js';
 export type KeyForgeSource = 'hollowShards' | 'dungeonKeys' | 'fateShards';
 export const KEY_FORGE_COSTS = { hollowShards: 80, dungeonKeys: 5, fateShards: 10 } as const;
 
@@ -27,11 +26,8 @@ function consumeItem(character: Record<string, unknown>, itemId: string, amount:
 
 export function forgeHollowGateKey(character: Record<string, unknown>, source: KeyForgeSource):
     | { ok: true; character: Record<string, unknown> }
-    | { ok: false; reason: 'invalid-source' | 'forge-locked' | 'insufficient-materials' | 'inventory-full' } {
+    | { ok: false; reason: 'invalid-source' | 'forge-locked' | 'insufficient-materials' } {
     if (!(source in KEY_FORGE_COSTS)) return { ok: false as const, reason: 'invalid-source' as const };
-    // Capacity FIRST, before any material is spent. Refusing after the debit
-    // would take the shards and give nothing back (MMORPG behavior audit F7).
-    if (!hasInventoryRoom(character)) return { ok: false as const, reason: 'inventory-full' as const };
     let next = { ...character };
     if (source === 'hollowShards') {
         const att = character.hollowGateAttunement as Record<string, unknown> | undefined;
@@ -45,6 +41,26 @@ export function forgeHollowGateKey(character: Record<string, unknown>, source: K
         if (countItem(character, 'dungeon-key') < KEY_FORGE_COSTS.dungeonKeys) return { ok: false as const, reason: 'insufficient-materials' as const };
         next = consumeItem(next, 'dungeon-key', KEY_FORGE_COSTS.dungeonKeys);
     }
-    const inventory = Array.isArray(next.inventory) ? next.inventory as string[] : [];
-    return { ok: true as const, character: { ...next, inventory: [...inventory, 'hollow-gate-key'] } };
+    // NOT capacity-gated, because the forged key costs no capacity. It is
+    // STACKABLE (api/pvp/_item-catalog.ts), so it belongs in `itemStacks` — the
+    // representation `consumeItem` above already reads, and the same routing
+    // api/shop/_purchase.ts and api/craft/_forge.ts use.
+    //
+    // It was briefly pushed into `inventory[]` and then gated on 2026-09-08,
+    // which charged it a slot it never occupies: a veteran holding 500
+    // non-stackable items was refused a key outright, locking the entire Hollow
+    // Gate dive behind deleting gear, for an item the client compacts out of
+    // `inventory[]` on the very next save. It also ratcheted the non-destructive
+    // save ceiling (api/save/[name].ts) up by one every time.
+    const stacks = Array.isArray(next.itemStacks) ? next.itemStacks as Array<Record<string, unknown>> : [];
+    const held = stacks.findIndex((s) => s?.itemId === 'hollow-gate-key');
+    return {
+        ok: true as const,
+        character: {
+            ...next,
+            itemStacks: held >= 0
+                ? stacks.map((s, i) => (i === held ? { ...s, count: Math.max(0, Math.floor(Number(s.count) || 0)) + 1 } : s))
+                : [...stacks, { itemId: 'hollow-gate-key', count: 1 }],
+        },
+    };
 }

@@ -1,3 +1,4 @@
+import { inventoryGrowthBlock } from '../_inventory-capacity.js';
 import { safeLogValue } from '../_safe-log.js';
 import { randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
@@ -80,7 +81,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 silenced ? '' : sanitizeUserText(body.flavorText, 300),
             );
             const inventory = Array.isArray(paid.inventory) ? paid.inventory as string[] : [];
-            return { ok: true as const, character: { ...paid, inventory: [...inventory, item.id], redeemedNamedForges: [...receipts.slice(-49), makeNamedForgeReceipt(token, item.id)] }, recordPatch: { creatorItems: [...creatorItems.slice(-199), item] }, value: { replayed: false, item } };
+            const forgedCharacter = { ...paid, inventory: [...inventory, item.id], redeemedNamedForges: [...receipts.slice(-49), makeNamedForgeReceipt(token, item.id)] };
+            // Refused before anything commits: `paid` and the receipt are local
+            // until this returns, so the forge cost and the single-use roll token
+            // both survive a refusal and the player can retry with room.
+            const grew = inventoryGrowthBlock(character, forgedCharacter);
+            if (grew) return { ok: false as const, status: grew.status, error: grew.error };
+            return { ok: true as const, character: forgedCharacter, recordPatch: { creatorItems: [...creatorItems.slice(-199), item] }, value: { replayed: false, item } };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
         // P0-3: durable definition registry — the in-save creatorItems copy is a

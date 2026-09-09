@@ -1,3 +1,4 @@
+import { hasInventoryRoom } from '../../_inventory-capacity.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
 import { cors, safeName, clanRecordKey } from '../../_utils.js';
@@ -220,6 +221,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!isAdmin && safeName(String(character.clan ?? '')) !== safeName(clanName)) {
                     throw new SettlementValidationError(403, 'Recipient is no longer a member of this clan.');
                 }
+                // Capacity belongs HERE and nowhere else in this saga. The saga
+                // runs validateRecipient (api/_cross-key-settlement.ts:105) one
+                // line before debitSource and its saveSource write, so a throw
+                // here still cancels cleanly and the item stays in the treasury.
+                // creditRecipient runs AFTER that write commits and sets
+                // `mutationObserved`, where a throw is unrecoverable: the catch
+                // marks the journal `reconciliation-required` and never rolls the
+                // debit back, so the item is destroyed rather than delayed.
+                //
+                // ⛔ Do NOT also copy this into creditRecipient as a belt-and-braces
+                // check. A crash-resume skips this whole `sourceState === 'fresh'`
+                // block and goes straight to the credit, so the copy would strand
+                // an already-debited item — the exact failure this prevents.
+                //
+                // Named after the RECIPIENT, and from their own stored save name
+                // rather than the request body: 'Your inventory is full.' would
+                // send an officer with an empty bag to check their own.
+                if (!isCurrency && !hasInventoryRoom(character)) {
+                    const who = String(character.name ?? '').trim() || recipientName;
+                    throw new SettlementValidationError(409, `${who}'s inventory is full, so the gift stayed in the treasury.`);
+                }
                 if (!isAdmin && actorName) {
                     // Shared-connection guard, matching /api/player/trade. Founding
                     // a clan is free, so without this the donate->gift round trip is
@@ -243,6 +265,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const next = { ...character, [key]: Math.max(0, Number(character[key] ?? 0)) + split.credit };
                     return { character: next, result: { currency: key, amount: split.credit, burned: split.burned } };
                 }
+                // Capacity was settled in validateRecipient, before the debit.
+                // Nothing may throw from here on: the treasury write has already
+                // committed by the time this runs.
                 const inventory = Array.isArray(character.inventory) ? [...character.inventory] : [];
                 inventory.push(itemId!);
                 return { character: { ...character, inventory }, result: { itemId } };
@@ -250,8 +275,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             saveRecipient: async (record, character) => (await writeVersionedPlayerSave(recipientKey, record, character)).record,
         });
         // Charge the authorising officer's rolling window only once the transfer
-        // has actually committed, so a refusal never eats budget.
-        if (!isAdmin && isCurrency && isTradeCurrency(currency)) {
+        // has actually committed, so a refusal never eats budget — and only when
+        // it MOVED something. A replay returns the stored result without touching
+        // either row; billing it would charge the officer for a gift that sent
+        // nothing, and with no requestId from the client a repeat gift of the
+        // same amount to the same member resolves as exactly that.
+        if (!isAdmin && isCurrency && isTradeCurrency(currency) && !transfer.replayed) {
             await chargeOutboundBudget(identity.name, currency, amount, Date.now());
         }
         await kv.set(`${AUDIT_LOG_PREFIX}${safeName(clanName)}:${Date.now()}`, {

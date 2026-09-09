@@ -125,4 +125,47 @@ describe('the outbound budget', () => {
         const after = await mod.checkOutboundBudget(SENDER, 'ryo', 1, 'trusted', NOW);
         assert.equal(after.spent, before.spent, 'checking is not charging');
     });
+
+    it('does not forgive spend when the ledger row overflows', async () => {
+        // The row is bounded at 200 stamps, and it used to be bounded with
+        // `kept.slice(-200)` — which DROPPED the oldest stamps. Those stamps are
+        // still inside the 24h window, so their spend was forgiven: the budget
+        // reset itself. At 30 calls/minute a sender reaches 200 stamps in about
+        // seven minutes of tiny transfers, and every gift after that erased one
+        // of their own earlier, possibly very large, spends.
+        const big = 500_000;
+        await mod.chargeOutboundBudget(SENDER, 'ryo', big, NOW);
+        for (let i = 0; i < 260; i += 1) {
+            await mod.chargeOutboundBudget(SENDER, 'ryo', 1, NOW + 1_000 + i);
+        }
+        const seen = await mod.checkOutboundBudget(SENDER, 'ryo', 1, 'trusted', NOW + 300_000);
+        assert.equal(seen.spent, big + 260, 'every ryo spent in the window must still be counted');
+        assert.equal(seen.remaining, mod.outboundLimit('ryo', 'trusted') - (big + 260) - 1,
+            'the large early spend still eats the sender\'s remaining budget');
+        // And the forgiven spend really would have re-opened the door: dropping
+        // the oldest stamp would have handed back the whole 500,000.
+        assert.ok(seen.spent > big, 'the overflow must not have evicted the big early transfer');
+    });
+
+    it('keeps the bounded row from growing without limit', async () => {
+        for (let i = 0; i < 400; i += 1) {
+            await mod.chargeOutboundBudget(SENDER, 'ryo', 2, NOW + i);
+        }
+        const row = await kv.get<{ stamps: unknown[] }>(mod.transferBudgetKey(SENDER, 'ryo'));
+        assert.ok(Array.isArray(row?.stamps), 'the ledger row is a stamp array');
+        assert.ok((row?.stamps.length ?? 0) <= 200, `row stayed bounded, got ${row?.stamps.length}`);
+        const seen = await mod.checkOutboundBudget(SENDER, 'ryo', 1, 'trusted', NOW + 1_000);
+        assert.equal(seen.spent, 800, 'bounding coalesces spend rather than discarding it');
+    });
+
+    it('serialises concurrent charges instead of losing all but one', async () => {
+        // Unlocked, this was a read-modify-write race: twenty pipelined gifts
+        // each read the same ledger and the last write won, so the budget never
+        // accumulated and the cap did nothing. Both treasury doors charge
+        // outside any settlement lock, so this is their only protection.
+        await Promise.all(Array.from({ length: 20 }, (_, i) =>
+            mod.chargeOutboundBudget(SENDER, 'ryo', 10_000, NOW + i)));
+        const seen = await mod.checkOutboundBudget(SENDER, 'ryo', 1, 'trusted', NOW + 60_000);
+        assert.equal(seen.spent, 200_000, 'all twenty charges must survive');
+    });
 });

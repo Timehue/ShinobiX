@@ -66,3 +66,29 @@ export function inventoryFullBlock(
         roomLeft: inventoryRoomLeft(character),
     };
 }
+
+/**
+ * Refuse only when an action would actually GROW an already-full inventory.
+ *
+ * The plain `inventoryFullBlock` is wrong for anything that consumes inventory
+ * entries to produce one — crafting is the clearest case: a rare weapon burns
+ * 150-800 craft points drawn from `hunt-*` materials, none of which are
+ * stackable, so it removes roughly 30-50 individual entries and adds 1. A bag
+ * full of hunt materials is exactly how a bag reaches the cap, and crafting is
+ * the designed way out of it, so a naive check blocks the escape hatch.
+ *
+ * Pass the character the action WOULD produce. The action is refused only if it
+ * both ends over the cap AND ends with more entries than it started with, so a
+ * net-negative or net-neutral action always goes through. Callers compute the
+ * result first and discard it on refusal, which keeps the "refuse before the
+ * spend" property: nothing is committed either way.
+ */
+export function inventoryGrowthBlock(
+    before: unknown,
+    after: unknown,
+): { status: 409; error: string; reason: 'inventory-full'; roomLeft: number } | null {
+    const afterCount = inventoryCount(after);
+    if (afterCount <= INVENTORY_CAP) return null;
+    if (afterCount <= inventoryCount(before)) return null;
+    return { status: 409, error: INVENTORY_FULL_ERROR, reason: 'inventory-full', roomLeft: 0 };
+}

@@ -1,4 +1,5 @@
 import { kv } from '../_storage.js';
+import { withKvLock } from '../_lock.js';
 import { ACCOUNT_AGE_MIN_MS } from '../pvp/_vanguard-rewards.js';
 import { ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
 import { isUnclaimedGuest } from '../_guest-gate.js';
@@ -129,18 +130,64 @@ export async function checkOutboundBudget(
     return { ok: true, spent, limit, remaining: remaining - amount };
 }
 
-/** Record a committed transfer against the window. Best-effort by design. */
+/** How many stamps a ledger row may hold before the oldest are coalesced. */
+const MAX_STAMPS = 200;
+
+/**
+ * Bound the row WITHOUT losing spend.
+ *
+ * This used to be `kept.slice(-200)`, which dropped the oldest stamps outright
+ * — and the oldest stamps are still INSIDE the 24h window, so their spend was
+ * forgiven. That handed the budget a self-reset: at 30 calls/minute the cap is
+ * reachable in about seven minutes of tiny transfers, after which every further
+ * gift evicted one of the sender's own earlier (possibly very large) spends.
+ *
+ * Instead the overflow is merged into one aggregate stamp that preserves the
+ * total. It is dated at the NEWEST timestamp in the merged group, never the
+ * oldest, so the merge can only ever hold budget longer — it must not release
+ * spend early, which is the failure being fixed.
+ */
+function boundStamps(kept: Stamp[]): Stamp[] {
+    if (kept.length <= MAX_STAMPS) return kept;
+    const merged = kept.slice(0, kept.length - (MAX_STAMPS - 1));
+    let total = 0;
+    let newest = 0;
+    for (const [ts, amount] of merged) {
+        total += amount;
+        if (ts > newest) newest = ts;
+    }
+    return [[newest, total], ...kept.slice(kept.length - (MAX_STAMPS - 1))];
+}
+
+/**
+ * Record a committed transfer against the window.
+ *
+ * Under the lock on the LEDGER key, because this is a read-modify-write on
+ * shared state and all three send doors (/api/player/trade and both treasury
+ * transfers) reach it. Unlocked, concurrent charges each read the same ledger
+ * and the last write won, so a pipelined burst left roughly ONE stamp behind
+ * and the 24h budget never accumulated at all — the cap read like a limit and
+ * was not one, which is the exact failure this whole module was written to fix.
+ *
+ * ⚠ This lock must stay INNERMOST. /api/player/trade calls this while holding
+ * the sender and recipient save locks, so anything that took the ledger lock
+ * and then reached for a save lock would close a deadlock cycle. Nothing inside
+ * here acquires another lock, and no caller should hold this one across a
+ * settlement.
+ *
+ * Still best-effort on failure: the transfer has already committed by the time
+ * this runs, so losing a stamp must never fail the transfer.
+ */
 export async function chargeOutboundBudget(
     slug: string, currency: TradeCurrency, amount: number, now = Date.now(),
 ): Promise<void> {
     const key = transferBudgetKey(slug, currency);
     try {
-        const ledger = await kv.get<Ledger>(key);
-        const { kept } = sumWindow(ledger?.stamps, now);
-        kept.push([now, Math.max(0, Math.floor(amount))]);
-        // Bounded so a spammer cannot grow the row without limit; the oldest
-        // entries are the ones already closest to ageing out anyway.
-        const stamps = kept.slice(-200);
-        await kv.set(key, { stamps }, { ex: Math.ceil((TRANSFER_WINDOW_MS * 2) / 1000) });
+        await withKvLock(key, async () => {
+            const ledger = await kv.get<Ledger>(key);
+            const { kept } = sumWindow(ledger?.stamps, now);
+            kept.push([now, Math.max(0, Math.floor(amount))]);
+            await kv.set(key, { stamps: boundStamps(kept) }, { ex: Math.ceil((TRANSFER_WINDOW_MS * 2) / 1000) });
+        }, { failClosed: true });
     } catch { /* the transfer already committed; losing the stamp is not worth failing it */ }
 }

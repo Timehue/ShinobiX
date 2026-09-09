@@ -8,6 +8,7 @@ import {
     INVENTORY_FULL_ERROR,
     hasInventoryRoom,
     inventoryFullBlock,
+    inventoryGrowthBlock,
     inventoryRoomLeft,
 } from './_inventory-capacity.js';
 import { forgeHollowGateKey } from './hollow-gate/_forge-key.js';
@@ -63,18 +64,27 @@ describe('the capacity rule', () => {
 });
 
 describe('player-initiated grants refuse before spending anything', () => {
-    it('the Hollow Gate key forge keeps the shards when the bag is full', () => {
+    it('the Hollow Gate key forge is NOT capacity-gated, because its output is stackable', () => {
+        // A full bag must not lock the dive. `hollow-gate-key` is stackable, so
+        // it lands in itemStacks and costs no slot — gating it charged a
+        // phantom cost and put the whole Hollow Gate behind deleting gear.
         const full = bagOf(INVENTORY_CAP, { fateShards: 9_999 });
         const out = forgeHollowGateKey(full, 'fateShards');
-        assert.equal(out.ok, false);
-        assert.equal(out.ok === false && out.reason, 'inventory-full');
-        assert.equal(full.fateShards, 9_999, 'the refusal must not have debited anything');
+        assert.equal(out.ok, true, 'a full bag cannot block a key that occupies no slot');
+        if (out.ok !== true) return;
+        assert.equal((out.character.inventory as string[]).length, INVENTORY_CAP, 'inventory[] is untouched');
+        assert.deepEqual(out.character.itemStacks, [{ itemId: 'hollow-gate-key', count: 1 }]);
+        assert.equal(out.character.fateShards, 9_989, 'and the shards were spent exactly once');
     });
 
-    it('and still forges when there is room', () => {
-        const out = forgeHollowGateKey(bagOf(10, { fateShards: 9_999 }), 'fateShards');
+    it('stacks a second forged key rather than starting a new entry', () => {
+        const out = forgeHollowGateKey(
+            bagOf(10, { fateShards: 9_999, itemStacks: [{ itemId: 'hollow-gate-key', count: 2 }] }),
+            'fateShards',
+        );
         assert.equal(out.ok, true);
-        assert.ok(out.ok === true && (out.character.inventory as string[]).includes('hollow-gate-key'));
+        if (out.ok !== true) return;
+        assert.deepEqual(out.character.itemStacks, [{ itemId: 'hollow-gate-key', count: 3 }]);
     });
 
     it('a one-time event claim is not latched away on a full bag', () => {
@@ -87,14 +97,31 @@ describe('player-initiated grants refuse before spending anything', () => {
         assert.deepEqual(full.claimedCreatorEvents, []);
     });
 
-    it('crafting a weapon refuses on a full bag without taking the materials', () => {
-        const full = bagOf(INVENTORY_CAP, { ryo: 10_000_000, craftPoints: 10_000 });
-        const room = bagOf(10, { ryo: 10_000_000, craftPoints: 10_000 });
-        // applyForge itself is unchanged — the endpoint gates ahead of it — so
-        // this pins the property the endpoint relies on: a full bag and a roomy
-        // bag differ only by the gate, never by applyForge silently succeeding.
-        assert.equal(inventoryFullBlock(full, 1)?.reason, 'inventory-full');
-        assert.equal(inventoryFullBlock(room, 1), null);
+    it('judges a net-NEGATIVE action on its result, so crafting can still free the bag', () => {
+        // The trap this replaces: a weapon craft burns 30-50 non-stackable
+        // `hunt-*` materials to add one item, and a bag full of hunt materials is
+        // exactly how a bag reaches the cap. A plain "is the bag full?" check
+        // refused the one action that makes room.
+        const full = bagOf(INVENTORY_CAP);
+        const afterCraft = bagOf(INVENTORY_CAP - 39);           // -40 materials, +1 weapon
+        assert.equal(inventoryGrowthBlock(full, afterCraft), null, 'a net-negative craft must go through');
+
+        const afterPurchase = bagOf(INVENTORY_CAP + 5);          // a pure addition
+        assert.equal(inventoryGrowthBlock(full, afterPurchase)?.reason, 'inventory-full');
+
+        // Net-neutral is allowed too — nothing grew.
+        assert.equal(inventoryGrowthBlock(full, bagOf(INVENTORY_CAP)), null);
+    });
+
+    it('lets an already-over-cap veteran keep shrinking their bag', () => {
+        const over = bagOf(INVENTORY_CAP + 60);
+        assert.equal(inventoryGrowthBlock(over, bagOf(INVENTORY_CAP + 20)), null, 'still net-negative');
+        assert.equal(inventoryGrowthBlock(over, bagOf(INVENTORY_CAP + 61))?.reason, 'inventory-full', 'but cannot grow further');
+    });
+
+    it('never refuses while the result is inside the cap', () => {
+        assert.equal(inventoryGrowthBlock(bagOf(0), bagOf(INVENTORY_CAP)), null);
+        assert.equal(inventoryGrowthBlock(bagOf(INVENTORY_CAP - 1), bagOf(INVENTORY_CAP)), null);
     });
 
     it('a stackable output never consumes an inventory slot, which is why the gate is scoped', () => {

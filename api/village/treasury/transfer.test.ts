@@ -88,4 +88,43 @@ describe('village treasury transfer settlement', () => {
         assert.equal((await kv.get<{ treasury?: { ryo?: number } }>(VILLAGE_KEY))?.treasury?.ryo, 75);
         assert.equal((await kv.get<{ character?: { ryo?: number } }>(RECIPIENT_KEY))?.character?.ryo, 32);
     });
+
+    it('leaves the item in the treasury when the recipient bag is full', { concurrency: false }, async () => {
+        // The saga debits the source and WRITES it before creditRecipient runs,
+        // and a throw after that write is unrecoverable — it marks the journal
+        // reconciliation-required and never rolls back. So a capacity check in
+        // creditRecipient destroys the gift instead of delaying it. This asserts
+        // the check lives in validateRecipient, which runs before the debit.
+        await kv.set(VILLAGE_KEY, { treasury: { ryo: 100, items: [{ itemId: 'rustfang-kunai', count: 1 }] } });
+        await kv.set(RECIPIENT_KEY, {
+            _saveVersion: 1,
+            character: { name: 'Recipient', village: 'Leaf', ryo: 10, inventory: Array.from({ length: 500 }, (_, i) => `hunt-torn-hide-${i}`) },
+        });
+
+        const refused = await post({ village: 'Leaf', recipientName: 'Recipient', itemId: 'rustfang-kunai' });
+        assert.equal(refused.statusCode, 409);
+        assert.match(String(refused.body?.error), /inventory is full/i);
+        assert.match(String(refused.body?.error), /^Recipient/, "names the blocked party, not the sender");
+
+        const treasury = (await kv.get<{ treasury?: { items?: Array<{ itemId: string; count: number }> } }>(VILLAGE_KEY))?.treasury;
+        assert.deepEqual(treasury?.items, [{ itemId: 'rustfang-kunai', count: 1 }], 'the gift must survive the refusal');
+        const bag = (await kv.get<{ character?: { inventory?: string[] } }>(RECIPIENT_KEY))?.character?.inventory ?? [];
+        assert.equal(bag.length, 500);
+        assert.equal(bag.includes('rustfang-kunai'), false);
+    });
+
+    it('delivers the same gift once the recipient makes room', { concurrency: false }, async () => {
+        await kv.set(VILLAGE_KEY, { treasury: { ryo: 100, items: [{ itemId: 'rustfang-kunai', count: 1 }] } });
+        await kv.set(RECIPIENT_KEY, {
+            _saveVersion: 1,
+            character: { name: 'Recipient', village: 'Leaf', ryo: 10, inventory: Array.from({ length: 499 }, (_, i) => `hunt-torn-hide-${i}`) },
+        });
+        const sent = await post({ village: 'Leaf', recipientName: 'Recipient', itemId: 'rustfang-kunai' });
+        assert.equal(sent.statusCode, 200);
+        assert.deepEqual((await kv.get<{ treasury?: { items?: unknown[] } }>(VILLAGE_KEY))?.treasury?.items, []);
+        assert.equal(
+            ((await kv.get<{ character?: { inventory?: string[] } }>(RECIPIENT_KEY))?.character?.inventory ?? []).includes('rustfang-kunai'),
+            true,
+        );
+    });
 });
