@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { isAllowedCustomTitle, sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
 import { TITLE_ICON_SET, TITLE_STYLE_IDS, isKnownEarnedTitle, normalizeTitleKey } from '../_titles-registry.js';
+import { getActiveSilence } from '../admin/moderation.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req); if (req.method === 'OPTIONS') return res.status(200).end(); if (req.method !== 'POST') return res.status(405).end();
@@ -15,6 +16,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req, playerName); if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only edit your own profile.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'profile-title', 20, 60_000, identity.name))) return;
+        // A custom title is free text worn in front of every other player, so it
+        // gets the same silence gate as chat. Scoped deliberately: clearing a
+        // title and selecting an EARNED one are registry picks, not authored
+        // speech, and stay available to a silenced player. Only the free-text
+        // branch — the one isAllowedCustomTitle() moderates below — is refused.
+        if (!identity.admin && action === 'title') {
+            const candidate = sanitizeUserText(body.value, TEXT_LIMITS.customTitle);
+            if (candidate && !isKnownEarnedTitle(candidate)) {
+                const sil = await getActiveSilence(identity.name);
+                if (sil) return res.status(403).json({ error: 'You are silenced.', silence: { until: sil.until, reason: sil.reason } });
+            }
+        }
         const result = await mutatePlayerSave(playerName, ({ character }) => {
             let field = ''; let value = ''; let cost = 0;
             if (action === 'title') {

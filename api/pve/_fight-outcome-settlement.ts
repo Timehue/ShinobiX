@@ -14,6 +14,7 @@ import {
     applyAiFightOutcomeToCharacter,
     isPveFightMember,
     resolveAiFightOutcome,
+    sessionUsesContinuousVitals,
     settlementOwnsHpOnWin,
     type AiFightOutcome,
     type AiFightSession,
@@ -152,6 +153,20 @@ export function applyPveOutcomeWithReceipt(params: {
             params.outcome,
             participant,
             params.now,
+            // Read off the SEALED session, never a battle kind or anything the
+            // caller says. This is the settlement boundary for three paths that
+            // all seed from the player's real vitals when the encounter is
+            // continuous: the field-mission claim (queue-combat-claim.ts), the
+            // client-callable /api/pve/fight-outcome, and the automatic lapse
+            // reconciler (_battle-lapse.ts).
+            //
+            // Omitting it defaulted to `false`, so an open-world fight charged
+            // the player HP but silently REFUNDED the chakra and stamina it
+            // cost — half the owner's 2026-09-08 ruling. Missions got strictly
+            // harder (you enter on the bar you actually have) at no resource
+            // price, and abandoning a losing open-world fight was cheaper in
+            // the scarce resource than finishing it.
+            sessionUsesContinuousVitals(params.session),
         );
     const value: OutcomeMutationValue = {
         outcome: params.outcome,

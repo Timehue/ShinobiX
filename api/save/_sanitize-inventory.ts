@@ -1,3 +1,4 @@
+import { INVENTORY_CAP as BASE_INVENTORY_CAP } from '../_inventory-capacity.js';
 import { preserveOwnedItems } from './_entitlement-guard.js';
 
 export function sanitizeInventory(char: Record<string, unknown>, exChar: Record<string, unknown>) {
@@ -6,7 +7,17 @@ export function sanitizeInventory(char: Record<string, unknown>, exChar: Record<
     // submit thousands of items, both bloating KV and inflating foreign-read
     // payloads. 500 is well above any realistic veteran's working inventory
     // and matches what the client UI can scroll through cleanly.
-    const INVENTORY_CAP = 500;
+    //
+    // NON-DESTRUCTIVE, exactly like PET_CAP: the ceiling never falls below what
+    // the server already stores, so persistence can only stop the inventory
+    // GROWING past the cap — it can never delete items a player already holds.
+    // Before this, a player at the cap who claimed a war crate, forged a weapon
+    // or finished an event simply lost the reward here, silently. Acquisition
+    // now refuses up front (api/_inventory-capacity.ts) so the player is told
+    // while they still hold whatever would have produced the item; the save
+    // layer must never be the thing that eats one.
+    const existingInventoryCount = Array.isArray(exChar.inventory) ? (exChar.inventory as unknown[]).length : 0;
+    const INVENTORY_CAP = Math.max(BASE_INVENTORY_CAP, existingInventoryCount);
     if (Array.isArray(char.inventory) && (char.inventory as unknown[]).length > INVENTORY_CAP) {
         char.inventory = (char.inventory as unknown[]).slice(0, INVENTORY_CAP);
     }

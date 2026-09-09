@@ -7,6 +7,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { randomUUID } from 'node:crypto';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import {
     rollAugmentOffers,
     AUGMENT_CATALOG,
@@ -262,6 +263,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ...(repairedRiftSeal ? { recordPatch: { activeRiftQuestSeal: repairedRiftSeal } } : {}),
                     value: { token: priorStart.token },
                 };
+            }
+            // A hospitalized diver is refused BEFORE anything is spent. Everything
+            // below this line costs the player something irreversible — a Hollow
+            // Gate key, then a slot off the daily cap — while combat-start.ts
+            // refuses every fight inside the dive for exactly this state. Starting
+            // here therefore burned a capped entry on a run that could not be
+            // played, and the open run then suppressed vitals regen as well
+            // (hasActiveHollowGateRun, api/_elapsed-state.ts).
+            //
+            // Deliberately placed AFTER the replay branch above: an idempotent
+            // retry of a dive that already started is still honored, because that
+            // run is already paid for and refusing it would strand it.
+            if (!identity.admin && isIncapacitated(character)) {
+                return { ok: false as const, status: 409, error: 'hospitalized' };
             }
             const freeEntry = Boolean(riftDef) || eventDef?.keyCost === 0;
             const afterKey = identity.admin || freeEntry ? character : consumeHollowGateKey(character);

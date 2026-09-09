@@ -2088,7 +2088,7 @@ export default function App() {
                 noteHeartbeatDelivery(data); // the next beat acknowledges exactly this delivery (lib/notice-ack)
                 if (data.pendingHeal && characterRef.current?.hospitalized) {
                     const by = data.pendingHeal.by || "a Healer";
-                    setCharacter(c => c ? { ...c, hp: c.maxHp, chakra: c.maxChakra, stamina: c.maxStamina, hospitalized: false, hospitalizedUntil: 0, hospitalizedAt: 0 } : c);
+                    setCharacter(c => c ? { ...c, hp: c.maxHp, hospitalized: false, hospitalizedUntil: 0, hospitalizedAt: 0 } : c); // HP only (api/player/_cross-heal-settlement.ts): refilling chakra/stamina shows bars the autosave ceiling claws back.
                     window.dispatchEvent(new CustomEvent('profession-mission-complete', { detail: { name: `Healed by ${by}`, xp: 0, profession: 'healer', label: '✚ You\'ve been healed' } }));
                     if (screenRef.current === "hospital") setScreen("village");
                 }
@@ -4986,6 +4986,8 @@ export default function App() {
             alert("The daily entry seal has reached its limit. Return at dawn.");
             return;
         }
+        // Named explicitly: the generic fallback below says to retry when the connection is stable, which is unactionable until discharge.
+        if (serverStart?.reason === "hospitalized") { alert("You are still being treated. Leave the hospital before descending — no key was spent."); return; }
         if (!serverStart?.token || !serverStart.character) {
             alert("The Hollow Gate could not establish a secure server run. No key was spent locally; retry when the connection is stable.");
             return;

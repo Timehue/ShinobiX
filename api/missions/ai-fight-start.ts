@@ -1,4 +1,7 @@
+import { isOpenWorldBattleKind } from './_ai-fight-token.js';
+import { openWorldContinuousVitalsEnabled } from '../_release-flags.js';
 import { safeLogValue } from '../_safe-log.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { randomUUID } from 'node:crypto';
 import { kv } from '../_storage.js';
@@ -231,6 +234,11 @@ async function sealAiFightEncounter(
                     metadata: { sector: worldSpec.context.sector, stage: worldSpec.context.stage },
                 },
             } : {}),
+            // Open-world fights are continuous: seeded from the vitals the player
+            // actually has, and settled back the same way. Instanced and practice
+            // fights keep their fresh pool.
+            continuousVitals: openWorldContinuousVitalsEnabled()
+                && isOpenWorldBattleKind(worldSpec ? 'world' : (genericAuthority?.battleKind ?? body.battleKind)),
             admin: await loadAdminCombatContent(),
         });
         await writeSoloPveSession(session);
@@ -535,7 +543,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // A hospitalized character starts no NEW fight (a resume above is
             // untouched). The Hospital screen holds honest clients; this is the
             // server's own answer to a tampered one.
-            if (character.hospitalized === true) {
+            if (isIncapacitated(character)) {
                 return { status: 409, body: { error: 'You are in the hospital. Recover before starting a fight.', reason: 'hospitalized' } };
             }
             let genericAuthority;
