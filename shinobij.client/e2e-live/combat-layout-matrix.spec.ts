@@ -1929,6 +1929,17 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     const battleId = String(creation.battleId ?? '');
     expect(battleId.length).toBeGreaterThan(10);
     ordinaryLayoutDuel = { battleId, p1, p2 };
+    // Seat both real fighters so either coin-flip outcome starts a live turn.
+    // Previously a P1 win could leave the clock waiting for the absent P2.
+    for (const [role, account] of [['p1', p1], ['p2', p2]] as const) {
+        const joined = await request.post('/api/pvp/move', {
+            headers: { 'x-player-name': account.name, 'x-player-token': account.token },
+            data: { battleId, role, action: 'join' },
+        });
+        const projection = await joined.json() as { rejected?: unknown };
+        expect(joined.status(), JSON.stringify(projection)).toBe(200);
+        expect(projection.rejected, 'both layout fighters must join authoritatively').toBeUndefined();
+    }
     const activeRole = creation.session?.activePlayer;
     expect(activeRole, 'PvP session must declare the coin-flip winner').toMatch(/^p[12]$/);
     const activeAccount = activeRole === 'p2' ? p2 : p1;
@@ -1946,7 +1957,6 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     await page.goto('/#/pvpBattle', { waitUntil: 'domcontentloaded' });
     await dismissNotices(page);
     await resolveSaveConflict(page);
-    await expect(page.locator('.pvp-countdown-overlay')).toBeHidden({ timeout: 10_000 });
     const battleVisible = await page.locator('.pvp-battle-layout').waitFor({ state: 'visible', timeout: 20_000 })
         .then(() => true, () => false);
     if (!battleVisible) {
@@ -1963,11 +1973,30 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
         throw new Error(`PvP restore diagnostic: ${JSON.stringify(debug)}`);
     }
     await expect(page.locator('.pvp-battle-layout')).toBeVisible();
+    await expect(page.locator('.pvp-countdown-overlay')).toBeHidden({ timeout: 10_000 });
     await assertBattlefieldActorPresentation(page, '.pvp-battle-layout', {
         playerMarkers: 1,
         enemyMarkers: 1,
         minimumEnemySprites: 0,
     });
+    // This geometry sweep holds one real turn longer than its 45-second clock.
+    // DISABLE_PVP_TURN_DEADLINE holds the server, but the browser still sends an
+    // auto-wait when its countdown expires. Pin Date without freezing animation
+    // frames, and keep heartbeat clock samples on that same fixture time. All
+    // battle state and actions still come from Express; no turn state is forged.
+    const clockResponse = await request.get(`/api/pvp/session?id=${encodeURIComponent(battleId)}`, {
+        headers: { 'x-player-name': activeAccount.name, 'x-player-token': activeAccount.token },
+    });
+    expect(clockResponse.status()).toBe(200);
+    const clockSession = await clockResponse.json() as { turnStartedAt?: number };
+    expect(clockSession.turnStartedAt).toBeGreaterThan(0);
+    const geometryTime = Number(clockSession.turnStartedAt) + 1_000;
+    await page.route('**/api/player/heartbeat', async (route) => {
+        const response = await route.fetch();
+        if (!response.ok()) { await route.fulfill({ response }); return; }
+        await route.fulfill({ response, json: { ...await response.json(), serverNow: geometryTime } });
+    });
+    await page.clock.setFixedTime(geometryTime);
     await assertJutsuSelectionGeometryStable(page, '.pvp-battle-layout', false);
     await captureMatrix(page, 'pvp', '.pvp-battle-layout', testInfo);
 
