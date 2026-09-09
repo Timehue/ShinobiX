@@ -64,8 +64,10 @@
 .fp-companion img { width: 100%; height: 100%; object-fit: cover; }
 .fp-companion span { display: grid; place-items: center; height: 100%; font-size: 10px; font-weight: 900; }
 
-button.fp-npc { appearance: none; border: 0; padding: 0; background: transparent; color: inherit; pointer-events: auto; cursor: default; }
-.fp-npc.is-near { cursor: pointer; }
+/* Every face is clickable, near or far: close by it opens the conversation,
+   across the square it walks the player over to have it. */
+button.fp-npc { appearance: none; border: 0; padding: 0; background: transparent; color: inherit; pointer-events: auto; cursor: pointer; }
+.fp-npc:hover .fp-npc-body, .fp-npc:focus-visible .fp-npc-body { border-color: color-mix(in srgb, var(--npc) 70%, #fff8e8); box-shadow: 0 6px 14px rgba(0,0,0,.66), 0 0 0 2px rgba(6,11,20,.9), 0 0 16px color-mix(in srgb, var(--npc) 45%, transparent); }
 .fp-npc-body { border-color: var(--npc, #91a4b9); background: linear-gradient(155deg, color-mix(in srgb, var(--npc) 58%, #293343), #111722 64%); }
 .fp-palette-amber { --npc: #e4b464; }
 .fp-palette-jade { --npc: #67c59f; }

@@ -1121,6 +1121,36 @@ async function settleLayout(page: Page): Promise<void> {
     }));
 }
 
+/*
+ * A viewport change reaches the board in two hops, not one: a ResizeObserver
+ * reports the new container, and only the React render that follows rebuilds the
+ * fitted scale and the centering offset the grid transform is built from.
+ * settleLayout's two frames cover both hops on a quiet machine. Under load the
+ * render lands later, and then the board's answer to the RESIZE arrives during
+ * the next interaction, where the frame trace reads it as though arming a jutsu
+ * moved the board: every traced frame agrees with every other and only the
+ * baseline disagrees. Wait for the rendered grid to hold still instead of
+ * assuming a frame count, so the baseline is the settled board.
+ */
+async function settleBoardGeometry(page: Page, rootSelector: string): Promise<void> {
+    const sampleGrid = () => page.evaluate((selector) => {
+        const layer = document.querySelector(selector)?.querySelector('.hex-grid-layer');
+        if (!layer) return '';
+        const box = layer.getBoundingClientRect();
+        return [box.x, box.y, box.width, box.height, getComputedStyle(layer).transform].join('|');
+    }, rootSelector);
+    let previous = await sampleGrid();
+    // Two consecutive agreements, each a frame pair plus a tick apart, outlast a
+    // React commit that is merely pending rather than finished.
+    for (let attempt = 0, agreements = 0; attempt < 24 && agreements < 2; attempt += 1) {
+        await settleLayout(page);
+        await page.waitForTimeout(50);
+        const current = await sampleGrid();
+        agreements = current !== '' && current === previous ? agreements + 1 : 0;
+        previous = current;
+    }
+}
+
 async function measureStable(page: Page, rootSelector: string): Promise<LayoutMeasurement> {
     await settleLayout(page);
     let current = await measure(page, rootSelector);
@@ -1430,6 +1460,7 @@ async function assertJutsuSelectionGeometryStable(
         await actionTray.evaluate(resetTrayScroll);
         await page.mouse.move(0, 0);
         await settleLayout(page);
+        await settleBoardGeometry(page, rootSelector);
         const before = await selectionGeometry(page, rootSelector);
         const isTower = rootSelector.toLowerCase().includes('tower');
         const captureDirectory = captureSlug && viewport.width === 512 && viewport.height === 384

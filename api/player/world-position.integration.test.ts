@@ -361,10 +361,19 @@ test('Academy trace sees a settled arrival and ceremony replay cannot teleport t
 });
 
 // Includes cold Socket.IO module startup and shutdown alongside the full suite.
+// Teardown is fully quiesced before the test ends -- the client disconnects and
+// reports it, THEN the Socket.IO server and its HTTP server close -- so the
+// process reaches exit with no socket mid-handshake. This is the only file in
+// the suite whose child holds live TCP handles, and a file-level 'test failed'
+// with every subtest green here is a child-process crash (see the exit-code
+// line scripts/run-tests.mjs prints), not a leaked rejection: 300+ instrumented
+// runs found no unhandled rejection and no open handle. (2026-09-08)
 test('a real socket reconnect discards delayed hydration superseded by HTTP presence', { timeout: 30_000 }, async (t) => {
     const sockets = await import('../_realtime/socket.js');
     const server = createServer();
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    // Registered first so it runs LAST (hooks run in registration order): the
+    // client hook below must have disconnected before the server goes away.
     t.after(async () => { await sockets.closeSocketServer(); if (server.listening) await new Promise<void>((resolve) => server.close(() => resolve())); });
     sockets.attachSocketServer(server);
     for (let attempt = 0; !sockets.getIo() && attempt < 200; attempt++) await delay(5);
@@ -374,7 +383,10 @@ test('a real socket reconnect discards delayed hydration superseded by HTTP pres
     const { io } = createRequire(resolve('shinobij.client/package.json'))('socket.io-client');
     const client = io(`http://127.0.0.1:${address.port}`, { transports: ['websocket'], reconnection: false, autoConnect: false,
         auth: { 'x-player-name': PLAYER, 'x-player-token': token } });
-    t.after(() => client.close());
+    t.after(async () => {
+        if (!client.connected) { client.close(); return; }
+        await new Promise<void>((resolve) => { client.once('disconnect', () => resolve()); client.close(); });
+    });
     await new Promise<void>((resolve, reject) => { client.once('connect', resolve); client.once('connect_error', reject); client.connect(); });
     const walked = await import('../_realtime/walked-tile.js');
     await walked.noteWalkedTile(kv, PLAYER, 12, 77);

@@ -36,6 +36,7 @@ import {
     FirstPactTile,
     chooseFirstPactWanderDestination,
     findFirstPactPath,
+    firstPactApproaches,
     firstPactDistrictAt,
     firstPactPointKey,
     firstPactTileAt,
@@ -292,6 +293,11 @@ function writeFirstPactSession(value: FirstPactSessionBreadcrumb | null): void {
         else localStorage.removeItem(FIRST_PACT_SESSION_KEY);
     } catch { /* Storage may be disabled; the server session remains authoritative. */ }
 }
+
+/* A walk aimed at a person can be re-aimed a few times when another citizen
+   steps into the lane, and then it gives up. A wanderer holds still while the
+   player crosses to them, so the usual approach spends none of these. */
+const FIRST_PACT_APPROACH_RETRIES = 4;
 
 const DISTRICT_LABELS: Record<ReturnType<typeof firstPactDistrictAt>, string> = {
     "arrival-court": "Arrival Court",
@@ -4395,6 +4401,10 @@ export function FirstPact({
     const onVersionedCharacterRef = useRef(onVersionedCharacter);
     const forfeitInFlightRef = useRef(false);
     const movementLockedRef = useRef(false);
+    /** Read by the wander tick, which runs on an interval and never re-binds. */
+    const approachRef = useRef<string | null>(null);
+    /** Re-paths spent on a face that moved, so an approach is never a chase. */
+    const approachTriesRef = useRef(0);
     const progressRef = useRef<FirstPactProgress>(createFirstPactProgress());
     const interiorRef = useRef<FirstPactInterior | null>(null);
     const interiorSpotRef = useRef<FirstPactPoint>({ x: 0, y: 0 });
@@ -4410,6 +4420,8 @@ export function FirstPact({
     const [companion, setCompanion] = useState<FirstPactPoint>({ x: 42, y: 51 });
     const [facing, setFacing] = useState<FirstPactDirection>("north");
     const [playerPath, setPlayerPath] = useState<FirstPactPoint[]>([]);
+    /** The face this walk is aimed at, so arriving beside them opens the talk. */
+    const [approachNpcId, setApproachNpcId] = useState<string | null>(null);
     const [npcs, setNpcs] = useState<Record<string, RuntimeNpc>>(() => initializeNpcs());
     const [dialogNpc, setDialogNpc] = useState<FirstPactNpcDefinition | null>(null);
     const [dialogLine, setDialogLine] = useState(0);
@@ -4419,6 +4431,8 @@ export function FirstPact({
     /** The room's click-to-walk queue, the indoor twin of `playerPath`. */
     const [interiorPath, setInteriorPath] = useState<FirstPactPoint[]>([]);
     const [interiorSpeech, setInteriorSpeech] = useState<InteriorSpeech | null>(null);
+    /** The keeper an indoor walk is aimed at, the room's twin of `approachNpcId`. */
+    const [interiorApproachId, setInteriorApproachId] = useState<string | null>(null);
     const [squadOpen, setSquadOpen] = useState(false);
     const [pendingEncounterId, setPendingEncounterId] = useState<FirstPactEncounterId | null>(null);
     const [selectedPets, setSelectedPets] = useState<string[]>([]);
@@ -4601,6 +4615,7 @@ export function FirstPact({
     useEffect(() => { interiorRef.current = interior; }, [interior]);
     useEffect(() => { interiorSpotRef.current = interiorSpot; }, [interiorSpot]);
     useEffect(() => { movementLockedRef.current = movementLocked; }, [movementLocked]);
+    useEffect(() => { approachRef.current = approachNpcId; }, [approachNpcId]);
     useEffect(() => { playerRef.current = player; }, [player]);
     useEffect(() => { progressRef.current = progress; }, [progress]);
     useEffect(() => { npcRef.current = npcs; }, [npcs]);
@@ -5163,6 +5178,9 @@ export function FirstPact({
             setInteriorSpeech(null);
             setInteriorPath([]);
             setPlayerPath([]);
+            // A door met on the way to someone ends the errand at the door.
+            setApproachNpcId(null);
+            setInteriorApproachId(null);
         }
         return true;
     }, []);
@@ -5174,6 +5192,7 @@ export function FirstPact({
         reenterGuardRef.current = firstPactPointKey(door);
         setInteriorSpeech(null);
         setInteriorPath([]);
+        setInteriorApproachId(null);
         setInterior(null);
         setFacing("south");
         setPlayer(door);
@@ -5204,8 +5223,71 @@ export function FirstPact({
         setInteriorPath(path.slice(1));
     }, []);
 
+    /** Any walk the player aims themselves stops meaning "go and talk". */
+    const cancelApproach = useCallback(() => {
+        approachTriesRef.current = 0;
+        setApproachNpcId(null);
+        setInteriorApproachId(null);
+    }, []);
+
+    /** Open a face's conversation, from a keypress or from arriving beside them. */
+    const speakTo = useCallback((npc: FirstPactNpcDefinition) => {
+        setPlayerPath([]);
+        setApproachNpcId(null);
+        setDialogNpc(npc);
+        setDialogLine(0);
+    }, []);
+
+    /** Walk to a place on the street. A place someone is standing in means the
+     *  ground beside them: a person's tile is not a tile a walk can end on, and
+     *  a path drawn through one is dropped by the stepper partway there. */
+    const walkTo = useCallback((goal: FirstPactPoint) => {
+        if (movementLockedRef.current) return;
+        cancelApproach();
+        const here = playerRef.current;
+        const blocked = new Set(Object.values(npcRef.current).map((entry) => firstPactPointKey(entry.position)));
+        if (!blocked.has(firstPactPointKey(goal))) { setPlayerPath(findFirstPactPath(here, goal, blocked)); return; }
+        for (const cell of firstPactApproaches(goal, here, blocked)) {
+            const path = findFirstPactPath(here, cell, blocked);
+            if (path.length) { setPlayerPath(path); return; }
+        }
+    }, [cancelApproach]);
+
+    /*
+     * Clicking a person walks to them, then speaks.
+     *
+     * Their token covers the ground under it and every NPC tile is blocked to
+     * the pathfinder, so a distant face used to be a dead spot in a city you
+     * can otherwise click across: the only way to reach one was to guess the
+     * tile beside them. Now the click picks the nearest free cell touching
+     * them, walks the player there, and the arrival opens the talk, which is
+     * what clicking a person means everywhere else in the game.
+     */
+    const approachNpc = useCallback((npc: FirstPactNpcDefinition) => {
+        if (movementLockedRef.current) return;
+        const runtime = npcRef.current;
+        const here = playerRef.current;
+        const spot = runtime[npc.id]?.position ?? npc.position;
+        if (isFirstPactWithinReach(here, spot, 2)) { speakTo(npc); return; }
+        const blocked = new Set(Object.values(runtime).map((entry) => firstPactPointKey(entry.position)));
+        for (const cell of firstPactApproaches(spot, here, blocked)) {
+            const path = findFirstPactPath(here, cell, blocked);
+            if (!path.length) continue;
+            approachTriesRef.current = 0;
+            setApproachNpcId(npc.id);
+            setPlayerPath(path);
+            return;
+        }
+        // Every side of them is taken this moment. A click that reaches nobody
+        // stops the walk, the way a click on a wall does, rather than leaving
+        // the player crossing the square to whoever they asked for before.
+        cancelApproach();
+        setPlayerPath([]);
+    }, [cancelApproach, speakTo]);
+
     /** One step, in whichever space the player is standing in. */
     const stepBy = useCallback((dx: number, dy: number) => {
+        cancelApproach();
         const room = interiorRef.current;
         if (room) {
             const here = interiorSpotRef.current;
@@ -5216,28 +5298,33 @@ export function FirstPact({
         const here = playerRef.current;
         setPlayerPath([]);
         movePlayer({ x: here.x + dx, y: here.y + dy });
-    }, [moveInterior, movePlayer]);
+    }, [cancelApproach, moveInterior, movePlayer]);
+
+    /** Open a keeper's frame, from a keypress or from arriving at their aisle. */
+    const speakToInteriorNpc = useCallback((npc: FirstPactInteriorNpc) => {
+        setInteriorPath([]);
+        setInteriorApproachId(null);
+        setInteriorSpeech({
+            name: npc.name,
+            title: npc.title,
+            palette: npc.palette,
+            portrait: NPC_PORTRAITS[npc.id],
+            portraitLetter: npc.name.slice(0, 1),
+            lines: firstPactInteriorNpcLines(npc, progressRef.current.mainStep),
+        });
+        setDialogLine(0);
+    }, []);
 
     const interactInterior = useCallback(() => {
         const room = interiorRef.current;
         if (!room) return;
         // A conversation ends the walk that reached it, as it does on the street.
         setInteriorPath([]);
+        setInteriorApproachId(null);
         const here = interiorSpotRef.current;
         const touching = (point: FirstPactPoint) => Math.max(Math.abs(point.x - here.x), Math.abs(point.y - here.y)) <= 1;
         const npc = room.npcs.find((entry) => touching(entry.position));
-        if (npc) {
-            setInteriorSpeech({
-                name: npc.name,
-                title: npc.title,
-                palette: npc.palette,
-                portrait: NPC_PORTRAITS[npc.id],
-                portraitLetter: npc.name.slice(0, 1),
-                lines: firstPactInteriorNpcLines(npc, progressRef.current.mainStep),
-            });
-            setDialogLine(0);
-            return;
-        }
+        if (npc) { speakToInteriorNpc(npc); return; }
         if (touching(room.focus.position)) {
             setInteriorSpeech({
                 name: room.focus.label,
@@ -5248,17 +5335,15 @@ export function FirstPact({
             });
             setDialogLine(0);
         }
-    }, []);
+    }, [speakToInteriorNpc]);
 
     const interact = useCallback(() => {
         if (interiorRef.current) { interactInterior(); return; }
         if (movementLockedRef.current) return;
         const found = nearestNpc(playerRef.current, npcRef.current);
         if (!found) return;
-        setPlayerPath([]);
-        setDialogNpc(found);
-        setDialogLine(0);
-    }, [interactInterior]);
+        speakTo(found);
+    }, [interactInterior, speakTo]);
 
     useEffect(() => {
         const down = (event: KeyboardEvent) => {
@@ -5285,10 +5370,11 @@ export function FirstPact({
             else if (keys.has("arrowdown") || keys.has("s")) next = { x: current.x, y: current.y + 1 };
             else if (keys.has("arrowleft") || keys.has("a")) next = { x: current.x - 1, y: current.y };
             else if (keys.has("arrowright") || keys.has("d")) next = { x: current.x + 1, y: current.y };
-            if (next) { setPlayerPath([]); movePlayer(next); }
+            // Steering by hand drops the errand the click set up.
+            if (next) { cancelApproach(); setPlayerPath([]); movePlayer(next); }
         }, 115);
         return () => window.clearInterval(timer);
-    }, [movePlayer]);
+    }, [cancelApproach, movePlayer]);
 
     useEffect(() => {
         if (!interior) return;
@@ -5329,6 +5415,49 @@ export function FirstPact({
         return () => window.clearTimeout(timer);
     }, [movementLocked, movePlayer, playerPath]);
 
+    /* The walk a click aimed at a person ends in that person's conversation.
+       They hold still while the player crosses (see the wander tick), so the
+       ordinary ending is one path and an arrival. A face nudged out of the way
+       by another citizen is re-aimed a few times and then let go, so an
+       approach can never become an endless chase across the district. */
+    useEffect(() => {
+        if (!approachNpcId || playerPath.length || movementLocked) return;
+        // Settled on a tick of its own, one step-length after the walk ended:
+        // the arrival reads as arriving rather than as a frame that both lands
+        // the last step and opens a frame over it.
+        const timer = window.setTimeout(() => {
+            const npc = FIRST_PACT_NPCS.find((entry) => entry.id === approachNpcId);
+            const spot = npcRef.current[approachNpcId]?.position;
+            const here = playerRef.current;
+            if (!npc || !spot) { setApproachNpcId(null); return; }
+            if (isFirstPactWithinReach(here, spot, 2)) { speakTo(npc); return; }
+            if (approachTriesRef.current >= FIRST_PACT_APPROACH_RETRIES) { setApproachNpcId(null); return; }
+            approachTriesRef.current += 1;
+            const blocked = new Set(Object.values(npcRef.current).map((entry) => firstPactPointKey(entry.position)));
+            const next = firstPactApproaches(spot, here, blocked)
+                .map((cell) => findFirstPactPath(here, cell, blocked))
+                .find((path) => path.length);
+            if (!next) { setApproachNpcId(null); return; }
+            setPlayerPath(next);
+        }, 90);
+        return () => window.clearTimeout(timer);
+    }, [approachNpcId, movementLocked, playerPath, speakTo]);
+
+    /* The same errand, one room in. Keepers never move, so a settled walk that
+       did not end beside the one it was aimed at was interrupted, and the
+       intent is dropped rather than retried. */
+    useEffect(() => {
+        if (!interior || !interiorApproachId || interiorPath.length || interiorMovementLocked) return;
+        const timer = window.setTimeout(() => {
+            const npc = interior.npcs.find((entry) => entry.id === interiorApproachId);
+            const here = interiorSpotRef.current;
+            const adjacent = npc && Math.max(Math.abs(npc.position.x - here.x), Math.abs(npc.position.y - here.y)) <= 1;
+            if (npc && adjacent) speakToInteriorNpc(npc);
+            else setInteriorApproachId(null);
+        }, 90);
+        return () => window.clearTimeout(timer);
+    }, [interior, interiorApproachId, interiorMovementLocked, interiorPath, speakToInteriorNpc]);
+
     // The same walk, one room in. A refused step drops the rest of the path
     // rather than teleporting the remainder from a cell nobody is standing on.
     useEffect(() => {
@@ -5356,6 +5485,10 @@ export function FirstPact({
                 occupied.add(firstPactPointKey(playerRef.current));
                 for (const definition of FIRST_PACT_NPCS) {
                     if (definition.behavior !== "wander") continue;
+                    // Someone crossing the square to reach you waits for you.
+                    // Without this a wanderer walks out from under the click
+                    // that chose them and the approach becomes a chase.
+                    if (definition.id === approachRef.current) continue;
                     const state = nextState[definition.id];
                     if (state.wait > 0) {
                         nextState[definition.id] = { ...state, wait: state.wait - 1 };
@@ -5412,6 +5545,7 @@ export function FirstPact({
         // not the city's, so the tile under the tap is read through that one.
         if (interior && interiorCamera) {
             if (interiorMovementLocked) return;
+            cancelApproach();
             walkInteriorTo({
                 x: Math.floor((event.clientX - rect.left + interiorCamera.x) / FIRST_PACT_TILE_SIZE),
                 y: Math.floor((event.clientY - rect.top + interiorCamera.y) / FIRST_PACT_TILE_SIZE),
@@ -5420,12 +5554,11 @@ export function FirstPact({
         }
         if (movementLocked) return;
         const camera = cameraRef.current;
-        const goal = {
+        // A tap on the ground means go there, not go and talk.
+        walkTo({
             x: Math.floor((event.clientX - rect.left + camera.x) / FIRST_PACT_TILE_SIZE),
             y: Math.floor((event.clientY - rect.top + camera.y) / FIRST_PACT_TILE_SIZE),
-        };
-        const blocked = new Set(Object.values(npcRef.current).map((entry) => firstPactPointKey(entry.position)));
-        setPlayerPath(findFirstPactPath(playerRef.current, goal, blocked));
+        });
     };
 
     /*
@@ -5734,14 +5867,15 @@ export function FirstPact({
                             className={`fp-actor fp-npc fp-palette-${npc.palette}${near ? " is-near" : ""}`}
                             style={{ transform: `translate3d(${state.position.x * FIRST_PACT_TILE_SIZE + 24}px, ${state.position.y * FIRST_PACT_TILE_SIZE + 24}px, 0)` }}
                             onPointerDown={(event) => event.stopPropagation()}
-                            tabIndex={near ? 0 : -1}
+                            tabIndex={0}
                             onClick={() => {
-                                if (!near || movementLocked) return;
-                                setDialogNpc(npc);
-                                setDialogLine(0);
-                                setPlayerPath([]);
+                                if (movementLocked) return;
+                                // Near enough to speak, or a walk across the
+                                // square that ends in the same conversation.
+                                if (near) { speakTo(npc); return; }
+                                approachNpc(npc);
                             }}
-                            aria-label={`${npc.name}, ${npc.title}${near ? ". Interact" : ""}`}
+                            aria-label={`${npc.name}, ${npc.title}${near ? ". Interact" : ". Walk over"}`}
                         >
                             <span className="fp-actor-shadow" />
                             <span className="fp-npc-body">
@@ -5784,18 +5918,21 @@ export function FirstPact({
                             onPointerDown={(event) => event.stopPropagation()}
                             tabIndex={0}
                             onClick={() => {
-                                if (near) { interactInterior(); return; }
+                                if (near) { speakToInteriorNpc(npc); return; }
                                 // The token covers the floor under it, so a far
                                 // keeper would be a dead spot in a room you can
                                 // otherwise click across. Walk to their aisle,
-                                // on the side the player is already standing on.
+                                // on the side the player is already standing on,
+                                // and arriving there opens what they have to say.
                                 if (interiorMovementLocked) return;
                                 const taken = firstPactInteriorOccupied(interior);
                                 const [approach] = firstPactInteriorApproaches(interior, npc.position)
                                     .filter((cell) => !taken.has(`${cell.x},${cell.y}`))
                                     .sort((a, b) => (Math.abs(a.x - interiorSpot.x) + Math.abs(a.y - interiorSpot.y))
                                         - (Math.abs(b.x - interiorSpot.x) + Math.abs(b.y - interiorSpot.y)));
-                                if (approach) walkInteriorTo(approach);
+                                if (!approach) return;
+                                setInteriorApproachId(npc.id);
+                                walkInteriorTo(approach);
                             }}
                             aria-label={`${npc.name}, ${npc.title}${near ? ". Interact" : ". Walk over"}`}
                         >
@@ -5857,7 +5994,7 @@ export function FirstPact({
                     <span>{mainQuest.kicker}</span>
                     <strong>{mainQuest.title}</strong>
                     <p>{mainQuest.detail}</p>
-                    {mainQuest.target && <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => setPlayerPath(findFirstPactPath(playerRef.current, mainQuest.target!))}>Guide me</button>}
+                    {mainQuest.target && <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => walkTo(mainQuest.target!)}>Guide me</button>}
                     <div className="fp-side-objective"><span>{sideQuest.kicker}</span><strong>{sideQuest.title}</strong><small>{sideQuest.detail}</small></div>
                 </aside>}
 
@@ -5868,11 +6005,11 @@ export function FirstPact({
 
                 {entered && !criticCapture && <div className="fp-world-actions" onPointerDown={(event) => event.stopPropagation()}>
                     <button type="button" onClick={(event) => { event.stopPropagation(); void leave(); }}>Leave crossing</button>
-                    <button type="button" onClick={(event) => { event.stopPropagation(); setPlayerPath(findFirstPactPath(playerRef.current, { x: 42, y: 34 })); }}>Colosseum</button>
+                    <button type="button" onClick={(event) => { event.stopPropagation(); walkTo({ x: 42, y: 34 }); }}>Colosseum</button>
                     <button type="button" onClick={(event) => { event.stopPropagation(); setJournalOpen(true); }}>Chronicle</button>
                     {nextAftermath && nextAftermathNpc && <button type="button" onClick={(event) => {
                         event.stopPropagation();
-                        setPlayerPath(findFirstPactPath(playerRef.current, nextAftermathNpc.position));
+                        approachNpc(nextAftermathNpc);
                     }}>Walk back: {nextAftermath.title}</button>}
                     {progress.mainStep === "return-to-threshold" && district === "arrival-court" && <button type="button" className="fp-complete-crossing" onClick={(event) => { event.stopPropagation(); setEpiloguePage(0); }}>Complete the crossing</button>}
                 </div>}

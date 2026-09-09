@@ -932,6 +932,22 @@ export function isFirstPactWithinReach(
     return false;
 }
 
+/** Walkable cells cardinally touching a face, nearest to the walker first.
+ * A person's own tile is never a legal destination, so walking up to one means
+ * walking to the ground beside them, on the side you were already coming from.
+ * The street twin of `firstPactInteriorApproaches`. */
+export function firstPactApproaches(
+    target: FirstPactPoint,
+    from: FirstPactPoint = target,
+    blocked: ReadonlySet<number> = new Set(),
+): FirstPactPoint[] {
+    return CARDINALS
+        .map((step) => ({ x: target.x + step.x, y: target.y + step.y }))
+        .filter((cell) => isFirstPactWalkable(cell.x, cell.y) && !blocked.has(pointKey(cell)))
+        .sort((a, b) => (Math.abs(a.x - from.x) + Math.abs(a.y - from.y))
+            - (Math.abs(b.x - from.x) + Math.abs(b.y - from.y)));
+}
+
 /** A* over the same four-direction tile grid the avatar occupies. */
 export function findFirstPactPath(
     start: FirstPactPoint,
