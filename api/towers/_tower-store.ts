@@ -1,3 +1,4 @@
+import { creditElderWins } from '../../shared/elder-elections.js';
 /*
  * Battle Towers — KV storage + server-authoritative reward settlement (Phase 1, P1.B).
  *
@@ -421,7 +422,9 @@ export async function settleFloorForMember(
             if (await kv.get(firstReceipt)) {
                 result = { paid: false, reason: 'already-first-cleared', score }; return;
             }
-            const updated = creditFloorClear(char, reward, score, floor.id);
+            const cleared = creditFloorClear(char, reward, score, floor.id);
+            const updated = session.actors.some(actor => actor.ownerSlug === slug && !actor.ai)
+                ? creditElderWins(cleared, 0, 1, now()) : cleared;
             try {
                 const written = await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }), record));
                 if (written === null) throw new Error('Tower floor settlement save was not committed.');
@@ -650,7 +653,9 @@ export async function settleSpireForMember(
             const weeklyPaid = embeddedWeeklyPaid || externalWeeklyPaid;
             const shards = weeklyPaid ? 0 : SPIRE_SHARDS_PER_TIER;
 
-            const credited = creditSpireClear(char, tier, wk, shards);
+            const cleared = creditSpireClear(char, tier, wk, shards);
+            const credited = session.actors.some(actor => actor.ownerSlug === slug && !actor.ai)
+                ? creditElderWins(cleared, 0, 1, now()) : cleared;
             const updated = appendSettlementReceipt(credited, inspection.receipts, {
                 ...identity,
                 value: { runId: session.runId, tier, weekKey: wk, shards },

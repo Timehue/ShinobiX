@@ -2,7 +2,7 @@
  * Who holds a sector's garrison — the one answer all three win-conditions share.
  *
  * The Combat garrison already had this rule inline in api/village/sector-war.ts:
- * the defending village's appointed ANBU, or — when a village has not appointed
+ * the defending village's current ANBU, or — when a village has not appointed
  * any yet — its seated Kage, who is also a real appointed leader. Without the
  * Kage fallback a village could leave its garrison permanently unassaultable
  * simply by never appointing ANBU, which is the same "absent defence wins by
@@ -26,7 +26,7 @@ import { loadAnbuAppointees, pickAnbuDefender } from './_anbu-infiltration-store
 export interface GarrisonDefender {
     /** safeName slug of the player whose sealed kit defends this sector. */
     slug: string;
-    /** True when no ANBU were appointed and the seated Kage stood in. */
+    /** True when no ANBU seats are occupied and the seated Kage stood in. */
     byKage: boolean;
 }
 
@@ -37,12 +37,14 @@ function kageKey(village: string): string {
 /** The seated Kage of a village, or '' when the seat is empty. */
 export async function seatedKageOf(village: string): Promise<string> {
     const st = await kv.get<{ seatedKage?: string }>(kageKey(village));
-    return safeName(st?.seatedKage ?? '');
+    const name = safeName(st?.seatedKage ?? '');
+    const save = name ? await kv.get<{ character?: { village?: string } }>(`save:${name}`) : null;
+    return String(save?.character?.village ?? '').trim().toLowerCase() === village.trim().toLowerCase() ? name : '';
 }
 
 /**
  * Choose the player whose sealed kit defends `village`'s garrison, or null when
- * the village has neither appointed ANBU nor a seated Kage.
+ * the village has neither current ANBU nor a seated Kage.
  *
  * A null is a real refusal, not a fallback to nobody: a village with no leader
  * at all fields no garrison, and the caller must say so rather than inventing a

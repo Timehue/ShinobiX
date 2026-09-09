@@ -1,10 +1,16 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { sanitizePvpItems, sanitizeJutsuList } from './session.js';
+import { sanitizePvpItems, sanitizeJutsuList, stripNonCombatFields } from './session.js';
 
 type Item = Record<string, unknown>;
 
 const pick = (out: unknown[]): Item => out[0] as Item;
+
+it('opponent combat snapshots omit council win history and ranked settlement receipts', () => {
+    const character = { name: 'Rin', stats: { speed: 20 }, elderWinDays: [{ pvp: 1 }], elderRankedWinReceipts: [{ id: 'private-match' }] };
+    assert.deepEqual(stripNonCombatFields(character), { name: 'Rin', stats: { speed: 20 } });
+    assert.equal(character.elderWinDays.length, 1);
+});
 
 describe('sanitizePvpItems', () => {
     it('returns [] for non-array input', () => {

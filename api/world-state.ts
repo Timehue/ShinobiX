@@ -1,3 +1,4 @@
+import { readVillageAnbu } from './village/_anbu.js';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { MAX_WILD_SECTOR } from '../shared/sector-geo.js';
@@ -441,10 +442,7 @@ function clanActorCanManageTerritory(clan: Record<string, unknown>, actor: strin
 
 async function actorIsAppointedVillageAnbu(actor: string, actorVillage: string, territoryVillage: string): Promise<boolean> {
     if (!actorVillage || actorVillage.toLowerCase() !== territoryVillage.toLowerCase()) return false;
-    const slug = territoryVillage.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const state = await kv.get<{ anbuAppointees?: unknown }>(`game:village-state:${slug}`);
-    const appointees = Array.isArray(state?.anbuAppointees) ? state.anbuAppointees : [];
-    return appointees.some((name) => safeName(String(name ?? '')) === actor);
+    return (await readVillageAnbu(territoryVillage)).members.some(name => safeName(name) === actor);
 }
 
 function preserveServerTerritoryLifecycle(
@@ -753,6 +751,14 @@ export async function mutableVillageWarEnemiesOf(village: string): Promise<strin
         if (enemy) out.push(enemy);
     }
     return out;
+}
+
+/** Live hostility for combat bonuses; a settling mercenary strike does not end the war. */
+export async function villagesAreAtWar(village: string, enemyVillage: string): Promise<boolean> {
+    if (!village || !enemyVillage || village === enemyVillage) return false;
+    const war = await kv.get<VillageWar>(`${VILLAGE_WAR_KEY_PREFIX}${villageWarId(village, enemyVillage)}`);
+    return warIsGameplayActive(war) && !war.endedAt && !warIsPending(war)
+        && war.villages.includes(village) && war.villages.includes(enemyVillage);
 }
 
 /** Active (non-ended, non-pending) village wars as village pairs. Used by the
@@ -1723,7 +1729,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 && clanActorIsMember(clanRec, actorSlug);
                             const actorIsAnbu = await actorIsAppointedVillageAnbu(actorSlug, actorVillage, prevVillage);
                             if (!actorInOwnerClan && !actorIsAnbu) {
-                                return res.status(403).json({ error: 'Only the owning clan or an appointed village ANBU may update this territory.' });
+                                return res.status(403).json({ error: 'Only the owning clan or a current village ANBU may update this territory.' });
                             }
 
                             // HP is combat/economy authority. Raids apply damage

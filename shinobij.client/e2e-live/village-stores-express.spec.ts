@@ -306,6 +306,29 @@ test('a village cook turns hunt spoils into Provisions and Materials the server 
         // ── 3. Town Hall → Treasury: donate rations into Provisions (UI) ──
         const baseline = await readStores(request, name, token);
         const treasury = await openTreasuryTab(page);
+        // A normal villager sees AI seats with zero focus and a read-only order
+        // board. Direct HTTP attempts must be refused by the real Express routes.
+        const tabs = page.getByRole('navigation', { name: 'Town Hall sections' });
+        await tabs.getByRole('button', { name: 'Council', exact: true }).click();
+        const council = panelFor(page, 'Village Elder Council');
+        await expect(council.getByText('0 bonus · No focus', { exact: true })).toHaveCount(3);
+        await expect(council.getByRole('button', { name: 'Select focus', exact: true })).toHaveCount(0);
+        await expect(council.getByRole('button', { name: 'Appoint', exact: true })).toHaveCount(0);
+        await tabs.getByRole('button', { name: 'Orders', exact: true }).click();
+        const orders = panelFor(page, 'Village Orders');
+        await expect(orders.getByRole('status')).toContainText('Orders are read-only.');
+        await expect(orders.getByRole('button', { name: 'Post Order', exact: true })).toHaveCount(0);
+        const blockedActions = [
+            { path: '/api/village/elder-focus', data: { playerName: name, focus: 'training' } },
+            { path: '/api/village/elder-focus', data: { playerName: name, focus: 'war', action: 'appoint', appointee: name } },
+            { path: '/api/village/anbu', data: { playerName: name, action: 'appoint', seat: 0, appointee: name } },
+            { path: '/api/village/orders', data: { playerName: name, action: 'post', id: 'forbidden-order', type: 'order', title: 'Hold', body: 'Hold the gate.' } },
+        ];
+        for (const action of blockedActions) {
+            const blocked = await request.post(action.path, { headers: playerHeaders(name, token), data: action.data });
+            expect(blocked.status(), `${action.path} must enforce leadership on the server`).toBe(403);
+        }
+        await tabs.getByRole('button', { name: 'Treasury', exact: true }).click();
         const provisionsRow = treasury.getByText(/^Provisions:\s*[\d,]+ rations$/);
         const materialsRow = treasury.getByText(/^Materials:\s*[\d,]+ materials$/);
         await expect(provisionsRow).toHaveText(`Provisions: ${baseline.provisions.toLocaleString('en-US')} rations`);

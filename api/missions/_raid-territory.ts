@@ -1,3 +1,4 @@
+import { readVillageAnbu } from '../village/_anbu.js';
 import { safeName } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
 import { kv } from '../_storage.js';
@@ -349,12 +350,7 @@ export async function settleRaidTerritoryDamage(params: {
                 const controlsTerritory = (!!ownerClan && ownerClan === playerClan)
                     || (!!ownerVillage && ownerVillage === playerVillage);
                 if (ownerClan && !controlsTerritory) {
-                const villageState = await kv.get<{ anbuAppointees?: unknown }>(
-                    `game:village-state:${villageSlug(ownerVillage)}`,
-                );
-                const anbu = new Set(Array.isArray(villageState?.anbuAppointees)
-                    ? villageState!.anbuAppointees!.map((name) => safeName(String(name))).filter(Boolean)
-                    : []);
+                const anbu = new Set((await readVillageAnbu(ownerVillage)).members.map(safeName));
                 const anbuCount = guards.filter((guard) => anbu.has(guard)).length;
                 amount = anbuCount > 0 ? Math.max(50, 250 - anbuCount * 50) : guards.length > 0 ? 150 : 250;
                 }

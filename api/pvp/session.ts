@@ -1,3 +1,4 @@
+import { readVillageAnbu } from '../village/_anbu.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import type { ActionReceipt } from '../_receipts.js';
 import { createHash, randomUUID, randomBytes } from 'crypto';
@@ -973,6 +974,7 @@ const SESSION_STRIP_CHAR_FIELDS = new Set<string>([
     'lastBankInterestAt',
     'creatorAis', 'creatorEvents', 'creatorMissions', 'creatorRaids', 'creatorCards',
     'defeatedAiIds', 'elderFocus', 'examsPassed',
+    'elderWinDays', 'elderRankedWinReceipts',
     'triggeredEvents',
     // Story-only persistence
     'storyTraits', 'storyTitle', 'storyProgress',
@@ -1295,6 +1297,8 @@ function resolveEquippedPvpItems(
 export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>, clientCharacter: Record<string, unknown>, save: Record<string, unknown> | null = null, admin: AdminCombatContent | null = null): Record<string, unknown> {
     // Start with the save (server is authority for HP, level, stats, etc.).
     const merged: Record<string, unknown> = { ...saveCharacter };
+    // This is a session-only stamp, added after field-war authority is checked.
+    merged.elderWarDefensePct = 0;
     // For derived fields the client computes, fall back to the client value
     // only when the save doesn't have a usable value. All within safe bounds.
     const pickClamped = (saveVal: unknown, clientVal: unknown, min: number, max: number, fb: number) => {
@@ -1524,6 +1528,7 @@ function clampStatsObject(raw: unknown): Record<string, number> {
 // arena PvP-vs-AI flows that don't persist.
 function hydrateNpcCharacter(clientCharacter: Record<string, unknown>): Record<string, unknown> {
     const out: Record<string, unknown> = { ...clientCharacter };
+    out.elderWarDefensePct = 0;
     out.bloodlineMult = clampNumber(out.bloodlineMult, 1.0, 3.0, 1.0);
     out.armorFactor = clampNumber(out.armorFactor, 0.25, 1.0, 1.0);
     out.armorRawDR = clampNumber(out.armorRawDR, 0, 1.5, 0);
@@ -2237,6 +2242,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
 
+            // Always replace this field: neither a saved/client combat stamp nor
+            // an arena invitation may manufacture a wartime council bonus.
+            finalP1Character.elderWarDefensePct = 0;
+            finalP2Character.elderWarDefensePct = 0;
+            if (useCurrentVitals === true && p1Save?.character && p2Save?.character) {
+                const { elderWarDefensePct } = await import('../village/_elder-defense.js');
+                const first = p1Save.character as Record<string, unknown>;
+                const second = p2Save.character as Record<string, unknown>;
+                const [p1Defense, p2Defense] = await Promise.all([
+                    elderWarDefensePct(first, second.village), elderWarDefensePct(second, first.village),
+                ]);
+                finalP1Character.elderWarDefensePct = p1Defense;
+                finalP2Character.elderWarDefensePct = p2Defense;
+            }
+
             // ── Seal the defending guard's Town Defense bonus ────────────────
             // Only for continuous (sector / guard) fights, only for the DEFENDER
             // (the fighter who is NOT the session creator / attacker), and only
@@ -2497,13 +2517,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         : [];
                     let raidDamage = 0;
                     if (ownerClan && !controls) {
-                        const villageKey = ownerVillage.toLowerCase().replace(/[^a-z0-9]/g, '');
-                        const villageState = await kv.get<{ anbuAppointees?: unknown }>(
-                            `game:village-state:${villageKey}`,
-                        );
-                        const anbu = new Set(Array.isArray(villageState?.anbuAppointees)
-                            ? villageState.anbuAppointees.map((name) => safeName(String(name))).filter(Boolean)
-                            : []);
+                        const anbu = new Set((await readVillageAnbu(ownerVillage)).members.map(safeName));
                         const anbuCount = guards.filter((guard) => anbu.has(guard)).length;
                         raidDamage = anbuCount > 0
                             ? Math.max(50, 250 - anbuCount * 50)

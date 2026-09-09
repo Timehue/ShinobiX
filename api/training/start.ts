@@ -1,3 +1,4 @@
+import { reconcileElderFocus } from '../village/_elders.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { recordBetaFunnelStep } from '../_beta-funnel.js';
 import { randomUUID } from 'node:crypto';
@@ -184,8 +185,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await withKvLock(saveKey, async () => {
             for (let attempt = 0; attempt < MAX_SAVE_CAS_ATTEMPTS; attempt += 1) {
                 const record = await kv.get<Record<string, unknown>>(saveKey);
-                const character = record?.character as Record<string, unknown> | undefined;
-                if (!record || !character) return { ok: false as const, status: 404, error: 'Player save not found.' };
+                const storedCharacter = record?.character as Record<string, unknown> | undefined;
+                if (!record || !storedCharacter) return { ok: false as const, status: 404, error: 'Player save not found.' };
+                const character = await reconcileElderFocus(storedCharacter);
 
                 const prior = normalizeActiveTrainingSession(record.activeTraining);
                 if (activeTrainingBlocksStart(prior)) {

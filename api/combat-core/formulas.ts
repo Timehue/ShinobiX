@@ -437,6 +437,7 @@ export type DirectDamageNumberInput = {
     effectiveDR: number;
     ampMultiplier: number;
     guardDefensePct?: unknown;
+    elderWarDefensePct?: unknown;
 };
 
 export function directDamageNumberFormula(input: DirectDamageNumberInput): number {
@@ -445,7 +446,9 @@ export function directDamageNumberFormula(input: DirectDamageNumberInput): numbe
     }
     const base = Math.max(0, Math.floor(input.damageIn * (1 - input.effectiveDR) * input.ampMultiplier));
     const guardMit = guardDefenseMitigationPct(input.guardDefensePct);
-    return guardMit > 0 ? Math.max(0, Math.floor(base * (1 - guardMit))) : base;
+    const guarded = guardMit > 0 ? Math.max(0, Math.floor(base * (1 - guardMit))) : base;
+    const elderMit = Math.min(1, Math.max(0, Number(input.elderWarDefensePct) || 0)) / 100;
+    return elderMit > 0 ? Math.max(0, Math.floor(guarded * (1 - elderMit))) : guarded;
 }
 
 export function healMultiplierFromStatuses(

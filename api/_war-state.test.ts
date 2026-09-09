@@ -8,6 +8,7 @@ import {
     activeMercLeases,
     totalUpkeepWr,
     canSetTerrain,
+    reconcileTerrainLeadership,
     terrainSetCountFor,
     STRUCTURE_KEYS,
     MAX_SECTORS_PER_WIN_CONDITION,
@@ -247,4 +248,17 @@ describe('war-state: storesReceipts retention', () => {
         assert.equal(kept.length, STORES_RECEIPT_MAX_ENTRIES);
         assert.ok(kept.includes('some-future-receipt:399')); // newest stamps survive
     });
+});
+
+
+it('terrain authority releases former officeholders and reduces a demoted Kage to one Elder sector', () => {
+    const record = defaultVillageWarRecord('Frostfang Village');
+    const [a, b, c, d] = HOME_SECTORS['Frostfang Village'];
+    record.terrainSetBy = { [a]: 'Old Kage', [b]: 'Old Kage', [c]: 'Old Kage', [d]: 'Former Elder' };
+    const terrains = JSON.stringify(record.sectors);
+    reconcileTerrainLeadership(record, 'New Kage', ['Old Kage']);
+    assert.deepEqual(record.terrainSetBy, { [a]: 'oldkage' });
+    assert.equal(JSON.stringify(record.sectors), terrains);
+    assert.equal(canSetTerrain(record, b, 'oldkage', 'elder').error, 'quota-reached');
+    assert.equal(canSetTerrain(record, b, 'newkage', 'kage').ok, true);
 });

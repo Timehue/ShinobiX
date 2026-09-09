@@ -104,7 +104,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     // here — see the category note at the top.
     // Lifetime / leaderboard counters
     'totalPvpKills', 'totalAiKills', 'totalVillageRaids', 'warsWon', 'warMvpCount',
-    'lifetimeWarDamage', 'monthlyPvpKills', 'dailyAiKills', 'totalPetWins',
+    'lifetimeWarDamage', 'monthlyPvpKills', 'pvpKillMonth', 'elderWinDays', 'elderRankedWinReceipts', 'dailyAiKills', 'totalPetWins',
     'battleTowerBestFloor', 'battleTowerRating', 'battleTowerClearedFloors',
     'totalTournamentsCompleted', 'totalTilesExplored', 'hollowGateWardenKills',
     'rankedWins', 'rankedLosses', 'villageWarMissionsCompleted', 'totalMissionsCompleted',

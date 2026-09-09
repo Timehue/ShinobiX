@@ -1,4 +1,5 @@
 import type { KvLike } from '../_storage.js';
+import { creditRankedElderWin } from '../village/_elder-ranked-win.js';
 import { PVP_TERMINAL_REPLAY_TTL, SESSION_TTL } from '../combat-core/constants.js';
 import {
     completePlayerRankedAdmission,
@@ -105,6 +106,11 @@ export async function confirmPlayerRankedTerminalEffects(
         && session.winner
         && session.winner !== 'draw'
         && pvpSessionMayGrantProgress(session)) {
+        const terminal = settled.journal.terminal;
+        if (terminal.winner === 'a' || terminal.winner === 'b') {
+            await creditRankedElderWin(store, options.lock, terminal[terminal.winner], terminal.battleId,
+                terminal.terminalAt, options.now ?? Date.now());
+        }
         // Ranked Vanguard progression is part of the same discoverable saga.
         // Failure must leave the terminal admission/session durable so a move,
         // claim, queue sweep, or season close can retry before compaction.

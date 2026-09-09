@@ -1,8 +1,10 @@
+import { creditElderWinDeltas } from '../../shared/elder-elections.js';
 import { bumpSaveVersion } from './_save-version.js';
 import { isDeepStrictEqual } from 'node:util';
 import type { KvLike } from '../_storage.js';
 import { WORLD_CRISIS_TRIGGER_LEVEL } from '../../shared/world-crisis.js';
 import { WORLD_CRISIS_80_TRIGGER_LEVEL } from '../../shared/world-crisis-80.js';
+import { reconcileElderFocus } from '../village/_elders.js';
 
 export type PlayerSaveRecord = Record<string, unknown>;
 export type PlayerCharacter = Record<string, unknown>;
@@ -34,7 +36,7 @@ export function versionedPlayerRecord(
     recordPatch: PlayerSaveRecord = {},
     opts: VersionedWriteOptions = {},
 ): { record: PlayerSaveRecord; _saveVersion: number } {
-    const record: PlayerSaveRecord = bumpSaveVersion<PlayerSaveRecord>({ ...currentRecord, ...recordPatch, character: nextCharacter }, opts);
+    const record: PlayerSaveRecord = bumpSaveVersion<PlayerSaveRecord>({ ...currentRecord, ...recordPatch, character: creditElderWinDeltas((currentRecord.character ?? {}) as PlayerCharacter, nextCharacter) }, opts);
     return { record, _saveVersion: Number(record._saveVersion ?? 0) };
 }
 
@@ -70,6 +72,16 @@ export async function writeVersionedPlayerSave(
 ): Promise<{ record: PlayerSaveRecord; _saveVersion: number }> {
     const { kv } = await import('../_storage.js');
     const out = await writeVersionedPlayerSaveWithStore(kv, saveKey, currentRecord, nextCharacter, recordPatch, opts);
+    const beforeCharacter = currentRecord.character as PlayerCharacter | undefined;
+    if (['village', 'level', 'monthlyPvpKills', 'pvpKillMonth', 'totalPvpKills'].some(field => beforeCharacter?.[field] !== nextCharacter[field])) {
+        // ANBU ranking must see committed PvP results and village changes even
+        // before the owner's next generic autosave refreshes the public index.
+        try {
+            const { buildPublicPlayerIndexEntry, isPublicPlayerIndexKey, REGISTRY_KEY } = await import('../player/_public-index.js');
+            const name = saveKey.slice('save:'.length);
+            if (isPublicPlayerIndexKey(name)) await kv.hset(REGISTRY_KEY, { [name]: buildPublicPlayerIndexEntry(nextCharacter, name) });
+        } catch (error) { console.warn('[village-roles] public ranking refresh deferred:', error); }
+    }
     // Project the currency slice into its side-car ledger (P0-5). The blob
     // above is and stays authoritative; this only builds the evidence a future
     // read cutover needs. It costs nothing when the write did not move
@@ -157,7 +169,7 @@ export async function mutatePlayerSave<T>(
         // pet shape while another sees the migrated schema.
         const migrated = migrateCharacterOwnedPets(playerName, settledCharacter);
         const settled = settlePetBreedingSession(migrated.character);
-        const character = settled.character;
+        const character = await reconcileElderFocus(settled.character);
 
         const decision = await mutate({ playerName, saveKey, record: regen.record, character });
         if (!decision.ok) return decision;
@@ -192,7 +204,7 @@ export async function mutatePlayerSave<T>(
             ok: true as const,
             value: decision.value,
             record: out.record,
-            character: decision.character,
+            character: out.record.character as PlayerCharacter,
             _saveVersion: out._saveVersion,
         };
     }, { failClosed: true });

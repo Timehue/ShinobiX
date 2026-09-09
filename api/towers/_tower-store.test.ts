@@ -107,12 +107,13 @@ describe('Battle Towers run token (single-use, atomic)', () => {
 describe('Battle Towers per-member settlement (server-authoritative, idempotent)', () => {
     it('credits the sealed floor reward + score once', async () => {
         const kv = fakeKv();
-        seedSave(kv, 'alice', { ryo: 50 });
+        seedSave(kv, 'alice', { ryo: 50, village: 'Frostfang Village' });
         const res = await settleFloorForMember({ session: makeSession('run1', 1, 'alice'), slug: 'alice' }, { kv, lock: passLock, now });
         assert.equal(res.paid, true);
         const c = charOf(kv, 'alice');
         assert.equal(c.ryo, 450, 'ryo += sealed 400');
         assert.equal(c.battleTowerBestFloor, 1);
+        assert.deepEqual(c.elderWinDays, [{ day: new Date(NOW).toISOString().slice(0, 10), village: 'frostfangvillage', pvp: 0, pve: 1 }]);
         assert.equal(c.battleTowerRating, res.score);
         assert.ok((res.score ?? 0) > 0);
         assert.deepEqual(c.battleTowerClearedFloors, [1]);
@@ -121,12 +122,13 @@ describe('Battle Towers per-member settlement (server-authoritative, idempotent)
 
     it('a second settle of the SAME run pays nothing (per-run NX receipt)', async () => {
         const kv = fakeKv();
-        seedSave(kv, 'alice');
+        seedSave(kv, 'alice', { village: 'Frostfang Village' });
         await settleFloorForMember({ session: makeSession('run1', 1, 'alice'), slug: 'alice' }, { kv, lock: passLock, now });
         const ryo1 = charOf(kv, 'alice').ryo;
         const res2 = await settleFloorForMember({ session: makeSession('run1', 1, 'alice'), slug: 'alice' }, { kv, lock: passLock, now });
         assert.equal(res2.reason, 'already-paid');
         assert.equal(charOf(kv, 'alice').ryo, ryo1);
+        assert.equal((charOf(kv, 'alice').elderWinDays as any[])[0].pve, 1);
     });
 
     it('the one-time gate is FORGERY-PROOF: emptying the client cleared-array does NOT re-pay (C1)', async () => {

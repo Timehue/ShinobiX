@@ -24,12 +24,21 @@ export type ServerQueuedJutsuTraining = {
 };
 
 const whole = (value: unknown): number => Math.max(0, Math.floor(Number(value) || 0));
+/** The mutation layer has already reconciled elderFocus against occupied seats. */
+export function jutsuTrainingBonusPct(character: Record<string, unknown>): number {
+    const upgrades = character.villageUpgrades as Record<string, unknown> | undefined;
+    const village = Math.min(50, whole(upgrades?.jutsuTraining)) * 0.25;
+    const equipment = character.equipment as Record<string, unknown> | undefined;
+    const auraEquipped = equipment?.aura === 'aura-sphere' || equipment?.accessory === 'aura-sphere';
+    const aura = auraEquipped ? (whole(character.auraSphereLevel) >= 250 ? 10 : whole(character.auraSphereLevel) >= 150 ? 5 : 0) : 0;
+    return village + aura + (character.elderFocus === 'training' ? 10 : 0);
+}
 export const jutsuRyoTrainingCost = (levelRaw: unknown): number => {
     const level = whole(levelRaw);
     return level < 10 ? 2500 + level * 500 : 8000 + Math.max(0, level - 10) * 1200;
 };
 /**
- * `bonusPct` is the player's own (client-reported, hard-clamped) training bonus.
+ * `bonusPct` is the player's training bonus derived from the authoritative save.
  * `moraleTimeMult` is the village's war MORALE, resolved SERVER-SIDE — a separate
  * multiplier on purpose: folding morale into `bonusPct` made the server-owned window
  * could only ever shave an existing bonus, so a player without one felt the

@@ -312,6 +312,8 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('villageUpgrades', 'character', 'server-clamped', 'village', [], 'MIRROR of the SHARED village-state .upgrades (village upgrades are village-wide infrastructure bought from the treasury seal pool, api/village/_upgrade.ts); cross-validated against game:village-state:<slug> whenever it changes. Drives bank interest, mission rewards, shop discount, training rate and more'),
 
     // ── Lifetime / leaderboard counters (client delta 0) ────────────────────
+    f('elderWinDays', 'character', 'server-owned', 'village', ['server-mirror-char', 'combat-strip-char'], 'Verified combat wins by UTC day and village; council elections use the completed 30-day term'),
+    f('elderRankedWinReceipts', 'character', 'server-owned', 'village', ['server-mirror-char', 'combat-strip-char'], 'Ranked win election credit replay protection'),
     f('totalPvpKills', 'character', 'server-owned', 'counters', ['lifetime-counter-char', 'combat-strip-char']),
     f('totalAiKills', 'character', 'server-owned', 'counters', ['lifetime-counter-char', 'combat-strip-char']),
     f('totalVillageRaids', 'character', 'server-owned', 'counters', ['lifetime-counter-char', 'combat-strip-char']),
@@ -360,7 +362,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('dailyPetWins', 'character', 'server-clamped', 'dailies', ['combat-strip-char'], 'floored at stored within the same UTC day; bounds the pet-arena ryo faucet'),
     f('dailyTilesExplored', 'character', 'client-state', 'dailies', ['combat-strip-char']),
     f('dailyFateSpins', 'character', 'client-state', 'dailies', ['combat-strip-char']),
-    f('pvpKillMonth', 'character', 'client-state', 'pvp', ['combat-strip-char']),
+    f('pvpKillMonth', 'character', 'server-owned', 'pvp', ['server-mirror-char', 'combat-strip-char'], 'PvP settlement owns the month paired with monthlyPvpKills; clients cannot roll old kills into a new ANBU month'),
     f('villageWarMissionDate', 'character', 'server-payout-stamp', 'village-war', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'server-owned daily war-ground progress day; claim-rewards and village war-mission only'),
     f('villageWarRaidProgress', 'character', 'server-payout-stamp', 'village-war', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'server-owned war-ground progress; cannot be forged through generic save'),
     f('professionChosenAt', 'character', 'server-owned', 'profession', ['combat-strip-char']),

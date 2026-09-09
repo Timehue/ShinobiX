@@ -1,3 +1,4 @@
+import { creditElderWinDeltas } from '../../shared/elder-elections.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName, mergePreservingImages } from '../_utils.js';
@@ -395,6 +396,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // remaining ~120 s while staying un-raidable yourself. attack.ts
             // already closes that on the online raid door; this is the other one.
             if (rewardEligible || attackerShielded) {
+                updatedAttacker = creditElderWinDeltas(aChar, updatedAttacker);
                 const attackerRecord = bumpSaveVersion({ ...aRec, character: updatedAttacker });
                 // Hand the bumped version back so the caller can ADOPT it. Without
                 // it the open tab keeps its pre-KO version, and the recovery is the
@@ -405,6 +407,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const nextVersion = Number(attackerRecord._saveVersion);
                 if (Number.isFinite(nextVersion)) attackerSaveVersion = nextVersion;
                 await kv.set(`save:${attackerSlug}`, mergePreservingImages(attackerRecord, aRec));
+                // ANBU earned seats follow these server-owned PvP counters immediately.
+                try {
+                    const { buildPublicPlayerIndexEntry, REGISTRY_KEY } = await import('./_public-index.js');
+                    await kv.hset(REGISTRY_KEY, { [attackerSlug]: buildPublicPlayerIndexEntry(updatedAttacker, attackerSlug) });
+                } catch (error) { console.warn('[sleeper-kill] ANBU ranking refresh deferred:', error); }
             }
 
             return {

@@ -75,7 +75,7 @@ const FROZEN = {
         // Relic-survey quest bookkeeping — non-combat, so stripped from the
         // sealed fighter snapshot like every other progress counter.
         'relicSurvey', 'relicSurveyCount',
-        'totalPvpKills', 'monthlyPvpKills', 'pvpKillMonth',
+        'totalPvpKills', 'monthlyPvpKills', 'pvpKillMonth', 'elderWinDays', 'elderRankedWinReceipts',
         'dailyAiKills', 'dailyPetWins', 'dailyTilesExplored', 'dailyMissionsCompleted',
         'dailyFateSpins', 'lastDailyReset',
         'claimedVillageAgendaDate', 'claimedMapControlDate', 'warGroundBountyDate',
@@ -184,6 +184,8 @@ const FROZEN = {
     // (exploration trio, chest trio, achievements quad, endless seven) — now
     // one uniform mirror loop; semantics per group were identical.
     SERVER_MIRRORED_CHARACTER_FIELDS: [
+        'elderWinDays', 'elderRankedWinReceipts',
+        'pvpKillMonth', // Monthly ANBU rankings must not accept a client-written reset month.
         'serverExploreDate', 'serverExploresToday', 'serverFreeDungeonProbeDate', 'serverFreeDungeonProbesToday', 'redeemedSectorExplorations',
         'serverChestDate', 'serverChestsToday', 'redeemedAncientChests',
         // Relic survey: world/explore appends the biome, quest accept resets it.

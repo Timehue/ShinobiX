@@ -39,10 +39,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const character = (save?.character ?? null) as Record<string, unknown> | null;
         if (!character) return res.status(404).json({ error: 'Player not found.' });
         const stateKey = `game:village-state:${slug(character.village)}`;
+        const kageKey = `village:kage:${String(character.village ?? '').toLowerCase().replace(/\s+/g, '-')}`;
 
-        const out = await withKvLock<{ status: number; body: Record<string, unknown> }>(stateKey, async () => {
+        const out = await withKvLock(kageKey, () => withKvLock<{ status: number; body: Record<string, unknown> }>(stateKey, async () => {
             const state = (await kv.get<Record<string, unknown>>(stateKey)) ?? {};
-            if (!identity.admin && safeName(String(state.seatedKage ?? '')) !== playerName) {
+            const kage = await kv.get<{ seatedKage?: string }>(kageKey);
+            const actor = await kv.get<{ character?: { village?: string } }>(`save:${playerName}`);
+            if (slug(actor?.character?.village) !== slug(character.village)) return { status: 409, body: { error: 'Your village changed. Refresh Town Hall.' } };
+            if (!identity.admin && safeName(String(kage?.seatedKage ?? '')) !== playerName) {
                 return { status: 403, body: { error: 'Only the seated Kage can upgrade village structures.' } };
             }
             const result = purchaseVillageUpgrade(state, body.key);
@@ -64,7 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     treasuryHonorSeals: result.nextSeals,
                 },
             };
-        }, { failClosed: true });
+        }, { failClosed: true }), { failClosed: true });
 
         // Economy telemetry — a village upgrade permanently destroys Honor Seals
         // from the shared treasury. It is the single largest seal sink in the game

@@ -350,6 +350,8 @@ describe('Anbu roster + snapshot', () => {
         // name slugs differently ('Anbu Two' → 'anbutwo') — matching how
         // _war-role.ts compares appointees (lowercase-exact, not fuzzy).
         kv.store.set(villageStateKey(VILLAGE), { anbuAppointees: ['Anbu-One', 'anbu-one', 'Anbu Two', '', null] });
+        seedSave(kv, 'anbu-one', { village: VILLAGE });
+        seedSave(kv, 'anbutwo', { village: VILLAGE });
         const list = await loadAnbuAppointees(VILLAGE, deps(kv));
         assert.deepEqual(list, ['anbu-one', 'anbutwo']);
     });

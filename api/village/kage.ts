@@ -87,7 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const lastActiveAt = saveAtFromRecord(await kv.get<unknown>(`save:${safeName(state.seatedKage)}`).catch(() => null));
                 if (lastActiveAt != null) activity = { kageLastActiveAt: lastActiveAt, kageInactiveAt: kageInactiveAt(lastActiveAt) };
             }
-            res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
+            res.setHeader('Cache-Control', 'private, no-store');
             return res.status(200).json({ ...state, ...(activity ?? {}) });
         } catch (err) {
             console.error('[village/kage]', err);

@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { versionedPlayerRecord } from '../save/_mutate-player-save.js';
 import { applyAiFightSecondaryRewards } from './_ai-fight-secondary.js';
 import { createAiFightTokenRecord } from './_ai-fight-token.js';
 
@@ -61,4 +62,15 @@ describe('_ai-fight-secondary', () => {
         const next = applyAiFightSecondaryRewards({ ...base, masterySpec: { ironclad: 1 } }, token, true, true);
         assert.equal(next.boneCharms, 4);
     });
+});
+
+
+it('only eligible PvE victories credit the council win ledger in the authoritative save', () => {
+    const character = { ...base, village: 'Frostfang Village' };
+    for (const [battleKind, eligible, expected] of [['world', true, 1], ['raidAi', true, 1], ['dungeon', true, 1], ['practice', true, 0], ['mission', false, 0]] as const) {
+        const token = createAiFightTokenRecord('P', 't', 1, { battleKind });
+        const awarded = applyAiFightSecondaryRewards(character, token, eligible);
+        const saved = versionedPlayerRecord({ character }, awarded).record.character as Record<string, any>;
+        assert.equal(saved.elderWinDays?.[0]?.pve ?? 0, expected, battleKind);
+    }
 });

@@ -270,6 +270,8 @@ test('a legacy caller cannot create an invalid completed/server-pending receipt'
         await handler(legacyRequest as never, replay.res);
         assert.equal(replay.out.statusCode, 200);
         assert.equal(replay.out.body?.alreadyClaimed, true);
+        const player = (await kv.get<Record<string, any>>(`save:${winner}`))!.character;
+        assert.deepEqual(player.elderWinDays, [{ day: new Date(now).toISOString().slice(0, 10), village: 'leaf', pvp: 1, pve: 0 }]);
         const receipt = await kv.get<Record<string, unknown>>(claimKey);
         assert.equal(receipt?.completionState, 'completed');
         assert.equal(receipt?.serverCreditsState, 'completed');
