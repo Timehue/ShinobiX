@@ -1,3 +1,4 @@
+import { isSeatedVillageElder } from "./village-elder-focus";
 /*
  * Logbook objectives — the player's structured progression goals: the Academy
  * Training checklist (level 1-14 onboarding), two advancement gates (Genin and
@@ -73,7 +74,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
         examProctorExists = true,
         rogueNinjaExists = true,
         isKage = false,
-        isElder = Boolean(character.elderFocus),
+        isElder = isSeatedVillageElder(character),
     } = ctx;
 
     const ownedElements = getCharacterElements(character);
@@ -264,7 +265,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
             unlockLevel: 80,
             requirements: [
                 { label: "Kill 100 players in PvP", progress: character.totalPvpKills ?? 0, target: 100 },
-                { label: "Become Kage or Elder", progress: (isKage || isElder) ? 1 : 0, target: 1, detail: isKage ? `Seated Kage of ${character.village}` : isElder ? `${character.elderFocus} Elder` : "Not a Kage or Elder" },
+                { label: "Become Kage or Elder", progress: (isKage || isElder) ? 1 : 0, target: 1, detail: isKage ? `Seated Kage of ${character.village}` : isElder ? "Village Elder" : "Not a Kage or Elder" },
             ],
         });
     }

@@ -13,6 +13,7 @@ import {
 } from "./logbook-objectives";
 import { buildJourneyGuide } from "./journey-guide";
 import { onboardingStepAtLeast } from "./onboarding-step";
+import { cacheVillageElders } from "./village-elder-focus";
 
 // A minimal but type-complete save: only the fields the objective builder reads
 // matter; everything else is filled to satisfy the Character shape loosely via a
@@ -239,6 +240,17 @@ test("Special Jonin 'Become Kage or Elder' honors the env context", () => {
     const asKage = buildLogbookObjectives(base, { isKage: true }).find((objective) => objective.examKey === "specialJonin");
     assert.ok(objectiveComplete(asKage!), "seated Kage satisfies the standing requirement");
     assert.equal(currentLogbookObjective(base, { isKage: true }), null, "optional prestige never owns the required next objective");
+});
+
+test("Special Jonin elder standing follows player appointments, never a personal focus", () => {
+    const character = makeCharacter({ level: 80, village: 'Elder standing test', name: 'Rin', elderFocus: 'training', examsPassed: ['genin', 'chunin', 'jonin'], totalPvpKills: 100 });
+    const standing = () => buildLogbookObjectives(character).find(o => o.examKey === 'specialJonin')?.requirements.find(r => r.label === 'Become Kage or Elder')?.progress;
+    cacheVillageElders(character.village, ['', '', 'Mei'], Date.now() + 86400000);
+    assert.equal(standing(), 0);
+    cacheVillageElders(character.village, ['Rin', '', 'Mei'], Date.now() + 86400000);
+    assert.equal(standing(), 1);
+    cacheVillageElders(character.village, ['', '', 'Mei'], Date.now() + 86400000);
+    assert.equal(standing(), 0);
 });
 
 test("Journey Guide starts fresh Academy players at training", () => {

@@ -1,3 +1,4 @@
+import { activeElderFocus } from "../lib/village-elder-focus";
 /**
  * Shop family — item/equipment shop (ryo, with Town-Hall discount), card-pack
  * gacha, and the Grand Marketplace (Fate-Shard legendary/mythic items).
@@ -174,7 +175,7 @@ function ShopBase({
         ? <GameIcon name="shard" size={12} style={{ display: "inline-block", verticalAlign: "-2px", color: "#ce93d8" }} />
         : null;
     const wallet = currency === "fateShards" ? character.fateShards : character.ryo;
-    const shopDiscountPercent = currency === "ryo" ? getShopDiscountPercent(character) : (character.elderFocus === "trade" ? 5 : 0);
+    const shopDiscountPercent = currency === "ryo" ? getShopDiscountPercent(character) : (activeElderFocus(character) === "trade" ? 5 : 0);
     const getShopCost = (cost: number) => discountCost(cost, shopDiscountPercent);
 
     async function buy(item: GameItem, qty = 1) {
@@ -503,7 +504,7 @@ const PACK_CURRENCY_LABEL: Record<"chroniclePoints" | "fateShards", string> = {
 function CardPackSection({ character, currency, creatorCards, onVersionedCharacter, onOpenEchoesOfWar }: { character: Character; currency: "ryo" | "fateShards"; creatorCards: TileCard[]; onVersionedCharacter: VersionedCharacterCommit; onOpenEchoesOfWar?: () => void }) {
     // Chronicle Point packs have a fixed campaign price; only the Fate Shard
     // packs keep the elder trade discount (mirrors cardPackDiscountPercent).
-    const shopDiscountPercent = character.elderFocus === "trade" ? 5 : 0;
+    const shopDiscountPercent = activeElderFocus(character) === "trade" ? 5 : 0;
     const packCost = (packType: CardPackType, cost: number) =>
         PACK_CURRENCY[packType] === "chroniclePoints" ? cost : discountCost(cost, shopDiscountPercent);
     const packWalletOf = (packType: CardPackType) =>

@@ -1,3 +1,8 @@
+import { readElderCouncil } from './village/_elder-council.js';
+import { readVillageAnbu } from './village/_anbu.js';
+import { readPublicPlayerIndex } from './player/_public-index-store.js';
+import { WAR_VILLAGES } from './_war-map-sectors.js';
+import { leadershipVillageKey } from '../shared/village-anbu.js';
 import { safeLogValue } from './_safe-log.js';
 import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from './_vercel.js';
@@ -51,7 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // GAME_STATE_TTL_MS, regardless of how many poll at once. Safe on the
             // single-process Railway host (see api/_realtime/online-store.ts).
             const { payload, etag } = await cachedFor('game-state:frame', GAME_STATE_TTL_MS, async () => {
-                const [villageStateKeys, arenaTournament, arenaActiveFights, clanPetBattleKeys, weeklyBossAiId] = await Promise.all([
+                const [storedVillageStateKeys, arenaTournament, arenaActiveFights, clanPetBattleKeys, weeklyBossAiId] = await Promise.all([
                     kv.keys(`${VILLAGE_STATE_PREFIX}*`),
                     kv.get<unknown>(ARENA_TOURNAMENT_KEY),
                     kv.get<unknown[]>(ARENA_ACTIVE_FIGHTS_KEY),
@@ -59,18 +64,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     kv.get<string>(WEEKLY_BOSS_OVERRIDE_KEY),
                 ]);
 
+                // Leadership has its own authority rows. A newly initialized
+                // village must be visible before its first shared-state write.
+                const villageStateKeys = [...new Set([...storedVillageStateKeys,
+                    ...WAR_VILLAGES.map(village => `${VILLAGE_STATE_PREFIX}${leadershipVillageKey(village)}`)])];
+
                 // Both collections are independent indexed reads. One batch
                 // avoids a second round trip and a serial wait on cache misses.
-                const stateKeys = [...villageStateKeys, ...clanPetBattleKeys];
+                const villageNames = villageStateKeys.map(key => {
+                    const slug = key.slice(VILLAGE_STATE_PREFIX.length);
+                    return WAR_VILLAGES.find(village => leadershipVillageKey(village) === slug) ?? slug;
+                });
+                const kageKeys = villageNames.map(village => `village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`);
+                const stateKeys = [...villageStateKeys, ...clanPetBattleKeys, ...kageKeys];
                 const stateValues = stateKeys.length ? await kv.mget<unknown[]>(...stateKeys) : [];
+                const candidates = villageStateKeys.length ? [...(await readPublicPlayerIndex({ backfill: true, logContext: 'game-state-anbu' })).entries.values()] : [];
                 const villageStates: Record<string, unknown> = {};
                 if (villageStateKeys.length > 0) {
-                    villageStateKeys.forEach((k, i) => {
-                        if (stateValues[i] != null) {
-                            const name = k.slice(VILLAGE_STATE_PREFIX.length);
-                            setSafeRecordValue(villageStates, name, stateValues[i]);
-                        }
-                    });
+                    await Promise.all(villageStateKeys.map(async (k, i) => {
+                        const name = k.slice(VILLAGE_STATE_PREFIX.length);
+                        const state = (stateValues[i] ?? {}) as Record<string, unknown>;
+                        const kage = stateValues[villageStateKeys.length + clanPetBattleKeys.length + i] as { seatedKage?: string; kageSystemUnlocked?: boolean; firstLiberator?: string } | null;
+                        const [elders, anbu] = await Promise.all([
+                            readElderCouncil(name, state),
+                            readVillageAnbu(name, state, kv, candidates),
+                        ]);
+                        setSafeRecordValue(villageStates, name, { ...state, seatedKage: kage?.seatedKage,
+                            kageSystemUnlocked: Boolean(kage?.kageSystemUnlocked), firstLiberator: kage?.firstLiberator,
+                            elderAppointees: elders.seats, elderTerm: elders, anbuAppointees: anbu.appointed, anbuEarned: anbu.earned, anbuMembers: anbu.members });
+                    }));
                 }
 
                 const clanPetBattles: Record<string, unknown> = {};

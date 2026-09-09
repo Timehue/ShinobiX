@@ -39,7 +39,8 @@ function kageKey(village: string): string {
 }
 async function isSeatedKage(village: string, playerName: string): Promise<boolean> {
     const st = await kv.get<{ seatedKage?: string }>(kageKey(village));
-    return safeName(st?.seatedKage ?? '') === playerName;
+    const actor = await kv.get<{ character?: { village?: string } }>(`save:${playerName}`);
+    return actor?.character?.village === village && safeName(st?.seatedKage ?? '') === playerName;
 }
 async function villageOf(playerName: string): Promise<string> {
     const save = await kv.get<{ character?: { village?: string } }>(`save:${playerName}`);

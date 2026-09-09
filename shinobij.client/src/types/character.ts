@@ -668,6 +668,7 @@ export type Character = {
     // Lightweight flavor memory for repeated road encounters by archetype/id.
     // Cosmetic only; no rewards or authority depend on this client mirror.
     wandererMemories?: Record<string, number>;
+    elderWinDays?: Array<{ day: string; village: string; pvp: number; pve: number }>;
     totalPvpKills?: number;
     monthlyPvpKills?: number;
     pvpKillMonth?: string;
@@ -798,6 +799,7 @@ export type Character = {
     apexWeekClaimed?: string;
     weeklyBossKills?: Record<string, string>;
     claimedWarCrateIds?: string[];
+    /** Personal focus; grants a bonus only while its village seat has a player elder. */
     elderFocus?: "war" | "trade" | "training";
     examsPassed?: string[];
     unlockedAchievements?: string[];

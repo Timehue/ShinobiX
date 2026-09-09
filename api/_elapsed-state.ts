@@ -1,3 +1,4 @@
+import { reconcileElderFocus } from './village/_elders.js';
 import { kv } from './_storage.js';
 import { withKvLock } from './_lock.js';
 import { mergePreservingImages, safeName } from './_utils.js';
@@ -430,6 +431,10 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
         hollowGateRunExpiredFor(slug, record),
     ]);
     let projected = settleSaveRecord(record, { now, battleLocked: lockFlags.get(slug) === true, hollowGateRunExpired });
+    if (projected.record.character && typeof projected.record.character === 'object') {
+        const character = await reconcileElderFocus(projected.record.character as Record<string, unknown>);
+        if (character !== projected.record.character) projected = { ...projected, record: { ...projected.record, character }, changed: true };
+    }
     if (opts.persist && projected.record.character && typeof projected.record.character === 'object') {
         const migrated = migrateCharacterOwnedPets(slug, projected.record.character as Record<string, unknown>);
         const breeding = settlePetBreedingSession(migrated.character, now);
@@ -450,6 +455,7 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
     const saveKey = `save:${slug}`;
     const persisted = await withKvLock<SettleResult<T>>(saveKey, async () => {
         let petStateChanged = false;
+        let elderFocusChanged = false;
         const fresh = await kv.get<T>(saveKey);
         if (!fresh) return projected;
         // Re-probe under the lock against the FRESH record: the run token it names
@@ -461,6 +467,11 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
             hollowGateRunExpiredFor(slug, fresh),
         ]);
         let next = settleSaveRecord(fresh, { now, battleLocked: freshFlags.get(slug) === true, hollowGateRunExpired: freshExpired });
+        if (next.record.character && typeof next.record.character === 'object') {
+            const character = await reconcileElderFocus(next.record.character as Record<string, unknown>);
+            elderFocusChanged = character !== next.record.character;
+            if (elderFocusChanged) next = { ...next, record: { ...next.record, character }, changed: true };
+        }
         if (next.record.character && typeof next.record.character === 'object') {
             const migrated = migrateCharacterOwnedPets(slug, next.record.character as Record<string, unknown>);
             const breeding = settlePetBreedingSession(migrated.character, now);
@@ -500,7 +511,7 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
         // 2"), which put the 409 loop straight back into production. `git log -S`
         // does not surface a loss inside a merge. The four discriminators below
         // exist for nothing else — if they ever go unread again, this regressed.
-        const durable = next.travelChanged || next.hollowGateRunCleared || next.geoChanged || petStateChanged;
+        const durable = next.travelChanged || next.hollowGateRunCleared || next.geoChanged || petStateChanged || elderFocusChanged;
         // A projection-only settle already carries `_saveAt = now` (set by the
         // vitals branch of settleSaveRecord), so the next read still measures
         // elapsed time from this write even though the version stands still.

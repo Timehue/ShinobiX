@@ -759,6 +759,8 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
     it('recovers commit-then-throw and replays the exact reward/character without a second payout', async () => {
         const player = 'missionsagaclaimack';
         await seedPlayer(player);
+        const seeded = await kv.get<Record<string, any>>(`save:${player}`);
+        await kv.set(`save:${player}`, { ...seeded, character: { ...seeded!.character, village: 'Frostfang Village' } });
         const runId = await seedWonRun(player, 'claimack');
         assert.equal((await queue(player, runId)).statusCode, 200);
         const before = Number((await savedCharacter(player)).ryo);
@@ -771,6 +773,7 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
         assert.equal(first.statusCode, 200);
         const paidCharacter = await savedCharacter(player);
         assert.equal(Number(paidCharacter.ryo) > before, true);
+        assert.deepEqual(paidCharacter.elderWinDays, [{ day: new Date().toISOString().slice(0, 10), village: 'frostfangvillage', pvp: 0, pve: 1 }]);
         assert.equal((first.body?.reward as Record<string, unknown>)?.territoryScrolls, 0);
         assert.equal((paidCharacter.inventory as string[]).includes('territory-control-scroll'), false);
         assert.equal(

@@ -1,3 +1,4 @@
+import { isSeatedVillageElder } from '../lib/village-elder-focus';
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback, useMemo } from "react";
 import "../styles/village-war-map-skin.css";
@@ -107,7 +108,8 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
     // ANBU appointees may toggle the garrison feed (like the war systems); the
     // server re-checks against the village's appointee list. Derived, not frozen
     // at mount — an appointment made mid-session must light the controls up.
-    const isAnbu = useMemo(() => isVillageAnbu(character), [character]);
+    const isAnbu = isVillageAnbu(character);
+    const isElder = isSeatedVillageElder(character);
 
     const myVillage = (character.village ?? "").trim();
     // Shared ticking clock — reading it in render is pure (react-hooks/purity),
@@ -120,11 +122,13 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
         // server declare / win-condition / structure endpoints check — so the Kage
         // controls only appear when the server will actually accept them (avoids the
         // "you're shown the tools but the server says you're not the Kage" mismatch).
-        fetch(`/api/village/kage?village=${encodeURIComponent(myVillage)}`, { cache: "no-store" }).then((r) => r.json()).then((d) => {
-            if (!alive) return;
-            setIsKage(String((d as { seatedKage?: string }).seatedKage ?? "").toLowerCase() === character.name.toLowerCase());
-        }).catch(() => {});
-        return () => { alive = false; };
+        setIsKage(false);
+        const refreshKage = () => fetch(`/api/village/kage?village=${encodeURIComponent(myVillage)}`, { cache: 'no-store' })
+            .then(r => r.ok ? r.json() : null).then(data => {
+                if (alive) setIsKage(String(data?.seatedKage ?? '').toLowerCase() === character.name.toLowerCase());
+            }).catch(() => { if (alive) setIsKage(false); });
+        const stop = visiblePoll(refreshKage, 12000, 0.1, { immediate: true });
+        return () => { alive = false; stop(); };
     }, [character.name, myVillage]);
 
     const refresh = useCallback(async () => {
@@ -520,9 +524,9 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                     🛡 Assault Garrison
                                                 </button>
                                             )}
-                                            {mine && (
+                                            {(mine || (v.village === myVillage && isElder)) && (
                                                 <div className="vwm-config">
-                                                    <select
+                                                    {mine && <select
                                                         value={sec.winCondition}
                                                         disabled={!!busy}
                                                         onChange={(e) => act(`wc-${sec.sector}`, () => setSectorWinCondition(character.name, myVillage, sec.sector, e.target.value as WinCondition))}
@@ -530,7 +534,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                         <option value="combat">Combat</option>
                                                         <option value="card">Card</option>
                                                         <option value="pet">Pet</option>
-                                                    </select>
+                                                    </select>}
                                                     <select
                                                         value={sec.terrain}
                                                         disabled={!!busy}

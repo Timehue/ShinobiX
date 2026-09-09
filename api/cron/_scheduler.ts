@@ -1,3 +1,4 @@
+import { runElderElections } from '../village/_elder-council.js';
 /**
  * In-process daily scheduler for the save-snapshot backup.
  *
@@ -251,6 +252,9 @@ async function fire(): Promise<void> {
     } catch (err) {
         console.error('[cron-scheduler] village-war daily pass threw:', (err as Error).message);
     }
+    // Council reads/actions also catch up immediately at the exact 30-day boundary.
+    try { await runLeasedJob('elder-elections', LEASE_TTL.kageInactivity, () => runElderElections()); }
+    catch (err) { console.error('[cron-scheduler] elder elections failed:', (err as Error).message); }
     // An ABSENT Kage loses the seat: close any reign whose Kage has not
     // autosaved in 10 days and leave the seat open (fail-safe on unreadable saves).
     try {

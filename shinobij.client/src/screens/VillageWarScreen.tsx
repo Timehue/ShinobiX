@@ -30,20 +30,20 @@ export function VillageWarScreen({
     const [error, setError] = useState("");
     const [declaring, setDeclaring] = useState(false);
     const [declareTarget, setDeclareTarget] = useState("");
-    const [isKage, setIsKage] = useState(false);
+    const [kageSeat, setKageSeat] = useState<{ village: string; name: string } | null>(null);
+    const isKage = kageSeat?.village === character.village && kageSeat.name.toLowerCase() === character.name.toLowerCase();
     // Tutorial popover — toggled by the ℹ button next to the page
     // header. Same UX pattern as the per-jutsu info popovers in PvP.
     const [showWarManual, setShowWarManual] = useState(false);
 
     useEffect(() => {
         let alive = true;
-        fetch("/api/game-state").then(r => r.json()).then(data => {
-            if (!alive) return;
-            const myVillageNorm = (character.village ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
-            const myState = (data.villageStates ?? {})[myVillageNorm] as { seatedKage?: string } | undefined;
-            setIsKage((myState?.seatedKage ?? "").toLowerCase() === character.name.toLowerCase());
-        }).catch(() => {});
-        return () => { alive = false; };
+        const refreshKage = () => fetch(`/api/village/kage?village=${encodeURIComponent(character.village)}`, { cache: 'no-store' })
+            .then(r => r.ok ? r.json() : null).then(data => {
+                if (alive) setKageSeat({ village: character.village, name: String(data?.seatedKage ?? '') });
+            }).catch(() => { if (alive) setKageSeat(null); });
+        const stop = visiblePoll(refreshKage, 12000, 0.1, { immediate: true });
+        return () => { alive = false; stop(); };
     }, [character.name, character.village]);
 
     const refresh = useCallback(async () => {

@@ -1,3 +1,4 @@
+import { creditElderWinDeltas } from '../../shared/elder-elections.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
@@ -719,6 +720,7 @@ async function applyReservedCombatMissionPayout(params: {
     }).character as SaveChar;
     next = appendCombatMissionClaimSettlement(next, settlement);
 
+    next = creditElderWinDeltas((params.record.character ?? {}) as Record<string, unknown>, next);
     const updated = bumpSaveVersion<Record<string, unknown>>({
         ...params.record,
         character: next,
@@ -1265,6 +1267,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             if (missionType === 'field') next = withoutServerFieldMissionRun(next, missionId) as SaveChar;
+            next = creditElderWinDeltas(char, next);
             const updated = bumpSaveVersion<Record<string, unknown>>({
                 ...applyClaimedMissionState(record, missionType, missionId),
                 character: next,

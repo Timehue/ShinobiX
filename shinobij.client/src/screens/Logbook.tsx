@@ -104,7 +104,6 @@ export function Logbook({
         examProctorExists: creatorAis.some((ai) => ai.id === "builtin-ai-exam-proctor"),
         rogueNinjaExists: creatorAis.some((ai) => ai.id === "builtin-ai-rogue-ninja"),
         isKage: character.level >= 80 && loadVillageState(character.village).seatedKage?.toLowerCase() === character.name.toLowerCase(),
-        isElder: loadVillageState(character.village).anbuAppointees.some((name) => name.toLowerCase() === character.name.toLowerCase()),
     };
     const objectives = buildLogbookObjectives(character, objectiveContext);
     const currentObjective = currentLogbookObjective(character, objectiveContext);
