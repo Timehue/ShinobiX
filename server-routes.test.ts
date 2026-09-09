@@ -4,13 +4,14 @@
  * The api/** handlers are served by the single Express server (server.ts →
  * dist/server.js) on both Railway and cPanel. Unlike the retired Vercel target,
  * there is NO folder-convention auto-routing: a handler is reachable ONLY if
- * server.ts imports and route()s it. Two ways that breaks, both caught here:
- *   1. The client calls an /api path that server.ts never registered  → 404.
- *   2. A handler file exists but nobody wired it in server.ts          → dead.
+ * server-api-routes.ts imports and route()s it through the server.ts adapter.
+ * Two ways that breaks, both caught here:
+ *   1. The client calls an /api path that was never registered  → 404.
+ *   2. A handler file exists but nobody wired it in             → dead.
  *
  * This test closes both gaps statically: it scans the client for every
  * `/api/...` call site (asserting each is registered) and inventories every
- * api/ handler file (asserting each is imported in server.ts). Drift in either
+ * api/ handler file (asserting each is imported in server-api-routes.ts). Drift in either
  * direction fails `npm test`.
  *
  * It is intentionally a STATIC analysis (reads source text only): it boots no
@@ -72,8 +73,8 @@ function isCovered(clientPath: string): boolean {
 // ─── Handler inventory: every HTTP handler file under api/ ──────────────────────
 //
 // Express (Railway + cPanel) has NO folder-convention auto-routing — that was
-// Vercel, now retired. A handler is reachable ONLY if server.ts imports and
-// route()s it, so a handler file nobody wired in server.ts is dead code that
+// Vercel, now retired. A handler is reachable ONLY if server-api-routes.ts imports
+// and route()s it, so a handler file nobody wired in is dead code that
 // 404s everywhere (it used to be reachable via Vercel's folder convention).
 // This inventory drives the "no orphaned endpoints" check below.
 //
@@ -163,9 +164,9 @@ describe('Express route parity (Railway + cPanel)', () => {
         assert.equal(
             missing.length,
             0,
-            `Client calls /api endpoints that server.ts does NOT register.\n` +
-            `Express (Railway + cPanel) serves only what server.ts route()s — add a ` +
-            `route() (and the matching import) in server.ts:\n  - ` +
+            `Client calls /api endpoints that server-api-routes.ts does NOT register.\n` +
+            `Express (Railway + cPanel) serves only explicitly registered handlers — add a ` +
+            `route() (and the matching import) in server-api-routes.ts:\n  - ` +
             missing.join('\n  - '),
         );
     });
@@ -229,8 +230,8 @@ describe('Express route parity (Railway + cPanel)', () => {
 });
 
 describe('handler wiring (no orphaned endpoints)', () => {
-    it('imports every api/ HTTP handler file in server.ts', () => {
-        // server.ts imports each handler as `from './api/<relpath>.js'` (the
+    it('imports every api/ HTTP handler file in server-api-routes.ts', () => {
+        // server-api-routes.ts imports each handler as `from './api/<relpath>.js'` (the
         // dynamic ones keep their literal filename, e.g. './api/save/[name].js'),
         // so the import specifier is the reliable "is it wired?" signal — more
         // robust than matching route paths against file names.
@@ -238,9 +239,9 @@ describe('handler wiring (no orphaned endpoints)', () => {
         assert.equal(
             missing.length,
             0,
-            `These api/ HTTP handler files are not imported in server.ts, so they ` +
+            `These api/ HTTP handler files are not imported in server-api-routes.ts, so they ` +
             `are unreachable on Express (Railway + cPanel) — Vercel's folder-convention ` +
-            `auto-routing is retired. Wire each with an import + route() in server.ts:\n  - ` +
+            `auto-routing is retired. Wire each with an import + route() in server-api-routes.ts:\n  - ` +
             missing.map((r) => `api/${r}.ts`).join('\n  - '),
         );
     });
@@ -252,7 +253,7 @@ describe('handler wiring (no orphaned endpoints)', () => {
         );
     });
 
-    it('registers (not just imports) every api/ HTTP handler in server.ts', () => {
+    it('registers (not just imports) every api/ HTTP handler in server-api-routes.ts', () => {
         // The import check above proves the `from './api/x.js'` specifier exists,
         // but an imported-yet-never-route()d handler still 404s. This proves the
         // imported identifier is referenced again (in a route()/app.* call),
@@ -269,7 +270,7 @@ describe('handler wiring (no orphaned endpoints)', () => {
             unwired.length,
             0,
             `These api/ handlers are imported but never referenced in a route()/app.* ` +
-            `registration in server.ts, so they 404 despite being imported:\n  - ` +
+            `registration in server-api-routes.ts, so they 404 despite being imported:\n  - ` +
             unwired.map((r) => `api/${r}.ts`).join('\n  - '),
         );
     });

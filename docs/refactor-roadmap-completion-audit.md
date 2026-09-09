@@ -66,4 +66,19 @@ The WebKit narrative failure timed out waiting for a visible, enabled choice to 
 
 Evidence: `.tmp/refactor-screens/roadmap-final-unit.log`, `roadmap-final-lint.log`, `roadmap-final-build.log`; `.tmp/refactor-final/{responsive,combat-layout,warfront,live,narrative-isolated,pvp-clock-seated}.log`; screenshots/traces under their corresponding output directories. Final source hashes, user-artifact hashes and report-link checks are retained. Temporary comparison servers are stopped; rejected probe builds are removed while their logs and the verified artifact remain.
 
+## Post-completion integration check
+
+A second wiring audit found one coverage gap: CI selected only Village Stores from the live Express suite, so the new Academy persistence and route-alias regressions ran locally but were absent from the required check. The existing `CI / e2e-village-stores` job now selects all three spec files on its joined release artifact, retaining its check name and 15-minute limit. A workflow contract prevents these cases from being omitted again. Endpoint-registration instructions and test diagnostics now point to `server-api-routes.ts`; the CI documentation also acknowledges the existing Warfront gate.
+
+Fresh verification:
+
+- The import graph covers 1,830 source files. All 51 audited extraction modules are reachable from `main.tsx` or `server.ts`: 50 at runtime and `player-save-types.ts` through type imports. No unresolved relative code imports, case mismatches or static import cycles touching these modules were found.
+- All 136 explicit public export names across the nine compatibility surfaces are retained. App's narrative normalizer alias and the shared mutable Hollow Gate prices still resolve to their canonical owners.
+- All 275 route paths, handler identifiers and their order exactly match the execution baseline. The 814 local files required by compiled `dist/server.js` resolve inside the shipped `dist/` tree; Docker copies that whole tree.
+- Save callbacks retain their shared refs and setters, one coordinator per mount, ordered dirty tracking and snapshot hydration. Sanitizer stages preserve their ordering and shared bloodline-forge closure, consumed-ID set and pending receipts.
+- The full unit/contract run passes **9,701/9,701**. The exact expanded CI selection passes **4/4 live Express cases** in 2.4 minutes: normal Academy, delayed Academy, route aliases/CORS/JSON failures and Village Stores.
+- Distribution and size gates pass again. Startup remains 1,451,845 B raw / 382,769 B gzip across nine files, with Three.js outside the initial graph. Production source is unchanged by this follow-up; the prior build, lint and complete browser-matrix evidence remains applicable.
+
+Evidence: `.tmp/refactor-final/integration-{graph,boundaries}.json`, `integration-{unit,live,dist,size}.log`, and the live browser output under `integration-live/`. The import and compiled-dependency audits are static; the four Express cases separately exercise the built runtime. These are local branch checks; the updated workflow will run on the next push. No deployment or migration step is required for the extracted modules beyond the normal source build.
+
 
