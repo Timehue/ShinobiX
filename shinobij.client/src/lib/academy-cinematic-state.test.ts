@@ -44,3 +44,16 @@ test("same-step vow edits survive a mutation while invalid values are ignored", 
     assert.equal(preserveAcademyCinematicState(authoritative, { ...authoritative, academyVow: "seeker" }).academyVow, "seeker");
     assert.equal(preserveAcademyCinematicState(authoritative, { ...authoritative, academyVow: "invalid" as Character["academyVow"] }), authoritative);
 });
+
+test("a travel refresh retains the earned field handoff without adopting local trace or seal claims", () => {
+    const authoritative = { ...server, onboardingStep: "logbook", academyTrialClaimed: true } as Character;
+    const pending = { ...local, onboardingStep: "sectorReturn", academySectorVisited: true, academyTraceSector: 1, academyFieldSeal: true } as Character;
+    assert.deepEqual(preserveAcademyCinematicState(authoritative, pending), { ...authoritative, onboardingStep: "sectorReturn" });
+    const unearned = { ...authoritative, academyTrialClaimed: false };
+    assert.equal(preserveAcademyCinematicState(unearned, pending), unearned);
+    for (const onboardingStep of ["firstMission", "done"] as const) {
+        const otherStep = { ...authoritative, onboardingStep };
+        assert.equal(preserveAcademyCinematicState(otherStep, pending), otherStep);
+    }
+    assert.equal(preserveAcademyCinematicState(authoritative, { ...pending, name: "Other" }), authoritative);
+});

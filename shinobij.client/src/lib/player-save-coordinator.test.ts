@@ -123,6 +123,20 @@ test("an unrelated authoritative mutation preserves an unsaved cinematic handoff
     assert.equal(f.owner.charDirtyRef.current, false);
 });
 
+test("travel settlement keeps an earned unsaved field scene open and queues its handoff for persistence", () => {
+    const f = fixture();
+    f.characterRef.current = { ...f.initial, onboardingStep: "sectorReturn", academyTrialClaimed: true, academyFieldSeal: true };
+    refreshPlayerSaveSnapshot(f.characterRef.current, f.initial.name, f.fields, f.owner);
+    assert.equal(f.owner.commitVersionedCharacter({ ...f.initial, onboardingStep: "logbook", academyTrialClaimed: true, ryo: 123 }, 6), true);
+    assert.equal(f.characterRef.current?.onboardingStep, "sectorReturn");
+    assert.equal(f.characterRef.current?.academyFieldSeal, undefined);
+    assert.equal(f.characterRef.current?.ryo, 123);
+    refreshPlayerSaveSnapshot(f.characterRef.current!, f.initial.name, f.fields, f.owner);
+    assert.equal(f.owner.charDirtyRef.current, true);
+    assert.equal(f.owner.latestSaveRef.current?.payload.character.onboardingStep, "sectorReturn");
+    assert.equal(f.owner.latestSaveVersionRef.current, 6);
+});
+
 test("required saves queue behind autosave and read the latest edited payload at execution when requested", async () => {
     const f = fixture(), first = deferred<Response>(), bodies: PlayerSavePayload[] = [];
     globalThis.fetch = async (_url, init) => { bodies.push(JSON.parse(String(init?.body))); return bodies.length === 1 ? first.promise : json(7); };
