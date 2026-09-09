@@ -81,6 +81,11 @@ jobs:
         run: npm run test:ci 2>&1 | tee .ci-evidence/server-contracts-${{ matrix.shard }}/root-tests.log
       - name: Retain server contract shard evidence
         if: always()
+        # Evidence is diagnostic, never a release gate: nothing downstream downloads it,
+        # and a refusal from GitHub's artifact blob service (a 403 on FinalizeArtifact
+        # cancelled three consecutive main rollouts on 2026-09-08 while every test was
+        # green) must not fail the job that produced the evidence.
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -143,6 +148,7 @@ jobs:
           test "$SHARDS" = success
       - name: Retain server contract evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -227,6 +233,7 @@ jobs:
           retention-days: 14
       - name: Retain server build evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -321,6 +328,7 @@ jobs:
           retention-days: 14
       - name: Retain client quality evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -400,6 +408,7 @@ jobs:
           retention-days: 14
       - name: Retain release artifact evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -456,6 +465,7 @@ jobs:
         run: npm run certify:release 2>&1 | tee .ci-evidence/release-certification/certification.log
       - name: Retain release certification evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -509,6 +519,7 @@ jobs:
         run: npm run soak:smoke 2>&1 | tee .ci-evidence/concurrency-smoke/soak.log
       - name: Retain concurrency evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -571,6 +582,7 @@ jobs:
         run: npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/2 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/playwright.log
       - name: Retain responsive browser evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -599,6 +611,7 @@ jobs:
           test "$RESPONSIVE_MATRIX" = success
       - name: Retain responsive aggregate evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -675,6 +688,7 @@ jobs:
         run: npm run test:e2e:combat-layout --prefix shinobij.client -- ${{ matrix.projects }} 2>&1 | tee .ci-evidence/e2e-combat-${{ matrix.shard }}/playwright.log
       - name: Retain combat browser evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -703,6 +717,7 @@ jobs:
           test "$COMBAT_MATRIX" = success
       - name: Retain combat aggregate evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -757,6 +772,7 @@ jobs:
         run: npm run test:e2e:warfront --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-warfront/playwright.log
       - name: Retain Warfront browser evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -825,6 +841,7 @@ jobs:
         run: npm run test:e2e:live --prefix shinobij.client -- village-stores-express.spec.ts first-session-onboarding-express.spec.ts server-route-smoke-express.spec.ts --project=chromium-desktop-live 2>&1 | tee .ci-evidence/e2e-village-stores/playwright.log
       - name: Retain Village Stores browser evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -892,6 +909,7 @@ jobs:
           test "$E2E_VILLAGE_STORES" = success
       - name: Retain compatibility aggregate evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true

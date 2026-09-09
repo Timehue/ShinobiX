@@ -167,7 +167,17 @@ export async function attackSectorPlayer(opts: SectorAttackOptions): Promise<voi
         // Path rebased from "./lib/village-war-map" — this code now lives IN
         // lib/. This is the ONLY edit to the moved statements.
         const { confirmSectorBattleRegistration } = await import("./village-war-map"); // lazy: sector-war client stays off the startup graph
-        await confirmSectorBattleRegistration(createOwnerName, currentSector, battleId, createScope);
+        const registration = await confirmSectorBattleRegistration(createOwnerName, currentSector, battleId, createScope);
+        // Registration answers 200 whether or not the fight counts, so this is
+        // the only place the "wrong game for this sector" no-op can be seen. The
+        // World Map normally routes a Card/Pet sector to its own table before we
+        // get here (lib/sector-war-engagement.ts); reaching this line means the
+        // contest poll was stale, and the fight is real but scores nothing —
+        // which the player should hear rather than discover from an unmoved tally.
+        if (registration.reason === "win-condition") {
+            const game = registration.winCondition === "card" ? "card duels" : "pet duels";
+            alert(`This sector's war is fought with ${game}, so this fight won't score for it. Open the contest from the sector panel to contest the sector.`);
+        }
     } catch (error) {
         releaseWorldAttack(opponent.name); // registration never confirmed — release the claim
         if (!createIsCurrent()) return;

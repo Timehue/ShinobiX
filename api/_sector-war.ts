@@ -389,10 +389,20 @@ export function findSectorWarBattleReceipt(session: SectorWarSession, battleId: 
     return session.appliedBattles?.find((entry) => entry.battleId === battleId) ?? null;
 }
 
-/** Points the garrison has already yielded in this war (garrison cap input). */
+/**
+ * Points the garrison has already yielded TO THE ATTACKER in this war (cap input).
+ *
+ * `garrison` marks a battle as having been fought against the sealed garrison,
+ * either outcome — that is what the Card/Pet re-form window keys on, and a loss
+ * has to start that cooldown too or an attacker could retry instantly, filling
+ * the receipt ledger and pumping the defence's tally on purpose. The CAP is a
+ * different question: it limits what the ATTACKER can extract, so it counts only
+ * the battles they won. (No behaviour change for Combat, which only ever flags
+ * an attacker win.)
+ */
 export function garrisonPointsInWar(session: SectorWarSession): number {
     return (session.appliedBattles ?? [])
-        .filter((r) => r.garrison)
+        .filter((r) => r.garrison && r.attackerWon)
         .reduce((sum, r) => sum + nonNeg(r.points), 0);
 }
 
@@ -467,7 +477,17 @@ export function applySectorWarBattle(
 export function applyContestBattleByWinner(
     session: SectorWarSession,
     winner: 'p1' | 'p2' | 'draw',
-    opts: { now: number; roleSwing: number; attackerMult?: number; defenderMult?: number; by?: string },
+    opts: {
+        now: number; roleSwing: number; attackerMult?: number; defenderMult?: number; by?: string;
+        /** A Card/Pet GARRISON battle the ATTACKER won: same half-weight +
+         *  war-wide cap Combat's garrison uses, and leaves `lastLiveBattleAt`
+         *  alone so a real defender turning up still re-locks the garrison. */
+        garrisonBattle?: boolean;
+        /** The garrison HELD. Scores the defence at merc-repel weight, matching
+         *  Combat's `mercBattle: !attackerWon` — an AI holding ground is worth
+         *  less to the defence than a real defender showing up and winning. */
+        mercBattle?: boolean;
+    },
 ): SectorBattleOutcome | null {
     if (winner !== 'p1' && winner !== 'p2') return null;
     return applySectorWarBattle(session, winner === 'p1', opts);
@@ -580,20 +600,72 @@ export function abandonSectorWar(session: SectorWarSession, now: number): { sess
  *  sector's garrison can be assaulted. */
 export const GARRISON_UNLOCK_IDLE_MS = 2 * 60 * 60 * 1000;
 
-/** Whether the sector's garrison is currently assaultable. Pure. */
-export function isGarrisonAssaultable(
-    session: Pick<SectorWarSession, 'startedAt' | 'flipped' | 'expiredAt' | 'endsAt' | 'lastLiveBattleAt' | 'winCondition'>,
+/**
+ * The idle half of the garrison unlock, with no opinion about win-condition:
+ * the war is live and no LIVE-player battle has landed for GARRISON_UNLOCK_IDLE_MS.
+ *
+ * Split out because all three win-conditions now field a garrison. The comment
+ * that used to sit here said Card and Pet are "contests of decks and standing
+ * orders, which an AI holding ground does not field" — that was the bug, not the
+ * rule. It meant a defending Kage could make a sector nearly untakeable by
+ * setting it to Card or Pet and then never logging in: those contests need a
+ * live opponent to join, so an absent defence produced 0-0, and settlement gives
+ * a tie to the defender. A garrison the attacker can actually beat is what makes
+ * an absent defence cost something.
+ */
+export function sectorWarGarrisonIdle(
+    session: Pick<SectorWarSession, 'startedAt' | 'flipped' | 'expiredAt' | 'endsAt' | 'lastLiveBattleAt' | 'declarationFunding'>,
     now: number,
 ): boolean {
-    // Only the Combat win-condition has a garrison — Card and Pet are contests of
-    // decks and standing orders, which an AI holding ground does not field.
-    if (session.winCondition !== 'combat') return false;
     if (!isSectorWarActive(session, now)) return false;
     const lastLive = Math.max(
         Math.floor(Number(session.lastLiveBattleAt) || 0),
         Math.floor(Number(session.startedAt) || 0),
     );
     return lastLive > 0 && now - lastLive >= GARRISON_UNLOCK_IDLE_MS;
+}
+
+/** When the sector's garrison last fought, from the war's own receipts. 0 = never. */
+export function lastGarrisonBattleAt(session: Pick<SectorWarSession, 'appliedBattles'>): number {
+    return (session.appliedBattles ?? [])
+        .filter((r) => r.garrison)
+        .reduce((latest, r) => Math.max(latest, Math.floor(Number(r.at) || 0)), 0);
+}
+
+/**
+ * Whether a CARD/PET sector garrison may be fought right now.
+ *
+ * The idle unlock, plus a re-form window between garrison battles. Combat does
+ * not need the second half: its garrison assault is a real multi-turn Solo PvE
+ * fight serialized by an active-run key, so it throttles itself. A Card/Pet
+ * garrison does not — the Pet duel in particular resolves in a single request —
+ * and without a cooldown an attacker could fire hundreds of them back to back.
+ * That is worth blocking for two reasons beyond taste: garrison points are
+ * capped per war, so the spam is pointless yet still writes a battle receipt
+ * each time, and the receipt ledger is settlement authority with a hard
+ * SECTOR_WAR_BATTLE_RECEIPT_CAP that THROWS when full — filling it would break
+ * scoring for every later battle in that war, including real ones. Reusing the
+ * unlock window reads naturally too: the garrison re-forms every couple of hours.
+ */
+export function contestGarrisonReady(
+    session: Pick<SectorWarSession, 'startedAt' | 'flipped' | 'expiredAt' | 'endsAt' | 'lastLiveBattleAt' | 'declarationFunding' | 'appliedBattles'>,
+    now: number,
+): boolean {
+    if (!sectorWarGarrisonIdle(session, now)) return false;
+    const last = lastGarrisonBattleAt(session);
+    return last === 0 || now - last >= GARRISON_UNLOCK_IDLE_MS;
+}
+
+/** Whether the sector's COMBAT garrison is currently assaultable. Pure.
+ *  Card and Pet have their own garrisons on their own endpoints; this predicate
+ *  stays Combat-only because it also gates the Combat-only "Assault Garrison"
+ *  button and the Solo-PvE encounter behind it. */
+export function isGarrisonAssaultable(
+    session: Pick<SectorWarSession, 'startedAt' | 'flipped' | 'expiredAt' | 'endsAt' | 'lastLiveBattleAt' | 'winCondition'>,
+    now: number,
+): boolean {
+    if (session.winCondition !== 'combat') return false;
+    return sectorWarGarrisonIdle(session, now);
 }
 
 // ── Storage keys ──

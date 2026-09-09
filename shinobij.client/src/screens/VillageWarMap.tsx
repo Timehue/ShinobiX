@@ -29,6 +29,7 @@ import {
     type WrMercTierView,
     type MercLeaseView,
 } from "../lib/village-war-map";
+import { contestBackKey } from "../lib/sector-war-engagement";
 import { mercPortrait } from "../lib/merc-ai";
 import { isVillageAnbu } from "../lib/world-state";
 import { revealedIntelForSector } from "../lib/village-intel";
@@ -240,13 +241,21 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
     // Card contests are fought on the interactive Sector War Card Battle screen —
     // stash the contest id and navigate; that screen auto-joins as attacker/defender.
     const launchCardBattle = useCallback((sectorWarId: string) => {
-        try { sessionStorage.setItem("sectorWarCard.v1", JSON.stringify({ sectorWarId })); } catch { /* ignore */ }
+        try {
+            sessionStorage.setItem("sectorWarCard.v1", JSON.stringify({ sectorWarId }));
+            // Clear any return target a previous world-map entry left behind, or
+            // Back from this launch would bounce to the map instead of here.
+            sessionStorage.removeItem(contestBackKey("sectorWarCard.v1"));
+        } catch { /* ignore */ }
         setScreen("sectorCard");
     }, [setScreen]);
     // Pet contests are fought on the Sector War Pet Battle screen — a server-resolved
     // deterministic duel, then a byte-identical client replay. Stash + navigate.
     const launchPetBattle = useCallback((sectorWarId: string) => {
-        try { sessionStorage.setItem("sectorWarPet.v1", JSON.stringify({ sectorWarId })); } catch { /* ignore */ }
+        try {
+            sessionStorage.setItem("sectorWarPet.v1", JSON.stringify({ sectorWarId }));
+            sessionStorage.removeItem(contestBackKey("sectorWarPet.v1"));
+        } catch { /* ignore */ }
         setScreen("sectorPet");
     }, [setScreen]);
     // Combat's liveness fallback — assault the sector's ANBU garrison when no

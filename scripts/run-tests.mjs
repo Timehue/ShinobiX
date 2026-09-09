@@ -1,4 +1,4 @@
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { run } from 'node:test';
 import { spec } from 'node:test/reporters';
@@ -49,6 +49,20 @@ if (sharded) {
         process.exit(1);
     }
 }
+// The engine this repo targets is pinned in .nvmrc (mirrored by the Dockerfile
+// and CI). A different local major is not an error, but it is the first thing
+// to suspect when a file goes red at FILE level with every subtest green: that
+// is how a native node.exe crash surfaces (see the exit-code logging below),
+// and the 2026-09 investigation traced exactly that to Node 24.15.0 on Windows.
+const pinnedMajor = (() => {
+    try { return Number.parseInt(readFileSync(join(root, '.nvmrc'), 'utf8').trim(), 10); } catch { return NaN; }
+})();
+const runningMajor = Number.parseInt(process.versions.node, 10);
+if (Number.isInteger(pinnedMajor) && runningMajor !== pinnedMajor) {
+    console.error(`[run-tests] warning: running on Node ${process.versions.node}; .nvmrc pins ${pinnedMajor}. ` +
+        'A file-level failure with every subtest passing is usually a child-process crash, not a test bug.');
+}
+
 const tests = run({ cwd: root, files: shardFiles, concurrency: true });
 
 // Do NOT rely on `test:fail` alone to decide the exit code. It misses failure
@@ -63,7 +77,25 @@ let failEvents = 0;
 let finalSummary = null;
 let streamError = null;
 
-tests.on('test:fail', () => { failEvents++; });
+tests.on('test:fail', (event) => {
+    failEvents++;
+    // node:test marks a FILE failed when its child process exits non-zero, and the
+    // spec reporter prints only the bare 'test failed' for it -- the exit code and
+    // signal live on the error object and are otherwise dropped. Print them, so a
+    // child that died natively (all subtests green, no stack, no stderr) is
+    // recognisable as such. Windows reports a native fault as an NTSTATUS in the
+    // 0xC0000000 range, e.g. 0xC0000409 (libuv fatal abort), 0xC0000374 (heap
+    // corruption), 0xC0000005 (access violation).
+    const error = event?.details?.error;
+    const exitCode = error?.exitCode;
+    const signal = error?.signal;
+    if (event?.nesting === 0 && (exitCode != null || signal != null)) {
+        const hex = typeof exitCode === 'number' ? ` (0x${(exitCode >>> 0).toString(16).toUpperCase().padStart(8, '0')})` : '';
+        console.error(`\n✖ ${event.file ?? event.name}: child process exited with code ${exitCode}${hex}` +
+            (signal ? ` signal ${signal}` : '') +
+            ' -- if every subtest above it passed, the process crashed after (or outside) the tests.');
+    }
+});
 tests.on('test:summary', (summary) => {
     // Per-file summaries carry a `file`; the single run-wide summary does not.
     if (!summary.file) finalSummary = summary;

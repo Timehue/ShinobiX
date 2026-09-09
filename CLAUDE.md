@@ -106,6 +106,12 @@ unreachable. `server-routes.test.ts` enforces this both ways
   short explicit list at the top of that script — which is why the two repo-root
   files (`cpanel-dns.test.cjs`, `server-routes.test.ts`) are listed there. Put new
   tests under a scan root, or they silently never run.
+- **A test FILE going red with every subtest green** (`✖ api/x.test.ts` + the bare
+  `'test failed'` at `1:1`) means the child process exited non-zero, not that a test
+  failed. The runner prints `child process exited with code N (0xHEX)` under it;
+  a code in the `0xC0000000` range is a native node.exe crash. Traced 2026-09-08 to
+  running the suite on Node 24.15.0 on Windows (the repo pins 22 in `.nvmrc`) —
+  run local tests on the pinned major before suspecting the file.
 - Frontend conventions (the App.tsx drain rule and its line-budget ratchet) live
   in `shinobij.client/CLAUDE.md`, loaded when working under that directory.
 
