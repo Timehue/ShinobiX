@@ -260,6 +260,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { status: 502, body: { error: 'The transfer was interrupted after the debit. It is recorded for restoration — do not resend.', txId } };
                 }
                 await completeEconomyTx(txId).catch(() => undefined);
+                // Charge the rolling window INSIDE the locks, beside the debit it
+                // records. Outside them the check above is worthless: request N+1
+                // takes the locks the moment N frees them and reads a ledger N has
+                // not written yet, so 20 pipelined calls all pass and the real
+                // ceiling stays 20 x 200,000/min — the exact number this budget
+                // exists to close. Only a COMMITTED transfer is charged, so a
+                // refusal or a replay never eats budget the player did not spend.
+                if (!identity.admin) {
+                    await chargeOutboundBudget(playerName, currency, plan.debit, Date.now());
+                }
                 return { status: 200, body: { ok: true, currency, debit: plan.debit, credit: plan.credit, burned: plan.burned, toPlayer: toDisplay, senderBalance } };
             }, { failClosed: true }),
         { failClosed: true });
@@ -270,11 +280,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // wrote no nonce) runs for real.
             if (nonceKey) {
                 await kv.set(nonceKey, { ts: now, receipt: out.body, fp: fingerprint }, { ex: NONCE_TTL_SECONDS }).catch(() => undefined);
-            }
-            // Charge the window only on a COMMITTED transfer, so a refused or
-            // replayed attempt never eats budget the player did not spend.
-            if (!identity.admin) {
-                await chargeOutboundBudget(playerName, currency, Number(out.body.debit) || 0, now);
             }
             await kv.set(`${AUDIT_PREFIX}${now}`, { ts: now, from: playerName, to: toSlug, currency, debit: out.body.debit, credit: out.body.credit, burned: out.body.burned }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
             // Economy telemetry — the 10% trade burn is a real "currency destroyed"

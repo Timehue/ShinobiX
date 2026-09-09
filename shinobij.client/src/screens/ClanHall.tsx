@@ -435,6 +435,11 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         // left a ghost member behind.
         const left = await postClanLeave(character.name, character.clan);
         if (!left) return;
+        // Adopt the version the server just wrote. Skipping it leaves the next
+        // autosave echoing a stale base version, which takes the save-conflict
+        // 409 and discards local progress — a self-inflicted conflict for
+        // pressing Leave.
+        if (left.character && !onVersionedCharacter(left.character as unknown as Character, left._saveVersion)) return;
         if (left.newFounder) {
             alert(`You've left ${character.clan}. ${left.newFounder} now leads the clan.`);
         }

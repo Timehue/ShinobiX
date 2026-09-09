@@ -40,6 +40,8 @@ import { recordEconomyTxn } from '../../_economy.js';
 
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
 const KAGE_KEY_PREFIX = 'village:kage:';
+import { chargeOutboundBudget, checkOutboundBudget, senderTrustTier } from '../../player/_transfer-budget.js';
+import { isTradeCurrency } from '../../player/_trade-core.js';
 const AUDIT_LOG_PREFIX = 'audit:village-treasury:';
 
 type TransferCurrency =
@@ -159,6 +161,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (amount > cap) {
                 return res.status(400).json({ error: `amount exceeds per-call cap of ${cap}.` });
             }
+            // Shares the sender's rolling 24h transfer budget with
+            // /api/player/trade and the clan treasury (MMORPG behavior audit F8):
+            // this is the same outcome — currency landing in one named player's
+            // save — so capping only the direct-trade door would leave the wider
+            // one open. Charged to the seated Kage authorising it. `honorSeals`
+            // is outside TRADE_CURRENCIES and stays uncapped here, exactly as it
+            // is untradeable there.
+            if (!isAdmin && isTradeCurrency(currency)) {
+                const actorRec = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
+                const actorChar = (actorRec?.character ?? null) as Record<string, unknown> | null;
+                const tier = await senderTrustTier(identity.name, actorChar);
+                const budget = await checkOutboundBudget(identity.name, currency, amount, tier);
+                if (!budget.ok) {
+                    return res.status(429).json({ error: budget.error, reason: 'transfer-budget', remaining: budget.remaining, limit: budget.limit });
+                }
+            }
         }
 
         // ── Authorization: caller must be the seated Kage of `village` ─
@@ -258,6 +276,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             },
             saveRecipient: async (record, character) => (await writeVersionedPlayerSave(recipientSaveKey, record, character)).record,
         });
+        // Charge only once the transfer has committed.
+        if (!isAdmin && isCurrency && isTradeCurrency(currency)) {
+            await chargeOutboundBudget(identity.name, currency, amount, Date.now());
+        }
         await kv.set(`${AUDIT_LOG_PREFIX}${village.toLowerCase()}:${Date.now()}`, {
             ts: Date.now(),
             actor: actorName ?? 'admin',

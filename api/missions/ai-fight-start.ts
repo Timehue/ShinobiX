@@ -1,4 +1,5 @@
 import { safeLogValue } from '../_safe-log.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { randomUUID } from 'node:crypto';
 import { kv } from '../_storage.js';
@@ -535,7 +536,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // A hospitalized character starts no NEW fight (a resume above is
             // untouched). The Hospital screen holds honest clients; this is the
             // server's own answer to a tampered one.
-            if (character.hospitalized === true) {
+            if (isIncapacitated(character)) {
                 return { status: 409, body: { error: 'You are in the hospital. Recover before starting a fight.', reason: 'hospitalized' } };
             }
             let genericAuthority;

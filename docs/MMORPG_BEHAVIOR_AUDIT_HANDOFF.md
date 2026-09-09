@@ -35,6 +35,67 @@ Two follow-ups were deliberately NOT taken and are the honest remainder:
   longer eats items, which stops the bleeding; telling the player "inventory full" at the
   moment it happens is the real fix and touches 15 files.
 
+## Verification pass (2026-09-08, after the rulings landed)
+
+The shipped change set was re-reviewed adversarially against its own claims. Twelve
+defects were found in it and fixed; four hypotheses were checked and disproved. Worth
+recording because most of them were in the *seams*, not the logic — which is where this
+kind of change fails.
+
+**Found in my own work and fixed:**
+
+| What was wrong | Why it mattered |
+|---|---|
+| `App.tsx` still refilled all three bars on a Healer heal | Server wrote HP only, so the client showed full chakra that the autosave ceiling clawed back — the exact falling-bars failure F1 warned about |
+| `chargeOutboundBudget` ran OUTSIDE the trade locks | The check was inside them, the write was not, so pipelined calls all read a stale ledger and the 4M ryo/min ceiling stood — the budget did nothing |
+| The Hospital screen promised "full restoration" in 5 more places | A player paid the discharge fee for HP only, having been told otherwise. My earlier commit claimed it was one string; it was six |
+| `hollow-gate/start` returned the raw code `hospitalized` | The client's generic fallback told the player to "retry when the connection is stable" — wrong and unactionable |
+| The Healer self-cooldown was claimed before the lock | A 403/400 refusal still burned the cooldown for a top-up never received |
+| `sleeper-kill` wrote the shield but never read it | The offline raid door ignored Field Recovery entirely |
+| The shield never dropped when its holder attacked | Lose on purpose, then raid for 120 s while un-attackable |
+| `towers/start` had no incapacitation gate | Tower seals full vitals and burns a daily entry — the same argument used to gate the other three |
+| Three pre-existing gates were never migrated to `isIncapacitated` | Four variants of "hospitalized" coexisted where the helper's whole point was one |
+| The named-forge silence refused the forge outright | Destroyed a paid roll (token expires in 20 min, silences last days) instead of muting text. Now the forge lands and the authored name is dropped |
+| `clan/leave` discarded the save version it wrote | Both parties took a save-conflict 409 whose recovery discards local progress |
+| The flat anti-cheat grace got multiplied by the pooled rate | Turned a 60-point cushion into 360 per vital per save at level 100 |
+| F8 capped trade but not treasury gifting | Officers and the Kage could push ~6M ryo/min to a named account beside a 1M/day cap on ordinary players |
+
+**Also corrected: two documents gave actively harmful advice.** The flag matrix and the
+rulings doc both told an operator to throw `DISABLE_POOLED_VITAL_REGEN` if players
+reported vitals falling on save. That flag is read server-side only while the client
+clock is unconditionally pooled, so throwing it *causes* that symptom. Both now say so.
+
+**Checked and disproved** (recorded so nobody re-opens them): the F5 shield is *not*
+bypassable via `/api/pvp/session` creation — an unsolicited create never indexes the
+opponent, and session creation already refuses an unconscious fighter; the ClanHall
+client flow is correct and has no dead imports; the three regen implementations agree
+numerically, Aura ladder included; `pvpShieldUntil`'s lifecycle is right, and it is
+correctly absent from the public DTO and present in the client's server-owned list.
+
+**One design objection considered and declined.** The review argued the 120 s shield is
+undersized because a level-100 loser needs ~28 minutes to recover chakra and is a soft
+target until then. The shield is deliberately sized to cover the *exit*, not the
+recovery: 60 s of hospital plus 60 s to leave the sector, after which resting happens in
+town. A shield long enough to cover full recovery would make sector PvP unplayable on a
+100–200 player server. What the objection did correctly identify is that the ruling doc
+understated the cost of a defeat — that wording is now fixed, and the stale comment in
+`_vitals-settlement.ts` that still claimed recording the spend "costs an admitted player
+nothing" has been corrected.
+
+**Still open, deliberately:** the road-medic wanderer (`api/sector/wanderer-service.ts`)
+is a paid but repeatable full three-bar restore whose cooldown is per-wanderer rather
+than per-player — the last remaining full chakra refill, and an owner call on price
+rather than a bug. **PvE chakra persistence is unverified and should be checked before anyone
+relies on the new rule in PvE.** `applyAiFightOutcomeToCharacter` writes HP back from
+the sealed actor and leaves chakra/stamina at their STORED (pre-fight) values, and its
+input is the save's character, not the client's post-fight one. Whether a mission
+fight's chakra spend actually sticks therefore depends on the client's own autosave
+landing — and on which of the two writes lands last. If the server write wins, PvE
+combat silently refunds its chakra while PvP does not, which would make "exhaustion is
+rested off" a PvP-only rule by accident. I did not settle this; it needs a live trace,
+not more reading. And the non-destructive
+inventory cap is now a one-way ratchet with no upper bound.
+
 ## Coverage — what this pass actually examined
 
 The request was a full-game audit, and the reading was broad, but it was not uniform.
