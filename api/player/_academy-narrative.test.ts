@@ -33,6 +33,23 @@ describe("Academy narrative milestones", () => {
         assert.equal(applyAcademyNarrativeAction(current, { currentSector: 0 }, "trace", 0).ok, false);
     });
 
+    it("acknowledges an arrived field trace while the Logbook autosave is still pending", () => {
+        const current = { onboardingStep: "logbook", academyTrialClaimed: true, hp: 83, ryo: 700 };
+        const accepted = applyAcademyNarrativeAction(current, { currentSector: 1 }, "trace", 1);
+        assert.equal(accepted.ok, true);
+        if (!accepted.ok) return;
+        assert.deepEqual(accepted.character, { ...current, onboardingStep: "sectorReturn", academySectorVisited: true, academyTraceSector: 1 });
+        const replay = applyAcademyNarrativeAction(accepted.character, { currentSector: 1 }, "trace", 1);
+        assert.equal(replay.ok && replay.changed, false);
+        for (const invalid of [
+            { ...current, academyTrialClaimed: false },
+            { ...current, onboardingStep: "firstMission" },
+            { ...current, onboardingStep: "done" },
+        ]) assert.equal(applyAcademyNarrativeAction(invalid, { currentSector: 1 }, "trace", 1).ok, false);
+        assert.equal(applyAcademyNarrativeAction(current, { currentSector: 0 }, "trace", 1).ok, false);
+        assert.equal(applyAcademyNarrativeAction(current, { currentSector: 2 }, "trace", 1).ok, false);
+    });
+
     it("requires the trace before the seal and the seal before completion", () => {
         const step = { onboardingStep: "sectorReturn" };
         assert.equal(applyAcademyNarrativeAction(step, {}, "seal").ok, false);
