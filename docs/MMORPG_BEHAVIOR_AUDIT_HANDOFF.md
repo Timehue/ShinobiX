@@ -23,17 +23,32 @@ researched against genre precedent and decided; the reasoning is in
 | F4 | Silence bypassable on 4 surfaces | `getActiveSilence()` on clan chat, trail signs, custom titles, named forging | **shipped** |
 | F5 | No post-defeat protection online | 120 s server-owned `pvpShieldUntil`; `/api/player/attack` refuses admitted or shielded targets from the authoritative save | **shipped** |
 | F6 | No clan founder succession | `POST /api/clan/leave` with computed succession (`api/clan/_succession.ts`); client wired | **shipped** — inactivity cron deferred |
-| F7 | Inventory overflow destroys items | Cap is non-destructive like `PET_CAP` — never truncates below what is stored | **shipped** — step 2 (at-acquisition checks) still open |
+| F7 | Inventory overflow destroys items | Cap is non-destructive like `PET_CAP` — never truncates below what is stored; player-initiated acquisitions refuse at the moment of gain | **shipped** — both steps |
 | F8 | Transfers capped per call, not in aggregate | Rolling 24 h send-side budget with a trust tier; receiving untouched | **shipped** |
 
-Two follow-ups were deliberately NOT taken and are the honest remainder:
+One follow-up was deliberately NOT taken and is the honest remainder:
 
 - **F6's 30-day founder-inactivity cron.** The right long-term shape, but a server reset
   is pending, so already-orphaned clans get wiped rather than repaired. What mattered was
   stopping new ones. Worth adding before launch.
-- **F7 step 2 — at-acquisition capacity checks on ~15 grant paths.** The save layer no
-  longer eats items, which stops the bleeding; telling the player "inventory full" at the
-  moment it happens is the real fix and touches 15 files.
+
+**F7 step 2 shipped afterwards** (see "Second verification pass" below). The rule that
+survived review is narrower than the original plan of "capacity checks on ~15 grant
+paths", and the narrowing is the interesting part:
+
+- **Only PLAYER-INITIATED acquisition refuses** — shop, craft, named forge, clan
+  exchange, key forge, event claim. The player still holds whatever would have produced
+  the item, so a refusal delays it and they can retry.
+- **Already-earned SETTLEMENT never refuses** — a boss drop, a mission payout, a war
+  crate. The fight is over; refusing strands the reward instead of delaying it, and
+  step 1 already guarantees it persists.
+- **The test is GROWTH, not fullness** (`inventoryGrowthBlock`). Crafting is net-negative
+  on slots — a weapon burns ~50 non-stackable `hunt-*` materials to add one — and a bag
+  full of hunt materials is exactly how a bag reaches the cap, so a plain "is it full?"
+  check refuses the one action that frees it.
+- **Stackables are not slots.** They live in `itemStacks`, so any path that appends them
+  to `inventory[]` makes a bulk buy look like +50 slots and gets refused for a bag it
+  never touches.
 
 ## Verification pass (2026-09-08, after the rulings landed)
 
@@ -176,6 +191,31 @@ would let a future pass skip areas that were never really looked at.
 - Training start/complete and offline timer durability
 - Hollow Gate run start vs. combat start
 - Cron job coverage (enumerated, not audited individually)
+
+## Second verification pass (2026-09-08, on F7 step 2)
+
+Step 2 was reviewed the same way, across four dimensions, before it was committed. It
+found nine confirmed defects collapsing to four distinct ones, and every one of them was
+in code I had just written to *prevent* item loss.
+
+| What was wrong | Why it mattered |
+|---|---|
+| The treasury capacity check sat in `creditRecipient` | `api/_cross-key-settlement.ts` writes the source debit at :114 and sets `mutationObserved` before calling `creditRecipient` at :128. A throw after that is unrecoverable — the catch marks the journal `reconciliation-required` and never rolls back. The gift left the treasury, never arrived, and the officer was told "Nothing was sent." A **regression**: the same gift succeeded before the check existed |
+| `purchaseCatalogItem` pushed stackables into `inventory[]` | All 7 bulk-purchasable items stack, so a 50-shuriken order read as +50 slots. The new gate then refused every potion, pill and shuriken to a full-bag veteran — combat consumables, i.e. the one thing a bag cap must never block. It also ratcheted the non-destructive save ceiling to 550 whenever a save landed before the client compacted |
+| The refusal said "Your inventory is full." to the SENDER | A Kage with an empty bag was sent to check their own. Now named after the recipient, from their stored save name rather than the request body |
+| The key forge's comment claimed it frees four slots | `dungeon-key` is stackable, so `consumeItem` drains `itemStacks` first and removes nothing from `inventory[]`. The forge is normally net **+1** |
+
+**The lesson, and it is the same one as the first pass:** the defect is never in the rule,
+it is in where the rule is applied. "Refuse before the spend" was written down in
+`api/_inventory-capacity.ts` as the contract, and then broken two files over by placing
+the check in a callback that a saga only reaches *after* it commits. Before adding a
+capacity check to a settlement saga, read the saga's own ordering — `validateRecipient`
+runs before the debit, `creditRecipient` after it, and only the first can refuse safely.
+
+**Do not "helpfully" duplicate the check into `creditRecipient` as a second line of
+defence.** A crash-resume skips the whole `sourceState === 'fresh'` block, goes straight
+to the credit, and the copy would strand an already-debited item — the exact failure the
+check exists to prevent. Both transfer files carry a ⛔ comment saying so.
 
 **Not reached in this pass.** Roughly in the order I would take them next, by how much
 player-visible behavior sits behind each:

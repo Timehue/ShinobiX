@@ -1,4 +1,3 @@
-import { inventoryFullBlock } from '../_inventory-capacity.js';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -137,12 +136,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 character: c,
                 _saveVersion: Number(fresh._saveVersion ?? 0),
             };
-            // Capacity BEFORE the claim marker is written below: refusing after
-            // it would burn a one-time war-crate claim on a full bag and destroy
-            // the crate outright (MMORPG behavior audit F7). Refused here, the
-            // claim stays open and the player can take it once they have room.
-            const full = inventoryFullBlock(c);
-            if (full) return { ...decision, granted: false, reason: full.reason, error: full.error, character: c, _saveVersion: Number(fresh._saveVersion ?? 0) };
+            // ⛔ NOT capacity-gated, deliberately, and it was gated for a few hours
+            // on 2026-09-08 before this was reverted. A war crate is an ALREADY
+            // EARNED settlement, not an acquisition the player is choosing to
+            // make: the war is over, the same crate is granted ungated by
+            // api/war/_reward.ts, and the claim EXPIRES after WAR_CRATE_EXPIRY_MS
+            // (7 days). Refusing it on a full bag produced exactly the outcome the
+            // capacity work exists to prevent — "your bag is full AND the reward
+            // is gone" — because a player whose bag stayed full for a week lost
+            // the crate permanently, and both clients render `granted: false` as a
+            // silent no-op with no message at all.
+            //
+            // The save validator is non-destructive (api/save/[name].ts caps at
+            // max(500, what is stored)), so an over-cap crate persists safely. The
+            // hard refusal belongs on paths the player initiates and can retry.
             const inventory = Array.isArray(c.inventory) ? [...(c.inventory as unknown[])] : [];
             inventory.push(LEGENDARY_WAR_CRATE_ID);
             const nextCharacter = {
