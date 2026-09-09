@@ -1153,6 +1153,7 @@ async function settleBoardGeometry(page: Page, rootSelector: string): Promise<vo
 
 async function measureStable(page: Page, rootSelector: string): Promise<LayoutMeasurement> {
     await settleLayout(page);
+    await settleBoardGeometry(page, rootSelector);
     let current = await measure(page, rootSelector);
     for (let attempt = 0; attempt < 8 && (!current.tileCentersInsideBoard || current.visibleTileCount !== 120); attempt += 1) {
         await page.waitForTimeout(90);
