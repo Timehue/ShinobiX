@@ -1,3 +1,4 @@
+import { inventoryFullBlock } from '../_inventory-capacity.js';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
@@ -21,6 +22,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await mutatePlayerSave(playerName, ({ character }) => {
             const receipts = Array.isArray(character.redeemedCrafts) ? character.redeemedCrafts as string[] : [];
             if (receipts.includes(id)) return { ok: true as const, character, value: { replayed: true } };
+            // Player-initiated acquisition, so it refuses HARD and refuses EARLY:
+            // applyForge debits materials and ryo, and a bag check after that
+            // would take the inputs and hand back nothing (MMORPG behavior audit
+            // F7). A refusal here leaves the recipe and its inputs untouched.
+            //
+            // Only weapon/armor consume an inventory slot — `supply` and `relic`
+            // crafts are STACKABLE_OUTPUTS and land in `itemStacks`, which the cap
+            // does not govern. Gating those too would refuse a ration craft for a
+            // full bag it never touches. Each weapon/armor craft yields exactly 1.
+            if (kind === 'weapon' || kind === 'armor') {
+                const full = inventoryFullBlock(character, 1);
+                if (full) return { ok: false as const, status: full.status, error: full.error };
+            }
             const next = applyForge(character, kind, recipeId, body.quantity);
             if (!next) return { ok: false as const, status: 409, error: 'invalid-or-unaffordable-recipe' };
             return { ok: true as const, character: { ...next, redeemedCrafts: [...receipts.slice(-99), id] }, value: { replayed: false } };

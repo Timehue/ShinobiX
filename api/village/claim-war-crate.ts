@@ -1,3 +1,4 @@
+import { inventoryFullBlock } from '../_inventory-capacity.js';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -136,6 +137,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 character: c,
                 _saveVersion: Number(fresh._saveVersion ?? 0),
             };
+            // Capacity BEFORE the claim marker is written below: refusing after
+            // it would burn a one-time war-crate claim on a full bag and destroy
+            // the crate outright (MMORPG behavior audit F7). Refused here, the
+            // claim stays open and the player can take it once they have room.
+            const full = inventoryFullBlock(c);
+            if (full) return { ...decision, granted: false, reason: full.reason, error: full.error, character: c, _saveVersion: Number(fresh._saveVersion ?? 0) };
             const inventory = Array.isArray(c.inventory) ? [...(c.inventory as unknown[])] : [];
             inventory.push(LEGENDARY_WAR_CRATE_ID);
             const nextCharacter = {
