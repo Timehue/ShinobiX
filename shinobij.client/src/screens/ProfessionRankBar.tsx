@@ -1,6 +1,8 @@
+import { professionThresholds } from "../lib/profession-bonuses";
+import { PROFESSION_MAX_RANK } from "../constants/profession";
 import type { CSSProperties } from "react";
 import type { Character, Profession } from "../App";
-import { professionThresholds, PROFESSION_MAX_RANK } from "../App";
+
 
 const LABELS: Record<Profession, string> = {
     healer: "Healer",

@@ -9,7 +9,7 @@ const editor = read("shinobij.client/src/components/NindoEditor.tsx");
 const profile = read("shinobij.client/src/screens/Profile.tsx");
 const app = read("shinobij.client/src/App.tsx");
 const backgrounds = read("shinobij.client/src/lib/nindo-backgrounds.ts");
-const saveHandler = read("api/save/[name].ts");
+const saveHandler = read("api/save/_sanitize-narrative.ts");
 const roster = read("api/player/roster.ts");
 const userView = read("shinobij.client/src/screens/UserView.tsx");
 
@@ -17,7 +17,8 @@ test("Profile feeds both Nindo fields into the editor and writes them through ch
     assert.match(profile, /<NindoEditor[\s\S]*?value=\{\{ nindo: character\.nindo \?\? "", nindoBg: character\.nindoBg \}\}/);
     assert.match(profile, /onSave=\{\(v\) => updateCharacter\(\(prev\) => prev \? \{ \.\.\.prev, \.\.\.v \} : prev\)\}/);
     assert.match(app, /screen === "profile"[\s\S]*?<Profile[\s\S]*?updateCharacter=\{setCharacter\}/);
-    assert.match(app, /if \(character !== prevCharRef\.current\) \{[\s\S]*?charDirtyRef\.current = true;/);
+    assert.match(app, /usePlayerSaveLifecycle\(\{/);
+    assert.match(read("shinobij.client/src/lib/player-save-tracking.ts"), /if \(character !== prevCharRef\.current\) \{[\s\S]*?charDirtyRef\.current = true;/);
 });
 
 test("Clear removes both the creed and banner, and clean editors adopt server snapshots", () => {

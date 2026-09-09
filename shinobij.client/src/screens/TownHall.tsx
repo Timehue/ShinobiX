@@ -1,3 +1,6 @@
+import { HOLLOW_GATE_UNLOCK_COST } from "../lib/hollow-gate-prices";
+import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
+import { normalizeNarrativeCharacter as normalizeCharacter } from "../lib/normalize-narrative-character";
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef } from "react";
 import "../styles/town-hall-aaa.css";
@@ -35,10 +38,7 @@ import { VILLAGE_UPGRADE_MAX_LEVEL, getBankInterestPercent, getHospitalDiscountP
 import { makeNoticePost, normalizeNoticePosts, noticeTypeLabel } from "../lib/clan-notices";
 import { postGuardQueue } from "../lib/clan-api";
 import {
-    HOLLOW_GATE_UNLOCK_COST,
-    getPvpJutsuLoadout,
-    normalizeCharacter,
-    type DuelChallenge,
+    type DuelChallenge
 } from "../App";
 import { loadVillageLeadershipImages } from "../lib/village-leadership-images";
 import { villageLeadership } from "../data/village-leadership";

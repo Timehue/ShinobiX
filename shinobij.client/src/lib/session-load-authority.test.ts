@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
 const source = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+const restoreSource = readFileSync(new URL("./boot-restore.ts", import.meta.url), "utf8");
 // The credential half of signing in lives here; the save-loading half stays in
 // App. Both are part of one login and both must honour the same generation.
 const loginSource = readFileSync(new URL("./player-login.ts", import.meta.url), "utf8");
@@ -11,7 +12,9 @@ describe("session-load response authority", () => {
     it("retires timed-out and unmounted boot restores before stale continuations can repaint", () => {
         const boot = source.slice(source.indexOf("useEffect(() => {", source.indexOf("function applySnapshot")), source.indexOf("async function pullSaveFromServer"));
         assert.match(boot, /const restoreLoad = beginSessionLoad\(sessionLoadGenerationRef, localAccountName\)/);
-        assert.match(boot, /if \(!restoreLoad\.isCurrent\(\)\) return;[\s\S]*?saveConflictAccountKey\(snap\.character\.name\) === restoreLoad\.accountKey[\s\S]*?applySnapshot/);
+        assert.match(boot, /restoreAccountFromServer\(\{[\s\S]*?accountName: localAccountName,[\s\S]*?scope: restoreLoad,[\s\S]*?applySnapshot,/);
+        assert.match(restoreSource, /if \(!scope\.isCurrent\(\)\) return;[\s\S]*?saveConflictAccountKey\(snapshot\.character\.name\) === scope\.accountKey[\s\S]*?applySnapshot\(snapshot, lock\)/);
+        assert.match(boot, /if \(!restoreLoad\.isCurrent\(\) \|\| !guest\) return null;[\s\S]*?setActiveToken/);
         assert.match(boot, /const revertRestoreToLogin = \(\) => \{[\s\S]*?restoreLoad\.retire\(\)/);
         // Deadlock regression (2026-08-19): retire() bumps the generation, so the
         // .finally()'s isCurrent() guard skips its own setRestoringSession(false)

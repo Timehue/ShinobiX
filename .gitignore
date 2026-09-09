@@ -487,6 +487,13 @@ shinobij.client/dist/
 shinobij.client/scripts/.restyle-board-done.json
 shinobij.client/scripts/.restyle-keyart-done.json
 
+# Local Codex worktrees and generated output
+/.codex-worktrees/
+/.worktrees/
+/output/
+/outputs/
+/shinobij.client/output/
+
 # Windows Explorer folder-settings artifact. It was tracked at the repo root
 # until 2026-08; it carries no project meaning and reappears on any machine
 # that customizes a folder view.

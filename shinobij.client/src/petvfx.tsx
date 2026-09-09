@@ -4,7 +4,9 @@
 // asset modules before its first frame.
 const params = new URLSearchParams(window.location.search);
 
-if (params.get("rite") === "1") {
+if (params.get("modelresources") === "1") {
+    void import("./pet-model-lifecycle-preview");
+} else if (params.get("rite") === "1") {
     void import("./petvfx-rite");
 } else {
     void import("./petvfx-legacy");

@@ -1328,19 +1328,27 @@ export default defineConfig({
                     ) {
                         return 'live-capabilities';
                     }
-                    // Pet sprite/card resolution is shared by the app shell and
-                    // many lazy combat screens. Keep that stable presentation
-                    // layer in its own cacheable chunk so adding a species or
-                    // visual variant does not keep inflating the entry bundle.
-                    if (normalizedId.endsWith('/src/lib/pet-battle-anim.ts')) {
-                        return 'pet-presentation';
-                    }
-                    // World-state reconciliation is large, stable authority code
-                    // shared by the shell and several lazy strategy screens. Keep
-                    // it cacheable apart from the fast-changing application entry;
-                    // it remains in the initial graph, so the aggregate startup
-                    // budgets still measure every byte a new player downloads.
-                    if (normalizedId.endsWith('/src/lib/world-state.ts')) {
+                    // Co-locate the always-loaded world and character rules.
+                    // Direct module imports otherwise fragment these shared pure
+                    // helpers into tiny startup chunks with repeated import/export
+                    // overhead. The full group remains in the aggregate budget.
+                    // Pet art uses automatic placement: forcing its module into a
+                    // manual group also hoisted lazy presentation dependencies.
+                    if ([
+                        '/src/lib/world-state.ts',
+                        '/src/lib/stats.ts',
+                        '/src/lib/character-progress.ts',
+                        '/src/lib/character-level-projection.ts',
+                        '/src/lib/player-lens-discipline.ts',
+                        '/src/lib/story-derive.ts',
+                        '/src/lib/story-content-contract.ts',
+                        '/src/lib/elements.ts',
+                        '/src/data/jutsu.ts',
+                        '/src/lib/jutsu-visuals.ts',
+                        '/src/lib/battle-log-format.ts',
+                        '/src/lib/hollow-gate-visibility.ts',
+                        '/src/lib/hollow-gate-atlas.ts',
+                    ].some((modulePath) => normalizedId.endsWith(modulePath))) {
                         return 'world-authority';
                     }
                     // Group the heavy 3D stack (three.js + three-stdlib + the

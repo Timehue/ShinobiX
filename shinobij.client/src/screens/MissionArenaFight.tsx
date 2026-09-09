@@ -1,3 +1,5 @@
+import { playerLensDiscipline } from "../lib/player-lens-discipline";
+import { getAllJutsus } from "../lib/jutsu-loadout";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import "../styles/battle-skin.css";
 import { visiblePoll } from "../lib/poll";
@@ -61,7 +63,7 @@ import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
 import { resolveOwnAvatar } from "../lib/own-avatar";
 import { petCardImage, petStripVariant } from "../lib/pet-battle-anim";
 import { firstSharedImage, petVisualVariantClass, variantImageKeys } from "../lib/pet-visual-variant";
-import { getAllJutsus, playerLensDiscipline } from "../App";
+
 import { getAllItems } from "../lib/items";
 import type { Pet } from "../types/pet";
 import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";

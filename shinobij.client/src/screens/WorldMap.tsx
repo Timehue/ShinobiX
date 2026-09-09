@@ -1,3 +1,8 @@
+import { gainXp } from "../lib/character-level-projection";
+import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
+import { normalizeNarrativeCharacter as normalizeCharacter } from "../lib/normalize-narrative-character";
+import { HollowGateEntryMenu } from './world-map/HollowGateEntryMenu';
+import { sectorBackgroundImage, sectorDepthImage, sectorMapUrl, ambienceBiomeForSector } from './world-map/sector-art';
 import { fetchVillageGuards } from "../lib/village-guard-api";
 import { useWorldTravelPresentation } from "../lib/use-world-travel-presentation";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
@@ -124,7 +129,7 @@ import { HollowGateAttunement } from "../components/HollowGateAttunement";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { WorldToast } from "../components/WorldToast";
 import { TravelingOverlay } from "../components/TravelingOverlay";
-import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
+
 import { ATLAS_SECTOR_POINTS } from "../data/sector-points";
 import { sectorExits as roadExitsForSector, travelArrivalTile, type SectorExit } from "../../../shared/sector-links";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
@@ -149,7 +154,7 @@ import {
 } from "../lib/world-reward-recovery";
 import { DungeonProbeError, probeFreeDungeonServer } from "../lib/dungeon-api";
 import { petCardImage } from "../lib/pet-battle-anim";
-import { biomeForWorldSector, sectorRegionName, villageForOutskirtsSector, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
+import { biomeForWorldSector, sectorRegionName, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
 import { biomeLabel, weatherEffects } from "../data/world";
 import { builtinHuntMissions } from "../data/missions";
 import { makeId, playerSlug, sameSector } from "../lib/utils";
@@ -181,14 +186,14 @@ import castleImg from "../assets/castle.webp";
 import houseImg from "../assets/house1.webp";
 import towerImg from "../assets/tower.webp";
 import moonshadowImage from "../assets/moonshadow.webp";
-import iceSectorImg from "../assets/sectors/ice.webp";
-import darkSectorImg from "../assets/sectors/dark.webp";
-import templeSectorImg from "../assets/sectors/temple.webp";
-import waterSectorImg from "../assets/sectors/water.webp";
-import forrestSectorImg from "../assets/sectors/forrest.webp";
-import meadow2SectorImg from "../assets/sectors/meadow2.webp";
-import meadowSectorImg from "../assets/sectors/meadow.webp";
-import stormveilVillageImg from "../assets/sectors/stormveil-village.webp";
+
+
+
+
+
+
+
+
 import stormveilLandmarkArt from "../assets/map-landmarks/stormveil.webp";
 import ashenLeafLandmarkArt from "../assets/map-landmarks/ashen-leaf.webp";
 import frostfangLandmarkArt from "../assets/map-landmarks/frostfang.webp";
@@ -196,16 +201,13 @@ import moonshadowLandmarkArt from "../assets/map-landmarks/moonshadow.webp";
 import centralLandmarkArt from "../assets/map-landmarks/central.webp";
 import hollowGateLandmarkArt from "../assets/map-landmarks/hollow-gate.webp";
 import {
-    gainXp,
-    getPvpJutsuLoadout,
-    normalizeCharacter,
     type CreatorEvent,
     type DuelChallenge,
     type EventEncounterBattle,
     type PvpSessionState,
-    type SharedPvpBattleContext,
+    type SharedPvpBattleContext
 } from "../App";
-import { villagePageImage } from "../lib/village-page-image";
+
 import { villageOuterTerritoryMapUrl } from "../lib/village-outer-territory-map";
 import { activeVillageWarsFor, loadSectorTerritory, territoryBreachMinsLeft, territoryIsBreached, territoryRewardsSuspended, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
 import { SECTOR_DEPLETED_MESSAGE, sectorExploreRefusal, sectorPoolViewFor } from "../lib/sector-pool";
@@ -235,8 +237,8 @@ import { HUNT_PACK_STAGES, huntOpeningFor, huntPackMember, huntSignFor, type Hun
 import { postWorldHunt, type WorldHuntTrailView } from "../lib/world-hunt-api";
 import { HuntEncounterCard, type HuntEncounterView } from "../components/HuntEncounterCard";
 import { beastPortrait } from "../data/hunter-art";
-import { SECTOR_FLOOR_SECTORS } from "../data/sector-art-manifest";
-import { FESTIVAL_SECTOR, isWildSector, MAX_WILD_SECTOR, sectorArtKey, sectorName } from "../../../shared/sector-geo";
+
+import { FESTIVAL_SECTOR, isWildSector, MAX_WILD_SECTOR, sectorName } from "../../../shared/sector-geo";
 import { shrineForSector } from "../../../shared/shrines";
 import { WorldRoadsOverlay, WorldPoiPlates } from "../components/WorldRoadsOverlay";
 import "../components/world-map-charting.css";
@@ -248,105 +250,6 @@ import { fetchSectorTraces, isSectorTracesEnabled, type SectorTracesView } from 
 // Middle of the 12x12 sector board (row 6, col 6). Where a player lands after a
 // map jump that has no direction to preserve, and the initial standing tile.
 const SECTOR_CENTRE_TILE = 78;
-// Which scene-image theme each sector shows. Single source of truth shared by
-// the background image picker and the ambience-biome picker so the drifting
-// particles always match the painted scene the player is looking at.
-const SECTOR_IMAGE_GROUPS: Record<string, number[]> = {
-    ice: [52, 48, 53, 54, 50, 55],
-    dark: [2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 17, 20, 19, 18, 14, 15, 13],
-    temple: [34, 60, 59],
-    water: [23, 26, 21, 22, 27, 32, 28, 33, 42],
-    forrest: [36, 37, 38, 39, 40, 43, 46],
-    stormveil: [31, 35, 10, 16],
-    meadow2: [44, 24, 29, 30, 59, 1],
-    meadow: [25, 41, 45, 47, 57, 51],
-};
-
-function sectorImageTheme(sector: number): string {
-    for (const [theme, sectors] of Object.entries(SECTOR_IMAGE_GROUPS)) {
-        if (sectors.includes(sector)) return theme;
-    }
-    return "meadow";
-}
-
-/*
- * Backdrop for the <SectorScene> vista stack. Since the painted top-down floors
- * cover every sector, that stack now renders ONLY for a territory carrying its
- * own custom `backgroundImage` (creator/admin art), which is passed in directly —
- * so this resolver is just the shared theme fallback. The 66 bespoke per-sector
- * vistas it used to return were retired with the opt-out path (2026-07-29): they
- * were unreachable by default and 7.3 MB of deploy weight.
- */
-function sectorBackgroundImage(sector: number) {
-    if (sector === 99) return "/deathgate-sector.webp";
-
-    const village = villageForOutskirtsSector(sector);
-    if (village) return villagePageImage(village);
-
-    switch (sectorImageTheme(sector)) {
-        case "ice": return iceSectorImg;
-        case "dark": return darkSectorImg;
-        case "temple": return templeSectorImg;
-        case "water": return waterSectorImg;
-        case "stormveil": return stormveilVillageImg;
-        case "forrest": return forrestSectorImg;
-        case "meadow2": return meadow2SectorImg;
-        default: return meadowSectorImg;
-    }
-}
-
-// Depth-map URL for a sector's painted scene, when one has been baked
-// (scripts/gen-sector-depth.mjs). Mirrors sectorBackgroundImage's image choice
-// so the depth lines up with what's shown: only theme images have maps for now —
-// village outskirts, Death's Gate, and custom territory art fall back to the
-// procedural depth in SectorScene3DScene.
-function sectorDepthImage(sector: number): string | undefined {
-    if (sector === 99) return undefined;
-    if (villageForOutskirtsSector(sector)) return undefined;
-    const theme = sectorImageTheme(sector);
-    return SECTOR_DEPTH_THEMES.has(theme) ? `/sector-depth/${theme}.webp` : undefined;
-}
-
-/*
- * The painted top-down ADVENTURE MAP for a sector. Every sector 1-66 plus
- * Death's Gate (99) now has bespoke art, so this is a straight lookup — the ten
- * shared per-biome variant boards it used to fall back to were deleted
- * 2026-07-29 once s99 got its own board (it was the last consumer).
- *
- * Art files keep their pre-renumbering names, so resolve through sectorArtKey.
- */
-function sectorMapUrl(_biome: Biome, seed: number): string | undefined {
-    const artKey = sectorArtKey(seed);
-    return SECTOR_FLOOR_SECTORS.has(artKey) ? `/sector-map/s${artKey}.webp` : undefined;
-}
-
-// Ambience biome (drives drifting particles + god-ray tint) chosen to match the
-// painted scene image — NOT the territory biome, which can differ (e.g. a
-// volcano-territory sector that paints as forest). Outskirts mirror their village.
-function ambienceBiomeForSector(sector: number): Biome {
-    if (sector === 99) return "volcano";
-    // Every wild sector has painted floor art, and its painted region IS its
-    // gameplay biome now (shared/sector-geo.ts), so ambience reads straight off
-    // the registry. The village/theme fallbacks below only serve sector 0 and
-    // any id outside the registry.
-    if (sector >= 1) return biomeForWorldSector(sector);
-    const village = villageForOutskirtsSector(sector);
-    if (village === "Frostfang Village") return "snow";
-    if (village === "Moonshadow Village") return "shadow";
-    if (village === "Stormveil Village") return "forest";
-    if (village === "Ashen Leaf Village") return "volcano";
-    switch (sectorImageTheme(sector)) {
-        case "ice": return "snow";
-        case "dark": return "shadow";
-        case "temple": return "shadow";   // cherry-blossom temple → drifting petals
-        case "forrest": return "forest";
-        case "stormveil": return "forest";
-        case "water": return "central";   // soft motes over the lagoon
-        case "meadow2": return "central";
-        case "meadow": return "central";
-        default: return "central";
-    }
-}
 
 // "Return to the sector you were in" after an explore ambush is a one-shot latch
 // in ../lib/sector-return (shared so the Hospital can clear it on a KO). See that
@@ -5130,30 +5033,13 @@ function WorldMapContent({
                 />
             )}
             {hollowGateMenu && (
-                <div onClick={() => setHollowGateMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 8999, background: "rgba(2,6,23,0.8)", display: "grid", placeItems: "center", padding: 16 }}>
-                    <div onClick={(e) => e.stopPropagation()} style={{ background: "#160f2b", border: "1px solid #7c3aed", borderRadius: 12, padding: 20, maxWidth: 380, width: "100%", textAlign: "center" }}>
-                        <h3 style={{ marginTop: 0, color: "#e9d5ff" }}>⛩ The Hollow Gate</h3>
-                        <p style={{ color: "#c4b5fd", fontSize: 14 }}>The broken torii waits. Steel yourself, or attune to the shrine with the Hollow Shards you've torn from its depths.</p>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                            {hollowGateEventConfig?.active && (
-                                <button
-                                    onClick={() => { setHollowGateMenu(false); onEnterHollowGateEvent?.(hollowGateEventConfig); }}
-                                    style={{ padding: 8, borderRadius: 8, border: "1px solid #fbbf24", background: "linear-gradient(#b45309,#78350f)", color: "#fef3c7", fontWeight: 700, cursor: "pointer" }}
-                                >
-                                    ⭐ Event: {hollowGateEventConfig.label || "Event Gate"}
-                                    <span style={{ display: "block", fontSize: 11, fontWeight: 400, color: "var(--gold-300)" }}>
-                                        {Math.max(1, hollowGateEventConfig.maxFloor ?? 1)} floor{(hollowGateEventConfig.maxFloor ?? 1) === 1 ? "" : "s"}
-                                        {hollowGateEventConfig.bossName ? ` · Boss: ${hollowGateEventConfig.bossName}` : ""}
-                                        {(hollowGateEventConfig.keyCost ?? 1) === 0 ? " · Free entry" : " · 1 Key"}
-                                    </span>
-                                </button>
-                            )}
-                            <button onClick={() => { setHollowGateMenu(false); onEnterHollowGate?.(); }} style={{ padding: 8, borderRadius: 8, border: "none", background: "linear-gradient(#7c3aed,#4c1d95)", color: "#fff", fontWeight: 600, cursor: "pointer" }}>Enter the Shrine</button>
-                            <button onClick={() => { setHollowGateMenu(false); setShowAttunement(true); }} style={{ padding: 8, borderRadius: 8, border: "1px solid #7c3aed", background: "transparent", color: "#e9d5ff", cursor: "pointer" }}>💎 Shrine Attunement</button>
-                            <button onClick={() => setHollowGateMenu(false)} style={{ padding: 6, borderRadius: 8, border: "1px solid var(--slate-600)", background: "transparent", color: "var(--text-dim)", cursor: "pointer" }}>Cancel</button>
-                        </div>
-                    </div>
-                </div>
+                <HollowGateEntryMenu
+                    hollowGateEventConfig={hollowGateEventConfig}
+                    onEnterHollowGateEvent={onEnterHollowGateEvent}
+                    onEnterHollowGate={onEnterHollowGate}
+                    onClose={() => setHollowGateMenu(false)}
+                    onShowAttunement={() => setShowAttunement(true)}
+                />
             )}
             {showAttunement && <HollowGateAttunement character={character} onClose={() => setShowAttunement(false)} onVersionedCharacter={onVersionedCharacter} />}
             {/* World-map viewport. Legacy: a horizontal-scroll box on narrow

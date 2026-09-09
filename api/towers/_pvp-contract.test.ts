@@ -32,7 +32,7 @@ describe('Tower MPvP additive isolation contract', () => {
     });
 
     it('mounts all four isolated production routes', () => {
-        const server = source('server.ts');
+        const server = source('server-api-routes.ts');
         for (const route of ['pvp-queue', 'pvp-state', 'pvp-action', 'pvp-settle']) {
             assert.match(server, new RegExp(`route\\('/towers/${route}'`));
             assert.match(server, new RegExp(`api/towers/${route}\\.js`));

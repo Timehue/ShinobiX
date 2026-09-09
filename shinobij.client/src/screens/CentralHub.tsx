@@ -1,3 +1,4 @@
+import { HOLLOW_GATE_KEY_DUNGEON_KEY_COST, HOLLOW_GATE_KEY_FATE_SHARD_COST } from "../lib/hollow-gate-prices";
 /* eslint-disable react-hooks/purity */
 import { useState, useEffect, useMemo } from "react";
 import { usePublicBloodlines } from "../lib/use-public-bloodlines";
@@ -64,9 +65,7 @@ import { tagMatchesName } from "../lib/tags";
 import { weeklyBossSchedule } from "../lib/weekly-boss";
 import { biomeLabel } from "../data/world";
 import {
-    HOLLOW_GATE_KEY_DUNGEON_KEY_COST,
-    HOLLOW_GATE_KEY_FATE_SHARD_COST,
-    type CreatorEvent,
+    type CreatorEvent
 } from "../App";
 import { sharedWeeklyBossAiIdCache } from "../lib/world-state";
 import { type VillageWarRecord } from "../lib/world-state";

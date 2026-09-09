@@ -57,7 +57,7 @@ test('all live Hollow Gate reward sources feed the exact server ledger', () => {
 });
 
 test('event and movement routes are live and have browser callers; legacy locked roll is fail-closed', () => {
-    const server = source('server.ts');
+    const server = source('server-api-routes.ts');
     const tile = source('shinobij.client', 'src', 'lib', 'hollow-gate-tile.ts');
     const app = source('shinobij.client', 'src', 'App.tsx');
     assert.match(server, /route\('\/hollow-gate\/event'/);

@@ -14,6 +14,7 @@ import { stablePetModelPresentationBounds } from "../lib/pet-model-bounds";
 import type { PetModelSurfaceTreatment } from "../lib/pet-model-surface";
 import type { PetSignaturePerformance } from "../lib/pet-signature-performance";
 import { createPetAnimationEpoch, retirePetAnimationMixer, synchronizePetAnimationEpoch } from "../lib/pet-animation-lifecycle";
+import { disposePetModelResources } from "../lib/pet-model-resources";
 
 export type PetModelMotion =
     | "idle"
@@ -822,10 +823,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
     );
     const mixer = useMemo(() => prepared.clips.length ? new THREE.AnimationMixer(prepared.surface) : null, [prepared]);
     const outlineMixer = useMemo(() => prepared.clips.length && prepared.outline ? new THREE.AnimationMixer(prepared.outline) : null, [prepared]);
-    const cleanupGeneration = useRef(0);
-    const liveMixer = useRef(mixer);
-    const liveOutlineMixer = useRef(outlineMixer);
-    const livePrepared = useRef(prepared);
+    const resourceLifetime = useRef({ generation: 0, mixer, outlineMixer, prepared });
     const animationEpoch = useMemo(() => createPetAnimationEpoch<CombatAnimationFamily>("idle"), []);
     const root = useRef<THREE.Group>(null);
     const body = useRef<THREE.Group>(null);
@@ -863,10 +861,11 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
     }, [prepared.surface, prepared.outline]);
 
     useEffect(() => {
-        const generation = ++cleanupGeneration.current;
-        liveMixer.current = mixer;
-        liveOutlineMixer.current = outlineMixer;
-        livePrepared.current = prepared;
+        const lifetime = resourceLifetime.current;
+        const generation = ++lifetime.generation;
+        lifetime.mixer = mixer;
+        lifetime.outlineMixer = outlineMixer;
+        lifetime.prepared = prepared;
         return () => {
             // React Strict Mode immediately cleanup/remounts effects while
             // retaining useMemo values. Uncaching the retained action here left
@@ -877,14 +876,14 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             const staleOutlineMixer = outlineMixer;
             const stalePrepared = prepared;
             setTimeout(() => {
-                const reactivated = cleanupGeneration.current !== generation
-                    && liveMixer.current === staleMixer
-                    && liveOutlineMixer.current === staleOutlineMixer
-                    && livePrepared.current === stalePrepared;
+                const reactivated = lifetime.generation !== generation
+                    && lifetime.mixer === staleMixer
+                    && lifetime.outlineMixer === staleOutlineMixer
+                    && lifetime.prepared === stalePrepared;
                 if (reactivated) return;
                 retirePetAnimationMixer(staleMixer);
                 retirePetAnimationMixer(staleOutlineMixer);
-                for (const material of stalePrepared.materials) material.dispose();
+                disposePetModelResources(stalePrepared);
             }, 0);
         };
     }, [mixer, outlineMixer, prepared]);

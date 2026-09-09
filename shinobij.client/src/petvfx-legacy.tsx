@@ -62,6 +62,10 @@ function Harness() {
     const [seed, setSeed] = useState(START_SEED);
     const [qaFightMounted, setQaFightMounted] = useState(true);
     const [qaRemounts, setQaRemounts] = useState(0);
+    const settlementQa = PARAMS.get("settlementqa") === "1";
+    const [qaSettlement, setQaSettlement] = useState<"error" | "pending" | "settled">("error");
+    const [qaSettlementRetries, setQaSettlementRetries] = useState(0);
+    const [qaExits, setQaExits] = useState(0);
     useEffect(() => {
         if (PARAMS.get("remountqa") !== "1") return;
         const timers: number[] = [];
@@ -348,6 +352,11 @@ function Harness() {
         <div style={{ maxWidth: 880, margin: "16px auto", padding: 12 }}>
             {cineResult && <output hidden data-testid="pet-duel-qa" data-events={JSON.stringify(cineResult.events)} />}
             <output hidden data-testid="pet-atlas-remount-qa" data-remounts={qaRemounts} />
+            {settlementQa && <output hidden data-testid="pet-settlement-qa" data-retries={qaSettlementRetries} data-exits={qaExits} />}
+            {settlementQa && !qaFightMounted && <button onClick={() => {
+                setQaSettlement("error");
+                setQaFightMounted(true);
+            }}>Re-enter duel</button>}
             {(duelMode || cineMode || controlMode) && qaFightMounted && (
                 <PetColiseumDuel
                     playerPet={duelPlayer}
@@ -360,7 +369,19 @@ function Harness() {
                     initialTick={START_DUEL_TICK}
                     sharedImages={harnessShared}
                     onFightAgain={restart}
-                    onExit={() => {}}
+                    settlementStatus={settlementQa ? qaSettlement : undefined}
+                    resultSupplement={settlementQa && qaSettlement === "pending"
+                        ? <button onClick={() => setQaSettlement("settled")}>Complete QA settlement</button>
+                        : undefined}
+                    onRetrySettlement={settlementQa ? () => {
+                        setQaSettlementRetries((count) => count + 1);
+                        setQaSettlement("pending");
+                    } : undefined}
+                    onExit={() => {
+                        if (!settlementQa) return;
+                        setQaExits((count) => count + 1);
+                        setQaFightMounted(false);
+                    }}
                 />
             )}
             {arenaMode && (

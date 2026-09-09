@@ -1,3 +1,4 @@
+import "../styles/cinematic-vn.css";
 import type { VnCinematicDirection } from "../types/vn";
 import {
     VN_AMBIENCES,

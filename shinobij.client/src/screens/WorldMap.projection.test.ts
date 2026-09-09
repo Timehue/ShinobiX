@@ -96,8 +96,10 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // buffer, per the convention above.
         // 5,393 (+1): the sector garrison entry rides the contest handler that
         // was already here, as one extra argument and one extra prop pair.
-        lineCount(worldMapSource) <= 5_393,
-        `WorldMap.tsx grew past 5,393 lines; retired overview layers must stay retired.`,
+        // 5,279: retain main's contest/garrison wiring and the refactor's
+        // extracted sector art, ambience and gate menu. Exact merged count.
+        lineCount(worldMapSource) <= 5_279,
+        `WorldMap.tsx grew past 5,279 lines; retired overview layers must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,

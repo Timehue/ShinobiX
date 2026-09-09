@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = process.cwd();
-const SERVER = readFileSync(join(ROOT, 'api', 'save', '[name].ts'), 'utf8');
+const SERVER = readFileSync(join(ROOT, 'api', 'save', '_sanitize-progression.ts'), 'utf8');
 const CLIENT = readFileSync(join(ROOT, 'shinobij.client', 'src', 'lib', 'hollow-gate-attunement.ts'), 'utf8');
 
 function serverMaxRanks(): Record<string, number> {
