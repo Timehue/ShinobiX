@@ -5,16 +5,17 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { REGEN_FULL_BAR_SEC, VITAL_REGEN_MS, settleVitalsRegen, vitalRegenPerTick } from './_elapsed-state.js';
 import { sanitizeCharacterSave } from './save/[name].js';
+import { maxChakraForLevel, maxHpForLevel, maxStaminaForLevel } from './_xp-engine.js';
 
 /*
  * F1(B): idle recovery is a share of each POOL, not a flat 1 point shared by all
  * three vitals.
  *
- * The flat rate was tuned for the ~100-point pools of the early game. The v2
- * curve took them to 10,000 (HP_CAP / CHAKRA_CAP_V2 / STAMINA_CAP_V2), so a full
- * bar at level 100 took 2h46m and resting was dead content for most of the level
- * range — which is what made a free 60-second hospital discharge the fastest
- * restore in the game.
+ * The flat rate predates the v2 pool curve, which raised every pool by roughly
+ * 5-100x (level 1 holds 500 HP / 1000 chakra; level 100 holds 10,000 of each).
+ * A full bar at level 100 therefore took 2h46m, and resting was dead content
+ * across most of the level range — which is what made a free 60-second hospital
+ * discharge the fastest restore in the game.
  *
  * Two properties matter and both are pinned here: nobody regenerates SLOWER than
  * before, and the autosave gain ceiling in the save validator allows exactly what
@@ -56,6 +57,42 @@ describe('vitalRegenPerTick', () => {
     it('falls back to the flat rate when the kill switch is thrown', () => {
         assert.equal(vitalRegenPerTick(10_000, 0, false), 1, 'DISABLE_POOLED_VITAL_REGEN restores the old behaviour exactly');
         assert.equal(vitalRegenPerTick(10_000, 2, false), 3);
+    });
+});
+
+describe('the real level curve', () => {
+    // Synthetic pools above prove the arithmetic; this proves the arithmetic is
+    // right for the pools the game actually issues (COMBAT_RESOURCES_V2).
+    it('never makes any level slower than the old flat rate', () => {
+        for (let level = 1; level <= 100; level += 1) {
+            for (const pool of [maxHpForLevel(level), maxChakraForLevel(level), maxStaminaForLevel(level)]) {
+                assert.ok(
+                    vitalRegenPerTick(pool) >= 1,
+                    `level ${level} pool ${pool} regenerates slower than the old 1/sec`,
+                );
+            }
+        }
+    });
+
+    it('bounds a full bar at REGEN_FULL_BAR_SEC for every level', () => {
+        for (let level = 1; level <= 100; level += 1) {
+            for (const pool of [maxHpForLevel(level), maxChakraForLevel(level), maxStaminaForLevel(level)]) {
+                const seconds = pool / vitalRegenPerTick(pool);
+                assert.ok(
+                    seconds <= REGEN_FULL_BAR_SEC,
+                    `level ${level} pool ${pool} takes ${Math.round(seconds)}s, over the ${REGEN_FULL_BAR_SEC}s budget`,
+                );
+            }
+        }
+    });
+
+    it('fixes the levels that were actually broken', () => {
+        // The numbers quoted in docs/MMORPG_BEHAVIOR_RULINGS.md. Level 1 is
+        // deliberately unchanged — its pool already fits inside the budget.
+        const barSeconds = (level: number) => maxHpForLevel(level) / vitalRegenPerTick(maxHpForLevel(level));
+        assert.equal(Math.round(barSeconds(1)), maxHpForLevel(1), 'level 1 keeps the old 1/sec exactly');
+        assert.ok(barSeconds(50) <= 1_800, 'level 50 was 90 minutes');
+        assert.ok(barSeconds(100) <= 1_800, 'level 100 was 2h46m');
     });
 });
 

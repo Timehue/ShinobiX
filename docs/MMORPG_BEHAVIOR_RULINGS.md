@@ -18,6 +18,11 @@ each **pool** (a full bar in 30 minutes at any level) instead of a flat 1 point/
 The Healer self top-up gets the rank-scaled cooldown that healing anyone else already
 had, floored at 60 s.
 
+To be precise about the cost, since an earlier draft of this doc understated it by
+saying "nothing is taken": a defeat now leaves you paying the same short rest or 100-ryo
+Feast that a player who *survived* a hard fight already pays. That symmetry is the point
+— before, losing consciousness refunded the fight and surviving it did not.
+
 **Why.** The audit called this a missing penalty. It is really an inverted exchange
 rate. At level 100 the pools are 10,000 each (`HP_CAP`, `CHAKRA_CAP_V2`,
 `STAMINA_CAP_V2`) while idle recovery ran at 1 point/second — so a full bar took
@@ -36,9 +41,21 @@ would de-level, and there is no durability system).
 The regen retune is not a separate nicety, it is what makes the ruling fair. Without it,
 HP-only discharge strands a high-level player for hours and quietly forces a ryo tax.
 It is also finishing a job already started: the owner ruled on 2026-07-31 that cafeteria
-meals must scale with the pool because "the old flats were tuned for ~100-HP pools".
-Regen never got that pass. It is floored at the old rate, so **nobody recovers slower
-than before** — it is strictly a speed-up for everyone above roughly level 20.
+meals must scale with the pool, because the old flat amounts predated the v2 pool curve.
+Regen never got that pass.
+
+Measured effect on a full HP bar from empty: **L1 8.3m (unchanged) · L20 40m → 20m ·
+L50 90m → 30m · L100 2h46m → 27.8m.** It is floored at the old rate, so **nobody
+recovers slower than before**; levels 1–19 keep exactly what they had, because their
+pools are already smaller than the 30-minute budget. (One correction to an earlier draft
+of this doc: the "~100-HP pools" phrase belongs to the cafeteria's PRE-v2 history. Under
+v2 even level 1 holds 500 HP / 1000 chakra, so the flat rate had fallen behind at every
+level, not only high ones.)
+
+The Cafeteria was verified to scale the same way — `restoreAmount` returns
+`max(flat, pool × pct)` — so a 100-ryo Feast really is a full instant restore at level
+100, not a 9,999-point relic. That is what makes "rest, or pay" a genuine choice rather
+than a forced wait.
 
 **Rejected:** the audit's own "discharge at 50% HP". About 68% of explore tiles force a
 fight and an unresolved ambush blocks all further tiles, so death here attaches to the
@@ -49,12 +66,27 @@ the exploiter), and any ryo or item cost on death (collides with the client-owne
 architecture and with economy ruling 6).
 
 **Kill switches:** `DISABLE_HP_ONLY_DISCHARGE=1`, `DISABLE_POOLED_VITAL_REGEN=1`.
-Separate on purpose — the regen half has two mirrors (the autosave gain ceiling and the
-client's idle clock) and must be revertible alone.
+Separate on purpose — the discharge half is a true hot switch, revertible alone.
 
-**Watch for:** any report of vitals appearing to *fall* on save means a mirror drifted —
-roll back the regen flag, do not tune it. If Feast purchases do not rise, something else
-is still refilling chakra for free.
+⛔ **The regen flag is NOT hot.** It is read server-side only; the client's idle clock is
+unconditionally pooled. Throwing it alone puts the client at the pooled rate and the
+server at the flat one, so the autosave ceiling clamps every save — which is exactly the
+falling-bars symptom. It requires a matching client redeploy.
+
+**Checked — the Healer economy is not collateral damage.** A Healer's income is XP equal
+to the percentage of HP they restore, and ranks 1–9 (plus anyone without the Lifeline
+mastery) can *only* heal a **hospitalized** target (`api/player/heal.ts:105-108, 364-366`).
+Hospitalized characters do not regenerate at all — `canRegenVitals` excludes them — so
+faster resting cannot shrink the core Healer loop. The only narrowed window is the
+rank-10 / Lifeline "heal a merely-injured player" perk, where a target now self-recovers
+in ~28 minutes instead of ~2h46m at level 100. That is an endgame convenience, not the
+profession's living, and HP-only discharge leaves Healer XP per heal unchanged.
+
+**Watch for:** any report of vitals appearing to *fall* on save means a mirror drifted.
+Fix the mirror — do **not** throw the regen flag at it, which reverts only the server half
+and makes it worse. If Feast purchases do not rise, something else
+is still refilling chakra for free. If rank-10 Healers report they can no longer find
+injured targets, widen that perk rather than slowing regeneration back down.
 
 ---
 
@@ -79,10 +111,17 @@ the rule is about entering combat, not about freezing the account.
 
 ## F4 — Silence now holds on every surface that reaches another player
 
-**Ruled:** clan chat, sector trail signs, custom profile titles and named-weapon forging
-all check `getActiveSilence()`, returning the same 403 shape the chat surfaces already
-use. Scoped to the authored-text action only: sparking someone else's sign, wearing an
-*earned* title and rolling a forge carry no text and stay available.
+**Ruled:** clan chat, sector trail signs and custom profile titles all check
+`getActiveSilence()` and return the same 403 shape the chat surfaces already use. Scoped
+to the authored-text action only: sparking someone else's sign and wearing an *earned*
+title carry no text and stay available.
+
+**Named-weapon forging is handled differently, and the difference matters.** A weapon's
+name reaches the public PvP battle log, so a silence has to reach it — but the item is
+stat gear, and the roll token expires in 20 minutes while a silence lasts days. Refusing
+the forge would destroy a paid roll rather than mute anything. So the forge proceeds and
+the **authored text is dropped**: the weapon mints as "Named Weapon" with a generated
+description. Silence costs speech, not progression.
 
 **Why.** A moderation action a player can route around is worse than none — the
 moderator believes it is handled and the target learns which door still works. Silence

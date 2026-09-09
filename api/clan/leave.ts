@@ -62,6 +62,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const succession = resolveClanSuccession(clanRec, playerName);
             const next = applyClanSuccession(clanRec, playerName, succession);
+            // The leaver's own save version, so the client can adopt it. Without
+            // it their next autosave echoes a stale base version, takes the 409
+            // at api/save/[name].ts, and the conflict recovery discards local
+            // progress — a self-inflicted save conflict for pressing Leave.
+            let leaverSaveVersion = 0;
+            let leaverCharacter: Record<string, unknown> | null = null;
 
             // The departing player's own save first, exactly as kick.ts argues:
             // if the roster write below never lands, they are already out and the
@@ -74,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (clanSlugBare(String(char.clan ?? '')) !== slug) return;
                 // Explicit JSON nulls: dropping the keys makes the save merger
                 // preserve — and therefore resurrect — the stored clan fields.
-                await writeVersionedPlayerSave(leaverSaveKey, rec, {
+                const written = await writeVersionedPlayerSave(leaverSaveKey, rec, {
                     ...char,
                     clan: null,
                     clanUpgradeLevels: null,
@@ -82,6 +88,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     clanFounder: false,
                     guardQueued: false,
                 });
+                leaverSaveVersion = Number(written._saveVersion ?? 0);
+                leaverCharacter = (written.record?.character ?? null) as Record<string, unknown> | null;
             }, { failClosed: true });
 
             // Hand the successor their founder flag. Best-effort by design: the
@@ -107,7 +115,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 founderName: next.founderName,
             });
 
-            return { ok: true as const, succession, members: next.members };
+            return { ok: true as const, succession, members: next.members, leaverSaveVersion, leaverCharacter };
         }, { failClosed: true });
 
         if (!result.ok) return res.status(result.status).json({ error: result.error });
@@ -124,6 +132,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({
             ok: true,
             members: result.members,
+            character: result.leaverCharacter,
+            _saveVersion: result.leaverSaveVersion,
             succession: result.succession.kind,
             newFounder: result.succession.kind === 'succeeded' ? result.succession.successorName : null,
         });

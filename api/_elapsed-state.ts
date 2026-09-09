@@ -199,16 +199,20 @@ export const REGEN_FULL_BAR_SEC = 1800;
 /**
  * Idle recovery per tick for one vital, as a share of that vital's own pool.
  *
- * The old rule was a flat 1 point per second shared by all three vitals. That
- * was tuned for the ~100-point pools of the early game and never revisited when
- * the v2 curve took them to 10,000 (HP_CAP / CHAKRA_CAP_V2 / STAMINA_CAP_V2),
- * so a full bar at level 100 took 2h46m and resting was dead content for most
- * of the level range. It is the same flat-number drift the owner corrected for
- * cafeteria meals on 2026-07-31 (api/player/_cafeteria.ts).
+ * The old rule was a flat 1 point per second shared by all three vitals. It
+ * predates the v2 pool curve (COMBAT_RESOURCES_V2), which raised every pool by
+ * roughly 5-100x — level 1 holds 500 HP / 1000 chakra and level 100 holds
+ * 10,000 of each. Against a flat 1/sec that made a full bar 2h46m at level 100,
+ * so resting was dead content across most of the level range. It is the same
+ * flat-number drift the owner corrected for cafeteria meals on 2026-07-31
+ * (api/player/_cafeteria.ts, whose "~100-HP pools" note refers to the PRE-v2
+ * era — do not read it as a current pool size).
  *
- * Floored at 1 so this can only ever be a speed-up: a level-1 shinobi with a
- * 100-point pool keeps exactly the rate they had. The Aura Sphere bonus is
- * added on top, unchanged.
+ * Measured effect, HP bar from empty: L1 8.3m (unchanged), L20 40m -> 20m,
+ * L50 90m -> 30m, L100 2h46m -> 27.8m. Floored at 1, so this can only ever be
+ * a speed-up — levels 1-19 keep exactly the rate they had, because their pools
+ * are already under REGEN_FULL_BAR_SEC. The Aura Sphere bonus adds on top,
+ * unchanged.
  *
  * ⚠ Two mirrors must move with this or vitals appear to FALL on save:
  * the autosave gain ceiling in api/save/[name].ts, and the client's own idle

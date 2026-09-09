@@ -140,6 +140,35 @@ describe('world attack respects post-defeat recovery', { concurrency: false }, (
     it('shields for the full window and no longer', () => {
         assert.equal(PVP_RAID_SHIELD_MS, 120_000, 'the 60s stay plus 60s to leave the sector');
     });
+
+    it('spends the ATTACKER\'s own shield when they raid someone', async () => {
+        // Field Recovery is a shield, not a licence. Without this a player could
+        // lose on purpose and spend the next 120s attacking while un-attackable —
+        // and every MMO with a PvP protection flag drops it on the first
+        // aggressive act for exactly that reason.
+        await kv.set(`save:${ATTACKER}`, {
+            _saveVersion: 1,
+            _saveAt: Date.now(),
+            character: {
+                name: ATTACKER, level: 40, village: 'Mist',
+                hp: 500, maxHp: 500, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100,
+                inventory: [], itemStacks: [], stats: {},
+                pvpShieldUntil: Date.now() + 90_000,
+            },
+        });
+
+        const out = await raid();
+        assert.equal(out.statusCode, 200, `a shielded player may still attack: ${JSON.stringify(out.body)}`);
+
+        // The clear is deliberately best-effort and non-blocking, so let it land.
+        for (let i = 0; i < 40; i += 1) {
+            const char = (await kv.get<Json>(`save:${ATTACKER}`))?.character as Record<string, unknown>;
+            if (!Math.floor(Number(char?.pvpShieldUntil ?? 0))) return;
+            await new Promise((resolve) => setImmediate(resolve));
+        }
+        const char = (await kv.get<Json>(`save:${ATTACKER}`))?.character as Record<string, unknown>;
+        assert.equal(Math.floor(Number(char?.pvpShieldUntil ?? 0)), 0, 'attacking must spend the attacker\'s own shield');
+    });
 });
 
 describe('the shield is server-owned', () => {

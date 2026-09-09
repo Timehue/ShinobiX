@@ -1484,17 +1484,25 @@ export function sanitizeCharacterSave(
         const levelRose = Math.floor(Number(char.level) || 1) > Math.floor(Number(exChar.level) || 1);
         if (!isFirstSave && storedAt > 0 && !levelRose) {
             const now = Math.max(storedAt, Math.floor(Number(opts.now ?? Date.now())));
-            const elapsedWithGrace = (now - storedAt) / 1000 + VITALS_GAIN_GRACE_SEC;
+            const elapsedSec = (now - storedAt) / 1000;
             // MIRROR of settleVitalsRegen (api/_elapsed-state.ts). The allowance is
             // now PER VITAL, because recovery is a share of each pool rather than a
             // flat shared point. Reading the rate from vitalRegenPerTick keeps the
             // two from drifting: if this ceiling stayed at the old flat 1/sec, a
             // high-level player's legitimately regenerated chakra would be clamped
             // back down here and their bars would visibly FALL on every autosave.
+            //
+            // ⚠ The grace stays FLAT and is added after the rate, never multiplied
+            // by it. It exists for clock slack and the small client-only stamina
+            // grants (see its note above), so it must not scale with the pool —
+            // folding it into the elapsed seconds turned a 60-point cushion into
+            // 360 per vital per save at level 100, which is a real widening of the
+            // anti-cheat window rather than a mirror of anything.
             const aura = auraRegenBonus(exChar);
             const pooledRegen = pooledVitalRegenEnabled();
             const allowanceFor = (maxKey: 'maxHp' | 'maxChakra' | 'maxStamina'): number =>
-                Math.ceil(elapsedWithGrace * vitalRegenPerTick(exChar[maxKey], aura, pooledRegen));
+                Math.ceil(elapsedSec * vitalRegenPerTick(exChar[maxKey], aura, pooledRegen))
+                + VITALS_GAIN_GRACE_SEC * (1 + aura);
             const credits: Record<VitalKey, number> = { hp: 0, chakra: 0, stamina: 0 };
             for (const [itemId, credit] of Object.entries(CLIENT_CONSUMABLE_VITAL_CREDITS)) {
                 const consumed = countOwnedItem(exChar, itemId) - countOwnedItem(char, itemId);

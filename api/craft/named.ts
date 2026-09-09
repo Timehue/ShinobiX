@@ -46,16 +46,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(`named-forge:${playerName}:${token}`, { playerName, roll }, { ex: 20 * 60 });
             return res.status(200).json({ ok: true, token, roll });
         }
-        // `forge` is the branch that accepts a player-authored weapon name and
-        // flavour text, and a named weapon's name is echoed into the PUBLIC PvP
-        // battle log — so it is a broadcast surface and takes the same silence
-        // gate as chat. `roll` above is refused nothing: it carries no text, and
-        // a silenced player keeps their forge rolls (and their token, which stays
-        // valid for 20 minutes) so the silence costs them speech, not progress.
-        if (!identity.admin) {
-            const sil = await getActiveSilence(identity.name);
-            if (sil) return res.status(403).json({ error: 'You are silenced.', silence: { until: sil.until, reason: sil.reason } });
-        }
+        // A named weapon's NAME is echoed into the public PvP battle log, so it is
+        // a broadcast surface and a silence has to reach it. But the item itself
+        // is stat gear, not a message: refusing the forge outright would take the
+        // player's progression, and their roll token expires in 20 minutes while
+        // a silence lasts hours or days — so a refusal here destroys a paid roll
+        // rather than muting anything. Instead the forge proceeds and the AUTHORED
+        // TEXT is dropped; buildNamedItem falls back to "Named Weapon" / a
+        // generated description. Silence costs speech, which is the point.
+        const silenced = identity.admin ? null : await getActiveSilence(identity.name);
         const token = cleanToken(body.token); if (!token) return res.status(400).json({ error: 'Invalid forge token.' });
         const result = await mutatePlayerSave<{ replayed: boolean; item: Record<string, unknown> | null }>(playerName, async ({ character, record }) => {
             const receipts = Array.isArray(character.redeemedNamedForges)
@@ -75,7 +74,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     : `Whole materials cannot make the exact ${NAMED_FORGE_COST}-point forge payment.`;
                 return { ok: false as const, status: 409, error };
             }
-            const item = buildNamedItem(sealed.roll, sanitizeUserText(body.name, 60), sanitizeUserText(body.flavorText, 300));
+            const item = buildNamedItem(
+                sealed.roll,
+                silenced ? '' : sanitizeUserText(body.name, 60),
+                silenced ? '' : sanitizeUserText(body.flavorText, 300),
+            );
             const inventory = Array.isArray(paid.inventory) ? paid.inventory as string[] : [];
             return { ok: true as const, character: { ...paid, inventory: [...inventory, item.id], redeemedNamedForges: [...receipts.slice(-49), makeNamedForgeReceipt(token, item.id)] }, recordPatch: { creatorItems: [...creatorItems.slice(-199), item] }, value: { replayed: false, item } };
         });
