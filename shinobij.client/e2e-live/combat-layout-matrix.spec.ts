@@ -877,6 +877,7 @@ type LayoutMeasurement = {
     /** Command-deck text spilling out of its own button, `label:part+Npx`. */
     commandTextOverflows: string[];
     boardActionOverlap: boolean;
+    boardTabOverlap: boolean;
     boardDossierOverlap: boolean;
     terrainNoticeOverlap: boolean;
     dualApTextOverlap: boolean;
@@ -1106,6 +1107,7 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
             minCommandTouchTarget: commandButtons.length ? Math.min(...commandButtons.map((value) => Math.min(value.width, value.height))) : null,
             commandTextOverflows,
             boardActionOverlap: overlap(boardRect, actionRect),
+            boardTabOverlap: overlap(boardRect, rect(tabNode)),
             boardDossierOverlap: dossiers.some((value) => overlap(boardRect, value)),
             terrainNoticeOverlap: overlap(rect(terrainNode), rect(noticeNode)),
             dualApTextOverlap,
@@ -1727,6 +1729,7 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         ).toBe(current.visibleTileCount);
         expect(current.dossierResourcesContained, `${label} dossier resources clipped: ${current.dossierContentMisses.join(', ')}`).toBe(true);
         expect(current.boardActionOverlap, `${label} action overlap`).toBe(false);
+        expect(current.boardTabOverlap, `${label} tab touch-area overlap`).toBe(false);
         expect(current.boardDossierOverlap, `${label} dossier overlap`).toBe(false);
         expect(current.terrainNoticeOverlap, `${label} terrain/action-notice overlap`).toBe(false);
         expect(current.dualApTextOverlap, `${label} AP/timer labels overlap`).toBe(false);

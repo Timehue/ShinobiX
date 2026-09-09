@@ -12,6 +12,7 @@ import { useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Biome } from "../types/core";
+import { decorativeCanvasEvents } from "../lib/decorative-canvas-events";
 
 const BIOME_COLOR: Record<Biome, string> = {
     snow: "#cfe8ff",
@@ -104,6 +105,7 @@ function makeGlowTexture(): THREE.Texture {
 export default function SceneAmbience3DScene({ biome }: { biome: Biome }) {
     return (
         <Canvas
+            events={decorativeCanvasEvents}
             dpr={[1, 1.5]}
             camera={{ position: [0, 0, 7], fov: 60 }}
             gl={{ alpha: true, antialias: false, powerPreference: "low-power" }}
