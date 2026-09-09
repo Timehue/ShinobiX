@@ -4418,6 +4418,8 @@ html body > .arena-fullscreen.shinobi-combat-shell .twp-strip {
 
 html body > .arena-fullscreen.shinobi-combat-shell .combat-board-stage {
     grid-area: board !important;
+    /* Grid gaps own spacing; the legacy stack margin overlaps tab hit areas. */
+    margin: 0 !important;
     container: combat-board-stage / size;
     display: grid;
     place-items: center;
@@ -5925,8 +5927,6 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
         height: 100% !important;
         min-width: 0 !important;
         min-height: 0 !important;
-        /* Grid gaps own spacing; the legacy stack margin overlaps tab hit areas. */
-        margin: 0 !important;
     }
 
     #combat .shinobi-command-bar {
