@@ -7,6 +7,7 @@ import { remapLegacySector, sectorBiomeOf, WORLD_GEO_VERSION } from '../shared/s
 import { migrateCharacterOwnedPets } from './pet/_owned-pet.js';
 import { settlePetBreedingSession } from './pet/_breeding-requirements.js';
 import { settleCharacterPetHappiness } from './pet/_happiness.js';
+import { pooledVitalRegenEnabled } from './_release-flags.js';
 
 const AURA_SPHERE_ITEM_ID = 'aura-sphere';
 export const VITAL_REGEN_MS = 1000;
@@ -155,6 +156,34 @@ export function auraRegenBonus(character: Record<string, unknown>): number {
     return 0;
 }
 
+/**
+ * True when a character is too hurt to start something new — the ONE definition
+ * of "hospitalized" that every activity gate reads, so the rule cannot drift
+ * between handlers the way it had by 2026-09 (enforced in four handlers, absent
+ * from ranked queue, tower entry, dive start and guard signup).
+ *
+ * The predicate matches what `api/hollow-gate/combat-start.ts` had already
+ * settled on: the admission flag, an admission timer that has not run out, or
+ * authoritative zero HP. A KO'd character can be carrying `hospitalized:false`
+ * for a beat while a settlement lands, so HP is checked too.
+ *
+ * Fails OPEN on a missing character or a missing `hp` (defaults to alive): a
+ * record that predates a field must never lose the ability to play, which is
+ * the same call `presence-gating.ts` makes for an unknown level.
+ *
+ * ⚠ Deliberately NOT reused inside `canRegenVitals` below. That function must
+ * keep regenerating a character sitting at 0 HP who was never admitted —
+ * folding the `hp <= 0` clause into it would strand them at zero forever.
+ */
+export function isIncapacitated(character: unknown, now: number = Date.now()): boolean {
+    if (!character || typeof character !== 'object') return false;
+    const char = character as Record<string, unknown>;
+    if (char.hospitalized === true) return true;
+    const hospitalizedUntil = floorEpoch(char.hospitalizedUntil);
+    if (hospitalizedUntil && now < hospitalizedUntil) return true;
+    return num(char.hp, 1) <= 0;
+}
+
 function canRegenVitals(character: Record<string, unknown>, battleLocked: boolean, now: number): boolean {
     if (battleLocked) return false;
     if (hasActiveHollowGateRun(character)) return false;
@@ -162,6 +191,38 @@ function canRegenVitals(character: Record<string, unknown>, battleLocked: boolea
     const hospitalizedUntil = floorEpoch(character.hospitalizedUntil);
     if (hospitalizedUntil && now < hospitalizedUntil) return false;
     return true;
+}
+
+/** Seconds an EMPTY pool takes to refill by idle recovery alone, at any level. */
+export const REGEN_FULL_BAR_SEC = 1800;
+
+/**
+ * Idle recovery per tick for one vital, as a share of that vital's own pool.
+ *
+ * The old rule was a flat 1 point per second shared by all three vitals. It
+ * predates the v2 pool curve (COMBAT_RESOURCES_V2), which raised every pool by
+ * roughly 5-100x — level 1 holds 500 HP / 1000 chakra and level 100 holds
+ * 10,000 of each. Against a flat 1/sec that made a full bar 2h46m at level 100,
+ * so resting was dead content across most of the level range. It is the same
+ * flat-number drift the owner corrected for cafeteria meals on 2026-07-31
+ * (api/player/_cafeteria.ts, whose "~100-HP pools" note refers to the PRE-v2
+ * era — do not read it as a current pool size).
+ *
+ * Measured effect, HP bar from empty: L1 8.3m (unchanged), L20 40m -> 20m,
+ * L50 90m -> 30m, L100 2h46m -> 27.8m. Floored at 1, so this can only ever be
+ * a speed-up — levels 1-19 keep exactly the rate they had, because their pools
+ * are already under REGEN_FULL_BAR_SEC. The Aura Sphere bonus adds on top,
+ * unchanged.
+ *
+ * ⚠ Two mirrors must move with this or vitals appear to FALL on save:
+ * the autosave gain ceiling in api/save/[name].ts, and the client's own idle
+ * clock in shinobij.client/src/lib/loaded-vitals.ts. `vitalRegenPerTick` is
+ * exported so both read this function rather than restating the arithmetic.
+ */
+export function vitalRegenPerTick(maxPool: unknown, auraBonus = 0, pooled = true): number {
+    if (!pooled) return 1 + auraBonus;
+    const max = Math.max(0, Math.floor(num(maxPool, 0)));
+    return Math.max(1, Math.ceil(max / REGEN_FULL_BAR_SEC)) + auraBonus;
 }
 
 function regenVital(character: Record<string, unknown>, key: 'hp' | 'chakra' | 'stamina', maxKey: 'maxHp' | 'maxChakra' | 'maxStamina', amount: number): number {
@@ -222,10 +283,12 @@ export function settleVitalsRegen<T extends SaveRecord>(
     const ticks = Math.floor(Math.max(0, now - cursor) / VITAL_REGEN_MS);
     if (ticks <= 0) return { record, changed: false, excluded: false, cursor };
     const nextCursor = cursor + ticks * VITAL_REGEN_MS;
-    const amount = ticks * (1 + auraRegenBonus(char));
-    const hp = regenVital(char, 'hp', 'maxHp', amount);
-    const chakra = regenVital(char, 'chakra', 'maxChakra', amount);
-    const stamina = regenVital(char, 'stamina', 'maxStamina', amount);
+    // Per-pool, so a large pool is not left crawling at the early-game rate.
+    const aura = auraRegenBonus(char);
+    const pooled = pooledVitalRegenEnabled();
+    const hp = regenVital(char, 'hp', 'maxHp', ticks * vitalRegenPerTick(char.maxHp, aura, pooled));
+    const chakra = regenVital(char, 'chakra', 'maxChakra', ticks * vitalRegenPerTick(char.maxChakra, aura, pooled));
+    const stamina = regenVital(char, 'stamina', 'maxStamina', ticks * vitalRegenPerTick(char.maxStamina, aura, pooled));
     if (hp === num(char.hp, hp) && chakra === num(char.chakra, chakra) && stamina === num(char.stamina, stamina)) {
         // Already full: nothing to write, but the cursor a caller carries forward
         // still advances — recovery is never banked while capped.

@@ -1,4 +1,5 @@
 import { kv } from '../_storage.js';
+import { hospitalDischargeRestoresHpOnly } from '../_release-flags.js';
 import { withKvLock } from '../_lock.js';
 import { mergePreservingImages } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
@@ -171,11 +172,18 @@ export async function settleCrossPlayerHeal(options: {
             }
 
             if (targetReceipt.status === 'fresh') {
+                // A Healer mends INJURY, on someone else exactly as on themselves.
+                // Restoring chakra and stamina here too would just move the free
+                // full-refill loop one player sideways — "find a Healer" instead
+                // of "die". (MMORPG behavior audit F1.)
+                const restoresHpOnly = hospitalDischargeRestoresHpOnly();
                 const nextTarget = appendSettlementReceipt({
                     ...target,
                     hp: target.maxHp,
-                    chakra: target.maxChakra,
-                    stamina: target.maxStamina,
+                    ...(restoresHpOnly ? {} : {
+                        chakra: target.maxChakra,
+                        stamina: target.maxStamina,
+                    }),
                     hospitalized: false,
                     hospitalizedUntil: 0,
                     hospitalizedAt: 0,

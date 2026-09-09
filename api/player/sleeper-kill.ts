@@ -18,6 +18,8 @@ import {
     vanguardXpForLevel,
     rankFromXp,
 } from '../pvp/_vanguard-rewards.js';
+import { PVP_RAID_SHIELD_MS } from '../pvp/_vitals-settlement.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
@@ -65,15 +67,22 @@ export type SleeperBlock = { status: 404 | 409; error: string };
 // structural anti-farm bounds remain: a KO relocates the victim to the village
 // (removing them from the sleeper pool), and rewards are anti-alt'd + daily /
 // per-target capped.
-export function sleeperTargetBlock(targetChar: Record<string, unknown> | undefined, sector: number): SleeperBlock | null {
+export function sleeperTargetBlock(targetChar: Record<string, unknown> | undefined, sector: number, now: number = Date.now()): SleeperBlock | null {
     if (!targetChar) return { status: 404, error: 'Target not found.' };
     // Safe-zone gate: village / Central / any town screen saves currentSector 0.
     // Only a logout in a real wild sector (>= 1) leaves a sleeper.
     if (!(Number.isFinite(sector) && sector >= 1)) {
         return { status: 409, error: 'Target logged out in a safe zone and cannot be attacked.' };
     }
-    if (targetChar.hospitalized) {
+    if (isIncapacitated(targetChar, now)) {
         return { status: 409, error: 'Target has already been defeated.' };
+    }
+    // Field Recovery covers the offline path too. This file WRITES the shield on
+    // a kill but used to be the one raid door that never read it, so a victim
+    // who was KO'd in live PvP, discharged, and logged off could be sleeper-
+    // killed again inside their own recovery window.
+    if (Math.floor(Number(targetChar.pvpShieldUntil ?? 0)) > now) {
+        return { status: 409, error: 'Target is recovering from a recent defeat.' };
     }
     return null;
 }
@@ -167,7 +176,7 @@ export async function settleSleeperKoLocked(
     if (opts.expectSector != null && lockedCamp.sector !== opts.expectSector) {
         return { status: 409, error: 'That camp is no longer in this sector.' };
     }
-    const reBlock = sleeperTargetBlock(tChar, lockedCamp.sector);
+    const reBlock = sleeperTargetBlock(tChar, lockedCamp.sector, now);
     if (reBlock) return reBlock;
     if (onlineStore.get(targetSlug)) return { status: 409, error: 'Target came online — use a normal attack.' };
     if (!tRec || !tChar) return { status: 404, error: 'Target not found.' };
@@ -192,6 +201,10 @@ export async function settleSleeperKoLocked(
         hospitalized: true,
         hospitalizedUntil: now + HOSPITAL_DURATION_MS,
         hospitalizedAt: now,
+        // Field Recovery, same as a live PvP defeat: sector 0 already drops them
+        // from the sleeper pool, but this also covers them for the first moments
+        // after they log back in and travel out again.
+        pvpShieldUntil: now + PVP_RAID_SHIELD_MS,
     };
     const targetKoRecord = bumpSaveVersion({ ...tRec, currentSector: 0, currentTile: null, pendingTravel: null, character: koChar });
     await kv.set(`save:${targetSlug}`, mergePreservingImages(targetKoRecord, tRec));
@@ -320,6 +333,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const tChar = ko.character;
 
             let updatedAttacker = aChar;
+            // F5: Field Recovery is a shield, not a licence — raiding is the
+            // aggressive act that ends it. Computed before any credit so the
+            // clear also lands on the anti-alt branch, which pays nothing.
+            const attackerShielded = (Math.floor(Number(aChar.pvpShieldUntil ?? 0)) || 0) > Date.now();
+            if (attackerShielded) updatedAttacker = { ...updatedAttacker, pvpShieldUntil: 0 };
             // Stays null when the KO pays nothing (anti-alt): no save write, so no
             // version moved and the caller has nothing to adopt.
             let attackerSaveVersion: number | null = null;
@@ -368,6 +386,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                 }
 
+            }
+
+            // Persist when the KO PAID, or when this raid spent the attacker's
+            // own Field Recovery shield. The anti-alt branch pays nothing and so
+            // wrote nothing at all, which left the shield intact: lose on
+            // purpose, discharge, then farm offline sleeper camps for the
+            // remaining ~120 s while staying un-raidable yourself. attack.ts
+            // already closes that on the online raid door; this is the other one.
+            if (rewardEligible || attackerShielded) {
                 const attackerRecord = bumpSaveVersion({ ...aRec, character: updatedAttacker });
                 // Hand the bumped version back so the caller can ADOPT it. Without
                 // it the open tab keeps its pre-KO version, and the recovery is the

@@ -205,6 +205,7 @@ import hollowGateStepHandler          from './api/hollow-gate/step.js';
 import hollowGateFloorSealHandler     from './api/hollow-gate/floor-seal.js';
 // Clan — membership: kick (server-authoritative cross-save removal)
 import clanKickHandler               from './api/clan/kick.js';
+import clanLeaveHandler              from './api/clan/leave.js';
 import clanMentorHandler             from './api/clan/mentor.js';
 // Clan — pet escort
 import clanPetEscortListHandler   from './api/clan/pet-escort/list.js';
@@ -644,6 +645,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // Leadership-only. Removes the member from the clan row AND clears their
     // character.clan on their own save (the cross-save write a client can't do).
     route('/clan/kick', clanKickHandler);
+    route('/clan/leave', clanLeaveHandler);
     // Clan — Sensei->Student mentorship (assign / claim milestone rewards / release).
     route('/clan/mentor', clanMentorHandler);
 

@@ -9,6 +9,7 @@ import { withKvLock } from '../_lock.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { planTrade, isTradeCurrency } from './_trade-core.js';
+import { chargeOutboundBudget, checkOutboundBudget, senderTrustTier } from './_transfer-budget.js';
 import { recordEconomyTxn } from '../_economy.js';
 import { makeEconomyTxId, reserveEconomyTx, markEconomyTx, completeEconomyTx, failEconomyTx } from '../_economy-tx.js';
 
@@ -168,6 +169,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const plan = planTrade(currency, amount, num(senderChar[currency]));
                 if (!plan.ok) return { status: 400, body: { error: plan.reason } };
 
+                // Rolling 24h SEND-side ceiling, checked under the same locks the
+                // debit runs under so two concurrent transfers cannot both pass a
+                // pre-lock check and jointly exceed it. The per-transfer cap alone
+                // left the real ceiling at 20 calls/min x 200,000 = 4,000,000 ryo a
+                // minute. Nothing is added to RECEIVING: RuneScape ran that
+                // experiment in 2008 and removed it in 2011 for breaking ordinary
+                // play. (MMORPG behavior audit F8.)
+                if (!identity.admin) {
+                    const tier = await senderTrustTier(playerName, senderChar);
+                    const budget = await checkOutboundBudget(playerName, currency, plan.debit, tier);
+                    if (!budget.ok) {
+                        return { status: 429, body: { error: budget.error, reason: 'transfer-budget', remaining: budget.remaining, limit: budget.limit } };
+                    }
+                }
+
                 // The nonce is re-checked HERE, under the serialization
                 // boundary. Two attempts of the same nonce that both passed the
                 // pre-lock check are now serialized by the save locks: the
@@ -244,6 +260,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { status: 502, body: { error: 'The transfer was interrupted after the debit. It is recorded for restoration — do not resend.', txId } };
                 }
                 await completeEconomyTx(txId).catch(() => undefined);
+                // Charge the rolling window INSIDE the locks, beside the debit it
+                // records. Outside them the check above is worthless: request N+1
+                // takes the locks the moment N frees them and reads a ledger N has
+                // not written yet, so 20 pipelined calls all pass and the real
+                // ceiling stays 20 x 200,000/min — the exact number this budget
+                // exists to close. Only a COMMITTED transfer is charged, so a
+                // refusal or a replay never eats budget the player did not spend.
+                if (!identity.admin) {
+                    await chargeOutboundBudget(playerName, currency, plan.debit, Date.now());
+                }
                 return { status: 200, body: { ok: true, currency, debit: plan.debit, credit: plan.credit, burned: plan.burned, toPlayer: toDisplay, senderBalance } };
             }, { failClosed: true }),
         { failClosed: true });

@@ -21,7 +21,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'hollow-gate-forge-key', 20, 60_000, identity.name))) return;
         const result = await mutatePlayerSave(playerName, ({ character }) => {
             const forged = forgeHollowGateKey(character, source);
-            if (!forged.ok) return { ok: false as const, status: 409, error: forged.reason };
+            // Every remaining reason is a short code the client already maps.
+            // There is deliberately no capacity refusal here: the forged key is
+            // stackable and costs no inventory slot (see _forge-key.ts).
+            if (!forged.ok) {
+                return { ok: false as const, status: 409, error: forged.reason };
+            }
             return { ok: true as const, character: forged.character, value: {} };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });

@@ -137,6 +137,14 @@ export function sanitizeClaimsAndHospital(char: Record<string, unknown>, exChar:
     // claimed, a forged save can't flip it back to false to re-claim. (audit #1)
     if (exChar.academyTrialClaimed === true) char.academyTrialClaimed = true;
 
+    // Field Recovery shield (api/pvp/_vitals-settlement.ts PVP_RAID_SHIELD_MS) is
+    // SERVER-OWNED, exactly like the hospital stamps below and for the same
+    // reason `inBattle` had to become server-owned in 2026-09: a client that can
+    // write its own immunity writes it forever. Only PvP settlement and the
+    // sleeper KO set it, so the stored value always wins — a save cannot extend
+    // its shield, and cannot clear one it is still serving either.
+    char.pvpShieldUntil = exChar.pvpShieldUntil ?? null;
+
     // Hospital timer enforcement.
     //   - If save flips hospitalized false → true, server stamps both
     //     hospitalizedUntil AND hospitalizedAt. The latter is read by

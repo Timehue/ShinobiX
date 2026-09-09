@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -107,7 +108,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
             const char = save?.character as Record<string, unknown> | undefined;
             if (!save || !char) return { status: 404, body: { error: 'Player save not found.' } };
-            if (char.hospitalized === true || Number(char.hp ?? 0) <= 0) {
+            if (isIncapacitated(char)) {
                 return { status: 409, body: { error: 'You cannot enter combat while hospitalized.' } };
             }
 

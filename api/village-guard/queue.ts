@@ -4,6 +4,7 @@ import { cors, parseJsonBody, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { isAcademyProtectedLevel, ACADEMY_MIN_LEVEL } from '../_realtime/presence-gating.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -32,6 +33,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Derive level (and verify village) from the server-side save.
         let serverLevel = 1;
         let serverVillage = village;
+        // Fails OPEN like the reads beside it: a storage hiccup must not stop a
+        // healthy shinobi taking a shift.
+        let serverIncapacitated = false;
         if (!identity.admin) {
             try {
                 const save = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
@@ -39,9 +43,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (char) {
                     if (typeof char.level === 'number') serverLevel = char.level;
                     if (typeof char.village === 'string' && char.village) serverVillage = char.village;
+                    serverIncapacitated = isIncapacitated(char);
                 }
             } catch {
                 // best-effort
+            }
+            // Guard duty is volunteering to be attacked, so an admitted shinobi
+            // cannot sign up — they would be standing the wall unconscious, and
+            // sector attacks carry CURRENT vitals, making them a free kill.
+            if (serverIncapacitated) {
+                return res.status(409).json({ error: 'You are in the hospital. Recover before signing up for guard duty.', errorCode: 'hospitalized' });
             }
             // Only allow guarding the village your save says you belong to.
             if (serverVillage !== village) {
