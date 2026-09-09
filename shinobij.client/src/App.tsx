@@ -554,6 +554,7 @@ import {
 
 // Battle-entry arena art warmup moved verbatim to ./lib/battle-art-preload.
 import { preloadBattleEntryAssets } from "./lib/battle-art-preload";
+import { battleEntryWarmupDelay } from "./lib/battle-entry-warmup";
 // specialties + jutsuElements live in ./data/jutsu (imported above for internal
 // use; JutsuDropdownList imports them directly from ./data/jutsu).
 // adminIconOptions moved to ./data/admin-icons; re-exported for existing importers.
@@ -1433,15 +1434,16 @@ export default function App() {
     function savedJutsuPool(source: Partial<ReturnType<typeof buildPlayerSavePayload>>) { return restoredJutsuPool(source); }
 
     useEffect(() => {
-        if (!character?.name && !restoringSession) return;
+        const delayMs = battleEntryWarmupDelay({ screen, hasCharacter: !!character?.name, restoringSession,
+            onboardingStep: character?.onboardingStep, saveData: !!(navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData });
+        if (delayMs === null) return;
         const biome = pvpSeedSession?.biome ?? currentBiome;
-        const delayMs = screen === "pvpBattle" ? 0 : 650;
         const timer = window.setTimeout(() => {
             void loadPvpBattleScreen().catch(() => {});
             preloadBattleEntryAssets(biome, currentSector);
         }, delayMs);
         return () => window.clearTimeout(timer);
-    }, [character?.name, restoringSession, currentBiome, currentSector, pvpSeedSession?.biome, screen]);
+    }, [character?.name, character?.onboardingStep, restoringSession, currentBiome, currentSector, pvpSeedSession?.biome, screen]);
 
     const [travelNow, setTravelNow] = useState(Date.now());
     const [playerRoster, setPlayerRoster] = useState<PlayerRecord[]>([]);

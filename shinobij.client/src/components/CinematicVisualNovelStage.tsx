@@ -1,3 +1,4 @@
+import "../styles/cinematic-vn.css";
 import {
     useCallback,
     useEffect,
