@@ -170,11 +170,25 @@ export function settlementOwnsHpOnWin(session: AiFightSession | null | undefined
  * HP on any resolved outcome, and a hospital stay when the player was knocked
  * out. All Solo PvE settlement consumers share this boundary.
  */
+/**
+ * Did this session seed the player from their CURRENT vitals (an open-world
+ * encounter) rather than a fresh full pool? Stamped on the encounter at creation
+ * by api/solo-pve/_ai-encounter.ts, so it survives storage and a settle can ask
+ * the session itself rather than re-deriving it from a battle kind.
+ */
+export function sessionUsesContinuousVitals(session: unknown): boolean {
+    const encounter = (session as { encounter?: { metadata?: Record<string, unknown> } } | null)?.encounter;
+    return encounter?.metadata?.continuousVitals === true;
+}
+
 export function applyAiFightOutcomeToCharacter(
     character: Record<string, unknown>,
     outcome: AiFightOutcome,
     playerActor: AiFightPlayerCombatant | undefined,
     now: number,
+    /** True only for an OPEN-WORLD encounter seeded from the player's current
+     *  vitals. Defaults false so every existing caller keeps HP-only behaviour. */
+    continuousVitals = false,
 ): Record<string, unknown> {
     if (outcome === 'unknown') return character;
     // No actor to read means no evidence of what the fight cost. Guessing would
@@ -189,22 +203,34 @@ export function applyAiFightOutcomeToCharacter(
     // "not a squad win" would send someone at full HP to a hospital bed for
     // surviving. Hospital admission follows authoritative zero HP, not a generic
     // non-win outcome.
-    // What the fight actually burned. The sealed actor is the authoritative
-    // record of it, and both actor shapes carry all three vitals — so chakra and
-    // stamina come back from it exactly as HP does, clamped to the SAVE's own
-    // maxima so a session sealed before a level or gear change cannot raise a
-    // vital above its real ceiling.
+    // Chakra and stamina come back ONLY from a CONTINUOUS encounter — an
+    // open-world fight, which seeded the actor from the vitals the player
+    // actually had (api/solo-pve/_ai-encounter.ts). There, the actor's end value
+    // is genuinely what the fight cost, and carrying it back is the owner's
+    // 2026-09-08 ruling: you are put back in your spot with the HP, chakra and
+    // stamina you finished with.
     //
-    // ⚠ This used to write HP alone. Because the input is the STORED character
-    // (not the client's post-fight copy) and the client ADOPTS whatever this
-    // returns (lib/ai-fight-settle.ts), a mission fight silently refunded every
-    // point of chakra and stamina it cost — which made "exhaustion is rested off
-    // or bought back" (MMORPG behavior audit F1) a PvP-only rule by accident.
-    // PvP records the same spend in api/pvp/_vitals-settlement.ts.
-    const spent = {
-        chakra: Math.min(num(character.maxChakra), num(playerActor.chakra)),
-        stamina: Math.min(num(character.maxStamina), num(playerActor.stamina)),
+    // ⛔ NEVER carry them out of a FRESH-START encounter. A dive, a Spire wave, a
+    // story boss, an Academy spar and the weekly boss all seed the actor at the
+    // FULL pool, so its remainder is "what is left of a pool the fight handed
+    // you", unrelated to what the player held. Writing that back is a FAUCET:
+    // enter at 10% chakra, fight on a free full bar, finish at 60%, bank the 60%.
+    // That was shipped on 2026-09-08 and reverted the same day.
+    //
+    // Clamped DECREASE-ONLY as a second line of defence, so even a mislabelled
+    // encounter can only ever cost a player vitals, never mint them. HP needs no
+    // such guard: it is seeded from currentHp in every mode.
+    const carry = (actorValue: unknown, storedValue: unknown): number | undefined => {
+        if (!continuousVitals) return undefined;
+        if (typeof actorValue !== 'number' || !Number.isFinite(actorValue)) return undefined;
+        return Math.max(0, Math.min(num(storedValue), Math.floor(actorValue)));
     };
+    const spent: Record<string, number> = {};
+    const carriedChakra = carry(playerActor.chakra, character.chakra);
+    if (carriedChakra !== undefined) spent.chakra = carriedChakra;
+    const carriedStamina = carry(playerActor.stamina, character.stamina);
+    if (carriedStamina !== undefined) spent.stamina = carriedStamina;
+
     if (num(playerActor.hp) <= 0) {
         return {
             ...character,
