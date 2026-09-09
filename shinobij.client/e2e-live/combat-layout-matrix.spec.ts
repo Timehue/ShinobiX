@@ -1231,11 +1231,14 @@ async function startTransitionTrace(page: Page, rootSelector: string): Promise<v
             trace.started = true;
             root?.removeEventListener('pointerdown', beginTrace, true);
             document.removeEventListener('keydown', beginTrace, true);
-            let sampledFrames = 0;
+            let framesAfterSelectionChange = 0;
             const sampleFrame = (timestamp: number) => {
-                trace.samples.push(capture(timestamp));
-                sampledFrames += 1;
-                if (sampledFrames >= frameCount) trace.complete = true;
+                const sample = capture(timestamp);
+                trace.samples.push(sample);
+                if (framesAfterSelectionChange > 0 || sample.selected !== trace.samples[0].selected) {
+                    framesAfterSelectionChange += 1;
+                }
+                if (framesAfterSelectionChange >= frameCount) trace.complete = true;
                 else requestAnimationFrame(sampleFrame);
             };
             requestAnimationFrame(sampleFrame);
@@ -1243,6 +1246,8 @@ async function startTransitionTrace(page: Page, rootSelector: string): Promise<v
         // Anchor the consecutive-frame window to the real user interaction.
         // Starting rAFs before Playwright dispatches input can let a busy WebKit
         // process consume the entire trace before pointerdown reaches the page.
+        // Keep every frame through selection and twelve frames afterward: input
+        // dispatch can also stall between pointerdown and the activating click.
         const root = document.querySelector(selector);
         root?.addEventListener('pointerdown', beginTrace, true);
         document.addEventListener('keydown', beginTrace, true);
@@ -1392,7 +1397,7 @@ function expectTransitionTraceStable(
     selectedBefore: boolean,
     selectedAfter: boolean,
 ): void {
-    expect(trace, `${label} frame trace`).toHaveLength(TRANSITION_TRACE_FRAMES + 1);
+    expect(trace.length, `${label} frame trace`).toBeGreaterThanOrEqual(TRANSITION_TRACE_FRAMES + 1);
     expect(trace[0]?.selected, `${label} selection at trace start`).toBe(selectedBefore);
     expect(trace.some(sample => sample.selected === selectedAfter), `${label} must span the interaction state change`).toBe(true);
     const expectRectNear = (actualRect: Rect | null, expectedRect: Rect | null, rectLabel: string, frame: number) => {
