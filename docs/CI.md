@@ -128,7 +128,17 @@ player data.
    Snapshot regeneration requires a diagnosed, intentional UI change.
 6. For an apparent runner or network failure, rerun the failed job as a new run
    attempt and retain both attempts. Repeated infrastructure failures still need
-   a workflow fix; they are not a product pass.
+   a workflow fix; they are not a product pass. **On `main`, a rerun does not
+   revive the deploy.** Railway reads the check suite once; if it was red, the
+   rollout is skipped permanently and a later green attempt never re-triggers it.
+   The signature is the `Railway App` check suite sitting at `queued`/null,
+   timestamped at the original push, while every GitHub Actions suite reads
+   success (`gh api repos/OWNER/REPO/commits/SHA/check-suites`). Recovery is a
+   manual Redeploy in the Railway dashboard, or a new commit re-tipping `main`.
+   Confirm with `curl -fsS https://shinobijourney.com/health` and compare the
+   `commit` field; do not treat a green `Post-deploy health` as that evidence,
+   because it self-skips to success while `PRODUCTION_URL` and
+   `HEALTH_DEEP_TOKEN` are unset.
 7. After a fix, require the entire affected stable check to finish. Use the
    compatibility aggregate only as migration protection, never as evidence that
    an omitted split job ran.
@@ -147,6 +157,15 @@ Every ordinary job has a hard timeout below 30 minutes. The 29-minute budgets on
 root contracts and combat E2E are ceilings, not targets. If a required job nears
 its ceiling, split or shard the work and preserve coverage; do not restore the old
 45-minute serial job or raise a timeout without a measured, documented reason.
+
+`e2e-warfront` moved from 20 to 29 minutes on 2026-09-09 under that rule. Its
+measurement: green runs took 14m09s and 16m50s, and the run that carried the
+change took 19m09s, leaving 51 seconds under the old ceiling. Within it,
+`model-resource-lifecycle.spec.ts` costs 170s, 208s and 218s across those runs
+on `desktop` and `phone` because every one of its ~40 samples is gated on eight
+rendered frames of eight skinned rigs, so its budget is 360s rather than 180s.
+Both numbers are ceilings over a rising measurement, not targets; if the spec
+passes ~250s again, shard or reduce its cycles rather than raise them further.
 
 The internal artifact join and compatibility aggregate are intentionally short.
 Staging/database capacity, restore, and multi-human exercises remain operator
