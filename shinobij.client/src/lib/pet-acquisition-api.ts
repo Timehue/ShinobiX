@@ -38,6 +38,6 @@ export function reconcileOwnedStarter(current: Character, server: Character, opt
         pets: hasOptimisticPet
             ? current.pets.map((entry) => entry.id === optimisticPetId ? canonicalPet : entry)
             : [...current.pets, canonicalPet],
-        activePetId: current.activePetId === optimisticPetId ? canonicalPet.id : current.activePetId,
+        activePetId: !current.activePetId || current.activePetId === optimisticPetId ? canonicalPet.id : current.activePetId,
     };
 }

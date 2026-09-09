@@ -103,6 +103,26 @@ test("versioned commits reject stale or foreign characters and synchronously pub
     assert.equal(f.characterRef.current?.level, 2);
 });
 
+test("an unrelated authoritative mutation preserves an unsaved cinematic handoff and saves it at the new version", async (t) => {
+    const storageDescriptor = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+    Object.defineProperty(globalThis, "localStorage", { configurable: true, value: { setItem: () => {} } });
+    t.after(() => { if (storageDescriptor) Object.defineProperty(globalThis, "localStorage", storageDescriptor); else Reflect.deleteProperty(globalThis, "localStorage"); });
+    const f = fixture(), bodies: PlayerSavePayload[] = [];
+    f.characterRef.current = { ...f.initial, onboardingStep: "training", academyVow: "unbound" };
+    refreshPlayerSaveSnapshot(f.characterRef.current, f.initial.name, f.fields, f.owner);
+    assert.equal(f.owner.commitVersionedCharacter({ ...f.initial, onboardingStep: "companionIntro", ryo: 123 }, 6), true);
+    refreshPlayerSaveSnapshot(f.characterRef.current, f.initial.name, f.fields, f.owner);
+    assert.equal(f.owner.charDirtyRef.current, true);
+    globalThis.fetch = async (_url, init) => { bodies.push(JSON.parse(String(init?.body))); return json(7); };
+    f.owner.charDirtyRef.current = false; // the autosave scheduler consumes the dirty flag before dispatch
+    await f.owner.persistSave(f.owner.latestSaveRef.current!);
+    assert.equal(bodies[0].character.onboardingStep, "training");
+    assert.equal(bodies[0].character.academyVow, "unbound");
+    assert.equal(bodies[0].character.ryo, 123);
+    assert.equal((bodies[0] as Record<string, unknown>)._baseSaveVersion, 6);
+    assert.equal(f.owner.charDirtyRef.current, false);
+});
+
 test("required saves queue behind autosave and read the latest edited payload at execution when requested", async () => {
     const f = fixture(), first = deferred<Response>(), bodies: PlayerSavePayload[] = [];
     globalThis.fetch = async (_url, init) => { bodies.push(JSON.parse(String(init?.body))); return bodies.length === 1 ? first.promise : json(7); };

@@ -763,10 +763,22 @@ test("combat broadcast keeps the live action readable without camera jitter", as
         expect(await canvas.getAttribute("data-rite-facing-policy"), `${viewport.label}: facing is not target-authoritative`).toBe("live-target-screen-space-hysteresis");
         expect(await canvas.getAttribute("data-rite-facing-native-sign"), `${viewport.label}: atlas orientation regressed`).toBe("-1");
         if (viewport.label === "Galaxy S25+ portrait") {
-            await page.waitForFunction(() => document.querySelector<HTMLElement>(".wfr-canvas-surface")?.dataset.riteBroadcastImpactVisible === "true", undefined, { timeout: 30_000, polling: "raf" });
-            expect(await canvas.getAttribute("data-rite-broadcast-focus-label"), "phone impact lacks a visible attacker-to-target sentence").toContain("→");
-            expect(Number(await canvas.getAttribute("data-rite-camera-focus-actor-px")), "phone attacker is too small at contact").toBeGreaterThanOrEqual(80);
-            expect(Number(await canvas.getAttribute("data-rite-camera-focus-target-px")), "phone target is too small at contact").toBeGreaterThanOrEqual(80);
+            // Read all contact evidence in the same frame; separate browser
+            // round trips can land after the impact has already ended.
+            const contactHandle = await page.waitForFunction(() => {
+                const data = document.querySelector<HTMLElement>(".wfr-canvas-surface")?.dataset;
+                return data?.riteBroadcastImpactVisible === "true" ? {
+                    label: data.riteBroadcastFocusLabel ?? "",
+                    actorPx: Number(data.riteCameraFocusActorPx),
+                    targetPx: Number(data.riteCameraFocusTargetPx),
+                } : false;
+            }, undefined, { timeout: 30_000, polling: "raf" });
+            const contact = await contactHandle.jsonValue();
+            await contactHandle.dispose();
+            if (!contact) throw new Error("phone impact did not provide contact evidence");
+            expect(contact.label, "phone impact lacks a visible attacker-to-target sentence").toContain("→");
+            expect(contact.actorPx, "phone attacker is too small at contact").toBeGreaterThanOrEqual(80);
+            expect(contact.targetPx, "phone target is too small at contact").toBeGreaterThanOrEqual(80);
         }
     }
     expect(errors).toEqual([]);

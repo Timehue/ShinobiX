@@ -28,6 +28,17 @@ test("an accepted receipt reconciles the owned pet while preserving the newer ha
     assert.equal(installed?.academyVow, "unbound");
 });
 
+test("a pre-grant conflict refresh cannot leave the committed starter inactive", () => {
+    let installed: Character | undefined;
+    const refreshed = { ...current, pets: [], activePetId: undefined };
+    assert.equal(completeStarterPetCommit(refreshed, { character: server, _saveVersion: 7 }, "starter-fire", {
+        activeAccountKey: "rookie", latestVersion: 6, commitCharacter: character => { installed = character; return true; },
+    }), true);
+    assert.equal(installed?.pets[0].name, "Canonical");
+    assert.equal(installed?.activePetId, "starter-fire");
+    assert.equal(installed?.onboardingStep, "training");
+});
+
 test("account switches, foreign receipts and missing grants never continue the handoff", () => {
     const authority = { activeAccountKey: "rookie", latestVersion: 6, commitCharacter: () => assert.fail("must not offer a foreign or absent grant") };
     assert.equal(completeStarterPetCommit(current, { character: server, _saveVersion: 5 }, "starter-fire", { ...authority, activeAccountKey: "other" }), false);
