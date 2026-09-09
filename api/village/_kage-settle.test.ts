@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
-import { KAGE_CHALLENGE_EXPIRY_MS } from './_kage-challenge.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -115,7 +114,7 @@ test('malformed or conflicting official pointers fail closed', async () => {
     );
 });
 
-test('a pointer publication gap and post-expiry draw recovery close as an exact incumbent defense', async () => {
+test('a pointer publication gap and week-old challenge draw recovery close as an exact incumbent defense', async () => {
     const terminalAt = Date.now();
     const battleId = 'pvp-kage-draw-recovery-12345678';
     const challengeId = 'challenge-kage-draw-recovery';
@@ -131,9 +130,8 @@ test('a pointer publication gap and post-expiry draw recovery close as an exact 
             challenger: 'challenger',
             status: 'accepted',
             battleId,
-            // The immutable terminal lands one second before the challenge
-            // deadline; recovery intentionally runs after that wall-clock edge.
-            createdAt: terminalAt - KAGE_CHALLENGE_EXPIRY_MS + 1_000,
+            // A week-old challenge still settles; calendar age cannot expire it.
+            createdAt: terminalAt - 7 * 86400000,
             obligationRemainingMs: 1,
         },
     });

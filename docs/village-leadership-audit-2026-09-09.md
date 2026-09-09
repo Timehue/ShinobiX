@@ -30,7 +30,7 @@ Focus remains a personal selection from the occupied doctrine seats. A player-he
 - War role evidence is sealed when a fight starts. Later appointments cannot inflate its settlement rewards.
 - Appointed ANBU seats persist across months. Earned seats follow current UTC-month PvP results, excluding appointed ANBU. At least one kill is required; ties use lifetime PvP kills, level, then normalized player name.
 - Clearing an appointed ANBU seat removes that appointment. The player can still qualify for an earned seat, which Town Hall now explains.
-- The existing Kage challenge rules remain: level 90, seven-day account age, 250 Village Merit, and a 250,000-ryo stake; a 30-minute online overlap obligation, 48-hour challenge expiry, 24-hour post-defense grace, and three-day loss cooldown. The existing ten-day inactivity vacancy and challenge stake refund paths retain their regression coverage.
+- The existing Kage challenge rules remain: level 90, seven-day account age, 250 Village Merit, and a 250,000-ryo stake; separate 24-hour response clocks measured only while both players are online, 24-hour post-defense grace, and three-day loss cooldown. There is no calendar challenge expiry. The existing ten-day inactivity vacancy and challenge stake refund paths retain their regression coverage.
 
 The ANBU choice follows Town Hall's existing **3 appointed + 7 earned** presentation. The one-kill minimum prevents zero-kill players from becoming ANBU merely because their village is small. This is a rule alignment pass, not a simulation of long-term PvP balance.
 
@@ -85,3 +85,16 @@ Prepared on `663bcd30025c5df83bf7680a0c98d7e6a58174fd`, which matched the health
 - Server and client TypeScript builds, story-content verification, production client build with public deployment-length test values, dist verification, and bundle-size checks passed.
 - Refreshed the generated design-token source locations; tooling-handoff, deployment-topology, and rollback compatibility contracts passed.
 - Two real Express/Chromium checks passed. The Town Hall journey confirms that all AI seats show zero bonus and have no focus button; ordinary villagers have no appointment/order composer; direct focus, Elder/ANBU appointment, and order-post attempts return 403. Treasury donations and the existing supply-log journey still complete.
+
+
+## Kage challenge response clocks
+
+- The Kage owes the first acceptance. Only the Kage’s 24-hour budget runs while both participants are online. Accepting sends a verified official duel invitation and switches responsibility to the challenger’s separate 24-hour budget. Accepting that invitation seals the actual PvP session; normal combat turn timers then apply.
+- Either participant going offline pauses both clocks. A server task samples every 15 seconds, independently of the Town Hall screen. Board reads and protected actions also advance the same locked clock. Sampling gaps longer than a minute charge no unseen time; reconnects and repeated requests cannot accelerate or refill budgets.
+- If the Kage’s response time runs out, the challenger takes the seat. If the challenger’s response time runs out, the incumbent keeps the seat, the existing stake remains spent, and the challenge loss cooldown and post-defense grace apply. A response timeout does not invent a combat defense win.
+- A challenger can reopen an expired duel popup from Town Hall using the Kage’s retained, verified offer. Resending or reopening never refills either clock. Invitations must come from the incumbent, and the challenger must create the duel by accepting. An unrelated battle cannot be retroactively marked official.
+- Existing pending challenges receive the new full budgets once on migration. Already sealed duels retain their settlement authority. The independent ten-day Kage inactivity rule remains in effect.
+- Official invitation delivery remains available when a participant is busy or a social block exists, but only for the verified incumbent/challenger pairing in the current challenge. Normal social challenges keep their existing restrictions. Once the Kage accepts, the challenger’s clock also pauses while the Kage’s server-owned combat/travel status would refuse duel creation.
+
+
+Kage clock release verification: all 658 tests passed across the leadership, PvP admission/settlement, scheduler, client state, and invitation suites. Server and client TypeScript builds, scoped client lint, production client build, dist verification, bundle limits, and tooling-handoff drift checks passed. Three real Express/Chromium checks passed: the new Kage acceptance → official duel entry → acceptance notification journey, the council/orders/treasury journey, and route smoke checks. Browser test data lived only in the disposable local server.

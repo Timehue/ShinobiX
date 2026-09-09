@@ -25,6 +25,7 @@ import {
 } from '../pvp/_player-ranked-rollout.js';
 import {
     cancelChallengeRecord,
+    isCurrentKageInvitation,
     isChallengeId,
     isPlayerChallengeMode,
     loadChallengeRecord,
@@ -190,7 +191,7 @@ async function removeFromInbox(owner: string, id: string): Promise<boolean> {
     });
 }
 
-async function enqueueChallenge(owner: string, challenge: Record<string, unknown>): Promise<void> {
+export async function enqueueChallenge(owner: string, challenge: Record<string, unknown>): Promise<void> {
     const key = challengeKey(owner);
     const id = challengeId(challenge);
     await withKvLock(key, async () => {
@@ -298,7 +299,11 @@ async function buildNewChallenge(
         return { ok: false, status: 400, error: 'Challenge recipient does not match targetName.' };
     }
     if (from === to) return { ok: false, status: 400, error: 'You cannot challenge yourself.' };
-    const blocked = await blockRelationship(from, to);
+    const hasKageAuthority = raw.kageChallengeId !== undefined || raw.kageVillage !== undefined;
+    const officialKage = hasKageAuthority && await isCurrentKageInvitation({ from, to,
+        mode: raw.mode as 'standard', challenge: raw });
+    if (hasKageAuthority && !officialKage) return { ok: false, status: 409, error: 'That official Kage invitation is not current.' };
+    const blocked = !officialKage ? await blockRelationship(from, to) : { aBlockedB: false, bBlockedA: false };
     if (blocked.aBlockedB || blocked.bBlockedA) {
         return { ok: false, status: 403, error: 'A player block prevents this challenge.' };
     }
@@ -532,7 +537,7 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
             if (safeName(targetName) !== record.from || safeName(boundedString(rawChallenge.fromName, 64)) !== record.to) {
                 return res.status(409).json({ error: 'Challenge response does not match the outstanding challenge.' });
             }
-            if (accepted) {
+            if (accepted && !await isCurrentKageInvitation(record, true)) {
                 const blocked = await blockRelationship(record.from, record.to);
                 if (blocked.aBlockedB || blocked.bBlockedA) {
                     return res.status(403).json({ error: 'A player block prevents accepting this challenge.' });
@@ -685,7 +690,7 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
         }
         const built = await buildNewChallenge(rawChallenge, creator, targetName);
         if (!built.ok) return res.status(built.status).json({ error: built.error });
-        if (!built.challenge.battleId) {
+        if (!built.challenge.battleId && !built.challenge.kageChallengeId) {
             const block = challengeBlock(onlineStore.get(built.record.to), built.record.mode);
             if (block) return res.status(block.status).json({ error: block.error });
         }

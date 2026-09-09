@@ -12,6 +12,7 @@ import { visiblePoll } from "../lib/poll";
 import {
     KAGE_CHALLENGE_RYO_COST,
     kageActivityLines,
+    formatObligation,
     kageEligibility,
     type ServerKageChallenge,
     type ServerKageState,
@@ -91,13 +92,6 @@ const ELDER_FOCUS_OPTIONS: ReadonlyArray<{
 // which is the canonical shape the server returns. The local copies that used to
 // live here omitted challengeId, so the durable-challenge proof this screen now
 // requires before sending the official duel could not be read.
-function formatObligation(ms: number): string {
-    const total = Math.max(0, Math.floor(ms / 1000));
-    const m = Math.floor(total / 60);
-    const s = total % 60;
-    return `${m}:${String(s).padStart(2, "0")}`;
-}
-
 // The four PERMANENT war structures (Honor-Seal-funded, kept across wars) surfaced
 // in the Upgrades tab. Ramparts + Watchtower are per-war (WR) and stay in the Sector
 // War Map. Descriptions mirror api/_war-structures STRUCTURE_DEFS.
@@ -166,6 +160,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     // Mount-stable clock for the Kage eligibility checklist (LegacyPanel.tsx:97
     // uses the same pattern). Only the account-age requirement needs a `now`, and
     // it moves on the scale of days — a per-second tick would buy nothing.
+    const [kageChallengeBusy, setKageChallengeBusy] = useState(false);
     const [kageNow] = useState(() => Date.now());
     const TREASURY_GIFT_TAX_LABEL = "10%";
     const TREASURY_DONATE_MAX_RYO = 200_000;
@@ -442,36 +437,6 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         const stop = visiblePoll(fetchKage, 12_000, 0.1, { immediate: true });
         return () => { alive = false; stop(); };
     }, [character.village]);
-    // Challenger drives the overlap "accept obligation" clock: while their
-    // challenge is pending, press the server every ~25s. The server only burns
-    // the Kage's obligation when BOTH are verifiably online, so an offline Kage
-    // can't be forfeited unfairly and an AFK challenger can't steal the seat.
-    useEffect(() => {
-        const ch = serverKage?.challenge;
-        if (!ch || ch.status !== "pending") return;
-        if (ch.challenger.toLowerCase() !== character.name.toLowerCase()) return;
-        let alive = true;
-        const press = () => fetch("/api/village/kage-challenge", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "press", village: character.village, playerName: character.name }),
-        })
-            .then(r => r.ok ? r.json() : null)
-            .then((res: { forfeited?: boolean; obligationRemainingMs?: number } | null) => {
-                if (!alive || !res) return;
-                if (res.forfeited) { setServerKage(prev => prev ? { ...prev, seatedKage: character.name, challenge: null } : prev); return; }
-                if (typeof res.obligationRemainingMs === "number") {
-                    setServerKage(prev => prev?.challenge ? { ...prev, challenge: { ...prev.challenge, obligationRemainingMs: res.obligationRemainingMs! } } : prev);
-                }
-            })
-            .catch(() => {});
-        const stop = visiblePoll(press, 25_000, 0.1, { immediate: true });
-        return () => { alive = false; stop(); };
-        // Interval keyed on the challenge IDENTITY (status + challenger), not the
-        // whole challenge object — which mutates every poll (obligationRemainingMs)
-        // and would otherwise restart the 25s interval on every tick. Intentional.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [serverKage?.challenge?.status, serverKage?.challenge?.challenger, character.name, character.village]);
     useEffect(() => {
         if (tab !== "guard" && tab !== "status") return;
         let alive = true;
@@ -785,33 +750,52 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         });
         const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; challenge?: ServerKageChallenge; character?: Character; _saveVersion?: number };
         if (!res.ok || !data.ok) return alert(data.error || "Could not declare the challenge.");
-        // Reflect the server-side 500-seal debit locally; the autosave re-asserts
+        // Reflect the server-side ryo stake debit locally; the autosave re-asserts
         // the debited balance and the two converge (same pattern as the agenda /
         // map-control reward endpoints).
         if (data.character && !onVersionedCharacter(data.character, data._saveVersion)) return;
         setServerKage(prev => prev ? { ...prev, challenge: data.challenge ?? prev.challenge } : prev);
-        alert(`Challenge declared against ${seatedKage}. Catch them online and send the official duel — they must accept it or forfeit the seat.`);
+        alert(`Challenge declared against ${seatedKage}. Their response clock runs while you are both online. Once they accept, accept their official duel invitation to fight for the seat.`);
     }
     async function sendKageDuel() {
-        const targetName = serverKage?.seatedKage;
-        const kageChallengeId = serverKage?.challenge?.challengeId;
-        if (!targetName || targetName.toLowerCase() === character.name.toLowerCase()) return;
-        if (!kageChallengeId) return alert("The official Kage challenge proof is missing. Refresh and try again.");
-        const duel: DuelChallenge = {
-            id: makeId(),
-            fromName: character.name,
-            toName: targetName,
-            challenger: character,
-            challengerJutsus: getPvpJutsuLoadout(savedBloodlines, creatorJutsus, character),
-            challengerBloodlineMult: getBloodlineMultiplier(character, savedBloodlines),
-            createdAt: Date.now(),
-            mode: "standard",
-            kageChallengeId,
-            kageVillage: character.village,
-        };
-        const sent = await postPlayerChallengeNotice(targetName, duel);
-        if (!sent) return alert(`${targetName} is not reachable right now. Try again while they're online.`);
-        alert(`Official Kage duel sent to ${targetName}. They must accept it — or keep burning their accept obligation until they forfeit the seat.`);
+        const challenge = serverKage?.challenge;
+        if (!isSeatedKage || !challenge?.challengeId || challenge.status !== "pending" || kageChallengeBusy) return;
+        setKageChallengeBusy(true);
+        try {
+            const duel: DuelChallenge = {
+                id: makeId(), fromName: character.name, toName: challenge.challenger,
+                challenger: character,
+                challengerJutsus: getPvpJutsuLoadout(savedBloodlines, creatorJutsus, character),
+                challengerBloodlineMult: getBloodlineMultiplier(character, savedBloodlines),
+                createdAt: Date.now(), mode: "standard", kageChallengeId: challenge.challengeId, kageVillage: character.village,
+            };
+            if (!await postPlayerChallengeNotice(challenge.challenger, duel)) {
+                return alert(`${challenge.challenger} is not reachable. Try again when they are online; acceptance has not changed.`);
+            }
+            const response = await fetch('/api/village/kage-challenge', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'accept', village: character.village, playerName: character.name, invitationId: duel.id }),
+            });
+            const data = await response.json();
+            if (!response.ok) return alert(data.error || 'Could not confirm challenge acceptance. Please retry.');
+            setServerKage(current => current ? { ...current, challenge: data.challenge } : current);
+            gameToast('Official duel sent. The challenger’s remaining response time runs while both players are online.', { kind: 'success' });
+        } catch { alert('Could not reach the server. Please retry.'); }
+        finally { setKageChallengeBusy(false); }
+    }
+    async function reopenKageInvitation() {
+        if (!isKageChallenger || kageChallengeBusy) return;
+        setKageChallengeBusy(true);
+        try {
+            const response = await fetch('/api/village/kage-challenge', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'invitation', village: character.village, playerName: character.name }),
+            });
+            const data = await response.json();
+            if (!response.ok) return alert(data.error || 'Could not reopen the official duel.');
+            gameToast('The official duel invitation is on its way. Accept it in your Challenges panel.', { kind: 'success' });
+        } catch { alert('Could not reach the server. Please retry.'); }
+        finally { setKageChallengeBusy(false); }
     }
     async function supportVillageFocus(focus: string, elderFocusKey: ElderFocusKey) {
         // The selected appointment is a state, not a repeatable action. This
@@ -1140,7 +1124,13 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
                 })}</div>
             </section>
             <section className="summary-box"><h3>ANBU Black Ops</h3><p className="hint">Seats 1–3 are Kage-appointed; 4–10 rank by monthly PvP kills ({currentAnbuMonth}), with at least 1 kill required. All occupied seats grant ANBU field authority.</p><datalist id="anbu-player-options">{villagePlayers.map(name => <option key={name} value={name} />)}</datalist>{isSeatedKage && <div className="treasury-grid">{[0, 1, 2].map(index => <div key={index}><label>Seat {index + 1}</label><input list="anbu-player-options" value={anbuAppointmentInputs[index] ?? ""} onChange={(event) => updateAnbuAppointmentInput(index, event.target.value)} placeholder="Choose player" /><div className="menu"><button disabled={anbuBusy} onClick={() => void manageAnbuSeat(index, "appoint")}>Appoint</button><button className="danger-button" disabled={anbuBusy} onClick={() => void manageAnbuSeat(index, "clear")}>Clear</button></div></div>)}</div>}<div className="contrib-rank-grid">{anbuSlots.map((slot, idx) => <div key={`anbu-${idx}-${slot || "empty"}`} className="clan-guard-row"><span>#{idx + 1} <strong>{slot || "Open seat"}</strong></span><span>{slot ? `${idx < 3 ? "Appointed" : "Earned"} · ${idx < 3 ? "Kage selection" : "Monthly PvP"}` : "Vacant"}</span></div>)}</div><h4>Field authority</h4><div className="contrib-rank-grid"><div className="clan-guard-row"><span>Recon sectors</span><span>Reveal defenses</span></div><div className="clan-guard-row"><span>Guard sectors</span><span>Village-wide access</span></div><div className="clan-guard-row"><span>Support raids</span><span>Clan pressure</span></div></div></section>
-            <section className="summary-box"><h3>Kage Challenge</h3><p className="hint">Win the duel or exhaust the Kage’s accept clock. The seat gate is <strong>Village Merit</strong> — a personal record, not the village contribution ranking below.</p><div className="contrib-rank-grid">{kageEligibility(character, kageNow).map(req => <div key={req.label} className="clan-guard-row"><span>{req.ok ? "✅" : "⬜"} {req.label}</span><span>{req.detail ?? ""}</span></div>)}</div><div className="contrib-rank-grid">{contributionRankings.map((row, idx) => <div key={row.name} className="clan-guard-row"><span>#{idx + 1} <strong>{row.name}</strong> · {row.role}</span><span>{row.points.toLocaleString()} points</span></div>)}</div>{kageChallenge ? <div className={`notice-post ${kageChallenge.status === "accepted" ? "pinned" : ""}`}><div className="notice-post-head"><span>{kageChallenge.status.toUpperCase()}</span><small>{new Date(kageChallenge.createdAt).toLocaleString()}</small></div><strong>{kageChallenge.challenger} vs {serverKage?.seatedKage}</strong><p>Accept clock <strong>{formatObligation(kageChallenge.obligationRemainingMs)}</strong></p>{isKageChallenger && <button onClick={() => void sendKageDuel()}>Send Official Duel</button>}{isSeatedKage && <p className="hint">Accept the duel before the clock expires.</p>}</div> : <><button onClick={() => void declareChallenge()} disabled={!serverKage?.kageSystemUnlocked || isSeatedKage}>Declare Challenge · {KAGE_CHALLENGE_RYO_COST.toLocaleString()} ryo</button><p className="hint">{isSeatedKage ? "You hold the Kage seat." : "No active challenge."}</p></>}</section>
+            <section className="summary-box"><h3>Kage Challenge</h3><p className="hint">Each player has a separate 24-hour response clock. Only the player who owes acceptance loses time, and only while both players are online. There is no calendar deadline. The seat gate is <strong>Village Merit</strong> — a personal record, not the village contribution ranking below.</p><div className="contrib-rank-grid">{kageEligibility(character, kageNow).map(req => <div key={req.label} className="clan-guard-row"><span>{req.ok ? "✅" : "⬜"} {req.label}</span><span>{req.detail ?? ""}</span></div>)}</div><div className="contrib-rank-grid">{contributionRankings.map((row, idx) => <div key={row.name} className="clan-guard-row"><span>#{idx + 1} <strong>{row.name}</strong> · {row.role}</span><span>{row.points.toLocaleString()} points</span></div>)}</div>{kageChallenge ? <div className={`notice-post ${kageChallenge.status === "accepted" ? "pinned" : ""}`}><div className="notice-post-head"><span>{kageChallenge.status.toUpperCase()}</span><small>{new Date(kageChallenge.createdAt).toLocaleString()}</small></div><strong>{kageChallenge.challenger} vs {serverKage?.seatedKage}</strong><p>Kage response <strong>{formatObligation(kageChallenge.obligationRemainingMs)}</strong> · Challenger response <strong>{formatObligation(kageChallenge.challengerRemainingMs ?? 86_400_000)}</strong></p>
+                {kageChallenge.status === "accepted" ? <p className="hint">Both players accepted. The official duel decides the seat; normal combat turn timers now apply.</p> : <>
+                    <p className="hint">{kageChallenge.kageAcceptedAt === undefined ? "Waiting for the Kage to accept." : "The Kage accepted. Waiting for the challenger to accept the official duel."} {kageChallenge.clockRunning ? "Both players are online; the response clock is running." : kageChallenge.clockPauseReason === "kage-unavailable" ? "Response clocks are paused while the Kage is busy in combat or traveling." : "Response clocks are paused until both players are online."}</p>
+                    <p className="hint">If the Kage's clock reaches zero, the challenger takes the seat. If the challenger's clock reaches zero, the Kage keeps the seat and the challenge stake is forfeited.</p>
+                    {isSeatedKage && <button disabled={kageChallengeBusy} onClick={() => void sendKageDuel()}>{kageChallengeBusy ? "Sending…" : kageChallenge.kageAcceptedAt === undefined ? "Accept challenge & send duel" : "Resend official duel"}</button>}
+                    {isKageChallenger && kageChallenge.kageAcceptedAt !== undefined && <button disabled={kageChallengeBusy} onClick={() => void reopenKageInvitation()}>Reopen official duel invitation</button>}
+                </>}</div> : <><button onClick={() => void declareChallenge()} disabled={!serverKage?.kageSystemUnlocked || isSeatedKage}>Declare Challenge · {KAGE_CHALLENGE_RYO_COST.toLocaleString()} ryo</button><p className="hint">{isSeatedKage ? "You hold the Kage seat." : "No active challenge."}</p></>}</section>
         </>}
     </div>;
 }

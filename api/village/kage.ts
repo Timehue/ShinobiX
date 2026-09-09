@@ -1,3 +1,4 @@
+import { advanceKageChallengeClock } from './_kage-clock.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
@@ -77,6 +78,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // in every challenge state, incl. ACCEPTED_DUEL (where the challenger's
             // press loop is idle). Best-effort; the response reflects the result.
             await reconcilePendingKageSettle(village, Date.now()).catch(() => undefined);
+            await advanceKageChallengeClock(village);
             const state = await kv.get<VillageKageState>(kageKey(village)) ?? { kageSystemUnlocked: false };
             // Inactivity visibility BEFORE the daily pass fires: the seated
             // Kage's last autosave and the date the seat opens if they stay
@@ -88,7 +90,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (lastActiveAt != null) activity = { kageLastActiveAt: lastActiveAt, kageInactiveAt: kageInactiveAt(lastActiveAt) };
             }
             res.setHeader('Cache-Control', 'private, no-store');
-            return res.status(200).json({ ...state, ...(activity ?? {}) });
+            const { duelInvitation: _invitation, ...challengeView } = state.challenge ?? {};
+            return res.status(200).json({ ...state, challenge: state.challenge ? challengeView : state.challenge, ...(activity ?? {}) });
         } catch (err) {
             console.error('[village/kage]', err);
             return res.status(500).json({ error: 'Internal server error.' });
