@@ -1,3 +1,4 @@
+import { loadChallengeRecord, saveChallengeRecord, isCurrentKageInvitation } from '../pvp/_challenge-authorization.js';
 import { safeLogValue } from '../_safe-log.js';
 import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
@@ -8,21 +9,17 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
-import { isPlayerOnline, stampPresenceBeat } from '../_realtime/_presence-beat.js';
-import type { PvpSession } from '../pvp/session.js';
-import { pvpSessionPublicationTombstoneFor } from '../pvp/_session-publication-tombstone.js';
 import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../_economy-tx.js';
 import {
-    canDeclareChallenge, isChallengeExpired, newChallenge, applyPress, applySeatTransfer,
-    applyExpiry, resolveAcceptDecision, KAGE_DECLARE_RYO_COST, type KageStateLike,
+    canDeclareChallenge, newChallenge, acceptKageChallenge, KAGE_DECLARE_RYO_COST, type KageStateLike,
 } from './_kage-challenge.js';
 import {
     ensureKageDuelPointer,
     settleKageDuel,
     reconcilePendingKageSettle,
     kageKey,
-    announceKageDethroned,
 } from './_kage-settle.js';
+import { advanceKageChallengeClock } from './_kage-clock.js';
 
 /*
  * /api/village/kage-challenge — POST only
@@ -35,17 +32,14 @@ import {
  *   - declare : a gated villager stakes 250,000 ryo to open a challenge.
  *               Eligibility now requires PERSONAL Village Merit (char.villageMerit),
  *               not the shared village contribution pool.
- *   - press   : the challenger pings to burn the Kage's "accept obligation",
- *               but ONLY while BOTH are verifiably online (live presence). The
- *               Kage can't dodge by hiding; an AFK challenger can't steal the seat.
- *   - accept  : the seated Kage agrees to duel — halts the forfeit clock, seals
- *               the official duel's battleId, and writes the `kage-duel:<battleId>`
- *               pointer so PvP completion can auto-settle the seat.
+ *   - press   : compatibility refresh; server sampling advances the response clocks.
+ *   - accept  : seated Kage accepts; the challenger now owes an official-duel response.
+ *   - invitation : challenger reopens the accepted official invitation after a missed popup.
  *   - resolve : either fighter (or the auto path in api/pvp/move.ts) settles the
  *               duel against the real PvpSession — the client can't fake the outcome.
  *
  * All seat-bearing mutations run under withKvLock(village:kage:<slug>) with
- * { failClosed: true }. The 500-seal debit nests the challenger's save lock
+ * { failClosed: true }. The ryo stake debit nests the challenger's save lock
  * inside (kage-outer / save-inner — no other path takes them the other way).
  */
 
@@ -102,6 +96,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Self-heal: finish any stuck auto-settle (immediate settle threw at
         // duel-finish) from the durable record before acting. Idempotent + cheap.
         await reconcilePendingKageSettle(village, now).catch(() => undefined);
+        await advanceKageChallengeClock(village, now);
 
         // ── DECLARE ──────────────────────────────────────────────────────────
         if (action === 'declare') {
@@ -111,8 +106,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const challengerName = String(char.name ?? playerName);
 
             const out = await withKvLock<{ status: number; body: unknown }>(key, async () => {
-                let state = (await kv.get<KageStateLike>(key)) ?? { kageSystemUnlocked: false };
-                if (state.challenge && isChallengeExpired(state.challenge, now)) state = applyExpiry(state, now);
+                const state = (await kv.get<KageStateLike>(key)) ?? { kageSystemUnlocked: false };
 
                 const elig = canDeclareChallenge({
                     now, state, challengerName,
@@ -182,115 +176,72 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(out.status).json(out.body);
         }
 
-        // ── PRESS (burn the accept obligation during verified overlap) ────────
+        // Compatibility refresh for either participant; the scheduler also advances it.
         if (action === 'press') {
-            // The presser proves their own liveness by making this authenticated
-            // request (the client only presses on a visible tab); stamp their beat.
-            stampPresenceBeat(playerName);
-            const out = await withKvLock<{ status: number; body: unknown; forfeitTo?: string; forfeitFrom?: string; forfeitChallengeId?: string }>(key, async () => {
-                let state = (await kv.get<KageStateLike>(key)) ?? { kageSystemUnlocked: false };
-                if (state.challenge && isChallengeExpired(state.challenge, now)) {
-                    state = applyExpiry(state, now);
-                    await kv.set(key, state);
-                    return { status: 200, body: { ok: true, expired: true, challenge: null } };
-                }
-                const challenge = state.challenge;
-                if (!challenge || challenge.status !== 'pending') return { status: 200, body: { ok: true, challenge: challenge ?? null } };
-                // Only the challenger drives their own clock.
-                if (safeName(challenge.challenger) !== playerName && !identity.admin) {
-                    return { status: 403, body: { error: 'Only the challenger can press a Kage challenge.' } };
-                }
-                // "Both online" is verified cross-worker (in-memory store + durable
-                // presence beat). The challenger who is pressing is provably online
-                // by virtue of this request; the seated Kage is checked for real.
-                const challengerOnline = playerName === safeName(challenge.challenger) || await isPlayerOnline(challenge.challenger);
-                const bothOnline = (await isPlayerOnline(state.seatedKage)) && challengerOnline;
-                const pressed = applyPress(challenge, now, bothOnline);
-                if (pressed.forfeited) {
-                    const nextState = applySeatTransfer(state, challenge.challenger, village, now, 'forfeit');
-                    await kv.set(key, nextState);
-                    return {
-                        status: 200,
-                        body: { ok: true, forfeited: true, seatedKage: nextState.seatedKage },
-                        forfeitTo: challenge.challenger,
-                        forfeitFrom: String(state.seatedKage ?? ''),
-                        forfeitChallengeId: challenge.challengeId,
-                    };
-                }
-                await kv.set(key, { ...state, challenge: pressed.challenge });
-                return { status: 200, body: { ok: true, obligationRemainingMs: pressed.challenge.obligationRemainingMs, bothOnline } };
-            }, { failClosed: true });
-            if (out.forfeitTo) {
-                await audit(village, { action: 'forfeit', newKage: out.forfeitTo });
-                // World Herald — the seat transfer is durable; exact-once per challenge.
-                await announceKageDethroned({
-                    village,
-                    challenger: out.forfeitTo,
-                    oldKage: out.forfeitFrom || 'the seated Kage',
-                    receiptId: `kage-dethroned:${village}:forfeit:${out.forfeitChallengeId ?? out.forfeitTo}`,
-                    meta: { challengeId: out.forfeitChallengeId, how: 'forfeit' },
-                });
+            const state = await kv.get<KageStateLike>(key);
+            if (state?.challenge && !identity.admin && ![safeName(state.seatedKage ?? ''), safeName(state.challenge.challenger)].includes(playerName)) {
+                return res.status(403).json({ error: 'Only the participants can press this challenge.' });
             }
+            return res.status(200).json({ ok: true, ...state });
+        }
+
+        // The Kage accepts first. The challenger then accepts a fresh invitation
+        // sent by the Kage; session admission seals their second acceptance.
+        if (action === 'accept') {
+            const out = await withKvLock<{ status: number; body: unknown; sealBattleId?: string; challengeId?: string }>(key, async () => {
+                const raw = await kv.get<KageStateLike>(key);
+                const challenge = raw?.challenge;
+                if (!raw || !challenge) return { status: 404, body: { error: 'There is no active Kage challenge.' } };
+                if (!identity.admin && safeName(raw.seatedKage ?? '') !== playerName) return { status: 403, body: { error: 'Only the seated Kage can accept this challenge.' } };
+                const actor = await kv.get<{ character?: { village?: string } }>(`save:${playerName}`);
+                if (!identity.admin && actor?.character?.village !== village) return { status: 403, body: { error: 'You must belong to this village.' } };
+                if (battleId) {
+                    // Legacy retry may repair an already sealed duel, never turn an
+                    // unrelated casual fight into an official challenge retroactively.
+                    if (challenge.status !== 'accepted' || challenge.battleId !== battleId) return { status: 409, body: { error: 'Accept the challenge first, then send its official duel invitation.' } };
+                    return { status: 200, body: { ok: true, challenge }, sealBattleId: battleId, challengeId: challenge.challengeId };
+                }
+                if (challenge.status === 'accepted' || challenge.kageAcceptedAt !== undefined) {
+                    return { status: 200, body: { ok: true, challenge } };
+                }
+                const invitation = await loadChallengeRecord(String(body.invitationId ?? ''));
+                if (!invitation || !await isCurrentKageInvitation(invitation) || invitation.status !== 'pending' || invitation.mode !== 'standard'
+                    || invitation.from !== safeName(raw.seatedKage ?? '') || invitation.to !== safeName(challenge.challenger)
+                    || invitation.challenge.kageChallengeId !== challenge.challengeId || invitation.challenge.kageVillage !== village) {
+                    return { status: 409, body: { error: 'Send the official duel invitation before accepting this challenge.' } };
+                }
+                const next = { ...raw, challenge: { ...acceptKageChallenge(challenge, now), duelInvitation: invitation.challenge } };
+                await commitExactKageState(key, raw, JSON.parse(JSON.stringify(next)));
+                return { status: 200, body: { ok: true, challenge: next.challenge } };
+            }, { failClosed: true });
+            if (out.sealBattleId) await ensureKageDuelPointer(village, out.sealBattleId, String(out.challengeId));
+            if (out.status === 200) await audit(village, { action: 'accept', playerName });
             return res.status(out.status).json(out.body);
         }
 
-        // ── ACCEPT (Kage agrees to duel — halts the forfeit clock) ────────────
-        if (action === 'accept') {
-            if (!battleId) return res.status(400).json({ error: 'Missing battleId — accept the official duel to defend, not the challenge directly.' });
-            // Load the claimed duel BEFORE sealing (see resolveAcceptDecision): a
-            // bogus battleId would otherwise freeze the forfeit clock forever. The
-            // duel must be a live session fought by exactly {seated Kage, challenger}
-            // (an abandoned real duel is handled by PvP's own AFK-claim, which
-            // completes the session and auto-settles the seat).
-            const sessionRow = await kv.get<PvpSession>(`pvp:${battleId}`);
-            // A rolled-back publication leaves a fence at the battle key, not a
-            // session — reading it as one would dereference absent fighters.
-            const session = pvpSessionPublicationTombstoneFor(sessionRow, battleId) ? null : sessionRow;
-            const sessionFighters = session?.p1 && session.p2
-                ? [safeName(session.p1.name), safeName(session.p2.name)]
-                : null;
-            const out = await withKvLock<{ status: number; body: unknown; sealBattleId?: string; challengeId?: string }>(key, async () => {
-                let raw = await kv.get<KageStateLike>(key);
-                let state = raw ?? { kageSystemUnlocked: false };
-                if (state.challenge && isChallengeExpired(state.challenge, now)) {
-                    const expired = applyExpiry(state, now);
-                    await commitExactKageState(key, raw, expired);
-                    raw = expired;
-                    state = expired;
-                }
-                const challenge = state.challenge;
-                const decision = resolveAcceptDecision({
-                    challenge,
-                    seatNorm: safeName(state.seatedKage ?? ''),
-                    challengerNorm: safeName(challenge?.challenger ?? ''),
-                    callerNorm: playerName,
-                    isAdmin: identity.admin,
-                    battleId,
-                    sessionFighters,
-                });
-                if (decision.kind === 'reject') return { status: decision.status, body: { error: decision.error } };
-                if (decision.kind === 'idempotent') {
-                    return { status: 200, body: { ok: true, challenge }, sealBattleId: battleId, challengeId: challenge!.challengeId };
-                }
-                const next = { ...state, challenge: { ...challenge!, status: 'accepted' as const, battleId } };
-                await commitExactKageState(key, raw, next);
-                return { status: 200, body: { ok: true, challenge: next.challenge }, sealBattleId: battleId, challengeId: challenge!.challengeId };
+        // A short-lived duel popup never removes the challenger's opportunity
+        // to accept. Reissue the Kage's verified invitation with a fresh normal
+        // challenge receipt, without resetting either political response clock.
+        if (action === 'invitation') {
+            const result = await withKvLock(key, async () => {
+                const state = await kv.get<KageStateLike>(key);
+                const challenge = state?.challenge;
+                if (!state || !challenge || challenge.status !== 'pending' || challenge.kageAcceptedAt === undefined
+                    || !challenge.duelInvitation) return { status: 409, body: { error: 'There is no accepted Kage invitation to reopen.' } };
+                if (safeName(challenge.challenger) !== playerName) return { status: 403, body: { error: 'Only the challenger can reopen their invitation.' } };
+                const actor = await kv.get<{ character?: { village?: string } }>(`save:${playerName}`);
+                if (actor?.character?.village !== village) return { status: 403, body: { error: 'You must belong to this village.' } };
+                const invitation = { ...challenge.duelInvitation, id: randomUUID(), createdAt: now };
+                if (!await isCurrentKageInvitation({ from: safeName(state.seatedKage ?? ''), to: playerName,
+                    mode: 'standard', challenge: invitation })) return { status: 409, body: { error: 'The official invitation no longer matches this Kage challenge.' } };
+                const record = { id: invitation.id, from: safeName(state.seatedKage ?? ''), to: playerName,
+                    mode: 'standard' as const, status: 'pending' as const, createdAt: now, challenge: invitation };
+                if (!await saveChallengeRecord(record)) throw new Error('kage-invitation-publication-conflict');
+                const { enqueueChallenge } = await import('../player/challenge.js');
+                await enqueueChallenge(playerName, invitation);
+                return { status: 200, body: { ok: true } };
             }, { failClosed: true });
-            // Point the official duel back at this village/challenge so PvP
-            // completion (api/pvp/move.ts) can auto-settle the seat. Written
-            // SERVER-side (not client-trusted); TTL matches the replay window.
-            if (out.status === 200 && out.sealBattleId) {
-                try {
-                    await ensureKageDuelPointer(village, out.sealBattleId, String(out.challengeId ?? ''));
-                } catch (error) {
-                    console.error('[village/kage-challenge] official duel pointer pending', safeLogValue(error));
-                    return res.status(503).json({
-                        error: 'The official duel is sealed, but its durable settlement pointer is still publishing. Retry accept.',
-                    });
-                }
-                await audit(village, { action: 'accept', battleId: out.sealBattleId });
-            }
-            return res.status(out.status).json(out.body);
+            return res.status(result.status).json(result.body);
         }
 
         // ── RESOLVE (settle the duel against the real PvpSession) ─────────────

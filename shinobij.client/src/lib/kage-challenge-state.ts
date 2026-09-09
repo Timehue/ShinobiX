@@ -31,6 +31,11 @@ export type ServerKageChallenge = {
     status: "pending" | "accepted";
     createdAt: number;
     obligationRemainingMs: number;
+    challengerRemainingMs?: number;
+    kageAcceptedAt?: number;
+    clockVersion?: 2;
+    clockPauseReason?: 'offline' | 'kage-unavailable';
+    clockRunning?: boolean;
     battleId?: string;
 };
 export type ServerKageState = {
@@ -63,6 +68,7 @@ export type KageBoardState =
     | { kind: "GRACE_PERIOD"; graceUntil: number; isSeatedKage: boolean; seatedKage: string }
     | { kind: "NO_CHALLENGE"; isSeatedKage: boolean; seatedKage: string; eligibility: KageEligibilityItem[]; canDeclare: boolean }
     | { kind: "PENDING_CHALLENGE"; challenge: ServerKageChallenge; role: KageChallengeRole; seatedKage: string }
+    | { kind: "AWAITING_CHALLENGER"; challenge: ServerKageChallenge; role: KageChallengeRole; seatedKage: string }
     | { kind: "ACCEPTED_DUEL"; challenge: ServerKageChallenge; role: KageChallengeRole; seatedKage: string };
 
 function lower(s: string | undefined): string {
@@ -102,7 +108,7 @@ export function deriveKageChallengeState(server: ServerKageState | null | undefi
         const role: KageChallengeRole = lower(challenge.challenger) === lower(character.name)
             ? "challenger"
             : isSeatedKage ? "kage" : "bystander";
-        const kind = challenge.status === "accepted" ? "ACCEPTED_DUEL" : "PENDING_CHALLENGE";
+        const kind = challenge.status === "accepted" ? "ACCEPTED_DUEL" : challenge.kageAcceptedAt !== undefined ? "AWAITING_CHALLENGER" : "PENDING_CHALLENGE";
         return { kind, challenge, role, seatedKage } as KageBoardState;
     }
 
@@ -114,12 +120,13 @@ export function deriveKageChallengeState(server: ServerKageState | null | undefi
     return { kind: "NO_CHALLENGE", isSeatedKage, seatedKage, eligibility, canDeclare };
 }
 
-/** M:SS accept-obligation countdown. */
+/** H:MM:SS response budget; calendar time never consumes it. */
 export function formatObligation(ms: number): string {
     const total = Math.max(0, Math.floor(ms / 1000));
-    const m = Math.floor(total / 60);
+    const h = Math.floor(total / 3600);
+    const m = Math.floor(total / 60) % 60;
     const s = total % 60;
-    return `${m}:${String(s).padStart(2, "0")}`;
+    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
 /** Coarse "Nd Nh" / "Nh Nm" / "Nm" relative span for grace / tenure displays. */
