@@ -1,3 +1,4 @@
+import { hasInventoryRoom } from '../_inventory-capacity.js';
 export type KeyForgeSource = 'hollowShards' | 'dungeonKeys' | 'fateShards';
 export const KEY_FORGE_COSTS = { hollowShards: 80, dungeonKeys: 5, fateShards: 10 } as const;
 
@@ -26,8 +27,11 @@ function consumeItem(character: Record<string, unknown>, itemId: string, amount:
 
 export function forgeHollowGateKey(character: Record<string, unknown>, source: KeyForgeSource):
     | { ok: true; character: Record<string, unknown> }
-    | { ok: false; reason: 'invalid-source' | 'forge-locked' | 'insufficient-materials' } {
+    | { ok: false; reason: 'invalid-source' | 'forge-locked' | 'insufficient-materials' | 'inventory-full' } {
     if (!(source in KEY_FORGE_COSTS)) return { ok: false as const, reason: 'invalid-source' as const };
+    // Capacity FIRST, before any material is spent. Refusing after the debit
+    // would take the shards and give nothing back (MMORPG behavior audit F7).
+    if (!hasInventoryRoom(character)) return { ok: false as const, reason: 'inventory-full' as const };
     let next = { ...character };
     if (source === 'hollowShards') {
         const att = character.hollowGateAttunement as Record<string, unknown> | undefined;

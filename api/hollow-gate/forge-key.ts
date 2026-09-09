@@ -1,3 +1,4 @@
+import { INVENTORY_FULL_ERROR } from '../_inventory-capacity.js';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
@@ -21,7 +22,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'hollow-gate-forge-key', 20, 60_000, identity.name))) return;
         const result = await mutatePlayerSave(playerName, ({ character }) => {
             const forged = forgeHollowGateKey(character, source);
-            if (!forged.ok) return { ok: false as const, status: 409, error: forged.reason };
+            // The other reasons are short codes the client already maps; this one
+            // is new, so it goes out as prose rather than the literal
+            // "inventory-full" reaching the player.
+            if (!forged.ok) {
+                return {
+                    ok: false as const,
+                    status: 409,
+                    error: forged.reason === 'inventory-full' ? INVENTORY_FULL_ERROR : forged.reason,
+                };
+            }
             return { ok: true as const, character: forged.character, value: {} };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });

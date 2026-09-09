@@ -189,9 +189,26 @@ export function applyAiFightOutcomeToCharacter(
     // "not a squad win" would send someone at full HP to a hospital bed for
     // surviving. Hospital admission follows authoritative zero HP, not a generic
     // non-win outcome.
+    // What the fight actually burned. The sealed actor is the authoritative
+    // record of it, and both actor shapes carry all three vitals — so chakra and
+    // stamina come back from it exactly as HP does, clamped to the SAVE's own
+    // maxima so a session sealed before a level or gear change cannot raise a
+    // vital above its real ceiling.
+    //
+    // ⚠ This used to write HP alone. Because the input is the STORED character
+    // (not the client's post-fight copy) and the client ADOPTS whatever this
+    // returns (lib/ai-fight-settle.ts), a mission fight silently refunded every
+    // point of chakra and stamina it cost — which made "exhaustion is rested off
+    // or bought back" (MMORPG behavior audit F1) a PvP-only rule by accident.
+    // PvP records the same spend in api/pvp/_vitals-settlement.ts.
+    const spent = {
+        chakra: Math.min(num(character.maxChakra), num(playerActor.chakra)),
+        stamina: Math.min(num(character.maxStamina), num(playerActor.stamina)),
+    };
     if (num(playerActor.hp) <= 0) {
         return {
             ...character,
+            ...spent,
             hp: 0,
             hospitalized: true,
             hospitalizedAt: now,
@@ -207,5 +224,5 @@ export function applyAiFightOutcomeToCharacter(
     // Clamped to the SAVE's own maxHp so a stale session (sealed before a level
     // changed the pool) can never set HP above the real ceiling.
     const maxHp = Math.max(1, num(character.maxHp));
-    return { ...character, hp: Math.max(1, Math.min(maxHp, num(playerActor.hp))) };
+    return { ...character, ...spent, hp: Math.max(1, Math.min(maxHp, num(playerActor.hp))) };
 }

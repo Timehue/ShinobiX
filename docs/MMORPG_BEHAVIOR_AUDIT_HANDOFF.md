@@ -82,19 +82,50 @@ understated the cost of a defeat — that wording is now fixed, and the stale co
 `_vitals-settlement.ts` that still claimed recording the spend "costs an admitted player
 nothing" has been corrected.
 
-**Still open, deliberately:** the road-medic wanderer (`api/sector/wanderer-service.ts`)
-is a paid but repeatable full three-bar restore whose cooldown is per-wanderer rather
-than per-player — the last remaining full chakra refill, and an owner call on price
-rather than a bug. **PvE chakra persistence is unverified and should be checked before anyone
-relies on the new rule in PvE.** `applyAiFightOutcomeToCharacter` writes HP back from
-the sealed actor and leaves chakra/stamina at their STORED (pre-fight) values, and its
-input is the save's character, not the client's post-fight one. Whether a mission
-fight's chakra spend actually sticks therefore depends on the client's own autosave
-landing — and on which of the two writes lands last. If the server write wins, PvE
-combat silently refunds its chakra while PvP does not, which would make "exhaustion is
-rested off" a PvP-only rule by accident. I did not settle this; it needs a live trace,
-not more reading. And the non-destructive
-inventory cap is now a one-way ratchet with no upper bound.
+**Owner rulings on the three open items (2026-09-08):**
+
+1. **Road-medic wanderer — LEAVE IT.** Owner call: it is fine as is. Recorded here so a
+   future pass does not "fix" it. It restores all three vitals in a wild sector
+   (`api/sector/wanderer-service.ts:152-157`), but it is paid, and its cooldown key is
+   `wanderer-use:<player>:<wanderer>` — per player per wanderer, so one medic cannot be
+   farmed, though several different wanderers can each be used inside the 3 h window.
+
+2. **PvE chakra — SETTLED, and it was a real refund.** Proven, not argued: a test drove
+   `applyAiFightOutcomeToCharacter` with an actor left at 120 chakra and the character
+   came back with the full pre-fight 2,000. The helper wrote HP alone, its input is the
+   STORED character, and the client ADOPTS whatever it returns
+   (`lib/ai-fight-settle.ts`) — so a mission fight refunded everything it cost, making
+   "exhaustion is rested off" a PvP-only rule by accident. Fixed: settlement now carries
+   chakra and stamina back from the sealed actor, clamped to the save's own maxima,
+   exactly as it already did for HP and as PvP does in `_vitals-settlement.ts`.
+   Pinned by `api/missions/_ai-fight-vitals-carryback.test.ts`.
+
+3. **Inventory — HARD REFUSE, scoped.** Owner call. One authority now
+   (`api/_inventory-capacity.ts`) replaces the two duplicate 500s that used to live in
+   `shop/_settlement.ts` and `save/[name].ts`, and both now import it.
+
+   The refusal is applied to **player-initiated acquisitions**, and each one refuses
+   BEFORE it spends anything: the Hollow Gate key forge (keeps the shards), the builtin
+   event claim (does not burn the one-time latch), weapon/armor crafting (keeps the
+   materials and the ryo), and the village war-crate claim (leaves the claim open). The
+   shop already did this and now shares the constant.
+
+   It is deliberately NOT applied to **already-earned settlements** — a weekly-boss drop,
+   a war reward, a dungeon relic, a story-reckoning drop. Those fights are already
+   resolved, so refusing would strand a reward rather than delay it, and step 1 already
+   guarantees they persist (the save validator never truncates below what is stored).
+   That is the same lesson as the 2026-09-01 victory-screen incident: a settlement must
+   not turn a "you get nothing" into a trap.
+
+   Consequence to be honest about: the ratchet is bounded, not eliminated. Bulk growth
+   (crafting, buying, forging, claiming) is now capped at 500; rare unique settlement
+   drops can still push a veteran past it, and the validator will keep them. That is the
+   intended trade — the alternative re-creates the item destruction F7 existed to fix.
+
+   ⚠ Stackable outputs are exempt on purpose. Supply and relic recipes are
+   `STACKABLE_OUTPUTS` and land in `itemStacks`, which the cap does not govern, so the
+   craft gate is scoped to `kind === 'weapon' || 'armor'`. Gating stackables would refuse
+   a ration craft for a bag it never touches.
 
 ## Coverage — what this pass actually examined
 
