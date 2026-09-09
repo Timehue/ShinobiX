@@ -555,6 +555,7 @@ import {
 // Battle-entry arena art warmup moved verbatim to ./lib/battle-art-preload.
 import { preloadBattleEntryAssets } from "./lib/battle-art-preload";
 import { battleEntryWarmupDelay } from "./lib/battle-entry-warmup";
+import { preserveAcademyCinematicState } from "./lib/academy-cinematic-state";
 // specialties + jutsuElements live in ./data/jutsu (imported above for internal
 // use; JutsuDropdownList imports them directly from ./data/jutsu).
 // adminIconOptions moved to ./data/admin-icons; re-exported for existing importers.
@@ -4108,14 +4109,14 @@ export default function App() {
             const decision = acceptVersionedSnapshot(latestSaveVersionRef.current, incomingSaveVersion);
             if (!decision.accepted) return false;
         }
-        // Seed prevCharRef so the auto-save interval treats this load as clean —
-        // same reasoning as applySnapshot above (prevent stale re-upload).
-        const normalized = normalizeAdminCharacter(snap.character);
+        // Clean loads stay clean; an unpersisted cinematic handoff must still save.
+        const serverCharacter = normalizeAdminCharacter(snap.character);
+        const normalized = preserveAcademyCinematicState(serverCharacter, serverCharacter.pets?.length || starterPetCommitRef.current?.accountName === serverCharacter.name ? characterRef.current : null);
         mergeServerPendingWorldRewards(snap.character.name, (snap as Record<string, unknown>).pendingWorldRewards); // account-side outbox mirror → local drain
         savePersistenceRef.current?.invalidateAuthority();
         savePayloadRevisionRef.current = nextSavePayloadRevision(savePayloadRevisionRef.current);
-        prevCharRef.current = normalized;
-        charDirtyRef.current = false;
+        prevCharRef.current = serverCharacter;
+        charDirtyRef.current = normalized !== serverCharacter;
         scopeSaveAuthorityToAccount(snap.character.name);
         // Capture server-issued save version (for multi-tab clobber detection).
         if (typeof incomingSaveVersion === "number" && Number.isFinite(incomingSaveVersion)) {
