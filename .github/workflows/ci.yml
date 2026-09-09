@@ -833,10 +833,12 @@ jobs:
           (( artifact_attempt <= GITHUB_RUN_ATTEMPT ))
           cd ../..
           tar -xzf .ci-artifacts/release/release-dist.tgz
-      - name: Install Village Stores browser
+      - name: Install live Express browser
         run: npx --prefix shinobij.client playwright install --with-deps chromium 2>&1 | tee .ci-evidence/e2e-village-stores/browser-install.log
-      - name: Village Stores economy loop
-        run: npm run test:e2e:live --prefix shinobij.client -- village-stores-express.spec.ts --project=chromium-desktop-live 2>&1 | tee .ci-evidence/e2e-village-stores/playwright.log
+      # Keep the required check name stable while covering the shared server
+      # routing and save lifecycle used by the economy and Academy journeys.
+      - name: Live Express economy, Academy persistence and route wiring
+        run: npm run test:e2e:live --prefix shinobij.client -- village-stores-express.spec.ts first-session-onboarding-express.spec.ts server-route-smoke-express.spec.ts --project=chromium-desktop-live 2>&1 | tee .ci-evidence/e2e-village-stores/playwright.log
       - name: Retain Village Stores browser evidence
         if: always()
         continue-on-error: true

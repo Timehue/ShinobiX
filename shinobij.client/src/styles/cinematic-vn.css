@@ -1,8 +1,8 @@
 /* ==========================================================================
-   CINEMATIC VISUAL NOVEL
-   Full-viewport 2.5D story stage. This is intentionally the last eager CSS
-   part so old .vn-* card rules cannot pull the immersive reader back into the
-   app layout. GameAlert remains above it at z-index 1000001.
+   CINEMATIC VISUAL NOVEL — owned by the lazy stage and authoring editor
+   Full-viewport 2.5D story stage and its authoring controls. Loaded by the
+   cinematic stage/editor, with feature-scoped selectors that stay above old
+   .vn-* card rules. GameAlert remains above it at z-index 1000001.
    ========================================================================== */
 
 .cvn-root {

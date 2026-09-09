@@ -59,7 +59,7 @@ const CANONICAL_GATE_CONSUMERS = {
 
 describe('canonical public release-flag source contract', () => {
     it('keeps obsolete positive flags out of production and certification code', () => {
-        const productionFiles = [join(ROOT, 'server.ts'), ...productionTypeScriptFiles(join(ROOT, 'api'))];
+        const productionFiles = [join(ROOT, 'server.ts'), join(ROOT, 'server-api-routes.ts'), ...productionTypeScriptFiles(join(ROOT, 'api'))];
         for (const file of productionFiles) {
             if (file === RELEASE_FLAGS_PATH) continue;
             assert.doesNotMatch(
@@ -76,7 +76,7 @@ describe('canonical public release-flag source contract', () => {
 
     it('centralizes every public kill-switch read in _release-flags.ts', () => {
         const directFlagAccess = /\b(?:process\.)?env\s*(?:\.\s*(?:DISABLE_VILLAGE_WAR|DISABLE_CLAN_BOSS|DISABLE_CLAN_BOSS_PARTIES|DISABLE_ANBU_INFILTRATION)|\[\s*['"](?:DISABLE_VILLAGE_WAR|DISABLE_CLAN_BOSS|DISABLE_CLAN_BOSS_PARTIES|DISABLE_ANBU_INFILTRATION)['"]\s*\])/;
-        for (const file of [join(ROOT, 'server.ts'), ...productionTypeScriptFiles(join(ROOT, 'api'))]) {
+        for (const file of [join(ROOT, 'server.ts'), join(ROOT, 'server-api-routes.ts'), ...productionTypeScriptFiles(join(ROOT, 'api'))]) {
             if (file === RELEASE_FLAGS_PATH) continue;
             assert.doesNotMatch(
                 readFileSync(file, 'utf8'),

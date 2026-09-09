@@ -374,6 +374,8 @@ describe("save-conflict drafts", () => {
 });
 
 describe("save-conflict App and accessibility contracts", () => {
+    const coordinatorSource = readFileSync(new URL("./player-save-coordinator.ts", import.meta.url), "utf8");
+    const lifecycleSource = readFileSync(new URL("./use-player-save-lifecycle.ts", import.meta.url), "utf8");
     const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
     const persistenceSource = readFileSync(new URL("./save-persistence.ts", import.meta.url), "utf8");
     const unloadSource = readFileSync(new URL("./save-unload.ts", import.meta.url), "utf8");
@@ -381,12 +383,12 @@ describe("save-conflict App and accessibility contracts", () => {
     const cardHallSource = readFileSync(new URL("../screens/CardHall.tsx", import.meta.url), "utf8");
 
     it("wires every full-save path to protect the exact rejected payload", () => {
-        const immediate = appSource.slice(appSource.indexOf("async function pushSaveToServer"), appSource.indexOf("async function reauthKeepState"));
+        const immediate = coordinatorSource.slice(coordinatorSource.indexOf("function pushSaveToServer"), coordinatorSource.indexOf("const saveAuthority ="));
         assert.match(immediate, /return savePersistenceRef\.current!\.persistRequired\(\(\) => \{/);
 
-        assert.match(appSource, /captureConflict: captureSaveConflictDraft/);
-        assert.match(appSource, /installSnapshot: installAuthoritativeSaveRef/);
-        assert.match(appSource, /const persistSave = savePersistenceRef\.current\.persistAutosave/);
+        assert.match(coordinatorSource, /captureConflict: captureSaveConflictDraft/);
+        assert.match(coordinatorSource, /installSnapshot: installAuthoritativeSaveRef/);
+        assert.match(coordinatorSource, /const persistSave = savePersistenceRef\.current\.persistAutosave/);
         assert.ok(
             persistenceSource.indexOf("params.captureConflict(snapshot.name, body)")
                 < persistenceSource.indexOf("await refetchAfterConflict(snapshot.name, snapshot.revision"),
@@ -415,8 +417,11 @@ describe("save-conflict App and accessibility contracts", () => {
     // recovery entry point is ever wanted.
 
     it("protects the exact latest revision on unload even while autosave is in flight", () => {
-        const unloadStart = appSource.indexOf("function handleBeforeUnload()", appSource.indexOf("Save on page unload"));
-        const unload = appSource.slice(unloadStart, appSource.indexOf("window.addEventListener('beforeunload'", unloadStart));
+        const unloadStart = lifecycleSource.indexOf("function handleBeforeUnload()");
+        const unloadEnd = lifecycleSource.indexOf("window.addEventListener('beforeunload'", unloadStart);
+        assert.ok(unloadStart >= 0 && unloadEnd > unloadStart);
+        assert.match(appSource, /usePlayerSaveUnload\(saveCoordinator, saveSessionEpochRef, mutationAvailability\)/);
+        const unload = lifecycleSource.slice(unloadStart, unloadEnd);
         assert.match(unload, /protectSaveOnUnload\(\{/);
         assert.match(unload, /unresolved: savePersistenceRef\.current\?\.getUnresolvedPost\(\) \?\? null/);
         assert.match(unload, /send: capabilityAdmissionAllowed\(mutationAvailability\(\)\)/);
@@ -429,14 +434,17 @@ describe("save-conflict App and accessibility contracts", () => {
 
     it("uses account epochs, version ordering, and full-payload revisions", () => {
         assert.match(appSource, /saveSessionEpochRef/);
-        assert.match(appSource, /isCurrentSession: isCurrentSaveSession/);
-        assert.match(appSource, /currentSessionEpoch: \(\) => saveSessionEpochRef\.current/);
-        assert.match(appSource, /latestVersion: latestSaveVersionRef/);
-        assert.match(appSource, /latestPayloadRevision: savePayloadRevisionRef/);
+        assert.match(coordinatorSource, /isCurrentSession: isCurrentSaveSession/);
+        assert.match(coordinatorSource, /currentSessionEpoch: \(\) => saveSessionEpochRef\.current/);
+        assert.match(coordinatorSource, /latestVersion: latestSaveVersionRef/);
+        assert.match(coordinatorSource, /latestPayloadRevision: savePayloadRevisionRef/);
+        const authoritySource = readFileSync(new URL("./save-authority-scope.ts", import.meta.url), "utf8");
         const externalVersion = appSource.slice(appSource.indexOf("function acceptExternalSaveVersion"), appSource.indexOf("function commitVersionedCharacter"));
-        assert.match(externalVersion, /accountKey !== saveAuthorityAccountKeyRef\.current/);
-        assert.match(externalVersion, /activeSaveAccountKey\(\) !== accountKey/);
-        assert.match(appSource, /detail\.source !== "full-save"[\s\S]*acceptExternalSaveVersion\(version, detail\.accountName\)/);
+        assert.match(externalVersion, /saveAuthority\.acceptExternalVersion\(incomingVersion, originatingAccount\)/);
+        assert.match(coordinatorSource, /createSaveAuthorityScope\(\{[\s\S]*?accountKey: saveAuthorityAccountKeyRef,[\s\S]*?sessionEpoch: saveSessionEpochRef,[\s\S]*?activeAccountKey: activeSaveAccountKey/);
+        assert.match(authoritySource, /candidateAccountKey !== accountKey\.current/);
+        assert.match(authoritySource, /activeAccountKey\(\) !== candidateAccountKey/);
+        assert.match(lifecycleSource, /detail\.source !== "full-save"[\s\S]*acceptExternalSaveVersion\(version, detail\.accountName\)/);
         assert.match(persistenceSource, /isCurrentSavePayloadRevision\(snapshot\.revision, params\.latestPayloadRevision\.current\)/);
         assert.match(persistenceSource, /isCurrentSavePayloadRevision\(save\.revision, params\.latestPayloadRevision\.current\)/);
         assert.match(persistenceSource, /acceptVersionedSnapshot\(params\.latestVersion\.current, snapshot\._saveVersion\)/);
@@ -444,12 +452,14 @@ describe("save-conflict App and accessibility contracts", () => {
         assert.match(persistenceSource, /runRequired\(async \(\) =>/);
         assert.match(persistenceSource, /runAutosave\(async \(\) =>/);
         const reset = appSource.slice(appSource.indexOf("function resetSaveAuthorityScope"), appSource.indexOf("function isCurrentSaveSession"));
-        assert.match(reset, /latestSaveVersionRef\.current = 0/);
-        assert.match(reset, /saveSessionEpochRef\.current \+= 1/);
+        assert.match(reset, /saveAuthority\.reset\(\)/);
+        assert.match(authoritySource, /function reset\(\): void \{ resetTo\(""\); \}/);
+        assert.match(authoritySource, /latestVersion\.current = 0/);
+        assert.match(authoritySource, /sessionEpoch\.current \+= 1/);
     });
 
     it("does not finish logout before a required save and conflict recovery settle", () => {
-        const push = appSource.slice(appSource.indexOf("async function pushSaveToServer"), appSource.indexOf("async function reauthKeepState"));
+        const push = coordinatorSource.slice(coordinatorSource.indexOf("function pushSaveToServer"), coordinatorSource.indexOf("const saveAuthority ="));
         assert.match(push, /return savePersistenceRef\.current!\.persistRequired/);
         assert.match(persistenceSource, /params\.flight\.runRequired/);
         assert.match(persistenceSource, /if \(!await refetchAfterConflict\(save\.name, save\.revision,/);
@@ -482,7 +492,11 @@ describe("save-conflict App and accessibility contracts", () => {
     });
 
     it("never paints an older story or combat character response", () => {
-        const commit = appSource.slice(appSource.indexOf("function commitVersionedCharacter"), appSource.indexOf("const {", appSource.indexOf("function commitVersionedCharacter")));
+        const commitStart = coordinatorSource.indexOf("function commitVersionedCharacter");
+        const commitEnd = coordinatorSource.indexOf("function pushSaveToServer", commitStart);
+        assert.ok(commitStart >= 0 && commitEnd > commitStart);
+        assert.match(appSource, /return saveCoordinator\.commitVersionedCharacter\(nextCharacter, incomingVersion\)/);
+        const commit = coordinatorSource.slice(commitStart, commitEnd);
         assert.match(commit, /acceptVersionedSnapshot\(latestSaveVersionRef\.current, incomingVersion\)/);
         assert.ok(commit.indexOf("if (!decision.accepted) return false") < commit.indexOf("setCharacter(mergedCharacter)"));
         assert.ok(commit.indexOf("preserveNarrativeState(nextCharacter, characterRef.current)") < commit.indexOf("setCharacter(mergedCharacter)"));
@@ -493,7 +507,7 @@ describe("save-conflict App and accessibility contracts", () => {
 
     it("rehydrates conflict state after authoritative snapshots", () => {
         assert.match(appSource, /rehydrateSaveConflictDraft\(snap\.character\.name, snap\)/);
-        assert.match(appSource, /createSaveConflictDraftStore\(\{/);
+        assert.match(coordinatorSource, /createSaveConflictDraftStore\(\{/);
     });
 
     it("never classifies a protected draft against the localStorage preview cache", () => {
@@ -569,7 +583,7 @@ describe("save-conflict App and accessibility contracts", () => {
         assert.doesNotMatch(appSource, /SaveConflictBanner/);
         assert.doesNotMatch(appSource, /restoreLocalConflictDraft|downloadLocalConflictDraft/);
         // The silent protection stays wired.
-        assert.match(appSource, /createSaveConflictDraftStore\(\{/);
-        assert.match(appSource, /captureConflict: captureSaveConflictDraft/);
+        assert.match(coordinatorSource, /createSaveConflictDraftStore\(\{/);
+        assert.match(coordinatorSource, /captureConflict: captureSaveConflictDraft/);
     });
 });

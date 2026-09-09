@@ -30,7 +30,8 @@ test("server-owned mission battles pause regeneration and every autosave timer",
         "the interval autosave must delegate to the guarded delayed-write boundary");
     assert.match(immediateGuard, /isPresenceBattleActive\(\)/,
         "the immediate-flush autosave must pause too");
-    assert.match(app, /intervalPresenceActive: isPresenceBattleActive\(\)[\s\S]*isPresenceBattleActive, persistSave/,
+    assert.match(app, /usePlayerSaveLifecycle\(\{[\s\S]*?missionBattleActive, isPresenceBattleActive, mutationAvailability/);
+    assert.match(readFileSync(new URL("../lib/use-player-save-lifecycle.ts", import.meta.url), "utf8"), /intervalPresenceActive: isPresenceBattleActive\(\)[\s\S]*isPresenceBattleActive, persistSave/,
         "App must provide both the current render state and last-mile battle predicate");
     assert.match(app, /onMissionBattleStart=\{\(\) => setMissionBattleActive\(true\)\} onMissionBattleEnd=\{\(\) => setMissionBattleActive\(false\)\}/);
 });

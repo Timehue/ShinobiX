@@ -21,6 +21,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import type { Biome } from "../types/core";
+import { decorativeCanvasEvents } from "../lib/decorative-canvas-events";
 
 const CAM_Z = 10;       // camera distance
 const FOV = 45;
@@ -215,6 +216,7 @@ function Backdrop({ image, biome, focus, depth, onReady }: { image: string; biom
 export default function SectorScene3DScene({ image, biome, focus, depth, onReady }: { image: string; biome: Biome; focus: number; depth?: string; onReady?: () => void }) {
     return (
         <Canvas
+            events={decorativeCanvasEvents}
             className="sector-scene-3d-canvas"
             dpr={[1, 1.5]}
             camera={{ position: [0, 0, CAM_Z], fov: FOV, near: 0.1, far: 100 }}

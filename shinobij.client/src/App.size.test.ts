@@ -469,7 +469,12 @@ import { readFileSync } from "node:fs";
 // → 6,942 after the story integration kept delivery, narrative normalization,
 // and triggered battle routing in lib modules. App only wires those boundaries.
 // The six-line merge buffer remains unchanged.
-const MAX_LINES = 6_948;
+// Boot request orchestration and save-session scoping now have focused owners.
+// Shared saved fields and ordered boot recovery decisions have dedicated owners.
+// Save authority, dirty tracking and subscriptions now share an explicit coordinator.
+// Shared level/discipline projections, save serialization and live price bindings
+// now have module owners; screens use those owners directly. Five-line buffer.
+const MAX_LINES = 6578;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

@@ -5,6 +5,7 @@ import { AURA_SPHERE_ITEM_ID, AURA_SPHERE_VN_ID } from '../src/constants/game';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { v2JutsuResourceCost } from '../src/lib/jutsu-scaling';
 import { accountKey } from '../src/lib/player-accounts';
+import { TOWER_TURN_AFK_MS } from '../src/lib/towers-api';
 
 // The loadout's scroll container. Phones wrap basic commands and the loadout in
 // one `.combat-action-tray` scrollport; elsewhere the tray is `display:
@@ -876,6 +877,7 @@ type LayoutMeasurement = {
     /** Command-deck text spilling out of its own button, `label:part+Npx`. */
     commandTextOverflows: string[];
     boardActionOverlap: boolean;
+    boardTabOverlap: boolean;
     boardDossierOverlap: boolean;
     terrainNoticeOverlap: boolean;
     dualApTextOverlap: boolean;
@@ -1105,6 +1107,7 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
             minCommandTouchTarget: commandButtons.length ? Math.min(...commandButtons.map((value) => Math.min(value.width, value.height))) : null,
             commandTextOverflows,
             boardActionOverlap: overlap(boardRect, actionRect),
+            boardTabOverlap: overlap(boardRect, rect(tabNode)),
             boardDossierOverlap: dossiers.some((value) => overlap(boardRect, value)),
             terrainNoticeOverlap: overlap(rect(terrainNode), rect(noticeNode)),
             dualApTextOverlap,
@@ -1152,6 +1155,7 @@ async function settleBoardGeometry(page: Page, rootSelector: string): Promise<vo
 
 async function measureStable(page: Page, rootSelector: string): Promise<LayoutMeasurement> {
     await settleLayout(page);
+    await settleBoardGeometry(page, rootSelector);
     let current = await measure(page, rootSelector);
     for (let attempt = 0; attempt < 8 && (!current.tileCentersInsideBoard || current.visibleTileCount !== 120); attempt += 1) {
         await page.waitForTimeout(90);
@@ -1229,11 +1233,14 @@ async function startTransitionTrace(page: Page, rootSelector: string): Promise<v
             trace.started = true;
             root?.removeEventListener('pointerdown', beginTrace, true);
             document.removeEventListener('keydown', beginTrace, true);
-            let sampledFrames = 0;
+            let framesAfterSelectionChange = 0;
             const sampleFrame = (timestamp: number) => {
-                trace.samples.push(capture(timestamp));
-                sampledFrames += 1;
-                if (sampledFrames >= frameCount) trace.complete = true;
+                const sample = capture(timestamp);
+                trace.samples.push(sample);
+                if (framesAfterSelectionChange > 0 || sample.selected !== trace.samples[0].selected) {
+                    framesAfterSelectionChange += 1;
+                }
+                if (framesAfterSelectionChange >= frameCount) trace.complete = true;
                 else requestAnimationFrame(sampleFrame);
             };
             requestAnimationFrame(sampleFrame);
@@ -1241,6 +1248,8 @@ async function startTransitionTrace(page: Page, rootSelector: string): Promise<v
         // Anchor the consecutive-frame window to the real user interaction.
         // Starting rAFs before Playwright dispatches input can let a busy WebKit
         // process consume the entire trace before pointerdown reaches the page.
+        // Keep every frame through selection and twelve frames afterward: input
+        // dispatch can also stall between pointerdown and the activating click.
         const root = document.querySelector(selector);
         root?.addEventListener('pointerdown', beginTrace, true);
         document.addEventListener('keydown', beginTrace, true);
@@ -1390,7 +1399,7 @@ function expectTransitionTraceStable(
     selectedBefore: boolean,
     selectedAfter: boolean,
 ): void {
-    expect(trace, `${label} frame trace`).toHaveLength(TRANSITION_TRACE_FRAMES + 1);
+    expect(trace.length, `${label} frame trace`).toBeGreaterThanOrEqual(TRANSITION_TRACE_FRAMES + 1);
     expect(trace[0]?.selected, `${label} selection at trace start`).toBe(selectedBefore);
     expect(trace.some(sample => sample.selected === selectedAfter), `${label} must span the interaction state change`).toBe(true);
     const expectRectNear = (actualRect: Rect | null, expectedRect: Rect | null, rectLabel: string, frame: number) => {
@@ -1720,6 +1729,7 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         ).toBe(current.visibleTileCount);
         expect(current.dossierResourcesContained, `${label} dossier resources clipped: ${current.dossierContentMisses.join(', ')}`).toBe(true);
         expect(current.boardActionOverlap, `${label} action overlap`).toBe(false);
+        expect(current.boardTabOverlap, `${label} tab touch-area overlap`).toBe(false);
         expect(current.boardDossierOverlap, `${label} dossier overlap`).toBe(false);
         expect(current.terrainNoticeOverlap, `${label} terrain/action-notice overlap`).toBe(false);
         expect(current.dualApTextOverlap, `${label} AP/timer labels overlap`).toBe(false);
@@ -1959,6 +1969,17 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     const battleId = String(creation.battleId ?? '');
     expect(battleId.length).toBeGreaterThan(10);
     ordinaryLayoutDuel = { battleId, p1, p2 };
+    // Seat both real fighters so either coin-flip outcome starts a live turn.
+    // Previously a P1 win could leave the clock waiting for the absent P2.
+    for (const [role, account] of [['p1', p1], ['p2', p2]] as const) {
+        const joined = await request.post('/api/pvp/move', {
+            headers: { 'x-player-name': account.name, 'x-player-token': account.token },
+            data: { battleId, role, action: 'join' },
+        });
+        const projection = await joined.json() as { rejected?: unknown };
+        expect(joined.status(), JSON.stringify(projection)).toBe(200);
+        expect(projection.rejected, 'both layout fighters must join authoritatively').toBeUndefined();
+    }
     const activeRole = creation.session?.activePlayer;
     expect(activeRole, 'PvP session must declare the coin-flip winner').toMatch(/^p[12]$/);
     const activeAccount = activeRole === 'p2' ? p2 : p1;
@@ -1976,7 +1997,6 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     await page.goto('/#/pvpBattle', { waitUntil: 'domcontentloaded' });
     await dismissNotices(page);
     await resolveSaveConflict(page);
-    await expect(page.locator('.pvp-countdown-overlay')).toBeHidden({ timeout: 10_000 });
     const battleVisible = await page.locator('.pvp-battle-layout').waitFor({ state: 'visible', timeout: 20_000 })
         .then(() => true, () => false);
     if (!battleVisible) {
@@ -1993,11 +2013,30 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
         throw new Error(`PvP restore diagnostic: ${JSON.stringify(debug)}`);
     }
     await expect(page.locator('.pvp-battle-layout')).toBeVisible();
+    await expect(page.locator('.pvp-countdown-overlay')).toBeHidden({ timeout: 10_000 });
     await assertBattlefieldActorPresentation(page, '.pvp-battle-layout', {
         playerMarkers: 1,
         enemyMarkers: 1,
         minimumEnemySprites: 0,
     });
+    // This geometry sweep holds one real turn longer than its 45-second clock.
+    // DISABLE_PVP_TURN_DEADLINE holds the server, but the browser still sends an
+    // auto-wait when its countdown expires. Pin Date without freezing animation
+    // frames, and keep heartbeat clock samples on that same fixture time. All
+    // battle state and actions still come from Express; no turn state is forged.
+    const clockResponse = await request.get(`/api/pvp/session?id=${encodeURIComponent(battleId)}`, {
+        headers: { 'x-player-name': activeAccount.name, 'x-player-token': activeAccount.token },
+    });
+    expect(clockResponse.status()).toBe(200);
+    const clockSession = await clockResponse.json() as { turnStartedAt?: number };
+    expect(clockSession.turnStartedAt).toBeGreaterThan(0);
+    const geometryTime = Number(clockSession.turnStartedAt) + 1_000;
+    await page.route('**/api/player/heartbeat', async (route) => {
+        const response = await route.fetch();
+        if (!response.ok()) { await route.fulfill({ response }); return; }
+        await route.fulfill({ response, json: { ...await response.json(), serverNow: geometryTime } });
+    });
+    await page.clock.setFixedTime(geometryTime);
     await assertJutsuSelectionGeometryStable(page, '.pvp-battle-layout', false);
     await captureMatrix(page, 'pvp', '.pvp-battle-layout', testInfo);
 
@@ -2059,8 +2098,12 @@ test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, 
     const firstFloor = page.locator('button[aria-describedby="tower-story-floor-1-details"]');
     await expect(firstFloor).toBeVisible();
     await firstFloor.click();
+    const started = page.waitForResponse(response => response.url().includes('/api/towers/start') && response.request().method() === 'POST');
     await page.getByRole('button', { name: /Enter Floor 1/ }).click();
+    const launch = await (await started).json() as { session: { turnStartedAt: number } };
     await expect(page.locator('.screen-battleTowerFight')).toBeVisible();
+    // Check the launch turn before the long viewport sweep can advance it.
+    await assertTowerCountdownGeometryStable(page, testInfo, launch.session.turnStartedAt);
     await assertBattlefieldActorPresentation(page, '.screen-battleTowerFight', {
         playerMarkers: 1,
         enemyMarkers: 0,
@@ -2077,6 +2120,41 @@ test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, 
         true,
     );
 });
+
+async function assertTowerCountdownGeometryStable(page: Page, testInfo: TestInfo, turnStartedAt: number): Promise<void> {
+    const deadline = turnStartedAt + TOWER_TURN_AFK_MS;
+    const root = page.locator('.screen-battleTowerFight');
+    const timer = root.getByRole('timer');
+    await expect(timer).toBeVisible();
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.clock.setFixedTime(deadline - 22_000 + 50);
+    await expect(timer).toHaveAttribute('aria-label', '22 seconds remaining');
+    // A freshly mounted board can still carry its old scale after the viewport
+    // resize. Wait for the fit before recording the baseline; countdown-driven
+    // geometry changes below retain their immediate one-pixel assertions.
+    await expect(async () => {
+        await settleLayout(page);
+        expectCombatBoardUsable(await selectionGeometry(page, '.screen-battleTowerFight'), 'Tower countdown baseline', true);
+    }).toPass({ timeout: 5_000 });
+    const before = await selectionGeometry(page, '.screen-battleTowerFight');
+    const headerBefore = await root.locator('.tower-fight-header').boundingBox();
+    const timerBefore = await timer.boundingBox();
+    expectCombatBoardUsable(before, 'Tower countdown baseline', true);
+    // Proportional 22/21/20/19 digits used to add/remove an entire header row.
+    // The single-digit transition must keep that same reserved width as well.
+    for (const remaining of [21, 20, 19, 11, 10, 9, 1, 0]) {
+        await page.clock.setFixedTime(deadline - remaining * 1_000 + 50);
+        await expect(timer).toHaveAttribute('aria-label', `${remaining} seconds remaining`);
+        await settleLayout(page);
+        const header = await root.locator('.tower-fight-header').boundingBox();
+        const timerBox = await timer.boundingBox();
+        expect(Math.abs(header!.height - headerBefore!.height), `header height at ${remaining}s`).toBeLessThanOrEqual(1);
+        expect(Math.abs(timerBox!.width - timerBefore!.width), `countdown width at ${remaining}s`).toBeLessThanOrEqual(1);
+        expectGeometryNear(await selectionGeometry(page, '.screen-battleTowerFight'), before, `Tower countdown at ${remaining}s`);
+    }
+    await page.screenshot({ path: testInfo.outputPath('tower-countdown-1024x768.png'), animations: 'disabled' });
+    await page.clock.setSystemTime(Date.now());
+}
 
 test('Tower party-MPvE authoritative variant keeps jutsu selection geometry stable', async ({ page, request }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium-layout',

@@ -18,8 +18,9 @@ shape.)
   `_auth.ts`, `_utils.ts` (CORS, etc.), `_storage.ts`, `_ratelimit.ts`,
   `_lock.ts`, `_text-moderation.ts`, `_player-ips.ts`, and the `_*-validate.ts`
   validators. Import from these; don't add a route file starting with `_`.
-- **`server.ts`** (repo root) — the Express server (Railway). It imports
-  the `api/**` handlers unchanged and registers each on **both** the bare path and
+- **`server.ts`** (repo root) — the Express server (Railway). Its
+  `server-api-routes.ts` registration module imports the `api/**` handlers unchanged;
+  the server's route adapter registers each on **both** the bare path and
   the `/api`-prefixed path (a dormant holdover from Passenger, which may or may not
   have stripped `/api`; harmless on Railway). It also serves
   the React SPA static build and provides `/health` and `/restart`. Compiles to
@@ -81,7 +82,8 @@ retired Vercel project starts reporting GitHub statuses again, disconnect or
 delete that project outside the repo instead.)
 
 Note: there is **no folder-convention auto-routing** anymore — every `api/**`
-handler must be imported and `route()`-registered in `server.ts` or it is
+handler must be imported and `route()`-registered in `server-api-routes.ts`,
+which `server.ts` invokes through its existing dual-path adapter, or it is
 unreachable. `server-routes.test.ts` enforces this both ways
 (client call ↔ registration, and handler file ↔ wiring).
 
@@ -152,7 +154,7 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
 - A new client-reported reward/currency endpoint must be **server-authoritative** — recompute the reward, or use the mint-token pattern (see `docs/auth-and-anti-cheat-patterns.md`); never pay out from client-supplied amounts/outcomes.
 - Do not remove Railway support when changing API handlers. (cPanel/Passenger is retired; its dormant `app.js` and the dual-path `route()` registration can stay but need not be maintained.)
 - When adding a new API endpoint, you must BOTH create the `api/**` handler AND
-  import + `route()`-register it in `server.ts` — there is no auto-routing, so an
+  import + `route()`-register it in `server-api-routes.ts` — there is no auto-routing, so an
   unregistered handler is unreachable.
 - **Do NOT commit `dist/`.** Railway self-builds from source on every push to
   `main`, and cPanel (which used to serve committed `dist/`) is retired — so a
@@ -229,8 +231,9 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
   re-run it locally before reverting anything. Two consecutive `main` runs in
   2026-08 failed on two *different* unrelated specs, and the first one passed on
   re-run. Read the failing assertion before believing the failure is yours.
-  (The other suites — `test:e2e:live`, `:visual`, `:warfront` — are NOT in CI.
-  Run them when touching what they cover, but they gate nothing.)
+  CI also runs `test:e2e:warfront` and the desktop live Express Village Stores,
+  Academy persistence and route-wiring cases. The remaining `test:e2e:live`
+  cases and `:visual` are local checks; run them when touching what they cover.
 
 ## Refactoring Rules
 

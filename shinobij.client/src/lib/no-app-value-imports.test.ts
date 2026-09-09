@@ -5,8 +5,8 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 /*
- * Architectural gate: lib/, data/, constants/ and types/ must not VALUE-import
- * App.tsx.
+ * Architectural gate: shared modules, screens, components and features must
+ * not VALUE-import App.tsx. Compatibility exports remain for external callers.
  *
  * App.tsx imports a .webp and a pile of components that import .css. Node's test
  * runner cannot load either, so a single `import { x } from "../App"` anywhere in
@@ -27,7 +27,7 @@ import path from "node:path";
  */
 
 const SRC = fileURLToPath(new URL("..", import.meta.url));
-const SCANNED = ["lib", "data", "constants", "types"];
+const SCANNED = ["lib", "data", "constants", "types", "screens", "components", "features"];
 
 /** `from "../App"` / `"../../App"` etc., ignoring anything inside a comment. */
 const APP_IMPORT = /^\s*import\s+(?<clause>[^;]*?)\s+from\s+["'](?:\.\.\/)+App["']\s*;?\s*$/gm;
@@ -58,7 +58,7 @@ function walk(dir: string): string[] {
     return out;
 }
 
-describe("lib/ does not reach back into App", () => {
+describe("application modules do not reach back into App", () => {
     it("the detector separates value imports from type-only imports", () => {
         assert.deepEqual(appValueImports('import { normalizeCharacter } from "../App";'), [
             'import { normalizeCharacter } from "../App";',
