@@ -83,9 +83,23 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // on the existing flows, not a retired drawing layer coming back; the
         // structural assertions below hold unchanged. Exact achieved count, no
         // buffer, per the convention above.
-        // Sector art/ambience and the gate menu now have presentation owners.
-        lineCount(worldMapSource) <= 5_251,
-        `WorldMap.tsx grew past 5,251 lines; retired overview layers must stay retired.`,
+        // 5,392 (+27): §17.2's per-type attack wiring, which was specified and
+        // never built. A sector whose war is fought with decks or pets now routes
+        // an attack to THAT table instead of silently opening a shinobi fight the
+        // server scored at zero, and the sector carries its own entry to the
+        // contest so the war is reachable from the ground it is fought over
+        // rather than only from the War Map menu. The decision itself is pure and
+        // lives in lib/sector-war-engagement.ts (with its own tests); what landed
+        // here is the poll field, one narrowing const, the branch and one handler
+        // — screen-level wiring, not a retired drawing layer coming back. The
+        // structural assertions below hold unchanged. Exact achieved count, no
+        // buffer, per the convention above.
+        // 5,393 (+1): the sector garrison entry rides the contest handler that
+        // was already here, as one extra argument and one extra prop pair.
+        // 5,279: retain main's contest/garrison wiring and the refactor's
+        // extracted sector art, ambience and gate menu. Exact merged count.
+        lineCount(worldMapSource) <= 5_279,
+        `WorldMap.tsx grew past 5,279 lines; retired overview layers must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,
@@ -98,15 +112,26 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // Presentation only: the richer-ground search, the contract fetch and the
         // claim all stayed in WorldMap behind onFindRicherGround/onClaimContract,
         // and the card itself is its own leaf (SectorContractCard.tsx).
-        lineCount(commandPanelBody) <= 249,
-        `WorldSectorCommandPanel.tsx grew past 249 lines; commands and authority must remain in WorldMap.`,
+        // 277 (+28): the sector-war contest plate. A Card/Pet war on this sector
+        // is now visible where it is fought, says plainly that a shinobi fight
+        // scores nothing for it, and carries the button that opens the table.
+        // Presentation only — WorldMap still decides who may enter (it owns the
+        // viewer's village) and hands the panel an already-narrowed contest.
+        // 296 (+19): the garrison affordance. A Card/Pet war whose defence never
+        // answers can now be pressed instead of running the clock out at 0-0, and
+        // the plate says plainly that it scores less than beating a real defender.
+        lineCount(commandPanelBody) <= 294,
+        `WorldSectorCommandPanel.tsx grew past 294 lines; commands and authority must remain in WorldMap.`,
     );
     assert.ok(
         // 92 (+2): the explicit presence prop keeps remote scouting read-only.
         // 90 (+8): two more command callbacks (onFindRicherGround, onClaimContract)
         // and the posted-contract row shape, with their doc lines.
-        lineCount(commandPanelTypes) <= 92,
-        `WorldSectorCommandPanel.types.ts grew past 92 lines; it holds row/prop shapes only — logic belongs in the panel, and commands in WorldMap.`,
+        // 101 (+9): the sector-war contest row, its entry command, and the
+        // per-target resolved engagement the Attack button reads its wording from.
+        // 106 (+5): the garrison-ready flag and its command, with their doc lines.
+        lineCount(commandPanelTypes) <= 106,
+        `WorldSectorCommandPanel.types.ts grew past 106 lines; it holds row/prop shapes only — logic belongs in the panel, and commands in WorldMap.`,
     );
     assert.ok(
         lineCount(overlaySource) <= 165,
