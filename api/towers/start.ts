@@ -42,6 +42,7 @@ import { recordTowerRunStarted } from './_telemetry.js';
 import { towerModeDisabled } from './_mode-control.js';
 import { battleLockKey, claimTowerBattleLeases, releaseTowerBattleLeases, towerBattleLeaseMembers } from './_battle-lease.js';
 import { isTowerBattleLock } from '../_tower-battle-guard.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import { activeClanBossConflictMembers } from './_clan-boss-conflict.js';
 import { buildGenericTowerAiCharacter, GENERIC_TOWER_AI_PROFILE } from './_generic-party-ai.js';
 import { applyTowerRouteChoice } from './_route-choice.js';
@@ -209,6 +210,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const unavailable: string[] = [];
         const ineligible: string[] = [];
+        const admitted: string[] = [];
         const storyMembers: { member: string; character: Record<string, unknown> }[] = [];
         let hostAscensionUnlocked = 0;
         let availableMemberCount = 0;
@@ -225,12 +227,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 continue;
             }
             availableMemberCount++;
+            // A Tower run seals each actor at FULL vitals (_encounter.ts) and
+            // spends a daily-capped entry — the same reasoning that gates the
+            // ranked queue, Team Arena and the Hollow Gate dive. Admitting a
+            // hospitalized fighter would let them fight at full strength, and
+            // burn the entry doing it.
+            if (!identity.admin && isIncapacitated(character)) admitted.push(slug);
             const unlocked = Math.max(0, Math.floor(Number(character.battleTowerAscension) || 0));
             if (slug === hostName) hostAscensionUnlocked = unlocked;
             if (mode === 'spire' && authoritativeParty && !identity.admin && spireTier > unlocked + 1) ineligible.push(slug);
             if (mode === 'story' && (authoritativeParty || slug === hostName)) {
                 storyMembers.push({ member: slug, character });
             }
+        }
+        if (admitted.length) {
+            return res.status(409).json({
+                error: admitted.length === 1 && admitted[0] === hostName
+                    ? 'You are in the hospital. Recover before entering the Tower.'
+                    : 'One or more party members is in the hospital.',
+                errorCode: 'hospitalized',
+                members: admitted,
+                party: authoritativeParty ? towerPartyView(authoritativeParty) : null,
+            });
         }
         if (unavailable.length) {
             return res.status(409).json({

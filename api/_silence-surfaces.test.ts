@@ -149,11 +149,32 @@ describe('silence holds on every broadcast surface', { concurrency: false }, () 
         assert.notEqual(styled.statusCode, 403, `a registry style pick is not speech: ${JSON.stringify(styled.body)}`);
     });
 
-    it('forging a NAMED weapon is refused while silenced, but rolling is not', async () => {
-        await silence();
+    it('drops the AUTHORED NAME of a forged weapon while silenced, without taking the forge', async () => {
+        // A named weapon's name reaches the public PvP battle log, so a silence
+        // must reach it. The item is stat gear though, and the roll token expires
+        // in 20 minutes while a silence lasts days — refusing the forge outright
+        // would destroy a paid roll rather than mute anything.
         const rolled = await call(craftNamed, { action: 'roll', kind: 'weapon' });
-        assert.notEqual(rolled.statusCode, 403, `a forge roll carries no text: ${JSON.stringify(rolled.body)}`);
-        assertSilenced(await call(craftNamed, { action: 'forge', token: 'a'.repeat(32), name: 'Slur Blade', flavorText: 'x' }), 'named forge');
+        assert.equal(rolled.statusCode, 200, JSON.stringify(rolled.body));
+        const token = String((rolled.body as { token?: string }).token ?? '');
+        assert.ok(token, 'the roll must mint a forge token');
+
+        await silence();
+        const forged = await call(craftNamed, { action: 'forge', token, name: 'Slur Blade', flavorText: 'a slur' });
+        assert.equal(forged.statusCode, 200, `the forge itself is progression, not speech: ${JSON.stringify(forged.body)}`);
+        const item = (forged.body as { item?: { name?: string; flavorText?: string } }).item;
+        assert.ok(item, 'the item is still minted');
+        assert.notEqual(item?.name, 'Slur Blade', 'the authored name must not survive a silence');
+        assert.equal(item?.name, 'Named Weapon', 'it falls back to the generic name');
+        assert.equal(item?.flavorText, undefined, 'and the authored flavour text is dropped');
+    });
+
+    it('keeps the authored name when the forger is NOT silenced', async () => {
+        const rolled = await call(craftNamed, { action: 'roll', kind: 'weapon' });
+        const token = String((rolled.body as { token?: string }).token ?? '');
+        const forged = await call(craftNamed, { action: 'forge', token, name: 'Ashfall', flavorText: 'Quiet steel.' });
+        assert.equal(forged.statusCode, 200, JSON.stringify(forged.body));
+        assert.equal((forged.body as { item?: { name?: string } }).item?.name, 'Ashfall');
     });
 
     it('none of the four surfaces refuse an unsilenced player', async () => {

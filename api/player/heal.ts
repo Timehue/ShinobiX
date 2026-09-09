@@ -130,27 +130,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Floored at 60 s: the Full Recovery capstone zeroes the cooldown
                 // for healing OTHERS, which is the intended reward, but zeroing it
                 // here would hand that Healer an instant-refill button again.
-                if (!identity.admin) {
-                    const selfRank = professionRankForXp('healer', Number(targetChar.professionXp ?? 0));
-                    const selfCooldownMs = Math.max(60_000, healerPerTargetCooldownMs(selfRank));
-                    const selfCooldownKey = `heal:self:${targetName}`;
-                    const placed = await kv.set(
-                        selfCooldownKey,
-                        { at: Date.now() },
-                        { nx: true, ex: Math.max(1, Math.ceil(selfCooldownMs / 1000)) } as never,
-                    );
-                    if (!placed) {
-                        const existing = await kv.get<{ at: number }>(selfCooldownKey);
-                        // A vanished key (TTL raced this read) must not report 0 —
-                        // the client treats 0 as "ready" and retries immediately.
-                        const elapsed = existing?.at ? Date.now() - Number(existing.at) : selfCooldownMs / 2;
-                        return res.status(429).json({
-                            error: 'You have recently recovered. Rest before topping up again.',
-                            retryAfterMs: Math.max(1_000, Math.ceil(selfCooldownMs - elapsed)),
-                        });
-                    }
-                }
-
                 const topUpResult = await withKvLock(targetKey, async () => {
                     const fresh = await kv.get<Record<string, unknown>>(targetKey) ?? targetRecord;
                     const freshChar = (fresh.character as Record<string, unknown> | undefined) ?? targetChar;
@@ -159,6 +138,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     if (freshChar.hospitalized) {
                         return { status: 400 as const, body: { error: 'Use hospital discharge while admitted.' } };
+                    }
+                    // Claim the cooldown only once every refusal above is behind
+                    // us. Claiming it before the lock burned it on the 403/400
+                    // paths — the player was refused AND put on cooldown for a
+                    // top-up they never received.
+                    if (!identity.admin) {
+                        const selfRank = professionRankForXp('healer', Number(freshChar.professionXp ?? 0));
+                        const selfCooldownMs = Math.max(60_000, healerPerTargetCooldownMs(selfRank));
+                        const selfCooldownKey = `heal:self:${targetName}`;
+                        const placed = await kv.set(
+                            selfCooldownKey,
+                            { at: Date.now() },
+                            { nx: true, ex: Math.max(1, Math.ceil(selfCooldownMs / 1000)) } as never,
+                        );
+                        if (!placed) {
+                            const existing = await kv.get<{ at: number }>(selfCooldownKey);
+                            // A vanished key (TTL raced this read) must not report 0 —
+                            // the client treats 0 as "ready" and retries immediately.
+                            const elapsed = existing?.at ? Date.now() - Number(existing.at) : selfCooldownMs / 2;
+                            return {
+                                status: 429 as const,
+                                body: {
+                                    error: 'You have recently recovered. Rest before treating yourself again.',
+                                    retryAfterMs: Math.max(1_000, Math.ceil(selfCooldownMs - elapsed)),
+                                },
+                            };
+                        }
                     }
                     // A Healer's self top-up mends INJURY. It used to hand back
                     // all three bars, free, with no cooldown and without even

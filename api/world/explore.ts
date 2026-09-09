@@ -1,4 +1,5 @@
 import { safeLogValue } from '../_safe-log.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import { randomInt } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
@@ -232,7 +233,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // A hospitalized character cannot work the field. Honest
                     // clients never reach here (the Hospital screen holds them);
                     // this is the server's own answer to a tampered one.
-                    if (character.hospitalized === true && !identity.admin) {
+                    if (isIncapacitated(character) && !identity.admin) {
                         return { ok: false as const, status: 409, error: JSON.stringify({ error: 'hospitalized', reason: 'hospitalized' }) };
                     }
                     // An ambush this player already rolled and never fought is

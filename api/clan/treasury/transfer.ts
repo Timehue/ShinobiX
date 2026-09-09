@@ -29,6 +29,8 @@ import { recordEconomyTxn } from '../../_economy.js';
  * Body (item):     { clanName, recipientName, itemId }
  */
 
+import { chargeOutboundBudget, checkOutboundBudget, senderTrustTier } from '../../player/_transfer-budget.js';
+import { isTradeCurrency } from '../../player/_trade-core.js';
 const AUDIT_LOG_PREFIX = 'audit:clan-treasury:';
 
 type TransferCurrency = 'ryo' | 'fateShards' | 'boneCharms' | 'auraStones' | 'mythicSeals';
@@ -130,6 +132,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (amount < 1) return res.status(400).json({ error: 'amount must be ≥ 1.' });
             const cap = MAX_GIFT_PER_CALL[currency as TransferCurrency];
             if (amount > cap) return res.status(400).json({ error: `amount exceeds per-call cap of ${cap}.` });
+            // The treasury gift is a second door to the same place as a direct
+            // trade — currency landing in one named player's save — so it shares
+            // the sender's rolling 24h budget (MMORPG behavior audit F8). Capping
+            // only /api/player/trade would have constrained an ordinary player
+            // giving a friend 1M ryo a day while leaving this path, which is also
+            // reachable by contribution-derived Officers, at 30 calls/minute.
+            // Charged to the AUTHORISING OFFICER, not the clan: the budget exists
+            // to bound what one account can push out, whatever pocket it comes
+            // from. `mythicSeals` is outside TRADE_CURRENCIES and stays uncapped
+            // here, exactly as it is untradeable there.
+            if (!isAdmin && isTradeCurrency(currency)) {
+                const actorRec = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
+                const actorChar = (actorRec?.character ?? null) as Record<string, unknown> | null;
+                const tier = await senderTrustTier(identity.name, actorChar);
+                const budget = await checkOutboundBudget(identity.name, currency, amount, tier);
+                if (!budget.ok) {
+                    return res.status(429).json({ error: budget.error, reason: 'transfer-budget', remaining: budget.remaining, limit: budget.limit });
+                }
+            }
         }
 
         const clanKey = clanRecordKey(clanName);     // save:clan-<slug>
@@ -228,6 +249,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             },
             saveRecipient: async (record, character) => (await writeVersionedPlayerSave(recipientKey, record, character)).record,
         });
+        // Charge the authorising officer's rolling window only once the transfer
+        // has actually committed, so a refusal never eats budget.
+        if (!isAdmin && isCurrency && isTradeCurrency(currency)) {
+            await chargeOutboundBudget(identity.name, currency, amount, Date.now());
+        }
         await kv.set(`${AUDIT_LOG_PREFIX}${safeName(clanName)}:${Date.now()}`, {
             ts: Date.now(),
             actor: actorName ?? 'admin',

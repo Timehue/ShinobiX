@@ -207,7 +207,7 @@ export async function postClanExchangePurchase(
 export async function postClanLeave(
     playerName: string,
     clan: string,
-): Promise<{ members: Array<Record<string, unknown>>; newFounder: string | null } | null> {
+): Promise<{ members: Array<Record<string, unknown>>; newFounder: string | null; character: Record<string, unknown> | null; _saveVersion: number } | null> {
     try {
         const res = await fetch("/api/clan/leave", {
             method: "POST",
@@ -218,12 +218,19 @@ export async function postClanLeave(
             ok?: boolean; error?: string;
             members?: Array<Record<string, unknown>>;
             newFounder?: string | null;
+            character?: Record<string, unknown> | null;
+            _saveVersion?: number;
         };
         if (!res.ok || !data.ok || !data.members) {
             alert(data.error || "Couldn't leave the clan. Please try again.");
             return null;
         }
-        return { members: data.members, newFounder: data.newFounder ?? null };
+        return {
+            members: data.members,
+            newFounder: data.newFounder ?? null,
+            character: data.character ?? null,
+            _saveVersion: Number(data._saveVersion ?? 0),
+        };
     } catch {
         alert("Couldn't leave the clan. Please try again.");
         return null;

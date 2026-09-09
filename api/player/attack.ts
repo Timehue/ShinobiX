@@ -7,6 +7,8 @@ import { attackBlock, worldInteractionBlock } from '../_realtime/presence-gating
 import { kickPlayer } from '../_realtime/notify.js';
 import { kv } from '../_storage.js';
 import { isIncapacitated } from '../_elapsed-state.js';
+import { withKvLock } from '../_lock.js';
+import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -90,6 +92,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     });
                 }
             }
+        }
+        // Field Recovery is a shield, not a licence. Raiding someone is the
+        // aggressive act that ends it — the standard rule in every MMO that has a
+        // PvP protection flag, and without it a player could lose on purpose and
+        // then spend up to 120 s attacking while un-attackable themselves.
+        // Best-effort and non-blocking: the raid is already authorised, and
+        // failing to clear a shield must never refuse a legitimate attack.
+        if (!identity.admin) {
+            void withKvLock(`save:${identity.name}`, async () => {
+                const rec = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
+                const char = (rec?.character ?? null) as Record<string, unknown> | null;
+                if (!rec || !char) return;
+                if (Math.floor(Number(char.pvpShieldUntil ?? 0)) <= Date.now()) return;
+                await writeVersionedPlayerSave(`save:${identity.name}`, rec, { ...char, pvpShieldUntil: 0 });
+            }).catch(() => undefined);
         }
         onlineStore.setPendingAttacker(targetName, attacker ?? null);
         // Instant delivery: nudge the target to run an immediate heartbeat (which

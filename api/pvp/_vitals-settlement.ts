@@ -109,9 +109,16 @@ export function applyPvpVitalsToCharacter(
     now: number,
 ): Record<string, unknown> {
     const fighter: PvpFighter = side === 'p1' ? session.p1 : session.p2;
-    // Chakra and stamina are spent either way: the hospital restores all three
-    // on discharge, so recording what the fight burned costs an admitted player
-    // nothing and keeps the two branches reading the same.
+    // Chakra and stamina are spent either way, so both branches read the same.
+    //
+    // ⚠ This used to be free for the admitted branch, because discharge refilled
+    // all three bars. It is not any more (MMORPG behavior audit F1: the hospital
+    // treats injury, and exhaustion is rested off or bought back at the
+    // Cafeteria), so the spend recorded here now actually persists through a
+    // defeat. That is deliberate — losing a fight should not refund the chakra
+    // it cost — but it is a real consequence, not the no-op the old comment
+    // claimed. It is also why the Field Recovery shield exists: it covers the
+    // window in which a discharged loser walks out of the sector.
     const spent = {
         chakra: clampVital(fighter.chakra, character.maxChakra),
         stamina: clampVital(fighter.stamina, character.maxStamina),

@@ -239,8 +239,8 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                             <p className="facility-eyebrow">Recovery in progress</p>
                             <h3>You are currently admitted</h3>
                             <p>{isHealer
-                                ? "Your healer training allows you to restore your own vitals and leave immediately at no cost."
-                                : "Your vitals will be fully restored at discharge. Pay for an immediate release or wait for the free checkout."}</p>
+                                ? "Your healer training closes your own wounds and releases you at no cost. Chakra and stamina recover with rest, or instantly at the Cafeteria."
+                                : "Your wounds are treated at discharge; chakra and stamina return with rest, or instantly at the Cafeteria. Pay for an immediate release or wait for the free checkout."}</p>
                         </div>
                     </div>
                     <div className="hospital-vitals-card">
@@ -257,7 +257,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                             <div>
                                 <span>Immediate release</span>
                                 <strong>{isHealer ? "Free for Healers" : `${dischargeCost.toLocaleString()} ryo`}</strong>
-                                <small>Full restoration · leave now</small>
+                                <small>Wounds treated · leave now</small>
                             </div>
                             <button className="facility-primary-action" onClick={discharge} disabled={busy || character.ryo < dischargeCost}>
                                 {busy ? "Processing…" : isHealer ? "Self-heal & discharge" : "Pay & discharge"}
@@ -270,7 +270,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                                 <div>
                                     <span>Complimentary release</span>
                                     <strong>{freeCheckoutReady ? "Ready now" : remaining == null ? "Awaiting the server’s admission timer…" : `${remaining}s remaining`}</strong>
-                                    <small>No charge · full restoration</small>
+                                    <small>No charge · wounds treated</small>
                                 </div>
                                 {freeCheckoutReady ? (
                                     <button
@@ -339,7 +339,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                                 <div><span>Healer privileges active</span><strong>Rank {healerRank} · {(character.professionXp ?? 0).toLocaleString()} XP</strong></div>
                             </div>
                             <button className="facility-primary-action" onClick={topUp} disabled={busy || hpPercent >= 100}>
-                                {busy ? "Restoring vitals…" : hpPercent >= 100 ? "Vitals already full" : "Restore all vitals · Free"}
+                                {busy ? "Closing wounds…" : hpPercent >= 100 ? "No wounds to treat" : "Close wounds · Free"}
                             </button>
                         </>
                     ) : (
