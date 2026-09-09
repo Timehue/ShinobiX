@@ -2,7 +2,16 @@ import { expect, test } from "@playwright/test";
 
 test("fighter replacement and quality changes release GPU bone textures", async ({ page }, testInfo) => {
     test.skip(!["desktop", "phone"].includes(testInfo.project.name), "resource ownership is exercised on desktop and phone");
-    test.setTimeout(180_000);
+    // Six cycles take ~40 resource samples, and every mounted sample is gated on
+    // eight rendered frames of eight real skinned rigs — so this test's cost is
+    // set by how fast the runner renders, not by how long any one step waits.
+    // Measured: 120s on a dev box with a real GPU, 170s on a green hosted runner
+    // whose GL is software-rasterized. The original 180s budget therefore had ~6%
+    // of margin, and a hosted runner only 17% slower than that one timed out on
+    // main (34321639169) on both desktop and phone with nothing asserted-against
+    // having changed. Budget for a runner ~2x slower than the green one instead;
+    // a real hang still fails, it just fails later.
+    test.setTimeout(360_000);
     const errors: string[] = [];
     page.on("pageerror", error => errors.push(error.message));
     await page.goto("/petvfx.html?modelresources=1", { waitUntil: "domcontentloaded" });
