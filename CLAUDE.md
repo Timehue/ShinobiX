@@ -148,7 +148,7 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
 - A new client-reported reward/currency endpoint must be **server-authoritative** — recompute the reward, or use the mint-token pattern (see `docs/auth-and-anti-cheat-patterns.md`); never pay out from client-supplied amounts/outcomes.
 - Do not remove Railway support when changing API handlers. (cPanel/Passenger is retired; its dormant `app.js` and the dual-path `route()` registration can stay but need not be maintained.)
 - When adding a new API endpoint, you must BOTH create the `api/**` handler AND
-  import + `route()`-register it in `server.ts` — there is no auto-routing, so an
+  import + `route()`-register it in `server-api-routes.ts` — there is no auto-routing, so an
   unregistered handler is unreachable.
 - **Do NOT commit `dist/`.** Railway self-builds from source on every push to
   `main`, and cPanel (which used to serve committed `dist/`) is retired — so a
@@ -225,8 +225,9 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
   re-run it locally before reverting anything. Two consecutive `main` runs in
   2026-08 failed on two *different* unrelated specs, and the first one passed on
   re-run. Read the failing assertion before believing the failure is yours.
-  (The other suites — `test:e2e:live`, `:visual`, `:warfront` — are NOT in CI.
-  Run them when touching what they cover, but they gate nothing.)
+  CI also runs `test:e2e:warfront` and the desktop live Express Village Stores,
+  Academy persistence and route-wiring cases. The remaining `test:e2e:live`
+  cases and `:visual` are local checks; run them when touching what they cover.
 
 ## Refactoring Rules
 
