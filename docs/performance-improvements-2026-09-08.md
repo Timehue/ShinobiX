@@ -64,3 +64,16 @@ Local evidence is under `.tmp/performance-pass/`, including `before/after-loadin
 Final logs: `final-client-build.log`, `client-lint.log`, `unit-tests-final.log`, `responsive.log`, `loading-regression.log`, `combat-layout.log`, `warfront.log` and `live-express.log`. The eight pre-existing narrative documents/patches remain untouched and untracked; their hashes were checked again. Work remains on `codex/integrate-refactor-20260908`; no deployment or merge to `main` was performed.
 
 The remaining Rite-stage dependency warning was reviewed: its fighter lookup is recomputed from the same fighter array, its grounding flag is fixed for the mounted QA page, and its animation/observer/timer cleanup already runs on effect retirement. This pass did not find a leak there requiring a runtime change.
+
+## Follow-up integration audit
+
+Rechecked implementation commit `373b5d4b7` after the request to confirm everything is connected. No runtime defect or missing integration was found, and no application code changed during this audit.
+
+- All 10 focused unit checks passed, covering loading policy, animation/resource lifetime, stylesheet ownership and the App line budget. Distribution verification and size gates passed again; the initial graph remains 377,214 bytes gzip across nine files.
+- All four committed loading/reader browser cases passed again against an immutable production snapshot on desktop and phone.
+- Six additional production-preview scenarios passed: normal and data-saver village-to-World-Map navigation at both viewports, plus admin cinematic-direction editing at both viewports. PvP and both arena images remain deferred in the village; normal gateway entry requests them, while data saver suppresses speculative loading. The admin controls render in two columns on desktop and one on phone, accept edits, and produce no browser errors. Screenshots were inspected.
+- The model lifecycle browser case also passed against the actual development server, so React Strict Mode effect replay was exercised in addition to the previously tested release build. Six replacement/quality/retirement/remount cycles and page freeze/resume preserved the expected GPU counts without runtime errors.
+- The production manifest independently confirms cinematic CSS is reachable from both reader and admin dependencies, absent from the startup graph, and that the model QA fixture is excluded. All game pet-rendering paths use the shared cleanup implementation.
+- Test discovery and CI commands include the added unit, responsive and Warfront regressions. CI's release archive preserves the Vite manifest needed by the loading test. The live Express gate still includes economy, Academy persistence and route wiring.
+
+Follow-up evidence is in `.tmp/performance-integration/`: `focused-unit.log`, `dist-check.log`, `loading-regression.log`, `strictmode.log`, `browser-audit.json`, admin screenshots and the eight-file narrative preservation hash check. The earlier full-suite results above remain applicable because this follow-up changed documentation only.
