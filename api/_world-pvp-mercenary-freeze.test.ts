@@ -2,13 +2,7 @@ import assert from 'node:assert/strict';
 import { before, beforeEach, describe, it } from 'node:test';
 import type { KvLike } from './_storage.js';
 import type { PvpSession } from './pvp/session.js';
-import {
-    WAR_MERCENARY_FUNDING_FIELD,
-    helpWarMercenaryHire,
-    settleWarMercenaryHire,
-    warMercenaryHireFingerprint,
-    type WarMercenaryHireIdentity,
-} from './_war-mercenary-hire.js';
+import type { WarMercenaryHireIdentity } from './_war-mercenary-hire.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -23,6 +17,10 @@ let settlePvp: typeof import('./world-state.js').settlePvpVillageWarContinuation
 let activeEnemies: typeof import('./world-state.js').activeVillageWarEnemiesOf;
 let mutableEnemies: typeof import('./world-state.js').mutableVillageWarEnemiesOf;
 let listMutableWars: typeof import('./world-state.js').listActiveVillageWars;
+let WAR_MERCENARY_FUNDING_FIELD: typeof import('./_war-mercenary-hire.js').WAR_MERCENARY_FUNDING_FIELD;
+let helpWarMercenaryHire: typeof import('./_war-mercenary-hire.js').helpWarMercenaryHire;
+let settleWarMercenaryHire: typeof import('./_war-mercenary-hire.js').settleWarMercenaryHire;
+let warMercenaryHireFingerprint: typeof import('./_war-mercenary-hire.js').warMercenaryHireFingerprint;
 
 function war(): Record<string, unknown> {
     return {
@@ -60,6 +58,9 @@ function battle(): PvpSession {
 }
 
 before(async () => {
+    // Mercenary settlement reaches storage through player-save authority. Load
+    // that graph only after the isolated test backend has been selected above.
+    ({ WAR_MERCENARY_FUNDING_FIELD, helpWarMercenaryHire, settleWarMercenaryHire, warMercenaryHireFingerprint } = await import('./_war-mercenary-hire.js'));
     ({ kv } = await import('./_storage.js'));
     ({
         settlePvpVillageWarContinuation: settlePvp,
