@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { WILD_SECTOR_IDS } from "./sector-geo.js";
+import { WORLD_DAY_MS, WORLD_HOUR_MS } from "./world-clock.js";
 import {
     CONTRACT_RYO_BASE, CONTRACT_RYO_PER_SECTOR, CONTRACT_TARGET_MIN, CONTRACT_TARGET_SPREAD,
     SECTOR_CONTRACT_SLOTS, contractAcceptsWorkAt, contractSectorsForDay, sectorContractFor,
@@ -96,12 +97,37 @@ test("a day-lit player is never locked out — ordinary postings always remain",
 
 test("night contracts accept work only after dark; ordinary ones always do", () => {
     const day = "2026-08-26";
-    const noon = Date.UTC(2026, 7, 26, 12);
-    const midnight = Date.UTC(2026, 7, 26, 23);
+    // In-world hours, not real ones: the world's day is compressed to two real
+    // hours (shared/world-clock), so "noon" and "midnight" are points on the
+    // world's clock. A real UTC midnight is a whole number of in-world days from
+    // the epoch, which makes it in-world hour 0.
+    const worldDayStart = Date.UTC(2026, 7, 26);
+    const noon = worldDayStart + 12 * WORLD_HOUR_MS;
+    const midnight = worldDayStart + 23 * WORLD_HOUR_MS;
     for (const sector of contractSectorsForDay(day)) {
         const contract = sectorContractFor(sector, day)!;
         assert.equal(contractAcceptsWorkAt(contract, midnight), true, `sector ${sector} at night`);
         assert.equal(contractAcceptsWorkAt(contract, noon), !contract.nightOnly, `sector ${sector} at noon`);
+    }
+});
+
+// The compression is what retires this module's own caveat that night work
+// "adds a choice rather than a tax on someone's timezone" — it no longer has to
+// be a minority of the board to avoid locking anyone out, because nobody's real
+// schedule can miss night any more.
+test("no timezone is locked out of night work — night reaches every session", () => {
+    const day = "2026-08-26";
+    const nightContract = contractSectorsForDay(day)
+        .map((sector) => sectorContractFor(sector, day)!)
+        .find((contract) => contract.nightOnly);
+    assert.ok(nightContract, "the board should post at least one night contract");
+    for (let realHour = 0; realHour < 24; realHour++) {
+        const start = Date.UTC(2026, 7, 26, realHour);
+        let reachable = false;
+        for (let ms = 0; ms < WORLD_DAY_MS && !reachable; ms += 60_000) {
+            if (contractAcceptsWorkAt(nightContract, start + ms)) reachable = true;
+        }
+        assert.ok(reachable, `a player whose session starts ${realHour}:00 UTC could never work night`);
     }
 });
 
@@ -120,7 +146,12 @@ test("the objective names the window a night contract needs", () => {
         const contract = sectorContractFor(sector, day)!;
         const text = sectorContractObjective(contract);
         assert.match(text, new RegExp(`${contract.target}`));
-        if (contract.nightOnly) assert.match(text, /after dark \(20:00–05:00 UTC\)/u);
+        // Not a wall-clock window any more: under the compressed cycle a fixed
+        // "20:00-05:00 UTC" would read as an instruction and be wrong for everyone.
+        if (contract.nightOnly) {
+            assert.match(text, /after dark \(nightfall comes round every 2h\)/u);
+            assert.doesNotMatch(text, /UTC/u);
+        }
         else assert.doesNotMatch(text, /after dark/u);
     }
 });
