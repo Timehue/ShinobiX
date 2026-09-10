@@ -50,14 +50,18 @@ export default defineConfig({
         // Never certify an unrelated dev/preview process that happens to own
         // the port; the immutable snapshot above is part of the test contract.
         reuseExistingServer: false,
-        // This command SNAPSHOTS the whole build (~370 MB / 4,589 files, copied
-        // then hash-verified) before vite preview binds, so the budget covers far
-        // more than server boot. Measured at ~14s warm on 2026-09-01; raised to
-        // 300s because the gate has twice died here with a bare
-        // "Timed out waiting ..." and no specs executed, which reads like a
-        // browser catastrophe rather than a slow step. A leftover
+        // This command SNAPSHOTS the whole build (484 MB / 5,553 files on
+        // 2026-09-10, copied then hash-verified) before vite preview binds, so the
+        // budget covers far more than server boot. Raised to 300s because the gate
+        // has died here with a bare "Timed out waiting ..." and no specs executed,
+        // which reads like a browser catastrophe rather than a slow step. A leftover
         // .playwright-dist-* or an orphaned port both fail FAST with an explicit
         // error instead, so neither explains that signature.
+        // If it DOES time out, look at the [WebServer] lines just above the error:
+        // the script names each phase (hashing source / copying / verifying copy)
+        // on stderr with its duration, so the last one printed is the step that was
+        // still running. Those lines were invisible until 2026-09-10 — the script
+        // wrote them to stdout, which Playwright discards for a webServer command.
         timeout: 300_000,
     },
     projects: [
