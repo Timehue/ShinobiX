@@ -172,18 +172,23 @@ const FLAVOR_TOKEN = /%(user|target)/g;
 const SENTENCE_START = /(^|[.!?]\s+)$/;
 
 /**
- * The prose line in a jutsu's details panel (Jutsu Training Hall + Profile).
+ * The prose line in a jutsu's details panel: the Jutsu Training Hall, Profile,
+ * and the PvP / Solo / Tower combat inspect dialogs.
  *
  * Prefers the card `description`, falling back to the battle-log line when none
  * was written — the four built-in bloodline kits carry only battle flavor, and
  * the Bloodline Maker copies its battle line into `description` verbatim. Both
  * can hold the `%user` / `%target` tokens that combat fills with fighter names
  * (interpolateFlavor in lib/battle-log-format, api/combat-core/cast-flavor.ts).
- * Out of combat there are no names, so a token reads as "the user" or "the
+ * A details panel describes the jutsu, not one cast of it, so it has no fighter
+ * names to fill in, even mid-fight. Each token reads as "the user" or "the
  * target" — the wording the built-in starter prose already uses — and a SELF
  * cast's `%target` is its caster, exactly as cast-flavor resolves it.
+ *
+ * Every field is optional and `target` is a plain string, so the loosely typed
+ * jutsu a combat session hands over (the Tower's) passes as it is.
  */
-export function jutsuDetailDescription(jutsu: Pick<Jutsu, "description" | "battleDescription" | "target">): string {
+export function jutsuDetailDescription(jutsu: { description?: string; battleDescription?: string; target?: string }): string {
     const text = jutsu.description?.trim() || jutsu.battleDescription?.trim() || "";
     return text.replace(FLAVOR_TOKEN, (_token, role: string, offset: number) => {
         const word = role === "user" || jutsu.target === "SELF" ? "the user" : "the target";
