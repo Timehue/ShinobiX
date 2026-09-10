@@ -4,6 +4,8 @@ import test from 'node:test';
 
 const workflow = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const warfrontSpec = readFileSync(new URL('../shinobij.client/e2e-warfront/warfront.spec.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+const riteSpec = readFileSync(new URL('../shinobij.client/e2e-warfront/rite.spec.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+const modelLifecycleSpec = readFileSync(new URL('../shinobij.client/e2e-warfront/model-resource-lifecycle.spec.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
 const occurrences = (needle) => workflow.split(needle).length - 1;
 
@@ -103,22 +105,25 @@ test('live Express CI includes persistence and route integration regressions', (
     assert.ok(command.includes('--project=chromium-desktop-live'), 'the full Academy cases require the desktop live project');
 });
 
-test('Warfront interaction coverage uses the deterministic low-cost fixture', () => {
-    assert.match(warfrontSpec, /const warfrontUrl = "[^"]*";/);
-    assert.match(warfrontSpec, /const lowWarfrontUrl = `\$\{warfrontUrl\}&petQuality=low`;/);
-    assert.equal(
-        warfrontSpec.split('${lowWarfrontUrl}&wfspeed=').length - 1,
-        2,
-        'command-window and result-lifecycle loads must share the low-cost CI fixture',
-    );
-    assert.match(
-        warfrontSpec,
-        /\$\{warfrontUrl\}&petQuality=high&wfperf=geometry/,
-        'the production renderer audit must explicitly exercise the high-quality fixture',
-    );
-    assert.match(
-        warfrontSpec,
-        /background-image[\s\S]*ground-portrait/,
-        'the responsive matrix must verify the portrait battlefield art',
-    );
+test('current Warfront coverage keeps low-cost interactions and real renderer audits', () => {
+    // Check the fixture's behavior, without pinning retired lane-mode variable
+    // names or command windows that the current Rite no longer exposes.
+    const fixtures = (source) => [...source.matchAll(/\/petvfx\.html\?[^"'`\s]+/g)]
+        .map(([url]) => new URL(url, 'https://warfront.invalid').searchParams);
+    assert.ok(fixtures(warfrontSpec).some((params) => params.get('warfront') === '1' && params.get('petQuality') === 'low'),
+        'saved Warfront links must be tested through the low-cost migration fixture');
+    assert.match(warfrontSpec, /\.wf3-shell[\s\S]*toHaveCount\(0\)/,
+        'the migration check must keep the retired lane renderer unreachable');
+    const riteFixtures = fixtures(riteSpec).filter((params) => params.get('rite') === '1');
+    assert.ok(riteFixtures.some((params) => params.get('petQuality') === 'low' && !params.has('ritespeed')),
+        'current formation interactions must retain the low-cost fixture');
+    assert.ok(riteFixtures.some((params) => params.get('petQuality') === 'low' && params.get('ritespeed') === '12' && params.get('riteqa') === '1'),
+        'report and rematch checks must use accelerated deterministic playback');
+    assert.ok(riteFixtures.some((params) => params.get('petQuality') === 'high' && params.get('riteforce3d') === '1'),
+        'the production renderer audit must explicitly exercise real high-quality rigs');
+    assert.match(riteSpec, /data-rite-actor-render-mode[\s\S]*skinned-3d/);
+    assert.match(riteSpec, /scrollWidth - document\.documentElement\.clientWidth/,
+        'the current responsive report must retain its viewport overflow check');
+    assert.ok(fixtures(modelLifecycleSpec).some((params) => params.get('modelresources') === '1'),
+        'GPU lifecycle coverage must continue loading the real model resource harness');
 });
