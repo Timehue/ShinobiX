@@ -714,7 +714,15 @@ test("user directory routes into a production-safe public profile", async ({ pag
     }
     await users.click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "userHub");
-    await expectViewportSafe(page);
+    // <UserHub> owns .user-hub-tabs, which the mobile layer makes a horizontal
+    // scroller on purpose ("section counts remain reachable without wrapping into
+    // tiny pills" -- overflow-x:auto + scroll-snap + touch scrolling). A tab past
+    // the inline viewport is therefore reachable, not escaped. This file already
+    // says so twice -- the clipped-control filter in auditVisibleScreen and the
+    // NON_COMBAT_SCREENS loop both list .user-hub-tabs -- and only this call left
+    // it out, so the check flagged the last tab whenever layout settled wide. That
+    // made the spec fail about one run in three with no product change behind it.
+    await expectViewportSafe(page, { horizontalScrollers: [".user-hub-tabs"] });
     const directoryMetrics = await auditVisibleScreen(page);
     expect(directoryMetrics.emptyMain, "userHub rendered no meaningful main content").toBe(false);
     expect(directoryMetrics.brokenBackgrounds, "userHub has broken visible background artwork").toEqual([]);
@@ -726,7 +734,9 @@ test("user directory routes into a production-safe public profile", async ({ pag
     await rival.locator(".user-hub-name").click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "userView");
     await expect(page.locator(".center-game")).toBeVisible();
-    await expectViewportSafe(page);
+    // Same gap one screen later: <UserView> owns .profile-mobile-tabs, also an
+    // allowlisted horizontal scroller everywhere else in this file.
+    await expectViewportSafe(page, { horizontalScrollers: [".profile-mobile-tabs"] });
     const metrics = await auditVisibleScreen(page);
     expect(metrics.emptyMain, "userView rendered no meaningful main content").toBe(false);
     expect(metrics.brokenBackgrounds, "userView has broken visible background artwork").toEqual([]);
