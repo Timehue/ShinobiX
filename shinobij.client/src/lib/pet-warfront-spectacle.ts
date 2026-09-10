@@ -2,8 +2,8 @@ import type { DuelEvent } from "./pet-duel-sim";
 import type { PetSfxKind } from "./pet-sfx";
 import type { WarfrontAttackCue } from "./pet-warfront-attack-causality";
 
-export type WarfrontCoreElement = "Water" | "Fire" | "Wind" | "Earth";
-export type WarfrontSpectacleShape = "ripple" | "flare" | "crescent" | "fault";
+export type WarfrontCoreElement = "Water" | "Fire" | "Wind" | "Earth" | "Lightning" | "None";
+export type WarfrontSpectacleShape = "ripple" | "flare" | "crescent" | "fault" | "bolt" | "impact";
 
 export type WarfrontElementSignature = Readonly<{
     element: WarfrontCoreElement;
@@ -22,11 +22,13 @@ export const WARFRONT_ELEMENT_SIGNATURES: Readonly<Record<WarfrontCoreElement, W
     Fire: { element: "Fire", primary: "#ff6238", highlight: "#ffd36a", shape: "flare", travelBend: -0.06, audioTell: "debuff", audioContact: "crit", tellRate: 1.08, contactRate: 1.08 },
     Wind: { element: "Wind", primary: "#75f1c5", highlight: "#effff8", shape: "crescent", travelBend: 0.2, audioTell: "dodge", audioContact: "hit", tellRate: 1.14, contactRate: 1.16 },
     Earth: { element: "Earth", primary: "#d9a45e", highlight: "#f3dfad", shape: "fault", travelBend: -0.1, audioTell: "command", audioContact: "crit", tellRate: 0.88, contactRate: 0.9 },
+    Lightning: { element: "Lightning", primary: "#ffe066", highlight: "#fffbe1", shape: "bolt", travelBend: 0, audioTell: "debuff", audioContact: "crit", tellRate: 1.24, contactRate: 1.26 },
+    None: { element: "None", primary: "#c9d6de", highlight: "#f6fbff", shape: "impact", travelBend: 0, audioTell: "command", audioContact: "hit", tellRate: 1, contactRate: 1 },
 });
 
 export function warfrontCoreElement(value: string | null | undefined): WarfrontCoreElement {
-    if (value === "Fire" || value === "Wind" || value === "Earth") return value;
-    return "Water";
+    if (value === "Water" || value === "Fire" || value === "Wind" || value === "Earth" || value === "Lightning") return value;
+    return "None";
 }
 
 export function warfrontElementSignature(value: string | null | undefined): WarfrontElementSignature {

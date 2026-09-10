@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type MutableRefObject } from "react";
+import { Component, useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type MutableRefObject, type ReactNode } from "react";
 import type { Pet } from "../types/pet";
 import { DUEL_TPS, type DuelObjectiveSnap, type DuelResult } from "../lib/pet-duel-sim";
 import { WARFRONT_ARENA_X, WARFRONT_ARENA_Y } from "../lib/pet-duel-cinematic";
@@ -19,9 +19,12 @@ import {
     type WarfrontBodyReactionPhase,
 } from "../lib/pet-warfront-attack-causality";
 import { warfrontImpostorAtlasUrl } from "../lib/pet-warfront-impostor-url";
+import { createWarfrontImageCache, loadWarfrontImage } from "../lib/pet-warfront-image-cache";
 import {
     RITE_TEAM_COLOR,
     createActorPoseSample,
+    dampRiteBodyValue,
+    riteBodyMotionGain,
     riteCanvasGroundingAoDepthScale,
     riteCanvasLivingWaterFootAnchorY,
     riteGroundingAoCameraForwardOffset,
@@ -103,7 +106,7 @@ export type PetWarfrontRiteStageProps = {
 };
 
 type WebGlStageModule = Readonly<{
-    PetWarfrontRiteStage3D: ComponentType<PetWarfrontRiteStageProps>;
+    PetWarfrontRiteStage3D: ComponentType<PetWarfrontRiteStageProps & { onGraphicsFailure?: () => void }>;
     preloadRitePetModels: (pets: readonly Pet[]) => Promise<void>;
 }>;
 
@@ -141,26 +144,13 @@ function impostorUrl(pet: Pet): string | null {
     return source ? warfrontImpostorAtlasUrl(source) : null;
 }
 
-const IMPOSTOR_IMAGE_CACHE = new Map<string, Promise<HTMLImageElement>>();
+const IMPOSTOR_IMAGE_CACHE = createWarfrontImageCache(loadWarfrontImage);
 
 /** Blue/red mirrors share the exact same authored atlas. Decode each URL once
  * before its first paint so the atomic eight-actor reveal never pays duplicate
  * decode/upload work inside one animation frame. */
 function loadImpostorImage(url: string): Promise<HTMLImageElement> {
-    const cached = IMPOSTOR_IMAGE_CACHE.get(url);
-    if (cached) return cached;
-    const pending = new Promise<HTMLImageElement>((resolve, reject) => {
-        const image = new Image();
-        image.decoding = "async";
-        image.onload = () => {
-            void image.decode().catch(() => undefined).then(() => resolve(image));
-        };
-        image.onerror = () => reject(new Error(`Unable to load ${url}`));
-        image.src = url;
-    });
-    IMPOSTOR_IMAGE_CACHE.set(url, pending);
-    void pending.catch(() => IMPOSTOR_IMAGE_CACHE.delete(url));
-    return pending;
+    return IMPOSTOR_IMAGE_CACHE.get(url);
 }
 
 /** Deployment warming follows the same physical import gate as mounting. */
@@ -169,7 +159,7 @@ export async function preloadRitePetModels(pets: readonly Pet[]): Promise<void> 
     const route = stageRoute();
     const atlasComplete = pets.every((pet) => impostorUrl(pet) !== null);
     if (!route.useWebGl && atlasComplete) {
-        await impactSpriteReady;
+        await Promise.all([impactSpriteReady, IMPOSTOR_IMAGE_CACHE.warm(pets.map((pet) => impostorUrl(pet)!))]);
         return;
     }
     const [module] = await Promise.all([import("./PetWarfrontRiteStage3D"), impactSpriteReady]);
@@ -192,6 +182,12 @@ type CanvasActor = {
     facingCandidate: number;
     facingCandidateSince: number;
     facingFlips: number;
+    motionGain: number;
+    bodyScaleX: number;
+    bodyScaleY: number;
+    bodyRoll: number;
+    bodyLift: number;
+    bodyTick: number;
 };
 
 function sampleBody(beats: readonly CanvasBeat[], tick: number, phase: WarfrontBodyReactionPhase, scratch: WarfrontBodyReactionPhase): CanvasBeat | null {
@@ -538,15 +534,21 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
             facingCandidate: fighter.team === "player" ? 1 : -1,
             facingCandidateSince: 0,
             facingFlips: 0,
+            motionGain: riteBodyMotionGain(petCombatModel(fighter.pet)?.profile, reducedMotion),
+            bodyScaleX: 1,
+            bodyScaleY: 1,
+            bodyRoll: 0,
+            bodyLift: 0,
+            bodyTick: 0,
         }));
-    }, [beatsByActor, fighters, heroImpactSprite, images]);
+    }, [beatsByActor, fighters, heroImpactSprite, images, reducedMotion]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
         const impactSpriteImage = heroImpactSprite;
         if (!canvas || !images || !impactSpriteImage) return;
         const context = canvas.getContext("2d", { alpha: true, desynchronized: true });
-        if (!context) return;
+        if (!context) { onAssetFailure(); return; }
         let frame = 0;
         let terminal: { wall: number; tick: number } | null = null;
         let performanceStarted = false;
@@ -602,6 +604,7 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
         }>();
 
         const paint = (now: number) => {
+            if (document.hidden) { frame = 0; return; }
             const cssWidth = Math.max(1, canvas.clientWidth);
             const cssHeight = Math.max(1, canvas.clientHeight);
             const dpr = Math.min(1.15, window.devicePixelRatio || 1);
@@ -961,7 +964,9 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
                 if (Math.abs(facingScreenX) < 1.25) {
                     facingScreenX = project(pose.x + pose.faceX, pose.z + pose.faceZ)[0] - hereScreen[0];
                 }
-                const desiredFacing = facingScreenX >= 0 ? 1 : -1;
+                const facingLocked = pose.state === "strike" || pose.state === "recover" || pose.state === "stagger" || pose.state === "dead";
+                const desiredFacing = facingLocked || Math.abs(facingScreenX) < 1.25
+                    ? actor.lastFacing : facingScreenX >= 0 ? 1 : -1;
                 if (desiredFacing === actor.lastFacing) {
                     actor.facingCandidate = desiredFacing;
                     actor.facingCandidateSince = tick;
@@ -1089,6 +1094,12 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
                 else if (visualState === "stagger") { scaleX = 1.09; scaleY = 0.87; roll = -actor.lastFacing * 0.26; }
                 if (attackerReaction) { scaleX = 1.04 - actor.phase.lunge * 0.13; scaleY = 0.9 + actor.phase.lunge * 0.22; lift += baseSize * 0.08 * actor.phase.lunge; }
                 if (targetReaction) { scaleX *= 1 + actor.phase.recoil * 0.09 - actor.phase.koExit * 0.12; scaleY *= 1 - actor.phase.recoil * 0.13 - actor.phase.koExit * 0.18; roll -= actor.lastFacing * (actor.phase.recoil * 0.28 + actor.phase.koExit * 0.62); }
+                const bodyDelta = presentationTick < actor.bodyTick ? 0.05 : (presentationTick - actor.bodyTick) / DUEL_TPS;
+                actor.bodyTick = presentationTick;
+                scaleX = actor.bodyScaleX = dampRiteBodyValue(actor.bodyScaleX, 1 + (scaleX - 1) * actor.motionGain, bodyDelta);
+                scaleY = actor.bodyScaleY = dampRiteBodyValue(actor.bodyScaleY, 1 + (scaleY - 1) * actor.motionGain, bodyDelta);
+                roll = actor.bodyRoll = dampRiteBodyValue(actor.bodyRoll, roll * actor.motionGain, bodyDelta);
+                lift = actor.bodyLift = dampRiteBodyValue(actor.bodyLift, lift * actor.motionGain, bodyDelta);
                 renderedActors.set(id, {
                     x,
                     footY: renderFootY + lift,
@@ -1592,11 +1603,21 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
             lastFrameAt = now;
             frame = requestAnimationFrame(paint);
         };
-        frame = requestAnimationFrame(paint);
+        const handleVisibility = () => {
+            cancelAnimationFrame(frame);
+            frame = 0;
+            lastFrameAt = null;
+            if (!document.hidden) frame = requestAnimationFrame(paint);
+        };
+        document.addEventListener("visibilitychange", handleVisibility);
+        handleVisibility();
         return () => {
+            document.removeEventListener("visibilitychange", handleVisibility);
             cancelAnimationFrame(frame);
             performanceObserver?.disconnect();
             if (performanceTimer !== null) window.clearTimeout(performanceTimer);
+            actorLightSurface.width = actorLightSurface.height = 1;
+            actorLightMaskSurface.width = actorLightMaskSurface.height = 1;
             const root = canvas.closest(".wfr-root") as HTMLElement | null;
             if (root) {
                 delete root.dataset.wfrCanvasCamera;
@@ -1605,7 +1626,7 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
                 root.style.removeProperty("--wfr-camera-shift-y");
             }
         };
-    }, [clockRef, cues, fighterByActorId, heroCue, heroImpactSprite, images, quality, reducedMotion, result]);
+    }, [clockRef, cues, fighterByActorId, fighters.length, groundingQaEnabled, heroCue, heroImpactSprite, images, onAssetFailure, quality, reducedMotion, result]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -1724,6 +1745,13 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
     );
 }
 
+class WarfrontRenderBoundary extends Component<{ children: ReactNode; onFail: () => void }, { failed: boolean }> {
+    state = { failed: false };
+    static getDerivedStateFromError() { return { failed: true }; }
+    componentDidCatch() { this.props.onFail(); }
+    render() { return this.state.failed ? null : this.props.children; }
+}
+
 export function PetWarfrontRiteStage(props: PetWarfrontRiteStageProps) {
     const atlasComplete = useMemo(() => props.fighters.every((fighter) => impostorUrl(fighter.pet) !== null), [props.fighters]);
     const requestedRoute = useMemo(() => stageRoute(), []);
@@ -1731,20 +1759,66 @@ export function PetWarfrontRiteStage(props: PetWarfrontRiteStageProps) {
     const [module, setModule] = useState<WebGlStageModule | null>(null);
     const [failed, setFailed] = useState(false);
     const [canvasFailed, setCanvasFailed] = useState(false);
-    const handleCanvasAssetFailure = useCallback(() => setCanvasFailed(true), []);
+    const rendererReady = useRef(false);
+    const { onReady, onRouteTransition, onRendererAvailability } = props;
+    const handleReady = useCallback(() => {
+        rendererReady.current = true;
+        onReady?.();
+    }, [onReady]);
+    const handleCanvasAssetFailure = useCallback(() => {
+        onRouteTransition?.();
+        onRendererAvailability?.(false);
+        setCanvasFailed(true);
+    }, [onRendererAvailability, onRouteTransition]);
+    const handleWebGlFailure = useCallback(() => {
+        onRouteTransition?.();
+        onRendererAvailability?.(false);
+        setFailed(true);
+    }, [onRendererAvailability, onRouteTransition]);
+    const retryGraphics = useCallback(() => {
+        // Retry the independent Canvas loader: GLTF/useLoader can cache a
+        // rejected request for the rest of this document's lifetime.
+        setFailed(true);
+        setCanvasFailed(false);
+    }, []);
     const useWebGl = wantsWebGl || canvasFailed;
+    useEffect(() => {
+        rendererReady.current = false;
+        if (!useWebGl || failed) return;
+        // Three's asset loaders can suspend forever on an interrupted transfer.
+        // Bound visible preparation time; hidden tabs intentionally stop drawing.
+        let remainingSeconds = 45;
+        const timer = window.setInterval(() => {
+            if (rendererReady.current) {
+                window.clearInterval(timer);
+                return;
+            }
+            if (document.hidden) return;
+            if (--remainingSeconds > 0) return;
+            window.clearInterval(timer);
+            handleWebGlFailure();
+        }, 1_000);
+        return () => window.clearInterval(timer);
+    }, [failed, handleWebGlFailure, props.sceneKey, useWebGl]);
     useEffect(() => {
         if (!useWebGl || module || failed) return;
         let active = true;
         void import("./PetWarfrontRiteStage3D").then((loaded) => {
             if (active) setModule({ PetWarfrontRiteStage3D: loaded.PetWarfrontRiteStage3D, preloadRitePetModels: loaded.preloadRitePetModels });
-        }).catch(() => { if (active) setFailed(true); });
+        }).catch(() => { if (active) handleWebGlFailure(); });
         return () => { active = false; };
-    }, [failed, module, useWebGl]);
+    }, [failed, handleWebGlFailure, module, useWebGl]);
+    if (failed && canvasFailed) return (
+        <div className="wfr-render-recovery is-failed" role="alert" data-testid="wfr-render-failure">
+            <strong>BATTLE GRAPHICS COULD NOT LOAD</strong>
+            <span>Your battle is paused. Retry when the connection is ready.</span>
+            <button type="button" className="wfr-btn-primary" onClick={retryGraphics}>Retry battle graphics</button>
+        </div>
+    );
     if (!useWebGl || failed) return <Canvas2DStage {...props} onAssetFailure={handleCanvasAssetFailure} />;
     if (!module) {
         return <div className="wfr-canvas" data-rite-rig-chunk-status="loading" data-rite-rig-chunk-requested="true" aria-hidden="true" />;
     }
     const WebGlStage = module.PetWarfrontRiteStage3D;
-    return <WebGlStage {...props} />;
+    return <WarfrontRenderBoundary onFail={handleWebGlFailure}><WebGlStage {...props} onReady={handleReady} onGraphicsFailure={handleWebGlFailure} /></WarfrontRenderBoundary>;
 }
