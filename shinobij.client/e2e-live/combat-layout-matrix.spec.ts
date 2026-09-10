@@ -1182,6 +1182,30 @@ async function measureStable(page: Page, rootSelector: string): Promise<LayoutMe
     return current;
 }
 
+/*
+ * How long captureMatrix's toPass may spend measuring and re-measuring one
+ * viewport, sized in measurements rather than a fixed number of seconds.
+ *
+ * measureStable is counted in animation frames: settleLayout plus four agreeing
+ * grid samples is at least ten. Chromium renders those in about half a second,
+ * so 10s allows many attempts. Playwright's WebKit on Windows does not: it
+ * repaints the whole view each time the HUD's 1 Hz round countdown ticks, and
+ * at desktop widths that repaint takes about a second, so a single measurement
+ * costs about 10s. A flat 10s budget then ran out while the first attempt was
+ * still measuring, with every bound satisfied, and toPass reported a bare
+ * timeout. Measured 2026-09-10: 1.0-1.35s to paint one tick at 1920x1080
+ * against 12ms in Chromium on the same machine, and 53 fps once the countdown
+ * was frozen. Linux WebKit in CI is unaffected. Scaling by what the viewport's
+ * first measurement cost leaves a slow renderer room for at least two full
+ * re-measurements; the floor leaves fast engines exactly where they were.
+ */
+const LAYOUT_RETRY_FLOOR_MS = 10_000;
+const LAYOUT_RETRY_MEASUREMENTS = 3;
+
+function layoutRetryBudget(measurementMs: number): number {
+    return Math.max(LAYOUT_RETRY_FLOOR_MS, LAYOUT_RETRY_MEASUREMENTS * measurementMs);
+}
+
 type SelectionGeometry = {
     root: Rect | null;
     boardStage: Rect | null;
@@ -1833,7 +1857,9 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         if (browser === 'chromium' && mode === 'pvp' && width === 390 && height === 844) {
             await assertEdgeActionPopovers(page, rootSelector);
         }
+        const measurementStarted = Date.now();
         let current = await measureStable(page, rootSelector);
+        const measurementMs = Date.now() - measurementStarted;
         if (STRICT) {
             if (width >= 1280 && height >= 700) {
                 if (mode === 'solo') {
@@ -1849,10 +1875,20 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
             }
             // Equal grid samples can precede a delayed responsive render. Keep
             // every layout bound and capture the settled, validated measurement.
+            // The grid settled moments ago, so the first attempt re-reads the
+            // layout one frame pair after the checks above instead of paying for
+            // a second full settle; any failed attempt re-measures from scratch.
+            let attempt = 0;
             await expect(async () => {
-                current = await measureStable(page, rootSelector);
+                attempt += 1;
+                if (attempt === 1) {
+                    await settleLayout(page);
+                    current = await measure(page, rootSelector);
+                } else {
+                    current = await measureStable(page, rootSelector);
+                }
                 assertLayout(current, `${mode} ${width}x${height}`);
-            }).toPass({ timeout: 10_000 });
+            }).toPass({ timeout: layoutRetryBudget(measurementMs) });
         }
         measurements.push(current);
         if (browser === 'chromium') {
@@ -1965,6 +2001,15 @@ test('Solo-PvE combat layout viewport matrix', async ({ page, request }, testInf
         'ordinary combat results must retain the brief entrance polish').toBe(true);
     expect(resultAnimation.cinematic.some((rule) => rule.delay === '2.2s'),
         'authored story chapters must keep their explicit final-bark beat').toBe(true);
+    // Linux WebKit in CI runs this whole test in about two minutes. Playwright's
+    // WebKit on Windows has needed almost eight on a loaded machine, because the
+    // solo HUD's live countdown makes every desktop-width frame cost about a
+    // second (see layoutRetryBudget), and the suite-wide 240s would end a
+    // healthy run in the zoom checks. Extend the allowance only here, where the
+    // cost is frame-bound, so a hang during setup still fails at 240s.
+    // setTimeout counts from the test's start, so this is the same 600s total as
+    // the Tower shell test.
+    test.setTimeout(600_000);
     await captureMatrix(page, 'solo', '.mission-arena-fight', testInfo);
 });
 
