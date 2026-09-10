@@ -86,16 +86,32 @@ async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Pr
             image.src = new URL(url, document.baseURI).href;
         })))).filter((url): url is string => Boolean(url));
 
+        // An eager <img> that is still downloading is late, not broken. Judging
+        // it from a snapshot reported healthy artwork as broken whenever the
+        // preview server was slow: the Archives modal requests its bloodline art
+        // on open and was audited ~150ms later, before the bytes arrived. Give
+        // in-flight images the same 5s budget as the background probe above.
+        const brokenImages = (await Promise.all((Array.from(main.querySelectorAll("img")) as HTMLImageElement[])
+            .filter(visible)
+            .map((img) => {
+                const source = () => img.currentSrc || img.src;
+                if (img.complete) return img.naturalWidth === 0 ? source() : null;
+                if (img.loading === "lazy") return null;
+                return new Promise<string | null>((resolve) => {
+                    // A re-render can detach the element mid-wait; it is no longer on screen.
+                    const timeout = window.setTimeout(() => resolve(img.isConnected ? `${source()} (still loading after 5s)` : null), 5_000);
+                    const settle = () => {
+                        window.clearTimeout(timeout);
+                        resolve(img.naturalWidth === 0 ? source() : null);
+                    };
+                    img.addEventListener("load", settle, { once: true });
+                    img.addEventListener("error", settle, { once: true });
+                });
+            }))).filter((url): url is string => Boolean(url));
+
         return {
             brokenBackgrounds,
-            brokenImages: Array.from(main.querySelectorAll("img"))
-                .filter((image) => {
-                    if (!visible(image)) return false;
-                    const img = image as HTMLImageElement;
-                    if (img.complete) return img.naturalWidth === 0;
-                    return img.loading !== "lazy";
-                })
-                .map((image) => (image as HTMLImageElement).currentSrc || (image as HTMLImageElement).src),
+            brokenImages,
             clippedControls: controls
                 .filter((control) => {
                     const rect = control.getBoundingClientRect();
