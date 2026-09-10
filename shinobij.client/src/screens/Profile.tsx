@@ -27,6 +27,7 @@ import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
 import { auraSphereDustNeeded, getActiveAuraSphereBonuses, hasEquippedAuraSphere } from "../lib/aura-sphere";
 import { feedAuraSphereServer } from "../lib/aura-feed-api";
 import { canEquipElementJutsu, getCharacterBloodlines } from "../lib/bloodline";
+import { bloodlineNamesByJutsuId } from "../lib/bloodline-marker";
 import { STAT_KEYS, allocatedStatPoints, capStat, earnedForLevel, earnedStatPoints, normalizeStats } from "../lib/stats";
 import { compressDataUrl, isAnimatedImageFile, publishSharedImage } from "../lib/shared-images";
 import { getAllItems, getItemById } from "../lib/items";
@@ -866,13 +867,7 @@ export function Profile({
                 const learnedJutsus = learnedAnyJutsus.filter((jutsu) => canEquipElementJutsu(character, jutsu, savedBloodlines));
                 // Jutsu id -> granting bloodline name, so the loadout panel can
                 // label bloodline jutsu and filter the collection down to them.
-                // First bloodline wins when starter and equipped share a jutsu.
-                const bloodlineJutsuNames = new Map<string, string>();
-                for (const bloodline of getCharacterBloodlines(character, savedBloodlines)) {
-                    for (const bloodlineJutsu of bloodline.jutsus) {
-                        if (!bloodlineJutsuNames.has(bloodlineJutsu.id)) bloodlineJutsuNames.set(bloodlineJutsu.id, bloodline.name);
-                    }
-                }
+                const bloodlineJutsuNames = bloodlineNamesByJutsuId(getCharacterBloodlines(character, savedBloodlines));
                 if (learnedJutsus.length === 0) {
                     return (
                         <section className="profile-build-panel jutsu-workbench-empty">
