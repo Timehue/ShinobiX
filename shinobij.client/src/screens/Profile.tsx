@@ -1,5 +1,5 @@
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
-import { getAllJutsus } from "../lib/jutsu-loadout";
+import { getAllJutsus, liveEquippedJutsuIds } from "../lib/jutsu-loadout";
 import { useState, useEffect, useMemo, useRef, type ChangeEvent, type ReactNode } from "react";
 import "../styles/profile-skin.css";
 import "../styles/training-skin.css";
@@ -78,6 +78,12 @@ export function Profile({
     const [feedingAura, setFeedingAura] = useState(false);
     const feedingAuraRef = useRef(false);
     const allJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
+    // The slots that actually reach combat. An equipped id outlives the jutsu it
+    // points at (an admin-deleted custom jutsu is kept in the save by its mastery
+    // row), and such a dead id must not consume a loadout slot the player can
+    // never fill or see. Rebuilding the loadout from this list also prunes the
+    // dead id the next time the player edits their loadout.
+    const liveEquippedIds = liveEquippedJutsuIds(allJutsus, character.equippedJutsuIds);
     const allItems = getAllItems(creatorItems);
     // Every distinct equipped id across all slots (weapon, armor pieces, the
     // three combat-item slots, throwable, potion, aura, …). Deduped so legacy
@@ -368,10 +374,10 @@ export function Profile({
         });
     }
 
-    function placeJutsuInLoadout(id: string, slotIndex = character.equippedJutsuIds.length) {
-        const equippedIndex = character.equippedJutsuIds.indexOf(id);
+    function placeJutsuInLoadout(id: string, slotIndex = liveEquippedIds.length) {
+        const equippedIndex = liveEquippedIds.indexOf(id);
         if (equippedIndex >= 0) {
-            const ids = character.equippedJutsuIds.filter((jutsuId) => jutsuId !== id);
+            const ids = liveEquippedIds.filter((jutsuId) => jutsuId !== id);
             ids.splice(Math.min(Math.max(0, slotIndex), ids.length), 0, id);
             updateCharacter({ ...character, equippedJutsuIds: ids });
             return;
@@ -390,14 +396,14 @@ export function Profile({
         }
 
         const loadoutCap = maxLoadout(character);
-        if (character.equippedJutsuIds.length >= loadoutCap) {
+        if (liveEquippedIds.length >= loadoutCap) {
             alert(loadoutCap < 15
                 ? `You can only equip ${loadoutCap} jutsu. Shinobi Supporter raises the limit to 15.`
                 : "You can only equip 15 jutsu.");
             return;
         }
 
-        const ids = [...character.equippedJutsuIds];
+        const ids = [...liveEquippedIds];
         ids.splice(Math.min(Math.max(0, slotIndex), ids.length), 0, id);
         updateCharacter({
             ...character,
@@ -454,7 +460,7 @@ export function Profile({
             title: "Progress",
             rows: [
                 { label: "Growth", value: xpLabel, detail: character.level >= MAX_LEVEL ? "level cap reached" : "stat points toward next level", tone: "gold" },
-                { label: "Jutsu", value: `${formatAmount(character.equippedJutsuIds.length)}/${maxLoadout(character)}`, detail: "equipped loadout", tone: character.equippedJutsuIds.length > 0 ? "village" : "neutral" },
+                { label: "Jutsu", value: `${formatAmount(liveEquippedIds.length)}/${maxLoadout(character)}`, detail: "equipped loadout", tone: liveEquippedIds.length > 0 ? "village" : "neutral" },
                 { label: "Equipment", value: formatAmount(equippedItems.length), detail: "equipped items" },
             ],
         },
@@ -872,6 +878,7 @@ export function Profile({
                     <JutsuLoadoutPanel
                         character={character}
                         learnedJutsus={learnedJutsus}
+                        catalogJutsus={allJutsus}
                         onPlaceJutsu={placeJutsuInLoadout}
                         onUnequip={unequipJutsu}
                         onUnequipAll={() => updateCharacter({ ...character, equippedJutsuIds: [] })}
