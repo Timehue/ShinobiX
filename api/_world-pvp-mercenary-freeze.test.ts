@@ -1,24 +1,8 @@
-/*
- * `_storage` chooses its backend ONCE, at module-evaluation time:
- *   const _qaMemoryKv = process.env.SHINOBIX_QA_MEMORY_KV === '1'
- *
- * ES module imports are hoisted, so a STATIC import of any app module evaluates
- * that line before a single statement in this file runs — whatever order the
- * lines are written in. This file used to import `_war-mercenary-hire`
- * statically, which reaches `_storage` transitively, so the flag below was
- * always set too late: the suite fell through to the real Supabase client and
- * died in its `before` hook with
- *   "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set."
- * on any machine without production credentials — i.e. every developer machine
- * and any CI job not handed a service key. It is a unit test over pure helpers;
- * it should never have needed either.
- *
- * So: env first, then NO static value imports of app modules — everything that
- * can reach storage is pulled in from the `before` hook, which runs after this.
- * Type-only imports stay static because they are erased at compile time and
- * evaluate nothing. Same shape as every other storage-touching test in the tree
- * (api/bank/transfer.test.ts, api/pve/fight-outcome.test.ts, ...).
- */
+// `_storage` resolves its backend on first USE, so this no longer has to sit
+// above the imports to beat module evaluation — it is written here because that
+// is where it reads clearly. (It used to have to, and could not: ES imports are
+// hoisted, so the static import below always won and this suite bound itself to
+// the real Supabase client and died without credentials.)
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
 
@@ -26,13 +10,13 @@ import assert from 'node:assert/strict';
 import { before, beforeEach, describe, it } from 'node:test';
 import type { KvLike } from './_storage.js';
 import type { PvpSession } from './pvp/session.js';
-import type { WarMercenaryHireIdentity } from './_war-mercenary-hire.js';
-
-type MercenaryHireModule = typeof import('./_war-mercenary-hire.js');
-let WAR_MERCENARY_FUNDING_FIELD: MercenaryHireModule['WAR_MERCENARY_FUNDING_FIELD'];
-let helpWarMercenaryHire: MercenaryHireModule['helpWarMercenaryHire'];
-let settleWarMercenaryHire: MercenaryHireModule['settleWarMercenaryHire'];
-let warMercenaryHireFingerprint: MercenaryHireModule['warMercenaryHireFingerprint'];
+import {
+    WAR_MERCENARY_FUNDING_FIELD,
+    helpWarMercenaryHire,
+    settleWarMercenaryHire,
+    warMercenaryHireFingerprint,
+    type WarMercenaryHireIdentity,
+} from './_war-mercenary-hire.js';
 
 const NOW = Date.now();
 const WAR_KEY = 'world:war:leaf-vs-mist';
@@ -81,12 +65,6 @@ function battle(): PvpSession {
 }
 
 before(async () => {
-    ({
-        WAR_MERCENARY_FUNDING_FIELD,
-        helpWarMercenaryHire,
-        settleWarMercenaryHire,
-        warMercenaryHireFingerprint,
-    } = await import('./_war-mercenary-hire.js'));
     ({ kv } = await import('./_storage.js'));
     ({
         settlePvpVillageWarContinuation: settlePvp,
