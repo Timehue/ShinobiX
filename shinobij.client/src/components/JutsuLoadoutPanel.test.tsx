@@ -72,17 +72,28 @@ test("only equipped collection cards carry the badge, and both views share one c
     assert.match(source, /jutsu-collection-grid \$\{view === "list" \? "is-list-view" : ""\}/);
 });
 
-test("grid tiles keep the badge anchored to the bottom-right of the tile", () => {
+test("grid tiles anchor the badge to the art panel, not to the growing tile bottom", () => {
+    // A tile's height follows the jutsu name, so anchoring from the bottom walks
+    // the badge up onto a name that wraps in a narrow (88px) column.
+    const shared = css.match(/\.profile-page-card \.jutsu-equipped-badge\s*\{([^}]*)\}/);
+    assert.ok(shared, "expected the shared .jutsu-equipped-badge rule");
+    assert.match(shared[1], /position:\s*absolute;/);
+    assert.match(shared[1], /right:\s*7px;/);
+    assert.match(shared[1], /top:\s*57px;/);
+    assert.doesNotMatch(shared[1], /bottom:/);
+
+    // 57px only clears the name because it lands inside the 78px art panel.
     assert.match(
         css,
-        /\.profile-page-card \.jutsu-equipped-badge\s*\{[^}]*position:\s*absolute;[^}]*right:\s*7px;[^}]*bottom:\s*46px;/s,
+        /\.profile-page-card \.jutsu-collection-card \.jutsu-workbench-art\s*\{[^}]*height:\s*78px;/s,
     );
 });
 
 test("list rows re-anchor the badge into the art column, clear of the jutsu name", () => {
-    // The list row is half a grid tile tall and centres its copy column, so the
-    // tile's `bottom: 46px` lands on the name; the override must drop both of the
-    // inherited anchors, not just add new ones.
+    // A list row is half a grid tile tall and centres its copy column, so the
+    // shared anchor lands the badge on the name (and, once it is art-relative,
+    // on the quick-equip button); the override must drop both inherited anchors,
+    // not just add new ones.
     const override = css.match(
         /\.profile-page-card \.jutsu-collection-card\.is-list \.jutsu-equipped-badge\s*\{([^}]*)\}/,
     );
