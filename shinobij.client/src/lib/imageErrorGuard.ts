@@ -44,7 +44,9 @@ function installImageGuards(): void {
 
     // A successful retry, or a new src supplied by React, restores the same DOM
     // node. The old guard never did this and could leave a valid image hidden.
-    window.addEventListener("load", (e: Event) => {
+    // This must listen on document, not window: the DOM leaves Window out of a
+    // "load" event's path, so a window listener never sees an image load.
+    document.addEventListener("load", (e: Event) => {
         const img = e.target;
         if (!(img instanceof HTMLImageElement) || !imageRetryStates.has(img)) return;
         img.style.removeProperty("display");
