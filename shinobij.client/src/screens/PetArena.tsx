@@ -91,6 +91,7 @@ import {
     stripInlinePetImages,
     arenaSizeOf,
     parseWarfrontChallengePlan,
+    parseAcceptedWarfrontMatch,
     type ArenaMatchPayload,
     type WarfrontChallengePlan,
     type WarfrontChallengePlans,
@@ -725,7 +726,6 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         setBattleSetupIssue(null);
         battleSetupRetryRef.current = null;
         warfrontRewardSealRequest.current = Promise.resolve(seal);
-        clearSpentConsumables(blue.map((pet) => pet.id), scope);
         setArenaView("tactical");
         setArenaCountdown({
             secs: 5,
@@ -978,7 +978,9 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     },
                 });
                 if (!playerScopeIsActive(m.scope)) return false;
-                return applyPetBattleSettlement(data, m.scope, playerPetIds);
+                // Warfront never activates gear/consumables; preserve the
+                // authoritative equipped items returned by settlement.
+                return applyPetBattleSettlement(data, m.scope, []);
             },
         });
     }
@@ -1068,6 +1070,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             setArenaChallengeMsg(`This ${size}v${size} challenge needs ${size} available pets on each team. It was not started.`);
             return;
         }
+        let acceptedMatch: ArenaMatchPayload | null;
         try {
             const response = await fetch('/api/player/challenge', {
                 method: 'POST',
@@ -1078,9 +1081,14 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     responderWarfrontPlan: responderPlan,
                 } }),
             });
+            const payload = await response.json().catch(() => null) as { error?: unknown; warfrontMatch?: unknown } | null;
             if (!response.ok) {
-                const payload = await response.json().catch(() => null) as { error?: unknown } | null;
                 setArenaChallengeMsg(`❌ ${typeof payload?.error === "string" ? payload.error : "The Warfront invitation could not be accepted."}`);
+                return;
+            }
+            acceptedMatch = parseAcceptedWarfrontMatch(payload?.warfrontMatch);
+            if (!acceptedMatch) {
+                setArenaChallengeMsg("The accepted Warfront roster could not be verified. Reopen the invitation to recover its sealed teams.");
                 return;
             }
         } catch {
@@ -1088,7 +1096,8 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             return;
         }
         onArenaResponseHandled?.();
-        void startArenaMatch(myTeam, blue, challenge.petBattleSeed ?? 1, false, { blue: responderPlan, red: challengerPlan });
+        void startArenaMatch(acceptedMatch.red, acceptedMatch.blue, acceptedMatch.seed, false,
+            { blue: acceptedMatch.plans.red, red: acceptedMatch.plans.blue });
     }
 
     const selectedPet = combatEligiblePets.find((pet) => pet.id === selectedPetId) ?? combatEligiblePets.find((pet) => !isPetOnExpedition(pet));

@@ -1135,6 +1135,12 @@ async function settleLayout(page: Page): Promise<void> {
  * assuming a frame count, so the baseline is the settled board.
  */
 async function settleBoardGeometry(page: Page, rootSelector: string): Promise<void> {
+    await page.locator(rootSelector).evaluate(async (root) => {
+        await document.fonts.ready;
+        await Promise.all(root.getAnimations({ subtree: true })
+            .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime))
+            .map((animation) => animation.finished.catch(() => undefined)));
+    });
     const sampleGrid = () => page.evaluate((selector) => {
         const layer = document.querySelector(selector)?.querySelector('.hex-grid-layer');
         if (!layer) return '';
@@ -1142,9 +1148,9 @@ async function settleBoardGeometry(page: Page, rootSelector: string): Promise<vo
         return [box.x, box.y, box.width, box.height, getComputedStyle(layer).transform].join('|');
     }, rootSelector);
     let previous = await sampleGrid();
-    // Two consecutive agreements, each a frame pair plus a tick apart, outlast a
-    // React commit that is merely pending rather than finished.
-    for (let attempt = 0, agreements = 0; attempt < 24 && agreements < 2; attempt += 1) {
+    // Four agreements cover a deferred responsive commit even when the first
+    // pair of samples still describes the previous viewport under browser load.
+    for (let attempt = 0, agreements = 0; attempt < 24 && agreements < 4; attempt += 1) {
         await settleLayout(page);
         await page.waitForTimeout(50);
         const current = await sampleGrid();
@@ -1827,11 +1833,7 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         if (browser === 'chromium' && mode === 'pvp' && width === 390 && height === 844) {
             await assertEdgeActionPopovers(page, rootSelector);
         }
-        const current = await measureStable(page, rootSelector);
-        measurements.push(current);
-        if (browser === 'chromium') {
-            await writeScreenshotWithRetry(page, resolve(directory, `${width}x${height}.png`));
-        }
+        let current = await measureStable(page, rootSelector);
         if (STRICT) {
             if (width >= 1280 && height >= 700) {
                 if (mode === 'solo') {
@@ -1845,7 +1847,16 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
                     await expect(root.locator('.combat-companion-panel')).toHaveCount(0);
                 }
             }
-            assertLayout(current, `${mode} ${width}x${height}`);
+            // Equal grid samples can precede a delayed responsive render. Keep
+            // every layout bound and capture the settled, validated measurement.
+            await expect(async () => {
+                current = await measureStable(page, rootSelector);
+                assertLayout(current, `${mode} ${width}x${height}`);
+            }).toPass({ timeout: 10_000 });
+        }
+        measurements.push(current);
+        if (browser === 'chromium') {
+            await writeScreenshotWithRetry(page, resolve(directory, `${width}x${height}.png`));
         }
     }
     await writeArtifactWithRetry(page, resolve(directory, 'measurements.json'), `${JSON.stringify(measurements, null, 2)}\n`);
@@ -1896,9 +1907,13 @@ test('Solo-PvE combat layout viewport matrix', async ({ page, request }, testInf
     const battleLog = soloRoot.locator('.combat-text-log');
     await expect(battleLog).toBeVisible();
     expect((await battleLog.boundingBox())?.height ?? 0, 'desktop Battle Log must be a readable panel').toBeGreaterThanOrEqual(140);
-    const soloBoard = await soloRoot.locator('.hex-battlefield').boundingBox();
-    const soloGrid = await soloRoot.locator('.hex-grid-layer').boundingBox();
-    expect((soloGrid?.width ?? 0) / Math.max(1, soloBoard?.width ?? 0), 'desktop hex grid should use most of the battlefield art').toBeGreaterThanOrEqual(0.6);
+    // The grid fits itself after viewport changes. Read both widths in one
+    // frame and wait for that fit rather than measuring the previous viewport.
+    await expect.poll(() => soloRoot.evaluate((root) => {
+        const board = root.querySelector('.hex-battlefield')!.getBoundingClientRect();
+        const grid = root.querySelector('.hex-grid-layer')!.getBoundingClientRect();
+        return grid.width / Math.max(1, board.width);
+    }), { message: 'desktop hex grid should use most of the battlefield art' }).toBeGreaterThanOrEqual(0.6);
     const soloArtwork = await soloRoot.locator('.combat-jutsu-thumb img').evaluateAll((images) => images.map((image) => {
         const art = image as HTMLImageElement;
         const artRect = art.getBoundingClientRect();

@@ -1,0 +1,35 @@
+{
+  "seeds": 1,
+  "charged": true,
+  "ultimatesOnly": true,
+  "guarded": true,
+  "templates": 160,
+  "assumptions": "Same level and rarity; balanced growth; no gear or traits; every signature with full readiness and meter against a full-health target ordered to Guard (actual turn priority is preserved, so a faster attack may land before Guard). Separate fresh session per probe. Both counter and neutral/resisted matchups included.",
+  "rows": [
+    {
+      "level": 1,
+      "hits": 7500,
+      "oneShots": 0,
+      "maxHpFraction": 0.8657718120805369
+    },
+    {
+      "level": 25,
+      "hits": 7500,
+      "oneShots": 0,
+      "maxHpFraction": 0.8494271685761048
+    },
+    {
+      "level": 50,
+      "hits": 7500,
+      "oneShots": 0,
+      "maxHpFraction": 0.8333333333333334
+    },
+    {
+      "level": 100,
+      "hits": 7500,
+      "oneShots": 0,
+      "maxHpFraction": 0.7913978494623656
+    }
+  ],
+  "worst": []
+}

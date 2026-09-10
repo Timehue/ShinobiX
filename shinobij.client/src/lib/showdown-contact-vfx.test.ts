@@ -3,7 +3,21 @@ import test from "node:test";
 import { createShowdownSession, resolveShowdownRound } from "../../../api/_pet-showdown/engine";
 import { PET_CATALOG } from "../../../api/pet/_catalog";
 import type { Pet } from "../../../api/_pet-sim/pet-types";
-import { showdownContactEffectKind, showdownContactOutcome, showdownProjectilePath } from "./showdown-contact-vfx";
+import { showdownContactEffectKind, showdownContactOutcome, showdownProjectilePath, showdownProjectileSample } from "./showdown-contact-vfx";
+
+test("projectile wakes follow the lob and retain world spacing across lane lengths", () => {
+    for (const distance of [0, 0.1, 2, 8, 12]) {
+        const path = { fromX: -2, fromZ: 4, toX: -2 + distance, toZ: 4 };
+        for (const p of [0, 0.25, 0.5, 0.75, 1]) {
+            const head = showdownProjectileSample(path, p, 1.7);
+            const tail = showdownProjectileSample(path, p, 1.7, 0.44);
+            assert.ok(Object.values(tail).every(Number.isFinite));
+            assert.ok(tail.x <= head.x);
+            assert.ok(Math.abs(head.x - tail.x - Math.min(distance * p, 0.44)) < 1e-8);
+            assert.ok(Math.abs(tail.y - (1.2 + Math.sin(tail.progress * Math.PI) * 1.7)) < 1e-8);
+        }
+    }
+});
 
 test("contact visuals distinguish damage, guarded damage, protection and a miss", () => {
     assert.equal(showdownContactOutcome({ damage: 40, guarded: false }), "hit");

@@ -5,6 +5,7 @@ import type { JutsuType } from "../types/core";
 import { JutsuEffectCards } from "./JutsuEffectCards";
 import { describeJutsuEffects, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { getJutsuMastery } from "../lib/jutsu-scaling";
+import { orderEquippedJutsus } from "../lib/jutsu";
 import { isPatreonSubscriber, LOADOUT_CAP_BASE, LOADOUT_CAP_SUB } from "../lib/entitlements";
 import { legacySignatureFor } from "../lib/legacy-jutsu-slot";
 import { resolveLoadoutLensDiscipline } from "../lib/jutsu-loadout-lens";
@@ -172,12 +173,17 @@ function SelectedJutsuDetails({
 export function JutsuLoadoutPanel({
     character,
     learnedJutsus,
+    catalogJutsus,
     onPlaceJutsu,
     onUnequip,
     onUnequipAll,
 }: {
     character: Character;
     learnedJutsus: Jutsu[];
+    // Everything the character can field, INCLUDING jutsu that are currently
+    // element-locked. Slots resolve against this rather than learnedJutsus so
+    // the grid shows exactly what combat will hand the player.
+    catalogJutsus: Jutsu[];
     onPlaceJutsu: (jutsuId: string, slotIndex?: number) => void;
     onUnequip: (jutsuId: string) => void;
     onUnequipAll: () => void;
@@ -195,11 +201,14 @@ export function JutsuLoadoutPanel({
     const [workspaceTab, setWorkspaceTab] = useState<"loadout" | "collection">(academyLoadoutStep ? "collection" : "loadout");
     const subscriber = isPatreonSubscriber(character);
     const unlockedSlots = subscriber ? LOADOUT_CAP_SUB : LOADOUT_CAP_BASE;
-    const loadoutFull = character.equippedJutsuIds.length >= unlockedSlots;
-
-    const equippedJutsus = character.equippedJutsuIds
-        .map((id) => learnedJutsus.find((jutsu) => jutsu.id === id))
-        .filter((jutsu): jutsu is Jutsu => Boolean(jutsu));
+    // Resolve slots the way combat does (orderEquippedJutsus), against the full
+    // catalog. An ID whose jutsu no longer exists — an admin-deleted custom
+    // jutsu, kept in the save by its mastery row — resolves to nothing and must
+    // not hold a slot: counting it wedged the loadout at 14 usable jutsu while
+    // the cap check insisted all 15 were taken.
+    const equippedJutsus = orderEquippedJutsus(catalogJutsus, character.equippedJutsuIds);
+    const equippedCount = equippedJutsus.length;
+    const loadoutFull = equippedCount >= unlockedSlots;
     const automaticLensDiscipline = resolveLoadoutLensDiscipline(character, learnedJutsus);
     const lensDiscipline = lensOverride ?? automaticLensDiscipline;
     const selectedJutsu = learnedJutsus.find((jutsu) => jutsu.id === selectedId) ?? equippedJutsus[0] ?? learnedJutsus[0];
@@ -244,7 +253,7 @@ export function JutsuLoadoutPanel({
                     <header className="jutsu-workbench-header">
                         <div className="jutsu-workbench-heading">
                             <h2>Jutsu Loadout</h2>
-                            <strong>{character.equippedJutsuIds.length} / {LOADOUT_CAP_SUB}</strong>
+                            <strong>{equippedCount} / {LOADOUT_CAP_SUB}</strong>
                         </div>
                         <button
                             type="button"
@@ -267,7 +276,7 @@ export function JutsuLoadoutPanel({
                             onClick={() => setWorkspaceTab("loadout")}
                         >
                             <span>Loadout</span>
-                            <strong>{character.equippedJutsuIds.length}/{unlockedSlots}</strong>
+                            <strong>{equippedCount}/{unlockedSlots}</strong>
                         </button>
                         <button
                             type="button"
@@ -394,7 +403,7 @@ export function JutsuLoadoutPanel({
                     <div className="jutsu-collection-loadout-summary">
                         <span className="jutsu-collection-summary-icon" aria-hidden="true">◫</span>
                         <div>
-                            <strong>{character.equippedJutsuIds.length} of {unlockedSlots} slots equipped</strong>
+                            <strong>{equippedCount} of {unlockedSlots} slots equipped</strong>
                             <small>{loadoutFull ? "Loadout full — manage slots to make room." : "Quick equip fills the next open battle slot."}</small>
                         </div>
                         <button type="button" onClick={() => setWorkspaceTab("loadout")}>Manage Loadout</button>

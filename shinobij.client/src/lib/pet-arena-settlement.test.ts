@@ -246,11 +246,8 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
 });
 
 test("the retired lane war is unreachable from anything a player can open", () => {
-    // Hollow Warfront is the RITE now. The lane war it replaced survives only as
-    // the Pet Ladder's tactical engine and replay viewer, so no player-facing
-    // entry may launch it — otherwise "Hollow Warfront" means two different
-    // games depending on how you got there, which is exactly the confusion this
-    // rebuild set out to remove.
+    // Arena, co-op, and the offline ranked ladder all use the Rite now. Retained
+    // lane-war implementation files must not expose another player-facing mode.
     const coop = readFileSync(new URL("../components/ArenaCoopLobby.tsx", import.meta.url), "utf8");
     for (const source of [arenaSource, coop]) {
         assert.equal(source.includes("PetWarfrontMatch"), false,
@@ -269,7 +266,11 @@ test("a Warfront challenge lets each participant command their own roster agains
 
     assert.match(arenaSource, /challengerWarfrontPlan,[\s\S]*fetch\('\/api\/player\/challenge'/);
     assert.match(arenaSource, /responderWarfrontPlan: responderPlan/);
-    assert.match(arenaSource, /startArenaMatch\(myTeam, blue,[\s\S]*\{ blue: responderPlan, red: challengerPlan \}/);
+    assert.match(arenaSource, /acceptedMatch = parseAcceptedWarfrontMatch\(payload\?\.warfrontMatch\)/);
+    assert.match(arenaSource, /if \(!acceptedMatch\) \{[\s\S]*return;[\s\S]*startArenaMatch\(acceptedMatch\.red, acceptedMatch\.blue, acceptedMatch\.seed, false,[\s\S]*\{ blue: acceptedMatch\.plans\.red, red: acceptedMatch\.plans\.blue \}/,
+        "the responder must replay the server-accepted roster, seed, and plans in their own orientation");
+    assert.doesNotMatch(arenaSource, /startArenaMatch\(myTeam, blue,/,
+        "mutable local pets must not replace the accepted server snapshots");
     assert.match(arenaSource, /if \(!response\.ok\)[\s\S]*Nothing was started/);
     assert.match(arenaSource, /startArenaMatch\(pendingArenaMatch\.blue,[\s\S]*pendingArenaMatch\.plans\)/);
     assert.match(challenge, /plans: \{ blue: bluePlan, red: redPlan \}/);

@@ -1,6 +1,11 @@
 /** Asset revision for the roster-wide identity-performance skeletal pass. */
 export const PROPER_PET_ANIMATION_ASSET_REVISION = "20260825-identity-v5";
 
+/** Individual rig repairs invalidate only the model whose mesh/binding changed. */
+export const PET_RIG_REPAIR_REVISIONS: Readonly<Record<string, string>> = Object.freeze({
+    'legendary-9': '20260909-bear-arm-repair-v1',
+});
+
 /** These four showcase pets keep the detailed individual banks authored before
  * the roster-wide identity pass. Every other production GLB now carries its own
  * deterministic species signature plus dedicated entrance, cast, guard, rest,

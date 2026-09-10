@@ -4480,7 +4480,8 @@ function WorldMapContent({
                                 <div style={{ position: "fixed", inset: 0, zIndex: 1000000, display: "grid", placeItems: "center", background: "rgba(4,6,12,0.72)" }} onClick={() => setVaultPrompt(null)}>
                                     <div style={{ background: "#141926", border: "1px solid #38405a", borderRadius: 14, padding: "1.1rem 1.2rem", maxWidth: 380, width: "min(92vw, 380px)", textAlign: "center" }} onClick={e => e.stopPropagation()}>
                                         <img src="/landmarks/anbu-vault.webp" alt="" style={{ width: 120, height: 120, objectFit: "contain" }} />
-                                        <h3 style={{ margin: "0.3rem 0" }}>{vaultPrompt.village} War Vault</h3>
+                                        <h3 style={{ margin: "0.3rem 0 0" }}>Sector Stronghold</h3>
+                                        <p style={{ fontSize: 12, opacity: 0.7, margin: "0.15rem 0 0" }}>{vaultPrompt.village} · Sector {vaultPrompt.sector}</p>
                                         <p style={{ fontSize: 13, opacity: 0.82, margin: "0.3rem 0 0.8rem" }}>
                                             Their war supplies sit behind that sealed door — and one of their Anbu guards it.
                                             Break through and you can bleed this sector's war economy. If you fall, you leave with nothing.

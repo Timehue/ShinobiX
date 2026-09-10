@@ -319,11 +319,11 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
             {
                 kicker: "Lesson 6 · Formation",
                 title: "The front line is the decision",
-                body: "Two of your pets hold the FRONT line and meet the enemy first; the other two start behind them. That single choice changes who absorbs the opening and who gets to act freely. You can see the enemy front line before you lock yours — their back line stays sealed, so the opening is a read rather than a guess.",
+                body: "Place each pet in one of ten starting cells: two ranks by five files. Front cells engage sooner; back cells give ranged pets and support more time. Two enemy positions are scouted before a casual match, while the rest stay sealed. Your spacing changes who can reach, protect, or strike several pets at once.",
                 points: [
-                    "A defender in front holds. A sage in front dies — unless it is the sage they never reach.",
-                    "Leading with your durable pets is the obvious line, and it is not always the best one.",
-                    "Answer their front, or go around it.",
+                    "Put durable defenders between opponents and fragile support.",
+                    "Spread out against splash attacks; keep allies close enough to support each other.",
+                    "Trained health, attack, defense, and speed remain part of the fight.",
                 ],
             },
             {
@@ -338,12 +338,13 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
             },
             {
                 kicker: "Lesson 6 · The re-form",
-                title: "One adjustment, after you have seen them fight",
-                body: "After the opening clash the Rite pauses and shows you what every pet has left. You may move one forward or back — once per Rite — or hold the line you committed. Your band regroups between clashes, and the side that lost regroups harder, so losing the first clash is a setback rather than a defeat.",
+                title: "Adjust after you have seen them fight",
+                body: "In casual Warfront, each unfinished clash pauses to show what every pet has left. Reposition your team or hold the line before the next clash. Your band regroups between clashes, and the side that lost regroups harder. Ranked Warfront instead uses the formation you saved for every clash, so your defense can fight while you are offline.",
                 points: [
                     "Pull a badly wounded pet off the front before it is finished.",
                     "A pet that fell returns wounded, not dead — the second clash is still yours to take.",
                     "Holding the line is a real answer when your read was already right.",
+                    "Enter Ranked Beastbound Warfront from Arena District, save four pets and their cells, then challenge a nearby rank. Update your saved defense after training or changing the team.",
                 ],
             },
         ],

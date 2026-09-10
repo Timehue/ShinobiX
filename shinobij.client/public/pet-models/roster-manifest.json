@@ -11247,7 +11247,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "3310330B677E10E1B39598BA57B59354A3D10A49F01ABECB7FE2EE08719624CF",
+      "sha256": "93A37DC0412D52844BCBEF2CD0A27FA1EFB3C1C08C88486312D46355F8C3D3CF",
       "visualReview": {
         "passed": true,
         "reason": "Crystal Bear is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -11297,7 +11297,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 495136,
+        "bytes": 1096924,
         "triangles": 40000,
         "vertices": 24821,
         "skins": 1,
@@ -11308,7 +11308,7 @@
         "family": "armored",
         "rig": "biped",
         "signatureSeed": 2830718546,
-        "identityFingerprint": "37E349D0477F6D9131CBC483",
+        "identityFingerprint": "64BFE8442476A2425F7F1DF9",
         "clips": [
           "idle",
           "idle_2",

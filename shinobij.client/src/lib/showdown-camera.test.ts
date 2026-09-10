@@ -1,12 +1,42 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SHOT_EXTENT, fitDistance, framedExtent, horizontalFov, showdownBackdropOffset, showdownFov, shotWeight } from "./showdown-camera";
+import { PerspectiveCamera, Vector3 } from "three";
+import { showdownTechniqueCamera } from "./showdown-camera";
+import { SHOT_EXTENT, SHOWDOWN_PORTRAIT_FRAMING, fitDistance, framedExtent, horizontalFov, showdownBackdropOffset, showdownCameraBlend, showdownFov, shotWeight } from "./showdown-camera";
+
+test("camera settling is identical at 30, 60 and 144 Hz", () => {
+    const positions = [30, 60, 144].map(fps => {
+        let x = 0;
+        for (let frame = 0; frame < fps; frame++) x += (10 - x) * showdownCameraBlend(1 / fps, 3.4);
+        return x;
+    });
+    assert.ok(Math.max(...positions) - Math.min(...positions) < 1e-9);
+    assert.equal(showdownCameraBlend(0, 3.4), 0);
+});
 
 const DESKTOP = 16 / 9;
 /** The viewport the too-zoomed report came from. */
 const REPORTED = 1520 / 1030;
 const PHONE_PORTRAIT = 390 / 844;
 const FOV = 48;
+
+test("elemental signature framing separates both pets on every lane", () => {
+    for (const a of [[-3.4, 0, 4.1], [0, 0, 4.1], [3.4, 0, 4.1]]) {
+        for (const b of [[-3.4, 0, -4.1], [0, 0, -4.1], [3.4, 0, -4.1]]) {
+            for (const ground of [false, true]) {
+                const shot = showdownTechniqueCamera(a, b, ground);
+                const camera = new PerspectiveCamera(48, 16 / 9, .1, 80);
+                camera.position.set(...shot.position); camera.lookAt(...shot.look); camera.updateMatrixWorld();
+                const actor = new Vector3(a[0], 1, a[2]).project(camera);
+                const target = new Vector3(b[0], 1, b[2]).project(camera);
+                assert.ok(Math.abs(actor.x - target.x) > .55, "victim silhouette must not sit behind caster");
+                assert.ok(Math.abs(actor.x) < 1 && Math.abs(target.x) < 1, "both bodies fit");
+                const enemyShot = showdownTechniqueCamera(b, a, ground);
+                assert.ok(enemyShot.position[2] > b[2], "enemy casts must not put the camera behind the enemy row");
+            }
+        }
+    }
+});
 
 /** Is a half-extent of `horiz` wide and `vert` tall inside the frustum at `distance`? */
 function fits(horiz: number, vert: number, distance: number, fovDeg: number, aspect: number): boolean {
@@ -113,9 +143,10 @@ test("the lens opens on narrow viewports and is left alone on wide ones", () => 
     assert.equal(showdownFov(DESKTOP), 48);
     assert.ok(showdownFov(1) > 48);
     assert.ok(showdownFov(PHONE_PORTRAIT) > showdownFov(1));
-    // Past ~62 the perspective stretch on a near body reads as a fisheye.
-    assert.ok(showdownFov(PHONE_PORTRAIT) <= 62);
-    assert.ok(showdownFov(0.2) <= 62, "the ceiling must hold for any absurd aspect");
+    // The elevated portrait master shot supports a wider lens while desktop
+    // retains the original perspective.
+    assert.ok(showdownFov(PHONE_PORTRAIT) <= 74);
+    assert.ok(showdownFov(0.2) <= 74, "the ceiling must hold for any absurd aspect");
 });
 
 test("opening the lens keeps phone framing inside the arena shell", () => {
@@ -126,4 +157,22 @@ test("opening the lens keeps phone framing inside the arena shell", () => {
     const responsive = fitDistance(horiz, vert, showdownFov(PHONE_PORTRAIT), PHONE_PORTRAIT);
     assert.ok(fixed > 18, "a fixed 48-degree lens could NOT frame this inside the shell");
     assert.ok(responsive <= 18, `responsive lens should fit inside containment, got ${responsive.toFixed(1)}`);
+    const signature = SHOT_EXTENT.super;
+    assert.ok(fitDistance(signature.horiz, signature.vert, showdownFov(PHONE_PORTRAIT), PHONE_PORTRAIT) <= 18, 'signature extent must fit too');
+});
+
+test("portrait master shot keeps all six bodies above the command deck", () => {
+    const camera = new PerspectiveCamera(showdownFov(PHONE_PORTRAIT), PHONE_PORTRAIT, 0.1, 80);
+    camera.position.set(...SHOWDOWN_PORTRAIT_FRAMING.position);
+    camera.lookAt(0, 1, -0.6);
+    camera.setViewOffset(390, 844, 0, Math.round(844 * SHOWDOWN_PORTRAIT_FRAMING.opticalShift), 390, 844);
+    camera.updateMatrixWorld();
+    assert.ok(camera.position.length() < 18);
+    // Include one unit of silhouette width outside the left and right slots.
+    for (const x of [-4.6, 0, 4.6]) for (const z of [-4.1, 4.1]) for (const y of [0, 2.7]) {
+        const point = new Vector3(x, y, z).project(camera);
+        assert.ok(Math.abs(point.x) < 1, 'body must fit horizontally');
+        assert.ok(point.y > 0.08, 'feet must remain above the lower command/party panels');
+        assert.ok(point.y < 0.8, 'head must remain below the top HUD');
+    }
 });
