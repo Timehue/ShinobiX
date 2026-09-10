@@ -4,7 +4,7 @@ import type { ActionReceipt } from '../_receipts.js';
 import { createHash, randomUUID, randomBytes } from 'crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { kv } from '../_storage.js';
-import { isWildSector } from '../../shared/sector-geo.js';
+import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
 import { resolveSectorWeather, sectorWeatherElements } from '../../shared/sector-weather.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -1682,6 +1682,29 @@ function normalizeBiome(b: unknown): string {
     if (typeof b === 'string' && VALID_BIOMES.has(b)) return b;
     return 'central';
 }
+
+/**
+ * The biome a session is sealed with — the ground the fight is actually fought on.
+ *
+ * The biome is not decoration: it decides terrainMultiplier's +10% to the
+ * matching school, and it selects which rotation table the sky is drawn from
+ * (shared/sector-weather). Taking it from the request body therefore let a
+ * tampered client pick its own ground while standing on someone else's.
+ *
+ *  - RANKED is fought on neutral ground, always ('central'). A session creator
+ *    could otherwise hold a ladder-long advantage.
+ *  - A WILD SECTOR has a server-known biome (shared/sector-geo, the same table
+ *    the world map paints from), so it is derived, never read from the body. An
+ *    honest client sends exactly this value, so real play is unaffected.
+ *  - Anything else — arena, direct challenges, story backdrops — has no ground
+ *    truth to appeal to and keeps the client-chosen environment, as before.
+ */
+export function sealedSessionBiome(rewardSector: unknown, bodyBiome: unknown, isRanked: boolean): string {
+    if (isRanked) return 'central';
+    const sector = Math.floor(Number(rewardSector));
+    if (isWildSector(sector)) return normalizeBiome(sectorBiomeOf(sector));
+    return normalizeBiome(bodyBiome);
+}
 function normalizeElement(e: unknown): string {
     if (typeof e === 'string' && VALID_ELEMENTS.has(e)) return e;
     return '';
@@ -2633,7 +2656,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // tampered client holding a valid match token can't pick favorable
             // terrain. Casual fights keep the client-chosen environment.
             const isRankedSession = rankedStamp.ranked === true;
-            const sealedBiome = isRankedSession ? 'central' : normalizeBiome(biome);
+            // On a WILD SECTOR the biome is a fact the server already holds
+            // (shared/sector-geo, the same table the world map paints from), so it
+            // is derived here rather than read from the body. The body's biome
+            // decides two damage terms — terrainMultiplier's +10% to the matching
+            // school, and which rotation table the sky is drawn from — so trusting
+            // it let a tampered client pick its own ground while fighting on
+            // someone else's. An honest client sends this exact value, so nothing
+            // changes for real play; only the lie is refused.
+            //
+            // Non-sector casual fights (no wild rewardSector — arena, challenges,
+            // story backdrops) have no ground truth to appeal to and deliberately
+            // keep the client-chosen environment, as before. Ranked stays neutral.
+            const rewardSectorNum = Math.floor(Number(rewardSector));
+            const sealedBiome = sealedSessionBiome(rewardSector, biome, isRankedSession);
             let sealedWeatherPos = isRankedSession ? '' : normalizeElement(weatherPositiveElement);
             let sealedWeatherNeg = isRankedSession ? '' : normalizeElement(weatherNegativeElement);
 
@@ -2646,20 +2682,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let p1HomeTerrain = '';
             let p2HomeTerrain = '';
             if (!isRankedSession) {
-                const secNum = Math.floor(Number(rewardSector));
+                const secNum = rewardSectorNum;
                 if (Number.isFinite(secNum) && secNum > 0) {
                     let territory: Record<string, unknown> | null = null;
                     try {
                         territory = await kv.get<Record<string, unknown>>(`world:territory:${secNum}`);
                     } catch { territory = null; /* read failed — schedule still applies, no home buff */ }
-                    // World-sector weather is SERVER-derived, not client-chosen: the
-                    // same shared function the client renders from
-                    // (shared/sector-weather: biome + sector + UTC day, clan
-                    // override first), fed the server clock — so every player
-                    // fighting in this sector today is sealed the same sky and a
-                    // tampered client can't pick a favourable forecast. Non-sector
-                    // casual fights (no wild rewardSector) keep the client-chosen
-                    // environment as before.
+                    // World-sector weather is SERVER-derived rather than taken from
+                    // the body: the same shared function the client renders from
+                    // (shared/sector-weather: biome + sector + weather window, clan
+                    // override first), fed the server's own clock. The SECTOR and the
+                    // WINDOW are therefore beyond a tampered client's reach, so it
+                    // cannot wait for or claim a favourable forecast.
+                    //
+                    // The biome is not open to it either: on a wild sector
+                    // `sealedBiome` is sectorBiomeOf(rewardSector), not the body (see
+                    // where it is derived above), so the rotation table this draw
+                    // comes from is the real ground's table.
+                    //
+                    // The sky is sealed HERE, at session creation, and does not follow
+                    // the schedule mid-fight — a window turning under a live fight must
+                    // not move the damage terms both sides agreed to. Non-sector casual
+                    // fights (no wild rewardSector) keep the client-chosen environment.
                     if (isWildSector(secNum)) {
                         const weather = resolveSectorWeather(sealedBiome, secNum, Date.now(), territory);
                         const elements = sectorWeatherElements(weather);

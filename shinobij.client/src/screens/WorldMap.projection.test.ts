@@ -129,7 +129,13 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // 296 (+19): the garrison affordance. A Card/Pet war whose defence never
         // answers can now be pressed instead of running the clock out at 0-0, and
         // the plate says plainly that it scores less than beating a real defender.
-        lineCount(commandPanelBody) <= 294,
+        // 295 (+1): the sky forecast, which is MANDATORY WIRING only — one import.
+        // Weather now turns three times per in-world day instead of once per real
+        // day (shared/sector-weather), so "what is coming" became worth printing;
+        // the readout is its own leaf (SectorSkyForecast.tsx) and holds its own
+        // tick, and it renders INSIDE the existing sky-name span rather than as a
+        // third child, so the kicker's space-between layout is untouched.
+        lineCount(commandPanelBody) <= 295,
         `WorldSectorCommandPanel.tsx grew past 294 lines; commands and authority must remain in WorldMap.`,
     );
     assert.ok(

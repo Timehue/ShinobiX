@@ -1028,7 +1028,7 @@ export function applyWarCrateGrants(character: Character, warCrateIds: string[])
 
 /**
  * The weather a sector shows right now — ONE sky for every player. Derived
- * from (biome, sector, server UTC day) by shared/sector-weather so the server
+ * from (biome, sector, weather window) by shared/sector-weather so the server
  * seals the identical value when it applies weather to a sector fight
  * (api/pvp/session.ts). A holding clan's stamped `territory.weather` wins.
  * A breached or dormant holding stops supplying it: that gate lives INSIDE the

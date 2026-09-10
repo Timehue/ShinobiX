@@ -10,6 +10,7 @@ import { after, before, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { contractSectorsForDay, sectorContractFor, utcDayOf } from '../shared/sector-contracts.js';
 import { MAX_SCARS_PER_SECTOR } from '../shared/sector-scars.js';
+import { WORLD_HOUR_MS } from '../shared/world-clock.js';
 import { WILD_SECTOR_IDS } from '../shared/sector-geo.js';
 
 process.env.NODE_ENV = 'test';
@@ -33,9 +34,15 @@ const UNPOSTED = WILD_SECTOR_IDS.find((sector) => !BOARD.includes(sector))!;
 
 // Fixed instants on TODAY (the day the board belongs to), so the contract
 // lookup inside the credit path resolves to the same posting either way.
+//
+// The HOURS are in-world hours: the world's day is compressed to two real hours
+// (shared/world-clock), so an in-world hour is five real minutes. Both instants
+// therefore land inside the first two real hours of the UTC day, which keeps
+// them on today's board while still sitting either side of nightfall.
 const midday = new Date(Date.now());
-const NOON = Date.UTC(midday.getUTCFullYear(), midday.getUTCMonth(), midday.getUTCDate(), 12);
-const MIDNIGHT = Date.UTC(midday.getUTCFullYear(), midday.getUTCMonth(), midday.getUTCDate(), 23);
+const UTC_DAY_START = Date.UTC(midday.getUTCFullYear(), midday.getUTCMonth(), midday.getUTCDate());
+const NOON = UTC_DAY_START + 12 * WORLD_HOUR_MS;
+const MIDNIGHT = UTC_DAY_START + 23 * WORLD_HOUR_MS;
 
 before(async () => {
     ({ kv } = await import('./_storage.js'));
