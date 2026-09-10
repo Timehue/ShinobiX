@@ -324,9 +324,12 @@ export function UserView({
                                             title={`${a.name} — click for details`}
                                         >
                                             <div className="achievement-icon">
+                                                {/* The image guard retries a failed badge; if the retry
+                                                    loads, undo the hide so the art covers the emoji again. */}
                                                 <img
                                                     src={`/badges/${a.id}.webp`}
                                                     alt=""
+                                                    onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = ""; }}
                                                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
                                                 />
                                                 <span className="achievement-emoji" aria-hidden>{a.icon}</span>
@@ -361,6 +364,7 @@ export function UserView({
                             <img
                                 src={`/badges/${selectedAchievement.id}.webp`}
                                 alt=""
+                                onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = ""; }}
                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
                             />
                             <span className="achievement-detail-emoji" aria-hidden>{selectedAchievement.icon}</span>
