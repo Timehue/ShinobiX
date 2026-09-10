@@ -2267,7 +2267,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 1215
+            "line": 1258
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
@@ -2316,7 +2316,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 1223
+            "line": 1266
           }
         ]
       },
@@ -2327,7 +2327,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 1380
+            "line": 1381
           }
         ]
       },
@@ -2403,7 +2403,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3278
+            "line": 3295
           }
         ]
       },
@@ -2522,7 +2522,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 1036
+            "line": 1037
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -2623,7 +2623,7 @@
           },
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 620
+            "line": 663
           }
         ]
       },
@@ -2638,7 +2638,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 1389
+            "line": 1390
           }
         ]
       },
@@ -2693,7 +2693,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/29-clan-exchange-storefront.css",
-            "line": 1419
+            "line": 1599
           },
           {
             "source": "shinobij.client/src/styles/jutsu-training-skin.css",
@@ -2713,7 +2713,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 1149
+            "line": 1150
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
@@ -2990,7 +2990,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3223
+            "line": 3240
           },
           {
             "source": "shinobij.client/src/styles/story-archive-guidance.css",
@@ -3102,11 +3102,11 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 852
+            "line": 853
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 1027
+            "line": 1028
           }
         ]
       },
@@ -3535,7 +3535,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/29-clan-exchange-storefront.css",
-            "line": 1418
+            "line": 1598
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
@@ -3547,11 +3547,11 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 936
+            "line": 937
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3200
+            "line": 3217
           }
         ]
       },
@@ -3761,11 +3761,11 @@
           },
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 651
+            "line": 694
           },
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 1241
+            "line": 1284
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -4082,7 +4082,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3186
+            "line": 3203
           }
         ]
       },

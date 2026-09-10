@@ -581,6 +581,22 @@ function bankFor(pet, family, profile, type) {
                 : type === "biped" ? bipedBank(tuning, family)
                     : profile === "serpentine" || family === "serpentine" || family === "aquatic" ? serpentineBank(tuning)
                         : quadrupedBank(tuning, family);
+    if (pet.id === 'legendary-9') {
+        // Repaired bear arms now carry the visible paws. Negative local X
+        // drives this rig toward +Z; the old positive-X punches went backward.
+        // A committed two-paw strike extends on Showdown's 54% contact cue.
+        const attack = core.find(take => take.name === 'attack');
+        attack.times = scaledTimes([0, 0.14, 0.30, 0.40, 0.54, 0.70, 0.85, 1], tuning.pace);
+        attack.tracks = [
+            t('root', [N, [0, -0.025, -0.025], [0, -0.035, -0.045], [0, 0.018, 0.075], [0, 0.035, 0.16], [0, 0.015, 0.075], [0, 0, 0.02], N]),
+            r('spine', [N, [-0.10, 0, 0], [-0.16, 0, 0], [0.12, 0, 0], [0.18, 0, 0], [0.09, 0, 0], [-0.02, 0, 0], N]),
+            r('head', [N, [0.04, 0, 0], [0.08, 0, 0], [-0.06, 0, 0], [-0.10, 0, 0], [-0.03, 0, 0], N, N]),
+            r('upper_arm.L', [[-0.12, 0, -0.07], [0.14, 0, -0.10], [0.28, 0, -0.12], [-0.85, 0, -0.04], [-1.25, 0, -0.03], [-0.55, 0, -0.06], [-0.16, 0, -0.07], [-0.12, 0, -0.07]]),
+            r('upper_arm.R', [[-0.12, 0, 0.07], [0.10, 0, 0.10], [0.22, 0, 0.12], [-0.92, 0, 0.04], [-1.32, 0, 0.03], [-0.58, 0, 0.06], [-0.16, 0, 0.07], [-0.12, 0, 0.07]]),
+            r('forearm.L', [N, [0.03, 0, 0], [0.05, 0, 0], [-0.08, 0, 0], [-0.10, 0, 0], [-0.04, 0, 0], N, N]),
+            r('forearm.R', [N, [0.03, 0, 0], [0.05, 0, 0], [-0.08, 0, 0], [-0.10, 0, 0], [-0.04, 0, 0], N, N]),
+        ];
+    }
     const bank = [...core, ...identityPresentationBank(core, tuning)];
     return { bank, tuning };
 }

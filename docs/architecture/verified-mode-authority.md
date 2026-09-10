@@ -1,5 +1,10 @@
 # Verified combat-mode authority map
 
+> September 2026 update: the request to consolidate Pet Tactical into Beastbound
+> Warfront supersedes this snapshot's standalone Tactical surface-gap finding.
+> Ranked play now resolves the Rite from saved pet stats and sealed formations;
+> see [the current Warfront specification](../hollow-warfront-rite.md).
+
 Verified against commit d8948a311680b92a2a672ae0a0b35714e73e8b4f on 2026-08-14. This is a static call-path audit of the mounted client and server code. It records what is live in this revision, not what a design document or unmounted migration module says should be live.
 
 > [!NOTE]

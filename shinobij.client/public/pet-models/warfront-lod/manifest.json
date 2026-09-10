@@ -12,8 +12,8 @@
     "minSilhouetteIoU": 0.975
   },
   "totals": {
-    "sourceBytes": 83249012,
-    "lodBytes": 52611712,
+    "sourceBytes": 83850800,
+    "lodBytes": 52651196,
     "sourceTriangles": 5905329,
     "lodTriangles": 1604711
   },
@@ -745,17 +745,17 @@
     },
     {
       "sourceUrl": "/pet-models/roster/legendary-9.glb",
-      "lodUrl": "/pet-models/warfront-lod/roster/legendary-9.glb?v=20260902-battle-lod-v1",
-      "sourceBytes": 495136,
-      "lodBytes": 290772,
-      "sourceSha256": "3310330b677e10e1b39598ba57b59354a3d10a49f01abecb7fe2ee08719624cf",
-      "lodSha256": "486347eb65ce5f7041af209d29982f0e5ee8c129c6742d10de18cb241b3b3435",
+      "lodUrl": "/pet-models/warfront-lod/roster/legendary-9.glb?v=20260902-battle-lod-v1-93a37dc0412d",
+      "sourceBytes": 1096924,
+      "lodBytes": 330256,
+      "sourceSha256": "93a37dc0412d52844bcbef2cd0a27fa1efb3c1c08c88486312d46355f8c3d3cf",
+      "lodSha256": "20612149d1442d56bbe593704442b04ef5bfb5559886f35e320bfdf22892fde0",
       "sourceTriangles": 40000,
       "lodTriangles": 10000,
       "reduction": 0.75,
       "lowPolySource": false,
       "sourceVertices": 24821,
-      "lodVertices": 7455,
+      "lodVertices": 7575,
       "skins": 1,
       "joints": 21,
       "animations": 13,
@@ -763,8 +763,8 @@
       "textures": 1,
       "boundsMaxDelta": 0,
       "silhouettes": {
-        "front": 0.994879,
-        "threeQuarter": 0.994879,
+        "front": 0.995323,
+        "threeQuarter": 0.995164,
         "side": 0.996632
       }
     },

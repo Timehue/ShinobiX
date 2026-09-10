@@ -83,7 +83,7 @@ test("entering the attack bank after a dash cues the strike window on both model
 test("body travel and melee wakes consume the same beat clock, route, and acceleration", () => {
     const vfx = readFileSync(join(here, "PetShowdownVfx.tsx"), "utf8");
     assert.match(source, /showdownBeatProgress\(beat, now\)/);
-    assert.match(vfx, /showdownBeatProgress\(beat, performance\.now\(\)\)/);
+    assert.match(vfx, /showdownBeatProgress\(beat, (?:performance\.now\(\)|now)\)/);
     assert.match(source, /showdownRoutePoint\(beat\.meleeRoute, drive\)/);
     assert.match(vfx, /melee\.route = beat\.meleeRoute/);
     assert.match(vfx, /melee\.progress = showdownMeleeDrive\(frac, rhythm\)/);
@@ -91,7 +91,8 @@ test("body travel and melee wakes consume the same beat clock, route, and accele
 
 test("contact sparks, impact paint and mechanic accents all consume the server verdict", () => {
     const vfx = readFileSync(join(here, "PetShowdownVfx.tsx"), "utf8");
-    assert.match(vfx, /melee\.outcome = showdownContactOutcome\(ev\.targets\[0\]\)/);
+    assert.match(vfx, /const targetId = showdownActionTargetId\(ev\)/);
+    assert.match(vfx, /melee\.outcome = showdownContactOutcome\(ev\.targets\.find\(t => t\.id === targetId && !t\.splash\)\)/);
     assert.match(source, /const contactKind = showdownContactEffectKind\(event\.moveKind, target\)/);
     assert.match(source, /impactFlipbookKey\(event\.element, contactKind, false\)/);
     assert.match(source, /kind: contactKind/);

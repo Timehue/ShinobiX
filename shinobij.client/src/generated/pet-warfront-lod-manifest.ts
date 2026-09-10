@@ -147,7 +147,7 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/roster/legendary-9.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/legendary-9.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/legendary-9.glb?v=20260902-battle-lod-v1-93a37dc0412d",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },

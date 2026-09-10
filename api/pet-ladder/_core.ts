@@ -1,11 +1,11 @@
 /*
- * Pure (kv/auth-free) core for the global Pet Ladders (Pet Coliseum 1v1 + Pet
- * Tactical 4v4). The handler (api/pet-ladder/ladder.ts) owns I/O — auth, the KV
+ * Pure (kv/auth-free) core for the global Pet Ladders (Pet Coliseum 1v1 +
+ * Beastbound Warfront 4v4). The handler (api/pet-ladder/ladder.ts) owns I/O — auth, the KV
  * blobs, the lock, seed minting, notifications — and delegates every decision here
  * so it can be unit-tested in isolation (api/pet-ladder/_core.test.ts).
  *
  * MODEL (Sword-x-Staff style positional ladder, rank 1..N over real players):
- *   • You SET A DEFENSE (1 pet for Coliseum, a 4-pet team for Tactical), sealed
+ *   • You SET A DEFENSE (1 pet for Coliseum, a 4-pet Warfront formation), sealed
  *     server-side from your save so a challenger fights the pet/team YOU chose —
  *     even while you are OFFLINE.
  *   • Clicking Challenge builds a 3-opponent OFFER: up to 3 humans ranked CLOSE
@@ -23,9 +23,10 @@ import { petStatCeil, petJutsuPowerCeil } from "../_pet-stat-ceil.js";
 import { resolveWarDuel } from "../_pet-showdown/war-duel.js";
 import type { ShowdownReplayScript } from "../../shared/pet-showdown-contract.js";
 import type { Pet as CinePet } from "../_pet-sim/pet-types.js";
-import { type ArenaRole, type ArenaSlot } from "./_arena-sim.js";
-import { runWarfrontMatch, type WfStance, type WfDoctrine } from "../_pet-sim/pet-warfront-sim.js";
-import type { Pet, PetJutsu, PetLoadout, JutsuElement, PetRole, PetTrait } from "./_pet-types.js";
+import type { ArenaRole } from "./_arena-sim.js";
+import { runWarfrontRite } from "../_pet-sim/pet-warfront-rite.js";
+import { defaultWarfrontLadderPlan, parseWarfrontLadderPlan, type WarfrontLadderPlan } from "../../shared/warfront-ladder-plan.js";
+import type { Pet, PetJutsu, PetLoadout, JutsuElement, PetRole, PetSubRole, PetTrait } from "./_pet-types.js";
 
 export type Mode = "coliseum" | "tactical";
 export const COLISEUM_PETS = 1;
@@ -39,6 +40,7 @@ export const petsForMode = (mode: Mode): number => (mode === "tactical" ? TACTIC
 
 // ── Snapshots ────────────────────────────────────────────────────────────────
 const ARENA_ROLES = new Set<ArenaRole>(["defender", "tracker", "assassin", "sage"]);
+const PET_SUBROLES = new Set<PetSubRole>(["tank", "bruiser", "striker", "assassin", "kite", "control", "support"]);
 
 /** A pet frozen to the combat-relevant fields the engines need — INCLUDING its
  *  loadout, so the ladder honors the wearer's PvP gear + consumable. Built from the
@@ -46,6 +48,9 @@ const ARENA_ROLES = new Set<ArenaRole>(["defender", "tracker", "assassin", "sage
 export type LadderPet = {
     id: string;
     name: string;
+    templateId?: string;
+    evolutionStage?: 0 | 1 | 2;
+    paletteVariantId?: string;
     rarity: string;
     level: number;
     hp: number;
@@ -55,6 +60,7 @@ export type LadderPet = {
     element: string;
     trait?: string;
     role?: ArenaRole;
+    subRole?: PetSubRole;
     jutsus: PetJutsu[];
     loadout?: { pvp?: string; consumable?: string };
 };
@@ -73,23 +79,18 @@ export type LadderEntry = {
 };
 
 /** The sealed, heavy defense doc (stored per player per mode, read only on a fight). */
-/** A ladder defense. For TACTICAL this is the whole pre-match setup a player
- *  would make if they were present: the team, the opening FORMATION and the team
- *  DOCTRINE. Both new fields default when absent, so a defense saved before they
- *  existed still resolves. */
+/** The tactical storage key is retained so the Warfront migration preserves
+ * rankings and sealed rosters. Old lane stances/doctrines are no longer scored. */
 export type DefenseDoc = {
     slug: string; name: string; village?: string; mode: Mode;
     pets: LadderPet[]; roles: ArenaRole[];
-    stance?: WfStance; doctrine?: WfDoctrine;
+    warfrontPlan?: WarfrontLadderPlan;
     updatedAt: number;
 };
 
-export const LADDER_STANCES: readonly WfStance[] = ["balanced", "siege", "jungle", "headhunt", "turtle"];
-export const LADDER_DOCTRINES: readonly WfDoctrine[] = ["vanguard", "bulwark", "zealot", "warden-pact"];
-export const parseStance = (v: unknown): WfStance =>
-    (LADDER_STANCES as readonly string[]).includes(String(v)) ? v as WfStance : "balanced";
-export const parseDoctrineChoice = (v: unknown): WfDoctrine =>
-    (LADDER_DOCTRINES as readonly string[]).includes(String(v)) ? v as WfDoctrine : "vanguard";
+/** Legacy defenses gain a legal, visible opening formation without losing rank. */
+export const ladderWarfrontPlan = (defense: DefenseDoc): WarfrontLadderPlan =>
+    parseWarfrontLadderPlan(defense.warfrontPlan) ?? defaultWarfrontLadderPlan();
 
 const clampStat = (v: unknown, min: number, max: number, dflt: number): number => {
     const n = typeof v === "number" && Number.isFinite(v) ? Math.round(v) : dflt;
@@ -127,6 +128,9 @@ export function snapshotLadderPet(raw: Record<string, unknown>): LadderPet {
     return {
         id: String(raw.id ?? ""),
         name: String(raw.name ?? "Pet").slice(0, 40),
+        ...(typeof raw.templateId === "string" ? { templateId: raw.templateId.trim().slice(0, 80) } : {}),
+        ...([0, 1, 2].includes(raw.evolutionStage as number) ? { evolutionStage: raw.evolutionStage as 0 | 1 | 2 } : {}),
+        ...(typeof raw.paletteVariantId === "string" ? { paletteVariantId: raw.paletteVariantId.trim().slice(0, 40) } : {}),
         rarity,
         level: clampStat(raw.level, 1, 100, 1),
         hp: clampStat(raw.hp, 1, petStatCeil(rarity, "hp"), 600),
@@ -136,6 +140,7 @@ export function snapshotLadderPet(raw: Record<string, unknown>): LadderPet {
         element: String(raw.element ?? "Fire"),
         trait: typeof raw.trait === "string" ? raw.trait : undefined,
         role: ARENA_ROLES.has(raw.role as ArenaRole) ? (raw.role as ArenaRole) : undefined,
+        subRole: PET_SUBROLES.has(raw.subRole as PetSubRole) ? raw.subRole as PetSubRole : undefined,
         jutsus,
         ...(pvp || consumable ? { loadout: { ...(pvp ? { pvp } : {}), ...(consumable ? { consumable } : {}) } } : {}),
     };
@@ -147,8 +152,10 @@ export const petLite = (p: LadderPet): PetLite => ({ name: p.name, element: p.el
 export function toPet(p: LadderPet): Pet {
     return {
         id: p.id, name: p.name, rarity: (p.rarity as Pet["rarity"]) ?? "standard", level: p.level,
+        templateId: p.templateId, evolutionStage: p.evolutionStage, paletteVariantId: p.paletteVariantId,
         hp: p.hp, attack: p.attack, defense: p.defense, speed: p.speed,
         element: p.element as JutsuElement, trait: p.trait as PetTrait | undefined, role: p.role as PetRole | undefined,
+        subRole: p.subRole,
         jutsus: p.jutsus,
         ...(p.loadout ? { loadout: p.loadout as PetLoadout } : {}),
     };
@@ -161,7 +168,7 @@ export function toPet(p: LadderPet): Pet {
  * owned. Mirrors api/arena/_lobby-core.ts:chooseOwnedPets but keeps the loadout.
  */
 export function chooseOwnedLadderPets(owned: Array<Record<string, unknown>>, petIds: unknown, count: number): LadderPet[] | null {
-    if (!Array.isArray(petIds) || petIds.length !== count) return null;
+    if (!Array.isArray(petIds) || petIds.length !== count || new Set(petIds.map(String)).size !== count) return null;
     const pool = owned.slice();
     const chosen: LadderPet[] = [];
     for (const id of petIds) {
@@ -201,6 +208,22 @@ const J = (name: string, kind: PetJutsu["kind"], power: number): PetJutsu => ({ 
 const aiPet = (id: string, name: string, rarity: string, level: number, hp: number, attack: number, defense: number, speed: number, element: string, role: ArenaRole, jutsus: PetJutsu[]): LadderPet =>
     ({ id, name, rarity, level, hp, attack, defense, speed, element, role, jutsus });
 
+const warfrontAiPet = (...args: Parameters<typeof aiPet>): LadderPet => {
+    const pet = aiPet(...args);
+    return {
+        ...pet,
+        templateId: `starter-${pet.element.toLowerCase()}`,
+        evolutionStage: 0,
+        // Easy opponents still carry authored moves so their role, element,
+        // model and VFX follow the same path as an owned pet.
+        jutsus: [J(`${pet.element} Strike`, "damage", 45),
+            pet.role === "sage" ? J("Mending Wave", "heal", 35)
+                : pet.role === "defender" ? J("Guarding Shell", "shield", 35)
+                    : pet.role === "tracker" ? J("Tracking Mark", "mark", 25)
+                        : J("Pouncing Fang", "damage", 50)],
+    };
+};
+
 // 5 easy single pets for the Coliseum ladder.
 export const AI_COLISEUM: LadderPet[] = [
     aiPet("ai-col-0", "Straw Sentinel", "standard", 8, 300, 26, 22, 22, "Earth", "defender", [J("Bash", "damage", 60)]),
@@ -210,37 +233,37 @@ export const AI_COLISEUM: LadderPet[] = [
     aiPet("ai-col-4", "Spark Mite", "standard", 10, 240, 36, 14, 34, "Lightning", "assassin", [J("Zap", "damage", 72)]),
 ];
 
-// 5 easy 4-pet teams for the Tactical ladder.
+// 5 easy 4-pet teams for the Beastbound Warfront ladder.
 export const AI_TACTICAL: Array<{ name: string; pets: LadderPet[] }> = [
     { name: "Academy Cubs", pets: [
-        aiPet("ai-tac-0-0", "Cub Guard", "standard", 9, 360, 30, 30, 24, "Earth", "defender", []),
-        aiPet("ai-tac-0-1", "Cub Scout", "standard", 9, 280, 34, 18, 36, "Wind", "tracker", []),
-        aiPet("ai-tac-0-2", "Cub Striker", "standard", 9, 250, 40, 16, 38, "Fire", "assassin", []),
-        aiPet("ai-tac-0-3", "Cub Mender", "standard", 9, 300, 26, 22, 28, "Water", "sage", []),
+        warfrontAiPet("ai-tac-0-0", "Cub Guard", "standard", 9, 360, 30, 30, 24, "Earth", "defender", []),
+        warfrontAiPet("ai-tac-0-1", "Cub Scout", "standard", 9, 280, 34, 18, 36, "Wind", "tracker", []),
+        warfrontAiPet("ai-tac-0-2", "Cub Striker", "standard", 9, 250, 40, 16, 38, "Fire", "assassin", []),
+        warfrontAiPet("ai-tac-0-3", "Cub Mender", "standard", 9, 300, 26, 22, 28, "Water", "sage", []),
     ] },
     { name: "Straw Patrol", pets: [
-        aiPet("ai-tac-1-0", "Straw Wall", "standard", 10, 380, 30, 32, 22, "Earth", "defender", []),
-        aiPet("ai-tac-1-1", "Straw Runner", "standard", 10, 290, 36, 18, 38, "Lightning", "tracker", []),
-        aiPet("ai-tac-1-2", "Straw Fang", "standard", 10, 255, 42, 16, 40, "Fire", "assassin", []),
-        aiPet("ai-tac-1-3", "Straw Sage", "standard", 10, 300, 26, 24, 28, "Water", "sage", []),
+        warfrontAiPet("ai-tac-1-0", "Straw Wall", "standard", 10, 380, 30, 32, 22, "Earth", "defender", []),
+        warfrontAiPet("ai-tac-1-1", "Straw Runner", "standard", 10, 290, 36, 18, 38, "Lightning", "tracker", []),
+        warfrontAiPet("ai-tac-1-2", "Straw Fang", "standard", 10, 255, 42, 16, 40, "Fire", "assassin", []),
+        warfrontAiPet("ai-tac-1-3", "Straw Sage", "standard", 10, 300, 26, 24, 28, "Water", "sage", []),
     ] },
     { name: "Tide Recruits", pets: [
-        aiPet("ai-tac-2-0", "Tide Bulwark", "standard", 11, 400, 32, 34, 24, "Water", "defender", []),
-        aiPet("ai-tac-2-1", "Tide Tracker", "standard", 11, 300, 38, 20, 40, "Wind", "tracker", []),
-        aiPet("ai-tac-2-2", "Tide Edge", "standard", 11, 260, 44, 16, 42, "Lightning", "assassin", []),
-        aiPet("ai-tac-2-3", "Tide Healer", "standard", 11, 310, 28, 24, 30, "Water", "sage", []),
+        warfrontAiPet("ai-tac-2-0", "Tide Bulwark", "standard", 11, 400, 32, 34, 24, "Water", "defender", []),
+        warfrontAiPet("ai-tac-2-1", "Tide Tracker", "standard", 11, 300, 38, 20, 40, "Wind", "tracker", []),
+        warfrontAiPet("ai-tac-2-2", "Tide Edge", "standard", 11, 260, 44, 16, 42, "Lightning", "assassin", []),
+        warfrontAiPet("ai-tac-2-3", "Tide Healer", "standard", 11, 310, 28, 24, 30, "Water", "sage", []),
     ] },
     { name: "Ember Drills", pets: [
-        aiPet("ai-tac-3-0", "Ember Shield", "standard", 12, 410, 34, 34, 26, "Fire", "defender", []),
-        aiPet("ai-tac-3-1", "Ember Hunter", "standard", 12, 305, 40, 20, 42, "Wind", "tracker", []),
-        aiPet("ai-tac-3-2", "Ember Blade", "standard", 12, 265, 46, 18, 44, "Fire", "assassin", []),
-        aiPet("ai-tac-3-3", "Ember Warder", "standard", 12, 315, 30, 26, 30, "Earth", "sage", []),
+        warfrontAiPet("ai-tac-3-0", "Ember Shield", "standard", 12, 410, 34, 34, 26, "Fire", "defender", []),
+        warfrontAiPet("ai-tac-3-1", "Ember Hunter", "standard", 12, 305, 40, 20, 42, "Wind", "tracker", []),
+        warfrontAiPet("ai-tac-3-2", "Ember Blade", "standard", 12, 265, 46, 18, 44, "Fire", "assassin", []),
+        warfrontAiPet("ai-tac-3-3", "Ember Warder", "standard", 12, 315, 30, 26, 30, "Earth", "sage", []),
     ] },
     { name: "Gale Cadets", pets: [
-        aiPet("ai-tac-4-0", "Gale Tower", "standard", 13, 420, 36, 36, 26, "Earth", "defender", []),
-        aiPet("ai-tac-4-1", "Gale Stalker", "standard", 13, 310, 42, 22, 44, "Wind", "tracker", []),
-        aiPet("ai-tac-4-2", "Gale Talon", "standard", 13, 270, 48, 18, 46, "Lightning", "assassin", []),
-        aiPet("ai-tac-4-3", "Gale Oracle", "standard", 13, 320, 32, 26, 32, "Water", "sage", []),
+        warfrontAiPet("ai-tac-4-0", "Gale Tower", "standard", 13, 420, 36, 36, 26, "Earth", "defender", []),
+        warfrontAiPet("ai-tac-4-1", "Gale Stalker", "standard", 13, 310, 42, 22, 44, "Wind", "tracker", []),
+        warfrontAiPet("ai-tac-4-2", "Gale Talon", "standard", 13, 270, 48, 18, 46, "Lightning", "assassin", []),
+        warfrontAiPet("ai-tac-4-3", "Gale Oracle", "standard", 13, 320, 32, 26, 32, "Water", "sage", []),
     ] },
 ];
 
@@ -379,27 +402,38 @@ export function resolveColiseum(attacker: LadderPet, defender: LadderPet, seed: 
 export function coliseumScript(attacker: LadderPet, defender: LadderPet, seed: number): ShowdownReplayScript {
     return resolveWarDuel(coliseumInput(attacker, defender, seed)).script;
 }
-/** Tactical 4v4: true ⇒ the ATTACKER (blue) won. Items applied for both teams. */
-export function resolveTactical(attacker: DefenseDoc, defender: DefenseDoc, seed: number): boolean {
-    const blue: ArenaSlot[] = attacker.pets.map((p, i) => ({ pet: toPet(p), role: attacker.roles[i] ?? "tracker" }));
-    const red: ArenaSlot[] = defender.pets.map((p, i) => ({ pet: toPet(p), role: defender.roles[i] ?? "tracker" }));
-    // Resolve the game people ACTUALLY play. The tactical arena is the Hollow
-    // Warfront lane war, but this used to run the retired capture-the-scroll
-    // deathmatch — so a ranked defense was scored in a mode nobody plays. Each
-    // side now brings its own opening formation and team doctrine.
-    //
-    // WAR COUNCIL IS AUTO FOR BOTH SIDES. The council is a 30-second interactive
-    // buy popup and neither player is present for a ladder resolve, so an
-    // interactive one would hang or silently pass. "balanced" is the same policy
-    // the client locks for PvP/co-op, where determinism matters for the same reason.
-    // Same cast rationale as resolveColiseum: the generated mirror types its Pet
-    // as the full client shape, while toPet yields the combat-relevant subset the
-    // sim actually reads. Runtime-safe; the field sets the engine touches match.
-    type WfSlots = Parameters<typeof runWarfrontMatch>[0];
-    return runWarfrontMatch(
-        blue as unknown as WfSlots, red as unknown as WfSlots, seed,
-        "balanced", "balanced", undefined,
-        { blue: parseStance(attacker.stance), red: parseStance(defender.stance) },
-        { blue: parseDoctrineChoice(attacker.doctrine), red: parseDoctrineChoice(defender.doctrine) },
-    ).winner === "blue";
+/** Resolve the same Beastbound Warfront used by the arena: best of three 4v4
+ * clashes, from authoritative pet stats and each owner's sealed positions.
+ * Ranked formations hold between clashes while both owners are offline.
+ * Gear and consumables follow the arena's equipment-free Warfront rules. */
+export function resolveLadderWarfront(attacker: DefenseDoc, defender: DefenseDoc, seed: number) {
+    type Band = Parameters<typeof runWarfrontRite>[0];
+    const band = (defense: DefenseDoc): Band => defense.pets.map((pet, slot) => ({
+        ...toPet(pet), role: pet.role ?? defense.roles[slot] ?? "tracker",
+    })) as unknown as Band;
+    return runWarfrontRite(band(attacker), band(defender), seed, ladderWarfrontPlan(attacker), ladderWarfrontPlan(defender));
 }
+
+/** Older defenses omitted model identity. Recover only missing presentation
+ * fields from the same owned instance; never refresh its sealed combat kit. */
+export function hydrateLadderVisualIdentity(defense: DefenseDoc, owned: Array<Record<string, unknown>>): DefenseDoc {
+    const currentById = new Map(owned.map((pet) => [String(pet.id ?? ""), pet]));
+    return {
+        ...defense,
+        pets: defense.pets.map((pet) => {
+            const current = currentById.get(pet.id);
+            if (!current) return pet;
+            const identity = snapshotLadderPet(current);
+            return {
+                ...pet,
+                templateId: pet.templateId ?? identity.templateId,
+                evolutionStage: pet.evolutionStage ?? identity.evolutionStage,
+                paletteVariantId: pet.paletteVariantId ?? identity.paletteVariantId,
+            };
+        }),
+    };
+}
+
+/** Compatibility export for callers using the historical ladder key. */
+export const resolveTactical = (attacker: DefenseDoc, defender: DefenseDoc, seed: number): boolean =>
+    resolveLadderWarfront(attacker, defender, seed).winner === "blue";

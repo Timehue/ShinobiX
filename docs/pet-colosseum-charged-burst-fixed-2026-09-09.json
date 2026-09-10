@@ -1,0 +1,27 @@
+{
+  "seeds": 4,
+  "charged": true,
+  "templates": 160,
+  "assumptions": "Same level and rarity; balanced growth; no gear or traits; every damaging technique, with full readiness and signature meter against an unguarded full-health target. Separate fresh session per probe. Both counter and neutral/resisted matchups included.",
+  "rows": [
+    {
+      "level": 1,
+      "hits": 111160,
+      "oneShots": 0,
+      "maxHpFraction": 0.8859416445623343
+    },
+    {
+      "level": 10,
+      "hits": 111160,
+      "oneShots": 0,
+      "maxHpFraction": 0.8840579710144928
+    },
+    {
+      "level": 25,
+      "hits": 111160,
+      "oneShots": 0,
+      "maxHpFraction": 0.8822269807280514
+    }
+  ],
+  "worst": []
+}
