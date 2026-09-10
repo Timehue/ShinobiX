@@ -98,8 +98,13 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // was already here, as one extra argument and one extra prop pair.
         // 5,279: retain main's contest/garrison wiring and the refactor's
         // extracted sector art, ambience and gate menu. Exact merged count.
-        lineCount(worldMapSource) <= 5_279,
-        `WorldMap.tsx grew past 5,279 lines; retired overview layers must stay retired.`,
+        // 5,280 (+1): the Sector Stronghold walk-up prompt names the structure in
+        // its heading and moved the owning village and sector number to a subtitle
+        // line, so the heading stops wrapping as "<Village> Sector Stronghold".
+        // One <p> of presentation inside a prompt that was already here — no map
+        // layer, retired or otherwise. Exact achieved count, no buffer.
+        lineCount(worldMapSource) <= 5_280,
+        `WorldMap.tsx grew past 5,280 lines; retired overview layers must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,
@@ -140,8 +145,18 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         `WorldSectorCommandPanel.types.ts grew past 106 lines; it holds row/prop shapes only — logic belongs in the panel, and commands in WorldMap.`,
     );
     assert.ok(
-        lineCount(overlaySource) <= 165,
-        `WorldSectorOverlayLayer.tsx grew past 165 lines; portals and workflows must remain in WorldMap.`,
+        // 166 (+1): the Rift and the Sector Stronghold stopped wearing
+        // .atlas-landmark — the world atlas' label-card chrome — and became board
+        // structures like the shrine standee beside them: art as the marker, a
+        // nameplate pill at the foot, and (the rift) a rimmed aperture, since no
+        // rift landmark has an alpha channel to cut out. Most of the +19 gross is
+        // the two comment blocks recording WHY the atlas class must not come back;
+        // the only logic added is one boolean that steps the stronghold aside when
+        // a shrine's per-sector position would collide with its fixed one (sector
+        // 23, measured 58x49px). Presentation only — no portal, no workflow, no
+        // authority moved out of WorldMap. Exact achieved count, no buffer.
+        lineCount(overlaySource) <= 166,
+        `WorldSectorOverlayLayer.tsx grew past 166 lines; portals and workflows must remain in WorldMap.`,
     );
     assert.ok(
         lineCount(dialogSource) <= 375,
@@ -254,8 +269,8 @@ test("WorldWandererDialog preserves forced-choice dismissal and button order", (
 test("WorldSectorOverlayLayer preserves direct-grid actor and marker order", () => {
     assertOrdered(overlaySource, [
         "wanderers.map",
-        'className="atlas-landmark atlas-hollowRift sector-rift-structure"',
-        'className="atlas-landmark sector-rift-structure"',
+        'className="sector-rift-standee"',
+        'className="sector-vault-standee"',
         "<SectorTraceMarkers",
         "<SectorShrineStandee",
         "<SectorWeeklyBossActor",

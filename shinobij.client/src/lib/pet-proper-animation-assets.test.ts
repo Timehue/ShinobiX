@@ -7,6 +7,7 @@ import { STARTER_PETS } from "../data/starter-pets.ts";
 import { STARTER_EVOLUTIONS } from "../data/pet-evolutions.ts";
 import {
     INDIVIDUAL_PET_ANIMATION_MODEL_IDS,
+    PET_RIG_REPAIR_REVISIONS,
     PROPER_PET_ANIMATION_ASSET_REVISION,
 } from "./pet-proper-animation-assets.ts";
 import { PET_SHOWDOWN_ANIMATION_ASSET_REVISION } from "./pet-showdown-animation-assets.ts";
@@ -118,7 +119,7 @@ test("all 160 catalog identities resolve to a versioned runtime GLB with the ful
         assert.ok(revision, `${pet.id}: runtime GLB is not cache-versioned`);
         const expectedRevision = INDIVIDUAL_PET_ANIMATION_MODEL_IDS.has(model.visualId)
             ? PET_SHOWDOWN_ANIMATION_ASSET_REVISION
-            : PROPER_PET_ANIMATION_ASSET_REVISION;
+            : PET_RIG_REPAIR_REVISIONS[model.visualId] ?? PROPER_PET_ANIMATION_ASSET_REVISION;
         assert.equal(revision, expectedRevision, `${pet.id}: stale runtime asset revision`);
         const path = resolve(import.meta.dirname, `../../public${assetUrl}`);
         const json = parseGlb(path);

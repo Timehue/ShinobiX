@@ -30,7 +30,7 @@ float luma(vec3 c) {
 
 vec3 glow(vec2 p) {
     vec3 c = texture2D(tDiffuse, p).rgb;
-    return c * smoothstep(glowThreshold, 1.0, max(c.r, max(c.g, c.b)));
+    return c * smoothstep(glowThreshold, 1.0, luma(c));
 }
 
 void main() {
@@ -54,10 +54,17 @@ void main() {
     float edge = abs(luma(north.rgb) - luma(south.rgb)) + abs(luma(west.rgb) - luma(east.rgb));
     color = mix(color, 0.25 * (north + south + west + east), clamp((edge - 0.06) * 3.0, 0.0, 0.72));
 
-    vec2 shift = offset * vec2(1.0, resolution.x / max(resolution.y, 1.0));
+    // Offset is measured in pixels so high-DPR displays do not magnify it.
+    // Keep the subject sharp; a faint fringe lives only at the frame edges.
+    float fringe = smoothstep(0.18, 0.65, length(vUv - vec2(0.5, 0.46)));
+    vec2 shift = offset * px * fringe;
     vec4 redSample = texture2D(tDiffuse, vUv + shift);
     vec4 blueSample = texture2D(tDiffuse, vUv - shift);
-    gl_FragColor = vec4(redSample.r, color.g, blueSample.b, max(color.a, max(redSample.a, blueSample.a)));
+    vec3 base = texture2D(tDiffuse, vUv).rgb;
+    // Preserve the processed RGB. Replacing R/B with raw samples applied the
+    // glow/blur to green alone and produced colored ghosts around every edge.
+    color.rgb += vec3(redSample.r - base.r, 0.0, blueSample.b - base.b);
+    gl_FragColor = vec4(max(color.rgb, vec3(0.0)), color.a);
 }
 `;
 
@@ -73,7 +80,7 @@ export const SHOWDOWN_POST_SHADER = {
     uniforms: {
         tDiffuse: { value: null },
         resolution: { value: new Vector2(1, 1) },
-        offset: { value: new Vector2(0.0003, 0.0002) },
+        offset: { value: new Vector2(0, 0) },
         strength: { value: 0 },
         glowThreshold: { value: 0.88 },
         glowIntensity: { value: 0.12 },

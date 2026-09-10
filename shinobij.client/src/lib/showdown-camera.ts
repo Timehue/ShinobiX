@@ -31,6 +31,26 @@ export function horizontalFov(verticalFovDeg: number, aspect: number): number {
 
 const clamp01 = (n: number): number => Math.max(0, Math.min(1, n));
 
+/** Exponential damping gives the director the same settle at every refresh rate. */
+export function showdownCameraBlend(delta: number, rate: number): number {
+    return 1 - Math.exp(-Math.max(0, delta) * rate);
+}
+
+/** Put a technique's lane across the image. A world-X shoulder offset can
+ * align exactly with a cross-lane cast and hide the victim behind its caster. */
+export function showdownTechniqueCamera(actor: readonly number[], target: readonly number[], groundEffect: boolean) {
+    const length = Math.hypot(target[0] - actor[0], target[2] - actor[2]) || 1;
+    const dx = (target[0] - actor[0]) / length, dz = (target[2] - actor[2]) / length;
+    const mx = (actor[0] + target[0]) / 2, mz = (actor[2] + target[2]) / 2;
+    // Choose the lateral side that faces the player's half of a diagonal
+    // lane; otherwise an enemy signature can put the lens behind its own row.
+    const side = dx < 0 ? -1 : 1;
+    return {
+        position: [mx - dz * 8.6 * side - dx * 3, groundEffect ? 7.2 : 5.1, mz + dx * 8.6 * side - dz * 3] as const,
+        look: [mx, groundEffect ? .65 : 1.5, mz] as const,
+    };
+}
+
 /**
  * Horizontal texture offset that puts an authored backdrop's centre on the
  * resting camera's centre ray when that image is mirrored around a full
@@ -60,15 +80,24 @@ export function showdownBackdropOffset(cameraX: number, cameraZ: number, repeat:
  * backdrop wall, and the containment clamp silently ate the difference. Opening
  * the lens on narrow viewports buys that coverage without leaving the shell.
  *
- * The ceiling is deliberate: past roughly 62° the perspective stretch on a near
- * body starts reading as a fisheye, which is its own kind of wrong. The sibling
- * duel camera (`pet-duel-camera.ts`) makes the same trade for the same reason.
+ * Portrait uses a higher master shot and a shifted optical centre to keep the
+ * front line above the command deck. Its wider lens fits the formation inside
+ * the arena shell without putting a near body against an extreme frame edge.
  */
 export function showdownFov(aspect: number): number {
     const a = Number.isFinite(aspect) && aspect > 0 ? aspect : 16 / 9;
     const narrow = clamp01((1.2 - a) / 0.74);
-    return 48 + narrow * 14;
+    return 48 + narrow * 26;
 }
+
+export function showdownPortraitComposition(aspect: number): number {
+    return clamp01((0.95 - aspect) / 0.45);
+}
+
+export const SHOWDOWN_PORTRAIT_FRAMING = Object.freeze({
+    position: [0, 15.5, 9] as const,
+    opticalShift: 0.24,
+});
 
 /**
  * Distance at which `horiz` fits across the frame AND `vert` fits up it.

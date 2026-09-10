@@ -76,7 +76,11 @@ export function resolveCombatBodyYaw(faceX: number, faceZ: number, yawOffset = 0
 /** The generated attack take is one clip, but combat presents it as three
  * authored phases. Holding each phase at its boundary prevents anticipation
  * from reaching the clip's final raised-paw pose before contact occurs. */
-export function attackClipWindow(motion: PetCombatMotion): AttackClipWindow | null {
+export function attackClipWindow(motion: PetCombatMotion, atContact = false): AttackClipWindow | null {
+    // Showdown enters "strike" on the damage frame, after its travelling dash.
+    // The banks reach their body extension around 54%; 34% is still the swing's
+    // start and would freeze a windup in front of a fully resolved impact.
+    if (atContact && motion === "strike") return { start: 0.54, end: 0.74 };
     return ATTACK_WINDOWS[motion] ?? null;
 }
 

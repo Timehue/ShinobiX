@@ -46,11 +46,11 @@ export function showdownStrikeReach(attackerRadius: number, strikeDrive = 1): nu
     return clamp(attackerRadius * 0.42 * clamp(strikeDrive, 0.82, 1.48), 0.3, 0.82);
 }
 
-/** Centre-to-centre separation at contact. The small light gap leaves room for
- * the white impact core, so the VFX reads as the cause of contact instead of a
- * decal buried inside two intersecting creatures. */
+/** Resting body + authored strike reach meets the defender's surface. A thin
+ * seam avoids z-fighting without making a tackle stop visibly in empty air.
+ * Never cap the sum: a maximum gap can put the largest bodies inside each other. */
 export function showdownContactGap(attackerRadius: number, defenderRadius: number, strikeDrive = 1): number {
-    return clamp(attackerRadius + showdownStrikeReach(attackerRadius, strikeDrive) + 0.3 + defenderRadius, 1.98, 4.1);
+    return attackerRadius + showdownStrikeReach(attackerRadius, strikeDrive) + defenderRadius + 0.06;
 }
 
 export function showdownMeleeContact(
@@ -70,12 +70,14 @@ export function showdownMeleeContact(
     const travel = Math.max(0, distance - gap);
     const x = fromX + dx / distance * travel;
     const z = fromZ + dz / distance * travel;
-    const impactAdvance = attackerRadius + showdownStrikeReach(attackerRadius, strikeDrive) + 0.15;
+    // Anchor the spark to the target's facing surface, including close starts
+    // where the root has no room to travel. It must never overshoot the target.
+    const impactAdvance = distance - Math.min(defenderRadius + 0.03, distance * 0.5);
     return {
         x,
         z,
-        impactX: x + dx / distance * impactAdvance,
-        impactZ: z + dz / distance * impactAdvance,
+        impactX: fromX + dx / distance * impactAdvance,
+        impactZ: fromZ + dz / distance * impactAdvance,
         travel,
         gap,
     };
@@ -304,6 +306,34 @@ export function showdownMeleeDrive(progress: number, rhythm?: Pick<ShowdownAttac
     if (progress < contactEnd) return 1;
     if (progress < recoverEnd) return 1 - smoothstep((progress - contactEnd) / Math.max(0.001, recoverEnd - contactEnd));
     return 0;
+}
+
+/** Phase sampling follows the beat, including its contact freeze. This lets a
+ * full anticipation/recovery take fit both normal and fast playback. */
+export function showdownAttackPhase(progress: number, rhythm: ShowdownAttackRhythm, melee: boolean): number {
+    const strike = melee ? rhythm.contact : showdownCastRelease(rhythm);
+    const start = progress < strike ? rhythm.windupStart : progress < rhythm.contactEnd ? strike : rhythm.contactEnd;
+    const end = progress < strike ? (melee ? rhythm.dashStart : strike) : progress < rhythm.contactEnd ? rhythm.contactEnd : rhythm.recoverEnd;
+    return clamp((progress - start) / Math.max(0.001, end - start), 0, 1);
+}
+
+export function showdownCastRelease(rhythm: ShowdownAttackRhythm): number {
+    return rhythm.windupStart + (rhythm.contact - rhythm.windupStart) * 0.46;
+}
+
+/** Channel builds before release and collapses as the projectile leaves. */
+export function showdownChargeEnvelope(progress: number, rhythm: ShowdownAttackRhythm): number {
+    const release = showdownCastRelease(rhythm);
+    return smoothstep((progress - (rhythm.windupStart - 0.08)) / Math.max(0.01, release - rhythm.windupStart + 0.08))
+        * (1 - smoothstep((progress - release) / 0.055));
+}
+
+/** A retreat is a single backward bound with a planted landing. Heavy bodies
+ * stay low; birds and light paws clear the floor. No displacement at contact. */
+export function showdownRecoveryLift(progress: number, profile: PetCombatModelProfile, travel: number): number {
+    const p = clamp(progress, 0, 1);
+    const height = profile === "heavy" ? 0.18 : profile === "avian" ? 0.48 : profile === "serpentine" ? 0.12 : 0.32;
+    return Math.sin(Math.PI * p) ** 2 * height * Math.min(1, Math.max(0, travel) / 2);
 }
 
 const PROFILE_RECOIL: Readonly<Record<PetCombatModelProfile, number>> = {

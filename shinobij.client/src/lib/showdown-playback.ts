@@ -1,3 +1,29 @@
+import type { ShowdownEvent } from "../../../shared/pet-showdown-contract";
+
+/** Older saved rounds may label physical area attacks as melee. Normalize
+ * only their staging before the body, camera and effects share the queue. */
+export function showdownPresentationEvent(event: ShowdownEvent): ShowdownEvent {
+    return event.t === "action" && event.delivery === "melee" && (event.super || event.targets.some(t => t.splash))
+        ? { ...event, delivery: "ranged" } : event;
+}
+
+/** Item reactions follow their action on the wire. Play the evade during that
+ * action's contact window; the later item beat credits the item without a
+ * second body dodge. Reactions to other beat types retain their own timing. */
+export function showdownDodgeCues(events: readonly ShowdownEvent[]) {
+    const byAction = new Map<number, string[]>(), attachedReactions = new Set<number>();
+    let actionIndex = -1;
+    events.forEach((event, index) => {
+        if (event.t !== "consumable") { actionIndex = event.t === "action" ? index : -1; return; }
+        if (actionIndex < 0 || event.effect !== "dodge") return;
+        const pets = byAction.get(actionIndex) ?? [];
+        pets.push(event.petId);
+        byAction.set(actionIndex, pets);
+        attachedReactions.add(index);
+    });
+    return { byAction, attachedReactions };
+}
+
 /** One presentation clock for creature travel and its attached effects.
  * Contact remains on the server event's scheduled beat; hit-stop stretches
  * that pose, and recovery uses the remaining beat so roots finish at home. */

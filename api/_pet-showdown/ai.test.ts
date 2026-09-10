@@ -11,7 +11,10 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { buildShowdownAiTeam } from './ai.js';
+import { buildColosseumAiTeam, buildShowdownAiTeam, chooseShowdownAiCommands } from './ai.js';
+import { createShowdownSession, sealShowdownPet } from './engine.js';
+import { PET_CATALOG } from '../pet/_catalog.js';
+import { normalizePetGrowth } from '../pet/_growth.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 
 function pet(id: string, level: number): Pet {
@@ -93,5 +96,66 @@ describe('buildShowdownAiTeam', () => {
         const b = buildShowdownAiTeam(LOPSIDED, 4, 'champion', 4242, { mirrorLevels: true });
         assert.deepEqual(a.pets.map((p) => p.id), b.pets.map((p) => p.id));
         assert.equal(a.teamName, b.teamName);
+    });
+});
+
+describe('Colosseum progression and AI side ownership', () => {
+    it('sparring matches spent points and traits without handing untrained pets a trained rival', () => {
+        const players = [
+            { ...pet('unspent', 100), trait: undefined },
+            { ...pet('trained', 100), trait: 'Guardian', growthAllocation: { vitality: 30, power: 10, guard: 20, agility: 9 } },
+        ] as Pet[];
+        const { pets } = buildColosseumAiTeam(players, 2, 'warrior', 38, true);
+        const first = pets[0] as unknown as Record<string, unknown>;
+        const second = pets[1] as unknown as Record<string, unknown>;
+        assert.equal(first.trait, undefined);
+        assert.equal(second.trait, 'Guardian');
+        assert.deepEqual(first.growthAllocation, { vitality: 0, power: 0, guard: 0, agility: 0 });
+        assert.equal(Object.values(second.growthAllocation as Record<string, number>).reduce((sum, n) => sum + n, 0), 69);
+        assert.equal(first.growthPoints, 99);
+        assert.equal(second.growthPoints, 30);
+    });
+
+    it('matches every sparring slot by level and rarity without duplicate species', () => {
+        const players = [
+            { ...pet('a', 1), rarity: 'mythic' }, { ...pet('b', 50), rarity: 'standard' },
+            { ...pet('c', 100), rarity: 'rare' }, { ...pet('d', 12), rarity: 'legendary' },
+            { ...pet('e', 1), rarity: 'standard' },
+        ] as Pet[];
+        for (let seed = 1; seed <= 24; seed++) {
+            const team = buildColosseumAiTeam(players, 5, 'warrior', seed, true);
+            assert.deepEqual(team.pets.map(p => [p.level, p.rarity]), players.map(p => [p.level, p.rarity]));
+            assert.equal(new Set(team.pets.map(p => p.templateId)).size, 5);
+            assert.deepEqual(team, buildColosseumAiTeam(players, 5, 'warrior', seed, true));
+        }
+    });
+
+    it('seals AI exactly like an owned pet of the same species, trait and allocation', () => {
+        for (const level of [1, 25, 50, 100]) for (const tier of ['scrapper', 'warrior', 'champion'] as const) {
+            for (const ai of buildColosseumAiTeam([pet('a', level)], 1, tier, 812).pets) {
+                const tpl = PET_CATALOG[String(ai.templateId)];
+                const owned = normalizePetGrowth({ ...tpl, id: ai.id, templateId: tpl.id, level, trait: ai.trait,
+                    loadout: ai.loadout, growthAllocation: (ai as unknown as Record<string, unknown>).growthAllocation },
+                    { hp: Number(tpl.hp), attack: Number(tpl.attack), defense: Number(tpl.defense), speed: Number(tpl.speed) });
+                assert.deepEqual(sealShowdownPet(ai), sealShowdownPet(owned as unknown as Pet));
+                assert.deepEqual(normalizePetGrowth(ai as unknown as Record<string, unknown>), ai, 'growth is idempotent at the combat boundary');
+            }
+        }
+    });
+
+    it('heals only the side being commanded, including headless player-side battles', () => {
+        for (const side of ['player', 'enemy'] as const) {
+            let heals = 0;
+            for (let seed = 1; seed <= 24; seed++) {
+                const session = createShowdownSession({ sessionId: 'heal', playerName: 'test', format: '1v1', tier: 'warrior', seed,
+                    playerPets: [pet('player', 1)], enemyPets: [pet('enemy', 1)], enemyTeamName: 'AI', rewardEligible: false });
+                const actor = session[side][0];
+                actor.hp = Math.round(actor.maxHp * 0.2);
+                actor.moves = [{ ...actor.moves[0], kind: 'heal', cls: 'status', power: 60, cost: 10 }];
+                const [command] = chooseShowdownAiCommands(session, side);
+                if (command.kind === 'move' && command.targetId === actor.id) heals++;
+            }
+            assert.ok(heals >= 16, `${side} must recognize its own wounded ally`);
+        }
     });
 });

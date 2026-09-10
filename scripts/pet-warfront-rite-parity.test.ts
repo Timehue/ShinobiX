@@ -138,8 +138,8 @@ test("Rite carry health stays cumulative across both mirrors, the next clash, an
     const red = durableBand("carry-red");
     const bluePlan = holdPlan();
     const redPlan = holdPlan();
-    const client = clientRun(blue, red, 1, bluePlan, redPlan);
-    const server = serverRun(blue, red, 1, bluePlan, redPlan);
+    const client = clientRun(blue, red, 3, bluePlan, redPlan);
+    const server = serverRun(blue, red, 3, bluePlan, redPlan);
 
     assert.equal(JSON.stringify(server), JSON.stringify(client), "Rite mirrors are not byte-identical");
     assertCumulativeCarry(client, "client");
