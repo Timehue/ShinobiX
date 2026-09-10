@@ -2403,7 +2403,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3295
+            "line": 3315
           }
         ]
       },
@@ -2681,7 +2681,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/15-territory-panels.css",
-            "line": 783
+            "line": 807
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
@@ -2697,7 +2697,7 @@
           },
           {
             "source": "shinobij.client/src/styles/jutsu-training-skin.css",
-            "line": 483
+            "line": 488
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
@@ -2774,7 +2774,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/15-territory-panels.css",
-            "line": 928
+            "line": 952
           },
           {
             "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",
@@ -2990,7 +2990,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3240
+            "line": 3260
           },
           {
             "source": "shinobij.client/src/styles/story-archive-guidance.css",
@@ -3392,7 +3392,7 @@
           },
           {
             "source": "shinobij.client/src/styles/jutsu-training-skin.css",
-            "line": 463
+            "line": 468
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
@@ -3551,7 +3551,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3217
+            "line": 3237
           }
         ]
       },
@@ -4082,7 +4082,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3203
+            "line": 3223
           }
         ]
       },
@@ -4097,7 +4097,7 @@
           },
           {
             "source": "shinobij.client/src/styles/jutsu-training-skin.css",
-            "line": 455
+            "line": 460
           }
         ]
       },
@@ -4229,7 +4229,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/15-territory-panels.css",
-            "line": 770
+            "line": 794
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
