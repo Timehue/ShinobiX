@@ -317,7 +317,7 @@ test("Replay Memory recovers a missing first-clear conclusion with its sealed ba
   expect(authority.showdownStarts()).toBe(0);
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await page.getByRole("button", { name: "Next", exact: true }).click();
-  await expect(page.getByText(/You took the hit and your line came back/)).toBeVisible();
+  await expect(page.getByRole("paragraph").filter({ hasText: /You took the hit and your line came back/ })).toBeVisible();
   expect(authority.showdownStarts()).toBe(0);
 
   await finishVisualNovel(page);
