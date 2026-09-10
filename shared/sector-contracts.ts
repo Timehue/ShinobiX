@@ -42,14 +42,21 @@ export const CONTRACT_RYO_PER_SECTOR = 4;      // → 204 (s1) .. 464 (s66)
 /*
  * Roughly a third of each day's board is NIGHT WORK: progress on it only counts
  * while the world is in night (shared/world-phase, the same window the visible
- * sky uses). This is the one axis that makes "which sector" into "which sector,
- * RIGHT NOW" — weather cannot, because it rotates per UTC day rather than
- * within one, so a weather requirement would be either always true or always
- * impossible for a given sector that day.
+ * sky uses). This is what makes "which sector" into "which sector, RIGHT NOW".
  *
- * Deliberately a minority of the board, and it pays no more: a player who only
- * ever logs in during daylight still has four ordinary contracts to chase, so
- * this adds a choice rather than a tax on someone's timezone.
+ * This used to carry a caveat, that a weather requirement could not do the same
+ * job "because it rotates per UTC day rather than within one, so a weather
+ * requirement would be either always true or always impossible for a given
+ * sector that day". That is no longer true — weather now turns three times per
+ * in-world day (shared/sector-weather) — so a weather-conditioned contract has
+ * become a real option should we ever want one. Nothing here depends on it yet.
+ *
+ * It also used to be justified as costing nobody anything, because "a player who
+ * only ever logs in during daylight still has four ordinary contracts to chase".
+ * That defence is retired too: the world's day is compressed to two real hours
+ * (shared/world-clock), so night reaches every session in every timezone. Night
+ * work is still a minority of the board and still pays no premium — it buys
+ * direction, not income — but it is no longer a tax on where someone lives.
  */
 export const CONTRACT_NIGHT_SHARE = 3;         // 1 in N postings is night work
 
