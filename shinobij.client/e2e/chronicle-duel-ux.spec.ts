@@ -211,10 +211,14 @@ test("Card Hall AI showdown stays wired and comfortably sized across the device 
   ];
   for (const viewport of matrix) {
     await page.setViewportSize(viewport);
-    await expectViewportSafe(page, {
-      horizontalScrollers: [".chronicle-hand", ".chronicle-command-dock"],
-      overlays: [".chronicle-card-detail-panel"],
-    });
+    // Let the responsive layout settle after resizing before checking bounds;
+    // Firefox/WebKit can expose the new viewport ahead of the table's reflow.
+    await expect(async () => {
+      await expectViewportSafe(page, {
+        horizontalScrollers: [".chronicle-hand", ".chronicle-command-dock"],
+        overlays: [".chronicle-card-detail-panel"],
+      });
+    }).toPass({ timeout: 10_000 });
     const layout = await measureDuel(page);
     expect(layout.document.scrollWidth).toBeLessThanOrEqual(layout.document.width + 1);
     expect(layout.document.scrollHeight).toBeLessThanOrEqual(layout.document.height + 1);

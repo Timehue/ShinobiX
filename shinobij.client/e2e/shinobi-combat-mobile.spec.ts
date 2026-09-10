@@ -107,6 +107,15 @@ async function mountCombatFixture(page: Page, mode: "solo" | "pvp", viewport: { 
     await page.evaluate((width) => {
         document.documentElement.dataset.vp = width < 560 ? "xs" : width < 980 ? "sm" : width < 1180 ? "md" : width < 1400 ? "lg" : width < 2200 ? "xl" : "xxl";
     }, viewport.width);
+    // Geometry checks need the completed entrance layout, including font metrics
+    // and viewport reflow. Ambient animations continue; finite entrances finish.
+    await page.evaluate(async () => {
+        await document.fonts.ready;
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        await Promise.all(document.getAnimations()
+            .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime))
+            .map((animation) => animation.finished.catch(() => undefined)));
+    });
 }
 
 async function box(page: Page, selector: string) {
@@ -304,14 +313,17 @@ for (const mode of ["solo", "pvp"] as const) {
 
             const dossier = page.locator('[data-side="player"]');
             const effectPanel = dossier.locator(".effects-buff");
-            const effectHeading = await box(page, '[data-side="player"] .effects-buff h4');
             const effectPills = dossier.locator(".effects-buff .effect-pill");
-            const firstEffect = await effectPills.first().boundingBox();
-
             await expect(effectPanel).toHaveCSS("display", "block");
-            expect(firstEffect).not.toBeNull();
-            expect(firstEffect!.y).toBeGreaterThanOrEqual(effectHeading.y + effectHeading.height - 1);
-            expect(firstEffect!.width).toBeGreaterThanOrEqual(140);
+            // Read both boxes in one frame; the entrance animation can move
+            // the dossier between separate browser calls on slower runners.
+            const effectGeometry = await effectPanel.evaluate((panel) => {
+                const heading = panel.querySelector("h4")!.getBoundingClientRect();
+                const pill = panel.querySelector(".effect-pill")!.getBoundingClientRect();
+                return { headingBottom: heading.bottom, pillTop: pill.top, pillWidth: pill.width };
+            });
+            expect(effectGeometry.pillTop).toBeGreaterThanOrEqual(effectGeometry.headingBottom - 1);
+            expect(effectGeometry.pillWidth).toBeGreaterThanOrEqual(140);
             await expect(effectPills.first().locator("span")).toHaveCSS("word-break", "normal");
             expect(await effectPills.evaluateAll((pills) => pills.every((pill) => pill.scrollWidth <= pill.clientWidth + 1))).toBe(true);
 
