@@ -2007,8 +2007,7 @@ test('Solo-PvE combat layout viewport matrix', async ({ page, request }, testInf
     // second (see layoutRetryBudget), and the suite-wide 240s would end a
     // healthy run in the zoom checks. Extend the allowance only here, where the
     // cost is frame-bound, so a hang during setup still fails at 240s.
-    // setTimeout counts from the test's start, so this is the same 600s total as
-    // the Tower shell test.
+    // setTimeout counts from the test's start, so 600s is the whole test's total.
     test.setTimeout(600_000);
     await captureMatrix(page, 'solo', '.mission-arena-fight', testInfo);
 });
@@ -2141,14 +2140,6 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
 });
 
 test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, request }, testInfo) => {
-    // WebKit needs roughly five minutes to exercise all 22 base viewports,
-    // six zoom equivalents, and both 12-frame arm/cancel traces; slower Windows
-    // GPU runners can approach eight. On 2026-09-10, with sibling browser suites
-    // running on the same machine, Windows WebKit reached its last viewport at
-    // 550s and was cut off at 600s in the middle of it. No action had hung. Keep
-    // this exhaustive test no-retry, but do not let the budget terminate a
-    // healthy final-viewport run before the zoom checks complete.
-    test.setTimeout(900_000);
     const { name, token } = await seedAccount(request, testInfo, 'tower');
     const savePreview = await fetchAuthoritativeSave(request, { name, token });
     await installSession(page, name, token, { acknowledgeEstablishedNotices: true, savePreview });
@@ -2174,6 +2165,19 @@ test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, 
 
     // BattleTowerFight is also the shared party-MPvE host. The authoritative
     // team-PvP variant gets its own real exact-2v2 journey below.
+    //
+    // The sweep covers 22 base viewports, six zoom equivalents and 12-frame
+    // arm/cancel traces at each. Linux WebKit in CI runs the whole test in about
+    // two minutes. Playwright's WebKit on Windows needed 4.4 minutes with five
+    // other Playwright runs sharing the machine, and on 2026-09-10 a saturated
+    // run reached its last viewport at 550s and was cut off at 600s with no
+    // action hung. Timing each phase showed the frames after every resize, arm,
+    // cancel and hover costing it several times what they cost Chromium. No
+    // single phase dominates, and unlike the solo countdown nothing idle drives
+    // it, so there is nothing to hold still. Keep this exhaustive test no-retry,
+    // but extend the allowance only here, so a hang during setup still fails at
+    // the suite's 240s. setTimeout counts from the test's start.
+    test.setTimeout(900_000);
     await assertJutsuSelectionGeometryStable(
         page,
         '.screen-battleTowerFight',
