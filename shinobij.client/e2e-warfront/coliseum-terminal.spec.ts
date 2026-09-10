@@ -29,6 +29,10 @@ test('a completed duel keeps a long winner name contained through settlement ret
     await dialog.getByRole('button', { name: /Replay/ }).click();
     await expect(dialog).toBeHidden();
     await expect(page.getByTestId('pet-duel-root').locator('canvas')).toBeVisible();
+    // Require actual playback near the beginning. Merely seeing Pause for one
+    // frame also passed when Replay incorrectly restored terminal tick 5000.
+    await expect(page.getByTestId('pet-duel-root').getByText(/^0:0[1-5]$/)).toBeVisible();
+    await expect(dialog).toBeHidden();
     await expect(page.getByTestId('pet-duel-root').getByRole('button', { name: /Pause/ })).toBeVisible();
     await expect(qa).toHaveAttribute('data-retries', '1');
     await expect(qa).toHaveAttribute('data-exits', '1');

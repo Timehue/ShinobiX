@@ -932,7 +932,9 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         if (resultTimer.current !== null) window.clearTimeout(resultTimer.current);
         resultTimer.current = null;
         finishScheduled.current = false;
-        clock.current.t = Math.max(0, initialTick);
+        // initialTick restores the entry position only. Replay must start at
+        // the beginning, even when the viewer entered at the terminal frame.
+        clock.current.t = 0;
         clock.current.playing = false;
         duelCmdRush.active = false;
         duelCmdFocus.expiresAt = 0;
