@@ -6,6 +6,7 @@
  * readable 3D fighters resolve cover, sight, range, and role decisions.
  */
 import { expect, test } from "@playwright/test";
+import { writeFile } from "node:fs/promises";
 
 const riteUrl = "/petvfx.html?rite=1&petQuality=low";
 
@@ -18,6 +19,15 @@ async function touchTap(page: import("@playwright/test").Page, locator: import("
     const box = await locator.boundingBox();
     expect(box, "touch target must have a rendered box").not.toBeNull();
     await page.touchscreen.tap(box!.x + box!.width / 2, box!.y + box!.height / 2);
+}
+
+function pickerDeploymentLocation(text: string): string {
+    // The picker exposes earned level beside the location. A formation change
+    // describes only the previous and next cells, never a change in pet level.
+    const label = /^Lv (\d+) · (.+)$/u.exec(text.trim());
+    expect(label, "each placement label must show the pet level and location").not.toBeNull();
+    expect(Number(label![1]), "the displayed pet level must remain positive").toBeGreaterThan(0);
+    return label![2];
 }
 
 async function expectReportLayerSettled(report: import("@playwright/test").Locator) {
@@ -171,6 +181,8 @@ async function expectFormationDiffRows(
         };
     }, expectedRows);
 
+    await writeFile(test.info().outputPath("formation-diff-geometry.json"), JSON.stringify({ label, ...geometry }, null, 2));
+    await panel.page().screenshot({ path: test.info().outputPath("formation-diff.png") });
     expect(geometry, `${label}: formation diff must exist`).not.toBeNull();
     expect(geometry!.rows.map((row) => row.text), `${label}: every changed pet must have exactly one previous-to-draft row`)
         .toEqual(expectedRows);
@@ -481,7 +493,7 @@ test("the exact Galaxy S25+ QHD report re-forms every pet and only Lock starts c
     const boardBefore = await board.boundingBox();
     const picker = panel.getByLabel("Choose a pet to place").locator("button");
     const petNames = (await picker.locator("strong").allTextContents()).map((name) => name.trim());
-    const previousLocations = (await picker.locator("small").allTextContents()).map((location) => location.trim());
+    const previousLocations = (await picker.locator("small").allTextContents()).map(pickerDeploymentLocation);
     const moves: Array<{ slot: number; node: string; moved: boolean }> = [];
     for (let slot = 0; slot < 4; slot += 1) {
         const pet = picker.nth(slot);
@@ -498,7 +510,7 @@ test("the exact Galaxy S25+ QHD report re-forms every pet and only Lock starts c
     }
     expect(moves.filter((entry) => entry.moved)).toHaveLength(24);
     await expect(panel.locator(".wfr-formation-diff")).toContainText("→");
-    const nextLocations = (await picker.locator("small").allTextContents()).map((location) => location.trim());
+    const nextLocations = (await picker.locator("small").allTextContents()).map(pickerDeploymentLocation);
     const expectedRows = petNames.flatMap((name, index) => previousLocations[index] === nextLocations[index]
         ? []
         : [`${name}: ${previousLocations[index]} → ${nextLocations[index]}`]);
@@ -632,10 +644,10 @@ test("the compact 412px report keeps four distinct opponents readable after reop
     const picker = panel.getByLabel("Choose a pet to place").locator("button");
     const pet = picker.first();
     const petName = (await pet.locator("strong").textContent())?.trim() ?? "";
-    const previousLocation = (await pet.locator("small").textContent())?.trim() ?? "";
+    const previousLocation = pickerDeploymentLocation(await pet.locator("small").textContent() ?? "");
     await touchTap(page, pet);
     await touchTap(page, panel.locator('[data-wfr-legal-drop="true"]').first());
-    const nextLocation = (await pet.locator("small").textContent())?.trim() ?? "";
+    const nextLocation = pickerDeploymentLocation(await pet.locator("small").textContent() ?? "");
     expect(nextLocation).not.toBe(previousLocation);
     await expectFormationDiffRows(panel, [`${petName}: ${previousLocation} → ${nextLocation}`], "412 × 915 one-pet re-form");
 

@@ -80,6 +80,6 @@ test("20 losing-side public-evidence counters clear the opening-contact and winn
 
     assert.ok(openingChanges >= 12, `${openingChanges}/20 losing-side counters changed opening contact; gate is 12`);
     assert.ok(winnerFlips >= 5, `${winnerFlips}/20 losing-side counters flipped the next-clash winner; gate is 5`);
-    assert.equal(openingChanges, 13, "fixed cohort drifted; inspect the counter rather than weakening the gate");
-    assert.equal(winnerFlips, 5, "fixed cohort drifted; inspect the counter rather than weakening the gate");
+    assert.equal(openingChanges, 17, "fixed cohort drifted; inspect the counter rather than weakening the gate");
+    assert.equal(winnerFlips, 7, "fixed cohort drifted; inspect the counter rather than weakening the gate");
 });

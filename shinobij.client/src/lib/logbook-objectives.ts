@@ -57,6 +57,15 @@ export interface ObjectiveContext {
     rogueNinjaExists?: boolean;
     isKage?: boolean;
     isElder?: boolean;
+    /**
+     * Equipped jutsu that still RESOLVE to a real technique. A deleted custom
+     * jutsu leaves its id in equippedJutsuIds forever (a mastery row keeps it
+     * past the server's learned-id filter), so the raw array length can claim a
+     * loadout slot the player has neither filled nor can use in combat. The
+     * catalog needed to tell the difference is not derivable from the save, so
+     * the caller supplies it; the raw length is the behaviour-preserving default.
+     */
+    equippedJutsuCount?: number;
 }
 
 export function objectiveComplete(objective: LogbookObjective): boolean {
@@ -75,6 +84,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
         rogueNinjaExists = true,
         isKage = false,
         isElder = isSeatedVillageElder(character),
+        equippedJutsuCount = character.equippedJutsuIds.length,
     } = ctx;
 
     const ownedElements = getCharacterElements(character);
@@ -107,7 +117,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
             unlockLevel: 1,
             requirements: [
                 { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "Free roll at Level 2", goScreen: "centralHub", goLabel: "Awakening Stone" },
-                { label: "Equip your jutsu loadout", progress: character.equippedJutsuIds.length, target: 4, detail: "Add a 4th jutsu", goScreen: "profile", goLabel: "Open Profile" },
+                { label: "Equip your jutsu loadout", progress: equippedJutsuCount, target: 4, detail: "Add a 4th jutsu", goScreen: "profile", goLabel: "Open Profile" },
                 { label: "Win your first combat mission", progress: totalAiKills, target: 1, detail: "Complete the E-Rank Drill or another Arena or hunt fight", goScreen: "battleArena", goLabel: "Go Arena" },
                 { label: "Train at the grounds", progress: statsTrained, target: 5, detail: "Train a stat at the Training Grounds", goScreen: "training", goLabel: "Go Train" },
                 { label: "Complete your first mission", progress: totalMissionsCompleted, target: 1, detail: "Claim the Academy Trial or a rookie mission reward", goScreen: "missions", goLabel: "Go to Mission Hall" },
@@ -127,7 +137,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
             { label: "Win 3 AI battles", progress: totalAiKills, target: 3, detail: "Combat missions count after you claim them", goScreen: "missions", goLabel: "Go Combat" },
             { label: "Complete 3 missions", progress: totalMissionsCompleted, target: 3, detail: "Return to Mission Hall to claim rewards", goScreen: "missions", goLabel: "Go Missions" },
             { label: "Train 18 stat points", progress: statsTrained, target: 18, detail: "Three short sessions is enough", goScreen: "training", goLabel: "Go Train" },
-            { label: "Equip 4 jutsu", progress: character.equippedJutsuIds.length, target: 4, detail: "Keep a full starter loadout", goScreen: "jutsuTraining", goLabel: "Go Jutsu" },
+            { label: "Equip 4 jutsu", progress: equippedJutsuCount, target: 4, detail: "Keep a full starter loadout", goScreen: "jutsuTraining", goLabel: "Go Jutsu" },
         ];
         if ((character.pets ?? []).length > 0 || character.activePetId) {
             firstStepsRequirements.push({
@@ -189,7 +199,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
                         { label: "Win 10 AI battles", progress: totalAiKills, target: 10, detail: "Rookie combat missions are safe practice", goScreen: "missions", goLabel: "Go Combat" },
                         { label: "Train 120 stat points", progress: statsTrained, target: 120, detail: "Short or long timers both count", goScreen: "training", goLabel: "Go Train" },
                         { label: "Scout 10 world map tiles", progress: totalTilesExplored, target: 10, detail: "Learn the field route before harder work", goScreen: "worldMap", goLabel: "Open World Map" },
-                        { label: "Keep 4 jutsu equipped", progress: character.equippedJutsuIds.length, target: 4, detail: "A complete loadout matters more than one trick", goScreen: "jutsuTraining", goLabel: "Go Jutsu" },
+                        { label: "Keep 4 jutsu equipped", progress: equippedJutsuCount, target: 4, detail: "A complete loadout matters more than one trick", goScreen: "jutsuTraining", goLabel: "Go Jutsu" },
                         { label: "Sharpen a jutsu to Lv 3", progress: highestJutsuMastery, target: 3, detail: "Use jutsu in battle to raise mastery", goScreen: "battleArena", goLabel: "Go Arena" },
                     ],
                 });
