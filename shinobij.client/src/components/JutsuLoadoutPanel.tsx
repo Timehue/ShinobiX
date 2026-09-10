@@ -11,6 +11,7 @@ import { legacySignatureFor } from "../lib/legacy-jutsu-slot";
 import { resolveLoadoutLensDiscipline } from "../lib/jutsu-loadout-lens";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
+import { hasBloodlineMarker } from "../lib/bloodline-marker";
 
 type JutsuCollectionSort = "default" | "name" | "level" | "ap" | "element" | "bloodline";
 type JutsuSourceFilter = "All" | "Bloodline" | "Standard";
@@ -254,12 +255,9 @@ export function JutsuLoadoutPanel({
     const elements = Array.from(new Set(learnedJutsus.map((jutsu) => jutsu.element))).sort();
     const effects = Array.from(new Set(learnedJutsus.flatMap((jutsu) => jutsu.tags.map((tag) => tag.name)))).sort();
     const bloodlineNameFor = (jutsu: Jutsu) => bloodlineJutsuNames.get(jutsu.id) ?? "";
-    // A jutsu counts as bloodline either because one of the character's own
-    // bloodlines carries it (which is also the only way we know its NAME), or
-    // because getAllJutsus stamped `bloodlineRank` on it — which it does for
-    // every bloodline kit it merges, including an admin-authored jutsu that
-    // belongs to a bloodline this character does not have.
-    const isBloodlineJutsu = (jutsu: Jutsu) => Boolean(bloodlineNameFor(jutsu)) || Boolean(jutsu.bloodlineRank);
+    // Same rule the Jutsu Training Hall uses (lib/bloodline-marker): the
+    // character's own bloodline jutsu, plus any kit getAllJutsus rank-stamped.
+    const isBloodlineJutsu = (jutsu: Jutsu) => hasBloodlineMarker(jutsu, bloodlineJutsuNames);
     // Only offer the bloodline controls when this character actually has
     // bloodline jutsu, and never let a stale "Bloodline Only" selection empty
     // the grid after the bloodline is unequipped.
