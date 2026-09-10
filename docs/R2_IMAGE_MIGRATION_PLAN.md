@@ -32,7 +32,7 @@ No new npm dependency; server `tsc` build clean.
 - On a **cache miss** (a fresh enemy not currently edge-cached), `/api/img`
   (`api/img.ts:84`) reads the bytes from Postgres with an 8 s timeout. Under a
   cold start / load spike that read can 503; after 2 client retries the image is
-  **hidden** (`shinobij.client/src/lib/imageErrorGuard.ts:71`). "Random enemy,
+  **hidden** (`shinobij.client/src/lib/imageErrorGuard.ts:96`). "Random enemy,
   sometimes" == "whichever portrait was cache-cold at that moment."
 - R2 removes the DB read from the hot path: a miss is served from R2 inside
   Cloudflare's own network (tens of ms, no timeout/fail risk) instead of a
@@ -166,7 +166,9 @@ Postgres. Bytes are copy-only, never deleted.
 - Upload handler: `api/images.ts` POST (`api/images.ts:484` per-image write).
 - Client loader / manifest: `shinobij.client/src/App.tsx:4207` (`URL_MODE_CATEGORIES`),
   `:4258` (id → `/api/img` URL mapping).
-- Image failure guard (the hide-after-retry): `shinobij.client/src/lib/imageErrorGuard.ts:71`.
+- Image failure guard (the hide-after-retry): `shinobij.client/src/lib/imageErrorGuard.ts:96`.
+  An image it has given up on carries `data-image-guard="failed"` (`"retrying"`
+  while a retry is pending), so a hidden failure can be found in the DOM.
 - Migration precedent: `api/admin/migrate-to-base.ts`, `copyDiskRoutedKeysToBase`
   in `api/_storage.ts`.
 - CSP (no change needed): `api/_http-security.ts:46`.
