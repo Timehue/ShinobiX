@@ -20,6 +20,56 @@ if (!/^\.playwright-dist-[a-z0-9_-]+$/i.test(requestedName)) {
 const targetRoot = join(clientRoot, requestedName);
 export const SNAPSHOT_STATUS_FILE = '.playwright-snapshot-status.json';
 
+// Hashing is bound by per-file latency, not bandwidth. The build is ~5,500 files,
+// and on Windows every open pays a round trip through the real-time file scanner:
+// hashing it one file at a time measured 50.0s, 16-wide 6.7s, and 32-wide 7.3s
+// (2026-09-10, 484 MB). That sequential pass was the largest phase of the whole
+// snapshot. Copying is deliberately NOT parallelised — it is write-bound and
+// measured no faster 16-wide (14.4s against 11.5s sequential).
+const HASH_CONCURRENCY = 16;
+
+// stderr, never stdout. Playwright's webServer IGNORES a command's stdout by
+// default (none of our configs override that), so this script's progress used to
+// be silently swallowed: CI logs show vite's stderr warnings under [WebServer] but
+// never a single line from here. That is why an over-budget snapshot surfaced as
+// nothing but "Timed out waiting ... from config.webServer" with zero specs run —
+// indistinguishable from a browser catastrophe. On stderr, the last line printed
+// before a timeout names the phase that was still running.
+function logProgress(line) {
+    process.stderr.write(`${line}\n`);
+}
+
+async function timedPhase(log, label, work) {
+    log(`[e2e] snapshot: ${label}…`);
+    const started = performance.now();
+    const result = await work();
+    log(`[e2e] snapshot: ${label} done in ${((performance.now() - started) / 1000).toFixed(1)}s`);
+    return result;
+}
+
+// Runs `task` over `items` at most `limit` at a time, returning results in INPUT
+// order whatever order they finish in. On the first failure it stops scheduling
+// new work and waits for what is already in flight before rethrowing, so a
+// rejection can never race a later write.
+async function mapBounded(items, limit, task) {
+    const results = new Array(items.length);
+    let next = 0;
+    let failure = null;
+    async function worker() {
+        while (failure === null && next < items.length) {
+            const index = next++;
+            try {
+                results[index] = await task(items[index]);
+            } catch (error) {
+                failure ??= { error };
+            }
+        }
+    }
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+    if (failure) throw failure.error;
+    return results;
+}
+
 function copyTree(source, target, copyFile) {
     const stat = lstatSync(source);
     if (stat.isSymbolicLink()) throw new Error(`Snapshot source contains a symbolic link: ${source}`);
@@ -54,31 +104,40 @@ async function hashFile(path) {
 }
 
 export async function buildSnapshotManifest(root, ignoredRelativePaths = new Set()) {
-    const manifest = [];
-    async function visit(absoluteDirectory, relativeDirectory = '') {
+    // Walk first, in the same depth-first, locale-sorted order as always, then hash
+    // concurrently back INTO that order — so the manifest, and the manifestSha256
+    // derived from it, are byte-identical to the sequential version.
+    const files = [];
+    function visit(absoluteDirectory, relativeDirectory = '') {
         const entries = readdirSync(absoluteDirectory, { withFileTypes: true })
             .sort((left, right) => left.name.localeCompare(right.name));
         for (const entry of entries) {
             const relativePath = relativeDirectory ? `${relativeDirectory}/${entry.name}` : entry.name;
             if (ignoredRelativePaths.has(relativePath)) continue;
             const absolutePath = join(absoluteDirectory, entry.name);
-            const before = lstatSync(absolutePath);
-            if (before.isSymbolicLink()) throw new Error(`Snapshot contains a symbolic link: ${relativePath}`);
-            if (before.isDirectory()) {
-                await visit(absolutePath, relativePath);
+            const stat = lstatSync(absolutePath);
+            if (stat.isSymbolicLink()) throw new Error(`Snapshot contains a symbolic link: ${relativePath}`);
+            if (stat.isDirectory()) {
+                visit(absolutePath, relativePath);
                 continue;
             }
-            if (!before.isFile()) throw new Error(`Snapshot contains an unsupported filesystem entry: ${relativePath}`);
-            const sha256 = await hashFile(absolutePath);
-            const after = lstatSync(absolutePath);
-            if (before.size !== after.size || before.mtimeMs !== after.mtimeMs) {
-                throw new Error(`Snapshot file changed while it was hashed: ${relativePath}`);
-            }
-            manifest.push({ path: relativePath, size: before.size, sha256 });
+            if (!stat.isFile()) throw new Error(`Snapshot contains an unsupported filesystem entry: ${relativePath}`);
+            files.push({ absolutePath, relativePath });
         }
     }
-    await visit(root);
-    return manifest;
+    visit(root);
+
+    return mapBounded(files, HASH_CONCURRENCY, async ({ absolutePath, relativePath }) => {
+        // `before` is taken immediately around the read, as it always was, so the
+        // changed-while-hashed check still brackets exactly the bytes it hashed.
+        const before = lstatSync(absolutePath);
+        const sha256 = await hashFile(absolutePath);
+        const after = lstatSync(absolutePath);
+        if (before.size !== after.size || before.mtimeMs !== after.mtimeMs) {
+            throw new Error(`Snapshot file changed while it was hashed: ${relativePath}`);
+        }
+        return { path: relativePath, size: before.size, sha256 };
+    });
 }
 
 function compareManifests(sourceManifest, targetManifest) {
@@ -106,6 +165,7 @@ export async function prepareImmutableSnapshot({
     copyFile = copyFileSync,
     now = () => new Date().toISOString(),
     pid = process.pid,
+    log = logProgress,
 }) {
     const source = resolve(requestedSourceRoot);
     const target = resolve(requestedTargetRoot);
@@ -119,7 +179,7 @@ export async function prepareImmutableSnapshot({
 
     // Hash first. If the build moves while copying, the target comparison fails
     // and the evidence marker remains instead of ever starting the preview.
-    const sourceManifest = await buildSnapshotManifest(source);
+    const sourceManifest = await timedPhase(log, 'hashing source', () => buildSnapshotManifest(source));
     if (existsSync(target)) throw new Error(`Immutable snapshot target appeared while hashing source: ${target}`);
 
     mkdirSync(target);
@@ -129,11 +189,12 @@ export async function prepareImmutableSnapshot({
     writeStatus(statusPath, { schemaVersion: 1, status: 'copying', source, target, pid, startedAt, stage });
 
     try {
-        copyTree(source, target, copyFile);
+        await timedPhase(log, `copying ${sourceManifest.length} files`, () => copyTree(source, target, copyFile));
         stage = 'structure-validation';
         if (!validateSnapshot(target)) throw new Error('The Playwright preview snapshot is structurally incomplete.');
         stage = 'content-validation';
-        const targetManifest = await buildSnapshotManifest(target, new Set([SNAPSHOT_STATUS_FILE]));
+        const targetManifest = await timedPhase(log, 'verifying copy',
+            () => buildSnapshotManifest(target, new Set([SNAPSHOT_STATUS_FILE])));
         compareManifests(sourceManifest, targetManifest);
 
         const totalBytes = sourceManifest.reduce((sum, entry) => sum + entry.size, 0);
@@ -164,14 +225,15 @@ async function main() {
         throw new Error(`Unsafe Playwright preview directory: ${requestedName}`);
     }
     // Announce the start. This step copies AND hash-verifies the whole build
-    // (~370 MB), so it can sit silent for minutes — and because it runs inside
+    // (484 MB / 5,553 files on 2026-09-10, and growing), and because it runs inside
     // Playwright's `webServer` command, exceeding that timeout surfaces as a bare
     // "Timed out waiting ... from config.webServer" with no specs executed, which
     // reads like a catastrophic browser failure rather than a slow copy. Naming
-    // the step means the log always shows what was actually in progress.
-    console.log(`[e2e] Preparing immutable preview snapshot ${requestedName} from ${requestedSourceName}/ (copy + hash verify of the full build; this can take a few minutes).`);
+    // the step — on stderr, see logProgress — means the log always shows what was
+    // actually in progress.
+    logProgress(`[e2e] Preparing immutable preview snapshot ${requestedName} from ${requestedSourceName}/ (copy + hash verify of the full build).`);
     const result = await prepareImmutableSnapshot({ sourceRoot, targetRoot });
-    console.log(`[e2e] Isolated preview snapshot ready: ${requestedName} (${result.fileCount} files, ${result.totalBytes} bytes, manifest ${result.manifestSha256})`);
+    logProgress(`[e2e] Isolated preview snapshot ready: ${requestedName} (${result.fileCount} files, ${result.totalBytes} bytes, manifest ${result.manifestSha256})`);
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) await main();
