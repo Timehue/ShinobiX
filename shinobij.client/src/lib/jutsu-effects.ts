@@ -5,6 +5,7 @@
  *                            the jutsu cards, tag picker and combat inspect UI
  *   • jutsuDisplayAtLevel  — a jutsu scaled (EP + tag percents) to a mastery lvl
  *   • describeJutsuEffects — one-line plain summary of a jutsu's tags
+ *   • jutsuDetailDescription — the details-panel prose, battle tokens filled
  *
  * Pure functions depending only on lib/tags, lib/combat-math, lib/jutsu-scaling,
  * constants/game and the type modules. Extracted from App.tsx (jutsu cluster).
@@ -164,4 +165,28 @@ export function jutsuTargetingLabel(jutsu: Jutsu): { short: string; detail: stri
                 ? { short: "Self", detail: "Affects only the user." }
                 : { short: "Single Target", detail: "Affects a single target — no area splash." };
     }
+}
+
+// The two battle-flavor tokens, matched exactly as combat substitutes them.
+const FLAVOR_TOKEN = /%(user|target)/g;
+const SENTENCE_START = /(^|[.!?]\s+)$/;
+
+/**
+ * The prose line in a jutsu's details panel (Jutsu Training Hall + Profile).
+ *
+ * Prefers the card `description`, falling back to the battle-log line when none
+ * was written — the four built-in bloodline kits carry only battle flavor, and
+ * the Bloodline Maker copies its battle line into `description` verbatim. Both
+ * can hold the `%user` / `%target` tokens that combat fills with fighter names
+ * (interpolateFlavor in lib/battle-log-format, api/combat-core/cast-flavor.ts).
+ * Out of combat there are no names, so a token reads as "the user" or "the
+ * target" — the wording the built-in starter prose already uses — and a SELF
+ * cast's `%target` is its caster, exactly as cast-flavor resolves it.
+ */
+export function jutsuDetailDescription(jutsu: Pick<Jutsu, "description" | "battleDescription" | "target">): string {
+    const text = jutsu.description?.trim() || jutsu.battleDescription?.trim() || "";
+    return text.replace(FLAVOR_TOKEN, (_token, role: string, offset: number) => {
+        const word = role === "user" || jutsu.target === "SELF" ? "the user" : "the target";
+        return SENTENCE_START.test(text.slice(0, offset)) ? word.charAt(0).toUpperCase() + word.slice(1) : word;
+    });
 }
