@@ -8,10 +8,9 @@ import { type Team, TEAM_COLOR } from './pet-warfront/scene-colors';
  * three-lane war it replaced is no longer playable: the arena lobby, co-op and
  * the dev harness all launch the Rite.
  *
- * This file survives for ONE reason: the PET LADDER's tactical ladder still
- * resolves and replays on it (api/pet-ladder/_core.ts calls runWarfrontMatch,
- * screens/PetLadder.tsx renders the replay). That is server-authoritative
- * ranked play with existing standings, so the engine cannot simply be swapped.
+ * Historical visual audit fixture only. Ranked Beastbound Warfront now resolves
+ * the Rite from sealed formations. Production and preview entries do not import
+ * this renderer; the tactical storage key survives only to preserve rankings.
  *
  * Do not wire this into anything new, and do not let player-facing copy call it
  * "the Warfront" — that name belongs to the Rite.

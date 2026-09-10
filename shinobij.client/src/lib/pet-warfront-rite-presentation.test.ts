@@ -6,6 +6,9 @@ import {
     allRiteFighterModelsReady,
     bucketEvents,
     createActorPoseSample,
+    dampRiteBodyValue,
+    riteBodyMotionGain,
+    riteRigTimeline,
     elementColor,
     lethalTick,
     riteCanvasGroundingAoDepthScale,
@@ -47,6 +50,32 @@ const twoTicks = () => resultFrom([
     { t: 0, actors: [actor("player", { x: 0, y: 0, hp: 100 }), actor("enemy", { x: 10, y: 4 })], projectiles: [] },
     { t: 1, actors: [actor("player", { x: 4, y: 2, hp: 60 }), actor("enemy", { x: 6, y: 0 })], projectiles: [] },
 ]);
+
+test("contact hit-stop cannot rewind an advancing rig after a dropped render frame", () => {
+    const frames = [1, 1.1, 1.033, 1.033, 1.16, 1.2];
+    let timeline = 0;
+    for (const requested of frames) {
+        const next = riteRigTimeline(timeline, requested);
+        assert.ok(next >= timeline, "a held contact must not trigger the animation mixer's replay reset");
+        timeline = next;
+    }
+    assert.equal(riteRigTimeline(timeline, 0, true), 0, "an actual replay still resets to formation");
+    assert.equal(riteRigTimeline(3, 3), 3, "paused playback must remain still");
+});
+
+test("winged pets retain their authored silhouette with bounded, frame-rate independent extra motion", () => {
+    const gain = riteBodyMotionGain("avian");
+    assert.ok(gain < riteBodyMotionGain("quadruped"));
+    assert.ok((1.13 - 1) * gain < 0.04, "Tempest Hawk's whole-body stretch stays below four percent");
+    assert.equal(riteBodyMotionGain("avian", true), 0);
+    const target = 1 + (1.13 - 1) * gain;
+    let at30 = 1, at60 = 1;
+    for (let i = 0; i < 30; i++) at30 = dampRiteBodyValue(at30, target, 1 / 30);
+    for (let i = 0; i < 60; i++) at60 = dampRiteBodyValue(at60, target, 1 / 60);
+    assert.ok(Math.abs(at30 - at60) < 1e-9);
+    assert.equal(dampRiteBodyValue(at60, 1, 0), at60, "body motion shares the paused replay clock");
+    assert.ok(dampRiteBodyValue(1, target, 2) < target, "resuming a hidden tab cannot snap a pose");
+});
 
 test("fighter grounding is feathered AO plus a strictly transient combat rune", () => {
     assert.equal(riteGroundingFocusStrength("idle", true), 0,
@@ -284,8 +313,9 @@ test("Beastbound Warfront has one position owner, actor-first framing, and targe
         "KO and stagger must stop rotation tracking");
     assert.match(source, /f\.motion = down \? "dead"[\s\S]*?pose\.state === "windup" \? "windup"[\s\S]*?pose\.state === "strike" \? "strike"[\s\S]*?pose\.state === "recover" \? "recover"/,
         "windup/contact/recovery must reach the model as distinct clip phases");
-    assert.match(source, /f\.maxTurnPerFrame = 55 \* Math\.PI \/ 180/,
-        "one dropped frame must not become a 180-degree body flip");
+    const turnLimit = Number(source.match(/f\.maxTurnPerFrame = (\d+) \* Math\.PI \/ 180/)?.[1]);
+    assert.ok(turnLimit > 0 && turnLimit <= 18,
+        "one dropped frame must not turn a broad-winged model by more than eighteen degrees");
     assert.match(source, /shadows=\{renderQuality\.modelShadows \? "percentage" : false\}/,
         "the Rite must not select Three's deprecated warning-heavy boolean shadow preset");
     assert.match(source, /<KageBoardCells \/>/,

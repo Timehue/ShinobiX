@@ -77,6 +77,17 @@ The existing exact-once receipt, retry, active-battle lease, and account-scope
 guards still wrap settlement. PvP and co-op reuse the same `PetWarfrontRite`
 presentation; shared spectator replays use the deterministic default plan.
 
+Ranked Beastbound Warfront replaces the Pet Tactical ladder. It remains an
+asynchronous ladder against sealed offline defenses, with ten challenges per day.
+Players save four pets and one legal deployment across the same ten cells used
+by casual Warfront. Both teams hold their saved positions for the full match;
+there are no live re-form decisions. The server resolves the Rite once and
+returns its seed, sealed pets, and both plans for spectator playback. Trained
+stats and roles count; gear and consumables follow Warfront's equipment-free
+rules. Existing `tactical` storage keys preserve rankings and records. Older
+defenses receive the displayed default deployment until their owner saves a new
+formation. Training changes enter a defense when the owner saves it again.
+
 ## Presentation
 
 - The playable arena is real 3D geometry: 35 stone/lacquer cells, shoji blockers,
@@ -129,7 +140,8 @@ topology, or squad size changes.
 ## Retired lane engine
 
 `pet-warfront-sim.ts`, `PetWarfrontMatch.tsx`, and `PetWarfrontStage3D.tsx`
-remain only because the Pet Ladder still uses that server-authoritative replay
-format. Nothing in the Pet Coliseum launches them as Hollow Warfront. Contract
-tests pin the Coliseum and co-op entry points to `PetWarfrontRite` so the retired
-mode cannot quietly return.
+are historical simulation/visual audit fixtures only. No production ladder,
+Colosseum, or co-op entry launches them. Old `?warfront=1` preview links open the
+current Rite. The ladder, arena, and co-op use `PetWarfrontRite`; no standalone
+Pet Tactical product remains. Old recorded lane results keep their standings,
+but are not reinterpreted as Rite replays.

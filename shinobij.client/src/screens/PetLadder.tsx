@@ -1,5 +1,4 @@
-import { PetShowdownReplay } from "../components/PetShowdownReplay";
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import type { Screen } from "../types/core";
@@ -13,36 +12,38 @@ import { derivePetRole, ROLE_META } from "../lib/pet-roles";
 import { LoadingState } from "../components/ui/LoadingState";
 import { EmptyState } from "../components/ui/EmptyState";
 import { petPvpGearById, petConsumableById } from "../data/pet-config";
-// three/r3f-heavy: its own chunk, loaded only when a tactical replay opens.
-const PetWarfrontMatch = lazy(() => import("../components/PetWarfrontMatch").then((m) => ({ default: m.PetWarfrontMatch })));
-import { LADDER_FORMATIONS, LADDER_DOCTRINES, asFormation, asTeamDoctrine, type WfStance, type WfDoctrine } from "../lib/pet-ladder-setup";
-import { PetLadderQueuePanel } from "../components/PetLadderQueuePanel";
+// Keep both battle renderers out of the ladder's initial load.
+const PetWarfrontRite = lazy(() => import("../components/PetWarfrontRite").then((m) => ({ default: m.PetWarfrontRite })));
+const PetShowdownReplay = lazy(() => import("../components/PetShowdownReplay").then((m) => ({ default: m.PetShowdownReplay })));
+const PetLadderQueuePanel = lazy(() => import("../components/PetLadderQueuePanel").then((m) => ({ default: m.PetLadderQueuePanel })));
+import { defaultWarfrontLadderPlan, parseWarfrontLadderPlan, type WarfrontLadderPlan } from "../lib/pet-ladder-setup";
+import { WarfrontLadderFormation } from "../components/WarfrontLadderFormation";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { activeCarriedPets } from "../lib/entitlements";
 import { activeClientBreedingParentIds } from "../lib/pet-breeding";
 import type { ArenaSlot } from "../lib/pet-arena-sim";
 import {
-    type Mode, type LadderView, type OfferOpponent, type ChallengeResult, type PetLite,
-    fetchLadder, setLadderDefense, getLadderOffer, challengeLadder, clearLadderNotify, toClientPet,
+    type Mode, type LadderView, type OfferOpponent, type ChallengeResult, type ChallengeReplay, type PetLite,
+    fetchLadder, setLadderDefense, getLadderOffer, challengeLadder, clearLadderNotify, toClientPet, toClientWarfrontSlot,
 } from "../lib/pet-ladder-client";
 import coliseumHero from "../assets/coliseum/coliseum-bg.webp";   // the real in-battle coliseum (matches the Coliseum duel backdrop)
-import tacticalHero from "../assets/ladder/tactical-hero.webp";
+import tacticalHero from "../assets/warfront-rite/warfront-rite-keyart.webp";
 import arenaModeColosseum from "../assets/coliseum/arena-mode-colosseum.webp";
-import arenaModeWarfront from "../assets/coliseum/arena-mode-warfront.webp";
+import arenaModeWarfront from "../assets/warfront-rite/warfront-rite-card.webp";
 import { GameIcon } from "../components/icons/GameIcon";
 import { GiChatBubble } from "../components/icons/LightweightGameIcons";
 import "./PetLadder.css";
 
 /*
  * Pet Ladder — global positional ranking (Sword-x-Staff style) for Pet Coliseum
- * (1v1) and Pet Tactical (4v4). Set a sealed defense, challenge close-above rivals
+ * (1v1) and Beastbound Warfront (4v4). Set a sealed defense, challenge close-above rivals
  * (offline), climb. Resolution is server-authoritative; this screen replays the
  * sealed result in the 2.5D/3D cinematic with PvP items applied.
  */
 
-const MODE_LABEL: Record<Mode, string> = { coliseum: "Pet Colosseum", tactical: "Pet Tactical" };
-const MODE_SUB: Record<Mode, string> = { coliseum: "1v1 duel · defend with one pet", tactical: "4v4 tactical · defend with a team of four" };
+const MODE_LABEL: Record<Mode, string> = { coliseum: "Pet Colosseum", tactical: "Beastbound Warfront" };
+const MODE_SUB: Record<Mode, string> = { coliseum: "1v1 duel · defend with one pet", tactical: "4v4 offline ladder · best of three clashes" };
 /* Painted mode emblems shared with the Pet Arena activity tiles — the ladder
    and the arena must read as the same two destinations. */
 const MODE_ART: Record<Mode, string> = { coliseum: arenaModeColosseum, tactical: arenaModeWarfront };
@@ -79,7 +80,29 @@ const summaryChips = (pets: PetLite[]) => (
     </span>
 );
 
-export function PetLadder({ character, setScreen, sharedImages }: { character: Character; setScreen: (s: Screen) => void; sharedImages: Record<string, string> }) {
+/** Parent refreshes must not restart a resolved replay's worker or playback. */
+function RankedWarfrontReplay({ replay, sharedImages, onExit }: {
+    replay: Extract<ChallengeReplay, { kind: "warfront" }>;
+    sharedImages: Record<string, string>;
+    onExit: () => void;
+}) {
+    const blue = useMemo<ArenaSlot[]>(() => replay.blue.map(toClientWarfrontSlot), [replay]);
+    const red = useMemo<ArenaSlot[]>(() => replay.red.map(toClientWarfrontSlot), [replay]);
+    const sealedReplay = useMemo(() => ({ bluePlan: replay.bluePlan, redPlan: replay.redPlan }), [replay]);
+    return <Suspense fallback={<div className="pl-empty">Loading Beastbound Warfront…</div>}>
+        <PetWarfrontRite blue={blue} red={red} seed={replay.seed} sharedImages={sharedImages}
+            sealedReplay={sealedReplay} spectator onExit={onExit} />
+    </Suspense>;
+}
+
+type PetLadderProps = { character: Character; setScreen: (s: Screen) => void; sharedImages: Record<string, string> };
+
+/** An account change must discard the previous account's edits and replay. */
+export function PetLadder(props: PetLadderProps) {
+    return <PetLadderSession key={props.character.name} {...props} />;
+}
+
+function PetLadderSession({ character, setScreen, sharedImages }: PetLadderProps) {
     const carriedPets = activeCarriedPets<Pet>(character);
     const breedingPetIds = activeClientBreedingParentIds(character);
     const [mode, setMode] = useState<Mode>(() => (
@@ -90,26 +113,26 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
     const [view, setView] = useState<LadderView | null>(null);
     const [err, setErr] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
-    const [picks, setPicks] = useState<string[]>([]);
+    const [picksEdit, setPicks] = useState<string[] | null>(null);
     const [offer, setOffer] = useState<OfferOpponent[] | null>(null);
     const [replay, setReplay] = useState<ChallengeResult | null>(null);
     const [outcome, setOutcome] = useState<{ won: boolean; rank: number | null } | null>(null);
-    // Tactical defense is more than a team: it is the whole pre-match setup a
-    // player would make if they were present. Seeded from the saved defense.
-    // DERIVED from the saved defense with a local override, rather than mirrored
-    // into state by an effect: there is no window where the pickers show something
-    // the server does not have, and an unsaved edit still survives a refresh.
-    const [stanceEdit, setStanceEdit] = useState<WfStance | null>(null);
-    const [doctrineEdit, setDoctrineEdit] = useState<WfDoctrine | null>(null);
-    const defStance = stanceEdit ?? asFormation(view?.you?.stance);
-    const defDoctrine = doctrineEdit ?? asTeamDoctrine(view?.you?.doctrine);
+    const [planEdit, setPlanEdit] = useState<WarfrontLadderPlan | null>(null);
+    const defPlan = planEdit ?? parseWarfrontLadderPlan(view?.you?.warfrontPlan) ?? defaultWarfrontLadderPlan();
     const refreshId = useRef(0);
+    const mounted = useRef(false);
+
+    useEffect(() => {
+        mounted.current = true;
+        return () => { mounted.current = false; refreshId.current += 1; };
+    }, []);
 
     const name = character.name;
     const teamSize = mode === "tactical" ? 4 : 1;
     // Admin-comped entitlements can expire while this screen remains mounted.
     const available = activeCarriedPets<Pet>(character).filter((pet) => isPetAvailableForWarfront(pet, breedingPetIds));
     const tacticalUnlocked = available.length >= TACTICAL_ARENA_PET_REQUIREMENT;
+    const picks = picksEdit ?? view?.you.defensePetIds ?? available.slice(0, teamSize).map((pet) => pet.id);
 
     const refresh = useCallback(async () => {
         const id = ++refreshId.current;
@@ -126,32 +149,44 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
         if (nextMode === mode) return;
         refreshId.current += 1;
         setView(null); setErr(null); setMode(nextMode);
+        setPicks(null); setPlanEdit(null); setOffer(null); setOutcome(null);
         sessionStorage.setItem("petLadder.mode", nextMode);
     };
 
     useEffect(() => { void refresh(); }, [refresh]); // eslint-disable-line react-hooks/set-state-in-effect
-    useEffect(() => { setPicks(available.slice(0, teamSize).map((p) => p.id)); setOffer(null); setOutcome(null); }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
 
     const togglePick = (id: string) => {
         if (teamSize === 1) { setPicks([id]); return; }
-        setPicks((cur) => cur.includes(id) ? cur.filter((x) => x !== id) : cur.length >= teamSize ? cur : [...cur, id]);
+        setPicks(picks.includes(id) ? picks.filter((x) => x !== id) : picks.length >= teamSize ? picks : [...picks, id]);
     };
 
     const saveDefense = async () => {
         const availableIds = new Set(available.map((pet) => pet.id));
         if (picks.length !== teamSize || new Set(picks).size !== teamSize || picks.some((id) => !availableIds.has(id))) return;
         setBusy(true);
-        try { await setLadderDefense(name, mode, picks, mode === "tactical" ? { stance: defStance, doctrine: defDoctrine } : undefined); await refresh(); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+        try {
+            await setLadderDefense(name, mode, picks, mode === "tactical" ? { warfrontPlan: defPlan } : undefined);
+            if (!mounted.current) return;
+            await refresh();
+            if (mounted.current) { setPicks(null); setPlanEdit(null); }
+        } catch (e) { if (mounted.current) setErr((e as Error).message); }
+        finally { if (mounted.current) setBusy(false); }
     };
     const openOffer = async () => {
         setBusy(true);
-        try { setOffer((await getLadderOffer(name, mode)).offer); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+        try { const next = await getLadderOffer(name, mode); if (mounted.current) setOffer(next.offer); }
+        catch (e) { if (mounted.current) setErr((e as Error).message); }
+        finally { if (mounted.current) setBusy(false); }
     };
     const doChallenge = async (targetId: string) => {
         setBusy(true);
-        try { const r = await challengeLadder(name, mode, targetId); setOffer(null); setReplay(r); setOutcome({ won: r.won, rank: r.rank }); }
-        catch (e) { setErr((e as Error).message); setOffer(null); }
-        finally { setBusy(false); }
+        try {
+            const r = await challengeLadder(name, mode, targetId);
+            if (!mounted.current) return;
+            setOffer(null); setReplay(r); setOutcome({ won: r.won, rank: r.rank });
+        }
+        catch (e) { if (mounted.current) { setErr((e as Error).message); setOffer(null); } }
+        finally { if (mounted.current) setBusy(false); }
     };
     const exitCinematic = () => { setReplay(null); void refresh(); };
 
@@ -162,9 +197,9 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
             // The server derived this script from the same inputs it scored the
             // challenge with, so the fight on screen IS the fight that moved the
             // rank. Played through the normal Showdown arena in spectator mode.
-            return <PetShowdownReplay script={r.script} playerPets={[toClientPet(r.player)]} sharedImages={sharedImages} onExit={exitCinematic} />;
+            return <Suspense fallback={<LoadingState />}><PetShowdownReplay script={r.script} playerPets={[toClientPet(r.player)]} sharedImages={sharedImages} onExit={exitCinematic} /></Suspense>;
         }
-        if (r.kind === "coliseum") {
+        if (r.kind === "coliseum" || r.kind === "tactical") {
             // A row stored before the engine cutover. Its winner came from the
             // retired sim, so re-deriving it on Showdown could contradict the
             // recorded rank — the result stands, the fight is not replayable.
@@ -175,32 +210,15 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                 </div>
             );
         }
-        const blue: ArenaSlot[] = r.blue.map((s) => ({ pet: toClientPet(s.pet), role: s.role }));
-        const red: ArenaSlot[] = r.red.map((s) => ({ pet: toClientPet(s.pet), role: s.role }));
-        // The tactical ladder resolves on the LANE SIM, with both sides on auto
-        // because neither player is present. Replaying anything else would show a
-        // different fight than the one the server scored.
-        //
-        // NOTE ON THE NAME: this engine used to be the Hollow Warfront mode.
-        // Warfront is now the Rite (four pets a side, best of three clashes —
-        // docs/hollow-warfront-rite.md) and the lane war is no longer playable
-        // anywhere. It survives ONLY here, as the tactical ladder's engine and
-        // replay viewer, so nothing player-facing may call this "the warfront".
-        return <Suspense fallback={<div className="pl-empty">Loading the tactical replay…</div>}><PetWarfrontMatch
-            blue={blue} red={red} seed={r.seed}
-            autoBuy="balanced"
-            stance={r.blueStance ?? "balanced"}
-            doctrine={r.blueDoctrine ?? "vanguard"}
-            opponentStance={r.redStance ?? "balanced"}
-            opponentDoctrine={r.redDoctrine ?? "vanguard"}
-            matchType="ranked"
-            spectator
-            onExit={exitCinematic}
-        /></Suspense>;
+        return <RankedWarfrontReplay replay={r} sharedImages={sharedImages} onExit={exitCinematic} />;
     }
 
     const you = view?.you;
-    const canChallenge = !!you?.hasDefense && (you?.challengesLeft ?? 0) > 0;
+    const hasUnsavedDefense = !!you?.hasDefense && (
+        JSON.stringify(picks) !== JSON.stringify(you.defensePetIds)
+        || (mode === "tactical" && JSON.stringify(defPlan) !== JSON.stringify(parseWarfrontLadderPlan(you.warfrontPlan) ?? defaultWarfrontLadderPlan()))
+    );
+    const canChallenge = !!you?.hasDefense && !hasUnsavedDefense && (you?.challengesLeft ?? 0) > 0;
 
     return (
         <div className="pl-screen">
@@ -221,7 +239,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                 {(["coliseum", "tactical"] as Mode[]).map((m) => (
                     <button key={m} className={`pl-tab${mode === m ? " is-active" : ""}`}
                         aria-pressed={mode === m}
-                        disabled={m === "tactical" && !tacticalUnlocked}
+                        disabled={busy || (m === "tactical" && !tacticalUnlocked)}
                         title={m === "tactical" && !tacticalUnlocked ? `Locked: ${available.length}/${TACTICAL_ARENA_PET_REQUIREMENT} available pets` : undefined}
                         onClick={() => selectMode(m)}>
                         <img className="pl-mode-art pl-mode-art-tab" src={MODE_ART[m]} alt="" /> {MODE_LABEL[m]}
@@ -255,7 +273,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                 <div className="pl-notify">
                     <div className="pl-notify-head">
                         <b><GiChatBubble size={13} style={{ color: "var(--sj-gold)" }} /> While you were away</b>
-                        <button className="pl-link" onClick={async () => { try { await clearLadderNotify(name); await refresh(); } catch { /* ignore */ } }}>Clear</button>
+                        <button className="pl-link" onClick={async () => { try { await clearLadderNotify(name); if (mounted.current) await refresh(); } catch { /* ignore */ } }}>Clear</button>
                     </div>
                     {view.notifications.slice().reverse().map((n, i) => (
                         <div key={i} className="pl-notify-row"><GameIcon name={n.won ? "hazard" : "shield"} size={13} style={{ color: n.won ? "var(--sj-danger)" : "var(--sj-success)" }} /> <b>{n.from}</b> {n.won ? "took your rank" : "failed to take your rank"} in {MODE_LABEL[n.mode]}.</div>
@@ -273,7 +291,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                 and replayed to both players; the asynchronous Coliseum and
                 Tactical ladder modes below remain authoritative on their own. */}
             {mode === "coliseum" && (
-                <PetLadderQueuePanel character={character} sharedImages={sharedImages} />
+                <Suspense fallback={<LoadingState />}><PetLadderQueuePanel character={character} sharedImages={sharedImages} /></Suspense>
             )}
 
             {/* Two columns: defense + challenge (left) | the ladder (right) */}
@@ -283,7 +301,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                     <div className="pl-panel">
                         <h3 className="pl-h"><GameIcon name="shield" size={15} /> Your defense{mode === "tactical" ? " team" : ""}</h3>
                         <p className="pl-sub">
-                            {mode === "tactical" ? "Pick 4 pets to defend your rank — they fight for you even while you're offline." : "Pick the pet that defends your rank while you're away."} Stats &amp; PvP items count.
+                            {mode === "tactical" ? "Pick 4 pets to defend your rank — they fight for you even while you're offline. Trained stats, roles, and formation count. Warfront uses no gear or consumables." : "Pick the pet that defends your rank while you're away. Stats and PvP gear count."}
                         </p>
                         {available.length < teamSize
                             ? <div className="pl-empty">You need {teamSize} available pet{teamSize > 1 ? "s" : ""} (none on expeditions) to set a defense.</div>
@@ -295,9 +313,9 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                                         const { role } = pet.role ? { role: pet.role } : derivePetRole(pet);
                                         const rm = ROLE_META[role];
                                         const img = petCardImage(pet, sharedImages);
-                                        const gear = gearLabel(pet);
+                                        const gear = mode === "coliseum" ? gearLabel(pet) : null;
                                         return (
-                                            <button key={pet.id} type="button" className={`pl-pet${sel ? " sel" : ""} ${petVisualVariantClass(pet)}`} onClick={() => togglePick(pet.id)} title={gear ?? petDisplayName(pet)}>
+                                            <button key={pet.id} type="button" className={`pl-pet${sel ? " sel" : ""} ${petVisualVariantClass(pet)}`} onClick={() => togglePick(pet.id)} disabled={busy} title={gear ?? petDisplayName(pet)}>
                                                 {sel && teamSize > 1 && <span className="pl-pet-order">{order + 1}</span>}
                                                 {sel && teamSize === 1 && <span className="pl-pet-check">✓</span>}
                                                 {img ? <img className="pl-pet-img" src={img} alt="" /> : <div className="pl-pet-img" />}
@@ -311,38 +329,13 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                                         );
                                     })}
                                 </div>
-                                <button className="pl-btn pl-btn-gold" style={{ marginTop: 12 }} onClick={saveDefense} disabled={busy || picks.length !== teamSize}>
+                                {mode === "tactical" && (
+                                    <WarfrontLadderFormation pets={picks.map((id) => available.find((pet) => pet.id === id))}
+                                        plan={defPlan} onChange={setPlanEdit} disabled={busy} />
+                                )}
+                                <button className="pl-btn pl-btn-gold" style={{ marginTop: 12 }} onClick={saveDefense} disabled={busy || picks.length !== teamSize || picks.some((id) => !available.some((pet) => pet.id === id))}>
                                     {you?.hasDefense ? "Update defense" : "Set defense"} ({picks.length}/{teamSize})
                                 </button>
-                                {/* The rest of the pre-match setup. A defense fights while its
-                                    owner is offline, so these are the calls they leave behind —
-                                    and the War Council runs on auto, because nobody is there to
-                                    answer a 30-second buy popup. */}
-                                {mode === "tactical" && (
-                                    <div className="pl-setup">
-                                        <div className="pl-sub" style={{ marginTop: 10, fontWeight: 700 }}>Opening formation</div>
-                                        <div className="menu" style={{ gap: 6, flexWrap: "wrap" }}>
-                                            {LADDER_FORMATIONS.map((f) => (
-                                                <button key={f.value} type="button" title={f.hint}
-                                                    aria-pressed={defStance === f.value}
-                                                    className={defStance === f.value ? "pl-btn pl-btn-gold" : "pl-btn"}
-                                                    onClick={() => setStanceEdit(f.value)}>{f.label}</button>
-                                            ))}
-                                        </div>
-                                        <div className="pl-sub" style={{ marginTop: 10, fontWeight: 700 }}>Team doctrine</div>
-                                        <div className="menu" style={{ gap: 6, flexWrap: "wrap" }}>
-                                            {LADDER_DOCTRINES.map((d) => (
-                                                <button key={d.value} type="button" title={d.hint}
-                                                    aria-pressed={defDoctrine === d.value}
-                                                    className={defDoctrine === d.value ? "pl-btn pl-btn-gold" : "pl-btn"}
-                                                    onClick={() => setDoctrineEdit(d.value)}>{d.label}</button>
-                                            ))}
-                                        </div>
-                                        <p className="pl-sub" style={{ marginTop: 8 }}>
-                                            War Council runs automatically for a defense — you will not be there to call the buys.
-                                        </p>
-                                    </div>
-                                )}
                             </>}
                     </div>
 
@@ -355,6 +348,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                     <div className="pl-panel">
                         <button className="pl-btn pl-btn-gold pl-cta" onClick={openOffer} disabled={busy || !canChallenge}>⚔ Challenge for rank</button>
                         {!you?.hasDefense && <p className="pl-sub" style={{ textAlign: "center", margin: "9px 0 0" }}>Set a defense first to enter the ladder.</p>}
+                        {hasUnsavedDefense && <p className="pl-sub" style={{ textAlign: "center", margin: "9px 0 0" }}>Save your changed team and formation before challenging.</p>}
                         {you?.hasDefense && (you?.challengesLeft ?? 0) <= 0 && <p className="pl-sub" style={{ textAlign: "center", margin: "9px 0 0" }}>You're out of challenges today — back tomorrow.</p>}
                     </div>
                     )}
@@ -367,7 +361,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                         : view.ladder.length === 0 ? <EmptyState icon={<img className="pl-empty-art" src={MODE_ART[mode]} alt="" />}>No one is ranked yet — set a defense and beat the AI to claim the first rung!</EmptyState>
                             : <div className="pl-list">
                                 {view.ladder.map((e) => (
-                                    <div key={e.slug} className={`pl-row${e.slug === character.name ? " is-you" : ""}`}>
+                                    <div key={e.slug} className={`pl-row${e.rank === you?.rank ? " is-you" : ""}`}>
                                         <RankBadge rank={e.rank} />
                                         <div className="pl-row-main">
                                             <div className="pl-row-name">{e.name}{e.village ? <span className="pl-row-vil"> · {e.village}</span> : null}</div>
@@ -381,7 +375,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
             </div>
 
             {offer && (
-                <div className="pl-modal-bg" onClick={() => setOffer(null)}>
+                <div className="pl-modal-bg" onClick={() => { if (!busy) setOffer(null); }}>
                     <div className="pl-modal" onClick={(e) => e.stopPropagation()}>
                         <h3 className="pl-h" style={{ fontSize: 18 }}>Choose your opponent</h3>
                         <p className="pl-sub">Rivals just above your rank. Beat one to take their spot — uses 1 of your daily challenges.</p>
@@ -397,7 +391,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                                 </button>
                             ))}
                         </div>
-                        <button className="pl-btn" style={{ marginTop: 14 }} onClick={() => setOffer(null)}>Cancel</button>
+                        <button className="pl-btn" style={{ marginTop: 14 }} disabled={busy} onClick={() => setOffer(null)}>Cancel</button>
                     </div>
                 </div>
             )}
@@ -407,6 +401,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
 
 function recordOf(view: LadderView | null, key: "wins" | "losses" | "defended" | "defeated"): number {
     if (!view || view.you.rank == null) return 0;
+    if (view.you.record) return view.you.record[key];
     const me = view.ladder[view.you.rank - 1];
     return me ? me.record[key] : 0;
 }
