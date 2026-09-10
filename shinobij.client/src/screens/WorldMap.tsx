@@ -4444,6 +4444,7 @@ function WorldMapContent({
                         overlayLayer={
                             <>
                             <WorldSectorOverlayLayer
+                                sector={selectedSector}
                                 biome={ambienceBiomeForSector(selectedSector)}
                                 playerTile={sectorPlayerPos}
                                 wanderers={sectorIsCurrent ? sectorOverlayWanderers : []}
