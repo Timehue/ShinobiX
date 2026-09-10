@@ -31,7 +31,8 @@ import { jutsuRyoTrainCap } from "../lib/jutsu-training-queue";
 import { describeJutsuEffects, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { getJutsuTrainingSpeedBonus, getTrainingXpBonus } from "../lib/village-upgrades";
 import { formatStatName, earnedStatPoints, levelForEarned } from "../lib/stats";
-import { canEquipElementJutsu } from "../lib/bloodline";
+import { canEquipElementJutsu, getCharacterBloodlines } from "../lib/bloodline";
+import { bloodlineNamesByJutsuId, hasBloodlineMarker } from "../lib/bloodline-marker";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { getCharacterElements } from "../lib/elements";
 import { useVillageWarMorale } from "../lib/war-debuff";
@@ -466,6 +467,14 @@ export function JutsuTrainingHall({
     const allJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
     const availableJutsus = allJutsus.filter((jutsu) => canEquipElementJutsu(character, jutsu, savedBloodlines));
     const lockedElementCount = allJutsus.length - availableJutsus.length;
+    // Jutsu id -> granting bloodline name, for the violet bloodline marker. The
+    // same rule as the Profile Jutsu tab (lib/bloodline-marker).
+    const bloodlineJutsuNames = bloodlineNamesByJutsuId(getCharacterBloodlines(character, savedBloodlines));
+    const bloodlineLabel = (jutsu: Jutsu) => {
+        if (!hasBloodlineMarker(jutsu, bloodlineJutsuNames)) return "";
+        const name = bloodlineJutsuNames.get(jutsu.id);
+        return name ? `◆ Bloodline · ${name}` : "◆ Bloodline";
+    };
     const academyJutsuStep = normalizeOnboardingStep(character.onboardingStep) === "jutsu";
     const academyUntrainedJutsuId = availableJutsus.find((jutsu) => getJutsuMastery(character, jutsu.id).level < 1)?.id ?? "";
     const [selectedJutsuId, setSelectedJutsuId] = useState(
@@ -709,9 +718,10 @@ export function JutsuTrainingHall({
         const duration = jutsuTrainingDuration(mastery.level);
         const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level);
         const targeting = jutsuTargetingLabel(jutsu);
+        const bloodline = bloodlineLabel(jutsu);
         return (
             <div className="jutsu-detail-stack">
-                <div className="jutsu-detail-badges"><span>Lv {mastery.level}/50</span><span>{jutsu.type}</span><span>{jutsu.element}</span></div>
+                <div className="jutsu-detail-badges"><span>Lv {mastery.level}/50</span><span>{jutsu.type}</span><span>{jutsu.element}</span>{bloodline && <span className="is-bloodline">{bloodline}</span>}</div>
                 <p className="jutsu-detail-description">{jutsu.description || jutsu.battleDescription}</p>
                 <div className="jutsu-detail-metrics">
                     <span><small>Mastery XP</small><strong>{mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</strong></span>
@@ -854,7 +864,7 @@ export function JutsuTrainingHall({
                             <div className="jutsu-plan-preview">
                                 <span className="jutsu-plan-art">{selectedJutsu.image ? <img src={selectedJutsu.image} alt="" /> : selectedJutsu.type.slice(0, 3).toUpperCase()}</span>
                                 <div>
-                                    <span>{selectedJutsu.type} · {selectedJutsu.element}</span>
+                                    <span>{selectedJutsu.type} · {selectedJutsu.element}{bloodlineLabel(selectedJutsu) && <em className="jutsu-plan-bloodline"> · {bloodlineLabel(selectedJutsu)}</em>}</span>
                                     <strong>Level {selectedMastery.level} → {Math.min(ryoTrainCap, selectedMastery.level + 1)}</strong>
                                     <small>{selectedAtCap ? "Battle-earned mastery from here" : "One complete mastery level"}</small>
                                 </div>
@@ -906,6 +916,7 @@ export function JutsuTrainingHall({
                     selectedJutsuId={selectedJutsuId}
                     highlightJutsuId={showAcademyJutsuHint && selectedMastery?.level !== 0 ? academyUntrainedJutsuId : undefined}
                     renderDetails={renderJutsuDetails}
+                    bloodlineJutsuNames={bloodlineJutsuNames}
                     onSelectJutsu={(jutsu) => {
                         setSelectedJutsuId(jutsu.id);
                         if (typeof window !== "undefined" && window.matchMedia("(max-width: 800px)").matches) {

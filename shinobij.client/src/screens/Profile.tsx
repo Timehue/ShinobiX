@@ -26,7 +26,8 @@ import { useLiveCapabilities } from "../lib/live-capabilities-context";
 import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
 import { auraSphereDustNeeded, getActiveAuraSphereBonuses, hasEquippedAuraSphere } from "../lib/aura-sphere";
 import { feedAuraSphereServer } from "../lib/aura-feed-api";
-import { canEquipElementJutsu } from "../lib/bloodline";
+import { canEquipElementJutsu, getCharacterBloodlines } from "../lib/bloodline";
+import { bloodlineNamesByJutsuId } from "../lib/bloodline-marker";
 import { STAT_KEYS, allocatedStatPoints, capStat, earnedForLevel, earnedStatPoints, normalizeStats } from "../lib/stats";
 import { compressDataUrl, isAnimatedImageFile, publishSharedImage } from "../lib/shared-images";
 import { getAllItems, getItemById } from "../lib/items";
@@ -864,6 +865,9 @@ export function Profile({
             {(() => {
                 const learnedAnyJutsus = allJutsus.filter((jutsu) => getJutsuMastery(character, jutsu.id).level >= 1);
                 const learnedJutsus = learnedAnyJutsus.filter((jutsu) => canEquipElementJutsu(character, jutsu, savedBloodlines));
+                // Jutsu id -> granting bloodline name, so the loadout panel can
+                // label bloodline jutsu and filter the collection down to them.
+                const bloodlineJutsuNames = bloodlineNamesByJutsuId(getCharacterBloodlines(character, savedBloodlines));
                 if (learnedJutsus.length === 0) {
                     return (
                         <section className="profile-build-panel jutsu-workbench-empty">
@@ -879,6 +883,7 @@ export function Profile({
                         character={character}
                         learnedJutsus={learnedJutsus}
                         catalogJutsus={allJutsus}
+                        bloodlineJutsuNames={bloodlineJutsuNames}
                         onPlaceJutsu={placeJutsuInLoadout}
                         onUnequip={unequipJutsu}
                         onUnequipAll={() => updateCharacter({ ...character, equippedJutsuIds: [] })}

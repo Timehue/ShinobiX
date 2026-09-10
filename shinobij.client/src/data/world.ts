@@ -104,9 +104,11 @@ export const weatherEffects: Record<
     },
 };
 
-// The per-biome weather rotation tables now live in shared/sector-weather.ts
-// (client + server derive the same daily weather from them). Re-exported here
-// so existing "../data/world" import sites keep working.
+// The per-biome weather rotation tables now live in shared/sector-weather.ts.
+// They are the CLIMATE — which skies a biome can show — and the shared Markov
+// chain there decides the order and the dwell time; client and server derive the
+// same sky from them for any weather window. Re-exported here so existing
+// "../data/world" import sites keep working.
 export { biomeWeatherTables } from "../../../shared/sector-weather";
 
 export function biomeLabel(biome: Biome) {

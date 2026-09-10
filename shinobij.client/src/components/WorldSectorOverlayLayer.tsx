@@ -2,6 +2,7 @@ import type { ShrineDef } from "../../../shared/shrines";
 import type { Biome } from "../types/core";
 import type { TrailSignView } from "../lib/sector-traces";
 import type { Wanderer } from "../lib/wanderers";
+import { riftPlacement, strongholdPlacement } from "../data/sector-structure-placements";
 import { SectorShrineStandee, SectorTraceMarkers } from "./SectorTraces";
 import { SectorWanderer } from "./SectorWanderer";
 import { SectorWeeklyBossActor } from "./SectorWeeklyBossActor";
@@ -29,6 +30,8 @@ export type WorldSectorBossMarker = Readonly<{
 }>;
 
 export type WorldSectorOverlayLayerProps = Readonly<{
+    /** Keys the per-sector Rift and Stronghold placements (data/sector-structure-placements). */
+    sector: number;
     biome: Biome;
     playerTile: number;
     wanderers: readonly Wanderer[];
@@ -51,6 +54,7 @@ export type WorldSectorOverlayLayerProps = Readonly<{
  * WorldMap retains time, storage, capability, portal, and mutation ownership.
  */
 export function WorldSectorOverlayLayer({
+    sector,
     biome,
     playerTile,
     wanderers,
@@ -64,18 +68,10 @@ export function WorldSectorOverlayLayer({
     onOpenTrace,
     onOpenShrine,
 }: WorldSectorOverlayLayerProps) {
-    // The stronghold has ONE position reused in every hostile sector; a shrine
-    // carries a per-sector one from shared/shrines.ts. In sector 23 that puts
-    // Moonwell (60/74) and the stronghold (64/70) on the same ground — a measured
-    // 58x49px overlap at every board width from 320px up. Step the stronghold to
-    // the far side when a shrine is close enough to collide, so every other sector
-    // keeps the default spot. Only Moonwell trips this today; the check is on the
-    // positions rather than on a sector number so a re-placed or new shrine is
-    // covered without a code change.
-    const strongholdCrowdedByShrine = Boolean(shrine)
-        && Math.abs(shrine!.definition.left - 64) < 20
-        && Math.abs(shrine!.definition.top - 70) < 20;
-    const strongholdLeft = strongholdCrowdedByShrine ? "87%" : "64%";
+    // Per-sector, tuned to each sector's painted ground and validated clear of its
+    // gates, arrival tiles, shrine, and each other (sector-structure-placements.test).
+    const riftAt = riftPlacement(sector);
+    const strongholdAt = strongholdPlacement(sector);
 
     return (
         <>
@@ -107,7 +103,7 @@ export function WorldSectorOverlayLayer({
                     type="button"
                     key="sector-rift-structure"
                     className="sector-rift-standee"
-                    style={{ left: "34%", top: "76%" }}
+                    style={{ left: `${riftAt.left}%`, top: `${riftAt.top}%` }}
                     onClick={rift.onOpen}
                     title={rift.title}
                     aria-label={rift.title}
@@ -130,7 +126,7 @@ export function WorldSectorOverlayLayer({
                     type="button"
                     key="sector-anbu-vault-structure"
                     className="sector-vault-standee"
-                    style={{ left: strongholdLeft, top: "70%" }}
+                    style={{ left: `${strongholdAt.left}%`, top: `${strongholdAt.top}%` }}
                     onClick={vault.onOpen}
                     title={`${vault.village} Sector Stronghold — infiltrate?`}
                     aria-label={`Sector Stronghold — infiltrate ${vault.village}'s war cache`}

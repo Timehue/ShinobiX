@@ -19,7 +19,7 @@
  */
 import { useEffect, useRef } from "react";
 import type { Biome } from "../types/core";
-import { skyNow } from "../lib/day-cycle";
+import { skyNow, SKY_REFRESH_MS } from "../lib/day-cycle";
 import { isLowEndMobile } from "../lib/device-tier";
 
 type Behavior = "glide" | "flutter" | "glow" | "dart" | "ripple";
@@ -384,11 +384,15 @@ export function SceneCritters({
             raf = requestAnimationFrame(frame);
         }
 
-        // Re-evaluate the day/night cast every few minutes (dusk swaps the cast).
+        // Re-evaluate the day/night cast on the shared sky cadence (dusk swaps the
+        // cast). The old fixed 2-minute poll was fine on a 24-hour day and is not
+        // on a 2-hour one: it would leave butterflies out for minutes after dark.
+        // Nothing respawns unless the flag actually flips, so the tighter tick is
+        // free.
         const dayTimer = window.setInterval(() => {
             const n = skyNow().night > 0.5;
             if (n !== night) { night = n; spawn(); }
-        }, 120_000);
+        }, SKY_REFRESH_MS);
 
         function onVis() {
             if (reduce) return;

@@ -1287,6 +1287,21 @@
         border-color: rgba(216, 180, 254, .65);
     }
 
+/* ————— Story objective over structures ————— */
+
+/* A story field objective is the one thing on the board the player has to reach,
+   so it stacks above the standing structures. It shares their z-index (7, from
+   .atlas-landmark) and renders BEFORE them in WorldSectorOverlayLayer, so a Rift
+   or Stronghold placed near an objective's tile painted over it and took its taps
+   — which can stall a Reckoning journey (a rift can open in any sector; a
+   stronghold appears in a captured one). Raising it to 8 changes only that one
+   relationship: the avatar (3) and wanderers (6) were already beneath every z-7
+   landmark. It lives here, in the eager manifest, rather than beside the marker's
+   other rules in StoryFieldWork.css, which only loads with the field-scene chunk. */
+button.atlas-landmark.sector-story-field-marker {
+    z-index: 8;
+}
+
 /* ————— Sector Stronghold (Anbu infiltration target) ————— */
 
 /* The stronghold is the shrine standee's sibling: a painted 2.5D building standing
