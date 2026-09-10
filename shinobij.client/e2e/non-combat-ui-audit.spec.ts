@@ -110,6 +110,20 @@ async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Pr
                 // ::after ring owns the real 44px pointer target and is asserted
                 // separately in the World Map route check below.
                 .filter((control) => !control.matches(".atlas-sector, .atlas-hollowGate"))
+                // The sector board is a coordinate surface, not chrome: a figure's
+                // size states where it stands and how big it is relative to every
+                // other figure (lib/sector-marker draws them all at 0.72 tiles), and
+                // its 144 tiles are ~27.8px cells on a phone. Neither can be 44px —
+                // 144 of them do not fit in one 352px square, and inflating the
+                // clickable figures is exactly what made wanderers paint 2.2x the
+                // player on mobile while desktop drew them correctly. Same deal as
+                // the pins above: the painted box stays map-sized while a ::after
+                // pad owns the 44px pointer target. That pad is asserted in
+                // src/styles/mobile-noncombat-aaa.test.ts (node:test, runs on every
+                // `npm test`) rather than here, because the audit's worldMap route
+                // lands on the atlas overview and does not always have a sector
+                // board mounted to measure.
+                .filter((control) => !control.matches(".sector-avatar-figure, .scene-tile"))
                 .filter((control) => {
                     const rect = control.getBoundingClientRect();
                     const minimum = viewportWidth <= 979 ? 44 : 24;

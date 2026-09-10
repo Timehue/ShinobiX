@@ -87,11 +87,54 @@
     line-height: 1.45;
   }
 
-  /* Every discrete action meets the mobile target, including icon-only tools. */
-  .app-shell[data-ui-mode="noncombat"] .center-game :where(button, [role="button"], input:not([type="hidden"]), select, textarea),
-  body:not(.in-battle) :where(.ui-modal-card, .mobile-menu-overlay, .mobile-profile-sheet) :where(button, [role="button"], input:not([type="hidden"]), select, textarea) {
+  /* Every discrete action meets the mobile target, including icon-only tools.
+
+     EXCEPT the sector board, where a control's size is map geometry rather than
+     chrome. A 12x12 board on a 352px phone draws ~27.8px tiles, so this floor
+     used to clamp two things it should never have touched:
+
+       .sector-avatar-figure - the shared box every figure standing on a sector
+         board is sized into from lib/sector-marker (0.72 tiles, ~20px here).
+         Only the AI actors carry role="button" (<SectorWanderer> and
+         <SectorWeeklyBossActor> are clickable; the player and live peers are
+         plain divs), so the floor hit exactly them: wanderers painted at 44px
+         against the player's 20px - 2.2x - and the boss lost the deliberate
+         1.5x lead that said "boss". That is the precise drift c63f3b4e3 removed
+         from the components, silently reintroduced below 980px, which is why
+         the board looked right on desktop and wrong on a phone.
+
+       .scene-tile - the 144 grid tiles themselves. In `repeat(12, minmax(0,1fr))`
+         tracks the floor cannot widen a track, so each 44px button simply
+         overflowed its ~27.8px cell and overlapped its neighbours; whichever
+         tile painted last took the tap. 144 targets cannot each be 44px inside
+         one 352px square, and overlapping targets are worse than honest small
+         ones: they route the tap to a tile the player did not touch.
+
+     The a11y intent is kept where it can be met - the two clickable figures get
+     a transparent 44px hit area below, so the finger target stays full size
+     while the art stays map-sized. */
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(button, [role="button"], input:not([type="hidden"]), select, textarea):not(.sector-avatar-figure, .scene-tile),
+  body:not(.in-battle) :where(.ui-modal-card, .mobile-menu-overlay, .mobile-profile-sheet) :where(button, [role="button"], input:not([type="hidden"]), select, textarea):not(.sector-avatar-figure, .scene-tile) {
     min-inline-size: 44px !important;
     min-block-size: 44px !important;
+  }
+
+  /* The touch target the exemption above gives back: a transparent box centred
+     on the figure, at least 44px square, that never grows the painted marker.
+     Clicks land on it and bubble to .sector-wanderer-figure, which owns the
+     handler. Only the clickable AI figures get one - the player's own marker
+     and live peers are not interactive, so an invisible pad over them would
+     only steal taps from the click-to-move tiles underneath. */
+  .app-shell[data-ui-mode="noncombat"] .center-game .sector-wanderer-figure::after {
+    content: "";
+    position: absolute;
+    inset-inline-start: 50%;
+    inset-block-start: 50%;
+    inline-size: max(44px, 100%);
+    block-size: max(44px, 100%);
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    pointer-events: auto;
   }
 
   .app-shell[data-ui-mode="noncombat"] .center-game :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea),
