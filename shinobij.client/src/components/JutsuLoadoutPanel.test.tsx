@@ -149,3 +149,84 @@ test("no other rule in any stylesheet anchors the badge vertically", () => {
         "styles/profile-skin.css: .profile-page-card .jutsu-equipped-badge",
     ]);
 });
+
+// Bloodline source filter: which learned jutsu come from a bloodline, and
+// whether the collection lets the player pick them out.
+
+function bloodlineMarkup(
+    learned: Jutsu[],
+    bloodlineJutsuNames?: ReadonlyMap<string, string>,
+    equippedJutsuIds: string[] = [],
+) {
+    const base = createCharacter("Bloodline Tester", "Leaf", "Ninjutsu", "None");
+    const character = {
+        ...base,
+        // Opens on the collection tab, which is the only tab that carries the filters.
+        onboardingStep: "jutsuLoadout" as const,
+        equippedJutsuIds,
+        jutsuMastery: learned.map((entry) => ({ jutsuId: entry.id, level: 5, xp: 0 })),
+    };
+    return renderToStaticMarkup(
+        <JutsuLoadoutPanel
+            character={character}
+            learnedJutsus={learned}
+            catalogJutsus={learned}
+            bloodlineJutsuNames={bloodlineJutsuNames}
+            onPlaceJutsu={() => {}}
+            onUnequip={() => {}}
+            onUnequipAll={() => {}}
+        />,
+    );
+}
+
+const plainAndBloodline = [jutsu("plain-jutsu", "Ember Palm"), jutsu("bloodline-jutsu", "Ashen Gaze")];
+
+test("offers the bloodline source filter and labels bloodline jutsu when the character has one", () => {
+    const html = bloodlineMarkup(plainAndBloodline, new Map([["bloodline-jutsu", "Ashen Eyes"]]));
+
+    assert.match(html, /aria-label="Filter by source"/);
+    assert.match(html, /Bloodline Only/);
+    assert.match(html, /Sort: Bloodline/);
+    // Exactly one card is marked, and the narrow card carries the generic label
+    // with the granting bloodline in its tooltip.
+    assert.equal((html.match(/jutsu-bloodline-chip/g) ?? []).length, 1);
+    assert.match(html, /jutsu-collection-card[^"]*is-bloodline/);
+    assert.match(html, /title="Bloodline jutsu — Ashen Eyes"[^>]*>◆ Bloodline</);
+});
+
+test("marks a bloodline jutsu the character does not carry, from the rank getAllJutsus stamps", () => {
+    // An admin-authored jutsu belonging to someone else's bloodline reaches every
+    // player's catalog; it carries bloodlineRank but no entry in the name map.
+    const foreign: Jutsu = { ...jutsu("foreign-jutsu", "Borrowed Flame"), bloodlineRank: "A Rank" };
+    const html = bloodlineMarkup([foreign], new Map());
+
+    assert.match(html, /aria-label="Filter by source"/);
+    assert.match(html, /title="Bloodline jutsu"[^>]*>◆ Bloodline</);
+    assert.match(html, /jutsu-collection-card[^"]*is-bloodline/);
+});
+
+test("names the granting bloodline in the details panel, where there is room for it", () => {
+    const html = bloodlineMarkup(plainAndBloodline, new Map([["bloodline-jutsu", "Ashen Eyes"]]), ["bloodline-jutsu"]);
+
+    assert.match(html, /jutsu-detail-title[\s\S]*?◆ Bloodline · Ashen Eyes/);
+});
+
+test("hides the bloodline controls when no learned jutsu comes from a bloodline", () => {
+    const html = bloodlineMarkup(plainAndBloodline, new Map());
+
+    assert.doesNotMatch(html, /aria-label="Filter by source"/);
+    assert.doesNotMatch(html, /Sort: Bloodline/);
+    assert.doesNotMatch(html, /jutsu-bloodline-chip/);
+    assert.doesNotMatch(html, /is-bloodline/);
+    // The rest of the collection controls are untouched.
+    assert.match(html, /aria-label="Sort jutsu"/);
+    assert.match(html, /Ember Palm/);
+});
+
+test("renders without the lookup at all, for callers that do not pass one", () => {
+    const html = bloodlineMarkup(plainAndBloodline);
+
+    assert.doesNotMatch(html, /aria-label="Filter by source"/);
+    assert.match(html, /Ember Palm/);
+    assert.match(html, /Ashen Gaze/);
+});
