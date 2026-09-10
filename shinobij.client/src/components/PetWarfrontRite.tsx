@@ -43,7 +43,6 @@ import {
     aiRitePlan,
     deterministicRiteCounterMove,
     riteBandProblem,
-    runWarfrontRite,
     tryMoveRitePet,
     type RiteClash,
     type RiteCombatant,
@@ -62,6 +61,7 @@ import {
 } from "../lib/pet-rite-playback";
 import { createActorPoseSample, RITE_REVEAL_FIGHTER_COUNT, riteTacticalReport, sampleActorInto } from "../lib/pet-warfront-rite-presentation";
 import { PetWarfrontRiteStage, preloadRitePetModels, type StageFighter } from "./PetWarfrontRiteStage";
+import { resolveRiteInWorker } from "../lib/pet-rite-worker-client";
 import "../styles/pet-warfront-rite.css";
 
 const ELEMENT_COLOR: Readonly<Record<string, string>> = {
@@ -106,6 +106,8 @@ export type PetWarfrontRiteProps = {
      * the same determinism contract the retired co-op renderer relied on.
      */
     spectator?: boolean;
+    /** Ranked replays use both server-sealed plans without making new decisions. */
+    sealedReplay?: { bluePlan: RitePlan; redPlan: RitePlan };
     /**
      * DEV-HARNESS SCRUB ONLY. Multiplies playback speed so a QA run does not have
      * to sit through a real clash; the simulation is already resolved, so this
@@ -290,6 +292,7 @@ function PlacementBoard({ band, deployment, onChange, sharedImages, healthBySlot
                         type="button"
                         className={`${slot === selectedSlot ? "is-selected" : ""} ${slot === draggingSlot ? "is-dragging" : ""}`.trim() || undefined}
                         aria-pressed={slot === selectedSlot}
+                        title={`Level ${pet.level ?? 1} · HP ${Math.round(pet.hp)} · ATK ${Math.round(pet.attack)} · DEF ${Math.round(pet.defense)} · SPD ${Math.round(pet.speed)}`}
                         data-wfr-drag-slot={slot}
                         draggable={false}
                         onPointerDown={(event) => beginDrag(event, slot)}
@@ -299,7 +302,7 @@ function PlacementBoard({ band, deployment, onChange, sharedImages, healthBySlot
                         }}
                     >
                         <PetPortrait pet={pet} sharedImages={sharedImages} size={42} placementArt />
-                        <span><strong>{pet.name}</strong><small>{deploymentLabel(deployment[slot])}</small></span>
+                        <span><strong>{pet.name}</strong><small>Lv {pet.level ?? 1} · {deploymentLabel(deployment[slot])}</small></span>
                         {healthBySlot ? <EntryPip hp={healthBySlot.get(slot) ?? 0} /> : null}
                     </button>
                 ))}
@@ -343,13 +346,15 @@ function PlacementBoard({ band, deployment, onChange, sharedImages, healthBySlot
     );
 }
 
-function DeployPanel({ band, enemyBand, enemyPlan, sharedImages, onBegin, onExit }: {
+function DeployPanel({ band, enemyBand, enemyPlan, sharedImages, onBegin, onExit, preparing, preparationError }: {
     band: Pet[];
     enemyBand: Pet[];
     enemyPlan: RitePlan;
     sharedImages: Record<string, string>;
     onBegin: (plan: RitePlan) => void;
     onExit: () => void;
+    preparing: boolean;
+    preparationError: string | null;
 }) {
     const [deployment, setDeployment] = useState<number[]>(() => [...WARFRONT_DEFAULT_DEPLOYMENT]);
     const [formation] = useState<number[]>(() => Array.from({ length: RITE_BAND_SIZE }, (_, index) => index));
@@ -387,7 +392,7 @@ function DeployPanel({ band, enemyBand, enemyPlan, sharedImages, onBegin, onExit
                     <p className="wfr-eyebrow">Beastbound Warfront</p>
                     <h2>Set your formation</h2>
                     <p className="wfr-deploy-copy">
-                        <strong>Starting cells decide first contact.</strong> Forward brings pressure sooner; rear protects range and support; split files blunt area hits. Every open cell is legal. First to {RITE_CLASHES_TO_WIN} clashes wins.
+                        <strong>Starting cells decide first contact.</strong> Trained stats carry in: speed controls movement and attacks; defense absorbs damage. Forward brings pressure sooner; rear protects range and support; split files blunt area hits. First to {RITE_CLASHES_TO_WIN} clashes wins.
                     </p>
                 </header>
 
@@ -451,13 +456,15 @@ function DeployPanel({ band, enemyBand, enemyPlan, sharedImages, onBegin, onExit
             <PlacementBoard band={band} deployment={deployment} onChange={setDeployment} sharedImages={sharedImages} />
 
             {problem ? <p className="wfr-problem" role="alert">{problem}</p> : null}
+            {preparationError ? <p className="wfr-problem" role="alert">{preparationError}</p> : null}
 
             <div className="wfr-deploy-actions">
                 <button type="button" className="wfr-btn-ghost" onClick={onExit}>Withdraw</button>
                 <button
                     type="button"
                     className="wfr-btn-primary"
-                    disabled={Boolean(problem)}
+                    disabled={Boolean(problem) || preparing}
+                    aria-busy={preparing}
                     onClick={() => onBegin({
                         formation,
                         deployment,
@@ -467,7 +474,7 @@ function DeployPanel({ band, enemyBand, enemyPlan, sharedImages, onBegin, onExit
                         reforms: [],
                     })}
                 >
-                    Lock formation
+                    {preparing ? "Preparing battle…" : "Lock formation"}
                 </button>
             </div>
         </div>
@@ -655,7 +662,7 @@ function Interlude({ clash, blueBand, redBand, sharedImages }: {
 /** The evidence → re-form → explicit rematch decision after every non-terminal
  * clash. Facts come straight from the clash transcript and the panel makes no
  * forecast; the next authoritative clash is still the only outcome authority. */
-function ReformPanel({ clash, band, enemyBand, formation, deployment, sharedImages, automatic = false, onCommit }: {
+function ReformPanel({ clash, band, enemyBand, formation, deployment, sharedImages, automatic = false, recorded = false, onCommit, preparing, preparationError }: {
     clash: RiteClash;
     band: Pet[];
     enemyBand: Pet[];
@@ -663,7 +670,10 @@ function ReformPanel({ clash, band, enemyBand, formation, deployment, sharedImag
     deployment: number[];
     sharedImages: Record<string, string>;
     automatic?: boolean;
+    recorded?: boolean;
     onCommit: (next: { formation: number[]; deployment: number[] }) => void;
+    preparing: boolean;
+    preparationError: string | null;
 }) {
     const [next, setNext] = useState<number[]>(() => [...deployment]);
     const [reportAcknowledged, setReportAcknowledged] = useState(false);
@@ -744,7 +754,17 @@ function ReformPanel({ clash, band, enemyBand, formation, deployment, sharedImag
                 ) : null}
             </section>
             {automatic ? (
-                <p className="wfr-auto-reform">AUTO RE-FORM · locking a deterministic response from this public clash…</p>
+                <div className="wfr-auto-reform">
+                    {preparationError ? <>
+                        <p role="alert">{preparationError}</p>
+                        <button type="button" className="wfr-btn-primary" disabled={preparing} onClick={() => {
+                            const counter = deterministicRiteCounterMove(clash, "blue");
+                            onCommit(counter
+                                ? { formation: counter.formation, deployment: counter.deployment }
+                                : { formation: [...formation], deployment: [...deployment] });
+                        }}>Retry rematch</button>
+                    </> : <p>{recorded ? "SEALED REPLAY · revealing the next recorded formation…" : "AUTO RE-FORM · locking a deterministic response from this public clash…"}</p>}
+                </div>
             ) : (
                 <>
                     <button
@@ -767,14 +787,15 @@ function ReformPanel({ clash, band, enemyBand, formation, deployment, sharedImag
                         healthBySlot={healthBySlot}
                     />
                     <div className="wfr-reform-footer">
+                        {preparationError ? <p className="wfr-problem" role="alert">{preparationError}</p> : null}
                         <output className="wfr-formation-diff" aria-live="polite">
                             <span>Changes vs previous formation</span>
                             {changes.length ? changes.map((entry) => <strong key={entry.pet.id}>{entry.pet.name}: {entry.from} → {entry.to}</strong>) : <strong>No changes — holding the line</strong>}
                         </output>
                         <div className="wfr-deploy-actions">
                             <button type="button" className="wfr-btn-ghost" disabled={!changed} onClick={() => setNext([...deployment])}>Reset changes</button>
-                            <button type="button" className="wfr-btn-primary" onClick={() => onCommit({ formation: [...formation], deployment: next })}>
-                                Lock &amp; rematch
+                            <button type="button" className="wfr-btn-primary" disabled={preparing} aria-busy={preparing} onClick={() => onCommit({ formation: [...formation], deployment: [...next] })}>
+                                {preparing ? "Preparing rematch…" : "Lock & rematch"}
                             </button>
                         </div>
                     </div>
@@ -811,10 +832,11 @@ function WarfrontRiteMatch({
     blue, red, seed, sharedImages = {}, onResult, onExit,
     resultSupplement, resultActionsLocked = false, settlementPending = false,
     settlementDetail, onRetrySettlement,
-    spectator = false, playbackRate = 0.78,
+    spectator = false, sealedReplay, playbackRate = 0.78,
 }: PetWarfrontRiteProps) {
     const blueBand = useMemo(() => blue.slice(0, RITE_BAND_SIZE).map((slot) => slot.pet), [blue]);
     const redBand = useMemo(() => red.slice(0, RITE_BAND_SIZE).map((slot) => slot.pet), [red]);
+    const sealedRedPlan = sealedReplay?.redPlan;
     useEffect(() => {
         void preloadRitePetModels([...blueBand, ...redBand]).catch(() => undefined);
     }, [blueBand, redBand]);
@@ -844,15 +866,52 @@ function WarfrontRiteMatch({
     }, [playbackRate]);
 
     // Two enemy positions are public while the remaining placements stay sealed.
-    const enemyPlan = useMemo(() => aiRitePlan(redBand, seed), [redBand, seed]);
-    const automaticPlan = useMemo(() => aiRitePlan(blueBand, seed), [blueBand, seed]);
+    const enemyPlan = useMemo(() => sealedReplay?.redPlan ?? aiRitePlan(redBand, seed), [redBand, seed, sealedReplay?.redPlan]);
+    const automaticPlan = useMemo(() => sealedReplay?.bluePlan ?? aiRitePlan(blueBand, seed), [blueBand, seed, sealedReplay?.bluePlan]);
 
     // A spectator starts mid-match on the default deployment — there is no
     // deploy step to take, and both clients must derive the same one.
     const [phase, setPhase] = useState<Phase>(spectator ? "clash" : "deploy");
-    const [result, setResult] = useState<RiteResult | null>(
-        () => (spectator ? runWarfrontRite(blue.slice(0, RITE_BAND_SIZE).map((s) => s.pet), red.slice(0, RITE_BAND_SIZE).map((s) => s.pet), seed, automaticPlan) : null),
-    );
+    const [result, setResult] = useState<RiteResult | null>(null);
+    const [preparing, setPreparing] = useState(false);
+    const [preparationError, setPreparationError] = useState<string | null>(null);
+    const simulationRef = useRef<AbortController | null>(null);
+    useEffect(() => () => { simulationRef.current?.abort(); }, []);
+    const resolveFormation = useCallback(async (chosen: RitePlan): Promise<RiteResult | null> => {
+        if (simulationRef.current) return null;
+        const controller = new AbortController();
+        simulationRef.current = controller;
+        setPreparing(true);
+        setPreparationError(null);
+        try {
+            const outcome = await resolveRiteInWorker({ blue: blueBand, red: redBand, seed, bluePlan: chosen, redPlan: sealedRedPlan }, controller.signal);
+            return controller.signal.aborted ? null : outcome;
+        } catch (error) {
+            if (!controller.signal.aborted) setPreparationError(error instanceof Error ? error.message : "Unable to prepare the battle. Please retry.");
+            return null;
+        } finally {
+            if (simulationRef.current === controller) simulationRef.current = null;
+            if (!controller.signal.aborted) setPreparing(false);
+        }
+    }, [blueBand, redBand, seed, sealedRedPlan]);
+    const [replayAttempt, setReplayAttempt] = useState(0);
+    useEffect(() => {
+        if (!spectator) return;
+        let active = true;
+        // Paint the preparation state first; StrictMode's discarded mount never
+        // starts a worker, and cleanup cancels this pending task as well.
+        const start = window.setTimeout(() => {
+            void resolveFormation(automaticPlan).then((outcome) => {
+                if (active && outcome) setResult(outcome);
+            });
+        }, 0);
+        return () => {
+            active = false;
+            window.clearTimeout(start);
+            simulationRef.current?.abort();
+            simulationRef.current = null;
+        };
+    }, [spectator, automaticPlan, resolveFormation, replayAttempt]);
     const [plan, setPlan] = useState<RitePlan | null>(() => (spectator ? automaticPlan : null));
     const [clashIndex, setClashIndex] = useState(0);
     const [formationHold, setFormationHold] = useState(spectator);
@@ -909,9 +968,10 @@ function WarfrontRiteMatch({
         return { blue: b, red: r };
     }, [result, clashIndex, phase]);
 
-    const begin = useCallback((chosen: RitePlan) => {
+    const begin = useCallback(async (chosen: RitePlan) => {
         armAudio();
-        const outcome = runWarfrontRite(blueBand, redBand, seed, chosen);
+        const outcome = await resolveFormation(chosen);
+        if (!outcome) return;
         setPlan(chosen);
         setResult(outcome);
         setClashIndex(0);
@@ -924,19 +984,19 @@ function WarfrontRiteMatch({
         setFormationHold(true);
         setPhase("clash");
         startBattleMusic?.();
-    }, [armAudio, blueBand, redBand, seed]);
+    }, [armAudio, resolveFormation]);
 
     /** Lock the current decision, then and only then start the rematch. A changed
      * layout is appended to the replay transcript; a hold needs no combat
      * command but still passes through this explicit lock boundary. */
-    const commitReform = useCallback((nextChoice: { formation: number[]; deployment: number[] }) => {
-        if (!plan || !clash) return;
+    const commitReform = useCallback(async (nextChoice: { formation: number[]; deployment: number[] }) => {
+        if (!plan || !clash || simulationRef.current) return;
         const previousDeployment = Array.from({ length: blueBand.length }, (_, slot) =>
             clash.blue.find((combatant) => combatant.slot === slot)?.node ?? (plan.deployment?.[slot] ?? WARFRONT_DEFAULT_DEPLOYMENT[slot]),
         );
         const changed = nextChoice.deployment.some((node, slot) => node !== previousDeployment[slot]);
         let nextResult = result;
-        if (changed) {
+        if (changed && !sealedReplay) {
             const nextReform = {
                 afterClash: clashIndex,
                 formation: [...nextChoice.formation],
@@ -954,7 +1014,8 @@ function WarfrontRiteMatch({
                 reform: hasLegacyReform ? plan.reform : [...nextChoice.formation],
                 reformDeployment: hasLegacyReform ? plan.reformDeployment : [...nextChoice.deployment],
             };
-            nextResult = runWarfrontRite(blueBand, redBand, seed, nextPlan);
+            nextResult = await resolveFormation(nextPlan);
+            if (!nextResult) return;
             setPlan(nextPlan);
             setResult(nextResult);
         }
@@ -969,7 +1030,7 @@ function WarfrontRiteMatch({
         setModelsReady(0);
         setFormationHold(true);
         setPhase("clash");
-    }, [plan, clash, blueBand, redBand, seed, result, clashIndex]);
+    }, [plan, clash, blueBand, result, clashIndex, resolveFormation, sealedReplay]);
 
     const handleStageReady = useCallback(() => {
         setStageReady(true);
@@ -1063,18 +1124,25 @@ function WarfrontRiteMatch({
                 stopPulses();
             }
         };
-        const resetBaseline = () => { last = performance.now(); };
-        document.addEventListener("visibilitychange", resetBaseline);
-        stopPulses = startRitePlaybackPulses({
+        const scheduler = {
             now: () => performance.now(),
-            requestFrame: (callback) => requestAnimationFrame(callback),
-            cancelFrame: (handle) => cancelAnimationFrame(handle),
-            setTimer: (callback, delayMs) => window.setTimeout(callback, delayMs),
-            clearTimer: (handle) => window.clearTimeout(handle),
-        }, step);
+            requestFrame: (callback: (now: number) => void) => requestAnimationFrame(callback),
+            cancelFrame: (handle: number) => cancelAnimationFrame(handle),
+            setTimer: (callback: () => void, delayMs: number) => window.setTimeout(callback, delayMs),
+            clearTimer: (handle: number) => window.clearTimeout(handle),
+        };
+        const syncVisibility = () => {
+            stopPulses();
+            last = performance.now();
+            if (document.visibilityState === "visible" && clockRef.current < total) {
+                stopPulses = startRitePlaybackPulses(scheduler, step);
+            }
+        };
+        document.addEventListener("visibilitychange", syncVisibility);
+        syncVisibility();
         return () => {
             stopPulses();
-            document.removeEventListener("visibilitychange", resetBaseline);
+            document.removeEventListener("visibilitychange", syncVisibility);
         };
     }, [phase, clash, formationHold, formationRevealed, rendererAvailable, reducedMotion, effectivePlaybackRate, audioArmed, audioPlan]);
 
@@ -1087,13 +1155,13 @@ function WarfrontRiteMatch({
 
     useEffect(() => {
         if (!spectator || !reformOpen || !clash) return;
-        const counter = deterministicRiteCounterMove(clash, "blue");
+        const counter = sealedReplay ? null : deterministicRiteCounterMove(clash, "blue");
         const choice = counter
             ? { formation: counter.formation, deployment: counter.deployment }
             : { formation: currentFormation, deployment: currentDeployment };
         const id = window.setTimeout(() => commitReform(choice), reducedMotion ? 350 : 900);
         return () => window.clearTimeout(id);
-    }, [spectator, reformOpen, clash, currentFormation, currentDeployment, commitReform, reducedMotion]);
+    }, [spectator, reformOpen, clash, currentFormation, currentDeployment, commitReform, reducedMotion, sealedReplay]);
 
     useEffect(() => {
         if (phase !== "interlude" || !result || reformOpen) return;
@@ -1126,6 +1194,8 @@ function WarfrontRiteMatch({
                     sharedImages={sharedImages}
                     onBegin={begin}
                     onExit={onExit}
+                    preparing={preparing}
+                    preparationError={preparationError}
                 />
             </div>
         );
@@ -1181,7 +1251,11 @@ function WarfrontRiteMatch({
         );
     }
 
-    if (!clash || !result) return null;
+    if (!clash || !result) return <div className="wfr-root"><div className="wfr-result" role="status">
+        <p>{preparationError ?? "Preparing Beastbound Warfront…"}</p>
+        {preparationError ? <button type="button" className="wfr-btn-primary" onClick={() => setReplayAttempt((attempt) => attempt + 1)}>Retry battle</button> : null}
+        <button type="button" className="wfr-btn-ghost" onClick={onExit}>Leave the Warfront</button>
+    </div></div>;
 
     return (
         <div className="wfr-root">
@@ -1249,7 +1323,10 @@ function WarfrontRiteMatch({
                             deployment={currentDeployment}
                             sharedImages={sharedImages}
                             automatic={spectator}
+                            recorded={Boolean(sealedReplay)}
                             onCommit={commitReform}
+                            preparing={preparing}
+                            preparationError={preparationError}
                         />
                     </div>
                 ) : (

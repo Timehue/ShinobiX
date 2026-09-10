@@ -765,6 +765,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!casualPvePlayerPets) {
                     return res.status(409).json({ error: 'Warfront token carries an invalid participating-pet snapshot.' });
                 }
+                // Old resumable Warfront seals may still contain an equipped
+                // item. This mode always resolves with applyItems=false, so its
+                // receipt must never consume that unused item.
+                casualPvePlayerPets = casualPvePlayerPets.map((pet) => ({
+                    ...pet, ...(pet.loadout ? { loadout: { ...pet.loadout, consumable: undefined } } : {}),
+                }));
                 const rivalIds = Array.isArray(tokenData.redPets)
                     ? tokenData.redPets.map((pet) => String(pet?.id ?? ''))
                     : [];

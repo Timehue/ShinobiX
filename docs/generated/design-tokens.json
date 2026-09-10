@@ -2327,7 +2327,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 1380
+            "line": 1381
           }
         ]
       },
@@ -2403,7 +2403,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3307
+            "line": 3315
           }
         ]
       },
@@ -2522,7 +2522,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 1036
+            "line": 1037
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -2638,7 +2638,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 1389
+            "line": 1390
           }
         ]
       },
@@ -2693,7 +2693,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/29-clan-exchange-storefront.css",
-            "line": 1419
+            "line": 1599
           },
           {
             "source": "shinobij.client/src/styles/jutsu-training-skin.css",
@@ -2713,7 +2713,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 1149
+            "line": 1150
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
@@ -2990,7 +2990,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3252
+            "line": 3260
           },
           {
             "source": "shinobij.client/src/styles/story-archive-guidance.css",
@@ -3102,11 +3102,11 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 852
+            "line": 853
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 1027
+            "line": 1028
           }
         ]
       },
@@ -3535,7 +3535,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/29-clan-exchange-storefront.css",
-            "line": 1418
+            "line": 1598
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
@@ -3547,11 +3547,11 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 936
+            "line": 937
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3229
+            "line": 3237
           }
         ]
       },
@@ -4082,7 +4082,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3215
+            "line": 3223
           }
         ]
       },

@@ -2777,11 +2777,16 @@
         linear-gradient(180deg, rgba(43, 41, 32, 0.84), rgba(12, 20, 30, 0.96));
 }
 
+/* Anchored to the 78px art panel, NOT to the card's bottom edge: a grid tile
+   grows with the jutsu name, so a bottom-anchored badge rides up with it and
+   lands on a name that wraps to a second line in a narrow (88px) tile. Top is
+   art height (78) minus the badge box (~16) minus a 5px inset. The list-view
+   override further down re-anchors this into the list row's art column. */
 .profile-page-card .jutsu-equipped-badge {
     position: absolute;
     z-index: 2;
     right: 7px;
-    bottom: 46px;
+    top: 57px;
     padding: 2px 5px;
     color: #f1d273;
     background: rgba(9, 16, 24, 0.9);
@@ -2790,15 +2795,6 @@
     font: 800 0.48rem Inter, sans-serif;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-}
-
-/* Anchor the equipped badge under the fixed-height artwork instead of the card
-   bottom: a taller copy block (a three-line name, or the bloodline chip) used to
-   slide the badge down onto the jutsu name. Offsets resolve against the select
-   button, which starts inside the card's 7px padding + 1px border. */
-.profile-page-card .jutsu-collection-card:not(.is-list) .jutsu-equipped-badge {
-    top: 68px;
-    bottom: auto;
 }
 
 .profile-page-card .jutsu-bloodline-chip {
@@ -2933,6 +2929,18 @@
 .profile-page-card .jutsu-collection-card.is-list .jutsu-collection-copy strong {
     min-height: 0;
     font-size: 0.73rem;
+}
+
+/* A list row is 88px tall with a vertically centred copy column, so the shared
+   anchor above puts the badge on the jutsu name (and on the quick-equip button
+   once it is measured from the shorter 72px list art). Pin it into the art
+   column instead: horizontally clear of the copy, so a name that wraps to a
+   second line still cannot reach it. */
+.profile-page-card .jutsu-collection-card.is-list .jutsu-equipped-badge {
+    top: auto;
+    right: auto;
+    bottom: 5px;
+    left: 5px;
 }
 
 .profile-page-card .jutsu-collection-empty {

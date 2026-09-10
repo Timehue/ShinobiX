@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
+import { warfrontMatchFromNotice } from './_warfront-response.js';
 import { randomInt } from 'node:crypto';
 import { kv } from '../_storage.js';
 import { cors, parseJsonBody, safeName } from '../_utils.js';
@@ -563,7 +564,7 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
                     ? 4
                     : null;
                 if (stored.arenaMatch === true && arenaSize === null) {
-                    return res.status(409).json({ error: 'This legacy Warfront invitation is no longer compatible with the required 4v4 three-lane rules.' });
+                    return res.status(409).json({ error: 'This legacy invitation is no longer compatible with Beastbound Warfront. Send a fresh 4v4 challenge.' });
                 }
                 if (arenaSize && (!safeWarfrontChallengePlan(stored.challengerWarfrontPlan)
                     || !safeWarfrontChallengePlan(rawChallenge.responderWarfrontPlan))) {
@@ -672,7 +673,8 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
             ]);
             await enqueueChallenge(record.from, notice);
             kickPlayer(record.from, 'challenge');
-            return res.status(200).json({ ok: true, replay: resolutionResult.replay });
+            const warfrontMatch = warfrontMatchFromNotice(notice);
+            return res.status(200).json({ ok: true, replay: resolutionResult.replay, ...(warfrontMatch ? { warfrontMatch } : {}) });
         }
 
         if (rawChallenge.accepted !== undefined || rawChallenge.declined !== undefined) {

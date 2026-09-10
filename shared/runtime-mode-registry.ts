@@ -712,7 +712,7 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         participantModel: 'asynchronous-defense', rewardPolicy: 'server-settled', replayKind: 'returned-showdown-script', status: 'match',
     }),
     defineMode({
-        id: 'pet-warfront', label: 'Pet Warfront', category: 'pet-tactical', authorityEngine: E.PET_WARFRONT,
+        id: 'pet-warfront', label: 'Beastbound Warfront', category: 'pet-tactical', authorityEngine: E.PET_WARFRONT,
         clientEntries: ['screens/PetArena.tsx'],
         routes: [
             mountedRoute('/pet/warfront-start', 'pet/warfront-start', ['start', 'state']),
@@ -721,23 +721,24 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         participantModel: 'solo', rewardPolicy: 'server-capped', replayKind: 'sealed-warfront-presentation-replay', status: 'match',
     }),
     defineMode({
-        id: 'tactical-arena', label: 'Tactical Arena', category: 'pet-tactical', authorityEngine: null,
+        id: 'tactical-arena', label: 'Tactical Arena (retired)', category: 'pet-legacy', authorityEngine: null,
         intendedAuthorityEngine: E.PET_WARFRONT,
         clientEntries: ['screens/PetArena.tsx'], routes: [],
         participantModel: 'solo', rewardPolicy: 'none', replayKind: 'none', status: 'surface-gap',
-        statusDetail: 'The standalone Tactical product lifecycle is absent; the mounted solo positional tab is Warfront. Warfront-family reuse remains allowed.',
+        statusDetail: 'Retired by the Beastbound Warfront consolidation. This route-less compatibility ID cannot launch; solo, co-op, and offline ranked play use Beastbound Warfront. No standalone Tactical surface is planned.',
     }),
     defineMode({
-        id: 'coop-tactical-arena', label: 'Co-op Tactical Arena', category: 'pet-tactical', authorityEngine: E.PET_WARFRONT,
+        id: 'coop-tactical-arena', label: 'Co-op Beastbound Warfront', category: 'pet-tactical', authorityEngine: E.PET_WARFRONT,
         clientEntries: ['components/ArenaCoopLobby.tsx', 'screens/PetArena.tsx'],
         routes: [mountedRoute('/arena/lobby', 'arena/lobby', ['start', 'state', 'lifecycle'])],
         participantModel: 'party', rewardPolicy: 'none', replayKind: 'client-warfront-replay-from-server-sealed-inputs', status: 'match',
     }),
     defineMode({
-        id: 'pet-ladder-warfront', label: 'Pet Ladder Warfront', category: 'pet-tactical', authorityEngine: E.PET_WARFRONT,
-        clientEntries: ['lib/pet-ladder-client.ts', 'screens/HallOfLegends.tsx'],
+        id: 'pet-ladder-warfront', label: 'Ranked Beastbound Warfront', category: 'pet-tactical', authorityEngine: E.PET_WARFRONT,
+        clientEntries: ['lib/pet-ladder-client.ts', 'screens/PetLadder.tsx', 'screens/HallOfLegends.tsx'],
         routes: [mountedRoute('/pet-ladder', 'pet-ladder/ladder', ['start', 'state', 'settlement'])],
-        participantModel: 'asynchronous-defense', rewardPolicy: 'server-settled', replayKind: 'returned-warfront-replay', status: 'match',
+        participantModel: 'asynchronous-defense', rewardPolicy: 'server-settled', replayKind: 'sealed-rite-formations-and-seed', status: 'match',
+        statusDetail: 'The server resolves best-of-three 4v4 Rite clashes from saved pet stats and legal owner-chosen deployments. Both sides hold their sealed positions while offline. Historical tactical keys preserve rankings; the retired lane engine is unreachable.',
     }),
     defineMode({
         id: 'pet-gauntlet', label: 'Pet Gauntlet', category: 'pet-tactical', authorityEngine: E.PET_GAUNTLET_GRID,
