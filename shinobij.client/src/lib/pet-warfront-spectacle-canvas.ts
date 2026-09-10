@@ -12,6 +12,21 @@ import {
 
 const TAU = Math.PI * 2;
 
+/** Stable, bounded branches: replay time changes their reveal, never random
+ * topology. A paused lightning move therefore stays completely still. */
+function lightningForks(context: CanvasRenderingContext2D, radius: number, seed: number): void {
+    context.beginPath();
+    for (let branch = 0; branch < 5; branch++) {
+        const angle = branch / 5 * TAU + seed * 0.11;
+        const dx = Math.cos(angle), dy = Math.sin(angle);
+        context.moveTo(dx * radius * 0.15, dy * radius * 0.15);
+        context.lineTo(dx * radius * 0.45 - dy * radius * 0.18, dy * radius * 0.45 + dx * radius * 0.18);
+        context.lineTo(dx * radius * 0.57 + dy * radius * 0.1, dy * radius * 0.57 - dx * radius * 0.1);
+        context.lineTo(dx * radius, dy * radius);
+    }
+    context.stroke();
+}
+
 function diamond(context: CanvasRenderingContext2D, radius: number): void {
     context.beginPath();
     context.moveTo(0, -radius);
@@ -54,7 +69,17 @@ export function drawWarfrontElementTell(
     context.lineCap = "round";
     context.lineWidth = Math.max(1, radius * 0.07);
     context.globalAlpha = 0.22 + strength * 0.58;
-    if (signature.shape === "ripple") {
+    if (signature.shape === "bolt") {
+        lightningForks(context, radius * (0.6 + strength * 0.4), seed);
+    } else if (signature.shape === "impact") {
+        context.beginPath();
+        for (const side of [-1, 1] as const) {
+            context.moveTo(side * radius, -radius * 0.28);
+            context.lineTo(side * radius * 0.5, 0);
+            context.lineTo(side * radius, radius * 0.28);
+        }
+        context.stroke();
+    } else if (signature.shape === "ripple") {
         for (const scale of [0.64, 1] as const) {
             context.beginPath();
             context.ellipse(0, radius * 0.18, radius * scale * pulse, radius * scale * 0.3, 0, 0, TAU);
@@ -108,27 +133,45 @@ export function drawWarfrontElementTravel(
     context.lineCap = "round";
     context.lineJoin = "round";
     context.globalAlpha = 0.28 + strength * 0.62;
-    context.lineWidth = signature.shape === "fault" ? 2.8 : signature.shape === "flare" ? 2.2 : 1.7;
+    context.lineWidth = signature.shape === "fault" ? 3.2 : signature.shape === "bolt" ? 2.6 : 2.4;
     context.beginPath();
     for (let step = 0; step <= 5; step++) {
         const p = tail + (progress - tail) * step / 5;
         const [x, y] = curvedPoint(ox, oy, tx, ty, signature.travelBend, p);
-        if (step === 0) context.moveTo(x, y);
-        else context.lineTo(x, y);
+        const length = Math.max(1, Math.hypot(tx - ox, ty - oy));
+        const zig = signature.shape === "bolt" && step > 0 && step < 5 ? (step % 2 ? 4 : -4) : 0;
+        const zigX = x - (ty - oy) / length * zig;
+        const zigY = y + (tx - ox) / length * zig;
+        if (step === 0) context.moveTo(zigX, zigY);
+        else context.lineTo(zigX, zigY);
     }
+    context.stroke();
+    // Reuse the path for a bright thin core. It keeps small moves legible over
+    // both pale slate and dark fur without another particle or texture.
+    context.strokeStyle = signature.highlight;
+    context.lineWidth *= 0.36;
     context.stroke();
     const [headX, headY] = curvedPoint(ox, oy, tx, ty, signature.travelBend, progress);
     const before = curvedPoint(ox, oy, tx, ty, signature.travelBend, Math.max(0, progress - 0.02));
     const angle = Math.atan2(headY - before[1], headX - before[0]);
     context.translate(headX, headY);
     context.rotate(angle);
-    if (signature.shape === "ripple") {
+    if (signature.shape === "bolt") {
+        lightningForks(context, 7, seed);
+    } else if (signature.shape === "impact") {
+        context.beginPath(); context.moveTo(5, 0); context.lineTo(-4, -3); context.lineTo(-2, 0); context.lineTo(-4, 3); context.closePath(); context.fill();
+    } else if (signature.shape === "ripple") {
         context.beginPath(); context.arc(0, 0, 3.2, 0, TAU); context.fill();
         context.beginPath(); context.arc(-7, 0, 2, 0, TAU); context.stroke();
     } else if (signature.shape === "flare") {
         context.beginPath(); context.moveTo(6, 0); context.lineTo(-5, -4); context.lineTo(-2, 0); context.lineTo(-5, 4); context.closePath(); context.fill();
     } else if (signature.shape === "crescent") {
-        context.beginPath(); context.arc(0, 0, 7, -1.15, 1.15); context.stroke();
+        context.fillStyle = signature.primary;
+        context.beginPath(); context.arc(0, 0, 10, -1.15, 1.15);
+        context.quadraticCurveTo(3, 0, Math.cos(-1.15) * 10, Math.sin(-1.15) * 10);
+        context.closePath(); context.fill();
+        context.strokeStyle = signature.highlight; context.lineWidth = 1.1;
+        context.beginPath(); context.arc(0, 0, 10, -1.15, 1.15); context.stroke();
     } else {
         context.rotate(Math.PI / 4 + seed * 0.04); diamond(context, 4.5); context.fill();
     }
@@ -530,7 +573,21 @@ export function drawWarfrontElementResult(
     context.lineCap = "round";
     context.lineWidth = Math.max(1, radius * 0.065);
     context.globalAlpha = 0.18 + strength * 0.72;
-    if (signature.shape === "ripple") {
+    if (signature.shape === "bolt") {
+        lightningForks(context, radius * expansion, seed);
+        context.strokeStyle = signature.highlight;
+        context.lineWidth *= 0.4;
+        lightningForks(context, radius * expansion, seed);
+    } else if (signature.shape === "impact") {
+        context.rotate(seed * 0.11);
+        context.beginPath();
+        for (let ray = 0; ray < 4; ray++) {
+            const angle = ray * Math.PI / 2;
+            context.moveTo(Math.cos(angle) * radius * 0.18, Math.sin(angle) * radius * 0.18);
+            context.lineTo(Math.cos(angle) * radius * expansion, Math.sin(angle) * radius * expansion);
+        }
+        context.stroke();
+    } else if (signature.shape === "ripple") {
         context.beginPath(); context.ellipse(0, 2, radius * expansion, radius * expansion * 0.38, 0, 0, TAU); context.stroke();
         context.globalAlpha *= 0.65;
         context.beginPath(); context.ellipse(0, 2, radius * expansion * 0.58, radius * expansion * 0.22, 0, 0, TAU); context.stroke();
@@ -568,6 +625,8 @@ export function drawWarfrontElementResult(
         if (signature.shape === "ripple") { context.beginPath(); context.ellipse(0, 0, 1.8, 4.2, 0, 0, TAU); context.fill(); }
         else if (signature.shape === "flare") { context.fillRect(-1.2, -4, 2.4, 8); }
         else if (signature.shape === "crescent") { context.beginPath(); context.arc(0, 0, 4, -1, 1); context.stroke(); }
+        else if (signature.shape === "bolt") { context.beginPath(); context.moveTo(-4, -2); context.lineTo(0, 1); context.lineTo(4, -2); context.stroke(); }
+        else if (signature.shape === "impact") { context.fillRect(-1, -2, 2, 4); }
         else { diamond(context, 3.2); context.fill(); }
         context.restore();
     }
