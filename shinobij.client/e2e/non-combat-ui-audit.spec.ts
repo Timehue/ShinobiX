@@ -110,6 +110,20 @@ async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Pr
                 // ::after ring owns the real 44px pointer target and is asserted
                 // separately in the World Map route check below.
                 .filter((control) => !control.matches(".atlas-sector, .atlas-hollowGate"))
+                // The sector board is a coordinate surface, not chrome: a figure's
+                // size states where it stands and how big it is relative to every
+                // other figure (lib/sector-marker draws them all at 0.72 tiles), and
+                // its 144 tiles are ~27.8px cells on a phone. Neither can be 44px —
+                // 144 of them do not fit in one 352px square, and inflating the
+                // clickable figures is exactly what made wanderers paint 2.2x the
+                // player on mobile while desktop drew them correctly. Same deal as
+                // the pins above: the painted box stays map-sized while a ::after
+                // pad owns the 44px pointer target. That pad is asserted in
+                // src/styles/mobile-noncombat-aaa.test.ts (node:test, runs on every
+                // `npm test`) rather than here, because the audit's worldMap route
+                // lands on the atlas overview and does not always have a sector
+                // board mounted to measure.
+                .filter((control) => !control.matches(".sector-avatar-figure, .scene-tile"))
                 .filter((control) => {
                     const rect = control.getBoundingClientRect();
                     const minimum = viewportWidth <= 979 ? 44 : 24;
@@ -700,7 +714,15 @@ test("user directory routes into a production-safe public profile", async ({ pag
     }
     await users.click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "userHub");
-    await expectViewportSafe(page);
+    // <UserHub> owns .user-hub-tabs, which the mobile layer makes a horizontal
+    // scroller on purpose ("section counts remain reachable without wrapping into
+    // tiny pills" -- overflow-x:auto + scroll-snap + touch scrolling). A tab past
+    // the inline viewport is therefore reachable, not escaped. This file already
+    // says so twice -- the clipped-control filter in auditVisibleScreen and the
+    // NON_COMBAT_SCREENS loop both list .user-hub-tabs -- and only this call left
+    // it out, so the check flagged the last tab whenever layout settled wide. That
+    // made the spec fail about one run in three with no product change behind it.
+    await expectViewportSafe(page, { horizontalScrollers: [".user-hub-tabs"] });
     const directoryMetrics = await auditVisibleScreen(page);
     expect(directoryMetrics.emptyMain, "userHub rendered no meaningful main content").toBe(false);
     expect(directoryMetrics.brokenBackgrounds, "userHub has broken visible background artwork").toEqual([]);
@@ -712,7 +734,9 @@ test("user directory routes into a production-safe public profile", async ({ pag
     await rival.locator(".user-hub-name").click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "userView");
     await expect(page.locator(".center-game")).toBeVisible();
-    await expectViewportSafe(page);
+    // Same gap one screen later: <UserView> owns .profile-mobile-tabs, also an
+    // allowlisted horizontal scroller everywhere else in this file.
+    await expectViewportSafe(page, { horizontalScrollers: [".profile-mobile-tabs"] });
     const metrics = await auditVisibleScreen(page);
     expect(metrics.emptyMain, "userView rendered no meaningful main content").toBe(false);
     expect(metrics.brokenBackgrounds, "userView has broken visible background artwork").toEqual([]);
