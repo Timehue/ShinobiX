@@ -125,7 +125,8 @@
 .pl-outcome.loss { background: rgba(224,85,107,.14); border: 1px solid rgba(224,85,107,.4); color: #ffb3bf; }
 
 @media (max-width: 560px) {
-  .pl-hero img { height: 132px; }
+  /* The Warfront title can wrap to two lines; reserve room below the badge. */
+  .pl-hero > img { height: 190px; }
   .pl-hero-title { font-size: 22px; }
   .pl-standing { gap: 12px; }
   .pl-rank-num { font-size: 28px; }
@@ -138,3 +139,30 @@ img.pl-mode-art { display: inline-block; width: 26px; height: 26px; object-fit: 
 img.pl-mode-art-tab { width: 20px; height: 20px; vertical-align: -5px; }
 .pl-empty-art { display: block; width: 54px; height: 54px; margin: 0 auto; object-fit: cover; border-radius: 50%; border: 1px solid rgba(240, 202, 121, 0.3); }
 .pl-h svg, .pl-charges-l svg, .pl-notify-row svg, .pl-notify-head svg, .pl-row-rec svg { vertical-align: -2px; }
+.pl-formation-pets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.pl-formation-head, .pl-formation-board {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+.pl-formation-head { margin: 12px 0 6px; text-align: center; font-size: 12px; color: #b9c9dc; }
+.pl-formation-cell {
+    display: grid;
+    gap: 4px;
+    min-height: 56px;
+    padding: 8px;
+    border: 1px solid #40516b;
+    border-radius: 8px;
+    background: #101c2a;
+    color: #bed0e5;
+    text-align: left;
+}
+.pl-formation-cell small { color: #9bb1cb; }
+.pl-formation-cell span { overflow-wrap: anywhere; }
+.pl-formation-cell.occupied { background: #163244; color: #e5f0ff; }
+.pl-formation-cell.selected { border: 2px solid #f4c451; background: #354038; }
+.pl-formation-cell:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }

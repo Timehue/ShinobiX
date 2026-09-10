@@ -352,7 +352,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                         {petLadders?.coliseum.length
                             ? petLadders.coliseum.map((e) => <Row key={`plc-${e.rank}`} rank={e.rank} name={e.name} value={`${e.record.wins}W ${e.record.losses}L`} village={e.village} />)
                             : <p className="hol-empty">No challengers ranked yet.</p>}
-                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiShield style={HOL_ICON} />Pet Tactical Ladder — Top 10</p>
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiShield style={HOL_ICON} />Beastbound Warfront Ladder — Top 10</p>
                         {petLadders?.tactical.length
                             ? petLadders.tactical.map((e) => <Row key={`plt-${e.rank}`} rank={e.rank} name={e.name} value={`${e.record.wins}W ${e.record.losses}L`} village={e.village} />)
                             : <p className="hol-empty">No squads ranked yet.</p>}

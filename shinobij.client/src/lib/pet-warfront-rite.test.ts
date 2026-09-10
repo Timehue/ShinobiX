@@ -181,23 +181,23 @@ test("best of three stops when a side reaches two", () => {
 });
 
 test("exact cumulative exit health stays below the survivor floor until the next clash", () => {
-    const result = runWarfrontRite(band("carry-blue"), band("carry-red"), 6, plan(), plan());
+    const result = runWarfrontRite(band("carry-blue"), band("carry-red"), 4, plan(), plan());
     assert.equal(result.clashes.length, 3, "carry-floor fixture must reach the deciding clash");
     const clash = result.clashes[1];
-    const combatant = clash.blue.find((entry) => entry.slot === 1);
-    assert.ok(combatant, "carry-floor fixture lost blue slot 1");
+    const combatant = clash.red.find((entry) => entry.slot === 1);
+    assert.ok(combatant, "carry-floor fixture lost red slot 1");
     const actor = clash.result.snapshots.at(-1)?.actors
-        .find((entry) => entry.team === "player" && entry.slot === combatant.lane);
-    assert.ok(actor, "carry-floor fixture lost blue slot 1's final actor");
+        .find((entry) => entry.team === "enemy" && entry.slot === combatant.lane);
+    assert.ok(actor, "carry-floor fixture lost red slot 1's final actor");
     const localExitRatio = actor.maxHp > 0 ? actor.hp / actor.maxHp : 0;
     const expectedExitHp = combatant.entryHp * localExitRatio;
     assert.ok(Math.abs(combatant.exitHp - expectedExitHp) <= 1e-12);
     assert.ok(combatant.exitHp > 0 && combatant.exitHp < RITE_MIN_ENTRY_HP,
         "the exact exit transcript was incorrectly raised to the next-entry floor");
 
-    const next = result.clashes[2].blue.find((entry) => entry.slot === combatant.slot);
-    assert.ok(next, "carry-floor fixture lost blue slot 1 from the next clash");
-    const share = clash.winner === null || clash.winner === "blue" ? RITE_REGROUP : RITE_LOSER_REGROUP;
+    const next = result.clashes[2].red.find((entry) => entry.slot === combatant.slot);
+    assert.ok(next, "carry-floor fixture lost red slot 1 from the next clash");
+    const share = clash.winner === null || clash.winner === "red" ? RITE_REGROUP : RITE_LOSER_REGROUP;
     const expectedNextEntry = RITE_MIN_ENTRY_HP + (1 - RITE_MIN_ENTRY_HP) * share;
     assert.ok(Math.abs(next.entryHp - expectedNextEntry) <= 1e-12,
         `next-clash floor/regroup mismatch: expected ${expectedNextEntry}, got ${next.entryHp}`);

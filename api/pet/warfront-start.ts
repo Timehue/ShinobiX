@@ -121,7 +121,9 @@ const warfrontPetSnapshot = (pet: Pet): Pet => ({
     // displays it from this payload, so carrying it here was dead weight that only
     // invited someone to wire it in later. See shared/pet-happiness.ts.
     ...(pet.moveRange !== undefined ? { moveRange: pet.moveRange } : {}),
-    ...(pet.loadout ? { loadout: { ...pet.loadout } } : {}),
+    // Formation combat does not use equipment. Preserve cosmetics, but never
+    // seal a spendable item that this mode cannot actually activate.
+    ...(pet.loadout ? { loadout: { ...pet.loadout, consumable: undefined } } : {}),
     ...(pet.evolutionStage !== undefined ? { evolutionStage: pet.evolutionStage } : {}),
     ...(pet.role ? { role: pet.role } : {}),
     ...(pet.subRole ? { subRole: pet.subRole } : {}),
