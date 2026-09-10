@@ -1,9 +1,16 @@
 /*
  * Day/night cycle — a single, deterministic source of "time of day" derived from
- * the SERVER's clock in UTC (lib/server-clock `serverNow()`), so every player in
- * the world shares one sky. It drives the <DayNightSky> tint/vignette overlay
- * and the <SceneCritters> fauna picker (fireflies at night, butterflies by day)
- * so the whole world breathes through dawn → day → dusk → night in step.
+ * the SERVER's clock (lib/server-clock `serverNow()`), so every player in the
+ * world shares one sky. It drives the <DayNightSky> tint/vignette overlay and
+ * the <SceneCritters> fauna picker (fireflies at night, butterflies by day) so
+ * the whole world breathes through dawn → day → dusk → night in step.
+ *
+ * The HOURS here are IN-WORLD hours, not the real UTC hour: the world's day is
+ * compressed to two real hours (shared/world-clock — see its header for why, and
+ * for the live-game precedents). This file owns only the LOOK of each hour; the
+ * rate the hours pass at is that one shared constant, which the server reads
+ * too, so a night-gated objective (shared/world-phase) can never open on an hour
+ * the sky is not actually showing.
  *
  * Pure + side-effect free: $0, no network, no assets, no payload. The clock is
  * only ever read by callers (in effects/intervals), never baked into game
@@ -19,6 +26,7 @@
  */
 
 import { serverNow } from "./server-clock";
+import { WORLD_DAY_MS, WORLD_HOUR_MS, worldHourAt as worldClockHourAt } from "../../../shared/world-clock";
 
 export type DayPhase = "dawn" | "day" | "dusk" | "night";
 
@@ -135,14 +143,41 @@ function devHourOverride(): number | null {
     } catch { return null; /* private mode — fall through to the world clock */ }
 }
 
-/** Continuous UTC hour (0–24) for a server-clock ms timestamp. Pure. */
+/**
+ * Continuous IN-WORLD hour (0–24) for a server-clock ms timestamp. Pure.
+ * Re-exported from shared/world-clock so the sky, the server's night gate and
+ * the weather schedule cannot end up on three different clocks.
+ */
 export function worldHourAt(nowMs: number): number {
-    const ms = ((nowMs % 86_400_000) + 86_400_000) % 86_400_000;
-    return ms / 3_600_000;
+    return worldClockHourAt(nowMs);
 }
 
+/** One in-world day / hour in real ms — for callers pacing a repaint (see
+ *  SKY_REFRESH_MS) or wording a countdown. Re-exported from shared/world-clock. */
+export { WORLD_DAY_MS, WORLD_HOUR_MS };
+
 /**
- * Continuous world hour (0–24) right now — the server's UTC clock, shared by
+ * How often a sky overlay should re-read the clock.
+ *
+ * The dusk ramp is the tightest thing on the dial — 3 in-world hours, so 15 real
+ * minutes — and the tint carries a 2s CSS transition (styles/index/28-*). Those
+ * two facts set the interval between them: read far apart and each step is a
+ * large jump that glides for 2s and then sits still, which reads as a pulse once
+ * a minute rather than a sunset. At an in-world 3 minutes the per-step change in
+ * the wash is under a hundredth of its alpha, so the 2s glide covers it and the
+ * sky simply moves.
+ *
+ * The old value was a flat 60s, which was ample on a 24-hour day (60 in-world
+ * seconds a step) and far too coarse on a two-hour one (12 in-world minutes).
+ * Deriving it from the day length is what stops that from happening again.
+ *
+ * It is two gradient divs, no network and no assets, so the tighter interval
+ * costs nothing worth measuring.
+ */
+export const SKY_REFRESH_MS = Math.max(5_000, Math.round(WORLD_HOUR_MS / 20));
+
+/**
+ * Continuous world hour (0–24) right now — the shared world clock, in step for
  * everyone. Accepts a ms timestamp or Date for callers/tests that supply one
  * (a Date is read as its absolute instant, never its local wall-clock hour);
  * defaults to `serverNow()`. Honours the dev-only `dayCycle.hour` pin.

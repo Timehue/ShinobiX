@@ -37,6 +37,7 @@ import { CombatJutsuMeta } from "../components/CombatJutsuMeta";
 import { CombatDetailPortal } from "../components/CombatDetailPortal";
 import { activeBarrierTilesForDisplay, combatActionAvailability, pvpCombatWardKey } from "../lib/combat-action-display";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
+import { weatherFromElements } from "../../../shared/sector-weather";
 import { getJutsuMastery, scaleJutsuByLevel } from "../lib/jutsu-scaling";
 import { normalizeEquipmentSlot } from "../lib/equipment";
 import { hasAffordablePvpPaidAction } from "../lib/pvp-action-affordability";
@@ -1516,7 +1517,10 @@ export function PvpBattleScreen({
     const weatherSealed = session.weatherPositiveElement !== undefined || session.weatherNegativeElement !== undefined;
     const weatherPosEl = weatherSealed ? (session.weatherPositiveElement ?? "") : weatherEffects[currentWeather].positiveElement;
     const weatherNegEl = weatherSealed ? (session.weatherNegativeElement ?? "") : weatherEffects[currentWeather].negativeElement;
-    const weatherName = (weatherSealed && !weatherPosEl && !weatherNegEl) ? "Clear Skies" : weatherEffects[currentWeather].name;
+    // Name the SEALED sky too, not just its modifiers. Reading the name off
+    // `currentWeather` put the wrong label beside the right numbers whenever a
+    // weather window turned between entering the sector and starting the fight.
+    const weatherName = weatherEffects[weatherSealed ? weatherFromElements(weatherPosEl, weatherNegEl) : currentWeather].name;
     const localJutsuArtById: Record<string, string> = {};
     const localItemArtById: Record<string, string> = {};
     if (!amSpectator) {

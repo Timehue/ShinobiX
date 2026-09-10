@@ -7,7 +7,7 @@ import {
     GiShield,
 } from "./icons/LightweightGameIcons";
 import { TERRITORY_CONTROL_MAX, TERRITORY_HP_MAX } from "../constants/game";
-import { biomeLabel, weatherEffects } from "../data/world";
+import { biomeLabel } from "../data/world";
 import { sectorRegionName } from "../data/sectors";
 import { sectorGatherLineFor } from "../lib/sector-pool";
 import { sectorContestLabel } from "../lib/sector-war-engagement";
@@ -16,6 +16,7 @@ import { SectorTracesCard } from "./SectorTraces";
 import { SectorGatherReadout } from "./SectorGatherReadout";
 import { SectorIntelCard } from "./SectorIntelCard";
 import { SectorContractCard } from "./SectorContractCard";
+import { SectorSkyForecast } from "./SectorSkyForecast";
 
 // Row/prop shapes live in a sibling module (see its header); re-exported here
 // so every existing import of these names keeps working unchanged.
@@ -78,12 +79,12 @@ export function WorldSectorCommandPanel({
             <header className="sector-panel-heading">
                 <div className="sector-panel-kicker">
                     <span className={`sector-biome-token sector-biome-${biome}`}>{biomeLabel(biome)}</span>
-                    <span>{weatherEffects[weather].name}</span>
+                    <span><SectorSkyForecast sector={sector} biome={biome} fallback={weather} /></span>
                 </div>
                 <h3>{sectorName(sector) ?? `Sector ${sector}`}</h3>
                 <small className="sector-panel-sub">Sector {sector} · {sectorRegionName(sector)}</small>
                 {gather && <SectorGatherReadout gather={gather} />}
-                <p>{weatherEffects[weather].effect}</p>
+                <SectorSkyForecast sector={sector} biome={biome} fallback={weather} variant="effect" />
             </header>
 
             {territory && (
