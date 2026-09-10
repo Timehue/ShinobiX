@@ -58,3 +58,16 @@ export function getAllJutsus(savedBloodlines: SavedBloodline[], creatorJutsus: J
 export function getPvpJutsuLoadout(savedBloodlines: SavedBloodline[], creatorJutsus: Jutsu[], character: Character) {
     return orderEquippedJutsus(getAllJutsus(savedBloodlines, creatorJutsus, character), character.equippedJutsuIds);
 }
+
+// An equipped ID is only a *preference*: it survives in the save as long as a
+// mastery row backs it (see the learned-ID filter in api/save/[name].ts), even
+// after the jutsu itself is gone. Admin-deleted custom jutsu therefore leave a
+// dead ID sitting in equippedJutsuIds forever. Combat already resolves through
+// orderEquippedJutsus and silently drops such an ID, so the dead slot costs the
+// player a real battle action — and while the loadout UI still COUNTED it, the
+// cap was reached at 14 usable jutsu and the 15th could never be equipped.
+// Resolve loadout slots through here so the UI counts exactly what combat will
+// hand the player.
+export function liveEquippedJutsuIds(catalog: readonly Jutsu[], equippedIds: readonly string[]): string[] {
+    return orderEquippedJutsus(catalog, equippedIds).map((jutsu) => jutsu.id);
+}
