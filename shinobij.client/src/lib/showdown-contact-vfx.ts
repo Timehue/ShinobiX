@@ -2,6 +2,12 @@ export type ShowdownContactOutcome = "hit" | "block" | "miss";
 
 interface ContactTarget { damage: number; guarded: boolean; heal?: number; applied?: string }
 
+/** Aim is independent of damage: a dodged primary can leave only splash
+ * entries. Older scripts can recover a primary hit, never a splash victim. */
+export function showdownActionTargetId(event: { targetId?: string; targets: readonly { id: string; splash?: boolean }[] }): string | undefined {
+    return event.targetId ?? event.targets.find(target => !target.splash)?.id;
+}
+
 /** The engine omits dodged targets. A present zero-damage target without a
  * rider is a shield absorption, even when the pet was not holding Guard. */
 export function showdownContactOutcome(target: ContactTarget | undefined): ShowdownContactOutcome {
@@ -32,5 +38,21 @@ export function showdownProjectilePath(fromX: number, fromZ: number, toX: number
         fromX: fromX + ux * start * scale, fromZ: fromZ + uz * start * scale,
         toX: toX - ux * end * scale, toZ: toZ - uz * end * scale,
         dx: ux, dz: uz,
+    };
+}
+
+/** Sample the same flight arc at a fixed distance behind its head. Unlike a
+ * frame-history trail, its length and curvature survive 30/60/144 Hz playback. */
+export function showdownProjectileSample(
+    path: { fromX: number; fromZ: number; toX: number; toZ: number },
+    progress: number, arc: number, lag = 0,
+) {
+    const length = Math.hypot(path.toX - path.fromX, path.toZ - path.fromZ);
+    const p = Math.max(0, Math.min(1, progress) - Math.max(0, lag) / Math.max(0.001, length));
+    return {
+        x: path.fromX + (path.toX - path.fromX) * p,
+        y: 1.2 + Math.sin(p * Math.PI) * arc,
+        z: path.fromZ + (path.toZ - path.fromZ) * p,
+        progress: p,
     };
 }

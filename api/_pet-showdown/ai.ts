@@ -17,6 +17,7 @@
 import { PET_CATALOG } from '../pet/_catalog.js';
 import { petPvpGear, petTraits } from '../_pet-sim/pet-config.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
+import { growthPointsSpent, normalizePetGrowth, sanitizeGrowthAllocation } from '../pet/_growth.js';
 import {
     SHOWDOWN_ELEMENT_BEATS,
     SHOWDOWN_METER_MAX,
@@ -113,7 +114,7 @@ export function buildShowdownAiTeam(
     size: number,
     tier: ShowdownTier,
     seed: number,
-    opts?: { mirrorLevels?: boolean; roster?: ShowdownRosterSpec },
+    opts?: { mirrorLevels?: boolean; mirrorRarities?: boolean; roster?: ShowdownRosterSpec },
 ): { pets: Pet[]; teamName: string } {
     const rand = makeRand(seed);
     const clampLevel = (n: number): number => Math.max(1, Math.min(100, Math.round(n)));
@@ -186,6 +187,19 @@ export function buildShowdownAiTeam(
      */
     const spec = opts?.roster;
     const taken = new Set<string>();
+    // Sparring matches progression slot-for-slot, including mixed-rarity benches.
+    // Do not pick counter-elements: the draw should still teach varied matchups.
+    if (opts?.mirrorRarities) {
+        for (let slot = 0; slot < size; slot++) {
+            const rarity = playerPets[slot]?.rarity ?? 'standard';
+            const candidates = Object.values(PET_CATALOG).filter(tpl => tpl.rarity === rarity
+                && tpl.wildSpawnable !== false && Array.isArray(tpl.jutsus) && !taken.has(String(tpl.id)));
+            if (!candidates.length) break;
+            const chosen = candidates[Math.floor(rand() * candidates.length)];
+            taken.add(String(chosen.id));
+            picked.push(outfit(chosen, slot));
+        }
+    }
     if (spec?.roles || spec?.elements) {
         const authored = [...pool];
         for (let i = authored.length - 1; i > 0; i--) {
@@ -238,6 +252,36 @@ export function buildShowdownAiTeam(
     }
     const names = SHOWDOWN_TEAM_NAMES[tier];
     return { pets: picked, teamName: names[Math.floor(rand() * names.length)] };
+}
+
+/** Ordinary Colosseum opponents use the same immutable base + Growth Point
+ * derivation as owned pets. The campaign builder above retains its authored
+ * difficulty curve; changing that curve would also retune First Pact bosses.
+ * Sparring matches rarity and level; explicit tiers keep their named pools. */
+export function buildColosseumAiTeam(playerPets: Pet[], size: number, tier: ShowdownTier, seed: number, sparring = false) {
+    const team = buildShowdownAiTeam(playerPets, size, tier, seed, { mirrorLevels: sparring, mirrorRarities: sparring });
+    return {
+        ...team,
+        pets: team.pets.map((pet, index) => {
+            const tpl = PET_CATALOG[String(pet.templateId)];
+            const earned = Math.max(0, Number(pet.level) - 1);
+            const reference = playerPets[index] as unknown as Record<string, unknown> | undefined;
+            // Scrappers leave half their points unspent. Warriors/champions
+            // spend a legal balanced budget; traits and gear supply the tier edge.
+            const spent = sparring && reference
+                ? growthPointsSpent(sanitizeGrowthAllocation(reference.growthAllocation, pet.level))
+                : tier === 'scrapper' ? Math.floor(earned / 2) : earned;
+            const each = Math.floor(spent / 4);
+            return normalizePetGrowth({
+                ...pet,
+                // Match trait investment too. Giving every sparring opponent a
+                // free combat trait made an untraited squad lose ~4/5 team bouts.
+                ...(sparring && reference ? { trait: reference.trait } : {}),
+                growthBaseStats: { hp: tpl.hp, attack: tpl.attack, defense: tpl.defense, speed: tpl.speed },
+                growthAllocation: { vitality: each + (spent % 4 > 0 ? 1 : 0), power: each + (spent % 4 > 1 ? 1 : 0), guard: each + (spent % 4 > 2 ? 1 : 0), agility: each },
+            }) as unknown as Pet;
+        }),
+    };
 }
 
 function elementBeats(attacker: string, defender: string): boolean {
@@ -305,7 +349,7 @@ export function chooseShowdownAiCommands(
                 continue;
             }
         }
-        commands.push(choosePetCommand(session, pet, foes, tier, rand));
+        commands.push(choosePetCommand(session, pet, foes, mine, tier, rand));
     }
     return commands;
 }
@@ -314,6 +358,7 @@ function choosePetCommand(
     session: ShowdownSession,
     pet: ShowdownPet,
     foes: ShowdownPet[],
+    team: ShowdownPet[],
     tier: ShowdownTier,
     rand: () => number,
 ): ShowdownCommand {
@@ -342,7 +387,7 @@ function choosePetCommand(
     const affordable = ready.filter(({ m }) => m.cost <= pet.stamina);
 
     // Heal check: patch a bloodied self/ally when the kit allows it.
-    const allies = session.enemy.filter((p) => !p.ko && !p.benched);
+    const allies = team.filter((p) => !p.ko && !p.benched);
     const worstAllyHp = allies.length
         ? Math.min(...allies.map((a) => a.hp / a.maxHp))
         : 1;

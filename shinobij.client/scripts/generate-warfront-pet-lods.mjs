@@ -522,7 +522,7 @@ async function processAsset(sourcePath) {
     ]);
     return {
         sourceUrl: `/${sourceRelative}`,
-        lodUrl: `/${lodRelative}?v=${REVISION}`,
+        lodUrl: `/${lodRelative}?v=${REVISION}-${sourceHash.slice(0, 12)}`,
         sourceBytes: sourceFile.size,
         lodBytes: lodFile.size,
         sourceSha256: sourceHash,
@@ -563,8 +563,13 @@ for (let index = 0; index < sources.length; index++) {
     if (!quiet) console.log(`[${index + 1}/${sources.length}] ${entry.sourceUrl}: ${entry.sourceTriangles} -> ${entry.lodTriangles} tris, silhouette ${Math.min(...Object.values(entry.silhouettes)).toFixed(4)}`);
 }
 
-if (!criticalOnly && !modelFilter) {
-    const totals = entries.reduce((value, entry) => ({
+if (!criticalOnly) {
+    // A targeted repair must update its checksums and runtime URL too. Preserve
+    // all unselected entries rather than leaving a stale full-roster manifest.
+    const previous = modelFilter ? JSON.parse(await readFile(jsonManifestPath, 'utf8')) : null;
+    const manifestEntries = previous ? previous.entries.map(entry => entries.find(updated => updated.sourceUrl === entry.sourceUrl) ?? entry) : entries;
+    if (previous) invariant(entries.length > 0 && entries.every(entry => previous.entries.some(old => old.sourceUrl === entry.sourceUrl)), 'Targeted LOD source missing from full manifest');
+    const totals = manifestEntries.reduce((value, entry) => ({
         sourceBytes: value.sourceBytes + entry.sourceBytes,
         lodBytes: value.lodBytes + entry.lodBytes,
         sourceTriangles: value.sourceTriangles + entry.sourceTriangles,
@@ -584,12 +589,12 @@ if (!criticalOnly && !modelFilter) {
             minSilhouetteIoU: MIN_SILHOUETTE_IOU,
         },
         totals,
-        entries,
+        entries: manifestEntries,
     };
     if (checkOnly) {
         const checked = JSON.parse(await readFile(jsonManifestPath, "utf8"));
         invariant(checked.revision === REVISION, `Manifest revision ${checked.revision} != ${REVISION}`);
-        invariant(checked.entries.length === entries.length, `Manifest has ${checked.entries.length} assets; audit found ${entries.length}`);
+        invariant(checked.entries.length === manifestEntries.length, `Manifest has ${checked.entries.length} assets; audit found ${manifestEntries.length}`);
         for (const entry of entries) {
             const recorded = checked.entries.find((candidate) => candidate.sourceUrl === entry.sourceUrl);
             invariant(recorded, `${entry.sourceUrl}: absent from manifest`);
@@ -600,7 +605,7 @@ if (!criticalOnly && !modelFilter) {
         await mkdir(dirname(jsonManifestPath), { recursive: true });
         await mkdir(dirname(tsManifestPath), { recursive: true });
         await writeFile(jsonManifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-        await writeFile(tsManifestPath, manifestTs(entries));
+        await writeFile(tsManifestPath, manifestTs(manifestEntries));
     }
     console.log(JSON.stringify({ mode: checkOnly ? "check" : "generate", revision: REVISION, assets: entries.length, totals }, null, 2));
 }

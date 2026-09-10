@@ -6,7 +6,8 @@
 // production build inputs. The mock mimics the /api/pet/showdown turn contract;
 // the real numbers always come from the server engine.
 import { createRoot } from "react-dom/client";
-import { useEffect, useState } from "react";
+import { StrictMode, useEffect, useRef, useState } from "react";
+import { installShowdownLifecycleProbe } from "./lib/showdown-lifecycle-probe";
 import "./index.css";
 import "./styles/layout/adaptive-stages.css";
 import "./screens/PetShowdown.css";
@@ -76,6 +77,9 @@ function mockCost(power: number, kind: string): number {
 const MOCK_MAX_STAMINA = Math.round(SHOWDOWN_STAMINA_REFERENCE * SHOWDOWN_STAMINA_POOL_SCALE);
 
 const PREVIEW_PARAMS = new URLSearchParams(window.location.search);
+const LIFECYCLE_PROBE = PREVIEW_PARAMS.has("lifecycle") ? installShowdownLifecycleProbe() : null;
+const ENGINE_REVIEW = PREVIEW_PARAMS.get("eventreview");
+let actualReviewTurns: Record<string, { initialState: ShowdownStateView; turn: ShowdownTurnResponse; turns?: ShowdownTurnResponse[] }> = {};
 // Static status fixture for checking compact plates and touch-readable labels.
 const HUD_QA = PREVIEW_PARAMS.has("hudqa");
 const ROSTER_PET_ID = PREVIEW_PARAMS.get("rosterpet")?.trim() || null;
@@ -116,7 +120,12 @@ function mockDamage(target: Pet, power: number, superCast: boolean): number {
     return Math.max(1, Math.round(Math.max(1, target.hp) * share));
 }
 
+let actualMoveKits: Record<string, ShowdownPetView["moves"]> = {};
 function mockKit(pet: Pet): ShowdownPetView["moves"] {
+    return actualMoveKits[pet.id] ?? legacyMockKit(pet);
+}
+
+function legacyMockKit(pet: Pet): ShowdownPetView["moves"] {
     const effectFor = (kind: string) => kind === "damage" ? "Straight damage"
         : kind === "barrier" ? "Absorbs incoming damage"
         : kind === "burn" ? "Burns for 2 more rounds · 82% hit"
@@ -487,7 +496,7 @@ async function mockSubmitTurn(commands: ShowdownCommand[]): Promise<ShowdownTurn
             // Mirror the engine: the MOVE decides the staging — contact
             // kinds and the neutral jab charge in, elemental casts throw.
             moveKind: move.kind, element: move.element,
-            delivery: move.cls === "physical" || move.element === "None" ? "melee" : "ranged",
+            delivery: superCast ? "ranged" : move.cls === "physical" || move.element === "None" ? "melee" : "ranged",
             weight: mockWeight(move, superCast), super: superCast,
             targets: [{ id: target.id, damage, heal: 0, effectiveness: world.round % 3 === 0 ? "super" : "neutral", guarded: false, ko }],
             staminaAfter, meterAfter: meter,
@@ -583,12 +592,27 @@ function ReviewFrames() {
     useEffect(() => {
         let lastAnnouncement = "";
         const timers = new Set<number>();
+        // Keep a bounded lead-in so a reviewer can inspect the actual dash,
+        // not just the spark after the announcement has already fired.
+        const leadIn: Array<{ at: number; image: string }> = [];
+        const capture = window.setInterval(() => {
+            const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="pet-showdown-root"] canvas');
+            if (!canvas) return;
+            leadIn.push({ at: performance.now(), image: canvas.toDataURL("image/jpeg", 0.8) });
+            if (leadIn.length > 4) leadIn.shift();
+        }, 120);
         const observer = new MutationObserver(() => {
             const message = document.querySelector('[data-testid="pet-showdown-root"] [aria-live]')?.textContent ?? "";
             const switching = message.includes(" takes the field.") || message.startsWith("The enemy sends in ");
             if (message === lastAnnouncement || (!message.includes(" used ") && !switching)) return;
             lastAnnouncement = message;
-            for (const delay of switching ? [80, 900, 1800, 2700] : [80, 320, 900]) {
+            if (!switching) {
+                const now = performance.now();
+                setFrames(current => [...current, ...leadIn.map(frame => ({
+                    label: `${message} (−${Math.round(now - frame.at)} ms)`, image: frame.image,
+                }))].slice(-24));
+            }
+            for (const delay of switching ? [80, 900, 1800, 2700] : [80, 200, 320, 550, 900]) {
                 const timer = window.setTimeout(() => {
                     timers.delete(timer);
                     const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="pet-showdown-root"] canvas');
@@ -599,7 +623,7 @@ function ReviewFrames() {
             }
         });
         observer.observe(document.body, { subtree: true, childList: true, characterData: true });
-        return () => { observer.disconnect(); timers.forEach(window.clearTimeout); };
+        return () => { observer.disconnect(); timers.forEach(window.clearTimeout); window.clearInterval(capture); };
     }, []);
     return <details style={{ position: "fixed", top: 4, left: "20%", width: "60%", zIndex: "var(--z-combat-hud)", color: "white", background: "#111e", padding: 8 }}>
         <summary>Review frames ({frames.length})</summary>
@@ -612,19 +636,74 @@ function ReviewFrames() {
     </details>;
 }
 
+function LifecycleReadout() {
+    const [sample, setSample] = useState(() => LIFECYCLE_PROBE?.snapshot());
+    useEffect(() => {
+        const id = LIFECYCLE_PROBE?.poll(() => setSample(LIFECYCLE_PROBE.snapshot()));
+        return () => window.clearInterval(id);
+    }, []);
+    return <pre aria-label="Lifecycle metrics" style={{ margin: 4, maxWidth: 440, whiteSpace: "pre-wrap" }}>{JSON.stringify(sample)}</pre>;
+}
+
 function Harness() {
+    const review = PREVIEW_PARAMS.has("vfxreview") || !!ENGINE_REVIEW;
+    const engineReview = ENGINE_REVIEW ? actualReviewTurns[ENGINE_REVIEW] : undefined;
+    const [moveIndex, setMoveIndex] = useState(Number(PREVIEW_PARAMS.get("move") ?? 1));
+    const [verdict, setVerdict] = useState(PREVIEW_PARAMS.get("verdict") ?? "hit");
+    const [playing, setPlaying] = useState(PREVIEW_PARAMS.has("play"));
+    const engineRoundIndex = useRef(0);
+    const [battleMounted, setBattleMounted] = useState(true);
+    const [battleEpoch, setBattleEpoch] = useState(0);
+    const [auditRounds, setAuditRounds] = useState(0);
+    const moves = mockKit(playerPets[0]);
+    const reviewSubmit = async (): Promise<ShowdownTurnResponse | null> => {
+        if (LIFECYCLE_PROBE) setAuditRounds(value => value + 1);
+        if (LIFECYCLE_PROBE && PREVIEW_PARAMS.has("failturn")) return null;
+        if (engineReview) return engineReview.turns?.[engineRoundIndex.current++] ?? engineReview.turn;
+        const actor = playerPets[0], move = moves[moveIndex] ?? moves[0];
+        const self = ["barrier", "shield", "protect", "buff", "haste", "heal", "weather", "absorb"].includes(move.kind);
+        const target = self ? actor : enemyPets[0];
+        const damage = verdict === "hit" && !self ? Math.round(target.hp * .12) : 0;
+        const event: ShowdownEvent = { t: "action", actorId: actor.id, actorSide: "player", moveName: move.name, moveKind: move.kind,
+            element: move.element, delivery: self ? "self" : move.signature ? "ranged" : move.cls === "physical" || move.element === "None" ? "melee" : "ranged",
+            weight: mockWeight(move, move.signature), super: move.signature,
+            targets: [{ id: target.id, damage, heal: move.kind === "heal" && verdict === "hit" ? 20 : 0, effectiveness: "neutral", guarded: verdict === "block", ko: false,
+                ...(verdict === "miss" ? { applied: "failed" } : verdict === "block" ? { applied: "protect" } : move.kind !== "damage" ? { applied: move.kind } : {}) }],
+            staminaAfter: MOCK_MAX_STAMINA, meterAfter: SHOWDOWN_METER_MAX, overexerted: false };
+        return { ok: true, practice: true, events: [{ t: "roundStart", round: 1 }, event, { t: "roundEnd", round: 1 }], state: stateView() };
+    };
+    if (ENGINE_REVIEW && !engineReview) return <p role="alert">Engine review requires the actual-event QA build.</p>;
     return (
         <>
-        <PetShowdownBattle
-            initialState={stateView()}
-            playerPets={playerPets}
+        {battleMounted && <PetShowdownBattle
+            key={`${battleEpoch}:${review ? `${moveIndex}:${verdict}:${LIFECYCLE_PROBE ? "continuous" : playing}` : "battle"}`}
+            initialState={engineReview?.initialState ?? stateView()}
+            playerPets={engineReview ? [] : playerPets}
             sharedImages={{}}
-            submitTurn={mockSubmitTurn}
+            submitTurn={review ? reviewSubmit : mockSubmitTurn}
+            spectator={review && playing}
+            reducedMotion={PREVIEW_PARAMS.has("reduced") ? true : undefined}
             onForfeit={() => window.location.reload()}
             onFinished={(outcome, settlement) => console.log("[harness] finished", outcome, settlement)}
             onExit={() => window.location.reload()}
             onRematch={() => window.location.reload()}
-        />
+        />}
+        {review && <div style={{ position: "fixed", top: 5, left: 5, zIndex: 99999, padding: 8, background: "#11202eee", color: "white", fontSize: 12 }}>
+            {engineReview ? <span>Live engine round: {ENGINE_REVIEW} </span> : <><label>Review move <select aria-label="Review move" value={moveIndex} onChange={e => setMoveIndex(Number(e.target.value))}>
+                {moves.map((move, i) => <option key={i} value={i}>{move.name}{move.signature ? " · Signature" : ""}</option>)}
+            </select></label>{" "}
+            <select aria-label="Review outcome" value={verdict} onChange={e => setVerdict(e.target.value)}>
+                <option value="hit">Hit</option><option value="miss">Miss</option><option value="block">Block</option>
+            </select>{" "}</>}
+            <button onClick={() => { engineRoundIndex.current = 0; setPlaying(p => !p); }}>{playing ? "Pause review" : "Play review"}</button>
+            <div>{engineReview ? "Actual engine events and state" : actualMoveKits[playerPets[0].id] ? "Actual engine loadout" : "Legacy mock loadout"} · {PREVIEW_PARAMS.has("reduced") ? "Reduced motion" : "Full motion"}</div>
+            {LIFECYCLE_PROBE && <>
+                <div>Reviewed rounds: {auditRounds}</div>
+                <button onClick={() => { engineRoundIndex.current = 0; setBattleMounted(value => !value); }}>{battleMounted ? "Unmount battle" : "Mount battle"}</button>
+                <button onClick={() => { engineRoundIndex.current = 0; setBattleEpoch(value => value + 1); }}>Restart battle</button>
+                <LifecycleReadout />
+            </>}
+        </div>}
         {PREVIEW_PARAMS.has("frames") && PREVIEW_PARAMS.has("capture") && <ReviewFrames />}
         </>
     );
@@ -635,10 +714,17 @@ function Harness() {
  * GLBs — and an unwarmed model suspends against a null fallback. Skipping this
  * would leave the tool used to review the battle's visuals showing an empty
  * arena for its opening seconds. */
-void import("./lib/pet-model-preload")
-    .then((m) => m.warmShowdownModels(stateView(), playerPets))
+void fetch("/showdown-moves-qa.json")
+    .then(async response => { if (response.ok && response.headers.get("content-type")?.includes("json")) actualMoveKits = await response.json(); })
     .catch(() => undefined)
-    .finally(() => createRoot(document.getElementById("root")!).render(<Harness />));
+    .then(async () => {
+        if (ENGINE_REVIEW) actualReviewTurns = await fetch("/showdown-events-qa.json").then(response => response.json());
+    })
+    .then(() => { if (PREVIEW_PARAMS.has("vfxreview") && !actualMoveKits[playerPets[0].id]) throw new Error("VFX review requires the actual-loadout QA build"); })
+    .then(() => import("./lib/pet-model-preload"))
+    .then((m) => m.warmShowdownModels(ENGINE_REVIEW && actualReviewTurns[ENGINE_REVIEW] ? actualReviewTurns[ENGINE_REVIEW].initialState : stateView(), ENGINE_REVIEW ? [] : playerPets))
+    .catch(() => undefined)
+    .finally(() => createRoot(document.getElementById("root")!).render(PREVIEW_PARAMS.has("strict") ? <StrictMode><Harness /></StrictMode> : <Harness />));
 
 // The battle portals into document.body; an HMR re-eval would orphan the old
 // portal and stack a second HUD. Full reload keeps the harness truthful.

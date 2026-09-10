@@ -2,6 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { advanceCombatBodyYaw, attackClipWindow, motionOwnsLocomotion, petDeathChoreography, resolveCombatBodyFacing, resolveCombatBodyYaw, resolveOpponentFacing } from "./pet-combat-performance";
 
+test("a scheduled contact freezes the authored extension rather than the start of the swing", () => {
+    const impact = attackClipWindow('strike', true)!;
+    assert.ok(impact.start >= 0.5 && impact.start <= 0.56);
+    assert.equal(impact.end, attackClipWindow('recover')!.start);
+    assert.deepEqual(attackClipWindow('windup', true), attackClipWindow('windup'));
+});
+
 const rotateLocalForward = (x: number, z: number, yaw: number): [number, number] => [
     x * Math.cos(yaw) + z * Math.sin(yaw),
     -x * Math.sin(yaw) + z * Math.cos(yaw),

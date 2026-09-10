@@ -1,13 +1,70 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as THREE from "three";
+import { attackClipWindow } from "./pet-combat-performance";
 import {
     createPetAnimationEpoch,
     retirePetAnimationMixer,
+    samplePetAnimationPhase,
     synchronizePetAnimationEpoch,
+    transitionPetAnimation,
 } from "./pet-animation-lifecycle";
 
 type Family = "idle" | "attack" | "hit";
+
+test("host-sampled takes preserve full poses at normal/fast speed and keep crossfades advancing", () => {
+    for (const fps of [30, 60, 144]) for (const speed of [1, 1.7]) {
+        const root = new THREE.Object3D();
+        const mixer = new THREE.AnimationMixer(root);
+        const clip = new THREE.AnimationClip('attack', 1, [new THREE.NumberKeyframeTrack('.position[x]', [0, 1], [0, 1])]);
+        const action = mixer.clipAction(clip).fadeIn(0.08).play();
+        for (let frame = 0; frame <= fps; frame++) {
+            mixer.update(1 / fps / speed);
+            samplePetAnimationPhase(action, 0.74, 0.995, frame / fps);
+        }
+        assert.ok(Math.abs(root.position.x - 0.995) < 1e-6, `${fps} Hz at ${speed}x must complete recovery`);
+        assert.equal(action.getEffectiveWeight(), 1, 'seeking a phase must not freeze its fade-in');
+        mixer.update(0.5);
+        samplePetAnimationPhase(action, 0.54, 0.74, 0);
+        assert.ok(Math.abs(root.position.x - 0.54) < 1e-6, 'contact can be held independently of wall time');
+    }
+});
+
+test("dash-to-contact renders the strike pose even when hit-stop advances no mixer time", () => {
+    for (const pass of ['surface', 'outline']) {
+        const root = new THREE.Object3D();
+        const mixer = new THREE.AnimationMixer(root);
+        const runClip = new THREE.AnimationClip('run', 1, [new THREE.NumberKeyframeTrack('.position[x]', [0, 1], [0, 0])]);
+        const strikeClip = new THREE.AnimationClip('strike', 1, [new THREE.NumberKeyframeTrack('.position[x]', [0, 0.34, 0.54, 1], [0, 0, 1, 1])]);
+        const run = mixer.clipAction(runClip).play();
+        mixer.update(0.5);
+        const strike = mixer.clipAction(strikeClip).reset();
+        strike.time = attackClipWindow('strike', true)!.start;
+        transitionPetAnimation(strike, run, 0.1, true);
+        mixer.update(0);
+        assert.ok(Math.abs(root.position.x - 1) < 1e-6, `${pass}: contact must not freeze the outgoing locomotion pose`);
+        assert.equal(strike.getEffectiveWeight(), 1);
+        assert.equal(run.isRunning(), false);
+        // Re-cueing a shared take must also keep full weight and stay active.
+        strike.reset();
+        strike.time = attackClipWindow('strike', true)!.start;
+        transitionPetAnimation(strike, strike, 0.1, true);
+        mixer.update(0);
+        assert.ok(Math.abs(root.position.x - 1) < 1e-6);
+        assert.equal(strike.isRunning(), true);
+    }
+});
+
+test("ordinary animation changes retain a smooth crossfade", () => {
+    const root = new THREE.Object3D();
+    const mixer = new THREE.AnimationMixer(root);
+    const clip = (name: string, x: number) => new THREE.AnimationClip(name, 1, [new THREE.NumberKeyframeTrack('.position[x]', [0, 1], [x, x])]);
+    const previous = mixer.clipAction(clip('idle', 0)).play();
+    const next = mixer.clipAction(clip('run', 1));
+    transitionPetAnimation(next, previous, 0.2, false);
+    mixer.update(0.05);
+    assert.ok(root.position.x > 0 && root.position.x < 1);
+});
 
 const clips = (["idle", "attack", "hit"] as const).map((family, index) => new THREE.AnimationClip(
     family,
