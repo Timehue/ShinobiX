@@ -1,11 +1,16 @@
+// `_storage` resolves its backend on first USE, so this no longer has to sit
+// above the imports to beat module evaluation — it is written here because that
+// is where it reads clearly. (It used to have to, and could not: ES imports are
+// hoisted, so the static import below always won and this suite bound itself to
+// the real Supabase client and died without credentials.)
+process.env.NODE_ENV = 'test';
+process.env.SHINOBIX_QA_MEMORY_KV = '1';
+
 import assert from 'node:assert/strict';
 import { before, beforeEach, describe, it } from 'node:test';
 import type { KvLike } from './_storage.js';
 import type { PvpSession } from './pvp/session.js';
 import type { WarMercenaryHireIdentity } from './_war-mercenary-hire.js';
-
-process.env.NODE_ENV = 'test';
-process.env.SHINOBIX_QA_MEMORY_KV = '1';
 
 const NOW = Date.now();
 const WAR_KEY = 'world:war:leaf-vs-mist';
