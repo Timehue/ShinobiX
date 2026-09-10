@@ -2757,6 +2757,10 @@
     transition: transform 130ms, border-color 130ms, box-shadow 130ms;
 }
 
+.profile-page-card .jutsu-collection-card.is-bloodline {
+    border-color: rgba(167, 139, 250, 0.42);
+}
+
 .profile-page-card .jutsu-collection-card:hover,
 .profile-page-card .jutsu-collection-card:has(.jutsu-collection-select:focus-visible),
 .profile-page-card .jutsu-collection-card.is-selected {
@@ -2786,6 +2790,31 @@
     font: 800 0.48rem Inter, sans-serif;
     letter-spacing: 0.03em;
     text-transform: uppercase;
+}
+
+/* Anchor the equipped badge under the fixed-height artwork instead of the card
+   bottom: a taller copy block (a three-line name, or the bloodline chip) used to
+   slide the badge down onto the jutsu name. Offsets resolve against the select
+   button, which starts inside the card's 7px padding + 1px border. */
+.profile-page-card .jutsu-collection-card:not(.is-list) .jutsu-equipped-badge {
+    top: 68px;
+    bottom: auto;
+}
+
+.profile-page-card .jutsu-bloodline-chip {
+    display: block;
+    margin-top: 3px;
+    overflow: hidden;
+    color: #d8b4fe;
+    font: 700 0.5rem/1.3 Inter, sans-serif;
+    letter-spacing: 0.04em;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.profile-page-card .jutsu-detail-title .jutsu-bloodline-chip {
+    font-size: 0.55rem;
 }
 
 .profile-page-card .jutsu-collection-select {
