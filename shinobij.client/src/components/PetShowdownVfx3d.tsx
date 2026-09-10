@@ -29,10 +29,13 @@
    exports its spawn types and the kind-family helper alongside the components,
    same as PetShowdownVfx; HMR granularity is irrelevant for visuals. */
 import { useEffect, useMemo, useRef } from "react";
+import { useShowdownPointGeometry } from "./use-showdown-point-geometry";
 import { useFrame } from "@react-three/fiber";
 import { Billboard } from "@react-three/drei";
 import * as THREE from "three";
-import { epicTexture, type SetPieceSpawn } from "./PetShowdownVfx";
+import { epicTexture, type SetPieceSpawn, type VfxBeat } from "./PetShowdownVfx";
+import { showdownAttackRhythm, showdownChargeEnvelope } from "../lib/pet-showdown-choreography";
+import { showdownBeatProgress } from "../lib/showdown-playback";
 import { makeVolumeMaterial } from "../lib/showdown-volume-shaders";
 import { makeGpuCloud, type GpuParticleMode } from "../lib/showdown-gpu-particles";
 import type { PetVisualQualityConfig } from "../lib/pet-visual-quality";
@@ -191,6 +194,7 @@ interface ParticleSpec {
 /** One THREE.Points cloud driven by seeded per-particle params. Points always
  *  face the camera, so the cloud is angle-proof by construction. */
 function ParticleCloud({ spawn, spec }: { spawn: SetPieceSpawn; spec: ParticleSpec }) {
+    const geometry = useShowdownPointGeometry(spec.count);
     const points = useRef<THREE.Points>(null);
     const mat = useRef<THREE.PointsMaterial>(null);
     const params = useMemo(() => {
@@ -253,10 +257,7 @@ function ParticleCloud({ spawn, spec }: { spawn: SetPieceSpawn; spec: ParticleSp
         mat.current.opacity = (k < 0.15 ? k / 0.15 : k > 0.7 ? Math.max(0, (1 - k) / 0.3) : 1) * 0.72;
     });
     return (
-        <points ref={points} visible={false}>
-            <bufferGeometry>
-                <bufferAttribute attach="attributes-position" args={[new Float32Array(spec.count * 3), 3]} />
-            </bufferGeometry>
+        <points ref={points} geometry={geometry} visible={false}>
             {/* Screen-space sizing prevents a mote that passes near an action
                 camera from ballooning into a frame-sized translucent disc. */}
             <pointsMaterial ref={mat} map={tex} color={spec.color} size={spec.size * 24} {...ADDITIVE_PARTICLE_PROPS} />
@@ -476,6 +477,7 @@ function EruptionVolume({ spawn }: { spawn: SetPieceSpawn }) {
         }));
     }, [spawn.key, count, spawn.superCast]);
     const geos = useMemo(() => rocks.map((r) => rockGeometry(r.geoSeed, r.r, r.h)), [rocks]);
+    useEffect(() => () => geos.forEach(geometry => geometry.dispose()), [geos]);
     useFrame(() => {
         if (!group.current) return;
         const t = pieceT(spawn);
@@ -578,6 +580,7 @@ function BoltStrikeMesh({ spawn, strike }: { spawn: SetPieceSpawn; strike: BoltS
     const glowMat = useRef<THREE.MeshBasicMaterial>(null);
     const forkMat = useRef<THREE.MeshBasicMaterial>(null);
     const geos = useMemo(() => boltGeometry(strike.seed, spawn.superCast === true), [strike.seed, spawn.superCast]);
+    useEffect(() => () => { geos.core.dispose(); geos.glow.dispose(); geos.forkCore?.dispose(); }, [geos]);
     const x = spawn.from[0] + (spawn.to[0] - spawn.from[0]) * strike.frac;
     const z = spawn.from[2] + (spawn.to[2] - spawn.from[2]) * strike.frac;
     useFrame(() => {
@@ -649,6 +652,7 @@ export function ClimateLayer({ element, reduced }: { element: string | null; red
     const points = useRef<THREE.Points>(null);
     const mat = useRef<THREE.PointsMaterial>(null);
     const COUNT = 12;
+    const geometry = useShowdownPointGeometry(COUNT);
     const dot = useMemo(() => dotTexture(), []);
     const params = useMemo(() => {
         const rand = seededRand((element?.length ?? 1) * 131 + 7);
@@ -710,10 +714,7 @@ export function ClimateLayer({ element, reduced }: { element: string | null; red
                 <meshBasicMaterial ref={floorMat} {...TRANSPARENT_MATERIAL_PROPS} />
             </mesh>
             <pointLight ref={light} position={[0, 3.4, 0]} intensity={0} distance={17} decay={2} />
-            <points ref={points} visible={false}>
-                <bufferGeometry>
-                    <bufferAttribute attach="attributes-position" args={[new Float32Array(COUNT * 3), 3]} />
-                </bufferGeometry>
+            <points ref={points} geometry={geometry} visible={false}>
                 {/* Climate motes may cross the close signature camera. Keep
                     them screen-sized so they stay flecks instead of becoming
                     large translucent discs as they approach the lens. */}
@@ -744,6 +745,12 @@ export interface KindAccentSpawn {
     dirZ: number;
     startedAt: number;
     durationMs: number;
+    reducedMotion?: boolean;
+}
+
+function accentT(spawn: KindAccentSpawn) {
+    const t = pieceT(spawn);
+    return spawn.reducedMotion && t >= 0 && t < 1 ? .36 : t;
 }
 
 export function kindAccentFamily(kind: string): MoveAccentFamily | null {
@@ -773,7 +780,7 @@ function AccentRing({ spawn, family }: { spawn: KindAccentSpawn; family: MoveAcc
     }, [spawn.key, spawn.moveName, SHAFTS]);
     const weightScale = (spawn.weight === "heavy" ? 1.16 : spawn.weight === "light" ? 0.9 : 1) * (spawn.superMove ? 1.2 : 1);
     useFrame(() => {
-        const t = pieceT(spawn);
+        const t = accentT(spawn);
         for (let i = 0; i < RINGS; i++) {
             const m = refs.current[i], mm = mats.current[i];
             if (!m || !mm) continue;
@@ -847,7 +854,7 @@ function AccentSlash({ spawn, family }: { spawn: KindAccentSpawn; family: 9 | 6 
     const glow = family === 9 ? "#ff5f68" : ELEMENT_GLOW[spawn.element] ?? "#dbeafe";
     const weightScale = (spawn.weight === "heavy" ? 1.22 : spawn.weight === "light" ? 0.9 : 1) * (spawn.superMove ? 1.18 : 1);
     useFrame(() => {
-        const t = pieceT(spawn);
+        const t = accentT(spawn);
         const show = t >= 0 && t < 1;
         const grow = 0.7 + Math.min(1, t * 3) * 0.5;
         const fade = t < 0.12 ? t / 0.12 : Math.max(0, (1 - t) / 0.5);
@@ -892,6 +899,7 @@ function AccentGeneric({ spawn, family }: { spawn: KindAccentSpawn; family: Move
     const pts = useRef<THREE.Points>(null);
     const ptsMat = useRef<THREE.PointsMaterial>(null);
     const COUNT = 10;
+    const geometry = useShowdownPointGeometry(COUNT);
     const dot = useMemo(() => dotTexture(), []);
     const params = useMemo(() => {
         const rand = seededRand((spawn.key + moveAccentVariant(spawn.moveName) * 109) * 71 + 17);
@@ -912,7 +920,7 @@ function AccentGeneric({ spawn, family }: { spawn: KindAccentSpawn; family: Move
                                         : family === 22 ? "#bb8cff"
                                             : family === 24 || family === 28 ? "#6ee7a0" : glow;
     useFrame(() => {
-        const t = pieceT(spawn);
+        const t = accentT(spawn);
         const show = t >= 0 && t < 1;
         const ease = 1 - (1 - Math.min(1, t)) * (1 - Math.min(1, t));
         if (mesh.current && mat.current) {
@@ -1002,7 +1010,7 @@ function AccentGeneric({ spawn, family }: { spawn: KindAccentSpawn; family: Move
         if (pts.current && ptsMat.current) {
             const wantPts = family !== 20 && family !== 21
                 && family !== 26 && family !== 27;
-            pts.current.visible = show && wantPts;
+            pts.current.visible = show && wantPts && !spawn.reducedMotion;
             if (show && wantPts) {
                 const attr = pts.current.geometry.attributes.position as THREE.BufferAttribute;
                 const pos = attr.array as Float32Array;
@@ -1082,10 +1090,7 @@ function AccentGeneric({ spawn, family }: { spawn: KindAccentSpawn; family: Move
                         : <ringGeometry args={[0.7, 0.95, 40]} />}
                 <meshBasicMaterial ref={mat} color={accent} wireframe={family === 11 || family === 22} {...ADDITIVE_MATERIAL_PROPS} side={THREE.DoubleSide} />
             </mesh>
-            <points ref={pts} visible={false}>
-                <bufferGeometry>
-                    <bufferAttribute attach="attributes-position" args={[new Float32Array(COUNT * 3), 3]} />
-                </bufferGeometry>
+            <points ref={pts} geometry={geometry} visible={false}>
                 <pointsMaterial ref={ptsMat} map={dot} size={6} {...ADDITIVE_PARTICLE_PROPS} />
             </points>
         </group>
@@ -1095,11 +1100,48 @@ function AccentGeneric({ spawn, family }: { spawn: KindAccentSpawn; family: Move
 export function KindAccentFx({ spawn }: { spawn: KindAccentSpawn }) {
     const family = moveAccentFamily(spawn.kind);
     if (!family) return null;
+    if (family === 20 || family === 21 || family === 26) return <AccentDefense spawn={spawn} family={family} />;
     if (family === 9 || family === 6) return <AccentSlash spawn={spawn} family={family} />;
     if (family === 17 || family === 18 || family === 24 || family === 25 || family === 13 || family === 15) {
         return <AccentRing spawn={spawn} family={family} />;
     }
     return <AccentGeneric spawn={spawn} family={family} />;
+}
+
+/** Shield = curved dome, barrier = interlocking hexagonal wall, protect =
+ * orbit of upright ward petals. These used to be three scaled blue rectangles. */
+function AccentDefense({ spawn, family }: { spawn: KindAccentSpawn; family: MoveAccentFamily }) {
+    const root = useRef<THREE.Group>(null);
+    const panels = useRef<Array<THREE.Group | null>>([]);
+    const count = family === 20 ? 1 : family === 21 ? 3 : 6;
+    useFrame(() => {
+        const t = pieceT(spawn), open = spawn.reducedMotion ? 1 : Math.min(1, Math.max(0, t) * 5);
+        if (!root.current) return;
+        root.current.visible = t >= 0 && t < 1;
+        const fade = Math.max(0, Math.min(1, t * 8, (1 - t) * 4));
+        panels.current.forEach((panel, i) => {
+            if (!panel) return;
+            const angle = i * Math.PI / 3 + Math.atan2(spawn.dirX, spawn.dirZ);
+            panel.position.set(family === 26 ? Math.sin(angle) * 1.15 : family === 21 ? (i - 1) * .95 : 0,
+                family === 20 ? .45 : family === 21 ? 1.05 + (i === 1 ? .38 : 0) : .85,
+                family === 26 ? Math.cos(angle) * 1.15 : 0);
+            panel.rotation.set(family === 20 ? 0 : .1, family === 26 ? angle : Math.atan2(spawn.dirX, spawn.dirZ) + (i - 1) * .35, 0);
+            panel.scale.setScalar(.7 + open * .3);
+            panel.traverse(object => { if (object instanceof THREE.Mesh) (object.material as THREE.MeshBasicMaterial).opacity = fade * (object.userData.outline ? .65 : .13); });
+        });
+    });
+    return <group ref={root} position={[spawn.x, 0, spawn.z]}>
+        {Array.from({ length: count }, (_, i) => <group key={i} ref={node => { panels.current[i] = node; }}>
+            <mesh>
+                {family === 20 ? <sphereGeometry args={[1.3, 24, 12, 0, Math.PI * 2, 0, Math.PI * .57]} /> : <circleGeometry args={[family === 26 ? .63 : .72, 6]} />}
+                <meshBasicMaterial color={ELEMENT_GLOW[spawn.element] ?? "#8ed8ff"} {...TRANSPARENT_MATERIAL_PROPS} side={THREE.DoubleSide} />
+            </mesh>
+            <mesh userData={{ outline: true }}>
+                {family === 20 ? <sphereGeometry args={[1.32, 12, 6, 0, Math.PI * 2, 0, Math.PI * .57]} /> : <ringGeometry args={[family === 26 ? .57 : .66, family === 26 ? .63 : .72, 6]} />}
+                <meshBasicMaterial color="#c5eeff" wireframe={family === 20} {...TRANSPARENT_MATERIAL_PROPS} side={THREE.DoubleSide} />
+            </mesh>
+        </group>)}
+    </group>;
 }
 
 // ─── Casting glyph — the anime tell under a channeling caster ────────────────
@@ -1147,9 +1189,10 @@ function glyphTexture(): THREE.CanvasTexture {
 /** Element-tinted rotating casting circle under the caster while a ranged
  *  move channels (beat start → strike). Reads the beat each frame like
  *  BeatDrivenVfx; rotation keys off the beat clock so replays match. */
-export function CastGlyphFx({ beatRef, posRef }: {
-    beatRef: React.MutableRefObject<{ event: { t: string; delivery?: string; moveKind?: string; actorId?: string; element?: string; super?: boolean } | null; startedAt: number; durationMs: number }>;
+export function CastGlyphFx({ beatRef, posRef, reduced = false }: {
+    beatRef: React.MutableRefObject<VfxBeat>;
     posRef: React.MutableRefObject<ReadonlyMap<string, readonly [number, number, number]>>;
+    reduced?: boolean;
 }) {
     const inner = useRef<THREE.Mesh>(null);
     const outer = useRef<THREE.Mesh>(null);
@@ -1158,31 +1201,31 @@ export function CastGlyphFx({ beatRef, posRef }: {
     const tex = useMemo(() => glyphTexture(), []);
     useFrame(() => {
         const beat = beatRef.current;
-        const ev = beat.event;
+        const ev = beat.event?.t === "action" ? beat.event : null;
         const active = !!ev && ev.t === "action" && ev.delivery === "ranged"
             && ev.moveKind !== "guard" && ev.moveKind !== "rest" && !!ev.actorId;
         let frac = 0;
         let pos: readonly [number, number, number] | undefined;
         if (active) {
-            frac = (performance.now() - beat.startedAt) / beat.durationMs;
+            frac = showdownBeatProgress(beat, performance.now());
             pos = posRef.current.get(ev!.actorId!);
         }
-        const show = active && !!pos && frac >= 0.03 && frac <= 0.56;
-        const env = !show ? 0 : frac < 0.1 ? (frac - 0.03) / 0.07 : frac > 0.5 ? Math.max(0, (0.56 - frac) / 0.06) : 1;
+        const env = active && ev ? showdownChargeEnvelope(frac, showdownAttackRhythm({ weight: ev.weight, superMove: ev.super, delivery: ev.delivery })) : 0;
+        const show = active && !!pos && env > 0;
         const scale = (ev?.super ? 2.9 : 2.05) * (0.85 + Math.min(1, frac * 2) * 0.15);
         const tint = ELEMENT_GLOW[ev?.element ?? ""] ?? "#ffe9c0";
         if (inner.current && innerMat.current) {
             inner.current.visible = show;
             if (show && pos) {
                 inner.current.position.set(pos[0], 0.1, pos[2]);
-                inner.current.rotation.z = frac * Math.PI * 2.4;
+                inner.current.rotation.z = reduced ? 0 : frac * Math.PI * 1.2;
                 inner.current.scale.set(scale, scale, scale);
-                innerMat.current.opacity = 0.85 * env;
+                innerMat.current.opacity = 0.58 * env;
                 innerMat.current.color.set(tint);
             }
         }
         if (outer.current && outerMat.current) {
-            outer.current.visible = show;
+            outer.current.visible = show && !reduced && !!ev?.super;
             if (show && pos) {
                 outer.current.position.set(pos[0], 0.12, pos[2]);
                 outer.current.rotation.z = -frac * Math.PI * 1.6;
@@ -1213,9 +1256,11 @@ export function CastGlyphFx({ beatRef, posRef }: {
 // swelling toward the release. (The floor glyph spins below; the stage lights
 // dim around it — three layers of the same reference frame.)
 
-export function ChargeOrbFx({ beatRef, posRef, onSun }: {
-    beatRef: React.MutableRefObject<{ event: { t: string; delivery?: string; moveKind?: string; actorId?: string; element?: string; super?: boolean } | null; startedAt: number; durationMs: number }>;
+export function ChargeOrbFx({ beatRef, posRef, onSun, quality, reduced = false }: {
+    beatRef: React.MutableRefObject<VfxBeat>;
     posRef: React.MutableRefObject<ReadonlyMap<string, readonly [number, number, number]>>;
+    quality: PetVisualQualityConfig;
+    reduced?: boolean;
     /** Hands the orb's core mesh up as the god-ray sun. */
     onSun?: (mesh: THREE.Mesh | null) => void;
 }) {
@@ -1231,26 +1276,27 @@ export function ChargeOrbFx({ beatRef, posRef, onSun }: {
     const pts = useRef<THREE.Points>(null);
     const ptsMat = useRef<THREE.PointsMaterial>(null);
     const COUNT = 14;
+    const geometry = useShowdownPointGeometry(COUNT);
     const dot = useMemo(() => dotTexture(), []);
     const params = useMemo(() => {
         const rand = seededRand(97);
         return Array.from({ length: COUNT }, () => ({ angle: rand() * Math.PI * 2, tilt: (rand() - 0.5) * 1.6, r: 0.55 + rand() * 0.5, speed: 0.6 + rand() * 0.9 }));
     }, []);
-    useFrame(() => {
+    useFrame(({ camera }) => {
         const beat = beatRef.current;
-        const ev = beat.event;
+        const ev = beat.event?.t === "action" ? beat.event : null;
         const active = !!ev && ev.t === "action" && ev.delivery === "ranged"
             && ev.moveKind !== "guard" && ev.moveKind !== "rest" && !!ev.actorId;
         let frac = 0;
         let pos: readonly [number, number, number] | undefined;
         if (active) {
-            frac = (performance.now() - beat.startedAt) / beat.durationMs;
+            frac = showdownBeatProgress(beat, performance.now());
             pos = posRef.current.get(ev!.actorId!);
         }
-        const show = active && !!pos && frac >= 0.06 && frac <= 0.55;
-        const env = !show ? 0 : frac < 0.14 ? (frac - 0.06) / 0.08 : frac > 0.5 ? Math.max(0, (0.55 - frac) / 0.05) : 1;
+        const env = active && ev ? showdownChargeEnvelope(frac, showdownAttackRhythm({ weight: ev.weight, superMove: ev.super, delivery: ev.delivery })) : 0;
+        const show = active && !!pos && env > 0;
         // The orb SWELLS toward the release.
-        const charge = show ? Math.min(1, (frac - 0.06) / 0.42) : 0;
+        const charge = env;
         const base = (ev?.super ? 0.34 : 0.22) * (0.55 + charge * 0.75);
         const tint = ELEMENT_GLOW[ev?.element ?? ""] ?? "#ffe9c0";
         const y = 1.25;
@@ -1264,9 +1310,10 @@ export function ChargeOrbFx({ beatRef, posRef, onSun }: {
                 mm.color.set(tint);
             }
         };
-        const pulse = 1 + Math.sin(frac * 46) * 0.08 * (0.4 + charge);
+        const pulse = reduced ? 1 : 1 + Math.sin(frac * 26) * 0.04 * charge;
         set(core.current, coreMat.current, base * pulse, 0.95);
-        set(glowRef.current, glowMat.current, base * 2.6 * pulse, 0.3);
+        set(glowRef.current, glowMat.current, base * 4.0 * pulse, 0.48);
+        glowRef.current?.quaternion.copy(camera.quaternion);
         // The god-ray sun rides the orb's core: real size while channeling so
         // rays stream through the dimmed arena, ~zero otherwise (a zero-scale
         // sun emits nothing and the pass idles).
@@ -1282,13 +1329,15 @@ export function ChargeOrbFx({ beatRef, posRef, onSun }: {
         if (ringA.current && ringAMat.current) {
             set(ringA.current, ringAMat.current, base * 3.4, 0.75);
             ringA.current.rotation.set(0.5, frac * Math.PI * 3.2, 0.2);
+            ringA.current.visible = show && !reduced;
         }
         if (ringB.current && ringBMat.current) {
             set(ringB.current, ringBMat.current, base * 4.3, 0.5);
             ringB.current.rotation.set(-0.4, -frac * Math.PI * 2.3, 0.5);
+            ringB.current.visible = show && !reduced && !!ev?.super;
         }
         if (pts.current && ptsMat.current) {
-            pts.current.visible = show;
+            pts.current.visible = show && !reduced;
             if (show && pos) {
                 const attr = pts.current.geometry.attributes.position as THREE.BufferAttribute;
                 const arr = attr.array as Float32Array;
@@ -1302,6 +1351,7 @@ export function ChargeOrbFx({ beatRef, posRef, onSun }: {
                     arr[i * 3 + 2] = pos[2] + Math.sin(a) * r;
                 }
                 attr.needsUpdate = true;
+                pts.current.geometry.setDrawRange(0, Math.min(COUNT, quality.impactSparks + 2));
                 ptsMat.current.color.set(tint);
                 ptsMat.current.opacity = 0.9 * env;
             }
@@ -1320,8 +1370,8 @@ export function ChargeOrbFx({ beatRef, posRef, onSun }: {
                 <meshBasicMaterial ref={coreMat} {...ADDITIVE_MATERIAL_PROPS} />
             </mesh>
             <mesh ref={glowRef} visible={false}>
-                <sphereGeometry args={[1, 14, 10]} />
-                <meshBasicMaterial ref={glowMat} {...ADDITIVE_MATERIAL_PROPS} />
+                <planeGeometry args={[1, 1]} />
+                <meshBasicMaterial ref={glowMat} map={dot} {...ADDITIVE_MATERIAL_PROPS} />
             </mesh>
             <mesh ref={ringA} visible={false}>
                 <torusGeometry args={[1, 0.035, 8, 48]} />
@@ -1331,10 +1381,7 @@ export function ChargeOrbFx({ beatRef, posRef, onSun }: {
                 <torusGeometry args={[1, 0.022, 8, 48]} />
                 <meshBasicMaterial ref={ringBMat} {...ADDITIVE_MATERIAL_PROPS} />
             </mesh>
-            <points ref={pts} visible={false}>
-                <bufferGeometry>
-                    <bufferAttribute attach="attributes-position" args={[new Float32Array(COUNT * 3), 3]} />
-                </bufferGeometry>
+            <points ref={pts} geometry={geometry} visible={false}>
                 <pointsMaterial ref={ptsMat} map={dot} size={5} {...ADDITIVE_PARTICLE_PROPS} />
             </points>
         </group>
@@ -1593,6 +1640,7 @@ export function ResidueFx({ spawn, particleBudget }: { spawn: ResidueSpawn; part
             phase: rand(),
         }));
     }, [particleBudget, spawn.key, style]);
+    const geometry = useShowdownPointGeometry(params.length);
     const dot = useMemo(() => dotTexture(), []);
     const floorTex = useMemo(() => (style?.floor ? epicTexture(style.floor) : null), [style]);
     useFrame(() => {
@@ -1649,10 +1697,7 @@ export function ResidueFx({ spawn, particleBudget }: { spawn: ResidueSpawn; part
     if (!style) return null;
     return (
         <group>
-            <points ref={points} visible={false}>
-                <bufferGeometry>
-                    <bufferAttribute attach="attributes-position" args={[new Float32Array(params.length * 3), 3]} />
-                </bufferGeometry>
+            <points ref={points} geometry={geometry} visible={false}>
                 <pointsMaterial ref={mat} map={dot} color={style.color} size={Math.max(4, style.size * 24)} {...ADDITIVE_PARTICLE_PROPS} />
             </points>
             {floorTex && (

@@ -16,6 +16,7 @@
  * from, deliberately unnamed because this repository is public.
  */
 
+import { paceShowdownTechniqueDamage } from './damage-pacing.js';
 import {
     SHOWDOWN_COST_BASIC,
     SHOWDOWN_COST_CONTROL_FLOOR,
@@ -45,6 +46,7 @@ import {
     SHOWDOWN_PRIORITY_REST,
     SHOWDOWN_PRIORITY_SUPER,
     SHOWDOWN_METER_MAX,
+    SHOWDOWN_METER_FIRST_ROUND,
     SHOWDOWN_METER_ON_GUARDED_HIT,
     SHOWDOWN_METER_ON_HIT_DEALT,
     SHOWDOWN_METER_ON_HIT_TAKEN,
@@ -178,6 +180,9 @@ export interface ShowdownPet {
     /** Per-pet stamina pool — a stat derived from bulk (~85-120). */
     maxStamina: number;
     meter: number;
+    /** First-cast charge ends permanently after execution, including a miss.
+     * Optional for sessions sealed before this field was introduced. */
+    signatureUsed?: boolean;
     ko: boolean;
     guarding: boolean;
     /** On the bench: cannot act or be targeted; statuses are frozen. */
@@ -1637,7 +1642,7 @@ const ELEMENT_TAKEN_MULT: Record<string, number> = {
     Lightning: 0.97,
 };
 
-function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: ShowdownPet, power: number, extraMult = 1, procs?: string[], move?: { element: string; cls: ShowdownMoveClass }): number {
+function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: ShowdownPet, power: number, extraMult = 1, procs?: string[], move?: { element: string; cls: ShowdownMoveClass }, superCast = false): number {
     // The physical/special split: contact techniques roll ATK vs DEF, casts
     // roll the role-derived special pair. DoT ticks and reflects arrive with
     // no move and keep the physical axis, matching their pre-split numbers.
@@ -1695,14 +1700,20 @@ function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: Sh
         defender.statuses = defender.statuses.filter((s) => s !== mark);
         procs?.push('Mark');
     }
+    // Price extreme low-level bursts and all-level ultimates before Guard,
+    // so a healthy opponent gets a response and guarding still halves the
+    // same hit. Ordinary damage and the random draw sequence stay intact.
+    const unguarded = base * mult;
+    const paced = move ? paceShowdownTechniqueDamage(unguarded, defender.maxHp, attacker.level, defender.level, superCast) : unguarded;
     // Guardian pets block harder than the standard guard.
+    let guard = 1;
     if (defender.guarding) {
-        mult *= tableMult(TRAIT_FX.guardMult, traitOf(defender), SHOWDOWN_GUARD_MULT);
+        guard = tableMult(TRAIT_FX.guardMult, traitOf(defender), SHOWDOWN_GUARD_MULT);
         if (tableMult(TRAIT_FX.guardMult, traitOf(defender), SHOWDOWN_GUARD_MULT) !== SHOWDOWN_GUARD_MULT) {
             procs?.push(traitOf(defender));
         }
     }
-    const out = Math.round(base * mult);
+    const out = Math.round(paced * guard);
     // Final NaN backstop: a non-finite result would make hp <= 0 unreachable.
     return Number.isFinite(out) ? Math.max(power > 0 ? 1 : 0, out) : 0;
 }
@@ -1729,17 +1740,18 @@ const ALLY_KINDS = new Set(['heal']);
 /** How the action is STAGED — a charge into contact, or a cast from where the
  *  pet stands. Follows the MOVE, not the pet (owner note: "don't have every
  *  attack be a charge — use your logic"): contact kinds close the distance,
- *  elemental casts throw. The class split already draws exactly this line —
- *  physical techniques are the contact family, special ones are the casts —
- *  and the one nuance on top is the pet's own NEUTRAL jab, which is always a
- *  quick dash-in regardless of who throws it. */
-function deliveryFor(move: Pick<ShowdownMove, 'kind' | 'cls' | 'element'>): 'melee' | 'ranged' | 'self' {
+ *  elemental casts throw. All offensive signatures cover the enemy formation
+ *  and cast in place, even when their damage uses physical stats. Single-target
+ *  physical moves and the neutral jab retain contact travel. */
+function deliveryFor(move: Pick<ShowdownMove, 'kind' | 'cls' | 'element'>, superCast: boolean): 'melee' | 'ranged' | 'self' {
     // Weather and Protect land on the caster and the board, never across the
     // lane — they stage in place like every other self cast. (The fighter also
     // refuses to dash at a target that is itself, so this is the wire being
     // honest rather than a bug fix.)
     if (move.kind === 'weather' || move.kind === 'protect') return 'self';
     if (SELF_KINDS.has(move.kind) || ALLY_KINDS.has(move.kind)) return 'self';
+    // Intent is authoritative even in 1v1 or when every splash victim dodges.
+    if (superCast) return 'ranged';
     if (move.cls === 'physical' || move.element === 'None') return 'melee';
     return 'ranged';
 }
@@ -1771,6 +1783,7 @@ function executeMove(
     let overexertDamage = 0;
     if (superCast) {
         actor.meter = 0;
+        actor.signatureUsed = true;
     } else {
         if (actor.stamina < move.cost) {
             overexerted = true;
@@ -1802,6 +1815,7 @@ function executeMove(
     actor.guarding = false;
 
     const targets: Extract<ShowdownEvent, { t: 'action' }>['targets'] = [];
+    let targetId: string | undefined = actor.id;
 
     /** Returns false when the blow never landed, so the caller skips the
      *  on-hit rider (a dodged crush must not still lower DEF). */
@@ -1839,7 +1853,7 @@ function executeMove(
             .some((ally) => ally !== actor && ally.element === move.synergyElement);
         const synergyMult = synergy ? tableMult(TRAIT_FX.synergyMult, traitOf(actor), SHOWDOWN_SYNERGY_MULT) : 1;
         const procs: string[] = [];
-        let dmg = rawDamage(session, actor, target, Math.round(power * powerScale), synergyMult, procs, move);
+        let dmg = rawDamage(session, actor, target, Math.round(power * powerScale), synergyMult, procs, move, superCast);
         // MITIGATE charge: one softened blow. Applied to the finished roll (so
         // it discounts guard, element and every proc alike) and spent whether
         // or not the hit would have hurt.
@@ -1926,6 +1940,7 @@ function executeMove(
         targets.push({ id: actor.id, damage: 0, heal: 0, effectiveness: 'neutral', guarded: false, ko: false, applied: stored });
     } else if (kind === 'heal') {
         const ally = resolveAllyTarget(session, actorSide, action.targetId, actor);
+        targetId = ally.id;
         // power 120 ≈ 17% maxHp, capped at 30% — meaningful against the damage
         // pace without enabling heal-stall (attrition decays this to zero in
         // long fights; see applyHeal). Re-pricing this against the raised
@@ -1937,6 +1952,7 @@ function executeMove(
         targets.push({ id: ally.id, damage: 0, heal: healed, effectiveness: 'neutral', guarded: false, ko: false, applied: 'heal' });
     } else {
         const target = resolveTarget(session, actorSide, action.targetId);
+        targetId = target?.id;
         if (target) {
             // Signature splash: in team formats the super also washes over every
             // OTHER living foe — collected before the primary hit can KO them.
@@ -2103,13 +2119,14 @@ function executeMove(
         // The MOVE's element rides the wire — the VFX tint, the wheel banner
         // and the impact silhouette all follow what was actually thrown.
         element: move.element ?? actor.element,
-        delivery: deliveryFor(move),
+        delivery: deliveryFor(move, superCast),
         // The haymaker is exactly the move promoteHeavy stamped with a hold and
         // the heavy priority; a jab is the cheap always-affordable opener.
         weight: move.hold > 0 || move.priority <= SHOWDOWN_PRIORITY_HEAVY
             ? 'heavy'
             : move.priority >= SHOWDOWN_PRIORITY_LIGHT ? 'light' : 'normal',
         super: superCast,
+        targetId,
         targets,
         staminaAfter: Math.round(actor.stamina),
         meterAfter: Math.round(actor.meter),
@@ -2317,6 +2334,10 @@ export function resolveShowdownRound(
                     .map((s) => (s.bornRound < session.round ? { ...s, rounds: s.rounds - 1 } : s))
                     .filter((s) => s.rounds > 0);
                 pet.stamina = Math.min(pet.maxStamina, pet.stamina + Math.round(pet.maxStamina * SHOWDOWN_STAMINA_REGEN_PCT) + SHOWDOWN_STAMINA_REGEN_FLAT);
+                // A living field pet earns its first finisher by round three,
+                // even when healing, guarding or missing. Benches cannot bank
+                // this charge, and spending it never re-enables the bonus.
+                if (!pet.signatureUsed) gainMeter(pet, SHOWDOWN_METER_FIRST_ROUND);
             }
             // Bench pets rest: stamina recovers, statuses stay frozen (no
             // ticks, no decay — you can't wait out a burn from the bench).

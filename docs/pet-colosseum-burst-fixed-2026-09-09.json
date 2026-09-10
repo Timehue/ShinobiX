@@ -1,0 +1,486 @@
+{
+  "seeds": 16,
+  "charged": false,
+  "templates": 160,
+  "assumptions": "Same level and rarity; balanced growth; no gear or traits; every uncharged non-signature damaging opener against an unguarded full-health target. Separate fresh session per probe. Both counter and neutral/resisted matchups included.",
+  "rows": [
+    {
+      "level": 1,
+      "hits": 280000,
+      "oneShots": 0,
+      "maxHpFraction": 0.8641975308641975
+    },
+    {
+      "level": 5,
+      "hits": 280000,
+      "oneShots": 0,
+      "maxHpFraction": 0.8646080760095012
+    },
+    {
+      "level": 10,
+      "hits": 280000,
+      "oneShots": 0,
+      "maxHpFraction": 0.8606741573033708
+    },
+    {
+      "level": 20,
+      "hits": 280000,
+      "oneShots": 0,
+      "maxHpFraction": 0.8571428571428571
+    },
+    {
+      "level": 25,
+      "hits": 280000,
+      "oneShots": 0,
+      "maxHpFraction": 0.8545816733067729
+    },
+    {
+      "level": 50,
+      "hits": 280000,
+      "oneShots": 3887,
+      "maxHpFraction": 1.8665568369028007
+    }
+  ],
+  "worst": [
+    {
+      "level": 50,
+      "attacker": "mythic-0",
+      "defender": "mythic-1",
+      "move": "Moonfire Lash",
+      "kind": "damage",
+      "power": 104,
+      "ratio": 1.8665568369028007,
+      "damage": 1133,
+      "maxHp": 607
+    },
+    {
+      "level": 50,
+      "attacker": "mythic-0",
+      "defender": "mythic-1",
+      "move": "Moonfire Lash",
+      "kind": "damage",
+      "power": 104,
+      "ratio": 1.8665568369028007,
+      "damage": 1133,
+      "maxHp": 607
+    },
+    {
+      "level": 50,
+      "attacker": "mythic-0",
+      "defender": "mythic-1",
+      "move": "Moonfire Lash",
+      "kind": "damage",
+      "power": 104,
+      "ratio": 1.8484349258649093,
+      "damage": 1122,
+      "maxHp": 607
+    },
+    {
+      "level": 50,
+      "attacker": "mythic-0",
+      "defender": "mythic-1",
+      "move": "Moonfire Lash",
+      "kind": "damage",
+      "power": 104,
+      "ratio": 1.8303130148270181,
+      "damage": 1111,
+      "maxHp": 607
+    },
+    {
+      "level": 50,
+      "attacker": "mythic-0",
+      "defender": "mythic-1",
+      "move": "Moonfire Lash",
+      "kind": "damage",
+      "power": 104,
+      "ratio": 1.8303130148270181,
+      "damage": 1111,
+      "maxHp": 607
+    },
+    {
+      "level": 50,
+      "attacker": "mythic-0",
+      "defender": "mythic-1",
+      "move": "Moonfire Lash",
+      "kind": "damage",
+      "power": 104,
+      "ratio": 1.8303130148270181,
+      "damage": 1111,
+      "maxHp": 607
+    },
+    {
+      "level": 50,
+      "attacker": "standard-39",
+      "defender": "starter-lightning",
+      "move": "Glide Sparrow Strike",
+      "kind": "damage",
+      "power": 71,
+      "ratio": 1.828512396694215,
+      "damage": 885,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "standard-39",
+      "defender": "starter-lightning",
+      "move": "Glide Sparrow Strike",
+      "kind": "damage",
+      "power": 71,
+      "ratio": 1.828512396694215,
+      "damage": 885,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "mythic-0",
+      "defender": "mythic-1",
+      "move": "Moonfire Lash",
+      "kind": "damage",
+      "power": 104,
+      "ratio": 1.812191103789127,
+      "damage": 1100,
+      "maxHp": 607
+    },
+    {
+      "level": 50,
+      "attacker": "mythic-0",
+      "defender": "mythic-1",
+      "move": "Moonfire Lash",
+      "kind": "damage",
+      "power": 104,
+      "ratio": 1.812191103789127,
+      "damage": 1100,
+      "maxHp": 607
+    },
+    {
+      "level": 50,
+      "attacker": "standard-39",
+      "defender": "starter-lightning",
+      "move": "Glide Sparrow Strike",
+      "kind": "damage",
+      "power": 71,
+      "ratio": 1.81198347107438,
+      "damage": 877,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "standard-39",
+      "defender": "starter-lightning",
+      "move": "Glide Sparrow Strike",
+      "kind": "damage",
+      "power": 71,
+      "ratio": 1.7933884297520661,
+      "damage": 868,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "standard-39",
+      "defender": "starter-lightning",
+      "move": "Glide Sparrow Strike",
+      "kind": "damage",
+      "power": 71,
+      "ratio": 1.7933884297520661,
+      "damage": 868,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "standard-39",
+      "defender": "starter-lightning",
+      "move": "Glide Sparrow Strike",
+      "kind": "damage",
+      "power": 71,
+      "ratio": 1.7933884297520661,
+      "damage": 868,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "standard-39",
+      "defender": "starter-lightning",
+      "move": "Glide Sparrow Strike",
+      "kind": "damage",
+      "power": 71,
+      "ratio": 1.7768595041322315,
+      "damage": 860,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "standard-39",
+      "defender": "starter-lightning",
+      "move": "Glide Sparrow Strike",
+      "kind": "damage",
+      "power": 71,
+      "ratio": 1.7768595041322315,
+      "damage": 860,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "mythic-0",
+      "defender": "mythic-1",
+      "move": "Moonfire Lash",
+      "kind": "damage",
+      "power": 104,
+      "ratio": 1.7759472817133444,
+      "damage": 1078,
+      "maxHp": 607
+    },
+    {
+      "level": 50,
+      "attacker": "rare-39",
+      "defender": "starter-lightning-r",
+      "move": "Drift Albatross Strike",
+      "kind": "damage",
+      "power": 83,
+      "ratio": 1.761467889908257,
+      "damage": 960,
+      "maxHp": 545
+    },
+    {
+      "level": 50,
+      "attacker": "rare-39",
+      "defender": "starter-lightning-r",
+      "move": "Drift Albatross Strike",
+      "kind": "damage",
+      "power": 83,
+      "ratio": 1.761467889908257,
+      "damage": 960,
+      "maxHp": 545
+    },
+    {
+      "level": 50,
+      "attacker": "rare-3",
+      "defender": "starter-lightning-r",
+      "move": "Sky Falcon Strike",
+      "kind": "damage",
+      "power": 75,
+      "ratio": 1.7541284403669726,
+      "damage": 956,
+      "maxHp": 545
+    },
+    {
+      "level": 50,
+      "attacker": "rare-3",
+      "defender": "starter-lightning-r",
+      "move": "Sky Falcon Strike",
+      "kind": "damage",
+      "power": 75,
+      "ratio": 1.7541284403669726,
+      "damage": 956,
+      "maxHp": 545
+    },
+    {
+      "level": 50,
+      "attacker": "rare-39",
+      "defender": "starter-lightning-r",
+      "move": "Drift Albatross Strike",
+      "kind": "damage",
+      "power": 83,
+      "ratio": 1.744954128440367,
+      "damage": 951,
+      "maxHp": 545
+    },
+    {
+      "level": 50,
+      "attacker": "mythic-0",
+      "defender": "mythic-1",
+      "move": "Moonfire Lash",
+      "kind": "damage",
+      "power": 104,
+      "ratio": 1.7413509060955519,
+      "damage": 1057,
+      "maxHp": 607
+    },
+    {
+      "level": 50,
+      "attacker": "mythic-0",
+      "defender": "mythic-1",
+      "move": "Moonfire Lash",
+      "kind": "damage",
+      "power": 104,
+      "ratio": 1.7413509060955519,
+      "damage": 1057,
+      "maxHp": 607
+    },
+    {
+      "level": 50,
+      "attacker": "standard-39",
+      "defender": "starter-lightning",
+      "move": "Glide Sparrow Strike",
+      "kind": "damage",
+      "power": 71,
+      "ratio": 1.7396694214876034,
+      "damage": 842,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "rare-3",
+      "defender": "starter-lightning-r",
+      "move": "Sky Falcon Strike",
+      "kind": "damage",
+      "power": 75,
+      "ratio": 1.7376146788990825,
+      "damage": 947,
+      "maxHp": 545
+    },
+    {
+      "level": 50,
+      "attacker": "mythic-0",
+      "defender": "mythic-8",
+      "move": "Moonfire Lash",
+      "kind": "damage",
+      "power": 104,
+      "ratio": 1.7352472089314195,
+      "damage": 1088,
+      "maxHp": 627
+    },
+    {
+      "level": 50,
+      "attacker": "mythic-0",
+      "defender": "mythic-8",
+      "move": "Moonfire Lash",
+      "kind": "damage",
+      "power": 104,
+      "ratio": 1.7352472089314195,
+      "damage": 1088,
+      "maxHp": 627
+    },
+    {
+      "level": 50,
+      "attacker": "standard-35",
+      "defender": "starter-lightning",
+      "move": "Breeze Finch Strike",
+      "kind": "damage",
+      "power": 68,
+      "ratio": 1.7272727272727273,
+      "damage": 836,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "standard-35",
+      "defender": "starter-lightning",
+      "move": "Breeze Finch Strike",
+      "kind": "damage",
+      "power": 68,
+      "ratio": 1.7272727272727273,
+      "damage": 836,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "rare-39",
+      "defender": "starter-lightning-r",
+      "move": "Drift Albatross Strike",
+      "kind": "damage",
+      "power": 83,
+      "ratio": 1.726605504587156,
+      "damage": 941,
+      "maxHp": 545
+    },
+    {
+      "level": 50,
+      "attacker": "rare-39",
+      "defender": "starter-lightning-r",
+      "move": "Drift Albatross Strike",
+      "kind": "damage",
+      "power": 83,
+      "ratio": 1.726605504587156,
+      "damage": 941,
+      "maxHp": 545
+    },
+    {
+      "level": 50,
+      "attacker": "rare-39",
+      "defender": "starter-lightning-r",
+      "move": "Drift Albatross Strike",
+      "kind": "damage",
+      "power": 83,
+      "ratio": 1.726605504587156,
+      "damage": 941,
+      "maxHp": 545
+    },
+    {
+      "level": 50,
+      "attacker": "rare-3",
+      "defender": "starter-lightning-r",
+      "move": "Sky Falcon Strike",
+      "kind": "damage",
+      "power": 75,
+      "ratio": 1.7211009174311926,
+      "damage": 938,
+      "maxHp": 545
+    },
+    {
+      "level": 50,
+      "attacker": "rare-3",
+      "defender": "starter-lightning-r",
+      "move": "Sky Falcon Strike",
+      "kind": "damage",
+      "power": 75,
+      "ratio": 1.7211009174311926,
+      "damage": 938,
+      "maxHp": 545
+    },
+    {
+      "level": 50,
+      "attacker": "rare-3",
+      "defender": "starter-lightning-r",
+      "move": "Sky Falcon Strike",
+      "kind": "damage",
+      "power": 75,
+      "ratio": 1.7211009174311926,
+      "damage": 938,
+      "maxHp": 545
+    },
+    {
+      "level": 50,
+      "attacker": "mythic-0",
+      "defender": "mythic-8",
+      "move": "Moonfire Lash",
+      "kind": "damage",
+      "power": 104,
+      "ratio": 1.719298245614035,
+      "damage": 1078,
+      "maxHp": 627
+    },
+    {
+      "level": 50,
+      "attacker": "rare-35",
+      "defender": "starter-lightning-r",
+      "move": "Cyclone Harrier Strike",
+      "kind": "damage",
+      "power": 80,
+      "ratio": 1.7192660550458716,
+      "damage": 937,
+      "maxHp": 545
+    },
+    {
+      "level": 50,
+      "attacker": "rare-35",
+      "defender": "starter-lightning-r",
+      "move": "Cyclone Harrier Strike",
+      "kind": "damage",
+      "power": 80,
+      "ratio": 1.7192660550458716,
+      "damage": 937,
+      "maxHp": 545
+    },
+    {
+      "level": 50,
+      "attacker": "standard-35",
+      "defender": "starter-lightning",
+      "move": "Breeze Finch Strike",
+      "kind": "damage",
+      "power": 68,
+      "ratio": 1.7107438016528926,
+      "damage": 828,
+      "maxHp": 484
+    }
+  ]
+}

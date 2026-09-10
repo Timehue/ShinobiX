@@ -3,8 +3,13 @@ import test from "node:test";
 import {
     showdownBodyRadius,
     showdownAttackRhythm,
+    showdownAttackPhase,
+    showdownCastRelease,
+    showdownChargeEnvelope,
+    showdownRecoveryLift,
     showdownCinematicImpulse,
     showdownContactGap,
+    showdownStrikeReach,
     showdownMeleeContact,
     showdownMeleeDrive,
     showdownPerformanceVariant,
@@ -17,6 +22,29 @@ import {
     showdownTravelProgress,
     SHOWDOWN_SWITCH_TIMING,
 } from "./pet-showdown-choreography";
+
+test("cast release, pose extension and channel collapse share every weight's clock", () => {
+    for (const weight of ["light", "normal", "heavy"] as const) for (const superMove of [false, true]) {
+        const rhythm = showdownAttackRhythm({ weight, superMove, delivery: "ranged" });
+        const release = showdownCastRelease(rhythm);
+        assert.ok(release > rhythm.windupStart && release < rhythm.contact);
+        assert.equal(showdownAttackPhase(release, rhythm, false), 0);
+        assert.ok(showdownAttackPhase(release - 1e-5, rhythm, false) > 0.99);
+        assert.equal(showdownChargeEnvelope(release, rhythm), 1);
+        assert.equal(showdownChargeEnvelope(rhythm.contact, rhythm), 0, 'channel must finish before the shot hits');
+        assert.equal(showdownAttackPhase(rhythm.recoverEnd, rhythm, false), 1);
+    }
+});
+
+test("backward recovery leaves contact planted and lands at home for every body type", () => {
+    for (const profile of ["quadruped", "heavy", "biped", "avian", "serpentine"] as const) {
+        assert.equal(showdownRecoveryLift(0, profile, 6), 0);
+        assert.ok(showdownRecoveryLift(1, profile, 6) < 1e-8);
+        assert.ok(showdownRecoveryLift(0.5, profile, 6) > 0);
+        assert.equal(showdownRecoveryLift(0.5, profile, 0), 0);
+    }
+    assert.ok(showdownRecoveryLift(0.5, 'heavy', 6) < showdownRecoveryLift(0.5, 'avian', 6));
+});
 
 test("clear melee lanes retain their original contact point and return path", () => {
     const from = { x: -1.8, z: 4.1 }, to = { x: 1.8, z: -4.1 };
@@ -128,9 +156,22 @@ test("Pet Showdown keeps a visible impact core between Red Fox and Blue Frog", (
         const contact = showdownMeleeContact(0, 4.1, 0, -4.1, fox, frog);
         const remaining = Math.abs(contact.z - -4.1);
         assert.ok(Math.abs(remaining - showdownContactGap(fox, frog)) < 0.00001);
-        assert.ok(remaining - fox - frog >= 0.58);
+        const surfaceSeam = remaining - fox - showdownStrikeReach(fox) - frog;
+        assert.ok(surfaceSeam > 0 && surfaceSeam < 0.08, 'the strike must meet the surface without overlapping or leaving an air gap');
         assert.ok(contact.impactZ < contact.z - fox);
         assert.ok(contact.impactZ > -4.1 + frog);
+});
+
+test("contact never clips the largest strike envelopes or sends a close-start spark behind the target", () => {
+    const radius = 1.58;
+    const contact = showdownMeleeContact(0, 5, 0, -5, radius, radius, 1.48);
+    assert.ok(contact.gap > radius * 2 + showdownStrikeReach(radius, 1.48));
+    for (const distance of [0, 0.1, 1, 2, 3]) {
+        const close = showdownMeleeContact(0, 0, 0, distance, radius, radius);
+        assert.equal(close.travel, 0);
+        assert.ok(close.impactZ >= 0 && close.impactZ <= distance);
+        assert.ok(Number.isFinite(close.impactX));
+    }
 });
 
 test("Pet Showdown melee never overshoots contact and returns home after recovery", () => {

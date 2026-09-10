@@ -26,7 +26,7 @@ import {
     showdownStateView,
     type ShowdownSession,
 } from '../_pet-showdown/engine.js';
-import { buildShowdownAiTeam, chooseShowdownAiCommands } from '../_pet-showdown/ai.js';
+import { buildColosseumAiTeam, buildShowdownAiTeam, chooseShowdownAiCommands } from '../_pet-showdown/ai.js';
 import {
     bumpLegacyStats,
     hasLegacyActivityReceipt,
@@ -139,10 +139,6 @@ const RECEIPT_HISTORY = Math.max(64, DAILY_ARENA_WIN_CAP);
 // for payment — a Showdown session leases 45 minutes, a coliseum battle token
 // 15 — with room to spare on both.
 const PAID_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
-// The pools a SPARRING bout rolls between. All three, deliberately: the point
-// of the drill is meeting opposition you did not pick, and a scrapper draw is
-// as instructive as a champion one when both stand at your own pets' levels.
-const SPARRING_TIERS: readonly ShowdownTier[] = ['scrapper', 'warrior', 'champion'];
 
 // (No HOLLOW_GATE_PET_RECEIPT_TTL_SECONDS twin here, unlike pet/battle-result.ts:
 // mintHollowGatePetReceipt below writes the versioned receipt through
@@ -624,10 +620,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
              * a fight right now that is worth practising against".
              *
              * The player is not choosing an opponent, they are asking the arena
-             * for one, so the two things a chosen tier decides are decided HERE
-             * instead: the tier is ROLLED (the opposition varies bout to bout,
-             * across all three rarity pools) and the AI is levelled slot-for-slot
-             * against the team brought rather than to its average.
+             * for one. Use warrior tactics with random species matched to each
+             * slot's rarity and level, so a rare pet cannot roll a standard
+             * punching bag merely because both nameplates say level 1.
              *
              * Reading this flag off the body is safe in a way `body.tier` on the
              * arena entry is not: this entry seals rewardEligible FALSE
@@ -636,7 +631,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
              */
             const sparring = body.sparring === true;
             const tier: ShowdownTier = sparring
-                ? SPARRING_TIERS[randomInt(0, SPARRING_TIERS.length)]
+                ? 'warrior'
                 : body.tier === 'champion' ? 'champion' : body.tier === 'warrior' ? 'warrior' : 'scrapper';
             const size = SHOWDOWN_FORMAT_SIZE[format];
             // Team = field + bench, and the bench is the same size in every
@@ -669,8 +664,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const seed = randomInt(1, 0x7fffffff);
             // The AI fields a team the same SIZE as the player's (bench parity),
-            // and in a sparring bout at the same LEVELS, pet for pet.
-            const { pets: enemyPets, teamName } = buildShowdownAiTeam(chosen, chosen.length, tier, seed, { mirrorLevels: sparring });
+            // and in a sparring bout at the same level AND rarity, pet for pet.
+            const { pets: enemyPets, teamName } = buildColosseumAiTeam(chosen, chosen.length, tier, seed, sparring);
             if (enemyPets.length !== chosen.length) return res.status(500).json({ error: 'Could not assemble an opponent team.' });
             const sessionId = randomUUID().replace(/-/g, '');
             const session = createShowdownSession({
@@ -792,7 +787,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // else gets the arena's scaled AI team.
             const built = hollowHound
                 ? { pets: [hollowHound], teamName: hollowHound.name }
-                : buildShowdownAiTeam(chosen, chosen.length, tier, seed);
+                : buildColosseumAiTeam(chosen, chosen.length, tier, seed);
             const enemyPets = built.pets;
             const teamName = built.teamName;
             if (!enemyPets.length) return res.status(500).json({ error: 'Could not assemble an opponent team.' });
