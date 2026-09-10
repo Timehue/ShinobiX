@@ -323,6 +323,7 @@
 .jutsu-plan-art img { width: 100%; height: 100%; object-fit: cover; }
 .jutsu-plan-preview > div { display: grid; gap: 5px; min-width: 0; }
 .jutsu-plan-preview > div > span { color: #91a3ba; font: 700 10px Inter, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; }
+.jutsu-plan-preview .jutsu-plan-bloodline { color: #d8b4fe; font-style: normal; }
 .jutsu-plan-preview > div > strong { color: #f3e3aa; font: 800 15px var(--font-display); letter-spacing: 0.06em; }
 .jutsu-plan-preview > div > small { color: #a9b7ca; font: 500 11px Inter, sans-serif; }
 .jutsu-plan-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -379,6 +380,8 @@
     transform: none;
 }
 
+.jutsu-training-screen .technique-card.is-bloodline { border-color: rgba(167, 139, 250, 0.55) !important; }
+
 .jutsu-training-screen .technique-card:hover:not(:disabled) {
     translate: 0 -2px;
     border-color: rgba(96, 165, 250, 0.72) !important;
@@ -396,6 +399,7 @@
 .jutsu-training-screen .technique-card.selected .technique-thumb { box-shadow: inset 0 0 0 1px rgba(232, 212, 150, 0.26); }
 .jutsu-training-screen .technique-name { color: #dbe4f1; font: 800 10px/1.18 var(--font-display); letter-spacing: 0.06em; text-align: center; text-transform: uppercase; }
 .jutsu-training-screen .technique-cost { right: 5px; top: 5px; min-width: 25px; height: 25px; border: 1px solid rgba(232, 212, 150, 0.58); background: rgba(5, 10, 24, 0.88); color: #f3e3aa; font-size: 10px; }
+.jutsu-training-screen .technique-bloodline { position: absolute; z-index: 1; left: 5px; top: 5px; padding: 3px 6px; border: 1px solid rgba(167, 139, 250, 0.55); border-radius: 999px; background: rgba(12, 6, 28, 0.88); color: #d8b4fe; font: 800 8px/1 Inter, sans-serif; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; pointer-events: none; }
 
 .jutsu-training-screen .technique-filter-panel {
     gap: 6px;
@@ -417,6 +421,7 @@
 .jutsu-detail-stack { display: grid; gap: 9px; }
 .jutsu-detail-badges { display: flex; flex-wrap: wrap; gap: 5px; }
 .jutsu-detail-badges span { padding: 4px 7px; border: 1px solid rgba(96, 165, 250, 0.28); border-radius: 999px; background: rgba(30, 64, 175, 0.14); color: #bfdbfe; font: 700 9px Inter, sans-serif; }
+.jutsu-detail-badges .is-bloodline { border-color: rgba(167, 139, 250, 0.5); background: rgba(109, 40, 217, 0.18); color: #d8b4fe; }
 .jutsu-detail-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .jutsu-training-screen .jutsu-detail-stack > p { margin: 0 !important; color: #9faec1 !important; font: 500 11px/1.45 Inter, sans-serif !important; text-align: left !important; }
 .jutsu-training-screen .jutsu-detail-stack > p strong { color: #d9e4f2 !important; font-weight: 750; }

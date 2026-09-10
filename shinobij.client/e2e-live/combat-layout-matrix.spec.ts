@@ -2098,10 +2098,12 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
 test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, request }, testInfo) => {
     // WebKit needs roughly five minutes to exercise all 22 base viewports,
     // six zoom equivalents, and both 12-frame arm/cancel traces; slower Windows
-    // GPU runners can approach eight. Keep this exhaustive test no-retry, but
-    // do not let the suite-wide 240s budget terminate a healthy final-viewport
-    // run before the zoom checks complete.
-    test.setTimeout(600_000);
+    // GPU runners can approach eight. On 2026-09-10, with sibling browser suites
+    // running on the same machine, Windows WebKit reached its last viewport at
+    // 550s and was cut off at 600s in the middle of it. No action had hung. Keep
+    // this exhaustive test no-retry, but do not let the budget terminate a
+    // healthy final-viewport run before the zoom checks complete.
+    test.setTimeout(900_000);
     const { name, token } = await seedAccount(request, testInfo, 'tower');
     const savePreview = await fetchAuthoritativeSave(request, { name, token });
     await installSession(page, name, token, { acknowledgeEstablishedNotices: true, savePreview });

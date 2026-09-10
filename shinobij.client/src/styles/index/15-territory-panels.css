@@ -301,6 +301,30 @@
     font-weight: var(--fw-bold);
 }
 
+/* The "…turning to Thunderstorm in 18m" clause (components/SectorSkyForecast).
+   It sits INSIDE the sky-name span rather than beside it, because the kicker is
+   space-between with exactly two children and a third would shove the sky name
+   into the middle of the row. Dimmer and unbolded so the sky that is actually
+   overhead still reads first, with a thin separator instead of punctuation. */
+/* Scoped to .instance-actions and !important on purpose: the panel-wide
+   `.instance-actions p, .instance-actions span` reset carries
+   `margin: 0 !important; white-space: normal !important`, and it both outranks
+   and out-specifies a bare class. Without this the divider sits flush against the
+   sky's name and "in 1h 34m" wraps mid-countdown. */
+.instance-actions .sector-sky-forecast {
+    margin-left: var(--sp-2) !important;
+    padding-left: var(--sp-2);
+    border-left: 1px solid var(--slate-600, rgba(148, 163, 184, 0.35));
+    color: var(--slate-400, #94a3b8);
+    font-size: var(--fs-xs) !important;
+    font-weight: var(--fw-normal, 400);
+    white-space: nowrap !important;
+}
+
+.instance-actions .sector-sky-forecast.is-stamped {
+    font-style: italic;
+}
+
 .map-instance .sector-command-panel h3 {
     margin: 0 !important;
     padding: 0 !important;

@@ -1690,22 +1690,120 @@ export async function copyDiskRoutedKeysToBase(opts?: { dryRun?: boolean }): Pro
 // SUPABASE_POSTGRES_* vars that may not work from Vercel's network anyway,
 // and the disk overlay already handles the heavy storage. Set FORCE_PG_KV=1
 // to override and force the pg pool path.
+/*
+ * The backend is chosen on FIRST USE, not at module evaluation.
+ *
+ * It used to be chosen at import time, and that quietly dictated how every
+ * storage-touching test had to be written. `SHINOBIX_QA_MEMORY_KV` selects the
+ * in-memory backend, but ES imports are HOISTED — so a test that set the flag in
+ * its own body had already lost: any static import of an app module that reaches
+ * this file evaluated the selection first, the flag read as unset, and the suite
+ * bound itself to the real Supabase client. It then died on its first call with
+ *   "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set."
+ * which points at credentials rather than at the import order that actually
+ * caused it. api/_world-pvp-mercenary-freeze.test.ts sat red on that for a long
+ * time, and the same trap was one static import away in ~27 other test files.
+ *
+ * Deferring the choice removes the ordering constraint entirely: the flag is read
+ * when the first KV call happens, which is inside a test body or hook, long after
+ * every import has settled.
+ *
+ * This is a Proxy rather than a hand-written delegate because `kv` is used as a
+ * plain object in ways a fixed shim would break:
+ *   - `mgetProjected` is OPTIONAL and only pgKv has it. api/_storage-projection.ts
+ *     branches on `if (store.mgetProjected)`, so absence must read as undefined —
+ *     a shim that always defined it would route Supabase/memory into a pg-only path.
+ *   - tests assign and delete it (`kv.mgetProjected = ...`, `delete kv.mgetProjected`).
+ *   - tests SPREAD it (`{ ...kv }`) and `Object.assign` it back, which needs
+ *     ownKeys + getOwnPropertyDescriptor to report the backend's real shape.
+ * The traps below cover exactly those. Descriptors are forced `configurable` since
+ * the proxy target is empty, which is the invariant a spread would otherwise trip.
+ *
+ * Cost is a resolved-instance check plus a cached bound method per call — nothing
+ * against a database round trip.
+ */
 const _onVercel = !!process.env.VERCEL;
-const _forcePg = process.env.FORCE_PG_KV === '1';
-const _havePgUrl = !!(process.env.DATABASE_URL || process.env.SUPABASE_POSTGRES_URL);
-const _qaMemoryKv = process.env.SHINOBIX_QA_MEMORY_KV === '1';
-if (_qaMemoryKv && (process.env.NODE_ENV !== 'test' || _onVercel)) {
-    throw new Error('[kv] SHINOBIX_QA_MEMORY_KV requires NODE_ENV=test and cannot run on Vercel.');
+let _resolvedBaseKv: KvLike | null = null;
+const _boundBaseKvMembers = new Map<PropertyKey, unknown>();
+
+function _resolveBaseKv(): KvLike {
+    if (_resolvedBaseKv) return _resolvedBaseKv;
+    const forcePg = process.env.FORCE_PG_KV === '1';
+    const havePgUrl = !!(process.env.DATABASE_URL || process.env.SUPABASE_POSTGRES_URL);
+    const qaMemoryKv = process.env.SHINOBIX_QA_MEMORY_KV === '1';
+    if (qaMemoryKv && (process.env.NODE_ENV !== 'test' || _onVercel)) {
+        throw new Error('[kv] SHINOBIX_QA_MEMORY_KV requires NODE_ENV=test and cannot run on Vercel.');
+    }
+    _resolvedBaseKv = qaMemoryKv
+        ? _makeMemoryKv()
+        : ((forcePg || (havePgUrl && !_onVercel)) ? pgKv : supabaseKv);
+    if (qaMemoryKv) console.log('[kv] isolated in-memory QA backend active');
+    return _resolvedBaseKv;
 }
-const _baseKv: KvLike = _qaMemoryKv
-    ? _makeMemoryKv()
-    : ((_forcePg || (_havePgUrl && !_onVercel)) ? pgKv : supabaseKv);
-if (_qaMemoryKv) console.log('[kv] isolated in-memory QA backend active');
+
+/** The resolved backend as a bag of properties, for the traps below. */
+function _baseKvBacking(): Record<PropertyKey, unknown> {
+    return _resolveBaseKv() as unknown as Record<PropertyKey, unknown>;
+}
+
+const _baseKv: KvLike = new Proxy({} as KvLike, {
+    get(_target, prop) {
+        const backend = _baseKvBacking();
+        const value = backend[prop];
+        if (typeof value !== 'function') return value;
+        const cached = _boundBaseKvMembers.get(prop);
+        if (cached) return cached;
+        const bound = (value as (...args: unknown[]) => unknown).bind(backend);
+        _boundBaseKvMembers.set(prop, bound);
+        return bound;
+    },
+    set(_target, prop, value) {
+        _boundBaseKvMembers.delete(prop);
+        _baseKvBacking()[prop] = value;
+        return true;
+    },
+    deleteProperty(_target, prop) {
+        _boundBaseKvMembers.delete(prop);
+        delete _baseKvBacking()[prop];
+        return true;
+    },
+    defineProperty(_target, prop, descriptor) {
+        // node:test's `t.mock.method(kv, 'mget')` installs its spy through
+        // Object.defineProperty, not assignment. Without this trap the spy landed
+        // on the (empty) proxy target instead of the backend, the real method kept
+        // being called, and every "reads in ONE batch" performance test saw a call
+        // count of 0. Restore goes through here too.
+        _boundBaseKvMembers.delete(prop);
+        return Reflect.defineProperty(_resolveBaseKv() as object, prop, descriptor);
+    },
+    has(_target, prop) {
+        return Reflect.has(_resolveBaseKv() as object, prop);
+    },
+    ownKeys() {
+        return Reflect.ownKeys(_resolveBaseKv() as object);
+    },
+    getOwnPropertyDescriptor(_target, prop) {
+        const descriptor = Reflect.getOwnPropertyDescriptor(_resolveBaseKv() as object, prop);
+        // The proxy target is empty, so a non-configurable report would violate
+        // the invariant and throw on `{ ...kv }`.
+        return descriptor ? { ...descriptor, configurable: true } : undefined;
+    },
+});
+
+/*
+ * The module-level WIRING below (disk overlay, remote proxy, the reported
+ * saveStoreKind) still reads the flag at load. That is deliberate and is not the
+ * trap fixed above: these choose whether a wrapper is attached around the backend,
+ * not which backend is used, and both the overlay and the proxy are retired
+ * (DISK_KV_DIR / KV_PROXY_URL unset everywhere — see CLAUDE.md). Deferring them
+ * would add moving parts for no behaviour change.
+ */
+const _qaMemoryKvAtLoad = process.env.SHINOBIX_QA_MEMORY_KV === '1';
 
 // Disk overlay (only attached when env tells us where to read/write).
-const _diskRoot = _qaMemoryKv ? null : (process.env.DISK_KV_DIR ?? null);
-const _proxyUrl = _qaMemoryKv ? null : (process.env.KV_PROXY_URL ?? null);
-const _proxyToken = _qaMemoryKv ? null : (process.env.KV_PROXY_TOKEN ?? null);
+const _diskRoot = _qaMemoryKvAtLoad ? null : (process.env.DISK_KV_DIR ?? null);
+const _proxyUrl = _qaMemoryKvAtLoad ? null : (process.env.KV_PROXY_URL ?? null);
+const _proxyToken = _qaMemoryKvAtLoad ? null : (process.env.KV_PROXY_TOKEN ?? null);
 
 let _diskOverlay: KvLike | null = null;
 if (_diskRoot) {
@@ -1741,7 +1839,7 @@ export const kv = _diskOverlay ? _makeRoutedKv(_baseKv, _diskOverlay) : _baseKv;
 // deliberately re-enabled (docs/RETIRE_CPANEL_RUNBOOK.md); release health
 // gates on this via EXPECTED_SAVE_STORE=base-store.
 export const saveStoreKind: 'memory-qa' | 'disk' | 'remote-proxy' | 'base-store' =
-    _qaMemoryKv ? 'memory-qa' : (_diskRoot ? 'disk' : ((_proxyUrl && _proxyToken) ? 'remote-proxy' : 'base-store'));
+    _qaMemoryKvAtLoad ? 'memory-qa' : (_diskRoot ? 'disk' : ((_proxyUrl && _proxyToken) ? 'remote-proxy' : 'base-store'));
 
 // Expose the disk backend directly for the /api/kv proxy endpoint to use.
 export const _diskKvForProxy: KvLike | null = _diskRoot ? _makeDiskKv(_diskRoot) : null;

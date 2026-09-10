@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { sectorContractFor, contractSectorsForDay } from '../shared/sector-contracts.js';
+import { WORLD_HOUR_MS } from '../shared/world-clock.js';
 import {
     NO_CONTRACT, contractClaimKey, contractProgressKey, sectorContractStatus,
 } from './_sector-contracts.js';
@@ -61,8 +62,13 @@ test('a night contract stops accepting work in daylight but keeps what it banked
     const nightSector = contractSectorsForDay(NIGHT_DAY).find((s) => sectorContractFor(s, NIGHT_DAY)!.nightOnly);
     assert.ok(nightSector, 'the fixture day must post at least one night contract');
     const contract = sectorContractFor(nightSector, NIGHT_DAY)!;
-    const noon = Date.UTC(2026, 7, 26, 12);
-    const midnight = Date.UTC(2026, 7, 26, 23);
+    // In-world hours, not real ones: the world's day is compressed to two real
+    // hours (shared/world-clock), so these are points on the world's clock. A
+    // real UTC midnight is a whole number of in-world days from the epoch, which
+    // makes it in-world hour 0.
+    const worldDayStart = Date.UTC(2026, 7, 26);
+    const noon = worldDayStart + 12 * WORLD_HOUR_MS;
+    const midnight = worldDayStart + 23 * WORLD_HOUR_MS;
 
     assert.equal(sectorContractStatus(contract, 0, 0, noon).acceptingWork, false);
     assert.equal(sectorContractStatus(contract, 0, 0, midnight).acceptingWork, true);
@@ -79,6 +85,7 @@ test('an ordinary contract accepts work at every hour', () => {
     const plain = contractSectorsForDay(DAY2).find((s) => !sectorContractFor(s, DAY2)!.nightOnly)!;
     const contract = sectorContractFor(plain, DAY2)!;
     for (const hour of [0, 6, 12, 18, 23]) {
-        assert.equal(sectorContractStatus(contract, 0, 0, Date.UTC(2026, 7, 26, hour)).acceptingWork, true, `hour ${hour}`);
+        const at = Date.UTC(2026, 7, 26) + hour * WORLD_HOUR_MS;
+        assert.equal(sectorContractStatus(contract, 0, 0, at).acceptingWork, true, `hour ${hour}`);
     }
 });

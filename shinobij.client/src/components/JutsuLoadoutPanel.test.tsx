@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -119,4 +119,114 @@ test("list rows re-anchor the badge into the art column, clear of the jutsu name
         /\.profile-page-card \.jutsu-collection-card\.is-list \.jutsu-collection-select\s*\{[^}]*grid-template-columns:\s*72px minmax\(0, 1fr\);/s,
     );
     assert.match(css, /\.profile-page-card \.jutsu-collection-card\.is-list\s*\{[^}]*min-height:\s*88px;/s);
+});
+
+test("no other rule in any stylesheet anchors the badge vertically", () => {
+    // The two tests above only inspect the rules they expect to find, so a third
+    // anchor would slip past them. It would also win: a grid override such as
+    // `.jutsu-collection-card:not(.is-list) .jutsu-equipped-badge { top: 68px }`
+    // outranks the shared rule (0-4-0 vs 0-2-0) and quietly undoes the grid fix,
+    // with every assertion above still green. So pin the complete set, across
+    // every stylesheet the client ships, of rules allowed to set it.
+    const vertical = new Set(["top", "bottom", "inset", "inset-block", "inset-block-start", "inset-block-end"]);
+    const srcDir = new URL("../", import.meta.url);
+    const anchors: string[] = [];
+    for (const file of readdirSync(srcDir, { recursive: true, encoding: "utf8" })) {
+        if (!file.endsWith(".css")) continue;
+        // Comments go first: one containing a brace would mis-split the rules.
+        const sheet = readFileSync(new URL(file.replaceAll("\\", "/"), srcDir), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+        // Brace-free bodies are innermost rules, so this also reaches into @media.
+        for (const [, selectors, body] of sheet.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+            if (!body.split(";").some((declaration) => vertical.has(declaration.split(":")[0].trim().toLowerCase()))) continue;
+            for (const selector of selectors.split(",")) {
+                const normalized = selector.replace(/\s+/g, " ").trim();
+                if (normalized.includes(".jutsu-equipped-badge")) anchors.push(`${file.replaceAll("\\", "/")}: ${normalized}`);
+            }
+        }
+    }
+    assert.deepEqual(anchors.sort(), [
+        "styles/profile-skin.css: .profile-page-card .jutsu-collection-card.is-list .jutsu-equipped-badge",
+        "styles/profile-skin.css: .profile-page-card .jutsu-equipped-badge",
+    ]);
+});
+
+// Bloodline source filter: which learned jutsu come from a bloodline, and
+// whether the collection lets the player pick them out.
+
+function bloodlineMarkup(
+    learned: Jutsu[],
+    bloodlineJutsuNames?: ReadonlyMap<string, string>,
+    equippedJutsuIds: string[] = [],
+) {
+    const base = createCharacter("Bloodline Tester", "Leaf", "Ninjutsu", "None");
+    const character = {
+        ...base,
+        // Opens on the collection tab, which is the only tab that carries the filters.
+        onboardingStep: "jutsuLoadout" as const,
+        equippedJutsuIds,
+        jutsuMastery: learned.map((entry) => ({ jutsuId: entry.id, level: 5, xp: 0 })),
+    };
+    return renderToStaticMarkup(
+        <JutsuLoadoutPanel
+            character={character}
+            learnedJutsus={learned}
+            catalogJutsus={learned}
+            bloodlineJutsuNames={bloodlineJutsuNames}
+            onPlaceJutsu={() => {}}
+            onUnequip={() => {}}
+            onUnequipAll={() => {}}
+        />,
+    );
+}
+
+const plainAndBloodline = [jutsu("plain-jutsu", "Ember Palm"), jutsu("bloodline-jutsu", "Ashen Gaze")];
+
+test("offers the bloodline source filter and labels bloodline jutsu when the character has one", () => {
+    const html = bloodlineMarkup(plainAndBloodline, new Map([["bloodline-jutsu", "Ashen Eyes"]]));
+
+    assert.match(html, /aria-label="Filter by source"/);
+    assert.match(html, /Bloodline Only/);
+    assert.match(html, /Sort: Bloodline/);
+    // Exactly one card is marked, and the narrow card carries the generic label
+    // with the granting bloodline in its tooltip.
+    assert.equal((html.match(/jutsu-bloodline-chip/g) ?? []).length, 1);
+    assert.match(html, /jutsu-collection-card[^"]*is-bloodline/);
+    assert.match(html, /title="Bloodline jutsu — Ashen Eyes"[^>]*>◆ Bloodline</);
+});
+
+test("marks a bloodline jutsu the character does not carry, from the rank getAllJutsus stamps", () => {
+    // An admin-authored jutsu belonging to someone else's bloodline reaches every
+    // player's catalog; it carries bloodlineRank but no entry in the name map.
+    const foreign: Jutsu = { ...jutsu("foreign-jutsu", "Borrowed Flame"), bloodlineRank: "A Rank" };
+    const html = bloodlineMarkup([foreign], new Map());
+
+    assert.match(html, /aria-label="Filter by source"/);
+    assert.match(html, /title="Bloodline jutsu"[^>]*>◆ Bloodline</);
+    assert.match(html, /jutsu-collection-card[^"]*is-bloodline/);
+});
+
+test("names the granting bloodline in the details panel, where there is room for it", () => {
+    const html = bloodlineMarkup(plainAndBloodline, new Map([["bloodline-jutsu", "Ashen Eyes"]]), ["bloodline-jutsu"]);
+
+    assert.match(html, /jutsu-detail-title[\s\S]*?◆ Bloodline · Ashen Eyes/);
+});
+
+test("hides the bloodline controls when no learned jutsu comes from a bloodline", () => {
+    const html = bloodlineMarkup(plainAndBloodline, new Map());
+
+    assert.doesNotMatch(html, /aria-label="Filter by source"/);
+    assert.doesNotMatch(html, /Sort: Bloodline/);
+    assert.doesNotMatch(html, /jutsu-bloodline-chip/);
+    assert.doesNotMatch(html, /is-bloodline/);
+    // The rest of the collection controls are untouched.
+    assert.match(html, /aria-label="Sort jutsu"/);
+    assert.match(html, /Ember Palm/);
+});
+
+test("renders without the lookup at all, for callers that do not pass one", () => {
+    const html = bloodlineMarkup(plainAndBloodline);
+
+    assert.doesNotMatch(html, /aria-label="Filter by source"/);
+    assert.match(html, /Ember Palm/);
+    assert.match(html, /Ashen Gaze/);
 });
