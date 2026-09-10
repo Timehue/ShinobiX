@@ -1,5 +1,5 @@
 /*
- * Co-op Tactical Pet Arena lobby (client). Friends team up for the 4v4 capture
+ * Co-op Beastbound Warfront lobby (client). Friends team up for a 4v4 formation
  * match: one player hosts (gets a 4-char code), up to three more join by code,
  * each locks in two pets, the host starts. The server (api/arena/lobby.ts) is
  * authoritative — it validates pet ownership, mints the seed, and seals the
@@ -7,16 +7,18 @@
  * hands the identical {blue, red, seed} to PetArenaMatch so every client runs
  * the SAME deterministic replay. Preview only — no rewards.
  */
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { visiblePoll } from "../lib/poll";
 import type { Character } from "../types/character";
 import type { ArenaSlot } from "../lib/pet-arena-sim";
-import { isPetOnExpedition, petDisplayName } from "../lib/pet";
+import { isPetAvailableForWarfront, petDisplayName } from "../lib/pet";
+import { activeClientBreedingParentIds } from "../lib/pet-breeding";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import coopHero from "../assets/coliseum/coop-hero.webp";
 import { activeCarriedPets } from "../lib/entitlements";
+import { normalizeCoopWarfrontMatch } from "../lib/pet-coop-warfront";
 
 // The sealed co-op match plays as the Hollow Warfront Rite. It renders as a
 // SPECTATOR: no formation panel and no re-form, because a shared replay cannot
@@ -63,12 +65,15 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
     character: Character; sharedImages: Record<string, string>; onExit: () => void;
 }) {
     const myName = character.name;
-    const availablePets = activeCarriedPets(character).filter((p) => !isPetOnExpedition(p));
+    const breedingPetIds = activeClientBreedingParentIds(character);
+    const availablePets = activeCarriedPets(character).filter((pet) => isPetAvailableForWarfront(pet, breedingPetIds));
     const [lobby, setLobby] = useState<PublicLobby | null>(null);
     const [joinCode, setJoinCode] = useState("");
     const [picks, setPicks] = useState<string[]>([]);
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(false);
+    const sealedMatch = lobby?.match;
+    const match = useMemo(() => sealedMatch ? normalizeCoopWarfrontMatch(sealedMatch) : null, [sealedMatch]);
 
     // Poll the lobby every 2s while waiting (stops once the match seals/running).
     useEffect(() => {
@@ -96,6 +101,9 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
     });
     const lockIn = run(async () => {
         if (picks.length !== 2) { setError("Pick exactly 2 pets."); return; }
+        if (picks.some((id) => !availablePets.some((pet) => pet.id === id))) {
+            setError("A selected pet is busy. Choose two available pets."); return;
+        }
         const d = await lobbyApi(myName, "pets", { code: lobby!.code, petIds: picks }); if (d.lobby) setLobby(d.lobby);
     });
     const startMatch = run(async () => { const d = await lobbyApi(myName, "start", { code: lobby!.code }); if (d.lobby) setLobby(d.lobby); });
@@ -105,10 +113,10 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
         setPicks((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length >= 2 ? p : [...p, id]));
 
     // ── Running → run the sealed replay (identical on every client) ────────────
-    if (lobby?.state === "running" && lobby.match) {
+    if (lobby?.state === "running" && match) {
         return (
             <Suspense fallback={<Overlay><div style={{ color: "var(--text-dim)" }}>Loading the Warfront…</div></Overlay>}>
-                <PetWarfrontRite blue={lobby.match.blue} red={lobby.match.red} seed={lobby.match.seed} sharedImages={sharedImages} spectator onExit={onExit} />
+                <PetWarfrontRite blue={match.blue} red={match.red} seed={match.seed} sharedImages={sharedImages} spectator onExit={onExit} />
             </Suspense>
         );
     }
@@ -130,7 +138,7 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
                 {!lobby && (
                     <div style={{ display: "grid", gap: "0.7rem" }}>
                         <p style={{ color: "var(--text-dim)", margin: 0, fontSize: "0.85rem" }}>
-                            Team up for a 4v4 capture match. Create a lobby and share the code, or join a friend's.
+                            Team up for a best-of-three 4v4 Beastbound Warfront. Create a lobby and share the code, or join a friend's.
                             Each player brings 2 pets; empty seats are filled by AI.
                         </p>
                         <div style={PANEL}>
