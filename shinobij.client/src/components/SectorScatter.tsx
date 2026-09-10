@@ -110,12 +110,16 @@ export function SectorScatter({ sector, biome }: { sector: number; biome: Biome 
                     <span className="sector-scatter-shadow" />
                     {p.glow && <span className="sector-scatter-glow" style={{ animationDelay: `${p.delay}s` } as CSSProperties} />}
                     <span className="sector-scatter-sway" style={{ animationDuration: `${p.dur}s`, animationDelay: `${p.delay}s` } as CSSProperties}>
+                        {/* The global image guard retries a failed prop; if the retry
+                            loads, show the prop again (its host sets no inline display
+                            of its own, so clearing it restores the stylesheet's). */}
                         <img
                             className="sector-scatter-img"
                             src={`/sector-props/${biome}/${p.id}.webp`}
                             alt=""
                             draggable={false}
                             style={{ transform: `scaleX(${p.flip})` }}
+                            onLoad={(e) => { (e.currentTarget.closest(".sector-scatter-prop") as HTMLElement | null)?.style.removeProperty("display"); }}
                             onError={(e) => { const host = (e.currentTarget.closest(".sector-scatter-prop") as HTMLElement | null); if (host) host.style.display = "none"; }}
                         />
                     </span>

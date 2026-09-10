@@ -13,9 +13,12 @@ export function ToastStacksContent({ achievementToasts, missionToasts, onDismiss
                             onClick={() => onDismissAchievement(a)}
                         >
                             <div className="achievement-toast-icon">
+                                {/* The image guard retries a failed badge; if the retry
+                                    loads, undo the hide so the art covers the emoji again. */}
                                 <img
                                     src={`/badges/${a.id}.webp`}
                                     alt=""
+                                    onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = ""; }}
                                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
                                 />
                                 <span className="achievement-toast-emoji" aria-hidden>{a.icon}</span>
