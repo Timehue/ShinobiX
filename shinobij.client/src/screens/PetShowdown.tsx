@@ -99,10 +99,10 @@ const FORMATS: { id: ShowdownFormat; label: string; size: number; blurb: string 
 // The three tiers below it are the deliberate choice — a specific rarity band,
 // held level after level — and they stay for the player drilling one matchup.
 const TIERS: { id: ShowdownOpposition; label: string; icon: GameIconName; blurb: string }[] = [
-    { id: "sparring", label: "Sparring", icon: "dice", blurb: "The arena draws a random team, levelled to match your own pets." },
-    { id: "scrapper", label: "Scrapper", icon: "paw", blurb: "Street strays. Learn the ropes." },
-    { id: "warrior", label: "Warrior", icon: "sword", blurb: "Hardened kennels. A fair fight." },
-    { id: "champion", label: "Champion", icon: "medal", blurb: "Apex beasts. Bring your best." },
+    { id: "sparring", label: "Sparring", icon: "dice", blurb: "Random rivals matched to your pets’ levels, rarities, Growth Points and traits." },
+    { id: "scrapper", label: "Scrapper", icon: "paw", blurb: "Standard pets with lighter training. Higher-rarity teams have an advantage." },
+    { id: "warrior", label: "Warrior", icon: "sword", blurb: "Rare pets with trained tactics and a trait." },
+    { id: "champion", label: "Champion", icon: "medal", blurb: "Legendary and mythic pets with traits and battle gear." },
 ];
 
 export function PetShowdown({ character, updateCharacter, setScreen, sharedImages, onBattleActiveChange, onFullscreenActiveChange, bout = "practice" }: {
@@ -155,6 +155,11 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
     const [error, setError] = useState<string | null>(null);
     const [battle, setBattle] = useState<{ state: ShowdownStateView; key: number } | null>(null);
     const battleKey = useRef(1);
+    const mounted = useRef(false);
+    useEffect(() => {
+        mounted.current = true;
+        return () => { mounted.current = false; };
+    }, []);
 
     const size = FORMATS.find((f) => f.id === format)?.size ?? 2;
     const maxTeam = showdownTeamSize(format);
@@ -249,10 +254,15 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
             ? await startArenaBout(character.name, format, selected)
             : await startShowdown(character.name, format, tier, selected);
         if ("error" in result) {
+            if (!mounted.current) return;
             setStarting(false);
             setError(result.error);
             return;
         }
+        // Preserve a real session for resume if navigation wins the request,
+        // but do not warm/mount its arena or reactivate fullscreen after exit.
+        writeSessionBreadcrumb({ sessionId: result.state.sessionId, petIds: selected, playerName: character.name });
+        if (!mounted.current) return;
         // The opponent is only known now, so its models can only be warmed now.
         // Hold the lobby rather than mount into a fight whose other side has no
         // body yet — the CTA names this beat, so the wait is legible.
@@ -260,9 +270,9 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
         // `selectedPets` is exactly what the battle below receives, so the
         // warm-up and the renderer resolve identical art.
         await warmShowdownModels(result.state, selectedPets);
+        if (!mounted.current) return;
         setStarting(false);
         setBattle({ state: result.state, key: battleKey.current++ });
-        writeSessionBreadcrumb({ sessionId: result.state.sessionId, petIds: selected, playerName: character.name });
         setSignals(true, true);
     }, [starting, selected, size, character.name, format, tier, bout, selectedPets, setSignals]);
 
@@ -398,10 +408,17 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                         action</b>.</li>
                     <li><b>Hold</b> — the heaviest techniques and signatures need a round or two in
                         battle before they come online.</li>
+                    <li><b>Early battles</b> — when both pets are level 25 or below, extreme technique
+                        hits are softened so a full-health pet can respond. Ordinary hits keep their
+                        damage, and this adjustment fades out by level 50. Focus fire and lingering
+                        damage can still finish a pet within a round.</li>
                     <li><b>Turn order</b> — speed × the priority of the move you picked. Guard
                         resolves early; haymakers and signatures swing last.</li>
-                    <li><b>Signature</b> — the meter fills as you deal and take damage, and it
-                        empties in one cast.</li>
+                    <li><b>Signature</b> — your first ultimate gains 50 charge each round on the
+                        field, ready after two rounds even if you guard or heal. Dealing and taking
+                        damage also build charge. Casting spends the full bar; later ultimates
+                        charge through combat. Extreme ultimate damage is softened at every level,
+                        so a full-health pet can survive one hit; wounded pets can still be finished.</li>
                     <li><b>25 rounds, then the judges</b> — most fights end well before. From
                         round 14 <b>attrition</b> bleeds both sides and healing fades; a fight
                         still standing after round 25 goes to the ladder: pets left, total

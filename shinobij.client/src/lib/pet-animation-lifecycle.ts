@@ -46,3 +46,28 @@ export function synchronizePetAnimationEpoch<Family>(
 export function retirePetAnimationMixer(mixer: THREE.AnimationMixer | null): void {
     mixer?.stopAllAction();
 }
+
+/** Contact arrives before a stopped presentation clock can advance a fade.
+ * Give its authored pose full weight immediately; otherwise the hit freezes
+ * a running/idle body while damage and the impact spark have already landed. */
+export function transitionPetAnimation(
+    next: THREE.AnimationAction,
+    previous: THREE.AnimationAction | null,
+    duration: number,
+    contact: boolean,
+): void {
+    if (contact) {
+        if (previous && previous !== next) previous.stop();
+        next.stopFading().setEffectiveWeight(1).play();
+    } else {
+        next.fadeIn(duration).play();
+        previous?.fadeOut(duration * 0.85);
+    }
+}
+
+/** Sample a host-owned phase without rewinding the mixer's fade clock. */
+export function samplePetAnimationPhase(action: THREE.AnimationAction, start: number, end: number, progress: number): void {
+    action.time = action.getClip().duration * (start + (end - start) * THREE.MathUtils.clamp(progress, 0, 1));
+    action.paused = true;
+    action.getMixer().update(0);
+}

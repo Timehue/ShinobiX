@@ -13,7 +13,7 @@ import { petHeroBodyPose, type PetHeroMoveStyle } from "../lib/pet-hero-moves";
 import { stablePetModelPresentationBounds } from "../lib/pet-model-bounds";
 import type { PetModelSurfaceTreatment } from "../lib/pet-model-surface";
 import type { PetSignaturePerformance } from "../lib/pet-signature-performance";
-import { createPetAnimationEpoch, retirePetAnimationMixer, synchronizePetAnimationEpoch } from "../lib/pet-animation-lifecycle";
+import { createPetAnimationEpoch, retirePetAnimationMixer, samplePetAnimationPhase, synchronizePetAnimationEpoch, transitionPetAnimation } from "../lib/pet-animation-lifecycle";
 import { disposePetModelResources } from "../lib/pet-model-resources";
 
 export type PetModelMotion =
@@ -77,6 +77,11 @@ export type PetModelFrame = {
     /** Optional presentation time in seconds. Coliseum combat supplies its
      * slowed/hit-stopped clock so skeletal clips cannot outrun the fight. */
     timeline?: number;
+    /** The host enters strike on its resolved impact, so cue extension and
+     * full blend weight immediately before the contact clock freezes. */
+    contactPose?: boolean;
+    /** Normalized progress inside the host's current attack phase. */
+    attackPhaseProgress?: number;
 };
 
 // eslint-disable-next-line react-refresh/only-export-components -- shared immutable frame seed used by both Coliseum renderers.
@@ -980,7 +985,8 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             // hero-pose layer, which is rig-safe; this take is left alone.
             const oneShot = family === "death" || family === "entrance" || family === "dodge" || family === "hit" || family === "attack" || family === "victory";
             const enteringOneShot = oneShot && animation.activeFamily !== family;
-            const phaseWindow = attackClipWindow(f.motion);
+            const phaseWindow = attackClipWindow(f.motion, f.contactPose === true);
+            const contactTransition = f.contactPose === true && (f.motion === "strike" || f.motion === "stagger");
             const enteringAttackPhase = !!phaseWindow && motionChanged;
             const reusingAttackTake = !!clip && animation.activeClip === clip && !!animation.activeAction && enteringAttackPhase;
             if (reusingAttackTake && clip && phaseWindow) {
@@ -993,7 +999,8 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
                 next.clampWhenFinished = true;
                 next.setLoop(THREE.LoopOnce, 1);
                 next.time = clip.duration * phaseWindow.start;
-                next.play();
+                if (contactTransition) transitionPetAnimation(next, next, 0, true);
+                else next.play();
                 if (outlineMixer && animation.activeOutlineAction) {
                     const outline = animation.activeOutlineAction;
                     outline.reset();
@@ -1001,7 +1008,8 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
                     outline.clampWhenFinished = true;
                     outline.setLoop(THREE.LoopOnce, 1);
                     outline.time = clip.duration * phaseWindow.start;
-                    outline.play();
+                    if (contactTransition) transitionPetAnimation(outline, outline, 0, true);
+                    else outline.play();
                 }
             } else if (clip && (animation.activeClip !== clip || enteringOneShot)) {
                 const previous = animation.activeAction;
@@ -1014,8 +1022,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
                 // attack take at contact must skip the already-played windup.
                 if (phaseWindow) next.time = clip.duration * phaseWindow.start;
                 const transition = oneShot ? 0.1 : 0.22;
-                next.fadeIn(transition).play();
-                previous?.fadeOut(transition * 0.85);
+                transitionPetAnimation(next, previous, transition, contactTransition);
                 if (outlineMixer) {
                     const previousOutline = animation.activeOutlineAction;
                     const nextOutline = outlineMixer.clipAction(clip);
@@ -1024,8 +1031,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
                     nextOutline.clampWhenFinished = oneShot;
                     nextOutline.setLoop(oneShot ? THREE.LoopOnce : THREE.LoopRepeat, oneShot ? 1 : Infinity);
                     if (phaseWindow) nextOutline.time = clip.duration * phaseWindow.start;
-                    nextOutline.fadeIn(transition).play();
-                    previousOutline?.fadeOut(transition * 0.85);
+                    transitionPetAnimation(nextOutline, previousOutline, transition, contactTransition);
                     animation.activeOutlineAction = nextOutline;
                 }
                 animation.activeClip = clip;
@@ -1073,6 +1079,15 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             if (animation.activeOutlineAction) animation.activeOutlineAction.timeScale = THREE.MathUtils.lerp(animation.activeOutlineAction.timeScale, locomotionRate, rateBlend);
             mixer.update(presentationDelta);
             outlineMixer?.update(presentationDelta);
+            if (phaseWindow && f.attackPhaseProgress !== undefined && animation.activeClip && animation.activeAction) {
+                // Seek only the active take, leaving mixer time free to finish
+                // crossfades. Wall-clock playback otherwise parks at the end of
+                // a windup, then skips recovery when the user selects Fast.
+                samplePetAnimationPhase(animation.activeAction, phaseWindow.start, phaseWindow.end, f.attackPhaseProgress);
+                if (animation.activeOutlineAction && outlineMixer) {
+                    samplePetAnimationPhase(animation.activeOutlineAction, phaseWindow.start, phaseWindow.end, f.attackPhaseProgress);
+                }
+            }
             if (phaseWindow && animation.activeClip && animation.activeAction) {
                 const phaseEnd = animation.activeClip.duration * phaseWindow.end;
                 if (animation.activeAction.time >= phaseEnd) {
