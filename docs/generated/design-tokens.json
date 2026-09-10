@@ -2681,7 +2681,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/15-territory-panels.css",
-            "line": 783
+            "line": 807
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
@@ -2774,7 +2774,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/15-territory-panels.css",
-            "line": 928
+            "line": 952
           },
           {
             "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",
@@ -4229,7 +4229,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/15-territory-panels.css",
-            "line": 770
+            "line": 794
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
