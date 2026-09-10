@@ -1188,15 +1188,17 @@ async function measureStable(page: Page, rootSelector: string): Promise<LayoutMe
  *
  * measureStable is counted in animation frames: settleLayout plus four agreeing
  * grid samples is at least ten. Chromium renders those in about half a second,
- * so 10s allows many attempts. Playwright's WebKit on Windows does not: it
- * repaints the whole view each time the HUD's 1 Hz round countdown ticks, and
- * at desktop widths that repaint takes about a second, so a single measurement
- * costs about 10s. A flat 10s budget then ran out while the first attempt was
- * still measuring, with every bound satisfied, and toPass reported a bare
- * timeout. Measured 2026-09-10: 1.0-1.35s to paint one tick at 1920x1080
- * against 12ms in Chromium on the same machine, and 53 fps once the countdown
- * was frozen. Linux WebKit in CI is unaffected. Scaling by what the viewport's
- * first measurement cost leaves a slow renderer room for at least two full
+ * so 10s allows many attempts. Playwright's WebKit on Windows does not on the
+ * solo arena: it repaints the whole view each time that screen's 1 Hz round
+ * countdown ticks, and at desktop widths that repaint takes about a second, so
+ * a single measurement costs about 10s. A flat 10s budget then ran out while
+ * the first attempt was still measuring, with every bound satisfied, and toPass
+ * reported a bare timeout. Measured 2026-09-10: 1.0-1.35s to paint one tick at
+ * 1920x1080 against 12ms in Chromium on the same machine, and 53 fps once the
+ * countdown was frozen. (The PvP matrix pins its countdown, and the Tower shell
+ * stays near 60 fps while its countdown ticks.) CI's Linux WebKit runs the whole
+ * Solo test in about two minutes. Scaling by what the viewport's first
+ * measurement cost leaves a slow renderer room for at least two full
  * re-measurements; the floor leaves fast engines exactly where they were.
  */
 const LAYOUT_RETRY_FLOOR_MS = 10_000;
@@ -1937,6 +1939,15 @@ test('Solo-PvE combat layout viewport matrix', async ({ page, request }, testInf
         enemyMarkers: 0,
         minimumEnemySprites: 1,
     });
+    // Linux WebKit in CI runs this whole test in about two minutes. Playwright's
+    // WebKit on Windows has needed almost eight on a loaded machine, because the
+    // solo arena's live countdown makes every desktop-width frame cost about a
+    // second (see layoutRetryBudget), and the suite-wide 240s would end a
+    // healthy run. Extend the allowance from here, where the frame-bound work
+    // (the arming traces, then the viewport matrix) begins, so a hang while
+    // signing in or starting the mission still fails at 240s. setTimeout counts
+    // from the test's start, so 600s is the whole test's total.
+    test.setTimeout(600_000);
     await assertJutsuSelectionGeometryStable(page, '.mission-arena-fight', true);
     await page.setViewportSize({ width: 1440, height: 900 });
     const soloRoot = page.locator('.mission-arena-fight');
@@ -2001,14 +2012,6 @@ test('Solo-PvE combat layout viewport matrix', async ({ page, request }, testInf
         'ordinary combat results must retain the brief entrance polish').toBe(true);
     expect(resultAnimation.cinematic.some((rule) => rule.delay === '2.2s'),
         'authored story chapters must keep their explicit final-bark beat').toBe(true);
-    // Linux WebKit in CI runs this whole test in about two minutes. Playwright's
-    // WebKit on Windows has needed almost eight on a loaded machine, because the
-    // solo HUD's live countdown makes every desktop-width frame cost about a
-    // second (see layoutRetryBudget), and the suite-wide 240s would end a
-    // healthy run in the zoom checks. Extend the allowance only here, where the
-    // cost is frame-bound, so a hang during setup still fails at 240s.
-    // setTimeout counts from the test's start, so 600s is the whole test's total.
-    test.setTimeout(600_000);
     await captureMatrix(page, 'solo', '.mission-arena-fight', testInfo);
 });
 
@@ -2168,15 +2171,16 @@ test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, 
     //
     // The sweep covers 22 base viewports, six zoom equivalents and 12-frame
     // arm/cancel traces at each. Linux WebKit in CI runs the whole test in about
-    // two minutes. Playwright's WebKit on Windows needed 4.4 minutes with five
-    // other Playwright runs sharing the machine, and on 2026-09-10 a saturated
-    // run reached its last viewport at 550s and was cut off at 600s with no
-    // action hung. Timing each phase showed the frames after every resize, arm,
-    // cancel and hover costing it several times what they cost Chromium. No
-    // single phase dominates, and unlike the solo countdown nothing idle drives
-    // it, so there is nothing to hold still. Keep this exhaustive test no-retry,
-    // but extend the allowance only here, so a hang during setup still fails at
-    // the suite's 240s. setTimeout counts from the test's start.
+    // two minutes. Playwright's WebKit on Windows needed about four and a half
+    // minutes with five other Playwright runs sharing the machine, and on
+    // 2026-09-10 a saturated run reached its last viewport at 550s and was cut
+    // off at 600s with no action hung. Timing each phase (2026-09-10) put
+    // WebKit's sweep at 1.75 times Chromium's: the frame waits right after a
+    // resize, an arm and a cancel took three to four times as long, and no
+    // single phase dominates. Unlike the solo countdown, nothing idle drives that
+    // cost, so there is nothing to hold still. Keep this exhaustive test
+    // no-retry, but extend the allowance only here, so a hang during setup still
+    // fails at the suite's 240s. setTimeout counts from the test's start.
     test.setTimeout(900_000);
     await assertJutsuSelectionGeometryStable(
         page,
