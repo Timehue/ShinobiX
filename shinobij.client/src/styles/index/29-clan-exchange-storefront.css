@@ -1184,6 +1184,186 @@
     .sector-shrine-standee.shrine-tier-3 { --shrine-aura: drop-shadow(0 0 18px rgba(253, 230, 138, .65)); }
     .sector-shrine-standee.shrine-tier-4 { --shrine-aura: drop-shadow(0 0 24px rgba(196, 181, 253, .8)); }
 
+/* ————— Hollow Rift aperture ————— */
+
+/* Same intent as the shrine standee and the stronghold below — the art is the
+   marker, not a label card — but the rift art cannot use their technique. None of
+   the six rift landmarks has an alpha channel: each is a painted picture on an
+   opaque square, and forgotten-shrine is a full-bleed dusk LANDSCAPE with no
+   object in it at all. That square is why it wore the atlas card to begin with.
+   Dissolving the square with a radial mask was tried first and fails on exactly
+   that landscape: with no dark backdrop to fade, the mask leaves a dull disc that
+   OCCLUDES the glow meant to separate it, and the marker disappears against a
+   dark temple wall (sector 11 did precisely that).
+   So the rift is presented as what it is — an aperture. A round rimmed window
+   onto somewhere else reads correctly for every one of the six pictures, needs no
+   alpha, and is already the board's own idiom for something you can touch: the
+   wanderer medallions are rimmed circles with a name pill under them. Violet is
+   the Hollow Gate's established colour. */
+.sector-rift-standee {
+    position: absolute;
+    z-index: 7;
+    width: clamp(56px, 13%, 104px);
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    /* Anchors the aperture's lower half to the placed point so it sits in the
+       ground rather than hovering over it. */
+    transform: translate(-50%, -62%);
+    cursor: pointer;
+    transition: transform .15s ease;
+}
+
+    .sector-rift-standee:hover,
+    .sector-rift-standee:focus-visible { transform: translate(-50%, -62%) scale(1.06); }
+
+    /* The rim and its outer glow are the marker's figure/ground — a lit ring always
+       separates from terrain, which is the whole reason this shape was chosen over
+       a dissolved edge. box-shadow follows border-radius, so nothing rectangular
+       ever reaches the paint. The inset darkens the picture's edge into the rim so
+       the crop does not read as a hard cut, and the last layer is ground contact. */
+    .sector-rift-standee-art {
+        display: block;
+        aspect-ratio: 1;
+        border-radius: 50%;
+        overflow: hidden;
+        box-shadow:
+            0 0 0 2px rgba(201, 152, 253, .9),
+            0 0 16px 3px rgba(168, 85, 247, .6),
+            inset 0 0 12px rgba(24, 8, 40, .8),
+            0 7px 10px rgba(0, 0, 0, .5);
+        transition: box-shadow .15s ease;
+    }
+
+    .sector-rift-standee:hover .sector-rift-standee-art,
+    .sector-rift-standee:focus-visible .sector-rift-standee-art {
+        box-shadow:
+            0 0 0 2px rgba(233, 213, 255, 1),
+            0 0 24px 6px rgba(192, 132, 252, .85),
+            inset 0 0 12px rgba(24, 8, 40, .7),
+            0 7px 10px rgba(0, 0, 0, .5);
+    }
+
+        .sector-rift-standee-art img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        /* forgotten-shrine is the one rift art that is not a subject on a backdrop
+           but a whole landscape, so at aperture size its shrine is ~25px lost in
+           scenery. Frame the shrine itself. Keyed off the art slug so a future rift
+           needs no rule: every other landmark already centres its subject. */
+        .sector-rift-standee-art[data-rift-art="forgotten-shrine"] img {
+            transform: scale(1.9);
+            transform-origin: 50% 42%;
+        }
+
+    /* Same nameplate device as the stronghold and the board's wanderer labels:
+       absolutely positioned, so it can never widen the art or move the anchor. */
+    .sector-rift-standee-name {
+        position: absolute;
+        left: 50%;
+        top: 100%;
+        transform: translate(-50%, 2px);
+        font-size: .55rem;
+        font-weight: 700;
+        line-height: 1.2;
+        white-space: nowrap;
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: rgba(20, 16, 28, .78);
+        border: 1px solid rgba(216, 180, 254, .38);
+        color: #ede9fe;
+        pointer-events: none;
+        transition: background .15s ease, border-color .15s ease;
+    }
+
+    .sector-rift-standee:hover .sector-rift-standee-name,
+    .sector-rift-standee:focus-visible .sector-rift-standee-name {
+        background: rgba(20, 16, 28, .92);
+        border-color: rgba(216, 180, 254, .65);
+    }
+
+/* ————— Sector Stronghold (Anbu infiltration target) ————— */
+
+/* The stronghold is the shrine standee's sibling: a painted 2.5D building standing
+   ON the sector terrain, so the art is the marker and it carries no card chrome.
+   Self-contained rather than an .atlas-landmark override — that class exists to
+   paint the world atlas' LABEL CARDS (dark plate, cream border, gold sigil), and
+   wearing it put a UI card on the board and a dark panel behind the building.
+   Sized by its own rule, not by its label: the name is absolutely positioned, so
+   it can never widen the art or shift the base off the ground it is placed on
+   (the mistake documented on .sector-shrine-standee above). */
+.sector-vault-standee {
+    position: absolute;
+    z-index: 7;
+    width: clamp(58px, 13%, 112px);
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    /* Anchors the building's BASE — not its centre — to the placed point, so it
+       reads as standing there. The art's rubble footing sits near the bottom of
+       its own square box, hence the offset past -50%. */
+    transform: translate(-50%, -78%);
+    cursor: pointer;
+    transition: transform .15s ease;
+}
+
+    .sector-vault-standee:hover,
+    .sector-vault-standee:focus-visible { transform: translate(-50%, -78%) scale(1.05); }
+
+    /* Contact + ambient shadows track the cutout silhouette so the building sits in
+       the terrain rather than floating over it; the ember glow echoes the seal
+       burning on its door and marks it as the one hostile structure on the board. */
+    .sector-vault-standee img {
+        width: 100%;
+        display: block;
+        filter:
+            drop-shadow(0 2px 1px rgba(0, 0, 0, .55))
+            drop-shadow(0 7px 8px rgba(0, 0, 0, .38))
+            drop-shadow(0 0 10px rgba(248, 113, 113, .3));
+        transition: filter .15s ease;
+    }
+
+    .sector-vault-standee:hover img,
+    .sector-vault-standee:focus-visible img {
+        filter:
+            drop-shadow(0 2px 1px rgba(0, 0, 0, .55))
+            drop-shadow(0 7px 8px rgba(0, 0, 0, .38))
+            drop-shadow(0 0 16px rgba(248, 113, 113, .6));
+    }
+
+    /* A map nameplate at the building's foot, in the same material as the board's
+       other standing labels (.sector-wanderer-label) — not a card wrapped around
+       the art. Absolute so it contributes no height to the anchor above. */
+    .sector-vault-standee-name {
+        position: absolute;
+        left: 50%;
+        top: 100%;
+        transform: translate(-50%, -2px);
+        font-size: .55rem;
+        font-weight: 700;
+        line-height: 1.2;
+        white-space: nowrap;
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: rgba(20, 16, 28, .72);
+        border: 1px solid rgba(254, 202, 202, .3);
+        color: #fee2e2;
+        pointer-events: none;
+        transition: background .15s ease, border-color .15s ease;
+    }
+
+    .sector-vault-standee:hover .sector-vault-standee-name,
+    .sector-vault-standee:focus-visible .sector-vault-standee-name {
+        background: rgba(20, 16, 28, .92);
+        border-color: rgba(254, 202, 202, .55);
+    }
+
 /* Command-panel card */
 .sector-traces-card .sector-trace-btn {
     width: 100%;

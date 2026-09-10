@@ -80,7 +80,11 @@ test("renderer lifecycle keeps one WebGL context and exposes real recovery", () 
 
     assert.doesNotMatch(rite, /PetWarfrontRiteStage3D\s+key=\{clash\.index\}/u);
     assert.match(rite, /sceneKey=\{clash\.index\}/u);
-    assert.match(stage, /<Scene key=\{sceneKey\}/u);
+    // The clash key belongs to the scene's error boundary so a new clash also
+    // clears a previous render failure. The Canvas survives clash changes and
+    // receives a new generation only when context recovery needs replacement.
+    assert.match(stage, /<Canvas\s+key=\{canvasGeneration\}/u);
+    assert.match(stage, /<PetModelBoundary key=\{sceneKey\} onFail=\{props\.onGraphicsFailure\}>\s*<Scene\b/u);
     assert.match(stage, /addEventListener\("webglcontextlost"/u);
     assert.match(stage, /removeEventListener\("webglcontextlost"/u);
     assert.match(stage, /RESTORING BATTLE VIEW/u);

@@ -7,6 +7,7 @@ import type { Biome, WeatherType, Screen } from "../types/core";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission, CreatorRaid } from "../types/missions";
+import type { Jutsu, SavedBloodline } from "../types/combat";
 import { CardVisual } from "../components/Marks";
 import { DAILY_MISSION_LIMIT, FIELD_MISSION_STAT_POINTS } from "../constants/game";
 import { builtinFetchMissions, mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
@@ -15,6 +16,7 @@ import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { clampNumber, currentDateKey } from "../lib/utils";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { hasDailyMissionSlot } from "../lib/character-progress";
+import { getAllJutsus, liveEquippedJutsuIds } from "../lib/jutsu-loadout";
 import { buildLogbookObjectives, currentLogbookObjective, objectiveComplete, type LogbookObjective, type ObjectiveRequirement } from "../lib/logbook-objectives";
 import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
 import { commitAuthoritativeMissionClaim } from "../lib/versioned-mission-claim";
@@ -33,6 +35,8 @@ export function Logbook({
     character,
     updateCharacter,
     creatorAis,
+    savedBloodlines,
+    creatorJutsus,
     creatorMissions,
     creatorEvents,
     creatorRaids,
@@ -50,6 +54,8 @@ export function Logbook({
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     creatorAis: CreatorAi[];
+    savedBloodlines: SavedBloodline[];
+    creatorJutsus: Jutsu[];
     creatorMissions: CreatorMission[];
     creatorEvents: CreatorEvent[];
     creatorRaids: CreatorRaid[];
@@ -104,6 +110,13 @@ export function Logbook({
         examProctorExists: creatorAis.some((ai) => ai.id === "builtin-ai-exam-proctor"),
         rogueNinjaExists: creatorAis.some((ai) => ai.id === "builtin-ai-rogue-ninja"),
         isKage: character.level >= 80 && loadVillageState(character.village).seatedKage?.toLowerCase() === character.name.toLowerCase(),
+        // Count only slots that resolve to a real jutsu: a deleted custom jutsu
+        // leaves a dead id behind that combat skips, so the raw array length
+        // would credit a loadout slot the player cannot actually field.
+        equippedJutsuCount: liveEquippedJutsuIds(
+            getAllJutsus(savedBloodlines, creatorJutsus, character),
+            character.equippedJutsuIds,
+        ).length,
     };
     const objectives = buildLogbookObjectives(character, objectiveContext);
     const currentObjective = currentLogbookObjective(character, objectiveContext);

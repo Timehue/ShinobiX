@@ -11,6 +11,23 @@ import type { RiteClash } from "./pet-warfront-rite";
 export const RITE_TEAM_COLOR = { player: "#4cc9f0", enemy: "#ff5470" } as const;
 export const RITE_REVEAL_FIGHTER_COUNT = 8;
 
+/** Hit-stop holds an animation clock; it must never rewind it. Rewinding after
+ * a dropped frame resets the underlying mixer and makes a winged rig snap. */
+export function riteRigTimeline(previous: number, requested: number, restarted = false): number {
+    return restarted ? requested : Math.max(previous, requested);
+}
+
+/** Authored wings and long spines already carry the attack. Restrict the extra
+ * whole-body deformation so it cannot magnify a flap into a rubbery collapse. */
+export function riteBodyMotionGain(profile: string | undefined, reducedMotion = false): number {
+    if (reducedMotion) return 0;
+    return profile === "avian" ? 0.3 : profile === "serpentine" ? 0.45 : profile === "heavy" ? 0.55 : 0.75;
+}
+
+export function dampRiteBodyValue(current: number, target: number, deltaSeconds: number): number {
+    return current + (target - current) * (1 - Math.exp(-24 * Math.max(0, Math.min(0.05, deltaSeconds))));
+}
+
 /** An atomic 4v4 reveal is ready only when each distinct expected rig has
  * survived its model Suspense boundary and painted behind the curtain. Extra
  * or duplicate callbacks cannot make a partial formation look complete. */
