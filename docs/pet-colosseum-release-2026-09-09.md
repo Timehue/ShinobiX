@@ -37,6 +37,13 @@ viewport requirements to hold; the latter measures both boxes in one frame.
 The static combat fixture also waits for font metrics, reflow, and finite
 entrance animations before measuring its completed layout.
 
+The hosted replay check also exposed a software-rendering constraint: the duel
+limits simulation progress per rendered frame, so the desktop preset could
+remain below one displayed game second for the entire 30-second assertion
+budget. The settlement/replay workflow now selects the shipped Performance
+preset, retaining its real clock-progress assertion. The separate GPU resource
+lifecycle test continues to exercise low, medium, and high presets.
+
 ## Local release validation
 
 - Node 22.23.2 full regression suite: **10,003 / 10,003 passed**, no skipped or

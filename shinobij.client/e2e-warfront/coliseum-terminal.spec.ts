@@ -4,7 +4,12 @@ test('a completed duel keeps a long winner name contained through settlement ret
     test.skip(!['desktop', 'phone'].includes(testInfo.project.name), 'desktop and phone cover this terminal-dialog workflow');
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
-    await page.goto('/petvfx.html?duel=1&cine=1&quick=1&dueltick=5000&seed=20260601&settlementqa=1', { waitUntil: 'domcontentloaded' });
+    // This is the settlement/replay workflow gate. Use the shipped Performance
+    // preset on software-rendered runners: playback deliberately advances at
+    // most one simulation tick per rendered frame, so the default desktop
+    // outline/post passes can take over 30 wall seconds to show 0:01. The
+    // separate resource lifecycle matrix exercises all three graphics presets.
+    await page.goto('/petvfx.html?duel=1&cine=1&quick=1&dueltick=5000&seed=20260601&settlementqa=1&petQuality=low', { waitUntil: 'domcontentloaded' });
     const dialog = page.getByRole('dialog', { name: /Pet Colosseum result/ });
     const qa = page.getByTestId('pet-settlement-qa');
     await expect(dialog).toBeVisible();
