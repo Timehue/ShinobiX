@@ -86,6 +86,7 @@
 }
 .wfr-render-recovery strong { color: #e7d09e; font-family: "Marcellus", Georgia, serif; letter-spacing: 0.16em; }
 .wfr-render-recovery span { color: #8fb6c6; font-size: 0.72rem; }
+.wfr-render-recovery.is-failed { pointer-events: auto; }
 
 /* The cold stage hydrates behind an opaque, explicitly non-gameplay curtain.
    It opens once, only after all eight GLTF rigs have painted at tick zero. */

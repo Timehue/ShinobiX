@@ -329,11 +329,11 @@ export function AnbuVaultRaid({
             : null;
         return (
             <div style={{ maxWidth: 560, margin: "0 auto", padding: "1.2rem", textAlign: "center" }}>
-                <h2 style={{ margin: "0.4rem 0" }}>{won ? "Vault Breached" : "The Anbu Held"}</h2>
+                <h2 style={{ margin: "0.4rem 0" }}>{won ? "Stronghold Breached" : "The Anbu Held"}</h2>
                 <p style={{ opacity: 0.85 }}>
                     {won
-                        ? `You slipped past ${targetVillage}'s defenses and cracked the war vault in Sector ${sector}.`
-                        : `${fight?.anbuName ?? "The defending Anbu"} repelled your raid on Sector ${sector}. No spoils — the vault stands.`}
+                        ? `You slipped past ${targetVillage}'s defenses and cracked the stronghold in Sector ${sector}.`
+                        : `${fight?.anbuName ?? "The defending Anbu"} repelled your raid on Sector ${sector}. No spoils — the stronghold stands.`}
                 </p>
                 {fresh && (
                     <div style={{ display: "grid", gap: 8, margin: "1rem auto", maxWidth: 380, textAlign: "left" }}>
@@ -350,7 +350,7 @@ export function AnbuVaultRaid({
                             </div>
                         )}
                         {fresh.supplyCaches === 0 && fresh.wrCaches === 0 && (
-                            <div style={{ opacity: 0.8, fontSize: 13 }}>The vault's reserves were already bled dry today — its daily loss limit is spent.</div>
+                            <div style={{ opacity: 0.8, fontSize: 13 }}>The stronghold's reserves were already bled dry today — its daily loss limit is spent.</div>
                         )}
                         <div style={{ fontSize: 14 }}>+{fresh.ryo.toLocaleString()} ryo</div>
                     </div>
@@ -364,8 +364,8 @@ export function AnbuVaultRaid({
     return (
         <div style={{ maxWidth: 720, margin: "0 auto", padding: "0.6rem" }}>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                <h3 style={{ margin: "0.2rem 0" }}>War Vault — Sector {sector}</h3>
-                <span style={{ fontSize: 12, opacity: 0.75 }}>{targetVillage} territory · reach the Anbu holding the vault</span>
+                <h3 style={{ margin: "0.2rem 0" }}>Sector {sector} Stronghold</h3>
+                <span style={{ fontSize: 12, opacity: 0.75 }}>{targetVillage} territory · reach the Anbu holding the stronghold</span>
             </div>
             {error && (
                 <div style={{ background: "rgba(180,40,40,0.18)", border: "1px solid rgba(220,80,80,0.5)", borderRadius: 8, padding: "6px 10px", margin: "6px 0", fontSize: 13 }}>

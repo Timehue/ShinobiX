@@ -44,6 +44,9 @@ export type PetJutsu = {
 export type Pet = {
     id: string;
     name: string;
+    templateId?: string;
+    evolutionStage?: 0 | 1 | 2;
+    paletteVariantId?: string;
     rarity: PetRarity;
     level: number;
     hp: number;

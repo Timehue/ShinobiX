@@ -14,10 +14,7 @@ import { PetArenaBattlefield } from "./components/PetArenaBattlefield";
 import { petFramePace, runPetArenaBattle, runPetArenaParty } from "./lib/pet-battle-sim";
 import { rawPetPool } from "./data/pet-pool";
 import { PetColiseum, PetColiseumDuel, PetArenaMatch } from "./components/PetColiseum";
-import { PetWarfrontMatch } from "./components/PetWarfrontMatch";
 import { PetWarfrontRite } from "./components/PetWarfrontRite";
-import { WF_THEMES, type WfTheme } from "./lib/pet-warfront-map";
-import type { WfBuyPolicy, WfStance } from "./lib/pet-warfront-sim";
 import { runPetDuelCinematic, runPetPartyDuelCinematic } from "./lib/pet-duel-cinematic";
 import { createLiveDuel, createLivePartyDuel } from "./lib/pet-duel-live";
 import { PetBoardArena } from "./components/PetBoardArena";
@@ -172,16 +169,9 @@ function Harness() {
 
     // ?arena=1 (2v2) / ?arena4=1 (4v4) — the Tactical Arena game mode.
     const arenaMode = PARAMS.get("arena") === "1" || PARAMS.get("arena4") === "1";
-    // ?warfront=1 — the retired LANE WAR renderer. This is no longer a game
-    // mode: Hollow Warfront is the Rite (?rite=1 below). The lane sim survives
-    // only as the PET LADDER's tactical engine and replay viewer, and this
-    // harness is how that replay gets exercised. Optional
-    // &theme=forest|snow|volcano|shadow|central and &autobuy=balanced|offense|defense.
-    const warfrontMode = PARAMS.get("warfront") === "1";
-    // ?rite=1 — Hollow Warfront's AUTOBATTLER: four pets in a committed order,
-    // one duel at a time, winner stays in wounded, last band standing wins.
-    const riteMode = PARAMS.get("rite") === "1";
-    const arena4 = PARAMS.get("arena4") === "1" || warfrontMode || riteMode;
+    // Historical Warfront links now open the same four-pet formation Rite.
+    const riteMode = PARAMS.get("rite") === "1" || PARAMS.get("warfront") === "1";
+    const arena4 = PARAMS.get("arena4") === "1" || riteMode;
     const aPet = (id: string, name: string, element: string, over: Record<string, number>) => ({ ...harnessPet(0, { element: element as Pet["element"] }), id, name, ...over });
     const [arenaBlue, arenaRed] = useMemo(() => {
         const blueAll: ArenaSlot[] = [
@@ -331,22 +321,6 @@ function Harness() {
             spectator={PARAMS.get("autostart") === "1"}
             onExit={() => {}}
         />;
-    }
-    if (warfrontMode) {
-        return (
-            <PetWarfrontMatch
-                blue={arenaBlue}
-                red={arenaRed}
-                seed={seed}
-                allowReseed
-                theme={((): WfTheme => { const t = PARAMS.get("theme") as WfTheme | null; return t && WF_THEMES[t] ? t : "central"; })()}
-                autoBuy={((): WfBuyPolicy => { const p = PARAMS.get("autobuy"); return p === "balanced" || p === "offense" || p === "defense" ? p : "off"; })()}
-                opponentAutoBuy={(() => { const p = PARAMS.get("redbuy"); return p === "offense" || p === "defense" ? p : "balanced"; })()}
-                stance={((): WfStance => { const s = PARAMS.get("stance"); return s === "siege" || s === "jungle" || s === "headhunt" || s === "turtle" ? s : "balanced"; })()}
-                playbackRate={Math.max(0.1, Math.min(30, Number(PARAMS.get("wfspeed")) || 1))}
-                onExit={() => {}}
-            />
-        );
     }
     return (
         <div style={{ maxWidth: 880, margin: "16px auto", padding: 12 }}>

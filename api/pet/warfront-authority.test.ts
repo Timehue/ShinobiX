@@ -481,7 +481,9 @@ test('a mid-match re-form is settled from the server\u2019s own replay of that p
         } as Pet & { role: typeof role };
     });
 
-    const seed = 1;
+    // Certified against the current grid/stat balance: moving only slot 0
+    // after the opening changes the winner from red to blue at this seed.
+    const seed = 9;
     const reformPlan: RitePlan = {
         formation: [0, 1, 2, 3], deployment: [...WARFRONT_DEFAULT_DEPLOYMENT],
         reformAfterClash: null, reform: null, reformDeployment: null,
@@ -563,5 +565,45 @@ test('a mid-match re-form is settled from the server\u2019s own replay of that p
         Date.now = realDateNow;
         await kv.delIfEqual(`pet:battle-active:${PLAYER}`, token);
         await kv.del(`pet:battle-token:${PLAYER}:${token}`);
+    }
+});
+
+test('Warfront start and legacy resumed settlement preserve unused equipped consumables', async () => {
+    const realDateNow = Date.now;
+    let now = realDateNow() + 1_000_000;
+    Date.now = () => now;
+    let token = '';
+    try {
+        const record = await kv.get<Record<string, unknown>>(`save:${PLAYER}`);
+        const character = record!.character as Record<string, unknown>;
+        const pets = [1, 2, 3, 4].map((index) => ({ ...warfrontPet(index), loadout: { consumable: 'battle-tonic' } }));
+        await kv.set(`save:${PLAYER}`, { ...record, character: { ...character, pets } });
+        const started = response();
+        await startHandler(request({ playerName: PLAYER, playerPetIds: pets.map((pet) => pet.id) }), started.res);
+        assert.equal(started.out.statusCode, 200, JSON.stringify(started.out.body));
+        token = String(started.out.body!.token);
+        const sealed = await kv.get<Record<string, unknown>>(`pet:battle-token:${PLAYER}:${token}`);
+        assert.ok(sealed);
+        const sealedPets = sealed.bluePets as Array<Record<string, unknown>>;
+        assert.ok(sealedPets.every((pet) => !(pet.loadout as { consumable?: string } | undefined)?.consumable),
+            'new Warfront seals must not claim unused consumables');
+        // A pre-migration seal is still resumable. Its old loadout must not
+        // accidentally spend an item when the current equipment-free sim ends.
+        await kv.set(`pet:battle-token:${PLAYER}:${token}`, {
+            ...sealed, bluePets: sealedPets.map((pet) => ({ ...pet, loadout: { consumable: 'battle-tonic' } })),
+        });
+        now = Number(sealed.settleAfter) + 1;
+        const settled = response();
+        await resultHandler(request({ playerName: PLAYER, battleToken: token, reportKey: sealed.reportKey, outcome: 'win' }), settled.res);
+        assert.equal(settled.out.statusCode, 200, JSON.stringify(settled.out.body));
+        const saved = await kv.get<{ character: { pets: Array<{ loadout?: { consumable?: string } }> } }>(`save:${PLAYER}`);
+        assert.ok(saved!.character.pets.every((pet) => pet.loadout?.consumable === 'battle-tonic'));
+        assert.equal(await kv.get(`pet:battle-token:${PLAYER}:${token}`), null);
+    } finally {
+        Date.now = realDateNow;
+        if (token) {
+            await kv.delIfEqual(`pet:battle-active:${PLAYER}`, token);
+            await kv.del(`pet:battle-token:${PLAYER}:${token}`);
+        }
     }
 });

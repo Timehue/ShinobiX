@@ -148,19 +148,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const block = startBlock(lobby, me);
                 if (block) return { status: 409, body: { error: block } };
                 const occupied = lobby.slots.filter((slot) => slot.name);
-                const stillReady = await Promise.all(occupied.map(async (slot) => {
+                const currentPets = await Promise.all(occupied.map(async (slot) => {
                     const save = await kv.get<{ character?: Record<string, unknown> }>(`save:${safeName(slot.name ?? '')}`);
                     const character = save?.character;
-                    if (!character) return false;
+                    if (!character) return null;
                     const carried = activeCarriedPets<Record<string, unknown>>(character);
-                    return slot.pets.every((snapshot) => {
+                    const ready = slot.pets.every((snapshot) => {
                         const current = carried.find((pet) => String(pet.id ?? '') === snapshot.id);
                         return Boolean(current && !petCombatBusyReason(character, current));
                     });
+                    return ready ? chooseOwnedPets(carried, slot.pets.map((pet) => pet.id)) : null;
                 }));
-                if (stillReady.some((ready) => !ready)) {
+                if (currentPets.some((pets) => !pets)) {
                     return { status: 409, body: { error: 'A selected pet became unavailable. Re-select combat-ready pets before starting.' } };
                 }
+                // Freeze the latest earned stats and kit at the actual start,
+                // after every seat passes readiness. Lobby waiting time must
+                // not discard training or a changed move loadout.
+                occupied.forEach((slot, index) => { slot.pets = currentPets[index]!; });
                 const seed = crypto.randomInt(1, 0x7fffffff);   // server-minted — neither client picks it
                 lobby.seed = seed;
                 lobby.match = resolveMatch(lobby, seed);

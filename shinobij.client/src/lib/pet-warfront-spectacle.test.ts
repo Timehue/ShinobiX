@@ -47,6 +47,7 @@ import {
     warfrontHeroStage,
     warfrontHeroAxisTailStrength,
     warfrontHeroTravelSpanFraction,
+    warfrontElementSignature,
 } from "./pet-warfront-spectacle";
 
 const cue: WarfrontAttackCue = {
@@ -54,12 +55,15 @@ const cue: WarfrontAttackCue = {
     tellTick: 10, contactTick: 18, hits: 1, lethal: false, koTick: null,
 };
 
-test("four core elements own distinct silhouette, palette, motion, and audio signatures", () => {
+test("every element and physical moves own distinct silhouette, palette, and audio signatures", () => {
     const signatures = Object.values(WARFRONT_ELEMENT_SIGNATURES);
-    assert.equal(signatures.length, 4);
-    assert.equal(new Set(signatures.map((value) => value.shape)).size, 4);
-    assert.equal(new Set(signatures.map((value) => value.primary)).size, 4);
-    assert.equal(new Set(signatures.map((value) => `${value.audioContact}:${value.contactRate}`)).size, 4);
+    assert.equal(signatures.length, 6);
+    assert.equal(new Set(signatures.map((value) => value.shape)).size, 6);
+    assert.equal(new Set(signatures.map((value) => value.primary)).size, 6);
+    assert.equal(new Set(signatures.map((value) => `${value.audioContact}:${value.contactRate}`)).size, 6);
+    assert.equal(warfrontElementSignature("Lightning").shape, "bolt");
+    assert.equal(warfrontElementSignature(undefined).shape, "impact");
+    assert.equal(warfrontElementSignature("unknown").element, "None");
 });
 
 test("tell, contact, and result are discrete and result fully clears", () => {
