@@ -2906,6 +2906,17 @@
     font-size: 0.73rem;
 }
 
+/* A list row is 88px tall and its copy column is vertically centred, so the grid
+   tile's bottom-anchored badge lands squarely on the jutsu name. Pin it into the
+   72px art column instead: horizontally clear of the copy, so a name that wraps
+   to a second line still cannot reach it. */
+.profile-page-card .jutsu-collection-card.is-list .jutsu-equipped-badge {
+    top: auto;
+    right: auto;
+    bottom: 5px;
+    left: 5px;
+}
+
 .profile-page-card .jutsu-collection-empty {
     grid-column: 1 / -1;
     display: grid;
