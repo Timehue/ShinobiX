@@ -20,7 +20,6 @@
  */
 import {
     RITE_BAND_SIZE,
-    RITE_FRONT_SLOTS,
     RITE_SQUAD_HP_SCALE,
     runWarfrontRite,
     type RitePlan,
@@ -51,7 +50,7 @@ const band = (seed: number, tag: string): Pet[] => {
     return picked.map((pet, i) => ({ ...pet, id: `${tag}-${pet.id}-${i}` }));
 };
 
-const plan = (formation: number[]): RitePlan => ({ formation, reformAfterClash: null, reform: null });
+const plan = (deployment: number[]): RitePlan => ({ formation: [0, 1, 2, 3], deployment, reformAfterClash: null, reform: null });
 const pct = (n: number, d: number) => (d === 0 ? "0.0%" : `${((n / d) * 100).toFixed(1)}%`);
 const q = (xs: number[], p: number) => {
     const s = [...xs].sort((a, b) => a - b);
@@ -87,7 +86,7 @@ for (let seed = 1; seed <= MATCHES; seed++) {
     for (const clash of result.clashes) {
         totalClashes++;
         clashLens.push(clash.seconds);
-        if (clash.seconds >= 74) cappedClashes++;
+        if (clash.seconds >= 38) cappedClashes++;
         // An actor that neither lands nor takes a hit is standing around — the
         // first symptom of a 1v1-tuned AI failing at squad scale.
         const acted = new Set<string>();
@@ -115,7 +114,8 @@ console.log(`  2–0 sweeps              ${pct(sweeps, MATCHES)}`);
 console.log(`  first-clash loser wins  ${pct(comebacks, MATCHES)}   (want > 15% — losing clash 1 must not end it)`);
 
 // ── 2. Does formation change anything? ──────────────────────────────────────
-// Same four pets, same opponent, same seed — only which two hold the front.
+// Same four pets, same opponent, same seed, same roster order. Only each pet's
+// legal front/rear deployment changes; legacy formation indices are not cells.
 let tanksForwardWins = 0;
 let squishForwardWins = 0;
 let formationChanged = 0;
@@ -128,12 +128,13 @@ for (let seed = 1; seed <= MATCHES; seed++) {
         const score = (i: number) => (mine[i].hp ?? 0) + (mine[i].defense ?? 0) * 4 + (roleOf(mine[i]) === "defender" ? 900 : 0);
         return score(b) - score(a);
     });
-    const tanksForward = durable;
-    const squishForward = [...durable].reverse();
-    if (tanksForward.slice(0, RITE_FRONT_SLOTS).join() === squishForward.slice(0, RITE_FRONT_SLOTS).join()) continue;
+    const tanksForward = [2, 4, 6, 8];
+    const squishForward = [2, 4, 6, 8];
+    for (const slot of durable.slice(0, 2)) tanksForward[slot]++;
+    for (const slot of durable.slice(2)) squishForward[slot]++;
     formationValid++;
-    const a = runWarfrontRite(mine, theirs, seed, plan(tanksForward));
-    const b = runWarfrontRite(mine, theirs, seed, plan(squishForward));
+    const a = runWarfrontRite(mine, theirs, seed, plan(tanksForward), plan([3, 4, 7, 8]));
+    const b = runWarfrontRite(mine, theirs, seed, plan(squishForward), plan([3, 4, 7, 8]));
     if (a.winner === "blue") tanksForwardWins++;
     if (b.winner === "blue") squishForwardWins++;
     if (a.winner !== b.winner) formationChanged++;

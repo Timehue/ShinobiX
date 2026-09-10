@@ -3,7 +3,7 @@ import { stringifyServerSavePayload } from "../lib/server-save-payload";
 import { adminIconOptions } from "../data/admin-icons";
 import { createCharacter } from "../lib/create-character";
 import { defaultAncientChestVn, defaultPetEncounterVn } from "../data/default-vn-events";
-import { getAllJutsus } from "../lib/jutsu-loadout";
+import { getAllJutsus, liveEquippedJutsuIds } from "../lib/jutsu-loadout";
 import { AdminProfessionImagesPanel } from './admin-panel/AdminProfessionImagesPanel';
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useLayoutEffect, useRef, type Dispatch, type SetStateAction } from "react";
@@ -3959,7 +3959,7 @@ export function AdminPanel({
                                 <>
                                     <button onClick={() => loadAdminJutsu(jutsu)}>Load In Editor</button>
                                     {deletable && <button className="danger-button" onClick={() => deleteAdminJutsu(jutsu.id)}>Delete</button>}
-                                    <button onClick={() => updateCharacter({ ...character, equippedJutsuIds: [...new Set([...character.equippedJutsuIds, jutsu.id])].slice(0, 15) })}>Equip</button>
+                                    <button onClick={() => updateCharacter({ ...character, equippedJutsuIds: [...new Set([...liveEquippedJutsuIds(allGameJutsus, character.equippedJutsuIds), jutsu.id])].slice(0, 15) })}>Equip</button>
                                 </>
                             );
                         }}

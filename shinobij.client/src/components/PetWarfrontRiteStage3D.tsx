@@ -41,6 +41,7 @@ import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { Canvas, addAfterEffect, useFrame, useLoader, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Pet } from "../types/pet";
+import { PetModelBoundary } from "./PetModelBoundary";
 import { DUEL_TPS, type DuelEvent, type DuelObjectiveId, type DuelObjectiveSnap, type DuelResult } from "../lib/pet-duel-sim";
 import {
     WARFRONT_ARENA_X,
@@ -55,7 +56,10 @@ import {
     allRiteFighterModelsReady,
     bucketEvents,
     createActorPoseSample,
+    dampRiteBodyValue,
     elementColor,
+    riteBodyMotionGain,
+    riteRigTimeline,
     riteGroundingAoCameraForwardOffset,
     riteGroundingFocusStrength,
     sampleActor,
@@ -84,6 +88,7 @@ import {
     type WarfrontRuntimeRoute,
 } from "../lib/pet-warfront-render-budget";
 import { warfrontImpostorEntry } from "../lib/pet-warfront-impostor";
+import { createWarfrontRendererResources } from "../lib/pet-warfront-renderer-lifecycle";
 import {
     ATTACK_STREAK_DURATION_MS,
     BODY_KO_EXIT_DISTANCE,
@@ -385,7 +390,7 @@ function RuntimePerformancePreflight({ enabled, probeClockRef, probeStressRef, p
         // the complete render, not the gaps between callbacks: Chromium can
         // schedule an occluded canvas once per second even on a fast GPU.
         const removeAfterEffect = addAfterEffect(() => {
-            if (completed.current || !windowRef.current) return;
+            if (document.hidden || completed.current || !windowRef.current) return;
             const began = renderStartedAt.current ?? performance.now();
             context.finish();
             const elapsed = performance.now() - began;
@@ -407,7 +412,7 @@ function RuntimePerformancePreflight({ enabled, probeClockRef, probeStressRef, p
             observerRef.current = observer;
         }
         const finish = () => {
-            if (completed.current) return;
+            if (document.hidden || completed.current) return;
             completed.current = true;
             probeStressRef.current = false;
             probeClockRef.current = 0;
@@ -432,7 +437,24 @@ function RuntimePerformancePreflight({ enabled, probeClockRef, probeStressRef, p
         };
         finishRef.current = finish;
         timerRef.current = window.setTimeout(finish, WARFRONT_PREFLIGHT_WARMUP_MS + WARFRONT_PREFLIGHT_SAMPLE_MS + 40);
+        let hiddenAt: number | null = document.hidden ? performance.now() : null;
+        const handleVisibility = () => {
+            if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+            timerRef.current = null;
+            if (document.hidden) { hiddenAt = performance.now(); return; }
+            if (hiddenAt !== null) {
+                const paused = performance.now() - hiddenAt;
+                sampleWindow.warmupEnds += paused;
+                sampleWindow.sampleEnds += paused;
+                sampleWindow.lastFrameAt = null;
+                renderStartedAt.current = null;
+                hiddenAt = null;
+            }
+            if (!completed.current) timerRef.current = window.setTimeout(finish, Math.max(0, sampleWindow.sampleEnds - performance.now()) + 40);
+        };
+        document.addEventListener("visibilitychange", handleVisibility);
         return () => {
+            document.removeEventListener("visibilitychange", handleVisibility);
             probeStressRef.current = false;
             probeClockRef.current = 0;
             removeAfterEffect();
@@ -486,7 +508,24 @@ function RuntimeVisibleRouteValidation({ enabled, clockRef, onComplete }: {
     const finishRef = useRef<(() => void) | null>(null);
     useEffect(() => {
         if (enabled) completed.current = false;
+        let hiddenAt: number | null = document.hidden ? performance.now() : null;
+        const handleVisibility = () => {
+            if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+            timerRef.current = null;
+            if (document.hidden) { hiddenAt = performance.now(); return; }
+            const sampleWindow = windowRef.current;
+            if (sampleWindow && hiddenAt !== null) {
+                const paused = performance.now() - hiddenAt;
+                sampleWindow.warmupEnds += paused;
+                sampleWindow.sampleEnds += paused;
+                sampleWindow.lastFrameAt = null;
+            }
+            hiddenAt = null;
+            if (sampleWindow && !completed.current) timerRef.current = window.setTimeout(() => finishRef.current?.(), Math.max(0, sampleWindow.sampleEnds - performance.now()) + 40);
+        };
+        document.addEventListener("visibilitychange", handleVisibility);
         return () => {
+            document.removeEventListener("visibilitychange", handleVisibility);
             if (timerRef.current !== null) window.clearTimeout(timerRef.current);
             timerRef.current = null;
             observerRef.current?.disconnect();
@@ -512,7 +551,7 @@ function RuntimeVisibleRouteValidation({ enabled, clockRef, onComplete }: {
             };
             windowRef.current = sampleWindow;
             const finish = () => {
-                if (completed.current || !windowRef.current) return;
+                if (document.hidden || completed.current || !windowRef.current) return;
                 completed.current = true;
                 const observer = observerRef.current;
                 if (observer) {
@@ -567,9 +606,33 @@ function RuntimeVisibleRouteValidation({ enabled, clockRef, onComplete }: {
 /** Observe the renderer-owned canvas without installing another render loop. */
 function RendererContextGuard({ onLost, onRestored }: { onLost: () => void; onRestored: () => void }) {
     const gl = useThree((state) => state.gl);
+    const scene = useThree((state) => state.scene);
     const invalidate = useThree((state) => state.invalidate);
+    const resources = useMemo(() => createWarfrontRendererResources(gl), [gl]);
+    const generation = useRef(0);
+    const activeResources = useRef(resources);
+    const lastTextureCount = useRef(-1);
+    const lastGeometryCount = useRef(-1);
+    useEffect(() => {
+        const activeGeneration = ++generation.current;
+        activeResources.current = resources;
+        return () => {
+            // StrictMode remounts effects against the same live WebGLRenderer.
+            // Only its final retirement may release shared GPU bindings.
+            window.setTimeout(() => {
+                if (generation.current === activeGeneration || activeResources.current !== resources) resources.dispose();
+            }, 0);
+        };
+    }, [resources]);
     const restoredFrames = useRef(-1);
     useFrame(() => {
+        // Capture after allocations change, not on every frame. The previous
+        // render has compiled built-in uniforms by the time this runs.
+        if (lastTextureCount.current !== gl.info.memory.textures || lastGeometryCount.current !== gl.info.memory.geometries) {
+            lastTextureCount.current = gl.info.memory.textures;
+            lastGeometryCount.current = gl.info.memory.geometries;
+            resources.capture(scene);
+        }
         if (restoredFrames.current < 0) return;
         restoredFrames.current += 1;
         if (restoredFrames.current < 2) return;
@@ -601,12 +664,13 @@ function RendererContextGuard({ onLost, onRestored }: { onLost: () => void; onRe
     return null;
 }
 
-function RiteFighter3D({ result, fighter, clockRef, victorious, quality, contactBeats, performanceProbeRef, SkinnedModel, onModelReady, onModelFail }: {
+function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reducedMotion, contactBeats, performanceProbeRef, SkinnedModel, onModelReady, onModelFail }: {
     result: DuelResult;
     fighter: StageFighter;
     clockRef: MutableRefObject<number>;
     victorious: MutableRefObject<{ player: boolean; enemy: boolean }>;
     quality: PetVisualQualityConfig;
+    reducedMotion: boolean;
     contactBeats: readonly FighterContactBeat[];
     performanceProbeRef: MutableRefObject<boolean>;
     SkinnedModel: WarfrontSkinnedModelComponent;
@@ -615,6 +679,11 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, contact
 }) {
     const { team, lane, pet, entryHp } = fighter;
     const sourceConfig = useMemo(() => petCombatModel(pet), [pet]);
+    useEffect(() => {
+        // Older ranked snapshots can lack the template identity needed for art.
+        // Report that route failure instead of waiting forever for a null model.
+        if (!sourceConfig) onModelFail();
+    }, [onModelFail, sourceConfig]);
     const fighterId = `${team}-${lane}`;
     const facing = team === "player" ? 1 : -1;
     // Seed both the scene transform and model-performance ref from the same
@@ -646,6 +715,7 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, contact
     const locomotionActive = useRef(false);
     const lastMoveFacing = useRef<{ x: number; z: number }>({ x: team === "player" ? 1 : -1, z: 0 });
     const lastFacing = useRef<{ x: number; z: number }>({ x: initialFaceX, z: initialFaceZ });
+    const attackFacing = useRef({ x: initialFaceX, z: initialFaceZ, committed: false });
     const deathAt = useRef<number | null>(null);
     const terminalTimeline = useRef<{ wall: number; base: number } | null>(null);
     const visualTick = useRef(-1);
@@ -692,6 +762,7 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, contact
             contactCursor.current = 0;
             contactHoldFrames.current = 0;
             latestContact.current = null;
+            attackFacing.current.committed = false;
         }
         while (contactCursor.current < contactBeats.length && contactBeats[contactCursor.current].tick <= t) {
             const beat = contactBeats[contactCursor.current++];
@@ -775,6 +846,15 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, contact
 
         let desiredFacingX = opponentFacingX;
         let desiredFacingZ = opponentFacingZ;
+        if (committed) {
+            if (!attackFacing.current.committed) {
+                attackFacing.current.x = opponentFacingX;
+                attackFacing.current.z = opponentFacingZ;
+            }
+            desiredFacingX = attackFacing.current.x;
+            desiredFacingZ = attackFacing.current.z;
+        }
+        attackFacing.current.committed = committed;
         // Travel owns ordinary locomotion; the opponent owns anticipation,
         // contact, and recovery. Dead/staggered actors retain their last yaw.
         if (moving && rawSpeed > 0.05 && !hasLiveTarget) {
@@ -805,12 +885,12 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, contact
         f.speed = Math.min(9, speed);
         f.moveX = lastMoveFacing.current.x;
         f.moveZ = lastMoveFacing.current.z;
-        f.faceX = desiredFacingX;
-        f.faceZ = desiredFacingZ;
+        f.faceX = rotationFrozen ? lastFacing.current.x : desiredFacingX;
+        f.faceZ = rotationFrozen ? lastFacing.current.z : desiredFacingZ;
         f.lockTargetFacing = hasLiveTarget || committed || !moving;
         f.freezeFacing = rotationFrozen;
-        f.turnRate = committed ? 120 : 50;
-        f.maxTurnPerFrame = 55 * Math.PI / 180;
+        f.turnRate = committed ? 16 : 12;
+        f.maxTurnPerFrame = 18 * Math.PI / 180;
         const damageTaken = Math.max(0, previous - hpFrac);
         f.hit = damageTaken > 0.0005 ? 1 : Math.max(0, f.hit * 0.86);
         if (damageTaken > 0.0005) impactPower.current = THREE.MathUtils.clamp(0.84 + damageTaken * 4.2, 0.84, 1.24);
@@ -823,10 +903,10 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, contact
         const heroMove = petHeroMoveAt(heroMoveWindows, t);
         f.moveStyle = heroMove?.style ?? fallbackMoveStyle;
         f.moveName = heroMove?.move;
-        // Hold the exact contact sample for two PAINTED frames. This is local to
-        // the authored pose: the simulation clock and X/Z interpolation continue
-        // untouched, so hit-stop cannot manufacture a gameplay hitch or jump.
-        f.timeline = heldContact ? heldContact.tick / DUEL_TPS : presentationTimeline;
+        // Hold the contact for two painted frames without rewinding a rig that
+        // already advanced past the beat. A rewind resets the animation mixer.
+        const previousTimeline = f.timeline ?? 0;
+        f.timeline = riteRigTimeline(previousTimeline, heldContact ? heldContact.tick / DUEL_TPS : presentationTimeline, restarted);
         if (performanceProbeRef.current) {
             // Drive every hydrated rig through the same worst-case authored
             // action-family churn. This is presentation-only and happens while
@@ -886,17 +966,27 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, contact
             const offsetX = activeContact ? activeContact.directionX * presentationDistance : 0;
             const offsetZ = activeContact ? activeContact.directionZ * presentationDistance : 0;
             const deathScale = Math.max(0.001, 1 - fade * 0.35);
-            body.current.position.set(offsetX, -fade * height * 0.45 + actionLift, offsetZ);
-            body.current.scale.set(actionScaleXz * deathScale, actionScaleY * deathScale, actionScaleXz * deathScale);
+            const motionGain = riteBodyMotionGain(sourceConfig?.profile, reducedMotion);
+            const bodyDelta = restarted ? 0.05 : Math.max(0, (f.timeline ?? 0) - previousTimeline);
+            body.current.position.set(offsetX,
+                dampRiteBodyValue(body.current.position.y, -fade * height * 0.45 + actionLift * motionGain, bodyDelta), offsetZ);
+            const scaleXz = (1 + (actionScaleXz - 1) * motionGain) * deathScale;
+            const scaleY = (1 + (actionScaleY - 1) * motionGain) * deathScale;
+            body.current.scale.set(
+                dampRiteBodyValue(body.current.scale.x, scaleXz, bodyDelta),
+                dampRiteBodyValue(body.current.scale.y, scaleY, bodyDelta),
+                dampRiteBodyValue(body.current.scale.z, scaleXz, bodyDelta),
+            );
             const directionalTilt = reaction.lunge * 0.12 + reaction.recoil * 0.24 + reaction.koExit * 0.58;
-            body.current.rotation.x = activeContact ? activeContact.directionZ * directionalTilt : 0;
-            body.current.rotation.z = activeContact
-                ? -activeContact.directionX * directionalTilt
+            const pitch = activeContact ? activeContact.directionZ * directionalTilt : 0;
+            const roll = activeContact ? -activeContact.directionX * directionalTilt
                 : bodyMotion === "stagger" ? (team === "player" ? -0.11 : 0.11) : 0;
+            body.current.rotation.x = dampRiteBodyValue(body.current.rotation.x, pitch * motionGain, bodyDelta);
+            body.current.rotation.z = dampRiteBodyValue(body.current.rotation.z, roll * motionGain, bodyDelta);
             body.current.visible = fade < 0.995;
         }
         if (contactHoldFrames.current > 0) contactHoldFrames.current -= 1;
-    });
+    }, -1);
 
     return (
         <group ref={root} position={[initialPose.x * WORLD_SCALE, 0, initialPose.z * WORLD_SCALE]}>
@@ -957,6 +1047,8 @@ function SoftwareRiteFighter3D({ result, fighter, clockRef, impostorUrl, contact
     const stateSince = useRef(0);
     const lastFrame = useRef(-1);
     const lastFacingSign = useRef(team === "player" ? 1 : -1);
+    const facingCandidate = useRef({ sign: team === "player" ? 1 : -1, since: 0 });
+    const bodyPose = useRef({ x: 1, y: 1, roll: 0, lift: 0, tick: 0 });
     const visualTick = useRef(-1);
     const contactCursor = useRef(0);
     const contactHoldFrames = useRef(0);
@@ -1032,8 +1124,13 @@ function SoftwareRiteFighter3D({ result, fighter, clockRef, impostorUrl, contact
         }
         cameraRight.setFromMatrixColumn(camera.matrixWorld, 0);
         const screenFacing = faceX * cameraRight.x + faceZ * cameraRight.z;
-        if (screenFacing > 0.12) lastFacingSign.current = 1;
-        else if (screenFacing < -0.12) lastFacingSign.current = -1;
+        const facingLocked = pose.state === "strike" || pose.state === "recover" || pose.state === "stagger" || pose.state === "dead";
+        const desiredSign = facingLocked || Math.abs(screenFacing) < 0.12
+            ? lastFacingSign.current : screenFacing > 0 ? 1 : -1;
+        if (desiredSign === lastFacingSign.current || desiredSign !== facingCandidate.current.sign || restarted) {
+            facingCandidate.current.sign = desiredSign;
+            facingCandidate.current.since = t;
+        } else if (t - facingCandidate.current.since >= 2) lastFacingSign.current = desiredSign;
 
         const heroMove = petHeroMoveAt(heroMoveWindows, t);
         const castLike = heroMove?.style.includes("cast") || heroMove?.style.includes("wave") || heroMove?.style.includes("undertow");
@@ -1123,6 +1220,13 @@ function SoftwareRiteFighter3D({ result, fighter, clockRef, impostorUrl, contact
         const authoredOffsetX = activeContact
             ? 0
             : facingSign * (visualState === "strike" ? 0.13 : visualState === "windup" ? -0.06 : 0);
+        const motionGain = riteBodyMotionGain(config?.profile);
+        const bodyDelta = restarted ? 0.05 : (presentationTick - bodyPose.current.tick) / DUEL_TPS;
+        bodyPose.current.tick = presentationTick;
+        scaleX = bodyPose.current.x = dampRiteBodyValue(bodyPose.current.x, 1 + (scaleX - 1) * motionGain, bodyDelta);
+        scaleY = bodyPose.current.y = dampRiteBodyValue(bodyPose.current.y, 1 + (scaleY - 1) * motionGain, bodyDelta);
+        lift = bodyPose.current.lift = dampRiteBodyValue(bodyPose.current.lift, lift * motionGain, bodyDelta);
+        roll = bodyPose.current.roll = dampRiteBodyValue(bodyPose.current.roll, roll * motionGain, bodyDelta);
         plane.position.set(bodyOffsetX + authoredOffsetX, height * 0.62 + lift, bodyOffsetZ);
         plane.rotation.z = roll;
         plane.scale.set(height * 1.48 * scaleX, height * 1.48 * scaleY, 1);
@@ -1996,7 +2100,7 @@ function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: 
             const tracerLength = distance * Math.max(0, travel - tail);
             transform.position.set(ox + dx * tracerMid, 0.52, oz + dz * tracerMid);
             transform.rotation.set(0, Math.atan2(dx, dz), 0);
-            let streakCrossScale = isHero ? 2.4 : signature.shape === "fault" ? 1.45 : 1;
+            let streakCrossScale = isHero ? 2.4 : signature.shape === "fault" ? 1.45 : signature.shape === "bolt" ? 0.75 : 1.3;
             if (isHero && phase.travel > 0) {
                 heroScreenPoint.copy(transform.position);
                 const worldPerPixel = worldUnitsPerScreenPixel(
@@ -2056,14 +2160,14 @@ function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: 
 
             const tellStrength = isHero ? 0 : phase.tell;
             const tellScale = tellStrength > 0 ? 0.34 + tellStrength * 0.34 : 0;
-            transform.position.set(ox, signature.shape === "flare" ? 0.72 : 0.08, oz);
+            transform.position.set(ox, signature.shape === "flare" || signature.shape === "bolt" ? 0.72 : 0.08, oz);
             transform.rotation.set(
-                signature.shape === "flare" ? Math.PI / 2 : 0,
+                signature.shape === "flare" || signature.shape === "bolt" ? Math.PI / 2 : 0,
                 cueIndex * 0.61 + tick * (signature.shape === "crescent" ? 0.08 : 0.025),
                 signature.shape === "fault" ? Math.PI / 4 : signature.shape === "crescent" ? 0.48 : 0,
             );
             transform.scale.set(
-                tellScale * (signature.shape === "flare" ? 0.52 : signature.shape === "crescent" ? 1.25 : 1),
+                tellScale * (signature.shape === "bolt" ? 0.28 : signature.shape === "flare" ? 0.52 : signature.shape === "crescent" ? 1.25 : 1),
                 tellScale * (signature.shape === "flare" ? 1.35 : 1),
                 tellScale * (signature.shape === "ripple" ? 1 : signature.shape === "fault" ? 0.82 : 0.55),
             );
@@ -2098,6 +2202,11 @@ function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: 
             transform.position.set(impactTx, 0.7, impactTz);
             transform.rotation.set(tick * 0.17 + cueIndex, cueIndex * 0.73, -tick * 0.11);
             if (isHero) transform.scale.setScalar(0);
+            else if (signature.shape === "bolt") {
+                transform.rotation.set(0, Math.atan2(dx, dz), Math.PI / 6);
+                transform.scale.set(contactScale * 0.32, contactScale * 2.1, contactScale * 0.32);
+            }
+            else if (signature.shape === "impact") transform.scale.set(contactScale * 0.72, contactScale * 0.72, contactScale * 0.72);
             else if (signature.shape === "ripple") transform.scale.set(contactScale * 1.35, contactScale * 0.28, contactScale * 1.35);
             else if (signature.shape === "flare") transform.scale.set(contactScale * 0.6, contactScale * 1.7, contactScale * 0.6);
             else if (signature.shape === "crescent") transform.scale.set(contactScale * 1.65, contactScale * 0.24, contactScale * 0.48);
@@ -3386,7 +3495,7 @@ function BodyReactionProbe({ result, beatsByActor, clockRef }: {
     return null;
 }
 
-function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, onReady, onLoadProgress, onRouteTransition }: PetWarfrontRiteStage3DProps) {
+function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, onReady, onLoadProgress, onRouteTransition, onGraphicsFailure }: PetWarfrontRiteStage3DProps) {
     const gl = useThree((state) => state.gl);
     const viewport = useThree((state) => state.size);
     const canvas = useThree((state) => state.gl.domElement);
@@ -3580,6 +3689,10 @@ function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, 
     }, [committedActorIds, fighters, onReady, runtimeRoute.status]);
     useEffect(() => {
         if (rigChunkStatus !== "failed") return;
+        if (!impostorAssetsAvailable) {
+            onGraphicsFailure?.();
+            return;
+        }
         const nextRoute = resolveWarfrontRigImportFailure(runtimeRoute, impostorAssetsAvailable);
         if (nextRoute === runtimeRoute) return;
         const encoded = serializeWarfrontPersistedRoute(rendererName, nextRoute);
@@ -3597,7 +3710,7 @@ function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, 
         setActorReadyCount(0);
         onLoadProgress?.(0);
         setRuntimeRoute(nextRoute);
-    }, [impostorAssetsAvailable, onLoadProgress, onRouteTransition, rendererName, rigChunkStatus, runtimeRoute]);
+    }, [impostorAssetsAvailable, onGraphicsFailure, onLoadProgress, onRouteTransition, rendererName, rigChunkStatus, runtimeRoute]);
     const handlePreflightComplete = useCallback((sample: WarfrontPerformanceSample) => {
         setHiddenPreflightSample(sample);
         const nextRoute = resolveWarfrontRuntimeRoute(runtimeRoute, sample);
@@ -3739,6 +3852,7 @@ function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, 
                     victorious={winnerRef}
                     quality={quality}
                     contactBeats={contactBeatsByActor.get(`${fighter.team}-${fighter.lane}`) ?? NO_CONTACT_BEATS}
+                    reducedMotion={reducedMotion}
                     performanceProbeRef={preflightStressRef}
                     SkinnedModel={SkinnedModel}
                     onModelFail={() => setRigChunkStatus("failed")}
@@ -3778,10 +3892,17 @@ export type PetWarfrontRiteStage3DProps = {
     /** Re-close the existing formation veil before an atomic actor-family swap. */
     onRouteTransition?: () => void;
     onRendererAvailability?: (available: boolean) => void;
+    onGraphicsFailure?: () => void;
 };
 
 export function PetWarfrontRiteStage3D(props: PetWarfrontRiteStage3DProps) {
     const { quality, onReady, onRendererAvailability, sceneKey } = props;
+    const [pageVisible, setPageVisible] = useState(() => !document.hidden);
+    useEffect(() => {
+        const handleVisibility = () => setPageVisible(!document.hidden);
+        document.addEventListener("visibilitychange", handleVisibility);
+        return () => document.removeEventListener("visibilitychange", handleVisibility);
+    }, []);
     const renderQuality = useMemo(
         () => warfrontRenderBudget(quality, props.fighters.length),
         [props.fighters.length, quality],
@@ -3843,6 +3964,7 @@ export function PetWarfrontRiteStage3D(props: PetWarfrontRiteStage3DProps) {
                 <Canvas
                     key={canvasGeneration}
                     className="wfr-canvas"
+                    frameloop={pageVisible ? "always" : "never"}
                     dpr={renderQuality.dpr}
                     shadows={renderQuality.modelShadows ? "percentage" : false}
                     camera={{ fov: 44, position: [0, 9, 13], near: 0.1, far: 100 }}
@@ -3865,7 +3987,9 @@ export function PetWarfrontRiteStage3D(props: PetWarfrontRiteStage3DProps) {
                     )}
                 >
                     <RendererContextGuard onLost={handleContextLost} onRestored={handleContextRestored} />
-                    <Scene key={sceneKey} {...props} quality={renderQuality} onReady={handleSceneReady} />
+                    <PetModelBoundary key={sceneKey} onFail={props.onGraphicsFailure}>
+                        <Scene {...props} quality={renderQuality} onReady={handleSceneReady} />
+                    </PetModelBoundary>
                 </Canvas>
             ) : null}
             {contextStatus !== "ready" ? (

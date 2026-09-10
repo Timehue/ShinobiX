@@ -343,3 +343,26 @@ test("Journey Guide hides once every first step is complete", () => {
     assert.equal(guide.shouldShow, false);
     assert.equal(guide.completedCount, guide.totalCount);
 });
+
+/*
+ * A deleted custom jutsu leaves its id in equippedJutsuIds forever (a mastery
+ * row carries it past the server's learned-id filter), and combat skips it. The
+ * raw array length therefore over-credits the loadout requirement. The caller
+ * supplies the resolved count; the raw length stays the default so every other
+ * caller keeps its current behaviour.
+ * See [[project_deleted_jutsu_wedges_loadout_cap]] — the same defect wedged the
+ * Profile loadout cap at 14 usable jutsu.
+ */
+test("the loadout requirement counts resolvable jutsu, not raw equipped ids", () => {
+    const c = makeCharacter({ level: 3, equippedJutsuIds: ["a", "b", "c", "dead-custom-jutsu"] });
+    const loadoutProgress = (ctx?: { equippedJutsuCount?: number }) =>
+        buildLogbookObjectives(c, ctx)
+            .find((o) => o.kind === "academy")
+            ?.requirements.find((r) => r.label === "Equip your jutsu loadout")?.progress;
+
+    // Default: unchanged behaviour for callers that cannot resolve the catalog.
+    assert.equal(loadoutProgress(), 4, "raw length remains the default");
+    // Supplied: the dead id no longer completes the requirement.
+    assert.equal(loadoutProgress({ equippedJutsuCount: 3 }), 3);
+});
+
