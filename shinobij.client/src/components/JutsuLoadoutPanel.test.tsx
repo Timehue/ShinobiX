@@ -49,6 +49,7 @@ function panelMarkup() {
             <JutsuLoadoutPanel
                 character={character}
                 learnedJutsus={learned}
+                catalogJutsus={learned}
                 onPlaceJutsu={() => {}}
                 onUnequip={() => {}}
                 onUnequipAll={() => {}}
