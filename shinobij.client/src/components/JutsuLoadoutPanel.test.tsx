@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -119,4 +119,33 @@ test("list rows re-anchor the badge into the art column, clear of the jutsu name
         /\.profile-page-card \.jutsu-collection-card\.is-list \.jutsu-collection-select\s*\{[^}]*grid-template-columns:\s*72px minmax\(0, 1fr\);/s,
     );
     assert.match(css, /\.profile-page-card \.jutsu-collection-card\.is-list\s*\{[^}]*min-height:\s*88px;/s);
+});
+
+test("no other rule in any stylesheet anchors the badge vertically", () => {
+    // The two tests above only inspect the rules they expect to find, so a third
+    // anchor would slip past them. It would also win: a grid override such as
+    // `.jutsu-collection-card:not(.is-list) .jutsu-equipped-badge { top: 68px }`
+    // outranks the shared rule (0-4-0 vs 0-2-0) and quietly undoes the grid fix,
+    // with every assertion above still green. So pin the complete set, across
+    // every stylesheet the client ships, of rules allowed to set it.
+    const vertical = new Set(["top", "bottom", "inset", "inset-block", "inset-block-start", "inset-block-end"]);
+    const srcDir = new URL("../", import.meta.url);
+    const anchors: string[] = [];
+    for (const file of readdirSync(srcDir, { recursive: true, encoding: "utf8" })) {
+        if (!file.endsWith(".css")) continue;
+        // Comments go first: one containing a brace would mis-split the rules.
+        const sheet = readFileSync(new URL(file.replaceAll("\\", "/"), srcDir), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+        // Brace-free bodies are innermost rules, so this also reaches into @media.
+        for (const [, selectors, body] of sheet.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+            if (!body.split(";").some((declaration) => vertical.has(declaration.split(":")[0].trim().toLowerCase()))) continue;
+            for (const selector of selectors.split(",")) {
+                const normalized = selector.replace(/\s+/g, " ").trim();
+                if (normalized.includes(".jutsu-equipped-badge")) anchors.push(`${file.replaceAll("\\", "/")}: ${normalized}`);
+            }
+        }
+    }
+    assert.deepEqual(anchors.sort(), [
+        "styles/profile-skin.css: .profile-page-card .jutsu-collection-card.is-list .jutsu-equipped-badge",
+        "styles/profile-skin.css: .profile-page-card .jutsu-equipped-badge",
+    ]);
 });
