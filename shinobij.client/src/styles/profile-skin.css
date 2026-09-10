@@ -2757,6 +2757,10 @@
     transition: transform 130ms, border-color 130ms, box-shadow 130ms;
 }
 
+.profile-page-card .jutsu-collection-card.is-bloodline {
+    border-color: rgba(167, 139, 250, 0.42);
+}
+
 .profile-page-card .jutsu-collection-card:hover,
 .profile-page-card .jutsu-collection-card:has(.jutsu-collection-select:focus-visible),
 .profile-page-card .jutsu-collection-card.is-selected {
@@ -2791,6 +2795,22 @@
     font: 800 0.48rem Inter, sans-serif;
     letter-spacing: 0.03em;
     text-transform: uppercase;
+}
+
+.profile-page-card .jutsu-bloodline-chip {
+    display: block;
+    margin-top: 3px;
+    overflow: hidden;
+    color: #d8b4fe;
+    font: 700 0.5rem/1.3 Inter, sans-serif;
+    letter-spacing: 0.04em;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.profile-page-card .jutsu-detail-title .jutsu-bloodline-chip {
+    font-size: 0.55rem;
 }
 
 .profile-page-card .jutsu-collection-select {
