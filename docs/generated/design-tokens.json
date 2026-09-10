@@ -2267,7 +2267,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 1215
+            "line": 1258
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
@@ -2316,7 +2316,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 1223
+            "line": 1266
           }
         ]
       },
@@ -2623,7 +2623,7 @@
           },
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 620
+            "line": 663
           }
         ]
       },
@@ -3761,11 +3761,11 @@
           },
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 651
+            "line": 694
           },
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 1241
+            "line": 1284
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
