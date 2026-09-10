@@ -103,8 +103,12 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // line, so the heading stops wrapping as "<Village> Sector Stronghold".
         // One <p> of presentation inside a prompt that was already here — no map
         // layer, retired or otherwise. Exact achieved count, no buffer.
-        lineCount(worldMapSource) <= 5_280,
-        `WorldMap.tsx grew past 5,280 lines; retired overview layers must stay retired.`,
+        // 5,281 (+1): the overlay is handed `sector={selectedSector}` so it can look
+        // up the Rift and Sector Stronghold's per-sector placements itself. One prop
+        // line; the placement data and the lookup live outside this file, in
+        // data/sector-structure-placements.ts. Exact achieved count, no buffer.
+        lineCount(worldMapSource) <= 5_281,
+        `WorldMap.tsx grew past 5,281 lines; retired overview layers must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,
@@ -149,8 +153,11 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // a shrine's per-sector position would collide with its fixed one (sector
         // 23, measured 58x49px). Presentation only — no portal, no workflow, no
         // authority moved out of WorldMap. Exact achieved count, no buffer.
-        lineCount(overlaySource) <= 166,
-        `WorldSectorOverlayLayer.tsx grew past 166 lines; portals and workflows must remain in WorldMap.`,
+        // 162 (-4): per-sector placements (data/sector-structure-placements.ts)
+        // replaced the one-position-plus-shrine-step-aside stopgap, which was longer
+        // than the lookup that superseded it. Tightened to lock the win in.
+        lineCount(overlaySource) <= 162,
+        `WorldSectorOverlayLayer.tsx grew past 162 lines; portals and workflows must remain in WorldMap.`,
     );
     assert.ok(
         lineCount(dialogSource) <= 375,
