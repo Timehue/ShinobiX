@@ -41,7 +41,7 @@ function WarfrontLadderQa() {
             tournamentWinnerBusy={false} onClearTournament={noop} onStartTournament={noop} onJoinRankedQueue={noop}
             onLeaveRankedQueue={noop} onRefreshFights={noop} onSpectateFight={noop} onViewPendingChallenge={noop}
             onOpenPetLadder={(mode) => { sessionStorage.setItem("petLadder.mode", mode); setDistrict(false); }} /></Suspense>
-            : <PetLadder character={account} setScreen={() => setDistrict(true)} sharedImages={{}} />}
+            : <PetLadder character={account} setScreen={() => setDistrict(true)} sharedImages={{}} onVersionedCharacter={() => false} />}
     </main>
     );
 }

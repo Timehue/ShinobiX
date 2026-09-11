@@ -20,6 +20,7 @@ import type {
     ShowdownTurnResponse,
 } from "../../../shared/pet-showdown-contract";
 import type { FirstPactEncounterId, FirstPactProgress } from "../../../shared/first-pact-contract";
+import { fetchFirstPactProgress, type FirstPactGrant } from "./first-pact-api";
 
 export {
     SHOWDOWN_BENCH_SIZE,
@@ -192,6 +193,21 @@ export async function submitShowdownTurn(
 export async function forfeitShowdown(playerName: string, sessionId: string): Promise<boolean> {
     const r = await post({ action: "forfeit", playerName, sessionId });
     return !!r?.ok;
+}
+
+/** Keep the Court's reset progress attached to its recorded concession. */
+export async function forfeitFirstPactShowdown(
+    playerName: string,
+    sessionId: string,
+): Promise<({ progress: FirstPactProgress } & FirstPactGrant) | { error: string }> {
+    const r = await post({ action: "forfeit", playerName, sessionId });
+    if (!r?.ok) return { error: "The Court could not record the concession. The bout is still recoverable; try again before leaving." };
+    const data = await r.json().catch(() => null) as { ok?: boolean; firstPact?: { progress?: FirstPactProgress } } | null;
+    if (data?.ok !== true) return { error: "The Court did not confirm the concession. Retry before leaving." };
+    if (data?.firstPact?.progress) return { progress: data.firstPact.progress };
+    // An expired/already-removed session still answers ok. Read today's record
+    // before closing, retaining any versioned completion grant it carries.
+    return fetchFirstPactProgress(playerName);
 }
 
 export async function fetchShowdownState(

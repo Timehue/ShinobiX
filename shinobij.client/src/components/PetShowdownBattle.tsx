@@ -41,6 +41,7 @@ import { petBloomEnabled } from "../lib/pet-coliseum-flag";
 import * as THREE from "three";
 import { PetModel3D, DEFAULT_PET_MODEL_FRAME, type PetModelFrame } from "./PetModel3D";
 import { PetModelBoundary } from "./PetModelBoundary";
+import { supportsPetWebGl2 } from "../lib/pet-webgl-capability";
 import { PetGraphicsQualityControl } from "./PetGraphicsQualityControl";
 import { petCombatModel, showdownFighterIdentity, type PetCombatModelConfig } from "../lib/pet-3d-models";
 import { petDuelModelCalibration } from "../lib/pet-duel-model-presentation";
@@ -2116,6 +2117,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
      *  button. Modes that have nothing to say pass nothing and are unchanged. */
     resultNote?: (outcome: "win" | "loss") => string | null | undefined;
 }) {
+    const [webGlAvailable] = useState(() => supportsPetWebGl2());
     const [qualityId, setQualityId] = useState<PetVisualQuality>(() => petVisualQuality().id);
     const renderQuality = PET_VISUAL_QUALITY_PRESETS[qualityId];
     const [stateView, setStateView] = useState(initialState);
@@ -3512,7 +3514,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 sat a hair flat next to the painted arenas — a slight push
                 deepens the blacks and lets the VFX (toneMapped:false) pop
                 against them without touching any material. */}
-            <Canvas
+            {webGlAvailable ? <Canvas
                 key={renderQuality.id}
                 shadows={renderQuality.modelShadows ? "percentage" : false}
                 dpr={renderQuality.dpr}
@@ -3579,7 +3581,20 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         onHover={setHoveredTarget}
                     />
                 ))}
-            </Canvas>
+            </Canvas> : (
+                <div
+                    data-testid="pet-showdown-render-fallback"
+                    role="status"
+                    style={{ position: "absolute", inset: 0, display: "grid", placeContent: "center", gap: 12, padding: 16, textAlign: "center", color: "#e8dcc6", pointerEvents: "none" }}
+                >
+                    <div aria-hidden="true" style={{ display: "flex", justifyContent: "center", gap: 20 }}>
+                        {[stateView.player[0], stateView.enemy[0]].map((pet) => pet && panelArt[pet.id] ? (
+                            <img key={pet.id} src={panelArt[pet.id]} alt="" style={{ width: "min(24vw, 120px)", height: "min(20vh, 120px)", objectFit: "contain" }} />
+                        ) : null)}
+                    </div>
+                    <p style={{ margin: 0, maxWidth: 320 }}>3D arena unavailable. Battle controls and results are still available.</p>
+                </div>
+            )}
 
             {/* FIELD WEATHER. Driven by the server's standing weather, so it is
                 on exactly while the technique's window is, and reduced-motion
