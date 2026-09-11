@@ -26,7 +26,12 @@ const WEEKLY_BOSS_OVERRIDE_KEY = 'game:weekly-boss-override';
 // once per 3s no matter how many clients poll. s-maxage is dropped 8->5 below to
 // offset this window, so proc ttl (3s) + CDN (5s) = the original 8s worst-case
 // staleness — a village-state write from another handler surfaces no later than
-// it did before this cache existed.
+// it did before this cache existed. The village endpoints that write the row
+// (orders, leadership, treasury donate/transfer, upgrade, agenda, Hollow Gate,
+// war-structure) also drop the entry, so the next poll after one of them
+// rebuilds instead of serving the pre-write frame. The villageState POST below
+// deliberately does NOT: it is free to call, so dropping the entry there would
+// let any player force a rebuild of this shared frame on demand.
 const GAME_STATE_TTL_MS = 3000;
 
 function clanPetBattleKey(clanName: string) {
