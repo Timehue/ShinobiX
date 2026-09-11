@@ -323,7 +323,13 @@ export function saveVillageState(village: string, state: VillageState) {
     sharedVillageStateCache[key] = normalized;
     // Orders have their own atomic actions. Routine village writes must never
     // replay a stale board over someone else's newly posted or deleted order.
-    const { noticePosts: _orders, anbuAppointees: _anbuSeats, anbuEarned: _earnedAnbu, anbuMembers: _anbuMembers, elderAppointees: _elders, elderTerm: _elderTerm, ...villageFields } = normalized;
+    // The treasury is the same: every movement has its own endpoint, and the
+    // copy here comes from a poll that can be seconds old, so replaying it would
+    // assert figures from before another villager's donation. So are the
+    // upgrade levels (/api/village/upgrade). The server keeps the stored values
+    // either way (api/_village-state-validate.ts); sending them only filled its
+    // suppression log on every Town Hall action.
+    const { noticePosts: _orders, anbuAppointees: _anbuSeats, anbuEarned: _earnedAnbu, anbuMembers: _anbuMembers, elderAppointees: _elders, elderTerm: _elderTerm, treasury: _treasury, upgrades: _upgrades, ...villageFields } = normalized;
     persistSharedGameState({ kind: "villageState", village, state: villageFields });
 }
 export function adoptVillageOrders(village: string, noticePosts: NoticePost[]): void {

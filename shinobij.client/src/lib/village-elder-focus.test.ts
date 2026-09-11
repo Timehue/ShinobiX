@@ -72,3 +72,22 @@ test('village orders keep the server capacity and never ride ordinary village wr
         assert.equal(loadVillageState(village).noticePosts.length, 60);
     } finally { globalThis.fetch = oldFetch; }
 });
+
+test('the server-owned treasury and upgrade levels never ride ordinary village writes', async () => {
+    // Town Hall builds these writes from a POLLED village state. Replaying the
+    // treasury would assert figures from before another villager's donation.
+    const village = 'Treasury client test';
+    const state = normalizeVillageState(village, { upgrades: { training: 2 }, treasury: { ryo: 15, honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals: 0, materialPoints: 15, items: [] } });
+    const oldFetch = globalThis.fetch;
+    const sent: Array<{ state: Record<string, unknown> }> = [];
+    globalThis.fetch = (async (_url, init) => { sent.push(JSON.parse(String(init?.body))); return new Response('{}'); }) as typeof fetch;
+    try {
+        saveVillageState(village, { ...state, notices: ['A notice still lands.'] });
+        assert.equal(sent.length, 1);
+        assert.equal(Object.hasOwn(sent[0].state, 'treasury'), false);
+        assert.equal(Object.hasOwn(sent[0].state, 'upgrades'), false);
+        assert.deepEqual(sent[0].state.notices, ['A notice still lands.']);
+        assert.equal(loadVillageState(village).treasury.materialPoints, 15, 'the local copy keeps it until the next poll');
+        assert.equal(loadVillageState(village).upgrades.training, 2);
+    } finally { globalThis.fetch = oldFetch; }
+});
