@@ -70,7 +70,7 @@ import { loadVillageLeadershipImages, saveVillageLeadershipImages } from "../lib
 import { normalizeVillageLeadershipImages, type VillageLeadershipImages } from "../data/village-leadership";
 import { HOLLOW_GATE_MAX_FLOOR } from "../constants/game";
 import { setSharedWeeklyBossAiId, sharedWeeklyBossAiIdCache } from "../lib/world-state";
-import { AdminCircuit } from '../features/dojo-circuit/AdminCircuit';
+import { AdminWorldEventsPanel } from './AdminWorldEventsPanel';
 import type { VnCinematicDirection, VnSoundCue } from "../types/vn";
 import { useAdminContentPublisher } from "../lib/content-publish";
 import { isReleaseSafeClientEvent } from "../lib/release-safe-content";
@@ -2803,15 +2803,7 @@ export function AdminPanel({
                 </section>
             </div>
 
-            {activeAdminPanel === "worldEvents" && adminRole === 'full' && (
-                <div className="admin-subpanel">
-                    <div className="admin-panel-heading">
-                        <h3>World Events</h3>
-                        <p>These controls govern global events rather than village-specific territory systems.</p>
-                    </div>
-                    <AdminCircuit credential={adminPw} character={character} />
-                </div>
-            )}
+            {activeAdminPanel === "worldEvents" && adminRole === 'full' && <AdminWorldEventsPanel credential={adminPw} character={character} />}
 
             {activeAdminPanel === "villageLeaders" && (
                 <AdminVillageLeadersPanel
