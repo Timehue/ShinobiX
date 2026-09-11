@@ -8,6 +8,9 @@ import { useWorldTravelPresentation } from "../lib/use-world-travel-presentation
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense, type ReactNode, type CSSProperties } from "react";
 import "../styles/atlas-skin.css";
+import "../styles/world-map-mobile.css";
+import { useWorldMapLayout } from "../lib/use-world-map-layout";
+import { getWorldMapRegionForPoint, WORLD_MAP_REGIONS } from "../lib/world-map-regions";
 import { visiblePoll } from "../lib/poll";
 // The Chronicle Scribe's codex hand-off ends on the pack-opening cinematic, so
 // this screen chunk owns those two stylesheets the same way Shop does (the card
@@ -2488,7 +2491,11 @@ function WorldMapContent({
     const [showAttunement, setShowAttunement] = useState(false);   // Shrine Attunement panel
     // Mobile world-map pinch/drag zoom (worldMapZoom.v1). Inert on desktop / when
     // the flag is off — the map then renders via the legacy path unchanged.
-    const wmZoom = useWorldMapZoom();
+    const mapOpeningPoint = ATLAS_SECTOR_POINTS.find((point) => point.id === currentSector)
+        ?? locations.find((location) => location.name === character.village)
+        ?? { x: 20, y: 20 };
+    const wmZoom = useWorldMapZoom(getWorldMapRegionForPoint(mapOpeningPoint.x, mapOpeningPoint.y));
+    const wmFrameRef = useWorldMapLayout(wmZoom.active);
     // Marker layout (0–100 grid), hand-curated. Each village's nearby sectors
     // cluster around its banner; neutral sectors spread across the mid-map. A
     // sector's biome / encounters are fixed by its NUMBER (biomeForSector) — the
@@ -2502,19 +2509,6 @@ function WorldMapContent({
     // gameplay geography remains authoritative in shared/sector-links.ts.
     const sectorPoints = ATLAS_SECTOR_POINTS;
     const academySectorTargetId = useAcademyWorldMapFocus({ character, sectorPoints, zoomActive: wmZoom.active, focusPoint: wmZoom.focusPoint });
-    // Village quick-jump targets for the mobile zoom HUD (worldMapZoom.v1). Each
-    // chip flies the camera to the cluster centroid at a tappable zoom.
-    // Region-block numbering (shared/sector-geo.ts): each village's home block,
-    // the Castle City ring for Central, Death's Gate pinned.
-    const WM_CLUSTERS: { label: string; ids: number[]; color: string; zoom: number }[] = [
-        { label: "Frostfang", ids: [26, 27, 28, 29, 30, 31, 32, 33], color: villageAccent("Frostfang Village"), zoom: 2.6 },
-        { label: "Moonshadow", ids: [17, 18, 19, 20, 21, 22, 23, 24, 25], color: villageAccent("Moonshadow Village"), zoom: 2.6 },
-        { label: "Stormveil", ids: [1, 2, 3, 4, 5, 6, 7, 8], color: villageAccent("Stormveil Village"), zoom: 2.6 },
-        { label: "Ashen Leaf", ids: [9, 10, 11, 12, 13, 14, 15, 16], color: villageAccent("Ashen Leaf Village"), zoom: 2.6 },
-        { label: "Central", ids: [46, 47, 48, 49, 50, 51], color: "var(--slate-300)", zoom: 2.4 },
-        { label: "Death's Gate", ids: [99], color: "var(--red-400)", zoom: 2.8 },
-    ];
-
     // When the War Map is on, a sector owned by a village glows in that village's
     // accent colour (live owner from the territory cache, else its home village).
     const warMapOn = villageWarViewOpen && isVillageWarMapEnabled();
@@ -5011,22 +5005,17 @@ function WorldMapContent({
     }
 
     return (
-        <div className="card">
-            <StoryFieldJournal character={character} currentSector={currentSector} onLocate={setSelectedSector}
+        <div className="card world-atlas-card">
+            {!wmZoom.active && <StoryFieldJournal character={character} currentSector={currentSector} onLocate={setSelectedSector}
                 onOpen={(questId, pointId) => setFieldScene({ questId, pointId })}
                 onReview={(questId, pointId) => setFieldScene({ questId, pointId, review: true })}
-                abandonBusy={storyReckoningAbandonBusy} onAbandon={() => void handleStoryReckoningAbandon()} />
+                abandonBusy={storyReckoningAbandonBusy} onAbandon={() => void handleStoryReckoningAbandon()} />}
             {wmZoom.active ? (
                 <div className="wm-topbar">
                     <BackToVillageButton
                         onClick={() => isWildSector(currentSector) ? setSelectedSector(currentSector) : setScreen("village")}
                         label={isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
                     />
-                    <div className="wm-zoom-controls">
-                        <button className="wm-zoom-btn" aria-label="Zoom in" onClick={wmZoom.zoomIn}>+</button>
-                        <button className="wm-zoom-btn" aria-label="Zoom out" onClick={wmZoom.zoomOut}>−</button>
-                        <button className="wm-zoom-btn" aria-label="Reset view" style={{ fontSize: 15 }} onClick={wmZoom.reset}>⤢</button>
-                    </div>
                 </div>
             ) : (
                 <BackToVillageButton
@@ -5044,11 +5033,13 @@ function WorldMapContent({
                 />
             )}
             {showAttunement && <HollowGateAttunement character={character} onClose={() => setShowAttunement(false)} onVersionedCharacter={onVersionedCharacter} />}
-            {/* World-map viewport. Legacy: a horizontal-scroll box on narrow
-                screens. With worldMapZoom.v1 (mobile default): a fit-to-screen
-                pinch / drag zoom surface driven by useWorldMapZoom. */}
+            {/* All map coordinates share one camera. The six mobile areas
+                overlap and re-fit to the available screen after rotation. */}
+            <div className="world-atlas-frame" ref={wmFrameRef}>
             <div
                 className="world-map-scroll"
+                role="group"
+                aria-label="World map"
                 ref={wmZoom.viewportRef}
                 {...wmZoom.viewportHandlers}
             >
@@ -5223,20 +5214,20 @@ function WorldMapContent({
             </div>{/* end world-map-scroll */}
             {wmZoom.active && (
                 <div className="wm-village-bar" role="group" aria-label="Jump to region">
-                    {WM_CLUSTERS.map((cl) => {
-                        const pts = sectorPoints.filter((s) => cl.ids.includes(s.id));
-                        if (!pts.length) return null;
-                        const cx = pts.reduce((a, s) => a + s.x, 0) / pts.length;
-                        const cy = pts.reduce((a, s) => a + s.y, 0) / pts.length;
-                        return (
-                            <button key={cl.label} className="wm-village-chip" onClick={() => wmZoom.focusPoint(cx, cy, cl.zoom)}>
-                                <span className="wm-chip-dot" style={{ background: cl.color }} />{cl.label}
+                    {WORLD_MAP_REGIONS.map((region) => (
+                            <button key={region.id} type="button" className="wm-village-chip"
+                                data-region={region.id} aria-label={region.label} aria-pressed={wmZoom.selectedRegion === region.id}
+                                title={`${region.position} of the world map`}
+                                onClick={() => wmZoom.focusRegion(region.id)}>
+                                {region.id === "frost" ? <>Frost<wbr />fang</>
+                                    : region.id === "storm" ? <>Storm<wbr />veil</>
+                                        : region.id === "moon" ? <>Moon<wbr />shadow</>
+                                            : region.label}
                             </button>
-                        );
-                    })}
+                    ))}
                 </div>
             )}
-
+            </div>{/* end world-atlas-frame */}
 
             {/* Atmospheric whispers must also land on the OVERVIEW — the sage
                 roll + rumor effects fire on mount, before a sector is opened

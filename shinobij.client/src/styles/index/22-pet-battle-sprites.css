@@ -1703,7 +1703,18 @@
     font-size: 0.82rem;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.15s;
+    /* These are the properties the hover, selected and focus states change.
+       `all` also animated resize-driven values such as min-height and flex-shrink. */
+    transition:
+        color 0.15s,
+        background-color 0.15s,
+        border-color 0.15s,
+        box-shadow 0.15s,
+        filter 0.15s,
+        transform 0.15s,
+        outline-color 0.15s,
+        outline-width 0.15s,
+        outline-offset 0.15s;
 }
 
 .council-tab:hover { border-color: rgba(139, 92, 246, 0.5); color: #d1d5db; }
@@ -1845,7 +1856,17 @@
     font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.15s;
+    /* This uses the same list as .council-tab, for the same reason. */
+    transition:
+        color 0.15s,
+        background-color 0.15s,
+        border-color 0.15s,
+        box-shadow 0.15s,
+        filter 0.15s,
+        transform 0.15s,
+        outline-color 0.15s,
+        outline-width 0.15s,
+        outline-offset 0.15s;
     white-space: nowrap;
 }
 
