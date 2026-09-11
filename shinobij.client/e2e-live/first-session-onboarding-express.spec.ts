@@ -168,6 +168,13 @@ async function createCharacter(page: Page, playerName: string, password: string)
     await expect(page.locator('.icx-root')).toBeVisible();
 }
 
+// Full motion on purpose. This journey asserts that the WebGL world backdrops
+// (.sector-scene-3d, .scene-ambience-3d) never bind pointer listeners, and those
+// layers only mount when reduced motion is off (SectorScene3D.tsx,
+// SceneAmbience3D.tsx). Under the suite's reduced motion that check would pass
+// with nothing mounted to check.
+test.use({ contextOptions: { reducedMotion: 'no-preference' } });
+
 for (const grantDelayMs of [0, 500]) {
 test(`a new player completes the full persisted Academy first session against built Express (starter response delay ${grantDelayMs}ms)`, async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium-desktop-live', 'one desktop run covers the full first-session authority journey');

@@ -5470,6 +5470,17 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
 
     html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .shinobi-command-bar {
         grid-template-columns: repeat(4, minmax(44px, 1fr)) !important;
+        /* Explicit rows, not the implicit `auto`. When a resize-driven change in
+           this bar's content runs as a transition (found 2026-09-10 with a
+           universal Reduce Motion `transition-duration: 1ms` reset, which the
+           default `transition-property: all` applies to every value), Safari/
+           WebKit keeps `auto` rows sized for the previous width: after 512x384
+           -> 800x360 the first row stayed 58px, not 47.7px, and the "board
+           commands" row pushed the last row of board tiles out of <main>.
+           minmax(44px, auto) sizes exactly like `auto` in Chromium and Firefox,
+           still stretches into a fixed-height bar (Tower's), and WebKit
+           recomputes it, so a stray all-property transition cannot recur. */
+        grid-auto-rows: minmax(44px, auto) !important;
         align-self: start !important;
         gap: 3px !important;
         padding: 3px !important;
