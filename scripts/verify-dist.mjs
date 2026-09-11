@@ -15,6 +15,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { findCollapsedPrefixes } from './lib/css-prefix-collapse.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const serverJs = join(root, 'dist', 'server.js');
@@ -142,6 +143,29 @@ if (deliveryGaps.length) {
     );
 }
 
+/*
+ * Every emitted stylesheet must keep the standard `backdrop-filter` / `filter`
+ * wherever it kept the -webkit- twin. lightningcss (the production CSS
+ * minifier) merges the pair into one slot and keeps whichever came last, so a
+ * hand-written `-webkit-backdrop-filter` after the standard property ships
+ * alone, and Chromium and Firefox render no blur. That is how the lite-fx
+ * backdrop kill was dead in Chrome. The client source is checked for the cause
+ * in scripts/lib/css-prefix-collapse.test.mjs; this checks the shipped CSS,
+ * whatever route that CSS took through the build.
+ */
+const collapsedPrefixes = clientRelativeFiles
+    .filter((file) => file.endsWith('.css'))
+    .flatMap((file) => findCollapsedPrefixes(readFileSync(join(clientDist, file), 'utf8'))
+        .map(({ prelude, property }) => `${file} ${prelude.slice(0, 100)} (-webkit-${property} without ${property})`));
+if (collapsedPrefixes.length) {
+    fail(
+        `${collapsedPrefixes.length} built CSS rule(s) lost the standard property and ship only the -webkit- form `
+        + '(for backdrop-filter, Chromium and Firefox then render no blur), e.g.\n  '
+        + collapsedPrefixes.slice(0, 5).join('\n  ')
+        + '\nWrite only the standard property in source; see scripts/lib/css-prefix-collapse.mjs.',
+    );
+}
+
 const leakedAuthoringPath = clientRelativeFiles.find((file) => forbiddenClientPrefixes.some((prefix) => file.startsWith(prefix)));
 if (leakedAuthoringPath) fail(`client dist contains pet authoring output: ${leakedAuthoringPath}`);
 const leakedSourceFile = clientRelativeFiles.find((file) => {
@@ -155,4 +179,4 @@ if (clientArtifactBytes > maxClientArtifactBytes) {
     fail(`client dist is ${(clientArtifactBytes / 1024 / 1024).toFixed(1)} MB; runtime artifact ceiling is ${maxClientArtifactBytes / 1024 / 1024} MB`);
 }
 
-console.log(`[verify:dist] OK — server ${(st.size / 1024).toFixed(1)} KB; client ${(clientArtifactBytes / 1024 / 1024).toFixed(1)} MB with no authoring sources; Vercel config absent.`);
+console.log(`[verify:dist] OK — server ${(st.size / 1024).toFixed(1)} KB; client ${(clientArtifactBytes / 1024 / 1024).toFixed(1)} MB with no authoring sources and no -webkit-only (backdrop-)filter rules; Vercel config absent.`);

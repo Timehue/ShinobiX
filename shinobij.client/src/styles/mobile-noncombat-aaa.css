@@ -299,7 +299,6 @@
     border-radius: 10px;
     box-shadow: 0 9px 22px rgba(0, 0, 0, 0.28);
     backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
   }
 
   /* Mission Hall owns a compact five-item rail. Keep it in normal flow: a
@@ -391,7 +390,6 @@
     border-block-start: 1px solid color-mix(in srgb, var(--sj-gold) 34%, transparent);
     box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.42);
     backdrop-filter: blur(14px) saturate(1.12);
-    -webkit-backdrop-filter: blur(14px) saturate(1.12);
   }
 
   .app-shell[data-ui-mode="noncombat"] .mobile-nav-btn {
@@ -471,7 +469,6 @@
     padding: calc(10px + env(safe-area-inset-top, 0px)) 2px 10px;
     background: linear-gradient(180deg, rgba(8, 13, 19, 0.99) 70%, rgba(8, 13, 19, 0.86));
     backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
   }
 
   /* Keep every direct panel at its authored height so the overlay itself owns
@@ -537,7 +534,6 @@
     padding: 0;
     background: rgba(2, 5, 9, 0.76);
     backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
   }
 
   body:not(.in-battle) .mobile-profile-sheet {
@@ -568,7 +564,6 @@
     padding: 8px 12px 10px 16px;
     background: rgba(17, 25, 34, 0.96);
     backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
   }
 
   body:not(.in-battle) .mobile-profile-sheet-title {
@@ -600,7 +595,6 @@
     background: linear-gradient(180deg, rgba(9, 21, 35, 0.98), rgba(5, 12, 23, 0.99)) !important;
     box-shadow: 0 14px 34px rgba(0, 0, 0, 0.52) !important;
     backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
   }
 
   body:not(.in-battle):not(:has(> .combat-instance)) .screen-hint-banner .screen-hint-copy {
@@ -717,7 +711,6 @@
       inset -28px 0 24px -25px rgba(232, 212, 150, 0.7),
       0 10px 24px rgba(0, 0, 0, 0.34) !important;
     backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
   }
 
   .app-shell[data-ui-mode="noncombat"].screen-profile .profile-mobile-tabs > .pmtab {
@@ -951,7 +944,6 @@
     background: rgba(3, 8, 16, 0.84) !important;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.38) !important;
     backdrop-filter: blur(9px);
-    -webkit-backdrop-filter: blur(9px);
   }
 
   .app-shell[data-ui-mode="noncombat"].screen-professions .profession-hero {
