@@ -2661,7 +2661,7 @@
           },
           {
             "source": "shinobij.client/src/screens/PetLadder.css",
-            "line": 134
+            "line": 139
           },
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
@@ -2958,6 +2958,17 @@
       },
       {
         "direction": "max",
+        "axis": "width",
+        "valuePx": 650,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/features/dojo-circuit/dojo-circuit.css",
+            "line": 50
+          }
+        ]
+      },
+      {
+        "direction": "max",
         "axis": "height",
         "valuePx": 680,
         "occurrences": [
@@ -3145,6 +3156,17 @@
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
             "line": 1925
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 750,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/features/dojo-circuit/admin-circuit.css",
+            "line": 1
           }
         ]
       },
@@ -3504,7 +3526,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetLadder.css",
-            "line": 23
+            "line": 24
           },
           {
             "source": "shinobij.client/src/screens/WorldCrisis.css",
@@ -3583,6 +3605,10 @@
         "axis": "width",
         "valuePx": 900,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/features/dojo-circuit/dojo-circuit.css",
+            "line": 49
+          },
           {
             "source": "shinobij.client/src/features/intro-cinematic/intro-cinematic.css",
             "line": 1085
@@ -4280,6 +4306,10 @@
         "axis": "width",
         "valuePx": 1500,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/features/dojo-circuit/dojo-circuit.css",
+            "line": 48
+          },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
             "line": 1364
