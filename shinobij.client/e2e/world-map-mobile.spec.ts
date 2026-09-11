@@ -542,6 +542,16 @@ test("rotation retains the region and dragging a sector never starts travel", as
                 await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: start.x - step * 9, y: start.y - step * 5, id: 1 }] });
                 await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
             }
+            // Come to rest before lifting. A touch that leaves while still
+            // moving makes Chromium start a fling, and the next tap only stops
+            // that fling, so by design it produces no click. These steps are
+            // frame-paced, so the release speed depends on how light the page
+            // is: under Reduce Motion (the lite presentation) the drag took
+            // ~280ms instead of ~500ms, flung, and the region tap below was
+            // swallowed in about 7 runs of 10.
+            await page.waitForTimeout(200);
+            await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: start.x - 54, y: start.y - 30, id: 1 }] });
+            await page.waitForTimeout(50);
             await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
         } else {
             await page.mouse.move(start.x, start.y);
