@@ -1182,6 +1182,32 @@ async function measureStable(page: Page, rootSelector: string): Promise<LayoutMe
     return current;
 }
 
+/*
+ * How long captureMatrix's toPass may spend measuring and re-measuring one
+ * viewport, sized in measurements rather than a fixed number of seconds.
+ *
+ * measureStable is counted in animation frames: settleLayout plus four agreeing
+ * grid samples is at least ten. Chromium renders those in about half a second,
+ * so 10s allows many attempts. Playwright's WebKit on Windows does not on the
+ * solo arena: it repaints the whole view each time that screen's 1 Hz round
+ * countdown ticks, and at desktop widths that repaint takes about a second, so
+ * a single measurement costs about 10s. A flat 10s budget then ran out while
+ * the first attempt was still measuring, with every bound satisfied, and toPass
+ * reported a bare timeout. Measured 2026-09-10: 1.0-1.35s to paint one tick at
+ * 1920x1080 against 12ms in Chromium on the same machine, and 53 fps once the
+ * countdown was frozen. (The PvP matrix pins its countdown, and the Tower shell
+ * stays near 60 fps while its countdown ticks.) CI's Linux WebKit runs the whole
+ * Solo test in about two minutes. Scaling by what the viewport's first
+ * measurement cost leaves a slow renderer room for at least two full
+ * re-measurements; the floor leaves fast engines exactly where they were.
+ */
+const LAYOUT_RETRY_FLOOR_MS = 10_000;
+const LAYOUT_RETRY_MEASUREMENTS = 3;
+
+function layoutRetryBudget(measurementMs: number): number {
+    return Math.max(LAYOUT_RETRY_FLOOR_MS, LAYOUT_RETRY_MEASUREMENTS * measurementMs);
+}
+
 type SelectionGeometry = {
     root: Rect | null;
     boardStage: Rect | null;
@@ -1833,7 +1859,9 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         if (browser === 'chromium' && mode === 'pvp' && width === 390 && height === 844) {
             await assertEdgeActionPopovers(page, rootSelector);
         }
+        const measurementStarted = Date.now();
         let current = await measureStable(page, rootSelector);
+        const measurementMs = Date.now() - measurementStarted;
         if (STRICT) {
             if (width >= 1280 && height >= 700) {
                 if (mode === 'solo') {
@@ -1849,10 +1877,20 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
             }
             // Equal grid samples can precede a delayed responsive render. Keep
             // every layout bound and capture the settled, validated measurement.
+            // The grid settled moments ago, so the first attempt re-reads the
+            // layout one frame pair after the checks above instead of paying for
+            // a second full settle; any failed attempt re-measures from scratch.
+            let attempt = 0;
             await expect(async () => {
-                current = await measureStable(page, rootSelector);
+                attempt += 1;
+                if (attempt === 1) {
+                    await settleLayout(page);
+                    current = await measure(page, rootSelector);
+                } else {
+                    current = await measureStable(page, rootSelector);
+                }
                 assertLayout(current, `${mode} ${width}x${height}`);
-            }).toPass({ timeout: 10_000 });
+            }).toPass({ timeout: layoutRetryBudget(measurementMs) });
         }
         measurements.push(current);
         if (browser === 'chromium') {
@@ -1901,6 +1939,15 @@ test('Solo-PvE combat layout viewport matrix', async ({ page, request }, testInf
         enemyMarkers: 0,
         minimumEnemySprites: 1,
     });
+    // Linux WebKit in CI runs this whole test in about two minutes. Playwright's
+    // WebKit on Windows has needed almost eight on a loaded machine, because the
+    // solo arena's live countdown makes every desktop-width frame cost about a
+    // second (see layoutRetryBudget), and the suite-wide 240s would end a
+    // healthy run. Extend the allowance from here, where the frame-bound work
+    // (the arming traces, then the viewport matrix) begins, so a hang while
+    // signing in or starting the mission still fails at 240s. setTimeout counts
+    // from the test's start, so 600s is the whole test's total.
+    test.setTimeout(600_000);
     await assertJutsuSelectionGeometryStable(page, '.mission-arena-fight', true);
     await page.setViewportSize({ width: 1440, height: 900 });
     const soloRoot = page.locator('.mission-arena-fight');
@@ -2062,7 +2109,11 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     const toggle = chat.locator('.battle-chat-toggle');
     const log = pvpRoot.locator('.combat-text-log');
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    // The preceding mobile zoom capture hides the log. Wait for the desktop
+    // layout before taking a baseline; a missing box is not a zero-width log.
+    await expect(log).toBeVisible();
     const openLog = await log.boundingBox();
+    if (!openLog) throw new Error('Visible battle log has no measurable baseline');
     const draftInput = chat.locator('.battle-chat-input-row input');
     const draftEnabled = await draftInput.isEnabled();
     if (draftEnabled) await draftInput.fill('unsent tactical draft');
@@ -2072,8 +2123,8 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     await expect(chat).toHaveClass(/battle-chat-hidden/);
     await expect(layout).toHaveClass(/combat-log-wide/);
     const collapsedLog = await log.boundingBox();
-    expect((collapsedLog?.width ?? 0) - (openLog?.width ?? 0), 'collapsed chat must release its lower-right space to the battle log').toBeGreaterThan(120);
-    const openLogRight = (openLog?.x ?? 0) + (openLog?.width ?? 0);
+    expect((collapsedLog?.width ?? 0) - openLog.width, 'collapsed chat must release its lower-right space to the battle log').toBeGreaterThan(120);
+    const openLogRight = openLog.x + openLog.width;
     const collapsedLogRight = (collapsedLog?.x ?? 0) + (collapsedLog?.width ?? 0);
     expect(collapsedLogRight - openLogRight, 'expanded battle log must reach into the former chat area').toBeGreaterThan(120);
     expect((await chat.locator('.battle-side-header').boundingBox())?.height ?? 0, 'collapsed chat reopen control').toBeGreaterThanOrEqual(44);
@@ -2084,7 +2135,7 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     await expect(layout).not.toHaveClass(/combat-log-wide/);
     if (draftEnabled) await expect(draftInput).toHaveValue('unsent tactical draft');
     const restoredLog = await log.boundingBox();
-    expect(Math.abs((restoredLog?.width ?? 0) - (openLog?.width ?? 0)), 'reopened chat must restore the split log geometry').toBeLessThanOrEqual(3);
+    expect(Math.abs((restoredLog?.width ?? 0) - openLog.width), 'reopened chat must restore the split log geometry').toBeLessThanOrEqual(3);
     expect(await chat.locator('.battle-chat-messages').evaluate((feed) => feed.scrollHeight - feed.scrollTop - feed.clientHeight), 'reopened chat feed should stay at its newest message').toBeLessThanOrEqual(2);
 
     const pvpArtwork = await pvpRoot.locator('.combat-jutsu-thumb img').evaluateAll((images) => images.map((image) => {
@@ -2096,12 +2147,6 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
 });
 
 test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, request }, testInfo) => {
-    // WebKit needs roughly five minutes to exercise all 22 base viewports,
-    // six zoom equivalents, and both 12-frame arm/cancel traces; slower Windows
-    // GPU runners can approach eight. Keep this exhaustive test no-retry, but
-    // do not let the suite-wide 240s budget terminate a healthy final-viewport
-    // run before the zoom checks complete.
-    test.setTimeout(600_000);
     const { name, token } = await seedAccount(request, testInfo, 'tower');
     const savePreview = await fetchAuthoritativeSave(request, { name, token });
     await installSession(page, name, token, { acknowledgeEstablishedNotices: true, savePreview });
@@ -2127,6 +2172,20 @@ test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, 
 
     // BattleTowerFight is also the shared party-MPvE host. The authoritative
     // team-PvP variant gets its own real exact-2v2 journey below.
+    //
+    // The sweep covers 22 base viewports, six zoom equivalents and 12-frame
+    // arm/cancel traces at each. Linux WebKit in CI runs the whole test in about
+    // two minutes. Playwright's WebKit on Windows needed about four and a half
+    // minutes with five other Playwright runs sharing the machine, and on
+    // 2026-09-10 a saturated run reached its last viewport at 550s and was cut
+    // off at 600s with no action hung. Timing each phase (2026-09-10) put
+    // WebKit's sweep at 1.75 times Chromium's: the frame waits right after a
+    // resize, an arm and a cancel took three to four times as long, and no
+    // single phase dominates. Unlike the solo countdown, nothing idle drives that
+    // cost, so there is nothing to hold still. Keep this exhaustive test
+    // no-retry, but extend the allowance only here, so a hang during setup still
+    // fails at the suite's 240s. setTimeout counts from the test's start.
+    test.setTimeout(900_000);
     await assertJutsuSelectionGeometryStable(
         page,
         '.screen-battleTowerFight',

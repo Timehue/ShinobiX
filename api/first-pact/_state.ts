@@ -24,6 +24,8 @@ import {
 const FIRST_PACT_STATE_TTL_SECONDS = 5 * 365 * 24 * 60 * 60;
 
 export const firstPactStateKey = (playerName: string) => `first-pact:${playerName}`;
+export const standingCourtReceiptKey = (playerName: string, proofId: string) =>
+    `first-pact-standing-receipt:${playerName}:${proofId}`;
 
 export async function readFirstPactProgress(playerName: string, now = Date.now()): Promise<FirstPactProgress> {
     const stored = await kv.get<unknown>(firstPactStateKey(playerName));
@@ -37,13 +39,22 @@ export async function updateFirstPactProgress(
 ): Promise<FirstPactProgress> {
     const key = firstPactStateKey(playerName);
     return withKvLock(key, async () => {
-        const stored = await kv.get<unknown>(key);
-        const current = stored == null
-            ? createFirstPactProgress(now)
-            : normalizeFirstPactProgress(stored, now);
-        const next = normalizeFirstPactProgress(update(current), now);
-        await kv.set(key, next, { ex: FIRST_PACT_STATE_TTL_SECONDS });
-        return next;
+        // A delayed request can outlive the lock lease. Rebase a rejected CAS
+        // on the latest progress so checkpoints and other mutations preserve
+        // a Standing Court reward/proof committed by the next lock holder.
+        // Retry only a definite rejection: a thrown write may have committed,
+        // so leave recovery to the operation's normal idempotent retry path.
+        for (let attempt = 0; attempt < 5; attempt++) {
+            const stored = await kv.get<unknown>(key);
+            const current = stored == null
+                ? createFirstPactProgress(now)
+                : normalizeFirstPactProgress(stored, now);
+            const next = normalizeFirstPactProgress(update(current), now);
+            if (await kv.compareSet(key, stored, next, { ex: FIRST_PACT_STATE_TTL_SECONDS })) {
+                return next;
+            }
+        }
+        throw new Error('first-pact-progress-conflict');
     }, { failClosed: true });
 }
 
@@ -137,13 +148,33 @@ export async function settleFirstPactStandingCourtBattle(
     proofId: string,
     now = Date.now(),
 ): Promise<{ progress: FirstPactProgress; advanced: boolean }> {
-    let advanced = false;
-    const progress = await updateFirstPactProgress(playerName, (current) => {
+    const key = firstPactStateKey(playerName);
+    return withKvLock(key, async () => {
+        const stored = await kv.get<unknown>(key);
+        const current = normalizeFirstPactProgress(stored, now);
+        const safeProof = String(proofId).slice(0, 96);
+        if (safeProof && await kv.get(standingCourtReceiptKey(playerName, safeProof))) {
+            return { progress: current, advanced: false };
+        }
         const settled = settleFirstPactStandingCourtRound(current, roundId, outcome, proofId, now);
-        advanced = settled.advanced;
-        return settled.progress;
-    }, now);
-    return { progress, advanced };
+        if (!settled.advanced) return settled;
+
+        // The progress write contains the new proof and its reward together.
+        // Before its short history drops an ALREADY applied proof, preserve
+        // that proof permanently. A failed archive leaves it in the progress
+        // record, so retries cannot either repay it or lose an unpaid reward.
+        // This also works when the progress write commits but its reply is lost.
+        const next = normalizeFirstPactProgress(settled.progress, now);
+        for (const oldProof of current.standingCourt.battleProofs) {
+            if (!next.standingCourt.battleProofs.includes(oldProof)) {
+                await kv.set(standingCourtReceiptKey(playerName, oldProof), { applied: true });
+            }
+        }
+        if (!await kv.compareSet(key, stored, next, { ex: FIRST_PACT_STATE_TTL_SECONDS })) {
+            throw new Error('first-pact-standing-settlement-conflict');
+        }
+        return { progress: next, advanced: true };
+    }, { failClosed: true });
 }
 
 export async function checkpointFirstPact(
@@ -153,8 +184,8 @@ export async function checkpointFirstPact(
 ): Promise<{ progress: FirstPactProgress; checkpointed: boolean }> {
     let checkpointed = false;
     const progress = await updateFirstPactProgress(playerName, (current) => {
-        if (current.mainStep === "cross-the-threshold") return current;
-        checkpointed = true;
+        checkpointed = current.mainStep !== "cross-the-threshold";
+        if (!checkpointed) return current;
         return {
             ...current,
             lastVisitedAt: now,

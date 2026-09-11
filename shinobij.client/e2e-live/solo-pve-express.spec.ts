@@ -553,14 +553,41 @@ test('real built client completes and recovers a server-owned combat mission', a
     const claimableMission = page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' });
     await expect(claimableMission.getByRole('button', { name: /Claim Reward/ })).toBeVisible();
     const claimResponse = page.waitForResponse((response) => response.url().includes('/api/missions/claim-mission') && response.request().method() === 'POST');
+    // The claim records this fresh account's first AI kill, which makes the
+    // server-owned "pve-first" achievement eligible. Once the App adopts the
+    // claim it asks POST /api/achievements/sync to reconcile, and that sync
+    // credits the achievement's one-time reward. The credit lands a moment after
+    // the claim, so a save read taken straight away can fall on either side of
+    // it. Wait for that sync before taking the baseline the reload and re-login
+    // checks compare against. Registered before the click so it cannot be missed.
+    const achievementSyncResponse = page.waitForResponse(async (response) => {
+        if (
+            new URL(response.url()).pathname !== '/api/achievements/sync'
+            || response.request().method() !== 'POST'
+            || response.status() !== 200
+        ) return false;
+        const reply = await response.json().catch(() => null) as { character?: { unlockedAchievements?: unknown } } | null;
+        const unlocked = reply?.character?.unlockedAchievements;
+        return Array.isArray(unlocked) && unlocked.includes('pve-first');
+    }, { timeout: 20_000 });
     await claimableMission.getByRole('button', { name: /Claim Reward/ }).click();
     const claimed = await (await claimResponse).json() as Record<string, unknown>;
     expect(claimed.applied).toBe(true);
+    const claimedCharacter = claimed.character as Record<string, unknown>;
+    const achievementSync = await (await achievementSyncResponse).json() as Record<string, unknown> & {
+        reward?: { ryo?: unknown };
+    };
+    // The sync wrote after the claim reply was read, so the claimed wallet does
+    // not already include the achievement credit.
+    expect(Number(achievementSync._saveVersion)).toBeGreaterThan(Number(claimed._saveVersion));
 
     const persisted = await browserGet(page, `/api/save/${name}`);
     expect(persisted.status).toBe(200);
     const persistedCharacter = persisted.body.character as Record<string, unknown>;
     expect(Number(persistedCharacter.ryo)).toBeGreaterThan(100);
+    // Since the claim, the wallet has moved only by the credit the sync
+    // reported. A second payout of the mission or the achievement fails here.
+    expect(Number(persistedCharacter.ryo)).toBe(Number(claimedCharacter.ryo) + Number(achievementSync.reward?.ryo ?? 0));
     // Settlement recovery, reward claiming, and the injected lost-response retry
     // take long enough for ordinary village regeneration to tick. The physical
     // remainder may rise, but it must survive and must never become a free refill.
@@ -606,19 +633,41 @@ test('real built client records a flee without queueing a mission reward', async
     // reload/retry window. Start low enough that every replay still has a real,
     // observable physical remainder without changing production combat rules.
     const { name, token } = await seedAccount(request, testInfo, { hp: 20 });
+    // The seed's exact-HP write is an ordinary owner save, and ordinary saves
+    // are limited to one per player per fixed 3s window (save-burst). A flee can
+    // finish inside that window, and then the App's own save after the flee is
+    // throttled (429). Its retry conflicts with the hospital move, and after
+    // reloading the server copy the App has nothing left to save, so the save
+    // the flee helper waits for never arrives. Let the seed's window pass
+    // before the App boots, so the App's first save gets a window of its own.
+    await new Promise((resolve) => setTimeout(resolve, 3_100));
     await installSession(page, name, token);
+    // A fresh account's first boot runs the silent achievement backfill. It is
+    // a server save mutation, so it also settles idle regeneration into the
+    // stored HP, and combat-start reads that stored HP. Capture what the
+    // backfill stored so the fight is checked against it rather than the seed.
+    const bootSyncResponse = page.waitForResponse((response) => (
+        new URL(response.url()).pathname === '/api/achievements/sync'
+        && response.request().method() === 'POST'
+        && response.status() === 200
+    ), { timeout: 20_000 });
     await openMissionHall(page);
     for (let guard = 0; guard < 3; guard++) {
         const notice = page.getByRole('button', { name: /Got it/ }).last();
         if (!(await notice.isVisible().catch(() => false))) break;
         await notice.click();
     }
+    const bootSync = await (await bootSyncResponse).json() as { character?: Record<string, unknown> };
+    const storedHp = Number(bootSync.character?.hp);
+    // Regeneration can only add to the seeded 20.
+    expect(storedHp).toBeGreaterThanOrEqual(20);
 
     const mission = page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' });
     const startResponse = page.waitForResponse((response) => response.url().includes('/api/missions/combat-start') && response.request().method() === 'POST');
     await mission.getByRole('button', { name: /Begin Mission/ }).click();
     const started = await (await startResponse).json() as { runId: string; session: Session };
-    expect(started.session.player.hp).toBe(20);
+    // The fight starts from exactly the stored HP: no refill, and nothing stale.
+    expect(started.session.player.hp).toBe(storedHp);
     expect(started.session.player.hp).toBeLessThan(started.session.player.maxHp);
     const authoritativeOutcome = await fleeThroughVisibleMissionClient(page, name, started.runId, started.session);
     const terminal = authoritativeOutcome.session;

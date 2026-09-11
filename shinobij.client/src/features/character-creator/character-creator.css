@@ -332,6 +332,10 @@
     transform: scale(1.035);
 }
 
+@media (prefers-reduced-motion: reduce) {
+    .cc-bloodline-art img { transition: none; }
+}
+
 .cc-bloodline-art::after {
     content: "";
     position: absolute;

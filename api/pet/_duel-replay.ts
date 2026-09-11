@@ -282,9 +282,29 @@ export function replayLockstepPetDuel(
     opponentPets: Pet[],
     params: SealedDuelParams,
     log: readonly DuelInputLogEntry[],
+    autonomy?: readonly LockstepAutonomy[],
+): LockstepReplayResult;
+/** Verify only the ticks whose command windows have closed. A still-running
+ * fight has no verdict; in particular its current HP must not score a win. */
+export function replayLockstepPetDuel(
+    playerPets: Pet[],
+    opponentPets: Pet[],
+    params: SealedDuelParams,
+    log: readonly DuelInputLogEntry[],
+    autonomy: readonly LockstepAutonomy[],
+    throughTick: number,
+): LockstepReplayResult | null;
+export function replayLockstepPetDuel(
+    playerPets: Pet[],
+    opponentPets: Pet[],
+    params: SealedDuelParams,
+    log: readonly DuelInputLogEntry[],
     /** Sides whose player dropped. Omitted when both played it out. */
     autonomy: readonly LockstepAutonomy[] = [],
-): LockstepReplayResult {
+    throughTick?: number,
+): LockstepReplayResult | null {
+    const ceiling = throughTick === undefined ? MAX_REPLAY_TICKS
+        : Number.isFinite(throughTick) ? Math.floor(throughTick) : -1;
     const { mode, seed, applyItems, accuracy, terrain } = params;
     const sim = mode === '2v2'
         ? createLivePartyCinematicDuel(
@@ -310,7 +330,7 @@ export function replayLockstepPetDuel(
     // the client tracks them, so the meter gates the same way on both.
     const doctrineBond = new Map<string, number>();
 
-    for (let guard = 0; guard < MAX_REPLAY_TICKS; guard++) {
+    for (let guard = 0; guard < MAX_REPLAY_TICKS && sim.t <= ceiling; guard++) {
         applied += applyDoctrineTick(sim, autonomy, doctrineBond);
         while (i < log.length && log[i].t <= sim.t) {
             const { t, cmd } = log[i++];
@@ -334,6 +354,10 @@ export function replayLockstepPetDuel(
         if (!stepCinematicDuel(sim)) break;
     }
 
+    // finishCinematicDuel also scores an unfinished state by remaining HP. That
+    // fallback is useful to offline callers, but cannot decide a live match
+    // while either participant still has time to submit commands.
+    if (throughTick !== undefined && !sim.done) return null;
     const final = finishCinematicDuel(sim);
     // `result` is from the "player" team's perspective, i.e. the challenger's.
     const winner = final.result === 'win' ? 'p1' : final.result === 'loss' ? 'p2' : null;

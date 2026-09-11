@@ -1,15 +1,15 @@
 // World-map pinch/drag zoom (worldMapZoom.v1).
 //
-// The painted world map (`world_map-v2.webp`) is a fixed 1672x941 layer with ~60 sector
+// The painted world map (`world_map-v2.webp`) is a fixed 1672x941 layer with 67 sector
 // markers pinned to percentage coordinates. On desktop it already fits the
 // screen responsively (`.generated-world-map { width:100%; aspect-ratio }`), but
 // the legacy MOBILE path forced it to a fixed 1100×733 canvas with horizontal
 // scrolling + 2× inflated markers — which piled the markers into an unreadable,
 // un-tappable blob and clipped the map at the screen edges.
 //
-// This hook restores the fit-to-screen painting on mobile and adds a proper
-// pan/zoom surface on top (one finger pans, two fingers pinch, double-tap
-// toggles, +/- buttons, village jump). The whole map (background + every marker
+// This hook fits six overlapping atlas areas within the mobile game shell, with
+// one-finger pan, pinch zoom, and a complete-world overview. The whole map
+// (background + every marker
 // + the ownership overlay) rides ONE transform on the map div, so everything
 // stays perfectly registered. Gameplay is untouched — only how the map meets the
 // screen changes.
@@ -17,23 +17,23 @@
 // COSMETIC / UI ONLY: no balance, saves, rewards, or travel logic here.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { VIEWPORT_BREAKPOINTS } from "./viewport-contract";
+import { getWorldMapRegionView, WORLD_MAP_ASPECT_RATIO, WORLD_MAP_MOBILE_QUERY, type WorldMapRegionId } from "./world-map-regions";
+export { WORLD_MAP_ASPECT_RATIO } from "./world-map-regions";
 import { normalizeOnboardingStep } from "./onboarding-step";
 import { ACADEMY_TRAIL_FOCUS_EVENT } from "./academy-trail-focus";
 import { villageOutskirtsSectorNumber } from "../data/sectors";
 import type { Character } from "../types/character";
 
-const MIN_ZOOM = 1;            // fit-to-width — the whole painting is visible
+const MIN_ZOOM = 1;            // fit-to-width; short screens can fit below 1
 const MAX_ZOOM = 4;            // deep enough for comfortable tap targets
-const DOUBLE_TAP_ZOOM = 2.6;   // where a double-tap lands (markers ≈ 55px)
+const DOUBLE_TAP_ZOOM = 2.6;   // detail view; marker targets keep their screen size
 const CHIP_ZOOM = 2.4;         // village quick-jump target zoom
 const DOUBLE_TAP_MS = 320;     // max gap between taps to count as a double-tap
 const TAP_SLOP_PX = 14;        // max finger travel that still counts as a tap
 // The percentage-positioned landmarks and the painting share this exact source
-// aspect. Tall viewports use a uniform cover transform; the artwork is never
+// aspect. All viewports use a uniform camera transform; the artwork is never
 // stretched away from its interactive coordinate system.
-export const WORLD_MAP_ASPECT_RATIO = 1672 / 941;
-const MOBILE_SHELL_QUERY = `(max-width: ${VIEWPORT_BREAKPOINTS.md - 1}px)`;
+const MOBILE_SHELL_QUERY = WORLD_MAP_MOBILE_QUERY;
 const WORLD_MAP_CONTROL_SELECTOR = "button, a, input, select, textarea, [role='button']";
 
 /** Interactive descendants keep ownership of a clean tap. Capturing their
@@ -44,22 +44,21 @@ export function isWorldMapControlTarget(target: EventTarget | null): boolean {
     return typeof closest === "function" && Boolean(closest.call(target, WORLD_MAP_CONTROL_SELECTOR));
 }
 
-/** Master flag. Default ON for narrow / touch viewports; a per-device
- *  `worldMapZoom.v1` localStorage override forces gestures on ("1") or off
- *  ("0"). The fallback remains responsive and preserves the source aspect. */
+/** Default ON only inside the mobile shell. A per-device `worldMapZoom.v1`
+ *  value of "0" opts out; an old "1" cannot enable the mobile map on desktop.
+ *  The fallback remains responsive and preserves the source aspect. */
 export function isWorldMapZoomEnabled(): boolean {
     try {
-        const o = localStorage.getItem("worldMapZoom.v1");
-        if (o === "0") return false;
-        if (o === "1") return true;
-    } catch { /* private mode — fall through to viewport default */ }
-    try {
-        return typeof window !== "undefined"
-            && typeof window.matchMedia === "function"
-            && window.matchMedia(MOBILE_SHELL_QUERY).matches;
+        if (typeof window === "undefined" || typeof window.matchMedia !== "function"
+            || !window.matchMedia(MOBILE_SHELL_QUERY).matches) return false;
     } catch {
         return false;
     }
+    try {
+        const o = localStorage.getItem("worldMapZoom.v1");
+        if (o === "0") return false;
+    } catch { /* private mode — fall through to viewport default */ }
+    return true;
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -81,7 +80,8 @@ function clampPanForSize(size: Size, zoom: number, tx: number, ty: number): Pt {
 
 function coverZoomForSize(size: Size): number {
     if (!size.w || !size.h) return MIN_ZOOM;
-    return clamp(size.h / (size.w / WORLD_MAP_ASPECT_RATIO), MIN_ZOOM, MAX_ZOOM);
+    // Pinch-out must reach the complete world even on a short landscape phone.
+    return Math.min(MIN_ZOOM, size.h / (size.w / WORLD_MAP_ASPECT_RATIO));
 }
 
 function coverViewForSize(size: Size): MapView {
@@ -102,7 +102,7 @@ function sameView(a: MapView, b: MapView): boolean {
 }
 
 export interface WorldMapZoomApi {
-    /** True when zoom mode is active (narrow/touch + flag). When false the map
+    /** True within the mobile shell unless opted out. When false the map
      *  renders exactly as the legacy path — this hook adds nothing. */
     active: boolean;
     /** Attach to the `.world-map-scroll` viewport element. */
@@ -118,6 +118,8 @@ export interface WorldMapZoomApi {
         onPointerUp: (e: React.PointerEvent) => void;
         onPointerCancel: (e: React.PointerEvent) => void;
         onLostPointerCapture: (e: React.PointerEvent) => void;
+        onClickCapture: (e: React.MouseEvent) => void;
+        onFocusCapture: (e: React.FocusEvent) => void;
     };
     /** Static inline style for the map div — the displayed aspect only. The
      *  transform deliberately does NOT live here: see `applyView`. */
@@ -127,6 +129,9 @@ export interface WorldMapZoomApi {
     reset: () => void;
     /** Fly to a map point given in map-percent coords (0–100) at a tappable zoom. */
     focusPoint: (xPct: number, yPct: number, targetZoom?: number) => void;
+    /** A selected area stays selected and is re-fitted after browser/rotation resize. */
+    selectedRegion: WorldMapRegionId | null;
+    focusRegion: (region: WorldMapRegionId) => void;
 }
 
 type AcademyMapPoint = Readonly<{ id: number; x: number; y: number }>;
@@ -167,8 +172,15 @@ export function useAcademyWorldMapFocus({ character, sectorPoints, zoomActive, f
     return targetId;
 }
 
-export function useWorldMapZoom(): WorldMapZoomApi {
+export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): WorldMapZoomApi {
     const [active, setActive] = useState<boolean>(() => isWorldMapZoomEnabled());
+    const [selectedRegion, setSelectedRegion] = useState<WorldMapRegionId | null>(initialRegion);
+    const regionRef = useRef<WorldMapRegionId | null>(initialRegion);
+    const releaseRegion = useCallback(() => {
+        if (regionRef.current === null) return;
+        regionRef.current = null;
+        setSelectedRegion(null);
+    }, []);
 
     // Live refs so pointer handlers never read stale closure state.
     const elRef = useRef<HTMLDivElement | null>(null);
@@ -211,12 +223,8 @@ export function useWorldMapZoom(): WorldMapZoomApi {
     // has moved enough to change it visibly, which keeps it off the pan path
     // entirely: panning never changes zoom.
     //
-    // What that variable is for: the markers ride the map's own `scale(zoom)`, so
-    // unaided they inflate at exactly the rate the spacing does and a clustered
-    // village stays clustered no matter how far you zoom (the "it's just a
-    // magnified picture" problem). Dividing their scale by zoom^0.7 grows each pin
-    // only ~zoom^0.3, so it holds a near-constant tappable size while the gaps
-    // between pins open at full zoom — zooming actually SPREADS the sectors.
+    // Counter-scale pins by the inverse camera zoom. Their touch targets stay
+    // the same screen size, while pinch zoom spreads crowded destinations apart.
     const applyView = useCallback((animate: boolean) => {
         const el = contentElRef.current;
         if (!el) return;
@@ -230,7 +238,7 @@ export function useWorldMapZoom(): WorldMapZoomApi {
         const v = viewRef.current;
         el.style.transition = animate ? "transform 140ms ease-out" : "none";
         el.style.transform = `translate(${v.tx}px, ${v.ty}px) scale(${v.zoom})`;
-        const markerScale = clamp(Math.pow(v.zoom, -0.7), 0.34, 1);
+        const markerScale = 1 / Math.max(0.01, v.zoom);
         const applied = appliedMarkerScaleRef.current;
         // Number.isNaN(applied) is the "never written yet" case, so it must write.
         if (Number.isNaN(applied) || Math.abs(markerScale - applied) >= 0.005) {
@@ -244,11 +252,12 @@ export function useWorldMapZoom(): WorldMapZoomApi {
     const commitView = useCallback((
         next: MapView | ((current: MapView) => MapView),
         animate = false,
+        immediate = false,
     ) => {
         viewRef.current = typeof next === "function" ? next(viewRef.current) : next;
-        if (animate) {
+        if (animate || immediate) {
             if (applyFrameRef.current) { cancelAnimationFrame(applyFrameRef.current); applyFrameRef.current = 0; }
-            applyView(true);
+            applyView(animate);
             return;
         }
         if (applyFrameRef.current) return;
@@ -281,6 +290,7 @@ export function useWorldMapZoom(): WorldMapZoomApi {
     const pinch = useRef<{ dist: number; mid: Pt } | null>(null);
     const lastTap = useRef<{ t: number; x: number; y: number } | null>(null);
     const moved = useRef(0);
+    const suppressClick = useRef(false);
 
     // ── Activation: track viewport width + the flag override ──────────────────
     useEffect(() => {
@@ -330,7 +340,14 @@ export function useWorldMapZoom(): WorldMapZoomApi {
         wheelCleanupRef.current?.();
         wheelCleanupRef.current = null;
         elRef.current = el;
-        if (!el) return;
+        if (!el) {
+            measureRef.current = () => undefined;
+            pointers.current.clear();
+            pinch.current = null;
+            lastTap.current = null;
+            suppressClick.current = false;
+            return;
+        }
         const onWheel = (event: WheelEvent) => wheelHandlerRef.current(event);
         el.addEventListener("wheel", onWheel, { passive: false });
         wheelCleanupRef.current = () => el.removeEventListener("wheel", onWheel);
@@ -345,6 +362,9 @@ export function useWorldMapZoom(): WorldMapZoomApi {
             cancelAnimationFrame(animationFrame);
             animationFrame = requestAnimationFrame(() => {
                 commitView((current) => {
+                    if (regionRef.current !== null) {
+                        return getWorldMapRegionView(nextSize, regionRef.current);
+                    }
                     // "At home" means the camera IS the home view — at the
                     // floor zoom AND at the cover pan — not merely at the floor
                     // zoom. A trail focus or a player's pan can sit at the floor
@@ -402,37 +422,43 @@ export function useWorldMapZoom(): WorldMapZoomApi {
         return { tx: point.x, ty: point.y };
     }, []);
 
-    // The MINIMUM allowed zoom: the "cover" zoom at which the map exactly fills
-    // the viewport height. This is the pinch-out floor, so you can never zoom out
-    // into an ugly black-bar letterbox — the map stays full-bleed at every zoom.
-    // Viewport-dependent (recomputed from the live size each call).
+    // The minimum zoom fits the entire painting, including landscape phones.
     const coverZoom = useCallback(() => {
         return coverZoomForSize(sizeRef.current);
     }, []);
 
-    // The mobile "home" / reset view: the map scaled to COVER the viewport height,
-    // centered horizontally — big, immersive, and never letterboxed. This equals
-    // the minimum zoom, so pinch-out lands exactly here. Region chips + pan reach
-    // the cropped edges, so nothing is unreachable.
+    // A complete-world overview remains available through pinch-out/double-tap.
     const coverView = useCallback(() => {
         return coverViewForSize(sizeRef.current);
     }, []);
 
-    // Apply the fill-height home view once the viewport has been measured, and
-    // again on re-activation (e.g. rotating back into the mobile breakpoint). rAF
-    // lets the viewportRef measurement run first so sizeRef is populated (and keeps
-    // the setState out of the effect body).
+    const focusRegion = useCallback((region: WorldMapRegionId) => {
+        suppressClick.current = false;
+        lastTap.current = null;
+        // Clear any legacy scroll offset when returning to a camera preset.
+        if (elRef.current) {
+            elRef.current.scrollLeft = 0;
+            elRef.current.scrollTop = 0;
+        }
+        regionRef.current = region;
+        setSelectedRegion(region);
+        commitView(getWorldMapRegionView(sizeRef.current, region), true);
+    }, [commitView]);
+
+    // Open at the player's area. Academy focus runs afterward and can still
+    // point directly at its target without being reset by viewport measurement.
     useEffect(() => {
         if (!active) return;
-        const id = requestAnimationFrame(() => commitView(coverView()));
+        const id = requestAnimationFrame(() => focusRegion(initialRegion));
         return () => cancelAnimationFrame(id);
-    }, [active, coverView, commitView]);
+    }, [active, initialRegion, focusRegion]);
 
     // Zoom to `nextZoom` while holding the map point under (fx,fy) — viewport-
     // relative pixels — fixed on screen.
     // `animate` marks a discrete camera move (button, wheel, double-tap) so it
     // eases; a continuous gesture passes false and lands on the finger.
     const zoomAt = useCallback((nextZoom: number, fx: number, fy: number, animate = true) => {
+        releaseRegion();
         const minZ = coverZoom();
         commitView((v) => {
             const z1 = clamp(nextZoom, minZ, MAX_ZOOM);
@@ -441,7 +467,7 @@ export function useWorldMapZoom(): WorldMapZoomApi {
             const p = clampPan(z1, tx, ty);
             return { zoom: z1, tx: p.tx, ty: p.ty };
         }, animate);
-    }, [clampPan, coverZoom, commitView]);
+    }, [clampPan, coverZoom, commitView, releaseRegion]);
 
     const centerZoom = useCallback((nextZoom: number) => {
         const { w, h } = sizeRef.current;
@@ -456,12 +482,17 @@ export function useWorldMapZoom(): WorldMapZoomApi {
 
     const onPointerDown = useCallback((e: React.PointerEvent) => {
         if (!activeRef.current) return;
-        if (isWorldMapControlTarget(e.target)) return;
-        (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+        // Track a gesture even when it starts on a marker, but keep a clean
+        // tap's native target. Capture it only once it becomes an actual drag.
+        if (!isWorldMapControlTarget(e.target)) {
+            (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+        }
+        if (pointers.current.size === 0) suppressClick.current = false;
         const p = localPt(e);
         pointers.current.set(e.pointerId, p);
         moved.current = 0;
         if (pointers.current.size === 2) {
+            suppressClick.current = true;
             const [a, b] = [...pointers.current.values()];
             pinch.current = {
                 dist: Math.hypot(a.x - b.x, a.y - b.y),
@@ -478,6 +509,7 @@ export function useWorldMapZoom(): WorldMapZoomApi {
         pointers.current.set(e.pointerId, p);
 
         if (pointers.current.size >= 2 && pinch.current) {
+            releaseRegion();
             const [a, b] = [...pointers.current.values()];
             const dist = Math.hypot(a.x - b.x, a.y - b.y);
             const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
@@ -501,11 +533,15 @@ export function useWorldMapZoom(): WorldMapZoomApi {
         const dx = p.x - prev.x;
         const dy = p.y - prev.y;
         moved.current += Math.abs(dx) + Math.abs(dy);
+        if (moved.current <= TAP_SLOP_PX) return;
+        releaseRegion();
+        suppressClick.current = true;
+        (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
         commitView((v) => {
             const c = clampPan(v.zoom, v.tx + dx, v.ty + dy);
             return { zoom: v.zoom, tx: c.tx, ty: c.ty };
         });
-    }, [clampPan, coverZoom, commitView]);
+    }, [clampPan, coverZoom, commitView, releaseRegion]);
 
     const endPointer = useCallback((e: React.PointerEvent) => {
         if (!activeRef.current) return;
@@ -515,25 +551,47 @@ export function useWorldMapZoom(): WorldMapZoomApi {
         if (pointers.current.size < 2) pinch.current = null;
 
         // Double-tap toggle (only a clean tap — little finger travel).
-        if (moved.current <= TAP_SLOP_PX) {
+        if (moved.current <= TAP_SLOP_PX && !suppressClick.current && !isWorldMapControlTarget(e.target)) {
             const now = typeof performance !== "undefined" ? performance.now() : 0;
             const prev = lastTap.current;
             if (prev && now - prev.t < DOUBLE_TAP_MS
                 && Math.hypot(p.x - prev.x, p.y - prev.y) < 40) {
-                // Toggle: at the full-bleed floor → zoom in on the tap; otherwise
-                // zoom back out to the full-bleed cover view (never past it).
+                // A background double-tap toggles detail and the entire world.
                 if (viewRef.current.zoom <= coverZoom() + 0.05) zoomAt(DOUBLE_TAP_ZOOM, p.x, p.y);
-                else commitView(coverView(), true);
+                else { releaseRegion(); commitView(coverView(), true); }
                 lastTap.current = null;
                 return;
             }
             lastTap.current = { t: now, x: p.x, y: p.y };
         }
-    }, [zoomAt, coverZoom, coverView, commitView]);
+    }, [zoomAt, coverZoom, coverView, commitView, releaseRegion]);
 
     const cancelPointer = useCallback((e: React.PointerEvent) => {
         pointers.current.delete(e.pointerId);
         if (pointers.current.size < 2) pinch.current = null;
+    }, []);
+
+    const lostPointerCapture = useCallback((e: React.PointerEvent) => {
+        // Touch starts with implicit capture on a marker. When a drag transfers
+        // that capture to the viewport, the marker's lost event bubbles here;
+        // it must not cancel the gesture that the viewport has just acquired.
+        if (e.target !== e.currentTarget) return;
+        cancelPointer(e);
+    }, [cancelPointer]);
+
+    const onClickCapture = useCallback((e: React.MouseEvent) => {
+        if (!activeRef.current || !suppressClick.current) return;
+        // Keyboard and assistive activation is a fresh action, even after a
+        // drag was interrupted without producing its own pointer click.
+        if (e.detail === 0) {
+            suppressClick.current = false;
+            return;
+        }
+        // Some mobile browsers still synthesize a click after a captured drag.
+        // Block only that gesture's click; the next pointer-down clears the flag.
+        e.preventDefault();
+        e.stopPropagation();
+        suppressClick.current = false;
     }, []);
 
     useEffect(() => {
@@ -550,6 +608,7 @@ export function useWorldMapZoom(): WorldMapZoomApi {
     }, [zoomAt]);
 
     const focusPoint = useCallback((xPct: number, yPct: number, targetZoom = CHIP_ZOOM) => {
+        releaseRegion();
         const { w, h } = sizeRef.current;
         const bh = w / WORLD_MAP_ASPECT_RATIO;
         const z = clamp(targetZoom, coverZoom(), MAX_ZOOM);
@@ -558,7 +617,37 @@ export function useWorldMapZoom(): WorldMapZoomApi {
         const cy = (yPct / 100) * bh;
         const p = clampPan(z, w / 2 - cx * z, h / 2 - cy * z);
         commitView({ zoom: z, tx: p.tx, ty: p.ty }, true);
-    }, [clampPan, coverZoom, commitView]);
+    }, [clampPan, coverZoom, commitView, releaseRegion]);
+
+    const onFocusCapture = useCallback((e: React.FocusEvent) => {
+        const viewport = elRef.current;
+        const target = e.target as HTMLElement;
+        // A pointer tap keeps its destination still. Keyboard and assistive
+        // focus instead reveal an off-camera marker before it is activated.
+        if (!activeRef.current || !viewport || pointers.current.size > 0
+            || !target.matches(".atlas-sector, .atlas-landmark")) return;
+        // A region may still be easing toward viewRef's endpoint. Finish that
+        // move before comparing painted marker bounds with camera coordinates.
+        commitView(viewRef.current, false, true);
+        viewport.scrollLeft = 0;
+        viewport.scrollTop = 0;
+        const bounds = viewport.getBoundingClientRect();
+        const marker = target.getBoundingClientRect();
+        const left = bounds.left + viewport.clientLeft;
+        const top = bounds.top + viewport.clientTop;
+        const { w, h } = sizeRef.current;
+        const ring = target.matches(".atlas-sector") ? 6 : 0;
+        if (marker.left - ring >= left && marker.right + ring <= left + w
+            && marker.top - ring >= top && marker.bottom + ring <= top + h) return;
+        const current = viewRef.current;
+        const pan = clampPan(current.zoom,
+            current.tx + left + w / 2 - (marker.left + marker.width / 2),
+            current.ty + top + h / 2 - (marker.top + marker.height / 2));
+        releaseRegion();
+        // Apply synchronously so the browser's focus reveal sees the marker
+        // inside its camera, rather than scrolling the page toward stale bounds.
+        commitView({ ...current, ...pan }, false, true);
+    }, [clampPan, commitView, releaseRegion]);
 
     // Deliberately camera-INDEPENDENT, so a re-render from anywhere else in
     // WorldMap (a presence poll, a timer) can never write a stale transform over
@@ -578,12 +667,16 @@ export function useWorldMapZoom(): WorldMapZoomApi {
             onPointerMove,
             onPointerUp: endPointer,
             onPointerCancel: cancelPointer,
-            onLostPointerCapture: cancelPointer,
+            onLostPointerCapture: lostPointerCapture,
+            onClickCapture,
+            onFocusCapture,
         },
         contentStyle,
         zoomIn: () => centerZoom(viewRef.current.zoom * 1.4),
         zoomOut: () => centerZoom(viewRef.current.zoom / 1.4),
-        reset: () => commitView(coverView(), true),
+        reset: () => { releaseRegion(); commitView(coverView(), true); },
         focusPoint,
+        selectedRegion,
+        focusRegion,
     };
 }

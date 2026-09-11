@@ -211,6 +211,15 @@ test("names the granting bloodline in the details panel, where there is room for
     assert.match(html, /jutsu-detail-title[\s\S]*?◆ Bloodline · Ashen Eyes/);
 });
 
+test("the details panel fills battle tokens when a jutsu has only battle flavor", () => {
+    // The starter bloodline kits ship a battle line and no card description.
+    const kitJutsu: Jutsu = { ...jutsu("bloodline-jutsu", "Crimson Hallucination"), battleDescription: "%target wanders a blood-red nightmare." };
+    const html = bloodlineMarkup([kitJutsu], new Map([["bloodline-jutsu", "Ashen Eyes"]]), ["bloodline-jutsu"]);
+
+    assert.match(html, /<p class="jutsu-detail-description">The target wanders a blood-red nightmare\.<\/p>/);
+    assert.doesNotMatch(html, /%target|%user/);
+});
+
 test("hides the bloodline controls when no learned jutsu comes from a bloodline", () => {
     const html = bloodlineMarkup(plainAndBloodline, new Map());
 

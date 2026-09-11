@@ -16,6 +16,12 @@ function json(route: Route, body: unknown, status = 200) {
     return route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 }
 
+// /api/img serves image bytes in production, so the stub must too. The JSON
+// fallback below would fail to decode, the image guard would hide the <img>,
+// and the artwork audit would then report broken art that is really this stub.
+// No stubbed screen requested /api/img when this was added (2026-09-10).
+const IMAGE_PLACEHOLDER = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1cAAAAASUVORK5CYII=", "base64");
+
 export function uiAuditSave(): UiAuditSave {
     const stats = {
         strength: 80,
@@ -124,6 +130,7 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
         const normalizedPath = path.toLowerCase();
 
         if (path === "/api/perf-beacon") return route.fulfill({ status: 204 });
+        if (path === "/api/img") return route.fulfill({ status: 200, contentType: "image/png", body: IMAGE_PLACEHOLDER });
         if (path === "/api/player-auth") return json(route, { ok: true, token: "ui-audit-token" });
         if (normalizedPath === "/api/save/auditninja") {
             if (request.method() === "GET") return json(route, { ...save, _saveVersion: saveVersion });
