@@ -10,6 +10,7 @@ import { preloadScreen } from "../lib/screen-preload";
 import { VILLAGE_FACILITIES } from "../lib/facility-presentation";
 import { facilityThumb } from "../lib/facility-thumbs";
 import type { CSSProperties } from "react";
+import { CircuitNotice } from '../features/dojo-circuit/CircuitEntry';
 
 // Ambience tuned to each village's painted scene: snow over Frostfang, drifting
 // petals over Moonshadow, leaves over the forest villages, rain over Stormveil's
@@ -27,6 +28,7 @@ export function Village({ character, setScreen }: { character: Character; setScr
 
     return (
         <div className="stormveil-village-screen">
+            <CircuitNotice village={characterVillage} playerName={character.name} onOpen={() => setScreen('dojoCircuit')} />
             <div className="village-save-bar">
                 <div className="village-safe-zone">SAFE ZONE</div>
             </div>

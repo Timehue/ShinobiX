@@ -30,6 +30,7 @@ import { makeId } from "../lib/utils";
 import {
     loadArenaActiveFights,
     loadArenaTournament,
+    loadDojoCircuitEnabled,
     finalizeArenaTournamentWinner,
     saveArenaTournament,
     savePendingClanPetBattle,
@@ -114,6 +115,7 @@ export function Arena({
         () => (hasActiveTeamArenaMatch() ? "teamArena" : "spar"),
     );
     const [arenaTournament, setArenaTournament] = useState<ArenaTournament | null>(() => loadArenaTournament());
+    const [dojoCircuitEnabled, setDojoCircuitEnabled] = useState(() => loadDojoCircuitEnabled());
     const [tournamentWinnerBusy, setTournamentWinnerBusy] = useState(false);
     const [spectatorFights, setSpectatorFights] = useState<ArenaSpectatorFight[]>(() => loadArenaActiveFights());
     const [opponentClanData, setOpponentClanData] = useState<EnhancedClanData | null>(null);
@@ -128,6 +130,9 @@ export function Arena({
     useEffect(() => {
         const refreshArenaState = () => {
             setArenaTournament(loadArenaTournament());
+            const enabled = loadDojoCircuitEnabled();
+            setDojoCircuitEnabled(enabled);
+            if (!enabled) setActiveArenaTab((tab) => tab === "tournaments" ? "ranked" : tab);
             setSpectatorFights(loadArenaActiveFights());
         };
         refreshArenaState();
@@ -301,7 +306,7 @@ export function Arena({
             .filter((name, index, names) => names.indexOf(name) === index);
         const tournament: ArenaTournament = {
             id: `tourney-${Date.now()}`,
-            name: "Weekly Arena Tournament",
+            name: "Dojo Circuit",
             createdBy: character.name,
             startsAt: Date.now(),
             endsAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
@@ -499,6 +504,7 @@ export function Arena({
             clanWarOpponents={clanWarOpponents}
             incomingClanWarChallenges={incomingClanWarChallenges}
             arenaTournament={arenaTournament}
+            dojoCircuitEnabled={dojoCircuitEnabled}
             tournamentRemaining={tournamentRemaining}
             matchRemaining={matchRemaining}
             isAdminTournamentManager={isFullAdminAccountName(character.name)}
@@ -508,7 +514,7 @@ export function Arena({
             spectatorFights={activeSpectatorFights}
             pendingSpectatorChallenges={pendingSpectatorChallenges}
             onBack={() => setScreen("centralHub")}
-            onTabChange={setActiveArenaTab}
+            onTabChange={(tab) => tab === 'tournaments' ? setScreen('dojoCircuit') : setActiveArenaTab(tab)}
             onChallengePlayer={(...args) => { void challengePlayer(...args); }}
             onAcceptDistrictChallenge={acceptDistrictChallenge}
             onDeclineChallenge={onDeclineChallenge}

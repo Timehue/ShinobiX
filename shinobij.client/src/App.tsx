@@ -205,6 +205,8 @@ const Home = lazyWithRetry(() => import("./screens/Home").then(m => ({ default: 
 const ClanWarTileCardDuel = lazyWithRetry(() => import("./screens/ClanWarTileCardDuel").then(m => ({ default: m.ClanWarTileCardDuel })));
 const ShinobiCouncilHall = lazyWithRetry(() => import("./screens/ShinobiCouncilHall").then(m => ({ default: m.ShinobiCouncilHall })));
 const CardClashDuel = lazyWithRetry(() => import("./screens/CardClashDuel").then(m => ({ default: m.CardClashDuel })));
+const DojoCircuit = lazyWithRetry(() => import("./screens/DojoCircuit").then(m => ({ default: m.DojoCircuit })));
+const CircuitReturnRibbon = lazyWithRetry(() => import("./features/dojo-circuit/CircuitEntry").then(m => ({ default: m.CircuitReturnRibbon })));
 const CardHall = lazyWithRetry(() => import("./screens/CardHall").then(m => ({ default: m.CardHall })));
 const EchoesOfWar = lazyWithRetry(() => import("./screens/EchoesOfWar").then(m => ({ default: m.EchoesOfWar })));
 const GuidesLibrary = lazyWithRetry(() => import("./components/GuidesLibrary").then(m => ({ default: m.GuidesLibrary })));
@@ -265,7 +267,7 @@ import {
     type ActiveTraining,
     type ActiveJutsuTraining,
 } from "./types/combat";
-import type { CreatorEvent, StoryStep } from "./types/vn";
+import type { CreatorEvent, PendingArenaStoryBattle, StoryStep } from "./types/vn";
 import {
     type HollowGateTile,
     type HollowGateShrineRun,
@@ -440,7 +442,7 @@ import {
 // CreatorEvent + StoryStep (the VN content types) moved to ./types/vn —
 // imported at the top of this file and re-exported here so the many
 // `import { ... CreatorEvent ... } from "../App"` sites keep working unchanged.
-export type { CreatorEvent, StoryStep };
+export type { CreatorEvent, PendingArenaStoryBattle, StoryStep };
 
 // Creator mission/raid content types (MissionRank, CreatorMission, CreatorRaid)
 // moved to ./types/missions and imported back near the top of this file.
@@ -450,28 +452,7 @@ export type { CreatorEvent, StoryStep };
 
 // StoryStep moved to ./types/vn (re-exported with CreatorEvent above).
 
-// (The old "storyBoss" member is gone — story bosses are sealed server sessions
-// hosted inside StoryHall, not Arena battles. See api/story/boss-start.)
-export type PendingArenaStoryBattle =
-    | {
-        kind: "triggeredEvent";
-        event: CreatorEvent;
-        battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"];
-        returnScreen: Screen;
-    }
-    | {
-        kind: "dungeonAi";
-        returnScreen: Screen;
-        eventId: string;
-    }
-    | {
-        // Academy Sparring Match — the onboarding "guaranteed first win".
-        // A deliberately weak Lv-1 training dummy (low HP, Lv-1 offense) so a
-        // combat-ready new player wins in a few hits. Its sealed story
-        // settlement advances onboardingStep -> "cafeteria".
-        kind: "academySparring";
-        returnScreen: Screen;
-    };
+// PendingArenaStoryBattle moved to ./types/vn too (imported and re-exported above).
 
 // ── Hollow Gate Shrine — crawler dungeon ──────────────────────────────────────
 // A tile-based exploration screen revealed by the Kage's one-time Hollow Gate
@@ -6003,6 +5984,8 @@ export default function App() {
                     </Suspense>
                 )}
 
+                {!activeTriggeredEvent && character && <Suspense fallback={null}><CircuitReturnRibbon name={character.name} screen={screen} onReturn={() => navigate('dojoCircuit')} /></Suspense>}
+                {!activeTriggeredEvent && screen === 'dojoCircuit' && character && <DojoCircuit key={character.name} character={character} setScreen={navigate} />}
                 {!activeTriggeredEvent && screen === "village" && character && (<>
                     <Suspense fallback={null}>
                         <NextGoalPin character={character} navigate={navigate} />
@@ -6132,7 +6115,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "shop" && character && <Shop character={character} creatorItems={creatorItems} creatorCards={creatorCards} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} onOpenEchoesOfWar={() => setScreen("echoesOfWar")} />}
                 {!activeTriggeredEvent && screen === "premiumShop" && character && <PremiumShop character={character} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "grandMarketplace" && character && <GrandMarketplace character={character} creatorItems={creatorItems} creatorCards={creatorCards} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} onOpenEchoesOfWar={() => setScreen("echoesOfWar")} />}
-                {!activeTriggeredEvent && screen === "shinobiTiles" && character && <CardHall character={character} updateCharacter={setCharacter} creatorCards={creatorCards} onBack={goBack} autoStart={cardAutoStart} onAutoStartConsumed={() => setCardAutoStart(false)} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} onStartFreePlay={(matchId) => { try { sessionStorage.setItem("cardClashFreePlay.v1", JSON.stringify({ matchId })); } catch { /* ignore */ } setScreen("cardClashFreePlay"); }} />}
+                {!activeTriggeredEvent && screen === "shinobiTiles" && character && <CardHall character={character} updateCharacter={setCharacter} creatorCards={creatorCards} onBack={goBack} onReturnCircuit={() => navigate("dojoCircuit")} autoStart={cardAutoStart} onAutoStartConsumed={() => setCardAutoStart(false)} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} onStartFreePlay={(matchId) => { try { sessionStorage.setItem("cardClashFreePlay.v1", JSON.stringify({ matchId })); } catch { /* ignore */ } setScreen("cardClashFreePlay"); }} />}
                 {!activeTriggeredEvent && screen === "guides" && <GuidesLibrary onExit={goBack} />}
                 {!activeTriggeredEvent && screen === "eventTiles" && character && pendingEventEncounter && <CardClashDuel character={character} creatorCards={creatorCards} tileDifficulty={pendingEventEncounter.battle?.tileDifficulty ?? "normal"} onDungeonWin={completeEventEncounter} onDungeonLeave={leaveEventEncounter} />}
                 {/* Hollow Gate Shinobi Tile card-game tile. Win/lose/leave

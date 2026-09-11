@@ -33,6 +33,7 @@ const SCREEN_PRELOADERS: Partial<Record<Screen, () => Promise<unknown>>> = {
     battleArena: () => import("../screens/Arena"),
     arena: () => import("../screens/Arena"),
     arenaDistrict: () => import("../screens/Arena"),
+    dojoCircuit: () => import("../screens/DojoCircuit"),
     storyHall: () => import("../screens/StoryBoss"),
     storyBoss: () => import("../screens/StoryBoss"),
     townHall: () => import("../screens/TownHall"),
