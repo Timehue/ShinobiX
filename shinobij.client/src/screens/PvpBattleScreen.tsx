@@ -42,7 +42,7 @@ import { getJutsuMastery, scaleJutsuByLevel } from "../lib/jutsu-scaling";
 import { normalizeEquipmentSlot } from "../lib/equipment";
 import { hasAffordablePvpPaidAction } from "../lib/pvp-action-affordability";
 import { normalizeJutsu } from "../lib/jutsu";
-import { jutsuTargetingLabel } from "../lib/jutsu-effects";
+import { jutsuDetailDescription, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { normalizeTagName, tagMatchesName, pvpAffectsOpponent } from "../lib/tags";
 import { realtimeAvailable, subscribeKvKey } from "../lib/realtime";
 import { buildActionsFromPvpLog, makeBattleEntry } from "../lib/battle-log-history";
@@ -2521,6 +2521,7 @@ export function PvpBattleScreen({
                                     {inspectedJutsu && (() => {
                                         const mastery = getJutsuMastery(character, inspectedJutsu.id);
                                         const scaled = scaleJutsuByLevel(inspectedJutsu, mastery.level);
+                                        const detailDescription = jutsuDetailDescription(inspectedJutsu);
                                         return (
                                             <CombatDetailPortal
                                                 id={`pvp-combat-detail-jutsu-${inspectedJutsu.id}`}
@@ -2543,7 +2544,7 @@ export function PvpBattleScreen({
                                                     <span><strong>Stamina Cost:</strong> {Math.max(0, Number(inspectedJutsu.staminaCost) || 0)}</span>
                                                 </div>
                                                 {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return <p className="combat-jutsu-detail-desc"><strong style={{ color: "var(--purple-400)" }}>🎯 {t.short}:</strong> {t.detail}</p>; })()}
-                                                {inspectedJutsu.description && <p className="combat-jutsu-detail-desc">{inspectedJutsu.description}</p>}
+                                                {detailDescription && <p className="combat-jutsu-detail-desc">{detailDescription}</p>}
                                                 <div className="combat-jutsu-effects-list">
                                                     <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={playerLensDiscipline(character)} />
                                                 </div>

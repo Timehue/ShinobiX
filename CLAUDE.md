@@ -176,8 +176,11 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
   - `npm run test:e2e` — the cross-browser responsive + accessibility smoke
     (`e2e/`, 5 browser projects). ~2 min locally, ~5 min in CI.
   - `npm run test:e2e:combat-layout` — the combat layout / jutsu-arming matrix
-    (`e2e-live/combat-layout-matrix.spec.ts`). **~11 min locally** — budget for
-    it; it is much slower than its CI wall time suggests. Run it as
+    (`e2e-live/combat-layout-matrix.spec.ts`). **30–50 min locally**, depending
+    on what else is running (measured 2026-09-10) — budget for it; it is much
+    slower than its CI wall time suggests. It starts
+    `node ../dist/server.js`, so it needs `npm run build:server` as well as the
+    client build. Run it as
     `COMBAT_LAYOUT_CAPTURE_PHASE=after COMBAT_LAYOUT_STRICT=1 npm run
     test:e2e:combat-layout`; without those two you are running a laxer check
     than the gate does.
@@ -202,9 +205,12 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
     ```bash
     npx playwright test --config=playwright.combat-layout.config.ts --project=webkit-layout
     ```
-    A single webkit spec is ~30s, so there is no excuse for shipping blind. If
-    webkit ever does fail to launch again, re-check this before believing it —
-    the failure below is far more common and looks identical.
+    It is minutes, not seconds: on Windows, WebKit takes 2–8 min for the Solo
+    matrix and 4–11 for the Tower sweep, far slower than Linux CI (see the
+    comments on `layoutRetryBudget` and the Tower test). That is still no excuse
+    for shipping blind. If webkit ever does fail to launch again, re-check this
+    before believing it — the failure below is far more common and looks
+    identical.
   - **A leftover preview server masquerades as a browser failure.** The harness
     dies with `http://127.0.0.1:<port>/health is already used` before a single
     spec executes — which reads exactly like a catastrophic browser regression.

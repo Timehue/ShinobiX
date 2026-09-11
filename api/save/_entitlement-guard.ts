@@ -1,5 +1,6 @@
 import { BUILTIN_CLASH } from '../clan/war/_card-catalog.js';
 import { CACHE_ITEM_IDS } from '../_anbu-infiltration.js';
+import { countEquippedItems } from '../_equipment-ownership.js';
 
 const SERVER_OWNED_ITEM_IDS = new Set([
     'weekly-boss-core',
@@ -52,9 +53,11 @@ export function preserveOwnedItems(
     incomingStacks: unknown,
     existingInventory: unknown,
     existingStacks: unknown,
+    existingEquipment?: unknown,
 ): { inventory: string[]; itemStacks: Array<{ itemId: string; count: number }> } {
     const allowed = countStrings(existingInventory);
     for (const [id, count] of stackCounts(existingStacks)) allowed.set(id, (allowed.get(id) ?? 0) + count);
+    for (const [id, count] of countEquippedItems(existingEquipment)) allowed.set(id, (allowed.get(id) ?? 0) + count);
     const used = new Map<string, number>();
     const inventory: string[] = [];
     if (Array.isArray(incomingInventory)) {

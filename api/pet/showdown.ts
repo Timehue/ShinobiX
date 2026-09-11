@@ -988,12 +988,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const firstPactBinding = bindings.firstPact;
             if (firstPactBinding) {
-                const progress = await readFirstPactProgress(playerName);
+                const standingRound = firstPactStandingCourtRound(firstPactBinding.encounterId);
+                const settled = standingRound
+                    ? await settleFirstPactStandingCourtBattle(playerName, standingRound.id,
+                        concededSession.outcome ?? 'loss', `showdown:${concededSession.sessionId}`)
+                    : { progress: await readFirstPactProgress(playerName), advanced: false };
                 return res.status(200).json({
                     ok: true,
                     conceded: true,
                     state: viewOf(concededSession),
-                    firstPact: { encounterId: firstPactBinding.encounterId, progress, advanced: false },
+                    firstPact: { encounterId: firstPactBinding.encounterId, ...settled },
                 });
             }
             // Unbound bout: nothing is waiting on it, so the session goes away

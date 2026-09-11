@@ -256,7 +256,10 @@ test("a failed completion grant is reported and the sealed completion repairs on
 
     const mutableKv = kv as typeof kv & { compareSet: typeof kv.compareSet };
     const compareSet = mutableKv.compareSet;
-    mutableKv.compareSet = async () => { throw new Error("injected-save-write-failure"); };
+    mutableKv.compareSet = async (...args: Parameters<typeof kv.compareSet>) => {
+        if (args[0] === `save:${PLAYER}`) throw new Error("injected-save-write-failure");
+        return compareSet(...args);
+    };
     let failed: Out;
     try {
         failed = await post({ action: "advance-main", beat: "complete-crossing" });
