@@ -70,8 +70,8 @@ import { loadVillageLeadershipImages, saveVillageLeadershipImages } from "../lib
 import { normalizeVillageLeadershipImages, type VillageLeadershipImages } from "../data/village-leadership";
 import { HOLLOW_GATE_MAX_FLOOR } from "../constants/game";
 import { setSharedWeeklyBossAiId, sharedWeeklyBossAiIdCache } from "../lib/world-state";
-import { AdminWorldEventsPanel } from './AdminWorldEventsPanel';
-import type { VnCinematicDirection, VnSoundCue } from "../types/vn";
+import { AdminCircuit } from '../features/dojo-circuit/AdminCircuit';
+import type { EditableVnPage, VnCinematicDirection, VnSoundCue } from "../types/vn";
 import { useAdminContentPublisher } from "../lib/content-publish";
 import { isReleaseSafeClientEvent } from "../lib/release-safe-content";
 import {
@@ -101,21 +101,6 @@ import {
     prepareAdminBloodlineApproval,
     sameAdminBloodlineOwner,
 } from "../lib/admin-bloodline-owner";
-
-type EditableVnPage = {
-    title: string;
-    scene: string;
-    speaker: string;
-    dialogue: string;
-    image: string;
-    leftName: string;
-    leftImage: string;
-    rightName: string;
-    rightImage: string;
-    choices: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>;
-    cinematic?: VnCinematicDirection;
-    lineCinematics: Record<number, VnCinematicDirection>;
-};
 
 // The 10 starter-evolution templates (`starter-<element>-r`/`-l`) ship their
 // canonical portrait as a bundled static file at /pet-evos/<id>.webp — the same
@@ -2803,7 +2788,15 @@ export function AdminPanel({
                 </section>
             </div>
 
-            {activeAdminPanel === "worldEvents" && adminRole === 'full' && <AdminWorldEventsPanel credential={adminPw} character={character} />}
+            {activeAdminPanel === "worldEvents" && adminRole === 'full' && (
+                <div className="admin-subpanel">
+                    <div className="admin-panel-heading">
+                        <h3>World Events</h3>
+                        <p>These controls govern global events rather than village-specific territory systems.</p>
+                    </div>
+                    <AdminCircuit credential={adminPw} character={character} />
+                </div>
+            )}
 
             {activeAdminPanel === "villageLeaders" && (
                 <AdminVillageLeadersPanel
