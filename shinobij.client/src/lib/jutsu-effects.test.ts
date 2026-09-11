@@ -1,7 +1,8 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { jutsuDisplayAtLevel, jutsuEffectInfo, jutsuTargetingLabel } from "./jutsu-effects";
+import { jutsuDetailDescription, jutsuDisplayAtLevel, jutsuEffectInfo, jutsuTargetingLabel } from "./jutsu-effects";
 import { allTags } from "./tags";
+import { starterJutsus, starterSavedBloodlines } from "../data/jutsu";
 import type { Jutsu, JutsuTag } from "../types/combat";
 
 function jutsu(overrides: Partial<Jutsu> = {}): Jutsu {
@@ -150,5 +151,78 @@ describe("poison card matches what combat applies", () => {
 
     it("states the real HP share of spend (potency × 12)", () => {
         assert.match(poisonAt(50, {}), /costs them HP equal to 144% of the chakra\/stamina it spends/);
+    });
+});
+
+describe("jutsuDetailDescription — details-panel prose never shows a battle token", () => {
+    const FLAVOR_TOKEN = /%user|%target/;
+
+    it("fills the starter bloodline kits, which carry battle flavor and no description", () => {
+        const kit = starterSavedBloodlines.find((bloodline) => bloodline.name === "Ashen Eyes");
+        const bloodGaze = kit?.jutsus.find((entry) => entry.id === "ashen-eyes-blood-gaze");
+        assert.ok(bloodGaze, "expected the Ashen Eyes starter kit to carry Blood Gaze Rupture");
+        assert.equal(bloodGaze.description, "", "the kit has no card description, so the battle line is the fallback");
+        assert.equal(jutsuDetailDescription(bloodGaze), "Ashen Eyes rupture the target's chakra veins.");
+    });
+
+    it("leaves no token and no blank line on any built-in technique the Training Hall can show", () => {
+        const builtIns = [...starterJutsus, ...starterSavedBloodlines.flatMap((bloodline) => bloodline.jutsus)];
+        for (const entry of builtIns) {
+            const text = jutsuDetailDescription(entry);
+            assert.ok(text.length > 0, `${entry.id} has an empty details line`);
+            assert.doesNotMatch(text, FLAVOR_TOKEN, `${entry.id} shows a raw battle token`);
+        }
+    });
+
+    it("capitalizes a token that opens a sentence", () => {
+        assert.equal(
+            jutsuDetailDescription({ battleDescription: "%target wanders a blood-red nightmare.", target: "OPPONENT" }),
+            "The target wanders a blood-red nightmare.",
+        );
+        assert.equal(
+            jutsuDetailDescription({ battleDescription: "Chains lash out. %target is bound fast.", target: "OPPONENT" }),
+            "Chains lash out. The target is bound fast.",
+        );
+    });
+
+    it("reads %user as the caster, and %target as the caster on a SELF cast", () => {
+        // normalizeJutsu's default flavor for a SELF cast.
+        assert.equal(
+            jutsuDetailDescription({ battleDescription: "Overload surges through %user.", target: "SELF" }),
+            "Overload surges through the user.",
+        );
+        // The admin editor's default line, left on a self-buff.
+        assert.equal(
+            jutsuDetailDescription({ battleDescription: "Overload hits %target", target: "SELF" }),
+            "Overload hits the user",
+        );
+        assert.equal(
+            jutsuDetailDescription({ battleDescription: "%user crushes %target with %user's fist.", target: "OPPONENT" }),
+            "The user crushes the target with the user's fist.",
+        );
+    });
+
+    it("prefers an authored description, and fills tokens in it too", () => {
+        assert.equal(
+            jutsuDetailDescription({ description: "A searing lance of chakra.", battleDescription: "The lance pierces %target.", target: "OPPONENT" }),
+            "A searing lance of chakra.",
+        );
+        // The Bloodline Maker writes its battle line into `description` as well.
+        assert.equal(
+            jutsuDetailDescription({ description: "Iron dust hardens around %target.", battleDescription: "Iron dust hardens around %target.", target: "OPPONENT" }),
+            "Iron dust hardens around the target.",
+        );
+    });
+
+    it("falls back to the battle line when the description is blank", () => {
+        assert.equal(
+            jutsuDetailDescription({ description: "   ", battleDescription: "Molten stone entombs %target.", target: "OPPONENT" }),
+            "Molten stone entombs the target.",
+        );
+    });
+
+    it("leaves token-free prose exactly as written", () => {
+        const text = "The user vanishes and reappears on a nearby open tile.";
+        assert.equal(jutsuDetailDescription({ battleDescription: text, target: "EMPTY_GROUND" }), text);
     });
 });

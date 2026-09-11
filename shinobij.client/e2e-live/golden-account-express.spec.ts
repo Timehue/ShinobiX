@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { IMAGE_GUARD_ATTRIBUTE } from '../src/lib/imageErrorGuard';
 
 const PLAYER_NAME = 'GoldenNinja';
 const PASSWORD = 'Golden!Pass1234';
@@ -13,7 +14,12 @@ async function expectHealthyViewport(page: Page) {
             return element.complete && element.naturalWidth === 0;
         })
         .map((image) => (image as HTMLImageElement).currentSrc || (image as HTMLImageElement).src));
-    expect(brokenVisibleImages, 'visible images must load successfully').toEqual([]);
+    // The image guard (src/lib/imageErrorGuard.ts) hides an image it gave up on,
+    // so img:visible never matches a load failure. Its mark does.
+    const guardHiddenFailures = await page.locator(`img[${IMAGE_GUARD_ATTRIBUTE}="failed"]`).evaluateAll((images) => images
+        .filter((image) => image.parentElement?.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) ?? false)
+        .map((image) => `${(image as HTMLImageElement).currentSrc || (image as HTMLImageElement).src} (the image guard hid it)`));
+    expect([...brokenVisibleImages, ...guardHiddenFailures], 'visible images must load successfully').toEqual([]);
 }
 
 async function createCharacter(page: Page) {
