@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "../_vercel.js";
 import { kv } from "../_storage.js";
+import { recordCircuitVerifiedVictory } from '../dojo-circuit/_store.js';
 import { cors, safeName } from "../_utils.js";
 import { syncCardDuelPresence } from "./_presence.js";
 import { authedPlayerOrAdmin } from "../_auth.js";
@@ -96,6 +97,9 @@ async function persistTerminalAndRepair(
   // best-effort Legacy write. A later state poll repairs pending delivery.
   if (terminalStateChanged || creditPrepared) await saveSession(session);
   if (await repairFreePlayLegacyCredit(session)) await saveSession(session);
+  if (session.legacyCredit && session.legacyCredit.status !== 'skipped' && session.participation) {
+    await recordCircuitVerifiedVictory(session.legacyCredit.winnerName, 'cards', session.participation.startedAt, session.updatedAt);
+  }
 }
 
 function autoAdvance(session: FreePlaySession, now: number): boolean {
