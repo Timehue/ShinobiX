@@ -11,11 +11,22 @@ const { rankedPetReplayForViewer, resolveRankedPetDuel }: typeof import('../../a
 const viewer = 'auditninja';
 const json = (route: Route, body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
-for (const completed of [false, true]) {
-    test(`ranked ${completed ? 'completed discovery' : 'watch and settlement retries'} presents the viewer result and returns to matchmaking`, async ({ page }) => {
+for (const mode of ['active', 'completed', 'without-webgl2'] as const) {
+    const completed = mode !== 'active';
+    const withoutWebGL2 = mode === 'without-webgl2';
+    test(`ranked ${withoutWebGL2 ? 'playback without WebGL2' : completed ? 'completed discovery' : 'watch and settlement retries'} presents the viewer result and returns to matchmaking`, async ({ page }) => {
         test.setTimeout(90_000);
         const errors: string[] = [];
         page.on('pageerror', error => errors.push(error.message));
+        if (withoutWebGL2) {
+            await page.addInitScript(() => {
+                const original = HTMLCanvasElement.prototype.getContext;
+                HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, contextId: string, ...args: unknown[]) {
+                    if (contextId === 'webgl2') return null;
+                    return Reflect.apply(original, this, [contextId, ...args]);
+                } as typeof original;
+            });
+        }
         const opponent = completed ? 'zulurival' : 'aardvarkrival';
         const pet = (id: string, templateId: string) => ({ id, name: `${id} fighter`, templateId, rarity: 'standard', level: 40, hp: 900, attack: 120, defense: 70, speed: 80, element: 'Fire', role: 'assassin', jutsus: [] });
         const mine = pet('viewer', 'standard-1');
@@ -25,10 +36,13 @@ for (const completed of [false, true]) {
         };
         const resolved = resolveRankedPetDuel(token);
         const script = rankedPetReplayForViewer(token, resolved.script, viewer);
-        // Exercise the real replay renderer's terminal transition without
-        // spending minutes on the fight animation; handler tests verify the
-        // entire canonical event stream for both viewers.
-        script.events = script.events.filter(event => event.t === 'end');
+        // Keep terminal recovery bounded. The unavailable-WebGL2 variant also
+        // retains the real first round/action to verify that DOM announcements
+        // and the playback timer reach the verdict with no Canvas mounted.
+        const firstActionIndex = script.events.findIndex(event => event.t === 'action');
+        const firstAction = script.events[firstActionIndex];
+        const ending = script.events.filter(event => event.t === 'end');
+        script.events = withoutWebGL2 ? [...script.events.slice(0, firstActionIndex + 1), ...ending] : ending;
         const save = uiAuditSave();
         save.character = { ...save.character, pets: [mine] };
         const runtime = await installUiAuditRuntime(page, save);
@@ -68,7 +82,9 @@ for (const completed of [false, true]) {
             // Discovery publishes a newer server character during boot, so the
             // generic helper's "last POST is still current" invariant does not
             // apply. The recovery path must adopt that newer GET snapshot.
-            await page.goto('/#/petLadder', { waitUntil: 'networkidle' });
+            // Observe the forced variant before its transient action announcement;
+            // late unrelated network activity must not make that beat unobservable.
+            await page.goto('/#/petLadder', { waitUntil: withoutWebGL2 ? 'domcontentloaded' : 'networkidle' });
             await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'petLadder');
         } else {
             await expectUiAuditBoot(page, runtime, 'petLadder');
@@ -79,6 +95,13 @@ for (const completed of [false, true]) {
             await panel.getByRole('button', { name: 'Retry ranked match' }).click();
             await expect(panel.getByRole('alert')).toContainText('retry recording');
             await panel.getByRole('button', { name: 'Retry ranked match' }).click();
+        }
+        if (withoutWebGL2) {
+            expect(firstAction?.t).toBe('action');
+            if (firstAction?.t !== 'action') throw new Error('The real ranked fixture must contain an action.');
+            await expect(page.getByTestId('pet-showdown-render-fallback')).toBeVisible();
+            await expect(page.getByTestId('pet-showdown-root').locator('canvas')).toHaveCount(0);
+            await expect(page.getByRole('status').filter({ hasText: `used ${firstAction.moveName}.` })).toContainText('takes');
         }
         const verdict = script.finalState.outcome === 'win' ? 'Victory' : 'Defeat';
         await expect(page.getByRole('dialog', { name: verdict, exact: true })).toBeVisible({ timeout: 45_000 });

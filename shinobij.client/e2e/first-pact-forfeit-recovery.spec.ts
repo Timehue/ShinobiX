@@ -1,4 +1,4 @@
-import { expect, test, type Route } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 import { createRequire } from 'node:module';
 import {
     createFirstPactProgress,
@@ -17,10 +17,21 @@ const sessionId = 'first-pact-concession-recovery';
 const playerName = 'AuditNinja';
 const json = (route: Route, body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
-test('First Pact concession retries retain recovery, then reset the displayed Standing Court round', async ({ page }) => {
+async function exerciseConcessionRecovery(page: Page, withoutWebGL2 = false) {
     test.setTimeout(90_000);
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
+    if (withoutWebGL2) {
+        // Model a browser with no WebGL2 capability while leaving other canvas
+        // contexts and the application's rendering/error handling untouched.
+        await page.addInitScript(() => {
+            const original = HTMLCanvasElement.prototype.getContext;
+            HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, contextId: string, ...args: unknown[]) {
+                if (contextId === 'webgl2') return null;
+                return Reflect.apply(original, this, [contextId, ...args]);
+            } as typeof original;
+        });
+    }
     const pets: Parameters<typeof createShowdownSession>[0]['playerPets'] = ['Rill', 'Moss', 'Kite', 'Bramble'].map((name, index) => ({
         id: `pact-concession-${index}`, templateId: `standard-${index + 1}`, name,
         rarity: 'standard', level: 70, xp: 0, maxLevel: 100, hp: 900, attack: 120, defense: 80, speed: 80,
@@ -74,6 +85,10 @@ test('First Pact concession retries retain recovery, then reset the displayed St
     const quest = page.locator('.fp-quest-card');
     await expect(quest).toContainText(sitting.title, { timeout: 30_000 });
     await expect(quest).toContainText('Sitting 4 of 5');
+    if (withoutWebGL2) {
+        await expect(page.getByTestId('pet-showdown-render-fallback')).toBeVisible();
+        await expect(page.getByTestId('pet-showdown-root').locator('canvas')).toHaveCount(0);
+    }
     await page.getByRole('button', { name: 'Forfeit the battle', exact: true }).click({ timeout: 45_000 });
     const confirmation = page.getByRole('alertdialog', { name: 'Forfeit the battle?', exact: true });
     await confirmation.getByRole('button', { name: 'Yes, concede', exact: true }).click();
@@ -82,6 +97,7 @@ test('First Pact concession retries retain recovery, then reset the displayed St
     await expect(error).toContainText('could not record the concession');
     await expect(confirmation).toBeVisible();
     await expect(quest).toContainText('Sitting 4 of 5');
+    if (withoutWebGL2) await expect(page.getByTestId('pet-showdown-render-fallback')).toBeVisible();
     expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? 'null')?.sessionId, sessionKey)).toBe(sessionId);
     // The confirmation owns focus until the concession succeeds. Retrying its
     // action also clears the previous error; no outside-modal dismissal is needed.
@@ -97,4 +113,12 @@ test('First Pact concession retries retain recovery, then reset the displayed St
     expect(concessions).toBe(2);
     expect(showdownActions).toEqual(['state', 'forfeit', 'forfeit']);
     expect(errors).toEqual([]);
+}
+
+test('First Pact concession retries retain recovery, then reset the displayed Standing Court round', async ({ page }) => {
+    await exerciseConcessionRecovery(page);
+});
+
+test('First Pact concession recovery remains usable without WebGL2', async ({ page }) => {
+    await exerciseConcessionRecovery(page, true);
 });
