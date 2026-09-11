@@ -46,7 +46,7 @@ import { canManageClan, clanContribTotal, clanHallTier, clanRoleOf, clanXpMember
 import { clanLore } from "../data/clan-lore";
 import { postClanTreasuryDonation, postClanUpgradePurchase, postClanKick, postClanLeave, fetchClaimedClanMissions, postClanMissionClaim, postClanTerritoryAssignment } from "../lib/player-api";
 import { clampNumber } from "../lib/utils";
-import { clanSlug, fetchClanData, fetchClanDataDetailed, postGuardQueue, writeClanData } from "../lib/clan-api";
+import { clanSlug, fetchClanData, fetchClanDataDetailed, postGuardQueue, writeClanData, writeClanUpdate } from "../lib/clan-api";
 import { cleanTreasuryItems, getAllItems, inventoryItemStacks, itemDisplayName, removeTreasuryItem } from "../lib/items";
 import { ownsItem } from "../lib/inventory";
 import { getTownDefenseGuardBonus } from "../lib/village-upgrades";
@@ -176,15 +176,26 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
     function myMemberEntry(): ClanMemberEntry {
         return { name: character.name, village: character.village, level: character.level, specialty: character.specialty, battleContrib: character.clanBattleContrib ?? 0, eventContrib: character.clanEventContrib ?? 0, missionContrib: character.clanMissionContrib ?? 0, isFounder: character.clanFounder ?? false, month: new Date().toISOString().slice(0, 7) };
     }
-    async function saveClan(next: EnhancedClanData): Promise<boolean> {
+    // Every clan change is applied to a FRESH copy read just before the write,
+    // never to the one loaded when the hall opened (the hall does not poll). The
+    // save writes the whole document back, so a copy minutes old would replay
+    // members, join requests and notices from before other players' changes.
+    // The treasury is left out entirely (writeClanUpdate).
+    async function saveClan(change: (latest: EnhancedClanData) => EnhancedClanData): Promise<boolean> {
+        if (!clanData) return false;
         if (clanSaveBusyRef.current) {
             alert("Another clan change is still saving. Wait for it to finish and try again.");
             return false;
         }
         clanSaveBusyRef.current = true;
-        const enhanced = enhanceClanData(next);
         try {
-            await writeClanData(enhanced);
+            const latest = await fetchClanDataDetailed(clanData.name);
+            if (!latest.ok) {
+                alert(latest.reason === "notFound" ? "This clan no longer exists." : "Couldn't reach the clan server, so nothing was changed. Please retry.");
+                return false;
+            }
+            const enhanced = enhanceClanData(change(enhanceClanData(latest.data)));
+            await writeClanUpdate(enhanced);
             setClanData(enhanced);
             return true;
         } catch (e) {
@@ -276,7 +287,7 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
             }
             // Background member-sync write — non-fatal if it fails (the next
             // clan load re-syncs), so don't let a rejection block setLoading.
-            writeClanData(synced).catch(() => { /* re-syncs on next load */ });
+            writeClanUpdate(synced).catch(() => { /* re-syncs on next load */ });
             setLoading(false);
         });
     }, [character.clan, character.name, character.level, character.village, character.specialty, character.clanBattleContrib, character.clanEventContrib, character.clanMissionContrib]);
@@ -342,7 +353,7 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
     useEffect(() => { setRecruitmentDraft(clanData?.recruitment ?? ""); }, [clanData?.name]);
     async function saveRecruitment() {
         if (!clanData) return;
-        if (await saveClan({ ...clanData, recruitment: recruitmentDraft.slice(0, 300) })) {
+        if (await saveClan((latest) => ({ ...latest, recruitment: recruitmentDraft.slice(0, 300) }))) {
             alert("Recruitment pitch updated.");
         }
     }
@@ -367,25 +378,32 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
             return;
         }
         if (targetClan.joinRequests.some(request => request.name === character.name)) return alert("You already requested to join this clan.");
+        // Append to the clan as it stands NOW, not the browser list's copy: a
+        // request someone else sent since that list loaded would be missing from
+        // it, and the server reverts a list that drops another player's request —
+        // taking this one with it, while the alert below said it was sent.
+        const latest = await fetchClanDataDetailed(targetClan.name);
+        if (!latest.ok) return alert(latest.reason === "notFound" ? "That clan no longer exists." : "Couldn't reach the clan server. Please retry.");
+        const fresh = enhanceClanData(latest.data);
+        if (fresh.joinRequests.some(request => request.name === character.name)) return alert("You already requested to join this clan.");
         const request: ClanJoinRequest = { ...myMemberEntry(), isFounder: false, requestedAt: Date.now() };
-        const updated = enhanceClanData({ ...targetClan, joinRequests: [...targetClan.joinRequests, request] });
-        try { await writeClanData(updated); }
+        const updated = enhanceClanData({ ...fresh, joinRequests: [...fresh.joinRequests, request] });
+        try { await writeClanUpdate(updated); }
         catch (e) { return alert(e instanceof Error ? e.message : "Couldn't send the join request. Please retry."); }
         setAvailableClans(availableClans.map(clan => clan.name === updated.name ? updated : clan));
         alert(`Join request sent to ${updated.name}. A clan leader or elder can accept it in the Clan Hall.`);
     }
     async function acceptJoinRequest(request: ClanJoinRequest) {
         if (!clanData) return;
-        const updated = enhanceClanData({
-            ...clanData,
-            members: clanData.members.some(member => member.name === request.name) ? clanData.members : [...clanData.members, { ...request, isFounder: false }],
-            joinRequests: clanData.joinRequests.filter(joinRequest => joinRequest.name !== request.name),
-        });
-        await saveClan(updated);
+        await saveClan((latest) => ({
+            ...latest,
+            members: latest.members.some(member => member.name === request.name) ? latest.members : [...latest.members, { ...request, isFounder: false }],
+            joinRequests: latest.joinRequests.filter(joinRequest => joinRequest.name !== request.name),
+        }));
     }
     async function denyJoinRequest(request: ClanJoinRequest) {
         if (!clanData) return;
-        await saveClan({ ...clanData, joinRequests: clanData.joinRequests.filter(joinRequest => joinRequest.name !== request.name) });
+        await saveClan((latest) => ({ ...latest, joinRequests: latest.joinRequests.filter(joinRequest => joinRequest.name !== request.name) }));
     }
     // Server-authoritative kick: removing a member from the blob alone doesn't
     // stick (their client re-adds itself while character.clan is still set), so
@@ -407,10 +425,12 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         if (!clanData) return;
         if (myRole !== "Founder") return alert("Only the clan founder can appoint or demote leadership.");
         if (member.name === clanData.founderName) return;
-        const overrides: Record<string, ClanRole> = { ...(clanData.roleOverrides ?? {}) };
-        if (role === "Member") delete overrides[member.name];
-        else overrides[member.name] = role;
-        await saveClan({ ...clanData, roleOverrides: overrides });
+        await saveClan((latest) => {
+            const overrides: Record<string, ClanRole> = { ...(latest.roleOverrides ?? {}) };
+            if (role === "Member") delete overrides[member.name];
+            else overrides[member.name] = role;
+            return { ...latest, roleOverrides: overrides };
+        });
     }
     async function leaveClan() {
         if (!character.clan) return;
@@ -729,20 +749,12 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
             return alert("Could not collect war supply. Please try again.");
         }
         if (!data.collected || data.collected <= 0) return alert("Your owned sectors have not produced war supply yet.");
-        await saveClan({ ...clanData, treasury: cleanClanTreasury(data.treasury as Partial<ClanTreasury>) });
+        // The endpoint already credited the treasury; adopt its figures locally.
+        // Re-saving the clan here would only replay the rest of this copy.
+        setClanData((previous) => previous ? enhanceClanData({ ...previous, treasury: cleanClanTreasury(data.treasury as Partial<ClanTreasury>) }) : previous);
         refreshTerritoryPanel();
         gameToast(`Collected ${data.collected.toLocaleString()} War Supply from clan sectors.`);
     }
-    async function _spendWarSupplyOnActiveWar() {
-        if (!clanData?.activeWar) return alert("Start a clan war before spending War Supply.");
-        if (clanData.treasury.warSupply < 100) return alert("The clan treasury needs at least 100 War Supply.");
-        await saveClan({
-            ...clanData,
-            treasury: { ...clanData.treasury, warSupply: clanData.treasury.warSupply - 100 },
-            activeWar: { ...clanData.activeWar, ourScore: clanData.activeWar.ourScore + 10 },
-        });
-    }
-    void _spendWarSupplyOnActiveWar;
     function refreshTerritoryPanel() { setTerritoryRefresh(value => value + 1); }
     async function donateTerritoryScrolls(sector: number, count = 1) {
         if (!clanData || territoryAssignBusyRef.current) return;
@@ -841,7 +853,7 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         const canPin = canManageClan(myRole);
         const sector = clanNoticeSector ? clampNumber(Math.floor(Number(clanNoticeSector)), 1, MAX_WILD_SECTOR) : undefined;
         const notice = makeNoticePost(clanNoticeType, title, body, character.name, myRole, canPin, sector);
-        await saveClan({ ...clanData, notices: normalizeNoticePosts([notice, ...clanData.notices]) });
+        await saveClan((latest) => ({ ...latest, notices: normalizeNoticePosts([notice, ...latest.notices]) }));
         setClanNoticeTitle("");
         setClanNoticeBody("");
         setClanNoticeSector("");
@@ -849,12 +861,12 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
 
     async function removeClanNotice(id: string) {
         if (!clanData) return;
-        await saveClan({ ...clanData, notices: clanData.notices.filter(notice => notice.id !== id) });
+        await saveClan((latest) => ({ ...latest, notices: latest.notices.filter(notice => notice.id !== id) }));
     }
 
     async function toggleClanNoticePin(id: string) {
         if (!clanData) return;
-        await saveClan({ ...clanData, notices: normalizeNoticePosts(clanData.notices.map(notice => notice.id === id ? { ...notice, pinned: !notice.pinned } : notice)) });
+        await saveClan((latest) => ({ ...latest, notices: normalizeNoticePosts(latest.notices.map(notice => notice.id === id ? { ...notice, pinned: !notice.pinned } : notice)) }));
     }
 
     if (!isInClan) return <div className="card clan-hall-screen"><BackToVillageButton onClick={() => setScreen("village")} /><div className="clan-create-hero"><div><p className="act-label">{character.village}</p><h2>Clan Hall</h2><p className="hint">{lore?.motto}</p></div><ClanImageMark image={clanImage} name={clanName || "Clan"} village={character.village} /></div><p>{lore?.lore}</p><div className="clan-join-grid"><div className="summary-box"><h3>Create Clan</h3><p className="hint">Become founder, open a clan treasury, unlock member-count boosts, missions, wars, and a growing clan hall.</p><label>Clan Name</label><input value={clanName} onChange={e => setClanName(e.target.value)} placeholder="Example: Fated Reunion" /><label>Clan Image</label><input type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) readImageFile(file, setClanImage, 100); }} />{clanImage && <div className="admin-event-list-preview"><img src={clanImage} alt={clanName || "Clan"} /></div>}<label>Clan Doctrine</label><p className="hint">Your clan's identity — pick the perk that fits your playstyle. Chosen at creation.</p><div className="clan-doctrine-pick">{CLAN_DOCTRINES.map(d => <button key={d.id} type="button" className={`clan-doctrine-option${clanDoctrine === d.id ? " active" : ""}`} onClick={() => setClanDoctrine(d.id)}><span><DoctrineCrest doctrine={d.id} size={26} /> <strong>{d.name}</strong></span><small>{d.effect}</small></button>)}</div><button onClick={createClan}>Create Clan</button></div><div className="summary-box clan-browse-panel"><div className="clan-section-title"><div><h3>Current Clans</h3><p className="hint">Request to join any clan from your village. Leaders and Clan Elders approve requests in their Clan Hall.</p></div><button onClick={loadAvailableClans} disabled={clanListLoading}>{clanListLoading ? "Loading..." : "Refresh"}</button></div>{availableClans.length === 0 ? <p className="hint">{clanListLoading ? "Loading clans..." : "No clans from your village exist yet."}</p> : <div className="clan-request-list">{availableClans.map(clan => { const requested = clan.joinRequests.some(request => request.name === character.name); return <div className="clan-request-card" key={clan.name}><ClanImageMark image={clan.image} name={clan.name} village={clan.village} /><div><strong>{clan.name}</strong><small>{clan.village} · Lv.{clan.level} · {clan.members.length} members</small><small>Founder: {clan.founderName}</small><small><DoctrineCrest doctrine={clan.doctrine ?? "none"} size={18} /> {doctrineName(clan.doctrine ?? "none")}</small>{clan.recruitment ? <small className="clan-pitch">{clan.recruitment}</small> : null}</div><button disabled={requested} onClick={() => requestJoinClan(clan)}>{requested ? "Request Sent" : "Request Join"}</button></div>; })}</div>}</div></div></div>;
