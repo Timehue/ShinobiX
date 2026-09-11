@@ -1149,6 +1149,12 @@ html body.ui-scroll-locked {
   }
 }
 
+/* No transition-duration here. The initial transition-property is `all`, so a
+   universal duration turned every resize-driven value change on most elements
+   into a transition, and WebKit then kept grid `auto` rows sized for the
+   previous width. At zero specificity it never shortened a component's own
+   transition either; only that component's reduced-motion rule can.
+   universal-transition.test.ts keeps universal selectors transition-free. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1156,7 +1162,6 @@ html body.ui-scroll-locked {
     scroll-behavior: auto;
     animation-duration: 1ms;
     animation-iteration-count: 1;
-    transition-duration: 1ms;
   }
 }
 
