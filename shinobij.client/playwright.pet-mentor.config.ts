@@ -12,7 +12,9 @@ export default defineConfig({
         baseURL: "https://127.0.0.1:5174",
         ignoreHTTPSErrors: true,
         serviceWorkers: "block",
-        reducedMotion: "reduce",
+        // In contextOptions or not at all: a top-level `reducedMotion` is
+        // silently ignored (see playwright.config.ts).
+        contextOptions: { reducedMotion: "reduce" },
         trace: "retain-on-failure",
     },
     projects: [

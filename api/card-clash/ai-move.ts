@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "../_vercel.js";
 import { kv } from "../_storage.js";
+import { recordCircuitPendingVictory } from '../dojo-circuit/_store.js';
 import { authedPlayerOrAdmin } from "../_auth.js";
 import { enforceRateLimitKv } from "../_ratelimit.js";
 import { cors } from "../_utils.js";
@@ -79,6 +80,11 @@ type StoredSession = AiMatchSession & {
   legacyCredit?: AiLegacyCredit;
   endedBy?: "forfeit";
 };
+
+async function repairCircuitCredit(session: StoredSession, key: string) {
+  if (session.settlementMode === 'external' || session.endedBy === 'forfeit' || !session.settledAt || session.settledReward?.result !== 'player') return;
+  await recordCircuitPendingVictory(session.playerName, 'cards', { matchId: key, startedAt: session.createdAt, finishedAt: session.settledAt });
+}
 
 function ensureAiLegacyCredit(session: StoredSession, key: string): boolean {
   if (session.legacyCredit || !session.settledAt || session.settledReward?.result !== "player") return false;
@@ -295,6 +301,7 @@ async function persistOrSettle(
     };
   }
   if (session.settledAt) {
+    await repairCircuitCredit(session, key);
     if (await repairAiLegacyCredit(session, key)) await kv.set(key, session, { ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS });
     if (session.legacyCredit?.status === "pending") {
       return {
@@ -359,6 +366,7 @@ async function persistOrSettle(
   ensureAiLegacyCredit(session, key);
   // Persist the terminal payout and pending Legacy outbox before delivery.
   await kv.set(key, session, { ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS });
+  await repairCircuitCredit(session, key);
   if (session.legacyCredit?.status === "pending") {
     const delivered = await bumpLegacyStats(
       session.playerName,
@@ -445,6 +453,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             body: { error: "This duel used retired rules; start a new duel." },
           };
         if (action === "state") {
+          if (session.settledAt) await repairCircuitCredit(session, key);
           if (isDone(session) && !session.settledAt) {
             return persistOrSettle(session, key);
           }

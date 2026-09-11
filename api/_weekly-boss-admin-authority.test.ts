@@ -13,6 +13,8 @@ type Out = { statusCode: number; body?: Json };
 
 const BOSS_KEY = 'game:weekly-boss-state';
 const OVERRIDE_KEY = 'game:weekly-boss-override';
+const DOJO_CIRCUIT_KEY = 'game:dojo-circuit:enabled';
+const ARENA_TOURNAMENT_KEY = 'game:arena:tournament';
 const ANNOUNCEMENT_KEYS = [
     'game:announcements',
     'game:announcements-seq',
@@ -76,11 +78,11 @@ before(async () => {
 });
 
 beforeEach(async () => {
-    await kv.del(BOSS_KEY, OVERRIDE_KEY, ...ANNOUNCEMENT_KEYS);
+    await kv.del(BOSS_KEY, OVERRIDE_KEY, DOJO_CIRCUIT_KEY, ARENA_TOURNAMENT_KEY, ...ANNOUNCEMENT_KEYS);
 });
 
 after(async () => {
-    await kv.del(BOSS_KEY, OVERRIDE_KEY, ...ANNOUNCEMENT_KEYS);
+    await kv.del(BOSS_KEY, OVERRIDE_KEY, DOJO_CIRCUIT_KEY, ARENA_TOURNAMENT_KEY, ...ANNOUNCEMENT_KEYS);
     delete process.env.SHINOBIX_QA_MEMORY_KV;
     delete process.env.ADMIN_PASSWORD;
     delete process.env.ADMIN_CONTENT_PASSWORD;
@@ -158,4 +160,51 @@ test('Weekly Boss override remains full-admin-only on /api/game-state', async ()
     );
     assert.equal(cleared.statusCode, 200);
     assert.equal(await kv.get(OVERRIDE_KEY), null);
+});
+
+test('Dojo Circuit launch control is full-admin-only and strictly boolean', async () => {
+    const circuit = {
+        id: 'dojo-test', name: 'Dojo Circuit', createdBy: 'admin 1',
+        startsAt: 1, endsAt: 2, matchDeadline: 2, participants: [], advancedPlayers: [],
+    };
+    const disabledWrite = await post(
+        gameStateHandler,
+        { kind: 'arenaTournament', tournament: circuit },
+        { 'x-admin-password': process.env.ADMIN_PASSWORD! },
+    );
+    assert.equal(disabledWrite.statusCode, 409);
+    assert.equal(await kv.get(ARENA_TOURNAMENT_KEY), null);
+
+    const contentRejected = await post(
+        gameStateHandler,
+        { kind: 'dojoCircuitEnabled', enabled: true },
+        { 'x-admin-password': process.env.ADMIN_CONTENT_PASSWORD! },
+    );
+    assert.equal(contentRejected.statusCode, 403);
+    assert.equal(await kv.get(DOJO_CIRCUIT_KEY), null);
+
+    const malformed = await post(
+        gameStateHandler,
+        { kind: 'dojoCircuitEnabled', enabled: 'yes' },
+        { 'x-admin-password': process.env.ADMIN_PASSWORD! },
+    );
+    assert.equal(malformed.statusCode, 400);
+    assert.equal(await kv.get(DOJO_CIRCUIT_KEY), null);
+
+    const enabled = await post(
+        gameStateHandler,
+        { kind: 'dojoCircuitEnabled', enabled: true },
+        { 'x-admin-password': process.env.ADMIN_PASSWORD! },
+    );
+    assert.equal(enabled.statusCode, 200);
+    assert.equal(enabled.body?.enabled, true);
+    assert.equal(await kv.get(DOJO_CIRCUIT_KEY), true);
+
+    const enabledWrite = await post(
+        gameStateHandler,
+        { kind: 'arenaTournament', tournament: circuit },
+        { 'x-admin-password': process.env.ADMIN_PASSWORD! },
+    );
+    assert.equal(enabledWrite.statusCode, 200);
+    assert.deepEqual(await kv.get(ARENA_TOURNAMENT_KEY), circuit);
 });

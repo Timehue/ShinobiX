@@ -340,6 +340,7 @@ export function ChronicleDuelBoard({
   error,
   onExit,
   exitLabel = "Leave table",
+  eventLabel,
   onAction,
 }: {
   state: ChronicleProjection;
@@ -354,6 +355,7 @@ export function ChronicleDuelBoard({
   error?: string;
   onExit?: () => void;
   exitLabel?: string;
+  eventLabel?: string;
   onAction: (intent: ChronicleActionIntent) => void;
 }) {
   const stageFigures = useStageFigures();
@@ -983,7 +985,7 @@ export function ChronicleDuelBoard({
           </div>
         </div>
         <div className="chronicle-turn">
-          <b>TURN {state.turnNumber}</b>
+          <b>{eventLabel ? `${eventLabel} · ` : ''}TURN {state.turnNumber}</b>
           <span>
             {phaseMeta?.label.toUpperCase() ?? state.phase.toUpperCase()}
             {timedTurns ? ` | ${secondsRemaining}s` : ""}

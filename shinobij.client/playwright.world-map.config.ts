@@ -22,7 +22,9 @@ export default defineConfig({
     outputDir: "test-results/world-map-mobile",
     use: {
         baseURL,
-        reducedMotion: "reduce",
+        // In contextOptions or not at all: a top-level `reducedMotion` is
+        // silently ignored (see playwright.config.ts).
+        contextOptions: { reducedMotion: "reduce" },
         serviceWorkers: "block",
         trace: "retain-on-failure",
         screenshot: "only-on-failure",
