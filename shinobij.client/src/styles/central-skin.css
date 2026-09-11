@@ -889,7 +889,8 @@
 @media (prefers-reduced-motion: reduce) {
     .central-hub .central-card,
     .central-hub .central-card::before,
-    .central-card-arrow { transition: none; }
+    .central-card-arrow,
+    .central-card-art img { transition: none; }
 }
 
 /* Awakening Stone reward cinematic. This lives outside .central-hub because it

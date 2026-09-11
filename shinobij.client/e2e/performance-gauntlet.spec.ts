@@ -54,7 +54,11 @@ test('sector travel does not restart the full public-roster request', async ({ p
     await expectUiAuditBoot(page, runtime, 'worldMap');
     await expect.poll(() => rosterRequests).toBeGreaterThan(0);
     const initialRequests = rosterRequests;
-    await page.getByRole('button', { name: /Travel to.*\(Sector 39\)/ }).click();
+    const destination = page.getByRole('button', { name: /Travel to.*\(Sector 39\)/ });
+    // Keyboard focus reveals destinations outside the mobile camera before
+    // the same player-facing travel button is activated.
+    await destination.focus();
+    await destination.click();
     await expect.poll(() => travels).toBe(1);
     await expect(page.getByRole('complementary', { name: 'Sector 39 command panel' })).toBeVisible();
     expect(rosterRequests).toBe(initialRequests);
