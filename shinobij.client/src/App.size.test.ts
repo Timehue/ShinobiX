@@ -474,7 +474,13 @@ import { readFileSync } from "node:fs";
 // Save authority, dirty tracking and subscriptions now share an explicit coordinator.
 // Shared level/discipline projections, save serialization and live price bindings
 // now have module owners; screens use those owners directly. Five-line buffer.
-const MAX_LINES = 6578;
+// → 6,561 (2026-09-11). The Dojo Circuit (5ba427977) overran by four: its lazy
+// screen, its return ribbon and their two render lines put App at 6,582 against
+// 6,578. Paid for by moving the PendingArenaStoryBattle type verbatim to
+// ./types/vn, next to the CreatorEvent it is built from. Its name joined the
+// existing ./types/vn import and re-export lines, so the move cost App no new
+// lines and changed no emitted JavaScript. Buffer back to five.
+const MAX_LINES = 6566;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
