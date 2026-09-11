@@ -2092,7 +2092,8 @@ const SR_ONLY: React.CSSProperties = {
     border: 0,
 };
 
-export function PetShowdownBattle({ initialState, playerPets, sharedImages, submitTurn, onForfeit, onFinished, onExit, onRematch, resultNote, spectator = false, reducedMotion: motionPreference }: {
+export function PetShowdownBattle({ initialState, playerPets, sharedImages, submitTurn, onForfeit, onFinished, onExit, onRematch, resultNote, eventLabel, spectator = false, reducedMotion: motionPreference }: {
+    eventLabel?: string;
     initialState: ShowdownStateView;
     /** The player's real roster Pets (for 3D model + art resolution). */
     playerPets: Pet[];
@@ -3688,7 +3689,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         {stateView.turnDeadline !== undefined && phase === "command" && !spectator && (
                             <TurnTimer deadline={stateView.turnDeadline} onLapse={() => { void submitRound(draft); }} />
                         )}
-                        <div className="showdown-vs">{stateView.enemyTeamName}</div>
+                        <div className="showdown-vs" title={stateView.enemyTeamName}>{eventLabel ?? stateView.enemyTeamName}</div>
                         <button
                             type="button"
                             className={`showdown-chip icon ${fast ? "on" : ""}`}

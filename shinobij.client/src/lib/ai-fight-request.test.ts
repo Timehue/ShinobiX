@@ -4,6 +4,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { onAiFightRequest, requestAiFight, type AiFightRequest } from "./ai-fight-request";
 import { creatorEventPracticeOpponent, creatorEventPracticeProfileIds } from "./creator-event-practice";
 import { builtinAis } from "./combat-ai";
+import { requestForResumedGenericFight } from "./ai-fight-navigation";
+import type { AiFightStart } from "./ai-fight-api";
 
 function makeRequest(overrides: Partial<AiFightRequest> = {}): AiFightRequest {
     return { opponentId: "ai-bandit", opponentLevel: 12, battleKind: "raidAi", ...overrides };
@@ -288,8 +290,16 @@ test("Dungeon seal one uses the active run's server-reconstructed Warden", () =>
     assert.doesNotMatch(start, /Math\.random|temp-dungeon-ai|setPendingAiProfileId|setPendingArenaStoryBattle|setScreen\("arena"\)/);
     assert.match(api, /params\.battleKind !== "dungeon"[\s\S]{0,160}opponentId:/,
         "Dungeon start must omit client-supplied opponent identity from the request body");
-    assert.match(host, /started\.battleKind === "dungeon" \? \{ returnScreen: "dungeon" \}/);
-    assert.match(host, /started\.dungeonRunToken/);
+    // Generic recovery is shared with the Circuit refresh path. Exercise the
+    // extracted helper so moving it does not discard the sealed Dungeon route.
+    const resumed = requestForResumedGenericFight({
+        sessionId: "dungeon-sealed", opponentId: "warden", opponentName: "Warden",
+        battleKind: "dungeon", dungeonRunToken: "sealed-run",
+        session: { enemy: { character: { level: 25 } } },
+    } as AiFightStart, "Kaito");
+    assert.equal(resumed?.returnScreen, "dungeon");
+    assert.equal(resumed?.dungeonRunToken, "sealed-run");
+    assert.equal(resumed?.opponentId, "warden");
 });
 
 test("later-stage quest bosses let the server derive its sealed stage", () => {
@@ -322,7 +332,7 @@ test("resumed World fights rebuild presentation from the server seal", () => {
     assert.match(host, /resumeWorldAiFight\(originatingPlayerName\)/);
     assert.match(host, /const sealedRequest = started\.worldContext[\s\S]{0,420}requestForResumedWorldFight\(started,/);
     assert.match(host, /ensureWandererFightPending\(originatingPlayerName, started\.worldContext, sealedRequest\.enemyAvatar\)/);
-    assert.match(host, /recordMode=\{currentFight\.worldContext \? "World Encounter"/);
+    assert.match(host, /recordMode=\{request\.returnScreen === 'dojoCircuit' \? 'Dojo Circuit' : currentFight\.worldContext \? "World Encounter"/);
     assert.match(host, /recoverWandererFightAvatar\(originatingPlayerName, context\)/,
         "refresh recovery must restore the exact sealed encounter's portrait instead of showing initials");
 });
@@ -443,7 +453,7 @@ test("raid mission UI mirrors the server's exact credited mission ids", () => {
 
 test("refresh recovery handles generic fights, durable chains, and pending rewards", () => {
     assert.match(host, /resumeGenericAiFight\(originatingPlayerName\)/);
-    assert.match(host, /requestForResumedGenericFight\(generic\)/);
+    assert.match(host, /requestForResumedGenericFight\(generic, originatingPlayerName\)/);
     assert.match(host, /"pendingWorldChain" in started/);
     assert.match(host, /worldEncounter: pending\.request/);
     assert.match(host, /"pendingWorldOutcome" in started/);

@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { rememberedCircuitTrial } from '../features/dojo-circuit/client';
 import { GameIcon, type GameIconName } from "../components/icons/GameIcon";
 import "./PetShowdown.css";
 import type { Character } from "../types/character";
@@ -514,6 +515,8 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                     onFinished={handleFinished}
                     onExit={handleExit}
                     onRematch={handleRematch}
+                    eventLabel={rememberedCircuitTrial(character.name) === 'pets' ? 'Dojo Circuit' : undefined}
+                    resultNote={rememberedCircuitTrial(character.name) === 'pets' ? outcome => outcome === 'win' ? 'Return to the Circuit scribe to record a qualifying rewarded victory.' : 'Your Circuit trial remains open. Try again when you are ready.' : undefined}
                 />
             )}
         </div>

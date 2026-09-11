@@ -2,6 +2,7 @@ import { SHOWDOWN_DAILY_WIN_CAP } from '../../shared/pet-showdown-contract.js';
 import { randomInt, randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
+import { recordCircuitPendingVictory } from '../dojo-circuit/_store.js';
 import { cors, safeName } from '../_utils.js';
 import { publishShowdownPresence, retireShowdownPresence } from './_showdown-presence.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -24,8 +25,9 @@ import {
     createShowdownSession,
     resolveShowdownRound,
     showdownStateView,
-    type ShowdownSession,
+    type ShowdownSession as EngineShowdownSession,
 } from '../_pet-showdown/engine.js';
+type ShowdownSession = EngineShowdownSession & { circuitFinishedAt?: number };
 import { buildColosseumAiTeam, buildShowdownAiTeam, chooseShowdownAiCommands } from '../_pet-showdown/ai.js';
 import {
     bumpLegacyStats,
@@ -361,6 +363,7 @@ export async function settleShowdownWin(playerName: string, session: ShowdownSes
             return {
                 reward: 0,
                 progressionEligible: progressionRecoveryNeeded,
+                circuitEligible: true,
                 totalPetWins: Number(char.totalPetWins ?? 0),
                 dailyPetWins: Number(char.dailyPetWins ?? 0),
                 balances: { ryo: Number(char.ryo ?? 0) },
@@ -416,6 +419,7 @@ export async function settleShowdownWin(playerName: string, session: ShowdownSes
         return {
             reward,
             progressionEligible: true,
+            circuitEligible: true,
             totalPetWins: updatedChar.totalPetWins,
             dailyPetWins: updatedChar.dailyPetWins,
             balances: { ryo: Number(updatedChar.ryo) },
@@ -1026,6 +1030,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     .filter((c) => playerIds.has(c.petId));
                 const aiCommands = chooseShowdownAiCommands(session);
                 const events = resolveShowdownRound(session, commands, aiCommands);
+                if (session.finished) session.circuitFinishedAt = Date.now();
                 armTurnDeadline(session);
                 await kv.set(key, session, { ex: SESSION_TTL_SECONDS });
                 if (session.finished) await retireShowdownPresence(kv, playerName, session.sessionId);
@@ -1064,6 +1069,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let settlement: Record<string, unknown> = { reward: 0 };
             if (!hgBinding && !crisisBinding && !firstPactBinding && session.outcome === 'win') {
                 settlement = await settleShowdownWin(playerName, session);
+                if (settlement.circuitEligible === true && session.circuitFinishedAt !== undefined) {
+                    await recordCircuitPendingVictory(playerName, 'pets', { matchId: session.sessionId, startedAt: session.createdAt, finishedAt: session.circuitFinishedAt });
+                }
                 if (settlement.progressionEligible === true) {
                     const legacyApplied = await bumpLegacyStats(
                         playerName,

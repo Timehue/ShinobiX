@@ -3,6 +3,12 @@ import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 import { installUiAuditRuntime } from "./helpers/ui-audit-runtime";
 
+// A gallery is a picture of what players see, so it keeps full motion even
+// though the configs that host it (smoke, mobile-gauntlet) emulate reduced
+// motion, which here selects the lite presentation. Same reasoning as
+// playwright.visual.config.ts.
+test.use({ contextOptions: { reducedMotion: "no-preference" } });
+
 test("capture eligible mobile UI gallery", async ({ page }, testInfo) => {
     test.setTimeout(120_000);
     test.skip(process.env.UI_GALLERY_CAPTURE !== "1", "UI gallery capture is opt-in");

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { rememberedCircuitTrial } from '../features/dojo-circuit/client';
+import { CircuitCardResult } from '../features/dojo-circuit/CircuitCombatResult';
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import { visiblePoll } from "../lib/poll";
 import type { TileCard } from "../data/tile-cards";
@@ -78,6 +80,7 @@ type CardHallProps = {
   updateCharacter: (character: Character) => void;
   creatorCards: TileCard[];
   onBack: () => void;
+  onReturnCircuit?: () => void;
   autoStart?: boolean;
   onAutoStartConsumed?: () => void;
   onStartFreePlay?: (matchId: string) => void;
@@ -129,6 +132,7 @@ function CardHallInner({
   updateCharacter,
   creatorCards,
   onBack,
+  onReturnCircuit,
   autoStart = false,
   onAutoStartConsumed,
   onStartFreePlay,
@@ -541,7 +545,7 @@ function CardHallInner({
       {tab === "play" ? (
         duel ? (
           <div>
-            {duel.status === "complete" ? (
+            {duel.status === "complete" && rememberedCircuitTrial(character.name) === 'cards' && onReturnCircuit ? <CircuitCardResult won={duel.winner === duel.viewerSide} draw={duel.winner === 'draw'} onReturn={onReturnCircuit} /> : duel.status === "complete" ? (
               <div
                 className="chronicle-panel"
                 style={{ marginBottom: 12, textAlign: "center" }}
@@ -604,6 +608,7 @@ function CardHallInner({
               error={error}
               onExit={leaveActiveBoard}
               exitLabel="Return to Hall"
+              eventLabel={rememberedCircuitTrial(character.name) === 'cards' ? 'CIRCUIT' : undefined}
               onAction={(intent) => void act(intent)}
             />
           </div>

@@ -28,6 +28,7 @@ import {
 import { playerSlug } from "../lib/utils";
 import { completeWorldRewardOperation, readPendingWorldRewards } from "../lib/world-reward-recovery";
 import { completeAiRaidLaunch } from "../lib/ai-raid-api";
+import { requestForResumedGenericFight, rememberCircuitCombatSession, forgetCircuitCombatSession } from '../lib/ai-fight-navigation';
 
 // AI fights render through MissionArenaFight — the SAME server-authoritative arena
 // shell combat missions and story bosses use. The standalone transport submits
@@ -37,6 +38,7 @@ import { completeAiRaidLaunch } from "../lib/ai-raid-api";
 // always live; the screen is code-split and warmed on the request, in parallel with
 // the start round-trip, so it is resident by the time the session opens.
 const MissionArenaFight = lazyWithRetry(() => import("../screens/MissionArenaFight").then((m) => ({ default: m.MissionArenaFight })));
+const CircuitCombatResult = lazyWithRetry(() => import('../features/dojo-circuit/CircuitCombatResult').then(m => ({ default: m.CircuitCombatResult })));
 
 type ActiveFight = {
     request: AiFightRequest;
@@ -85,21 +87,6 @@ function requestForPendingWorldChain(
         // The durable server handoff is the authority. Relaunch it byte-for-byte;
         // never infer stage/chainId from a local kill counter or hunt marker.
         worldEncounter: pending.request,
-    };
-}
-
-function requestForResumedGenericFight(started: AiFightStart): AiFightRequest | null {
-    if (!started.opponentId || !started.opponentName || !started.battleKind || started.worldContext) return null;
-    return {
-        opponentId: started.opponentId,
-        opponentLevel: Math.max(1, Number(started.session.enemy.character.level) || 1),
-        battleKind: started.battleKind,
-        opponentName: started.opponentName,
-        ...(typeof started.sector === "number" ? { sector: started.sector } : {}),
-        ...(started.worldExploreRequestId ? { worldExploreRequestId: started.worldExploreRequestId } : {}),
-        ...(started.dungeonRunToken ? { dungeonRunToken: started.dungeonRunToken } : {}),
-        ...((started.battleKind === "raidAi" || started.battleKind === "explore") ? { returnScreen: "worldMap" }
-            : started.battleKind === "dungeon" ? { returnScreen: "dungeon" } : {}),
     };
 }
 
@@ -292,7 +279,7 @@ export function AiFightHost({
                         || !mountedRef.current
                         || startRequestIdRef.current !== requestId
                         || activePlayerKeyRef.current !== originatingPlayerKey) return;
-                    const resumedRequest = requestForResumedGenericFight(generic);
+                    const resumedRequest = requestForResumedGenericFight(generic, originatingPlayerName);
                     if (!resumedRequest) throw new Error("The resumed AI encounter has no sealed request identity.");
                     acknowledgeExploreFightStart(originatingPlayerName, generic);
                     acknowledgeRaidFightStart(originatingPlayerName, generic);
@@ -444,6 +431,7 @@ export function AiFightHost({
                         ? requestForResumedWorldFight(started, sealedWorldMatchesRequest ? request.enemyAvatar : undefined)
                         : requestForStartedGenericFight(started, request);
                     if (!sealedRequest) throw new Error("The combat server did not return a sealed encounter identity.");
+                    if (sealedRequest.returnScreen === 'dojoCircuit' && started.battleKind === 'practice') rememberCircuitCombatSession(originatingPlayerName, started.sessionId);
                     acknowledgeExploreFightStart(originatingPlayerName, started, request.worldExploreRequestId);
                     acknowledgeRaidFightStart(originatingPlayerName, started, request.raidToken);
                     if (started.worldContext) ensureWandererFightPending(originatingPlayerName, started.worldContext, sealedRequest.enemyAvatar);
@@ -591,6 +579,7 @@ export function AiFightHost({
         }
         closeInFlightRef.current = false;
         activeRef.current = false;
+        if (active) forgetCircuitCombatSession(active.originatingPlayerName, active.sessionId);
         setFight((current) => current?.requestId === active?.requestId ? null : current);
         if (activePlayerKeyRef.current === originatingPlayerKey) onClose?.(returnScreen);
         const queued = queuedWorldRequestRef.current;
@@ -606,6 +595,7 @@ export function AiFightHost({
                 character={character}
                 runId={currentFight.sessionId}
                 initialSession={soloPveSessionForArena(currentFight.session)}
+                eventLabel={request.returnScreen === 'dojoCircuit' ? 'Dojo Circuit' : undefined}
                 transport={soloPveArenaTransport}
                 sharedImages={sharedImages}
                 savedBloodlines={savedBloodlines}
@@ -616,10 +606,10 @@ export function AiFightHost({
                 // the server or it costs the player nothing.
                 settleOnAnyDone
                 onRecordBattle={onRecordBattle}
-                recordMode={currentFight.worldContext ? "World Encounter" : request.battleKind === "practice" ? "Practice" : "AI Fight"}
+                recordMode={request.returnScreen === 'dojoCircuit' ? 'Dojo Circuit' : currentFight.worldContext ? "World Encounter" : request.battleKind === "practice" ? "Practice" : "AI Fight"}
                 enemyAvatarOverride={request.enemyAvatar}
                 onExit={closeFight}
-                renderResult={(ctx) => (
+                renderResult={(ctx) => request.returnScreen === 'dojoCircuit' ? <Suspense fallback={null}><CircuitCombatResult playerName={character.name} won={ctx.won} draw={ctx.draw} settleState={ctx.settleState} onRetry={ctx.retry} onExit={closeFight} /></Suspense> : (
                     <AiFightResultCard
                         won={ctx.won}
                         draw={ctx.draw}

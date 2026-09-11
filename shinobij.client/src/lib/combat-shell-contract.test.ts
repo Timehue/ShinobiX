@@ -165,6 +165,20 @@ test("shell pins optional notices and accessible controls without hard battlefie
     assert.doesNotMatch(shellCss, /\.hex-battlefield[^{]*\{[^}]*min-height:\s*(?:[3-9]\d{2}|\d{4,})px/);
 });
 
+test("short-landscape command rows are sized explicitly so Safari cannot keep a stale height", () => {
+    // When a resize-driven change in the bar's content runs as a transition (a
+    // universal Reduce Motion `transition-duration: 1ms` reset did this on
+    // 2026-09-10), WebKit kept the implicit `auto` rows sized for the previous
+    // width and the PvP board's last tile row was pushed out of <main> at
+    // 800x360. `minmax(44px, auto)` sizes exactly like `auto` (it still stretches
+    // into Tower's fixed-height bar) and WebKit recomputes it. `max-content` would
+    // stop that stretch.
+    const shortLandscape = css.slice(css.indexOf("Short landscape and 200%-zoom-equivalent viewports"));
+    const commandBar = shortLandscape.match(/\.arena-fullscreen\.shinobi-combat-shell \.shinobi-command-bar \{([^}]*)\}/)?.[1] ?? "";
+    assert.match(commandBar, /grid-template-columns: repeat\(4, minmax\(44px, 1fr\)\) !important/);
+    assert.match(commandBar, /grid-auto-rows: minmax\(44px, auto\) !important/);
+});
+
 test("combat details use a modal backdrop with bounded keyboard focus", () => {
     assert.match(detailPortal, /className="combat-detail-backdrop"/);
     assert.match(detailPortal, /aria-modal="true"/);

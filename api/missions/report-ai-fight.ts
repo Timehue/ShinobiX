@@ -1,4 +1,5 @@
 import { safeLogValue } from '../_safe-log.js';
+import { recordCircuitCombatVictory } from '../dojo-circuit/_store.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { randomInt } from 'node:crypto';
 import { kv } from '../_storage.js';
@@ -394,6 +395,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // unreachable.
 
         let durableSideEffectError: unknown = null;
+        if (outcome === 'win' && settledUsageSession.terminalEvidence) {
+            try {
+                await recordCircuitCombatVictory(playerName, settledUsageSession.createdAt, settledUsageSession.terminalEvidence.finishedAt);
+            } catch (error) {
+                durableSideEffectError = error;
+            }
+        }
 
         // Legacy tracking (ENABLE_LEGACY): PvE kill credit follows the same
         // daily soft cap as the reward — grinding past it stops feeding Legacy
