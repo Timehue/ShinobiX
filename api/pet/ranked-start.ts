@@ -13,10 +13,12 @@ import {
     PET_RANKED_QUEUE_KEY,
     PET_RANKED_QUEUE_MATCH_TTL_SECONDS,
     PET_RANKED_TOKEN_TTL_SECONDS,
+    PET_RANKED_REPLAY_TTL_SECONDS,
     isPetRankedQueueMatch,
     isRankedPetStartClaim,
     petRankedQueueMatchKey,
     petRankedStartClaimKey,
+    petRankedCompletedKey,
     pruneRankedPetActiveRegistry,
     type RankedPetActivePointer,
     type RankedPetMatchToken,
@@ -58,6 +60,15 @@ function claimNamesMatch(claim: RankedPetStartClaim, me: string, opponent: strin
     return claim.token.a === me
         && claim.token.b === opponent
         && claim.token.authority === PET_RANKED_AUTHORITY;
+}
+
+/** Separate presentation recovery from the expiring one-active-match lock. */
+async function retainReplayPointers(claim: RankedPetStartClaim): Promise<void> {
+    const expiresAt = Date.now() + PET_RANKED_REPLAY_TTL_SECONDS * 1000;
+    await Promise.all([
+        kv.set(petRankedCompletedKey(claim.token.a), { matchToken: claim.matchToken, opponent: claim.token.b, expiresAt }, { ex: PET_RANKED_REPLAY_TTL_SECONDS }),
+        kv.set(petRankedCompletedKey(claim.token.b), { matchToken: claim.matchToken, opponent: claim.token.a, expiresAt }, { ex: PET_RANKED_REPLAY_TTL_SECONDS }),
+    ]);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -107,6 +118,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // registry is one write, so both names point at the same token.
                 registry[me] = pointerFor(claim, opponent, true);
                 registry[opponent] = pointerFor(claim, me, false);
+                await retainReplayPointers(claim);
                 await kv.set(PET_RANKED_ACTIVE_REGISTRY_KEY, registry, { ex: ACTIVE_REGISTRY_TTL_SECONDS });
                 const remainingTtl = Math.max(1, Math.ceil((claim.expiresAt - now) / 1000));
                 await kv.set(`pet:ranked-token:${claim.matchToken}`, claim.token, { ex: remainingTtl });
@@ -192,6 +204,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // proof can be returned or a second pairing can start.
             registry[me] = pointerFor(claim, opponent, true);
             registry[opponent] = pointerFor(claim, me, false);
+            await retainReplayPointers(claim);
             await kv.set(PET_RANKED_ACTIVE_REGISTRY_KEY, registry, { ex: ACTIVE_REGISTRY_TTL_SECONDS });
             await kv.set(`pet:ranked-token:${claim.matchToken}`, claim.token, { ex: PET_RANKED_TOKEN_TTL_SECONDS });
             await Promise.allSettled([

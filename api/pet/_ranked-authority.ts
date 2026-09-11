@@ -4,12 +4,37 @@ import { safeName } from '../_utils.js';
 export const PET_RANKED_QUEUE_KEY = 'pvp:pet-ranked-queue';
 export const PET_RANKED_QUEUE_MATCH_TTL_SECONDS = 30;
 export const PET_RANKED_TOKEN_TTL_SECONDS = 15 * 60;
+export const PET_RANKED_REPLAY_TTL_SECONDS = 24 * 60 * 60;
 export const PET_RANKED_ACTIVE_REGISTRY_KEY = 'pet:ranked-active';
 export const PET_RANKED_AUTHORITY = 'pet-ranked-queue-v1' as const;
 
 export const petRankedQueueMatchKey = (name: string) => `${PET_RANKED_QUEUE_KEY}:match:${safeName(name)}`;
 export const petRankedStartClaimKey = (pairId: string) => `pet:ranked-start-claim:${pairId}`;
 export const petRankedSettlementIntentKey = (matchToken: string) => `pet:ranked-intent:${matchToken}`;
+export const petRankedResultKey = (matchToken: string) => `pet:ranked-result:${matchToken}`;
+export const petRankedCompletedKey = (name: string) => `pet:ranked-completed:${safeName(name)}`;
+
+/** Presentation only; this pointer never reserves a player or authorizes a payout. */
+export type RankedPetCompletedPointer = { matchToken: string; opponent: string; expiresAt: number };
+
+export function rankedPetCompletedPointer(value: unknown, now = Date.now()): RankedPetCompletedPointer | null {
+    if (!value || typeof value !== 'object') return null;
+    const pointer = value as Partial<RankedPetCompletedPointer>;
+    return typeof pointer.matchToken === 'string' && /^[0-9a-f-]{36}$/i.test(pointer.matchToken)
+        && typeof pointer.opponent === 'string' && !!safeName(pointer.opponent)
+        && typeof pointer.expiresAt === 'number' && pointer.expiresAt > now
+        ? pointer as RankedPetCompletedPointer : null;
+}
+
+/** Completed receipts retain sealed inputs, not a second combat resolution. */
+export function rankedPetResultReplay(value: unknown): RankedPetMatchToken | null {
+    if (!value || typeof value !== 'object') return null;
+    const receipt = value as { a?: unknown; b?: unknown; settledAt?: unknown; replay?: unknown };
+    return isRankedPetMatchToken(receipt.replay)
+        && receipt.replay.a === receipt.a && receipt.replay.b === receipt.b
+        && Number.isFinite(Number(receipt.settledAt)) && Number(receipt.settledAt) > 0
+        ? receipt.replay : null;
+}
 
 export type PetRankedQueueMatch = {
     opponent: string;
