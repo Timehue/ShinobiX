@@ -8,7 +8,8 @@
 
 /* ── Defense pet cards: image on top, stats UNDER it ──────────────────────── */
 .pl-pet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 10px; }
-.pl-pet { position: relative; border: 1px solid rgba(255,255,255,.1); border-radius: 12px; overflow: hidden; background: rgba(255,255,255,.03); cursor: pointer; text-align: left; padding: 0; transition: .15s; color: #e8edf6; }
+/* The card transitions only what hover, selection, keyboard focus and the busy-state `disabled` dim change. */
+.pl-pet { position: relative; border: 1px solid rgba(255,255,255,.1); border-radius: 12px; overflow: hidden; background: rgba(255,255,255,.03); cursor: pointer; text-align: left; padding: 0; transition: border-color .15s, box-shadow .15s, filter .15s, transform .15s, opacity .15s, outline-color .15s, outline-width .15s, outline-offset .15s; color: #e8edf6; }
 .pl-pet:hover { border-color: rgba(244,196,81,.4); transform: translateY(-2px); }
 .pl-pet.sel { border-color: #f4c451; box-shadow: 0 0 0 1px #f4c451, 0 8px 20px rgba(224,161,6,.22); }
 .pl-pet-img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; background: #0c0f18; }
@@ -84,7 +85,9 @@
 .pl-charges-l { font-size: 11px; color: rgba(231,237,247,.6); }
 
 /* ── Buttons ──────────────────────────────────────────────────────────────── */
-.pl-btn { font-weight: 700; border-radius: 10px; padding: 9px 18px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: #e8edf6; cursor: pointer; transition: .15s; }
+/* The button transitions only what hover, keyboard focus and `disabled` change, plus the formation picker's
+   gold swap, which also changes color, border width and font weight. */
+.pl-btn { font-weight: 700; border-radius: 10px; padding: 9px 18px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: #e8edf6; cursor: pointer; transition: color .15s, background-color .15s, border-color .15s, border-width .15s, box-shadow .15s, filter .15s, transform .15s, opacity .15s, font-weight .15s, outline-color .15s, outline-width .15s, outline-offset .15s; }
 .pl-btn:hover:not(:disabled) { border-color: rgba(244,196,81,.45); background: rgba(255,255,255,.09); }
 .pl-btn:disabled { opacity: .45; cursor: not-allowed; }
 .pl-btn-gold { background: linear-gradient(180deg, #f7d98a, #e0a106); color: #2a1c00; border: none; font-weight: 800; box-shadow: 0 4px 16px rgba(224,161,6,.3); }
@@ -94,7 +97,8 @@
 
 /* ── Ladder list ──────────────────────────────────────────────────────────── */
 .pl-list { display: flex; flex-direction: column; gap: 4px; }
-.pl-row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 10px; background: rgba(255,255,255,.025); border: 1px solid transparent; border-left: 3px solid transparent; transition: .12s; }
+/* A row transitions only its hover background and the highlight on your own row. */
+.pl-row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 10px; background: rgba(255,255,255,.025); border: 1px solid transparent; border-left: 3px solid transparent; transition: background-color .12s, border-left-color .12s; }
 .pl-row:hover { background: rgba(255,255,255,.05); }
 .pl-row.is-you { background: rgba(244,196,81,.1); border-left-color: #f4c451; }
 .pl-row-main { flex: 1; min-width: 0; }
@@ -113,7 +117,8 @@
 .pl-modal-bg { position: fixed; inset: 0; background: rgba(4,6,12,.72); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 60; padding: 16px; }
 .pl-modal { background: linear-gradient(180deg, rgba(22,26,40,.98), rgba(13,16,27,.98)); border: 1px solid rgba(244,196,81,.22); border-radius: 16px; padding: 20px; max-width: 760px; width: 100%; box-shadow: 0 24px 64px rgba(0,0,0,.65); }
 .pl-offer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
-.pl-opp { text-align: left; padding: 13px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); cursor: pointer; transition: .15s; color: #e8edf6; }
+/* An opponent card transitions only what hover, keyboard focus and the busy-state `disabled` dim change. */
+.pl-opp { text-align: left; padding: 13px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); cursor: pointer; transition: background-color .15s, border-color .15s, box-shadow .15s, filter .15s, transform .15s, opacity .15s, outline-color .15s, outline-width .15s, outline-offset .15s; color: #e8edf6; }
 .pl-opp:hover:not(:disabled) { border-color: rgba(244,196,81,.5); background: rgba(244,196,81,.08); transform: translateY(-2px); }
 .pl-opp:disabled { opacity: .55; cursor: progress; }
 .pl-opp-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
