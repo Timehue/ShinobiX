@@ -784,7 +784,11 @@ test("user directory routes into a production-safe public profile", async ({ pag
 });
 
 test.describe("Awakening Stone cinematic", () => {
-    test.use({ reducedMotion: "no-preference" });
+    // The cinematic IS the motion: under reduced motion `.ca-cinematic` is
+    // display:none (central-skin.css) and CentralAwakeningCinematic skips it.
+    // Only contextOptions reaches the browser; the bare `reducedMotion` key this
+    // used to set was silently ignored.
+    test.use({ contextOptions: { reducedMotion: "no-preference" } });
 
     test("reveals a newly awakened element returned by the server", async ({ page }) => {
         const runtimeErrors = collectRuntimeErrors(page);

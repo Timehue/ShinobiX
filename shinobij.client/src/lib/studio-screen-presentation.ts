@@ -79,6 +79,7 @@ export const STUDIO_SCREEN_PRESENTATION: Record<Screen, StudioScreenPresentation
   arena: atFacility(combat, "battle-arena"),
   battleArena: atFacility(combat, "battle-arena"),
   arenaDistrict: atFacility(combat, "battle-arena"),
+  dojoCircuit: combat,
   bloodlineMaker: archive,
   clan: atFacility(clan, "clan-hall"),
   worldMap: atFacility(frontier, "world-map"),

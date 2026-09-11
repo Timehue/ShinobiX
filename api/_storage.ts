@@ -94,6 +94,8 @@ const _noCachePrefixes = [
     // A cached prior spawn would defeat the distributed lock and let a late
     // phase-3 continuation overwrite the replacement generation.
     'game:weekly-boss-state',
+    // Circuit join/seal/pause writes share a distributed event lock.
+    'game:dojo-circuit:',
     // Direct-message inboxes, threads, and per-player deletion cutoffs are all
     // lock-coordinated live state. A worker-local snapshot can resurrect a
     // deleted row or lose a concurrently delivered message.

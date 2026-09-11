@@ -25,7 +25,8 @@ export function ArenaTournamentPanel({
 }: ArenaTournamentPanelProps) {
     return (
         <section className="summary-box">
-            <h3>Tournaments</h3>
+            <h3>Dojo Circuit</h3>
+        <p className="hint">A limited social event, separate from ranked rating. The Circuit uses one shared world-event board.</p>
             {tournament ? (
                 <>
                     <p><strong>{tournament.name}</strong> | Started by {tournament.createdBy}</p>
@@ -53,8 +54,8 @@ export function ArenaTournamentPanel({
                 </>
             ) : (
                 <>
-                    <p className="hint">Only Admin 1 can start a weekly tournament.</p>
-                    <button disabled={!isAdminTournamentManager} onClick={onStart}>{isAdminTournamentManager ? "Start 1 Week Tournament" : "Admin Only"}</button>
+                    <p className="hint">Only Admin 1 can start the next Circuit.</p>
+                    <button disabled={!isAdminTournamentManager} onClick={onStart}>{isAdminTournamentManager ? "Start 1 Week Circuit" : "Admin Only"}</button>
                 </>
             )}
         </section>

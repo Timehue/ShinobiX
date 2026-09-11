@@ -189,6 +189,16 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
   rather than minutes and is enough to clear a specific suspicion — but only the
   full suites match what CI will actually say.
 
+  **The e2e suites run with Reduce Motion on** (`use.contextOptions.reducedMotion:
+  'reduce'`; a bare top-level `reducedMotion` key is silently ignored by
+  Playwright, and `scripts/playwright-context-options.test.mjs` fails on one). In
+  this app that selects the lite presentation: `html.lite-fx`, no WebGL
+  backdrops, trimmed combat VFX, and cinematics hidden or jumped to their end.
+  A spec that certifies motion itself must opt out with
+  `test.use({ contextOptions: { reducedMotion: 'no-preference' } })`, as the
+  Awakening Stone cinematic and the mobile UI gallery capture do. The visual
+  suite and warfront run full motion.
+
   Two things that will stop you before any test runs, both verified 2026-08-16:
   - **Delete `shinobij.client/.playwright-dist-*` between runs.** The preview
     harness refuses to overwrite its own snapshot ("Refusing to overwrite

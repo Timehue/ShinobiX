@@ -211,42 +211,47 @@ test("Card Hall AI showdown stays wired and comfortably sized across the device 
   ];
   for (const viewport of matrix) {
     await page.setViewportSize(viewport);
-    // Let the responsive layout settle after resizing before checking bounds;
-    // Firefox/WebKit can expose the new viewport ahead of the table's reflow.
+    // Measure the SETTLED layout: every bound below runs inside the retry, not
+    // once after it. Firefox/WebKit can expose the new viewport, and pass the
+    // viewport-safety check, a frame before the table and hand finish
+    // reflowing. Measured once, that read a 712px table at 1366x768 and 52.93px
+    // hand cards at 390x844 (settled: 57.23px). It hit about 1 run in 3 on
+    // Firefox with reduced motion. Each bound must still hold for the final,
+    // settled layout.
     await expect(async () => {
       await expectViewportSafe(page, {
         horizontalScrollers: [".chronicle-hand", ".chronicle-command-dock"],
         overlays: [".chronicle-card-detail-panel"],
       });
-    }).toPass({ timeout: 10_000 });
-    const layout = await measureDuel(page);
-    expect(layout.document.scrollWidth).toBeLessThanOrEqual(layout.document.width + 1);
-    expect(layout.document.scrollHeight).toBeLessThanOrEqual(layout.document.height + 1);
-    expect(layout.table.height, JSON.stringify(layout.diagnostics, null, 2))
-      .toBeGreaterThanOrEqual(viewport.height - 10);
-    expectContained(layout.table, viewport, "duel table");
-    expectContained(layout.playmat, viewport, "playmat");
-    expectContained(layout.console, viewport, "player console");
-    expectContained(layout.firstAction, viewport, "first command");
-    expectContained(layout.roomAction, viewport, "return-to-hall action");
-    expect(layout.roomAction.top, "return-to-hall action starts above its banner")
-      .toBeGreaterThanOrEqual(layout.roomBanner.top - 1);
-    expect(layout.roomAction.bottom, "return-to-hall action ends below its banner")
-      .toBeLessThanOrEqual(layout.roomBanner.bottom + 1);
+      const layout = await measureDuel(page);
+      expect(layout.document.scrollWidth).toBeLessThanOrEqual(layout.document.width + 1);
+      expect(layout.document.scrollHeight).toBeLessThanOrEqual(layout.document.height + 1);
+      expect(layout.table.height, JSON.stringify(layout.diagnostics, null, 2))
+        .toBeGreaterThanOrEqual(viewport.height - 10);
+      expectContained(layout.table, viewport, "duel table");
+      expectContained(layout.playmat, viewport, "playmat");
+      expectContained(layout.console, viewport, "player console");
+      expectContained(layout.firstAction, viewport, "first command");
+      expectContained(layout.roomAction, viewport, "return-to-hall action");
+      expect(layout.roomAction.top, "return-to-hall action starts above its banner")
+        .toBeGreaterThanOrEqual(layout.roomBanner.top - 1);
+      expect(layout.roomAction.bottom, "return-to-hall action ends below its banner")
+        .toBeLessThanOrEqual(layout.roomBanner.bottom + 1);
 
-    const compact = viewport.width <= 760;
-    expect(
-      layout.firstHandCard.width,
-      `${viewport.width}x${viewport.height} hand-card width`,
-    ).toBeGreaterThanOrEqual(compact ? 54 : 62);
-    expect(
-      layout.firstZone.width,
-      `${viewport.width}x${viewport.height} field-zone width`,
-    ).toBeGreaterThanOrEqual(compact ? 44 : 60);
-    expect(layout.firstAction.height).toBeGreaterThanOrEqual(compact ? 44 : 30);
-    expect(layout.roomAction.height).toBeGreaterThanOrEqual(compact ? 44 : 22);
-    expect(layout.hand.height).toBeGreaterThan(layout.firstHandCard.height * 0.8);
-    expect(layout.dock.left).toBeLessThanOrEqual(layout.firstAction.left + 1);
+      const compact = viewport.width <= 760;
+      expect(
+        layout.firstHandCard.width,
+        `${viewport.width}x${viewport.height} hand-card width`,
+      ).toBeGreaterThanOrEqual(compact ? 54 : 62);
+      expect(
+        layout.firstZone.width,
+        `${viewport.width}x${viewport.height} field-zone width`,
+      ).toBeGreaterThanOrEqual(compact ? 44 : 60);
+      expect(layout.firstAction.height).toBeGreaterThanOrEqual(compact ? 44 : 30);
+      expect(layout.roomAction.height).toBeGreaterThanOrEqual(compact ? 44 : 22);
+      expect(layout.hand.height).toBeGreaterThan(layout.firstHandCard.height * 0.8);
+      expect(layout.dock.left).toBeLessThanOrEqual(layout.firstAction.left + 1);
+    }).toPass({ timeout: 10_000 });
   }
 
   await page.setViewportSize({ width: 390, height: 844 });
