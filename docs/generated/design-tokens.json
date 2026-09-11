@@ -2661,7 +2661,7 @@
           },
           {
             "source": "shinobij.client/src/screens/PetLadder.css",
-            "line": 134
+            "line": 139
           },
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
@@ -3504,7 +3504,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetLadder.css",
-            "line": 23
+            "line": 24
           },
           {
             "source": "shinobij.client/src/screens/WorldCrisis.css",
