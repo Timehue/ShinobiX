@@ -1,8 +1,32 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { isWorldMapControlTarget } from "./use-world-map-zoom";
+import { isWorldMapControlTarget, isWorldMapZoomEnabled } from "./use-world-map-zoom";
 import { ACADEMY_TRAIL_FOCUS_EVENT, requestAcademyTrailFocus } from "./academy-trail-focus";
+
+test("the mobile map stays off outside the mobile shell, including a stored enable flag", () => {
+    const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+    const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+    try {
+        for (const mobile of [false, true]) {
+            Object.defineProperty(globalThis, "window", { configurable: true, value: {
+                matchMedia(query: string) {
+                    assert.equal(query, "(max-width: 979px)");
+                    return { matches: mobile };
+                },
+            } });
+            for (const flag of [null, "0", "1"]) {
+                Object.defineProperty(globalThis, "localStorage", { configurable: true, value: { getItem: () => flag } });
+                assert.equal(isWorldMapZoomEnabled(), mobile && flag !== "0", `mobile=${mobile}, saved flag=${flag}`);
+            }
+        }
+    } finally {
+        if (previousWindow) Object.defineProperty(globalThis, "window", previousWindow);
+        else Reflect.deleteProperty(globalThis, "window");
+        if (previousStorage) Object.defineProperty(globalThis, "localStorage", previousStorage);
+        else Reflect.deleteProperty(globalThis, "localStorage");
+    }
+});
 
 test("world-map controls retain their pointer so taps can activate them", () => {
     let selectorSeen = "";

@@ -28,7 +28,7 @@ import {
 } from "../components/icons/LightweightGameIcons";
 import { getJutsuMastery, jutsuXpNeeded, scaleJutsuByLevel, jutsuResourceDisplay } from "../lib/jutsu-scaling";
 import { jutsuRyoTrainCap } from "../lib/jutsu-training-queue";
-import { describeJutsuEffects, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
+import { describeJutsuEffects, jutsuDetailDescription, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { getJutsuTrainingSpeedBonus, getTrainingXpBonus } from "../lib/village-upgrades";
 import { formatStatName, earnedStatPoints, levelForEarned } from "../lib/stats";
 import { canEquipElementJutsu, getCharacterBloodlines } from "../lib/bloodline";
@@ -722,7 +722,7 @@ export function JutsuTrainingHall({
         return (
             <div className="jutsu-detail-stack">
                 <div className="jutsu-detail-badges"><span>Lv {mastery.level}/50</span><span>{jutsu.type}</span><span>{jutsu.element}</span>{bloodline && <span className="is-bloodline">{bloodline}</span>}</div>
-                <p className="jutsu-detail-description">{jutsu.description || jutsu.battleDescription}</p>
+                <p className="jutsu-detail-description">{jutsuDetailDescription(jutsu)}</p>
                 <div className="jutsu-detail-metrics">
                     <span><small>Mastery XP</small><strong>{mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</strong></span>
                     <span><small>Action points</small><strong>{jutsu.ap}</strong></span>
