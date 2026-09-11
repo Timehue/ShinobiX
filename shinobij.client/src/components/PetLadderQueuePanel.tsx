@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import { activeCarriedPets } from "../lib/entitlements";
 import { fetchRankedPetDuel, type RankedPetWatch } from "../lib/pet-ranked-watch-api";
 import {
     petRankedQueue,
+    fetchRankedPetCharacter,
     settleRankedPetMatch,
     startRankedPetMatch,
     type PetRankedQueueState,
@@ -24,43 +25,56 @@ import { PetShowdownReplay } from "./PetShowdownReplay";
  * The winner it reports is the server's own verdict, read back off the watch
  * response, and the server re-derives it anyway before rating.
  */
-export function PetLadderQueuePanel({ character, sharedImages = {} }: {
+export function PetLadderQueuePanel({ character, sharedImages = {}, onVersionedCharacter }: {
     character: Character;
     sharedImages?: Record<string, string>;
+    onVersionedCharacter: (character: Character, version: number) => boolean;
 }) {
     const [state, setState] = useState<PetRankedQueueState>({ state: "idle" });
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [watch, setWatch] = useState<RankedPetWatch | null>(null);
+    const [checking, setChecking] = useState(true);
+    const [retryAttempt, setRetryAttempt] = useState(0);
+    const [closingToken, setClosingToken] = useState<string | null>(null);
     const mountedRef = useRef(true);
     const startedRef = useRef<string | null>(null);
-    const settledRef = useRef<string | null>(null);
+    const refreshIdRef = useRef(0);
     const playerPets = activeCarriedPets<Pet>(character);
+    // Read the current App commit callback without restarting playback when
+    // adoption itself rerenders the parent. App rejects older/foreign saves.
+    const receiveCharacter = useEffectEvent(onVersionedCharacter);
 
     useEffect(() => {
         mountedRef.current = true;
-        return () => { mountedRef.current = false; };
+        return () => { mountedRef.current = false; refreshIdRef.current += 1; };
     }, []);
 
     const refresh = useCallback(async () => {
+        const requestId = ++refreshIdRef.current;
         try {
             const next = await petRankedQueue("poll", character.name);
-            if (mountedRef.current) setState(next);
-        } catch { /* transient; the next tick retries */ }
+            if (mountedRef.current && requestId === refreshIdRef.current) {
+                if (next.state === "idle") startedRef.current = null;
+                setError(null); setState(next);
+            }
+        } catch (cause) {
+            if (mountedRef.current && requestId === refreshIdRef.current) setError(String((cause as Error)?.message ?? cause));
+        } finally { if (mountedRef.current && requestId === refreshIdRef.current) setChecking(false); }
     }, [character.name]);
 
-    // Poll only while the handshake is in flight. Idle costs nothing.
-    //
-    // `paired` polls fast on purpose. A single settle call rates BOTH players
-    // and then clears both active pointers, so the slower client can find the
-    // queue already idle and never learn its match token. Their rating is still
-    // correct — it was applied by the same call — but they would miss watching
-    // the fight, so the window is kept narrow.
+    // Recover active and completed matches after navigation or a reload.
     useEffect(() => {
-        if (state.state === "idle" || state.state === "active") return;
+        const timer = window.setTimeout(() => { void refresh(); }, 0);
+        return () => window.clearTimeout(timer);
+    }, [refresh]);
+
+    // Completed-match discovery survives settlement, regardless of poll timing.
+    useEffect(() => {
+        if (busy || (state.state !== "queued" && state.state !== "paired")) return;
         const id = window.setInterval(() => { void refresh(); }, state.state === "paired" ? 800 : 2_500);
         return () => window.clearInterval(id);
-    }, [refresh, state.state]);
+    }, [refresh, state.state, busy]);
 
     // The initiator mints the sealed token once both sides are paired.
     useEffect(() => {
@@ -75,33 +89,54 @@ export function PetLadderQueuePanel({ character, sharedImages = {} }: {
             });
     }, [refresh, state]);
 
-    // Fetch the rated fight, settle it, then play it. Settling BEFORE the replay
-    // means a player who closes the tab mid-animation still has their match rated.
+    // Keep failed watch/settlement requests retryable. A successful peer may
+    // already have rated this match; completed receipts remain watchable.
     useEffect(() => {
-        if (state.state !== "active" || settledRef.current === state.matchToken) return;
+        if ((state.state !== "active" && state.state !== "completed") || closingToken) return;
         const token = state.matchToken;
         const opponent = state.opponent;
-        settledRef.current = token;
-        void (async () => {
-            const watched = await fetchRankedPetDuel(token);
+        let cancelled = false;
+        // StrictMode's discarded effect must not start a second request chain.
+        const timer = window.setTimeout(() => { void (async () => {
+            setBusy(true); setError(null);
+            try {
+                const watched = await fetchRankedPetDuel(token);
+                if (cancelled) return;
+                if (!watched) throw new Error("The ranked match could not be loaded. Retry to recover its recorded result.");
+                const outcome = watched.winnerName.toLowerCase() === character.name.toLowerCase() ? "win" : "loss";
+                const snapshot = state.state === "active"
+                    ? await settleRankedPetMatch({ playerName: character.name, matchToken: token, opponentName: opponent, outcome })
+                    : await fetchRankedPetCharacter(character.name);
+                if (cancelled) return;
+                receiveCharacter(snapshot.character, snapshot._saveVersion);
+                setWatch(watched);
+            } catch (cause) {
+                if (!cancelled) setError(String((cause as Error)?.message ?? cause));
+            } finally { if (!cancelled) setBusy(false); }
+        })(); }, 0);
+        return () => { cancelled = true; window.clearTimeout(timer); };
+    }, [character.name, state, retryAttempt, closingToken]);
+
+    const closeReplay = async (token: string) => {
+        refreshIdRef.current += 1;
+        setWatch(null); setClosingToken(token); setBusy(true); setError(null);
+        try {
+            const next = await petRankedQueue("acknowledge", character.name, token);
             if (!mountedRef.current) return;
-            if (!watched) {
-                // No local fallback, deliberately: a locally simulated ranked
-                // fight is the exact bug this mode was retired for.
-                setError("The ranked match could not be loaded. Your rating is untouched — retry when the connection is stable.");
-                return;
-            }
-            const outcome = watched.winnerName === character.name ? "win" : "loss";
-            await settleRankedPetMatch({ playerName: character.name, matchToken: token, opponentName: opponent, outcome });
-            if (mountedRef.current) setWatch(watched);
-        })();
-    }, [character.name, state]);
+            startedRef.current = null;
+            setState(next); setClosingToken(null);
+        } catch (cause) {
+            if (mountedRef.current) setError(String((cause as Error)?.message ?? cause));
+        } finally { if (mountedRef.current) setBusy(false); }
+    };
 
     const act = (action: "join" | "leave") => async () => {
+        refreshIdRef.current += 1;
         setBusy(true);
         setError(null);
         try {
-            setState(await petRankedQueue(action, character.name));
+            const next = await petRankedQueue(action, character.name);
+            if (mountedRef.current) setState(next);
         } catch (actionError) {
             setError(String((actionError as Error)?.message ?? actionError));
         } finally {
@@ -115,12 +150,7 @@ export function PetLadderQueuePanel({ character, sharedImages = {} }: {
                 script={watch.script}
                 playerPets={playerPets}
                 sharedImages={sharedImages}
-                onExit={() => {
-                    setWatch(null);
-                    setState({ state: "idle" });
-                    startedRef.current = null;
-                    void refresh();
-                }}
+                onExit={() => { if (state.state === "active" || state.state === "completed") void closeReplay(state.matchToken); }}
             />
         );
     }
@@ -129,6 +159,12 @@ export function PetLadderQueuePanel({ character, sharedImages = {} }: {
         <div className="summary-box" data-testid="pet-ladder-queue" style={{ padding: "0.9rem", marginBottom: "0.9rem" }}>
             <h3 className="pl-h" style={{ marginTop: 0 }}>Ranked live queue</h3>
             {error && <p className="hint" role="alert" style={{ color: "var(--red-400)" }}>{error}</p>}
+            {error && !busy && <button type="button" onClick={() => {
+                if (closingToken) void closeReplay(closingToken);
+                else if (state.state === "active" || state.state === "completed") setRetryAttempt((value) => value + 1);
+                else void refresh();
+            }}>{closingToken ? "Return to queue" : "Retry ranked match"}</button>}
+            {error && !busy && !closingToken && state.state === "completed" && <button type="button" onClick={() => void closeReplay(state.matchToken)}>Dismiss replay</button>}
 
             {state.state === "idle" && (
                 <>
@@ -136,8 +172,8 @@ export function PetLadderQueuePanel({ character, sharedImages = {} }: {
                         Face another shinobi's pet for rating. The server resolves the duel and both of you watch that
                         exact fight — no client ever decides a ranked result.
                     </p>
-                    <button type="button" disabled={busy} onClick={() => void act("join")()}>
-                        {busy ? "Joining…" : "Find ranked match"}
+                    <button type="button" disabled={busy || checking} onClick={() => void act("join")()}>
+                        {checking ? "Checking ranked matches…" : busy ? "Joining…" : "Find ranked match"}
                     </button>
                 </>
             )}
@@ -159,9 +195,9 @@ export function PetLadderQueuePanel({ character, sharedImages = {} }: {
                 </p>
             )}
 
-            {state.state === "active" && (
+            {(state.state === "active" || state.state === "completed") && (
                 <p className="hint" role="status" style={{ marginTop: 0 }}>
-                    Loading your rated duel against <strong>{state.opponent}</strong>…
+                    {closingToken ? "Returning to the queue…" : error ? "Your ranked match is available to retry." : <>Loading your rated duel against <strong>{state.opponent}</strong>…</>}
                 </p>
             )}
         </div>

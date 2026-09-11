@@ -158,6 +158,7 @@ type RankedPetSettlementReceipt = {
     b: string;
     winnerName: string | null;
     settledAt: number;
+    replay?: RankedPetMatchToken;
 };
 
 type PetBattleOutcome = 'win' | 'loss' | 'draw';
@@ -309,6 +310,7 @@ async function writeRankedSettlementReceipt(
         b: token.b,
         winnerName,
         settledAt,
+        ...(isRankedPetMatchToken(token) ? { replay: token } : {}),
     };
     // This write is required before proof retirement. If it fails, the caller
     // returns retryable 503 and leaves the original proof live.
@@ -387,9 +389,9 @@ async function cleanupRankedMatchAuthority(
 ): Promise<void> {
     try {
         await withKvLock(PET_RANKED_QUEUE_KEY, async () => {
-            const registry = pruneRankedPetActiveRegistry(
-                await kv.get(PET_RANKED_ACTIVE_REGISTRY_KEY),
-            );
+            const registry = pruneRankedPetActiveRegistry(await kv.get(PET_RANKED_ACTIVE_REGISTRY_KEY));
+            // Presentation pointers were retained at token mint. Releasing or
+            // retrying this reservation never removes or recreates those links.
             for (const [name, pointer] of Object.entries(registry)) {
                 if (pointer.matchToken === matchToken) delete registry[name];
             }

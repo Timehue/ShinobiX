@@ -70,6 +70,9 @@ const _noCachePrefixes = [
     // handshake. A process-local null or pre-claim binding can admit a second
     // child engine even while the distributed lock is working correctly.
     'hg-run:', 'hg-combat-binding:', 'hg-combat-paid:', 'hg-pet-result:', 'sd-hg:', 'sd-wcr80:', 'sd-fp:', 'first-pact:',
+    // Archived Standing Court proofs can appear on another worker after a
+    // cached miss; their absence must be checked against shared storage.
+    'first-pact-standing-receipt:',
     'petgauntlet:', 'petladder:', 'clan-war-pet:',
     'pet-sanctuary:', 'pet-breeding-result:', 'pet-encounter:', 'pet-encounter-attempt:',
     'pet-encounter-active:', 'pet-encounter-request:', 'pet-encounter-declined:',

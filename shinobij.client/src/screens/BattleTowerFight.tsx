@@ -25,6 +25,7 @@ import type { StoryFightTheme } from "../lib/story-fight-theme";
 import { towerStoryFieldReport } from "../lib/tower-story-catalog";
 import { playStoryChapterSting, playStoryFinalPhaseSting, playStoryVictorySting, primeStorySfx } from "../lib/story-sfx";
 import { pvpAffectsOpponent, tagMatchesName } from "../lib/tags";
+import { jutsuDetailDescription } from "../lib/jutsu-effects";
 import {
     activeCombatDisplayStatuses,
     activeBarrierTilesForDisplay,
@@ -149,7 +150,7 @@ function towerActionRejectionText(reason?: string): string {
     if (reason === "actor-defeated") return "Your fighter can no longer act in this run.";
     return reason ? reason.replace(/-/g, " ") : "The Tower rejected this command.";
 }
-type JutsuLike = { id?: string; name?: string; description?: string; type?: string; element?: string; target?: string; ap?: number; range?: number; effectPower?: number; chakraCost?: number; staminaCost?: number; cooldown?: number; method?: string; tags?: Array<{ name?: string }> };
+type JutsuLike = { id?: string; name?: string; description?: string; battleDescription?: string; type?: string; element?: string; target?: string; ap?: number; range?: number; effectPower?: number; chakraCost?: number; staminaCost?: number; cooldown?: number; method?: string; tags?: Array<{ name?: string }> };
 
 function towerJutsuFallbackIcon(jutsu: JutsuLike): string {
     return jutsu.type === "Taijutsu" ? "👊" : jutsu.type === "Bukijutsu" ? "⚔" : jutsu.type === "Genjutsu" ? "👁" : "🌀";
@@ -1493,6 +1494,7 @@ export function BattleTowerFight({
     const inspectedLoadoutJutsu = inspectedLoadout?.kind === "jutsu"
         ? myJutsu.find(jutsu => jutsu.id === inspectedLoadout.id) ?? null
         : null;
+    const inspectedLoadoutDescription = inspectedLoadoutJutsu ? jutsuDetailDescription(inspectedLoadoutJutsu) : "";
     const inspectedLoadoutWeapon = inspectedLoadout?.kind === "weapon"
         ? actionWeapons.find(entry => entry.item.id === inspectedLoadout.id) ?? null
         : null;
@@ -2523,7 +2525,7 @@ export function BattleTowerFight({
                                             <span><strong>Stamina Cost:</strong> {inspectedLoadoutJutsu.staminaCost ?? 0}</span>
                                         </div>
                                         <p className="combat-jutsu-detail-desc"><strong>Target:</strong> {inspectedLoadoutJutsu.method ?? "Single"} · {inspectedLoadoutJutsu.target ?? "Enemy"}</p>
-                                        {inspectedLoadoutJutsu.description && <p className="combat-jutsu-detail-desc">{inspectedLoadoutJutsu.description}</p>}
+                                        {inspectedLoadoutDescription && <p className="combat-jutsu-detail-desc">{inspectedLoadoutDescription}</p>}
                                     </CombatDetailPortal>
                                 )}
                                 {inspectedLoadoutWeapon && (

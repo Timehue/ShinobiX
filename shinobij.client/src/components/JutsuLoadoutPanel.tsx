@@ -3,7 +3,7 @@ import type { Character } from "../types/character";
 import type { Jutsu } from "../types/combat";
 import type { JutsuType } from "../types/core";
 import { JutsuEffectCards } from "./JutsuEffectCards";
-import { describeJutsuEffects, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
+import { describeJutsuEffects, jutsuDetailDescription, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { getJutsuMastery } from "../lib/jutsu-scaling";
 import { orderEquippedJutsus } from "../lib/jutsu";
 import { isPatreonSubscriber, LOADOUT_CAP_BASE, LOADOUT_CAP_SUB } from "../lib/entitlements";
@@ -176,7 +176,7 @@ function SelectedJutsuDetails({
                 <span><small>Power</small><strong>{display.effectPower}</strong></span>
                 <span><small>Cooldown</small><strong>{jutsu.cooldown}</strong></span>
             </div>
-            <p className="jutsu-detail-description">{jutsu.description}</p>
+            <p className="jutsu-detail-description">{jutsuDetailDescription(jutsu)}</p>
             <p className="jutsu-detail-target"><strong>{targeting.short}</strong> — {targeting.detail}</p>
             <div className="jutsu-detail-effects">
                 <strong>Effects</strong>

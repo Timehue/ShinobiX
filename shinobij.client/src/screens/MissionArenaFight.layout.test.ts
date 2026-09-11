@@ -1,6 +1,7 @@
 import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { jutsuDetailDescription } from "../lib/jutsu-effects";
 
 const missionSource = readFileSync(new URL("./MissionArenaFight.tsx", import.meta.url), "utf8");
 const missionCss = readFileSync(new URL("../styles/mission-arena-fight.css", import.meta.url), "utf8");
@@ -276,6 +277,34 @@ test("mission jutsu cards expose the same accessible detail dialog as PvP", () =
         /\.\.\.\(jutsuCatalogById\[String\(inspectedJutsu\.id \?\? ""\)\] \?\? \{\}\),\s*\.\.\.inspectedJutsu/s,
         "the dialog must show trusted sealed mechanics while retaining authored descriptions",
     );
+});
+
+// The Bloodline Maker writes its battle line into `description` too, and the
+// server keeps it, so a player-authored jutsu can carry `%target` there. Printed
+// raw, the token showed up verbatim in every combat inspect dialog. All three
+// now fill it through the helper the Training Hall and Profile panels use, and
+// a jutsu with no prose at all still renders no paragraph.
+test("every combat jutsu dialog fills battle tokens instead of printing the description raw", () => {
+    for (const [name, source, jutsuVar, proseVar] of [
+        ["pvp", pvpSource, "inspectedJutsu", "detailDescription"],
+        ["mission", missionSource, "detailJutsu", "detailDescription"],
+        ["tower", towerSource, "inspectedLoadoutJutsu", "inspectedLoadoutDescription"],
+    ] as const) {
+        assert.match(source, new RegExp(`const ${proseVar} = [^;\\n]*jutsuDetailDescription\\(${jutsuVar}\\)`),
+            `${name} must build its dialog prose with jutsuDetailDescription`);
+        assert.match(source, new RegExp(`\\{${proseVar} && <p className="combat-jutsu-detail-desc">\\{${proseVar}\\}</p>\\}`),
+            `${name} must render the filled prose, and nothing when it is empty`);
+        assert.doesNotMatch(source, new RegExp(`${jutsuVar}\\.description\\b`),
+            `${name} must not print the jutsu's raw description`);
+    }
+
+    // The Tower's session jutsu is loosely typed: every field optional, and the
+    // target a plain string. It must pass to the helper as it is.
+    assert.equal(
+        jutsuDetailDescription({ description: "Iron dust hardens around %target.", target: "OPPONENT" }),
+        "Iron dust hardens around the target.",
+    );
+    assert.equal(jutsuDetailDescription({}), "", "a jutsu with no prose leaves the guard nothing to render");
 });
 
 // PvE lost its whole targeting telegraph when the browser reducer was retired:

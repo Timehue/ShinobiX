@@ -12,6 +12,13 @@ import {
     PET_RANKED_QUEUE_MATCH_TTL_SECONDS,
     isPetRankedQueueMatch,
     petRankedQueueMatchKey,
+    petRankedCompletedKey,
+    petRankedResultKey,
+    rankedPetCompletedPointer,
+    rankedPetResultReplay,
+    petRankedSettlementIntentKey,
+    isRankedPetSettlementIntent,
+    isRankedPetMatchToken,
     pruneRankedPetActiveRegistry,
     type PetRankedQueueMatch,
     type RankedPetActivePointer,
@@ -135,9 +142,27 @@ async function currentState(slug: string): Promise<Record<string, unknown>> {
     }
     const waiting = pruneWaiting(waitingRaw, Date.now());
     const index = waiting.findIndex(entry => entry.slug === slug);
-    return index >= 0
-        ? { state: 'queued', queuePosition: index + 1, waiting: waiting.length }
-        : { state: 'idle' };
+    if (index >= 0) return { state: 'queued', queuePosition: index + 1, waiting: waiting.length };
+    // This link was minted with the token, independently of the prunable
+    // reservation registry. An unfinished durable intent remains recoverable
+    // even if unrelated matchmaking has pruned its expired reservation.
+    const completed = rankedPetCompletedPointer(await kv.get(petRankedCompletedKey(slug)));
+    if (completed) {
+        const [live, intent] = await Promise.all([
+            kv.get(`pet:ranked-token:${completed.matchToken}`),
+            kv.get(petRankedSettlementIntentKey(completed.matchToken)),
+        ]);
+        // Read the completed receipt after the intent: settlement writes the
+        // receipt before deleting the intent, so there is no read-order gap.
+        const replay = rankedPetResultReplay(await kv.get(petRankedResultKey(completed.matchToken)));
+        if (replay && (replay.a === slug || replay.b === slug)) return { state: 'completed', matchToken: completed.matchToken, opponent: completed.opponent };
+        const token = isRankedPetMatchToken(live) ? live
+            : isRankedPetSettlementIntent(intent) && intent.matchToken === completed.matchToken ? intent.token : null;
+        if (token && (token.a === slug || token.b === slug)) {
+            return { state: 'active', matchToken: completed.matchToken, opponent: completed.opponent, initiator: token.a === slug };
+        }
+    }
+    return { state: 'idle' };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -157,12 +182,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!(await enforceRateLimitKv(req, res, 'pet-ranked-queue', 60, 60_000, me))) return;
 
         const action = String(body.action ?? 'poll');
-        if (!['join', 'leave', 'poll'].includes(action)) {
+        if (!['join', 'leave', 'poll', 'acknowledge'].includes(action)) {
             return res.status(400).json({ error: 'Missing name or valid action.' });
         }
         res.setHeader('Cache-Control', 'private, no-store');
 
         if (action === 'poll') return res.status(200).json(await currentState(me));
+
+        if (action === 'acknowledge') {
+            const matchToken = typeof body.matchToken === 'string' ? body.matchToken : '';
+            if (!/^[0-9a-f-]{36}$/i.test(matchToken)) return res.status(400).json({ error: 'A valid match token is required.' });
+            await withKvLock(PET_RANKED_QUEUE_KEY, async () => {
+                const completed = rankedPetCompletedPointer(await kv.get(petRankedCompletedKey(me)));
+                const replay = rankedPetResultReplay(await kv.get(petRankedResultKey(matchToken)));
+                const paid = replay && (replay.a === me || replay.b === me);
+                if (paid && completed?.matchToken === matchToken) await kv.del(petRankedCompletedKey(me));
+                // A successful payout can precede failed pointer cleanup. Only
+                // a durable completed receipt lets acknowledgment release that
+                // reservation, and never a newer match's reservation.
+                const registryRaw = await kv.get(PET_RANKED_ACTIVE_REGISTRY_KEY);
+                const registry = pruneRankedPetActiveRegistry(registryRaw);
+                if (pruneRankedPetActiveRegistry(registryRaw, 0)[me]?.matchToken === matchToken) {
+                    if (paid) {
+                        delete registry[me];
+                        await kv.set(PET_RANKED_ACTIVE_REGISTRY_KEY, registry, { ex: 24 * 60 * 60 });
+                    }
+                }
+            }, { failClosed: true });
+            return res.status(200).json(await currentState(me));
+        }
 
         if (action === 'leave') {
             await withKvLock(PET_RANKED_QUEUE_KEY, async () => {
