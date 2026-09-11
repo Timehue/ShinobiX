@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../_economy-tx.js';
 import { withKvLock } from '../_lock.js';
+import { invalidateProcCache } from '../_proc-cache.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { kv } from '../_storage.js';
 import { cors, mergePreservingImages, safeName } from '../_utils.js';
@@ -57,6 +58,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await markEconomyTx(txId, 'debit-applied').catch(() => undefined);
             try {
                 await kv.set(stateKey, { ...state, hollowGateUnlockedUntil: until });
+                invalidateProcCache('game-state:frame');
             } catch (creditError) {
                 try {
                     const refund = bumpSaveVersion<Record<string, unknown>>({ ...nextSave, character: { ...(nextSave.character as Record<string, unknown>), honorSeals: seals } });
