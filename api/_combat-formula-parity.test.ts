@@ -55,6 +55,10 @@ const SERVER_SIM = readFileSync(join(ROOT, 'api', 'towers', '_sim.ts'), 'utf8');
 // The bloodline offense multiplier table (1.08 starter / 1.10 B / 1.15 A /
 // 1.20 S) is hand-duplicated between the server derivation and the client.
 const SERVER_MULT = readFileSync(join(ROOT, 'api', 'pvp', '_multipliers.ts'), 'utf8');
+// Poison's rank ceiling + ramp are mirrored into the client tag display
+// (effectiveTagPercent), which is what every jutsu card shows.
+const CLIENT_TAGS = readFileSync(join(ROOT, 'shinobij.client', 'src', 'lib', 'tags.ts'), 'utf8');
+const TOWER_ENGINE = readFileSync(join(ROOT, 'api', 'towers', '_engine.ts'), 'utf8');
 
 function num(src: string, name: string): number {
     const m = src.match(new RegExp(`(?:export\\s+)?const\\s+${name}(?:\\s*:[^=]+)?\\s*=\\s*([0-9.]+)`));
@@ -82,6 +86,21 @@ function woundCaps(src: string): Record<string, number> {
     for (const k of ['basic', 'AB', 'S']) {
         const m = block.match(new RegExp(`${k}:\\s*([0-9]+)`));
         assert.ok(m, `wound cap "${k}" not found`);
+        out[k] = Number(m[1]);
+    }
+    return out;
+}
+
+// Reads a `const NAME ... = { basic: N, AB: N, S: N }` rank table, anchored on the
+// declaration so a comment that merely names the constant can't be matched first.
+function rankCapTable(src: string, constName: string): Record<string, number> {
+    const i = src.indexOf(`const ${constName}`);
+    assert.ok(i >= 0, `${constName} declaration not found`);
+    const block = src.slice(i, src.indexOf('}', i));
+    const out: Record<string, number> = {};
+    for (const k of ['basic', 'AB', 'S']) {
+        const m = block.match(new RegExp(`\\b${k}:\\s*([0-9]+)`));
+        assert.ok(m, `${constName} "${k}" not found`);
         out[k] = Number(m[1]);
     }
     return out;
@@ -149,6 +168,25 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
     }
     it('WOUND_CAP_BY_RANK matches (basic / AB / S)', () => {
         assert.deepEqual(woundCaps(SERVER_FORMULAS), woundCaps(CLIENT), 'wound rank caps diverged between server and client');
+    });
+    // Poison's percent is a potency (HP lost per cast = spend × potency × 12), so it
+    // has its own rank ceiling. The cards must show the ceiling combat applies, and
+    // every engine must resolve and pay Poison through the one shared path.
+    it('POISON_CAP_BY_RANK and its mastery ramp match, and every engine uses the shared Poison path', () => {
+        assert.deepEqual(
+            rankCapTable(SERVER_FORMULAS, 'POISON_CAP_BY_RANK'),
+            rankCapTable(CLIENT_TAGS, 'POISON_CAP_BY_RANK'),
+            'poison rank ceilings diverged between combat and the jutsu cards',
+        );
+        assert.match(SERVER_FORMULAS, /WEAPON_POISON_TAG_CAP = POISON_CAP_BY_RANK\.AB/, 'server weapon Poison ceiling is no longer the A/B ceiling');
+        assert.match(CLIENT_TAGS, /WEAPON_POISON_TAG_CAP = POISON_CAP_BY_RANK\.AB/, 'client weapon Poison ceiling (forge disclosure) no longer mirrors the server');
+        assert.match(SERVER_FORMULAS, /ceiling \* \(100 \+ mastery\) \/ 150/, 'server Poison ramp changed');
+        assert.match(CLIENT_TAGS, /ceiling \* \(100 \+ mastery\) \/ 150/, 'client Poison ramp no longer mirrors the server');
+        assert.match(SERVER, /poisonPercentForTag\(tag\.percent, tagPercentMastery, jutsu,/, 'direct-cast Poison must use the rank-capped potency');
+        assert.match(SERVER, /poisonPercentForTag\(tag\.percent, JUTSU_MAX_LEVEL, effect\)/, 'ground-zone Poison must use the rank-capped potency');
+        assert.match(SERVER, /poisonSpendDamage\(me, /, 'PvP must pay on-spend Poison through poisonSpendDamage');
+        assert.match(SOLO_ENGINE, /poisonSpendDamage\(/, 'Solo PvE must pay on-spend Poison through poisonSpendDamage');
+        assert.match(TOWER_ENGINE, /poisonSpendDamage\(/, 'Battle Towers must pay on-spend Poison through poisonSpendDamage');
     });
     // Wound STACK cap (2026-07-01). Per-hit Wound magnitude is rank-capped above; this
     // bounds the concurrent STACK COUNT so repeated Wound casts can't compound bleed.
@@ -224,11 +262,14 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
     // the shared DoT resolver.
     it('live Solo/PvP consumes the DoT DR-mitigation helper (not raw ticks)', () => {
         assert.match(CLIENT, /export function dotMitigationPVE/, 'dotMitigationPVE helper missing from combat-math.ts');
-        // dotMitigation lives inside move.ts applyDoTs, and PvE ticks its DoTs by
-        // calling that same applyDoTs — so a heavy-armour build cannot tank DoTs
-        // differently in PvE than in PvP.
+        // move.ts ownDotMitigation feeds both applyDoTs (Wound/Drain ticks) and
+        // poisonSpendDamage (on-spend Poison), and PvE ticks its DoTs by calling
+        // that same applyDoTs — so a heavy-armour build cannot tank DoTs
+        // differently in PvE than in PvP, or Poison differently from Wound.
         assert.match(SERVER_FORMULAS, /export function dotMitigationFromRawDr/, 'shared DoT mitigation helper is missing');
-        assert.match(SERVER, /const dotMitigation = dotMitigationFromRawDr\(ownArmor, ownStatusDR\)/, 'shared DoT resolver no longer consumes DR mitigation');
+        assert.match(SERVER, /return dotMitigationFromRawDr\(ownArmor, ownStatusDR\)/, 'ownDotMitigation no longer consumes the shared DR mitigation');
+        assert.match(SERVER, /const dotMitigation = ownDotMitigation\(f, round\)/, 'applyDoTs no longer consumes DR mitigation');
+        assert.match(SERVER, /Math\.floor\(raw \* ownDotMitigation\(fighter, round\)\)/, 'on-spend Poison no longer consumes DR mitigation');
         assertSoloUsesSharedMove('applyDoTs');
     });
     // #5 stacking: PvP's STACKABLE_STATUS set (non-listed statuses replace on
