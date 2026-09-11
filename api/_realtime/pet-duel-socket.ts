@@ -33,7 +33,7 @@ import { randomUUID, randomInt } from 'node:crypto';
 import { onlineStore } from './online-store.js';
 import {
     makeSession, putSession, getSession, sessionForPlayer, endSession,
-    acceptInput, reportProgress, syncPayload, sideOf, startIfReady,
+    acceptInput, reportProgress, safeTick, syncPayload, sideOf, startIfReady,
     type PetDuelSession, type DuelSide, type DuelCommandLike,
 } from './pet-duel-session.js';
 import { replayLockstepPetDuel, type LockstepAutonomy } from '../pet/_duel-replay.js';
@@ -120,6 +120,9 @@ interface RecentResult { winner: DuelSide | null; reason: string; p1: string; p2
 const RECENT_RESULT_TTL_MS = 5 * 60_000;
 const RECENT_RESULT_CAP = 500;
 const recentResults = new Map<string, RecentResult>();
+// The client sends its completion hint once. Keep it while a reconnecting
+// participant catches up, so progress or a subsequent drop can verify it later.
+const pendingCompletions = new WeakSet<PetDuelSession>();
 function rememberResult(s: PetDuelSession, winner: DuelSide | null, reason: string, now: number): void {
     for (const [id, r] of recentResults) {
         if (now - r.at >= RECENT_RESULT_TTL_MS) recentResults.delete(id);
@@ -135,6 +138,7 @@ function rememberResult(s: PetDuelSession, winner: DuelSide | null, reason: stri
 
 /** Tear a session down and tell whoever is still listening. */
 export function finishDuel(io: IOServer, s: PetDuelSession, winner: DuelSide | null, reason: 'ko' | 'resign' | 'abandoned'): void {
+    pendingCompletions.delete(s);
     rememberResult(s, winner, reason, Date.now());
     io.to(duelRoom(s.id)).emit('petduel:over', { id: s.id, winner, reason });
     rosters.delete(s.id);
@@ -169,6 +173,30 @@ function autonomyOf(s: PetDuelSession): LockstepAutonomy[] {
     return out;
 }
 
+function verifyPendingCompletion(io: IOServer, s: PetDuelSession): void {
+    if (s.status !== 'running' || !pendingCompletions.has(s)) return;
+    const seat = rosters.get(s.id);
+    if (!seat?.p1.pets || !seat.p2.pets) return;
+    try {
+        const replay = replayLockstepPetDuel(
+            seat.p1.pets as unknown as Pet[],
+            seat.p2.pets as unknown as Pet[],
+            {
+                mode: s.mode, seed: s.seed,
+                // Match the client's controlled PvP simulation settings.
+                damageMult: 1, hpMult: 1, revive: false,
+                applyItems: true, accuracy: true, terrain: null,
+            },
+            s.inputs.map((i) => ({ t: i.tick, cmd: i.cmd as unknown as DuelCommandLike })) as never,
+            autonomyOf(s),
+            safeTick(s),
+        );
+        if (replay) finishDuel(io, s, replay.winner, 'ko');
+    } catch (err) {
+        console.error('[petduel] replay failed', (err as Error).message);
+    }
+}
+
 /** The hand-over notice for a side on standing orders. The tick is
  *  SERVER-computed and sent to both clients, so they put the pet on standing
  *  orders at the identical tick. Deriving it locally on each side would be a
@@ -190,6 +218,7 @@ export function notifyPeerGone(io: IOServer, s: PetDuelSession, gone: DuelSide):
     // immediately keep simulating — push the new one rather than making them wait
     // for their next progress report.
     pushSync(io, s);
+    verifyPendingCompletion(io, s);
 }
 
 export function wirePetDuel(io: IOServer, socket: Socket): void {
@@ -358,39 +387,17 @@ export function wirePetDuel(io: IOServer, socket: Socket): void {
         if (!s || s.status !== 'running') return;
         reportProgress(s, sideOf(s, name)!, Number(p.tick), Date.now());
         pushSync(io, s);
+        verifyPendingCompletion(io, s);
     });
 
     // A client believing the fight is over is only a HINT. The server replays the
     // merged log itself and declares the winner; a premature or invented
-    // `finished` simply yields a replay that has not ended, and is ignored.
+    // `finished` cannot settle before the shared timeline reaches the ending.
     socket.on('petduel:finished', (payload: unknown) => {
         const s = sessionFor((payload as { id?: unknown })?.id);
         if (!s || s.status !== 'running') return;
-        const seat = rosters.get(s.id);
-        if (!seat?.p1.pets || !seat.p2.pets) return;
-        try {
-            const replay = replayLockstepPetDuel(
-                seat.p1.pets as unknown as Pet[],
-                seat.p2.pets as unknown as Pet[],
-                {
-                    mode: s.mode, seed: s.seed,
-                    // PvP carries no PvE multipliers, items are on for both, and
-                    // accuracy is PINNED to match the client's
-                    // CONTROLLED_DUEL_ACCURACY — the server cannot see a browser's
-                    // localStorage, so an unpinned flag would desynchronise this.
-                    damageMult: 1, hpMult: 1, revive: false,
-                    applyItems: true, accuracy: true, terrain: null,
-                },
-                s.inputs.map((i) => ({ t: i.tick, cmd: i.cmd as unknown as DuelCommandLike })) as never,
-                // Replaying WITHOUT this would score a fight nobody played: a
-                // dropped pet fought to its owner's standing orders, and those
-                // orders never crossed the wire.
-                autonomyOf(s),
-            );
-            finishDuel(io, s, replay.winner, 'ko');
-        } catch (err) {
-            console.error('[petduel] replay failed', (err as Error).message);
-        }
+        pendingCompletions.add(s);
+        verifyPendingCompletion(io, s);
     });
 
     socket.on('petduel:resign', (payload: unknown) => {

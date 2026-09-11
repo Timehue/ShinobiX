@@ -4,6 +4,7 @@ import {
     type ServerSettlementReceipt,
 } from '../_settlement-receipts.js';
 import type { SettlementItem } from '../shop/_catalog.js';
+import { canonicalEquipmentSlot, resolvedEquipmentEntries, REFERENCE_EQUIPMENT_SLOTS } from '../_equipment-ownership.js';
 
 export type InventorySaleSource = 'backpack' | 'equipped';
 export type InventorySaleValue = { kind: 'inventory-sale'; itemId: string; quantity: number; ryo: number; source: InventorySaleSource };
@@ -92,14 +93,17 @@ export function applyInventorySale(
 
     let next: Record<string, unknown>;
     if (source === 'equipped') {
+        if (REFERENCE_EQUIPMENT_SLOTS.has(slot)) {
+            return { ok: false, status: 400, error: 'Sell equipped consumables from your backpack.' };
+        }
         if (!EQUIPMENT_KEYS.has(slot) || !character.equipment || typeof character.equipment !== 'object' || Array.isArray(character.equipment)) {
             return { ok: false, status: 400, error: 'Equipped item slot is invalid.' };
         }
         const equipment = { ...character.equipment as Record<string, unknown> };
-        if (equipment[slot] !== item.id) return { ok: false, status: 400, error: 'That item is not equipped in the selected slot.' };
-        const normalized = normalizeSlot(slot);
-        const aliases = normalized === 'hand' ? ['hand', 'weapon'] : normalized === 'body' ? ['body', 'armor'] : normalized === 'aura' ? ['aura', 'accessory'] : [normalized];
-        for (const key of aliases) if (equipment[key] === item.id) delete equipment[key];
+        const normalized = canonicalEquipmentSlot(slot);
+        const equipped = resolvedEquipmentEntries(equipment).find(([key]) => canonicalEquipmentSlot(key) === normalized);
+        if (equipped?.[1] !== item.id) return { ok: false, status: 400, error: 'That item is not equipped in the selected slot.' };
+        for (const key of Object.keys(equipment)) if (canonicalEquipmentSlot(key) === normalized) delete equipment[key];
         next = { ...character, equipment, ryo: ryo + saleRyo };
     } else {
         const rawStacks = character.itemStacks ?? [];
