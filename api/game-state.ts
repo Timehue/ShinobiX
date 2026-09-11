@@ -7,7 +7,7 @@ import { safeLogValue } from './_safe-log.js';
 import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
-import { cachedFor, invalidateProcCache } from './_proc-cache.js';
+import { cachedFor } from './_proc-cache.js';
 import { cors, safeName, setSafeRecordValue } from './_utils.js';
 import { authedPlayerOrAdmin, isFullAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
@@ -28,8 +28,10 @@ const WEEKLY_BOSS_OVERRIDE_KEY = 'game:weekly-boss-override';
 // staleness — a village-state write from another handler surfaces no later than
 // it did before this cache existed. The village endpoints that write the row
 // (orders, leadership, treasury donate/transfer, upgrade, agenda, Hollow Gate,
-// war-structure, and the villageState POST below) also drop the entry, so the
-// next poll after one of them rebuilds instead of serving the pre-write frame.
+// war-structure) also drop the entry, so the next poll after one of them
+// rebuilds instead of serving the pre-write frame. The villageState POST below
+// deliberately does NOT: it is free to call, so dropping the entry there would
+// let any player force a rebuild of this shared frame on demand.
 const GAME_STATE_TTL_MS = 3000;
 
 function clanPetBattleKey(clanName: string) {
@@ -222,7 +224,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         kageState,
                     );
                     await kv.set(key, next);
-                    invalidateProcCache('game-state:frame');
                     return suppressed;
                 }, { failClosed: true });
                 if (suppressedLog.length > 0) {
