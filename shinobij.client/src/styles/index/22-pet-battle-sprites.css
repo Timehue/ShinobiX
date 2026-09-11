@@ -1177,7 +1177,6 @@
     inset: 0;
     background: radial-gradient(ellipse at center, rgba(2, 6, 23, 0.72), rgba(2, 6, 23, 0.92));
     backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
     /* Above every fixed side rail (right-menu 999999, left-profile 10000,
        sector-banner 9999) AND above the portaled item popup (1000000) so an
        alert fired over an open Shop/Inventory popup still covers it. GameAlertHost
