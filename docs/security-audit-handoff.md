@@ -168,6 +168,15 @@ non-donation item write is a removal), so this is safe. New tests:
 `api/_clan-save-validate.test.ts` + `api/_village-state-validate.test.ts`. This
 closes #16's `treasury.items` minting hole.
 
+**2026-09-11 — the VILLAGE treasury is now fully server-owned in the blob.**
+`api/_village-state-validate.ts` no longer accepts removals or decreases either
+(items, currencies and the stores), including from the seated Kage; admin still
+bypasses. Every movement already has an endpoint (donate, transfer, upgrade,
+claim-daily-agenda, war-structure, the daily stores pass), and the Town Hall
+re-posted a treasury it had POLLED, so a stale lower figure erased donations that
+landed after that client's last poll. The client also stopped sending the
+treasury in the blob (`saveVillageState`). The CLAN validator is unchanged.
+
 **#17 currency credit-without-debit — server-authoritative refactor, ✅ Stage 1 DONE.**
 Correction to the earlier note: the "clan-war victory ryo" credit (`_resolveClanWar`)
 is **dead code** (`void`-suppressed, superseded by the live `/api/clan/war/*`

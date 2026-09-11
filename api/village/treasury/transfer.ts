@@ -4,6 +4,7 @@ import { kv } from '../../_storage.js';
 import { cors, safeName } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
+import { invalidateProcCache } from '../../_proc-cache.js';
 import { writeVersionedPlayerSave } from '../../save/_mutate-player-save.js';
 import { settleCrossKeyTransfer, SettlementValidationError } from '../../_cross-key-settlement.js';
 import { planTreasuryGift } from '../../_treasury-gift-tax.js';
@@ -239,7 +240,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const items = Array.isArray(sourceTreasury.items) ? sourceTreasury.items : [];
                 return { ...source, treasury: { ...sourceTreasury, items: removeOneItem(items, itemId!) }, settlementReceipts: [receipt, ...(Array.isArray(source.settlementReceipts) ? source.settlementReceipts : [])].slice(0, 100) };
             },
-            saveSource: async (source) => { await kv.set(villageStateKey, source); },
+            saveSource: async (source) => { await kv.set(villageStateKey, source); invalidateProcCache('game-state:frame'); },
             loadRecipient: async () => {
                 const record = await kv.get<Record<string, unknown>>(recipientSaveKey);
                 const character = (record?.character ?? null) as CharacterRow | null;
