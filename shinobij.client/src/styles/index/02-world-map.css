@@ -468,7 +468,6 @@ html.wm-zoom .world-map-scroll .world-poi-smoke {
     font-weight: 900;
     line-height: 1;
     cursor: pointer;
-    -webkit-backdrop-filter: blur(3px);
     backdrop-filter: blur(3px);
 }
 .wm-zoom-btn:active { transform: scale(.94); }
@@ -482,7 +481,6 @@ html.wm-zoom .world-map-scroll .world-poi-smoke {
     font-weight: 700;
     cursor: pointer;
     white-space: nowrap;
-    -webkit-backdrop-filter: blur(3px);
     backdrop-filter: blur(3px);
 }
 .wm-village-chip .wm-chip-dot {
