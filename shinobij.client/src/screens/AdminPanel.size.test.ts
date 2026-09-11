@@ -11,7 +11,9 @@ function sourceLineCount(fileName: string): number {
 
 describe("AdminPanel source budgets", () => {
     it("keeps the parent under its post-extraction growth and hard limits", () => {
-        const measuredPostExtractionLines = 6634;
+        // 6,634 -> 6,629 (2026-09-11): the Dojo Circuit's World Events tab put the
+        // parent at 6,644, five over. EditableVnPage moved verbatim to types/vn.
+        const measuredPostExtractionLines = 6629;
         const maximumLines = Math.min(measuredPostExtractionLines + 5, 6745);
         assert.ok(sourceLineCount("AdminPanel.tsx") <= maximumLines, `AdminPanel.tsx exceeds ${maximumLines} lines`);
     });
