@@ -5,7 +5,7 @@ import { cacheVillageElders } from "../lib/village-elder-focus";
 import { adoptVillageAnbu, adoptVillageOrders } from "../lib/world-state";
 import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useEffectEvent, useRef } from "react";
 import "../styles/town-hall-aaa.css";
 import { GiBroadsword, GiCrossedSwords, GiCrown, GiMoneyStack, GiPagoda, GiScrollUnfurled, GiShield, GiTreasureMap, GiUpgrade } from "../components/icons/LightweightGameIcons";
 import { visiblePoll } from "../lib/poll";
@@ -24,7 +24,7 @@ import type { VillageUpgradeKey, Screen } from "../types/core";
 import { UPGRADE_IMAGES, HOLLOW_GATE_IMAGE } from "../data/upgrade-images";
 import { contestVillageUnfed, fetchWarMap, upgradeWarStructure, type SectorWarContest } from "../lib/village-war-map";
 import { storesLedgerEmptyLine, storesLedgerScopeLine, storesSpendAuthorityLine, villageSupplyCall } from "../lib/village-stores-signposts";
-import { DAILY_CRAFT_POINT_DONATION_CAP, DAILY_RATION_DONATION_CAP, DEPOT_CONVERSION_POINTS_PER_WR, readStores, storesCreditNote, storesDonationBucket, storesDonationCapLine, storesDonationGate, storesLedgerRows } from "../lib/village-stores";
+import { DAILY_CRAFT_POINT_DONATION_CAP, DAILY_RATION_DONATION_CAP, DEPOT_CONVERSION_POINTS_PER_WR, readStores, storesCreditNote, storesDonationBucket, storesDonationCapLine, storesDonationGate, storesLedgerRows, storesPollDisagrees, storesRowValues } from "../lib/village-stores";
 import { MAX_WILD_SECTOR } from "../../../shared/sector-geo";
 import { STRUCTURE_IMAGES } from "../data/war-ui-images";
 import { LeaderPortrait } from "../components/Marks";
@@ -202,9 +202,12 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     const [villageNoticeSector, setVillageNoticeSector] = useState("");
     const [warStructures, setWarStructures] = useState<Record<string, number> | null>(null);
     // Village Stores (api/_village-stores.ts): the war-map view carries the
-    // village's ledger + a stores snapshot. Fetched once when the Treasury tab
-    // opens; the stock rows prefer the polled village-state treasury (the blob
-    // the server drains) and fall back to this snapshot while it lacks the keys.
+    // village's ledger + a stores snapshot. Read on Treasury/Command tab entry,
+    // and the stock rows show THAT read over the polled village-state treasury
+    // (lib/village-stores storesRowValues): the poll can be seconds stale, and
+    // after a drain it used to shadow a newer read while the Supply log below
+    // already showed the drain. The poll still keeps the rows live — when it
+    // moves off the snapshot, the Town Hall takes a fresh read.
     //
     // BOTH sources are optional by design, so a bare `?? 0` cannot tell "the
     // stores are empty" from "we have not read them yet" — the fetch status is
@@ -216,6 +219,15 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     const [storesFetch, setStoresFetch] = useState<"loading" | "ready" | "error">("loading");
     const [storesLedgerNow, setStoresLedgerNow] = useState(() => Date.now());
     const [storesSnapshot, setStoresSnapshot] = useState<{ provisions: number; materialPoints: number } | null>(null);
+    // Ordering for that read. Only the newest read may land. A routed donation
+    // or a structure build that answers while a read is in flight carries newer
+    // figures than the read, so the read must not overwrite the snapshot it
+    // wrote. And a poll move seen mid-read is held until the read lands, then
+    // judged.
+    const storesReadRef = useRef(0);
+    const storesReadingRef = useRef(false);
+    const storesWriteRef = useRef(0);
+    const storesPollMovedRef = useRef(false);
     // The same war-map read also carries this village's sector-war contests,
     // which is what turns "N rations" into "we are marching hungry". Kept raw
     // for the same reason the ledger is: the unfed verdict is scoped to a UTC
@@ -329,20 +341,53 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     // point — the war-map aggregator already carries the stock and the contests,
     // so the banner costs no extra request and no new endpoint. It still fires
     // once per tab entry, not on a poll.
-    useEffect(() => {
-        if (tab !== "treasury" && tab !== "status") return;
-        let alive = true;
-        setStoresFetch("loading");
+    //
+    // A `reread` (the poll-move path below) keeps the rows it is replacing on
+    // screen: no "Fetching…" flash, and a failed re-read leaves the last good
+    // read standing rather than blanking the stores.
+    const readVillageStores = useEffectEvent((reread: boolean) => {
+        storesReadRef.current += 1;
+        const request = storesReadRef.current;
+        const writes = storesWriteRef.current;
+        storesReadingRef.current = true;
+        storesPollMovedRef.current = false;
+        if (!reread) setStoresFetch("loading");
         void fetchWarMap().then((wm) => {
-            if (!alive) return;
+            if (request !== storesReadRef.current) return;
+            storesReadingRef.current = false;
             const mine = wm.villages.find((v) => v.village === character.village);
             setStoresLedgerRaw(mine ? mine.storesLedger : []);
-            setStoresSnapshot(mine ? { provisions: Math.max(0, Math.floor(Number(mine.provisions) || 0)), materialPoints: Math.max(0, Math.floor(Number(mine.materialPoints) || 0)) } : null);
+            if (writes === storesWriteRef.current) setStoresSnapshot(mine ? readStores({ provisions: mine.provisions, materialPoints: mine.materialPoints }) : null);
             setStoresContests((wm.contests ?? []).filter((c) => c.attackerVillage === character.village || c.defenderVillage === character.village));
             setStoresFetch("ready");
-        }).catch(() => { if (alive) { setStoresLedgerRaw(null); setStoresSnapshot(null); setStoresContests(null); setStoresFetch("error"); } });
-        return () => { alive = false; };
+        }).catch(() => {
+            if (request !== storesReadRef.current) return;
+            storesReadingRef.current = false;
+            if (reread) return;
+            setStoresLedgerRaw(null); setStoresSnapshot(null); setStoresContests(null); setStoresFetch("error");
+        });
+    });
+    useEffect(() => {
+        if (tab !== "treasury" && tab !== "status") return;
+        readVillageStores(false);
     }, [tab, character.village]);
+    // The poll no longer paints over a war-map read. It tells the Town Hall the
+    // stores MOVED (another villager's donation, a drain) and a fresh read is
+    // due. A poll that was already stale when the snapshot landed has not moved,
+    // so it can neither trigger a read nor reach the rows.
+    const polledProvisions = state.treasury.provisions;
+    const polledMaterials = state.treasury.materialPoints;
+    const storesPolledSeenRef = useRef({ provisions: polledProvisions, materialPoints: polledMaterials });
+    useEffect(() => {
+        const seen = storesPolledSeenRef.current;
+        if (seen.provisions !== polledProvisions || seen.materialPoints !== polledMaterials) {
+            storesPolledSeenRef.current = { provisions: polledProvisions, materialPoints: polledMaterials };
+            storesPollMovedRef.current = true;
+        }
+        if (!storesPollMovedRef.current || storesReadingRef.current || (tab !== "treasury" && tab !== "status")) return;
+        storesPollMovedRef.current = false;
+        if (storesPollDisagrees({ provisions: polledProvisions, materialPoints: polledMaterials }, storesSnapshot)) readVillageStores(true);
+    }, [tab, storesSnapshot, polledProvisions, polledMaterials]);
     // Keep "5m ago" honest while the tab stays open. visiblePoll pauses in a
     // hidden tab, so this costs nothing in the background.
     // (Command shares it: the supply banner compares a contest's endsAt against
@@ -368,10 +413,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     // empty" at a village that is mid-siege. Track the two separately and hand
     // the banner null (never 0) for a field nobody has read.
     const provisionsKnown = state.treasury.provisions !== undefined || storesSnapshot?.provisions !== undefined;
-    const storesView = {
-        provisions: state.treasury.provisions ?? storesSnapshot?.provisions ?? 0,
-        materialPoints: state.treasury.materialPoints ?? storesSnapshot?.materialPoints ?? 0,
-    };
+    const storesView = storesRowValues(storesSnapshot, state.treasury);
     const storesLedgerView = storesLedgerRows(storesLedgerRaw, storesLedgerNow);
     // Who may spend what a villager just donated. Copy only — the authority is
     // the server's and is unchanged: the Kage spends the stores, ANBU appointees
@@ -410,6 +452,13 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
             const wm = await fetchWarMap();
             const mine = wm.villages.find((v) => v.village === character.village);
             setWarStructures(mine ? mine.structures : null);
+            // An L6+ build spends materials, and this read is newer than the
+            // stores snapshot. Without it the Treasury tab opens on the pre-build
+            // figure until its own read lands.
+            if (mine) {
+                storesWriteRef.current += 1;
+                setStoresSnapshot(readStores({ provisions: mine.provisions, materialPoints: mine.materialPoints }));
+            }
         } catch (e) { alert(String((e as Error).message || e)); }
         finally { setWarStructBusy(""); }
     }
@@ -574,16 +623,23 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         if (!villageDonateGate.ok) return alert(`${villageDonateGate.reason}. The cap resets at midnight UTC.`);
         donateBusyRef.current = true;
         try {
-            const before = readStores({ ...storesSnapshot, ...state.treasury } as Record<string, unknown>);
+            // The credit is measured from the figures the rows show, so the toast
+            // and the row agree on what "+N" means.
+            const before = readStores(storesView);
             const result = await postVillageTreasuryDonation(character.name, character.village, { itemId: villageDonateItemId });
             if (!result) return;
             if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             // Village Stores routing: ration-pack → provisions, hunt-*/relics →
             // material points. The server says what it credited; the rows update
-            // from the returned treasury and the toast names the credit.
+            // from the returned stores and the toast names the credit.
             const credit = storesCreditNote(result.stores, before);
             const itemName = itemDisplayName(villageDonateItemId, allVillageItems);
-            if (result.stores) setStoresSnapshot((prev) => ({ provisions: result.stores?.provisions ?? prev?.provisions ?? 0, materialPoints: result.stores?.materialPoints ?? prev?.materialPoints ?? 0 }));
+            if (result.stores) {
+                // Newer than any war-map read still in flight: that read must not
+                // land its older figures over these.
+                storesWriteRef.current += 1;
+                setStoresSnapshot((prev) => ({ provisions: result.stores?.provisions ?? prev?.provisions ?? 0, materialPoints: result.stores?.materialPoints ?? prev?.materialPoints ?? 0 }));
+            }
             updateVillageState(addNotice(`${character.name} donated ${itemName} to the village ${result.stores ? "stores" : "treasury"}${credit ? ` (${credit})` : ""}.`, { ...state, treasury: cleanVillageTreasury(result.treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + 5 }));
             // ONE confirmation for a routine success, and a toast rather than a
             // modal: the alert used to fire on top of the notice-board line,
