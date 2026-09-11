@@ -74,7 +74,11 @@ export function SectorTraceMarkers({ signs, onOpen }: {
                         aria-label={`Read trail sign by ${newest.name}`}
                         onClick={() => onOpen(newest.id)}
                     >
+                        {/* The global image guard retries a failed image and shows it
+                            again once it loads, so the fallback must step back down
+                            or the sign renders twice. */}
                         <img src="/landmarks/trail-sign.webp" alt="" draggable={false}
+                            onLoad={(e) => { (e.currentTarget.nextElementSibling as HTMLElement | null)?.classList.remove("is-visible"); }}
                             onError={(e) => { e.currentTarget.style.display = "none"; (e.currentTarget.nextElementSibling as HTMLElement | null)?.classList.add("is-visible"); }} />
                         <span className="sector-trace-sign-fallback">🪧</span>
                         {tileSigns.length > 1 && <b className="sector-trace-sign-count">{tileSigns.length}</b>}

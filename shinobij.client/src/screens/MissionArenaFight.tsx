@@ -57,7 +57,7 @@ import { BattlefieldActor } from "../components/BattlefieldActor";
 import { battlefieldFacingTowardNearest, battlefieldSpriteHeadroom } from "../lib/battlefield-sprite";
 import { jutsuImpactPreviewTiles } from "../lib/jutsu-impact-preview";
 import { getJutsuMastery, scaleJutsuByLevel } from "../lib/jutsu-scaling";
-import { jutsuTargetingLabel } from "../lib/jutsu-effects";
+import { jutsuDetailDescription, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { isImageAvatar } from "../lib/avatar";
 import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
 import { resolveOwnAvatar } from "../lib/own-avatar";
@@ -1379,6 +1379,7 @@ export function MissionArenaFight({
                                 const mastery = getJutsuMastery(character, detailJutsu.id);
                                 const scaled = scaleJutsuByLevel(detailJutsu, mastery.level);
                                 const targeting = jutsuTargetingLabel(detailJutsu);
+                                const detailDescription = jutsuDetailDescription(detailJutsu);
                                 return (
                                     <CombatDetailPortal
                                         id={`mission-combat-detail-jutsu-${detailJutsu.id}`}
@@ -1404,7 +1405,7 @@ export function MissionArenaFight({
                                             <span><strong>Stamina Cost:</strong> {Math.max(0, Number(detailJutsu.staminaCost) || 0)}</span>
                                         </div>
                                         <p className="combat-jutsu-detail-desc"><strong style={{ color: "var(--purple-400)" }}>Target — {targeting.short}:</strong> {targeting.detail}</p>
-                                        {detailJutsu.description && <p className="combat-jutsu-detail-desc">{detailJutsu.description}</p>}
+                                        {detailDescription && <p className="combat-jutsu-detail-desc">{detailDescription}</p>}
                                         <div className="combat-jutsu-effects-list">
                                             <JutsuEffectCards
                                                 jutsu={detailJutsu}
