@@ -50,6 +50,8 @@ import {
     healAmountForMastery,
     itemDamageMultiplier,
     pierceTrueDamage,
+    POISON_CAP_BY_RANK,
+    poisonPercentForTag,
     scaledTagPercent,
     shieldAmountForMastery,
     statFactorFromComposites,
@@ -276,7 +278,8 @@ export function applyJutsu(self: Fighter, opp: Fighter, jutsu: Jutsu, round: num
             case 'Shield':                shieldGain += shieldAmountForMastery(mastery); break;
             case 'Pierce':                pierce = true; break;
             case 'Stun':                  addStatus(opp, { name: 'Stun', rounds: 1, kind: 'negative' }, round); break;
-            case 'Poison':                addStatus(opp, { name: 'Poison', rounds: 2, percent: pct, kind: 'negative' }, round); break;
+            // Poison's percent is a potency with its own rank ceiling, as in the live resolver.
+            case 'Poison':                addStatus(opp, { name: 'Poison', rounds: 2, percent: poisonPercentForTag(tag.percent, mastery, { bloodlineRank: 'A' }), kind: 'negative' }, round); break;
             case 'Drain': {
                 const tick = drainTick(mastery);
                 addStatus(opp, { name: 'Drain', rounds: 2, amount: tick, kind: 'negative' }, round);
@@ -615,11 +618,16 @@ export function takeTurn(self: Fighter, opp: Fighter, round: number): { dealt: n
             totalDealt += r.dealt;
             self.chakra = Math.max(0, self.chakra - j.chakraCost);
             if (COMBAT_RESOURCES_V2 && j.chakraCost > 0) {
-                const poisonPct = activeStatuses(self, round)
+                const poisonPct = Math.min(POISON_CAP_BY_RANK.S, activeStatuses(self, round)
                     .filter(status => status.name === 'Poison')
-                    .reduce((sum, status) => sum + (status.percent ?? 6), 0);
+                    .reduce((sum, status) => sum + (status.percent ?? 6), 0));
                 if (poisonPct > 0) {
-                    self.hp = Math.max(0, self.hp - v2PoisonOnSpend(j.chakraCost, poisonPct));
+                    // Mirrors live poisonSpendDamage: reduced by armor + DDT like any DoT.
+                    const ownDdt = activeStatuses(self, round)
+                        .filter(status => status.name === 'Decrease Damage Taken')
+                        .reduce((sum, status) => sum + (status.percent ?? 0) / 100, 0);
+                    const mitigation = dotMitigationFromRawDr(self.armorRawDR, ownDdt);
+                    self.hp = Math.max(0, self.hp - Math.max(1, Math.floor(v2PoisonOnSpend(j.chakraCost, poisonPct) * mitigation)));
                 }
             }
         }

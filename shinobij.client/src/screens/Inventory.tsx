@@ -1,6 +1,7 @@
 import { LEGENDARY_WAR_CRATE_ID } from "../constants/game";
 import { armorReductionForQuality, consolidateItemBonuses } from "../lib/equipment";
 import { getAllItems, getItemById } from "../lib/items";
+import { weaponTagCombatPercent } from "../lib/tags";
 import { petFeedXpForItem } from "../data/pet-config";
 import { useEffect, useRef, useState } from "react";
 import { FiGrid, FiPackage } from "../components/icons/LightweightGameIcons";
@@ -1021,7 +1022,7 @@ export function Inventory({
                                             {selectedGameItem.weaponEffect && (
                                                 <p>
                                                     <strong>{selectedPresentation?.effectLabel}:</strong> {selectedGameItem.weaponEffect}
-                                                    {selectedGameItem.weaponEffectValue != null ? ` ${selectedGameItem.weaponEffectValue}%` : ""}
+                                                    {selectedGameItem.weaponEffectValue != null ? ` ${weaponTagCombatPercent(selectedGameItem.weaponEffect, selectedGameItem.weaponEffectValue)}%` : ""}
                                                 </p>
                                             )}
                                             {selectedGameItem.weaponEffectTarget === "both" && <p><strong>Target:</strong> both combatants</p>}
@@ -1031,7 +1032,7 @@ export function Inventory({
                                                 <h4>Weapon Traits</h4>
                                                 <div className="item-popup-effect-grid">
                                                     {selectedGameItem.weaponTags.map((t, i) => (
-                                                        <p key={i}><strong>{t.name}</strong> +{t.percent}%</p>
+                                                        <p key={i}><strong>{t.name}</strong> +{weaponTagCombatPercent(t.name, t.percent)}%</p>
                                                     ))}
                                                 </div>
                                             </div>

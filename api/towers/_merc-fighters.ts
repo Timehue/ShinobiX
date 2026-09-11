@@ -41,7 +41,7 @@ function mercJutsuKit(): Array<Record<string, unknown>> {
         tags: tag ? [tag] : [],
     });
     return [
-        strike('starter-tai-earth-2', 'Boulder Heel Drop', 'Earth', { name: 'Poison', percent: 30 }),
+        strike('starter-tai-earth-2', 'Boulder Heel Drop', 'Earth', { name: 'Poison', percent: 10 }),
         strike('starter-tai-fire-2', 'Meteor Axe Kick', 'Fire'),
         strike('starter-tai-lightning-2', 'Raikou Knee Strike', 'Lightning', { name: 'Reflect', percent: 30 }),
         strike('starter-tai-water-2', 'Tidal Shoulder Throw', 'Water', { name: 'Increase Damage Given', percent: 30 }),
