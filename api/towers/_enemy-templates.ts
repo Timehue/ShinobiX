@@ -360,7 +360,9 @@ const TEMPLATES: Record<string, EnemyTemplate> = {
         },
         jutsu: [
             { id: 'spire-sovereign-cataclysm', name: 'Celestial Cataclysm', type: 'Ninjutsu', element: 'Fire', ap: 60, range: 5, effectPower: 50, method: 'AOE_BURST', cooldown: 3, tags: [{ name: 'Wound', percent: 24 }], aiPriority: 60 },
-            { id: 'spire-sovereign-rift', name: 'Starless Rift', type: 'Ninjutsu', element: 'Earth', ap: 60, range: 5, effectPower: 0, target: 'EMPTY_GROUND', method: 'AOE_SPIRAL', cooldown: 4, tags: [{ name: 'Poison', percent: 12 }], aiPriority: 70 },
+            // Poison 10 = the no-rank Poison ceiling (POISON_CAP_BY_RANK.basic); the
+            // zone would cap an authored 12 to it anyway.
+            { id: 'spire-sovereign-rift', name: 'Starless Rift', type: 'Ninjutsu', element: 'Earth', ap: 60, range: 5, effectPower: 0, target: 'EMPTY_GROUND', method: 'AOE_SPIRAL', cooldown: 4, tags: [{ name: 'Poison', percent: 10 }], aiPriority: 70 },
             { id: 'spire-sovereign-crown', name: 'Absolute Crown', type: 'Ninjutsu', element: 'None', ap: 60, range: 0, effectPower: 0, target: 'SELF', isUtility: true, cooldown: 6, tags: [{ name: 'Reflect', percent: 30 }], aiPriority: 95, aiHpBelowPct: 45 },
         ],
     },

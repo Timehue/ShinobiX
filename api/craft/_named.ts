@@ -1,6 +1,7 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
 import { debitNamedForgeWallet, NAMED_FORGE_COST } from '../../shared/named-forge-economy.js';
+import { WEAPON_POISON_TAG_CAP } from '../combat-core/formulas.js';
 
 export { NAMED_FORGE_COST } from '../../shared/named-forge-economy.js';
 const WEAPON_TAGS = ['Siphon', 'Absorb', 'Poison', 'Wound', 'Reflect', 'Shield', 'Drain', 'Ignition', 'Heal', 'Increase Damage Given', 'Increase Generals', 'Decrease Damage Taken'];
@@ -68,11 +69,17 @@ export function shuffled<T>(values: readonly T[]): T[] {
     return out;
 }
 
+// Poison's percent is a potency on its own lower scale, and combat caps a weapon's
+// at WEAPON_POISON_TAG_CAP, so store that instead of a 15-40 roll the blade could
+// never deliver. Only the stored magnitude changes: which tags are drawn, the draw
+// odds, and every other tag's roll are untouched.
+const forgedTag = (name: string, percent: number) => ({ name, percent: name === 'Poison' ? Math.min(percent, WEAPON_POISON_TAG_CAP) : percent });
+
 export function rollNamedForge(kind: 'weapon' | 'armor', slotRaw?: unknown): NamedRoll {
     if (kind === 'weapon') {
         const tags = shuffled(WEAPON_TAGS);
         const single = randomInt(2) === 0;
-        return { kind, ep: randomInt(30, 36), range: pick([3, 4, 5] as const), offenseVal: randomInt(168, 181), tags: single ? [{ name: tags[0], percent: randomInt(35, 41) }] : [{ name: tags[0], percent: randomInt(15, 21) }, { name: tags[1], percent: randomInt(15, 21) }] };
+        return { kind, ep: randomInt(30, 36), range: pick([3, 4, 5] as const), offenseVal: randomInt(168, 181), tags: single ? [forgedTag(tags[0], randomInt(35, 41))] : [forgedTag(tags[0], randomInt(15, 21)), forgedTag(tags[1], randomInt(15, 21))] };
     }
     const slot = SLOTS.includes(slotRaw as typeof SLOTS[number]) ? slotRaw as typeof SLOTS[number] : 'body';
     const special = pick(ARMOR_SPECIALS);

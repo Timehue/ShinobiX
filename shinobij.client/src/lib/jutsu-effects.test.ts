@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { jutsuDetailDescription, jutsuEffectInfo, jutsuTargetingLabel } from "./jutsu-effects";
+import { jutsuDetailDescription, jutsuDisplayAtLevel, jutsuEffectInfo, jutsuTargetingLabel } from "./jutsu-effects";
 import { allTags } from "./tags";
 import { starterJutsus, starterSavedBloodlines } from "../data/jutsu";
 import type { Jutsu, JutsuTag } from "../types/combat";
@@ -124,6 +124,33 @@ describe("player-facing jutsu tag contract", () => {
         assert.match(circle.detail, /does not create a persistent zone/i);
         assert.match(instant.detail, /persistent 2-round zone/i);
         assert.match(spiral.detail, /persistent 2-round/i);
+    });
+});
+
+// The card must show the Poison the server applies. A direct cast ramps with
+// mastery (poisonPercentForTag); a recurring ground zone applies its tags at full
+// strength on every pulse (applyGroundEffectToFighter), whatever the caster's mastery.
+describe("poison card matches what combat applies", () => {
+    const poisonAt = (mastery: number, overrides: Partial<Jutsu>) => {
+        const shown = jutsuDisplayAtLevel(jutsu({ tags: [{ name: "Poison", percent: 30 }], bloodlineRank: "A Rank", ...overrides }), mastery);
+        return jutsuEffectInfo(shown, shown.tags[0]!).summary;
+    };
+
+    it("a direct cast shows the mastery-ramped potency", () => {
+        assert.match(poisonAt(0, {}), /Poisons the target at 8% for 2 rounds/);
+        assert.match(poisonAt(50, {}), /Poisons the target at 12% for 2 rounds/);
+    });
+
+    it("a recurring ground zone shows its full-strength potency at any mastery", () => {
+        for (const method of ["INSTANT_EFFECT", "AOE_SPIRAL"] as const) {
+            const zone = { target: "EMPTY_GROUND" as const, method, effectPower: 0 };
+            assert.match(poisonAt(0, zone), /Poisons the target at 12% for 2 rounds/, `${method} at mastery 0`);
+            assert.match(poisonAt(50, zone), /Poisons the target at 12% for 2 rounds/, `${method} at mastery 50`);
+        }
+    });
+
+    it("states the real HP share of spend (potency × 12)", () => {
+        assert.match(poisonAt(50, {}), /costs them HP equal to 144% of the chakra\/stamina it spends/);
     });
 });
 

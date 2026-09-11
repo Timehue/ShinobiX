@@ -155,6 +155,8 @@ export type PvpGroundEffect = {
     activeRound?: number;
     /** Whether an in-zone target actually consumed the opener's cast-time pulse. */
     castPulseConsumed?: boolean;
+    /** Casting jutsu's bloodline rank, so a zone's Poison answers to the same rank ceiling as a direct cast. */
+    bloodlineRank?: string;
     tags: Array<{ name: string; percent?: number; amount?: number }>;
 };
 
