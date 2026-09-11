@@ -7,8 +7,12 @@
  *   • CreatorEvent — the universal VN / world-event container (multi-page
  *     vnPages, branching choices with trait gates + optional battles, rewards).
  *   • StoryStep    — one milestone in a village's main story arc.
+ *   • PendingArenaStoryBattle — the Arena fight a VN choice, a dungeon AI or the
+ *     Academy sparring match queues (moved from App.tsx for the same ratchet).
+ *   • EditableVnPage — the admin VN editor's working copy of one page (moved
+ *     from AdminPanel.tsx, whose line budget had run out).
  */
-import type { Biome } from "./core";
+import type { Biome, Screen } from "./core";
 import type { CurrencyRewards } from "./character";
 
 export type VnShot = "wide" | "medium" | "close" | "detail";
@@ -134,4 +138,42 @@ export type StoryStep = {
     kageFinale?: boolean;
     liberatorTitle?: string;
     pages?: NonNullable<CreatorEvent["vnPages"]>;
+};
+
+// (The old "storyBoss" member is gone — story bosses are sealed server sessions
+// hosted inside StoryHall, not Arena battles. See api/story/boss-start.)
+export type PendingArenaStoryBattle =
+    | {
+        kind: "triggeredEvent";
+        event: CreatorEvent;
+        battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"];
+        returnScreen: Screen;
+    }
+    | {
+        kind: "dungeonAi";
+        returnScreen: Screen;
+        eventId: string;
+    }
+    | {
+        // Academy Sparring Match — the onboarding "guaranteed first win".
+        // A deliberately weak Lv-1 training dummy (low HP, Lv-1 offense) so a
+        // combat-ready new player wins in a few hits. Its sealed story
+        // settlement advances onboardingStep -> "cafeteria".
+        kind: "academySparring";
+        returnScreen: Screen;
+    };
+
+export type EditableVnPage = {
+    title: string;
+    scene: string;
+    speaker: string;
+    dialogue: string;
+    image: string;
+    leftName: string;
+    leftImage: string;
+    rightName: string;
+    rightImage: string;
+    choices: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>;
+    cinematic?: VnCinematicDirection;
+    lineCinematics: Record<number, VnCinematicDirection>;
 };
