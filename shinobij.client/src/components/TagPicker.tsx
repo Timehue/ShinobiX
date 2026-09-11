@@ -8,6 +8,11 @@ import { normalizeJutsu } from "../lib/jutsu";
 export function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuTarget, jutsuMethod, disabledTags = [], allowedTags, ariaLabel = "Jutsu tag" }: { tag: string; setTag: (tag: string) => void; percent: number; setPercent: (percent: number) => void; rank?: Rank | null; jutsuTarget?: JutsuTarget; jutsuMethod?: JutsuMethod; disabledTags?: string[]; allowedTags?: string[]; ariaLabel?: string }) {
     const creatorPolicy = rank ? bloodlineCreatorPercentPolicy(tag, rank) : null;
     const displayedPercent = rank ? normalizeBloodlineCreatorTagPercent(tag, percent, rank) : percent;
+    // Poison keeps a stored creator value (the server schema requires one), but combat
+    // holds it to the rank's Poison ceiling, so every choice plays and costs the same.
+    // Offering "25% / 30%" would advertise a difference that does not exist; the effect
+    // help below states the real value instead.
+    const showStrengthChoice = creatorPolicy?.scalable === true && tag !== "Poison";
     const selectedTagInfo = tag
         ? jutsuEffectInfo(
             normalizeJutsu({ id: "tag-preview", name: "Tag Preview", type: "Ninjutsu", effectPower: 100, bloodlineRank: rank ?? undefined, target: jutsuTarget ?? "OPPONENT", method: jutsuMethod ?? "SINGLE", tags: [{ name: tag, percent: displayedPercent }] }),
@@ -46,7 +51,7 @@ export function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuTarget,
                     </optgroup>
                 ))}
             </select>
-            {creatorPolicy?.scalable && (
+            {showStrengthChoice && creatorPolicy && (
                 <select
                     className="tag-percent-select"
                     aria-label={`${tag} strength`}

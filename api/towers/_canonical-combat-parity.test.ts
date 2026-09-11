@@ -466,8 +466,10 @@ describe('Tower jutsu eligibility and resource-spend parity', () => {
                 ai: false,
                 hp,
                 maxHp: 1_000,
+                // Two coexisting Poisons sum. They total 13, under the 14% S-rank
+                // ceiling the paid hit is held to (pinned in api/pvp/_poison-balance.test.ts).
                 statuses: [
-                    { name: 'Poison', rounds: 2, percent: 10, kind: 'negative' },
+                    { name: 'Poison', rounds: 2, percent: 8, kind: 'negative' },
                     { name: 'Poison', rounds: 2, percent: 5, kind: 'negative' },
                 ],
                 character: { specialty: 'Ninjutsu', level: 100, stats: {}, jutsu: [jutsu] },
@@ -478,7 +480,7 @@ describe('Tower jutsu eligibility and resource-spend parity', () => {
     }
 
     it('combat-resources-v2 Poison charges once for every Tower jutsu route, including N-target AOE', () => {
-        const poisonDamage = v2PoisonOnSpend(30, 15);
+        const poisonDamage = v2PoisonOnSpend(30, 13);
         for (const route of poisonRoutes) {
             const s = poisonSession(route);
             assert.equal(applyAction(s, floor(), route.action as TowerAction, makeRng(4)).applied, true, route.id);
@@ -493,7 +495,7 @@ describe('Tower jutsu eligibility and resource-spend parity', () => {
 
     it('resolves lethal Poison exertion before awarding a Tower winner', () => {
         const route = poisonRoutes[0];
-        const poisonDamage = v2PoisonOnSpend(30, 15);
+        const poisonDamage = v2PoisonOnSpend(30, 13);
         const s = poisonSession(route, poisonDamage);
         assert.equal(applyAction(s, floor(), route.action as TowerAction, makeRng(4)).applied, true);
         assert.equal(getActor(s, 'caster')!.hp, 0);
