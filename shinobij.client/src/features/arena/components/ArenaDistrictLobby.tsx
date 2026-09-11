@@ -22,6 +22,7 @@ type ArenaDistrictLobbyProps = {
     clanWarOpponents: PlayerRecord[];
     incomingClanWarChallenges: DuelChallenge[];
     arenaTournament: ArenaTournament | null;
+    dojoCircuitEnabled?: boolean;
     tournamentRemaining: number;
     matchRemaining: number;
     isAdminTournamentManager: boolean;
@@ -59,6 +60,7 @@ export function ArenaDistrictLobby({
     clanWarOpponents,
     incomingClanWarChallenges,
     arenaTournament,
+    dojoCircuitEnabled = true,
     tournamentRemaining,
     matchRemaining,
     isAdminTournamentManager,
@@ -100,7 +102,7 @@ export function ArenaDistrictLobby({
 
             <div className="clan-tabs expanded-tabs" style={{ marginBottom: 12 }}>
                 <button className={activeTab === "clanWar" ? "active" : ""} onClick={() => onTabChange("clanWar")}><GiCrossedSwords style={ARENA_ICON} />Clan War</button>
-                <button className={activeTab === "tournaments" ? "active" : ""} onClick={() => onTabChange("tournaments")}><GiTrophy style={ARENA_ICON} />Tournaments</button>
+                {dojoCircuitEnabled && <button className={activeTab === "tournaments" ? "active" : ""} onClick={() => onTabChange("tournaments")}><GiTrophy style={ARENA_ICON} />Dojo Circuit</button>}
                 <button className={activeTab === "ranked" ? "active" : ""} onClick={() => onTabChange("ranked")}><GiLadder style={ARENA_ICON} />Ranked</button>
                 <button className={activeTab === "spectate" ? "active" : ""} onClick={() => onTabChange("spectate")}><GiEyeball style={ARENA_ICON} />Spectate</button>
                 <button
@@ -151,7 +153,7 @@ export function ArenaDistrictLobby({
                 </>
             )}
 
-            {activeTab === "tournaments" && (
+            {dojoCircuitEnabled && activeTab === "tournaments" && (
                 <ArenaTournamentPanel
                     tournament={arenaTournament}
                     tournamentRemaining={tournamentRemaining}

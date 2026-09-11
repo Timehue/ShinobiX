@@ -77,6 +77,7 @@ export type ArenaSpectatorFight = { id: string; title: string; mode: string; sta
 type PendingClanPetBattle = { clanName?: string; points: number; opponentName: string; createdAt: number };
 let sharedArenaTournamentCache: ArenaTournament | null = null;
 let sharedArenaActiveFightsCache: ArenaSpectatorFight[] = [];
+let sharedDojoCircuitEnabledCache = false;
 /** Fights registered locally that haven't been confirmed by the server yet.
  *  Kept for up to 60s so CDN cache staleness doesn't wipe them. */
 const locallyRegisteredFights = new Map<string, ArenaSpectatorFight>();
@@ -88,6 +89,16 @@ export function setSharedWeeklyBossAiId(v: string) { sharedWeeklyBossAiIdCache =
 
 export function loadArenaTournament(): ArenaTournament | null {
     return sharedArenaTournamentCache;
+}
+
+/** The global Circuit is launch-controlled by a full admin, never by a client. */
+export function loadDojoCircuitEnabled(): boolean {
+    return sharedDojoCircuitEnabledCache;
+}
+
+/** Accept only the server-confirmed admin result; this does not publish a write. */
+export function setSharedDojoCircuitEnabled(enabled: boolean): void {
+    sharedDojoCircuitEnabledCache = enabled === true;
 }
 
 export function saveArenaTournament(tournament: ArenaTournament | null) {
@@ -153,6 +164,7 @@ export function hydrateSharedGameState(data: {
     pendingClanPetBattle?: PendingClanPetBattle | null;
     clanPetBattles?: Record<string, PendingClanPetBattle>;
     weeklyBossAiId?: string | null;
+    dojoCircuitEnabled?: boolean;
 }): boolean {
     const villageStates: Record<string, VillageState> = {};
     const rawVS = data.villageStates;
@@ -217,12 +229,14 @@ export function hydrateSharedGameState(data: {
         ? pendingBattle
         : null;
     sharedWeeklyBossAiIdCache = data.weeklyBossAiId ?? "";
+    sharedDojoCircuitEnabledCache = data.dojoCircuitEnabled === true;
     // See hydrateSharedWorldState: report change so the 5s poller skips the
     // wasted full-app re-render when the server payload is unchanged.
     const snapshot = JSON.stringify([
         sharedVillageStateCache,
         sharedArenaTournamentCache, sharedArenaActiveFightsCache,
         sharedPendingClanPetBattleCache, sharedWeeklyBossAiIdCache,
+        sharedDojoCircuitEnabledCache,
     ]);
     const changed = snapshot !== lastSharedGameStateSnapshot;
     lastSharedGameStateSnapshot = snapshot;

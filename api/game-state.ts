@@ -15,6 +15,7 @@ import { withKvLock, LockContendedError } from './_lock.js';
 import { validateVillageStateWrite, loadAuthoritativeKage } from './_village-state-validate.js';
 import { mutatePlayerSave } from './save/_mutate-player-save.js';
 import { applyTournamentVictory } from './achievements/_tournament.js';
+import { setCircuitEnabled } from './dojo-circuit/_store.js';
 
 const LEADERSHIP_IMAGES_KEY = 'game:village-leadership-images';
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
@@ -22,6 +23,7 @@ const ARENA_TOURNAMENT_KEY = 'game:arena:tournament';
 const ARENA_ACTIVE_FIGHTS_KEY = 'game:arena:active-fights';
 const CLAN_PET_BATTLE_PREFIX = 'game:clan-pet-battle:';
 const WEEKLY_BOSS_OVERRIDE_KEY = 'game:weekly-boss-override';
+const DOJO_CIRCUIT_ENABLED_KEY = 'game:dojo-circuit:enabled';
 // Process-local cache for the hot ~5s frame: bounds the two keyspace scans to
 // once per 3s no matter how many clients poll. s-maxage is dropped 8->5 below to
 // offset this window, so proc ttl (3s) + CDN (5s) = the original 8s worst-case
@@ -61,12 +63,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // GAME_STATE_TTL_MS, regardless of how many poll at once. Safe on the
             // single-process Railway host (see api/_realtime/online-store.ts).
             const { payload, etag } = await cachedFor('game-state:frame', GAME_STATE_TTL_MS, async () => {
-                const [storedVillageStateKeys, arenaTournament, arenaActiveFights, clanPetBattleKeys, weeklyBossAiId] = await Promise.all([
+                const [storedVillageStateKeys, arenaTournament, arenaActiveFights, clanPetBattleKeys, weeklyBossAiId, dojoCircuitEnabled] = await Promise.all([
                     kv.keys(`${VILLAGE_STATE_PREFIX}*`),
                     kv.get<unknown>(ARENA_TOURNAMENT_KEY),
                     kv.get<unknown[]>(ARENA_ACTIVE_FIGHTS_KEY),
                     kv.keys(`${CLAN_PET_BATTLE_PREFIX}*`),
                     kv.get<string>(WEEKLY_BOSS_OVERRIDE_KEY),
+                    kv.get<boolean>(DOJO_CIRCUIT_ENABLED_KEY),
                 ]);
 
                 // Leadership has its own authority rows. A newly initialized
@@ -117,6 +120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     arenaActiveFights: Array.isArray(arenaActiveFights) ? arenaActiveFights : [],
                     clanPetBattles,
                     weeklyBossAiId: weeklyBossAiId ?? null,
+                    dojoCircuitEnabled: dojoCircuitEnabled === true,
                 };
                 const builtEtag = `W/"${createHash('sha256').update(JSON.stringify(built)).digest('base64')}"`;
                 return { payload: built, etag: builtEtag };
@@ -158,8 +162,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // so they pass the basic admin check. But for the kinds Admin 2
             // shouldn't touch (arenaTournament, weeklyBossOverride — neither
             // is exposed by their UI), require the full admin password.
-            const adminOnlyKinds = new Set(['villageLeadershipImages', 'arenaTournament', 'arenaTournamentWinner', 'weeklyBossOverride']);
-            const fullAdminOnlyKinds = new Set(['arenaTournament', 'arenaTournamentWinner', 'weeklyBossOverride']);
+            const adminOnlyKinds = new Set(['villageLeadershipImages', 'arenaTournament', 'arenaTournamentWinner', 'weeklyBossOverride', 'dojoCircuitEnabled']);
+            const fullAdminOnlyKinds = new Set(['arenaTournament', 'arenaTournamentWinner', 'weeklyBossOverride', 'dojoCircuitEnabled']);
             if (adminOnlyKinds.has(String(kind)) && !identity.admin) {
                 return res.status(403).json({ error: 'Admin only.' });
             }
@@ -239,8 +243,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(200).json({ ok: true });
             }
 
+            if (kind === 'dojoCircuitEnabled') {
+                const { enabled } = body as { enabled?: unknown };
+                if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'Dojo Circuit enabled must be a boolean.' });
+                await setCircuitEnabled(enabled);
+                return res.status(200).json({ ok: true, enabled });
+            }
+
             if (kind === 'arenaTournament') {
                 const { tournament } = body as { tournament?: unknown };
+                if (tournament != null && await kv.get<boolean>(DOJO_CIRCUIT_ENABLED_KEY) !== true) {
+                    return res.status(409).json({ error: 'The Dojo Circuit is disabled.' });
+                }
                 if (tournament == null) {
                     await kv.del(ARENA_TOURNAMENT_KEY);
                 } else {
@@ -250,6 +264,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             if (kind === 'arenaTournamentWinner') {
+                if (await kv.get<boolean>(DOJO_CIRCUIT_ENABLED_KEY) !== true) {
+                    return res.status(409).json({ error: 'The Dojo Circuit is disabled.' });
+                }
                 const { tournamentId, winnerName } = body as { tournamentId?: unknown; winnerName?: unknown };
                 const id = String(tournamentId ?? '').trim();
                 const winnerSlug = safeName(String(winnerName ?? ''));
