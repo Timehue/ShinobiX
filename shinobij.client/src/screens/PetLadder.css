@@ -23,7 +23,11 @@
 @media (max-width: 820px) { .pl-cols { grid-template-columns: 1fr; } }
 .pl-back {
   background: none; border: 1px solid rgba(255,255,255,.14); color: #cdd6e6;
-  border-radius: 8px; padding: 6px 13px; font-size: 13px; margin: 10px 0; cursor: pointer; transition: .15s;
+  border-radius: 8px; padding: 6px 13px; font-size: 13px; margin: 10px 0; cursor: pointer;
+  /* A bare duration means `all`, which also animated resize-driven values.
+     These are the properties the hover and focus states change. */
+  transition: color .15s, background-color .15s, border-color .15s, box-shadow .15s, filter .15s, transform .15s,
+    outline-color .15s, outline-width .15s, outline-offset .15s;
 }
 .pl-back:hover { border-color: rgba(244,196,81,.55); color: #f4c451; }
 
@@ -48,7 +52,10 @@
 
 /* ── Segmented mode tabs ──────────────────────────────────────────────────── */
 .pl-tabs { display: flex; gap: 6px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 5px; margin-bottom: 16px; }
-.pl-tab { flex: 1; padding: 9px 10px; border: none; background: none; color: rgba(231,237,247,.6); font-weight: 700; font-size: 14px; border-radius: 8px; cursor: pointer; transition: .15s; }
+/* The tab transitions only what hover, selection, keyboard focus and the busy-state
+   `disabled` dim change. Its border is `none` and its fill is a gradient, so neither
+   border-color nor background-color is listed. */
+.pl-tab { flex: 1; padding: 9px 10px; border: none; background: none; color: rgba(231,237,247,.6); font-weight: 700; font-size: 14px; border-radius: 8px; cursor: pointer; transition: color .15s, box-shadow .15s, filter .15s, transform .15s, opacity .15s, outline-color .15s, outline-width .15s, outline-offset .15s; }
 .pl-tab:hover { color: #e8edf6; }
 .pl-tab.is-active { background: linear-gradient(180deg, #f7d98a, #e0a106); color: #2a1c00; box-shadow: 0 3px 12px rgba(224,161,6,.35); }
 
