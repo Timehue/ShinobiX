@@ -1,5 +1,6 @@
 import { INVENTORY_CAP as BASE_INVENTORY_CAP } from '../_inventory-capacity.js';
 import { preserveOwnedItems } from './_entitlement-guard.js';
+import { countEquippedItems } from '../_equipment-ownership.js';
 
 export function sanitizeInventory(char: Record<string, unknown>, exChar: Record<string, unknown>) {
 
@@ -17,7 +18,8 @@ export function sanitizeInventory(char: Record<string, unknown>, exChar: Record<
     // while they still hold whatever would have produced the item; the save
     // layer must never be the thing that eats one.
     const existingInventoryCount = Array.isArray(exChar.inventory) ? (exChar.inventory as unknown[]).length : 0;
-    const INVENTORY_CAP = Math.max(BASE_INVENTORY_CAP, existingInventoryCount);
+    const equippedCount = [...countEquippedItems(exChar.equipment).values()].reduce((sum, count) => sum + count, 0);
+    const INVENTORY_CAP = Math.max(BASE_INVENTORY_CAP, existingInventoryCount + equippedCount);
     if (Array.isArray(char.inventory) && (char.inventory as unknown[]).length > INVENTORY_CAP) {
         char.inventory = (char.inventory as unknown[]).slice(0, INVENTORY_CAP);
     }
@@ -56,7 +58,9 @@ export function sanitizeInventory(char: Record<string, unknown>, exChar: Record<
             .slice(0, ITEM_STACK_KEY_CAP)
             .map(([itemId, count]) => ({ itemId, count }));
     }
-    const ownedItems = preserveOwnedItems(char.inventory, char.itemStacks, exChar.inventory, exChar.itemStacks);
+    // Include units being returned by unequip/swap. The final equipment boundary
+    // reserves any units kept equipped, so a backpack copy cannot duplicate them.
+    const ownedItems = preserveOwnedItems(char.inventory, char.itemStacks, exChar.inventory, exChar.itemStacks, exChar.equipment);
     char.inventory = ownedItems.inventory;
     char.itemStacks = ownedItems.itemStacks;
 }

@@ -2109,7 +2109,11 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     const toggle = chat.locator('.battle-chat-toggle');
     const log = pvpRoot.locator('.combat-text-log');
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    // The preceding mobile zoom capture hides the log. Wait for the desktop
+    // layout before taking a baseline; a missing box is not a zero-width log.
+    await expect(log).toBeVisible();
     const openLog = await log.boundingBox();
+    if (!openLog) throw new Error('Visible battle log has no measurable baseline');
     const draftInput = chat.locator('.battle-chat-input-row input');
     const draftEnabled = await draftInput.isEnabled();
     if (draftEnabled) await draftInput.fill('unsent tactical draft');
@@ -2119,8 +2123,8 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     await expect(chat).toHaveClass(/battle-chat-hidden/);
     await expect(layout).toHaveClass(/combat-log-wide/);
     const collapsedLog = await log.boundingBox();
-    expect((collapsedLog?.width ?? 0) - (openLog?.width ?? 0), 'collapsed chat must release its lower-right space to the battle log').toBeGreaterThan(120);
-    const openLogRight = (openLog?.x ?? 0) + (openLog?.width ?? 0);
+    expect((collapsedLog?.width ?? 0) - openLog.width, 'collapsed chat must release its lower-right space to the battle log').toBeGreaterThan(120);
+    const openLogRight = openLog.x + openLog.width;
     const collapsedLogRight = (collapsedLog?.x ?? 0) + (collapsedLog?.width ?? 0);
     expect(collapsedLogRight - openLogRight, 'expanded battle log must reach into the former chat area').toBeGreaterThan(120);
     expect((await chat.locator('.battle-side-header').boundingBox())?.height ?? 0, 'collapsed chat reopen control').toBeGreaterThanOrEqual(44);
@@ -2131,7 +2135,7 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     await expect(layout).not.toHaveClass(/combat-log-wide/);
     if (draftEnabled) await expect(draftInput).toHaveValue('unsent tactical draft');
     const restoredLog = await log.boundingBox();
-    expect(Math.abs((restoredLog?.width ?? 0) - (openLog?.width ?? 0)), 'reopened chat must restore the split log geometry').toBeLessThanOrEqual(3);
+    expect(Math.abs((restoredLog?.width ?? 0) - openLog.width), 'reopened chat must restore the split log geometry').toBeLessThanOrEqual(3);
     expect(await chat.locator('.battle-chat-messages').evaluate((feed) => feed.scrollHeight - feed.scrollTop - feed.clientHeight), 'reopened chat feed should stay at its newest message').toBeLessThanOrEqual(2);
 
     const pvpArtwork = await pvpRoot.locator('.combat-jutsu-thumb img').evaluateAll((images) => images.map((image) => {
