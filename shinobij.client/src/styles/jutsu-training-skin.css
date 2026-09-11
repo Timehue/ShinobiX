@@ -514,5 +514,5 @@
 @media (prefers-reduced-motion: reduce) {
     .jutsu-training-screen *,
     .jutsu-training-screen *::before,
-    .jutsu-training-screen *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    .jutsu-training-screen *::after { scroll-behavior: auto !important; transition-duration: 0s !important; animation-duration: 0.01ms !important; }
 }
