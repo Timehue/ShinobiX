@@ -5,14 +5,15 @@
  *                            the jutsu cards, tag picker and combat inspect UI
  *   • jutsuDisplayAtLevel  — a jutsu scaled (EP + tag percents) to a mastery lvl
  *   • describeJutsuEffects — one-line plain summary of a jutsu's tags
+ *   • jutsuDetailDescription — the details-panel prose, battle tokens filled
  *
  * Pure functions depending only on lib/tags, lib/combat-math, lib/jutsu-scaling,
  * constants/game and the type modules. Extracted from App.tsx (jutsu cluster).
  */
 
-import { tagMatchesName } from "./tags";
+import { poisonCapForRank, tagMatchesName } from "./tags";
 import { loneDisciplineBonusFromPotency, loneGeneralBonusFromPotency } from "./stat-effect-potency";
-import { scaleJutsuByLevel, scaleJutsuTagsForDisplay } from "./jutsu-scaling";
+import { isRecurringGroundZone, POISON_SPEND_FACTOR, scaleJutsuByLevel, scaleJutsuTagsForDisplay } from "./jutsu-scaling";
 import { JUTSU_MAX_LEVEL, STUN_AP_PENALTY, COMBAT_RESOURCES_V2 } from "../constants/game";
 import { TEMPO_AP_SWING } from "./combat-action-display";
 import type { Jutsu, JutsuTag } from "../types/combat";
@@ -22,8 +23,7 @@ export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: Ju
     const pct = tag.percent > 0 ? tag.percent : 30;
     const effectPower = jutsu.effectPower;
     const percentLabel = tag.percent > 0 ? `${tag.percent}%` : "Static";
-    const recurringGroundZone = jutsu.target === "EMPTY_GROUND"
-        && (jutsu.method === "INSTANT_EFFECT" || jutsu.method === "AOE_SPIRAL");
+    const recurringGroundZone = isRecurringGroundZone(jutsu);
     const nextRound = (rounds: number) => `Starts next round · ${rounds} round${rounds === 1 ? "" : "s"}`;
     const zoneOrNextRound = (rounds: number) => recurringGroundZone
         ? "On catch / target turn"
@@ -61,14 +61,19 @@ export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: Ju
     if (tag.name === "Cleanse Prevent") return { summary: "Prevents the target from cleansing debuffs.", rule: "Queues a negative status unless Debuff Prevent blocks it. Cleanse attempts are blocked once it becomes active.", duration: nextRound(2), value: "Always" };
     if (tag.name === "Clear Prevent") return { summary: "Prevents the caster's positive statuses from being cleared.", rule: "Queues a positive status for the next combat round. Buff Prevent can stop it; once active it blocks the opponent's Clear action.", duration: nextRound(2), value: "Always" };
     if (tag.name === "Stun Prevent") return { summary: "Prevents incoming Stun.", rule: "Queues an unconditional positive ward for the next combat round; it does not remove a Stun that already resolved.", duration: nextRound(2), value: "Always" };
-    // Poison's combat fallback is 6% (see api/pvp/move.ts + Arena PvE), NOT tagPower's
-    // generic 30 — use the same default so an unset-percent Poison tooltip matches what
-    // combat actually applies. Under combatResourcesV2 poison feeds on EXERTION (on-spend),
-    // not a per-round chakra-pool tick, so the copy branches on the flag.
+    // Poison's combat fallback is 6% (see api/combat-core/formulas.ts), NOT tagPower's
+    // generic 30. Under combatResourcesV2 poison feeds on EXERTION (on-spend), not a
+    // per-round chakra-pool tick, so the copy branches on the flag. The percent is a
+    // POTENCY: each cast costs spend × potency × POISON_SPEND_FACTOR HP. The card leads
+    // with the potency — the same number item cards, the forge and combat status chips
+    // show — then states what it costs in HP (the card once printed "30% of spend"
+    // when the real share was 360%). It is re-capped to the rank ceiling because the
+    // tag picker passes the authored creator value unscaled; scaled callers are under it.
     if (tag.name === "Poison") {
-        const poisonPct = tag.percent > 0 ? tag.percent : 6;
+        const poisonPct = Math.min(tag.percent > 0 ? tag.percent : 6, poisonCapForRank(jutsu.bloodlineRank));
+        const spendShare = poisonPct * POISON_SPEND_FACTOR;
         return COMBAT_RESOURCES_V2
-            ? { summary: `Poisons the target — while active, every jutsu they cast saps HP scaled by the chakra/stamina spent (at ${poisonPct}% potency).`, rule: recurringGroundZone ? "A caught target can be poisoned for its upcoming turn, and each target-turn start inside the zone refreshes the 2-round poison. A refreshed Poison can remain after the zone expires or the target leaves it; not casting a jutsu avoids the damage." : "Queues a 2-round debuff for the next combat round. Bigger chakra/stamina spends cause bigger HP damage; not casting a jutsu avoids it.", duration: zoneOrNextRound(2), value: `${poisonPct}% of spend` }
+            ? { summary: `Poisons the target at ${poisonPct}% for 2 rounds — every jutsu they cast costs them HP equal to ${spendShare}% of the chakra/stamina it spends.`, rule: recurringGroundZone ? "A caught target can be poisoned for its upcoming turn, and each target-turn start inside the zone refreshes the 2-round poison. A refreshed Poison can remain after the zone expires or the target leaves it. Armor and Decrease Damage Taken reduce it like other damage over time; not casting a jutsu avoids it." : "Queues a 2-round debuff for the next combat round. Bigger chakra/stamina spends cause bigger HP damage. Armor and Decrease Damage Taken reduce it like other damage over time; not casting a jutsu avoids it.", duration: zoneOrNextRound(2), value: `${poisonPct}% · ${spendShare}% of spend` }
             : { summary: `Poisons the target — deals ${poisonPct}% of their max chakra as damage each round.`, rule: "Applies a 2-round negative status that deals damage based on the target's chakra pool.", duration: "2 rounds", value: `${poisonPct}% chakra` };
     }
     if (tag.name === "Drain") return { summary: "Drains the target's HP and chakra at the start of their turns — 50–300, scaling with mastery.", rule: "Queues a 2-round negative status for the next combat round. Each tick removes equal HP and chakra (not stamina) and is partially mitigated by the target's armor/damage reduction.", duration: nextRound(2), value: "50–300/turn" };
@@ -164,4 +169,33 @@ export function jutsuTargetingLabel(jutsu: Jutsu): { short: string; detail: stri
                 ? { short: "Self", detail: "Affects only the user." }
                 : { short: "Single Target", detail: "Affects a single target — no area splash." };
     }
+}
+
+// The two battle-flavor tokens, matched exactly as combat substitutes them.
+const FLAVOR_TOKEN = /%(user|target)/g;
+const SENTENCE_START = /(^|[.!?]\s+)$/;
+
+/**
+ * The prose line in a jutsu's details panel: the Jutsu Training Hall, Profile,
+ * and the PvP / Solo / Tower combat inspect dialogs.
+ *
+ * Prefers the card `description`, falling back to the battle-log line when none
+ * was written — the four built-in bloodline kits carry only battle flavor, and
+ * the Bloodline Maker copies its battle line into `description` verbatim. Both
+ * can hold the `%user` / `%target` tokens that combat fills with fighter names
+ * (interpolateFlavor in lib/battle-log-format, api/combat-core/cast-flavor.ts).
+ * A details panel describes the jutsu, not one cast of it, so it has no fighter
+ * names to fill in, even mid-fight. Each token reads as "the user" or "the
+ * target" — the wording the built-in starter prose already uses — and a SELF
+ * cast's `%target` is its caster, exactly as cast-flavor resolves it.
+ *
+ * Every field is optional and `target` is a plain string, so the loosely typed
+ * jutsu a combat session hands over (the Tower's) passes as it is.
+ */
+export function jutsuDetailDescription(jutsu: { description?: string; battleDescription?: string; target?: string }): string {
+    const text = jutsu.description?.trim() || jutsu.battleDescription?.trim() || "";
+    return text.replace(FLAVOR_TOKEN, (_token, role: string, offset: number) => {
+        const word = role === "user" || jutsu.target === "SELF" ? "the user" : "the target";
+        return SENTENCE_START.test(text.slice(0, offset)) ? word.charAt(0).toUpperCase() + word.slice(1) : word;
+    });
 }

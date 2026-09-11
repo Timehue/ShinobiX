@@ -148,9 +148,11 @@ test('board scaling keeps one observer authority with explicit cleanup', () => {
 
 test('specialized coordinate stages preserve their source geometry', () => {
     const mapHook = readFileSync(join(srcDir, 'lib', 'use-world-map-zoom.ts'), 'utf8');
+    const mapRegions = readFileSync(join(srcDir, 'lib', 'world-map-regions.ts'), 'utf8');
     const stages = readFileSync(stageAuthority, 'utf8');
     const legacyMobile = readFileSync(join(stylesDir, 'index', '24-combat-mobile-restore.css'), 'utf8');
-    assert.match(mapHook, /WORLD_MAP_ASPECT_RATIO = 1672 \/ 941/);
+    assert.match(mapRegions, /export const WORLD_MAP_ASPECT_RATIO = 1672 \/ 941/);
+    assert.match(mapHook, /import \{[^}]*\bWORLD_MAP_ASPECT_RATIO\b[^}]*\} from ["']\.\/world-map-regions["']/);
     assert.match(mapHook, /"--wm-map-ar"[^\n]+WORLD_MAP_ASPECT_RATIO/);
     assert.match(stages, /aspect-ratio: var\(--wm-map-ar, 1672 \/ 941\)/);
     assert.match(stages, /grid-template-columns: repeat\(12, minmax\(0, 1fr\)\)/);

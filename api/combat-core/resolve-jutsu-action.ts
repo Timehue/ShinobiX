@@ -184,7 +184,9 @@ export function createCanonicalGroundEffect<TOwner extends string>(input: {
     owner: TOwner;
     name: string;
     plan: JutsuActionPlan;
-}): { id: string; owner: TOwner; name: string; tiles: number[]; rounds: number; tags: CombatTag[] } {
+    /** The casting jutsu's bloodline rank; the zone's Poison is capped by it. */
+    bloodlineRank?: string | null;
+}): { id: string; owner: TOwner; name: string; tiles: number[]; rounds: number; bloodlineRank?: string; tags: CombatTag[] } {
     if (!input.plan.createsGroundEffect) throw new Error('Jutsu action plan does not create a ground effect.');
     return {
         id: input.id,
@@ -192,6 +194,7 @@ export function createCanonicalGroundEffect<TOwner extends string>(input: {
         name: input.name,
         tiles: [...input.plan.footprint],
         rounds: 2,
+        ...(input.bloodlineRank ? { bloodlineRank: input.bloodlineRank } : {}),
         tags: input.plan.groundTags.map((tag) => ({ ...tag })),
     };
 }

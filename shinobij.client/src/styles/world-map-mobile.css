@@ -1,0 +1,251 @@
+/* The atlas is one fitted coordinate stage, with six spatially ordered region
+   controls. Only the atlas card inside the mobile game shell participates;
+   sector scenes and the desktop overview retain their existing layouts. */
+@media (max-width: 979px) {
+    /* The help trigger is in the topbar. Keep transient road messages just
+       above navigation; the measured frame reserves their space while open. */
+    html.wm-zoom body:has(.world-atlas-card) > .sage-whisper {
+        bottom: calc(var(--mobile-aaa-nav-height, 72px) + env(safe-area-inset-bottom, 0px) + 8px);
+    }
+
+    @media (orientation: landscape) and (max-height: 480px) {
+        html.wm-zoom body:has(.world-atlas-card) > .sage-whisper {
+            bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+        }
+    }
+
+    html.wm-zoom .app-shell.screen-worldMap .center-game > .card.world-atlas-card {
+        position: relative;
+        box-sizing: border-box;
+        min-width: 0;
+        min-height: 0 !important;
+        padding: 8px !important;
+        margin-block: 0 !important;
+    }
+
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .wm-topbar {
+        min-height: 44px !important;
+        margin: 0 0 8px !important;
+        gap: 8px;
+    }
+
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .wm-topbar > .village-back-button {
+        box-sizing: border-box;
+        width: auto !important;
+        max-width: 100% !important;
+        min-width: 44px !important;
+        min-height: 44px !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 8px 12px !important;
+        font-size: 13px !important;
+        line-height: 1.2 !important;
+        white-space: normal !important;
+    }
+
+    html.wm-zoom body:has(> .screen-hint-worldMap) .world-atlas-card .wm-topbar {
+        box-sizing: border-box;
+        padding-inline-end: 64px;
+    }
+
+    html.wm-zoom body:has(.world-atlas-card) > .screen-hint-banner.screen-hint-collapsed.screen-hint-worldMap {
+        position: absolute !important;
+        top: var(--wm-tip-top, 80px) !important;
+        left: var(--wm-tip-left, auto) !important;
+        right: auto !important;
+        bottom: auto !important;
+    }
+
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-atlas-frame {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) auto;
+        gap: 8px;
+        box-sizing: border-box;
+        width: 100%;
+        min-width: 0;
+        height: var(--wm-frame-height, max(204px, calc(100dvh - 236px)));
+        min-height: 0;
+        margin: 0;
+    }
+
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-atlas-frame > .world-map-scroll {
+        align-self: stretch;
+        box-sizing: border-box;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 2px solid rgba(230, 196, 119, .58) !important;
+        border-radius: 10px !important;
+        /* The transform camera owns movement. Native focus/scrollIntoView must
+           never introduce a second, persistent scroll offset behind it. */
+        overflow: clip !important;
+        overscroll-behavior: contain;
+        background: #10262d;
+    }
+
+    /* Permanent transform promotion can retain a low-resolution map raster after
+       a landscape resize. Let the browser repaint at the current camera scale so
+       both the artwork and the counter-scaled sector numbers remain sharp. */
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .generated-world-map {
+        will-change: auto;
+        /* WebKit also rasterizes a filtered atlas before camera scaling. */
+        filter: none;
+    }
+
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-atlas-frame > .wm-village-bar {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-rows: repeat(2, minmax(44px, auto));
+        grid-auto-flow: row;
+        align-items: stretch;
+        align-content: stretch;
+        gap: 6px;
+        box-sizing: border-box;
+        min-width: 0;
+        width: 100%;
+        height: auto;
+        min-height: 94px;
+        max-height: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+    }
+
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-atlas-frame .wm-village-bar > .wm-village-chip {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        box-sizing: border-box;
+        width: 100% !important;
+        min-width: 44px !important;
+        min-inline-size: 44px !important;
+        max-width: 100% !important;
+        min-height: 44px !important;
+        min-block-size: 44px !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 7px 5px !important;
+        border: 1px solid rgba(209, 167, 88, .38);
+        border-radius: 8px !important;
+        background: rgba(11, 17, 21, .94);
+        color: #ede9df;
+        font-size: clamp(11px, 2.8vw, 13px) !important;
+        font-weight: 700;
+        line-height: 1.2 !important;
+        text-align: center;
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .wm-village-chip .wm-chip-dot {
+        flex: 0 0 6px;
+        width: 6px;
+        height: 6px;
+        margin: 0;
+    }
+
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-atlas-frame .wm-village-bar > .wm-village-chip[aria-pressed="true"] {
+        border-color: #e6c477;
+        background: linear-gradient(180deg, rgba(126, 93, 43, .48), rgba(42, 36, 25, .96));
+        color: #fff3cf;
+        box-shadow: inset 0 0 0 1px rgba(230, 196, 119, .22);
+    }
+
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .wm-village-chip:focus-visible {
+        outline: 2px solid #f9e3a9;
+        outline-offset: 2px;
+    }
+
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-atlas-frame[data-wm-layout="wide"] {
+        grid-template-columns: minmax(0, 1fr) clamp(200px, 34%, 220px);
+        grid-template-rows: minmax(0, 1fr);
+    }
+
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-atlas-frame[data-wm-layout="wide"] > .wm-village-bar {
+        align-self: end;
+        grid-template-rows: repeat(2, minmax(44px, 1fr));
+        min-height: 100px;
+    }
+
+    /* Short landscape screens use the same right-hand column for back/help and
+       the six regions, giving the map the full available height. */
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card:has(> .world-atlas-frame[data-wm-layout="wide"]) > .wm-topbar {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: clamp(200px, calc((100% - 16px) * .34), 220px);
+        margin: 0 !important;
+    }
+
+    /* The camera counter-scales markers by exactly 1/zoom, so these are screen
+       pixels at every region. Their transparent six-pixel ring supplies a 44px
+       target without crowding the painted roads with 44px discs. */
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .atlas-sector {
+        box-sizing: border-box;
+        width: 32px !important;
+        height: 32px !important;
+        min-width: 32px !important;
+        min-height: 32px !important;
+        font-size: 12px !important;
+        line-height: 1 !important;
+    }
+
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .atlas-sector::after {
+        inset: -6px !important;
+    }
+
+    /* Academy targets deliberately hide the normal hit ring, so keep their
+       highlighted button itself large enough to tap. */
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .atlas-sector.academy-click-target {
+        width: 44px !important;
+        height: 44px !important;
+    }
+
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll button.atlas-landmark[data-landmark-art="true"] {
+        width: 44px !important;
+        height: 44px !important;
+        min-width: 44px !important;
+        min-height: 44px !important;
+        max-width: 44px !important;
+        padding: 0 !important;
+    }
+
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .world-poi-plate {
+        max-width: 138px;
+        padding: 2px 4px;
+    }
+
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .world-poi-plate-name {
+        font-size: 10px;
+        letter-spacing: .02em;
+        white-space: normal;
+    }
+
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .world-poi-plate-tag {
+        display: none;
+    }
+
+    @media (hover: none) {
+        /* Touch browsers retain :hover after a tap; it must not leave a marker
+           enlarged over its neighbours until the player touches elsewhere. */
+        html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .atlas-sector:hover,
+        html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .atlas-landmark:hover {
+            transform: translate(-50%, -50%) scale(var(--wm-marker-scale, 1)) !important;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .wm-village-chip {
+            transition: none;
+        }
+    }
+}

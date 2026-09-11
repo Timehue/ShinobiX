@@ -70,6 +70,17 @@ test('split CI preserves every release gate and builds each artifact once', () =
     assert.match(workflow, /NODE_VERSION:\s*22\.23\.1/);
 });
 
+test('responsive browser discovery installs the runtime used by compiled server fixtures', () => {
+    // A client-only install passes locally when an earlier root install exists,
+    // but fails while discovering the ranked replay fixture on a fresh runner.
+    const responsive = workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive:\n')[0];
+    assert.ok(responsive, 'the responsive shard job must exist');
+    const rootInstall = responsive.search(/run: npm ci(?: --omit=dev)? 2>&1/);
+    const browserRun = responsive.indexOf('run: npm run test:e2e --prefix shinobij.client');
+    assert.ok(rootInstall >= 0 && browserRun > rootInstall,
+        'fresh responsive shards must install root runtime packages before loading browser specs');
+});
+
 test('artifact consumers verify immutable provenance and failure evidence stays reachable', () => {
     const uploadCount = occurrences('actions/upload-artifact@v7');
     assert.ok(uploadCount >= 10);
