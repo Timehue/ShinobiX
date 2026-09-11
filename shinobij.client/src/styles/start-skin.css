@@ -368,7 +368,18 @@
     font-weight: 700;
     letter-spacing: 0.05em;
     cursor: pointer;
-    transition: all 0.15s;
+    /* These are the properties the hover, selected and focus states change.
+       `all` would also animate any other value that changes, such as one a media query sets. */
+    transition:
+        color 0.15s,
+        background-color 0.15s,
+        border-color 0.15s,
+        box-shadow 0.15s,
+        filter 0.15s,
+        transform 0.15s,
+        outline-color 0.15s,
+        outline-width 0.15s,
+        outline-offset 0.15s;
     white-space: nowrap;
 }
 
