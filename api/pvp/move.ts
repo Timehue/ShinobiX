@@ -34,11 +34,15 @@ import {
     JUTSU_MAX_LEVEL,
     jutsuLevelCapForLevel,
     perRankStatCap,
+    POISON_CAP_BY_RANK,
+    POISON_DEFAULT_PCT,
+    poisonPercentForTag,
     postDamageFormula,
     postDamagePercentAmount,
     scaledTagPercent as scaleCombatTagPercent,
     shieldAmountForMastery,
     WEAPON_AMP_TAG_CAP,
+    WEAPON_POISON_TAG_CAP,
     statusDurationFor,
     weatherMultiplier,
     withDisciplineBonuses,
@@ -519,7 +523,11 @@ export function applyGroundEffectToFighter(fighter: PvpFighter, effect: PvpGroun
             next = addGroundStatus(next, { name: 'Recoil', rounds: 1, percent: pct, kind: 'negative' }, effect.id);
             lines.push(`${effect.name}: ${next.name} suffers ${pct}% recoil on attacks this turn.`);
         } else if (tagName === 'Poison') {
-            const poisonPct = pct > 0 ? pct : 6;
+            // Zones apply the authored value at full strength (no mastery ramp, like
+            // DDG/Recoil above), but Poison still answers to the caster's rank
+            // ceiling. A zone with no stamped rank (NPC, or laid before the stamp
+            // existed) takes the basic ceiling.
+            const poisonPct = poisonPercentForTag(tag.percent, JUTSU_MAX_LEVEL, effect);
             // v2: zone poison lasts 2 rounds (on-spend model — matches PvE + jutsu poison).
             // v1: 1-round refresh tracks zone presence for the legacy per-round pool tick.
             next = addGroundStatus(next, { name: 'Poison', rounds: COMBAT_RESOURCES_V2 ? 2 : 1, percent: poisonPct, kind: 'negative' }, effect.id);
@@ -758,7 +766,9 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         if (tagName === 'Barrier') { const tile = nextStepToward(s.pos, o.pos); if (tile !== s.pos && tile !== o.pos) { s = addJutsuStatus(s, jutsu, { name: 'Barrier', rounds: 2, amount: tile, kind: 'positive' }, round); lines.push(`Barrier: ${s.name} blocks hex ${tile} for 2 turns.`); } else lines.push(`Barrier: no room to place a wall.`); damage = 0; continue; }
         if (tagName === 'Pierce') { pierce = true; lines.push(`Pierce: bypasses defenses.`); continue; }
         if (tagName === 'Stun') { if (!hasStatus(o, 'Debuff Prevent', round) && !hasStatus(o, 'Stun Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Stun', rounds: 1, kind: 'negative' }, round); lines.push(`Stun: ${o.name} loses 40 AP next turn.`); } continue; }
-        if (tagName === 'Poison') { if (!hasStatus(o, 'Debuff Prevent', round)) { const poisonPct = pct > 0 ? pct : 6; o = addJutsuStatus(o, jutsu, { name: 'Poison', rounds: 2, percent: poisonPct, kind: 'negative' }, round); if (COMBAT_RESOURCES_V2) { lines.push(`Poison: ${o.name} is poisoned for 2 turns — casting jutsu will hurt.`); } else { const dmg = Math.floor(o.maxChakra * (poisonPct / 100)); lines.push(`Poison: ${o.name} takes ~${dmg}/round for 2 turns.`); } } continue; }
+        // Poison skips the generic `pct`: its percent is not on the amp scale, so it
+        // takes its own rank ceiling (weapons answer to the A/B one) and ramp.
+        if (tagName === 'Poison') { if (!hasStatus(o, 'Debuff Prevent', round)) { const poisonPct = poisonPercentForTag(tag.percent, tagPercentMastery, jutsu, weaponSwing ? WEAPON_POISON_TAG_CAP : undefined); o = addJutsuStatus(o, jutsu, { name: 'Poison', rounds: 2, percent: poisonPct, kind: 'negative' }, round); if (COMBAT_RESOURCES_V2) { lines.push(`Poison: ${o.name} is poisoned for 2 turns — casting jutsu will hurt.`); } else { const dmg = Math.floor(o.maxChakra * (poisonPct / 100)); lines.push(`Poison: ${o.name} takes ~${dmg}/round for 2 turns.`); } } continue; }
         if (tagName === 'Drain') {
             // v4.3: Drain is single-stack (addStatus replaces on re-apply) and scales with attacker mastery.
             // Tick = clamp(50 + masteryLevel × 5, 50, 300). At mastery 50: 300/tick.
@@ -1047,6 +1057,34 @@ export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
 }
 
 // ─── DoTs applied at start of each turn ───────────────────────────────────────
+// A fighter's own mitigation against damage-over-time: armor + active Decrease
+// Damage Taken, at DR_DOT_SCALE so a DoT can never be fully negated. Shared by
+// applyDoTs (Wound/Drain ticks) and the on-spend Poison hit (poisonSpendDamage).
+function ownDotMitigation(f: PvpFighter, round: number): number {
+    const ownArmor = armorRawDrFromCharacter(f.character as Record<string, unknown>);
+    let ownStatusDR = 0;
+    for (const s of activeStatuses(f, round)) {
+        if (s.name === 'Decrease Damage Taken') ownStatusDR += (s.percent ?? 0) / 100;
+    }
+    return dotMitigationFromRawDr(ownArmor, ownStatusDR);
+}
+
+// combatResourcesV2 Poison, paid when the poisoned fighter spends chakra/stamina
+// on a jutsu. Reduced by their own armor + Decrease Damage Taken exactly like a
+// Wound or Drain tick; the on-spend hook used to subtract the raw number, so
+// defenses did nothing against it. The active percent is also held to the S-rank
+// ceiling, which covers a Poison sealed onto a fighter before the rank caps
+// existed. Shared by PvP, solo PvE and Battle Towers. 0 when v2 is off, the
+// fighter is not poisoned, or the cast was free.
+export function poisonSpendDamage(fighter: PvpFighter, spend: number, round: number): number {
+    if (!COMBAT_RESOURCES_V2) return 0;
+    const pct = Math.min(POISON_CAP_BY_RANK.S, sumActivePct(fighter, 'Poison', round, POISON_DEFAULT_PCT));
+    if (pct <= 0) return 0;
+    const raw = v2PoisonOnSpend(spend, pct);
+    if (raw <= 0) return 0;
+    return Math.max(1, Math.floor(raw * ownDotMitigation(fighter, round)));
+}
+
 // v4.3: DoT ticks are partially mitigated by the defender's own DR pool (armor + DDT stacks),
 // scaled by DR_DOT_SCALE so DoT can't be made fully invulnerable.
 // Exported so Battle Towers' engine can tick Wound/Poison/Drain with identical math.
@@ -1057,12 +1095,7 @@ export function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFig
     const vfx: RelativeVfxEvent[] = [];
     let f = { ...fighter };
     // Compute own DR pool against incoming DoT.
-    const ownArmor = armorRawDrFromCharacter(f.character as Record<string, unknown>);
-    let ownStatusDR = 0;
-    for (const s of activeStatuses(f, round)) {
-        if (s.name === 'Decrease Damage Taken') ownStatusDR += (s.percent ?? 0) / 100;
-    }
-    const dotMitigation = dotMitigationFromRawDr(ownArmor, ownStatusDR);
+    const dotMitigation = ownDotMitigation(f, round);
     const mit = (raw: number) => Math.max(0, Math.floor(raw * dotMitigation));
 
     for (const s of activeStatuses(f, round)) {
@@ -2077,8 +2110,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // to cast deals HP damage scaled by the spend + the caster's active
                 // Poison. Computed once, folded into every cost-deduction branch below
                 // via paySpendPoison. 0 when the flag is off / not poisoned / free jutsu.
-                const jPoisonPct = COMBAT_RESOURCES_V2 ? sumActivePct(me, 'Poison', session.round, 6) : 0;
-                const poisonSpendDmg = jPoisonPct > 0 ? v2PoisonOnSpend(jChakraCost + jStaminaCost, jPoisonPct) : 0;
+                const poisonSpendDmg = poisonSpendDamage(me, jChakraCost + jStaminaCost, session.round);
                 const spendPoisonVfx: RelativeVfxEvent[] = [];
                 const paySpendPoison = <T extends { name: string; hp: number }>(self: T): T => {
                     if (poisonSpendDmg <= 0) return self;
@@ -2124,6 +2156,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 owner: role,
                                 name: jutsu.name,
                                 plan,
+                                bloodlineRank: jutsu.bloodlineRank,
                             }),
                             activeRound: session.round + 1,
                         };
@@ -2241,6 +2274,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 owner: role,
                                 name: jutsu.name,
                                 plan,
+                                bloodlineRank: jutsu.bloodlineRank,
                             }),
                             activeRound: session.round + 1,
                         };
