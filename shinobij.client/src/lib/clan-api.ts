@@ -46,13 +46,27 @@ export class ClanSaveError extends Error {
     }
 }
 
+// Founding (or reclaiming) a clan sends the whole record, empty treasury
+// included. Changes to an EXISTING clan go through writeClanUpdate instead.
 export async function writeClanData(data: ClanData): Promise<void> {
+    await postClanRecord(data.name, data);
+}
+// The clan treasury is server-owned: every movement has its own endpoint, and
+// the Clan Hall's copy was loaded when the hall opened, so it can be minutes
+// old. An update to an existing clan leaves it out rather than replaying
+// figures from before another member's donation; the server keeps the stored
+// treasury either way (api/_clan-save-validate.ts).
+export async function writeClanUpdate(data: ClanData & { treasury?: unknown }): Promise<void> {
+    const { treasury: _treasury, ...update } = data;
+    await postClanRecord(data.name, update);
+}
+async function postClanRecord(name: string, body: object): Promise<void> {
     let res: Response;
     try {
-        res = await fetch(`/api/save/${clanSlug(data.name)}`, {
+        res = await fetch(`/api/save/${clanSlug(name)}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
+            body: JSON.stringify(body),
         });
     } catch {
         throw new ClanSaveError(0, "Clan save unconfirmed. Refresh before retrying.");
