@@ -833,5 +833,5 @@
 @media (prefers-reduced-motion: reduce) {
     .civic-facility-screen *,
     .civic-facility-screen *::before,
-    .civic-facility-screen *::after { transition-duration: 0.001ms !important; animation-duration: 0.001ms !important; }
+    .civic-facility-screen *::after { transition-duration: 0s !important; animation-duration: 0.001ms !important; }
 }
