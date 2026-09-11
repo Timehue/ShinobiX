@@ -70,6 +70,7 @@ import { loadVillageLeadershipImages, saveVillageLeadershipImages } from "../lib
 import { normalizeVillageLeadershipImages, type VillageLeadershipImages } from "../data/village-leadership";
 import { HOLLOW_GATE_MAX_FLOOR } from "../constants/game";
 import { setSharedWeeklyBossAiId, sharedWeeklyBossAiIdCache } from "../lib/world-state";
+import { AdminCircuit } from '../features/dojo-circuit/AdminCircuit';
 import type { VnCinematicDirection, VnSoundCue } from "../types/vn";
 import { useAdminContentPublisher } from "../lib/content-publish";
 import { isReleaseSafeClientEvent } from "../lib/release-safe-content";
@@ -932,8 +933,8 @@ export function AdminPanel({
     // admin/migrate-kv, game-state arenaTournament/weeklyBossOverride, and the
     // weekly-boss reset operation) gate on isFullAdmin — so even if a content
     // admin somehow reached the controls, the underlying actions reject them.
-    const CONTENT_ADMIN_FORBIDDEN_TABS = new Set<string>(['playerManagement', 'hollowGate', 'relicDungeons', 'moderation', 'legacy']);
-    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate" | "relicDungeons" | "professions" | "moderation" | "legacy" | "diagnostics">("jutsuBloodlines");
+    const CONTENT_ADMIN_FORBIDDEN_TABS = new Set<string>(['playerManagement', 'hollowGate', 'relicDungeons', 'worldEvents', 'moderation', 'legacy']);
+    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate" | "relicDungeons" | "worldEvents" | "professions" | "moderation" | "legacy" | "diagnostics">("jutsuBloodlines");
     const [adminStoryContent, setAdminStoryContent] = useState<StoryContentPayload[]>([]);
     const [adminStoryStatus, setAdminStoryStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
     const [adminStoryError, setAdminStoryError] = useState("");
@@ -2770,6 +2771,11 @@ export function AdminPanel({
                         🗝 Relic Dungeons
                     </button>
                 )}
+                {adminRole === 'full' && (
+                    <button className={activeAdminPanel === "worldEvents" ? "active" : ""} onClick={() => setActiveAdminPanel("worldEvents")}>
+                        🏆 World Events
+                    </button>
+                )}
                 <button className={activeAdminPanel === "professions" ? "active" : ""} onClick={() => setActiveAdminPanel("professions")}>
                     🧑‍⚕️ Professions
                 </button>
@@ -2796,6 +2802,16 @@ export function AdminPanel({
                     <button onClick={maxResources}>Max Resources + 10,000 Ryo</button>
                 </section>
             </div>
+
+            {activeAdminPanel === "worldEvents" && adminRole === 'full' && (
+                <div className="admin-subpanel">
+                    <div className="admin-panel-heading">
+                        <h3>World Events</h3>
+                        <p>These controls govern global events rather than village-specific territory systems.</p>
+                    </div>
+                    <AdminCircuit credential={adminPw} character={character} />
+                </div>
+            )}
 
             {activeAdminPanel === "villageLeaders" && (
                 <AdminVillageLeadersPanel

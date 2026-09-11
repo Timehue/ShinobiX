@@ -26,6 +26,7 @@ export const DEEP_LINKABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     // Added: safe, save-only hub screens that previously fell through to the
     // village on refresh (the reported "refresh dumps me to the village" bug).
     "guides", "shinobiTiles", "sunscarFestival",
+    "dojoCircuit",
     // Echoes of War renders its whole ladder from the save alone; an
     // interrupted Showdown resumes through its sessionStorage pointer, which
     // the screen tolerates missing.

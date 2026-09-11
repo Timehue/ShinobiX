@@ -41,7 +41,7 @@ test('shared game-state batches both collections once, shares concurrent builds,
         assert.deepEqual(out.body, {
             villageStates: { ...defaults, leaf: { treasury: { ryo: 9 }, seatedKage: undefined, firstLiberator: undefined, kageSystemUnlocked: false, elderAppointees: ['', '', ''], elderTerm: await kv.get('village:elder-council:leaf'), anbuAppointees: ['', '', ''], anbuEarned: [], anbuMembers: [] } },
             clanPetBattles: { fox: { id: 'battle-1' } },
-            arenaTournament: null, arenaActiveFights: [], weeklyBossAiId: null,
+            arenaTournament: null, arenaActiveFights: [], weeklyBossAiId: null, dojoCircuitEnabled: false,
         });
     }
     const same = response();

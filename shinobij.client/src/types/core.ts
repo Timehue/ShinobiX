@@ -32,6 +32,7 @@ export type Screen =
     | "battleArena"
     | "battleLog"
     | "arenaDistrict"
+    | "dojoCircuit"
     | "bloodlineMaker"
     | "clan"
     | "worldMap"
