@@ -14,7 +14,11 @@ test('a completed duel keeps a long winner name contained through settlement ret
     const qa = page.getByTestId('pet-settlement-qa');
     await expect(dialog).toBeVisible();
     await expect(dialog).toHaveAttribute('aria-modal', 'true');
-    expect(await dialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
+    // Focus moves into the dialog one animation frame after it mounts (the
+    // result-dialog effect in PetColiseum), so wait for it. A single read here
+    // raced that frame on a cold, software-rendered CI runner and saw focus
+    // still outside the dialog.
+    await expect.poll(() => dialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
     const title = page.getByTestId('pet-duel-result-title');
     await expect(title).toContainText('Guardhound');
     expect(await title.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
