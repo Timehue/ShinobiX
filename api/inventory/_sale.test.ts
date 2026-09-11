@@ -27,11 +27,39 @@ test('backpack sale consumes stacks before uniques and credits canonical half-co
     assert.equal(legacy.ok, true);
 });
 
-test('equipped sale requires the exact slot and clears only matching aliases', () => {
+test('equipped sale requires the physical slot and clears its aliases', () => {
     const sold = applyInventorySale(character({ equipment: { hand: 'sale-item', weapon: 'sale-item', gloves: 'keep' } }), item(), 'equipped', 9, 'hand', 'inventorysale002', 100);
     assert.equal(sold.ok, true);
     if (sold.ok) assert.deepEqual(sold.character.equipment, { gloves: 'keep' });
     assert.equal(applyInventorySale(character({ equipment: { hand: 'other' } }), item(), 'equipped', 1, 'hand', 'inventorysale003', 100).ok, false);
+});
+
+test('equipped sales resolve canonical client slots and never revive a shadowed alias', () => {
+    for (const [storedSlot, selectedSlot] of [['weapon', 'hand'], ['hand', 'weapon'], ['armor', 'body'], ['accessory', 'aura']]) {
+        const sold = applyInventorySale(character({ equipment: { [storedSlot]: 'sale-item' } }), item(), 'equipped', 1, selectedSlot, `alias-${storedSlot}`, 100);
+        assert.equal(sold.ok, true);
+        if (sold.ok) assert.deepEqual(sold.character.equipment, {});
+    }
+    for (const equipment of [{ weapon: 'other', hand: 'sale-item' }, { hand: 'sale-item', weapon: 'other' }]) {
+        const stored = character({ inventory: ['other'], equipment });
+        assert.equal(applyInventorySale(stored, item({ id: 'other' }), 'equipped', 1, 'weapon', 'shadowedsale01', 100).ok, false);
+        const sold = applyInventorySale(stored, item(), 'equipped', 1, 'hand', 'canonicalsal01', 100);
+        assert.equal(sold.ok, true);
+        if (!sold.ok) continue;
+        assert.deepEqual(sold.character.equipment, {});
+        assert.deepEqual(sold.character.inventory, ['other']);
+        assert.equal(sold.character.ryo, 60);
+    }
+});
+
+test('all reference slots refuse equipped sales without mutating the owned stack', () => {
+    for (const slot of ['item', 'item1', 'item2', 'item3', 'thrown', 'potion']) {
+        const stored = character({ itemStacks: [{ itemId: 'sale-item', count: 1 }], equipment: { [slot]: 'sale-item' } });
+        const before = structuredClone(stored);
+        const sold = applyInventorySale(stored, item({ slot: 'item' }), 'equipped', 1, slot, `reference-sale-${slot}`, 100);
+        assert.equal(sold.ok, false, slot);
+        assert.deepEqual(stored, before);
+    }
 });
 
 test('sale rejects missing ownership, unsellable items, invalid balances, and request conflicts', () => {

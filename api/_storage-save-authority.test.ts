@@ -338,3 +338,21 @@ test('the no-cache scope stays narrow: safe game and snapshot keys retain pgKv c
         assert.equal(selectCount.get(key) ?? 0, 0, 'worker A should serve this safe key from cache');
     }
 });
+
+test('Standing Court archived receipts cannot reuse a missing pgKv snapshot from before another worker archived them', async () => {
+    const key = 'first-pact-standing-receipt:cache-race-player:showdown:paid-win';
+    assert.equal(await workerA._pgKvForTest.get(key), null);
+    const readsBeforeRemoteArchive = selectCount.get(key) ?? 0;
+    settleInOtherProcess(key, { applied: true });
+
+    assert.deepEqual(await workerA._pgKvForTest.get(key), { applied: true },
+        'the receipt must block a previously paid win after it leaves the progress proof window');
+    assert.ok((selectCount.get(key) ?? 0) > readsBeforeRemoteArchive,
+        'a cached missing receipt must never defeat another worker\'s durable archive');
+
+    await workerA._pgKvForTest.set(key, { applied: true });
+    const readsBeforeSetReadback = selectCount.get(key) ?? 0;
+    assert.deepEqual(await workerA._pgKvForTest.get(key), { applied: true });
+    assert.ok((selectCount.get(key) ?? 0) > readsBeforeSetReadback,
+        'local set/readback must not repopulate the authority cache either');
+});

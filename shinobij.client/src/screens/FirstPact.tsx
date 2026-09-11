@@ -87,7 +87,7 @@ import {
 } from "../lib/first-pact-api";
 import { firstPactAftermathScene, resolveFirstPactCompanions } from "../lib/first-pact-aftermath";
 import {
-    forfeitShowdown,
+    forfeitFirstPactShowdown,
     fetchShowdownState,
     startFirstPactShowdown,
     submitShowdownTurn,
@@ -5768,14 +5768,23 @@ export function FirstPact({
         if (!battle || forfeitInFlightRef.current) return;
         forfeitInFlightRef.current = true;
         setBattleError(null);
-        const recorded = await forfeitShowdown(character.name, battle.state.sessionId);
+        const requestAccount = character.name;
+        const result = await forfeitFirstPactShowdown(requestAccount, battle.state.sessionId);
         forfeitInFlightRef.current = false;
-        if (!recorded) {
-            setBattleError("The Court could not record the concession. The bout is still recoverable; try again before leaving.");
+        if (!mountedRef.current || accountNameRef.current !== requestAccount) return;
+        if ("error" in result) {
+            setBattleError(result.error);
             return;
         }
+        const adoption = applyGrantCharacter(result, requestAccount);
+        if (adoption === "ignored") return;
+        if (adoption === "rejected") {
+            setBattleError("A newer save is already active. Retry the concession to refresh the Court's record.");
+            return;
+        }
+        setProgress(result.progress);
         closeBattle();
-    }, [battle, character.name, closeBattle]);
+    }, [applyGrantCharacter, battle, character.name, closeBattle]);
 
     const rematch = useCallback(() => {
         const next = expectedFirstPactStandingCourtRound(progress)?.id

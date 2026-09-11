@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 
 const panel = readFileSync(new URL('./PetLadderQueuePanel.tsx', import.meta.url), 'utf8');
 const ladder = readFileSync(new URL('../screens/PetLadder.tsx', import.meta.url), 'utf8');
+const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
 const asyncClient = readFileSync(new URL('../lib/pet-ladder-client.ts', import.meta.url), 'utf8');
 
 /*
@@ -21,9 +22,9 @@ describe('live Pet Ranked UI', () => {
         assert.doesNotMatch(panel, /runPetDuel|runPetDuelCinematic|Math\.random/);
         // The winner shown is the server's, read off the watch response.
         assert.match(panel, /fetchRankedPetDuel/);
-        assert.match(panel, /watched\.winnerName === character\.name/);
+        assert.match(panel, /watched\.winnerName\.toLowerCase\(\) === character\.name\.toLowerCase\(\)/);
         // No local fallback: showing an unrated fight is the original bug.
-        assert.match(panel, /Your rating is untouched/);
+        assert.match(panel, /Retry to recover its recorded result/);
     });
 
     it('drives the server handshake rather than inventing match state', () => {
@@ -39,5 +40,13 @@ describe('live Pet Ranked UI', () => {
         assert.match(asyncClient, /\/api\/pet-ladder/);
         // The live queue must not drag the legacy duel host back in.
         assert.doesNotMatch(ladder, /PetDuelLiveHost|queuedAgainst|autoAcceptFrom/);
+    });
+
+    it('routes both settlement and recovery snapshots through the current App versioned commit', () => {
+        assert.match(app, /<PetLadder\b[^>]*onVersionedCharacter=\{commitVersionedCharacter\}/);
+        assert.match(ladder, /<PetLadderQueuePanel\b[^>]*onVersionedCharacter=\{onVersionedCharacter\}/);
+        assert.match(panel, /useEffectEvent\(onVersionedCharacter\)/);
+        assert.match(panel, /state\.state === "active"\s*\? await settleRankedPetMatch[\s\S]*?: await fetchRankedPetCharacter\(character\.name\)/);
+        assert.match(panel, /if \(cancelled\) return;\s*receiveCharacter\(snapshot\.character, snapshot\._saveVersion\);\s*setWatch\(watched\)/);
     });
 });
