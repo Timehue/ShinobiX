@@ -1234,6 +1234,9 @@ export default defineConfig({
         manifest: true,
         // Use Vite's bundled production CSS minifier so the release stays under
         // the immutable startup and all-product budgets without relaxing them.
+        // It also writes the vendor prefixes cssTarget needs (for example
+        // -webkit-backdrop-filter for safari17), so source CSS declares only the
+        // standard property; see scripts/lib/css-prefix-collapse.mjs for why.
         cssMinify: 'lightningcss',
         // runtimePublicAssetsPlugin performs the filtered copy. Leaving Vite's
         // blanket copy enabled would ship multi-gigabyte pet authoring sources.

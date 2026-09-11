@@ -157,7 +157,6 @@
     z-index: 50;
     background: linear-gradient(180deg, rgba(5, 7, 12, 0.97), rgba(6, 9, 15, 0.86));
     backdrop-filter: blur(18px) saturate(1.18);
-    -webkit-backdrop-filter: blur(18px) saturate(1.18);
     border-bottom: 1px solid rgba(202, 138, 4, 0.28);
 }
 
