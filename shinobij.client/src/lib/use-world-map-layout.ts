@@ -25,6 +25,7 @@ export function useWorldMapLayout(active: boolean) {
         let positionedTip: HTMLElement | null = null;
         let notificationBar: HTMLElement | null = null;
         let trailChip: HTMLElement | null = null;
+        let whisper: HTMLElement | null = null;
         let observer: ResizeObserver | null = null;
 
         const measure = () => {
@@ -41,6 +42,12 @@ export function useWorldMapLayout(active: boolean) {
                 trailChip = nextTrailChip;
                 if (trailChip) observer?.observe(trailChip);
             }
+            const nextWhisper = document.querySelector<HTMLElement>("body > .sage-whisper");
+            if (nextWhisper !== whisper) {
+                if (whisper) observer?.unobserve(whisper);
+                whisper = nextWhisper;
+                if (whisper) observer?.observe(whisper);
+            }
             // Browser page zoom must remain an accessibility operation. Only
             // use visual-viewport shrinking for browser chrome/keyboard changes.
             const viewportHeight = visualViewport && visualViewport.scale === 1
@@ -50,13 +57,18 @@ export function useWorldMapLayout(active: boolean) {
             const centerStyle = center ? getComputedStyle(center) : undefined;
             const cardStyle = card ? getComputedStyle(card) : undefined;
             const visibleNav = shell?.querySelector<HTMLElement>(".mobile-bottom-nav") ?? nav;
-            // Notifications and the Academy trail float above the nav rather
+            // Notifications, road messages, and the Academy trail float above the nav rather
             // than taking up document space. Reserve their actual upper edge,
             // including safe-area offsets, so they cannot cover a region row.
-            const fixedChromeClearance = [visibleNav, notificationBar, trailChip].reduce((clearance, element) => {
+            const fixedChromeClearance = [visibleNav, notificationBar, trailChip, whisper].reduce((clearance, element) => {
                 const bounds = element?.getBoundingClientRect();
+                // The whisper slides upward on entry. Reserve its final box
+                // immediately so the animation cannot move over a region row.
+                const top = element && element === whisper
+                    ? window.innerHeight - pixels(getComputedStyle(element).bottom) - element.offsetHeight
+                    : bounds?.top ?? viewportHeight;
                 return bounds && bounds.height > 0 && bounds.width > 0
-                    ? Math.max(clearance, viewportHeight - bounds.top + 8)
+                    ? Math.max(clearance, viewportHeight - top + 8)
                     : clearance;
             }, 0);
             // Work in the unscrolled page/center coordinate space: scrolling
@@ -108,7 +120,7 @@ export function useWorldMapLayout(active: boolean) {
 
         measure();
         observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(schedule);
-        for (const element of [frame, card, center, nav, hud, topbar, regions, notificationBar, trailChip]) {
+        for (const element of [frame, card, center, nav, hud, topbar, regions, notificationBar, trailChip, whisper]) {
             if (element) observer?.observe(element);
         }
         // The optional hint is lazy-loaded and can mount after the atlas ref.

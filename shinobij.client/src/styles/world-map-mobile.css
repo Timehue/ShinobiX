@@ -2,22 +2,15 @@
    controls. Only the atlas card inside the mobile game shell participates;
    sector scenes and the desktop overview retain their existing layouts. */
 @media (max-width: 979px) {
-    html.wm-zoom .app-shell[data-shell="adaptive"].screen-worldMap > .center-game:has(> .world-atlas-card) {
-        padding-inline-start: max(var(--mobile-aaa-gutter, 12px), env(safe-area-inset-left, 0px));
-        padding-inline-end: max(var(--mobile-aaa-gutter, 12px), env(safe-area-inset-right, 0px));
+    /* The help trigger is in the topbar. Keep transient road messages just
+       above navigation; the measured frame reserves their space while open. */
+    html.wm-zoom body:has(.world-atlas-card) > .sage-whisper {
+        bottom: calc(var(--mobile-aaa-nav-height, 72px) + env(safe-area-inset-bottom, 0px) + 8px);
     }
-    @media (orientation: landscape) and (max-height: 480px) {
-        /* In short landscape the atlas becomes the focus surface. Its back button
-           remains available; global chrome returns as soon as the atlas closes. */
-        html.wm-zoom .app-shell[data-shell="adaptive"].screen-worldMap:has(.world-atlas-card) :is(.mobile-top-hud, .mobile-bottom-nav, .mobile-notif-bar) {
-            display: none !important;
-        }
 
-        html.wm-zoom .app-shell[data-shell="adaptive"].screen-worldMap > .center-game:has(> .world-atlas-card) {
-            inline-size: 100%;
-            max-inline-size: none;
-            padding-block-start: max(0px, env(safe-area-inset-top, 0px));
-            padding-block-end: max(0px, env(safe-area-inset-bottom, 0px));
+    @media (orientation: landscape) and (max-height: 480px) {
+        html.wm-zoom body:has(.world-atlas-card) > .sage-whisper {
+            bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
         }
     }
 
