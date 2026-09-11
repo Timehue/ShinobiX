@@ -158,6 +158,7 @@ export function MissionArenaFight({
     runId,
     initialSession,
     missionName,
+    eventLabel,
     savedBloodlines,
     creatorJutsus,
     creatorItems,
@@ -182,6 +183,7 @@ export function MissionArenaFight({
     initialSession: ServerArenaSession;
     /** Mission label (e.g. "C-Rank Patrol") shown on the result banner. */
     missionName?: string;
+    eventLabel?: string;
     /** The player's own jutsu catalog — the SEALED session's jutsu carry combat
      *  fields but NO art, so card thumbnails resolve from here by id. */
     savedBloodlines?: SavedBloodline[];
@@ -998,7 +1000,7 @@ export function MissionArenaFight({
                 <CombatHudMain activeTab={tabs.tab}>
                     <CombatHudHeader
                         title={biomeLabel(biome as Parameters<typeof biomeLabel>[0])}
-                        subtitle={<>Round {session.round} | Shinobi Duel</>}
+                        subtitle={<>Round {session.round} | {eventLabel ?? 'Shinobi Duel'}</>}
                     />
 
                     <CombatEnvironmentStrip>
