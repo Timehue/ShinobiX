@@ -5,6 +5,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
+import { invalidateProcCache } from '../_proc-cache.js';
 import { purchaseVillageUpgrade } from './_upgrade.js';
 import { recordEconomyTxn } from '../_economy.js';
 
@@ -58,6 +59,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const treasury = (state.treasury && typeof state.treasury === 'object') ? state.treasury as Record<string, unknown> : {};
             await kv.set(stateKey, { ...state, treasury: { ...treasury, honorSeals: result.nextSeals }, upgrades: result.upgrades });
+            invalidateProcCache('game-state:frame');
             return {
                 status: 200,
                 body: {
