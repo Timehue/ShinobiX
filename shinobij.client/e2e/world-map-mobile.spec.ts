@@ -45,6 +45,10 @@ async function settleCamera(page: Page) {
 
 async function chooseRegion(page: Page, region: typeof regions[number]) {
     const button = page.locator(`.wm-village-chip[data-region="${region}"]`);
+    await expect(button).toHaveAccessibleName({
+        ashen: "Ashen Leaf", gate: "Death's Gate", frost: "Frostfang",
+        storm: "Stormveil", central: "Central", moon: "Moonshadow",
+    }[region]);
     // Keep mobile region selection in the same input mode as map gestures.
     await button.tap();
     await expect(button).toHaveAttribute("aria-pressed", "true");
@@ -528,26 +532,31 @@ test("rotation retains the region and dragging a sector never starts travel", as
     expect(rect).not.toBeNull();
     const before = await page.locator(".generated-world-map").evaluate((map) => getComputedStyle(map).transform);
     const start = { x: rect!.x + rect!.width / 2, y: rect!.y + rect!.height / 2 };
-    if (testInfo.project.name.startsWith("chromium")) {
-        const session = await page.context().newCDPSession(page);
-        await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...start, id: 1 }] });
-        for (let step = 1; step <= 6; step += 1) {
-            await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: start.x - step * 9, y: start.y - step * 5, id: 1 }] });
-            await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+    // Keep the input session alive through subsequent taps: detaching directly
+    // after touchEnd can interrupt Chromium's compatibility-event completion.
+    const session = testInfo.project.name.startsWith("chromium") ? await page.context().newCDPSession(page) : null;
+    try {
+        if (session) {
+            await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...start, id: 1 }] });
+            for (let step = 1; step <= 6; step += 1) {
+                await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: start.x - step * 9, y: start.y - step * 5, id: 1 }] });
+                await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+            }
+            await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        } else {
+            await page.mouse.move(start.x, start.y);
+            await page.mouse.down();
+            await page.mouse.move(start.x - 55, start.y - 30, { steps: 6 });
+            await page.mouse.up();
         }
-        await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-        await session.detach();
-    } else {
-        await page.mouse.move(start.x, start.y);
-        await page.mouse.down();
-        await page.mouse.move(start.x - 55, start.y - 30, { steps: 6 });
-        await page.mouse.up();
+        await expect.poll(() => page.locator(".generated-world-map").evaluate((map) => getComputedStyle(map).transform)).not.toBe(before);
+        expect(destinations, "a drag originating on a sector must not travel").toEqual([]);
+        await chooseRegion(page, "storm");
+        await sector.tap();
+        await expect.poll(() => destinations).toEqual([1]);
+        await expect(page.locator(".world-atlas-card")).toHaveCount(0);
+        expect(errors).toEqual([]);
+    } finally {
+        await session?.detach();
     }
-    await expect.poll(() => page.locator(".generated-world-map").evaluate((map) => getComputedStyle(map).transform)).not.toBe(before);
-    expect(destinations, "a drag originating on a sector must not travel").toEqual([]);
-    await chooseRegion(page, "storm");
-    await sector.tap();
-    await expect.poll(() => destinations).toEqual([1]);
-    await expect(page.locator(".world-atlas-card")).toHaveCount(0);
-    expect(errors).toEqual([]);
 });

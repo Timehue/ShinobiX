@@ -5216,7 +5216,7 @@ function WorldMapContent({
                 <div className="wm-village-bar" role="group" aria-label="Jump to region">
                     {WORLD_MAP_REGIONS.map((region) => (
                             <button key={region.id} type="button" className="wm-village-chip"
-                                data-region={region.id} aria-pressed={wmZoom.selectedRegion === region.id}
+                                data-region={region.id} aria-label={region.label} aria-pressed={wmZoom.selectedRegion === region.id}
                                 title={`${region.position} of the world map`}
                                 onClick={() => wmZoom.focusRegion(region.id)}>
                                 {region.id === "frost" ? <>Frost<wbr />fang</>
