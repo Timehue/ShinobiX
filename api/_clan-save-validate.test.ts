@@ -2,13 +2,12 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { validateClanSaveWrite } from './_clan-save-validate.js';
 
-// Audit #16 lockdown: net-new treasury.items must come from the atomic
-// /api/clan/treasury/donate endpoint (which verifies ownership). The save blob
-// may only RE-ASSERT the current items (migrated client re-saves the
-// endpoint-credited treasury verbatim) or REMOVE them (withdrawals/sends).
-// Currency caps are unchanged defense-in-depth and are spot-checked so the
-// lockdown can't be confused with a currency-credit change (war/agenda/
-// warSupply rewards still legitimately credit currencies via the save blob).
+// The clan treasury is server-owned. Items arrive through the atomic
+// /api/clan/treasury/donate endpoint (audit #16, verifies ownership) and leave
+// through /api/clan/treasury/transfer; currencies move only through their
+// endpoints (#17). A non-admin save blob may only RE-ASSERT the treasury: it
+// cannot raise it (a mint) or lower it (a stale re-assert from a Clan Hall copy
+// loaded before another member's donation).
 
 const member = { callerName: 'akira', isAdmin: false };
 const admin = { callerName: '', isAdmin: true };
@@ -28,10 +27,25 @@ describe('validateClanSaveWrite — treasury.items lockdown (#16)', () => {
         assert.equal(suppressed.some((s) => s.includes('treasury.items')), false);
     });
 
-    it('allows removing/withdrawing items (counts only go down)', () => {
+    it('blocks removing items through the blob (the transfer endpoint moves them)', () => {
+        // A member whose Clan Hall copy predates a donation re-asserts a list
+        // without it. Accepting that would delete another member's gift.
         const prev = clanWith([{ itemId: 'kunai', count: 3 }, { itemId: 'scroll', count: 1 }]);
         const { next, suppressed } = validateClanSaveWrite(prev, clanWith([{ itemId: 'kunai', count: 1 }]), member);
-        assert.deepEqual(items(next), [{ itemId: 'kunai', count: 1 }]);
+        assert.deepEqual(items(next), [{ itemId: 'kunai', count: 3 }, { itemId: 'scroll', count: 1 }]);
+        assert.ok(suppressed.some((s) => s.includes('treasury.items removal [kunai,scroll]')));
+    });
+
+    it('blocks removing items even for the Founder', () => {
+        const prev = clanWith([{ itemId: 'scroll', count: 1 }]);
+        const { next } = validateClanSaveWrite(prev, clanWith([]), { callerName: 'kaze', isAdmin: false });
+        assert.deepEqual(items(next), [{ itemId: 'scroll', count: 1 }]);
+    });
+
+    it('lets admin remove items (bypass)', () => {
+        const prev = clanWith([{ itemId: 'kunai', count: 3 }]);
+        const { next, suppressed } = validateClanSaveWrite(prev, clanWith([]), admin);
+        assert.deepEqual(items(next), []);
         assert.equal(suppressed.some((s) => s.includes('treasury.items')), false);
     });
 
@@ -248,12 +262,29 @@ describe('validateClanSaveWrite — currency lockdown (#17, step 1a)', () => {
         assert.equal(suppressed.some((s) => s.includes('treasury.warSupply increase via save blob blocked')), true);
     });
 
-    it('allows an admin warSupply increase + a member decrease (spend) unchanged', () => {
+    it('allows an admin warSupply change, but not a decrease from the Founder', () => {
         const prevAdmin = clanWith([], { warSupply: 0 });
         assert.equal((validateClanSaveWrite(prevAdmin, clanWith([], { warSupply: 500 }), admin).next.treasury as Record<string, number>).warSupply, 500);
         const prevSpend = clanWith([], { warSupply: 100 });
         const founderCtx = { callerName: 'kaze', isAdmin: false }; // founderName 'Kaze' → admin-role
-        assert.equal((validateClanSaveWrite(prevSpend, clanWith([], { warSupply: 0 }), founderCtx).next.treasury as Record<string, number>).warSupply, 0);
+        const founderWrite = validateClanSaveWrite(prevSpend, clanWith([], { warSupply: 0 }), founderCtx);
+        assert.equal((founderWrite.next.treasury as Record<string, number>).warSupply, 100);
+        assert.ok(founderWrite.suppressed.some((s) => s.includes('treasury.warSupply decrease via save blob blocked')));
+        assert.equal((validateClanSaveWrite(prevSpend, clanWith([], { warSupply: 0 }), admin).next.treasury as Record<string, number>).warSupply, 0);
+    });
+});
+
+// The Clan Hall saves the whole clan document from a copy it loaded when the
+// hall opened — minutes old — for routine leadership actions (recruitment text,
+// a notice, a role change). If a member donated since, that copy is lower than
+// the server, and the old leadership-withdrawal rule accepted it.
+describe('validateClanSaveWrite — a stale leadership re-assert cannot erase a donation', () => {
+    it('keeps every currency and item a member donated after the Founder loaded the hall', () => {
+        const afterDonation = clanWith([{ itemId: 'gift', count: 1 }], { ryo: 5_000, fateShards: 2, boneCharms: 3, auraStones: 1, mythicSeals: 1, warSupply: 40, provisions: 12 });
+        const staleCopy = clanWith([], { ryo: 1_000, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals: 0, warSupply: 0, provisions: 0 });
+        const { next } = validateClanSaveWrite(afterDonation, { ...staleCopy, recruitment: 'Recruiting strong genin.' }, { callerName: 'kaze', isAdmin: false });
+        assert.deepEqual(next.treasury, afterDonation.treasury);
+        assert.equal(next.recruitment, 'Recruiting strong genin.', 'the rest of the write still lands');
     });
 });
 
