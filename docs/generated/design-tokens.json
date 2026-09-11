@@ -2430,6 +2430,14 @@
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
             "line": 1791
+          },
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
+            "line": 264
+          },
+          {
+            "source": "shinobij.client/src/styles/world-map-mobile.css",
+            "line": 11
           }
         ]
       },
@@ -2607,7 +2615,7 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 335
+            "line": 354
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
@@ -3396,7 +3404,7 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 327
+            "line": 346
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
@@ -3794,6 +3802,10 @@
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
             "line": 1925
+          },
+          {
+            "source": "shinobij.client/src/styles/world-map-mobile.css",
+            "line": 4
           }
         ]
       },
