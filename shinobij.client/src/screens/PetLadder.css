@@ -24,8 +24,8 @@
 .pl-back {
   background: none; border: 1px solid rgba(255,255,255,.14); color: #cdd6e6;
   border-radius: 8px; padding: 6px 13px; font-size: 13px; margin: 10px 0; cursor: pointer;
-  /* A bare duration means `all`, which under reduced motion also animated scrollbar-color
-     on every resize. These are the properties the hover and focus states change. */
+  /* A bare duration means `all`, which would also animate any other value that changes,
+     such as one a media query sets. These are the properties the hover and focus states change. */
   transition: color .15s, background-color .15s, border-color .15s, box-shadow .15s, filter .15s, transform .15s,
     outline-color .15s, outline-width .15s, outline-offset .15s;
 }

@@ -369,7 +369,7 @@
     letter-spacing: 0.05em;
     cursor: pointer;
     /* These are the properties the hover, selected and focus states change.
-       `all` also animated scrollbar-color on every resize under reduced motion. */
+       `all` would also animate any other value that changes, such as one a media query sets. */
     transition:
         color 0.15s,
         background-color 0.15s,
