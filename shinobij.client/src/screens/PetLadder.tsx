@@ -95,14 +95,19 @@ function RankedWarfrontReplay({ replay, sharedImages, onExit }: {
     </Suspense>;
 }
 
-type PetLadderProps = { character: Character; setScreen: (s: Screen) => void; sharedImages: Record<string, string> };
+type PetLadderProps = {
+    character: Character;
+    setScreen: (s: Screen) => void;
+    sharedImages: Record<string, string>;
+    onVersionedCharacter: (character: Character, version: number) => boolean;
+};
 
 /** An account change must discard the previous account's edits and replay. */
 export function PetLadder(props: PetLadderProps) {
     return <PetLadderSession key={props.character.name} {...props} />;
 }
 
-function PetLadderSession({ character, setScreen, sharedImages }: PetLadderProps) {
+function PetLadderSession({ character, setScreen, sharedImages, onVersionedCharacter }: PetLadderProps) {
     const carriedPets = activeCarriedPets<Pet>(character);
     const breedingPetIds = activeClientBreedingParentIds(character);
     const [mode, setMode] = useState<Mode>(() => (
@@ -291,7 +296,7 @@ function PetLadderSession({ character, setScreen, sharedImages }: PetLadderProps
                 and replayed to both players; the asynchronous Coliseum and
                 Tactical ladder modes below remain authoritative on their own. */}
             {mode === "coliseum" && (
-                <Suspense fallback={<LoadingState />}><PetLadderQueuePanel character={character} sharedImages={sharedImages} /></Suspense>
+                <Suspense fallback={<LoadingState />}><PetLadderQueuePanel character={character} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} /></Suspense>
             )}
 
             {/* Two columns: defense + challenge (left) | the ladder (right) */}

@@ -13,6 +13,8 @@ import {
 import { earnedStatPoints, earnedForLevel } from '../_xp-engine.js';
 import { setSafeRecordValue } from '../_utils.js';
 import { WORLD_GEO_VERSION } from '../../shared/sector-geo.js';
+import { canonicalEquipmentSlot, countEquippedItems, resolvedEquipmentEntries, REFERENCE_EQUIPMENT_SLOTS } from '../_equipment-ownership.js';
+import { preserveOwnedItems } from './_entitlement-guard.js';
 
 // ─── Save sanitization ────────────────────────────────────────────────────────
 // Applied to every non-admin player save to prevent client-side economy cheating.
@@ -136,18 +138,6 @@ const FIRST_SAVE_BASELINE_CHARACTER: Record<string, unknown> = {
 // the ownership manifest (./_state-ownership.ts) — per-field rationale (patreon
 // webhook-only, weaponElements core-endpoint-only, …) lives on the entries there.
 
-const EQUIPMENT_SLOTS = new Set([
-    // 'relic' holds story keepsakes/trinkets. It exists so they stop competing
-    // with the Aura Sphere for 'aura'. A slot missing from THIS set is silently
-    // stripped from equipment on every save write, so a new slot must be added
-    // here as well as to the client's EquipmentSlot union.
-    'aura', 'relic', 'hand', 'gloves', 'body', 'waist', 'legs', 'feet', 'head',
-    'item', 'item1', 'item2', 'item3', 'thrown', 'potion',
-    'weapon', 'armor', 'accessory',
-]);
-
-const REFERENCE_EQUIPMENT_SLOTS = new Set(['item', 'item1', 'item2', 'item3', 'thrown', 'potion']);
-
 const ALLOCATABLE_STAT_FIELDS = new Set<string>(STAT_CAP_FIELDS);
 
 const STARTER_BLOODLINE_JUTSU_IDS: Record<string, readonly string[]> = {
@@ -167,14 +157,6 @@ function strictRawSaveLedgerEnabled(): boolean {
 function starterJutsuIdsForBloodline(raw: unknown): readonly string[] {
     const name = raw === 'Blue Blade Eyes' ? 'Ashen Eyes' : String(raw ?? '');
     return STARTER_BLOODLINE_JUTSU_IDS[name] ?? [];
-}
-
-function canonicalEquipmentSlot(slot: string): string {
-    if (slot === 'weapon') return 'hand';
-    if (slot === 'armor') return 'body';
-    if (slot === 'accessory') return 'aura';
-    if (slot === 'item') return 'item1';
-    return slot;
 }
 
 function copyStoredField(target: Record<string, unknown>, stored: Record<string, unknown>, field: string): void {
@@ -202,9 +184,9 @@ function addOwnedCount(counts: Map<string, number>, rawId: unknown, amount = 1):
  * not evidence of ownership: accepting it made a receiptless buy → equip POST
  * a combat-power mint even though the later inventory sanitizer dropped it.
  *
- * Presence, not count-consumption: the compatibility path still permits
- * representation changes for already-owned items. Strict mode replaces this
- * with the full count-consuming version in enforceRawSaveLedgerBoundary.
+ * Ordinary equipment and backpack entries share one count budget. Reserve
+ * accepted gear first, then retain only the remaining backpack units. Selection
+ * slots consume no extra unit and require a retained backpack copy.
  *
  * Slot-kind: a BUILT-IN item may only occupy a slot its definition fits
  * (armor DR in _multipliers.ts sums per SLOT KEY, so a body plate parked in
@@ -223,22 +205,20 @@ function slotAcceptsItemKind(equipSlot: string, itemSlot: string): boolean {
 }
 
 function enforceEquipmentOwnership(char: Record<string, unknown>, stored: Record<string, unknown>): void {
-    const owned = new Set<string>();
+    const available = new Map<string, number>();
     for (const id of Array.isArray(stored.inventory) ? stored.inventory : []) {
-        if (typeof id === 'string' && id.trim()) owned.add(id.trim());
+        addOwnedCount(available, id);
     }
     if (Array.isArray(stored.itemStacks)) {
         for (const raw of stored.itemStacks as Array<Record<string, unknown>>) {
             const itemId = raw && typeof raw === 'object' && typeof raw.itemId === 'string' ? raw.itemId.trim() : '';
-            if (itemId && Math.floor(Number(raw.count) || 0) > 0) owned.add(itemId);
+            if (itemId) addOwnedCount(available, itemId, Math.max(0, Math.floor(Number(raw.count) || 0)));
         }
     }
     const storedEquipment = stored.equipment && typeof stored.equipment === 'object'
         ? stored.equipment as Record<string, unknown>
         : {};
-    for (const id of Object.values(storedEquipment)) {
-        if (typeof id === 'string' && id.trim()) owned.add(id.trim());
-    }
+    for (const [id, count] of countEquippedItems(storedEquipment)) addOwnedCount(available, id, count);
     const requestedEquipment = char.equipment && typeof char.equipment === 'object'
         ? char.equipment as Record<string, unknown>
         : {};
@@ -246,11 +226,10 @@ function enforceEquipmentOwnership(char: Record<string, unknown>, stored: Record
     const equipment: Record<string, string> = {};
     const equippedIds = new Set<string>();
     const occupiedCanonicalSlots = new Set<string>();
-    for (const [slot, rawId] of Object.entries(requestedEquipment)) {
-        const id = typeof rawId === 'string' ? rawId.trim() : '';
+    for (const [slot, id] of resolvedEquipmentEntries(requestedEquipment)) {
         const canonicalSlot = canonicalEquipmentSlot(slot);
-        if (!EQUIPMENT_SLOTS.has(slot) || !id || equippedIds.has(id) || occupiedCanonicalSlots.has(canonicalSlot)) continue;
-        if (!owned.has(id)) continue;
+        if (equippedIds.has(id) || occupiedCanonicalSlots.has(canonicalSlot)) continue;
+        if ((available.get(id) ?? 0) <= 0) continue;
         // The aura slot belongs to the Aura Sphere ALONE — it is the one
         // forever-improving keystone, and its perks key off being equipped. Seven
         // keepsakes used to share this slot and silently evicted it; they now live
@@ -279,8 +258,17 @@ function enforceEquipmentOwnership(char: Record<string, unknown>, stored: Record
             if (gated && !meetsItemLevelReq(gated, equipLevel)) continue;
         }
         equipment[slot] = id;
+        if (!REFERENCE_EQUIPMENT_SLOTS.has(slot)) available.set(id, available.get(id)! - 1);
         equippedIds.add(id);
         occupiedCanonicalSlots.add(canonicalSlot);
+    }
+    const backpack = preserveOwnedItems(char.inventory, char.itemStacks, [],
+        [...available].filter(([, count]) => count > 0).map(([itemId, count]) => ({ itemId, count })));
+    char.inventory = backpack.inventory;
+    char.itemStacks = backpack.itemStacks;
+    const retained = new Set([...backpack.inventory, ...backpack.itemStacks.map(stack => stack.itemId)]);
+    for (const [slot, id] of Object.entries(equipment)) {
+        if (REFERENCE_EQUIPMENT_SLOTS.has(slot) && !retained.has(id)) delete equipment[slot];
     }
     char.equipment = equipment;
 }
@@ -394,14 +382,7 @@ function enforceRawSaveLedgerBoundary(
     const storedEquipment = stored.equipment && typeof stored.equipment === 'object'
         ? stored.equipment as Record<string, unknown>
         : {};
-    const countedStoredSlots = new Set<string>();
-    for (const [slot, id] of Object.entries(storedEquipment)) {
-        if (!EQUIPMENT_SLOTS.has(slot) || REFERENCE_EQUIPMENT_SLOTS.has(slot)) continue;
-        const canonicalSlot = canonicalEquipmentSlot(slot);
-        if (countedStoredSlots.has(canonicalSlot)) continue;
-        countedStoredSlots.add(canonicalSlot);
-        addOwnedCount(available, id);
-    }
+    for (const [id, count] of countEquippedItems(storedEquipment)) addOwnedCount(available, id, count);
 
     const remaining = new Map(available);
     const proposedInventory = Array.isArray(requested.inventory)
@@ -450,10 +431,9 @@ function enforceRawSaveLedgerBoundary(
     const equipment: Record<string, string> = {};
     const equippedIds = new Set<string>();
     const occupiedCanonicalSlots = new Set<string>();
-    for (const [slot, rawId] of Object.entries(requestedEquipment)) {
-        const id = typeof rawId === 'string' ? rawId.trim() : '';
+    for (const [slot, id] of resolvedEquipmentEntries(requestedEquipment)) {
         const canonicalSlot = canonicalEquipmentSlot(slot);
-        if (!EQUIPMENT_SLOTS.has(slot) || !id || equippedIds.has(id) || occupiedCanonicalSlots.has(canonicalSlot)) continue;
+        if (equippedIds.has(id) || occupiedCanonicalSlots.has(canonicalSlot)) continue;
         if (REFERENCE_EQUIPMENT_SLOTS.has(slot)) {
             if (!retainedBackpackIds.has(id)) continue;
         } else {

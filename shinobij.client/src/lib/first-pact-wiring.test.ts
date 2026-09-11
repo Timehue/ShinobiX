@@ -374,3 +374,12 @@ test("the Court's mirrored roster is built on the server, from pets it verified"
     const state = readFileSync(new URL("../../../api/first-pact/_state.ts", import.meta.url), "utf8");
     assert.match(state, /export async function settleFirstPactStandingCourtBattle/);
 });
+
+test("the Court adopts concession progress before clearing its recovery handle", () => {
+    const callback = firstPact.slice(firstPact.indexOf("const forfeitBattle ="), firstPact.indexOf("const rematch ="));
+    assert.match(callback, /await forfeitFirstPactShowdown\(requestAccount, battle\.state\.sessionId\)/);
+    assert.match(callback, /if \(!mountedRef\.current \|\| accountNameRef\.current !== requestAccount\) return;/);
+    assert.match(callback, /if \("error" in result\) \{\s*setBattleError\(result\.error\);\s*return;/);
+    assert.match(callback, /applyGrantCharacter\(result, requestAccount\)/);
+    assert.match(callback, /setProgress\(result\.progress\);\s*closeBattle\(\);/);
+});
