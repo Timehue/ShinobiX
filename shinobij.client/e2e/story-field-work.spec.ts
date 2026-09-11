@@ -27,26 +27,57 @@ async function configureReader(page: Page) {
 async function expectMobileWhisperAboveNavigation(page: Page) {
     const whisper = page.getByRole("status").filter({ hasText: /whisper on the road/i });
     const navigation = page.locator(".mobile-bottom-nav");
+    const viewport = page.viewportSize();
+    expect(viewport).not.toBeNull();
+    const compactLandscape = viewport!.width > viewport!.height && viewport!.height <= 480;
     await expect(whisper).toBeVisible();
     await expect(whisper).toHaveCSS("opacity", "1");
-    await expect(navigation).toBeVisible();
-    const [whisperBox, navigationBox, viewport] = await Promise.all([
+    if (compactLandscape) await expect(navigation).toBeHidden();
+    else await expect(navigation).toBeVisible();
+    const [whisperBox, navigationBox] = await Promise.all([
         whisper.boundingBox(),
         navigation.boundingBox(),
-        Promise.resolve(page.viewportSize()),
     ]);
     expect(whisperBox).not.toBeNull();
-    expect(navigationBox).not.toBeNull();
-    expect(viewport).not.toBeNull();
-    expect(whisperBox!.y + whisperBox!.height).toBeLessThanOrEqual(navigationBox!.y);
+    if (!compactLandscape) expect(navigationBox).not.toBeNull();
+    expect(whisperBox!.y + whisperBox!.height).toBeLessThanOrEqual(navigationBox?.y ?? viewport!.height);
     expect(whisperBox!.x).toBeGreaterThanOrEqual(0);
     expect(whisperBox!.x + whisperBox!.width).toBeLessThanOrEqual(viewport!.width);
-    expect(whisperBox!.width).toBeGreaterThanOrEqual(viewport!.width - 30);
+    expect(whisperBox!.width).toBeGreaterThanOrEqual(Math.min(440, viewport!.width - 30));
     const tip = page.locator('.screen-hint-battle-trigger');
     await expect(tip).toBeVisible();
     const tipBox = await tip.boundingBox();
     expect(tipBox).not.toBeNull();
-    expect(whisperBox!.y + whisperBox!.height).toBeLessThanOrEqual(tipBox!.y);
+    const overlapArea = (box: NonNullable<typeof whisperBox>) => {
+        const width = Math.max(0, Math.min(whisperBox!.x + whisperBox!.width, box.x + box.width) - Math.max(whisperBox!.x, box.x));
+        const height = Math.max(0, Math.min(whisperBox!.y + whisperBox!.height, box.y + box.height) - Math.max(whisperBox!.y, box.y));
+        return width * height;
+    };
+    expect(overlapArea(tipBox!), "The whisper must leave the contextual tip unobstructed").toBe(0);
+    const regions = page.locator(".wm-village-chip");
+    await expect(regions).toHaveCount(6);
+    for (const region of await regions.all()) {
+        const regionBox = await region.boundingBox();
+        expect(regionBox).not.toBeNull();
+        expect(overlapArea(regionBox!), "The whisper must leave all six region buttons unobstructed").toBe(0);
+    }
+}
+
+async function openCurrentSectorForMobileFieldWork(page: Page) {
+    if ((page.viewportSize()?.width ?? 1000) >= 980) return;
+    // The compact atlas contains the map and its region controls. Personal
+    // field work remains in the current sector, reached through its real Back
+    // action; returning there must not submit another travel request.
+    const atlas = page.locator(".world-atlas-card");
+    const returnToSector = atlas.getByRole("button", { name: /Return to Sector 1$/ });
+    const journal = page.getByRole("complementary", { name: "Personal quest" });
+    const retry = page.getByRole("button", { name: "Retry Journey Load", exact: true });
+    await expect.poll(async () => await returnToSector.isVisible()
+        || await journal.isVisible() || await retry.isVisible()).toBe(true);
+    if (await returnToSector.isVisible()) {
+        await returnToSector.click();
+        await expect(atlas).toHaveCount(0);
+    }
 }
 
 async function advanceUntil(novel: Locator, target: Locator) {
@@ -88,6 +119,7 @@ test("a road-story content outage keeps choices closed until an explicit retry s
         else await route.continue();
     });
     await page.goto("/#/worldMap", { waitUntil: "domcontentloaded" });
+    await openCurrentSectorForMobileFieldWork(page);
     const retry = page.getByRole("button", { name: "Retry Journey Load", exact: true });
     await expect(retry).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("complementary", { name: "Personal quest" })).toHaveCount(0);
@@ -95,8 +127,9 @@ test("a road-story content outage keeps choices closed until an explicit retry s
     expect(runtime.fieldAttempts()).toBe(0);
     unavailable = false;
     await retry.click();
-    await expect(page.getByRole("complementary", { name: "Personal quest" })).toContainText("Kesa's Marker");
     await expect(retry).toHaveCount(0);
+    await openCurrentSectorForMobileFieldWork(page);
+    await expect(page.getByRole("complementary", { name: "Personal quest" })).toContainText("Kesa's Marker");
     expect(attempts).toBe(4);
     expect(runtime.fieldAttempts()).toBe(0);
 });
@@ -281,7 +314,15 @@ test("field work saves a route choice, resumes its next objective, and replays h
     if ((page.viewportSize()?.width ?? 1000) <= 480) {
         await expectMobileWhisperAboveNavigation(page);
         await page.screenshot({ path: testInfo.outputPath('field-whisper.png') });
+        const portrait = page.viewportSize()!;
+        await page.setViewportSize({ width: 844, height: 390 });
+        await expect(page.locator(".world-atlas-frame")).toHaveAttribute("data-wm-layout", "wide");
+        await expect(async () => expectMobileWhisperAboveNavigation(page)).toPass({ timeout: 3000 });
+        await page.screenshot({ path: testInfo.outputPath('field-whisper-landscape.png') });
+        await page.setViewportSize(portrait);
+        await expect(page.locator(".world-atlas-frame")).toHaveAttribute("data-wm-layout", "stacked");
     }
+    await openCurrentSectorForMobileFieldWork(page);
 
     const journal = page.getByRole("complementary", { name: "Personal quest" });
     await expect(journal).toBeVisible();
@@ -332,6 +373,7 @@ test("field work saves a route choice, resumes its next objective, and replays h
     }
 
     await page.reload({ waitUntil: "networkidle" });
+    await openCurrentSectorForMobileFieldWork(page);
     const restoredJournal = page.getByRole("complementary", { name: "Personal quest" });
     await expect(restoredJournal).toContainText("Broken Cable Span · Sector 2");
     await restoredJournal.getByText("Your route so far", { exact: true }).click();
@@ -367,6 +409,7 @@ test("the journal can abandon an opening or return-stage field reckoning", async
     await configureReader(page);
     const runtime = await installFieldRuntime(page);
     await page.goto("/#/worldMap", { waitUntil: "networkidle" });
+    await openCurrentSectorForMobileFieldWork(page);
 
     await expect(page.getByRole("complementary", { name: "Personal quest" })).toContainText("Ridge Gate · Sector 1");
     await abandonFromJournal(page);
@@ -374,6 +417,7 @@ test("the journal can abandon an opening or return-stage field reckoning", async
 
     runtime.setReturnStage();
     await page.reload({ waitUntil: "networkidle" });
+    await openCurrentSectorForMobileFieldWork(page);
     const returned = page.getByRole("complementary", { name: "Personal quest" });
     await expect(returned).toContainText("Return to Mira Volt at the village outskirts.");
     await abandonFromJournal(page);
@@ -385,6 +429,7 @@ test("a stale successful field response stays open until same-choice replay is a
     await configureReader(page);
     const runtime = await installFieldRuntime(page, "stale-success");
     await page.goto("/#/worldMap", { waitUntil: "networkidle" });
+    await openCurrentSectorForMobileFieldWork(page);
 
     const journal = page.getByRole("complementary", { name: "Personal quest" });
     await journal.getByRole("button", { name: "Explore Ridge Gate" }).click();
