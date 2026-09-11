@@ -472,6 +472,6 @@
     .gauntlet-board-result__card,
     .gauntlet-damage-pop {
         animation-duration: 1ms !important;
-        transition-duration: 1ms !important;
+        transition-duration: 0s !important;
     }
 }

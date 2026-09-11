@@ -889,7 +889,8 @@
 @media (prefers-reduced-motion: reduce) {
     .central-hub .central-card,
     .central-hub .central-card::before,
-    .central-card-arrow { transition: none; }
+    .central-card-arrow,
+    .central-card-art img { transition: none; }
 }
 
 /* Awakening Stone reward cinematic. This lives outside .central-hub because it
@@ -2004,7 +2005,9 @@
 @media (prefers-reduced-motion: reduce) {
     .central-destination-back,
     .app-shell[data-screen="hunting"] .hunt-contract-card,
-    .app-shell[data-screen="grandMarketplace"] .shop-item-button {
+    .app-shell[data-screen="grandMarketplace"] .shop-item-button,
+    .app-shell[data-screen="hallOfLegends"] .hol-tab,
+    .app-shell[data-screen="shinobiCouncil"] .council-tab {
         transition: none;
     }
 }

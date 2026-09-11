@@ -460,5 +460,5 @@
 @media (prefers-reduced-motion: reduce) {
     .wf3-shell *,
     .wf3-shell *::before,
-    .wf3-shell *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .001ms !important; }
+    .wf3-shell *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0s !important; }
 }
