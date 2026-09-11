@@ -29,7 +29,18 @@ export default defineConfig({
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
         video: 'retain-on-failure',
-        reducedMotion: 'reduce',
+        // Reduced motion lives in contextOptions because Playwright Test has no
+        // top-level `reducedMotion` option and silently ignores one. Every config
+        // that asked for it sat on that ignored key, and so ran with full motion,
+        // until 2026-09-10. In this app the setting selects the whole lite
+        // presentation, not just stopped animation: html.lite-fx, no WebGL
+        // backdrops, trimmed combat VFX (src/lib/device-tier.ts). A spec that
+        // certifies a motion-only surface opts back out with
+        // test.use({ contextOptions: { reducedMotion: 'no-preference' } }), which
+        // REPLACES this whole object, so repeat any other key you add here.
+        // scripts/playwright-context-options.test.mjs keeps the key where
+        // Playwright reads it.
+        contextOptions: { reducedMotion: 'reduce' },
         // Block the asset service worker (public/sw.js) during e2e. It caches only
         // hashed /assets/ files in production, but once it controls the page,
         // requests bypass Playwright's page.route() network stubs — on WebKit that
