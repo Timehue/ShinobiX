@@ -5,6 +5,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { invalidateProcCache } from '../_proc-cache.js';
 import { isWarVillage } from '../_war-map-sectors.js';
 import {
     normalizeVillageWarRecord,
@@ -175,6 +176,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     });
                     txState = 'reserved';
                     await kv.set(stateKey, { ...state, treasury: { ...treasury, honorSeals: up.nextSeals, ...(need > 0 ? { materialPoints: have - need } : {}) } });
+                    invalidateProcCache('game-state:frame');
                     await markEconomyTx(txId, 'debit-applied');
                     txState = 'debit-applied';
                     await kv.set(warKey, nextRecord);

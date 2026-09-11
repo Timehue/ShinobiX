@@ -52,13 +52,14 @@ type ValidatorContext = {
 // pass + /api/village/war-structure — same rule as the currencies below.
 const TREASURY_KEYS = ['ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals', 'provisions', 'materialPoints'] as const;
 
-// #17 — village-treasury currencies are CREDITED ONLY by server endpoints now,
-// not the save blob: player donations via /api/village/treasury/donate, and the
-// daily-agenda reward via /api/village/claim-daily-agenda. Both atomically move
-// the source → treasury, and the client re-asserts the returned treasury at a
-// zero delta, so a save-blob currency INCREASE here is credit-without-debit and
-// is rejected below (admin bypasses). contributionPoints stays client-credited
-// (a per-player stat, not the shared currency pool) and keeps its per-call cap.
+// #17 — village-treasury currencies move ONLY through server endpoints, never
+// the save blob: donations via /api/village/treasury/donate, the daily-agenda
+// reward via /api/village/claim-daily-agenda, Kage gifts via
+// /api/village/treasury/transfer. Each moves source and treasury atomically,
+// so a blob delta in either direction is rejected below (admin bypasses): an
+// increase is credit-without-debit, a decrease is a stale re-assert.
+// contributionPoints stays client-credited (a per-player stat, not the shared
+// currency pool) and keeps its per-call cap.
 
 const MAX_CONTRIBUTION_INCREASE_PER_CALL = 5_000;
 const MAX_NOTICE_POSTS = 60;     // matches client cap
@@ -77,11 +78,9 @@ function lower(v: unknown): string {
  * and the authoritative `village:kage:<slug>` record. Returns the merged
  * next-state and any suppressed-field reasons (for logging).
  *
- * Note: for currency *increases* we trust the caller's claim that they
- * also debited their own save — the client does this. A malicious caller
- * who skips the debit only "donates" fake money, which the seatedKage
- * cannot extract because withdrawals are bounded and gated. The escape
- * hatch is the per-call ceiling above.
+ * The treasury is server-owned: a non-admin blob can neither credit nor
+ * debit it (see the treasury block below), so its value is always the one
+ * the server endpoints last wrote.
  */
 export async function validateVillageStateWrite(
     existing: VillageStateBlob | null,
@@ -159,9 +158,6 @@ export async function validateVillageStateWrite(
         }
     }
 
-    // ── treasury ────────────────────────────────────────────────────
-    // For each currency: positive deltas are bounded by per-call max;
-    // negative deltas (withdrawals) require seatedKage.
     // ── Village upgrades: SERVER-OWNED, never client-writable ───────
     // Village upgrades are shared infrastructure bought from the treasury seal
     // pool by /api/village/upgrade, which writes this key directly. The blob
@@ -179,6 +175,18 @@ export async function validateVillageStateWrite(
         }
     }
 
+    // ── treasury: SERVER-OWNED ──────────────────────────────────────
+    // Every treasury movement has its own server endpoint now: donations
+    // (/api/village/treasury/donate), Kage gifts of currency AND items
+    // (/api/village/treasury/transfer), upgrades (/api/village/upgrade), the
+    // daily agenda (claim-daily-agenda), and the stores drains (the daily pass,
+    // /api/village/war-structure). The blob only ever RE-ASSERTS a treasury the
+    // client read, and that read can be seconds stale (the /api/game-state frame
+    // sits behind a process cache and the client polls on a cadence). So the
+    // blob may not move the treasury in EITHER direction. A stale LOWER figure
+    // used to be accepted from the seated Kage (the retired blob-withdrawal path)
+    // and, for items, from any villager, which erased donations that landed
+    // after that client's last poll. Stored always wins; admin bypasses.
     if (incoming.treasury && typeof incoming.treasury === 'object') {
         const prevTreasury = (prev.treasury ?? {}) as Record<string, unknown>;
         const inTreasury = incoming.treasury as Record<string, unknown>;
@@ -186,51 +194,34 @@ export async function validateVillageStateWrite(
         for (const key of TREASURY_KEYS) {
             const before = num(prevTreasury[key], 0);
             const after = num(inTreasury[key], before);
-            const delta = after - before;
-            if (delta > 0) {
-                // #17 lockdown: village-treasury currencies are credited ONLY by
-                // server endpoints (treasury/donate, claim-daily-agenda), which
-                // the client re-asserts at a zero delta — a save-blob INCREASE is
-                // credit-without-debit. Reject it (keep prev); admin bypasses.
-                if (ctx.isAdmin) {
-                    outTreasury[key] = after;
-                } else {
-                    outTreasury[key] = before;
-                    suppressed.push(`treasury.${key} increase via save blob blocked — use the server endpoint`);
-                }
-            } else if (delta < 0) {
-                if (!callerIsSeatedKage) {
-                    outTreasury[key] = before;
-                    suppressed.push(`treasury.${key} decrease (only seatedKage may withdraw)`);
-                } else {
-                    outTreasury[key] = Math.max(0, after);
-                }
+            if (ctx.isAdmin) {
+                outTreasury[key] = Math.max(0, after);
             } else {
                 outTreasury[key] = before;
+                if (after > before) suppressed.push(`treasury.${key} increase via save blob blocked — use the server endpoint`);
+                else if (after < before) suppressed.push(`treasury.${key} decrease via save blob blocked — use the server endpoint`);
             }
         }
-        // items: net-new additions must come from the atomic donate endpoint
-        // (/api/village/treasury/donate), which verifies the donor actually
-        // owned the item. The save blob may only RE-ASSERT the current items
-        // (the migrated client re-saves the endpoint-credited treasury verbatim
-        // → no delta) or REMOVE them (Kage withdrawals/sends). Any itemId whose
-        // count rises — or a brand-new itemId — is a mint attempt and is
-        // rejected (revert to prev). Admin bypasses. No gameplay reward adds
-        // treasury items via the save blob, so this only blocks abuse. Closes
-        // audit item #16's treasury.items minting hole.
+        // items: additions come from the atomic donate endpoint (which verifies
+        // the donor owned the item) and removals from the transfer endpoint, so a
+        // non-admin blob may only re-assert them. A rising count or a brand-new
+        // itemId is a mint (audit item #16); a falling or missing one is a stale
+        // list that would delete another villager's donation.
         const prevRawItems = Array.isArray(prevTreasury.items) ? prevTreasury.items : [];
-        if (Array.isArray(inTreasury.items)) {
-            const prevCounts = new Map(cleanTreasuryItems(prevRawItems).map((s) => [s.itemId, s.count]));
-            const incomingStacks = cleanTreasuryItems(inTreasury.items);
-            const minted = ctx.isAdmin ? [] : incomingStacks.filter((s) => s.count > (prevCounts.get(s.itemId) ?? 0));
-            if (minted.length > 0) {
-                outTreasury.items = prevRawItems.slice(0, 200);
-                suppressed.push(`village treasury.items net-new [${minted.map((s) => s.itemId).join(',')}] blocked — donate via /api/village/treasury/donate`);
-            } else {
-                outTreasury.items = incomingStacks.slice(0, 200);
-            }
+        if (Array.isArray(inTreasury.items) && ctx.isAdmin) {
+            outTreasury.items = cleanTreasuryItems(inTreasury.items).slice(0, 200);
         } else {
             outTreasury.items = prevRawItems.slice(0, 200);
+            if (Array.isArray(inTreasury.items)) {
+                const prevStacks = cleanTreasuryItems(prevRawItems);
+                const incomingStacks = cleanTreasuryItems(inTreasury.items);
+                const prevCounts = new Map(prevStacks.map((s) => [s.itemId, s.count]));
+                const incomingCounts = new Map(incomingStacks.map((s) => [s.itemId, s.count]));
+                const minted = incomingStacks.filter((s) => s.count > (prevCounts.get(s.itemId) ?? 0));
+                const dropped = prevStacks.filter((s) => s.count > (incomingCounts.get(s.itemId) ?? 0));
+                if (minted.length > 0) suppressed.push(`village treasury.items net-new [${minted.map((s) => s.itemId).join(',')}] blocked — donate via /api/village/treasury/donate`);
+                if (dropped.length > 0) suppressed.push(`village treasury.items removal [${dropped.map((s) => s.itemId).join(',')}] blocked — send via /api/village/treasury/transfer`);
+            }
         }
         next.treasury = outTreasury;
     }
