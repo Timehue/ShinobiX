@@ -228,15 +228,25 @@ export function scaleJutsuCostsForCharacter(jutsu: Jutsu, level: number, charact
         staminaCost: jutsuResourceCost(character.maxStamina, jutsu, "stamina", level),
     };
 }
+// A recurring ground zone: a tile-targeted INSTANT_EFFECT or AOE_SPIRAL jutsu that lays a
+// persistent zone instead of resolving through the direct-cast tag ramp.
+export function isRecurringGroundZone(jutsu: Pick<Jutsu, "target" | "method">): boolean {
+    return jutsu.target === "EMPTY_GROUND" && (jutsu.method === "INSTANT_EFFECT" || jutsu.method === "AOE_SPIRAL");
+}
+
 // Returns a copy of the jutsu with tag percents scaled to the given mastery level for display.
 // The stored percent is the level-50 max; each level below 50 subtracts 0.2 (same rate as EP).
+// A recurring ground zone is the exception: the server applies a zone's tags at full
+// strength on every pulse, whatever the caster's mastery (api/pvp/move.ts
+// applyGroundEffectToFighter), so its card shows that full value at any mastery.
 export function scaleJutsuTagsForDisplay(jutsu: Jutsu, level: number): Jutsu {
+    const tagLevel = isRecurringGroundZone(jutsu) ? JUTSU_MAX_LEVEL : level;
     return {
         ...jutsu,
         tags: jutsu.tags.map(tag => ({
             ...tag,
             percent: tag.percent > 0
-                ? Math.max(0, Math.floor(effectiveTagPercent(tag, jutsu.bloodlineRank ?? null, level)))
+                ? Math.max(0, Math.floor(effectiveTagPercent(tag, jutsu.bloodlineRank ?? null, tagLevel)))
                 : 0,
         })),
     };

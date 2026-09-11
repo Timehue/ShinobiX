@@ -39,7 +39,6 @@ import {
     activeCombatStatuses,
     removeActiveCombatStatusesByKind,
     removeActiveCombatStatusesByName,
-    sumActiveCombatStatusPercent,
 } from '../api/combat-core/statuses.js';
 import {
     createCanonicalGroundEffect,
@@ -63,6 +62,7 @@ import {
     applyDoTs,
     applyGroundEffectToFighter,
     applyJutsu,
+    poisonSpendDamage,
     pvpNormalizedEffectiveHealth,
     tickGroundEffects,
     tickStatuses,
@@ -1161,7 +1161,7 @@ function previewJutsu(
         previewSelf = payJutsuResources(previewSelf, plan, round);
         if (plan.createsGroundEffect) {
             const effect: PvpGroundEffect = {
-                ...createCanonicalGroundEffect({ id: `preview-${jutsu.id}`, owner: 'p1', name: jutsu.name, plan }),
+                ...createCanonicalGroundEffect({ id: `preview-${jutsu.id}`, owner: 'p1', name: jutsu.name, plan, bloodlineRank: jutsu.bloodlineRank }),
                 activeRound: round + 1,
             };
             return previewGroundPulse(self, opponent, previewSelf, effect, round, castPulseThisTurn);
@@ -1184,7 +1184,7 @@ function previewJutsu(
     if (plan?.createsGroundEffect) {
         previewSelf = payJutsuResources(previewSelf, plan, round);
         const effect: PvpGroundEffect = {
-            ...createCanonicalGroundEffect({ id: `preview-${jutsu.id}`, owner: 'p1', name: jutsu.name, plan }),
+            ...createCanonicalGroundEffect({ id: `preview-${jutsu.id}`, owner: 'p1', name: jutsu.name, plan, bloodlineRank: jutsu.bloodlineRank }),
             activeRound: round + 1,
         };
         return previewGroundPulse(self, opponent, previewSelf, effect, round, castPulseThisTurn);
@@ -1423,10 +1423,8 @@ export function chooseAction(
 }
 
 function payJutsuResources(self: PvpFighter, plan: JutsuActionPlan, round: number): PvpFighter {
-    const poisonPct = COMBAT_RESOURCES_V2
-        ? sumActiveCombatStatusPercent(self.statuses, 'Poison', round, 6, (actual, expected) => canonicalTagName(actual) === expected)
-        : 0;
-    const poisonDamage = poisonPct > 0 ? v2PoisonOnSpend(plan.chakraCost + plan.staminaCost, poisonPct) : 0;
+    // The live on-spend Poison (rank-capped potency, armor/DDT-mitigated), not a copy.
+    const poisonDamage = poisonSpendDamage(self, plan.chakraCost + plan.staminaCost, round);
     return {
         ...self,
         hp: Math.max(0, self.hp - poisonDamage),
@@ -1521,7 +1519,7 @@ function executeJutsu(
         self = payJutsuResources(self, plan, state.round);
         if (plan.createsGroundEffect) {
             let effect: PvpGroundEffect = {
-                ...createCanonicalGroundEffect({ id: `${jutsu.id}-${state.round}-${seat}-${state.actionCounts.jutsu ?? 0}`, owner: seat, name: jutsu.name, plan }),
+                ...createCanonicalGroundEffect({ id: `${jutsu.id}-${state.round}-${seat}-${state.actionCounts.jutsu ?? 0}`, owner: seat, name: jutsu.name, plan, bloodlineRank: jutsu.bloodlineRank }),
                 activeRound: state.round + 1,
             };
             const castPulse = seat === state.opener ? applyGroundEffectToFighter(opponent, effect, state.round, true) : null;
@@ -1551,7 +1549,7 @@ function executeJutsu(
     } else if (plan.createsGroundEffect) {
         self = payJutsuResources(self, plan, state.round);
         let effect: PvpGroundEffect = {
-            ...createCanonicalGroundEffect({ id: `${jutsu.id}-${state.round}-${seat}-${state.actionCounts.jutsu ?? 0}`, owner: seat, name: jutsu.name, plan }),
+            ...createCanonicalGroundEffect({ id: `${jutsu.id}-${state.round}-${seat}-${state.actionCounts.jutsu ?? 0}`, owner: seat, name: jutsu.name, plan, bloodlineRank: jutsu.bloodlineRank }),
             activeRound: state.round + 1,
         };
         const castPulse = seat === state.opener ? applyGroundEffectToFighter(opponent, effect, state.round, true) : null;

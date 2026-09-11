@@ -50,6 +50,26 @@ export const GUARD_DEFENSE_MAX_MIT = 0.5;
 export const STUN_AP_PENALTY = 40;
 export const MAX_WOUND_STACKS = 2;
 
+// Poison's percent is NOT on the amp-tag scale. It feeds v2PoisonOnSpend, where
+// the victim loses HP = chakra/stamina spent × percent × POISON_SPEND_FACTOR (12)
+// on every jutsu they cast. The v2 design pegged 6% as standard and 30% as the
+// bloodline tier (~13% of max HP per 60-AP cast), but Poison was never rank-capped,
+// so the starter table's flat 30% creator value, every player bloodline (25-35%)
+// and Serpent Dust (55%) all landed at or beyond that tier. Poison gets its own
+// lower per-rank table, the Wound pattern: 10/12/14 keeps Wound's 1 : 1.2 : 1.4
+// rank spread, and a 10% poison costs an active victim about what a basic Wound
+// bleeds (roughly half a 60-AP hit over its two rounds).
+export const POISON_CAP_BY_RANK: Record<string, number> = {
+    basic: 10,
+    AB: 12,
+    S: 14,
+};
+// A weapon swing has no bloodline rank. Like WEAPON_AMP_TAG_CAP it answers to the
+// A/B ceiling, so a forged Poison blade (rolled at 15-40) lands at 12.
+export const WEAPON_POISON_TAG_CAP = POISON_CAP_BY_RANK.AB;
+// Potency for a Poison with no authored percent (the long-standing 6% default).
+export const POISON_DEFAULT_PCT = 6;
+
 export const STATUS_DURATIONS_OVERRIDE: Record<string, number> = {
     'Increase Damage Given': 2,
     'Increase Damage Taken': 2,
@@ -208,6 +228,37 @@ export function woundCapForJutsu(jutsu: { bloodlineRank?: string | null }): numb
     if (/^S/i.test(rank)) return WOUND_CAP_BY_RANK.S;
     if (/^[AB]/i.test(rank)) return WOUND_CAP_BY_RANK.AB;
     return WOUND_CAP_BY_RANK.basic;
+}
+
+export function poisonCapForJutsu(jutsu: { bloodlineRank?: string | null }): number {
+    const rank = (jutsu.bloodlineRank ?? '').trim();
+    if (/^S/i.test(rank)) return POISON_CAP_BY_RANK.S;
+    if (/^[AB]/i.test(rank)) return POISON_CAP_BY_RANK.AB;
+    return POISON_CAP_BY_RANK.basic;
+}
+
+/**
+ * Resolved Poison potency for one application: the authored percent clamped to
+ * the Poison rank ceiling, then ramped by mastery.
+ *
+ * The clamp comes first because authored values sit on the creator scale (25-40)
+ * while the ceiling is 10-14; ramping first would pin every bloodline poison at
+ * its cap and make mastery meaningless. The ramp is the standard tag ramp (a 30%
+ * creator value reads 20% at mastery 0) applied as a FRACTION, two-thirds to
+ * full, because Poison's small numbers cannot absorb the flat −10: a 10% poison
+ * would ramp to 0 at mastery 0. (20 + 0.2m) / 30 is written as (100 + m) / 150
+ * so integer inputs stay exact. Never below 1, so an applied Poison always bites.
+ */
+export function poisonPercentForTag(
+    rawPercent: number | undefined,
+    masteryLevel: number,
+    jutsu: { bloodlineRank?: string | null },
+    capOverride?: number,
+): number {
+    const authored = Number(rawPercent) > 0 ? Number(rawPercent) : POISON_DEFAULT_PCT;
+    const ceiling = Math.min(authored, capOverride ?? poisonCapForJutsu(jutsu));
+    const mastery = Math.max(0, Math.min(JUTSU_MAX_LEVEL, Number(masteryLevel) || 0));
+    return Math.max(1, Math.floor(ceiling * (100 + mastery) / 150));
 }
 
 export function pierceTrueDamage(offenseComposite: number, jutsuAp: number, masteryLevel: number): number {

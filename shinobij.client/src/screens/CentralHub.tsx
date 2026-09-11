@@ -61,7 +61,7 @@ import { getAllItems } from "../lib/items";
 import { countItem } from "../lib/inventory";
 import { publishSharedImage, readImageFile } from "../lib/shared-images";
 import { starterSavedBloodlines } from "../data/jutsu";
-import { tagMatchesName } from "../lib/tags";
+import { tagMatchesName, WEAPON_POISON_TAG_CAP } from "../lib/tags";
 import { weeklyBossSchedule } from "../lib/weekly-boss";
 import { biomeLabel } from "../data/world";
 import {
@@ -1437,7 +1437,7 @@ export function CentralHub({
                     // Thrown weapons
                     { name: "Shuriken ×3", cost: 15, desc: "3× Shuriken (22 EP thrown)", itemId: "thrown-shuriken", per: 3 },
                     { name: "Senbon ×1", cost: 30, desc: "1× Senbon (300 dmg/round, 2 rounds)", itemId: "thrown-senbon", per: 1 },
-                    { name: "Serpent Dust ×1", cost: 40, desc: "1× Serpent Dust (55% poison, 2 rounds)", itemId: "thrown-serpent-dust", per: 1 },
+                    { name: "Serpent Dust ×1", cost: 40, desc: "1× Serpent Dust (10% poison, 2 rounds)", itemId: "thrown-serpent-dust", per: 1 },
                     // Combat items
                     { name: "Smoke Bomb ×1", cost: 25, desc: "1× Smoke Bomb (100% dmg reduction to both players, 1 round; pierce still deals full dmg)", itemId: "item-smoke-bomb", per: 1 },
                     { name: "Attack Pill ×1", cost: 20, desc: "1× Attack Pill (+15% damage dealt, 2 rounds)", itemId: "item-attack-pill", per: 1 },
@@ -2105,6 +2105,8 @@ export function CentralHub({
                                                             <span key={t} className="no-chip">{t}</span>
                                                         ))}
                                                     </div>
+                                                    {/* Poison has its own weapon ceiling, so its strength is fixed rather than rolled. */}
+                                                    <div className="no-row"><span>Poison is always {WEAPON_POISON_TAG_CAP}%, whatever the tag count rolls.</span></div>
                                                 </div>
                                                 <div className="no-section no-wide">
                                                     <div className="no-label">Tag Formula Notes</div>

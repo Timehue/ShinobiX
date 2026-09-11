@@ -401,7 +401,9 @@ export const starterItems: GameItem[] = [
         description: "Toxic powder distilled from serpent venom. Poisons the target for 2 rounds with a potent toxin.",
         weaponEp: 0,
         weaponEffect: "Poison",
-        weaponEffectValue: 55,
+        // Poison potency, not the amp scale: 55 made one 20-AP throw cost the victim
+        // ~24% of max HP per 60-AP cast. 10 is the basic Poison ceiling.
+        weaponEffectValue: 10,
         apCost: 20,
         weaponCooldown: 5,
         bonuses: {},
