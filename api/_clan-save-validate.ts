@@ -42,13 +42,14 @@ type ClanContext = {
 // provisions = the clan mirror of Village Stores rations (ration-pack donations
 // via /api/clan/treasury/donate; burned by the daily clan-war pass).
 const TREASURY_KEYS = ['ryo', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals', 'warSupply', 'provisions'] as const;
-// #17 — clan-treasury currencies are now CREDITED ONLY by server endpoints, not
-// the save blob: the donatable currencies (ryo/fateShards/boneCharms/auraStones/
-// mythicSeals) via /api/clan/treasury/donate, and warSupply via
-// /api/clan/territory/collect-supply. Both atomically move the source → treasury
-// and the client then re-asserts the returned treasury at a zero delta, so a
-// save-blob currency INCREASE here is credit-without-debit and is rejected below
-// (admin bypasses). Honor Seals use the /api/clan/seal-pool/donate endpoint.
+// #17 — clan-treasury currencies move ONLY through server endpoints, never the
+// save blob: the donatable currencies (ryo/fateShards/boneCharms/auraStones/
+// mythicSeals) via /api/clan/treasury/donate, warSupply via
+// /api/clan/territory/collect-supply, and leadership gifts via
+// /api/clan/treasury/transfer. Each moves source and treasury atomically, so a
+// blob delta in either direction is rejected below (admin bypasses): an increase
+// is credit-without-debit, a decrease is a stale re-assert. Honor Seals use the
+// /api/clan/seal-pool/donate endpoint.
 const MAX_ACTIVE_WAR_SCORE_PER_WRITE = 100;
 // Auto-finalize stale clan wars. A war whose endsAt is more than 24h
 // in the past is treated as abandoned on the next write — moved into
@@ -361,7 +362,19 @@ export function validateClanSaveWrite(
         }
     }
 
-    // ── treasury ────────────────────────────────────────────────────
+    // ── treasury: SERVER-OWNED ──────────────────────────────────────
+    // Every treasury movement has its own server endpoint: donations
+    // (/api/clan/treasury/donate), leadership gifts of currency AND items
+    // (/api/clan/treasury/transfer), upgrades (/api/clan/upgrade/purchase),
+    // War Supply (/api/clan/territory/collect-supply), Territory Scrolls
+    // (/api/clan/territory/assign-scrolls), and the daily clan-war rations pass.
+    // The save blob only ever RE-ASSERTS a treasury the client read, and the
+    // Clan Hall saves from a copy loaded when the hall opened, which can be
+    // minutes old. So the blob may not move the treasury in EITHER direction. A
+    // stale LOWER figure used to be accepted from leadership roles (the retired
+    // blob-withdrawal path) and, for items, from any member, which erased
+    // donations made after that copy was loaded. Stored always wins; admin
+    // bypasses. Same rule as the village treasury (api/_village-state-validate.ts).
     if (incoming.treasury && typeof incoming.treasury === 'object') {
         const prevTreasury = (prev.treasury ?? {}) as Record<string, unknown>;
         const inTreasury = incoming.treasury as Record<string, unknown>;
@@ -369,51 +382,34 @@ export function validateClanSaveWrite(
         for (const key of TREASURY_KEYS) {
             const before = num(prevTreasury[key], 0);
             const after = num(inTreasury[key], before);
-            const delta = after - before;
-            if (delta > 0) {
-                // #17 lockdown: clan-treasury currencies are credited ONLY by
-                // server endpoints (donate / collect-supply), which the client
-                // re-asserts at a zero delta — so a save-blob INCREASE is
-                // credit-without-debit. Reject it (keep prev); admin bypasses.
-                if (ctx.isAdmin) {
-                    outTreasury[key] = after;
-                } else {
-                    outTreasury[key] = before;
-                    suppressed.push(`clan treasury.${key} increase via save blob blocked — use the server endpoint`);
-                }
-            } else if (delta < 0) {
-                if (!callerIsAdminRole) {
-                    outTreasury[key] = before;
-                    suppressed.push(`clan treasury.${key} decrease (admin role only)`);
-                } else {
-                    outTreasury[key] = Math.max(0, after);
-                }
+            if (ctx.isAdmin) {
+                outTreasury[key] = Math.max(0, after);
             } else {
                 outTreasury[key] = before;
+                if (after > before) suppressed.push(`clan treasury.${key} increase via save blob blocked — use the server endpoint`);
+                else if (after < before) suppressed.push(`clan treasury.${key} decrease via save blob blocked — use the server endpoint`);
             }
         }
-        // items: net-new additions must come from the atomic donate endpoint
-        // (/api/clan/treasury/donate), which verifies the donor actually owned
-        // the item. The save blob may only RE-ASSERT the current items (the
-        // migrated client re-saves the endpoint-credited treasury verbatim → no
-        // delta) or REMOVE them (leadership withdrawals/sends). Any itemId whose
-        // count rises — or a brand-new itemId — is a mint attempt and is
-        // rejected (revert to prev). Admin bypasses. No gameplay reward adds
-        // treasury items via the save blob, so this only blocks abuse. Closes
-        // audit item #16's treasury.items minting hole.
+        // items: additions come from the atomic donate endpoint (which verifies
+        // the donor owned the item) and removals from the transfer endpoint, so a
+        // non-admin blob may only re-assert them. A rising count or a brand-new
+        // itemId is a mint (audit item #16); a falling or missing one is a stale
+        // list that would delete another member's donation.
         const prevRawItems = Array.isArray(prevTreasury.items) ? prevTreasury.items : [];
-        if (Array.isArray(inTreasury.items)) {
-            const prevCounts = new Map(cleanTreasuryItems(prevRawItems).map((s) => [s.itemId, s.count]));
-            const incomingStacks = cleanTreasuryItems(inTreasury.items);
-            const minted = ctx.isAdmin ? [] : incomingStacks.filter((s) => s.count > (prevCounts.get(s.itemId) ?? 0));
-            if (minted.length > 0) {
-                outTreasury.items = prevRawItems.slice(0, 200);
-                suppressed.push(`clan treasury.items net-new [${minted.map((s) => s.itemId).join(',')}] blocked — donate via /api/clan/treasury/donate`);
-            } else {
-                outTreasury.items = incomingStacks.slice(0, 200);
-            }
+        if (Array.isArray(inTreasury.items) && ctx.isAdmin) {
+            outTreasury.items = cleanTreasuryItems(inTreasury.items).slice(0, 200);
         } else {
             outTreasury.items = prevRawItems.slice(0, 200);
+            if (Array.isArray(inTreasury.items)) {
+                const prevStacks = cleanTreasuryItems(prevRawItems);
+                const incomingStacks = cleanTreasuryItems(inTreasury.items);
+                const prevCounts = new Map(prevStacks.map((s) => [s.itemId, s.count]));
+                const incomingCounts = new Map(incomingStacks.map((s) => [s.itemId, s.count]));
+                const minted = incomingStacks.filter((s) => s.count > (prevCounts.get(s.itemId) ?? 0));
+                const dropped = prevStacks.filter((s) => s.count > (incomingCounts.get(s.itemId) ?? 0));
+                if (minted.length > 0) suppressed.push(`clan treasury.items net-new [${minted.map((s) => s.itemId).join(',')}] blocked — donate via /api/clan/treasury/donate`);
+                if (dropped.length > 0) suppressed.push(`clan treasury.items removal [${dropped.map((s) => s.itemId).join(',')}] blocked — send via /api/clan/treasury/transfer`);
+            }
         }
         next.treasury = outTreasury;
     }

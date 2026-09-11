@@ -231,3 +231,71 @@ test("Clan Hall territory and dissolution controls preserve authoritative player
     await expect(page.getByRole("button", { name: "Delete Clan", exact: true })).toHaveCount(0);
     expect(runtimeErrors.filter((message) => !/Failed to load resource:.*403 \(Forbidden\)/.test(message))).toEqual([]);
 });
+
+// The Clan Hall loads the clan once and does not poll, yet every change writes
+// the WHOLE clan document back. Built from the copy the hall opened with, that
+// write replayed the treasury (erasing donations made since, for leadership)
+// and dropped join requests and other leaders' notices posted since.
+test("a Clan Hall change lands on the clan as it stands now, not the copy the hall opened with", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "chromium-desktop", "one engine covers the save contract; the change is not layout");
+
+    const save = uiAuditSave();
+    save.character = { ...save.character, clan: "Shadow Cell", clanFounder: true, guardQueued: false };
+    await installUiAuditRuntime(page, save);
+
+    const founder = { name: "AuditNinja", village: "Stormveil Village", level: 85, specialty: "Ninjutsu", battleContrib: 20, eventContrib: 10, missionContrib: 5, isFounder: true, month: "2026-08" };
+    const opened = {
+        name: "Shadow Cell",
+        village: "Stormveil Village",
+        founderName: "AuditNinja",
+        createdAt: Date.now() - 86_400_000,
+        level: 8,
+        xp: 300,
+        treasury: treasury(0),
+        members: [founder],
+        roleOverrides: {},
+        joinRequests: [] as Array<Record<string, unknown>>,
+        notices: [] as Array<Record<string, unknown>>,
+        warHistory: [],
+    };
+    // What other players did while this Founder had the hall open.
+    const lateRequest = { name: "LateRecruit", village: "Stormveil Village", level: 30, specialty: "Ninjutsu", battleContrib: 0, eventContrib: 0, missionContrib: 0, isFounder: false, requestedAt: Date.now() };
+    const otherLeaderNotice = { id: "other-leader-order", type: "clan", title: "Hold Sector 40", body: "Guard rotation at dusk.", author: "CellTwo", authorRole: "Leader", createdAt: Date.now(), pinned: false };
+    const latest = { ...opened, treasury: { ...treasury(0), ryo: 90_000 }, joinRequests: [lateRequest], notices: [otherLeaderNotice] };
+
+    let served: typeof opened = opened;
+    const writes: Array<Record<string, unknown>> = [];
+    await page.route("**/api/save/clan-shadowcell", async (route) => {
+        if (route.request().method() === "POST") {
+            writes.push(route.request().postDataJSON() as Record<string, unknown>);
+            return json(route, { ok: true });
+        }
+        return json(route, served);
+    });
+    await page.route("**/api/world-state**", (route) => json(route, { territories: [], wars: [], standings: [] }));
+
+    await page.goto("/#/clan", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { name: "Shadow Cell" })).toBeVisible();
+    // The load-time member sync is an update too: it must not carry the treasury.
+    await expect.poll(() => writes.length).toBeGreaterThanOrEqual(1);
+    expect(Object.hasOwn(writes[0], "treasury")).toBe(false);
+    const writesBeforeNotice = writes.length;
+
+    served = latest;
+    const contextualTipDismiss = page.locator(".screen-hint-dismiss");
+    if (await contextualTipDismiss.isVisible()) await contextualTipDismiss.click();
+    await page.getByRole("button", { name: "Notices", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Clan Notice Board" })).toBeVisible();
+    await page.getByPlaceholder("Example: Prepare Sector 33 raid team").fill("Rally at the gate");
+    await page.getByPlaceholder("Post clan plans, resource needs, guard rotations, or war instructions.").fill("Everyone to the east gate at dusk.");
+    await page.getByRole("button", { name: "Post Clan Notice", exact: true }).click();
+
+    await expect.poll(() => writes.length).toBe(writesBeforeNotice + 1);
+    const posted = writes[writes.length - 1] as { treasury?: unknown; joinRequests: Array<{ name: string }>; notices: Array<{ id: string; title: string }> };
+    expect(Object.hasOwn(posted, "treasury"), "an update never replays the treasury").toBe(false);
+    expect(posted.joinRequests.map((request) => request.name), "a join request sent since the hall opened survives").toEqual(["LateRecruit"]);
+    expect(posted.notices.map((notice) => notice.id), "another leader's notice posted since survives").toContain("other-leader-order");
+    expect(posted.notices.some((notice) => notice.title === "Rally at the gate")).toBe(true);
+    // And the board now shows the clan as it stands, not the opening copy.
+    await expect(page.getByText("Hold Sector 40")).toBeVisible();
+});
