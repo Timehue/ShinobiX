@@ -1,0 +1,20 @@
+{
+  "guideBox": {
+    "x": 112,
+    "y": 193.09375,
+    "width": 620,
+    "height": 54.90625
+  },
+  "noticeBox": {
+    "x": 0,
+    "y": 256,
+    "width": 844,
+    "height": 60
+  },
+  "targetBox": {
+    "x": 73,
+    "y": 75.65625,
+    "width": 345,
+    "height": 95
+  }
+}

@@ -715,6 +715,11 @@ export function MissionArenaFight({
     const clearCd = Number(myActor?.cooldowns?.clear ?? 0);
     const cleanseCd = Number(myActor?.cooldowns?.cleanse ?? 0);
     const enemyInMelee = myPos >= 0 && enemyPos >= 0 && towerHexDistance(myPos, enemyPos, w) <= 1;
+    const canCastJutsu = myJutsu.some(j =>
+        myAp >= adjustedActionAp(Number(j.ap ?? 0))
+        && myChakra >= Number(j.chakraCost ?? 0) && myStamina >= Number(j.staminaCost ?? 0)
+        && Number(myActor?.cooldowns?.[j.id ?? ""] ?? 0) <= 0
+        && !isElementallySealedForDisplay(myActor?.statuses, j.element, session.round));
 
     const armedWeapon = mode === "weapon" ? myWeapons.find(x => x.item.id === selWeaponId) : undefined;
     const weaponRange = armedWeapon?.range ?? 1;
@@ -951,19 +956,6 @@ export function MissionArenaFight({
             className={`pvp-battle-layout mission-arena-fight arena-bg-${biome}${storyTheme ? " story-arena-fight" : ""}`}
             style={storyTheme?.backdropImage ? { background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${storyTheme.backdropImage}) center/cover fixed` } : undefined}
         >
-            {/* Onboarding coaching (display-only). Portals to document.body like the
-                fight itself, so it is given a z-index ABOVE this portal's 1000000. */}
-            {coach === "academySpar" && enemy && (
-                <SparCoach
-                    attacked={sparAttacked}
-                    casted={sparCasted}
-                    ap={myAp}
-                    enemyHp={enemy.hp}
-                    enemyMaxHp={enemy.maxHp}
-                    zIndex={1_000_001}
-                />
-            )}
-
             {/* Story flavor overlays (display-only) — float above the arena board. */}
             {storyTheme?.chapterLabel && <div className="story-fight-chapter">{storyTheme.chapterLabel}</div>}
             {storyFinalPhase && <div className="story-fight-vignette" aria-hidden="true" />}
@@ -1207,7 +1199,16 @@ export function MissionArenaFight({
                             aria-atomic="true"
                         >
                             {reject && <strong>Can't do that</strong>}
-                            <span>{actionNotice || "\u00a0"}</span>
+                            {actionNotice ? <span>{actionNotice}</span> : coach === "academySpar" && enemy ? (
+                                <SparCoach
+                                    attacked={sparAttacked} casted={sparCasted}
+                                    enemyHp={enemy.hp} enemyMaxHp={enemy.maxHp}
+                                    enemyInMelee={enemyInMelee} myTurn={myTurn} outOfActions={outOfActions}
+                                    canAttack={enemyInMelee && myAp >= attackAp && myStamina >= 10}
+                                    canMove={myAp >= moveAp}
+                                    canCastJutsu={canCastJutsu}
+                                />
+                            ) : <span>{"\u00a0"}</span>}
                         </div>
                     </div>
 
