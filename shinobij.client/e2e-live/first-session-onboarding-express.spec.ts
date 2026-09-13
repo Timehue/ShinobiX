@@ -30,6 +30,7 @@ type SaveRecord = {
         academySectorVisited?: boolean;
         academyTraceSector?: number;
         academyFieldSeal?: boolean;
+        firstContract?: { source?: string; route?: string; completedAt?: number; acknowledgedAt?: number };
     };
 };
 
@@ -177,6 +178,7 @@ test.use({ contextOptions: { reducedMotion: 'no-preference' } });
 
 for (const grantDelayMs of [0, 500]) {
 test(`a new player completes the full persisted Academy first session against built Express (starter response delay ${grantDelayMs}ms)`, async ({ page }, testInfo) => {
+    test.setTimeout(240_000); // includes the independent contract and a second authenticated session
     test.skip(testInfo.project.name !== 'chromium-desktop-live', 'one desktop run covers the full first-session authority journey');
     if (grantDelayMs) {
         // Let achievement sync supersede an already committed starter grant.
@@ -442,6 +444,7 @@ test(`a new player completes the full persisted Academy first session against bu
     }, 'the complete first-session contract must persist');
     expect(Number(completed._saveVersion)).toBeGreaterThan(0);
     expect(completed.currentSector).toBe(0);
+    expect(completed.character?.firstContract?.source).toBe('academy');
 
     await hardReload();
     await expect(page.locator('.icx-root')).toHaveCount(0);
@@ -453,7 +456,7 @@ test(`a new player completes the full persisted Academy first session against bu
     // A second session must recover through the real auth path, not merely from
     // React state or a warm browser refresh.
     // The final autosave and logout share the real 3-second save-burst bucket.
-    // Let that window close after this test's immediate reload/navigation.
+    // Preserve the existing Academy checkpoint before beginning another activity.
     await page.waitForTimeout(3_100);
     await page.locator('.mobile-bottom-nav').getByRole('button', { name: 'Menu', exact: true }).click();
     const mobileMenu = page.getByRole('dialog', { name: 'Shinobi menu' });
@@ -481,6 +484,27 @@ test(`a new player completes the full persisted Academy first session against bu
         && save.character.academyTrialClaimed === true
         && Boolean(save.activeTraining?.token)
     ), 'a real logout/login must restore the completed Academy session');
+
+    // Begin the optional assignment in the second authenticated session. This
+    // proves the offered journal survives logout/login, then separately checks
+    // the real activity, recap and durable acknowledgement across reloads.
+    await page.locator('.fc-ribbon').getByRole('button', { name: /Choose a route/ }).click();
+    await page.screenshot({ path: testInfo.outputPath('first-contract-live-routes.png') });
+    await page.getByRole('dialog', { name: 'First Contract field journal' }).getByRole('button', { name: /Companion A moment for your companion/ }).click();
+    await waitForPersisted(page, playerName, (save) => save.character?.firstContract?.route === 'companion', 'the chosen contract must persist');
+    const care = await browserApi(page, '/api/pet/progress', { playerName, action: 'pet', petId: completed.character?.activePetId });
+    expect(care.status, JSON.stringify(care.body)).toBe(200);
+    await hardReload();
+    await page.locator('.fc-ribbon').getByRole('button', { name: 'Read your entry' }).click();
+    const journal = page.getByRole('dialog', { name: 'First Contract field journal' });
+    await expect(journal).toContainText('You took time to care for one of your companions.');
+    await page.screenshot({ path: testInfo.outputPath('first-contract-live-recap.png') });
+    await journal.getByRole('button', { name: 'Choose your next goal' }).click();
+    await waitForPersisted(page, playerName, (save) => Boolean(save.character?.firstContract?.completedAt && save.character.firstContract.acknowledgedAt), 'completion and its acknowledgement must persist');
+    await page.locator('.mobile-bottom-nav').getByRole('button', { name: 'Village', exact: true }).click();
+    await expect(page.locator('.stormveil-village-screen')).toBeVisible();
+    await hardReload();
+    await expect(page.locator('.fc-ribbon')).toHaveCount(0);
     expect(decorativeListeners, 'world backdrop canvases must never bind pointer listeners, including during return-to-village teardown').toEqual([]);
     expect(runtimeErrors).toEqual([]);
     expect(serverFailures).toEqual([]);

@@ -10,6 +10,7 @@ import { isPatreonSubscriber, LOADOUT_CAP_BASE, LOADOUT_CAP_SUB } from "../lib/e
 import { legacySignatureFor } from "../lib/legacy-jutsu-slot";
 import { resolveLoadoutLensDiscipline } from "../lib/jutsu-loadout-lens";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
+import { useFirstContractLoadoutTab } from "../lib/use-first-contract-loadout-tab";
 import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
 import { hasBloodlineMarker } from "../lib/bloodline-marker";
 
@@ -232,7 +233,7 @@ export function JutsuLoadoutPanel({
     const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
     const [lensOverride, setLensOverride] = useState<JutsuType | null>(null);
     const academyLoadoutStep = normalizeOnboardingStep(character.onboardingStep) === "jutsuLoadout";
-    const [workspaceTab, setWorkspaceTab] = useState<"loadout" | "collection">(academyLoadoutStep ? "collection" : "loadout");
+    const [workspaceTab, setWorkspaceTab] = useFirstContractLoadoutTab<"loadout" | "collection">(character, 'workspace', academyLoadoutStep ? "collection" : "loadout", "collection");
     const subscriber = isPatreonSubscriber(character);
     const unlockedSlots = subscriber ? LOADOUT_CAP_SUB : LOADOUT_CAP_BASE;
     // Resolve slots the way combat does (orderEquippedJutsus), against the full

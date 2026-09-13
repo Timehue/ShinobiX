@@ -86,6 +86,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'chroniclePetArenaProgressReceipts', 'tournamentWinReceipts',
     // One-time boolean latches
     'academySparClaimed', 'starterPetClaimed', 'starterCardsClaimed',
+    'firstContract',
     // Progression entitlements
     'redeemedAuraFeeds', 'battleTowerAscension', 'rankedSeasonsWon', 'weeklyBossKills',
     'defeatedAiIds', 'hunterRank', 'redeemedHunterRanks', 'apexWeekClaimed', 'element',
