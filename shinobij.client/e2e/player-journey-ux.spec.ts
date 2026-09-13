@@ -5,8 +5,8 @@ import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers
 
 // This suite owns both viewports. Run it once rather than repeating the same
 // layout matrix under every project in the general smoke configuration.
-test.beforeEach(({}, testInfo) => {
-    test.skip(!['chromium-desktop', 'chromium-desktop-live'].includes(testInfo.project.name), 'The desktop Chromium project runs both viewport sizes.');
+test.beforeEach(({ browserName }, testInfo) => {
+    test.skip(browserName !== 'chromium' || !['chromium-desktop', 'chromium-desktop-live'].includes(testInfo.project.name), 'The desktop Chromium project runs both viewport sizes.');
 });
 
 async function capture(page: Page, name: string) {
