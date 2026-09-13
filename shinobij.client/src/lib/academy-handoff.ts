@@ -27,6 +27,7 @@ type AcademyHandoffCharacter = Pick<
     | "elements"
     | "level"
     | "onboardingStep"
+    | "firstContract"
 >;
 
 /**
@@ -35,6 +36,7 @@ type AcademyHandoffCharacter = Pick<
  * saves from receiving a contextless first-session card.
  */
 export function buildAcademyHandoff(character: AcademyHandoffCharacter): AcademyHandoff | null {
+    if (character.firstContract) return null;
     const recentlyCompletedAcademy =
         normalizeOnboardingStep(character.onboardingStep ?? "") === "done" &&
         Boolean(character.academyTrialClaimed) &&

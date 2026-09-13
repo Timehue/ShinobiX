@@ -1,0 +1,108 @@
+AU
+AuditNinja
+Special Jonin
+HP 9000/9000
+Chakra 9000/9000
+Stamina 9000/9000
+Sector 0
+Weather Clear Skies
+Ryo
+10m
+Honor Seals
+0
+Aura Dust
+0
+Fate Shards
+9999
+Aura Stones
+9999
+Mythic Seals
+9999
+Bone Charms
+9999
+Tiles
+0/150
+Missions
+0/20
+Hunts
+0/20
+Fate Spins
+0/5
+Reset In
+02:52:29
+Lv 1  ·  874 / 200 pts
+HIDE MENU
+MAIN MENU
+WORLD
+02
+Travel
+Tavern
+ACTIVITIES
+04
+Missions
+Training
+Jutsu
+Logbook
+CHARACTER
+04
+Character
+Inventory
+Pet Home
+Healer
+SOCIAL
+02
+Users
+Mail
+SUPPORT
+03
+Guides
+Discord
+Premium Shop
+SYSTEM
+01
+Logout
+← Back
+VILLAGE OPERATIONS DESK
+MISSION HALL
+
+Choose the work, read the route, then return to settle the posted reward.
+
+TOWN HALL REWARD BONUS +0.0%
+DAILY
+0/20
+ACADEMY TRIAL
+
+Your first official mission. Claim this one-time reward, then open your Logbook for the next Academy checklist.
+
+✅ Won your first Academy spar
+✅ Started stat training
+✅ Unlocked / equipped a jutsu
+
+Reward: stat points, ryo, and stamina. This does not use one of today's mission slots.
+
+CLAIM ACADEMY TRIAL REWARD
+01
+PROFESSION
+02
+COMBAT
+03
+FIELD
+04
+WEEKLY
+05
+WORLD
+📜 Daily Healer Missions
+
+No daily missions available right now.
+
+Resets daily at midnight UTC. Rewards auto-grant on completion.
+
+ACADEMY GUIDE · PHASE 2/3: THE GATE STIRS · STEP 7/9
+Skip
+
+Claim the Academy Trial at the Mission Hall. The reward is real. So was what happened to that dummy.
+
+Claim the Academy Trial at the Mission Hall. The reward is real. So was what happened to that dummy.
+FOLLOW THE GOLD PULSE
+
+Up next: Read the field assignment
