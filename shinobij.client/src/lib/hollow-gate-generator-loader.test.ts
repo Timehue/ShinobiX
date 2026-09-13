@@ -6,17 +6,16 @@ import { readFileSync } from "node:fs";
  * The Hollow Gate generator + tile resolver are deferred out of the entry graph
  * with import(). Both loaders MUST go through retryDynamicImport
  * (./lazyWithRetry) rather than a bare import(), because both are awaited on
- * run-critical paths where the two classic chunk failures are unrecoverable:
+ * run-critical paths where a HUNG fetch is unrecoverable: it never settles. The
+ * tile loader is awaited inside the move-fx drain, whose promise chain then
+ * never settles either — no move is drained again for the life of the page, so
+ * the player walks and nothing seals or resolves. retryDynamicImport's
+ * per-attempt timeout turns that into a failure the call site can report.
  *
- *  • A HUNG fetch never settles. The tile loader is awaited inside the move-fx
- *    drain, whose promise chain then never settles either — no move is drained
- *    again for the life of the page, so the player walks and nothing seals or
- *    resolves. retryDynamicImport's per-attempt timeout turns that into a
- *    retryable failure.
- *  • A one-shot rejection can be memoized. The warm-up swallows its rejection
- *    on purpose; if it handed the SAME promise to the later awaited call, the
- *    real call site would re-throw the warm-up's error instead of trying again.
- *    The wrapper re-issues import() per call, so it cannot.
+ * The wrapper does not make a FAILED fetch retryable in the same page: the
+ * browser caches the failure per URL, so every later import() rejects without
+ * a request (measured 2026-09-13, see ./lazyWithRetry). Nothing here guards
+ * that case; nothing short of a page reload can recover it.
  *
  * A source check, because the failure it guards is the absence of a wrapper —
  * exactly what a mocked-module test would paper over.
