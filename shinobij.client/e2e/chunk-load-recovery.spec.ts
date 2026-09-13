@@ -58,21 +58,36 @@ test("a chunk that never loads reloads once, then stays on the new-version card"
     expect(await reloadStamp(page)).toMatch(/^\d+$/);
 });
 
-test("a chunk that 404s before a deploy reloads once, then loads", async ({ page }) => {
+test("a stale deploy's missing chunk reloads once, then the new build's chunk loads", async ({ page }) => {
     test.setTimeout(90_000);
     const documentLoads = countDocumentLoads(page);
-    // The shape of a stale deploy: server.ts answers a chunk URL the running
-    // build no longer has with a no-store 404. After the reload it is served.
+    // A deploy changes the chunk's URL. The running build asks for the old one,
+    // which server.ts answers with a no-store 404.
     await page.route(
-        (url) => url.pathname === arenaChunk,
-        (route) => documentLoads() < 2
-            ? route.fulfill({
-                status: 404,
-                contentType: "text/plain",
-                headers: { "cache-control": "no-store" },
-                body: "Static asset not found",
-            })
-            : route.continue(),
+        (url) => url.pathname === arenaChunk && url.search === "",
+        (route) => route.fulfill({
+            status: 404,
+            contentType: "text/plain",
+            headers: { "cache-control": "no-store" },
+            body: "Static asset not found",
+        }),
+    );
+    // The reloaded document stands in for the new build: an import map moves the
+    // chunk to a new URL, as its new hash would. Reloading onto the SAME URL is
+    // not a deploy, and WebKit replays a failed module URL to later reloads
+    // without re-requesting it (still failing 100 s later, measured 2026-09-13).
+    let documentsServed = 0;
+    await page.route(
+        (url) => url.pathname === "/",
+        async (route) => {
+            if (!route.request().isNavigationRequest()) return route.continue();
+            documentsServed += 1;
+            if (documentsServed === 1) return route.continue();
+            const response = await route.fetch();
+            const importMap = JSON.stringify({ imports: { [arenaChunk]: `${arenaChunk}?build=next` } });
+            const html = (await response.text()).replace("<head>", `<head><script type="importmap">${importMap}</script>`);
+            return route.fulfill({ response, body: html });
+        },
     );
 
     await openWeeklyBossFromHub(page);
