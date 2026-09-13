@@ -10,6 +10,13 @@ const loadServerArtifact = createRequire(import.meta.url);
 const { rankedPetReplayForViewer, resolveRankedPetDuel }: typeof import('../../api/pet/_ranked-duel') = loadServerArtifact('../../dist/api/pet/_ranked-duel.js');
 const viewer = 'auditninja';
 const json = (route: Route, body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+// The first wait on anything the queue panel renders also waits for the lazy
+// Pet Ladder screen to load and mount, and the stage and verdict waits also
+// cover the Showdown renderer's chunk, three.js included. networkidle can
+// settle before those chunks are requested, and under parallel load they have
+// taken over 10s together. Those waits share the verdict's budget.
+const showdownLoadTimeout = 45_000;
+type Announcement = { text: string; fallback: boolean; canvases: number };
 
 for (const mode of ['active', 'completed', 'without-webgl2'] as const) {
     const completed = mode !== 'active';
@@ -25,6 +32,23 @@ for (const mode of ['active', 'completed', 'without-webgl2'] as const) {
                     if (contextId === 'webgl2') return null;
                     return Reflect.apply(original, this, [contextId, ...args]);
                 } as typeof original;
+                // The action line is transient: the end beat replaces it about
+                // 1.4s after it appears, and on a starved page that window has
+                // measured shorter than the 1s gap between Playwright's retries.
+                // Record every line the Showdown's status regions take, and the
+                // stage it was spoken over, so the assertion reads a history
+                // instead of racing playback.
+                const heard: Announcement[] = [];
+                Object.defineProperty(window, '__showdownAnnouncements', { value: heard });
+                new MutationObserver(() => {
+                    const root = document.querySelector('[data-testid="pet-showdown-root"]');
+                    if (!root) return;
+                    for (const region of root.querySelectorAll('[role="status"]')) {
+                        const text = region.textContent?.trim() ?? '';
+                        if (!text || heard.some(entry => entry.text === text)) continue;
+                        heard.push({ text, fallback: root.querySelector('[data-testid="pet-showdown-render-fallback"]') !== null, canvases: root.querySelectorAll('canvas').length });
+                    }
+                }).observe(document, { subtree: true, childList: true, characterData: true });
             });
         }
         const opponent = completed ? 'zulurival' : 'aardvarkrival';
@@ -82,8 +106,9 @@ for (const mode of ['active', 'completed', 'without-webgl2'] as const) {
             // Discovery publishes a newer server character during boot, so the
             // generic helper's "last POST is still current" invariant does not
             // apply. The recovery path must adopt that newer GET snapshot.
-            // Observe the forced variant before its transient action announcement;
-            // late unrelated network activity must not make that beat unobservable.
+            // The forced variant waits on its stage rather than networkidle,
+            // so the rest of boot lands inside that wait; the recorder above
+            // keeps the transient action beat observable however late it plays.
             await page.goto('/#/petLadder', { waitUntil: withoutWebGL2 ? 'domcontentloaded' : 'networkidle' });
             await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'petLadder');
         } else {
@@ -91,20 +116,29 @@ for (const mode of ['active', 'completed', 'without-webgl2'] as const) {
         }
         const panel = page.getByTestId('pet-ladder-queue');
         if (!completed) {
-            await expect(panel.getByRole('alert')).toContainText('could not be loaded');
+            await expect(panel.getByRole('alert')).toContainText('could not be loaded', { timeout: showdownLoadTimeout });
             await panel.getByRole('button', { name: 'Retry ranked match' }).click();
             await expect(panel.getByRole('alert')).toContainText('retry recording');
             await panel.getByRole('button', { name: 'Retry ranked match' }).click();
         }
-        if (withoutWebGL2) {
-            expect(firstAction?.t).toBe('action');
-            if (firstAction?.t !== 'action') throw new Error('The real ranked fixture must contain an action.');
-            await expect(page.getByTestId('pet-showdown-render-fallback')).toBeVisible();
-            await expect(page.getByTestId('pet-showdown-root').locator('canvas')).toHaveCount(0);
-            await expect(page.getByRole('status').filter({ hasText: `used ${firstAction.moveName}.` })).toContainText('takes');
-        }
         const verdict = script.finalState.outcome === 'win' ? 'Victory' : 'Defeat';
-        await expect(page.getByRole('dialog', { name: verdict, exact: true })).toBeVisible({ timeout: 45_000 });
+        const actionLine = firstAction?.t === 'action' ? `used ${firstAction.moveName}.` : null;
+        const announcements = () => page.evaluate(() => (window as unknown as { __showdownAnnouncements: Announcement[] }).__showdownAnnouncements);
+        if (withoutWebGL2) {
+            if (!actionLine) throw new Error('The real ranked fixture must contain an action.');
+            await expect(page.getByTestId('pet-showdown-render-fallback')).toBeVisible({ timeout: showdownLoadTimeout });
+            await expect(page.getByTestId('pet-showdown-root').locator('canvas')).toHaveCount(0);
+            await expect.poll(announcements, { timeout: showdownLoadTimeout })
+                .toContainEqual({ text: expect.stringContaining(actionLine), fallback: true, canvases: 0 });
+        }
+        await expect(page.getByRole('dialog', { name: verdict, exact: true })).toBeVisible({ timeout: showdownLoadTimeout });
+        if (withoutWebGL2 && actionLine) {
+            // Spoken with its damage, and before the verdict beat replaced it.
+            const lines = (await announcements()).map(entry => entry.text);
+            const spoken = lines.findIndex(line => line.includes(actionLine));
+            expect(lines[spoken]).toContain('takes');
+            expect(spoken).toBeLessThan(lines.findIndex(line => line.startsWith(`${verdict}.`)));
+        }
         expect(settlementRequests).toBe(completed ? 0 : 2);
         await page.getByRole('button', { name: 'Leave the Showdown', exact: true }).click();
         if (!completed) {
