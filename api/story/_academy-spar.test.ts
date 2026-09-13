@@ -2,8 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { SoloPveSession } from '../solo-pve/_session.js';
 import {
+    ACADEMY_SPAR_JUTSU_IDS,
     ACADEMY_SPAR_OPPONENT_ID,
     academySparEligibility,
+    academySparEnemyTemplate,
     academySparRunId,
     createAcademySparBinding,
     validateCompletedAcademySparSession,
@@ -137,4 +139,27 @@ test('spar run ids are unique and namespaced', () => {
     const ids = new Set(Array.from({ length: 50 }, () => academySparRunId()));
     assert.equal(ids.size, 50);
     for (const id of ids) assert.match(id, /^spar-[0-9a-f]{32}$/);
+});
+
+// The two checks below moved here from scripts/academy-spar-parity.test.ts when
+// the client's local-fallback dummy (lib/academy-spar.ts) was deleted — it had
+// no importers once the spar became server-sealed. They pin the server dummy.
+
+test('the sealed template stays a level-1 pushover, not a scaled enemy', () => {
+    const template = academySparEnemyTemplate(null);
+    assert.equal(template.level, 1);
+    assert.equal(template.hp, 50);
+    assert.equal(template.armorRawDR, 0, 'armor would blunt the teaching hits');
+    // A generic level-1 mission enemy carries 180+ offense and 250+ HP. If the
+    // dummy ever climbs toward that curve it stops describing a tutorial.
+    const highestStat = Math.max(...Object.values(template.stats as Record<string, number>));
+    assert.ok(highestStat < 30, `dummy stats climbed to ${highestStat} — that is mission-enemy territory, not a training dummy`);
+});
+
+test('the sealed dummy actually resolves its jutsu (an unarmed dummy teaches nothing)', () => {
+    const template = academySparEnemyTemplate(null);
+    assert.equal(template.jutsu.length, ACADEMY_SPAR_JUTSU_IDS.length, 'a listed id no longer resolves in the server jutsu catalog');
+    for (const id of ACADEMY_SPAR_JUTSU_IDS) {
+        assert.ok(template.jutsu.some((jutsu) => jutsu.id === id), `${id} dropped out of the resolved loadout`);
+    }
 });
